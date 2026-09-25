@@ -352,12 +352,13 @@ def _cmd_stats(args: str, facade: HeadlessFacade) -> str:
     session = getattr(facade, "session", None)
     if session is None:
         return f"Total cost: ${facade.cost_usd:.4f} across {facade.num_turns} turn(s)."
-    from rolo_claude.controller import compute_session_stats
+    from rolo_claude.controller import compute_session_stats, format_cache_tokens_suffix
     stats = compute_session_stats(session.log.nodes())
     lines = [f"Turns: {stats['turns']}", f"Total cost: ${stats['total_cost_usd']:.4f}"]
     for model, bucket in sorted(stats["per_model"].items()):
         lines.append(f"  {model}: {bucket['calls']} call(s), "
-                     f"{bucket['input_tokens']}in/{bucket['output_tokens']}out tok, ${bucket['cost_usd']:.4f}")
+                     f"{bucket['input_tokens']}in/{bucket['output_tokens']}out tok"
+                     f"{format_cache_tokens_suffix(bucket)}, ${bucket['cost_usd']:.4f}")
     for name, n in sorted(stats["tool_counts"].items()):
         lines.append(f"  tool {name}: {n} call(s)")
     return "\n".join(lines)

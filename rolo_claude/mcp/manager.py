@@ -694,7 +694,12 @@ class McpServerHandle:
                     return await http_sse_mod.connect_sse(
                         url=self.config.url, headers=headers, connect_timeout=connect_timeout)
                 except Exception:
-                    raise http_exc  # the ORIGINAL failure is the more informative one to report
+                    # ruff B904: `from None` is deliberate -- http_exc is the
+                    # ORIGINAL failure (more informative, per the comment
+                    # above) and already carries its own traceback; chaining
+                    # this sse-fallback's own exception onto it would only
+                    # add noise about a fallback attempt nobody needs to see.
+                    raise http_exc from None
         if self.config.type == "sse":
             log.debug("mcp %s: 'sse' transport is deprecated (use 'http')", self.config.name)
             headers = await self._resolved_headers()

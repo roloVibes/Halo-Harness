@@ -208,7 +208,12 @@ def stage_block_anchor(content: str, old: str) -> list:
         if window[0].strip() != first_anchor or window[-1].strip() != last_anchor:
             continue
         mid = [w.strip() for w in window[1:-1]]
-        score = 1.0 if not old_middle else sum(_similarity(a, b) for a, b in zip(old_middle, mid)) / len(old_middle)
+        # ruff B905: window is always sliced to exactly m == len(old_lines)
+        # elements (the range() bound above guarantees i+m <= n), so mid
+        # and old_middle are ALWAYS the same length -- strict=True documents
+        # that instead of silently tolerating a future mismatch.
+        score = 1.0 if not old_middle else (
+            sum(_similarity(a, b) for a, b in zip(old_middle, mid, strict=True)) / len(old_middle))
         if score > best_score:
             best_score, tied = score, [i]
         elif score == best_score:
@@ -291,7 +296,9 @@ def stage_context_aware(content: str, old: str) -> list:
         if window[0].strip() != first_anchor or window[-1].strip() != last_anchor:
             continue
         mid = [w.strip() for w in window[1:-1]]
-        matched = sum(1 for a, b in zip(old_middle, mid) if a == b)
+        # ruff B905: same guaranteed-equal-length invariant as the sibling
+        # scorer function above -- see its own comment.
+        matched = sum(1 for a, b in zip(old_middle, mid, strict=True) if a == b)
         fraction = 1.0 if not old_middle else matched / len(old_middle)
         if fraction >= CONTEXT_AWARE_MATCH_FRACTION:
             out.append(Match(*_window_span(lines, offsets, i, m)))

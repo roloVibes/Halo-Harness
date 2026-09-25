@@ -29,9 +29,7 @@ from __future__ import annotations
 
 import json
 import queue
-import re
 import threading
-import time
 import uuid
 from pathlib import Path
 from typing import Callable, Optional
@@ -583,26 +581,28 @@ class Controller:
         from rolo_claude.tools.read import ReadTool
         from rolo_claude.tui.completion import parse_at_mentions
 
-        # H8 scope E (deferred by H3): `@server:resource` mentions -- BEFORE
-        # the `@path`-only early return below, so a prompt with ONLY a
-        # resource mention (no file mention at all) still gets it resolved.
-        from rolo_claude.mcp.mentions import read_server_resource_snapshots
-        for res_label, res_content in read_server_resource_snapshots(
-                text, mcp_manager=getattr(self.session, "mcp_manager", None)):
-            try:
-                # H5c finding 14: `queue_log_write` (never a direct
-                # `self.session.log.append_snapshot`) -- this runs on the UI
-                # thread, BEFORE `submit()` decides steer-vs-new-turn; while
-                # the session is busy, a direct write here would race the
-                # worker thread's own concurrent log writes (verified: a
-                # steer carrying `@mention` typed while a Read tool runs
-                # made the NEXT request's user message
-                # `['text','tool_result','text']`, which Anthropic 400s on).
-                self.session.queue_log_write(
-                    "snapshot", {"blocks": [{"type": "text", "text": f"@{res_label}\n{res_content}"}],
-                                 "snapshot_kind": "at_mention"})
-            except Exception:
-                pass
+        # H9 whole-tree review finding 14: `@server:resource` mentions now
+        # resolve on a background thread, never the CALLER's own (the UI
+        # thread, for a live TUI submit/steer) -- `McpManager.resources()`
+        # is one live `resources/list` RPC per connected server
+        # (MCP_TIMEOUT, 30s, EACH), and used to run synchronously here,
+        # BEFORE the `@path`-only early return below, on EVERY submit/steer
+        # regardless of whether `text` even had an `@` in it. Verified with
+        # a stub manager: "fix the failing test"/"why is the build red?"/
+        # "thanks" each blocked for 1.5s; a genuinely hung server blocked
+        # for its full 30s on every Enter. The same cheap regex `mcp.
+        # mentions.extract_server_resource_mentions` itself now also runs
+        # first is checked again here so the thread is never even spawned
+        # for the common case (no `@name:uri`-shaped text at all) --
+        # `queue_log_write` (the same thread-safe write every other
+        # @mention here already uses -- see the `@path` loop below) is what
+        # makes it safe for this to land whenever the fetch actually
+        # finishes, possibly well after this method itself has returned.
+        from rolo_claude.mcp.mentions import _AT_SERVER_RESOURCE_RE
+        mcp_manager = getattr(self.session, "mcp_manager", None)
+        if mcp_manager is not None and _AT_SERVER_RESOURCE_RE.search(text or ""):
+            threading.Thread(target=self._ingest_mcp_resource_mentions, args=(text, mcp_manager),
+                              daemon=True, name="rolo-claude-mcp-mention-fetch").start()
 
         mentions = parse_at_mentions(text)
         if not mentions:
@@ -647,9 +647,40 @@ class Controller:
                 content = result.content if isinstance(result.content, str) else str(result.content)
                 blocks = [{"type": "text", "text": f"@{label}\n{content}"}]
             try:
-                # H5c finding 14: see the `@server:resource` loop above --
-                # same race, same fix.
+                # H5c finding 14: `queue_log_write` (never a direct
+                # `self.session.log.append_snapshot`) -- this runs on the UI
+                # thread, BEFORE `submit()` decides steer-vs-new-turn; while
+                # the session is busy, a direct write here would race the
+                # worker thread's own concurrent log writes (verified: a
+                # steer carrying `@mention` typed while a Read tool runs
+                # made the NEXT request's user message
+                # `['text','tool_result','text']`, which Anthropic 400s on).
+                # `_ingest_mcp_resource_mentions` below uses the SAME call,
+                # from its own background thread.
                 self.session.queue_log_write("snapshot", {"blocks": blocks, "snapshot_kind": "at_mention"})
+            except Exception:
+                pass
+
+    def _ingest_mcp_resource_mentions(self, text: str, mcp_manager) -> None:
+        """H9 whole-tree review finding 14: the actual `@server:resource`
+        fetch -- `resources/list` (or, once cached, nothing) then
+        `resources/read` per real match -- runs HERE, on the background
+        thread `ingest_at_mentions` spawned, never on the caller's own.
+        `queue_log_write` is thread-safe by design (see `Session.
+        queue_log_write`'s own docstring), so this may finish anywhere from
+        immediately to well after `ingest_at_mentions` itself already
+        returned and the turn is already under way -- the snapshot lands
+        in the log at the next safe point either way."""
+        from rolo_claude.mcp.mentions import read_server_resource_snapshots
+        try:
+            snapshots = read_server_resource_snapshots(text, mcp_manager=mcp_manager)
+        except Exception:
+            return
+        for res_label, res_content in snapshots:
+            try:
+                self.session.queue_log_write(
+                    "snapshot", {"blocks": [{"type": "text", "text": f"@{res_label}\n{res_content}"}],
+                                 "snapshot_kind": "at_mention"})
             except Exception:
                 pass
 
@@ -910,21 +941,57 @@ def render_transcript_markdown(nodes: list, *, session_id: str) -> str:
     return "\n".join(lines)
 
 
-# `key:`/`token:`/`password=`-shaped assignments and `Bearer <token>` --
-# best-effort, not a security boundary (see `export_session`'s own note).
-_SECRET_ASSIGN_RE = re.compile(r"(?i)\b((?:api|secret|access)?[-_]?(?:key|token|password|passwd|pwd)\s*[:=]\s*)(\S+)")
-_BEARER_RE = re.compile(r"(?i)\b(bearer\s+)([A-Za-z0-9\-_.=]{8,})")
-
-
 def sanitize_transcript(text: str) -> str:
-    text = _SECRET_ASSIGN_RE.sub(lambda m: m.group(1) + "[REDACTED]", text)
-    text = _BEARER_RE.sub(lambda m: m.group(1) + "[REDACTED]", text)
-    return text
+    """`/export --sanitize`'s own redaction -- best-effort, not a security
+    boundary (see `export_session`'s own note).
+
+    H9 whole-tree review finding 4: this used to be a SEPARATE regex
+    (`\\b((?:api|secret|access)?[-_]?(?:key|token|password...)\\s*[:=]\\s*)`)
+    from `rolo-claude export --sanitize`'s own -- and a broken one: it
+    requires a `\\b` word boundary immediately before the literal "key"/
+    "token"/etc, but a namespaced name like `OPENROUTER_API_KEY` has NO
+    such boundary there (`_` and the following letter are both `\\w`, so
+    `\\b` can never fire between them) -- verified, this regex matched a
+    bare `token=...`/`api_key: ...` but missed `OPENROUTER_API_KEY=...`
+    entirely (5 of 6 verified leak cases; only `Bearer` was ever caught).
+    Delegates to `export_cli.sanitize_text` now -- the ONE sanitizer both
+    `/export --sanitize` (this function) and `rolo-claude export
+    --sanitize` (export_cli.cmd_export) use, so a fix to one is a fix to
+    both."""
+    from rolo_claude.export_cli import sanitize_text
+    return sanitize_text(text)
+
+
+# H9 whole-tree review finding 29: a "user" log node carrying one of these
+# `kind` tags (agent/log.py's own `append_user(kind=...)`) is NOT a genuine
+# new user prompt -- a background sub-agent/job completion notice, a
+# Stop-hook continuation, a steer's own text, or a compaction's own
+# summary/re-appended tail. Untagged (every node from before this tagging
+# existed, AND the one real case: `Session.turn()`'s own new-prompt
+# append) counts as a real turn -- old session logs keep reporting exactly
+# what they always did; only NEW logs get the more accurate count.
+_NON_PROMPT_USER_KINDS = frozenset({
+    "compaction_summary", "compaction_tail", "continuation", "agent_notice", "job_notice", "steer",
+})
+
+
+def format_cache_tokens_suffix(bucket: dict) -> str:
+    """H9 whole-tree review finding 29: a short ", Ncr/Mcw cache" suffix
+    for a stats display line, empty when a route never reported either
+    field (Databricks, most non-Claude models) -- shared by the TUI's own
+    `/stats` (commands/builtins.py) and the headless `stats_cli.py` so
+    both surfaces show cache tokens identically, once, from one place."""
+    cache_read = bucket.get("cache_read_input_tokens", 0)
+    cache_write = bucket.get("cache_creation_input_tokens", 0)
+    if not cache_read and not cache_write:
+        return ""
+    return f", {cache_read}cr/{cache_write}cw cache tok"
 
 
 def compute_session_stats(nodes: list) -> dict:
     """`/stats`: `{turns, total_cost_usd, per_model: {model: {input_
-    tokens, output_tokens, cost_usd, calls}}, tool_counts: {name: n}}`."""
+    tokens, output_tokens, cache_read_input_tokens, cache_creation_
+    input_tokens, cost_usd, calls}}, tool_counts: {name: n}}`."""
     per_model: dict = {}
     tool_counts: dict = {}
     total_cost = 0.0
@@ -935,18 +1002,31 @@ def compute_session_stats(nodes: list) -> dict:
         if ntype == "meta" and node.get("model"):
             current_model = node["model"]
         elif ntype == "user":
-            turns += 1
+            # finding 29: count real prompts only -- see _NON_PROMPT_USER_KINDS.
+            if node.get("kind") not in _NON_PROMPT_USER_KINDS:
+                turns += 1
         elif ntype == "assistant":
             for block in node.get("content") or []:
                 if isinstance(block, dict) and block.get("type") == "tool_use":
                     name = block.get("name", "?")
                     tool_counts[name] = tool_counts.get(name, 0) + 1
         elif ntype == "usage":
-            bucket = per_model.setdefault(current_model, {"input_tokens": 0, "output_tokens": 0,
-                                                            "cost_usd": 0.0, "calls": 0})
+            bucket = per_model.setdefault(current_model, {
+                "input_tokens": 0, "output_tokens": 0,
+                # finding 29: a cached Claude route's own `message_start`
+                # reports ONLY the uncached portion in `input_tokens` (see
+                # agent/loop.py's own H5b finding 4 comment on this exact
+                # split) -- omitting these two under-reported a heavily
+                # cached session's real input by however much was served
+                # from cache.
+                "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
+                "cost_usd": 0.0, "calls": 0,
+            })
             usage = node.get("usage") or {}
             bucket["input_tokens"] += int(usage.get("input_tokens") or 0)
             bucket["output_tokens"] += int(usage.get("output_tokens") or 0)
+            bucket["cache_read_input_tokens"] += int(usage.get("cache_read_input_tokens") or 0)
+            bucket["cache_creation_input_tokens"] += int(usage.get("cache_creation_input_tokens") or 0)
             cost = node.get("cost_usd")
             if isinstance(cost, (int, float)):
                 bucket["cost_usd"] += cost

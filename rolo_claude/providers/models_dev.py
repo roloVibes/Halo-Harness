@@ -22,7 +22,6 @@ import socket
 import ssl
 import urllib.parse
 from pathlib import Path
-from typing import Optional
 
 MODELS_DEV_BASE_URL = "https://models.dev"
 
@@ -39,6 +38,7 @@ def fetch_models_dev(base_url: str = MODELS_DEV_BASE_URL) -> dict:
     tls = parsed.scheme == "https"
     path = parsed.path.rstrip("/") + "/api.json"
     headers = {"Accept-Encoding": "identity"}
+    conn = None
     try:
         conn = open_upstream(host, port, tls)
         conn.request("GET", path, headers=headers)
@@ -46,6 +46,16 @@ def fetch_models_dev(base_url: str = MODELS_DEV_BASE_URL) -> dict:
         raw = resp.read()
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
         raise UpstreamConnectError(f"models.dev connection failed: {e}") from e
+    finally:
+        # NEW (H9 post-acceptance): a one-shot GET+read-fully-then-done
+        # call -- nothing ever closed `conn`, leaking one socket per call
+        # until GC (a real ResourceWarning, verified). Same fix as
+        # providers/databricks.py's own one-shot probe functions.
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
     if resp.status != 200:
         raise RuntimeError(f"models.dev /api.json returned {resp.status}")
     data = json.loads(raw.decode("utf-8", "replace"))
@@ -114,6 +124,22 @@ def load_vendored_openrouter_fallback() -> dict:
         return data if isinstance(data, dict) else {}
     except (json.JSONDecodeError, OSError):
         return {}
+
+
+def databricks_entries_from_full_models_dev(raw: dict) -> dict:
+    """H9 whole-tree review finding 22: navigates the FULL, untrimmed
+    `models.dev/api.json` shape (`{<provider_id>: {..., "models": {<model_
+    id>: <entry>, ...}}, ...}` -- confirmed by `doctor`'s own "models.dev
+    cached (223 providers)" count of top-level keys) down to just the
+    `databricks` provider's `{model_id: entry}` map -- the SAME shape
+    `load_vendored_databricks_fallback()` already returns (that file is a
+    one-time, committed TRIM of exactly this same navigation, done by
+    hand at release time), so a caller can feed either one through
+    `databricks_profile_fields_from_models_dev` unchanged. `{}` for
+    anything unexpected -- never raises."""
+    provider = raw.get("databricks") if isinstance(raw, dict) else None
+    models = provider.get("models") if isinstance(provider, dict) else None
+    return models if isinstance(models, dict) else {}
 
 
 def databricks_profile_fields_from_models_dev(entry: dict) -> dict:

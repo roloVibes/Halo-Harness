@@ -224,6 +224,21 @@ def main(argv: Optional[list] = None) -> int:
         signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(143))
     except (ValueError, AttributeError, OSError):
         pass
+    # H9 whole-tree review finding 3: SIGHUP -- what closing the terminal or
+    # an SSH connection drop actually sends (there is no SIGTERM involved at
+    # all) -- was never handled, so it fell through to Python's own default
+    # disposition (process dies immediately, `sys.exit(143)` above never
+    # runs, no `finally` block anywhere gets a chance to fire). Verified on
+    # WSL: SIGHUP to a `-p` run exited -1 and left its background job
+    # running. `SIGHUP` doesn't exist on Windows (`AttributeError` there,
+    # caught same as SIGTERM's own guard above); raised as a real
+    # `sys.exit()` (never the signal's own default disposition) so it
+    # unwinds through every `finally: session.job_registry.kill_all()` /
+    # `mcp_manager.close_all()` block the same way SIGTERM already does.
+    try:
+        signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit(129))
+    except (ValueError, AttributeError, OSError):
+        pass
     argv = sys.argv[1:] if argv is None else list(argv)
 
     if argv and argv[0] == "proxy":

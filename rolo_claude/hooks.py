@@ -274,10 +274,25 @@ def read_env_file_exports(path, *, base_env: Optional[dict] = None) -> dict:
 
     base_env = dict(base_env) if base_env is not None else dict(os.environ)
     posix_path = to_posix(str(path))
+    # H9 whole-tree review finding 12 (same root cause as tools/bash.py's
+    # own fix -- see its comment, including why this is POSIX-only: on
+    # win32 this restore step would undo Git Bash's own necessary MSYS PATH
+    # setup instead of fixing anything): `-lc` is a LOGIN shell, so on
+    # Debian/Kali its stock /etc/profile unconditionally reassigns PATH
+    # BEFORE `script` below ever runs, which would otherwise make the "what
+    # changed" diff two lines down see PATH as "changed" to the profile's
+    # own stock list and merge THAT into `self.tool_env["PATH"]` -- even
+    # when the CLAUDE_ENV_FILE being sourced never touched PATH at all.
+    # Stash the intended PATH and restore it as the script's first line,
+    # same technique, same private var name.
+    restore_path_prefix = ""
+    if os.name != "nt":
+        base_env["__ROLO_CLAUDE_SESSION_PATH"] = base_env.get("PATH", "")
+        restore_path_prefix = 'export PATH="$__ROLO_CLAUDE_SESSION_PATH"\n'
     # `env -0` (NUL-separated, GNU coreutils -- present in Git Bash/MSYS and
     # every POSIX target) avoids the ambiguity a NEWLINE-separated `env`
     # would have if some exported value legitimately contains one.
-    script = f'[ -f "{posix_path}" ] && . "{posix_path}"\nenv -0\n'
+    script = f'{restore_path_prefix}[ -f "{posix_path}" ] && . "{posix_path}"\nenv -0\n'
     try:
         result = subprocess.run(
             [str(shell_path), "-lc", script], capture_output=True, text=True,

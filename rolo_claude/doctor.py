@@ -21,9 +21,13 @@ OK, WARN, MISSING = "[OK]", "[WARN]", "[MISSING]"
 
 
 def _check_python() -> str:
+    # H9 whole-tree review finding 33: this hardcoded (3, 9), one full
+    # minor version below pyproject.toml's real `requires-python = ">=
+    # 3.10"` -- a Python 3.9 interpreter reported [OK] here despite not
+    # actually meeting the package's own declared minimum.
     info = sys.version_info
     version = f"{info.major}.{info.minor}.{info.micro}"
-    status = OK if (info.major, info.minor) >= (3, 9) else WARN
+    status = OK if (info.major, info.minor) >= (3, 10) else WARN
     return f"{status} Python {version}"
 
 
@@ -341,26 +345,64 @@ def _work_check_token_validity(host: Optional[str], token: Optional[str]) -> str
 
 _THINKING_FAMILY_HINTS = ("deepseek", "kimi", "moonshot", "glm", "zhipu", "z-ai")
 
+# H9 whole-tree review finding 33: the SAME header a real databricks route
+# always carries (headless.py's `build_session`: `extra_headers =
+# {"x-databricks-use-coding-agent-mode": "true"} if model_ref.provider ==
+# "databricks" else None`) -- the probe below used to send NONE at all, so
+# its answer to "does Databricks forward replayed reasoning_content" could
+# legitimately differ from what a real session actually experiences.
+_DATABRICKS_PRODUCTION_HEADERS = {"x-databricks-use-coding-agent-mode": "true"}
+
+
+def _configured_databricks_thinking_model(state_dir) -> Optional[str]:
+    """H9 whole-tree review finding 33: INSTALL.md's own doctor --work
+    section promises question 2 is answered "for the configured model" --
+    the probe used to always pick the FIRST DeepSeek/Kimi/GLM-family
+    endpoint in the live catalog instead, regardless of what the user
+    actually has configured (`routes.json`'s "default", `BRIDGE_MODEL`, or
+    this harness's own built-in default). Resolves that chain the exact
+    same way `headless.build_session` does; returns the bare model id only
+    when it's BOTH a databricks ref AND thinking-family (the only shape
+    this specific probe -- reasoning_content replay -- can meaningfully
+    test at all), else None (the caller falls back to the catalog's first
+    match, same as before, but now honestly labelled as a fallback)."""
+    try:
+        from rolo_claude.model import DEFAULT_MODEL_REF, parse_model_ref
+        from rolo_claude.providers.config import load_routes
+        routes = load_routes(Path(state_dir) / "routes.json")
+        model_raw = os.environ.get("BRIDGE_MODEL") or routes.get("default") or DEFAULT_MODEL_REF
+        ref = parse_model_ref(model_raw, routes)
+    except Exception:
+        return None
+    if ref.provider != "databricks":
+        return None
+    if not any(h in ref.model.lower() for h in _THINKING_FAMILY_HINTS):
+        return None
+    return ref.model
+
 
 def _work_check_reasoning_replay_after_tool_call(host: Optional[str], token: Optional[str], state_dir) -> list:
     """Plan open question 1: "whether Databricks forwards replayed
     `reasoning_content` into DeepSeek/Kimi/GLM after a tool call" -- and
     plan open question 2: "whether the invocations-without-model vs
     mlflow-with-system.ai split holds for every catalogue model", answered
-    TOGETHER by ONE real, cheap (max_tokens=64) request against the first
-    DeepSeek/Kimi/GLM-family endpoint the live catalog has: a synthetic
-    prior assistant turn carries `reasoning_content` AND a tool call, a
-    synthetic tool result follows it, and the model is asked one more
-    question -- the HTTP status this gets back (200 vs a 400 naming
-    reasoning_content) directly answers question 1, and whichever
-    candidate route actually served it (recorded in routes-cache.json by
-    the SAME call, via the ordinary `call_databricks_chat` path) directly
-    answers question 2. Never raises -- any failure becomes a WARN/MISSING
-    line naming what happened, since this is exploratory (the plan's own
-    "unknowns"), not a pass/fail gate on the rest of `doctor --work`."""
+    TOGETHER by ONE real, cheap (max_tokens=64) request against the
+    CONFIGURED model when it's a DeepSeek/Kimi/GLM-family databricks ref
+    (finding 33 -- INSTALL.md's own promise), else the first such endpoint
+    the live catalog has (still needs SOME thinking-family model to
+    exercise reasoning_content replay at all): a synthetic prior assistant
+    turn carries `reasoning_content` AND a tool call, a synthetic tool
+    result follows it, and the model is asked one more question -- the
+    HTTP status this gets back (200 vs a 400 naming reasoning_content)
+    directly answers question 1, and whichever candidate route actually
+    served it (recorded in routes-cache.json by the SAME call, via the
+    ordinary `call_databricks_chat` path) directly answers question 2.
+    Never raises -- any failure becomes a WARN/MISSING line naming what
+    happened, since this is exploratory (the plan's own "unknowns"), not a
+    pass/fail gate on the rest of `doctor --work`."""
     lines = ["Open questions: (1) does Databricks forward replayed reasoning_content into "
              "DeepSeek/Kimi/GLM after a tool call? (2) does the invocations-vs-mlflow route "
-             "split hold for this model?"]
+             "split hold for the CONFIGURED model?"]
     if not host or not token:
         lines.append(f"  {MISSING} cannot probe -- Databricks not configured")
         return lines
@@ -374,9 +416,17 @@ def _work_check_reasoning_replay_after_tool_call(host: Optional[str], token: Opt
     if status != 200:
         lines.append(f"  {MISSING} cannot probe -- HTTP {status} listing endpoints")
         return lines
-    candidate = next((e.get("name") for e in entries
-                       if isinstance(e, dict) and any(h in (e.get("name") or "").lower()
-                                                        for h in _THINKING_FAMILY_HINTS)), None)
+    configured = _configured_databricks_thinking_model(state_dir)
+    if configured:
+        candidate = configured
+        lines.append(f"  (probing the CONFIGURED model, {candidate!r})")
+    else:
+        candidate = next((e.get("name") for e in entries
+                           if isinstance(e, dict) and any(h in (e.get("name") or "").lower()
+                                                            for h in _THINKING_FAMILY_HINTS)), None)
+        if candidate:
+            lines.append(f"  (no thinking-family model configured -- probing the catalog's first "
+                         f"match instead, {candidate!r})")
     if not candidate:
         lines.append(f"  {WARN} no DeepSeek/Kimi/GLM-family endpoint in the catalog to probe")
         return lines
@@ -402,13 +452,24 @@ def _work_check_reasoning_replay_after_tool_call(host: Optional[str], token: Opt
             }}],
             "max_tokens": 64, "stream": False,
         }
-        result = call_databricks_chat(root, token, body, {}, state_dir, candidate)
+        result = call_databricks_chat(root, token, body, dict(_DATABRICKS_PRODUCTION_HEADERS), state_dir, candidate)
         raw = b""
         try:
             if result.resp is not None:
                 raw = result.resp.read()
         except Exception:
             pass
+        finally:
+            # NEW (H9 post-acceptance): a one-shot diagnostic call --
+            # `call_databricks_chat` hands back a live `UpstreamResult`
+            # (the SAME wrapper the streaming model-call path uses and
+            # closes itself once its stream ends), but this caller never
+            # streams from it, so nothing else was ever going to close it.
+            try:
+                if result.conn is not None:
+                    result.conn.close()
+            except Exception:
+                pass
         snippet = raw.decode("utf-8", "replace")[:200].replace("\n", " ")
         lines.append(f"  {OK if result.status == 200 else WARN} question 1 (reasoning_content replay) against "
                      f"{candidate!r}: HTTP {result.status} -- {snippet or '(empty body)'}")

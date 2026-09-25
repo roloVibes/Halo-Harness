@@ -16,6 +16,7 @@ import logging.handlers
 import os
 import re
 import secrets
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -276,7 +277,28 @@ def load_ucode_settings(path: Path) -> DbxConfig | None:
     a gateway-config JSON file would plausibly use is tried, first match
     wins per field (never mixes a host from one key with a token from
     another key of the SAME candidate list's LATER, lower-priority entry --
-    each list is tried in order, first hit stops that field's own search)."""
+    each list is tried in order, first hit stops that field's own search).
+
+    H9 whole-tree review finding 31: nothing stops this file from being (or
+    from being hand-edited into) the SAME shape as a Claude Code `--settings`
+    JSON file instead of a purpose-built gateway-config shape -- an `env`
+    block holding `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` (this is
+    DIFFERENT from `resolve_databricks` steps 2/3 pulling those same two
+    names out of a *process* env or the settings-chain env: those never see
+    this file at all, since it is read directly off disk, only ever reaching
+    an env dict if something else already merged it there), or a top-level
+    `apiKeyHelper` command string that must be RUN to obtain the token. So:
+    `env` is added as one more nest candidate (flattened exactly like
+    `gateway`/`databricks`/`workspace`/`default` above) and
+    `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` are added to the host/token
+    key-name candidate lists (so a Claude-Code-settings-shaped `env` block
+    resolves too, whether nested under `env` or, unusually, top-level); if
+    every key-name candidate still leaves the token unset, a top-level or
+    nested `apiKeyHelper` string is run (see `_run_api_key_helper`) and its
+    output used as the token. Not independently verified against a real
+    `ug`-produced file -- none exists on the box this fix was written on;
+    verify on a box with `ug` installed before relying on this in
+    production."""
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
@@ -285,30 +307,59 @@ def load_ucode_settings(path: Path) -> DbxConfig | None:
     if not isinstance(data, dict):
         return None
     # A gateway-shaped file may nest its own fields under "gateway"/
-    # "databricks"/"workspace" -- flatten one level so a top-level OR a
-    # nested shape both resolve the same way.
+    # "databricks"/"workspace"/"env" -- flatten one level so a top-level OR
+    # a nested shape both resolve the same way. "env" covers a Claude Code
+    # `--settings`-shaped file (H9 finding 31).
     candidates = [data]
-    for nest_key in ("gateway", "databricks", "workspace", "default"):
+    for nest_key in ("gateway", "databricks", "workspace", "default", "env"):
         nested = data.get(nest_key)
         if isinstance(nested, dict):
             candidates.append(nested)
     host = token = None
     for candidate in candidates:
         if host is None:
-            for key in ("gateway_url", "host", "url", "base_url", "workspace_url", "workspace_host"):
+            for key in ("gateway_url", "host", "url", "base_url", "workspace_url", "workspace_host",
+                        "ANTHROPIC_BASE_URL"):
                 value = candidate.get(key)
                 if isinstance(value, str) and value:
                     host = value
                     break
         if token is None:
-            for key in ("token", "api_token", "access_token", "gateway_token", "auth_token"):
+            for key in ("token", "api_token", "access_token", "gateway_token", "auth_token",
+                        "ANTHROPIC_AUTH_TOKEN"):
                 value = candidate.get(key)
                 if isinstance(value, str) and value:
                     token = value
                     break
+    if token is None:
+        for candidate in candidates:
+            helper = candidate.get("apiKeyHelper")
+            if isinstance(helper, str) and helper.strip():
+                token = _run_api_key_helper(helper)
+                if token:
+                    break
     if host and token:
         return DbxConfig(host=host.rstrip("/"), token=token)
     return None
+
+
+def _run_api_key_helper(command: str) -> Optional[str]:
+    """H9 whole-tree review finding 31: run a Claude Code `--settings`-style
+    `apiKeyHelper` command (a shell command string, exactly like Claude Code
+    itself invokes it) and return its stripped stdout as a token. Best-
+    effort ONLY -- a missing interpreter, non-zero exit, timeout, or empty
+    stdout all just return None (same as a missing key would), never raise;
+    `load_ucode_settings` is read-only/optional config discovery, not
+    something that should ever crash a launch."""
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True,
+                                 text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    output = (result.stdout or "").strip()
+    return output or None
 
 
 def resolve_databricks(env: dict | None = None) -> DbxConfig | None:

@@ -7,7 +7,6 @@ from rolo_claude.config.paths import (
     claude_json_path,
     normalize_cwd,
     lookup_project,
-    project_key_candidates,
 )
 
 

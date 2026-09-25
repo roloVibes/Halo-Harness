@@ -31,7 +31,19 @@ class _CappedCollector:
     """Accumulates streamed text with a hard cap on what stays in memory:
     the full text up to `_BUFFER_CAP_CHARS`, then head+tail only (spilling
     every chunk to a temp file as it arrives, so nothing is ever lost --
-    just not double-held in RAM)."""
+    just not double-held in RAM).
+
+    H9 whole-tree review finding 30: `append`/`result` are internally
+    locked -- a foreground Bash call that hits its own timeout hands this
+    SAME collector off to `agent.jobs.JobRegistry.adopt_from_timeout`
+    (`on_timeout_handoff`), which starts a NEW drain thread that may
+    already be calling `append()` on it, WHILE `run_streamed`'s own
+    return statement (on the ORIGINAL thread, back from that same handoff
+    call) calls `result()` on it for its own "text so far" return value --
+    neither side holds `agent.jobs.JobRecord.lock` at that point (the
+    `JobRecord` doesn't exist yet when `run_streamed` makes that call), so
+    without a lock of its OWN this is a bare, unsynchronized read/write
+    race on `total_len`/`_head`/`_tail`/`_spill_file`."""
 
     def __init__(self):
         self.total_len = 0
@@ -40,8 +52,13 @@ class _CappedCollector:
         self._tail = ""
         self._spill_file = None
         self._spill_path: Optional[Path] = None
+        self._lock = threading.Lock()
 
     def append(self, text: str) -> None:
+        with self._lock:
+            self._append_locked(text)
+
+    def _append_locked(self, text: str) -> None:
         if not text:
             return
         self.total_len += len(text)
@@ -105,7 +122,13 @@ class _CappedCollector:
         """Safe to call more than once (H8 scope A: a background job's
         collector is polled repeatedly) -- each call flushes/closes the
         spill file as a consistent snapshot; `append` re-opens it (above)
-        if more text arrives afterward."""
+        if more text arrives afterward. Internally locked (finding 30, see
+        the class's own docstring) -- safe to call concurrently with
+        `append()` from another thread too."""
+        with self._lock:
+            return self._result_locked()
+
+    def _result_locked(self) -> str:
         if self._spill_file is not None:
             try:
                 self._spill_file.flush()
@@ -153,6 +176,24 @@ def _kill_process_tree_windows(pid: int) -> None:
             return
         targets = still_stuck
         time.sleep(0.2)
+
+
+def _close_stream_async(stream) -> None:
+    """NEW (H9 post-acceptance): closes a Popen stream (`.stdout`) on its
+    OWN daemon thread, never the caller's -- `.close()` can block for a
+    while (see the call site's own comment on why), and nothing here may
+    ever make a caller wait for it. Best-effort: an already-closed or None
+    stream is a silent no-op."""
+    if stream is None:
+        return
+
+    def _do_close() -> None:
+        try:
+            stream.close()
+        except Exception:
+            pass
+
+    threading.Thread(target=_do_close, daemon=True, name="rolo-claude-stream-close").start()
 
 
 def _kill_process_group(proc: "subprocess.Popen") -> None:
@@ -301,5 +342,28 @@ def run_streamed(
             proc.wait(timeout=_WAIT_BOUND_S)
         except Exception:
             pass
+
+    # NEW (H9 post-acceptance): `proc.stdout` (a real TextIOWrapper --
+    # `text=True` above) is never closed anywhere on this, the ordinary
+    # (non-timeout-handoff) completion path -- `subprocess.Popen` does NOT
+    # close its own pipe file objects just because the child process
+    # exited; only `Popen.__del__` (GARBAGE COLLECTION time, not
+    # deterministic) or an explicit `.close()`/context-manager use does.
+    # Verified: `python -X dev -W error::ResourceWarning` on this suite
+    # reported dozens of "unclosed file <TextIOWrapper ...>" at GC time,
+    # traced back to every ordinary Bash call.
+    #
+    # MUST be closed from a SEPARATE thread, never inline here: `.close()`
+    # blocks until it can acquire the SAME internal per-stream lock the
+    # reader thread's own `readline()` holds while blocked waiting for
+    # real EOF -- normally near-instant once the process is confirmed
+    # dead, but on Windows a killed process's own grandchild can keep the
+    # pipe's write end open for a while past `proc.wait()` returning (the
+    # exact race `_kill_process_tree_windows` above already documents).
+    # Closing inline regressed EVERY timeout/abort-kill test to waiting out
+    # the FULL original duration -- this call's own thread must never be
+    # the one blocked on that; a daemon thread closing it whenever it
+    # actually can is a pure improvement with no such downside.
+    _close_stream_async(proc.stdout)
 
     return collector.result(), proc.returncode, timed_out, aborted

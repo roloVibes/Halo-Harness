@@ -23,7 +23,6 @@ import json
 import threading
 import time
 import uuid
-from pathlib import Path
 from typing import Optional
 
 from rolo_claude.config.paths import bridge_home, project_slug
@@ -31,6 +30,7 @@ from rolo_claude.config.paths import bridge_home, project_slug
 NODE_TYPES = frozenset({
     "meta", "system", "user", "assistant", "tool_result",
     "snapshot", "usage", "error", "interrupted", "compacted", "rewind",
+    "prune_commit",
 })
 
 
@@ -75,8 +75,21 @@ class SessionLog:
     def append_system(self, text: str) -> dict:
         return self._append({"type": "system", "text": text})
 
-    def append_user(self, content: list) -> dict:
-        return self._append({"type": "user", "content": content})
+    def append_user(self, content: list, *, kind: Optional[str] = None) -> dict:
+        """H9 whole-tree review finding 29: `kind`, when given, tags a
+        "user"-type node as something OTHER than a genuine new user prompt
+        -- a background sub-agent/job completion notice, a Stop-hook
+        continuation, a steer's own text, or a compaction's own summary/
+        re-appended tail (`compute_session_stats` -- controller.py, /stats'
+        own data source -- used to count EVERY "user" node as a "turn",
+        wildly over-counting for a session with any of these). Left `None`
+        (the default, and every node from before this existed) for the
+        ONE real case: `Session.turn()`'s own append of the actual new
+        prompt -- `compute_session_stats` counts exactly that shape."""
+        node = {"type": "user", "content": content}
+        if kind is not None:
+            node["kind"] = kind
+        return self._append(node)
 
     def append_snapshot(self, content: list, *, kind: str) -> dict:
         """`kind` names the snapshot for humans/debugging (e.g.
@@ -97,8 +110,21 @@ class SessionLog:
     def append_tool_result(self, *, tool_use_id: str, content, is_error: bool = False) -> dict:
         return self._append({"type": "tool_result", "tool_use_id": tool_use_id, "content": content, "is_error": is_error})
 
-    def append_usage(self, usage: dict, cost_usd=None) -> dict:
-        return self._append({"type": "usage", "usage": usage, "cost_usd": cost_usd})
+    def append_usage(self, usage: dict, cost_usd=None, *, agent_id: Optional[str] = None) -> dict:
+        """H9 whole-tree review finding 13: `agent_id`, when given, tags
+        this usage node as a SUB-AGENT's rolled-up total (agent/subagent.py
+        calls this on the PARENT's own log once a child finishes) rather
+        than the session's own direct model call -- `compute_session_stats`
+        (controller.py) sums every "usage" node's `cost_usd`/tokens exactly
+        the same either way (a child's total was, before this, invisible
+        to `/stats` and `stats` entirely -- logged only in the child's own,
+        separately-globbed `subagents/*.jsonl`), but keeps the tag so a
+        reader of the raw log can tell a rolled-up child total apart from
+        one of the parent's own real model calls."""
+        node = {"type": "usage", "usage": usage, "cost_usd": cost_usd}
+        if agent_id is not None:
+            node["agent_id"] = agent_id
+        return self._append(node)
 
     def append_error(self, message: str, *, err_type: str = "error") -> dict:
         return self._append({"type": "error", "message": message, "err_type": err_type})
@@ -135,6 +161,24 @@ class SessionLog:
         "rewind"|"undo"|"redo"; `files` is the list of real paths
         restored."""
         return self._append({"type": "rewind", "verb": verb, "step_id": step_id, "files": files or []})
+
+    def append_prune_commit(self, stub_ids) -> dict:
+        """H9 whole-tree review finding 28: a pure marker node, never read
+        by `derive_request` (same as `compacted`/`rewind` above) -- records
+        exactly which tool_use_ids `Session._pruned_messages_for_wire`
+        (agent/loop.py) just committed to `self._prune_committed_stub_ids`,
+        so a resumed process can reconstruct that in-memory-only set from
+        the log alone (plan rule 1: any request must be re-derivable from
+        the log) instead of starting it empty and silently sending a
+        DIFFERENT (larger -- every previously-committed id un-stubbed
+        again) wire prefix than what the model actually saw before the
+        restart. Only the NEWLY-committed batch is logged per call (not
+        the whole running set) -- `Session.__init__`'s own resume branch
+        unions every `prune_commit` node's `stub_ids` back together, so
+        logging just the increment is sufficient and keeps these nodes
+        small. Stored sorted so two processes committing the exact same
+        set always log byte-identical JSON."""
+        return self._append({"type": "prune_commit", "stub_ids": sorted(stub_ids)})
 
     # ---- reading ---------------------------------------------------------
 

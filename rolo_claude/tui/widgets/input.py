@@ -8,7 +8,6 @@ lookups and feeds results back via `show_completions`.
 
 from __future__ import annotations
 
-from typing import Optional
 
 from textual import events
 from textual.binding import Binding

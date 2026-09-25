@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from rolo_claude.config.frontmatter import parse as parse_frontmatter
 from rolo_claude.config.paths import memory_dir

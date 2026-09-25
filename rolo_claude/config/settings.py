@@ -1,11 +1,11 @@
 from __future__ import annotations
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from rolo_claude.config.paths import claude_config_dir, home, managed_settings_files
+from rolo_claude.config.paths import claude_config_dir, managed_settings_files
 
 # autoMemoryDirectory is never sourced from projectSettings, regardless of
 # trust (finding 2, [bin sec.12]: "policy/flag/local/user, never project").

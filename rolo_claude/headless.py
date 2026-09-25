@@ -13,6 +13,7 @@ actual prompt text instead.
 
 from __future__ import annotations
 
+import atexit
 import collections
 import json
 import os
@@ -345,52 +346,49 @@ def _events_for_direct_output(output: str, *, turn_no: int = 1):
     yield events.turn_done(turn=turn_no, reason="end_turn")
 
 
-def _events_for_background_notice(text: str, *, turn_no: int = 1):
-    """Same shape as `_events_for_direct_output` (no `user_message`, which
-    neither sink actually renders -- see its own docstring) minus the
-    misleading "(slash command)" label, for a background-job completion
-    notice printed by `_drain_background_jobs_for_print_mode` below."""
-    yield events.notification(text)
-    yield events.message_start(turn=turn_no)
-    yield events.text_delta(text, turn=turn_no)
-    yield events.message_end(turn=turn_no, stop_reason="end_turn", usage={})
-    yield events.turn_done(turn=turn_no, reason="end_turn")
-
-
 _BACKGROUND_JOB_WAIT_S = 120.0  # matches Bash's own default foreground timeout
 
 
-def _drain_background_jobs_for_print_mode(session, sink, exit_code: int) -> int:
+def _drain_background_jobs_for_print_mode(session, sink) -> int:
     """H8 scope A must-do (acceptance: "line count first, completion notice
     later"): dsh's "background jobs ... report completion as a user-role
     notice in the next step" has no NEXT step in a single `-p` text-input
     call -- the process is about to exit right after this turn. Rather than
     spend a whole extra model call just to announce it (token thrift -- see
     MEMORY.md), wait (bounded) for any Bash job still running when the
-    visible turn ended, and print each completion notice directly as its
-    own small "turn" through the SAME sink the real one used, so it shows
-    up as real additional output rather than being silently dropped.
-    Genuinely long-running jobs outlive the bound and are simply killed on
-    the way out (`finally: session.job_registry.kill_all()`) like any
-    other background job the session never got back to -- this never turns
-    `-p` into an unbounded hang."""
+    visible turn ended, and fold each completion notice into the SAME sink
+    that will print the real turn's own (one and only) result. Genuinely
+    long-running jobs outlive the bound and are simply killed on the way
+    out (`finally: session.job_registry.kill_all()`) like any other
+    background job the session never got back to -- this never turns `-p`
+    into an unbounded hang.
+
+    H9 whole-tree review finding 9: this used to call `sink.consume(...)`
+    -- a full `finish()` cycle -- once per notice, ON TOP OF the real
+    turn's own already-`finish()`-ed `consume()` call. For `--output-format
+    json` that meant TWO (or more) complete JSON objects on one stdout
+    stream (`json.loads(stdout)` on the real caller's side raised "Extra
+    data"), and the LAST notice's own always-`end_turn`/never-`is_error`
+    result silently overwrote a genuinely FAILED real turn's exit code with
+    0. stream-json gained an extra, unsolicited `result` line the same way.
+    Callers now pass `finish=False` to their own `sink.consume(session.
+    turn(...))` call so `sink.finish()` -- called exactly ONCE, here, for
+    the whole process -- is the only thing that ever prints a result
+    object, background notices included (see Sink.add_background_notice)."""
     registry = getattr(session, "job_registry", None)
-    if registry is None or not registry.jobs:
-        return exit_code
+    if registry is not None and registry.jobs:
+        def _drain_once() -> None:
+            with session._job_notices_lock:
+                notices, session._pending_job_notices = session._pending_job_notices, []
+            for text in notices:
+                sink.add_background_notice(text)
 
-    def _drain_once() -> None:
-        nonlocal exit_code
-        with session._job_notices_lock:
-            notices, session._pending_job_notices = session._pending_job_notices, []
-        for text in notices:
-            exit_code = sink.consume(_events_for_background_notice(text))
-
-    deadline = time.monotonic() + _BACKGROUND_JOB_WAIT_S
-    while any(rec.status == "running" for rec in registry.jobs.values()) and time.monotonic() < deadline:
-        time.sleep(0.2)
-        _drain_once()
-    _drain_once()  # a completion landed between the loop's last check and now
-    return exit_code
+        deadline = time.monotonic() + _BACKGROUND_JOB_WAIT_S
+        while any(rec.status == "running" for rec in registry.jobs.values()) and time.monotonic() < deadline:
+            time.sleep(0.2)
+            _drain_once()
+        _drain_once()  # a completion landed between the loop's last check and now
+    return sink.finish()
 
 
 @dataclass
@@ -594,7 +592,7 @@ def build_session(
             preload, deferred = select_preload(survivors, preload_names=preload_names,
                                                 always_load_servers=always_load_servers, cap_budget=cap_budget)
 
-            for server_name, wire_name, sdk_tool in preload:
+            for server_name, _wire_name, sdk_tool in preload:
                 frozen_registry.add_tool(McpTool(server_name, sdk_tool, mcp_manager,
                                                   vision=model_profile.vision, family=family))
 
@@ -693,6 +691,16 @@ def build_session(
     )
     if hook_runner is not None:
         hook_runner.prompt_caller = session._call_model_for_hook
+    # H9 whole-tree review finding 3 ("plus an atexit kill_all"): a safety
+    # net alongside the explicit `finally: session.job_registry.kill_all()`
+    # every caller already has (run_print_mode below, Controller.quit()) --
+    # covers an exit path that bypasses BOTH (an exception raised while
+    # still building the rest of this SessionBuild, before either caller's
+    # own try/finally starts; a bare `sys.exit()` from somewhere with no
+    # matching `finally` in between). `kill_all()` is idempotent (an
+    # already-killed/completed job is a no-op), so running it twice on a
+    # normal clean exit is harmless.
+    atexit.register(session.job_registry.kill_all)
 
     command_registry = Registry.discover(cwd, home())
     if not bare:
@@ -801,8 +809,7 @@ def run_print_mode(
         continue_=continue_, resume=resume, fork_session_flag=fork_session_flag,
         agent=agent, agents_flag=agents_flag,
     )
-    session, frozen_registry, model_ref, model_profile = (
-        build.session, build.tool_registry, build.model_ref, build.model_profile)
+    session, frozen_registry, model_ref = (build.session, build.tool_registry, build.model_ref)
     mcp_manager, resolved_mode, session_log = build.mcp_manager, build.resolved_mode, build.session_log
     family = model_family(model_ref.model)
     attach_cli_files(session, file_specs, cwd=cwd)
@@ -965,13 +972,19 @@ def run_print_mode(
         _append_at_mention_snapshots(session, final_prompt, cwd)
         _append_agent_mention_snapshot(session, final_prompt or prompt_text, build.agents)
         try:
-            exit_code = sink.consume(session.turn(final_prompt or prompt_text))
+            # H9 whole-tree review finding 9: `finish=False` -- the turn's
+            # events are drained into `sink` but nothing is printed and no
+            # exit code decided yet; `_drain_background_jobs_for_print_mode`
+            # folds in any background-job notice and is the ONE place that
+            # calls `sink.finish()` for this whole process (see its own
+            # docstring for the multi-JSON-object/exit-code bug this closes).
+            sink.consume(session.turn(final_prompt or prompt_text), finish=False)
             # H8 scope A must-do: a single -p text-input call has no later
             # turn to deliver a background job's completion notice through
             # (see `_drain_background_jobs_for_print_mode`'s own docstring)
             # -- print it here, before the process exits, instead of
             # silently losing it.
-            return _drain_background_jobs_for_print_mode(session, sink, exit_code)
+            return _drain_background_jobs_for_print_mode(session, sink)
         finally:
             agent_sessions.record_session_turn(
                 cwd, session_log.session_id,

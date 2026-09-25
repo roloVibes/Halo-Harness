@@ -197,7 +197,7 @@ def _flatten_messages(messages: list, system) -> list:
                                     }
                                 })
             # (b) orphaned results
-            for tid, result in result_by_id.items():
+            for _tid, result in result_by_id.items():
                 cnt = result.get("content")
                 text = extract_text(cnt)
                 if text:

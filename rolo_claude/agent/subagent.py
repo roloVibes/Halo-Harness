@@ -77,6 +77,11 @@ class AgentRuntime:
     depth: int = 0
     tasks: dict = field(default_factory=dict)        # task_id -> {"child_session_id", "spec_name", "cwd"}
     lock: "threading.Lock" = field(default_factory=threading.Lock)
+    # H9 whole-tree review finding 27 (task-map persistence half): flips
+    # True the first time `_hydrate_tasks_from_disk` runs for THIS runtime
+    # so a resumed session's on-disk `subagents/*.meta.json` files are
+    # only ever scanned once, not on every single Agent/TaskStop call.
+    tasks_hydrated: bool = False
 
 
 def _new_agent_id() -> str:
@@ -217,6 +222,14 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
         # child can never collide with a sibling's live waiter slot in the
         # dict shared with the parent just below.
         agent_id=agent_id,
+        # H9 whole-tree review finding 3: share the PARENT's own
+        # JobRegistry instead of letting Session's default (a fresh,
+        # private one) leave a background Bash job THIS child starts
+        # unreachable by the parent's `kill_all()` on quit and its
+        # completion notice stranded on a Session object nobody drains
+        # again once this call returns -- see loop.py's own `job_registry=`
+        # param docstring for the full failure mode this closes.
+        job_registry=parent.job_registry,
     )
     if hook_runner is not None:
         hook_runner.prompt_caller = child._call_model_for_hook
@@ -285,12 +298,158 @@ def _final_text_from_log(child) -> str:
     return "(the sub-agent finished without producing a final text answer)"
 
 
+# H9 whole-tree review finding 26: `turn_done` reasons that mean the child's
+# run did NOT end normally -- its own last logged assistant text (what
+# `_final_text_from_log` returns) may be a stale, mid-thought fragment from
+# BEFORE whatever went wrong, never a real, complete report.
+#
+# "interrupted" is deliberately NOT in this set: an Esc/Ctrl+C-interrupted
+# child is a normal, user-INTENDED stop condition (H5c finding 7's own
+# tests pin this exactly: the parent's abort-batch pool result for a
+# genuinely-started-then-interrupted child is `is_error=False`, matching
+# how an interrupted tool call reads elsewhere in this harness), and
+# `synthesize_missing_results` already stamps its own text with "[Request
+# interrupted by user]" -- truthful on its own, with no need for (and no
+# use duplicating) the "did not finish normally" framing this set exists
+# for.
+_ABNORMAL_TURN_DONE_REASONS = frozenset({"error", "max_turns", "blocked"})
+
+
+def _child_turn_outcome(child_events: list) -> "tuple[bool, Optional[str]]":
+    """`(is_error, reason)` from the LAST `turn_done` event the child
+    actually produced (never raises; `reason` is None only if the child
+    somehow never yielded one at all -- shouldn't happen for a real
+    `child.turn()` run, but this must never crash the parent's turn over
+    it either way). H9 whole-tree review finding 26: verified bug -- a
+    provider failure partway through a child handed the parent whatever
+    "Let me look at X…" text was logged last, presented as if it were the
+    finished report, with no signal at all that the child never actually
+    finished."""
+    # NOTE: every event in `child_events` is already tagged with this ONE
+    # child's own `agent_id` (by `_tag()` in `_run_child_to_completion`,
+    # before it's ever appended to this list) -- no further agent_id
+    # filtering needed or correct here.
+    reason = None
+    for ev in child_events:
+        if getattr(ev, "kind", None) == "turn_done":
+            reason = (ev.data or {}).get("reason") if isinstance(ev.data, dict) else None
+    return (reason in _ABNORMAL_TURN_DONE_REASONS), reason
+
+
+def _rollup_child_cost_into_parent(parent, child, *, agent_id: str, since_index: int = 0) -> None:
+    """H9 whole-tree review finding 13: a child's usage/cost used to be
+    visible ONLY in its own `subagents/agent-<id>.jsonl` -- never reaching
+    `parent.cost_meter` (so `--max-budget-usd`, which reads the PARENT's
+    own `message_end.cost_usd`, could never trip on sub-agent spend, and
+    the TUI's live status-bar total silently excluded it) nor the parent's
+    OWN log (so `/stats`/`stats`, which read one session's `log.nodes()`,
+    under-reported both tokens and cost). Called once a child's run ends
+    (foreground `run_agent_call`, background `_bg_run`, and `_resume_task`
+    -- every path that produces real model-call usage).
+
+    `since_index`: a RESUMED child's `child.log.nodes()` includes every
+    PRIOR turn's own "usage" nodes too (the log is reloaded from disk) --
+    summing the whole file on every resume would roll up the same historic
+    tokens again on top of what an earlier call already rolled up. Only
+    nodes appended DURING *this* invocation (index `since_index` onward,
+    captured by the caller right after `_build_child_session` returns, before
+    `_run_child_to_completion` ever runs) are summed -- `child.cost_meter`
+    itself is already scoped this way (a fresh CostMeter every Session
+    construction, resumed or not), which is what makes `.turns`/`.total_usd`
+    below correct as "this invocation's own total", no slicing needed for
+    those two."""
+    if child.cost_meter.turns <= 0:
+        return
+    combined: dict = {}
+    for node in child.log.nodes()[since_index:]:
+        if node.get("type") != "usage":
+            continue
+        usage = node.get("usage") or {}
+        for key in ("input_tokens", "output_tokens", "cache_read_input_tokens",
+                    "cache_creation_input_tokens", "reasoning_tokens"):
+            value = usage.get(key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                combined[key] = combined.get(key, 0) + value
+    child_cost = child.cost_meter.total_usd if child.cost_meter.has_cost_data else None
+    # `SessionLog.append_usage` locks internally (safe from any thread on
+    # its own); `CostMeter.add_child_total` does not -- both a background
+    # child's OWN thread (`_bg_run`) and several FOREGROUND children
+    # running concurrently (a real ThreadPoolExecutor batch, per this
+    # module's own docstring) can reach this at the same moment, so the
+    # `total_usd +=` inside it is guarded with the SAME lock `_bg_run`
+    # already uses for every other write to shared parent state.
+    parent.log.append_usage(combined, child_cost, agent_id=agent_id)
+    with parent._agent_notices_lock:
+        parent.cost_meter.add_child_total(cost_usd=child_cost, has_cost_data=child.cost_meter.has_cost_data,
+                                           turns=child.cost_meter.turns)
+
+
 def _wrap_task_result(text: str, task_id: str) -> str:
     """H6 scope F (OpenCode adopt item): resumable sub-agent tasks -- a
     later `Agent(task_id=..., prompt=...)` resumes the SAME child session
     with its full prior context (via `Session.__init__`'s own resume path,
     reached because `_child_log_paths` preloads the existing log)."""
     return f'<task_result task_id="{task_id}">\n{text}\n</task_result>'
+
+
+def _hydrate_tasks_from_disk(runtime: AgentRuntime) -> None:
+    """H9 whole-tree review finding 27 (task-map persistence half):
+    `runtime.tasks` is in-memory only, so a fresh process (a `-c` resume,
+    most commonly, but also a brand new launch someone points at an
+    existing session id) starts with it EMPTY -- every task_id the model
+    remembers from before the restart would otherwise come back "Unknown
+    task_id", even though its child log and meta.json are sitting right
+    there on disk. Runs at most ONCE per runtime (guarded by
+    `tasks_hydrated`, checked/set under `runtime.lock` alongside every
+    other mutation of `runtime.tasks`): globs THIS session's own
+    `subagents/agent-*.meta.json` -- the exact directory `_child_log_paths`
+    writes into, unchanged across a `-c` resume since that reuses the SAME
+    session_id/dir -- and reinserts one `runtime.tasks[task_id]` entry per
+    file that has one. A meta.json from before this finding was fixed has
+    no `task_id` field and is silently skipped; that task is unrecoverable,
+    same as before this fix (no regression, just not a NEW capability for
+    OLD sessions).
+
+    `abort_event` is always None for a reconstructed entry: the real
+    `threading.Event` lived only in the OLD process's memory and died with
+    it. That is not a gap needing a workaround, though -- `_bg_run` runs on
+    a `daemon=True` thread specifically because a background sub-agent must
+    never outlive the process that started it (same rule Bash background
+    jobs follow, see `agent/jobs.py`), so a task whose meta.json still says
+    `"background": True` after a restart was, definitionally, killed
+    mid-flight along with the old process; there is no live thread left
+    anywhere to signal, abort or race against. `tools/task_stop.py` checks
+    `abort_event is None` and reports it as nothing-to-stop rather than
+    claiming a foreground-only task, using the persisted `"background"`
+    flag (`reconstructed`/`was_background` below) to word that correctly.
+    """
+    with runtime.lock:
+        if runtime.tasks_hydrated:
+            return
+        runtime.tasks_hydrated = True
+    parent = runtime.parent
+    subdir = parent.log.dir / parent.log.session_id / "subagents"
+    if not subdir.is_dir():
+        return
+    for meta_path in sorted(subdir.glob("agent-*.meta.json")):
+        try:
+            data = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        task_id = data.get("task_id")
+        session_id = data.get("session_id")
+        spec_name = data.get("type")
+        if not (isinstance(task_id, str) and task_id and isinstance(session_id, str)
+                and isinstance(spec_name, str)):
+            continue
+        with runtime.lock:
+            if task_id in runtime.tasks:
+                continue  # already known -- e.g. hydration raced a call that just created it
+            runtime.tasks[task_id] = {
+                "child_session_id": session_id, "spec_name": spec_name, "cwd": str(parent.cwd),
+                "abort_event": None, "reconstructed": True, "running_in_process": False,
+                "was_background": bool(data.get("background")),
+            }
 
 
 def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, tool_name: str,
@@ -305,6 +464,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     from rolo_claude.tools.base import ToolResult
     from rolo_claude.tools.truncate import spill_and_truncate
 
+    _hydrate_tasks_from_disk(runtime)
     if runtime.depth >= MAX_DEPTH:
         return [], ToolResult(
             "Sub-agents cannot spawn further sub-agents (depth limit reached) -- finish this task "
@@ -336,6 +496,12 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
         runtime=runtime, spec=spec, agent_id=agent_id, model_override=model_override, parent_tool_use_id=tool_id,
         background=background,
     )
+    # H9 whole-tree review finding 13: captured BEFORE the child ever makes
+    # a model call -- a resumed child's own log already carries every PRIOR
+    # invocation's "usage" nodes (reloaded from disk); only nodes appended
+    # from here on belong to THIS call. A fresh (non-resumed) child's log
+    # is empty at this point, so this is just 0.
+    since_index = len(child.log.nodes())
     new_task_id = uuid.uuid4().hex[:12]
     with runtime.lock:
         runtime.tasks[new_task_id] = {"child_session_id": child.log.session_id, "spec_name": spec.name,
@@ -349,7 +515,32 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                                         # path. tools/task_stop.py reads
                                         # this to implement
                                         # `TaskStop(task_id=<agent task>)`.
-                                        "abort_event": (child.abort if background else None)}
+                                        "abort_event": (child.abort if background else None),
+                                        # H9 whole-tree review finding 27
+                                        # (concurrent-resume half): True from
+                                        # here until `_bg_run`'s own
+                                        # `finally` flips it back, ALWAYS
+                                        # scoped to THIS process (never
+                                        # reconstructed as True by
+                                        # `_hydrate_tasks_from_disk`, since a
+                                        # restart always means the thread
+                                        # that would have flipped it is
+                                        # gone) -- `_resume_task` refuses a
+                                        # resume while this is True instead
+                                        # of racing `_bg_run`'s own appends
+                                        # to the SAME child log file.
+                                        "running_in_process": background}
+    # H9 whole-tree review finding 27 (task-map persistence half): the
+    # task_id just minted lives ONLY in the in-memory dict updated above --
+    # a fresh process (a `-c` resume, most commonly) would never see it and
+    # would call every one of the model's own task_ids "Unknown". Persist
+    # it (and whether this task is backgrounded) into the SAME meta.json
+    # `_build_child_session` already wrote a "status"/"session_id"/"type"
+    # for, so `_hydrate_tasks_from_disk` can reconstruct this exact entry
+    # (minus `abort_event`, which cannot survive a process restart -- see
+    # that function's own docstring) on a later process's first Agent or
+    # TaskStop call.
+    _write_meta(meta_path, {"task_id": new_task_id, "background": background})
 
     start_ev = events.Event("subagent_start", {"agent_id": agent_id, "name": spec.name, "description": description,
                                                  "parent_tool_use_id": tool_id, "task_id": new_task_id})
@@ -365,34 +556,62 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
         _write_meta(meta_path, {"status": "background"})
 
         def _bg_run():
-            child_events = _run_child_to_completion(child, prompt, agent_id=agent_id, parent_tool_use_id=tool_id)
-            text = _final_text_from_log(child)
-            _fire_subagent_hook(child, "SubagentStop")
-            _write_meta(meta_path, {"status": "completed"})
-            # H6/D10 (see the foreground path's own comment): merge even
-            # for a background sub-agent, under the same lock its own
-            # pending-notice append already uses.
-            with parent._agent_notices_lock:
-                parent.permission_denials.extend(child.permission_denials)
-            # H9 whole-tree review finding 10: `permission_denials` is a
-            # print-mode-only channel (the TUI never renders it) -- a
-            # background child's own denied tool calls used to be
-            # completely invisible in the TUI, which only ever sees this
-            # notice text. Same for an interrupted (quit/TaskStop) child:
-            # say so plainly instead of presenting whatever partial text
-            # it managed as if it were a normal, complete answer.
-            status_bits = []
-            if child.abort.is_set():
-                status_bits.append("interrupted")
-            if child.permission_denials:
-                names = ", ".join(sorted({d.get("tool_name", "?") for d in child.permission_denials}))
-                status_bits.append(f"{len(child.permission_denials)} tool call(s) denied ({names})")
-            status_suffix = f" [{'; '.join(status_bits)}]" if status_bits else ""
-            notice = (f"[Background sub-agent '{spec.name}' finished (task_id={new_task_id}){status_suffix}]\n"
-                      f"{_wrap_task_result(text, new_task_id)}")
-            with parent._agent_notices_lock:
-                parent._pending_agent_notices.append(notice)
-            del child_events  # collected for parity/debuggability only; not forwarded (parent turn has ended)
+            # H9 whole-tree review finding 27 (concurrent-resume half):
+            # everything below runs inside try/finally purely so the
+            # `finally` can flip `running_in_process` back to False NO
+            # MATTER HOW this thread ends, including a bug/exception deep
+            # in `_run_child_to_completion` -- leaving it stuck True would
+            # permanently refuse any future resume of this task_id, a worse
+            # outcome than the race this flag exists to prevent.
+            try:
+                child_events = _run_child_to_completion(child, prompt, agent_id=agent_id, parent_tool_use_id=tool_id)
+                text = _final_text_from_log(child)
+                _fire_subagent_hook(child, "SubagentStop")
+                _write_meta(meta_path, {"status": "completed"})
+                # H9 whole-tree review finding 13: roll this background child's
+                # own usage/cost into the parent BEFORE the completion notice
+                # is queued, so by the time the parent's next turn (which
+                # applies that notice) actually runs, `--max-budget-usd`/
+                # `/stats` already reflect it.
+                _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index)
+                # H6/D10 (see the foreground path's own comment): merge even
+                # for a background sub-agent, under the same lock its own
+                # pending-notice append already uses.
+                with parent._agent_notices_lock:
+                    parent.permission_denials.extend(child.permission_denials)
+                # H9 whole-tree review finding 10: `permission_denials` is a
+                # print-mode-only channel (the TUI never renders it) -- a
+                # background child's own denied tool calls used to be
+                # completely invisible in the TUI, which only ever sees this
+                # notice text. Same for an interrupted (quit/TaskStop) child:
+                # say so plainly instead of presenting whatever partial text
+                # it managed as if it were a normal, complete answer.
+                status_bits = []
+                if child.abort.is_set():
+                    status_bits.append("interrupted")
+                if child.permission_denials:
+                    names = ", ".join(sorted({d.get("tool_name", "?") for d in child.permission_denials}))
+                    status_bits.append(f"{len(child.permission_denials)} tool call(s) denied ({names})")
+                # H9 whole-tree review finding 26: same treatment as the
+                # foreground path -- a provider failure/max_turns also gets
+                # flagged here, not just an abort/denial (the two cases
+                # `child.abort.is_set()`/`permission_denials` already covered).
+                is_error, abnormal_reason = _child_turn_outcome(child_events)
+                if abnormal_reason and abnormal_reason not in ("interrupted",):
+                    status_bits.append(abnormal_reason)
+                status_suffix = f" [{'; '.join(status_bits)}]" if status_bits else ""
+                if is_error:
+                    text = f"(this sub-agent may not have finished normally)\n{text}"
+                notice = (f"[Background sub-agent '{spec.name}' finished (task_id={new_task_id}){status_suffix}]\n"
+                          f"{_wrap_task_result(text, new_task_id)}")
+                with parent._agent_notices_lock:
+                    parent._pending_agent_notices.append(notice)
+                del child_events  # collected for parity/debuggability only; not forwarded (parent turn has ended)
+            finally:
+                with runtime.lock:
+                    entry = runtime.tasks.get(new_task_id)
+                    if entry is not None:
+                        entry["running_in_process"] = False
 
         threading.Thread(target=_bg_run, daemon=True, name=f"subagent-{agent_id}").start()
         result = ToolResult(
@@ -404,8 +623,17 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     child_events = _run_child_to_completion(child, prompt, agent_id=agent_id, parent_tool_use_id=tool_id,
                                              on_event=on_event)
     text = _final_text_from_log(child)
+    # H9 whole-tree review finding 26: `text` alone can't tell the parent
+    # whether the child actually finished normally -- a provider failure/
+    # max_turns/interruption partway through used to hand back whatever
+    # was logged last with no signal it wasn't a real, complete answer.
+    is_error, abnormal_reason = _child_turn_outcome(child_events)
     _fire_subagent_hook(child, "SubagentStop")
     _write_meta(meta_path, {"status": "completed"})
+    # H9 whole-tree review finding 13: see the background path's own
+    # comment above -- a FOREGROUND child's usage/cost gets the same
+    # rollup, just synchronously here instead of at the end of `_bg_run`.
+    _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index)
     # H6 known v1 gap (D10) / B must-do: a non-interactive child's own
     # "ask" denials (agent/loop.py's `_resolve_tool_call`) land in the
     # CHILD's own `permission_denials` list, which nothing outside this
@@ -415,15 +643,17 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # sub-agent's denied tool calls instead of silently losing them.
     parent.permission_denials.extend(child.permission_denials)
     end_ev = events.Event("subagent_end", {"agent_id": agent_id, "name": spec.name, "parent_tool_use_id": tool_id,
-                                             "task_id": new_task_id})
+                                             "task_id": new_task_id, "is_error": is_error})
     end_ev.agent_id = agent_id
     if on_event is not None:
         on_event(end_ev)  # H5c finding 8: live too, same reasoning as start_ev above
 
+    if is_error:
+        text = f"[sub-agent did not finish normally ({abnormal_reason}) -- this may be a stale/partial answer]\n{text}"
     wrapped = _wrap_task_result(text, new_task_id)
     capped = spill_and_truncate(wrapped, cap=RESULT_CAP, session_dir=parent.log.dir / parent.log.session_id,
                                  tool_use_id=tool_id)
-    return [start_ev, *child_events, end_ev], ToolResult(capped)
+    return [start_ev, *child_events, end_ev], ToolResult(capped, is_error=is_error)
 
 
 def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id: str, *, on_event=None):
@@ -434,6 +664,21 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
     record = runtime.tasks.get(task_id)
     if record is None:
         return [], ToolResult(f"Unknown task_id {task_id!r} -- it may belong to a different session.", is_error=True)
+    # H9 whole-tree review finding 27 (concurrent-resume half): a
+    # background child still has its OWN `_bg_run` thread appending to
+    # this exact task_id's child log/meta.json -- resuming NOW would build
+    # a second, independent Session on top of the same files and both
+    # would write to them at once. `running_in_process` is per-PROCESS
+    # in-memory state (see its own comment where it's set), so this can
+    # never be a stale True surviving a `-c` restart -- a reconstructed
+    # task (`record.get("reconstructed")`) is never True here, because the
+    # thread that would have set it died with the old process.
+    if record.get("running_in_process"):
+        return [], ToolResult(
+            f"Task {task_id!r} is still running in the background -- resuming it now would race its own "
+            f"in-progress work. Wait for its completion notice before sending it another prompt.",
+            is_error=True,
+        )
     spec = runtime.agents.get(record["spec_name"])
     if spec is None:
         return [], ToolResult(f"The agent type for task_id {task_id!r} is no longer available.", is_error=True)
@@ -444,13 +689,24 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
         runtime=runtime, spec=spec, agent_id=agent_id, model_override=tool_input.get("model"),
         parent_tool_use_id=tool_id, background=False,  # a resume always runs in the foreground
     )
+    # H9 whole-tree review finding 13: see run_agent_call's own comment on
+    # its identically-named local -- a resume's own child log already
+    # carries every PRIOR call's usage nodes; only what's appended from
+    # here on is THIS call's own new spend.
+    since_index = len(child.log.nodes())
     prompt = tool_input.get("prompt") or "Please continue."
     child_events = _run_child_to_completion(child, prompt, agent_id=agent_id, parent_tool_use_id=tool_id,
                                              on_event=on_event)
     text = _final_text_from_log(child)
+    # H9 whole-tree review finding 26: same treatment as run_agent_call's
+    # own foreground path -- see its comment.
+    is_error, abnormal_reason = _child_turn_outcome(child_events)
     _write_meta(meta_path, {"status": "completed"})
+    _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index)
     parent.permission_denials.extend(child.permission_denials)  # H6/D10, see run_agent_call's own comment
+    if is_error:
+        text = f"[sub-agent did not finish normally ({abnormal_reason}) -- this may be a stale/partial answer]\n{text}"
     wrapped = _wrap_task_result(text, task_id)
     capped = spill_and_truncate(wrapped, cap=RESULT_CAP, session_dir=parent.log.dir / parent.log.session_id,
                                  tool_use_id=tool_id)
-    return child_events, ToolResult(capped)
+    return child_events, ToolResult(capped, is_error=is_error)

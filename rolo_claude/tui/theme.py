@@ -6,7 +6,7 @@ actual colors, textual-only, imported solely from `tui/app.py`).
 
 from __future__ import annotations
 
-from rolo_claude.theme import DEFAULT_THEME, VALID_THEMES, is_valid_theme  # re-exported for tui/app.py
+from rolo_claude.theme import DEFAULT_THEME, is_valid_theme  # re-exported for tui/app.py
 
 _DARK = {
     "bridge-bg": "#1e1e2e", "bridge-surface": "#282838", "bridge-panel": "#313244",

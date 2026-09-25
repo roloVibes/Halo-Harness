@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import shlex
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -135,7 +135,13 @@ def _make_mcp_prompt_run(mcp_manager, server: str, prompt_name: str, arg_names: 
                 if args_text:
                     arguments[arg_names[0]] = args_text
             else:
-                for name, value in zip(arg_names, split_args(args_text)):
+                # ruff B905: strict=False is deliberate here, not just the
+                # lint default -- the USER typed args_text, so it may
+                # legitimately have fewer or more space-separated tokens
+                # than arg_names; zip's own shorter-wins truncation is
+                # exactly "extra args ignored, missing ones left unset",
+                # not a bug to crash over.
+                for name, value in zip(arg_names, split_args(args_text), strict=False):
                     arguments[name] = value
         try:
             result = mcp_manager.get_prompt(server, prompt_name, arguments)

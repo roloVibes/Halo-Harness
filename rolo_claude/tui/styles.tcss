@@ -59,6 +59,20 @@ AssistantText {
     color: $bridge-assistant;
 }
 
+/* H9 whole-tree review finding 11: a sub-agent's own streamed text/
+   thinking blocks get a left border + the SAME accent color
+   .system-note-subagent already uses for its start/end markers, so a
+   child's output reads as its own grouped block within the transcript
+   flow rather than blending into the main session's own text. */
+.assistant-text-child {
+    border-left: thick $bridge-accent;
+    padding: 0 1;
+}
+
+.thinking-block-child {
+    border-left: thick $bridge-accent;
+}
+
 .tool-card {
     color: $bridge-tool;
     border-left: thick $bridge-border;

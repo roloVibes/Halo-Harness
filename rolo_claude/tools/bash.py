@@ -147,6 +147,46 @@ class BashTool(Tool):
         env["CLAUDECODE"] = "1"
         if env_file is not None:
             env["CLAUDE_ENV_FILE"] = str(env_file)
+        # H9 whole-tree review finding 12: `bash -lc` is a LOGIN shell -- it
+        # sources /etc/profile (and ~/.bash_profile/~/.profile) BEFORE ever
+        # running our own `-c` script body. Debian/Kali's stock
+        # /etc/profile unconditionally REASSIGNS PATH (`PATH="/usr/local/
+        # sbin:...:/bin"; export PATH`), discarding whatever PATH this
+        # harness computed -- settings.json's own `env.PATH`, a
+        # SessionStart env-file `export PATH="$PATH:/x"`, or simply the
+        # PATH rolo-claude itself was started with (often customized in
+        # ~/.zshrc, which Kali uses by default and bash's own login files
+        # never read). Verified on WSL: a PATH entry's own tool ran fine
+        # under Ubuntu's PATH-preserving profile, then "command not found"
+        # for that exact same env once the SAME session ran under a bind-
+        # mounted Debian profile instead (PATH reset to the stock list).
+        # Stash the INTENDED PATH under a harness-private var name the
+        # login profile has no reason to touch, then restore it as the
+        # wrapped script's own first line -- necessarily AFTER the profile
+        # (an inherent property of how `bash -lc` starts up: the login
+        # files always run before the `-c` command string does) but BEFORE
+        # `source_prefix` (a CLAUDE_ENV_FILE's own `export PATH="$PATH:/x"`
+        # must append onto the RESTORED PATH, not onto whatever the profile
+        # just clobbered it to).
+        #
+        # POSIX only (`os.name != "nt"`): on win32 this shell is Git Bash,
+        # whose OWN startup files add ITS bin dirs (where `sleep`/`ls`/...
+        # actually live) to PATH -- an ADDITIVE step this harness's own
+        # captured `ctx.env["PATH"]` (built before Git Bash ever ran, and
+        # never containing those MSYS paths in the first place) has no
+        # reason to already include. Forcibly restoring that captured value
+        # would UNDO Git Bash's own necessary setup instead of fixing
+        # anything (verified: broke `sleep`/every other MSYS coreutil on
+        # this Windows build host once tried unconditionally). The
+        # documented failure (a Debian/Kali /etc/profile that unconditionally
+        # OVERWRITES PATH, discarding everything) is a POSIX-login-shell
+        # behaviour with no Windows/Git-Bash equivalent to guard against.
+        restore_path_prefix = ""
+        if os.name != "nt":
+            env["__ROLO_CLAUDE_SESSION_PATH"] = env.get("PATH", os.environ.get("PATH", ""))
+            # `unset` right after restoring PATH from it -- a model running
+            # `env`/`printenv` shouldn't see this harness-private plumbing var.
+            restore_path_prefix = 'export PATH="$__ROLO_CLAUDE_SESSION_PATH"; unset __ROLO_CLAUDE_SESSION_PATH\n'
 
         job_registry = getattr(ctx, "job_registry", None)
         if isinstance(input, dict) and input.get("run_in_background") and job_registry is not None:
@@ -156,7 +196,7 @@ class BashTool(Tool):
             # command, so `proc.returncode` is already its real exit
             # status; a backgrounded job's own `cd` also never needs to
             # feed back into this session's persistent bash_state.
-            plain_command = f"{source_prefix}{command}"
+            plain_command = f"{restore_path_prefix}{source_prefix}{command}"
             record, err = job_registry.start_background(
                 plain_command, description=input.get("description") or command,
                 cwd=cwd, env=env, shell_path=str(shell_path),
@@ -182,6 +222,7 @@ class BashTool(Tool):
         # shell's OWN inherited PATH via `$VAR` expansion.
         nonce = uuid.uuid4().hex
         wrapped = (
+            f"{restore_path_prefix}"
             f"{source_prefix}"
             f"{command}\n"
             f"__rc=$?\n"

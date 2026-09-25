@@ -9,6 +9,7 @@ common convention real notebook-authoring tools use, and reads either).
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from pathlib import Path
 
@@ -133,6 +134,27 @@ class NotebookEditTool(Tool):
                     index = i
                     break
             if index is None:
+                # H9 whole-tree review finding 15: pre-4.5 notebooks have no
+                # per-cell `id` at all -- [bin] Claude Code 2.1.282's own
+                # client renders such a cell's DISPLAY id as `e.id ??
+                # cell-${n}` (zero-indexed) and parses that exact
+                # `^cell-(\d+)$` shape back as a positional index, so a
+                # model that has only ever SEEN a cell rendered that way
+                # naturally tries to address it the same way back.
+                # Without this, such a notebook was permanently
+                # unaddressable by cell_id: real ids ARE minted for every
+                # id-less cell on every call (the loop above), but only
+                # ever PERSISTED once a call reaches the write below -- a
+                # call that fails to resolve cell_id returns before that,
+                # so the next attempt starts over from the exact same
+                # unaddressable state (verified: cell-0 returned "No cell
+                # with id" forever, on every retry).
+                m = re.match(r"^cell-(\d+)$", cell_id)
+                if m:
+                    candidate = int(m.group(1))
+                    if 0 <= candidate < len(cells):
+                        index = candidate
+            if index is None:
                 return ToolResult(f"No cell with id {cell_id!r} in {notebook_path}", is_error=True)
         if edit_mode in ("replace", "delete") and index is None:
             return ToolResult(f"The cell_id parameter is required for edit_mode={edit_mode}", is_error=True)
@@ -142,12 +164,21 @@ class NotebookEditTool(Tool):
             cell["source"] = _split_source(new_source)
             if cell_type is not None and cell_type != cell.get("cell_type"):
                 cell["cell_type"] = cell_type
-                if cell_type == "code":
-                    cell.setdefault("outputs", [])
-                    cell.setdefault("execution_count", None)
-                else:
-                    cell.pop("outputs", None)
-                    cell.pop("execution_count", None)
+            resulting_type = cell_type if cell_type is not None else cell.get("cell_type")
+            if resulting_type == "code":
+                # H9 whole-tree review finding 15: a replaced cell's OLD
+                # outputs/execution_count no longer correspond to the NEW
+                # source -- stale until actually re-executed. Cleared
+                # unconditionally for the resulting code cell, not just
+                # when `cell_type` itself changed (verified: a plain
+                # source-only replace on an ALREADY-code cell left the
+                # previous run's stream output and execution_count sitting
+                # under the brand new source).
+                cell["outputs"] = []
+                cell["execution_count"] = None
+            else:
+                cell.pop("outputs", None)
+                cell.pop("execution_count", None)
             result_note = f"Updated cell {cell_id}"
         elif edit_mode == "insert":
             new_cell = _new_cell(cell_type, new_source)

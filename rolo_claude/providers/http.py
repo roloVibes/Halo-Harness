@@ -358,6 +358,15 @@ def call_anthropic_native(base_url: str, api_key: str, body: dict, extra_headers
                 result.resp.read()
         except Exception:
             pass
+        # NEW (H9 post-acceptance): a 404'd attempt's own connection was
+        # never closed before looping to try the next candidate path --
+        # `result` (and its `.conn`) is about to be discarded/overwritten
+        # by the next iteration either way, so this is the last chance.
+        try:
+            if result.conn is not None:
+                result.conn.close()
+        except Exception:
+            pass
     return result
 
 

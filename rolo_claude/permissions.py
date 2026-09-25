@@ -29,7 +29,7 @@ import json
 import os
 import re
 import shlex
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -1111,6 +1111,21 @@ class PermissionEngine:
         # `_decide` can allow Write/Edit on exactly this file while every
         # other edit/write stays denied by the ordinary mode table below.
         self.plan_file: Optional[Path] = Path(plan_file) if plan_file else None
+        # H9 whole-tree review finding 21: THIS session's own
+        # `<session_dir>/tool-results/` spill directory (tools/truncate.py's
+        # `spill_and_truncate` -- where an over-cap tool result's full text
+        # actually lives) -- set by `agent.loop.Session.__init__` once its
+        # own log dir/session_id are known (this engine is usually built
+        # BEFORE that). Read is unconditionally allowed under it, in every
+        # mode, same as TodoWrite/ToolSearch's own "no side effects
+        # requiring permission" built-in below: the model is only ever
+        # re-reading output a tool it already ran produced, which lives
+        # outside the project's own working directories (verified: the
+        # truncation hint's own "Use Read with offset/limit on <spill>"
+        # pointer asked in TUI default mode and was denied outright in -p
+        # default/acceptEdits/dontAsk -- there is no rule a user could even
+        # write to fix this, since the path is randomly per-session).
+        self.tool_results_dir: Optional[Path] = None
         # H4 scope C: a Skill tool's `allowed-tools` grant, live in
         # `allow_rules` (so every existing match path just works) but
         # marked here so `clear_temporary_allow_rules` (agent/loop.py's
@@ -1195,7 +1210,6 @@ class PermissionEngine:
     def _rule_matches(self, rule: Rule, tool_name: str, tool_input: dict, tool, *, action: str) -> bool:
         if rule.kind == "invalid":
             return False
-        any_depth = action in ("deny", "ask")
 
         if rule.kind == "bare":
             return rule.tool == tool_name
@@ -1434,6 +1448,20 @@ class PermissionEngine:
         return True
 
     def _mode_table_decision(self, tool_name: str, tool_input: dict, tool) -> Decision:
+        if tool_name == "Read" and self.tool_results_dir is not None:
+            # H9 whole-tree review finding 21: see `tool_results_dir`'s own
+            # docstring -- re-reading THIS session's own tool-result spill
+            # file is never mode-gated, the same "no side effects requiring
+            # permission" reasoning TodoWrite/ToolSearch get just below.
+            raw_path = tool_input.get("file_path") if isinstance(tool_input, dict) else None
+            if isinstance(raw_path, str) and raw_path:
+                try:
+                    resolved = Path(raw_path).resolve()
+                    if resolved.is_relative_to(self.tool_results_dir.resolve()):
+                        return Decision("allow", "Read is always allowed on this session's own tool-result "
+                                         "spill files (no side effects requiring permission)", source="mode")
+                except (OSError, ValueError):
+                    pass
         if tool_name == "AskUserQuestion":
             if self.mode == "dontAsk":
                 return Decision("deny", "AskUserQuestion errors on a tool call in dontAsk mode", source="mode")

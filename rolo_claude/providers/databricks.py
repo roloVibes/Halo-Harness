@@ -150,6 +150,7 @@ def _probe_databricks_endpoints_raw(root: str, token: str) -> "tuple[int, list[d
     tls = parsed.scheme == "https"
     path = parsed.path.rstrip("/") + "/api/2.0/serving-endpoints"
     headers = {"Authorization": f"Bearer {token}", "Accept-Encoding": "identity"}
+    conn = None
     try:
         conn = open_upstream(host, port, tls)
         conn.request("GET", path, headers=headers)
@@ -157,6 +158,17 @@ def _probe_databricks_endpoints_raw(root: str, token: str) -> "tuple[int, list[d
         raw = resp.read()
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
         raise UpstreamConnectError(f"Databricks connection failed: {e}") from e
+    finally:
+        # NEW (H9 post-acceptance): a one-shot GET+read-fully-then-done
+        # call (unlike stream_completion/stream_anthropic_completion,
+        # which keep `conn` alive for the caller to stream from and close
+        # it themselves once done) -- nothing ever closed it here, leaking
+        # one socket per call until GC (a real ResourceWarning, verified).
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
     if resp.status == 200:
         try:
             data = json.loads(raw.decode("utf-8", "replace"))
@@ -232,6 +244,7 @@ def probe_openrouter_models(base_url: str, api_key: str) -> list[dict]:
     tls = parsed.scheme == "https"
     path = parsed.path.rstrip("/") + "/models"
     headers = {"Authorization": f"Bearer {api_key}", "Accept-Encoding": "identity"}
+    conn = None
     try:
         conn = open_upstream(host, port, tls)
         conn.request("GET", path, headers=headers)
@@ -239,6 +252,14 @@ def probe_openrouter_models(base_url: str, api_key: str) -> list[dict]:
         raw = resp.read()
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
         raise UpstreamConnectError(f"OpenRouter connection failed: {e}") from e
+    finally:
+        # NEW (H9 post-acceptance): see _probe_databricks_endpoints_raw's
+        # own comment -- same one-shot leak, same fix.
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:
+                pass
     if resp.status != 200:
         raise RuntimeError(f"OpenRouter /models returned {resp.status}")
     data = json.loads(raw.decode("utf-8", "replace"))

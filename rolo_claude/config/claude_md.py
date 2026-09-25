@@ -109,7 +109,6 @@ def strip_block_html_comments(text: str) -> str:
     non-block) comment is left alone -- this project's own CLAUDE.md-style
     files only ever use the block form for this purpose."""
     lines = text.splitlines(keepends=True)
-    bare_lines = text.splitlines()
     mask = _fenced_line_mask(text)
 
     # Work on the whole non-fenced text as one blob so a comment spanning

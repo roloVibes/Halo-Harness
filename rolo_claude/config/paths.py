@@ -1,7 +1,6 @@
 from __future__ import annotations
 import os
 import re
-import hashlib
 import shutil
 from pathlib import Path
 

@@ -140,6 +140,23 @@ def _rewrite_tool_result_content(content, new_text: str):
     return new_text
 
 
+def _is_real_user_prompt(message: dict) -> bool:
+    """H9 whole-tree review finding 20: True for a genuine user turn --
+    `role == "user"` AND at least one content block that ISN'T a
+    tool_result (a bare-string/empty `content` counts as a real prompt
+    too, never a tool_result shape). False for a wire message that is
+    PURELY a tool round-trip's own result, even though it also carries
+    `role: "user"` on the wire."""
+    if not isinstance(message, dict) or message.get("role") != "user":
+        return False
+    content = message.get("content")
+    if not isinstance(content, list):
+        return True
+    if not content:
+        return True
+    return any(not (isinstance(b, dict) and b.get("type") == "tool_result") for b in content)
+
+
 def _each_tool_result_block(message: dict):
     """Yield (block_index, block) for every tool_result content block in a
     user-role message -- the only place derive_request ever puts one (see
@@ -226,13 +243,27 @@ def prune_messages(
     # boundaries; once `image_offload_turns` boundaries have been crossed
     # (i.e. this message is older than that many turns), replace any image
     # content block with a text placeholder.
-    turns_from_start = 0
-    total_user_turns = sum(1 for m in out if isinstance(m, dict) and m.get("role") == "user")
+    #
+    # H9 whole-tree review finding 20: `msg.get("role") == "user"` counted
+    # EVERY wire message in that role as its own "turn" -- but a tool_result
+    # is ALSO sent back as a `role: "user"` message (agent/derive.py folds
+    # it into the pending user turn; see `_each_tool_result_block`'s own
+    # docstring), so a turn with several tool round-trips inflated
+    # `total_user_turns` by one per round-trip. Verified: a screenshot in
+    # "fix the bug in this screenshot" was offloaded after just 3 tool
+    # steps of the SAME turn, not `image_offload_turns` real turns later.
+    # `_is_real_user_prompt` counts a message only when it carries at least
+    # one NON-tool_result block (a genuine prompt), never a message made
+    # ENTIRELY of tool_result blocks. The other half of this finding: an
+    # image nested INSIDE a tool_result block's own `content` (e.g. a Read
+    # or MCP tool result carrying one) was never reached by the old
+    # top-level-only block loop -- walked and offloaded the same way now.
+    total_user_turns = sum(1 for m in out if isinstance(m, dict) and _is_real_user_prompt(m))
     seen_user_turns = 0
     for msg in out:
         if not isinstance(msg, dict):
             continue
-        if msg.get("role") == "user":
+        if _is_real_user_prompt(msg):
             seen_user_turns += 1
         turns_from_end = total_user_turns - seen_user_turns
         if turns_from_end < image_offload_turns:
@@ -240,12 +271,26 @@ def prune_messages(
         content = msg.get("content")
         if not isinstance(content, list):
             continue
+        placeholder = {"type": "text", "text": IMAGE_OFFLOAD_PLACEHOLDER.format(n=image_offload_turns)}
         new_content = []
         changed = False
         for block in content:
             if isinstance(block, dict) and block.get("type") == "image":
-                new_content.append({"type": "text", "text": IMAGE_OFFLOAD_PLACEHOLDER.format(n=image_offload_turns)})
+                new_content.append(dict(placeholder))
                 changed = True
+            elif isinstance(block, dict) and block.get("type") == "tool_result" and isinstance(block.get("content"), list):
+                inner_out = []
+                inner_changed = False
+                for inner in block["content"]:
+                    if isinstance(inner, dict) and inner.get("type") == "image":
+                        inner_out.append(dict(placeholder))
+                        inner_changed = True
+                    else:
+                        inner_out.append(inner)
+                if inner_changed:
+                    block = {**block, "content": inner_out}
+                    changed = True
+                new_content.append(block)
             else:
                 new_content.append(block)
         if changed:

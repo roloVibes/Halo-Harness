@@ -203,15 +203,22 @@ async def apply_event(app, event) -> None:
 
 async def _apply_event_inner(app, event) -> None:
     kind, data, turn = event.kind, event.data, event.turn
+    agent_id = event.agent_id
     if kind == "user_message":
         await app.transcript.add_user(data.get("text", ""))
     elif kind == "message_start":
-        app.transcript.begin_message(turn)
-        app.status_bar.apply_status({"phase": "thinking"})
+        app.transcript.begin_message(turn, agent_id=agent_id)
+        # H9 whole-tree review finding 11: a child's own `message_start`
+        # must never touch the MAIN status bar (verified: a child's status
+        # set it to the child's model/cost, and to idle while the parent
+        # was still running) -- only the main session's own events
+        # (agent_id is None) ever do.
+        if agent_id is None:
+            app.status_bar.apply_status({"phase": "thinking"})
     elif kind == "text_delta":
-        await app.transcript.append_text(turn, data.get("index", 0), data.get("text", ""))
+        await app.transcript.append_text(turn, data.get("index", 0), data.get("text", ""), agent_id=agent_id)
     elif kind == "thinking_delta":
-        await app.transcript.append_thinking(turn, data.get("index", 0), data.get("text", ""))
+        await app.transcript.append_thinking(turn, data.get("index", 0), data.get("text", ""), agent_id=agent_id)
     elif kind == "tool_use_ready":
         await _mount_tool_card(app, data)
     elif kind == "tool_progress":
@@ -239,20 +246,38 @@ async def _apply_event_inner(app, event) -> None:
     elif kind == "todos":
         await app.transcript.add_note(_format_todos(data), kind="todos")
     elif kind == "status":
-        app.status_bar.apply_status(data)
+        # H9 whole-tree review finding 11: a sub-agent Session's OWN
+        # `turn()` yields the exact same "status" events the main session
+        # does (same `events.status(...)` call sites in agent/loop.py) --
+        # tagged with its `agent_id` like every other child event, but
+        # never meant for the MAIN status bar (verified: a child's status
+        # briefly showed the child's own model and a cost that dropped
+        # from the parent's real running total).
+        if agent_id is None:
+            app.status_bar.apply_status(data)
     elif kind == "message_end":
-        app.status_bar.apply_status({"phase": "idle", "cost_usd": data.get("cost_usd")})
-        if data.get("context_pct") is not None:
-            app.status_bar.apply_context_pct(data["context_pct"])
-        await app.transcript.finish_open_streams()
+        if agent_id is None:
+            app.status_bar.apply_status({"phase": "idle", "cost_usd": data.get("cost_usd")})
+            if data.get("context_pct") is not None:
+                app.status_bar.apply_context_pct(data["context_pct"])
+        await app.transcript.finish_open_streams(agent_id=agent_id)
     elif kind == "error":
         message = data.get("message", "")
-        await app.transcript.add_note(f"✗ Error: {message}", kind="error")
-        app.notify(message, severity="error", title="Error")
+        prefix = f"[sub-agent {agent_id}] " if agent_id else ""
+        await app.transcript.add_note(f"✗ Error: {prefix}{message}", kind="error")
+        app.notify(f"{prefix}{message}", severity="error", title="Error")
     elif kind == "turn_done":
-        app.status_bar.apply_status({"phase": "idle"})
-        await app.transcript.finish_open_streams()
-        app.on_turn_done(data.get("reason", "end_turn"))
+        # finding 11: a child's own turn_done must never drive the MAIN
+        # session's own idle/auto-title bookkeeping (verified: a child's
+        # turn_done called app.on_turn_done, which showed "Interrupted."
+        # and fired the auto-title logic even while the parent's own turn
+        # was still running) -- its OWN open streams still get closed
+        # either way, via the agent_id-scoped finish_open_streams below.
+        if agent_id is None:
+            app.status_bar.apply_status({"phase": "idle"})
+        await app.transcript.finish_open_streams(agent_id=agent_id)
+        if agent_id is None:
+            app.on_turn_done(data.get("reason", "end_turn"))
     elif kind == "subagent_start":
         # U5 scope C: `agent_id`/`parent_tool_use_id` (D-Contract) are read
         # defensively -- H6's sub-agent event payload is still landing --

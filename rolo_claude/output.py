@@ -69,6 +69,7 @@ def build_result_object(
     subtype: str = "success",
     permission_denials: Optional[list] = None,
     structured_output=None,
+    background_notices: Optional[list] = None,
 ) -> dict:
     """The `-p --output-format json` result object -- a subset of plan
     D-TUI's full shape (duration_ms/uuid are TUI/hook concerns that don't
@@ -94,6 +95,13 @@ def build_result_object(
         "structured_output": structured_output,
         "model": model,
         "permission_denials": permission_denials or [],
+        # H9 whole-tree review finding 9: a background job's completion
+        # notice (see PrintModeSink.add_background_notice /
+        # StreamJsonSink.add_background_notice) folded into THIS SAME
+        # result object -- never a fresh one of its own -- so a `-p
+        # --output-format json` run with a still-running background job at
+        # the end of its turn prints exactly ONE JSON object, always.
+        "background_notices": background_notices or [],
     }
 
 
@@ -125,6 +133,12 @@ class PrintModeSink:
         self._pending_text_parts: list = []
         self._pending_thinking_parts: list = []
         self._final_text = ""  # the LAST message's text, decided once turn_done fires
+        # H9 whole-tree review finding 9: background-job completion notices
+        # queued here (add_background_notice), NEVER fed through a fresh
+        # `consume()`/`finish()` cycle of their own -- see this class's own
+        # `add_background_notice` docstring for exactly what that used to
+        # break.
+        self._background_notices: list = []
         self._had_error = False
         self._error_message: Optional[str] = None
         self._stop_reason: Optional[str] = None
@@ -133,12 +147,25 @@ class PrintModeSink:
         self._num_turns = 0
         self._saw_any_message = False
 
-    def consume(self, event_iter: Iterator[ev.Event]) -> int:
+    def consume(self, event_iter: Iterator[ev.Event], *, finish: bool = True) -> Optional[int]:
         """Safe to call again on the SAME sink for a later turn
         (`--input-format stream-json`, reusing one sink for the whole
         run): `_had_error`/`_error_message` reset here so a prior turn's
         failure never leaks into a later, otherwise-successful turn's
-        result."""
+        result.
+
+        H9 whole-tree review finding 9: `finish=False` drains `event_iter`
+        into this sink's own pending state WITHOUT printing anything or
+        returning an exit code (returns None) -- used by headless.py's
+        single-turn `-p` path so it can drain any still-running background
+        job (folding each completion notice into the SAME pending result
+        via `add_background_notice`) BEFORE the one and only `finish()`
+        call for the whole process. Calling `finish()` once per `consume()`
+        (the old, still-default behaviour) used to mean a background
+        notice drained via a SECOND `consume()` call printed a WHOLE EXTRA
+        JSON result object (`json.loads(stdout)` on the real caller's side
+        raised "Extra data") and overwrote a failed real turn's exit code
+        with the notice's own always-successful one."""
         self._had_error = False
         self._error_message = None
         self._budget_exceeded = False
@@ -147,7 +174,20 @@ class PrintModeSink:
             if self._budget_exceeded:
                 event_iter.close()
                 break
-        return self.finish()
+        return self.finish() if finish else None
+
+    def add_background_notice(self, text: str) -> None:
+        """H9 whole-tree review finding 9: a background job's completion
+        notice becomes part of THIS sink's one eventual result object
+        instead of triggering a brand new `consume()`/`finish()` cycle.
+        Kept OUT of `_final_text`/`structured_output` -- a `--json-schema`
+        caller re-parses `_final_text` as JSON, and a stray notice string
+        appended to it would break that re-parse -- surfaced as its own
+        `background_notices` list in the JSON result object instead, and
+        appended as extra plain text after the real answer for `text`
+        format (the only format with no separate-field concept to put it
+        in)."""
+        self._background_notices.append(text)
 
     def _flush_pending_as_intermediate(self) -> None:
         """A message just ended WITHOUT being the turn's last one (another
@@ -254,6 +294,12 @@ class PrintModeSink:
                 if not self._final_text.endswith("\n"):
                     self.stream.write("\n")
                 self.stream.flush()
+            for notice in self._background_notices:
+                self.stream.write(("\n" if notice.startswith("\n") else "\n\n") + notice)
+                if not notice.endswith("\n"):
+                    self.stream.write("\n")
+            if self._background_notices:
+                self.stream.flush()
         else:
             if self._budget_exceeded:
                 subtype = "error_max_budget_usd"
@@ -273,6 +319,7 @@ class PrintModeSink:
                 subtype=subtype,
                 permission_denials=self._permission_denials,
                 structured_output=_try_structured_output(self._final_text, self.json_schema),
+                background_notices=self._background_notices,
             )
             # write to self.stream (defaults to sys.stdout, same as a bare
             # print() would have -- but this way a caller that passed its
@@ -334,6 +381,9 @@ class StreamJsonSink:
         self._error_message: Optional[str] = None
         self._budget_exceeded = False
         self._initted = False
+        # H9 whole-tree review finding 9: same role as PrintModeSink's own
+        # field -- see its docstring.
+        self._background_notices: list = []
 
     def _write(self, obj: dict) -> None:
         self.stream.write(json_module.dumps(obj) + "\n")
@@ -449,14 +499,18 @@ class StreamJsonSink:
                 self._final_text = think_tag_strip("".join(buf["text"]))
             self._flush_pending(agent_id)
 
-    def consume(self, event_iter: Iterator[ev.Event]) -> int:
+    def consume(self, event_iter: Iterator[ev.Event], *, finish: bool = True) -> Optional[int]:
         """Emits `init` only the first time (see `emit_init`), then drains
         `event_iter` for exactly one turn and prints its `result` line --
         safe to call again on the SAME sink for a later turn
         (`--input-format stream-json`): per-turn flags reset here so a
         prior turn's error/budget state never leaks into a later turn's
         otherwise-successful result, while `_usage`/`_num_turns` (session-
-        cumulative) intentionally carry over."""
+        cumulative) intentionally carry over.
+
+        H9 whole-tree review finding 9: `finish=False` -- see
+        PrintModeSink.consume's own docstring; the SAME bug applied here
+        (an extra, unsolicited `result` line with no matching user turn)."""
         self.emit_init()
         self._had_error = False
         self._error_message = None
@@ -466,7 +520,13 @@ class StreamJsonSink:
             if self._budget_exceeded:
                 event_iter.close()
                 break
-        return self.finish()
+        return self.finish() if finish else None
+
+    def add_background_notice(self, text: str) -> None:
+        """H9 whole-tree review finding 9: see PrintModeSink's own
+        docstring -- folded into the one `result` line's own
+        `background_notices` field, never a `result` line of its own."""
+        self._background_notices.append(text)
 
     def finish(self) -> int:
         if self._budget_exceeded:
@@ -481,6 +541,7 @@ class StreamJsonSink:
             result_text=self._error_message if self._had_error else self._final_text,
             is_error=is_error, subtype=subtype, permission_denials=self._permission_denials,
             structured_output=_try_structured_output(self._final_text, self.json_schema),
+            background_notices=self._background_notices,
         )
         self._write(result)
         return 1 if is_error else 0

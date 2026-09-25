@@ -57,11 +57,27 @@ class TaskStopTool(Tool):
         # new interrupt machinery needed, just reaching the right Event.
         runtime = getattr(ctx, "agent_runtime", None)
         if runtime is not None:
+            # H9 whole-tree review finding 27 (task-map persistence half):
+            # a task_id from BEFORE a `-c` resume is only in `runtime.tasks`
+            # once this runs -- see its own docstring in agent/subagent.py.
+            from rolo_claude.agent.subagent import _hydrate_tasks_from_disk
+            _hydrate_tasks_from_disk(runtime)
             with runtime.lock:
                 task = runtime.tasks.get(job_id)
             if task is not None:
                 abort_event = task.get("abort_event")
                 if abort_event is None:
+                    if task.get("reconstructed") and task.get("was_background"):
+                        # H9 finding 27: this WAS a background task, but its
+                        # `_bg_run` thread lived in a process that has since
+                        # exited (a `-c` resume reconstructed this entry from
+                        # disk) -- unlike a live foreground task, there is no
+                        # process left for the user's Esc/Ctrl+C to reach
+                        # either, so "nothing to stop" is the honest answer.
+                        return ToolResult(
+                            f"Task {job_id!r} was a background sub-agent from a previous run -- the process "
+                            f"that owned it has already exited, so it is not running and there is nothing to "
+                            f"stop.", is_error=True)
                     return ToolResult(
                         f"Task {job_id!r} is a FOREGROUND sub-agent -- it shares the main session's own "
                         f"abort and is stopped by the user's own Esc/Ctrl+C, not TaskStop.", is_error=True)

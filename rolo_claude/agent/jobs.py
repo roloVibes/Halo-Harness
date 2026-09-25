@@ -38,7 +38,6 @@ import subprocess
 import threading
 import time
 import uuid
-from pathlib import Path
 from typing import Optional
 
 from rolo_claude.tools._proc import _CappedCollector, _kill_process_group
@@ -157,6 +156,17 @@ class JobRegistry:
         job_id = self._new_id()
         record = JobRecord(job_id=job_id, command=command, description=description, cwd=str(cwd),
                             started_at=time.time(), proc=proc, collector=collector, origin="timeout", nonce=nonce)
+        # H9 whole-tree review finding 30: the foreground Bash call's own
+        # timeout tool_result ALREADY delivered everything `collector` has
+        # captured so far (the same text `run_streamed`'s own `collector.
+        # result()` return value is built from, moments after this call
+        # returns) -- `read_offset` defaulting to 0 (JobRecord's own
+        # dataclass default) made the FIRST BashOutput poll on this job
+        # repeat that entire already-seen text. `total_len` is read here,
+        # BEFORE the new drain thread (started below) can append anything
+        # further to it, so this is exactly "how much was already
+        # delivered" with no race of its own.
+        record.read_offset = collector.total_len
         with self.lock:
             self.jobs[job_id] = record
         threading.Thread(target=self._drain_and_finalize, args=(record, q),
@@ -230,6 +240,18 @@ class JobRegistry:
             record.proc.wait(timeout=2.0 if kill_deadline is not None else 10.0)
         except Exception:
             pass
+        # NEW (H9 post-acceptance): same fix as tools/_proc.py's own
+        # run_streamed -- `proc.stdout` is a real TextIOWrapper that
+        # subprocess.Popen never closes on its own just because the child
+        # exited (a real `ResourceWarning`, verified, for both an ordinary
+        # background job and a foreground-timeout handoff -- both land
+        # here). Closed on its OWN daemon thread, never this one -- see
+        # tools/_proc.py's `_close_stream_async` for why closing inline can
+        # block (the same Windows kill race), which here would delay this
+        # job's own completion notice rather than a tool call's return, but
+        # is just as avoidable.
+        from rolo_claude.tools._proc import _close_stream_async
+        _close_stream_async(record.proc.stdout)
         with record.lock:
             if record.status == "running":
                 record.status = "completed"
@@ -358,14 +380,34 @@ class JobRegistry:
 
     def kill_all(self) -> None:
         """Brief A: "jobs killed on quit" -- called from Controller.quit()
-        and headless.py's run_print_mode `finally`, never from mid-session
-        interrupt/steer handling (Esc only cuts the CURRENT foreground
-        step; a background job surviving that is the whole point of it)."""
+        and headless.py's run_print_mode `finally` (now also `atexit`-
+        registered there, finding 3's own safety net), never from mid-
+        session interrupt/steer handling (Esc only cuts the CURRENT
+        foreground step; a background job surviving that is the whole
+        point of it)."""
         for job_id in list(self.jobs):
             try:
                 self.kill(job_id)
             except Exception:
                 pass
+        # NEW (H9 post-acceptance): a job's `_CappedCollector` spill file
+        # (`rolo-claude-proc-*.log`, written once its output exceeds the
+        # 300k-char in-memory cap) was never deleted anywhere -- verified,
+        # one leaked per such job, forever, in the OS temp dir ("/tmp/
+        # rolo*" left behind by real test/session runs). Can't delete it
+        # any EARLIER than session end (BashOutput/a Read of it is exactly
+        # how a model recovers output past the cap while the job might
+        # still be running or only just finished), so this -- the one
+        # point every session teardown path already reaches -- is where
+        # it happens instead.
+        for record in self.jobs.values():
+            collector = record.collector
+            spill_path = collector.spill_path if collector is not None else None
+            if spill_path is not None:
+                try:
+                    spill_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     def list_jobs(self) -> list:
         """`[{id, description, command, status, started_at}, ...]`,

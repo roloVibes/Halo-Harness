@@ -39,7 +39,7 @@ from typing import Iterator, Optional
 from rolo_claude.providers.config import dump_debug, estimate_tokens
 from rolo_claude.providers.databricks import databricks_unreachable_response, dbx_cache_get_max_tokens_limit
 from rolo_claude.providers.errors import (
-    build_prompt_too_long_message, map_upstream_error, parse_context_overflow,
+    map_upstream_error, parse_context_overflow,
     parse_databricks_rate_limit, upstream_error_text,
 )
 from rolo_claude.providers.http import UpstreamConnectError, call_anthropic_native, call_databricks_chat, call_openai_chat

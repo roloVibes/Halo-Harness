@@ -25,7 +25,7 @@ import threading
 import time
 from typing import Optional
 
-from rolo_claude.providers.errors import classify_error_category, parse_context_overflow
+from rolo_claude.providers.errors import classify_error_category
 
 log = logging.getLogger("bridge")
 

@@ -277,8 +277,13 @@ def _run_ripgrep_backend(pattern, base, *, ignore_case, glob_pattern, file_type,
     try:
         proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8",
                                errors="replace", timeout=60)
-    except (OSError, subprocess.SubprocessError):
-        raise _RipgrepUnavailable()
+    except (OSError, subprocess.SubprocessError) as e:
+        # ruff B904: chain the real cause -- _RipgrepUnavailable is a
+        # control-flow signal (the caller falls back to the pure-Python
+        # backend), but if it ever DOES escape unhandled, __cause__ having
+        # the real "why ripgrep couldn't run" is strictly more useful than
+        # a bare, disconnected traceback.
+        raise _RipgrepUnavailable() from e
     if proc.returncode not in (0, 1):  # 1 == "no matches", not a failure
         raise _RipgrepUnavailable()
     per_file = _parse_rg_line_output(proc.stdout)

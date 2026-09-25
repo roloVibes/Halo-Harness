@@ -19,7 +19,7 @@ from typing import Optional
 
 from rolo_claude.providers.hooks import host_allowlist, reasoning_echo, system_normalize
 from rolo_claude.providers.profiles import ProviderProfile, map_effort
-from rolo_claude.providers.routing import anthropic_tool_to_openai, map_tool_choice, sanitize_tool_schema
+from rolo_claude.providers.routing import anthropic_tool_to_openai, map_tool_choice
 from rolo_claude.providers.translate import _flatten_messages
 
 log = logging.getLogger("bridge")

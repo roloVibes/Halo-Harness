@@ -22,9 +22,14 @@ import struct
 from pathlib import Path
 from typing import Optional
 
-# Anthropic's own documented image limits (long edge auto-resized above
-# this; OpenCode adopts the same numbers for its own attachment rule).
+# Anthropic's own documented image limits: the API auto-resizes anything
+# over MAX_IMAGE_DIM itself (crossing it is server-side work, not a
+# rejection) but genuinely rejects an image over MAX_IMAGE_HARD_DIM (8000px
+# long edge) or MAX_IMAGE_BYTES outright -- H9 whole-tree review finding 19:
+# those two are the real gate for whether to omit at all; MAX_IMAGE_DIM is
+# only ever the RESIZE TARGET once Pillow is actually doing one (below).
 MAX_IMAGE_DIM = 1568
+MAX_IMAGE_HARD_DIM = 8000
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 IMAGE_EXTENSIONS = {
@@ -37,8 +42,31 @@ OMITTED_NOTE = "[Image omitted: could not be resized below the image size limit.
 
 def is_image_path(path: Path) -> Optional[str]:
     """The media type for `path`'s extension, or None if it isn't one of
-    the image extensions this tool speaks at all (case-insensitive)."""
+    the image extensions this tool speaks at all (case-insensitive) -- a
+    gate on whether to treat `path` as an image AT ALL, never the wire
+    `media_type` a caller should actually send (see `sniff_media_type`,
+    which reads the real bytes: finding 19's own verified case sent a PNG
+    saved as `shot.jpg` to the API labeled `image/jpeg`, which the
+    Anthropic API rejects outright since the declared type must match the
+    real content)."""
     return IMAGE_EXTENSIONS.get(path.suffix.lower())
+
+
+def sniff_media_type(data: bytes) -> Optional[str]:
+    """The REAL media type from `data`'s own magic bytes, or None if none
+    of the 4 formats this module speaks is recognized (caller falls back
+    to the extension-based guess from `is_image_path` in that case -- e.g.
+    a plain lossy/lossless WEBP bitstream with no VP8X header, which this
+    module's own dimension sniffer also doesn't parse)."""
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 def _png_dimensions(data: bytes) -> Optional["tuple[int, int]"]:
@@ -144,16 +172,26 @@ def _try_pillow_resize(data: bytes, media_type: str) -> Optional[bytes]:
 
 
 def image_block_or_note(data: bytes, media_type: str) -> "tuple[Optional[dict], Optional[str]]":
-    """`(image_block, note)` -- exactly one is non-None. Applies OpenCode's
-    own rule: resize/downscale to fit `MAX_IMAGE_DIM`/`MAX_IMAGE_BYTES`
-    when possible (Pillow installed), else omit with its exact note text
-    ("[N image(s) omitted: could not be resized below the image size
-    limit.]" -- singular note text here, the caller pluralizes/counts when
-    combining several)."""
+    """`(image_block, note)` -- exactly one is non-None. Resize/downscale
+    to fit `MAX_IMAGE_DIM`/`MAX_IMAGE_BYTES` when possible (Pillow
+    installed) and actually NEEDED (below); omit with OpenCode's own exact
+    note text ("[N image(s) omitted: could not be resized below the image
+    size limit.]" -- singular note text here, the caller pluralizes/counts
+    when combining several) only when it's genuinely over a HARD limit and
+    can't be shrunk.
+
+    H9 whole-tree review finding 19: the omit-without-Pillow gate used to
+    trigger at `MAX_IMAGE_DIM` (1568px) -- Anthropic's own SOFT/auto-resize
+    threshold, crossing it is server-side work for the API, not a
+    rejection -- so a plain, well-under-5MB 1920x1080 screenshot was
+    omitted outright on the default (no Pillow) install for no real reason.
+    Only the two HARD limits (`MAX_IMAGE_BYTES`, `MAX_IMAGE_HARD_DIM`) gate
+    omission now; anything between the soft and hard dimension thresholds
+    is sent through unresized and the real API downsizes it itself."""
     dims = sniff_dimensions(data)
-    over_dim = bool(dims and max(dims) > MAX_IMAGE_DIM)
+    over_hard_dim = bool(dims and max(dims) > MAX_IMAGE_HARD_DIM)
     over_bytes = len(data) > MAX_IMAGE_BYTES
-    if over_dim or over_bytes:
+    if over_hard_dim or over_bytes:
         resized = _try_pillow_resize(data, media_type)
         if resized is not None:
             data = resized

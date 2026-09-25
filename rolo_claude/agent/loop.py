@@ -53,7 +53,7 @@ from rolo_claude.agent.invariants import repair_truncated_text, synthesize_missi
 from rolo_claude.agent.log import SessionLog
 from rolo_claude.agent.prune import PRUNE_PROTECT_TOKENS, PRUNE_REBALANCE_CHUNK_TOKENS, compute_stub_candidates, prune_messages
 from rolo_claude.agent.repair import repair_assistant_turn
-from rolo_claude.hooks import HookRunner, build_prompt_caller, load_plugin_hooks, merge_hook_maps, normalize_hooks
+from rolo_claude.hooks import HookRunner
 from rolo_claude.model import CostMeter, ModelProfile, ModelRef, parse_model_ref, resolve_model_profile
 from rolo_claude.permissions import Decision, PermissionEngine
 from rolo_claude.providers.errors import (
@@ -543,7 +543,7 @@ class Session:
         hook_runner: Optional[HookRunner] = None,
         agents: Optional[dict] = None, routes: Optional[dict] = None, agent_depth: int = 0,
         agent_type_restriction: Optional[set] = None, abort: Optional[threading.Event] = None,
-        agent_id: Optional[str] = None,
+        agent_id: Optional[str] = None, job_registry: Optional[JobRegistry] = None,
     ):
         # H9: identifies THIS session as a particular sub-agent (passed by
         # `agent/subagent.py`'s `_build_child_session`; the parent/main
@@ -774,7 +774,30 @@ class Session:
         # rule, kept in a SEPARATE list so a bash job's completion is never
         # confused with a sub-agent's in the log) -- see
         # `_apply_pending_job_notices`.
-        self.job_registry = JobRegistry(parent=self)
+        #
+        # H9 whole-tree review finding 3: `job_registry=` lets a caller
+        # (agent/subagent.py's `_build_child_session`) hand a CHILD session
+        # the SAME registry instance the parent already owns, instead of
+        # every sub-agent silently building its own private one. Before
+        # this, a background Bash job started inside a sub-agent was
+        # invisible to the parent's own `kill_all()` (Controller.quit(),
+        # `-p`'s own `finally`) -- verified on WSL: a sub-agent's own
+        # `sleep 301 &` outlived a normal `-p` exit entirely -- AND its
+        # completion notice was pushed onto the CHILD Session's own
+        # `_pending_job_notices`, which nothing ever drains once
+        # `run_agent_call` returns and the child object is discarded (a
+        # foreground child runs exactly one turn; a background child's
+        # thread exits once `_bg_run` returns). Sharing the registry fixes
+        # both at once: `kill_all()` on either session's `self.job_registry`
+        # now reaches every job either one ever started (MAX_DEPTH=1 means
+        # there is only ever one level of child, so no further propagation
+        # is needed), and `JobRegistry.parent` (fixed at construction, to
+        # whichever Session builds a FRESH one -- always the true top-level
+        # session, since every child now passes one in) means a job a child
+        # starts reports its completion notice to the PARENT's own
+        # `_pending_job_notices`, where the parent's NEXT turn actually
+        # applies it -- the only session that outlives the child's own turn.
+        self.job_registry = job_registry if job_registry is not None else JobRegistry(parent=self)
         self._pending_job_notices: list = []
         self._job_notices_lock = threading.Lock()
         # H5b finding 2: tool_result pruning's "outside the 40k-token
@@ -796,6 +819,15 @@ class Session:
         self._pending_plan_id: Optional[str] = None
 
         self.log = session_log or SessionLog(cwd)
+        # H9 whole-tree review finding 21: this session's own tool-results
+        # spill directory is only knowable once `self.log` exists (the
+        # permission engine is normally built and handed in BEFORE that) --
+        # see PermissionEngine.tool_results_dir's own docstring. Every
+        # Session gets one, including a bare `Session()` in a unit test
+        # that never set up a real PermissionEngine (the default one built
+        # two lines above this in `__init__` still benefits).
+        if self.permission_engine is not None:
+            self.permission_engine.tool_results_dir = self.log.dir / self.log.session_id / "tool-results"
         existing_nodes = self.log.nodes()
         if not existing_nodes:
             # finding 4: when a SessionCatalog exists, `.names` (not
@@ -857,6 +889,29 @@ class Session:
                     "(tool registry or config changed since the original run) -- keeping the LOGGED text"
                 )
             synthesize_missing_results(self.log, reason="ABORTED_BEFORE_DISPATCH")
+            # H9 whole-tree review finding 28: rebuild the prune-commit set
+            # from the log's own `prune_commit` marker nodes (see
+            # `append_prune_commit`'s docstring and `_pruned_messages_for_
+            # wire`'s own commit site) -- without this, a resumed process's
+            # `self._prune_committed_stub_ids` (set to `set()` a few lines
+            # up in this SAME `__init__`, before `self.log` even existed)
+            # stayed empty forever, silently sending a LARGER wire prefix
+            # (every previously-stubbed tool_result back at full size) than
+            # what the model actually saw pre-restart. Unions EVERY
+            # `prune_commit` node ever logged, including ones from before a
+            # LATER `/clear`/compaction (which resets the live set to empty
+            # via `_reset_prune_state` -- itself never logged, deliberately:
+            # see its own docstring) -- reconstructing a few now-irrelevant
+            # ids this way is harmless, not a correctness bug: `prune_
+            # messages` only stubs an id it finds an ACTUAL tool_result
+            # block for, so an id that no longer appears post-compaction is
+            # silently a no-op, the exact same tolerance this file's own
+            # pending-batch pruning already relies on a few lines above.
+            for _node in existing_nodes:
+                if _node.get("type") == "prune_commit":
+                    ids = _node.get("stub_ids")
+                    if isinstance(ids, list):
+                        self._prune_committed_stub_ids |= {i for i in ids if isinstance(i, str)}
             self._fire_session_start("resume")
 
     def _fire_session_start(self, source: str) -> None:
@@ -891,7 +946,22 @@ class Session:
         # other hook subprocesses); the Bash tool's OWN per-call sourcing
         # (tools/bash.py, via `ctx.env_file`) never depends on this at all.
         from rolo_claude.hooks import env_file_path, read_env_file_exports
-        exports = read_env_file_exports(env_file_path(self.log.session_id))
+        # H9 whole-tree review finding 5: `base_env=self.tool_env` -- the
+        # ALREADY tool_child_env()-stripped env (no provider secret keys) --
+        # not `read_env_file_exports`'s own default (the harness's raw,
+        # UNSTRIPPED `os.environ`, which DOES still carry
+        # OPENROUTER_API_KEY/DATABRICKS_TOKEN/... since that's what this
+        # process was started with). That default fed TWO things: (a) the
+        # actual subprocess env the `. "$file"` sourcing shell runs with,
+        # and (b) the "what changed" diff baseline. A hook itself always
+        # sees the stripped env (HookRunner already uses tool_child_env),
+        # but a LINE that hook writes into $CLAUDE_ENV_FILE is not run by
+        # the hook -- it's run by THIS sourcing call, later -- so a hook
+        # that appends e.g. `echo "$OPENROUTER_API_KEY" > f` (a real key
+        # reference, invisible to the hook process itself) had that `$VAR`
+        # expand against the raw env right here, writing the ACTUAL secret
+        # to disk. Verified on WSL.
+        exports = read_env_file_exports(env_file_path(self.log.session_id), base_env=self.tool_env)
         if exports:
             self.tool_env = {**self.tool_env, **exports}
 
@@ -1042,6 +1112,13 @@ class Session:
             if tool_use_id not in candidates:
                 del self._prune_pending_stub_tokens[tool_use_id]
         if sum(self._prune_pending_stub_tokens.values()) >= PRUNE_REBALANCE_CHUNK_TOKENS:
+            # H9 whole-tree review finding 28: log the commit BEFORE
+            # clearing pending, so a resumed process can rebuild
+            # `self._prune_committed_stub_ids` from the log alone -- see
+            # `append_prune_commit`'s own docstring. Only the just-added
+            # batch (this call's own `_prune_pending_stub_tokens`) is
+            # logged, never the whole running set.
+            self.log.append_prune_commit(list(self._prune_pending_stub_tokens))
             self._prune_committed_stub_ids |= set(self._prune_pending_stub_tokens)
             self._prune_pending_stub_tokens = {}
         return prune_messages(raw_messages, protect_tokens=PRUNE_PROTECT_TOKENS,
@@ -1573,12 +1650,25 @@ class Session:
             result = call_databricks_count_tokens(
                 self.creds.base_url, self.creds.api_key, body, self.extra_headers or {}, self.state_dir,
             )
-            if result.status != 200 or result.resp is None:
-                return None
-            raw = result.resp.read()
-            parsed = json.loads(raw.decode("utf-8", "replace"))
-            count = parsed.get("input_tokens")
-            return count if isinstance(count, int) else None
+            try:
+                if result.status != 200 or result.resp is None:
+                    return None
+                raw = result.resp.read()
+                parsed = json.loads(raw.decode("utf-8", "replace"))
+                count = parsed.get("input_tokens")
+                return count if isinstance(count, int) else None
+            finally:
+                # NEW (H9 post-acceptance): this is a one-shot call (read
+                # the whole response, done) -- `result.conn` was never
+                # closed on ANY path out of this function (success, a
+                # non-200 status, or an unparseable body), leaking one
+                # socket per compaction-gate check until GC (a real
+                # ResourceWarning, verified).
+                try:
+                    if result.conn is not None:
+                        result.conn.close()
+                except Exception:
+                    pass
         except Exception:
             return None
 
@@ -1913,7 +2003,7 @@ class Session:
         tail = select_verbatim_tail(raw_messages, tail_retention_tokens(usable))
 
         self.log.append_compacted(trigger=trigger, custom_instructions=custom_instructions)
-        self.log.append_user([{"type": "text", "text": wrapped}])
+        self.log.append_user([{"type": "text", "text": wrapped}], kind="compaction_summary")
 
         # finding 18: re-inject EVERY session-start snapshot kind, not just
         # CLAUDE.md/memory/files-read -- environment and the deferred-tool-
@@ -1957,7 +2047,7 @@ class Session:
 
         for msg in tail:
             if msg.get("role") == "user":
-                self.log.append_user(msg.get("content") or [])
+                self.log.append_user(msg.get("content") or [], kind="compaction_tail")
             elif msg.get("role") == "assistant":
                 # H5c finding 16: a thinking block's signature is bound to
                 # the EXACT prefix that preceded it when the model produced
@@ -2081,10 +2171,41 @@ class Session:
             # steer can be accepted after this drain already ran. `run()`
             # resubmits whatever's left as the NEXT `user_input`, right
             # after this call returns.
-            with self._steer_lock:
-                self._leftover_steer_texts.extend(self._steer_queue)
-                self._steer_queue = []
-                self._busy.clear()
+            #
+            # H9 whole-tree review finding 17: `_end_busy_period` ALSO
+            # drains `_pending_worker_writes` now -- see its own docstring
+            # for the bug this closes (a write queued too late for any of
+            # `_apply_pending_steers_events`'s own safe points inside
+            # `_turn_body` used to sit stranded here until the NEXT turn's
+            # first safe point, applied only after that next turn's own
+            # first model reply had already been derived without it).
+            self._end_busy_period()
+
+    def _end_busy_period(self) -> None:
+        """Shared by `turn()`'s own `finally` and `_pump_compaction`/
+        `_pump_clear` below (H9 whole-tree review finding 17: a manual
+        `/compact`/`/clear` never set `_busy` at all, so `queue_log_write`
+        -- called from the UI thread for a live `@mention`/`!cmd` typed
+        during either -- saw `_busy.is_set()` False and wrote STRAIGHT INTO
+        `self.log`, racing the worker thread's own concurrent compaction/
+        clear writes; verified: an `@notes.txt` snapshot written during a
+        manual `/compact` landed in the log BEFORE the `compacted` marker,
+        staying invisible to the model for that exact compaction call).
+        Atomically: leftover steers stashed for `run()` to resubmit,
+        `_pending_worker_writes` popped, `_busy` cleared -- all under
+        `_steer_lock`, matching `steer()`'s own busy-check+enqueue so
+        nothing can be accepted into either queue after this point without
+        this method seeing it first. The popped writes are then applied
+        OUTSIDE the lock (log writes are independently thread-safe --
+        `SessionLog._append` has its own lock -- so there's no reason to
+        hold `_steer_lock` any longer than the pop itself needs)."""
+        with self._steer_lock:
+            self._leftover_steer_texts.extend(self._steer_queue)
+            self._steer_queue = []
+            pending_writes, self._pending_worker_writes = self._pending_worker_writes, []
+            self._busy.clear()
+        for kind, payload in pending_writes:
+            self._apply_log_write(kind, payload)
 
     def _turn_body(self, turn_no: int) -> Iterator[events.Event]:
         # finding 9: `--max-turns` counts MODEL CALLS made WITHIN this one
@@ -2304,7 +2425,7 @@ class Session:
                         # D-CFG: stderr/reason becomes a user-role message
                         # and the loop continues.
                         continuation = stop_outcome.block_reason or "Please continue."
-                        self.log.append_user([{"type": "text", "text": continuation}])
+                        self.log.append_user([{"type": "text", "text": continuation}], kind="continuation")
                         yield events.user_message(continuation, turn=turn_no)
                         continue
                 yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no, context_tokens=prompt_tokens,
@@ -2877,7 +2998,7 @@ class Session:
         with self._agent_notices_lock:
             notices, self._pending_agent_notices = self._pending_agent_notices, []
         for text in notices:
-            self.log.append_user([{"type": "text", "text": text}])
+            self.log.append_user([{"type": "text", "text": text}], kind="agent_notice")
             yield events.user_message(text, turn=turn_no)
             yield events.notification(f"Sub-agent finished: {text.splitlines()[0]}")
 
@@ -2891,7 +3012,7 @@ class Session:
         with self._job_notices_lock:
             notices, self._pending_job_notices = self._pending_job_notices, []
         for text in notices:
-            self.log.append_user([{"type": "text", "text": text}])
+            self.log.append_user([{"type": "text", "text": text}], kind="job_notice")
             yield events.user_message(text, turn=turn_no)
             yield events.notification(f"Background job finished: {text.splitlines()[0]}")
 
@@ -3150,10 +3271,18 @@ class Session:
             result that needs to spill doesn't collide/silently skip."""
             calls = [(it["name"], it["input"], it["tool_id"]) for it in pending_batch]
             results = run_read_only_batch(self.tool_registry, calls, ctx)
-            for it, tr in zip(pending_batch, results):
+            # ruff B905: `results` is one ToolResult per `calls` entry, by
+            # construction (run_read_only_batch's own contract) -- strict=
+            # True turns any future violation of that into a loud crash
+            # instead of a silently-truncated/misaligned result set.
+            for it, tr in zip(pending_batch, results, strict=True):
                 it["result"] = tr
 
-        for i, (tu, outcome) in enumerate(zip(tool_use_blocks, repair_outcomes)):
+        # ruff B905: repair_assistant_turn appends exactly one outcome per
+        # input block, always (see its own docstring/loop) -- strict=True
+        # documents that invariant instead of silently tolerating a future
+        # mismatch.
+        for i, (tu, outcome) in enumerate(zip(tool_use_blocks, repair_outcomes, strict=True)):
             if self.abort.is_set():
                 # review finding 2: nothing FURTHER starts once
                 # interrupted -- a call already dispatched (solo, or
@@ -3629,7 +3758,7 @@ class Session:
                 yield events.notification(f"Steer dropped: {blocked_reason}", level="error")
                 yield events.steer_applied(text, turn=turn_no)
                 continue
-            self.log.append_user([{"type": "text", "text": text}])
+            self.log.append_user([{"type": "text", "text": text}], kind="steer")
             yield events.user_message(text, turn=turn_no)
             yield events.steer_applied(text, turn=turn_no)
             applied_any = True
@@ -3660,28 +3789,46 @@ class Session:
         summarisation call. `_run_compaction`'s own `compaction` events
         stream through `out` exactly like any turn event, so the TUI's new
         `compaction` handler (tui/dispatch.py) can render a live
-        "Compacting..." indicator instead of the screen just hanging."""
+        "Compacting..." indicator instead of the screen just hanging.
+
+        H9 whole-tree review finding 17: `_busy` set/cleared around this
+        exactly like `turn()` sets it around itself -- a manual `/compact`
+        never set it at all before, so a live `@mention`/`!cmd` typed on
+        the UI thread while this ran took `queue_log_write`'s "not busy"
+        branch and wrote straight into `self.log`, racing this method's own
+        concurrent compaction writes on the worker thread (verified: an
+        `@notes.txt` snapshot landed in the log BEFORE the `compacted`
+        marker, invisible to the model for that exact call)."""
         self.abort.clear()
+        self._busy.set()
         try:
             for event in self._run_compaction(self.turn_count, trigger="manual", custom_instructions=instructions):
                 out(event)
         except BaseException as e:  # never let a worker thread die silently, the UI would just hang
             log.exception("manual /compact failed")
             out(events.compaction(phase="failed", trigger="manual", reason=f"{type(e).__name__}: {e}"))
+        finally:
+            self._end_busy_period()
 
     def _pump_clear(self, out) -> None:
         """U5 must-do: `/clear` runs on the worker thread too, same
         reasoning as `_pump_compaction` -- `SessionStart`/`SessionEnd`
         hooks are arbitrary user scripts and must never block the UI
         thread. Emits a `status` (fresh idle state, new session_id) so the
-        TUI immediately reflects the new log."""
+        TUI immediately reflects the new log.
+
+        H9 whole-tree review finding 17: `_busy` set/cleared around this
+        too -- same race, same fix, see `_pump_compaction`'s own comment."""
         self.abort.clear()
+        self._busy.set()
         try:
             self.clear()
             out(self.status_event(phase="idle"))
         except BaseException as e:  # never let a worker thread die silently, the UI would just hang
             log.exception("/clear failed")
             out(events.notification(f"/clear failed: {type(e).__name__}: {e}", level="error"))
+        finally:
+            self._end_busy_period()
 
     def run(self, commands, out, *, mcp_status_fn=None) -> int:
         """The worker-thread command pump (D-Contract): consume `Command`s

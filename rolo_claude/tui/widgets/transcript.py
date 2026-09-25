@@ -9,7 +9,6 @@ card widgets from `cards.py`/`diffview.py` (mounted through the same
 
 from __future__ import annotations
 
-from typing import Optional
 
 from textual.containers import VerticalScroll
 from textual.reactive import reactive
@@ -116,16 +115,30 @@ class Transcript(VerticalScroll):
     """The scrolling history pane. Every mounted child (plain text, cards,
     diff views) goes through `_mount_tracked` so folding (D-TUI/U5: "old
     turns folded after 300 widgets") counts them all uniformly; streamed
-    text/thinking blocks are additionally keyed by `(turn, message_seq,
-    kind, index)` so `agent/loop.py`'s per-content-block `index` (which
-    repeats across separate model calls within one turn) never collides
-    across messages."""
+    text/thinking blocks are additionally keyed by `(agent_id, turn,
+    message_seq, kind, index)` so `agent/loop.py`'s per-content-block
+    `index` (which repeats across separate model calls within one turn)
+    never collides across messages.
+
+    H9 whole-tree review finding 11: `agent_id` (None for the main
+    session, a sub-agent's own id for a child) is now part of every one of
+    those keys -- before this, TWO PARALLEL children (which share the
+    PARENT's own turn NUMBER -- a child is never "turn 1 of the parent's
+    turn 1", it's simply turn 1 of its OWN, entirely separate Session)
+    streamed their text deltas into the exact SAME `AssistantText` widget
+    as each other and as the parent (verified via a Textual pilot: two
+    children's deltas interleaved into one widget, "childA-0 childB-0
+    childA-1 …"). Every child's own streamed block now gets the
+    `assistant-text-child`/`thinking-block-child` CSS class and a small
+    `[sub-agent <id>] ` prefix on its first delta, so it reads as its own
+    distinct, grouped block instead of silently merging into the main
+    session's own transcript flow."""
 
     def __init__(self, **kwargs) -> None:
         super().__init__(id="transcript", **kwargs)
         self._history: "list" = []  # every tracked widget, oldest first
-        self._blocks: dict = {}  # (turn, seq, kind, index) -> AssistantText|ThinkingBlock
-        self._message_seq: dict = {}  # turn -> current message sequence number
+        self._blocks: dict = {}  # (agent_id, turn, seq, kind, index) -> AssistantText|ThinkingBlock
+        self._message_seq: dict = {}  # (agent_id, turn) -> current message sequence number
         self.tool_cards: dict = {}  # tool_use_id -> ToolCard
         self.new_since_scroll = 0
         self.folded_count = 0
@@ -221,30 +234,45 @@ class Transcript(VerticalScroll):
             target = max(behind, key=lambda w: w.region.y) if behind else marks[-1]
         self.scroll_to_widget(target, animate=False)
 
-    def begin_message(self, turn: int) -> int:
+    def begin_message(self, turn: int, agent_id: "str | None" = None) -> int:
         """Call once per `message_start` -- returns this message's sequence
-        number within `turn` (used to key its text/thinking blocks)."""
-        seq = self._message_seq.get(turn, 0) + 1
-        self._message_seq[turn] = seq
+        number within `(agent_id, turn)` (used to key its text/thinking
+        blocks). `agent_id=None` is the main session; a sub-agent's own
+        turn numbering is entirely independent (finding 11), so the SAME
+        `(agent_id, turn)` pair is what actually disambiguates it, not
+        `turn` alone."""
+        mkey = (agent_id, turn)
+        seq = self._message_seq.get(mkey, 0) + 1
+        self._message_seq[mkey] = seq
         return seq
 
-    async def append_text(self, turn: int, index: int, text: str) -> None:
-        seq = self._message_seq.get(turn, 1)
-        key = (turn, seq, "text", index)
+    async def append_text(self, turn: int, index: int, text: str, agent_id: "str | None" = None) -> None:
+        seq = self._message_seq.get((agent_id, turn), 1)
+        key = (agent_id, turn, seq, "text", index)
         widget = self._blocks.get(key)
         if widget is None:
             widget = AssistantText()
+            if agent_id is not None:
+                # finding 11: "render children in their own grouped
+                # block" -- a distinct CSS class plus a one-time prefix on
+                # this block's very first delta, so a child's own text
+                # reads as clearly its own rather than silently blending
+                # into the main session's transcript flow.
+                widget.add_class("assistant-text-child")
+                text = f"[sub-agent {agent_id}] " + text
             await self._mount_tracked(widget)
             widget.start_stream()
             self._blocks[key] = widget
         await widget.append_delta(text)
 
-    async def append_thinking(self, turn: int, index: int, text: str) -> None:
-        seq = self._message_seq.get(turn, 1)
-        key = (turn, seq, "thinking", index)
+    async def append_thinking(self, turn: int, index: int, text: str, agent_id: "str | None" = None) -> None:
+        seq = self._message_seq.get((agent_id, turn), 1)
+        key = (agent_id, turn, seq, "thinking", index)
         widget = self._blocks.get(key)
         if widget is None:
             widget = ThinkingBlock()
+            if agent_id is not None:
+                widget.add_class("thinking-block-child")
             # review/U5 must-do: a ThinkingBlock renders ABOVE this
             # message's answer text regardless of event ARRIVAL order --
             # OpenAI-dialect reasoning can stream its text delta before
@@ -254,31 +282,40 @@ class Transcript(VerticalScroll):
             # SAME message already exists, mount right before it;
             # otherwise (the common, correctly-ordered case) this is
             # exactly the old behaviour.
-            await self._mount_tracked(widget, before=self._first_text_widget_for(turn, seq))
+            await self._mount_tracked(widget, before=self._first_text_widget_for(agent_id, turn, seq))
             self._blocks[key] = widget
         widget.append(text)
 
-    def _first_text_widget_for(self, turn: int, seq: int):
-        for (t, s, kind, _idx), widget in self._blocks.items():
-            if t == turn and s == seq and kind == "text":
+    def _first_text_widget_for(self, agent_id: "str | None", turn: int, seq: int):
+        for (a, t, s, kind, _idx), widget in self._blocks.items():
+            if a == agent_id and t == turn and s == seq and kind == "text":
                 return widget
         return None
 
-    async def finish_open_streams(self) -> None:
-        """Stop every still-open `AssistantText` stream (called on
-        `turn_done`/`message_end` boundaries, and on interrupt, so a
-        `MarkdownStream` never leaks a running asyncio task past its
-        widget's useful life) and harvest its final text into `plain_log`.
-        Safe to call more than once per message (idempotent via `_blocks`
-        being fully cleared here)."""
-        for widget in self._blocks.values():
+    async def finish_open_streams(self, agent_id: "str | None" = None) -> None:
+        """Stop every still-open `AssistantText` stream BELONGING TO
+        `agent_id` (called on `turn_done`/`message_end` boundaries, and on
+        interrupt, so a `MarkdownStream` never leaks a running asyncio task
+        past its widget's useful life) and harvest its final text into
+        `plain_log`. Safe to call more than once per message (idempotent --
+        each finished key is popped as it's handled).
+
+        finding 11: scoped to ONE `agent_id` -- before this, a CHILD's own
+        `message_end`/`turn_done` closed EVERY open stream, including the
+        PARENT's own still-streaming answer (verified: a child's
+        `message_end` set the status bar to idle while the parent was
+        still actively generating) -- the parent's turn_done fires this
+        with `agent_id=None`, and each child's own fires it with that
+        child's id, never touching each other's still-open blocks."""
+        done_keys = [k for k in self._blocks if k[0] == agent_id]
+        for key in done_keys:
+            widget = self._blocks.pop(key)
             if isinstance(widget, AssistantText):
                 await widget.finish()
                 if widget.raw_text.strip():
                     self.plain_log.append(widget.raw_text)
             elif isinstance(widget, ThinkingBlock) and widget.text.strip():
                 self.plain_log.append(f"[thinking] {widget.text}")
-        self._blocks = {}
 
     # ---- tool cards (mounted by app.py, tracked here for folding) --------
 

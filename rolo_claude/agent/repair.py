@@ -22,10 +22,10 @@ from __future__ import annotations
 import difflib
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
-from rolo_claude.providers.hooks import args_repair, leak_parser
+from rolo_claude.providers.hooks import leak_parser
 
 # ---------------------------------------------------------------------------
 # 1. Unknown tool name normalization + difflib rename.

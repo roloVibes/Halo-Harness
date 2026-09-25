@@ -10,7 +10,7 @@ import stat
 from pathlib import Path
 
 from rolo_claude.tools.base import Tool, ToolContext, ToolResult
-from rolo_claude.tools.imageutil import image_block_or_note, is_image_path
+from rolo_claude.tools.imageutil import image_block_or_note, is_image_path, sniff_media_type
 
 DESCRIPTION = (
     "Reads a file from the local filesystem. You can access any file directly by using this tool.\n"
@@ -80,6 +80,16 @@ class ReadTool(Tool):
             data = path.read_bytes()
         except OSError as e:
             return ToolResult(f"Error reading file: {e}", is_error=True)
+        # H9 whole-tree review finding 19: the media type sent on the wire
+        # comes from the REAL bytes now, not the file extension (`shot.jpg`
+        # holding PNG bytes used to be sent as image/jpeg, which the
+        # Anthropic API rejects since the declared type must match the
+        # actual content) -- falls back to the extension-based `media_type`
+        # already passed in when the format can't be sniffed (e.g. a plain
+        # WEBP bitstream this module's sniffer doesn't recognize).
+        sniffed = sniff_media_type(data)
+        if sniffed is not None:
+            media_type = sniffed
         if isinstance(getattr(ctx, "read_cache", None), dict):
             try:
                 ctx.read_cache[str(path)] = path.stat().st_mtime
@@ -162,15 +172,33 @@ class ReadTool(Tool):
             if len(line) > _MAX_LINE_CHARS:
                 line = line[:_MAX_LINE_CHARS] + f"... [line truncated at {_MAX_LINE_CHARS} chars]"
             numbered.append(f"{i + offset + 1:6d}\t{line}")
-        body = "\n".join(numbered) if numbered else "(file is empty)"
 
-        size_truncated = len(body) > _MAX_RESULT_CHARS
-        if size_truncated:
-            body = body[:_MAX_RESULT_CHARS]
+        # H9 whole-tree review finding 18: the OLD `body[:_MAX_RESULT_CHARS]`
+        # cut the JOINED text at a raw character count, which can (and,
+        # verified, did) fall mid-line -- and the "pass offset=" hint used
+        # `len(selected)` (every line read before this cap was ever
+        # applied), overstating how much the model actually saw ("about
+        # line 1,218" showed, hint said "offset=2000", skipping 782 real
+        # lines). Truncate on a LINE boundary instead, and compute the
+        # hint from how many lines actually made it into `body`.
+        included = numbered
+        size_truncated = False
+        if numbered:
+            running = 0
+            kept = []
+            for line in numbered:
+                addition = len(line) + 1  # +1 for the "\n" joining it
+                if kept and running + addition > _MAX_RESULT_CHARS:
+                    size_truncated = True
+                    break
+                running += addition
+                kept.append(line)
+            included = kept
+        body = "\n".join(included) if included else "(file is empty)"
 
         hints = []
-        if has_more:
-            hints.append(f"pass offset={offset + len(selected)} to continue")
+        if has_more or size_truncated:
+            hints.append(f"pass offset={offset + len(included)} to continue")
         if size_truncated:
             hints.append(f"result truncated at ~{_MAX_RESULT_CHARS // 4} tokens; use a smaller limit")
         if hints:

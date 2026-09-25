@@ -220,14 +220,47 @@ def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict]
     # H8 scope C: the vendored fallback tier -- consulted only once neither
     # a live/cached probe NOR an explicit routes.json profile had anything,
     # so it can never override a real probe or a user's own override.
+    #
+    # H9 whole-tree review finding 22: for `databricks`, this is now a
+    # THREE-step chain, not one lookup -- verified: the vendored package
+    # fallback's 30 rows included none of the plan's own work-default
+    # models (`databricks-deepseek-v4-1-flash`, `-kimi-k3`, `-glm-5-3`),
+    # so all three silently fell all the way through to the bare 128k/16k
+    # dataclass guess, triggering auto-compaction at ~90k tokens instead of
+    # the real ~773k these models actually support.
     if ref.provider == "databricks":
-        from rolo_claude.providers.models_dev import load_vendored_databricks_fallback
-        vendored = load_vendored_databricks_fallback().get(ref.model)
+        from rolo_claude.providers.models_dev import (
+            databricks_entries_from_full_models_dev, load_models_dev_json, load_vendored_databricks_fallback,
+        )
+        # (a) the REFRESHED cache `rolo-claude models --refresh` wrote to
+        # <state_dir>/models-dev.json -- fresher than the committed
+        # vendored file, and (finding 22) never actually read by anything
+        # until now (`load_models_dev_json` had no caller at all).
+        refreshed_entry = databricks_entries_from_full_models_dev(load_models_dev_json(state_dir)).get(ref.model)
+        vendored = refreshed_entry or load_vendored_databricks_fallback().get(ref.model)
         if vendored:
             profile = _profile_from_vendored_databricks_entry(vendored)
             if ref.dialect == "anthropic-passthrough" and profile.reasoning == "none":
                 profile = ModelProfile(**{**profile.__dict__, "reasoning": "native"})
             return profile
+        # (b) model_table.json's own per-model row -- built for REQUEST
+        # SHAPING (providers/profiles.py's ProviderProfile), not economics,
+        # but it DOES already carry a real, hand-verified `context_tokens`/
+        # `max_tokens_default` for every one of this harness's own pinned
+        # work-default models (e.g. 1,048,576 for all three named above) --
+        # a far better answer than the bare dataclass guess below, even
+        # though it can't supply pricing/vision.
+        from rolo_claude.providers.profiles import load_model_table
+        table_entry = (load_model_table().get("databricks") or {}).get(ref.model)
+        if isinstance(table_entry, dict) and isinstance(table_entry.get("context_tokens"), int):
+            reasoning = "native" if ref.dialect == "anthropic-passthrough" else (
+                "native" if table_entry.get("reasoning_effort_supported") else "none")
+            return ModelProfile(
+                context_tokens=table_entry["context_tokens"],
+                max_output_tokens=table_entry.get("max_tokens_cap") or table_entry.get("max_tokens_default")
+                or 16384,
+                reasoning=reasoning,
+            )
     elif ref.provider == "openrouter":
         from rolo_claude.providers.models_dev import load_vendored_openrouter_fallback
         vendored_entry = load_vendored_openrouter_fallback().get(ref.model)
@@ -321,3 +354,23 @@ class CostMeter:
             return fallback
         self.has_cost_data = False
         return None
+
+    def add_child_total(self, *, cost_usd: Optional[float], has_cost_data: bool, turns: int = 0) -> None:
+        """H9 whole-tree review finding 13: rolls a sub-agent's ALREADY-
+        COMPUTED cost total into this (the PARENT's) meter -- adds the
+        child's own dollar figure directly rather than re-deriving it via
+        `add_usage(provider, usage)`, which would price it against THIS
+        meter's own `price_in`/`price_out` (the PARENT's model) even
+        though a sub-agent may run an entirely different, differently-
+        priced model (`Task(model=...)`/an AgentSpec's own `model:`
+        frontmatter) -- re-deriving would silently mis-price every such
+        child's spend. `has_cost_data` is ANDed (never OR'd): once any
+        part of the session's total spend -- parent or any child -- is
+        unknown (e.g. a Databricks child, which never reports cost),
+        the COMBINED total is honestly unknown too, not a silent
+        under-count presented as a complete figure."""
+        self.turns += turns
+        if cost_usd is not None:
+            self.total_usd += cost_usd
+        if not has_cost_data:
+            self.has_cost_data = False
