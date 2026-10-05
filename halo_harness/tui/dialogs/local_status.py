@@ -20,6 +20,7 @@ a real terminal) -- it names the one-line CLI command to run instead.
 
 from __future__ import annotations
 
+from textual._context import NoActiveAppError
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
@@ -109,12 +110,24 @@ class LocalStatus(ModalScreen):
             return
         self.app.run_worker(self._refresh_worker, thread=True, name="local-refresh", group="local-refresh")
 
+    def _deliver(self, fn, *args) -> None:
+        """Hand a thread worker's result to the UI thread. A dialog dismissed
+        (or an app already exiting) while the refresh was still running has no
+        active app for the worker's thread any more: the result is simply
+        dropped instead of NoActiveAppError/RuntimeError escaping the worker
+        (seen as a flaky WorkerFailed in the first-paint pilot test on the
+        build host, 2.0.3 tag run)."""
+        try:
+            self.app.call_from_thread(fn, *args)
+        except (NoActiveAppError, RuntimeError):
+            return
+
     def _refresh_worker(self) -> None:
         try:
             fresh = self._refresh()
         except Exception:
             fresh = self.rows
-        self.app.call_from_thread(self._apply_refresh, fresh)
+        self._deliver(self._apply_refresh, fresh)
 
     def _apply_refresh(self, rows: list) -> None:
         self.rows = rows
@@ -132,7 +145,7 @@ class LocalStatus(ModalScreen):
         from halo_harness.providers.local_use import resolve_local_file
         entry = resolve_local_file(model)
         if entry is None:
-            self.app.call_from_thread(self._apply_serve_result, False,
+            self._deliver(self._apply_serve_result, False,
                                        [f"no file-backed model found at or named {model!r}"])
             return
         from halo_harness.providers.local_runtime import find_runtime_binary, runtime_for_format
@@ -141,13 +154,13 @@ class LocalStatus(ModalScreen):
             # Round 5c: the download-consent flow is deliberately a
             # single-surface decision (a real terminal) -- see this
             # module's own docstring.
-            self.app.call_from_thread(self._apply_serve_result, False,
+            self._deliver(self._apply_serve_result, False,
                                        [f"{runtime} isn't installed yet -- run `halo local serve {model}` in a "
                                         f"terminal, which will offer to fetch it."])
             return
         from halo_harness.providers.local_use import serve_local_model
         ok, lines = serve_local_model(model, confirm=lambda _q: False)
-        self.app.call_from_thread(self._apply_serve_result, ok, lines)
+        self._deliver(self._apply_serve_result, ok, lines)
 
     def _apply_serve_result(self, ok: bool, lines: list) -> None:
         text = "\n".join(lines)

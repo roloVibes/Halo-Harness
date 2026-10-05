@@ -821,6 +821,11 @@ pass, and the release tag are still to come.
   no cap anywhere unless `--max-turns N` is passed (a non-positive value
   also means no cap). The identical-call breaker and the cost/context
   meters remain the runaway guards.
+- **`/ollama` and `/local` refresh results arriving after the dialog is gone
+  are dropped, never raised**: a refresh worker whose dialog was dismissed
+  (or whose app was already exiting) used to raise NoActiveAppError out of
+  the worker; both dialogs now hand results to the UI thread through a
+  guard that ignores that case.
 
 ## [2.0.2] - 2026-10-04
 
