@@ -60,12 +60,19 @@ def test_format_ollama_throughput_one_figure_only(ctx: Ctx):
 # ---- events.status's three new fields --------------------------------
 
 @test
-def test_events_status_ollama_fields_default_to_none(ctx: Ctx):
+def test_events_status_ollama_fields_absent_unless_passed(ctx: Ctx):
+    # Release review C10 (fix pass C-2): the three ollama_* keys ride on a
+    # status event only when the producer passes a reading, because the
+    # status bar treats key PRESENCE as "a reading" (an always-present None
+    # cleared the throughput chip on every idle status). An explicit None
+    # still clears, which is the deliberate "switched away from Ollama" case.
     from halo_harness import events
     ev = events.status(phase="idle")
-    ctx.check("ollama_tokens_per_second defaults to None", ev.data["ollama_tokens_per_second"] is None)
-    ctx.check("ollama_prefill_seconds defaults to None", ev.data["ollama_prefill_seconds"] is None)
-    ctx.check("ollama_offloaded defaults to None", ev.data["ollama_offloaded"] is None)
+    ctx.check("no ollama_* keys when nothing was passed",
+              not any(k in ev.data for k in ("ollama_tokens_per_second", "ollama_prefill_seconds", "ollama_offloaded")))
+    ev2 = events.status(phase="idle", ollama_tokens_per_second=None)
+    ctx.check("an explicit None is still carried (clears the chip)",
+              "ollama_tokens_per_second" in ev2.data and ev2.data["ollama_tokens_per_second"] is None)
 
 
 @test
