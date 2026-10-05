@@ -11,8 +11,25 @@ accounting, not independently re-derived this round" -- the `/ollama`
 panel's own help text repeats this origin note; see
 `providers.ollama_panel.KV_FORMULA_ORIGIN_NOTE`):
 
+    bytes/tok = block_count * head_count_kv * (key_length + value_length) * bytes_per_elem
+
+using the model's own `<arch>.attention.key_length`/`value_length` (GGUF
+and `/api/show` both carry these for most current architectures; a
+transformers `config.json`'s explicit `head_dim`, when present, is
+surfaced under the same two keys -- see `gguf_header.gguf_model_info`/
+`safetensors_config.safetensors_model_info`). Review fix pass (finding
+3): those two keys were NEVER read before this round, which fell back
+unconditionally to the approximation below for every model --
+
     head_dim  = embedding_length / head_count
     bytes/tok = 2 * block_count * head_count_kv * head_dim * bytes_per_elem
+
+-- still `kv_bytes_per_token`'s fallback when `key_length`/`value_length`
+are unavailable, but no longer the only path: for an architecture whose
+real head_dim isn't `hidden_size / head_count` (several current GQA
+models, confirmed this round), the approximation silently undercounts the
+KV cache, which makes the fit estimate it feeds up to 2x too LARGE --
+the opposite of "conservative".
 
 `bytes_per_elem` defaults to 2.0 (f16 KV cache) -- Ollama's own KV-cache
 quantization (`OLLAMA_KV_CACHE_TYPE`) is a server-wide flag this round
@@ -192,22 +209,41 @@ def _model_info_value(model_info: dict, suffix: str) -> Optional[float]:
 
 def kv_bytes_per_token(model_info: dict, *, bytes_per_elem: float = KV_BYTES_PER_ELEM_F16) -> Optional[float]:
     """The KV-cache bytes/token figure (module docstring) from an already-
-    fetched `/api/show` `model_info` dict -- `None` when any of the four
-    fields it needs is missing (an older/unusual model, or a catalog row
-    that hasn't been `/api/show`n yet). `head_count` (total attention
-    heads, for `head_dim`) falls back to `head_count_kv` when `model_info`
-    has no separate total-head-count key at all -- an approximation for a
-    GQA model (noted here, not hidden): `head_dim` comes out larger than
-    the model's real one, which makes this function's OWN estimate MORE
-    conservative (a bigger bytes/token figure), never less."""
+    fetched `/api/show` `model_info` dict -- `None` when `block_count`/
+    `head_count_kv` is missing, or (only on the fallback path below) when
+    neither the exact nor the approximate per-head size can be computed
+    (an older/unusual model, or a catalog row that hasn't been `/api/
+    show`n yet).
+
+    Review fix pass (finding 3): `.attention.key_length`/`value_length`
+    (the model's own exact per-head K/V element counts) are used whenever
+    BOTH are present -- this is the real figure, not an approximation, so
+    it wins regardless of what the fallback inputs below would compute.
+    Only when either is missing does this fall back to the previous
+    round's approximation, `head_dim = embedding_length / head_count`
+    (`head_count`, total attention heads, falls back to `head_count_kv`
+    when `model_info` has no separate total-head-count key at all -- an
+    approximation for a GQA model, noted here, not hidden: `head_dim`
+    comes out larger than the model's real one there, which makes the
+    FALLBACK estimate more conservative, never less -- but the exact
+    `key_length`/`value_length` path above is preferred precisely because
+    this fallback is not always conservative enough, see the module
+    docstring)."""
     block_count = _model_info_value(model_info, ".block_count")
     head_count_kv = _model_info_value(model_info, ".attention.head_count_kv")
-    embedding_length = _model_info_value(model_info, ".embedding_length")
-    head_count = _model_info_value(model_info, ".attention.head_count") or head_count_kv
-    if not block_count or not head_count_kv or not embedding_length or not head_count:
+    if not block_count or not head_count_kv:
         return None
-    head_dim = embedding_length / head_count
-    return 2.0 * block_count * head_count_kv * head_dim * bytes_per_elem
+    key_length = _model_info_value(model_info, ".attention.key_length")
+    value_length = _model_info_value(model_info, ".attention.value_length")
+    if key_length and value_length:
+        per_head_elems = key_length + value_length
+    else:
+        embedding_length = _model_info_value(model_info, ".embedding_length")
+        head_count = _model_info_value(model_info, ".attention.head_count") or head_count_kv
+        if not embedding_length or not head_count:
+            return None
+        per_head_elems = 2.0 * (embedding_length / head_count)
+    return block_count * head_count_kv * per_head_elems * bytes_per_elem
 
 
 def _power_of_two_floor(n: int) -> int:

@@ -190,7 +190,25 @@ def serve_local_model(model: str, *, runtime: Optional[str] = None, port: Option
                           "(docs/harness/GPU-RESEARCH.md section 7); Halo does not fetch it this round.")
     if binary is None:
         return False, lines
-    context_length = fit.fit_estimate if isinstance(fit.fit_estimate, int) else fit.trained_context
+    # Review fix pass (finding 3): `-c` used to pass the bare fit estimate
+    # (or trained_context when there was no usable fit estimate) straight
+    # through, capped by neither the model's own trained context nor the
+    # 131072 hard cap -- a small model on a roomy card could get a window
+    # several times its training length (a multi-GB KV cache for nothing),
+    # and `fit_estimate`'s own power-of-two rounding can occasionally land
+    # above either bound too.
+    from halo_harness.providers.ollama import HARD_CONTEXT_CAP
+    chosen = fit.fit_estimate if isinstance(fit.fit_estimate, int) else fit.trained_context
+    if isinstance(chosen, int) and chosen > 0:
+        bounds = [v for v in (fit.trained_context, HARD_CONTEXT_CAP) if isinstance(v, int) and v > 0]
+        context_length = min([chosen] + bounds)
+    else:
+        # Neither a usable fit estimate nor a known trained context --
+        # unchanged from before this fix pass: `-c` is omitted entirely
+        # (llama_server_argv's own documented "load from the model"
+        # default) rather than fabricating a window out of the hard cap
+        # alone.
+        context_length = None
     model_id = model_id_for_path(entry.path, entry.format)
     result, reason = start_managed_server(model=model_id, runtime=chosen_runtime, binary_argv=binary,
                                            model_path=entry.path, context_length=context_length, port=port,

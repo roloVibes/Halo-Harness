@@ -137,7 +137,18 @@ def test_build_request_body_sends_num_ctx_every_request_even_unknown_trained_con
     body2 = build_ollama_request_body(system_text="s", messages=[{"role": "user", "content": "hi"}],
                                        tools=None, tool_choice=None, route=route, profile=profile,
                                        effort=None, host=host, trained_context=40960)
-    ctx.check("num_ctx reflects a known trained context", body2["options"]["num_ctx"] == 40960)
+    # Review fix pass (finding 5): a trained context ALONE, with nothing
+    # else known about THIS host's hardware (no host.max_ctx, no live fit
+    # estimate, no learned cap, `remote` left at its default False), no
+    # longer wins outright -- knowing how far a model was trained says
+    # nothing about whether this machine can actually hold that much KV
+    # cache. It still competes in the SAME min() as everything else
+    # (tests/test_ollama_precedence_5b.py pins a smaller host.max_ctx
+    # still winning over it); here, with nothing else known at all, the
+    # conservative default (32768) wins instead of the bare trained
+    # context.
+    ctx.check("a known trained context alone no longer wins over the conservative default",
+              body2["options"]["num_ctx"] == 32768)
 
 
 @test
@@ -236,7 +247,13 @@ def test_wire_num_ctx_keep_alive_think_actually_sent(ctx: Ctx):
         ctx.check("got a normal message_start..message_stop stream",
                   events[0]["type"] == "message_start" and events[-1]["type"] == "message_stop")
         req_body = mock.requests[-1]["body"]
-        ctx.check(f"num_ctx on the wire, got {req_body.get('options')}", req_body["options"]["num_ctx"] == 40960)
+        # Review fix pass (finding 5): `_ollama_completion_request`'s
+        # shared fixture sets trained_context=40960 but nothing else
+        # (no host.max_ctx, no live fit estimate, no learned cap) -- a
+        # local host with nothing else known now gets the conservative
+        # default (32768), not the bare trained context (see tests/
+        # test_ollama_precedence_5b.py for the full rule).
+        ctx.check(f"num_ctx on the wire, got {req_body.get('options')}", req_body["options"]["num_ctx"] == 32768)
         ctx.check(f"no keep_alive on the wire for an unconfigured host, got {req_body.get('keep_alive')!r}",
                   "keep_alive" not in req_body)
         ctx.check(f"think on the wire for high effort, got {req_body.get('think')!r}", req_body["think"] is True)
@@ -414,13 +431,20 @@ def test_thinking_accumulated_for_display_never_replayed(ctx: Ctx):
 
 @test
 def test_compute_num_ctx_clamps_to_minimum_of_every_candidate(ctx: Ctx):
-    from halo_harness.providers.ollama import FALLBACK_NUM_CTX, HARD_CONTEXT_CAP, compute_num_ctx
+    from halo_harness.providers.ollama import FALLBACK_NUM_CTX, REMOTE_UNKNOWN_DEFAULT_NUM_CTX, compute_num_ctx
     ctx.check("nothing known -> the documented fallback", compute_num_ctx(None, None, None) == FALLBACK_NUM_CTX)
     ctx.check("trained context wins when smallest", compute_num_ctx(16384, 32768, None) == 16384)
     ctx.check("host.max_ctx override wins when smallest", compute_num_ctx(131072, 32768, None) == 32768)
     ctx.check("a fit estimate wins when smallest", compute_num_ctx(131072, 65536, 8000) == 8000)
-    ctx.check("never exceeds the hard cap regardless of a huge trained context",
-              compute_num_ctx(1_000_000, None, None) == HARD_CONTEXT_CAP)
+    # Review fix pass (finding 5): a local host with NOTHING known (no
+    # host.max_ctx, no fit estimate) gets the same conservative default
+    # a remote host with nothing known gets -- never the bare hard cap
+    # just because a huge trained context happens to be known. See
+    # tests/test_ollama_precedence_5b.py for the full local/remote/
+    # cpu_only/recorded_does_not_fit matrix this one-liner is a sentinel
+    # for.
+    ctx.check("never exceeds the hard cap regardless of a huge trained context -- the conservative "
+              "default wins first", compute_num_ctx(1_000_000, None, None) == REMOTE_UNKNOWN_DEFAULT_NUM_CTX)
 
 
 @test
@@ -554,6 +578,102 @@ def test_context_overflow_400_with_no_ceiling_known_raises_immediately(ctx: Ctx)
             pass
         chats = [r for r in mock.requests if r["path"].rstrip("/") == "/api/chat"]
         ctx.check(f"exactly ONE attempt, got {len(chats)}", len(chats) == 1)
+
+
+# ---- review fix pass finding 4: the retry ceiling's missing bounds --------
+
+@test
+def test_overflow_retry_ceiling_never_exceeds_remote_unknown_default(ctx: Ctx):
+    """A remote host with NOTHING else known must cap the retry ceiling
+    at the conservative remote default (32768), never the bare hard cap
+    (131072) -- the exact partial-offload regression the LAN-host MUST-
+    FIX removed from the INITIAL num_ctx decision, now also closed on the
+    retry path. `trained_context` is given (131072, the review's own
+    worked example) and deliberately NOT None -- an unknown trained
+    context triggers the SEPARATE "fallback" rule regardless of remote,
+    which would otherwise confound what this test means to isolate."""
+    from halo_harness.providers.ollama import REMOTE_UNKNOWN_DEFAULT_NUM_CTX, ollama_overflow_retry_ceiling
+    ceiling = ollama_overflow_retry_ceiling(trained_context=131072, host_max_ctx=None, fit_estimate=None,
+                                             learned_cap=None, remote=True)
+    ctx.check(f"capped at the remote default, got {ceiling}", ceiling == REMOTE_UNKNOWN_DEFAULT_NUM_CTX)
+
+
+@test
+def test_overflow_retry_ceiling_never_exceeds_weights_do_not_fit_fallback(ctx: Ctx):
+    """A model whose own WEIGHTS don't fit must cap the retry ceiling at
+    the conservative fallback, never a bare fit_estimate/hard cap that
+    would hand it a multi-GB KV allocation it has no VRAM headroom for."""
+    from halo_harness.providers.ollama_fit import WEIGHTS_DO_NOT_FIT
+    from halo_harness.providers.ollama import FALLBACK_NUM_CTX, ollama_overflow_retry_ceiling
+    ceiling = ollama_overflow_retry_ceiling(trained_context=131072, host_max_ctx=None,
+                                             fit_estimate=WEIGHTS_DO_NOT_FIT, learned_cap=None, remote=False)
+    ctx.check(f"capped at the fallback, got {ceiling}", ceiling == FALLBACK_NUM_CTX)
+
+
+@test
+def test_overflow_retry_ceiling_never_exceeds_trained_context(ctx: Ctx):
+    """The review's own worked example: a model trained at 8192 with a
+    fit estimate of 65536 must never retry past 8192 -- a live fit
+    estimate reflects available VRAM, never how far the model was
+    actually trained, and generating past the trained context is a
+    correctness problem a bigger KV cache can't fix."""
+    from halo_harness.providers.ollama import ollama_overflow_retry_ceiling
+    ceiling = ollama_overflow_retry_ceiling(trained_context=8192, host_max_ctx=None, fit_estimate=65536,
+                                             learned_cap=None, remote=False)
+    ctx.check(f"capped at the trained context, got {ceiling}", ceiling == 8192)
+
+
+@test
+def test_remember_and_lookup_ollama_retry_num_ctx_round_trip(ctx: Ctx):
+    """Pure round trip of the new store itself -- `agent/loop.py`'s
+    `_build_ollama_body_for_ref` is what CONSUMES a remembered value on a
+    later turn (pinned at that layer, tests/test_ollama_calibrate_step_
+    up_5b2.py::test_build_ollama_body_for_ref_folds_in_a_remembered_
+    retry -- this file never builds a full Session)."""
+    from halo_harness.providers.ollama import (lookup_remembered_ollama_retry_num_ctx,
+                                                 remember_ollama_retry_num_ctx, reset_remembered_ollama_retries)
+    reset_remembered_ollama_retries()
+    ctx.check("nothing remembered yet", lookup_remembered_ollama_retry_num_ctx("http://h", "m") is None)
+    remember_ollama_retry_num_ctx("http://h", "m", 65536)
+    ctx.check("remembered value comes back", lookup_remembered_ollama_retry_num_ctx("http://h", "m") == 65536)
+    ctx.check("a different model on the same host is unaffected",
+              lookup_remembered_ollama_retry_num_ctx("http://h", "other") is None)
+    remember_ollama_retry_num_ctx("http://h", "m2", -1)
+    ctx.check("a non-positive value is silently ignored, never recorded",
+              lookup_remembered_ollama_retry_num_ctx("http://h", "m2") is None)
+
+
+@test
+def test_stream_ollama_completion_remembers_a_successful_retry(ctx: Ctx):
+    """Review fix pass (finding 4), the WRITE side of "remember a
+    successful retry for the rest of the session": `_run_phase1_ollama`
+    must record the bigger num_ctx via `providers.ollama.remember_ollama_
+    retry_num_ctx` the moment a retry succeeds, keyed by the exact
+    `(host base_url, wire model string)` `agent/loop.py` will look back
+    up with."""
+    from halo_harness.providers.ollama import lookup_remembered_ollama_retry_num_ctx, reset_remembered_ollama_retries
+    from tests.helpers.mock_ollama import MockUpstream, ScriptedByCallCount, send_json
+    from halo_harness.providers.stream import stream_ollama_completion
+    reset_remembered_ollama_retries()
+
+    def _overflow_400(h, body):
+        send_json(h, 400, {"error": {"code": 400, "message": "nope", "type": "exceed_context_size_error",
+                                       "n_prompt_tokens": 100000, "n_ctx": 40960}})
+
+    with MockUpstream() as mock:
+        mock.scenarios["remember-me"] = ScriptedByCallCount([
+            _overflow_400,
+            [{"message": {"role": "assistant", "content": "ok"}, "done": True, "done_reason": "stop",
+              "prompt_eval_count": 100000, "eval_count": 2}],
+        ])
+        req = _ollama_completion_request_overflow(mock, "remember-me", ceiling=131072)
+        list(stream_ollama_completion(req))
+        chats = [r for r in mock.requests if r["path"].rstrip("/") == "/api/chat"]
+        ctx.check(f"the overflow-then-retry dance ran, got {len(chats)} attempts", len(chats) == 2)
+        retried_ctx = (chats[1]["body"].get("options") or {}).get("num_ctx")
+        remembered = lookup_remembered_ollama_retry_num_ctx(mock.base_url, "remember-me")
+        ctx.check(f"the successful retry's num_ctx ({retried_ctx}) was remembered, got {remembered}",
+                  remembered == retried_ctx and isinstance(remembered, int))
 
 
 if __name__ == "__main__":

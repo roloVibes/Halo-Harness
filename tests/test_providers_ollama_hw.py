@@ -148,16 +148,23 @@ def test_remote_loaded_context_as_fit_estimate(ctx: Ctx):
 def test_compute_num_ctx_weights_do_not_fit_uses_conservative_fallback_not_hard_cap(ctx: Ctx):
     """Round 3 fix pass pin: a 27B model's trained context (262144) must
     no longer let the 131072 hard cap win when its own weights are known
-    not to fit -- 8192 (the conservative fallback) wins instead."""
-    from halo_harness.providers.ollama import compute_num_ctx
+    not to fit -- the conservative fallback wins instead (16384 as of
+    the review fix pass's finding 4; see FALLBACK_NUM_CTX's own
+    docstring)."""
+    from halo_harness.providers.ollama import FALLBACK_NUM_CTX, REMOTE_UNKNOWN_DEFAULT_NUM_CTX, compute_num_ctx
     from halo_harness.providers.ollama_fit import WEIGHTS_DO_NOT_FIT
     got = compute_num_ctx(262144, None, WEIGHTS_DO_NOT_FIT)
-    ctx.check(f"falls back to 8192, not the 131072 hard cap, got {got}", got == 8192)
+    ctx.check(f"falls back to {FALLBACK_NUM_CTX}, not the 131072 hard cap, got {got}", got == FALLBACK_NUM_CTX)
     got_override = compute_num_ctx(262144, 4096, WEIGHTS_DO_NOT_FIT)
     ctx.check(f"an explicit smaller host_max_ctx still wins over the fallback, got {got_override}",
               got_override == 4096)
+    # Review fix pass (finding 5): plain None on a LOCAL host ("nothing
+    # known") is no longer "the hard cap still stands" -- it now gets the
+    # SAME conservative default a remote host with nothing known gets
+    # (tests/test_ollama_precedence_5b.py has the full matrix).
     got_unknown = compute_num_ctx(262144, None, None)
-    ctx.check(f"plain None is UNCHANGED -- the hard cap still stands, got {got_unknown}", got_unknown == 131072)
+    ctx.check(f"the conservative default wins now, not the bare hard cap, got {got_unknown}",
+              got_unknown == REMOTE_UNKNOWN_DEFAULT_NUM_CTX)
 
 
 # ---- estimate_fit_for_host: /api/ps consulted first (round 3 fix pass) --
@@ -316,6 +323,36 @@ def test_is_local_host_recognizes_loopback_only(ctx: Ctx):
 
 
 @test
+def test_is_ollama_cloud_host_keys_on_ollama_dot_com_or_an_api_key(ctx: Ctx):
+    """Review fix pass (finding 7): the constrained-tool-calls gate must
+    key on "not Ollama Cloud", never on loopback -- a LAN `ollama.
+    hosts[]` entry (a real on-premise Ollama daemon, not Ollama's own
+    cloud) must NOT be classified as cloud, even though `is_local_host`
+    classifies it as "not local" (a completely separate, hardware-probe-
+    only question)."""
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_hw import is_ollama_cloud_host
+    ctx.check("ollama.com is cloud", is_ollama_cloud_host(OllamaHost(name="a", url="https://ollama.com")))
+    ctx.check("any host with an api_key is cloud",
+              is_ollama_cloud_host(OllamaHost(name="a", url="http://gpu-box.lan:11434", api_key="k")))
+    ctx.check("loopback with no api_key is NOT cloud",
+              not is_ollama_cloud_host(OllamaHost(name="a", url="http://127.0.0.1:11434")))
+    # The exact case finding 7 is about: a LAN host, no api_key -- is_
+    # local_host says "not local", but it is NOT Ollama's cloud either,
+    # so the constrained-decoding gate must still treat it as eligible.
+    lan_host = OllamaHost(name="lan", url="http://gpu-box.lan:11434")
+    ctx.check("a LAN host with no api_key is NOT cloud", not is_ollama_cloud_host(lan_host))
+    from halo_harness.providers.tool_call_schema import supports_constrained_tool_calls
+    ctx.check("...and so gets the constrained repair round, exactly like loopback does",
+              supports_constrained_tool_calls(provider="ollama", dialect="ollama",
+                                               local=not is_ollama_cloud_host(lan_host)) is True)
+    cloud_host = OllamaHost(name="cloud", url="https://ollama.com", api_key="k")
+    ctx.check("...while the real ollama.com cloud still does not",
+              supports_constrained_tool_calls(provider="ollama", dialect="ollama",
+                                               local=not is_ollama_cloud_host(cloud_host)) is False)
+
+
+@test
 def test_get_local_gpu_memory_cached_and_respects_no_background_net(ctx: Ctx):
     from halo_harness.providers import ollama_hw
     ollama_hw.reset_local_gpu_cache()
@@ -339,6 +376,61 @@ def test_get_local_gpu_memory_cached_and_respects_no_background_net(ctx: Ctx):
         else:
             os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old
         ollama_hw.reset_local_gpu_cache()
+
+
+# ---- review fix pass finding 5: resolve_context_decision's own wiring ----
+
+@test
+def test_resolve_context_decision_cpu_only_and_does_not_fit_both_conservative(ctx: Ctx):
+    """The full `resolve_context_decision` wiring, not just the pure
+    `resolve_num_ctx_and_source` function (tests/test_ollama_precedence_
+    5b.py has that matrix): a LOCAL host with NO GPU hardware detected AT
+    ALL (every vendor probe tool "not found") must report `cpu_only=True`
+    and land on the tightened 8192 default; a model with a RECORDED
+    does-not-fit calibration verdict (read back through `providers.
+    ollama_calibrate.has_recorded_does_not_fit`, on-disk, not just an
+    in-memory sentinel) must land on the fallback instead. `qwen3:30b`
+    is mock_ollama's own default fixture (trained context 40960)."""
+    from halo_harness.model import parse_model_ref
+    from halo_harness.providers.ollama import FALLBACK_NUM_CTX
+    from halo_harness.providers.ollama_calibrate import record_calibration
+    from halo_harness.providers.ollama_hw import reset_local_gpu_cache, resolve_context_decision
+    reset_local_gpu_cache()
+    mock = MockUpstream().start()
+    d = Path(tempfile.mkdtemp(prefix="ol-hw-cpuonly-"))
+    old_state_dir = os.environ.get("BRIDGE_STATE_DIR")
+    os.environ["BRIDGE_STATE_DIR"] = str(d)
+
+    def no_gpu_runner(argv, timeout):
+        return None  # every vendor probe tool "not found" -- simulates a genuinely CPU-only box
+
+    try:
+        ref = parse_model_ref("ol:qwen3:30b")
+        env = {"OLLAMA_HOST": mock.base_url}
+        decision = resolve_context_decision(ref, env, hw_runner=no_gpu_runner)
+        ctx.check(f"cpu_only detected (no GPU hardware at all), got {decision.cpu_only}", decision.cpu_only is True)
+        ctx.check(f"the tightened 8192 default wins, got {decision.num_ctx}", decision.num_ctx == 8192)
+        ctx.check(f"source names the conservative default, got {decision.source!r}",
+                  decision.source == "conservative default")
+
+        # A `digest=None` recording is never treated as a mismatch against
+        # any later digest check (same lenient guard `lookup_learned_cap`
+        # already has) -- simplest way to record a does-not-fit verdict
+        # here without first re-deriving the fixture's own real digest.
+        record_calibration(d, host_url=mock.base_url, model="qwen3:30b", digest=None,
+                            max_full_gpu_ctx=None, ollama_version=None)
+        decision2 = resolve_context_decision(ref, env, hw_runner=no_gpu_runner)
+        ctx.check(f"recorded_does_not_fit detected, got {decision2.recorded_does_not_fit}",
+                  decision2.recorded_does_not_fit is True)
+        ctx.check(f"routes to the fallback, got {decision2.num_ctx}", decision2.num_ctx == FALLBACK_NUM_CTX)
+        ctx.check(f"source names the fallback, got {decision2.source!r}", decision2.source == "fallback")
+    finally:
+        if old_state_dir is None:
+            os.environ.pop("BRIDGE_STATE_DIR", None)
+        else:
+            os.environ["BRIDGE_STATE_DIR"] = old_state_dir
+        reset_local_gpu_cache()
+        mock.stop()
 
 
 if __name__ == "__main__":

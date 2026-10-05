@@ -137,17 +137,23 @@ class CompletionRequest:
     # neither openai-chat nor Anthropic-passthrough, so it gets its own
     # field rather than overloading either existing one).
     prebuilt_ollama_body: Optional[dict] = None
-    # Halo 2.0.3 round 5c FIX PASS: the retry CEILING for `_run_phase1_
-    # ollama`'s own "the server said this prompt exceeds num_ctx" 400 --
-    # `min(learned_cap, host_max_ctx, fit_estimate, hard_cap)` for
-    # whichever of those four are known (the task's own exact candidate
-    # list -- NOT `trained_context`/the conservative fallback, since
-    # those are already reflected in `prebuilt_ollama_body["options"]
-    # ["num_ctx"]` and second-guessing either would risk asking for more
-    # context than the model was actually trained for). `agent/loop.py`'s
-    # `_build_ollama_body_for_ref` is the only populator; `None` (every
-    # non-ollama dialect, and any ollama caller that predates this fix)
-    # means "no bigger number ctx is known to be available" -- `_run_
+    # Halo 2.0.3 round 5c FIX PASS, corrected by the review fix pass
+    # (finding 4): the retry CEILING for `_run_phase1_ollama`'s own "the
+    # server said this prompt exceeds num_ctx" 400. Populated by `agent/
+    # loop.py`'s `_build_ollama_body_for_ref` via `providers.ollama.
+    # ollama_overflow_retry_ceiling` -- the EXACT SAME candidate set
+    # (hard cap, trained context, host max_ctx, fit estimate/learned cap,
+    # the remote-unknown default, the weights-do-not-fit/trained-unknown
+    # fallback) that decided `prebuilt_ollama_body["options"]["num_ctx"]`
+    # in the first place, so this can never license a retry past
+    # anything that decision already refused -- the ORIGINAL version of
+    # this field deliberately left `trained_context`/the fallback out,
+    # on the theory that including them risked exceeding them; that was
+    # backwards (see `ollama_overflow_retry_ceiling`'s own docstring) and
+    # is exactly what let a retry exceed the trained context, the
+    # weights-do-not-fit fallback, and the remote-unknown default. `None`
+    # (every non-ollama dialect, and any ollama caller that predates this
+    # fix) means "no bigger ctx is known to be available" -- `_run_
     # phase1_ollama` then raises the SAME plain `ContextOverflow` it
     # always did, straight to the existing compaction path.
     ollama_ctx_retry_ceiling: Optional[int] = None
@@ -876,32 +882,37 @@ def _ollama_overflow_info(status: int, err_obj) -> "Optional[dict]":
     return {"n_prompt_tokens": n_prompt_tokens, "n_ctx": n_ctx}
 
 
+# Review fix pass (finding 4): the retry used to size itself by the FULL
+# output budget (`options.num_predict`, or `profile["max_output_tokens"]`,
+# defaulting to 16384) -- the overflow being fixed is the PROMPT not
+# fitting, so demanding room for the entire reply too made the retry jump
+# much further than the one thing it actually needed to fix ("the retry
+# jumps at least to pow2ceil(prompt + 16384)"). A small fixed reserve is
+# enough headroom for the reply to actually start without immediately
+# overflowing again; the ordinary compaction/clamp machinery still governs
+# the REST of the turn exactly as it always has.
+_OLLAMA_RETRY_REPLY_RESERVE_TOKENS = 1024
+
+
 def _ollama_overflow_retry_num_ctx(req: CompletionRequest, body: dict, overflow: dict) -> "Optional[int]":
     """The bigger `num_ctx` to retry with, or `None` when no larger
     number is known to be available. Brief: "when the fit allows a
-    larger num_ctx (learned cap, host max_ctx, fit estimate, hard cap)
-    retry once with the smallest power of two that holds n_prompt_tokens
-    plus the max output budget" -- `req.ollama_ctx_retry_ceiling` is
-    exactly that `min(...)` of the four named candidates (see this
-    module's own `CompletionRequest.ollama_ctx_retry_ceiling` docstring
-    for why `trained_context`/the conservative fallback are deliberately
-    excluded from it). The output budget is `options.num_predict` on
-    THIS request when set (the tightest known bound), else `req.
-    profile["max_output_tokens"]` (the model's own configured ceiling, a
-    looser but always-available bound)."""
+    larger num_ctx (learned cap, host max_ctx, fit estimate, hard cap,
+    trained context, remote default, fallback) retry once with the
+    smallest power of two that holds n_prompt_tokens plus a small reply
+    reserve" -- `req.ollama_ctx_retry_ceiling` is `providers.ollama.
+    ollama_overflow_retry_ceiling`'s own `min(...)` of EVERY one of those
+    candidates (review fix pass finding 4 -- see that function's own
+    docstring for why `trained_context`/the conservative fallback/the
+    remote-unknown default are no longer excluded from it). Sized by
+    `_OLLAMA_RETRY_REPLY_RESERVE_TOKENS`, a small fixed reserve, never the
+    request's full output budget (this module's own docstring just
+    above)."""
     from halo_harness.providers.ollama_fit import power_of_two_ceil
     ceiling = req.ollama_ctx_retry_ceiling
     if not isinstance(ceiling, int) or ceiling <= 0:
         return None
-    output_budget = (body.get("options") or {}).get("num_predict")
-    if not isinstance(output_budget, int) or output_budget <= 0:
-        # `req.profile` is a plain dict in every REAL agent/loop.py ollama
-        # request (`_build_request`'s own `{"context_tokens":...,
-        # "max_output_tokens":...}`) -- `getattr` as a defensive fallback
-        # for any other caller/test that passes a dataclass instead.
-        profile = req.profile
-        output_budget = (profile.get("max_output_tokens") if isinstance(profile, dict)
-                          else getattr(profile, "max_output_tokens", None)) or 16384
+    output_budget = _OLLAMA_RETRY_REPLY_RESERVE_TOKENS
     needed = power_of_two_ceil(overflow["n_prompt_tokens"] + output_budget)
     current = (body.get("options") or {}).get("num_ctx")
     if needed <= ceiling and (not isinstance(current, int) or needed > current):
@@ -989,7 +1000,18 @@ def _run_phase1_ollama(req: CompletionRequest, abort: "threading.Event | None" =
     once more; otherwise (or if that retry ALSO overflows) raise the
     SAME `ContextOverflow` this function always raised, unchanged --
     `agent/loop.py`'s existing compaction-and-retry path picks it up
-    from there with no changes of its own needed."""
+    from there with no changes of its own needed.
+
+    Review fix pass (finding 4), "remember a successful retry for the
+    rest of the session": a SUCCESSFUL retry (the bumped `num_ctx`
+    actually worked) is recorded via `providers.ollama.
+    remember_ollama_retry_num_ctx`, keyed by `(req.creds.base_url,
+    body["model"])` -- `agent/loop.py`'s `_build_ollama_body_for_ref`
+    folds it back in as an extra candidate for every LATER turn on this
+    same host+model, so the overflow-400-then-retry round trip doesn't
+    repeat every single turn. Best-effort: `req.creds`/`body["model"]`
+    missing (never true for a real ollama request, only a degenerate
+    test) simply skips the remember, never fails the turn over it."""
     body, result, overflow = _run_phase1_ollama_attempt(req, req.prebuilt_ollama_body, abort=abort)
     if overflow is None:
         return body, result
@@ -998,6 +1020,9 @@ def _run_phase1_ollama(req: CompletionRequest, abort: "threading.Event | None" =
         retry_body = _body_with_num_ctx(body, retry_num_ctx)
         body, result, overflow = _run_phase1_ollama_attempt(req, retry_body, abort=abort)
         if overflow is None:
+            if req.creds is not None and isinstance(body.get("model"), str):
+                from halo_harness.providers.ollama import remember_ollama_retry_num_ctx
+                remember_ollama_retry_num_ctx(req.creds.base_url, body["model"], retry_num_ctx)
             return body, result
     raise ContextOverflow(overflow["n_ctx"], overflow["n_prompt_tokens"], overflow["n_prompt_tokens"])
 

@@ -75,6 +75,29 @@ def test_feeds_kv_bytes_per_token_unchanged(ctx: Ctx):
 
 
 @test
+def test_explicit_head_dim_surfaces_as_key_and_value_length(ctx: Ctx):
+    """Review fix pass (finding 3): several current architectures (e.g.
+    Qwen3) carry an explicit `head_dim` in config.json that is NOT
+    `hidden_size / num_attention_heads` -- a 128 head_dim here, against
+    hidden_size=4096/num_attention_heads=64 which would approximate to 64.
+    Must surface as BOTH `.attention.key_length` and `.attention.
+    value_length` and win over the approximation in kv_bytes_per_token."""
+    from halo_harness.providers.ollama_fit import kv_bytes_per_token
+    from halo_harness.providers.safetensors_config import safetensors_model_info_for_folder
+    config = {"model_type": "qwen3", "max_position_embeddings": 40960, "num_hidden_layers": 48,
+              "num_attention_heads": 64, "num_key_value_heads": 8, "hidden_size": 4096, "head_dim": 128}
+    info = safetensors_model_info_for_folder(_folder(config))
+    ctx.check(f"head_dim surfaced as key_length, got {info}", info.get("qwen3.attention.key_length") == 128)
+    ctx.check(f"head_dim surfaced as value_length, got {info}", info.get("qwen3.attention.value_length") == 128)
+    exact = kv_bytes_per_token(info)
+    approx = kv_bytes_per_token({k: v for k, v in info.items()
+                                  if k not in ("qwen3.attention.key_length", "qwen3.attention.value_length")})
+    # exact: 48 * 8 * (128+128) * 2.0 = 196608; approx: 2 * 48 * 8 * (4096/64) * 2.0 = 98304
+    ctx.check(f"exact (head_dim=128) differs from the hidden_size/heads approximation (64), "
+              f"got exact={exact} approx={approx}", exact == 196608.0 and approx == 98304.0 and exact != approx)
+
+
+@test
 def test_missing_config_json_returns_none(ctx: Ctx):
     from halo_harness.providers.safetensors_config import safetensors_model_info_for_folder
     ctx.check("no config.json -> None", safetensors_model_info_for_folder(_folder(None)) is None)

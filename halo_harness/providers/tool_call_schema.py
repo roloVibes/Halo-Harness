@@ -82,14 +82,27 @@ def supports_constrained_tool_calls(*, provider: str, dialect: str, local: bool)
     """The shared gate items 1 AND 2 both consult (brief: "Both behind the
     `ollama`/`huggingface` profiles only; every other dialect is
     untouched"). `local` means: for `ollama`, `providers.ollama_hw.
-    is_local_host(host)` (research doc: "Ollama's Cloud currently does not
-    support structured outputs" -- a LAN `ollama.hosts[]` entry is still a
-    real local-network Ollama daemon, same support as loopback, so `local`
-    here means "not the `ollama.com` cloud route", which `is_local_host`
-    already distinguishes correctly -- see that function's own docstring);
-    for `huggingface`, `model.ModelRef.local` (an `hf:local/*` ref -- never
-    the router or a dedicated Inference Endpoint, which this round's
-    research never confirmed support `response_format` the same way)."""
+    is_ollama_cloud_host(host)` NEGATED (research doc: "Ollama's Cloud
+    currently does not support structured outputs" -- a LAN `ollama.
+    hosts[]` entry is still a real local-network Ollama daemon, same
+    support as loopback, so `local` here means "not the `ollama.com`
+    cloud route").
+
+    Review fix pass (finding 7): this docstring used to claim `is_local_
+    host` "already distinguishes correctly" between loopback-or-LAN and
+    the `ollama.com` cloud route -- it does not: `is_local_host` is a
+    bare loopback-hostname check (`providers.ollama_hw`'s own docstring),
+    so every caller that passed `is_local_host(host)` here denied
+    constrained decoding to every LAN `ollama.hosts[]` entry -- the
+    owner's own primary setup, a VM driving a LAN GPU host -- while that
+    entry fully qualifies by this function's own stated rule. Every
+    caller must pass `local=not is_ollama_cloud_host(host)` now, never
+    `is_local_host(host)`.
+
+    For `huggingface`, `local` is `model.ModelRef.local` (an `hf:local/*`
+    ref -- never the router or a dedicated Inference Endpoint, which this
+    round's research never confirmed support `response_format` the same
+    way)."""
     if dialect == "ollama":
         return bool(local)
     if provider == "huggingface" and dialect == "openai-chat":

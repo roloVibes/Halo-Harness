@@ -276,6 +276,65 @@ def test_runtime_for_format(ctx: Ctx):
               runtime_for_format("safetensors") == expected_mlx)
 
 
+# ============================================================================
+# Review fix pass, finding 2: exit-time stop must never touch an entry a
+# DIFFERENT process started, and must never signal a pid the OS has since
+# reused for something unrelated (it still drops the stale record).
+# ============================================================================
+
+@test
+def test_stop_all_except_kept_leaves_another_process_entry_alone(ctx: Ctx):
+    from halo_harness.providers.local_runtime import (load_registry, save_registry, start_managed_server,
+                                                        stop_all_managed_servers_except_kept, _terminate_pid)
+    state_dir = Path(tempfile.mkdtemp(prefix="local-runtime-state-"))
+    stub = _write_stub(_STUB_LISTENS)
+    entry, _ = start_managed_server(model="other-session.gguf", runtime="llama-server",
+                                      binary_argv=[sys.executable, str(stub)], model_path="other-session.gguf",
+                                      state_dir=state_dir)
+    try:
+        ctx.check("start succeeded", entry is not None)
+        # Simulate "a DIFFERENT halo process recorded this" -- this test
+        # process is in fact the one that spawned it, but the registry
+        # entry's own owner fields say otherwise, exactly like reading a
+        # second session's live entry cold.
+        entries = load_registry(state_dir)
+        entries[0]["owner_pid"] = entries[0]["owner_pid"] + 1
+        entries[0]["owner_start"] = "not-this-process"
+        save_registry(state_dir, entries)
+        stop_all_managed_servers_except_kept(state_dir=state_dir)
+        ctx.check("the entry is still in the registry, untouched",
+                  [e["model"] for e in load_registry(state_dir)] == ["other-session.gguf"])
+        ctx.check("the process was never signalled -- still alive", _is_alive(entry.pid))
+    finally:
+        if entry is not None:
+            _terminate_pid(entry.pid)
+
+
+@test
+def test_stop_all_except_kept_drops_stale_pid_without_signalling(ctx: Ctx):
+    from halo_harness.providers.local_runtime import (load_registry, save_registry, start_managed_server,
+                                                        stop_all_managed_servers_except_kept, _terminate_pid)
+    state_dir = Path(tempfile.mkdtemp(prefix="local-runtime-state-"))
+    stub = _write_stub(_STUB_LISTENS)
+    entry, _ = start_managed_server(model="stale-pid.gguf", runtime="llama-server",
+                                      binary_argv=[sys.executable, str(stub)], model_path="stale-pid.gguf",
+                                      state_dir=state_dir)
+    try:
+        ctx.check("start succeeded", entry is not None)
+        # This process IS the recorded owner (so it's eligible to stop),
+        # but the server's own recorded start time no longer matches --
+        # exactly what a pid the OS reused for something else looks like.
+        entries = load_registry(state_dir)
+        entries[0]["proc_start"] = "a-start-time-that-will-never-match"
+        save_registry(state_dir, entries)
+        stop_all_managed_servers_except_kept(state_dir=state_dir)
+        ctx.check("the stale entry was dropped from the registry", load_registry(state_dir) == [])
+        ctx.check("the real process was never signalled -- still alive", _is_alive(entry.pid))
+    finally:
+        if entry is not None:
+            _terminate_pid(entry.pid)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

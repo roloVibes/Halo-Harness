@@ -31,37 +31,72 @@ def test_every_pre_5b_pinned_case_is_unchanged(ctx: Ctx):
     three-positional-arg (pre-5b) call shape -- re-pinned here as a single
     regression sentinel for the round-5b rewrite, which MUST produce
     identical numbers for every one of these when `learned_cap`/`remote`
-    are left at their defaults."""
-    from halo_harness.providers.ollama import FALLBACK_NUM_CTX, HARD_CONTEXT_CAP, compute_num_ctx
+    are left at their defaults.
+
+    Review fix pass (finding 5): TWO of these are no longer "unchanged" --
+    see the inline notes below for why each one's expected value moved,
+    and tests/test_providers_ollama.py's own
+    test_compute_num_ctx_clamps_to_minimum_of_every_candidate /
+    tests/test_providers_ollama_hw.py's own
+    test_compute_num_ctx_weights_do_not_fit_uses_conservative_fallback_
+    not_hard_cap for the matching updates to THOSE files' copies."""
+    from halo_harness.providers.ollama import FALLBACK_NUM_CTX, HARD_CONTEXT_CAP, \
+        REMOTE_UNKNOWN_DEFAULT_NUM_CTX, compute_num_ctx
     from halo_harness.providers.ollama_fit import WEIGHTS_DO_NOT_FIT
     ctx.check("nothing known -> fallback", compute_num_ctx(None, None, None) == FALLBACK_NUM_CTX)
     ctx.check("trained context wins when smallest", compute_num_ctx(16384, 32768, None) == 16384)
     ctx.check("host.max_ctx wins when smallest", compute_num_ctx(131072, 32768, None) == 32768)
     ctx.check("a fit estimate wins when smallest", compute_num_ctx(131072, 65536, 8000) == 8000)
-    ctx.check("never exceeds the hard cap", compute_num_ctx(1_000_000, None, None) == HARD_CONTEXT_CAP)
+    # Finding 5: a LOCAL host with nothing known is no longer treated as
+    # "always has an OS probe to fall back on" -- it gets the SAME
+    # conservative default a remote host with nothing known always has
+    # (see test_remote_host_nothing_known_gets_32768_never_131072 below),
+    # never the hard cap just because a huge trained context is known.
+    ctx.check("a local host with nothing known gets the conservative default, never the bare hard cap",
+              compute_num_ctx(1_000_000, None, None) == REMOTE_UNKNOWN_DEFAULT_NUM_CTX == 32768)
+    # FALLBACK_NUM_CTX itself moved 8192 -> 16384 this same fix pass
+    # (finding 4: the old 8192 placeholder sat below Halo's own measured
+    # ~10.2k-token minimum prompt cost) -- unrelated to finding 5, but
+    # this exact assertion needs the symbol now, not the stale literal.
     ctx.check("weights-do-not-fit -> fallback, not the hard cap",
-              compute_num_ctx(262144, None, WEIGHTS_DO_NOT_FIT) == 8192)
+              compute_num_ctx(262144, None, WEIGHTS_DO_NOT_FIT) == FALLBACK_NUM_CTX)
     ctx.check("weights-do-not-fit + a smaller host.max_ctx -> that override",
               compute_num_ctx(262144, 4096, WEIGHTS_DO_NOT_FIT) == 4096)
-    ctx.check("plain unknown fit -> the hard cap still stands",
-              compute_num_ctx(262144, None, None) == 131072)
+    ctx.check("plain unknown fit on a local host -> the conservative default, not the hard cap",
+              compute_num_ctx(262144, None, None) == 32768)
 
 
 @test
-def test_learned_cap_overrides_a_stale_live_fit_estimate(ctx: Ctx):
-    """Ground truth (a real `halo ollama calibrate` measurement) beats a
-    computed guess -- even a guess that itself claims WEIGHTS_DO_NOT_FIT,
-    since a learned cap is proof the model DOES fit at SOME size."""
+def test_learned_cap_never_beats_a_smaller_live_fit_estimate(ctx: Ctx):
+    """Review fix pass (finding 6): a learned cap used to REPLACE the
+    live fit estimate outright ("ground truth beats a computed guess") --
+    renamed and rewritten from this test's own pre-fix name/assertions,
+    which pinned EXACTLY the bug finding 6 reports: a cap measured on an
+    idle GPU kept winning once something else (an image server, a media
+    transcoder) later held some of that VRAM, loading the session
+    partially offloaded. The smaller of the two numbers must win now,
+    whichever one that is -- never an override chain keyed on WHICH
+    candidate is "more ground-truth-y"."""
     from halo_harness.providers.ollama import resolve_num_ctx_and_source
     from halo_harness.providers.ollama_fit import WEIGHTS_DO_NOT_FIT
     num_ctx, source = resolve_num_ctx_and_source(262144, None, 8192, learned_cap=65536)
-    ctx.check(f"learned cap (65536) wins over the smaller live estimate (8192), got {num_ctx}", num_ctx == 65536)
-    ctx.check(f"source names the learned cap, got {source!r}", source == "learned cap")
+    ctx.check(f"the SMALLER live estimate (8192) wins over the bigger stale cap (65536), got {num_ctx}",
+              num_ctx == 8192)
+    ctx.check(f"source names the fit estimate, got {source!r}", source == "fit estimate")
+    num_ctx1b, source1b = resolve_num_ctx_and_source(262144, None, 65536, learned_cap=8192)
+    ctx.check(f"and the direction is symmetric -- a smaller cap wins over a bigger live estimate too, "
+              f"got {num_ctx1b}", num_ctx1b == 8192)
+    ctx.check(f"source names the learned cap this time, got {source1b!r}", source1b == "learned cap")
+    # WEIGHTS_DO_NOT_FIT is not a usable int -- there is no live NUMBER to
+    # compare the cap against, so the cap still stands alone (a measured
+    # fact that the model DOES fit at some size, unlike an ordinary
+    # smaller live reading, is never second-guessed by the sentinel).
     num_ctx2, source2 = resolve_num_ctx_and_source(262144, None, WEIGHTS_DO_NOT_FIT, learned_cap=65536)
-    ctx.check(f"learned cap overrides WEIGHTS_DO_NOT_FIT too, got {num_ctx2}", num_ctx2 == 65536)
+    ctx.check(f"learned cap still overrides WEIGHTS_DO_NOT_FIT (no live number to compare against), "
+              f"got {num_ctx2}", num_ctx2 == 65536)
     ctx.check(f"source2 names the learned cap, got {source2!r}", source2 == "learned cap")
-    ctx.check("the 8192 fallback is NOT invoked once a learned cap is known",
-              num_ctx2 != 8192)
+    from halo_harness.providers.ollama import FALLBACK_NUM_CTX
+    ctx.check("the fallback is NOT invoked once a learned cap is known", num_ctx2 != FALLBACK_NUM_CTX)
 
 
 @test
@@ -74,12 +109,13 @@ def test_learned_cap_still_bounded_by_trained_context_and_hard_cap(ctx: Ctx):
     ctx.check(f"trained context (16384) still wins over a bigger learned cap, got {num_ctx}", num_ctx == 16384)
     ctx.check(f"source names trained context, got {source!r}", source == "trained context")
     # trained_context must be KNOWN (not None) here -- an unknown trained
-    # context is a SEPARATE, pre-5b-documented reason the 8192 fallback
-    # joins the candidate pool (see resolve_num_ctx_and_source's own
-    # docstring: "still clamped... like any other candidate" -- it is
-    # just one more min() entry, not a special override), so pairing an
-    # absurd learned_cap with trained_context=None would correctly yield
-    # 8192 via that unrelated rule, not what THIS test means to isolate.
+    # context is a SEPARATE, pre-5b-documented reason the fallback joins
+    # the candidate pool (see resolve_num_ctx_and_source's own docstring:
+    # "still clamped... like any other candidate" -- it is just one more
+    # min() entry, not a special override), so pairing an absurd
+    # learned_cap with trained_context=None would correctly yield the
+    # fallback via that unrelated rule, not what THIS test means to
+    # isolate.
     num_ctx2, source2 = resolve_num_ctx_and_source(999_999_999, None, None, learned_cap=999_999_999)
     ctx.check(f"the 131072 hard cap still wins over an absurd learned cap, got {num_ctx2}", num_ctx2 == 131072)
     ctx.check(f"source2 names the hard cap, got {source2!r}", source2 == "hard cap")
@@ -94,13 +130,56 @@ def test_remote_host_nothing_known_gets_32768_never_131072(ctx: Ctx):
     num_ctx, source = resolve_num_ctx_and_source(262144, None, None, remote=True)
     ctx.check(f"32768, not 131072, got {num_ctx}", num_ctx == REMOTE_UNKNOWN_DEFAULT_NUM_CTX == 32768)
     ctx.check(f"source names the remote default, got {source!r}", source == "remote default")
-    # A LOCAL host with nothing known still gets the ordinary hard cap --
-    # the conservative default is specifically for the "no GPU read at
-    # all" remote case, never for a local host (which always has an OS
-    # probe to fall back on well before "nothing known" would apply).
-    num_ctx_local, source_local = resolve_num_ctx_and_source(262144, None, None, remote=False)
-    ctx.check(f"local host, nothing known -> the ordinary hard cap, got {num_ctx_local}", num_ctx_local == 131072)
-    ctx.check(f"source names the hard cap, got {source_local!r}", source_local == "hard cap")
+
+
+@test
+def test_local_host_nothing_known_also_gets_a_conservative_default_never_131072(ctx: Ctx):
+    """Review fix pass (finding 5): this test's own name used to be
+    "...still gets the ordinary hard cap", with a comment arguing a local
+    host "always has an OS probe to fall back on well before 'nothing
+    known' would apply" -- exactly the assumption the review found false
+    (a CPU-only box, a VM, AMD on Windows with no rocm-smi, Intel, Linux
+    AMD via sysfs all read as "nothing known" too, same as a remote host
+    with no GPU access). A local host with nothing known now gets the
+    SAME 32768 default a remote host gets; a POSITIVELY-known CPU-only
+    box (no GPU hardware at all, `cpu_only=True`) tightens that further
+    to 8192 -- a CPU-only box's KV cache comes out of system RAM, not a
+    GPU's own budget."""
+    from halo_harness.providers.ollama import resolve_num_ctx_and_source
+    num_ctx, source = resolve_num_ctx_and_source(262144, None, None, remote=False)
+    ctx.check(f"local host, nothing known -> the conservative default (32768), not the hard cap, got {num_ctx}",
+              num_ctx == 32768)
+    ctx.check(f"source names the conservative default, got {source!r}", source == "conservative default")
+    num_ctx_cpu, source_cpu = resolve_num_ctx_and_source(262144, None, None, remote=False, cpu_only=True)
+    ctx.check(f"a CPU-only box gets the tighter 8192 instead, got {num_ctx_cpu}", num_ctx_cpu == 8192)
+    ctx.check(f"source still names the conservative default, got {source_cpu!r}", source_cpu == "conservative default")
+    # host_max_ctx/a live fit estimate/a learned cap still mean "not
+    # nothing known" for a local host too, same as remote -- unaffected
+    # by this fix (already covered for remote by the sibling tests
+    # below; re-pinned once here for the local path specifically).
+    num_ctx_known, _ = resolve_num_ctx_and_source(262144, 4096, None, remote=False)
+    ctx.check(f"a configured host.max_ctx still wins, got {num_ctx_known}", num_ctx_known == 4096)
+
+
+@test
+def test_recorded_does_not_fit_routes_to_the_fallback_like_a_live_sentinel(ctx: Ctx):
+    """Review fix pass (finding 5): `recorded_does_not_fit=True` (a prior
+    calibration attempt measured this model does NOT fit, recorded on
+    disk) must be treated like a live `WEIGHTS_DO_NOT_FIT` reading --
+    the fallback joins the pool instead of the "nothing known" default
+    (or trained_context/hard_cap) being left to win, UNLESS a learned_
+    cap is ALSO known (proof it DOES fit at some size), which still
+    overrides a stale does-not-fit record exactly like it overrides the
+    live sentinel."""
+    from halo_harness.providers.ollama import FALLBACK_NUM_CTX, resolve_num_ctx_and_source
+    num_ctx, source = resolve_num_ctx_and_source(262144, None, None, remote=False, recorded_does_not_fit=True)
+    ctx.check(f"routes to the fallback, not the conservative default or the hard cap, got {num_ctx}",
+              num_ctx == FALLBACK_NUM_CTX)
+    ctx.check(f"source names the fallback, got {source!r}", source == "fallback")
+    num_ctx2, source2 = resolve_num_ctx_and_source(262144, None, None, remote=False, recorded_does_not_fit=True,
+                                                     learned_cap=65536)
+    ctx.check(f"a learned cap still overrides a stale does-not-fit record, got {num_ctx2}", num_ctx2 == 65536)
+    ctx.check(f"source2 names the learned cap, got {source2!r}", source2 == "learned cap")
 
 
 @test

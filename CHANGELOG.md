@@ -553,6 +553,17 @@ pass, and the release tag are still to come.
     `docs/LOCAL-MODELS.md` (round 6, marked "verified against the fake
     only until a login is available").
 
+### Fixes from the release review
+
+- **`/ollama`/`/local` no longer crash the TUI on first paint**: both dialogs defined a bare `_render()`, shadowing a real Textual internal that returns `None`; renamed to `_render_rows` everywhere.
+- **Exit-time stop never kills another session's managed server, or a stale pid the OS reused**: the registry now records an owner pid/start time and the server's own start time, both verified before any signal is sent.
+- **KV bytes/token uses the model's real per-head size when it's known**: `key_length`/`value_length` (GGUF/`/api/show`) or config.json `head_dim` now win over the `embedding_length/head_count` approximation that could overcount the fit estimate by up to 2x; `halo local serve -c` is capped by the trained context and the hard cap.
+- **The context-overflow retry ceiling can no longer exceed the remote default, the fallback, or the trained context**: a successful retry is remembered for the rest of the session so it isn't repeated every turn; the `FALLBACK_NUM_CTX` placeholder is raised from 8192 to 16384 (below Halo's own measured minimum prompt cost).
+- **A local host with no GPU reading gets the same conservative default a remote host gets, not the hard cap**: tightened further to 8192 on a positively CPU-only box; a recorded `does_not_fit` calibration verdict also routes to the fallback instead of being indistinguishable from "nothing known".
+- **A learned calibration cap never outranks a smaller live fit estimate**: both now compete in the same `min(...)`, so a cap measured on an idle GPU can no longer force a partial offload once another workload holds some of that VRAM.
+- **The constrained-tool-calls gate now recognizes every LAN Ollama host, not just loopback**: keyed on "not Ollama Cloud" (`ollama.com` hostname or an `api_key`) instead of `is_local_host`, for the repair round, `doctor --local`, and the gym.
+- **Auto-calibration never blocks a turn past a budget, never runs from `call_small_model`, and never records an unreachable host as permanently "does not fit"**: the measurement now runs in a background thread bounded by the session's own abort and a total wait budget; a host that never answers is reported as "unreachable" and nothing is recorded.
+
 ## [2.0.2] - 2026-10-04
 
 W7 rounds 1-7 of the 2.0.2 brief (F, A, B, C, D, E, then the init wizard):

@@ -89,9 +89,16 @@ class LocalStatus(ModalScreen):
             yield RichLog(id="local-log", wrap=True, highlight=False, markup=False, auto_scroll=False)
 
     def on_mount(self) -> None:
-        self._render()
+        self._render_rows()
 
-    def _render(self) -> None:
+    def _render_rows(self) -> None:
+        # Review fix pass (finding 1): named `_render_rows`, never bare
+        # `_render` -- `Widget._render()` is a REAL Textual internal
+        # (returns this widget's Visual during layout); shadowing it made
+        # the FIRST PAINT of this modal's own background call `self.
+        # _render()`, get `None` back, and crash the whole TUI the moment
+        # `/local` opened. Same naming fix `tui/widgets/statusbar.py`'s
+        # `_refresh_display` already uses for the identical reason.
         from halo_harness.providers.local_models import format_local_view
         log_widget = self.query_one("#local-log", RichLog)
         log_widget.clear()
@@ -111,7 +118,7 @@ class LocalStatus(ModalScreen):
 
     def _apply_refresh(self, rows: list) -> None:
         self.rows = rows
-        self._render()
+        self._render_rows()
 
     def action_serve(self) -> None:
         self.app.push_screen(_ServePrompt(), self._on_serve_prompt_result)

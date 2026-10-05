@@ -101,6 +101,16 @@ def cmd_ollama_calibrate(argv: list) -> int:
     print(f"  starting candidate: num_ctx={start}" + ("" if not args.no_up else " (--no-up: stepping up skipped)"))
     result = run_calibration(host, args.model, start_ctx=start, keep_alive=host.keep_alive,
                               step_up=not args.no_up, trained_context=trained_context_for(catalog, args.model))
+    # Review fix pass (finding 8): "unreachable" (no `/api/ps` response at
+    # all, across every step) is never recorded here either -- the same
+    # reason `run_auto_calibration` skips it: a transient "couldn't reach
+    # the host this time" must never become a PERMANENT does_not_fit
+    # `has_calibration_entry` then treats as already-settled, even for
+    # this explicit, user-invoked command.
+    if result.outcome == "unreachable":
+        print(f"  got no response from '{host.name}' ({result.steps} attempt(s)) -- nothing recorded; "
+              f"try again once the host is reachable")
+        return 1
     record = record_calibration(bridge_home(), host_url=host.url, model=args.model, digest=digest,
                                  max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=ollama_version)
     if result.outcome == "fits":

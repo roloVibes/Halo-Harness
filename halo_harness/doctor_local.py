@@ -208,8 +208,14 @@ def _structured_output(host, route, profile, decision, state_dir) -> "tuple[bool
         # apply to an `_HFHost`).
         constrained = supports_constrained_tool_calls(provider="huggingface", dialect="openai-chat", local=True)
     else:
-        from halo_harness.providers.ollama_hw import is_local_host
-        constrained = supports_constrained_tool_calls(provider="ollama", dialect="ollama", local=is_local_host(host))
+        # Review fix pass (finding 7): `is_local_host` (loopback-only)
+        # used to gate this, reporting "free-form JSON (host has no
+        # constrained-decoding support)" for a LAN `ollama.hosts[]` host
+        # that fully supports it -- see `supports_constrained_tool_
+        # calls`'s own docstring.
+        from halo_harness.providers.ollama_hw import is_ollama_cloud_host
+        constrained = supports_constrained_tool_calls(provider="ollama", dialect="ollama",
+                                                        local=not is_ollama_cloud_host(host))
     turn = _send_turn_for(
         host=host, route=route, profile=profile, decision=decision,
         system_text="Reply with ONLY a JSON object matching the given schema -- no prose, no markdown fence.",

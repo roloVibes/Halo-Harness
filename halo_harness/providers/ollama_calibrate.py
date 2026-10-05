@@ -111,6 +111,31 @@ def lookup_learned_cap(state_dir, *, host_url: str, model: str, digest: Optional
     return cap if isinstance(cap, int) and not isinstance(cap, bool) and cap > 0 else None
 
 
+def has_recorded_does_not_fit(state_dir, *, host_url: str, model: str, digest: Optional[str] = None,
+                               ollama_version: Optional[str] = None) -> bool:
+    """Review fix pass (finding 5): `lookup_learned_cap` returns `None`
+    for BOTH "no entry at all" and "the entry itself recorded does not
+    fit" -- indistinguishable to every caller that only reads that one
+    function, which is exactly why a model a measurement already proved
+    does not fit was getting treated as "nothing known" (the largest
+    window available) instead of the conservative fallback. This is the
+    missing other half of the SAME lookup: True only when an entry
+    exists, its own digest/version match (same guard as `lookup_learned_
+    cap`, so a re-pulled model or an upgraded server never keeps a stale
+    does-not-fit verdict either), AND it recorded `max_full_gpu_ctx` as
+    `None` (the "does not fit even at the floor" outcome -- see
+    `record_calibration`'s own docstring)."""
+    entry = _find_entry(load_fit_store(state_dir)["entries"], host_url=host_url, model=model)
+    if entry is None:
+        return False
+    if digest is not None and entry.get("digest") is not None and entry.get("digest") != digest:
+        return False
+    if ollama_version is not None and entry.get("ollama_version") is not None \
+            and entry.get("ollama_version") != ollama_version:
+        return False
+    return entry.get("max_full_gpu_ctx") is None
+
+
 def record_calibration(state_dir, *, host_url: str, model: str, digest: Optional[str],
                         max_full_gpu_ctx: Optional[int], ollama_version: Optional[str]) -> dict:
     """Upserts the (host_url, model) entry -- `{host_url, model, digest,
@@ -157,7 +182,7 @@ def _floor_pow2(n: int) -> int:
 
 @dataclass(frozen=True)
 class CalibrationResult:
-    outcome: str  # "fits" | "does_not_fit"
+    outcome: str  # "fits" | "does_not_fit" | "unreachable" (review fix pass finding 8)
     max_full_gpu_ctx: Optional[int]
     steps: int
     last_size: Optional[int] = None
@@ -232,7 +257,21 @@ def run_calibration(host, model: str, *, start_ctx: int, min_ctx: int = MIN_CALI
     `hard_cap` (`providers.ollama.HARD_CONTEXT_CAP`, 131072, when
     `hard_cap` is omitted) -- stops at the FIRST non-resident load up
     here (never steps down again to search for a smaller gap), recording
-    the LAST value that was still fully resident."""
+    the LAST value that was still fully resident.
+
+    Review fix pass (finding 8): a step whose `/api/chat` load call and
+    `/api/ps` read BOTH fail to get any response at all (an asleep host,
+    one that is unreachable, or one that simply never answers within
+    `timeout`) used to be indistinguishable from a step that reached the
+    host and genuinely found the model not (fully) resident -- both
+    stepped down the same way, and reaching the floor with nothing ever
+    measured reported `does_not_fit`, a verdict `run_auto_calibration`
+    then recorded PERMANENTLY. If `/api/ps` NEVER answers successfully
+    across every single step tried, the outcome is `"unreachable"`
+    instead -- `run_auto_calibration` never records that one. A host
+    that answers at least once (even if the model is never found
+    resident at any size down to the floor) still reports the genuine
+    `does_not_fit` it always did."""
     from halo_harness.providers.ollama import HARD_CONTEXT_CAP, fetch_ps
     hard_cap = hard_cap if isinstance(hard_cap, int) and hard_cap > 0 else HARD_CONTEXT_CAP
     up_bound = min(trained_context, hard_cap) if isinstance(trained_context, int) and trained_context > 0 \
@@ -241,12 +280,16 @@ def run_calibration(host, model: str, *, start_ctx: int, min_ctx: int = MIN_CALI
     steps = 0
     last_size: Optional[int] = None
     last_size_vram: Optional[int] = None
+    ever_reached_host = False
 
     def _load_and_check(ctx: int) -> "Optional[tuple[int, int]]":
-        nonlocal steps
+        nonlocal steps, ever_reached_host
         steps += 1
         _load_model_at_num_ctx(host, model, num_ctx=ctx, keep_alive=keep_alive, timeout=timeout)
-        entry = _ps_entry_for_model(fetch_ps(host, timeout=timeout), model)
+        ps = fetch_ps(host, timeout=timeout)
+        if ps is not None:
+            ever_reached_host = True
+        entry = _ps_entry_for_model(ps, model)
         if entry is None:
             return None
         size, size_vram = entry.get("size"), entry.get("size_vram")
@@ -273,11 +316,14 @@ def run_calibration(host, model: str, *, start_ctx: int, min_ctx: int = MIN_CALI
                 return CalibrationResult(outcome="fits", max_full_gpu_ctx=fitting, steps=steps,
                                           last_size=last_size, last_size_vram=last_size_vram)
         candidate //= 2
+    if not ever_reached_host:
+        return CalibrationResult(outcome="unreachable", max_full_gpu_ctx=None, steps=steps,
+                                  last_size=last_size, last_size_vram=last_size_vram)
     return CalibrationResult(outcome="does_not_fit", max_full_gpu_ctx=None, steps=steps,
                               last_size=last_size, last_size_vram=last_size_vram)
 
 
-def run_auto_calibration(host, model: str, *, state_dir) -> Optional[str]:
+def run_auto_calibration(host, model: str, *, state_dir, timeout: float = 20.0) -> Optional[str]:
     """Brief item 2: "run it automatically the first time a model is used
     on a host with no learned cap" -- called by `agent/loop.py` before
     the first request to a new (host, model) pair this PROCESS has seen
@@ -286,11 +332,26 @@ def run_auto_calibration(host, model: str, *, state_dir) -> Optional[str]:
     Resolves its own starting candidate (a local/ssh GPU-based fit
     estimate when one exists, else 32768 -- the SAME "nothing known"
     default `resolve_num_ctx_and_source` substitutes for a remote host),
-    runs `run_calibration`, records the result EITHER WAY (a
-    `does_not_fit` outcome is remembered too), and returns ONE plain
-    notice line for the caller to surface -- or `None` on any failure
-    (never raises; a failed attempt degrades to "use the live fit
-    estimate/remote default, same as before this existed")."""
+    runs `run_calibration`, and returns ONE plain notice line for the
+    caller to surface -- or `None` on any failure (never raises; a
+    failed attempt degrades to "use the live fit estimate/remote
+    default, same as before this existed").
+
+    Review fix pass (finding 8): `timeout` (per `/api/chat`+`/api/ps`
+    step, not the whole run) tightens from `run_calibration`'s own 60s
+    default to 20s for this AUTOMATIC trigger specifically -- it runs in
+    a background thread `agent/loop.py`'s own caller only waits on for a
+    bounded total budget, so a tighter per-step timeout gets a real
+    result recorded sooner for a LATER turn to benefit from, without
+    changing the EXPLICIT `halo ollama calibrate` CLI command's own
+    default (a user who typed that command is already watching it and
+    free to wait). The result is recorded EITHER WAY it was before --
+    `fits` or a GENUINE `does_not_fit` -- except `"unreachable"` (no
+    `/api/ps` response across every single step tried -- an asleep or
+    unreachable host, never evidence the model doesn't fit), which is
+    NEVER recorded: `record_calibration` would otherwise turn a transient
+    "couldn't reach it this time" into a permanent "does not fit"
+    `has_calibration_entry` then never lets a later attempt correct."""
     from halo_harness.providers.ollama import get_catalog, probe_version, trained_context_for
     from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host, is_local_host
     try:
@@ -310,7 +371,12 @@ def run_auto_calibration(host, model: str, *, state_dir) -> Optional[str]:
         # settling for it, same as the explicit `halo ollama calibrate`.
         trained = trained_context_for(catalog, model)
         result = run_calibration(host, model, start_ctx=start, keep_alive=host.keep_alive, trained_context=trained,
-                                  step_up=True)
+                                  step_up=True, timeout=timeout)
+        if result.outcome == "unreachable":
+            where = "locally" if is_local_host(host) else "over the network"
+            return (f"Halo tried to calibrate {model} on '{host.name}' {where} but got no response "
+                    f"({result.steps} attempt(s)) -- using the live fit estimate/remote default this session; "
+                    f"nothing was recorded, so this will be tried again on a fresh `halo` run.")
         record_calibration(state_dir, host_url=host.url, model=model, digest=digest,
                             max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=ollama_version)
         where = "locally" if is_local_host(host) else "over the network"

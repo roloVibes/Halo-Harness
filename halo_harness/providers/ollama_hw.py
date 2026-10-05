@@ -407,9 +407,35 @@ def is_local_host(host) -> bool:
     `/api/ps` alone). A LAN host configured by an IP that happens to BE
     this machine is misclassified as remote; documented limitation, not a
     silent wrong answer (it just falls back to the remote, `/api/ps`-only
-    picture, never a crash)."""
+    picture, never a crash).
+
+    This is a HARDWARE-PROBE heuristic only ("does this process likely
+    share an OS with the daemon"), never "is this a real, on-premise
+    Ollama daemon" -- a LAN `ollama.hosts[]` entry is just as real and
+    just as capable as loopback for everything EXCEPT the local OS
+    probe (constrained decoding, say: `is_ollama_cloud_host` below is
+    the right predicate there, review fix pass finding 7)."""
     hostname = (urllib.parse.urlparse(host.url).hostname or "").lower()
     return hostname in ("127.0.0.1", "localhost", "::1")
+
+
+def is_ollama_cloud_host(host) -> bool:
+    """Review fix pass (finding 7): True only for Ollama's own hosted
+    cloud (`OLLAMA_HOST=https://ollama.com`, research doc Q7's documented
+    var; `resolve_ollama_hosts`'s own docstring) -- a hostname of exactly
+    `ollama.com`, OR an `api_key` configured at all (every other Ollama
+    host, loopback or LAN, is unauthenticated by construction, research
+    doc section 4: "no authentication exists in Ollama itself" -- see
+    `OllamaHost`'s own docstring). This is the gate `providers.tool_call_
+    schema.supports_constrained_tool_calls` and every one of its callers
+    should key `local=` on, NOT `is_local_host` -- a LAN host is a real,
+    on-premise Ollama daemon with the identical structured-output support
+    loopback has; only Ollama's OWN cloud is documented NOT to support
+    it."""
+    hostname = (urllib.parse.urlparse(host.url).hostname or "").lower()
+    if hostname == "ollama.com":
+        return True
+    return bool(getattr(host, "api_key", None))
 
 
 def catalog_row(catalog: Optional[dict], model: str) -> Optional[dict]:
@@ -586,6 +612,15 @@ class OllamaContextDecision:
     # `estimate_fit_for_host` just made above, never a second network
     # call. `None` when unknown (never probed, or not currently loaded).
     offloaded: Optional[bool] = None
+    # Review fix pass (findings 5/6) -- the two EXTRA `resolve_num_ctx_
+    # and_source` inputs this round adds, carried through so `agent/
+    # loop.py`'s own SEPARATE `build_ollama_request_body` call (which
+    # recomputes num_ctx fresh for the actual wire body, never reusing
+    # THIS dataclass's own `num_ctx`) applies the identical rule, not a
+    # narrower one that forgot either input. See `resolve_num_ctx_and_
+    # source`'s own docstring for what each one does.
+    recorded_does_not_fit: bool = False
+    cpu_only: bool = False
 
 
 def fits_beside_main(host, *, main_model: str, candidate_model: str, catalog: Optional[dict],
@@ -655,6 +690,8 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
     host = resolve_ollama_host(getattr(model_ref, "host", None), env)
     trained_context, fit, host_max_ctx, learned_cap = None, None, None, None
     remote = False
+    recorded_does_not_fit = False
+    cpu_only = False
     if host is not None:
         host_max_ctx = host.max_ctx
         remote = not is_local_host(host)
@@ -668,6 +705,17 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
             fit = estimate_fit_for_host(host, model_ref.model, catalog, runner=hw_runner) if catalog else None
         except Exception:
             log.debug("ollama_hw: fit estimate failed for %s", model_ref.model, exc_info=True)
+        if not remote:
+            # Review fix pass (finding 5): a POSITIVE "no GPU hardware at
+            # all" reading (an empty card list -- distinct from "a GPU
+            # exists but its free memory couldn't be read", which still
+            # returns a non-empty list with `free_bytes=None` entries)
+            # tightens the local "nothing known" default from 32768 to
+            # 8192 -- see `resolve_num_ctx_and_source`'s own docstring.
+            try:
+                cpu_only = len(get_local_gpu_memories(runner=hw_runner)) == 0
+            except Exception:
+                log.debug("ollama_hw: local GPU presence probe failed", exc_info=True)
         try:
             # Round 5b: DIGEST only here (never a fresh `/api/version` probe
             # on every single turn just for this lookup -- too expensive on
@@ -675,16 +723,27 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
             # coarser granularity of `halo ollama calibrate`/the auto-
             # calibrate trigger re-measuring and overwriting the entry, both
             # of which already pay for a version probe for their own sake.
-            from halo_harness.providers.ollama_calibrate import lookup_learned_cap
+            from halo_harness.providers.ollama_calibrate import has_recorded_does_not_fit, lookup_learned_cap
             from halo_harness.config.paths import bridge_home
             digest = (catalog_row(catalog, model_ref.model) or {}).get("digest") if catalog else None
-            learned_cap = lookup_learned_cap(bridge_home(), host_url=host.url, model=model_ref.model, digest=digest)
+            state_dir = bridge_home()
+            learned_cap = lookup_learned_cap(state_dir, host_url=host.url, model=model_ref.model, digest=digest)
+            # Review fix pass (finding 5): the OTHER half of the SAME
+            # lookup -- a recorded "does not fit" verdict must route to
+            # the conservative fallback, not be indistinguishable from
+            # "nothing known" (which this host's own live fit_estimate
+            # above, when it's None, would otherwise leave to fall
+            # through toward trained_context/the hard cap).
+            recorded_does_not_fit = has_recorded_does_not_fit(state_dir, host_url=host.url, model=model_ref.model,
+                                                                digest=digest)
         except Exception:
             log.debug("ollama_hw: learned-cap lookup failed for %s", model_ref.model, exc_info=True)
-    num_ctx, source = resolve_num_ctx_and_source(trained_context, host_max_ctx, fit,
-                                                  learned_cap=learned_cap, remote=remote)
+    num_ctx, source = resolve_num_ctx_and_source(trained_context, host_max_ctx, fit, learned_cap=learned_cap,
+                                                  remote=remote, recorded_does_not_fit=recorded_does_not_fit,
+                                                  cpu_only=cpu_only)
     tools_max = resolve_ollama_tools_max(num_ctx)
     offloaded = last_known_offload(host.url, model_ref.model) if host is not None else None
     return OllamaContextDecision(trained_context=trained_context, fit_estimate=fit, num_ctx=num_ctx,
                                   tools_max=tools_max, catalog_prompt_tokens=estimate_catalog_prompt_tokens(tools_max),
-                                  learned_cap=learned_cap, remote=remote, source=source, offloaded=offloaded)
+                                  learned_cap=learned_cap, remote=remote, source=source, offloaded=offloaded,
+                                  recorded_does_not_fit=recorded_does_not_fit, cpu_only=cpu_only)

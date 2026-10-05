@@ -101,7 +101,9 @@ def test_valid_header_extracts_model_info_and_quant(ctx: Ctx):
 def test_model_info_feeds_kv_bytes_per_token_unchanged(ctx: Ctx):
     """Brief item 2: "reuse the existing kv_bytes_per_token/fit_estimate
     arithmetic; no new formula" -- pinned directly against ollama_fit's
-    own function, on a GGUF-derived model_info dict."""
+    own function, on a GGUF-derived model_info dict with no key_length/
+    value_length (the approximation fallback, unchanged by review fix
+    pass finding 3)."""
     from halo_harness.providers.gguf_header import gguf_model_info, parse_gguf_header
     from halo_harness.providers.ollama_fit import kv_bytes_per_token
     header = parse_gguf_header(_write(_qwen3_like_bytes()))
@@ -110,6 +112,32 @@ def test_model_info_feeds_kv_bytes_per_token_unchanged(ctx: Ctx):
     expected = 2.0 * 48 * 8 * (4096 / 32) * 2.0
     got = kv_bytes_per_token(info)
     ctx.check(f"kv_bytes_per_token matches the documented formula, got {got} want {expected}", got == expected)
+
+
+@test
+def test_gguf_model_info_passes_through_key_and_value_length(ctx: Ctx):
+    """Review fix pass (finding 3): `<arch>.attention.key_length`/
+    `value_length` (llama.cpp's own `n_embd_head_k`/`n_embd_head_v` GGUF
+    keys) must survive `gguf_model_info`'s filter and then win over the
+    embedding_length/head_count approximation in `kv_bytes_per_token`."""
+    from halo_harness.providers.gguf_header import gguf_model_info, parse_gguf_header
+    from halo_harness.providers.ollama_fit import kv_bytes_per_token
+    data = _build_gguf([
+        _enc_kv("general.architecture", _STRING, "qwen3moe"),
+        _enc_kv("qwen3moe.block_count", _U32, 48),
+        _enc_kv("qwen3moe.attention.head_count", _U32, 32),
+        _enc_kv("qwen3moe.attention.head_count_kv", _U32, 4),
+        _enc_kv("qwen3moe.embedding_length", _U32, 4096),
+        _enc_kv("qwen3moe.attention.key_length", _U32, 64),
+        _enc_kv("qwen3moe.attention.value_length", _U32, 64),
+    ])
+    header = parse_gguf_header(_write(data))
+    info = gguf_model_info(header.metadata)
+    ctx.check(f"key_length passed through, got {info}", info.get("qwen3moe.attention.key_length") == 64)
+    ctx.check(f"value_length passed through, got {info}", info.get("qwen3moe.attention.value_length") == 64)
+    got = kv_bytes_per_token(info)
+    ctx.check(f"the exact key/value_length figure is used (49152), not the 98304 approximation, got {got}",
+              got == 49152.0)
 
 
 @test

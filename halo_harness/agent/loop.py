@@ -80,7 +80,8 @@ from halo_harness.providers.stream import (
     stream_openai_responses_completion,
 )
 from halo_harness.providers.ollama import (
-    get_catalog, ollama_overflow_retry_ceiling, resolve_ollama_host, trained_context_for,
+    get_catalog, lookup_remembered_ollama_retry_num_ctx, ollama_overflow_retry_ceiling, resolve_ollama_host,
+    trained_context_for,
 )
 from halo_harness.providers.ollama_request import build_ollama_request_body
 from halo_harness.providers.responses_request import build_openai_responses_body
@@ -2087,6 +2088,10 @@ class Session:
             body = self._build_ollama_body_for_ref(
                 ref=ref, route=route, profile=profile, system_text=system_text, messages=messages,
                 tools=[], tool_choice=None, effort=effort, requested_max_tokens=max_tokens,
+                # Review fix pass (finding 8): auto-calibration never runs
+                # inside THIS method's own timeout_s budget -- see _build_
+                # ollama_body_for_ref's own docstring for why.
+                auto_calibrate=False,
             )
             # Round 5b part 2 (brief item 7): this method returns a plain
             # string with no event stream of its own to yield a
@@ -2331,7 +2336,7 @@ class Session:
             )
         return system_text, messages, tools, body
 
-    def _maybe_auto_calibrate_ollama(self, host, model: str) -> None:
+    def _maybe_auto_calibrate_ollama(self, host, model: str, *, budget_s: float = 20.0) -> None:
         """Halo 2.0.3 round 5b (brief item 2): "run it automatically the
         first time a model is used on a host with no learned cap."
         Gated three ways, cheapest check first: (1) this (host.url, model)
@@ -2343,7 +2348,36 @@ class Session:
         process already measured this pair, or an earlier `halo ollama
         calibrate` did). Any exception anywhere in this path is swallowed
         and logged at DEBUG -- a failed calibration attempt must never
-        block the ordinary turn it was trying to help."""
+        block the ordinary turn it was trying to help.
+
+        Review fix pass (finding 8): ONLY called from `_derive_and_build`
+        (the main turn) and `_run_compaction` now -- `call_small_model`
+        (titles, hooks, `/local <question>`, the escalation judge) skips
+        it entirely (`_build_ollama_body_for_ref`'s own `auto_calibrate`
+        flag), since that method's OWN `timeout_s` budget used to start
+        only AFTER this ran, so a slow/asleep host silently ate the small
+        model's entire caller-visible budget before the small model's own
+        request was ever sent.
+
+        The actual measurement (`run_auto_calibration`, several `/api/
+        chat` + `/api/ps` round trips) runs in a background daemon thread
+        -- this method waits for it, but ONLY up to `budget_s` AND only
+        while `self.abort` stays clear, polling both every 0.2s. Either
+        one firing first means "stop waiting", not "stop measuring": no
+        abort hook reaches this deep into the HTTP layer to cut an
+        in-flight request off mid-socket-read (`providers.stream`'s own
+        `_phase1_abort_watcher`/`sock_box` is the one place in this
+        codebase that does, for the one stream a turn is actually
+        waiting on) -- so the measurement keeps running and still records
+        its result for a LATER turn to find via `has_calibration_entry`
+        (which is why the dedupe flag above is set unconditionally,
+        BEFORE this wait, not after: a second concurrent/later call for
+        the SAME pair must never pile another measurement on top of one
+        already in flight). The notice is simply not shown for THIS turn
+        when the wait times out or aborts first -- never queued late,
+        since `_pending_ollama_notices` is read from this same thread's
+        turn-processing loop, not safe to append into from the
+        background thread after this method has already returned."""
         key = (host.url, model)
         if key in self._ollama_calibrate_attempted:
             return
@@ -2360,9 +2394,25 @@ class Session:
             state_dir = self.state_dir
             if has_calibration_entry(state_dir, host_url=host.url, model=model):
                 return
-            notice = run_auto_calibration(host, model, state_dir=state_dir)
-            if notice:
-                self._pending_ollama_notices.append(notice)
+            done = threading.Event()
+            notice_box: list = [None]
+
+            def _run_calibration() -> None:
+                try:
+                    notice_box[0] = run_auto_calibration(host, model, state_dir=state_dir)
+                except Exception:
+                    log.debug("ollama: background auto-calibration failed for %s@%s", model, host.name,
+                              exc_info=True)
+                finally:
+                    done.set()
+
+            threading.Thread(target=_run_calibration, name="ollama-auto-calibrate", daemon=True).start()
+            deadline = time.monotonic() + max(0.1, budget_s)
+            while time.monotonic() < deadline and not self.abort.is_set():
+                if done.wait(timeout=0.2):
+                    break
+            if done.is_set() and notice_box[0]:
+                self._pending_ollama_notices.append(notice_box[0])
         except Exception:
             log.debug("ollama: auto-calibration for %s@%s failed", model, host.name, exc_info=True)
 
@@ -2387,25 +2437,36 @@ class Session:
 
     def _build_ollama_body_for_ref(self, *, ref: ModelRef, route: Route, profile: ProviderProfile,
                                     system_text: str, messages: list, tools, tool_choice=None,
-                                    effort: Optional[str], requested_max_tokens: Optional[int]) -> dict:
+                                    effort: Optional[str], requested_max_tokens: Optional[int],
+                                    auto_calibrate: bool = True) -> dict:
         """Halo 2.0.3 round 2b: the `ollama` dialect's own body-building
         step -- shared by `_derive_and_build` (this session's own current
-        model) and `call_small_model` (a `small_model_ref`/hook `ol:` ref,
-        almost always a DIFFERENT model than `self.model_ref`), so neither
-        call site repeats the host-resolve/trained-context/context-
-        ownership-sync dance inline. Resolves `ref.host` against `ollama.
-        hosts` -- a missing entry raises `ProviderNotConfigured` naming the
-        ref's host and `ollama.hosts` rather than silently falling back to
-        some other host -- then reads the model's trained context from the
-        (cached, short-TTL) catalog, with ANY exception or an unreachable
-        host swallowed to `None` (round 3's fit-estimate wiring is the only
-        other input `compute_num_ctx` takes; this round never fails a turn
-        over a best-effort catalog probe). Only when `ref is self.model_ref`
+        model), `_run_compaction`, and `call_small_model` (a `small_model_
+        ref`/hook `ol:` ref, almost always a DIFFERENT model than `self.
+        model_ref`), so neither call site repeats the host-resolve/
+        trained-context/context-ownership-sync dance inline. Resolves
+        `ref.host` against `ollama.hosts` -- a missing entry raises
+        `ProviderNotConfigured` naming the ref's host and `ollama.hosts`
+        rather than silently falling back to some other host -- then
+        reads the model's trained context from the (cached, short-TTL)
+        catalog, with ANY exception or an unreachable host swallowed to
+        `None` (round 3's fit-estimate wiring is the only other input
+        `compute_num_ctx` takes; this round never fails a turn over a
+        best-effort catalog probe). Only when `ref is self.model_ref`
         (the session's OWN current model, never a small/hook ref on some
         other model) does a successful build also sync `self.model_profile.
         context_tokens` to whatever `options.num_ctx` this request actually
         computed, so the status bar and the compaction trigger both follow
-        the real window instead of a stale pre-catalog guess."""
+        the real window instead of a stale pre-catalog guess.
+
+        Review fix pass (finding 8): `auto_calibrate=False` (`call_small_
+        model`'s own call site, below) skips `_maybe_auto_calibrate_
+        ollama` entirely -- that method's own background-thread wait has
+        a real total budget now, but a small-model call (a title, a
+        hook's verdict, `/local <question>`, the escalation judge) is
+        still the wrong BUDGET to spend it from: those callers' own
+        `timeout_s` is meant to bound the actual small-model request, not
+        a first-use calibration probe on top of it."""
         env = self.settings.effective_env if self.settings is not None else None
         host = resolve_ollama_host(ref.host, env)
         if host is None:
@@ -2425,24 +2486,57 @@ class Session:
         # method's own docstring) BEFORE resolve_context_decision below, so
         # that if it actually calibrates, THIS SAME request's own
         # learned_cap lookup -- not just the next one -- already sees the
-        # freshly-written entry.
-        self._maybe_auto_calibrate_ollama(host, ref.model)
+        # freshly-written entry. Review fix pass (finding 8): skipped
+        # entirely when `auto_calibrate` is False (`call_small_model`'s
+        # own call site) -- see this method's own docstring for why.
+        if auto_calibrate:
+            self._maybe_auto_calibrate_ollama(host, ref.model)
         from halo_harness.providers.ollama_hw import resolve_context_decision
         decision = resolve_context_decision(ref, env)
+        # Review fix pass (finding 4), "remember a successful retry for
+        # the rest of the session": a bigger num_ctx a PRIOR overflow
+        # retry already proved works for this exact host+model folds in
+        # as an extra learned_cap-like candidate -- never bypassing
+        # trained_context/hard_cap (it only ever competes in the same
+        # `min(...)` resolve_num_ctx_and_source already applies), just
+        # outranking a smaller/absent fit_estimate/learned_cap the same
+        # way a measured calibration cap already does.
+        remembered_retry = lookup_remembered_ollama_retry_num_ctx(host.url, route.upstream_model)
+        effective_learned_cap = decision.learned_cap
+        if isinstance(remembered_retry, int) and (effective_learned_cap is None
+                                                    or remembered_retry > effective_learned_cap):
+            effective_learned_cap = remembered_retry
         body = build_ollama_request_body(
             system_text=system_text, messages=messages, tools=tools, tool_choice=tool_choice,
             route=route, profile=profile, effort=effort, host=host,
             trained_context=decision.trained_context, fit_estimate=decision.fit_estimate,
             requested_max_tokens=requested_max_tokens,
-            learned_cap=decision.learned_cap, remote=decision.remote,
+            learned_cap=effective_learned_cap, remote=decision.remote,
+            # Review fix pass (finding 5): carried straight through from
+            # the SAME decision -- a local host with no GPU reading and/
+            # or a recorded does-not-fit verdict must send the SAME
+            # conservative num_ctx on the WIRE that `decision.num_ctx`
+            # already reflects, not a narrower recomputation that forgot
+            # either one.
+            recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only,
         )
         # Halo 2.0.3 round 5c FIX PASS: `_build_request`'s own side-channel
         # read, same lazy-attribute pattern as `_last_ollama_host_url`/
         # `_last_ollama_offloaded` just below -- UNCONDITIONAL (every
         # ollama ref, not just `self.model_ref`), since a small-model/hook
         # call needs the SAME overflow-retry ceiling as the main turn.
+        #
+        # Review fix pass (finding 4): now also passes `trained_context`/
+        # `remote` through -- `ollama_overflow_retry_ceiling` folds them
+        # into the SAME candidate set that decided `num_ctx` above, so the
+        # retry ceiling can never license exceeding either (see that
+        # function's own docstring for why the old, narrower signature
+        # let a retry exceed both). Finding 5's `recorded_does_not_fit`/
+        # `cpu_only` are included too, for the identical reason.
         self._last_ollama_ctx_ceiling = ollama_overflow_retry_ceiling(
-            host_max_ctx=host.max_ctx, fit_estimate=decision.fit_estimate, learned_cap=decision.learned_cap)
+            trained_context=decision.trained_context, host_max_ctx=host.max_ctx,
+            fit_estimate=decision.fit_estimate, learned_cap=effective_learned_cap, remote=decision.remote,
+            recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only)
         if ref is self.model_ref:
             num_ctx = (body.get("options") or {}).get("num_ctx")
             if isinstance(num_ctx, int) and num_ctx != self.model_profile.context_tokens:
@@ -4651,10 +4745,14 @@ class Session:
         host = None
         if is_ollama:
             from halo_harness.providers.ollama import resolve_ollama_host
-            from halo_harness.providers.ollama_hw import is_local_host
+            from halo_harness.providers.ollama_hw import is_ollama_cloud_host
             host = resolve_ollama_host(self.model_ref.host, env)
+            # Review fix pass (finding 7): `is_local_host` (loopback-only)
+            # used to gate this, denying a LAN `ollama.hosts[]` entry
+            # constrained decoding it fully supports -- see `supports_
+            # constrained_tool_calls`'s own docstring.
             if host is None or not supports_constrained_tool_calls(
-                    provider="ollama", dialect="ollama", local=is_local_host(host)):
+                    provider="ollama", dialect="ollama", local=not is_ollama_cloud_host(host)):
                 return None
         elif not (is_hf_local and supports_constrained_tool_calls(
                 provider="huggingface", dialect="openai-chat", local=True)):
@@ -4673,6 +4771,10 @@ class Session:
                     trained_context=decision.trained_context, fit_estimate=decision.fit_estimate,
                     requested_max_tokens=512, learned_cap=decision.learned_cap, remote=decision.remote,
                     force_format=schema,
+                    # Review fix pass (finding 5): same decision, same two
+                    # extra inputs -- see _build_ollama_body_for_ref's own
+                    # identical call for why.
+                    recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only,
                 )
             else:
                 body = build_request_body(

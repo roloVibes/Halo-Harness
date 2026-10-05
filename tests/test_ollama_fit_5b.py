@@ -60,6 +60,54 @@ def test_kv_bytes_per_token_with_explicit_cache_type_hint(ctx: Ctx):
     ctx.check(f"q4_0 is exactly 0.5625/2.0 of f16, got {q4_0}", q4_0 == 131072.0 * (0.5625 / 2.0))
 
 
+# ---- review fix pass finding 3: key_length/value_length precedence -------
+
+@test
+def test_kv_bytes_per_token_prefers_key_value_length_over_approximation(ctx: Ctx):
+    """Qwen3-MoE-shaped fixture (synthetic numbers): embedding_length/
+    head_count approximates head_dim as 4096/32=128, but the model's REAL
+    per-head size (what key_length/value_length carry) is 64 -- the exact
+    decoupled-head-dim case the review's own measurement found the old
+    approximation overcounts by 2x for (Qwen3-Coder-30B-A3B's measured
+    formula-vs-true ratio was 0.500, this fixture's own numbers below)."""
+    from halo_harness.providers.ollama_fit import kv_bytes_per_token
+    approx_only = {"qwen3moe.block_count": 48, "qwen3moe.attention.head_count_kv": 4,
+                   "qwen3moe.attention.head_count": 32, "qwen3moe.embedding_length": 4096}
+    exact = dict(approx_only, **{"qwen3moe.attention.key_length": 64, "qwen3moe.attention.value_length": 64})
+    approx_value = kv_bytes_per_token(approx_only)
+    exact_value = kv_bytes_per_token(exact)
+    ctx.check(f"approximation path (no key/value_length) unchanged, got {approx_value}", approx_value == 98304.0)
+    ctx.check(f"exact key_length+value_length path used once present, got {exact_value}", exact_value == 49152.0)
+    ctx.check("the approximation over-counts relative to the exact figure here, same direction the review found",
+              approx_value == exact_value * 2)
+
+
+@test
+def test_kv_bytes_per_token_key_and_value_length_summed_independently(ctx: Ctx):
+    """key_length and value_length are read and summed independently --
+    never assumed equal -- for an architecture where they genuinely
+    differ."""
+    from halo_harness.providers.ollama_fit import kv_bytes_per_token
+    model_info = {"deepseek2.block_count": 10, "deepseek2.attention.head_count_kv": 8,
+                  "deepseek2.attention.key_length": 192, "deepseek2.attention.value_length": 128}
+    got = kv_bytes_per_token(model_info)
+    ctx.check(f"sums the two independently (never averaged/assumed equal), got {got}",
+              got == 10 * 8 * (192 + 128) * 2.0)
+
+
+@test
+def test_kv_bytes_per_token_falls_back_when_only_one_of_key_value_length_present(ctx: Ctx):
+    """A partial reading (one of the two present, the other missing) must
+    not silently compute a wrong half-sum -- degrades to the embd/heads
+    approximation exactly as if NEITHER were present."""
+    from halo_harness.providers.ollama_fit import kv_bytes_per_token
+    model_info = {"qwen3.block_count": 32, "qwen3.attention.head_count_kv": 8,
+                  "qwen3.attention.head_count": 32, "qwen3.embedding_length": 4096,
+                  "qwen3.attention.key_length": 64}  # value_length deliberately absent
+    got = kv_bytes_per_token(model_info)
+    ctx.check(f"falls back to the approximation (131072), got {got}", got == 131072.0)
+
+
 # ---- multi-GPU fit formula (sum, not min) ---------------------------------
 
 @test

@@ -16,6 +16,7 @@ served model never outlives the `halo` process that started it unless
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -24,7 +25,7 @@ import subprocess
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -43,6 +44,15 @@ class ManagedServer:
     base_url: str
     started: str
     keep: bool
+    # Review fix pass (finding 2): who started it and what it actually is,
+    # recorded so a LATER stop -- this process at exit, or a fresh `halo
+    # local stop`/`halo` invocation reading the registry file cold -- can
+    # tell "mine", "another session's", and "stale, pid now reused by
+    # something unrelated" apart before signalling anything.
+    owner_pid: int = -1
+    owner_start: "Optional[str]" = None  # bg_run.process_start_time(owner_pid) at creation
+    proc_start: "Optional[str]" = None  # bg_run.process_start_time(pid) at creation
+    cmdline: list = field(default_factory=list)
 
 
 def runtimes_dir(state_dir) -> Path:
@@ -67,6 +77,101 @@ def save_registry(state_dir, entries: "list[dict]") -> None:
     tmp = path.with_name(path.name + f".tmp{os.getpid()}")
     tmp.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, path)
+
+
+@contextlib.contextmanager
+def _registry_lock(state_dir, *, timeout: float = 5.0):
+    """Review fix pass (finding 2), last bullet: "serialize registry
+    writes with a lock file" -- a plain create-exclusive lock FILE beside
+    the registry (this project has no existing cross-platform flock/
+    msvcrt helper and declines the psutil dependency the review's own fix
+    text offers as an alternative), so two `halo` processes racing a
+    start/stop never do load-modify-save over each other and silently
+    drop one of their entries. `O_CREAT|O_EXCL` is atomic on every OS this
+    project supports. A lock file older than `timeout` is assumed
+    abandoned by a process that crashed between creating and removing it,
+    and is stolen rather than waited on forever; giving up at the
+    deadline and proceeding WITHOUT the lock (never raising, never
+    hanging) is the same degrade-rather-than-block posture every other
+    best-effort registry helper in this module already has."""
+    path = registry_path(state_dir).with_name(registry_path(state_dir).name + ".lock")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout
+    held = False
+    while True:
+        try:
+            fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.close(fd)
+            held = True
+            break
+        except FileExistsError:
+            try:
+                if time.time() - path.stat().st_mtime > timeout:
+                    path.unlink(missing_ok=True)
+                    continue
+            except OSError:
+                pass
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+        except OSError:
+            break
+    try:
+        yield
+    finally:
+        if held:
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def _owner_fingerprint() -> "tuple[int, Optional[str]]":
+    """This process's own `(pid, start_time)` -- recorded on every entry
+    it creates (see `ManagedServer.owner_pid`/`owner_start`'s own
+    docstring)."""
+    from halo_harness.bg_run import process_start_time
+    pid = os.getpid()
+    return pid, process_start_time(pid)
+
+
+def _entry_owned_by_this_process(entry: dict) -> bool:
+    """True only for an entry recorded by the SAME running process asking
+    the question -- review fix pass finding 2: `stop_all_managed_servers_
+    except_kept` must stop only servers THIS process started, never a
+    second session's managed server or a stale entry a crashed/closed one
+    left behind. `halo local stop <model>` stays the explicit, user-
+    directed way to stop any other entry by name. A bare pid match is not
+    enough (the OS reuses pids across separate processes), so a recorded
+    `owner_start` must also agree with this process's own start time right
+    now -- `None` on either side (a pre-upgrade entry with no owner
+    fields, or a platform `bg_run.process_start_time` can't read) can't
+    disprove a match, so it is NOT treated as a refusal, the same
+    tolerant default `bg_run.is_our_process` already uses for the
+    identical pid-reuse problem."""
+    if entry.get("owner_pid") != os.getpid():
+        return False
+    recorded = entry.get("owner_start")
+    if not recorded:
+        return True
+    from halo_harness.bg_run import process_start_time
+    mine = process_start_time(os.getpid())
+    return mine is None or mine == recorded
+
+
+def _entry_process_matches(entry: dict) -> bool:
+    """Best-effort "is `entry['pid']` still the SAME OS process that was
+    recorded" check, run right before signalling it -- review fix pass
+    finding 2: "a stale entry gets its pid killed whatever process now
+    owns it". `recorded`/`current` both unknown or equal can't disprove
+    a match (same tolerant default as `_entry_owned_by_this_process`);
+    only a confirmed MISMATCH says "do not signal this pid"."""
+    recorded = entry.get("proc_start")
+    if not recorded:
+        return True
+    from halo_harness.bg_run import process_start_time
+    current = process_start_time(entry.get("pid"))
+    return current is None or current == recorded
 
 
 def find_free_port() -> int:
@@ -191,17 +296,25 @@ def start_managed_server(*, model: str, runtime: str, binary_argv: list, model_p
     if not _wait_ready(base_url, timeout=startup_timeout):
         _terminate_pid(proc.pid)
         return None, f"{runtime} did not answer {base_url}/models within {startup_timeout:.0f}s"
+    from halo_harness.bg_run import process_start_time
+    owner_pid, owner_start = _owner_fingerprint()
     entry = ManagedServer(model=model, runtime=runtime, pid=proc.pid, port=port, base_url=base_url,
-                           started=datetime.now(timezone.utc).isoformat(), keep=bool(keep))
+                           started=datetime.now(timezone.utc).isoformat(), keep=bool(keep),
+                           owner_pid=owner_pid, owner_start=owner_start,
+                           proc_start=process_start_time(proc.pid), cmdline=list(argv))
     # The registry FILE is the one source of truth for "which hf:local/*
     # entry is this, for this session" -- `providers.huggingface_local_
     # resolve.resolve_local_server` reads it directly (its own fallback
     # after a configured manual entry and a live auto-detect probe), so
     # no separate in-memory registration step is needed here, and a
     # SEPARATE `halo` process started after this one can resolve it too.
-    entries = [e for e in load_registry(state_dir) if e.get("model") != model]
-    entries.append(dict(entry.__dict__))
-    save_registry(state_dir, entries)
+    # Review fix pass (finding 2): the whole load-filter-append-save
+    # sequence is now one locked transaction so a concurrent writer never
+    # loses this entry (or has this entry lose one of its own).
+    with _registry_lock(state_dir):
+        entries = [e for e in load_registry(state_dir) if e.get("model") != model]
+        entries.append(dict(entry.__dict__))
+        save_registry(state_dir, entries)
     return entry, None
 
 
@@ -312,16 +425,25 @@ def _terminate_pid(pid) -> None:
 def stop_managed_server(model: str, *, state_dir=None) -> "tuple[bool, str]":
     """`halo local stop <model>` -- works from a FRESH process (reads the
     registry file, kills by recorded pid; there is no live `Popen` handle
-    to rely on across invocations)."""
+    to rely on across invocations). This is the EXPLICIT, user-directed
+    path (brief item 3, round 2 fix pass finding 2): it may stop an entry
+    regardless of which process started it -- but, same as the at-exit
+    sweep, it still refuses to SIGNAL a pid whose recorded start time no
+    longer matches (a stale entry the OS has since reused for something
+    unrelated); the stale record is still removed, just never signalled."""
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
-    entries = load_registry(state_dir)
-    match = next((e for e in entries if e.get("model") == model), None)
-    if match is None:
-        return False, f"no managed server recorded for {model!r}"
+    with _registry_lock(state_dir):
+        entries = load_registry(state_dir)
+        match = next((e for e in entries if e.get("model") == model), None)
+        if match is None:
+            return False, f"no managed server recorded for {model!r}"
+        save_registry(state_dir, [e for e in entries if e.get("model") != model])
+    if not _entry_process_matches(match):
+        return True, (f"removed a stale record for {model!r} (pid {match.get('pid')} on port "
+                       f"{match.get('port')} now belongs to a different process; nothing was signalled)")
     _terminate_pid(match.get("pid"))
-    save_registry(state_dir, [e for e in entries if e.get("model") != model])
     return True, f"stopped {match.get('runtime')} on port {match.get('port')}"
 
 
@@ -330,21 +452,37 @@ def stop_all_managed_servers_except_kept(state_dir=None) -> None:
     called from `headless.py`'s print-mode `finally:`+`atexit` and
     `controller.Controller.quit()`, the same two spots that already stop
     background Bash jobs and a `cc:` subprocess. Idempotent and never
-    raises -- safe to call more than once on the same exit."""
+    raises -- safe to call more than once on the same exit.
+
+    Review fix pass (finding 2): this used to stop EVERY non-kept entry,
+    pid and all, with no check that the exiting process is the one that
+    started it. That killed a second session's managed server out from
+    under it, and killed whatever process a stale pid had been reused
+    for. Now: an entry this process didn't start (`_entry_owned_by_this_
+    process`) is left in the registry untouched -- only `halo local stop
+    <model>` may stop those. An entry this process DID start but whose
+    pid no longer matches the process recorded at creation
+    (`_entry_process_matches`) is dropped from the registry WITHOUT being
+    signalled. The whole load-decide-terminate-save sequence is one
+    locked transaction so a concurrent writer's entry is never lost."""
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
     try:
-        entries = load_registry(state_dir)
-    except Exception:
-        return
-    kept = []
-    for e in entries:
-        if e.get("keep"):
-            kept.append(e)
-            continue
-        _terminate_pid(e.get("pid"))
-    try:
-        save_registry(state_dir, kept)
+        with _registry_lock(state_dir):
+            entries = load_registry(state_dir)
+            remaining = []
+            for e in entries:
+                if e.get("keep"):
+                    remaining.append(e)
+                    continue
+                if not _entry_owned_by_this_process(e):
+                    remaining.append(e)
+                    continue
+                if _entry_process_matches(e):
+                    _terminate_pid(e.get("pid"))
+                # else: pid was reused by an unrelated process -- drop the
+                # stale entry without signalling it.
+            save_registry(state_dir, remaining)
     except Exception:
         pass
