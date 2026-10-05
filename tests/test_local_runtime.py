@@ -49,6 +49,40 @@ HTTPServer(("127.0.0.1", port), H).serve_forever()
 
 _STUB_NEVER_LISTENS = "import time\ntime.sleep(60)\n"
 
+_STUB_LISTENS_AFTER_DELAY = '''
+import json, sys, time
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+port = int(sys.argv[sys.argv.index("--port") + 1])
+time.sleep(1.5)
+
+
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+
+    def do_GET(self):
+        if self.path.rstrip("/").endswith("/models"):
+            body = json.dumps({"object": "list", "data": [{"id": "stub-model"}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+
+HTTPServer(("127.0.0.1", port), H).serve_forever()
+'''
+
+_STUB_EXITS_WITH_STDERR = (
+    'import sys\n'
+    'sys.stderr.write("boom: pretend model file could not be loaded\\n")\n'
+    'sys.stderr.flush()\n'
+    'sys.exit(1)\n'
+)
+
 
 def _write_stub(code: str) -> Path:
     d = Path(tempfile.mkdtemp(prefix="local-runtime-stub-"))
@@ -122,10 +156,11 @@ def _wait_until(predicate, *, timeout: float = 5.0) -> bool:
 @test
 def test_llama_server_argv_matches_the_brief_exactly(ctx: Ctx):
     from halo_harness.providers.local_runtime import llama_server_argv
-    argv = llama_server_argv(["llama-server"], model_path="/models/x.gguf", port=1234, context_length=16384)
+    argv = llama_server_argv(["llama-server"], model_path="/models/x.gguf", port=1234, context_length=16384,
+                              model="my-model")
     ctx.check(f"exact flag order, got {argv}",
-              argv == ["llama-server", "-m", "/models/x.gguf", "-c", "16384", "-ngl", "99", "-fa", "on",
-                       "--port", "1234", "--host", "127.0.0.1"])
+              argv == ["llama-server", "-m", "/models/x.gguf", "--alias", "my-model", "-c", "16384", "-ngl", "99",
+                       "-fa", "on", "--port", "1234", "--host", "127.0.0.1"])
 
 
 @test
@@ -133,6 +168,21 @@ def test_llama_server_argv_omits_c_when_context_unknown(ctx: Ctx):
     from halo_harness.providers.local_runtime import llama_server_argv
     argv = llama_server_argv(["llama-server"], model_path="/models/x.gguf", port=1234)
     ctx.check(f"no -c flag, got {argv}", "-c" not in argv)
+
+
+@test
+def test_llama_server_argv_alias_present_only_when_model_given(ctx: Ctx):
+    """Review fix pass (finding 12): `--alias <model id>` is what makes
+    the served `/v1/models` id equal the Halo-side name llama-server was
+    started under -- without it, llama-server reports the `-m` PATH as
+    its own id (the llama.cpp server README's own example), which never
+    matches the stem/registry key Halo looks context back up by."""
+    from halo_harness.providers.local_runtime import llama_server_argv
+    with_alias = llama_server_argv(["llama-server"], model_path="/models/x.gguf", port=1234, model="tiny-test-model")
+    ctx.check(f"--alias present right after -m, got {with_alias}",
+              with_alias[with_alias.index("-m") + 2:with_alias.index("-m") + 4] == ["--alias", "tiny-test-model"])
+    without_alias = llama_server_argv(["llama-server"], model_path="/models/x.gguf", port=1234)
+    ctx.check(f"no --alias when model is omitted, got {without_alias}", "--alias" not in without_alias)
 
 
 @test
@@ -215,6 +265,66 @@ def test_start_times_out_and_terminates_the_half_started_process(ctx: Ctx):
                                           state_dir=state_dir, startup_timeout=1.5)
     ctx.check(f"start reports failure, got entry={entry!r}", entry is None)
     ctx.check(f"reason mentions the timeout, got {reason!r}", reason and "did not answer" in reason)
+
+
+# ============================================================================
+# Review fix pass, finding 15: the fixed 10s readiness wait killed
+# `mlx_lm.server`'s own download-before-bind on every first use; the wait
+# must scale with the model's size and never mistake "still alive, still
+# loading" for "gave up and must be killed" -- and a child that quit on
+# its own must surface its stderr instead of a generic timeout sentence.
+# ============================================================================
+
+@test
+def test_startup_timeout_for_size_scales_with_model_size(ctx: Ctx):
+    from halo_harness.providers.local_runtime import _startup_timeout_for_size
+    ctx.check("unknown size -> the bare minimum", _startup_timeout_for_size(None, minimum=10.0) == 10.0)
+    ctx.check("tiny size -> still the minimum (never shrinks below it)",
+              _startup_timeout_for_size(1024, minimum=10.0) == 10.0)
+    big = 500 * 1024 * 1024
+    expected = big / (20 * 1024 * 1024)
+    ctx.check(f"a big model scales past the minimum, got {_startup_timeout_for_size(big, minimum=10.0)}",
+              _startup_timeout_for_size(big, minimum=10.0) == expected and expected > 10.0)
+
+
+@test
+def test_start_managed_server_accepts_a_child_that_answers_after_a_real_delay(ctx: Ctx):
+    """Review fix pass (finding 15): `_wait_ready` keeps polling (never
+    gives up early) while the child is demonstrably still alive and
+    within its own budget -- a server that only starts answering
+    `/v1/models` after a real delay must still be accepted, not treated
+    as hung the instant some arbitrarily-small fixed window elapses."""
+    from halo_harness.providers.local_runtime import start_managed_server
+    state_dir = Path(tempfile.mkdtemp(prefix="local-runtime-delay-"))
+    stub = _write_stub(_STUB_LISTENS_AFTER_DELAY)
+    entry, reason = start_managed_server(model="slow-starter", runtime="llama-server",
+                                          binary_argv=[sys.executable, str(stub)], model_path="/models/slow.gguf",
+                                          state_dir=state_dir, startup_timeout=10.0)
+    try:
+        ctx.check(f"accepted despite the 1.5s delay, got reason={reason!r}", entry is not None)
+    finally:
+        if entry is not None:
+            from halo_harness.providers.local_runtime import _terminate_pid
+            _terminate_pid(entry.pid)
+
+
+@test
+def test_start_managed_server_reports_stderr_tail_on_early_exit(ctx: Ctx):
+    """Review fix pass (finding 15): a child that quits on its own (a bad
+    arg, a model it can't load) before ever answering `/v1/models` must
+    surface ITS OWN stderr in the failure reason, never the generic "did
+    not answer in time" sentence -- that sentence is actively misleading
+    for a process that is not even running any more."""
+    from halo_harness.providers.local_runtime import start_managed_server
+    state_dir = Path(tempfile.mkdtemp(prefix="local-runtime-stderr-"))
+    stub = _write_stub(_STUB_EXITS_WITH_STDERR)
+    entry, reason = start_managed_server(model="dies-early", runtime="llama-server",
+                                          binary_argv=[sys.executable, str(stub)], model_path="/models/dies.gguf",
+                                          state_dir=state_dir, startup_timeout=5.0)
+    ctx.check(f"start reports failure, got entry={entry!r}", entry is None)
+    ctx.check(f"reason says it exited (not a timeout), got {reason!r}", reason and "exited" in reason)
+    ctx.check(f"the child's own stderr text is in the reason, got {reason!r}",
+              reason and "pretend model file could not be loaded" in reason)
 
 
 @test

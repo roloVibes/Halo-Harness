@@ -32,6 +32,9 @@ _PROVIDER_ENV_VARS = (
     "DATABRICKS_HOST", "DATABRICKS_TOKEN", "BRIDGE_DBX_BASE_URL", "BRIDGE_DBX_TOKEN",
     "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "BRIDGE_ANTHROPIC_BASE_URL",
     "TYPESAFE_API_KEY", "BRIDGE_TEST_CC_AUTH_STATUS",
+    # Pass-B finding 16: OpenAI joins the provider set this module's own
+    # /models-refresh-worker tests sweep.
+    "OPENAI_API_KEY", "BRIDGE_OPENAI_BASE_URL",
     # Deliberately scoped/cleared (never set) here -- finding 9's own
     # pinning test below needs the REAL strict openrouter.ai-only check, so
     # this must never leak in from another module's own test seam.
@@ -104,6 +107,68 @@ def test_cc_child_env_also_strips_them(ctx: Ctx):
         stripped = cc_child_env(raw_env, env_file_path=env.home / "no-such-env-file")
         ctx.check(f"both still stripped via cc_child_env, got {stripped}",
                   "OPENROUTER_MANAGEMENT_KEY" not in stripped and "TYPESAFE_API_KEY" not in stripped)
+
+
+# ---------------------------------------------------------------------------
+# Pass-B finding 15 (major): the fixed secret-key list still named only
+# pre-2.0.3 keys -- HF_TOKEN, OPENAI_API_KEY, OLLAMA_API_KEY and the
+# Experiential Labs keys reached every Bash/PowerShell/MCP/hook child
+# verbatim; the `cx:` route's own env additionally kept OPENAI_API_KEY and
+# CODEX_API_KEY (Codex's own documented API-key billing path), which could
+# silently bill a key instead of running on the ChatGPT subscription.
+# ---------------------------------------------------------------------------
+
+_ALL_2_0_3_PROVIDER_SECRETS = {
+    "HF_TOKEN": "hf_super_secret",
+    "OPENAI_API_KEY": "sk-oai-super-secret",
+    "OLLAMA_API_KEY": "ollama-super-secret",
+    "EXPLABS_API_KEY": "xpl_super_secret",
+    "EXPLABS_PROVISIONING_KEY": "xpl-prov-super-secret",
+    # already covered before this finding -- re-checked here for one
+    # single "every 2.0.3 key, in one place" test.
+    "OPENROUTER_API_KEY": "sk-or-super-secret",
+    "ANTHROPIC_API_KEY": "sk-ant-super-secret",
+    "DATABRICKS_TOKEN": "dbx-super-secret",
+    "OPENROUTER_MANAGEMENT_KEY": "sk-or-mgmt-super-secret",
+    "TYPESAFE_API_KEY": "ts-super-secret",
+}
+
+
+@test
+def test_tool_child_env_strips_every_2_0_3_provider_key(ctx: Ctx):
+    from halo_harness.providers.config import tool_child_env
+    raw_env = dict(_ALL_2_0_3_PROVIDER_SECRETS)
+    raw_env["SOME_ORDINARY_VAR"] = "kept"
+    with _Env() as env:
+        stripped = tool_child_env(raw_env, env_file_path=env.home / "no-such-env-file")
+        for key in _ALL_2_0_3_PROVIDER_SECRETS:
+            ctx.check(f"{key} stripped from a tool child's env, got {stripped}", key not in stripped)
+        ctx.check(f"an ordinary var survives, got {stripped}", stripped.get("SOME_ORDINARY_VAR") == "kept")
+
+
+@test
+def test_cx_child_env_also_strips_openai_and_codex_api_key(ctx: Ctx):
+    """`_cx_child_env` reuses `cc_child_env` (which strips ANTHROPIC_*/
+    CLAUDE*, the correct rule for a `claude` child) -- it must ALSO strip
+    OPENAI_*/CODEX_API_KEY, which `cc_child_env` has no reason to know
+    about but a `codex` child very much does (CODEX-RESEARCH.md section 1:
+    `CODEX_API_KEY=<key> codex exec` is Codex's own documented API-key
+    path; codex also reads a bare OPENAI_API_KEY the way the OpenAI SDK
+    conventionally does)."""
+    from halo_harness.agent.codex_runtime import _cx_child_env
+    from types import SimpleNamespace as _NS
+    with _Env() as env:
+        parent_env = {
+            "OPENAI_API_KEY": "sk-oai-secret", "OPENAI_ORG_ID": "org-secret",
+            "CODEX_API_KEY": "codex-key-secret", "ANTHROPIC_API_KEY": "sk-ant-secret",
+            "SOME_ORDINARY_VAR": "kept",
+        }
+        session = _NS(tool_env=parent_env)
+        stripped = _cx_child_env(session)
+        for key in ("OPENAI_API_KEY", "OPENAI_ORG_ID", "CODEX_API_KEY", "ANTHROPIC_API_KEY"):
+            ctx.check(f"{key} stripped from the cx: child env, got {stripped}", key not in stripped)
+        ctx.check(f"an ordinary var survives, got {stripped}", stripped.get("SOME_ORDINARY_VAR") == "kept")
+        _ = env  # the _Env context only scopes BRIDGE_TEST_HOME/env-file lookups here
 
 
 # ---------------------------------------------------------------------------
@@ -677,6 +742,32 @@ def test_models_refresh_worker_refresh_hits_both_enabled_providers(ctx: Ctx):
     finally:
         or_mock.stop()
         dbx_mock.stop()
+
+
+@test
+def test_models_refresh_worker_also_rewrites_the_openai_cache(ctx: Ctx):
+    """Pass-B finding 16 (major): the TUI's own `/models [refresh]`
+    command (`tui.slash._models_refresh_worker`) skipped OpenAI entirely,
+    same gap the headless `/models`/`halo models --refresh` had."""
+    from tests.helpers.mock_get_endpoints import MockGetEndpoints
+    from halo_harness.providers.openai_catalog import load_oai_models_json
+    from halo_harness.tui.slash import _models_refresh_worker
+    oai_mock = MockGetEndpoints({"/v1/models": (200, {"data": [{"id": "gpt-6-astra"}, {"id": "gpt-5"}]})}).start()
+    try:
+        with _Env() as env:
+            os.environ["OPENAI_API_KEY"] = "sk-oai-fake"
+            os.environ["BRIDGE_OPENAI_BASE_URL"] = oai_mock.base_url + "/v1"
+            app = _FakeAppForModelsWorker(env.state_dir)
+            _models_refresh_worker(app, True)
+            note = "\n\n".join(app.transcript.notes)
+            ctx.check(f"mentions OpenAI refreshed, got {note!r}", "OpenAI refreshed" in note)
+            ctx.check("the OpenAI mock's /v1/models endpoint was hit",
+                      any(r["path"] == "/v1/models" for r in oai_mock.requests))
+            cached = load_oai_models_json(env.state_dir)
+            ctx.check(f"the OpenAI cache was actually rewritten, got {cached!r}",
+                      set(cached) == {"gpt-6-astra", "gpt-5"})
+    finally:
+        oai_mock.stop()
 
 
 @test

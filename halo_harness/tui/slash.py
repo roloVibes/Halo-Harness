@@ -520,6 +520,17 @@ def catalog_auto_refresh_worker(app) -> None:
         from halo_harness.providers.huggingface_catalog import load_hf_models_json, refresh_huggingface_catalog_if_stale
         if refresh_huggingface_catalog_if_stale(state_dir, env=env):
             notes.append(f"Hugging Face ({len(load_hf_models_json(state_dir))} models)")
+    if is_enabled_with_env("openai", env):
+        # Pass-B finding 16 (major): `refresh_openai_catalog_if_stale` had
+        # no caller at all -- a key from the shell/env file (never run
+        # through the init wizard's own OpenAI tab, the only other writer
+        # of `openai-models.json`) never got a picker group, and an
+        # init-written cache was never refreshed again despite docs/
+        # MODELS.md's "cached ... with the same TTL knob". Same shape as
+        # the Hugging Face branch just above.
+        from halo_harness.providers.openai_catalog import load_oai_models_json, refresh_openai_catalog_if_stale
+        if refresh_openai_catalog_if_stale(state_dir, env=env):
+            notes.append(f"OpenAI ({len(load_oai_models_json(state_dir))} models)")
     if notes:
         app.call_from_thread(app.notify, f"Catalog refreshed: {'; '.join(notes)}", title="/model")
 
@@ -875,6 +886,32 @@ def _models_refresh_worker(app, do_refresh: bool, *, dbx_explicit: bool = False)
                 sections.append("Anthropic: not configured -- nothing to refresh.")
             else:
                 sections.append(f"Anthropic refreshed: {len(load_ant_models_json(state_dir))} model(s) cached.")
+
+    if is_enabled("openai"):
+        # Pass-B finding 16 (major): `refresh_openai_catalog_if_stale` had
+        # no caller anywhere -- the TUI's own `/models [refresh]` skipped
+        # OpenAI entirely, same gap the headless `/models`
+        # (`commands/builtins.py::_cmd_models`) had. Same shape as the
+        # Anthropic block just above.
+        from halo_harness.providers.openai_catalog import (
+            load_oai_models_json, oai_models_json_age_seconds, refresh_openai_catalog_if_stale,
+        )
+        if not do_refresh:
+            age = oai_models_json_age_seconds(state_dir)
+            age_str = "never" if age is None else f"{age / 3600:.1f}h ago"
+            sections.append(f"OpenAI: {len(load_oai_models_json(state_dir))} model(s) cached "
+                             f"(last refreshed {age_str}).")
+        else:
+            from halo_harness.providers.databricks import CATALOG_REFRESH_BUSY, REFRESH_BUSY_NOTE
+            ok = refresh_openai_catalog_if_stale(state_dir, force=True)
+            if ok is CATALOG_REFRESH_BUSY:
+                sections.append(f"OpenAI: {REFRESH_BUSY_NOTE}.")
+            elif ok is False:
+                sections.append("OpenAI refresh failed -- see `halo doctor`.")
+            elif ok is None:
+                sections.append("OpenAI: not configured -- nothing to refresh.")
+            else:
+                sections.append(f"OpenAI refreshed: {len(load_oai_models_json(state_dir))} model(s) cached.")
 
     if not sections:
         sections.append("No providers are enabled yet -- see `halo providers`.")

@@ -252,7 +252,7 @@ def _run_one_cx_subprocess(session, state, turn_no: int, prompt: str, image_path
     # prompt` below), never on argv.
     argv = build_cx_argv(model=session.model_ref.model, prompt=prompt, resume_id=state.cx_session_id,
                           permission_mode=session.permission_engine.mode, mcp_override_args=mcp_args,
-                          image_paths=image_paths, prompt_via_stdin=True)
+                          image_paths=image_paths, prompt_via_stdin=True, effort=session.effort)
     env = cx_subprocess_env(_cx_child_env(session), bridge_env)
     try:
         process = CodexExecProcess(argv, cwd=session.cwd, env=env)

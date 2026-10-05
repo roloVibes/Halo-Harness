@@ -107,7 +107,18 @@ def _preflight_cx() -> Optional[str]:
 def _cx_child_env(session) -> dict:
     from halo_harness.providers.config import cc_child_env
     base = getattr(session, "tool_env", None) or dict(os.environ)
-    return cc_child_env(base)
+    env = cc_child_env(base)
+    # Pass-B finding 15 (major): `cc_child_env` strips `ANTHROPIC_*`/
+    # `CLAUDE*` -- the correct rule for a `claude` child, reused here only
+    # because `cx:` has no env builder of its own -- but it has no reason
+    # to ALSO strip `OPENAI_*`/`CODEX_API_KEY`, which a `codex` child DOES
+    # care about: CODEX-RESEARCH.md section 1 documents `CODEX_API_KEY=
+    # <key> codex exec` as Codex's own documented API-key billing path,
+    # and codex reads a bare `OPENAI_API_KEY` the same way the OpenAI SDK
+    # conventionally does -- either one reaching this subprocess would let
+    # a `cx:` session (meant to run on the ChatGPT subscription) silently
+    # bill a key instead.
+    return {k: v for k, v in env.items() if not k.startswith("OPENAI_") and k != "CODEX_API_KEY"}
 
 
 def _last_cx_session_id(log) -> Optional[str]:
@@ -352,7 +363,7 @@ def one_shot_cx_call(model: str, system_text: str, user_text: str, *, timeout_s:
     if offline_mode_enabled():
         raise RuntimeError(format_offline_refusal("the codex CLI"))
     import subprocess as subprocess_mod
-    from halo_harness.agent.codex_process import build_cx_argv
+    from halo_harness.agent.codex_process import build_cx_argv, run_bounded_codex_subprocess
     from halo_harness.providers.codex_models import CodexNotFoundError
     try:
         prompt = f"{system_text}\n\n{user_text}"
@@ -363,7 +374,14 @@ def one_shot_cx_call(model: str, system_text: str, user_text: str, *, timeout_s:
     from halo_harness.providers.config import cc_child_env
     env = cc_child_env(dict(os.environ))
     try:
-        proc = subprocess_mod.run(argv, capture_output=True, text=True, timeout=timeout_s, env=env)
+        # Pass-B finding 14 (major): a plain `subprocess.run(..., timeout=
+        # timeout_s)` here only ever bounded the CLI launcher Halo resolved
+        # directly -- on Windows, when that resolves to an npm `.cmd` shim
+        # (or a `node` launcher with its own native-binary child), the
+        # real work survives the timeout and `communicate()` keeps
+        # blocking on it regardless. This helper's own watchdog reaches
+        # the whole tree instead (see its docstring).
+        proc = run_bounded_codex_subprocess(argv, timeout=timeout_s, env=env)
     except subprocess_mod.TimeoutExpired as e:
         raise RuntimeError(f"cx: small-model call timed out after {timeout_s}s") from e
     except OSError as e:

@@ -142,6 +142,43 @@ def test_vram_aware_override_redirects_to_main_when_it_does_not_fit(ctx: Ctx):
 
 
 @test
+def test_vram_aware_override_recognizes_the_same_model_despite_a_tag_mismatch(ctx: Ctx):
+    """Review fix pass (finding 9): the candidate IS main, just spelled
+    without the explicit `:latest` tag main's own raw ref happens to
+    carry -- the old same-model short-circuit was a bare `==` on the two
+    RAW ref strings ("ol:main-model" vs "ol:main-model:latest"), which
+    never matches even though they name the same model, so this
+    function went on to call `fits_beside_main` for what is actually one
+    model. The host here is deliberately TIGHT (would redirect a
+    genuinely different candidate, per the sibling test above) -- if the
+    same-model check were still broken, this test would see a redirect
+    instead of staying unchanged."""
+    from halo_harness.model import parse_model_ref
+    from halo_harness.providers.ollama_hw import reset_local_gpu_cache
+    from halo_harness.roles import vram_aware_override
+    from halo_harness.theme import set_config_value
+    import os
+    reset_local_gpu_cache()
+    d = Path(tempfile.mkdtemp(prefix="vram-override-sametag-"))
+    os.environ["BRIDGE_STATE_DIR"] = str(d)
+    mock = MockUpstream(ps_response={"models": [
+        {"model": "main-model:latest", "name": "main-model:latest", "size": 20 * _GB, "size_vram": 20 * _GB},
+    ]}).start()
+    try:
+        set_config_value("ollama.hosts", [{"name": "shared", "url": mock.base_url, "default": True}])
+        main_ref = parse_model_ref("ol:main-model:latest")
+        value, reason = vram_aware_override("small", "ol:main-model", main_ref=main_ref,
+                                             hw_runner=lambda argv, timeout: "24000,0,24000,A Tight Card\n")
+        ctx.check(f"left unchanged (same model, just untagged) -- never redirected, got {value!r}",
+                  value == "ol:main-model")
+        ctx.check("no reason given (fits_beside_main was never even consulted)", reason is None)
+    finally:
+        mock.stop()
+        os.environ.pop("BRIDGE_STATE_DIR", None)
+        reset_local_gpu_cache()
+
+
+@test
 def test_vram_aware_override_leaves_it_alone_when_it_fits(ctx: Ctx):
     from halo_harness.model import parse_model_ref
     from halo_harness.roles import vram_aware_override

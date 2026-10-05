@@ -1128,9 +1128,13 @@ completion. The thread id is Codex's own (learned from its first
 like `cc_session_id`) -- every turn after the first resumes it, so the
 conversation is continuous on Codex's own side even though the OS process
 is not. Halo's permission mode maps onto Codex's `approval_policy`/
-`sandbox_mode`: bypass and auto -> `never`/`danger-full-access`; default
--> `on-request`/`workspace-write`; manual -> `untrusted`/`read-only`. Both
-values ride on `-c approval_policy=<value> -c sandbox_mode=<value>` on
+`sandbox_mode`, keyed on the engine's own six real mode names: `auto` and
+`bypassPermissions` -> `never`/`danger-full-access` (full access, never
+asks); `default` and `acceptEdits` -> `on-request`/`workspace-write`;
+`dontAsk` -> `never`/`workspace-write`; `plan` -> `never`/`read-only` (plan
+mode never writes at all, so this is also the one row with nothing for an
+unanswerable approval request to block on). Both values ride on
+`-c approval_policy=<value> -c sandbox_mode=<value>` on
 EVERY invocation, a fresh `exec` and a `resume` alike -- `codex exec
 resume` has no `-s/--sandbox` flag of its own at all, only `exec` does, so
 the sandbox is never passed that way on either subcommand.

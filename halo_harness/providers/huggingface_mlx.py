@@ -139,8 +139,15 @@ def ensure_mlx_server(repo_id: str, *, confirm: "Optional[Callable[[str], bool]]
         lines.append('mlx_lm is not installed -- run `uv tool install "halo-harness[mlx]"` and try again '
                      "(docs/harness/GPU-RESEARCH.md section 7).")
         return None, lines
+    # Review fix pass (finding 15): the SAME already-cached size this
+    # function's own `consent_sentence` line just named (`None` when
+    # `repo_id` isn't in the Hub cache at all yet -- the common first-use
+    # case) lets `start_managed_server` scale its readiness budget for a
+    # repo that's already PARTIALLY downloaded instead of always falling
+    # back to its flat "size genuinely unknown" floor.
     entry, reason = start_managed_server(model=repo_id, runtime="mlx_lm", binary_argv=binary, model_path=repo_id,
-                                          port=port, keep=keep, state_dir=state_dir)
+                                          port=port, keep=keep, state_dir=state_dir,
+                                          model_size_bytes=_approx_cached_size_bytes(repo_id, env=env))
     if entry is None:
         lines.append(reason)
         return None, lines

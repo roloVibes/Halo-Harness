@@ -249,13 +249,18 @@ def _catalog_capabilities_for(model_ref: str):
         return None
     try:
         from halo_harness.model import parse_model_ref
-        from halo_harness.providers.ollama import get_catalog, resolve_ollama_host
+        from halo_harness.providers.ollama import get_catalog, ollama_names_match, resolve_ollama_host
         ref = parse_model_ref(model_ref)
         host = resolve_ollama_host(ref.host)
         if host is None:
             return None
+        # Review fix pass (finding 9): matched via `ollama_names_match`,
+        # not a bare `==` -- an untagged ref must still find its own
+        # `:latest`-qualified catalog row, same as every other Ollama
+        # name comparison in this codebase.
         for row in get_catalog(host).get("models") or []:
-            if isinstance(row, dict) and (row.get("model") == ref.model or row.get("name") == ref.model):
+            if isinstance(row, dict) and (ollama_names_match(row.get("model"), ref.model)
+                                           or ollama_names_match(row.get("name"), ref.model)):
                 return row.get("capabilities")
     except Exception:
         pass

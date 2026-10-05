@@ -571,6 +571,14 @@ pass, and the release tag are still to come.
 - **A learned calibration cap never outranks a smaller live fit estimate**: both now compete in the same `min(...)`, so a cap measured on an idle GPU can no longer force a partial offload once another workload holds some of that VRAM.
 - **The constrained-tool-calls gate now recognizes every LAN Ollama host, not just loopback**: keyed on "not Ollama Cloud" (`ollama.com` hostname or an `api_key`) instead of `is_local_host`, for the repair round, `doctor --local`, and the gym.
 - **Auto-calibration never blocks a turn past a budget, never runs from `call_small_model`, and never records an unreachable host as permanently "does not fit"**: the measurement now runs in a background thread bounded by the session's own abort and a total wait budget; a host that never answers is reported as "unreachable" and nothing is recorded.
+- **Calibration, throughput and capability lookups match `<model>` and `<model>:latest` as one key, everywhere**: the fit-calibration store, the last-turn throughput record, the model picker's capability lookup, and `vram_aware_override`'s same-model check all go through `ollama_names_match` now instead of comparing raw strings, so a cap or throughput reading recorded under either spelling is found by the other.
+- **A learned calibration cap is re-measured after a re-pull or an Ollama upgrade**: the on-disk entry's digest/version are now also checked by the auto-calibration gate (not just the live lookup), and the live lookup now checks the server version too, via a per-process-cached `/api/version` probe that costs no extra request after the first turn on a host; a mismatch on either is treated as "no cap at all" instead of a stale measurement standing forever.
+- **A bare `hf:local/<model>` resolves to the server that actually serves it**: the managed-server registry (confirmed alive by probing it) and any auto-detected server are checked for an exact match on the model id before ever falling back to "the default server" (previously: whichever server auto-detected first, or started most recently, regardless of what it actually served); a one-line notice names which server was chosen.
+- **The managed llama-server now starts with `--alias <model id>`**: its own `/v1/models` id equals the Halo-side name instead of the `-m` file path, so context readback and the model-id resolution above both actually match it; the `/props` single-model-context fallback now only ever applies to a server reporting exactly one model, never broadcast across several.
+- **`halo local serve -c` capping verified against the full finding**: already correct as of A-1 (`min(fit_or_trained, trained_context, HARD_CONTEXT_CAP)`); the pinning tests now also cover the hard-cap-wins and nothing-known cases the first pass left unexercised.
+- **A partially-offloaded real turn now leaves a trace**: the panel (and `halo ollama`/`halo doctor`, which render through the same function) names `ollama.hosts[].max_ctx` directly beside a learned cap; a real turn that loads offloaded (auto-calibration off, a stale cap, a does-not-fit record, or a retry past the ceiling all reach this) now also records a learned cap from the turn's own `/api/ps` reading and queues the one-sentence notice.
+- **A managed server's own readiness wait no longer kills a model that is still downloading or loading**: the budget now scales with the model's own size instead of a fixed 10s (the exact bug that killed `hf:mlx`'s first-use download on every attempt); a child that exits early surfaces its own stderr instead of a generic timeout sentence.
+- **`think` is sent only to a model that declares the `thinking` capability, and only when this session's own effort was explicitly set**: a carried `last_effort` from an earlier session, or settings.json's `effortLevel`, no longer turns thinking on by itself (Ollama 400s "does not support thinking" for a model that never declared it); `none`/`minimal` now map to off (gpt-oss: its own lowest graded level) instead of silently mapping to on.
 - **Sub-agents resolve their own credentials** (review B1): a child on a
   different route than its parent (an `ol:` or `hf:local` child under an
   `or:` parent, an `oai:` child anywhere) resolves creds for its own model and
@@ -710,6 +718,102 @@ pass, and the release tag are still to come.
   last real count instead of flashing an empty one; a lazily-cached MCP
   server's first real connect now publishes a fresh status event right
   away, instead of waiting for whatever the next turn happens to emit.
+- **The whole gpt-6 and gpt-5.6 families use the Responses dialect** (B7):
+  not only `gpt-6-astra`/`gpt-6.1-sol` -- `gpt-6-sol`, `gpt-6-luna`,
+  `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-luna` and `gpt-5.6-terra` now default to
+  `openai-responses` too, so a tool-bearing turn never pays the live-verified
+  "Function tools with reasoning_effort are not supported" 400 and its
+  retry; the `oai:` chat profile also sets `reasoning_effort_with_tools`
+  for the same families (the way the Databricks branch already did), so an
+  `openai.dialect_overrides` entry that forces one of them back onto chat
+  still sends `reasoning_effort: "none"` on the first request.
+- **A compactionModel/small-model override on the SAME provider but a
+  different host or key now resolves its own credentials** (B8): the swap
+  used to re-resolve creds only when `ref.provider` itself differed, so an
+  `ol:small@lan` compactionModel under an `ol:big` (default host) main
+  session inherited the main host's creds; both call sites now resolve the
+  override ref unconditionally and skip the override entirely (falling back
+  to the session's own main model, never the main model's creds under the
+  override's body) when nothing resolves.
+- **`HALO_OPENROUTER_BASE_URL`/`BRIDGE_OPENROUTER_BASE_URL` never leaks onto
+  a non-`or:` request** (B9): the session-level override used to apply to
+  every non-Databricks chat route it was still SET for -- an `oai:`/`hf:`
+  request built after a `/model` switch, a fallback, an escalation, or a
+  sub-agent/small/compaction call away from an `or:` leg of the same session
+  went to the OpenRouter override URL with the OpenAI/HF key instead of its
+  own provider's real endpoint; `providers/stream.py`'s phase 1 now applies
+  it only when the request's own route is actually `openrouter`.
+- **`extra_headers` are rebuilt for the route of EACH request** (B10):
+  Databricks's `ANTHROPIC_CUSTOM_HEADERS` and the hf: router's
+  `X-HF-Bill-To` used to be computed once from the session's STARTING
+  model and handed to every later request verbatim -- a `/model` switch,
+  a fallback, or a small/compaction-model override onto a different
+  provider kept sending them to OpenRouter/Ollama/local servers, and
+  switching INTO `dbx:`/the router never gained its own header. Both are
+  now recomputed from the actual route of every outgoing request.
+- **The Codex approval/sandbox table is keyed on the engine's own six real
+  permission modes** (B11): `default|acceptEdits|plan|auto|dontAsk|
+  bypassPermissions`, not the pre-engine-name `bypass`/`manual` strings
+  `normalize_permission_mode` never actually produces -- every mode but
+  `auto` used to fall through to the `default` row by accident, including
+  `bypassPermissions`/`dontAsk`/`acceptEdits`/`plan`; each now has its own
+  documented `approval_policy`/`sandbox_mode` pair (`plan` is `never`/
+  `read-only`, so it never writes at all), matching docs/MODELS.md.
+- **A `cx:` prompt is never truncated, confirmed with a dedicated test**
+  (B12): B-1's stdin-delivery fix already removed the old "first 20,000
+  characters" argv cap along with the argv-embedded prompt itself, but
+  nothing pinned the scenario that used to lose the user's own message --
+  a 60,000-character carried context (switching INTO `cx:` mid-session)
+  plus a short next message now has a test proving the user's text still
+  arrives intact at the end of the delivered prompt.
+- **`--effort`/`/effort` now reaches `codex exec`** (B13): `cc:` already
+  forwarded it, `cx:` silently dropped it -- the status bar and `/effort`
+  showed a level Codex never actually received, running on whatever
+  `config.toml` said instead. Now rides as its own
+  `-c model_reasoning_effort=<value>` on every invocation (a fresh `exec`
+  and a `resume` alike), mapped from Halo's harness-wide effort levels
+  (which share five of Codex's own six names outright); omitted entirely
+  when no effort is set.
+- **A `codex` one-shot call that times out no longer leaves anything
+  running** (B14): the one-shot `cx:` small-model call, the synchronous
+  `codex login status` preflight on a session's first turn, `halo models
+  --cx --refresh`'s per-alias pings and the `--version` check all spawned
+  the binary with a plain `subprocess.run(..., timeout=...)`, whose own
+  timeout only reaches the ONE resolved process -- on Windows that is
+  often an npm `.cmd` shim or a `node` launcher, never the real work
+  beneath it, so `communicate()` kept blocking on a still-running
+  grandchild past the timeout (verified: an 8s child outlived a 2s
+  timeout by 6.1s). A shared bounded-subprocess helper now isolates each
+  call in its own process group with `stdin=DEVNULL` and kills the WHOLE
+  tree on a timeout (`taskkill /T /F` on Windows, `killpg` on POSIX),
+  draining any buffered output so nothing is left as a zombie.
+- **No 2.0.3 provider secret reaches a tool child's environment** (B15):
+  the fixed strip list named only pre-2.0.3 keys, so `HF_TOKEN`,
+  `OPENAI_API_KEY`, `OLLAMA_API_KEY` and the Experiential Labs keys
+  reached every Bash/PowerShell/MCP/hook child, from the shell or a
+  settings env, unlike `OPENROUTER_API_KEY`/`ANTHROPIC_API_KEY`; the
+  `cx:` route's own child env now also strips `OPENAI_*`/`CODEX_API_KEY`
+  (Codex's own documented API-key billing path) the way it already strips
+  `ANTHROPIC_*`/`CLAUDE*`, so a `cx:` session can no longer silently bill
+  a key instead of running on the ChatGPT subscription.
+- **`/models refresh`, `halo models --refresh` and the background catalog
+  worker now refresh the OpenAI catalog too** (B16): `refresh_openai_
+  catalog_if_stale` had no caller anywhere -- a key from the shell or env
+  file (never run through the init wizard's own OpenAI tab, the only
+  other writer of `openai-models.json`) never got a picker group, and an
+  init-written cache was never refreshed again. Wired into the same four
+  surfaces OpenRouter/Anthropic/Databricks already use: the TUI's launch
+  and `/model`-open background worker, the TUI's `/models [refresh]`
+  command, and the headless `/models`/`halo models --refresh` commands.
+- **Offline mode for `cc:`/`cx:` turns, confirmed covered on both turn
+  paths** (B17): C-1 already added the gate (`_preflight_cc`/
+  `_preflight_cx`, both one-shot small/judge/title calls, and `halo
+  models --cx --refresh`'s pings) and docs/CONFIG.md already describes
+  it; the two tests pinning the `cx:` one-shot call and catalog refresh
+  were repaired to stub the new bounded-subprocess helper (B14) instead
+  of the `subprocess.run` call it replaced, so both turn paths stay
+  genuinely covered rather than silently passing on a stub nothing
+  reaches any more.
 
 ## [2.0.2] - 2026-10-04
 

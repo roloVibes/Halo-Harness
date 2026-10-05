@@ -753,11 +753,19 @@ def test_one_shot_cx_call_refuses_under_offline_but_not_online(ctx: Ctx):
     os.environ["HALO_CODEX_EXE"] = '"' + sys.executable + '" "' + str(
         Path(__file__).resolve().parent / "helpers" / "fake_codex.py") + '"'
     os.environ["BRIDGE_TEST_HOME"] = str(Path(tempfile.mkdtemp(prefix="offline-cx-oneshot-")))
-    import subprocess
+    import halo_harness.agent.codex_process as cxp
     import halo_harness.agent.codex_runtime as cxrt
-    original = subprocess.run
+    # Pass-B finding 14: `one_shot_cx_call` now runs the subprocess through
+    # `run_bounded_codex_subprocess` (its own process-group/watchdog
+    # wrapper around `subprocess.Popen`, never a bare `subprocess.run`) --
+    # stubbed there instead of on `subprocess.run`, which this call no
+    # longer reaches at all. `one_shot_cx_call` imports the name LOCALLY
+    # at call time (`from halo_harness.agent.codex_process import
+    # run_bounded_codex_subprocess`), so patching the module attribute
+    # here is what that import actually resolves.
+    original = cxp.run_bounded_codex_subprocess
     calls = []
-    subprocess.run = lambda *a, **k: (calls.append(1), _StubCompletedProcess())[1]
+    cxp.run_bounded_codex_subprocess = lambda *a, **k: (calls.append(1), _StubCompletedProcess())[1]
     try:
         try:
             cxrt.one_shot_cx_call("gpt-5", "sys", "user")
@@ -774,7 +782,7 @@ def test_one_shot_cx_call_refuses_under_offline_but_not_online(ctx: Ctx):
             pass  # the stub's own dummy output is never parseable -- expected
         ctx.check("online -> the subprocess IS invoked (unchanged, stubbed)", calls == [1])
     finally:
-        subprocess.run = original
+        cxp.run_bounded_codex_subprocess = original
 
 
 @test
@@ -816,17 +824,22 @@ def test_refresh_cx_catalog_skips_under_offline_but_not_online(ctx: Ctx):
     os.environ["HALO_CODEX_EXE"] = '"' + sys.executable + '" "' + str(
         Path(__file__).resolve().parent / "helpers" / "fake_codex.py") + '"'
     state_dir = Path(tempfile.mkdtemp(prefix="offline-cx-refresh-"))
-    import subprocess
+    import halo_harness.agent.codex_process as cxp
     import halo_harness.providers.codex_models as cxm
     calls = []
     original_resolve = cxm.resolve_codex_launch_argv
-    original_run = subprocess.run
+    # Pass-B finding 14: `refresh_cx_catalog`'s per-alias ping now runs
+    # through `run_bounded_codex_subprocess` (never a bare `subprocess.
+    # run`, which it imports LOCALLY at call time the same way `one_shot_
+    # cx_call` does -- see that test's own comment) -- stubbed there
+    # instead.
+    original_run = cxp.run_bounded_codex_subprocess
     cxm.resolve_codex_launch_argv = lambda: (calls.append(("resolve",)) or original_resolve())
     # Codex IS actually installed on this box -- a real `codex exec` ping
     # per alias must never run even in the "online" half below, so
-    # subprocess.run is stubbed too (same codex_models.py module object
-    # `import subprocess` binds to).
-    subprocess.run = lambda *a, **k: (calls.append(("run", a[0] if a else None)), _StubCompletedProcess())[1]
+    # run_bounded_codex_subprocess is stubbed too.
+    cxp.run_bounded_codex_subprocess = lambda *a, **k: (
+        calls.append(("run", a[0] if a else None)), _StubCompletedProcess())[1]
     try:
         result = cxm.refresh_cx_catalog(state_dir=state_dir)
         ctx.check(f"codex is never pinged while offline, calls={calls!r}", calls == [])
@@ -839,7 +852,7 @@ def test_refresh_cx_catalog_skips_under_offline_but_not_online(ctx: Ctx):
         ctx.check("online -> the (stubbed) codex ping ran at least once", any(c[0] == "run" for c in calls))
     finally:
         cxm.resolve_codex_launch_argv = original_resolve
-        subprocess.run = original_run
+        cxp.run_bounded_codex_subprocess = original_run
 
 
 @test

@@ -23,6 +23,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from dataclasses import dataclass, field
@@ -33,6 +34,29 @@ from typing import Optional
 log = logging.getLogger("bridge")
 
 _READY_POLL_INTERVAL_S = 0.2
+# Review fix pass (finding 15): the fixed 10 s wait killed a managed
+# `mlx_lm.server` on its very first use every single time -- `mlx_lm.
+# server --model <repo>` downloads (and loads) the whole Hub repo BEFORE
+# it ever binds its port, which a multi-GB repo on an ordinary connection
+# cannot do in 10 s. `_startup_timeout_for_size` scales the budget by the
+# model's own byte size when it's known (always, for a llama-server file
+# already sitting on local disk -- `start_managed_server` reads `Path.
+# stat()` itself); `_DEFAULT_STARTUP_TIMEOUT_S` is the floor every
+# timeout still respects (process-spawn overhead alone, on a model that's
+# tiny or whose size genuinely can't be read).
+_DEFAULT_STARTUP_TIMEOUT_S = 10.0
+# A conservative "this will finish well inside the budget on anything
+# but a genuinely broken box" assumed sustained throughput for a first-
+# time download-then-load -- a slow home connection/disk FLOOR, never a
+# target; a faster link/box simply finishes with time to spare.
+_STARTUP_BYTES_PER_SECOND_FLOOR = 20 * 1024 * 1024
+# `mlx_lm`'s own Hub repo size is usually NOT knowable ahead of the first
+# download (`huggingface_mlx.ensure_mlx_server` passes it through when the
+# repo is already -- even partially -- in the Hub cache; unknown
+# otherwise) -- this floor stands in for "large enough that 10s was
+# always hopeless" rather than silently falling back to that same 10s.
+_MLX_UNKNOWN_SIZE_MINIMUM_S = 600.0
+_STDERR_TAIL_BYTES = 4000
 
 
 @dataclass(frozen=True)
@@ -183,12 +207,26 @@ def find_free_port() -> int:
         return s.getsockname()[1]
 
 
-def llama_server_argv(binary_argv: list, *, model_path, port: int, context_length: Optional[int] = None) -> list:
+def llama_server_argv(binary_argv: list, *, model_path, port: int, context_length: Optional[int] = None,
+                       model: Optional[str] = None) -> list:
     """Brief item 3's own exact flags: `-m <file> -c <fit> -ngl 99 -fa on
     --port <p> --host 127.0.0.1`. `-c` is omitted (llama-server's own
     documented default, "0, meaning load from the model" -- LOCAL-MODELS-
-    RESEARCH.md section 8) only when `context_length` isn't known."""
+    RESEARCH.md section 8) only when `context_length` isn't known.
+
+    Review fix pass (finding 12): `--alias <model>`, right after `-m`,
+    when `model` is given (every real caller always has one -- the
+    registry/Halo-side id `start_managed_server` records this server
+    under) -- without it, llama-server's own `/v1/models` reports the
+    `-m` PATH as its `id` (the llama.cpp server README's own example),
+    never the bare file stem/registry key Halo looks context back up by,
+    so that lookup always missed. `--alias` makes the served id equal
+    the Halo-side name, so the probe/resolver (`huggingface_local_probe.
+    probe_models_endpoint`, `huggingface_local_resolve.resolve_managed_
+    server_by_model`) can compare against it directly."""
     argv = list(binary_argv) + ["-m", str(model_path)]
+    if model:
+        argv += ["--alias", str(model)]
     if context_length:
         argv += ["-c", str(context_length)]
     argv += ["-ngl", "99", "-fa", "on", "--port", str(port), "--host", "127.0.0.1"]
@@ -253,49 +291,145 @@ def runtime_for_format(fmt: str) -> Optional[str]:
     return None
 
 
-def _wait_ready(base_url: str, *, timeout: float) -> bool:
+def _startup_timeout_for_size(size_bytes: Optional[int], *, minimum: float = _DEFAULT_STARTUP_TIMEOUT_S) -> float:
+    """Review fix pass (finding 15): `minimum` (process-spawn overhead,
+    never less) when `size_bytes` is unknown/non-positive; otherwise the
+    bigger of `minimum` and "how long this many bytes takes at the
+    conservative floor"."""
+    if not isinstance(size_bytes, int) or isinstance(size_bytes, bool) or size_bytes <= 0:
+        return minimum
+    return max(minimum, size_bytes / _STARTUP_BYTES_PER_SECOND_FLOOR)
+
+
+def _read_stderr_tail(path: Path, *, limit: int = _STDERR_TAIL_BYTES) -> str:
+    """Best-effort last `limit` bytes of a managed child's own stderr
+    file -- `""` on any failure (missing file, permission, a genuinely
+    empty one), never raises; `start_managed_server`'s own failure
+    message degrades to its plain sentence with nothing appended."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return ""
+    return data[-limit:].decode("utf-8", "replace").strip()
+
+
+def _wait_ready(base_url: str, *, timeout: float, proc: "subprocess.Popen") -> "tuple[bool, bool]":
+    """Polls `/v1/models` up to `timeout`; returns `(ready, exited_early)`.
+
+    Review fix pass (finding 15): `proc.poll()` is checked every poll --
+    a child that has already QUIT (crashed, refused the args, whatever)
+    is never confused with one that is simply still loading/downloading
+    within its own budget; `exited_early=True` the moment the process is
+    gone before `/v1/models` ever answered, so the caller can show the
+    child's own stderr instead of a generic "did not answer in time"
+    sentence that would be actively misleading for a process that is not
+    even running any more. A child still alive at the deadline is NOT
+    killed from in here -- `start_managed_server` decides that (and does
+    the one `_terminate_pid` call) once this returns `(False, False)`."""
     from halo_harness.providers.huggingface_local_probe import probe_models_endpoint
     deadline = time.monotonic() + timeout
     while True:
         if probe_models_endpoint(base_url, timeout=min(2.0, timeout)) is not None:
-            return True
+            return True, False
+        if proc.poll() is not None:
+            return False, True
         if time.monotonic() >= deadline:
-            return False
+            return False, False
         time.sleep(_READY_POLL_INTERVAL_S)
 
 
 def start_managed_server(*, model: str, runtime: str, binary_argv: list, model_path, context_length=None,
                           port: Optional[int] = None, keep: bool = False, state_dir=None,
-                          startup_timeout: float = 10.0) -> "tuple[Optional[ManagedServer], Optional[str]]":
+                          startup_timeout: Optional[float] = None,
+                          model_size_bytes: Optional[int] = None) -> "tuple[Optional[ManagedServer], Optional[str]]":
     """Spawns the child process, waits for `/v1/models` to answer, records
     it in the registry, and registers it in-process as `hf:local/<model>`
     for THIS session (`providers.huggingface_local_resolve.
     register_managed_server`). `(None, reason)` on any failure (unknown
     runtime, the binary itself failed to spawn, or it never answered
-    within `startup_timeout` -- the half-started process is terminated
-    before returning)."""
+    within the startup budget -- the half-started process is terminated
+    before returning).
+
+    Review fix pass (finding 15): `startup_timeout`, when a caller gives
+    one explicitly (every existing test that pins an exact deadline),
+    is used AS-IS, unchanged from before this fix. `None` (every REAL
+    caller -- `providers.local_use.serve_local_model`, `providers.
+    huggingface_mlx.ensure_mlx_server` -- neither ever set it) now scales
+    the budget by `model_size_bytes` (for `llama-server`, read straight
+    off the LOCAL file when the caller didn't already know it -- always
+    possible, the file is already fully on disk; `mlx_lm` downloads a
+    Hub repo that may not be cached yet at all, so an unknown size there
+    gets a much bigger flat floor instead of silently reusing the old,
+    always-too-short 10s) rather than the fixed 10s that killed a
+    `mlx_lm.server` downloading its first model on EVERY attempt."""
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
     port = port if port is not None else find_free_port()
     if runtime == "llama-server":
-        argv = llama_server_argv(binary_argv, model_path=model_path, port=port, context_length=context_length)
+        argv = llama_server_argv(binary_argv, model_path=model_path, port=port, context_length=context_length,
+                                  model=model)
+        if model_size_bytes is None:
+            try:
+                model_size_bytes = Path(model_path).stat().st_size
+            except OSError:
+                model_size_bytes = None
+        default_minimum = _DEFAULT_STARTUP_TIMEOUT_S
     elif runtime == "mlx_lm":
         argv = mlx_lm_server_argv(binary_argv, model_path=model_path, port=port)
+        default_minimum = _MLX_UNKNOWN_SIZE_MINIMUM_S if model_size_bytes is None else _DEFAULT_STARTUP_TIMEOUT_S
     else:
         return None, f"unknown runtime {runtime!r}"
+    effective_timeout = (startup_timeout if startup_timeout is not None
+                          else _startup_timeout_for_size(model_size_bytes, minimum=default_minimum))
+    stderr_path = Path(tempfile.gettempdir()) / f"halo-local-runtime-{os.getpid()}-{time.monotonic_ns()}.stderr"
     try:
-        proc = subprocess.Popen(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        stderr_file = open(stderr_path, "wb")
+    except OSError:
+        stderr_file = None
+    try:
+        proc = subprocess.Popen(argv, stdout=subprocess.DEVNULL,
+                                 stderr=(stderr_file if stderr_file is not None else subprocess.DEVNULL),
+                                 stdin=subprocess.DEVNULL)
     except OSError as e:
+        if stderr_file is not None:
+            stderr_file.close()
+            stderr_path.unlink(missing_ok=True)
         return None, f"failed to start {runtime}: {e}"
     # FIX PASS (Kali/WSL live run): registered BEFORE `_wait_ready` so even
     # the "never answered in time" cleanup path below reaps it properly
     # (see `_terminate_pid`'s own docstring) instead of leaving a zombie.
     _register_popen(proc)
     base_url = f"http://127.0.0.1:{port}/v1"
-    if not _wait_ready(base_url, timeout=startup_timeout):
+    ready, exited_early = _wait_ready(base_url, timeout=effective_timeout, proc=proc)
+    if not ready:
+        if stderr_file is not None:
+            stderr_file.close()
+        tail = _read_stderr_tail(stderr_path) if stderr_file is not None else ""
+        # Review fix pass (finding 15): a child that already exited on
+        # its own is never also sent a signal (`_terminate_pid` on an
+        # already-dead pid is harmless either way -- it only reaps,
+        # never raises -- but the message must say what actually
+        # happened: it quit, nobody killed it for taking too long).
         _terminate_pid(proc.pid)
-        return None, f"{runtime} did not answer {base_url}/models within {startup_timeout:.0f}s"
+        try:
+            stderr_path.unlink(missing_ok=True)
+        except OSError:
+            pass  # a lingering temp file is harmless -- never worth failing this call over
+        suffix = f" -- stderr: {tail}" if tail else ""
+        if exited_early:
+            return None, f"{runtime} exited before answering {base_url}/models{suffix}"
+        return None, f"{runtime} did not answer {base_url}/models within {effective_timeout:.0f}s{suffix}"
+    if stderr_file is not None:
+        # Left in place (never unlinked) while the server itself keeps
+        # running -- this process's OWN write handle is closed (the
+        # child keeps its own inherited copy regardless), and on Windows
+        # a file the child still has open cannot be unlinked out from
+        # under it anyway. A long-lived kept server's small stderr log
+        # in the OS temp dir is a reasonable trade for "can actually
+        # show you why it died" -- the SAME trade finding 19 (temp
+        # download dirs) already accepts elsewhere in this module.
+        stderr_file.close()
     from halo_harness.bg_run import process_start_time
     owner_pid, owner_start = _owner_fingerprint()
     entry = ManagedServer(model=model, runtime=runtime, pid=proc.pid, port=port, base_url=base_url,

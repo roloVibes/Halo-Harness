@@ -219,6 +219,15 @@ def format_host_analysis(a: HostAnalysis) -> str:
             cap_str = f"{fit_info.learned_cap} (learned)" if fit_info.learned_cap else "not calibrated"
             lines.append(f"    {fit_info.name}: num_ctx {fit_info.what_fits} [{fit_info.source}], "
                          f"learned cap: {cap_str}")
+            if fit_info.learned_cap:
+                # Review fix pass (finding 14): "no surface names max_ctx
+                # at all" -- a learned cap is only useful once an
+                # operator knows WHICH config key makes it permanent;
+                # every other surface in this codebase that reports one
+                # (this panel, `halo ollama`, `halo doctor`'s Ollama
+                # section -- all three render through this SAME function)
+                # now names it plainly.
+                lines.append(f"      set ollama.hosts[].max_ctx to {fit_info.learned_cap} to make this permanent.")
             if fit_info.throughput:
                 tp = fit_info.throughput
                 tps = tp.get("tokens_per_second")

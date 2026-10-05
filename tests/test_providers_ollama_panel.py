@@ -168,7 +168,7 @@ def test_analyze_host_catalog_fits_covers_every_catalog_model(ctx: Ctx):
     loaded one -- the whole point of "what fits" is knowing ahead of
     loading it."""
     from halo_harness.providers.ollama import OllamaHost
-    from halo_harness.providers.ollama_panel import analyze_host
+    from halo_harness.providers.ollama_panel import analyze_host, format_host_analysis
     _fresh_state_dir("ol-panel-catalogfits-")
     mock = MockUpstream().start()  # DEFAULT_TAGS: qwen3:30b, gpt-oss:20b -- nothing loaded
     try:
@@ -182,6 +182,8 @@ def test_analyze_host_catalog_fits_covers_every_catalog_model(ctx: Ctx):
             ctx.check(f"{f.name}: source is a non-empty phrase, got {f.source!r}",
                       isinstance(f.source, str) and f.source)
             ctx.check(f"{f.name}: not calibrated yet -> learned_cap is None", f.learned_cap is None)
+        text = format_host_analysis(analysis)
+        ctx.check("nothing calibrated yet -> no max_ctx suggestion line at all", "max_ctx" not in text)
     finally:
         mock.stop()
         _clear_state_dir_env()
@@ -206,6 +208,11 @@ def test_analyze_host_catalog_fits_shows_a_learned_cap_and_names_its_source(ctx:
         text = format_host_analysis(analysis)
         ctx.check("formatted text shows the learned cap", "16384 (learned)" in text)
         ctx.check("formatted text names the source", "learned cap" in text)
+        # Review fix pass (finding 14): "no surface names max_ctx at
+        # all" -- a learned cap is now accompanied by the one line
+        # naming the exact config key an operator would set.
+        ctx.check(f"formatted text names ollama.hosts[].max_ctx with the learned value, got {text!r}",
+                  "set ollama.hosts[].max_ctx to 16384" in text)
     finally:
         mock.stop()
         _clear_state_dir_env()

@@ -195,6 +195,62 @@ def test_build_request_body_think_mapping_per_effort_level(ctx: Ctx):
 
 
 @test
+def test_think_value_for_effort_none_and_minimal_map_to_off(ctx: Ctx):
+    """Review fix pass (finding 16): "none"/"minimal" (valid after an
+    oai:/cx: session carries its own effort value across) used to fall
+    through to thinking ON (bool-only models: the old rule was "anything
+    but 'low'"; gpt-oss: `.get(effort, "high")`'s own default) -- both
+    now map OFF, exactly like "low"."""
+    from halo_harness.providers.ollama import think_value_for_effort
+    ctx.check("bool-only model, none -> False", think_value_for_effort("none", "qwen3:30b") is False)
+    ctx.check("bool-only model, minimal -> False", think_value_for_effort("minimal", "qwen3:30b") is False)
+    ctx.check("gpt-oss, none -> graded 'low'", think_value_for_effort("none", "gpt-oss:20b") == "low")
+    ctx.check("gpt-oss, minimal -> graded 'low'", think_value_for_effort("minimal", "gpt-oss:20b") == "low")
+
+
+@test
+def test_think_value_for_effort_omitted_when_capability_unsupported(ctx: Ctx):
+    """Review fix pass (finding 16): a model the catalog does NOT
+    declare "thinking" support for must never get a `think` field at
+    all, regardless of effort -- Ollama answers that with a 400 "does
+    not support thinking" otherwise (qwen3-coder, llama, gemma, mistral
+    are all documented non-thinking)."""
+    from halo_harness.providers.ollama import think_value_for_effort
+    ctx.check("high effort, but supports_thinking=False -> omitted (None)",
+              think_value_for_effort("high", "qwen3-coder:30b", supports_thinking=False) is None)
+    ctx.check("the SAME model/effort WOULD be True if it were thinking-capable",
+              think_value_for_effort("high", "qwen3-coder:30b", supports_thinking=True) is True)
+
+
+@test
+def test_build_request_body_think_gated_by_supports_thinking_and_effort_explicit(ctx: Ctx):
+    """Review fix pass (finding 16): both new gates default to True
+    (unchanged pre-fix behaviour for a caller -- like every OTHER test
+    in this file -- that never resolves either one); `agent/loop.py`'s
+    `_build_ollama_body_for_ref` is the one real caller that ever
+    resolves a `False` for either (the catalog row's own declared
+    capabilities; whether THIS session's `effort` came from an explicit
+    `--effort`/`/effort` choice, never a merely-carried `last_effort`)."""
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_request import build_ollama_request_body
+    host = OllamaHost(name="default", url="http://127.0.0.1:11434")
+    route, profile = _route_profile("qwen3:30b")
+
+    def think_for(**kw):
+        body = build_ollama_request_body(system_text="", messages=[{"role": "user", "content": "hi"}],
+                                          tools=None, tool_choice=None, route=route, profile=profile,
+                                          effort="high", host=host, **kw)
+        return body.get("think", "OMITTED")
+
+    ctx.check("defaults (both True) -> unchanged, think sent", think_for() is True)
+    ctx.check("supports_thinking=False -> omitted", think_for(supports_thinking=False) == "OMITTED")
+    ctx.check("effort_explicit=False -> omitted (a carried effort, nothing set this session)",
+              think_for(effort_explicit=False) == "OMITTED")
+    ctx.check("both False -> still just omitted",
+              think_for(supports_thinking=False, effort_explicit=False) == "OMITTED")
+
+
+@test
 def test_build_request_body_tools_in_openai_function_shape(ctx: Ctx):
     from halo_harness.providers.ollama import OllamaHost
     from halo_harness.providers.ollama_request import build_ollama_request_body

@@ -433,6 +433,90 @@ def test_resolve_context_decision_cpu_only_and_does_not_fit_both_conservative(ct
         mock.stop()
 
 
+# ---- review fix pass finding 10: ollama_version rides the hot-path lookup -
+
+@test
+def test_resolve_context_decision_version_mismatch_invalidates_the_learned_cap(ctx: Ctx):
+    """The hot path now also passes `ollama_version` (cached per host per
+    process, `providers.ollama.cached_ollama_version`) -- a cap recorded
+    under a DIFFERENT Ollama version than the host currently reports (a
+    server upgrade) must be treated as stale, exactly like a digest
+    mismatch already was."""
+    from halo_harness.model import parse_model_ref
+    from halo_harness.providers.ollama import reset_ollama_version_cache
+    from halo_harness.providers.ollama_calibrate import record_calibration
+    from halo_harness.providers.ollama_hw import reset_local_gpu_cache, resolve_context_decision
+    reset_local_gpu_cache()
+    reset_ollama_version_cache()
+    mock = MockUpstream().start()  # DEFAULT_VERSION: "0.1.0-mock"
+    d = Path(tempfile.mkdtemp(prefix="ol-hw-versionstale-"))
+    old_state_dir = os.environ.get("BRIDGE_STATE_DIR")
+    os.environ["BRIDGE_STATE_DIR"] = str(d)
+    try:
+        ref = parse_model_ref("ol:qwen3:30b")
+        env = {"OLLAMA_HOST": mock.base_url}
+        record_calibration(d, host_url=mock.base_url, model="qwen3:30b", digest="sha256:deadbeef1",
+                            max_full_gpu_ctx=16384, ollama_version="0.1.0-mock")
+        fresh = resolve_context_decision(ref, env, hw_runner=_NO_GPU_RUNNER)
+        ctx.check(f"matching version -> the learned cap applies, got {fresh.learned_cap}",
+                  fresh.learned_cap == 16384)
+
+        reset_ollama_version_cache()
+        record_calibration(d, host_url=mock.base_url, model="qwen3:30b", digest="sha256:deadbeef1",
+                            max_full_gpu_ctx=16384, ollama_version="9.9.9-upgraded")
+        stale = resolve_context_decision(ref, env, hw_runner=_NO_GPU_RUNNER)
+        ctx.check(f"a DIFFERENT recorded version (server upgraded) -> stale, learned_cap is None, "
+                  f"got {stale.learned_cap}", stale.learned_cap is None)
+    finally:
+        if old_state_dir is None:
+            os.environ.pop("BRIDGE_STATE_DIR", None)
+        else:
+            os.environ["BRIDGE_STATE_DIR"] = old_state_dir
+        reset_local_gpu_cache()
+        reset_ollama_version_cache()
+        mock.stop()
+
+
+# ---- review fix pass finding 16: supports_thinking from the catalog row ---
+
+@test
+def test_resolve_context_decision_supports_thinking_reflects_catalog_capabilities(ctx: Ctx):
+    """`supports_thinking` comes from the catalog row's own declared
+    `capabilities` list -- `True` ("benefit of the doubt") when the row
+    can't be read at all; `False` only when a REACHABLE row positively
+    omits "thinking"."""
+    from halo_harness.model import parse_model_ref
+    from halo_harness.providers.ollama import reset_catalog_cache
+    from halo_harness.providers.ollama_hw import reset_local_gpu_cache, resolve_context_decision
+    reset_local_gpu_cache()
+    mock = MockUpstream().start()
+    try:
+        mock.tags_response = {"models": [{"name": "qwen3:30b", "model": "qwen3:30b", "size": 1,
+                                           "digest": "sha256:x", "details": {}}]}
+        mock.show_responses = {"qwen3:30b": {"modelfile": "", "parameters": "", "template": "",
+                                              "capabilities": ["completion", "tools"], "details": {},
+                                              "model_info": {}}}
+        ref = parse_model_ref("ol:qwen3:30b")
+        env = {"OLLAMA_HOST": mock.base_url}
+        decision = resolve_context_decision(ref, env, hw_runner=_NO_GPU_RUNNER)
+        ctx.check(f"no 'thinking' in the declared capabilities -> False, got {decision.supports_thinking}",
+                  decision.supports_thinking is False)
+
+        mock.show_responses["qwen3:30b"]["capabilities"] = ["completion", "tools", "thinking"]
+        reset_catalog_cache()
+        decision2 = resolve_context_decision(ref, env, hw_runner=_NO_GPU_RUNNER)
+        ctx.check(f"'thinking' declared -> True, got {decision2.supports_thinking}",
+                  decision2.supports_thinking is True)
+
+        ref_unknown = parse_model_ref("ol:never-in-the-catalog")
+        decision3 = resolve_context_decision(ref_unknown, env, hw_runner=_NO_GPU_RUNNER)
+        ctx.check(f"a model not in the catalog -> benefit of the doubt, True, got {decision3.supports_thinking}",
+                  decision3.supports_thinking is True)
+    finally:
+        mock.stop()
+        reset_local_gpu_cache()
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

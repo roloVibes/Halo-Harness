@@ -273,6 +273,15 @@ def cmd_models(argv) -> int:
         if ok is False:
             print("halo models: could not refresh from Anthropic", file=sys.stderr)
 
+    if args.refresh and is_enabled("openai"):
+        # Pass-B finding 16 (major): `refresh_openai_catalog_if_stale` had
+        # no caller anywhere -- `halo models --refresh` skipped OpenAI
+        # entirely, same gap `/models refresh` had.
+        from halo_harness.providers.openai_catalog import refresh_openai_catalog_if_stale
+        ok = refresh_openai_catalog_if_stale(state_dir, force=True)
+        if ok is False:
+            print("halo models: could not refresh from OpenAI", file=sys.stderr)
+
     # H15 item 21.2: a provider with real credentials but not ENABLED shows
     # one line instead of its table -- same rule `/model`/the init picker/
     # doctor all follow; `halo providers enable <name>` is the fix

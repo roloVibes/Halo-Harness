@@ -153,11 +153,75 @@ def test_clamp_effort_never_narrows_a_harness_level_on_this_dialect(ctx: Ctx):
 @test
 def test_resolve_openai_dialect_table_and_override(ctx: Ctx):
     from halo_harness.providers.responses_request import RESPONSES_REQUIRED_MODEL_IDS, resolve_openai_dialect
-    ctx.check("exactly the two confirmed ids", RESPONSES_REQUIRED_MODEL_IDS == frozenset({"gpt-6-astra", "gpt-6.1-sol"}))
+    ctx.check(
+        "pass-B finding 7: the whole gpt-6 and gpt-5.6 families, got "
+        f"{sorted(RESPONSES_REQUIRED_MODEL_IDS)!r}",
+        RESPONSES_REQUIRED_MODEL_IDS == frozenset({
+            "gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna",
+            "gpt-5.6", "gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.6-terra",
+        }))
     ctx.check("table hit -> responses", resolve_openai_dialect("gpt-6-astra", overrides={}) == "openai-responses")
+    ctx.check("rest of the gpt-6 family also hits the table -> responses",
+              resolve_openai_dialect("gpt-6-sol", overrides={}) == "openai-responses")
+    ctx.check("the gpt-5.6 family also hits the table -> responses",
+              resolve_openai_dialect("gpt-5.6-luna", overrides={}) == "openai-responses")
     ctx.check("no hit -> chat", resolve_openai_dialect("gpt-5", overrides={}) == "openai-chat")
     ctx.check("override wins toward chat", resolve_openai_dialect("gpt-6-astra", overrides={"gpt-6-astra": "chat"}) == "openai-chat")
     ctx.check("override wins toward responses", resolve_openai_dialect("gpt-5", overrides={"gpt-5": "responses"}) == "openai-responses")
+
+
+@test
+def test_oai_gpt6_sol_with_tools_goes_to_responses_no_retry_needed(ctx: Ctx):
+    """Pass-B finding 7's own pinning test: `oai:gpt-6-sol` with tools
+    resolves to the `openai-responses` dialect (not `openai-chat`), so the
+    request that actually goes out is built by `build_openai_responses_
+    body` -- which (finding 5, already fixed) sends `strict: false` on
+    every tool item and has no `reasoning_effort`-vs-tools rejection at
+    all -- never the chat-dialect body that would 400 and need the
+    reasoning-stripped retry."""
+    from halo_harness.model import parse_model_ref
+    from halo_harness.providers.profiles import resolve_profile
+    ref = parse_model_ref("oai:gpt-6-sol")
+    ctx.check(f"dialect is openai-responses, got {ref.dialect!r}", ref.dialect == "openai-responses")
+    from halo_harness.providers.routing import Route
+    from halo_harness.providers.responses_request import build_openai_responses_body
+    route = Route(provider="openai", upstream_model="gpt-6-sol", dialect=ref.dialect)
+    profile = resolve_profile(route)
+    tools = [{"name": "Read", "description": "", "input_schema": {"type": "object", "properties": {}}}]
+    body = build_openai_responses_body(system_text="", messages=[], tools=tools, route=route, profile=profile,
+                                        effort="high")
+    ctx.check(f"reasoning.effort is the REQUESTED level, never forced to none, got {body.get('reasoning')!r}",
+              body.get("reasoning") == {"effort": "high"})
+    ctx.check("every tool item still carries strict: false",
+              body["tools"] and all(t.get("strict") is False for t in body["tools"]))
+
+
+@test
+def test_oai_gpt6_family_forces_reasoning_effort_none_if_forced_back_to_chat(ctx: Ctx):
+    """Pass-B finding 7's belt-and-suspenders half: an `openai.dialect_
+    overrides` entry that forces a gpt-6/gpt-5.6 id back onto the chat
+    dialect must still never pay the live-verified "Function tools with
+    reasoning_effort are not supported for gpt-6-sol" 400 -- the `oai:`
+    chat profile now sets `reasoning_effort_with_tools` the same way the
+    Databricks branch does, so `map_effort` forces it to "none" on the
+    FIRST request, no retry involved."""
+    from halo_harness.providers.profiles import map_effort, resolve_profile
+    from halo_harness.providers.routing import Route
+    for model_id in ("gpt-6-sol", "gpt-5.6-luna"):
+        route = Route(provider="openai", upstream_model=model_id, dialect="openai-chat")
+        profile = resolve_profile(route)
+        ctx.check(f"{model_id}: chat profile carries the override, got {profile.reasoning_effort_with_tools!r}",
+                  profile.reasoning_effort_with_tools == "none")
+        body = map_effort("high", profile, has_tools=True)
+        ctx.check(f"{model_id}: forced to none despite --effort high, got {body}",
+                  body == {"reasoning_effort": "none"})
+        body_no_tools = map_effort("high", profile, has_tools=False)
+        ctx.check(f"{model_id}: unaffected without tools, got {body_no_tools}",
+                  body_no_tools == {"reasoning_effort": "high"})
+    non_family_route = Route(provider="openai", upstream_model="gpt-5", dialect="openai-chat")
+    non_family_profile = resolve_profile(non_family_route)
+    ctx.check("a non-family chat id carries no override",
+              non_family_profile.reasoning_effort_with_tools is None)
 
 
 # ---- SSE decoder -----------------------------------------------------------

@@ -323,11 +323,11 @@ def vram_aware_override(role_name: str, raw_value, *, main_ref, state_dir=None,
     if role_name not in VRAM_AWARE_ROLE_NAMES:
         return raw_value, None
     model, effort = role_value_parts(raw_value)
-    if not model or getattr(main_ref, "provider", None) != "ollama" or model == main_ref.raw:
+    if not model or getattr(main_ref, "provider", None) != "ollama":
         return raw_value, None
     try:
         from halo_harness.model import parse_model_ref
-        from halo_harness.providers.ollama import get_catalog, resolve_ollama_host
+        from halo_harness.providers.ollama import get_catalog, ollama_names_match, resolve_ollama_host
         from halo_harness.providers.ollama_hw import fits_beside_main
         candidate_ref = parse_model_ref(model)
         if candidate_ref.provider != "ollama":
@@ -337,6 +337,18 @@ def vram_aware_override(role_name: str, raw_value, *, main_ref, state_dir=None,
         if main_host is None or candidate_host is None or main_host.url != candidate_host.url:
             # Different hosts (or either unconfigured) -- no shared VRAM,
             # so there is no eviction risk for this rule to guard against.
+            return raw_value, None
+        # Review fix pass (finding 9): "a candidate that's already the
+        # same model as main" used to be a bare `model == main_ref.raw`
+        # string comparison ABOVE, on the two RAW ref strings -- an
+        # untagged candidate (`ol:qwen3`) against its own `:latest`-
+        # qualified main ref (`ol:qwen3:latest`) never matched, so this
+        # function went on to call `fits_beside_main` for what is
+        # actually the identical model. `ollama_names_match` on the bare
+        # model ids (never the raw ref text) is the one comparison this
+        # codebase's own `ollama_names_match` docstring says every
+        # Ollama name comparison must go through.
+        if ollama_names_match(candidate_ref.model, main_ref.model):
             return raw_value, None
         catalog = get_catalog(main_host)
         fits = fits_beside_main(main_host, main_model=main_ref.model, candidate_model=candidate_ref.model,

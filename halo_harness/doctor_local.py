@@ -86,7 +86,9 @@ def _resolved_huggingface(ref, ref_raw, state_dir):
             return None, "; ".join(lines) or f"could not start a managed mlx_lm.server for {ref_raw!r}"
     else:
         from halo_harness.providers.huggingface_local_resolve import resolve_local_server
-        target = resolve_local_server(ref.host, env=None)
+        # Review fix pass (finding 11): resolve by the ref's own model id
+        # first -- see `resolve_local_server`'s own docstring.
+        target = resolve_local_server(ref.host, env=None, model=ref.model)
         if target is None:
             return None, f"no Hugging Face local server resolved for {ref_raw!r}"
     return _HFHost(base_url=target.base_url, api_key=target.api_key or "", name=target.name), None

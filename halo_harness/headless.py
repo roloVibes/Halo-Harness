@@ -139,7 +139,12 @@ def _resolve_creds(ref, settings=None) -> Optional[ProviderCreds]:
             return ProviderCreds(base_url=target.base_url, api_key=target.api_key or "")
         if ref.local:
             from halo_harness.providers.huggingface_local_resolve import resolve_local_server
-            target = resolve_local_server(ref.host, env)
+            # Review fix pass (finding 11): `model=ref.model` lets a BARE
+            # `hf:local/<model>` ref resolve to the server that actually
+            # serves it (registry-exact, then auto-detect-matched) before
+            # ever falling back to "the default server" -- see that
+            # function's own docstring for the full rule.
+            target = resolve_local_server(ref.host, env, model=ref.model)
             if target is None:
                 return None
             return ProviderCreds(base_url=target.base_url, api_key=target.api_key or "")

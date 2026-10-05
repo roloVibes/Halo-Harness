@@ -95,6 +95,78 @@ def test_store_version_mismatch_invalidates_the_cap(ctx: Ctx):
 
 
 @test
+def test_store_calibration_lookup_normalizes_tag_both_ways(ctx: Ctx):
+    """Review fix pass (finding 9): `halo ollama calibrate qwen3:latest`
+    and an `ol:qwen3` session must see each other's entry -- recorded
+    under either spelling, found by the other."""
+    from halo_harness.providers.ollama_calibrate import has_calibration_entry, lookup_learned_cap, record_calibration
+    d = _fresh_state_dir("ol-fit-store-tagmatch-")
+    try:
+        record_calibration(d, host_url="http://h", model="qwen3:latest", digest="sha256:a", max_full_gpu_ctx=16384,
+                            ollama_version="0.5.0")
+        ctx.check("recorded under :latest, found by the bare name",
+                  lookup_learned_cap(d, host_url="http://h", model="qwen3") == 16384)
+        ctx.check("has_calibration_entry agrees for the bare name too",
+                  has_calibration_entry(d, host_url="http://h", model="qwen3") is True)
+
+        d2 = _fresh_state_dir("ol-fit-store-tagmatch-rev-")
+        record_calibration(d2, host_url="http://h", model="qwen3", digest="sha256:a", max_full_gpu_ctx=8192,
+                            ollama_version="0.5.0")
+        ctx.check("recorded under the bare name, found by :latest",
+                  lookup_learned_cap(d2, host_url="http://h", model="qwen3:latest") == 8192)
+    finally:
+        _clear_state_dir_env()
+
+
+@test
+def test_store_upsert_normalizes_tag_never_duplicates_across_spellings(ctx: Ctx):
+    """The SAME upsert guarantee `test_store_upsert_overwrites_not_
+    duplicates` pins for an identical model string, now also across an
+    untagged/`:latest`-qualified spelling of the SAME model -- two
+    separate `record_calibration` calls for "qwen3" then "qwen3:latest"
+    must still settle on exactly one entry, never two that silently
+    disagree with each other."""
+    from halo_harness.providers.ollama_calibrate import load_fit_store, lookup_learned_cap, record_calibration
+    d = _fresh_state_dir("ol-fit-store-tagmatch-upsert-")
+    try:
+        record_calibration(d, host_url="http://h", model="qwen3", digest="sha256:a", max_full_gpu_ctx=8192,
+                            ollama_version="0.5.0")
+        record_calibration(d, host_url="http://h", model="qwen3:latest", digest="sha256:b", max_full_gpu_ctx=16384,
+                            ollama_version="0.6.0")
+        entries = load_fit_store(d)["entries"]
+        ctx.check(f"exactly one entry across both spellings, got {len(entries)}", len(entries) == 1)
+        ctx.check(f"the latest measurement wins, got {lookup_learned_cap(d, host_url='http://h', model='qwen3')}",
+                  lookup_learned_cap(d, host_url="http://h", model="qwen3") == 16384)
+    finally:
+        _clear_state_dir_env()
+
+
+@test
+def test_last_turn_throughput_normalizes_tag_both_ways(ctx: Ctx):
+    """Review fix pass (finding 9): the SAME untagged/`:latest` cross-
+    lookup, for the last-turn throughput record `halo ollama`'s panel
+    reads back -- recorded under a session's own (often untagged) ref,
+    found by the panel's own tagged catalog-row name, and vice versa."""
+    from halo_harness.providers.ollama_calibrate import get_last_turn_throughput, record_last_turn_throughput
+    d = _fresh_state_dir("ol-throughput-tagmatch-")
+    try:
+        record_last_turn_throughput(d, host_url="http://h", model="qwen3", tokens_per_second=30.0,
+                                     prefill_seconds=0.5, offloaded=False)
+        got = get_last_turn_throughput(d, host_url="http://h", model="qwen3:latest")
+        ctx.check(f"recorded under the bare name, found by :latest, got {got}",
+                  got is not None and got["tokens_per_second"] == 30.0)
+
+        d2 = _fresh_state_dir("ol-throughput-tagmatch-rev-")
+        record_last_turn_throughput(d2, host_url="http://h", model="qwen3:latest", tokens_per_second=41.0,
+                                     prefill_seconds=1.2, offloaded=False)
+        got2 = get_last_turn_throughput(d2, host_url="http://h", model="qwen3")
+        ctx.check(f"recorded under :latest, found by the bare name, got {got2}",
+                  got2 is not None and got2["tokens_per_second"] == 41.0)
+    finally:
+        _clear_state_dir_env()
+
+
+@test
 def test_store_upsert_overwrites_not_duplicates(ctx: Ctx):
     from halo_harness.providers.ollama_calibrate import load_fit_store, lookup_learned_cap, record_calibration
     d = _fresh_state_dir("ol-fit-store-upsert-")
@@ -107,6 +179,36 @@ def test_store_upsert_overwrites_not_duplicates(ctx: Ctx):
         ctx.check(f"exactly one entry for (host, model), got {len(entries)}", len(entries) == 1)
         ctx.check(f"the LATEST measurement wins, got {lookup_learned_cap(d, host_url='http://h', model='m')}",
                   lookup_learned_cap(d, host_url="http://h", model="m") == 16384)
+    finally:
+        _clear_state_dir_env()
+
+
+@test
+def test_has_calibration_entry_treats_a_stale_digest_or_version_as_absent(ctx: Ctx):
+    """Review fix pass (finding 10): commit 9af8dac promised "re-measured
+    ... when the model digest or Ollama version changes" -- the GATE
+    itself (`has_calibration_entry`) never checked either one before this
+    fix, so a re-pulled model or an upgraded server kept a stale entry
+    looking "already calibrated" forever. Passing `digest`/`ollama_
+    version` now makes a mismatch read as "no entry at all"; omitting
+    them (every pre-fix caller) keeps the old "some entry exists, period"
+    answer."""
+    from halo_harness.providers.ollama_calibrate import has_calibration_entry, record_calibration
+    d = _fresh_state_dir("ol-fit-store-gate-staleness-")
+    try:
+        record_calibration(d, host_url="http://h", model="m", digest="sha256:old", max_full_gpu_ctx=16384,
+                            ollama_version="0.5.0")
+        ctx.check("no digest/version given -> the old 'any entry' answer",
+                  has_calibration_entry(d, host_url="http://h", model="m") is True)
+        ctx.check("matching digest+version -> still calibrated",
+                  has_calibration_entry(d, host_url="http://h", model="m", digest="sha256:old",
+                                         ollama_version="0.5.0") is True)
+        ctx.check("a re-pulled model (new digest) -> treated as absent, re-triggers calibration",
+                  has_calibration_entry(d, host_url="http://h", model="m", digest="sha256:new",
+                                         ollama_version="0.5.0") is False)
+        ctx.check("an upgraded server (new version) -> treated as absent too",
+                  has_calibration_entry(d, host_url="http://h", model="m", digest="sha256:old",
+                                         ollama_version="0.6.0") is False)
     finally:
         _clear_state_dir_env()
 
@@ -459,22 +561,58 @@ def test_maybe_auto_calibrate_skips_when_config_disabled(ctx: Ctx):
 
 @test
 def test_maybe_auto_calibrate_skips_when_already_calibrated(ctx: Ctx):
+    """FIX PASS (finding 10): the recorded digest/version must be the
+    mock's own REAL values (`sha256:deadbeef1`/`0.1.0-mock`, `tests/
+    helpers/mock_ollama.py`'s own `DEFAULT_TAGS`/`DEFAULT_VERSION`) --
+    the gate is now staleness-aware, so a FRESH entry is what "already
+    calibrated" means; a stale one re-triggers (see the sibling test
+    right below)."""
     from halo_harness.providers.ollama import OllamaHost
     from halo_harness.providers.ollama_calibrate import record_calibration
     d = _fresh_state_dir("ol-autocal-session-existing-")
     mock = MockUpstream().start()
     try:
-        record_calibration(d, host_url=mock.base_url, model="qwen3:30b", digest="sha256:a",
-                            max_full_gpu_ctx=16384, ollama_version="0.5.0")
+        record_calibration(d, host_url=mock.base_url, model="qwen3:30b", digest="sha256:deadbeef1",
+                            max_full_gpu_ctx=16384, ollama_version="0.1.0-mock")
         old_flag = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
         try:
             session = _minimal_session(d, mock)
             host = OllamaHost(name="mock", url=mock.base_url)
             session._maybe_auto_calibrate_ollama(host, "qwen3:30b")
-            ctx.check("an existing entry -> no notice, never re-measured automatically",
+            ctx.check("an existing, FRESH entry -> no notice, never re-measured automatically",
                       session._pending_ollama_notices == [])
             chats = [r for r in mock.requests if r["method"] == "POST" and r["path"].rstrip("/") == "/api/chat"]
             ctx.check("never loads the model just to check this", len(chats) == 0)
+        finally:
+            if old_flag is not None:
+                os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_flag
+    finally:
+        mock.stop()
+        _clear_state_dir_env()
+
+
+@test
+def test_maybe_auto_calibrate_rerun_when_the_recorded_digest_is_stale(ctx: Ctx):
+    """Review fix pass (finding 10): an entry recorded under a DIFFERENT
+    digest than the one the host's catalog reports right now (a re-pulled
+    model) must NOT read as "already calibrated" -- the gate re-measures,
+    exactly the "re-measured... when the model digest... changes" commit
+    9af8dac promised but never actually wired up."""
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_calibrate import record_calibration
+    d = _fresh_state_dir("ol-autocal-session-staledigest-")
+    mock = MockUpstream().start()
+    try:
+        record_calibration(d, host_url=mock.base_url, model="qwen3:30b", digest="sha256:some-older-pull",
+                            max_full_gpu_ctx=16384, ollama_version="0.1.0-mock")
+        old_flag = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
+        try:
+            session = _minimal_session(d, mock)
+            host = OllamaHost(name="mock", url=mock.base_url)
+            session._maybe_auto_calibrate_ollama(host, "qwen3:30b")
+            chats = [r for r in mock.requests if r["method"] == "POST" and r["path"].rstrip("/") == "/api/chat"]
+            ctx.check(f"a stale digest re-triggers real calibration (a /api/chat load happened), got {len(chats)}",
+                      len(chats) > 0)
         finally:
             if old_flag is not None:
                 os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_flag

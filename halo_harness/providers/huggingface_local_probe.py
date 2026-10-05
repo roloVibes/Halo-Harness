@@ -213,7 +213,21 @@ def probe_models_endpoint(base_url: str, *, name: str = "", api_key: Optional[st
     OpenAI-compatible server (no `data` list back); a `DetectedLocalServer`
     otherwise. Falls back to `probe_llama_server_props` once, for every
     model that reported no context number of its own -- ALSO what tells
-    `_runtime_label_for` apart (round 5b part 2, brief item 6)."""
+    `_runtime_label_for` apart (round 5b part 2, brief item 6).
+
+    Review fix pass (finding 12): the `/props` fallback only ever fires
+    when this server reports EXACTLY ONE model (`len(rows) == 1`), not
+    merely "something was missing a context field" -- `/props` is
+    llama-server's own SINGLE native endpoint, `n_ctx` for whichever one
+    model it has loaded; broadcasting that one scalar across SEVERAL
+    missing ids on a multi-model server would silently conflate two
+    different models' context sizes. On the single-model case this is
+    also what makes `--alias <model_id>` (A12's other half,
+    `providers.local_runtime.llama_server_argv`) actually matter: once
+    the server's own `/v1/models` id equals the Halo-side model id, this
+    is the exact value `cached_local_context_tokens`/`resolve_model_
+    profile` look up by THAT id, not the `-m` path the README's example
+    used to leave it as."""
     data = _probe_get(base_url, "/models", api_key=api_key, timeout=timeout)
     if not isinstance(data, dict) or not isinstance(data.get("data"), list):
         return None
@@ -229,7 +243,7 @@ def probe_models_endpoint(base_url: str, *, name: str = "", api_key: Optional[st
             context_by_model[r["id"]] = ctx
         else:
             missing.append(r["id"])
-    props_ctx = probe_llama_server_props(base_url) if missing else None
+    props_ctx = probe_llama_server_props(base_url) if (missing and len(rows) == 1) else None
     if props_ctx is not None:
         for mid in missing:
             context_by_model[mid] = props_ctx

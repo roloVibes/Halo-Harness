@@ -94,6 +94,18 @@ def build_ollama_request_body(
     # 5b additions above already follow); see `providers.ollama.
     # resolve_num_ctx_and_source`'s own docstring for what each one does.
     recorded_does_not_fit: bool = False, cpu_only: bool = False,
+    # Review fix pass (finding 16) -- both default True ("benefit of the
+    # doubt"/"unchanged", the exact pre-fix behaviour, for every caller
+    # that never resolves either one, e.g. this module's own direct unit
+    # tests): `agent/loop.py`'s `_build_ollama_body_for_ref` is the ONE
+    # real caller that ever passes a resolved `False` for either --
+    # `supports_thinking` from the catalog row's own declared
+    # `capabilities` (see `providers.ollama_hw.OllamaContextDecision`),
+    # `effort_explicit` from whether THIS session's own `effort` was set
+    # by an explicit CLI `--effort`/`/effort` THIS session, never merely
+    # carried in from an earlier session's persisted `last_effort` (see
+    # that method's own docstring for the three call sites).
+    supports_thinking: bool = True, effort_explicit: bool = True,
 ) -> dict:
     """Build the native `/api/chat` body. `messages`/`system_text` are the
     SAME Anthropic-shaped derived-transcript inputs `providers.request.
@@ -186,7 +198,8 @@ def build_ollama_request_body(
         # ordinary turn is never constrained, see this function's own
         # docstring).
         body["format"] = force_format
-    think = think_value_for_effort(effort, route.upstream_model)
+    think = think_value_for_effort(effort, route.upstream_model,
+                                    supports_thinking=supports_thinking and effort_explicit)
     if think is not None:
         body["think"] = think
     if isinstance(requested_max_tokens, int) and requested_max_tokens > 0:
