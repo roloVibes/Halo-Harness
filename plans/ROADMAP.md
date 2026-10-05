@@ -605,3 +605,10 @@ placeholders). Nothing reads an IMAGE off the OS clipboard. The round:
    resume from the stored path, a TUI pilot test for Ctrl+V with an empty
    paste. Live: a screenshot pasted into Halo on the build host against a
    vision model on `ant:` and `or:`, and `xclip` on the Kali VM.
+
+## CUT 2026-10-05 ~15:10 (rolo: "can we get thru 2.0.3?"): the minors pass leaves the v2.0.3 tag
+
+The review's 53 minors plus the C-1/C-2 leftovers (plans/2.0.3-release-notes-
+for-fix-pass.md) become **2.0.3.2**, after the 2.0.3.1 clipboard patch. The
+tag waits only for fix passes A-2 and B-2 (run in parallel from 15:10), the
+three-platform suites and one live check on the 4090 host and the Kali VM.
