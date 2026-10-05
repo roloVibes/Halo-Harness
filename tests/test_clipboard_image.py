@@ -15,9 +15,28 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.runner import Ctx, new_registry, print_results, run_all
+from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
 
 test, TESTS = new_registry()
+
+
+def _stdlib_png(width: int, height: int, rgb=(10, 20, 30)) -> bytes:
+    """A valid single-colour RGB PNG built with zlib + struct only, so tests
+    that must run on a machine WITHOUT Pillow (the Linux suite venvs) still
+    get an oversized image to feed the reader."""
+    import struct
+    import zlib
+
+    def chunk(tag: bytes, body: bytes) -> bytes:
+        return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body) & 0xFFFFFFFF)
+
+    row = bytes([0]) + bytes(rgb) * width  # filter byte 0 (None) per scanline
+    raw_rows = row * height
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    signature = bytes([137, 80, 78, 71, 13, 10, 26, 10])
+    return (signature + chunk(b"IHDR", ihdr)
+            + chunk(b"IDAT", zlib.compress(raw_rows, 9)) + chunk(b"IEND", b""))
+
 
 _TINY_PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY"
@@ -32,6 +51,7 @@ def _tmp_dir() -> Path:
 # ---------------------------------------------------------------------------
 # The backend seam itself.
 # ---------------------------------------------------------------------------
+
 
 @test
 def test_backend_png_bytes_become_a_written_file_with_size_and_media_type(ctx: Ctx):
@@ -100,11 +120,12 @@ def test_oversized_bytes_raise_image_too_large(ctx: Ctx):
 
 @test
 def test_downscale_shrinks_an_oversized_image_when_pillow_is_present(ctx: Ctx):
-    from PIL import Image
+    try:
+        from PIL import Image  # noqa: F401
+    except Exception:
+        raise SkipTest("Pillow is not installed here; the downscale path is exercised where it is")
     from halo_harness.tui.clipboard_image import read_clipboard_image
-    buf = io.BytesIO()
-    Image.new("RGB", (2000, 1000), color=(10, 20, 30)).save(buf, format="PNG")
-    data = buf.getvalue()
+    data = _stdlib_png(2000, 1000)
     img = read_clipboard_image(backend=lambda: data, dest_dir=_tmp_dir())
     ctx.check("an image came back", img is not None)
     ctx.check(f"downscaled to the 1568px soft cap on the long side, got {(img.width, img.height)}",
@@ -116,10 +137,7 @@ def test_downscale_shrinks_an_oversized_image_when_pillow_is_present(ctx: Ctx):
 @test
 def test_downscale_skipped_without_pillow_bytes_pass_through_unchanged(ctx: Ctx):
     import sys as _sys
-    from PIL import Image
-    buf = io.BytesIO()
-    Image.new("RGB", (2000, 1000), color=(10, 20, 30)).save(buf, format="PNG")
-    data = buf.getvalue()
+    data = _stdlib_png(2000, 1000)  # no Pillow needed to BUILD the fixture either
 
     old_pil = _sys.modules.get("PIL")
     old_pil_image = _sys.modules.get("PIL.Image")
