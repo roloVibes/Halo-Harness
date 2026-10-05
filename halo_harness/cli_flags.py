@@ -45,6 +45,10 @@ def cli_flags_from_args(args) -> dict:
         "exclude_dynamic_system_prompt_sections": bool(g("exclude_dynamic_system_prompt_sections", False)),
         "fallback_models": _parse_fallback_models(g("fallback_model")),
         "forward_subagent_text": bool(g("forward_subagent_text", False)),
+        # Halo 2.0.3.1: `--image <path>` (repeatable) -- always a list,
+        # never None, so `headless.py` can do a plain `cli_flags["images"]`
+        # read without an extra `or []` at every call site.
+        "images": list(g("image") or []),
         "include_hook_events": bool(g("include_hook_events", False)),
         "no_session_persistence": bool(g("no_session_persistence", False)),
         "permission_prompt_tool": g("permission_prompt_tool"),

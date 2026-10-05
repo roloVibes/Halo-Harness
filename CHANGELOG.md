@@ -8,6 +8,44 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.0.3.1] - unreleased
+
+### Clipboard image paste
+
+- **Ctrl+V/Shift+Insert paste a clipboard image, not just text.** When the
+  clipboard carries an image, Halo reads it (Windows `Clipboard::GetImage`/
+  `Get-Clipboard -Format Image`, WSL through `powershell.exe`, macOS
+  `osascript`/`pngpaste`, Linux `wl-paste`/`xclip`/`xsel`, or Pillow's
+  `ImageGrab.grabclipboard()` when installed -- no new hard dependency
+  either way) and adds an attachment chip, `[Image #1 1024x768]`, to the
+  prompt. A pasted/dragged path to an existing `.png`/`.jpg`/`.jpeg`/
+  `.gif`/`.webp` file attaches that file the same way instead of inserting
+  the path. `/paste` reads the clipboard the same way; `/paste <path>`
+  attaches an existing file; `/images` lists pending attachments,
+  `/images clear` removes all of them, Backspace the last one (same rule: only
+  when the input is nothing but chip labels). Over SSH, where no remote
+  clipboard reaches the terminal, one line says so and names `/paste
+  <path>`/dragging a file instead.
+- **Storage and limits.** A pasted image is saved to
+  `~/.halo/attachments/<session-id>/clip-<n>.png`; downscaled (Pillow
+  installed, long side over 1568px) or left as-is; refused with one line
+  past a 5 MB hard cap. The session log stores the saved PATH, never the
+  base64 -- resume/replay re-reads the file to rebuild the real image
+  block, with a plain text note instead when the file is gone.
+- **Every route actually sends the image** once it reaches a turn:
+  `ant:`/`cc:`/`dbx:` Claude keep the native image block; `or:`/`oai:`/
+  `hf:`/`xp:`/Databricks-other get an `image_url` data URL (chat
+  completions) or a real `input_image` item (the OpenAI Responses
+  dialect, previously a visible omission placeholder); `ol:` sends the
+  base64 on Ollama's own native `images` field; `cx:` passes the saved
+  path with `codex exec -i <path>`. A model whose catalog row says it has
+  no vision gets one notice and the saved path rides as plain text
+  instead of a provider 400.
+- **Print mode and SDK parity**: `--image <path>` (repeatable) on `halo -p`
+  attaches images to that one turn; `--input-format stream-json` accepts
+  `image` content-block entries (a file path, inline base64, or the full
+  Anthropic image-block shape a real Claude Code client already sends).
+
 ## [2.0.3] - 2026-10-05
 
 ### Launch intro pool

@@ -113,6 +113,14 @@ _REAL_FLAGS = [
     # `~/.halo/config.json`). Not a Claude Code flag -- Halo-only, same as
     # `--demo`/`--stress`/`--bare` just above.
     (["--offline"], dict(dest="offline", action="store_true")),
+    # Halo 2.0.3.1 (clipboard image paste): `-p`'s own way to attach an
+    # image to the one turn it sends, Claude Code stream-json parity for
+    # a plain `-p`/`--input-format text` run -- repeatable (several
+    # `--image` flags attach several images to the same turn). A path
+    # that doesn't exist, or isn't a recognized image extension, is a
+    # clean `halo: ...` stderr line + exit 2 (`headless.run_print_mode`'s
+    # own handling), never a provider 400 later.
+    (["--image"], dict(dest="image", action="append", default=None, metavar="PATH")),
     # H6: real now (agent definitions + the Agent tool + plan mode +
     # sessions land this milestone).
     (["--agent"], dict(dest="agent", default=None, metavar="AGENT")),

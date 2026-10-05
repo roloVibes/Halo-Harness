@@ -102,6 +102,11 @@ async def handle_slash(app, name: str, args: str) -> None:
         # /offline and /escalation stay on the generic headless-text
         # fallback below (no live widget of their own to push).
         "offline": _handle_offline,
+        # Halo 2.0.3.1: `/paste` reads a real clipboard image off the UI
+        # thread (bare) or attaches an existing file (an argument);
+        # `/images` lists/clears pending attachments -- both act directly
+        # on `app.prompt_input`, no Controller/session round trip at all.
+        "paste": _handle_paste, "images": _handle_images,
     }.get(name)
     if handler is not None:
         await handler(app, args)
@@ -1733,6 +1738,101 @@ async def _handle_copy(app, args: str) -> None:
         return
     from halo_harness.tui.clipboard import clean_copy_text
     app.perform_copy(clean_copy_text(widget.copy_text()), label="last reply")
+
+
+# ============================================================================
+# Halo 2.0.3.1 (clipboard image paste): `/paste` (bare: the clipboard,
+# off the UI thread; `/paste <path>` an existing file, synchronous local
+# I/O) and `/images` (list pending attachments / `clear` the last one --
+# the explicit, keyboard-independent twin of Ctrl+V and Backspace-on-a-
+# chip-only input, same pairing `/editor` already is for Ctrl+E).
+# ============================================================================
+
+async def _handle_paste(app, args: str) -> None:
+    arg = (args or "").strip()
+    if not arg:
+        app.run_worker(lambda: _paste_clipboard_image_worker(app), thread=True, name="paste-image")
+        return
+    from pathlib import Path
+    path = Path(arg.strip("\"'"))
+    if not path.is_file():
+        await app.transcript.add_note(f"/paste: {path} is not a file.", kind="error")
+        return
+    from halo_harness.tools.imageutil import IMAGE_EXTENSIONS, sniff_dimensions, sniff_media_type
+    default_media_type = IMAGE_EXTENSIONS.get(path.suffix.lower())
+    if default_media_type is None:
+        await app.transcript.add_note(
+            f"/paste: {path} is not a supported image type (png/jpg/jpeg/gif/webp).", kind="error")
+        return
+    try:
+        data = path.read_bytes()
+    except OSError as e:
+        await app.transcript.add_note(f"/paste: could not read {path}: {e}", kind="error")
+        return
+    media_type = sniff_media_type(data) or default_media_type
+    dims = sniff_dimensions(data)
+    width, height = dims if dims else (None, None)
+    app.prompt_input.add_image_chip(path=path, width=width, height=height, media_type=media_type)
+
+
+def _paste_clipboard_image_worker(app) -> None:
+    from halo_harness.agent.image_attach import ImageTooLarge, attachments_dir_for_session
+    from halo_harness.tui.clipboard_image import read_clipboard_image
+    session = getattr(app.controller, "session", None)
+    dest_dir = attachments_dir_for_session(session) if session is not None else None
+    try:
+        image = read_clipboard_image(dest_dir=dest_dir)
+    except ImageTooLarge as e:
+        app.call_from_thread(app.transcript.add_note, str(e), kind="error")
+        return
+    except Exception:
+        image = None
+    if image is None:
+        app.call_from_thread(
+            app.transcript.add_note,
+            "No image on this machine's clipboard; use /paste <path> or drag a file.", kind="note")
+        return
+    app.call_from_thread(app.prompt_input.add_image_chip, path=image.path, width=image.width,
+                          height=image.height, media_type=image.media_type)
+
+
+async def _handle_images(app, _args: str) -> None:
+    pi = app.prompt_input
+    arg = (_args or "").strip().lower()
+    if arg == "clear":
+        if not pi.images:
+            await app.transcript.add_note("No pending image attachments.", kind="note")
+            return
+        # Same "chip-only text" condition `PromptInput.action_delete_left`
+        # uses -- if the visible input is nothing but chip labels, popping
+        # the record also cleans up the now-stale label text; with other
+        # real text alongside it, only the internal record is dropped
+        # (the user can still edit the leftover label text by hand).
+        # `clear` means every pending attachment (Backspace is the one-at-a-
+        # time path). Chip-only text goes with them; real text alongside the
+        # labels is left for the user to edit by hand.
+        count = len(pi.images)
+        chip_only = pi.text == "".join(pi._chip_labels())
+        pi.images.clear()
+        if chip_only:
+            pi.text = ""
+            pi.move_cursor((0, 0))
+            pi._auto_grow()
+        plural = "" if count == 1 else "s"
+        await app.transcript.add_note(f"Removed {count} pending image attachment{plural}.", kind="note")
+        return
+    if arg:
+        await app.transcript.add_note(f"Usage: /images or /images clear (got {arg!r})", kind="command")
+        return
+    if not pi.images:
+        await app.transcript.add_note("No pending image attachments.", kind="note")
+        return
+    lines = []
+    for i, img in enumerate(pi.images, start=1):
+        w, h = img.get("width"), img.get("height")
+        dims = f"{w}x{h}" if (w and h) else "size unknown"
+        lines.append(f"#{i} {dims} -- {img['path']}")
+    await app.transcript.add_note("Pending image attachments:\n" + "\n".join(lines), kind="note")
 
 
 # ============================================================================

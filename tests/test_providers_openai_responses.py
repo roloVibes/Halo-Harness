@@ -114,7 +114,10 @@ def test_max_output_tokens_set_from_requested(ctx: Ctx):
 
 
 @test
-def test_image_part_becomes_a_visible_placeholder_not_silently_dropped(ctx: Ctx):
+def test_image_part_becomes_a_real_input_image_item(ctx: Ctx):
+    """Halo 2.0.3.1 (clipboard image paste): the Responses dialect now
+    sends a real `input_image` part -- this round's own fulfillment of
+    the `input_image` shape this test used to say was "out of scope"."""
     from halo_harness.providers.responses_request import build_openai_responses_body
     route, profile = _route_and_profile()
     messages = [{"role": "user", "content": [
@@ -123,8 +126,27 @@ def test_image_part_becomes_a_visible_placeholder_not_silently_dropped(ctx: Ctx)
     ]}]
     body = build_openai_responses_body(system_text="", messages=messages, route=route, profile=profile)
     user_item = next(i for i in body["input"] if i.get("role") == "user")
-    ctx.check(f"placeholder text present, got {user_item.get('content')!r}",
-              "image omitted" in user_item["content"])
+    content = user_item.get("content")
+    ctx.check(f"content is a list of parts once an image is present, got {content!r}", isinstance(content, list))
+    text_parts = [p for p in content if p.get("type") == "input_text"]
+    image_parts = [p for p in content if p.get("type") == "input_image"]
+    ctx.check(f"the text part survives, got {text_parts}", text_parts and text_parts[0]["text"] == "look")
+    ctx.check(f"exactly one real input_image part, got {image_parts}",
+              len(image_parts) == 1 and image_parts[0]["image_url"] == "data:image/jpeg;base64,xx")
+
+
+@test
+def test_text_only_message_content_stays_a_plain_string(ctx: Ctx):
+    """A message with no image at all must keep the EXACT pre-2.0.3.1 wire
+    shape (a plain string, never a single-part list) -- every other test
+    in this file that reads `body["input"]`'s own `content` as a bare
+    string depends on this staying true."""
+    from halo_harness.providers.responses_request import build_openai_responses_body
+    route, profile = _route_and_profile()
+    messages = [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
+    body = build_openai_responses_body(system_text="", messages=messages, route=route, profile=profile)
+    user_item = next(i for i in body["input"] if i.get("role") == "user")
+    ctx.check(f"content is a plain string, got {user_item.get('content')!r}", user_item["content"] == "hi")
 
 
 # ---- profile / effort ----------------------------------------------------

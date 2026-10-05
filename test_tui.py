@@ -13,6 +13,7 @@ them) -- never imported at `halo_harness` package scope elsewhere.
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import sys
@@ -9746,6 +9747,102 @@ def test_ollama_status_and_local_status_survive_first_paint(ctx: Ctx):
             await pilot.press("escape")
             await pilot.pause(0.1)
             ctx.check("final Esc closes LocalStatus, the whole app is still alive", app.is_running)
+    asyncio.run(body())
+
+
+# ============================================================================
+# Halo 2.0.3.1 (clipboard image paste): Ctrl+V reading a real clipboard
+# image (stubbed, never a real clipboard), `/paste <path>`, and a pasted
+# path attaching instead of inserting text.
+# ============================================================================
+
+_TINY_PNG_FOR_TUI = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY"
+    "42YAAAAASUVORK5CYII=")
+
+
+@test
+def test_ctrl_v_with_no_clipboard_text_reads_a_stubbed_image_and_submits_it(ctx: Ctx):
+    import halo_harness.tui.clipboard as clipboard_mod
+    import halo_harness.tui.clipboard_image as clipboard_image_mod
+    from halo_harness.tui.clipboard_image import ClipboardImage
+
+    async def body():
+        fake = FakeController()
+        app = await _mounted(fake)
+        async with app.run_test(size=(100, 40)) as pilot:
+            fake_path = Path(tempfile.mkdtemp(prefix="halo-tui-clip-")) / "clip-1.png"
+            fake_path.write_bytes(_TINY_PNG_FOR_TUI)
+            old_text_reader = clipboard_mod.read_via_external_tool
+            old_image_reader = clipboard_image_mod.read_clipboard_image
+            # The hermetic seam: Ctrl+V's worker tries the TEXT reader
+            # first (stubbed empty, "paste carries no text"), then this
+            # stubbed IMAGE reader -- a real clipboard/subprocess is never
+            # touched either way.
+            clipboard_mod.read_via_external_tool = lambda *a, **kw: None
+            clipboard_image_mod.read_clipboard_image = lambda *a, **kw: ClipboardImage(
+                path=fake_path, width=1, height=1, media_type="image/png", bytes=fake_path.stat().st_size)
+            try:
+                await pilot.click("#prompt-input")
+                await pilot.press("ctrl+v")
+                for _ in range(30):
+                    await pilot.pause(0.05)
+                    if app.prompt_input.images:
+                        break
+                ctx.check(f"a chip was added, got {app.prompt_input.images}", len(app.prompt_input.images) == 1)
+                ctx.check(f"the chip label shows the dimensions, got {app.prompt_input.text!r}",
+                          app.prompt_input.text == "[Image #1 1x1]")
+                await pilot.press("enter")
+                await _drain_a_few(app, pilot)
+                ctx.check(f"the submission carried one real image block, got {fake.submitted_images}",
+                          len(fake.submitted_images) == 1 and fake.submitted_images[0] is not None
+                          and len(fake.submitted_images[0]) == 1
+                          and fake.submitted_images[0][0].get("image_path") == str(fake_path)
+                          and fake.submitted_images[0][0]["source"]["data"])
+            finally:
+                clipboard_mod.read_via_external_tool = old_text_reader
+                clipboard_image_mod.read_clipboard_image = old_image_reader
+    asyncio.run(body())
+
+
+@test
+def test_paste_command_with_a_path_and_a_dragged_path_both_attach(ctx: Ctx):
+    from textual import events as tevents
+
+    async def body():
+        fake = FakeController()
+        app = await _mounted(fake)
+        async with app.run_test(size=(100, 40)) as pilot:
+            tmp_dir = Path(tempfile.mkdtemp(prefix="halo-tui-clip-"))
+            scratch_path = tmp_dir / "scratch.png"
+            scratch_path.write_bytes(_TINY_PNG_FOR_TUI)
+
+            await pilot.click("#prompt-input")
+            await _type(pilot, f"/paste {scratch_path}")
+            await pilot.press("enter")
+            await _drain_a_few(app, pilot)
+            ctx.check(f"/paste <path> added a chip, got {app.prompt_input.images}",
+                      len(app.prompt_input.images) == 1 and app.prompt_input.images[0]["path"] == scratch_path)
+
+            # "a pasted text that is the path of an existing image file
+            # ... attaches that file instead of inserting the path" --
+            # a real bracketed-paste message, same mechanism test_paste_
+            # 4_or_more_lines_becomes_a_placeholder already uses.
+            dragged_path = tmp_dir / "dragged.png"
+            dragged_path.write_bytes(_TINY_PNG_FOR_TUI)
+            app.prompt_input.post_message(tevents.Paste(str(dragged_path)))
+            await pilot.pause(0.1)
+            ctx.check(f"the dragged path became a SECOND chip, got {app.prompt_input.images}",
+                      len(app.prompt_input.images) == 2)
+            ctx.check(f"the raw path was never inserted as text, got {app.prompt_input.text!r}",
+                      str(dragged_path) not in app.prompt_input.text and "[Image #2" in app.prompt_input.text)
+
+            await _type(pilot, "what do you see")
+            await pilot.press("enter")
+            await _drain_a_few(app, pilot)
+            ctx.check(f"the submission carried both image blocks, got {fake.submitted_images}",
+                      fake.submitted_images and fake.submitted_images[-1] is not None
+                      and len(fake.submitted_images[-1]) == 2)
     asyncio.run(body())
 
 

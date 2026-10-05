@@ -566,6 +566,38 @@ MCP server prompts become their own slash commands automatically, named
 result back as the turn's prompt, same "prompt"-kind contract as a custom
 command.
 
+## Image attachments
+
+Halo 2.0.3.1: Ctrl+V and Shift+Insert, when the clipboard carries an
+image rather than text, read it (a short subprocess call, off the UI
+thread) and insert an attachment chip at the cursor -- `[Image #1
+1024x768]` (or `[Image #1]` when the size can't be read). A real
+terminal paste or Ctrl+V whose text is the path of an existing
+`.png`/`.jpg`/`.jpeg`/`.gif`/`.webp` file (a drag from Explorer/Finder,
+with or without quotes) attaches that file the same way instead of
+inserting the path. Backspace removes the last chip when the input is
+nothing but chip labels (no other text typed); typing real text around a
+chip leaves it alone, same as a long pasted-text placeholder does.
+Every pending chip becomes a real image on the NEXT submit, carried all
+the way to the model (shown inline in the transcript when the terminal
+supports it, else the same caption text the chip itself showed); a
+model whose catalog row says it has no vision gets one notice instead
+and the turn still runs, with the saved path mentioned in place of the
+image. Over SSH (no remote clipboard reaches the terminal at all) every
+reader comes back empty -- the one-line notice names the other two
+ways in: `/paste <path>` or dragging a file.
+
+- **`/paste`** -- reads the OS clipboard image (same mechanism as
+  Ctrl+V) and adds a chip; with no image on the clipboard, shows the
+  same "no image on this machine's clipboard" line Ctrl+V does.
+- **`/paste <path>`** -- attaches an existing image file by path, no
+  clipboard involved.
+- **`/images`** -- lists every pending attachment (its number, size,
+  and saved path); **`/images clear`** removes all of them (Backspace removes the last one; same
+  "chip-only input" rule Backspace follows -- with other text typed
+  around a chip, only the internal record is dropped, the leftover
+  label text is left for you to edit by hand).
+
 ## Prefixes in the prompt input
 
 These are recognized only when they're the very first character(s) typed
