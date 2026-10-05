@@ -747,6 +747,11 @@ class _StubCompletedProcess:
 @_env
 def test_one_shot_cx_call_refuses_under_offline_but_not_online(ctx: Ctx):
     os.environ["HALO_OFFLINE"] = "1"
+    # The online half resolves the real launcher first; on a machine without a
+    # codex install (the Kali VM) that fails before the stubbed subprocess.run
+    # is reached, so point Halo at the fake codex (the stub still intercepts).
+    os.environ["HALO_CODEX_EXE"] = '"' + sys.executable + '" "' + str(
+        Path(__file__).resolve().parent / "helpers" / "fake_codex.py") + '"'
     os.environ["BRIDGE_TEST_HOME"] = str(Path(tempfile.mkdtemp(prefix="offline-cx-oneshot-")))
     import subprocess
     import halo_harness.agent.codex_runtime as cxrt
@@ -805,6 +810,11 @@ def test_one_shot_cc_call_refuses_under_offline_but_not_online(ctx: Ctx):
 @_env
 def test_refresh_cx_catalog_skips_under_offline_but_not_online(ctx: Ctx):
     os.environ["HALO_OFFLINE"] = "1"
+    # The online half resolves the real launcher first; on a machine without a
+    # codex install (the Kali VM) that fails before the stubbed subprocess.run
+    # is reached, so point Halo at the fake codex (the stub still intercepts).
+    os.environ["HALO_CODEX_EXE"] = '"' + sys.executable + '" "' + str(
+        Path(__file__).resolve().parent / "helpers" / "fake_codex.py") + '"'
     state_dir = Path(tempfile.mkdtemp(prefix="offline-cx-refresh-"))
     import subprocess
     import halo_harness.providers.codex_models as cxm
