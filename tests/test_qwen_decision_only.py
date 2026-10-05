@@ -168,9 +168,16 @@ def test_picker_groups_the_openjev_endpoint_under_judge_decision(ctx: Ctx):
 
 def _resolver_for(model_id):
     from halo_harness.model import ModelProfile, ModelRef
+    from halo_harness.providers.stream import ProviderCreds
 
+    # pass-B finding 2 (critical): `Controller.set_model` now refuses a ref
+    # whose creds are None (the exact bug this file's own two `set_model`
+    # tests below predate) -- a believable, never-real creds stand-in here
+    # keeps BOTH tests exercising what they actually test (decision-only
+    # redirect vs. an ordinary switch), not the unrelated credentials gate.
     def resolve(raw):
-        return ModelRef(raw=raw, provider="databricks", model=model_id, dialect="openai-chat"), ModelProfile(), None
+        creds = ProviderCreds(base_url="https://test-default.cloud.databricks.com", api_key="test-default-token")
+        return ModelRef(raw=raw, provider="databricks", model=model_id, dialect="openai-chat"), ModelProfile(), creds
     return resolve
 
 

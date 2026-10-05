@@ -223,6 +223,17 @@ class ProviderProfile:
     stream_usage: bool = True
     store: bool = False
     strict: bool = False
+    # Pass-B finding 6 (critical): True for `route.provider == "openai"`'s
+    # own chat-completions profile only -- OpenAI's chat stream carries no
+    # usage at all unless the request asks for it (unlike OpenRouter's own
+    # always-on `usage.include`, gated by `host_specific_fields` instead),
+    # so without this the context meter and the cost line both ran on
+    # estimates while `request.py::build_request_body` had no field at all
+    # that would turn it on for a plain `oai:` route (Databricks' own
+    # `stream_options` is gated by `body_allowlist`, which `oai:` has none
+    # of -- a dedicated flag, not a repurposed one, keeps the two routes'
+    # reasons for sending the same wire field independent).
+    send_stream_options_include_usage: bool = False
     tool_result_name: bool = False
     body_allowlist: Optional[frozenset] = None      # None == no restriction
     tools_max: Optional[int] = None
@@ -646,6 +657,50 @@ def resolve_profile(route, model_table: Optional[dict] = None, state_dir=None) -
         # whole `ProviderProfile(...)` call a second time.
         from dataclasses import replace
         profile = replace(profile, tool_leak_patterns=("python_repr_args", "json_text_call"))
+    if route.provider == "openai":
+        # Pass-B finding 6 (critical): `oai:` chat-completions was reusing
+        # this SAME OpenRouter-fallback profile outright -- `max_tokens`
+        # (OpenAI's o-series/gpt-5+ reasoning models reject it: "Unsupported
+        # parameter: 'max_tokens' ... Use 'max_completion_tokens' instead"),
+        # no `stream_options.include_usage` (the cost meter/context trigger
+        # ran on estimates while the status line showed a real-looking
+        # dollar figure), and `reasoning_effort` sent to every model -- a
+        # non-reasoning id (gpt-4o/4.1) included -- with a value NOT bounded
+        # by what this exact id actually accepts (`oai:o3` lists only
+        # low/medium/high; the old generic `effort_values_supported` let
+        # "max" clamp to "xhigh", a value o3 has never listed).
+        #
+        # No model_table.json row lookup (that table is Databricks/
+        # OpenRouter-keyed only, same reasoning the "ollama"/"openai-
+        # responses" branches above give) -- the vendored models.dev
+        # fallback is the one place this family's `reasoning`/
+        # `reasoning_options` actually live; an id the fallback doesn't
+        # list (a brand-new release) gets `reasoning_effort_supported=
+        # False` and the harness's own default `effort_values_supported`,
+        # exactly like a non-reasoning id does.
+        from dataclasses import replace
+        from halo_harness.providers.models_dev import load_vendored_openai_fallback
+        oai_row = load_vendored_openai_fallback().get(route.upstream_model) or {}
+        oai_effort_values = effort_values_supported
+        oai_default_effort = row.get("reasoning_default_effort")
+        options = oai_row.get("reasoning_options")
+        if isinstance(options, list) and options and isinstance(options[0], dict):
+            values = options[0].get("values")
+            if isinstance(values, list) and values:
+                oai_effort_values = tuple(values)
+                # the row's own strongest level -- so `clamp_effort`'s
+                # generic "max"/"xhigh" narrowing (profiles.py's own
+                # `clamp_effort`: falls back to `reasoning_default_effort`
+                # when neither "max" nor "xhigh" is in `supported`) lands
+                # on the highest value THIS id lists, never a value it
+                # does not.
+                oai_default_effort = values[-1]
+        profile = replace(
+            profile, max_tokens_field="max_completion_tokens",
+            reasoning_effort_supported=bool(oai_row.get("reasoning")),
+            effort_values_supported=oai_effort_values, reasoning_default_effort=oai_default_effort,
+            send_stream_options_include_usage=True,
+        )
     return profile
 
 

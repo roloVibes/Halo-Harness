@@ -53,6 +53,38 @@ def _default_model_resolver(raw: str, *, state_dir: Path, routes: dict, settings
     return ref, profile, _resolve_creds(ref, settings)
 
 
+# pass-B finding 2 (critical): providers that need no credentials at
+# all -- `cc:`/`cx:` are subprocess routes (the Claude Code / Codex CLI
+# does its own auth), so `_resolve_creds` always returns None for them;
+# that is the ordinary, expected shape for those two, never a reason to
+# refuse a switch the way an actually-unconfigured cloud/local ref is.
+_NO_CREDENTIALS_NEEDED_PROVIDERS = frozenset({"cc", "codex"})
+
+
+def _not_configured_message(ref) -> str:
+    """The provider's own "not configured" sentence for `ref`, matching
+    providers/stream.py's phase-1 `ProviderNotConfigured` wording exactly
+    (same text `_run_phase1`/`_run_phase1_anthropic`/`_run_phase1_ollama_
+    attempt`/`_run_phase1_responses` would raise at request time) -- so
+    `set_model` below can refuse a ref with no usable credentials BEFORE
+    ever queuing the switch, with the same sentence the turn would have
+    failed with anyway, instead of silently sending the transcript to
+    whatever provider the session was already on."""
+    if ref.provider == "huggingface":
+        return ("Hugging Face not configured -- set HF_TOKEN for the router, add this name to "
+                 "huggingface.endpoints, or add/run a local server (huggingface.local_servers, "
+                 "or auto-detection on a default port)")
+    if ref.provider == "openai":
+        return "OpenAI API not configured -- set OPENAI_API_KEY"
+    if ref.provider == "ollama":
+        return "Ollama host not configured"
+    if ref.provider == "anthropic":
+        return "Anthropic not configured"
+    if ref.provider == "databricks":
+        return "Databricks not configured"
+    return "OpenRouter not configured"
+
+
 class Controller:
     """`session` is a fully built `agent.loop.Session`; `registry`/`facade`
     are the U0 slash-command surfaces (the facade is the TUI's own, so its
@@ -243,11 +275,36 @@ class Controller:
         `tui/slash.py`'s `_apply_model`) -- it is routed to the `judge`
         role automatically instead, and the returned string (shown the
         same way an unresolvable ref's error already is) says so plainly
-        rather than silently doing nothing."""
+        rather than silently doing nothing.
+
+        Pass-B finding 2 (critical): this used to accept a ref whose
+        credentials don't resolve and queue `set_model(..., creds=None)`
+        regardless -- `Session.set_model` then kept the PREVIOUS model's
+        creds (see its own docstring), so the NEXT turn sent the
+        transcript to the OLD provider's URL with the OLD key under the
+        NEW model id. Refused here instead, before anything is ever
+        queued, with the same "not configured" sentence the request path
+        itself would raise -- except for `cc:`/`cx:`, which need no
+        credentials at all. An `hf:mlx/<repo>` ref gets one more step
+        first: `build_session`/the TUI's own launch already start a
+        managed `mlx_lm.server` for the SESSION's starting model, but
+        `/model`/the picker switching to one mid-session never did, so
+        the switch would otherwise always look "not configured" the
+        first time anyone picks an mlx repo that way."""
+        from halo_harness.model import parse_model_ref
+        try:
+            probe_ref = parse_model_ref(model, self.routes)
+        except Exception:
+            probe_ref = None
+        if probe_ref is not None and probe_ref.provider == "huggingface" and getattr(probe_ref, "mlx", False):
+            from halo_harness.headless import _ensure_mlx_server_for_ref
+            _ensure_mlx_server_for_ref(probe_ref, self.state_dir)
         try:
             ref, profile, creds = self.model_resolver(model)
         except Exception as e:  # InvalidModelError and anything else a bad ref can raise
             return f"{e}"
+        if creds is None and ref.provider not in _NO_CREDENTIALS_NEEDED_PROVIDERS:
+            return _not_configured_message(ref)
         if ref.provider == "databricks":
             from halo_harness.providers.profiles import decision_only_notice
             notice = decision_only_notice(ref.model)

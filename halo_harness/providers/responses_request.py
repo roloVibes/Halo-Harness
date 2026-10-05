@@ -130,7 +130,17 @@ def _responses_tools(tools, profile) -> "Optional[list]":
     (confirmed shape, `docs/harness/OPENAI-RESEARCH.md` section 1) --
     reuses that function's sorting/cap-check/`ToolsNotSupported`/
     `ToolCatalogTooLarge` behavior unchanged rather than re-implementing
-    any of it."""
+    any of it.
+
+    Pass-B finding 5 (critical): every item carries `"strict": false`.
+    Function tools on `/v1/responses` are strict by default (the
+    Responses reference: "Whether to enforce strict parameter
+    validation. Default `true`"), and strict mode requires every
+    property to be listed in `required` and `additionalProperties:
+    false` on every object -- none of Halo's built-in tool schemas
+    qualify (optional parameters are the norm), so every tool-bearing
+    turn on a Responses-dialect model was rejected outright with
+    "Invalid schema for function ..." before this."""
     oai_tools = convert_tools(tools, profile)
     if not oai_tools:
         return None
@@ -140,6 +150,7 @@ def _responses_tools(tools, profile) -> "Optional[list]":
         out.append({
             "type": "function", "name": func.get("name"), "description": func.get("description", ""),
             "parameters": func.get("parameters") or {"type": "object", "properties": {}},
+            "strict": False,
         })
     return out
 

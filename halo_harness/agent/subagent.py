@@ -388,6 +388,28 @@ def _write_meta(meta_path: Path, data: dict) -> None:
         pass
 
 
+def _child_credential_message(ref) -> str:
+    """Pass-B finding 1 (critical): the provider's own "not configured"
+    sentence for a sub-agent CHILD's model ref, matching providers/
+    stream.py's phase-1 `ProviderNotConfigured` wording exactly so a
+    child on an unconfigured route is turned away with the same sentence
+    the request path would have raised at turn time (naming the actual
+    missing credential), not a generic "something went wrong"."""
+    if ref.provider == "huggingface":
+        return ("Hugging Face not configured -- set HF_TOKEN for the router, add this name to "
+                 "huggingface.endpoints, or add/run a local server (huggingface.local_servers, "
+                 "or auto-detection on a default port)")
+    if ref.provider == "openai":
+        return "OpenAI API not configured -- set OPENAI_API_KEY"
+    if ref.provider == "ollama":
+        return "Ollama host not configured"
+    if ref.provider == "anthropic":
+        return "Anthropic not configured"
+    if ref.provider == "databricks":
+        return "Databricks not configured"
+    return "OpenRouter not configured"
+
+
 def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: str,
                           model_override: Optional[str], parent_tool_use_id: str, background: bool = False,
                           role_override: Optional[str] = None, effort_override: Optional[str] = None):
@@ -534,6 +556,50 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
             ctx.tool_registry = parent.tool_registry.filtered([])
             ctx.system_prompt = (f"{ctx.system_prompt}\n\nThis endpoint supports no tool calls at all -- decide "
                                   f"and answer directly from the prompt text alone.")
+
+    # Halo 2.0.3 pass-B fix (review finding 1, critical): a child used to
+    # be built with creds=parent.creds, openrouter_base_url=parent.
+    # openrouter_base_url and extra_headers=dict(parent.extra_headers)
+    # UNCONDITIONALLY, whatever provider/host the CHILD's own model_ref
+    # actually names -- 2.0.3 makes cross-provider children the normal
+    # case (local ol:/hf:local models on supporting roles, `gym propose
+    # --apply` writing researcher/subagent/judge roles onto local models,
+    # any Agent(model=...)/org position naming any route), so an `ol:`
+    # child under an `or:` parent POSTed its whole prompt to the PARENT's
+    # upstream with the PARENT's bearer key (an `oai:` child went to
+    # OpenRouter too). Reused only when the child's route is actually the
+    # SAME route as the parent's (provider, host, and the local/mlx flags
+    # all match -- so two plain `or:` sessions, or two `hf:local` sessions
+    # against the same named server, still share one real connection);
+    # otherwise resolved fresh with the exact same per-entry resolver
+    # `/model` and the fallback chain already use. A mismatched child
+    # whose own creds resolve to None (its provider isn't configured at
+    # all) raises here, before a Session for it is ever built -- every
+    # caller of this function already wraps it in `try/except Exception`
+    # and turns that into an `is_error` ToolResult (see `run_agent_call`'s
+    # own call site below), so this reaches the model as that same
+    # ToolResult, naming the missing credential via the provider's own
+    # "not configured" sentence, with no request ever sent anywhere.
+    _parent_ref = parent.model_ref
+    _same_route_as_parent = (
+        model_ref.provider == _parent_ref.provider
+        and getattr(model_ref, "host", None) == getattr(_parent_ref, "host", None)
+        and getattr(model_ref, "local", False) == getattr(_parent_ref, "local", False)
+        and getattr(model_ref, "mlx", False) == getattr(_parent_ref, "mlx", False)
+    )
+    if _same_route_as_parent:
+        child_creds = parent.creds
+        child_openrouter_base_url = parent.openrouter_base_url
+        child_extra_headers = dict(parent.extra_headers)
+    else:
+        from halo_harness.headless import _resolve_creds
+        from halo_harness.providers.stream import ProviderNotConfigured
+        child_creds = _resolve_creds(model_ref, parent.settings)
+        child_openrouter_base_url = None
+        child_extra_headers = {}
+        if child_creds is None:
+            raise ProviderNotConfigured(_child_credential_message(model_ref))
+
     # Halo 2.0.2 (brief A.2): "sub-agent runs apply the role's effort
     # through the same path the session uses" -- resolved alongside (not
     # inside) `resolve_agent_model` so that function's return shape never
@@ -597,7 +663,7 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
         )
 
     child = Session(
-        cwd=child_cwd, model_ref=model_ref, model_profile=model_profile, creds=parent.creds,
+        cwd=child_cwd, model_ref=model_ref, model_profile=model_profile, creds=child_creds,
         state_dir=parent.state_dir, model_label=model_ref.raw, session_context=ctx,
         small_model_ref=parent.small_model_ref, small_model_effort=getattr(parent, "small_model_effort", None),
         session_log=child_log,
@@ -610,13 +676,16 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
         # default), so hybrid escalation is unaffected by this for a
         # top-level session.
         role_name=_effective_role_name,
-        # bug fix: without these, a child ignores whatever custom routing
-        # the PARENT was actually given (a mock upstream in tests; a
-        # self-hosted proxy via BRIDGE_OPENROUTER_BASE_URL in real use) and
-        # falls back to `creds.base_url`/no extra headers, which usually
-        # happens to match but is not guaranteed to (`providers/stream.py`:
-        # "base_url = req.openrouter_base_url or req.creds.base_url").
-        openrouter_base_url=parent.openrouter_base_url, extra_headers=dict(parent.extra_headers),
+        # pass-B finding 1: `child_openrouter_base_url`/`child_extra_
+        # headers` (computed above, alongside `child_creds`) carry the
+        # PARENT's own custom routing (a mock upstream in tests; a
+        # self-hosted proxy via BRIDGE_OPENROUTER_BASE_URL in real use)
+        # only when the child's route actually IS the parent's route --
+        # a cross-provider/cross-host child gets neither, so it falls back
+        # to its own freshly-resolved `creds.base_url`/no extra headers
+        # (`providers/stream.py`: "base_url = req.openrouter_base_url or
+        # req.creds.base_url"), never the parent's.
+        openrouter_base_url=child_openrouter_base_url, extra_headers=child_extra_headers,
         # H6 scope B must-do ("sub-agents reuse steer/abort/... plumbing"):
         # share the PARENT's own abort Event rather than letting Session's
         # default (a fresh, private Event) leave the child deaf to it --

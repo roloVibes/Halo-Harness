@@ -50,6 +50,39 @@ class CodexNotFoundError(Exception):
     """No `codex` binary could be resolved -- doctor's "install Codex CLI" case."""
 
 
+def _codex_npm_shim_script(shim_path: Path) -> Optional[Path]:
+    """Pass-B finding 4 (critical): an npm global install's `codex.cmd`/
+    `codex.CMD` is a batch shim that re-invokes cmd.exe -- a prompt riding
+    on argv (the pre-fix behaviour) gets parsed a SECOND time there, which
+    is exactly how a quoted `&`/`%VAR%` misbehaves and the practical argv
+    length ceiling bites a long prompt. The real entry point sits right
+    beside the shim, unpacked by npm at install time: `node_modules\\
+    @openai\\codex\\bin\\codex.js`, relative to the shim's OWN directory
+    (the npm global prefix). Lookup-only -- returns the script path when
+    it's there, else None (a differently laid out install, or some other
+    `.cmd`/`.CMD` entirely), so the caller can fall back to the shim
+    itself exactly as before this fix."""
+    script = shim_path.parent / "node_modules" / "@openai" / "codex" / "bin" / "codex.js"
+    return script if script.is_file() else None
+
+
+def _bypass_windows_cmd_shim(argv: "list[str]") -> "list[str]":
+    """Swaps a single-token argv ending in `.cmd`/`.CMD` for `node
+    <codex.js>` when `_codex_npm_shim_script` finds the real entry point
+    beside it -- a no-op for everything else: a multi-token `HALO_CODEX_
+    EXE` (already a real argv prefix, e.g. a test's `python fake_codex.
+    py`), a resolution that isn't a `.cmd` shim, a non-Windows platform,
+    or a `.cmd` shim with no script found beside it (falls back to the
+    shim itself, unchanged from before this fix -- `codex.cmd` run
+    through cmd.exe is still how Halo launched it previously)."""
+    if os.name == "nt" and len(argv) == 1 and argv[0].lower().endswith(".cmd"):
+        script = _codex_npm_shim_script(Path(argv[0]))
+        if script is not None:
+            node = shutil.which("node") or "node"
+            return [node, str(script)]
+    return argv
+
+
 def resolve_codex_launch_argv() -> "list[str]":
     """argv PREFIX for launching `codex` (or a test's fake stand-in).
     `HALO_CODEX_EXE`/legacy `BRIDGE_CODEX_EXE`, when set, is shlex-split --
@@ -62,20 +95,26 @@ def resolve_codex_launch_argv() -> "list[str]":
     already makes for `claude.ps1` (not directly spawnable via
     `subprocess.Popen` without invoking `powershell.exe` itself). Then
     `~/.local/bin/codex[.exe]` (posix installs). Raises CodexNotFoundError
-    (never returns None/[]) when nothing resolves."""
+    (never returns None/[]) when nothing resolves.
+
+    Pass-B finding 4 (critical): every branch's result passes through
+    `_bypass_windows_cmd_shim` before it's returned -- on Windows, a
+    resolution that is itself the npm `codex.cmd`/`codex.CMD` shim launches
+    `node <codex.js>` directly instead, whichever of the three sources
+    (env, PATH, ~/.local/bin) produced it."""
     from halo_harness.config.paths import env_compat
     env_val = env_compat("CODEX_EXE")
     if env_val:
-        return shlex.split(env_val, posix=True)
+        return _bypass_windows_cmd_shim(shlex.split(env_val, posix=True))
     for name in ("codex", "codex.exe", "codex.cmd"):
         found = shutil.which(name)
         if found:
-            return [found]
+            return _bypass_windows_cmd_shim([found])
     from halo_harness.config.paths import home
     for rel in ("codex", "codex.exe"):
         candidate = home() / ".local" / "bin" / rel
         if candidate.exists():
-            return [str(candidate)]
+            return _bypass_windows_cmd_shim([str(candidate)])
     raise CodexNotFoundError(
         "codex executable not found (HALO_CODEX_EXE unset; looked on PATH and ~/.local/bin)"
     )

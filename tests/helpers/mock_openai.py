@@ -682,6 +682,64 @@ RESPONSES_SCENARIOS = {
 }
 
 
+# ============================================================================
+# Pass-B finding 5 (critical): the Responses mock now enforces OpenAI's own
+# strict-mode schema rules on every function-tool item it receives, the way
+# the real `/v1/responses` endpoint does -- UNTAUGHT, this mock would accept
+# any schema at all, so a regression of finding 5 (Halo's tool items missing
+# "strict": false) would pass every test silently instead of being rejected
+# the way the real API rejects it today.
+# ============================================================================
+
+def _responses_tool_schema_is_strict_compliant(schema) -> bool:
+    """Walks a JSON-Schema-ish dict the way OpenAI's strict function-
+    calling mode does: an object's `properties` keys must ALL appear in
+    its own `required` list, and it must set `additionalProperties:
+    false` -- checked at every nesting level (object properties, array
+    items), not just the top."""
+    if not isinstance(schema, dict):
+        return True
+    if schema.get("type") == "object" or "properties" in schema:
+        properties = schema.get("properties") or {}
+        required = schema.get("required") or []
+        if set(properties.keys()) != set(required):
+            return False
+        if schema.get("additionalProperties") is not False:
+            return False
+        for prop_schema in properties.values():
+            if not _responses_tool_schema_is_strict_compliant(prop_schema):
+                return False
+    if schema.get("type") == "array":
+        items = schema.get("items")
+        if isinstance(items, dict) and not _responses_tool_schema_is_strict_compliant(items):
+            return False
+    return True
+
+
+def _responses_tools_strict_error(tools) -> "dict | None":
+    """`None` when every item in `tools` (the Responses API's flat
+    function-tool item shape) is `"strict": false`, or otherwise passes
+    the strict-mode schema rules above -- else the OpenAI error shape
+    for an invalid strict schema, naming the first offending tool (the
+    real wording this mock matches: "Invalid schema for function
+    '<name>' ...")."""
+    for t in (tools or []):
+        if not isinstance(t, dict) or t.get("type") != "function":
+            continue
+        if t.get("strict") is False:
+            continue  # strict explicitly off -- the rules don't apply
+        if _responses_tool_schema_is_strict_compliant(t.get("parameters") or {}):
+            continue
+        name = t.get("name") or "<unnamed>"
+        return {"error": {
+            "message": (f"Invalid schema for function '{name}': strict schemas require every "
+                        f"parameter to be in 'required' and 'additionalProperties: false' on every "
+                        f"object."),
+            "type": "invalid_request_error", "param": "tools", "code": "invalid_function_schema",
+        }}
+    return None
+
+
 class ScriptedByCallCount:
     """The Responses-dialect twin of `tests.helpers.mock_ollama.
     ScriptedByCallCount` (same simple semantics, copied rather than
@@ -769,6 +827,15 @@ class _Handler(BaseHTTPRequestHandler):
 
         model = (body or {}).get("model", "") or ""
         scenario = model[len("mock/"):] if model.startswith("mock/") else "model"
+
+        # pass-B finding 5: a Responses-dialect request with a non-strict-
+        # compliant tool item and no "strict": false gets the real API's
+        # own rejection, before any scenario ever runs.
+        if is_responses:
+            strict_error = _responses_tools_strict_error((body or {}).get("tools"))
+            if strict_error is not None:
+                send_json_response(self, 400, strict_error)
+                return
 
         try:
             fn = (RESPONSES_SCENARIOS.get(scenario) or SCENARIOS.get(scenario)) if is_responses \
