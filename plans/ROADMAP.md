@@ -479,3 +479,28 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   time with a script and a staleness test; (4) blank only when truly
   unknown, with the reason in the picker footer. Tests on fixture catalogs
   for every mapping above and for the external-id parser.
+- ADDED 2026-10-05 ~12:05 (rolo): 2.0.4 round "MCP connectivity deep dive".
+  rolo: "the mcp list goes from like 0/6 to 0/0 in a session. none of the
+  mcp fixes did anything, I still cannot reconnect to many of the mcps. we
+  need like a doctor deep dive option to fix these with the use of an llm".
+  (1) BUG first: the status bar's MCP counter drops from 0/N to 0/0
+  mid-session, so configured servers vanish from the registry after a
+  failed connect or reconnect instead of staying listed as down; find the
+  path that removes them, keep them listed with their last error, pin the
+  count with a test. (2) Diagnosis corpus: capture `halo mcp test <name>`
+  and the per-server logs for every failing server on the owner's PC and
+  the VM (never into the repo) and read what the 2.0.2 repair actions
+  missed. (3) `halo doctor --mcp deep [name]` and `/mcp doctor`: per
+  server, resolve the command (PATH, shims, node/python/uv versions),
+  spawn with a timeout, run the stdio handshake, initialize and list tools
+  (or the HTTP/SSE and websocket equivalents with port and TLS checks),
+  capture all stdout and stderr, diff the child environment against the
+  user's shell, then hand the evidence plus the server's config to a model
+  (the session model or the judge role) that proposes ONE concrete fix per
+  server (config edit, missing package, wrong path, port, env var) in a
+  plain sentence; apply only on a yes, re-test, and record what worked in
+  the learned-rules store so the same failure is fixed automatically next
+  time. (4) `/mcp` shows "deep dive" as an action and the last diagnosis
+  per server. Tests: a fake stdio server with scripted failure modes
+  (bad path, crash on initialize, slow handshake, wrong env), the counter
+  pin, the fix application with consent, the learned-rule replay.
