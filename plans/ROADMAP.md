@@ -612,3 +612,11 @@ The review's 53 minors plus the C-1/C-2 leftovers (plans/2.0.3-release-notes-
 for-fix-pass.md) become **2.0.3.2**, after the 2.0.3.1 clipboard patch. The
 tag waits only for fix passes A-2 and B-2 (run in parallel from 15:10), the
 three-platform suites and one live check on the 4090 host and the Kali VM.
+
+## CUT 2026-10-05 ~18:10 (rolo: "ARE WE STILL ON 2.0.3!?"): no 2.0.3.2 round
+
+The review minors, the C-1/C-2/B-2 leftovers, the two flaky tests, the empty
+print-mode error for an unconfigured provider and the two clipboard
+follow-ups (all listed in plans/2.0.3-release-notes-for-fix-pass.md) move
+to **2.0.6 hardening**. After the v2.0.3.1 tag the next round is **2.0.4
+round 0** (tooling), then the rest of 2.0.4 in the REORDERED order.
