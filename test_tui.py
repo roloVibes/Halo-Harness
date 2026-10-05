@@ -5932,7 +5932,11 @@ def test_intro_types_out_the_full_line_then_the_cursor_disappears(ctx: Ctx):
             # completed intro line, written to docs/harness/tui-snapshots/.
             path, svg = _write_snapshot(app, "launch-intro")
             ctx.check(f"launch-intro snapshot written to {path}", path.exists() and len(svg) > 0)
-            ctx.check("the snapshot SVG actually shows the intro text", "just a copy" in svg and "halo" in svg)
+            # The pool line is random, so look for the start of the line that
+            # was actually rendered (a dozen characters survive the SVG's text
+            # spans the same way "just a copy" did) plus the trailing "halo".
+            ctx.check(f"the snapshot SVG actually shows the intro text, looked for {rendered[:12]!r}",
+                      rendered[:12] in svg and "halo" in svg)
     try:
         asyncio.run(body())
     finally:

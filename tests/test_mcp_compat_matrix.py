@@ -480,18 +480,66 @@ def test_item5_v2_manifest_plugin_server_live_connect_and_naming(ctx: Ctx):
 _CLAUDE_EXE = shutil.which("claude") or shutil.which("claude.cmd") or shutil.which("claude.exe")
 
 
+_ISOLATION_PROBE: dict = {}
+
+
 def _require_real_claude() -> str:
     if not _CLAUDE_EXE:
         raise SkipTest("no `claude` binary on PATH -- items 6/7/8 (real-binary interop) skipped")
+    # The WSL run on the build host (2.0.3 release suites): its system
+    # Python has no `mcp` package, so Halo's MCP support is disabled there
+    # and `halo mcp list` lists nothing even when the config is right --
+    # the items need a real connection, so they skip without it (the Kali
+    # run, which has the package, is the Linux verification of record).
+    from halo_harness import mcp as _halo_mcp
+    if not _halo_mcp.available():
+        raise SkipTest("no supported `mcp` package in this interpreter (Halo's own `mcp.available()` "
+                       "says no) -- MCP is disabled here, items 6/7/8 (real connections) skipped")
+    # 2.0.3 release-suite finding (the WSL run on the build host): a real
+    # `claude` (2.1.269, native Linux install) did NOT honour the scratch
+    # CLAUDE_CONFIG_DIR -- `mcp add --scope user` landed in the owner's real
+    # ~/.claude.json and `mcp list` listed the owner's real servers. Items
+    # 6/7/8 mutate whatever config the binary resolves, so before the first
+    # of them runs, prove isolation once per process: `mcp list` against an
+    # EMPTY scratch config must show no server rows. Anything else -> skip
+    # (never FAIL, never touch the owner's config). `_cross_binary_env` also
+    # redirects HOME/USERPROFILE at the scratch dir now, so a binary that
+    # ignores CLAUDE_CONFIG_DIR still lands in the scratch tree.
+    if "ok" not in _ISOLATION_PROBE:
+        with tempfile.TemporaryDirectory() as td:
+            cfg = Path(td) / "cfg"
+            cwd = Path(td) / "cwd"
+            cwd.mkdir()
+            probe = _run([_CLAUDE_EXE, "mcp", "list"], env=_cross_binary_env(cfg), cwd=cwd)
+            out = (probe.stdout or "") + (probe.stderr or "")
+            server_rows = [ln for ln in out.splitlines() if ": " in ln and " - " in ln]
+            _ISOLATION_PROBE["ok"] = probe.returncode == 0 and not server_rows
+            _ISOLATION_PROBE["detail"] = f"rc={probe.returncode} rows={server_rows[:3]!r}"
+    if not _ISOLATION_PROBE["ok"]:
+        raise SkipTest("the installed `claude` does not honour an isolated config dir here "
+                       f"({_ISOLATION_PROBE['detail']}); items 6/7/8 skipped so the owner's real "
+                       "Claude config is never touched")
     return _CLAUDE_EXE
 
 
 def _cross_binary_env(config_dir: Path) -> dict:
     env = _hermetic_child_env()
     env["CLAUDE_CONFIG_DIR"] = str(config_dir)
+    # Belt and braces (see _require_real_claude): a binary that ignores
+    # CLAUDE_CONFIG_DIR resolves ~/.claude.json from HOME/USERPROFILE, so
+    # both point at the scratch dir too -- the same path either way.
+    env["HOME"] = str(config_dir)
+    env["USERPROFILE"] = str(config_dir)
     env["BRIDGE_STATE_DIR"] = str(config_dir / "rolo-state")
     env.pop("BRIDGE_TEST_HOME", None)
     env["PYTHONPATH"] = str(REPO_DIR)
+    # Redirecting HOME also moves Python's user site-packages, so a child
+    # `python -m halo_harness` would lose a `pip install --user mcp` (the WSL
+    # case) and run with MCP disabled; keep the real user site on its path.
+    import site
+    user_site = site.getusersitepackages()
+    if user_site and Path(user_site).is_dir():
+        env["PYTHONPATH"] = str(REPO_DIR) + os.pathsep + user_site
     return env
 
 
