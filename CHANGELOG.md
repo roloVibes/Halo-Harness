@@ -10,13 +10,23 @@ version.
 
 ## [2.0.3] - unreleased
 
-Local and cloud models: Ollama + Hugging Face (`plans/2.0.3-ollama-round2-brief.md`
-and onward). Rounds 1-5 (research, the `ol:` provider, hardware/host
-analysis and roles, the `hf:` route, and `hf:local/*`/the shared `/local`
-view/the init tab) landed so far, plus round 5c (finding and serving/
-importing file-backed models, folded into item 4 below); round 6 (docs
-polish, a live check, and release prep) is still to come under this SAME
-version number.
+Local and cloud models: Ollama + Hugging Face + the OpenAI API + a Codex
+subscription (`plans/2.0.3-ollama-round2-brief.md` and onward). Rounds 1
+through 5i landed: research, the `ol:` provider, hardware/host analysis and
+roles, the `hf:` route, `hf:local/*`/the shared `/local` view/the init tab,
+GPU and Experiential Labs research (docs only), local-model excellence
+(fit calibration, constrained tool calls, per-OS doctor checklist),
+finding and serving/importing file-backed models, the model gym and
+data-driven roles, the experimental Apple Silicon `hf:mlx/*` backend,
+enforced offline mode/hybrid escalation/the savings meter, the `oai:`
+route, and the `cx:` route with Codex settings read beside Claude Code's.
+Round 5h (Experiential Labs fully integrated as its own `xp:` route) was
+cut from this version by the owner and moved to 2.0.4 round 1 -- item 5
+below, originally reserved for it, instead covers the research-only docs
+that did ship. Round 6 (this pass: the user-facing local/cloud-models
+guide, the research carry-forward, the live-check record, and this
+CHANGELOG/README pass) closes out the version; the Opus review, a fix
+pass, and the release tag are still to come.
 
 1. **`ol:` provider on Ollama's native API** (round 2): a new `ollama`
    dialect reaches a local daemon, a named LAN host, or Ollama Cloud, all
@@ -39,7 +49,9 @@ version number.
    dialect into the agent loop itself (`agent/loop.py`'s request/stream
    dispatch, `headless.py`'s shared credential resolver) -- an `ol:` model
    now runs a full turn, including a tool call, end to end in print mode
-   and the TUI.
+   and the TUI. Docs: `docs/MODELS.md` ("Ollama" section + the ref-form
+   table), `docs/CONFIG.md` (`ollama.hosts`, `OLLAMA_HOST`/
+   `OLLAMA_API_KEY`), `docs/LOCAL-MODELS.md` (round 6, the new guide).
 2. **Hardware/host analysis, the fit estimate, and roles** (round 3):
    `/ollama` (TUI dialog) and `halo ollama [--host NAME] [--refresh]`
    (CLI) render one page per configured host -- reachable, version,
@@ -148,7 +160,12 @@ version number.
    (`--no-up` skips it); the auto-calibrate notice now also surfaces from
    `call_small_model` (via the log, since that call path has no event
    stream of its own to protect) and `_run_compaction` (as an ordinary
-   `notification` event), not just the main turn.
+   `notification` event), not just the main turn. Docs: `docs/MODELS.md`
+   ("Ollama" section: Fit calibration, Host setup checklist, VRAM-aware
+   role defaults), `docs/CONFIG.md` (`ollama.tools_max`,
+   `ollama.auto_calibrate`, `ollama.hosts[].kv_cache_type`/`.ssh`),
+   `docs/COMMANDS.md` (`halo ollama`, `halo ollama calibrate`, `halo
+   ollama doctor`), `docs/ROLES.md`, `docs/LOCAL-MODELS.md` (round 6).
 3. **`hf:` route -- Hugging Face Inference Providers router and dedicated
    Inference Endpoints** (round 4): a new `huggingface` provider reusing
    the existing openai-chat request/stream code unchanged (no new wire
@@ -174,7 +191,10 @@ version number.
    used to get mislabeled as. `tests/helpers/mock_openai.py`'s `MockUpstream`
    gained a `path_prefix`/`expected_bearer`/`models_response` constructor
    option so the SAME scripted scenarios serve as the router and endpoint
-   stand-ins, rather than a second fake server.
+   stand-ins, rather than a second fake server. Docs: `docs/MODELS.md`
+   ("Hugging Face" section, Inference Providers/dedicated endpoints),
+   `docs/CONFIG.md` (`HF_TOKEN`, `huggingface.endpoints`,
+   `huggingface.bill_to`), `docs/LOCAL-MODELS.md` (round 6).
 4. **`hf:local/*`, the shared `/local` view, the init tab** (round 5): a
    new `huggingface.local_servers` config list (`{name, url, api_key,
    default}`, mirroring `ollama.hosts`/`huggingface.endpoints`) names a
@@ -267,7 +287,32 @@ version number.
    a bare `os.kill(pid, 0)`) -- stopping now reaps a same-process child via
    its retained `Popen` handle, or polls `waitpid`/escalates to `SIGKILL`
    after a grace period for a fresh `halo local stop` process with no
-   handle at all; Windows' own termination path is unchanged.
+   handle at all; Windows' own termination path is unchanged. Docs:
+   `docs/MODELS.md` ("Hugging Face" section: `hf:local/*`, "Finding and
+   using file-backed models"), `docs/CONFIG.md`
+   (`huggingface.local_servers`, `.local_probe_ports`, `.model_dirs`,
+   `.preferred_runtime`, `.lmstudio_models_dir`), `docs/COMMANDS.md`
+   (`halo local`, `halo local serve`/`stop`/`import`/`add`/`forget`/
+   `runtime remove`), `docs/SLASH-COMMANDS.md` (`/local`),
+   `docs/LOCAL-MODELS.md` (round 6).
+5. **Research: GPU/host telemetry, and Experiential Labs' gateway**
+   (round 5a, round 5g -- docs only, no code). `docs/harness/
+   GPU-RESEARCH.md` (round 5a, WebFetch-sourced, URLs per claim): exact
+   probe flags per vendor/OS (NVIDIA confirmed live; AMD `rocm-smi`/
+   sysfs, Intel `xpu-smi`, Apple `system_profiler` stay UNCONFIRMED --
+   no such hardware reachable this round), multi-GPU split arithmetic,
+   the llama.cpp release/asset matrix feeding round 5c's runtime fetch,
+   KV-cache quantization per backend, and the mlx-lm comparison plan round
+   5f's Mac live-check follows -- its corrections (KV bytes/element,
+   llama.cpp has no checksum file of its own) are already folded into
+   items 2 and 4 above. `docs/harness/EXPERIENTIAL-RESEARCH.md` (round
+   5g, WebFetch-sourced): the gateway's request grammar, catalog shape,
+   cost field location (`usage.cost`, not top-level), the local `exp run`
+   gateway, and the `jev-latest` model -- this slot was originally
+   reserved for Experiential Labs' full integration (an `xp:` route); the
+   owner cut that scope from 2.0.3 on 2026-10-05 and moved it to 2.0.4
+   round 1, so only the research doc ships here. Docs:
+   `docs/harness/GPU-RESEARCH.md`, `docs/harness/EXPERIENTIAL-RESEARCH.md`.
 6. **The model gym, data-driven roles, and the 60-second acceptance
    check** (round 5d): `halo gym [--models ol:a,ol:b,...] [--roles
    small,judge,...] [--quick]` runs a fixed task battery against each
@@ -318,6 +363,10 @@ version number.
    the wire, the tolerant needle match, and the samples/`--show-replies`
    round trip -- live-verified against the real qwen3.8:27b daemon
    (instruction adherence and context recall both went from 0% to 100%).
+   Docs: `docs/MODELS.md` ("The model gym" section), `docs/COMMANDS.md`
+   (`halo gym`, `halo gym show`, `halo gym propose`, `halo doctor
+   --local`), `docs/ROLES.md` ("Data-driven roles"), `docs/
+   LOCAL-MODELS.md` (round 6).
 7. **`hf:mlx/<org>/<repo>` -- Apple Silicon in-process backend, experimental**
    (round 5f): an optional extra, `uv tool install "halo-harness[mlx]"`
    (`pyproject.toml`'s own `mlx` group, an environment marker restricting
@@ -354,7 +403,10 @@ version number.
    Apple-Silicon platform check is injectable, and the non-macOS sentence
    is pinned on this suite's own real, non-Apple-Silicon host); the live
    check is the owner running [docs/MAC.md](docs/MAC.md)'s quick-start
-   on his own Mac.
+   on his own Mac. Docs: `docs/MODELS.md` ("Apple Silicon" section),
+   `docs/MAC.md` (the full quick-start), `docs/COMMANDS.md` (`halo local
+   serve --runtime mlx_lm`), `docs/LOCAL-MODELS.md` (round 6, with a
+   pointer to MAC.md).
 8. **Trust and escalation: enforced offline mode, hybrid escalation, saved
    versus cloud** (round 5e): `halo --offline`/`/offline on|off`/
    `network.offline` make the one HTTP choke point (`providers/http.py`'s
@@ -395,7 +447,8 @@ version number.
    `docs/CONFIG.md` (`network.offline`, `routing.escalation`),
    `docs/COMMANDS.md` (`--offline`), `docs/SLASH-COMMANDS.md` (`/offline`,
    `/escalation`, the extended `/cost`), `docs/MODELS.md` (one section
-   each). Manual verification on the build host: `halo --offline -p
+   each), `docs/LOCAL-MODELS.md` (round 6). Manual verification on the
+   build host: `halo --offline -p
    "reply with the single word pong" --model ol:qwen3-coder:30b` (loopback,
    succeeds) and the same with `--model or:<any>` (refuses with the plain
    sentence).
@@ -437,7 +490,8 @@ version number.
    Docs: `docs/MODELS.md` ("OpenAI API" section + the ref-form table),
    `docs/CONFIG.md` (`OPENAI_API_KEY`, `HALO_OPENAI_BASE_URL`, `openai.
    dialect_overrides`), `docs/COMMANDS.md` (`halo doctor`/`halo
-   providers`).
+   providers`), `docs/LOCAL-MODELS.md` (round 6, marked "verified against
+   the fake only until a key is available").
 10. **`cx:` -- the Codex subscription route, and Codex settings/AGENTS.md
     read beside Claude Code's** (round 5i part 2, `docs/harness/
     CODEX-RESEARCH.md`): `cx:<model>` (group "Codex subscription
@@ -495,7 +549,9 @@ version number.
     and instructions" sections + the ref-form/alias tables),
     `docs/CONFIG.md` (the Codex-files section, `settings.primary`),
     `docs/COMMANDS.md` (`halo models --cx`, the init wizard tabs/step),
-    `docs/SLASH-COMMANDS.md` (`/settings`, the `/providers` row).
+    `docs/SLASH-COMMANDS.md` (`/settings`, the `/providers` row),
+    `docs/LOCAL-MODELS.md` (round 6, marked "verified against the fake
+    only until a login is available").
 
 ## [2.0.2] - 2026-10-04
 
