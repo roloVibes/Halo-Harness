@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [2.0.3] - unreleased
+## [2.0.3] - 2026-10-05
 
 ### Launch intro pool
 
