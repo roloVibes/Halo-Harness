@@ -457,3 +457,25 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   the user adjust before Save; the same Auto action in `/roles`. Tests: a
   Textual pilot walk through the roles step with a fixture catalog, the
   Auto fill from each preset and from a gym fixture, Save round trip.
+- ADDED 2026-10-05 ~11:40 (rolo, from the picker on the Kali VM): 2.0.4
+  provider-pack round "Databricks enumeration": many `dbx:` rows show blank
+  context, output and prices ("not published"). Measured: models.dev's
+  `databricks` provider lists 30 ids and lacks every newer endpoint
+  (claude-opus-5 / -5-5, claude-sonnet-5 / -5-5, claude-opus-4-8, deepseek
+  v4 flash/pro, gemini 3.5/3.7/3.8 flash, gemma-3-12b, glm-5-3 and -flash),
+  while the VENDOR providers in the same file do carry those families
+  (anthropic claude-opus-5 / sonnet-5, google gemini-3.5-flash, deepseek
+  deepseek-v4-flash / -pro, zai glm-5.3-flash). Deliver: (1) a family
+  fallback: strip the `databricks-` prefix, normalise version punctuation
+  (opus-4-5 -> opus-4.5, gemini-3-5-flash -> gemini-3.5-flash, glm-5-3 ->
+  glm-5.3, deepseek-v4-1-flash -> deepseek-v4.1-flash) and parse the
+  external endpoint ids (`us-anthropic-claude-sonnet-4-5-20250929-v1-0` ->
+  claude-sonnet-4.5) to look up context, max output and prices in the
+  vendor's own models.dev entry, shown with a "vendor list price" marker
+  since Databricks pay-per-token may differ; (2) read what Databricks'
+  serving-endpoints API does expose per endpoint (task, foundation model
+  name, display name) and use the display name where it carries the
+  version; (3) refresh the vendored models.dev fallback files at build
+  time with a script and a staleness test; (4) blank only when truly
+  unknown, with the reason in the picker footer. Tests on fixture catalogs
+  for every mapping above and for the external-id parser.
