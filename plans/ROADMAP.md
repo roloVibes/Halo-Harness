@@ -504,3 +504,60 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   per server. Tests: a fake stdio server with scripted failure modes
   (bad path, crash on initialize, slow handshake, wrong env), the counter
   pin, the fix application with consent, the learned-rule replay.
+
+## ADDED 2026-10-05 ~12:40 (rolo): 2.0.4 "new labs" coverage -- Space Bunny Alpha, Tencent, TypeSafe, NVIDIA
+
+rolo: "stealth and their Space Bunny Alpha model seems to be a really great
+coding agent. Make sure we know how to run that model if we use it in halo
+during the 2.0.4 updates" ... "same with tencent, typesafe models, and NVIDIA
+models". Looked up live on 2026-10-05 (ids and prices change; re-check in the
+round):
+
+- **Space Bunny Alpha** is NOT on OpenRouter's public catalog; it is on the
+  Experiential Labs gateway as `space-bunny-alpha` (owned_by `exp`): 1,000,000
+  context, 524,288 max output, tools + structured output + reasoning
+  (`supported_reasoning_efforts` low/medium/high/xhigh/max, default effort
+  `max`, reasoning output hidden), `no_training: true`, priced $0 today
+  (preview). So it runs through the 2.0.4 Experiential `xp:` route:
+  `halo -m xp:space-bunny-alpha` once 5h lands; the round must prove a full
+  tool loop on it (Read/Edit/Bash round trips) and the 1M context meter.
+- **NVIDIA**: on Experiential as `nemotron-3.5-lightning` ($0.06/M in,
+  $0.22/M out, reasoning, tools), `nemotron-3-super-120b-a12b`,
+  `nemotron-3-ultra-550b-a55b` ($0.66/$2.64), `nemotron-3-nano-30b-a3b`,
+  `nemotron-nano-9b-v2`/`12b-v2`; on OpenRouter as `nvidia/nemotron-3.5-
+  lightning` (262k ctx, $0.06/$0.16) and the same family with `:free`
+  variants (`nvidia/nemotron-3.5-lightning:free` 1M ctx, `nvidia/nemotron-3-
+  ultra-550b-a55b:free`, `nvidia/nemotron-3-super-120b-a12b:free`,
+  `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`) plus the
+  `nvidia/switchyard` router (1M ctx, variable price). NVIDIA's own endpoint
+  (build.nvidia.com, OpenAI-compatible `https://integrate.api.nvidia.com/v1`)
+  is the third way: `oai:` with a custom base URL and an NVIDIA key.
+- **Tencent**: OpenRouter `tencent/hy4-preview` (1,048,576 ctx, $0.75/$2.25,
+  tools + reasoning), `tencent/hy3` (262k, $0.08/$0.33), `tencent/hy3-preview`,
+  `tencent/hunyuan-a13b-instruct` (also on Experiential, $0.14/$0.57), and the
+  `hy-mt2-*` translation models (no tools). Run as `or:tencent/hy4-preview`.
+- **TypeSafe**: OpenRouter `typesafe/jev-router` (1M ctx, variable price,
+  tools + reasoning): the router that picks a model and effort per request
+  (the jev decision API itself stays removed from the roadmap; the model id is
+  just another `or:` ref). Run as `or:typesafe/jev-router`.
+
+Round work for 2.0.4 (folds into the Experiential 5h round and the picker/
+balances/enumeration rounds, no new round):
+1. `xp:` catalog mapping must read the gateway's real fields:
+   `context_window_tokens`, `maximum_output_tokens`, `pricing.*_nano_usd_per_
+   million_tokens` (divide by 1e9 for $/M; 0 = free, null = unknown, show the
+   difference), `supported_reasoning_efforts` + default `reasoning_effort`,
+   `reasoning_output_hidden`, `supports_tools`, `data_policy.no_training` /
+   `zdr` as a picker badge.
+2. OpenRouter rows with price `-1` (routers: `openrouter/auto`,
+   `typesafe/jev-router`, `nvidia/switchyard`) show "varies", never a negative
+   number; 1M/2M contexts format as "1M"/"2M"; `:free` variants sort next to
+   their paid row.
+3. An `or:`/`xp:` id with no vendored catalog row gets a live lookup (ctx,
+   price, tools) instead of blank columns (same gap rolo saw on Databricks).
+4. docs/MODELS.md "How to run" table: one line each for Space Bunny Alpha,
+   Nemotron 3.5 Lightning (three ways), hy4-preview, jev-router, with the
+   data-policy note (preview models: no_training true on Experiential; check
+   the OpenRouter row's policy before sending private code).
+5. Live check in the round: a real tool loop on `xp:space-bunny-alpha` and on
+   `or:nvidia/nemotron-3.5-lightning:free` from the Kali VM with rolo's keys.
