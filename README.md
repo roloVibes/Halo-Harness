@@ -232,6 +232,22 @@ data in `model_table.json`, documented in [docs/MODELS.md](docs/MODELS.md),
 with the Databricks specifics in [docs/DATABRICKS.md](docs/DATABRICKS.md) and
 roles in [docs/ROLES.md](docs/ROLES.md).
 
+## Local and cloud models (2.0.3)
+
+Halo also runs models you host yourself. `ol:` reaches Ollama -- on this
+machine, a LAN host, or Ollama Cloud -- always through its native API so
+Halo can size the context window itself; `halo ollama calibrate` turns a
+guess into a measured, learned cap. `hf:` reaches Hugging Face: the
+shared router (`HF_TOKEN`), a dedicated endpoint, or a local
+OpenAI-compatible server (`llama-server`, vLLM, LM Studio) auto-detected
+on this machine, plus an experimental Apple Silicon MLX route. `oai:` and
+`cx:` reach the real OpenAI API and a Codex ("ChatGPT") subscription.
+`halo --offline`/`/offline` blocks every route except the local ones;
+`routing.escalation` lets a local-first session fall back to the cloud on
+its own terms; and `halo gym` scores your own local models on your own
+hardware instead of trusting a vendor claim. See
+[docs/LOCAL-MODELS.md](docs/LOCAL-MODELS.md) for the full walkthrough.
+
 ## Documentation
 
 | Document | What it covers |
@@ -242,6 +258,7 @@ roles in [docs/ROLES.md](docs/ROLES.md).
 | [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Every slash command in the TUI |
 | [docs/CONFIG.md](docs/CONFIG.md) | Config keys, paths and environment variables |
 | [docs/MODELS.md](docs/MODELS.md) | Model families, effort levels and per-route rules |
+| [docs/LOCAL-MODELS.md](docs/LOCAL-MODELS.md) | Ollama, Hugging Face, the OpenAI API and Codex -- the end-to-end guide |
 | [docs/DATABRICKS.md](docs/DATABRICKS.md) | Databricks endpoints, API types and the work matrix |
 | [docs/ROLES.md](docs/ROLES.md) | Roles and how work is routed to models |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | "Is it frozen?", GLM pauses, copy and paste, connect timeouts and more |

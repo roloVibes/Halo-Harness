@@ -193,6 +193,10 @@ Ollama daemon and the optional, experimental `uv tool install
 "halo-harness[mlx]"` extra (`hf:mlx/<org>/<repo>`, round 5f) -- off by
 default and only installable on macOS/arm64 in the first place.
 
+**For local models (Ollama, Hugging Face) and the OpenAI API/Codex
+subscription routes**, see [docs/LOCAL-MODELS.md](LOCAL-MODELS.md) for
+the end-to-end guide once `halo` itself is installed.
+
 See the [README](../README.md) for the 10-minute walkthrough and
 [docs/harness/INSTALL.md](harness/INSTALL.md) for everything this page
 doesn't cover: offline/work-box installs, Windows detail, PATH

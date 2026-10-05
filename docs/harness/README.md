@@ -70,4 +70,5 @@ finding is `severity -- file:line -- defect -- failure scenario -- fix`.
 | [claude-in-chrome-integration.md](claude-in-chrome-integration.md) | design notes for the `--chrome` native-messaging bridge |
 | [INSTALL.md](INSTALL.md) | the full install walkthrough -- linked from the repo-root README; read that copy, this is the same file |
 | [LIVE-CHECKS.md](LIVE-CHECKS.md) | the opt-in runbook for everything that needs a REAL upstream/binary (`ant:`/Databricks Claude passthrough, real-`claude`-binary interop, ripgrep, Playwright) -- never run by the ordinary hermetic suites |
+| [LIVE-CHECKS-2.0.3.md](LIVE-CHECKS-2.0.3.md) | the 2.0.3 local/cloud-models release's own live-check result record (build host, Kali VM + LAN host, Hugging Face router, Experiential gateway, Mac pending, OpenAI/Codex fakes-only) |
 | [RECOMMENDATIONS.md](RECOMMENDATIONS.md) | a point-in-time roadmap review (2026-09-25); largely superseded by later milestones landing what it recommended -- see the milestone table above for what actually shipped |

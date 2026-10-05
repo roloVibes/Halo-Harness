@@ -190,6 +190,12 @@ own endpoint list is cached by the same probe. Per-family prompt notation
 (including a Kimi-specific block adapted from OpenCode's own) adjusts tool-
 call/thinking conventions per model family automatically.
 
+**Local and cloud models added in 2.0.3** -- Ollama (`ol:`), Hugging
+Face (`hf:`), the OpenAI API (`oai:`) and a Codex subscription (`cx:`) --
+aren't in the table above, which predates them; see
+[docs/LOCAL-MODELS.md](LOCAL-MODELS.md) for the end-to-end guide and
+[docs/MODELS.md](MODELS.md) for the exhaustive per-route reference.
+
 ### Claude models with your subscription (`cc:`)
 
 `cc:fable`, `cc:opus`, `cc:opus-5`, `cc:opus-5.0`, `cc:opus-4.8`,

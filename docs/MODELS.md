@@ -6,6 +6,11 @@ Verified against `halo_harness/model.py`, `providers/profiles.py`,
 `providers/cc_models.py`, `providers/dbx_routing.py`, and
 `providers/model_table.json`.
 
+**New to local or cloud models?** [docs/LOCAL-MODELS.md](LOCAL-MODELS.md)
+is the end-to-end walkthrough (commands, setup, known limits) for
+Ollama, Hugging Face, the OpenAI API and Codex; this page stays the
+exhaustive reference for every route's exact wire behavior.
+
 ## Model reference forms
 
 | Form | Example | Resolves to |
