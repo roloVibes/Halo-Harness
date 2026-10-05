@@ -23,6 +23,13 @@ test, TESTS = new_registry()
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 FAKE_CODEX = REPO_DIR / "tests" / "helpers" / "fake_codex.py"
+# `build_cx_argv` resolves the real launcher, so on a machine without a
+# `codex` install (the Kali VM run of the 2.0.3 release suites) every
+# argv-only test here raised CodexNotFoundError. Point Halo at the fake for
+# the whole module unless the caller already chose a launcher.
+import os
+if not os.environ.get("HALO_CODEX_EXE"):
+    os.environ["HALO_CODEX_EXE"] = '"' + sys.executable + '" "' + str(FAKE_CODEX) + '"'
 
 # The exact trigger text from the brief's own pinning test: a quoted span
 # containing `&` (cmd.exe's own command separator once a .cmd shim gets
