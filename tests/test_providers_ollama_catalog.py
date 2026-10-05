@@ -125,6 +125,73 @@ def test_malformed_host_entry_skipped_not_crashed(ctx: Ctx):
         _clear_state_dir_env()
 
 
+@test
+def test_malformed_host_entry_logged_by_name_only(ctx: Ctx):
+    """Fix pass C-1 (review finding 17): the DEBUG line for a skipped
+    entry must name it, never `%r` the whole dict -- a malformed entry
+    can still carry a real `api_key` (e.g. the url field was typo'd/
+    dropped on a later hand-edit, the key left in place)."""
+    import logging
+    from halo_harness.providers.ollama import resolve_ollama_hosts
+    from halo_harness.theme import set_config_value
+    _fresh_state_dir("ol-hosts-malformed-log-")
+
+    class _Capture(logging.Handler):
+        def __init__(self):
+            super().__init__()
+            self.records = []
+
+        def emit(self, record):
+            self.records.append(record.getMessage())
+
+    logger = logging.getLogger("bridge")
+    handler = _Capture()
+    logger.addHandler(handler)
+    old_level = logger.level
+    logger.setLevel(logging.DEBUG)
+    try:
+        set_config_value("ollama.hosts", [{"name": "broken-host", "api_key": "fake-secret-value-123"}])
+        resolve_ollama_hosts(env={})
+        joined = "\n".join(handler.records)
+        ctx.check(f"the entry's name is in the debug line, got {handler.records!r}", "broken-host" in joined)
+        ctx.check("the api_key value never appears in the debug line", "fake-secret-value-123" not in joined)
+    finally:
+        logger.setLevel(old_level)
+        logger.removeHandler(handler)
+        _clear_state_dir_env()
+
+
+@test
+def test_api_key_env_reference_resolves_and_plaintext_still_works(ctx: Ctx):
+    """Fix pass C-1 (review finding 16): `api_key_env` (the write path's
+    reference, `init_providers.save_tab_credentials`) resolves to the
+    REAL value from the process environment at read time; an older
+    plaintext `api_key` value (never migrated yet) still works
+    unchanged -- backward compatibility, not a one-time cutover."""
+    import os as _os
+    from halo_harness.providers.ollama import resolve_ollama_host
+    from halo_harness.theme import set_config_value
+    _fresh_state_dir("ol-hosts-apikeyenv-")
+    saved = _os.environ.get("HALO_SECRET_OLLAMA_TESTHOST")
+    try:
+        _os.environ["HALO_SECRET_OLLAMA_TESTHOST"] = "the-real-secret-abc"
+        set_config_value("ollama.hosts", [
+            {"name": "envref", "url": "http://192.0.2.20:11434", "api_key_env": "HALO_SECRET_OLLAMA_TESTHOST"},
+            {"name": "legacy", "url": "http://192.0.2.21:11434", "api_key": "still-works-plaintext",
+             "default": True},
+        ])
+        ctx.check("api_key_env resolves to the real env value",
+                  resolve_ollama_host("envref").api_key == "the-real-secret-abc")
+        ctx.check("a legacy plaintext api_key still resolves unchanged",
+                  resolve_ollama_host("legacy").api_key == "still-works-plaintext")
+    finally:
+        if saved is None:
+            _os.environ.pop("HALO_SECRET_OLLAMA_TESTHOST", None)
+        else:
+            _os.environ["HALO_SECRET_OLLAMA_TESTHOST"] = saved
+        _clear_state_dir_env()
+
+
 # ---- enablement probe: background GET /api/version -------------------------
 
 @test

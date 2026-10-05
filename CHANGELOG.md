@@ -595,6 +595,46 @@ pass, and the release tag are still to come.
   `max_completion_tokens`, `stream_options.include_usage`, and
   `reasoning_effort` only on rows the vendored catalog marks as reasoning,
   clamped to the effort values that row lists.
+- **Offline mode's allow-list only accepts an actually-local host** (C1): a
+  configured `ollama.hosts`/`huggingface.local_servers` entry is allow-listed
+  only when its URL is a private/loopback/link-local/ULA IP literal, a bare
+  single-label or `.local` name, or the entry carries an explicit
+  `offline_ok: true`; `ollama.com` (configured directly, or via an ambient
+  `OLLAMA_HOST`) and any other public hostname are now refused under
+  `--offline`/`/offline on` with the same plain sentence as any other cloud
+  host.
+- **A loopback or allow-listed host is never sent through a configured
+  proxy** (C2): `HTTPS_PROXY`/`HTTP_PROXY` used to apply even to
+  `127.0.0.1` or a LAN Ollama host with nothing exempting them; `open_
+  upstream` also re-checks offline mode against the proxy host itself
+  before connecting, in case a future change to proxy selection ever lets
+  one through again.
+- **Every network path now consults `network.offline` before starting**
+  (C3): the update check's `git ls-remote`, every `cc:`/`cx:` turn (and
+  their one-shot small/judge/title calls), `halo models --cx --refresh`'s
+  codex pings, `--plugin-url`'s `git clone`, and `hf:mlx`'s model download
+  all skip or refuse with the same plain sentence instead of reaching the
+  network while offline; `halo update`'s apply step returns an error result
+  instead of running the reinstall command.
+- **`ollama.hosts[].api_key`/`huggingface.endpoints[].token`/`huggingface.
+  local_servers[].api_key` are no longer stored as plaintext** (C16): a
+  saved key now lives in the same shared env file `DATABRICKS_TOKEN`/
+  `HF_TOKEN` already use, under a generated name; config.json keeps only
+  the reference (`api_key_env`/`token_env`). An existing plaintext value
+  still resolves and is migrated to the env file the next time that entry
+  is saved; `~/.halo/config.json` is written 0600 on POSIX, and `halo
+  config list`/`config get` mask secret-shaped values instead of printing
+  them verbatim.
+- **Malformed `ollama.hosts`/`huggingface.endpoints`/`huggingface.
+  local_servers` entries are logged by name only** (C17): the debug line
+  used to log `%r` of the whole entry, key or token included; the shared
+  redactor in `redact.py` now also matches a Python-repr single-quoted
+  assignment (`'token': '...'`, the shape that logging produced) and the
+  `hf_...`/`xpl_...` token shapes.
+- **An offline-gated request can no longer be redirected to a disallowed
+  host** (C21): `urlopen_tls` only ever checked the first URL; a redirect
+  handler now re-runs the same offline check on every hop before following
+  it.
 
 ## [2.0.2] - 2026-10-04
 

@@ -16,6 +16,7 @@ import json
 import sys
 
 from halo_harness import theme as theme_mod
+from halo_harness.redact import sanitize_text
 
 
 def _print_all() -> int:
@@ -24,7 +25,14 @@ def _print_all() -> int:
         print("(no config set -- ~/.halo/config.json is empty or missing)")
         return 0
     for key in sorted(data):
-        print(f"{key}={json.dumps(data[key])}")
+        # Halo 2.0.3 fix pass C-1 (review finding 16): `halo config
+        # list`/`config get` must never print a secret verbatim -- the
+        # same shared `sanitize_text` pass `/export --sanitize` and
+        # `halo bugreport` already use catches `"api_key": "..."`/
+        # `"token": "..."` wherever they appear in the serialized value,
+        # legacy plaintext entries included (an env-ref entry has
+        # nothing left to mask -- it only ever holds a variable NAME).
+        print(f"{key}={sanitize_text(json.dumps(data[key]))}")
     return 0
 
 
@@ -43,7 +51,8 @@ def _cmd_get(rest: list) -> int:
     if value is theme_mod._MISSING:
         print(f"halo config: {args.key!r} is not set", file=sys.stderr)
         return 1
-    print(json.dumps(value))
+    # finding 16: same masking as _print_all above.
+    print(sanitize_text(json.dumps(value)))
     return 0
 
 

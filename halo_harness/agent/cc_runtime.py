@@ -137,7 +137,17 @@ def _preflight_cc() -> Optional[str]:
     and `authMethod` must be `claude.ai` -- an ambient ANTHROPIC_API_KEY
     (or a Claude Code login that is itself only an api_key, never a real
     subscription) is refused with a message naming `ant:` explicitly,
-    never silently treated as "available"."""
+    never silently treated as "available".
+
+    Halo 2.0.3 fix pass C-1 (review finding 3): `network.offline` is
+    checked FIRST, before `resolve_claude_launch_argv`/`claude auth
+    status` ever run -- a `cc:` turn reaches the claude.ai subscription
+    network same as any cloud route, and offline mode never saw it
+    before this fix (every `cc:` turn, and the one-shot small/judge/title
+    call below, kept running while `--offline`/`/offline on` was set)."""
+    from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
+    if offline_mode_enabled():
+        return format_offline_refusal("the claude CLI")
     try:
         resolve_claude_launch_argv()
     except ClaudeCodeNotFoundError:
@@ -523,7 +533,15 @@ def one_shot_cc_call(model: str, system_text: str, user_text: str, *, timeout_s:
     session's own live `_cc_state`/conversation. Raises RuntimeError on
     failure, the same contract `call_small_model`'s HTTP branch already
     has (its own callers already handle it -- e.g. "falling back to a
-    heuristic on any failure")."""
+    heuristic on any failure").
+
+    Halo 2.0.3 fix pass C-1 (review finding 3): checked before the
+    subprocess is ever built -- this stateless small-model call reaches
+    the same claude.ai subscription network `_preflight_cc` guards for a
+    real turn."""
+    from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
+    if offline_mode_enabled():
+        raise RuntimeError(format_offline_refusal("the claude CLI"))
     import subprocess
     try:
         argv = resolve_claude_launch_argv()

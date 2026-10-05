@@ -447,6 +447,25 @@ _TAB_KEY_ENV = {"openrouter": "OPENROUTER_API_KEY", "anthropic": "ANTHROPIC_API_
                 "openai": "OPENAI_API_KEY", "typesafe": "TYPESAFE_API_KEY"}
 
 
+def _secret_env_var_name(kind: str, name: str) -> str:
+    """A stable env-var name to store ONE secret under in the shared env
+    file, derived from the config entry's own `name`. Halo 2.0.3 fix pass
+    C-1 (review finding 16): `ollama.hosts[].api_key`, `huggingface.
+    endpoints[].token` and `huggingface.local_servers[].api_key` are
+    never written into `~/.halo/config.json` as plaintext any more --
+    `save_tab_credentials` below writes the real value to the SAME
+    shared env file `DATABRICKS_TOKEN`/`HF_TOKEN` already use (via
+    `init_cli._write_env_var`) under this name, and config.json keeps
+    only the name itself (`api_key_env`/`token_env`), which `providers.
+    ollama`/`providers.huggingface` resolve back to the real value at
+    read time. `name` is sanitized to a safe identifier so an arbitrary
+    host/endpoint name (spaces, punctuation) always produces a valid
+    env-var name."""
+    import re
+    safe = re.sub(r"[^A-Za-z0-9]+", "_", name or "default").strip("_").upper() or "DEFAULT"
+    return f"HALO_SECRET_{kind}_{safe}"
+
+
 def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict] = None) -> "tuple[bool, str]":
     """Writes `values` (keyed by `tab_credential_state`'s own `fields`
     `name`s) to the SAME shared env file + this process's live env every
@@ -497,7 +516,15 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
         hosts = [h for h in hosts if isinstance(h, dict)] if isinstance(hosts, list) else []
         entry = {"name": name, "url": normalized}
         if api_key:
-            entry["api_key"] = api_key
+            # finding 16: never a plaintext api_key in config.json -- the
+            # real value goes into the shared env file, config.json keeps
+            # only the variable NAME (providers.ollama._resolve_secret_
+            # field resolves it back at read time).
+            key_env = _secret_env_var_name("OLLAMA", name)
+            path = _env_file_path()
+            _write_env_var(path, key_env, api_key)
+            os.environ[key_env] = api_key
+            entry["api_key_env"] = key_env
         if not hosts:
             entry["default"] = True
         hosts = [h for h in hosts if h.get("name") != name] + [entry]
@@ -520,7 +547,13 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
             entry = {"name": ep_name, "url": ep_url}
             ep_token = (values.get("endpoint_token") or "").strip()
             if ep_token:
-                entry["token"] = ep_token
+                # finding 16: see the ollama branch above -- a reference,
+                # never the plaintext token, goes into config.json.
+                key_env = _secret_env_var_name("HF_ENDPOINT", ep_name)
+                path = _env_file_path()
+                _write_env_var(path, key_env, ep_token)
+                os.environ[key_env] = ep_token
+                entry["token_env"] = key_env
             entries = [e for e in entries if e.get("name") != ep_name] + [entry]
             set_config_value("huggingface.endpoints", entries)
             wrote.append(f"huggingface.endpoints[{ep_name}]")
@@ -531,7 +564,13 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
             local_key = (values.get("local_key") or "").strip()
             entry = {"name": "default", "url": local_url}
             if local_key:
-                entry["api_key"] = local_key
+                # finding 16: see the ollama branch above -- a reference,
+                # never the plaintext key, goes into config.json.
+                key_env = _secret_env_var_name("HF_LOCAL", "default")
+                path = _env_file_path()
+                _write_env_var(path, key_env, local_key)
+                os.environ[key_env] = local_key
+                entry["api_key_env"] = key_env
             if not servers:
                 entry["default"] = True
             servers = [s for s in servers if s.get("name") != "default"] + [entry]

@@ -15,3 +15,5 @@ ghp_abcdefghijklmnopqrstuvwxyz0123456789
 Bearer abcdefghijklmnopqrstuvwx
 Bearer sk-or-from-effective-env
 Bearer sk-or-management
+hf_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE
+xpl_deadbeefdeadbeefdeadbeefdeadbeefdeadbeef

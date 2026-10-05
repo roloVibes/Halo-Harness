@@ -116,6 +116,46 @@ def test_bugreport_redacts_a_planted_fake_key_in_every_source(ctx: Ctx):
         ctx.check("a <redacted> marker appears where the key would have been", "<redacted>" in text)
 
 
+_FAKE_HF_KEY = "hf_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE"
+_FAKE_XPL_KEY = "xpl_deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+
+
+@test
+def test_bugreport_redacts_repr_quoted_and_hf_xpl_bare_tokens(ctx: Ctx):
+    """Fix pass C-1 (review finding 17): before this fix, a malformed
+    `ollama.hosts`/`huggingface.*` config entry was logged with `%r` of
+    the WHOLE entry -- Python's own `repr()` of a dict is single-quoted
+    (`{'name': 'cloud', 'api_key': '<key>'}`), a shape the shared
+    redactor's `_ENV_ASSIGN_RE` (double-quote/bare-assignment only) could
+    not catch; separately, a bare Hugging Face (`hf_...`) or Experiential
+    Labs (`xpl_...`) token with no surrounding `NAME=value`/`"name":
+    "value"` shape at all had no token-pattern match either. Both are
+    pinned here directly against `halo bugreport`'s own assembled text,
+    the same surface finding 17's own verified repro used."""
+    from halo_harness.bugreport import build_bugreport_text
+    with _Env() as env:
+        cwd = env.home / "proj"
+        cwd.mkdir(parents=True, exist_ok=True)
+        env.state_dir.mkdir(parents=True, exist_ok=True)
+        (env.state_dir / "config.json").write_text(json.dumps({"model": "ol:test"}), encoding="utf-8")
+        (env.state_dir / "bridge.log").write_text(
+            "2026-10-01 12:00:00 DEBUG ollama: skipped a config.json ollama.hosts entry with no url: "
+            f"{{'name': 'broken', 'url': None, 'api_key': '{_FAKE_KEY}'}}\n"
+            f"2026-10-01 12:00:01 DEBUG huggingface token resolved {_FAKE_HF_KEY}\n"
+            f"2026-10-01 12:00:02 DEBUG experiential key resolved {_FAKE_XPL_KEY}\n",
+            encoding="utf-8")
+
+        text = build_bugreport_text(session=None, settings=None, state_dir=env.state_dir, cwd=cwd,
+                                     include_content=False)
+
+        ctx.check("the report is non-trivial (sanity: bridge.log was actually read)", len(text) > 100)
+        ctx.check("the repr-single-quoted key never appears", _FAKE_KEY not in text)
+        ctx.check("the bare hf_ token never appears", _FAKE_HF_KEY not in text)
+        ctx.check("the bare xpl_ token never appears", _FAKE_XPL_KEY not in text)
+        ctx.check("a <redacted> marker appears at least 3 times (once per planted secret)",
+                  text.count("<redacted>") >= 3)
+
+
 @test
 def test_include_content_flag_adds_prompt_and_output_text_excerpts(ctx: Ctx):
     """Release review finding 33: --include-content is documented

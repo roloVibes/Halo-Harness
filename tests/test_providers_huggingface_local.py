@@ -137,6 +137,60 @@ def test_resolve_local_server_unknown_name_is_none(ctx: Ctx):
                   resolve_huggingface_local_server("not-configured") is None)
 
 
+@test
+def test_local_server_malformed_entry_logged_by_name_only(ctx: Ctx):
+    """Fix pass C-1 (review finding 17): the DEBUG line for a skipped
+    `huggingface.local_servers` entry must name it, never `%r` the whole
+    dict -- a malformed entry can still carry a real `api_key`."""
+    import logging
+    from halo_harness.providers.huggingface import resolve_huggingface_local_servers
+    from halo_harness.theme import set_config_value
+
+    class _Capture(logging.Handler):
+        def __init__(self):
+            super().__init__()
+            self.records = []
+
+        def emit(self, record):
+            self.records.append(record.getMessage())
+
+    logger = logging.getLogger("bridge")
+    handler = _Capture()
+    logger.addHandler(handler)
+    old_level = logger.level
+    logger.setLevel(logging.DEBUG)
+    try:
+        with _Env():
+            set_config_value("huggingface.local_servers", [{"name": "broken-local", "api_key": "fake-secret-456"}])
+            resolve_huggingface_local_servers()
+            joined = "\n".join(handler.records)
+            ctx.check(f"the entry's name is in the debug line, got {handler.records!r}", "broken-local" in joined)
+            ctx.check("the api_key value never appears in the debug line", "fake-secret-456" not in joined)
+    finally:
+        logger.setLevel(old_level)
+        logger.removeHandler(handler)
+
+
+@test
+def test_local_server_api_key_env_reference_resolves_and_plaintext_still_works(ctx: Ctx):
+    """Fix pass C-1 (review finding 16): `api_key_env` resolves to the
+    real value from the process environment; an older plaintext
+    `api_key` value still works unchanged."""
+    from halo_harness.providers.huggingface import resolve_huggingface_local_server
+    from halo_harness.theme import set_config_value
+    with _Env():
+        os.environ["HALO_SECRET_HF_LOCAL_ENVREF"] = "the-real-local-secret"
+        set_config_value("huggingface.local_servers", [
+            {"name": "envref", "url": "http://192.0.2.22:8080", "api_key_env": "HALO_SECRET_HF_LOCAL_ENVREF"},
+            {"name": "legacy", "url": "http://192.0.2.23:8080", "api_key": "still-works-plaintext",
+             "default": True},
+        ])
+        ctx.check("api_key_env resolves to the real env value",
+                  resolve_huggingface_local_server("envref").api_key == "the-real-local-secret")
+        ctx.check("a legacy plaintext api_key still resolves unchanged",
+                  resolve_huggingface_local_server("legacy").api_key == "still-works-plaintext")
+
+
 # ---- credential resolution: never cross-wired ------------------------------
 
 @test

@@ -100,6 +100,19 @@ def set_config_value(key: str, value) -> Path:
     tmp_path = path.with_name(path.name + f".tmp{os.getpid()}")
     tmp_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp_path, path)
+    # Halo 2.0.3 fix pass C-1 (review finding 16): config.json can hold
+    # secret-bearing fields now (`ollama.hosts[].api_key_env`'s shared env
+    # file is 0600 already, but an existing/legacy plaintext `api_key`/
+    # `token` value -- or any future secret-bearing key -- can still land
+    # here) -- 0600 on every write, same mode `init_cli.py`'s own env-file
+    # writer already uses, whenever the platform supports chmod (a no-op,
+    # never an error, on Windows, which has no equivalent bit-for-bit
+    # mode).
+    if os.name != "nt":
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
     return path
 
 
