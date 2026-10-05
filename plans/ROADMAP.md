@@ -561,3 +561,47 @@ balances/enumeration rounds, no new round):
    the OpenRouter row's policy before sending private code).
 5. Live check in the round: a real tool loop on `xp:space-bunny-alpha` and on
    `or:nvidia/nemotron-3.5-lightning:free` from the Kali VM with rolo's keys.
+
+## ADDED 2026-10-05 ~13:45 (rolo): 2.0.3.1 = clipboard image paste ("I need to be able to post clipboard pictures into halo")
+
+First patch tag after v2.0.3, ahead of 2.0.4 round 0, because rolo needs it
+now and it is self-contained TUI work. What exists today: `Session.turn(text,
+images=...)` already takes Anthropic-shaped image blocks, `tui/images.py`
+already renders inline images where the terminal can, and
+`PromptInput._on_paste` already handles TEXT pastes (`pasted[n]`
+placeholders). Nothing reads an IMAGE off the OS clipboard. The round:
+
+1. Paste path. Ctrl+V (and Shift+Insert) whose paste event carries no text,
+   plus an explicit `/paste`, read the OS clipboard image; a pasted text that
+   is the path of an image file (a drag from Explorer/Finder) attaches that
+   file instead. Readers, no new hard dependency, each tried in order with a
+   2 s timeout: Windows `powershell -c "[Windows.Forms.Clipboard]::GetImage()"`
+   saved as PNG through System.Drawing (fallback `Get-Clipboard -Format
+   Image`); macOS `osascript -e 'the clipboard as «class PNGf»'` (fallback
+   `pngpaste`); Linux `wl-paste --type image/png` then `xclip -selection
+   clipboard -t image/png -o`; WSL `powershell.exe` interop; Pillow
+   `ImageGrab.grabclipboard()` when Pillow happens to be installed. Over SSH
+   (the Kali VM from Windows Terminal) the terminal has no remote clipboard:
+   the chip explains it once and `/paste <path>` or a dragged path works.
+2. Storage and limits. `~/.halo/attachments/<session>/clip-<n>.png`; images
+   over 1568 px on the long side are downscaled (same rule Claude Code
+   applies), hard cap 5 MB, PNG or JPEG; the transcript log stores the PATH,
+   never the base64, so resume re-reads the file.
+3. Input chip `[Image #1 1024x768]` in the prompt area (Backspace on it
+   removes it, `/images` lists pending attachments); on submit the images ride
+   on `turn(text, images=[...])`; the transcript shows the inline image via
+   tui/images.py when the terminal supports it, else the caption.
+4. Dialect conversion. Anthropic-shaped rungs (ant:, cc:, dbx: Claude,
+   Experiential Anthropic shape): image blocks as today; OpenAI-shaped
+   (or:, oai:, hf:, xp:, dbx: others): `image_url` data URLs; `ol:`:
+   `images` base64 on the user message; `cx:`: `codex exec -i <path>` (the
+   real flag); `cc:`: the saved path as a file mention. A model whose catalog
+   row says no vision gets one clear line ("<model> does not take images;
+   attached as a path") instead of a provider 400.
+5. Print mode parity: `--image <path>` (repeatable) and stream-json `image`
+   content blocks on `user_input`.
+6. Tests: a fake clipboard backend per platform shape, the chip, `turn()`
+   receiving the block, per-dialect conversion, the downscale and size cap,
+   resume from the stored path, a TUI pilot test for Ctrl+V with an empty
+   paste. Live: a screenshot pasted into Halo on the build host against a
+   vision model on `ant:` and `or:`, and `xclip` on the Kali VM.
