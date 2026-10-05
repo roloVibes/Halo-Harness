@@ -195,14 +195,21 @@ def status(*, phase: str, model: Optional[str] = None, context_tokens: Optional[
     item 7) are None for every non-`ol:` route and before the FIRST `ol:`
     reply of the session -- `Session.status_event` is the only producer,
     from `Session._last_ollama_throughput`/`_last_ollama_offloaded`."""
-    return Event("status", {
+    payload = {
         "phase": phase, "model": model, "context_tokens": context_tokens, "context_limit": context_limit,
-        "cost_usd": cost_usd, "turn": turn, "permission_mode": permission_mode,
-        "mcp": mcp or {"connected": 0, "total": 0}, "session_id": session_id,
+        "cost_usd": cost_usd, "turn": turn, "permission_mode": permission_mode, "session_id": session_id,
         "total_input_tokens": total_input_tokens, "total_output_tokens": total_output_tokens, "effort": effort,
         "ollama_tokens_per_second": ollama_tokens_per_second, "ollama_prefill_seconds": ollama_prefill_seconds,
         "ollama_offloaded": ollama_offloaded,
-    }, turn=turn)
+    }
+    # The MCP count rides along ONLY when the producer knows it. The old
+    # default of {"connected": 0, "total": 0} meant every idle status event
+    # emitted without a count (several per turn) reset the status bar to
+    # "MCP 0/0" mid-session; a status bar keeps its last known count when
+    # the key is absent.
+    if mcp is not None:
+        payload["mcp"] = mcp
+    return Event("status", payload, turn=turn)
 
 
 def error(message: str, *, turn: int = 0, err_type: str = "error", retryable: bool = False,
