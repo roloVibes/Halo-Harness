@@ -10,6 +10,7 @@ off the UI thread via `app.run_worker`, never blocking the TUI.
 
 from __future__ import annotations
 
+from textual._context import NoActiveAppError
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
@@ -65,12 +66,24 @@ class OllamaStatus(ModalScreen):
             return
         self.app.run_worker(self._refresh_worker, thread=True, name="ollama-refresh", group="ollama-refresh")
 
+    def _deliver(self, fn, *args) -> None:
+        """Hand a thread worker's result to the UI thread. A dialog dismissed
+        (or an app already exiting) while the refresh was still running has no
+        active app for the worker's thread any more: the result is simply
+        dropped instead of NoActiveAppError/RuntimeError escaping the worker
+        (seen as a flaky WorkerFailed in the first-paint pilot test on the
+        build host, 2.0.3 tag run)."""
+        try:
+            self.app.call_from_thread(fn, *args)
+        except (NoActiveAppError, RuntimeError):
+            return
+
     def _refresh_worker(self) -> None:
         try:
             fresh = self._refresh()
         except Exception:
             fresh = self.analyses
-        self.app.call_from_thread(self._apply_refresh, fresh)
+        self._deliver(self._apply_refresh, fresh)
 
     def _apply_refresh(self, analyses: list) -> None:
         self.analyses = analyses
