@@ -125,6 +125,34 @@ def test_count_tool_failures_since(ctx: Ctx):
 
 
 @test
+def test_count_tool_failures_since_excludes_denials_and_interrupts(ctx: Ctx):
+    """C-2 finding 6 pin: a permission denial (interactive "No", a deny
+    rule, a PreToolUse hook block -- all logged `error_class=
+    "denied_by_rule"`) or an in-flight abort (`"interrupted"`) is never
+    the LOCAL MODEL's own fault, so neither counts toward "the model is
+    struggling" -- every other error_class (a real tool error, or a
+    structural schema/repair rejection) still does."""
+    from halo_harness.agent.escalation import count_tool_failures_since
+    denials = [
+        {"type": "tool_result", "is_error": True, "error_class": "denied_by_rule"},
+        {"type": "tool_result", "is_error": True, "error_class": "denied_by_rule"},
+        {"type": "tool_result", "is_error": True, "error_class": "interrupted"},
+    ]
+    ctx.check(f"denials/interrupts never count, got {count_tool_failures_since(denials, 0)}",
+              count_tool_failures_since(denials, 0) == 0)
+    real_errors = [
+        {"type": "tool_result", "is_error": True, "error_class": "not_found"},
+        {"type": "tool_result", "is_error": True, "error_class": "other"},
+        {"type": "tool_result", "is_error": True},  # no error_class at all -- still a real tool error
+    ]
+    ctx.check(f"a real tool error always counts (classified or not), got "
+              f"{count_tool_failures_since(real_errors, 0)}", count_tool_failures_since(real_errors, 0) == 3)
+    ctx.check("a schema/repair rejection still counts (the model's own fault, never excluded)",
+              count_tool_failures_since(
+                  [{"type": "tool_result", "is_error": True, "error_class": "schema_invalid"}], 0) == 1)
+
+
+@test
 def test_judge_says_confident(ctx: Ctx):
     from halo_harness.agent.escalation import judge_says_confident
     ctx.check("CONFIDENT -> True", judge_says_confident("CONFIDENT"))
@@ -219,9 +247,20 @@ def test_maybe_escalate_auto_mode_context_overflow_switches_model(ctx: Ctx):
         session = _new_ollama_session(fh, mock)
         session._turn_context_overflow_count = 1
         events_out = list(session._maybe_escalate(2))
-        ctx.check(f"exactly one notification, got {events_out}", len(events_out) == 1)
+        # C-2 finding 5: the auto-switch now ALSO yields a persistent
+        # transcript line (`system_note` -- unlike `notification`, never
+        # just a 5-second toast) and a FRESH status event carrying the new
+        # model, right here -- so both the transcript and the status bar
+        # show the switch the instant it happens, never only once whatever
+        # the NEXT turn happens to emit catches up.
+        ctx.check(f"exactly two events (the card + a status), got {events_out}", len(events_out) == 2)
+        ctx.check(f"first is a system_note (a real transcript line, not a toast), got {events_out[0].kind!r}",
+                  events_out[0].kind == "system_note")
         ctx.check(f"exact wording, got {events_out[0].data.get('text')!r}",
                   events_out[0].data.get("text") == "escalated to or:deepseek/deepseek-v3.2: context_overflow")
+        ctx.check(f"second is a fresh status event, got {events_out[1].kind!r}", events_out[1].kind == "status")
+        ctx.check(f"the status event carries the NEW model, got {events_out[1].data.get('model')!r}",
+                  events_out[1].data.get("model") == "or:deepseek/deepseek-v3.2")
         ctx.check(f"model actually switched, got {session.model_ref.raw!r}",
                   session.model_ref.raw == "or:deepseek/deepseek-v3.2")
         ctx.check(f"one 'escalated' decision recorded, got {session._escalation_decisions}",
@@ -234,6 +273,133 @@ def test_maybe_escalate_auto_mode_context_overflow_switches_model(ctx: Ctx):
         os.environ.pop("BRIDGE_TEST_HOME", None)
         os.environ.pop("OLLAMA_HOST", None)
         os.environ.pop("BRIDGE_OPENROUTER_BASE_URL", None)
+
+
+@test
+def test_maybe_escalate_offline_mode_holds_a_cloud_target(ctx: Ctx):
+    """C-2 finding 4 pin: offline mode is the user's own network policy,
+    not a safety gate -- but an escalation target `providers.http.
+    _check_offline_allowed` would itself refuse must never flip the
+    session's PRIMARY model onto it anyway (every later turn would then
+    be refused too, with the user never told why). No mock cloud server
+    needed here: `_resolve_creds` resolves `or:deepseek/deepseek-v3.2`
+    straight to the real `https://openrouter.ai/api/v1` (the default
+    OpenRouter base URL, via the fake-but-present OPENROUTER_API_KEY
+    `ensure_default_provider_credentials` sets) -- `_maybe_escalate` only
+    ever CHECKS that host is offline-blocked, it never actually calls it."""
+    from halo_harness.theme import set_config_value
+    fh = build_fake_home()
+    mock = MockUpstream().start()
+    try:
+        os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+        os.environ["HALO_OFFLINE"] = "1"
+        set_config_value("routing.escalation", {"to": "or:deepseek/deepseek-v3.2",
+                                                 "when": ["tool_failures"], "ask": False})
+        session = _new_ollama_session(fh, mock)
+        before_ref = session.model_ref
+        session._turn_log_start_idx = len(session.log.nodes())
+        session.log.append_tool_result(tool_use_id="x1", content="boom", is_error=True)
+        session.log.append_tool_result(tool_use_id="x2", content="boom again", is_error=True)
+        events_out = list(session._maybe_escalate(1))
+        ctx.check(f"exactly one notification, got {events_out}", len(events_out) == 1)
+        text = events_out[0].data.get("text", "")
+        ctx.check(f"says offline, got {text!r}", "offline" in text.lower())
+        ctx.check(f"stayed on the local model (primary model never flipped), got {session.model_ref.raw!r}",
+                  session.model_ref is before_ref)
+        ctx.check(f"one decision recorded noting offline, got {session._escalation_decisions}",
+                  len(session._escalation_decisions) == 1
+                  and "offline" in session._escalation_decisions[0].note)
+    finally:
+        mock.stop()
+        os.environ.pop("BRIDGE_TEST_HOME", None)
+        os.environ.pop("OLLAMA_HOST", None)
+        os.environ.pop("HALO_OFFLINE", None)
+
+
+@test
+def test_maybe_escalate_tool_failures_ignores_permission_denials(ctx: Ctx):
+    """C-2 finding 6 pin: three denied-by-rule tool_results (well past
+    TOOL_FAILURE_THRESHOLD=2) must never trigger `tool_failures` on their
+    own -- only a tool_result that actually reached a real tool does."""
+    from halo_harness.theme import set_config_value
+    fh = build_fake_home()
+    mock = MockUpstream().start()
+    try:
+        os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+        set_config_value("routing.escalation", {"to": "or:anthropic/claude-haiku-4.5",
+                                                 "when": ["tool_failures"], "ask": True})
+        session = _new_ollama_session(fh, mock)
+        session._turn_log_start_idx = len(session.log.nodes())
+        for i in range(3):
+            session.log.append_tool_result(tool_use_id=f"d{i}", content="denied", is_error=True,
+                                            error_class="denied_by_rule")
+        events_out = list(session._maybe_escalate(1))
+        ctx.check(f"three denials alone never trigger tool_failures, got {events_out}", events_out == [])
+        ctx.check("no decision recorded either", session._escalation_decisions == [])
+        for i in range(3):
+            session.log.append_tool_result(tool_use_id=f"e{i}", content="boom", is_error=True)
+        events_out2 = list(session._maybe_escalate(1))
+        ctx.check(f"three REAL tool errors in the same turn do trigger it, got {events_out2}",
+                  len(events_out2) == 1)
+        ctx.check(f"names the trigger, got {events_out2[0].data.get('text')!r}",
+                  "tool_failures" in events_out2[0].data.get("text", ""))
+    finally:
+        mock.stop()
+        os.environ.pop("BRIDGE_TEST_HOME", None)
+        os.environ.pop("OLLAMA_HOST", None)
+
+
+@test
+def test_maybe_escalate_role_escalation_false_overrides_the_global_policy(ctx: Ctx):
+    """C-2 finding 7 pin: `{"model": ..., "escalation": false}` on a role
+    must actually reach `Session.agent_runtime.role_table` -- before this
+    fix `configured_role_table()`/`roles._normalize_role_value` silently
+    stripped the `escalation` key down to `{"model"[, "effort"]}` only, so
+    the override could never take effect regardless of how it was set.
+    Goes through the REAL config round-trip (`set_config_value` +
+    `configured_role_table()`), never a hand-built table, so this would
+    have failed before the roles.py fix even with `role_escalation_
+    enabled` itself already correct."""
+    from halo_harness.agent.assemble import SessionContext
+    from halo_harness.agent.loop import Session
+    from halo_harness.model import ModelProfile, parse_model_ref
+    from halo_harness.providers.stream import ProviderCreds
+    from halo_harness.roles import configured_role_table
+    from halo_harness.theme import set_config_value
+    fh = build_fake_home()
+    mock = MockUpstream().start()
+    try:
+        os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+        os.environ["OLLAMA_HOST"] = mock.base_url
+        set_config_value("routing.escalation", {"to": "or:anthropic/claude-haiku-4.5",
+                                                 "when": ["tool_failures"], "ask": True})
+        set_config_value("roles.researcher", {"model": "ol:plain-text", "escalation": False})
+        set_config_value("roles.judge", {"model": "ol:plain-text"})  # no key -> inherits the global
+        role_table = configured_role_table()
+        ctx.check(f"escalation key survived normalization, got {role_table.get('researcher')}",
+                  role_table.get("researcher", {}).get("escalation") is False)
+        for role_name, expect_escalates in (("researcher", False), ("judge", True)):
+            session_ctx = SessionContext(cwd=fh["proj"], model_label="ol:plain-text")
+            session = Session(
+                cwd=fh["proj"], model_ref=parse_model_ref("ol:plain-text"),
+                model_profile=ModelProfile(context_tokens=10_000, max_output_tokens=1_000),
+                creds=ProviderCreds(base_url=mock.base_url, api_key=""),
+                state_dir=Path(tempfile.mkdtemp(prefix="esc-role-")), model_label="ol:plain-text",
+                session_context=session_ctx, max_turns=10, roles=role_table, role_name=role_name,
+            )
+            session._turn_log_start_idx = len(session.log.nodes())
+            session.log.append_tool_result(tool_use_id="x1", content="boom", is_error=True)
+            session.log.append_tool_result(tool_use_id="x2", content="boom again", is_error=True)
+            events_out = list(session._maybe_escalate(1))
+            if expect_escalates:
+                ctx.check(f"{role_name}: inherits the global policy, escalates, got {events_out}",
+                          len(events_out) == 1)
+            else:
+                ctx.check(f"{role_name}: escalation: false holds it off, got {events_out}", events_out == [])
+    finally:
+        mock.stop()
+        os.environ.pop("BRIDGE_TEST_HOME", None)
+        os.environ.pop("OLLAMA_HOST", None)
 
 
 @test
@@ -297,6 +463,32 @@ def test_maybe_escalate_is_a_noop_on_a_cloud_model_session(ctx: Ctx):
 # ---------------------------------------------------------------------------
 # /escalation (commands.builtins._cmd_escalation)
 # ---------------------------------------------------------------------------
+
+@test
+def test_print_mode_result_json_carries_escalation_decisions(ctx: Ctx):
+    """C-2 finding 5 pin (print mode): an escalation this run made used to
+    be invisible outside the TUI entirely -- `PrintModeSink`/`StreamJsonSink`
+    both thread `Session._escalation_decisions` straight into the `-p
+    --output-format json` result's own new `escalations` field, the same
+    live-reference pattern `permission_denials` already uses."""
+    import io
+    import json as json_mod
+    from halo_harness.agent.escalation import EscalationDecision
+    from halo_harness.output import PrintModeSink
+    decisions = [EscalationDecision(turn=2, trigger="context_overflow", to="or:deepseek/deepseek-v3.2",
+                                     action="escalated")]
+    buf = io.StringIO()
+    sink = PrintModeSink(output_format="json", session_id="s1", model="or:deepseek/deepseek-v3.2", stream=buf,
+                          escalation_decisions=decisions)
+    exit_code = sink.finish()
+    ctx.check(f"finish() reports success, got {exit_code}", exit_code == 0)
+    obj = json_mod.loads(buf.getvalue())
+    ctx.check(f"escalations present on the result object, got {obj.get('escalations')}",
+              obj.get("escalations") == [
+                  {"turn": 2, "trigger": "context_overflow", "to": "or:deepseek/deepseek-v3.2",
+                   "action": "escalated", "note": ""},
+              ])
+
 
 @test
 def test_cmd_escalation_shows_policy_and_decisions(ctx: Ctx):

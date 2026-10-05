@@ -1398,6 +1398,8 @@ class McpManager:
         self._tool_env = tool_env or {}
         self._cwd = cwd
         self._trusted = trusted
+        # C-2 EXTRA (owner report): `set_lazy_connect_callback` below.
+        self._on_lazy_connect: "Optional[Callable[[str], None]]" = None
         self.handles: "dict[str, McpServerHandle]" = {
             name: McpServerHandle(cfg, self.loop, tool_env=tool_env or {}, cwd=cwd, trusted=trusted)
             for name, cfg in configs.items()
@@ -1456,6 +1458,17 @@ class McpManager:
         h.tools = list(tools or [])
         h.instructions = instructions
         h.state = "cached"
+
+    def set_lazy_connect_callback(self, fn: "Optional[Callable[[str], None]]") -> None:
+        """C-2 EXTRA (owner report): `fn(name)` is called, best-effort,
+        the moment `ensure_started` (below) actually moves a LAZY server
+        from pending/cached to real `connected` for the first time -- the
+        one hook a caller (`tui/bootstrap.py`) uses to push a fresh status
+        event right then, so the status bar's own MCP count rises to the
+        live figure the instant it actually changes instead of staying at
+        the stale pre-connect reading until whatever status event the
+        NEXT turn happens to emit. `None` (the default) is a plain no-op."""
+        self._on_lazy_connect = fn
 
     def was_cache_stale(self, name: str) -> bool:
         return name in self._stale_after_connect
@@ -1602,6 +1615,16 @@ class McpManager:
         h.start(abort=abort)
         if was_cached and h.state == "connected":
             self._refresh_tools_cache(name, h, cached_tools_before)
+        # C-2 EXTRA: either origin state (cached or plain pending) means
+        # "wasn't actually connected a moment ago, is now" -- the guard at
+        # the top of this method already ensures this body only ever runs
+        # once per real transition, so this fires exactly once per lazy
+        # server's first real connect, never on every later tool call.
+        if name in self._lazy_names and h.state == "connected" and self._on_lazy_connect is not None:
+            try:
+                self._on_lazy_connect(name)
+            except Exception:
+                log.debug("mcp: on_lazy_connect callback raised for %r", name, exc_info=True)
 
     def ensure_lazy_started_all(self, abort=None) -> "list[str]":
         """Linux/H4 must-do: start EVERY still-`pending` `mcpLazy` server

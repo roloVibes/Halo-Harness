@@ -454,11 +454,33 @@ explicit policy, local-first:
   \<trigger\>").
 
 Only ever evaluated on a local-model session (`ol:`/`hf:local`/`hf:mlx`) --
-never on a cloud-model session. A role-table entry's own `"escalation":
-false` turns it off for every sub-agent built under that role (`halo
-roles`/`docs/ROLES.md`), regardless of this top-level setting. `/escalation`
-shows the active policy and this session's last few decisions. See
-[MODELS.md](MODELS.md)'s "Hybrid escalation" section.
+never on a cloud-model session, and never onto a target `network.offline`/
+`--offline` would itself refuse (fix pass C-2): the session stays local,
+with one plain notice naming the trigger, when the two conflict -- never a
+silent switch onto a model every later request would then also be refused
+for. A role-table entry's own `"escalation": false` turns it off for every
+sub-agent built under that role (`halo roles`/`docs/ROLES.md`), regardless
+of this top-level setting. An auto-switch (`ask: false`) leaves a real
+trace, not just a 5-second toast: a permanent transcript line, an
+immediate status-bar model update, and -- in print mode -- an
+`escalations` entry on the `-p --output-format json` result object.
+`/escalation` shows the active policy and this session's last few
+decisions. See [MODELS.md](MODELS.md)'s "Hybrid escalation" section.
+
+### Saved versus cloud (Halo 2.0.3 round 5e)
+
+A local-model session (`ol:`/`hf:local`/`hf:mlx`) tracks what the same
+input/output/cache tokens would have cost on a reference cloud price (the
+configured `routing.escalation.to`, or, with no escalation policy at all,
+the vendored catalog's median priced model) and reports the running total
+as `saved_usd`. Fix pass C-2: it only ever accrues while the session is
+CURRENTLY running on a local model -- after an escalation, a `/model`
+switch, or a `--fallback-model` swap onto a cloud ref it stops growing
+immediately, and resumes with no re-pinning needed the moment the session
+is back on a local one (the reference price itself, once resolved, stays
+pinned for the session's life either way). `/cost` shows the full
+breakdown; the status bar appends "· saved $x" to the cost segment. See
+[MODELS.md](MODELS.md)'s "Saved versus cloud" section.
 
 ## What is never written
 

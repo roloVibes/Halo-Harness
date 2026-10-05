@@ -190,6 +190,74 @@ def test_vram_aware_override_only_applies_to_the_four_role_names(ctx: Ctx):
         ctx.check(f"role {role!r} is never VRAM-aware", reason is None and value == "ol:small-model")
 
 
+# ---- C-2 finding 13: resolve_agent_model applies the SAME redirect ------
+
+@test
+def test_resolve_agent_model_applies_vram_redirect_to_table_value_never_cli(ctx: Ctx):
+    """`resolve_agent_model` (`config/agents_md.py`) is the function that
+    picks the model for every REAL sub-agent spawn (Explore/Researcher on
+    `researcher`, Judge on `judge`, an unnamed agent on `subagent_
+    default`) -- before this fix it never consulted `roles.vram_aware_
+    override` at all, so `/roles` could show "(same as main: fits beside
+    it: no)" while the actual spawn still loaded the table model beside
+    main and evicted it, the exact eviction this rule exists to prevent.
+    `vram_aware_override` itself is monkeypatched (its own arithmetic is
+    pinned above against a mock host/GPU reading) purely to isolate THIS
+    function's own wiring -- that it's consulted for a table value and
+    NEVER for a CLI --role override, and that its answer is actually
+    used."""
+    import halo_harness.roles as roles_mod
+    from halo_harness.config.agents_md import resolve_agent_model
+    from halo_harness.model import ModelProfile, parse_model_ref
+    main_ref = parse_model_ref("ol:main-model")
+    main_profile = ModelProfile()
+    calls = []
+    real_override = roles_mod.vram_aware_override
+
+    def fake_override(role_name, raw_value, *, main_ref, state_dir=None, hw_runner=None):
+        calls.append((role_name, raw_value))
+        if role_name == "researcher" and raw_value == "ol:small-model":
+            return main_ref.raw, roles_mod.VRAM_AWARE_REASON  # "does not fit" -> redirect to main
+        return raw_value, None
+
+    roles_mod.vram_aware_override = fake_override
+    try:
+        # A TABLE value for a VRAM-aware role name -- redirected to main.
+        ref, _profile = resolve_agent_model(
+            role_name="researcher", role_table={"researcher": "ol:small-model"},
+            parent_ref=main_ref, parent_profile=main_profile,
+            state_dir=Path(tempfile.mkdtemp(prefix="vram-am-table-")),
+        )
+        ctx.check(f"redirected to the main model, got {ref.raw!r}", ref.raw == main_ref.raw)
+        ctx.check(f"vram_aware_override was consulted for the table value, got {calls}",
+                  ("researcher", "ol:small-model") in calls)
+
+        # The exact SAME value as a CLI --role override -- never
+        # second-guessed (vram_aware_override's own docstring).
+        calls.clear()
+        ref2, _profile2 = resolve_agent_model(
+            role_name="researcher", cli_role_overrides={"researcher": "ol:small-model"},
+            parent_ref=main_ref, parent_profile=main_profile,
+            state_dir=Path(tempfile.mkdtemp(prefix="vram-am-cli-")),
+        )
+        ctx.check(f"a CLI override is NEVER redirected, got {ref2.raw!r}", ref2.raw == "ol:small-model")
+        ctx.check(f"vram_aware_override was never even consulted for a CLI override, got {calls}", calls == [])
+
+        # subagent_default (no role name at all) gets the SAME treatment.
+        calls.clear()
+        ref3, _profile3 = resolve_agent_model(
+            role_table={"subagent_default": "ol:small-model"},
+            parent_ref=main_ref, parent_profile=main_profile,
+            state_dir=Path(tempfile.mkdtemp(prefix="vram-am-default-")),
+        )
+        ctx.check(f"subagent_default's table value is also checked, got {calls}",
+                  ("subagent_default", "ol:small-model") in calls)
+        ctx.check(f"left alone here (fake only redirects 'researcher'), got {ref3.raw!r}",
+                  ref3.raw == "ol:small-model")
+    finally:
+        roles_mod.vram_aware_override = real_override
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -68,13 +68,20 @@ which auto-compaction will trigger.
 ### `/model [ref]`
 No argument: opens the model picker -- a filterable, arrow-key list
 (`Up`/`Down`/`PageUp`/`PageDown`/`Home`/`End` move the highlight, typing
-filters, `Enter` confirms, `Esc` cancels; the filter box keeps keyboard
-focus throughout) grouped by provider/family with one header per group
-(OpenRouter, `Claude Code subscription` -- only shown when that subscription
-is actually usable, see below -- and `Databricks (<family>)` per family).
+filters, `Enter` confirms, `Esc` cancels, `u` opens a short list to set a
+ROLE for the highlighted model -- `roles.<name>`, the same table `/roles`
+reads, see `docs/ROLES.md`; works from this screen's default state, filter
+box included -- you never have to move focus off it first) grouped by
+provider/family with one header per group (OpenRouter, `Claude Code
+subscription` -- only shown when that subscription is actually usable, see
+below -- `Databricks (<family>)` per family, an `Ollama (<host>)` group
+per configured Ollama host, and an `hf:local/*`/`hf:mlx/*` group per
+registered local server or served model-dirs file -- fix pass C-2: the
+picker used to have no way to reach a local model by name at all).
 Every row shows the SAME columns regardless of provider: context window,
 max output, and USD/1M-token prices (`ctx=200k out=64k in=$1.00/M
-out=$5.00/M`, blank -- never `?` -- for anything not published), plus,
+out=$5.00/M`, blank -- never `?` -- for anything not published, including
+every local row, which has no per-token price), plus,
 for a Databricks row, a `[<family> · <path>]` tag naming which gateway
 path it resolves to right now (see `docs/DATABRICKS.md`); a `cc:`/`ant:`
 row's own tag instead names the resolved model id (e.g. `cc:opus` shows

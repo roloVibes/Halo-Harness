@@ -2048,6 +2048,70 @@ def test_model_picker_down_down_enter_selects_third_entry_filter_keeps_focus(ctx
 
 
 @test
+def test_model_picker_u_works_from_default_focus_and_matches_the_right_ref(ctx: Ctx):
+    """C-2 finding 12 pin: `u` never had a real pilot test (round 3 only
+    ever pinned the plain function it calls) -- two bugs it would have
+    caught: (1) focus starts on the filter `NavInput`, which otherwise
+    consumes a bare "u" as TEXT before the binding ever sees it; (2) the
+    OptionList's own highlighted INDEX includes disabled group-header
+    rows `_grouped` inserts, so indexing `_filtered` (headers-free) with
+    it picks a DIFFERENT model than the one actually highlighted the
+    moment any group header sits above it."""
+    from halo_harness.tui.dialogs.model_picker import ModelPicker, RoleAssignPicker
+    from textual.widgets import Input, OptionList
+
+    models = [
+        {"ref": "or:plain/one", "provider": "openrouter"},
+        {"ref": "ol:qwen3:8b", "provider": "ollama", "group": "Ollama (default)"},
+        {"ref": "ol:llama3:8b", "provider": "ollama", "group": "Ollama (default)"},
+        {"ref": "hf:org/model", "provider": "huggingface", "group": "Hugging Face"},
+    ]
+
+    async def body():
+        fake = FakeController()
+        app = await _mounted(fake)
+        async with app.run_test(size=(100, 40)) as pilot:
+            app.push_screen(ModelPicker(models, current=""))
+            await pilot.pause(0.1)
+            filter_box = app.screen.query_one(Input)
+            ctx.check(f"the filter has focus by default, got {app.focused}", app.focused is filter_box)
+
+            # Bug 1: `u` must still fire from this exact, default state.
+            await pilot.press("u")
+            await pilot.pause(0.1)
+            ctx.check(f"u opened RoleAssignPicker even though the filter had focus, got "
+                      f"{type(app.screen).__name__}", isinstance(app.screen, RoleAssignPicker))
+            ctx.check(f"for the row actually highlighted (the first one), got {app.screen.model_ref!r}",
+                      app.screen.model_ref == "or:plain/one")
+            ctx.check(f"the letter was never typed into the filter, got {filter_box.value!r}",
+                      filter_box.value == "")
+            await pilot.press("escape")
+            await pilot.pause(0.1)
+            ctx.check(f"back on the picker, got {type(app.screen).__name__}", isinstance(app.screen, ModelPicker))
+
+            # Bug 2: navigate past the "Ollama (default)" group's own
+            # disabled header, then confirm `u` acts on whatever is
+            # ACTUALLY highlighted, not on `_filtered`'s own
+            # (headers-free) same-index entry.
+            screen = app.screen
+            option_list = screen.query_one(OptionList)
+            await pilot.press("down")
+            await pilot.press("down")
+            await pilot.pause(0.05)
+            highlighted = option_list.highlighted
+            correct_ref = option_list.get_option_at_index(highlighted).id
+            buggy_ref = screen._filtered[highlighted]["ref"] if highlighted < len(screen._filtered) else None
+            ctx.check(f"this navigation state is actually meaningful for the bug (option index {highlighted} "
+                      f"must disagree with _filtered's own index here), correct={correct_ref!r} vs what the "
+                      f"OLD code would have used={buggy_ref!r}", correct_ref != buggy_ref)
+            await pilot.press("u")
+            await pilot.pause(0.1)
+            ctx.check(f"RoleAssignPicker opens for the ACTUALLY highlighted model ({correct_ref!r}), got "
+                      f"{app.screen.model_ref!r}", app.screen.model_ref == correct_ref)
+    asyncio.run(body())
+
+
+@test
 def test_resume_picker_down_down_enter_selects_third_entry_filter_keeps_focus(ctx: Ctx):
     from halo_harness.tui.dialogs.session_picker import SessionPicker
     from textual.widgets import Input
@@ -3479,6 +3543,61 @@ def test_at_mention_with_line_range_is_ingested_as_a_log_snapshot(ctx: Ctx):
                 text = snaps[0]["content"][0]["text"]
                 ctx.check(f"it carries the requested range's own lines (2-3), got {text!r}",
                           "beta" in text and "gamma" in text and "alpha" not in text and "delta" not in text)
+    asyncio.run(body())
+
+
+@test
+def test_local_add_and_forget_reach_add_model_dir_through_the_tui(ctx: Ctx):
+    """C-2 finding 14 pin: `/local add <path>`/`/local forget <path>` in
+    the TUI used to fall straight through to `_handle_local`'s "answer it
+    as a question" branch (never `add_model_dir`/`forget_model_dir` at
+    all, persisting nothing) -- now routed through the SAME `_run_slash_
+    worker` -> `Controller.run_slash` -> `_cmd_local` path print mode
+    already used (one shared implementation). A REAL `Controller` (not
+    `FakeController`, whose own `run_slash` is a recording stub) so this
+    actually exercises `_cmd_local`/`add_model_dir` end to end, not just
+    the dispatch routing."""
+    async def body():
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            model_dir = Path(tempfile.mkdtemp(prefix="local-add-tui-"))
+            controller = _real_controller(cwd)
+            controller.registry = _real_registry()
+            app = await _mounted(controller, cwd=str(cwd))
+            async with app.run_test(size=(100, 40)) as pilot:
+                from halo_harness.providers.local_model_dirs import resolve_model_dirs
+
+                await pilot.click("#prompt-input")
+                await _type(pilot, f"/local add {model_dir}")
+                await pilot.press("enter")
+                added_note = None
+                for _ in range(40):
+                    await app._drain()
+                    await pilot.pause(0.05)
+                    notes = [w for w in app.transcript.children if isinstance(w, SystemNote)]
+                    if notes and notes[-1].raw_text.strip().startswith("/local add"):
+                        added_note = notes[-1].raw_text
+                        break
+                ctx.check(f"a /local add result note appeared, got {added_note!r}", added_note is not None)
+                dirs = {str(Path(d)) for d in resolve_model_dirs()}
+                ctx.check(f"the TUI dispatch actually registered the dir (huggingface.model_dirs), got {dirs}",
+                          str(model_dir) in dirs or str(model_dir.resolve()) in dirs)
+
+                await pilot.click("#prompt-input")
+                await _type(pilot, f"/local forget {model_dir}")
+                await pilot.press("enter")
+                forgotten_note = None
+                for _ in range(40):
+                    await app._drain()
+                    await pilot.pause(0.05)
+                    notes2 = [w for w in app.transcript.children if isinstance(w, SystemNote)]
+                    if notes2 and notes2[-1].raw_text.strip().startswith("/local forget"):
+                        forgotten_note = notes2[-1].raw_text
+                        break
+                ctx.check(f"a /local forget result note appeared, got {forgotten_note!r}", forgotten_note is not None)
+                dirs2 = {str(Path(d)) for d in resolve_model_dirs()}
+                ctx.check(f"forget actually removed it again, got {dirs2}",
+                          str(model_dir) not in dirs2 and str(model_dir.resolve()) not in dirs2)
     asyncio.run(body())
 
 

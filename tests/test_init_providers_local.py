@@ -139,6 +139,31 @@ def test_ollama_tab_blank_save_registers_the_default_local_daemon(ctx: Ctx):
 
 
 @test
+def test_ollama_tab_blank_save_never_overwrites_an_existing_lan_host(ctx: Ctx):
+    """C-2 finding 15 pin: the help text's "leave every field blank and
+    Save to register the local daemon" promise is about a FRESH setup --
+    once a real (LAN, tuned) host already exists, a later blank Save must
+    be a no-op, never a silent repoint to loopback with every other field
+    (`default`/`max_ctx`) dropped."""
+    from halo_harness.init_providers import save_tab_credentials
+    from halo_harness.providers.ollama import resolve_ollama_hosts
+    from halo_harness.theme import set_config_value
+    with _Env():
+        set_config_value("ollama.hosts", [
+            {"name": "default", "url": "http://gpubox.example:11434", "default": True, "max_ctx": 32768},
+        ])
+        ok, msg = save_tab_credentials("ollama", {"name": "", "url": "", "api_key": ""})
+        ctx.check(f"blank Save still succeeds (a no-op), got {(ok, msg)}", ok is True)
+        hosts = resolve_ollama_hosts({})
+        ctx.check(f"still exactly one host, got {hosts}", len(hosts) == 1)
+        ctx.check(f"the real LAN url survives untouched, got {hosts[0].url!r}",
+                  hosts[0].url == "http://gpubox.example:11434")
+        ctx.check(f"name untouched, got {hosts[0].name!r}", hosts[0].name == "default")
+        ctx.check(f"max_ctx (not in save_tab_credentials' own field set at all) survives, got {hosts[0].max_ctx!r}",
+                  hosts[0].max_ctx == 32768)
+
+
+@test
 def test_ollama_tab_save_twice_same_name_overwrites_not_duplicates(ctx: Ctx):
     from halo_harness.init_providers import save_tab_credentials
     from halo_harness.providers.ollama import resolve_ollama_hosts

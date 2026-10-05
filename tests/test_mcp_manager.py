@@ -903,6 +903,32 @@ def test_ensure_lazy_started_all_starts_only_pending_lazy_servers(ctx: Ctx):
 
 
 @test
+def test_lazy_connect_callback_fires_once_on_first_real_connect(ctx: Ctx):
+    """C-2 EXTRA (owner report) pin: `ensure_started` -- this module's own
+    docstring calls it "the ONE place a real connection actually happens"
+    for either a `pending` or `cached` lazy handle -- fires the registered
+    `on_lazy_connect` callback right after that transition, exactly once,
+    never again on a later ordinary call once it's already connected. The
+    hook `tui/bootstrap.py` uses to push a fresh status event the instant
+    the status bar's own MCP count would actually rise, instead of
+    leaving it stuck at the stale pre-connect reading."""
+    cfg = M.McpServerConfig(name="lazy1", type="stdio", command=sys.executable,
+                             args=["-m", "tests.helpers.fake_mcp_server"], cwd=str(REPO_DIR), lazy=True)
+    mgr = M.McpManager({"lazy1": cfg}, tool_env=dict(os.environ), cwd=REPO_DIR, lazy_names={"lazy1"})
+    calls = []
+    mgr.set_lazy_connect_callback(lambda name: calls.append(name))
+    try:
+        ctx.check("starts pending (never connects at construction)", mgr.handles["lazy1"].state == "pending")
+        mgr.ensure_started("lazy1")
+        ctx.check(f"connected for real, got {mgr.handles['lazy1'].state}", mgr.handles["lazy1"].state == "connected")
+        ctx.check(f"the callback fired exactly once, got {calls}", calls == ["lazy1"])
+        mgr.ensure_started("lazy1")  # an ordinary LATER tool call against the same, already-connected server
+        ctx.check(f"a later call never fires it again, got {calls}", calls == ["lazy1"])
+    finally:
+        mgr.close_all()
+
+
+@test
 def test_h9_ensure_lazy_started_all_starts_targets_in_parallel(ctx: Ctx):
     """H9 must-do: the lazy-start path used to be a plain SERIAL `for name
     in self._lazy_names: h.start()` loop -- 3 lazy servers would take

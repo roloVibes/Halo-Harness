@@ -19,6 +19,8 @@ runs exactly as before in that case.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from textual import events
 from textual.widgets import Input, OptionList
 
@@ -32,11 +34,29 @@ _NAV_ACTIONS = {
 class NavInput(Input):
     """`option_list_id`: the CSS id of the sibling `OptionList` this Input's
     navigation keys should drive (looked up lazily via `self.screen`, so
-    construction order between the two widgets never matters)."""
+    construction order between the two widgets never matters).
 
-    def __init__(self, *args, option_list_id: str, **kwargs) -> None:
+    C-2 finding 12: `extra_keys` ({key: screen_action_name}, default none)
+    is a SECOND, generic forwarding table, alongside the fixed nav-key one
+    above, for a per-DIALOG shortcut (`ModelPicker`'s own `u` -> "set a
+    role for the highlighted model") that must fire while this Input has
+    focus -- which, for any PRINTABLE key, a plain `Binding(..., priority=
+    True)` on the screen can never do on its own: `Input.check_consume_
+    key` claims every printable character (`character.isprintable()`),
+    and Textual's own `Screen._binding_chain` DELETES any key the
+    currently-FOCUSED widget claims from every ancestor's bindings map --
+    including the screen's and the App's -- before `priority` is even
+    consulted (verified against Textual 8.2.8's own `app.py`/`screen.py`).
+    Forwarding it here, through the widget's own public `run_action`
+    (the same mechanism a real key dispatch would have used), is the only
+    way a letter-key shortcut can ever reach the screen while an `Input`
+    sibling holds focus; a key NOT in this table still falls through to
+    ordinary text entry exactly as before."""
+
+    def __init__(self, *args, option_list_id: str, extra_keys: "Optional[dict]" = None, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._option_list_id = option_list_id
+        self._extra_keys = dict(extra_keys or {})
 
     def _option_list(self) -> "OptionList | None":
         try:
@@ -60,4 +80,10 @@ class NavInput(Input):
                     event.prevent_default()
                     option_list.action_select()
                     return
+        extra_action = self._extra_keys.get(event.key)
+        if extra_action is not None:
+            event.stop()
+            event.prevent_default()
+            await self.screen.run_action(extra_action)
+            return
         await super()._on_key(event)

@@ -1688,10 +1688,15 @@ def run_print_mode(
                     max_budget_usd=max_budget_usd, permission_denials=session.permission_denials,
                     json_schema=json_schema, effort=session.effort_requested, effort_sent=effort_sent,
                     hook_events_fn=(session.drain_hook_events if cli_flags.get("include_hook_events") else None),
+                    # C-2 finding 5: same live-reference pattern as
+                    # permission_denials just above -- an `ask: false`
+                    # auto-switch this run used to leave no trace at all in
+                    # print mode.
+                    escalation_decisions=session._escalation_decisions,
                 )
             return PrintModeSink(output_format=output_format, session_id=session_log.session_id, model=model_ref.raw,
                                   verbose=verbose, permission_denials=session.permission_denials, json_schema=json_schema,
-                                  max_budget_usd=max_budget_usd)
+                                  max_budget_usd=max_budget_usd, escalation_decisions=session._escalation_decisions)
 
         if input_format == "stream-json":
             if stdin_lines is not None:

@@ -507,14 +507,37 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
         return True, f"wrote DATABRICKS_HOST/DATABRICKS_TOKEN to {path}"
     if provider == "ollama":
         url = (values.get("url") or "").strip()
-        name = (values.get("name") or "").strip() or "default"
+        name = (values.get("name") or "").strip()
         api_key = (values.get("api_key") or "").strip()
         from halo_harness.providers.ollama import DEFAULT_OLLAMA_URL, _normalize_host_url
         from halo_harness.theme import get_config_value, set_config_value
-        normalized = _normalize_host_url(url) if url else DEFAULT_OLLAMA_URL
         hosts = get_config_value("ollama.hosts", default=None)
         hosts = [h for h in hosts if isinstance(h, dict)] if isinstance(hosts, list) else []
-        entry = {"name": name, "url": normalized}
+        # C-2 finding 15: every field blank is the help text's own
+        # documented "leave every field blank and Save to register the
+        # local daemon" flow -- but that promise is about a FRESH setup
+        # with nothing configured yet. Once ANY host already exists, a
+        # blank Save is a plain no-op: re-running init on a box whose main
+        # host is a tuned LAN/cloud entry must never silently repoint it
+        # to loopback just because a blank name also defaults to
+        # "default", which is exactly what used to happen below.
+        if not url and not name:
+            if hosts:
+                return True, f"Ollama is already configured ({len(hosts)} host(s)) -- nothing changed"
+            set_config_value("ollama.hosts", [{"name": "default", "url": DEFAULT_OLLAMA_URL, "default": True}])
+            return True, f"registered the local Ollama daemon ({DEFAULT_OLLAMA_URL}) in ollama.hosts"
+        name = name or "default"
+        normalized = _normalize_host_url(url) if url else DEFAULT_OLLAMA_URL
+        existing = next((h for h in hosts if h.get("name") == name), None)
+        # C-2 finding 15: MERGE into a same-name entry's own existing
+        # fields (`default`/`max_ctx`/`kv_cache_type`/`ssh`/`keep_alive`)
+        # instead of replacing it outright -- only `url`/`api_key_env`
+        # (what THIS save actually carries) are ever overwritten, so a
+        # blank name/url with this one still non-blank (e.g. a key-only
+        # re-save) can never drop the host's own tuning either.
+        entry = dict(existing) if existing else {}
+        entry["name"] = name
+        entry["url"] = normalized
         if api_key:
             # finding 16: never a plaintext api_key in config.json -- the
             # real value goes into the shared env file, config.json keeps
@@ -529,7 +552,8 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
             entry["default"] = True
         hosts = [h for h in hosts if h.get("name") != name] + [entry]
         set_config_value("ollama.hosts", hosts)
-        return True, f"added Ollama host {name!r} ({normalized}) to ollama.hosts"
+        verb = "updated" if existing else "added"
+        return True, f"{verb} Ollama host {name!r} ({normalized}) in ollama.hosts"
     if provider == "huggingface":
         from halo_harness.theme import get_config_value, set_config_value
         wrote = []

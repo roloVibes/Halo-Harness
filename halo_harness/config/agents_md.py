@@ -467,8 +467,27 @@ def resolve_agent_model(*, invocation_model: Optional[str] = None, frontmatter_m
     # separately, alongside this call, by `agent/subagent.py`'s own
     # `roles.role_effort_for` -- keeping this function's return shape a
     # stable 2-tuple for every existing caller).
-    role_cli_model, _cli_effort = role_value_parts(cli_role_overrides.get(role_name) if role_name else None)
-    role_table_model, _table_effort = role_value_parts(role_table.get(role_name) if role_name else None)
+    role_cli_raw = cli_role_overrides.get(role_name) if role_name else None
+    role_table_raw = role_table.get(role_name) if role_name else None
+    # C-2 finding 13: the VRAM-aware redirect (`roles.vram_aware_override`
+    # -- the SAME rule `/roles`/`halo roles`/the escalation judge's own
+    # `resolve_role_ref` already applies) now runs here too, for a TABLE
+    # value only (never a CLI override -- a freshly-typed `--role` is the
+    # user's own explicit, run-only instruction, never second-guessed;
+    # `vram_aware_override`'s own docstring). Before this fix `/roles`
+    # showed "(same as main: fits beside it: no)" next to the main model
+    # while THIS function -- which drives every REAL sub-agent spawn
+    # (Explore/Researcher on `researcher`, Judge on `judge`, an unnamed
+    # agent on `subagent_default`) -- still handed out the raw table model
+    # unchanged, loading it beside main and evicting it: the exact
+    # eviction round 5b part 2 exists to prevent, just never wired to the
+    # path that actually spawns anything.
+    if role_cli_raw is None and role_table_raw is not None:
+        from halo_harness.roles import vram_aware_override
+        role_table_raw, _reason = vram_aware_override(role_name, role_table_raw, main_ref=parent_ref,
+                                                        state_dir=state_dir)
+    role_cli_model, _cli_effort = role_value_parts(role_cli_raw)
+    role_table_model, _table_effort = role_value_parts(role_table_raw)
     # Halo 2.0.2 (brief A.1): `subagent_default` is the last rung before
     # the parent/session model, and ONLY for a sub-agent with NO role
     # name at all (`role_name` falsy) -- a role-bearing agent with
@@ -476,8 +495,14 @@ def resolve_agent_model(*, invocation_model: Optional[str] = None, frontmatter_m
     # model" unchanged; `subagent_default` is deliberately never consulted
     # for it (that would blur "this role has no override" with "no role
     # at all").
-    subagent_default_cli, _ = role_value_parts(cli_role_overrides.get("subagent_default"))
-    subagent_default_table, _ = role_value_parts(role_table.get("subagent_default"))
+    subagent_default_cli_raw = cli_role_overrides.get("subagent_default")
+    subagent_default_table_raw = role_table.get("subagent_default")
+    if subagent_default_cli_raw is None and subagent_default_table_raw is not None:
+        from halo_harness.roles import vram_aware_override
+        subagent_default_table_raw, _reason = vram_aware_override(
+            "subagent_default", subagent_default_table_raw, main_ref=parent_ref, state_dir=state_dir)
+    subagent_default_cli, _ = role_value_parts(subagent_default_cli_raw)
+    subagent_default_table, _ = role_value_parts(subagent_default_table_raw)
     subagent_default_model = subagent_default_cli or subagent_default_table
     raw = (invocation_model or role_cli_model or frontmatter_model or role_table_model
            or env.get("CLAUDE_CODE_SUBAGENT_MODEL")

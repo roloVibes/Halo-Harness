@@ -93,17 +93,36 @@ def role_escalation_enabled(role_name: "Optional[str]", role_table: "Optional[di
     return entry.get("escalation") is not False
 
 
+#  C-2 finding 6: `tool_result.error_class` values `agent/loop.py::
+# _finalize_tool_result` stamps on a result that was REJECTED before it
+# ever reached a real tool -- a permission denial (interactive "No", a
+# deny rule, a PreToolUse hook block -- all "denied_by_rule") or an
+# in-flight abort (Esc/steer-preemption -- "interrupted"). Neither is the
+# LOCAL MODEL doing anything wrong, so neither counts toward "the local
+# model is struggling, consider escalating" -- every other error_class
+# (a real tool error, "schema_invalid"/"loop_breaker"/"other" from a
+# repair/dedup rejection, or `None` for an error that reached a real tool
+# and wasn't pre-classified) still does.
+_NON_FAILURE_ERROR_CLASSES = frozenset({"denied_by_rule", "interrupted"})
+
+
 def count_tool_failures_since(nodes: list, start_index: int) -> int:
     """How many `tool_result` nodes with `is_error=True` appear in `nodes`
-    from `start_index` onward -- `nodes` is `SessionLog.nodes()`, `start_
-    index` is `len(log.nodes())` captured at the top of the turn
-    (`Session._turn_inner`). A pure list scan, no mutation, so it is safe
-    to call from anywhere mid-turn, repeatedly, with no bookkeeping of its
-    own to keep in sync."""
+    from `start_index` onward, EXCLUDING a user/rule/hook permission denial
+    or an interrupt (`_NON_FAILURE_ERROR_CLASSES` above) -- those are never
+    the local model's own fault, so two denied edits (or an Esc) must never
+    by themselves trigger `tool_failures`, with or without `ask: false`.
+    `nodes` is `SessionLog.nodes()`, `start_index` is `len(log.nodes())`
+    captured at the top of the turn (`Session._turn_inner`). A pure list
+    scan, no mutation, so it is safe to call from anywhere mid-turn,
+    repeatedly, with no bookkeeping of its own to keep in sync."""
     count = 0
     for node in nodes[start_index:]:
-        if isinstance(node, dict) and node.get("type") == "tool_result" and node.get("is_error"):
-            count += 1
+        if not (isinstance(node, dict) and node.get("type") == "tool_result" and node.get("is_error")):
+            continue
+        if node.get("error_class") in _NON_FAILURE_ERROR_CLASSES:
+            continue
+        count += 1
     return count
 
 

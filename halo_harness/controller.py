@@ -150,14 +150,22 @@ class Controller:
         self._worker.start()
         return self
 
-    def _mcp_status(self) -> dict:
+    def _mcp_status(self) -> "Optional[dict]":
+        # C-2 EXTRA (owner report): `None` in every "no real reading" case
+        # -- no `mcp_status_fn` wired, the wired one raising, or returning
+        # something that isn't even a dict -- never a fake "0/0". This is
+        # passed straight through to `Session.run(mcp_status_fn=...)`,
+        # whose own `status_event()` now follows the exact same rule
+        # (see its docstring): a status built while none of these three
+        # ever produced a real reading omits the `mcp` key entirely
+        # instead of flashing a false "nothing connected".
         if self._mcp_status_fn is None:
-            return {"connected": 0, "total": 0}
+            return None
         try:
             status = self._mcp_status_fn()
-            return status if isinstance(status, dict) else {"connected": 0, "total": 0}
+            return status if isinstance(status, dict) else None
         except Exception:
-            return {"connected": 0, "total": 0}
+            return None
 
     @property
     def alive(self) -> bool:
@@ -919,6 +927,40 @@ class Controller:
             hints.append({"hint": f"{label_for('codex_subscription')} detected but not enabled -- "
                                    f"run `halo providers enable codex_subscription`"})
 
+        # C-2 finding 11: `ol:`/`hf:local/*`/`hf:mlx/*` never appeared here
+        # at all, so `/model`/the picker/completion could never reach a
+        # local model by name -- reuses the SAME shared discovery `halo
+        # local`/`/local` already use (`providers.local_models.
+        # build_local_view`) rather than re-deriving it, so a row this
+        # picker shows is guaranteed to be the one `/local` already
+        # reports; `refresh=False` (the default) matches every other group
+        # above's own "first paint from whatever is already known/cached,
+        # no live probe just from opening the picker" rule. Ollama is
+        # deliberately ungated here (same as `/local`/`halo doctor --local`
+        # -- round 2/3's own choice to keep it outside the generic
+        # provider-enablement table, see providers/enablement.py). Only a
+        # row with a real, addressable `ref` becomes a picker entry -- a
+        # "(unreachable)"/"(no models reported)"/"(configured -- /local
+        # refresh to check)" placeholder row (every one of this view's own
+        # "nothing to pick yet" sentinels starts with "(", never a real
+        # model id) is `/local`-only, exactly like a hint row here has no
+        # `ref` either. No per-token price exists for local compute.
+        try:
+            from halo_harness.providers.local_models import build_local_view
+            local_rows = build_local_view(env=env, state_dir=self.state_dir)
+        except Exception:
+            local_rows = []
+        for row in local_rows:
+            if not row.ref or row.ref in seen or row.name.startswith("("):
+                continue
+            seen.add(row.ref)
+            out.append({
+                "ref": row.ref, "context_tokens": row.context, "max_output_tokens": None,
+                "price_in_per_m": None, "price_out_per_m": None,
+                "provider": "ollama" if row.ref.startswith("ol:") else "huggingface",
+                "group": row.group, "detail": row.capability,
+            })
+
         current = self.session.model_ref.raw
         if current and current not in {m["ref"] for m in out}:
             out.insert(0, {"ref": current, "context_tokens": self.session.model_profile.context_tokens,
@@ -1000,7 +1042,7 @@ class Controller:
         if self.replay_messages:
             self.events.put(events.replay(self.replay_messages))
 
-    def mcp_status(self) -> dict:
+    def mcp_status(self) -> "Optional[dict]":
         return self._mcp_status()
 
     def reconnect_mcp(self, name: str, abort=None) -> list:
