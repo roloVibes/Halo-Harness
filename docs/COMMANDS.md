@@ -400,12 +400,13 @@ What: one of `claude-dark`/`claude-light` (`-daltonized`/`-ansi` variants of
 each) for this run; `/theme` persists a choice for future sessions.
 
 #### `--no-intro`
-What: skips the one-time `I am just a copy, of a copy, of a copy... halo
-<version>` typewriter line a fresh interactive launch otherwise shows
-above the first turn -- same effect as `"intro": false` in
+What: skips the one-time typewriter intro line a fresh interactive launch
+otherwise shows above the first turn (a random pick from a small pool,
+each ending in `halo <version>`; the original `I am just a copy, of a
+copy, of a copy...` is one of them) -- same effect as `"intro": false` in
 `~/.halo/config.json`. Never shown in print mode, a `--demo` run, or when
 stdout isn't a real terminal, with or without this flag; `/intro` replays
-it mid-session.
+a fresh pick mid-session and `/intro <n>` replays line n.
 
 #### `--demo`
 What: runs (or, with `-p`, prints) a scripted walkthrough turn that needs no

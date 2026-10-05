@@ -5918,9 +5918,13 @@ def test_intro_types_out_the_full_line_then_the_cursor_disappears(ctx: Ctx):
                       isinstance(app.transcript.children[0], IntroLine))
             await pilot.pause(0.5)  # far more than len(line) * 0.001s at the shrunk delay
             widget = app.transcript.children[0]
-            expected = f"I am just a copy, of a copy, of a copy... halo {__version__}"
+            # 2.0.3: the launch line is a random pick from the pool, so the
+            # check is "exactly one of the pool's lines, fully revealed".
+            from halo_harness.tui.intro_lines import INTRO_LINES
+            expected_pool = {line.format(version=__version__) for line in INTRO_LINES}
             rendered = _static_text(widget)
-            ctx.check(f"the full line is revealed, got {rendered!r}", rendered == expected)
+            ctx.check(f"the full line is one of the intro pool, revealed in full, got {rendered!r}",
+                      rendered in expected_pool)
             ctx.check(f"the real version ({__version__!r}) is in the rendered line", __version__ in rendered)
             ctx.check("the widget itself reports done", widget.done is True)
             ctx.check(f"the block cursor is gone once done, got {rendered!r}", IntroLine.CURSOR not in rendered)
@@ -6033,8 +6037,9 @@ def test_print_mode_demo_output_contains_no_intro_text(ctx: Ctx):
     ctx.check(f"run_demo exits 0, got {rc}", rc == 0)
     output = buf.getvalue()
     ctx.check("print-mode/--demo output has real content (sanity)", len(output) > 0)
+    from halo_harness.tui.intro_lines import INTRO_LINES
     ctx.check(f"no intro text anywhere in print-mode output, got {output[:200]!r}...",
-              "I am just a copy" not in output)
+              not any(line.split("{version}")[0].strip() in output for line in INTRO_LINES))
 
 
 @test
