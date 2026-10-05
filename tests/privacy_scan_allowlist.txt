@@ -18,3 +18,4 @@ Bearer sk-or-management
 hf_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE
 xpl_deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 sk-oai-from-effective-env
+Bearer sk-oai-from-effective-env
