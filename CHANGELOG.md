@@ -10,6 +10,14 @@ version.
 
 ## [2.0.3] - unreleased
 
+### Launch intro pool
+
+- **The typewriter intro rotates through a pool of lines** instead of
+  always `I am just a copy, of a copy, of a copy...`: a random pick from
+  `tui/intro_lines.py` on every fresh launch (the Red Dragon line among
+  them), `/intro` replays a fresh pick and `/intro <n>` replays line n.
+  Add a line by appending to the pool; nothing else changes.
+
 Local and cloud models: Ollama + Hugging Face + the OpenAI API + a Codex
 subscription (`plans/2.0.3-ollama-round2-brief.md` and onward). Rounds 1
 through 5i landed: research, the `ol:` provider, hardware/host analysis and

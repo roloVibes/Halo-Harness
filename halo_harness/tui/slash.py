@@ -1166,17 +1166,20 @@ async def _handle_clear(app, _args: str) -> None:
     await app.transcript.add_note("Conversation cleared -- starting a new session context.", kind="note")
 
 
-async def _handle_intro(app, _args: str) -> None:
+async def _handle_intro(app, args: str) -> None:
     """2.0.0 Launch intro: `/intro` replays it -- a FRESH `IntroLine`
     mounted at the current transcript position (never the launch-time
     one, which may have scrolled/folded away by now) and started typing
     again from scratch. `app.intro_line` is repointed at this new widget
     so a keypress/submitted prompt during the replay still skips it
-    instantly, same contract as the launch-time line."""
+    instantly, same contract as the launch-time line. 2.0.3: the line is
+    a fresh random pick from the pool in `tui/intro_lines.py`; `/intro <n>`
+    replays line n (numbered from 1)."""
     from halo_harness import __version__ as _halo_version
+    from halo_harness.tui.intro_lines import intro_text, parse_intro_index
     from halo_harness.tui.widgets.transcript import IntroLine
 
-    widget = IntroLine(f"I am just a copy, of a copy, of a copy... halo {_halo_version}")
+    widget = IntroLine(intro_text(_halo_version, index=parse_intro_index(args)))
     app.intro_line = widget
     await app.transcript.mount_widget(widget)
 

@@ -462,7 +462,10 @@ class BridgeApp(App):
         # real content for that spot.
         if self.show_intro:
             from halo_harness import __version__ as _halo_version
-            self.intro_line = IntroLine(f"I am just a copy, of a copy, of a copy... halo {_halo_version}")
+            from halo_harness.tui.intro_lines import intro_text
+            # 2.0.3: a random pick from the pool in tui/intro_lines.py,
+            # not the same line every launch (rolo, 2026-10-05).
+            self.intro_line = IntroLine(intro_text(_halo_version))
             await self.transcript._mount_tracked(self.intro_line)
         # U5/review "must-do": git ran INLINE here even though the 5s
         # periodic refresh below was already threaded -- this first call

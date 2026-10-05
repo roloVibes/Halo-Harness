@@ -101,10 +101,10 @@ _REAL_FLAGS = [
     # ~/.halo/config.json but for just this one invocation -- the
     # TUI only (print mode has no inline-image concept to disable).
     (["--no-inline-images"], dict(dest="no_inline_images", action="store_true")),
-    # 2.0.0 Launch intro: skips the one-time "I am just a copy, of a copy,
-    # of a copy..." typewriter line a fresh interactive launch otherwise
-    # shows -- same effect as `"intro": false` in ~/.halo/config.json, see
-    # tui/launch.py's own show_intro resolution.
+    # 2.0.0 Launch intro: skips the one-time typewriter intro line (2.0.3:
+    # a random pick from tui/intro_lines.py) a fresh interactive launch
+    # otherwise shows -- same effect as `"intro": false` in
+    # ~/.halo/config.json, see tui/launch.py's own show_intro resolution.
     (["--no-intro"], dict(dest="no_intro", action="store_true")),
     # Halo 2.0.3 round 5e: enforced offline mode for this one process --
     # never persisted (see `main()`'s own handling, right after parsing:
