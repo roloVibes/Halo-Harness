@@ -78,7 +78,7 @@ def build_controller(args) -> "tuple[Controller, object, object]":
         dangerously_skip_permissions=bool(getattr(args, "dangerously_skip_permissions", False)),
         tools=getattr(args, "tools", None), add_dir=getattr(args, "add_dir", None),
         bare=bool(getattr(args, "bare", False)), session_id=getattr(args, "session_id", None),
-        max_turns=getattr(args, "max_turns", None) or 50,
+        max_turns=getattr(args, "max_turns", None),  # None = no cap (interactive parity with Claude Code)
         append_system_prompt=getattr(args, "append_system_prompt", None),
         chrome=bool(getattr(args, "chrome", False)), no_chrome=bool(getattr(args, "no_chrome", False)),
         playwright=bool(getattr(args, "playwright", False)),
