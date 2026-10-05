@@ -444,3 +444,16 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   legacy env-file drop, the Governor last. The jev brief stays in plans/ as
   a record only; the jev-router idea remains parked; the Qwen decision-only
   patterns shipped in 2.0.2 are unaffected.
+- ADDED 2026-10-05 ~11:15 (rolo): 2.0.4 provider-pack round "roles wizard":
+  (1) BUG: the wizard's roles step does not list the models Halo has
+  discovered (Ollama catalogs incl. LAN hosts, running local servers, the
+  hub cache, the router, OpenAI, Codex and Claude Code enumerations,
+  OpenRouter and Databricks catalogs) -- every role's picker must show the
+  same merged model list the `/model` picker shows, grouped by provider,
+  with the gym score beside a model when one exists; (2) an "Auto" tab when
+  editing roles in the wizard: one key fills every role from a preset
+  (local-first, balanced, quality) or from `halo gym propose` when gym data
+  exists, shows the resulting table with one sentence per choice, and lets
+  the user adjust before Save; the same Auto action in `/roles`. Tests: a
+  Textual pilot walk through the roles step with a fixture catalog, the
+  Auto fill from each preset and from a gym fixture, Save round trip.
