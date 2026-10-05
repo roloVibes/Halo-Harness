@@ -9,12 +9,15 @@ per-write habit -- both modules are round 5, same design doc.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from dataclasses import dataclass
 from typing import Optional
 
 from halo_harness.providers.huggingface_local_probe import auto_detect_local_servers, probe_models_endpoint
+
+log = logging.getLogger("bridge")
 
 _CONTEXT_CACHE_TTL_S = 30.0  # matches providers.ollama._CATALOG_TTL_S
 
@@ -26,7 +29,8 @@ class ResolvedLocalServer:
     api_key: Optional[str]
 
 
-def resolve_local_server(name: Optional[str], env: Optional[dict] = None) -> Optional[ResolvedLocalServer]:
+def resolve_local_server(name: Optional[str], env: Optional[dict] = None, *,
+                          model: Optional[str] = None, state_dir=None) -> Optional[ResolvedLocalServer]:
     """`hf:local/<model>` (`name=None`, the default server) or `hf:local/
     <model>@<name>` (a named manual entry) resolved to ONE `(name,
     base_url, api_key)` -- round 5 brief item 1. A NAMED ref matches a
@@ -55,22 +59,86 @@ def resolve_local_server(name: Optional[str], env: Optional[dict] = None) -> Opt
     read directly rather than duplicated into a second, in-memory
     registration step, so a SEPARATE `halo` process started after the
     `serve` call can resolve it too. The MOST RECENTLY STARTED entry wins
-    when more than one is running -- a documented, explicit tie-break, not
-    a guess."""
+    when more than one is running -- a FALLBACK tie-break, never the
+    first thing tried any more (see `model` below).
+
+    Review fix pass (finding 11): a BARE ref's own `<model>` id, when
+    given, is used FIRST to pick among the servers this process can
+    actually CONFIRM serve it -- an exact registry entry (by its own
+    `model` field, the Halo-side id `start_managed_server` recorded it
+    under), probed alive right now (A12's `--alias` fix is what makes a
+    managed llama-server's own `/v1/models` id equal that registry key at
+    all); failing that, any auto-detected server whose `/v1/models`
+    happens to list it. Only when NEITHER confirms it does this fall
+    through to "the default server" below (the manual-default/first-
+    auto-detected/most-recent-registry chain, UNCHANGED) -- the exact
+    pre-fix behaviour, which used to be the ONLY rule a bare ref ever got:
+    `halo local serve` prints `hf:local/<model_id>`, then a LATER `halo
+    -p --model hf:local/<model_id>` could silently land on a completely
+    different server (an auto-detected LM Studio on a well-known port, or
+    a newer registry entry for a different model), llama-server itself
+    never objecting (it ignores the request body's own `model` field). A
+    one-line notice (`log.info`, visible in logs/`--verbose` -- this
+    function has no event stream of its own to yield a `notification`
+    through, same reasoning `agent/loop.Session.call_small_model` already
+    gives for its own notices) names which server was actually chosen,
+    only when THIS id-matched path is what decided it."""
     from halo_harness.providers.huggingface import resolve_huggingface_local_server
     manual = resolve_huggingface_local_server(name)
     if manual is not None:
         return ResolvedLocalServer(name=manual.name, base_url=manual.url, api_key=manual.api_key)
     if name:
         return None  # a NAMED ref that isn't configured must fail plainly, never fall back to auto-detect
+    if model:
+        from_registry = _registry_server_for_model(model, state_dir=state_dir)
+        if from_registry is not None:
+            log.info("hf:local/%s -- resolved to the managed server %r (%s), confirmed by its own served "
+                      "model id", model, from_registry.name, from_registry.base_url)
+            return from_registry
+        from_auto = _auto_detected_server_for_model(model, env=env)
+        if from_auto is not None:
+            log.info("hf:local/%s -- resolved to the auto-detected server %r (%s), matched by its own served "
+                      "model id", model, from_auto.name, from_auto.base_url)
+            return from_auto
     detected = auto_detect_local_servers(env=env)
     if detected:
         first = detected[0]
         return ResolvedLocalServer(name=first.name, base_url=first.base_url, api_key=None)
-    managed = _most_recent_managed_server()
+    managed = _most_recent_managed_server(state_dir)
     if managed is None:
         return None
     return ResolvedLocalServer(name=managed.get("model"), base_url=managed.get("base_url"), api_key=None)
+
+
+def _registry_server_for_model(model_id: str, *, state_dir=None) -> Optional[ResolvedLocalServer]:
+    """Review fix pass (finding 11): `resolve_managed_server_by_model`'s
+    own exact registry lookup, confirmed ALIVE by a real `/v1/models`
+    probe before ever being handed out -- `None` (never the stale entry)
+    when the probe fails outright or the server no longer reports this
+    exact id, so a crashed/replaced managed server, or a stale entry left
+    behind a reboot, is never resolved as if it still worked. The probe
+    itself is the SAME `providers.huggingface_local_probe.probe_models_
+    endpoint` an auto-detect sweep uses -- a single, short, loopback GET."""
+    candidate = resolve_managed_server_by_model(model_id, state_dir=state_dir)
+    if candidate is None:
+        return None
+    info = probe_models_endpoint(candidate.base_url, name=candidate.name, api_key=candidate.api_key)
+    if info is None or model_id not in info.model_ids:
+        return None
+    return candidate
+
+
+def _auto_detected_server_for_model(model_id: str, env: Optional[dict] = None) -> Optional[ResolvedLocalServer]:
+    """Review fix pass (finding 11): among whatever `auto_detect_local_
+    servers` already probed (loopback-only, the SAME background-probe-
+    gated sweep the bare-ref default path below always ran), the first
+    one whose `/v1/models` actually listed `model_id` -- never just "the
+    first port that answered anything", which used to be the entire
+    rule."""
+    for info in auto_detect_local_servers(env=env):
+        if model_id in info.model_ids:
+            return ResolvedLocalServer(name=info.name, base_url=info.base_url, api_key=None)
+    return None
 
 
 def _most_recent_managed_server(state_dir=None) -> Optional[dict]:
@@ -116,8 +184,13 @@ def cached_local_context_tokens(name: Optional[str], model_id: str, *, env: Opti
     more than once every `ttl_s` seconds -- mirrors `providers.ollama.
     get_catalog`'s own cache shape/rationale. `None` when the target can't
     be resolved, is unreachable, or never reported a context number for
-    this exact model id -- the caller's own dataclass default stands."""
-    target = resolve_local_server(name, env)
+    this exact model id -- the caller's own dataclass default stands.
+
+    Review fix pass (finding 11): `model_id` is now also passed to
+    `resolve_local_server` itself, so a bare `hf:local/<model_id>`'s
+    context readback targets the SAME server the id-aware resolution
+    picked, never a different one "the default" would have guessed."""
+    target = resolve_local_server(name, env, model=model_id)
     if target is None:
         return None
     key = (target.base_url, model_id)

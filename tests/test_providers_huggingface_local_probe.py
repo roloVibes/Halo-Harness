@@ -224,6 +224,44 @@ def test_probe_manual_server_runs_even_under_the_background_net_gate(ctx: Ctx):
 
 
 @test
+def test_probe_models_endpoint_props_fallback_only_for_a_single_model_server(ctx: Ctx):
+    """Review fix pass (finding 12): `/props` is llama-server's own
+    SINGLE native endpoint (one loaded model's own `n_ctx`) -- a server
+    that reports MORE than one model must never have that one scalar
+    broadcast across several ids that lack their own context field
+    (which would silently conflate potentially different models' real
+    sizes); a genuinely single-model server still gets the fallback,
+    unchanged from before this fix. `probe_llama_server_props` is
+    monkeypatched to a fixed value -- the plain mock fixture has no real
+    `/props` route at all (see the 404 test below), and this test is
+    about the ROW-COUNT gate around that call, not the probe itself."""
+    import halo_harness.providers.huggingface_local_probe as probe_mod
+    from halo_harness.providers.huggingface_local_probe import probe_models_endpoint
+    real_props = probe_mod.probe_llama_server_props
+    probe_mod.probe_llama_server_props = lambda base_url, **kw: 32768
+    try:
+        multi = MockUpstream(path_prefix="/v1").start()
+        try:
+            multi.models_response = {"data": [{"id": "model-one"}, {"id": "model-two"}]}
+            info = probe_models_endpoint(multi.base_url, name="auto:multi")
+            ctx.check(f"neither id gets the /props value on a multi-model server, got {info.context_by_model}",
+                      info.context_by_model == {})
+        finally:
+            multi.stop()
+
+        single = MockUpstream(path_prefix="/v1").start()
+        try:
+            single.models_response = {"data": [{"id": "only-model"}]}
+            info2 = probe_models_endpoint(single.base_url, name="auto:single")
+            ctx.check(f"the one model DOES get the /props value, got {info2.context_by_model}",
+                      info2.context_by_model == {"only-model": 32768})
+        finally:
+            single.stop()
+    finally:
+        probe_mod.probe_llama_server_props = real_props
+
+
+@test
 def test_probe_llama_server_props_degrades_to_none_on_404(ctx: Ctx):
     """`/props` isn't served by the plain MockUpstream fixture (no such
     route) -- the real, important contract to pin is that this NEVER

@@ -8,11 +8,16 @@ the result to the Responses `input` item shapes -- same reuse pattern
 flattening algorithm.
 
 Dialect selection (`docs/harness/OPENAI-RESEARCH.md` "Dialect-selection
-table"): exactly the two bare ids the Responses API reference names as
-REQUIRING this dialect for function calling -- `gpt-6-astra`, `gpt-6.1-
-sol` -- plus `openai.dialect_overrides` (`~/.halo/config.json`, `{"<bare
-id>": "chat"|"responses"}`), which always wins over the table, in either
-direction.
+table"): every bare id in the gpt-6 and gpt-5.6 families -- `gpt-6-astra`,
+`gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`,
+`gpt-5.6-luna`, `gpt-5.6-terra` -- pass-B finding 7 (major): the repo's own
+live-400 fixture (tests/test_hotfix_101_effort.py, docs/TROUBLESHOOTING.md)
+names `gpt-6-sol` itself as rejecting function tools with reasoning_effort
+on `/v1/chat/completions`, so the whole family needs this dialect for a
+tool-bearing turn, not only the two ids the Responses migration guide
+happens to name -- plus `openai.dialect_overrides` (`~/.halo/config.json`,
+`{"<bare id>": "chat"|"responses"}`), which always wins over the table, in
+either direction.
 """
 
 from __future__ import annotations
@@ -26,7 +31,15 @@ from halo_harness.providers.translate import _flatten_messages
 
 log = logging.getLogger("bridge")
 
-RESPONSES_REQUIRED_MODEL_IDS = frozenset({"gpt-6-astra", "gpt-6.1-sol"})
+RESPONSES_REQUIRED_MODEL_IDS = frozenset({
+    "gpt-6-astra", "gpt-6.1-sol",
+    # Pass-B finding 7 (major): the rest of the gpt-6 family plus every
+    # gpt-5.6 id -- same live-400 wording as `gpt-6-sol` (see the module
+    # docstring above), so they need this dialect for a tool-bearing turn
+    # too, not only the two ids above.
+    "gpt-6-sol", "gpt-6-luna",
+    "gpt-5.6", "gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.6-terra",
+})
 
 _DIALECT_ALIASES = {
     "chat": "openai-chat", "openai-chat": "openai-chat",
@@ -38,10 +51,10 @@ def resolve_openai_dialect(model_id: str, *, overrides: "Optional[dict]" = None)
     """"openai-chat" or "openai-responses" for a bare `oai:<model_id>`.
     `overrides` (test seam; `None` reads `openai.dialect_overrides` from
     `~/.halo/config.json` via `halo_harness.theme.get_config_value`)
-    always wins over the table below, in EITHER direction -- the table is
-    deliberately narrow (exactly the two ids the research confirmed), and
-    a future model may need the opposite of either answer with no code
-    change. An unrecognized override value (a typo, an old dialect name)
+    always wins over the table below, in EITHER direction -- the table
+    covers the gpt-6 and gpt-5.6 families (pass-B finding 7), and a future
+    model may need the opposite of either answer with no code change. An
+    unrecognized override value (a typo, an old dialect name)
     falls back to the table instead of raising -- a bad config value must
     never break model resolution."""
     if overrides is None:

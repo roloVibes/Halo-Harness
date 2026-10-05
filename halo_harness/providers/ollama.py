@@ -259,11 +259,22 @@ def resolve_ollama_host(name: Optional[str] = None, env: Optional[dict] = None) 
 # `profiles.model_family` already uses, not a model_table.json row (that
 # table has no Ollama-host rows at all).
 _GPT_OSS_EFFORT_TO_THINK = {
-    "low": "low", "medium": "medium", "high": "high", "xhigh": "high", "max": "high",
+    # Review fix pass (finding 16): "none"/"minimal" (valid after an oai:/
+    # cx: session carries its own effort value across) used to fall through
+    # `.get(effort, "high")` straight to the GRADED "high" level -- the
+    # exact opposite of "off". Both now map to gpt-oss's own lowest graded
+    # level, "low" (gpt-oss has no bool-off equivalent; the fix text's own
+    # "map none/minimal/low to False" means THIS model family's "low").
+    "none": "low", "minimal": "low", "low": "low", "medium": "medium", "high": "high", "xhigh": "high", "max": "high",
 }
+# Review fix pass (finding 16): every bool-only (non-gpt-oss) effort value
+# that must map to `think: False` -- the old rule was `effort != "low"`,
+# which left "none"/"minimal" mapping to True (thinking ON) right alongside
+# "medium"/"high"/etc.
+_THINKING_OFF_EFFORTS = ("low", "none", "minimal")
 
 
-def think_value_for_effort(effort: Optional[str], model_id: str):
+def think_value_for_effort(effort: Optional[str], model_id: str, *, supports_thinking: bool = True):
     """The `think` field's value for one request (`True`/`False`/a graded
     level string/`None` to omit the field, i.e. "use the model's own
     default" per research doc section 1). `effort is None` (nothing
@@ -273,13 +284,26 @@ def think_value_for_effort(effort: Optional[str], model_id: str):
     doc section 6: "off for low effort on models that default to thinking"),
     on for medium and above. This bypasses `providers.profiles.map_effort`/
     `clamp_effort` entirely -- those build `reasoning_effort`/`thinking.
-    budget_tokens` fields that don't exist on this dialect's wire shape."""
-    if not effort:
+    budget_tokens` fields that don't exist on this dialect's wire shape.
+
+    Review fix pass (finding 16): `supports_thinking` (default `True`,
+    "benefit of the doubt" for a caller with no catalog to check against --
+    this bare dialect-level builder never fetches one itself; `agent/
+    loop.py`'s `_build_ollama_body_for_ref` is the one real caller that
+    resolves it from the catalog row's own declared `capabilities` list
+    and passes the real answer) OMITS the field entirely, same as `effort
+    is None`, when it is `False` -- a model without the `thinking`
+    capability (qwen3-coder, llama, gemma, mistral) never gets sent
+    `think` at all; Ollama answers that with a 400 "does not support
+    thinking" otherwise. `none`/`minimal` (valid after an `oai:`/`cx:`
+    session carries its own effort value across) now map OFF exactly like
+    `low` -- see `_THINKING_OFF_EFFORTS`/`_GPT_OSS_EFFORT_TO_THINK`."""
+    if not effort or not supports_thinking:
         return None
     low = (model_id or "").lower()
     if "gpt-oss" in low:
         return _GPT_OSS_EFFORT_TO_THINK.get(effort, "high")
-    return effort != "low"
+    return effort not in _THINKING_OFF_EFFORTS
 
 
 def resolve_num_ctx_and_source(trained_context: Optional[int], host_max_ctx: Optional[int] = None,
@@ -548,6 +572,42 @@ def probe_version(host: OllamaHost, *, timeout: float = _VERSION_PROBE_TIMEOUT_S
     function (never raises, never logs above DEBUG -- an unreachable local
     host is the ordinary case on most boxes, not a warning-worthy one)."""
     return _get_json(host, "/api/version", timeout=timeout)
+
+
+_VERSION_CACHE_LOCK = threading.Lock()
+_version_cache: "dict[str, str]" = {}  # host.url -> version string, this process only
+
+
+def cached_ollama_version(host: OllamaHost, *, timeout: float = _VERSION_PROBE_TIMEOUT_S) -> Optional[str]:
+    """Review fix pass (finding 10): the version STRING only, cached per
+    `host.url` for the REST OF THIS PROCESS once a probe succeeds --
+    `providers.ollama_hw.resolve_context_decision`'s own per-turn hot
+    path (and `agent/loop.py`'s auto-calibration gate) can now pass
+    `ollama_version` to `lookup_learned_cap`/`has_calibration_entry`
+    without paying for a fresh `/api/version` probe on every single turn:
+    only the FIRST lookup on a given host this process pays for one: a
+    stale cap left over from an Ollama upgrade (commit 9af8dac's own
+    promise) is now actually caught, not just the digest half of it.
+    `None` is NEVER cached (a probe that fails this time may succeed the
+    next -- an asleep host simply never gates on version staleness, same
+    degrade-to-"don't know" posture as every other probe in this file)."""
+    with _VERSION_CACHE_LOCK:
+        cached = _version_cache.get(host.url)
+    if cached is not None:
+        return cached
+    info = probe_version(host, timeout=timeout)
+    version = (info or {}).get("version") if isinstance(info, dict) else None
+    if version:
+        with _VERSION_CACHE_LOCK:
+            _version_cache[host.url] = version
+    return version
+
+
+def reset_ollama_version_cache() -> None:
+    """Test seam: force the next `cached_ollama_version` call on any host
+    to re-probe rather than reading a stale in-process cache entry."""
+    with _VERSION_CACHE_LOCK:
+        _version_cache.clear()
 
 
 def fetch_tags(host: OllamaHost, *, timeout: float = _READ_TIMEOUT_S) -> Optional[dict]:

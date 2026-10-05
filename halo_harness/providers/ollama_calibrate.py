@@ -70,21 +70,49 @@ def save_fit_store(state_dir, data: dict) -> None:
 
 
 def _find_entry(entries: list, *, host_url: str, model: str) -> Optional[dict]:
+    """Review fix pass (finding 9): matched via `ollama_names_match`, not
+    a bare `==` -- `halo ollama calibrate qwen3:latest` and an `ol:qwen3`
+    session used to never see each other's entry (an untagged ref never
+    found its own `:latest`-qualified record), so the session auto-
+    calibrated again on every fresh process. Imported lazily (same
+    pattern every other cross-module call in this file already uses) --
+    `providers.ollama` never imports this module at all, so there is no
+    real cycle, just the house habit of keeping this module's own import
+    list free of its sibling providers."""
+    from halo_harness.providers.ollama import ollama_names_match
     for entry in entries:
-        if isinstance(entry, dict) and entry.get("host_url") == host_url and entry.get("model") == model:
+        if (isinstance(entry, dict) and entry.get("host_url") == host_url
+                and ollama_names_match(entry.get("model"), model)):
             return entry
     return None
 
 
-def has_calibration_entry(state_dir, *, host_url: str, model: str) -> bool:
-    """True iff SOME entry exists for (host_url, model), regardless of
-    digest/version staleness or whether it found a fit at all -- this is
-    what gates auto-calibration (brief: run it "the first time a model is
-    used on a host with no learned cap"; a stale-but-present entry still
-    means it's not the FIRST time, so auto-calibrate does not re-trigger
-    on its own -- only an explicit `halo ollama calibrate` or a digest/
-    version change does, per `lookup_learned_cap`'s own docstring)."""
-    return _find_entry(load_fit_store(state_dir)["entries"], host_url=host_url, model=model) is not None
+def has_calibration_entry(state_dir, *, host_url: str, model: str, digest: Optional[str] = None,
+                           ollama_version: Optional[str] = None) -> bool:
+    """True iff SOME entry exists for (host_url, model) -- this is what
+    gates auto-calibration (brief: run it "the first time a model is
+    used on a host with no learned cap").
+
+    Review fix pass (finding 10): `digest`/`ollama_version`, when given,
+    make this STALENESS-AWARE -- the SAME mismatch rule `lookup_learned_
+    cap`/`has_recorded_does_not_fit` already apply, so an entry whose own
+    recorded digest/version disagrees is treated exactly like no entry at
+    all. Commit 9af8dac promised "re-measured... when the model digest or
+    Ollama version changes"; nothing re-measured automatically because
+    THIS gate never checked either one -- a re-pulled model (new digest)
+    or an upgraded server (new version) kept a stale entry looking
+    "already calibrated" forever. Omitted (the default, `None`/`None`)
+    keeps the OLD "some entry exists at all, regardless of staleness"
+    answer, for a caller with no digest/version to compare against."""
+    entry = _find_entry(load_fit_store(state_dir)["entries"], host_url=host_url, model=model)
+    if entry is None:
+        return False
+    if digest is not None and entry.get("digest") is not None and entry.get("digest") != digest:
+        return False
+    if ollama_version is not None and entry.get("ollama_version") is not None \
+            and entry.get("ollama_version") != ollama_version:
+        return False
+    return True
 
 
 def lookup_learned_cap(state_dir, *, host_url: str, model: str, digest: Optional[str] = None,
@@ -399,9 +427,15 @@ def record_last_turn_throughput(state_dir, *, host_url: str, model: str, tokens_
     host" -- persisted (not just kept in the live process's own memory) so
     a SEPARATE `halo ollama` CLI invocation, always a fresh process, can
     read back what the last real TUI/print-mode turn measured. Overwritten
-    every turn (one record per (host_url, model), no history kept)."""
+    every turn (one record per (host_url, model), no history kept).
+
+    Review fix pass (finding 9): the key normalizes `model` through
+    `normalize_ollama_model_name` (`<name>` and `<name>:latest` are one
+    key) -- recorded under a session's own raw ref (often untagged), it
+    used to miss the panel's own tagged catalog-row lookup entirely."""
+    from halo_harness.providers.ollama import normalize_ollama_model_name
     store = load_fit_store(state_dir)
-    store["last_turns"][f"{host_url}|{model}"] = {
+    store["last_turns"][f"{host_url}|{normalize_ollama_model_name(model)}"] = {
         "tokens_per_second": tokens_per_second, "prefill_seconds": prefill_seconds,
         "offloaded": offloaded, "output_tokens": output_tokens, "at": time.time(),
     }
@@ -409,5 +443,11 @@ def record_last_turn_throughput(state_dir, *, host_url: str, model: str, tokens_
 
 
 def get_last_turn_throughput(state_dir, *, host_url: str, model: str) -> Optional[dict]:
-    entry = load_fit_store(state_dir)["last_turns"].get(f"{host_url}|{model}")
+    """FIX PASS (finding 9): reads through the SAME `normalize_ollama_
+    model_name` key the write side now uses -- `model_picker.py`'s
+    column and `halo ollama`'s panel both look this up by whatever
+    string the catalog happens to spell the model as, which must match
+    regardless of how the turn that recorded it was addressed."""
+    from halo_harness.providers.ollama import normalize_ollama_model_name
+    entry = load_fit_store(state_dir)["last_turns"].get(f"{host_url}|{normalize_ollama_model_name(model)}")
     return entry if isinstance(entry, dict) else None

@@ -154,6 +154,23 @@ _HARNESS_SECRET_ENV_KEYS = frozenset({
     # calls tool_child_env first) and by hooks.py's own env builder (which
     # calls tool_child_env directly) -- no separate list to update there.
     "OPENROUTER_MANAGEMENT_KEY", "TYPESAFE_API_KEY",
+    # Pass-B finding 15 (major): every 2.0.3 provider key this fixed list
+    # still left out -- `HF_TOKEN` (the Hugging Face router's own
+    # credential, `providers.huggingface.resolve_huggingface`),
+    # `OPENAI_API_KEY` (`providers.config.resolve_openai`, the `oai:`
+    # route), `OLLAMA_API_KEY` (an Ollama Cloud host's bearer,
+    # `providers.ollama.resolve_ollama_hosts`'s own synthesized-default-
+    # host fallback), and `EXPLABS_API_KEY`/`EXPLABS_PROVISIONING_KEY`
+    # (the Experiential Labs inference/management keys, same
+    # inference-vs-management split `OPENROUTER_MANAGEMENT_KEY` already
+    # gets -- docs/harness/EXPERIENTIAL-RESEARCH.md; added here ahead of
+    # that route's own full wiring so the strip list is already correct
+    # once it lands). None of these have a harness-prefixed override
+    # variant of their own today (unlike Databricks's `BRIDGE_DBX_TOKEN`/
+    # `HALO_DBX_TOKEN`/`ROLO_CLAUDE_DBX_TOKEN`) -- only the bare name
+    # needs stripping.
+    "HF_TOKEN", "OPENAI_API_KEY", "OLLAMA_API_KEY",
+    "EXPLABS_API_KEY", "EXPLABS_PROVISIONING_KEY",
 })
 
 

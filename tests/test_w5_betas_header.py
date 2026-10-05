@@ -92,6 +92,83 @@ def test_betas_header_never_reaches_a_real_openrouter_wire_request(ctx: Ctx):
             os.environ["BRIDGE_OPENROUTER_BASE_URL"] = old_base_url
 
 
+# ---- pass-B finding 10 (major): extra_headers rebuilt per request's route ----
+
+@test
+def test_databricks_custom_headers_absent_after_switching_to_openrouter(ctx: Ctx):
+    """The brief's own pinning scenario: a session that STARTS on `dbx:`
+    with `ANTHROPIC_CUSTOM_HEADERS` set carries the Databricks headers at
+    session start (sanity-checked below) -- `extra_headers` used to be
+    computed ONCE from the starting route and handed to every later
+    `_build_request` call verbatim, so those same headers (the custom one
+    AND the default `x-databricks-use-coding-agent-mode`) kept riding on
+    every request after a `/model` switch onto a completely different
+    provider. A REAL turn against a mock OpenRouter upstream, after
+    switching, must never carry either one."""
+    from halo_harness.model import ModelProfile, parse_model_ref
+    from tests.helpers.mock_openai import MockUpstream
+
+    old_custom = os.environ.get("ANTHROPIC_CUSTOM_HEADERS")
+    os.environ["ANTHROPIC_CUSTOM_HEADERS"] = "X-Test-Dbx-Org: dbx-secret-org"
+    mock = MockUpstream().start()
+    try:
+        build = _build("dbx:databricks-meta-llama-3-1-70b-instruct", None)
+        session = build.session
+        ctx.check(f"sanity: the custom header IS present at session start, got {session.extra_headers}",
+                  session.extra_headers.get("X-Test-Dbx-Org") == "dbx-secret-org")
+        ctx.check(f"sanity: the default coding-agent-mode header is ALSO present at start, got {session.extra_headers}",
+                  "x-databricks-use-coding-agent-mode" in session.extra_headers)
+
+        from halo_harness.providers.stream import ProviderCreds
+        new_ref = parse_model_ref("or:mock/model")
+        session.set_model(new_ref, ModelProfile(), creds=ProviderCreds(base_url=mock.base_url, api_key="or-key"))
+        list(session.turn("hi"))
+        ctx.check(f"the mock upstream received exactly one call, got {len(mock.requests)}",
+                  len(mock.requests) == 1)
+        headers = mock.requests[0]["headers"]
+        ctx.check(f"the Databricks custom header never reached the openrouter wire request, got headers={headers}",
+                  "x-test-dbx-org" not in headers)
+        ctx.check(f"the default coding-agent-mode header never reached it either, got headers={headers}",
+                  "x-databricks-use-coding-agent-mode" not in headers)
+    finally:
+        mock.stop()
+        if old_custom is None:
+            os.environ.pop("ANTHROPIC_CUSTOM_HEADERS", None)
+        else:
+            os.environ["ANTHROPIC_CUSTOM_HEADERS"] = old_custom
+
+
+@test
+def test_hf_bill_to_absent_after_switching_away_from_the_router(ctx: Ctx):
+    """The mirror case, `X-HF-Bill-To` (round 4's Team/Enterprise billing
+    header): present at session start on the hf: router, must never reach
+    a request after switching to `or:`."""
+    from halo_harness.model import ModelProfile, parse_model_ref
+    from halo_harness.theme import set_config_value
+    from tests.helpers.mock_openai import MockUpstream
+
+    mock = MockUpstream().start()
+    try:
+        set_config_value("huggingface.bill_to", "test-org")
+        os.environ.setdefault("HF_TOKEN", "hf-test-default")
+        build = _build("hf:some-org/some-model", None)
+        session = build.session
+        ctx.check(f"sanity: X-HF-Bill-To IS present at session start, got {session.extra_headers}",
+                  session.extra_headers.get("X-HF-Bill-To") == "test-org")
+
+        from halo_harness.providers.stream import ProviderCreds
+        new_ref = parse_model_ref("or:mock/model")
+        session.set_model(new_ref, ModelProfile(), creds=ProviderCreds(base_url=mock.base_url, api_key="or-key"))
+        list(session.turn("hi"))
+        ctx.check(f"the mock upstream received exactly one call, got {len(mock.requests)}",
+                  len(mock.requests) == 1)
+        headers = mock.requests[0]["headers"]
+        ctx.check(f"X-HF-Bill-To never reached the openrouter wire request, got headers={headers}",
+                  "x-hf-bill-to" not in headers)
+    finally:
+        mock.stop()
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

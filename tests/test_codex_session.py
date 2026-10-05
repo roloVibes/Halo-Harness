@@ -134,6 +134,60 @@ def test_second_turn_resumes_same_thread(ctx: Ctx):
         session.close_cc()
 
 
+@test
+def test_session_effort_reaches_the_real_argv_as_model_reasoning_effort(ctx: Ctx):
+    """Pass-B finding 13 (major), end to end: a session's own `--effort`
+    reaches the REAL `codex exec` argv Halo builds for an actual turn,
+    not just the bare `build_cx_argv` unit level (tests/
+    test_codex_sandbox_argv.py)."""
+    log_path = Path(tempfile.mkdtemp(prefix="cx-effort-argvlog-")) / "argv.jsonl"
+    with _fake_codex_env(argv_log=log_path):
+        session, _ = _new_cx_session()
+        session.effort = "high"
+        list(session.turn("reply with the single word pong"))
+        lines = [json.loads(l) for l in log_path.read_text(encoding="utf-8").splitlines() if l.strip()]
+        lines = [l for l in lines if l and l[0] == "exec"]
+        ctx.check(f"one exec invocation recorded, got {len(lines)}", len(lines) == 1)
+        ctx.check(f"model_reasoning_effort=high carried on the real argv, got {lines[0]}",
+                  "model_reasoning_effort=high" in lines[0])
+        session.close_cc()
+
+
+@test
+def test_60k_carried_context_never_truncates_the_user_text(ctx: Ctx):
+    """Pass-B finding 12 (major): B-1's finding-4 fix already removed the
+    argv cap and moved the whole prompt to stdin -- this is the brief's
+    own pinning scenario: a 60,000-character carried context (the shape
+    `cc_runtime._render_conversation_so_far`/`prepare_conversation_so_far_
+    cx` can produce switching INTO `cx:` mid-session, stashed on `session.
+    _cx_pending_context` and drained by `turn_body_cx`'s own first-
+    iteration branch) plus a short user message must deliver the user's
+    own text intact, at the END of the delivered prompt, with no "first
+    20,000 characters" cut anywhere in the assembly."""
+    stdin_log = Path(tempfile.mkdtemp(prefix="cx-60k-stdin-")) / "stdin.txt"
+    with _fake_codex_env():
+        os.environ["FAKE_CODEX_STDIN_LOG"] = str(stdin_log)
+        try:
+            session, _ = _new_cx_session()
+            session._cx_pending_context = "c" * 60_000
+            user_text = "reply with the single word pong"
+            events_ = list(session.turn(user_text))
+            ctx.check(f"turn completed cleanly, got {[e.kind for e in events_][-3:]}",
+                      bool(events_) and events_[-1].kind == "turn_done"
+                      and events_[-1].data["reason"] == "end_turn")
+            ctx.check(f"stdin log was written, got exists={stdin_log.exists()}", stdin_log.exists())
+            delivered = stdin_log.read_text(encoding="utf-8")
+            ctx.check(f"the full, unbroken 60,000-character carried context arrived, got length={len(delivered)}",
+                      ("c" * 60_000) in delivered)
+            ctx.check(f"the user's own text is intact at the END of the delivered prompt, got tail={delivered[-60:]!r}",
+                      delivered.endswith(user_text))
+            ctx.check(f"no 'first 20,000 characters' cut: the delivered prompt is well over 60,000 chars, got {len(delivered)}",
+                      len(delivered) > 60_000)
+            session.close_cc()
+        finally:
+            os.environ.pop("FAKE_CODEX_STDIN_LOG", None)
+
+
 # ---- tools/list == frozen catalog, tools/call through the bridge -------
 
 @test

@@ -174,8 +174,14 @@ def codex_login_status(*, timeout: float = 10.0, env: Optional[dict] = None) -> 
         return None
     run_env = env if env is not None else dict(os.environ)
     try:
-        proc = subprocess.run(argv + ["login", "status"], capture_output=True, text=True,
-                               timeout=timeout, env=run_env)
+        # Pass-B finding 14 (major): this runs SYNCHRONOUSLY on a session's
+        # first `cx:` turn (`_preflight_cx`) -- a plain `subprocess.run`
+        # here could block well past `timeout` on Windows (a `.cmd` shim
+        # or `node` launcher outliving its own timeout while the real
+        # work finishes beneath it); `run_bounded_codex_subprocess`'s own
+        # watchdog reaches the whole tree instead of just the one handle.
+        from halo_harness.agent.codex_process import run_bounded_codex_subprocess
+        proc = run_bounded_codex_subprocess(argv + ["login", "status"], timeout=timeout, env=run_env)
     except subprocess.TimeoutExpired:
         return CodexAuthStatus(logged_in=False, timed_out=True)
     except OSError:
@@ -340,12 +346,16 @@ def refresh_cx_catalog(*, state_dir: Optional[Path] = None, timeout: float = 30.
     env = cc_child_env(dict(os.environ))
     prior = load_cx_models_cache(state_dir)
     refused = list(prior.get("refused") or [])
+    from halo_harness.agent.codex_process import run_bounded_codex_subprocess
     for alias, model_id in CODEX_ALIASES.items():
         try:
-            proc = subprocess.run(
+            # Pass-B finding 14 (major): same bounded-subprocess fix as
+            # `codex_login_status` just above -- a one-shot per-alias ping
+            # with no prompt of its own on stdin.
+            proc = run_bounded_codex_subprocess(
                 argv + ["exec", "--ephemeral", "--skip-git-repo-check", "--json", "-m", model_id,
                          "reply with the single word pong"],
-                capture_output=True, text=True, timeout=timeout, env=env,
+                timeout=timeout, env=env,
             )
         except (OSError, subprocess.TimeoutExpired):
             continue  # unrelated failure -- leave this alias's prior answer alone
@@ -383,7 +393,10 @@ def installed_codex_version() -> Optional[str]:
     except CodexNotFoundError:
         return None
     try:
-        proc = subprocess.run(argv + ["--version"], capture_output=True, text=True, timeout=10.0)
+        # Pass-B finding 14 (major): same bounded-subprocess fix as the
+        # other one-shot codex calls in this module.
+        from halo_harness.agent.codex_process import run_bounded_codex_subprocess
+        proc = run_bounded_codex_subprocess(argv + ["--version"], timeout=10.0)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return (proc.stdout or "").strip().split(" ")[-1] or None

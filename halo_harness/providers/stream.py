@@ -364,7 +364,16 @@ def _run_phase1(req: CompletionRequest, abort: "threading.Event | None" = None):
                 on_connect=_register_sock,
             )
     else:
-        base_url = req.openrouter_base_url or req.creds.base_url
+        # Pass-B finding 9 (major): `req.openrouter_base_url` is SESSION
+        # state (`HALO_OPENROUTER_BASE_URL`, set once at session start)
+        # that outlives a `/model` switch, a fallback, an escalation, and
+        # a sub-agent/small/compaction model swap onto a different
+        # provider -- applying it unconditionally here sent the OpenAI
+        # key or HF token to the OpenRouter override URL on every one of
+        # those routes. Scoped to an actual `or:` request only; every
+        # other provider in this branch (huggingface, openai) always
+        # uses its own `req.creds.base_url`.
+        base_url = (req.openrouter_base_url if req.route.provider == "openrouter" else None) or req.creds.base_url
 
         def _call_upstream():
             return call_openai_chat(

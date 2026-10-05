@@ -2104,9 +2104,11 @@ class Session:
         resolver `/model` itself uses (`headless._resolve_creds` -- see
         `apply_next_fallback_model`'s own finding 3/W6a fix for why this
         matters: `self.creds` is the CURRENT model's creds, wrong for a
-        small model on a different provider), falling back to `self.creds`
-        only when that resolver finds nothing -- every existing same-
-        provider caller is unaffected either way."""
+        small model on a different provider). Pass-B finding 8: a non-main
+        ref with no resolvable credentials is never run against `self.
+        creds` either -- checked up front, this call falls back to running
+        on the session's own main model entirely instead; every existing
+        same-provider caller is unaffected either way."""
         ref = model_ref or self.small_model_ref or self.model_ref
         if ref.provider == "cc":
             from halo_harness.agent.cc_runtime import one_shot_cc_call
@@ -2114,6 +2116,18 @@ class Session:
         if ref.provider == "codex":
             from halo_harness.agent.codex_runtime import one_shot_cx_call
             return one_shot_cx_call(ref.model, system_text, user_text, timeout_s=timeout_s)
+        # Pass-B finding 8 (major), second site: checked here, before
+        # anything below resolves a route/profile/body for `ref`, so a
+        # non-main ref with no resolvable credentials falls back to the
+        # session's own main model for this call entirely instead of
+        # (further down) sending a body built for `ref`'s own provider/
+        # dialect to the MAIN model's endpoint under the main model's key.
+        if ref is not self.model_ref:
+            from halo_harness.headless import _resolve_creds
+            if _resolve_creds(ref, self.settings) is None:
+                log.warning("small/hook model %r has no resolvable credentials; "
+                            "using the session's main model for this call", ref.raw)
+                ref = self.model_ref
         route = Route(provider=ref.provider, upstream_model=ref.model, dialect=ref.dialect) \
             if ref is not self.model_ref else self.route
         profile = resolve_profile(route) if ref is not self.model_ref else self.provider_profile
@@ -2131,6 +2145,15 @@ class Session:
                 # inside THIS method's own timeout_s budget -- see _build_
                 # ollama_body_for_ref's own docstring for why.
                 auto_calibrate=False,
+                # Review fix pass (finding 16): a small/hook ref has no
+                # explicit-this-session concept of its own to check --
+                # `effort` here comes from `roles.small`/the main
+                # session's own value, never a `/effort` typed FOR this
+                # ref specifically. `ref is self.model_ref` (a fallback
+                # call onto the SAME main model) still inherits the main
+                # session's own explicitness; every other ref never
+                # sends `think` from this call site.
+                effort_explicit=(ref is self.model_ref) and (self.effort_source in ("flag", "session")),
             )
             # Round 5b part 2 (brief item 7): this method returns a plain
             # string with no event stream of its own to yield a
@@ -2158,8 +2181,13 @@ class Session:
             )
         creds = self.creds
         if ref is not self.model_ref:
+            # Pass-B finding 8: no `or self.creds` fallback here either --
+            # the guard above already turned any unresolvable ref back
+            # into `self.model_ref` before `route`/`profile`/`body` were
+            # ever built, so this call only runs when resolution is
+            # expected to succeed.
             from halo_harness.headless import _resolve_creds
-            creds = _resolve_creds(ref, self.settings) or self.creds
+            creds = _resolve_creds(ref, self.settings)
         req = self._build_request(body, route=route, creds=creds)
         abort = threading.Event()
         timer = threading.Timer(max(0.1, timeout_s), abort.set)
@@ -2352,6 +2380,14 @@ class Session:
                 ref=self.model_ref, route=self.route, profile=self.provider_profile,
                 system_text=system_text, messages=messages, tools=tools, tool_choice=tool_choice,
                 effort=self.effort, requested_max_tokens=requested_max_tokens,
+                # Review fix pass (finding 16): `think` must never fire
+                # merely because SOME effort value happens to be set
+                # (last_effort carried from an earlier session, or
+                # settings.json's effortLevel, are both common) -- only
+                # an explicit CLI `--effort` THIS launch or an in-session
+                # `/effort` (`commands.builtins._cmd_effort` sets
+                # `effort_source = "session"`) counts.
+                effort_explicit=self.effort_source in ("flag", "session"),
             )
         elif self.route.dialect == "openai-responses":
             # Halo 2.0.3 round 5i part 1: the `/v1/responses` body, via
@@ -2431,7 +2467,26 @@ class Session:
             if not auto_calibrate_enabled():
                 return
             state_dir = self.state_dir
-            if has_calibration_entry(state_dir, host_url=host.url, model=model):
+            # Review fix pass (finding 10): the gate itself must be
+            # digest/version-aware -- a bare `has_calibration_entry(...,
+            # model=model)` (no digest/version) answers "some entry
+            # exists, period", so a re-pulled model (new digest) or an
+            # upgraded Ollama server (new version) kept a stale
+            # measurement looking "already calibrated" forever, exactly
+            # the gap commit 9af8dac's own "re-measured... when the
+            # model digest or Ollama version changes" promise never
+            # closed. `cached_ollama_version` pays for a real `/api/
+            # version` probe at most once per host this whole process.
+            from halo_harness.providers.ollama import cached_ollama_version, get_catalog
+            from halo_harness.providers.ollama_hw import catalog_row
+            digest = None
+            try:
+                digest = (catalog_row(get_catalog(host), model) or {}).get("digest")
+            except Exception:
+                log.debug("ollama: catalog read for digest failed for %s@%s", model, host.name, exc_info=True)
+            ollama_version = cached_ollama_version(host)
+            if has_calibration_entry(state_dir, host_url=host.url, model=model, digest=digest,
+                                      ollama_version=ollama_version):
                 return
             done = threading.Event()
             notice_box: list = [None]
@@ -2477,7 +2532,7 @@ class Session:
     def _build_ollama_body_for_ref(self, *, ref: ModelRef, route: Route, profile: ProviderProfile,
                                     system_text: str, messages: list, tools, tool_choice=None,
                                     effort: Optional[str], requested_max_tokens: Optional[int],
-                                    auto_calibrate: bool = True) -> dict:
+                                    auto_calibrate: bool = True, effort_explicit: bool = True) -> dict:
         """Halo 2.0.3 round 2b: the `ollama` dialect's own body-building
         step -- shared by `_derive_and_build` (this session's own current
         model), `_run_compaction`, and `call_small_model` (a `small_model_
@@ -2505,7 +2560,22 @@ class Session:
         hook's verdict, `/local <question>`, the escalation judge) is
         still the wrong BUDGET to spend it from: those callers' own
         `timeout_s` is meant to bound the actual small-model request, not
-        a first-use calibration probe on top of it."""
+        a first-use calibration probe on top of it.
+
+        Review fix pass (finding 16): `think` is now gated by TWO things
+        this method resolves and passes through to `build_ollama_request_
+        body`, never guessed at inside the dialect builder itself --
+        `decision.supports_thinking` (the catalog row's own declared
+        `capabilities`, from `resolve_context_decision` below) and
+        `effort_explicit` (did THIS call's own `effort` come from an
+        explicit choice made THIS session -- a CLI `--effort` flag or an
+        in-session `/effort`, `self.effort_source in ("flag", "session")`
+        -- or merely a carried `last_effort` from an EARLIER session,
+        config.json, settings.json, or a route default, none of which
+        the user did anything about just now). Every real caller passes
+        its own resolved value; the default (`True`) is this method's
+        OWN pre-fix behaviour, for a hermetic test that builds a body
+        directly with no session attached at all."""
         env = self.settings.effective_env if self.settings is not None else None
         host = resolve_ollama_host(ref.host, env)
         if host is None:
@@ -2558,6 +2628,9 @@ class Session:
             # already reflects, not a narrower recomputation that forgot
             # either one.
             recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only,
+            # Review fix pass (finding 16): see this method's own
+            # docstring for what each one gates.
+            supports_thinking=decision.supports_thinking, effort_explicit=effort_explicit,
         )
         # Halo 2.0.3 round 5c FIX PASS: `_build_request`'s own side-channel
         # read, same lazy-attribute pattern as `_last_ollama_host_url`/
@@ -2589,6 +2662,46 @@ class Session:
             self._last_ollama_offloaded = decision.offloaded
         return body
 
+    def _extra_headers_for_route(self, route: Route) -> dict:
+        """Pass-B finding 10 (major): rebuilt FRESH for `route` on every
+        call, never read off cached session-start state -- `self.extra_
+        headers` (set once at `__init__` from the SESSION's STARTING
+        model_ref, patched by `set_model` for `anthropic-beta` only) used
+        to ride unconditionally into every `_build_request` call, so a
+        Databricks session's `ANTHROPIC_CUSTOM_HEADERS` (or a router
+        session's `X-HF-Bill-To`) kept reaching OpenRouter/Ollama/local
+        servers after a `/model` switch, a fallback, or a small/
+        compaction-model override onto a different provider -- and the
+        reverse direction (switching INTO `dbx:`/the hf: router) never
+        gained its own header at all. Same gates `headless.build_session`
+        uses at session start, just re-run for THIS route/ref instead of
+        once."""
+        headers: dict = {}
+        if route.provider == "databricks":
+            from halo_harness.headless import _resolve_dbx_config_for_headers
+            from halo_harness.providers.config import merge_databricks_headers
+            dbx_cfg = _resolve_dbx_config_for_headers(self.settings)
+            headers = merge_databricks_headers(dbx_cfg.custom_headers if dbx_cfg else None)
+        if (route.provider == "huggingface" and self.model_ref.provider == "huggingface"
+                and not self.model_ref.host and not self.model_ref.local):
+            # Only ever added for the SESSION's own main ref (the one call
+            # site this can't tell apart from a cross-provider override by
+            # `route` alone -- `providers.routing.Route` carries no router/
+            # endpoint/local distinction, see agent/subagent.py's own note
+            # on the same limitation): a compaction/small-model override
+            # that happens to ALSO be the hf: router does not get this
+            # re-added, same as before this fix existed -- never a
+            # regression, just not yet a further improvement.
+            from halo_harness.providers.huggingface import resolve_huggingface_bill_to
+            bill_to = resolve_huggingface_bill_to()
+            if bill_to:
+                headers = {**headers, "X-HF-Bill-To": bill_to}
+        is_anthropic_family = route.provider == "anthropic" or (
+            route.provider == "databricks" and route.dialect == "anthropic-passthrough")
+        if is_anthropic_family and self.cli_flags.get("betas"):
+            headers = {**headers, "anthropic-beta": ",".join(self.cli_flags["betas"])}
+        return headers
+
     def _build_request(self, body: dict, *, route: Optional[Route] = None,
                         creds: Optional[ProviderCreds] = None) -> CompletionRequest:
         route = route if route is not None else self.route
@@ -2605,7 +2718,7 @@ class Session:
             body={"messages": []}, route=route,
             profile={"context_tokens": self.model_profile.context_tokens,
                      "max_output_tokens": self.model_profile.max_output_tokens},
-            creds=creds, state_dir=self.state_dir, extra_headers=self.extra_headers,
+            creds=creds, state_dir=self.state_dir, extra_headers=self._extra_headers_for_route(route),
             model_label=self.model_ref.raw, openrouter_base_url=self.openrouter_base_url,
             harness_mode=True, ping_interval=float(env_compat("PING_INTERVAL", default="15")),
             tool_id_format=self.provider_profile.tool_id_format,
@@ -3576,8 +3689,65 @@ class Session:
                     offloaded=self._last_ollama_offloaded,
                     output_tokens=eval_count if isinstance(eval_count, int) else None,
                 )
+                # Review fix pass (finding 14): the OTHER half of the LAN-
+                # host MUST-FIX -- a REAL turn (never a calibration run)
+                # that just loaded partially offloaded must still leave a
+                # trace: this fires whenever auto-calibration is off,
+                # after a does_not_fit record, with a stale cap, or after
+                # a retry past the ceiling -- every path finding 14 lists.
+                if self._last_ollama_offloaded:
+                    self._maybe_record_offload_learned_cap(self._last_ollama_host_url, self.model_ref.model)
         except Exception:
             log.debug("ollama: _record_ollama_throughput failed", exc_info=True)
+
+    def _maybe_record_offload_learned_cap(self, host_url: str, model: str) -> None:
+        """Review fix pass (finding 14): "on an offloaded /api/ps read
+        after a turn, print the one sentence with the size that fit, and
+        record it as a learned cap." Reuses the SAME `/api/ps` numbers
+        `providers.ollama_hw.estimate_fit_for_host` already read for THIS
+        turn (`last_known_offload_sizes` -- zero new network calls) and
+        the SAME `providers.ollama_fit.fit_estimate` arithmetic every
+        OTHER fit estimate in this codebase goes through, fed the REAL
+        `size_vram` this load actually got instead of a live GPU probe
+        reading -- "the largest num_ctx that would have been fully
+        resident within what this turn actually got". `None`/
+        `WEIGHTS_DO_NOT_FIT` (the catalog row not found, or even the bare
+        weights not fitting in `size_vram`) records nothing and shows no
+        notice -- there is no sane N to suggest. Queued through the SAME
+        `_pending_ollama_notices` every other ollama notice on this class
+        uses (surfaces once this session next drains it, never blocking
+        THIS turn); never raises -- any failure here just means no
+        notice and nothing recorded, same as this turn never having been
+        checked at all."""
+        try:
+            from halo_harness.providers.ollama import cached_ollama_version, get_catalog, resolve_ollama_host
+            from halo_harness.providers.ollama_calibrate import record_calibration
+            from halo_harness.providers.ollama_fit import fit_estimate, kv_bytes_per_elem_for, kv_bytes_per_token
+            from halo_harness.providers.ollama_hw import catalog_row, last_known_offload_sizes
+            env = self.settings.effective_env if self.settings is not None else None
+            host = resolve_ollama_host(getattr(self.model_ref, "host", None), env)
+            if host is None or host.url != host_url:
+                return
+            sizes = last_known_offload_sizes(host_url, model)
+            if sizes is None:
+                return
+            _size, size_vram = sizes
+            row = catalog_row(get_catalog(host), model)
+            if row is None:
+                return
+            kv = kv_bytes_per_token(row.get("model_info") or {},
+                                     bytes_per_elem=kv_bytes_per_elem_for(getattr(host, "kv_cache_type", None)))
+            estimated_cap = fit_estimate(kv_bytes_per_token=kv, free_memory_bytes=size_vram,
+                                          resident_weight_bytes=row.get("size"))
+            if not isinstance(estimated_cap, int) or isinstance(estimated_cap, bool) or estimated_cap <= 0:
+                return  # unknown or WEIGHTS_DO_NOT_FIT -- no sane N to suggest or record
+            record_calibration(self.state_dir, host_url=host_url, model=model, digest=row.get("digest"),
+                                max_full_gpu_ctx=estimated_cap, ollama_version=cached_ollama_version(host))
+            self._pending_ollama_notices.append(
+                f"{model} on '{host.name}' loaded partially offloaded this turn -- set ollama.hosts[].max_ctx "
+                f"to {estimated_cap} to keep it fully in GPU memory (recorded as a learned cap for next time).")
+        except Exception:
+            log.debug("ollama: _maybe_record_offload_learned_cap failed for %s@%s", model, host_url, exc_info=True)
 
     def _maybe_yield_improve_hint(self) -> Iterator[events.Event]:
         """H10 Part B4: counters only, no model call, fires AT MOST once
@@ -3646,6 +3816,13 @@ class Session:
                 ref=self.model_ref, route=self.route, profile=self.provider_profile,
                 system_text=system_text, messages=messages, tools=tools, tool_choice=tool_choice,
                 effort=effort, requested_max_tokens=requested_max_tokens,
+                # Review fix pass (finding 16): same rule as the main
+                # turn -- `effort` here is already `None` when `no_
+                # thinking` forced it off above, in which case this is
+                # moot (`build_ollama_request_body` omits `think`
+                # whenever `effort` itself is falsy, before it even
+                # looks at this flag).
+                effort_explicit=self.effort_source in ("flag", "session"),
             )
         if self.route.dialect == "openai-responses":
             # Halo 2.0.3 round 5i part 1: the SAME builder `_derive_and_
@@ -3808,14 +3985,17 @@ class Session:
         than the main model now actually runs on that provider, instead
         of the documented "same-provider only... a follow-up refinement"
         limitation this used to carry -- credentials for the override ref
-        are resolved with the exact resolver `/model` itself uses
+        are ALWAYS resolved with the exact resolver `/model` itself uses
         (`headless._resolve_creds`, the same fix `call_small_model`'s own
-        `small_model_ref` case got), falling back to `self.creds` only
-        when that resolver finds nothing configured for the override's
-        own provider. `cc:` (the installed Claude binary) is still
-        refused -- same reason `call_small_model` special-cases it before
-        ever building a route/body: there is no HTTP route for a one-shot
-        summarisation call against it at all.
+        `small_model_ref` case got; pass-B finding 8: every ref, not only
+        one on a different `.provider` string -- a different host or key
+        on the SAME provider needs its own resolve too). A ref with no
+        resolvable credentials skips the override entirely instead of
+        falling back to the main model's OWN creds (that would send this
+        ref's body to the main model's endpoint). `cc:` (the installed
+        Claude binary) is still refused -- same reason `call_small_model`
+        special-cases it before ever building a route/body: there is no
+        HTTP route for a one-shot summarisation call against it at all.
 
         Halo 2.0.2 (brief A.1): "`compaction` is the rung after
         `compactionModel`" -- the `roles.<compaction>` table entry (config.
@@ -3858,10 +4038,22 @@ class Session:
         route = Route(provider=ref.provider, upstream_model=ref.model, dialect=ref.dialect)
         profile = resolve_profile(route)
         model_profile = resolve_model_profile(ref, self.state_dir, routes)
-        creds = self.creds
-        if ref.provider != self.model_ref.provider:
-            from halo_harness.headless import _resolve_creds
-            creds = _resolve_creds(ref, self.settings) or self.creds
+        # Pass-B finding 8 (major): resolve credentials whenever the REF
+        # differs at all, not only when `ref.provider` differs -- 2.0.3's
+        # multi-host providers (an `hf:local/x@srv` compactionModel under
+        # an `hf:` router main, `ol:small` under `ol:big@lan`) differ by
+        # HOST or key within the SAME provider string, so the old gate
+        # let those inherit the main model's own URL/key. A ref with no
+        # resolvable credentials is never run against the main model's
+        # creds either (that would send ref's body to someone else's
+        # endpoint) -- the override is skipped entirely, same as the
+        # invalid-ref/cc:/codex cases above.
+        from halo_harness.headless import _resolve_creds
+        creds = _resolve_creds(ref, self.settings)
+        if creds is None:
+            log.warning("compactionModel %r has no resolvable credentials; "
+                        "using the session's main model for this summary", raw)
+            return None
         saved = (self.route, self.provider_profile, self.model_profile, self.model_ref, self.effort, self.creds)
         self.route, self.provider_profile, self.model_profile, self.model_ref, self.creds = (
             route, profile, model_profile, ref, creds)

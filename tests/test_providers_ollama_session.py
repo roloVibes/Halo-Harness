@@ -216,6 +216,68 @@ def test_ol_compaction_summary_uses_native_body(ctx: Ctx):
         os.environ.pop("OLLAMA_HOST", None)
 
 
+@test
+def test_ol_compaction_model_different_host_resolves_fresh_creds(ctx: Ctx):
+    """Pass-B finding 8 (major): the compactionModel swap used to resolve
+    fresh credentials only when `ref.provider != self.model_ref.provider`
+    -- same provider ("ollama"), different HOST (`ollama.hosts[].api_key`)
+    fell through to `self.creds`, the MAIN model's own creds. Here the
+    main session's host carries no api key at all and the compactionModel
+    names a SECOND, named host with its own key -- the summary call's own
+    wire request must carry THAT host's key, not the main model's
+    keyless creds."""
+    from halo_harness.agent.assemble import SessionContext
+    from halo_harness.agent.compact import CompactionKnobs
+    from halo_harness.agent.loop import Session
+    from halo_harness.model import ModelProfile, parse_model_ref
+    from halo_harness.permissions import PermissionEngine
+    from halo_harness.providers.stream import ProviderCreds
+    from halo_harness.theme import set_config_value
+
+    fh = build_fake_home()
+    mock = MockUpstream().start()
+    mock.scenarios["plain-text-v2"] = mock.scenarios["plain-text"]
+    try:
+        os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+        os.environ["OLLAMA_HOST"] = mock.base_url
+        # A second, NAMED host entry pointed at the SAME mock server (the
+        # finding's own "different host or key within one provider" --
+        # one mock is enough to prove which creds reached the wire) with
+        # its own api_key, distinct from the main session's keyless creds.
+        set_config_value("ollama.hosts", [{"name": "lan", "url": mock.base_url, "api_key": "lan-hostkey"}])
+        session_ctx = SessionContext(cwd=fh["proj"], model_label="ol:plain-text")
+        session = Session(
+            cwd=fh["proj"], model_ref=parse_model_ref("ol:plain-text"),
+            model_profile=ModelProfile(context_tokens=10_000, max_output_tokens=1_000),
+            creds=ProviderCreds(base_url=mock.base_url, api_key=""),
+            state_dir=Path(tempfile.mkdtemp(prefix="ol-compact-host-")), model_label="ol:plain-text",
+            session_context=session_ctx, max_turns=10,
+            permission_engine=PermissionEngine(mode="auto", cwd=fh["proj"]),
+        )
+        filler = "x" * 400
+        for i in range(60):
+            session.log.append_user([{"type": "text", "text": f"question number {i} -- {filler}"}])
+            session.log.append_assistant(content=[{"type": "text", "text": f"answer number {i}. {filler}"}],
+                                          stop_reason="end_turn")
+
+        session._compaction_knobs = CompactionKnobs(compaction_model="ol:plain-text-v2@lan")
+        events_seen = list(session._run_compaction(1, trigger="manual"))
+        ctx.check(f"compaction completed, got phases {[e.data.get('phase') for e in events_seen if e.kind == 'compaction']}",
+                  any(e.kind == "compaction" and e.data["phase"] == "done" for e in events_seen))
+
+        chats = _chat_requests(mock)
+        ctx.check(f"at least one /api/chat call recorded for the summary, got {len(chats)}", len(chats) >= 1)
+        got_auth = chats[-1]["headers"].get("authorization")
+        ctx.check(f"the NAMED host's own api_key reached the wire, got {got_auth!r}",
+                  got_auth == "Bearer lan-hostkey")
+        ctx.check(f"the session's main model_ref is restored after the summary call, got {session.model_ref.raw!r}",
+                  session.model_ref.raw == "ol:plain-text")
+    finally:
+        mock.stop()
+        os.environ.pop("BRIDGE_TEST_HOME", None)
+        os.environ.pop("OLLAMA_HOST", None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

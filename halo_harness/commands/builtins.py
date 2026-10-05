@@ -264,6 +264,9 @@ def _cmd_models(args: str, facade: HeadlessFacade) -> str:
     from halo_harness.providers.anthropic_catalog import (
         ant_models_age_seconds, load_ant_models_json, refresh_anthropic_catalog_if_stale,
     )
+    from halo_harness.providers.openai_catalog import (
+        load_oai_models_json, oai_models_json_age_seconds, refresh_openai_catalog_if_stale,
+    )
     from halo_harness.providers.enablement import is_enabled
     state_dir = bridge_home()
     wants_refresh = args.strip().lower() in ("refresh", "--refresh")
@@ -346,6 +349,27 @@ def _cmd_models(args: str, facade: HeadlessFacade) -> str:
             age = ant_models_age_seconds(state_dir)
             age_str = "never" if age is None else f"{age / 3600:.1f}h ago"
             lines.append(f"Anthropic: {len(load_ant_models_json(state_dir))} model(s) cached (last refreshed {age_str}).")
+
+    if is_enabled("openai"):
+        # Pass-B finding 16 (major): `refresh_openai_catalog_if_stale` had
+        # no caller anywhere -- `/models refresh` skipped OpenAI entirely,
+        # same gap the TUI's own background worker had. Same shape as the
+        # Anthropic block just above.
+        if wants_refresh:
+            from halo_harness.providers.databricks import CATALOG_REFRESH_BUSY, REFRESH_BUSY_NOTE
+            ok = refresh_openai_catalog_if_stale(state_dir, force=True)
+            if ok is CATALOG_REFRESH_BUSY:
+                lines.append(f"OpenAI: {REFRESH_BUSY_NOTE}.")
+            elif ok is False:
+                lines.append("OpenAI refresh failed -- see `halo doctor`.")
+            elif ok is None:
+                lines.append("OpenAI: not configured -- nothing to refresh.")
+            else:
+                lines.append(f"OpenAI refreshed: {len(load_oai_models_json(state_dir))} model(s) cached.")
+        else:
+            age = oai_models_json_age_seconds(state_dir)
+            age_str = "never" if age is None else f"{age / 3600:.1f}h ago"
+            lines.append(f"OpenAI: {len(load_oai_models_json(state_dir))} model(s) cached (last refreshed {age_str}).")
 
     if not lines:
         return ("No provider is set up -- not configured (see `halo providers`, "

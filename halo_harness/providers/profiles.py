@@ -695,11 +695,25 @@ def resolve_profile(route, model_table: Optional[dict] = None, state_dir=None) -
                 # on the highest value THIS id lists, never a value it
                 # does not.
                 oai_default_effort = values[-1]
+        # Pass-B finding 7 (major): the SAME substring rule the Databricks
+        # branch above uses (`"gpt-6" in ... or "gpt-5-6" in ...`), adapted
+        # to this family's dotted `oai:` naming (`gpt-5.6`, never `gpt-5-6`
+        # here) -- belt-and-suspenders for a gpt-6/gpt-5.6 id that an
+        # `openai.dialect_overrides` entry forces back onto this chat
+        # profile (`resolve_openai_dialect`'s table sends the family to
+        # `openai-responses` by default, where this field is never read):
+        # a tool-bearing turn must still never pay the live-verified
+        # "Function tools with reasoning_effort are not supported for
+        # gpt-6-sol" 400 and its retry.
+        oai_reasoning_effort_with_tools = (
+            "none" if ("gpt-6" in route.upstream_model.lower() or "gpt-5.6" in route.upstream_model.lower())
+            else None)
         profile = replace(
             profile, max_tokens_field="max_completion_tokens",
             reasoning_effort_supported=bool(oai_row.get("reasoning")),
             effort_values_supported=oai_effort_values, reasoning_default_effort=oai_default_effort,
             send_stream_options_include_usage=True,
+            reasoning_effort_with_tools=oai_reasoning_effort_with_tools,
         )
     return profile
 

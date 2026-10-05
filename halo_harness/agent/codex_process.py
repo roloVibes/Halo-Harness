@@ -33,19 +33,79 @@ from typing import Optional
 from halo_harness.providers.codex_models import resolve_codex_launch_argv
 
 # CODEX-RESEARCH.md section 3: Halo's permission-mode -> (approval_policy,
-# sandbox_mode) mapping. bypass/auto share one row (never asks, full
-# access); default/manual sandbox values are Halo's own documented choice
-# where the brief only specified the approval value.
+# sandbox_mode) mapping. Pass-B finding 11 (major): keyed on
+# `permissions.PermissionEngine`'s own six real mode names (its own
+# docstring: "mode is one of default|acceptEdits|plan|auto|dontAsk|
+# bypassPermissions") -- `normalize_permission_mode` only ever maps
+# "manual" to "default" before a mode reaches this table, so the OLD
+# "bypass"/"manual" keys here never matched a real `.mode` value at all:
+# EVERY mode but "auto" fell through to this `.get`'s own "default" row,
+# including `bypassPermissions` (`--dangerously-skip-permissions`),
+# `dontAsk`, `acceptEdits` and `plan` -- the documented "manual ->
+# untrusted/read-only" row was unreachable code.
+#   - auto/bypassPermissions: never asks, full access (both mean "allow
+#     everything" per permissions.py's own module docstring; Codex has no
+#     separate concept for the one difference between them, which deny
+#     rules govern only on HALO's own tool dispatch).
+#   - default/acceptEdits: Codex's own approval system decides when to
+#     interrupt (its coarser sandbox has no separate "ask about edits
+#     specifically" the way Halo's own engine does); edits stay confined
+#     to the workspace.
+#   - dontAsk: never asks (dontAsk's whole point is that an ask never
+#     reaches the user), confined to the workspace.
+#   - plan: never asks AND read-only -- plan mode never writes at all, so
+#     this is also the one row that sidesteps the research's own
+#     unconfirmed "an approval request `codex exec` cannot answer" risk
+#     by construction (a blocked write just fails, nothing to approve).
 _PERMISSION_MODE_TO_CODEX = {
-    "bypass": ("never", "danger-full-access"),
     "auto": ("never", "danger-full-access"),
+    "bypassPermissions": ("never", "danger-full-access"),
     "default": ("on-request", "workspace-write"),
-    "manual": ("untrusted", "read-only"),
+    "acceptEdits": ("on-request", "workspace-write"),
+    "dontAsk": ("never", "workspace-write"),
+    "plan": ("never", "read-only"),
+    # Legacy alias: `codex_runtime.py`'s one-shot `cx:` call still passes
+    # the literal string "bypass" (pre-engine-name; finding 31, a
+    # different, unassigned finding, covers fixing THAT call site) --
+    # kept mapped to the same row `auto`/`bypassPermissions` get, so
+    # removing the old dead "manual"/"bypass" keys from this table's
+    # PRIMARY set doesn't silently change that one caller's behaviour.
+    "bypass": ("never", "danger-full-access"),
 }
 
 
 def codex_approval_and_sandbox(permission_mode: str) -> "tuple[str, str]":
     return _PERMISSION_MODE_TO_CODEX.get(permission_mode, _PERMISSION_MODE_TO_CODEX["default"])
+
+
+# Pass-B finding 13 (major): CODEX-RESEARCH.md section 8 (learn.chatgpt.com/
+# docs/config-file/config-reference, confirmed): `model_reasoning_effort`
+# accepts exactly low/medium/high/xhigh/max/ultra. Halo's own harness-wide
+# `--effort`/`/effort` vocabulary (`providers.profiles.EFFORT_LEVELS`) is
+# low/medium/high/xhigh/max -- the SAME five names (a `cx:` route has no
+# `model_table.json`/vendored-catalog row of its own, so `resolve_profile`
+# falls through to this exact generic set for it, same reasoning the
+# "ollama"/"openai-responses" branches already give for why no row lookup
+# applies here either) -- so no renaming table is needed, only a allowlist
+# narrow enough to never forward a stray value Codex has never heard of
+# (`none`/`minimal`, valid on other dialects, are never actually reachable
+# here once `clamp_effort` has already narrowed them, but this stays a
+# hard allowlist rather than trusting that invariant blindly). `ultra`
+# itself is accepted too, even though nothing in Halo ever sends it today,
+# since Codex's own set simply has one more rung than Halo's.
+_CODEX_REASONING_EFFORT_VALUES = frozenset({"low", "medium", "high", "xhigh", "max", "ultra"})
+
+
+def codex_reasoning_effort(effort: Optional[str]) -> Optional[str]:
+    """`None`/empty (no `--effort`/`/effort` set at all) -> `None`, meaning
+    "omit `model_reasoning_effort` entirely" -- Codex then uses its own
+    config.toml/default, the same "omitting a field takes the provider's
+    own default" contract every other route's effort handling follows. A
+    value outside Codex's own accepted set also -> `None`, defensively,
+    rather than forwarding something `codex exec` would reject outright."""
+    if not effort:
+        return None
+    return effort if effort in _CODEX_REASONING_EFFORT_VALUES else None
 
 
 def _repo_root_for_pythonpath() -> str:
@@ -105,7 +165,8 @@ def cx_subprocess_env(base_env: dict, bridge_env: dict) -> dict:
 
 def build_cx_argv(*, model: str, prompt: str, resume_id: Optional[str], permission_mode: str,
                    mcp_override_args: "list[str]", ephemeral: bool = False,
-                   image_paths: Optional[list] = None, prompt_via_stdin: bool = False) -> list:
+                   image_paths: Optional[list] = None, prompt_via_stdin: bool = False,
+                   effort: Optional[str] = None) -> list:
     """`resume_id=None` -> a fresh `codex exec ...`; otherwise `codex exec
     resume <id> ...`. `--skip-git-repo-check` always (a Halo session cwd
     need not be a git repo). `--ephemeral` only for the stateless one-shot
@@ -129,7 +190,16 @@ def build_cx_argv(*, model: str, prompt: str, resume_id: Optional[str], permissi
     ends the argv with the bare positional `-` instead of the prompt text
     itself. The caller is then responsible for writing `prompt` to the
     child's own stdin (`CodexExecProcess.send_prompt`) -- see this
-    module's own docstring for why argv is never where a prompt belongs."""
+    module's own docstring for why argv is never where a prompt belongs.
+
+    Pass-B finding 13 (major): `effort` (Halo's `--effort`/`/effort`,
+    already clamped to the harness-wide set by the time a `cx:` session
+    carries one) rides as its own `-c model_reasoning_effort=<value>` on
+    EVERY invocation, a fresh `exec` and a `resume` alike -- same "both
+    values on every call" shape `approval_policy`/`sandbox_mode` already
+    use just above. `None` (unset, or a value `codex_reasoning_effort`
+    doesn't recognize) omits the flag entirely, same as every other
+    route's own "omit means take the provider's own default" contract."""
     approval_policy, sandbox_mode = codex_approval_and_sandbox(permission_mode)
     argv = resolve_codex_launch_argv() + ["exec"]
     if resume_id:
@@ -138,6 +208,9 @@ def build_cx_argv(*, model: str, prompt: str, resume_id: Optional[str], permissi
         "--json", "--skip-git-repo-check", "-m", model,
         "-c", f"approval_policy={approval_policy}", "-c", f"sandbox_mode={sandbox_mode}",
     ]
+    mapped_effort = codex_reasoning_effort(effort)
+    if mapped_effort:
+        argv += ["-c", f"model_reasoning_effort={mapped_effort}"]
     argv += mcp_override_args
     if ephemeral:
         argv.append("--ephemeral")
@@ -145,6 +218,85 @@ def build_cx_argv(*, model: str, prompt: str, resume_id: Optional[str], permissi
         argv += ["-i", str(path)]
     argv.append("-" if prompt_via_stdin else prompt)
     return argv
+
+
+def _kill_process_tree(proc: "subprocess.Popen") -> None:
+    """Pass-B finding 14 (major): a bounded one-shot codex call's own
+    timeout watchdog. `proc.kill()` alone (all `subprocess.run`'s own
+    `timeout=` ever does internally) only reaches the ONE process this
+    handle names -- on Windows that is often the resolved launcher
+    (cmd.exe running the npm `.cmd` shim, or the `node` process), never
+    whatever it goes on to spawn beneath it, so `communicate()` then
+    blocks on a still-running grandchild that still holds the stdout/
+    stderr pipes open, past any timeout this function was ever given.
+    Verified: `subprocess.run([<.cmd shim whose child sleeps 8s>],
+    capture_output=True, timeout=2)` returned after 8.1s, not 2s.
+    `taskkill /T /F` (Windows: terminates the named process AND every
+    process it started) / `killpg` (POSIX: every process in the group
+    `start_new_session=True` below put every descendant into) reach the
+    whole tree instead."""
+    import contextlib
+    if os.name == "nt":
+        with contextlib.suppress(Exception):
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                            capture_output=True, timeout=10)
+    else:
+        with contextlib.suppress(ProcessLookupError, OSError):
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    with contextlib.suppress(Exception):
+        proc.kill()  # belt-and-suspenders: the handle itself, in case the tree-kill above missed it
+
+
+def run_bounded_codex_subprocess(argv: "list[str]", *, timeout: float, env: Optional[dict] = None,
+                                  cwd: Optional[str] = None) -> "subprocess.CompletedProcess":
+    """Pass-B finding 14 (major): the shared replacement for a bare
+    `subprocess.run(argv, capture_output=True, timeout=...)` call against
+    the `codex` binary -- `one_shot_cx_call` (60s), `codex_login_status`
+    (10s, run synchronously by `_preflight_cx` on a session's first `cx:`
+    turn), `halo models --cx --refresh`'s per-alias pings (30s) and
+    `installed_codex_version`'s `--version` check (10s) all used to call
+    `subprocess.run` directly, whose own timeout isn't enough -- see
+    `_kill_process_tree`'s own docstring for why. `stdin=DEVNULL`: every
+    one of these is a one-shot call with no prompt of its own to write on
+    stdin, and the OLD plain `subprocess.run` calls inherited Halo's own
+    stdin unchanged -- under `--input-format stream-json` that let a
+    `codex` child read and consume queued input meant for Halo itself.
+    Own process group (`start_new_session=True`/`CREATE_NEW_PROCESS_
+    GROUP`, the exact isolation `CodexExecProcess.__init__` already uses)
+    so the watchdog has a whole tree to reach in the first place.
+
+    Raises `subprocess.TimeoutExpired` on a timeout and `OSError` if the
+    process never starts at all -- the exact two exceptions `subprocess.
+    run` itself raises, so every existing caller's own `except` clause
+    needed no change beyond the call site itself."""
+    popen_kwargs = dict(
+        cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, encoding="utf-8", errors="replace",
+    )
+    if env is not None:
+        popen_kwargs["env"] = dict(env)
+    if os.name == "nt":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        popen_kwargs["start_new_session"] = True
+    proc = subprocess.Popen(argv, **popen_kwargs)  # OSError propagates untouched, same as subprocess.run
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_process_tree(proc)
+        # Drain whatever the now-dying tree still has buffered so THIS
+        # process is fully reaped (no zombie) -- bounded by its own short
+        # grace period since the tree-kill above should make this quick.
+        # A second TimeoutExpired here is swallowed, not re-raised: the
+        # ORIGINAL timeout (re-raised by the bare `raise` below) is what
+        # every existing caller's `except subprocess.TimeoutExpired`
+        # already expects to see.
+        try:
+            proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        raise
+    return subprocess.CompletedProcess(argv, proc.returncode, stdout, stderr)
 
 
 class CodexExecProcess:

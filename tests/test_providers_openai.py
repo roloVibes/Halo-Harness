@@ -79,16 +79,19 @@ def test_oai_ref_selects_responses_dialect_for_the_two_confirmed_ids(ctx: Ctx):
 
 
 @test
-def test_oai_similarly_named_ids_do_not_match_the_table(ctx: Ctx):
-    """docs/harness/OPENAI-RESEARCH.md's own corrected-assumption note:
-    gpt-6-sol/gpt-6-luna/gpt-5.6-sol are REAL, DIFFERENT ids from the two
-    the Responses guide actually names -- a substring match would have
-    wrongly swept them in."""
+def test_oai_rest_of_gpt6_and_gpt5_6_families_also_select_responses(ctx: Ctx):
+    """Pass-B finding 7 (major) overturns docs/harness/OPENAI-RESEARCH.md's
+    "exactly the two confirmed ids" assumption: the repo's OWN live-400
+    fixture (tests/test_hotfix_101_effort.py, docs/TROUBLESHOOTING.md)
+    names `gpt-6-sol` itself as rejecting function tools with
+    reasoning_effort on `/v1/chat/completions`, so the whole gpt-6 and
+    gpt-5.6 families need the Responses dialect for a tool-bearing turn,
+    not only `gpt-6-astra`/`gpt-6.1-sol`."""
     from halo_harness.model import parse_model_ref
     with _Env():
-        for model_id in ("gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol"):
+        for model_id in ("gpt-6-sol", "gpt-6-luna", "gpt-5.6", "gpt-5.6-sol", "gpt-5.6-luna", "gpt-5.6-terra"):
             ref = parse_model_ref(f"oai:{model_id}")
-            ctx.check(f"{model_id} stays openai-chat, got {ref.dialect!r}", ref.dialect == "openai-chat")
+            ctx.check(f"{model_id} selects openai-responses, got {ref.dialect!r}", ref.dialect == "openai-responses")
 
 
 @test
@@ -207,6 +210,73 @@ def test_provider_not_configured_message_names_the_env_var(ctx: Ctx):
             ctx.check("must raise ProviderNotConfigured", False)
         except ProviderNotConfigured as e:
             ctx.check(f"names OPENAI_API_KEY, got {e!r}", "OPENAI_API_KEY" in str(e))
+
+
+# ---- pass-B finding 9 (major): openrouter_base_url scoped to or: only --------
+
+@test
+def test_openrouter_base_url_never_applies_outside_an_openrouter_route(ctx: Ctx):
+    """`req.openrouter_base_url` is session state (`HALO_OPENROUTER_
+    BASE_URL`, set once at session start) that used to apply to EVERY
+    non-Databricks chat route -- an `oai:`/`hf:` request built while that
+    field was still set from an earlier `or:` leg of the same session (a
+    `/model` switch, a fallback, a sub-agent/small/compaction call) went
+    to the OpenRouter override URL with the OpenAI/HF key instead of its
+    own provider's real endpoint. Two independent fake upstreams stand in
+    for "the real provider" and "the stale OpenRouter override" -- only
+    the real one may ever see the request for openai/huggingface; the
+    override is legitimate only when `route.provider == 'openrouter'`."""
+    from pathlib import Path as _Path
+    from halo_harness.providers.profiles import resolve_profile
+    from halo_harness.providers.routing import Route
+    from halo_harness.providers.stream import CompletionRequest, ProviderCreds, _run_phase1
+    from tests.helpers.mock_openai import MockUpstream
+    with _Env():
+        real = MockUpstream(path_prefix="/v1").start()
+        decoy = MockUpstream(path_prefix="/v1").start()
+        try:
+            for provider, model_id in (("openai", "gpt-5"), ("huggingface", "org/some-model")):
+                real.clear()
+                decoy.clear()
+                route = Route(provider=provider, upstream_model=model_id, dialect="openai-chat")
+                profile = resolve_profile(route)
+                req = CompletionRequest(
+                    body={}, route=route, profile=profile,
+                    creds=ProviderCreds(base_url=real.base_url, api_key="real-key"),
+                    state_dir=_Path(os.environ["BRIDGE_STATE_DIR"]), extra_headers={},
+                    model_label=f"{provider}:{model_id}", prebuilt_oai_body={"model": model_id},
+                    openrouter_base_url=decoy.base_url,
+                )
+                _body, result = _run_phase1(req)
+                ctx.check(f"{provider}: a genuine 2xx from the REAL upstream, got {result.status}",
+                          200 <= result.status < 300)
+                ctx.check(f"{provider}: the real upstream received the request, got {len(real.requests)}",
+                          len(real.requests) == 1)
+                ctx.check(f"{provider}: the stale openrouter override NEVER received it, got {len(decoy.requests)}",
+                          len(decoy.requests) == 0)
+
+            # The mirror case: on an ACTUAL openrouter route, the override
+            # is legitimate and must still be honoured.
+            real.clear()
+            decoy.clear()
+            route = Route(provider="openrouter", upstream_model="some/model", dialect="openai-chat")
+            profile = resolve_profile(route)
+            req = CompletionRequest(
+                body={}, route=route, profile=profile,
+                creds=ProviderCreds(base_url=real.base_url, api_key="real-key"),
+                state_dir=_Path(os.environ["BRIDGE_STATE_DIR"]), extra_headers={},
+                model_label="or:some/model", prebuilt_oai_body={"model": "some/model"},
+                openrouter_base_url=decoy.base_url,
+            )
+            _body, result = _run_phase1(req)
+            ctx.check(f"openrouter: a genuine 2xx, got {result.status}", 200 <= result.status < 300)
+            ctx.check(f"openrouter: the override URL receives the request, got {len(decoy.requests)}",
+                      len(decoy.requests) == 1)
+            ctx.check(f"openrouter: creds.base_url is NOT used once an override is set, got {len(real.requests)}",
+                      len(real.requests) == 0)
+        finally:
+            real.stop()
+            decoy.stop()
 
 
 # ---- enablement / reachability -----------------------------------------------

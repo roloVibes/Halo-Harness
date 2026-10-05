@@ -454,7 +454,7 @@ def catalog_row(catalog: Optional[dict], model: str) -> Optional[dict]:
 
 
 _LAST_OFFLOAD_LOCK = threading.Lock()
-_LAST_OFFLOAD_CACHE: dict = {}  # (host.url, model) -> bool | None
+_LAST_OFFLOAD_CACHE: dict = {}  # (host.url, model) -> (bool offloaded, size, size_vram) | None
 
 
 def _record_last_known_offload(host_url: str, model: str, ps_entry: Optional[dict]) -> None:
@@ -464,13 +464,20 @@ def _record_last_known_offload(host_url: str, model: str, ps_entry: Optional[dic
     isn't currently loaded at all, or its `size`/`size_vram` fields are
     missing -- "not loaded" is not the same fact as "loaded and fully in
     GPU", and the status bar/`halo ollama` should say neither when this
-    is unknown rather than guess "not offloaded"."""
+    is unknown rather than guess "not offloaded".
+
+    Review fix pass (finding 14): the raw `size`/`size_vram` bytes ride
+    along too (`last_known_offload_sizes` below) -- `agent/loop.py`'s
+    post-turn hook needs them to estimate "the size that fits" when this
+    reading says partially offloaded, and this is the ONE `/api/ps` read
+    of the whole turn; a second probe just to get the same two numbers
+    back would be a wasted round trip."""
     key = (host_url, model)
     size = (ps_entry or {}).get("size") if isinstance(ps_entry, dict) else None
     size_vram = (ps_entry or {}).get("size_vram") if isinstance(ps_entry, dict) else None
     with _LAST_OFFLOAD_LOCK:
         if isinstance(size, int) and isinstance(size_vram, int) and size > 0:
-            _LAST_OFFLOAD_CACHE[key] = size_vram < size
+            _LAST_OFFLOAD_CACHE[key] = (size_vram < size, size, size_vram)
         else:
             _LAST_OFFLOAD_CACHE.pop(key, None)
 
@@ -480,7 +487,17 @@ def last_known_offload(host_url: str, model: str) -> Optional[bool]:
     model), or `None` when unknown (never probed yet this process, or the
     model wasn't loaded at its last check)."""
     with _LAST_OFFLOAD_LOCK:
-        return _LAST_OFFLOAD_CACHE.get((host_url, model))
+        cached = _LAST_OFFLOAD_CACHE.get((host_url, model))
+    return cached[0] if cached is not None else None
+
+
+def last_known_offload_sizes(host_url: str, model: str) -> "Optional[tuple[int, int]]":
+    """Review fix pass (finding 14): the raw `(size, size_vram)` bytes
+    behind the SAME reading `last_known_offload` summarizes to a bool --
+    `None` under the identical "unknown" conditions that function uses."""
+    with _LAST_OFFLOAD_LOCK:
+        cached = _LAST_OFFLOAD_CACHE.get((host_url, model))
+    return (cached[1], cached[2]) if cached is not None else None
 
 
 def estimate_fit_for_host(host, model: str, catalog: Optional[dict], *, runner=None):
@@ -621,6 +638,17 @@ class OllamaContextDecision:
     # source`'s own docstring for what each one does.
     recorded_does_not_fit: bool = False
     cpu_only: bool = False
+    # Review fix pass (finding 16): the catalog row's OWN declared
+    # `capabilities` list (`/api/show`, `providers.ollama.get_catalog`) --
+    # `True` by default ("benefit of the doubt", same house policy as
+    # every other unconfirmed-capability check in this module) whenever
+    # the row can't be read at all (catalog unreachable, or this exact
+    # model isn't in it yet); only a REACHABLE row that positively omits
+    # "thinking" from its own list turns this `False`. `agent/loop.py`'s
+    # `_build_ollama_body_for_ref` passes this straight through to
+    # `providers.ollama_request.build_ollama_request_body`, which never
+    # sends `think` at all when it's `False`.
+    supports_thinking: bool = True
 
 
 def fits_beside_main(host, *, main_model: str, candidate_model: str, catalog: Optional[dict],
@@ -692,6 +720,7 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
     remote = False
     recorded_does_not_fit = False
     cpu_only = False
+    supports_thinking = True
     if host is not None:
         host_max_ctx = host.max_ctx
         remote = not is_local_host(host)
@@ -699,6 +728,15 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
         try:
             catalog = get_catalog(host)
             trained_context = trained_context_for(catalog, model_ref.model)
+            # Review fix pass (finding 16): the row's own declared
+            # `capabilities` list is the one place this provider can tell
+            # a thinking-capable model (qwen3, deepseek-r1, gpt-oss) apart
+            # from one that is not (qwen3-coder, llama, gemma, mistral) --
+            # see `OllamaContextDecision.supports_thinking`'s own
+            # docstring for the "benefit of the doubt" default.
+            row = catalog_row(catalog, model_ref.model)
+            if row is not None and isinstance(row.get("capabilities"), list):
+                supports_thinking = "thinking" in row["capabilities"]
         except Exception:
             log.debug("ollama_hw: catalog read failed for %s", model_ref.model, exc_info=True)
         try:
@@ -717,17 +755,23 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
             except Exception:
                 log.debug("ollama_hw: local GPU presence probe failed", exc_info=True)
         try:
-            # Round 5b: DIGEST only here (never a fresh `/api/version` probe
-            # on every single turn just for this lookup -- too expensive on
-            # the hot path); a model-version mismatch is still caught at the
-            # coarser granularity of `halo ollama calibrate`/the auto-
-            # calibrate trigger re-measuring and overwriting the entry, both
-            # of which already pay for a version probe for their own sake.
+            # Review fix pass (finding 10): `ollama_version` now rides
+            # alongside `digest` -- `cached_ollama_version` pays for a
+            # real `/api/version` probe at most ONCE per host for this
+            # whole process (cached from then on), so this hot-path
+            # lookup costs no extra request after the first turn on this
+            # host, while a server upgrade (commit 9af8dac's own promise)
+            # now actually invalidates a stale cap here too, not only at
+            # the coarser granularity of `halo ollama calibrate`/the
+            # auto-calibrate trigger re-measuring and overwriting it.
+            from halo_harness.providers.ollama import cached_ollama_version
             from halo_harness.providers.ollama_calibrate import has_recorded_does_not_fit, lookup_learned_cap
             from halo_harness.config.paths import bridge_home
             digest = (catalog_row(catalog, model_ref.model) or {}).get("digest") if catalog else None
+            ollama_version = cached_ollama_version(host)
             state_dir = bridge_home()
-            learned_cap = lookup_learned_cap(state_dir, host_url=host.url, model=model_ref.model, digest=digest)
+            learned_cap = lookup_learned_cap(state_dir, host_url=host.url, model=model_ref.model, digest=digest,
+                                              ollama_version=ollama_version)
             # Review fix pass (finding 5): the OTHER half of the SAME
             # lookup -- a recorded "does not fit" verdict must route to
             # the conservative fallback, not be indistinguishable from
@@ -735,7 +779,7 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
             # above, when it's None, would otherwise leave to fall
             # through toward trained_context/the hard cap).
             recorded_does_not_fit = has_recorded_does_not_fit(state_dir, host_url=host.url, model=model_ref.model,
-                                                                digest=digest)
+                                                                digest=digest, ollama_version=ollama_version)
         except Exception:
             log.debug("ollama_hw: learned-cap lookup failed for %s", model_ref.model, exc_info=True)
     num_ctx, source = resolve_num_ctx_and_source(trained_context, host_max_ctx, fit, learned_cap=learned_cap,
@@ -746,4 +790,5 @@ def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaCo
     return OllamaContextDecision(trained_context=trained_context, fit_estimate=fit, num_ctx=num_ctx,
                                   tools_max=tools_max, catalog_prompt_tokens=estimate_catalog_prompt_tokens(tools_max),
                                   learned_cap=learned_cap, remote=remote, source=source, offloaded=offloaded,
-                                  recorded_does_not_fit=recorded_does_not_fit, cpu_only=cpu_only)
+                                  recorded_does_not_fit=recorded_does_not_fit, cpu_only=cpu_only,
+                                  supports_thinking=supports_thinking)

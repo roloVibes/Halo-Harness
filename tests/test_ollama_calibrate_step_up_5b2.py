@@ -299,6 +299,60 @@ def test_build_ollama_body_for_ref_folds_in_a_remembered_retry(ctx: Ctx):
         mock.stop()
 
 
+@test
+def test_build_ollama_body_for_ref_sends_think_only_when_effort_is_explicit_this_session(ctx: Ctx):
+    """Review fix pass (finding 16) -- the brief's own pinning case:
+    `session.effort_source` simulates a CARRIED `last_effort` (source
+    "last", persisted from an EARLIER session -- never an explicit
+    choice made THIS session) vs an EXPLICIT `/effort` (source
+    "session", the exact tag `commands.builtins._cmd_effort` sets on a
+    live session). The model is thinking-capable throughout
+    (`resolve_context_decision` is monkeypatched to say so, same seam
+    `test_build_ollama_body_for_ref_folds_in_a_remembered_retry` above
+    uses) -- only the effort's own provenance changes between the two
+    calls, computed the SAME way the real `_derive_and_build` call site
+    does (`self.effort_source in ("flag", "session")`)."""
+    import halo_harness.agent.loop as loop_mod
+    import halo_harness.providers.ollama_hw as ollama_hw_mod
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_hw import OllamaContextDecision
+    from halo_harness.providers.profiles import resolve_profile
+    from halo_harness.providers.routing import Route
+    mock = MockUpstream().start()
+    d = Path(tempfile.mkdtemp(prefix="ol-think-explicit-"))
+    model = "thinking-capable-model"
+    real_resolve_host = loop_mod.resolve_ollama_host
+    real_resolve_decision = ollama_hw_mod.resolve_context_decision
+    fixed_host = OllamaHost(name="mock", url=mock.base_url)
+    loop_mod.resolve_ollama_host = lambda name, env: fixed_host
+    ollama_hw_mod.resolve_context_decision = lambda model_ref, env=None, **kw: OllamaContextDecision(
+        trained_context=40960, fit_estimate=None, num_ctx=32768, tools_max=16, catalog_prompt_tokens=0,
+        learned_cap=None, remote=False, supports_thinking=True)
+    try:
+        session = _minimal_session(d, mock, model=model)
+        route = Route(provider="ollama", upstream_model=model, dialect="ollama")
+        profile = resolve_profile(route)
+        kwargs = dict(ref=session.model_ref, route=route, profile=profile, system_text="sys",
+                      messages=[{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
+                      tools=[], tool_choice=None, effort="high", requested_max_tokens=256)
+
+        session.effort_source = "last"  # carried from an earlier session, nothing set THIS session
+        carried = session._build_ollama_body_for_ref(
+            **kwargs, effort_explicit=session.effort_source in ("flag", "session"))
+        ctx.check(f"a carried effort with no explicit set this session sends no think, got "
+                  f"{carried.get('think', 'OMITTED')!r}", "think" not in carried)
+
+        session.effort_source = "session"  # an explicit /effort THIS session
+        explicit = session._build_ollama_body_for_ref(
+            **kwargs, effort_explicit=session.effort_source in ("flag", "session"))
+        ctx.check(f"an explicit /effort on a thinking-capable model sends think, got "
+                  f"{explicit.get('think', 'OMITTED')!r}", explicit.get("think") is True)
+    finally:
+        loop_mod.resolve_ollama_host = real_resolve_host
+        ollama_hw_mod.resolve_context_decision = real_resolve_decision
+        mock.stop()
+
+
 # ---- review fix pass finding 8: abort/budget, never in call_small_model --
 
 @test
@@ -352,6 +406,95 @@ def test_maybe_auto_calibrate_respects_abort_and_a_total_budget(ctx: Ctx):
         if old_no_net is not None:
             os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_no_net
         mock.stop()
+
+
+# ---- review fix pass finding 14: the offloaded-turn notice + learned cap -
+
+@test
+def test_maybe_record_offload_learned_cap_records_and_notices(ctx: Ctx):
+    """Review fix pass (finding 14): "on an offloaded /api/ps read after
+    a turn, print the one sentence with the size that fit, and record it
+    as a learned cap." `_record_last_known_offload` is seeded directly
+    (the same real `/api/ps` read a full turn would have made -- pinned
+    elsewhere, `tests/test_ollama_hw_5b.py`) so this test isolates the
+    NEW post-turn behaviour itself: a real learned-cap record, and a
+    notice naming `ollama.hosts[].max_ctx`, computed from the KV-bytes-
+    per-token formula against the REAL size_vram this load got (never a
+    live GPU probe)."""
+    from halo_harness.providers import ollama_hw
+    from halo_harness.providers.ollama_calibrate import lookup_learned_cap
+    from halo_harness.theme import set_config_value
+    model = "offload-cap-model"
+    weight_bytes = 4 * _GB
+    # KV bytes/token 131072 (f16; head_dim 4096/32=128; 2*32*8*128*2.0),
+    # the SAME fixture tests/test_providers_ollama_hw.py's own
+    # _QWEN_MODEL_INFO uses -- 256 MiB of KV headroom holds exactly 2048
+    # tokens (256*1024*1024 / 131072 == 2048, already a power of two, so
+    # the floor never rounds it down further).
+    model_info = {"qwen3.block_count": 32, "qwen3.attention.head_count_kv": 8,
+                  "qwen3.attention.head_count": 32, "qwen3.embedding_length": 4096}
+    size_vram = weight_bytes + 256 * 1024 * 1024
+    total_size = weight_bytes + 1 * _GB  # bigger than size_vram -- a genuine partial offload
+    d = Path(tempfile.mkdtemp(prefix="ol-offload-cap-"))
+    old_state_dir = os.environ.get("BRIDGE_STATE_DIR")
+    os.environ["BRIDGE_STATE_DIR"] = str(d)  # set_config_value below must land here, never the real ~/.halo
+    mock = MockUpstream().start()
+    try:
+        mock.tags_response = {"models": [{"name": model, "model": model, "size": weight_bytes,
+                                           "digest": "sha256:offloadcap", "details": {"family": "qwen3"}}]}
+        mock.show_responses = {model: {"modelfile": "", "parameters": "", "template": "",
+                                        "capabilities": [], "details": {"family": "qwen3"},
+                                        "model_info": model_info}}
+        set_config_value("ollama.hosts", [{"name": "mock", "url": mock.base_url, "default": True}])
+        session = _minimal_session(d, mock, model=model)
+        ollama_hw._record_last_known_offload(mock.base_url, model, {"size": total_size, "size_vram": size_vram})
+        session._maybe_record_offload_learned_cap(mock.base_url, model)
+        got_cap = lookup_learned_cap(session.state_dir, host_url=mock.base_url, model=model)
+        ctx.check(f"the learned cap was recorded from the real size_vram, got {got_cap}", got_cap == 2048)
+        ctx.check(f"a notice was queued naming ollama.hosts[].max_ctx, got {session._pending_ollama_notices!r}",
+                  any("ollama.hosts[].max_ctx" in n and "2048" in n for n in session._pending_ollama_notices))
+    finally:
+        ollama_hw._record_last_known_offload(mock.base_url, model, None)  # leave no cross-test cache residue
+        mock.stop()
+        if old_state_dir is None:
+            os.environ.pop("BRIDGE_STATE_DIR", None)
+        else:
+            os.environ["BRIDGE_STATE_DIR"] = old_state_dir
+
+
+@test
+def test_maybe_record_offload_learned_cap_skips_when_kv_formula_inputs_are_missing(ctx: Ctx):
+    """The graceful-degrade half of the SAME fix: a catalog row with no
+    usable KV-formula fields (the ordinary case for a model the test
+    suite hasn't fully fixtured) must record nothing and queue no
+    notice, never raise."""
+    from halo_harness.providers import ollama_hw
+    from halo_harness.providers.ollama_calibrate import has_calibration_entry
+    from halo_harness.theme import set_config_value
+    model = "offload-nocap-model"
+    d = Path(tempfile.mkdtemp(prefix="ol-offload-nocap-"))
+    old_state_dir = os.environ.get("BRIDGE_STATE_DIR")
+    os.environ["BRIDGE_STATE_DIR"] = str(d)
+    mock = MockUpstream().start()
+    try:
+        mock.tags_response = {"models": [{"name": model, "model": model, "size": 4 * _GB,
+                                           "digest": "sha256:x", "details": {}}]}
+        mock.show_responses = {model: {"modelfile": "", "parameters": "", "template": "",
+                                        "capabilities": [], "details": {}, "model_info": {}}}
+        set_config_value("ollama.hosts", [{"name": "mock", "url": mock.base_url, "default": True}])
+        session = _minimal_session(d, mock, model=model)
+        ollama_hw._record_last_known_offload(mock.base_url, model, {"size": 5 * _GB, "size_vram": 4 * _GB})
+        session._maybe_record_offload_learned_cap(mock.base_url, model)
+        ctx.check("no notice queued", session._pending_ollama_notices == [])
+        ctx.check("nothing recorded", has_calibration_entry(session.state_dir, host_url=mock.base_url,
+                                                              model=model) is False)
+    finally:
+        ollama_hw._record_last_known_offload(mock.base_url, model, None)
+        mock.stop()
+        if old_state_dir is None:
+            os.environ.pop("BRIDGE_STATE_DIR", None)
+        else:
+            os.environ["BRIDGE_STATE_DIR"] = old_state_dir
 
 
 @test

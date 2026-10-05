@@ -26,6 +26,9 @@ _PROVIDER_ENV_VARS = (
     "OPENROUTER_API_KEY", "BRIDGE_OPENROUTER_BASE_URL", "DATABRICKS_HOST", "DATABRICKS_TOKEN",
     "BRIDGE_DBX_BASE_URL", "BRIDGE_DBX_TOKEN", "ANTHROPIC_API_KEY", "BRIDGE_ANTHROPIC_BASE_URL",
     "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "TYPESAFE_API_KEY", "BRIDGE_TEST_CC_AUTH_STATUS",
+    # Pass-B finding 16: OpenAI joins the provider set this file's own
+    # "every enabled provider" tests sweep.
+    "OPENAI_API_KEY", "BRIDGE_OPENAI_BASE_URL",
 )
 
 
@@ -78,6 +81,10 @@ _ANT_MODELS_BODY = {"data": [
     {"id": "claude-opus-5-5", "display_name": "Claude Opus 5.5"},
     {"id": "claude-sonnet-5-5", "display_name": "Claude Sonnet 5.5"},
 ]}
+
+# Pass-B finding 16: `GET /v1/models` on the real OpenAI API shape
+# (`providers.openai_catalog.probe_openai_models`).
+_OAI_MODELS_BODY = {"data": [{"id": "gpt-6-astra"}, {"id": "gpt-5"}]}
 
 
 class _FakeModelRef:
@@ -284,6 +291,37 @@ def test_cli_models_refresh_hits_both_openrouter_and_databricks_mocks(ctx: Ctx):
 
 
 @test
+def test_cli_models_refresh_also_rewrites_the_openai_cache(ctx: Ctx):
+    """Pass-B finding 16 (major): `refresh_openai_catalog_if_stale` had no
+    caller at all -- `halo models --refresh` skipped OpenAI entirely."""
+    import io
+    from contextlib import redirect_stdout
+    from halo_harness.catalog_cli import cmd_models
+    from halo_harness.providers.enablement import enable
+    from halo_harness.providers.openai_catalog import load_oai_models_json
+    oai_mock = MockGetEndpoints({"/v1/models": (200, _OAI_MODELS_BODY)}).start()
+    try:
+        with _Env():
+            os.environ["OPENAI_API_KEY"] = "sk-oai-fake"
+            os.environ["BRIDGE_OPENAI_BASE_URL"] = oai_mock.base_url + "/v1"
+            enable("openai")
+            with redirect_stdout(io.StringIO()):
+                code = cmd_models(["--refresh"])
+            ctx.check(f"exits 0, got {code}", code == 0)
+            ctx.check("the OpenAI mock's /v1/models endpoint was hit",
+                      any(r["path"] == "/v1/models" for r in oai_mock.requests))
+            cached = load_oai_models_json(_bridge_state_dir())
+            ctx.check(f"the OpenAI cache was actually rewritten, got {cached!r}",
+                      set(cached) == {"gpt-6-astra", "gpt-5"})
+    finally:
+        oai_mock.stop()
+
+
+def _bridge_state_dir() -> Path:
+    return Path(os.environ["BRIDGE_STATE_DIR"])
+
+
+@test
 def test_slash_models_refresh_hits_both_openrouter_and_databricks_mocks(ctx: Ctx):
     from halo_harness.commands.builtins import HeadlessFacade, _cmd_models
     from tests.helpers.mock_databricks import MockDatabricks
@@ -304,6 +342,29 @@ def test_slash_models_refresh_hits_both_openrouter_and_databricks_mocks(ctx: Ctx
     finally:
         or_mock.stop()
         dbx_mock.stop()
+
+
+@test
+def test_slash_models_refresh_also_rewrites_the_openai_cache(ctx: Ctx):
+    """Pass-B finding 16 (major): `/models refresh` (the headless `/models`
+    command, `commands/builtins.py::_cmd_models`) skipped OpenAI entirely,
+    same gap `halo models --refresh` had."""
+    from halo_harness.commands.builtins import HeadlessFacade, _cmd_models
+    from halo_harness.providers.openai_catalog import load_oai_models_json
+    oai_mock = MockGetEndpoints({"/v1/models": (200, _OAI_MODELS_BODY)}).start()
+    try:
+        with _Env():
+            os.environ["OPENAI_API_KEY"] = "sk-oai-fake"
+            os.environ["BRIDGE_OPENAI_BASE_URL"] = oai_mock.base_url + "/v1"
+            out = _cmd_models("refresh", HeadlessFacade(cwd=Path.cwd()))
+            ctx.check(f"mentions OpenAI refreshed, got {out!r}", "OpenAI refreshed" in out)
+            ctx.check("the OpenAI mock's /v1/models endpoint was hit",
+                      any(r["path"] == "/v1/models" for r in oai_mock.requests))
+            cached = load_oai_models_json(_bridge_state_dir())
+            ctx.check(f"the OpenAI cache was actually rewritten, got {cached!r}",
+                      set(cached) == {"gpt-6-astra", "gpt-5"})
+    finally:
+        oai_mock.stop()
 
 
 # ---------------------------------------------------------------------------
@@ -360,6 +421,35 @@ def test_catalog_auto_refresh_worker_reads_the_controllers_effective_env_not_bar
             sent = [r for r in mock.requests if r["path"] == "/api/v1/models"]
             ctx.check(f"the key from effective_env was actually sent, got {sent}",
                       sent and sent[0]["headers"].get("Authorization") == "Bearer sk-or-from-effective-env")
+    finally:
+        mock.stop()
+
+
+@test
+def test_catalog_auto_refresh_worker_also_refreshes_openai(ctx: Ctx):
+    """Pass-B finding 16 (major): `refresh_openai_catalog_if_stale` had no
+    caller anywhere -- the background worker both the launch-time refresh
+    and `/model`'s own open-time refresh share skipped OpenAI entirely."""
+    from halo_harness.providers.enablement import enable
+    from halo_harness.providers.openai_catalog import load_oai_models_json
+    from halo_harness.tui.slash import catalog_auto_refresh_worker
+    mock = MockGetEndpoints({"/v1/models": (200, _OAI_MODELS_BODY)}).start()
+    try:
+        with _Env() as env:
+            enable("openai")
+            app = _FakeAppForCatalogWorker(env.state_dir, {
+                "OPENAI_API_KEY": "sk-oai-from-effective-env",
+                "BRIDGE_OPENAI_BASE_URL": mock.base_url + "/v1",
+            })
+            catalog_auto_refresh_worker(app)
+            cached = load_oai_models_json(env.state_dir)
+            ctx.check(f"resolved and fetched using the controller's own effective_env, got {sorted(cached)}",
+                      set(cached) == {"gpt-6-astra", "gpt-5"})
+            sent = [r for r in mock.requests if r["path"] == "/v1/models"]
+            ctx.check(f"the key from effective_env was actually sent, got {sent}",
+                      sent and sent[0]["headers"].get("Authorization") == "Bearer sk-oai-from-effective-env")
+            ctx.check(f"a completion note mentions OpenAI, got {app.notifications}",
+                      any("OpenAI" in n for n in app.notifications))
     finally:
         mock.stop()
 

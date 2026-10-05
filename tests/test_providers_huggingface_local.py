@@ -191,6 +191,101 @@ def test_local_server_api_key_env_reference_resolves_and_plaintext_still_works(c
                   resolve_huggingface_local_server("legacy").api_key == "still-works-plaintext")
 
 
+# ---- bare ref resolution by served model id (review fix pass finding 11) --
+
+_STUB_ALIAS_AWARE = '''
+import json, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+port = int(sys.argv[sys.argv.index("--port") + 1])
+alias = sys.argv[sys.argv.index("--alias") + 1] if "--alias" in sys.argv else "stub-model"
+
+
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+
+    def do_GET(self):
+        if self.path.rstrip("/").endswith("/models"):
+            body = json.dumps({"object": "list", "data": [{"id": alias}]}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+
+HTTPServer(("127.0.0.1", port), H).serve_forever()
+'''
+
+
+def _write_alias_aware_stub() -> Path:
+    d = Path(tempfile.mkdtemp(prefix="hf-local-alias-stub-"))
+    p = d / "stub_runtime.py"
+    p.write_text(_STUB_ALIAS_AWARE, encoding="utf-8")
+    return p
+
+
+@test
+def test_resolve_local_server_bare_ref_picks_the_server_actually_serving_that_model_id(ctx: Ctx):
+    """Review fix pass (finding 11): two managed servers running at
+    once, each confirmed (via its own `--alias`-reported `/v1/models`,
+    A12's own fix) to serve a DIFFERENT model id -- a bare `hf:local/
+    <model>` ref must resolve to the one that actually serves THAT id,
+    never "whichever started most recently" (the only rule a bare ref
+    ever had before this fix)."""
+    from halo_harness.providers.local_runtime import start_managed_server, stop_all_managed_servers_except_kept
+    from halo_harness.providers.huggingface_local_resolve import resolve_local_server
+    with _Env() as e:
+        stub = _write_alias_aware_stub()
+        entry_a, reason_a = start_managed_server(model="model-a", runtime="llama-server",
+                                                  binary_argv=[sys.executable, str(stub)], model_path="a.gguf",
+                                                  state_dir=e.state_dir, startup_timeout=10.0)
+        entry_b, reason_b = start_managed_server(model="model-b", runtime="llama-server",
+                                                  binary_argv=[sys.executable, str(stub)], model_path="b.gguf",
+                                                  state_dir=e.state_dir, startup_timeout=10.0)
+        try:
+            ctx.check(f"both started, got a={reason_a!r} b={reason_b!r}",
+                      entry_a is not None and entry_b is not None)
+            os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"  # never let auto-detect touch the real network
+            resolved_a = resolve_local_server(None, dict(os.environ), model="model-a", state_dir=e.state_dir)
+            resolved_b = resolve_local_server(None, dict(os.environ), model="model-b", state_dir=e.state_dir)
+            ctx.check(f"model-a resolves to its OWN server, got {resolved_a}",
+                      resolved_a is not None and resolved_a.base_url == entry_a.base_url)
+            ctx.check(f"model-b resolves to its OWN server (never model-a's, even though it started "
+                      f"SECOND and would win the old 'most recent' rule), got {resolved_b}",
+                      resolved_b is not None and resolved_b.base_url == entry_b.base_url)
+        finally:
+            stop_all_managed_servers_except_kept(state_dir=e.state_dir)
+
+
+@test
+def test_resolve_local_server_falls_back_to_default_when_no_server_serves_the_model(ctx: Ctx):
+    """A `model` that NO running server actually reports must still fall
+    back to "the default server" (here: the most-recently-started
+    registry entry, nothing else configured) -- the id-aware match is an
+    ADDITION in front of the old rule, never a replacement that refuses
+    outright when it finds no exact match."""
+    from halo_harness.providers.local_runtime import start_managed_server, stop_all_managed_servers_except_kept
+    from halo_harness.providers.huggingface_local_resolve import resolve_local_server
+    with _Env() as e:
+        stub = _write_alias_aware_stub()
+        entry, reason = start_managed_server(model="the-only-one", runtime="llama-server",
+                                              binary_argv=[sys.executable, str(stub)], model_path="only.gguf",
+                                              state_dir=e.state_dir, startup_timeout=10.0)
+        try:
+            ctx.check(f"started, got {reason!r}", entry is not None)
+            os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
+            resolved = resolve_local_server(None, dict(os.environ), model="nobody-serves-this",
+                                             state_dir=e.state_dir)
+            ctx.check(f"still falls back to the default (the only registry entry), got {resolved}",
+                      resolved is not None and resolved.base_url == entry.base_url)
+        finally:
+            stop_all_managed_servers_except_kept(state_dir=e.state_dir)
+
+
 # ---- credential resolution: never cross-wired ------------------------------
 
 @test

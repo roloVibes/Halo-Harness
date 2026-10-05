@@ -17,3 +17,4 @@ Bearer sk-or-from-effective-env
 Bearer sk-or-management
 hf_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE
 xpl_deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
+sk-oai-from-effective-env
