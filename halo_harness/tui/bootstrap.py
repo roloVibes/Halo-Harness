@@ -107,7 +107,11 @@ def build_controller(args) -> "tuple[Controller, object, object]":
         if build.mcp_manager is None:
             return {"connected": 0, "total": 0}
         rows = build.mcp_manager.status()
-        return {"connected": sum(1 for r in rows if r.get("state") == "connected"), "total": len(rows)}
+        # A lazily cached server (tools known, process spawned on first use)
+        # is usable, so it counts the same as a live connection: the owner
+        # saw "MCP 0/6" for sessions whose six servers all worked, because
+        # only spawned processes were counted.
+        return {"connected": sum(1 for r in rows if r.get("state") in ("connected", "cached")), "total": len(rows)}
 
     def _reconnect_fn(name: str, abort=None) -> list:
         """u2-h3b finding 9: `abort` (default None, so a plain
