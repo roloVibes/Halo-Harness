@@ -86,6 +86,47 @@ def test_ollama_tab_state_blank_then_configured_after_save(ctx: Ctx):
 
 
 @test
+def test_ollama_tab_save_never_writes_plaintext_key_masks_and_resolves(ctx: Ctx):
+    """Fix pass C-1 (review finding 16), the brief's own pinning test:
+    saving a host with an api_key leaves no plaintext key in config.json,
+    `halo config list`/`get` mask it, and reading it back resolves the
+    real value."""
+    import io
+    import contextlib
+    from halo_harness.init_providers import save_tab_credentials
+    with _Env() as env:
+        ok, _msg = save_tab_credentials("ollama", {"name": "secret-box", "url": "http://192.0.2.30:11434",
+                                                     "api_key": "the-real-cloud-key-999"})
+        ctx.check(f"Save succeeds, got {ok}", ok is True)
+
+        config_text = (env.state_dir / "config.json").read_text(encoding="utf-8")
+        ctx.check(f"no plaintext key in config.json, got {config_text!r}",
+                  "the-real-cloud-key-999" not in config_text)
+        ctx.check("config.json keeps only the api_key_env reference", '"api_key_env"' in config_text
+                  and '"api_key"' not in config_text)
+
+        from halo_harness import config_cli
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            config_cli.cmd_config(["list"])
+        listed = buf.getvalue()
+        ctx.check(f"config list never prints the real key, got {listed!r}",
+                  "the-real-cloud-key-999" not in listed)
+        ctx.check("config list still shows the host entry (masked, not omitted)", "secret-box" in listed)
+
+        buf2 = io.StringIO()
+        with contextlib.redirect_stdout(buf2):
+            config_cli.cmd_config(["get", "ollama.hosts"])
+        got = buf2.getvalue()
+        ctx.check(f"config get never prints the real key either, got {got!r}", "the-real-cloud-key-999" not in got)
+
+        from halo_harness.providers.ollama import resolve_ollama_host
+        resolved = resolve_ollama_host("secret-box")
+        ctx.check(f"reading it back resolves the real value, got {resolved.api_key!r}",
+                  resolved.api_key == "the-real-cloud-key-999")
+
+
+@test
 def test_ollama_tab_blank_save_registers_the_default_local_daemon(ctx: Ctx):
     from halo_harness.init_providers import save_tab_credentials
     from halo_harness.providers.ollama import DEFAULT_OLLAMA_URL, resolve_ollama_hosts

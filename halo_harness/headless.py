@@ -185,8 +185,22 @@ def _ensure_mlx_server_for_ref(ref, state_dir) -> None:
     print the notice) -- the brief's own "`--yes` in print mode": there is
     no interactive prompt loop wired this deep, and typing `hf:mlx/<repo>`
     at all is the same explicit-action-is-consent rule every other `hf:`/
-    `or:` cloud ref already follows with no separate gate."""
+    `or:` cloud ref already follows with no separate gate.
+
+    Halo 2.0.3 fix pass C-1 (review finding 3): `network.offline` is
+    checked before `ensure_mlx_server` ever runs -- `mlx_lm.server`
+    downloads the repo from the Hub on first use (also true when the ref
+    only comes from `roles.small`, since this same function is called a
+    second time for that ref below), and offline mode never saw it
+    before this fix. Printed the same way every other status line from
+    this function already is, so a session started with `hf:mlx/<repo>`
+    under offline mode gets a plain, immediate reason instead of a
+    confusing failure once the turn itself tries to reach the server."""
     if getattr(ref, "provider", None) != "huggingface" or not getattr(ref, "mlx", False):
+        return
+    from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
+    if offline_mode_enabled():
+        print(f"halo: {format_offline_refusal(f'the Hub ({ref.model})')}", file=sys.stderr)
         return
     from halo_harness.providers.huggingface_mlx import ensure_mlx_server
     _target, lines = ensure_mlx_server(ref.model, state_dir=state_dir)

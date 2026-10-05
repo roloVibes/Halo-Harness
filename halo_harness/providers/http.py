@@ -17,6 +17,7 @@ circular import at module-load time -- see databricks.py's matching note.
 from __future__ import annotations
 
 import http.client
+import ipaddress
 import json
 import logging
 import os
@@ -123,6 +124,46 @@ def _is_loopback_host(host: "str | None") -> bool:
     return (host or "").strip().lower().rstrip(".") in _LOOPBACK_HOSTS
 
 
+def _is_private_ip_literal(host: "str | None") -> bool:
+    """True only when `host` is already written as a literal IP address
+    inside a private/loopback/link-local/ULA range -- NEVER a DNS lookup
+    (a hostname that merely RESOLVES to a private address, e.g. via a
+    hosts-file entry or split-horizon DNS, is not "local" by this check --
+    doing a live resolution here to find out would itself be a network
+    step, which computing the offline allow-list must never be). Halo
+    2.0.3 fix pass C-1 (review finding 1): `ipaddress.ip_address(...).
+    is_private` already covers every RFC1918 range, loopback, link-local
+    (169.254.0.0/16/fe80::/10) and IPv6 ULA (fc00::/7) in one check -- the
+    exact "private/link-local literals" the finding's fix text names."""
+    candidate = (host or "").strip()
+    if candidate.startswith("[") and candidate.endswith("]"):
+        candidate = candidate[1:-1]
+    if not candidate:
+        return False
+    try:
+        return ipaddress.ip_address(candidate).is_private
+    except ValueError:
+        return False
+
+
+def _is_local_hostname(host: "str | None") -> bool:
+    """True for loopback, a bare single-label name (`gpubox`, no dot --
+    never a publicly routable hostname), or an `.local` mDNS name. Halo
+    2.0.3 fix pass C-1 (review finding 1): one of the three ways a
+    configured entry's host counts as "local" with no explicit marker
+    needed -- a literal cloud hostname (`ollama.com`, any other public
+    name a user pasted into `ollama.hosts`/`huggingface.local_servers`)
+    has a dot and isn't `.local`, so it never matches this."""
+    name = (host or "").strip().lower().rstrip(".")
+    if not name:
+        return False
+    if name in _LOOPBACK_HOSTS:
+        return True
+    if name.endswith(".local"):
+        return True
+    return "." not in name
+
+
 def allowlisted_local_hosts() -> "set[str]":
     """Every hostname `network.offline` lets through besides loopback --
     lowercased. Three sources, each read-only/local (no network call of its
@@ -135,27 +176,49 @@ def allowlisted_local_hosts() -> "set[str]":
     runtime registry entry (`providers.local_runtime.load_registry` --
     `~/.halo/run/local-servers.json`; always `127.0.0.1` by construction
     today, included anyway so the allow-list stays correct if that ever
-    changes). Deferred imports throughout: this module is the lowest layer
-    in the provider tree (loaded before config/provider modules exist), the
-    same reason every cross-module import elsewhere in this file is also
-    done lazily, inside the function body.  Never raises -- any one
-    source's own failure (a malformed config.json, an unreadable registry
-    file) just contributes nothing, the other sources still apply."""
+    changes).
+
+    Halo 2.0.3 fix pass C-1 (review finding 1, critical): an entry's host
+    is only added when it is ACTUALLY local -- a private/loopback/link-
+    local/ULA IP literal (`_is_private_ip_literal`), a bare single-label
+    or `.local` name (`_is_local_hostname`), or the entry itself carries
+    an explicit `offline_ok: true` marker the user set. Before this fix
+    every configured entry's hostname was added unconditionally, so an
+    Ollama Cloud host (`https://ollama.com`, keyed by `api_key`) or any
+    other public hostname a user pasted into `ollama.hosts`/`huggingface.
+    local_servers` was allow-listed right along with a real LAN box --
+    `--offline`/`/offline on` then kept sending `ol:`/`hf:local` turns
+    (prompts, file contents, tool results) to that public host while the
+    status bar still showed "offline". A literal cloud hostname never
+    passes any of the three checks, so it is correctly refused the same
+    way any other remote host is under offline mode.
+
+    Deferred imports throughout: this module is the lowest layer in the
+    provider tree (loaded before config/provider modules exist), the same
+    reason every cross-module import elsewhere in this file is also done
+    lazily, inside the function body. Never raises -- any one source's
+    own failure (a malformed config.json, an unreadable registry file)
+    just contributes nothing, the other sources still apply."""
     hosts: "set[str]" = set()
+
+    def _consider(url: "str | None", *, offline_ok: bool = False) -> None:
+        hostname = urllib.parse.urlparse(url or "").hostname
+        if not hostname:
+            return
+        lowered = hostname.lower()
+        if offline_ok or _is_private_ip_literal(lowered) or _is_local_hostname(lowered):
+            hosts.add(lowered)
+
     try:
         from halo_harness.providers.ollama import resolve_ollama_hosts
         for h in resolve_ollama_hosts():
-            hostname = urllib.parse.urlparse(h.url).hostname
-            if hostname:
-                hosts.add(hostname.lower())
+            _consider(h.url, offline_ok=bool(getattr(h, "offline_ok", False)))
     except Exception:
         pass
     try:
         from halo_harness.providers.huggingface import resolve_huggingface_local_servers
         for s in resolve_huggingface_local_servers():
-            hostname = urllib.parse.urlparse(s.url).hostname
-            if hostname:
-                hosts.add(hostname.lower())
+            _consider(s.url, offline_ok=bool(getattr(s, "offline_ok", False)))
     except Exception:
         pass
     try:
@@ -163,9 +226,7 @@ def allowlisted_local_hosts() -> "set[str]":
         from halo_harness.providers.local_runtime import load_registry
         for entry in load_registry(default_state_dir()):
             base_url = entry.get("base_url") if isinstance(entry, dict) else None
-            hostname = urllib.parse.urlparse(base_url or "").hostname
-            if hostname:
-                hosts.add(hostname.lower())
+            _consider(base_url)
     except Exception:
         pass
     return hosts
@@ -252,6 +313,26 @@ def default_tls_context() -> ssl.SSLContext:
     return ctx
 
 
+class _OfflineAwareRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """urllib's own `HTTPRedirectHandler`, with `_check_offline_allowed`
+    re-run against each hop's new `Location` BEFORE following it. Halo
+    2.0.3 fix pass C-1 (review finding 21): `urlopen_tls` only ever gated
+    the FIRST url -- `build_opener` then adds urllib's own default
+    redirect handler underneath it (since no `HTTPRedirectHandler`
+    instance/subclass was passed), which follows any `Location` header
+    with no gate of its own, so a loopback or allow-listed URL that
+    answers with a 3xx could bounce an offline call to an arbitrary host.
+    Only the GATE is added here -- `redirect_request`'s own 3xx/method/
+    redirect-loop handling is entirely the parent implementation's;
+    raising here (before it ever builds the new request) simply stops a
+    disallowed hop from being followed at all, the same as a plain
+    `OfflineBlocked` from the FIRST request would."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _check_offline_allowed(urllib.parse.urlparse(newurl).hostname)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def urlopen_tls(req, timeout=None):
     """`urllib.request.urlopen`, but through `default_tls_context()` instead
     of `urllib`'s own bare default context -- every one-shot HTTPS GET this
@@ -278,7 +359,8 @@ def urlopen_tls(req, timeout=None):
     except Exception:
         pass
     _check_offline_allowed(host)
-    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=default_tls_context()))
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=default_tls_context()),
+                                          _OfflineAwareRedirectHandler())
     return opener.open(req, timeout=timeout)
 
 
@@ -371,11 +453,30 @@ def _bounded_connect(conn, timeout_s: float, host: str) -> None:
 
 
 def pick_proxy(host: str) -> str | None:
-    """Return proxy URL from env if host not bypassed, else None."""
+    """Return proxy URL from env if host not bypassed, else None.
+
+    Halo 2.0.3 fix pass C-1 (review finding 2): a loopback target, or a
+    target already on the offline allow-list (`allowlisted_local_hosts`),
+    is NEVER proxied -- checked FIRST, before `NO_PROXY`/`proxy_bypass_
+    environment`'s own verdict, and unconditionally (this is a plain
+    correctness fix, not only an offline-mode one: routing a loopback or
+    LAN box's own traffic out to a remote HTTPS_PROXY/HTTP_PROXY host is
+    never correct, offline mode on or not). Before this fix nothing
+    exempted loopback/allow-listed hosts at all, so under offline mode a
+    loopback or LAN `ol:`/`hf:local` request -- prompt body included --
+    went to whatever HTTPS_PROXY/HTTP_PROXY named, same as it would have
+    for any other host."""
+    if _is_loopback_host(host):
+        return None
+    try:
+        if (host or "").strip().lower() in allowlisted_local_hosts():
+            return None
+    except Exception:
+        pass
     # Check bypass first
     if urllib.request.proxy_bypass_environment(host):
         return None
-    
+
     # Check environment variables in order
     for var in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"):
         proxy = os.environ.get(var)
@@ -411,6 +512,16 @@ def open_upstream(host: str, port: int, tls: bool, connect_timeout: int = DEFAUL
     enforcement lives here exactly once."""
     _check_offline_allowed(host)
     proxy_url = pick_proxy(host)
+    # Halo 2.0.3 fix pass C-1 (review finding 2): defense in depth -- the
+    # real socket peer whenever a proxy IS used is the PROXY host, never
+    # `host` itself, so offline mode must gate that too. `pick_proxy`
+    # above already returns None for any loopback/allow-listed `host`
+    # (the ordinary case under offline, since `_check_offline_allowed`
+    # just refused anything else), so this only ever fires if a FUTURE
+    # change to `pick_proxy`'s own logic ever let a proxy through for an
+    # offline-allowed host again.
+    if proxy_url is not None:
+        _check_offline_allowed(urllib.parse.urlparse(proxy_url).hostname)
 
     # 1.0.1 hotfix 11: built through default_tls_context() (VERIFY_X509_
     # STRICT cleared when present, same custom-CA-bundle env loading) --

@@ -35,9 +35,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import subprocess
 from pathlib import Path
 from typing import Optional
+
+log = logging.getLogger("bridge")
 
 
 def plugin_name_for_root(root) -> str:
@@ -78,6 +81,17 @@ def clone_plugin_url(url: str, state_dir: Path, *, timeout: float = 60.0) -> Opt
     dest = _clone_cache_dir(state_dir) / digest
     if (dest / ".git").is_dir():
         return dest
+    # Halo 2.0.3 fix pass C-1 (review finding 3): checked AFTER the
+    # cache-hit short-circuit above (an already-cloned checkout needs no
+    # network at all) but before the real `git clone` -- a `--plugin-url`
+    # under offline mode used to clone anyway. Same "background check:
+    # skip quietly" shape as this function's own existing silent-failure
+    # contract (git missing/clone failed both already return None with
+    # no exception).
+    from halo_harness.providers.http import offline_mode_enabled
+    if offline_mode_enabled():
+        log.debug("plugin_fetch: offline mode is on -- skipping git clone of a --plugin-url")
+        return None
     try:
         result = subprocess.run(
             ["git", "clone", "--depth", "1", url, str(dest)],

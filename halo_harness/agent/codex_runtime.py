@@ -73,7 +73,17 @@ def _preflight_cx() -> Optional[str]:
     """None when `cx:` is usable right now; else a precise one-line
     reason -- mirrors `cc_runtime._preflight_cc` exactly, substituting the
     text-based `codex login status` check (CODEX-RESEARCH.md section 1)
-    for `claude auth status`'s JSON."""
+    for `claude auth status`'s JSON.
+
+    Halo 2.0.3 fix pass C-1 (review finding 3): `network.offline` is
+    checked FIRST, before `resolve_codex_launch_argv`/`codex login
+    status` ever run -- a `cx:` turn reaches the ChatGPT subscription
+    network same as any cloud route, and offline mode never saw it
+    before this fix (every `cx:` turn, and the one-shot small/judge/title
+    call below, kept running while `--offline`/`/offline on` was set)."""
+    from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
+    if offline_mode_enabled():
+        return format_offline_refusal("the codex CLI")
     try:
         resolve_codex_launch_argv()
     except CodexNotFoundError:
@@ -332,7 +342,15 @@ def one_shot_cx_call(model: str, system_text: str, user_text: str, *, timeout_s:
     """A quick, STATELESS `codex exec --ephemeral` call for `Session.
     call_small_model`'s cx: branch -- mirrors `cc_runtime.one_shot_cc_call`.
     Never touches any session's own live `_cx_state`. Raises RuntimeError
-    on failure (the same contract every `call_small_model` branch has)."""
+    on failure (the same contract every `call_small_model` branch has).
+
+    Halo 2.0.3 fix pass C-1 (review finding 3): checked before the
+    subprocess is ever built -- this stateless small-model call reaches
+    the same ChatGPT subscription network `_preflight_cx` guards for a
+    real turn."""
+    from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
+    if offline_mode_enabled():
+        raise RuntimeError(format_offline_refusal("the codex CLI"))
     import subprocess as subprocess_mod
     from halo_harness.agent.codex_process import build_cx_argv
     from halo_harness.providers.codex_models import CodexNotFoundError

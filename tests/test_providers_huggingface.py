@@ -207,6 +207,62 @@ def test_resolve_creds_endpoint_with_no_token_sends_empty_api_key(ctx: Ctx):
         ctx.check(f"api_key is empty, never HF_TOKEN, got {creds.api_key!r}", creds.api_key == "")
 
 
+@test
+def test_endpoint_malformed_entry_logged_by_name_only(ctx: Ctx):
+    """Fix pass C-1 (review finding 17): the DEBUG line for a skipped
+    `huggingface.endpoints` entry must name it, never `%r` the whole
+    dict -- a malformed entry (missing `url`, say) can still carry a
+    real `token`."""
+    import logging
+    from halo_harness.providers.huggingface import resolve_huggingface_endpoints
+    from halo_harness.theme import set_config_value
+
+    class _Capture(logging.Handler):
+        def __init__(self):
+            super().__init__()
+            self.records = []
+
+        def emit(self, record):
+            self.records.append(record.getMessage())
+
+    logger = logging.getLogger("bridge")
+    handler = _Capture()
+    logger.addHandler(handler)
+    old_level = logger.level
+    logger.setLevel(logging.DEBUG)
+    try:
+        with _Env():
+            set_config_value("huggingface.endpoints", [{"name": "broken-ep", "token": "fake-secret-789"}])
+            resolve_huggingface_endpoints()
+            joined = "\n".join(handler.records)
+            ctx.check(f"the entry's name is in the debug line, got {handler.records!r}", "broken-ep" in joined)
+            ctx.check("the token value never appears in the debug line", "fake-secret-789" not in joined)
+    finally:
+        logger.setLevel(old_level)
+        logger.removeHandler(handler)
+
+
+@test
+def test_endpoint_token_env_reference_resolves_and_plaintext_still_works(ctx: Ctx):
+    """Fix pass C-1 (review finding 16): `token_env` resolves to the real
+    value from the process environment; an older plaintext `token` value
+    still works unchanged."""
+    from halo_harness.providers.huggingface import resolve_huggingface_endpoint
+    from halo_harness.theme import set_config_value
+    with _Env():
+        os.environ["HALO_SECRET_HF_ENDPOINT_ENVREF"] = "the-real-endpoint-secret"
+        set_config_value("huggingface.endpoints", [
+            {"name": "envref", "url": "https://envref.endpoints.huggingface.cloud",
+             "token_env": "HALO_SECRET_HF_ENDPOINT_ENVREF"},
+            {"name": "legacy", "url": "https://legacy.endpoints.huggingface.cloud",
+             "token": "still-works-plaintext"},
+        ])
+        ctx.check("token_env resolves to the real env value",
+                  resolve_huggingface_endpoint("envref").token == "the-real-endpoint-secret")
+        ctx.check("a legacy plaintext token still resolves unchanged",
+                  resolve_huggingface_endpoint("legacy").token == "still-works-plaintext")
+
+
 # ---- enablement -------------------------------------------------------------
 
 @test

@@ -318,8 +318,20 @@ def refresh_cx_catalog(*, state_dir: Optional[Path] = None, timeout: float = 30.
     `cc_models.refresh_cc_catalog` documents. Best-effort per-alias: a
     ping that errors for an UNRELATED reason (codex itself unreachable,
     timeout) leaves that alias's prior cached answer alone rather than
-    marking it refused on a false signal."""
+    marking it refused on a false signal.
+
+    Halo 2.0.3 fix pass C-1 (review finding 3): `network.offline` is
+    checked first -- an explicit `halo models --cx --refresh` reaches
+    the ChatGPT subscription network once per known alias, and offline
+    mode never saw it before this fix. Same "background check: skip
+    quietly, return the cache unchanged" shape the `CodexNotFoundError`
+    branch right below already has."""
     import json as _json
+    import logging
+    from halo_harness.providers.http import offline_mode_enabled
+    if offline_mode_enabled():
+        logging.getLogger("bridge").debug("cx: offline mode is on -- skipping halo models --cx --refresh")
+        return load_cx_models_cache(state_dir)
     try:
         argv = resolve_codex_launch_argv()
     except CodexNotFoundError:

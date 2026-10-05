@@ -26,6 +26,26 @@ from typing import Optional
 log = logging.getLogger("bridge")
 
 
+def _resolve_secret_field(d: dict, *, plain_key: str, env_key: str) -> Optional[str]:
+    """Halo 2.0.3 fix pass C-1 (review finding 16): `env_key` (e.g.
+    `"token_env"`/`"api_key_env"`), when set to a non-empty variable
+    NAME, wins -- the real secret lives in the shared env file
+    (`init_providers.py`'s own `save_tab_credentials`, loaded into
+    `os.environ` by `providers.config.load_provider_env_files()`), and
+    config.json only ever keeps the name that points at it. Falls back
+    to `plain_key` (e.g. `"token"`/`"api_key"`) so an existing PLAINTEXT
+    value written before this fix still works -- "migrated" the next
+    time that entry is saved again, never rewritten just by being read."""
+    env_name = d.get(env_key)
+    if isinstance(env_name, str) and env_name:
+        import os
+        value = os.environ.get(env_name)
+        if value:
+            return value
+    plain = d.get(plain_key)
+    return plain if isinstance(plain, str) and plain else None
+
+
 @dataclass(frozen=True)
 class HFEndpoint:
     """One entry of `huggingface.endpoints` (`~/.halo/config.json`) -- a
@@ -52,7 +72,7 @@ def _endpoint_from_dict(d: dict) -> Optional[HFEndpoint]:
         return None
     return HFEndpoint(
         name=name, url=url.rstrip("/"), default=bool(d.get("default", False)),
-        token=d.get("token") if isinstance(d.get("token"), str) and d.get("token") else None,
+        token=_resolve_secret_field(d, plain_key="token", env_key="token_env"),
     )
 
 
@@ -73,8 +93,11 @@ def resolve_huggingface_endpoints() -> "list[HFEndpoint]":
                 if ep is not None:
                     out.append(ep)
                 else:
-                    log.debug("huggingface: skipped a config.json huggingface.endpoints entry with no name/url: %r",
-                              entry)
+                    # Halo 2.0.3 fix pass C-1 (review finding 17): never
+                    # %r the whole entry -- it may carry a plaintext
+                    # token. Log the entry's own name only.
+                    log.debug("huggingface: skipped a config.json huggingface.endpoints entry with no name/url "
+                              "(name=%r)", entry.get("name") if isinstance(entry, dict) else None)
     return out
 
 
@@ -125,6 +148,11 @@ class HFLocalServer:
     url: str
     default: bool = False
     api_key: Optional[str] = None
+    # Halo 2.0.3 fix pass C-1 (review finding 1): same explicit "this
+    # host is local" marker as `providers.ollama.OllamaHost.offline_ok` --
+    # the one escape hatch for a manual server whose URL is neither a
+    # private/loopback IP literal nor a bare/`.local` name.
+    offline_ok: bool = False
 
 
 def _local_server_from_dict(d: dict) -> Optional[HFLocalServer]:
@@ -134,7 +162,8 @@ def _local_server_from_dict(d: dict) -> Optional[HFLocalServer]:
     name = d.get("name") if isinstance(d.get("name"), str) and d.get("name") else url
     return HFLocalServer(
         name=name, url=url.rstrip("/"), default=bool(d.get("default", False)),
-        api_key=d.get("api_key") if isinstance(d.get("api_key"), str) and d.get("api_key") else None,
+        api_key=_resolve_secret_field(d, plain_key="api_key", env_key="api_key_env"),
+        offline_ok=bool(d.get("offline_ok", False)),
     )
 
 
@@ -157,8 +186,11 @@ def resolve_huggingface_local_servers() -> "list[HFLocalServer]":
                 if s is not None:
                     out.append(s)
                 else:
-                    log.debug("huggingface: skipped a config.json huggingface.local_servers entry with no url: %r",
-                              entry)
+                    # Halo 2.0.3 fix pass C-1 (review finding 17): never
+                    # %r the whole entry -- it may carry a plaintext
+                    # api_key. Log the entry's own name only.
+                    log.debug("huggingface: skipped a config.json huggingface.local_servers entry with no url "
+                              "(name=%r)", entry.get("name") if isinstance(entry, dict) else None)
     return out
 
 

@@ -451,11 +451,23 @@ def latest_available(channel: Optional[str] = None, *, refresh: bool = False,
         cache_ttl_s = CACHE_TTL_S
     if not refresh and isinstance(cached, dict) and (now - cached.get("checked_at", 0)) < cache_ttl_s:
         return {**cached, "source": "cache"}
+    # Halo 2.0.3 fix pass C-1 (review finding 3): `network.offline` is
+    # checked in the SAME place `update.check: false`/`BRIDGE_TEST_NO_
+    # BACKGROUND_NET` already short-circuit this -- before this fix, the
+    # TUI's launch-time worker, `/update` and `halo update --check` all
+    # still ran `git ls-remote <public repo URL>` FIRST while offline
+    # (the `fetch_json` fallback below was already gated via
+    # `urlopen_tls`, but the git fast-path never was).
+    from halo_harness.providers.http import offline_mode_enabled
+    is_offline = offline_mode_enabled()
     checking_disabled = get_config_value("update.check", True) is False
-    if checking_disabled or background_net_disabled():
+    if checking_disabled or background_net_disabled() or is_offline:
         if isinstance(cached, dict):
             return {**cached, "source": "cache"}
-        reason = "update.check is off" if checking_disabled else "background network disabled"
+        if is_offline:
+            reason = "offline mode is on"
+        else:
+            reason = "update.check is off" if checking_disabled else "background network disabled"
         return {"channel": channel, "commit": None, "ref": None, "reason": reason, "source": "disabled"}
     result = _fetch_latest(channel, run_fn=run_fn, fetch_json=fetch_json)
     if result.get("commit") is None and isinstance(cached, dict):

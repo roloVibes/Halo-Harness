@@ -47,21 +47,28 @@ _SECRET_ENV_NAMES = (
 # failure mode for a "best-effort, share this transcript safely" tool.
 _GENERIC_SECRET_NAME = r"[A-Z0-9_]*(?:API_KEY|APIKEY|TOKEN|SECRET)[A-Z0-9_]*"
 _NAME_ALT = "|".join(re.escape(n) for n in _SECRET_ENV_NAMES) + "|" + _GENERIC_SECRET_NAME
-# A literal `"` OR a JSON-escaped `\"` (one optional backslash then a
+# A literal `"`/`'` OR a JSON-escaped `\"` (one optional backslash then a
 # quote) -- matches a value's opening/closing quote whether this text is
-# raw (a live transcript, a Read of a real file) or already JSON-string-
-# encoded (`sanitize_node`'s own `json.dumps` round trip below).
-_Q = r'\\?"'
+# raw (a live transcript, a Read of a real file), already JSON-string-
+# encoded (`sanitize_node`'s own `json.dumps` round trip below), or a
+# Python dict's own `repr()` (single-quoted -- e.g. a `log.debug("...%r",
+# entry)` call landing in bridge.log: `{'name': 'default', 'api_key':
+# '...'}`). Halo 2.0.3 fix pass C-1 (review finding 17): single quotes
+# added -- before this fix a bugreport's "Last 50 bridge.log line(s)"
+# section kept a secret verbatim whenever it reached the log via `%r` of
+# a whole dict rather than a JSON `"key": "value"` shape.
+_Q = r'\\?[\'"]'
 # Named groups so the replacement function can put back EXACTLY the quote
 # characters (if any) it actually matched around the name and the value --
-# `lead_q`/`mid_q` are the JSON-key form's own opening/closing quotes
-# (`"OPENROUTER_API_KEY":`), `open_q`/`close_q` are the value's. Dropping a
-# quote that was structural JSON/shell syntax (rather than part of the
-# secret itself) would corrupt that syntax; preserving each one exactly as
-# matched -- while replacing only what was BETWEEN them -- can't.
+# `lead_q`/`mid_q` are the key form's own opening/closing quotes
+# (`"OPENROUTER_API_KEY":`/`'api_key':`), `open_q`/`close_q` are the
+# value's. Dropping a quote that was structural JSON/shell/repr syntax
+# (rather than part of the secret itself) would corrupt that syntax;
+# preserving each one exactly as matched -- while replacing only what was
+# BETWEEN them -- can't.
 _ENV_ASSIGN_RE = re.compile(
-    r'(?P<lead_q>")?\b(?P<name>' + _NAME_ALT + r')(?P<mid_q>")?\s*(?P<sep>[:=])\s*'
-    r'(?P<open_q>' + _Q + r')?(?P<value>[^\s"\\]+)(?P<close_q>' + _Q + r')?',
+    r'(?P<lead_q>[\'"])?\b(?P<name>' + _NAME_ALT + r')(?P<mid_q>[\'"])?\s*(?P<sep>[:=])\s*'
+    r'(?P<open_q>' + _Q + r')?(?P<value>[^\s"\'\\]+)(?P<close_q>' + _Q + r')?',
     re.IGNORECASE,  # `"api_key": "..."`/`token=...` must redact regardless
                      # of case -- the shape (name immediately followed by
                      # `:`/`=` then a value) is what makes this safe from
@@ -86,6 +93,17 @@ _TOKEN_PATTERNS = (
     re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
     re.compile(r"dapi[a-f0-9]{20,}"),  # Databricks personal access token shape
     re.compile(r"AKIA[A-Z0-9]{12,}"),  # AWS access key id shape
+    # Halo 2.0.3 fix pass C-1 (review finding 17): Hugging Face's own
+    # token shape (`hf_` + ~34 alnum chars) and Experiential Labs'
+    # (`xpl_` + 40 lowercase hex chars, docs/harness/EXPERIENTIAL-
+    # RESEARCH.md) -- neither had a bare-token pattern here before, so
+    # one pasted outside any `NAME=value`/`"name": "value"` shape (e.g.
+    # mid-sentence in a tool result, or a bare value on its own log line)
+    # went unredacted by every caller of `sanitize_text`/`redact_for_
+    # bugreport` (and the privacy scan's own key-shaped-fragment check,
+    # which reuses `_TOKEN_PATTERNS` directly).
+    re.compile(r"hf_[A-Za-z0-9]{30,}"),
+    re.compile(r"xpl_[a-f0-9]{30,}"),
 )
 _BEARER_RE = re.compile(r"(Bearer\s+)([A-Za-z0-9\-_.]{16,})", re.IGNORECASE)
 

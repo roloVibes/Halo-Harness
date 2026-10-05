@@ -52,6 +52,15 @@ anything left open with the reason). No commit, no push.
 
 ## Test cadence from 2026-10-04 evening (rolo asked why rounds take so long)
 
+- Test environment (found by fix pass C-1, 2026-10-05): export
+  `BRIDGE_TEST_HOME=<fresh scratch dir>` and `BRIDGE_TEST_NO_BACKGROUND_NET=1`
+  only. Do NOT also export `BRIDGE_STATE_DIR` for a whole run: `bridge_home()`
+  prefers it over `BRIDGE_TEST_HOME`, which defeats the per-test isolation
+  files such as tests/test_theme.py rely on and produces false failures with
+  no code change. Set `BRIDGE_STATE_DIR` only inside the one test that needs
+  it. This build host has real `codex` and `claude` logins: stub
+  `subprocess.run` in any "online" assertion, never let a test spawn them.
+
 - A worker runs ONLY the test modules it touched or added, plus
   `python test_bridge.py`, before handing back. It does not run
   `tests/run_all.py` or `test_tui.py` unless the orchestrator's brief asks

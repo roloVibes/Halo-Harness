@@ -237,14 +237,14 @@ directly by the features that own them:
 | `update.check` | `true` | `halo config set update.check false` turns off `halo update`/`/update`'s own check entirely (never shells out, never touches the network) |
 | `update.notify` | `true` | `halo config set update.notify false` turns off just the once-a-day "update available" startup note (the check itself, and `/update`'s own dialog, still work) |
 | `update.channel` | unset (derived from the install: `stable` when pinned to a `v*` tag, else `main`) | `halo update --channel stable\|main` |
-| `ollama.hosts` | unset (synthesizes one default host from `OLLAMA_HOST`/`127.0.0.1:11434`) | hand-edited; a list of `{name, url, default, keep_alive, max_ctx, num_parallel_hint, api_key, kv_cache_type, ssh}` -- `ol:<model>@<hostname>` selects an entry by `name`; see `docs/MODELS.md`'s "Ollama" section |
+| `ollama.hosts` | unset (synthesizes one default host from `OLLAMA_HOST`/`127.0.0.1:11434`) | hand-edited, or `halo init`'s Ollama tab; a list of `{name, url, default, keep_alive, max_ctx, num_parallel_hint, api_key_env, kv_cache_type, ssh, offline_ok}` -- `ol:<model>@<hostname>` selects an entry by `name`; a saved key lives in the shared env file under the name `api_key_env` points at (never plaintext here -- an older `api_key` value still works and is migrated to `api_key_env` the next time that entry is saved); `offline_ok: true` marks a host that is not otherwise recognized as local (see `network.offline` below) explicitly local anyway; see `docs/MODELS.md`'s "Ollama" section |
 | `ollama.tools_max` | unset (derived from the effective `num_ctx`'s context class -- under 16k: 16, 16k-32k: 32, 32k-64k: 64, 64k+: 128) | `halo config set ollama.tools_max 64`; overrides the `ol:` ProviderProfile's tool-catalog cap outright, still never below however many built-in tools this platform ships -- see `docs/MODELS.md`'s "Ollama" section |
 | `ollama.auto_calibrate` | `true` | `halo config set ollama.auto_calibrate false`; opts out of running `halo ollama calibrate`'s own stepping procedure automatically the first time a model is used on a host with no learned cap -- see `docs/MODELS.md`'s "Fit calibration" section |
 | `ollama.hosts[].kv_cache_type` | unset (`f16`, the conservative default -- never under-estimates memory) | per-host-entry field in `ollama.hosts` (not its own top-level key); `"q8_0"`/`"q4_0"` when that host's own `OLLAMA_KV_CACHE_TYPE` server flag is set to match -- a HINT Halo cannot read back on its own, see `docs/MODELS.md`'s "KV cache type per host" |
 | `ollama.hosts[].ssh` | unset (no ssh GPU read; the fit estimate relies on calibration/`/api/ps` alone) | per-host-entry field, e.g. `"ssh": "user@host"` -- an OPTIONAL read-only GPU probe over ssh for a REMOTE host, never required, never prompted for; see `docs/MODELS.md`'s "Optional ssh GPU read" section |
-| `huggingface.endpoints` | unset (no dedicated endpoints configured) | hand-edited; a list of `{name, url, token, default}` -- `hf:endpoint/<name>` selects an entry by `name`; each entry's own `url`/`token` are used as-is, never the router's `HF_TOKEN`/base URL; see `docs/MODELS.md`'s "Hugging Face" section |
+| `huggingface.endpoints` | unset (no dedicated endpoints configured) | hand-edited; a list of `{name, url, token_env, default}` -- `hf:endpoint/<name>` selects an entry by `name`; each entry's own `url`/token are used as-is, never the router's `HF_TOKEN`/base URL; a saved token lives in the shared env file under the name `token_env` points at (an older `token` value still works and is migrated the next time the entry is saved); see `docs/MODELS.md`'s "Hugging Face" section |
 | `huggingface.bill_to` | unset (no header sent) | `halo config set huggingface.bill_to my-org`; a Team/Enterprise org name sent as `X-HF-Bill-To` on every ROUTER (`hf:<org>/<model>`) request only -- never on an `hf:endpoint/<name>` call |
-| `huggingface.local_servers` | unset (relies on auto-detection alone) | hand-edited, or `halo init`'s Hugging Face tab; a list of `{name, url, api_key, default}` -- `hf:local/<model>@<name>` selects an entry by `name`; `hf:local/<model>` (bare) prefers this list's default entry, else the first AUTO-detected local server; see `docs/MODELS.md`'s "Hugging Face" section |
+| `huggingface.local_servers` | unset (relies on auto-detection alone) | hand-edited, or `halo init`'s Hugging Face tab; a list of `{name, url, api_key_env, default, offline_ok}` -- `hf:local/<model>@<name>` selects an entry by `name`; `hf:local/<model>` (bare) prefers this list's default entry, else the first AUTO-detected local server; a saved key lives in the shared env file under the name `api_key_env` points at (an older `api_key` value still works and is migrated the next time the entry is saved); `offline_ok: true` marks a server not otherwise recognized as local (see `network.offline` below) explicitly local anyway; see `docs/MODELS.md`'s "Hugging Face" section |
 | `huggingface.local_probe_ports` | unset (`8080, 8000, 1234` -- see `docs/MODELS.md`) | hand-edited; a list of ints overriding which ports the `hf:local/*` auto-detect sweep probes (loopback only); `HF_LOCAL_PROBE_PORTS` (env) wins over this when both are set |
 | `huggingface.lmstudio_models_dir` | unset (`~/.lmstudio/models`, LM Studio's own documented default) | `halo config set huggingface.lmstudio_models_dir /path/to/models`; only needed when LM Studio's own in-app "Model Storage" setting moved the folder -- see `docs/MODELS.md`'s "LM Studio's own model folder" |
 | `huggingface.model_dirs` | unset (nothing scanned) | `/local add <path>`/`/local forget <path>` (persisted immediately), `halo init`'s "Local models" step, or hand-edited; a list of folder paths Halo scans recursively for `.gguf` files and safetensors/MLX model folders -- see `docs/MODELS.md`'s "Finding and using file-backed models" |
@@ -371,7 +371,8 @@ just before it) only ever writes a value you actually chose THIS run --
 fresh box, so layer 4 above still applies) instead of forcing `auto`/an
 arbitrary other-provider's model over it.
 
-### `network.offline` (Halo 2.0.3 round 5e)
+### `network.offline` (Halo 2.0.3 round 5e, locality rule tightened in fix
+pass C-1)
 
 `~/.halo/config.json`'s `network.offline` -- `true`/`false`, default
 `false`. Set directly (`halo config set network.offline true`) or through
@@ -379,17 +380,39 @@ arbitrary other-provider's model over it.
 override it for one process WITHOUT persisting anything (checked first,
 ahead of this key). While on, the one HTTP choke point
 (`halo_harness.providers.http`'s `open_upstream`/`urlopen_tls`) refuses any
-connection whose host is not loopback (`127.0.0.1`/`localhost`/`::1`) or an
-allow-listed local host:
+connection whose host is not loopback (`127.0.0.1`/`localhost`/`::1`) or
+ACTUALLY local by one of three tests:
 
-- every `ollama.hosts[].url` entry (this section's own LAN-Ollama config),
-- every `huggingface.local_servers[].url` entry,
-- every entry in the managed local-server registry (`halo local serve`'s
-  own `~/.halo/run/local-servers.json` -- always loopback by construction).
+- a private, loopback, link-local or IPv6 ULA IP literal (RFC1918,
+  169.254.0.0/16/fe80::/10, fc00::/7, ...) -- never a hostname that merely
+  *resolves* to one; computing this allow-list never itself makes a DNS
+  query,
+- a bare single-label name (`gpubox`, no dot) or an `.local` mDNS name,
+- an `ollama.hosts`/`huggingface.local_servers` entry the user marked
+  `offline_ok: true` explicitly.
 
-Covers update checks, catalog refreshes, the Hugging Face router,
-OpenRouter, Databricks, Anthropic, and the WebFetch/WebSearch tools; the
-claude.ai connectors bridge's own background/cold-start discovery is
+Checked against every `ollama.hosts[].url` entry, every `huggingface.
+local_servers[].url` entry, and every entry in the managed local-server
+registry (`halo local serve`'s own `~/.halo/run/local-servers.json` --
+always loopback by construction). A hostname that is merely *configured*
+is no longer enough by itself: `ollama.com` (saved as an `ollama.hosts`
+entry keyed by `api_key`, or reached via an ambient `OLLAMA_HOST=https://
+ollama.com` with no config at all) and any other public hostname a user
+pastes into either list are refused exactly like any other cloud host.
+A loopback or allow-listed host is also never sent through
+`HTTPS_PROXY`/`HTTP_PROXY`, and a redirect response is re-checked against
+the same gate before it is ever followed.
+
+Covers update checks (including the update command's own `git ls-remote`
+fast path, never only its API fallback), catalog refreshes, the Hugging
+Face router, OpenRouter, Databricks, Anthropic, the WebFetch/WebSearch
+tools, every `cc:`/`cx:` turn and their one-shot small/judge/title calls
+(refused outright -- there is no local fallback for a cloud subscription
+route), `halo models --cx --refresh`'s codex pings, `--plugin-url`'s `git
+clone`, and `hf:mlx`'s first-use model download. `halo update`'s apply
+step (the actual reinstall, not just `--check`) returns an error result
+instead of running `git pull`/`uv tool install`/`pip install --upgrade`.
+The claude.ai connectors bridge's own background/cold-start discovery is
 skipped (one DEBUG line) rather than refused, since its real network call
 happens inside a spawned `claude` subprocess, outside this process's own
 choke point -- an explicit `halo mcp list --refresh`/`/mcp` reconnect still
@@ -453,3 +476,14 @@ shows the active policy and this session's last few decisions. See
   --sanitize`/`/export --sanitize` additionally scrub anything that slipped
   into a transcript via a tool's own output (a Bash `env` dump, a Read of a
   settings file).
+- An `ollama.hosts`/`huggingface.endpoints`/`huggingface.local_servers` key
+  saved through `halo init`'s tabs is never written into `config.json` as
+  plaintext either (fix pass C-1) -- it goes into the same shared env file
+  `DATABRICKS_TOKEN`/`HF_TOKEN` already use, under a generated name
+  (`HALO_SECRET_<KIND>_<NAME>`), and `config.json` keeps only that name
+  (`api_key_env`/`token_env`). `~/.halo/config.json` is written 0600 on
+  POSIX whenever the platform supports it, and `halo config list`/`config
+  get` mask any secret-shaped value (an older plaintext `api_key`/`token`
+  entry included) rather than printing it verbatim. A malformed config
+  entry is ever only logged by its own `name`, never `%r` of the whole
+  entry.

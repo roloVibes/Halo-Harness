@@ -102,6 +102,15 @@ class OllamaHost:
     # required, never prompted for; `None` (the default) leaves this
     # host's fit estimate exactly as before (its own `/api/ps` only).
     ssh: Optional[str] = None
+    # Halo 2.0.3 fix pass C-1 (review finding 1): an explicit "this host
+    # is local" marker the user sets in config.json (`offline_ok: true`)
+    # -- the one escape hatch `providers.http.allowlisted_local_hosts`
+    # honours for a host whose URL is neither a private/loopback IP
+    # literal nor a bare/`.local` name (e.g. a self-hosted box reachable
+    # only by a real DNS name the user knows is their own). Never set by
+    # anything in this harness itself; false by default, same as every
+    # other local/LAN host before this field existed.
+    offline_ok: bool = False
 
 
 def _normalize_host_url(raw: str) -> str:
@@ -142,6 +151,26 @@ def ollama_names_match(a: Optional[str], b: Optional[str]) -> bool:
     return normalize_ollama_model_name(a) == normalize_ollama_model_name(b)
 
 
+def _resolve_secret_field(d: dict, *, plain_key: str, env_key: str) -> Optional[str]:
+    """Halo 2.0.3 fix pass C-1 (review finding 16): `env_key` (e.g.
+    `"api_key_env"`), when set to a non-empty variable NAME, wins -- the
+    real secret lives in the shared env file (`init_providers.py`'s own
+    `save_tab_credentials`, loaded into `os.environ` by `providers.config.
+    load_provider_env_files()`), and config.json only ever keeps the name
+    that points at it. Falls back to `plain_key` (e.g. `"api_key"`) so an
+    existing PLAINTEXT value written before this fix still works --
+    "migrated" the next time that entry is saved again, never rewritten
+    just by being read."""
+    env_name = d.get(env_key)
+    if isinstance(env_name, str) and env_name:
+        import os
+        value = os.environ.get(env_name)
+        if value:
+            return value
+    plain = d.get(plain_key)
+    return plain if isinstance(plain, str) and plain else None
+
+
 def _host_from_dict(d: dict) -> Optional[OllamaHost]:
     url = d.get("url")
     if not isinstance(url, str) or not url:
@@ -156,10 +185,11 @@ def _host_from_dict(d: dict) -> Optional[OllamaHost]:
         num_parallel_hint=(int(num_parallel_hint)
                            if isinstance(num_parallel_hint, (int, float)) and not isinstance(num_parallel_hint, bool)
                            else None),
-        api_key=d.get("api_key") if isinstance(d.get("api_key"), str) and d.get("api_key") else None,
+        api_key=_resolve_secret_field(d, plain_key="api_key", env_key="api_key_env"),
         kv_cache_type=d.get("kv_cache_type") if isinstance(d.get("kv_cache_type"), str) and d.get("kv_cache_type")
         else None,
         ssh=d.get("ssh") if isinstance(d.get("ssh"), str) and d.get("ssh") else None,
+        offline_ok=bool(d.get("offline_ok", False)),
     )
 
 
@@ -189,7 +219,11 @@ def resolve_ollama_hosts(env: Optional[dict] = None) -> "list[OllamaHost]":
                 if host is not None:
                     hosts.append(host)
                 else:
-                    log.debug("ollama: skipped a config.json ollama.hosts entry with no url: %r", entry)
+                    # Halo 2.0.3 fix pass C-1 (review finding 17): never
+                    # %r the whole entry -- it may carry a plaintext
+                    # api_key. Log the entry's own name only.
+                    log.debug("ollama: skipped a config.json ollama.hosts entry with no url (name=%r)",
+                              entry.get("name") if isinstance(entry, dict) else None)
     if hosts:
         return hosts
     url = _normalize_host_url(env.get("OLLAMA_HOST") or DEFAULT_OLLAMA_URL)

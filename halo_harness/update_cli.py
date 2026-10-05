@@ -70,6 +70,15 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False) -> int:
     `/update` restart handoff always calls this AFTER the TUI's process
     has already quit (Textual torn down), so that check still correctly
     counts only genuinely OTHER processes, never a stale earlier one."""
+    # Halo 2.0.3 fix pass C-1 (review finding 3): checked before anything
+    # else -- an explicit `halo update`/`/update` apply is a real
+    # reinstall (`git pull`/`uv tool install`/`pip install --upgrade`,
+    # every one of them network-reaching), never a background check, so
+    # this returns an error result instead of silently skipping.
+    from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
+    if offline_mode_enabled():
+        print(f"halo update: {format_offline_refusal('the update server')}", file=sys.stderr)
+        return 1
     others = upd.other_halo_pids()
     if others and not force:
         pids = ", ".join(str(p) for p in others)
