@@ -699,7 +699,7 @@ class Session:
         creds: Optional[ProviderCreds], state_dir, model_label: str, session_context,
         small_model_ref: Optional[ModelRef] = None, small_model_effort: Optional[str] = None,
         session_log: Optional[SessionLog] = None,
-        max_turns: int = 50, openrouter_base_url: Optional[str] = None,
+        max_turns: Optional[int] = None, openrouter_base_url: Optional[str] = None,
         extra_headers: Optional[dict] = None, effort: Optional[str] = None,
         effort_source: Optional[str] = None,
         permission_engine: Optional[PermissionEngine] = None,
@@ -756,7 +756,13 @@ class Session:
         # nothing was ever explicitly requested at all.
         self.effort_requested: Optional[str] = effort
         self.turn_count = 0
-        self.max_turns = max_turns
+        # rolo 2026-10-05 ("what is this harness limit?"): None (the default
+        # everywhere now) or a non-positive value means NO cap, Claude Code
+        # parity -- there `--max-turns` only ever applies when the user passes
+        # it, and an interactive session is never capped. The runaway guards
+        # that matter (the identical-call breaker, the cost and context
+        # meters) are separate and unchanged.
+        self.max_turns = max_turns if (max_turns is not None and max_turns > 0) else None
         # H5 scope D: per-family fallback pricing (model.CostMeter._fallback_cost)
         # for whenever a response has no usage.cost of its own.
         self.cost_meter = CostMeter(price_in=model_profile.price_in, price_out=model_profile.price_out,
@@ -4661,7 +4667,7 @@ class Session:
         yield from self._apply_pending_agent_notices(turn_no)
         yield from self._apply_pending_job_notices(turn_no)
         while True:
-            if model_calls >= self.max_turns:
+            if self.max_turns is not None and model_calls >= self.max_turns:
                 # H5 scope F item 9 (OpenCode Appendix H): inject
                 # MAX_STEPS_PROMPT as a snapshot and give the model ONE more
                 # (tool-less) call to close out with a real summary instead

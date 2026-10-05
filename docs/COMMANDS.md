@@ -345,8 +345,12 @@ with `/` is sent to the model as plain text instead.
 
 #### `--max-turns MAX_TURNS`
 What: caps the number of *model calls* (not tool calls) a single `turn()`
-may make before the harness forces a wrap-up reply and ends the turn.
-Default: `50`.
+may make before the harness forces a wrap-up reply ("MAXIMUM STEPS
+REACHED") and ends the turn. Opt-in: with no flag there is NO cap, in the
+TUI and in print mode alike (Claude Code parity; before 2.0.3 a default of
+50 stopped long interactive tasks mid-stream). A non-positive value also
+means no cap. The identical-call breaker and the cost/context meters stay
+on regardless.
 
 #### `--max-budget-usd MAX_BUDGET_USD`
 What: stops the session (mid-turn, at the next safe point) once cumulative

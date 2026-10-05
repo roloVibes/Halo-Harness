@@ -55,7 +55,7 @@ _REAL_FLAGS = [
     (["--output-format"], dict(dest="output_format", choices=["text", "json", "stream-json"], default="text")),
     (["--input-format"], dict(dest="input_format", choices=["text", "stream-json"], default="text")),
     (["--include-partial-messages"], dict(dest="include_partial_messages", action="store_true")),
-    (["--max-turns"], dict(dest="max_turns", type=int, default=50)),
+    (["--max-turns"], dict(dest="max_turns", type=int, default=None)),  # opt-in; no cap unless given
     (["--append-system-prompt"], dict(dest="append_system_prompt", default=None, metavar="TEXT")),
     (["--append-system-prompt-file"], dict(dest="append_system_prompt_file", default=None, metavar="FILE")),
     (["--system-prompt"], dict(dest="system_prompt", default=None, metavar="PROMPT")),

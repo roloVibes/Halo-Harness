@@ -814,6 +814,13 @@ pass, and the release tag are still to come.
   of the `subprocess.run` call it replaced, so both turn paths stay
   genuinely covered rather than silently passing on a stub nothing
   reaches any more.
+- **No more "MAXIMUM STEPS REACHED" at 50 tool calls** (rolo, 2026-10-05):
+  `--max-turns` defaulted to 50 and the TUI applied it to interactive
+  sessions, so any long task stopped mid-stream with a handoff summary.
+  Claude Code only caps print mode and only when asked; Halo now matches:
+  no cap anywhere unless `--max-turns N` is passed (a non-positive value
+  also means no cap). The identical-call breaker and the cost/context
+  meters remain the runaway guards.
 
 ## [2.0.2] - 2026-10-04
 
