@@ -94,21 +94,35 @@ COST_AWARE_DEFAULTS = {"researcher": _COST_AWARE_DATABRICKS_MODEL, "small": _COS
 
 def _normalize_role_value(value) -> "Optional[object]":
     """A raw role-table VALUE, cleaned to either a non-empty model string
-    or a `{"model": ..., "effort": ...}` dict with a non-empty `model`
-    (brief A.2) -- `None` for anything else (an empty string, a dict with
-    no usable `model`, a list, ...). The `effort` key is dropped (not
-    just left as-is) when it isn't a non-empty string, so a caller never
-    has to re-check its type."""
+    or a `{"model": ..., "effort": ..., "escalation": ...}` dict with a
+    non-empty `model` (brief A.2) -- `None` for anything else (an empty
+    string, a dict with no usable `model`, a list, ...). The `effort` key
+    is dropped (not just left as-is) when it isn't a non-empty string, so
+    a caller never has to re-check its type.
+
+    C-2 finding 7: `escalation` (a role's own `{"model": ..., "escalation":
+    false}` override -- `agent.escalation.role_escalation_enabled` reads
+    exactly this key off the normalized table) is carried through the SAME
+    way, dropped unless it's actually a bool. Before this fix every role-
+    table value -- however it reached `configured_role_table()`/`resolve_
+    role_table` (config.json, team.json, a loaded template) -- was
+    silently cut down to `{"model"[, "effort"]}` ONLY, so a configured
+    per-role override could never take effect: `role_escalation_enabled`
+    never sees the raw config dict, only what this function produces."""
     if isinstance(value, str):
         return value if value.strip() else None
     if isinstance(value, dict):
         model = value.get("model")
         if not isinstance(model, str) or not model.strip():
             return None
+        out: dict = {"model": model}
         effort = value.get("effort")
         if isinstance(effort, str) and effort.strip():
-            return {"model": model, "effort": effort.strip()}
-        return {"model": model}
+            out["effort"] = effort.strip()
+        escalation = value.get("escalation")
+        if isinstance(escalation, bool):
+            out["escalation"] = escalation
+        return out
     return None
 
 

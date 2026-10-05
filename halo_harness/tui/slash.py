@@ -1096,6 +1096,17 @@ async def _handle_local(app, args: str) -> None:
     if not stripped or stripped.lower() in ("refresh", "--refresh"):
         app.run_worker(lambda: _local_dialog_worker(app, stripped), thread=True, name="local", group="local")
         return
+    # C-2 finding 14: `add`/`forget` used to fall straight through to the
+    # "answer it as a question" branch below -- `_cmd_local` (the print-
+    # mode builtin) already handles both verbs correctly, so this routes
+    # there through the SAME generic `_run_slash_worker` the fallback
+    # below uses for every other command, rather than re-implementing
+    # `add_model_dir`/`forget_model_dir` dispatch a second time here.
+    first_word = stripped.split(None, 1)[0].lower()
+    if first_word in ("add", "forget"):
+        app.run_worker(lambda: _run_slash_worker(app, "local", stripped), thread=True,
+                        name="local", group="local")
+        return
     question = stripped
     session = getattr(app.controller, "session", None)
     if session is None:

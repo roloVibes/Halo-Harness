@@ -125,6 +125,71 @@ def test_cmd_cost_omits_saved_breakdown_on_cloud_session(ctx: Ctx):
     ctx.check(f"no saved line on a cloud session, got {out!r}", "Saved vs cloud:" not in out)
 
 
+@test
+def test_account_usage_gates_savings_on_the_current_model_not_session_start(ctx: Ctx):
+    """C-2 finding 8 pin: `add_savings` must be gated on the model THIS
+    call is actually running on (resolved fresh, every call), never on
+    whether a reference price happened to be pinned at session start.
+    Switch sequence local -> cloud -> local; `saved_usd` must grow only on
+    the local turns. Exercises the real `Session._account_usage` (not the
+    CostMeter directly) so a regression that re-ungates the call site
+    itself, not just the arithmetic, is caught too."""
+    import os
+    import tempfile
+    from pathlib import Path
+    from halo_harness.agent.assemble import SessionContext
+    from halo_harness.agent.loop import Session, _StepResult
+    from halo_harness.model import ModelProfile, parse_model_ref
+    from halo_harness.providers.stream import ProviderCreds
+    from tests.helpers.fake_home import build_fake_home
+    from tests.helpers.mock_ollama import MockUpstream
+    fh = build_fake_home()
+    mock = MockUpstream().start()
+    try:
+        os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+        os.environ["OLLAMA_HOST"] = mock.base_url
+        session_ctx = SessionContext(cwd=fh["proj"], model_label="ol:plain-text")
+        session = Session(
+            cwd=fh["proj"], model_ref=parse_model_ref("ol:plain-text"),
+            model_profile=ModelProfile(context_tokens=10_000, max_output_tokens=1_000),
+            creds=ProviderCreds(base_url=mock.base_url, api_key=""),
+            state_dir=Path(tempfile.mkdtemp(prefix="savings-session-")), model_label="ol:plain-text",
+            session_context=session_ctx, max_turns=10,
+        )
+        ctx.check("a local session start pins a reference price (is_local_model_ref gate in __init__)",
+                  session.cost_meter.saved_price_in is not None)
+
+        def _result(n_in: int, n_out: int) -> _StepResult:
+            return _StepResult(assistant_blocks=[], stop_reason="end_turn",
+                                usage={"input_tokens": n_in, "output_tokens": n_out}, reasoning=None, body={})
+
+        session._account_usage(_result(100, 50))
+        after_local_1 = session.cost_meter.saved_usd
+        ctx.check(f"saved_usd grows on a local turn, got {after_local_1}", after_local_1 > 0)
+
+        # Switch to a cloud ref WITHOUT a real /model round trip (creds
+        # resolution needs no mock server for this) -- the reference price
+        # stays PINNED either way (set_savings_reference's own "never
+        # repriced mid-session" contract); only whether add_savings is
+        # even CALLED for this turn is what finding 8 changes.
+        session.model_ref = parse_model_ref("or:anthropic/claude-haiku-4.5")
+        session._account_usage(_result(100_000, 10_000))
+        ctx.check(f"saved_usd UNCHANGED on a cloud turn, got {session.cost_meter.saved_usd} "
+                  f"(was {after_local_1})", session.cost_meter.saved_usd == after_local_1)
+        ctx.check("saved_turns did not increment either", session.cost_meter.saved_turns == 1)
+
+        # Switch back to local -- resumes with no re-pinning needed.
+        session.model_ref = parse_model_ref("ol:plain-text")
+        session._account_usage(_result(10, 5))
+        ctx.check(f"saved_usd grows again once back on local, got {session.cost_meter.saved_usd}",
+                  session.cost_meter.saved_usd > after_local_1)
+        ctx.check("saved_turns is now 2 (the cloud turn never counted)", session.cost_meter.saved_turns == 2)
+    finally:
+        mock.stop()
+        os.environ.pop("BRIDGE_TEST_HOME", None)
+        os.environ.pop("OLLAMA_HOST", None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

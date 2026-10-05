@@ -336,6 +336,79 @@ def test_view_and_ref_resolution_see_a_managed_server_from_the_registry_file_alo
             stop_all_managed_servers_except_kept(state_dir=e.state_dir)
 
 
+@test
+def test_controller_list_models_includes_ollama_and_local_groups(ctx: Ctx):
+    """C-2 finding 11 pin: `Controller.list_models()` (the `/model`
+    picker's and completion's ONLY source) never listed `ol:`/`hf:local/*`/
+    `hf:mlx/*` at all -- now reuses this SAME shared `build_local_view`
+    rather than re-deriving it, so a config with one Ollama host and one
+    registered local server yields BOTH groups with the other groups' own
+    columns (context_tokens/price_in_per_m/.../provider/group)."""
+    from halo_harness.controller import Controller
+    from halo_harness.providers.local_runtime import start_managed_server, stop_all_managed_servers_except_kept
+    from halo_harness.providers.local_use import model_id_for_path
+
+    class _FakeModelRef:
+        raw = "or:mock/model"
+        provider = "openrouter"
+
+    class _FakeModelProfile:
+        context_tokens = 128000
+        max_output_tokens = 8192
+
+    class _FakeSession:
+        model_ref = _FakeModelRef()
+        model_profile = _FakeModelProfile()
+
+    with _Env() as e:
+        ollama = MockOllama().start()
+        try:
+            _set_ollama_host("bench", ollama.base_url)
+            model_dir = Path(tempfile.mkdtemp(prefix="list-models-local-"))
+            gguf_path = _write_gguf_fixture(model_dir)
+            from halo_harness.theme import set_config_value
+            set_config_value("huggingface.model_dirs", [str(model_dir)])
+            stub_dir = Path(tempfile.mkdtemp(prefix="list-models-stub-"))
+            stub = stub_dir / "stub_runtime.py"
+            stub.write_text(_STUB_LISTENS, encoding="utf-8")
+            model_id = model_id_for_path(gguf_path, "gguf")
+            entry, reason = start_managed_server(model=model_id, runtime="llama-server",
+                                                  binary_argv=[sys.executable, str(stub)], model_path=gguf_path,
+                                                  state_dir=e.state_dir, startup_timeout=10.0)
+            try:
+                ctx.check(f"the fake local server actually started, got reason={reason!r}", entry is not None)
+                ctrl = Controller(session=_FakeSession(), cwd=Path.cwd(), state_dir=e.state_dir, routes={})
+                rows = ctrl.list_models()
+                groups = {m.get("group") for m in rows if m.get("ref")}
+                ollama_groups = [g for g in groups if g and g.startswith("Ollama (")]
+                # A served `huggingface.model_dirs` file keeps that
+                # source's own group label (`providers.local_models`'s
+                # fixed "Local folders (...)" name -- only the row's
+                # `capability` text, not its group, changes once it's
+                # actually serving); "Hugging Face (local: ...)" is a
+                # DIFFERENT source (a `huggingface.local_servers` entry),
+                # not exercised by this test.
+                local_groups = [g for g in groups if g and g.startswith("Local folders (")]
+                ctx.check(f"exactly one Ollama group, got {groups}", len(ollama_groups) == 1)
+                ctx.check(f"exactly one local-folders group, got {groups}", len(local_groups) == 1)
+                refs = {m["ref"]: m for m in rows if m.get("ref")}
+                ollama_refs = [r for r in refs if r.startswith("ol:")]
+                ctx.check(f"the mock host's own models are listed as ol:, got {ollama_refs}",
+                          {"ol:qwen3:30b", "ol:gpt-oss:20b"} <= set(ollama_refs))
+                ctx.check(f"an ol: row has the SAME columns as every other group, got "
+                          f"{refs['ol:qwen3:30b']}", refs["ol:qwen3:30b"]["provider"] == "ollama"
+                          and "context_tokens" in refs["ol:qwen3:30b"])
+                local_ref = f"hf:local/{model_id}"
+                ctx.check(f"the registered local server's model is listed as hf:local/<id>, got {sorted(refs)}",
+                          local_ref in refs)
+                ctx.check(f"its provider is huggingface, got {refs[local_ref]}",
+                          refs[local_ref]["provider"] == "huggingface")
+            finally:
+                stop_all_managed_servers_except_kept(state_dir=e.state_dir)
+        finally:
+            ollama.stop()
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

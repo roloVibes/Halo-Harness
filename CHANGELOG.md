@@ -635,6 +635,81 @@ pass, and the release tag are still to come.
   host** (C21): `urlopen_tls` only ever checked the first URL; a redirect
   handler now re-runs the same offline check on every hop before following
   it.
+- **Hybrid escalation never switches onto a target offline mode would
+  itself refuse** (C4): with `network.offline`/`--offline` on, a trigger
+  whose `to` resolves to a host the offline allow-list would refuse now
+  stays local, logs one line at DEBUG, and shows a plain "held: offline"
+  notice instead of silently flipping the session's primary model to one
+  every later request would then also be refused for.
+- **An auto-switch leaves a real trace** (C5): the escalation card is now
+  a permanent transcript line (`system_note`, never just a 5-second toast),
+  the status bar's model chip updates immediately instead of waiting for
+  whatever the next turn happens to emit, and print mode carries the
+  switch in the `-p --output-format json` result's new `escalations`
+  field.
+- **`tool_failures` only counts real tool errors** (C6): a permission
+  denial (an interactive "No", a deny rule, a PreToolUse hook block) or an
+  interrupted call no longer counts toward the `>= 2` threshold on its
+  own; a schema/repair rejection still does.
+- **A role's own `escalation: false` now actually takes effect** (C7):
+  `_normalize_role_value`/`configured_role_table()` used to silently drop
+  the `escalation` key down to `{model[, effort]}` only, so the per-role
+  override (config.json, team.json, or a loaded template) could never
+  reach `role_escalation_enabled`; it now survives normalization end to
+  end.
+- **"Saved versus cloud" stops accruing the instant a session leaves
+  local** (C8): `add_savings` is now gated on the CURRENT model being
+  local, resolved fresh on every call, instead of only on whether a
+  reference price was ever pinned at session start -- an escalation or a
+  `/model`/`--fallback-model` switch to a cloud ref stops the figure
+  growing immediately, and it resumes with no re-pinning once back on a
+  local model.
+- **The TUI's "saved $x" chip actually shows up now** (C9):
+  `message_end`'s own `saved_usd` field reaches the real `StatusBar`
+  through `tui/dispatch.py` for the first time; `Session.status_event()`
+  carries it on every status too, not just message_end.
+- **A status event without a throughput reading no longer blanks the
+  chip** (C10): the three `ollama_*` fields now ride on `events.status()`
+  only when the producer actually passes them, the same "presence means a
+  reading" rule the MCP count already follows -- an ordinary turn-start/
+  turn-end status elsewhere in the loop no longer wipes the "NN tok/s"
+  segment back to blank.
+- **`/model` can finally pick a local model** (C11):
+  `Controller.list_models()` now lists an `Ollama (<host>)` group per
+  configured host and `hf:local/*`/`hf:mlx/*` groups for every registered
+  local server and `huggingface.model_dirs` file, reusing the exact same
+  shared discovery `/local` already uses.
+- **The picker's `u` key works from where the cursor actually starts**
+  (C12): focus begins on the filter box, which used to swallow a bare "u"
+  as text before any binding ever saw it (Textual strips a key the
+  focused widget claims from every ancestor's bindings before `priority`
+  is even consulted); the filter now forwards it to the role-assignment
+  action directly, which reads the ref off the highlighted OptionList row
+  instead of the filtered list's same-index entry -- the two could
+  disagree the moment a disabled group header sat above it.
+- **The VRAM-aware role redirect now applies to real sub-agent spawns,
+  not just `/roles`'s own display** (C13): `resolve_agent_model` -- the
+  function that actually picks the model for Explore/Researcher, Judge,
+  and an unnamed sub-agent -- now runs the same `vram_aware_override`
+  check `/roles`/`halo roles`/the escalation judge already use, for a
+  table value only, never a CLI `--role` override.
+- **`/local add`/`/local forget` work in the TUI** (C14): they used to
+  fall straight through to the "answer it as a question" branch and
+  persist nothing; now routed through the same `_cmd_local`/
+  `add_model_dir`/`forget_model_dir` print mode already uses.
+- **Saving the wizard's Ollama tab with every field blank no longer
+  overwrites a configured host** (C15): the documented "leave every field
+  blank to register the local daemon" flow is now a no-op once any host
+  already exists, and a non-blank save MERGES into a same-named entry's
+  existing fields (`default`/`max_ctx`/`kv_cache_type`/`ssh`/`keep_alive`)
+  instead of replacing it outright.
+- **The MCP count never shows a fake "0 connected"** (owner report):
+  `Session.status_event`/`Controller._mcp_status` now return no reading at
+  all -- rather than `{"connected": 0, "total": 0}` -- when no
+  `mcp_status_fn` was ever wired or it failed, so the status bar keeps its
+  last real count instead of flashing an empty one; a lazily-cached MCP
+  server's first real connect now publishes a fresh status event right
+  away, instead of waiting for whatever the next turn happens to emit.
 
 ## [2.0.2] - 2026-10-04
 

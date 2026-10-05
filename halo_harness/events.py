@@ -172,35 +172,59 @@ def message_end(*, turn: int = 0, stop_reason: Optional[str] = None, usage: Opti
     }, turn=turn)
 
 
+# C-2 finding 10: a private sentinel (never `None`) so `status()` below can
+# tell "the caller never mentioned ollama_tokens_per_second at all" apart
+# from "the caller explicitly passed None" -- the first means "leave the
+# key out entirely" (every plain `events.status(phase=..., model=...)` call
+# elsewhere in agent/loop.py, none of which know or care about throughput),
+# the second means "clear whatever reading was there" (`Session.status_
+# event`'s own deliberate "switched away from ollama" case). `None` itself
+# stays the ordinary, unremarkable default for every OTHER parameter here.
+_OLLAMA_THROUGHPUT_UNSET = object()
+
+
 def status(*, phase: str, model: Optional[str] = None, context_tokens: Optional[int] = None,
             context_limit: Optional[int] = None, cost_usd: Optional[float] = None, turn: int = 0,
             permission_mode: Optional[str] = None, mcp: Optional[dict] = None,
             session_id: Optional[str] = None, total_input_tokens: Optional[int] = None,
             total_output_tokens: Optional[int] = None, effort: Optional[str] = None,
-            ollama_tokens_per_second: Optional[float] = None, ollama_prefill_seconds: Optional[float] = None,
-            ollama_offloaded: Optional[bool] = None) -> Event:
+            ollama_tokens_per_second: object = _OLLAMA_THROUGHPUT_UNSET,
+            ollama_prefill_seconds: Optional[float] = None,
+            ollama_offloaded: Optional[bool] = None, saved_usd: Optional[float] = None) -> Event:
     """data: {phase, model, context_tokens, context_limit, cost_usd, turn,
     permission_mode, mcp: {connected, total}, session_id, total_input_tokens,
-    total_output_tokens, effort, ollama_tokens_per_second, ollama_prefill_
-    seconds, ollama_offloaded}. Emitted at session start, after every
-    message_end, and on a mode/model change (D-Contract). The two token-
-    total fields (1.0.1 hotfix 14) are the session's running input/output
-    token counts, for a consumer (the status bar) to show `"in 12k out 3k"`
-    when `cost_usd` is None (no price known for this model). `effort`
-    (1.0.1 hotfix 20.3) is the session's current reasoning-effort level
-    (`Session.effort`, already clamped to this route's own accepted set --
-    see providers/profiles.py's `clamp_effort`), for the status bar's own
-    short tag next to the mode glyph; None for a model with no adjustable
-    effort at all. The three `ollama_*` fields (Halo 2.0.3 round 5b, brief
-    item 7) are None for every non-`ol:` route and before the FIRST `ol:`
-    reply of the session -- `Session.status_event` is the only producer,
-    from `Session._last_ollama_throughput`/`_last_ollama_offloaded`."""
+    total_output_tokens, effort, saved_usd[, ollama_tokens_per_second,
+    ollama_prefill_seconds, ollama_offloaded]}. Emitted at session start,
+    after every message_end, and on a mode/model change (D-Contract). The
+    two token-total fields (1.0.1 hotfix 14) are the session's running
+    input/output token counts, for a consumer (the status bar) to show
+    `"in 12k out 3k"` when `cost_usd` is None (no price known for this
+    model). `effort` (1.0.1 hotfix 20.3) is the session's current
+    reasoning-effort level (`Session.effort`, already clamped to this
+    route's own accepted set -- see providers/profiles.py's `clamp_effort`),
+    for the status bar's own short tag next to the mode glyph; None for a
+    model with no adjustable effort at all. `saved_usd` (round 5e, C-2
+    finding 9) is `CostMeter.saved_usd`'s running total, same "None means
+    nothing to show yet, never overwrites a real reading" contract
+    `message_end`'s own `saved_usd` already follows.
+
+    C-2 finding 10: the three `ollama_*` keys ride along ONLY when the
+    PRODUCER actually passes `ollama_tokens_per_second` (the same
+    "presence means a reading" rule the `mcp` key below already follows,
+    commit ec9a282) -- `Session.status_event` is the only caller that ever
+    does, from `Session._last_ollama_throughput`/`_last_ollama_offloaded`,
+    always explicitly (a real reading, or an explicit `None` the moment
+    the route switches away from `ollama`, deliberately CLEARING a stale
+    one). Every OTHER `events.status(...)` call site in this codebase never
+    mentions them at all, so the key is simply absent -- before this fix
+    the three were always defaulted to None and included unconditionally,
+    so every one of THOSE plain calls (every ordinary turn-start/turn-end
+    status) wiped the status bar's throughput segment back to blank."""
     payload = {
         "phase": phase, "model": model, "context_tokens": context_tokens, "context_limit": context_limit,
         "cost_usd": cost_usd, "turn": turn, "permission_mode": permission_mode, "session_id": session_id,
         "total_input_tokens": total_input_tokens, "total_output_tokens": total_output_tokens, "effort": effort,
-        "ollama_tokens_per_second": ollama_tokens_per_second, "ollama_prefill_seconds": ollama_prefill_seconds,
-        "ollama_offloaded": ollama_offloaded,
+        "saved_usd": saved_usd,
     }
     # The MCP count rides along ONLY when the producer knows it. The old
     # default of {"connected": 0, "total": 0} meant every idle status event
@@ -209,6 +233,10 @@ def status(*, phase: str, model: Optional[str] = None, context_tokens: Optional[
     # the key is absent.
     if mcp is not None:
         payload["mcp"] = mcp
+    if ollama_tokens_per_second is not _OLLAMA_THROUGHPUT_UNSET:
+        payload["ollama_tokens_per_second"] = ollama_tokens_per_second
+        payload["ollama_prefill_seconds"] = ollama_prefill_seconds
+        payload["ollama_offloaded"] = ollama_offloaded
     return Event("status", payload, turn=turn)
 
 

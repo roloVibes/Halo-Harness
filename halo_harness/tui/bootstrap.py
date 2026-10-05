@@ -103,9 +103,13 @@ def build_controller(args) -> "tuple[Controller, object, object]":
     )
     attach_cli_files(build.session, getattr(args, "file", None), cwd=cwd)
 
-    def _mcp_status_fn() -> dict:
+    def _mcp_status_fn():
+        # No manager means no reading: return None so the status event omits
+        # the count (an explicit 0/0 would paint "MCP 0/0" over a real figure
+        # the bar may still be showing), the same contract as
+        # `Controller._mcp_status` and `Session.status_event` after C-2.
         if build.mcp_manager is None:
-            return {"connected": 0, "total": 0}
+            return None
         rows = build.mcp_manager.status()
         # A lazily cached server (tools known, process spawned on first use)
         # is usable, so it counts the same as a live connection: the owner
@@ -156,6 +160,19 @@ def build_controller(args) -> "tuple[Controller, object, object]":
         mcp_status_fn=_mcp_status_fn, reconnect_fn=_reconnect_fn, settings=build.settings,
     )
     controller.mcp_manager = build.mcp_manager  # tui/app.py's clean shutdown hook
+    if build.mcp_manager is not None:
+        # C-2 EXTRA (owner report): the status bar's own MCP count used to
+        # sit at whatever it was when a lazy server was still just
+        # "cached" until the NEXT status event (the next turn) happened to
+        # carry the new, now-higher count -- pushed live instead, the
+        # instant `ensure_started` (mcp/manager.py) actually connects it
+        # for real. `Controller.set_permission_mode` already pushes a
+        # bare `session.status_event()` straight onto `events` the same
+        # way, from whatever thread is live at the time -- this is that
+        # exact pattern, just triggered by a connect instead of a mode
+        # change.
+        build.mcp_manager.set_lazy_connect_callback(
+            lambda _name: controller.events.put(controller.session.status_event()))
     # H13 Part C: `tui/launch.py` reads this straight off the controller
     # (same pattern as `mcp_manager` just above) to tell `BridgeApp` to open
     # the resume picker, pre-filtered, right after mount -- None (the

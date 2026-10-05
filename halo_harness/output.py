@@ -75,6 +75,7 @@ def build_result_object(
     duration_ms: Optional[int] = None,
     uuid: Optional[str] = None,
     prompt_suggestion: Optional[str] = None,
+    escalations: Optional[list] = None,
 ) -> dict:
     """The `-p --output-format json` result object -- a subset of plan
     D-TUI's full shape. H2 scope D: `permission_denials` is a list of
@@ -92,7 +93,15 @@ def build_result_object(
     fresh id for THIS result message, Claude Code's own stream-json/json
     result-line convention) are real now -- both sinks' `finish()` supply
     them. `prompt_suggestion` (`--prompt-suggestions`) is the predicted next
-    user message, or None when the flag wasn't given."""
+    user message, or None when the flag wasn't given.
+
+    C-2 finding 5: `escalations` is one `{turn, trigger, to, action, note}`
+    dict per `Session._escalation_decisions` entry (`agent.escalation.
+    EscalationDecision`) -- a `ask: false` auto-switch (action "escalated")
+    used to leave print mode with no lasting trace at all (the TUI's own
+    5-second toast has no print-mode equivalent in the first place); empty
+    when hybrid escalation was never configured or never triggered this
+    run."""
     return {
         "type": "result",
         "subtype": subtype,
@@ -116,7 +125,24 @@ def build_result_object(
         "duration_ms": duration_ms,
         "uuid": uuid,
         "prompt_suggestion": prompt_suggestion,
+        "escalations": escalations or [],
     }
+
+
+def _escalation_dicts(decisions: Optional[list]) -> list:
+    """`[EscalationDecision, ...]` -> `[{turn, trigger, to, action, note}, ...]`
+    -- both sinks' own `finish()` share this so the JSON shape can never
+    drift between them. Never raises on a malformed entry (a future
+    caller's own list, not just `agent.escalation`'s dataclass) -- `getattr`
+    with a safe default throughout."""
+    out = []
+    for d in (decisions or []):
+        out.append({
+            "turn": getattr(d, "turn", None), "trigger": getattr(d, "trigger", None),
+            "to": getattr(d, "to", None), "action": getattr(d, "action", None),
+            "note": getattr(d, "note", "") or "",
+        })
+    return out
 
 
 class PrintModeSink:
@@ -129,7 +155,7 @@ class PrintModeSink:
 
     def __init__(self, *, output_format: str = "text", session_id: str = "", model: str = "", stream=None,
                  verbose: bool = False, permission_denials: Optional[list] = None, json_schema: Optional[str] = None,
-                 max_budget_usd: Optional[float] = None):
+                 max_budget_usd: Optional[float] = None, escalation_decisions: Optional[list] = None):
         if output_format not in ("text", "json"):
             raise ValueError(f"unsupported output format: {output_format!r} (H0 supports text|json only)")
         self.json_schema = json_schema
@@ -144,6 +170,11 @@ class PrintModeSink:
         # mutated in place as the turn runs, so it's complete by the time
         # `finish()` reads it after `consume()` has drained the generator.
         self._permission_denials = permission_denials if permission_denials is not None else []
+        # C-2 finding 5: same live-reference pattern as permission_denials
+        # just above -- `Session._escalation_decisions` (never reassigned,
+        # only appended to) so an escalation this turn is already there by
+        # the time `finish()` reads it.
+        self._escalation_decisions = escalation_decisions if escalation_decisions is not None else []
         self._pending_text_parts: list = []
         self._pending_thinking_parts: list = []
         self._final_text = ""  # the LAST message's text, decided once turn_done fires
@@ -376,6 +407,7 @@ class PrintModeSink:
                 duration_ms=int((time.monotonic() - self._start_monotonic) * 1000),
                 uuid=str(uuid_module.uuid4()),
                 prompt_suggestion=self._prompt_suggestion,
+                escalations=_escalation_dicts(self._escalation_decisions),
             )
             # write to self.stream (defaults to sys.stdout, same as a bare
             # print() would have -- but this way a caller that passed its
@@ -407,7 +439,7 @@ class StreamJsonSink:
                  max_budget_usd: Optional[float] = None, stream=None,
                  permission_denials: Optional[list] = None, json_schema: Optional[str] = None,
                  effort: Optional[str] = None, effort_sent: Optional[str] = None,
-                 hook_events_fn=None):
+                 hook_events_fn=None, escalation_decisions: Optional[list] = None):
         # Halo 2.0.1 W2a (GLM-brief.md item 1 / HALO-2.0.1-liveness-tips-
         # brief.md Part C): `effort` is whatever was last explicitly
         # requested (None when nothing was); `effort_sent` is the value
@@ -429,6 +461,9 @@ class StreamJsonSink:
         self.json_schema = json_schema
         self.stream = stream or sys.stdout
         self._permission_denials = permission_denials if permission_denials is not None else []
+        # C-2 finding 5: same live-reference pattern as permission_denials
+        # just above.
+        self._escalation_decisions = escalation_decisions if escalation_decisions is not None else []
 
         # H6 scope E: keyed by `agent_id` (None = the main session) so a
         # sub-agent's own text/tool_use/tool_result stream never corrupts
@@ -645,6 +680,7 @@ class StreamJsonSink:
             duration_ms=int((time.monotonic() - self._start_monotonic) * 1000),
             uuid=str(uuid_module.uuid4()),
             prompt_suggestion=self._prompt_suggestion,
+            escalations=_escalation_dicts(self._escalation_decisions),
         )
         self._write(result)
         # review finding 31: neither was ever reset at the end of a turn --

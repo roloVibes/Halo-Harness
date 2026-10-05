@@ -1586,6 +1586,36 @@ class Session:
         except Exception:
             creds = None
             target_ref = target_profile = None
+        # C-2 finding 4: offline mode is the user's own network policy, not
+        # a safety gate -- but an escalation target this process would
+        # refuse to actually call (`providers.http._check_offline_allowed`,
+        # the SAME choke point every real request goes through) must never
+        # still flip the session's own PRIMARY model to it: that leaves
+        # every later turn refused too, until the user notices and switches
+        # back by hand. Checked here, before `set_model`, rather than left
+        # to surface only once the first real request on the new model
+        # fails. A no-op (skips straight past) whenever offline mode is
+        # off, the common case -- `creds.base_url` is only ever parsed at
+        # all once offline mode is confirmed on.
+        offline_held = False
+        if target_ref is not None and creds is not None:
+            from halo_harness.providers.http import OfflineBlocked, _check_offline_allowed, offline_mode_enabled
+            if offline_mode_enabled():
+                import urllib.parse as _urlparse
+                try:
+                    _check_offline_allowed(_urlparse.urlparse(creds.base_url or "").hostname)
+                except OfflineBlocked:
+                    offline_held = True
+        if offline_held:
+            log.debug("escalation to %s held: offline mode is on", policy.to)
+            self._escalation_decisions.append(EscalationDecision(
+                turn=turn_no, trigger=trigger, to=policy.to, action="asked",
+                note="held: offline mode is on -- stayed local"))
+            yield events.notification(
+                f"local model hit {trigger} this turn, but escalating to {policy.to} would leave "
+                f"offline mode -- stayed on {self.model_ref.raw}"
+            )
+            return
         if target_ref is None or creds is None:
             self._escalation_decisions.append(EscalationDecision(
                 turn=turn_no, trigger=trigger, to=policy.to, action="asked",
@@ -1608,7 +1638,16 @@ class Session:
                                          self.effort, self.effort_source)
         self._escalation_decisions.append(
             EscalationDecision(turn=turn_no, trigger=trigger, to=policy.to, action="escalated"))
-        yield events.notification(f"escalated to {policy.to}: {trigger}")
+        # C-2 finding 5: a silent auto-switch onto a cloud model is the
+        # exact failure this round exists to close. `system_note` (unlike
+        # `notification`, a 5-second toast) renders as a REAL, permanent
+        # transcript line (`Transcript.add_note`); yielding a fresh
+        # `status_event()` right here (rather than waiting for whatever the
+        # NEXT turn happens to emit) means the status bar's own model chip
+        # shows the switch immediately, not just "whenever the user next
+        # notices nothing is idle any more."
+        yield events.system_note(f"escalated to {policy.to}: {trigger}")
+        yield self.status_event()
 
     def _run_hook_stop(self, event: str, **kwargs):
         """W3b item 11: the `run_stop(...)` counterpart to `_run_hook`
@@ -3459,9 +3498,18 @@ class Session:
         real tokens against the account, so it must still count here even
         though it never becomes a logged assistant message)."""
         cost = self.cost_meter.add_usage(self.model_ref.provider, result.usage)
-        # Round 5e: a no-op on a cloud-model session (no reference price
-        # was ever pinned -- `__init__`'s own `is_local_model_ref` gate).
-        self.cost_meter.add_savings(result.usage)
+        # C-2 finding 8: gated on the CURRENT model (resolved right now,
+        # this call), never merely on whether a reference price was ever
+        # pinned at session start -- a session that escalated, `/model`-
+        # switched, or `--fallback-model`-swapped onto a CLOUD ref must stop
+        # accruing "saved" the instant it's no longer actually running
+        # locally (the reference price stays pinned from init either way,
+        # see `set_savings_reference`'s own docstring; only whether THIS
+        # turn's usage gets added against it changes here). Resumes the
+        # moment the session is back on a local ref, with no re-pinning
+        # needed -- `is_local_model_ref` is checked fresh every call.
+        if is_local_model_ref(self.model_ref):
+            self.cost_meter.add_savings(result.usage)
         # H10 Part A: telemetry.py's own source of truth -- see
         # `agent/log.py`'s `append_usage` docstring for why these extra
         # keys never touch a derived request.
@@ -3866,7 +3914,15 @@ class Session:
                             stop_reason = delta.get("stop_reason")
                         if isinstance(ev.get("usage"), dict):
                             cost = self.cost_meter.add_usage(self.model_ref.provider, ev["usage"])
-                            self.cost_meter.add_savings(ev["usage"])  # round 5e, no-op on a cloud session
+                            # C-2 finding 8: same current-model gate as
+                            # `_account_usage` -- `self.model_ref` here is
+                            # whatever `_compaction_model_override` installed
+                            # for THIS call (may differ from the session's
+                            # main model), so a local compactionModel still
+                            # earns savings under a cloud main model and
+                            # vice versa.
+                            if is_local_model_ref(self.model_ref):
+                                self.cost_meter.add_savings(ev["usage"])
                             # H10 Part A: a compaction summariser call is a
                             # real model call against the same account --
                             # `model`/`route`/`finish_reason` cost nothing to
@@ -6524,8 +6580,9 @@ class Session:
         """The D-Contract `status` payload as THIS session knows it --
         permission_mode/session_id/context_limit filled from live state, so
         a UI never has to guess them. `mcp` comes from `self.mcp_status_fn`
-        when the caller installed one (the Controller does; a bare Session
-        reports 0/0).
+        when the caller installed one (the Controller does); a bare Session
+        with none wired reports no `mcp` key at all (C-2 EXTRA), never a
+        fake "0/0".
 
         1.0.1 hotfix 14: `context_tokens` defaults to `self._last_prompt_
         tokens` (0 before the first reply of the session/since the last
@@ -6534,7 +6591,14 @@ class Session:
         call this with no `context_tokens=` override, and the status bar
         needs a real number (0, not "unknown") to show "ctx 0/1M 0%"
         before the first turn rather than blanking the field."""
-        mcp = self.mcp_status_fn() if self.mcp_status_fn else {"connected": 0, "total": 0}
+        # C-2 EXTRA (owner report): `None` -- never a FAKE "0/0" reading --
+        # when no `mcp_status_fn` was ever wired (print mode, a sub-agent's
+        # own Session): `events.status()` only ever puts the `mcp` key on
+        # the wire when it is not None, and a bare-dict status bar keeps
+        # its last real count when the key is absent (see that function's
+        # own docstring) -- "0 connected, 0 total" must mean a REAL empty
+        # MCP registry was actually checked, never "nobody asked".
+        mcp = self.mcp_status_fn() if self.mcp_status_fn else None
         # 1.0.1 part 2 (item 22 remainder): the status bar's own effort tag
         # shows "<value> (tools)" whenever this route forces an explicit
         # reasoning_effort override alongside tools (the gpt-6 table rule,
@@ -6559,6 +6623,13 @@ class Session:
             ollama_tokens_per_second=(throughput or {}).get("tokens_per_second"),
             ollama_prefill_seconds=(throughput or {}).get("prefill_seconds"),
             ollama_offloaded=(throughput or {}).get("offloaded"),
+            # C-2 finding 9: carried on every status event (not just
+            # message_end) so the TUI's "saved $x" chip survives a plain
+            # idle/model-switch status too -- None (no change) on every
+            # cloud-model session and on a local session's very first call,
+            # same "never blanks a real reading" contract message_end's own
+            # saved_usd already follows.
+            saved_usd=(self.cost_meter.saved_usd if self.cost_meter.saved_turns else None),
         )
 
     @property

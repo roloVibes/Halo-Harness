@@ -532,6 +532,13 @@ async def _apply_event_inner(app, event) -> None:
                 "context_tokens": data.get("context_tokens"), "context_limit": data.get("context_limit"),
                 "total_input_tokens": data.get("total_input_tokens"),
                 "total_output_tokens": data.get("total_output_tokens"),
+                # C-2 finding 9: message_end has carried saved_usd since
+                # round 5e (events.message_end's own docstring), but
+                # nothing here ever forwarded it -- the chip's own setter
+                # (`StatusBar.set_saved_usd`) had no caller at all, so
+                # "saved $x" could never appear from a real turn, only
+                # from a test calling `apply_status` directly.
+                "saved_usd": data.get("saved_usd"),
             })
         # A1: "collapses to a Thought-for summary ... or is removed when
         # there was none" -- resolved BEFORE finish_open_streams below

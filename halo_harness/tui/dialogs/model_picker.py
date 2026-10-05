@@ -69,7 +69,15 @@ class ModelPicker(ModalScreen):
         Binding("escape", "cancel", "Cancel", show=False),
         # Halo 2.0.3 round 3 (brief item 5): set a role for the
         # HIGHLIGHTED model without editing JSON/leaving this dialog.
-        Binding("u", "set_role", "Set role", show=True),
+        # C-2 finding 12: `priority=True` -- focus starts on the filter
+        # `NavInput` (`on_mount` below), which otherwise consumes a plain
+        # "u" keystroke as TEXT before this binding ever sees it (unlike
+        # Escape, never typeable into an Input to begin with, which is why
+        # `cancel` above already worked regardless of focus with no flag
+        # of its own). A priority binding only intercepts the ONE key it
+        # names -- every other letter still reaches the filter and types
+        # normally.
+        Binding("u", "set_role", "Set role", show=True, priority=True),
     ]
     DEFAULT_CSS = """
     ModelPicker { align: center middle; }
@@ -102,7 +110,13 @@ class ModelPicker(ModalScreen):
             yield Static("Enter: select  |  u: set a role for the highlighted model  |  Esc: cancel",
                           classes="dialog-subtitle")
             yield Static(ROW_HEADER, classes="dialog-subtitle")
-            yield NavInput(placeholder="Filter models...", id="model-filter", option_list_id="model-list")
+            # C-2 finding 12: `extra_keys={"u": "set_role"}` -- the ONLY way
+            # this screen-level letter-key shortcut can fire while the
+            # filter keeps focus by default (see NavInput's own docstring
+            # on why a plain `Binding(priority=True)` alone never reaches
+            # it here).
+            yield NavInput(placeholder="Filter models...", id="model-filter", option_list_id="model-list",
+                           extra_keys={"u": "set_role"})
             yield OptionList(id="model-list")
             yield Static("", id="model-hint")
 
@@ -180,11 +194,20 @@ class ModelPicker(ModalScreen):
         via `roles.assign_role` (the SAME config-table mechanism `/roles`
         already reads, no second one) and reports the result in
         `#model-hint`."""
+        # C-2 finding 12: `highlighted` is an index into the OptionList
+        # itself, which also holds disabled group-header rows `_grouped`
+        # interleaves -- indexing `self._filtered` (headers-free) with it
+        # directly picked a different model than the one actually
+        # highlighted the moment any group header sat above it. The
+        # option's own `.id` (set to `m["ref"]` when it was added, never
+        # set at all on a header) is the one reliable source.
         option_list = self.query_one("#model-list", OptionList)
         highlighted = option_list.highlighted
-        if highlighted is None or highlighted >= len(self._filtered):
+        if highlighted is None:
             return
-        ref = self._filtered[highlighted]["ref"]
+        ref = option_list.get_option_at_index(highlighted).id
+        if ref is None:
+            return  # a disabled group-header row -- nothing to act on.
         self.app.push_screen(RoleAssignPicker(ref, main_ref=self.current),
                               lambda role_name: self._role_assigned(ref, role_name))
 
