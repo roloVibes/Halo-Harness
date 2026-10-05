@@ -70,13 +70,15 @@ def resolve_openai_dialect(model_id: str, *, overrides: "Optional[dict]" = None)
 
 
 def _text_only(content) -> str:
-    """Flatten an OAI-chat-shaped proto's `content` (a plain string, or --
-    an image present -- a list of text/image_url parts) down to plain
-    text for a Responses `input` message item. Same "describe behavior,
-    never hide it" placeholder choice `providers.ollama_request._text_
-    only` makes for Ollama's own native shape: the Responses API's real
-    `input_image` part shape is confirmed to exist but is out of this
-    round's scope."""
+    """Flatten an OAI-chat-shaped proto's `content` (a plain string, or a
+    list of text/image_url parts) down to plain text -- used for a
+    `function_call_output` item (a tool result), which the Responses API
+    takes as a bare string; an `image_url` part contributes no text here
+    at all (Halo 2.0.3.1: a USER-role item's own image rides as a real
+    `input_image` part instead, see `_content_parts` below -- a tool
+    result carrying an image is `_text_only`'s one remaining caller, same
+    "describe what's there, nothing hidden" contract Ollama's own sibling
+    function follows for ITS tool-result shape)."""
     if content is None:
         return ""
     if isinstance(content, str):
@@ -84,14 +86,35 @@ def _text_only(content) -> str:
     if isinstance(content, list):
         parts = []
         for block in content:
-            if not isinstance(block, dict):
-                continue
-            if block.get("type") == "text":
+            if isinstance(block, dict) and block.get("type") == "text":
                 parts.append(block.get("text") or "")
-            elif block.get("type") == "image_url":
-                parts.append("[image omitted -- oai: Responses dialect does not send images this release]")
         return "".join(parts)
     return str(content)
+
+
+def _content_parts(content) -> "str | list":
+    """Halo 2.0.3.1: a user/developer item's own `content` -- a PLAIN
+    STRING when there's no image at all (unchanged wire shape from
+    before this brief, so every existing text-only pin stays byte-
+    identical), else a list of Responses `input_text`/`input_image` parts
+    (`docs/harness/OPENAI-RESEARCH.md` section 1's own confirmed shape --
+    `image_url` is a bare string field here, unlike chat completions'
+    nested `{"url": ...}`)."""
+    if not isinstance(content, list) or not any(
+            isinstance(b, dict) and b.get("type") == "image_url" for b in content):
+        return _text_only(content)
+    parts: list = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text":
+            if block.get("text"):
+                parts.append({"type": "input_text", "text": block["text"]})
+        elif block.get("type") == "image_url":
+            url = (block.get("image_url") or {}).get("url")
+            if url:
+                parts.append({"type": "input_image", "image_url": url})
+    return parts
 
 
 def _responses_input_from_oai(oai_messages: list) -> "tuple[Optional[str], list]":
@@ -132,7 +155,7 @@ def _responses_input_from_oai(oai_messages: list) -> "tuple[Optional[str], list]
             })
         else:
             out.append({"type": "message", "role": role if role in ("user", "developer") else "user",
-                         "content": _text_only(msg.get("content"))})
+                         "content": _content_parts(msg.get("content"))})
     return instructions, out
 
 

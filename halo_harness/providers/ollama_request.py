@@ -24,10 +24,10 @@ log = logging.getLogger("bridge")
 def _text_only(content) -> str:
     """`_flatten_messages` content is a plain string, or (images present) a
     list of `{"type":"text"|"image_url", ...}` parts -- Ollama's native
-    message shape wants a plain string; round 2 does not send Ollama's own
-    `images` field yet (not in this round's brief), so an image part
-    becomes a short, visible placeholder instead of silently vanishing
-    (house policy: describe behavior, never hide it)."""
+    message shape wants a plain string; an `image_url` part contributes no
+    TEXT here at all (Halo 2.0.3.1: it rides on the message's own native
+    `images` field instead -- see `_images_only` below), never a bare
+    placeholder string mixed into the prose."""
     if content is None:
         return ""
     if isinstance(content, str):
@@ -35,14 +35,29 @@ def _text_only(content) -> str:
     if isinstance(content, list):
         parts = []
         for block in content:
-            if not isinstance(block, dict):
-                continue
-            if block.get("type") == "text":
+            if isinstance(block, dict) and block.get("type") == "text":
                 parts.append(block.get("text") or "")
-            elif block.get("type") == "image_url":
-                parts.append("[image omitted -- ol: does not send images to Ollama in this release]")
         return "".join(parts)
     return str(content)
+
+
+def _images_only(content) -> list:
+    """Halo 2.0.3.1: every `image_url` part's base64 payload, stripped of
+    its `data:<media>;base64,` wrapper -- Ollama's native `images` field on
+    a message is a plain list of base64 strings, no media-type envelope of
+    its own (research doc Q1's own chat-shape confirmation covers the
+    REQUEST side identically to the reply side this module already
+    handles)."""
+    if not isinstance(content, list):
+        return []
+    out = []
+    for block in content:
+        if not (isinstance(block, dict) and block.get("type") == "image_url"):
+            continue
+        url = (block.get("image_url") or {}).get("url") or ""
+        if url.startswith("data:") and ";base64," in url:
+            out.append(url.split(";base64,", 1)[1])
+    return out
 
 
 def _ollama_messages_from_oai(oai_messages: list) -> list:
@@ -77,7 +92,15 @@ def _ollama_messages_from_oai(oai_messages: list) -> list:
             name = id_to_name.get(msg.get("tool_call_id"), "unknown")
             out.append({"role": "tool", "tool_name": name, "content": _text_only(msg.get("content"))})
         else:
-            out.append({"role": role, "content": _text_only(msg.get("content"))})
+            native: dict = {"role": role, "content": _text_only(msg.get("content"))}
+            # Halo 2.0.3.1: `images` rides alongside `content` only when
+            # there's at least one -- an ordinary text-only message's wire
+            # shape is completely unchanged (no empty `"images": []` added
+            # to every request).
+            images = _images_only(msg.get("content"))
+            if images:
+                native["images"] = images
+            out.append(native)
     return out
 
 

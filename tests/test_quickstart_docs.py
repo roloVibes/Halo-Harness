@@ -223,17 +223,32 @@ def test_version_bumped_to_2_0_2_and_changelog_has_an_entry(ctx: Ctx):
 @test
 def test_version_bumped_to_2_0_3_and_changelog_has_an_entry(ctx: Ctx):
     """Halo Harness 2.0.3 round 2 (`plans/2.0.3-ollama-round2-brief.md`):
-    the `ol:` provider on Ollama's native `/api/chat` API. THIS release's
-    own version-bump pin (2.0.3 is still in progress -- rounds 3-6 of the
-    same brief land as later commits against the SAME [2.0.3] CHANGELOG
-    entry, not a new version number each time)."""
-    from halo_harness import __version__
-    ctx.check(f"__version__ is 2.0.3, got {__version__!r}", __version__ == "2.0.3")
+    the `ol:` provider on Ollama's native `/api/chat` API. H14c's own
+    pinning shape, kept exact (checked against the CHANGELOG's own
+    still-present [2.0.3] entry, not the CURRENT version) now that
+    2.0.3.1 has bumped past it; see `test_version_bumped_to_2_0_3_1_and_
+    changelog_has_an_entry` below for THIS release's own version-bump pin."""
     changelog = (REPO_DIR / "CHANGELOG.md").read_text(encoding="utf-8")
     ctx.check("CHANGELOG.md has a [2.0.3] entry", "[2.0.3]" in changelog)
     entry = changelog.split("[2.0.3]", 1)[1].split("\n## [", 1)[0]
     for phrase in ("ollama", "num_ctx"):
         ctx.check(f"the [2.0.3] entry mentions {phrase!r}", phrase in entry.lower())
+
+
+@test
+def test_version_bumped_to_2_0_3_1_and_changelog_has_an_entry(ctx: Ctx):
+    """Halo Harness 2.0.3.1 (clipboard image paste): Ctrl+V/Shift+Insert
+    read a real clipboard image, `/paste`/`/images`, every route actually
+    sends the attached image (or a plain-text path mention for a no-
+    vision model), and `--image`/stream-json `image` content blocks give
+    print mode the same capability. THIS release's own version-bump pin."""
+    from halo_harness import __version__
+    ctx.check(f"__version__ is 2.0.3.1, got {__version__!r}", __version__ == "2.0.3.1")
+    changelog = (REPO_DIR / "CHANGELOG.md").read_text(encoding="utf-8")
+    ctx.check("CHANGELOG.md has a [2.0.3.1] entry", "[2.0.3.1]" in changelog)
+    entry = changelog.split("[2.0.3.1]", 1)[1].split("\n## [", 1)[0]
+    for phrase in ("clipboard", "image"):
+        ctx.check(f"the [2.0.3.1] entry mentions {phrase!r}", phrase in entry.lower())
 
 
 @test

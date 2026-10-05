@@ -391,6 +391,22 @@ halo -p --strict-mcp-config --mcp-config '{"mcpServers":{}}' "hi"
 
 ### Image flags
 
+#### `--image PATH`
+What: attaches an existing image file (`.png`/`.jpg`/`.jpeg`/`.gif`/
+`.webp`) to the one turn `-p`/`--print` sends -- repeatable (several
+`--image` flags attach several images to the same turn). Claude Code
+parity; the TUI's own equivalent is Ctrl+V/Shift+Insert (a real clipboard
+image), `/paste <path>`, or dropping a path into the prompt. A path that
+doesn't exist, or isn't one of those five extensions, is a clean
+`halo: ...` stderr line and exit 2, never a provider error partway
+through the turn. A model whose catalog row says it has no vision gets
+one notice instead and the turn still runs, with the saved path
+mentioned in place of the image.
+
+```sh
+halo -p --image ./screenshot.png "what's in this image?"
+```
+
 #### `--no-inline-images`
 What: forces the plain type/size/dimensions caption for every image tool
 result this run, same as `images: "caption"` in `~/.halo/config.json`

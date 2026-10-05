@@ -118,9 +118,15 @@ class FakeController:
         self.logins: list = []
         self.tests: list = []
         self.disables: list = []
+        # Halo 2.0.3.1: every `images=` a pilot test's `submit()` call
+        # carried, in call order -- `None`/omitted rides along as `None`
+        # rather than `[]`, so a test can tell "no images kwarg at all"
+        # apart from "an empty list was explicitly passed".
+        self.submitted_images: list = []
 
-    def submit(self, text: str, pasted=None, meta=None) -> Iterator[ev.Event]:
+    def submit(self, text: str, images: Optional[list] = None, pasted=None, meta=None) -> Iterator[ev.Event]:
         self.submitted.append(text)
+        self.submitted_images.append(images)
         if not self.turns:
             return iter(())
         script = self.turns[self._next_turn_idx % len(self.turns)]

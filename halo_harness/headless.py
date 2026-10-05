@@ -318,16 +318,21 @@ def _stream_json_stdin_reader(session, out_queue) -> None:
     LINE (never all of it up front, which used to deadlock an SDK-style
     client that writes one line and waits for that turn's `result` before
     writing the next one) and, for each line that resolves to real user
-    text: if a turn is CURRENTLY running (`session.busy`), applies it as a
-    steer via `Session.steer` directly (thread-safe by design -- see its
-    own docstring); otherwise pushes it onto `out_queue` as the next
-    turn's prompt. `session.steer`'s own atomic busy-check+enqueue (finding
-    5) is what makes the `session.busy` read here safe despite being a
-    plain, unlocked check from a second thread: if the turn finishes in
-    the tiny window between that read and the `steer()` call itself,
-    `steer()` correctly returns False and this falls through to queuing a
-    fresh turn instead of losing the text. `None` on `out_queue` marks
-    stdin EOF (no more turns will ever start)."""
+    text and/or images: if a turn is CURRENTLY running (`session.busy`),
+    applies the TEXT as a steer via `Session.steer` directly (thread-safe
+    by design -- see its own docstring; Halo 2.0.3.1: a steer has no image
+    channel of its own, so an image on a line that arrives mid-turn is
+    simply not carried by this fallback); otherwise pushes `{"text",
+    "images"}` onto `out_queue` as the next turn's prompt. `session.
+    steer`'s own atomic busy-check+enqueue (finding 5) is what makes the
+    `session.busy` read here safe despite being a plain, unlocked check
+    from a second thread: if the turn finishes in the tiny window between
+    that read and the `steer()` call itself, `steer()` correctly returns
+    False and this falls through to queuing a fresh turn instead of
+    losing the text. `None` on `out_queue` marks stdin EOF (no more turns
+    will ever start)."""
+    from halo_harness.agent.image_attach import attachments_dir_for_session
+    dest_dir = attachments_dir_for_session(session)
     try:
         while True:
             raw_line = sys.stdin.readline()
@@ -343,11 +348,14 @@ def _stream_json_stdin_reader(session, out_queue) -> None:
             if not isinstance(obj, dict):
                 continue
             text = _extract_user_text(obj)
-            if not text:
+            images, image_error = _extract_user_images(obj, attachments_dir=dest_dir)
+            if image_error:
+                sys.stderr.write(f"halo: {image_error}\n")
+            if not text and not images:
                 continue
             if session.busy and session.steer(text):
                 continue
-            out_queue.put(text)
+            out_queue.put({"text": text, "images": images or None})
     finally:
         out_queue.put(None)
 
@@ -362,6 +370,70 @@ def _extract_user_text(obj: dict) -> str:
     if isinstance(content, list):
         return "".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
     return ""
+
+
+def _extract_user_images(obj: dict, *, attachments_dir) -> "tuple[list, Optional[str]]":
+    """Halo 2.0.3.1 (Claude Code parity): one stream-json line's `image`
+    content-block entries -> real wire blocks. Three accepted shapes: `
+    {"type": "image", "path": "<file>"}` (referenced in place, never
+    copied); `{"type": "image", "data": "<base64>", "media_type": "..."}`
+    (written to `attachments_dir`, same "the log stores a path, never the
+    base64" rule a clipboard/drag attachment already follows); or the
+    full Anthropic `{"type": "image", "source": {"type": "base64", ...}}`
+    shape a real Claude Code client already sends on its own stream-json
+    channel (used as-is). Returns `(blocks, error_or_None)` -- a bad
+    `path` entry is the one error this surfaces; every OTHER entry on the
+    same line is still returned, never losing an otherwise-good image
+    over one bad sibling."""
+    message = obj.get("message") if isinstance(obj.get("message"), dict) else obj
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(content, list):
+        return [], None
+    from halo_harness.agent.image_attach import image_block_from_bytes, image_block_from_path
+    blocks: list = []
+    error: Optional[str] = None
+    for block in content:
+        if not (isinstance(block, dict) and block.get("type") == "image"):
+            continue
+        try:
+            if block.get("path"):
+                blocks.append(image_block_from_path(block["path"]))
+            elif isinstance(block.get("source"), dict) and block["source"].get("data"):
+                blocks.append(block)
+            elif block.get("data"):
+                import base64
+                raw = base64.b64decode(block["data"])
+                blocks.append(image_block_from_bytes(raw, block.get("media_type") or "image/png", attachments_dir))
+        except (OSError, ValueError) as e:
+            error = f"stream-json image entry could not be attached: {e}"
+    return blocks, error
+
+
+def _resolve_cli_image_flags(paths: "Optional[list]") -> "tuple[list, Optional[str]]":
+    """`--image <path>` (repeatable, `cli_flags["images"]`) -> `(image_
+    blocks, error_or_None)` for the single-prompt `-p`/text-input path --
+    a path that doesn't exist, or isn't a recognized image extension, is
+    the ONE error this returns (the caller turns it into the same clean
+    `halo: ...` stderr + exit 2 convention `--system-prompt-file` already
+    uses, never a provider 400 partway through the turn); an unreadable
+    file surfaces the same way, through `image_block_from_path`'s own
+    `OSError`."""
+    if not paths:
+        return [], None
+    from halo_harness.agent.image_attach import image_block_from_path
+    from halo_harness.tools.imageutil import IMAGE_EXTENSIONS
+    blocks = []
+    for raw in paths:
+        p = Path(raw)
+        if not p.is_file():
+            return [], f"--image {raw}: not a file"
+        if p.suffix.lower() not in IMAGE_EXTENSIONS:
+            return [], f"--image {raw}: not a supported image type (png/jpg/jpeg/gif/webp)"
+        try:
+            blocks.append(image_block_from_path(p))
+        except OSError as e:
+            return [], f"--image {raw}: {e}"
+    return blocks, None
 
 
 def _maybe_run_slash_command(prompt_text: str, *, registry, facade, disable_slash_commands: bool):
@@ -1715,7 +1787,16 @@ def run_print_mode(
                 # loop below) has actually been drained, mirroring a real
                 # reader thread's EOF timing (never queued UP FRONT, which
                 # would race ahead of a same-turn leftover re-queue).
-                turns = [t for t in (_extract_user_text(obj) for obj in stdin_lines) if t]
+                from halo_harness.agent.image_attach import attachments_dir_for_session
+                _dest_dir = attachments_dir_for_session(session)
+                turns = []
+                for obj in stdin_lines:
+                    t = _extract_user_text(obj)
+                    imgs, img_err = _extract_user_images(obj, attachments_dir=_dest_dir)
+                    if img_err:
+                        print(f"halo: {img_err}", file=sys.stderr)
+                    if t or imgs:
+                        turns.append({"text": t, "images": imgs or None})
                 if not turns:
                     print("halo: --input-format stream-json requires at least one user message on stdin",
                           file=sys.stderr)
@@ -1749,9 +1830,16 @@ def run_print_mode(
             turn_no = 0
             saw_any_turn = False
             while True:
-                turn_text = line_queue.get()
-                if turn_text is None:
+                turn_item = line_queue.get()
+                if turn_item is None:
                     break  # stdin EOF, no more turns
+                # Halo 2.0.3.1: every item on this queue is now `{"text",
+                # "images"}` (never a bare string) -- see `_stream_json_
+                # stdin_reader`/the backward-compat `stdin_lines` branch
+                # above and the leftover-steer re-queue below, the only
+                # three producers.
+                turn_text = turn_item["text"]
+                turn_images = turn_item["images"]
                 saw_any_turn = True
                 turn_no += 1
                 if replay_user_messages:
@@ -1777,7 +1865,7 @@ def run_print_mode(
                     # suggestions` now also works per-turn in THIS loop
                     # (previously left for a follow-up -- see the worker
                     # report).
-                    sink.consume(session.turn(final_prompt or turn_text), finish=False)
+                    sink.consume(session.turn(final_prompt or turn_text, images=turn_images), finish=False)
                     _maybe_add_prompt_suggestion(session, sink, cli_flags)
                     exit_code = sink.finish()
                     # finding 5/10: a steer that landed after the turn's
@@ -1798,7 +1886,10 @@ def run_print_mode(
                         # and stops. Reversed so multiple leftovers keep
                         # their original relative order ahead of it.
                         for t in reversed(leftover):
-                            line_queue.put_urgent(t)
+                            # A leftover steer text has no image of its own
+                            # (`Session.steer` is text-only) -- same shape
+                            # every other queue item now carries.
+                            line_queue.put_urgent({"text": t, "images": None})
                 if _feed_next_known_turn is not None:
                     _feed_next_known_turn()
                 facade.num_turns += 1
@@ -1812,6 +1903,14 @@ def run_print_mode(
             return exit_code
 
         prompt_text = prompt or ""
+        # Halo 2.0.3.1: `--image <path>` (repeatable) -- resolved BEFORE
+        # the sink/turn exist, so a bad path is a clean `halo: ...`
+        # stderr line + exit 2, same convention `--system-prompt-file`
+        # already uses, never a provider 400 partway through a turn.
+        cli_images, image_error = _resolve_cli_image_flags(cli_flags.get("images"))
+        if image_error is not None:
+            print(f"halo: {image_error}", file=sys.stderr)
+            return 2
         final_prompt, direct_output = _maybe_run_slash_command(
             prompt_text, registry=registry, facade=facade, disable_slash_commands=disable_slash_commands)
         sink = _make_sink()
@@ -1830,7 +1929,7 @@ def run_print_mode(
             # folds in any background-job notice and is the ONE place that
             # calls `sink.finish()` for this whole process (see its own
             # docstring for the multi-JSON-object/exit-code bug this closes).
-            sink.consume(session.turn(final_prompt or prompt_text), finish=False)
+            sink.consume(session.turn(final_prompt or prompt_text, images=cli_images or None), finish=False)
             _maybe_add_prompt_suggestion(session, sink, cli_flags)
             # H8 scope A must-do: a single -p text-input call has no later
             # turn to deliver a background job's completion notice through

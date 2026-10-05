@@ -8,12 +8,14 @@ lookups and feeds results back via `show_completions`.
 
 from __future__ import annotations
 
+from pathlib import Path
 
 from textual import events
 from textual.binding import Binding
 from textual.message import Message
 from textual.widgets import OptionList, TextArea
 
+from halo_harness.tools.imageutil import IMAGE_EXTENSIONS
 from halo_harness.tui.keys import PASTE_PLACEHOLDER_MIN_LINES, PROMPT_MAX_LINES, PROMPT_MIN_LINES
 
 
@@ -97,6 +99,13 @@ class PromptInput(TextArea):
         # verified: Textual's own per-class binding merge resolves each
         # keystroke independently, never as an all-or-nothing combo string).
         Binding("ctrl+a", "select_all", "Select all", show=False),
+        # Halo 2.0.3.1: Shift+Insert is the other common "paste from the
+        # real OS clipboard" shortcut (X11/Windows convention alongside
+        # Ctrl+V) -- bound to the SAME "paste" action TextArea's own
+        # built-in "ctrl+v" binding already resolves to `action_paste`
+        # below (overridden, never the inherited in-process-register
+        # paste), so both keys share one path with no new message type.
+        Binding("shift+insert", "paste", "Paste", show=False),
     ]
 
     def __init__(self, **kwargs) -> None:
@@ -104,6 +113,14 @@ class PromptInput(TextArea):
                           id="prompt-input", **kwargs)
         self.pasted: dict = {}
         self._paste_counter = 0
+        # Halo 2.0.3.1: pending image attachments for the NEXT submit, in
+        # chip order -- each `{"path": Path, "width": int|None,
+        # "height": int|None, "media_type": str}`. `app.py` turns these
+        # into real wire blocks at submit time (reading the file fresh);
+        # this widget only ever tracks the chip metadata + its own visible
+        # placeholder text, same split `self.pasted` already has for a
+        # long text paste.
+        self.images: list = []
         # 1.0.1 hotfix 1: mirrors `app.py`'s own completion_popup.display --
         # kept here too (rather than reaching into `self.app` on every
         # keypress) so `action_cursor_up`/`action_cursor_down`/`_on_key`'s
@@ -171,6 +188,7 @@ class PromptInput(TextArea):
         self.text = ""
         self.pasted = {}
         self._paste_counter = 0
+        self.images = []
         self._auto_grow()
 
     # ---- auto-grow 1-8 lines -------------------------------------------
@@ -215,7 +233,7 @@ class PromptInput(TextArea):
         # call to `TextArea._on_paste` performs the (correct, one-time)
         # insertion itself, using our substituted text.
         event.stop()  # never let it also bubble to the Screen/App
-        event.text = self._placeholder_text_for(event.text)
+        event.text = self._text_or_image_chip_for(event.text)
         # `_auto_grow`/`_maybe_query_completion` run from `on_text_area_
         # changed` once the (still-pending) real insertion actually happens.
 
@@ -233,6 +251,64 @@ class PromptInput(TextArea):
         self.pasted[n] = text
         return f"[Pasted text #{n} +{line_count} lines]"
 
+    def _text_or_image_chip_for(self, text: str) -> str:
+        """Halo 2.0.3.1: a pasted/dragged TEXT that IS the path of an
+        existing image file (Explorer/Finder drag, with or without quotes)
+        attaches that file as a chip instead of ever inserting the raw
+        path -- checked BEFORE the long-text placeholder rule, which would
+        otherwise only ever fire for a path long enough to wrap 4+ lines
+        anyway. Falls through to `_placeholder_text_for` unchanged for
+        anything that isn't an existing image path."""
+        label = self._image_chip_label_for_path(text)
+        return label if label is not None else self._placeholder_text_for(text)
+
+    def _image_chip_label_for_path(self, raw: str) -> "str | None":
+        candidate = (raw or "").strip()
+        if not candidate or "\n" in candidate:
+            return None
+        if len(candidate) >= 2 and candidate[0] == candidate[-1] and candidate[0] in "\"'":
+            candidate = candidate[1:-1]
+        path = Path(candidate)
+        default_media_type = IMAGE_EXTENSIONS.get(path.suffix.lower())
+        if default_media_type is None or not path.is_file():
+            return None
+        width = height = None
+        media_type = default_media_type
+        try:
+            from halo_harness.tools.imageutil import sniff_dimensions, sniff_media_type
+            data = path.read_bytes()
+            media_type = sniff_media_type(data) or media_type
+            dims = sniff_dimensions(data)
+            if dims:
+                width, height = dims
+        except OSError:
+            pass
+        return self._register_image_attachment(path, width, height, media_type)
+
+    def _register_image_attachment(self, path: Path, width, height, media_type: str) -> str:
+        self.images.append({"path": path, "width": width, "height": height, "media_type": media_type})
+        return self._chip_labels()[-1]
+
+    def _chip_labels(self) -> "list[str]":
+        out = []
+        for i, img in enumerate(self.images, start=1):
+            w, h = img.get("width"), img.get("height")
+            out.append(f"[Image #{i} {w}x{h}]" if (w and h) else f"[Image #{i}]")
+        return out
+
+    def add_image_chip(self, *, path, width=None, height=None, media_type: str = "image/png") -> None:
+        """Called by `app.py`/`tui/slash.py` once a REAL clipboard image
+        read (performed off the UI thread -- a subprocess call can take
+        real time) or `/paste <path>` comes back with something -- same
+        insertion mechanics as `paste_text` below, just for a chip label
+        instead of pasted text."""
+        if self.read_only:
+            return
+        label = self._register_image_attachment(Path(path), width, height, media_type)
+        if result := self._replace_via_keyboard(label, *self.selection):
+            self.move_cursor(result.end_location)
+        self._auto_grow()
+
     # ---- Ctrl+V: a real system-clipboard paste (W2c item 3) --------------
 
     def action_paste(self) -> None:
@@ -248,15 +324,35 @@ class PromptInput(TextArea):
         """Called by `app.py` once a Ctrl+V-triggered system-clipboard read
         (performed off the UI thread -- a subprocess call can take real
         time) actually comes back with something -- applies the same
-        paste-placeholder rule `_on_paste` uses for a real terminal paste,
-        then inserts at the current selection/cursor, exactly like
-        TextArea's own built-in paste."""
+        image-path-becomes-a-chip/paste-placeholder rule `_on_paste` uses
+        for a real terminal paste, then inserts at the current selection/
+        cursor, exactly like TextArea's own built-in paste."""
         if self.read_only or not text:
             return
-        display_text = self._placeholder_text_for(text)
+        display_text = self._text_or_image_chip_for(text)
         if result := self._replace_via_keyboard(display_text, *self.selection):
             self.move_cursor(result.end_location)
         self._auto_grow()
+
+    # ---- Backspace removes the last pending image chip (2.0.3.1) --------
+
+    def action_delete_left(self) -> None:
+        """A bare Backspace normally deletes one character left -- when the
+        WHOLE input is nothing but already-inserted image chip labels (no
+        other real text typed), it instead pops the last pending
+        attachment and its own label, so an unwanted paste is one
+        keystroke to undo, the same as `/images clear`
+        (`tui/slash.py::_handle_images`) -- which reuses this exact
+        "chip-only text" condition. Any other input (real text present, no
+        pending images at all) is completely unaffected -- the ordinary
+        TextArea behavior runs unchanged."""
+        if self.images and self.text == "".join(self._chip_labels()):
+            self.images.pop()
+            self.text = "".join(self._chip_labels())
+            self.move_cursor((0, len(self.text)))
+            self._auto_grow()
+            return
+        super().action_delete_left()
 
     # ---- / and @ completion ------------------------------------------
 

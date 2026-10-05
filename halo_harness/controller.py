@@ -226,7 +226,7 @@ class Controller:
 
     # ---- UI -> loop (non-blocking) ---------------------------------------
 
-    def submit(self, text: str, pasted=None, meta=None) -> None:
+    def submit(self, text: str, images: "Optional[list]" = None, pasted=None, meta=None) -> None:
         """scope 0(c): while a turn is running, new input steers it
         instead of queuing a whole separate turn -- `session.busy` is a
         plain Event read, safe from this (the UI) thread; `Session.steer`
@@ -243,14 +243,25 @@ class Controller:
         dropped either way. On success, `steer_queued` is pushed to
         `self.events` immediately (U5: shown the instant the user submits,
         not only once the turn reaches a safe point to actually apply
-        it -- which can be much later, e.g. mid-tool-call)."""
+        it -- which can be much later, e.g. mid-tool-call).
+
+        Halo 2.0.3.1: `images` (Anthropic-shaped blocks, `tui/app.py`'s own
+        `_build_image_blocks`) rides on the queued `user_input` Command --
+        `Session.run()`'s own command pump already reads `data.get(
+        "images")` straight into `_pump_turn`/`Session.turn`, unchanged by
+        this brief. A mid-turn STEER has no image channel of its own
+        (`Session.steer` is text-only, see its docstring) -- an image
+        attached while a turn is already busy is simply not carried by
+        this fallback path; the chip itself is still cleared by `tui/
+        app.py` either way, same as a plain pasted-text placeholder is."""
         if self.session.busy:
             if self.session.steer(text):
                 self.events.put(events.steer_queued(text, turn=self.session.turn_count))
                 return
             # else: the turn finished in the race window above -- fall
             # through and start a fresh turn instead of dropping the text.
-        self.commands.put(events.Command("user_input", {"text": text, "pasted": pasted, "meta": meta}))
+        self.commands.put(events.Command("user_input", {"text": text, "images": images,
+                                                           "pasted": pasted, "meta": meta}))
 
     def interrupt(self) -> None:
         """Esc / Ctrl+C during a turn. Direct, not queued: the worker is

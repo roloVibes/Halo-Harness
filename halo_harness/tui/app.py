@@ -1082,6 +1082,14 @@ class BridgeApp(App):
             return
         if not text.strip():
             return
+        # Halo 2.0.3.1: captured BEFORE clear_submitted() wipes the pending
+        # chip list just below -- only the ordinary fresh-turn path at the
+        # bottom of this method actually attaches them (`_submit_prompt`);
+        # every card/borrow/steer branch above and below this point still
+        # clears the chips (same as a plain text paste's own placeholder)
+        # but never turns them into image blocks -- answering a card is
+        # not starting a new turn.
+        pending_images = list(self.prompt_input.images)
         self.prompt_input.clear_submitted()
         self.completion_popup.hide()
         from halo_harness.tui.widgets.cards import EffortCard
@@ -1137,7 +1145,7 @@ class BridgeApp(App):
         self.transcript.scroll_end(animate=False)
         self.transcript.new_since_scroll = 0
         self.status_bar.set_new_count(0)
-        await self._submit_prompt(text, event.pasted)
+        await self._submit_prompt(text, event.pasted, pending_images)
 
     def _record_submitted_history(self, text: str, pasted: "dict | None") -> None:
         """W2c item 1: append to `~/.halo/history.jsonl` and invalidate the
@@ -1159,7 +1167,24 @@ class BridgeApp(App):
             pass
         self._history_cache = []  # re-read next Up-arrow, this entry is now in it
 
-    async def _submit_prompt(self, text: str, pasted: dict) -> None:
+    def _build_image_blocks(self, pending_images: list) -> list:
+        """Halo 2.0.3.1: `PromptInput.images`' own chip records (`{"path",
+        "width", "height", "media_type"}`) -> real Anthropic-shaped wire
+        blocks, read fresh from disk right here at submit time (never
+        cached earlier -- the chip itself only ever tracked the path/
+        metadata). A file that vanished between the paste and the submit
+        (deleted, a drive unmounted) is reported once and simply left out
+        of this turn's `images` rather than failing the whole submit."""
+        from halo_harness.agent.image_attach import image_block_from_path
+        blocks = []
+        for img in pending_images:
+            try:
+                blocks.append(image_block_from_path(img["path"]))
+            except OSError as e:
+                self.notify(f"Could not attach {img['path']}: {e}", severity="error")
+        return blocks
+
+    async def _submit_prompt(self, text: str, pasted: dict, pending_images: "list | None" = None) -> None:
         # 2.0.0 Launch intro: "a submitted prompt finishes the line
         # instantly" -- covers the one case a keypress alone wouldn't (the
         # `--cwd`/positional PROMPT auto-submitted at startup via
@@ -1202,7 +1227,8 @@ class BridgeApp(App):
         # (which return early and may never fire a matching `turn_done` at
         # all -- this flag would otherwise freeze tip rotation forever).
         self._turn_running = True
-        result = self.controller.submit(expanded, pasted=pasted or None)
+        image_blocks = self._build_image_blocks(pending_images) if pending_images else None
+        result = self.controller.submit(expanded, images=image_blocks, pasted=pasted or None)
         if result is not None:  # FakeController: a synchronous scripted turn
             for e in result:
                 self._local_events.put(e)
@@ -2249,12 +2275,36 @@ class BridgeApp(App):
         text = read_via_external_tool()
         if text:
             self.call_from_thread(self.prompt_input.paste_text, text)
-        else:
-            self.call_from_thread(
-                self.notify,
-                "Paste with your terminal's shortcut (Ctrl+Shift+V) or Shift+middle-click",
-                timeout=4,
-            )
+            return
+        # Halo 2.0.3.1: a paste that carries no TEXT at all -- try a real
+        # clipboard IMAGE next, before falling back to the plain notice
+        # this already showed. Over SSH (no remote clipboard reaches here
+        # at all) every reader below returns nothing, same as a genuinely
+        # empty clipboard -- the final notice names the two ways around
+        # that (`/paste <path>`, dragging a file in).
+        from halo_harness.agent.image_attach import attachments_dir_for_session
+        from halo_harness.tui.clipboard_image import ImageTooLarge, read_clipboard_image
+        session = getattr(self.controller, "session", None)
+        dest_dir = attachments_dir_for_session(session) if session is not None else None
+        try:
+            image = read_clipboard_image(dest_dir=dest_dir)
+        except ImageTooLarge as e:
+            self.call_from_thread(self.notify, str(e), severity="error", timeout=4)
+            return
+        except Exception:
+            image = None
+        if image is not None:
+            self.call_from_thread(self.prompt_input.add_image_chip, path=image.path, width=image.width,
+                                   height=image.height, media_type=image.media_type)
+            return
+        # Both halves of the advice: text pastes are the terminal's own job
+        # (the pre-2.0.3.1 notice), images come in through /paste or a drag.
+        self.call_from_thread(
+            self.notify,
+            "No text or image on this machine's clipboard. Paste text with your terminal's shortcut "
+            "(Ctrl+Shift+V) or Shift+middle-click; attach an image with /paste <path> or drag a file.",
+            timeout=5,
+        )
 
     def action_quit_on_empty(self) -> None:
         # 2.0.2 review finding 38 (discovered while fixing it): this is an

@@ -2349,6 +2349,14 @@ class Session:
         # actually-empty wire `tools` field, not just prompt text the model
         # could ignore.
         system_text, messages, tools = derive_request(self.log, tools=([] if no_tools else None))
+        # Halo 2.0.3.1: the log stores an image turn as a path, never its
+        # bytes (see `_turn_inner`'s own comment on this) -- every image
+        # block `derive_request` just handed back is read from disk and
+        # turned into a real wire block here, every call, not only on an
+        # explicit resume (a missing file degrades to a plain text note
+        # instead, the turn still proceeds).
+        from halo_harness.agent.image_attach import rehydrate_messages
+        messages = rehydrate_messages(messages)
         # finding 4: `agent/prune.py` used to be wired ONLY into `/context`
         # (its "pruned ~N tokens" report never actually shrank anything a
         # real request sent) -- applied here, AFTER derive_request and
@@ -4240,6 +4248,14 @@ class Session:
         # select from, or a stubbed/truncated copy gets baked permanently
         # into the freshly-compacted log.
         messages = self._pruned_messages_for_wire(raw_messages)
+        # Halo 2.0.3.1: rehydrated ONLY for the summarisation call's own
+        # wire body, built fresh from `raw_messages`/`messages` (never
+        # mutated) -- `select_verbatim_tail` below still selects from the
+        # UNTOUCHED `raw_messages`, so the retained tail spliced back into
+        # the freshly-compacted log stays path-only, exactly like every
+        # other image turn (never the rehydrated/base64 copy).
+        from halo_harness.agent.image_attach import rehydrate_messages
+        messages = rehydrate_messages(messages)
         tokens_before = self._last_prompt_tokens or _rough_estimate(system_text, messages)
         yield events.compaction(phase="start", trigger=trigger, turn=turn_no, tokens_before=tokens_before)
 
@@ -4557,11 +4573,31 @@ class Session:
                     self.log.append_snapshot([{"type": "text", "text": outcome.additional_context}], kind="hook_context")
                     hook_context_text = outcome.additional_context
 
+            # Halo 2.0.3.1 (clipboard image paste): the LOG never stores an
+            # image's base64 bytes, only its saved path (`image_attach.
+            # image_block_for_log`) -- `_derive_and_build`/`_run_compaction`
+            # read the file back from that path every time a request is
+            # built from the log (agent/image_attach.rehydrate_messages),
+            # whether that's later THIS turn, a later turn in the same
+            # process, or a resumed one. A model whose catalog row says no
+            # vision never gets a real image block at all -- the path rides
+            # as plain text instead, with one notice, so the turn still
+            # completes instead of a provider 400.
+            from halo_harness.agent import image_attach
+            vision_ok = bool(self.model_profile.vision) if images else True
+            if images and not vision_ok:
+                yield events.notification(
+                    f"{self.model_ref.raw} does not take images; attached as a path")
             blocks = [{"type": "text", "text": text}]
             for img in (images or []):
-                blocks.append(img)
+                if isinstance(img, dict) and img.get("type") == "image":
+                    blocks.append(image_attach.image_block_for_log(img) if vision_ok
+                                  else {"type": "text", "text": image_attach.path_mention_text(img)})
+                else:
+                    blocks.append(img)
             self.log.append_user(blocks)
-            yield events.user_message(text, turn=turn_no, images=images)
+            turn_images = images if vision_ok else None
+            yield events.user_message(text, turn=turn_no, images=turn_images)
             yield events.status(
                 phase="thinking", model=self.model_ref.raw, turn=turn_no,
                 context_limit=self.model_profile.context_tokens,
@@ -4578,7 +4614,7 @@ class Session:
                     # route's history reconstruction, /stats, /export and
                     # resume all keep working unchanged.
                     from halo_harness.agent import cc_runtime
-                    yield from cc_runtime.turn_body_cc(self, turn_no, text, images=images,
+                    yield from cc_runtime.turn_body_cc(self, turn_no, text, images=turn_images,
                                                         hook_context=hook_context_text)
                 elif self.model_ref.provider == "codex":
                     # Round 5i part 2: the cx: counterpart of the cc: branch
@@ -4586,7 +4622,7 @@ class Session:
                     # (agent/codex_turn.py) for the SAME reason, substituting
                     # `codex exec` for `claude -p`.
                     from halo_harness.agent import codex_turn
-                    yield from codex_turn.turn_body_cx(self, turn_no, text, images=images,
+                    yield from codex_turn.turn_body_cx(self, turn_no, text, images=turn_images,
                                                         hook_context=hook_context_text)
                 else:
                     yield from self._turn_body(turn_no)
