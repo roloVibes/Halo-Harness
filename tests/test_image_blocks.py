@@ -21,6 +21,13 @@ from tests.helpers.mock_openai import MockUpstream, SCENARIOS, _finish
 
 test, TESTS = new_registry()
 
+# build_cx_argv resolves the real launcher; on a machine without codex (the
+# Linux suite venvs) point Halo at the fake so the argv test runs anywhere.
+import os as _os
+if not _os.environ.get("HALO_CODEX_EXE"):
+    _os.environ["HALO_CODEX_EXE"] = '"' + sys.executable + '" "' + str(
+        Path(__file__).resolve().parent / "helpers" / "fake_codex.py") + '"'
+
 
 def _new_session(fh, mock, *, model="or:mock/model", vision=False):
     """Same minimal in-process construction `tests/test_loop_retries.py`
