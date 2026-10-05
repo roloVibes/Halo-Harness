@@ -9550,6 +9550,77 @@ def test_slash_setup_roles_opens_the_screen_and_updates_the_live_session(ctx: Ct
     asyncio.run(body())
 
 
+# ============================================================================
+# Review fix pass finding 1: OllamaStatus/LocalStatus first-paint crash.
+# ============================================================================
+
+@test
+def test_ollama_status_and_local_status_survive_first_paint(ctx: Ctx):
+    """Review fix pass (finding 1): both dialogs used to define a bare
+    `_render(self)`, shadowing `Widget._render()` (a REAL Textual
+    internal called during layout to get this widget's own Visual) --
+    the first paint of either dialog's own modal background called
+    `self._render()`, got `None` back instead of a Visual, and crashed
+    the whole TUI the moment `/ollama` or `/local` opened with no
+    arguments. Mounts each dialog for real (never just imports the
+    class), presses every key each one binds (including dismissing
+    while its refresh worker is still in flight -- a small delay in the
+    injected `refresh` callable makes that race real, not just nominal),
+    and checks `app.is_running` throughout, the same idiom test_init_
+    wizard_esc_asks_before_quitting already uses to pin "the app keeps
+    running"."""
+    import time as _time
+    from halo_harness.tui.dialogs.ollama_status import OllamaStatus
+    from halo_harness.tui.dialogs.local_status import LocalStatus
+
+    def _slow_refresh(empty):
+        def _inner():
+            _time.sleep(0.05)
+            return empty
+        return _inner
+
+    async def body():
+        fake = FakeController()
+        app = await _mounted(fake)
+        async with app.run_test(size=(100, 40)) as pilot:
+            app.push_screen(OllamaStatus([], refresh=_slow_refresh([])))
+            await pilot.pause(0.1)
+            ctx.check(f"OllamaStatus mounted and painted without crashing, got {type(app.screen).__name__}",
+                      isinstance(app.screen, OllamaStatus) and app.is_running)
+            await pilot.press("r")
+            await pilot.pause(0.02)
+            await pilot.press("escape")  # dismiss WHILE the refresh worker is still sleeping
+            await pilot.pause(0.2)       # let the worker finish and call _apply_refresh/_render_rows after dismissal
+            ctx.check(f"Esc dismissed it even with a refresh in flight, app still running, got "
+                      f"{type(app.screen).__name__}", not isinstance(app.screen, OllamaStatus) and app.is_running)
+
+            app.push_screen(LocalStatus([], refresh=_slow_refresh([])))
+            await pilot.pause(0.1)
+            ctx.check(f"LocalStatus mounted and painted without crashing, got {type(app.screen).__name__}",
+                      isinstance(app.screen, LocalStatus) and app.is_running)
+            await pilot.press("r")
+            await pilot.pause(0.02)
+            await pilot.press("escape")  # dismiss WHILE the refresh worker is still sleeping
+            await pilot.pause(0.2)
+            ctx.check(f"Esc dismissed it even with a refresh in flight, app still running, got "
+                      f"{type(app.screen).__name__}", not isinstance(app.screen, LocalStatus) and app.is_running)
+
+            app.push_screen(LocalStatus([], refresh=_slow_refresh([])))
+            await pilot.pause(0.1)
+            await pilot.press("s")
+            await pilot.pause(0.1)
+            ctx.check("'s' opened the serve-prompt sub-screen, app still running",
+                      type(app.screen).__name__ == "_ServePrompt" and app.is_running)
+            await pilot.press("escape")
+            await pilot.pause(0.1)
+            ctx.check(f"Esc on the serve prompt returns to LocalStatus, app still running, got "
+                      f"{type(app.screen).__name__}", isinstance(app.screen, LocalStatus) and app.is_running)
+            await pilot.press("escape")
+            await pilot.pause(0.1)
+            ctx.check("final Esc closes LocalStatus, the whole app is still alive", app.is_running)
+    asyncio.run(body())
+
+
 if __name__ == "__main__":
     # NEW (post-H9 acceptance): see tests/helpers/runner.py's own docstring.
     from tests.helpers.runner import cleanup_tracked_temp_dirs, install_temp_dir_tracking

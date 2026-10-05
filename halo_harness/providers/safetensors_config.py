@@ -68,10 +68,21 @@ def safetensors_model_info(config: dict) -> dict:
     gguf_model_info` builds (`general.architecture` plus this
     architecture's `.context_length`/`.block_count`/
     `.attention.head_count_kv`/`.attention.head_count`/
-    `.embedding_length`), from an already-parsed `config.json`. `{}` when
-    none of `max_position_embeddings`/`num_hidden_layers`/`hidden_size`/
-    `num_attention_heads` are present at all (not a transformers-shaped
-    config this module recognizes)."""
+    `.embedding_length`/`.attention.key_length`/`.attention.value_length`),
+    from an already-parsed `config.json`. `{}` when none of `max_position_
+    embeddings`/`num_hidden_layers`/`hidden_size`/`num_attention_heads` are
+    present at all (not a transformers-shaped config this module
+    recognizes).
+
+    Review fix pass (finding 3): several current architectures (e.g.
+    Qwen3) carry an EXPLICIT `head_dim` in `config.json` that is NOT
+    `hidden_size / num_attention_heads` -- `kv_bytes_per_token`'s own
+    `embedding_length / head_count` approximation silently uses the wrong
+    value for those. When `head_dim` is present it is surfaced as BOTH
+    `.attention.key_length` and `.attention.value_length` (standard
+    attention uses the same per-head width for K and V), which
+    `kv_bytes_per_token` already prefers over the approximation when
+    GGUF supplies them -- same key names, same precedence, one formula."""
     context_length = _positive_int(config, "max_position_embeddings")
     block_count = _positive_int(config, "num_hidden_layers")
     embedding_length = _positive_int(config, "hidden_size")
@@ -79,6 +90,7 @@ def safetensors_model_info(config: dict) -> dict:
     # The one fallback this module adds beyond a bare field rename -- see
     # this module's own docstring.
     head_count_kv = _positive_int(config, "num_key_value_heads") or head_count
+    head_dim = _positive_int(config, "head_dim")
     if context_length is None and block_count is None and embedding_length is None and head_count is None:
         return {}
     arch = _architecture_name(config)
@@ -93,6 +105,9 @@ def safetensors_model_info(config: dict) -> dict:
         out[f"{arch}.attention.head_count"] = head_count
     if embedding_length is not None:
         out[f"{arch}.embedding_length"] = embedding_length
+    if head_dim is not None:
+        out[f"{arch}.attention.key_length"] = head_dim
+        out[f"{arch}.attention.value_length"] = head_dim
     return out
 
 

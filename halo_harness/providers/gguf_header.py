@@ -177,17 +177,28 @@ def parse_gguf_header(path) -> GGUFHeader:
 def gguf_model_info(metadata: dict) -> dict:
     """The `model_info`-shaped subset of `metadata` (`general.architecture`
     plus this architecture's own `.context_length`/`.block_count`/
-    `.attention.head_count_kv`/`.attention.head_count`/`.embedding_length`)
-    -- GGUF's OWN key naming already matches `providers.ollama.get_catalog`'s
-    `/api/show`-derived shape, so this is a filter, not a translation, and
-    feeds `providers.ollama_fit.kv_bytes_per_token` unchanged. `{}` when no
-    `general.architecture` string is present at all."""
+    `.attention.head_count_kv`/`.attention.head_count`/`.embedding_length`/
+    `.attention.key_length`/`.attention.value_length`) -- GGUF's OWN key
+    naming already matches `providers.ollama.get_catalog`'s `/api/show`-
+    derived shape, so this is a filter, not a translation, and feeds
+    `providers.ollama_fit.kv_bytes_per_token` unchanged. `{}` when no
+    `general.architecture` string is present at all.
+
+    Review fix pass (finding 3): `key_length`/`value_length` are the exact
+    per-head K/V cache element counts llama.cpp itself writes into many
+    GGUF files (`n_embd_head_k`/`n_embd_head_v`) -- `kv_bytes_per_token`
+    prefers these over its own `embedding_length / head_count`
+    approximation whenever both are present, since that approximation
+    silently underestimates the true KV cache size for an architecture
+    whose head_dim isn't simply hidden_size/head_count (confirmed by this
+    round's own measurement for several current GQA models)."""
     arch = metadata.get("general.architecture")
     if not isinstance(arch, str) or not arch:
         return {}
     out = {"general.architecture": arch}
     for suffix in (".context_length", ".block_count", ".attention.head_count_kv",
-                   ".attention.head_count", ".embedding_length"):
+                   ".attention.head_count", ".embedding_length",
+                   ".attention.key_length", ".attention.value_length"):
         key = f"{arch}{suffix}"
         if key in metadata:
             out[key] = metadata[key]

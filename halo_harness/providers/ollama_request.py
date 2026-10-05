@@ -88,6 +88,12 @@ def build_ollama_request_body(
     requested_max_tokens: Optional[int] = None,
     learned_cap: Optional[int] = None, remote: bool = False,
     force_format: "Optional[dict]" = None,
+    # Review fix pass (findings 5/6) -- pre-resolved by the SAME caller
+    # that already resolved `learned_cap`/`remote` (never re-derived
+    # here, same "exactly ONE lookup per request" discipline the round
+    # 5b additions above already follow); see `providers.ollama.
+    # resolve_num_ctx_and_source`'s own docstring for what each one does.
+    recorded_does_not_fit: bool = False, cpu_only: bool = False,
 ) -> dict:
     """Build the native `/api/chat` body. `messages`/`system_text` are the
     SAME Anthropic-shaped derived-transcript inputs `providers.request.
@@ -157,7 +163,8 @@ def build_ollama_request_body(
     from halo_harness.providers.ollama_fit import resolve_ollama_tools_max
     oai_messages = _flatten_messages(messages, system_text)
     ollama_messages = _ollama_messages_from_oai(oai_messages)
-    num_ctx = compute_num_ctx(trained_context, host.max_ctx, fit_estimate, learned_cap=learned_cap, remote=remote)
+    num_ctx = compute_num_ctx(trained_context, host.max_ctx, fit_estimate, learned_cap=learned_cap, remote=remote,
+                               recorded_does_not_fit=recorded_does_not_fit, cpu_only=cpu_only)
     tools_max = max(resolve_ollama_tools_max(num_ctx), len(tools or []))
     tools_profile = profile if tools_max == profile.tools_max else dataclasses.replace(profile, tools_max=tools_max)
     oai_tools = convert_tools(tools, tools_profile)

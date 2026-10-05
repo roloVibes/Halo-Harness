@@ -39,9 +39,16 @@ class OllamaStatus(ModalScreen):
             yield RichLog(id="ollama-log", wrap=True, highlight=False, markup=False, auto_scroll=False)
 
     def on_mount(self) -> None:
-        self._render()
+        self._render_rows()
 
-    def _render(self) -> None:
+    def _render_rows(self) -> None:
+        # Review fix pass (finding 1): named `_render_rows`, never bare
+        # `_render` -- `Widget._render()` is a REAL Textual internal
+        # (returns this widget's Visual during layout); shadowing it made
+        # the FIRST PAINT of this modal's own background call `self.
+        # _render()`, get `None` back, and crash the whole TUI the moment
+        # `/ollama` opened. Same naming fix `tui/widgets/statusbar.py`'s
+        # `_refresh_display` already uses for the identical reason.
         from halo_harness.providers.ollama_panel import format_host_analysis
         log_widget = self.query_one("#ollama-log", RichLog)
         log_widget.clear()
@@ -67,7 +74,7 @@ class OllamaStatus(ModalScreen):
 
     def _apply_refresh(self, analyses: list) -> None:
         self.analyses = analyses
-        self._render()
+        self._render_rows()
 
     def action_cancel(self) -> None:
         self.dismiss(None)

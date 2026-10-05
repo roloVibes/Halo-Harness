@@ -10,6 +10,8 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -226,6 +228,156 @@ def test_run_compaction_yields_notification_for_a_pending_notice(ctx: Ctx):
         ctx.check(f"a notification event was yielded, got {[e.data for e in notif]!r}",
                   any(e.data.get("text") == "calibrated during compaction" for e in notif))
         ctx.check("the queue was drained", session._pending_ollama_notices == [])
+    finally:
+        mock.stop()
+
+
+# ---- review fix pass finding 4: "remember a successful retry" consumed ---
+
+@test
+def test_build_ollama_body_for_ref_folds_in_a_remembered_retry(ctx: Ctx):
+    """Review fix pass (finding 4), the read/consume half of "remember a
+    successful retry for the rest of the session": once `providers.
+    ollama.remember_ollama_retry_num_ctx` has recorded a bigger num_ctx
+    for (host, model), `_build_ollama_body_for_ref` must fold it in as an
+    extra learned_cap-like candidate for the NEXT turn, replacing the
+    "nothing known" conservative default (finding 5) once there IS
+    something known -- but (finding 6) still bounded by trained_context/
+    hard_cap, and still beaten by a SMALLER live fit_estimate were one
+    present (none is, here -- `fit_estimate=None` is the realistic case
+    this mechanism helps most: no live GPU/`/api/ps` reading available
+    this turn at all). Both `resolve_ollama_host` (so the method's own
+    host lookup lands on the mock, not the real default) and `resolve_
+    context_decision` (a FIXED decision, so the real OS-level GPU/
+    catalog probing it would otherwise do -- covered elsewhere -- never
+    makes this one non-deterministic) are monkeypatched for this test
+    only."""
+    import halo_harness.agent.loop as loop_mod
+    import halo_harness.providers.ollama_hw as ollama_hw_mod
+    from halo_harness.providers.ollama import OllamaHost, remember_ollama_retry_num_ctx, reset_remembered_ollama_retries
+    from halo_harness.providers.ollama_hw import OllamaContextDecision
+    from halo_harness.providers.profiles import resolve_profile
+    from halo_harness.providers.routing import Route
+    reset_remembered_ollama_retries()
+    mock = MockUpstream().start()
+    d = Path(tempfile.mkdtemp(prefix="ol-remember-fold-"))
+    model = "remember-fold-model"
+    real_resolve_host = loop_mod.resolve_ollama_host
+    real_resolve_decision = ollama_hw_mod.resolve_context_decision
+    fixed_host = OllamaHost(name="mock", url=mock.base_url)
+    loop_mod.resolve_ollama_host = lambda name, env: fixed_host
+    ollama_hw_mod.resolve_context_decision = lambda model_ref, env=None, **kw: OllamaContextDecision(
+        trained_context=40960, fit_estimate=None, num_ctx=32768, tools_max=16, catalog_prompt_tokens=0,
+        learned_cap=None, remote=False)
+    try:
+        session = _minimal_session(d, mock, model=model)
+        route = Route(provider="ollama", upstream_model=model, dialect="ollama")
+        profile = resolve_profile(route)
+        kwargs = dict(ref=session.model_ref, route=route, profile=profile, system_text="sys",
+                      messages=[{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
+                      tools=[], tool_choice=None, effort=None, requested_max_tokens=256)
+        before = session._build_ollama_body_for_ref(**kwargs)
+        before_ctx = (before.get("options") or {}).get("num_ctx")
+        ctx.check(f"without a remembered retry, nothing known -> the conservative default (32768), got "
+                  f"{before_ctx}", before_ctx == 32768)
+        remember_ollama_retry_num_ctx(mock.base_url, model, 16384)
+        after = session._build_ollama_body_for_ref(**kwargs)
+        after_ctx = (after.get("options") or {}).get("num_ctx")
+        ctx.check(f"a remembered retry (16384) now wins over the blanket conservative default, got {after_ctx}",
+                  after_ctx == 16384)
+        # A SECOND, oversized remembered value must still never exceed
+        # the trained context (finding 6: a cap competes in the same
+        # min(), it never bypasses trained_context/hard_cap).
+        remember_ollama_retry_num_ctx(mock.base_url, model, 999_999)
+        after2 = session._build_ollama_body_for_ref(**kwargs)
+        after2_ctx = (after2.get("options") or {}).get("num_ctx")
+        ctx.check(f"an oversized remembered value is still capped at the trained context (40960), got "
+                  f"{after2_ctx}", after2_ctx == 40960)
+    finally:
+        loop_mod.resolve_ollama_host = real_resolve_host
+        ollama_hw_mod.resolve_context_decision = real_resolve_decision
+        mock.stop()
+
+
+# ---- review fix pass finding 8: abort/budget, never in call_small_model --
+
+@test
+def test_maybe_auto_calibrate_respects_abort_and_a_total_budget(ctx: Ctx):
+    """Review fix pass (finding 8): the actual measurement runs in a
+    background thread this method waits on only up to a bounded total
+    budget, polling `self.abort` too -- the budget elapsing or Esc firing
+    must stop the TURN from waiting any further (no abort hook reaches
+    this deep into the HTTP layer to cut an in-flight request off mid-
+    socket-read, so the background thread is left to finish -- or time
+    out -- on its own; the dedupe flag is set regardless, so this
+    process never re-attempts the same pair)."""
+    import halo_harness.providers.ollama_calibrate as calib_mod
+    from halo_harness.providers.ollama import OllamaHost
+    mock = MockUpstream().start()
+    d = Path(tempfile.mkdtemp(prefix="ol-autocal-abort-"))
+    old_no_net = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
+    real_run_auto_calibration = calib_mod.run_auto_calibration
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow_run_auto_calibration(host, model, *, state_dir, **kw):
+        started.set()
+        release.wait(timeout=5)  # held open until this test lets it go
+        return "a notice this turn must never see"
+
+    calib_mod.run_auto_calibration = _slow_run_auto_calibration
+    try:
+        host = OllamaHost(name="mock", url=mock.base_url)
+        session = _minimal_session(d, mock)
+        start = time.monotonic()
+        session._maybe_auto_calibrate_ollama(host, "budget-model", budget_s=0.5)
+        elapsed = time.monotonic() - start
+        ctx.check(f"stopped waiting at the budget, not the slow calibration's own return, got {elapsed:.2f}s",
+                  elapsed < 2.0)
+        ctx.check("the background thread actually started", started.wait(timeout=1))
+        ctx.check("no notice was queued for this turn (it never finished within the budget)",
+                  session._pending_ollama_notices == [])
+        ctx.check("the dedupe flag was still set (never re-attempted within this process)",
+                  (host.url, "budget-model") in session._ollama_calibrate_attempted)
+
+        session2 = _minimal_session(d, mock)
+        session2.abort.set()
+        start2 = time.monotonic()
+        session2._maybe_auto_calibrate_ollama(host, "abort-model", budget_s=5.0)
+        elapsed2 = time.monotonic() - start2
+        ctx.check(f"an already-set abort stops the wait almost immediately, got {elapsed2:.2f}s", elapsed2 < 1.0)
+    finally:
+        release.set()
+        calib_mod.run_auto_calibration = real_run_auto_calibration
+        if old_no_net is not None:
+            os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_no_net
+        mock.stop()
+
+
+@test
+def test_call_small_model_never_triggers_auto_calibration(ctx: Ctx):
+    """Review fix pass (finding 8): `call_small_model` must never trigger
+    auto-calibration at all -- its own `timeout_s` budget is meant to
+    bound the small-model request itself, not a first-use calibration
+    probe stacked underneath it. The dedupe set staying COMPLETELY EMPTY
+    is the proof: `_maybe_auto_calibrate_ollama` adds its `(host.url,
+    model)` key unconditionally, before any other gate, the moment it is
+    CALLED at all (unlike test_maybe_auto_calibrate_respects_abort_and_a_
+    total_budget just above, where a direct call DOES add one) -- so an
+    empty set means the method was never reached from `call_small_model`,
+    regardless of which host it would have resolved to."""
+    mock = MockUpstream().start()
+    d = Path(tempfile.mkdtemp(prefix="ol-smallmodel-nocalib-"))
+    try:
+        # "plain-text" (_minimal_session's own default) is a REAL scripted
+        # mock_ollama.py scenario -- an arbitrary model name here gets a
+        # 404 "unknown mock scenario" (an UNCAUGHT UpstreamError, since
+        # call_small_model has no try/except around the stream it reads),
+        # unrelated to what this test means to isolate.
+        session = _minimal_session(d, mock)
+        session.call_small_model(system_text="sys", user_text="say hi", model_ref=session.model_ref)
+        ctx.check(f"auto-calibration was never even attempted, got {session._ollama_calibrate_attempted}",
+                  session._ollama_calibrate_attempted == set())
     finally:
         mock.stop()
 

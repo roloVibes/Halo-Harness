@@ -99,6 +99,12 @@ def send_turn(*, host, route, profile, decision, system_text: str, messages: lis
             effort=None, host=host, trained_context=decision.trained_context, fit_estimate=decision.fit_estimate,
             requested_max_tokens=requested_max_tokens, learned_cap=decision.learned_cap, remote=decision.remote,
             force_format=force_format,
+            # Review fix pass (finding 5): `decision` may be this module's
+            # OWN minimal stand-in (the huggingface branch, just above --
+            # no `recorded_does_not_fit`/`cpu_only` fields at all), so
+            # these are read defensively rather than assumed present.
+            recorded_does_not_fit=getattr(decision, "recorded_does_not_fit", False),
+            cpu_only=getattr(decision, "cpu_only", False),
         )
         req = CompletionRequest(
             body={"messages": []}, route=route,
@@ -216,8 +222,14 @@ def send_repair(*, host, route, profile, decision, tool_name: str, schema: Optio
         # an `HFHost`).
         constrained = supports_constrained_tool_calls(provider="huggingface", dialect="openai-chat", local=True)
     else:
-        from halo_harness.providers.ollama_hw import is_local_host
-        constrained = supports_constrained_tool_calls(provider="ollama", dialect="ollama", local=is_local_host(host))
+        # Review fix pass (finding 7): `is_local_host` (loopback-only)
+        # used to gate this, running the gym's repair round unconstrained
+        # for a LAN `ollama.hosts[]` host that fully supports constrained
+        # decoding -- see `supports_constrained_tool_calls`'s own
+        # docstring.
+        from halo_harness.providers.ollama_hw import is_ollama_cloud_host
+        constrained = supports_constrained_tool_calls(provider="ollama", dialect="ollama",
+                                                        local=not is_ollama_cloud_host(host))
     system_text, user_text = repair_prompt_for(
         tool_name=tool_name, schema=schema, error_message=error_message, raw_input=raw_input)
     messages = [{"role": "user", "content": [{"type": "text", "text": user_text}]}]

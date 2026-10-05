@@ -136,6 +136,51 @@ def test_serve_local_model_with_runtime_already_on_a_fake_path(ctx: Ctx):
 
 
 @test
+def test_serve_local_model_caps_context_by_trained_context_and_hard_cap(ctx: Ctx):
+    """Review fix pass (finding 3): `-c` must never exceed EITHER the
+    model's own trained context or the 131072 hard cap, even when
+    fit_estimate alone would call for more (a roomy card, a small model --
+    round 3's own fit arithmetic can legitimately return a bigger number
+    than either bound). `fit_result_for_path` is monkeypatched to a fixed,
+    oversized fit_estimate -- this test is about the CAPPING in local_use.
+    py, not the fit arithmetic itself (pinned separately)."""
+    if sys.platform == "win32":
+        ctx.check("skipped on windows (same wrapper-executability limitation as the sibling test above)", True)
+        return
+    from halo_harness.providers.local_runtime import runtimes_dir
+    from halo_harness.providers.local_use import serve_local_model
+    import halo_harness.providers.local_fit as local_fit_mod
+    from halo_harness.providers.local_fit import FileFitResult
+    state_dir = Path(tempfile.mkdtemp(prefix="local-use-cap-"))
+    model_path = _write_gguf_fixture()
+    exe_name = "llama-server.exe" if sys.platform == "win32" else "llama-server"
+    exe_dir = runtimes_dir(state_dir) / "b1" / "bin"
+    exe_dir.mkdir(parents=True)
+    stub = _write_stub()
+    (exe_dir / exe_name).write_text(f'#!/bin/sh\nexec "{sys.executable}" "{stub}" "$@"\n', encoding="utf-8")
+    (exe_dir / exe_name).chmod(0o755)
+    real_fit_result_for_path = local_fit_mod.fit_result_for_path
+    local_fit_mod.fit_result_for_path = lambda path, *, fmt, hw_runner=None: FileFitResult(
+        model_info={}, trained_context=4096, quant_name=None, weight_bytes=1000, fit_estimate=524288)
+    try:
+        ok, lines = serve_local_model(str(model_path), state_dir=state_dir, confirm=lambda _q: False)
+        ctx.check(f"serve succeeded, got {lines}", ok)
+        from halo_harness.providers.local_runtime import load_registry, stop_all_managed_servers_except_kept
+        try:
+            recorded = load_registry(state_dir)
+            entry = next((e for e in recorded if e.get("model") == "tiny-test-model"), None)
+            ctx.check(f"a registry entry exists, got {recorded}", entry is not None)
+            cmdline = (entry or {}).get("cmdline") or []
+            got_c = cmdline[cmdline.index("-c") + 1] if "-c" in cmdline else None
+            ctx.check(f"-c is capped to the trained context (4096), not the huge fit estimate (524288), "
+                      f"got {cmdline}", got_c == "4096")
+        finally:
+            stop_all_managed_servers_except_kept(state_dir=state_dir)
+    finally:
+        local_fit_mod.fit_result_for_path = real_fit_result_for_path
+
+
+@test
 def test_serve_local_model_declines_the_fetch_when_confirm_says_no(ctx: Ctx):
     from halo_harness.providers.local_use import serve_local_model
     state_dir = Path(tempfile.mkdtemp(prefix="local-use-decline-"))

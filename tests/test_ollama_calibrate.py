@@ -258,6 +258,23 @@ def test_run_calibration_start_ctx_floored_to_power_of_two(ctx: Ctx):
         mock.stop()
 
 
+@test
+def test_run_calibration_unreachable_host_reports_unreachable_not_does_not_fit(ctx: Ctx):
+    """Review fix pass (finding 8): a host that NEVER answers a single
+    `/api/ps` probe across every step tried (connection refused -- same
+    "nothing listens on this port" fixture tests/test_ollama_cli.py's own
+    unreachable-host test uses) must report "unreachable", not "does_not_
+    fit" -- the latter would be recorded PERMANENTLY even though nothing
+    was ever actually measured."""
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_calibrate import run_calibration
+    host = OllamaHost(name="dead", url="http://127.0.0.1:1")  # nothing listens on port 1
+    result = run_calibration(host, "some-model", start_ctx=8192, timeout=2.0)
+    ctx.check(f"reports unreachable, not does_not_fit, got {result.outcome!r}", result.outcome == "unreachable")
+    ctx.check("max_full_gpu_ctx is None (nothing was ever measured)", result.max_full_gpu_ctx is None)
+    ctx.check("last_size is None too (no reading ever came back)", result.last_size is None)
+
+
 # ---- run_auto_calibration (the end-to-end orchestration) ------------------
 
 @test
@@ -291,6 +308,41 @@ def test_run_auto_calibration_unknown_model_returns_none(ctx: Ctx):
         notice = run_auto_calibration(host, "not-in-the-catalog:1b", state_dir=d)
         ctx.check("None (never raises) for a model not in this host's catalog", notice is None)
     finally:
+        mock.stop()
+        _clear_state_dir_env()
+
+
+@test
+def test_run_auto_calibration_never_records_an_unreachable_outcome(ctx: Ctx):
+    """Review fix pass (finding 8): when `run_calibration` reports
+    "unreachable", `run_auto_calibration` must NOT call `record_
+    calibration` at all -- `has_calibration_entry` staying False means a
+    LATER attempt (a fresh `halo` run, or once the host wakes up) still
+    gets to measure for real, instead of being permanently settled by a
+    transient "couldn't reach it this time". `run_calibration` itself is
+    monkeypatched to the fixed outcome -- engineering a real dual-
+    reachability repro (catalog reachable, `/api/chat`+`/api/ps` not) is
+    `test_run_calibration_unreachable_host_...`'s own job, not this
+    one's; this test is about run_auto_calibration's OWN branch."""
+    import halo_harness.providers.ollama_calibrate as calib_mod
+    from halo_harness.providers.ollama import OllamaHost
+    from halo_harness.providers.ollama_calibrate import CalibrationResult, has_calibration_entry, \
+        run_auto_calibration
+    d = _fresh_state_dir("ol-autocal-unreachable-")
+    mock = MockUpstream().start()
+    model = "qwen3:30b"  # already in mock_ollama's own DEFAULT_TAGS/DEFAULT_SHOW
+    real_run_calibration = calib_mod.run_calibration
+    calib_mod.run_calibration = lambda *a, **kw: CalibrationResult(
+        outcome="unreachable", max_full_gpu_ctx=None, steps=3, last_size=None, last_size_vram=None)
+    try:
+        host = OllamaHost(name="mock", url=mock.base_url)
+        notice = run_auto_calibration(host, model, state_dir=d)
+        ctx.check(f"still returns a plain notice string, got {notice!r}", isinstance(notice, str) and notice)
+        ctx.check("the notice does not claim the model does not fit", "does not fit" not in notice)
+        ctx.check(f"NOTHING was recorded, got has_calibration_entry={has_calibration_entry(d, host_url=host.url, model=model)}",
+                  has_calibration_entry(d, host_url=host.url, model=model) is False)
+    finally:
+        calib_mod.run_calibration = real_run_calibration
         mock.stop()
         _clear_state_dir_env()
 

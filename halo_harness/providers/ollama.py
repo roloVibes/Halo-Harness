@@ -34,14 +34,24 @@ DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434"
 # of what a model's trained context or a host's own max_ctx override claim.
 HARD_CONTEXT_CAP = 131072
 # research doc Q2: no fetched page gives a sane floor for "nothing else is
-# known at all" (no `/api/show` yet, no host override) -- 8192 is a
-# deliberately conservative placeholder (well under even the lowest
-# VRAM-tiered default context-length.md documents, 4096, times two) so a
-# first request before the catalog has ever loaded still sends SOME
-# `options.num_ctx` rather than inventing a number that looks authoritative;
-# every later request on the same model uses the real trained context once
-# `/api/show` has been read once.
-FALLBACK_NUM_CTX = 8192
+# known at all" (no `/api/show` yet, no host override) -- a deliberately
+# conservative placeholder so a first request before the catalog has ever
+# loaded still sends SOME `options.num_ctx` rather than inventing a number
+# that looks authoritative; every later request on the same model uses the
+# real trained context once `/api/show` has been read once.
+#
+# Review fix pass (finding 4): the ORIGINAL placeholder, 8192, is below
+# Halo's own measured minimum prompt cost (plans/2.0.3-release-notes-for-
+# fix-pass.md round 3: "a one-word turn on a 27B model ... costs about
+# 10.2k prompt tokens", built-in tool definitions plus the system prompt,
+# before the user says anything) -- every fallback-path request therefore
+# overflowed on its FIRST attempt, every single time, forcing the retry
+# in `providers.stream` to fire unconditionally. 16384 comfortably covers
+# that measured floor with room for an actual reply; shrinking the prompt
+# itself (compact tool descriptions, a reduced built-in set per context
+# class) is the round 6 decision's own "moved to 2.0.6 hardening" scope
+# (same file), not reopened here -- this is only the placeholder NUMBER.
+FALLBACK_NUM_CTX = 16384
 # Round 5b MUST-FIX (plans/2.0.3-release-notes-for-fix-pass.md, the LAN-
 # host live run): a REMOTE host with NOTHING known at all (no host.max_ctx,
 # no learned cap, no live fit estimate) used to fall through to
@@ -242,33 +252,64 @@ def resolve_num_ctx_and_source(trained_context: Optional[int], host_max_ctx: Opt
                                 fit_estimate=None, *, hard_cap: int = HARD_CONTEXT_CAP,
                                 fallback_when_unknown: int = FALLBACK_NUM_CTX,
                                 learned_cap: Optional[int] = None, remote: bool = False,
-                                remote_unknown_ceiling: int = REMOTE_UNKNOWN_DEFAULT_NUM_CTX):
+                                remote_unknown_ceiling: int = REMOTE_UNKNOWN_DEFAULT_NUM_CTX,
+                                recorded_does_not_fit: bool = False, cpu_only: bool = False):
     """Round 2/3's context-ownership rule, extended by round 5b with a
-    learned calibration cap and a conservative remote-unknown ceiling --
-    returns `(num_ctx, source)` where `source` is ONE short phrase naming
-    whichever candidate actually won ("learned cap", "host max_ctx", "fit
-    estimate", "remote default", "fallback", "trained context", or "hard
-    cap"); `compute_num_ctx` below is the number-only wrapper every
-    pre-5b caller keeps using unchanged.
+    learned calibration cap and a conservative remote-unknown ceiling,
+    and by the review fix pass (findings 5/6) below -- returns `(num_ctx,
+    source)` where `source` is ONE short phrase naming whichever
+    candidate actually won ("learned cap", "fit estimate", "host
+    max_ctx", "fallback", "trained context", "remote default",
+    "conservative default", or "hard cap"); `compute_num_ctx` below is
+    the number-only wrapper every pre-5b caller keeps using unchanged.
 
     Every candidate that's actually known is a SIMULTANEOUS entry in one
-    `min(...)` -- round 5b does NOT turn this into an elif-style override
-    chain where a bigger `host_max_ctx`/`learned_cap` could win over a
-    SMALLER live `fit_estimate` (that would risk the exact overload this
-    whole round exists to prevent); the two round-5b-specific changes are
-    additive:
+    `min(...)` -- never an elif-style override chain where a bigger
+    `host_max_ctx`/`learned_cap` could win over a SMALLER live
+    `fit_estimate` (that would risk the exact overload this whole round
+    exists to prevent):
 
-    - `learned_cap` (`halo ollama calibrate`'s own measured ground truth),
-      when known, REPLACES `fit_estimate` as the "live fit" candidate
-      entirely -- a measured fact always outranks a computed guess, but
-      still only ever competes in the same `min(...)` as everything else,
-      never bypasses `trained_context`/`hard_cap`.
+    - Review fix pass (finding 6): `learned_cap` (`halo ollama
+      calibrate`'s own measured ground truth) used to REPLACE
+      `fit_estimate` entirely once known -- a stale cap measured on an
+      idle GPU then kept winning once something ELSE (an image server, a
+      media transcoder) later held some of that VRAM, loading the
+      session partially offloaded. `learned_cap` and `fit_estimate` are
+      now BOTH independent candidates in the same `min(...)` whenever
+      `fit_estimate` is a real positive int -- whichever is actually
+      smaller right now wins, exactly the "never lets a bigger ... win
+      over a SMALLER live fit_estimate" rule this docstring already
+      claimed (the one that LOSES here is the OLDER "REPLACES... a
+      measured fact always outranks a computed guess" claim just above
+      it, which this fix removes: it was never true against a smaller
+      live reading and the code didn't match it either). `fit_estimate
+      is WEIGHTS_DO_NOT_FIT` still contributes nothing numeric (it is
+      not a positive int) -- there is no live reading to compare the cap
+      against in that case, so the measured cap is free to stand alone.
     - A REMOTE host (`remote=True`) with NOTHING ELSE known at all (no
-      `host_max_ctx`, no usable fit/learned-cap candidate) gets
-      `remote_unknown_ceiling` (32768) as an EXTRA candidate alongside
-      `hard_cap` (131072) -- never REPLACING `hard_cap` (`min` picks the
-      smaller 32768 regardless), so an operator who sets `host_max_ctx`
-      bigger than 32768 still gets exactly that, still never past 131072.
+      `host_max_ctx`, no usable fit/learned-cap candidate, no recorded
+      does-not-fit) gets `remote_unknown_ceiling` (32768) as an EXTRA
+      candidate alongside `hard_cap` (131072) -- never REPLACING
+      `hard_cap` (`min` picks the smaller 32768 regardless), so an
+      operator who sets `host_max_ctx` bigger than 32768 still gets
+      exactly that, still never past 131072.
+    - Review fix pass (finding 5): a LOCAL host with nothing known gets
+      the SAME treatment, not the trained_context/hard_cap this used to
+      silently fall through to -- "local" was never a reason to assume a
+      usable OS GPU-memory reading exists (a CPU-only box, a VM, AMD on
+      Windows with no rocm-smi, Intel, Linux AMD via sysfs all read as
+      "nothing known" here too). `cpu_only=True` (the caller positively
+      knows this box has no GPU at all, not just "couldn't read" one)
+      tightens that local default to 8192 instead of 32768 -- a CPU-only
+      box pays for KV cache out of system RAM, not a GPU's own budget.
+    - Review fix pass (finding 5): `recorded_does_not_fit=True` (a prior
+      `halo ollama calibrate`/auto-calibration attempt measured this
+      model does NOT fit even at the calibration floor, recorded on
+      disk) is treated exactly like a live `WEIGHTS_DO_NOT_FIT` reading
+      -- `fallback_when_unknown` joins the pool instead of the model a
+      measurement already proved doesn't fit getting the largest window
+      available. Like the live sentinel, a `learned_cap` (proof it DOES
+      fit at some size) still overrides a stale does-not-fit record.
 
     `fit_estimate` is one of three things: a positive int (an ordinary
     candidate), `None` (genuinely unknown -- simply skipped), or
@@ -282,27 +323,30 @@ def resolve_num_ctx_and_source(trained_context: Optional[int], host_max_ctx: Opt
     from halo_harness.providers.ollama_fit import WEIGHTS_DO_NOT_FIT
     weights_do_not_fit = fit_estimate is WEIGHTS_DO_NOT_FIT
     has_learned = isinstance(learned_cap, int) and not isinstance(learned_cap, bool) and learned_cap > 0
-    effective_fit = learned_cap if has_learned else fit_estimate
-    fit_weights_do_not_fit = weights_do_not_fit and not has_learned
-    fit_candidate = effective_fit if (isinstance(effective_fit, int) and not isinstance(effective_fit, bool)
-                                       and effective_fit > 0) else None
-    fit_label = "learned cap" if has_learned else "fit estimate"
+    fit_candidate = (fit_estimate if isinstance(fit_estimate, int) and not isinstance(fit_estimate, bool)
+                      and fit_estimate > 0 else None)
+    does_not_fit = (weights_do_not_fit or bool(recorded_does_not_fit)) and not has_learned
     has_host_max = isinstance(host_max_ctx, int) and not isinstance(host_max_ctx, bool) and host_max_ctx > 0
-    nothing_known = bool(remote) and not has_host_max and fit_candidate is None
+    nothing_known = not has_host_max and not has_learned and fit_candidate is None and not does_not_fit
     candidates = [(hard_cap, "hard cap")]
     if isinstance(trained_context, int) and not isinstance(trained_context, bool) and trained_context > 0:
         candidates.append((trained_context, "trained context"))
     if has_host_max:
         candidates.append((host_max_ctx, "host max_ctx"))
     if fit_candidate is not None:
-        candidates.append((fit_candidate, fit_label))
+        candidates.append((fit_candidate, "fit estimate"))
+    if has_learned:
+        candidates.append((learned_cap, "learned cap"))
     if nothing_known:
-        candidates.append((remote_unknown_ceiling, "remote default"))
-    if trained_context is None or fit_weights_do_not_fit:
+        if remote:
+            candidates.append((remote_unknown_ceiling, "remote default"))
+        else:
+            candidates.append((8192 if cpu_only else remote_unknown_ceiling, "conservative default"))
+    if trained_context is None or does_not_fit:
         candidates.append((fallback_when_unknown, "fallback"))
     value = min(v for v, _ in candidates)
     priority = ("learned cap", "fit estimate", "host max_ctx", "fallback", "trained context",
-                "remote default", "hard cap")
+                "remote default", "conservative default", "hard cap")
     label = min((l for v, l in candidates if v == value), key=priority.index)
     return max(1, value), label
 
@@ -311,7 +355,8 @@ def compute_num_ctx(trained_context: Optional[int], host_max_ctx: Optional[int] 
                      fit_estimate=None, *, hard_cap: int = HARD_CONTEXT_CAP,
                      fallback_when_unknown: int = FALLBACK_NUM_CTX,
                      learned_cap: Optional[int] = None, remote: bool = False,
-                     remote_unknown_ceiling: int = REMOTE_UNKNOWN_DEFAULT_NUM_CTX) -> int:
+                     remote_unknown_ceiling: int = REMOTE_UNKNOWN_DEFAULT_NUM_CTX,
+                     recorded_does_not_fit: bool = False, cpu_only: bool = False) -> int:
     """The number-only wrapper around `resolve_num_ctx_and_source` -- see
     that function's own docstring for the full rule. Every pre-5b caller
     (three positional args, no `learned_cap`/`remote`) gets EXACTLY the
@@ -319,29 +364,92 @@ def compute_num_ctx(trained_context: Optional[int], host_max_ctx: Optional[int] 
     value, _source = resolve_num_ctx_and_source(
         trained_context, host_max_ctx, fit_estimate, hard_cap=hard_cap,
         fallback_when_unknown=fallback_when_unknown, learned_cap=learned_cap, remote=remote,
-        remote_unknown_ceiling=remote_unknown_ceiling,
+        remote_unknown_ceiling=remote_unknown_ceiling, recorded_does_not_fit=recorded_does_not_fit,
+        cpu_only=cpu_only,
     )
     return value
 
 
-def ollama_overflow_retry_ceiling(*, host_max_ctx: Optional[int] = None, fit_estimate=None,
-                                   learned_cap: Optional[int] = None, hard_cap: int = HARD_CONTEXT_CAP) -> int:
+def ollama_overflow_retry_ceiling(*, trained_context: Optional[int] = None, host_max_ctx: Optional[int] = None,
+                                   fit_estimate=None, learned_cap: Optional[int] = None, remote: bool = False,
+                                   hard_cap: int = HARD_CONTEXT_CAP, fallback_when_unknown: int = FALLBACK_NUM_CTX,
+                                   remote_unknown_ceiling: int = REMOTE_UNKNOWN_DEFAULT_NUM_CTX,
+                                   recorded_does_not_fit: bool = False, cpu_only: bool = False) -> int:
     """Halo 2.0.3 round 5c FIX PASS: the retry ceiling `providers.stream.
     _run_phase1_ollama`'s "prompt exceeds num_ctx" 400 handler checks
-    before asking for a bigger window -- `min(learned_cap, host_max_ctx,
-    fit_estimate, hard_cap)` for whichever of the first three are
-    actually known positive ints (never `trained_context`/the
-    conservative fallback -- see `providers.stream.CompletionRequest.
-    ollama_ctx_retry_ceiling`'s own docstring for why those two are
-    deliberately excluded). `fit_estimate` may be `None` or `providers.
-    ollama_fit.WEIGHTS_DO_NOT_FIT` (neither is an int, both are simply
-    skipped). Always returns an int (never `None`) -- `hard_cap` alone
-    when nothing else is known."""
-    candidates = [hard_cap]
-    for v in (host_max_ctx, fit_estimate, learned_cap):
-        if isinstance(v, int) and not isinstance(v, bool) and v > 0:
-            candidates.append(v)
-    return min(candidates)
+    before asking for a bigger window.
+
+    Review fix pass (finding 4): this used to be `min(learned_cap,
+    host_max_ctx, fit_estimate, hard_cap)` ONLY -- `trained_context`, the
+    remote-unknown default, and the weights-do-not-fit/trained-unknown
+    fallback were left out of the `min`, on the theory (recorded in the
+    old docstring here and on `providers.stream.CompletionRequest.
+    ollama_ctx_retry_ceiling`) that including them risked asking PAST
+    them. That reasoning was backwards: leaving a smaller bound OUT of a
+    `min(...)` is exactly what lets the result exceed it -- a remote host
+    with nothing known could retry up to `hard_cap` (131072) instead of
+    staying at `remote_unknown_ceiling` (32768), a weights-do-not-fit
+    model could retry past `fallback_when_unknown`, and a model could
+    retry past its own `trained_context`. Delegates to `resolve_num_ctx_
+    and_source` -- the EXACT SAME candidate set (and the exact same
+    "measured learned_cap outranks a computed fit_estimate, but never
+    bypasses trained_context/hard_cap" rule) that decided the CURRENT
+    `options.num_ctx` in the first place, so the ceiling this returns can
+    never license a number the initial decision itself would have
+    refused. `_ollama_overflow_retry_num_ctx` is what actually sizes the
+    retry within this ceiling, from the server's own reported prompt
+    size -- see that function's own docstring for why a retry can still
+    fire even when the ceiling equals the number already sent (a model
+    resident at a SMALLER context than this decision now allows, e.g.
+    loaded earlier under a more conservative read)."""
+    value, _source = resolve_num_ctx_and_source(
+        trained_context, host_max_ctx, fit_estimate, hard_cap=hard_cap,
+        fallback_when_unknown=fallback_when_unknown, learned_cap=learned_cap, remote=remote,
+        remote_unknown_ceiling=remote_unknown_ceiling, recorded_does_not_fit=recorded_does_not_fit,
+        cpu_only=cpu_only,
+    )
+    return value
+
+
+# Review fix pass (finding 4), "remember a successful retry for the rest
+# of the session": process-lifetime only, keyed by (host base_url, the
+# exact wire model string) -- NEVER persisted to disk (that's `halo ollama
+# calibrate`'s own on-disk ground truth, a different store with its own
+# digest/version gating, round 2.0.5+ territory). A model that needed a
+# bigger `num_ctx` than this decision chain would otherwise compute once
+# this session should not repeat the overflow-400-then-retry round trip
+# on its very next turn too -- `providers.agent.loop._build_ollama_body_
+# for_ref` folds a remembered value in as an EXTRA learned_cap-like
+# candidate (never bypassing trained_context/hard_cap -- it still only
+# ever competes in the same `min(...)` as everything else).
+_RETRY_MEMORY_LOCK = threading.Lock()
+_remembered_retry_num_ctx: "dict[tuple[str, str], int]" = {}
+
+
+def remember_ollama_retry_num_ctx(host_base_url: str, model: str, num_ctx: int) -> None:
+    """Records that `model` on `host_base_url` was just proven to run at
+    `num_ctx` by a successful overflow retry. Never raises; silently a
+    no-op for a non-positive/non-int `num_ctx` or a falsy key."""
+    if not host_base_url or not model:
+        return
+    if not isinstance(num_ctx, int) or isinstance(num_ctx, bool) or num_ctx <= 0:
+        return
+    with _RETRY_MEMORY_LOCK:
+        _remembered_retry_num_ctx[(host_base_url, model)] = num_ctx
+
+
+def lookup_remembered_ollama_retry_num_ctx(host_base_url: str, model: str) -> Optional[int]:
+    """The remembered num_ctx for `(host_base_url, model)`, or `None` --
+    never raises."""
+    with _RETRY_MEMORY_LOCK:
+        return _remembered_retry_num_ctx.get((host_base_url, model))
+
+
+def reset_remembered_ollama_retries() -> None:
+    """Test seam: clears every remembered retry -- this is process-global
+    state, so a hermetic test that exercises it must reset it first."""
+    with _RETRY_MEMORY_LOCK:
+        _remembered_retry_num_ctx.clear()
 
 
 def compaction_trigger_tokens(num_ctx: int) -> int:
