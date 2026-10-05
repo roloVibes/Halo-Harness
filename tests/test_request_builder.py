@@ -417,6 +417,95 @@ def test_use_top_p_none_falls_back_to_use_temperature(ctx: Ctx):
     ctx.check(f"top_p follows use_temperature (True for GLM 5.3), got {body.get('top_p')}", body.get("top_p") == 0.95)
 
 
+# ---- pass-B finding 6 (critical): oai: gets its own chat-completions ------
+# profile instead of reusing the OpenRouter fallback -- max_completion_
+# tokens (not max_tokens), stream_options.include_usage, and reasoning_
+# effort gated + clamped by the vendored catalog row's own reasoning/
+# reasoning_options, never the generic harness-wide defaults.
+
+def _oai_route(model_id: str) -> Route:
+    return Route(provider="openai", upstream_model=model_id, dialect="openai-chat")
+
+
+_PLAIN_MESSAGES = [{"role": "user", "content": [{"type": "text", "text": "hi"}]}]
+
+
+@test
+def test_openai_chat_uses_max_completion_tokens_field(ctx: Ctx):
+    route = _oai_route("gpt-6-sol")
+    profile = resolve_profile(route)
+    ctx.check(f"profile field is max_completion_tokens, got {profile.max_tokens_field!r}",
+              profile.max_tokens_field == "max_completion_tokens")
+    body = build_request_body(system_text="S", messages=_PLAIN_MESSAGES, route=route, profile=profile)
+    ctx.check("max_tokens is never sent on this route", "max_tokens" not in body)
+    ctx.check(f"max_completion_tokens carries the budgeted value, got {body.get('max_completion_tokens')!r}",
+              isinstance(body.get("max_completion_tokens"), int) and body["max_completion_tokens"] > 0)
+
+
+@test
+def test_openai_chat_always_asks_for_stream_usage(ctx: Ctx):
+    for model_id in ("gpt-6-sol", "gpt-4o"):
+        route = _oai_route(model_id)
+        profile = resolve_profile(route)
+        body = build_request_body(system_text="S", messages=_PLAIN_MESSAGES, route=route, profile=profile)
+        ctx.check(f"{model_id}: stream_options.include_usage is set, got {body.get('stream_options')!r}",
+                  body.get("stream_options") == {"include_usage": True})
+        ctx.check(f"{model_id}: never the OpenRouter usage.include shape", "usage" not in body)
+
+
+@test
+def test_openai_chat_reasoning_model_sends_reasoning_effort(ctx: Ctx):
+    route = _oai_route("gpt-6-sol")
+    profile = resolve_profile(route)
+    ctx.check("row says reasoning: true -> reasoning_effort_supported", profile.reasoning_effort_supported is True)
+    body = build_request_body(system_text="S", messages=_PLAIN_MESSAGES, route=route, profile=profile, effort="high")
+    ctx.check(f"reasoning_effort carried through as given, got {body.get('reasoning_effort')!r}",
+              body.get("reasoning_effort") == "high")
+
+
+@test
+def test_openai_chat_o3_max_effort_clamps_to_its_own_highest_listed_value(ctx: Ctx):
+    """o3's vendored row lists only low/medium/high (no xhigh/max) -- the
+    pre-fix generic effort table let "max" clamp to "xhigh", a value o3
+    has never listed; the fix's `reasoning_default_effort` is seeded from
+    the row's OWN last (strongest) value, so clamp_effort's fallback lands
+    there instead."""
+    route = _oai_route("o3")
+    profile = resolve_profile(route)
+    ctx.check(f"o3's effort_values_supported is exactly low/medium/high, got {profile.effort_values_supported!r}",
+              set(profile.effort_values_supported) == {"low", "medium", "high"})
+    body = build_request_body(system_text="S", messages=_PLAIN_MESSAGES, route=route, profile=profile, effort="max")
+    ctx.check(f"max clamps to high (o3's own highest listed value, never xhigh), got {body.get('reasoning_effort')!r}",
+              body.get("reasoning_effort") == "high")
+
+
+@test
+def test_openai_chat_non_reasoning_model_omits_reasoning_effort(ctx: Ctx):
+    route = _oai_route("gpt-4o")
+    profile = resolve_profile(route)
+    ctx.check("row says reasoning: false -> reasoning_effort_supported is False",
+              profile.reasoning_effort_supported is False)
+    body = build_request_body(system_text="S", messages=_PLAIN_MESSAGES, route=route, profile=profile, effort="high")
+    ctx.check("reasoning_effort is never sent to a non-reasoning id, regardless of --effort",
+              "reasoning_effort" not in body)
+
+
+@test
+def test_openai_chat_unlisted_model_id_behaves_like_non_reasoning(ctx: Ctx):
+    """An id the vendored fallback doesn't carry at all (a brand-new
+    release Halo's packaged catalog predates) must degrade safely --
+    never raise, never claim reasoning support it can't bound."""
+    route = _oai_route("some-future-oai-model-id-xyz")
+    profile = resolve_profile(route)
+    ctx.check("unlisted id -> reasoning_effort_supported False", profile.reasoning_effort_supported is False)
+    ctx.check(f"profile still uses max_completion_tokens, got {profile.max_tokens_field!r}",
+              profile.max_tokens_field == "max_completion_tokens")
+    body = build_request_body(system_text="S", messages=_PLAIN_MESSAGES, route=route, profile=profile, effort="high")
+    ctx.check("no reasoning_effort for an unlisted id", "reasoning_effort" not in body)
+    ctx.check(f"stream_options still set, got {body.get('stream_options')!r}",
+              body.get("stream_options") == {"include_usage": True})
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

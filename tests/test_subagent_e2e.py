@@ -100,9 +100,14 @@ def _new_session(*, mock, model, agents=None, interactive=False, permission_mode
 def _switch_model(session, model: str) -> None:
     """Mid-test model swap that ALSO updates route/provider_profile (a
     plain `session.model_ref = ...` reassignment does not -- `set_model`
-    is the real entry point `/model` itself uses)."""
+    is the real entry point `/model` itself uses). Pass-B finding 2:
+    `Session.set_model` now CLEARS creds when given None (the pre-fix
+    bug this exact method used to have) -- every caller here switches
+    to another `or:mock/...` ref against the SAME running mock, so the
+    session's own current creds are passed through explicitly rather
+    than lost."""
     from halo_harness.model import ModelProfile, parse_model_ref
-    session.set_model(parse_model_ref(model), ModelProfile())
+    session.set_model(parse_model_ref(model), ModelProfile(), session.creds)
 
 
 def _general_purpose_spec(**overrides):

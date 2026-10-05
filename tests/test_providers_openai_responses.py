@@ -297,6 +297,72 @@ def test_decoder_mid_stream_error_event(ctx: Ctx):
               kind2 == "error" and events2[0]["error"]["message"] == "boom")
 
 
+# ---- pass-B finding 5 (critical): strict: false on every tool item -------
+
+@test
+def test_builtin_tools_all_carry_strict_false(ctx: Ctx):
+    """Verified method from the review itself: `_responses_tools(
+    ToolRegistry().definitions(), profile)` must give every one of
+    Halo's built-in tools with `"strict": false` -- none of their
+    schemas are strict-form (optional parameters are the norm), so
+    without this every tool-bearing turn on a Responses-dialect model
+    (`oai:gpt-6-astra`/`oai:gpt-6.1-sol` by default) would be rejected
+    outright by the real API."""
+    from halo_harness.providers.responses_request import _responses_tools
+    from halo_harness.tools.registry import ToolRegistry
+    _route, profile = _route_and_profile()
+    tools = _responses_tools(ToolRegistry().definitions(), profile)
+    ctx.check(f"at least 20 built-in tool items, got {len(tools or [])}", tools is not None and len(tools) >= 20)
+    ctx.check("every item carries strict: false",
+              tools is not None and all(t.get("strict") is False for t in tools))
+
+
+@test
+def test_mock_rejects_missing_strict_but_accepts_the_real_tool_items(ctx: Ctx):
+    """Teaches the Responses mock itself to enforce OpenAI's real strict-
+    mode schema rules (every property in `required`, `additionalProperties:
+    false` on every object) -- proves the mock is a meaningful pin: an
+    UNTAUGHT mock would accept any schema at all, so a regression of
+    finding 5 (the "strict": false key going missing again) would pass
+    every test silently instead of being rejected the way the real API
+    rejects it today."""
+    import tempfile as _tempfile
+    from halo_harness.providers.responses_request import _responses_tools
+    from halo_harness.providers.stream import CompletionRequest, ProviderCreds, UpstreamError, _run_phase1_responses
+    from halo_harness.tools.registry import ToolRegistry
+    from tests.helpers.mock_openai import MockUpstream
+    route, profile = _route_and_profile()
+    tools = _responses_tools(ToolRegistry().definitions(), profile)
+
+    mock = MockUpstream(path_prefix="/v1").start()
+    try:
+        state_dir = Path(_tempfile.mkdtemp(prefix="oai-resp-strict-"))
+        creds = ProviderCreds(base_url=mock.base_url, api_key="k")
+        base_body = {"model": "mock/oai-responses-text", "stream": True,
+                     "input": [{"type": "message", "role": "user", "content": "hi"}]}
+
+        good_req = CompletionRequest(body={}, route=route, profile=profile, creds=creds, state_dir=state_dir,
+                                      extra_headers={}, model_label="oai:mock",
+                                      prebuilt_responses_body={**base_body, "tools": tools})
+        _body, result = _run_phase1_responses(good_req)
+        ctx.check(f"the mock accepts the real strict:false tool items, got status {result.status}",
+                  200 <= result.status < 300)
+
+        bad_tool = dict(tools[0])
+        del bad_tool["strict"]
+        bad_req = CompletionRequest(body={}, route=route, profile=profile, creds=creds, state_dir=state_dir,
+                                     extra_headers={}, model_label="oai:mock",
+                                     prebuilt_responses_body={**base_body, "tools": [bad_tool]})
+        try:
+            _run_phase1_responses(bad_req)
+            ctx.check("an item without 'strict' must be rejected by the mock", False)
+        except UpstreamError as e:
+            ctx.check(f"the real 'Invalid schema for function' wording, got {e.message!r}",
+                      "Invalid schema for function" in e.message)
+    finally:
+        mock.stop()
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

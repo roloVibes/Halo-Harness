@@ -389,12 +389,17 @@ def build_request_body(
 
     if profile.host_specific_fields:
         body["usage"] = {"include": True}  # always-on cost accounting (scope I "CostMeter")
-    elif profile.body_allowlist is not None:
+    elif profile.body_allowlist is not None or profile.send_stream_options_include_usage:
         # finding 6: Databricks' OTPM rolling-window budgeting
         # (hooks.max_tokens_budget) needs each response's real output-token
         # spend, which only arrives on the final SSE chunk when the
         # request explicitly asks for it (OpenAI streaming convention,
         # allowlisted in DATABRICKS_BODY_ALLOWLIST but never sent before).
+        # Pass-B finding 6 (critical): `profile.send_stream_options_
+        # include_usage` is the SAME wire field for the SAME reason on a
+        # plain `oai:` route, which has no `body_allowlist` of its own --
+        # without this, OpenAI's chat stream carried no usage at all, so
+        # the context meter/cost line ran on estimates.
         body["stream_options"] = {"include_usage": True}
 
     # finding 5 + hooks.host_allowlist: merge the row's OpenRouter pin into

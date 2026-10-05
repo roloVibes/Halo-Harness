@@ -120,7 +120,10 @@ def test_switching_into_glm_with_no_effort_applies_the_default(ctx: Ctx):
     try:
         session = _session(fh, mock, model="dbx:databricks-kimi-k3-ok")
         ctx.check(f"kimi keeps omit -> provider default, got {session.effort!r}", session.effort is None)
-        session.set_model(parse_model_ref("dbx:databricks-glm-5-3-ok"), ModelProfile())
+        # pass-B finding 2: Session.set_model now CLEARS creds when given
+        # None -- this switch stays on the SAME Databricks mock, so the
+        # session's own current creds are passed through explicitly.
+        session.set_model(parse_model_ref("dbx:databricks-glm-5-3-ok"), ModelProfile(), session.creds)
         ctx.check(f"after the switch the GLM default is set, got {session.effort!r}", session.effort == "high")
         ctx.check(f"effort_source says default, got {session.effort_source!r}", session.effort_source == "default")
         list(session.turn("howdy"))

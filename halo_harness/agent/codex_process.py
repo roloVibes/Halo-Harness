@@ -3,11 +3,20 @@
 
 Architecturally simpler than `agent.cc_process`/`ClaudeCodeProcess`: Codex
 has no stdin-streaming protocol (CODEX-RESEARCH.md section 7) -- each Halo
-turn is ONE bounded `codex exec [resume <id>] --json <prompt>` invocation
-that runs to completion and exits, never a long-held process fed one stdin
-line per turn. `CodexExecProcess` therefore has no `send_user_line`; the
-prompt rides on argv (or, for an oversized prompt, stdin -- `codex exec -`
-reads it), and the whole lifecycle is start/read-stdout-lines/wait.
+turn is ONE bounded `codex exec [resume <id>] --json -` invocation that runs
+to completion and exits, never a long-held process fed one stdin line per
+turn. `CodexExecProcess` therefore has no `send_user_line`; pass-B fix
+(review finding 4, critical): the WHOLE prompt (preamble, carried
+conversation, user text, steer) always rides on stdin instead, written
+ONCE via `send_prompt` with the pipe closed right behind it (`codex exec
+... -`/`codex exec resume <id> ... -`, both confirmed in their own
+`--help`), never on argv -- argv is visible to any local user via
+`/proc/<pid>/cmdline` on POSIX, and on Windows the resolved launcher is
+often an npm `.cmd` shim that hands argv to cmd.exe for a SECOND, unwanted
+parse pass (a quoted `&` truncates the command there, `%VAR%` expands, and
+the practical length ceiling is a few KB -- see `resolve_codex_launch_
+argv`'s own shim-bypass fix in providers/codex_models.py). The whole
+lifecycle is start/send_prompt/read-stdout-lines/wait.
 """
 
 from __future__ import annotations
@@ -96,27 +105,45 @@ def cx_subprocess_env(base_env: dict, bridge_env: dict) -> dict:
 
 def build_cx_argv(*, model: str, prompt: str, resume_id: Optional[str], permission_mode: str,
                    mcp_override_args: "list[str]", ephemeral: bool = False,
-                   image_paths: Optional[list] = None) -> list:
+                   image_paths: Optional[list] = None, prompt_via_stdin: bool = False) -> list:
     """`resume_id=None` -> a fresh `codex exec ...`; otherwise `codex exec
     resume <id> ...`. `--skip-git-repo-check` always (a Halo session cwd
     need not be a git repo). `--ephemeral` only for the stateless one-shot
     small-model call (mirrors `--no-session-persistence` on `cc:`) --
     `turn_body_cx`'s own multi-turn flow never sets it, so Codex keeps a
-    resumable session on disk."""
+    resumable session on disk.
+
+    Pass-B finding 3 (critical): the sandbox is ALWAYS passed as `-c
+    sandbox_mode=<mode>`, for a fresh `exec` AND a `resume` alike --
+    `codex exec resume` has no `-s/--sandbox` option at all (confirmed:
+    `codex exec resume -s read-only --help` -> "error: unexpected
+    argument '-s' found"; `-c sandbox_mode=...` parses on both
+    subcommands), so a session's SECOND and later turns -- every one of
+    them a `resume` -- used to fail at argument parsing before the model
+    ever saw anything.
+
+    Pass-B finding 4 (critical): `prompt_via_stdin=True` (set by `codex_
+    turn.py`'s real turn path only -- left False, its original default,
+    for `codex_runtime.one_shot_cx_call`'s plain `subprocess.run` call,
+    which is out of this fix's scope; see that function's own docstring)
+    ends the argv with the bare positional `-` instead of the prompt text
+    itself. The caller is then responsible for writing `prompt` to the
+    child's own stdin (`CodexExecProcess.send_prompt`) -- see this
+    module's own docstring for why argv is never where a prompt belongs."""
     approval_policy, sandbox_mode = codex_approval_and_sandbox(permission_mode)
     argv = resolve_codex_launch_argv() + ["exec"]
     if resume_id:
         argv += ["resume", resume_id]
     argv += [
         "--json", "--skip-git-repo-check", "-m", model,
-        "-c", f"approval_policy={approval_policy}", "-s", sandbox_mode,
+        "-c", f"approval_policy={approval_policy}", "-c", f"sandbox_mode={sandbox_mode}",
     ]
     argv += mcp_override_args
     if ephemeral:
         argv.append("--ephemeral")
     for path in (image_paths or []):
         argv += ["-i", str(path)]
-    argv.append(prompt)
+    argv.append("-" if prompt_via_stdin else prompt)
     return argv
 
 
@@ -130,8 +157,11 @@ class CodexExecProcess:
 
     def __init__(self, argv: list, *, cwd: "Path | str", env: Optional[dict] = None):
         self.argv = list(argv)
+        # pass-B finding 4 (critical): PIPE, not DEVNULL -- the prompt now
+        # always rides on stdin (`build_cx_argv`'s trailing `-`), written
+        # once by `send_prompt` below right after this constructor returns.
         popen_kwargs = dict(
-            cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            cwd=str(cwd), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", errors="replace", bufsize=1,
         )
         if env is not None:
@@ -146,6 +176,38 @@ class CodexExecProcess:
         self._stderr_thread = threading.Thread(target=self._drain_stderr, daemon=True,
                                                  name=f"cx-stderr-{self._proc.pid}")
         self._stderr_thread.start()
+
+    def send_prompt(self, text: str) -> None:
+        """Pass-B finding 4 (critical): writes the WHOLE turn prompt to
+        this process's stdin in one call and closes the pipe right behind
+        it -- `codex exec ... -`/`codex exec resume <id> ... -` (this
+        process's own argv, built by `build_cx_argv(prompt_via_stdin=
+        True)`) reads stdin to EOF before doing anything else (CODEX-
+        RESEARCH.md section 7; no stdin-streaming protocol the way `cc:`'s
+        long-held claude process has, so unlike `ClaudeCodeProcess.send_
+        user_line` there is no held-open pipe fed one line per turn -- one
+        write, one close, per process, matching this class's own
+        one-shot-per-turn lifecycle). The caller (`codex_turn.py`) calls
+        this AFTER its own stdout-reader thread is already running, so a
+        prompt too large for the OS pipe buffer to hold in one go can
+        never deadlock against an unread stdout. A closed/broken pipe
+        (the process already exited before this ever ran) is swallowed
+        here, same as `ClaudeCodeProcess.send_user_line`'s own stance --
+        the EOF/exit-code handling downstream is what actually reports a
+        startup failure to the user, not this method."""
+        stdin = self._proc.stdin
+        if stdin is None:
+            return
+        try:
+            stdin.write(text)
+            stdin.flush()
+        except (BrokenPipeError, OSError, ValueError):
+            pass
+        finally:
+            try:
+                stdin.close()
+            except (OSError, ValueError):
+                pass
 
     def _drain_stderr(self) -> None:
         try:

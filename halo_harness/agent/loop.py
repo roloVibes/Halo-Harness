@@ -6385,8 +6385,18 @@ class Session:
             self._cc_state = None
         self.model_ref = model_ref
         self.model_profile = model_profile
-        if creds is not None:
-            self.creds = creds
+        # pass-B finding 2 (critical): this used to be `if creds is not
+        # None: self.creds = creds`, which KEPT the previous model's
+        # credentials whenever a caller passed `creds=None` -- the next
+        # turn then sent the transcript to the OLD provider's URL with
+        # the OLD key under the NEW model id. `Controller.set_model` now
+        # refuses before ever queuing this call when a cloud ref's creds
+        # don't resolve, so the only `creds=None` callers left are the
+        # exempt `cc:`/`cx:` routes (which need none) and a restore back
+        # onto one of them -- both cases are correct to CLEAR, never to
+        # inherit whatever provider the session happened to be on a
+        # moment ago.
+        self.creds = creds
         self.model_label = model_ref.raw
         self.route = Route(provider=model_ref.provider, upstream_model=model_ref.model, dialect=model_ref.dialect)
         # parity gap (W6a): `--betas`'s own `anthropic-beta` header was

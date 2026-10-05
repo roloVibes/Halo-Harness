@@ -1122,14 +1122,36 @@ figure rather than inventing one.
 **Execution, one subprocess per turn.** Unlike `cc:` (one `claude`
 process held open across the whole session, fed one stdin line per turn),
 `codex exec` has no stdin-streaming protocol at all -- each Halo turn
-spawns a FRESH `codex exec [resume <thread-id>] --json <prompt>` and runs
-it to completion. The thread id is Codex's own (learned from its first
+spawns a FRESH `codex exec [resume <thread-id>] --json -` and runs it to
+completion. The thread id is Codex's own (learned from its first
 `thread.started` event, logged as a `cx_session_id` meta node, exactly
 like `cc_session_id`) -- every turn after the first resumes it, so the
 conversation is continuous on Codex's own side even though the OS process
 is not. Halo's permission mode maps onto Codex's `approval_policy`/
 `sandbox_mode`: bypass and auto -> `never`/`danger-full-access`; default
--> `on-request`/`workspace-write`; manual -> `untrusted`/`read-only`.
+-> `on-request`/`workspace-write`; manual -> `untrusted`/`read-only`. Both
+values ride on `-c approval_policy=<value> -c sandbox_mode=<value>` on
+EVERY invocation, a fresh `exec` and a `resume` alike -- `codex exec
+resume` has no `-s/--sandbox` flag of its own at all, only `exec` does, so
+the sandbox is never passed that way on either subcommand.
+
+**The prompt rides on stdin, never on argv.** The preamble, any carried-
+over conversation (a mid-session switch into `cx:`), the user's own text
+and a queued steer are all written to the subprocess's stdin in one
+shot and the pipe is closed right behind it -- the trailing bare `-` in
+the argv above is `codex exec`'s/`codex exec resume`'s own "read the
+prompt from stdin" marker, confirmed in both subcommands' `--help`. A
+prompt never appears in argv at all: on POSIX it would otherwise sit in
+a world-readable `/proc/<pid>/cmdline`; on Windows, when the resolved
+`codex` is the npm global install's `codex.cmd`/`codex.CMD` batch shim,
+argv is handed to cmd.exe for a SECOND, unwanted parse pass (a quoted
+`&` truncates the command there, `%VAR%` expands, and the practical
+length ceiling is a few KB) -- Halo resolves that shim's real entry
+point instead (`node <...\node_modules\@openai\codex\bin\codex.js>`,
+sitting right beside the shim in an npm global install) and launches
+that directly, falling back to the shim itself only when the script
+isn't found beside it. There is no length cap on the prompt itself any
+more; a model's own context window is the only remaining limit.
 
 **Tools.** Codex keeps its OWN native tools (shell, apply_patch) running
 in its own sandbox -- no flag was found to disable them the way `cc:`'s
@@ -1150,8 +1172,9 @@ subprocess's own env.
 **Steering.** `codex exec` has no live channel into an already-running
 turn (no queued-stdin-line concept the way `cc:` has). A steer is
 accepted immediately and queued; the moment the CURRENT subprocess exits,
-it is sent as its own follow-up `codex exec resume <id> <text>` call
-(logged as a `steer` node), repeating until nothing is left queued,
+it is sent as its own follow-up `codex exec resume <id> -` call (the
+steer text on stdin, same as every other turn -- see above) (logged as a
+`steer` node), repeating until nothing is left queued,
 before the whole chain reports one `turn_done` back to Halo -- "finish
 the turn, then send", literally. (A separate `codex queue --thread <id>
 --message <text>` command exists and MIGHT inject into a still-running

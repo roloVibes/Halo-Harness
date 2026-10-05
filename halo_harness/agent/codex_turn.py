@@ -31,11 +31,15 @@ from halo_harness.agent.codex_runtime import (
 
 _ABORT_POLL_S = 0.05
 _KILL_GRACE_S = 3.0
-# cc_process.py's own command-line-length finding applies here too (a real
-# subprocess argv, not a pipe) -- a long preamble/steer chain is capped
-# well under the practical Windows argv budget rather than risking "the
-# command line is too long" and the subprocess never starting at all.
-_MAX_PROMPT_CHARS = 20_000
+# Pass-B finding 4 (critical): there used to be a 20,000-character argv
+# cap here (cc_process.py's own command-line-length finding, applied the
+# same way) -- removed along with the argv-embedded prompt itself
+# (`_run_one_cx_subprocess` below now always sends the prompt on stdin,
+# `build_cx_argv(prompt_via_stdin=True)`), since that cap existed ONLY to
+# stay under the OS/cmd.exe argv ceiling, which no longer applies. A long
+# preamble/carried-conversation/steer chain is bounded only by the
+# model's own context window from here on, the same as every other
+# route's prompt.
 
 
 def prepare_conversation_so_far_cx(session) -> None:
@@ -242,9 +246,13 @@ def _run_one_cx_subprocess(session, state, turn_no: int, prompt: str, image_path
 
     bridge_env = state.bridge.child_env()
     mcp_args = build_mcp_override_args(list(bridge_env.keys()))
+    # pass-B finding 4: `prompt_via_stdin=True` -- this is the real turn
+    # path, never the one-shot small-model call -- so the argv ends with
+    # a bare `-` and `prompt` is sent over stdin instead (`process.send_
+    # prompt` below), never on argv.
     argv = build_cx_argv(model=session.model_ref.model, prompt=prompt, resume_id=state.cx_session_id,
                           permission_mode=session.permission_engine.mode, mcp_override_args=mcp_args,
-                          image_paths=image_paths)
+                          image_paths=image_paths, prompt_via_stdin=True)
     env = cx_subprocess_env(_cx_child_env(session), bridge_env)
     try:
         process = CodexExecProcess(argv, cwd=session.cwd, env=env)
@@ -287,6 +295,11 @@ def _run_one_cx_subprocess(session, state, turn_no: int, prompt: str, image_path
     reader_thread = threading.Thread(target=reader, daemon=True, name=f"cx-reader-{turn_no}")
     reader_thread.start()
     threading.Thread(target=watch_abort, daemon=True, name=f"cx-watch-{turn_no}").start()
+    # pass-B finding 4: sent only now, AFTER the reader thread is already
+    # draining stdout -- a prompt too large for the OS pipe buffer to
+    # hold in one go can then never deadlock against an unread stdout
+    # (see `CodexExecProcess.send_prompt`'s own docstring).
+    process.send_prompt(prompt)
 
     reason = "end_turn"
     try:
@@ -373,8 +386,6 @@ def turn_body_cx(session, turn_no: int, text: str, *, images: Optional[list] = N
                     prompt = preamble + "\n\n" + prompt
             if first_iteration and context_texts:
                 prompt = "\n\n".join(context_texts) + "\n\n" + prompt
-            if len(prompt) > _MAX_PROMPT_CHARS:
-                prompt = prompt[:_MAX_PROMPT_CHARS] + "\n...(truncated to stay well under the OS argv limit)"
 
             image_paths, tmpdir = _write_images_to_tempdir(pending_images)
             try:

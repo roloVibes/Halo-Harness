@@ -10,11 +10,18 @@ build_cx_argv` invokes the real one (`HALO_CODEX_EXE` points a test at
     `FAKE_CODEX_LOGIN_STATUS` (default "Logged in using ChatGPT").
   * `<fake> --version` -- a real `codex --version` line.
   * `<fake> exec [resume <id>] --json ... [-c mcp_servers.halo.<field>=
-    <value> ...] <prompt>` -- emits the JSONL event protocol documented in
-    CODEX-RESEARCH.md section 6, and ACTS as a real MCP client against
-    whatever `mcp_servers.halo` names (the REAL `python -m halo_harness.
-    ccbridge`, same as the real codex would) when the prompt asks for a
-    tool call.
+    <value> ...] (<prompt> | -)` -- emits the JSONL event protocol
+    documented in CODEX-RESEARCH.md section 6, and ACTS as a real MCP
+    client against whatever `mcp_servers.halo` names (the REAL `python -m
+    halo_harness.ccbridge`, same as the real codex would) when the prompt
+    asks for a tool call. Pass-B finding 4: a trailing bare `-` (`build_
+    cx_argv(prompt_via_stdin=True)`'s own marker -- what every real turn
+    sends now) means the prompt is read from stdin instead, to EOF, same
+    as the real `codex exec ... -`/`codex exec resume <id> ... -`.
+  * Pass-B finding 3: `-s` after `resume <id>` raises `_ClapUnexpectedArgument`
+    (exit 2, "error: unexpected argument '-s' found") -- the real `codex
+    exec resume` has no such option; `-s` on a FRESH `exec` is still
+    accepted and consumed, matching the real CLI there.
 
 Trigger grammar in the prompt text (bare prompt, or the text after the
 one-time preamble `codex_turn._cx_preamble` prepends -- this fake looks
@@ -30,6 +37,10 @@ preamble never masks them):
 
 `FAKE_CODEX_ARGV_LOG` (a path), when set, gets one JSON-array line per
 invocation -- lets a test assert the exact argv a real caller built.
+`FAKE_CODEX_STDIN_LOG` (a path), when set, is OVERWRITTEN with the exact
+prompt text this invocation read from stdin (only when the prompt arrived
+that way) -- lets a test assert byte-for-byte stdin delivery independent
+of the JSONL reply round trip.
 """
 
 from __future__ import annotations
@@ -43,6 +54,19 @@ import time
 import uuid
 
 _THREAD_REGISTRY_ENV = "FAKE_CODEX_THREAD_REGISTRY"  # path, optional: tracks resumed ids
+
+
+class _ClapUnexpectedArgument(Exception):
+    """Pass-B finding 3 (critical): raised by `_parse_exec_argv` when `-s`
+    shows up after `resume <id>` -- the real `codex exec resume` has no
+    `-s/--sandbox` option at all, and clap rejects an unknown flag outright
+    (exit 2) rather than silently eating it the way this fake used to for
+    EVERY `exec` invocation regardless of subcommand. `main` turns this
+    into the exact clap wording so a regression of B3's bug (`-s` emitted
+    after `resume` again) fails the suite instead of passing silently."""
+
+    def __init__(self, flag: str):
+        self.flag = flag
 
 
 def _write(obj: dict) -> None:
@@ -61,6 +85,24 @@ def _log_argv(argv: "list[str]") -> None:
         pass
 
 
+def _log_stdin_prompt(text: str) -> None:
+    """Pass-B finding 4 (critical): when set, `FAKE_CODEX_STDIN_LOG` (a
+    path) is overwritten with the EXACT prompt text this invocation read
+    from stdin -- lets a test assert byte-for-byte fidelity (quotes,
+    `&`, `%VAR%`, tens of thousands of characters) independent of
+    Halo's own event pipeline/display caps, the same "read it straight
+    back out, outside any production code path" shape `FAKE_CODEX_ARGV_
+    LOG` already gives argv."""
+    path = os.environ.get("FAKE_CODEX_STDIN_LOG")
+    if not path:
+        return
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+    except OSError:
+        pass
+
+
 def _cmd_login_status() -> int:
     text = os.environ.get("FAKE_CODEX_LOGIN_STATUS", "Logged in using ChatGPT")
     print(text)
@@ -69,10 +111,21 @@ def _cmd_login_status() -> int:
 
 def _parse_exec_argv(argv: "list[str]") -> dict:
     """`argv` is everything after `exec` (e.g. `["resume", "<id>", "--json",
-    ..., "<prompt>"]`)."""
-    opts = {"resume_id": None, "model": None, "mcp": {"command": None, "args": [], "env_vars": []}, "prompt": ""}
+    ..., "-"]`). Pass-B finding 3 (critical): raises `_ClapUnexpectedArgument`
+    for `-s` after `resume <id>` (see that exception's own docstring) --
+    `codex exec`'s OWN `-s` is still accepted and consumed normally, since
+    the real CLI does take it there. Pass-B finding 4 (critical): the
+    trailing positional `-` (`build_cx_argv(prompt_via_stdin=True)`'s own
+    marker) sets `opts["prompt_from_stdin"] = True` instead of becoming
+    the literal string "-" as the prompt -- `main` reads the real prompt
+    text from stdin only after this function returns cleanly, keeping
+    this function a pure argv->dict parse with no I/O of its own."""
+    opts = {"resume_id": None, "model": None, "mcp": {"command": None, "args": [], "env_vars": []},
+            "prompt": "", "prompt_from_stdin": False}
     i = 0
+    is_resume = False
     if argv and argv[0] == "resume":
+        is_resume = True
         opts["resume_id"] = argv[1] if len(argv) > 1 else None
         i = 2
     positional = []
@@ -96,12 +149,21 @@ def _parse_exec_argv(argv: "list[str]") -> dict:
         if a in ("--json", "--skip-git-repo-check", "--ephemeral"):
             i += 1
             continue
-        if a == "-s" or a == "-i" or a == "-o":
+        if a == "-s":
+            if is_resume:
+                raise _ClapUnexpectedArgument("-s")
+            i += 2
+            continue
+        if a == "-i" or a == "-o":
             i += 2
             continue
         positional.append(a)
         i += 1
-    opts["prompt"] = positional[-1] if positional else ""
+    last = positional[-1] if positional else ""
+    if last == "-":
+        opts["prompt_from_stdin"] = True
+    else:
+        opts["prompt"] = last
     return opts
 
 
@@ -174,6 +236,12 @@ def main(argv=None) -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
+    try:
+        # pass-B finding 4: matches the real caller's own `encoding="utf-8"`
+        # Popen (CodexExecProcess) on the OTHER end of this same pipe.
+        sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     argv = sys.argv[1:] if argv is None else argv
     _log_argv(argv)
     if not argv:
@@ -184,7 +252,18 @@ def main(argv=None) -> int:
         print("codex-cli 0.155.1-fake")
         return 0
     if argv[0] == "exec":
-        opts = _parse_exec_argv(argv[1:])
+        try:
+            opts = _parse_exec_argv(argv[1:])
+        except _ClapUnexpectedArgument as e:
+            # pass-B finding 3: the exact clap wording the real codex-cli
+            # 0.155.1 gives for an unrecognized `resume` flag.
+            print(f"error: unexpected argument '{e.flag}' found", file=sys.stderr)
+            return 2
+        if opts["prompt_from_stdin"]:
+            # pass-B finding 4: one read to EOF, matching `CodexExecProcess.
+            # send_prompt`'s one-write-one-close contract on the other end.
+            opts["prompt"] = sys.stdin.read()
+            _log_stdin_prompt(opts["prompt"])
         return asyncio.run(_run_exec(opts))
     return 0
 

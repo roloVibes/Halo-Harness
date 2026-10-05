@@ -571,6 +571,30 @@ pass, and the release tag are still to come.
 - **A learned calibration cap never outranks a smaller live fit estimate**: both now compete in the same `min(...)`, so a cap measured on an idle GPU can no longer force a partial offload once another workload holds some of that VRAM.
 - **The constrained-tool-calls gate now recognizes every LAN Ollama host, not just loopback**: keyed on "not Ollama Cloud" (`ollama.com` hostname or an `api_key`) instead of `is_local_host`, for the repair round, `doctor --local`, and the gym.
 - **Auto-calibration never blocks a turn past a budget, never runs from `call_small_model`, and never records an unreachable host as permanently "does not fit"**: the measurement now runs in a background thread bounded by the session's own abort and a total wait budget; a host that never answers is reported as "unreachable" and nothing is recorded.
+- **Sub-agents resolve their own credentials** (review B1): a child on a
+  different route than its parent (an `ol:` or `hf:local` child under an
+  `or:` parent, an `oai:` child anywhere) resolves creds for its own model and
+  never inherits the parent's key, base URL or custom headers; a child whose
+  provider is not configured returns that provider's own "not configured"
+  sentence as the tool result instead of sending anything.
+- **`/model` never keeps the previous model's credentials** (B2): a switch to
+  a ref whose provider is not configured is refused with the provider's own
+  sentence (an `hf:mlx/` ref starts its managed server first), and a session
+  switch clears stale creds rather than reusing them.
+- **`cx:` turns after the first work again** (B3): the sandbox rides as
+  `-c sandbox_mode=<mode>` on both `codex exec` and `codex exec resume` (the
+  latter has no `-s`), and the fake codex now rejects unknown resume flags the
+  way the real one does.
+- **The `cx:` prompt travels on stdin** (B4): never on argv, so quoting,
+  `%VAR%` expansion and the command-line length limit no longer apply; on
+  Windows the npm `.cmd` shim is bypassed in favour of `node <codex.js>` when
+  it sits beside the shim.
+- **Responses function tools are sent with `strict: false`** (B5), and the
+  mock gateway now enforces the strict-schema rules so a regression is caught.
+- **`oai:` chat completions have their own profile** (B6):
+  `max_completion_tokens`, `stream_options.include_usage`, and
+  `reasoning_effort` only on rows the vendored catalog marks as reasoning,
+  clamped to the effort values that row lists.
 
 ## [2.0.2] - 2026-10-04
 
