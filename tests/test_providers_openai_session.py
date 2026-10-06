@@ -167,8 +167,8 @@ def test_responses_error_scenarios_surface_plain_messages(ctx: Ctx):
             # Round 3 translates the 401 into Halo's own sentence (the raw upstream
             # text stays in the debug dump), so the plain message names the key.
             ("oai-responses-401", 401, "OpenAI API key is invalid"),
-            ("oai-responses-429-quota", 429, "exceeded your current quota"),
-            ("oai-responses-404-model", 404, "does not exist"),
+            ("oai-responses-429-quota", 429, "out of quota"),
+            ("oai-responses-404-model", 404, "no such model"),
         ):
             creds = ProviderCreds(base_url=mock.base_url, api_key="irrelevant")
             req = CompletionRequest(body={}, route=route, profile={}, creds=creds, state_dir=state_dir,
