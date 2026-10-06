@@ -290,7 +290,7 @@ _GENERIC_STATUS_SENTENCES = {
     404: "{provider} has no such model or endpoint.",
     429: "{provider} rate-limited this request; Halo backs off and retries.",
     500: "{provider} had an internal error; Halo retries with backoff.",
-    502: "{provider}'s gateway returned a bad response; Halo retries with backoff.",
+    502: "{provider}'s gateway returned a bad response (every route may be down); Halo retried with backoff, try again later.",
     503: "{provider} is temporarily unavailable; Halo retries with backoff.",
     504: "{provider} timed out upstream; Halo retries with backoff.",
     529: "{provider} is overloaded; Halo retries with backoff.",
