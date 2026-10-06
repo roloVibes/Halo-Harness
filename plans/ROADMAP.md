@@ -647,3 +647,39 @@ company org roles." So the round (next after round 3) is:
 4. Tests: a Textual pilot through init with fixture providers, the
    enumeration cache, the pick list and autocomplete in both editors, the
    Auto fill from each preset and from a gym fixture, Save round trips.
+
+## ADDED 2026-10-05 ~22:45 (rolo): agent declaration files (YAML) behind roles and orgs
+
+rolo: "each role should have a yaml file that can be editable too. I think
+that's how templates should be used. templateX.yaml, 1st agent: name;
+models: preference: x, fallback: y; tools: -tool A (for example caido),
+-tool b (example browser); context: CLAUDE.md, halo(agentName).md, obsidian
+notes X; limits: max_iterations: x, timeout: 20m". Approved schema
+("perf, keep going"), built in round 4 as the storage behind the roles and
+org editors:
+
+- Files: `~/.halo/agents/<name>.yaml` (user) and `.halo/agents/<name>.yaml`
+  (project); templates shipped in the package under
+  `halo_harness/templates/agents/*.yaml` (local-first, balanced, quality,
+  researcher, judge, reviewer, and an org starter set). `extends:
+  <template>` so an agent file carries only overrides. Precedence: template
+  -> agent file -> org position overrides -> CLI flags. Import/export both
+  ways with Claude Code's `.claude/agents/*.md` frontmatter (same fields).
+- Sections: identity (`name`, `description`, `version`, `tags`, `kind`:
+  main/subagent/researcher/judge/reviewer/custom, `extends`); `models`
+  (`preference`, `fallback`, `escalation`, `effort`, `temperature`,
+  `thinking: native|off`, `context_budget`, `lean_prompt`); `tools`
+  (`allow`, `deny`, `mcp_servers`, `permission_mode`, `rules` in the
+  settings.json grammar, per-tool limits such as a Bash timeout); `context`
+  (files to prepend, Obsidian notes by path/glob/tag, `skills`,
+  `system_prompt` inline or file, `memory` on/off + directory); `limits`
+  (`max_iterations`, `timeout`, `max_budget_usd`, `max_tokens_per_turn`,
+  `concurrency`); `output` (`output_schema`, `report_to`, `handoff`);
+  `environment` (`cwd`, `worktree`, `offline`, `env` by reference to the
+  shared env file, never a literal secret); `org` (`position`,
+  `reports_to`, `delegates_to`); `acceptance` (one smoke prompt + expected
+  shape, run by `halo doctor --agents`).
+- Deferred to 2.0.5 with the Governor: `hooks` (pre/post tool commands) and
+  `schedule`/`triggers`.
+- Dependency: PyYAML (small, pure Python) added to pyproject; the loader
+  validates every file and reports one plain line per problem.
