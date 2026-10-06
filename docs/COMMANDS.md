@@ -669,6 +669,18 @@ script, `--yes`, `--provider`) is unaffected -- it keeps the exact
 sequential-picker/numbered-fallback behaviour the worked example below
 shows.
 
+**Halo 2.0.5 round 2**: an **Agents** step joins right before Roles (after
+the keys step's own model enumeration) -- list every agent bio (project/
+user/shipped), create/edit/duplicate/delete, and import a `.claude/
+agents/*.md` file as a bio; the Roles step is retitled **"Roles and
+lineup"** and gains a Lineup pane (pick, edit, or build a new lineup --
+assignments by model or by agent bio, the `about:` "how the pieces work
+together" text) shown first, with the pre-existing role-template editing
+moved to its own "Legacy roles" pane rather than removed. `--step STEP`
+jumps straight to any one step (see the flag table below); see
+[AGENTS.md](AGENTS.md) for the Agents step and the lineup editor's own
+fields.
+
 **Halo 2.0.3 round 5**: the INTERACTIVE Providers step's tab bar gains two
 more tabs beyond the four above -- `Ollama (local or LAN)` (detects/
 registers the local daemon, or add a LAN/cloud host with an optional key)
@@ -711,10 +723,9 @@ both set the same thing and nothing else already decides it
 halo init --help
 ```
 ```
-usage: halo init [-h]
-                        [--provider {databricks,openrouter,anthropic,claude}]
-                        [--preset {home,work,claude}] [--model REF] [--yes]
-                        [--no-live] [--no-fixes] [--team PATH|URL]
+usage: halo init [-h] [--provider {databricks,openrouter,anthropic,claude}]
+                 [--preset {home,work,claude}] [--model REF] [--yes]
+                 [--no-live] [--no-fixes] [--team PATH|URL] [--step STEP]
 
 Set up halo in one command: pick a provider to set up, configure its
 credentials, set a default model, run doctor, send a live pong, and offer the
@@ -736,6 +747,8 @@ options:
   --team PATH|URL       a team.json preset (host/default model/gateway
                         preference/DBU price -- never a token); overrides
                         .halo/team.json / ~/.halo/team.json
+  --step STEP           jump directly to one wizard step by key or 1-based
+                        number (e.g. --step agents), interactive only
 ```
 
 | Flag | Reads/writes | Default |
@@ -747,6 +760,7 @@ options:
 | `--no-live` | skips `models --refresh` and the live pong | off |
 | `--no-fixes` | skips the `rg`/PATH steps (Linux) | off |
 | `--team PATH\|URL` | reads a `team.json`-shaped file/URL (see `docs/DATABRICKS.md`); Databricks only | `.halo/team.json`, then `~/.halo/team.json` |
+| `--step STEP` | jumps the interactive wizard straight to one step, by its key (e.g. `agents`, `roles`) or 1-based number -- interactive only (needs a real tty, `--yes` skips the wizard entirely); see [AGENTS.md](AGENTS.md)'s Agents step | omitted -> starts at step 1 |
 
 `--provider ... --yes` (or the deprecated `--preset ... --yes`) is fully
 non-interactive whenever the needed value is already discoverable; when it
@@ -2091,6 +2105,75 @@ stdin the same way; `--yes` on `run`/`resume`, or the session's own
 asking. See [ORGS.md](ORGS.md) for the full schema, the three built-ins,
 how a run flows through the tree, budgets, goals, approval gates,
 export/import and resume.
+
+## `halo agents`
+
+```sh
+halo agents list
+halo agents show <name>
+halo agents validate [name]
+halo agents new <name> [--from BIO] [--project] [--form]
+halo agents edit <name> [--form]
+halo agents export <name> [file] [--claude-md]
+halo agents import <file> | --claude-md <name>
+```
+
+Halo 2.0.4 round 4: manages agent BIOS (`~/.halo/agents/<name>.yaml`
+user, `.halo/agents/<name>.yaml` project, shipped read-only starters
+under the package's own `templates/agents/`) -- a bio describes what one
+agent IS (models, tools, context, limits, output, environment,
+acceptance; never a role or position). `new --from BIO` copies another
+bio's file verbatim as a starting point; `edit` opens `$VISUAL`/`$EDITOR`
+on the raw YAML (creating an empty one first if it doesn't exist),
+re-validating on save; `export --claude-md`/`import --claude-md` bridge
+to Claude Code's own `.claude/agents/*.md` frontmatter (lossy both ways --
+see [AGENTS.md](AGENTS.md)'s own field table).
+
+**Halo 2.0.5 round 2**: `new`/`edit` gain `--form`, opening the SAME
+Textual form the init wizard's Agents step and `/agents` use (identity,
+models with the enumerated model picker, tools, context, limits, output,
+environment, acceptance) instead of writing a starter file / shelling to
+`$EDITOR`. `/agents` in a running session opens the same list-with-
+actions screen (new, new from..., edit, duplicate, delete, import from
+`.claude/agents/*.md`); every other subcommand (`show`/`validate`/
+`export`/`import`) stays plain text. See [AGENTS.md](AGENTS.md) for the
+Agents step, the bio editor's own sections, and the two-source (Models /
+Agents) picker a role slot now uses everywhere.
+
+## `halo teams`
+
+```sh
+halo teams list
+halo teams show <name>
+halo teams validate [name]
+halo teams new <name> [--from TEMPLATE] [--project] [--form]
+halo teams edit <name> [--form]
+halo teams use <name>
+halo teams export <name> [file]
+halo teams import <file>
+```
+
+Halo 2.0.4 round 4: manages team templates ("lineups",
+`~/.halo/teams/<name>.yaml` user, `.halo/teams/<name>.yaml` project,
+shipped starters -- `local-first`/`balanced`/`quality`/`halo-dev-cycle`
+-- copied in on first use) -- a lineup ASSIGNS agent bios to roles/
+positions (`agents:`, or the `roles:` shorthand for one assignment per
+role), plus `delegation`/`routing`/`budget`/`escalation`/`context`/
+`permissions`/`org`/`pipeline`/`acceptance`. `show` prints the lineup,
+its resolved role table, and any `org:`; `use <name>` sets the active
+`team:` in `config.json` (refusing an invalid name outright).
+
+**Halo 2.0.5 round 2**: `edit` is new this round (symmetrical with
+`agents edit` -- `$VISUAL`/`$EDITOR` on the raw YAML, or `--form`);
+`new`/`edit --form` open the lineup editor (the assignments grid with
+the two-source picker, the other sections collapsed with a one-line
+meaning each, and the free-text `about:` "how the pieces work together",
+drafted on request) -- the SAME form the wizard's "Roles and lineup"
+step and `/teams` use. `show` now also prints `about:` when the lineup
+has one. `/teams` in a running session opens the same list screen (list,
+new, edit, activate); every other subcommand stays plain text. See
+[AGENTS.md](AGENTS.md) for the lineup editor's own sections and the
+resolved-truth warnings its assignments grid shows.
 
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 

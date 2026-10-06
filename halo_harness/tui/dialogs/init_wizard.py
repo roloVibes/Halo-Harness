@@ -50,11 +50,23 @@ from textual.widgets import Button, Input, Static, TabbedContent, TabPane
 
 from halo_harness.init_providers import TAB_LABEL, TAB_PROVIDERS, tab_credential_state
 
-ALL_STEP_KEYS = ("providers", "local_models", "default_model", "permission_mode", "theme", "roles", "orgs",
-                 "linux_fixes", "summary")
+# Halo 2.0.5 round 2 (deliverable 1): "agents" joins right before "roles"
+# -- after the keys step/enumeration (every earlier step already is),
+# before the roles step it now feeds (deliverable 3's own lineup editor
+# picks agent BIOS this step creates). Shifts "roles"/"orgs"/"linux_fixes"/
+# "summary" each one 1-based ordinal later -- `tests/test_init_wizard_
+# round7.py`'s own two ordinal-pinning tests were updated to match (see
+# this round's own hand-back); `full_step_keys()`'s only other caller in
+# test_tui.py resolves by KEY name, unaffected either way.
+ALL_STEP_KEYS = ("providers", "local_models", "default_model", "permission_mode", "theme", "agents", "roles",
+                 "orgs", "linux_fixes", "summary")
 STEP_TITLES = {
     "providers": "Providers", "local_models": "Local models", "default_model": "Default model",
-    "permission_mode": "Permission mode", "theme": "Theme", "roles": "Roles", "orgs": "Organizations",
+    "permission_mode": "Permission mode", "theme": "Theme", "agents": "Agents",
+    # Halo 2.0.5 round 2 (deliverable 3): "the step title becomes 'Roles
+    # and lineup'" -- no test pins the old literal "Roles" title text
+    # (checked before this rename).
+    "roles": "Roles and lineup", "orgs": "Organizations",
     "linux_fixes": "Linux fixes", "summary": "Summary",
 }
 
@@ -1117,6 +1129,23 @@ STEP_FACTORIES["theme"] = ThemeStep
 
 
 # ---------------------------------------------------------------------------
+# Step: Agents -- Halo 2.0.5 round 2 (wizard: agent bios and lineups)
+# deliverable 1. `AgentsStep` lives in its OWN module (`agents_step.py`,
+# the hard constraint: this file gains only the registration lines below)
+# -- imported here, at the point of registration, same as every OTHER
+# cross-module dialog this file already pushes (`RolesEditor`/`OrgEditor`/
+# `ModelPicker`, all imported lazily inside a method, never at this file's
+# own top level either). `AgentsStep` itself never imports FROM this
+# module at its own top level (it reaches `advance`/`go_back`/`finish`
+# through a lazy, function-body import instead) specifically so this one
+# import here can be a plain, ordinary one with no circularity at all.
+# ---------------------------------------------------------------------------
+from halo_harness.tui.dialogs.agents_step import AgentsStep  # noqa: E402
+
+STEP_FACTORIES["agents"] = AgentsStep
+
+
+# ---------------------------------------------------------------------------
 # Step: Roles -- brief item 2. `roles.enabled` defaults True: the switch
 # starts ON. "Next" and "Use this template" are the SAME action
 # (`action_do_next`, via `commit()`) -- Skip (footer) leaves config
@@ -1137,11 +1166,32 @@ class RolesStep(StepScreen):
     def __init__(self, state: WizardState) -> None:
         super().__init__(state)
         self._templates: "list[str]" = []
+        self._lineups: "list[str]" = []
+        # Halo 2.0.5 round 2 (deliverable 3): set by "Use this lineup" --
+        # tells `commit()` the LINEUP path already applied everything
+        # (roles.* AND `team:`), so it must not ALSO re-apply whatever's
+        # highlighted in the (unrelated) Legacy roles tab.
+        self._lineup_applied_name: "Optional[str]" = None
 
     def body(self) -> list:
         from textual.widgets import OptionList, Switch
         from textual.widgets.option_list import Option
         from halo_harness.roles import ensure_builtin_role_presets, list_role_templates, roles_mode_enabled
+        # Halo 2.0.5 round 2 (deliverable 3): "Lineup editor ... replaces
+        # the legacy-template editing in RolesStep". Two manually-toggled
+        # panes (`TabbedContent` needs the REAL compose()-generator "with
+        # Container(): yield Child()" protocol to attach panes --
+        # `compose_add_child` is only ever invoked by that machinery,
+        # confirmed live; `body()`'s own pre-built-list-of-widgets return
+        # shape can't drive it) rather than a literal removal -- every
+        # widget ID/behaviour the "Legacy roles" pane below carries is
+        # UNCHANGED from before this round (same ids, same `on_mount`/
+        # `commit` reads), so this stays additive for anything already
+        # pinned to it; "the legacy role-table editor remains ... for a
+        # config with no lineup at all" (the brief's own folded-in item 3)
+        # is exactly this: it never goes away, it just moves to its own
+        # pane. See `_lineup_tab_widgets` below for the new half.
+        lineup_widgets = self._lineup_tab_widgets()
         ensure_builtin_role_presets(default_model=self.state.final_model or None)
         self._templates = list_role_templates()
         enabled = roles_mode_enabled()
@@ -1156,11 +1206,64 @@ class RolesStep(StepScreen):
         )
         switch_row = Horizontal(Switch(value=enabled, id="wiz-roles-switch"),
                                  Static(" Roles enabled", classes="wizard-switch-label"), classes="wizard-switch-row")
+        legacy_pane = Vertical(switch_row, on_body, id="wiz-roles-legacy-pane")
+        lineup_pane = Vertical(*lineup_widgets, id="wiz-roles-lineup-pane")
+        pane_switch = Horizontal(
+            Button("Lineup", id="wiz-roles-pane-lineup-btn", variant="primary"),
+            Button("Legacy roles", id="wiz-roles-pane-legacy-btn"),
+            classes="wizard-extra-buttons",
+        )
         return [Static("Roles decide which model does what -- the session model is used when a role is unset.",
-                        classes="dialog-title"), switch_row, on_body]
+                        classes="dialog-title"), pane_switch, lineup_pane, legacy_pane]
+
+    def _show_pane(self, which: str) -> None:
+        """`which`: "lineup" or "legacy" -- the manual pane toggle the
+        module docstring above explains (TabbedContent can't drive this
+        from `body()`'s own plain-list return shape)."""
+        try:
+            lineup_pane, legacy_pane = self.query_one("#wiz-roles-lineup-pane"), \
+                self.query_one("#wiz-roles-legacy-pane")
+            lineup_btn, legacy_btn = self.query_one("#wiz-roles-pane-lineup-btn", Button), \
+                self.query_one("#wiz-roles-pane-legacy-btn", Button)
+        except Exception:
+            return
+        lineup_pane.styles.display = "block" if which == "lineup" else "none"
+        legacy_pane.styles.display = "block" if which == "legacy" else "none"
+        lineup_btn.variant = "primary" if which == "lineup" else "default"
+        legacy_btn.variant = "primary" if which == "legacy" else "default"
+
+    def _lineup_tab_widgets(self) -> list:
+        """Halo 2.0.5 round 2 (deliverable 3): a lineup picker shaped like
+        the legacy one just below (OptionList + preview + Use/Edit), plus
+        "New lineup". `ensure_builtin_team_templates`/`migrate_legacy_
+        role_table` both run here, same "copy/migrate on first use, never
+        overwrite after" timing `ensure_builtin_role_presets` already uses
+        for the legacy tab right below this method's own call site."""
+        from textual.widgets import OptionList
+        from textual.widgets.option_list import Option
+        from halo_harness.roles import configured_role_table
+        from halo_harness.teams_yaml import ensure_builtin_team_templates, list_team_templates, \
+            migrate_legacy_role_table
+        ensure_builtin_team_templates()
+        try:
+            migrate_legacy_role_table(configured_role_table(), cwd=self.state.cwd)
+        except Exception:
+            pass
+        self._lineups = list_team_templates(cwd=self.state.cwd)
+        lineup_list = OptionList(*[Option(n, id=n) for n in self._lineups], id="wiz-lineup-templates")
+        return [
+            Static("A lineup assigns agent bios (or plain models) to roles -- pick one, New lineup, or "
+                   "Edit lineup... to customize."),
+            lineup_list, Static(id="wiz-lineup-preview"),
+            Horizontal(Button("Use this lineup", id="wiz-lineup-use", variant="primary"),
+                       Button("New lineup", id="wiz-lineup-new"),
+                       Button("Edit lineup...", id="wiz-lineup-edit"), classes="wizard-extra-buttons"),
+        ]
 
     def on_mount(self) -> None:
         self._sync_visibility()
+        self._show_pane("lineup")
+        self._refresh_lineup_preview()
         try:
             option_list = self.query_one("#wiz-roles-templates")
         except Exception:
@@ -1185,6 +1288,74 @@ class RolesStep(StepScreen):
     def on_option_list_option_highlighted(self, event) -> None:
         if event.option_list.id == "wiz-roles-templates" and event.option_id:
             self._update_preview(str(event.option_id))
+        elif event.option_list.id == "wiz-lineup-templates" and event.option_id:
+            self._refresh_lineup_preview(str(event.option_id))
+
+    # -- Halo 2.0.5 round 2 (deliverable 3): the Lineup tab ------------------
+    def _highlighted_lineup_name(self) -> "Optional[str]":
+        try:
+            option_list = self.query_one("#wiz-lineup-templates")
+        except Exception:
+            return None
+        if option_list.highlighted is None:
+            return None
+        opt = option_list.get_option_at_index(option_list.highlighted)
+        return str(opt.id) if opt.id else None
+
+    def _refresh_lineup_preview(self, name: "Optional[str]" = None) -> None:
+        from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
+        name = name or self._highlighted_lineup_name()
+        try:
+            preview = self.query_one("#wiz-lineup-preview", Static)
+        except Exception:
+            return
+        if not name:
+            preview.update("(no lineup yet -- New lineup to create one)")
+            return
+        template = resolve_team_template(name, cwd=self.state.cwd)
+        if template is None:
+            preview.update("(no such lineup)")
+            return
+        lines = [f"{template['name']} -- {template.get('description') or '(no description)'}"]
+        if template.get("about"):
+            lines.append(f"  {template['about']}")
+        role_table, notes = resolve_role_table(template, cwd=self.state.cwd)
+        for role_name, value in sorted(role_table.items()):
+            lines.append(f"  {role_name}: {value if isinstance(value, str) else value.get('model')}")
+        lines.extend(f"  (note) {n}" for n in notes)
+        preview.update("\n".join(lines))
+
+    def _refresh_lineups(self) -> None:
+        from textual.widgets.option_list import Option
+        from halo_harness.teams_yaml import list_team_templates
+        try:
+            option_list = self.query_one("#wiz-lineup-templates")
+        except Exception:
+            return
+        previous = self._highlighted_lineup_name()
+        self._lineups = list_team_templates(cwd=self.state.cwd)
+        option_list.clear_options()
+        for n in self._lineups:
+            option_list.add_option(Option(n, id=n))
+        if self._lineups:
+            idx = self._lineups.index(previous) if previous in self._lineups else 0
+            option_list.highlighted = idx
+            self._refresh_lineup_preview(self._lineups[idx])
+
+    def _open_lineup_editor(self, *, is_new: bool) -> None:
+        name = "new-lineup" if is_new else (self._highlighted_lineup_name() or "custom")
+        self.run_worker(lambda: self._lineup_editor_worker(name, is_new), thread=True, name="wiz-lineup-editor")
+
+    def _lineup_editor_worker(self, name: str, is_new: bool) -> None:
+        from halo_harness.teams_yaml import load_team_template_raw
+        template = {} if is_new else (load_team_template_raw(name, cwd=self.state.cwd) or {})
+        self.app.call_from_thread(self._open_lineup_editor_screen, name, template, is_new)
+
+    def _open_lineup_editor_screen(self, name: str, template: dict, is_new: bool) -> None:
+        from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+        self.app.push_screen(LineupEditor(name, template, self._controller_models(), cwd=self.state.cwd,
+                                           is_new=is_new),
+                              lambda _saved: self._refresh_lineups())
 
     def _highlighted_template_name(self) -> Optional[str]:
         try:
@@ -1231,6 +1402,34 @@ class RolesStep(StepScreen):
             self.action_do_next()
         elif bid == "wiz-roles-edit":
             self._open_editor()
+        elif bid == "wiz-lineup-use":
+            self._apply_highlighted_lineup()
+        elif bid == "wiz-lineup-new":
+            self._open_lineup_editor(is_new=True)
+        elif bid == "wiz-lineup-edit":
+            self._open_lineup_editor(is_new=False)
+        elif bid == "wiz-roles-pane-lineup-btn":
+            self._show_pane("lineup")
+        elif bid == "wiz-roles-pane-legacy-btn":
+            self._show_pane("legacy")
+
+    def _apply_highlighted_lineup(self) -> None:
+        """"Use this lineup" -- the lineup-tab counterpart of "Use this
+        template" above: `teams_yaml.apply_team_template` writes BOTH
+        `roles.*` and the active `team:` in one step (unlike the legacy
+        tab's own `apply_role_template`, which only ever touches
+        `roles.*`); `self._lineup_applied_name` tells `commit()` not to
+        ALSO run the (unrelated) legacy-template apply below."""
+        name = self._highlighted_lineup_name()
+        if not name:
+            self.query_one("#wiz-lineup-preview", Static).update("Pick a lineup first (or New lineup).")
+            return
+        try:
+            self.query_one("#wiz-roles-switch").value = True
+        except Exception:
+            pass
+        self._lineup_applied_name = name
+        self.action_do_next()
 
     def _controller_models(self) -> list:
         """Halo 2.0.4 round 4 (deliverable 1 fix): the standalone wizard
@@ -1293,6 +1492,9 @@ class RolesStep(StepScreen):
         set_config_value("roles.enabled", enabled)
         if not enabled:
             return
+        if self._lineup_applied_name:
+            self._commit_lineup(self._lineup_applied_name)
+            return
         name = self._highlighted_template_name()
         if not name:
             return
@@ -1333,6 +1535,32 @@ class RolesStep(StepScreen):
             role_table.update(template["roles"])
         elif hasattr(session, "roles") and isinstance(session.roles, dict):
             session.roles.update(template["roles"])
+
+    def _commit_lineup(self, name: str) -> None:
+        """"Use this lineup" -- `teams_yaml.apply_team_template` already
+        wrote `roles.*` and `team:` to config.json; this only ALSO pushes
+        the resolved role table into a LIVE session (same `/setup`-hosted
+        gap `commit()`'s own legacy branch just above already closes)."""
+        from halo_harness.teams_yaml import apply_team_template, resolve_role_table, resolve_team_template
+        ok, problems, notes = apply_team_template(name, cwd=self.state.cwd)
+        if not ok:
+            self.state.written.append(f"could not apply lineup {name!r}: {'; '.join(problems)}")
+            return
+        self.state.written.append(f"lineup {name!r} applied (roles.*, team: {name!r})"
+                                   + (f" -- {'; '.join(notes)}" if notes else ""))
+        session = getattr(getattr(self.app, "controller", None), "session", None)
+        if session is None:
+            return
+        template = resolve_team_template(name, cwd=self.state.cwd)
+        if not template:
+            return
+        role_table, _notes = resolve_role_table(template, cwd=self.state.cwd)
+        runtime = getattr(session, "agent_runtime", None)
+        live_role_table = getattr(runtime, "role_table", None)
+        if isinstance(live_role_table, dict):
+            live_role_table.update(role_table)
+        elif hasattr(session, "roles") and isinstance(session.roles, dict):
+            session.roles.update(role_table)
 
 
 STEP_FACTORIES["roles"] = RolesStep

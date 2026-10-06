@@ -111,6 +111,12 @@ async def handle_slash(app, name: str, args: str) -> None:
         # `/images` lists/clears pending attachments -- both act directly
         # on `app.prompt_input`, no Controller/session round trip at all.
         "paste": _handle_paste, "images": _handle_images,
+        # Halo 2.0.5 round 2 (deliverable 4): "/agents"/"/teams" (list,
+        # new, edit, duplicate/delete, activate) open the SAME form
+        # module the wizard uses -- every OTHER subcommand (show/
+        # validate/use/export/import) stays on the generic headless-text
+        # fallback below, same split `_handle_roles`/`_handle_org` use.
+        "agents": _handle_agents, "teams": _handle_teams,
     }.get(name)
     if handler is not None:
         await handler(app, args)
@@ -1947,6 +1953,139 @@ async def _handle_images(app, _args: str) -> None:
         dims = f"{w}x{h}" if (w and h) else "size unknown"
         lines.append(f"#{i} {dims} -- {img['path']}")
     await app.transcript.add_note("Pending image attachments:\n" + "\n".join(lines), kind="note")
+
+
+# ============================================================================
+# Halo 2.0.5 round 2 (deliverable 4): /agents and /teams -- new/edit (and
+# duplicate/delete/activate) open the SAME form modules the wizard's
+# Agents step/lineup editor use; every OTHER subcommand (show/validate/
+# use/export/import, or the bare list for /teams) stays on the generic
+# headless-text fallback -- same split `_handle_roles`/`_handle_org` use.
+# ============================================================================
+
+async def _handle_agents(app, args: str) -> None:
+    parts = (args or "").strip().split(None, 1)
+    sub = parts[0].lower() if parts else ""
+    rest = parts[1].strip() if len(parts) > 1 else ""
+    if sub in ("new", "edit"):
+        if not rest:
+            await app.transcript.add_note(f"Usage: /agents {sub} <name>", kind="command")
+            return
+        app.run_worker(lambda: _agents_form_worker(app, sub, rest), thread=True, name="agents-form",
+                        group="agents-form")
+        return
+    if sub == "duplicate":
+        bits = rest.split(None, 1)
+        if not bits:
+            await app.transcript.add_note("Usage: /agents duplicate <name> [new-name]", kind="command")
+            return
+        src = bits[0]
+        dst = bits[1].strip() if len(bits) > 1 else src
+        from halo_harness.agents_yaml import new_agent_bio_from_template
+        ok, problems = new_agent_bio_from_template(dst, src, cwd=app.cwd)
+        app.notify(f"Duplicated {src!r} into user scope" + (f" as {dst!r}." if dst != src else ".") if ok
+                   else "; ".join(problems), title="/agents duplicate", severity="information" if ok else "error")
+        return
+    if sub == "delete":
+        if not rest:
+            await app.transcript.add_note("Usage: /agents delete <name>", kind="command")
+            return
+        from halo_harness.agents_yaml import delete_agent_bio
+        ok = delete_agent_bio(rest, cwd=app.cwd)
+        app.notify(f"Deleted {rest!r}." if ok else f"Nothing to delete for {rest!r} at project/user scope.",
+                    title="/agents delete", severity="information" if ok else "warning")
+        return
+    if sub and sub != "list":
+        app.run_worker(lambda: _run_slash_worker(app, "agents", args), thread=True, name="run-slash",
+                        group="run-slash")
+        return
+    # bare "/agents" or "/agents list" -- the interactive list+actions screen.
+    app.run_worker(lambda: _agents_list_worker(app), thread=True, name="agents-list", group="agents-list")
+
+
+def _agents_form_worker(app, sub: str, name: str) -> None:
+    from halo_harness.agents_yaml import load_agent_bio_raw
+    models = app.controller.list_models()
+    raw = {} if sub == "new" else (load_agent_bio_raw(name, cwd=app.cwd) or {})
+    app.call_from_thread(_open_agent_bio_form, app, name, raw, models, sub == "new")
+
+
+def _open_agent_bio_form(app, name: str, raw: dict, models: list, is_new: bool) -> None:
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+
+    def _after(saved) -> None:
+        app.notify(f"Saved agent bio {saved!r}." if saved else "Cancelled.", title="/agents")
+    app.push_screen(AgentBioEditor(name, raw, models, cwd=app.cwd, is_new=is_new), _after)
+
+
+def _agents_list_worker(app) -> None:
+    models = app.controller.list_models()
+    app.call_from_thread(_open_agents_list, app, models)
+
+
+def _open_agents_list(app, models: list) -> None:
+    from halo_harness.tui.dialogs.agents_step import AgentsListScreen
+    app.push_screen(AgentsListScreen(cwd=app.cwd, models=models))
+
+
+async def _handle_teams(app, args: str) -> None:
+    parts = (args or "").strip().split(None, 1)
+    sub = parts[0].lower() if parts else ""
+    rest = parts[1].strip() if len(parts) > 1 else ""
+    if sub in ("new", "edit"):
+        if not rest:
+            await app.transcript.add_note(f"Usage: /teams {sub} <name>", kind="command")
+            return
+        app.run_worker(lambda: _teams_form_worker(app, sub, rest), thread=True, name="teams-form",
+                        group="teams-form")
+        return
+    if sub == "activate":
+        if not rest:
+            await app.transcript.add_note("Usage: /teams activate <name>", kind="command")
+            return
+        from halo_harness.teams_yaml import resolve_team_template, validate_team_template
+        template = resolve_team_template(rest, cwd=app.cwd)
+        problems = [] if template is None else validate_team_template(template, name=rest, cwd=app.cwd)
+        if template is None:
+            app.notify(f"No such team template: {rest!r}", severity="error", title="/teams activate")
+            return
+        if problems:
+            app.notify("; ".join(problems), severity="error", title="/teams activate")
+            return
+        from halo_harness.theme import set_config_value
+        set_config_value("team", rest)
+        app.notify(f"Active team: {rest!r}.", title="/teams activate")
+        return
+    if sub and sub != "list":
+        app.run_worker(lambda: _run_slash_worker(app, "teams", args), thread=True, name="run-slash",
+                        group="run-slash")
+        return
+    app.run_worker(lambda: _teams_list_worker(app), thread=True, name="teams-list", group="teams-list")
+
+
+def _teams_form_worker(app, sub: str, name: str) -> None:
+    from halo_harness.teams_yaml import load_team_template_raw
+    models = app.controller.list_models()
+    template = {} if sub == "new" else (load_team_template_raw(name, cwd=app.cwd) or {})
+    app.call_from_thread(_open_lineup_form, app, name, template, models, sub == "new")
+
+
+def _open_lineup_form(app, name: str, template: dict, models: list, is_new: bool) -> None:
+    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+
+    def _after(saved) -> None:
+        app.notify(f"Saved team template {saved!r}." if saved else "Cancelled.", title="/teams")
+    app.push_screen(LineupEditor(name, template, models, cwd=app.cwd, is_new=is_new), _after)
+
+
+def _teams_list_worker(app) -> None:
+    models = app.controller.list_models()
+    app.call_from_thread(_open_teams_list, app, models)
+
+
+def _open_teams_list(app, models: list) -> None:
+    from halo_harness.tui.dialogs.lineup_editor import TeamsListScreen
+    app.push_screen(TeamsListScreen(cwd=app.cwd, models=models))
 
 
 # ============================================================================

@@ -237,9 +237,14 @@ def unknown_as_qmark(s: str) -> str:
 
 
 # Shown once in the picker's own footer (never per-row) -- deliverable 1:
-# "sort and filter keys documented in the picker footer."
+# "sort and filter keys documented in the picker footer." Halo 2.0.5 round 2
+# (deliverable 2) appends the two new source/filter chords -- every token
+# `tests/test_picker_columns.py::test_picker_footer_documents_sort_and_
+# filter_keys` already pins is a plain substring check, unaffected by the
+# append.
 PICKER_FOOTER = ("Enter: select  |  Ctrl+O: set a role  |  Ctrl+S: cycle sort (name/price/context/speed)  |  "
-                  "Ctrl+G: refresh this group  |  F5: refresh all groups  |  type to filter  |  Esc: cancel")
+                  "Ctrl+G: refresh this group  |  F5: refresh all groups  |  type to filter  |  Esc: cancel  |  "
+                  "Ctrl+A: Models/Agents source  |  Ctrl+E: show every row")
 
 # Shown once above the picker's own rows (never per-row) -- what the three
 # columns mean, and the house "?" convention (distinct from ROW_HEADER's

@@ -169,7 +169,11 @@ def resolve_team_template(name: str, *, cwd=None, state_dir=None, _chain: "Optio
     for section in TOP_SECTIONS:
         resolved[section] = _merge_section((parent or {}).get(section), raw.get(section))
     resolved["agents"] = raw.get("agents") if raw.get("agents") is not None else (parent or {}).get("agents")
-    for field in ("description", "version", "tags"):
+    # Halo 2.0.5 round 2 (deliverable 3): `about` ("How the pieces work
+    # together", free text) is an identity field like `description` --
+    # never merged key-by-key (it's a single string, not a section), only
+    # `extends` itself chains past it when a child never sets its own.
+    for field in ("description", "version", "tags", "about"):
         if field in raw:
             resolved[field] = raw[field]
     resolved["name"] = name
@@ -218,6 +222,8 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
     # live, fixed before this round's first test was even written).
     data = _expand_roles_shorthand(data)
     problems: "list[str]" = []
+    if "about" in data and data["about"] is not None and not isinstance(data["about"], str):
+        problems.append('"about" must be a string')
     agents = data.get("agents")
     if agents is not None and not isinstance(agents, list):
         return problems + ['"agents" must be a list (or use the "roles:" shorthand mapping)']
@@ -542,3 +548,89 @@ def ensure_builtin_team_templates(*, state_dir=None) -> None:
                 target.write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
             except OSError:
                 pass
+
+
+def apply_team_template(name: str, *, cwd=None, state_dir=None) -> "tuple[bool, list[str], list[str]]":
+    """Halo 2.0.5 round 2 (deliverable 3, the wizard's "Use this lineup"):
+    the team-template counterpart of `roles.apply_role_template` -- an
+    explicit, deliberate user action that OVERWRITES whatever `roles.*`
+    config.json already had (same precedence rule: a freshly-applied
+    lineup outranks a stale local value). Resolves `name` through `resolve_
+    role_table` (the ONE function that turns a lineup's `agents:` into a
+    `roles.py`-shaped table, unchanged by this round) and writes each
+    entry via `theme.set_config_value`, then sets `team: <name>` as the
+    active lineup (`teams_cli.py`'s own `_cmd_use` does the second half
+    alone today; this adds the first half for the one caller -- the
+    wizard -- that needs both in one step). `(True, [], notes)` on
+    success (`notes`: one `resolve_role_table` note per role left out,
+    e.g. a bio with no resolvable model); `(False, problems, [])` for an
+    unknown/invalid template name -- never raises, never writes a partial
+    table."""
+    from halo_harness.theme import set_config_value
+    template = resolve_team_template(name, cwd=cwd, state_dir=state_dir)
+    if template is None:
+        return False, [f"no such team template: {name!r} (or it failed validation)"], []
+    problems = validate_team_template(template, name=name, cwd=cwd, state_dir=state_dir)
+    if problems:
+        return False, problems, []
+    role_table, notes = resolve_role_table(template, cwd=cwd, state_dir=state_dir)
+    for role_name, value in role_table.items():
+        set_config_value(f"roles.{role_name}", value)
+    set_config_value("team", name)
+    return True, [], notes
+
+
+def member_system_context_addition(agent_name: str, *, team_name: "Optional[str]" = None, cwd=None,
+                                    state_dir=None) -> str:
+    """Halo 2.0.5 round 2 (deliverable 3 fold-in): the EXTRA system-
+    context text `agent_name` (a bio) should receive on top of its own
+    prompt -- the bio's own `context.files` (read and concatenated, best-
+    effort; an unreadable file is skipped, never fatal) and `context.
+    system_prompt` (inline, or read from `system_prompt_file`), THEN --
+    when `agent_name` is actually assigned inside `team_name` (default:
+    config's own active `team:`) -- that template's own `about:` text,
+    appended under the heading "How this team works" (the SAME heading
+    `halo teams show` prints above it, docs/AGENTS.md's own wording).
+    `""` when there's nothing to add. Pure, local-file-only -- no network,
+    safe to call from a live loop; THIS round builds and unit-tests the
+    assembly itself (the brief's own Tests section), wiring it into the
+    real `agent/subagent.py` child-session builder stays the Governor
+    round's job, same "compose now, enforce later" boundary every other
+    lineup section here already draws (see this module's own docstring)."""
+    from halo_harness.agents_yaml import resolve_agent_bio
+    bio = resolve_agent_bio(agent_name, cwd=cwd, state_dir=state_dir)
+    parts: "list[str]" = []
+    if bio:
+        context = bio.get("context") or {}
+        for rel in context.get("files") or []:
+            try:
+                from pathlib import Path
+                base = Path(cwd) if cwd is not None else Path.cwd()
+                path = Path(rel)
+                path = path if path.is_absolute() else base / path
+                parts.append(path.read_text(encoding="utf-8"))
+            except OSError:
+                continue
+        system_prompt = context.get("system_prompt")
+        if isinstance(system_prompt, str) and system_prompt.strip():
+            parts.append(system_prompt.strip())
+        elif context.get("system_prompt_file"):
+            try:
+                from pathlib import Path
+                base = Path(cwd) if cwd is not None else Path.cwd()
+                path = Path(context["system_prompt_file"])
+                path = path if path.is_absolute() else base / path
+                parts.append(path.read_text(encoding="utf-8"))
+            except OSError:
+                pass
+    if team_name is None:
+        from halo_harness.theme import get_config_value
+        team_name = get_config_value("team", default=None)
+    if isinstance(team_name, str) and team_name.strip():
+        template = resolve_team_template(team_name.strip(), cwd=cwd, state_dir=state_dir)
+        about = (template or {}).get("about")
+        member_names = {e.get("agent") for e in (template or {}).get("agents") or []
+                        if isinstance(e, dict)}
+        if isinstance(about, str) and about.strip() and agent_name in member_names:
+            parts.append(f"## How this team works\n\n{about.strip()}")
+    return "\n\n".join(p for p in parts if p)

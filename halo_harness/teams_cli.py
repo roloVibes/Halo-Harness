@@ -34,6 +34,13 @@ def _cmd_show(rest: list) -> int:
         return 1
     print(f"{template['name']} -- {template.get('description') or '(no description)'}")
     print(f"  source: {template.get('_source')} ({template.get('_path')})")
+    # Halo 2.0.5 round 2 (deliverable 3): "about:" ("How the pieces work
+    # together") -- printed under the SAME heading a member's own system
+    # context gets it under (`teams_yaml.member_system_context_addition`).
+    if template.get("about"):
+        print("  How this team works:")
+        for line in str(template["about"]).splitlines():
+            print(f"    {line}")
     for entry in template.get("agents") or []:
         label = entry.get("as") or entry.get("role")
         extra = f" x{entry['instances']}" if entry.get("instances", 1) != 1 else ""
@@ -81,13 +88,80 @@ def _cmd_new(rest: list) -> int:
     parser.add_argument("name")
     parser.add_argument("--from", dest="from_template", default=None, metavar="TEMPLATE")
     parser.add_argument("--project", action="store_true", help="write to .halo/teams/ instead of ~/.halo/teams/")
+    # Halo 2.0.5 round 2 (deliverable 4): the SAME form module the
+    # wizard's lineup editor and `/teams new` use.
+    parser.add_argument("--form", action="store_true", help="open the TUI form instead of writing a starter file")
     args = parser.parse_args(rest)
+    if args.form:
+        from halo_harness.tui.dialogs.lineup_editor import run_lineup_editor_standalone
+        saved = run_lineup_editor_standalone(args.name, project=args.project, is_new=True,
+                                              from_template=args.from_template)
+        if not saved:
+            print("halo teams new: cancelled.", file=sys.stderr)
+            return 1
+        print(f"Created team template {saved!r}.")
+        return 0
     ok, problems = new_team_template_from_template(args.name, args.from_template, project=args.project)
     if not ok:
         print(f"halo teams new: {'; '.join(problems)}", file=sys.stderr)
         return 1
     print(f"Created team template {args.name!r}" + (f" from {args.from_template!r}" if args.from_template else "")
           + ".")
+    return 0
+
+
+def _cmd_edit(rest: list) -> int:
+    """Halo 2.0.5 round 2 (deliverable 4): `halo teams edit <name>
+    [--form]` -- this command did not exist before this round (the
+    starter-writing `new` plus hand-editing the YAML file directly was
+    the only path); added here symmetrically with `agents_cli.py`'s own
+    `edit` (same `$EDITOR`-or-`--form` split, same "create an empty one
+    first if it doesn't exist yet" convenience)."""
+    from halo_harness.teams_yaml import load_team_template_raw, save_team_template, user_teams_dir, \
+        validate_team_template
+    parser = argparse.ArgumentParser(prog="halo teams edit", add_help=True)
+    parser.add_argument("name")
+    parser.add_argument("--form", action="store_true", help="open the TUI form instead of $EDITOR")
+    args = parser.parse_args(rest)
+    if args.form:
+        from halo_harness.tui.dialogs.lineup_editor import run_lineup_editor_standalone
+        saved = run_lineup_editor_standalone(args.name, is_new=False)
+        if not saved:
+            print("halo teams edit: cancelled.", file=sys.stderr)
+            return 1
+        print(f"Saved team template {saved!r}.")
+        return 0
+    import os
+    import shlex
+    import shutil
+    import subprocess
+    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
+    if not editor:
+        print("halo teams edit: no $VISUAL/$EDITOR set", file=sys.stderr)
+        return 1
+    if load_team_template_raw(args.name) is None:
+        save_team_template(args.name, {"description": ""})
+    path = user_teams_dir() / f"{args.name}.yaml"
+    argv = shlex.split(editor) or [editor]
+    argv[0] = shutil.which(argv[0]) or argv[0]
+    try:
+        rc = subprocess.call([*argv, str(path)])
+    except OSError as e:
+        print(f"halo teams edit: could not launch {editor!r}: {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+    if rc != 0:
+        return rc
+    import yaml
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as e:
+        print(f"halo teams edit: could not re-read {path}: {e}", file=sys.stderr)
+        return 1
+    problems = validate_team_template(data, name=args.name)
+    if problems:
+        print(f"halo teams edit: saved file is invalid: {'; '.join(problems)}", file=sys.stderr)
+        return 1
+    print(f"Saved team template {args.name!r}.")
     return 0
 
 
@@ -163,12 +237,13 @@ def _cmd_import(rest: list) -> int:
 
 
 _SUBCOMMANDS = {"list": _cmd_list, "show": _cmd_show, "validate": _cmd_validate, "new": _cmd_new,
-                "use": _cmd_use, "export": _cmd_export, "import": _cmd_import}
+                "edit": _cmd_edit, "use": _cmd_use, "export": _cmd_export, "import": _cmd_import}
 
 
 def cmd_teams(argv: list) -> int:
     if not argv or argv[0] in ("-h", "--help"):
-        print("usage: halo teams list|show <name>|validate [name]|new <name> [--from TEMPLATE] [--project]|"
+        print("usage: halo teams list|show <name>|validate [name]|"
+              "new <name> [--from TEMPLATE] [--project] [--form]|edit <name> [--form]|"
               "use <name>|export <name> [file]|import <file>", file=sys.stderr)
         return 0 if argv else 2
     sub, rest = argv[0], argv[1:]

@@ -216,23 +216,45 @@ This is **not** the same store as `halo config` (which reads/writes
 ### `/skills`
 Lists every discovered skill as `/name`.
 
-### `/agents`
-Lists every discovered sub-agent definition (built-ins plus
-`.claude/agents`/`~/.claude/agents`/`--agents`/managed/plugin), pulled from
-the live session's own agent runtime when one is attached so it never
-drifts from what an `Agent(subagent_type=...)` call would actually see.
-Halo 2.0.4 round 4: a second section lists every **agent bio**
-(`halo_harness/agents_yaml.py`, `halo agents show <name>` for the full
-YAML) -- a different, additive concept describing what an agent IS
-(models/tools/context/limits), assigned to a role by a **team template**.
-See [AGENTS.md](AGENTS.md).
+### `/agents [new <name>|edit <name>|duplicate <name> [new-name]|delete <name>]`
+Bare `/agents` (or `/agents list`) lists every discovered sub-agent
+definition (built-ins plus `.claude/agents`/`~/.claude/agents`/
+`--agents`/managed/plugin), pulled from the live session's own agent
+runtime when one is attached, plus a second section listing every
+**agent bio** (`halo_harness/agents_yaml.py`, `halo agents show <name>`
+for the full YAML) -- a different, additive concept describing what an
+agent IS (models/tools/context/limits), assigned to a role by a **team
+template**.
 
-### `/teams`
-Halo 2.0.4 round 4: lists every installed **team template** ("lineup" --
+**Halo 2.0.5 round 2**: bare `/agents` instead opens an interactive
+list-with-actions screen over the bios (New, New from..., Edit,
+Duplicate, Delete, Import from `.claude/agents/*.md`, one result line
+each); `new`/`edit <name>` open the bio form directly (identity, models
+with the enumerated/Agents-source picker, tools, context, limits,
+output, environment, acceptance -- see [AGENTS.md](AGENTS.md)'s wizard
+section); `duplicate <name> [new-name]` copies a bio (a shipped one
+lands in user scope, shadowing it); `delete <name>` removes a project/
+user-scope bio. Every other subcommand (`show`/`validate`/`export`/
+`import`) stays the plain-text form documented above. `halo agents
+new|edit <name> --form` opens the SAME form from the CLI -- see
+[COMMANDS.md](COMMANDS.md#halo-agents).
+
+### `/teams [new <name>|edit <name>|activate <name>]`
+Bare `/teams` lists every installed **team template** ("lineup" --
 `halo_harness/teams_yaml.py`, `~/.halo/teams/<name>.yaml`), marking the
-active one (`team` in config.json, `halo teams use <name>`). `halo teams
-show <name>` (CLI only today) prints the full resolved role table. See
-[AGENTS.md](AGENTS.md).
+active one (`team` in config.json, `halo teams use <name>`).
+
+**Halo 2.0.5 round 2**: bare `/teams` instead opens an interactive list
+screen (list, New, Edit, Activate); `new`/`edit <name>` open the lineup
+editor directly (the assignments grid, the collapsed advanced sections,
+the `about:` "how the pieces work together" text -- see
+[AGENTS.md](AGENTS.md)'s wizard section); `activate <name>` validates
+and sets the active `team:` without opening the editor. Every other
+subcommand (`show`/`validate`/`use`/`export`/`import`) stays the plain-
+text form documented above -- `halo teams show <name>` (CLI) prints the
+full resolved role table and the `about:` text when the lineup has one.
+`halo teams new|edit <name> --form` opens the SAME editor from the CLI
+-- see [COMMANDS.md](COMMANDS.md#halo-teams).
 
 ### `/roles [templates|save <name>|load <name>|new <name>|edit <name>|show <name>|set <name> <model> [effort]]`
 V2c (H15), extended Halo 2.0.2: bare `/roles` shows the resolved role table

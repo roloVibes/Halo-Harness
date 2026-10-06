@@ -176,6 +176,40 @@ def autocomplete_suggestions(models: "list[dict]", query: str, *, limit: int = 6
     return out
 
 
+def _agent_picker_rows(cwd=None, state_dir=None) -> "list[dict]":
+    """Halo 2.0.5 round 2 (deliverable 2): one row per reachable agent
+    bio -- `{"name", "description", "preferred_model", "tools_summary"}`
+    -- local-file-only (`agents_yaml.list_agent_bios`/`resolve_agent_bio`,
+    the SAME loader `halo agents show` uses), never a network call, so
+    it's safe to build synchronously the moment the Agents source is
+    toggled (never re-run the live model enumeration; this is a wholly
+    separate, cheap local read). Deliberately duplicated here rather than
+    imported from `agents_step.py` (which this dialog must never depend
+    on -- the house's own "duplicate the small shared bit, share only the
+    Textual-free behavior" convention, see `init_wizard.py`'s own
+    docstring on `ProvidersStep` vs. `InitTabsApp`)."""
+    try:
+        from halo_harness.agents_yaml import list_agent_bios, resolve_agent_bio
+    except Exception:
+        return []
+    rows: "list[dict]" = []
+    for name in list_agent_bios(cwd=cwd, state_dir=state_dir):
+        try:
+            bio = resolve_agent_bio(name, cwd=cwd, state_dir=state_dir)
+        except Exception:
+            bio = None
+        if bio is None:
+            continue
+        tools = bio.get("tools") or {}
+        allow_n, mcp_n = len(tools.get("allow") or []), len(tools.get("mcp_servers") or [])
+        tools_summary = f"{allow_n} tool(s), {mcp_n} mcp" if (allow_n or mcp_n) else ""
+        models = bio.get("models") or {}
+        rows.append({"name": name, "description": bio.get("description") or "",
+                     "preferred_model": models.get("preference") or models.get("fallback") or "",
+                     "tools_summary": tools_summary})
+    return rows
+
+
 class ModelPicker(ModalScreen):
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=False),
@@ -211,6 +245,13 @@ class ModelPicker(ModalScreen):
         Binding("ctrl+s", "cycle_sort", "Sort", show=True, priority=True),
         Binding("ctrl+g", "refresh_group", "Refresh group", show=True, priority=True),
         Binding("f5", "refresh_all", "Refresh all", show=True, priority=True),
+        # Halo 2.0.5 round 2 (deliverable 2): "the pick list ... gains a
+        # source switch (Models / Agents, one key)"; fold-in: "a one-chord
+        # toggle to show every row" (bypasses `filter_models_for_bio`'s own
+        # narrowing when THIS picker was opened pre-filtered). Both chords,
+        # never bare letters, same reasoning as every other picker key.
+        Binding("ctrl+a", "toggle_source", "Agents/Models source", show=True, priority=True),
+        Binding("ctrl+e", "toggle_show_all", "Show every row", show=True, priority=True),
     ]
     DEFAULT_CSS = """
     ModelPicker { align: center middle; }
@@ -219,7 +260,9 @@ class ModelPicker(ModalScreen):
     ModelPicker OptionList { height: 1fr; }
     """
 
-    def __init__(self, models: "list", *, current: str = "", last_used: str = "") -> None:
+    def __init__(self, models: "list", *, current: str = "", last_used: str = "",
+                 all_models: "Optional[list]" = None, allow_agent_source: bool = True,
+                 cwd=None, state_dir=None) -> None:
         super().__init__()
         # `Controller.list_models()` returns dicts; `FakeController`'s own
         # (tests/test_fake_controller.py-pinned) shape is a bare list of ref
@@ -241,6 +284,24 @@ class ModelPicker(ModalScreen):
         # first-seen/alphabetical order) first so a picker opened fresh
         # never looks different from before this round.
         self._sort_index = 0
+        # Halo 2.0.5 round 2 (deliverable 1 fold-in "a picker that knows
+        # the bio"): `models` MAY already be narrowed by the caller
+        # (`agent_bio_editor.filter_models_for_bio`) -- `all_models` is the
+        # SAME caller's own unfiltered list, shown instead once `ctrl+e`
+        # toggles "show every row"; `None` (every OTHER caller -- roles/org/
+        # lineup, never pre-filtered) means there is nothing to toggle TO.
+        self._all_models = all_models
+        self._show_all = False
+        # Halo 2.0.5 round 2 (deliverable 2): the Models/Agents source
+        # switch -- `allow_agent_source=False` (the bio editor's OWN
+        # preference/fallback fields, which must resolve to a real model,
+        # never another bio) hides the toggle entirely, same "the chord
+        # does nothing when it doesn't apply" rule other dim rows use.
+        self.allow_agent_source = allow_agent_source
+        self._source = "models"
+        self._agent_rows: "Optional[list]" = None
+        self.cwd = cwd
+        self.state_dir = state_dir
 
     def compose(self):
         with Vertical():
@@ -254,7 +315,8 @@ class ModelPicker(ModalScreen):
             # never reaches it here).
             yield NavInput(placeholder="Filter models...", id="model-filter", option_list_id="model-list",
                            extra_keys={"ctrl+o": "set_role", "ctrl+s": "cycle_sort",
-                                       "ctrl+g": "refresh_group", "f5": "refresh_all"})
+                                       "ctrl+g": "refresh_group", "f5": "refresh_all",
+                                       "ctrl+a": "toggle_source", "ctrl+e": "toggle_show_all"})
             yield OptionList(id="model-list")
             yield Static("", id="model-hint")
 
@@ -262,12 +324,26 @@ class ModelPicker(ModalScreen):
         self._refresh_list("")
         self.query_one("#model-filter", Input).focus()
 
+    def _effective_models(self) -> list:
+        """Fold-in "a one-chord toggle to show every row": the picker's
+        OWN pre-filtered `self.models` (e.g. `agent_bio_editor.filter_
+        models_for_bio`'s narrowed list) until `ctrl+e` flips `self.
+        _show_all`, then the caller's unfiltered `self.all_models`
+        (unchanged, `self.models`, when no caller ever supplied one)."""
+        if self._show_all and self._all_models is not None:
+            return self._all_models
+        return self.models
+
     def _refresh_list(self, query: str) -> None:
+        if self._source == "agents":
+            self._refresh_agent_list(query)
+            return
+        pool = self._effective_models()
         query_low = query.strip().lower()
         if query_low:
-            self._filtered = [m for m in self.models if query_low in m["ref"].lower()]
+            self._filtered = [m for m in pool if query_low in m["ref"].lower()]
         else:
-            self._filtered = self.models
+            self._filtered = pool
         option_list = self.query_one("#model-list", OptionList)
         option_list.clear_options()
         hint = self.query_one("#model-hint", Static)
@@ -313,7 +389,7 @@ class ModelPicker(ModalScreen):
             option_list.action_first()
             hint.update(self._hint_text())
         else:
-            refs = [m["ref"] for m in self.models]
+            refs = [m["ref"] for m in pool]
             near = difflib.get_close_matches(query, refs, n=5, cutoff=0.4)
             no_match = f"No exact match. Did you mean: {', '.join(near)}" if near else "No matching models."
             extra = self._hint_text()
@@ -324,16 +400,72 @@ class ModelPicker(ModalScreen):
         always shown (filter or not) -- never counted as a selectable row."""
         return "\n".join(f"  {h}" for h in self.hints) if self.hints else ""
 
+    # -- Halo 2.0.5 round 2 (deliverable 2): the Agents source -------------
+    def _agent_rows_cached(self) -> "list[dict]":
+        if self._agent_rows is None:
+            self._agent_rows = _agent_picker_rows(cwd=self.cwd, state_dir=self.state_dir)
+        return self._agent_rows
+
+    def _refresh_agent_list(self, query: str) -> None:
+        query_low = query.strip().lower()
+        rows = self._agent_rows_cached()
+        if query_low:
+            rows = [r for r in rows if query_low in r["name"].lower() or query_low in r["description"].lower()]
+        self._filtered_agent_rows = rows
+        option_list = self.query_one("#model-list", OptionList)
+        option_list.clear_options()
+        # "'New bio...' at the top of the Agents source opens the editor
+        # and returns with the new bio selected" -- the CALLER (the
+        # picker's own dismiss contract) opens the editor; this dialog
+        # only hands back the sentinel.
+        option_list.add_option(Option(Text("New bio...", style="bold italic"), id="__new_bio__"))
+        for r in rows:
+            line = f"{r['name']:<24} {r['description']}"
+            tags = [t for t in (f"model={r['preferred_model']}" if r["preferred_model"] else "",
+                                 r["tools_summary"]) if t]
+            if tags:
+                line += "  [" + ", ".join(tags) + "]"
+            option_list.add_option(Option(Text(line, no_wrap=True, overflow="ellipsis"), id=r["name"]))
+        option_list.action_first()
+        self.query_one("#model-hint", Static).update(self._hint_text())
+
+    def action_toggle_source(self) -> None:
+        if not self.allow_agent_source:
+            return
+        self._source = "agents" if self._source == "models" else "models"
+        self._refresh_list(self.query_one("#model-filter", Input).value)
+        self.query_one("#model-hint", Static).update(f"Source: {self._source}.")
+
+    def action_toggle_show_all(self) -> None:
+        if self._all_models is None or self._source != "models":
+            return
+        self._show_all = not self._show_all
+        self._refresh_list(self.query_one("#model-filter", Input).value)
+        self.query_one("#model-hint", Static).update(
+            "Showing every row (filter lifted)." if self._show_all else "Showing the filtered rows.")
+
     def on_input_changed(self, event: Input.Changed) -> None:
         self._refresh_list(event.value)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
+        if self._source == "agents":
+            rows = getattr(self, "_filtered_agent_rows", [])
+            self.dismiss({"agent": rows[0]["name"], "model": rows[0]["preferred_model"]} if rows else None)
+            return
         if self._filtered:
             self.dismiss(self._filtered[0]["ref"])
         else:
             self.dismiss(event.value.strip() or None)
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        if self._source == "agents":
+            oid = str(event.option_id)
+            if oid == "__new_bio__":
+                self.dismiss({"new_bio": True})
+                return
+            row = next((r for r in self._agent_rows_cached() if r["name"] == oid), None)
+            self.dismiss({"agent": oid, "model": (row or {}).get("preferred_model") or ""})
+            return
         self.dismiss(str(event.option_id))
 
     def action_cancel(self) -> None:

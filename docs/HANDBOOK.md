@@ -21,13 +21,22 @@ halo                         # full-screen TUI
    applies, Save, repeat for another, any tab Skippable); **Default
    model** (a picker across everything just
    configured); **Permission mode** (`auto` recommended); **Theme** (six
-   built-ins, a live preview); **Roles** (a switch, default on, plus three
-   presets); **Organizations** (a switch, default off, plus a default
+   built-ins, a live preview); **Agents** (Halo 2.0.5 round 2: list/
+   create/edit/duplicate/delete agent bios, or import one from a
+   `.claude/agents/*.md` file); **Roles and lineup** (a Lineup pane first
+   -- pick, edit, or build a new lineup assigning bios or plain models to
+   roles, plus a free-text "how the pieces work together" -- and a
+   "Legacy roles" pane with the original switch/three-presets form, never
+   removed); **Organizations** (a switch, default off, plus a default
    org); **Linux fixes** (skipped when nothing needs it); **Summary**
-   (what was written, doctor, a live "pong"). Reach Roles/Organizations
-   again later with `/setup roles`/`/setup orgs` or `halo setup roles`/
-   `halo setup orgs` -- see `docs/COMMANDS.md`'s `init`/`setup` sections
-   for exactly what each step reads and writes.
+   (what was written, doctor, a live "pong"). `--step <key-or-number>`
+   (e.g. `--step agents`) jumps straight to any one step. Reach Roles/
+   Organizations again later with `/setup roles`/`/setup orgs` or `halo
+   setup roles`/`halo setup orgs`, or the Agents/lineup forms any time
+   with `/agents`/`/teams` or `halo agents|teams new|edit --form` -- see
+   `docs/COMMANDS.md`'s `init`/`setup`/`agents`/`teams` sections and
+   `docs/AGENTS.md`'s own wizard section for exactly what each step reads
+   and writes.
 2. **The first session** opens with an empty prompt line and a status bar
    showing the model, permission mode, and MCP server count. Type a prompt
    and press `Enter`.
