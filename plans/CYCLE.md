@@ -20,8 +20,9 @@ owner's machine-specific scripts and keys, which are described, not stored.
 3. After the last round: three-platform suites (CI runs Linux and Windows
    on every push; the owner's Linux VM runs them for the tag), one live
    check on real hardware and real keys, then `python scripts/release.py
-   <version> [--remote user@host]` (changelog date, release commit,
-   annotated tag, push, install refresh), then the next version.
+   <version> [--remote user@host --identity <key>]` (changelog date,
+   release commit, annotated tag, push, install refresh; the remote step
+   runs ssh non-interactively, so name the key), then the next version.
 
 ## One round, step by step
 
