@@ -184,16 +184,20 @@ def send_turn_for(*, host, route, profile, decision, **kwargs) -> TurnResult:
     documented as a real limitation rather than a faked number."""
     if route.provider == "huggingface":
         from halo_harness.providers.huggingface_send import send_hf_turn
-        t0 = time.monotonic()
+        t0 = time.perf_counter()
         hf_result = send_hf_turn(
             base_url=host.base_url, api_key=host.api_key, model_id=route.upstream_model,
             context_tokens=getattr(decision, "num_ctx", None) or 8192,
             max_output_tokens=getattr(decision, "max_output_tokens", None) or 4096,
             **kwargs,
         )
-        elapsed = time.monotonic() - t0
+        # perf_counter, floored at one millisecond: the coarse monotonic clock on
+        # a loaded Windows runner returned 0 for a fast mock turn, which dropped
+        # the throughput sample and left tokens_per_second None (one flaky full-
+        # suite failure per release run). Real turns take far longer than 1 ms.
+        elapsed = max(time.perf_counter() - t0, 0.001)
         timing_ns = {}
-        if not hf_result.error and elapsed > 0:
+        if not hf_result.error:
             timing_ns = {"eval_count": max(1, len(hf_result.text) // 4), "eval_duration": elapsed * 1_000_000_000.0}
         return TurnResult(text=hf_result.text, tool_blocks=hf_result.tool_blocks,
                            stop_reason=hf_result.stop_reason, error=hf_result.error, timing_ns=timing_ns)
