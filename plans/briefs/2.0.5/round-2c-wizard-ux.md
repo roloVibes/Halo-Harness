@@ -47,9 +47,22 @@ anything you did not mean to change).
 6. **Rules 6, 8, 9, 10**: the one-sentence header per step, two levels
    deep at most with the toast on save and inline errors, the uniform
    footer, the Summary with "Change" jumps.
-7. Docs updated (HANDBOOK walkthrough rewritten around quick/full setup;
-   AGENTS, ROLES, ORGS where keys changed), CHANGELOG `[2.0.5]` "### Wizard
-   interaction model".
+7. **Rule 11, the Team step** (ROADMAP, "Added 2026-10-06 ~10:15"): the
+   Agents step and the "Roles and lineup" step merge into one "Team" step
+   with the "Custom roles: off / on" switch at the top; off shows the one
+   sentence and nothing else; on shows Lineups (left, highlighted = active,
+   check mark, Enter edits, Ctrl+N new, Ctrl+D duplicate) and Agents
+   (right, Enter edits, Ctrl+N new, Ctrl+D duplicate, Del delete) side by
+   side at 120x40 and stacked with a pane switch at 80x24; the lineup
+   editor's slots pick from those bios or the model list. The rail lists
+   Team in place of the two steps; `halo init --step team` (with `agents`
+   and `roles` as aliases). Roles off keeps delegation and the question
+   card working through the `standard` lineup. Reuse round 2b's list
+   screens and editors; delete the two old step classes only after the
+   pilots pass.
+8. Docs updated (HANDBOOK walkthrough rewritten around quick/full setup
+   and the Team step; AGENTS, ROLES, ORGS where keys changed; `docs/WIZARD.md`
+   gets rule 11), CHANGELOG `[2.0.5]` "### Wizard interaction model".
 
 ## Tests (hermetic)
 
@@ -87,8 +100,13 @@ start and confirm both unchanged.
 
 ## Hand-back format
 
-RESULT LINES (one per deliverable 1-7: DONE / PARTIAL with evidence and the
+RESULT LINES (one per deliverable 1-8: DONE / PARTIAL with evidence and the
 pinning test names), FILES TOUCHED, WHAT YOU FOUND (which screens broke the
 rules and how, anything left open and why, the manual check for the owner:
-`halo init` quick setup end to end, then `halo init --step agents` and
-Enter on a bio). No commit, no push.
+`halo init` quick setup end to end, then `halo init --step team`, switch
+custom roles on, Enter on a lineup, Enter on a bio). No commit, no push.
+Add to the Tests section: the Team step at both sizes (switch off shows
+only the sentence; on shows both panes; Enter edits from each pane; the
+active lineup's check mark; `--step team`, `--step agents`, `--step roles`
+all land there; roles off still spawns a sub-agent on the default model in
+a loop test and still shows a question card).

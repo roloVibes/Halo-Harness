@@ -938,3 +938,27 @@ follows it, each rule pinned by a pilot):
 
 Round 2b's sweep applies rules 1, 2 and 7 immediately; round 2c applies
 the rest and re-checks all ten with pilots at 80x24 and 120x40.
+
+Added 2026-10-06 ~10:15 (rolo): "the part when it gets to roles just gets
+very confusing. We started with the agent bios before the templates. I feel
+like templates might go first. Or maybe that screen should have both
+templates and agents in one window of the wizard, as well as that toggle
+on or off at the top if you want custom roles enabled. Halo should be able
+to spawn its sub-agents if they want and ask you questions; these are kind
+of like the custom role templates."
+
+Rule 11, **one Team step instead of Agents + Roles and lineup**: a single
+wizard screen titled "Team" with the switch "Custom roles: off / on" at
+the top. Off shows one sentence ("Halo uses <default model> for
+everything, including the sub-agents it spawns on its own, and still asks
+you questions when it needs to") and nothing else. On shows two panes side
+by side: left "Lineups" (the templates; the highlighted one is the active
+lineup, marked with a check; Enter edits, Ctrl+N new, Ctrl+D duplicate),
+right "Agents" (the bios; Enter edits, Ctrl+N new, Ctrl+D duplicate, Del
+delete). Editing a lineup opens the lineup editor whose slots pick from
+the bios on the right or from the model list. The step rail becomes
+Providers, Local models, Default model, Permissions, Theme, Team, Orgs,
+Summary; `halo init --step team` reaches it (`--step agents` and `--step
+roles` stay as aliases). Roles off never disables delegation: the
+`standard` lineup gives every role, including spawned sub-agents, the
+default model, and the question card works as today.
