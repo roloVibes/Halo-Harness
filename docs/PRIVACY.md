@@ -57,3 +57,20 @@ to reset, and the verification steps). Running `halo audit privacy`
 again never triggers a rewrite by itself -- a human decides when one is
 warranted and runs it deliberately, with a backup made first and the
 rewrite announced, never asked, since every existing clone is affected.
+
+## Your own term list stays out of the repo
+
+The machine-name check needs YOUR names (hosts, gear, projects, your own
+name) and those are never stored in this public repository: a history
+rewrite's text replacement would corrupt the rule file, and the list itself
+is identifying. Give them to the audit through one of:
+
+- `HALO_PRIVACY_TERMS`: terms separated by `;`; a `ci:` entry switches the
+  rest to case-insensitive matching.
+- `<state dir>/privacy-terms.txt` (normally `~/.halo/privacy-terms.txt`): one
+  term per line, a line `ci:` switching to case-insensitive, `#` comments.
+
+With neither present the machine-name check is inactive; every generic rule
+(user-profile paths, private and link-local addresses, LAN and `.local`
+hostnames, stray OS cache files, key- and token-shaped strings, e-mail
+addresses) still applies.

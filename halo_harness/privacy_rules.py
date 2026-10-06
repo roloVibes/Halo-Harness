@@ -13,6 +13,7 @@ value this tree actually uses today.
 """
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -75,22 +76,41 @@ STATE_DIR_MARKER = ".halo"
 # ---- known real machine / hobby-gear / vendor / owner-name terms ----------
 # Moved verbatim from tests/test_privacy_scan.py (W5/W5b/H14b passes) --
 # the only way a bare "machine name" category can be checked generically.
-REMOVED_NAMES = (
-    "REDACTED-HOSTNAME",
-    "REDACTED-PROJECT",
-    "REDACTED-HARDWARE",
-    "REDACTED-SOFTWARE",
-    "REDACTED-LABEL",
-    "REDACTED-MCP-SERVER-1",
-    "REDACTED-MCP-SERVER-2",
-    "REDACTED_CONST",
-    "REDACTED-SERVERS-LABEL",
-    "~/REDACTED-PATH",
-)
-EXTENDED_SCAN_TERMS = ("REDACTED-DAW", "REDACTED-SYNTH", "REDACTED-DRUM-LIBRARY", "REDACTED-DRUM-LIBRARY-FULL", "REDACTED-SECURITY-TOOL", "REDACTED-HOSTNAME-2", "lowery", "robert")
-# Scoped the same way the original test scoped it: LICENSE legitimately
-# carries the owner's real full name in its copyright line (expected,
-# standard, not a leak) and must never be flagged.
+def _load_owner_terms() -> "tuple[tuple[str, ...], tuple[str, ...]]":
+    """The owner's own machine / gear / vendor / name terms are NEVER stored
+    in this public repo (a history rewrite's replace-text pass would corrupt
+    this very file, and the list itself is identifying). They come from
+    `HALO_PRIVACY_TERMS` (terms separated by `;`, with `ci:` switching the
+    rest to case-insensitive) or from `<state dir>/privacy-terms.txt` (one
+    term per line, a line `ci:` switching to case-insensitive). With neither
+    present the machine-name check is simply inactive and the generic rules
+    (paths, addresses, hostnames, tokens, e-mail, junk paths) still apply."""
+    exact: "list[str]" = []
+    ci: "list[str]" = []
+    raw = os.environ.get("HALO_PRIVACY_TERMS", "")
+    entries: "list[str]" = []
+    if raw.strip():
+        entries = [e.strip() for e in raw.split(";")]
+    else:
+        try:
+            from halo_harness.config.paths import bridge_home
+            f = bridge_home() / "privacy-terms.txt"
+            if f.is_file():
+                entries = [ln.strip() for ln in f.read_text(encoding="utf-8").splitlines()]
+        except Exception:
+            entries = []
+    bucket = exact
+    for e in entries:
+        if not e or e.startswith("#"):
+            continue
+        if e.lower() == "ci:":
+            bucket = ci
+            continue
+        bucket.append(e)
+    return tuple(exact), tuple(ci)
+
+
+REMOVED_NAMES, EXTENDED_SCAN_TERMS = _load_owner_terms()
 EXTENDED_SCAN_ROOTS = ("halo_harness/", "tests/", "docs/", "README.md", "CHANGELOG.md")
 
 # ---- Windows %SystemDrive%/%USERPROFILE%-style stray cache files ---------
