@@ -62,6 +62,12 @@ test, TESTS = new_registry()
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 FAKE_CLAUDE = REPO_DIR / "tests" / "helpers" / "fake_claude_cc.py"
+# A machine without a real `claude` (CI runners, Linux suite venvs): the
+# argv-building tests resolve the launcher, so point them at the fake unless
+# the caller already chose one. `_fake_claude_env()` still sets its own.
+import shutil as _shutil
+if not os.environ.get("BRIDGE_CLAUDE_EXE") and not os.environ.get("HALO_CLAUDE_EXE")         and not (_shutil.which("claude") or _shutil.which("claude.cmd")):
+    os.environ["BRIDGE_CLAUDE_EXE"] = '"' + sys.executable + '" "' + str(FAKE_CLAUDE) + '"'
 _HOOK_SCRIPT_ARGV = [sys.executable, "-m", "tests.helpers.hook_scripts"]
 
 

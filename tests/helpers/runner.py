@@ -38,8 +38,10 @@ import shutil as _shutil
 import sys as _sys
 from pathlib import Path as _Path
 _HELPERS = _Path(__file__).resolve().parent
-if not os.environ.get("HALO_CLAUDE_EXE") and not (_shutil.which("claude") or _shutil.which("claude.cmd")):
-    os.environ["HALO_CLAUDE_EXE"] = '"' + _sys.executable + '" "' + str(_HELPERS / "fake_claude_cc.py") + '"'
+# (No HALO_CLAUDE_EXE default here: the Claude Code launcher tests in
+# test_bridge.py read that variable as a bare executable path, so a quoted
+# "python fake.py" value broke them on CI. The cc: modules that need the fake
+# set BRIDGE_CLAUDE_EXE themselves.)
 if not os.environ.get("HALO_CODEX_EXE") and not (_shutil.which("codex") or _shutil.which("codex.cmd")):
     os.environ["HALO_CODEX_EXE"] = '"' + _sys.executable + '" "' + str(_HELPERS / "fake_codex.py") + '"'
 import shutil

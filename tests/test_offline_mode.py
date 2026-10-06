@@ -789,6 +789,10 @@ def test_one_shot_cx_call_refuses_under_offline_but_not_online(ctx: Ctx):
 @_env
 def test_one_shot_cc_call_refuses_under_offline_but_not_online(ctx: Ctx):
     os.environ["HALO_OFFLINE"] = "1"
+    # The online half resolves the real claude launcher first; without one
+    # (CI runners) point Halo at the fake so the stubbed subprocess is reached.
+    os.environ["BRIDGE_CLAUDE_EXE"] = '"' + sys.executable + '" "' + str(
+        Path(__file__).resolve().parent / "helpers" / "fake_claude_cc.py") + '"'
     os.environ["BRIDGE_TEST_HOME"] = str(Path(tempfile.mkdtemp(prefix="offline-cc-oneshot-")))
     import subprocess
     import halo_harness.agent.cc_runtime as ccrt
