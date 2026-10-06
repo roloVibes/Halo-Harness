@@ -1050,3 +1050,43 @@ What the round does (brief `plans/briefs/2.0.5/round-2d-name-purge-visuals.md`):
    on `halo --version` and the intro line pool gets it as the first line.
 3. Git history and the CHANGELOG keep the old name; no rewrite (the
    owner's call, 2026-10-06 ~12:50).
+
+## ADDED 2026-10-07 (rolo): cyber scope triaged — what lands in the harness vs halo-hacker
+
+Source plans (Kali VM, ~/Documents/vibes/appDev/): halo-harness-cyber/PLAN.md
+(the five pillars) + halo-hacker/PLAN.md (the distributable product, v0.1
+built). The owner triaged the pillars 2026-10-07:
+
+**KEPT (harness chassis):**
+- Pillar 1.1-1.3 — filter-aware routing: finish_reason/content_filter/
+  null-content detection on every response (a filtered refusal is never
+  persisted as an answer), per-provider filter profiles MEASURED
+  (census-style, not datasheets), transparent reroute of filtered content
+  to a filter-free lane. (Pillar 1.4 engagement-scoped context hygiene
+  moved OUT.)
+- Pillar 2 — verify-everything telemetry: the preflight gate (tools
+  verified by effect, tool-call capability by measurement, one canary per
+  lane, exit-code gated), continuous canaries during long runs (truncation
+  prompt_eval_count-vs-sent, budget burn, response completeness), role
+  binding from the census registry.
+- Pillar 5 minus fleet: the Governor + lanes — ALREADY SHIPPED as 2.0.5
+  round 4 (60fba96).
+
+**OUT (halo-hacker / serverMode territory — never this repo):**
+- Pillar 3 — the engagement object (scope wall, evidence store +
+  hash-chained audit ledger, findings gates, report generation).
+- Pillar 4 — safety-as-architecture (human-gate flags, argv containment,
+  engagement isolation, leakcheck, the PII engine).
+- Pillar 1.4 — engagement-scoped context hygiene.
+- Pillar 5's fleet layer — NO multi-machine/federation work in the harness
+  (ed25519 node identity, mTLS, signed envelopes, trust tiers: all out).
+
+**Not triaged by the owner (defaults, override anytime):** proxy-native
+HTTP (Caido/interactsh) -> default OUT to halo-hacker (tooling, not
+chassis); on-box local-models-only engagement mode -> default OUT
+(engagement-flavored; halo's existing offline mode covers the generic
+case).
+
+**Placement:** the kept items land as rounds in 2.0.6 (preflight/canaries
+fit hardening exactly) with filter-aware routing right behind them, or in
+the 2.0.10 security pass if 2.0.6 runs long — decided at 2.0.6 planning.
