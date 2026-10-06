@@ -1,0 +1,26 @@
+# Halo 2.0.5 round 2b -- shipped team template (deliverable 2): the ONE
+# lineup a fresh install already runs, and what "Roles: off" describes.
+# Every role is assigned to the SAME shipped bio (`default-model.yaml`),
+# whose own `models.preference: default` resolves, live, to the session's
+# own current default model -- so this lineup and "Roles: off" (an empty
+# role table) always produce the identical observable behaviour: every
+# role uses whatever model you picked as the session default, and moving
+# that default moves every role with it. See docs/AGENTS.md.
+name: standard
+description: >-
+  Every role uses the model you picked as the session default -- what
+  "Roles: off" already means, made into an explicit, inspectable lineup.
+version: "1.0"
+tags: [starter]
+roles:
+  main: default-model
+  orchestrator: default-model
+  planner: default-model
+  coder: default-model
+  reviewer: default-model
+  judge: default-model
+  researcher: default-model
+  tester: default-model
+  compaction: default-model
+  small: default-model
+  subagent_default: default-model

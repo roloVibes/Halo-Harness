@@ -122,6 +122,34 @@ own `acceptance.prompt` through a real one-shot model call (`halo -p
 Deferred to 2.0.5 with the Governor: `hooks` (pre/post tool commands) and
 `schedule`/`triggers` -- not part of a bio's schema yet.
 
+## The `default` model reference and the `standard` lineup (Halo 2.0.5 round 2b)
+
+`models.preference`/`models.fallback` may hold the literal string
+`default` instead of a real model ref -- `agents_yaml.resolve_agent_bio`
+substitutes it, EVERY TIME it resolves that bio, with the session's own
+current default model (`~/.halo/config.json`'s plain `model` key, the
+one the init wizard's Default model step/`/model`/`halo config set
+model ...` all write). Nothing is baked in at save time: change the
+default model and the very next resolution of a bio that uses `default`
+picks it up, with no file to edit.
+
+The shipped bio `default-model` (`halo_harness/templates/agents/
+default-model.yaml`) pins `models.preference: default` and nothing else;
+the shipped lineup `standard` (`halo_harness/templates/teams/
+standard.yaml`) assigns every one of `roles.py`'s own role names to that
+SAME bio. Resolving `standard` therefore always produces a role table
+where every role equals the session's own default model -- the EXACT
+observable behaviour "Roles: off" already has (`roles.resolve_role_
+table()` returns `{}` outright, which means the same thing: every role
+falls through to the session model). A config with no `team:` and
+`roles.enabled: false` and a config with `team: standard` and `roles.
+enabled: true` are therefore equivalent in what a session actually
+does -- `standard` just makes that default EXPLICIT and inspectable
+(`halo teams show standard` prints its own one-sentence description).
+"Roles: off" is what a fresh install runs; it does not write `team:
+standard` to config.json on its own -- see [ROLES.md](ROLES.md)'s own
+"Roles on/off is one switch" section.
+
 ## Team template ("lineup") fields
 
 The short form -- `roles:` is SUGAR, expanding to one `agents:` entry per
@@ -359,6 +387,22 @@ shows the YAML that would be written, live, as you type; every problem
 there AND beside the field it names, not only on Save -- a bad Save
 keeps the form open. Save writes user scope by default, project scope on
 a toggle.
+
+Round 2b fixes: both panes are a fixed-height `VerticalScroll` (never
+sized to content) and every field/button is `compact` (Textual's own
+no-border, one-row widget style), so the name/description/kind/model
+fields are all visible on open at 80x24, not just after scrolling; the
+preferred/fallback field and its own "Pick..." button now share one row
+instead of stacking. The owner's report ("you can't pick from the
+available models") traced to Ctrl+P itself: Textual's own App ALWAYS
+claims `ctrl+p` as a priority binding for its command palette, which a
+Screen's own binding on the same key can never win against -- the
+picker's `self.models` was fine all along; the KEYSTROKE never reached
+`action_pick_preference` at all. Fixed by borrowing `app.action_command_
+palette` for as long as this screen (and the lineup/org editors, which
+had the identical collision on their own `ctrl+p`) is on top, restored
+the instant it closes -- the visible "Pick..." buttons were never
+affected by this, only the chord.
 
 **New from...** (and the picker's own "New bio..." -- any role-slot pick
 can create a bio inline, see below) opens the form with `extends:` set:

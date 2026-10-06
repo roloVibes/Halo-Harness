@@ -190,6 +190,31 @@ def filter_models_for_bio(models: "list[dict]", form: dict, *, show_all: bool = 
     return out
 
 
+def filter_models_for_bio_with_reason(models: "list[dict]", form: dict) -> "tuple[list[dict], Optional[str]]":
+    """Deliverable 4: "the bio-needs filter never yields an empty list
+    silently: when it would, show all rows with one line saying why" --
+    `filter_models_for_bio`'s own narrowing stays exactly as it is (its
+    own pinned return shape, a plain list, is unchanged); THIS function
+    is the one `_open_picker` below actually calls, falling back to
+    every candidate row plus the one-line reason the picker shows as its
+    own initial hint whenever the narrowed list would otherwise be
+    empty. `(filtered, None)` is the common case -- the filter kept at
+    least one row, or `models` was already empty (nothing to explain)."""
+    filtered = filter_models_for_bio(models, form)
+    if filtered or not models:
+        return filtered, None
+    reasons = []
+    if (form.get("tools") or {}).get("allow"):
+        reasons.append("no model in the catalog declares tool support")
+    if (form.get("environment") or {}).get("offline"):
+        reasons.append("no local (ol:, hf:local/, hf:mlx/) model is configured")
+    budget_frac = (form.get("models") or {}).get("context_budget")
+    if isinstance(budget_frac, (int, float)) and budget_frac > 0:
+        reasons.append(f"no model's context is large enough for a {budget_frac:.2g} budget")
+    why = "; ".join(reasons) or "this bio's own filters matched nothing"
+    return list(models), f"Showing every model -- {why} (ctrl+e does the same)."
+
+
 def suggest_models(models: "Optional[list]" = None, *, state_dir=None,
                     default_model: "Optional[str]" = None) -> "tuple[str, str]":
     """Fold-in "Suggest fills preference and fallback the way the roles
@@ -253,13 +278,16 @@ class AgentBioEditor(ModalScreen):
     DEFAULT_CSS = """
     AgentBioEditor { align: center middle; }
     AgentBioEditor > Horizontal { width: 96%; height: 92%; border: round $primary; background: $surface; }
-    AgentBioEditor #bio-form-pane { width: 62%; padding: 1 2; border-right: solid $primary-darken-1; }
-    AgentBioEditor #bio-preview-pane { width: 38%; padding: 1 2; }
-    AgentBioEditor .bio-section-title { color: $accent; text-style: bold; margin-top: 1; }
+    AgentBioEditor #bio-form-pane { width: 62%; height: 100%; padding: 1 2; border-right: solid $primary-darken-1; }
+    AgentBioEditor #bio-preview-pane { width: 38%; height: 100%; padding: 1 2; }
+    AgentBioEditor .bio-section-title { color: $accent; text-style: bold; margin-top: 1; height: 1; }
     AgentBioEditor .bio-hint { color: $text-muted; }
-    AgentBioEditor .bio-field-row { height: 3; }
+    AgentBioEditor .bio-field-row { height: 1; margin-top: 1; }
     AgentBioEditor .bio-field-row Switch { width: 8; }
-    AgentBioEditor TextArea#bio-rules { height: 5; }
+    AgentBioEditor .bio-modelref-row { height: 1; }
+    AgentBioEditor .bio-modelref-row Input { width: 1fr; }
+    AgentBioEditor .bio-modelref-row Button { width: auto; margin-left: 1; }
+    AgentBioEditor TextArea#bio-rules { height: 4; }
     AgentBioEditor #bio-preview { color: $text-muted; }
     """
 
@@ -315,16 +343,17 @@ class AgentBioEditor(ModalScreen):
                               "Esc: cancel", classes="dialog-subtitle")
                 yield Static("Identity", classes="bio-section-title")
                 if self.is_new:
-                    yield Input(value=self.bio_name, placeholder="name", id="bio-name")
+                    yield Input(value=self.bio_name, placeholder="name", id="bio-name", compact=True)
                 else:
                     yield Static(f"Name: {self.bio_name} (fixed -- rename by duplicating)", id="bio-name-display")
-                yield Input(value=self.bio.get("description") or "", placeholder="Description", id="bio-description")
-                yield Input(value=", ".join(self.bio.get("tags") or []), placeholder="Tags (comma-separated)",
-                            id="bio-tags")
+                yield Input(value=self.bio.get("description") or "", placeholder="Description", id="bio-description",
+                            compact=True)
                 yield Input(value=self.bio.get("kind") or "", placeholder=f"Kind ({'/'.join(KNOWN_KINDS)})",
-                            id="bio-kind")
+                            id="bio-kind", compact=True)
+                yield Input(value=", ".join(self.bio.get("tags") or []), placeholder="Tags (comma-separated)",
+                            id="bio-tags", compact=True)
                 yield Input(value=self.extends_from or "", placeholder="Extends (another bio name)",
-                            id="bio-extends")
+                            id="bio-extends", compact=True)
                 yield Static("", id=_IDENTITY_HINT_ID, classes="bio-hint")
                 for section in BIO_SECTIONS:
                     yield Static(section.capitalize(), classes="bio-section-title")
@@ -336,8 +365,8 @@ class AgentBioEditor(ModalScreen):
                     yield Switch(value=self.project, id="bio-project-toggle")
                     yield Static(" Save to project scope (.halo/agents/)", classes="wizard-switch-label")
                 with Horizontal(classes="wizard-extra-buttons"):
-                    yield Button("Save (ctrl+s)", id="bio-save", variant="primary")
-                    yield Button("Cancel (esc)", id="bio-cancel")
+                    yield Button("Save (ctrl+s)", id="bio-save", variant="primary", compact=True)
+                    yield Button("Cancel (esc)", id="bio-cancel", compact=True)
                 yield Static("", id="bio-hint")
             with VerticalScroll(id="bio-preview-pane"):
                 yield Static("Preview -- the YAML that would be written:", classes="dialog-subtitle")
@@ -364,7 +393,7 @@ class AgentBioEditor(ModalScreen):
             yield Switch(value=bool(value), id=wid, disabled=self.extends_from and not override_default)
         elif kind == "lines":
             text = "\n".join(own if has_own else (inherited or []))
-            yield TextArea(text, id=wid, disabled=self.extends_from and not override_default)
+            yield TextArea(text, id=wid, disabled=self.extends_from and not override_default, compact=True)
             yield Static("", id=f"{wid}-sentences", classes="bio-hint")
         else:
             if kind == "memory":
@@ -379,10 +408,21 @@ class AgentBioEditor(ModalScreen):
             placeholder = label if has_own or not self.extends_from else f"(inherited: {text or '(unset)'})"
             display_text = text if (has_own or not self.extends_from) else ""
             widget = Input(value=display_text, placeholder=placeholder, id=wid,
-                            disabled=bool(self.extends_from and not override_default))
-            yield widget
+                            disabled=bool(self.extends_from and not override_default), compact=True)
             if kind == "modelref":
-                yield Button(f"Pick... (ctrl+{'p' if key == 'preference' else 'f'})", id=f"{wid}-pick")
+                # Deliverable 3: the preferred/fallback row shares ONE line
+                # with its own "Pick..." button (never a separate row below
+                # it) -- the biggest single saving toward "the model fields
+                # are visible on open at 80x24" (the pilot-measured fix:
+                # before this, the bio editor's own field+button stacking
+                # alone pushed the preference field some 10+ rows below the
+                # fold on an 80x24 terminal).
+                with Horizontal(classes="bio-modelref-row"):
+                    yield widget
+                    yield Button(f"Pick... (ctrl+{'p' if key == 'preference' else 'f'})", id=f"{wid}-pick",
+                                 compact=True)
+            else:
+                yield widget
             if suffix == "limit-timeout":
                 yield Static("", id=f"{wid}-hint", classes="bio-hint")
             if suffix == "limit-budget":
@@ -391,6 +431,36 @@ class AgentBioEditor(ModalScreen):
     # -- mount / change handling --------------------------------------------
     def on_mount(self) -> None:
         self._refresh_preview()
+        # ROOT CAUSE of "pressing Ctrl+P shows no models" (traced live):
+        # Textual's own App ALWAYS registers ctrl+p as a PRIORITY binding
+        # for its command palette (`textual.app.App`'s own `__init__`/
+        # `action_command_palette`) -- a Screen's own `priority=True`
+        # Binding on the SAME key never even runs; Textual resolves the
+        # key to the App's binding first and calls `app.action_command_
+        # palette()` outright (confirmed: the screen that opened was
+        # `CommandPalette`, never this dialog's own `ModelPicker`, no
+        # matter how `AgentBioEditor.BINDINGS` is written). Toggling
+        # `app.use_command_palette` alone does not fix it either -- the
+        # App's binding still "claims" the key and no-ops, so the Screen's
+        # own binding STILL never fires. The actual fix: borrow the one
+        # method Textual calls, `app.action_command_palette`, for exactly
+        # as long as this dialog is on top -- Ctrl+P keeps opening the
+        # model picker everywhere else this dialog is open (the brief:
+        # "Ctrl+P / Ctrl+F stay"), and the real command palette comes back
+        # the instant it closes (`on_unmount` below).
+        self._restore_command_palette = self.app.action_command_palette
+        self.app.action_command_palette = self.action_pick_preference
+        try:
+            first = self.query_one("#bio-name", Input) if self.is_new else self.query_one("#bio-description", Input)
+            first.focus()
+        except Exception:
+            pass
+
+    def on_unmount(self) -> None:
+        try:
+            self.app.action_command_palette = self._restore_command_palette
+        except Exception:
+            pass
 
     def on_input_changed(self, _event) -> None:
         self._refresh_preview()
@@ -585,9 +655,9 @@ class AgentBioEditor(ModalScreen):
         except Exception:
             pass
         form = self._collect_form()
-        candidates = filter_models_for_bio(self.models, form)
+        candidates, reason = filter_models_for_bio_with_reason(self.models, form)
         self.app.push_screen(ModelPicker(candidates, current=current, all_models=self.models,
-                                          allow_agent_source=False),
+                                          allow_agent_source=False, initial_hint=reason or ""),
                               lambda result: self._model_picked(target, result))
 
     def action_pick_preference(self) -> None:

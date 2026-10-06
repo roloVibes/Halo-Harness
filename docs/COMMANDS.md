@@ -2073,6 +2073,9 @@ refusing a still-running one unless `--force` (which stops it first).
 ## `halo roles`
 
 ```sh
+halo roles                           print the roles state, then the configured table
+halo roles on
+halo roles off
 halo roles template list
 halo roles template show <name>
 halo roles template save <name> [--description TEXT]
@@ -2080,6 +2083,20 @@ halo roles template new <name> [--description TEXT]
 halo roles template load <name>
 halo roles template edit <name>
 ```
+
+Halo 2.0.5 round 2b: `on`/`off` is the ONE switch for `roles.enabled`,
+from the CLI (`/roles on|off` in the TUI/print mode, and a "Roles: on /
+off" toggle at the top of the init wizard's "Roles and lineup" step are
+the other two surfaces that write the SAME key). Bare `halo roles` always
+prints the state as its first line -- `roles: on (lineup <name>)` when a
+lineup is active, `roles: on (legacy role table)` with roles on but no
+lineup, or `roles: off (standard: every role uses the default model)` --
+before the configured table below it. `halo roles template load <name>`
+also turns roles ON (the fixed weak spot: loading used to leave the table
+sitting inert until a hand edit of config.json); `halo teams use <name>`
+([AGENTS.md](AGENTS.md)) is the non-overwriting way to just point the
+active lineup at a different, already-matching table without reloading
+one.
 
 Halo 2.0.2: manages `~/.halo/roles/<name>.json` role templates (`{"name",
 "description", "roles": {role: model_or_{"model","effort"}}}`). `save`

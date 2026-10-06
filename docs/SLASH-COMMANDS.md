@@ -256,7 +256,7 @@ full resolved role table and the `about:` text when the lineup has one.
 `halo teams new|edit <name> --form` opens the SAME editor from the CLI
 -- see [COMMANDS.md](COMMANDS.md#halo-teams).
 
-### `/roles [templates|save <name>|load <name>|new <name>|edit <name>|show <name>|set <name> <model> [effort]]`
+### `/roles [on|off|templates|save <name>|load <name>|new <name>|edit <name>|show <name>|set <name> <model> [effort]]`
 V2c (H15), extended Halo 2.0.2: bare `/roles` shows the resolved role table
 (model, effort, endpoint/path type, price per role), pulled from the live
 session's own `agent_runtime.role_table`/`.cli_role_overrides` (the SAME
@@ -267,6 +267,10 @@ only (print mode names that instead); `set` is the long form of `/role`
 below. Round 5b part 2: a VRAM-aware role redirected to the main model
 (`docs/MODELS.md`'s "VRAM-aware role defaults") shows `(same as main:
 fits beside it: no)` next to that role's own source. See `docs/ROLES.md`.
+
+Halo 2.0.5 round 2b: `on`/`off` is the ONE switch for `roles.enabled` --
+the SAME key `halo roles on|off` and the wizard's "Roles: on / off" toggle
+write; `load <name>` now also turns it on (printed in the reply).
 
 Halo 2.0.4 round 4: `edit <name>` (and the wizard's own "Edit roles...")
 now picks a model from the SAME merged, enumerated, grouped list `/model`

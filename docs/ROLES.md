@@ -17,6 +17,28 @@ via `halo init --provider databricks`. Round 7 (the init wizard) is
 verified against `halo_harness/tui/dialogs/init_wizard.py` and
 `setup_cli.py` too.
 
+## Roles on/off is one switch (Halo 2.0.5 round 2b)
+
+`roles.enabled` (default **on**) is the ONE switch, everywhere: `halo
+roles on`/`halo roles off` (CLI), `/roles on|off` (TUI/print mode), and a
+**"Roles: on / off"** toggle at the TOP of the wizard's "Roles and
+lineup" step -- off hides BOTH panes (the Lineup pane and the Legacy
+roles pane) and shows one sentence, "every role uses the default model",
+rather than leaving one pane live while only the other is hidden (the
+2.0.5 round 2 version of this switch only ever covered the legacy
+pane). `halo roles` always prints the state as its own first line --
+`roles: on (lineup <name>)`, `roles: on (legacy role table)`, or `roles:
+off (standard: every role uses the default model)` -- before the
+configured table below it. `halo roles template load <name>` now also
+turns roles ON (previously it wrote the role mappings and left `roles.
+enabled` exactly as it was, so a freshly loaded table sat inert until a
+hand edit of config.json); `halo teams use <name>` ([AGENTS.md](AGENTS.
+md)) is the non-overwriting way to just point the active lineup at an
+already-matching table, never touching `roles.enabled` or re-applying
+anything. See [AGENTS.md](AGENTS.md)'s own "The `default` model
+reference and the `standard` lineup" section for what "off" is actually
+equivalent to.
+
 ## Setting up with the wizard (`roles.enabled`, presets)
 
 The init wizard's own Roles step (`halo init`, step 7 (retitled "Roles
@@ -29,7 +51,9 @@ returns `{}` outright, the same shape a session with no role table
 configured at all already falls through to -- and `/roles`/`/role` are
 hidden from `/help`/tab-completion/the rotating tips (never from
 `resolve()` itself: typing either by hand still works, this is a
-discoverability default, never a functional gate).
+discoverability default, never a functional gate). Round 2b moved this
+switch to the top of the step and made it cover the Lineup pane too --
+see "Roles on/off is one switch" above.
 
 With it on, the step shows three shipped **presets** -- written as
 ordinary templates (below) into `~/.halo/roles/` the first time this

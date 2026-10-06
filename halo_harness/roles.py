@@ -204,6 +204,39 @@ def roles_mode_enabled() -> bool:
     return bool(get_config_value("roles.enabled", True))
 
 
+def set_roles_enabled(enabled: bool) -> None:
+    """Halo 2.0.5 round 2b (deliverable 1): "Roles on/off is one switch,
+    everywhere" -- `halo roles on|off`, `/roles on|off`, and the wizard's
+    "Roles: on / off" toggle all write through here, so the ONE config
+    key (`roles.enabled`) is the single source of truth no matter which
+    surface flips it. Never touches `team`/the legacy table -- turning
+    roles off/on again leaves whatever lineup or table was configured
+    untouched, same "describe behaviour, don't destroy config" rule
+    every other mode switch in this codebase already follows."""
+    from halo_harness.theme import set_config_value
+    set_config_value("roles.enabled", bool(enabled))
+
+
+def roles_state_line() -> str:
+    """The one line every surface shows FIRST for the current roles
+    state (brief: "`halo roles` prints the state as its first line") --
+    `halo roles` (CLI), `/roles` and `/roles on|off` (TUI/print mode), and
+    the wizard's own off-sentence all quote this verbatim, so the state is
+    described identically everywhere it's shown. "on" names the active
+    `team:` lineup when one is set (the common case once a lineup has been
+    applied); with roles on but no active lineup (a hand-edited legacy
+    table, or nothing configured yet) it says so instead -- "off" is
+    always described the same way `standard.yaml` (docs/AGENTS.md) itself
+    resolves: every role lands on the session's own default model."""
+    if not roles_mode_enabled():
+        return "roles: off (standard: every role uses the default model)"
+    from halo_harness.theme import get_config_value
+    team = get_config_value("team", default=None)
+    if isinstance(team, str) and team.strip():
+        return f"roles: on (lineup {team.strip()})"
+    return "roles: on (legacy role table)"
+
+
 def resolve_role_table(*, provider: Optional[str] = None) -> dict:
     """The persisted role table a session resolves agents against --
     `configured_role_table()` verbatim whenever it holds ANYTHING at all;
@@ -727,13 +760,20 @@ def apply_role_template(name: str, state_dir=None) -> "tuple[bool, list[str]]":
     roles" -- a template the user just asked to load outranks a stale
     local value exactly the way a fresh `--role`/`/role` override would).
     `(True, [])` on success; `(False, [reason])` for an unknown/invalid
-    template name -- never raises."""
+    template name -- never raises.
+
+    2.0.5 round 2b (owner's own weak-spot report): also turns `roles.
+    enabled` ON -- loading a table that then sits inert until a hand edit
+    of config.json was the exact bug reported; `set_roles_enabled` is the
+    one place that key is ever written, so this never drifts from `halo
+    roles on`/`/roles on`/the wizard toggle's own meaning of "on"."""
     from halo_harness.theme import set_config_value
     template = load_role_template(name, state_dir=state_dir)
     if template is None:
         return False, [f"no such role template: {name!r} (or it failed validation)"]
     for role_name, value in template["roles"].items():
         set_config_value(f"roles.{role_name}", value)
+    set_roles_enabled(True)
     return True, []
 
 

@@ -141,6 +141,19 @@ class OrgEditor(ModalScreen):
         # default, unchanged from before this picker existed (same fix
         # `roles_editor.py`'s own on_mount needed).
         self.query_one("#org-tree-list", OptionList).focus()
+        # Bug sweep (2.0.5 round 2b, found driving Orgs in the same pilot
+        # flow as the bio/lineup editors): ctrl+p here collided with
+        # Textual's own App-level command-palette priority binding for
+        # the exact same reason `agent_bio_editor.AgentBioEditor.on_mount`
+        # documents -- same fix, borrowed for this dialog's own lifetime.
+        self._restore_command_palette = self.app.action_command_palette
+        self.app.action_command_palette = self.action_pick_model
+
+    def on_unmount(self) -> None:
+        try:
+            self.app.action_command_palette = self._restore_command_palette
+        except Exception:
+            pass
 
     def _refresh_template_picker(self) -> None:
         from halo_harness.orgs import list_orgs
