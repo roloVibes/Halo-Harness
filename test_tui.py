@@ -9067,6 +9067,90 @@ def test_mcp_dialog_t_tests_the_highlighted_row(ctx: Ctx):
     asyncio.run(body())
 
 
+# Halo 2.0.4 round 6 ("MCP connectivity deep dive"): `D` (diagnose only)
+# and `A` (the explicit yes -- diagnose again, apply, re-test) -- same
+# scripted-FakeController shape as every other repair action above; the
+# real probe/model/apply-to-disk machinery is covered end to end (no TUI
+# involved) in tests/test_mcp_doctor_deep.py.
+
+@test
+def test_mcp_dialog_legend_mentions_deep_dive_and_apply_fix(ctx: Ctx):
+    from textual.widgets import Static
+
+    async def body():
+        fake = FakeController(mcp_servers=[dict(r) for r in _FAKE_MCP_ROWS])
+        app = await _mounted(fake)
+        async with app.run_test(size=(120, 40)) as pilot:
+            screen = await _open_mcp_dialog(pilot, app)
+            legend = _static_text(screen.query_one("#mcp-legend", Static))
+            for key in ("deep dive", "apply fix"):
+                ctx.check(f"legend mentions {key!r}, got {legend!r}", key in legend)
+    asyncio.run(body())
+
+
+@test
+def test_mcp_dialog_D_deep_dives_the_highlighted_row_without_applying(ctx: Ctx):
+    from textual.widgets import Static
+
+    async def body():
+        fake = FakeController(mcp_servers=[dict(r) for r in _FAKE_MCP_ROWS])
+        fake.deep_dive_fix = "CONFIG_EDIT: env.FOO=bar"
+        app = await _mounted(fake)
+        async with app.run_test(size=(120, 40)) as pilot:
+            screen = await _open_mcp_dialog(pilot, app)
+            _highlight(screen, "broken")
+            await pilot.press("D")
+            await _wait_until(app, pilot, lambda: fake.deep_dives)
+            ctx.check(f"deep_dive_mcp_server called with the right name, got {fake.deep_dives}",
+                      fake.deep_dives == ["broken"])
+            ctx.check(f"D never applies anything by itself, got {fake.applies}", fake.applies == [])
+            hint = _static_text(screen.query_one("#mcp-hint", Static))
+            ctx.check(f"the hint shows the proposed fix, got {hint!r}", "CONFIG_EDIT" in hint)
+    asyncio.run(body())
+
+
+@test
+def test_mcp_dialog_A_applies_the_fix_and_refreshes_the_row(ctx: Ctx):
+    from textual.widgets import OptionList, Static
+
+    async def body():
+        fake = FakeController(mcp_servers=[dict(r) for r in _FAKE_MCP_ROWS])
+        app = await _mounted(fake)
+        async with app.run_test(size=(120, 40)) as pilot:
+            screen = await _open_mcp_dialog(pilot, app)
+            _highlight(screen, "broken")
+            await pilot.press("A")
+            await _wait_until(app, pilot, lambda: fake.applies)
+            ctx.check(f"apply_mcp_fix called with the right name, got {fake.applies}", fake.applies == ["broken"])
+            hint = _static_text(screen.query_one("#mcp-hint", Static))
+            ctx.check(f"the hint reports it fixed and verified, got {hint!r}", "fixed and verified" in hint)
+            option_list = screen.query_one(OptionList)
+            texts = {o.id: str(o.prompt) for o in option_list.options}
+            ctx.check(f"the row reflects connected after the refresh, got {texts.get('broken')!r}",
+                      "Connected" in texts.get("broken", ""))
+    asyncio.run(body())
+
+
+@test
+def test_mcp_dialog_shows_last_diagnosis_line_when_present(ctx: Ctx):
+    from textual.widgets import OptionList
+
+    async def body():
+        rows = [dict(r) for r in _FAKE_MCP_ROWS]
+        for r in rows:
+            if r["name"] == "broken":
+                r["last_diagnosis"] = "last deep dive: 2026-10-06 00:00:00 -- proposed: ENV: FOO"
+        fake = FakeController(mcp_servers=rows)
+        app = await _mounted(fake)
+        async with app.run_test(size=(120, 40)) as pilot:
+            screen = await _open_mcp_dialog(pilot, app)
+            option_list = screen.query_one(OptionList)
+            texts = {o.id: str(o.prompt) for o in option_list.options}
+            ctx.check(f"the row shows the last diagnosis line, got {texts.get('broken')!r}",
+                      "last deep dive" in texts.get("broken", ""))
+    asyncio.run(body())
+
+
 @test
 def test_mcp_dialog_d_toggles_disabled_then_enabled(ctx: Ctx):
     async def body():

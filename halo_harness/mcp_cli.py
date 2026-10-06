@@ -87,7 +87,22 @@ def format_mcp_list_line(entry: dict) -> str:
         cmdline = f"{command} {args_str}".strip()
         line = f"{name}: {cmdline} - {label}"
     reason = failure_reason(entry)
+    when = last_error_at_text(entry.get("last_error_at"))
+    if reason and when:
+        return f"{line} ({reason}; last failed {when})"
     return f"{line} ({reason})" if reason else line
+
+
+def last_error_at_text(last_error_at) -> Optional[str]:
+    """round6 brief deliverable 1: `last_error_at` (manager.McpServerHandle,
+    epoch seconds) as a local wall-clock string, same `strftime` shape
+    `gym.py`/`tui/widgets/cards.py` already render a timestamp with --
+    `None` for anything that isn't a real number (never attempted, or a
+    disabled placeholder with no timed failure of its own)."""
+    if not isinstance(last_error_at, (int, float)):
+        return None
+    import time
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_error_at))
 
 
 def failure_reason(entry: dict) -> str:
@@ -415,6 +430,9 @@ def _cmd_get(rest: list) -> int:
             print(f"  Instructions: {entry['instructions']}")
         if entry.get("error"):
             print(f"  Error: {entry['error']}")
+            when = last_error_at_text(entry.get("last_error_at"))
+            if when:
+                print(f"  Last failed: {when}")
         print(f"  Tools: {entry.get('tool_count', 0)}")
         return 0
     finally:

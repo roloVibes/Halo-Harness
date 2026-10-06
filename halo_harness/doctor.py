@@ -1797,6 +1797,23 @@ def cmd_doctor(argv: list) -> int:
                          help="Validate every agent bio and the active team template, then run each bio's "
                              "own acceptance check against a real model call")
     parser.add_argument("--mock", action="store_true", help="With --agents: never call a real model (tests only)")
+    # Halo 2.0.4 round 6 ("MCP connectivity deep dive"): `halo doctor --mcp
+    # deep [name]` -- see `_cmd_mcp_deep` below. `mcp_name` is a plain
+    # positional (meaningful only with `--mcp deep`) rather than another
+    # flag, matching the brief's own `halo doctor --mcp deep [name]`
+    # syntax; harmless for every other preset (always None there).
+    parser.add_argument("--mcp", choices=["deep"], default=None,
+                         help="Run the MCP connectivity deep dive (`--mcp deep [name]`) instead of the "
+                             "general checks")
+    parser.add_argument("mcp_name", nargs="?", default=None, metavar="NAME",
+                         help="With --mcp deep: only this server (default: every currently-failing one)")
+    parser.add_argument("--apply", action="store_true",
+                         help="With --mcp deep: apply the model's proposed fix for each failing server "
+                             "(after showing it), then re-test")
+    parser.add_argument("--from", dest="mcp_from", default=None, metavar="DIR",
+                         help="With --mcp deep: diagnose a captured corpus directory (halo bugreport / "
+                             "halo mcp test output, see docs/TROUBLESHOOTING.md) instead of live servers "
+                             "-- never applies anything")
     parser.add_argument("--cwd", default=None, metavar="DIR",
                          help="Resolve settings/credentials as if run from DIR")
     parser.add_argument("--settings", default=None, metavar="JSON_OR_PATH",
@@ -1851,6 +1868,8 @@ def cmd_doctor(argv: list) -> int:
                   f"{len(shape_problems)} shape problem(s), {len(team_problems)} active-team problem(s).")
         return 0 if not shape_problems and not team_problems and all(ok for _n, ok, m in results
                                                                        if m != "no acceptance block") else 1
+    if args.mcp == "deep":
+        return _cmd_mcp_deep(mcp_name=args.mcp_name, apply=args.apply, corpus_dir=args.mcp_from, cwd=doctor_cwd)
     if args.local:
         from halo_harness.config.paths import bridge_home
         from halo_harness.doctor_local import format_acceptance_lines, run_local_acceptance_check
@@ -1895,4 +1914,58 @@ def cmd_doctor(argv: list) -> int:
     print("halo doctor")
     for line in lines:
         print(f"  {line}")
+    return 0 if ok else 1
+
+
+def _cmd_mcp_deep(*, mcp_name: Optional[str], apply: bool, corpus_dir: Optional[str],
+                   cwd: Optional[Path]) -> int:
+    """`halo doctor --mcp deep [name] [--apply] [--from DIR]` (round 6
+    brief deliverables 2/3/5) -- per server, `mcp.doctor_probe.
+    probe_server`'s bounded evidence, then `mcp.doctor_deep.diagnose`'s
+    propose-or-replay-and-maybe-apply. `--from DIR` reads a captured
+    corpus instead (never applies -- there is no live server to re-test
+    against); see docs/TROUBLESHOOTING.md's "MCP servers" section for the
+    directory layout."""
+    from halo_harness.mcp import doctor_deep
+    cwd = cwd or Path.cwd()
+
+    if corpus_dir:
+        print(f"halo doctor --mcp deep --from {corpus_dir}")
+        if apply:
+            print("  Note: --apply has no effect with --from -- there is no live server here to re-test "
+                  "against; apply the fix yourself, then re-run `halo mcp test <name>` for real.")
+        results = doctor_deep.diagnose_from_corpus(Path(corpus_dir), [mcp_name] if mcp_name else None)
+        if not results:
+            print(f"  No server logs/test-output/bugreport lines found under {corpus_dir}.")
+            return 1
+        for r in results:
+            print(r.message)
+            print()
+        return 0 if all(r.verdict == "healthy" for r in results) else 1
+
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.config.settings import resolve_settings
+    settings = resolve_settings(cwd, trusted=True)
+    names = [mcp_name] if mcp_name else doctor_deep.select_failing_targets(cwd, settings)
+    header = f"halo doctor --mcp deep{f' {mcp_name}' if mcp_name else ''}{' --apply' if apply else ''}"
+    print(header)
+    if not names:
+        print("  Every configured server is healthy right now -- nothing to diagnose. "
+              "Pass a name to deep-dive it anyway.")
+        return 0
+    tool_env = doctor_deep.resolve_tool_env(cwd, settings)
+    state_dir = bridge_home()
+    ok = True
+    for name in names:
+        cfg = doctor_deep.resolve_one_config(name, cwd=cwd, settings=settings)
+        if cfg is None:
+            print(f"  {name}: no MCP server found with this name.")
+            ok = False
+            continue
+        result = doctor_deep.diagnose(name, cfg, cwd=cwd, tool_env=tool_env, state_dir=state_dir,
+                                        apply=apply, settings=settings)
+        print(result.message)
+        print()
+        if result.verdict != "healthy" and not result.applied:
+            ok = False
     return 0 if ok else 1

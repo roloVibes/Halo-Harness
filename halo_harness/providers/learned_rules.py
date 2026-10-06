@@ -171,6 +171,26 @@ def forget_tools_rejected(state_dir, endpoint: str) -> bool:
         return True
 
 
+def learned_mcp_fix(state_dir, signature: str) -> Optional[dict]:
+    """Halo 2.0.4 round 6 (MCP connectivity deep dive): the fix that
+    worked LAST time for this exact failure signature (`mcp.doctor_deep.
+    failure_signature`: command basename + error class + a normalized
+    stderr fingerprint) -- `None` when nothing has been learned for it
+    yet. Namespaced under `"mcp:<signature>"` in this SAME file (`_key`'s
+    own `"<provider>:<model>"` shape never produces a provider literally
+    named "mcp", so there is no collision with an endpoint row)."""
+    row = load_learned_rules(state_dir).get(_key("mcp", signature))
+    return row.get("mcp_fix") if isinstance(row, dict) else None
+
+
+def learn_mcp_fix(state_dir, signature: str, fix: dict) -> None:
+    """Idempotent, best-effort -- see `_learn`'s own docstring. `fix` is a
+    plain JSON-shaped dict (`doctor_deep.FixProposal.to_dict()`: kind/
+    detail/raw_text) -- never a raw evidence block, so this file never
+    grows per-attempt noise, just the one fix that worked."""
+    _learn(state_dir, "mcp", signature, "mcp_fix", fix)
+
+
 def learn_tools_rejected(state_dir, provider: str, model: str) -> None:
     """Idempotent-ish, best-effort: always refreshes `tools_rejected_at`
     (unlike `_learn`'s own skip-if-unchanged shortcut, which would leave

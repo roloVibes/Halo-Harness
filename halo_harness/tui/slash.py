@@ -1185,6 +1185,8 @@ async def _handle_mcp(app, _args: str) -> None:
         test=getattr(app.controller, "test_mcp_server", None),
         disable=getattr(app.controller, "set_mcp_server_disabled", None),
         resolve_config=getattr(app.controller, "resolve_mcp_config", None),
+        deep_dive=getattr(app.controller, "deep_dive_mcp_server", None),
+        apply_fix=getattr(app.controller, "apply_mcp_fix", None),
         # finding 19: re-read real state after every action/bulk action
         # instead of guessing it from the action's own result text.
         refresh=list_fn,

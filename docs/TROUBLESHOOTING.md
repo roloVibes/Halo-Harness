@@ -155,6 +155,82 @@ and [ARCHITECTURE.md](ARCHITECTURE.md) for how compaction/retries work.
   auto-approves a `.mcp.json` server (there's no one to ask), but `mcp
   list`/`mcp get` deliberately do **not** auto-approve just to run a health
   check.
+- **A failed server disappears instead of staying listed as down** --
+  it shouldn't: `McpManager.status()` always returns one row per
+  CONFIGURED server regardless of state (never pruned on a failed
+  connect/reconnect), so `mcp list`/`/mcp`/the status bar's own N/total
+  never drop one that's down. A `failed`/`needs_auth` row carries its
+  last error AND the wall-clock time it happened (`last failed
+  YYYY-MM-DD HH:MM:SS`, next to the reason) -- if you ever see one
+  genuinely vanish, that's a bug; `halo mcp get <name>` still finds it
+  by name even while down.
+
+### The deep dive -- `halo doctor --mcp deep [name]` / `D` in `/mcp`
+
+Halo 2.0.4 round 6: when the ordinary repair actions above don't fix a
+server, this runs a deeper, evidenced diagnosis and asks a model for ONE
+concrete fix. Per server, in order, each step bounded by a timeout and
+printed with its own evidence (never a raw secret value -- env/header
+values are always masked):
+
+1. **resolve** -- PATH lookup for the command (or the url's scheme/host/
+   port shape for http/sse/ws); a Windows `.cmd`/`.bat`/`.ps1` shim is
+   read for the real interpreter it execs, with a note if that
+   interpreter doesn't exist; a bounded `--version` probe of whatever
+   resolved (node/python/uv/npx/uvx).
+2. **port_tls** (http/sse/ws only) -- a bare TCP connect to the host:
+   port, then a real TLS handshake for `https`/`wss`.
+3. **handshake** -- the real connect (stdio spawn, or http/sse/ws),
+   `initialize`, then `tools/list`, each its own evidence; a tools/list
+   failure after a clean `initialize` is reported as its OWN step
+   (`tools_list`), distinct from a hard connect/handshake failure. All
+   captured stdout/stderr is included (masked), so the exact crash/
+   stderr line that caused it is right there in the evidence.
+4. **env_diff** -- the actual child environment this server would run
+   with, diffed against your shell: `${VAR}` references the config
+   itself names that aren't set anywhere, and PATH entries your shell
+   has that the child process doesn't -- names only, never a value.
+5. **config_shape** -- the entry's own scope/file, missing required keys
+   for its type, and any key this harness doesn't recognize.
+
+The evidence block plus the server's (masked) config entry then go to
+the session model (or `roles.judge` when one is configured) with a fixed
+prompt asking for exactly ONE concrete fix, one of: a config edit (`key=
+value`, or `env.NAME=value` for one env var), a missing package (the
+exact install command), a wrong path (the exact correct one), a port/url
+change, or an env var to set (the name only -- never a value, and never
+set for you: add it to the server's own `env` block, or to your shell).
+The proposal is always SHOWN; only a config-edit/path/url fix is ever
+something halo can mechanically apply itself (an install command/env var
+name is advisory -- run it yourself), and even that only happens on an
+explicit yes: `--apply` on the CLI, or `A` in `/mcp` (`D` alone only
+diagnoses and shows the proposal, never applies anything). After
+applying, the server is re-tested; a fix that verifies healthy is
+remembered by its failure signature (command + error kind + a
+normalized stderr fingerprint) so the SAME failure on ANY server is
+fixed automatically next time, with no model call and no fresh yes
+needed -- announced in one line either way. `/mcp` shows a `D`eep dive/
+`A`pply-fix action and each server's own last diagnosis (when, the
+verdict, the fix proposed or applied) right in its row.
+
+**Feeding it the owner's real failures from another box**: `halo doctor
+--mcp deep --from <dir>` reads a captured corpus instead of probing a
+live server (handy from the orchestrator's own machine, or any box
+without the failing servers installed) -- it still proposes a fix, but
+never applies one (there's nothing live to re-test against). Directory
+layout, one name's worth of files all optional but at least one needed
+per server:
+
+```
+<dir>/<name>.log            a copy of ~/.halo/mcp/<name>.log
+<dir>/<name>.test.txt       captured output of `halo mcp test <name>`
+                            (or `halo mcp list`/`halo mcp fix <name>`)
+<dir>/<name>.config.json    that server's resolved entry (optional --
+                            improves the fix proposal; omit if unsure)
+<dir>/bugreport.txt         a full `halo bugreport` capture (optional --
+                            its own "MCP servers:" block is read as a
+                            fallback for any name with no .test.txt)
+```
 
 ## Permission denials in print mode
 

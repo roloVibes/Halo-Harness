@@ -437,6 +437,20 @@ class Controller:
             rows += [connectors_bridge.connector_status_entry(info) for info in connectors_bridge.get_connectors()]
         except Exception:
             pass
+        # round6 brief deliverable 4: "/mcp shows ... the last diagnosis
+        # per server" -- injected into each row dict here (the SAME place
+        # `McpManager.status()` already injects `backoff_status`) so
+        # `tui/dialogs/mcp_status.py`'s own `_row()` stays a pure function
+        # of the row dict, never needing `state_dir` threaded through the
+        # TUI layer at all.
+        try:
+            from halo_harness.mcp import doctor_deep
+            for row in rows:
+                name = row.get("name")
+                if name:
+                    row["last_diagnosis"] = doctor_deep.last_diagnosis_line(self.state_dir, name)
+        except Exception:
+            pass
         return rows
 
     def list_agent_tasks(self) -> list:
@@ -866,6 +880,52 @@ class Controller:
         if result["ok"]:
             return [f"{name}: tools/list ok in {ms:.0f}ms -- {result['tool_count']} tool(s)."]
         return [f"{name}: tools/list failed after {ms:.0f}ms -- {result['error']}"]
+
+    def deep_dive_mcp_server(self, name: str, abort=None) -> list:
+        """round6 brief ("MCP connectivity deep dive"): `D` in `/mcp` --
+        `mcp.doctor_probe`'s bounded, evidenced probe plus `mcp.
+        doctor_deep`'s propose-or-replay step; NEVER applies anything by
+        itself (`apply_mcp_fix` below is the explicit yes)."""
+        if name.startswith("connector__"):
+            return [f"{name}: claude.ai connectors have no local config to deep-dive -- see claude's own logs."]
+        return self._run_mcp_deep_dive(name, apply=False, abort=abort)
+
+    def apply_mcp_fix(self, name: str, abort=None) -> list:
+        """round6 brief: `A` in `/mcp` -- the explicit yes. Diagnoses
+        `name` again (same evidence/propose-or-replay `D` runs) and, when
+        the resulting proposal (a fresh one, or a learned replay) is one
+        of the three mechanically-appliable kinds, writes it to the
+        on-disk entry and re-tests -- a fix that verifies healthy is
+        learned for next time (`providers.learned_rules.learn_mcp_fix`)."""
+        if name.startswith("connector__"):
+            return [f"{name}: claude.ai connectors have no local config to apply a fix to."]
+        return self._run_mcp_deep_dive(name, apply=True, abort=abort)
+
+    def _run_mcp_deep_dive(self, name: str, *, apply: bool, abort=None) -> list:
+        from halo_harness.mcp import doctor_deep
+        cfg = doctor_deep.resolve_one_config(name, cwd=self.cwd, settings=self.settings)
+        if cfg is None:
+            return [f"{name}: could not re-resolve its config to diagnose."]
+        tool_env = doctor_deep.resolve_tool_env(self.cwd, self.settings)
+        result = doctor_deep.diagnose(name, cfg, cwd=self.cwd, tool_env=tool_env, state_dir=self.state_dir,
+                                        apply=apply, settings=self.settings, abort=abort)
+        if result.applied and self.mcp_manager is not None:
+            # A fix just landed on disk -- re-sync the LIVE manager the
+            # same way an ordinary config edit (`e`) already does, so this
+            # session's own tool dispatch sees it immediately rather than
+            # only after a later manual reconnect.
+            try:
+                from halo_harness.config.claude_json import load_claude_json
+                from halo_harness.mcp.manager import resolve_server_configs
+                fresh, _notices = resolve_server_configs(cwd=self.cwd, claude_json=load_claude_json(),
+                                                            settings=self.settings)
+                self.mcp_manager.resync_from(fresh)
+                handle = self.mcp_manager.handles.get(name)
+                if handle is not None and handle.state == "pending":
+                    handle.start(abort=abort)
+            except Exception:
+                pass
+        return result.message.splitlines()
 
     def set_mcp_server_disabled(self, name: str, disabled: bool) -> list:
         """round4 brief item 1: `d` in `/mcp` -- scope-aware disable/

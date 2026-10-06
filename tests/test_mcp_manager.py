@@ -1100,6 +1100,45 @@ def test_manager_crash_mode_fails_cleanly(ctx: Ctx):
 
 
 @test
+def test_crash_mode_server_stays_listed_down_with_last_error_and_time(ctx: Ctx):
+    """round6 brief deliverable 1: a server that fails to connect stays
+    in `status()` (never dropped from the registry) alongside a healthy
+    one, carrying its last error AND the wall-clock time it happened;
+    `mcp_cli.format_mcp_list_line` renders both, and the status bar's own
+    `total = len(rows)` (tui/bootstrap.py's `_mcp_status_fn`) counts the
+    failed server too -- N/total never drops a configured server."""
+    from halo_harness.mcp.manager import McpManager
+    before = time.time()
+    mgr = McpManager({"crash": _fake_cfg("crash", mode="crash"), "ok": _fake_cfg("ok")}, tool_env=dict(os.environ))
+    try:
+        mgr.start_all()
+        rows = mgr.status()
+        ctx.check(f"both configured servers still listed, got {[r['name'] for r in rows]}",
+                  {r["name"] for r in rows} == {"crash", "ok"})
+        total = len(rows)
+        connected = sum(1 for r in rows if r.get("state") in ("connected", "cached"))
+        ctx.check(f"total counts the failed server too, got total={total}", total == 2)
+        ctx.check(f"connected excludes it, got connected={connected}", connected == 1)
+
+        crashed = next(r for r in rows if r["name"] == "crash")
+        ctx.check(f"crashed server state is failed, got {crashed['state']}", crashed["state"] == "failed")
+        ctx.check("an error message is recorded", bool(crashed["error"]))
+        ctx.check(f"last_error_at is a real timestamp close to now, got {crashed['last_error_at']}",
+                  isinstance(crashed["last_error_at"], float) and crashed["last_error_at"] >= before)
+        ok_row = next(r for r in rows if r["name"] == "ok")
+        ctx.check(f"a healthy server has no last_error_at, got {ok_row['last_error_at']}",
+                  ok_row["last_error_at"] is None)
+
+        from halo_harness.mcp_cli import format_mcp_list_line
+        line = format_mcp_list_line(crashed)
+        ctx.check(f"the rendered line names WHEN it failed, got {line!r}",
+                  time.strftime("%Y-%m-%d", time.localtime(crashed["last_error_at"])) in line
+                  and "last failed" in line)
+    finally:
+        mgr.close_all()
+
+
+@test
 def test_manager_starts_multiple_servers_in_parallel(ctx: Ctx):
     from halo_harness.mcp.manager import McpManager
     mgr = McpManager({"a": _fake_cfg("a"), "b": _fake_cfg("b"), "c": _fake_cfg("c")}, tool_env=dict(os.environ))

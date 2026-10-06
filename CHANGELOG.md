@@ -261,6 +261,66 @@ no changes to actually use one.
   (`experiential.zdr`); `docs/COMMANDS.md` (`halo stats --experiential
   --id`).
 
+### MCP deep dive
+
+rolo: "I still cannot reconnect to many of the mcps ... we need like a
+doctor deep dive option to fix these with the use of an llm."
+
+- **A server that fails to connect stays listed as down**, with its last
+  error AND the wall-clock time it happened (`last failed YYYY-MM-DD
+  HH:MM:SS`, next to the reason) in `halo mcp list`/`halo mcp get`/
+  `/mcp`; `McpServerHandle.last_error_at`/`tools_fetch_failed_error` are
+  new (the latter: the real `tools/list` exception text, not just the
+  bare bool) -- the status bar's own N/total already never dropped a
+  configured server (verified, not a bug: `McpManager.status()` always
+  returns one row per handle regardless of state), pinned here against
+  a crashed server alongside a healthy one.
+- **`halo doctor --mcp deep [name]` / `D` in `/mcp`**: per server, in
+  order, each step bounded by a timeout and recorded with its own
+  evidence (masked -- no key-shaped value ever printed): resolve the
+  command (PATH, a Windows `.cmd`/`.bat`/`.ps1` shim's own interpreter, a
+  bounded `node`/`python`/`uv` `--version`) or the url's shape; a bare
+  TCP connect + a real TLS handshake for http/sse/ws; the real stdio/
+  http/sse spawn+handshake (`initialize` then `tools/list`, each its own
+  step -- a tools/list failure after a clean initialize is its own
+  `tools_list` step, not folded into a hard failure) with all stdout/
+  stderr captured; an env/PATH diff against the user's shell; the config
+  entry's shape against Claude Code's own (user/local/project scope,
+  managed, plugin). New `mcp/doctor_probe.py` (the bounded probes) and
+  `mcp/doctor_deep.py` (the orchestrator) modules.
+- **The model proposes ONE fix per failing server**: the evidence plus
+  the server's masked config entry go to the session model (or
+  `roles.judge` when configured, via the SAME throwaway-session plumbing
+  `halo improve`'s own drafting call already established) with a fixed
+  prompt for exactly one line -- `CONFIG_EDIT:`/`INSTALL:`/`PATH:`/
+  `URL:`/`ENV:`. Shown always; applied only on a yes (`--apply` on the
+  CLI, `A` in `/mcp`; `D` alone only diagnoses) and only for the three
+  mechanically-appliable kinds (config edit/path/url -- an install
+  command or an env-var name is always advisory, same "the line is for
+  you to run" rule `install_hint` already follows, never auto-executed
+  or auto-set in your shell). Applying re-tests; a fix that verifies
+  healthy is learned by its failure signature (command basename + error
+  class + a normalized stderr fingerprint, stable across a changing pid/
+  timestamp) in `providers/learned_rules.py`'s new `learn_mcp_fix`/
+  `learned_mcp_fix` rows, so the identical failure on ANY server self-
+  heals automatically next time -- no model call, no fresh yes needed,
+  announced in one line.
+- **`/mcp` shows the deep dive as an action** (`D`/`A`, legend updated)
+  and each server's own last diagnosis inline (when, the verdict, the
+  fix proposed or applied) once one has run, persisted at `~/.halo/
+  mcp-diagnosis.json`.
+- **Corpus reader**: `halo doctor --mcp deep --from <dir>` reads a
+  directory of captured `halo mcp test`/`halo bugreport` output and
+  per-server logs (layout documented in `docs/TROUBLESHOOTING.md`) and
+  runs the same propose step over the reconstructed evidence -- no live
+  server needed, never applies anything (nothing to re-test against);
+  for the orchestrator to feed the owner's real failures from a
+  different box entirely.
+- **Docs**: `docs/TROUBLESHOOTING.md`'s "MCP servers" section gets "The
+  deep dive" writeup (steps, fix kinds, learned-rule behaviour, corpus
+  layout); `docs/COMMANDS.md` (`halo doctor --mcp deep`); `docs/
+  SLASH-COMMANDS.md` (`/mcp`'s `D`/`A`).
+
 ## [2.0.3.1] - 2026-10-05
 - **The Claude Code bridge server starts inside a job object that forbids
   breakaway**: `spawn_server_detached` retries without

@@ -815,6 +815,8 @@ halo doctor --help
 ```
 usage: halo doctor [-h] [--work] [--json] [--probe-all] [--both]
                           [--tools] [--only GLOB] [--local] [--model REF]
+                          [--agents] [--mock] [--mcp {deep}] [--apply]
+                          [--from DIR] [name]
 
 Check the health of your halo installation.
 
@@ -839,6 +841,18 @@ options:
                model in the default Ollama host's catalog); an
                hf:mlx/<org>/<repo> ref starts its managed mlx_lm.server
                first if one isn't already running
+  --agents     Validate every agent bio and the active team template, then
+               run each bio's own acceptance check against a real model call
+  --mock       With --agents: never call a real model (tests only)
+  --mcp {deep} Run the MCP connectivity deep dive (--mcp deep [name]) instead
+               of the general checks
+  name         With --mcp deep: only this server (default: every currently-
+               failing one)
+  --apply      With --mcp deep: apply the model's proposed fix for each
+               failing server (after showing it), then re-test
+  --from DIR   With --mcp deep: diagnose a captured corpus directory (halo
+               bugreport / halo mcp test output) instead of live servers --
+               never applies anything
 ```
 
 `halo doctor --local [--model ol:x]` (round 5d; round 5f extends `--model`
@@ -860,6 +874,22 @@ bio's shape (`halo_harness/agents_yaml.py`) and the ACTIVE team template
 runs each bio's own `acceptance` block against a real one-shot model
 call (`halo -p <prompt> --model <ref> --max-turns 1`); `--mock` (tests
 only) never calls a real model. See [AGENTS.md](AGENTS.md).
+
+`halo doctor --mcp deep [name] [--apply] [--from DIR]` (2.0.4 round 6)
+is the deep dive for a server the ordinary `/mcp`/`halo mcp fix` repair
+actions couldn't fix: resolve the command/url, a real spawn+handshake
+with full stdout/stderr captured, an env-var/PATH diff against your
+shell, and a config-shape check -- then ONE concrete fix from a model
+(config edit, missing package, wrong path, port/url, or an env var to
+set), shown and applied only on `--apply` (a config-edit/path/url fix is
+the only kind halo ever writes itself; a re-test follows, and a fix that
+verifies healthy is remembered by its failure signature so the next
+occurrence anywhere is fixed with no model call at all). No `name` ->
+every currently-failing server. `--from DIR` reads a captured corpus
+(`halo mcp test`/`halo bugreport` output, never the live servers) instead
+-- never applies. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md)'s "The
+deep dive" section for the full per-step evidence and the corpus
+directory layout.
 
 Bare `halo doctor` checks: Python version, `~/.claude` layout, the env
 file, OpenRouter/Databricks/Claude-subscription configuration, `claude`/
