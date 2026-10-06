@@ -92,11 +92,12 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
   before the v2.0.5 tag covers both versions' diffs (2.0.4 = `04ae6e4..
   b081db8`).
 - Next: 2.0.5 control pack, briefs in `plans/briefs/2.0.5/` in this order:
-  round 1 `cc:` route v2, round 2 learned gateway rules + the legacy
-  env-file drop, round 3 the Governor, round 4 team control (lineup
-  sections enforced, hooks, schedule, triggers); then the two-version
-  review, fix pass, `scripts/release.py 2.0.5 --remote <user@host>
-  --identity <key>`.
+  round 1 `cc:` route v2, round 2 wizard: agent bios and lineups (rolo
+  2026-10-06 ~04:35, ROADMAP's last section), round 3 learned gateway
+  rules + the legacy env-file drop, round 4 the Governor, round 5 team
+  control (lineup sections enforced, hooks, schedule, triggers); then the
+  two-version review, fix pass, `scripts/release.py 2.0.5 --remote
+  <user@host> --identity <key>`.
 - Release script note: the remote refresh runs `ssh` non-interactively, so
   pass the key with `--identity` (added after the 2.0.4 release, whose
   remote step had to be rerun by hand with `ssh -i`).

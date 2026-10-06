@@ -69,6 +69,15 @@ is verified on Windows and the Kali VM and pushed as it lands.
 
 - [ ] three picker columns, [ ] balances for every provider, [ ] `cc:`/`ant:` enumeration, [ ] Codex + OpenAI + Responses dialect, [ ] jev, [ ] learned gateway rules, [ ] error translation, [ ] catalog auto-refresh, [ ] command consolidation and group labels, [ ] `cc:` route v2 (control-channel steer, set_model/set_permission_mode, /compact passthrough, native history research, context duplication audit, conformance test), [ ] legacy env file no longer read (announced for 2.0.4 in the 2.0.1 CHANGELOG), [ ] release
 
+## 2.0.5 = control pack (REORDERED 2026-10-05 numbering; briefs in `plans/briefs/2.0.5/`; the "2.0.5 = hardening" header below is the PRE-reorder numbering, now 2.0.6)
+
+- [ ] round 1 `cc:` route v2 (control channel: steer by interrupt, set_model / set_permission_mode without restart, /compact + hook events, --resume research, context duplication audit, "subscription turns" cost line, conformance tests) -- worker started 2026-10-06 ~04:20
+- [ ] round 2 wizard: agent bios and lineups (rolo 2026-10-06 ~04:35: Agents step with a bio editor whose model fields open the enumerated pick list; role slots filled from Models OR Agents; template editor with the other sections and the optional "how the pieces work together" text; `/agents`, `/teams`, `--form`)
+- [ ] round 3 learned gateway rules + the legacy env-file drop
+- [ ] round 4 the Governor (port + REVIEW items, http.py choke point, failover, lanes, `/gov`, doctor health)
+- [ ] round 5 team control (lineup sections enforced, agent hooks, schedule, triggers)
+- [ ] review covering 2.0.4 (`04ae6e4..b081db8`) and 2.0.5, fix pass, live check, VM suites, `scripts/release.py 2.0.5 --remote <user@host> --identity <key>`
+
 ## 2.0.5 = hardening (`2.0.4-brief.md` minus the env-file drop)
 
 - [ ] model gym (including the local-model ranking), [ ] soak test + watchdog, [ ] MCP connects off the TUI startup path (deferred from 2.0.2 round C: a dead or slow http/sse server still holds the first frame), [ ] CI + release script, [ ] invariants doc + test, [ ] release

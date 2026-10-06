@@ -1,6 +1,6 @@
-# Halo 2.0.5 round 4: team control (the lineup sections enforced, agent hooks, schedule and triggers)
+# Halo 2.0.5 round 5: team control (the lineup sections enforced, agent hooks, schedule and triggers)
 
-Repo: `<repo>` (branch master; start from HEAD after round 3). Read
+Repo: `<repo>` (branch master; start from HEAD after round 4). Read
 `plans/WORKER-RULES.md` FIRST and follow every rule in it (test
 environment: `BRIDGE_TEST_HOME=<fresh scratch dir>`,
 `BRIDGE_TEST_NO_BACKGROUND_NET=1`, `OLLAMA_HOST=http://127.0.0.1:1`).
@@ -14,7 +14,7 @@ agent declaration files (YAML) behind roles and orgs" (the line "Deferred to
 is a lineup of many assignments" (the line "gates enforced by the 2.0.5
 Governor"); `docs/AGENTS.md` paragraph "Every OTHER top section, also
 stored/validated/shown but not enforced by the live agent loop this round
-(the Governor's own job, 2.0.5)". Round 3 shipped the Governor; this round
+(the Governor's own job, 2.0.5)". Round 4 shipped the Governor; this round
 makes the stored sections real.
 
 ## Where the code is
@@ -25,7 +25,7 @@ makes the stored sections real.
 the shipped files under `halo_harness/templates/agents/` and
 `templates/teams/` (incl. `halo-dev-cycle.yaml`), the sub-agent runner and
 the delegation path in `agent/` (where `Agent`/sub-agent spawns resolve a
-role to a model and tools), the Governor from round 3 (`providers/
+role to a model and tools), the Governor from round 4 (`providers/
 governor.py`, priorities and budgets), `hooks` as Claude Code defines them
 in the existing settings reader (Halo already runs the user's Claude Code
 hooks; reuse that runner), the scheduler surface that exists for cron-like
