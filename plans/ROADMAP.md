@@ -683,3 +683,26 @@ org editors:
   `schedule`/`triggers`.
 - Dependency: PyYAML (small, pure Python) added to pyproject; the loader
   validates every file and reports one plain line per problem.
+
+## ADDED 2026-10-05 ~23:10: 2.0.4 round "xp: contract alignment" (after the MCP deep dive)
+
+The gateway publishes a machine-readable contract at
+`https://platform.experientiallabs.ai/llms.txt` (fetched 2026-10-05, ~160 KB;
+kept outside the repo). Round 2 was built from the research doc; this round
+aligns the `xp:` route with the contract literally: the full error-code
+table (e.g. `all_routes_failed` 502 = every rung failed, retry then report;
+`unsupported_capability` 400; `model_requires_purchase` 429; the ZDR
+refusals 403/409), the honored and refused parameters per endpoint (a
+refused parameter is a 400 "The parameter '<x>' is not supported by this
+gateway profile", never silently dropped; the `x-experiential-ignored-
+parameters` header for the dropped ones), the per-response headers
+(`x-request-id`, `x-gateway-provider`, `x-gateway-zdr`,
+`x-gateway-route-depth`, `x-gateway-route-reason`) shown on the transcript
+line and in `/xp routes`, the ZDR toggle and `provider.zdr` per-request
+constraint as a config key, the two lanes (platform-funded versus BYOK) in
+the cost line, and `GET /api/v1/generation?id=<x-request-id>` for after-the-
+fact attribution in `halo stats --experiential`. Live facts measured
+2026-10-05: `qwen3.8-27b` answers with a minimal body (model + messages) at
+$0.0000376; `space-bunny-alpha` returned 502 to every body shape that
+evening (all rungs down), so a 502 must read as "every route failed, try
+again later", never as a Halo error.
