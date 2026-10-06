@@ -399,6 +399,9 @@ def main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "doctor":
         from halo_harness.doctor import cmd_doctor
         return cmd_doctor(argv[1:])
+    if argv and argv[0] == "audit":
+        from halo_harness.audit_cli import cmd_audit
+        return cmd_audit(argv[1:])
     if argv and argv[0] == "update":
         from halo_harness.update_cli import cmd_update
         return cmd_update(argv[1:])

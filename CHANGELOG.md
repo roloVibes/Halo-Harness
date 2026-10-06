@@ -41,7 +41,39 @@ version.
   `tests/test_docs_slash_commands.py`, `tests/test_docs_commands.py`)
   rather than duplicating it.
 
+### History and privacy
+
+- **`halo audit privacy [--history] [--json] [--since <rev>]`**: scans
+  the working tree by default (every tracked plus untracked, non-ignored
+  file) for real user-profile paths, private-range and link-local IP
+  literals, LAN hostnames and `.local` names, known machine/vendor names,
+  stray `%SystemDrive%`/`%USERPROFILE%`-style cache files, key- and
+  token-shaped strings, e-mail addresses, and any real path under the
+  state dir; exits 1 when it finds anything, 0 when clean. `--history`
+  runs the same rules over every distinct blob reachable from HEAD
+  (scanned once each, reported at the earliest commit that introduced
+  it), and splits the result into paths to remove entirely versus paths
+  that stay with specific text needing replacement. `--json` gives the
+  same fields as machine-readable output. Every excerpt this prints has
+  already had the matched value replaced with `<redacted>` -- the real
+  value never reaches the report. The rule set
+  (`halo_harness/privacy_rules.py`) is the single source both this
+  command and `tests/test_privacy_scan.py`'s own regression guard read,
+  so the two can no longer drift apart.
+- **`plans/2.0.4-history-rewrite-plan.md`**: the written plan for
+  rewriting this repo's history (produced from a real `halo audit
+  privacy --history --json` run against this repo) -- the paths to
+  purge entirely, the text replacements, the tags to re-create, the two
+  clones to reset, the verification steps, and the CHANGELOG
+  announcement. Writing the plan does not run it: no history was
+  rewritten, no force-push happened, and `git filter-repo` was not
+  invoked, by this round.
+
 ## [2.0.3.1] - 2026-10-05
+- **The Claude Code bridge server starts inside a job object that forbids
+  breakaway**: `spawn_server_detached` retries without
+  CREATE_BREAKAWAY_FROM_JOB when CreateProcess denies it (GitHub-hosted
+  Windows runners, some launchers); the server runs as a member of the job.
 
 ### Clipboard image paste
 

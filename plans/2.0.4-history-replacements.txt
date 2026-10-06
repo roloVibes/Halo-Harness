@@ -1,0 +1,64 @@
+# plans/2.0.4-history-replacements.txt -- git-filter-repo --replace-text
+# INPUT TEMPLATE, not the real file. Every left-hand side below is a
+# placeholder (never the real text -- this file is committed to a public
+# repo); resolve each one to its real value, write the RESOLVED file
+# somewhere that is never committed (the orchestrator's own scratch
+# dir, same place history-audit-204.json lives), then pass THAT file to
+# `git filter-repo --replace-text <resolved-file>`. See plans/2.0.4-
+# history-rewrite-plan.md step 3 for the exact resolution commands and
+# for why `<REAL_OWNER_USERNAME>` below must be resolved as the FULL
+# "prefix + account name" string, never the bare account name alone --
+# the bare name is also the first few letters of this project's own old
+# product name and public GitHub org, which must NOT be touched.
+#
+# Format: one `literal==>replacement` per line (plain substring match);
+# a line starting `regex:` is a Python regex instead of a literal
+# substring (verify this exact prefix syntax against the installed
+# `git-filter-repo --help`/README before running -- it is correct as of
+# the version used to write this plan, but the tool's own docs are the
+# source of truth at execution time).
+
+# ---- the one real home-path leak, both textual forms the audit found
+# (halo_harness/privacy_rules.py's REAL_OWNER_USERNAMES[0]) -- resolve
+# each placeholder to the literal nine/ten-character string
+# "C:" + backslash-or-slash + "Users" + backslash-or-slash + the real
+# account name, NOT the bare account name alone (see the file header) --
+<HOME_PATH_LEAK.BACKSLASH_FORM>==>REDACTED-HOME-PATH-BACKSLASH
+<HOME_PATH_LEAK.FORWARDSLASH_FORM>==>REDACTED-HOME-PATH-FORWARDSLASH
+
+# ---- exact machine/project/hobby-gear/work-tool names (halo_harness/
+# privacy_rules.py's REMOVED_NAMES, case-sensitive literal match) --
+<REMOVED_NAMES[0]>==>REDACTED-HOSTNAME
+<REMOVED_NAMES[1]>==>REDACTED-PROJECT
+<REMOVED_NAMES[2]>==>REDACTED-HARDWARE
+<REMOVED_NAMES[3]>==>REDACTED-SOFTWARE
+<REMOVED_NAMES[4]>==>REDACTED-LABEL
+<REMOVED_NAMES[5]>==>REDACTED-MCP-SERVER-1
+<REMOVED_NAMES[6]>==>REDACTED-MCP-SERVER-2
+<REMOVED_NAMES[7]>==>REDACTED_CONST
+<REMOVED_NAMES[8]>==>REDACTED-SERVERS-LABEL
+<REMOVED_NAMES[9]>==>~/REDACTED-PATH
+
+# ---- the same vendor/hobby-gear names, case-INSENSITIVE (halo_harness/
+# privacy_rules.py's EXTENDED_SCAN_TERMS[0..5] -- [6]/[7], the owner's
+# own first/last name, are deliberately NOT listed here: confirmed
+# 2026-10-05 by this audit to appear ONLY in LICENSE's own copyright
+# line and in tests/test_privacy_scan.py's own rule-definition source,
+# both already excluded by design -- a replace-text pass would also
+# rewrite LICENSE's legitimate copyright line, which is not the goal) --
+regex:(?i)<EXTENDED_SCAN_TERMS[0]>==>REDACTED-DAW
+regex:(?i)<EXTENDED_SCAN_TERMS[1]>==>REDACTED-SYNTH
+regex:(?i)<EXTENDED_SCAN_TERMS[2]>==>REDACTED-DRUM-LIBRARY
+regex:(?i)<EXTENDED_SCAN_TERMS[3]>==>REDACTED-DRUM-LIBRARY-FULL
+regex:(?i)<EXTENDED_SCAN_TERMS[4]>==>REDACTED-SECURITY-TOOL
+regex:(?i)<EXTENDED_SCAN_TERMS[5]>==>REDACTED-HOSTNAME-2
+
+# ---- one historical-only fake test fixture (sk-ant- shaped; the file
+# itself no longer exists at HEAD -- see history-audit-204.json's
+# "token" findings: tests/test_session_cli.py, commit
+# 9f387f1de82c082a32c874dfdeb93f67bd29fbf6, lines 22/80/95). Read the
+# real value straight off that commit before resolving this line:
+#   git show 9f387f1de82c082a32c874dfdeb93f67bd29fbf6:tests/test_session_cli.py | sed -n 22p
+# The replacement is deliberately NOT key-shaped (a key-shaped
+# replacement would just plant a new fixture this same audit flags).
+<TEST_FIXTURE_TOKEN_AT_9f387f1_LINE_22>==>REDACTED-TEST-FIXTURE-TOKEN
