@@ -86,6 +86,24 @@ class OpenAIStreamToAnthropic:
         # it), and surfaced via `_finalize`'s own harness_meta so
         # `agent/loop.py` can log it as the `usage` node's `provider` field.
         self.responding_provider: str | None = None
+        # Halo 2.0.4 round 2 (Experiential Labs `xp:`): the SAME per-chunk
+        # capture as `responding_provider` just above, for the gateway's
+        # OWN sibling field naming whether that rung was BYOK (research
+        # doc section 1/6) -- `None`/unset for every other provider's
+        # chunks, which never carry this key at all.
+        self.responding_is_byok: bool | None = None
+        # Halo 2.0.4 round 2: response-HEADER-sourced extras (never a
+        # per-chunk JSON field) the caller (`providers.stream.stream_
+        # completion`) sets directly on this instance right after
+        # construction, from `UpstreamResult.headers` -- `x-request-id`
+        # (section 1), `x-experiential-ignored-parameters` (section 3.1,
+        # the learned-rule/one-time-notice signal), `x-gateway-warning`
+        # (section 7's `empty_completion`, an HTTP 200 "error"). `None`
+        # for every provider that never sets them (every call site before
+        # this round).
+        self.request_id: str | None = None
+        self.ignored_parameters_header: str | None = None
+        self.gateway_warning: str | None = None
         # Rough proxy for output size (chars of text + tool-call argument
         # fragments actually emitted), used ONLY as a fallback estimate for
         # message_delta.usage.output_tokens when the upstream never sends a
@@ -197,6 +215,11 @@ class OpenAIStreamToAnthropic:
         provider = chunk.get("provider")
         if isinstance(provider, str) and provider:
             self.responding_provider = provider
+        if "is_byok" in chunk:
+            # Halo 2.0.4 round 2 (Experiential Labs): the gateway's own
+            # sibling of the `provider` field just above -- same
+            # unconditional, costs-nothing-when-absent capture.
+            self.responding_is_byok = bool(chunk.get("is_byok"))
         if "error" in chunk and "choices" not in chunk:
             # finding 6: a mid-stream {"error": "boom"} chunk (bare string,
             # not the usual {"message": ...} dict) crashed this with
@@ -442,6 +465,13 @@ class OpenAIStreamToAnthropic:
                 "reasoning_chunk_count": self.reasoning_chunk_count,
                 "first_reasoning_wall": self.first_reasoning_wall,
                 "first_tool_wall": self.first_tool_wall,
+                # Halo 2.0.4 round 2 (Experiential Labs `xp:`): None for
+                # every other provider's stream, which never sets any of
+                # these four (see this class's own __init__ docstring).
+                "responding_is_byok": self.responding_is_byok,
+                "request_id": self.request_id,
+                "ignored_parameters_header": self.ignored_parameters_header,
+                "gateway_warning": self.gateway_warning,
             }
         events.append(message_delta_event(stop_reason, final_usage, harness_meta=harness_meta))
         events.append({"type": "message_stop"})

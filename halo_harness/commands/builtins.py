@@ -240,6 +240,43 @@ def _cmd_model(args: str, facade: HeadlessFacade) -> str:
     return f"Current model: {facade.model_ref or '?'}\nEffort: {facade.effort or 'default'}"
 
 
+def _cmd_xp(args: str, facade: HeadlessFacade) -> str:
+    """`/xp routes <slug>` -- Halo 2.0.4 round 2: `GET /api/models/<slug>/
+    providers` (research doc section 3.4/4), the waterfall rung list for
+    one Experiential Labs model slug -- `gateway.routing.route_id` values
+    come from this same list. A bounded, best-effort live read (same
+    network-free-formatter-plus-caller-fetches shape `_cmd_providers`
+    uses for the balance line); `None` means not configured/unreachable,
+    `[]` means the gateway answered with no rungs at all -- the two are
+    reported differently so a caller can tell "nothing to show yet" apart
+    from "couldn't even ask"."""
+    tokens = (args or "").split()
+    if len(tokens) < 2 or tokens[0] != "routes":
+        return "Usage: /xp routes <slug>"
+    slug = tokens[1]
+    from halo_harness.providers.enablement import is_enabled
+    if not is_enabled("experiential"):
+        return "Experiential Labs is not enabled -- run `halo providers enable experiential` first."
+    from halo_harness.providers.experiential_account import fetch_experiential_routes
+    env = facade.settings.effective_env if getattr(facade, "settings", None) is not None else None
+    routes = fetch_experiential_routes(slug, env=env)
+    if routes is None:
+        return f"xp:{slug}: could not reach the routes endpoint (check EXPLABS_API_KEY / network)."
+    if not routes:
+        return f"xp:{slug}: the gateway reported no rungs for this slug."
+    lines = [f"xp:{slug} waterfall rungs (top to bottom):"]
+    for i, r in enumerate(routes):
+        if not isinstance(r, dict):
+            lines.append(f"  {i}. {r!r}")
+            continue
+        provider = r.get("provider") or r.get("name") or "?"
+        route_id = r.get("route_id") or r.get("id") or "?"
+        enabled = r.get("enabled")
+        status = "disabled" if enabled is False else "enabled"
+        lines.append(f"  {i}. {provider} (route_id={route_id}, {status})")
+    return "\n".join(lines)
+
+
 def _cmd_models(args: str, facade: HeadlessFacade) -> str:
     """H14 scope J (widened to every enabled provider by the H15 part 2
     addendum 3.2b): `/models [refresh]` (`/dbx` is a plain alias that always
@@ -370,6 +407,29 @@ def _cmd_models(args: str, facade: HeadlessFacade) -> str:
             age = oai_models_json_age_seconds(state_dir)
             age_str = "never" if age is None else f"{age / 3600:.1f}h ago"
             lines.append(f"OpenAI: {len(load_oai_models_json(state_dir))} model(s) cached (last refreshed {age_str}).")
+
+    if is_enabled("experiential"):
+        # Halo 2.0.4 round 2: same hooks round 5i part 1 wired for OpenAI
+        # just above, for the Experiential Labs gateway.
+        from halo_harness.providers.experiential_catalog import (
+            load_xp_models_json, xp_models_json_age_seconds, refresh_experiential_catalog_if_stale,
+        )
+        if wants_refresh:
+            from halo_harness.providers.databricks import CATALOG_REFRESH_BUSY, REFRESH_BUSY_NOTE
+            ok = refresh_experiential_catalog_if_stale(state_dir, force=True)
+            if ok is CATALOG_REFRESH_BUSY:
+                lines.append(f"Experiential Labs: {REFRESH_BUSY_NOTE}.")
+            elif ok is False:
+                lines.append("Experiential Labs refresh failed -- see `halo doctor`.")
+            elif ok is None:
+                lines.append("Experiential Labs: not configured -- nothing to refresh.")
+            else:
+                lines.append(f"Experiential Labs refreshed: {len(load_xp_models_json(state_dir))} model(s) cached.")
+        else:
+            age = xp_models_json_age_seconds(state_dir)
+            age_str = "never" if age is None else f"{age / 3600:.1f}h ago"
+            lines.append(f"Experiential Labs: {len(load_xp_models_json(state_dir))} model(s) cached "
+                         f"(last refreshed {age_str}).")
 
     if not lines:
         return ("No provider is set up -- not configured (see `halo providers`, "
@@ -1410,6 +1470,7 @@ _BUILTIN_SPECS = {
     "model": ("core", "Show or change the active model", "[model]", _cmd_model),
     "models": ("core", "List/refresh the Databricks endpoint catalog", "[refresh]", _cmd_models),
     "dbx": ("core", "Alias for /models refresh", None, _cmd_dbx),
+    "xp": ("core", "List the waterfall rungs for an Experiential Labs model slug", "routes <slug>", _cmd_xp),
     "mcp": ("core", "List configured MCP servers", None, _cmd_mcp),
     "ollama": ("core", "Per-host Ollama analysis: reachability, loaded models, context, tool-catalog sizing",
                "[--host NAME] [--refresh]", _cmd_ollama),

@@ -33,13 +33,14 @@ PROVIDERS = ("databricks", "openrouter", "anthropic", "claude")
 # `halo setup`/`/setup` never reach a providers step at all (`setup_cli.
 # py`'s own step list is `roles`/`orgs`/`summary` only), so neither is
 # affected by this tuple either way.
-TAB_PROVIDERS = PROVIDERS + ("ollama", "huggingface", "openai", "codex", "typesafe", "settings_sources")
+TAB_PROVIDERS = PROVIDERS + ("ollama", "huggingface", "openai", "codex", "typesafe", "experiential",
+                              "settings_sources")
 
 TAB_LABEL = {
     "databricks": "Databricks", "openrouter": "OpenRouter", "anthropic": "Anthropic API (key)",
     "claude": "Claude Code subscription", "ollama": "Ollama (local or LAN)", "huggingface": "Hugging Face",
     "openai": "OpenAI API (key)", "codex": "Codex subscription", "typesafe": "TypeSafe",
-    "settings_sources": "Settings sources",
+    "experiential": "Experiential Labs", "settings_sources": "Settings sources",
 }
 
 PROVIDER_LABEL = {
@@ -252,6 +253,22 @@ def model_entries_for_provider(provider: str, state_dir: Path) -> "list[dict]":
                 "price_in_per_m": fields.get("price_in_per_m"), "price_out_per_m": fields.get("price_out_per_m"),
             })
         return out
+    if provider == "experiential":
+        # Halo 2.0.4 round 2: unlike openai/huggingface above, this
+        # gateway's own catalog carries context/price directly -- no
+        # separate models.dev cross-check, no `None` max_output_tokens
+        # placeholder.
+        from halo_harness.providers.experiential_catalog import load_xp_models_json, xp_picker_fields
+        models = load_xp_models_json(state_dir) or {}
+        out = []
+        for mid in sorted(models):
+            fields = xp_picker_fields(mid, state_dir)
+            out.append({
+                "ref": f"xp:{mid}", "context_tokens": fields.get("context_tokens"),
+                "max_output_tokens": fields.get("max_output_tokens"),
+                "price_in_per_m": fields.get("price_in_per_m"), "price_out_per_m": fields.get("price_out_per_m"),
+            })
+        return out
     return []
 
 
@@ -433,6 +450,18 @@ def tab_credential_state(provider: str, *, team_cfg: Optional[dict] = None,
                     "known_host": None, "fields": []}
         return {"configured": False, "source": None, "masked": None, "known_host": None,
                 "fields": [{"name": "key", "label": "OPENAI_API_KEY", "secret": True}]}
+    if provider == "experiential":
+        # Halo 2.0.4 round 2: a single credential source (the INFERENCE
+        # key only -- `EXPLABS_PROVISIONING_KEY` is deliberately never
+        # asked for here, research doc section 2) -- same shape as the
+        # openrouter/anthropic/openai branches above.
+        from halo_harness.providers.config import resolve_experiential
+        xp = resolve_experiential(env)
+        if xp is not None:
+            return {"configured": True, "source": "env file", "masked": redact(xp.api_key),
+                    "known_host": None, "fields": []}
+        return {"configured": False, "source": None, "masked": None, "known_host": None,
+                "fields": [{"name": "key", "label": "EXPLABS_API_KEY", "secret": True}]}
     if provider == "typesafe":
         key = env.get("TYPESAFE_API_KEY")
         if key:
@@ -444,7 +473,8 @@ def tab_credential_state(provider: str, *, team_cfg: Optional[dict] = None,
 
 
 _TAB_KEY_ENV = {"openrouter": "OPENROUTER_API_KEY", "anthropic": "ANTHROPIC_API_KEY",
-                "openai": "OPENAI_API_KEY", "typesafe": "TYPESAFE_API_KEY"}
+                "openai": "OPENAI_API_KEY", "typesafe": "TYPESAFE_API_KEY",
+                "experiential": "EXPLABS_API_KEY"}
 
 
 def _secret_env_var_name(kind: str, name: str) -> str:
@@ -681,6 +711,18 @@ def refresh_tab_catalog(provider: str) -> "tuple[bool, str]":
         try:
             fetched = probe_openai_models(oai.base_url, oai.api_key)
             write_oai_models_json(state_dir, fetched)
+            return True, f"{len(fetched)} model(s) cached"
+        except Exception as e:
+            return False, f"{type(e).__name__}: {e}"
+    if provider == "experiential":
+        from halo_harness.providers.config import resolve_experiential
+        xp = resolve_experiential()
+        if xp is None:
+            return False, "Experiential Labs is not configured"
+        from halo_harness.providers.experiential_catalog import probe_experiential_models, write_xp_models_json
+        try:
+            fetched = probe_experiential_models(xp.base_url, xp.api_key)
+            write_xp_models_json(state_dir, fetched)
             return True, f"{len(fetched)} model(s) cached"
         except Exception as e:
             return False, f"{type(e).__name__}: {e}"

@@ -2184,6 +2184,7 @@ class Session:
                 context_tokens=self.model_profile.context_tokens,
                 prompt_estimate=_rough_estimate("", []),
                 requested_max_tokens=max_tokens,
+                session_id=getattr(getattr(self, "log", None), "session_id", None),
             )
         creds = self.creds
         if ref is not self.model_ref:
@@ -2422,6 +2423,7 @@ class Session:
                 context_tokens=self.model_profile.context_tokens,
                 prompt_estimate=_rough_estimate(system_text, messages),
                 requested_max_tokens=requested_max_tokens, tool_choice=tool_choice,
+                session_id=getattr(getattr(self, "log", None), "session_id", None),
             )
         return system_text, messages, tools, body
 
@@ -3409,6 +3411,21 @@ class Session:
                 return None
 
             # A clean stream from here on.
+            if harness_meta.get("ignored_parameters_header") and self.route.provider == "experiential":
+                # Halo 2.0.4 round 2 (research doc section 3.1): the
+                # gateway disclosed which fields THIS request sent that
+                # the serving rung couldn't honor -- learned once per
+                # model (same per-endpoint cache `learn_tools_rejected`
+                # already uses) and surfaced as a ONE-TIME plain notice,
+                # never repeated every turn against an unchanged value.
+                # Non-terminal -- the turn itself already succeeded.
+                from halo_harness.providers.learned_rules import learn_ignored_params, learned_ignored_params
+                _ignored = harness_meta["ignored_parameters_header"]
+                if learned_ignored_params(self.state_dir, "experiential", self.model_ref.model) != _ignored:
+                    learn_ignored_params(self.state_dir, "experiential", self.model_ref.model, _ignored)
+                    yield events.notification(
+                        f"{self.model_ref.raw}: the gateway dropped some request fields the serving "
+                        f"rung couldn't honor ({_ignored})", level="info")
             if harness_meta.get("model_context_window_exceeded"):
                 # GLM-brief.md item 3 / W2-plan item 3: a chat-dialect
                 # gateway can end an otherwise-clean 200 stream with
@@ -3576,7 +3593,7 @@ class Session:
     # H10 Part A: "or"|"dbx"|"ant" -- the coarse routing rail
     # (`ModelRef.provider`), independent of which specific backend actually
     # answered (that's `_responding_provider_label` below).
-    _ROUTE_LABELS = {"openrouter": "or", "databricks": "dbx", "anthropic": "ant"}
+    _ROUTE_LABELS = {"openrouter": "or", "databricks": "dbx", "anthropic": "ant", "experiential": "xp"}
 
     def _responding_provider_label(self, result: "_StepResult") -> str:
         """The RESPONDING provider, per route: OpenRouter's own per-chunk
@@ -3585,9 +3602,14 @@ class Session:
         response shape, or a scripted test upstream); the Databricks
         ENDPOINT NAME (the bare upstream model id, Unity Gateway's own
         naming) for a `dbx:` route; the literal "anthropic" for a native
-        `ant:` route."""
+        `ant:` route. Halo 2.0.4 round 2: `xp:` carries the IDENTICAL
+        per-chunk `provider` field OpenRouter does (research doc section
+        1/6 -- "experiential_cloud" on the owner's own live `qwen3.8-27b`
+        call), same fallback label when a reply never carried one."""
         if self.model_ref.provider == "openrouter":
             return result.responding_provider or "openrouter"
+        if self.model_ref.provider == "experiential":
+            return result.responding_provider or "experiential"
         if self.model_ref.provider == "databricks":
             return self.model_ref.model
         return "anthropic"
@@ -3854,6 +3876,7 @@ class Session:
             context_tokens=self.model_profile.context_tokens,
             prompt_estimate=_rough_estimate(system_text, messages),
             requested_max_tokens=requested_max_tokens, tool_choice=tool_choice,
+            session_id=getattr(getattr(self, "log", None), "session_id", None),
         )
 
     def _count_tokens_via_api(self) -> Optional[int]:
@@ -5073,6 +5096,7 @@ class Session:
                     context_tokens=self.model_profile.context_tokens,
                     prompt_estimate=_rough_estimate(system_text, messages), requested_max_tokens=512,
                     force_response_format=schema,
+                    session_id=getattr(getattr(self, "log", None), "session_id", None),
                 )
             req = self._build_request(body)
             abort = threading.Event()

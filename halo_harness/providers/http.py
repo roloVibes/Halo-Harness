@@ -900,12 +900,26 @@ def call_anthropic_native(base_url: str, api_key: str, body: dict, extra_headers
         caller, same as the OpenAI-dialect Databricks path), Databricks'
         own `?beta=true` gateway flag on the primary path, and a 404
         fallback to the endpoint's OWN by-name invocations path -- see the
-        V2b fix note below."""
+        V2b fix note below.
+      - "experiential" (`xp:claude-*`, Halo 2.0.4 round 2): `x-api-key`,
+        same as "anthropic" -- the gateway accepts it on `/v1/messages`
+        "matching Anthropic SDK behavior" (research doc section 2) -- but
+        `base_url` already carries the gateway's `/v1` path segment
+        (`ExpConfig.base_url`), unlike api.anthropic.com's bare root, so
+        the path passed to `proxy_anthropic` is `/messages` alone (that
+        plus `base_url`'s own `/v1` gives the correct `/v1/messages`,
+        never a doubled `/v1/v1/messages`); no Databricks gateway query
+        flag."""
     if route_provider == "anthropic":
         headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
         headers.update(extra_headers)
         return proxy_anthropic(base_url, api_key, body, headers, state_dir,
                                 path="/v1/messages", query_suffix="", on_connect=on_connect)
+    if route_provider == "experiential":
+        headers = {"x-api-key": api_key}
+        headers.update(extra_headers)
+        return proxy_anthropic(base_url, api_key, body, headers, state_dir,
+                                path="/messages", query_suffix="", on_connect=on_connect)
     # finding 16 (major, h4-h5-h3c review): the databricks branch never
     # added `Authorization: Bearer <token>` -- this docstring (and
     # headless.py's own extra_headers construction) CLAIMED it was

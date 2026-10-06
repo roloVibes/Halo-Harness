@@ -75,7 +75,8 @@ def provider_rows(*, cwd=None, settings_flag=None, env=None) -> "list[dict]":
     return rows
 
 
-def format_providers_table(rows: "list[dict]", *, openai_spend_line: "str | None" = None) -> str:
+def format_providers_table(rows: "list[dict]", *, openai_spend_line: "str | None" = None,
+                            experiential_balance_line: "str | None" = None) -> str:
     """`openai_spend_line` (round 5i part 1): an already-formatted "this
     session: $x.xxxx across N turn(s)" fragment -- `_cmd_providers`
     passes one when a live session's `cost_meter` has data for an `oai:`
@@ -83,7 +84,17 @@ def format_providers_table(rows: "list[dict]", *, openai_spend_line: "str | None
     providers` CLI, which has no live session at all) falls back to a
     plain pointer at `/cost`/`halo cost` instead of a number. Either way
     the note only appears when the `openai` row is actually enabled --
-    nothing to say about a balance endpoint nobody configured."""
+    nothing to say about a balance endpoint nobody configured.
+
+    `experiential_balance_line` (Halo 2.0.4 round 2): the SAME caller-
+    supplied-string pattern, not a cached background figure like
+    OpenRouter's `format_balance_line()` -- `GET /api/v1/credits` is a
+    bounded, best-effort LIVE read (`providers.experiential_account.
+    fetch_experiential_credits`) the CALLER does (`cmd_providers`/
+    `commands.builtins._cmd_providers`), never this function, which stays
+    network-free like every other formatter on this page. `None` (not
+    fetched, or the fetch failed) falls back to a plain pointer, same
+    shape as the OpenAI line."""
     header = f"{'provider':<26} {'status':<40} {'reachable':<42} {'models':>6}"
     lines = [header]
     for r in rows:
@@ -110,6 +121,11 @@ def format_providers_table(rows: "list[dict]", *, openai_spend_line: "str | None
             "OpenAI API has no public balance endpoint for ordinary keys -- " +
             (openai_spend_line or "spend is computed per session from oai: catalog prices (see /cost).")
         )
+    xp_row = next((r for r in rows if r["name"] == "experiential"), None)
+    if xp_row is not None and xp_row["enabled"]:
+        lines.append("")
+        lines.append(experiential_balance_line or
+                      "Experiential Labs balance: not fetched (see /cost --experiential or halo doctor).")
     return "\n".join(lines)
 
 
@@ -158,7 +174,19 @@ def cmd_providers(argv: list) -> int:
                 refresh_cached_claude_auth_status()
         except Exception:
             pass
-        print(format_providers_table(provider_rows(cwd=cwd, settings_flag=settings_flag)))
+        rows = provider_rows(cwd=cwd, settings_flag=settings_flag)
+        xp_balance_line = None
+        if any(r["name"] == "experiential" and r["enabled"] for r in rows):
+            # Halo 2.0.4 round 2: the ONE live network call this command
+            # makes -- bounded (10s), best-effort (`fetch_experiential_
+            # credits` never raises), and only when the row is actually
+            # enabled; `None` on any failure falls back to the table's own
+            # plain pointer.
+            from halo_harness.providers.experiential_account import (
+                fetch_experiential_credits, format_experiential_balance_line,
+            )
+            xp_balance_line = format_experiential_balance_line(fetch_experiential_credits())
+        print(format_providers_table(rows, experiential_balance_line=xp_balance_line))
         return 0
     action = argv[0]
     if action in ("-h", "--help"):

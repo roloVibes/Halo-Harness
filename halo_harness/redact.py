@@ -38,6 +38,12 @@ _SECRET_ENV_NAMES = (
     "OPENROUTER_API_KEY", "DATABRICKS_TOKEN", "DATABRICKS_HOST", "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY", "GITHUB_TOKEN", "GH_TOKEN", "AWS_SECRET_ACCESS_KEY", "AWS_ACCESS_KEY_ID",
     "AWS_SESSION_TOKEN", "NPM_TOKEN", "OPENROUTER_MANAGEMENT_KEY", "TYPESAFE_API_KEY",
+    # Halo 2.0.4 round 2: the inference key matches `_GENERIC_SECRET_NAME`
+    # already (ends in `_API_KEY`); the provisioning key does NOT (no
+    # API_KEY/TOKEN/SECRET substring at all) -- listed explicitly so
+    # `NAME=value`/`"NAME": "value"` redaction catches it by name too, not
+    # only the bare `xpl_...` token-shape pattern in `_TOKEN_PATTERNS`.
+    "EXPLABS_API_KEY", "EXPLABS_PROVISIONING_KEY",
 )
 # Any identifier containing API_KEY/TOKEN/SECRET anywhere in its name (a
 # generic catch-all for names this list doesn't happen to enumerate, e.g. a

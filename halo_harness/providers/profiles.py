@@ -341,6 +341,16 @@ class ProviderProfile:
     decision_only: bool = False
     decision_only_reason: Optional[str] = None
     tools_supported: bool = True
+    # Halo 2.0.4 round 2 (Experiential Labs `xp:`): the ONE gateway whose
+    # catalog documents this per model (`supports_structured_output`,
+    # research doc section 3.1 -- "structured output never silently
+    # degrades" on this gateway: an unsupported `response_format` is a
+    # clean `unsupported_capability` 400, never a prose fallback) --
+    # `True` (every route before this one) means "untracked, assume yes",
+    # since no other profile branch here has ever gated on this at all;
+    # `providers.request.build_request_body`'s `force_response_format`
+    # path is the one call site that reads it.
+    supports_structured_output: bool = True
     # The bare upstream model id this profile was resolved for
     # (`route.upstream_model`) -- None only for a profile built by hand in
     # a test, never for one `resolve_profile` returns. Exists so a clear
@@ -714,6 +724,35 @@ def resolve_profile(route, model_table: Optional[dict] = None, state_dir=None) -
             effort_values_supported=oai_effort_values, reasoning_default_effort=oai_default_effort,
             send_stream_options_include_usage=True,
             reasoning_effort_with_tools=oai_reasoning_effort_with_tools,
+        )
+    if route.provider == "experiential":
+        # Halo 2.0.4 round 2: "its OWN profile ... none of OpenRouter's
+        # fields" falls out of the generic branch above for free (`host_
+        # specific_fields=(route.provider == "openrouter")` is already
+        # False here) -- this tweak only ever NARROWS what the generic
+        # profile already built, from the gateway's own catalog row
+        # (`providers.experiential_catalog`): `reasoning_effort` passed
+        # only when `supports_reasoning`, structured output only when
+        # `supports_structured_output`, tools only when `supports_tools`
+        # (and never when `decision_only`, same rule every other host on
+        # this page already follows). A model with no catalog row yet
+        # (freshly added, cache not refreshed) keeps the generic
+        # profile's own defaults -- "untracked, assume yes" -- rather than
+        # guessing a capability off.
+        from dataclasses import replace  # see the huggingface branch above: a function-local name, needed here too
+        from halo_harness.providers.experiential_catalog import xp_picker_fields
+        xp_fields = xp_picker_fields(route.upstream_model, state_dir) if state_dir is not None else {}
+        xp_effort_values = effort_values_supported
+        supported_efforts = xp_fields.get("supported_reasoning_efforts")
+        if isinstance(supported_efforts, list) and supported_efforts:
+            xp_effort_values = tuple(supported_efforts)
+        profile = replace(
+            profile,
+            tools_supported=bool(xp_fields.get("supports_tools", True)) and not decision_only,
+            reasoning_effort_supported=bool(xp_fields.get("supports_reasoning", effort_supported)),
+            effort_values_supported=xp_effort_values,
+            reasoning_default_effort=xp_fields.get("reasoning_effort_default") or profile.reasoning_default_effort,
+            supports_structured_output=bool(xp_fields.get("supports_structured_output", True)),
         )
     return profile
 

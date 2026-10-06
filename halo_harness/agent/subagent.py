@@ -401,6 +401,8 @@ def _child_credential_message(ref) -> str:
                  "or auto-detection on a default port)")
     if ref.provider == "openai":
         return "OpenAI API not configured -- set OPENAI_API_KEY"
+    if ref.provider == "experiential":
+        return "Experiential Labs not configured -- set EXPLABS_API_KEY"
     if ref.provider == "ollama":
         return "Ollama host not configured"
     if ref.provider == "anthropic":

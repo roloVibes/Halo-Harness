@@ -295,7 +295,7 @@ def build_request_body(
     *, system_text: str, messages: list, tools: Optional[list] = None, tool_choice=None,
     route, profile: ProviderProfile, effort: Optional[str] = None,
     context_tokens: int = 128000, prompt_estimate: int = 0, requested_max_tokens: Optional[int] = None,
-    force_response_format: "Optional[dict]" = None,
+    force_response_format: "Optional[dict]" = None, session_id: "Optional[str]" = None,
 ) -> dict:
     """Build the OpenAI-dialect body for one request. `messages` is the
     Anthropic-shaped derived transcript (agent/derive.py); `system_text` is
@@ -314,7 +314,13 @@ def build_request_body(
     docstring for the full story -- the identical failure mode, same
     fix). `force_response_format` (the repair round's own override,
     `agent/loop.py`'s `_attempt_tool_repair`) is the ONLY way this
-    function ever puts `response_format` on the wire now."""
+    function ever puts `response_format` on the wire now.
+
+    Halo 2.0.4 round 2: `session_id`, when given AND `route.provider ==
+    "experiential"`, is sent as `safety_identifier` (research doc section
+    2: "pass `safety_identifier` (or `user`) for customer tracking across
+    billing exports") -- documented, opt-out (a caller that omits it, or
+    any non-experiential route, never gets this field at all)."""
     # hooks.system_normalize (fold_into_first_user rows -- Gemma 3, DeepSeek
     # R1) folds `system_text` into the first user turn instead of leaving it
     # a separate leading system message; the empty-assistant placeholder
@@ -326,6 +332,14 @@ def build_request_body(
     oai_messages = _flatten_messages(protected_messages, folded_system_text)
     _restore_empty_assistant_protos(oai_messages)
     oai_tools = convert_tools(tools, profile)
+    if route.provider == "experiential":
+        # Halo 2.0.4 round 2 (research doc section 3.5): off by default
+        # (`experiential.tool_search`) until the live check confirms the
+        # wire shape -- a no-op (`oai_tools` unchanged) whenever disabled
+        # or nothing in `tools` is actually marked deferred.
+        from halo_harness.providers.experiential import apply_tool_search, tool_search_enabled
+        if tool_search_enabled():
+            oai_tools = apply_tool_search(oai_tools, tools)
     reasoning_echo(oai_messages, messages, profile, tools_present=bool(oai_tools))
     if profile.family == "claude" and profile.host_specific_fields:
         # H5 scope C: OpenRouter needs EXPLICIT cache_control breakpoints
@@ -353,13 +367,18 @@ def build_request_body(
             if tc == "required" and not profile.tool_choice_required_supported:
                 tc = "auto"  # DeepSeek-V4-thinking 400s on required/named; Kimi K2.x/Qwen/GLM: auto|none only
             body["tool_choice"] = tc
-    if force_response_format is not None:
+    if force_response_format is not None and profile.supports_structured_output:
         # Round 5b part 2 (brief item 2): the repair call's own override --
         # see `build_ollama_request_body`'s `force_format` for the
         # identical reasoning (an isolated, tools-less completion) -- the
         # ONLY place this function ever puts `response_format` on the
         # wire (fix pass: an ordinary turn is never constrained, see this
-        # function's own docstring).
+        # function's own docstring). Halo 2.0.4 round 2: gated on `profile.
+        # supports_structured_output` -- on the Experiential gateway a
+        # model that can't take `response_format` refuses the WHOLE
+        # request with `unsupported_capability` rather than degrading to
+        # prose (research doc section 3.1), so a catalog row that already
+        # says no skips the attempt rather than paying for that 400.
         from halo_harness.providers.tool_call_schema import openai_response_format_for_schema
         body["response_format"] = openai_response_format_for_schema(force_response_format)
 
@@ -434,6 +453,17 @@ def build_request_body(
     # starts populating one.
     for _unsupported_key in profile.sampling_unsupported_params:
         body.pop(_unsupported_key, None)
+
+    if route.provider == "experiential":
+        # Halo 2.0.4 round 2 (research doc section 3.4): `gateway.routing`/
+        # `gateway.retry` -- always at least `{"retry": {"max_attempts_
+        # per_route": 1}}` (Halo's own outer retry loop is the outer layer
+        # already); `gateway.routing` only when `experiential.routing` is
+        # actually configured (no sensible default routing preference).
+        from halo_harness.providers.experiential import build_gateway_object
+        body["gateway"] = build_gateway_object()
+        if session_id:
+            body["safety_identifier"] = session_id
 
     return body
 

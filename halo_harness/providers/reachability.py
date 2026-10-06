@@ -96,6 +96,10 @@ def provider_base_url(name: str) -> Optional[str]:
         from halo_harness.providers.config import resolve_openai
         oai = resolve_openai()
         return oai.base_url if oai is not None else "https://api.openai.com/v1"
+    if name == "experiential":
+        from halo_harness.providers.config import resolve_experiential
+        xp = resolve_experiential()
+        return xp.base_url if xp is not None else "https://api.experientiallabs.ai/v1"
     if name == "ollama":
         # Round 5: the resolved DEFAULT host's url (never a specific named
         # LAN/cloud entry -- there is no single "the" host to pick among

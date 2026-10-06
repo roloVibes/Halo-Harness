@@ -28,7 +28,12 @@ test, TESTS = new_registry()
 @test
 def test_format_token_count_normalizes_k_and_m_units(ctx: Ctx):
     from halo_harness.model_display import format_token_count
-    cases = {200000: "200k", 128000: "128k", 1048576: "1M", 1050000: "1M", 500: "500", 16384: "16k"}
+    # Halo 2.0.4 round 2 (plans/ROADMAP.md "2.0.4 'new labs' coverage"):
+    # 2097152 (Tencent hy4-preview's 1,048,576-ish doubled context class,
+    # and Space Bunny Alpha's own 1,000,000) pins the "2M" case explicitly
+    # -- 1048576/1050000 already pinned "1M" below.
+    cases = {200000: "200k", 128000: "128k", 1048576: "1M", 1050000: "1M", 500: "500", 16384: "16k",
+             2097152: "2M", 1000000: "1M", 524288: "524k"}
     for n, expected in cases.items():
         got = format_token_count(n)
         ctx.check(f"{n} -> {expected!r}, got {got!r}", got == expected)
@@ -49,6 +54,32 @@ def test_format_price_per_m_never_multiplies(ctx: Ctx):
     ctx.check(f"already-per-million value formatted as-is, got {format_price_per_m(3.0)!r}",
               format_price_per_m(3.0) == "$3.00/M")
     ctx.check(f"blank (never '?') for None, got {format_price_per_m(None)!r}", format_price_per_m(None) == "")
+
+
+@test
+def test_format_price_per_m_varies_and_free(ctx: Ctx):
+    """Halo 2.0.4 round 2 (plans/ROADMAP.md "2.0.4 'new labs' coverage"):
+    a router model's own `-1`-per-token sentinel (`openrouter/auto`,
+    `typesafe/jev-router`, `nvidia/switchyard`) renders "varies", never a
+    negative dollar figure, whether it arrives here still as -1 (an
+    unconverted per-token value) or already scaled to -1,000,000 (the
+    per-million unit this function actually expects) -- a caller's own
+    conversion step decides which it hands in, this function treats
+    either as "negative means varies". Exactly 0 renders "free"
+    (Experiential's own `0 = free` catalog convention); unknown (`None`)
+    stays blank, never coerced to a number."""
+    from halo_harness.model_display import format_price_per_m
+    ctx.check(f"-1 (raw per-token sentinel) -> varies, got {format_price_per_m(-1)!r}",
+              format_price_per_m(-1) == "varies")
+    ctx.check(f"-1_000_000 (scaled to per-million) -> varies, got {format_price_per_m(-1_000_000)!r}",
+              format_price_per_m(-1_000_000) == "varies")
+    ctx.check(f"0 -> free, got {format_price_per_m(0)!r}", format_price_per_m(0) == "free")
+    ctx.check(f"0.0 -> free, got {format_price_per_m(0.0)!r}", format_price_per_m(0.0) == "free")
+    ctx.check(f"a real price still formats normally, got {format_price_per_m(0.06)!r}",
+              format_price_per_m(0.06) == "$0.06/M")
+    ctx.check(f"None stays blank (unknown), got {format_price_per_m(None)!r}", format_price_per_m(None) == "")
+    ctx.check(f"a negative numeric STRING also -> varies, got {format_price_per_m('-1')!r}",
+              format_price_per_m("-1") == "varies")
 
 
 # ---------------------------------------------------------------------------

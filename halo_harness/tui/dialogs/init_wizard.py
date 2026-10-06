@@ -360,6 +360,11 @@ class ProvidersStep(StepScreen):
         if provider == "typesafe":
             yield Static("Stores TYPESAFE_API_KEY only -- for a later feature, no routed models yet.",
                          classes="tab-help")
+        if provider == "experiential":
+            yield Static("Paste EXPLABS_API_KEY (the inference key, prefix xpl_) to use the Experiential "
+                         "Labs gateway (xp: models) -- its catalog, credits balance and model prices come "
+                         "from this same key; the separate provisioning key is never asked for here.",
+                         classes="tab-help")
         label = "Check login" if provider in ("claude", "codex") else "Save"
         yield Button(label, id=f"wiz-{provider}-save", variant="primary")
         reach = "reachability: skipped (--no-live)" if self.state.no_live else "reachability: checking…"

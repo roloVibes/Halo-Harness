@@ -76,6 +76,8 @@ def _not_configured_message(ref) -> str:
                  "or auto-detection on a default port)")
     if ref.provider == "openai":
         return "OpenAI API not configured -- set OPENAI_API_KEY"
+    if ref.provider == "experiential":
+        return "Experiential Labs not configured -- set EXPLABS_API_KEY"
     if ref.provider == "ollama":
         return "Ollama host not configured"
     if ref.provider == "anthropic":
@@ -904,6 +906,44 @@ class Controller:
                 "provider": "openai", "group": label_for("openai"),
             })
         _maybe_hint("openai", detected=oai_detected)
+
+        # Halo 2.0.4 round 2: the "Experiential Labs" group -- unlike the
+        # huggingface/openai groups just above, this gateway's own `GET
+        # /v1/models` carries real context/price/capability fields
+        # DIRECTLY (`providers.experiential_catalog`), so there is no
+        # separate models.dev cross-check tier; `load_xp_models_json`
+        # falls back to the vendored snapshot on a fresh install with no
+        # cache file yet, so the group is never empty just because `/model`
+        # hasn't been refreshed once. Same first-paint-safe gate (pure file
+        # read, gated on enablement) as every group above.
+        xp_detected = credentials_present("experiential", env=env)
+        xp_enabled = is_enabled("experiential", detected=xp_detected)
+        try:
+            from halo_harness.providers.experiential_catalog import load_xp_models_json, xp_picker_fields
+            xp_models = load_xp_models_json(self.state_dir) or {} if xp_enabled else {}
+        except Exception:
+            xp_models = {}
+        for name in sorted(xp_models):
+            ref = f"xp:{name}"
+            if ref in seen:
+                continue
+            fields = xp_picker_fields(name, self.state_dir)
+            badge = fields.get("data_policy_badge")
+            owned_by = fields.get("owned_by")
+            detail_parts = [p for p in (owned_by, badge) if p]
+            # "a $0 preview model shows 'free (preview)'" -- `format_
+            # price_per_m` alone renders the bare word "free"; this adds
+            # the qualifier here, in the detail bracket next to it.
+            if fields.get("is_free_preview"):
+                detail_parts.append("free (preview)")
+            detail = " · ".join(detail_parts) or None
+            out.append({
+                "ref": ref, "context_tokens": fields.get("context_tokens"),
+                "max_output_tokens": fields.get("max_output_tokens"),
+                "price_in_per_m": fields.get("price_in_per_m"), "price_out_per_m": fields.get("price_out_per_m"),
+                "provider": "experiential", "group": label_for("experiential"), "detail": detail,
+            })
+        _maybe_hint("experiential", detected=xp_detected)
 
         # Halo 2.0.3 round 5i part 2: the "Codex subscription (ChatGPT)"
         # group -- the `cx:` counterpart of the "Claude Code subscription"

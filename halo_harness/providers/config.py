@@ -511,6 +511,40 @@ def resolve_openai(env: dict | None = None) -> OaiConfig | None:
     return OaiConfig(api_key=api_key, base_url=base_url)
 
 
+@dataclass
+class ExpConfig:
+    """The Experiential Labs gateway (`xp:`) -- Halo 2.0.4 round 2.
+    `api_key` is the INFERENCE key `EXPLABS_API_KEY` (`xpl_` prefix) --
+    never the separate, higher-privilege `EXPLABS_PROVISIONING_KEY` the
+    full Spend API/key management needs, which this harness never asks
+    for (research doc section 2: an inference key gets a 403 on those).
+    Two base-URL families, per the gateway's own docs (section 2):
+    `base_url` (bare `/v1`, inference -- chat/responses/messages) and
+    `account_base_url` (`/api/v1` -- credits/usage/catalog management),
+    each independently overridden for tests by `BRIDGE_EXPERIENTIAL_
+    BASE_URL`/`BRIDGE_EXPERIENTIAL_ACCOUNT_BASE_URL` (or the `HALO_`/
+    `ROLO_CLAUDE_` twins)."""
+    api_key: str
+    base_url: str = "https://api.experientiallabs.ai/v1"
+    account_base_url: str = "https://api.experientiallabs.ai/api/v1"
+
+
+def resolve_experiential(env: dict | None = None) -> ExpConfig | None:
+    """`None` if `EXPLABS_API_KEY` isn't set -- `xp:<slug>` is then
+    refused at request time with a plain "Experiential Labs not
+    configured" message, same contract as every other provider here. A
+    bare call (no `env`) falls back to the settings-env chain the same
+    way `resolve_openai`/`resolve_openrouter` do."""
+    env = env if env is not None else os.environ
+    api_key = _settings_fallback_value(env, "EXPLABS_API_KEY")
+    if not api_key:
+        return None
+    base_url = _settings_fallback_base_url(env, "EXPERIENTIAL_BASE_URL", "https://api.experientiallabs.ai/v1")
+    account_base_url = _settings_fallback_base_url(
+        env, "EXPERIENTIAL_ACCOUNT_BASE_URL", "https://api.experientiallabs.ai/api/v1")
+    return ExpConfig(api_key=api_key, base_url=base_url, account_base_url=account_base_url)
+
+
 def resolve_openrouter_management_key(env: dict | None = None) -> "str | None":
     """H15 part 2 addendum 4 (corrected): `OPENROUTER_MANAGEMENT_KEY` -- a
     SEPARATE, higher-privilege key OpenRouter's own `/credits` endpoint

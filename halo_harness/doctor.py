@@ -183,6 +183,41 @@ def _check_databricks() -> str:
     return f"{OK} Databricks: configured ({dbx.host})"
 
 
+def _check_experiential() -> str:
+    """Halo 2.0.4 round 2: key present, the gateway's connect-phase
+    reachable (`providers.reachability.reachability_tag`, the SAME probe
+    `halo providers`'s own "reachable" column uses), and the credits
+    balance when `GET /api/v1/credits` actually answers -- all bounded,
+    best-effort; a failure at any step degrades to the next-best line
+    rather than ever crashing the whole `halo doctor` run."""
+    _load_env_file_best_effort()
+    try:
+        from halo_harness.providers.config import resolve_experiential
+        xp = resolve_experiential()
+    except Exception as e:
+        return _fix(f"{WARN} Experiential Labs: could not check ({type(e).__name__}: {e})", cmd="halo init")
+    if xp is None:
+        return _fix(f"{WARN} Experiential Labs: not configured (no EXPLABS_API_KEY found)",
+                     cmd="halo init --provider experiential")
+    try:
+        from halo_harness.providers.reachability import reachability_tag
+        reach = reachability_tag("experiential", detected=True)
+    except Exception as e:
+        reach = f"unreachable: {type(e).__name__}: {e}"
+    if reach != "reachable":
+        return _fix(f"{WARN} Experiential Labs: key found ({xp.base_url}), {reach}", cmd="halo doctor")
+    try:
+        from halo_harness.providers.experiential_account import (
+            fetch_experiential_credits, format_experiential_balance_line,
+        )
+        balance_line = format_experiential_balance_line(fetch_experiential_credits())
+    except Exception:
+        balance_line = None
+    if balance_line:
+        return f"{OK} Experiential Labs: key found, gateway reachable, {balance_line}"
+    return f"{OK} Experiential Labs: key found, gateway reachable (balance endpoint did not answer)"
+
+
 def _check_claude_subscription() -> str:
     """H11 Part B: `cc:` model availability -- reads ONLY `claude auth
     status`'s own JSON (providers.cc_models.claude_auth_status), NEVER
@@ -1619,6 +1654,7 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("env_file", _check_env_file()))
     entries.append(("openrouter", _check_openrouter()))
     entries.append(("databricks", _check_databricks()))
+    entries.append(("experiential", _check_experiential()))
     entries.append(("claude_subscription", _check_claude_subscription()))
     entries.append(("codex_subscription", _check_codex_subscription()))
     entries.append(("codex_settings", _check_codex_settings()))

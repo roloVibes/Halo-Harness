@@ -251,6 +251,13 @@ directly by the features that own them:
 | `huggingface.preferred_runtime` | unset (Halo picks the only valid runtime per file format: `llama-server` for `.gguf`, `mlx_lm` for safetensors/MLX on Apple Silicon) | `halo init`'s "Local models" step; `"llama-server"` or `"mlx_lm"` -- a `halo local serve --runtime` flag always wins over this; stored for a future round where the same file could genuinely be served more than one way |
 | `openai.dialect_overrides` | unset (the built-in table alone: `gpt-6-astra`/`gpt-6.1-sol` default to the Responses dialect, every other `oai:` id to chat completions) | `halo config set openai.dialect_overrides '{"gpt-5": "responses"}'`; a map of bare `oai:` model id to `"chat"`/`"responses"` -- always wins over the table, in either direction; see `docs/MODELS.md`'s "OpenAI API" section |
 | `settings.primary` | `"claude"` | `/settings primary claude\|codex`, `halo config set settings.primary codex`, or the init wizard's "Settings sources" step; which of Claude Code's or Codex's own setting wins the merged `/settings`/doctor view when BOTH are set and halo's own config and a live `cx:` session don't already decide it -- see `docs/MODELS.md`'s "Codex settings and instructions" section |
+| `experiential.dialect_overrides` | unset (every `xp:` slug uses chat completions by default; no static required-dialect table) | `halo config set experiential.dialect_overrides '{"some-slug": "responses"}'`; same shape as `openai.dialect_overrides`, always wins over the default either direction; see `docs/MODELS.md`'s "Experiential Labs" section |
+| `experiential.tool_search` | `false` | `halo config set experiential.tool_search true`; opts into the gateway's `openrouter:tool_search`/`defer_loading` wire convention for Halo's own already-deferred tools on `xp:` routes -- off by default until a live check confirms the shape |
+| `experiential.routing.allow_fallbacks` | unset (the gateway's own default, effectively `true`) | `halo config set experiential.routing.allow_fallbacks false`; sent as `gateway.routing.allow_fallbacks` on every `xp:` request once set |
+| `experiential.routing.route_id` | unset | `halo config set experiential.routing.route_id rt_...`; pins every `xp:` request to one specific waterfall rung, from `/xp routes <slug>`'s own output |
+| `experiential.retry.max_attempts_per_route` | `1` (always sent -- Halo's own outer retry loop is the outer layer already) | `halo config set experiential.retry.max_attempts_per_route 2` |
+| `experiential.retry.max_total_attempts` | unset (the gateway's own default) | `halo config set experiential.retry.max_total_attempts 4` |
+| `experiential.retry.backoff` | unset (the gateway's own operator policy -- "omitting it keeps the existing policy" is a real, documented choice) | hand-edited; `{"type": "exponential", "base_delay_ms": ..., "max_delay_ms": ..., "multiplier": ...}` or `{"type": "none"}` |
 
 ## Every environment variable
 
@@ -306,6 +313,10 @@ good, with no `HALO_` twin, since the test suites depend on the exact name.
 | `HF_LOCAL_PROBE_PORTS` | comma-separated ints overriding which ports the `hf:local/*` auto-detect sweep probes (default `8080,8000,1234` -- see `docs/MODELS.md`); wins over `huggingface.local_probe_ports` when both are set |
 | `OPENAI_API_KEY` | the real OpenAI API credential (`oai:<model>`) -- the ONLY name read, same as every other provider's single-key env var here |
 | `HALO_OPENAI_BASE_URL` (legacy `BRIDGE_OPENAI_BASE_URL`) | override the OpenAI API base URL (default `https://api.openai.com/v1`) -- the test seam that stands in for the real API everywhere this round's own fake is used |
+| `EXPLABS_API_KEY` | the Experiential Labs INFERENCE credential (`xp:<slug>`, prefix `xpl_`) -- calls models, reads `/api/v1/credits`/`/api/v1/usage`; the ONLY key Halo ever asks for or reads |
+| `EXPLABS_PROVISIONING_KEY` | a SEPARATE, higher-privilege Experiential Labs key for key management and the full Spend API -- Halo never asks for or assumes this one; listed here only so a redaction pass still knows its name |
+| `HALO_EXPERIENTIAL_BASE_URL` (legacy `BRIDGE_EXPERIENTIAL_BASE_URL`) | override the bare inference base URL (default `https://api.experientiallabs.ai/v1`) |
+| `HALO_EXPERIENTIAL_ACCOUNT_BASE_URL` (legacy `BRIDGE_EXPERIENTIAL_ACCOUNT_BASE_URL`) | override the account base URL (default `https://api.experientiallabs.ai/api/v1`) -- credits/usage, separate from the inference root above |
 
 ## Providers (`halo init --provider ...`)
 
@@ -321,13 +332,14 @@ deprecated alias for `--provider openrouter|databricks|claude` respectively
 | `anthropic` | `ant:sonnet` | `ANTHROPIC_API_KEY` |
 | `claude` | `cc:sonnet` | none -- uses your existing `claude` login as-is |
 
-Ollama, Hugging Face, OpenAI API (key) and Codex subscription each get
-their own tab in `halo init`'s INTERACTIVE Providers step (Halo 2.0.3
-round 5 for Ollama/Hugging Face, round 5i for OpenAI/Codex --
+Ollama, Hugging Face, OpenAI API (key), Codex subscription and
+Experiential Labs each get their own tab in `halo init`'s INTERACTIVE
+Providers step (Halo 2.0.3 round 5 for Ollama/Hugging Face, round 5i for
+OpenAI/Codex, Halo 2.0.4 round 2 for Experiential Labs --
 `init_providers.TAB_PROVIDERS`). `halo setup`/`/setup` never reach a
 Providers step at all (their own step list is `roles`/`orgs`/`summary`
 only -- see `docs/COMMANDS.md`'s `setup` section), so none of these tabs
-appear there; only `halo init` itself shows them. None of the four is a
+appear there; only `halo init` itself shows them. None of these is a
 `halo init --provider`/`--preset` CLI-flag CHOICE, though, and that's
 deliberate: that flag drives the OLDER sequential, non-interactive
 picker, which has no sensible single hardcoded default model for any of
@@ -335,9 +347,10 @@ them (unlike the four providers in the table above, which always have
 one well-known catalog entry) -- the same reason that picker's own
 no-TTY/Textual-failure fallback never offers any of these tabs. Configure
 `HF_TOKEN`/`huggingface.endpoints`/`huggingface.local_servers`/
-`ollama.hosts`/`OPENAI_API_KEY` directly instead on a non-interactive
-box, or run `codex login` directly for Codex (see `docs/MODELS.md`'s
-"Ollama"/"Hugging Face"/"OpenAI API"/"Codex subscription" sections). The
+`ollama.hosts`/`OPENAI_API_KEY`/`EXPLABS_API_KEY` directly instead on a
+non-interactive box, or run `codex login` directly for Codex (see
+`docs/MODELS.md`'s "Ollama"/"Hugging Face"/"OpenAI API"/"Codex
+subscription"/"Experiential Labs" sections). The
 wizard's
 own "Local models" step (round 5c, right after the Providers step) is
 the SAME kind of interactive-only addition -- `huggingface.model_dirs`/

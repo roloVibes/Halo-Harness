@@ -282,6 +282,14 @@ def cmd_models(argv) -> int:
         if ok is False:
             print("halo models: could not refresh from OpenAI", file=sys.stderr)
 
+    if args.refresh and is_enabled("experiential"):
+        # Halo 2.0.4 round 2: same hooks round 5i part 1 wired for OpenAI
+        # just above, for the Experiential Labs gateway.
+        from halo_harness.providers.experiential_catalog import refresh_experiential_catalog_if_stale
+        ok = refresh_experiential_catalog_if_stale(state_dir, force=True)
+        if ok is False:
+            print("halo models: could not refresh from Experiential Labs", file=sys.stderr)
+
     # H15 item 21.2: a provider with real credentials but not ENABLED shows
     # one line instead of its table -- same rule `/model`/the init picker/
     # doctor all follow; `halo providers enable <name>` is the fix

@@ -44,6 +44,10 @@ async def handle_slash(app, name: str, args: str) -> None:
         # shells out even more; both now build their result in a
         # `thread=True` worker and post it back with `call_from_thread`.
         "providers": _handle_providers, "doctor": _handle_doctor,
+        # Halo 2.0.4 round 2: `/xp routes <slug>` is a real bounded network
+        # call too (GET /api/models/<slug>/providers), same reasoning as
+        # providers/doctor just above.
+        "xp": _handle_xp,
         "resume": _handle_resume, "permissions": _handle_permissions,
         "exit": _handle_exit, "quit": _handle_exit, "theme": _handle_theme,
         # U5 scope C: sessions UX.
@@ -536,6 +540,14 @@ def catalog_auto_refresh_worker(app) -> None:
         from halo_harness.providers.openai_catalog import load_oai_models_json, refresh_openai_catalog_if_stale
         if refresh_openai_catalog_if_stale(state_dir, env=env):
             notes.append(f"OpenAI ({len(load_oai_models_json(state_dir))} models)")
+    if is_enabled_with_env("experiential", env):
+        # Halo 2.0.4 round 2: same hooks round 5i part 1 wired for OpenAI
+        # just above, for the Experiential Labs gateway.
+        from halo_harness.providers.experiential_catalog import (
+            load_xp_models_json, refresh_experiential_catalog_if_stale,
+        )
+        if refresh_experiential_catalog_if_stale(state_dir, env=env):
+            notes.append(f"Experiential Labs ({len(load_xp_models_json(state_dir))} models)")
     if notes:
         app.call_from_thread(app.notify, f"Catalog refreshed: {'; '.join(notes)}", title="/model")
 
@@ -918,6 +930,29 @@ def _models_refresh_worker(app, do_refresh: bool, *, dbx_explicit: bool = False)
             else:
                 sections.append(f"OpenAI refreshed: {len(load_oai_models_json(state_dir))} model(s) cached.")
 
+    if is_enabled("experiential"):
+        # Halo 2.0.4 round 2: same hooks round 5i part 1 wired for OpenAI
+        # just above, for the Experiential Labs gateway.
+        from halo_harness.providers.experiential_catalog import (
+            load_xp_models_json, xp_models_json_age_seconds, refresh_experiential_catalog_if_stale,
+        )
+        if not do_refresh:
+            age = xp_models_json_age_seconds(state_dir)
+            age_str = "never" if age is None else f"{age / 3600:.1f}h ago"
+            sections.append(f"Experiential Labs: {len(load_xp_models_json(state_dir))} model(s) cached "
+                             f"(last refreshed {age_str}).")
+        else:
+            from halo_harness.providers.databricks import CATALOG_REFRESH_BUSY, REFRESH_BUSY_NOTE
+            ok = refresh_experiential_catalog_if_stale(state_dir, force=True)
+            if ok is CATALOG_REFRESH_BUSY:
+                sections.append(f"Experiential Labs: {REFRESH_BUSY_NOTE}.")
+            elif ok is False:
+                sections.append("Experiential Labs refresh failed -- see `halo doctor`.")
+            elif ok is None:
+                sections.append("Experiential Labs: not configured -- nothing to refresh.")
+            else:
+                sections.append(f"Experiential Labs refreshed: {len(load_xp_models_json(state_dir))} model(s) cached.")
+
     if not sections:
         sections.append("No providers are enabled yet -- see `halo providers`.")
     app.call_from_thread(app.transcript.add_note, "\n\n".join(sections), kind="command")
@@ -977,6 +1012,19 @@ def _doctor_worker(app) -> None:
     from halo_harness.doctor import run_checks
     lines, _ok = run_checks(cwd=app.cwd)
     app.call_from_thread(app.transcript.add_note, "\n".join(lines), kind="command")
+
+
+async def _handle_xp(app, args: str) -> None:
+    # Halo 2.0.4 round 2: `/xp routes <slug>` makes a real bounded network
+    # call (`GET /api/models/<slug>/providers`) -- off the UI thread, same
+    # reasoning `/providers`/`/doctor` already follow just above.
+    app.run_worker(lambda: _xp_worker(app, args), thread=True, name="xp", group="xp")
+
+
+def _xp_worker(app, args: str) -> None:
+    from halo_harness.commands.builtins import _cmd_xp
+    text = _cmd_xp(args, app.controller.facade)
+    app.call_from_thread(app.transcript.add_note, text, kind="command")
 
 
 async def _handle_update(app, _args: str) -> None:

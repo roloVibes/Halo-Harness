@@ -34,6 +34,8 @@ exhaustive reference for every route's exact wire behavior.
 | `hf:mlx/<org>/<repo>` | `hf:mlx/mlx-community/Qwen2.5-7B-Instruct-4bit` | round 5f, experimental, Apple Silicon only: a Halo-managed `mlx_lm.server` for this exact Hugging Face Hub repo, started on first use and reused afterward -- see "Apple Silicon (`hf:mlx/*`, round 5f)" below and [MAC.md](MAC.md) |
 | `oai:<model>` | `oai:gpt-5`, `oai:gpt-6-astra` | the real OpenAI API (`OPENAI_API_KEY`) -- chat completions, or the Responses dialect for the two models that need it -- see "OpenAI API" below |
 | `cx:<model>` | `cx:astra`, `cx:gpt-6.1-sol` | your Codex ChatGPT subscription, via the installed `codex` binary -- see "Codex subscription (ChatGPT)" below |
+| `xp:<slug>` | `xp:space-bunny-alpha`, `xp:nemotron-3.5-lightning` | the Experiential Labs gateway (`EXPLABS_API_KEY`) -- chat completions by default, or the Responses dialect per `experiential.dialect_overrides` -- see "Experiential Labs" below |
+| `xp:claude-<slug>` | `xp:claude-haiku-4.5`, `xp:claude-opus-5` | the SAME gateway, routed through Halo's native Anthropic passthrough so thinking stays native while an Anthropic-shaped rung serves the call -- see "Experiential Labs" below |
 | a `routes.json` alias | whatever `aliases` defines | resolved recursively (max 4 hops) before any of the above rules apply |
 
 Parsing order (`model.py::parse_model_ref`): an exact match in
@@ -110,7 +112,12 @@ round 4, extended round 5) once `HF_TOKEN` is found, OR at least one
 local_servers` entry is configured -- any ONE of the three sources alone
 is enough; an auto-DETECTED local server (no config entry at all) is
 never checked here (that needs a live network probe, out of scope for
-this config/env-only check) -- see `/local`/`halo local` for that.
+this config/env-only check) -- see `/local`/`halo local` for that;
+OpenAI API (key), Experiential Labs, and TypeSafe each follow the same
+single-key auto-enable rule as OpenRouter/Anthropic above (`OPENAI_API_
+KEY`/`EXPLABS_API_KEY`/`TYPESAFE_API_KEY` respectively); Codex
+subscription (`cx:`) follows the SAME `claude auth status`-shaped rule as
+`cc:` above, substituting `codex login status`/`authMethod: "chatgpt"`.
 `~/.halo/config.json`'s
 `"providers"` block stores OVERRIDES only: `halo providers enable/
 disable <name>` (or `/providers enable/disable <name>`, or completing a
@@ -127,6 +134,9 @@ own tabs, `halo providers`/`/providers`, and `doctor`):
 | `ant:` | Anthropic API (key) | `anthropic` |
 | `cc:` | Claude Code subscription | `claude_subscription` |
 | `hf:` | Hugging Face | `huggingface` |
+| `oai:` | OpenAI API (key) | `openai` |
+| `cx:` | Codex subscription (ChatGPT) | `codex_subscription` |
+| `xp:` | Experiential Labs | `experiential` |
 | *(none yet)* | TypeSafe | `typesafe` -- stores `TYPESAFE_API_KEY` only, for a later feature |
 
 Ollama (`ol:`) is deliberately NOT in this table -- see "Ollama" below,
@@ -1232,6 +1242,138 @@ flips which of Claude Code's or Codex's value is preferred when both are
 set and Halo's own config and a live cx: session don't already decide
 it -- set it from the init wizard's "Settings sources" step, `/settings
 primary claude|codex`, or `halo config set settings.primary codex`.
+
+## Experiential Labs
+
+`xp:<slug>` against the Experiential Labs gateway (platform.
+experientiallabs.ai) -- an OpenAI-compatible gateway in front of hosted
+providers, your own provider keys (BYOK), platform-funded credits, and
+self-hosted/custom models. Full research: `docs/harness/EXPERIENTIAL-
+RESEARCH.md`.
+
+**Key and base URLs.** `EXPLABS_API_KEY` (the INFERENCE key, prefix
+`xpl_`) -- never the separate, higher-privilege `EXPLABS_PROVISIONING_
+KEY`, which the full Spend API and key-management endpoints need and
+which Halo never asks for or assumes (an inference key gets a 403 on
+those). Two base-URL families, each independently overridden for tests:
+`BRIDGE_EXPERIENTIAL_BASE_URL` (default `https://api.experientiallabs.ai/
+v1`, bare inference: chat/responses/messages) and `BRIDGE_EXPERIENTIAL_
+ACCOUNT_BASE_URL` (default `https://api.experientiallabs.ai/api/v1`,
+account: credits/usage/catalog management).
+
+**Three dialects, one gateway.** A Claude slug (`xp:claude-*`) goes
+through Halo's existing native Anthropic passthrough at `/v1/messages`
+with `x-api-key`, so thinking stays native WHILE an Anthropic-shaped rung
+actually serves the call -- the waterfall can still fail over to a
+non-Anthropic rung, which translates `thinking` to that rung's own
+`reasoning_effort` tier or drops it, disclosed by the gateway; every other
+slug uses chat completions (`/v1/chat/completions`) by default, or the
+Responses dialect (`/v1/responses`, shared with the `oai:` route's own
+work) when `experiential.dialect_overrides` (`{"<slug>": "chat"|
+"responses"}`, same shape as `openai.dialect_overrides`) says so -- there
+is no static required-dialect table for this gateway, since no
+live-confirmed model needs Responses by default yet.
+
+**Its own profile.** None of OpenRouter's own fields (`usage.include`, a
+`provider` preference object, `transforms`) are ever sent -- Experiential's
+schema simply doesn't define them, and sending any of them 400s. `tools`/
+`reasoning_effort`/structured output (`response_format`) are each gated on
+that exact model's own catalog row (`supports_tools`/`supports_reasoning`/
+`supports_structured_output`) -- the gateway's structured-output capability
+check never silently degrades to prose; it refuses the whole request with
+`unsupported_capability` instead, so Halo checks the catalog BEFORE even
+trying.
+
+**Catalog.** `GET /v1/models`, cached in `experiential-models.json` with
+the same TTL knob every other catalog here uses (`databricks.catalog_max_
+age_hours`), refreshed by `/models refresh`, `halo models --refresh`, and
+the same launch/first-open auto-refresh every other provider group gets.
+A vendored fallback (`halo_harness/providers/catalog/experiential-models.
+json`, built from already-published facts, no key, no secret) means a
+fresh install still shows real context/price/capability columns before
+ever refreshing live. Per-model fields: `context_window_tokens`,
+`maximum_output_tokens`, `pricing.*_nano_usd_per_million_tokens` (divided
+by 1e9 for the picker's USD/M columns -- `0` renders "free", an unpublished
+price stays blank), `supports_tools`/`supports_reasoning`/`supports_
+structured_output`, `supported_reasoning_efforts` + a default `reasoning_
+effort`, `reasoning_output_hidden`, `data_policy` (`no_training`/`zdr`,
+shown as a one-word picker badge, `zdr` winning when both are set),
+`owned_by`.
+
+**Cost and credits.** Per-turn cost reads `usage.cost` (the live-confirmed
+location; a future top-level `cost` the docs describe is read as a bonus,
+never required). `provider` (which rung actually served the turn) and
+`is_byok` ride the same per-chunk shape OpenRouter's own `provider` field
+does -- the transcript's responding-provider label shows the real serving
+rung (e.g. `experiential_cloud`) instead of the bare `xp:` route name.
+`GET /api/v1/credits` feeds the balance line in `halo doctor`/`halo
+providers` (a bounded, best-effort live read -- never from `/providers`'
+own table-formatting function, which stays network-free); `halo stats
+--experiential` pages the settled rows from `GET /api/v1/usage` (there is
+no standalone `halo cost` command, only `halo stats` and the in-session
+`/cost`). Every `xp:` chat-completions request carries `safety_identifier`
+set to the Halo session id (documented, opt-out -- "customer tracking
+across billing exports"), so per-session spend is visible in the owner's
+own Experiential Labs dashboard.
+
+**Waterfall and the `gateway` object.** `gateway.retry.max_attempts_per_
+route` is always sent as `1` by default (Halo's own outer retry loop is
+already the outer layer, so the gateway never double-retries underneath
+it) -- override via `experiential.retry.max_attempts_per_route`/`max_
+total_attempts`/`backoff` in `~/.halo/config.json`. `gateway.routing.
+allow_fallbacks`/`route_id` are sent only when `experiential.routing` is
+actually configured (there is no default routing preference to assume).
+`/xp routes <slug>` (also `/xp` in the TUI, off the UI thread) prints the
+rung list from `GET /api/models/<slug>/providers`.
+
+**Errors.** The gateway's own `error.code` (e.g. `unsupported_capability`,
+`unavailable_route`, `pro_required`, `invalid_key`, `idempotency_
+conflict`/`idempotency_replay_unavailable` -- the last two share one HTTP
+409 but mean opposite retry behavior) maps to one plain sentence each,
+read before the generic status-code fallback; `unavailable_route` (429/
+503) is retried through Halo's own existing backoff ladder. The `x-
+experiential-ignored-parameters` response header (fields the gateway
+accepted syntactically but the serving rung couldn't honor) is learned per
+model and surfaced as a one-time notice, never repeated every turn for an
+unchanged value.
+
+**Tool search.** `{"type": "openrouter:tool_search"}` plus per-tool
+`defer_loading: true` is this gateway's own wire convention for the same
+deferred-tool decision Halo's built-in ToolSearch already makes -- off by
+default behind `experiential.tool_search` until a live check confirms the
+shape; a no-op (no sentinel sent) whenever nothing is actually deferred.
+
+**Local gateway (`exp run`).** A running local `exp` gateway (`pip install
+experiential`, default `127.0.0.1:8000`) is recognized by `/local`/`halo
+local` the same way any OpenAI-compatible server is -- by its `/v1/models`
+response SHAPE, never by port (8000 collides with vLLM's own default) --
+and usable as `hf:local/<model>@exp`. Whether it has any Ollama/llama.cpp-
+specific attachment is unconfirmed (docs/harness/EXPERIENTIAL-RESEARCH.md
+section 8); Halo treats it as a generic local OpenAI-compatible server
+either way.
+
+**Embeddings.** `POST /v1/embeddings` and the catalog's `supports_
+embeddings` flag are recorded for 2.0.6; no embedding calls are made this
+round.
+
+**`jev-latest`.** TypeSafe's typed-decision model (`choice`/`score`/`noul`
+answers, no streaming, not a chat model) is reachable as a catalog slug on
+this gateway but is informational only -- it is not a `main`/session-chat
+candidate, and the jev decision API itself was removed from the roadmap.
+
+### How to run the 2.0.4 "new labs" models
+
+| Model | Run as | Notes |
+|---|---|---|
+| Space Bunny Alpha | `xp:space-bunny-alpha` | Experiential-only (not on OpenRouter); 1M context, 524k max output, tools + structured output + reasoning (low/medium/high/xhigh/max, default `max`, reasoning hidden); `no_training: true`; priced $0 (preview) as of 2026-10-05 -- re-check pricing before relying on it staying free |
+| Nemotron 3.5 Lightning | `xp:nemotron-3.5-lightning` (Experiential), `or:nvidia/nemotron-3.5-lightning` or `or:nvidia/nemotron-3.5-lightning:free` (OpenRouter), `oai:` with a custom base URL + an NVIDIA key (`https://integrate.api.nvidia.com/v1`) | three ways to run the same family; the OpenRouter `:free` variant and the Experiential preview pricing are each their own promotion -- check the data-policy note before sending private code to either |
+| Tencent hy4-preview | `or:tencent/hy4-preview` | OpenRouter only; 1,048,576 context, tools + reasoning |
+| TypeSafe jev-router | `or:typesafe/jev-router` | a chat-completions ROUTER (picks a model + effort per request), not the jev decision API; variable price, 1M context |
+
+Data-policy note: a preview/promotional model's `no_training: true` is an
+Experiential-side posture only -- check the SERVING provider's own policy
+(the OpenRouter row's `data_policy`, or the vendor's own terms for `oai:`
+with a custom base URL) before sending anything private through it.
 
 ## Families and their rules
 

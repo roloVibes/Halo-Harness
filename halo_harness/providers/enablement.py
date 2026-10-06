@@ -40,7 +40,7 @@ from typing import Optional
 # part 1: "openai" joins the same way, for the same reason (the brief:
 # "same should be... in the model list with what models they can use").
 PROVIDER_NAMES = ("databricks", "openrouter", "anthropic", "claude_subscription", "codex_subscription",
-                   "typesafe", "huggingface", "openai")
+                   "typesafe", "huggingface", "openai", "experiential")
 
 LABELS = {
     "databricks": "Databricks",
@@ -51,6 +51,7 @@ LABELS = {
     "typesafe": "TypeSafe",
     "huggingface": "Hugging Face",
     "openai": "OpenAI API (key)",
+    "experiential": "Experiential Labs",
 }
 
 # item 21.6: the `dbx:`/`or:`/`ant:`/`cc:` prefix table -- also in
@@ -59,7 +60,7 @@ LABELS = {
 PREFIXES = {
     "databricks": "dbx:", "openrouter": "or:", "anthropic": "ant:",
     "claude_subscription": "cc:", "typesafe": None, "huggingface": "hf:",
-    "openai": "oai:", "codex_subscription": "cx:",
+    "openai": "oai:", "codex_subscription": "cx:", "experiential": "xp:",
 }
 
 # A caller naturally has `ModelRef.provider` ("cc"), `init_providers.py`'s
@@ -71,6 +72,7 @@ _ALIASES = {
     "dbx": "databricks", "or": "openrouter", "ant": "anthropic",
     "hf": "huggingface", "oai": "openai",
     "cx": "codex_subscription", "codex": "codex_subscription",
+    "xp": "experiential",
 }
 
 
@@ -295,6 +297,12 @@ def credentials_present(name: str, env: Optional[dict] = None) -> bool:
         # no endpoint/local-server concept the way huggingface has.
         from halo_harness.providers.config import resolve_openai
         return resolve_openai(env) is not None
+    if name == "experiential":
+        # Halo 2.0.4 round 2: a single credential source (EXPLABS_API_KEY,
+        # the inference key -- never the separate provisioning key, which
+        # this harness never asks for; see providers.config.ExpConfig).
+        from halo_harness.providers.config import resolve_experiential
+        return resolve_experiential(env) is not None
     if name == "ollama":
         # Round 5: config-only, never a network probe (same contract as
         # every branch on this page) -- `ollama.hosts` carries at least one
