@@ -76,10 +76,18 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
 | `2.0.8-signal-brief.md` | 2.0.8: remote control of sessions from Signal |
 | `2.0.9-review-privacy-brief.md` | 2.0.9: deep code review feature and the privacy/secret audit of repo and history |
 
+## RESUMED 2026-10-06 ~09:40 (owner bought API credits)
+
+The partial work of the two stopped workers below is in `git stash` as
+`stash@{0}` "wip: round 4 Governor + 4b cc Linux steer, partial"; the tree
+is clean. Order now: round 2b (wizard and roles fixes, brief
+`plans/briefs/2.0.5/round-2b-wizard-roles-fixes.md`, IN FLIGHT) -> round
+4b (pop or restart from the stash) -> round 4 -> round 5 -> review -> tag.
+
 ## STOPPED 2026-10-06 ~09:10 at the owner's request (token budget 99%)
 
-Both in-flight workers were stopped mid-round. The working tree is DIRTY
-with their partial work, nothing committed after 98fe38b:
+Both in-flight workers were stopped mid-round. Their partial work (now in
+the stash above) was, nothing committed after 98fe38b:
 - Round 4 (Governor): `providers/governor.py`, `governor_state.py`,
   `gateway_routing.py`, `lanes.py` (new); edits to `providers/http.py`,
   `providers/stream.py`, `agent/loop.py`, `agent/subagent.py`, `roles.py`,
