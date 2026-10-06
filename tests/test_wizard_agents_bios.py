@@ -139,7 +139,7 @@ def test_agents_step_create_save_reload_edit_duplicate_delete(ctx: Ctx):
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.1)
                 ctx.check(f"opened on the Agents step, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "AgentsStep")
+                          type(app.screen).__name__ == "TeamStep")
                 app.screen.query_one("#agents-new", Button).press()
                 await pilot.pause(0.2)
                 editor = app.screen
@@ -153,7 +153,7 @@ def test_agents_step_create_save_reload_edit_duplicate_delete(ctx: Ctx):
                 editor.action_save()
                 await pilot.pause(0.2)
                 ctx.check(f"save returned to the step, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "AgentsStep")
+                          type(app.screen).__name__ == "TeamStep")
                 rows = app.screen.query_one("#agents-list", OptionList)
                 names = [str(rows.get_option_at_index(i).id) for i in range(rows.option_count)]
                 ctx.check(f"the new bio is listed, got {names}", "pilot-bio" in names)

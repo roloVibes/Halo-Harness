@@ -1,25 +1,24 @@
 """halo_harness.tui.dialogs.agents_step -- Halo 2.0.5 round 2 (wizard: agent
-bios and lineups), deliverable 1: the Agents step (`"agents"` in `init_
-wizard.ALL_STEP_KEYS`) and deliverable 4's own `/agents`/`halo agents
---form` list+actions screen -- BOTH built on the SAME pure `bio_rows()`
-helper and the SAME `AgentBioEditor` form (`agent_bio_editor.py`), never
+bios and lineups), deliverable 4's own `/agents`/`halo agents --form`
+list+actions screen (`AgentsListScreen`), built on the SAME pure
+`bio_rows()` helper and the SAME `AgentBioEditor` form (`agent_bio_editor.
+py`) the wizard's own Team step (`tui/dialogs/team_step.py`, Halo 2.0.5
+round 2c) now also reuses for its right-hand "Agents" pane -- never
 disagreeing on what a row shows or how a save lands, same "duplicate the
 chrome, share the behaviour" split `init_wizard.py`'s own `ProvidersStep`
-docstring already explains for `InitTabsApp`. A NEW module (hard
-constraint: `init_wizard.py` gains only the registration line).
+docstring already explains for `InitTabsApp`.
 
-`AgentsStep` deliberately subclasses the bare Textual `Screen`, never
-`init_wizard.StepScreen` -- `init_wizard.py` imports THIS module (to
-register `STEP_FACTORIES["agents"]`), so a reverse top-level `from
-halo_harness.tui.dialogs.init_wizard import StepScreen` here would be a
-genuine class-level circular import (not just a lazily-resolvable one,
-since a `class X(StepScreen):` statement needs the real class object at
-MODULE LOAD time) depending on which of the two modules happens to be
-imported first. `AgentsStep` instead duplicates `StepScreen`'s own small
-header/footer chrome directly and reaches `init_wizard.advance`/`go_back`/
-`finish` through a LAZY, function-body-only import (safe: by the time any
-action actually RUNS, both modules have finished loading) -- the exact
-"duplicate the chrome" split this module's own docstring already cites.
+Round 2c (`plans/briefs/2.0.5/round-2c-wizard-ux.md`, rule 11): the wizard's
+OWN `AgentsStep` step class that used to live here is GONE -- the Agents
+step and the "Roles and lineup" step merged into one "Team" step
+(`team_step.TeamStep`), which mixes in `_AgentsListMixin` directly instead
+of subclassing a step class defined in this module. `_AgentsListMixin`
+itself (the list + action buttons + every handler) is UNCHANGED in
+substance, now also carrying the Ctrl+N/Ctrl+D/Del chords rule 9's uniform
+footer promises everywhere this mixin is used (`TeamStep`'s own Agents
+pane, and this module's `AgentsListScreen`) -- round 2b's buttons-only
+New/Duplicate/Delete stay exactly as they were, just no longer the only
+path.
 """
 
 from __future__ import annotations
@@ -29,7 +28,7 @@ from typing import Optional
 from textual.app import App
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.screen import ModalScreen, Screen
+from textual.screen import ModalScreen
 from textual.widgets import Button, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -106,16 +105,49 @@ def _import_all(*, cwd=None, state_dir=None) -> "list[str]":
     return lines or ["(nothing new to import from .claude/agents)"]
 
 
+#: Round 2c (rule 9, the uniform footer): Ctrl+N/Ctrl+D/Del for whatever
+#: `action_agents_new`/`_duplicate`/`_delete` below mean on the host
+#: screen -- a PLAIN TUPLE, not a `BINDINGS` list on the mixin itself:
+#: Textual's own `DOMNode._merge_bindings` walks `cls.__mro__` but only
+#: ever reads `BINDINGS` off a class that `issubclass(base, DOMNode)`
+#: (confirmed against Textual 8.2.8's own source) -- a plain mixin with
+#: no `DOMNode` ancestor is silently skipped, so a `BINDINGS` list
+#: living HERE would never actually bind the chord (found live: Ctrl+N
+#: did nothing at all). Every CONCRETE host (`team_step.TeamStep`,
+#: `AgentsListScreen` below) splices this tuple into its OWN `BINDINGS`
+#: instead -- the three `action_agents_*` METHODS still live on the
+#: mixin and resolve normally (ordinary attribute lookup across the
+#: MRO is unaffected by the DOMNode check, which is specific to this
+#: one classmethod), so only the bindings themselves need repeating.
+AGENTS_LIST_BINDINGS = (
+    Binding("ctrl+n", "agents_new", "New", show=False, priority=True),
+    Binding("ctrl+d", "agents_duplicate", "Duplicate", show=False, priority=True),
+    Binding("delete", "agents_delete", "Delete", show=False, priority=True),
+)
+
+
 class _AgentsListMixin:
     """The list + action buttons + hint, and every action handler --
-    shared verbatim by `AgentsStep` (a `StepScreen`, the wizard) and
-    `AgentsListScreen` (a standalone `ModalScreen`, `/agents` and `--
-    form`). Confirmed live (Textual dispatches `on_<event>` at EVERY
-    class in the MRO that defines one, not just the most-derived) that
-    this mixin's own `on_button_pressed` coexists safely with whatever
-    the CONCRETE class's other base already handles (`StepScreen`'s own
-    wiz-back/skip/next) -- see `init_wizard.py`'s `LocalModelsStep`/
-    `ProvidersStep` for the same pattern this mirrors."""
+    shared verbatim by `team_step.TeamStep` (its own right-hand "Agents"
+    pane) and `AgentsListScreen` (a standalone `ModalScreen`, `/agents`
+    and `--form`). Confirmed live (Textual dispatches `on_<event>` at
+    EVERY class in the MRO that defines one, not just the most-derived)
+    that this mixin's own `on_button_pressed` coexists safely with
+    whatever the CONCRETE class's OTHER base already handles (`TeamStep`'s
+    own wiz-back/skip/next and Lineups-pane chords) -- see `init_wizard.
+    py`'s `LocalModelsStep`/`ProvidersStep` for the same on_button_pressed-
+    coexistence pattern this mirrors. See `AGENTS_LIST_BINDINGS` above for
+    why the CHORDS themselves are a plain tuple a host splices in, not a
+    `BINDINGS` list declared right here."""
+
+    def action_agents_new(self) -> None:
+        self._open_editor_for_new()
+
+    def action_agents_duplicate(self) -> None:
+        self._duplicate_highlighted()
+
+    def action_agents_delete(self) -> None:
+        self._delete_highlighted()
 
     def _cwd(self):
         return None
@@ -127,6 +159,7 @@ class _AgentsListMixin:
         return []
 
     def _agents_list_widgets(self) -> list:
+        from halo_harness.tui.dialogs.wizard_ux import footer_hint
         self._rows = bio_rows(cwd=self._cwd(), state_dir=self._state_dir())
         option_list = OptionList(*[Option(_row_label(r), id=r["name"]) for r in self._rows], id="agents-list")
         return [
@@ -138,6 +171,10 @@ class _AgentsListMixin:
                        Button("Delete", id="agents-delete"),
                        Button("Import", id="agents-import"),
                        classes="wizard-extra-buttons"),
+            # Rule 9: the uniform footer caption -- "choose" here means
+            # Enter opens the highlighted bio (rule 2); no Ctrl+S of its
+            # own (a save happens inside the bio editor this opens).
+            Static(footer_hint(new=True, delete=True, save=False), classes="bio-hint"),
             Static("", id="agents-hint"),
         ]
 
@@ -184,10 +221,24 @@ class _AgentsListMixin:
         """Bug sweep (round 2b, owner feedback: "you highlight a row, then
         Tab down to a button and press ... edit this"), rule (a): Enter on
         a highlighted bio opens it -- the buttons stay, but are never the
-        ONLY path. Moved here (was `AgentsListScreen`-only) so the WIZARD
-        step gets the exact same behaviour as `/agents`/`--form`."""
+        ONLY path. Lives on the mixin (was `AgentsListScreen`-only) so
+        every host of `_AgentsListMixin` -- `AgentsListScreen` and the
+        wizard's own Team step (`team_step.TeamStep`'s Agents pane) --
+        gets the exact same behaviour as `/agents`/`--form`."""
         if event.option_list.id == "agents-list":
             self._open_editor_for_existing()
+
+    def _after_bio_saved(self, saved: "Optional[str]") -> None:
+        """Rule 8: "Save shows a one-line toast" -- the bio editor itself
+        dismisses the instant Save succeeds, so the toast lands here, on
+        the list screen the user actually returns to."""
+        self._refresh_list()
+        if saved:
+            from halo_harness.tui.dialogs.wizard_ux import toast
+            try:
+                toast(self.query_one("#agents-hint", Static), f"Saved {saved!r}.")
+            except Exception:
+                pass
 
     def _open_editor_for_new(self, *, extends_from: "Optional[str]" = None) -> None:
         import uuid
@@ -196,7 +247,7 @@ class _AgentsListMixin:
         self.app.push_screen(
             AgentBioEditor(default_name, raw, self._models_for_picker(), cwd=self._cwd(),
                             state_dir=self._state_dir(), is_new=True, extends_from=extends_from),
-            lambda _saved: self._refresh_list())
+            self._after_bio_saved)
 
     def _open_editor_for_existing(self) -> None:
         name = self._highlighted_name()
@@ -207,7 +258,7 @@ class _AgentsListMixin:
         raw = load_agent_bio_raw(name, cwd=self._cwd(), state_dir=self._state_dir()) or {}
         self.app.push_screen(
             AgentBioEditor(name, raw, self._models_for_picker(), cwd=self._cwd(), state_dir=self._state_dir()),
-            lambda _saved: self._refresh_list())
+            self._after_bio_saved)
 
     def _duplicate_highlighted(self) -> None:
         name = self._highlighted_name()
@@ -243,116 +294,13 @@ class _AgentsListMixin:
             pass
 
 
-class AgentsStep(_AgentsListMixin, Screen):
-    """Deliverable 1: `"agents"` in `init_wizard.ALL_STEP_KEYS`, after the
-    keys step/enumeration and before "roles" -- see the module docstring
-    for why this duplicates `StepScreen`'s own small header/footer chrome
-    rather than subclassing it."""
-    BINDINGS = [
-        Binding("escape", "ask_quit", "Quit setup", show=False, priority=True),
-        Binding("ctrl+n", "do_next", "Next", show=False),
-        Binding("ctrl+b", "do_back", "Back", show=False),
-    ]
-    DEFAULT_CSS = """
-    AgentsStep { align: center middle; }
-    AgentsStep > Vertical { width: 94%; height: 92%; border: round $primary; padding: 1 2; background: $surface; }
-    AgentsStep #agents-list { height: 1fr; margin-top: 1; }
-    AgentsStep .wizard-extra-buttons { height: 3; margin-top: 1; }
-    AgentsStep .wizard-extra-buttons Button { margin-right: 1; }
-    AgentsStep .wizard-footer { height: 3; align: right middle; margin-top: 1; }
-    AgentsStep .wizard-footer Button { margin-left: 1; }
-    """
-
-    def __init__(self, state) -> None:
-        super().__init__()
-        self.state = state
-
-    def _cwd(self):
-        return self.state.cwd
-
-    def _models_for_picker(self) -> list:
-        # Same "this wizard run's own enumeration cache wins once it
-        # exists" rule `RolesStep._controller_models`/`OrgsStep._
-        # controller_models` already follow -- never re-enumerate here.
-        if self.state.enumeration_done:
-            return self.state.enumerated_models
-        list_models = getattr(getattr(self.app, "controller", None), "list_models", None)
-        try:
-            rows = list_models() if callable(list_models) else []
-        except Exception:
-            rows = []
-        if rows:
-            return rows
-        # Deliverable 4: "if [the enumeration] has not run yet, run
-        # build_model_rows" -- reached by `halo init --step agents` (or
-        # any truncated `step_keys` with no "providers" step at all), a
-        # standalone wizard with no live `self.app.controller` either.
-        # `build_model_rows` is a cache-only, synchronous, no-network
-        # read (the SAME file-backed catalog a real Providers step's own
-        # live enumeration writes) -- never re-run once it succeeds,
-        # cached on `state` exactly like a real enumeration would be, so
-        # the roles/org/summary steps that follow this one reuse it too.
-        rows = _cache_only_model_rows()
-        self.state.enumerated_models, self.state.enumeration_done = rows, True
-        return rows
-
-    def compose(self):
-        with Vertical():
-            yield Static(self.state.title(), classes="wizard-header")
-            yield Static("Agent bios -- what each agent IS: models, tools, context, limits, output, "
-                         "environment, acceptance. The next step (a lineup) assigns bios to roles.",
-                         classes="dialog-title")
-            for w in self._agents_list_widgets():
-                yield w
-            with Horizontal(classes="wizard-footer"):
-                yield Button("Back", id="wiz-back", disabled=self.state.index == 0)
-                yield Button("Skip", id="wiz-skip")
-                last = self.state.index + 1 >= len(self.state.step_keys)
-                yield Button("Finish" if last else "Next", id="wiz-next", variant="primary")
-
-    def on_mount(self) -> None:
-        try:
-            self.query_one("#agents-list", OptionList).focus()
-        except Exception:
-            pass
-
-    # -- the small bit of StepScreen's own chrome this step needs -- lazy
-    # imports only (module docstring: never a top-level `from init_wizard
-    # import ...` here).
-    def on_button_pressed(self, event: Button.Pressed) -> None:  # noqa: F811 (extends the mixin's own)
-        bid = event.button.id or ""
-        if bid == "wiz-back":
-            self.action_do_back()
-        elif bid == "wiz-skip":
-            from halo_harness.tui.dialogs.init_wizard import advance
-            advance(self.app, self.state, skip=True)
-        elif bid == "wiz-next":
-            self.action_do_next()
-
-    def action_do_next(self) -> None:
-        from halo_harness.tui.dialogs.init_wizard import advance
-        advance(self.app, self.state)
-
-    def action_do_back(self) -> None:
-        from halo_harness.tui.dialogs.init_wizard import go_back
-        go_back(self.app, self.state)
-
-    def action_ask_quit(self) -> None:
-        from halo_harness.tui.dialogs.init_wizard import _QuitConfirm, finish
-
-        def _after(confirmed: "Optional[bool]") -> None:
-            if confirmed:
-                finish(self.app, self.state)
-        self.app.push_screen(_QuitConfirm(), _after)
-
-
 class AgentsListScreen(_AgentsListMixin, ModalScreen):
     """Deliverable 4: `/agents new|edit|duplicate|delete` and `halo agents
     new|edit --form` open THIS standalone screen -- the SAME `_AgentsList
-    Mixin` body/actions `AgentsStep` uses, in its own Esc-to-close modal
-    (no wizard Back/Skip/Next chrome)."""
+    Mixin` body/actions `team_step.TeamStep`'s own Agents pane uses, in
+    its own Esc-to-close modal (no wizard Back/Skip/Next chrome)."""
 
-    BINDINGS = [Binding("escape", "cancel", "Close", show=False)]
+    BINDINGS = [Binding("escape", "cancel", "Close", show=False), *AGENTS_LIST_BINDINGS]
     DEFAULT_CSS = """
     AgentsListScreen { align: center middle; }
     AgentsListScreen > Vertical { width: 90%; height: 80%; border: round $primary; background: $surface;

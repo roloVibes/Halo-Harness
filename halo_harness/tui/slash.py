@@ -2106,12 +2106,16 @@ def _open_teams_list(app, models: list) -> None:
 async def _handle_setup(app, args: str) -> None:
     from halo_harness.tui.dialogs.init_wizard import build_truncated_state, first_step_screen
     sub = (args or "").strip().lower()
-    if sub == "roles":
+    # Halo 2.0.5 round 2c (rule 11): "team" reaches the same merged step
+    # "roles" already aliases to (`init_wizard.STEP_FACTORIES`) -- both
+    # spellings work, so a `/setup team` habit and a `/setup roles` habit
+    # land in the same place.
+    if sub in ("roles", "team"):
         step_keys = ("roles",)
     elif sub == "orgs":
         step_keys = ("orgs",)
     elif sub:
-        await app.transcript.add_note(f"Usage: /setup, /setup roles, or /setup orgs (got {sub!r})", kind="command")
+        await app.transcript.add_note(f"Usage: /setup, /setup team, or /setup orgs (got {sub!r})", kind="command")
         return
     else:
         step_keys = ("roles", "orgs", "summary")

@@ -29,6 +29,8 @@ from textual.widgets.option_list import Option
 from textual.widgets import OptionList
 
 from halo_harness.teams_yaml import TOP_SECTIONS
+from halo_harness.tui.dialogs.autocomplete import AutocompleteDropdown, AutocompleteInput, apply_pick, \
+    refresh_dropdown
 
 SECTION_MEANING = {
     "delegation": "how work is handed to sub-agents (mode, parallelism, handoff shape).",
@@ -233,8 +235,9 @@ class LineupEditor(ModalScreen):
                 with Horizontal(classes="lineup-field-row"):
                     yield Static("Agent or model (Ctrl+P to pick)")
                 with Horizontal():
-                    yield Input(id="lineup-field-agent")
+                    yield AutocompleteInput(id="lineup-field-agent", option_list_id="lineup-field-agent-ac")
                     yield Button("Pick...", id="lineup-field-agent-pick")
+                yield AutocompleteDropdown(id="lineup-field-agent-ac")
                 with Horizontal(classes="lineup-field-row"):
                     yield Static("Alias (as)")
                 yield Input(id="lineup-field-as")
@@ -421,6 +424,15 @@ class LineupEditor(ModalScreen):
 
     # -- events --------------------------------------------------------------
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        if event.option_list.id == "lineup-field-agent-ac":
+            field = self.query_one("#lineup-field-agent", Input)
+            apply_pick(field, event.option_list, str(event.option_id))
+            field.focus()
+            self._commit_current_assignment()
+            self._refresh_assignments()
+            self._refresh_roles_projection()
+            self._update_stale_marker()
+            return
         if event.option_list.id != "lineup-assignments":
             return
         self._commit_current_assignment()
@@ -428,11 +440,26 @@ class LineupEditor(ModalScreen):
         self._refresh_assignments()
 
     def on_input_changed(self, event: Input.Changed) -> None:
-        if (event.input.id or "").startswith("lineup-field-"):
+        field_id = event.input.id or ""
+        if field_id == "lineup-field-agent":
+            self._refresh_agent_dropdown(event.value)
+        if field_id.startswith("lineup-field-"):
             self._commit_current_assignment()
             self._refresh_assignments()
             self._refresh_roles_projection()
             self._update_stale_marker()
+
+    def _refresh_agent_dropdown(self, query: str) -> None:
+        """Rule 3: autocomplete here suggests BIO NAMES (what this field
+        actually holds -- `teams_yaml`'s own `agents:` entries always
+        name a bio, never a bare model ref; Ctrl+P's Models source still
+        auto-creates one via `agents_yaml.ensure_bio_for_model`)."""
+        from halo_harness.agents_yaml import list_agent_bios
+        try:
+            names = list_agent_bios(cwd=self.cwd, state_dir=self.state_dir)
+        except Exception:
+            names = []
+        refresh_dropdown(self.query_one("#lineup-field-agent-ac"), [{"ref": n} for n in names], query)
 
     def on_text_area_changed(self, event) -> None:
         tid = getattr(event.text_area, "id", "") or ""

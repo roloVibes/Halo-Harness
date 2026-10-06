@@ -9417,7 +9417,7 @@ def test_init_wizard_walks_every_step_with_next_never_exiting(ctx: Ctx):
     async def body():
         old, _home = _scoped_state_dir_env("wizard-walk-")
         try:
-            step_keys = ("providers", "default_model", "permission_mode", "theme", "roles", "orgs", "summary")
+            step_keys = ("providers", "default_model", "permission_mode", "theme", "team", "orgs", "summary")
             state = WizardState(cwd=REPO_DIR, step_keys=step_keys, no_live=True)
             app = InitWizardApp(state)
             seen = []
@@ -9429,7 +9429,7 @@ def test_init_wizard_walks_every_step_with_next_never_exiting(ctx: Ctx):
                     await pilot.pause(0.25)
             ctx.check(f"walked every step in order with Next alone, got {seen}",
                       seen == ["ProvidersStep", "DefaultModelStep", "PermissionModeStep", "ThemeStep",
-                               "RolesStep", "OrgsStep", "SummaryStep"])
+                               "TeamStep", "OrgsStep", "SummaryStep"])
         finally:
             _restore_state_dir_env(old)
     asyncio.run(body())
@@ -9469,14 +9469,14 @@ def test_init_wizard_back_returns_to_the_previous_step_with_values_kept(ctx: Ctx
 @test
 def test_init_wizard_skip_on_roles_and_orgs_leaves_config_untouched(ctx: Ctx):
     """Brief Tests section: "Skip on roles and orgs leaves config
-    untouched"."""
+    untouched" -- round 2c: "roles" is now "team"."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from halo_harness.theme import get_config_value
 
     async def body():
         old, _home = _scoped_state_dir_env("wizard-skip-")
         try:
-            state = WizardState(cwd=REPO_DIR, step_keys=("roles", "orgs"), no_live=True)
+            state = WizardState(cwd=REPO_DIR, step_keys=("team", "orgs"), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(100, 45)) as pilot:
                 await pilot.pause(0.1)
@@ -9546,36 +9546,45 @@ def test_init_wizard_esc_asks_before_quitting(ctx: Ctx):
                 await pilot.press("n")
                 await pilot.pause(0.2)
                 ctx.check("answering No returns to the step, the app keeps running",
-                          type(app.screen).__name__ == "RolesStep" and app.is_running)
+                          type(app.screen).__name__ == "TeamStep" and app.is_running)
         finally:
             _restore_state_dir_env(old)
     asyncio.run(body())
 
 
 @test
-def test_init_wizard_quality_template_writes_the_expected_role_table(ctx: Ctx):
+def test_init_wizard_standard_lineup_writes_the_expected_role_table(ctx: Ctx):
     """Brief Tests section: "picking the quality template writes the
-    expected role table"."""
+    expected role table" -- round 2c: the wizard's own legacy-preset
+    picker ("quality" the ROLE PRESET, `#wiz-roles-templates`) is gone,
+    folded into the Team step's Lineups pane, which picks a LINEUP
+    (team template) instead; "standard" is the one whose own definition
+    still matches this test's original claim exactly ("pins every role,
+    including judge/reviewer, to the session's own model") -- the
+    shipped "quality" LINEUP pins `reviewer` to a fixed `cc:` model
+    instead, a deliberately different shape covered by `docs/AGENTS.
+    md`'s own flagship-example section, not this pilot."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from halo_harness.roles import configured_role_table
     from halo_harness.theme import set_config_value
+    from textual.widgets import OptionList
 
     async def body():
-        old, _home = _scoped_state_dir_env("wizard-quality-")
+        old, _home = _scoped_state_dir_env("wizard-standard-")
         try:
             set_config_value("model", "or:vendor/strong-model")
-            state = WizardState(cwd=REPO_DIR, step_keys=("roles",), no_live=True)
+            state = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(100, 45)) as pilot:
                 await pilot.pause(0.1)
-                picker = app.screen.query_one("#wiz-roles-templates")
+                picker = app.screen.query_one("#wiz-team-lineups-list", OptionList)
                 names = [str(picker.get_option_at_index(i).id) for i in range(picker.option_count)]
-                picker.highlighted = names.index("quality")
+                picker.highlighted = names.index("standard")
                 await pilot.pause(0.05)
-                app.screen.query_one("#wiz-roles-use").press()
+                app.screen.action_do_next()  # the footer's plain Next -- no separate "Use" button any more
                 await pilot.pause(0.2)
                 table = configured_role_table()
-                ctx.check(f"quality pins judge+reviewer to the session's own model, got {table}",
+                ctx.check(f"standard pins judge+reviewer to the session's own model, got {table}",
                           table.get("judge") == "or:vendor/strong-model"
                           and table.get("reviewer") == "or:vendor/strong-model")
         finally:
@@ -9584,11 +9593,15 @@ def test_init_wizard_quality_template_writes_the_expected_role_table(ctx: Ctx):
 
 
 @test
-def test_init_wizard_roles_step_save_migrates_the_legacy_role_table_once(ctx: Ctx):
-    """Deliverable 7 (migration): applying a template on the Roles step
-    is a real wizard "save" -- the first one with a real role table and
-    no "migrated" team template yet builds one, announced in `state.
-    written` (the Summary step's own "what this run changed" list)."""
+def test_init_wizard_team_step_open_migrates_the_legacy_role_table_once(ctx: Ctx):
+    """Deliverable 7 (migration): the Team step's Lineups pane migrates
+    a real, pre-existing legacy role table into a generated "migrated"
+    team template the FIRST time it's built -- round 2c moved this from
+    firing on an explicit legacy-template apply (the old "Roles and
+    lineup" step's own Legacy pane, now gone) to firing on simply
+    OPENING the step, since there is no separate pane left to apply
+    FROM; still announced in `state.written` (the Summary step's own
+    "what this run changed" list)."""
     from halo_harness.teams_yaml import list_team_templates, resolve_role_table, resolve_team_template
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from halo_harness.theme import set_config_value
@@ -9597,23 +9610,22 @@ def test_init_wizard_roles_step_save_migrates_the_legacy_role_table_once(ctx: Ct
         old, _home = _scoped_state_dir_env("wizard-migrate-")
         try:
             set_config_value("model", "or:vendor/strong-model")
-            state = WizardState(cwd=REPO_DIR, step_keys=("roles",), no_live=True)
+            # A hand-edited LEGACY role table -- no lineup/template ever
+            # touched it, exactly the "a config with no team: at all"
+            # case `docs/AGENTS.md`'s own migration section describes.
+            set_config_value("roles.judge", "or:vendor/strong-model")
+            set_config_value("roles.reviewer", "or:vendor/strong-model")
+            state = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(100, 45)) as pilot:
-                await pilot.pause(0.1)
-                picker = app.screen.query_one("#wiz-roles-templates")
-                names = [str(picker.get_option_at_index(i).id) for i in range(picker.option_count)]
-                picker.highlighted = names.index("quality")
-                await pilot.pause(0.05)
-                app.screen.query_one("#wiz-roles-use").press()
-                await pilot.pause(0.2)
+                await pilot.pause(0.15)
                 ctx.check(f"a one-line announcement landed in state.written, got {state.written}",
                           any("migrated" in w for w in state.written))
                 ctx.check("a 'migrated' team template now exists", "migrated" in
                           list_team_templates(include_templates=False))
                 resolved = resolve_team_template("migrated")
                 role_table, notes = resolve_role_table(resolved)
-                ctx.check(f"it resolves to the SAME judge/reviewer pins the quality preset just wrote, got "
+                ctx.check(f"it resolves to the SAME judge/reviewer pins the legacy table had, got "
                           f"{role_table}", role_table.get("judge") == "or:vendor/strong-model"
                           and role_table.get("reviewer") == "or:vendor/strong-model")
         finally:
@@ -9622,11 +9634,14 @@ def test_init_wizard_roles_step_save_migrates_the_legacy_role_table_once(ctx: Ct
 
 
 @test
-def test_init_wizard_edit_roles_opens_and_returns_to_the_step(ctx: Ctx):
+def test_init_wizard_enter_on_a_lineup_opens_the_editor_and_returns_to_the_step(ctx: Ctx):
     """Brief Tests section: "Edit roles... opens the editor and returns
-    to the step"."""
+    to the step" -- round 2c: the wizard's own "Edit roles..." button
+    (the old Legacy pane) is gone; the Team step's rule-2 equivalent is
+    Enter on a highlighted lineup opening `LineupEditor`."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from halo_harness.tui.dialogs.roles_editor import RolesEditor
+    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+    from textual.widgets import OptionList
 
     async def body():
         old, _home = _scoped_state_dir_env("wizard-editroles-")
@@ -9635,14 +9650,18 @@ def test_init_wizard_edit_roles_opens_and_returns_to_the_step(ctx: Ctx):
             app = InitWizardApp(state)
             async with app.run_test(size=(100, 45)) as pilot:
                 await pilot.pause(0.1)
-                roles_screen = app.screen
-                roles_screen.query_one("#wiz-roles-edit").press()
+                team_screen = app.screen
+                lineups_list = team_screen.query_one("#wiz-team-lineups-list", OptionList)
+                lineups_list.highlighted = 0
+                lineups_list.focus()
+                await pilot.pause(0.05)
+                await pilot.press("enter")
                 await pilot.pause(0.3)
-                ctx.check(f"the roles editor opened, got {type(app.screen).__name__}",
-                          isinstance(app.screen, RolesEditor))
+                ctx.check(f"the lineup editor opened, got {type(app.screen).__name__}",
+                          isinstance(app.screen, LineupEditor))
                 await pilot.press("escape")
                 await pilot.pause(0.2)
-                ctx.check("back on the SAME roles step instance", app.screen is roles_screen)
+                ctx.check("back on the SAME Team step instance", app.screen is team_screen)
         finally:
             _restore_state_dir_env(old)
     asyncio.run(body())
@@ -9682,10 +9701,12 @@ def test_init_wizard_start_step_five_opens_on_roles(ctx: Ctx):
     """Brief Tests section: "start_step=5 opens on roles" -- Halo 2.0.3
     round 5c inserted a new "local_models" step right after "providers",
     shifting every later step's 1-based ORDINAL by one; this test now
-    resolves by the step's own KEY ("roles") instead of the ordinal that
-    described, since `_resolve_start_index` has always documented BOTH
-    forms and the key is the one that stays correct across a step-list
-    change like this one (see that function's own docstring)."""
+    resolves by the step's own KEY ("roles", kept as a round 2c `--step`
+    alias for "team" -- see `_resolve_start_index`'s own alias map)
+    instead of the ordinal that described, since `_resolve_start_index`
+    has always documented BOTH forms and the key is the one that stays
+    correct across a step-list change like this one (see that
+    function's own docstring)."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, _resolve_start_index, \
         full_step_keys
 
@@ -9698,8 +9719,8 @@ def test_init_wizard_start_step_five_opens_on_roles(ctx: Ctx):
             app = InitWizardApp(state)
             async with app.run_test(size=(100, 45)) as pilot:
                 await pilot.pause(0.1)
-                ctx.check(f"opened directly on the Roles step, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "RolesStep")
+                ctx.check(f"opened directly on the Team step (the 'roles' alias), got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "TeamStep")
                 ctx.check("Back is enabled (earlier steps are still reachable from a mid-wizard start)",
                           not app.screen.query_one("#wiz-back").disabled)
         finally:
@@ -9800,19 +9821,25 @@ async def _wait_for_wizard(pilot, predicate, n: int = 100) -> None:
 
 
 @test
-def test_init_wizard_providers_next_enumerates_then_roles_and_orgs_share_the_cache(ctx: Ctx):
+def test_init_wizard_providers_next_enumerates_then_team_and_orgs_share_the_cache(ctx: Ctx):
     """Deliverable 1: Next on the Providers step runs ONE live
     enumeration (one progress line per provider, via `_EnumeratingScreen`)
     before advancing; the result is cached on `WizardState` and reused by
-    BOTH the Roles step and the Orgs step. Deliverable 2: the role
-    editor's model picker shows the SAME merged, grouped, real catalog,
-    narrowed by typing (the picker's own existing filter -- now actually
-    fed real rows instead of an empty list)."""
+    BOTH the Team step and the Orgs step. Deliverable 2: an editor the
+    Team step opens (`LineupEditor`, via a new lineup's own agent/model
+    picker) shows the SAME merged, grouped, real catalog, narrowed by
+    typing (the picker's own existing filter -- now actually fed real
+    rows instead of an empty list). Round 2c: the wizard's OWN "Roles and
+    lineup" step (and its "Edit roles..." button into `RolesEditor`) is
+    gone, folded into "Team" -- `RolesEditor` itself is only ever reached
+    from OUTSIDE the wizard now (`/roles edit`), so this pilot's own
+    "the SAME cached rows reach an editor the wizard opens" claim moves
+    to the lineup editor, the Team step's own equivalent."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, _EnumeratingScreen
+    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
     from halo_harness.tui.dialogs.model_picker import ModelPicker
     from halo_harness.tui.dialogs.org_editor import OrgEditor
-    from halo_harness.tui.dialogs.roles_editor import RolesEditor
-    from textual.widgets import OptionList
+    from textual.widgets import Button, Input, OptionList
     from tests.helpers.mock_get_endpoints import MockGetEndpoints
 
     async def body():
@@ -9834,7 +9861,7 @@ def test_init_wizard_providers_next_enumerates_then_roles_and_orgs_share_the_cac
             os.environ["OPENROUTER_API_KEY"] = "sk-or-wizard-fake"
             os.environ["BRIDGE_OPENROUTER_BASE_URL"] = mock.base_url + "/api/v1"
 
-            state = WizardState(cwd=REPO_DIR, step_keys=("providers", "roles", "orgs"), no_live=False)
+            state = WizardState(cwd=REPO_DIR, step_keys=("providers", "team", "orgs"), no_live=False)
             app = InitWizardApp(state)
             async with app.run_test(size=(100, 45)) as pilot:
                 await pilot.pause(0.2)
@@ -9847,9 +9874,9 @@ def test_init_wizard_providers_next_enumerates_then_roles_and_orgs_share_the_cac
                 await _wait_for_wizard(pilot, lambda: isinstance(app.screen, _EnumeratingScreen) or state.enumeration_done)
                 ctx.check("the enumeration ran (progress screen seen, or already finished)",
                           isinstance(app.screen, _EnumeratingScreen) or state.enumeration_done)
-                await _wait_for_wizard(pilot, lambda: type(app.screen).__name__ == "RolesStep")
-                ctx.check(f"advanced to Roles once enumeration finished, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "RolesStep")
+                await _wait_for_wizard(pilot, lambda: type(app.screen).__name__ == "TeamStep")
+                ctx.check(f"advanced to Team once enumeration finished, got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "TeamStep")
                 ctx.check(f"the wizard's own enumeration cache is populated, got {state.enumeration_done}",
                           state.enumeration_done)
                 ctx.check("the real OpenRouter model made it into the cache",
@@ -9858,15 +9885,16 @@ def test_init_wizard_providers_next_enumerates_then_roles_and_orgs_share_the_cac
                           any("OpenRouter" in ln for ln in state.enumeration_lines)
                           and any("Ollama" in ln for ln in state.enumeration_lines))
 
-                roles_screen = app.screen
-                roles_screen.query_one("#wiz-roles-edit").press()
-                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, RolesEditor))
+                team_screen = app.screen
+                team_screen.query_one("#wiz-team-lineup-new", Button).press()
+                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, LineupEditor))
                 editor = app.screen
-                ctx.check("the roles editor opened with the SAME cached rows",
+                ctx.check("the lineup editor opened with the SAME cached rows",
                           any(m.get("ref") == "or:deepseek/deepseek-v4.1-flash" for m in editor.models))
 
-                editor.query_one("#roles-list", OptionList).highlighted = 0
-                await pilot.press("enter")
+                editor.action_add_assignment()
+                await pilot.pause(0.05)
+                await pilot.press("ctrl+p")
                 await _wait_for_wizard(pilot, lambda: isinstance(app.screen, ModelPicker))
                 picker = app.screen
                 option_texts = [str(o.prompt) for o in picker.query_one("#model-list", OptionList).options]
@@ -9881,20 +9909,14 @@ def test_init_wizard_providers_next_enumerates_then_roles_and_orgs_share_the_cac
                 ctx.check(f"typing narrowed to the one real match, got {[m['ref'] for m in picker._filtered]}",
                           [m["ref"] for m in picker._filtered] == ["or:deepseek/deepseek-v4.1-flash"])
                 await pilot.press("enter")
-                await pilot.pause(0.1)
-                await pilot.press("enter")  # blank effort
-                await pilot.pause(0.1)
-                ctx.check(f"the role picked up the enumerated ref, got {editor.roles.get('orchestrator')}",
-                          editor.roles.get("orchestrator") == "or:deepseek/deepseek-v4.1-flash")
-                saved_template_name = editor.template_name
-                await pilot.press("ctrl+s")  # Save round-trips into the real config files under the scratch home.
-                await _wait_for_wizard(pilot, lambda: app.screen is roles_screen)
-                from halo_harness.roles import load_role_template
-                saved = load_role_template(saved_template_name)
-                ctx.check(f"ctrl+s persisted the picked ref to the real template file, got {saved}",
-                          saved is not None and saved["roles"].get("orchestrator") == "or:deepseek/deepseek-v4.1-flash")
+                await _wait_for_wizard(pilot, lambda: app.screen is editor)
+                ctx.check(f"the assignment picked up a bio pinning the enumerated ref, got "
+                          f"{editor.query_one('#lineup-field-agent', Input).value!r}",
+                          bool(editor.query_one("#lineup-field-agent", Input).value))
+                await pilot.press("escape")  # cancel -- this pilot only needs the picker fed from the SAME cache
+                await _wait_for_wizard(pilot, lambda: app.screen is team_screen)
 
-                roles_screen.query_one("#wiz-skip").press()
+                team_screen.query_one("#wiz-skip").press()
                 await _wait_for_wizard(pilot, lambda: type(app.screen).__name__ == "OrgsStep")
                 ctx.check(f"advanced to Orgs, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "OrgsStep")
@@ -9957,8 +9979,9 @@ def test_roles_editor_picking_a_typed_only_ref_shows_the_not_in_list_note(ctx: C
 @test
 def test_org_editor_role_field_autocompletes_and_notes_a_typed_only_ref(ctx: Ctx):
     """Deliverable 3: the org editor's own free-text "Role or model"
-    field -- live suggestions as the user types (`autocomplete_
-    suggestions`, the new shared helper), and the same one-line note on
+    field -- round 2c (rule 3) upgraded the live-suggestions line into a
+    REAL dropdown under the field (`tui/dialogs/autocomplete.py`, still
+    built on `autocomplete_suggestions`) -- and the same one-line note on
     commit when the typed value matches nothing in the list."""
     from halo_harness.tui.dialogs.org_editor import OrgEditor
     from textual.widgets import Input, Static
@@ -9981,9 +10004,11 @@ def test_org_editor_role_field_autocompletes_and_notes_a_typed_only_ref(ctx: Ctx
                 role_field.focus()
                 await _type(pilot, "sonnet")
                 await pilot.pause(0.1)
-                suggest = _static_text(editor.query_one("#org-field-role-suggest", Static))
-                ctx.check(f"the matching real ref is suggested, got {suggest!r}",
-                          "or:known/sonnet-ish" in suggest)
+                from textual.widgets import OptionList
+                dropdown = editor.query_one("#org-field-role-ac", OptionList)
+                suggested = [str(dropdown.get_option_at_index(i).id) for i in range(dropdown.option_count)]
+                ctx.check(f"the matching real ref is suggested in the dropdown, got {suggested!r}",
+                          "or:known/sonnet-ish" in suggested and dropdown.styles.display == "block")
 
                 for _ in range(len(role_field.value)):
                     await pilot.press("backspace")
@@ -10108,9 +10133,15 @@ def test_slash_setup_roles_opens_the_screen_and_updates_the_live_session(ctx: Ct
     the screen and the live role table changes after save". `FakeController`
     has no real `.session`/`agent_runtime` at all (same reason
     `test_slash_effort_against_a_real_session_persists_the_sent_value`
-    above needs the real-controller rig instead)."""
+    above needs the real-controller rig instead). Round 2c: "/setup
+    roles" still works (kept as an alias) but now opens `TeamStep`; its
+    own Lineups pane replaces the old legacy-preset picker, so this
+    applies the "standard" LINEUP instead of the "quality" ROLE PRESET
+    (see `test_init_wizard_standard_lineup_writes_the_expected_role_
+    table`'s own docstring for why "standard", not "quality", is the
+    lineup whose definition still matches this test's original claim)."""
     import argparse
-    from halo_harness.tui.dialogs.init_wizard import RolesStep
+    from halo_harness.tui.dialogs.init_wizard import TeamStep
 
     async def body():
         fh = build_fake_home()
@@ -10135,9 +10166,10 @@ def test_slash_setup_roles_opens_the_screen_and_updates_the_live_session(ctx: Ct
             controller, registry, facade = build_controller(args)
             app = BridgeApp(controller, registry=registry, facade=facade,
                              tool_registry=getattr(facade, "tool_registry", None), cwd=fh["proj"])
-            # Set BEFORE /setup roles opens -- the "quality" preset is
-            # COMPUTED from the current default model the first time this
-            # screen is built (and never recomputed once the file exists),
+            # Set BEFORE /setup roles opens -- "standard" resolves every
+            # role against whatever the current default model is the
+            # moment it's APPLIED (never cached at save time, `docs/
+            # AGENTS.md`'s own "the `default` model reference" section),
             # so this must land before that happens, not after.
             from halo_harness.theme import set_config_value
             set_config_value("model", "or:vendor/strong-for-setup")
@@ -10145,17 +10177,19 @@ def test_slash_setup_roles_opens_the_screen_and_updates_the_live_session(ctx: Ct
                 await handle_slash(app, "setup", "roles")
                 await pilot.pause(0.2)
                 ctx.check(f"the roles setup screen opened, got {type(app.screen).__name__}",
-                          isinstance(app.screen, RolesStep))
-                picker = app.screen.query_one("#wiz-roles-templates")
+                          isinstance(app.screen, TeamStep))
+                from textual.widgets import OptionList
+                picker = app.screen.query_one("#wiz-team-lineups-list", OptionList)
                 names = [str(picker.get_option_at_index(i).id) for i in range(picker.option_count)]
-                picker.highlighted = names.index("quality")
-                app.screen.query_one("#wiz-roles-use").press()
+                picker.highlighted = names.index("standard")
+                await pilot.pause(0.05)
+                app.screen.action_do_next()  # the footer's plain Next -- no separate "Use" button any more
                 await pilot.pause(0.3)
                 runtime = controller.session.agent_runtime
-                ctx.check(f"the LIVE session's own role table picked up the template, got {runtime.role_table}",
+                ctx.check(f"the LIVE session's own role table picked up the lineup, got {runtime.role_table}",
                           runtime.role_table.get("judge") == "or:vendor/strong-for-setup")
                 ctx.check("the screen popped back to the live session (no screens left over)",
-                          not isinstance(app.screen, RolesStep))
+                          not isinstance(app.screen, TeamStep))
         finally:
             if controller is not None:
                 controller.quit()
