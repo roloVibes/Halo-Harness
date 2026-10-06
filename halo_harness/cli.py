@@ -393,6 +393,9 @@ def main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "mcp":
         from halo_harness.mcp_cli import cmd_mcp
         return cmd_mcp(argv[1:])
+    if argv and argv[0] == "rules":
+        from halo_harness.rules_cli import cmd_rules
+        return cmd_rules(argv[1:])
     if argv and argv[0] == "config":
         from halo_harness.config_cli import cmd_config
         return cmd_config(argv[1:])

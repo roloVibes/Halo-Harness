@@ -366,6 +366,25 @@ figure for whichever provider is the session's current model, falling
 back to OpenRouter's reading when the active provider has none of its
 own yet.
 
+### `/rules [forget <provider:model>]`
+Halo 2.0.5 round 3 (G1): lists every learned PARAMETER-rejection rule
+(endpoint, field, action, age) `providers.learned_params` has recorded --
+the first time a live 400/422 proves a specific endpoint rejects a
+request field this harness sent (`reasoning_effort`, `temperature`,
+`top_p`, `tool_choice`, `max_tokens`, `max_completion_tokens`, `thinking`,
+`output_config`, `response_format`, `parallel_tool_calls`, `strict`,
+`store`, `stream_options`, `metadata`, `stop`), the smallest fix is
+applied and the request retried ONCE, and -- only once that retry is
+confirmed to have worked -- remembered for every later request against
+that same endpoint; a `model_table.json` row's own explicit value always
+wins. `/rules forget <provider:model>` clears every learned parameter
+rule for that one endpoint (never its other learned facts, such as
+`tools_rejected`). `halo rules [--forget <provider:model>]` is the CLI
+twin, same shared `providers.learned_params` module; `halo models
+--forget-rules` is the blunt, every-endpoint reset; `halo doctor --work
+--probe-all --learn` pre-learns these rules instead of waiting to
+discover them one real turn at a time.
+
 ### `/settings [primary claude|codex]`
 Halo 2.0.3 round 5i part 2. Bare `/settings` prints the merged Claude
 Code / Codex / halo settings view (`providers.settings_merge.

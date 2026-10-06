@@ -112,6 +112,71 @@ version.
   new `halo agents`/`halo teams` sections), `docs/SLASH-COMMANDS.md`
   (`/agents`/`/teams`).
 
+### Learned gateway rules
+
+- **One engine for parameter rejections** (`providers/learned_params.py`,
+  new): generalises the 1.0.1 gpt-6 `reasoning_effort`-with-tools rule
+  (2.0.3-brief.md item G1) to every request field a gateway can reject
+  that no existing specific check already owns -- `temperature`, `top_p`,
+  `tool_choice`, `max_tokens`, `max_completion_tokens`, `thinking`,
+  `output_config`, `response_format`, `parallel_tool_calls`, `strict`,
+  `store`, `stream_options`, `metadata`, `stop` (the Databricks allowlist
+  word), and the effort family itself on a wording the existing gpt-6/
+  GLM/Claude checks don't recognize. On a 400/422 naming one of these, the
+  smallest fix is planned (drop the field; clamp to the nearest allowed
+  value when the message lists one -- the same "xhigh -> max" convention
+  `profiles.clamp_effort` already uses for an effort-shaped value), the
+  request is retried exactly ONCE, and -- only once that retry is
+  CONFIRMED to have worked -- the fix is persisted to `~/.halo/learned-
+  rules.json` under a new `"params"` sub-object (`{"<provider>:<model>":
+  {"params": {"<field>": {"action", "value", "error", "date"}}}}`, beside
+  every existing learned field in that same row) and announced with one
+  house-voice transcript line ("Databricks rejected max_tokens on this
+  endpoint; dropped it and retried; remembered for this endpoint"). A
+  `model_table.json` row's own explicit `temperature`/`top_p` still wins
+  outright over a learned rule (today's precedence, same rule `reasoning_
+  effort_with_tools`/`tools_rejected` already follow); every later request
+  against that same endpoint applies a FRESH (<=30 day) learned fix
+  pre-emptively, before it ever pays for the round trip again; a rule
+  older than 30 days is tried once bare before being relearned, so a
+  since-fixed rejection self-heals with no action needed. `tools` keeps
+  its own never-silently-drop handling and is deliberately never touched
+  by this engine.
+- **`halo rules` / `/rules`**: lists every learned parameter rule
+  (endpoint, field, action, age); `--forget <provider:model>` (CLI) /
+  `forget <provider:model>` (slash) clears one endpoint's rules; `halo
+  models --forget-rules` clears every endpoint's at once.
+- **`halo doctor --work --probe-all --learn`**: pre-learns by sending one
+  minimal request per optional parameter (today: `temperature`/`top_p`/
+  `stream_options`/`stop` -- the only watched fields that actually reach
+  the wire through Databricks' own client-side body allowlist) to each
+  configured endpoint -- opt-in, prints the cost estimate first, never
+  sends a thing without the flag.
+- Tests: `tests/test_learned_params.py` (new) -- every rejection shape
+  seen so far (gpt-6 `reasoning_effort` + tools, GLM `thinking`, Claude
+  `output_config` `xhigh`, an unknown-field 400, an allowed-values 422,
+  and a 400 naming no field at all), the persistence shape, the 30-day
+  stale-then-relearn behaviour, precedence, `--forget`/`--forget-rules`,
+  the `xp:` ignored-parameters reader surviving the module split, and two
+  live end-to-end runs against a mock Databricks gateway proving exactly
+  one retry, the transcript line, and pre-emptive application on a later
+  turn. No network, no real model.
+
+### Deprecations
+
+- **The legacy env file is no longer read.** `~/.config/vibes-hacker/env`
+  (announced in the [2.0.1] CHANGELOG, WARNed by `halo doctor` since
+  [2.0.2]) is no longer consulted by `load_provider_env_files()` --
+  `~/.config/halo/env`/`HALO_ENV_FILE` is the only credential source now.
+  The legacy file is never modified or deleted by this harness (other
+  tools on the same box may still read it); `halo init`'s one-time copy-
+  forward (copying its content into the new file, with an import marker,
+  the first time `halo init` writes there) is unaffected and remains the
+  migration path. `halo doctor` now WARNs specifically when the legacy
+  file is the only one present (naming `halo init`), says nothing is
+  wrong once the new file exists, and keeps its ordinary WARN when
+  neither exists.
+
 ## [2.0.4] - 2026-10-06
 
 ### Tooling

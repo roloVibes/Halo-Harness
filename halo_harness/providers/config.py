@@ -112,28 +112,20 @@ def _legacy_env_file_to_consult() -> "Optional[Path]":
 
 
 def load_provider_env_files() -> dict[str, str]:
-    """2.0.0 fixpass finding 4: loads `env_file_path()` (the new canonical
-    path, or the HALO_ENV_FILE/legacy-named override when one is set) THEN
-    the legacy `~/.config/vibes-hacker/env` file -- `load_env_file`'s own
-    `os.environ.setdefault` means the new file's keys always win on a
-    collision, exactly like before this fix for every key the new file
-    actually has. Every caller that used to do `load_env_file(env_file_
-    path())` to load the provider-credentials file now calls this instead,
-    so a `DATABRICKS_TOKEN` kept only in the legacy file is never silently
-    invisible again just because the new file also exists (for some OTHER
-    key). An explicit override collapses this to that one file alone."""
-    new_path = _resolve_env_file_path()
-    loaded = dict(load_env_file(new_path))
-    legacy = _legacy_env_file_to_consult()
-    # Item E: once the new file was copied forward from the legacy one it
-    # carries ENV_IMPORT_MARKER, and the legacy file (which other tools on
-    # the box still read, so it is never renamed or edited) is no longer
-    # consulted -- a key deleted from the new file stays deleted.
-    from halo_harness.config.paths import env_file_has_import_marker
-    if legacy is not None and not env_file_has_import_marker(new_path):
-        for key, value in load_env_file(legacy).items():
-            loaded.setdefault(key, value)
-    return loaded
+    """Halo 2.0.5 round 3 (2.0.4-brief.md "5. Deprecations", 2.0.3-brief.md
+    G7): loads ONLY `env_file_path()` (the new canonical path, or the
+    HALO_ENV_FILE/legacy-named override when one is set). The legacy
+    `~/.config/vibes-hacker/env` fallback read 2.0.0 through 2.0.4 added
+    here is REMOVED, as announced in the CHANGELOG [2.0.1] deprecation
+    notice and the doctor WARN since [2.0.2]. The legacy file itself is
+    NEVER modified or deleted by this (or any other) harness code -- other
+    tools on the same box still read it; `halo init`'s one-time copy-
+    forward (`config.paths.env_file_path_for_write`) is the migration, and
+    is unaffected by this change. `_legacy_env_file_to_consult`/`config.
+    paths.env_file_has_import_marker` stay defined -- the import-marker
+    logic they drove is now a no-op kept only for the test seams, since
+    nothing in this function calls either one any more."""
+    return dict(load_env_file(_resolve_env_file_path()))
 
 
 # finding 10: the harness's OWN provider-credential env vars -- never

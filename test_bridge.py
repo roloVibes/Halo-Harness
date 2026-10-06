@@ -3976,16 +3976,17 @@ def test_pop_stray_bridge_state_dir_removes_it(ctx: Ctx):
 
 
 @test
-def test_probe_reads_openrouter_key_from_legacy_env_file_alone(ctx: Ctx):
-    """2.0.0 fixpass item A: `cmd_probe` (like `cmd_serve`/`cmd_launch`)
-    now calls `load_provider_env_files()` instead of the old `load_env_
-    file(env_file_path())` -- the latter only ever read the NEW canonical
-    path, so a box with only the legacy `~/.config/vibes-hacker/env` file
-    (no `~/.config/halo/env`, no BRIDGE_ENV_FILE override) used to start
-    with no credentials at all. Proven end-to-end here: with ONLY a legacy
-    env file on disk and BRIDGE_ENV_FILE unset, --probe still finds the
-    key and completes a real probe against the mock (not "not
-    configured")."""
+def test_probe_no_longer_reads_openrouter_key_from_legacy_env_file_alone(ctx: Ctx):
+    """Halo 2.0.5 round 3 (2.0.4-brief.md "5. Deprecations", 2.0.3-
+    brief.md G7): `load_provider_env_files()` no longer falls back to the
+    legacy `~/.config/vibes-hacker/env` file at all -- this test used to
+    pin the OPPOSITE, 2.0.0-through-2.0.4 behavior (the legacy-alone
+    fallback read `cmd_probe` relies on, like every other caller of that
+    function); that fallback is now REMOVED, so a box with only the
+    legacy file (no `~/.config/halo/env`, no BRIDGE_ENV_FILE override)
+    starts with NO credentials at all and --probe correctly reports
+    OpenRouter as not configured instead of silently using a key that, as
+    of this round, this harness no longer reads from that location."""
     ctx.require_bridge_file_only()
     mock = GenericMockUpstream()
     try:
@@ -4017,11 +4018,14 @@ def test_probe_reads_openrouter_key_from_legacy_env_file_alone(ctx: Ctx):
         proc = subprocess.run([sys.executable, str(BRIDGE_PY), "--probe"],
                                env=env, capture_output=True, text=True, timeout=30, cwd=str(REPO_DIR))
         ctx.check(f"probe exit 0, got {proc.returncode}, stderr={proc.stderr[-500:]!r}", proc.returncode == 0)
-        ctx.check(f"stdout shows the key was found and used, got {proc.stdout[-500:]!r}",
-                   "OpenRouter: cached" in proc.stdout and "OpenRouter: not configured" not in proc.stdout)
+        ctx.check(f"stdout shows OpenRouter as NOT configured (the legacy-only key is no longer found), "
+                  f"got {proc.stdout[-500:]!r}", "OpenRouter: not configured" in proc.stdout)
         models_path = state_dir / "models.json"
-        ctx.check(f"models.json was actually written (the mock call succeeded with the legacy key), "
-                  f"got exists={models_path.exists()}", models_path.exists())
+        ctx.check(f"models.json was never written (no key -- no real call was ever attempted), "
+                  f"got exists={models_path.exists()}", not models_path.exists())
+        ctx.check(f"the legacy file itself was never touched, got "
+                  f"{legacy_env_file.read_text(encoding='utf-8')!r}",
+                  legacy_env_file.read_text(encoding="utf-8") == "OPENROUTER_API_KEY=test-key-from-legacy-file\n")
     finally:
         mock.stop()
 
