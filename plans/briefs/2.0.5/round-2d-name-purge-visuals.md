@@ -6,8 +6,8 @@ holds another round's partial work and is NOT yours). Read
 `BRIDGE_TEST_HOME=<fresh scratch dir>`, `BRIDGE_TEST_NO_BACKGROUND_NET=1`,
 `OLLAMA_HOST=http://127.0.0.1:1`). `plans/CYCLE.md` "Budget discipline"
 applies: one worker, touched modules plus `python test_bridge.py` and
-`python tests/run_all.py` ONCE at the end (this round touches many test
-files), no other suites.
+`python test_tui.py` once at the end (the banner and the screenshot script touch the TUI),
+no other suites.
 
 Specification: `plans/ROADMAP.md` section "ADDED 2026-10-06 ~12:45 (rolo):
 2.0.5 round 2d" (read it in full; the owner's words, the measured footprint
@@ -20,30 +20,20 @@ parts or read it from a one-line constant in the invariant test only).
 
 ## Deliverables
 
-1. **The name is gone from every tracked file.**
-   - Code: remove the `<OLD_NAME>_*` environment aliases (`config/paths.py`
-     `env_compat`, `providers/config.py`, `theme.py`, `cli.py` and wherever
-     else they are read); remove the legacy `~/.<old name>` state-dir
-     migration and doctor's leftover checks (`doctor.py`
-     `<old_name>_leftover`, `<old_name>_version`, `<old_name>_dir_exists`
-     and friends); remove console-script aliases in `pyproject.toml`; the
-     installers (`scripts/install-halo.sh`, `install-halo.ps1`) mention only
-     `halo`; `tests/run_all.py`'s real-state guard names only `~/.halo`.
-     `BRIDGE_*` names stay (they are the harness's own test and config
-     prefix).
-   - Tests: every test that pinned the old aliases, migration or leftover
-     checks is rewritten for the current behaviour or deleted when nothing
-     remains to pin (`tests/test_paths.py`, `test_h15_path_check.py`,
-     `test_quickstart_docs.py`, `test_h9b_findings.py`, `test_permissions.py`,
-     `test_h15_state_dir_audit.py`, `test_doctor_prescriptive_fixes.py`,
-     `test_tui.py` and the rest `git grep` lists).
-   - Docs: README, `docs/INSTALL.md`, `docs/harness/INSTALL.md`, HANDBOOK and
-     any other doc say only `halo`; CHANGELOG lines that need a name for an
-     old entry say "the previous name"; `plans/` files likewise (plans are
-     tracked too).
+1. **The name is off the front pages** (the owner narrowed this on
+   2026-10-06 ~12:50: "just don't mention it directly on the first pages of
+   the repo, whatever if it's in the change logs"). Scope: `README.md`,
+   `docs/INSTALL.md`, `docs/harness/INSTALL.md`, `docs/HANDBOOK.md`,
+   `docs/COMMANDS.md`, the `description` in `pyproject.toml`, and the text
+   the installers print (`scripts/install-halo.sh`, `install-halo.ps1`).
+   Where a legacy behaviour has to be described (the state-dir migration,
+   the environment aliases), say "the previous name" or "pre-2.0 installs".
+   Leave the compatibility code, its tests, the CHANGELOG and `plans/`
+   exactly as they are; do not touch `BRIDGE_*` names.
    - Invariant: `tests/test_invariants.py` gains "(h) the previous project
-     name appears in no tracked file" (case-insensitive, both separators),
-     expressed without spelling the name.
+     name appears on none of the front pages" (that file list,
+     case-insensitive, both separators), expressed without spelling the
+     name (build the pattern from parts).
 2. **The README.** Rewrite `README.md` around: an ASCII-art banner (a
    figlet-style "HALO" wordmark in a fenced block, kept under 80 columns),
    one paragraph of what Halo is, "What it looks like" (the gallery below),
@@ -93,8 +83,8 @@ Touched and new test modules, `python test_bridge.py`,
 `python tests/run_all.py` once, `python test_tui.py` once, `python
 tests/test_privacy_scan.py`, `python tests/test_invariants.py`,
 `python tests/test_docs_commands.py`, `python tests/test_docs_slash_commands.py`,
-`python -m halo_harness audit privacy`, `git grep -i -c "<the pattern>"`
-returning nothing, all green. Record `stat -c %s ~/.halo/history.jsonl`
+`python -m halo_harness audit privacy`, a case-insensitive grep for the
+pattern over the front-page file list returning nothing, all green. Record `stat -c %s ~/.halo/history.jsonl`
 and `ls ~/.halo/sessions | wc -l` at the start and confirm both unchanged.
 
 ## Hand-back format
