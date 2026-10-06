@@ -205,6 +205,29 @@ def test_remote_runs_the_exact_documented_ssh_command(ctx: Ctx):
 
 
 @test
+def test_identity_adds_the_key_and_batch_mode_to_the_ssh_call(ctx: Ctx):
+    """2.0.4 release: the remote step ran a plain `ssh user@host`, which fell
+    back to a password prompt on a non-terminal stdin and failed. With
+    --identity the key precedes the host and ssh is non-interactive; the
+    remote command itself is unchanged."""
+    repo = _scratch_repo("9.9.9")
+    calls: list = []
+    rc = release.main(["9.9.9", "--remote", "user@host", "--identity", "some/key"], repo_dir=repo,
+                      run_fn=_fake_run(calls), pids_fn=lambda: [])
+    ctx.check(f"exits 0, got {rc}", rc == 0)
+    ssh_calls = [c for c in calls if c[0] == "ssh"]
+    ctx.check(f"exactly one ssh call, got {ssh_calls}", len(ssh_calls) == 1)
+    cmd = list(ssh_calls[0]) if ssh_calls else []
+    ctx.check(f"the key and the non-interactive options precede the host, got {cmd}",
+              len(cmd) == 9
+              and cmd[1:7] == ["-i", "some/key", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15"]
+              and cmd[7] == "user@host")
+    ctx.check(f"the remote command is unchanged, got {cmd[-1:]}",
+              cmd[-1:] == ["cd ~/Halo-Harness && git fetch --tags && git checkout v9.9.9 "
+                           "&& uv tool install --reinstall . && halo --version"])
+
+
+@test
 def test_a_running_halo_session_skips_reinstall_and_prints_the_command_instead(ctx: Ctx):
     repo = _scratch_repo("9.9.9")
     calls: list = []

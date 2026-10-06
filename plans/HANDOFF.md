@@ -81,14 +81,25 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
 - The repeatable cycle (briefs -> one worker -> verify -> commit -> CI ->
   live check -> release script) is written in `plans/CYCLE.md`. Every round
   brief used so far is under `plans/briefs/` (2.0.3 fix passes, 2.0.3.1,
-  2.0.4 rounds 0-4), sanitized: `<repo>`, `<scratchpad>`, `<you>` stand for
-  the machine-specific paths.
-- State: v2.0.3 and v2.0.3.1 released and installed; history rewritten
-  2026-10-05 (all hashes changed; old-history backup beside the repo on the
-  build host); 2.0.4 rounds 0-3 shipped, round 4 (roles wizard + agent YAML
-  files) in flight; remaining 2.0.4 rounds in ROADMAP's dated sections
-  (Databricks enumeration, MCP doctor deep dive, new-labs coverage, xp:
-  contract alignment), then the tag via `scripts/release.py 2.0.4`.
+  2.0.4 rounds 0-6, 2.0.5 rounds 1-4), sanitized: `<repo>`, `<scratchpad>`,
+  `<you>` stand for the machine-specific paths.
+- State: v2.0.3, v2.0.3.1 and **v2.0.4 (2026-10-06, release commit
+  b081db8)** released and installed on the build host and the owner's Linux
+  box; history rewritten 2026-10-05 (all hashes changed; old-history backup
+  beside the repo on the build host). v2.0.4 shipped on four green gates
+  (Linux suites, build-host live check, CI Linux, CI Windows); its code
+  review is DEFERRED to the 2.0.5 review for budget reasons: the review
+  before the v2.0.5 tag covers both versions' diffs (2.0.4 = `04ae6e4..
+  b081db8`).
+- Next: 2.0.5 control pack, briefs in `plans/briefs/2.0.5/` in this order:
+  round 1 `cc:` route v2, round 2 learned gateway rules + the legacy
+  env-file drop, round 3 the Governor, round 4 team control (lineup
+  sections enforced, hooks, schedule, triggers); then the two-version
+  review, fix pass, `scripts/release.py 2.0.5 --remote <user@host>
+  --identity <key>`.
+- Release script note: the remote refresh runs `ssh` non-interactively, so
+  pass the key with `--identity` (added after the 2.0.4 release, whose
+  remote step had to be rerun by hand with `ssh -i`).
 - Budget: the owner's token allowance is nearly spent until Friday
   2026-10-09; follow CYCLE.md's "Budget discipline" (no per-round VM runs,
   live checks once per round, status posts only when asked).

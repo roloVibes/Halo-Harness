@@ -6,7 +6,7 @@ checkout's own git tree, never on the installed harness.
 
 Run:
     python scripts/release.py <version> [--date YYYY-MM-DD]
-                               [--remote user@host ...] [--no-install] [--dry-run]
+                               [--remote user@host ...] [--identity key] [--no-install] [--dry-run]
 
     python scripts/release.py 2.0.4 --dry-run   # prints every step, runs nothing
 
@@ -115,6 +115,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--date", default=None, metavar="YYYY-MM-DD", help="defaults to today")
     p.add_argument("--remote", action="append", default=[], metavar="user@host",
                    help="also refresh the install on this remote over ssh (repeatable)")
+    p.add_argument("--identity", default=None, metavar="PATH",
+                   help="ssh private key for the --remote refresh; ssh then runs non-interactively "
+                        "(BatchMode=yes, ConnectTimeout=15). Without it the call is a plain `ssh user@host`.")
     p.add_argument("--no-install", action="store_true", help="skip refreshing any local/remote install")
     p.add_argument("--dry-run", action="store_true", help="print every step; run and write nothing")
     return p
@@ -197,9 +200,16 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
             for remote in args.remote:
                 remote_cmd = (f"cd ~/Halo-Harness && git fetch --tags && git checkout v{version} "
                               f"&& uv tool install --reinstall . && halo --version")
-                step(f"refresh the install on {remote}: ssh {remote} {remote_cmd!r}")
+                ssh_cmd = ["ssh"]
+                if args.identity:
+                    # A release runs unattended: with a key named, ssh must never
+                    # fall back to a password prompt (the 2.0.4 remote step did,
+                    # and failed on a stdin that is not a terminal).
+                    ssh_cmd += ["-i", args.identity, "-o", "BatchMode=yes", "-o", "ConnectTimeout=15"]
+                ssh_cmd += [remote, remote_cmd]
+                step(f"refresh the install on {remote}: {' '.join(ssh_cmd[:-1])} {remote_cmd!r}")
                 if not args.dry_run:
-                    run_fn(["ssh", remote, remote_cmd], check=True)
+                    run_fn(ssh_cmd, check=True)
     except ReleaseError as e:
         print(f"release.py: {e}", file=sys.stderr)
         return 1
