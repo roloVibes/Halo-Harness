@@ -1,6 +1,6 @@
-# Halo 2.0.5 round 2: learned gateway rules + the legacy env-file drop
+# Halo 2.0.5 round 3: learned gateway rules + the legacy env-file drop
 
-Repo: `<repo>` (branch master; start from HEAD after round 1). Read
+Repo: `<repo>` (branch master; start from HEAD after round 2). Read
 `plans/WORKER-RULES.md` FIRST and follow every rule in it (test
 environment: `BRIDGE_TEST_HOME=<fresh scratch dir>`,
 `BRIDGE_TEST_NO_BACKGROUND_NET=1`, `OLLAMA_HOST=http://127.0.0.1:1`).

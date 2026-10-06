@@ -1,6 +1,6 @@
-# Halo 2.0.5 round 3: the Governor (cross-process adaptive rate limiting, priority fairness, failover, lanes)
+# Halo 2.0.5 round 4: the Governor (cross-process adaptive rate limiting, priority fairness, failover, lanes)
 
-Repo: `<repo>` (branch master; start from HEAD after round 2). Read
+Repo: `<repo>` (branch master; start from HEAD after round 3). Read
 `plans/WORKER-RULES.md` FIRST and follow every rule in it (test
 environment: `BRIDGE_TEST_HOME=<fresh scratch dir>`,
 `BRIDGE_TEST_NO_BACKGROUND_NET=1`, `OLLAMA_HOST=http://127.0.0.1:1`; never

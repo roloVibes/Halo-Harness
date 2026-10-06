@@ -755,3 +755,71 @@ stays as sugar expanding to one assignment per role):
   gates enforced by the 2.0.5 Governor.
 - identity: name, description, version, tags, extends; `acceptance` for
   `halo doctor --teams`.
+
+## ADDED 2026-10-06 ~04:35 (rolo): 2.0.5 round "wizard: agent bios and lineups" (round 2, right after cc: v2)
+
+rolo, after the v2.0.4 tag: "The wizard needs the agent bio setup, and
+when you are setting up a template, you need to have those other options
+or a text prompt at the bottom (optional) explaining how all the pieces
+work together. When you have a role in a template or creating roles in a
+new template, or editing roles in a template, you can fill those with
+agents that are either an available model, OR the agent bio section that
+lists all of those agents with bios which is a more detailed version of
+just picking a model for a role in a role template. In that wizard
+section a user should be able to create or edit agent bios, have common
+sections in these agent bios like model, which opens the available models
+list again that was just enumerated to assign that part. Have other common
+parts of the bio yaml file that a user can create and edit."
+
+What this adds (2.0.4 round 4 built the enumeration, the pick list and the
+Auto tab; the bios and templates exist as files and CLI commands):
+
+1. **An Agents step in `halo init`**, after the keys step and the
+   enumeration, before the roles step: lists every bio the loader finds
+   (project `.halo/agents/`, user `~/.halo/agents/`, the shipped templates,
+   each marked with its scope), with create, edit, duplicate and delete.
+   The bio editor is one form over the common sections of the YAML:
+   identity (name, description, tags, kind, extends), `models`
+   (preference and fallback open the SAME enumerated model pick list the
+   roles step uses, plus effort, thinking, context_budget), `tools` (allow
+   and deny from the known tool names, mcp_servers from the configured
+   servers, permission_mode, rules), `context` (files, skills, memory),
+   `limits`, `output`, `environment`, `acceptance`. Save validates with the
+   loader and writes `agents/<name>.yaml` (user scope by default, project
+   scope on request); one plain line per problem; unknown keys already in
+   the file are kept, never dropped.
+2. **Role slots take a model OR an agent bio.** Wherever a role is filled
+   (the roles table, a role in a new template, a role in an existing
+   template, an org position), the picker has two sources: "Models" (the
+   enumerated list, as today) and "Agents" (every bio with its description,
+   preferred model and a tools summary). Picking a bio records the agent on
+   the slot (`agents: [{agent: <name>, role: <role>}]` in a template; the
+   roles table keeps the model and the agent name); picking a model keeps
+   today's behaviour. "New bio..." from inside the picker opens the editor
+   and returns with the new bio selected.
+3. **A template editor in the wizard** (new template or edit an installed
+   one): the assignments grid (agent or model per role, alias, instances,
+   use_for), the other top sections as optional fields (`delegation`,
+   `routing`, `budget`, `escalation`, `context`, `permissions`, `org`,
+   `pipeline`, `acceptance`; shown collapsed, each with its one-line
+   meaning), and at the bottom an optional free-text field **"How the
+   pieces work together"** saved as the template's `about:` (multi-line);
+   when the team is active that text is appended to every member's
+   context as "How this team works", and `halo teams show` prints it.
+   Save writes `teams/<name>.yaml` through the loader's validator and
+   offers to make it the active `team:`.
+4. **The same forms outside the wizard**: `/agents` (list, new, edit) and
+   `/teams` (list, new, edit, activate) in a running session, built on the
+   same form module; `halo agents new|edit` and `halo teams new|edit` gain
+   `--form` to open the TUI form instead of `$EDITOR`.
+5. Tests: Textual pilots through the Agents step (create a bio picking its
+   model from a fixture catalog, save, reload, edit), the roles step with
+   the two picker sources, a new template with one role by model and one
+   by bio plus the about text and one advanced section, validation lines
+   on a bad save, the slash dialogs, `--form`. Docs: AGENTS.md, ROLES.md,
+   the wizard section of HANDBOOK, COMMANDS and SLASH-COMMANDS, CHANGELOG
+   `[2.0.5]` "### Wizard: agent bios and lineups".
+
+Order: this is 2.0.5 round 2 (brief `plans/briefs/2.0.5/round-2-wizard-agents.md`);
+learned rules + env drop become round 3, the Governor round 4, team control
+round 5.
