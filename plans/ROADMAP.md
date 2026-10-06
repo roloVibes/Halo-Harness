@@ -731,3 +731,27 @@ So the agent-file design (section "ADDED 2026-10-05 ~22:45") splits:
   and `halo teams ...` CLIs, `/agents` and `/teams`, `halo doctor --agents`
   validates bios and the active template. Legacy role table -> a generated
   `migrated` template + one bio per distinct model, announced once.
+
+## ADDED 2026-10-06 ~00:40 (rolo): a team template is a lineup of many assignments
+
+rolo: "Templates should be able to assign like many sub agents somehow in
+those files." Template schema (built in round 4; the `roles:` shorthand
+stays as sugar expanding to one assignment per role):
+
+- `agents:` list of assignments {agent, role (main | subagent | researcher |
+  judge | reviewer | custom), as (alias), instances, use_for (task kinds or
+  keywords), overrides: models/tools/limits}; several per role; exactly one
+  main.
+- `delegation:` mode (manual | by-skill | round-robin), max_parallel,
+  max_depth, handoff (summary | full | structured), forward_text.
+- `routing:` task kind -> role or alias, with default.
+- `budget:` max_budget_usd, max_total_turns, max_wall_time, agents_may_exceed.
+- `escalation:` the existing policy shape (triggers, to, ask, allow_fallbacks).
+- `context:` shared files, skills, memory (namespace or blackboard, writers).
+- `permissions:` mode, rules, offline.
+- `org:` positions [{title, agent, reports_to, delegates_to, instances}],
+  reporting {cadence, format}.
+- `pipeline:` optional ordered stages [{name, role, gate}]; order shown now,
+  gates enforced by the 2.0.5 Governor.
+- identity: name, description, version, tags, extends; `acceptance` for
+  `halo doctor --teams`.

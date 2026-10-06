@@ -134,3 +134,12 @@ agent BIOS and team TEMPLATES are two layers": agent bios (who an agent is)
 and team templates (which agent fills which role or position), with the
 CLIs `halo agents ...` and `halo teams ...`, `/agents` and `/teams`, the
 active-team config key, the migration, and docs/AGENTS.md covering both.
+
+## Added 2026-10-06 ~00:40 (rolo): many assignments per template
+
+The template schema is ROADMAP section "ADDED 2026-10-06 ~00:40": `agents:`
+is a list of assignments (several per role, aliases, instances, use_for,
+overrides) plus delegation, routing, budget, escalation, context,
+permissions, org, pipeline (order only), identity and acceptance; `roles:`
+stays as shorthand. Editors edit assignments; validation checks every
+referenced agent, one main, unique aliases, routing targets.
