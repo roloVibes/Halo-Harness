@@ -1,6 +1,6 @@
 # Halo Harness roadmap (as approved by rolo through 2026-10-01 ~22:30)
 
-Repo: github.com/roloVibes/Halo-Harness (public). rolo-claude is frozen
+Repo: github.com/roloVibes/Halo-Harness (public). <old-name> is frozen
 at v1.0.1. rolo authorised autonomous completion of every version below
 and upload to GitHub; no input needed to move forward.
 
@@ -1008,3 +1008,44 @@ the carried fix-pass minors, invariants extended) and the round-2 deferrals
 (Try it and smoke runs, export and import bundles, the test-runner
 SystemExit fix). Order inside 2.0.6 is decided when 2.0.5 ships; item 1
 goes first per the review.
+
+## ADDED 2026-10-06 ~12:45 (rolo): 2.0.5 round 2d "the old name is gone; a README worth looking at" -- right after round 2c
+
+rolo: "Drop all mentions of <old-name> in GitHub, we are far beyond that.
+I need better screenshots in the repo too, make it lots cooler, like ascii
+art, more visual and etc. Definitely when we add more of the themes."
+
+Measured 2026-10-06 12:45: the previous project name appears in 50 tracked
+files outside plans/ (CHANGELOG 92 lines; tests/test_paths.py, the two
+installers, docs/INSTALL.md and docs/harness/INSTALL.md, config/paths.py,
+doctor.py, providers/config.py, pyproject.toml, theme.py, cli.py, run_all.py)
+and 10 files under plans/. In code it is real compatibility: the
+`<OLD_NAME>_*` environment aliases (ENV_FILE, THEME, MODEL and more), the
+legacy `~/.<old-name>` state-dir migration and doctor's "leftover" checks,
+console-script aliases in pyproject, the installers' old command names, the
+test runner's real-state guard naming the old directory. The GitHub
+description and topics are already clean. The README embeds two images;
+ten real TUI renders already exist as SVG under docs/harness/tui-snapshots.
+
+What the round does (brief `plans/briefs/2.0.5/round-2d-name-purge-visuals.md`):
+
+1. **The old name is gone from every tracked file**: the compatibility
+   code is removed (aliases, migration, leftover checks, console aliases,
+   installer mentions; `BRIDGE_*` names stay, they are the test harness's
+   own), tests that pinned it are rewritten for the current behaviour, docs
+   and installers say only `halo`, CHANGELOG history lines read "the
+   previous name" where a name is needed, plans/ files likewise; a house
+   invariant refuses the string in any tracked file from now on.
+2. **A README worth looking at**: an ASCII-art banner, a "what it looks
+   like" gallery of real TUI renders produced by a reproducible script
+   (`scripts/screenshots.py`: Textual pilots over fixture data, SVG out
+   under `docs/screenshots/`, one per scene: first launch and intro line,
+   a turn with a tool card and the phase line, the model picker with its
+   columns, the wizard's Team step, the `/mcp` dialog, the permission card,
+   the status bar with balances), captions in one sentence each, a feature
+   grid, install in three lines, and a themes section that 2.0.8 fills
+   with one render per theme (DOOM, Metroid, Mario); the same banner shows
+   on `halo --version` and the intro line pool gets it as the first line.
+3. Git history still carries the old name in past commits; removing it
+   there is a history rewrite the owner runs himself with the existing
+   script (one more replacement line), announced like the 2026-10-05 one.

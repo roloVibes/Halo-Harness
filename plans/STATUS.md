@@ -23,7 +23,7 @@ is verified on Windows and the Kali VM and pushed as it lands.
 
 ## Side work done this session
 
-- [x] rolo-claude repo private; Halo-Harness description and topics
+- [x] <old-name> repo private; Halo-Harness description and topics
 - [x] README redo, `docs/HANDBOOK.md`, no mention of the old name
 - [x] `scripts/install-halo.sh`, fresh-install docs, installs refreshed
 - [x] `plans/` handoff, roadmap, briefs 2.0.1 to 2.0.9
@@ -77,6 +77,7 @@ is verified on Windows and the Kali VM and pushed as it lands.
 - [x] round 2b (9d8eb5a) wizard and roles fixes (rolo 2026-10-06 ~09:30 + the v2.0.4 model review's weak spots: roles on/off everywhere, the `standard` lineup on the default model, bio editor layout and model picking, bug sweep, README badge + GitHub release in the release script) -- shipped 2026-10-06 ~11:25; Ctrl+P root cause = Textual command-palette binding
 - [ ] round 2c wizard interaction model (rolo 2026-10-06 ~10:05 + ~10:15 one Team step = lineups + agents side by side with the custom-roles switch on top: highlight is selection, Enter acts, autocomplete in model fields, step rail, quick/full setup, one-sentence headers, two levels deep, uniform footer, Summary jumps; `docs/WIZARD.md`) -- after 2b
 - [x] round 4b (9ec1fdd) cc: steer on Linux -- a timing race (steer registered after the control-channel wait), not a platform difference; WSL 57/0 five runs -- shipped 2026-10-06 ~12:20
+- [ ] round 2d the old name is gone + a README worth looking at (rolo 2026-10-06 ~12:45: purge every mention of the previous project name incl. the compat aliases, legacy state-dir migration and installer names, invariant (h); ASCII banner, reproducible SVG gallery via scripts/screenshots.py, feature grid, themes section for 2.0.8) -- after 2c
 - [ ] round 4 the Governor (port + REVIEW items, http.py choke point, failover, lanes, `/gov`, doctor health)
 - [ ] round 5 team control (lineup sections enforced, agent hooks, schedule, triggers)
 - [ ] review covering 2.0.4 (`04ae6e4..b081db8`) and 2.0.5, fix pass, live check, VM suites, `scripts/release.py 2.0.5 --remote <user@host> --identity <key>`
