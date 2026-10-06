@@ -122,6 +122,16 @@ def _normalize_role_value(value) -> "Optional[object]":
         escalation = value.get("escalation")
         if isinstance(escalation, bool):
             out["escalation"] = escalation
+        # Halo 2.0.5 round 2 (deliverable 2): "In a legacy role table a
+        # bio pick stores the bio's resolved preference as the model and
+        # `agent: <name>` beside it" -- carried through a save/reload
+        # round trip the SAME way `escalation` just above already is
+        # (C-2 finding 7's own precedent); a pure display/provenance
+        # annotation, never consulted by `role_value_parts`' two callers
+        # (`model`/`effort`) or by model resolution itself.
+        agent = value.get("agent")
+        if isinstance(agent, str) and agent.strip():
+            out["agent"] = agent.strip()
         return out
     return None
 

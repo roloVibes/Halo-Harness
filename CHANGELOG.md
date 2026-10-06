@@ -58,6 +58,60 @@ version.
   subtype, malformed response, child exit mid-request) plus the steer,
   set_model, compaction, and cost-line behaviour above.
 
+### Wizard: agent bios and lineups
+
+- **An Agents step** joins the wizard right after the keys step's own
+  model enumeration and before Roles (`"agents"` in `init_wizard.
+  ALL_STEP_KEYS`; `halo init --step agents` reaches it directly) --
+  list every bio (project/user/shipped), New, New from... (inherits
+  from any existing bio with a per-field override toggle: only the
+  overridden keys are written to the child file), Edit, Duplicate (a
+  shipped bio copied into user scope under the same name), Delete, and
+  Import (every `.claude/agents/*.md` file not already a bio, one
+  result line each). The bio form (`tui/dialogs/agent_bio_editor.py`,
+  new) is one screen over every `agents_yaml.BIO_SECTIONS` field, a
+  live YAML preview on the right, and every validation problem shown
+  beside the field it names as you type, not only on Save.
+- **Two sources for a role slot.** The model picker used by the roles
+  editor, the org editor, and the new lineup editor gains a source
+  switch (`ctrl+a`): Models (unchanged) or Agents (every bio, with its
+  description, preferred model, and a tools summary) -- picking a bio
+  records it on the slot alongside the resolved model; "New bio..."
+  opens the bio form and is treated as picking the bio it saves.
+- **A lineup editor** (`tui/dialogs/lineup_editor.py`, new) replaces
+  the Roles step's legacy-template-only editing with a Lineup pane
+  shown first (the original role-template editor moves to its own
+  "Legacy roles" pane, never removed -- a config with no lineup at all
+  still needs it): the assignments grid shows the RESOLVED TRUTH per
+  row (agent, preferred model, fallback, price, context, tools count,
+  a gym score when one exists) with inline warnings needing no
+  Governor (a missing bio, no reachable model, a fallback on the same
+  gateway as the preference, a duplicate alias, not-exactly-one
+  `role: main`); every other `teams_yaml` section is a collapsed
+  one-line-summarized YAML block; a free-text "How the pieces work
+  together" field saves as the lineup's own `about:` (drafted on
+  request, never blank, marked stale after a further change) and
+  reaches an active member's system context under that same heading
+  (`teams_yaml.member_system_context_addition`, a new pure function
+  this round builds and unit-tests -- wiring it into the live agent
+  loop is Governor-round work). Save offers to activate the lineup
+  (`teams_yaml.apply_team_template`, writing both `roles.*` and
+  `team:` in one step).
+- **The same forms outside the wizard**: `/agents`/`/teams` in a
+  running session open the same list/form screens (list, new, edit,
+  duplicate/delete, activate); `halo agents|teams new|edit --form`
+  open them from the CLI (`halo teams edit` is new this round,
+  symmetrical with `halo agents edit`). One form module each serves
+  the wizard, the slash dialogs, and `--form`.
+- Tests: `tests/test_wizard_agents_bios.py`, `tests/test_wizard_
+  lineup.py`, `tests/test_agents_teams_forms.py` (new, hermetic
+  Textual pilots with a fixture catalog, no network, no real model).
+- Docs: `docs/AGENTS.md` (the Agents step, the editor's sections,
+  `about`), `docs/ROLES.md`/`docs/ORGS.md` (two sources for a slot),
+  `docs/HANDBOOK.md`'s wizard walkthrough, `docs/COMMANDS.md` (`--step`,
+  new `halo agents`/`halo teams` sections), `docs/SLASH-COMMANDS.md`
+  (`/agents`/`/teams`).
+
 ## [2.0.4] - 2026-10-06
 
 ### Tooling

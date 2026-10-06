@@ -19,8 +19,10 @@ verified against `halo_harness/tui/dialogs/init_wizard.py` and
 
 ## Setting up with the wizard (`roles.enabled`, presets)
 
-The init wizard's own Roles step (`halo init`, step 5; `halo setup
-roles`/`/setup roles` later; "step 5, then orgs" for a bare `halo setup`)
+The init wizard's own Roles step (`halo init`, step 7 (retitled "Roles
+and lineup" in Halo 2.0.5 round 2 -- see "Two sources for a role slot"
+below); `halo setup roles`/`/setup roles` later; "step 7, then orgs" for
+a bare `halo setup`)
 starts with a switch, **`roles.enabled`** (default **on**): off means
 every role resolves to the session model -- `resolve_role_table()`
 returns `{}` outright, the same shape a session with no role table
@@ -111,6 +113,26 @@ layer (2.0.4 round 4): a team template is a named lineup that assigns an
 that agent's own bio to a concrete model -- the Auto tab lists an
 installed team template exactly like a built-in preset, resolving its
 assignments to a role table the same way.
+
+### Two sources for a role slot (Halo 2.0.5 round 2)
+
+The SAME `ModelPicker` the round-1 form (and the org editor, and the new
+lineup editor) opens now carries a source switch, `ctrl+a`, in its own
+footer: **Models** (the enumerated list above, unchanged) or **Agents**
+(every reachable agent bio, with its description, preferred model, and
+a tools-count summary -- the same text filter and autocomplete). Picking
+a model keeps every behaviour this page already documents, unchanged;
+picking a bio records the agent ON the slot too -- the role-table entry
+becomes `{"model": <the bio's own resolved preference>, "agent": <bio
+name>}` instead of a bare model string (`roles._normalize_role_value`
+carries the `agent` key through a save/reload round trip the same way
+it already does `escalation`) -- `role_value_parts` still reads just
+`model`/`effort` from it, so every EXISTING caller of that function is
+completely unaffected. "New bio..." sits at the top of the Agents source
+and opens the bio form (`tui/dialogs/agent_bio_editor.py`); saving it is
+treated exactly like picking that freshly-created bio. See
+[AGENTS.md](AGENTS.md)'s own wizard section for the bio form itself and
+the SAME switch on an org position and a lineup assignment.
 
 ## The ten roles
 

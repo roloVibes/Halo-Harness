@@ -76,7 +76,20 @@ def _cmd_new(rest: list) -> int:
     parser.add_argument("name")
     parser.add_argument("--from", dest="from_template", default=None, metavar="BIO")
     parser.add_argument("--project", action="store_true", help="write to .halo/agents/ instead of ~/.halo/agents/")
+    # Halo 2.0.5 round 2 (deliverable 4): opens the SAME form module the
+    # wizard's Agents step and `/agents new` use, instead of writing a
+    # starter file directly.
+    parser.add_argument("--form", action="store_true", help="open the TUI form instead of writing a starter file")
     args = parser.parse_args(rest)
+    if args.form:
+        from halo_harness.tui.dialogs.agent_bio_editor import run_agent_bio_editor_standalone
+        saved = run_agent_bio_editor_standalone(args.name, project=args.project, is_new=True,
+                                                 from_template=args.from_template)
+        if not saved:
+            print("halo agents new: cancelled.", file=sys.stderr)
+            return 1
+        print(f"Created agent bio {saved!r}.")
+        return 0
     ok, problems = new_agent_bio_from_template(args.name, args.from_template, project=args.project)
     if not ok:
         print(f"halo agents new: {'; '.join(problems)}", file=sys.stderr)
@@ -103,7 +116,17 @@ def _cmd_edit(rest: list) -> int:
     from halo_harness.agents_yaml import load_agent_bio_raw, save_agent_bio, user_agents_dir, validate_agent_bio
     parser = argparse.ArgumentParser(prog="halo agents edit", add_help=True)
     parser.add_argument("name")
+    # Halo 2.0.5 round 2 (deliverable 4): "halo agents new|edit --form".
+    parser.add_argument("--form", action="store_true", help="open the TUI form instead of $EDITOR")
     args = parser.parse_args(rest)
+    if args.form:
+        from halo_harness.tui.dialogs.agent_bio_editor import run_agent_bio_editor_standalone
+        saved = run_agent_bio_editor_standalone(args.name)
+        if not saved:
+            print("halo agents edit: cancelled.", file=sys.stderr)
+            return 1
+        print(f"Saved agent bio {saved!r}.")
+        return 0
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
     if not editor:
         print("halo agents edit: no $VISUAL/$EDITOR set", file=sys.stderr)
@@ -203,8 +226,9 @@ _SUBCOMMANDS = {"list": _cmd_list, "show": _cmd_show, "validate": _cmd_validate,
 
 def cmd_agents(argv: list) -> int:
     if not argv or argv[0] in ("-h", "--help"):
-        print("usage: halo agents list|show <name>|validate [name]|new <name> [--from BIO] [--project]|"
-              "edit <name>|export <name> [file] [--claude-md]|import <file>|<name> [--claude-md]",
+        print("usage: halo agents list|show <name>|validate [name]|"
+              "new <name> [--from BIO] [--project] [--form]|edit <name> [--form]|"
+              "export <name> [file] [--claude-md]|import <file>|<name> [--claude-md]",
               file=sys.stderr)
         return 0 if argv else 2
     sub, rest = argv[0], argv[1:]

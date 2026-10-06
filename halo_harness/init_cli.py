@@ -943,6 +943,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--team", default=None, metavar="PATH|URL",
                          help="a team.json preset (host/default model/gateway preference/DBU price -- "
                               "never a token); overrides .halo/team.json / ~/.halo/team.json")
+    # Halo 2.0.5 round 2 (deliverable 1): "halo init --step agents reaches
+    # it directly like the other keys" -- a 1-based ordinal or the step's
+    # own key (`init_wizard._resolve_start_index` accepts either); only
+    # meaningful on a real terminal (the interactive wizard flow below).
+    parser.add_argument("--step", default=None, metavar="STEP",
+                         help="jump directly to one wizard step by key or 1-based number (e.g. --step agents), "
+                              "interactive only")
     return parser
 
 
@@ -1010,7 +1017,18 @@ def _run_init_wizard_flow(args, console: Console, cwd: Path) -> "Optional[int]":
     already uses."""
     try:
         from halo_harness.tui.dialogs.init_wizard import run_init_wizard
-        app = run_init_wizard(cwd=cwd, team=getattr(args, "team", None), no_live=args.no_live)
+        step_arg = getattr(args, "step", None)
+        # `_resolve_start_index` wants a real `int` for the ordinal form
+        # (a bare numeric STRING, e.g. argparse's own "--step 7", fails
+        # both its `isinstance(start_step, int)` and `... in step_keys`
+        # checks and silently falls back to step 1) -- converted here,
+        # once, so the CLI flag accepts either spelling the brief shows
+        # ("--step agents" or a number) exactly like the function's own
+        # docstring already promises.
+        if isinstance(step_arg, str) and step_arg.strip().isdigit():
+            step_arg = int(step_arg.strip())
+        app = run_init_wizard(cwd=cwd, team=getattr(args, "team", None), no_live=args.no_live,
+                               start_step=step_arg)
     except Exception as e:
         console.print(f"[WARN] the setup wizard failed ({type(e).__name__}: {e}) -- "
                        f"falling back to the one-provider-at-a-time picker.")

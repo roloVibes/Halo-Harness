@@ -310,3 +310,143 @@ lost on export, absent on import. Import reuses `config/agents_md.
 discover_agents` (the SAME precedence-aware loader the live agent
 runtime calls), so an imported bio is guaranteed to match what a real
 `Agent(subagent_type=name)` call would actually see.
+
+## The wizard: the Agents step and the two editor forms (Halo 2.0.5 round 2)
+
+Three NEW modules, never grown into `tui/dialogs/init_wizard.py` itself
+(the house size convention; that file only gained the registration/pane
+lines): `tui/dialogs/agent_bio_editor.py` (`AgentBioEditor`, the bio
+form), `tui/dialogs/agents_step.py` (`AgentsStep` -- the wizard step --
+and `AgentsListScreen`, the standalone counterpart `/agents`/`halo
+agents --form` open), `tui/dialogs/lineup_editor.py` (`LineupEditor` and
+`TeamsListScreen`, the same split for lineups). ONE form module each --
+the wizard, `/agents`/`/teams`, and `halo agents|teams new|edit --form`
+all push the SAME screen class, so a save behaves identically everywhere
+it's reached from.
+
+**The Agents step** (`"agents"` in `init_wizard.ALL_STEP_KEYS`, right
+before "roles") lists every reachable bio (`agents_step.bio_rows`: name,
+scope -- project/user/template --, description, preferred model) with
+New, New from..., Edit, Duplicate (a shipped bio copied into user scope
+under the SAME name, so it shadows the read-only original -- never
+edited in place), Delete, and Import (every `.claude/agents/*.md`
+`config/agents_md.discover_agents` finds that isn't already a bio name,
+converted in one action, one result line each).
+
+**The bio form** is ONE screen over `agents_yaml.BIO_SECTIONS` --
+identity (name, description, tags, kind, extends -- never inherited, see
+`resolve_agent_bio`'s own rule) plus a field per section: `models`
+(preference/fallback open the SAME `ModelPicker` the roles/org/lineup
+pickers use, narrowed by the bio's own needs -- tool-capable rows only
+when `tools.allow` is non-empty, local rows only when `environment.
+offline` is on, enough context for `models.context_budget`'s own share
+-- `ctrl+e` shows every row regardless; `ctrl+g` **Suggest** fills both
+from `roles.auto_fill_options()`, falling back to the cheapest row in
+the picker's own catalog when every preset/gym/team option comes up
+empty, e.g. a bare machine right after install), effort, thinking,
+context_budget; `tools` (allow/deny against the harness's real tool
+names, mcp_servers, permission_mode, and `rules` -- one settings.json-
+grammar line each, rendered as a plain sentence beside it, e.g. "Bash
+may not run git push", a parse error shown in place of a bad line);
+`context` (files, skills, a memory namespace); `limits` (max_iterations,
+`timeout` taking the house duration words -- `20m`/`2h`/`90s`/`1d` --
+with the parsed figure shown beside it, `max_budget_usd` with "about N
+turn(s) at this model's price" against the picked model's own enumerated
+price, concurrency); `output` (handoff, report_to); `environment`
+(worktree, offline); `acceptance` (prompt, expect). A right-hand pane
+shows the YAML that would be written, live, as you type; every problem
+`agents_yaml.validate_agent_bio` (plus the name check) finds appears
+there AND beside the field it names, not only on Save -- a bad Save
+keeps the form open. Save writes user scope by default, project scope on
+a toggle.
+
+**New from...** (and the picker's own "New bio..." -- any role-slot pick
+can create a bio inline, see below) opens the form with `extends:` set:
+every field whose key the raw file does NOT already define shows
+INHERITED (greyed, disabled, the resolved parent value as its
+placeholder) behind its own per-field override `Switch` -- flipping one
+on makes that ONE key the child's own; only the fields actually flipped
+on get written to the child's file ("an agent file carries only
+overrides"), matching `resolve_agent_bio`'s own key-by-key merge
+EXACTLY (never a coarser per-section toggle). A bio with no `extends` at
+all shows no toggles -- every field is simply its own, same as before
+this round.
+
+## Two sources for a role slot (Halo 2.0.5 round 2)
+
+Wherever a role is filled -- the roles table, an org position, a
+lineup's own assignment -- the model picker (`tui/dialogs/model_picker.
+py::ModelPicker`) now carries a source switch, `ctrl+a`, shown in its
+own footer: **Models** (the enumerated list, exactly as before) or
+**Agents** (every bio, with its description, preferred model, and a
+tools-count summary; the same text filter and autocomplete). Picking a
+model keeps today's behaviour exactly; picking a bio records the agent
+on the slot -- a legacy role-table entry becomes `{"model": <the bio's
+own resolved preference>, "agent": <bio name>}` (`roles._normalize_
+role_value` now carries `agent` through a save/reload round trip the
+same way it already does `escalation`), an org position gets a bare
+`agent` key beside its `model`, and a lineup assignment's `agent` field
+IS the bio name directly (`teams_yaml`'s own schema always names a bio,
+never a bare model -- picking "Models" there auto-creates, or reuses, a
+tiny bio pinning just that model via `agents_yaml.ensure_bio_for_model`,
+the same `model-<slug>` shape `teams_yaml.migrate_legacy_role_table`'s
+own per-model bios already use). "New bio..." sits at the top of the
+Agents source and opens the SAME bio form; saving it is treated exactly
+like picking that freshly-created bio, with no second pick step needed.
+`allow_agent_source=False` (the bio form's own preference/fallback
+fields) hides the source switch entirely -- a bio's own model must
+resolve to a real model, never another bio.
+
+## The lineup editor (Halo 2.0.5 round 2)
+
+`LineupEditor` replaces the Roles step's legacy-template-only editing
+with a Lineup pane shown first (the legacy role-table pane moves to its
+own "Legacy roles" pane, reachable by its own toggle button -- never
+removed, since a config with no lineup at all still needs it). The
+assignments grid (`ctrl+n` add, `ctrl+d` delete, `ctrl+p` pick agent-or-
+model for the highlighted row) shows the RESOLVED TRUTH per row
+(`lineup_editor.resolved_assignment_line`: agent, preferred model,
+fallback, price, context, tools count, a gym score when one exists) and
+inline warnings needing no Governor (`lineup_editor.lineup_warnings`): a
+bio that doesn't exist, no reachable model for the slot, a fallback on
+the SAME gateway prefix as the preference (can't help if that gateway is
+down), a duplicate `as` alias, or not-exactly-one `role: main`. Every
+OTHER `teams_yaml.TOP_SECTIONS` -- `delegation`/`routing`/`budget`/
+`escalation`/`context`/`permissions`/`org`/`pipeline`/`acceptance` -- is
+a `Collapsible`, its own one-line meaning as the title, editing that
+section as ONE YAML-mapping-body `TextArea` (never a bespoke widget per
+field -- round-trips through the same `yaml.safe_load` every other
+section of this codebase already uses). A read-only roles-table
+projection (`teams_yaml.resolve_role_table`, the SAME function `/roles`'s
+Auto tab already calls) sits under the grid -- the lineup is the one
+place a role actually gets edited.
+
+At the bottom, the free-text **"How the pieces work together"** field
+saves as the template's own `about:` (an identity field like
+`description` -- inherited whole by a child that never sets its own,
+never merged key-by-key). `ctrl+g` **Draft** fills it from `lineup_
+editor.draft_about_text` (one sentence per assignment plus the
+delegation/pipeline sections, in the house's own plain voice) -- never
+leaves it blank; a "stale" marker appears once the lineup's own
+assignments/delegation/pipeline change after the last draft (or edit),
+until redrafted or edited again. Save validates through `teams_yaml`'s
+own validator, writes `teams/<name>.yaml` (user scope by default,
+project on a toggle), and offers to make it the active `team:`
+(`_ActivateLineupConfirm`) -- "Use this lineup" in the wizard's own
+Lineup pane does both in one step via the new `teams_yaml.apply_team_
+template` (writes `roles.*` AND `team:`, the lineup counterpart of
+`roles.apply_role_template`). `halo teams show`/`/teams show` print the
+`about:` text when the lineup has one.
+
+**The active team's `about:` reaches a member's system context** through
+`teams_yaml.member_system_context_addition(agent_name, team_name=None,
+...)` -- a NEW, pure, local-file-only function this round builds and
+unit-tests: the bio's own `context.files`/`context.system_prompt`, then
+(only when `agent_name` is actually assigned inside the active, or
+given, team) the team's `about:` text appended under the heading "How
+this team works" (the SAME heading `halo teams show` prints above it).
+Wiring this into the REAL `agent/subagent.py` child-session builder is
+left to the Governor round (2.0.5 round 4) -- same "compose the piece,
+enforce it later" boundary every other lineup section in this file
+already draws; this round's own job was building and proving the
+assembly itself.

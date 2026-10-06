@@ -52,6 +52,12 @@ class RolesEditor(ModalScreen):
         self.description = description
         self._pending_role = None
         self._pending_model = None
+        # Halo 2.0.5 round 2 (deliverable 2): set only when the pick came
+        # from the picker's Agents source -- `role_value_parts`/`_
+        # normalize_role_value` carry it through as a bare `agent` key
+        # beside `model`/`effort` (same precedented pattern that function
+        # already uses for `escalation`).
+        self._pending_agent = None
         self._auto_options: list = []
 
     def _all_role_names(self) -> list:
@@ -116,10 +122,13 @@ class RolesEditor(ModalScreen):
 
     def _row_text(self, name: str) -> str:
         from halo_harness.roles import role_value_parts
-        model, effort = role_value_parts(self.roles.get(name))
+        value = self.roles.get(name)
+        model, effort = role_value_parts(value)
         if not model:
             return f"{name}: (unset -- session model)"
-        return f"{name}: {model}" + (f" ({effort})" if effort else "")
+        text = f"{name}: {model}" + (f" ({effort})" if effort else "")
+        agent = value.get("agent") if isinstance(value, dict) else None
+        return f"{text}  agent:{agent}" if agent else text
 
     def _refresh_list(self) -> None:
         option_list = self.query_one("#roles-list", OptionList)
@@ -237,7 +246,7 @@ class RolesEditor(ModalScreen):
         from halo_harness.tui.dialogs.model_picker import ModelPicker
         current_model, _effort = role_value_parts(self.roles.get(role_name))
         self.app.push_screen(ModelPicker(self.models, current=current_model or ""),
-                              lambda ref: self._model_picked(role_name, ref))
+                              lambda result: self._model_picked(role_name, result))
 
     def _apply_template(self, name: str) -> None:
         """Round 7, item 2: "choose a template, the form prefills" --
@@ -257,17 +266,51 @@ class RolesEditor(ModalScreen):
         self.query_one("#roles-hint", Static).update(f"Loaded template {name!r} into the form -- ctrl+s "
                                                        f"saves it as {self.template_name!r}.")
 
-    def _model_picked(self, role_name: str, ref) -> None:
+    def _model_picked(self, role_name: str, result) -> None:
+        """`result` is `None` (cancelled), a bare model-ref string (the
+        Models source, unchanged since before this round), or -- Halo
+        2.0.5 round 2 deliverable 2 -- a `{"agent", "model"}` dict (a bio
+        picked from the Agents source) or `{"new_bio": True}` ("New
+        bio..." -- opens the bio editor, then treats its own save exactly
+        like picking that freshly-created bio, "returns with the new bio
+        selected")."""
+        if not result:
+            return
+        if isinstance(result, dict) and result.get("new_bio"):
+            self._open_new_bio_for(role_name)
+            return
+        if isinstance(result, dict):
+            agent_name, ref = result.get("agent"), result.get("model") or ""
+        else:
+            agent_name, ref = None, result
         if not ref:
             return
         from halo_harness.roles import role_value_parts
-        self._pending_role, self._pending_model = role_name, ref
+        self._pending_role, self._pending_model, self._pending_agent = role_name, ref, agent_name
         _model, effort = role_value_parts(self.roles.get(role_name))
         effort_input = self.query_one("#roles-effort-input", Input)
-        effort_input.placeholder = f"Effort for {role_name} (Enter for none), model={ref}"
+        label = f"agent={agent_name}, model={ref}" if agent_name else f"model={ref}"
+        effort_input.placeholder = f"Effort for {role_name} (Enter for none), {label}"
         effort_input.value = effort or ""
         effort_input.styles.display = "block"
         effort_input.focus()
+
+    def _open_new_bio_for(self, role_name: str) -> None:
+        from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+        import uuid
+        new_name = f"new-bio-{uuid.uuid4().hex[:8]}"
+        self.app.push_screen(
+            AgentBioEditor(new_name, {}, self.models, is_new=True),
+            lambda saved: self._model_picked(role_name, self._bio_pick_result(saved)) if saved else None)
+
+    @staticmethod
+    def _bio_pick_result(bio_name: str) -> "dict | None":
+        if not bio_name:
+            return None
+        from halo_harness.agents_yaml import resolve_agent_bio
+        bio = resolve_agent_bio(bio_name) or {}
+        models = bio.get("models") or {}
+        return {"agent": bio_name, "model": models.get("preference") or models.get("fallback") or ""}
 
     def _ref_known(self, ref: str) -> bool:
         """Halo 2.0.4 round 4 (deliverable 2): `ModelPicker`'s own filter
@@ -304,9 +347,22 @@ class RolesEditor(ModalScreen):
                         f"or blank for the route's own default)")
             return
         picked_ref = self._pending_model
-        self.roles[self._pending_role] = ({"model": picked_ref, "effort": effort} if effort
-                                           else picked_ref)
-        self._pending_role = self._pending_model = None
+        picked_agent = self._pending_agent
+        # Halo 2.0.5 round 2 (deliverable 2): "In a legacy role table a
+        # bio pick stores the bio's resolved preference as the model and
+        # `agent: <name>` beside it" -- `roles._normalize_role_value` now
+        # carries an `agent` key through a save/reload round trip the same
+        # way it already does `effort`/`escalation`.
+        if picked_agent or effort:
+            value = {"model": picked_ref}
+            if effort:
+                value["effort"] = effort
+            if picked_agent:
+                value["agent"] = picked_agent
+            self.roles[self._pending_role] = value
+        else:
+            self.roles[self._pending_role] = picked_ref
+        self._pending_role = self._pending_model = self._pending_agent = None
         event.input.value = ""
         event.input.styles.display = "none"
         # Deliverable 2: the note names the FINAL, actually-committed ref

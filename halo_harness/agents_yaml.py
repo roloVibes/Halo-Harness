@@ -284,6 +284,37 @@ def list_bundled_agent_templates() -> "list[str]":
         return []
 
 
+def ensure_bio_for_model(model_ref: str, *, cwd=None, state_dir=None) -> "Optional[str]":
+    """Halo 2.0.5 round 2 (deliverable 3): a team template's own `agents:`
+    entries always name a BIO (`teams_yaml.validate_team_template`'s own
+    "agent" is required / "no such agent bio" rule) -- there is no slot
+    for a bare model ref. Picking a MODEL directly for a lineup role (the
+    brief's own "one role by model") therefore needs a tiny, reusable bio
+    that pins JUST `models.preference` to that ref, auto-created here the
+    SAME way `teams_yaml.migrate_legacy_role_table`'s own `_bio_for_model`
+    helper already does for the legacy-table migration (same slug shape,
+    `model-<slug>`, so the two paths can never collide on a name). Reuses
+    an existing bio whose OWN `models.preference` already matches `ref`
+    instead of creating a duplicate every time the same model is picked
+    again. `None` only for an empty/blank `ref`."""
+    if not model_ref or not model_ref.strip():
+        return None
+    model_ref = model_ref.strip()
+    for existing in list_agent_bios(cwd=cwd, state_dir=state_dir):
+        raw = load_agent_bio_raw(existing, cwd=cwd, state_dir=state_dir)
+        if raw and (raw.get("models") or {}).get("preference") == model_ref:
+            return existing
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "-", model_ref).strip("-").lower() or "model"
+    name = f"model-{slug}"[:60].rstrip("-") or "model"
+    if not is_valid_agent_name(name):
+        name = "model-pin"
+    ok, _problems = save_agent_bio(
+        name, {"description": f"Pins the model {model_ref} -- auto-created from a lineup's own model pick.",
+               "models": {"preference": model_ref}},
+        cwd=cwd, state_dir=state_dir)
+    return name if ok else None
+
+
 def new_agent_bio_from_template(name: str, template_name: "Optional[str]" = None, *, cwd=None, state_dir=None,
                                  project: bool = False) -> "tuple[bool, list[str]]":
     """`halo agents new <name> [--from <template>]` -- `template_name`

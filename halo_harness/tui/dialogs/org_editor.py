@@ -276,10 +276,52 @@ class OrgEditor(ModalScreen):
         current = self.query_one("#org-field-role", Input).value
         self.app.push_screen(ModelPicker(self.models, current=current), self._model_picked)
 
-    def _model_picked(self, ref) -> None:
+    def _model_picked(self, result) -> None:
+        """Halo 2.0.5 round 2 (deliverable 2): `result` may now also be a
+        `{"agent", "model"}` dict (the picker's Agents source) or
+        `{"new_bio": True}` -- same contract `roles_editor.py`'s own
+        `_model_picked` documents. An org position has no `models.*`
+        section of its own to carry the pick in, so the agent name is
+        stored as a bare `agent` key directly on the position dict
+        (ignored by `orgs.py`'s own resolution today, same "store the
+        provenance, enforce nothing new" boundary every other lineup
+        annotation in this round draws)."""
+        if not result:
+            return
+        if isinstance(result, dict) and result.get("new_bio"):
+            self._open_new_bio_for_position()
+            return
+        if isinstance(result, dict):
+            agent_name, ref = result.get("agent"), result.get("model") or ""
+        else:
+            agent_name, ref = None, result
         if not ref:
             return
         self.query_one("#org-field-role", Input).value = ref
+        if self._current_title is not None:
+            position = self._position(self._current_title)
+            if position is not None:
+                if agent_name:
+                    position["agent"] = agent_name
+                else:
+                    position.pop("agent", None)
+
+    def _open_new_bio_for_position(self) -> None:
+        from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+        import uuid
+        new_name = f"new-bio-{uuid.uuid4().hex[:8]}"
+        self.app.push_screen(
+            AgentBioEditor(new_name, {}, self.models, is_new=True),
+            lambda saved: self._model_picked(self._bio_pick_result(saved)) if saved else None)
+
+    @staticmethod
+    def _bio_pick_result(bio_name: str) -> "dict | None":
+        if not bio_name:
+            return None
+        from halo_harness.agents_yaml import resolve_agent_bio
+        bio = resolve_agent_bio(bio_name) or {}
+        models = bio.get("models") or {}
+        return {"agent": bio_name, "model": models.get("preference") or models.get("fallback") or ""}
 
     def action_add_position(self) -> None:
         self._commit_current_fields()

@@ -14,9 +14,11 @@ and `tui/dialogs/init_wizard.py` (round 7).
 
 ## Setting up with the wizard (`orgs.enabled`, the default org)
 
-The init wizard's own Organizations step (`halo init`, step 6; `halo
-setup orgs`/`/setup orgs` later; "roles, then orgs, then summary" for a
-bare `halo setup`) starts with a switch, **`orgs.enabled`** (default
+The init wizard's own Organizations step (`halo init`, step 8 as of Halo
+2.0.5 round 2's own "agents" step insertion right before "Roles and
+lineup" -- see [ROLES.md](ROLES.md); `halo setup orgs`/`/setup orgs`
+later; "roles, then orgs, then summary" for a bare `halo setup`) starts
+with a switch, **`orgs.enabled`** (default
 **off**, unlike roles): off hides `/org` from `/help`/tab-completion/the
 rotating tips, the `/tasks` board tab, and the `Agent` tool's own `org=`
 parameter (never from `resolve()`/`run_org_call` itself -- `/org run` by
@@ -237,8 +239,12 @@ every other sub-agent already uses.
 `/org edit <name>` (TUI, `tui/dialogs/org_editor.py`): a tree view on the
 left (one row per position, indented by depth, root first) and the
 selected position's own fields on the right -- title, role-or-model
-(free text, or `ctrl+p` for the same `ModelPicker` `/model` uses),
-effort, instructions, and `reports` (a comma-separated list of titles).
+(free text, or `ctrl+p` for the same `ModelPicker` `/model` uses --
+Halo 2.0.5 round 2: that picker's own Agents source, `ctrl+a`, also
+works here, recording the picked bio as a bare `agent` key on the
+position beside its resolved `model`; see [ROLES.md](ROLES.md)'s "Two
+sources for a role slot"), effort, instructions, and `reports` (a
+comma-separated list of titles).
 `ctrl+n` adds a new, unlinked position; `ctrl+d` deletes the selected one
 (pruning it from every other position's own `reports`); `ctrl+s`
 validates and saves (refusing, with the reasons shown, when
