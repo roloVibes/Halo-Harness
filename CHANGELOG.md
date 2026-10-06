@@ -8,6 +8,39 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.0.4] - unreleased
+
+### Tooling
+
+- **GitHub Actions now runs the three suites on every push and pull
+  request** (`.github/workflows/suites.yml`): `test_bridge.py`,
+  `tests/run_all.py`, and `test_tui.py`, on Linux and Windows, Python
+  3.12, each with its own hard timeout so one slow/hanging suite never
+  hides the other two. A job summary shows pass/fail for all three at a
+  glance; the full logs upload as a build artifact only on failure. The
+  orchestrator's manual three-platform run is now the exception (real
+  local models, real MCP servers, real hardware), not the normal way the
+  suites get run -- see `docs/CONTRIBUTING.md`.
+- **A release script** (`scripts/release.py <version>`) replaces the
+  hand-run release checklist: refuses on a dirty tree under
+  `halo_harness/`, `tests/`, or `docs/`; sets (or verifies)
+  `halo_harness/__init__.py::__version__`; requires and dates the
+  CHANGELOG's own `## [<version>] - unreleased` section; commits, tags,
+  and pushes; refreshes the local install (printing the command instead
+  of running it when a halo session looks like it's already running) and
+  any `--remote user@host` given on the command line. `--dry-run` prints
+  every step with nothing executed; `tests/test_release_script.py` drives
+  it against a scratch git repo.
+- **House invariants, one test per rule** (`tests/test_invariants.py`):
+  no safety/refusal language in `halo_harness/`, `docs/`, or `tests/`; the
+  network choke point; no file under `halo_harness/` bypassing
+  `BRIDGE_TEST_HOME`; every slash command and CLI flag documented; the
+  privacy scan; no test module exporting `BRIDGE_STATE_DIR` for its whole
+  run. Several reference the module that already covered that ground
+  (`tests/test_offline_mode.py`, `tests/test_privacy_scan.py`,
+  `tests/test_docs_slash_commands.py`, `tests/test_docs_commands.py`)
+  rather than duplicating it.
+
 ## [2.0.3.1] - 2026-10-05
 
 ### Clipboard image paste
