@@ -17,6 +17,7 @@ import base64
 import json
 import os
 import sys
+import threading
 import tempfile
 import time
 from pathlib import Path
@@ -3413,6 +3414,7 @@ def _real_controller(cwd: Path, *, mode: str = "bypassPermissions"):
         os.environ["BRIDGE_STATE_DIR"] = tempfile.mkdtemp(prefix="th-")
 
     class _MinimalSession:
+        abort = threading.Event()  # Controller.interrupt/close paths call session.abort.set()
         def __init__(self) -> None:
             self.permission_engine = PermissionEngine(mode=mode, print_mode=False, cwd=cwd)
             self.log = SessionLog(cwd)

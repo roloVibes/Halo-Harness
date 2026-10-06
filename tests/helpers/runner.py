@@ -28,6 +28,20 @@ Usage in a test_*.py file:
 from __future__ import annotations
 
 import os
+
+# Machines without a real `claude` or `codex` on PATH (CI runners, the Linux
+# suite venvs) must still run every test that builds a cc:/cx: argv: those
+# resolve the launcher through HALO_CLAUDE_EXE / HALO_CODEX_EXE first, so
+# point them at the fakes beside this file when nothing else is set. A test
+# that wants "binary missing" semantics sets its own value, as before.
+import shutil as _shutil
+import sys as _sys
+from pathlib import Path as _Path
+_HELPERS = _Path(__file__).resolve().parent
+if not os.environ.get("HALO_CLAUDE_EXE") and not (_shutil.which("claude") or _shutil.which("claude.cmd")):
+    os.environ["HALO_CLAUDE_EXE"] = '"' + _sys.executable + '" "' + str(_HELPERS / "fake_claude_cc.py") + '"'
+if not os.environ.get("HALO_CODEX_EXE") and not (_shutil.which("codex") or _shutil.which("codex.cmd")):
+    os.environ["HALO_CODEX_EXE"] = '"' + _sys.executable + '" "' + str(_HELPERS / "fake_codex.py") + '"'
 import shutil
 import tempfile
 import threading
