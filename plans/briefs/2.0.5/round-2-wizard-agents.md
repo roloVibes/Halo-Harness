@@ -41,8 +41,9 @@ starter, `edit` opens `$EDITOR`), `providers/model_enumeration.py`
    and before `"roles"`; `halo init --step agents` reaches it directly like
    the other keys): a list of every bio from `list_agent_bios` with its
    scope (project / user / shipped), description and preferred model;
-   actions new, edit, duplicate, delete (a shipped bio is duplicated into
-   user scope, never edited in place). The **bio editor** is one form over
+   actions new, new from..., edit, duplicate, delete, import (a shipped bio
+   is duplicated into user scope, never edited in place). The **bio
+   editor** is one form over
    the common sections: identity (name with `is_valid_agent_name`,
    description, tags, kind from `KNOWN_KINDS`, extends from the known
    bios), `models` (preference and fallback each open the SAME pick list
@@ -56,7 +57,30 @@ starter, `edit` opens `$EDITOR`), `providers/model_enumeration.py`
    runs `validate_agent_bio` and `save_agent_bio` (user scope by default,
    project scope by a toggle); problems print one plain line each and keep
    the form open; keys the file already has outside the form survive a
-   round trip untouched.
+   round trip untouched. Folded in (rolo 2026-10-06 ~04:50, "fold them in"):
+   - **New from...** opens the form prefilled from any existing bio with
+     `extends:` set to it; inherited values show greyed with a per-field
+     override toggle, and only the overridden keys are written to the child
+     file (`resolve_agent_bio` is the merged view; the raw file stays
+     minimal).
+   - **Problems inline**: a preview pane on the right shows the YAML that
+     would be written (for a child, only the override keys); the validator
+     runs on every change and its lines appear beside the field they name,
+     not only on save.
+   - **A picker that knows the bio**: the pick list is filtered by the
+     bio's needs (tool-capable rows when `tools.allow` is non-empty, local
+     rows only when `environment.offline` is on, a context window of at
+     least the bio's `context_budget` share) with a one-chord toggle to
+     show every row; a Suggest chord fills preference and fallback the way
+     the roles editor's Auto tab does (presets, then gym data when present).
+   - **Rules you can read**: each `tools.rules` line is syntax-checked and
+     rendered as a plain sentence beside it ("Bash may not run git push");
+     `limits.max_budget_usd` shows "about N turns at this model's price"
+     from the row's price; `timeout` accepts the house duration words
+     (`20m`, `2h`).
+   - **Import from Claude Code**: an Import action lists the
+     `.claude/agents/*.md` files `agents_md_bridge` already finds and
+     converts the chosen ones into user-scope bios, one result line each.
 2. **Two sources for a role slot.** The pick list used by the roles editor,
    the org editor and the new lineup editor gains a source switch
    (Models / Agents, one key, shown in the footer): Models is today's
@@ -84,7 +108,22 @@ starter, `edit` opens `$EDITOR`), `providers/model_enumeration.py`
    validates through `teams_yaml`'s validator, writes `teams/<name>.yaml`
    in user scope (project on toggle), and asks whether to make it the
    active `team:`. A legacy role template still loads (through the 2.0.4
-   round-4 migration) and saves as a lineup.
+   round-4 migration) and saves as a lineup. Folded in (rolo 2026-10-06
+   ~04:50):
+   - **The grid shows the resolved truth per row**: agent, preferred
+     model, fallback, price, context, gym score when present, tools count;
+     inline warnings that need no Governor: bio not found, no reachable
+     model for the slot, fallback on the same gateway host as the
+     preference (a fallback that cannot help), duplicate alias, two rows
+     with `role: main`.
+   - **The about text is drafted, never blank**: a Draft chord generates
+     one sentence per assignment plus the delegation and pipeline sections
+     in the house voice; the user edits it; when the lineup changes after
+     the draft, the field shows a "stale" marker until redrafted or edited.
+   - **One source of truth**: the roles table is shown under the lineup as
+     a read-only projection (`teams_yaml`'s role-table projection) and the
+     wizard's roles save goes through the lineup; the legacy role-table
+     editor remains only for a config with no lineup at all.
 4. **The same forms outside the wizard**: `/agents` (list, new, edit,
    duplicate, delete) and `/teams` (list, show, new, edit, activate) open
    the same screens in a running session; `halo agents new|edit --form` and
@@ -112,6 +151,16 @@ activation prompt sets `team:`; editing an installed template; a legacy
 role template loads and saves as a lineup. The active team's about text
 reaches a member's system context (unit test on the context builder).
 `/agents`, `/teams`, `--form` open the screens. `halo init --step agents`.
+Folded items: new-from a shipped bio writes only the override keys and the
+inherited view shows them greyed; an inline problem appears beside the
+field as it is typed; the picker filter hides a non-tool row for a bio with
+tools and the toggle shows it again; Suggest fills both model fields; a
+rule renders as a sentence and a bad rule shows its line; the budget hint;
+Import converts a fixture `.claude/agents/*.md` into a bio; the grid
+warnings for a missing bio, an unreachable model, a same-host fallback and a
+duplicate alias; Draft produces the text and the stale marker appears after
+an edit to the lineup; the projection under the lineup equals
+`teams_yaml`'s role table.
 
 ## Hard constraints (owner; not negotiable)
 

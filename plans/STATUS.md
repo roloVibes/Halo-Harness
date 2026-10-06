@@ -72,7 +72,7 @@ is verified on Windows and the Kali VM and pushed as it lands.
 ## 2.0.5 = control pack (REORDERED 2026-10-05 numbering; briefs in `plans/briefs/2.0.5/`; the "2.0.5 = hardening" header below is the PRE-reorder numbering, now 2.0.6)
 
 - [ ] round 1 `cc:` route v2 (control channel: steer by interrupt, set_model / set_permission_mode without restart, /compact + hook events, --resume research, context duplication audit, "subscription turns" cost line, conformance tests) -- worker started 2026-10-06 ~04:20
-- [ ] round 2 wizard: agent bios and lineups (rolo 2026-10-06 ~04:35: Agents step with a bio editor whose model fields open the enumerated pick list; role slots filled from Models OR Agents; template editor with the other sections and the optional "how the pieces work together" text; `/agents`, `/teams`, `--form`)
+- [ ] round 2 wizard: agent bios and lineups (rolo 2026-10-06 ~04:35: Agents step with a bio editor whose model fields open the enumerated pick list; role slots filled from Models OR Agents; template editor with the other sections and the optional "how the pieces work together" text; `/agents`, `/teams`, `--form`; folded in ~04:50: new-from with the inherited view, inline problems + preview pane, bio-aware picker + Suggest, readable rules and limit hints, Import from `.claude/agents`, resolved grid + warnings, drafted about text, roles table as a projection)
 - [ ] round 3 learned gateway rules + the legacy env-file drop
 - [ ] round 4 the Governor (port + REVIEW items, http.py choke point, failover, lanes, `/gov`, doctor health)
 - [ ] round 5 team control (lineup sections enforced, agent hooks, schedule, triggers)
