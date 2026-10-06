@@ -96,8 +96,19 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
   `providers/gateway_routing.py`, edits to `providers/http.py`,
   `agent/loop.py` (retry ownership), `roles.py` / `teams_yaml.py` (lanes
   validator), the status bar, a `gov` CLI and `/gov`, `doctor.py`, new
-  `docs/GOVERNOR.md`, tests under `tests/test_governor*.py`). Round 5 not
-  started. Round 2 left one wiring for round 4:
+  `docs/GOVERNOR.md`, tests under `tests/test_governor*.py`). **Round 4b
+  IN FLIGHT in parallel** (an exception to one-worker-at-a-time, files
+  disjoint): the round-1 `cc:` steer path fails on Linux only
+  (`tests/test_cc_session.py`: steer not sent or logged after a 3 s
+  control-response wait; the POSIX close test finds the bridge socket
+  left behind); reproduced on the owner's Linux VM at 5e57931; fix worker
+  owns only `agent/cc_control.py`, `cc_runtime.py`, `cc_process.py`,
+  `tests/helpers/fake_claude_cc.py`, `tests/test_cc_session.py`; Linux
+  reproduction runs under WSL against the live tree (WSL python has the
+  dependencies). CI fixes already pushed as 84eb849 (changelog-entry
+  tests anchor on the section header, catalog age never negative, the
+  compose-time test separates a slow runner from a blocking check).
+  Round 5 not started. Round 2 left one wiring for round 4:
   `teams_yaml.member_system_context_addition` (the lineup's `about:` text
   as "How this team works") is built and unit-tested but not yet called
   from the live sub-agent session builder.
