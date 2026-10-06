@@ -1,11 +1,13 @@
-# tests/privacy_scan_allowlist.txt -- exact key/token-shaped strings
-# tests/test_privacy_scan.py's token-pattern scan is allowed to find,
-# because each one is a deliberate, obviously-fake fixture value (short,
-# no real entropy, no real provider ever issues a key this shape) rather
-# than a real secret. One exact string per line; blank lines and lines
-# starting with # are ignored. Add a new fake here ONLY after confirming
-# by hand that it is not a real credential -- never add a real key here,
-# allowlisted or not (rotate/revoke it instead).
+# tests/privacy_scan_allowlist.txt -- exact strings tests/test_privacy_
+# scan.py's and `halo audit privacy`'s scans (halo_harness.privacy_rules/
+# halo_harness.privacy_scan, shared by both since 2.0.4 round 1) are
+# allowed to find, because each one is a deliberate, obviously-fake
+# fixture value (a key/token shape with no real entropy no real provider
+# issues, or a placeholder LAN hostname) rather than something real. One
+# exact string per line; blank lines and lines starting with # are
+# ignored. Add a new fake here ONLY after confirming by hand that it is
+# not real -- never add a real key/host here, allowlisted or not (rotate/
+# revoke a real key instead).
 sk-or-v1-FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE1234567890abcdef
 sk-or-v1-abcdef1234567890
 sk-or-v1-totallyrealsecretvalue
@@ -19,3 +21,16 @@ hf_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE
 xpl_deadbeefdeadbeefdeadbeefdeadbeefdeadbeef
 sk-oai-from-effective-env
 Bearer sk-oai-from-effective-env
+# -- placeholder LAN hostnames (halo_harness/shadow.py's own synthetic git
+# identity, current and its pre-2.0.0-rename predecessor; tests/
+# test_offline_mode.py's offline-allowlist fixture) --
+halo.local
+rolo-claude.local
+gpubox.local
+# -- tests/test_audit_privacy.py's own planted fixtures (one allowlisted
+# in its OWN scratch repo to prove the allowlist mechanism works, one
+# deliberately left off that scratch allowlist to prove detection still
+# fires -- both need to be allowlisted HERE too, or this file's OWN
+# source trips this repo's real scan) --
+sk-ant-ALLOWLISTEDFAKEVALUE1234567890AB
+sk-or-v1-REALLOOKINGKEYSHAPEDVALUE1234567890

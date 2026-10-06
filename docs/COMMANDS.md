@@ -898,6 +898,45 @@ for what each WARN/MISSING line means)
 `doctor --work` and `doctor --work --probe-all` are Databricks-specific --
 see `docs/DATABRICKS.md`.
 
+## `halo audit`
+
+Finds exactly the things that must never reach a public repo, before
+they do: real user-profile paths, private-range and link-local IP
+literals, LAN hostnames and `.local` names, known machine/vendor names,
+stray `%SystemDrive%`/`%USERPROFILE%`-style cache files, key- and
+token-shaped strings, e-mail addresses, and any real path under the
+state dir. The rule set lives in `halo_harness/privacy_rules.py` and is
+the same one `tests/test_privacy_scan.py`'s own regression guard
+imports, so the two can't drift apart. See `docs/PRIVACY.md` for what
+Halo never writes to the repo in the first place.
+
+### `audit privacy [--history] [--json] [--since REV] [--cwd DIR]`
+
+Working-tree mode (the default) scans every tracked file plus every
+untracked, non-ignored file as it sits on disk right now. Each finding
+prints one line, `path:line: <kind>: <masked excerpt>` -- the matched
+value is always replaced with `<redacted>` before anything is printed or
+serialized; exit 1 if anything was found, 0 if the tree is clean:
+```sh
+halo audit privacy
+```
+```
+halo audit privacy: clean -- nothing found.
+```
+
+`--history` scans every DISTINCT blob reachable from HEAD instead (each
+one exactly once, however many commits carry it unchanged), reported as
+`commit:path:line: <kind>: <masked excerpt>` at the earliest commit that
+introduced it, plus a summary split into paths to purge entirely (a
+file that should never have been committed at all, e.g. a stray cache
+file) versus paths that stay, with specific text needing replacement
+(e.g. a hostname inside a doc that otherwise stays). `--since REV`
+narrows the range to `REV..HEAD` instead of every commit reachable from
+HEAD. `--json` gives the same fields as one JSON object instead of text
+lines, for feeding a history-rewrite plan. An allowlist at `tests/
+privacy_scan_allowlist.txt` (one exact, already-vetted fake value per
+line) exempts deliberate fixture values from either mode.
+
 ## `halo update`
 
 Checks the installed build (PEP 610 `direct_url.json`, or `git` in a live

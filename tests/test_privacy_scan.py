@@ -5,25 +5,30 @@ guards the content scrub `tests/helpers/fake_home.py`, `test_memory.py`,
 `test_paths.py`, `docs/harness/ACCEPTANCE-2026-09-25.md` and
 `docs/harness/INSTALL.md` just went through so it cannot quietly
 regress. Scans the TRACKED tree only (`git ls-files` -- history is a
-separate, already-reviewed question, see the privacy brief's section B)
-for: LAN addresses, two specific real home paths, the exact machine/
-project/hobby-gear/work-tool names this pass removed, and key-shaped
-fragments outside `tests/privacy_scan_allowlist.txt`'s known fakes.
+separate question, now covered by `halo audit privacy --history`; see
+plans/2.0.4-history-rewrite-plan.md) for: LAN addresses, real home paths,
+the exact machine/project/hobby-gear/work-tool names this pass removed,
+and key-shaped fragments outside `tests/privacy_scan_allowlist.txt`'s
+known fakes.
 
-Deliberately narrower than `tests/test_docs_hygiene.py`'s own home-path/
-Databricks-host checks once applied past docs/: those two generic checks
-false-positive constantly across the wider tree (`C:\\Users\\example\\...`-
-style fixture paths and dozens of distinct FAKE Databricks hostnames are
-normal and expected throughout tests/ -- confirmed by hand before writing
-this file). What's banned here instead is the SPECIFIC real strings this
-pass actually found and removed -- precise enough to regress-guard them
-without re-litigating every generic placeholder the suite already uses on
-purpose.
+2.0.4 round 1: the rule set (LAN ranges, real-home-path detection, the
+removed-names/extended-terms lists, the allowlist loader) moved to
+halo_harness.privacy_rules, the production module behind `halo audit
+privacy`, and is only imported here -- so the two can never quietly drift
+apart. The home-path check is now the SAME general one the audit command
+runs (any real account name, via `home_path_name_is_real`'s placeholder
+exemption list) rather than a single hardcoded historical string; that
+exemption list is why this stays safe against the wider tree's own
+`C:\\Users\\example\\...`-style FAKE fixture paths and dozens of distinct
+FAKE Databricks hostnames (confirmed by hand before writing this file,
+and re-confirmed when the check was generalized) -- `tests/
+test_docs_hygiene.py`'s own home-path/Databricks-host checks stay
+deliberately narrower in SCOPE (docs/README/CHANGELOG only, never a
+`~`-equivalent ban applied tree-wide).
 """
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -33,61 +38,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 from halo_harness.redact import _BEARER_RE, _TOKEN_PATTERNS
+# 2.0.4 round 1: the rule set below USED to be defined locally in this
+# file; it now lives in halo_harness.privacy_rules (the production module
+# behind `halo audit privacy`) and is only imported here, so the audit
+# command and this regression guard can never quietly drift apart again.
+# Aliased under the old local names so every call site below (and every
+# `plans/*privacy*` reference to this file) still reads the same way.
+from halo_harness.privacy_rules import (
+    EXTENDED_SCAN_ROOTS as _EXTENDED_SCAN_ROOTS,
+    EXTENDED_SCAN_TERMS as _EXTENDED_SCAN_TERMS,
+    HOME_PATH_RE as _HOME_PATH_RE,
+    KNOWN_LEAKED_PATH_FRAGMENTS as _KNOWN_LEAKED_PATH_FRAGMENTS,
+    LAN_IP_RE as _LAN_IP_RE,
+    REMOVED_NAMES as _REMOVED_NAMES,
+    home_path_name_is_real as _home_path_name_is_real,
+    is_self_excluded as _is_self_excluded,
+    load_allowlist as _shared_load_allowlist,
+)
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 ALLOWLIST_PATH = REPO_DIR / "tests" / "privacy_scan_allowlist.txt"
 test, TESTS = new_registry()
-
-# RFC1918 private ranges -- same shape test_docs_hygiene.py uses for docs/
-# alone; zero legitimate use anywhere in this tree (verified by hand), so
-# safe to apply tree-wide with no allowlist.
-_LAN_IP_RE = re.compile(
-    r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
-    r"172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|"
-    r"192\.168\.\d{1,3}\.\d{1,3})\b"
-)
-
-# The two REAL home paths this pass found and fixed -- narrower than a
-# blanket "C:\Users\<anything>"/"/home/<anything>" check on purpose: this
-# tree's own tests legitimately build dozens of `C:\Users\example\...`-
-# style FAKE fixture paths, and `/home/kali` alone is also used,
-# legitimately, as a generic Kali-Linux-default-username example (that
-# installer's own default account name, not by itself identifying) --
-# neither of those is what leaked. What leaked was the owner's real
-# account name in that position.
-_REAL_HOME_PATH_RE = re.compile(r"(C:\\Users\\rolo\b|REDACTED-HOME-PATH-FORWARDSLASH\b|/home/kali/Documents\b)")
-
-# The exact machine/project/hobby-gear/work-tool names this pass removed
-# from tests/helpers/fake_home.py, tests/test_mcp_catalog.py,
-# docs/harness/ACCEPTANCE-2026-09-25.md and docs/harness/INSTALL.md --
-# plain substrings, case-sensitive (each is distinctive enough that a
-# false positive would need the exact same wording back).
-_REMOVED_NAMES = (
-    "REDACTED-HOSTNAME",
-    "REDACTED-PROJECT",
-    "REDACTED-HARDWARE",
-    "REDACTED-SOFTWARE",
-    "REDACTED-LABEL",
-    "REDACTED-MCP-SERVER-1",
-    "REDACTED-MCP-SERVER-2",
-    "REDACTED_CONST",
-    "REDACTED-SERVERS-LABEL",
-    "~/REDACTED-PATH",
-)
-
-# Release review finding 38 / W6b section C: a broader, case-INSENSITIVE
-# safety net alongside `_REMOVED_NAMES` above -- generic substrings
-# rather than exact multi-word strings, so a differently-worded FUTURE
-# mention of the same hobby gear/vendor names, or of the owner's own
-# first/last name, is still caught (the exact-string check above only
-# ever catches the SPECIFIC wording this pass already found and fixed).
-# Scoped to exactly the directories/files the brief names -- deliberately
-# NOT the whole tree the other checks in this file scan: the repo's own
-# LICENSE file legitimately carries the owner's real full name in its
-# copyright line (expected, standard, not a leak) and must never be
-# flagged by this.
-_EXTENDED_SCAN_TERMS = ("REDACTED-DAW", "REDACTED-SYNTH", "REDACTED-DRUM-LIBRARY", "REDACTED-DRUM-LIBRARY-FULL", "REDACTED-SECURITY-TOOL", "REDACTED-HOSTNAME-2", "lowery", "robert")
-_EXTENDED_SCAN_ROOTS = ("halo_harness/", "tests/", "docs/", "README.md", "CHANGELOG.md")
 
 
 def _tracked_files() -> "list[Path]":
@@ -127,15 +98,14 @@ def _tracked_files() -> "list[Path]":
 
 
 def _load_allowlist() -> "set[str]":
-    if not ALLOWLIST_PATH.exists():
-        return set()
-    allowed = set()
-    for line in ALLOWLIST_PATH.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        allowed.add(line)
-    return allowed
+    return _shared_load_allowlist(REPO_DIR)
+
+
+def _rel_posix(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(REPO_DIR).as_posix()
+    except ValueError:
+        return str(path)
 
 
 # Binary content a text scan should never try to decode -- an SVG
@@ -155,8 +125,14 @@ def _read_text(path: Path) -> Optional[str]:
 
 @test
 def test_no_lan_addresses_anywhere_in_the_tracked_tree(ctx: Ctx):
+    """2.0.4 round 1: `tests/test_audit_privacy.py` now legitimately
+    plants a real-shaped RFC1918 address as a fixture (`halo audit
+    privacy`'s own `lan-ip` kind needs something that shape to detect) --
+    excluded the same way this file has always excluded itself."""
     problems = []
     for path in _tracked_files():
+        if _is_self_excluded(_rel_posix(path)):
+            continue
         text = _read_text(path)
         if not text:
             continue
@@ -168,14 +144,32 @@ def test_no_lan_addresses_anywhere_in_the_tracked_tree(ctx: Ctx):
 
 @test
 def test_no_real_home_paths_anywhere_in_the_tracked_tree(ctx: Ctx):
+    """Generalized in 2.0.4 round 1 to use the SAME `_HOME_PATH_RE` +
+    `_home_path_name_is_real` check `halo audit privacy` runs (any real
+    account name, not just the one this pass originally found), plus the
+    specific longer fragment (`/home/kali/Documents`) a bare username
+    check alone would miss -- `_KNOWN_LEAKED_PATH_FRAGMENTS`. Files that
+    legitimately NAME these strings as data (this module, the shared rule
+    module itself) are excluded the same way `_tracked_files()` already
+    excludes this file."""
     problems = []
     for path in _tracked_files():
+        if _is_self_excluded(_rel_posix(path)):
+            continue
         text = _read_text(path)
         if not text:
             continue
-        for m in _REAL_HOME_PATH_RE.finditer(text):
+        for m in _HOME_PATH_RE.finditer(text):
+            if not _home_path_name_is_real(m.group(1)):
+                continue
             line_no = text.count("\n", 0, m.start()) + 1
-            problems.append(f"{path.relative_to(REPO_DIR)}:{line_no}: real home path {m.group(0)!r}")
+            problems.append(f"{path.relative_to(REPO_DIR)}:{line_no}: real home path (account {m.group(1)!r})")
+        for fragment in _KNOWN_LEAKED_PATH_FRAGMENTS:
+            idx = text.find(fragment)
+            while idx != -1:
+                line_no = text.count("\n", 0, idx) + 1
+                problems.append(f"{path.relative_to(REPO_DIR)}:{line_no}: known leaked path fragment {fragment!r} is back")
+                idx = text.find(fragment, idx + 1)
     ctx.check("no real home paths found:\n  " + "\n  ".join(problems), not problems)
 
 
@@ -183,6 +177,8 @@ def test_no_real_home_paths_anywhere_in_the_tracked_tree(ctx: Ctx):
 def test_no_removed_machine_or_project_names_regress(ctx: Ctx):
     problems = []
     for path in _tracked_files():
+        if _is_self_excluded(_rel_posix(path)):
+            continue
         text = _read_text(path)
         if not text:
             continue
@@ -198,9 +194,8 @@ def test_no_removed_machine_or_project_names_regress(ctx: Ctx):
 def _extended_scan_files() -> "list[Path]":
     out: "list[Path]" = []
     for path in _tracked_files():
-        try:
-            rel = path.resolve().relative_to(REPO_DIR).as_posix()
-        except ValueError:
+        rel = _rel_posix(path)
+        if _is_self_excluded(rel):
             continue
         if any(rel == root or rel.startswith(root) for root in _EXTENDED_SCAN_ROOTS):
             out.append(path)
