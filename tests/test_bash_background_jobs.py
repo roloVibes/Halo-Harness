@@ -57,7 +57,9 @@ class _FakeParent:
         self._job_notices_lock = threading.Lock()
 
 
-def _wait_until(pred, *, timeout=5.0, interval=0.05) -> bool:
+# 20 s: the hosted Windows CI runner needed over 5 s for a spawned bash
+# `echo` to finish (one flaky run on 2026-10-05); real jobs finish far sooner.
+def _wait_until(pred, *, timeout= 20.0, interval=0.05) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if pred():

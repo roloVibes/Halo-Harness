@@ -12,7 +12,13 @@ name: suites
 on:
   push:
     branches: [master]
+    # Planning-only commits never change code or docs under test: no run, no
+    # failure e-mail for a stale flake on a plans commit.
+    paths-ignore:
+      - 'plans/**'
   pull_request:
+    paths-ignore:
+      - 'plans/**'
 
 concurrency:
   group: suites-${{ github.workflow }}-${{ github.ref }}
