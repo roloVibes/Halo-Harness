@@ -70,6 +70,20 @@ class StatusBar(Static):
         # `_refresh_display`'s own 10-minute dim threshold).
         self.or_balance_text: "str | None" = None
         self.or_balance_fetched_at: "float | None" = None
+        # Halo 2.0.4 round 3 (deliverable 2): the GENERIC form of the
+        # same idea, keyed by `enablement.canonical()` provider name --
+        # "a cached background refresh feeding a status-bar chip for the
+        # ACTIVE provider" (OpenRouter, Experiential, ...). `set_or_
+        # balance` (above, unchanged) now ALSO writes into
+        # `balance_segments["openrouter"]`, so the two never disagree;
+        # `_refresh_display` prefers whichever provider the CURRENT
+        # model's prefix names, falling back to OpenRouter's own segment
+        # when the active provider has no reading of its own yet -- the
+        # exact pre-round-3 behaviour (OpenRouter's chip shown regardless
+        # of the active model) when nothing else has ever populated this
+        # dict, so every existing test stays byte-for-byte unaffected.
+        self.balance_segments: dict = {}
+        self.balance_fetched_ats: dict = {}
         # 1.0.1 hotfix 20.3: the session's current reasoning-effort level,
         # already clamped to this model's own accepted set -- None for a
         # model with no adjustable effort at all (renders no tag).
@@ -303,7 +317,39 @@ class StatusBar(Static):
         simulate staleness without a real 10-minute wait."""
         self.or_balance_text = segment_text
         self.or_balance_fetched_at = time.monotonic() if fetched_at is None else fetched_at
+        self.set_provider_balance("openrouter", segment_text, fetched_at=self.or_balance_fetched_at)
+
+    def set_provider_balance(self, provider: str, segment_text: "str | None", *,
+                              fetched_at: "float | None" = None) -> None:
+        """Halo 2.0.4 round 3 (deliverable 2): the generic form of
+        `set_or_balance` -- any provider's own background balance worker
+        (see `tui/slash.py`) calls this with its own canonical provider
+        name (`enablement.canonical()`'s own spelling, e.g.
+        "experiential") instead of a dedicated method per provider.
+        `set_or_balance` itself now forwards here for "openrouter" so the
+        two can never disagree."""
+        self.balance_segments[provider] = segment_text
+        self.balance_fetched_ats[provider] = time.monotonic() if fetched_at is None else fetched_at
         self._refresh_display()
+
+    def _active_balance(self) -> "tuple[str | None, float | None]":
+        """`(segment_text, fetched_at)` for the chip -- the model
+        currently shown (`self.model`'s own `<prefix>:...` form, mapped
+        through `enablement.canonical()`) when IT has a reading of its
+        own, else OpenRouter's (the pre-round-3 behaviour, unconditional,
+        kept as the fallback so a box that only ever populated the
+        OpenRouter segment -- every existing test -- renders exactly as
+        it always did)."""
+        provider = None
+        if self.model and ":" in self.model:
+            try:
+                from halo_harness.providers.enablement import canonical
+                provider = canonical(self.model.split(":", 1)[0])
+            except Exception:
+                provider = None
+        if provider and provider in self.balance_segments:
+            return self.balance_segments.get(provider), self.balance_fetched_ats.get(provider)
+        return self.balance_segments.get("openrouter"), self.balance_fetched_ats.get("openrouter")
 
     def set_mode(self, mode: str) -> None:
         self.mode = mode
@@ -416,9 +462,15 @@ class StatusBar(Static):
         # effort_str/permission_str below) until a fetch has ever
         # succeeded; dimmed (never hidden) once the reading is more than
         # 10 minutes old.
-        or_balance_str = self.or_balance_text or ""
-        or_balance_stale = (self.or_balance_fetched_at is not None
-                             and (time.monotonic() - self.or_balance_fetched_at) > 600)
+        # Halo 2.0.4 round 3 (deliverable 2): the ACTIVE provider's own
+        # balance segment when it has one, else OpenRouter's -- see
+        # `_active_balance`'s own docstring for why that fallback keeps
+        # every pre-round-3 reading (OpenRouter-only) rendering exactly
+        # as before.
+        _active_text, _active_fetched_at = self._active_balance()
+        or_balance_str = _active_text or ""
+        or_balance_stale = (_active_fetched_at is not None
+                             and (time.monotonic() - _active_fetched_at) > 600)
         mode_str = mode_glyph(self.mode)
         mcp_style = "green" if (self.mcp_total and self.mcp_connected == self.mcp_total) else "yellow"
         mcp_str = f"MCP {self.mcp_connected}/{self.mcp_total}"

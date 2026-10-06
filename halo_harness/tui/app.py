@@ -504,6 +504,13 @@ class BridgeApp(App):
                          group="or-balance-startup")
         from halo_harness.providers.openrouter_account import BALANCE_REFRESH_INTERVAL_S
         self.set_interval(BALANCE_REFRESH_INTERVAL_S, self._or_balance_refresh)
+        # Halo 2.0.4 round 3 (deliverable 2): the Experiential Labs twin --
+        # same launch-then-every-interval shape, its own worker/interval so
+        # a slow/unreachable gateway on ONE of the two can never delay or
+        # skip the other's.
+        self.run_worker(self._xp_balance_refresh_worker, thread=True, name="xp-balance-startup",
+                         group="xp-balance-startup")
+        self.set_interval(BALANCE_REFRESH_INTERVAL_S, self._xp_balance_refresh)
         starter = getattr(self.controller, "start", None)
         if callable(starter):
             starter()
@@ -687,6 +694,19 @@ class BridgeApp(App):
         try:
             from halo_harness.tui.slash import or_balance_refresh_worker
             or_balance_refresh_worker(self, force=False)
+        except Exception:
+            pass
+
+    def _xp_balance_refresh(self) -> None:
+        """Halo 2.0.4 round 3 (deliverable 2): the Experiential Labs twin
+        of `_or_balance_refresh` -- see that method's own docstring."""
+        self.run_worker(self._xp_balance_refresh_worker, thread=True, exclusive=True,
+                         name="xp-balance-refresh", group="xp-balance-refresh")
+
+    def _xp_balance_refresh_worker(self) -> None:
+        try:
+            from halo_harness.tui.slash import experiential_balance_refresh_worker
+            experiential_balance_refresh_worker(self)
         except Exception:
             pass
 

@@ -84,6 +84,27 @@ def label_for(name: str) -> str:
     return LABELS.get(canonical(name), name)
 
 
+def label_with_prefix(name: str) -> str:
+    """Halo 2.0.4 round 3 (deliverable 6 / the old G5: "picker and
+    `/providers` group labels are `Claude Code subscription (cc:)`,
+    `Anthropic API key (ant:)`, `Databricks (dbx:)`, `OpenRouter (or:)`,
+    `OpenAI API key (oai:)` and the Codex label with its prefix; the
+    prefix follows the label in parentheses everywhere a group is
+    named") -- `label_for(name)` plus its own `PREFIXES` entry in
+    parentheses, e.g. `"OpenRouter (or:)"`; the bare label (no trailing
+    parens) when `name` has no prefix of its own (TypeSafe) or isn't a
+    provider this table knows at all. This is additive: `label_for` itself
+    is UNCHANGED (every non-group-header caller -- a disabled-provider
+    hint, `/providers enable <name>`'s own confirmation line -- keeps its
+    existing wording), used only where a surface names a whole GROUP of
+    rows (the picker's group header, `halo models`/`halo providers`
+    section headings, docs)."""
+    name = canonical(name)
+    label = label_for(name)
+    prefix = PREFIXES.get(name)
+    return f"{label} ({prefix})" if prefix else label
+
+
 def _providers_block(state_dir=None) -> Optional[dict]:
     from halo_harness.theme import get_config_value
     block = get_config_value("providers", default=None)

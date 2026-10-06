@@ -68,7 +68,7 @@ which auto-compaction will trigger.
 ### `/model [ref]`
 No argument: opens the model picker -- a filterable, arrow-key list
 (`Up`/`Down`/`PageUp`/`PageDown`/`Home`/`End` move the highlight, typing
-filters, `Enter` confirms, `Esc` cancels, `u` opens a short list to set a
+filters, `Enter` confirms, `Esc` cancels, `Ctrl+O` opens a short list to set a
 ROLE for the highlighted model -- `roles.<name>`, the same table `/roles`
 reads, see `docs/ROLES.md`; works from this screen's default state, filter
 box included -- you never have to move focus off it first) grouped by
@@ -154,7 +154,7 @@ ref -- via a one-shot call that never touches the main transcript's
 context: the question and answer show up as a note, never as a logged
 user/assistant turn, so nothing here is replayed into a later request.
 Needs `roles.small` set to an `ol:`/`hf:` model (`/roles`, `/role small
-ol:...`, or the model picker's `u` action); errors plainly, never
+ol:...`, or the model picker's `Ctrl+O` action); errors plainly, never
 silently, when it isn't. Round 5b part 2: when the session's main model
 is also `ol:` on the SAME host and `roles.small` resolves to a DIFFERENT
 local model that would not fit beside it in GPU memory, `/local` answers
@@ -288,6 +288,26 @@ show from a real terminal, so headless just points at that command instead
 of half-implementing it. See `docs/MODELS.md`'s "Provider enablement"
 section for the full prefix/label table and the exact per-provider
 detection rule.
+
+### `/balances [refresh]`
+Halo 2.0.4 round 3 (deliverable 2): one shared balances surface for every
+provider whose API offers a balance/credit endpoint -- OpenRouter (`GET
+/key`/`/credits`, reusing the SAME cache `/cost`/the status-bar chip
+already read), Experiential Labs (`GET /credits`), Databricks (always
+"not offered" -- DBU billing is on the workspace side, explicitly
+excluded), and Anthropic (no endpoint for a plain key; the organisation
+cost report when `ANTHROPIC_ADMIN_KEY` is configured). Every other
+provider (Hugging Face, OpenAI, Codex, Claude Code subscription,
+TypeSafe) has no balance concept at all and reads "not offered." Bare
+`/balances` never touches the network -- it prints whatever
+`~/.halo/balances.json` already has cached, or "not fetched yet";
+`/balances refresh` does the one bounded round of fetches and persists
+the result. `halo balances [--refresh]` is the CLI twin, same shared
+`providers.balances` module -- the two surfaces never disagree. The
+status bar's own balance chip (right after cost) shows the SAME cached
+figure for whichever provider is the session's current model, falling
+back to OpenRouter's reading when the active provider has none of its
+own yet.
 
 ### `/settings [primary claude|codex]`
 Halo 2.0.3 round 5i part 2. Bare `/settings` prints the merged Claude

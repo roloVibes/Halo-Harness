@@ -207,6 +207,79 @@ def format_elapsed_seconds(seconds) -> str:
 ROW_HEADER = "ctx = context window · out = max output · prices in USD per 1M tokens · blank = not published"
 
 
+def format_speed(ttft_seconds, tokens_per_second) -> str:
+    """Halo 2.0.4 round 3 (deliverable 1): the picker's own speed column --
+    `"1.2s · 48 t/s"` (2.0.3-brief A2's exact example format) when BOTH
+    figures are known, just the one figure alone (`"1.2s"`/`"48 t/s"`)
+    when only one is, `""` (never a placeholder) when neither is -- the
+    caller's own `unknown_as_qmark` turns that blank into the picker's "?"
+    convention; every OTHER row-building surface (the CLI table, `/model`
+    headless) keeps the "blank, not a placeholder" rule unchanged."""
+    parts = []
+    if isinstance(ttft_seconds, (int, float)) and not isinstance(ttft_seconds, bool) and ttft_seconds >= 0:
+        parts.append(f"{ttft_seconds:.1f}s")
+    if (isinstance(tokens_per_second, (int, float)) and not isinstance(tokens_per_second, bool)
+            and tokens_per_second > 0):
+        parts.append(f"{tokens_per_second:.0f} t/s")
+    return " · ".join(parts)
+
+
+def unknown_as_qmark(s: str) -> str:
+    """Halo 2.0.4 round 3 (deliverable 1): "unknown values render as '?'
+    never as a blank that looks like zero" -- the picker's OWN convention
+    for its three columns (price/context/speed), layered on top of
+    `format_price_per_m`/`format_token_count`/`format_speed`'s existing
+    "" (blank)-for-unknown contract rather than changing it, since every
+    OTHER caller of those three functions (the CLI table, the status bar,
+    `/model` headless) already has its own pinned "blank, not '?'"
+    behaviour and must stay exactly as it was."""
+    return s if s else "?"
+
+
+# Shown once in the picker's own footer (never per-row) -- deliverable 1:
+# "sort and filter keys documented in the picker footer."
+PICKER_FOOTER = ("Enter: select  |  Ctrl+O: set a role  |  Ctrl+S: cycle sort (name/price/context/speed)  |  "
+                  "Ctrl+G: refresh this group  |  F5: refresh all groups  |  type to filter  |  Esc: cancel")
+
+# Shown once above the picker's own rows (never per-row) -- what the three
+# columns mean, and the house "?" convention (distinct from ROW_HEADER's
+# "blank = not published", which still governs every OTHER row-building
+# surface unchanged).
+PICKER_COLUMN_HEADER = ("price = USD per 1M tokens in/out · ctx = context window · "
+                         "speed = median time-to-first-token · tokens/s (3+ uses) · ? = not known")
+
+
+def format_picker_row(entry: dict) -> str:
+    """Halo 2.0.4 round 3 (deliverable 1): the ONE row format for every
+    `tui/dialogs/model_picker.py` group (OpenRouter, Anthropic, Databricks,
+    Hugging Face, OpenAI, Codex, Ollama, local servers, Experiential alike
+    -- "the same layout in every group") -- ref, then three columns: price
+    per million (in/out combined as one "$in/$out" figure), context,
+    speed. Each column is "?" when unknown (`unknown_as_qmark`), never
+    blank: a fixed-width column grid where a blank cell could be misread
+    as a real zero (the brief's own wording). `entry`: the same
+    `{"ref", "price_in_per_m", "price_out_per_m", "context_tokens",
+    "speed_ttft_s", "speed_tokens_per_second"}` shape `Controller.
+    list_models()` rows already carry (every key but `ref` optional).
+
+    Distinct from `format_model_row` (the CLI/headless table's own
+    blank-means-unpublished convention, used by `catalog_cli.py`'s plain
+    text table and left completely unchanged by this function -- that
+    surface is diagnostic depth, not the picker, and keeps its own
+    pre-existing contract)."""
+    ref = entry.get("ref", "")
+    # `format_price_per_m` already appends its own "/M" (or returns
+    # "varies"/"free" with none at all) -- NEVER append a second one here
+    # (a real fixpass finding: price=$0.20/M/$0.80/M/M, caught by a
+    # two-live-provider test with real, non-blank prices; the all-unknown
+    # case masked it, since format_price_per_m("") has no "/M" to double).
+    price_in = unknown_as_qmark(format_price_per_m(entry.get("price_in_per_m")))
+    price_out = unknown_as_qmark(format_price_per_m(entry.get("price_out_per_m")))
+    ctx = unknown_as_qmark(format_token_count(entry.get("context_tokens")))
+    speed = unknown_as_qmark(format_speed(entry.get("speed_ttft_s"), entry.get("speed_tokens_per_second")))
+    return f"{ref:<{_REF_WIDTH}} in={price_in:<9} out={price_out:<9} ctx={ctx:<5} speed={speed}"
+
+
 def format_model_row(entry: dict) -> str:
     """`entry`: `{"ref", "context_tokens", "max_output_tokens",
     "price_in_per_m", "price_out_per_m", "dbu", "detail"}` (every key but

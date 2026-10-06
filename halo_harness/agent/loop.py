@@ -3324,7 +3324,22 @@ class Session:
                         body, req = fallback
                         attempts = 0
                         continue
-                yield events.error(e.message, turn=turn_no, err_type=e.err_type, retryable=e.retryable,
+                # Halo 2.0.4 round 3 (deliverable 4, added after the round 2
+                # live checks): retries just exhausted on a repeated upstream
+                # failure with no working fallback -- `e.message` alone (the
+                # translated sentence from `providers.errors.map_upstream_
+                # error`) drops the LAST upstream status Halo actually
+                # observed; `e.upstream_status` (the RAW status, before that
+                # function's own client-facing remap -- e.g. a real 502
+                # becomes client status 529) is preferred so the line names
+                # the exact number the gateway answered, never Halo's own
+                # substitute. This is the ONE string every surface shows: the
+                # print-mode `result` (output.PrintModeSink.finish), its
+                # stderr line, and the TUI's error note/notification (tui/
+                # dispatch.py's own "error" handler prints `message` as-is).
+                display_status = e.upstream_status if e.upstream_status is not None else e.status
+                yield events.error(f"HTTP {display_status}: {e.message}" if display_status else e.message,
+                                    turn=turn_no, err_type=e.err_type, retryable=e.retryable,
                                     category=overflow_classifier(e.status, e.message))
                 return None
 

@@ -597,27 +597,52 @@ def _check_catalog_ages() -> list:
     has the vendored package fallback); a very stale one (>30 days) is
     flagged so a work-box user knows `halo models --refresh` is
     overdue, without ever being INTERNET-only (the vendored tier means
-    a stale/missing cache is never actually broken, just less current)."""
+    a stale/missing cache is never actually broken, just less current).
+
+    Halo 2.0.4 round 3 (deliverable 5: "halo doctor reports each catalog's
+    age"): the SAME three lines as before (byte-identical wording/order),
+    plus one more per catalog `providers.catalog_refresh._specs()` also
+    registers (Anthropic, Hugging Face, OpenAI, Experiential Labs) -- this
+    function no longer has its own separate three-tuple list; both halves
+    read the identical `{path, age_seconds}` shape now, just from two
+    different sources (models.dev stays its own direct path_fn, since it
+    is a shared cross-reference file with no single provider/enablement
+    of its own, never part of the per-provider registry)."""
     import time
+    from pathlib import Path
     from halo_harness.config.paths import bridge_home
-    from halo_harness.providers.databricks import dbx_endpoints_path, models_json_path
+    from halo_harness.providers.catalog_refresh import catalog_ages
     from halo_harness.providers.models_dev import models_dev_json_path
     state_dir = bridge_home()
-    lines = []
-    for label, path_fn in (("models.json (OpenRouter)", models_json_path),
-                            ("dbx-endpoints.json (Databricks)", dbx_endpoints_path),
-                            ("models-dev.json (models.dev)", models_dev_json_path)):
-        path = path_fn(state_dir)
-        if not path.exists():
-            lines.append(_fix(f"{WARN} {label}: never cached (vendored package fallback still applies)",
-                               cmd="halo models --refresh"))
-            continue
-        age_days = (time.time() - path.stat().st_mtime) / 86400
+
+    def _age_line(label: str, path, age_seconds) -> str:
+        if age_seconds is None:
+            return _fix(f"{WARN} {label}: never cached (vendored package fallback still applies)",
+                        cmd="halo models --refresh")
+        age_days = age_seconds / 86400
         if age_days > 30:
-            lines.append(_fix(f"{WARN} {label}: cached {age_days:.1f} day(s) ago ({path})",
-                               cmd="halo models --refresh"))
-        else:
-            lines.append(f"{OK} {label}: cached {age_days:.1f} day(s) ago ({path})")
+            return _fix(f"{WARN} {label}: cached {age_days:.1f} day(s) ago ({path})", cmd="halo models --refresh")
+        return f"{OK} {label}: cached {age_days:.1f} day(s) ago ({path})"
+
+    lines = []
+    for entry in catalog_ages(state_dir):
+        # The real cache filename (basename of entry["path"]) alongside
+        # the provider's display name -- "models.json (OpenRouter)",
+        # "ant-models.json (Anthropic)", "dbx-endpoints.json (Databricks)",
+        # one rule for every provider instead of a special case per name.
+        label = f"{Path(entry['path']).name} ({entry['name']})"
+        lines.append(_age_line(label, entry["path"], entry["age_seconds"]))
+        if entry["provider"] == "databricks":
+            # models.dev has no single provider/enablement of its own (a
+            # shared cross-reference file every Databricks row's own
+            # ctx/price columns also read) -- stays a direct path_fn read
+            # here rather than joining the per-provider registry; emitted
+            # right after Databricks' own line, the same relative position
+            # (immediately following Databricks) the pre-round-3 three-line
+            # version always used.
+            path = models_dev_json_path(state_dir)
+            age_seconds = (time.time() - path.stat().st_mtime) if path.exists() else None
+            lines.append(_age_line("models-dev.json (models.dev)", path, age_seconds))
     return lines
 
 
@@ -1669,7 +1694,17 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("drain_tick_rate", _check_drain_tick_rate()))
     entries.append(("local_bin_on_path", _check_local_bin_on_path()))
     entries.append(("tmux_mouse", _check_tmux_mouse()))
-    catalog_ids = ("catalog_models_json", "catalog_dbx_endpoints", "catalog_models_dev")
+    # Halo 2.0.4 round 3 (deliverable 5): _check_catalog_ages() now reports
+    # seven catalogs, not three (see its own docstring) -- `zip(...,
+    # strict=False)` would otherwise silently TRUNCATE the extra four
+    # lines to nothing (zip stops at the shorter iterable), so this tuple
+    # must stay the same length `_check_catalog_ages` actually emits, in
+    # the same order: OpenRouter, Anthropic, Databricks, models.dev (right
+    # after Databricks -- see that function's own comment), Hugging Face,
+    # OpenAI, Experiential Labs.
+    catalog_ids = ("catalog_models_json", "catalog_anthropic_models_json", "catalog_dbx_endpoints",
+                   "catalog_models_dev", "catalog_huggingface_models_json", "catalog_openai_models_json",
+                   "catalog_experiential_models_json")
     entries.extend(zip(catalog_ids, _check_catalog_ages(), strict=False))
     telemetry_ids = ("sessions", "improve")
     entries.extend(zip(telemetry_ids, _check_telemetry_and_improve(), strict=False))

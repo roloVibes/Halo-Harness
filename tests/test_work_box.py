@@ -199,12 +199,19 @@ def test_catalog_ages_reports_missing_and_fresh(ctx: Ctx):
     os.environ["BRIDGE_STATE_DIR"] = str(d)
     try:
         lines = _check_catalog_ages()
-        ctx.check(f"one line per catalog file, got {len(lines)}", len(lines) == 3)
+        # Halo 2.0.4 round 3 (deliverable 5): "halo doctor reports each
+        # catalog's age" widened this from the original three (OpenRouter,
+        # Databricks, models.dev) to seven -- Anthropic, Hugging Face,
+        # OpenAI and Experiential Labs join via `providers.catalog_
+        # refresh`'s own registry.
+        ctx.check(f"one line per catalog file, got {len(lines)}", len(lines) == 7)
         ctx.check("all missing/never-cached -- WARN, not MISSING (vendored fallback still applies)",
                   all("[WARN]" in l for l in lines))
         (d / "models.json").write_text("{}", encoding="utf-8")
         lines2 = _check_catalog_ages()
-        ok_lines = [l for l in lines2 if "models.json" in l]
+        # "(OpenRouter)", not the bare "models.json" substring every
+        # *-models.json catalog's own label also contains.
+        ok_lines = [l for l in lines2 if "(OpenRouter)" in l]
         ctx.check("a freshly-written models.json is now OK", ok_lines and "[OK]" in ok_lines[0])
     finally:
         if old_state is None:

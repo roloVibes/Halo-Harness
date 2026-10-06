@@ -7,18 +7,23 @@ config resolution) purely to keep each file's own writes under the house
 250-line-per-write habit while this was being built -- both modules are
 Halo 2.0.3 round 4, same design doc.
 
-The router's exact `GET /v1/models` per-entry field names were NOT
-confirmed by any fetched page this round (`docs/harness/LOCAL-MODELS-
-RESEARCH.md` section 9: "GET /v1/models ... returns ... pricing, context
-length, latency, and throughput where available" -- no concrete example
-body). `_parse_catalog_entry` below ASSUMES the same shape `probe_
-openrouter_models` already parses (OpenRouter's own `/api/v1/models`:
-top-level `context_length`/`pricing.{prompt,completion}` per entry), since
-both are multi-provider routers and this is the closest confirmed
-precedent -- a DOCUMENTED ASSUMPTION (see docs/MODELS.md), not a confirmed
-fact; the parser degrades to omitted fields rather than raising if a real
-response differs.
-"""
+Halo 2.0.4 round 3 (owner live report, 2026-10-05: "hugging face in models
+does not show the costs or context prices in the /model list"; confirmed
+in plans/2.0.3-release-notes-for-fix-pass.md's own "MUST FIX" note,
+2026-10-04, with the owner's real token): the router's `GET /v1/models` is
+NOT flat like OpenRouter's -- each entry's price/context/capability live
+PER INFERENCE PROVIDER, under its own `providers` list: `{id, object,
+created, owned_by, architecture, providers: [{provider, status,
+context_length, pricing: {input, output}, is_free, supports_tools,
+supports_structured_output, first_token_latency_ms, throughput,
+is_model_author}, ...]}`. `_parse_catalog_entry`/`pick_best_provider_row`
+below now read THAT shape (one coherent provider row supplies ALL of a
+model's columns together, never a blend of several providers' own
+numbers) -- the OLD flat top-level `context_length`/`pricing` assumption
+(this module's pre-round-3 docstring called it "a DOCUMENTED ASSUMPTION,
+not a confirmed fact") is kept ONLY as one more candidate row when no real
+`providers` list is present, so a flatter response (or a test fixture
+written against the old assumption) still parses exactly as before."""
 
 from __future__ import annotations
 
@@ -36,33 +41,136 @@ _CATALOG_READ_TIMEOUT_S = 30
 _AUTO_REFRESH_BACKOFF_S = 300.0
 
 
+def _to_float(v) -> "Optional[float]":
+    if isinstance(v, bool) or v is None:
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_provider_row(row) -> "Optional[dict]":
+    """One raw `providers[]` entry -> `{"provider", "status",
+    "context_length", "pricing": {"prompt", "completion"}, "is_free",
+    "supports_tools", "supports_structured_output",
+    "first_token_latency_ms", "throughput"}` (every key optional, `None`
+    if nothing usable at all). `pricing` is re-keyed to "prompt"/
+    "completion" -- the SAME names `_profile_from_models_json_entry`
+    (model.py) and OpenRouter's own rows already use -- reading the real
+    shape's `input`/`output` first, falling back to `prompt`/`completion`
+    for a flatter/older-shaped row (a test fixture, or a future response
+    that happens to match OpenRouter's own naming)."""
+    if not isinstance(row, dict):
+        return None
+    out: dict = {}
+    if isinstance(row.get("provider"), str) and row["provider"]:
+        out["provider"] = row["provider"]
+    if isinstance(row.get("status"), str) and row["status"]:
+        out["status"] = row["status"]
+    if isinstance(row.get("context_length"), int):
+        out["context_length"] = row["context_length"]
+    pricing = row.get("pricing")
+    if isinstance(pricing, dict):
+        price_in = _to_float(pricing.get("input")) if pricing.get("input") is not None else _to_float(pricing.get("prompt"))
+        price_out = _to_float(pricing.get("output")) if pricing.get("output") is not None else _to_float(pricing.get("completion"))
+        if price_in is not None or price_out is not None:
+            out["pricing"] = {}
+            if price_in is not None:
+                out["pricing"]["prompt"] = price_in
+            if price_out is not None:
+                out["pricing"]["completion"] = price_out
+    for bool_key in ("is_free", "supports_tools", "supports_structured_output"):
+        if isinstance(row.get(bool_key), bool):
+            out[bool_key] = row[bool_key]
+    for num_key in ("first_token_latency_ms", "throughput"):
+        if isinstance(row.get(num_key), (int, float)) and not isinstance(row.get(num_key), bool):
+            out[num_key] = row[num_key]
+    return out if out else None
+
+
+def _price_sort_key(row: dict):
+    """Ascending by prompt-side price; a row with no usable price sorts
+    LAST regardless of direction (never mistaken for "the cheapest" just
+    because an unknown price compares as smaller than a real one)."""
+    price = (row.get("pricing") or {}).get("prompt")
+    return (0, price) if isinstance(price, (int, float)) else (1, 0.0)
+
+
+def pick_best_provider_row(providers: "list[dict]", *, pinned_provider: "Optional[str]" = None) -> "Optional[dict]":
+    """ONE provider row to source every column from together (price,
+    context, speed, is_free) -- never a mix of several providers' own
+    numbers (owner report: "make the HF group's columns come from THE
+    provider the router would route to"). `pinned_provider` (an
+    `hf:<org>/<model>:<provider>` ref's own routing suffix, when the
+    caller has one and it is still live) wins outright; otherwise the
+    cheapest LIVE row. A row with no `status` field at all is treated as
+    live (permissive default -- a flatter/older-shaped response, or a
+    test fixture, never carries one); when NONE of the real rows report
+    `status == "live"` either (every provider down, or the vocabulary
+    this probe assumes doesn't match a real response), falls back to the
+    cheapest row regardless of status rather than going blank. `None`
+    only when `providers` itself is empty."""
+    if not providers:
+        return None
+    if pinned_provider:
+        for row in providers:
+            if row.get("provider") == pinned_provider and row.get("status", "live") == "live":
+                return row
+    live = [r for r in providers if r.get("status", "live") == "live"]
+    pool = live if live else providers
+    return min(pool, key=_price_sort_key)
+
+
 def _parse_catalog_entry(entry: dict) -> Optional[dict]:
-    """One `GET /v1/models` row -> `{"id":, "context_length":, "pricing":}`
-    (the two latter keys omitted when absent). Falls back to scanning a
-    nested `providers`/`endpoints` list's first entry carrying either field
-    when the top level has neither -- a router response plausibly nests
-    per-provider numbers instead of flattening them; degrades gracefully
-    either way instead of raising."""
+    """One `GET /v1/models` row -> `{"id", "providers", "context_length",
+    "pricing", "is_free", "first_token_latency_ms", "throughput",
+    "provider"}` -- every key but `id` optional. `providers` is the full
+    normalized per-provider list (kept so a later, more specific lookup --
+    a `:<provider>`-pinned ref -- can still re-pick from it); the other
+    keys are `pick_best_provider_row`'s own choice among them, hoisted to
+    the top level so `_profile_from_models_json_entry` (model.py's `hf:`
+    request-time profile resolution) keeps reading the EXACT SAME
+    `context_length`/`pricing.{prompt,completion}` shape it always has,
+    now correctly populated instead of perpetually absent."""
     if not isinstance(entry, dict) or not entry.get("id"):
         return None
-    context_length = entry.get("context_length")
-    pricing = entry.get("pricing") if isinstance(entry.get("pricing"), dict) else None
-    if context_length is None or pricing is None:
-        for nest_key in ("providers", "endpoints"):
-            nested = entry.get(nest_key)
+    normalized_providers: "list[dict]" = []
+    providers_raw = entry.get("providers")
+    if isinstance(providers_raw, list):
+        for row in providers_raw:
+            normalized = _normalize_provider_row(row)
+            if normalized:
+                normalized_providers.append(normalized)
+    if not normalized_providers:
+        # Backward-compat candidate: a bare top-level context_length/
+        # pricing (the pre-round-3 assumption) or a nested "endpoints"
+        # list (never "providers" -- already handled above) -- degrades
+        # to this ONLY when no real per-provider list was usable at all.
+        flat: dict = {}
+        if isinstance(entry.get("context_length"), int):
+            flat["context_length"] = entry["context_length"]
+        if isinstance(entry.get("pricing"), dict):
+            normalized_flat_pricing = _normalize_provider_row({"pricing": entry["pricing"]})
+            if normalized_flat_pricing:
+                flat["pricing"] = normalized_flat_pricing["pricing"]
+        if flat:
+            normalized_providers.append(flat)
+        else:
+            nested = entry.get("endpoints")
             if isinstance(nested, list):
                 for row in nested:
-                    if not isinstance(row, dict):
-                        continue
-                    if context_length is None and isinstance(row.get("context_length"), int):
-                        context_length = row["context_length"]
-                    if pricing is None and isinstance(row.get("pricing"), dict):
-                        pricing = row["pricing"]
-    out = {"id": entry["id"]}
-    if isinstance(context_length, int):
-        out["context_length"] = context_length
-    if isinstance(pricing, dict):
-        out["pricing"] = pricing
+                    normalized = _normalize_provider_row(row)
+                    if normalized:
+                        normalized_providers.append(normalized)
+    out: dict = {"id": entry["id"]}
+    if normalized_providers:
+        out["providers"] = normalized_providers
+        best = pick_best_provider_row(normalized_providers)
+        if best:
+            for key in ("context_length", "pricing", "is_free", "first_token_latency_ms", "throughput", "provider"):
+                if key in best:
+                    out[key] = best[key]
     return out
 
 
@@ -118,8 +226,17 @@ def hf_models_json_path(state_dir) -> Path:
 
 def write_hf_models_json(state_dir, models: "list[dict]") -> None:
     """Write huggingface-models.json as {"<id>": {"context_length":,
-    "pricing":}, ...}, same tmp-file-plus-replace atomicity as `providers.
-    databricks.write_models_json`. Best-effort; swallows OSError."""
+    "pricing":, "providers":, "is_free":, "first_token_latency_ms":,
+    "throughput":, "provider":}, ...} (every key but the id optional),
+    same tmp-file-plus-replace atomicity as `providers.databricks.write_
+    models_json`. Best-effort; swallows OSError.
+
+    Halo 2.0.4 round 3: `providers`/`is_free`/`first_token_latency_ms`/
+    `throughput`/`provider` join the original two keys -- the full
+    per-provider list (so a later, more specific lookup can still re-pick
+    from it) plus `_parse_catalog_entry`'s own already-chosen best row's
+    extra fields, hoisted to the top level for `hf_picker_fields` to read
+    with no second pass over the list."""
     try:
         Path(state_dir).mkdir(parents=True, exist_ok=True)
         out = {}
@@ -128,10 +245,10 @@ def write_hf_models_json(state_dir, models: "list[dict]") -> None:
             if not mid:
                 continue
             entry = {}
-            if "context_length" in m:
-                entry["context_length"] = m["context_length"]
-            if "pricing" in m:
-                entry["pricing"] = m["pricing"]
+            for key in ("context_length", "pricing", "providers", "is_free",
+                        "first_token_latency_ms", "throughput", "provider"):
+                if key in m:
+                    entry[key] = m[key]
             out[mid] = entry
         path = hf_models_json_path(state_dir)
         tmp_path = path.with_name(f".{path.name}.tmp")
@@ -155,6 +272,45 @@ def load_hf_models_json(state_dir) -> dict:
             return json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
+
+
+def hf_picker_fields(entry: dict, *, pinned_provider: "Optional[str]" = None) -> dict:
+    """Halo 2.0.4 round 3 (deliverable 1 fix, owner live report
+    2026-10-05): the picker's own price/context/speed columns for ONE
+    `hf:` catalog entry (as `load_hf_models_json` returns it) --
+    `{"context_tokens", "price_in_per_m", "price_out_per_m",
+    "speed_ttft_s", "speed_tokens_per_second"}`, every key omitted when
+    unknown (the caller's own `unknown_as_qmark` renders that as "?").
+    `pinned_provider`: re-picks from the entry's own stored `providers`
+    list for an `hf:<org>/<model>:<provider>` ref instead of using the
+    cache-write-time default (cheapest live) -- `None` (the picker's own
+    bare, unsuffixed rows) uses that stored default directly, no second
+    pick needed."""
+    source = entry
+    if pinned_provider and isinstance(entry.get("providers"), list):
+        best = pick_best_provider_row(entry["providers"], pinned_provider=pinned_provider)
+        if best:
+            source = best
+    out: dict = {}
+    if isinstance(source.get("context_length"), int):
+        out["context_tokens"] = source["context_length"]
+    pricing = source.get("pricing") if isinstance(source.get("pricing"), dict) else {}
+    price_in = _to_float(pricing.get("prompt"))
+    price_out = _to_float(pricing.get("completion"))
+    if price_in is not None:
+        out["price_in_per_m"] = price_in * 1_000_000
+    if price_out is not None:
+        out["price_out_per_m"] = price_out * 1_000_000
+    if source.get("is_free") is True:
+        out["price_in_per_m"] = 0.0
+        out["price_out_per_m"] = 0.0
+    ttft_ms = source.get("first_token_latency_ms")
+    if isinstance(ttft_ms, (int, float)) and not isinstance(ttft_ms, bool) and ttft_ms >= 0:
+        out["speed_ttft_s"] = ttft_ms / 1000.0
+    throughput = source.get("throughput")
+    if isinstance(throughput, (int, float)) and not isinstance(throughput, bool) and throughput > 0:
+        out["speed_tokens_per_second"] = throughput
+    return out
 
 
 def hf_models_json_age_seconds(state_dir) -> Optional[float]:

@@ -1036,6 +1036,41 @@ Claude Code subscription    not set up                                not set up
 TypeSafe                    not set up                                not set up                                      -
 ```
 
+## `halo balances`
+
+```
+Usage: halo balances [--refresh]
+```
+
+Halo 2.0.4 round 3 (deliverable 2): one shared balances surface --
+OpenRouter (`GET /key`/`/credits`), Experiential Labs (`GET /credits`),
+Databricks (always "not offered" -- DBU billing is on the workspace
+side, explicitly excluded by the owner), Anthropic (no endpoint for a
+plain key; the organisation cost report when `ANTHROPIC_ADMIN_KEY` is
+set). Every other provider (Hugging Face, OpenAI, Codex, Claude Code
+subscription, TypeSafe) reads "not offered" -- no balance concept
+exists for it at all. Bare `halo balances` never touches the network --
+reads `~/.halo/balances.json`, or "not fetched yet"; `--refresh` does
+the one bounded round of fetches and persists the result there. `/balances`
+(TUI and headless) is the same surface, backed by the SAME `providers.
+balances` module, so the two never disagree; the status bar's own
+balance chip (right after cost) and `halo doctor` read the same cache.
+
+```sh
+halo balances
+```
+```
+Databricks (dbx:): not offered (DBU billing is on the workspace side -- not available as a balance here)
+OpenRouter (or:): $12.40 left (key: my-key, as of 14:32:05)
+Anthropic API (key) (ant:): not offered (balance not exposed by this API for a plain key (set ANTHROPIC_ADMIN_KEY for organisation spend))
+Claude Code subscription (cc:): not offered (no balance concept for this provider)
+Codex subscription (ChatGPT) (cx:): not offered (no balance concept for this provider)
+TypeSafe: not offered (no balance concept for this provider)
+Hugging Face (hf:): not offered (no balance concept for this provider)
+OpenAI API (key) (oai:): not offered (no balance concept for this provider)
+Experiential Labs (xp:): $5.00 left (of $10.00 total credits)
+```
+
 ## `halo work-matrix`
 
 V2b: turns a `doctor --work --probe-all` JSON report (`~/.halo/
@@ -1094,7 +1129,7 @@ Lists (and refreshes) the OpenRouter and Databricks model catalogs.
 halo models --help
 ```
 ```
-usage: halo models [-h] [--refresh] [--cc] [--cx] [--urls] [--json]
+usage: halo models [-h] [--refresh] [--cc] [--cx] [--ant] [--urls] [--json]
 
 options:
   -h, --help  show this help message and exit
@@ -1105,6 +1140,10 @@ options:
   --cx        List the Codex subscription models (cx: aliases) instead of
               the OpenRouter/Databricks catalog; with --refresh, re-pings
               each alias to confirm it is accepted (marks refused ids)
+  --ant       List the real, reachable Anthropic API models (ant: aliases
+              plus every other id the key can see) instead of the
+              OpenRouter/Databricks catalog; with --refresh, re-fetches
+              GET /v1/models
   --urls      Databricks endpoints: also print the exact URL and path type
               each one resolves to
   --json      Machine-readable JSON output
@@ -1116,6 +1155,7 @@ options:
 | `--refresh` | live probe: OpenRouter `GET /api/v1/models` -> `models.json`; Databricks `GET /api/2.0/serving-endpoints` -> `dbx-endpoints.json`; models.dev's public `api.json` -> `models-dev.json` |
 | `--cc` | reads `claude auth status` + the `cc-models.json` cache; `--cc --refresh` also sends nine tiny `-p --max-turns 1` pings under your subscription |
 | `--cx` | reads `codex login status` + the `cx-models.json` cache; `--cx --refresh` sends one tiny `codex exec --ephemeral` ping per alias under your subscription -- no ChatGPT login exists on the build host, so this is verified against `tests/helpers/fake_codex.py` only, not the real CLI |
+| `--ant` | reads `~/.halo/ant-models.json` (real ids `GET /v1/models` returned for this key); `--ant --refresh` re-fetches it -- the nine `ant:` aliases show first with their `-> <resolved-id>` detail, then any OTHER id the key can reach, with no alias of its own |
 | `--urls` | Databricks rows only: adds the exact resolved URL + path type (`mlflow`/`cursor`/`anthropic`/`invocations`) per endpoint -- see `docs/DATABRICKS.md` |
 | `--json` | same data as machine-readable JSON |
 

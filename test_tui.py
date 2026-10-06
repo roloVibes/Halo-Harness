@@ -2079,7 +2079,7 @@ def test_model_picker_u_works_from_default_focus_and_matches_the_right_ref(ctx: 
             ctx.check(f"the filter has focus by default, got {app.focused}", app.focused is filter_box)
 
             # Bug 1: `u` must still fire from this exact, default state.
-            await pilot.press("u")
+            await pilot.press("ctrl+o")
             await pilot.pause(0.1)
             ctx.check(f"u opened RoleAssignPicker even though the filter had focus, got "
                       f"{type(app.screen).__name__}", isinstance(app.screen, RoleAssignPicker))
@@ -2106,7 +2106,7 @@ def test_model_picker_u_works_from_default_focus_and_matches_the_right_ref(ctx: 
             ctx.check(f"this navigation state is actually meaningful for the bug (option index {highlighted} "
                       f"must disagree with _filtered's own index here), correct={correct_ref!r} vs what the "
                       f"OLD code would have used={buggy_ref!r}", correct_ref != buggy_ref)
-            await pilot.press("u")
+            await pilot.press("ctrl+o")
             await pilot.pause(0.1)
             ctx.check(f"RoleAssignPicker opens for the ACTUALLY highlighted model ({correct_ref!r}), got "
                       f"{app.screen.model_ref!r}", app.screen.model_ref == correct_ref)
@@ -5591,8 +5591,10 @@ def test_first_frame_renders_fast_despite_a_slow_claude_auth_check_then_cc_group
                           bool(status and status.logged_in and status.auth_method == "claude.ai"))
                 models = controller.list_models()
                 groups = {m.get("group") for m in models if isinstance(m, dict) and m.get("group")}
+                # Halo 2.0.4 round 3 (deliverable 6): group labels now
+                # carry their prefix in parentheses (label_with_prefix).
                 ctx.check(f"the Claude Code subscription group appears once the worker lands, got {groups}",
-                          "Claude Code subscription" in groups)
+                          "Claude Code subscription (cc:)" in groups)
     try:
         asyncio.run(body())
     finally:

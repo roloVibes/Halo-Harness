@@ -76,6 +76,66 @@ def _cmd_models_cc(state_dir, *, refresh: bool) -> int:
     return 0
 
 
+def _cmd_models_ant(state_dir, *, refresh: bool) -> int:
+    """Halo 2.0.4 round 3 (deliverable 3): `halo models --ant` -- the
+    `ant:` (direct Anthropic API key) counterpart of `_cmd_models_cc`.
+    Unlike `--cc` (a probe over a static nine-name alias table, since
+    `claude` has no "list models" command of its own), `GET /v1/models`
+    IS a real enumeration -- this lists every id the configured key can
+    actually see (`providers.anthropic_catalog`'s own cache,
+    `ant-models.json`), not just the nine pinned aliases, so a model the
+    account can reach but this harness never named (a new release, a
+    preview) still shows up here the moment a refresh has run. The nine
+    aliases still show FIRST, each with its `-> <resolved-id>` detail (the
+    alias table never changes `ant:`'s own routing -- see `model.py`'s
+    `resolve_ant_alias`), so the common case still reads as a short,
+    named list; anything the live catalog adds beyond those nine ids
+    follows under its own heading. Never touches the key file -- only
+    `providers.config.resolve_anthropic` (env-only) and, with --refresh,
+    one bounded `GET /v1/models` call."""
+    from halo_harness.providers.anthropic_catalog import (
+        ant_models_age_seconds, load_ant_models_json, refresh_anthropic_catalog_if_stale,
+    )
+    from halo_harness.providers.cc_models import ANT_ALIASES, alias_display_detail, profile_fields_for_cc_model
+    from halo_harness.providers.config import resolve_anthropic
+    ant = resolve_anthropic()
+    if ant is None:
+        print("Anthropic API: not configured (no ANTHROPIC_API_KEY found) -- ant: models unavailable")
+    else:
+        print(f"Anthropic API: key found ({ant.base_url})")
+
+    if refresh:
+        if ant is None:
+            print("(skipped -- no ANTHROPIC_API_KEY to refresh with)\n")
+        else:
+            ok = refresh_anthropic_catalog_if_stale(state_dir, force=True)
+            print("(refreshed ant-models.json from GET /v1/models)\n" if ok
+                  else "(could not refresh from Anthropic -- the previous cache, if any, is unchanged)\n")
+
+    age = ant_models_age_seconds(state_dir)
+    live = load_ant_models_json(state_dir)
+    age_text = "never cached" if age is None else f"cached {age / 3600:.1f}h ago"
+    print(f"({len(live)} live id(s) known, {age_text} -- `halo models --ant --refresh` updates it)\n")
+
+    print(f"{'alias':<12} {'ant: target':<30} {'context':>10} {'out cap':>9} {'in/M':>9} {'out/M':>9}")
+    seen_ids = set()
+    for name, target in ANT_ALIASES.items():
+        seen_ids.add(target)
+        fields = profile_fields_for_cc_model(target) or {}
+        ctx = fields.get("context_tokens", "?")
+        out_cap = fields.get("max_output_tokens", "?")
+        print(f"{name:<12} {alias_display_detail(name):<30} {str(ctx):>10} {str(out_cap):>9} "
+              f"{_fmt_price(fields.get('price_in')):>9} {_fmt_price(fields.get('price_out')):>9}")
+
+    extra_ids = sorted(set(live) - seen_ids)
+    if extra_ids:
+        print(f"\n{len(extra_ids)} more id(s) this key can reach, no alias of their own:")
+        for model_id in extra_ids:
+            display_name = (live.get(model_id) or {}).get("display_name") or ""
+            print(f"  {model_id}" + (f"  ({display_name})" if display_name else ""))
+    return 0
+
+
 def _cmd_models_cx(state_dir, *, refresh: bool) -> int:
     """Round 5i part 2: `halo models --cx` -- the Codex counterpart of
     `_cmd_models_cc`. Never touches `~/.codex/auth.json` -- only `codex
@@ -219,6 +279,10 @@ def cmd_models(argv) -> int:
                          help="List the Codex subscription models (cx: aliases) instead of the "
                               "OpenRouter/Databricks catalog; with --refresh, re-pings each alias to "
                               "confirm it is accepted (marks refused ids)")
+    parser.add_argument("--ant", action="store_true",
+                         help="List the real, reachable Anthropic API models (ant: aliases plus every "
+                              "other id the key can see) instead of the OpenRouter/Databricks catalog; "
+                              "with --refresh, re-fetches GET /v1/models")
     parser.add_argument("--urls", action="store_true",
                          help="Databricks endpoints: also print the exact URL and path type each one resolves to")
     parser.add_argument("--json", action="store_true", help="Machine-readable JSON output")
@@ -232,6 +296,8 @@ def cmd_models(argv) -> int:
         return _cmd_models_cc(state_dir, refresh=args.refresh)
     if args.cx:
         return _cmd_models_cx(state_dir, refresh=args.refresh)
+    if args.ant:
+        return _cmd_models_ant(state_dir, refresh=args.refresh)
     # 1.0.1 hotfix 3: bare `halo models` (no --refresh) NEVER touches
     # the network, full stop -- not even "the first time the cache is
     # empty" (the old behavior here, and still `--cc`'s own documented

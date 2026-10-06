@@ -391,6 +391,20 @@ class PrintModeSink:
                 subtype = "error_during_execution"
             else:
                 subtype = "success"
+            # Halo 2.0.4 round 3 (deliverable 4): `_final_text` is set ONLY
+            # by a `turn_done` event (see `_handle`'s own "finding 15"
+            # comment) -- a turn that ends in an error (an unconfigured
+            # provider, or every retry exhausted with no working fallback)
+            # never fires one, so `result_text=self._final_text` used to be
+            # "" here: the empty-print-mode-result bug (plans/2.0.3-
+            # release-notes-for-fix-pass.md; the "Added after the round 2
+            # live checks" retries-exhausted case re-confirmed it still
+            # applied). `StreamJsonSink.finish` already has this exact
+            # fallback (`result_text=self._error_message if self._had_error
+            # else self._final_text`) -- mirrored here so neither print-mode
+            # output format can go empty on an error the other already
+            # reports correctly.
+            result_text = self._error_message if self._had_error else self._final_text
             obj = build_result_object(
                 session_id=self.session_id,
                 model=self.model,
@@ -398,7 +412,7 @@ class PrintModeSink:
                 stop_reason=self._stop_reason,
                 usage=self._usage,
                 total_cost_usd=self._total_cost_usd,
-                result_text=self._final_text,
+                result_text=result_text,
                 is_error=is_error,
                 subtype=subtype,
                 permission_denials=self._permission_denials,
@@ -415,6 +429,15 @@ class PrintModeSink:
             # output there too, matching the text branch above).
             self.stream.write(json_module.dumps(obj) + "\n")
             self.stream.flush()
+            # deliverable 4: "the last upstream status and the translated
+            # sentence must be the result text (AND THE STDERR LINE)" -- the
+            # text branch above has always printed one on an error; JSON
+            # mode never did (a caller that only checks stderr/the exit
+            # code, never parses stdout as JSON, saw nothing at all).
+            if self._budget_exceeded:
+                print(f"\nerror: --max-budget-usd (${self.max_budget_usd}) reached", file=sys.stderr)
+            elif self._had_error:
+                print(f"\nerror: {result_text}", file=sys.stderr)
         return 1 if is_error else 0
 
 
