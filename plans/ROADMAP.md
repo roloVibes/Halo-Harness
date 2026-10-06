@@ -1029,13 +1029,15 @@ ten real TUI renders already exist as SVG under docs/harness/tui-snapshots.
 
 What the round does (brief `plans/briefs/2.0.5/round-2d-name-purge-visuals.md`):
 
-1. **The old name is gone from every tracked file**: the compatibility
-   code is removed (aliases, migration, leftover checks, console aliases,
-   installer mentions; `BRIDGE_*` names stay, they are the test harness's
-   own), tests that pinned it are rewritten for the current behaviour, docs
-   and installers say only `halo`, CHANGELOG history lines read "the
-   previous name" where a name is needed, plans/ files likewise; a house
-   invariant refuses the string in any tracked file from now on.
+1. **The old name is off the front pages** (rolo 2026-10-06 ~12:50: "just
+   don't mention it directly on the first pages of the repo, whatever if
+   it's in the change logs"): README.md, `docs/INSTALL.md`,
+   `docs/harness/INSTALL.md`, `docs/HANDBOOK.md`, `docs/COMMANDS.md`, the
+   package description in `pyproject.toml` and the installers' printed text
+   say only `halo` (where a legacy behaviour must be described, say "the
+   previous name" or "pre-2.0 installs"); the CHANGELOG, the compatibility
+   code, its tests and plans/ history stay as they are; a house invariant
+   refuses the string on exactly those front pages from now on.
 2. **A README worth looking at**: an ASCII-art banner, a "what it looks
    like" gallery of real TUI renders produced by a reproducible script
    (`scripts/screenshots.py`: Textual pilots over fixture data, SVG out
@@ -1046,6 +1048,5 @@ What the round does (brief `plans/briefs/2.0.5/round-2d-name-purge-visuals.md`):
    grid, install in three lines, and a themes section that 2.0.8 fills
    with one render per theme (DOOM, Metroid, Mario); the same banner shows
    on `halo --version` and the intro line pool gets it as the first line.
-3. Git history still carries the old name in past commits; removing it
-   there is a history rewrite the owner runs himself with the existing
-   script (one more replacement line), announced like the 2026-10-05 one.
+3. Git history and the CHANGELOG keep the old name; no rewrite (the
+   owner's call, 2026-10-06 ~12:50).
