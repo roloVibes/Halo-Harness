@@ -33,6 +33,7 @@ _HF_ENDPOINT_PREFIX = "endpoint/"
 _HF_LOCAL_PREFIX = "local/"
 _OAI_PREFIX = "oai:"
 _CX_PREFIX = "cx:"
+_XP_PREFIX = "xp:"
 # Halo 2.0.3 round 5f: `hf:mlx/<org>/<repo>` -- a Hub repo served by a
 # Halo-managed `mlx_lm.server` (Apple Silicon only; see ModelRef.mlx).
 _HF_MLX_PREFIX = "mlx/"
@@ -196,8 +197,8 @@ def _refuse_if_disabled(provider_key: str) -> None:
 @dataclass(frozen=True)
 class ModelRef:
     raw: str
-    provider: str  # "openrouter" | "databricks" | "anthropic" | "ollama" | "huggingface" | "openai" | "cc" | "codex"
-    model: str  # bare upstream model id/name, dbx:/or:/ant:/ol:/hf:/oai:/cx: prefix (and ol:'s @host / hf:'s endpoint/<name>) stripped
+    provider: str  # "openrouter" | "databricks" | "anthropic" | "ollama" | "huggingface" | "openai" | "cc" | "codex" | "experiential"
+    model: str  # bare upstream model id/name, dbx:/or:/ant:/ol:/hf:/oai:/cx:/xp: prefix (and ol:'s @host / hf:'s endpoint/<name>) stripped
     dialect: str  # "openai-chat" | "anthropic-passthrough" | "cc-subprocess" | "codex-subprocess" | "ollama" | "openai-responses"
     # Halo 2.0.3 round 2: the `@<hostname>` part of `ol:<model>@<hostname>`
     # (research doc Q6/Q7) -- which entry of `ollama.hosts` this ref names;
@@ -362,6 +363,30 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
                 f"no route: {raw!r} (hf: needs <org>/<model>[:suffix], endpoint/<name>, local/<model>, "
                 f"or mlx/<org>/<repo>)")
         return ModelRef(raw=raw, provider="huggingface", model=bare, dialect="openai-chat")
+    if resolved.startswith(_XP_PREFIX):
+        # Halo 2.0.4 round 2: `xp:<slug>` against the Experiential Labs
+        # gateway (EXPLABS_API_KEY). Three dialects, decided HERE once,
+        # same reasoning the oai: branch just below gives: a Claude slug
+        # (`xp:claude-*`) goes through Halo's existing Anthropic
+        # passthrough at /v1/messages with x-api-key so thinking stays
+        # native WHILE an Anthropic-shaped rung actually serves the call
+        # (research doc section 3.3 -- a waterfall fallback onto a non-
+        # Anthropic rung can still translate/drop it; the transcript must
+        # show the gateway's own disclosure when that happens, never
+        # assume native thinking just because the ref took this dialect).
+        # Every other slug is "openai-chat" by default, or "openai-
+        # responses" per `experiential.dialect_overrides` -- no static
+        # required-id table (unlike oai:): no live-confirmed Experiential
+        # model needs the Responses dialect by default yet (research doc
+        # section 3.2).
+        bare = resolved[len(_XP_PREFIX):]
+        _refuse_if_disabled("experiential")
+        if not bare:
+            raise InvalidModelError(f"no route: {raw!r} (xp: needs a model slug, e.g. xp:space-bunny-alpha)")
+        from halo_harness.providers.experiential import is_claude_slug, resolve_experiential_dialect
+        if is_claude_slug(bare):
+            return ModelRef(raw=raw, provider="experiential", model=bare, dialect="anthropic-passthrough")
+        return ModelRef(raw=raw, provider="experiential", model=bare, dialect=resolve_experiential_dialect(bare))
     if resolved.startswith(_OAI_PREFIX):
         # Halo 2.0.3 round 5i part 1: `oai:<model>` against the real
         # OpenAI API (`OPENAI_API_KEY`). Dialect is decided HERE, once,
@@ -457,7 +482,7 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
     near = difflib.get_close_matches(raw, cached_names, n=3, cutoff=0.5) if cached_names else []
     hint = f" -- did you mean one of the cached Databricks endpoints: {', '.join(near)}?" if near else ""
     raise InvalidModelError(
-        f"no route: {raw!r} (accepted forms are dbx:, or:, ant:, cc:, cx:, oai:, ol:, hf:, vendor/model, "
+        f"no route: {raw!r} (accepted forms are dbx:, or:, ant:, cc:, cx:, oai:, xp:, ol:, hf:, vendor/model, "
         f"a bare databricks-*/system.ai.* name, a subscription-model alias, or a routes.json alias){hint}"
     )
 
@@ -651,6 +676,35 @@ def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict]
             entry = load_hf_models_json(state_dir).get(bare_id)
             if entry:
                 return _profile_from_models_json_entry(entry)
+        return ModelProfile()
+
+    if ref.provider == "experiential":
+        # Halo 2.0.4 round 2: the gateway's own `GET /v1/models` catalog
+        # (`providers.experiential_catalog`) carries real context/price/
+        # capability fields DIRECTLY, for every slug it lists -- including
+        # a Claude one (`xp:claude-haiku-4.5`) -- so this one lookup runs
+        # regardless of which dialect `ref.dialect` ended up being
+        # (anthropic-passthrough/openai-chat/openai-responses); never the
+        # models.dev cross-check the `openai` branch above needs (this
+        # catalog is self-contained, unlike the bare OpenAI `/v1/models`).
+        from halo_harness.providers.experiential_catalog import xp_picker_fields
+        fields = xp_picker_fields(ref.model, state_dir)
+        is_claude = ref.dialect == "anthropic-passthrough"
+        if fields:
+            price_in_pm, price_out_pm = fields.get("price_in_per_m"), fields.get("price_out_per_m")
+            cache_r_pm, cache_w_pm = fields.get("price_cache_read_per_m"), fields.get("price_cache_write_per_m")
+            return ModelProfile(
+                context_tokens=fields.get("context_tokens") or (200000 if is_claude else 128000),
+                max_output_tokens=fields.get("max_output_tokens") or (8192 if is_claude else 16384),
+                vision=is_claude,
+                reasoning="native" if is_claude else ("openai" if fields.get("supports_reasoning") else "none"),
+                price_in=price_in_pm / 1_000_000 if isinstance(price_in_pm, (int, float)) else None,
+                price_out=price_out_pm / 1_000_000 if isinstance(price_out_pm, (int, float)) else None,
+                price_cache_read=cache_r_pm / 1_000_000 if isinstance(cache_r_pm, (int, float)) else None,
+                price_cache_write=cache_w_pm / 1_000_000 if isinstance(cache_w_pm, (int, float)) else None,
+            )
+        if is_claude:
+            return ModelProfile(context_tokens=200000, max_output_tokens=8192, reasoning="native", vision=True)
         return ModelProfile()
 
     if ref.provider == "openai":

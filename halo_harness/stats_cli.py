@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import shutil
+import sys
 from pathlib import Path
 
 
@@ -388,6 +389,35 @@ def _cmd_stats_telemetry(args) -> int:
     return 0
 
 
+def _cmd_stats_experiential() -> int:
+    """`halo stats --experiential` -- Halo 2.0.4 round 2: settled usage
+    rows from `GET /api/v1/usage` (research doc section 6), NOT the local
+    session-log aggregate every other `halo stats` mode reads -- this is
+    the closest existing surface to the brief's "halo cost --experiential"
+    wording: there is no standalone `halo cost` command, only this one and
+    the in-session `/cost`. One bounded, best-effort page (no pagination
+    loop) -- `cursor`-driven paging through every settled row is future
+    work, not required for this round's "page through for settled rows"."""
+    from halo_harness.providers.experiential_account import fetch_experiential_usage_rows
+    rows = fetch_experiential_usage_rows()
+    if rows is None:
+        print("halo stats --experiential: could not reach the usage endpoint "
+              "(check EXPLABS_API_KEY / network).", file=sys.stderr)
+        return 1
+    if not rows:
+        print("halo stats --experiential: no settled usage rows yet.")
+        return 0
+    print(f"Experiential Labs settled usage ({len(rows)} row(s)):")
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        model = row.get("model", "?")
+        cost = row.get("real_cost_usd")
+        cost_str = f"${float(cost):.4f}" if isinstance(cost, (int, float)) else "?"
+        print(f"  {row.get('created_at', '?')}  {str(model):<30} {cost_str:>10}  {row.get('status', '?')}")
+    return 0
+
+
 def cmd_stats(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo stats", add_help=True,
                                       description="Aggregate tokens/cost/tool-calls across session logs (headless /stats).")
@@ -410,8 +440,14 @@ def cmd_stats(argv: list) -> int:
                          help="Time window for --models/--tools: \"all\", or \"<N>d\" (e.g. \"1d\", \"7d\", \"30d\"; "
                               "default 7d). Ignored by the plain report below.")
     parser.add_argument("--session", default=None, metavar="ID", help="Scope to one session id")
+    parser.add_argument("--experiential", action="store_true",
+                         help="Settled usage rows from the Experiential Labs account API "
+                              "(GET /api/v1/usage) instead of the local session-log aggregate -- "
+                              "needs EXPLABS_API_KEY")
     args = parser.parse_args(argv)
 
+    if args.experiential:
+        return _cmd_stats_experiential()
     if args.models or args.tools or args.roles:
         return _cmd_stats_telemetry(args)
 

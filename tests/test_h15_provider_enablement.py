@@ -24,6 +24,9 @@ _PROVIDER_ENV_VARS = (
     "OPENROUTER_API_KEY", "DATABRICKS_HOST", "DATABRICKS_TOKEN", "BRIDGE_DBX_BASE_URL", "BRIDGE_DBX_TOKEN",
     "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "BRIDGE_ANTHROPIC_BASE_URL",
     "TYPESAFE_API_KEY", "BRIDGE_TEST_CC_AUTH_STATUS",
+    # Halo 2.0.4 round 2 (Experiential Labs `xp:`):
+    "EXPLABS_API_KEY", "EXPLABS_PROVISIONING_KEY", "BRIDGE_EXPERIENTIAL_BASE_URL",
+    "BRIDGE_EXPERIENTIAL_ACCOUNT_BASE_URL",
 )
 
 
@@ -851,6 +854,72 @@ def test_halo_providers_list_primes_the_auth_cache_once_and_never_for_a_gateway(
             os.environ.pop("ANTHROPIC_BASE_URL", None)
             cc_models_mod.claude_auth_status = real_claude_auth_status
             cc_models_mod.reset_cached_claude_auth_status()
+
+
+# ---------------------------------------------------------------------------
+# Halo 2.0.4 round 2: Experiential Labs (`xp:`) joins the SAME generic
+# PROVIDER_NAMES-driven tables every provider above already does -- these
+# pin that it actually appears, not just that the mechanism exists.
+# ---------------------------------------------------------------------------
+
+@test
+def test_experiential_in_provider_tables(ctx: Ctx):
+    from halo_harness.providers.enablement import LABELS, PREFIXES, PROVIDER_NAMES, canonical
+    ctx.check("experiential is a registered provider", "experiential" in PROVIDER_NAMES)
+    ctx.check(f"label, got {LABELS.get('experiential')!r}", LABELS.get("experiential") == "Experiential Labs")
+    ctx.check(f"prefix, got {PREFIXES.get('experiential')!r}", PREFIXES.get("experiential") == "xp:")
+    ctx.check(f"xp alias resolves, got {canonical('xp')!r}", canonical("xp") == "experiential")
+
+
+@test
+def test_experiential_credentials_present_and_enabled(ctx: Ctx):
+    from halo_harness.providers.enablement import credentials_present, is_enabled
+    with _Env():
+        ctx.check("not detected with no key", credentials_present("experiential") is False)
+        os.environ["EXPLABS_API_KEY"] = "xpl_" + "a" * 40
+        ctx.check("detected once EXPLABS_API_KEY is set", credentials_present("experiential") is True)
+        ctx.check("auto-enabled once detected", is_enabled("experiential") is True)
+
+
+@test
+def test_experiential_row_in_cmd_providers_list(ctx: Ctx):
+    import contextlib
+    import io
+    from halo_harness.providers_cli import cmd_providers
+    with _Env():
+        os.environ["EXPLABS_API_KEY"] = "xpl_" + "b" * 40
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = cmd_providers(["list"])
+        text = out.getvalue()
+        ctx.check("list exits 0", rc == 0)
+        ctx.check(f"Experiential Labs row present, got:\n{text}", "Experiential Labs" in text)
+        ctx.check("the balance line falls back to a plain pointer (no live fetch from this CLI test host)",
+                  "not fetched" in text or "available of" in text)
+
+
+@test
+def test_doctor_check_experiential_not_configured(ctx: Ctx):
+    from halo_harness import doctor
+    with _Env():
+        line = doctor._check_experiential()
+        ctx.check(f"warns, names the env var, got {line!r}", "WARN" in line and "EXPLABS_API_KEY" in line)
+
+
+@test
+def test_doctor_check_experiential_reachable(ctx: Ctx):
+    from halo_harness import doctor
+    from tests.helpers.mock_openai import MockUpstream
+    mock = MockUpstream(path_prefix="/v1").start()
+    try:
+        with _Env():
+            os.environ["EXPLABS_API_KEY"] = "xpl_" + "c" * 40
+            os.environ["BRIDGE_EXPERIENTIAL_BASE_URL"] = mock.base_url
+            os.environ["BRIDGE_EXPERIENTIAL_ACCOUNT_BASE_URL"] = mock.base_url
+            line = doctor._check_experiential()
+            ctx.check(f"OK and reachable, got {line!r}", "OK" in line and "reachable" in line)
+    finally:
+        mock.stop()
 
 
 if __name__ == "__main__":

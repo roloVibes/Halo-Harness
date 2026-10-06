@@ -348,6 +348,12 @@ def _run_phase1(req: CompletionRequest, abort: "threading.Event | None" = None):
             # OpenRouter two-way label below would otherwise call this
             # "OpenRouter not configured", which names the wrong env var.
             raise ProviderNotConfigured("OpenAI API not configured -- set OPENAI_API_KEY")
+        if req.route.provider == "experiential":
+            # Halo 2.0.4 round 2: same reasoning as the openai branch
+            # just above -- names the real env var instead of the
+            # generic Databricks/OpenRouter label below misreading it as
+            # "OpenRouter not configured".
+            raise ProviderNotConfigured("Experiential Labs not configured -- set EXPLABS_API_KEY")
         provider_label = "Databricks" if req.route.provider == "databricks" else "OpenRouter"
         raise ProviderNotConfigured(f"{provider_label} not configured")
 
@@ -527,6 +533,15 @@ def stream_completion(req: CompletionRequest, abort: "threading.Event | None" = 
                                   capture_reasoning=harness_mode, strict_tool_json=harness_mode,
                                   tool_id_format=getattr(req, "tool_id_format", "mint"),
                                   kimi_tool_id_start=getattr(req, "kimi_tool_id_start", 0))
+    if req.route.provider == "experiential":
+        # Halo 2.0.4 round 2: response-HEADER-sourced extras `feed_chunk`
+        # itself never sees (they ride the HTTP response, not a JSON
+        # chunk) -- set directly on the state machine right here, the one
+        # place both `result.headers` and `sm` are already in scope
+        # together, before phase 2's read loop starts.
+        sm.request_id = result.headers.get("x-request-id")
+        sm.ignored_parameters_header = result.headers.get("x-experiential-ignored-parameters")
+        sm.gateway_warning = result.headers.get("x-gateway-warning")
 
     dumped_lines: list = []
     dumped_events: list = []
@@ -669,6 +684,11 @@ def _run_phase1_anthropic(req: CompletionRequest, abort: "threading.Event | None
         raise _Aborted()
     body = req.prebuilt_anthropic_body
     if req.creds is None:
+        if req.route.provider == "experiential":
+            # Halo 2.0.4 round 2: `xp:claude-*` through this SAME native-
+            # Anthropic-dialect function -- names the real env var
+            # instead of the generic "Anthropic" label below.
+            raise ProviderNotConfigured("Experiential Labs not configured -- set EXPLABS_API_KEY")
         provider_label = "Databricks" if req.route.provider == "databricks" else "Anthropic"
         raise ProviderNotConfigured(f"{provider_label} not configured")
 
@@ -1164,6 +1184,12 @@ def _run_phase1_responses(req: CompletionRequest, abort: "threading.Event | None
         raise _Aborted()
     body = req.prebuilt_responses_body
     if req.creds is None:
+        if req.route.provider == "experiential":
+            # Halo 2.0.4 round 2: `experiential.dialect_overrides` can
+            # select this dialect for an `xp:` slug too, not just `oai:`
+            # (this function's only caller before this round) -- names
+            # the real env var instead of always saying "OpenAI".
+            raise ProviderNotConfigured("Experiential Labs not configured -- set EXPLABS_API_KEY")
         raise ProviderNotConfigured("OpenAI API not configured -- set OPENAI_API_KEY")
 
     sock_box: list = [None]

@@ -74,6 +74,69 @@ version.
   rewritten, no force-push happened, and `git filter-repo` was not
   invoked, by this round.
 
+### Experiential Labs
+
+- **`xp:<slug>` route** onto the Experiential Labs gateway
+  (`EXPLABS_API_KEY`), with its own `ProviderProfile` (none of
+  OpenRouter's fields -- `usage.include`, a `provider` preference object,
+  `transforms` -- are ever sent, since this gateway's own schema doesn't
+  define them) and three dialects: chat completions by default, the
+  Responses dialect shared with the `oai:` route per `experiential.
+  dialect_overrides`, and -- for a Claude slug (`xp:claude-*`) -- Halo's
+  existing native Anthropic passthrough at `/v1/messages` with
+  `x-api-key`, so thinking stays native while an Anthropic-shaped rung
+  serves the call. `tools`/`reasoning_effort`/structured output are each
+  gated on that model's own catalog row.
+- **Catalog** (`halo_harness/providers/experiential_catalog.py`): `GET
+  /v1/models` cached with the same TTL every other catalog here uses,
+  refreshed by `/models refresh`/`halo models --refresh`/launch
+  auto-refresh; a vendored fallback snapshot
+  (`halo_harness/providers/catalog/experiential-models.json`, built from
+  already-published facts, no key, no secret) so a fresh install shows
+  real context/price/capability columns before ever refreshing live.
+- **Picker**: an "Experiential Labs" group with the same price/context
+  columns every other group shows, plus a one-word data-policy badge
+  (`zdr`/`no_training`). The shared column formatter (`model_display.
+  format_price_per_m`) now also renders a negative per-token/per-million
+  sentinel (an OpenRouter router model's own `-1`, e.g. `openrouter/auto`,
+  `typesafe/jev-router`, `nvidia/switchyard`) as "varies" instead of a
+  negative dollar figure, and exactly `$0` as "free".
+- **Cost**: per-turn cost reads `usage.cost`; the serving `provider` and
+  `is_byok` ride the same per-chunk capture OpenRouter's own `provider`
+  field already uses, so the transcript's responding-provider label shows
+  the real serving rung. `GET /api/v1/credits` feeds a balance line in
+  `halo doctor`/`halo providers`; `halo stats --experiential` pages
+  settled rows from `GET /api/v1/usage`. Every `xp:` chat-completions
+  request carries `safety_identifier` set to the Halo session id
+  (documented, opt-out) for per-session spend tracking.
+- **Errors**: the gateway's own `error.code` (`unsupported_capability`,
+  `unavailable_route`, `pro_required`, `invalid_key`, the `idempotency_
+  conflict`/`idempotency_replay_unavailable` split on one shared HTTP
+  409, ...) maps to one plain sentence each, checked before the generic
+  status-code fallback. The `x-experiential-ignored-parameters` response
+  header is learned per model and surfaced once as a notice, never
+  repeated for an unchanged value.
+- **Tool search**: `{"type": "openrouter:tool_search"}` plus per-tool
+  `defer_loading: true`, converting Halo's own already-deferred-tool
+  decision into this gateway's wire convention -- off by default behind
+  `experiential.tool_search`.
+- **Waterfall**: `gateway.retry.max_attempts_per_route` is always sent as
+  `1` by default (Halo's own outer retry loop is already the outer
+  layer); `gateway.routing`/`gateway.retry` are configurable via
+  `experiential.routing`/`experiential.retry`. `/xp routes <slug>` prints
+  the rung list from `GET /api/models/<slug>/providers`.
+- **Enablement and doctor**: joins the generic `PROVIDER_NAMES`-driven
+  `halo providers`/`/providers`/`/model` tables; an init wizard tab (key
+  only, stored the same env-file-plus-reference way every other provider
+  key is); `halo doctor` checks key presence, gateway reachability, and
+  the credits balance.
+- **Docs**: `docs/MODELS.md` "Experiential Labs" section (including a
+  "How to run" table for Space Bunny Alpha, Nemotron 3.5 Lightning,
+  Tencent hy4-preview and TypeSafe's jev-router), `docs/CONFIG.md`,
+  `docs/COMMANDS.md`, `docs/SLASH-COMMANDS.md`, and the enablement
+  prefix table (which also picked up the `oai:`/`cx:` rows it had been
+  missing since those routes shipped).
+
 ## [2.0.3.1] - 2026-10-05
 - **The Claude Code bridge server starts inside a job object that forbids
   breakaway**: `spawn_server_detached` retries without

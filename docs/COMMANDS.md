@@ -1663,7 +1663,7 @@ halo stats --help
 ```
 usage: halo stats [-h] [--all] [--all-projects] [--cwd DIR] [--json]
                          [--models] [--tools] [--roles] [--wide]
-                         [--since SINCE] [--session ID]
+                         [--since SINCE] [--session ID] [--experiential]
 
 Aggregate tokens/cost/tool-calls across session logs (headless /stats).
 
@@ -1686,7 +1686,17 @@ options:
                   "1d", "7d", "30d"; default 7d). Ignored by the plain report
                   below.
   --session ID    Scope to one session id
+  --experiential  Settled usage rows from the Experiential Labs account API
+                  (GET /api/v1/usage) instead of the local session-log
+                  aggregate -- needs EXPLABS_API_KEY
 ```
+
+Halo 2.0.4 round 2: `halo stats --experiential` is a DIFFERENT data source
+from every other mode above -- a bounded, best-effort LIVE read of the
+Experiential Labs gateway's own settled-usage rows, not this command's
+usual local session-log aggregate. There is no standalone `halo cost`
+command; this and the in-session `/cost` are the two cost-reporting
+surfaces.
 
 Bare `halo stats` (no `--models`/`--tools`/`--roles`) is the original,
 cheap report: turns, total cost, per-model token/cost totals, per-tool call

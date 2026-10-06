@@ -170,6 +170,21 @@ def map_upstream_error(status: int, body: dict | bytes | str, provider: str,
     # Databricks has no nested "error" object at all, and a bare
     # {"error": "boom"} used to crash this with AttributeError).
     msg = upstream_error_text(body)
+    # Halo 2.0.4 round 2 (Experiential Labs `xp:`): the gateway's own
+    # `error.code` (docs/harness/EXPERIENTIAL-RESEARCH.md section 7) names
+    # a MUCH more specific failure than the bare HTTP status alone can --
+    # most usefully, `idempotency_conflict` (never retry) and `idempotency_
+    # replay_unavailable` (retry) share the identical HTTP 409, which the
+    # status-only table below can't tell apart. A code the table doesn't
+    # recognize (or no `code` at all) leaves `msg`/`retry_override`
+    # untouched, so the generic status-based path below still applies.
+    retry_override = None
+    if provider == "experiential":
+        from halo_harness.providers.experiential import is_retryable_code, plain_sentence
+        sentence = plain_sentence(body)
+        if sentence is not None:
+            msg = sentence
+        retry_override = is_retryable_code(body)
     # Table mapping: (upstream_status, error_type, client_status, should_retry)
     table = [
         (401, "authentication_error", 401, False),
@@ -204,6 +219,8 @@ def map_upstream_error(status: int, body: dict | bytes | str, provider: str,
     else:
         if status >= 500:
             err_type, client_status, should_retry = "overloaded_error", 529, True
+    if retry_override is not None:
+        should_retry = retry_override
     # Build response
     extra_headers = {"x-should-retry": "true" if should_retry else "false"}
     if resp_headers:

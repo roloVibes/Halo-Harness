@@ -52,13 +52,29 @@ def format_price_per_m(v) -> str:
     stores every OpenRouter price that way) -- `float(v)` in a try/except,
     same as the pre-1.0.1 code, so a caller that hands this a string
     straight from the catalog (rather than one already normalized to a
-    float upstream) still renders a real price instead of a blank column."""
+    float upstream) still renders a real price instead of a blank column.
+
+    Halo 2.0.4 round 2 (`plans/ROADMAP.md` "2.0.4 'new labs' coverage"):
+    a NEGATIVE value (OpenRouter's own per-token "-1" router sentinel --
+    `openrouter/auto`, `typesafe/jev-router`, `nvidia/switchyard` -- scaled
+    to per-million by the same `* 1_000_000` every caller already applies,
+    so it arrives here as -1 or -1,000,000 depending on the call site;
+    either way, negative) renders `"varies"`, never a negative dollar
+    figure. Exactly `0` renders `"free"` (Experiential's own `0 = free`
+    convention, `supports_structured_output` etc. aside -- a genuinely
+    unpublished price stays `None`/unknown, rendered blank as before, NOT
+    coerced to 0)."""
     if isinstance(v, bool):
         return ""
     try:
-        return f"${float(v):.2f}/M"
+        f = float(v)
     except (TypeError, ValueError):
         return ""
+    if f < 0:
+        return "varies"
+    if f == 0:
+        return "free"
+    return f"${f:.2f}/M"
 
 
 def _fmt_status_tokens(n) -> str:

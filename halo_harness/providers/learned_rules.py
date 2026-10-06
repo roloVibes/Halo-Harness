@@ -69,6 +69,23 @@ def learn_reasoning_effort_with_tools(state_dir, provider: str, model: str, valu
     _learn(state_dir, provider, model, "reasoning_effort_with_tools", value)
 
 
+def learned_ignored_params(state_dir, provider: str, model: str) -> Optional[str]:
+    """Halo 2.0.4 round 2 (Experiential Labs `xp:`): the LAST
+    `x-experiential-ignored-parameters` header value seen for this exact
+    model, or `None` if none has ever been learned -- `agent/loop.py`'s
+    `_step` compares a NEW header value against this before deciding
+    whether the one-time notice has anything new to say."""
+    row = load_learned_rules(state_dir).get(_key(provider, model))
+    return row.get("ignored_params") if isinstance(row, dict) else None
+
+
+def learn_ignored_params(state_dir, provider: str, model: str, header_value: str) -> None:
+    """Same per-endpoint cache `learn_tools_rejected`/`learn_reasoning_
+    effort_with_tools` already use, one more field -- idempotent, best-
+    effort (never raises)."""
+    _learn(state_dir, provider, model, "ignored_params", header_value)
+
+
 def _learn(state_dir, provider: str, model: str, field: str, value) -> None:
     """Shared by every learned-rule writer below: merge one field into
     this endpoint's row and save, skipping the disk write when the value

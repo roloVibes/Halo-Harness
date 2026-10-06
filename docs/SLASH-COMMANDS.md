@@ -115,6 +115,14 @@ line naming the error. See `docs/DATABRICKS.md`.
 An alias that always behaves like `/models refresh`, regardless of any
 argument typed after it.
 
+### `/xp routes <slug>`
+Halo 2.0.4 round 2: prints the Experiential Labs gateway's waterfall rung
+list for one model slug (`GET /api/models/<slug>/providers`) -- which
+provider route(s) a model can resolve to, and `gateway.routing.route_id`
+values to pin one. A real, bounded network call (needs `EXPLABS_API_KEY`
+already configured); runs off the UI thread in the TUI, same as
+`/providers`/`/doctor`. See "Experiential Labs" in `docs/MODELS.md`.
+
 ### `/mcp`
 `[TUI-only for the interactive dialog]` -- lists configured MCP servers
 with live health in `-p`; in the TUI, opens an interactive status dialog

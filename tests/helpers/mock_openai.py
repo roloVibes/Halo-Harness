@@ -160,8 +160,8 @@ def abrupt_disconnect(handler: "_Handler") -> None:
     handler.close_connection = True
 
 
-def _finish(handler: "_Handler", chunks: list[dict], done: bool = True) -> None:
-    start_sse(handler)
+def _finish(handler: "_Handler", chunks: list[dict], done: bool = True, extra_headers: dict | None = None) -> None:
+    start_sse(handler, extra_headers=extra_headers)
     for c in chunks:
         write_sse_chunk(handler, None, c)
     if done:
@@ -462,6 +462,98 @@ def _scn_null_text_part(h, body):
     ])
 
 
+# ============================================================================
+# Halo 2.0.4 round 2: Experiential Labs gateway scenarios -- extending this
+# mock per plans/2.0.3-ollama-round2-brief.md Round 5h's own test list ("the
+# gateway is OpenAI-compatible plus its own error codes and catalog
+# fields"). `echo` reports back what the REQUEST BODY carried (so a test
+# can assert Halo's own profile never put a field on the wire) alongside
+# the gateway-specific response shapes (usage.cost + provider + is_byok,
+# the ignored-parameters header, the error-code table).
+# ============================================================================
+
+def _scn_xp_cost_provider(h, body):
+    """docs/harness/EXPERIENTIAL-RESEARCH.md section 1/6: `usage.cost`
+    (nested, never top-level), `provider`, `is_byok` on the SAME final
+    chunk that carries usage -- the live-measured shape, not the docs'
+    own (unconfirmed top-level `cost`) prose."""
+    _finish(h, [
+        {"choices": [{"index": 0, "delta": {"role": "assistant"}}]},
+        {"choices": [{"index": 0, "delta": {"content": "pong"}}]},
+        {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+         "usage": {"prompt_tokens": 10, "completion_tokens": 5, "cost": 0.00018208},
+         "provider": "experiential_cloud", "is_byok": False},
+    ], extra_headers={"x-request-id": "req_mock_xp_123"})
+
+
+def _scn_xp_ignored_params(h, body):
+    """section 3.1: `x-experiential-ignored-parameters` disclosed as a
+    response header on a non-streaming... and ALSO on a streamed reply,
+    per the same page's "rides in the chunk carrying the finish reason"
+    note for streaming -- this mock sends it as a response HEADER (the
+    simpler, confirmed-for-non-streaming shape) since `providers.stream.
+    stream_completion` reads it off `result.headers`, not off any chunk."""
+    _finish(h, [
+        {"choices": [{"index": 0, "delta": {"role": "assistant"}}]},
+        {"choices": [{"index": 0, "delta": {"content": "ok"}}]},
+        {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]},
+    ], extra_headers={"x-experiential-ignored-parameters": "top_p->dropped(non_sampling_tunable_provider)"})
+
+
+def _scn_xp_echo_body(h, body):
+    """Reports back exactly which top-level keys the REQUEST carried --
+    `providers/profiles.py`'s own-profile claim ("none of OpenRouter's
+    fields") is a property of the OUTGOING request, not of any reply
+    shape, so this is how a test actually proves it."""
+    payload = {"keys": sorted(body.keys()), "has_usage": "usage" in body,
+               "has_provider": "provider" in body, "has_transforms": "transforms" in body,
+               "gateway": body.get("gateway")}
+    _finish(h, [
+        {"choices": [{"index": 0, "delta": {"role": "assistant"}}]},
+        {"choices": [{"index": 0, "delta": {"content": json.dumps(payload)}}]},
+        {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]},
+    ])
+
+
+def _scn_xp_unsupported_parameter_400(h, body):
+    # section 1/3.1: the exact live-observed wording for a foreign
+    # (OpenRouter-only) field landing on this gateway's own schema.
+    send_json_response(h, 400, {"error": {
+        "message": "The parameter 'usage' is not supported by this gateway profile. Remove the field and resend the request.",
+        "type": "invalid_request_error", "code": "unsupported_parameter",
+    }})
+
+
+def _scn_xp_pro_required_402(h, body):
+    send_json_response(h, 402, {"error": {
+        "message": "Adding a local model needs the Pro plan.",
+        "type": "invalid_request_error", "code": "pro_required",
+    }})
+
+
+class _XpUnavailableRouteThenOk:
+    """`unavailable_route` (503) on the first call, success on the
+    second -- section 7's own documented retry guidance. A fresh instance
+    per test (module-level state would leak between tests otherwise)."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def __call__(self, h, body):
+        self.calls += 1
+        if self.calls == 1:
+            send_json_response(h, 503, {"error": {
+                "message": "No working route for this model right now.",
+                "type": "server_error", "code": "unavailable_route",
+            }})
+            return
+        _finish(h, [
+            {"choices": [{"index": 0, "delta": {"role": "assistant"}}]},
+            {"choices": [{"index": 0, "delta": {"content": "recovered"}}]},
+            {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]},
+        ])
+
+
 def _scn_tools_echo(h, body):
     payload = {
         "tools": [((t or {}).get("function") or {}).get("name") for t in (body.get("tools") or [])],
@@ -550,6 +642,12 @@ SCENARIOS = {
     "dict-metadata-raw-400": _scn_dict_metadata_raw_400,
     "mid-stream-bare-string-error": _scn_mid_stream_bare_string_error,
     "null-text-part": _scn_null_text_part,
+    # Halo 2.0.4 round 2 (Experiential Labs):
+    "xp-cost-provider": _scn_xp_cost_provider,
+    "xp-ignored-params": _scn_xp_ignored_params,
+    "xp-echo-body": _scn_xp_echo_body,
+    "xp-unsupported-parameter-400": _scn_xp_unsupported_parameter_400,
+    "xp-pro-required-402": _scn_xp_pro_required_402,
 }
 
 
@@ -879,6 +977,27 @@ class _Handler(BaseHTTPRequestHandler):
                     return
             send_json_response(self, 200, mock.models_response)
             return
+        # Halo 2.0.4 round 2: a generic exact-path -> body map for the
+        # Experiential Labs account endpoints (`/api/v1/credits`, `/api/
+        # models/<slug>/providers`) -- NEITHER lives under `path_prefix`
+        # (the account/routes roots are their own, separate from the
+        # inference `/v1` root this mock otherwise serves), so this checks
+        # the raw path verbatim rather than reusing `expected_path` above.
+        if self.path in mock.extra_get_routes:
+            with mock._lock:
+                mock._requests.append({
+                    "method": "GET", "path": self.path,
+                    "headers": {k.lower(): v for k, v in self.headers.items()}, "body": None,
+                    "ts": time.monotonic(),
+                })
+            if mock.expected_bearer is not None:
+                auth = self.headers.get("Authorization", "")
+                if auth != f"Bearer {mock.expected_bearer}":
+                    send_json_response(self, 401, {"error": {"message": "invalid bearer token for this mock",
+                                                               "type": "authentication_error"}})
+                    return
+            send_json_response(self, 200, mock.extra_get_routes[self.path])
+            return
         send_json_response(self, 404, {"error": "mock upstream only serves POST"})
 
 
@@ -909,7 +1028,13 @@ class MockUpstream:
     `models_response`, set after construction (never a constructor arg --
     most callers never need it), is served verbatim on `GET <path_prefix>/
     models` once set; `None` (the default) keeps `do_GET`'s original
-    unconditional 404."""
+    unconditional 404.
+
+    `extra_get_routes` (Halo 2.0.4 round 2), also set after construction:
+    `{"<exact raw path>": <json-serializable body>}` for a GET whose path
+    is NOT under `path_prefix` at all (the Experiential Labs account API's
+    `/api/v1/credits` and the bare-host-rooted `/api/models/<slug>/
+    providers`) -- `{}` (the default) keeps every path 404 as before."""
 
     def __init__(self, *, path_prefix: str = "/api/v1", expected_bearer: "str | None" = None):
         self._server: _ThreadingHTTPServer | None = None
@@ -919,6 +1044,7 @@ class MockUpstream:
         self.disconnect_events: list[dict] = []
         self.path_prefix = path_prefix
         self.models_response = None
+        self.extra_get_routes: dict = {}
         self.expected_bearer = expected_bearer
 
     @property

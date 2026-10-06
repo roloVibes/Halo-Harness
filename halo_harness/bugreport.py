@@ -87,6 +87,7 @@ def _provider_reason(name: str, env: "Optional[dict]", env_file_names: "frozense
         "openrouter": ("OPENROUTER_API_KEY",), "anthropic": ("ANTHROPIC_API_KEY",),
         "databricks": ("DATABRICKS_TOKEN", "DATABRICKS_HOST", "BRIDGE_DBX_TOKEN", "BRIDGE_DBX_BASE_URL"),
         "typesafe": ("TYPESAFE_API_KEY",),
+        "experiential": ("EXPLABS_API_KEY",),
     }.get(name, ())
     if any(n in env_file_names for n in shell_names):
         return "enabled (env file)"
