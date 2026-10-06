@@ -854,6 +854,13 @@ a clean, deterministic answer, never a crash. See [MODELS.md](MODELS.md)'s
 "Finding and using file-backed models"/"Apple Silicon (`hf:mlx/*`, round
 5f)" sections; new local-model users are pointed at this command first.
 
+`halo doctor --agents [--mock]` (2.0.4 round 4) validates every agent
+bio's shape (`halo_harness/agents_yaml.py`) and the ACTIVE team template
+(`team` in config.json -- every agent it references must exist), then
+runs each bio's own `acceptance` block against a real one-shot model
+call (`halo -p <prompt> --model <ref> --max-turns 1`); `--mock` (tests
+only) never calls a real model. See [AGENTS.md](AGENTS.md).
+
 Bare `halo doctor` checks: Python version, `~/.claude` layout, the env
 file, OpenRouter/Databricks/Claude-subscription configuration, `claude`/
 `node`/`npx`/`rg`/Git Bash on PATH, the Chrome native-messaging host,

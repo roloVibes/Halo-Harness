@@ -88,6 +88,28 @@ class WizardState:
     default_org: str = ""
     pong_ok: bool = True
 
+    # Halo 2.0.4 round 4 (deliverable 1): the merged model list from ONE
+    # live, off-thread enumeration run right after the Providers step's
+    # own Next (`ProvidersStep._run_enumeration_then_advance`) -- the
+    # SAME shape `Controller.list_models()` returns (`providers.
+    # model_enumeration.build_model_rows`), cached here for the rest of
+    # THIS wizard run and reused by the roles step, the org step and the
+    # summary, so a standalone `halo init` (no live Controller/session of
+    # its own at all) still has a real, grouped, gym-scored model list to
+    # show -- fixing the owner's own report ("the available models are
+    # not listed when you select edit a role"), which traced to exactly
+    # that: `RolesStep._controller_models` reading `self.app.controller`,
+    # always `None` on the standalone wizard app. `enumeration_done`
+    # distinguishes "ran, found nothing" (still prefer this -- possibly
+    # empty -- list) from "never ran this wizard run yet" (fall back to
+    # the live `Controller.list_models()` when one is hosting this
+    # screen, e.g. `/setup roles` with no Providers step in its own
+    # truncated `step_keys`). `enumeration_lines`: one "<label>: <status>"
+    # string per provider, in finish order, for the Summary step.
+    enumerated_models: list = field(default_factory=list)
+    enumeration_done: bool = False
+    enumeration_lines: list = field(default_factory=list)
+
     def title(self) -> str:
         key = self.step_keys[self.index]
         return f"Step {self.index + 1} of {len(self.step_keys)}: {STEP_TITLES[key]}"
@@ -179,6 +201,42 @@ class _QuitConfirm(ModalScreen):
 
     def action_no(self) -> None:
         self.dismiss(False)
+
+
+class _EnumeratingScreen(ModalScreen):
+    """Halo 2.0.4 round 4 (deliverable 1): shown the moment Next leaves
+    the Providers step -- one line per provider, appended as each one's
+    own live probe answers (`ProvidersStep._enumeration_worker`'s
+    `progress_cb`, via `call_from_thread`), never blocking the UI thread
+    itself (the probing runs in `providers.model_enumeration.
+    enumerate_live`'s own background threads). No bindings of its own:
+    this is a brief, non-interactive wait, not a dialog the user drives --
+    it pops itself once every provider has answered or the shared
+    deadline passes, whichever comes first (see that function's own
+    bounded-timeout docstring)."""
+    DEFAULT_CSS = """
+    _EnumeratingScreen { align: center middle; }
+    _EnumeratingScreen > Vertical { width: 70%; height: auto; max-height: 80%; border: round $primary;
+                                     background: $surface; padding: 1 2; }
+    _EnumeratingScreen #wiz-enum-lines { height: auto; max-height: 20; margin-top: 1; }
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._lines: list = []
+
+    def compose(self) -> ComposeResult:
+        with Vertical():
+            yield Static("Checking which models you can reach, with the keys just entered...",
+                         classes="dialog-title")
+            yield Static("", id="wiz-enum-lines")
+
+    def append_line(self, text: str) -> None:
+        self._lines.append(text)
+        try:
+            self.query_one("#wiz-enum-lines", Static).update("\n".join(self._lines))
+        except Exception:
+            pass
 
 
 class StepScreen(Screen):
@@ -649,6 +707,93 @@ class ProvidersStep(StepScreen):
         except Exception:
             pass
 
+    # Halo 2.0.4 round 4 (deliverable 1, owner report 2026-10-05: "an enum
+    # of what models you can reach should occur after you set the keys"):
+    # Next leaving this step runs ONE live, off-thread enumeration of
+    # every provider `/model` knows, with the credentials just typed into
+    # every tab (saved via that tab's own Save press, or not) merged over
+    # the saved config -- cached on `self.state` for the rest of this
+    # wizard run (`WizardState.enumerated_models`'s own docstring) and
+    # reused by the Roles step, the Orgs step and the Summary step. Skip
+    # (inherited `action_do_skip`, untouched) never enumerates.
+    def action_do_next(self) -> None:
+        self.commit()
+        if self.state.no_live:
+            # `--no-live` already skips every OTHER live probe on this
+            # step ("reachability: skipped (--no-live)") -- the
+            # enumeration's own cache-only `build_model_rows` read still
+            # runs (no network of its own, same contract `DefaultModelStep`
+            # already follows regardless of `no_live`), just with no live
+            # refresh first, so the roles/org steps still see whatever is
+            # already cached on disk instead of staying permanently empty
+            # under `--no-live`.
+            from halo_harness.config.paths import bridge_home
+            from halo_harness.providers.model_enumeration import build_model_rows
+            try:
+                self.state.enumerated_models = build_model_rows(bridge_home(), env=self._collect_env_overlay())
+            except Exception:
+                self.state.enumerated_models = []
+            self.state.enumeration_done = True
+            advance(self.app, self.state)
+            return
+        overlay = self._collect_env_overlay()
+        screen = _EnumeratingScreen()
+        self.app.push_screen(screen)
+        self.run_worker(lambda: self._enumeration_worker(overlay, screen), thread=True,
+                         name="wiz-enumerate-models", group="wiz-enumerate-models")
+
+    def _collect_env_overlay(self) -> dict:
+        """`dict(os.environ)` plus whatever's CURRENTLY TYPED (saved via
+        that tab's own Save press, or not) into every single-key provider
+        tab's own field, plus Databricks' host+token and Hugging Face's
+        router token -- never written to disk, never assigned to `os.
+        environ` itself (an already-SAVED value is in `os.environ`
+        already, via `save_tab_credentials`; this only adds what a Save
+        press hasn't reached yet). Ollama's own "add a host" fields are
+        deliberately NOT covered here -- unlike every other tab, Ollama
+        persists each host to `ollama.hosts` immediately on its own Save
+        press, so `providers.local_models.build_local_view` already sees
+        it with no overlay needed; a host typed but never saved at all is
+        the one gap this leaves (documented, not a silent miss)."""
+        import os
+        from halo_harness.init_providers import _TAB_KEY_ENV
+        overlay = dict(os.environ)
+        for provider, key_env in _TAB_KEY_ENV.items():
+            value = (self._collect_values(provider).get("key") or "").strip()
+            if value:
+                overlay[key_env] = value
+        dbx = self._collect_values("databricks")
+        if (dbx.get("host") or "").strip():
+            overlay["DATABRICKS_HOST"] = dbx["host"].strip()
+        if (dbx.get("token") or "").strip():
+            overlay["DATABRICKS_TOKEN"] = dbx["token"].strip()
+        hf_token = (self._collect_values("huggingface").get("token") or "").strip()
+        if hf_token:
+            overlay["HF_TOKEN"] = hf_token
+        return overlay
+
+    def _enumeration_worker(self, overlay: dict, screen: "_EnumeratingScreen") -> None:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.providers.model_enumeration import enumerate_live
+
+        def _progress(label: str, status: str) -> None:
+            line = f"{label}: {status}"
+            self.state.enumeration_lines.append(line)
+            self.app.call_from_thread(screen.append_line, line)
+
+        try:
+            rows = enumerate_live(bridge_home(), env=overlay, progress_cb=_progress)
+        except Exception as e:
+            rows = []
+            _progress("enumeration", f"failed ({type(e).__name__})")
+        self.app.call_from_thread(self._finish_enumeration, rows)
+
+    def _finish_enumeration(self, rows: list) -> None:
+        self.state.enumerated_models = rows
+        self.state.enumeration_done = True
+        self.app.pop_screen()  # the _EnumeratingScreen pushed by action_do_next
+        advance(self.app, self.state)
+
 
 STEP_FACTORIES["providers"] = ProvidersStep
 
@@ -1088,6 +1233,18 @@ class RolesStep(StepScreen):
             self._open_editor()
 
     def _controller_models(self) -> list:
+        """Halo 2.0.4 round 4 (deliverable 1 fix): the standalone wizard
+        (`halo init`) has no live `Controller` at all -- `self.app.
+        controller` is always `None` there, which used to make every
+        role's model picker show an empty list no matter what the
+        Providers step just found (the owner's own report). Once this
+        run's own Providers step has enumerated (`state.enumeration_
+        done`), THAT cached, merged list wins regardless of whether a
+        live controller also exists; a truncated run with no Providers
+        step at all (`/setup roles`) falls back to the live `Controller.
+        list_models()` exactly as before this round."""
+        if self.state.enumeration_done:
+            return self.state.enumerated_models
         list_models = getattr(getattr(self.app, "controller", None), "list_models", None)
         try:
             return list_models() if callable(list_models) else []
@@ -1142,6 +1299,23 @@ class RolesStep(StepScreen):
         ok, _problems = apply_role_template(name)
         if not ok:
             return
+        # Halo 2.0.4 round 4 (deliverable 7, migration): "the legacy role
+        # table migrates into a generated team template 'migrated' plus
+        # one bio per distinct model, on first wizard save, announced in
+        # one line" -- a no-op once a "migrated" template already exists
+        # (`teams_yaml.migrate_legacy_role_table`'s own "never overwrite"
+        # rule), so this never re-runs or re-announces after the first
+        # time. `self.state.written` is the SAME "what this run changed"
+        # list the Summary step already prints one line per entry from.
+        try:
+            from halo_harness.roles import configured_role_table
+            from halo_harness.teams_yaml import migrate_legacy_role_table
+            migrated_name, migration_notes = migrate_legacy_role_table(configured_role_table(), cwd=self.state.cwd)
+            if migrated_name:
+                self.state.written.append(f"legacy role table migrated to team template {migrated_name!r} "
+                                           f"({len(migration_notes)} file(s))")
+        except Exception:
+            pass
         # Also updates the LIVE session's own role table when hosted
         # inside a running BridgeApp (/setup) -- config.json alone would
         # otherwise only take effect on the session's NEXT start, the
@@ -1268,6 +1442,11 @@ class OrgsStep(StepScreen):
             self._open_editor()
 
     def _controller_models(self) -> list:
+        """See `RolesStep._controller_models`'s own docstring -- same
+        "this wizard run's own enumeration cache wins once it exists,
+        else fall back to a live Controller" rule, for the org editor."""
+        if self.state.enumeration_done:
+            return self.state.enumerated_models
         list_models = getattr(getattr(self.app, "controller", None), "list_models", None)
         try:
             return list_models() if callable(list_models) else []
@@ -1396,7 +1575,20 @@ class SummaryStep(StepScreen):
         self.state.pong_ok = pong_ok
         _step_summary(console, self.state.written, pong_ok, doctor_lines, no_live=self.state.no_live,
                       configured_this_run=self.state.configured_this_run, final_model=self.state.final_model)
-        self.app.call_from_thread(self._show_text, stream.getvalue())
+        text = stream.getvalue()
+        # Halo 2.0.4 round 4 (deliverable 1): "the merged list is ... reused
+        # by ... the summary" -- the Providers step's own post-keys
+        # enumeration (`WizardState.enumerated_models`'s own docstring),
+        # never recomputed here (a pure read of what already ran).
+        if self.state.enumeration_done:
+            selectable = [m for m in self.state.enumerated_models if isinstance(m, dict) and m.get("ref")]
+            groups = {m.get("group") or m.get("provider") for m in selectable}
+            text += (f"\n\nModel enumeration: {len(selectable)} model(s) across {len(groups)} "
+                     f"provider group(s).")
+            not_reachable = [ln for ln in self.state.enumeration_lines if "not reachable" in ln]
+            if not_reachable:
+                text += "\n  not reachable: " + "; ".join(not_reachable)
+        self.app.call_from_thread(self._show_text, text)
 
     def _show_text(self, text: str) -> None:
         try:

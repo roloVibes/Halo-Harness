@@ -1,0 +1,9 @@
+# Halo 2.0.4 round 4 -- shipped team template ("roles:" shorthand).
+name: quality
+description: The session model everywhere; judge and reviewer pinned to a dedicated agent.
+version: 1
+tags: [starter]
+roles:
+  main: general
+  judge: judge
+  reviewer: reviewer

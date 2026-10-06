@@ -1,0 +1,48 @@
+# Agent bio: the verifier. Runs the three suites with hard timeouts, reads
+# CI results and logs, triages a failure into environment versus product,
+# fixes test-only problems, and reports the RESULT lines. Never changes
+# product behaviour to make a test pass.
+name: verifier
+description: Runs suites and CI checks, triages failures, fixes test-only issues, reports RESULT lines.
+version: 1
+tags: [testing, ci]
+kind: custom
+
+models:
+  preference: cc:claude-sonnet-5
+  fallback: ol:qwen3-coder:30b
+  effort: medium
+  thinking: off
+  context_budget: 0.8
+
+tools:
+  allow: [Read, Grep, Glob, Edit, Bash, WebFetch]
+  deny: [Agent, Write]
+  mcp_servers: []
+  permission_mode: auto
+  rules:
+    - "deny Bash(git push*)"
+
+context:
+  files: [plans/WORKER-RULES.md, plans/CYCLE.md, docs/CONTRIBUTING.md]
+  skills: []
+  memory:
+    enabled: false
+
+limits:
+  max_iterations: 0
+  timeout: 90m
+  max_budget_usd: 4
+  concurrency: 1
+
+output:
+  handoff: structured
+  report_to: boss
+
+environment:
+  worktree: false
+  offline: false
+
+acceptance:
+  prompt: "Name the three suites the CI workflow runs, in one line."
+  expect: non-empty

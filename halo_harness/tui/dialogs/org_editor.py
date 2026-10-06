@@ -81,6 +81,7 @@ class OrgEditor(ModalScreen):
     OrgEditor #org-template-picker { height: 5; margin-bottom: 1; }
     OrgEditor #org-tree-list { height: 1fr; }
     OrgEditor #org-field-instructions { height: 8; }
+    OrgEditor .org-suggest { color: $text-muted; }
     """
 
     def __init__(self, name: str, org: dict, models: list) -> None:
@@ -120,6 +121,7 @@ class OrgEditor(ModalScreen):
                 yield Input(id="org-field-title")
                 yield Static("Role or model (^P to pick a model)")
                 yield Input(id="org-field-role")
+                yield Static("", id="org-field-role-suggest", classes="org-suggest")
                 yield Static("Effort")
                 yield Input(id="org-field-effort")
                 yield Static("Instructions")
@@ -201,7 +203,18 @@ class OrgEditor(ModalScreen):
             # "unknown role" (neither is a real role name). Classified
             # against the live, ACTUALLY-DEFINED role set instead.
             from halo_harness.roles import known_role_names
-            position["role" if role_or_model in known_role_names() else "model"] = role_or_model
+            is_role = role_or_model in known_role_names()
+            position["role" if is_role else "model"] = role_or_model
+            # Halo 2.0.4 round 4 (deliverable 3): typing a ref that isn't
+            # in the enumerated list still works -- same one-line note
+            # `roles_editor.py`'s own `_model_picked` shows, since this
+            # field has no separate "pick" step to hang the note off of
+            # (it's free text; ^P's `ModelPicker` is optional here).
+            if not is_role:
+                known_refs = {m.get("ref") for m in self.models if isinstance(m, dict) and m.get("ref")}
+                if role_or_model not in known_refs:
+                    self.query_one("#org-hint", Static).update(
+                        f"{role_or_model!r} is not in the enumerated list; kept as typed.")
         position["effort"] = effort or None
         position["instructions"] = instructions
         position["reports"] = reports
@@ -221,9 +234,33 @@ class OrgEditor(ModalScreen):
         self.query_one("#org-field-heading", Static).update(f"Editing: {title}")
         self.query_one("#org-field-title", Input).value = title
         self.query_one("#org-field-role", Input).value = position.get("role") or position.get("model") or ""
+        # A stale suggestion line from whatever was typed on the PREVIOUS
+        # position must never linger under this freshly-loaded field.
+        try:
+            self.query_one("#org-field-role-suggest", Static).update("")
+        except Exception:
+            pass
         self.query_one("#org-field-effort", Input).value = position.get("effort") or ""
         self.query_one("#org-field-instructions", TextArea).text = position.get("instructions") or ""
         self.query_one("#org-field-reports", Input).value = ", ".join(position.get("reports") or [])
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        """Halo 2.0.4 round 4 (deliverable 3): "the ref field autocompletes
+        from the list as the user types (prefix and fuzzy, like the
+        picker's filter)" -- this is the org editor's own free-text
+        "Role or model" field, the one ref field in this dialog with no
+        separate modal picker step to narrow the list for it (^P's
+        `ModelPicker` is the OTHER, optional way to fill this same
+        field)."""
+        if event.input.id != "org-field-role":
+            return
+        from halo_harness.tui.dialogs.model_picker import autocomplete_suggestions
+        suggestions = autocomplete_suggestions(self.models, event.value)
+        try:
+            suggest = self.query_one("#org-field-role-suggest", Static)
+        except Exception:
+            return
+        suggest.update(("Matches: " + ", ".join(suggestions)) if suggestions else "")
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         if event.option_list.id == "org-template-picker":

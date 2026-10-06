@@ -1,0 +1,9 @@
+# Halo 2.0.4 round 4 -- shipped team template ("roles:" shorthand).
+name: balanced
+description: Cost-aware defaults -- the session model for most roles; researcher and small drop to a cheaper agent.
+version: 1
+tags: [starter]
+roles:
+  main: general
+  researcher: local-small
+  small: local-small

@@ -1,0 +1,15 @@
+# Halo 2.0.4 round 4 -- shipped team template (the "roles:" shorthand:
+# one assignment per role, expands to the same "agents:" list form on
+# load). Point `local-small`'s own `models.preference` at a real `ol:`
+# model (edit the installed copy under ~/.halo/agents/) to make this
+# genuinely local-first; as shipped it falls through to the session
+# model, same as every other unpinned bio.
+name: local-first
+description: small/researcher/judge on a local-leaning agent when one is configured, main stays the session model.
+version: 1
+tags: [starter, local]
+roles:
+  main: general
+  small: local-small
+  researcher: local-small
+  judge: local-small

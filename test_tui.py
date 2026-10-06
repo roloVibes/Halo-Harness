@@ -9495,6 +9495,44 @@ def test_init_wizard_quality_template_writes_the_expected_role_table(ctx: Ctx):
 
 
 @test
+def test_init_wizard_roles_step_save_migrates_the_legacy_role_table_once(ctx: Ctx):
+    """Deliverable 7 (migration): applying a template on the Roles step
+    is a real wizard "save" -- the first one with a real role table and
+    no "migrated" team template yet builds one, announced in `state.
+    written` (the Summary step's own "what this run changed" list)."""
+    from halo_harness.teams_yaml import list_team_templates, resolve_role_table, resolve_team_template
+    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
+    from halo_harness.theme import set_config_value
+
+    async def body():
+        old, _home = _scoped_state_dir_env("wizard-migrate-")
+        try:
+            set_config_value("model", "or:vendor/strong-model")
+            state = WizardState(cwd=REPO_DIR, step_keys=("roles",), no_live=True)
+            app = InitWizardApp(state)
+            async with app.run_test(size=(100, 45)) as pilot:
+                await pilot.pause(0.1)
+                picker = app.screen.query_one("#wiz-roles-templates")
+                names = [str(picker.get_option_at_index(i).id) for i in range(picker.option_count)]
+                picker.highlighted = names.index("quality")
+                await pilot.pause(0.05)
+                app.screen.query_one("#wiz-roles-use").press()
+                await pilot.pause(0.2)
+                ctx.check(f"a one-line announcement landed in state.written, got {state.written}",
+                          any("migrated" in w for w in state.written))
+                ctx.check("a 'migrated' team template now exists", "migrated" in
+                          list_team_templates(include_templates=False))
+                resolved = resolve_team_template("migrated")
+                role_table, notes = resolve_role_table(resolved)
+                ctx.check(f"it resolves to the SAME judge/reviewer pins the quality preset just wrote, got "
+                          f"{role_table}", role_table.get("judge") == "or:vendor/strong-model"
+                          and role_table.get("reviewer") == "or:vendor/strong-model")
+        finally:
+            _restore_state_dir_env(old)
+    asyncio.run(body())
+
+
+@test
 def test_init_wizard_edit_roles_opens_and_returns_to_the_step(ctx: Ctx):
     """Brief Tests section: "Edit roles... opens the editor and returns
     to the step"."""
@@ -9612,6 +9650,360 @@ def test_init_wizard_local_models_step_add_folder_and_preferred_runtime_persist(
                 await pilot.pause(0.2)
                 ctx.check(f"preferred runtime persisted, got {get_config_value('huggingface.preferred_runtime', default=None)!r}",
                           get_config_value("huggingface.preferred_runtime", default=None) == "mlx_lm")
+        finally:
+            _restore_state_dir_env(old)
+    asyncio.run(body())
+
+
+# ============================================================================
+# Halo 2.0.4 round 4 (deliverables 1-4): the roles wizard's own live
+# enumeration right after the Providers step, the pick list + autocomplete
+# it feeds into the role/org editors (standalone AND outside the wizard),
+# and the Auto tab. Owner report (2026-10-05): "the available models are
+# not listed when you select edit a role" -- traced to `RolesStep.
+# _controller_models` always reading `self.app.controller`, `None` on the
+# standalone wizard app these pilots build (`InitWizardApp`, no live
+# Controller/session at all).
+# ============================================================================
+
+_RW_OR_MODELS_BODY = {"data": [
+    {"id": "deepseek/deepseek-v4.1-flash", "context_length": 128000,
+     "pricing": {"prompt": "0.0000008", "completion": "0.0000024"}},
+]}
+
+_RW_PROVIDER_ENV_NAMES = ("OPENROUTER_API_KEY", "BRIDGE_OPENROUTER_BASE_URL", "DATABRICKS_HOST",
+                          "DATABRICKS_TOKEN", "ANTHROPIC_API_KEY", "HF_TOKEN", "OPENAI_API_KEY",
+                          "EXPLABS_API_KEY", "OLLAMA_HOST", "OLLAMA_API_KEY")
+
+
+def _rw_env_snapshot() -> dict:
+    return {k: os.environ.get(k) for k in _RW_PROVIDER_ENV_NAMES}
+
+
+def _rw_env_restore(old: dict) -> None:
+    for k, v in old.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+
+
+async def _wait_for_wizard(pilot, predicate, n: int = 100) -> None:
+    """The standalone wizard app (`InitWizardApp`) has no `app._drain()`
+    of its own (that's `BridgeApp`-specific, for the live Controller's
+    event queue) -- a plain poll loop, same shape, for the background
+    enumeration worker's own `call_from_thread` callbacks to land.
+
+    `predicate` is checked against `app.screen`'s own TYPE the moment a
+    new screen is pushed -- which can be true a tick or two before that
+    screen's own nested widgets (anything inside an inner `with
+    Vertical()`/`Horizontal()` in its `body()`) finish mounting. Two
+    extra settle pauses after the predicate first passes (confirmed
+    live: a bare single pause still occasionally raced a query against
+    `#wiz-roles-edit` with `NoMatches`) keep every caller from needing
+    its own follow-up pause before querying a freshly-switched screen."""
+    for _ in range(n):
+        await pilot.pause(0.04)
+        if predicate():
+            await pilot.pause(0.08)
+            await pilot.pause(0.08)
+            return
+
+
+@test
+def test_init_wizard_providers_next_enumerates_then_roles_and_orgs_share_the_cache(ctx: Ctx):
+    """Deliverable 1: Next on the Providers step runs ONE live
+    enumeration (one progress line per provider, via `_EnumeratingScreen`)
+    before advancing; the result is cached on `WizardState` and reused by
+    BOTH the Roles step and the Orgs step. Deliverable 2: the role
+    editor's model picker shows the SAME merged, grouped, real catalog,
+    narrowed by typing (the picker's own existing filter -- now actually
+    fed real rows instead of an empty list)."""
+    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, _EnumeratingScreen
+    from halo_harness.tui.dialogs.model_picker import ModelPicker
+    from halo_harness.tui.dialogs.org_editor import OrgEditor
+    from halo_harness.tui.dialogs.roles_editor import RolesEditor
+    from textual.widgets import OptionList
+    from tests.helpers.mock_get_endpoints import MockGetEndpoints
+
+    async def body():
+        old, _home = _scoped_state_dir_env("wizard-enum-share-")
+        old_provider_env = _rw_env_snapshot()
+        mock = MockGetEndpoints({"/api/v1/models": (200, _RW_OR_MODELS_BODY)}).start()
+        try:
+            for k in ("DATABRICKS_HOST", "DATABRICKS_TOKEN", "ANTHROPIC_API_KEY", "HF_TOKEN",
+                      "OPENAI_API_KEY", "EXPLABS_API_KEY"):
+                os.environ.pop(k, None)
+            # `resolve_ollama_hosts` synthesizes a bare default host
+            # whenever `ollama.hosts` config is empty -- on a real dev
+            # box with Ollama actually running (confirmed live on this
+            # build host), the enumeration would otherwise reach a REAL
+            # local daemon and its real installed models. This
+            # codebase's own existing "deliberately unreachable"
+            # convention (tests/test_local_models.py's own `_Env`).
+            os.environ["OLLAMA_HOST"] = "http://127.0.0.1:1"
+            os.environ["OPENROUTER_API_KEY"] = "sk-or-wizard-fake"
+            os.environ["BRIDGE_OPENROUTER_BASE_URL"] = mock.base_url + "/api/v1"
+
+            state = WizardState(cwd=REPO_DIR, step_keys=("providers", "roles", "orgs"), no_live=False)
+            app = InitWizardApp(state)
+            async with app.run_test(size=(100, 45)) as pilot:
+                await pilot.pause(0.2)
+                ctx.check(f"opened on Providers, got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "ProvidersStep")
+                app.screen.query_one("#wiz-next").press()
+                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, _EnumeratingScreen))
+                ctx.check("the enumeration progress screen appeared", isinstance(app.screen, _EnumeratingScreen))
+                await _wait_for_wizard(pilot, lambda: type(app.screen).__name__ == "RolesStep")
+                ctx.check(f"advanced to Roles once enumeration finished, got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "RolesStep")
+                ctx.check(f"the wizard's own enumeration cache is populated, got {state.enumeration_done}",
+                          state.enumeration_done)
+                ctx.check("the real OpenRouter model made it into the cache",
+                          any(m.get("ref") == "or:deepseek/deepseek-v4.1-flash" for m in state.enumerated_models))
+                ctx.check(f"a progress line was recorded per provider, got {state.enumeration_lines}",
+                          any("OpenRouter" in ln for ln in state.enumeration_lines)
+                          and any("Ollama" in ln for ln in state.enumeration_lines))
+
+                roles_screen = app.screen
+                roles_screen.query_one("#wiz-roles-edit").press()
+                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, RolesEditor))
+                editor = app.screen
+                ctx.check("the roles editor opened with the SAME cached rows",
+                          any(m.get("ref") == "or:deepseek/deepseek-v4.1-flash" for m in editor.models))
+
+                editor.query_one("#roles-list", OptionList).highlighted = 0
+                await pilot.press("enter")
+                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, ModelPicker))
+                picker = app.screen
+                option_texts = [str(o.prompt) for o in picker.query_one("#model-list", OptionList).options]
+                # OpenRouter rows are deliberately UNGROUPED (round 3's own
+                # "the OpenRouter group stays flat" call) -- the real,
+                # enumerated row itself is the thing this bug report is
+                # actually about, not a group header.
+                ctx.check(f"the real, enumerated row is a selectable option, got {option_texts}",
+                          any("deepseek/deepseek-v4.1-flash" in t for t in option_texts))
+                await _type(pilot, "deepseek-v4.1")
+                await pilot.pause(0.1)
+                ctx.check(f"typing narrowed to the one real match, got {[m['ref'] for m in picker._filtered]}",
+                          [m["ref"] for m in picker._filtered] == ["or:deepseek/deepseek-v4.1-flash"])
+                await pilot.press("enter")
+                await pilot.pause(0.1)
+                await pilot.press("enter")  # blank effort
+                await pilot.pause(0.1)
+                ctx.check(f"the role picked up the enumerated ref, got {editor.roles.get('orchestrator')}",
+                          editor.roles.get("orchestrator") == "or:deepseek/deepseek-v4.1-flash")
+                saved_template_name = editor.template_name
+                await pilot.press("ctrl+s")  # Save round-trips into the real config files under the scratch home.
+                await _wait_for_wizard(pilot, lambda: app.screen is roles_screen)
+                from halo_harness.roles import load_role_template
+                saved = load_role_template(saved_template_name)
+                ctx.check(f"ctrl+s persisted the picked ref to the real template file, got {saved}",
+                          saved is not None and saved["roles"].get("orchestrator") == "or:deepseek/deepseek-v4.1-flash")
+
+                roles_screen.query_one("#wiz-skip").press()
+                await _wait_for_wizard(pilot, lambda: type(app.screen).__name__ == "OrgsStep")
+                ctx.check(f"advanced to Orgs, got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "OrgsStep")
+                app.screen.query_one("#wiz-orgs-edit").press()
+                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, OrgEditor))
+                ctx.check("the org editor ALSO opened with the SAME cached rows (deliverable 1: "
+                          "reused by the org step too)",
+                          any(m.get("ref") == "or:deepseek/deepseek-v4.1-flash" for m in app.screen.models))
+        finally:
+            mock.stop()
+            _rw_env_restore(old_provider_env)
+            _restore_state_dir_env(old)
+    asyncio.run(body())
+
+
+@test
+def test_roles_editor_picking_a_typed_only_ref_shows_the_not_in_list_note(ctx: Ctx):
+    """Deliverable 2: "a ref not in the list is still accepted with a
+    one-line note." Direct `RolesEditor` construction (a hand-built
+    `models` list) -- this is purely about the EDITOR's own behavior
+    once it already HAS a merged list, independent of how that list got
+    enumerated (covered separately above)."""
+    from halo_harness.tui.dialogs.model_picker import ModelPicker
+    from halo_harness.tui.dialogs.roles_editor import RolesEditor
+    from textual.widgets import OptionList, Static
+
+    models = [{"ref": "or:known/model-one", "provider": "openrouter", "group": "OpenRouter (or:)"}]
+
+    async def body():
+        old, _home = _scoped_state_dir_env("roles-editor-typed-note-")
+        try:
+            fake = FakeController()
+            app = await _mounted(fake)
+            async with app.run_test(size=(100, 40)) as pilot:
+                app.push_screen(RolesEditor("demo", {}, models))
+                await pilot.pause(0.1)
+                editor = app.screen
+                editor.query_one("#roles-list", OptionList).highlighted = 0
+                await pilot.press("enter")
+                await pilot.pause(0.1)
+                ctx.check("the model picker opened", isinstance(app.screen, ModelPicker))
+                await _type(pilot, "totally-unenumerated-ref")
+                await pilot.pause(0.1)
+                ctx.check("nothing in the catalog matches the typed text",
+                          app.screen._filtered == [])
+                await pilot.press("enter")
+                await pilot.pause(0.1)
+                await pilot.press("enter")  # blank effort
+                await pilot.pause(0.1)
+                hint = _static_text(editor.query_one("#roles-hint", Static))
+                ctx.check(f"the one-line note names the exact phrase, got {hint!r}",
+                          "not in the enumerated list; kept as typed" in hint)
+                ctx.check(f"the typed value is still stored, got {editor.roles.get('orchestrator')}",
+                          editor.roles.get("orchestrator") == "totally-unenumerated-ref")
+        finally:
+            _restore_state_dir_env(old)
+    asyncio.run(body())
+
+
+@test
+def test_org_editor_role_field_autocompletes_and_notes_a_typed_only_ref(ctx: Ctx):
+    """Deliverable 3: the org editor's own free-text "Role or model"
+    field -- live suggestions as the user types (`autocomplete_
+    suggestions`, the new shared helper), and the same one-line note on
+    commit when the typed value matches nothing in the list."""
+    from halo_harness.tui.dialogs.org_editor import OrgEditor
+    from textual.widgets import Input, Static
+
+    models = [{"ref": "or:known/sonnet-ish", "provider": "openrouter", "group": "OpenRouter (or:)"},
+              {"ref": "or:known/other-model", "provider": "openrouter", "group": "OpenRouter (or:)"}]
+    org = {"name": "demo", "description": "", "positions": [
+        {"title": "Orchestrator", "role": "orchestrator", "reports": [], "instructions": ""}]}
+
+    async def body():
+        old, _home = _scoped_state_dir_env("org-editor-autocomplete-")
+        try:
+            fake = FakeController()
+            app = await _mounted(fake)
+            async with app.run_test(size=(110, 40)) as pilot:
+                app.push_screen(OrgEditor("demo", org, models))
+                await pilot.pause(0.1)
+                editor = app.screen
+                role_field = editor.query_one("#org-field-role", Input)
+                role_field.focus()
+                await _type(pilot, "sonnet")
+                await pilot.pause(0.1)
+                suggest = _static_text(editor.query_one("#org-field-role-suggest", Static))
+                ctx.check(f"the matching real ref is suggested, got {suggest!r}",
+                          "or:known/sonnet-ish" in suggest)
+
+                for _ in range(len(role_field.value)):
+                    await pilot.press("backspace")
+                await _type(pilot, "nothing-like-it-at-all")
+                await pilot.pause(0.1)
+                # Committing the field (adding a new position, same as
+                # switching rows or saving) is what evaluates membership.
+                await pilot.press("ctrl+n")
+                await pilot.pause(0.1)
+                hint = _static_text(editor.query_one("#org-hint", Static))
+                ctx.check(f"the one-line note fires on commit, got {hint!r}",
+                          "not in the enumerated list; kept as typed" in hint)
+        finally:
+            _restore_state_dir_env(old)
+    asyncio.run(body())
+
+
+@test
+def test_roles_editor_auto_tab_fills_preset_and_gym_fixture_then_adjust_and_save(ctx: Ctx):
+    """Deliverable 4: the Auto tab -- a built-in preset fills every role
+    in one action (ctrl+a), the table shows one line per role, the user
+    can still adjust a row before ctrl+s; a saved `halo gym` result also
+    shows up as its own "From `halo gym propose`" option with real
+    per-role sentences."""
+    from dataclasses import asdict
+    from halo_harness.gym import GymResult, RatioScore, ToolCallAccuracy, save_result
+    from halo_harness.roles import load_role_template
+    from halo_harness.theme import set_config_value
+    from halo_harness.tui.dialogs.model_picker import ModelPicker
+    from halo_harness.tui.dialogs.roles_editor import RolesEditor
+    from textual.widgets import Input, OptionList, Static, TabbedContent
+
+    models = [{"ref": "or:known/model-one", "provider": "openrouter", "group": "OpenRouter (or:)"}]
+
+    async def body():
+        old, home = _scoped_state_dir_env("roles-auto-tab-")
+        try:
+            set_config_value("model", "or:vendor/strong-model")
+            fake = FakeController()
+            app = await _mounted(fake)
+            async with app.run_test(size=(100, 45)) as pilot:
+                app.push_screen(RolesEditor("demo-auto", {}, models))
+                await pilot.pause(0.1)
+                editor = app.screen
+                editor.query_one(TabbedContent).active = "roles-tab-auto"
+                await pilot.pause(0.1)
+                auto_list = editor.query_one("#roles-auto-list", OptionList)
+                keys = [str(o.id) for o in auto_list.options]
+                ctx.check(f"the three built-in presets are offered, got {keys}",
+                          {"balanced", "quality", "local-first"} <= set(keys))
+                ctx.check("no gym fixture saved yet -- no gym-proposed option", "gym-proposed" not in keys)
+                auto_list.highlighted = keys.index("quality")
+                await pilot.press("ctrl+a")
+                await pilot.pause(0.1)
+                ctx.check(f"quality pinned judge+reviewer to the session model, got {editor.roles}",
+                          editor.roles.get("judge") == "or:vendor/strong-model"
+                          and editor.roles.get("reviewer") == "or:vendor/strong-model")
+                ctx.check("Apply switched back to the Roles tab so the table is visible to adjust",
+                          editor.query_one(TabbedContent).active == "roles-tab-form")
+
+                # "lets the user adjust" -- change judge's own model by hand.
+                role_list = editor.query_one("#roles-list", OptionList)
+                names = [str(o.id) for o in role_list.options]
+                role_list.highlighted = names.index("judge")
+                await pilot.press("enter")
+                await pilot.pause(0.1)
+                await _type(pilot, "or:known/model-one")
+                await pilot.pause(0.1)
+                await pilot.press("enter")  # picks the one filtered match
+                await pilot.pause(0.1)
+                await pilot.press("enter")  # blank effort
+                await pilot.pause(0.1)
+                ctx.check(f"judge was adjusted by hand after the auto-fill, got {editor.roles.get('judge')}",
+                          editor.roles.get("judge") == "or:known/model-one")
+                await pilot.press("ctrl+s")
+                await pilot.pause(0.1)
+                saved = load_role_template("demo-auto")
+                ctx.check(f"the adjusted table was saved, got {saved['roles'] if saved else saved}",
+                          saved is not None and saved["roles"].get("judge") == "or:known/model-one"
+                          and saved["roles"].get("reviewer") == "or:vendor/strong-model")
+
+            # Now with a real gym fixture on this same scratch home.
+            state_dir = home / ".halo"
+            save_result(state_dir, asdict(GymResult(
+                model="tinyllama", model_ref="ol:tinyllama", host_name="default",
+                host_url="http://127.0.0.1:11434",
+                tool_call_accuracy=ToolCallAccuracy(attempted=6, valid_first_try=5),
+                edit_success=RatioScore(attempted=6, succeeded=5),
+                context_recall=RatioScore(attempted=4, succeeded=3),
+                instruction_adherence=RatioScore(attempted=6, succeeded=5),
+                tokens_per_second=42.0,
+            )))
+            fake2 = FakeController()
+            app2 = await _mounted(fake2)
+            async with app2.run_test(size=(100, 45)) as pilot:
+                app2.push_screen(RolesEditor("demo-auto-2", {}, models))
+                await pilot.pause(0.1)
+                editor2 = app2.screen
+                editor2.query_one(TabbedContent).active = "roles-tab-auto"
+                await pilot.pause(0.1)
+                auto_list2 = editor2.query_one("#roles-auto-list", OptionList)
+                keys2 = [str(o.id) for o in auto_list2.options]
+                ctx.check(f"the gym-proposed option now appears, got {keys2}", "gym-proposed" in keys2)
+                auto_list2.highlighted = keys2.index("gym-proposed")
+                await pilot.pause(0.1)
+                preview = _static_text(editor2.query_one("#roles-auto-preview", Static))
+                ctx.check(f"the preview shows a real composite-score sentence, got {preview!r}",
+                          "composite" in preview and "ol:tinyllama" in preview)
+                await pilot.press("ctrl+a")
+                await pilot.pause(0.1)
+                ctx.check(f"applying it fills the supporting roles with the local model, got {editor2.roles}",
+                          editor2.roles.get("small") == "ol:tinyllama"
+                          or editor2.roles.get("researcher") == "ol:tinyllama")
         finally:
             _restore_state_dir_env(old)
     asyncio.run(body())

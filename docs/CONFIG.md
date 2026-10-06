@@ -203,6 +203,8 @@ the files above.
 | `~/.halo/sessions/<slug>/<id>/shadow/`, `shadow-index.jsonl` | `/rewind`'s git-shadow snapshots |
 | `<state_dir>/routes.json` | optional, proxy-era per-box defaults (`aliases`, `default`/`small` model, per-model `profiles`) -- still read by the harness's own default-model resolution chain; see `routes.example.json` |
 | `.halo/team.json` (project) or `~/.halo/team.json` | shared Databricks team preset -- see `docs/DATABRICKS.md` |
+| `~/.halo/agents/<name>.yaml` (`.halo/agents/<name>.yaml` project) | an agent BIO -- models/tools/context/limits/output/environment/acceptance for one named agent; see [AGENTS.md](AGENTS.md) |
+| `~/.halo/teams/<name>.yaml` (`.halo/teams/<name>.yaml` project) | a TEAM TEMPLATE ("lineup") -- assigns agent bios to roles/positions; `team` (below) names the active one; see [AGENTS.md](AGENTS.md) |
 
 ### `~/.halo/config.json` keys
 
@@ -212,6 +214,7 @@ directly by the features that own them:
 | Key | Default | Set by |
 |---|---|---|
 | `model` | unset (built-in default applies) | `halo init`, `halo config set model ...` |
+| `team` | unset (no active team template) | `halo teams use <name>` -- see [AGENTS.md](AGENTS.md) |
 | `theme` | auto-detected from terminal truecolor support | `/theme`, `halo config set theme ...` |
 | `images` | `"inline"` | `--no-inline-images` overrides per-run |
 | `intro` | `true` | `--no-intro` overrides per-run; set `false` to turn off the launch intro for good |

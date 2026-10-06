@@ -1,0 +1,49 @@
+# Agent bio: the orchestrator. Writes briefs, spawns one implementer at a
+# time, judges progress by the working tree, verifies, commits, reads CI,
+# runs live checks, records decisions in plans/. Never does the
+# implementation itself when a worker can.
+name: orchestrator
+description: Plans rounds, briefs workers, verifies and commits; the only agent that writes plans/ and pushes.
+version: 1
+tags: [orchestration, planning]
+kind: main
+
+models:
+  preference: cc:claude-fable-5-1
+  fallback: cc:claude-opus-5-5
+  effort: high
+  thinking: native
+  context_budget: 0.75
+  lean_prompt: false
+
+tools:
+  allow: [Read, Grep, Glob, Edit, Write, Bash, Agent, SendMessage, CronCreate, WebFetch]
+  deny: []
+  mcp_servers: []
+  permission_mode: auto
+  rules: []
+
+context:
+  files: [CLAUDE.md, plans/CYCLE.md, plans/WORKER-RULES.md, plans/ROADMAP.md, plans/STATUS.md, plans/HANDOFF.md]
+  skills: []
+  memory:
+    enabled: true
+    namespace: halo-dev
+
+limits:
+  max_iterations: 0
+  timeout: 3h
+  max_budget_usd: 10
+  concurrency: 1
+
+output:
+  handoff: structured
+  report_to: user
+
+environment:
+  worktree: false
+  offline: false
+
+acceptance:
+  prompt: "List the next three rounds from plans/ROADMAP.md in one line each."
+  expect: non-empty

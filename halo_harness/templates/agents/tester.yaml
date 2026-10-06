@@ -1,0 +1,19 @@
+# Halo 2.0.4 round 4 -- shipped agent bio: a test-runner subagent.
+name: tester
+description: >-
+  Runs the relevant test suites and any live checks a brief calls for;
+  reports pass/fail counts and the first failure verbatim.
+version: "1.0"
+tags: [starter, subagent]
+kind: subagent
+models: {}
+tools: {}
+context:
+  skills: []
+limits:
+  max_iterations: 40
+output: {}
+environment: {}
+acceptance:
+  prompt: "Reply with exactly one word: ok"
+  expect: ok

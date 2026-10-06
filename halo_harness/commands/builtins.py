@@ -672,18 +672,66 @@ def _cmd_agents(args: str, facade: HeadlessFacade) -> str:
     sorted, `name -- description` -- pulled straight off the live
     session's own `agent_runtime.agents` (the SAME catalog `Agent(subagent_
     type=...)` resolves against) when one is running, so this never drifts
-    from what a sub-agent call would actually see."""
+    from what a sub-agent call would actually see.
+
+    Halo 2.0.4 round 4 (deliverable 6): a SECOND section lists every
+    agent BIO (`halo_harness/agents_yaml.py`, `halo agents show <name>`
+    for the full YAML) -- a bio describes what an agent IS (models,
+    tools, context, limits); it's a DIFFERENT, additive concept from the
+    `.claude/agents/*.md` sub-agent definitions above (never merged into
+    them), assigned to a role/position by a team template
+    (`halo_harness/teams_yaml.py`, `/teams`)."""
     session = getattr(facade, "session", None)
     agents = getattr(getattr(session, "agent_runtime", None), "agents", None)
     if not agents:
         from halo_harness.config.agents_md import discover_agents
         agents = discover_agents(facade.cwd, settings=facade.settings)
-    if not agents:
-        return "No agent definitions found (not even the built-ins -- this shouldn't happen)."
-    lines = ["Available sub-agents:"]
-    for name in sorted(agents):
-        spec = agents[name]
-        lines.append(f"  {name} ({spec.source}) -- {spec.description}")
+    lines = []
+    if agents:
+        lines.append("Available sub-agents:")
+        for name in sorted(agents):
+            spec = agents[name]
+            lines.append(f"  {name} ({spec.source}) -- {spec.description}")
+    else:
+        lines.append("No sub-agent definitions found (not even the built-ins -- this shouldn't happen).")
+    try:
+        from halo_harness.agents_yaml import list_agent_bios, resolve_agent_bio
+        bio_names = list_agent_bios(cwd=facade.cwd)
+    except Exception:
+        bio_names = []
+    if bio_names:
+        lines.append("")
+        lines.append("Agent bios (`halo agents show <name>` for the full YAML):")
+        for name in bio_names:
+            bio = resolve_agent_bio(name, cwd=facade.cwd)
+            desc = (bio.get("description") if bio else None) or "(failed to load)"
+            kind = (bio.get("kind") if bio else None) or "custom"
+            lines.append(f"  {name} ({kind}) -- {desc}")
+    return "\n".join(lines)
+
+
+def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
+    """Halo 2.0.4 round 4 (deliverable 7): lists every TEAM TEMPLATE
+    ("lineup") -- a named set of agent-bio assignments to roles/
+    positions (`halo_harness/teams_yaml.py`). The active one (`team:` in
+    config.json, `halo teams use <name>`) is marked; `halo teams show
+    <name>`/`/teams show <name>` prints the full resolved role table."""
+    from halo_harness.teams_yaml import ensure_builtin_team_templates, list_team_templates, resolve_team_template
+    from halo_harness.theme import get_config_value
+    try:
+        ensure_builtin_team_templates()
+        names = list_team_templates(cwd=facade.cwd)
+    except Exception:
+        names = []
+    if not names:
+        return "No team templates found (not even a shipped one -- this shouldn't happen)."
+    active = get_config_value("team", default=None)
+    lines = ["Team templates (`halo teams show <name>`/`halo teams use <name>`):"]
+    for name in names:
+        template = resolve_team_template(name, cwd=facade.cwd)
+        marker = " [active]" if name == active else ""
+        desc = (template.get("description") if template else None) or "(failed to load)"
+        lines.append(f"  {name}{marker} -- {desc}")
     return "\n".join(lines)
 
 
@@ -1504,7 +1552,8 @@ _BUILTIN_SPECS = {
     "status": ("core", "Show session status", None, _cmd_status),
     "config": ("core", "Show or set a config value", "[key=value]", _cmd_config),
     "skills": ("core", "List discovered skills", None, _cmd_skills),
-    "agents": ("core", "List available sub-agents", None, _cmd_agents),
+    "agents": ("core", "List available sub-agents and agent bios", None, _cmd_agents),
+    "teams": ("core", "List team templates (lineups) and the active one", None, _cmd_teams),
     "roles": ("core", "Show the role table, or manage role templates/set a role",
               "[templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),

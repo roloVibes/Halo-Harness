@@ -1,0 +1,25 @@
+# Halo 2.0.4 round 4 -- shipped agent bio: a cheap/local-leaning subagent.
+# `models.preference` is deliberately left UNSET here (a static,
+# shipped file can't know which `ol:`/local model THIS box has) -- the
+# "local-first" team template's own per-assignment override, or a hand
+# edit of this file (`halo agents new mine --from local-small`), is
+# where a real local ref belongs. See docs/AGENTS.md.
+name: local-small
+description: >-
+  A cheap/local-leaning agent for small, low-stakes supporting work --
+  point `models.preference` at a local `ol:`/`hf:local:` model when one
+  is configured.
+version: "1.0"
+tags: [starter, subagent, local]
+kind: subagent
+models: {}
+tools: {}
+context:
+  skills: []
+limits:
+  max_iterations: 20
+output: {}
+environment: {}
+acceptance:
+  prompt: "Reply with exactly one word: ok"
+  expect: ok

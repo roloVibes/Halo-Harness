@@ -13,6 +13,10 @@ dependencies = [
     "textual==8.2.8",
     "rich>=14,<16",
     "mcp>=2.2,<3",
+    # Halo 2.0.4 round 4: agent bios (halo_harness/agents_yaml.py) and team
+    # templates (halo_harness/teams_yaml.py) -- small, pure-Python, no
+    # transitive deps of its own.
+    "pyyaml>=6,<7",
 ]
 
 [project.optional-dependencies]
@@ -77,7 +81,8 @@ include = ["halo_harness*"]
 # them here a non-editable `pip install .`/wheel build would silently
 # drop every *.json under providers/, same class of bug package-data
 # already exists to prevent for styles.tcss.
-halo_harness = ["tui/*.tcss", "providers/*.json", "providers/catalog/*.json"]
+halo_harness = ["tui/*.tcss", "providers/*.json", "providers/catalog/*.json",
+                "templates/agents/*.yaml", "templates/teams/*.yaml"]
 
 [tool.setuptools.dynamic]
 version = { attr = "halo_harness.__version__" }

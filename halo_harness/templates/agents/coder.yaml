@@ -1,0 +1,21 @@
+# Halo 2.0.4 round 4 -- shipped agent bio: an implementer subagent.
+name: coder
+description: >-
+  Implements a brief: writes and edits code, runs the relevant tests.
+  No model is pinned -- a team template's own assignment usually
+  overrides `models.preference` to something cheaper/local for this role.
+version: "1.0"
+tags: [starter, subagent]
+kind: subagent
+models: {}
+tools:
+  deny: []
+context:
+  skills: []
+limits:
+  max_iterations: 80
+output: {}
+environment: {}
+acceptance:
+  prompt: "Reply with exactly one word: ok"
+  expect: ok

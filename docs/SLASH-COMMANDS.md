@@ -211,6 +211,18 @@ Lists every discovered sub-agent definition (built-ins plus
 `.claude/agents`/`~/.claude/agents`/`--agents`/managed/plugin), pulled from
 the live session's own agent runtime when one is attached so it never
 drifts from what an `Agent(subagent_type=...)` call would actually see.
+Halo 2.0.4 round 4: a second section lists every **agent bio**
+(`halo_harness/agents_yaml.py`, `halo agents show <name>` for the full
+YAML) -- a different, additive concept describing what an agent IS
+(models/tools/context/limits), assigned to a role by a **team template**.
+See [AGENTS.md](AGENTS.md).
+
+### `/teams`
+Halo 2.0.4 round 4: lists every installed **team template** ("lineup" --
+`halo_harness/teams_yaml.py`, `~/.halo/teams/<name>.yaml`), marking the
+active one (`team` in config.json, `halo teams use <name>`). `halo teams
+show <name>` (CLI only today) prints the full resolved role table. See
+[AGENTS.md](AGENTS.md).
 
 ### `/roles [templates|save <name>|load <name>|new <name>|edit <name>|show <name>|set <name> <model> [effort]]`
 V2c (H15), extended Halo 2.0.2: bare `/roles` shows the resolved role table
@@ -223,6 +235,14 @@ only (print mode names that instead); `set` is the long form of `/role`
 below. Round 5b part 2: a VRAM-aware role redirected to the main model
 (`docs/MODELS.md`'s "VRAM-aware role defaults") shows `(same as main:
 fits beside it: no)` next to that role's own source. See `docs/ROLES.md`.
+
+Halo 2.0.4 round 4: `edit <name>` (and the wizard's own "Edit roles...")
+now picks a model from the SAME merged, enumerated, grouped list `/model`
+shows (`docs/ROLES.md`'s own "Enumeration after the keys step" section),
+with autocomplete and a one-line note on a typed-only ref, plus a second
+**Auto** tab that fills every role from a preset, an installed team
+template, or `halo gym propose` in one action (`ctrl+a`), adjustable
+before `ctrl+s`.
 
 ### `/role <name> <model> [effort]`
 Halo 2.0.2: sets ONE role for THIS session only -- mutates the live
@@ -256,6 +276,11 @@ form, for a past session with no "current" one to resume. A position with
 (accept, edit the instruction and re-run, or stop) before its own parent
 continues; `dontAsk` mode (and `halo org run/resume --yes`) accepts every
 gate automatically instead. See `docs/ORGS.md`.
+
+Halo 2.0.4 round 4: `edit <name>`'s own "Role or model" field shows live
+autocomplete suggestions from the same merged, enumerated list as it's
+typed, and a one-line note if the committed value matches nothing in it
+(still accepted either way).
 
 ### `/setup [roles|orgs]`
 Halo 2.0.2 round 7: opens the init wizard's own Roles/Organizations setup
