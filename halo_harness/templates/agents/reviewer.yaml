@@ -1,0 +1,50 @@
+# Agent bio: the reviewer. Read-only. One pass per area (local stack,
+# routes and dialects, cross-cutting), every finding with file:line, the
+# verified behaviour, the fix and the test to add, graded critical / major
+# / minor. Three instances run in parallel for a release review.
+name: reviewer
+description: Read-only release review per area; findings with file, line, verified behaviour, fix and pinning test.
+version: 1
+tags: [review, quality]
+kind: reviewer
+
+models:
+  preference: cc:claude-opus-5-5
+  fallback: cc:claude-sonnet-5
+  effort: high
+  thinking: native
+  context_budget: 0.85
+
+tools:
+  allow: [Read, Grep, Glob, Bash]
+  deny: [Edit, Write, Agent, WebFetch, WebSearch]
+  mcp_servers: []
+  permission_mode: auto
+  rules:
+    - "deny Bash(git commit*)"
+    - "deny Bash(git push*)"
+
+context:
+  files: [plans/WORKER-RULES.md, plans/2.0.3-release-notes-for-fix-pass.md]
+  skills: []
+  memory:
+    enabled: false
+
+limits:
+  max_iterations: 0
+  timeout: 2h
+  max_budget_usd: 8
+  concurrency: 3
+
+output:
+  handoff: structured
+  output_schema: review-findings
+  report_to: boss
+
+environment:
+  worktree: false
+  offline: false
+
+acceptance:
+  prompt: "Name the three grades a review finding can carry, in one line."
+  expect: non-empty

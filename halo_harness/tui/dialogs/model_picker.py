@@ -89,6 +89,48 @@ def _grouped(models: "list[dict]") -> "list[tuple[str, list[dict]]]":
     return [(key, buckets[key]) for key in order]
 
 
+def autocomplete_suggestions(models: "list[dict]", query: str, *, limit: int = 6) -> "list[str]":
+    """Halo 2.0.4 round 4 (deliverable 2/3): the "pick list plus
+    autocomplete" every free-text ref field (the org editor's "Role or
+    model" input; any future one) narrows against, as `query` is typed --
+    `models` is the SAME merged, enumerated list `ModelPicker` itself
+    renders (the brief's own "do not duplicate the picker's data
+    source"), so a suggestion shown here is guaranteed pickable.
+
+    Prefix matches sort first (closest to what a person typing expects),
+    then every OTHER substring match, both case-insensitive; an empty
+    `query` suggests nothing (there is nothing to narrow yet -- the full
+    list is what the pick-list/picker screen itself is for). A query that
+    matches nothing in the catalog falls back to `difflib.get_close_
+    matches` (a near-miss typo, e.g. "sonet" -> "sonnet") -- still ADVISORY
+    only, never a restriction: typing a ref that matches neither still
+    works elsewhere in this same editor, with a one-line note instead of
+    a refusal.
+
+    This is a NEW, additive function -- `ModelPicker._refresh_list`'s own
+    filter (bare substring, no prefix-first ordering, a different "no
+    match" fuzzy fallback shape) is deliberately left untouched rather
+    than rebuilt on top of this one, so this function's existence never
+    risks changing that already-tested dialog's own behavior."""
+    query_low = (query or "").strip().lower()
+    refs = [m.get("ref") for m in models if isinstance(m, dict) and m.get("ref")]
+    if not query_low:
+        return []
+    prefix = [r for r in refs if r.lower().startswith(query_low)]
+    other = [r for r in refs if query_low in r.lower() and r not in prefix]
+    ordered = prefix + other
+    if ordered:
+        return ordered[:limit]
+    near = difflib.get_close_matches(query_low, [r.lower() for r in refs], n=limit, cutoff=0.4)
+    low_to_orig = {r.lower(): r for r in refs}
+    out = []
+    for n in near:
+        orig = low_to_orig.get(n)
+        if orig and orig not in out:
+            out.append(orig)
+    return out
+
+
 class ModelPicker(ModalScreen):
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=False),

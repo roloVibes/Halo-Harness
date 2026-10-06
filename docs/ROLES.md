@@ -54,6 +54,64 @@ step prints a one-line `/roles` hint. The round-1 form itself
 form's own roles, never merges) plus a `Save as template...` action
 (a COPY under a new name, distinct from `ctrl+s`'s save-to-this-name).
 
+## Enumeration after the keys step (2.0.4 round 4)
+
+Owner report: "the available models are not listed when you select edit
+a role... there aren't models to pick from and/or autocomplete." Leaving
+the wizard's Providers step (Next) now runs ONE live, off-thread
+enumeration of every provider `/model` knows (OpenRouter, Anthropic,
+Databricks, Hugging Face, OpenAI, Experiential, the Claude Code and Codex
+subscriptions, every configured Ollama host including a LAN one, and any
+registered local server) -- with the credentials just typed into any tab
+this run (saved or not) merged over the saved config, never written to
+disk by the enumeration itself. A small screen shows one progress line
+per provider as it answers ("`OpenRouter (or:): 42 model(s) cached`",
+"`Databricks (dbx:): not reachable`", ...); a provider that never answers
+is capped at a bounded wait and reported "not reachable" rather than
+hanging the step. The merged, grouped list this produces
+(`halo_harness.providers.model_enumeration.build_model_rows` -- the exact
+same function `Controller.list_models()`/`/model` call, never a second
+copy of it) is cached for the rest of this wizard run and reused by the
+Roles step, the Orgs step and the Summary step; leaving the Providers
+step again (Back, then Next) re-enumerates.
+
+The round-1 form (`/roles edit <name>`, and the wizard's own "Edit
+roles...") picks a model for a row through that SAME merged, grouped
+list (`ModelPicker`, gym score shown beside a model when one exists);
+typing into its filter narrows the list as you type (prefix and
+substring, case-insensitive); typing something that matches nothing in
+the list still works on Enter, with a one-line note ("`'foo' is not in
+the enumerated list; kept as typed.`") rather than a refusal. The org
+editor's own free-text "Role or model" field shows the same live
+narrowing suggestions under the field as you type, and the same one-line
+note once the value is committed. Outside the wizard, `/roles edit`/
+`/org edit` already read the live session's own `Controller.
+list_models()` -- unaffected by any of this.
+
+### The Auto tab
+
+The round-1 form gained a second tab, **Auto**, alongside the roles
+table itself: pick one of the three built-in presets above, or -- once
+`halo gym` has saved at least one result on this machine -- **"From
+`halo gym propose`"**, which uses that data's own per-role composite
+score instead of the fixed preset rules. The preview shows one line per
+role (the gym-proposed option's own lines are full sentences naming the
+score and the raw measurements behind it, e.g. "`small -> ol:qwen3:8b:
+composite 0.82 from tool call accuracy 0.90, ...`"). `ctrl+a` (or the
+Apply button) fills the roles table from the highlighted option --
+REPLACES it, never merges, same rule the template picker already
+follows -- switches back to the Roles tab so the result is visible, and
+lets you adjust any row by hand before `ctrl+s`. `roles.auto_fill_
+options` (`halo_harness/roles.py`) is the one place both this tab and
+`/roles` read the preset/gym-proposal list from.
+
+See [AGENTS.md](AGENTS.md) for the separate, additive **team template**
+layer (2.0.4 round 4): a team template is a named lineup that assigns an
+*agent* (from the agent bio roster) to each role, resolved down through
+that agent's own bio to a concrete model -- the Auto tab lists an
+installed team template exactly like a built-in preset, resolving its
+assignments to a role table the same way.
+
 ## The ten roles
 
 | Role | Default meaning when unset |

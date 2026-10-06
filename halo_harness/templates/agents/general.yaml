@@ -1,0 +1,22 @@
+# Halo 2.0.4 round 4 -- shipped agent bio (a starting point for `halo
+# agents new <name> --from general`, and the default "main" position in
+# the shipped team templates). See docs/AGENTS.md for every field.
+name: general
+description: >-
+  General-purpose, orchestrator-capable agent. No model is pinned here --
+  it uses the session's own default model unless a team template's own
+  assignment overrides it.
+version: "1.0"
+tags: [starter, main]
+kind: main
+models: {}
+tools: {}
+context:
+  skills: []
+limits:
+  max_iterations: 60
+output: {}
+environment: {}
+acceptance:
+  prompt: "Reply with exactly one word: ok"
+  expect: ok

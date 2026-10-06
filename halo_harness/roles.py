@@ -887,3 +887,89 @@ def ensure_builtin_role_presets(*, default_model: Optional[str] = None, state_di
     for name, data in presets.items():
         if not (d / f"{name}.json").exists():
             save_role_template(name, data, state_dir=state_dir)
+
+
+# ---------------------------------------------------------------------------
+# Halo 2.0.4 round 4 (deliverable 4): the "Auto" tab both the wizard's own
+# role editor and `/roles` share -- "one key fills every role from a
+# preset ... or from `halo gym propose` when gym data exists, shows the
+# resulting table with one sentence per choice, lets the user adjust,
+# then Save." Defined ONCE here (the brief's own words) so neither caller
+# hand-rolls its own preset list.
+# ---------------------------------------------------------------------------
+
+def _preset_lines(roles: dict) -> "list[str]":
+    """One line per role a preset actually set -- `"role: ref (effort)"`,
+    the same shape `RolesStep._update_preview`/`RolesEditor._row_text`
+    already render for a template, reused here so the Auto tab's own
+    table reads exactly like every other role-table preview in this
+    harness. `["(every role resolves to the session model)"]` when the
+    preset set nothing at all (e.g. no cheaper/local model was ever
+    found) -- never an empty, silent-looking list."""
+    if not roles:
+        return ["(every role resolves to the session model)"]
+    lines = []
+    for role_name, value in sorted(roles.items()):
+        model, effort = role_value_parts(value)
+        lines.append(f"{role_name}: {model}" + (f" ({effort})" if effort else ""))
+    return lines
+
+
+def auto_fill_options(*, default_model: Optional[str] = None, state_dir=None) -> "list[dict]":
+    """`[{"key", "label", "description", "roles", "lines"}, ...]` -- one
+    entry per `BUILTIN_ROLE_PRESET_NAMES` preset (`compute_builtin_role_
+    presets`'s own data, `_preset_lines` above for its one-line-per-role
+    table), PLUS one more keyed `"gym-proposed"` -- labelled "From `halo
+    gym propose`" -- only when `halo gym` already has saved results on
+    THIS machine (`gym.iter_results`); its own `lines` are `gym_propose.
+    propose_role_table`'s real one-sentence-per-role reasoning (composite
+    score and the raw measurements behind it), not the generic preset
+    table. This is the Auto tab's single source of truth: the wizard's
+    Auto tab, `RolesEditor`'s own "Auto fill" button and `/roles auto`
+    all call this ONE function (brief: "Presets are defined once in
+    roles.py") instead of each hand-rolling the preset list."""
+    from halo_harness.config.paths import bridge_home
+    resolved_dir = state_dir if state_dir is not None else bridge_home()
+    out: "list[dict]" = []
+    presets = compute_builtin_role_presets(default_model=default_model, state_dir=resolved_dir)
+    for name in BUILTIN_ROLE_PRESET_NAMES:
+        data = presets.get(name) or {"description": "", "roles": {}}
+        roles = data.get("roles") or {}
+        out.append({"key": name, "label": name, "description": data.get("description") or "",
+                    "roles": roles, "lines": _preset_lines(roles)})
+    try:
+        from halo_harness.gym import iter_results
+        results = iter_results(resolved_dir)
+    except Exception:
+        results = []
+    if results:
+        from halo_harness.gym_propose import propose_role_table
+        roles_dict, sentences = propose_role_table(results, state_dir=resolved_dir)
+        out.append({"key": "gym-proposed", "label": "From `halo gym propose`",
+                    "description": "Proposed from this machine's own gym scores.",
+                    "roles": roles_dict, "lines": sentences or ["(no usable gym data for any role yet)"]})
+    # Halo 2.0.4 round 4 (deliverables 6-7, the agent-bio/team-template
+    # layer): any INSTALLED team template also fills the role table,
+    # through its own agent-bio assignments (`teams_yaml.resolve_role_
+    # table`) -- additive to the three presets above, never replacing
+    # them (a team template is a SEPARATE, user-editable YAML lineup;
+    # see docs/AGENTS.md). `ensure_builtin_team_templates` copies the
+    # shipped starters in on first use, the SAME "copy once, never
+    # overwrite" rule the three presets above already follow.
+    try:
+        from halo_harness import teams_yaml
+        teams_yaml.ensure_builtin_team_templates(state_dir=resolved_dir)
+        for name in teams_yaml.list_team_templates(state_dir=resolved_dir, include_templates=False):
+            template = teams_yaml.resolve_team_template(name, state_dir=resolved_dir)
+            if template is None:
+                continue
+            role_table, notes = teams_yaml.resolve_role_table(template, state_dir=resolved_dir)
+            lines = [f"{k}: {v if isinstance(v, str) else v.get('model')}" for k, v in sorted(role_table.items())]
+            lines.extend(notes)
+            out.append({"key": f"team:{name}", "label": f"Team: {name}",
+                        "description": template.get("description") or "", "roles": role_table,
+                        "lines": lines or ["(no role resolved a model yet -- edit the agent bios' own "
+                                           "models.preference)"]})
+    except Exception:
+        pass
+    return out

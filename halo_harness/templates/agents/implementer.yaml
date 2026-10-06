@@ -1,0 +1,52 @@
+# Agent bio: the implementer. One at a time on the tree. Reads the brief
+# and the rules, edits in place, runs only the touched test modules plus
+# test_bridge, hands back RESULT LINES / FILES TOUCHED / WHAT YOU FOUND.
+# Never commits, never pushes, never reads a key file.
+name: implementer
+description: Builds one round from a brief; touched modules plus the core suite; structured hand-back; no commits.
+version: 1
+tags: [implementation]
+kind: subagent
+
+models:
+  preference: cc:claude-sonnet-5
+  fallback: or:qwen/qwen3-coder
+  effort: medium
+  thinking: off
+  context_budget: 0.8
+  lean_prompt: false
+
+tools:
+  allow: [Read, Grep, Glob, Edit, Write, Bash]
+  deny: [Agent, WebFetch, WebSearch]
+  mcp_servers: []
+  permission_mode: auto
+  rules:
+    - "deny Bash(git commit*)"
+    - "deny Bash(git push*)"
+    - "deny Bash(git filter-repo*)"
+
+context:
+  files: [plans/WORKER-RULES.md]
+  skills: []
+  memory:
+    enabled: false
+
+limits:
+  max_iterations: 0
+  timeout: 2h
+  max_budget_usd: 6
+  concurrency: 1
+
+output:
+  handoff: structured
+  report_to: boss
+
+environment:
+  worktree: false
+  offline: false
+  env: []
+
+acceptance:
+  prompt: "Open plans/WORKER-RULES.md and state the verification a worker runs before hand-back, in one line."
+  expect: non-empty

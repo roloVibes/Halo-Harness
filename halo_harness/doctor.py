@@ -1787,6 +1787,16 @@ def cmd_doctor(argv: list) -> int:
     # run_checks/_check_providers_enabled) so the provider-enablement line
     # never disagrees with what a real session launched against this same
     # --cwd/--settings would resolve -- matches halo providers' own flags.
+    # Halo 2.0.4 round 4 (deliverable 6/8): validates every agent bio
+    # (`agents_yaml.py`) -- a shape check, same as `halo agents validate`
+    # -- then runs each one's own `acceptance` block against a REAL
+    # model call (`agents_doctor.py`; `--mock` below is the test-only
+    # seam) and validates the ACTIVE team template (every referenced
+    # agent actually exists).
+    parser.add_argument("--agents", action="store_true",
+                         help="Validate every agent bio and the active team template, then run each bio's "
+                             "own acceptance check against a real model call")
+    parser.add_argument("--mock", action="store_true", help="With --agents: never call a real model (tests only)")
     parser.add_argument("--cwd", default=None, metavar="DIR",
                          help="Resolve settings/credentials as if run from DIR")
     parser.add_argument("--settings", default=None, metavar="JSON_OR_PATH",
@@ -1804,6 +1814,43 @@ def cmd_doctor(argv: list) -> int:
     migration_note = ensure_providers_migrated()
     if migration_note and not args.json:
         print(migration_note)
+    if args.agents:
+        from halo_harness.agents_doctor import check_active_team, run_all_acceptance
+        from halo_harness.agents_yaml import list_agent_bios, load_agent_bio_raw, validate_agent_bio
+        print("halo doctor --agents")
+        print("  Validates every agent bio's shape and the active team template, then runs each bio's "
+              "own acceptance prompt against a real model call (--mock: never call one, tests only) -- "
+              "real requests spend tokens and take a moment.")
+        shape_problems = []
+        for name in list_agent_bios(cwd=doctor_cwd):
+            raw = load_agent_bio_raw(name, cwd=doctor_cwd)
+            for p in (validate_agent_bio(raw, name=name, cwd=doctor_cwd) if raw is not None else [f"{name}: not found"]):
+                shape_problems.append(f"{name}: {p}")
+        team_problems = check_active_team(cwd=doctor_cwd)
+        call_fn = (lambda _ref, _prompt: "") if args.mock else None
+        results = run_all_acceptance(cwd=doctor_cwd, call_fn=call_fn)
+        if args.json:
+            print(json.dumps({"shape_problems": shape_problems, "team_problems": team_problems,
+                              "acceptance": [{"name": n, "ok": ok, "message": m} for n, ok, m in results]},
+                             indent=2))
+        else:
+            for p in shape_problems:
+                print(f"  SHAPE: {p}")
+            for p in team_problems:
+                print(f"  TEAM: {p}")
+            ran = skipped = failed = 0
+            for name, ok, message in results:
+                if message == "no acceptance block":
+                    skipped += 1
+                    continue
+                ran += 1
+                if not ok:
+                    failed += 1
+                print(f"  {name}: {message}")
+            print(f"RESULT: {ran - failed}/{ran} bio(s) passed acceptance ({skipped} with no acceptance block); "
+                  f"{len(shape_problems)} shape problem(s), {len(team_problems)} active-team problem(s).")
+        return 0 if not shape_problems and not team_problems and all(ok for _n, ok, m in results
+                                                                       if m != "no acceptance block") else 1
     if args.local:
         from halo_harness.config.paths import bridge_home
         from halo_harness.doctor_local import format_acceptance_lines, run_local_acceptance_check

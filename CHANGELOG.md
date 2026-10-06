@@ -137,6 +137,79 @@ version.
   prefix table (which also picked up the `oai:`/`cx:` rows it had been
   missing since those routes shipped).
 
+### Roles wizard
+
+Owner report: "the available models are not listed when you select edit a
+role... there aren't models to pick from and/or autocomplete." Leaving
+the init wizard's Providers step (Next) now runs ONE live, off-thread
+enumeration of every provider `/model` knows (OpenRouter, Anthropic,
+Databricks, Hugging Face, OpenAI, Experiential, the Claude Code/Codex
+subscriptions, every Ollama host including a LAN one, local servers) --
+with the credentials just typed into any tab this run (saved or not)
+merged over the saved config, never written to disk by the enumeration
+itself; one progress line per provider as it answers, a bounded wait so
+a provider that never answers ("not reachable") never blocks the step.
+The merged, grouped list (`providers/model_enumeration.py::
+build_model_rows` -- the SAME function `Controller.list_models()`/
+`/model` now delegates to) is cached for the rest of the wizard run and
+reused by the Roles step, the Orgs step and the Summary step.
+
+- **Pick list and autocomplete**: the round-1 role editor (`/roles edit`,
+  the wizard's own "Edit roles...") and the org editor's free-text "Role
+  or model" field both pick from that same merged, grouped, gym-scored
+  list; typing narrows it (prefix/substring); a typed-only ref that
+  matches nothing in it still works, with a one-line note. `/roles edit`/
+  `/org edit` outside the wizard were already reading the live session's
+  own `Controller.list_models()` -- unaffected.
+- **The Auto tab**: a second tab in the role editor fills every role in
+  one action (`ctrl+a`) from a built-in preset (`local-first`/`balanced`/
+  `quality`), an installed TEAM TEMPLATE (below), or `halo gym propose`
+  when this machine has saved gym data -- shows one line per role,
+  switches back to the table so any row can still be adjusted by hand
+  before `ctrl+s`.
+
+### Agent bios and team templates
+
+Owner: "each role should have a yaml file that can be editable too."
+Two additive layers (`docs/AGENTS.md`): an **agent bio**
+(`halo_harness/agents_yaml.py`, `~/.halo/agents/<name>.yaml`) describes
+what one named agent IS -- models/tools/context/limits/output/
+environment/acceptance, `extends:` for inheritance; a **team template**
+("lineup", `halo_harness/teams_yaml.py`, `~/.halo/teams/<name>.yaml`)
+ASSIGNS bios to roles (`agents:`, any number of assignments, several may
+share a role, exactly one `role: main`; `roles: {...}` shorthand sugar
+expands to the same shape) and positions (`org:`), with `delegation`/
+`routing`/`budget`/`escalation`/`pipeline`/`permissions`/`context`
+sections stored and shown (not yet enforced -- the 2.0.5 Governor's
+job). Applying a template fills the EXISTING role table/org dict through
+two resolution functions -- `RolesEditor`/`OrgEditor`/the Auto tab need
+no changes to actually use one.
+
+- Shipped starter bios (`general`/`coder`/`tester`/`judge`/`local-small`
+  plus this project's own real development-cycle roster --
+  `orchestrator`/`implementer`/`verifier`/`reviewer`/`researcher`/
+  `release-manager`/`watchdog`) and team templates (`local-first`/
+  `balanced`/`quality`, plus `halo-dev-cycle` -- this project's own cycle,
+  seven assignments, the flagship multi-agent example).
+- Import/export both ways with Claude Code's own `.claude/agents/*.md`
+  frontmatter (`agents_md_bridge.py`) -- lossy by design; `docs/AGENTS.md`
+  tables exactly which fields round-trip.
+- `halo agents list|show|validate|new <name> [--from BIO]|edit|export
+  [--claude-md]|import [--claude-md]` and `halo teams list|show|
+  validate|new <name> [--from TEMPLATE]|use <name>|export|import`;
+  `/agents` (extended with a bios section) and a new `/teams` in the
+  TUI; `halo doctor --agents` validates every bio's shape and the ACTIVE
+  team template, then runs each bio's own acceptance prompt against a
+  real one-shot model call.
+- The legacy role table migrates into a generated team template named
+  `migrated` plus one bio per distinct model, on the first wizard save
+  that sees one with no `migrated` template yet -- announced in one line,
+  never runs again once it exists.
+- **Dependency**: `pyyaml` added to pyproject (small, pure Python) --
+  every bio/team-template YAML read or write goes through it.
+- **Docs**: `docs/AGENTS.md` (new), linked from `docs/CONFIG.md`,
+  `docs/SLASH-COMMANDS.md`, `docs/ROLES.md`.
+
 ## [2.0.3.1] - 2026-10-05
 - **The Claude Code bridge server starts inside a job object that forbids
   breakaway**: `spawn_server_detached` retries without

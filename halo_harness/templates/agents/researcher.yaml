@@ -1,0 +1,49 @@
+# Agent bio: the researcher. Docs-only rounds that may run in parallel
+# with an implementation round: reads vendor docs and the repo, writes one
+# new file under docs/harness/ with URLs and measured facts, never edits
+# production code.
+name: researcher
+description: Docs-only research rounds; one new file under docs/harness with sources and measured facts; no code edits.
+version: 1
+tags: [research, docs]
+kind: researcher
+
+models:
+  preference: cc:claude-sonnet-5
+  fallback: or:deepseek/deepseek-chat
+  effort: medium
+  thinking: off
+  context_budget: 0.8
+
+tools:
+  allow: [Read, Grep, Glob, Write, WebFetch, WebSearch, Bash]
+  deny: [Edit, Agent]
+  mcp_servers: []
+  permission_mode: auto
+  rules:
+    - "deny Bash(git commit*)"
+    - "deny Bash(git push*)"
+
+context:
+  files: [plans/WORKER-RULES.md]
+  skills: []
+  memory:
+    enabled: false
+
+limits:
+  max_iterations: 0
+  timeout: 90m
+  max_budget_usd: 4
+  concurrency: 2
+
+output:
+  handoff: summary
+  report_to: boss
+
+environment:
+  worktree: false
+  offline: false
+
+acceptance:
+  prompt: "Name the folder where research rounds write their one new file, in one line."
+  expect: non-empty

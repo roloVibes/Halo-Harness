@@ -1,0 +1,21 @@
+# Halo 2.0.4 round 4 -- shipped agent bio: a judge/decision subagent.
+name: judge
+description: >-
+  Makes a bounded yes/no or multiple-choice call (e.g. an approval gate,
+  a routing decision) from the context it's given -- short, decisive
+  replies, never a long essay.
+version: "1.0"
+tags: [starter, subagent, judge]
+kind: judge
+models:
+  effort: low
+tools: {}
+context:
+  skills: []
+limits:
+  max_iterations: 10
+output: {}
+environment: {}
+acceptance:
+  prompt: "Reply with exactly one word: ok"
+  expect: ok

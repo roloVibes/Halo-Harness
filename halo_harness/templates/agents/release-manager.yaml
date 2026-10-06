@@ -1,0 +1,49 @@
+# Agent bio: the release manager. Runs scripts/release.py once the suites
+# and the live check are green: version, changelog date, release commit,
+# annotated tag, push, install refresh on the build host and over ssh on
+# the owner's named remotes. Nothing else.
+name: release-manager
+description: Tags a release with scripts/release.py after green suites and a live check; refreshes installs.
+version: 1
+tags: [release]
+kind: custom
+
+models:
+  preference: cc:claude-sonnet-5
+  fallback: cc:claude-haiku-4-5
+  effort: low
+  thinking: off
+  context_budget: 0.6
+
+tools:
+  allow: [Read, Bash]
+  deny: [Edit, Write, Agent, WebFetch, WebSearch]
+  mcp_servers: []
+  permission_mode: auto
+  rules:
+    - "deny Bash(git push --force*)"
+    - "deny Bash(git filter-repo*)"
+
+context:
+  files: [plans/CYCLE.md, CHANGELOG.md]
+  skills: []
+  memory:
+    enabled: false
+
+limits:
+  max_iterations: 0
+  timeout: 30m
+  max_budget_usd: 1
+  concurrency: 1
+
+output:
+  handoff: summary
+  report_to: boss
+
+environment:
+  worktree: false
+  offline: false
+
+acceptance:
+  prompt: "Run `python scripts/release.py 0.0.0 --dry-run` and report the step list in one line."
+  expect: non-empty

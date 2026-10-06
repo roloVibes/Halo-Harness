@@ -1,0 +1,98 @@
+# Halo team template: the development cycle that built 2.0.3 and 2.0.4.
+# One orchestrator briefs and verifies; one implementer at a time on the
+# tree; a verifier runs the suites and triages; a reviewer does the
+# three-pass release review; a researcher writes docs-only rounds in
+# parallel; a release manager tags and refreshes installs; a watchdog checks
+# progress by the working tree. See plans/CYCLE.md for the written cycle.
+name: halo-dev-cycle
+description: Brief, build, verify, review, commit, CI, live check, release -- one implementation worker at a time, research in parallel.
+version: 1
+tags: [development, release, halo]
+
+agents:
+  - agent: orchestrator
+    role: main
+    as: boss
+  - agent: implementer
+    role: subagent
+    as: worker
+    instances: 1
+    use_for: [implement, fix, patch, feature]
+  - agent: researcher
+    role: researcher
+    as: research
+    instances: 2
+    use_for: [research, docs, investigate]
+  - agent: verifier
+    role: custom
+    as: verify
+    use_for: [verify, suites, ci, triage]
+  - agent: reviewer
+    role: reviewer
+    as: review
+    instances: 3
+    use_for: [review, audit, findings]
+  - agent: release-manager
+    role: custom
+    as: release
+    use_for: [release, tag, install]
+  - agent: watchdog
+    role: custom
+    as: watchdog
+    use_for: [watch, progress]
+
+delegation:
+  mode: by-skill
+  max_parallel: 2
+  max_depth: 1
+  handoff: structured
+  forward_text: false
+
+routing:
+  implement: worker
+  fix: worker
+  research: research
+  verify: verify
+  review: review
+  release: release
+  watch: watchdog
+  default: boss
+
+budget:
+  max_budget_usd: 20
+  max_total_turns: 400
+  max_wall_time: 3h
+  agents_may_exceed: false
+
+escalation:
+  triggers: [tool_failures, context_overflow]
+  to: cc:claude-opus-5-5
+  ask: false
+  allow_fallbacks: true
+
+context:
+  files: [CLAUDE.md, plans/CYCLE.md, plans/WORKER-RULES.md, plans/ROADMAP.md, plans/STATUS.md]
+  skills: []
+  memory:
+    namespace: halo-dev
+    writers: [boss]
+
+permissions:
+  mode: auto
+  rules: []
+  offline: false
+
+pipeline:
+  stages:
+    - {name: brief, role: main, gate: required}
+    - {name: implement, role: subagent, gate: required}
+    - {name: verify, role: verify, gate: required}
+    - {name: review, role: reviewer, gate: optional}
+    - {name: commit, role: main, gate: required}
+    - {name: ci, role: verify, gate: required}
+    - {name: live-check, role: main, gate: optional}
+    - {name: release, role: release, gate: optional}
+
+acceptance:
+  prompt: "Read plans/STATUS.md and state the current round in one line."
+  expect: non-empty

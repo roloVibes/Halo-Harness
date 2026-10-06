@@ -1,0 +1,50 @@
+# Agent bio: the watchdog. Judges a running worker by the working tree
+# (changed-file count and newest file times), never by transcript size;
+# sends one resume message after fifteen quiet minutes, asks for a respawn
+# after ten more; kills a test command running past its window. Cheap and
+# read-only.
+name: watchdog
+description: Checks a worker's progress by the working tree and nudges or asks for a respawn; read-only, cheap.
+version: 1
+tags: [monitoring]
+kind: custom
+
+models:
+  preference: cc:claude-haiku-4-5
+  fallback: ol:qwen3-coder:30b
+  effort: low
+  thinking: off
+  context_budget: 0.4
+
+tools:
+  allow: [Read, Bash, SendMessage]
+  deny: [Edit, Write, Agent, WebFetch, WebSearch]
+  mcp_servers: []
+  permission_mode: auto
+  rules:
+    - "deny Bash(git commit*)"
+    - "deny Bash(git push*)"
+
+context:
+  files: [plans/CYCLE.md]
+  skills: []
+  memory:
+    enabled: false
+
+limits:
+  max_iterations: 6
+  timeout: 5m
+  max_budget_usd: 0.2
+  concurrency: 1
+
+output:
+  handoff: summary
+  report_to: boss
+
+environment:
+  worktree: false
+  offline: false
+
+acceptance:
+  prompt: "Report the number of changed files in `git status --short` and the newest file time under halo_harness/, in one line."
+  expect: non-empty
