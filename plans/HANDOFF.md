@@ -78,11 +78,15 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
 
 ## RESUMED 2026-10-06 ~09:40 (owner bought API credits)
 
-The partial work of the two stopped workers below is in `git stash` as
-`stash@{0}` "wip: round 4 Governor + 4b cc Linux steer, partial"; the tree
-is clean. Order now: round 2b (wizard and roles fixes, brief
-`plans/briefs/2.0.5/round-2b-wizard-roles-fixes.md`, SHIPPED 9d8eb5a) -> round 2c (wizard interaction model + the Team step) SHIPPED 97d8c87; round 4b cc: steer on Linux SHIPPED 9ec1fdd -> round 2d (the old name off the front pages + the README gallery, IN FLIGHT from ~13:25; files: README.md, docs/INSTALL.md, docs/harness/INSTALL.md, docs/HANDBOOK.md, docs/COMMANDS.md, pyproject description, the installers, scripts/screenshots.py, docs/screenshots/, tests/test_screenshots.py, the banner in the intro pool and --version) -> round
-4b (pop or restart from the stash) -> round 4 -> round 5 -> review -> tag.
+The partial work of the two stopped workers was in `git stash` as
+`stash@{0}` "wip: round 4 Governor + 4b cc Linux steer, partial" -- **the
+stash is GONE (dropped sometime before ~19:00 2026-10-06; round 4b was
+re-shipped clean as 9ec1fdd, and round 4's Governor restarts from the
+brief, not the stash)**. Order now: round 2b SHIPPED 9d8eb5a -> round 2c
+SHIPPED 97d8c87 -> round 4b SHIPPED 9ec1fdd -> round 2d SHIPPED c23e5de
+(the old name off the front pages + banner + the README gallery, 2026-10-06
+~21:05) -> round 4 (Governor, restart clean from the brief) -> round 5 ->
+review -> tag.
 
 ## STOPPED 2026-10-06 ~09:10 at the owner's request (token budget 99%)
 
