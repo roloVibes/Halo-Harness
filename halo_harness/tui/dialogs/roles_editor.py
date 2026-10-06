@@ -20,6 +20,9 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, OptionList, Static, TabbedContent, TabPane
 from textual.widgets.option_list import Option
 
+from halo_harness.tui.dialogs.autocomplete import AutocompleteDropdown, AutocompleteInput, hide_dropdown, \
+    refresh_dropdown
+
 
 class RolesEditor(ModalScreen):
     BINDINGS = [
@@ -95,6 +98,15 @@ class RolesEditor(ModalScreen):
                     # `template_name`, never the one picked from here.
                     yield Static("Start from a template (replaces the roles below):", classes="dialog-subtitle")
                     yield OptionList(id="roles-template-picker")
+                    # Round 2c (deliverable 3, rule 3): a quick inline
+                    # model autocomplete for the HIGHLIGHTED role below --
+                    # Enter here assigns it (the same effort prompt the
+                    # modal `ModelPicker` flow already shows); Ctrl+P on a
+                    # highlighted role still opens that full picker too.
+                    yield Static("Quick model filter for the highlighted role below:", classes="dialog-subtitle")
+                    yield AutocompleteInput(placeholder="Type to filter models...", id="roles-quick-filter",
+                                             option_list_id="roles-quick-filter-ac")
+                    yield AutocompleteDropdown(id="roles-quick-filter-ac")
                     yield OptionList(id="roles-list")
                     yield Input(placeholder="", id="roles-effort-input")
                     with Horizontal(id="roles-save-as-row"):
@@ -233,7 +245,33 @@ class RolesEditor(ModalScreen):
         if event.option_list.id == "roles-auto-list" and event.option_id:
             self._update_auto_preview(str(event.option_id))
 
+    def _highlighted_role_name(self) -> "str | None":
+        try:
+            option_list = self.query_one("#roles-list", OptionList)
+        except Exception:
+            return None
+        if option_list.highlighted is None:
+            return None
+        opt = option_list.get_option_at_index(option_list.highlighted)
+        return str(opt.id) if opt.id else None
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "roles-quick-filter":
+            refresh_dropdown(self.query_one("#roles-quick-filter-ac"), self.models, event.value)
+
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        if event.option_list.id == "roles-quick-filter-ac":
+            ref = str(event.option_id)
+            role_name = self._highlighted_role_name()
+            hide_dropdown(event.option_list)
+            try:
+                quick_filter = self.query_one("#roles-quick-filter", Input)
+                quick_filter.value = ""
+            except Exception:
+                pass
+            if role_name:
+                self._model_picked(role_name, ref)
+            return
         if event.option_list.id == "roles-template-picker":
             if event.option_id:
                 self._apply_template(str(event.option_id))

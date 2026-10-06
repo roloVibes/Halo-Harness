@@ -36,17 +36,23 @@ def _print_both() -> int:
     return rc1 or rc2
 
 
-_STEP_KEYS = {"roles": ("roles",), "orgs": ("orgs",), "": ("roles", "orgs", "summary")}
-_NO_TTY_FALLBACK = {"roles": _print_roles_table, "orgs": _print_orgs_list, "": _print_both}
+# Halo 2.0.5 round 2c (rule 11): "team" reaches the SAME merged step
+# "roles" already aliases to (`init_wizard.STEP_FACTORIES`'s own alias
+# map) -- added here too so `halo setup team` and `halo setup roles` are
+# equally spelled, even though "roles" alone was already enough to keep
+# working unchanged.
+_STEP_KEYS = {"team": ("team",), "roles": ("roles",), "orgs": ("orgs",), "": ("roles", "orgs", "summary")}
+_NO_TTY_FALLBACK = {"team": _print_roles_table, "roles": _print_roles_table, "orgs": _print_orgs_list,
+                     "": _print_both}
 
 
 def cmd_setup(argv: list) -> int:
     sub = argv[0] if argv else ""
     if sub in ("-h", "--help"):
-        print("usage: halo setup [roles|orgs]")
+        print("usage: halo setup [team|roles|orgs]")
         return 0
     if sub not in _STEP_KEYS:
-        print(f"halo setup: unknown subcommand {sub!r} (known: roles, orgs)", file=sys.stderr)
+        print(f"halo setup: unknown subcommand {sub!r} (known: team, roles, orgs)", file=sys.stderr)
         return 2
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return _NO_TTY_FALLBACK[sub]()

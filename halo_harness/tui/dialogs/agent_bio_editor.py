@@ -407,22 +407,26 @@ class AgentBioEditor(ModalScreen):
                 text = "" if src is None else str(src)
             placeholder = label if has_own or not self.extends_from else f"(inherited: {text or '(unset)'})"
             display_text = text if (has_own or not self.extends_from) else ""
-            widget = Input(value=display_text, placeholder=placeholder, id=wid,
-                            disabled=bool(self.extends_from and not override_default), compact=True)
+            disabled = bool(self.extends_from and not override_default)
             if kind == "modelref":
-                # Deliverable 3: the preferred/fallback row shares ONE line
+                # Round 2c (deliverable 3, rule 3): an autocomplete
+                # dropdown under the field, filtered by what's typed --
+                # Ctrl+P/Ctrl+F still open the full `ModelPicker`. Deliverable
+                # 3 (round 2): the preferred/fallback row shares ONE line
                 # with its own "Pick..." button (never a separate row below
                 # it) -- the biggest single saving toward "the model fields
-                # are visible on open at 80x24" (the pilot-measured fix:
-                # before this, the bio editor's own field+button stacking
-                # alone pushed the preference field some 10+ rows below the
-                # fold on an 80x24 terminal).
+                # are visible on open at 80x24".
+                from halo_harness.tui.dialogs.autocomplete import AutocompleteDropdown, AutocompleteInput
+                ac_id = f"{wid}-ac"
+                widget = AutocompleteInput(value=display_text, placeholder=placeholder, id=wid,
+                                            disabled=disabled, compact=True, option_list_id=ac_id)
                 with Horizontal(classes="bio-modelref-row"):
                     yield widget
                     yield Button(f"Pick... (ctrl+{'p' if key == 'preference' else 'f'})", id=f"{wid}-pick",
                                  compact=True)
+                yield AutocompleteDropdown(id=ac_id)
             else:
-                yield widget
+                yield Input(value=display_text, placeholder=placeholder, id=wid, disabled=disabled, compact=True)
             if suffix == "limit-timeout":
                 yield Static("", id=f"{wid}-hint", classes="bio-hint")
             if suffix == "limit-budget":
@@ -462,7 +466,37 @@ class AgentBioEditor(ModalScreen):
         except Exception:
             pass
 
-    def on_input_changed(self, _event) -> None:
+    def on_input_changed(self, event) -> None:
+        fid = event.input.id or ""
+        if fid in ("bio-pref", "bio-fallback"):
+            self._refresh_modelref_dropdown(fid, event.value)
+        self._refresh_preview()
+
+    def _refresh_modelref_dropdown(self, field_id: str, query: str) -> None:
+        """Rule 3: typing into the preference/fallback field narrows the
+        SAME bio-aware candidate list Ctrl+P's `ModelPicker` would open
+        (`filter_models_for_bio_with_reason` -- never a second, divergent
+        data source)."""
+        from halo_harness.tui.dialogs.autocomplete import refresh_dropdown
+        try:
+            dropdown = self.query_one(f"#{field_id}-ac")
+        except Exception:
+            return
+        candidates, _reason = filter_models_for_bio_with_reason(self.models, self._collect_form())
+        refresh_dropdown(dropdown, candidates, query)
+
+    def on_option_list_option_selected(self, event) -> None:
+        oid = event.option_list.id or ""
+        if oid not in ("bio-pref-ac", "bio-fallback-ac"):
+            return
+        from halo_harness.tui.dialogs.autocomplete import apply_pick
+        field_id = oid[: -len("-ac")]
+        try:
+            field = self.query_one(f"#{field_id}", Input)
+        except Exception:
+            return
+        apply_pick(field, event.option_list, str(event.option_id))
+        field.focus()
         self._refresh_preview()
 
     def on_text_area_changed(self, _event) -> None:

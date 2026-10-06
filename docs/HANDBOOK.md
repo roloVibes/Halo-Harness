@@ -13,32 +13,39 @@ halo init                    # pick a provider, set credentials, doctor, live po
 halo                         # full-screen TUI
 ```
 
-1. **`halo init`** walks one wizard, Back/Skip/Next (Finish on the last
-   step) in the footer, nothing exiting to the console in between:
-   **Providers** (one tab each for Databricks/OpenRouter/the Anthropic
-   API/your Claude subscription/Ollama/Hugging Face/TypeSafe -- paste the
-   credential a tab is missing, add a local/LAN host or server where that
-   applies, Save, repeat for another, any tab Skippable); **Default
-   model** (a picker across everything just
-   configured); **Permission mode** (`auto` recommended); **Theme** (six
-   built-ins, a live preview); **Agents** (Halo 2.0.5 round 2: list/
-   create/edit/duplicate/delete agent bios, or import one from a
-   `.claude/agents/*.md` file); **Roles and lineup** (a "Roles: on / off"
-   switch at the top -- off hides everything below it and shows one
-   sentence, every role uses the default model -- above a Lineup pane
-   first (pick, edit, or build a new lineup assigning bios or plain
-   models to roles, plus a free-text "how the pieces work together") and
-   a "Legacy roles" pane with the original three-presets form, never
-   removed); **Organizations** (a switch, default off, plus a default
+1. **`halo init`** opens on **Quick setup vs. Full setup** (Halo 2.0.5
+   round 2c, `docs/WIZARD.md`'s own interaction model -- a step rail
+   across the top of everything below, Ctrl+Left/Ctrl+Right walking it
+   from anywhere): Quick (the highlighted default) is just **Providers**
+   then **Default model** then **Summary** -- every role, including a
+   sub-agent halo spawns on its own, uses that one model. **Full setup**
+   walks every step, Back/Skip/Next (Finish on the last step) in the
+   footer, nothing exiting to the console in between: **Providers** (one
+   tab each for Databricks/OpenRouter/the Anthropic API/your Claude
+   subscription/Ollama/Hugging Face/TypeSafe -- paste the credential a
+   tab is missing, add a local/LAN host or server where that applies,
+   Save, repeat for another, any tab Skippable); **Default model** (a
+   picker across everything just configured); **Permission mode** (`auto`
+   recommended); **Theme** (six built-ins, a live preview); **Team**
+   (Halo 2.0.5 round 2c: a "Custom roles: off / on" switch -- off shows
+   one sentence and nothing else; on shows **Lineups** (pick, edit, or
+   build a new lineup assigning bios or plain models to roles) and
+   **Agents** (list/create/edit/duplicate/delete agent bios, or import
+   one from a `.claude/agents/*.md` file) side by side, Enter opens
+   either kind's own editor, Ctrl+N/Ctrl+D/Del act on whichever pane is
+   focused); **Organizations** (a switch, default off, plus a default
    org); **Linux fixes** (skipped when nothing needs it); **Summary**
-   (what was written, doctor, a live "pong"). `--step <key-or-number>`
-   (e.g. `--step agents`) jumps straight to any one step. Reach Roles/
-   Organizations again later with `/setup roles`/`/setup orgs` or `halo
-   setup roles`/`halo setup orgs`, or the Agents/lineup forms any time
-   with `/agents`/`/teams` or `halo agents|teams new|edit --form` -- see
-   `docs/COMMANDS.md`'s `init`/`setup`/`agents`/`teams` sections and
-   `docs/AGENTS.md`'s own wizard section for exactly what each step reads
-   and writes.
+   (what was written, doctor, a live "pong", and a "Change" row that
+   jumps back into any step this run used). `--step <key-or-number>`
+   (e.g. `--step team`, `--step agents`/`--step roles` kept as aliases)
+   jumps straight to any one step, skipping the Quick/Full choice.
+   Reach Team/Organizations again later with `/setup team`/`/setup orgs`
+   or `halo setup team`/`halo setup orgs`, or the Agents/lineup forms any
+   time with `/agents`/`/teams` or `halo agents|teams new|edit --form` --
+   see `docs/WIZARD.md` for the full ten-rule interaction model and chord
+   table, `docs/COMMANDS.md`'s `init`/`setup`/`agents`/`teams` sections,
+   and `docs/AGENTS.md`'s own wizard section for exactly what each step
+   reads and writes.
 2. **The first session** opens with an empty prompt line and a status bar
    showing the model, permission mode, and MCP server count. Type a prompt
    and press `Enter`.

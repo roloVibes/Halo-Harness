@@ -341,23 +341,35 @@ runtime calls), so an imported bio is guaranteed to match what a real
 
 ## The wizard: the Agents step and the two editor forms (Halo 2.0.5 round 2)
 
+Halo 2.0.5 round 2c merged the wizard STEP described here into the
+"Team" step (see "Halo 2.0.5 round 2c: the Team step" below) -- the bio
+form/`AgentsListScreen`/lineup editor THEMSELVES are unchanged; only the
+step class that used to list bios on its own is gone, folded into
+`team_step.TeamStep`'s right-hand pane. The round-2 text below (bio
+fields, "New from...", the two model-picker sources) stays accurate for
+the form itself; read "the Agents step" as "the Team step's Agents pane".
+
 Three NEW modules, never grown into `tui/dialogs/init_wizard.py` itself
 (the house size convention; that file only gained the registration/pane
 lines): `tui/dialogs/agent_bio_editor.py` (`AgentBioEditor`, the bio
-form), `tui/dialogs/agents_step.py` (`AgentsStep` -- the wizard step --
-and `AgentsListScreen`, the standalone counterpart `/agents`/`halo
-agents --form` open), `tui/dialogs/lineup_editor.py` (`LineupEditor` and
+form), `tui/dialogs/agents_step.py` (`_AgentsListMixin` -- the list +
+actions `team_step.TeamStep`'s own Agents pane mixes in -- and
+`AgentsListScreen`, the standalone counterpart `/agents`/`halo agents
+--form` open), `tui/dialogs/lineup_editor.py` (`LineupEditor` and
 `TeamsListScreen`, the same split for lineups). ONE form module each --
 the wizard, `/agents`/`/teams`, and `halo agents|teams new|edit --form`
 all push the SAME screen class, so a save behaves identically everywhere
 it's reached from.
 
-**The Agents step** (`"agents"` in `init_wizard.ALL_STEP_KEYS`, right
-before "roles") lists every reachable bio (`agents_step.bio_rows`: name,
-scope -- project/user/template --, description, preferred model) with
-New, New from..., Edit, Duplicate (a shipped bio copied into user scope
-under the SAME name, so it shadows the read-only original -- never
-edited in place), Delete, and Import (every `.claude/agents/*.md`
+**The Agents pane** (round 2c: the right-hand half of the wizard's
+"Team" step, `"team"` in `init_wizard.ALL_STEP_KEYS`; round 2's own
+standalone `"agents"` step key is kept only as a `--step`/`step_keys`
+alias that still lands on the SAME Team step -- see `docs/WIZARD.md`)
+lists every reachable bio (`agents_step.bio_rows`: name, scope --
+project/user/template --, description, preferred model) with New, New
+from..., Edit, Duplicate (a shipped bio copied into user scope under the
+SAME name, so it shadows the read-only original -- never edited in
+place), Delete, and Import (every `.claude/agents/*.md`
 `config/agents_md.discover_agents` finds that isn't already a bio name,
 converted in one action, one result line each).
 
@@ -415,6 +427,42 @@ overrides"), matching `resolve_agent_bio`'s own key-by-key merge
 EXACTLY (never a coarser per-section toggle). A bio with no `extends` at
 all shows no toggles -- every field is simply its own, same as before
 this round.
+
+## Halo 2.0.5 round 2c: the Team step
+
+`plans/ROADMAP.md` "Added 2026-10-06 ~10:15" (rolo: "the part when it
+gets to roles just gets very confusing ... maybe that screen should have
+both templates and agents in one window ... as well as that toggle on or
+off at the top"). `tui/dialogs/team_step.py` (`TeamStep`, a NEW module --
+`init_wizard.py` gained only the registration lines) replaces round 2's
+own `AgentsStep` and round 2b's "Roles and lineup" step with ONE screen:
+a **"Custom roles: off / on"** switch at the top (`roles.enabled`, same
+switch/same config key `docs/ROLES.md`'s own "Roles on/off is one switch"
+section describes); off shows one sentence -- "Halo uses `<default
+model>` for everything, including the sub-agents it spawns on its own,
+and still asks you questions when it needs to" -- and nothing else; on
+shows two panes, **Lineups** (left, `lineup_editor.team_rows`, the ACTIVE
+one marked with a check, Enter opens `LineupEditor`, Ctrl+N new, Ctrl+D
+duplicates into user scope under the same name) and **Agents** (right,
+`_AgentsListMixin` reused VERBATIM from `agents_step.py` -- the exact
+same list/actions `AgentsListScreen`'s own `/agents` dialog uses), side
+by side at 120 columns or wider and stacked behind a small pane switch
+below that. A plain Next applies whichever lineup is highlighted in the
+Lineups pane (`TeamStep.commit`/`_commit_lineup`, the direct successor
+of round 2b's own "a plain Next applies the visible Roles pane" rule) --
+the ONLY thing left in this step that still needs the highlight-is-
+selection, no-confirm-button treatment (`docs/WIZARD.md` rule 1); every
+other action here (Enter on a bio or a lineup) opens that item's own
+editor instead (rule 2).
+
+`STEP_FACTORIES["team"]` is the real registration; `STEP_FACTORIES
+["agents"]`/`["roles"]` are plain aliases of the SAME factory (never a
+second class) -- `--step agents`/`--step roles`, the pre-existing
+`/setup roles`/`halo setup roles`, and the round 2c-added `/setup team`/
+`halo setup team` all land on this one screen. `AgentsStep` itself (the
+class) no longer exists -- `tui/dialogs/agents_step.py` keeps only
+`_AgentsListMixin`/`AgentsListScreen`/`bio_rows` and friends, which
+`TeamStep` and the standalone `/agents` dialog both build on.
 
 ## Two sources for a role slot (Halo 2.0.5 round 2)
 

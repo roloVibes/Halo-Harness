@@ -149,6 +149,56 @@ version.
   injectable run function); `--no-github-release` skips it. README's
   badge fixed to 2.0.4 (was stuck at 2.0.1).
 
+### Wizard interaction model (round 2c)
+
+`docs/WIZARD.md` (new) names the ten rules every wizard screen now
+follows; linked from `docs/HANDBOOK.md`'s own walkthrough (rewritten
+around the two items below) and `docs/COMMANDS.md`.
+
+- **Quick setup by default**: the wizard's first screen offers "Quick
+  setup" (Providers -> Default model -> Summary -- every role, including
+  a spawned sub-agent, ends up on that one model) and "Full setup"
+  (every step); Quick is the highlighted default, no confirm button
+  needed. Full setup's own Summary gained "Change" jumps, one row per
+  step this run actually used.
+- **One "Team" step** replaces the "Agents" step and "Roles and lineup"
+  step: a single "Custom roles: off / on" switch; off shows one sentence
+  and nothing else; on shows Lineups (the active one checked, Enter
+  edits, Ctrl+N/Ctrl+D) and Agents (Enter edits, Ctrl+N/Ctrl+D/Del) side
+  by side at 120 columns, stacked behind a pane switch at 80. `--step
+  team` reaches it; `--step agents`/`--step roles` (and `/setup`/`halo
+  setup`'s own "team"/"roles" spellings) stay as aliases for the same
+  screen. Turning custom roles off never disables delegation or the
+  question card -- the shipped `standard` lineup still gives every role,
+  including an unconfigured sub-agent, the default model.
+- **A step rail** across the top of every step (current highlighted,
+  done ticked); Ctrl+Left/Ctrl+Right walk it from anywhere, replacing the
+  round-7 Ctrl+N/Ctrl+B (freed for "new"/"duplicate" below).
+- **Autocomplete under a model field**: a filtered dropdown as you type,
+  Enter picks, Escape closes it without leaving the screen underneath --
+  the agent bio editor's preferred/fallback fields, the org editor's
+  "Role or model", the lineup grid's "Agent or model" (suggests bio
+  names, what that field actually holds), and a new quick filter above
+  the role-template editor's own role list. Ctrl+P still opens the full
+  picker everywhere.
+- **Rule 1 (highlight is selection) and rule 7 (focus on open)** now
+  apply to the default-model, permission-mode, theme and organization
+  pickers too, with the same check mark the lineup pane already had;
+  every step's own header is now one sentence naming its current choice
+  ("Default model: `<ref>`. Enter to change.").
+- A found-and-fixed Textual behaviour, documented in
+  `tui/dialogs/agents_step.py`/`step_rail.py`: `DOMNode._merge_bindings`
+  only reads `BINDINGS` off a class that is itself a `DOMNode` subclass
+  -- a plain mixin's `BINDINGS` list is silently never bound. The new
+  chords are plain tuples (`AGENTS_LIST_BINDINGS`, `STEP_RAIL_BINDINGS`)
+  each concrete screen splices into its own `BINDINGS`; the action
+  methods stay on the mixins, unaffected (ordinary method lookup).
+- New modules, `init_wizard.py` growing by registration lines only:
+  `tui/dialogs/wizard_ux.py` (the rule 1/2/6/7/8/9 helpers), `step_rail.
+  py`, `autocomplete.py`, `setup_mode.py` (the Quick/Full chooser),
+  `team_step.py` (`TeamStep`) -- `agents_step.AgentsStep` and `init_
+  wizard.RolesStep` are gone, folded into it.
+
 ### Learned gateway rules
 
 - **One engine for parameter rejections** (`providers/learned_params.py`,

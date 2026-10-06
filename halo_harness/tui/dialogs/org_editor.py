@@ -28,6 +28,9 @@ from textual.screen import ModalScreen
 from textual.widgets import Input, OptionList, Static, TextArea
 from textual.widgets.option_list import Option
 
+from halo_harness.tui.dialogs.autocomplete import AutocompleteDropdown, AutocompleteInput, apply_pick, \
+    refresh_dropdown
+
 
 def _ordered_titles(org: dict) -> "list[tuple[str, int]]":
     """One `(title, depth)` per position, root-first in tree order --
@@ -120,7 +123,8 @@ class OrgEditor(ModalScreen):
                 yield Static("Title")
                 yield Input(id="org-field-title")
                 yield Static("Role or model (^P to pick a model)")
-                yield Input(id="org-field-role")
+                yield AutocompleteInput(id="org-field-role", option_list_id="org-field-role-ac")
+                yield AutocompleteDropdown(id="org-field-role-ac")
                 yield Static("", id="org-field-role-suggest", classes="org-suggest")
                 yield Static("Effort")
                 yield Input(id="org-field-effort")
@@ -258,27 +262,25 @@ class OrgEditor(ModalScreen):
         self.query_one("#org-field-reports", Input).value = ", ".join(position.get("reports") or [])
 
     def on_input_changed(self, event: Input.Changed) -> None:
-        """Halo 2.0.4 round 4 (deliverable 3): "the ref field autocompletes
-        from the list as the user types (prefix and fuzzy, like the
-        picker's filter)" -- this is the org editor's own free-text
-        "Role or model" field, the one ref field in this dialog with no
-        separate modal picker step to narrow the list for it (^P's
-        `ModelPicker` is the OTHER, optional way to fill this same
-        field)."""
+        """Round 2c (deliverable 3, rule 3): the org editor's own free-text
+        "Role or model" field gains a REAL dropdown under it (`^P`'s
+        `ModelPicker` is still the other, optional way to fill this same
+        field) -- `#org-field-role-suggest` now carries ONLY the commit-
+        time "kept as typed" note (`_commit_current_fields`), never a
+        plain-text echo of what the dropdown already shows live."""
         if event.input.id != "org-field-role":
             return
-        from halo_harness.tui.dialogs.model_picker import autocomplete_suggestions
-        suggestions = autocomplete_suggestions(self.models, event.value)
-        try:
-            suggest = self.query_one("#org-field-role-suggest", Static)
-        except Exception:
-            return
-        suggest.update(("Matches: " + ", ".join(suggestions)) if suggestions else "")
+        refresh_dropdown(self.query_one("#org-field-role-ac"), self.models, event.value)
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         if event.option_list.id == "org-template-picker":
             if event.option_id:
                 self._apply_org_template(str(event.option_id))
+            return
+        if event.option_list.id == "org-field-role-ac":
+            field = self.query_one("#org-field-role", Input)
+            apply_pick(field, event.option_list, str(event.option_id))
+            field.focus()
             return
         self._commit_current_fields()
         self._refresh_tree()

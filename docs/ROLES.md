@@ -21,12 +21,14 @@ verified against `halo_harness/tui/dialogs/init_wizard.py` and
 
 `roles.enabled` (default **on**) is the ONE switch, everywhere: `halo
 roles on`/`halo roles off` (CLI), `/roles on|off` (TUI/print mode), and a
-**"Roles: on / off"** toggle at the TOP of the wizard's "Roles and
-lineup" step -- off hides BOTH panes (the Lineup pane and the Legacy
-roles pane) and shows one sentence, "every role uses the default model",
-rather than leaving one pane live while only the other is hidden (the
-2.0.5 round 2 version of this switch only ever covered the legacy
-pane). `halo roles` always prints the state as its own first line --
+**"Custom roles: off / on"** toggle at the TOP of the wizard's "Team"
+step (Halo 2.0.5 round 2c retitled/merged what round 2b calls "Roles and
+lineup" below into this one screen -- see "Setting up with the wizard"
+further down) -- off hides BOTH panes and shows one sentence, "every
+role uses the default model", rather than leaving one pane live while
+only the other is hidden (the 2.0.5 round 2 version of this switch only
+ever covered the legacy pane). `halo roles` always prints the state as
+its own first line --
 `roles: on (lineup <name>)`, `roles: on (legacy role table)`, or `roles:
 off (standard: every role uses the default model)` -- before the
 configured table below it. `halo roles template load <name>` now also
@@ -41,21 +43,31 @@ equivalent to.
 
 ## Setting up with the wizard (`roles.enabled`, presets)
 
-The init wizard's own Roles step (`halo init`, step 7 (retitled "Roles
-and lineup" in Halo 2.0.5 round 2 -- see "Two sources for a role slot"
-below); `halo setup roles`/`/setup roles` later; "step 7, then orgs" for
-a bare `halo setup`)
-starts with a switch, **`roles.enabled`** (default **on**): off means
-every role resolves to the session model -- `resolve_role_table()`
-returns `{}` outright, the same shape a session with no role table
-configured at all already falls through to -- and `/roles`/`/role` are
-hidden from `/help`/tab-completion/the rotating tips (never from
-`resolve()` itself: typing either by hand still works, this is a
-discoverability default, never a functional gate). Round 2b moved this
-switch to the top of the step and made it cover the Lineup pane too --
-see "Roles on/off is one switch" above.
+Halo 2.0.5 round 2c (`docs/WIZARD.md`, rule 11): the wizard's own step is
+now called **Team** (`"team"` in `init_wizard.ALL_STEP_KEYS`; `--step
+agents`/`--step roles`, `halo setup roles`, `/setup roles` all still land
+there as aliases) and carries ONLY the **"Custom roles: off / on"**
+switch (still the exact same `roles.enabled` config key this whole
+section describes) plus, when on, the Lineups/Agents panes
+`docs/AGENTS.md`'s own "Halo 2.0.5 round 2c: the Team step" section
+covers -- the three-preset picker ("Use this template"/"Edit roles.../
+"Skip for now") this section goes on to describe is NO LONGER shown
+inside the wizard itself (rule 11's own screen has exactly two panes, no
+third "Legacy roles" one); it lives on, unchanged, in the STANDALONE
+round-1 form below (`/roles edit <name>`, `halo roles template load`) --
+every behaviour described from here down still applies there verbatim.
 
-With it on, the step shows three shipped **presets** -- written as
+**`roles.enabled`** (default **on**, the Team step's own switch -- the
+round-1 form below has no switch of its own) means every role resolves
+to the session model when off -- `resolve_role_table()` returns `{}`
+outright, the same shape a session with no role table configured at all
+already falls through to -- and `/roles`/`/role` are hidden from
+`/help`/tab-completion/the rotating tips (never from `resolve()` itself:
+typing either by hand still works, this is a discoverability default,
+never a functional gate).
+
+The round-1 form itself (`/roles edit <name>`, `tui/dialogs/roles_editor.
+py`) shows three shipped **presets** -- written as
 ordinary templates (below) into `~/.halo/roles/` the first time this
 screen runs, computed from whatever is actually configured right then,
 and never overwritten after that (same "copy on first use" rule as
@@ -67,18 +79,13 @@ and never overwritten after that (same "copy on first use" rule as
 | `quality` | the session model everywhere; `judge`/`reviewer` pinned to the strongest configured model (the session's own default at setup time) |
 | `local-first` | `small`/`researcher`/`judge` on a local `ol:` model when one is configured (forward-compatible with the 2.0.3 Ollama release -- nothing resolves one yet), else the cheapest configured model |
 
-A preview of the highlighted template's own table is shown; `Use this
-template` (same action as the step's own `Next`) applies it -- through
-the SAME `apply_role_template` a `/roles load`/`halo roles template
-load` would use, also pushed straight into a LIVE session's own role
-table when this runs via `/setup roles` inside one, no restart needed;
-`Edit roles...` opens the round-1 form (below) inside the wizard and
-returns here; `Skip for now` leaves config untouched and the summary
-step prints a one-line `/roles` hint. The round-1 form itself
-(`/roles edit <name>`, `tui/dialogs/roles_editor.py`) gained the SAME
-"start from a template" picker at its top (choosing one REPLACES the
-form's own roles, never merges) plus a `Save as template...` action
-(a COPY under a new name, distinct from `ctrl+s`'s save-to-this-name).
+A preview of the highlighted template's own table is shown; picking one
+REPLACES the form's own roles (never merges) through the SAME
+`apply_role_template` a `/roles load`/`halo roles template load` would
+use -- also pushed straight into a LIVE session's own role table when
+this form runs via `/setup roles` inside one, no restart needed.
+`ctrl+s` saves to the name this form was opened with; a separate `Save
+as template...` action saves a COPY under a new name instead.
 
 ## Enumeration after the keys step (2.0.4 round 4)
 
@@ -98,13 +105,15 @@ hanging the step. The merged, grouped list this produces
 (`halo_harness.providers.model_enumeration.build_model_rows` -- the exact
 same function `Controller.list_models()`/`/model` call, never a second
 copy of it) is cached for the rest of this wizard run and reused by the
-Roles step, the Orgs step and the Summary step; leaving the Providers
+Team step, the Orgs step and the Summary step; leaving the Providers
 step again (Back, then Next) re-enumerates.
 
-The round-1 form (`/roles edit <name>`, and the wizard's own "Edit
-roles...") picks a model for a row through that SAME merged, grouped
-list (`ModelPicker`, gym score shown beside a model when one exists);
-typing into its filter narrows the list as you type (prefix and
+The round-1 form (`/roles edit <name>`) picks a model for a row through
+that SAME merged, grouped list (`ModelPicker`, gym score shown beside a
+model when one exists; Halo 2.0.5 round 2c also adds a quick inline
+autocomplete filter above the role list itself -- see `docs/WIZARD.md`'s
+own autocomplete field table); typing into its filter narrows the list
+as you type (prefix and
 substring, case-insensitive); typing something that matches nothing in
 the list still works on Enter, with a one-line note ("`'foo' is not in
 the enumerated list; kept as typed.`") rather than a refusal. The org

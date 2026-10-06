@@ -681,6 +681,20 @@ jumps straight to any one step (see the flag table below); see
 [AGENTS.md](AGENTS.md) for the Agents step and the lineup editor's own
 fields.
 
+**Halo 2.0.5 round 2c** (the wizard interaction model -- the full ten-rule
+page is [WIZARD.md](WIZARD.md)): the wizard's first screen now offers
+**Quick setup** (keys -> default model -> done -- highlighted, the
+default) or **Full setup** (every step); a step rail across the top of
+every step after that (Ctrl+Left/Ctrl+Right walk it from anywhere); the
+round-2/2b **Agents** step and **"Roles and lineup"** step merge into ONE
+**Team** step (a "Custom roles: off / on" switch; on shows Lineups and
+Agents side by side, each with Enter/Ctrl+N/Ctrl+D/Del). `--step team`
+reaches it; `--step agents`/`--step roles` stay as working aliases, same
+as `halo setup team`/`halo setup roles` and `/setup team`/`/setup roles`.
+A model-ref field in the bio/org/lineup editors and the role-template
+editor's own quick filter now also autocompletes under the field as you
+type (Ctrl+P still opens the full picker).
+
 **Halo 2.0.3 round 5**: the INTERACTIVE Providers step's tab bar gains two
 more tabs beyond the four above -- `Ollama (local or LAN)` (detects/
 registers the local daemon, or add a LAN/cloud host with an optional key)
@@ -760,7 +774,7 @@ options:
 | `--no-live` | skips `models --refresh` and the live pong | off |
 | `--no-fixes` | skips the `rg`/PATH steps (Linux) | off |
 | `--team PATH\|URL` | reads a `team.json`-shaped file/URL (see `docs/DATABRICKS.md`); Databricks only | `.halo/team.json`, then `~/.halo/team.json` |
-| `--step STEP` | jumps the interactive wizard straight to one step, by its key (e.g. `agents`, `roles`) or 1-based number -- interactive only (needs a real tty, `--yes` skips the wizard entirely); see [AGENTS.md](AGENTS.md)'s Agents step | omitted -> starts at step 1 |
+| `--step STEP` | jumps the interactive wizard straight to one step, by its key (`team` -- `agents`/`roles` kept as aliases -- or any other step's own key) or 1-based number, skipping the Quick/Full setup choice -- interactive only (needs a real tty, `--yes` skips the wizard entirely); see [WIZARD.md](WIZARD.md) | omitted -> offers Quick/Full setup, then starts at step 1 |
 
 `--provider ... --yes` (or the deprecated `--preset ... --yes`) is fully
 non-interactive whenever the needed value is already discoverable; when it
@@ -2246,22 +2260,23 @@ resolved-truth warnings its assignments grid shows.
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 
 ```sh
-halo setup            # the init wizard's Roles step, then Organizations, then a short summary
-halo setup roles       # just the Roles setup screen
+halo setup            # the init wizard's Team step, then Organizations, then a short summary
+halo setup team        # just the Team setup screen (Halo 2.0.5 round 2c; `halo setup roles` stays as an alias)
 halo setup orgs        # just the Organizations setup screen
 ```
 
-The SAME two setup screens `halo init`'s own wizard shows (Roles,
-Organizations -- see [ROLES.md](ROLES.md)/[ORGS.md](ORGS.md)), reachable
+The SAME two setup screens `halo init`'s own wizard shows (Team,
+Organizations -- see [WIZARD.md](WIZARD.md)/[ORGS.md](ORGS.md)), reachable
 again later without re-running the whole provider flow -- "a setup
 screen should pop up to set those features up in addition to doing it
 within halo." On a real terminal this opens the wizard screen(s); with no
 TTY it prints the current roles table / orgs list instead of blocking,
-and exits 0. `/setup`, `/setup roles`, `/setup orgs` do the same thing
-inside a running session (`tui/slash.py`'s own handler pushes the screen
-onto the live app -- a modal stack over the session, not a separate
-program): saving a role template there updates the LIVE session's own
-role table immediately, no restart needed.
+and exits 0. `/setup`, `/setup team` (`/setup roles` stays as an alias),
+`/setup orgs` do the same thing inside a running session (`tui/slash.py`'s
+own handler pushes the screen onto the live app -- a modal stack over the
+session, not a separate program): saving a lineup or a role template
+there updates the LIVE session's own role table immediately, no restart
+needed.
 
 ## `/tasks` (Ctrl+T)
 

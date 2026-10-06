@@ -14,11 +14,11 @@ and `tui/dialogs/init_wizard.py` (round 7).
 
 ## Setting up with the wizard (`orgs.enabled`, the default org)
 
-The init wizard's own Organizations step (`halo init`, step 8 as of Halo
-2.0.5 round 2's own "agents" step insertion right before "Roles and
-lineup" -- see [ROLES.md](ROLES.md); `halo setup orgs`/`/setup orgs`
-later; "roles, then orgs, then summary" for a bare `halo setup`) starts
-with a switch, **`orgs.enabled`** (default
+The init wizard's own Organizations step (`halo init`, step 7 as of Halo
+2.0.5 round 2c's "Team" merge right before it -- see [ROLES.md](ROLES.md)/
+[WIZARD.md](WIZARD.md); `halo setup orgs`/`/setup orgs` later; "team, then
+orgs, then summary" for a bare `halo setup`) starts with a switch,
+**`orgs.enabled`** (default
 **off**, unlike roles): off hides `/org` from `/help`/tab-completion/the
 rotating tips, the `/tasks` board tab, and the `Agent` tool's own `org=`
 parameter (never from `resolve()`/`run_org_call` itself -- `/org run` by

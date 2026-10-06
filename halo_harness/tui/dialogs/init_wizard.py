@@ -9,13 +9,27 @@ steps, and Back genuinely returns to the previous step's own widget state
 (Textual suspends, never destroys, a screen under a newer one).
 
 Steps, in order (`ALL_STEP_KEYS`): providers, local_models, default_model,
-permission_mode, theme, agents, roles, orgs, linux_fixes, summary --
+permission_mode, theme, team, orgs, linux_fixes, summary --
 `full_step_keys()` drops `linux_fixes` when there is nothing for it to
 offer (brief item 1). A
 SHORTER run (`halo setup`, `/setup roles`) uses a SUBSET of this same list
 via `build_truncated_state`/`first_step_screen` -- the exact same Screen
 classes serve both, which is also what `/setup` (pushed onto a live
 `BridgeApp`) and the standalone `halo init`/`halo setup` wizard share.
+
+Halo 2.0.5 round 2c (`plans/briefs/2.0.5/round-2c-wizard-ux.md`, the wizard
+interaction model, `docs/WIZARD.md`): a FIRST screen, before "providers",
+offers Quick/Full setup (`tui/dialogs/setup_mode.SetupModeStep`, pushed
+only by a genuine standalone `halo init` with no `--step` -- see
+`WizardState.offer_quick_full`); every step now shows a step rail (current
+highlighted, done ticked -- `tui/dialogs/step_rail.py`) and Ctrl+Left/
+Ctrl+Right walk Back/Next from anywhere; rule 11 merged the round-2/2b
+"Agents" step and "Roles and lineup" step into ONE "Team" step
+(`tui/dialogs/team_step.TeamStep`) -- `STEP_FACTORIES["team"]` is the real
+entry, `"agents"`/`"roles"` stay registered as plain aliases pointing at
+the SAME factory (`--step agents`/`--step roles`, and the pre-existing
+`/setup roles`/`halo setup roles` step_keys literal, all still land there
+with zero other code changes needed).
 
 Hosting: `run_init_wizard()` builds a standalone `InitWizardApp` (same
 reason `init_tabs.py`'s `InitTabsApp`/`init_picker.py`'s pickers are
@@ -50,26 +64,42 @@ from textual.screen import ModalScreen, Screen
 from textual.widgets import Button, Input, Static, TabbedContent, TabPane
 
 from halo_harness.init_providers import TAB_LABEL, TAB_PROVIDERS, tab_credential_state
+from halo_harness.tui.dialogs.step_rail import STEP_RAIL_BINDINGS, StepRailMixin
+from halo_harness.tui.dialogs.wizard_ux import focus_first, mark_checked, one_sentence
 
-# Halo 2.0.5 round 2 (deliverable 1): "agents" joins right before "roles"
-# -- after the keys step/enumeration (every earlier step already is),
-# before the roles step it now feeds (deliverable 3's own lineup editor
-# picks agent BIOS this step creates). Shifts "roles"/"orgs"/"linux_fixes"/
-# "summary" each one 1-based ordinal later -- `tests/test_init_wizard_
-# round7.py`'s own two ordinal-pinning tests were updated to match (see
-# this round's own hand-back); `full_step_keys()`'s only other caller in
-# test_tui.py resolves by KEY name, unaffected either way.
-ALL_STEP_KEYS = ("providers", "local_models", "default_model", "permission_mode", "theme", "agents", "roles",
+# Halo 2.0.5 round 2c (rule 11): "agents" and "roles" MERGE into one
+# "team" step -- STILL right after the keys step/enumeration (every
+# earlier step already is) and before "orgs" (which the lineup's own
+# `org:` section can feed, same as before). `full_step_keys()`'s only
+# other caller in test_tui.py resolves by KEY name, unaffected either
+# way; `_resolve_start_index` keeps "agents"/"roles" working as `--step`
+# aliases even though neither is in this tuple any more (see its own
+# alias map).
+ALL_STEP_KEYS = ("providers", "local_models", "default_model", "permission_mode", "theme", "team",
                  "orgs", "linux_fixes", "summary")
 STEP_TITLES = {
     "providers": "Providers", "local_models": "Local models", "default_model": "Default model",
-    "permission_mode": "Permission mode", "theme": "Theme", "agents": "Agents",
-    # Halo 2.0.5 round 2 (deliverable 3): "the step title becomes 'Roles
-    # and lineup'" -- no test pins the old literal "Roles" title text
-    # (checked before this rename).
-    "roles": "Roles and lineup", "orgs": "Organizations",
+    "permission_mode": "Permission mode", "theme": "Theme",
+    "team": "Team", "orgs": "Organizations",
     "linux_fixes": "Linux fixes", "summary": "Summary",
+    # Round 2c: "agents"/"roles" are no longer real keys in `ALL_STEP_
+    # KEYS` (`_STEP_KEY_ALIASES` is `_resolve_start_index`'s OWN alias
+    # map, for a `--step` value checked against a real `step_keys`
+    # tuple) -- but `setup_cli.py`/`tui/slash.py` and several pre-
+    # existing tests still build a `WizardState`/push a step with the
+    # LITERAL `step_keys=("agents",)`/`("roles",)`, and `WizardState.
+    # title()`/`TeamStep`'s own rail both index this dict BY THAT SAME
+    # literal key -- missing either one here is a real `KeyError` in
+    # production (`/setup roles`), not just a test gap.
+    "agents": "Team", "roles": "Team",
 }
+# `--step agents`/`--step roles` (and the pre-existing `step_keys=
+# ("agents",)`/`("roles",)` literals in `setup_cli.py`/`tui/slash.py`)
+# keep landing on the Team step -- `STEP_FACTORIES["agents"/"roles"]` are
+# registered as plain aliases of `STEP_FACTORIES["team"]` below; this map
+# is ONLY for `_resolve_start_index`, which checks membership in the
+# ACTUAL `step_keys` tuple a run is using (now spelled "team" there).
+_STEP_KEY_ALIASES = {"agents": "team", "roles": "team"}
 
 
 @dataclass
@@ -101,6 +131,17 @@ class WizardState:
     default_org: str = ""
     pong_ok: bool = True
 
+    # Halo 2.0.5 round 2c (deliverable 5, rule 5): `offer_quick_full` --
+    # set only by `run_init_wizard()` for a genuine fresh `halo init` with
+    # no `--step` (never by a truncated `/setup`/`halo setup` entry,
+    # which starts mid-flow on purpose and has no use for this gate) --
+    # tells `InitWizardApp.on_mount` to push `setup_mode.SetupModeStep`
+    # FIRST instead of the real step 1. `quick_setup`: which the owner
+    # picked there, read back by the Summary step to say so (rule 5:
+    # "the Summary says what it chose").
+    offer_quick_full: bool = False
+    quick_setup: bool = False
+
     # Halo 2.0.4 round 4 (deliverable 1): the merged model list from ONE
     # live, off-thread enumeration run right after the Providers step's
     # own Next (`ProvidersStep._run_enumeration_then_advance`) -- the
@@ -111,7 +152,8 @@ class WizardState:
     # its own at all) still has a real, grouped, gym-scored model list to
     # show -- fixing the owner's own report ("the available models are
     # not listed when you select edit a role"), which traced to exactly
-    # that: `RolesStep._controller_models` reading `self.app.controller`,
+    # that: the Roles step's own `_controller_models` (now `team_step.
+    # TeamStep`'s) reading `self.app.controller`,
     # always `None` on the standalone wizard app. `enumeration_done`
     # distinguishes "ran, found nothing" (still prefer this -- possibly
     # empty -- list) from "never ran this wizard run yet" (fall back to
@@ -252,20 +294,22 @@ class _EnumeratingScreen(ModalScreen):
             pass
 
 
-class StepScreen(Screen):
+class StepScreen(StepRailMixin, Screen):
     """Shared chrome every wizard step uses: a "Step N of M" header, the
-    step's own `body()` widgets, and a Back/Skip/Next(/Finish) footer.
-    Concrete steps override `body()` (what to show) and `commit()` (what
-    Next actually applies) -- navigation and Esc-to-quit live here once."""
-    BINDINGS = [
-        Binding("escape", "ask_quit", "Quit setup", show=False, priority=True),
-        Binding("ctrl+n", "do_next", "Next", show=False),
-        Binding("ctrl+b", "do_back", "Back", show=False),
-    ]
+    step rail (rule 4), the step's own `body()` widgets, and a Back/Skip/
+    Next(/Finish) footer. Concrete steps override `body()` (what to show)
+    and `commit()` (what Next actually applies) -- navigation and Esc-to-
+    quit live here once. Round 2c: Ctrl+Left/Ctrl+Right (`StepRailMixin`,
+    spliced in from `STEP_RAIL_BINDINGS` -- see that constant's own
+    comment for why a mixin's `BINDINGS` alone would never actually
+    bind) replace the old Ctrl+N/Ctrl+B -- freed for rule 9's "new/
+    duplicate/delete" everywhere (`team_step.py`'s own module docstring)."""
+    BINDINGS = [Binding("escape", "ask_quit", "Quit setup", show=False, priority=True), *STEP_RAIL_BINDINGS]
     DEFAULT_CSS = """
     StepScreen { align: center middle; }
     StepScreen > Vertical { width: 94%; height: 92%; border: round $primary; padding: 1 2; background: $surface; }
     .wizard-header { color: $text-muted; margin-bottom: 1; }
+    .wizard-rail { margin-bottom: 1; }
     .wizard-footer { height: 3; align: right middle; margin-top: 1; }
     .wizard-footer Button { margin-left: 1; }
     """
@@ -277,6 +321,8 @@ class StepScreen(Screen):
     def compose(self) -> ComposeResult:
         with Vertical():
             yield Static(self.state.title(), classes="wizard-header")
+            yield Static(self.rail_text(self.state.step_keys, self.state.index, STEP_TITLES),
+                         classes="wizard-rail", id="wizard-rail")
             for widget in self.body():
                 yield widget
             with Horizontal(classes="wizard-footer"):
@@ -948,8 +994,13 @@ class DefaultModelStep(StepScreen):
             for e in model_entries_for_provider(provider, state_dir):
                 entries.append({**e, "group": e.get("group") or provider})
         self._entries = entries
-        widgets = [Static("Pick a default model across every configured provider -- Next keeps the "
-                           "current default if you don't pick one.", classes="dialog-title")]
+        from halo_harness.theme import get_config_value
+        current = get_config_value("model", default=None)
+        widgets = [Static(one_sentence("Default model", current if isinstance(current, str) else None,
+                                        hint="Highlight one below, Enter to change."),
+                           id="wiz-default-model-sentence", classes="dialog-title"),
+                   Static("Pick a default model across every configured provider -- Next keeps the "
+                          "current default if you don't pick one.", classes="dialog-subtitle")]
         if not entries:
             widgets.append(Static("No model catalog is cached yet -- Next keeps the current default.",
                                    classes="tab-help"))
@@ -988,6 +1039,12 @@ class DefaultModelStep(StepScreen):
         # commit() below keeps the literal current value untouched.
         if current_index is not None:
             option_list.highlighted = current_index
+            mark_checked(option_list, option_list.get_option_at_index(current_index).id)
+        focus_first(self, ["#wiz-model-list"])
+
+    def on_option_list_option_highlighted(self, event) -> None:
+        if event.option_list.id == "wiz-model-list" and event.option_id:
+            mark_checked(event.option_list, event.option_id)
 
     def commit(self) -> None:
         from halo_harness.theme import get_config_value, set_config_value
@@ -1029,7 +1086,15 @@ class PermissionModeStep(StepScreen):
         refs = [ref for ref, _label in _PERMISSION_MODE_ROWS]
         if current in refs:
             option_list.highlighted = refs.index(current)
-        return [Static("Default permission mode:", classes="dialog-title"), option_list]
+            mark_checked(option_list, current)
+        return [Static(one_sentence("Permission mode", current), classes="dialog-title"), option_list]
+
+    def on_mount(self) -> None:
+        focus_first(self, ["#wiz-permission-list"])
+
+    def on_option_list_option_highlighted(self, event) -> None:
+        if event.option_list.id == "wiz-permission-list" and event.option_id:
+            mark_checked(event.option_list, event.option_id)
 
     def commit(self) -> None:
         from halo_harness.theme import set_config_value
@@ -1073,7 +1138,8 @@ class ThemeStep(StepScreen):
         option_list = OptionList(*[Option(n, id=n) for n in names], id="wiz-theme-list")
         if current in names:
             option_list.highlighted = names.index(current)
-        return [Static("Pick a theme -- the preview below updates live:", classes="dialog-title"),
+            mark_checked(option_list, current)
+        return [Static(one_sentence("Theme", current), classes="dialog-title"),
                 option_list, Static(id="wiz-theme-preview")]
 
     def on_mount(self) -> None:
@@ -1086,10 +1152,12 @@ class ThemeStep(StepScreen):
             opt = option_list.get_option_at_index(option_list.highlighted)
             if opt.id:
                 self._update_preview(str(opt.id))
+        focus_first(self, ["#wiz-theme-list"])
 
     def on_option_list_option_highlighted(self, event) -> None:
         if event.option_list.id == "wiz-theme-list" and event.option_id:
             self._update_preview(str(event.option_id))
+            mark_checked(event.option_list, event.option_id)
 
     def _update_preview(self, name: str) -> None:
         from rich.text import Text
@@ -1130,522 +1198,28 @@ STEP_FACTORIES["theme"] = ThemeStep
 
 
 # ---------------------------------------------------------------------------
-# Step: Agents -- Halo 2.0.5 round 2 (wizard: agent bios and lineups)
-# deliverable 1. `AgentsStep` lives in its OWN module (`agents_step.py`,
-# the hard constraint: this file gains only the registration lines below)
-# -- imported here, at the point of registration, same as every OTHER
-# cross-module dialog this file already pushes (`RolesEditor`/`OrgEditor`/
-# `ModelPicker`, all imported lazily inside a method, never at this file's
-# own top level either). `AgentsStep` itself never imports FROM this
-# module at its own top level (it reaches `advance`/`go_back`/`finish`
-# through a lazy, function-body import instead) specifically so this one
-# import here can be a plain, ordinary one with no circularity at all.
+# Step: Team -- Halo 2.0.5 round 2c, rule 11: the round-2/2b "Agents" step
+# and "Roles and lineup" step merge into ONE "Team" step. `TeamStep` lives
+# in its OWN module (`team_step.py`, the hard constraint: this file gains
+# only the registration lines below) -- imported here, at the point of
+# registration, same as every OTHER cross-module dialog this file already
+# pushes. "agents"/"roles" stay registered too, as plain aliases of the
+# SAME factory, so `--step agents`/`--step roles` (`_resolve_start_index`'s
+# own alias map) and the pre-existing `step_keys=("agents",)`/`("roles",)`
+# literals in `setup_cli.py`/`tui/slash.py` keep landing here unchanged.
 # ---------------------------------------------------------------------------
-from halo_harness.tui.dialogs.agents_step import AgentsStep  # noqa: E402
+from halo_harness.tui.dialogs.team_step import TeamStep  # noqa: E402
 
-STEP_FACTORIES["agents"] = AgentsStep
-
-
-# ---------------------------------------------------------------------------
-# Step: Roles -- brief item 2. `roles.enabled` defaults True: the switch
-# starts ON. "Next" and "Use this template" are the SAME action
-# (`action_do_next`, via `commit()`) -- Skip (footer) leaves config
-# untouched, matching the brief's own three named buttons one-to-one
-# (the footer's generic Skip IS "Skip for now"; Next covers "Use this
-# template" too, since there is nothing else for Next to mean here).
-# ---------------------------------------------------------------------------
-
-class RolesStep(StepScreen):
-    DEFAULT_CSS = """
-    RolesStep #wiz-roles-templates { height: 6; margin-top: 1; }
-    RolesStep #wiz-roles-preview { height: 6; margin-top: 1; border: round $primary-darken-1; padding: 1; }
-    RolesStep .wizard-extra-buttons { height: 3; margin-top: 1; }
-    RolesStep .wizard-extra-buttons Button { margin-right: 1; }
-    RolesStep .wizard-switch-row { height: 3; margin-top: 1; }
-    RolesStep #wiz-roles-off-sentence { margin-top: 1; color: $text-muted; }
-    """
-
-    def __init__(self, state: WizardState) -> None:
-        super().__init__(state)
-        self._templates: "list[str]" = []
-        self._lineups: "list[str]" = []
-        # Halo 2.0.5 round 2 (deliverable 3): set by "Use this lineup" --
-        # tells `commit()` the LINEUP path already applied everything
-        # (roles.* AND `team:`), so it must not ALSO re-apply whatever's
-        # highlighted in the (unrelated) Legacy roles tab.
-        self._lineup_applied_name: "Optional[str]" = None
-        # Round 2b (deliverable 1 + the owner's "clunky" wizard feedback,
-        # rule c): WHICH pane is on screen decides what a PLAIN Next (no
-        # button pressed at all) applies -- "the highlighted row IS the
-        # selection ... Next moves on without a confirm button". Either
-        # explicit "Use this ..." button still always wins outright, no
-        # matter which pane happens to be showing (`_legacy_applied`,
-        # set by the "wiz-roles-use" button handler, is `_lineup_
-        # applied_name`'s own counterpart for the legacy side).
-        self._active_pane = "lineup"
-        self._legacy_applied = False
-
-    def body(self) -> list:
-        from textual.widgets import OptionList, Switch
-        from textual.widgets.option_list import Option
-        from halo_harness.roles import ensure_builtin_role_presets, list_role_templates, roles_mode_enabled
-        # Halo 2.0.5 round 2 (deliverable 3): "Lineup editor ... replaces
-        # the legacy-template editing in RolesStep". Two manually-toggled
-        # panes (`TabbedContent` needs the REAL compose()-generator "with
-        # Container(): yield Child()" protocol to attach panes --
-        # `compose_add_child` is only ever invoked by that machinery,
-        # confirmed live; `body()`'s own pre-built-list-of-widgets return
-        # shape can't drive it) rather than a literal removal -- every
-        # widget ID/behaviour the "Legacy roles" pane below carries is
-        # UNCHANGED from before this round (same ids, same `on_mount`/
-        # `commit` reads), so this stays additive for anything already
-        # pinned to it; "the legacy role-table editor remains ... for a
-        # config with no lineup at all" (the brief's own folded-in item 3)
-        # is exactly this: it never goes away, it just moves to its own
-        # pane. See `_lineup_tab_widgets` below for the new half.
-        lineup_widgets = self._lineup_tab_widgets()
-        ensure_builtin_role_presets(default_model=self.state.final_model or None)
-        self._templates = list_role_templates()
-        enabled = roles_mode_enabled()
-        option_list = OptionList(*[Option(n, id=n) for n in self._templates], id="wiz-roles-templates")
-        legacy_pane = Vertical(
-            Static("A template sets a model (and effort) per role; pick one, Edit roles... to customize, "
-                   "or Skip for now."),
-            option_list, Static(id="wiz-roles-preview"),
-            Horizontal(Button("Use this template", id="wiz-roles-use", variant="primary"),
-                       Button("Edit roles...", id="wiz-roles-edit"), classes="wizard-extra-buttons"),
-            id="wiz-roles-legacy-pane",
-        )
-        lineup_pane = Vertical(*lineup_widgets, id="wiz-roles-lineup-pane")
-        pane_switch = Horizontal(
-            Button("Lineup", id="wiz-roles-pane-lineup-btn", variant="primary"),
-            Button("Legacy roles", id="wiz-roles-pane-legacy-btn"),
-            classes="wizard-extra-buttons",
-        )
-        # Deliverable 1: ONE switch at the TOP, covering BOTH panes -- the
-        # owner's own report ("you need a toggle on and off the roles
-        # complete, not just legacy"): the PREVIOUS switch lived inside
-        # the legacy pane and only ever hid that pane's own template
-        # picker, leaving the lineup pane (and its own "Use this lineup")
-        # fully live regardless of the switch's value.
-        switch_row = Horizontal(Switch(value=enabled, id="wiz-roles-switch"),
-                                 Static(" Roles: on / off", classes="wizard-switch-label"),
-                                 classes="wizard-switch-row")
-        off_sentence = Static("Every role uses the default model (the picked session model) -- "
-                               "same as the standard lineup.", id="wiz-roles-off-sentence")
-        panes_body = Vertical(pane_switch, lineup_pane, legacy_pane, id="wiz-roles-panes-body")
-        return [Static("Roles decide which model does what -- the session model is used when a role is unset.",
-                        classes="dialog-title"), switch_row, panes_body, off_sentence]
-
-    def _show_pane(self, which: str) -> None:
-        """`which`: "lineup" or "legacy" -- the manual pane toggle the
-        module docstring above explains (TabbedContent can't drive this
-        from `body()`'s own plain-list return shape). Also records which
-        pane a plain Next should apply (`commit()`, rule c: "the
-        highlighted row IS the selection ... Next moves on without a
-        confirm button")."""
-        self._active_pane = which
-        try:
-            lineup_pane, legacy_pane = self.query_one("#wiz-roles-lineup-pane"), \
-                self.query_one("#wiz-roles-legacy-pane")
-            lineup_btn, legacy_btn = self.query_one("#wiz-roles-pane-lineup-btn", Button), \
-                self.query_one("#wiz-roles-pane-legacy-btn", Button)
-        except Exception:
-            return
-        lineup_pane.styles.display = "block" if which == "lineup" else "none"
-        legacy_pane.styles.display = "block" if which == "legacy" else "none"
-        lineup_btn.variant = "primary" if which == "lineup" else "default"
-        legacy_btn.variant = "primary" if which == "legacy" else "default"
-
-    def _lineup_tab_widgets(self) -> list:
-        """Halo 2.0.5 round 2 (deliverable 3): a lineup picker shaped like
-        the legacy one just below (OptionList + preview + Use/Edit), plus
-        "New lineup". `ensure_builtin_team_templates`/`migrate_legacy_
-        role_table` both run here, same "copy/migrate on first use, never
-        overwrite after" timing `ensure_builtin_role_presets` already uses
-        for the legacy tab right below this method's own call site."""
-        from textual.widgets import OptionList
-        from textual.widgets.option_list import Option
-        from halo_harness.roles import configured_role_table
-        from halo_harness.teams_yaml import ensure_builtin_team_templates, list_team_templates, \
-            migrate_legacy_role_table
-        ensure_builtin_team_templates()
-        try:
-            migrate_legacy_role_table(configured_role_table(), cwd=self.state.cwd)
-        except Exception:
-            pass
-        self._lineups = list_team_templates(cwd=self.state.cwd)
-        lineup_list = OptionList(*[Option(n, id=n) for n in self._lineups], id="wiz-lineup-templates")
-        return [
-            Static("A lineup assigns agent bios (or plain models) to roles -- pick one, New lineup, or "
-                   "Edit lineup... to customize."),
-            lineup_list, Static(id="wiz-lineup-preview"),
-            Horizontal(Button("Use this lineup", id="wiz-lineup-use", variant="primary"),
-                       Button("New lineup", id="wiz-lineup-new"),
-                       Button("Edit lineup...", id="wiz-lineup-edit"), classes="wizard-extra-buttons"),
-        ]
-
-    def on_mount(self) -> None:
-        self._sync_visibility()
-        self._show_pane("lineup")
-        self._refresh_lineup_preview()
-        try:
-            legacy_list = self.query_one("#wiz-roles-templates")
-            if legacy_list.option_count:
-                legacy_list.action_first()
-                opt = legacy_list.get_option_at_index(legacy_list.highlighted or 0)
-                if opt.id:
-                    self._update_preview(str(opt.id))
-                    self._mark_selected(legacy_list, opt.id)
-        except Exception:
-            pass
-        # Rule (b) (the owner's "clunky wizard" feedback): focus lands on
-        # the list that's actually shown (the lineup pane, first), never
-        # on a button -- `_show_pane("lineup")` above already made it the
-        # visible one.
-        try:
-            lineup_list = self.query_one("#wiz-lineup-templates")
-            if lineup_list.option_count:
-                lineup_list.focus()
-                opt = lineup_list.get_option_at_index(lineup_list.highlighted or 0)
-                if opt.id:
-                    self._mark_selected(lineup_list, opt.id)
-        except Exception:
-            pass
-
-    def _sync_visibility(self) -> None:
-        """Deliverable 1: the top switch governs BOTH panes (and the
-        Lineup/Legacy roles pane-switch buttons) as one unit -- off shows
-        only the one sentence, never a pane or a template/lineup list."""
-        try:
-            panes_body = self.query_one("#wiz-roles-panes-body")
-            off_sentence = self.query_one("#wiz-roles-off-sentence")
-            switch = self.query_one("#wiz-roles-switch")
-        except Exception:
-            return
-        panes_body.styles.display = "block" if switch.value else "none"
-        off_sentence.styles.display = "none" if switch.value else "block"
-
-    def on_switch_changed(self, event) -> None:
-        if event.switch.id == "wiz-roles-switch":
-            self._sync_visibility()
-
-    def on_option_list_option_highlighted(self, event) -> None:
-        if event.option_list.id == "wiz-roles-templates" and event.option_id:
-            self._update_preview(str(event.option_id))
-            self._mark_selected(event.option_list, event.option_id)
-        elif event.option_list.id == "wiz-lineup-templates" and event.option_id:
-            self._refresh_lineup_preview(str(event.option_id))
-            self._mark_selected(event.option_list, event.option_id)
-
-    @staticmethod
-    def _mark_selected(option_list, selected_id) -> None:
-        """Rule (c) (the owner's "clunky wizard" feedback): "the
-        highlighted row IS the selection, shown with a check mark" -- a
-        plain highlight bar reads as "looking at", not "this is what Next
-        applies"; a literal mark makes the no-confirm-button behaviour
-        `commit()` now follows visible on the row itself."""
-        for i in range(option_list.option_count):
-            opt = option_list.get_option_at_index(i)
-            text = str(opt.prompt)
-            bare = text[2:] if text.startswith("✓ ") else text
-            marked = f"✓ {bare}" if opt.id == selected_id else bare
-            if marked != text:
-                option_list.replace_option_prompt(opt.id, marked)
-
-    # -- Halo 2.0.5 round 2 (deliverable 3): the Lineup tab ------------------
-    def _highlighted_lineup_name(self) -> "Optional[str]":
-        try:
-            option_list = self.query_one("#wiz-lineup-templates")
-        except Exception:
-            return None
-        if option_list.highlighted is None:
-            return None
-        opt = option_list.get_option_at_index(option_list.highlighted)
-        return str(opt.id) if opt.id else None
-
-    def _refresh_lineup_preview(self, name: "Optional[str]" = None) -> None:
-        from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
-        name = name or self._highlighted_lineup_name()
-        try:
-            preview = self.query_one("#wiz-lineup-preview", Static)
-        except Exception:
-            return
-        if not name:
-            preview.update("(no lineup yet -- New lineup to create one)")
-            return
-        template = resolve_team_template(name, cwd=self.state.cwd)
-        if template is None:
-            preview.update("(no such lineup)")
-            return
-        lines = [f"{template['name']} -- {template.get('description') or '(no description)'}"]
-        if template.get("about"):
-            lines.append(f"  {template['about']}")
-        role_table, notes = resolve_role_table(template, cwd=self.state.cwd)
-        for role_name, value in sorted(role_table.items()):
-            lines.append(f"  {role_name}: {value if isinstance(value, str) else value.get('model')}")
-        lines.extend(f"  (note) {n}" for n in notes)
-        preview.update("\n".join(lines))
-
-    def _refresh_lineups(self) -> None:
-        from textual.widgets.option_list import Option
-        from halo_harness.teams_yaml import list_team_templates
-        try:
-            option_list = self.query_one("#wiz-lineup-templates")
-        except Exception:
-            return
-        previous = self._highlighted_lineup_name()
-        self._lineups = list_team_templates(cwd=self.state.cwd)
-        option_list.clear_options()
-        for n in self._lineups:
-            option_list.add_option(Option(n, id=n))
-        if self._lineups:
-            idx = self._lineups.index(previous) if previous in self._lineups else 0
-            option_list.highlighted = idx
-            self._refresh_lineup_preview(self._lineups[idx])
-
-    def _open_lineup_editor(self, *, is_new: bool) -> None:
-        name = "new-lineup" if is_new else (self._highlighted_lineup_name() or "custom")
-        self.run_worker(lambda: self._lineup_editor_worker(name, is_new), thread=True, name="wiz-lineup-editor")
-
-    def _lineup_editor_worker(self, name: str, is_new: bool) -> None:
-        from halo_harness.teams_yaml import load_team_template_raw
-        template = {} if is_new else (load_team_template_raw(name, cwd=self.state.cwd) or {})
-        self.app.call_from_thread(self._open_lineup_editor_screen, name, template, is_new)
-
-    def _open_lineup_editor_screen(self, name: str, template: dict, is_new: bool) -> None:
-        from halo_harness.tui.dialogs.lineup_editor import LineupEditor
-        self.app.push_screen(LineupEditor(name, template, self._controller_models(), cwd=self.state.cwd,
-                                           is_new=is_new),
-                              lambda _saved: self._refresh_lineups())
-
-    def _highlighted_template_name(self) -> Optional[str]:
-        try:
-            option_list = self.query_one("#wiz-roles-templates")
-        except Exception:
-            return None
-        if option_list.highlighted is None:
-            return None
-        opt = option_list.get_option_at_index(option_list.highlighted)
-        return str(opt.id) if opt.id else None
-
-    def _update_preview(self, name: str) -> None:
-        from halo_harness.roles import load_role_template, role_value_parts
-        try:
-            preview = self.query_one("#wiz-roles-preview", Static)
-        except Exception:
-            return
-        template = load_role_template(name)
-        if template is None:
-            preview.update("(no such template)")
-            return
-        lines = [f"{template['name']} -- {template['description'] or '(no description)'}"]
-        if not template["roles"]:
-            lines.append("  (every role resolves to the session model)")
-        for role_name, value in sorted(template["roles"].items()):
-            model, effort = role_value_parts(value)
-            lines.append(f"  {role_name}: {model}" + (f" ({effort})" if effort else ""))
-        preview.update("\n".join(lines))
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        # See `ProvidersStep.on_button_pressed`'s own comment -- this must
-        # never re-handle wiz-back/skip/next (`StepScreen`'s own override
-        # already does, and Textual invokes BOTH, not just this one).
-        bid = event.button.id or ""
-        if bid == "wiz-roles-use":
-            # Explicitly choosing a template is itself an opt-in -- flips
-            # the switch on first (visibly too) so `commit()`'s own read
-            # of it, and the config it writes, actually reflect what the
-            # user just asked for, even if they'd switched it off first.
-            # `self._legacy_applied`: this EXPLICIT button always means
-            # "apply the legacy table", even when the Lineup pane (the
-            # default) happens to still be the one shown -- same
-            # reasoning `_apply_highlighted_lineup`'s own `_lineup_
-            # applied_name` already uses for the lineup side.
-            try:
-                self.query_one("#wiz-roles-switch").value = True
-            except Exception:
-                pass
-            self._legacy_applied = True
-            self.action_do_next()
-        elif bid == "wiz-roles-edit":
-            self._open_editor()
-        elif bid == "wiz-lineup-use":
-            self._apply_highlighted_lineup()
-        elif bid == "wiz-lineup-new":
-            self._open_lineup_editor(is_new=True)
-        elif bid == "wiz-lineup-edit":
-            self._open_lineup_editor(is_new=False)
-        elif bid == "wiz-roles-pane-lineup-btn":
-            self._show_pane("lineup")
-        elif bid == "wiz-roles-pane-legacy-btn":
-            self._show_pane("legacy")
-
-    def _apply_highlighted_lineup(self) -> None:
-        """"Use this lineup" -- the lineup-tab counterpart of "Use this
-        template" above: `teams_yaml.apply_team_template` writes BOTH
-        `roles.*` and the active `team:` in one step (unlike the legacy
-        tab's own `apply_role_template`, which only ever touches
-        `roles.*`); `self._lineup_applied_name` tells `commit()` not to
-        ALSO run the (unrelated) legacy-template apply below."""
-        name = self._highlighted_lineup_name()
-        if not name:
-            self.query_one("#wiz-lineup-preview", Static).update("Pick a lineup first (or New lineup).")
-            return
-        try:
-            self.query_one("#wiz-roles-switch").value = True
-        except Exception:
-            pass
-        self._lineup_applied_name = name
-        self.action_do_next()
-
-    def _controller_models(self) -> list:
-        """Halo 2.0.4 round 4 (deliverable 1 fix): the standalone wizard
-        (`halo init`) has no live `Controller` at all -- `self.app.
-        controller` is always `None` there, which used to make every
-        role's model picker show an empty list no matter what the
-        Providers step just found (the owner's own report). Once this
-        run's own Providers step has enumerated (`state.enumeration_
-        done`), THAT cached, merged list wins regardless of whether a
-        live controller also exists; a truncated run with no Providers
-        step at all (`/setup roles`) falls back to the live `Controller.
-        list_models()` exactly as before this round."""
-        if self.state.enumeration_done:
-            return self.state.enumerated_models
-        list_models = getattr(getattr(self.app, "controller", None), "list_models", None)
-        try:
-            return list_models() if callable(list_models) else []
-        except Exception:
-            return []
-
-    def _open_editor(self) -> None:
-        name = self._highlighted_template_name() or "custom"
-        self.run_worker(lambda: self._editor_worker(name), thread=True, name="wiz-roles-editor")
-
-    def _editor_worker(self, name: str) -> None:
-        from halo_harness.roles import load_role_template
-        template = load_role_template(name) or {"name": name, "description": "", "roles": {}}
-        self.app.call_from_thread(self._open_editor_screen, name, template, self._controller_models())
-
-    def _open_editor_screen(self, name: str, template: dict, models: list) -> None:
-        from halo_harness.tui.dialogs.roles_editor import RolesEditor
-        self.app.push_screen(RolesEditor(name, template["roles"], models, description=template.get("description", "")),
-                              lambda _saved: self._refresh_templates())
-
-    def _refresh_templates(self) -> None:
-        from textual.widgets.option_list import Option
-        from halo_harness.roles import list_role_templates
-        try:
-            option_list = self.query_one("#wiz-roles-templates")
-        except Exception:
-            return
-        previous = self._highlighted_template_name()
-        self._templates = list_role_templates()
-        option_list.clear_options()
-        for n in self._templates:
-            option_list.add_option(Option(n, id=n))
-        if self._templates:
-            idx = self._templates.index(previous) if previous in self._templates else 0
-            option_list.highlighted = idx
-            self._update_preview(self._templates[idx])
-
-    def commit(self) -> None:
-        from halo_harness.roles import apply_role_template, load_role_template, set_roles_enabled
-        enabled = True
-        try:
-            enabled = bool(self.query_one("#wiz-roles-switch").value)
-        except Exception:
-            pass
-        set_roles_enabled(enabled)
-        if not enabled:
-            return
-        if self._lineup_applied_name:
-            self._commit_lineup(self._lineup_applied_name)
-            return
-        # Rule (c): a PLAIN Next (neither explicit button was pressed)
-        # applies whichever pane is ON SCREEN -- "the highlighted row IS
-        # the selection ... Next moves on without a confirm button".
-        if not self._legacy_applied and self._active_pane == "lineup":
-            name = self._highlighted_lineup_name()
-            if name:
-                self._commit_lineup(name)
-            return
-        name = self._highlighted_template_name()
-        if not name:
-            return
-        ok, _problems = apply_role_template(name)
-        if not ok:
-            return
-        # Halo 2.0.4 round 4 (deliverable 7, migration): "the legacy role
-        # table migrates into a generated team template 'migrated' plus
-        # one bio per distinct model, on first wizard save, announced in
-        # one line" -- a no-op once a "migrated" template already exists
-        # (`teams_yaml.migrate_legacy_role_table`'s own "never overwrite"
-        # rule), so this never re-runs or re-announces after the first
-        # time. `self.state.written` is the SAME "what this run changed"
-        # list the Summary step already prints one line per entry from.
-        try:
-            from halo_harness.roles import configured_role_table
-            from halo_harness.teams_yaml import migrate_legacy_role_table
-            migrated_name, migration_notes = migrate_legacy_role_table(configured_role_table(), cwd=self.state.cwd)
-            if migrated_name:
-                self.state.written.append(f"legacy role table migrated to team template {migrated_name!r} "
-                                           f"({len(migration_notes)} file(s))")
-        except Exception:
-            pass
-        # Also updates the LIVE session's own role table when hosted
-        # inside a running BridgeApp (/setup) -- config.json alone would
-        # otherwise only take effect on the session's NEXT start, the
-        # same gap `commands/builtins.py::_cmd_roles`'s own "load" branch
-        # already fixes for `/roles load`.
-        session = getattr(getattr(self.app, "controller", None), "session", None)
-        if session is None:
-            return
-        template = load_role_template(name)
-        if not template:
-            return
-        runtime = getattr(session, "agent_runtime", None)
-        role_table = getattr(runtime, "role_table", None)
-        if isinstance(role_table, dict):
-            role_table.update(template["roles"])
-        elif hasattr(session, "roles") and isinstance(session.roles, dict):
-            session.roles.update(template["roles"])
-
-    def _commit_lineup(self, name: str) -> None:
-        """"Use this lineup" -- `teams_yaml.apply_team_template` already
-        wrote `roles.*` and `team:` to config.json; this only ALSO pushes
-        the resolved role table into a LIVE session (same `/setup`-hosted
-        gap `commit()`'s own legacy branch just above already closes)."""
-        from halo_harness.teams_yaml import apply_team_template, resolve_role_table, resolve_team_template
-        ok, problems, notes = apply_team_template(name, cwd=self.state.cwd)
-        if not ok:
-            self.state.written.append(f"could not apply lineup {name!r}: {'; '.join(problems)}")
-            return
-        self.state.written.append(f"lineup {name!r} applied (roles.*, team: {name!r})"
-                                   + (f" -- {'; '.join(notes)}" if notes else ""))
-        session = getattr(getattr(self.app, "controller", None), "session", None)
-        if session is None:
-            return
-        template = resolve_team_template(name, cwd=self.state.cwd)
-        if not template:
-            return
-        role_table, _notes = resolve_role_table(template, cwd=self.state.cwd)
-        runtime = getattr(session, "agent_runtime", None)
-        live_role_table = getattr(runtime, "role_table", None)
-        if isinstance(live_role_table, dict):
-            live_role_table.update(role_table)
-        elif hasattr(session, "roles") and isinstance(session.roles, dict):
-            session.roles.update(role_table)
-
-
-STEP_FACTORIES["roles"] = RolesStep
+STEP_FACTORIES["team"] = TeamStep
+STEP_FACTORIES["agents"] = TeamStep
+STEP_FACTORIES["roles"] = TeamStep
 
 
 # ---------------------------------------------------------------------------
 # Step: Organizations -- brief item 3. `orgs.enabled` defaults False
 # (unlike roles): the switch starts OFF. "Next" and "Make this the
-# default org" are the SAME action, same reasoning as RolesStep's own
-# Next/"Use this template" merge.
+# default org" are the SAME action, same reasoning as `TeamStep`'s own
+# Next/"apply the highlighted lineup" merge.
 # ---------------------------------------------------------------------------
 
 class OrgsStep(StepScreen):
@@ -1679,7 +1253,10 @@ class OrgsStep(StepScreen):
         switch_row = Horizontal(Switch(value=enabled, id="wiz-orgs-switch"),
                                  Static(" Organizations enabled", classes="wizard-switch-label"),
                                  classes="wizard-switch-row")
-        return [Static("Organizations: trees of sub-agent positions with reporting lines.",
+        from halo_harness.theme import get_config_value
+        default_name = get_config_value("orgs.default", default=None)
+        current = ("off (no organization runs)" if not enabled else default_name or "on, no default yet")
+        return [Static(one_sentence("Organizations", current, hint="Enter to change, or Make this the default."),
                         classes="dialog-title"), switch_row, on_body]
 
     def on_mount(self) -> None:
@@ -1693,6 +1270,16 @@ class OrgsStep(StepScreen):
             opt = option_list.get_option_at_index(option_list.highlighted or 0)
             if opt.id:
                 self._update_preview(str(opt.id))
+        self._mark_default()
+        focus_first(self, ["#wiz-orgs-list"])
+
+    def _mark_default(self) -> None:
+        from halo_harness.theme import get_config_value
+        try:
+            option_list = self.query_one("#wiz-orgs-list")
+        except Exception:
+            return
+        mark_checked(option_list, get_config_value("orgs.default", default=None))
 
     def _sync_visibility(self) -> None:
         try:
@@ -1733,9 +1320,9 @@ class OrgsStep(StepScreen):
         # never re-handle wiz-back/skip/next.
         bid = event.button.id or ""
         if bid == "wiz-orgs-default":
-            # Same reasoning as RolesStep's own "wiz-roles-use" -- choosing
-            # a default org IS the opt-in, even if the switch (off by
-            # default here) was never touched.
+            # Same reasoning as `TeamStep`'s own "apply the highlighted
+            # lineup" -- choosing a default org IS the opt-in, even if
+            # the switch (off by default here) was never touched.
             try:
                 self.query_one("#wiz-orgs-switch").value = True
             except Exception:
@@ -1745,8 +1332,8 @@ class OrgsStep(StepScreen):
             self._open_editor()
 
     def _controller_models(self) -> list:
-        """See `RolesStep._controller_models`'s own docstring -- same
-        "this wizard run's own enumeration cache wins once it exists,
+        """See `team_step.TeamStep._models_for_picker`'s own docstring --
+        same "this wizard run's own enumeration cache wins once it exists,
         else fall back to a live Controller" rule, for the org editor."""
         if self.state.enumeration_done:
             return self.state.enumerated_models
@@ -1786,6 +1373,7 @@ class OrgsStep(StepScreen):
             idx = self._orgs.index(previous) if previous in self._orgs else 0
             option_list.highlighted = idx
             self._update_preview(self._orgs[idx])
+        self._mark_default()
 
     def commit(self) -> None:
         from halo_harness.theme import set_config_value
@@ -1854,13 +1442,86 @@ STEP_FACTORIES["linux_fixes"] = LinuxFixesStep
 # ---------------------------------------------------------------------------
 
 class SummaryStep(StepScreen):
-    DEFAULT_CSS = "SummaryStep #wiz-summary-text { margin-top: 1; }"
+    DEFAULT_CSS = """
+    SummaryStep #wiz-summary-text { margin-top: 1; }
+    SummaryStep #wiz-summary-change-list { height: 6; margin-top: 1; }
+    """
 
     def body(self) -> list:
-        return [Static("Summary:", classes="dialog-title"), Static("Running checks…", id="wiz-summary-text")]
+        from textual.widgets import OptionList
+        from textual.widgets.option_list import Option
+        widgets = [Static("Summary:", classes="dialog-title")]
+        # Deliverable 5 (rule 5): "the Summary says what it chose" --
+        # Quick setup's own "activates the standard lineup with roles
+        # off" is otherwise invisible (no Team step ever ran this run to
+        # print its own state line).
+        if self.state.quick_setup:
+            widgets.append(Static(
+                "Quick setup: every role (including the sub-agents halo spawns on its own) uses the "
+                "default model picked above -- the same observable state as the standard lineup with "
+                "custom roles off. Full setup (Theme, Team, Organizations, ...) is still one `halo init "
+                "--step team` (or `halo setup`) away any time.", id="wiz-summary-quick-note"))
+        widgets.append(Static("Running checks…", id="wiz-summary-text"))
+        # Rule 10: "Change" jumps back into each step -- every key this
+        # run actually used (never "summary" itself, nothing to jump to).
+        change_rows = [(k, STEP_TITLES.get(k, k)) for k in self.state.step_keys if k != "summary"]
+        if change_rows:
+            widgets.append(Static("Change:", classes="dialog-subtitle"))
+            widgets.append(OptionList(*[Option(f"Change: {title}", id=key) for key, title in change_rows],
+                                       id="wiz-summary-change-list"))
+        return widgets
 
     def on_mount(self) -> None:
+        if self.state.quick_setup:
+            self._activate_standard_quick()
         self.run_worker(self._run_checks_worker, thread=True, name="wiz-summary-checks")
+
+    def _activate_standard_quick(self) -> None:
+        """Rule 5: "Quick setup ... activates the standard lineup with
+        roles off" -- run HERE (Summary's own `on_mount`), after every
+        earlier step's `commit()` already ran, specifically so the
+        `standard` lineup's own `models.preference: default` bio
+        resolves against the REAL default model `DefaultModelStep.
+        commit()` just wrote -- applying this any earlier (e.g. the
+        instant Quick is picked, before a model is even chosen) would
+        freeze the literal string "default" into every `roles.<name>`
+        config entry instead of a real ref (`agents_yaml.resolve_agent_
+        bio`'s own "left as typed" rule for an unset session default),
+        defeating the whole point of the standard lineup's live
+        tracking. Written explicitly (`team: "standard"` AND `roles.
+        enabled: false`) rather than left as whatever the switch already
+        was, so the result is the same named, inspectable state a Full
+        setup's "Use this lineup" on `standard` would leave (`docs/
+        AGENTS.md`'s "the `default` model reference and the `standard`
+        lineup"), never an accident of a machine's pre-existing config."""
+        from halo_harness.roles import set_roles_enabled
+        from halo_harness.teams_yaml import apply_team_template, ensure_builtin_team_templates
+        try:
+            ensure_builtin_team_templates()
+            ok, _problems, _notes = apply_team_template("standard", cwd=self.state.cwd)
+            if ok:
+                self.state.written.append("quick setup: lineup 'standard' applied, roles off")
+        except Exception:
+            pass
+        set_roles_enabled(False)
+
+    def on_option_list_option_selected(self, event) -> None:
+        if event.option_list.id == "wiz-summary-change-list" and event.option_id:
+            self._jump_to(str(event.option_id))
+
+    def _jump_to(self, key: str) -> None:
+        """Rule 10: pushes that step fresh, on top of this Summary (still
+        on the stack underneath) -- its own Next/Finish then simply
+        continues the chain forward from there (through any later steps
+        again) to a fresh Summary, same as a normal walk-through; Back/
+        Esc from it return to THIS Summary instance unchanged, never
+        losing what was already decided (rule 8)."""
+        if key not in self.state.step_keys:
+            return
+        self.state.index = self.state.step_keys.index(key)
+        screen = _build_step(self.state, key)
+        self.state.pushed += 1
+        self.app.push_screen(screen)
 
     def _run_checks_worker(self) -> None:
         import io
@@ -1919,6 +1580,15 @@ class InitWizardApp(App):
         state.on_finish = lambda app: app.exit()
 
     def on_mount(self) -> None:
+        # Halo 2.0.5 round 2c (deliverable 5): a genuine fresh `halo
+        # init` (no `--step`) offers Quick/Full setup FIRST -- never
+        # counted in `state.pushed` (see `SetupModeStep._choose`, which
+        # pops this chooser and pushes the real step 1 itself once a
+        # choice is made).
+        if self.state.offer_quick_full:
+            from halo_harness.tui.dialogs.setup_mode import SetupModeStep
+            self.push_screen(SetupModeStep(self.state))
+            return
         first = _build_step(self.state, self.state.step_keys[self.state.index])
         self.state.pushed += 1
         self.push_screen(first)
@@ -1928,13 +1598,18 @@ def _resolve_start_index(start_step, step_keys: tuple) -> int:
     """`start_step` names where to begin, over the FULL `step_keys` list
     -- either the 1-based ordinal the brief's own step list uses ("step 5
     is Roles") or the step's own key string ("roles"); anything else (or
-    out of range) starts at step 1, same as omitting it."""
+    out of range) starts at step 1, same as omitting it. Round 2c:
+    "roles"/"agents" (no longer real keys in `step_keys` -- rule 11
+    merged both into "team") still resolve, through `_STEP_KEY_ALIASES`,
+    to wherever "team" actually sits."""
     if isinstance(start_step, bool):
         return 0
     if isinstance(start_step, int) and 1 <= start_step <= len(step_keys):
         return start_step - 1
-    if isinstance(start_step, str) and start_step in step_keys:
-        return step_keys.index(start_step)
+    if isinstance(start_step, str):
+        key = _STEP_KEY_ALIASES.get(start_step, start_step)
+        if key in step_keys:
+            return step_keys.index(key)
     return 0
 
 
@@ -1951,7 +1626,13 @@ def run_init_wizard(*, cwd, team: Optional[str] = None, no_live: bool = False,
     a mid-wizard resume of the full chain)."""
     step_keys = full_step_keys()
     index = _resolve_start_index(start_step, step_keys)
-    state = WizardState(cwd=Path(cwd), step_keys=step_keys, index=index, team=team, no_live=no_live)
+    state = WizardState(cwd=Path(cwd), step_keys=step_keys, index=index, team=team, no_live=no_live,
+                         # Deliverable 5: Quick/Full setup is offered only
+                         # for a genuine fresh run -- `--step` (any
+                         # `start_step`) means the owner already knows
+                         # exactly where they want to land, so the gate
+                         # would just be in the way.
+                         offer_quick_full=(start_step is None))
     app = InitWizardApp(state)
     app.run()
     return app

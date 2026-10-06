@@ -315,9 +315,10 @@ def test_bio_editor_every_field_focusable_and_visible_when_focused(ctx: Ctx):
 async def _wizard_to_agents_step(pilot, app, state):
     """Drives Providers' own `no_live` branch (a real, synchronous,
     cache-only `build_model_rows` call -- no network) with the fixture
-    catalog monkeypatched in, then every step between it and "agents",
-    exactly as a real `halo init` run would -- the Agents step's own
-    `self.state.enumeration_done`/`enumerated_models` are therefore
+    catalog monkeypatched in, then every step between it and "team"
+    (round 2c: the merged step the old, now-gone "agents" step folded
+    into), exactly as a real `halo init` run would -- the Team step's
+    own `self.state.enumeration_done`/`enumerated_models` are therefore
     POPULATED BY THE REAL CODE PATH, never poked directly."""
     import halo_harness.providers.model_enumeration as me
     real = me.build_model_rows
@@ -327,7 +328,7 @@ async def _wizard_to_agents_step(pilot, app, state):
         await pilot.pause(0.2)
     finally:
         me.build_model_rows = real
-    while type(app.screen).__name__ != "AgentsStep":
+    while type(app.screen).__name__ != "TeamStep":
         app.screen.action_do_next()
         await pilot.pause(0.15)
 
@@ -457,6 +458,9 @@ def test_empty_filter_never_yields_an_empty_picker_silently(ctx: Ctx):
 
 @test
 def test_roles_step_toggle_off_hides_both_panes_and_shows_one_sentence(ctx: Ctx):
+    """Round 2c folded the Agents/Roles-and-lineup steps into one "Team"
+    step -- the SAME switch-covers-everything invariant this test pins,
+    now at `#wiz-team-*` ids (`team_step.TeamStep`)."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from textual.widgets import Switch
 
@@ -467,18 +471,17 @@ def test_roles_step_toggle_off_hides_both_panes_and_shows_one_sentence(ctx: Ctx)
             async with app.run_test(size=(w, h)) as pilot:
                 await pilot.pause(0.15)
                 step = app.screen
-                panes = step.query_one("#wiz-roles-panes-body")
-                sentence = step.query_one("#wiz-roles-off-sentence")
+                panes = step.query_one("#wiz-team-on-body")
+                sentence = step.query_one("#wiz-team-off-sentence")
                 ctx.check(f"panes shown, sentence hidden by default at {w}x{h}",
                           panes.styles.display == "block" and sentence.styles.display == "none")
-                step.query_one("#wiz-roles-switch", Switch).value = False
+                step.query_one("#wiz-team-switch", Switch).value = False
                 await pilot.pause(0.1)
-                ctx.check(f"off hides the Lineup pane too (not just legacy) at {w}x{h}",
-                          panes.styles.display == "none")
+                ctx.check(f"off hides the Lineups/Agents panes at {w}x{h}", panes.styles.display == "none")
                 ctx.check(f"off shows the one sentence at {w}x{h}", sentence.styles.display == "block")
-                ctx.check(f"the sentence names the default model at {w}x{h}",
-                          "default model" in _static_text(sentence))
-                step.query_one("#wiz-roles-switch", Switch).value = True
+                ctx.check(f"the sentence describes delegation+questions at {w}x{h}, got {_static_text(sentence)!r}",
+                          "Halo uses" in _static_text(sentence) and "sub-agents" in _static_text(sentence))
+                step.query_one("#wiz-team-switch", Switch).value = True
                 await pilot.pause(0.1)
                 ctx.check(f"on shows the panes again at {w}x{h}", panes.styles.display == "block")
     for size in SIZES:
@@ -502,7 +505,7 @@ def test_roles_step_next_applies_the_highlighted_lineup_with_no_button_press(ctx
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.15)
-                lineup_list = app.screen.query_one("#wiz-lineup-templates", OptionList)
+                lineup_list = app.screen.query_one("#wiz-team-lineups-list", OptionList)
                 ctx.check("the lineup pane lists the shipped lineups", lineup_list.option_count > 0)
                 # "standard" always resolves to a REAL role table (every
                 # role -> the just-configured default model); some other
@@ -523,28 +526,41 @@ def test_roles_step_next_applies_the_highlighted_lineup_with_no_button_press(ctx
 
 
 @test
-def test_roles_step_checkmark_follows_the_highlighted_row(ctx: Ctx):
+def test_team_step_checkmark_marks_the_active_lineup_not_the_highlight(ctx: Ctx):
+    """Round 2c (rule 11): the Team step's Lineups pane is a MANAGEMENT
+    list (Enter edits), not a one-of-choice picker -- its check mark
+    tracks the lineup actually ACTIVE in config (`team:`), never the
+    arrow-key highlight the way the four rule-1 pickers (default model/
+    permission mode/theme/legacy roles templates) do; moving the
+    highlight must NOT move this mark (`docs/WIZARD.md`'s own Team-step
+    section spells out the distinction)."""
+    from halo_harness.teams_yaml import apply_team_template, ensure_builtin_team_templates
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from textual.widgets import OptionList
 
     async def body():
-        with _Env():
-            state = WizardState(cwd=REPO_DIR, step_keys=("roles",), no_live=True)
+        with _Env() as e:
+            ensure_builtin_team_templates(state_dir=e.state_dir)
+            apply_team_template("balanced", state_dir=e.state_dir)
+            state = WizardState(cwd=e.cwd, step_keys=("roles",), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.15)
-                lineup_list = app.screen.query_one("#wiz-lineup-templates", OptionList)
-                ctx.check("more than one lineup to move the checkmark between",
-                          lineup_list.option_count > 1)
-                first_label = str(lineup_list.get_option_at_index(0).prompt)
-                ctx.check(f"the highlighted (first) row starts checked, got {first_label!r}",
-                          first_label.startswith("✓ "))
-                lineup_list.highlighted = 1
+                lineup_list = app.screen.query_one("#wiz-team-lineups-list", OptionList)
+                ctx.check("more than one lineup exists", lineup_list.option_count > 1)
+                labels = [str(lineup_list.get_option_at_index(i).prompt) for i in range(lineup_list.option_count)]
+                checked = [label for label in labels if label.startswith("✓ ")]
+                ctx.check(f"exactly the active ('balanced') lineup is checked, got {labels}",
+                          len(checked) == 1 and checked[0].startswith("✓ balanced "))
+                # Move the highlight to a DIFFERENT row -- the mark must
+                # stay on "balanced", never follow the highlight.
+                names = [str(lineup_list.get_option_at_index(i).id) for i in range(lineup_list.option_count)]
+                lineup_list.highlighted = (names.index("balanced") + 1) % len(names)
                 await pilot.pause(0.05)
-                moved_off = str(lineup_list.get_option_at_index(0).prompt)
-                moved_on = str(lineup_list.get_option_at_index(1).prompt)
-                ctx.check(f"the mark leaves the old row, got {moved_off!r}", not moved_off.startswith("✓ "))
-                ctx.check(f"and follows the highlight, got {moved_on!r}", moved_on.startswith("✓ "))
+                labels2 = [str(lineup_list.get_option_at_index(i).prompt) for i in range(lineup_list.option_count)]
+                checked2 = [label for label in labels2 if label.startswith("✓ ")]
+                ctx.check(f"the mark stays on 'balanced' after moving the highlight, got {labels2}",
+                          len(checked2) == 1 and checked2[0].startswith("✓ balanced "))
     run(body())
 
 
@@ -568,6 +584,8 @@ def test_agents_step_enter_opens_the_highlighted_bio_no_button_needed(ctx: Ctx):
                 rows = app.screen.query_one("#agents-list", OptionList)
                 ctx.check("a shipped bio is listed to press Enter on", rows.option_count > 0)
                 rows.highlighted = 0
+                rows.focus()  # round 2c: the Team step focuses Lineups by default -- claim Agents explicitly
+                await pilot.pause(0.05)
                 await pilot.press("enter")
                 await pilot.pause(0.2)
                 ctx.check(f"Enter alone opened the bio editor (no button press), got "
@@ -589,7 +607,7 @@ def test_agents_step_and_bio_editor_focus_on_open_is_never_a_button(ctx: Ctx):
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.1)
-                ctx.check(f"AgentsStep focuses its own list, got {type(app.focused).__name__}",
+                ctx.check(f"the Team step focuses a list, never a button, got {type(app.focused).__name__}",
                           isinstance(app.focused, OptionList) and not isinstance(app.focused, Button))
                 app.screen.query_one("#agents-new", Button).press()
                 await pilot.pause(0.35)
@@ -600,37 +618,34 @@ def test_agents_step_and_bio_editor_focus_on_open_is_never_a_button(ctx: Ctx):
 
 
 @test
-def test_sweep_agents_roles_toggle_orgs_summary_handoff(ctx: Ctx):
+def test_sweep_team_toggle_orgs_summary_handoff(ctx: Ctx):
     """Deliverable 5: "Drive the whole flow in pilots ... Agents -> Roles
     and lineup (toggle on/off ...) -> Orgs -> Summary. Fix everything
-    that breaks or misleads." The narrower slice this round actually
-    touched (Providers/enumeration -> Agents is its own pilot above,
-    with the real fixture flow); this one proves the STEP HANDOFF after
-    `RolesStep`'s own restructuring (the switch/panes rewrite) still
-    reaches Orgs and Summary cleanly, at 80x24."""
+    that breaks or misleads." Round 2c merged Agents and Roles-and-
+    lineup into the ONE "Team" step this now drives (`step_keys` has a
+    single "team" entry, not two); this one proves the STEP HANDOFF
+    after `TeamStep`'s own switch/panes still reaches Orgs and Summary
+    cleanly, at 80x24."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from textual.widgets import Switch
 
     async def body():
         with _Env():
-            state = WizardState(cwd=REPO_DIR, step_keys=("agents", "roles", "orgs", "summary"), no_live=True)
+            state = WizardState(cwd=REPO_DIR, step_keys=("team", "orgs", "summary"), no_live=True)
             state.enumerated_models, state.enumeration_done = FIXTURE_MODELS, True
             app = InitWizardApp(state)
             async with app.run_test(size=(80, 24)) as pilot:
                 await pilot.pause(0.1)
-                ctx.check(f"opens on Agents, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "AgentsStep")
-                app.screen.action_do_next()  # Agents -> Roles
-                await pilot.pause(0.2)
-                ctx.check(f"lands on Roles and lineup, got {state.title()}", "Roles and lineup" in state.title())
+                ctx.check(f"opens on Team, got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "TeamStep")
                 # toggle off then back on, then Next (Skip-equivalent: no
                 # lineup/template highlighted -- "off" must still commit
                 # cleanly and move on, never raise).
-                app.screen.query_one("#wiz-roles-switch", Switch).value = False
+                app.screen.query_one("#wiz-team-switch", Switch).value = False
                 await pilot.pause(0.05)
-                app.screen.query_one("#wiz-roles-switch", Switch).value = True
+                app.screen.query_one("#wiz-team-switch", Switch).value = True
                 await pilot.pause(0.05)
-                app.screen.action_do_next()  # Roles -> Orgs
+                app.screen.action_do_next()  # Team -> Orgs
                 await pilot.pause(0.2)
                 ctx.check(f"lands on Organizations, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "OrgsStep")

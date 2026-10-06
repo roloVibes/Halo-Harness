@@ -289,13 +289,17 @@ def test_slash_teams_bare_opens_the_list_screen(ctx: Ctx):
 # ---------------------------------------------------------------------------
 
 @test
-def test_halo_init_step_flag_resolves_to_the_agents_step(ctx: Ctx):
+def test_halo_init_step_flag_resolves_to_the_team_step(ctx: Ctx):
+    """2.0.5 round 2c merged the Agents step and the Roles step into one
+    "team" step; `--step agents` and `--step roles` stay as aliases that
+    land on it."""
     from halo_harness.tui.dialogs.init_wizard import _resolve_start_index, full_step_keys
     step_keys = full_step_keys()
-    ctx.check('"agents" is a real step key', "agents" in step_keys)
-    idx = _resolve_start_index("agents", step_keys)
-    ctx.check(f'start_step="agents" resolves to the agents step, got {step_keys[idx]!r}',
-              step_keys[idx] == "agents")
+    ctx.check('"team" is a real step key', "team" in step_keys)
+    for alias in ("team", "agents", "roles"):
+        idx = _resolve_start_index(alias, step_keys)
+        ctx.check(f'start_step={alias!r} resolves to the team step, got {step_keys[idx]!r}',
+                  step_keys[idx] == "team")
 
 
 @test
