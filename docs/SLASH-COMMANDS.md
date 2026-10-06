@@ -239,6 +239,13 @@ user-scope bio. Every other subcommand (`show`/`validate`/`export`/
 new|edit <name> --form` opens the SAME form from the CLI -- see
 [COMMANDS.md](COMMANDS.md#halo-agents).
 
+**Halo 2.0.5 round 5**: `/agents schedule` prints what schedule/trigger
+set is armed right now (any owning session) and each schedule's next
+fire time -- the same lines `halo agents schedule list` prints. A bio's
+`schedule:`/`triggers:` arm while a session that loaded the agent's team
+is alive and disarm when it closes; see [AGENTS.md](AGENTS.md)'s
+`hooks`/`schedule`/`triggers` section.
+
 ### `/teams [new <name>|edit <name>|activate <name>]`
 Bare `/teams` lists every installed **team template** ("lineup" --
 `halo_harness/teams_yaml.py`, `~/.halo/teams/<name>.yaml`), marking the
@@ -255,6 +262,12 @@ text form documented above -- `halo teams show <name>` (CLI) prints the
 full resolved role table and the `about:` text when the lineup has one.
 `halo teams new|edit <name> --form` opens the SAME editor from the CLI
 -- see [COMMANDS.md](COMMANDS.md#halo-teams).
+
+**Halo 2.0.5 round 5**: `/teams show <name>` prints the same resolved
+view as the CLI, plus the per-section ENFORCEMENT state (enforced / not
+set / checked by doctor, one behaviour line each) -- a session running
+under the team (`team:` in config.json or `--team <name>`) executes
+those sections through `teams_runtime.py`.
 
 ### `/roles [on|off|templates|save <name>|load <name>|new <name>|edit <name>|show <name>|set <name> <model> [effort]]`
 V2c (H15), extended Halo 2.0.2: bare `/roles` shows the resolved role table

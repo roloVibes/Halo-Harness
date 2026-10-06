@@ -10,6 +10,50 @@ version.
 
 ## [2.0.5] - unreleased
 
+### Team control (round 5)
+
+The lineup sections are ENFORCED by the live agent loop now (the roadmap's
+own "Deferred to 2.0.5 with the Governor" call coming due). A session
+running under a team (`team:` in config.json or the new `--team <name>`
+flag, which also overlays the team's own resolved role table without
+touching config) holds one `teams_runtime.TeamControl` for its whole tree:
+
+- **routing** -- the first routing key (or a member's `use_for` word) in a
+  call's description/prompt picks the role/alias at spawn time; the
+  template's `default` applies otherwise; an explicit `Agent(role=...)`
+  always wins.
+- **delegation** -- `max_depth` caps depth, `max_parallel` sizes the
+  session's in-flight spawn gate, `handoff` shapes the hand-back
+  (summary/full/structured), `forward_text` prepends the parent's latest
+  user text.
+- **budget** -- `max_budget_usd`/`max_total_turns`/`max_wall_time` (a
+  number of seconds or a duration like `3h`) count the whole tree; when
+  exhausted the team stops delegating and says so in one line.
+  `agents_may_exceed: true` keeps members running while still counting.
+- **escalation** -- `triggers` (`tool_failures`, `context_overflow`,
+  `budget_exhausted`) switch the session to `to`; `ask: true` shows the
+  existing approval card first, `ask: false` switches and announces.
+- **context**/**permissions** -- team files/skills load for every member;
+  `memory.namespace` is a shared memory dir only `writers` may write;
+  mode/rules/offline apply to every member on top of the bio's own.
+- **org** -- each member's completion is a one-line report addressed to
+  its `reports_to`, delivered as a user-role notice on the root session.
+- **pipeline** -- stages run in order; a `required` gate must pass its
+  stage's acceptance before the next stage's calls run, an `optional` one
+  records and continues.
+
+Agent bios gain `hooks` (`pre_tool`/`post_tool`/`on_start`/`on_finish`,
+Claude Code's own hook shape run by the existing hook runner with
+`HALO_AGENT` set; a template assignment may override them per key),
+`schedule` (`cron`/`every` + prompt, firing the agent as a background job
+while a session that loaded the team is alive -- never a system service)
+and `triggers` (`on: file_change`/`event`/`message`, one shot per
+session). New: `halo agents schedule list|run|pause|resume|rm`, the
+`/agents schedule` slash command, `halo doctor --teams [NAME]` (exercises
+the first required gate), `/teams show <name>`, and the per-section
+enforcement block in `halo teams show`. The loaders validate all the new
+sections with one plain line per problem. See docs/AGENTS.md.
+
 ### Governor
 
 - **Cross-process adaptive rate limiting per gateway host** (round 4,

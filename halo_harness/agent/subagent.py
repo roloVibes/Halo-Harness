@@ -316,6 +316,12 @@ class AgentRuntime:
     # already are), never rebuilt per hop, so one org-wide/per-position
     # spend total survives the whole run, not just one level of it.
     org_budget: Optional[object] = None
+    # Halo 2.0.5 round 5 "team control": the enforced lineup
+    # (`teams_runtime.TeamControl`) a session runs under -- `None` for every
+    # session with no active team (or a bare session), so nothing below
+    # changes for them. Copied onto every descendant's own nested
+    # AgentRuntime by `_build_child_session`, same as role_table above.
+    team_control: Optional[object] = None
     tasks: dict = field(default_factory=dict)        # task_id -> {"child_session_id", "spec_name", "cwd"}
     lock: "threading.Lock" = field(default_factory=threading.Lock)
     # H9 whole-tree review finding 27 (task-map persistence half): flips
@@ -528,6 +534,30 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
     # overrides this agent's own file/built-in `role:` for just this one
     # call -- see `resolve_agent_model`'s own docstring for the full chain.
     _effective_role_name = role_override or spec.role
+    # Halo 2.0.5 round 5 "team control": under a team, the member's own
+    # context arrives here -- the template's `context` (files/skills) plus
+    # the assigned bio's own (`member_system_context_addition`, the piece
+    # round 2 built and left for this round to wire), and the team's
+    # namespaced shared memory (`context.memory.namespace`, writable only
+    # by `writers`) as an extra permission working dir + prompt line.
+    team_control = getattr(runtime, "team_control", None)
+    team_memory_dir = None
+    if team_control is not None:
+        addition = team_control.member_context_addition(_effective_role_name, cwd=parent.cwd,
+                                                        state_dir=parent.state_dir)
+        if addition:
+            ctx.system_prompt = f"{ctx.system_prompt}\n\n{addition}"
+        memory_dir, may_write = team_control.member_memory(_effective_role_name, parent.state_dir)
+        if memory_dir is not None:
+            team_memory_dir = memory_dir if may_write else None
+            try:
+                memory_dir.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                pass
+            role_word = "read and write" if may_write else "read"
+            ctx.system_prompt = (f"{ctx.system_prompt}\n\nTeam memory namespace "
+                                 f"({team_control.context.get('memory', {}).get('namespace')}): {memory_dir} "
+                                 f"-- you may {role_word} it; use it for notes the whole team shares.")
     model_ref, model_profile = resolve_agent_model(
         invocation_model=model_override, frontmatter_model=spec.model,
         role_name=_effective_role_name, role_table=runtime.role_table,
@@ -634,9 +664,26 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
     child_extra_dirs = list(parent.permission_engine.extra_dirs)
     if memory_extra_dir is not None:
         child_extra_dirs.append(memory_extra_dir)
+    if team_memory_dir is not None:
+        child_extra_dirs.append(team_memory_dir)
+    # Halo 2.0.5 round 5 "team control": the template's `permissions`
+    # section applies to every member ON TOP of the bio's own -- mode,
+    # deny/ask/allow rules in the same settings.json grammar the parent
+    # engine already takes, and `offline` (checked at the spawn point in
+    # `run_agent_call`, since offline mode is process-global here).
+    child_mode = permission_mode
+    _team_deny: list = []
+    _team_ask: list = []
+    _team_allow: list = []
+    if team_control is not None:
+        team_perms = team_control.member_permissions()
+        child_mode = team_perms.get("mode") or permission_mode
+        _team_deny, _team_ask, _team_allow = team_perms["deny"], team_perms["ask"], team_perms["allow"]
     child_engine = PermissionEngine(
-        deny_rules=parent.permission_engine.deny_rules, ask_rules=parent.permission_engine.ask_rules,
-        allow_rules=list(parent.permission_engine.allow_rules), mode=permission_mode,
+        deny_rules=list(parent.permission_engine.deny_rules) + _team_deny,
+        ask_rules=list(parent.permission_engine.ask_rules) + _team_ask,
+        allow_rules=list(parent.permission_engine.allow_rules) + _team_allow,
+        mode=child_mode,
         cwd=child_cwd, extra_dirs=child_extra_dirs,
         print_mode=parent.permission_engine.print_mode,
     )
@@ -656,9 +703,29 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
 
     hook_runner = None
     if parent.hook_runner is not None:
+        # Halo 2.0.5 round 5 (deliverable 2): a member bio's own `hooks`
+        # (plus a template assignment's `hooks` override, and an AgentSpec
+        # frontmatter `hooks` of the same shape for a non-team agent) run
+        # through THIS child's own HookRunner -- the same runner, matcher
+        # and env machinery a settings hook already uses -- with the
+        # agent's name in the environment as HALO_AGENT. `scope: "agent"`
+        # keeps them out of the parent's own hook map entirely.
+        from halo_harness.hooks import agent_hooks_to_hookdefs
+        member_hooks = {}
+        if team_control is not None:
+            member_hooks = team_control.member_hooks(_effective_role_name)
+        elif isinstance(getattr(spec, "hooks", None), dict):
+            member_hooks = spec.hooks
+        _child_hooks_by_event = parent.hook_runner.hooks_by_event
+        if member_hooks:
+            from halo_harness.hooks import merge_hook_maps
+            _child_hooks_by_event = merge_hook_maps(
+                _child_hooks_by_event, agent_hooks_to_hookdefs(member_hooks))
+        _child_effective_env = dict(parent.hook_runner.effective_env or {})
+        _child_effective_env["HALO_AGENT"] = spec.name
         hook_runner = HookRunner(
-            parent.hook_runner.hooks_by_event, cwd=child_cwd, session_id=child_log.session_id,
-            transcript_path=str(child_log.path), effective_env=parent.hook_runner.effective_env,
+            _child_hooks_by_event, cwd=child_cwd, session_id=child_log.session_id,
+            transcript_path=str(child_log.path), effective_env=_child_effective_env,
             permission_mode=permission_mode, effort=_effective_effort,
             mcp_manager=parent.mcp_manager, prompt_caller=parent.hook_runner.prompt_caller,
             enabled=parent.hook_runner.enabled, agent_id=agent_id, agent_type=spec.name,
@@ -780,6 +847,11 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
                                         # round 7 (brief 3b): the SAME tracker object, never a fresh one --
                                         # see AgentRuntime.org_budget's own docstring.
                                         org_budget=runtime.org_budget,
+                                        # Halo 2.0.5 round 5: the team's enforced lineup travels down the
+                                        # whole tree too (grandchildren can never spawn per the depth cap,
+                                        # but `_build_child_session` still copies it for consistency, same
+                                        # rule as role_table above).
+                                        team_control=getattr(runtime, "team_control", None),
                                         # finding 10: the SAME semaphore object, never a fresh one -- see
                                         # AgentRuntime.concurrency_semaphore's own docstring.
                                         concurrency_semaphore=runtime.concurrency_semaphore)
@@ -826,6 +898,49 @@ def _fire_subagent_hook(child, event_name: str) -> None:
             child._run_hook(event_name, child.hook_runner.payload(event_name))
     except Exception:
         pass
+
+
+def _team_forward_prefix(parent) -> str:
+    """Halo 2.0.5 round 5: `delegation.forward_text: true` -- the parent's
+    own LATEST user message, capped, as leading context for the child. ""
+    when the parent has no user text yet (or no message list at all)."""
+    for msg in reversed(getattr(parent, "messages", None) or []):
+        if not isinstance(msg, dict) or msg.get("role") != "user":
+            continue
+        content = msg.get("content")
+        if isinstance(content, list):
+            texts = [b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"]
+        else:
+            texts = [str(content or "")]
+        text = "\n".join(t for t in texts if t).strip()
+        if text:
+            return "Context from the delegating session's latest user message:\n" + text[:2000]
+    return ""
+
+
+def _team_queue_report(parent, line: str, *, from_role: "Optional[str]" = None) -> None:
+    """Halo 2.0.5 round 5: `org` reporting -- a member's one-line report
+    lands on the ROOT session's pending-notice queue (the same queue a
+    background sub-agent's completion notice uses, so the next turn
+    delivers it as a user-role notice), and any `on: message, from:
+    <role>` trigger armed on the root's scheduler fires."""
+    root = parent
+    hops = 0
+    while getattr(root, "agent_depth", 0) > 0 and getattr(root, "agent_id", None) is not None and hops < 8:
+        runtime = getattr(root, "agent_runtime", None)
+        up = getattr(runtime, "parent", None) if runtime is not None else None
+        if up is None:
+            break
+        root = up
+        hops += 1
+    lock = getattr(root, "_agent_notices_lock", None)
+    notices = getattr(root, "_pending_agent_notices", None)
+    if lock is not None and notices is not None:
+        with lock:
+            notices.append(line)
+    scheduler = getattr(root, "_team_scheduler", None)
+    if scheduler is not None and from_role:
+        scheduler.notify_message(from_role)
 
 
 def _tag(ev, *, agent_id: str, parent_tool_use_id: str):
@@ -1631,6 +1746,17 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
         refusal = runtime.org_budget.refusal_before_spawn(subagent_type, parent.cost_meter.total_usd)
         if refusal:
             return [], ToolResult(refusal, is_error=True)
+    # Halo 2.0.5 round 5 "team control": a team budget that is out stops
+    # DELEGATION right here, before any model call, with its one-line
+    # reason -- same shape as the org-budget check above. `agents_may_
+    # exceed: true` keeps members running (the budget is advisory); the
+    # line is still recorded so `escalation.triggers: budget_exhausted`
+    # and `/teams` reporting can see it.
+    team_control = getattr(runtime, "team_control", None)
+    if team_control is not None:
+        team_refusal = team_control.budget_refusal()
+        if team_refusal and not team_control.budget.get("agents_may_exceed"):
+            return [], ToolResult(team_refusal, is_error=True)
 
     # Halo 2.0.2 round 3 (brief C): `count` (N identical prompts) / `batch`
     # (a list of per-child prompt+role+model+effort overrides) spawn
@@ -1667,6 +1793,42 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # already occupies (see `_build_child_session`'s own `_effective_
     # effort` precedence chain).
     effort_override = tool_input.get("effort")
+    # Halo 2.0.5 round 5 "team control": under a team, `routing` maps the
+    # task to a role/alias (the model's own explicit `role=` still wins),
+    # and `pipeline` gates stages in order -- a `required` gate that has
+    # not passed blocks every later stage with its one-line reason. The
+    # routed target rides the SAME `role_override` slot an Agent(role=...)
+    # call already uses, so `_build_child_session`/`resolve_agent_model`
+    # resolve the member's model through the role table the template
+    # filled (`teams_yaml.resolve_role_table`). Explicit count/batch
+    # fan-outs (returned from above) skip routing by design: they already
+    # name their own per-child roles.
+    team_stage = None
+    if team_control is not None:
+        team_kind, team_target = team_control.route_call(tool_input, description)
+        if team_target and not role_override:
+            # The routed target is one of THIS team's aliases/roles (the
+            # template's own resolved table may never have been persisted
+            # -- `--team` runs without touching config), so validate
+            # against the team's OWN alias map first, the global role
+            # table second.
+            if team_target not in team_control.aliases:
+                role_error = _invalid_role_error(team_target)
+                if role_error is not None:
+                    return [], ToolResult(role_error, is_error=True)
+            role_override = team_target
+            role_name = team_target
+        team_stage = team_control.stage_for(team_kind, team_target)
+        gate_stop = team_control.gate_block(team_stage)
+        if gate_stop is not None:
+            return [], ToolResult(gate_stop, is_error=True)
+        # `delegation.forward_text: true` hands the child the parent's own
+        # latest user text as leading context (capped); the default (false)
+        # keeps the delegation prompt exactly what the model typed.
+        if team_control.delegation.get("forward_text"):
+            forward = _team_forward_prefix(parent)
+            if forward:
+                prompt = f"{forward}\n\n{prompt}"
 
     agent_id = _new_agent_id()
     try:
@@ -1703,6 +1865,23 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # parameter.
     if not background and on_event is None:
         child._subagent_live_asks = False
+    # Halo 2.0.5 round 5: team `permissions.offline` -- offline mode is
+    # process-global in this harness (env/config), so a per-member "runs
+    # offline" is enforced at the SPAWN point instead: a member whose
+    # resolved model lives on a non-loopback, non-allowlisted host never
+    # starts, with the same host rule the real request gate applies.
+    if team_control is not None and team_control.member_permissions().get("offline"):
+        from halo_harness.providers.http import _is_loopback_host, allowlisted_local_hosts
+        _host = getattr(model_ref, "host", None)
+        if not _is_loopback_host(_host) and (_host or "").strip().lower() not in allowlisted_local_hosts():
+            _, failed_meta_path = _child_log_paths(parent, agent_id)
+            _write_meta(failed_meta_path, {"agent_id": agent_id, "type": spec.name, "description": description,
+                                            "status": "completed", "is_error": True, "finished": time.time(),
+                                            "parent_tool_use_id": tool_id})
+            return [], ToolResult(
+                f"team permissions.offline: member {spec.name!r} resolves to {model_ref.raw} (host {_host or '?'}) "
+                f"-- a network host this team runs offline against; point the role at a local model "
+                f"or drop permissions.offline from the template.", is_error=True)
     # H9 whole-tree review finding 13: captured BEFORE the child ever makes
     # a model call -- a resumed child's own log already carries every PRIOR
     # invocation's "usage" nodes (reloaded from disk); only nodes appended
@@ -1846,6 +2025,26 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                 budget_note = (runtime.org_budget.record_spend(
                     spec.name, child.cost_meter.total_usd, parent.cost_meter.total_usd)
                     if runtime.org_budget is not None else None)
+                # Halo 2.0.5 round 5 "team control" -- the background
+                # completion half of the foreground block below: budget
+                # accounting, the stage gate, the handoff shape, and the
+                # org-addressed one-line report.
+                if team_control is not None:
+                    team_control.record_spend(child.cost_meter.total_usd)
+                    team_control.record_turn(getattr(child, "turn_count", 0) or 0)
+                    if team_stage is not None:
+                        ok, gate_line = team_control.evaluate_stage(team_stage, text)
+                        team_control.record_stage(team_stage, ok, gate_line)
+                        if not ok:
+                            text = (f"{text}\n\nstage {team_stage.get('name')!r} gate did not pass "
+                                    f"({gate_line})" + (" -- the next stage stays blocked"
+                                                        if team_stage.get("gate") == "required" else ""))
+                    text = team_control.handoff_text(role_name, text, cost_usd=child.cost_meter.total_usd,
+                                                     child_log_path=str(child.log.path))
+                    report_line = team_control.record_report(
+                        role_name, f"{spec.name} {'failed' if is_error else 'finished'}"
+                                   f" (${child.cost_meter.total_usd:.4f})")
+                    _team_queue_report(parent, report_line)
                 # H6/D10 (see the foreground path's own comment): merge even
                 # for a background sub-agent, under the same lock its own
                 # pending-notice append already uses.
@@ -1977,6 +2176,28 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     budget_note = (runtime.org_budget.record_spend(spec.name, child.cost_meter.total_usd,
                                                      parent.cost_meter.total_usd)
                    if runtime.org_budget is not None else None)
+    # Halo 2.0.5 round 5 "team control" -- the foreground completion half
+    # (the background half lives in `_bg_run`): the team's own budget
+    # counts this call's spend/turns, a pipeline stage records its gate
+    # result (a `required` gate that fails blocks the NEXT stage), the
+    # `delegation.handoff` shape wraps the hand-back, and `org` addressing
+    # turns the completion into the member's one-line report.
+    team_note = None
+    if team_control is not None:
+        team_control.record_spend(child.cost_meter.total_usd)
+        team_control.record_turn(getattr(child, "turn_count", 0) or 0)
+        if team_stage is not None:
+            ok, gate_line = team_control.evaluate_stage(team_stage, text)
+            team_control.record_stage(team_stage, ok, gate_line)
+            if not ok and team_stage.get("gate") == "required":
+                team_note = f"stage {team_stage.get('name')!r} gate did not pass ({gate_line}) -- the next stage stays blocked"
+            elif not ok:
+                team_note = f"stage {team_stage.get('name')!r} gate did not pass ({gate_line}) -- recorded, optional gate continues"
+        text = team_control.handoff_text(role_name, text, cost_usd=child.cost_meter.total_usd,
+                                         child_log_path=str(child.log.path))
+        report_line = team_control.record_report(
+            role_name, f"{spec.name} {'failed' if is_error else 'finished'} (${child.cost_meter.total_usd:.4f})")
+        _team_queue_report(parent, report_line)
     # H6 known v1 gap (D10) / B must-do: a non-interactive child's own
     # "ask" denials (agent/loop.py's `_resolve_tool_call`) land in the
     # CHILD's own `permission_denials` list, which nothing outside this
@@ -1998,6 +2219,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
         text = f"{text}\n\n{worktree_note}"
     if budget_note:
         text = f"{text}\n\n{budget_note}"
+    if team_note:
+        text = f"{text}\n\n{team_note}"
     # Halo 2.0.2 round D (brief item 2, "approval gates"): a no-op unless
     # `spec.requires_approval` is set (every pre-existing caller, unchanged)
     # -- see `_apply_approval_gate`'s own docstring for the accept/edit/
@@ -2151,6 +2374,7 @@ def run_org_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, tool_
         # 1, when the whole tree needs 1 + 3 + 1 = 5.
         max_depth=runtime.depth + org_tree_depth(org) + 1,
         max_concurrent=org.get("max_concurrent"), org_budget=org_budget,
+        team_control=getattr(runtime, "team_control", None),
     )
     # 2.0.2 review finding 10 (major): a FRESH semaphore, sized for THIS
     # org run specifically (its own `max_concurrent`, or the config
@@ -2363,6 +2587,7 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
                     depth=runtime.depth, tasks=runtime.tasks, lock=runtime.lock,
                     max_depth=record.get("org_max_depth"), max_concurrent=record.get("org_max_concurrent"),
                     org_budget=record.get("org_budget"), concurrency_semaphore=runtime.concurrency_semaphore,
+                    team_control=getattr(runtime, "team_control", None),
                 )
     if spec is None:
         return [], ToolResult(f"The agent type for task_id {task_id!r} is no longer available.", is_error=True)

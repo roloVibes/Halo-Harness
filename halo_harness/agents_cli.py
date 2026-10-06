@@ -220,15 +220,63 @@ def _cmd_import(rest: list) -> int:
     return 0
 
 
+def _cmd_schedule(rest: list) -> int:
+    """Halo 2.0.5 round 5 (deliverable 3): `halo agents schedule list` --
+    every armed schedule/trigger (any owning session) with its next fire
+    time; `run <name>` fires one right now through `halo bg`'s own detached
+    background-run surface; `pause|resume|rm <name>` manage an armed entry
+    in the shared store. Schedules arm when a session that loaded the
+    agent's team runs; they disarm when that session closes."""
+    from halo_harness.agents_schedule import list_schedules, run_once, schedule_status_lines
+    parser = argparse.ArgumentParser(prog="halo agents schedule", add_help=True)
+    parser.add_argument("verb", choices=["list", "run", "pause", "resume", "rm"])
+    parser.add_argument("name", nargs="?", default=None)
+    args = parser.parse_args(rest)
+    if args.verb == "list":
+        for line in schedule_status_lines(list_schedules()):
+            print(line)
+        return 0
+    if args.verb == "run":
+        if not args.name:
+            print("halo agents schedule run: a schedule/trigger name is required", file=sys.stderr)
+            return 2
+        print(run_once(args.name))
+        return 0
+    if not args.name:
+        print(f"halo agents schedule {args.verb}: a schedule/trigger name is required", file=sys.stderr)
+        return 2
+    from halo_harness.agents_schedule import load_store, save_store, schedules_path
+    from halo_harness.config.paths import bridge_home
+    state_dir = bridge_home()
+    store = load_store(state_dir)
+    entries = store.get("entries", [])
+    hit = next((e for e in entries if args.name in (e.get("name"), e.get("id"), e.get("agent"))), None)
+    if hit is None:
+        print(f"halo agents schedule: no armed schedule or trigger named {args.name!r}", file=sys.stderr)
+        return 1
+    if args.verb == "rm":
+        store["entries"] = [e for e in entries if e is not hit]
+        save_store(state_dir, store)
+        print(f"Removed {args.name!r} from {schedules_path(state_dir).name}.")
+        return 0
+    hit["enabled"] = args.verb == "resume"
+    save_store(state_dir, store)
+    print(f"{args.name!r} is now {'resumed' if args.verb == 'resume' else 'paused'}.")
+    return 0
+
+
 _SUBCOMMANDS = {"list": _cmd_list, "show": _cmd_show, "validate": _cmd_validate, "new": _cmd_new,
-                "edit": _cmd_edit, "export": _cmd_export, "import": _cmd_import}
+                "edit": _cmd_edit, "export": _cmd_export, "import": _cmd_import,
+                "schedule": _cmd_schedule}
 
 
 def cmd_agents(argv: list) -> int:
     if not argv or argv[0] in ("-h", "--help"):
         print("usage: halo agents list|show <name>|validate [name]|"
               "new <name> [--from BIO] [--project] [--form]|edit <name> [--form]|"
-              "export <name> [file] [--claude-md]|import <file>|<name> [--claude-md]",
+              "export <name> [file] [--claude-md]|import <file>|"
+              "schedule list|run <name>|pause <name>|resume <name>|rm <name>|"
+              "<name> [--claude-md]",
               file=sys.stderr)
         return 0 if argv else 2
     sub, rest = argv[0], argv[1:]

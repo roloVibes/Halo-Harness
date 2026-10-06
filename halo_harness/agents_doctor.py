@@ -82,6 +82,49 @@ def run_all_acceptance(*, cwd=None, state_dir=None, call_fn=None,
     return out
 
 
+def check_team_gates(name: "Optional[str]" = None, *, cwd=None, state_dir=None,
+                     call_fn=None) -> "tuple[Optional[str], list[tuple[str, bool, str]]]":
+    """Halo 2.0.5 round 5 (deliverable 4): `halo doctor --teams` -- resolve
+    the named (or active) team template, then exercise its FIRST
+    `required` gate end to end through `TeamControl.evaluate_stage`
+    (the same gate the live agent loop runs between pipeline stages; the
+    bio's own acceptance block is the checker, `call_fn` is the injectable
+    model seam -- omitted means the real `halo -p` subprocess path, same as
+    `run_acceptance`). `(team_name, [(stage, ok, message), ...])`;
+    `(None, [...problem lines as (False,) tuples...])` when the team cannot
+    even be resolved -- the CLI prints those as the problems they are."""
+    from halo_harness.teams_runtime import load_team_control
+    control = load_team_control(name, cwd=cwd, state_dir=state_dir)
+    if control is None:
+        return None, [("(team)", False, "no active team, or the named one could not be resolved")]
+    results: "list[tuple[str, bool, str]]" = []
+    required = [s for s in control.stages if s.get("gate") == "required"]
+    if not required:
+        results.append(("(pipeline)", False, "no required gate in this template -- nothing to exercise"))
+        return control.name, results
+    stage = required[0]
+    bio = control.bio_for(stage.get("role"))
+    acceptance = stage.get("acceptance") or (bio or {}).get("acceptance") or {}
+    prompt = acceptance.get("prompt")
+    if prompt and call_fn is None:
+        # The live subprocess acceptance path -- the stage's own model.
+        models = (bio or {}).get("models") or {}
+        model_ref = models.get("preference") or models.get("fallback")
+        if model_ref:
+            try:
+                response = _default_call(model_ref, prompt)
+                ok = check_expectation(response, acceptance.get("expect"))
+                results.append((stage.get("name"), ok,
+                                f"gate exercise ({model_ref}): {'ok' if ok else 'FAILED'}"))
+                return control.name, results
+            except Exception as e:
+                results.append((stage.get("name"), False, f"gate exercise call failed: {type(e).__name__}"))
+                return control.name, results
+    ok, note = control.evaluate_stage(stage, "", call_fn=call_fn)
+    results.append((stage.get("name"), ok, f"gate exercise: {note}"))
+    return control.name, results
+
+
 def check_active_team(*, cwd=None, state_dir=None) -> "list[str]":
     """One plain sentence per problem with the ACTIVE team template
     (`team:` in config.json) -- `[]` when none is active, or the active

@@ -206,6 +206,7 @@ the files above.
 | `.halo/team.json` (project) or `~/.halo/team.json` | shared Databricks team preset -- see `docs/DATABRICKS.md` |
 | `~/.halo/agents/<name>.yaml` (`.halo/agents/<name>.yaml` project) | an agent BIO -- models/tools/context/limits/output/environment/acceptance for one named agent; see [AGENTS.md](AGENTS.md) |
 | `~/.halo/teams/<name>.yaml` (`.halo/teams/<name>.yaml` project) | a TEAM TEMPLATE ("lineup") -- assigns agent bios to roles/positions; `team` (below) names the active one; see [AGENTS.md](AGENTS.md) |
+| `<state_dir>/agents-schedules.json` | what schedule/trigger set is ARMED right now (written by live sessions' team schedulers; `halo agents schedule list` reads it) -- see [AGENTS.md](AGENTS.md) |
 
 ### `~/.halo/config.json` keys
 
@@ -215,7 +216,7 @@ directly by the features that own them:
 | Key | Default | Set by |
 |---|---|---|
 | `model` | unset (built-in default applies) | `halo init`, `halo config set model ...` |
-| `team` | unset (no active team template) | `halo teams use <name>` -- see [AGENTS.md](AGENTS.md) |
+| `team` | unset (no active team template) | `halo teams use <name>` -- names the ACTIVE lineup; a session running under it enforces its sections through `teams_runtime.py` (Halo 2.0.5 round 5; `--team <name>` overrides per-run, never persisted); see [AGENTS.md](AGENTS.md) |
 | `theme` | auto-detected from terminal truecolor support | `/theme`, `halo config set theme ...` |
 | `images` | `"inline"` | `--no-inline-images` overrides per-run |
 | `intro` | `true` | `--no-intro` overrides per-run; set `false` to turn off the launch intro for good |

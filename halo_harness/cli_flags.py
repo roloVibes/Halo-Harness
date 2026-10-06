@@ -43,6 +43,9 @@ def cli_flags_from_args(args) -> dict:
         "brief": bool(g("brief", False)),
         "environment": _parse_environment_pairs(g("environment")),
         "exclude_dynamic_system_prompt_sections": bool(g("exclude_dynamic_system_prompt_sections", False)),
+        # Halo 2.0.5 round 5: `--team <name>` -- run THIS session under that
+        # team template (its lineup sections enforced); never persisted.
+        "team": g("team"),
         "fallback_models": _parse_fallback_models(g("fallback_model")),
         "forward_subagent_text": bool(g("forward_subagent_text", False)),
         # Halo 2.0.3.1: `--image <path>` (repeatable) -- always a list,

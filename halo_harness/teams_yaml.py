@@ -16,11 +16,11 @@ understand (`resolve_role_table`/`resolve_org`) -- applying a team
 template never needs a parallel runtime of its own; it just fills the
 EXISTING role table / builds an EXISTING org dict, through the EXISTING
 editors and Auto tab. `delegation`/`routing`/`budget`/`escalation`/
-`pipeline`/`permissions`/`context` are stored, validated for shape, and
-shown (`halo teams show`, `/teams`, `halo doctor --teams`) -- deliberately
-NOT enforced by the live agent loop this round (the roadmap's own
-"Deferred to 2.0.5 with the Governor" call, extended here to the whole
-lineup-orchestration layer, not just `hooks`/`schedule`)."""
+`pipeline`/`permissions`/`context` are validated for shape here and
+ENFORCED by the live agent loop through `teams_runtime.py` (Halo 2.0.5
+round 5 -- the roadmap's own "Deferred to 2.0.5 with the Governor" call,
+this module's own docstring note that the deferral came due); this file
+stays the schema/storage layer, the runtime layer lives there."""
 
 from __future__ import annotations
 
@@ -39,7 +39,41 @@ TOP_SECTIONS = ("delegation", "routing", "budget", "escalation", "context", "per
 DELEGATION_MODES = ("manual", "by-skill", "round-robin")
 HANDOFF_SHAPES = ("summary", "full", "structured")
 GATE_KINDS = ("required", "optional")
-ASSIGNMENT_OVERRIDE_KEYS = ("models", "tools", "limits")
+ESCALATION_TRIGGERS = ("tool_failures", "context_overflow", "budget_exhausted")
+# Halo 2.0.5 round 5: an `agents:` assignment may also override the bio's
+# `hooks` (the brief's own `overrides.hooks`) -- the one override key that
+# grew past the original models/tools/limits trio.
+ASSIGNMENT_OVERRIDE_KEYS = ("models", "tools", "limits", "hooks")
+
+# Halo 2.0.5 round 5: the per-section enforcement state `halo teams show`
+# prints. Every section the live agent loop now honours through
+# `teams_runtime.py` says so with the ONE behaviour line that names what
+# actually happens; `acceptance` is exercised by `halo doctor --agents`
+# /`--teams` rather than the live loop.
+SECTION_ENFORCEMENT = {
+    "delegation": ("enforced", "mode/max_parallel/max_depth/handoff/forward_text govern every Agent call under the team"),
+    "routing": ("enforced", "a task kind maps to a role or alias, with a default, at spawn time"),
+    "budget": ("enforced", "max_budget_usd/max_total_turns/max_wall_time stop delegation with the reason when exhausted"),
+    "escalation": ("enforced", "triggers switch to the target model (ask: true shows the approval card first)"),
+    "context": ("enforced", "files and skills load for every member; memory.namespace and writers govern the shared memory"),
+    "permissions": ("enforced", "mode/rules/offline apply to every member on top of the bio's own"),
+    "org": ("enforced", "reports_to addresses each member's hand-back; reporting drives the one-line reports"),
+    "pipeline": ("enforced", "stages run in order; a required gate must pass its acceptance before the next stage starts"),
+    "acceptance": ("checked by doctor", "halo doctor --agents/--teams runs each acceptance prompt and checks the reply"),
+}
+
+
+def enforcement_lines(template: dict) -> "list[str]":
+    """`halo teams show`'s enforcement block -- one line per top section:
+    `section: enforced -- what happens` (or the `checked by doctor` marker
+    for acceptance), with a `(not set)` marker when this template never
+    configures the section, so a reader always sees the full enforcement
+    surface, not just the slice this file happens to fill."""
+    out: "list[str]" = []
+    for section, (state, reason) in SECTION_ENFORCEMENT.items():
+        marker = "" if isinstance(template, dict) and template.get(section) is not None else " (not set)"
+        out.append(f"  {section}: {state}{marker} -- {reason}")
+    return out
 
 
 def is_valid_team_name(name: str) -> bool:
@@ -258,6 +292,10 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
         for key in ASSIGNMENT_OVERRIDE_KEYS:
             if key in entry and entry[key] is not None and not isinstance(entry[key], dict):
                 problems.append(f'agents[{i}]: "{key}" override must be a mapping')
+        # Halo 2.0.5 round 5: an assignment's own `hooks` override (the
+        # brief's `overrides.hooks`) uses the bio's own shape.
+        from halo_harness.agents_yaml import validate_hook_section
+        problems.extend(validate_hook_section(entry.get("hooks")))
     if agents and main_count != 1:
         problems.append(f"exactly one agents[] entry must have role: main (found {main_count})")
     delegation = data.get("delegation")
@@ -270,6 +308,12 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
         handoff = delegation.get("handoff")
         if handoff is not None and handoff not in HANDOFF_SHAPES:
             problems.append(f'"delegation.handoff" {handoff!r} is not one of {", ".join(HANDOFF_SHAPES)}')
+        for key in ("max_parallel", "max_depth"):
+            value = delegation.get(key)
+            if value is not None and (not isinstance(value, int) or isinstance(value, bool) or value < 1):
+                problems.append(f'"delegation.{key}" must be a positive integer')
+        if delegation.get("forward_text") is not None and not isinstance(delegation.get("forward_text"), bool):
+            problems.append('"delegation.forward_text" must be true or false')
     routing = data.get("routing")
     if routing is not None and not isinstance(routing, dict):
         problems.append('"routing" must be a mapping')
@@ -283,6 +327,36 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
     for section in ("budget", "escalation", "context", "permissions"):
         if section in data and data[section] is not None and not isinstance(data[section], dict):
             problems.append(f'"{section}" must be a mapping')
+    # Halo 2.0.5 round 5: the enforced sections get VALUE checks, not just
+    # mapping checks -- one plain line per problem, same style as every
+    # other check above.
+    budget = data.get("budget") if isinstance(data.get("budget"), dict) else None
+    if budget is not None:
+        from halo_harness.agents_yaml import parse_every_duration
+        for key in ("max_budget_usd", "max_total_turns"):
+            value = budget.get(key)
+            if value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0):
+                problems.append(f'"budget.{key}" must be a positive number')
+        wall = budget.get("max_wall_time")
+        if wall is not None and not (isinstance(wall, (int, float)) and not isinstance(wall, bool) and wall > 0) \
+                and parse_every_duration(wall) is None:
+            problems.append('"budget.max_wall_time" must be a positive number of seconds or a duration like 3h')
+        if budget.get("agents_may_exceed") is not None and not isinstance(budget.get("agents_may_exceed"), bool):
+            problems.append('"budget.agents_may_exceed" must be true or false')
+    escalation = data.get("escalation") if isinstance(data.get("escalation"), dict) else None
+    if escalation is not None:
+        triggers = escalation.get("triggers")
+        if triggers is not None:
+            if not isinstance(triggers, list) or not all(isinstance(t, str) for t in triggers):
+                problems.append('"escalation.triggers" must be a list of trigger names')
+            else:
+                for t in triggers:
+                    if t not in ESCALATION_TRIGGERS:
+                        problems.append(f'"escalation.triggers" {t!r} is not one of {", ".join(ESCALATION_TRIGGERS)}')
+        if escalation.get("to") is not None and not isinstance(escalation.get("to"), str):
+            problems.append('"escalation.to" must be a model reference string')
+        if escalation.get("ask") is not None and not isinstance(escalation.get("ask"), bool):
+            problems.append('"escalation.ask" must be true or false')
     org = data.get("org")
     if org is not None and not isinstance(org, dict):
         problems.append('"org" must be a mapping')
@@ -311,6 +385,13 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
             gate = s.get("gate")
             if gate is not None and gate not in GATE_KINDS:
                 problems.append(f'pipeline.stages[{i}]: "gate" {gate!r} is not one of {", ".join(GATE_KINDS)}')
+            acceptance = s.get("acceptance")
+            if acceptance is not None:
+                if not isinstance(acceptance, dict) or not isinstance(acceptance.get("prompt"), str) \
+                        or not acceptance.get("prompt").strip():
+                    problems.append(f'pipeline.stages[{i}].acceptance: "prompt" must be a non-empty string')
+                elif acceptance.get("expect") is not None and not isinstance(acceptance.get("expect"), str):
+                    problems.append(f'pipeline.stages[{i}].acceptance: "expect" must be a string')
     extends = data.get("extends")
     if extends is not None:
         if not isinstance(extends, str) or not extends.strip():

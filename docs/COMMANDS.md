@@ -178,6 +178,25 @@ JSON file holding `{name: {description, prompt, tools, model, ...}}`. See
 `docs/CONFIG.md`'s agents section for the full discovery precedence these
 sit on top of.
 
+#### `--team TEAM`
+
+What: run THIS session under that team template (`halo teams list` names
+them; `docs/AGENTS.md` for the schema) -- the lineup's sections are
+ENFORCED by the live agent loop through `teams_runtime.py` (Halo 2.0.5
+round 5): `routing` maps a task kind to a role/alias at spawn time,
+`delegation` caps depth/parallel and shapes the hand-back, `budget` stops
+delegation with its reason when exhausted, `escalation` switches on its
+triggers, `context`/`permissions` apply to every member, `pipeline` gates
+stages in order, and member bios' `hooks`/`schedule`/`triggers` arm.
+Overrides config's own active `team:` key for this one run, never
+persisted; an unknown name degrades to a stderr line and no team (same
+shape as an unknown `--agent`). The team's own resolved role table rides
+ON TOP of the persisted one, so a `--team` run needs no config change.
+```sh
+halo --team halo-dev-cycle
+halo -p --team balanced "delegate the research and review"
+```
+
 #### `--role NAME=MODEL[:EFFORT]`
 
 What: overrides one of the ten built-in roles (`orchestrator`, `planner`,
@@ -851,7 +870,7 @@ halo doctor --help
 ```
 usage: halo doctor [-h] [--work] [--json] [--probe-all] [--both]
                           [--tools] [--only GLOB] [--learn] [--local] [--model REF]
-                          [--agents] [--mock] [--mcp {deep}] [--apply]
+                          [--agents] [--teams] [--mock] [--mcp {deep}] [--apply]
                           [--from DIR] [name]
 
 Check the health of your halo installation.
@@ -883,7 +902,10 @@ options:
                first if one isn't already running
   --agents     Validate every agent bio and the active team template, then
                run each bio's own acceptance check against a real model call
-  --mock       With --agents: never call a real model (tests only)
+  --teams      Validate the active (or named) team template and exercise its
+               first required pipeline gate
+  name         With --teams: this team template instead of the active one
+  --mock       With --agents/--teams: never call a real model (tests only)
   --mcp {deep} Run the MCP connectivity deep dive (--mcp deep [name]) instead
                of the general checks
   name         With --mcp deep: only this server (default: every currently-
@@ -914,6 +936,14 @@ bio's shape (`halo_harness/agents_yaml.py`) and the ACTIVE team template
 runs each bio's own `acceptance` block against a real one-shot model
 call (`halo -p <prompt> --model <ref> --max-turns 1`); `--mock` (tests
 only) never calls a real model. See [AGENTS.md](AGENTS.md).
+
+`halo doctor --teams [NAME] [--mock]` (2.0.5 round 5) validates the named
+(or active) team template and then exercises its FIRST `required`
+pipeline gate end to end -- the same gate the live agent loop runs
+between stages (`agents_doctor.check_team_gates` through
+`teams_runtime.TeamControl.evaluate_stage`, the stage's own acceptance
+or its bio's): one real model call unless `--mock`, exit 0 iff the gate
+passed and the template resolved.
 
 `halo doctor --mcp deep [name] [--apply] [--from DIR]` (2.0.4 round 6)
 is the deep dive for a server the ordinary `/mcp`/`halo mcp fix` repair
@@ -2218,6 +2248,11 @@ halo agents new <name> [--from BIO] [--project] [--form]
 halo agents edit <name> [--form]
 halo agents export <name> [file] [--claude-md]
 halo agents import <file> | --claude-md <name>
+halo agents schedule list
+halo agents schedule run <name>
+halo agents schedule pause <name>
+halo agents schedule resume <name>
+halo agents schedule rm <name>
 ```
 
 Halo 2.0.4 round 4: manages agent BIOS (`~/.halo/agents/<name>.yaml`
@@ -2242,6 +2277,16 @@ actions screen (new, new from..., edit, duplicate, delete, import from
 Agents step, the bio editor's own sections, and the two-source (Models /
 Agents) picker a role slot now uses everywhere.
 
+**Halo 2.0.5 round 5**: `schedule list` shows every armed schedule and
+trigger (any owning session) with each schedule's next fire time, from
+`<state>/agents-schedules.json`; `run <name>` fires one right now through
+`halo bg`'s own detached background-run surface; `pause`/`resume`/`rm`
+manage the armed entry. Schedules and triggers ARM when a session that
+loaded the agent's team is alive and DISARM when it closes -- never a
+system service; `/agents schedule` in a running session prints the same
+list. See [AGENTS.md](AGENTS.md)'s `hooks`/`schedule`/`triggers` section
+for the bio schema.
+
 ## `halo teams`
 
 ```sh
@@ -2262,7 +2307,11 @@ shipped starters -- `local-first`/`balanced`/`quality`/`halo-dev-cycle`
 positions (`agents:`, or the `roles:` shorthand for one assignment per
 role), plus `delegation`/`routing`/`budget`/`escalation`/`context`/
 `permissions`/`org`/`pipeline`/`acceptance`. `show` prints the lineup,
-its resolved role table, and any `org:`; `use <name>` sets the active
+its resolved role table, any `org:`, and -- since Halo 2.0.5 round 5 --
+the per-section ENFORCEMENT state (enforced / not set / checked by
+doctor, with the one behaviour line each: a session running under the
+team executes these through `teams_runtime.py`, `--team <name>` for one
+run); `use <name>` sets the active
 `team:` in `config.json` (refusing an invalid name outright).
 
 **Halo 2.0.5 round 2**: `edit` is new this round (symmetrical with
