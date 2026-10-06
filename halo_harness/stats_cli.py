@@ -389,7 +389,31 @@ def _cmd_stats_telemetry(args) -> int:
     return 0
 
 
-def _cmd_stats_experiential() -> int:
+def _cmd_stats_experiential_generation(request_id: str) -> int:
+    """`halo stats --experiential --id <x-request-id>` -- Halo 2.0.4
+    round 5 (xp: contract alignment): `GET /api/v1/generation?id=<id>`
+    (llms.txt "Cost API") for after-the-fact attribution of ONE specific
+    call -- the companion to the per-response `x-request-id` header
+    captured on every `xp:` turn (`/xp routes`/the session's own usage
+    log carry the id this flag is meant to be pasted back in with)."""
+    from halo_harness.providers.experiential_account import fetch_experiential_generation
+    data = fetch_experiential_generation(request_id)
+    if data is None:
+        print(f"halo stats --experiential --id {request_id}: could not reach the generation endpoint, or no such "
+              f"id (check EXPLABS_API_KEY / network / that the id is this org's own).", file=sys.stderr)
+        return 1
+    cost = data.get("total_cost")
+    cost_str = f"${float(cost):.6f}" if isinstance(cost, (int, float)) and not isinstance(cost, bool) else "?"
+    print(f"Experiential Labs generation {request_id}:")
+    print(f"  provider: {data.get('provider_name', '?')}")
+    print(f"  total_cost: {cost_str}")
+    tokens = data.get("tokens")
+    if tokens is not None:
+        print(f"  tokens: {tokens}")
+    return 0
+
+
+def _cmd_stats_experiential(request_id: Optional[str] = None) -> int:
     """`halo stats --experiential` -- Halo 2.0.4 round 2: settled usage
     rows from `GET /api/v1/usage` (research doc section 6), NOT the local
     session-log aggregate every other `halo stats` mode reads -- this is
@@ -397,7 +421,13 @@ def _cmd_stats_experiential() -> int:
     wording: there is no standalone `halo cost` command, only this one and
     the in-session `/cost`. One bounded, best-effort page (no pagination
     loop) -- `cursor`-driven paging through every settled row is future
-    work, not required for this round's "page through for settled rows"."""
+    work, not required for this round's "page through for settled rows".
+
+    Halo 2.0.4 round 5: `request_id` (the new `--id` flag) switches this
+    to the single-generation lookup above instead -- "after-the-fact
+    attribution" is about ONE call, not a settled-rows page."""
+    if request_id:
+        return _cmd_stats_experiential_generation(request_id)
     from halo_harness.providers.experiential_account import fetch_experiential_usage_rows
     rows = fetch_experiential_usage_rows()
     if rows is None:
@@ -444,10 +474,13 @@ def cmd_stats(argv: list) -> int:
                          help="Settled usage rows from the Experiential Labs account API "
                               "(GET /api/v1/usage) instead of the local session-log aggregate -- "
                               "needs EXPLABS_API_KEY")
+    parser.add_argument("--id", default=None, metavar="REQUEST_ID", dest="xp_request_id",
+                         help="With --experiential: look up ONE call by its x-request-id "
+                              "(GET /api/v1/generation) instead of listing settled usage rows")
     args = parser.parse_args(argv)
 
     if args.experiential:
-        return _cmd_stats_experiential()
+        return _cmd_stats_experiential(args.xp_request_id)
     if args.models or args.tools or args.roles:
         return _cmd_stats_telemetry(args)
 

@@ -233,6 +233,59 @@ def test_enumerate_live_is_bounded_by_timeout_s_not_the_slowest_job(ctx: Ctx):
         me._enumeration_jobs = original
 
 
+@test
+def test_round5_databricks_family_fallback_marks_vendor_list_price_and_not_ready(ctx: Ctx):
+    """Halo 2.0.4 round 5 (deliverable 1): a Databricks endpoint with no
+    exact models.dev row of its own still gets real context/price through
+    the vendor-family fallback, marked "vendor list price" in the picker
+    row's `detail` string; a `state.ready == False` endpoint is marked
+    "not ready" there too. `databricks-claude-opus-5` is one of the exact
+    ids plans/ROADMAP.md's "Databricks enumeration" section names as
+    missing from models.dev's own `databricks` provider entry."""
+    from halo_harness.providers.enablement import enable
+    from halo_harness.providers.model_enumeration import build_model_rows
+    from halo_harness.providers.databricks import write_dbx_endpoints_json
+    from halo_harness.providers.models_dev import write_models_dev_json
+
+    with _Env() as env:
+        os.environ["DATABRICKS_HOST"] = "your-workspace.cloud.databricks.com"
+        os.environ["DATABRICKS_TOKEN"] = "fake-test-token"
+        enable("databricks")
+        write_dbx_endpoints_json(env.state_dir, [
+            {"name": "databricks-claude-opus-5", "task": "llm/v1/chat", "ready": True,
+             "api_types": ["llm/v1/chat"]},
+            {"name": "databricks-claude-opus-5-5", "task": "llm/v1/chat", "ready": False,
+             "api_types": ["llm/v1/chat"]},
+        ])
+        write_models_dev_json(env.state_dir, {
+            "anthropic": {"id": "anthropic", "models": {
+                "claude-opus-5": {"limit": {"context": 200000, "output": 32000},
+                                   "cost": {"input": 15, "output": 75}},
+                "claude-opus-5.5": {"limit": {"context": 200000, "output": 32000},
+                                      "cost": {"input": 16, "output": 80}},
+            }},
+            "databricks": {"id": "databricks", "models": {}},
+        })
+        rows = build_model_rows(env.state_dir, env=None, routes={})
+        by_ref = {r.get("ref"): r for r in rows if isinstance(r, dict)}
+
+        ready_row = by_ref.get("dbx:databricks-claude-opus-5")
+        ctx.check("the ready endpoint's row exists", ready_row is not None)
+        ctx.check(f"context_tokens via the family fallback, got {ready_row.get('context_tokens')!r}",
+                  ready_row.get("context_tokens") == 200000)
+        ctx.check(f"price_in_per_m via the family fallback, got {ready_row.get('price_in_per_m')!r}",
+                  ready_row.get("price_in_per_m") == 15)
+        ctx.check(f"detail names 'vendor list price', got {ready_row.get('detail')!r}",
+                  "vendor list price" in (ready_row.get("detail") or ""))
+        ctx.check(f"a ready endpoint is never marked not ready, got {ready_row.get('detail')!r}",
+                  "not ready" not in (ready_row.get("detail") or ""))
+
+        not_ready_row = by_ref.get("dbx:databricks-claude-opus-5-5")
+        ctx.check("the not-ready endpoint's row exists", not_ready_row is not None)
+        ctx.check(f"detail names 'not ready', got {not_ready_row.get('detail')!r}",
+                  "not ready" in (not_ready_row.get("detail") or ""))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -184,25 +184,31 @@ def test_experiential_model_requires_purchase_names_the_model_and_never_retries(
 
 
 @test
-def test_experiential_retryable_set_is_exactly_four_codes(ctx: Ctx):
-    """Coordinator correction, 2026-10-05: the retryable set is EXACTLY
+def test_experiential_retryable_set_is_exactly_seven_codes(ctx: Ctx):
+    """Halo 2.0.4 round 5 (xp: contract alignment): pinned against the
+    gateway's OWN published https://platform.experientiallabs.ai/llms.txt
+    "Error envelope" table, which is literal and authoritative over the
+    round-3 "coordinator correction" this test used to pin -- that
+    correction had `gateway_draining`/`deadline_exceeded`/`internal_error`
+    backwards (the contract's own per-row recovery text for all three is
+    "retry"/"retry with backoff", not "fix the request") and carried a
+    `provider_internal` code the contract does not define at all (removed
+    from `ERROR_TABLE`; it now falls through to the generic status table
+    below, exercised separately). The retryable set is EXACTLY
     unavailable_route/gateway_overloaded/all_routes_failed/
-    backend_unavailable -- table-driven across every OTHER code this
-    round added or already had, including two round-2 codes that were
-    WRONGLY `True` before this fix (idempotency_replay_unavailable,
-    internal_error) and one round-3 addition (zdr_continuation_disabled)."""
+    backend_unavailable/gateway_draining/deadline_exceeded/internal_error."""
     from halo_harness.providers.errors import map_upstream_error
 
     def body(code):
         return {"error": {"code": code, "message": "x"}}
 
-    retryable_codes = {"unavailable_route", "gateway_overloaded", "all_routes_failed", "backend_unavailable"}
+    retryable_codes = {"unavailable_route", "gateway_overloaded", "all_routes_failed", "backend_unavailable",
+                        "gateway_draining", "deadline_exceeded", "internal_error"}
     non_retryable_codes = {
         "invalid_json", "invalid_request", "invalid_parameter", "unsupported_capability", "unsupported_parameter",
         "refusal", "previous_response_not_found", "zdr_continuation_disabled", "invalid_key", "model_not_granted",
         "idempotency_conflict", "idempotency_replay_unavailable", "insufficient_quota", "org_under_review",
-        "request_cancelled", "provider_internal", "provider_output_too_large", "gateway_draining",
-        "deadline_exceeded", "internal_error", "pro_required", "model_requires_purchase",
+        "request_cancelled", "provider_output_too_large", "pro_required", "model_requires_purchase",
     }
     for code in retryable_codes:
         _, _, hdrs = map_upstream_error(500, body(code), "experiential")
@@ -213,17 +219,44 @@ def test_experiential_retryable_set_is_exactly_four_codes(ctx: Ctx):
 
 
 @test
+def test_experiential_provider_internal_code_removed_falls_through_to_generic_status_table(ctx: Ctx):
+    """`provider_internal` is no longer one of this module's own codes
+    (round 5: not in the gateway's published contract) -- a body carrying
+    it now reads as whatever the GENERIC, status-only table says for the
+    real HTTP status, exactly like any other provider's unrecognized code,
+    instead of a hardcoded False that no longer has contract backing."""
+    from halo_harness.providers.errors import map_upstream_error
+    from halo_harness.providers.experiential import ERROR_TABLE
+    ctx.check("provider_internal is not one of this module's own recognized codes",
+              "provider_internal" not in ERROR_TABLE)
+    body = {"error": {"code": "provider_internal", "message": "x"}}
+    _, _, hdrs = map_upstream_error(500, body, "experiential")
+    ctx.check(f"falls through to the generic 500 row (retryable), got {hdrs.get('x-should-retry')!r}",
+              hdrs.get("x-should-retry") == "true")
+
+
+@test
 def test_experiential_bare_non_json_502_still_gets_translated(ctx: Ctx):
     """Measured live, 2026-10-05: space-bunny-alpha answered "error code:
     502" with NO JSON body at all -- the synthetic body providers/
     stream.py builds on a JSON-parse failure (`{"error": {"message":
     raw_text}}`, no "code" field) must still reach a translated, non-
-    empty sentence naming the status/provider, never the bare raw text."""
+    empty sentence naming the status/provider, never the bare raw text.
+
+    Halo 2.0.4 round 5 (xp: contract alignment): pinned against the
+    round's own wording -- "a bare 502 must read as 'every route failed,
+    try again later', never as a Halo error" -- the generic per-status
+    sentence this falls through to (no `error.code` at all, so none of
+    `ERROR_TABLE`'s own rows match) already says both things; this is
+    the explicit check that it keeps saying them."""
     from halo_harness.providers.errors import map_upstream_error
     _, jbody, hdrs = map_upstream_error(502, {"error": {"message": "error code: 502"}}, "experiential")
-    ctx.check(f"translated, not the bare raw text, got {jbody['error']['message']!r}",
-              jbody["error"]["message"] != "error code: 502" and bool(jbody["error"]["message"]))
-    ctx.check(f"names the provider, got {jbody['error']['message']!r}", "Experiential Labs" in jbody["error"]["message"])
+    message = jbody["error"]["message"]
+    ctx.check(f"translated, not the bare raw text, got {message!r}",
+              message != "error code: 502" and bool(message))
+    ctx.check(f"names the provider, got {message!r}", "Experiential Labs" in message)
+    ctx.check(f"reads as every route being down, got {message!r}", "every route" in message)
+    ctx.check(f"reads as try again later, not a Halo error, got {message!r}", "try again" in message)
     ctx.check("502 still retryable (matches backend_unavailable/all_routes_failed in spirit)",
               hdrs.get("x-should-retry") == "true")
 

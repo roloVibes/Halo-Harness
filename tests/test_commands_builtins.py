@@ -225,6 +225,53 @@ def _hermetic_child_env() -> dict:
     return env
 
 
+@test
+def test_round5_xp_routes_shows_last_response_headers_for_this_session(ctx: Ctx):
+    """Halo 2.0.4 round 5 (xp: contract alignment): "/xp routes" names the
+    waterfall rungs (round 2, unchanged) AND, when THIS session's own
+    `_account_usage` already recorded a real call to that exact slug, the
+    last captured per-response headers -- nothing extra shown for a slug
+    this session has never actually called."""
+    import types
+    import halo_harness.providers.experiential_account as xp_account_mod
+    from halo_harness.providers.enablement import enable
+
+    saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "EXPLABS_API_KEY")}
+    fh = build_fake_home()
+    os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])
+    os.environ["BRIDGE_STATE_DIR"] = str(fh["home"] / ".halo")
+    os.environ["EXPLABS_API_KEY"] = "xpl_" + "a" * 40
+    real_fetch_routes = xp_account_mod.fetch_experiential_routes
+    xp_account_mod.fetch_experiential_routes = lambda slug, env=None: [
+        {"provider": "experiential_cloud", "route_id": "rt_1", "enabled": True},
+    ]
+    try:
+        enable("experiential")
+        fake_session = types.SimpleNamespace(_xp_last_response_meta={
+            "space-bunny-alpha": {
+                "request_id": "req_xyz", "is_byok": False, "gateway_provider": "experiential_cloud",
+                "gateway_zdr": "false", "gateway_route_depth": "0", "gateway_route_reason": "primary",
+            },
+        })
+        facade, registry = _facade_for(fh, session=fake_session)
+        out = registry.resolve("xp").run("routes space-bunny-alpha", facade)
+        ctx.check(f"waterfall rung still shown, got {out!r}", "rt_1" in out)
+        ctx.check(f"request_id shown, got {out!r}", "req_xyz" in out)
+        ctx.check(f"gateway_route_reason shown, got {out!r}", "primary" in out)
+        ctx.check(f"billing lane shown, got {out!r}", "platform_funded" in out)
+
+        out_other_slug = registry.resolve("xp").run("routes some-other-slug", facade)
+        ctx.check(f"nothing extra for a slug this session never called, got {out_other_slug!r}",
+                  "Last response" not in out_other_slug)
+    finally:
+        xp_account_mod.fetch_experiential_routes = real_fetch_routes
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

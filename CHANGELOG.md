@@ -210,6 +210,57 @@ no changes to actually use one.
 - **Docs**: `docs/AGENTS.md` (new), linked from `docs/CONFIG.md`,
   `docs/SLASH-COMMANDS.md`, `docs/ROLES.md`.
 
+### Catalogs
+
+- **Databricks family fallback**: an endpoint id with no row in
+  models.dev's own (30-id, already-stale) `databricks` provider entry now
+  resolves through the VENDOR's own models.dev entry instead --
+  `providers.models_dev.vendor_family_profile_fields` strips a leading
+  `databricks-`, normalizes version punctuation (`opus-4-5` ->
+  `opus-4.5`, `gemini-3-5-flash` -> `gemini-3.5-flash`; a parameter-count
+  id like `gemma-3-12b` is left alone), and parses a Bedrock-style
+  external endpoint id (`us-anthropic-claude-sonnet-4-5-20250929-v1-0` ->
+  `claude-sonnet-4.5`, read off the serving-endpoints probe's own
+  `foundation_model.name`). A row sourced this way carries a "vendor list
+  price" marker in the picker; a `state.ready == false` endpoint is
+  marked "not ready" there too.
+- **The same fallback fills `or:`/`xp:` gaps**: an OpenRouter id with no
+  vendored catalog row (keyed off its own `vendor/slug` id) and an `xp:`
+  slug this session's cached catalog has no row for yet now resolve real
+  context/price through the identical vendor lookup, instead of blank
+  columns -- "the same gap Databricks had."
+- **`:free` variants sort beside their paid row** in the `/model` picker
+  under every sort key (price/context/speed), not just the "name" default
+  that already happened to keep them adjacent -- a dedicated fixup pass
+  re-glues a `<ref>:free` row next to its own `<ref>` row after the
+  numeric re-sort scatters them apart (a free row's own $0 price usually
+  sorts it to the front, ahead of its paid sibling, not after).
+- **`xp:` contract alignment**, pinned against the gateway's own
+  published `https://platform.experientiallabs.ai/llms.txt`: the
+  retryable error-code set corrected to match the contract's own "Error
+  envelope" table exactly (`gateway_draining`/`deadline_exceeded`/
+  `internal_error` are retryable, not fixed; `provider_internal` removed
+  -- not a real published code); `unsupported_parameter`'s own wording
+  fixed to read as a 400 REFUSAL, never a silent drop; the dropped-field
+  disclosure (`x-experiential-ignored-parameters`) now read from the
+  response BODY the contract says it actually rides on, with the earlier
+  header-based read kept as a defensive fallback; four more per-response
+  headers captured (`x-gateway-provider`/`-zdr`/`-route-depth`/
+  `-route-reason`, alongside the existing `x-request-id`) and carried on
+  the session's own transcript log plus shown in `/xp routes`' new "last
+  response" block; `is_byok` now also read from `usage.is_byok` (the
+  contract's own stated location, kept alongside the earlier top-level
+  read); `experiential.zdr` config key adds a per-request `"provider":
+  {"zdr": true}` constraint to both `xp:` request builders; `halo stats
+  --experiential --id <x-request-id>` looks up one call's `GET /api/v1/
+  generation` for after-the-fact attribution.
+- **Docs**: `docs/MODELS.md`'s "Experiential Labs" section gets a "Zero
+  data retention" note and an expanded "Errors"/"Cost and credits"/
+  "Waterfall" writeup, plus the vendor-family fallback documented under
+  "The model table, catalogs, and refresh"; `docs/CONFIG.md`
+  (`experiential.zdr`); `docs/COMMANDS.md` (`halo stats --experiential
+  --id`).
+
 ## [2.0.3.1] - 2026-10-05
 - **The Claude Code bridge server starts inside a job object that forbids
   breakaway**: `spawn_server_detached` retries without

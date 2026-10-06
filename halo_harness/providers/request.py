@@ -460,10 +460,18 @@ def build_request_body(
         # per_route": 1}}` (Halo's own outer retry loop is the outer layer
         # already); `gateway.routing` only when `experiential.routing` is
         # actually configured (no sensible default routing preference).
-        from halo_harness.providers.experiential import build_gateway_object
+        from halo_harness.providers.experiential import build_gateway_object, zdr_provider_constraint
         body["gateway"] = build_gateway_object()
         if session_id:
             body["safety_identifier"] = session_id
+        # Halo 2.0.4 round 5 (xp: contract alignment, llms.txt "Zero data
+        # retention"): the per-request constraint, gated on `experiential.
+        # zdr` -- omitted entirely (never a bare `False`/`null`) when the
+        # key is off, so a session that never asked for ZDR sends an
+        # identical body to before this key existed.
+        zdr = zdr_provider_constraint()
+        if zdr:
+            body["provider"] = zdr
 
     return body
 
@@ -815,4 +823,17 @@ def build_anthropic_request_body(
     # passthrough route (`resolve_profile`), so this reproduces on cc:/ant:/
     # any Databricks Claude foundation model alike.
     body.update(map_effort_anthropic(clamp_effort(effort, profile), route.upstream_model, max_tokens=max_tokens))
+    if route.provider == "experiential":
+        # Halo 2.0.4 round 5 (xp: contract alignment): the SAME per-request
+        # ZDR constraint `build_request_body` sends on the chat dialect,
+        # for a Claude slug routed through this Anthropic-shaped builder
+        # instead -- the contract lists `/v1/messages` as one of the three
+        # endpoints that honor it. Gated to `experiential` alone: a bare
+        # `ant:`/Databricks Claude passthrough/`cc:` body must never pick
+        # up an unrecognized "provider" field this function has no other
+        # reason to ever send on those routes.
+        from halo_harness.providers.experiential import zdr_provider_constraint
+        zdr = zdr_provider_constraint()
+        if zdr:
+            body["provider"] = zdr
     return body

@@ -96,14 +96,36 @@ class OpenAIStreamToAnthropic:
         # per-chunk JSON field) the caller (`providers.stream.stream_
         # completion`) sets directly on this instance right after
         # construction, from `UpstreamResult.headers` -- `x-request-id`
-        # (section 1), `x-experiential-ignored-parameters` (section 3.1,
-        # the learned-rule/one-time-notice signal), `x-gateway-warning`
-        # (section 7's `empty_completion`, an HTTP 200 "error"). `None`
-        # for every provider that never sets them (every call site before
-        # this round).
+        # (section 1), `x-gateway-warning` (section 7's `empty_completion`,
+        # an HTTP 200 "error"). `None` for every provider that never sets
+        # them (every call site before this round).
         self.request_id: str | None = None
-        self.ignored_parameters_header: str | None = None
         self.gateway_warning: str | None = None
+        # Halo 2.0.4 round 5 (xp: contract alignment, pinned against the
+        # gateway's own llms.txt "Zero data retention" section): four more
+        # genuine per-response HEADERS, same caller/set-after-construction
+        # contract as `request_id`/`gateway_warning` above -- `x-gateway-
+        # provider` (the catalog provider of the rung that answered, e.g.
+        # bedrock/fireworks/azure_openai; a platform-hosted lane reads
+        # "experiential_cloud"), `x-gateway-zdr` ("true"/"false" -- that
+        # rung's own zero-data-retention verdict), `x-gateway-route-depth`,
+        # `x-gateway-route-reason`.
+        self.gateway_provider: str | None = None
+        self.gateway_zdr: str | None = None
+        self.gateway_route_depth: str | None = None
+        self.gateway_route_reason: str | None = None
+        # Halo 2.0.4 round 5: UNLIKE the six fields above, llms.txt states
+        # TWICE, in two different sections, that `x-experiential-ignored-
+        # parameters` is "a JSON body field (not a header)" despite its
+        # header-shaped name -- round 2/3 read it as a header (the research
+        # doc's own, apparently stale, assumption). `feed_chunk` below now
+        # ALSO reads a top-level `"x-experiential-ignored-parameters"` list
+        # off the wire chunk itself and, when present, overwrites whatever
+        # the caller set here from a header -- the header read in
+        # `providers.stream` is left in place defensively (never confirmed
+        # absent against a real response) rather than removed outright, so
+        # this is a dual-source read, not a hard cutover either way.
+        self.ignored_parameters_header: str | None = None
         # Rough proxy for output size (chars of text + tool-call argument
         # fragments actually emitted), used ONLY as a fallback estimate for
         # message_delta.usage.output_tokens when the upstream never sends a
@@ -220,6 +242,25 @@ class OpenAIStreamToAnthropic:
             # sibling of the `provider` field just above -- same
             # unconditional, costs-nothing-when-absent capture.
             self.responding_is_byok = bool(chunk.get("is_byok"))
+        usage_obj = chunk.get("usage")
+        if isinstance(usage_obj, dict) and "is_byok" in usage_obj:
+            # Halo 2.0.4 round 5 (xp: contract alignment, llms.txt "Cost
+            # API"): "BYOK settles cost 0 with usage.is_byok true" -- the
+            # gateway's OWN stated location for this flag is nested under
+            # the final usage object, not (only) top-level like `provider`
+            # is -- read here too (winning when both are present, since
+            # this is the one the contract actually documents) rather than
+            # replacing the top-level read above, which round 2 verified
+            # live against a real response.
+            self.responding_is_byok = bool(usage_obj.get("is_byok"))
+        ignored = chunk.get("x-experiential-ignored-parameters")
+        if isinstance(ignored, list) and ignored:
+            # Halo 2.0.4 round 5: see this class's own __init__ docstring
+            # for `ignored_parameters_header` -- the contract's stated
+            # location (a JSON body array, despite the header-shaped
+            # name), joined into the same plain string shape every
+            # existing reader of this field already expects.
+            self.ignored_parameters_header = "; ".join(str(x) for x in ignored)
         if "error" in chunk and "choices" not in chunk:
             # finding 6: a mid-stream {"error": "boom"} chunk (bare string,
             # not the usual {"message": ...} dict) crashed this with
@@ -472,6 +513,13 @@ class OpenAIStreamToAnthropic:
                 "request_id": self.request_id,
                 "ignored_parameters_header": self.ignored_parameters_header,
                 "gateway_warning": self.gateway_warning,
+                # Halo 2.0.4 round 5 (xp: contract alignment): the four
+                # remaining per-response headers -- same None-for-every-
+                # other-provider contract as the four just above.
+                "gateway_provider": self.gateway_provider,
+                "gateway_zdr": self.gateway_zdr,
+                "gateway_route_depth": self.gateway_route_depth,
+                "gateway_route_reason": self.gateway_route_reason,
             }
         events.append(message_delta_event(stop_reason, final_usage, harness_meta=harness_meta))
         events.append({"type": "message_stop"})

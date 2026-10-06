@@ -1711,31 +1711,35 @@ halo stats --help
 usage: halo stats [-h] [--all] [--all-projects] [--cwd DIR] [--json]
                          [--models] [--tools] [--roles] [--wide]
                          [--since SINCE] [--session ID] [--experiential]
+                         [--id REQUEST_ID]
 
 Aggregate tokens/cost/tool-calls across session logs (headless /stats).
 
 options:
-  -h, --help      show this help message and exit
-  --all           Aggregate every project's sessions, not just the current
-                  directory's
-  --all-projects  Alias for --all
-  --cwd DIR       Project directory to aggregate (default: the current
-                  directory; ignored with --all)
-  --json          Print machine-readable JSON instead of a text report
-  --models        Show the richer per-(model,provider) telemetry table
-                  (repairs, edit failures, ttft/latency, ...)
-  --tools         Show the per-tool telemetry table
-  --roles         Show sub-agent spend per role
-                  (orchestrator/coder/reviewer/researcher/small)
-  --wide          Show every --models column instead of the terminal-fit
-                  compact default
-  --since SINCE   Time window for --models/--tools: "all", or "<N>d" (e.g.
-                  "1d", "7d", "30d"; default 7d). Ignored by the plain report
-                  below.
-  --session ID    Scope to one session id
-  --experiential  Settled usage rows from the Experiential Labs account API
-                  (GET /api/v1/usage) instead of the local session-log
-                  aggregate -- needs EXPLABS_API_KEY
+  -h, --help       show this help message and exit
+  --all            Aggregate every project's sessions, not just the current
+                   directory's
+  --all-projects   Alias for --all
+  --cwd DIR        Project directory to aggregate (default: the current
+                   directory; ignored with --all)
+  --json           Print machine-readable JSON instead of a text report
+  --models         Show the richer per-(model,provider) telemetry table
+                   (repairs, edit failures, ttft/latency, ...)
+  --tools          Show the per-tool telemetry table
+  --roles          Show sub-agent spend per role
+                   (orchestrator/coder/reviewer/researcher/small)
+  --wide           Show every --models column instead of the terminal-fit
+                   compact default
+  --since SINCE    Time window for --models/--tools: "all", or "<N>d" (e.g.
+                   "1d", "7d", "30d"; default 7d). Ignored by the plain report
+                   below.
+  --session ID     Scope to one session id
+  --experiential   Settled usage rows from the Experiential Labs account API
+                   (GET /api/v1/usage) instead of the local session-log
+                   aggregate -- needs EXPLABS_API_KEY
+  --id REQUEST_ID  With --experiential: look up ONE call by its x-request-id
+                   (GET /api/v1/generation) instead of listing settled usage
+                   rows
 ```
 
 Halo 2.0.4 round 2: `halo stats --experiential` is a DIFFERENT data source
@@ -1743,7 +1747,11 @@ from every other mode above -- a bounded, best-effort LIVE read of the
 Experiential Labs gateway's own settled-usage rows, not this command's
 usual local session-log aggregate. There is no standalone `halo cost`
 command; this and the in-session `/cost` are the two cost-reporting
-surfaces.
+surfaces. Halo 2.0.4 round 5: `--id <x-request-id>` switches to a
+single-call lookup (`GET /api/v1/generation`) instead -- the id a real
+`xp:` turn's own response carries (shown in `/xp routes`'s "last
+response" block, or the session's raw log) pasted back in for
+after-the-fact attribution.
 
 Bare `halo stats` (no `--models`/`--tools`/`--roles`) is the original,
 cheap report: turns, total cost, per-model token/cost totals, per-tool call
