@@ -42,6 +42,11 @@ version.
   rather than duplicating it.
 
 ### History and privacy
+- **History rewritten on 2026-10-05**: four stray cache files and a handful
+  of already-fixed identifying strings were removed from every commit (never
+  from the current tree; those were fixed long ago). Every commit hash
+  changed and every `v*` tag was re-pointed. Re-clone, or run
+  `git fetch && git reset --hard origin/master` in an existing checkout.
 
 - **`halo audit privacy [--history] [--json] [--since <rev>]`**: scans
   the working tree by default (every tracked plus untracked, non-ignored
