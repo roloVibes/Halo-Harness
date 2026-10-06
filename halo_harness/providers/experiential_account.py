@@ -116,5 +116,13 @@ def fetch_experiential_routes(slug: str, env: Optional[dict] = None) -> Optional
     parsed = urllib.parse.urlparse(xp.account_base_url)
     host_root = f"{parsed.scheme}://{parsed.netloc}"
     body = _get_json(host_root, f"/api/models/{urllib.parse.quote(slug, safe='')}/providers", xp.api_key)
-    data = body.get("data") if isinstance(body, dict) else body
+    # Live shape (2026-10-05, measured with the owner's key):
+    # {"slug": ..., "model_id": ..., "providers": [...]}; "data" and a bare
+    # list are accepted too in case the gateway ever changes the envelope.
+    if isinstance(body, dict):
+        data = body.get("providers")
+        if data is None:
+            data = body.get("data")
+    else:
+        data = body
     return data if isinstance(data, list) else None
