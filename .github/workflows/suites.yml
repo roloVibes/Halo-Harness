@@ -126,8 +126,8 @@ jobs:
       # runner user's profile; Halo resolves paths to their long form, so
       # tests comparing a scratch path with a resolved one failed on the
       # first run for that reason alone. The runner temp is a plain long path.
-      TEMP: ${{ runner.temp }}
-      TMP: ${{ runner.temp }}
+      # (TEMP/TMP are set in the 'Fresh test home' step: the runner context
+      # is not available to a job-level env block.)
     defaults:
       run:
         shell: bash
@@ -148,6 +148,8 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/halo-test-home"
           echo "BRIDGE_TEST_HOME=$RUNNER_TEMP/halo-test-home" >> "$GITHUB_ENV"
+          echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
 
       - name: test_bridge.py
         id: bridge
