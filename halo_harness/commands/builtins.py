@@ -274,6 +274,28 @@ def _cmd_xp(args: str, facade: HeadlessFacade) -> str:
         enabled = r.get("enabled")
         status = "disabled" if enabled is False else "enabled"
         lines.append(f"  {i}. {provider} (route_id={route_id}, {status})")
+    # Halo 2.0.4 round 5 (xp: contract alignment): "the per-response
+    # headers ... shown ... in /xp routes" -- the LAST captured headers
+    # for THIS slug, from THIS session's own `_account_usage` (see
+    # agent/loop.py's own docstring on `_xp_last_response_meta`); nothing
+    # shown when this session has never actually called this slug yet
+    # (a fresh session, or one that only ever called a different slug).
+    session = getattr(facade, "session", None)
+    last_meta = getattr(session, "_xp_last_response_meta", {}).get(slug) if session is not None else None
+    if last_meta:
+        lines.append(f"Last response for xp:{slug} (this session):")
+        if last_meta.get("request_id"):
+            lines.append(f"  x-request-id: {last_meta['request_id']}")
+        if last_meta.get("gateway_provider"):
+            lines.append(f"  x-gateway-provider: {last_meta['gateway_provider']}")
+        if last_meta.get("gateway_zdr") is not None:
+            lines.append(f"  x-gateway-zdr: {last_meta['gateway_zdr']}")
+        if last_meta.get("gateway_route_depth") is not None:
+            lines.append(f"  x-gateway-route-depth: {last_meta['gateway_route_depth']}")
+        if last_meta.get("gateway_route_reason"):
+            lines.append(f"  x-gateway-route-reason: {last_meta['gateway_route_reason']}")
+        if last_meta.get("is_byok") is not None:
+            lines.append(f"  lane: {'pass_through (BYOK)' if last_meta['is_byok'] else 'platform_funded'}")
     return "\n".join(lines)
 
 

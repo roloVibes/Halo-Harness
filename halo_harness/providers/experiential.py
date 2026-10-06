@@ -71,49 +71,80 @@ def resolve_experiential_dialect(model_id: str, *, overrides: "Optional[dict]" =
 # falling back to its own generic status-code table for a code this
 # table doesn't name. ----------------------------------------------------
 
-# Halo 2.0.4 round 3 (deliverable 4, extended against the gateway's own
-# published error-code reference, 2026-10-05): the retryable set is
-# EXACTLY `unavailable_route`/`gateway_overloaded`/`all_routes_failed`/
-# `backend_unavailable` -- every other code is False, INCLUDING
-# `idempotency_replay_unavailable` (round 2 had this True; the fix the
-# gateway's own docs actually prescribe is "resend with a NEW Idempotency-
-# Key," never a blind identical retry -- Halo's own retry ladder reuses
-# the SAME key for every attempt of one turn, so an automatic retry would
-# just hit this exact error again) and `provider_internal`/
-# `gateway_draining`/`deadline_exceeded`/`internal_error`/
-# `request_cancelled` (round 2 had these True too; a client-side
-# disconnect, an internal error, or a draining instance is never worth
-# spending this turn's OWN retry budget on in place -- the generic
-# status-based fallback table in `providers.errors` still retries a
-# bare/uncoded 50x the normal way when nothing more specific is known).
+# Halo 2.0.4 round 5 (xp: contract alignment, pinned against the gateway's
+# OWN machine-readable https://platform.experientiallabs.ai/llms.txt,
+# fetched 2026-10-06 -- its "Error envelope" section's stable code table is
+# literal and authoritative here, superseding round 3's own docstring,
+# which it contradicted on three codes): the retryable set is EXACTLY
+# `unavailable_route`/`gateway_overloaded`/`all_routes_failed`/
+# `backend_unavailable`/`gateway_draining`/`deadline_exceeded`/
+# `internal_error` -- every other code is False, INCLUDING `idempotency_
+# replay_unavailable` (the contract's own fix is "resend with a NEW
+# Idempotency-Key," never a blind identical retry -- Halo's own retry
+# ladder reuses the SAME key for every attempt of one turn, so an
+# automatic retry would just hit this exact error again) and
+# `request_cancelled` (the client itself disconnected; nothing upstream to
+# retry against). `provider_internal` (round 2/3 had a row for it, True
+# then False) is REMOVED here -- it does not appear anywhere in the
+# published contract (superseded by `internal_error`); an unrecognized
+# code still falls through to the generic status-based table in
+# `providers.errors`, which is the correct answer for whatever HTTP status
+# it actually carries.
+#
+# Three retryable flips from round 3's own table, each the contract's own
+# per-row recovery text, not a guess: `gateway_draining` 503 ("retry (hits
+# another)"), `deadline_exceeded` 504 ("shorten or retry"), and
+# `internal_error` 500 ("-> retry with backoff") are all explicitly
+# RETRYABLE per the contract -- round 3's docstring claimed the generic
+# status-based fallback "still retries... when nothing more specific is
+# known," but that is not how `map_upstream_error` actually behaves: a
+# code that matches a row in THIS table (any row, any boolean) always
+# WINS over the generic per-status default (`retry_override is not None`
+# unconditionally overrides `should_retry`) -- so a False row here for one
+# of these three codes was actively SUPPRESSING a retry the contract says
+# should happen, not merely declining to add one on top of an
+# already-retrying default.
 ERROR_TABLE = {
     "model_location_not_supported": ("This model can't be served to your account's region; pick a different one.", False),
     "invalid_json": ("The request body wasn't valid JSON (a Halo bug, not a user error).", False),
     "invalid_request": ("The gateway rejected this request; see its message for which field.", False),
     "invalid_parameter": ("One field in the request was invalid (the error's own `param` names which); fix it.", False),
-    "unsupported_capability": ("This model can't do what was asked (e.g. structured output); pick a model whose catalog row says it can.", False),
-    "unsupported_parameter": ("This gateway doesn't accept that field; it was removed from the request.", False),
-    "refusal": ("The model or provider declined this request; try a different model or rephrase.", False),
+    "unsupported_capability": ("This model can't do what was asked (e.g. structured output, a modality, a tool); "
+                                "pick a model whose catalog row says it can.", False),
+    # Contract wording (llms.txt "Error envelope"): "a specific field the
+    # route rejects ... ('param' names it) -> remove the field or pick a
+    # model that lists it" -- a 400 REFUSAL of the whole request, same as
+    # every other row in this table, never a silent, still-served drop
+    # (that's `x-experiential-ignored-parameters`' own job, a disclosure on
+    # an otherwise-successful response, not this error code).
+    "unsupported_parameter": ("This gateway doesn't accept one of the fields sent (the error names which); "
+                               "remove it, or pick a model whose catalog row lists it.", False),
+    "refusal": ("The provider declined this request on policy grounds; retrying the identical request won't "
+                "help -- rephrase it or pick a different model.", False),
     "previous_response_not_found": ("That conversation handle expired; resend the full conversation instead of continuing it.", False),
     "zdr_continuation_disabled": ("That conversation was routed with zero data retention, so the gateway kept no state for it; "
                                    "resend the full conversation instead of continuing it.", False),
-    "invalid_key": ("The Experiential Labs key is missing or wrong; check it in `/providers`.", False),
-    "model_not_granted": ("This account can't use that model slug; use the exact slug from the catalog.", False),
+    "invalid_key": ("The Experiential Labs key is missing, wrong, expired or revoked; check it in `/providers`.", False),
+    # Contract wording: slugs are the DOT form (claude-fable-5.1); an
+    # Anthropic-style dashed wire id (claude-fable-5-1) gets this same 403
+    # -- the single most common way to actually hit this code.
+    "model_not_granted": ("This account can't use that model slug (or it's misspelled -- slugs use dots, e.g. "
+                          "claude-sonnet-5.5, never dashed Anthropic wire ids); use the exact slug from the catalog.", False),
     "idempotency_conflict": ("That idempotency key was already used for a different request; Halo mints a fresh one per turn.", False),
     "idempotency_replay_unavailable": ("The gateway lost the earlier result it would have replayed; resend as a new request "
                                         "(never retried automatically with the same key, which would just repeat this).", False),
-    "insufficient_quota": ("Out of credit (or past a free daily allowance); add credits or wait for the allowance to reset.", False),
+    "insufficient_quota": ("Out of credit, a daily cap, or a free-tier allowance (the upstream message names which); "
+                           "add credits, raise the cap, or wait for the allowance to reset.", False),
     "org_under_review": ("The account is paused for review; contact Experiential Labs support.", False),
     "unavailable_route": ("No working route for this model right now; retrying with backoff.", True),
     "gateway_overloaded": ("The gateway itself is overloaded; retrying with backoff.", True),
     "request_cancelled": ("The client disconnected before this request finished; resend if the result is still needed.", False),
-    "provider_internal": ("The upstream provider had an internal error; resend if the result is still needed.", False),
     "all_routes_failed": ("Every route for this model failed; retrying, and if this is a BYOK model, check that key.", True),
     "backend_unavailable": ("The gateway's own serving backend could not be reached (a deploy or an outage); retrying with backoff.", True),
     "provider_output_too_large": ("The model's answer was too large for the provider to return; lower the output-length limit.", False),
-    "gateway_draining": ("This gateway instance is shutting down; resend so a different instance picks it up.", False),
-    "deadline_exceeded": ("The request ran past its deadline; shorten the task or resend.", False),
-    "internal_error": ("The gateway had an internal error; resend if the result is still needed.", False),
+    "gateway_draining": ("This gateway instance is shutting down; retrying so a different instance picks it up.", True),
+    "deadline_exceeded": ("The request ran past its deadline; retrying (shorten the task if this keeps happening).", True),
+    "internal_error": ("The gateway had an internal error; retrying with backoff.", True),
     "pro_required": ("This needs the Experiential Labs Pro plan -- see platform.experientiallabs.ai/credits.", False),
     # Halo 2.0.4 round 3 (deliverable 4, added after the round 2 live
     # checks): a 429 for a preview/paid model this account hasn't bought
@@ -253,3 +284,26 @@ def tool_search_enabled(config: Optional[dict] = None) -> bool:
         return bool(config)
     from halo_harness.theme import get_config_value
     return bool(get_config_value("experiential.tool_search", default=False))
+
+
+# ---- zero data retention (llms.txt "Zero data retention") ----------------
+
+def zdr_provider_constraint(config: Optional[bool] = None) -> "Optional[dict]":
+    """Halo 2.0.4 round 5: `{"zdr": True}` -- the INNER value of the
+    request body's top-level `"provider"` key (the contract's own
+    OpenRouter-compatible shape: `POST /v1/chat/completions`, `/v1/
+    responses` or `/v1/messages` with `"provider": {"zdr": true}`) that
+    demands zero-data-retention routing for exactly this one request, read
+    from the `experiential.zdr` config key (default False) -- the "ZDR
+    toggle" (this one key drives both the toggle and the per-request
+    constraint it sends; there is no separate account-wide switch here,
+    since flipping that needs a Pro-gated Management API call this
+    harness never makes on its own -- see `docs/CONFIG.md`). `None` (add
+    nothing to the body) when the key is off/unset, so a session that
+    never asked for ZDR sends an identical body to before this key
+    existed. `config`, when given (a test seam), is the resolved boolean
+    directly, skipping the config-file read."""
+    if config is None:
+        from halo_harness.theme import get_config_value
+        config = bool(get_config_value("experiential.zdr", default=False))
+    return {"zdr": True} if config else None

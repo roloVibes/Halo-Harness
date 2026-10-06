@@ -254,10 +254,18 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
         from halo_harness.providers.models_dev import (
             databricks_entries_from_full_models_dev, load_models_dev_json, load_vendored_databricks_fallback,
         )
-        live_models_dev = databricks_entries_from_full_models_dev(load_models_dev_json(state_dir))
+        # Halo 2.0.4 round 5: the SAME full dict `databricks_entries_from_
+        # full_models_dev` above filters down to just the `databricks`
+        # provider, kept here too (unfiltered) for the family-fallback
+        # tier's OWN lookup under a vendor's own top-level key -- loaded
+        # and parsed exactly ONCE for the whole loop below, never once per
+        # endpoint (the identical "fixpass finding 1" reasoning the two
+        # pre-existing params just above were already added for).
+        full_models_dev = load_models_dev_json(state_dir)
+        live_models_dev = databricks_entries_from_full_models_dev(full_models_dev)
         vendored_fallback = load_vendored_databricks_fallback()
     except Exception:
-        live_models_dev, vendored_fallback = {}, {}
+        live_models_dev, vendored_fallback, full_models_dev = {}, {}, {}
     for name in sorted(endpoints):
         ref = f"dbx:{name}"
         if ref in seen:
@@ -278,10 +286,22 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
         dbu = format_dbu_cost(usage_policy.get("output_dbu_per_1k_tokens"))
         try:
             fields = databricks_row_fields(name, state_dir=state_dir, model_table=model_table,
-                                            live_models_dev=live_models_dev, vendored_fallback=vendored_fallback)
+                                            live_models_dev=live_models_dev, vendored_fallback=vendored_fallback,
+                                            full_models_dev=full_models_dev,
+                                            foundation_model_name=e.get("foundation_model_name"))
         except Exception:
             fields = {}
         path_display = PATH_TYPE_DISPLAY.get(path_type, path_type)
+        # Halo 2.0.4 round 5 (deliverable 1): "rows show a 'vendor list
+        # price' marker when the figure comes from the fallback" / "use
+        # [task, foundation model name, state] to fill the model name and
+        # availability" -- appended to the SAME detail string the picker
+        # already shows in brackets after the row, never a new column.
+        detail_suffixes = []
+        if fields.get("price_source") == "vendor_list_price":
+            detail_suffixes.append("vendor list price")
+        if e.get("ready") is False:
+            detail_suffixes.append("not ready")
         # Halo 2.0.2 round 5 (Qwen-at-work brief, item 1): a decision-
         # only/judge endpoint (databricks-openjev-qwen35-4b and any
         # future one `decision_only_info`'s own table/pattern match
@@ -290,6 +310,9 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
         # group with that note" -- never silently listed as if it
         # were just another qwen chat model.
         decision = decision_only_info(name, model_table)
+        detail = decision["reason"] if decision else f"{family} · {path_display}"
+        if detail_suffixes:
+            detail = f"{detail}, {', '.join(detail_suffixes)}"
         out.append({
             "ref": ref, "context_tokens": fields.get("context_tokens"),
             "max_output_tokens": fields.get("max_output_tokens"),
@@ -297,7 +320,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             "provider": "databricks",
             "group": f"{dbx_group_label} -- judge / decision" if decision else f"{dbx_group_label} -- {family}",
             "path_type": path_type,
-            "detail": decision["reason"] if decision else f"{family} · {path_display}",
+            "detail": detail,
             "dbu": dbu if dbu != "?" else None,
             "task": e.get("task"),
         })

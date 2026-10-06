@@ -70,6 +70,51 @@ def _gym_score_suffix(model_ref: str) -> str:
         return ""
 
 
+def _place_free_variants_beside_base(members: "list[dict]") -> "list[dict]":
+    """Halo 2.0.4 round 5 ("new labs coverage" deliverable 2): "`:free`
+    variants sort beside their paid row" -- REGARDLESS of the active sort
+    key. Plain alphabetical "name" order already keeps `<ref>` immediately
+    before `<ref>:free` in the common case (a prefix always sorts before
+    any string it's a prefix of), but a `price`/`context`/`speed` re-sort
+    scatters them: a free row's own $0/unknown figure usually sorts it
+    BEFORE its paid sibling (price ascending puts $0 first), not after, so
+    a naive "pull the free row forward to follow its base" pass (tried
+    first, and wrong -- see the git history on this function) misses that
+    direction entirely whenever the free row is already encountered first.
+
+    This pass instead DEFERS a `:free` row the moment its own base ref is
+    known to exist somewhere in this same group but hasn't been placed
+    yet, and emits the deferred row immediately once that base IS placed
+    -- so the pair always lands together at the base's own sort position,
+    whichever of the two the sort happened to put first. A `:free` row
+    with NO paid sibling in this group at all (a free-only model, or one
+    whose base got filtered out) is never deferred -- it has nothing to
+    wait for, so it keeps its original position exactly as before this
+    pass. Every other row's relative order is untouched either way."""
+    by_ref = {m.get("ref"): m for m in members if isinstance(m, dict)}
+    placed: "set[str]" = set()
+    out: "list[dict]" = []
+    for m in members:
+        ref = m.get("ref") or ""
+        if ref in placed:
+            continue
+        if ref.endswith(":free"):
+            base_ref = ref[: -len(":free")]
+            if base_ref in by_ref and base_ref not in placed:
+                continue  # the base's own turn below will emit this row right after it
+            out.append(m)
+            placed.add(ref)
+            continue
+        out.append(m)
+        placed.add(ref)
+        free_ref = f"{ref}:free"
+        sibling = by_ref.get(free_ref)
+        if sibling is not None and free_ref not in placed:
+            out.append(sibling)
+            placed.add(free_ref)
+    return out
+
+
 def _grouped(models: "list[dict]") -> "list[tuple[str, list[dict]]]":
     """Stable-groups `models` by their own `group` tag (ungrouped rows --
     OpenRouter, aliases, the synthesized current-model row -- share one
@@ -241,6 +286,11 @@ class ModelPicker(ModalScreen):
                 # already-deterministic per-provider order).
                 if sort_key != "name":
                     members = sorted(members, key=lambda m: _sort_value(m, sort_key))
+                # Halo 2.0.4 round 5: re-glue a `:free` row beside its paid
+                # sibling AFTER the sort above (which is what scatters them
+                # under price/context/speed) -- a no-op shuffle under "name"
+                # order, where they're already adjacent in the normal case.
+                members = _place_free_variants_beside_base(members)
                 for m in members:
                     row_text = Text(format_picker_row(m), no_wrap=True, overflow="ellipsis")
                     # Halo 2.0.3 round 5d (brief item 2): "the picker shows

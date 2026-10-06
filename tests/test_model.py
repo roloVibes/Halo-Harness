@@ -538,6 +538,158 @@ def test_parse_bare_vendor_model_needs_both_halves(ctx: Ctx):
               ref.provider == "openrouter" and ref.model == "qwen/qwen3-coder")
 
 
+# ---- Halo 2.0.4 round 5 ("Databricks enumeration" / "new labs coverage"
+# deliverable 2): the vendor-family fallback -- pinned against every raw id
+# plans/ROADMAP.md's "ADDED 2026-10-05 ~11:40" section names. ------------
+
+_ROUND5_FAMILY_FIXTURE = {
+    "anthropic": {"id": "anthropic", "models": {
+        "claude-opus-5": {"limit": {"context": 200000, "output": 32000}, "cost": {"input": 15, "output": 75}},
+        "claude-opus-5.5": {"limit": {"context": 200000, "output": 32000}, "cost": {"input": 16, "output": 80}},
+        "claude-sonnet-5": {"limit": {"context": 200000, "output": 64000}, "cost": {"input": 3, "output": 15}},
+        "claude-sonnet-5.5": {"limit": {"context": 200000, "output": 64000}, "cost": {"input": 3.5, "output": 17}},
+        "claude-opus-4.8": {"limit": {"context": 200000, "output": 32000}, "cost": {"input": 14, "output": 70}},
+        "claude-sonnet-4.5": {"limit": {"context": 200000, "output": 64000}, "cost": {"input": 3, "output": 15}},
+    }},
+    "google": {"id": "google", "models": {
+        "gemini-3.5-flash": {"limit": {"context": 1000000, "output": 65536}, "cost": {"input": 0.3, "output": 2.5}},
+        "gemini-3.7-flash": {"limit": {"context": 1000000, "output": 65536}, "cost": {"input": 0.35, "output": 2.6}},
+        "gemini-3.8-flash": {"limit": {"context": 1000000, "output": 65536}, "cost": {"input": 0.4, "output": 2.7}},
+        # fixture drift guard for `gemma-3-12b` staying UNCHANGED (its "1"
+        # is followed by another digit, "2" -- never a version dash-pair).
+        "gemma-3-12b": {"limit": {"context": 131072, "output": 8192}, "cost": {"input": 0.1, "output": 0.1}},
+    }},
+    "deepseek": {"id": "deepseek", "models": {
+        "deepseek-v4-flash": {"limit": {"context": 128000, "output": 16000}, "cost": {"input": 0.2, "output": 0.8}},
+        "deepseek-v4-pro": {"limit": {"context": 128000, "output": 16000}, "cost": {"input": 0.6, "output": 2.2}},
+    }},
+    "zai": {"id": "zai", "models": {
+        "glm-5.3": {"limit": {"context": 200000, "output": 32000}, "cost": {"input": 0.5, "output": 1.8}},
+        "glm-5.3-flash": {"limit": {"context": 200000, "output": 32000}, "cost": {"input": 0.1, "output": 0.4}},
+        # a deliberately made-up id (never a real OpenRouter/models.dev
+        # listing) so the OpenRouter vendor-alias test below can't
+        # accidentally pass via the already-real "z-ai/glm-5.3-flash" row
+        # the committed vendored OpenRouter fallback already carries.
+        "glm-9.9-test-preview": {"limit": {"context": 77777, "output": 7777}, "cost": {"input": 0.9, "output": 1.9}},
+    }},
+}
+
+
+@test
+def test_round5_databricks_family_fallback_pinned_ids(ctx: Ctx):
+    """Every raw Databricks id plans/ROADMAP.md's "Databricks enumeration"
+    section names resolves real context/output/price through the vendor's
+    OWN models.dev entry -- none of these ids exist in models.dev's
+    `databricks` provider (confirmed stale per the roadmap section), so
+    this proves the NEW family-fallback tier, not the pre-existing exact-
+    id lookup."""
+    from halo_harness.providers.models_dev import write_models_dev_json, load_vendored_databricks_fallback
+    vendored = load_vendored_databricks_fallback()
+
+    cases = [
+        ("databricks-claude-opus-5", 200000, 32000, 15 / 1_000_000),
+        ("databricks-claude-opus-5-5", 200000, 32000, 16 / 1_000_000),
+        ("databricks-claude-sonnet-5", 200000, 64000, 3 / 1_000_000),
+        ("databricks-claude-sonnet-5-5", 200000, 64000, 3.5 / 1_000_000),
+        ("databricks-claude-opus-4-8", 200000, 32000, 14 / 1_000_000),
+        ("databricks-deepseek-v4-flash", 128000, 16000, 0.2 / 1_000_000),
+        ("databricks-deepseek-v4-pro", 128000, 16000, 0.6 / 1_000_000),
+        ("databricks-gemini-3-5-flash", 1000000, 65536, 0.3 / 1_000_000),
+        ("databricks-gemini-3-7-flash", 1000000, 65536, 0.35 / 1_000_000),
+        ("databricks-gemini-3-8-flash", 1000000, 65536, 0.4 / 1_000_000),
+        ("databricks-gemma-3-12b", 131072, 8192, 0.1 / 1_000_000),
+        ("databricks-glm-5-3", 200000, 32000, 0.5 / 1_000_000),
+        ("databricks-glm-5-3-flash", 200000, 32000, 0.1 / 1_000_000),
+    ]
+    for raw_id, _, _, _ in cases:
+        ctx.check(f"fixture drift guard: {raw_id} still absent from the committed vendored "
+                  f"fallback (else the OLD tier would resolve this, proving nothing new)",
+                  raw_id not in vendored)
+
+    for raw_id, expected_ctx, expected_out, expected_price_in in cases:
+        state_dir = Path(tempfile.mkdtemp(prefix="model-round5-dbx-family-"))
+        write_models_dev_json(state_dir, _ROUND5_FAMILY_FIXTURE)
+        ref = parse_model_ref(f"dbx:{raw_id}")
+        profile = resolve_model_profile(ref, state_dir, routes={})
+        ctx.check(f"{raw_id}: context_tokens {profile.context_tokens} == {expected_ctx}",
+                  profile.context_tokens == expected_ctx)
+        ctx.check(f"{raw_id}: max_output_tokens {profile.max_output_tokens} == {expected_out}",
+                  profile.max_output_tokens == expected_out)
+        ctx.check(f"{raw_id}: price_in {profile.price_in!r} == {expected_price_in!r}",
+                  profile.price_in is not None and abs(profile.price_in - expected_price_in) < 1e-15)
+
+
+@test
+def test_round5_databricks_external_endpoint_id_via_foundation_model_name(ctx: Ctx):
+    """A Databricks Claude-passthrough endpoint whose own `name` carries no
+    recognizable family (an operator-chosen alias) still resolves through
+    `foundation_model_name` -- a Bedrock-style external endpoint id
+    (`us-anthropic-claude-sonnet-4-5-20250929-v1-0`) parsed down to
+    `claude-sonnet-4.5` and looked up in the SAME vendor fixture."""
+    from halo_harness.providers.models_dev import write_models_dev_json
+    from halo_harness.providers.databricks import write_dbx_endpoints_json
+
+    state_dir = Path(tempfile.mkdtemp(prefix="model-round5-dbx-external-id-"))
+    write_models_dev_json(state_dir, _ROUND5_FAMILY_FIXTURE)
+    write_dbx_endpoints_json(state_dir, [{
+        "name": "my-claude-passthrough-endpoint", "task": "llm/v1/chat", "ready": True,
+        "foundation_model_name": "us-anthropic-claude-sonnet-4-5-20250929-v1-0",
+    }])
+    ref = parse_model_ref("dbx:my-claude-passthrough-endpoint")
+    profile = resolve_model_profile(ref, state_dir, routes={})
+    ctx.check(f"resolved via foundation_model_name's external id, got context_tokens={profile.context_tokens}",
+              profile.context_tokens == 200000 and profile.max_output_tokens == 64000)
+    ctx.check(f"price_in came from claude-sonnet-4.5's own entry, got {profile.price_in!r}",
+              profile.price_in is not None and abs(profile.price_in - 3 / 1_000_000) < 1e-15)
+
+
+@test
+def test_round5_openrouter_vendor_hint_family_fallback(ctx: Ctx):
+    """An `or:<vendor>/<slug>` id with no vendored OpenRouter row (round
+    5's "new labs coverage" deliverable 2 -- "the same gap Databricks
+    had") resolves via the vendor segment of its OWN id, including through
+    `_OPENROUTER_VENDOR_ALIASES` for a vendor spelled differently from
+    models.dev's own provider key (OpenRouter's "z-ai" vs. models.dev's
+    "zai")."""
+    from halo_harness.providers.models_dev import write_models_dev_json, load_vendored_openrouter_fallback
+    vendored = load_vendored_openrouter_fallback()
+    model_id = "z-ai/glm-9.9-test-preview"
+    ctx.check(f"fixture drift guard: {model_id} absent from the vendored OpenRouter fallback",
+              model_id not in vendored)
+
+    state_dir = Path(tempfile.mkdtemp(prefix="model-round5-or-family-"))
+    write_models_dev_json(state_dir, _ROUND5_FAMILY_FIXTURE)
+    ref = parse_model_ref(f"or:{model_id}")
+    profile = resolve_model_profile(ref, state_dir, routes={})
+    ctx.check(f"context_tokens via the zai alias, got {profile.context_tokens}", profile.context_tokens == 77777)
+    ctx.check(f"price_in via the zai alias, got {profile.price_in!r}",
+              profile.price_in is not None and abs(profile.price_in - 0.9 / 1_000_000) < 1e-15)
+
+
+@test
+def test_round5_experiential_family_fallback_when_catalog_cache_empty(ctx: Ctx):
+    """An `xp:` slug this session's `experiential-models.json` cache has
+    no row for yet (never refreshed, or genuinely new) still resolves real
+    context/price through the same vendor-family lookup, instead of the
+    bare dataclass/Claude-shaped defaults."""
+    from halo_harness.providers.models_dev import write_models_dev_json
+
+    state_dir = Path(tempfile.mkdtemp(prefix="model-round5-xp-family-"))
+    write_models_dev_json(state_dir, _ROUND5_FAMILY_FIXTURE)
+    # No experiential-models.json written at all -- xp_picker_fields falls
+    # back to the package's own vendored snapshot, which (fixture drift
+    # guard) must not already carry this made-up slug either.
+    from halo_harness.providers.experiential_catalog import load_vendored_experiential_fallback
+    ctx.check("fixture drift guard: not already in the vendored Experiential snapshot",
+              "glm-5.3-flash" not in load_vendored_experiential_fallback())
+    ref = parse_model_ref("xp:glm-5.3-flash")
+    profile = resolve_model_profile(ref, state_dir, routes={})
+    ctx.check(f"context_tokens via the family fallback, got {profile.context_tokens}",
+              profile.context_tokens == 200000)
+    ctx.check(f"price_in via the family fallback, got {profile.price_in!r}",
+              profile.price_in is not None and abs(profile.price_in - 0.1 / 1_000_000) < 1e-15)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -703,6 +703,24 @@ def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict]
                 price_cache_read=cache_r_pm / 1_000_000 if isinstance(cache_r_pm, (int, float)) else None,
                 price_cache_write=cache_w_pm / 1_000_000 if isinstance(cache_w_pm, (int, float)) else None,
             )
+        # Halo 2.0.4 round 5 ("new labs coverage" deliverable 2 -- "the same
+        # gap Databricks had"): the cached `experiential-models.json` has no
+        # row for this slug yet (not refreshed, or genuinely new) -- try the
+        # same vendor-family models.dev lookup the Databricks/OpenRouter
+        # branches use (`vendor_family_profile_fields`) before falling to
+        # the bare Claude/dataclass defaults below.
+        from halo_harness.providers.models_dev import load_models_dev_json, vendor_family_profile_fields
+        family_fields = vendor_family_profile_fields(ref.model, load_models_dev_json(state_dir))
+        if family_fields:
+            return ModelProfile(
+                context_tokens=family_fields.get("context_tokens") or (200000 if is_claude else 128000),
+                max_output_tokens=family_fields.get("max_output_tokens") or (8192 if is_claude else 16384),
+                vision=bool(family_fields.get("vision", False)) or is_claude,
+                reasoning="native" if is_claude else family_fields.get("reasoning", "none"),
+                price_in=family_fields.get("price_in"), price_out=family_fields.get("price_out"),
+                price_cache_read=family_fields.get("price_cache_read"),
+                price_cache_write=family_fields.get("price_cache_write"),
+            )
         if is_claude:
             return ModelProfile(context_tokens=200000, max_output_tokens=8192, reasoning="native", vision=True)
         return ModelProfile()
@@ -785,6 +803,37 @@ def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict]
             if ref.dialect == "anthropic-passthrough" and profile.reasoning == "none":
                 profile = ModelProfile(**{**profile.__dict__, "reasoning": "native"})
             return profile
+        # Halo 2.0.4 round 5 ("Databricks enumeration"): neither this exact
+        # endpoint id nor models.dev's own `databricks` provider entry (30
+        # ids, confirmed stale against the newer families named in the
+        # roadmap section) carries a row for it -- try the VENDOR's own
+        # models.dev entry via the family fallback (strip "databricks-",
+        # normalize version punctuation, parse a Bedrock-style external
+        # endpoint id) before falling to (b)'s request-shaping-only
+        # `model_table.json` row. `foundation_model_name` (scope I's own
+        # `dbx-endpoints.json` cache, a plain file read -- no network)
+        # often names the real model more precisely than the endpoint's own
+        # (sometimes operator-chosen) `name`.
+        from halo_harness.providers.databricks import load_dbx_endpoints_json
+        from halo_harness.providers.models_dev import vendor_family_profile_fields
+        endpoint_info = load_dbx_endpoints_json(state_dir).get(ref.model)
+        foundation_model_name = (endpoint_info or {}).get("foundation_model_name") if isinstance(
+            endpoint_info, dict) else None
+        family_fields = vendor_family_profile_fields(
+            ref.model, load_models_dev_json(state_dir), foundation_model_name=foundation_model_name)
+        if family_fields:
+            reasoning = family_fields.get("reasoning", "none")
+            if ref.dialect == "anthropic-passthrough" and reasoning == "none":
+                reasoning = "native"
+            return ModelProfile(
+                context_tokens=family_fields.get("context_tokens", 128000),
+                max_output_tokens=family_fields.get("max_output_tokens", 16384),
+                vision=bool(family_fields.get("vision", False)),
+                reasoning=reasoning,
+                price_in=family_fields.get("price_in"), price_out=family_fields.get("price_out"),
+                price_cache_read=family_fields.get("price_cache_read"),
+                price_cache_write=family_fields.get("price_cache_write"),
+            )
         # (b) model_table.json's own per-model row -- built for REQUEST
         # SHAPING (providers/profiles.py's ProviderProfile), not economics,
         # but it DOES already carry a real, hand-verified `context_tokens`/
@@ -808,6 +857,28 @@ def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict]
         vendored_entry = load_vendored_openrouter_fallback().get(ref.model)
         if vendored_entry:
             return _profile_from_models_json_entry(vendored_entry)
+        # Halo 2.0.4 round 5 ("new labs coverage" deliverable 2 -- "the
+        # same gap Databricks had"): an `or:<vendor>/<slug>` id with no
+        # vendored OpenRouter row of its own (a brand-new listing `halo
+        # models --refresh` hasn't re-synced yet) still gets a models.dev
+        # vendor lookup -- `ref.model`'s own leading `<vendor>/` segment is
+        # a much more reliable hint here than the bare-prefix guess the
+        # Databricks/Experiential call sites fall back to, since an
+        # OpenRouter id already names its vendor explicitly.
+        from halo_harness.providers.models_dev import load_models_dev_json, vendor_family_profile_fields
+        vendor_hint = ref.model.split("/", 1)[0] if "/" in ref.model else None
+        family_fields = vendor_family_profile_fields(
+            ref.model, load_models_dev_json(state_dir), vendor_hint=vendor_hint)
+        if family_fields:
+            return ModelProfile(
+                context_tokens=family_fields.get("context_tokens", 128000),
+                max_output_tokens=family_fields.get("max_output_tokens", 16384),
+                vision=bool(family_fields.get("vision", False)),
+                reasoning=family_fields.get("reasoning", "none"),
+                price_in=family_fields.get("price_in"), price_out=family_fields.get("price_out"),
+                price_cache_read=family_fields.get("price_cache_read"),
+                price_cache_write=family_fields.get("price_cache_write"),
+            )
 
     if ref.dialect == "anthropic-passthrough":
         return ModelProfile(context_tokens=200000, max_output_tokens=8192, reasoning="native")

@@ -261,6 +261,7 @@ directly by the features that own them:
 | `experiential.retry.max_attempts_per_route` | `1` (always sent -- Halo's own outer retry loop is the outer layer already) | `halo config set experiential.retry.max_attempts_per_route 2` |
 | `experiential.retry.max_total_attempts` | unset (the gateway's own default) | `halo config set experiential.retry.max_total_attempts 4` |
 | `experiential.retry.backoff` | unset (the gateway's own operator policy -- "omitting it keeps the existing policy" is a real, documented choice) | hand-edited; `{"type": "exponential", "base_delay_ms": ..., "max_delay_ms": ..., "multiplier": ...}` or `{"type": "none"}` |
+| `experiential.zdr` | `false` | `halo config set experiential.zdr true`; Halo 2.0.4 round 5 -- adds `"provider": {"zdr": true}` to every `xp:` request body (both the chat/Responses dialect and the Anthropic-shaped dialect for a Claude slug), demanding zero-data-retention routing for each one; never touches a bare `ant:`/Databricks-Claude-passthrough/`cc:` body; see `docs/MODELS.md`'s "Zero data retention" note under "Experiential Labs" |
 
 ## Every environment variable
 

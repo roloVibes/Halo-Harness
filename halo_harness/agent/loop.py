@@ -572,7 +572,7 @@ class _StepResult:
     def __init__(self, *, assistant_blocks, stop_reason, usage, reasoning, body, tool_call_flags=None,
                  finish_reason=None, latency_ms=None, ttft_ms=None, retries=0, status="ok",
                  responding_provider=None, ttfb_ms=None, first_reasoning_ms=None, first_text_ms=None,
-                 first_tool_ms=None, reasoning_streamed=False, timing_ns=None):
+                 first_tool_ms=None, reasoning_streamed=False, timing_ns=None, experiential_meta=None):
         self.assistant_blocks = assistant_blocks
         self.stop_reason = stop_reason
         self.usage = usage
@@ -611,6 +611,14 @@ class _StepResult:
         self.first_text_ms = first_text_ms
         self.first_tool_ms = first_tool_ms
         self.reasoning_streamed = reasoning_streamed
+        # Halo 2.0.4 round 5 (xp: contract alignment): `{"request_id",
+        # "gateway_provider", "gateway_zdr", "gateway_route_depth",
+        # "gateway_route_reason"}` (any subset, possibly empty) -- the
+        # per-response headers `providers.stream.stream_completion`
+        # captures for an `xp:` call, bundled into ONE field rather than
+        # five separate kwargs here. `{}` for every non-experiential
+        # route, which never sets any of them.
+        self.experiential_meta = experiential_meta or {}
         # Round 5b (brief item 7): `providers.ollama_stream`'s own
         # `harness_meta["timing_ns"]` -- {prompt_eval_count, eval_count,
         # prompt_eval_duration, eval_duration, load_duration,
@@ -3603,7 +3611,15 @@ class Session:
                             responding_provider=harness_meta.get("responding_provider"),
                             ttfb_ms=ttfb_ms, first_reasoning_ms=first_reasoning_ms, first_text_ms=first_text_ms,
                             first_tool_ms=first_tool_ms, reasoning_streamed=reasoning_streamed,
-                            timing_ns=harness_meta.get("timing_ns"))
+                            timing_ns=harness_meta.get("timing_ns"),
+                            experiential_meta={
+                                "request_id": harness_meta.get("request_id"),
+                                "is_byok": harness_meta.get("responding_is_byok"),
+                                "gateway_provider": harness_meta.get("gateway_provider"),
+                                "gateway_zdr": harness_meta.get("gateway_zdr"),
+                                "gateway_route_depth": harness_meta.get("gateway_route_depth"),
+                                "gateway_route_reason": harness_meta.get("gateway_route_reason"),
+                            } if self.model_ref.provider == "experiential" else None)
 
     # H10 Part A: "or"|"dbx"|"ant" -- the coarse routing rail
     # (`ModelRef.provider`), independent of which specific backend actually
@@ -3677,6 +3693,16 @@ class Session:
         # H10 Part A: telemetry.py's own source of truth -- see
         # `agent/log.py`'s `append_usage` docstring for why these extra
         # keys never touch a derived request.
+        xp_meta = result.experiential_meta if self.model_ref.provider == "experiential" else {}
+        if xp_meta:
+            # Halo 2.0.4 round 5: "/xp routes" shows the LAST captured
+            # headers for the slug it's asked about -- a small per-session
+            # cache (never persisted; a fresh session has nothing to show
+            # until its first `xp:` call), keyed by the bare slug the SAME
+            # way `fetch_experiential_routes` is already called with.
+            if not hasattr(self, "_xp_last_response_meta"):
+                self._xp_last_response_meta = {}
+            self._xp_last_response_meta[self.model_ref.model] = xp_meta
         self.log.append_usage(
             result.usage, cost, model=self.model_ref.raw,
             route=self._ROUTE_LABELS.get(self.model_ref.provider, self.model_ref.provider),
@@ -3685,6 +3711,7 @@ class Session:
             ttfb_ms=result.ttfb_ms, first_reasoning_ms=result.first_reasoning_ms,
             first_text_ms=result.first_text_ms, first_tool_ms=result.first_tool_ms,
             reasoning_streamed=result.reasoning_streamed,
+            experiential_meta=xp_meta or None,
         )
         if self.model_ref.provider == "databricks":
             record_databricks_output_tokens(self.model_ref.raw, generated_tokens_for_otpm(result.usage))

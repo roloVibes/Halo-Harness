@@ -83,6 +83,27 @@ def format_experiential_balance_line(credits: Optional[dict]) -> Optional[str]:
     return f"Experiential Labs: ${available:.2f} available of ${total:.2f} total credits"
 
 
+def fetch_experiential_generation(request_id: str, env: Optional[dict] = None) -> Optional[dict]:
+    """Halo 2.0.4 round 5 (xp: contract alignment): `GET /api/v1/
+    generation?id=<request_id>` (llms.txt "Cost API" -- "One request: ...
+    GET /api/v1/generation?id=<id> (bare or gen-<id>) returns
+    {data:{total_cost, provider_name, tokens...}}") -- after-the-fact
+    attribution for one specific call by its own `x-request-id`, for
+    `halo stats --experiential --id <id>`. `request_id` is sent exactly
+    as given (the contract accepts it "bare or gen-<id>" -- never
+    rewritten/guessed at here). `None` on any failure (not configured,
+    unknown id, unreachable) -- same best-effort contract as every other
+    reader in this module."""
+    from halo_harness.providers.config import resolve_experiential
+    xp = resolve_experiential(env)
+    if xp is None:
+        return None
+    path = f"/generation?id={urllib.parse.quote(request_id, safe='')}"
+    body = _get_json(xp.account_base_url, path, xp.api_key)
+    data = body.get("data") if isinstance(body, dict) else None
+    return data if isinstance(data, dict) else None
+
+
 def fetch_experiential_usage_rows(env: Optional[dict] = None, *, cursor: Optional[str] = None) -> Optional[list]:
     """One page of `GET /api/v1/usage` (research doc section 6) --
     settled-row export for `halo cost --experiential`. `None` on any

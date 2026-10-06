@@ -165,7 +165,7 @@ class SessionLog:
                       estimate: Optional[bool] = None, role: Optional[str] = None,
                       ttfb_ms: Optional[float] = None, first_reasoning_ms: Optional[float] = None,
                       first_text_ms: Optional[float] = None, first_tool_ms: Optional[float] = None,
-                      reasoning_streamed: Optional[bool] = None) -> dict:
+                      reasoning_streamed: Optional[bool] = None, experiential_meta: Optional[dict] = None) -> dict:
         """H9 whole-tree review finding 13: `agent_id`, when given, tags
         this usage node as a SUB-AGENT's rolled-up total (agent/subagent.py
         calls this on the PARENT's own log once a child finishes) rather
@@ -189,7 +189,19 @@ class SessionLog:
         subscription is not billed per token, so that figure is Claude
         Code's own estimate, not a real charge; `stats --models`/`/cost`
         surface this instead of presenting it as exact spend like every
-        other route's real per-token pricing."""
+        other route's real per-token pricing.
+
+        Halo 2.0.4 round 5 (xp: contract alignment): `experiential_meta`
+        (any subset of `{"request_id", "is_byok", "gateway_provider",
+        "gateway_zdr", "gateway_route_depth", "gateway_route_reason"}`,
+        `None`/`{}` for every non-`xp:` call) is this turn's own per-
+        response headers -- THIS "usage" line, appended to the session's
+        transcript log once per model call, is where llms.txt's own
+        "x-request-id, x-gateway-provider, x-gateway-zdr, x-gateway-
+        route-depth and x-gateway-route-reason" land for later inspection
+        (`halo stats`/the raw log), the two billing lanes (`is_byok`)
+        included -- never read by `derive_request`, same non-wire status
+        as every other field on this node type."""
         node = {"type": "usage", "usage": usage, "cost_usd": cost_usd}
         if estimate is not None:
             node["estimate"] = estimate
@@ -232,6 +244,8 @@ class SessionLog:
             # `telemetry.py`'s per-role aggregation (`stats --roles`) reads
             # this back; a plain (non-sub-agent) turn never sets it.
             node["role"] = role
+        if experiential_meta:
+            node["experiential_meta"] = experiential_meta
         return self._append(node)
 
     def append_error(self, message: str, *, err_type: str = "error") -> dict:

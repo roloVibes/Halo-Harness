@@ -24,10 +24,12 @@ from __future__ import annotations
 
 import http.client
 import json
+import re
 import socket
 import ssl
 import urllib.parse
 from pathlib import Path
+from typing import Optional
 
 MODELS_DEV_BASE_URL = "https://models.dev"
 
@@ -269,4 +271,179 @@ def databricks_profile_fields_from_models_dev(entry: dict) -> dict:
         out["price_cache_read"] = cost["cache_read"] / 1_000_000
     if isinstance(cost.get("cache_write"), (int, float)):
         out["price_cache_write"] = cost["cache_write"] / 1_000_000
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Halo 2.0.4 round 5 (plans/ROADMAP.md "ADDED 2026-10-05 ~11:40": "2.0.4
+# provider-pack round 'Databricks enumeration'"): models.dev's own
+# `databricks` provider entry (above) lists only 30 ids and lacks every
+# endpoint newer than that snapshot -- but the VENDOR providers in the SAME
+# models.dev dump (anthropic, google, deepseek, zai, ...) carry those
+# families under their OWN, un-prefixed model ids. This section builds the
+# normalized vendor id a raw Databricks (or OpenRouter/Experiential, same
+# gap per round 5's "new labs coverage" deliverable 2) id guesses at, and
+# looks it up there -- a "family fallback," not a per-model table, so a
+# brand-new endpoint this harness has never seen a row for still shows real
+# context/output/price instead of blanks, marked "vendor list price" since
+# the vendor's own list price can differ from what Databricks/the gateway
+# actually bills per token.
+# ---------------------------------------------------------------------------
+
+# A single digit immediately before AND after a dash, with no OTHER digit
+# touching either side (`(?<!\d)`/`(?!\d)`) -- turns a version-looking
+# "-4-5-"/"-3-5-"/"-5-3-"/"v4-1-" into "-4.5-"/"-3.5-"/"-5.3-"/"v4.1-"
+# (every example the roadmap section gives) while leaving a PARAMETER-COUNT
+# id like "gemma-3-12b" untouched: the "1" there is followed by another
+# digit ("2"), so the right-hand `(?!\d)` guard never matches it as a
+# standalone single digit. Applied in a loop (not one `re.sub` pass) so a
+# hypothetical three-number chain ("4-5-6") still converges on "4.5.6"
+# rather than stopping after the first, non-overlapping match.
+_VERSION_DASH_RE = re.compile(r"(?<!\d)(\d)-(\d)(?!\d)")
+
+
+def normalize_vendor_slug_punctuation(slug: str) -> str:
+    """`opus-4-5` -> `opus-4.5`, `gemini-3-5-flash` -> `gemini-3.5-flash`,
+    `glm-5-3` -> `glm-5.3`, `deepseek-v4-1-flash` -> `deepseek-v4.1-flash`
+    (every roadmap example); `gemma-3-12b` is returned UNCHANGED (see
+    `_VERSION_DASH_RE`'s own comment). Never raises -- `slug` is returned
+    as-is for anything that isn't a non-empty string."""
+    if not isinstance(slug, str) or not slug:
+        return slug
+    for _ in range(4):  # bounded -- a real model id never chains deeper than this
+        new_slug = _VERSION_DASH_RE.sub(r"\1.\2", slug)
+        if new_slug == slug:
+            return slug
+        slug = new_slug
+    return slug
+
+
+# Bedrock-style cross-region external endpoint id, e.g. `us-anthropic-
+# claude-sonnet-4-5-20250929-v1-0` -- `databricks.probe_databricks_
+# endpoints_full`'s own `foundation_model.name` can carry one of these for
+# a Claude passthrough/system.ai endpoint. Captures the vendor segment and
+# the model slug separately from the trailing `<8-digit-date>-v<major>-
+# <minor>` version stamp, which carries no vendor-catalog-lookup meaning of
+# its own and must be stripped before the slug is recognizable.
+_EXTERNAL_ENDPOINT_ID_RE = re.compile(
+    r"^(?:us|eu|apac|global)-(?P<vendor>[a-z0-9]+)-(?P<slug>.+)-(?P<date>\d{8})-v\d+-\d+$"
+)
+
+
+def parse_external_endpoint_id(raw_id) -> "Optional[tuple[str, str]]":
+    """`(vendor, normalized_slug)` for a Bedrock-style external endpoint id
+    (`us-anthropic-claude-sonnet-4-5-20250929-v1-0` -> `("anthropic",
+    "claude-sonnet-4.5")`), else `None` -- including for anything that
+    isn't a plain string, or doesn't match the `<region>-<vendor>-<slug>-
+    <8-digit-date>-v<major>-<minor>` shape at all (every endpoint name that
+    ISN'T one of these Bedrock-style ids, which is most of them)."""
+    if not isinstance(raw_id, str):
+        return None
+    m = _EXTERNAL_ENDPOINT_ID_RE.match(raw_id)
+    if not m:
+        return None
+    return m.group("vendor"), normalize_vendor_slug_punctuation(m.group("slug"))
+
+
+# roadmap section's own named examples: "anthropic claude-opus-5 / sonnet-5,
+# google gemini-3.5-flash, deepseek deepseek-v4-flash / -pro, zai
+# glm-5.3-flash" -- a bare PREFIX guess against an already-"databricks-"-
+# stripped, already-punctuation-normalized slug, consulted only once
+# neither an exact id match NOR an external-endpoint-id parse found
+# anything. Gemma is Google's own open-weight family (same provider entry
+# as Gemini in models.dev), hence two prefixes -> "google".
+_FAMILY_VENDOR_PREFIXES = (
+    ("claude-", "anthropic"),
+    ("gemini-", "google"),
+    ("gemma-", "google"),
+    ("deepseek-", "deepseek"),
+    ("glm-", "zai"),
+)
+
+
+def guess_vendor_family(normalized_slug) -> "Optional[str]":
+    """The models.dev provider id a bare, un-prefixed model slug probably
+    belongs to, by the slug's own leading family name -- `None` when
+    nothing in `_FAMILY_VENDOR_PREFIXES` matches (an unrecognized family:
+    the caller leaves the row blank rather than guess further) or
+    `normalized_slug` isn't a string."""
+    if not isinstance(normalized_slug, str):
+        return None
+    low = normalized_slug.lower()
+    for prefix, vendor in _FAMILY_VENDOR_PREFIXES:
+        if low.startswith(prefix):
+            return vendor
+    return None
+
+
+# OpenRouter vendor segments (the part of a `<vendor>/<slug>` id before the
+# slash) that spell a models.dev provider id differently from models.dev's
+# own key -- tried AFTER the verbatim vendor segment itself, never instead
+# of it, so a segment that already matches a real models.dev provider id
+# is never second-guessed.
+_OPENROUTER_VENDOR_ALIASES = {"z-ai": "zai", "meta-llama": "meta"}
+
+
+def vendor_family_profile_fields(raw_model_id, full_models_dev: dict, *,
+                                  foundation_model_name=None, vendor_hint=None) -> "Optional[dict]":
+    """Halo 2.0.4 round 5: the family-fallback lookup `plans/ROADMAP.md`'s
+    "Databricks enumeration" section describes, generalized to the
+    identical gap on `or:`/`xp:` ids (round 5's "new labs coverage"
+    deliverable 2 -- "the same gap Databricks had"). Tries, in this order,
+    the first candidate `(vendor, slug)` pair that resolves to a real entry
+    in `full_models_dev` (the FULL, untrimmed `models-dev.json` shape --
+    every provider, not just one already-filtered family):
+
+      1. `foundation_model_name` parsed as a Bedrock-style external id.
+      2. `raw_model_id` parsed the same way.
+      3. `vendor_hint` (an OpenRouter `vendor/slug` id's own vendor
+         segment, tried verbatim, then through `_OPENROUTER_VENDOR_
+         ALIASES`) paired with `raw_model_id`'s slug half (after the
+         slash), normalized.
+      4. `foundation_model_name`, stripped of a leading "databricks-" and
+         normalized, with the vendor GUESSED from its own prefix.
+      5. `raw_model_id`, the same way.
+
+    Returns `databricks_profile_fields_from_models_dev`'s own field dict
+    (context/output/vision/reasoning/price -- that function reads a plain
+    models.dev entry and has nothing Databricks-specific inside it) plus
+    `"price_source": "vendor_list_price"`, so a caller can mark the row;
+    `None` when nothing above found a matching provider+model id, or
+    `full_models_dev` itself is empty/unusable. Never raises."""
+    if not isinstance(full_models_dev, dict) or not full_models_dev:
+        return None
+
+    def _entry_for(vendor, slug):
+        if not vendor or not slug:
+            return None
+        provider = full_models_dev.get(vendor)
+        models = provider.get("models") if isinstance(provider, dict) else None
+        return models.get(slug) if isinstance(models, dict) else None
+
+    candidates: "list[tuple]" = []
+    for candidate_id in (foundation_model_name, raw_model_id):
+        parsed = parse_external_endpoint_id(candidate_id)
+        if parsed:
+            candidates.append(parsed)
+    if vendor_hint and isinstance(raw_model_id, str) and "/" in raw_model_id:
+        slug_half = normalize_vendor_slug_punctuation(raw_model_id.split("/", 1)[1])
+        candidates.append((vendor_hint, slug_half))
+        aliased = _OPENROUTER_VENDOR_ALIASES.get(vendor_hint)
+        if aliased:
+            candidates.append((aliased, slug_half))
+    for candidate_id in (foundation_model_name, raw_model_id):
+        if not isinstance(candidate_id, str):
+            continue
+        stripped = candidate_id[len("databricks-"):] if candidate_id.startswith("databricks-") else candidate_id
+        normalized = normalize_vendor_slug_punctuation(stripped)
+        candidates.append((guess_vendor_family(normalized), normalized))
+
+    for vendor, slug in candidates:
+        entry = _entry_for(vendor, slug)
+        if isinstance(entry, dict):
+            fields = databricks_profile_fields_from_models_dev(entry)
+            if fields:
+                fields["price_source"] = "vendor_list_price"
+                return fields
+    return None
     return out

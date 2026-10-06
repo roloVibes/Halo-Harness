@@ -235,6 +235,46 @@ def test_cost_provider_is_byok_request_id_captured(ctx: Ctx):
 
 
 @test
+def test_round5_body_sourced_ignored_params_and_usage_is_byok_and_route_headers(ctx: Ctx):
+    """Halo 2.0.4 round 5 (xp: contract alignment): llms.txt states that
+    `x-experiential-ignored-parameters` is a JSON BODY field (not a
+    header, despite the name) and that BYOK is `usage.is_byok`, not (only)
+    a top-level per-chunk field -- both read straight off the wire chunks
+    here, overriding whatever a header-sourced preset left behind. The
+    four new per-response headers (`x-gateway-provider`/`-zdr`/
+    `-route-depth`/`-route-reason`) are set the same way `request_id`
+    already is -- by the caller, right after construction -- and must
+    reach `harness_meta` unchanged."""
+    from halo_harness.providers.oai_stream import OpenAIStreamToAnthropic
+    sm = OpenAIStreamToAnthropic("xp:qwen3.8-27b", 10, capture_reasoning=True, strict_tool_json=True)
+    sm.request_id = "req_mock_def"
+    sm.ignored_parameters_header = None  # never set by a header this time -- only the body field below
+    sm.gateway_provider = "bedrock"
+    sm.gateway_zdr = "true"
+    sm.gateway_route_depth = "2"
+    sm.gateway_route_reason = "primary_unavailable"
+    sm.feed_chunk({"choices": [{"index": 0, "delta": {"role": "assistant"}}]})
+    sm.feed_chunk({"choices": [{"index": 0, "delta": {"content": "pong"}}],
+                   "x-experiential-ignored-parameters": ["reasoning_effort->none(max_tokens_headroom)"]})
+    sm.feed_chunk({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                   "usage": {"prompt_tokens": 10, "completion_tokens": 5, "cost": 0.0, "is_byok": True},
+                   "provider": "fireworks"})
+    events = sm.on_eof()
+    meta = next(e for e in events if e["type"] == "message_delta")["harness_meta"]
+    ctx.check(f"ignored params came from the BODY field, got {meta.get('ignored_parameters_header')!r}",
+              meta.get("ignored_parameters_header") == "reasoning_effort->none(max_tokens_headroom)")
+    ctx.check(f"is_byok came from usage.is_byok, got {meta.get('responding_is_byok')!r}",
+              meta.get("responding_is_byok") is True)
+    ctx.check(f"gateway_provider carried through, got {meta.get('gateway_provider')!r}",
+              meta.get("gateway_provider") == "bedrock")
+    ctx.check(f"gateway_zdr carried through, got {meta.get('gateway_zdr')!r}", meta.get("gateway_zdr") == "true")
+    ctx.check(f"gateway_route_depth carried through, got {meta.get('gateway_route_depth')!r}",
+              meta.get("gateway_route_depth") == "2")
+    ctx.check(f"gateway_route_reason carried through, got {meta.get('gateway_route_reason')!r}",
+              meta.get("gateway_route_reason") == "primary_unavailable")
+
+
+@test
 def test_responding_provider_label_and_route_label_for_experiential(ctx: Ctx):
     """agent/loop.py's `_responding_provider_label`/`_ROUTE_LABELS` --
     unit-tested directly against a minimal stand-in rather than a full
@@ -310,7 +350,7 @@ def test_pro_required_402_and_unsupported_parameter_400_through_run_phase1(ctx: 
         route = Route(provider="experiential", upstream_model="mock-err", dialect="openai-chat")
         for scenario, expect_status, expect_substr in (
             ("xp-pro-required-402", 402, "Pro plan"),
-            ("xp-unsupported-parameter-400", 400, "removed from the request"),
+            ("xp-unsupported-parameter-400", 400, "doesn't accept"),
         ):
             creds = ProviderCreds(base_url=mock.base_url, api_key="irrelevant")
             req = CompletionRequest(body={}, route=route, profile={}, creds=creds, state_dir=state_dir,

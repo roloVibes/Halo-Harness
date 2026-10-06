@@ -192,6 +192,86 @@ def test_refresh_group_calls_the_registry_for_the_highlighted_rows_provider(ctx:
         catalog_refresh_mod.refresh_one_catalog = real_fn
 
 
+# ---------------------------------------------------------------------------
+# Halo 2.0.4 round 5 ("new labs coverage" deliverable 2): "`:free` variants
+# sort beside their paid row."
+# ---------------------------------------------------------------------------
+
+@test
+def test_place_free_variants_beside_base_survives_a_price_resort(ctx: Ctx):
+    """A direct, fast unit test of the fixup pass itself (no pilot/asyncio
+    needed) -- a `:free` row's own $0 price would otherwise sort it far
+    from its paid sibling once a numeric key reorders the group; the
+    fixup must put it right back beside that sibling, with every OTHER
+    row's relative order left untouched."""
+    from halo_harness.tui.dialogs.model_picker import _place_free_variants_beside_base, _sort_value
+
+    members = [
+        {"ref": "nvidia/nemotron-3-super-120b-a12b", "price_in_per_m": 0.5},
+        {"ref": "nvidia/nemotron-3.5-lightning:free", "price_in_per_m": 0.0},
+        {"ref": "nvidia/nemotron-3.5-lightning", "price_in_per_m": 0.06},
+        {"ref": "nvidia/nemotron-3-super-120b-a12b:free", "price_in_per_m": 0.0},
+    ]
+    resorted = sorted(members, key=lambda m: _sort_value(m, "price"))
+    resort_refs = [m["ref"] for m in resorted]
+    ctx.check(f"fixture drift guard: a bare price sort SCATTERS the two free rows together at the "
+              f"front, away from their own paid siblings (else this proves nothing), got {resort_refs}",
+              resort_refs[0].endswith(":free") and resort_refs[1].endswith(":free"))
+
+    fixed = _place_free_variants_beside_base(resorted)
+    fixed_refs = [m["ref"] for m in fixed]
+    ctx.check(f"nemotron-3.5-lightning:free sits immediately after its paid row, got {fixed_refs}",
+              fixed_refs.index("nvidia/nemotron-3.5-lightning:free")
+              == fixed_refs.index("nvidia/nemotron-3.5-lightning") + 1)
+    ctx.check(f"nemotron-3-super-120b-a12b:free sits immediately after ITS paid row, got {fixed_refs}",
+              fixed_refs.index("nvidia/nemotron-3-super-120b-a12b:free")
+              == fixed_refs.index("nvidia/nemotron-3-super-120b-a12b") + 1)
+    ctx.check("no row lost or duplicated", sorted(fixed_refs) == sorted(resort_refs))
+
+
+@test
+def test_place_free_variants_with_no_paid_sibling_left_alone(ctx: Ctx):
+    """A `:free`-only model (no paid row in this group at all) is never
+    moved -- there is nothing to glue it beside."""
+    from halo_harness.tui.dialogs.model_picker import _place_free_variants_beside_base
+
+    members = [{"ref": "a"}, {"ref": "only-free:free"}, {"ref": "b"}]
+    fixed = _place_free_variants_beside_base(members)
+    ctx.check(f"order unchanged, got {[m['ref'] for m in fixed]}",
+              [m["ref"] for m in fixed] == ["a", "only-free:free", "b"])
+
+
+@test
+def test_s_cycles_to_price_keeps_free_variant_beside_its_paid_row(ctx: Ctx):
+    """End-to-end through the real ModelPicker dialog: cycling to "price"
+    sort must not separate a `:free` row from its paid sibling, even
+    though the free row's own $0 price would otherwise sort it to the
+    very front of the group."""
+    from halo_harness.testing.fake_controller import FakeController
+    from halo_harness.tui.dialogs.model_picker import ModelPicker
+
+    models = [
+        {"ref": "or:nvidia/nemotron-3.5-lightning", "provider": "openrouter", "price_in_per_m": 0.06},
+        {"ref": "or:nvidia/nemotron-3.5-lightning:free", "provider": "openrouter", "price_in_per_m": 0.0},
+        {"ref": "or:cheap/model", "provider": "openrouter", "price_in_per_m": 0.01},
+    ]
+
+    async def body():
+        fake = FakeController()
+        app = await _mounted(fake)
+        async with app.run_test(size=(100, 40)) as pilot:
+            picker = ModelPicker(models, current="")
+            app.push_screen(picker)
+            await pilot.pause(0.1)
+            picker.action_cycle_sort()  # "name" -> "price"
+            option_list = picker.query_one("#model-list")
+            real_ids = [o.id for o in option_list._options if not o.disabled]
+            ctx.check(f"the free row immediately follows its own paid row under price sort, got {real_ids}",
+                      real_ids.index("or:nvidia/nemotron-3.5-lightning:free")
+                      == real_ids.index("or:nvidia/nemotron-3.5-lightning") + 1)
+    asyncio.run(body())
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

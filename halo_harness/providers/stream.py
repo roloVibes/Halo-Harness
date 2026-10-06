@@ -563,8 +563,21 @@ def stream_completion(req: CompletionRequest, abort: "threading.Event | None" = 
         # place both `result.headers` and `sm` are already in scope
         # together, before phase 2's read loop starts.
         sm.request_id = result.headers.get("x-request-id")
+        # Round 5 (xp: contract alignment): llms.txt states TWICE that this
+        # one is actually a JSON body field despite its header-shaped name
+        # -- kept here too, defensively (see oai_stream.py's own docstring
+        # for the dual-source read), in case a real response still carries
+        # it as a header on some engine pin this round never saw live.
         sm.ignored_parameters_header = result.headers.get("x-experiential-ignored-parameters")
         sm.gateway_warning = result.headers.get("x-gateway-warning")
+        # Round 5: four more genuine per-response headers (llms.txt "Zero
+        # data retention": "every completion response... carries
+        # x-request-id, x-gateway-provider..., x-gateway-zdr...,
+        # x-gateway-route-depth and x-gateway-route-reason").
+        sm.gateway_provider = result.headers.get("x-gateway-provider")
+        sm.gateway_zdr = result.headers.get("x-gateway-zdr")
+        sm.gateway_route_depth = result.headers.get("x-gateway-route-depth")
+        sm.gateway_route_reason = result.headers.get("x-gateway-route-reason")
 
     dumped_lines: list = []
     dumped_events: list = []

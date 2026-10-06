@@ -1302,19 +1302,48 @@ shown as a one-word picker badge, `zdr` winning when both are set),
 
 **Cost and credits.** Per-turn cost reads `usage.cost` (the live-confirmed
 location; a future top-level `cost` the docs describe is read as a bonus,
-never required). `provider` (which rung actually served the turn) and
-`is_byok` ride the same per-chunk shape OpenRouter's own `provider` field
+never required). `provider` (which rung actually served the turn) rides a
+top-level per-chunk field, same shape OpenRouter's own `provider` field
 does -- the transcript's responding-provider label shows the real serving
 rung (e.g. `experiential_cloud`) instead of the bare `xp:` route name.
-`GET /api/v1/credits` feeds the balance line in `halo doctor`/`halo
-providers` (a bounded, best-effort live read -- never from `/providers`'
-own table-formatting function, which stays network-free); `halo stats
---experiential` pages the settled rows from `GET /api/v1/usage` (there is
-no standalone `halo cost` command, only `halo stats` and the in-session
-`/cost`). Every `xp:` chat-completions request carries `safety_identifier`
+**Two billing lanes** (llms.txt "Two lanes"): `pass_through` (BYOK -- your
+own provider key, billed by the provider directly, `usage.cost` settles at
+`0`) and `platform_funded` (the platform's own credits, at catalog list
+price, no markup); `usage.is_byok` (read from the final usage object, Halo
+2.0.4 round 5 -- an EARLIER round's top-level-chunk read is kept too,
+defensively) is which lane served this call, carried on the session's own
+transcript log (the `usage` node's `experiential_meta.is_byok`) and shown
+as `lane: pass_through (BYOK)`/`platform_funded` in `/xp routes <slug>`'s
+"last response" section -- a bare `$0.0000` in the cost line does NOT by
+itself mean "this model is free": it can mean "your own key paid for it,
+outside Halo's tracked credit spend" instead. `GET /api/v1/credits` feeds
+the balance line in `halo doctor`/`halo providers` (a bounded, best-effort
+live read -- never from `/providers`' own table-formatting function, which
+stays network-free); `halo stats --experiential` pages the settled rows
+from `GET /api/v1/usage` (there is no standalone `halo cost` command, only
+`halo stats` and the in-session `/cost`); `halo stats --experiential --id
+<x-request-id>` (Halo 2.0.4 round 5) instead looks up ONE call by its own
+request id through `GET /api/v1/generation`, for after-the-fact
+attribution -- paste in the id `/xp routes` or the raw session log just
+showed. Every `xp:` chat-completions request carries `safety_identifier`
 set to the Halo session id (documented, opt-out -- "customer tracking
 across billing exports"), so per-session spend is visible in the owner's
 own Experiential Labs dashboard.
+
+**Zero data retention (Halo 2.0.4 round 5).** `experiential.zdr`
+(`~/.halo/config.json`, default `False`) adds a top-level `"provider":
+{"zdr": true}` to the request body (the contract's own OpenRouter-
+compatible shape) on every `xp:` call that goes through either request
+builder (the OpenAI-shaped chat/Responses dialect and the Anthropic-
+shaped `/v1/messages` dialect for a Claude slug alike) -- never on a bare
+`ant:`/Databricks-Claude-passthrough/`cc:` body, which has no business
+carrying this field at all. Off by default, so an existing session's
+request body is byte-identical to before this key existed. The gateway
+answers `x-gateway-zdr: true` on a response actually served under the
+constraint, or refuses with 403 `model_not_granted` (naming `provider.zdr`
+and the excluded providers) when no rung in this model's waterfall
+qualifies; there is no separate account-wide toggle this harness flips on
+its own (that needs a Pro-gated Management API call, out of scope here).
 
 **Waterfall and the `gateway` object.** `gateway.retry.max_attempts_per_
 route` is always sent as `1` by default (Halo's own outer retry loop is
@@ -1324,18 +1353,44 @@ total_attempts`/`backoff` in `~/.halo/config.json`. `gateway.routing.
 allow_fallbacks`/`route_id` are sent only when `experiential.routing` is
 actually configured (there is no default routing preference to assume).
 `/xp routes <slug>` (also `/xp` in the TUI, off the UI thread) prints the
-rung list from `GET /api/models/<slug>/providers`.
+rung list from `GET /api/models/<slug>/providers`, plus (Halo 2.0.4 round
+5) a "last response" block of the per-response headers below for that
+exact slug, when this session has actually called it at least once.
+
+**Response headers (Halo 2.0.4 round 5, pinned against llms.txt).** Every
+completion response carries `x-request-id`, `x-gateway-provider` (the
+catalog provider of the rung that answered, e.g. `bedrock`/`fireworks`/
+`azure_openai`; a platform-hosted lane reads `experiential_cloud`),
+`x-gateway-zdr` (`true`/`false`), `x-gateway-route-depth`, and
+`x-gateway-route-reason` -- all five captured and carried on the
+session's own transcript log (the `usage` node's `experiential_meta`) and
+shown in `/xp routes`' "last response" block above.
 
 **Errors.** The gateway's own `error.code` (e.g. `unsupported_capability`,
 `unavailable_route`, `pro_required`, `invalid_key`, `idempotency_
 conflict`/`idempotency_replay_unavailable` -- the last two share one HTTP
 409 but mean opposite retry behavior) maps to one plain sentence each,
-read before the generic status-code fallback; `unavailable_route` (429/
-503) is retried through Halo's own existing backoff ladder. The `x-
-experiential-ignored-parameters` response header (fields the gateway
-accepted syntactically but the serving rung couldn't honor) is learned per
+read before the generic status-code fallback. The retryable set, pinned
+against llms.txt's own "Error envelope" table (Halo 2.0.4 round 5 --
+superseding an earlier round's guess that had three of these backwards):
+`unavailable_route` (429/503), `gateway_overloaded` (429), `all_routes_
+failed` (502), `backend_unavailable` (502), `gateway_draining` (503),
+`deadline_exceeded` (504), and `internal_error` (500); every other code
+(including `idempotency_replay_unavailable`, whose own fix is "resend
+with a NEW Idempotency-Key," never a blind retry) is not retried in
+place. A refused parameter (`unsupported_parameter`/`invalid_parameter`)
+is always a 400 naming the field, never silently applied; a parameter the
+gateway merely couldn't HONOR on the serving rung (dropped, not refused)
+is instead disclosed in a top-level `x-experiential-ignored-parameters`
+JSON array on the response body itself -- despite the header-shaped name,
+the contract states twice that this is a body field, not a header (an
+earlier round read it as a header; Halo 2.0.4 round 5 reads the body field
+first, keeping the header read too as a defensive fallback) -- learned per
 model and surfaced as a one-time notice, never repeated every turn for an
-unchanged value.
+unchanged value. A bare `502` with no JSON body at all (every `error.code`
+row above requires one to match) reads as "every route failed, try again
+later" through the generic per-status fallback sentence, never as an
+empty result or a raw Halo exception.
 
 **Tool search.** `{"type": "openrouter:tool_search"}` plus per-tool
 `defer_loading: true` is this gateway's own wire convention for the same
@@ -1374,6 +1429,16 @@ Data-policy note: a preview/promotional model's `no_training: true` is an
 Experiential-side posture only -- check the SERVING provider's own policy
 (the OpenRouter row's `data_policy`, or the vendor's own terms for `oai:`
 with a custom base URL) before sending anything private through it.
+
+Checked against the gateway's own fetched contract (Halo 2.0.4 round 5,
+`https://platform.experientiallabs.ai/llms.txt`): the `:free` suffix and
+BYOK-connection mechanics this table relies on are both generic, published
+behavior (`llms.txt` "Models"/"Two lanes"), not Experiential-specific
+guesses; nothing above contradicted it. Any row here that drifts out of
+date before the next refresh (a price change, a slug rename) now falls
+through to the vendor-family fallback (above, "The model table, catalogs,
+and refresh") instead of showing blank context/price columns -- "the same
+gap Databricks had."
 
 ## Families and their rules
 
@@ -1683,6 +1748,29 @@ consulted in this order before falling back to a hardcoded guess
    a VPN that might not be up) still resolves real context/output/pricing
    for every model this harness ships defaults for, instead of the bare
    128k/16k dataclass guess.
+3b. **The vendor-family fallback** (Halo 2.0.4 round 5, `providers.
+   models_dev.vendor_family_profile_fields`) -- models.dev's own
+   `databricks` provider entry lists only 30 ids and lacks every endpoint
+   newer than that snapshot (`claude-opus-5`/`-5.5`, `claude-sonnet-5`/
+   `-5.5`, `claude-opus-4.8`, `deepseek-v4-flash`/`-pro`, `gemini-3.5`/
+   `3.7`/`3.8-flash`, `gemma-3-12b`, `glm-5.3`/`-flash`, as of this round),
+   but the VENDOR providers in the same models.dev dump (`anthropic`,
+   `google`, `deepseek`, `zai`) do carry those families under their own,
+   un-prefixed ids. Consulted between tiers 1/3 and 4 above: strip a
+   leading `databricks-`, normalize version punctuation (`opus-4-5` ->
+   `opus-4.5`, `gemini-3-5-flash` -> `gemini-3.5-flash`; a parameter-count
+   id like `gemma-3-12b` is left alone), parse a Bedrock-style external
+   endpoint id (`us-anthropic-claude-sonnet-4-5-20250929-v1-0` ->
+   `claude-sonnet-4.5`, read off `foundation_model.name` when the bare
+   endpoint `name` itself doesn't resolve), and guess the vendor from the
+   slug's own family prefix. The SAME lookup, keyed off the vendor segment
+   of an `or:<vendor>/<slug>` id instead, also fills an OpenRouter row with
+   no vendored entry of its own, and an `xp:` slug this session's
+   `experiential-models.json` cache has no row for yet -- "the same gap
+   Databricks had," per the round's own brief. A row sourced this way
+   carries a `vendor list price` marker (the picker's own `detail` column)
+   since the vendor's published list price can differ from what
+   Databricks/the gateway actually bills per token.
 4. `providers/model_table.json`'s own `context_tokens`/`max_tokens_cap`
    (request-shaping data, not economics, but a real, hand-verified number
    for this harness's own pinned Databricks work-default models even if
@@ -1742,9 +1830,12 @@ provider:
     `/models refresh`, else the package-vendored fallback) -- `limit.context`/
     `limit.output` for context/output, `cost.input`/`cost.output` (already
     USD per million tokens) for the prices, used AS-IS, never re-multiplied;
-    (b) missing that, `model_table.json`'s own `context_tokens` (output/
-    prices then stay blank); (c) neither -- every field blank. **A blank
-    field is never shown as `?`** -- it just keeps its column's width.
+    (b) missing that, the vendor-family fallback above (the row's `detail`
+    column then adds a `vendor list price` marker, and `not ready` when the
+    serving-endpoints probe's own `state.ready` says so); (c) missing that
+    too, `model_table.json`'s own `context_tokens` (output/prices then stay
+    blank); (d) none of the above -- every field blank. **A blank field is
+    never shown as `?`** -- it just keeps its column's width.
 
 `databricks.dbu_price_usd` (`~/.halo/config.json`, or a team.json's
 `dbu_price_usd`) is a THIRD, separate figure, in a different unit again: it
@@ -1785,6 +1876,12 @@ Ollama hosts and Hugging Face local servers never appear in THIS picker
 often than "the one main model," and listing every host's live catalog
 here would mean a network read on every `/model` open); `/local` (round
 5) is the dedicated discovery view for both.
+
+A `<ref>:free` row (OpenRouter's own free-lane suffix) always sorts
+immediately beside its paid `<ref>` sibling, under every one of `Ctrl+S`'s
+sort keys (name/price/context/speed) -- not just the alphabetical default,
+where a free row's own `$0` price would otherwise scatter it to the front
+of a price-sorted group, far from the paid row it's a variant of.
 
 ## Enforced offline mode (Halo 2.0.3 round 5e)
 

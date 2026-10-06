@@ -312,7 +312,9 @@ def format_model_row(entry: dict) -> str:
 
 def databricks_row_fields(name: str, *, state_dir=None, model_table: Optional[dict] = None,
                            live_models_dev: Optional[dict] = None,
-                           vendored_fallback: Optional[dict] = None) -> dict:
+                           vendored_fallback: Optional[dict] = None,
+                           full_models_dev: Optional[dict] = None,
+                           foundation_model_name: Optional[str] = None) -> dict:
     """`{"context_tokens", "max_output_tokens", "price_in_per_m",
     "price_out_per_m"}` for a Databricks endpoint `name`, per the ordered
     source rule:
@@ -328,10 +330,18 @@ def databricks_row_fields(name: str, *, state_dir=None, model_table: Optional[di
           instead; this is a deliberately SEPARATE reading of the same
           entry for DISPLAY, not routed through that per-token conversion
           and back).
-      (b) missing (a): `model_table.json`'s own `context_tokens` for this
-          endpoint (request-shaping data, not economics -- output/prices
-          stay blank).
-      (c) neither: every field blank.
+      (b) missing (a): the VENDOR's own models.dev entry, via the family
+          fallback (Halo 2.0.4 round 5, plans/ROADMAP.md "Databricks
+          enumeration" -- strip "databricks-", normalize version
+          punctuation, parse a Bedrock-style external endpoint id) --
+          `price_in_per_m`/`price_out_per_m` carry a `"price_source":
+          "vendor_list_price"` sibling key so a caller can mark the row
+          (the vendor's own list price can differ from what Databricks
+          actually bills per token).
+      (c) missing (a) and (b): `model_table.json`'s own `context_tokens`
+          for this endpoint (request-shaping data, not economics --
+          output/prices stay blank).
+      (d) none of the above: every field blank.
 
     Never raises; a malformed/missing entry at any step just leaves the
     corresponding field(s) out of the returned dict (the caller's own
@@ -346,10 +356,19 @@ def databricks_row_fields(name: str, *, state_dir=None, model_table: Optional[di
     re-read and re-parsed the same file 30 times (1.37s measured on a fast
     host, the dominant cost behind `/model`'s multi-second freeze). Both
     default to the original per-call load when omitted, so every OTHER
-    caller (doctor, the CLI table, existing tests) is unaffected."""
+    caller (doctor, the CLI table, existing tests) is unaffected.
+
+    Round 5 adds `full_models_dev` (the SAME idea, one step further: the
+    FULL, untrimmed `models-dev.json` dict step (b) needs -- `live_models_
+    dev` above is already filtered down to just the `databricks` provider,
+    but a vendor's own entry lives under a DIFFERENT top-level key, so (b)
+    needs the whole structure) and `foundation_model_name` (scope I's own
+    `dbx-endpoints.json` cache -- often names the real model more
+    precisely than the endpoint's own, sometimes operator-chosen, `name`)."""
     from halo_harness.config.paths import bridge_home
     from halo_harness.providers.models_dev import (
         databricks_entries_from_full_models_dev, load_models_dev_json, load_vendored_databricks_fallback,
+        vendor_family_profile_fields,
     )
     if live_models_dev is None:
         state_dir = state_dir if state_dir is not None else bridge_home()
@@ -371,7 +390,29 @@ def databricks_row_fields(name: str, *, state_dir=None, model_table: Optional[di
             out["price_out_per_m"] = cost["output"]
         return out
 
-    # (b) model_table.json's own context_tokens (request-shaping data --
+    # (b) the vendor's own models.dev entry via the family fallback.
+    if full_models_dev is None:
+        state_dir = state_dir if state_dir is not None else bridge_home()
+        full_models_dev = load_models_dev_json(state_dir)
+    family_fields = vendor_family_profile_fields(name, full_models_dev, foundation_model_name=foundation_model_name)
+    if family_fields:
+        out = {"price_source": "vendor_list_price"}
+        if isinstance(family_fields.get("context_tokens"), (int, float)):
+            out["context_tokens"] = family_fields["context_tokens"]
+        if isinstance(family_fields.get("max_output_tokens"), (int, float)):
+            out["max_output_tokens"] = family_fields["max_output_tokens"]
+        # `vendor_family_profile_fields` reuses `databricks_profile_fields_
+        # from_models_dev`, which converts price to per-TOKEN (ModelProfile's
+        # own unit, model.py::resolve_model_profile's identical lookup) --
+        # this function's contract is per-MILLION like step (a) above, so
+        # scale back up rather than re-read `cost.*` a second time.
+        if isinstance(family_fields.get("price_in"), (int, float)):
+            out["price_in_per_m"] = family_fields["price_in"] * 1_000_000
+        if isinstance(family_fields.get("price_out"), (int, float)):
+            out["price_out_per_m"] = family_fields["price_out"] * 1_000_000
+        return out
+
+    # (c) model_table.json's own context_tokens (request-shaping data --
     # see model.py::resolve_model_profile's identical lookup for pricing-
     # free routing defaults); output/prices stay blank.
     if model_table is None:

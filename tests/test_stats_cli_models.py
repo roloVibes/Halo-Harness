@@ -305,6 +305,63 @@ def _hermetic_child_env() -> dict:
     return env
 
 
+@test
+def test_round5_stats_experiential_id_flag_calls_generation_lookup(ctx: Ctx):
+    """Halo 2.0.4 round 5 (xp: contract alignment): `halo stats
+    --experiential --id <x-request-id>` calls `GET /api/v1/generation`
+    (via `fetch_experiential_generation`) instead of listing settled
+    usage rows -- in-process (no subprocess spawn needed; this is a pure
+    dispatch/formatting check, monkeypatched at the account-API layer the
+    SAME way `fetch_experiential_usage_rows` already is for the bare
+    `--experiential` path elsewhere)."""
+    import io
+    import contextlib
+    import halo_harness.providers.experiential_account as xp_account_mod
+    from halo_harness.stats_cli import cmd_stats
+
+    real_fn = xp_account_mod.fetch_experiential_generation
+    calls = []
+
+    def _fake(request_id, env=None):
+        calls.append(request_id)
+        return {"total_cost": 0.00042, "provider_name": "fireworks", "tokens": 123}
+
+    xp_account_mod.fetch_experiential_generation = _fake
+    try:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = cmd_stats(["--experiential", "--id", "req_abc123"])
+        ctx.check(f"exit 0, got {rc}", rc == 0)
+        ctx.check(f"called with the exact id given, got {calls!r}", calls == ["req_abc123"])
+        out = buf.getvalue()
+        ctx.check(f"provider shown, got {out!r}", "fireworks" in out)
+        ctx.check(f"cost shown, got {out!r}", "0.000420" in out)
+    finally:
+        xp_account_mod.fetch_experiential_generation = real_fn
+
+
+@test
+def test_round5_stats_experiential_without_id_still_lists_usage_rows(ctx: Ctx):
+    """The bare `--experiential` path (no `--id`) is completely
+    unaffected by the new flag -- still dispatches to the settled-rows
+    lookup, never the single-generation one."""
+    import io
+    import contextlib
+    import halo_harness.providers.experiential_account as xp_account_mod
+    from halo_harness.stats_cli import cmd_stats
+
+    real_fn = xp_account_mod.fetch_experiential_usage_rows
+    xp_account_mod.fetch_experiential_usage_rows = lambda env=None, cursor=None: []
+    try:
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = cmd_stats(["--experiential"])
+        ctx.check(f"exit 0, got {rc}", rc == 0)
+        ctx.check(f"the no-rows-yet message, got {buf.getvalue()!r}", "no settled usage rows yet" in buf.getvalue())
+    finally:
+        xp_account_mod.fetch_experiential_usage_rows = real_fn
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
