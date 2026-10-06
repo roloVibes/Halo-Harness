@@ -620,3 +620,30 @@ print-mode error for an unconfigured provider and the two clipboard
 follow-ups (all listed in plans/2.0.3-release-notes-for-fix-pass.md) move
 to **2.0.6 hardening**. After the v2.0.3.1 tag the next round is **2.0.4
 round 0** (tooling), then the rest of 2.0.4 in the REORDERED order.
+
+## ADDED 2026-10-05 ~22:35 (rolo): the roles-wizard round, made precise
+
+rolo: "When you do halo init and set roles, the available models are not
+listed when you select edit a role. Maybe an enum of what models you can
+reach should occur after you set the keys so when you get to the roles
+step, and I'm sure for the business roles too, there aren't models to pick
+from and/or autocomplete when you are setting the models to roles or
+company org roles." So the round (next after round 3) is:
+
+1. Enumerate RIGHT AFTER the keys step, with the keys just entered in this
+   wizard run (not only the saved config): every reachable provider's model
+   list (OpenRouter, Anthropic, Databricks, Hugging Face router and local
+   servers, OpenAI, Codex, Claude Code, Experiential, every Ollama host
+   including LAN hosts) merged into the same list the `/model` picker
+   shows, cached for the rest of the wizard, with a one-line progress
+   notice per provider and "not reachable" rows that never block the step.
+2. The role editor, the company/org roles editor and the TUI `/roles` and
+   `/org` editors all pick from that list (grouped by provider, gym score
+   beside a model when one exists) with autocomplete on the ref field;
+   typing a ref that is not in the list still works, with a one-line note.
+3. The "Auto" tab in the roles editor (presets local-first / balanced /
+   quality, or `halo gym propose` when gym data exists), adjustable before
+   Save; the same action in `/roles`.
+4. Tests: a Textual pilot through init with fixture providers, the
+   enumeration cache, the pick list and autocomplete in both editors, the
+   Auto fill from each preset and from a gym fixture, Save round trips.
