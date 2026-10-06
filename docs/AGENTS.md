@@ -14,14 +14,17 @@ editable too"), two layers, approved 2026-10-05/06:
    <name>`).
 
 A team template is what the Roles step's **Auto** tab, `/roles`, and
-`/teams` show as a pickable, resolvable set of roles -- it never needs a
-parallel runtime: applying one just fills the EXISTING role table
-(`docs/ROLES.md`) or builds an EXISTING org dict (`docs/ORGS.md`) through
-two resolution functions, so every other part of this harness keeps
-working completely unchanged.
+`/teams` show as a pickable, resolvable set of roles -- applying one just
+fills the EXISTING role table (`docs/ROLES.md`) or builds an EXISTING org
+dict (`docs/ORGS.md`) through two resolution functions, so every other
+part of this harness keeps working completely unchanged. When a session
+actually RUNS under a team (`team:` in config.json or `--team <name>`),
+its other sections are enforced by `teams_runtime.py` (Halo 2.0.5 round 5)
+-- see "Team template (\"lineup\") fields" below for what each does.
 
 Verified against `halo_harness/agents_yaml.py`, `agents_md_bridge.py`,
-`teams_yaml.py`, `agents_doctor.py`, `agents_cli.py`, `teams_cli.py`,
+`teams_yaml.py`, `teams_runtime.py`, `agents_schedule.py`,
+`agents_doctor.py`, `agents_cli.py`, `teams_cli.py`,
 `commands/builtins.py`, `roles.py::auto_fill_options`, and the shipped
 files under `halo_harness/templates/agents/` and `halo_harness/templates/
 teams/`.
@@ -119,8 +122,38 @@ acceptance:
 own `acceptance.prompt` through a real one-shot model call (`halo -p
 <prompt> --model <ref>`) and checks the reply against `expect`.
 
-Deferred to 2.0.5 with the Governor: `hooks` (pre/post tool commands) and
-`schedule`/`triggers` -- not part of a bio's schema yet.
+### `hooks`, `schedule`, `triggers` (Halo 2.0.5 round 5 -- no longer deferred)
+
+```yaml
+hooks:                          # Claude Code's own hook shape, run by the
+  pre_tool:                     # existing hook runner with HALO_AGENT=<name>
+    - {command: "./check.sh", match: Bash, timeout: 30}
+  post_tool: [{command: "echo done"}]
+  on_start: ["echo starting"]   # a bare string is a one-command shorthand
+  on_finish: [{command: "./teardown.sh"}]
+schedule:                       # exactly one of cron / every, plus a prompt
+  every: 30m                    # ...or cron: "*/5 * * * *"
+  prompt: "Check the build and report one line."
+  model: or:vendor/cheap-model  # optional; the bio's preference otherwise
+triggers:                       # one shot per session, fired on the event
+  - {on: file_change, paths: [src/]}
+  - {on: event, name: turn_done}
+  - {on: message, from: worker}
+```
+
+A bio's `hooks` run wherever that bio runs: a member child maps `pre_tool`
+/`post_tool` onto PreToolUse/PostToolUse and `on_start`/`on_finish` onto
+SubagentStart/SubagentStop; the MAIN assignment's bio gets SessionStart/
+SessionEnd instead. `HALO_AGENT` carries the agent's name into every hook
+command's environment, and hook output reaches the transcript exactly the
+way a settings hook's already does. A template assignment may override the
+bio's hooks per key (`hooks:` inside an `agents:` entry).
+
+`schedule`/`triggers` arm when a session that loaded the agent's team is
+ALIVE (`team:` in config.json or `--team`), fire the agent as a background
+job through the existing job surfaces, and disarm when that session closes
+-- never a system service. `halo agents schedule list|run <name>` and
+`/agents schedule` show what is armed and each schedule's next fire time.
 
 ## The `default` model reference and the `standard` lineup (Halo 2.0.5 round 2b)
 
@@ -176,8 +209,10 @@ agents:
   - {agent: coder, role: subagent, as: worker2, models: {preference: or:vendor/other-model}}
 ```
 
-Every OTHER top section, also stored/validated/shown but not enforced by
-the live agent loop this round (the Governor's own job, 2.0.5):
+Every OTHER top section -- ENFORCED by the live agent loop since Halo
+2.0.5 round 5 (`halo_harness/teams_runtime.py`, the deferral's own
+due date) whenever a session runs under the team (`team:` in config.json
+or `--team <name>`):
 
 ```yaml
 delegation: {mode: by-skill, max_parallel: 2, max_depth: 1, handoff: structured, forward_text: false}
@@ -192,11 +227,49 @@ org:
     - {title: Worker, agent: implementer, reports_to: Boss}
   reporting: {cadence: per-round, format: one-line}
 pipeline:
-  stages:    # order stored and SHOWN, gates not enforced yet
-    - {name: implement, role: subagent, gate: required}
+  stages:    # stages run in order; a required gate must pass first
+    - {name: implement, role: subagent, gate: required, acceptance: {prompt: "...", expect: non-empty}}
     - {name: review, role: reviewer, gate: optional}
 acceptance: {prompt: "...", expect: non-empty}   # one smoke prompt through the lineup, halo doctor --teams
 ```
+
+What each section DOES at runtime:
+
+- **delegation** -- `max_depth` is the session's depth cap, `max_parallel`
+  its in-flight spawn cap (the same gate `agents.max_concurrent` sizes,
+  per team); `handoff` shapes what a member hands back (`summary` -- the
+  final text, `full` -- plus the child's transcript path, `structured` --
+  role/status/cost/result lines); `forward_text: true` prepends the
+  parent's latest user text to the delegation prompt.
+- **routing** -- at spawn time, the first routing key (or a member's
+  `use_for` word) appearing in the call's description/prompt picks the
+  role/alias; the template's `default` applies otherwise; an explicit
+  `Agent(role=...)` always wins.
+- **budget** -- `max_budget_usd`/`max_total_turns`/`max_wall_time` count
+  the whole tree (root turns + every member's spend/turns); when one is
+  exhausted the team STOPS DELEGATING and says so in one line (never a
+  judgement of the request). `agents_may_exceed: true` keeps members
+  running while still counting.
+- **escalation** -- `triggers` (`tool_failures`, `context_overflow`,
+  `budget_exhausted`) switch the session to `to`; `ask: true` shows the
+  existing approval card first, `ask: false` switches and announces in
+  one line.
+- **context** -- `files`/`skills` load for every member on top of its
+  bio's own context; `memory.namespace` is a shared memory directory
+  under `<state>/teams/<name>/memory/` that only `writers` may write.
+- **permissions** -- `mode` and `rules` (the settings.json grammar) apply
+  to every member on top of the bio's own; `offline: true` keeps a member
+  whose model lives on a network host from ever spawning.
+- **org** -- `reports_to` addresses each member's one-line completion
+  report (delivered as a user-role notice on the root session's next
+  turn); `reporting` drives those one-liners.
+- **pipeline** -- stages run in order; a `required` gate must pass its
+  stage's acceptance (the stage's own `acceptance`, else its bio's) before
+  the next stage's calls run, an `optional` gate records and continues.
+
+`halo teams show <name>` prints the enforcement state per section
+(enforced / not set / checked by doctor), so a reader never has to guess
+which parts are real.
 
 **Validation** (`halo teams validate [name]`, `halo doctor --agents`):
 every `agent` names a bio that actually exists; exactly one `agents[]`

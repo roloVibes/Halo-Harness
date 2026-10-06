@@ -738,6 +738,7 @@ class Session:
         roles: Optional[dict] = None, cli_roles: Optional[dict] = None,
         cli_flags: Optional[dict] = None, settings: Optional[object] = None,
         role_name: Optional[str] = None,
+        team_name: Optional[str] = None,
     ):
         # H9: identifies THIS session as a particular sub-agent (passed by
         # `agent/subagent.py`'s `_build_child_session`; the parent/main
@@ -753,6 +754,10 @@ class Session:
         # which used to re-run once per sub-agent spawned (3 sub-agents in
         # one session used to fire SessionStart(startup) 4 times).
         self.agent_id: Optional[str] = agent_id
+        # Halo 2.0.5 round 5: the ctor param, kept as an attribute so a
+        # helper can tell a root session (0) from a sub-agent's own child
+        # Session (parent's + 1) without walking the runtime tree.
+        self.agent_depth: int = agent_depth
         self.cwd = cwd
         self.model_ref = model_ref
         self.small_model_ref = small_model_ref
@@ -1201,6 +1206,43 @@ class Session:
         from halo_harness.agent.subagent import SessionConcurrencyGate, effective_max_concurrent
         self.agent_runtime.concurrency_semaphore = SessionConcurrencyGate(
             effective_max_concurrent(self.agent_runtime))
+        # Halo 2.0.5 round 5 "team control": a top-level, non-bare session
+        # running under a team (`--team`, or config's own `team:` key) holds
+        # ONE enforced lineup for its whole tree -- delegation caps ride the
+        # existing depth/in-flight knobs, the MAIN assignment's own bio
+        # hooks merge into THIS session's hook runner (HALO_AGENT set), and
+        # the first turn arms the schedule/trigger scheduler
+        # (`agents_schedule.arm_session`). A child Session never builds its
+        # own (the control travels down through `_build_child_session`); a
+        # session with no active team touches nothing at all.
+        self._team_scheduler = None
+        if agent_depth == 0 and not getattr(session_context, "bare", False):
+            from halo_harness.teams_runtime import load_team_control
+            self.team_control = load_team_control(team_name, cwd=cwd, state_dir=state_dir)
+            if self.team_control is not None:
+                self.agent_runtime.team_control = self.team_control
+                delegation = self.team_control.delegation
+                if delegation.get("max_depth") is not None:
+                    self.agent_runtime.max_depth = int(delegation["max_depth"])
+                if delegation.get("max_parallel") is not None:
+                    self.agent_runtime.concurrency_semaphore.set_limit(int(delegation["max_parallel"]))
+                # The team's OWN resolved role table rides on top of the
+                # persisted one -- a `--team <name>` run never touches
+                # config, so its aliases/routed roles must still resolve
+                # (`resolve_agent_model` reads exactly this table).
+                try:
+                    from halo_harness.teams_yaml import resolve_role_table as _resolve_team_roles
+                    _team_roles, _notes = _resolve_team_roles(self.team_control.template,
+                                                              cwd=cwd, state_dir=state_dir)
+                    if _team_roles:
+                        merged = dict(self.agent_runtime.role_table or {})
+                        merged.update(_team_roles)
+                        self.agent_runtime.role_table = merged
+                        self.roles = merged
+                except Exception:
+                    pass
+                if self.hook_runner is not None:
+                    self._merge_main_member_hooks()
         self.agent_type_restriction = agent_type_restriction
         # H6 scope F: background sub-agent completions wait here (a plain
         # list under a lock, exactly like the steering queue) until the
@@ -1581,6 +1623,145 @@ class Session:
         except Exception:
             return True
         return judge_says_confident(answer)
+
+    def _arm_team_scheduler_once(self) -> None:
+        """Halo 2.0.5 round 5 (deliverable 3): arm the team's schedules and
+        triggers on the ROOT session's first turn -- never a child's (the
+        control object is shared, a child arming its own scheduler would
+        double-fire), never a bare/teamless session (nothing to arm)."""
+        if getattr(self, "_team_scheduler", None) is not None:
+            return
+        if getattr(self, "agent_depth", 0) != 0 or getattr(self, "team_control", None) is None:
+            return
+        from halo_harness.agents_schedule import arm_session
+        try:
+            self._team_scheduler = arm_session(self, self.team_control)
+        except Exception:
+            self._team_scheduler = None
+
+    def _observe_team_triggers(self, ev) -> None:
+        scheduler = getattr(self, "_team_scheduler", None)
+        if scheduler is not None:
+            try:
+                scheduler.observe_event(getattr(ev, "kind", "") or "")
+            except Exception:
+                pass
+
+    def _merge_main_member_hooks(self) -> None:
+        """Halo 2.0.5 round 5 (deliverable 2): the MAIN assignment's own bio
+        hooks run in the top-level session too -- `pre_tool`/`post_tool` map
+        onto PreToolUse/PostToolUse as everywhere else, while `on_start`/
+        `on_finish` mean SessionStart/SessionEnd HERE (a member child maps
+        the same keys onto SubagentStart/SubagentStop instead -- see
+        `agent/subagent.py`'s child HookRunner). HALO_AGENT carries the
+        main bio's own name."""
+        team = getattr(self, "team_control", None)
+        if team is None or self.hook_runner is None:
+            return
+        main_target = None
+        for target, entry in team.aliases.items():
+            if entry.get("role") == "main":
+                main_target = target
+                break
+        if main_target is None:
+            return
+        hooks = team.member_hooks(main_target)
+        if not hooks:
+            return
+        from halo_harness.hooks import HookDef, agent_hooks_to_hookdefs, merge_hook_maps
+
+        def _defs(entries) -> list:
+            if isinstance(entries, (str, dict)):
+                entries = [entries]
+            out = []
+            for e in (entries or []):
+                if isinstance(e, str):
+                    e = {"command": e}
+                if not (isinstance(e, dict) and isinstance(e.get("command"), str)):
+                    continue
+                try:
+                    timeout = float(e["timeout"]) if e.get("timeout") is not None else None
+                except (TypeError, ValueError):
+                    timeout = None
+                out.append(HookDef(type="command", matcher=e.get("match"), command=e["command"],
+                                   timeout_s=timeout, source="agent", scope="agent"))
+            return out
+
+        extra = agent_hooks_to_hookdefs({k: v for k, v in hooks.items() if k in ("pre_tool", "post_tool")})
+        d = _defs(hooks.get("on_start"))
+        if d:
+            extra.setdefault("SessionStart", []).extend(d)
+        d = _defs(hooks.get("on_finish"))
+        if d:
+            extra.setdefault("SessionEnd", []).extend(d)
+        if not extra:
+            return
+        self.hook_runner.hooks_by_event = merge_hook_maps(self.hook_runner.hooks_by_event, extra)
+        self.hook_runner.effective_env = {**(self.hook_runner.effective_env or {}),
+                                          "HALO_AGENT": (team.aliases.get(main_target) or {}).get("agent") or main_target}
+
+    def _maybe_team_escalate(self, turn_no: int):
+        """Halo 2.0.5 round 5: the TEAM's own escalation section (never the
+        local-model policy `_maybe_escalate` reads) -- `triggers:
+        [tool_failures, context_overflow, budget_exhausted]` switching to
+        `to`, with `ask: true` showing the existing approval card first and
+        `ask: false` switching and announcing. Never blocks the UI thread
+        except while a human answers a card in an INTERACTIVE session
+        (headless/-p stays on the current model and says so in one line,
+        the same "stayed local" shape the local escalation path already
+        uses)."""
+        team = getattr(self, "team_control", None)
+        if team is None:
+            return
+        from halo_harness.agent.escalation import TOOL_FAILURE_THRESHOLD, count_tool_failures_since
+        decision = team.escalation_decision(
+            tool_failures=(count_tool_failures_since(self.log.nodes(),
+                                                     getattr(self, "_turn_log_start_idx", 0))
+                           >= TOOL_FAILURE_THRESHOLD),
+            context_overflow=getattr(self, "_turn_context_overflow_count", 0) > 0)
+        if decision is None:
+            return
+        trigger, to_ref, ask = decision
+        if ask and getattr(self, "interactive", False):
+            import uuid
+            request_id = f"team-esc-{uuid.uuid4().hex[:8]}"
+            self._approval_waiters[request_id] = {"event": threading.Event(), "decision": None}
+            card = events.Event("approval_request", {"id": request_id, "position": "team escalation",
+                                                     "text": (f"Team {team.name!r} escalation trigger "
+                                                              f"{trigger!r} fired: switch this session to "
+                                                              f"{to_ref}?"), "is_error": False})
+            yield card
+            answer = self._await_reply(self._approval_waiters, request_id)
+            if not answer or answer.get("action") != "accept":
+                yield events.notification(f"stayed on {self.model_label} -- team escalation declined", level="info")
+                return
+        elif ask:
+            yield events.notification(
+                f"team {team.name} escalation trigger {trigger} fired: switch to {to_ref} with /model {to_ref}",
+                level="info")
+            return
+        from halo_harness.model import parse_model_ref
+        try:
+            target = parse_model_ref(to_ref, self.agent_runtime.routes or {})
+        except Exception:
+            yield events.notification(f"team escalation target {to_ref!r} does not resolve -- stayed on "
+                                      f"{self.model_label}", level="info")
+            return
+        from halo_harness.headless import _resolve_creds
+        creds = _resolve_creds(target, self.settings)
+        if creds is None:
+            yield events.notification(f"team escalation target {to_ref!r} has no configured credentials -- "
+                                      f"stayed on {self.model_label}", level="info")
+            return
+        from halo_harness.model import resolve_model_profile
+        profile = resolve_model_profile(target, self.state_dir, self.agent_runtime.routes or {})
+        old_label = self.model_label
+        self.model_ref, self.model_profile, self.creds = target, profile, creds
+        self.model_label = target.raw
+        team.escalated = True
+        self._escalation_decisions.append({"turn": turn_no, "from": old_label, "to": target.raw,
+                                           "why": f"team {team.name} trigger {trigger}"})
+        yield events.system_note(f"team {team.name} escalation ({trigger}): switched {old_label} -> {target.raw}")
 
     def _maybe_escalate(self, turn_no: int, *, final_text: "Optional[str]" = None):
         """Round 5e: hybrid escalation (`routing.escalation`), checked from
@@ -2028,6 +2209,15 @@ class Session:
         from halo_harness.agent import cc_runtime, codex_runtime
         cc_runtime.close_cc(self)
         codex_runtime.close_cx(self)
+        # Halo 2.0.5 round 5: a session that armed team schedules/triggers
+        # disarms them here -- they live exactly as long as the session
+        # ("while a session that loaded the team is alive, never a system
+        # service"). `stop_session_scheduler` is a no-op without one.
+        try:
+            from halo_harness.agents_schedule import stop_session_scheduler
+            stop_session_scheduler(self)
+        except Exception:
+            pass
 
     def clear(self) -> None:
         """U5 must-do: `/clear` starts a genuinely NEW session log --
@@ -4693,9 +4883,15 @@ class Session:
         instance, never the `debug_timeline` module's shared default --
         see `Session.__init__`'s own comment."""
         self._timeline.start_turn(self.turn_count + 1)
+        # Halo 2.0.5 round 5: the ROOT session's first turn under a team
+        # arms that team's schedules/triggers (`agents_schedule.arm_session`
+        # -- they live exactly as long as this session does); every event
+        # the turn emits is then observed for `on: event` triggers.
+        self._arm_team_scheduler_once()
         try:
             for ev in self._turn_inner(text, images=images):
                 self._timeline.record_turn_event(ev)
+                self._observe_team_triggers(ev)
                 yield ev
         finally:
             record = self._timeline.end_turn()
@@ -4769,6 +4965,12 @@ class Session:
         self._loop_breaker_period2 = {}
         self._identical_call_guard_key = None
         self._identical_call_guard_count = 0
+        # Halo 2.0.5 round 5: the team's own `budget.max_total_turns` counts
+        # THIS root turn (children add their own turns at their completion,
+        # `agent/subagent.py`'s team block).
+        _team = getattr(self, "team_control", None)
+        if _team is not None and getattr(self, "agent_depth", 0) == 0:
+            _team.record_turn(1)
         # Round 5e: hybrid-escalation per-turn state -- `_turn_log_start_
         # idx` is where `escalation.count_tool_failures_since` starts
         # counting THIS turn's own tool_result failures from (never an
@@ -5219,6 +5421,9 @@ class Session:
                     final_text = "".join(b.get("text", "") for b in result.assistant_blocks
                                           if b.get("type") == "text")
                     yield from self._maybe_escalate(turn_no, final_text=final_text)
+                    # Halo 2.0.5 round 5: the TEAM's own escalation section
+                    # (independent of the local-model policy above).
+                    yield from self._maybe_team_escalate(turn_no)
                 yield events.turn_done(turn=turn_no, reason=reason)
                 return
 
@@ -5253,6 +5458,10 @@ class Session:
             # make, "for the rest of this turn", exactly like `_try_
             # fallback_after_exhaustion`'s own identically-shaped switch.
             yield from self._maybe_escalate(turn_no)
+            # Halo 2.0.5 round 5: the TEAM's own escalation section -- the
+            # same two safe points, checked after the local policy so a
+            # team that also runs local models keeps both behaviours.
+            yield from self._maybe_team_escalate(turn_no)
             # HALO-2.0.1-liveness-tips-brief.md Part A1 / W2-plan item 6:
             # tool results were just dispatched back; the NEXT model call
             # (the top of this `while True:`, back in `_step`) hasn't been

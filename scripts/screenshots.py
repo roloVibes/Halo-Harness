@@ -130,13 +130,19 @@ async def _export(app, pilot, stage=None) -> str:
     frozen clock makes that a constant, but the clock's own RESTART on a
     phase-word event resets `_phase_started_at` to NOW, i.e. 0 s).
     Textual's random per-export CSS id is normalized so a rerun is
-    byte-identical."""
+    byte-identical. The status bar's cwd segment is pinned to the
+    fixture string verbatim: `BridgeApp.__init__` does `Path(cwd)`,
+    which renders the fixture "~/project" as "~\\project" on Windows and
+    "~/project" everywhere else (found by CI -- the Linux run failed the
+    byte-parity check on exactly that slash flip)."""
     await pilot.pause(0)
     if stage is not None:
         stage()
     bar = getattr(app, "status_bar", None)
     if bar is not None:
         bar.spinner_index = 0
+        if getattr(app, "cwd", None):
+            bar.cwd = str(app.cwd).replace("\\", "/")
         bar._refresh_display()
     return re.sub(r"terminal-\d+-", "terminal-0-", app.export_screenshot())
 

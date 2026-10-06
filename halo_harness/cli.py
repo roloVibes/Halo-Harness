@@ -125,6 +125,12 @@ _REAL_FLAGS = [
     # sessions land this milestone).
     (["--agent"], dict(dest="agent", default=None, metavar="AGENT")),
     (["--agents"], dict(dest="agents", default=None, metavar="JSON_OR_FILE")),
+    # Halo 2.0.5 round 5 "team control": run THIS session under a team
+    # template (`halo teams list` names them) -- its lineup sections are
+    # enforced by the live agent loop (`docs/AGENTS.md`'s runtime table).
+    # Overrides config's own active `team:` key for this one run, never
+    # persisted; an unknown name degrades to a stderr line, no team.
+    (["--team"], dict(dest="team", default=None, metavar="TEAM")),
     # V2c (H15), widened Halo 2.0.2: repeatable NAME=MODEL[:EFFORT] override
     # for one of the ten built-in roles (or a currently-known custom one)
     # (orchestrator|coder|reviewer|researcher|small) -- validated in main()

@@ -1838,7 +1838,16 @@ def cmd_doctor(argv: list) -> int:
     parser.add_argument("--agents", action="store_true",
                          help="Validate every agent bio and the active team template, then run each bio's "
                              "own acceptance check against a real model call")
-    parser.add_argument("--mock", action="store_true", help="With --agents: never call a real model (tests only)")
+    parser.add_argument("--mock", action="store_true", help="With --agents/--teams: never call a real model (tests only)")
+    # Halo 2.0.5 round 5 (deliverable 4): `halo doctor --teams [NAME]` --
+    # validate the named (or active) team template and exercise its FIRST
+    # required pipeline gate end to end, the same gate the live agent loop
+    # runs between stages (`agents_doctor.check_team_gates`).
+    parser.add_argument("--teams", action="store_true",
+                         help="Validate the active (or named) team template and exercise its first required "
+                             "pipeline gate")
+    parser.add_argument("teams_name", nargs="?", default=None, metavar="NAME",
+                         help="With --teams: this team template instead of the active one")
     # Halo 2.0.4 round 6 ("MCP connectivity deep dive"): `halo doctor --mcp
     # deep [name]` -- see `_cmd_mcp_deep` below. `mcp_name` is a plain
     # positional (meaningful only with `--mcp deep`) rather than another
@@ -1912,6 +1921,24 @@ def cmd_doctor(argv: list) -> int:
                                                                        if m != "no acceptance block") else 1
     if args.mcp == "deep":
         return _cmd_mcp_deep(mcp_name=args.mcp_name, apply=args.apply, corpus_dir=args.mcp_from, cwd=doctor_cwd)
+    if args.teams:
+        from halo_harness.agents_doctor import check_team_gates
+        print("halo doctor --teams")
+        print("  Validates the active (or named) team template and exercises its first required pipeline "
+              "gate -- the same gate the live agent loop runs between stages (a real model call unless "
+              "--mock; the acceptance prompt spends tokens and takes a moment).")
+        call_fn = (lambda _role, _prompt: "") if args.mock else None
+        team_name, results = check_team_gates(args.teams_name, cwd=doctor_cwd, call_fn=call_fn)
+        if args.json:
+            print(json.dumps({"team": team_name,
+                              "gates": [{"stage": s, "ok": ok, "message": m} for s, ok, m in results]},
+                             indent=2))
+        else:
+            print(f"  team: {team_name or '(none resolved)'}")
+            for stage, ok, message in results:
+                print(f"  {stage}: {'ok' if ok else 'FAILED'} -- {message}")
+            print(f"RESULT: {sum(1 for _s, ok, _m in results if ok)}/{len(results)} gate check(s) passed.")
+        return 0 if team_name is not None and all(ok for _s, ok, _m in results) else 1
     if args.local:
         from halo_harness.config.paths import bridge_home
         from halo_harness.doctor_local import format_acceptance_lines, run_local_acceptance_check

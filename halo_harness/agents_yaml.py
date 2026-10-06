@@ -40,7 +40,14 @@ _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 # live at the TOP level, same as a role template's own "name"/
 # "description". No "org"/role section at all (two-layer refinement:
 # "No role or org position inside a bio").
-BIO_SECTIONS = ("models", "tools", "context", "limits", "output", "environment", "acceptance")
+# Halo 2.0.5 round 5: `hooks`/`schedule`/`triggers` join the merge set --
+# the roadmap's own "Deferred to 2.0.5 with the Governor" deferral coming
+# due; a bio's hooks/schedule/triggers inherit through `extends:` exactly
+# like every other section (child's key wins inside one).
+BIO_SECTIONS = ("models", "tools", "context", "limits", "output", "environment", "acceptance",
+                "hooks", "schedule", "triggers")
+HOOK_EVENT_KEYS = ("pre_tool", "post_tool", "on_start", "on_finish")
+SCHEDULE_TRIGGER_KINDS = ("file_change", "event", "message")
 IDENTITY_FIELDS = ("name", "description", "version", "tags", "kind", "extends")
 KNOWN_KINDS = ("main", "subagent", "researcher", "judge", "reviewer", "custom")
 
@@ -245,6 +252,148 @@ def _extends_cycle(name: str, data: dict, *, cwd=None, state_dir=None) -> "Optio
             return None  # an unresolvable extends target is a separate problem, not a cycle
 
 
+def validate_hook_section(hooks) -> "list[str]":
+    """Halo 2.0.5 round 5 (deliverable 2): a bio's `hooks:` -- keys are the
+    four agent-scoped events (`pre_tool`/`post_tool`/`on_start`/`on_finish`),
+    each value a LIST of Claude-Code-hook-shaped entries `{command, match?,
+    timeout?}` (a plain string is accepted as a one-command shorthand).
+    One plain line per problem, never raises; `[]` for None/valid."""
+    if hooks is None:
+        return []
+    if not isinstance(hooks, dict):
+        return ['"hooks" must be a mapping of pre_tool/post_tool/on_start/on_finish to hook entries']
+    problems: "list[str]" = []
+    for key, entries in hooks.items():
+        if key not in HOOK_EVENT_KEYS:
+            problems.append(f'"hooks.{key}" is not one of {", ".join(HOOK_EVENT_KEYS)}')
+            continue
+        if isinstance(entries, (str, dict)):
+            entries = [entries]
+        if not isinstance(entries, list):
+            problems.append(f'"hooks.{key}" must be a list of hook entries')
+            continue
+        for i, entry in enumerate(entries):
+            if isinstance(entry, str):
+                continue  # the one-command shorthand
+            if not isinstance(entry, dict) or not isinstance(entry.get("command"), str) or not entry["command"].strip():
+                problems.append(f'"hooks.{key}[{i}]": "command" is required')
+                continue
+            match = entry.get("match")
+            if match is not None and not isinstance(match, str):
+                problems.append(f'"hooks.{key}[{i}]": "match" must be a string')
+            timeout = entry.get("timeout")
+            if timeout is not None and (not isinstance(timeout, (int, float)) or isinstance(timeout, bool)
+                                        or timeout <= 0):
+                problems.append(f'"hooks.{key}[{i}]": "timeout" must be a positive number')
+    return problems
+
+
+def validate_schedule_section(schedule) -> "list[str]":
+    """Halo 2.0.5 round 5 (deliverable 3): a bio's `schedule:` -- exactly one
+    cadence (`cron`: a 5-field expression, or `every`: a duration like
+    `30m`/`1h30m`/`45s`) plus a required `prompt`, optional `model`. Fires
+    only while a session that loaded the agent's team is alive -- never a
+    system service."""
+    if schedule is None:
+        return []
+    if not isinstance(schedule, dict):
+        return ['"schedule" must be a mapping with one of "cron"/"every" and a "prompt"']
+    problems: "list[str]" = []
+    cron, every = schedule.get("cron"), schedule.get("every")
+    if (cron is None) == (every is None):
+        problems.append('"schedule" needs exactly one of "cron" (5 fields) or "every" (e.g. 30m)')
+    if cron is not None and not valid_cron_expression(cron):
+        problems.append(f'"schedule.cron" {cron!r} is not a valid 5-field cron expression')
+    if every is not None and parse_every_duration(every) is None:
+        problems.append(f'"schedule.every" {every!r} is not a duration like 30m, 1h30m or 45s')
+    prompt = schedule.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        problems.append('"schedule.prompt" is required')
+    if schedule.get("model") is not None and not isinstance(schedule.get("model"), str):
+        problems.append('"schedule.model" must be a string')
+    return problems
+
+
+def validate_trigger_section(triggers) -> "list[str]":
+    """Halo 2.0.5 round 5 (deliverable 3): a bio's `triggers:` -- a list of
+    `{on: file_change, paths: [...]}` / `{on: event, name: <halo event>}` /
+    `{on: message, from: <role>}` entries that start the agent once per
+    occurrence while a session that loaded the team is alive."""
+    if triggers is None:
+        return []
+    if not isinstance(triggers, list):
+        return ['"triggers" must be a list of {on: ...} entries']
+    problems: "list[str]" = []
+    for i, t in enumerate(triggers):
+        if not isinstance(t, dict) or t.get("on") not in SCHEDULE_TRIGGER_KINDS:
+            problems.append(f'triggers[{i}]: "on" must be one of {", ".join(SCHEDULE_TRIGGER_KINDS)}')
+            continue
+        kind = t.get("on")
+        if kind == "file_change":
+            paths = t.get("paths")
+            if not isinstance(paths, list) or not paths or not all(isinstance(p, str) and p for p in paths):
+                problems.append(f'triggers[{i}]: "paths" must be a non-empty list of path strings')
+        elif kind == "event":
+            if not isinstance(t.get("name"), str) or not t.get("name").strip():
+                problems.append(f'triggers[{i}]: "name" (a halo event kind) is required')
+        else:  # message
+            if not isinstance(t.get("from"), str) or not t.get("from").strip():
+                problems.append(f'triggers[{i}]: "from" (a role or alias) is required')
+        if t.get("prompt") is not None and (not isinstance(t.get("prompt"), str) or not t.get("prompt").strip()):
+            problems.append(f'triggers[{i}]: "prompt" must be a non-empty string when given')
+    return problems
+
+
+def valid_cron_expression(expr) -> bool:
+    """True iff `expr` is a 5-field cron expression whose every field parses
+    (a number, a range `a-b`, a list `a,b`, a step `*/n` or `a-b/n`, or
+    `*`). Field VALUE ranges are checked by `agents_schedule.cron_next`
+    at compute time; this is the schema-level gate."""
+    if not isinstance(expr, str):
+        return False
+    fields = expr.split()
+    if len(fields) != 5:
+        return False
+    return all(valid_cron_field(f) for f in fields)
+
+
+def valid_cron_field(field: str) -> bool:
+    import re as _re
+    if field == "*":
+        return True
+    for part in field.split(","):
+        if not part:
+            return False
+        base, slash, step = part.partition("/")
+        if slash and (not step.isdigit() or int(step) == 0):
+            return False
+        if base == "*":
+            continue
+        if not _re.fullmatch(r"\d+(-\d+)?", base):
+            return False
+    return True
+
+
+def parse_every_duration(raw) -> "Optional[float]":
+    """`"45s"`/`"30m"`/`"1h30m"` -> seconds (float), else None. A bare
+    number is seconds. Never raises."""
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and raw > 0:
+        return float(raw)
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    text = raw.strip().lower()
+    import re as _re
+    total, pos = 0.0, 0
+    for m in _re.finditer(r"(\d+(?:\.\d+)?)(s|m|h|d)?", text):
+        if m.start() != pos:
+            return None
+        value = float(m.group(1))
+        unit = {"s": 1.0, "m": 60.0, "h": 3600.0, "d": 86400.0}.get(m.group(2) or "s")
+        total += value * unit
+        pos = m.end()
+    return total if pos == len(text) and total > 0 else None
+
+
 def validate_agent_bio(data, *, name: "Optional[str]" = None, cwd=None, state_dir=None) -> "list[str]":
     """One plain sentence per problem; `[]` means valid. Never raises.
     Deliberately light on the DEEPLY nested per-field shapes (a tool
@@ -264,8 +413,12 @@ def validate_agent_bio(data, *, name: "Optional[str]" = None, cwd=None, state_di
     if kind is not None and kind not in KNOWN_KINDS:
         problems.append(f'"kind" {kind!r} is not one of {", ".join(KNOWN_KINDS)}')
     for section in BIO_SECTIONS:
-        if section in data and data[section] is not None and not isinstance(data[section], dict):
+        if section in data and data[section] is not None and not isinstance(data[section], dict) \
+                and section != "triggers":  # triggers is a LIST (its own validator below)
             problems.append(f'"{section}" must be a mapping')
+    problems.extend(validate_hook_section(data.get("hooks")))
+    problems.extend(validate_schedule_section(data.get("schedule")))
+    problems.extend(validate_trigger_section(data.get("triggers")))
     extends = data.get("extends")
     if extends is not None:
         if not isinstance(extends, str) or not extends.strip():

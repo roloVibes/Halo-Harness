@@ -145,6 +145,48 @@ class HookDef:
 
 _EXACT_LIST_RE = re.compile(r"^[A-Za-z0-9_\-,|]*$")
 
+# Halo 2.0.5 round 5: an agent bio's own `hooks:` section (validated by
+# `agents_yaml.validate_hook_section`) -- the four agent-scoped keys map
+# onto the Claude Code events a child session actually fires (PreToolUse/
+# PostToolUse through the loop, SubagentStart/SubagentStop through
+# `agent/subagent.py`'s `_fire_subagent_hook`), so a bio hook runs through
+# the SAME HookRunner/matcher/env machinery a settings hook already does.
+AGENT_HOOK_EVENTS = {"pre_tool": "PreToolUse", "post_tool": "PostToolUse",
+                     "on_start": "SubagentStart", "on_finish": "SubagentStop"}
+
+
+def agent_hooks_to_hookdefs(hooks: dict, *, source: str = "agent") -> dict:
+    """`{pre_tool: [{command, match?, timeout?}], ...}` (the agent-bio
+    shape, a bare string entry allowed as a one-command shorthand) ->
+    `{PreToolUse: [HookDef, ...], ...}`. Never raises; a malformed entry
+    is skipped (the loader's validator already reported it at save time)."""
+    out: dict = {}
+    if not isinstance(hooks, dict):
+        return out
+    for key, event in AGENT_HOOK_EVENTS.items():
+        entries = hooks.get(key)
+        if entries is None:
+            continue
+        if isinstance(entries, (str, dict)):
+            entries = [entries]
+        if not isinstance(entries, list):
+            continue
+        defs = []
+        for entry in entries:
+            if isinstance(entry, str):
+                entry = {"command": entry}
+            if not isinstance(entry, dict) or not isinstance(entry.get("command"), str):
+                continue
+            try:
+                timeout = float(entry["timeout"]) if entry.get("timeout") is not None else None
+            except (TypeError, ValueError):
+                timeout = None
+            defs.append(HookDef(type="command", matcher=entry.get("match"), command=entry["command"],
+                                timeout_s=timeout, source=source, scope="agent"))
+        if defs:
+            out.setdefault(event, []).extend(defs)
+    return out
+
 
 def matcher_matches(matcher: Optional[str], value: Optional[str]) -> "tuple[bool, Optional[str]]":
     """(matches, warning_or_None)."""

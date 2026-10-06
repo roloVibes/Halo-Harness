@@ -56,6 +56,16 @@ def _cmd_show(rest: list) -> int:
         print(f"  org: {len(org['positions'])} position(s)")
         for n in org_notes:
             print(f"    (note) {n}")
+    # Halo 2.0.5 round 5: the per-section enforcement state -- every
+    # section this template sets prints ENFORCED (with the one behaviour
+    # line naming what the live loop actually does) or its doctor marker,
+    # so a reader never has to guess which parts are real.
+    from halo_harness.teams_yaml import enforcement_lines
+    lines = enforcement_lines(template)
+    if lines:
+        print("  enforcement (Halo 2.0.5: the live loop runs these):")
+        for line in lines:
+            print(line)
     return 0
 
 

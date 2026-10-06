@@ -712,8 +712,16 @@ def _cmd_agents(args: str, facade: HeadlessFacade) -> str:
     tools, context, limits); it's a DIFFERENT, additive concept from the
     `.claude/agents/*.md` sub-agent definitions above (never merged into
     them), assigned to a role/position by a team template
-    (`halo_harness/teams_yaml.py`, `/teams`)."""
+    (`halo_harness/teams_yaml.py`, `/teams`).
+
+    Halo 2.0.5 round 5: `/agents schedule` -- what schedule/trigger set is
+    armed right now (any owning session) and each schedule's next fire
+    time, the same lines `halo agents schedule list` prints."""
     session = getattr(facade, "session", None)
+    if (args or "").strip().split(None, 1)[:1] == ["schedule"]:
+        from halo_harness.agents_schedule import list_schedules, schedule_status_lines
+        state_dir = getattr(session, "state_dir", None) if session is not None else None
+        return "Armed schedules and triggers:\n" + "\n".join(schedule_status_lines(list_schedules(state_dir)))
     agents = getattr(getattr(session, "agent_runtime", None), "agents", None)
     if not agents:
         from halo_harness.config.agents_md import discover_agents
@@ -758,6 +766,34 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
     if not names:
         return "No team templates found (not even a shipped one -- this shouldn't happen)."
     active = get_config_value("team", default=None)
+    # Halo 2.0.5 round 5: `/teams show <name>` -- the SAME resolved print
+    # `halo teams show` gives (assignments, role table, org, enforcement
+    # state per section); bare `/teams` keeps its list.
+    parts = (args or "").strip().split(None, 1)
+    if parts and parts[0].lower() == "show":
+        from halo_harness.teams_yaml import enforcement_lines, resolve_role_table, resolve_org
+        name = parts[1].strip() if len(parts) > 1 else active
+        if not name:
+            return "Usage: /teams show <name> (no team is active to default to)"
+        template = resolve_team_template(name, cwd=facade.cwd)
+        if template is None:
+            return f"No such team template: {name!r} (or it failed validation)"
+        lines = [f"{template['name']} -- {template.get('description') or '(no description)'}"]
+        for entry in template.get("agents") or []:
+            label = entry.get("as") or entry.get("role")
+            lines.append(f"  {entry.get('role')} ({label}): agent={entry.get('agent')}")
+        role_table, _notes = resolve_role_table(template)
+        lines.append("  resolved role table:")
+        for k, v in sorted(role_table.items()):
+            lines.append(f"    {k}: {v if isinstance(v, str) else v.get('model')}")
+        org, _org_notes = resolve_org(template)
+        if org is not None:
+            lines.append(f"  org: {len(org['positions'])} position(s)")
+        enforced = enforcement_lines(template)
+        if enforced:
+            lines.append("  enforcement (Halo 2.0.5: the live loop runs these):")
+            lines.extend(enforced)
+        return "\n".join(lines)
     lines = ["Team templates (`halo teams show <name>`/`halo teams use <name>`):"]
     for name in names:
         template = resolve_team_template(name, cwd=facade.cwd)

@@ -1334,6 +1334,18 @@ def build_session(
         print(f"halo: unknown --agent {agent!r} (known: {', '.join(sorted(discovered_agents)) or '(none)'})",
               file=sys.stderr)
 
+    # Halo 2.0.5 round 5: `--team <name>` overrides config's own active
+    # `team:` key for THIS run only (never persisted); an unknown name is
+    # reported on stderr and the session runs without a team, the same
+    # degrade-not-die shape the unknown `--agent` branch just above uses.
+    _team_name_for_session = (cli_flags or {}).get("team")
+    if _team_name_for_session and not bare:
+        from halo_harness.teams_yaml import resolve_team_template
+        if resolve_team_template(_team_name_for_session, cwd=cwd) is None:
+            print(f"halo: unknown --team {_team_name_for_session!r} (halo teams list shows every template) "
+                  f"-- running without a team", file=sys.stderr)
+            _team_name_for_session = None
+
     ctx = SessionContext(
         cwd=cwd, model_label=model_ref.raw, model_family=family, settings_flag=settings_flag,
         setting_sources=setting_sources, append_system_prompt=effective_append, bare=bare,
@@ -1449,6 +1461,12 @@ def build_session(
         session_catalog=session_catalog, mcp_manager=mcp_manager, hook_runner=hook_runner,
         agents=discovered_agents, routes=routes, agent_type_restriction=agent_type_restriction,
         roles=persisted_roles, cli_roles=cli_roles, cli_flags=cli_flags, settings=settings,
+        # Halo 2.0.5 round 5: `--team <name>` (this one run; config's own
+        # `team:` key applies when the flag is absent) -- the session then
+        # enforces that lineup's sections through `teams_runtime.py`. An
+        # unknown name degrades to a stderr line + no team (same shape as
+        # the unknown `--agent` handling just above), never a hard exit.
+        team_name=_team_name_for_session,
     )
     if hook_runner is not None:
         hook_runner.prompt_caller = session._call_model_for_hook

@@ -515,6 +515,146 @@ def test_cmd_teams_lists_templates_and_marks_the_active_one(ctx: Ctx):
         ctx.check(f"the active one is marked, got {text!r}", "halo-dev-cycle [active]" in text)
 
 
+# ---------------------------------------------------------------------------
+# Halo 2.0.5 round 5 "team control": the new sections validate, the
+# enforcement state prints, doctor exercises a gate, --team parses.
+# ---------------------------------------------------------------------------
+
+@test
+def test_bio_hooks_schedule_triggers_validate_round_trip_and_extend(ctx: Ctx):
+    from halo_harness.agents_yaml import resolve_agent_bio, save_agent_bio, validate_agent_bio
+    with _Env() as e:
+        problems = validate_agent_bio({"description": "x", "hooks": {"pre_tool": [{"command": "echo"}],
+                                                                     "bad_key": []}})
+        ctx.check(f"an unknown hooks key is a plain line, got {problems}",
+                  any("hooks.bad_key" in p for p in problems))
+        problems = validate_agent_bio({"description": "x", "hooks": {"pre_tool": [{"match": "Bash"}]}})
+        ctx.check(f"a hook entry without command is a plain line, got {problems}",
+                  any("command" in p for p in problems))
+        problems = validate_agent_bio({"description": "x", "schedule": {"cron": "* * * *", "prompt": "p"}})
+        ctx.check(f"a 4-field cron is rejected, got {problems}", any("cron" in p for p in problems))
+        problems = validate_agent_bio({"description": "x", "schedule": {"every": "1s"}})
+        ctx.check(f"a schedule without a prompt is rejected, got {problems}",
+                  any("prompt" in p for p in problems))
+        problems = validate_agent_bio({"description": "x", "triggers": [{"on": "cron"}]})
+        ctx.check(f"an unknown trigger kind is rejected, got {problems}",
+                  any('triggers[0]' in p for p in problems))
+        # the good shapes round trip and inherit through extends
+        save_agent_bio("hooks-parent", {"description": "p",
+                                        "hooks": {"on_start": ["echo hi"]},
+                                        "schedule": {"every": "30m", "prompt": "check"}},
+                       state_dir=e.state_dir)
+        ok, problems = save_agent_bio("hooks-child", {"description": "c", "extends": "hooks-parent"},
+                                      state_dir=e.state_dir)
+        ctx.check(f"the child saves clean, got {problems}", ok)
+        resolved = resolve_agent_bio("hooks-child", state_dir=e.state_dir)
+        ctx.check(f"hooks inherit whole through extends, got {resolved.get('hooks')}",
+                  resolved.get("hooks") == {"on_start": ["echo hi"]})
+        ctx.check(f"schedule inherits whole through extends, got {resolved.get('schedule')}",
+                  resolved.get("schedule") == {"every": "30m", "prompt": "check"})
+
+
+@test
+def test_team_new_section_validation_lines(ctx: Ctx):
+    from halo_harness.teams_yaml import validate_team_template
+    problems = validate_team_template({
+        "description": "x",
+        "agents": [{"agent": "general", "role": "main", "hooks": {"pre_tool": [{"match": "Bash"}]}}],
+        "delegation": {"max_parallel": 0, "forward_text": "yes"},
+        "budget": {"max_budget_usd": -1, "agents_may_exceed": "no"},
+        "escalation": {"triggers": ["ran-out-of-patience"], "to": 5, "ask": "maybe"},
+        "pipeline": {"stages": [{"name": "s", "gate": "required", "acceptance": {"prompt": ""}}]},
+    })
+    joined = " | ".join(problems)
+    for needle in ("max_parallel", "forward_text", "max_budget_usd", "agents_may_exceed",
+                   "ran-out-of-patience", '"escalation.to"', '"escalation.ask"', "hooks",
+                   "acceptance"):
+        ctx.check(f"the validator names {needle!r}, got {joined}", needle in joined)
+
+
+@test
+def test_shipped_templates_still_validate_and_dev_cycle_gains_enforcement_lines(ctx: Ctx):
+    from halo_harness.teams_yaml import enforcement_lines, load_team_template_raw, resolve_team_template, \
+        validate_team_template
+    with _Env():
+        raw = load_team_template_raw("halo-dev-cycle")
+        problems = validate_team_template(raw, name="halo-dev-cycle")
+        ctx.check(f"the shipped dev-cycle lineup validates clean, got {problems}", problems == [])
+        template = resolve_team_template("halo-dev-cycle")
+        lines = enforcement_lines(template)
+        text = "\n".join(lines)
+        ctx.check(f"every enforced section names its behaviour, got {text}",
+                  all(f"{s}: enforced" in text for s in
+                      ("delegation", "routing", "budget", "escalation", "context", "permissions",
+                       "org", "pipeline")))
+        ctx.check("acceptance carries the doctor marker", "acceptance: checked by doctor" in text)
+
+
+@test
+def test_teams_show_prints_the_enforcement_state(ctx: Ctx):
+    from halo_harness.teams_cli import cmd_teams
+    with _Env() as e:
+        from halo_harness.agents_yaml import save_agent_bio
+        from halo_harness.teams_yaml import save_team_template
+        save_agent_bio("show-bio", {"description": "s", "models": {"preference": "or:vendor/m"}},
+                       state_dir=e.state_dir)
+        save_agent_bio("rev-bio", {"description": "r", "models": {"preference": "or:vendor/r"}},
+                       state_dir=e.state_dir)
+        ok, problems = save_team_template("show-team", {
+            "description": "s", "acceptance": {"prompt": "p", "expect": "non-empty"},
+            "agents": [{"agent": "show-bio", "role": "main"},
+                       {"agent": "show-bio", "role": "subagent", "as": "worker"}],
+            "delegation": {"max_parallel": 2}}, state_dir=e.state_dir)
+        ctx.check(f"the fixture saves, got {problems}", ok)
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = cmd_teams(["show", "show-team"])
+        out = buf.getvalue()
+        ctx.check(f"show exits 0, got {code}", code == 0)
+        ctx.check(f"the enforcement block prints, got {out!r}",
+                  "enforcement (Halo 2.0.5: the live loop runs these):" in out
+                  and "delegation: enforced --" in out
+                  and "acceptance: checked by doctor" in out)
+
+
+@test
+def test_doctor_teams_exercises_one_required_gate(ctx: Ctx):
+    from halo_harness.agents_doctor import check_team_gates
+    with _Env() as e:
+        from halo_harness.agents_yaml import save_agent_bio
+        from halo_harness.teams_yaml import save_team_template
+        save_agent_bio("gate-bio", {"description": "g", "models": {"preference": "or:vendor/g"},
+                                     "acceptance": {"prompt": "say READY", "expect": "READY"}},
+                       state_dir=e.state_dir)
+        ok, problems = save_team_template("gate-team", {
+            "description": "g",
+            "agents": [{"agent": "gate-bio", "role": "main"},
+                       {"agent": "gate-bio", "role": "subagent", "as": "worker"}],
+            "pipeline": {"stages": [{"name": "implement", "role": "worker", "gate": "required"}]}},
+                           state_dir=e.state_dir)
+        ctx.check(f"the fixture saves, got {problems}", ok)
+        team_name, results = check_team_gates("gate-team", cwd=e.cwd, state_dir=e.state_dir,
+                                              call_fn=lambda role, prompt: "READY")
+        ctx.check(f"the gate team resolves, got {team_name}", team_name == "gate-team")
+        ctx.check(f"the required gate exercised ok, got {results}", results and results[0][1] is True)
+        team_name2, results2 = check_team_gates("gate-team", cwd=e.cwd, state_dir=e.state_dir,
+                                                call_fn=lambda role, prompt: "nope")
+        ctx.check(f"a failing acceptance fails the gate exercise, got {results2}",
+                  results2 and results2[0][1] is False)
+        team_name3, results3 = check_team_gates("no-such-team", cwd=e.cwd, state_dir=e.state_dir)
+        ctx.check("an unknown team resolves to None with problem lines",
+                  team_name3 is None and results3 and not results3[0][1])
+
+
+@test
+def test_cli_flags_and_headless_accept_the_team_flag(ctx: Ctx):
+    from halo_harness.cli_flags import cli_flags_from_args
+    flags = cli_flags_from_args(type("A", (), {"team": "my-lineup"})())
+    ctx.check(f"--team lands in cli_flags, got {flags}", flags.get("team") == "my-lineup")
+    flags = cli_flags_from_args(type("A", (), {})())
+    ctx.check("no flag means no team override", flags.get("team") is None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
