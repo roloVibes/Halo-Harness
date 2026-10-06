@@ -85,7 +85,9 @@ class CcState:
     # module docstring / the original H11 design note this preserves.
     in_flight: set = field(default_factory=set)
     cleanup_thread: "Optional[threading.Thread]" = None
-    # critical finding 1: FIFO of lines sent but not yet echoed back by
+    # critical finding 1: FIFO of lines sent -- or, for a "steer" entry
+    # ONLY (round 4b fix below), about to be sent once an optional
+    # control-channel round trip concludes -- but not yet echoed back by
     # claude (`--replay-user-messages`) -- see module docstring. Each
     # entry is {"kind": "turn"|"context"|"steer", "text": str}; only a
     # "steer" entry gets logged (as a session-log "steer" node) at the
@@ -929,13 +931,44 @@ def steer_cc(session, text: str) -> bool:
     Finding 1 (unchanged): NOT logged here either way -- a steer becomes
     a session-log "steer" node only once `turn_body_cc`'s reader sees the
     `--replay-user-messages` echo, never ahead of output it did not
-    influence."""
+    influence.
+
+    Round 4b fix (the race this function used to lose on a fast box,
+    deterministically on Linux, intermittently on CI, almost never on a
+    slower Windows subprocess start): the FIFO entry is now registered
+    in `state.unconfirmed` BEFORE the control-channel round trip above,
+    never after. The control-channel wait is bounded but real (up to
+    3s on a child that never answers at all -- an old claude, or this
+    repo's own hermetic fake with `FAKE_CLAUDE_CC_CONTROL` unset); the
+    turn's own reader thread (`turn_body_cc`) treats a `result` as DONE
+    the moment `state.unconfirmed` is empty. With the entry added only
+    AFTER that wait (the old order), a short-lived turn's own genuine
+    `result` could arrive and find `unconfirmed` already empty -- the
+    reader would conclude the turn was over and exit BEFORE this
+    function ever got to append the entry or send the line, so the
+    steer that follows is orphaned: sent into a process nothing on our
+    side is reading anymore, never logged, and (since the turn's own
+    generator has already finished) `session.busy` drops, so a SECOND
+    queued steer right behind it is then rejected outright. Registering
+    the entry first closes that window: the reader sees `unconfirmed`
+    non-empty for as long as this function hasn't yet decided whether
+    to interrupt, so it keeps reading instead of ending the turn, and
+    the steer -- sent the v1 way regardless of the control-channel
+    outcome -- is always still delivered and still logged once its own
+    echo arrives, whether that's into the turn already running or a
+    follow-up round after it. Never platform-specific code: both
+    platforms share this exact path; only subprocess/MCP-handshake
+    startup speed (fast on Linux, often slow enough on Windows to
+    finish the control wait first) decided whether the window above was
+    ever actually hit."""
     state: Optional[CcState] = getattr(session, "_cc_state", None)
     if state is None or not session.busy:
         return False
+    entry = {"kind": "steer", "text": text}
     with state.lock:
         if not state.process.alive:
             return False
+        state.unconfirmed.append(entry)
     from halo_harness.agent import cc_control
     interrupted_cleanly = False
     if not cc_control.subtype_known_unsupported(state, "interrupt"):
@@ -944,12 +977,14 @@ def steer_cc(session, text: str) -> bool:
             interrupted_cleanly = True
             with state.lock:
                 state.expect_interrupted_result = True
-    entry = {"kind": "steer", "text": text}
     with state.lock:
         if not state.process.alive:
+            try:
+                state.unconfirmed.remove(entry)
+            except ValueError:
+                pass
             state.expect_interrupted_result = False
             return False
-        state.unconfirmed.append(entry)
     try:
         state.process.send_user_line(text)
     except (BrokenPipeError, OSError):
