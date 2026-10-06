@@ -153,13 +153,16 @@ def test_picker_groups_the_openjev_endpoint_under_judge_decision(ctx: Ctx):
         rows = {m["ref"]: m for m in models if m.get("provider") == "databricks"}
         ctx.check(f"both endpoints listed, got {sorted(rows)}",
                   f"dbx:{_OPENJEV}" in rows and "dbx:databricks-qwen35-122b-a10b" in rows)
+        # Halo 2.0.4 round 3 (deliverable 6): the canonical "Databricks
+        # (dbx:)" label every other group now uses (label_with_prefix),
+        # family/decision kept as a " -- <tag>" suffix.
         ctx.check(f"openjev gets its own group, got {rows[f'dbx:{_OPENJEV}']['group']!r}",
-                  rows[f"dbx:{_OPENJEV}"]["group"] == "Databricks (judge / decision)")
+                  rows[f"dbx:{_OPENJEV}"]["group"] == "Databricks (dbx:) -- judge / decision")
         ctx.check("openjev's detail carries the capability note, not a generic family tag",
                   "yes/no" in rows[f"dbx:{_OPENJEV}"]["detail"])
         ctx.check(f"the ordinary qwen row keeps its plain family group, got "
                   f"{rows['dbx:databricks-qwen35-122b-a10b']['group']!r}",
-                  rows["dbx:databricks-qwen35-122b-a10b"]["group"] == "Databricks (qwen)")
+                  rows["dbx:databricks-qwen35-122b-a10b"]["group"] == "Databricks (dbx:) -- qwen")
 
 
 # ---------------------------------------------------------------------------

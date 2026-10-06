@@ -487,7 +487,19 @@ def catalog_auto_refresh_worker(app) -> None:
     run) still gets a real catalog without the user doing anything extra.
     One combined dim notification per provider that actually changed;
     Databricks keeps its own richer added/removed/path-type diff text,
-    OpenRouter/Anthropic just name the model count once populated."""
+    OpenRouter/Anthropic just name the model count once populated.
+
+    Halo 2.0.4 round 3 (deliverable 5: "a failed refresh keeps the
+    previous cache and says so once"): each branch below now also tracks
+    an attempted-but-FAILED refresh (the function returned `False`, never
+    `None` -- `None` means "skipped, still fresh," never reported) into
+    its own `failures` list, folded into a SECOND notification. "Once" per
+    failure falls out of each `refresh_*_if_stale`'s own existing post-
+    failure backoff window (`_AUTO_REFRESH_BACKOFF_S`, 300s) -- the very
+    next staleness check inside that window returns `None` (skipped, not
+    re-attempted), so this function is never asked to report the SAME
+    failure twice in a row by its own callers (launch, then every `/model`
+    open) without a real retry happening in between."""
     from halo_harness.config.paths import background_net_disabled
     if background_net_disabled():
         return  # 1.0.1 part 2 fixpass finding 10: test seam, never touch the network
@@ -502,14 +514,21 @@ def catalog_auto_refresh_worker(app) -> None:
     env = settings.effective_env if settings is not None else None
     from halo_harness.providers.enablement import is_enabled_with_env
     notes = []
+    failures = []
     if is_enabled_with_env("openrouter", env):
         from halo_harness.providers.databricks import load_models_json, refresh_openrouter_catalog_if_stale
-        if refresh_openrouter_catalog_if_stale(state_dir, env=env):
+        result = refresh_openrouter_catalog_if_stale(state_dir, env=env)
+        if result:
             notes.append(f"OpenRouter ({len(load_models_json(state_dir))} models)")
+        elif result is False:
+            failures.append("OpenRouter")
     if is_enabled_with_env("anthropic", env):
         from halo_harness.providers.anthropic_catalog import load_ant_models_json, refresh_anthropic_catalog_if_stale
-        if refresh_anthropic_catalog_if_stale(state_dir, env=env):
+        result = refresh_anthropic_catalog_if_stale(state_dir, env=env)
+        if result:
             notes.append(f"Anthropic ({len(load_ant_models_json(state_dir))} models)")
+        elif result is False:
+            failures.append("Anthropic")
     if is_enabled_with_env("databricks", env):
         from halo_harness.providers.databricks import format_dbx_diff, refresh_dbx_catalog_if_stale
         result = refresh_dbx_catalog_if_stale(state_dir, env=env)
@@ -519,6 +538,8 @@ def catalog_auto_refresh_worker(app) -> None:
                 summary = format_dbx_diff(diff)
                 if summary != "no changes":
                     notes.append(f"Databricks ({summary})")
+            else:
+                failures.append("Databricks")
     if is_enabled_with_env("huggingface", env):
         # Halo 2.0.3 round 4: same shape as the OpenRouter branch above --
         # `refresh_huggingface_catalog_if_stale` only ever fetches the
@@ -527,8 +548,11 @@ def catalog_auto_refresh_worker(app) -> None:
         # only/staleness-gated, so an enabled-but-fresh-cache box costs
         # nothing extra on every `/model` open.
         from halo_harness.providers.huggingface_catalog import load_hf_models_json, refresh_huggingface_catalog_if_stale
-        if refresh_huggingface_catalog_if_stale(state_dir, env=env):
+        result = refresh_huggingface_catalog_if_stale(state_dir, env=env)
+        if result:
             notes.append(f"Hugging Face ({len(load_hf_models_json(state_dir))} models)")
+        elif result is False:
+            failures.append("Hugging Face")
     if is_enabled_with_env("openai", env):
         # Pass-B finding 16 (major): `refresh_openai_catalog_if_stale` had
         # no caller at all -- a key from the shell/env file (never run
@@ -538,18 +562,29 @@ def catalog_auto_refresh_worker(app) -> None:
         # MODELS.md's "cached ... with the same TTL knob". Same shape as
         # the Hugging Face branch just above.
         from halo_harness.providers.openai_catalog import load_oai_models_json, refresh_openai_catalog_if_stale
-        if refresh_openai_catalog_if_stale(state_dir, env=env):
+        result = refresh_openai_catalog_if_stale(state_dir, env=env)
+        if result:
             notes.append(f"OpenAI ({len(load_oai_models_json(state_dir))} models)")
+        elif result is False:
+            failures.append("OpenAI")
     if is_enabled_with_env("experiential", env):
         # Halo 2.0.4 round 2: same hooks round 5i part 1 wired for OpenAI
         # just above, for the Experiential Labs gateway.
         from halo_harness.providers.experiential_catalog import (
             load_xp_models_json, refresh_experiential_catalog_if_stale,
         )
-        if refresh_experiential_catalog_if_stale(state_dir, env=env):
+        result = refresh_experiential_catalog_if_stale(state_dir, env=env)
+        if result:
             notes.append(f"Experiential Labs ({len(load_xp_models_json(state_dir))} models)")
+        elif result is False:
+            failures.append("Experiential Labs")
     if notes:
         app.call_from_thread(app.notify, f"Catalog refreshed: {'; '.join(notes)}", title="/model")
+    if failures:
+        app.call_from_thread(
+            app.notify, f"Catalog refresh failed, using the previous cache: {', '.join(failures)}",
+            title="/model", severity="warning",
+        )
 
 
 def or_balance_refresh_worker(app, *, force: bool = False) -> None:
@@ -592,6 +627,35 @@ def or_balance_refresh_worker(app, *, force: bool = False) -> None:
     if entry is not None:
         segment = format_status_bar_segment()
         app.call_from_thread(app.status_bar.set_or_balance, segment, fetched_at=entry["fetched_at"])
+
+
+def experiential_balance_refresh_worker(app) -> None:
+    """Halo 2.0.4 round 3 (deliverable 2): the Experiential Labs twin of
+    `or_balance_refresh_worker` -- never on the UI thread, called at app
+    launch and every `BALANCE_REFRESH_INTERVAL_S` (reuses OpenRouter's own
+    constant rather than adding a near-duplicate; both chips refresh on
+    the same cadence). Simpler than OpenRouter's own worker: `providers.
+    experiential_account.fetch_experiential_credits` has no in-memory
+    cache/post-turn-debounce of its own to reuse (unlike `openrouter_
+    account`), so this is a plain fetch-and-set every interval tick --
+    one bounded, best-effort `GET /credits` call every five minutes,
+    the same cost `/cost`/`halo doctor` already pay on demand."""
+    from halo_harness.config.paths import background_net_disabled
+    if background_net_disabled():
+        return  # test seam, never touch the network
+    settings = getattr(getattr(app, "controller", None), "settings", None)
+    env = settings.effective_env if settings is not None else None
+    from halo_harness.providers.enablement import is_enabled_with_env
+    if not is_enabled_with_env("experiential", env):
+        return
+    from halo_harness.providers.experiential_account import fetch_experiential_credits
+    credits = fetch_experiential_credits(env)
+    if not isinstance(credits, dict) or not isinstance(credits.get("total_credits"), (int, float)):
+        return
+    total = credits["total_credits"]
+    used = credits.get("total_usage") or 0.0
+    segment = f"XP ${total - used:.2f} left"
+    app.call_from_thread(app.status_bar.set_provider_balance, "experiential", segment)
 
 
 def _apply_model_or_defer(app, ref: str) -> None:

@@ -71,31 +71,63 @@ def resolve_experiential_dialect(model_id: str, *, overrides: "Optional[dict]" =
 # falling back to its own generic status-code table for a code this
 # table doesn't name. ----------------------------------------------------
 
+# Halo 2.0.4 round 3 (deliverable 4, extended against the gateway's own
+# published error-code reference, 2026-10-05): the retryable set is
+# EXACTLY `unavailable_route`/`gateway_overloaded`/`all_routes_failed`/
+# `backend_unavailable` -- every other code is False, INCLUDING
+# `idempotency_replay_unavailable` (round 2 had this True; the fix the
+# gateway's own docs actually prescribe is "resend with a NEW Idempotency-
+# Key," never a blind identical retry -- Halo's own retry ladder reuses
+# the SAME key for every attempt of one turn, so an automatic retry would
+# just hit this exact error again) and `provider_internal`/
+# `gateway_draining`/`deadline_exceeded`/`internal_error`/
+# `request_cancelled` (round 2 had these True too; a client-side
+# disconnect, an internal error, or a draining instance is never worth
+# spending this turn's OWN retry budget on in place -- the generic
+# status-based fallback table in `providers.errors` still retries a
+# bare/uncoded 50x the normal way when nothing more specific is known).
 ERROR_TABLE = {
     "model_location_not_supported": ("This model can't be served to your account's region; pick a different one.", False),
     "invalid_json": ("The request body wasn't valid JSON (a Halo bug, not a user error).", False),
     "invalid_request": ("The gateway rejected this request; see its message for which field.", False),
-    "invalid_parameter": ("One field in the request was invalid (max 65,536 chars on text fields).", False),
+    "invalid_parameter": ("One field in the request was invalid (the error's own `param` names which); fix it.", False),
     "unsupported_capability": ("This model can't do what was asked (e.g. structured output); pick a model whose catalog row says it can.", False),
     "unsupported_parameter": ("This gateway doesn't accept that field; it was removed from the request.", False),
     "refusal": ("The model or provider declined this request; try a different model or rephrase.", False),
     "previous_response_not_found": ("That conversation handle expired; resend the full conversation instead of continuing it.", False),
+    "zdr_continuation_disabled": ("That conversation was routed with zero data retention, so the gateway kept no state for it; "
+                                   "resend the full conversation instead of continuing it.", False),
     "invalid_key": ("The Experiential Labs key is missing or wrong; check it in `/providers`.", False),
     "model_not_granted": ("This account can't use that model slug; use the exact slug from the catalog.", False),
     "idempotency_conflict": ("That idempotency key was already used for a different request; Halo mints a fresh one per turn.", False),
-    "idempotency_replay_unavailable": ("The gateway couldn't replay the earlier result; resend with a new idempotency key.", True),
+    "idempotency_replay_unavailable": ("The gateway lost the earlier result it would have replayed; resend as a new request "
+                                        "(never retried automatically with the same key, which would just repeat this).", False),
     "insufficient_quota": ("Out of credit (or past a free daily allowance); add credits or wait for the allowance to reset.", False),
     "org_under_review": ("The account is paused for review; contact Experiential Labs support.", False),
-    "unavailable_route": ("No working route for this model right now; retrying once after a short backoff.", True),
-    "gateway_overloaded": ("The gateway itself is overloaded; back off and retry.", True),
-    "request_cancelled": ("The request was cancelled mid-flight; resend if the result is still needed.", True),
-    "provider_internal": ("The upstream provider had an internal error; retry with backoff.", True),
-    "all_routes_failed": ("Every rung for this model failed; retry, and if this is a BYOK model, check that key.", True),
+    "unavailable_route": ("No working route for this model right now; retrying with backoff.", True),
+    "gateway_overloaded": ("The gateway itself is overloaded; retrying with backoff.", True),
+    "request_cancelled": ("The client disconnected before this request finished; resend if the result is still needed.", False),
+    "provider_internal": ("The upstream provider had an internal error; resend if the result is still needed.", False),
+    "all_routes_failed": ("Every route for this model failed; retrying, and if this is a BYOK model, check that key.", True),
+    "backend_unavailable": ("The gateway's own serving backend could not be reached (a deploy or an outage); retrying with backoff.", True),
     "provider_output_too_large": ("The model's answer was too large for the provider to return; lower the output-length limit.", False),
-    "gateway_draining": ("This gateway instance is shutting down; retry (a different instance will pick it up).", True),
-    "deadline_exceeded": ("The request took too long; shorten the task or retry.", True),
-    "internal_error": ("The gateway had an internal error; retry with backoff.", True),
+    "gateway_draining": ("This gateway instance is shutting down; resend so a different instance picks it up.", False),
+    "deadline_exceeded": ("The request ran past its deadline; shorten the task or resend.", False),
+    "internal_error": ("The gateway had an internal error; resend if the result is still needed.", False),
     "pro_required": ("This needs the Experiential Labs Pro plan -- see platform.experientiallabs.ai/credits.", False),
+    # Halo 2.0.4 round 3 (deliverable 4, added after the round 2 live
+    # checks): a 429 for a preview/paid model this account hasn't bought
+    # yet. `None` here (not a sentence string, unlike every other row)
+    # means "recognize the code and treat it as non-retryable, but leave
+    # `msg` as the raw upstream text" -- `plain_sentence`'s own `row[0] if
+    # row else None` then returns `None` too, so `map_upstream_error`'s
+    # caller never overwrites it. That is deliberate: the gateway's own
+    # wording already names the model and reads as one plain line ("<model>
+    # is locked on your account until you make a purchase" -- confirmed
+    # live), so there is nothing to translate; purchasing it mid-retry-loop
+    # isn't going to happen, so the one thing this row MUST do is stop the
+    # generic 429 row's `should_retry=True` default from retrying it.
+    "model_requires_purchase": (None, False),
 }
 
 

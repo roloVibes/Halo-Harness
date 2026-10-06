@@ -277,12 +277,21 @@ def test_error_table_plain_sentences_and_idempotency_409_split(ctx: Ctx):
     _, jbody_a, hdrs_a = map_upstream_error(409, body("idempotency_conflict"), "experiential")
     ctx.check("idempotency_conflict is never retried", hdrs_a.get("x-should-retry") == "false")
     _, jbody_b, hdrs_b = map_upstream_error(409, body("idempotency_replay_unavailable"), "experiential")
-    ctx.check("idempotency_replay_unavailable IS retried", hdrs_b.get("x-should-retry") == "true")
+    # Halo 2.0.4 round 3 (deliverable 4, corrected against the gateway's
+    # own published reference, 2026-10-05): the retryable set is EXACTLY
+    # unavailable_route/gateway_overloaded/all_routes_failed/
+    # backend_unavailable -- NOT idempotency_replay_unavailable (the
+    # gateway's own fix needs a NEW Idempotency-Key, never a blind
+    # identical retry, which Halo's own retry ladder would send).
+    ctx.check("idempotency_replay_unavailable is NOT retried automatically", hdrs_b.get("x-should-retry") == "false")
 
-    # A code this table doesn't recognize falls through to the generic
-    # status-based message/retry behavior, unchanged.
+    # A code this table doesn't recognize now falls through to the
+    # GENERIC per-status sentence (round 3: a bare, non-JSON 502 body --
+    # "error code: 502", no "code" field at all -- must also be
+    # translated, not left as untranslated raw text).
     _, jbody_c, hdrs_c = map_upstream_error(500, {"error": {"message": "weird upstream text"}}, "experiential")
-    ctx.check("unrecognized code keeps the raw message", jbody_c["error"]["message"] == "weird upstream text")
+    ctx.check(f"unrecognized code gets the generic sentence, not the raw text, got {jbody_c['error']['message']!r}",
+              jbody_c["error"]["message"] != "weird upstream text" and "Experiential Labs" in jbody_c["error"]["message"])
     ctx.check("5xx still retryable by the generic table", hdrs_c.get("x-should-retry") == "true")
 
     # A non-experiential provider is completely unaffected.

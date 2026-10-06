@@ -636,8 +636,11 @@ def test_list_models_cc_rows_carry_the_display_detail_and_the_part_c_group_label
         ctx.check(f"cc:opus present, got {list(cc_rows)}", "cc:opus" in cc_rows)
         ctx.check(f"carries the resolved-id detail, got {cc_rows['cc:opus']}",
                   cc_rows["cc:opus"].get("detail") == "-> claude-opus-5-5 (latest Opus)")
+        # Halo 2.0.4 round 3 (deliverable 6): label_with_prefix now appends
+        # the group's own prefix in parentheses -- "Claude Code
+        # subscription (cc:)".
         ctx.check(f"group is the Part C label, got {cc_rows['cc:opus'].get('group')!r}",
-                  cc_rows["cc:opus"].get("group") == "Claude Code subscription")
+                  cc_rows["cc:opus"].get("group") == "Claude Code subscription (cc:)")
     finally:
         _clear_cc_env()
         if old_home is None:

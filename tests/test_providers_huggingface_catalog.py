@@ -66,10 +66,12 @@ def test_probe_huggingface_models_parses_router_response(ctx: Ctx):
 
 @test
 def test_probe_huggingface_models_nested_provider_fallback(ctx: Ctx):
-    """When the top-level entry has neither field, a nested `providers`
-    list's first entry carrying either is used instead (module docstring:
-    a plausible alternate shape, never confirmed against a real response
-    this round)."""
+    """When the top level has neither field, a `providers` list's own
+    row carrying either is used instead -- pricing is now normalized to
+    a real float (Halo 2.0.4 round 3: `_normalize_provider_row`'s own
+    `_to_float`, so sorting by cheapest provider works regardless of
+    whether a real response sends a string or a JSON number), not kept
+    as the raw string this pre-round-3 test pinned."""
     from halo_harness.providers.huggingface_catalog import probe_huggingface_models
     mock = MockUpstream(path_prefix="/v1").start()
     mock.models_response = {"data": [
@@ -78,12 +80,74 @@ def test_probe_huggingface_models_nested_provider_fallback(ctx: Ctx):
     try:
         rows = probe_huggingface_models(mock.base_url, "tok")
         ctx.check(f"context_length recovered from the nested providers list, got {rows[0]}",
-                  rows[0].get("context_length") == 8192 and rows[0].get("pricing", {}).get("prompt") == "0.000001")
+                  rows[0].get("context_length") == 8192 and rows[0].get("pricing", {}).get("prompt") == 1e-06)
     finally:
         mock.stop()
 
 
-# ---- write/load round trip + refresh TTL ------------------------------------
+# ---- Halo 2.0.4 round 3: the REAL per-provider shape (owner live report
+# 2026-10-05, plans/2.0.3-release-notes-for-fix-pass.md's own "MUST FIX") --
+# two providers at different prices, one of them down.
+# ---------------------------------------------------------------------------
+
+_TWO_PROVIDER_ENTRY = {
+    "id": "org/two-provider-model", "object": "model", "owned_by": "org",
+    "providers": [
+        {"provider": "expensive-co", "status": "live", "context_length": 32768,
+         "pricing": {"input": 0.000005, "output": 0.000015}, "is_free": False,
+         "supports_tools": True, "first_token_latency_ms": 900, "throughput": 20},
+        {"provider": "cheap-co", "status": "live", "context_length": 131072,
+         "pricing": {"input": 0.0000002, "output": 0.0000008}, "is_free": False,
+         "supports_tools": True, "first_token_latency_ms": 300, "throughput": 80},
+        {"provider": "down-co", "status": "error", "context_length": 999999,
+         "pricing": {"input": 0.00000001, "output": 0.00000001}},
+    ],
+}
+
+
+@test
+def test_two_provider_fixture_picks_the_cheapest_live_provider(ctx: Ctx):
+    """The owner's live report: HF rows showed blank price/context
+    because the parser read top-level fields the real response never
+    has. The cheapest-overall provider ("down-co") is NOT live and must
+    be ignored; "cheap-co" (cheaper of the two LIVE ones) supplies every
+    column together."""
+    from halo_harness.providers.huggingface_catalog import _parse_catalog_entry, hf_picker_fields
+    parsed = _parse_catalog_entry(_TWO_PROVIDER_ENTRY)
+    ctx.check(f"chose the cheaper LIVE provider, got {parsed.get('provider')!r}", parsed.get("provider") == "cheap-co")
+    ctx.check(f"context from THAT provider, got {parsed.get('context_length')!r}", parsed.get("context_length") == 131072)
+    fields = hf_picker_fields(parsed)
+    # abs(...) < 1e-9: a *1e6 float conversion (0.0000002 -> 0.2) lands a
+    # tiny binary-float epsilon off exact (0.19999999999999998) -- a real
+    # bug would be off by far more than that.
+    ctx.check(f"price_in_per_m from cheap-co, got {fields.get('price_in_per_m')!r}",
+              abs(fields.get("price_in_per_m", -1) - 0.2) < 1e-9)
+    ctx.check(f"price_out_per_m from cheap-co, got {fields.get('price_out_per_m')!r}",
+              abs(fields.get("price_out_per_m", -1) - 0.8) < 1e-9)
+    ctx.check(f"speed from cheap-co, got {fields.get('speed_ttft_s')!r}/{fields.get('speed_tokens_per_second')!r}",
+              fields.get("speed_ttft_s") == 0.3 and fields.get("speed_tokens_per_second") == 80)
+
+
+@test
+def test_two_provider_fixture_reaches_the_picker_row_end_to_end(ctx: Ctx):
+    """The SAME fixture, through probe -> write -> load -> Controller.
+    list_models()'s own hf: branch -- the picker row must show real
+    numbers, never "?", for a model with two differently-priced live
+    providers."""
+    from halo_harness.model_display import format_picker_row, unknown_as_qmark
+    from halo_harness.providers.huggingface_catalog import (
+        _parse_catalog_entry, hf_picker_fields, load_hf_models_json, write_hf_models_json,
+    )
+    state_dir = Path(tempfile.mkdtemp(prefix="hf-two-provider-"))
+    write_hf_models_json(state_dir, [_parse_catalog_entry(_TWO_PROVIDER_ENTRY)])
+    loaded = load_hf_models_json(state_dir)
+    entry = loaded["org/two-provider-model"]
+    fields = hf_picker_fields(entry)
+    row = format_picker_row({"ref": "hf:org/two-provider-model", **fields})
+    ctx.check(f"a real price shows, never '?', got {row!r}", "in=$0.20/M" in row and "out=$0.80/M" in row)
+    ctx.check(f"a real context shows, got {row!r}", "ctx=131k" in row)
+    ctx.check(f"a real speed shows, got {row!r}", "speed=?" not in row)
+
 
 @test
 def test_write_and_load_hf_models_json_round_trip(ctx: Ctx):

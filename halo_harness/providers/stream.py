@@ -190,12 +190,28 @@ class UpstreamError(Exception):
     ``{"error": {"type": err_type, "message": message}}`` at `status`, plus
     ``x-should-retry`` from `retryable` and an optional `Retry-After`."""
 
-    def __init__(self, status: int, err_type: str, message: str, retryable: bool, retry_after: str | None = None):
+    def __init__(self, status: int, err_type: str, message: str, retryable: bool, retry_after: str | None = None,
+                 upstream_status: "int | None" = None):
         self.status = status
         self.err_type = err_type
         self.message = message
         self.retryable = retryable
         self.retry_after = retry_after
+        # Halo 2.0.4 round 3 (deliverable 4): the RAW status the upstream
+        # actually answered with, before map_upstream_error's own client-
+        # facing remap (e.g. a real 502/503/504 becomes client status 529,
+        # Anthropic's own "overloaded" convention) -- None (the default,
+        # every pre-existing construction site unchanged) when there was no
+        # real upstream response to report (a connect failure, or the
+        # dead-code retries-exhausted safety net below, neither of which
+        # ever actually heard back from a server). Set only at the two
+        # non-2xx-response raise sites in `_run_phase1_attempts`/
+        # `_run_phase1_anthropic`, which both know `result.status` first-
+        # hand. `agent/loop.py`'s own terminal "retries exhausted" error
+        # event prefers this over the remapped `status` so a user sees the
+        # SAME number the gateway actually sent, never Halo's own
+        # client-facing substitute.
+        self.upstream_status = upstream_status
         super().__init__(message)
 
 
@@ -206,7 +222,8 @@ class ProviderNotConfigured(Exception):
     configured" 502 wording exactly."""
 
 
-def _upstream_error_from_mapping(status: int, jbody: dict, hdrs: dict) -> UpstreamError:
+def _upstream_error_from_mapping(status: int, jbody: dict, hdrs: dict, *,
+                                  upstream_status: "int | None" = None) -> UpstreamError:
     err = jbody.get("error") or {}
     return UpstreamError(
         status=status,
@@ -214,6 +231,7 @@ def _upstream_error_from_mapping(status: int, jbody: dict, hdrs: dict) -> Upstre
         message=err.get("message", ""),
         retryable=hdrs.get("x-should-retry") == "true",
         retry_after=hdrs.get("Retry-After"),
+        upstream_status=upstream_status,
     )
 
 
@@ -504,7 +522,12 @@ def _run_phase1_attempts(req, oai_body, _call_upstream, abort, max_attempts):
         except Exception as e:
             log.warning("malformed upstream error body, mapping to 502: %s", e)
             status, jbody, hdrs = 502, {"error": {"type": "api_error", "message": f"malformed upstream response: {e}"}}, {"x-should-retry": "true"}
-        raise _upstream_error_from_mapping(status, jbody, hdrs)
+        # deliverable 4: `result.status` is the RAW status this specific
+        # attempt actually received (400/404/429/502/...) -- still in scope
+        # from either branch above (the malformed-body except above never
+        # re-assigns `result`), unlike `status`, which may already be
+        # map_upstream_error's own remapped client-facing figure.
+        raise _upstream_error_from_mapping(status, jbody, hdrs, upstream_status=result.status)
     else:
         status, jbody, hdrs = map_upstream_error(502, {"error": {"message": "upstream failure after retries"}}, req.route.provider)
         raise _upstream_error_from_mapping(status, jbody, hdrs)
@@ -752,7 +775,9 @@ def _run_phase1_anthropic(req: CompletionRequest, abort: "threading.Event | None
                 ra = result.headers.get("retry-after") or result.headers.get("anthropic-ratelimit-requests-reset")
                 if ra:
                     hdrs = {**hdrs, "Retry-After": str(ra)}
-            raise _upstream_error_from_mapping(status, jbody, hdrs)
+            # deliverable 4: see _run_phase1_attempts's matching comment --
+            # `result.status` is the RAW status this attempt received.
+            raise _upstream_error_from_mapping(status, jbody, hdrs, upstream_status=result.status)
         raise UpstreamError(502, "api_error", "upstream failure after retries", True)
     finally:
         watcher_done.set()

@@ -30,8 +30,33 @@ from textual.screen import ModalScreen
 from textual.widgets import Input, OptionList, Static
 from textual.widgets.option_list import Option
 
-from halo_harness.model_display import ROW_HEADER, format_model_row
+from halo_harness.model_display import PICKER_COLUMN_HEADER, PICKER_FOOTER, format_picker_row
 from halo_harness.tui.dialogs.listnav import NavInput
+
+# Halo 2.0.4 round 3 (deliverable 1): "s cycles the sort key (name, price,
+# ctx, speed)" (2.0.3-brief A2) -- "name" is this dialog's existing
+# first-seen/alphabetical-within-group order (the default, index 0);
+# cycling never changes GROUPING, only each group's own row order.
+_SORT_KEYS = ("name", "price", "context", "speed")
+
+
+def _sort_value(model: dict, key: str):
+    """A sortable value for `key` -- ascending price/context/speed (so
+    the cheapest/smallest/slowest comes first, matching how a reader
+    scans a price or size list), `None`s pushed to the END regardless of
+    sort direction (an unknown figure is never mistaken for the cheapest/
+    smallest/fastest just because `None < anything` in Python)."""
+    if key == "price":
+        v = model.get("price_in_per_m")
+    elif key == "context":
+        v = model.get("context_tokens")
+    elif key == "speed":
+        v = model.get("speed_tokens_per_second")
+    else:
+        return (0, (model.get("ref") or "").lower())
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        return (1, 0.0)
+    return (0, v)
 
 
 def _gym_score_suffix(model_ref: str) -> str:
@@ -77,7 +102,28 @@ class ModelPicker(ModalScreen):
         # of its own). A priority binding only intercepts the ONE key it
         # names -- every other letter still reaches the filter and types
         # normally.
-        Binding("u", "set_role", "Set role", show=True, priority=True),
+        # Round 3 follow-up (orchestrator, 2026-10-05): the action keys are
+        # control combinations, never bare letters (and not Ctrl+U/Ctrl+R, which the input and
+        # the app already use) -- a bare letter forwarded
+        # from the filter can no longer be TYPED into it ("sonnet", "mistral",
+        # "unsloth"), which is a worse cost than a chord.
+        Binding("ctrl+o", "set_role", "Set role", show=True, priority=True),
+        # Halo 2.0.4 round 3 (deliverable 1/G4): "s cycles the sort key" /
+        # "r refreshes the current group and R all groups" -- same
+        # priority-binding-plus-extra_keys-forwarding shape `u` already
+        # uses (see `on_mount`'s `NavInput(extra_keys=...)` and that
+        # widget's own docstring for why a plain Binding alone can never
+        # reach a dialog while the filter Input holds focus, which it
+        # always does under normal use here). WHAT YOU FOUND (hand-back):
+        # the SAME tradeoff `u` already accepted now also applies to these
+        # three letters -- "s"/"r" can no longer be TYPED into the filter
+        # box at all (not even inside a longer word like "sonnet"/
+        # "mistral"), a materially bigger cost than `u`'s own (rarer in
+        # real model/vendor names) since both are common letters; flagged
+        # for the orchestrator/owner to weigh, not silently decided here.
+        Binding("ctrl+s", "cycle_sort", "Sort", show=True, priority=True),
+        Binding("ctrl+g", "refresh_group", "Refresh group", show=True, priority=True),
+        Binding("f5", "refresh_all", "Refresh all", show=True, priority=True),
     ]
     DEFAULT_CSS = """
     ModelPicker { align: center middle; }
@@ -103,20 +149,25 @@ class ModelPicker(ModalScreen):
         # launch -- "" (the default) marks no row at all, same as today.
         self.last_used = last_used
         self._filtered = self.models
+        # Halo 2.0.4 round 3 (deliverable 1): the sort cycle's current
+        # position -- index into `_SORT_KEYS`, "name" (today's existing
+        # first-seen/alphabetical order) first so a picker opened fresh
+        # never looks different from before this round.
+        self._sort_index = 0
 
     def compose(self):
         with Vertical():
             yield Static(f"Select a model (current: {self.current or '?'})", classes="dialog-title")
-            yield Static("Enter: select  |  u: set a role for the highlighted model  |  Esc: cancel",
-                          classes="dialog-subtitle")
-            yield Static(ROW_HEADER, classes="dialog-subtitle")
-            # C-2 finding 12: `extra_keys={"u": "set_role"}` -- the ONLY way
-            # this screen-level letter-key shortcut can fire while the
-            # filter keeps focus by default (see NavInput's own docstring
-            # on why a plain `Binding(priority=True)` alone never reaches
-            # it here).
+            yield Static(PICKER_FOOTER, classes="dialog-subtitle")
+            yield Static(PICKER_COLUMN_HEADER, classes="dialog-subtitle")
+            # C-2 finding 12: `extra_keys={"u": "set_role", ...}` -- the
+            # ONLY way these screen-level letter-key shortcuts can fire
+            # while the filter keeps focus by default (see NavInput's own
+            # docstring on why a plain `Binding(priority=True)` alone
+            # never reaches it here).
             yield NavInput(placeholder="Filter models...", id="model-filter", option_list_id="model-list",
-                           extra_keys={"u": "set_role"})
+                           extra_keys={"ctrl+o": "set_role", "ctrl+s": "cycle_sort",
+                                       "ctrl+g": "refresh_group", "f5": "refresh_all"})
             yield OptionList(id="model-list")
             yield Static("", id="model-hint")
 
@@ -134,12 +185,22 @@ class ModelPicker(ModalScreen):
         option_list.clear_options()
         hint = self.query_one("#model-hint", Static)
         if self._filtered:
+            sort_key = _SORT_KEYS[self._sort_index]
             for group, members in _grouped(self._filtered):
                 if group:
                     option_list.add_option(Option(Text(f"── {group} ──", style="bold dim"),
                                                    disabled=True))
+                # Halo 2.0.4 round 3 (deliverable 1): "s cycles the sort
+                # key" -- sorts WITHIN each group only (never re-groups);
+                # `sorted` is stable, so "name" (ascending ref, case-
+                # insensitive) ties break the same way every other sort
+                # key's own ties do -- by whatever order the members
+                # already arrived in (Controller.list_models()'s own,
+                # already-deterministic per-provider order).
+                if sort_key != "name":
+                    members = sorted(members, key=lambda m: _sort_value(m, sort_key))
                 for m in members:
-                    row_text = Text(format_model_row(m), no_wrap=True, overflow="ellipsis")
+                    row_text = Text(format_picker_row(m), no_wrap=True, overflow="ellipsis")
                     # Halo 2.0.3 round 5d (brief item 2): "the picker shows
                     # the gym score beside a model when one exists" -- a
                     # local-file-only lookup (gym.picker_score_suffix),
@@ -237,6 +298,107 @@ class ModelPicker(ModalScreen):
         hint = self.query_one("#model-hint", Static)
         current = hint.renderable
         hint.update(f"{current}\n{note}" if current else note)
+
+    def action_cycle_sort(self) -> None:
+        """Halo 2.0.4 round 3 (deliverable 1): "`s` cycles the sort key
+        (name, price, ctx, speed)" -- re-renders in place (the highlighted
+        ref, if it's still visible after re-sorting, is not specifically
+        preserved; `_refresh_list` always re-highlights the first
+        selectable row, same as a filter keystroke already does)."""
+        self._sort_index = (self._sort_index + 1) % len(_SORT_KEYS)
+        self._refresh_list(self.query_one("#model-filter", Input).value)
+        hint = self.query_one("#model-hint", Static)
+        hint.update(f"Sorted by {_SORT_KEYS[self._sort_index]}.")
+
+    def _highlighted_ref_and_provider(self):
+        """`(ref, provider)` for the currently-highlighted SELECTABLE row,
+        `(None, None)` on a disabled group-header row or nothing
+        highlighted -- the same `.id`-not-index lookup `action_set_role`
+        already uses (see its own comment for why indexing `_filtered`
+        directly is wrong once a group header sits above the real row)."""
+        option_list = self.query_one("#model-list", OptionList)
+        highlighted = option_list.highlighted
+        if highlighted is None:
+            return None, None
+        ref = option_list.get_option_at_index(highlighted).id
+        if ref is None:
+            return None, None
+        provider = next((m.get("provider") for m in self._filtered if m.get("ref") == ref), None)
+        return ref, provider
+
+    def action_refresh_group(self) -> None:
+        """Halo 2.0.4 round 3 (deliverable 1/G4): "`r` refreshes the
+        current group" -- the ENABLED provider the highlighted row
+        belongs to, off the UI thread; a group with no live catalog of
+        its own (cc:/cx:/ol:/local/alias rows) gets a plain one-line
+        explanation instead of silently doing nothing."""
+        _ref, provider = self._highlighted_ref_and_provider()
+        if provider is None:
+            return
+        hint = self.query_one("#model-hint", Static)
+        hint.update("Refreshing this group…")
+        self.app.run_worker(lambda: self._refresh_worker(providers=[provider]), thread=True,
+                             name="picker-refresh-group", group="picker-refresh")
+
+    def action_refresh_all(self) -> None:
+        """"R" refreshes every group that has a live catalog of its own
+        (the same set `providers.catalog_refresh` registers), off the UI
+        thread."""
+        hint = self.query_one("#model-hint", Static)
+        hint.update("Refreshing all groups…")
+        self.app.run_worker(lambda: self._refresh_worker(providers=None), thread=True,
+                             name="picker-refresh-all", group="picker-refresh")
+
+    def _refresh_worker(self, *, providers) -> None:
+        """`providers`: a one-item list (the `r` case) or `None` (the `R`
+        case, every registered catalog). Never touches the UI directly --
+        everything after the network call runs back on the UI thread via
+        `call_from_thread`, same convention `_consequence_worker`/
+        `_vram_reason_worker` already use in this module."""
+        try:
+            state_dir = getattr(self.app.controller, "state_dir", None)
+            settings = getattr(self.app.controller, "settings", None)
+            env = settings.effective_env if settings is not None else None
+            if state_dir is None:
+                return
+            if providers is None:
+                from halo_harness.providers.catalog_refresh import refresh_all_enabled_catalogs
+                results = refresh_all_enabled_catalogs(state_dir, env=env, force=True)
+            else:
+                from halo_harness.providers.catalog_refresh import refresh_one_catalog
+                results = [r for r in (refresh_one_catalog(p, state_dir, env=env, force=True) for p in providers)
+                           if r is not None]
+            ok_names = [r["name"] for r in results if r.get("attempted") and r.get("ok")]
+            failed_names = [r["name"] for r in results if r.get("attempted") and r.get("ok") is False]
+            if not results:
+                message = "Nothing to refresh for this group (no live catalog of its own)."
+            else:
+                parts = []
+                if ok_names:
+                    parts.append(f"refreshed: {', '.join(ok_names)}")
+                if failed_names:
+                    parts.append(f"failed, using the previous cache: {', '.join(failed_names)}")
+                message = "; ".join(parts) or "Already up to date."
+        except Exception as e:
+            message = f"Refresh failed: {type(e).__name__}: {e}"
+        self.app.call_from_thread(self._apply_refreshed_models, message)
+
+    def _apply_refreshed_models(self, message: str) -> None:
+        """Re-pulls `Controller.list_models()` (a pure, synchronous,
+        already-cheap read -- see that method's own docstring) so a
+        row that just got a real catalog for the first time appears
+        immediately, without closing and reopening this dialog."""
+        hint = self.query_one("#model-hint", Static)
+        try:
+            fresh = self.app.controller.list_models()
+        except Exception:
+            hint.update(message)
+            return
+        self.hints = [m.get("hint", "") for m in fresh if isinstance(m, dict) and "hint" in m]
+        self.models = [m if isinstance(m, dict) else {"ref": m, "provider": "?"}
+                       for m in fresh if not (isinstance(m, dict) and "hint" in m)]
+        self._refresh_list(self.query_one("#model-filter", Input).value)
+        hint.update(message)
 
 
 def _catalog_capabilities_for(model_ref: str):

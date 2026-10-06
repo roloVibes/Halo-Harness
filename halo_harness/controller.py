@@ -622,7 +622,7 @@ class Controller:
         format_model_row` with no per-provider special-casing left at
         render time."""
         from halo_harness.providers.databricks import load_models_json
-        from halo_harness.providers.enablement import credentials_present, is_enabled, label_for
+        from halo_harness.providers.enablement import credentials_present, is_enabled, label_for, label_with_prefix
 
         # 1.0.1 part 2 fixpass finding 3: the session's own real `Settings.
         # effective_env` (shell < user < trusted project/local < policy) --
@@ -744,7 +744,7 @@ class Controller:
                     "price_in_per_m": _per_m(fields.get("price_in")), "price_out_per_m": _per_m(fields.get("price_out")),
                     # H15 addendum 2: "-> <resolved-id>" next to the alias.
                     "detail": alias_display_detail(alias),
-                    "provider": "cc", "group": label_for("claude_subscription"),
+                    "provider": "cc", "group": label_with_prefix("claude_subscription"),
                 })
         if cc_available and not is_enabled("claude_subscription", detected=cc_available):
             hints.append({"hint": f"{label_for('claude_subscription')} detected but not enabled -- "
@@ -759,10 +759,34 @@ class Controller:
         if ant_available and is_enabled("anthropic", detected=ant_available):
             from halo_harness.init_providers import _cc_ant_entries
             from halo_harness.providers.cc_models import ANT_ALIASES
+            ant_group = label_with_prefix("anthropic")
             for entry in _cc_ant_entries("ant", ANT_ALIASES):
                 if entry["ref"] in seen:
                     continue
-                out.append({**entry, "provider": "anthropic", "group": "ant: (Anthropic API)"})
+                out.append({**entry, "provider": "anthropic", "group": ant_group})
+            # Halo 2.0.4 round 3 (deliverable 3): "the picker groups read
+            # the same cache" -- `halo models --ant`'s own live catalog
+            # (`ant-models.json`, written by `refresh_anthropic_catalog_
+            # if_stale`/`halo models --ant --refresh`/`halo models
+            # --refresh`), not just the nine pinned aliases above, so an id
+            # this key can reach that this harness never named gets a real,
+            # pickable row instead of staying invisible until someone
+            # hand-types it. A pure file read (no network), same first-
+            # paint-safe gate as every other group in this method.
+            try:
+                from halo_harness.providers.anthropic_catalog import load_ant_models_json
+                live_ant = load_ant_models_json(self.state_dir)
+            except Exception:
+                live_ant = {}
+            alias_targets = set(ANT_ALIASES.values())
+            for model_id in sorted(live_ant):
+                if model_id in alias_targets:
+                    continue  # already shown above, under its own alias name
+                ref = f"ant:{model_id}"
+                if ref in seen:
+                    continue
+                seen.add(ref)
+                out.append({"ref": ref, "provider": "anthropic", "group": ant_group})
         elif ant_available:
             hints.append({"hint": f"{label_for('anthropic')} detected but not enabled -- "
                                    f"run `halo providers enable anthropic`"})
@@ -774,6 +798,13 @@ class Controller:
         # (`halo models` itself still lists it, for diagnostics).
         dbx_detected = credentials_present("databricks", env=env)
         dbx_enabled = is_enabled("databricks", detected=dbx_detected)
+        # deliverable 6: "Databricks (dbx:)" is the canonical label every
+        # OTHER group on this page now uses too (label_with_prefix) --
+        # Databricks keeps its own family sub-grouping (useful on a real
+        # catalog with dozens of endpoints) as a " -- <family>" suffix
+        # rather than losing it, so "Databricks (dbx:) -- qwen"/"...  --
+        # judge / decision" reads as the same provider, further divided.
+        dbx_group_label = label_with_prefix("databricks")
         try:
             from halo_harness.providers.databricks import dbx_endpoints_cache_is_old_shape, load_dbx_endpoints_json
             from halo_harness.providers.dbx_routing import (
@@ -842,7 +873,7 @@ class Controller:
                 "max_output_tokens": fields.get("max_output_tokens"),
                 "price_in_per_m": fields.get("price_in_per_m"), "price_out_per_m": fields.get("price_out_per_m"),
                 "provider": "databricks",
-                "group": "Databricks (judge / decision)" if decision else f"Databricks ({family})",
+                "group": f"{dbx_group_label} -- judge / decision" if decision else f"{dbx_group_label} -- {family}",
                 "path_type": path_type,
                 "detail": decision["reason"] if decision else f"{family} · {path_display}",
                 "dbu": dbu if dbu != "?" else None,
@@ -865,17 +896,28 @@ class Controller:
             hf_models = load_hf_models_json(self.state_dir) or {} if hf_enabled else {}
         except Exception:
             hf_models = {}
+        # Halo 2.0.4 round 3 (deliverable 1 fix, owner live report
+        # 2026-10-05: "hugging face in models does not show the costs or
+        # context prices"): the router's real per-provider shape means
+        # `entry`'s own context_length/pricing (and now first_token_
+        # latency_ms/throughput/is_free) are whatever `huggingface_
+        # catalog._parse_catalog_entry` already chose from the cheapest
+        # LIVE provider at cache-write time -- `hf_picker_fields` is the
+        # ONE place that reads them, same as every other group's own
+        # picker-fields helper (`xp_picker_fields`/`oai_picker_fields`).
+        from halo_harness.providers.huggingface_catalog import hf_picker_fields
         for name in sorted(hf_models):
             ref = f"hf:{name}"
             if ref in seen:
                 continue
             entry = hf_models.get(name) or {}
-            pricing = entry.get("pricing") or {}
+            fields = hf_picker_fields(entry)
             out.append({
-                "ref": ref, "context_tokens": entry.get("context_length"),
+                "ref": ref, "context_tokens": fields.get("context_tokens"),
                 "max_output_tokens": None,
-                "price_in_per_m": _per_m(pricing.get("prompt")), "price_out_per_m": _per_m(pricing.get("completion")),
-                "provider": "huggingface", "group": label_for("huggingface"),
+                "price_in_per_m": fields.get("price_in_per_m"), "price_out_per_m": fields.get("price_out_per_m"),
+                "speed_ttft_s": fields.get("speed_ttft_s"), "speed_tokens_per_second": fields.get("speed_tokens_per_second"),
+                "provider": "huggingface", "group": label_with_prefix("huggingface"),
             })
         _maybe_hint("huggingface", detected=hf_detected)
 
@@ -903,7 +945,7 @@ class Controller:
                 "ref": ref, "context_tokens": fields.get("context_tokens"),
                 "max_output_tokens": None,
                 "price_in_per_m": fields.get("price_in_per_m"), "price_out_per_m": fields.get("price_out_per_m"),
-                "provider": "openai", "group": label_for("openai"),
+                "provider": "openai", "group": label_with_prefix("openai"),
             })
         _maybe_hint("openai", detected=oai_detected)
 
@@ -941,7 +983,7 @@ class Controller:
                 "ref": ref, "context_tokens": fields.get("context_tokens"),
                 "max_output_tokens": fields.get("max_output_tokens"),
                 "price_in_per_m": fields.get("price_in_per_m"), "price_out_per_m": fields.get("price_out_per_m"),
-                "provider": "experiential", "group": label_for("experiential"), "detail": detail,
+                "provider": "experiential", "group": label_with_prefix("experiential"), "detail": detail,
             })
         _maybe_hint("experiential", detected=xp_detected)
 
@@ -972,7 +1014,7 @@ class Controller:
                     "max_output_tokens": fields.get("max_output_tokens"),
                     "price_in_per_m": None, "price_out_per_m": None,
                     "detail": cx_alias_display_detail(alias),
-                    "provider": "codex", "group": label_for("codex_subscription"),
+                    "provider": "codex", "group": label_with_prefix("codex_subscription"),
                 })
         if cx_available and not is_enabled("codex_subscription", detected=cx_available):
             hints.append({"hint": f"{label_for('codex_subscription')} detected but not enabled -- "
@@ -995,7 +1037,15 @@ class Controller:
         # refresh to check)" placeholder row (every one of this view's own
         # "nothing to pick yet" sentinels starts with "(", never a real
         # model id) is `/local`-only, exactly like a hint row here has no
-        # `ref` either. No per-token price exists for local compute.
+        # `ref` either. Halo 2.0.4 round 3 (owner live report, 2026-10-05:
+        # "also cover hf:local/*and hf:mlx/* rows (free, context from the
+        # probe)"): local compute has a KNOWN price -- $0, never unknown
+        # -- so `price_in_per_m`/`price_out_per_m` are 0 here (the picker's
+        # own `format_price_per_m` already renders exactly 0 as "free",
+        # round 2's own fix), not `None` (which would show "?" and
+        # misdescribe a known fact as an unpublished one); `context_tokens`
+        # already comes from `row.context`, the SAME local probe `/local`/
+        # `halo doctor --local` read, unchanged by this round.
         try:
             from halo_harness.providers.local_models import build_local_view
             local_rows = build_local_view(env=env, state_dir=self.state_dir)
@@ -1007,7 +1057,7 @@ class Controller:
             seen.add(row.ref)
             out.append({
                 "ref": row.ref, "context_tokens": row.context, "max_output_tokens": None,
-                "price_in_per_m": None, "price_out_per_m": None,
+                "price_in_per_m": 0, "price_out_per_m": 0,
                 "provider": "ollama" if row.ref.startswith("ol:") else "huggingface",
                 "group": row.group, "detail": row.capability,
             })
@@ -1017,6 +1067,27 @@ class Controller:
             out.insert(0, {"ref": current, "context_tokens": self.session.model_profile.context_tokens,
                            "max_output_tokens": self.session.model_profile.max_output_tokens,
                            "provider": self.session.model_ref.provider})
+        # Halo 2.0.4 round 3 (deliverable 1): the picker's "speed" column --
+        # computed ONCE for the whole batch (never per-row: `providers.
+        # speed.speed_by_ref`'s own docstring is why this stays a single
+        # cache-only read, keeping this method's documented "UI thread,
+        # synchronous, cheap" contract regardless of the catalog's size),
+        # then applied to every row that has a real `ref` -- OpenRouter,
+        # cc:, ant:, dbx:, hf:, oai:, xp:, cx:, ol: alike, so "the same
+        # layout in every group" (the brief's own wording) also means the
+        # same speed SOURCE in every group, not just the same columns.
+        try:
+            from halo_harness.providers.speed import speed_by_ref
+            speeds = speed_by_ref(self.state_dir)
+        except Exception:
+            speeds = {}
+        if speeds:
+            for m in out:
+                ref = m.get("ref")
+                entry = speeds.get(ref) if ref else None
+                if entry:
+                    m["speed_ttft_s"] = entry.get("ttft_s")
+                    m["speed_tokens_per_second"] = entry.get("tokens_per_second")
         # H15 item 21.2: dim, non-selectable hint rows (no "ref" at all) go
         # LAST -- after the `current` insertion above, which indexes `out`
         # by `m["ref"]` and would KeyError on a hint dict otherwise.

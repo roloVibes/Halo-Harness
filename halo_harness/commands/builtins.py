@@ -1106,6 +1106,26 @@ def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
     return "Usage: /providers [list|enable <name>|disable <name>|setup <name>]"
 
 
+def _cmd_balances(args: str, facade: HeadlessFacade) -> str:
+    """Halo 2.0.4 round 3 (deliverable 2): `/balances [refresh]` -- the
+    SAME table `halo balances` prints (`providers.balances.
+    format_balances_table`/`cached_balances`/`refresh_all_enabled_
+    catalogs`'s own sibling `refresh_all_balances`), so the two surfaces
+    never drift apart. Bare `/balances` never touches the network (reads
+    whatever `balances.json` already has); `/balances refresh` does the
+    one bounded round of fetches -- synchronous here (same reasoning
+    `/providers`'s own one live Experiential call already accepts: print
+    mode has no UI thread to protect, and every fetch this calls is
+    already bounded/best-effort on its own)."""
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.providers.balances import cached_balances, format_balances_table, refresh_all_balances
+    state_dir = bridge_home()
+    env = facade.settings.effective_env if getattr(facade, "settings", None) is not None else None
+    sub = (args or "").strip().lower()
+    entries = refresh_all_balances(state_dir, env=env) if sub == "refresh" else cached_balances(state_dir)
+    return "\n".join(format_balances_table(entries))
+
+
 def _cmd_settings(args: str, facade: HeadlessFacade) -> str:
     """Round 5i part 2: the merged Claude-Code/Codex/Halo settings view
     (`providers.settings_merge.effective_settings`) -- `halo doctor`'s
@@ -1493,6 +1513,8 @@ _BUILTIN_SPECS = {
     "setup": ("core", "Open the roles/organizations guided setup screens", "[roles|orgs]", _cmd_setup),
     "providers": ("core", "Show/enable/disable providers (dbx:/or:/ant:/cc:)", "[list|enable|disable <name>]",
                   _cmd_providers),
+    "balances": ("core", "Show the cached balance/credit figure for every provider that offers one",
+                 "[refresh]", _cmd_balances),
     "settings": ("core", "Show the merged Claude Code / Codex / halo settings view", "[primary claude|codex]",
                  _cmd_settings),
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),

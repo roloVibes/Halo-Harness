@@ -403,6 +403,17 @@ def test_controller_list_models_includes_ollama_and_local_groups(ctx: Ctx):
                           local_ref in refs)
                 ctx.check(f"its provider is huggingface, got {refs[local_ref]}",
                           refs[local_ref]["provider"] == "huggingface")
+                # Halo 2.0.4 round 3 (owner live report, 2026-10-05): local
+                # compute has a KNOWN price -- $0 -- never "?" (unknown);
+                # format_price_per_m renders exactly 0 as "free".
+                from halo_harness.model_display import format_picker_row
+                ctx.check(f"hf:local/* prices as 0 (free), got {refs[local_ref]}",
+                          refs[local_ref]["price_in_per_m"] == 0 and refs[local_ref]["price_out_per_m"] == 0)
+                ctx.check(f"ol: prices as 0 (free) too, got {refs['ol:qwen3:30b']}",
+                          refs["ol:qwen3:30b"]["price_in_per_m"] == 0 and refs["ol:qwen3:30b"]["price_out_per_m"] == 0)
+                row = format_picker_row(refs[local_ref])
+                ctx.check(f"the picker row shows 'free' for price, not '?' (speed is genuinely unknown here, "
+                          f"that's fine), got {row!r}", "in=free" in row and "out=free" in row)
             finally:
                 stop_all_managed_servers_except_kept(state_dir=e.state_dir)
         finally:

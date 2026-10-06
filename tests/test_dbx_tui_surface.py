@@ -187,7 +187,11 @@ def test_list_models_includes_databricks_grouped_by_family_hides_non_chat(ctx: C
         ctx.check("embeddings endpoint hidden from the picker",
                   "dbx:databricks-gte-large-en" not in rows)
         ctx.check(f"glm grouped by family, got {rows['dbx:databricks-glm-5-3'].get('group')}",
-                  rows["dbx:databricks-glm-5-3"]["group"] == "Databricks (glm)")
+                  # Halo 2.0.4 round 3 (deliverable 6): the canonical
+                  # "Databricks (dbx:)" label every other group now uses
+                  # (label_with_prefix), family kept as a " -- <family>"
+                  # suffix rather than the old bare "Databricks (glm)".
+                  rows["dbx:databricks-glm-5-3"]["group"] == "Databricks (dbx:) -- glm")
         ctx.check(f"glm path type is mlflow (default), got {rows['dbx:databricks-glm-5-3'].get('path_type')}",
                   rows["dbx:databricks-glm-5-3"]["path_type"] == "mlflow")
         ctx.check(f"claude foundation path type is anthropic, got "
@@ -228,8 +232,12 @@ def test_list_models_shows_cc_group_when_logged_in_via_claude_ai(ctx: Ctx):
             models = ctrl.list_models()
             cc_rows = [m for m in models if m.get("provider") == "cc"]
             ctx.check(f"cc: rows present, got {len(cc_rows)}", len(cc_rows) > 0)
+            # Halo 2.0.4 round 3 (deliverable 6): group labels now carry
+            # their prefix in parentheses (label_with_prefix) -- "Claude
+            # Code subscription (cc:)", same convention every other group
+            # on this page uses.
             ctx.check(f"grouped under the subscription label, got {cc_rows[0].get('group')}",
-                      cc_rows[0].get("group") == "Claude Code subscription")
+                      cc_rows[0].get("group") == "Claude Code subscription (cc:)")
     finally:
         if old is None:
             os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)

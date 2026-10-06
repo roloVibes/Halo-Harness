@@ -163,6 +163,179 @@ def build_prompt_too_long_message(total: int, limit: int) -> str:
     return f"prompt is too long: {max(total, limit + 1)} tokens > {limit} maximum"
 
 
+# ---------------------------------------------------------------------------
+# Halo 2.0.4 round 3 (deliverable 4): per-provider error-code/type -> one
+# plain Halo sentence, extending the Experiential-only translation round 2
+# added above (`providers.experiential.ERROR_TABLE`/`plain_sentence`, left
+# untouched) to OpenRouter, Anthropic, Databricks and OpenAI, plus a generic
+# HTTP-status fallback sentence for every provider the per-provider tables
+# don't recognize a code for (Hugging Face and Ollama included -- neither
+# gets a dedicated table: Ollama's one distinctive shape,
+# `exceed_context_size_error`, is already caught as a context overflow
+# BEFORE this function is ever called, see `providers.stream._ollama_
+# overflow_info`; everything else either provider sends is an ordinary
+# status this generic table already covers).
+#
+# Each row is (sentence, retryable); `None` for either field (every row
+# below always sets both) would mean "no opinion", same contract as
+# `providers.experiential.ERROR_TABLE`'s own rows.
+# ---------------------------------------------------------------------------
+
+def _openrouter_error_code(body) -> "Optional[str]":
+    """OpenRouter mirrors the HTTP status into `error.code` as an int
+    (openrouter.ai/docs/errors) -- read as a string so it keys the table
+    the same way every other provider's string codes/types do."""
+    if isinstance(body, dict):
+        err = body.get("error")
+        if isinstance(err, dict) and err.get("code") is not None and not isinstance(err.get("code"), bool):
+            return str(err["code"])
+    return None
+
+
+OPENROUTER_ERROR_TABLE = {
+    "402": ("This OpenRouter key is out of credit -- add credits at openrouter.ai/credits.", False),
+    "403": ("OpenRouter's moderation flagged this request; rephrase it or try a different model.", False),
+    "408": ("The provider OpenRouter routed to timed out; retrying.", True),
+    "502": ("The model OpenRouter routed to returned an invalid response; retrying.", True),
+    "503": ("No OpenRouter provider could serve this model right now; retrying.", True),
+}
+
+
+def _anthropic_error_type(body) -> "Optional[str]":
+    if isinstance(body, dict):
+        err = body.get("error")
+        if isinstance(err, dict) and isinstance(err.get("type"), str) and err["type"]:
+            return err["type"]
+    return None
+
+
+ANTHROPIC_ERROR_TABLE = {
+    "authentication_error": ("The Anthropic API key is missing or invalid; check it in `/providers`.", False),
+    "permission_error": ("This Anthropic API key can't use that model or feature.", False),
+    "not_found_error": ("Anthropic has no such model -- check the id with `/model`.", False),
+    "invalid_request_error": ("Anthropic rejected the request's shape; see the debug log for which field.", False),
+    "rate_limit_error": ("Anthropic rate-limited this key; Halo backs off and retries.", True),
+    "overloaded_error": ("Anthropic's API is temporarily overloaded; Halo retries with backoff.", True),
+    "api_error": ("Anthropic had an internal error; Halo retries with backoff.", True),
+}
+
+
+def _databricks_error_code(body) -> "Optional[str]":
+    if isinstance(body, dict):
+        code = body.get("error_code")
+        if isinstance(code, str) and code:
+            return code
+        err = body.get("error")
+        if isinstance(err, dict) and isinstance(err.get("code"), str) and err["code"]:
+            return err["code"]
+    return None
+
+
+DATABRICKS_ERROR_TABLE = {
+    "UNAUTHENTICATED": ("The Databricks token is missing or invalid; check it in `/providers`.", False),
+    "PERMISSION_DENIED": ("This Databricks token can't reach that serving endpoint.", False),
+    "RESOURCE_DOES_NOT_EXIST": ("No such Databricks serving endpoint -- run `halo models --refresh`.", False),
+    "RESOURCE_EXHAUSTED": ("Databricks rate-limited this endpoint; Halo backs off and retries.", True),
+    "REQUEST_LIMIT_EXCEEDED": ("Databricks rate-limited this endpoint; Halo backs off and retries.", True),
+    "ENDPOINT_NOT_READY": ("This Databricks endpoint is still starting up; retrying.", True),
+    "INTERNAL_ERROR": ("Databricks had an internal error; Halo retries with backoff.", True),
+}
+
+
+def _openai_error_code(body) -> "Optional[str]":
+    if isinstance(body, dict):
+        err = body.get("error")
+        if isinstance(err, dict):
+            code = err.get("code")
+            if isinstance(code, str) and code:
+                return code
+            etype = err.get("type")
+            if isinstance(etype, str) and etype:
+                return etype
+    return None
+
+
+OPENAI_ERROR_TABLE = {
+    "invalid_api_key": ("The OpenAI API key is invalid; check OPENAI_API_KEY.", False),
+    "insufficient_quota": ("This OpenAI account is out of quota or credit.", False),
+    "model_not_found": ("OpenAI has no such model for this key -- check the id with `/model`.", False),
+    "rate_limit_exceeded": ("OpenAI rate-limited this key; Halo backs off and retries.", True),
+    "server_error": ("OpenAI had an internal error; Halo retries with backoff.", True),
+}
+
+_PROVIDER_ERROR_CODE_EXTRACTORS = {
+    "openrouter": _openrouter_error_code, "anthropic": _anthropic_error_type,
+    "databricks": _databricks_error_code, "openai": _openai_error_code,
+}
+_PROVIDER_ERROR_TABLES = {
+    "openrouter": OPENROUTER_ERROR_TABLE, "anthropic": ANTHROPIC_ERROR_TABLE,
+    "databricks": DATABRICKS_ERROR_TABLE, "openai": OPENAI_ERROR_TABLE,
+}
+
+# Fallback when no per-provider table/code matched -- every provider this
+# harness routes to, including ones with no code table of their own
+# (Hugging Face, Ollama, Codex) falls back to this once a code lookup comes
+# up empty, keyed by HTTP status alone. No opinion on 400/413 here (never
+# consulted for either -- see `map_upstream_error`'s own overflow guard):
+# both are reachable by a genuine context-overflow wording this harness's
+# compaction/retry logic must see byte-for-byte, so a GENERIC "bad request"
+# sentence for every other 400 (a real, non-overflow validation error) is a
+# deliberate gap, not an oversight -- the raw upstream message already says
+# what field was wrong, and this harness has no general-purpose fix for it
+# the way it does for a rejected-parameter learned rule.
+_GENERIC_STATUS_SENTENCES = {
+    401: "{provider} rejected the credentials; check them in `/providers`.",
+    402: "{provider} says payment is required; check billing or credits.",
+    403: "{provider} refused this request; the key may lack access to this model.",
+    404: "{provider} has no such model or endpoint.",
+    429: "{provider} rate-limited this request; Halo backs off and retries.",
+    500: "{provider} had an internal error; Halo retries with backoff.",
+    502: "{provider}'s gateway returned a bad response; Halo retries with backoff.",
+    503: "{provider} is temporarily unavailable; Halo retries with backoff.",
+    504: "{provider} timed out upstream; Halo retries with backoff.",
+    529: "{provider} is overloaded; Halo retries with backoff.",
+}
+
+_PROVIDER_DISPLAY_NAMES = {
+    "openrouter": "OpenRouter", "anthropic": "Anthropic", "databricks": "Databricks",
+    "huggingface": "Hugging Face", "openai": "OpenAI", "ollama": "Ollama",
+    "experiential": "Experiential Labs", "codex": "Codex",
+}
+
+
+def translate_upstream_sentence(status: int, body, provider: "Optional[str]") -> "Optional[str]":
+    """One plain Halo sentence for a (`provider`, error-code/type) pair this
+    module recognizes, else the generic per-status sentence, else `None`
+    (the caller keeps the raw upstream message unchanged). Never consulted
+    by `map_upstream_error` for a status/body `is_context_overflow_message`
+    already recognizes -- see that call site's own comment for why an
+    overflow wording must reach the client byte-for-byte."""
+    extractor = _PROVIDER_ERROR_CODE_EXTRACTORS.get(provider or "")
+    table = _PROVIDER_ERROR_TABLES.get(provider or "")
+    if extractor is not None and table is not None:
+        code = extractor(body)
+        if code is not None and code in table:
+            return table[code][0]
+    template = _GENERIC_STATUS_SENTENCES.get(status)
+    if template is None:
+        return None
+    return template.format(provider=_PROVIDER_DISPLAY_NAMES.get(provider or "", provider or "The provider"))
+
+
+def is_translated_sentence_retryable(status: int, body, provider: "Optional[str]") -> "Optional[bool]":
+    """The matching per-provider table row's own retry opinion -- `None`
+    when no row matched (the generic status sentence never overrides
+    retryability; `map_upstream_error`'s existing status-table default
+    stands)."""
+    extractor = _PROVIDER_ERROR_CODE_EXTRACTORS.get(provider or "")
+    table = _PROVIDER_ERROR_TABLES.get(provider or "")
+    if extractor is not None and table is not None:
+        code = extractor(body)
+        if code is not None and code in table:
+            return table[code][1]
+    return None
+
+
 def map_upstream_error(status: int, body: dict | bytes | str, provider: str,
                        resp_headers: dict | None = None) -> tuple[int, dict, dict]:
     """Map upstream error to client error."""
@@ -179,12 +352,63 @@ def map_upstream_error(status: int, body: dict | bytes | str, provider: str,
     # recognize (or no `code` at all) leaves `msg`/`retry_override`
     # untouched, so the generic status-based path below still applies.
     retry_override = None
+    sentence = None
+    matched_code = False
     if provider == "experiential":
         from halo_harness.providers.experiential import is_retryable_code, plain_sentence
-        sentence = plain_sentence(body)
-        if sentence is not None:
-            msg = sentence
         retry_override = is_retryable_code(body)
+        # `retry_override` (not `sentence`) is the "did a row in THIS
+        # table match at all" signal: `model_requires_purchase`'s own row
+        # deliberately pairs a `None` sentence (passthrough -- the raw
+        # upstream text already names the model and reads as one plain
+        # line) with a real `False` retry verdict, so checking `sentence
+        # is None` here would wrongly treat that row as "no match," fall
+        # through to the generic table below, and replace the raw,
+        # correct text with an unrelated generic sentence (a real
+        # regression this exact case caught).
+        if retry_override is not None:
+            matched_code = True
+            sentence = plain_sentence(body)
+    if not matched_code:
+        # Halo 2.0.4 round 3 (deliverable 4, extended on a live report
+        # 2026-10-05): falls through to the SAME generic, guarded per-
+        # status sentence every provider gets (Experiential included,
+        # when its OWN code table above had no match -- most notably a
+        # BARE, non-JSON response body: `space-bunny-alpha` answering
+        # plain-text "error code: 502" with no JSON envelope at all, so
+        # `error_code(body)` has nothing to read) -- rather than leaving
+        # `msg` as the raw, untranslated upstream text. Guarded so neither
+        # the harness's own internally-built overflow rewrite nor a real
+        # upstream overflow/connect-failure/offline-refusal wording is
+        # ever replaced -- a message this function must hand back BYTE-
+        # FOR-BYTE, which rules out three shapes:
+        #   - a context-overflow wording (`is_context_overflow_message`):
+        #     neither the harness's own internally-built "prompt is too
+        #     long: ..." rewrite (bridge.py's ContextOverflow branch,
+        #     `build_prompt_too_long_message`) nor a real upstream overflow
+        #     wording may be replaced -- both are pattern-matched byte-for-
+        #     byte elsewhere (this harness's own compaction trigger, and --
+        #     for the harness-built one specifically -- Claude Code's own
+        #     compaction regex, when this response reaches it through the
+        #     standalone bridge.py proxy).
+        #   - a connect-failure wording (`is_connect_failure_message`,
+        #     deferred-imported here to avoid a circular import --
+        #     providers/http.py already imports THIS module's own
+        #     `upstream_error_text`): `format_connect_error`'s canonical
+        #     "cannot resolve/reach <host> ... DNS or VPN" lead-in must
+        #     survive this wrap, since `agent/loop.py`'s own retry ladder
+        #     recognizes a connect failure by re-matching that exact text
+        #     AFTER it comes back out through `UpstreamError.message`
+        #     (test_is_connect_failure_message_survives_both_wire_mappers).
+        #   - an offline-refusal wording (`is_offline_refusal_message`,
+        #     same reasoning/caller).
+        from halo_harness.providers.http import is_connect_failure_message, is_offline_refusal_message
+        if (not is_context_overflow_message(status, msg, body if isinstance(body, dict) else None)
+                and not is_connect_failure_message(msg) and not is_offline_refusal_message(msg)):
+            sentence = translate_upstream_sentence(status, body, provider)
+            retry_override = is_translated_sentence_retryable(status, body, provider)
+    if sentence is not None:
+        msg = sentence
     # Table mapping: (upstream_status, error_type, client_status, should_retry)
     table = [
         (401, "authentication_error", 401, False),
