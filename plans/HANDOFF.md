@@ -90,12 +90,14 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
   **round 1 `cc:` route v2 SHIPPED (38852a2)**; CI fix for a literal
   version pin (6d91bc8, see CYCLE.md); **round 2 wizard: agent bios and
   lineups SHIPPED (924bad0)**; **round 3 learned gateway rules + the legacy
-  env-file drop IN FLIGHT** when this was written (one worker on the build
-  host, started ~06:55; expected files: `providers/learned_rules.py`, a new
-  `providers/learned_params.py`, `providers/request.py`, `stream.py`,
-  `http.py`, `config/paths.py`, `providers/config.py`, `doctor.py`, a new
-  `rules_cli.py`, tests, docs/CONFIG.md, docs/COMMANDS.md). Rounds 4-5
-  not started. Round 2 left one wiring for round 4:
+  env-file drop SHIPPED (2886397)**; **round 4 the Governor IN FLIGHT** when
+  this was written (one worker on the build host, started ~07:40; expected
+  files: new `providers/governor.py`, `providers/governor_state.py`,
+  `providers/gateway_routing.py`, edits to `providers/http.py`,
+  `agent/loop.py` (retry ownership), `roles.py` / `teams_yaml.py` (lanes
+  validator), the status bar, a `gov` CLI and `/gov`, `doctor.py`, new
+  `docs/GOVERNOR.md`, tests under `tests/test_governor*.py`). Round 5 not
+  started. Round 2 left one wiring for round 4:
   `teams_yaml.member_system_context_addition` (the lineup's `about:` text
   as "How this team works") is built and unit-tested but not yet called
   from the live sub-agent session builder.
