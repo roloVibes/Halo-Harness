@@ -5676,7 +5676,10 @@ def test_init_tabs_compose_is_instant_despite_a_slow_claude_check(ctx: Ctx):
     from textual.widgets import Static
 
     def _slow_claude_login():
-        time_mod.sleep(1.0)
+        # 3 s, with the mount threshold at 2 s: a compose that waited on this
+        # check can never pass, while a slow hosted runner (1.2 s to mount
+        # with the old 1.0 s / 0.5 s pair) no longer fails by timing alone.
+        time_mod.sleep(3.0)
         return False
 
     async def body():
@@ -5688,7 +5691,7 @@ def test_init_tabs_compose_is_instant_despite_a_slow_claude_check(ctx: Ctx):
                 app = InitTabsApp()
                 async with app.run_test(size=(100, 40)) as pilot:
                     elapsed = time_mod.monotonic() - start
-                    ctx.check(f"mounted quickly despite the slow claude check, got {elapsed:.2f}s", elapsed < 0.5)
+                    ctx.check(f"mounted quickly despite the slow claude check, got {elapsed:.2f}s", elapsed < 2.0)
                     claude_status = _static_text(app.query_one("#claude-status", Static))
                     ctx.check(f"the placeholder is shown first, got {claude_status!r}", claude_status == "checking…")
                     # Eventually the slow worker resolves it for real.

@@ -199,7 +199,10 @@ def test_version_bumped_to_2_0_1_and_changelog_has_an_entry(ctx: Ctx):
     has_an_entry` below for THIS release's own version-bump pin."""
     changelog = (REPO_DIR / "CHANGELOG.md").read_text(encoding="utf-8")
     ctx.check("CHANGELOG.md has a [2.0.1] entry", "[2.0.1]" in changelog)
-    entry = changelog.split("[2.0.1]", 1)[1].split("\n## [", 1)[0]
+    # Anchor on the section HEADER: a later section may mention "[2.0.1]" in
+    # passing (the 2.0.5 deprecation note does), and the bare text split
+    # then sliced the wrong section (CI after round 3).
+    entry = changelog.split("\n## [2.0.1]", 1)[1].split("\n## [", 1)[0]
     for phrase in ("install.md", "pythonpath fallback", "scratch", "unique sentence"):
         ctx.check(f"the [2.0.1] entry mentions {phrase!r}", phrase in entry.lower())
 
@@ -215,7 +218,7 @@ def test_version_bumped_to_2_0_2_and_changelog_has_an_entry(ctx: Ctx):
     THIS release's own version-bump pin."""
     changelog = (REPO_DIR / "CHANGELOG.md").read_text(encoding="utf-8")
     ctx.check("CHANGELOG.md has a [2.0.2] entry", "[2.0.2]" in changelog)
-    entry = changelog.split("[2.0.2]", 1)[1].split("\n## [", 1)[0]
+    entry = changelog.split("\n## [2.0.2]", 1)[1].split("\n## [", 1)[0]
     for phrase in ("terminal", "role"):
         ctx.check(f"the [2.0.2] entry mentions {phrase!r}", phrase in entry.lower())
 
