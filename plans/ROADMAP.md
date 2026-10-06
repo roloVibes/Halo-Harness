@@ -962,3 +962,49 @@ Summary; `halo init --step team` reaches it (`--step agents` and `--step
 roles` stay as aliases). Roles off never disables delegation: the
 `standard` lineup gives every role, including spawned sub-agents, the
 default model, and the question card works as today.
+
+## ADDED 2026-10-06 ~10:25 (rolo: "Add these suggestions to 2.0.6"): seven items from a model review of v2.0.4
+
+Source: a ranked "What I'd add" list rolo got from a model reviewing
+v2.0.4 on his own box (screenshot). Recorded for 2.0.6 hardening in the
+review's order, with what 2.0.5 already covers marked:
+
+1. **Per-role cost attribution** (the review's "if I only got one"): every
+   `CostMeter` entry carries the role and bio that spent it (the sub-agent
+   runner knows its role); `/stats` and `halo stats` show spend by role,
+   cost per task and cost per accepted result, so a role assignment can be
+   judged by evidence.
+2. **Acceptance-gated sub-agent returns**: when a sub-agent returns, the
+   judge role checks the result against the bio's `acceptance` criteria;
+   a failure gets one retry with the critique appended; a second failure
+   escalates with the failure marked. 2.0.5 round 5 (team control) enforces
+   the lineup's `pipeline` gates and `escalation`; 2.0.6 takes whatever
+   part of this round 5 leaves open (the per-bio acceptance check on every
+   live return, the critique retry).
+3. **Session replay for model swaps**: record a native transcript, replay
+   it against a different model with the same tools and the same
+   transcript prefix, compare the outcomes side by side ("did swapping the
+   researcher from one model to another help?" answered with a diff). This
+   extends the gym from synthetic evals to real task history.
+4. **Parallel native tool calls**: one turn may issue several independent
+   read-only tool calls (Read, Grep, read-only Bash) that run in parallel;
+   writes stay sequential; the worktree seed covers the dangerous case.
+   The wire already supports it (learned params watch the parameter).
+5. **Turn checkpoints, the file-state `/rewind`**: snapshot the changed
+   files at each turn boundary (stash-style or a file history) so one key
+   rolls back a turn's edits after a bad agent run; pairs with item 2's
+   retry loop and with permission mode auto.
+6. **Roles hygiene**: `template load` flips `roles.enabled` (DONE in 2.0.5
+   round 2b); `halo doctor --roles` runs the lineup editor's warning set
+   headlessly (dead endpoints, judge in the same model family as coder
+   = self-preference bias, not exactly one `role: main`).
+7. **Publish and sign releases**: a real GitHub Release per tag (DONE in
+   2.0.5 round 2b: notes from the CHANGELOG) plus a checksummed artifact,
+   and `halo update` verifying the signature or the tag before installing.
+
+These join the 2.0.6 hardening list in the "REORDERED 2026-10-05" section
+(soak and watchdog, MCP connects off the startup path, gym cloud ranking,
+the carried fix-pass minors, invariants extended) and the round-2 deferrals
+(Try it and smoke runs, export and import bundles, the test-runner
+SystemExit fix). Order inside 2.0.6 is decided when 2.0.5 ships; item 1
+goes first per the review.

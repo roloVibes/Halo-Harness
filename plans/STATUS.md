@@ -81,7 +81,12 @@ is verified on Windows and the Kali VM and pushed as it lands.
 - [ ] round 5 team control (lineup sections enforced, agent hooks, schedule, triggers)
 - [ ] review covering 2.0.4 (`04ae6e4..b081db8`) and 2.0.5, fix pass, live check, VM suites, `scripts/release.py 2.0.5 --remote <user@host> --identity <key>`
 
-## 2.0.5 = hardening (`2.0.4-brief.md` minus the env-file drop)
+## 2.0.6 = hardening (REORDERED numbering; ROADMAP "REORDERED 2026-10-05" list + "ADDED 2026-10-06 ~10:25" review items + round-2 deferrals)
+
+- [ ] per-role cost attribution (first), [ ] acceptance-gated sub-agent returns (what round 5 leaves), [ ] session replay for model swaps, [ ] parallel read-only tool calls, [ ] turn checkpoints / file-state `/rewind`, [ ] `halo doctor --roles`, [ ] checksummed release artifact + `halo update` verification
+- [ ] soak run + watchdog, [ ] MCP connects off the TUI startup path, [ ] gym cloud-model ranking, [ ] carried fix-pass minors (`2.0.3-release-notes-for-fix-pass.md`), [ ] Try it / lineup smoke runs, [ ] export/import bundles, [ ] test-runner SystemExit fix, [ ] invariants extended
+
+## 2.0.5 = hardening (`2.0.4-brief.md` minus the env-file drop) -- PRE-reorder header, content now under 2.0.6 above
 
 - [ ] model gym (including the local-model ranking), [ ] soak test + watchdog, [ ] MCP connects off the TUI startup path (deferred from 2.0.2 round C: a dead or slow http/sse server still holds the first frame), [ ] CI + release script, [ ] invariants doc + test, [ ] release
 
