@@ -3413,8 +3413,10 @@ def _real_controller(cwd: Path, *, mode: str = "bypassPermissions"):
     if "BRIDGE_TEST_HOME" not in os.environ and "BRIDGE_STATE_DIR" not in os.environ:
         os.environ["BRIDGE_STATE_DIR"] = tempfile.mkdtemp(prefix="th-")
 
+    from halo_harness.model import ModelProfile
     class _MinimalSession:
         abort = threading.Event()  # Controller.interrupt/close paths call session.abort.set()
+        model_profile = ModelProfile()  # Controller.list_models reads context/max-output from it (round 3)
         def __init__(self) -> None:
             self.permission_engine = PermissionEngine(mode=mode, print_mode=False, cwd=cwd)
             self.log = SessionLog(cwd)
@@ -9836,8 +9838,12 @@ def test_init_wizard_providers_next_enumerates_then_roles_and_orgs_share_the_cac
                 ctx.check(f"opened on Providers, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "ProvidersStep")
                 app.screen.query_one("#wiz-next").press()
-                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, _EnumeratingScreen))
-                ctx.check("the enumeration progress screen appeared", isinstance(app.screen, _EnumeratingScreen))
+                # The progress screen is transient: on a fast machine (or a slow
+                # pilot) enumeration finishes before the wait polls, so the proof
+                # that it ran is EITHER the screen being up OR the cache being done.
+                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, _EnumeratingScreen) or state.enumeration_done)
+                ctx.check("the enumeration ran (progress screen seen, or already finished)",
+                          isinstance(app.screen, _EnumeratingScreen) or state.enumeration_done)
                 await _wait_for_wizard(pilot, lambda: type(app.screen).__name__ == "RolesStep")
                 ctx.check(f"advanced to Roles once enumeration finished, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "RolesStep")
