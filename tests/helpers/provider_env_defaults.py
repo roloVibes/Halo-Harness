@@ -80,6 +80,13 @@ def ensure_default_provider_credentials() -> None:
     # module that never sets `BRIDGE_TEST_CODEX_LOGIN_STATUS` itself would
     # otherwise spawn a real `codex login status` subprocess.
     os.environ.setdefault("BRIDGE_TEST_CODEX_LOGIN_STATUS", "Not logged in")
+    # Halo 2.0.5 round 4: the Governor is ON by default in real use; in the
+    # suite it must be OFF unless a test deliberately turns it on -- the
+    # mock upstream serves 429 storms by design, and one governed test's
+    # cooldown would otherwise poison the shared `host:127.0.0.1` bucket
+    # for every test after it (plus the pacing's real sleeps). A governor
+    # test sets HALO_GOVERNOR=1 (and scopes its own state dir) itself.
+    os.environ.setdefault("HALO_GOVERNOR", "0")
 
 
 def ensure_scoped_state_dir_once() -> None:

@@ -445,3 +445,20 @@ window (it was reconfigured since, or it always meant the session model).
 Price is not repeated here (that needs a parent model to fall back to,
 which this standalone command has no live session to borrow -- see
 `/roles` above for that).
+
+## Lanes and fallbacks (Halo 2.0.5 round 4)
+
+Roles interact with the Governor's routing layer in two ways:
+
+- **Lanes**: models carry a tier (1 strongest .. 3 cheapest); `roles.lanes`
+  maps a role to the weakest tier it may use. The standing rule -- reviewer,
+  judge and tester must never resolve to a weaker tier than coder -- is
+  enforced by the roles validator (one plain line naming the role to raise)
+  and by the team-template loader over a lineup's resolved assignments.
+- **Fallbacks**: `roles.<name>.fallbacks` (a list of model refs, in
+  config.json) appends to a role's fallback chain after any
+  `--fallback-model` entries. A fallback on the same gateway host as the
+  primary cannot help -- the gateway throttles per machine -- and
+  `halo roles` warns when one is configured.
+
+See [GOVERNOR.md](GOVERNOR.md) for the whole mechanism.

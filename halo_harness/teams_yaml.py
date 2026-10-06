@@ -318,6 +318,17 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
         elif resolve_team_template(extends.strip(), cwd=cwd, state_dir=state_dir) is None \
                 and load_team_template_raw(extends.strip(), cwd=cwd, state_dir=state_dir) is None:
             problems.append(f'"extends" names a team template that does not exist: {extends!r}')
+    # Halo 2.0.5 round 4: the lanes rule over a template's RESOLVED role
+    # table (the same one `apply_team_template` would write) -- a verifier
+    # role resolving to a weaker tier than coder is one plain line, same
+    # as `roles.validate_role_template` produces for a bare roles map.
+    try:
+        from halo_harness.providers.gateway_routing import validate_lanes
+        role_table, _notes = resolve_role_table(data, cwd=cwd, state_dir=state_dir)
+        lanes = data.get("lanes") if isinstance(data.get("lanes"), dict) else None
+        problems.extend(validate_lanes(role_table, lanes=lanes))
+    except Exception:
+        pass
     return problems
 
 

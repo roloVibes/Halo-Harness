@@ -535,6 +535,32 @@ def _check_platform() -> str:
     return f"{OK} {system} -- {platform.release()}"
 
 
+def _check_governor() -> "Optional[str]":
+    """Halo 2.0.5 round 4: each gateway the Governor has state for, plus
+    whether the limiter is persisting. None (skipped) when no bucket has
+    any state yet -- a fresh install has governed nothing."""
+    try:
+        from halo_harness.providers import governor
+        from halo_harness.providers.governor_state import is_degraded
+        buckets = governor.inspect_all()
+        if not buckets:
+            return None
+        parts = []
+        for st in buckets:
+            h = "ok"
+            if st.get("cooldown_remaining", 0) > 8 or st.get("consecutive_err", 0) >= 3:
+                h = "OPEN"
+            elif st.get("rate_ceiling") and st["rate"] < 0.5 * st["rate_ceiling"]:
+                h = "degraded"
+            parts.append(f"{st.get('key')}: {st.get('rate')}/{st.get('rate_ceiling')} rps ({h})")
+        degraded = is_degraded()
+        if degraded:
+            return f"{WARN} Governor: {', '.join(parts)} -- state not persisting: {degraded}"
+        return f"{OK} Governor: {', '.join(parts)}"
+    except Exception:
+        return None
+
+
 def _check_drain_tick_rate() -> str:
     """Halo 2.0.2 round C (the owner's own background-streaming report):
     "halo doctor gains a measured drain-tick rate over 2 s" -- the TUI's
@@ -1698,6 +1724,7 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("shell", _check_shell()))
     entries.append(("plugins", _check_plugins()))
     entries.append(("platform", _check_platform()))
+    entries.append(("governor", _check_governor()))
     entries.append(("drain_tick_rate", _check_drain_tick_rate()))
     entries.append(("local_bin_on_path", _check_local_bin_on_path()))
     entries.append(("tmux_mouse", _check_tmux_mouse()))

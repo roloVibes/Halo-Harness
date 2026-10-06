@@ -144,6 +144,11 @@ class StatusBar(Static):
         # placeholder" convention: 0/None omits the segment entirely.
         self.subscription_turns: int = 0
         self.subscription_cost_usd: "float | None" = None
+        # Halo 2.0.5 round 4: the Governor segment -- (rate, ceiling,
+        # cooldown_remaining) for THIS session's model host bucket, or
+        # None (no segment; a healthy gateway at its ceiling shows
+        # nothing). Pushed from the governor's on_event telemetry.
+        self.gov_state: "tuple | None" = None
         self.mode = "default"
         self.cwd = cwd
         self.branch = branch
@@ -409,6 +414,14 @@ class StatusBar(Static):
             self.saved_usd = saved_usd
             self._refresh_display()
 
+    def set_gov_state(self, state: "tuple | None") -> None:
+        """2.0.5 round 4: `(rate, ceiling, cooldown_remaining)` for this
+        session's model host bucket, or None to clear the segment. The
+        segment itself only renders while rate < ceiling (see
+        _refresh_display)."""
+        self.gov_state = state
+        self._refresh_display()
+
     def set_effort(self, effort: "str | None") -> None:
         # 1.0.1 hotfix 20.3: `/effort`'s own immediate UI update -- unlike
         # apply_status's fields, this DOES accept None (a switch to a model
@@ -490,6 +503,18 @@ class StatusBar(Static):
         or_balance_str = _active_text or ""
         or_balance_stale = (_active_fetched_at is not None
                              and (time.monotonic() - _active_fetched_at) > 600)
+        # Halo 2.0.5 round 4: "gov 4.0 rps / cooldown 12 s" -- ONLY while a
+        # governed bucket of this session's model host is below its
+        # ceiling (a paced or cooling gateway); a healthy gateway shows
+        # nothing, same convention as every other optional segment.
+        # `gov_state` (set_gov_state) is (rate, ceiling,
+        # cooldown_remaining) or None.
+        gov_str = ""
+        if self.gov_state is not None:
+            _gr, _gc, _gcd = self.gov_state
+            if _gc and _gr < _gc:
+                _cd = f" / cooldown {_gcd:.0f} s" if _gcd and _gcd > 0 else ""
+                gov_str = f"gov {_gr:.1f} rps{_cd}"
         mode_str = mode_glyph(self.mode)
         mcp_style = "green" if (self.mcp_total and self.mcp_connected == self.mcp_total) else "yellow"
         mcp_str = f"MCP {self.mcp_connected}/{self.mcp_total}"
@@ -567,8 +592,8 @@ class StatusBar(Static):
             def _overflow(loc: str, mcp_on: bool, bal_on: bool, tp_on: bool) -> int:
                 bits = [b for b in (ctx_str, cost_str, bal_on and or_balance_str, mode_str, effort_str,
                                      offline_str, permission_str, needs_you_str, agents_str, bg_jobs_str,
-                                     oldest_str, mcp_on and mcp_str, tp_on and throughput_str, spinner_str,
-                                     new_str) if b]
+                                     oldest_str, mcp_on and mcp_str, tp_on and throughput_str, gov_str,
+                                     spinner_str, new_str) if b]
                 # Each segment below is rendered as "<text> " with a "│ "
                 # separator before it -- 3 extra columns per segment is
                 # that separator plus its own trailing space, a close-
@@ -666,6 +691,12 @@ class StatusBar(Static):
             # WHOLE "│ MCP n/m " chunk instead of leaving a bare separator.
             text.append("│ ", style="dim")
             text.append(f"{mcp_str} ", style=mcp_style)
+        if gov_str:
+            # 2.0.5 round 4: the Governor segment -- same guarded-chunk
+            # convention; only ever present while a bucket is paced below
+            # its ceiling.
+            text.append("│ ", style="dim")
+            text.append(f"{gov_str} ", style="yellow")
         if spinner_str:
             # U5 must-do: "compacting" (Session._run_compaction's own
             # "Compacting..." indicator, via the new `compaction` event

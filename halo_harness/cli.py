@@ -420,6 +420,9 @@ def main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "balances":
         from halo_harness.balances_cli import cmd_balances
         return cmd_balances(argv[1:])
+    if argv and argv[0] == "gov":
+        from halo_harness.gov_cli import cmd_gov
+        return cmd_gov(argv[1:])
     if argv and argv[0] == "stats":
         from halo_harness.stats_cli import cmd_stats
         return cmd_stats(argv[1:])

@@ -248,6 +248,20 @@ def _cmd_table() -> int:
             print(f"  {name:<{w}}  (session model)")
         else:
             print(f"  {name:<{w}}  {model or '(session model)'}  {effort or '-'}")
+    # Halo 2.0.5 round 4: same-host fallback warnings -- a fallback on the
+    # primary's own gateway host cannot help (the gateway throttles per
+    # machine, both trip together).
+    try:
+        from halo_harness.theme import get_config_value
+        from halo_harness.providers.gateway_routing import warn_same_host_fallbacks
+        _cfg = get_config_value("roles", default={}) or {}
+        _fallbacks = {k.rsplit(".", 1)[0]: v for k, v in _cfg.items()
+                      if isinstance(k, str) and k.endswith(".fallbacks") and isinstance(v, list)}
+        if _fallbacks:
+            for line in warn_same_host_fallbacks(_fallbacks, table):
+                print(f"  ! {line}")
+    except Exception:
+        pass
     return 0
 
 

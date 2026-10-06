@@ -700,6 +700,18 @@ def validate_role_template(data) -> "list[str]":
             problems.append(f"invalid role name {name!r} (expected [a-z][a-z0-9_]*)")
         elif _normalize_role_value(value) is None:
             problems.append(f'role {name!r}: value must be a model string or {{"model", "effort"}}')
+    # Halo 2.0.5 round 4: the lanes rule -- reviewer/judge/tester must
+    # never resolve to a WEAKER (higher-numbered) tier than coder, with
+    # one plain line naming the role to raise. (A template's own `roles`
+    # map is the same shape as the persisted table, so the same validator
+    # runs over both; teams_yaml runs it over a template's resolved
+    # assignments too.)
+    try:
+        from halo_harness.providers.gateway_routing import validate_lanes
+        lanes = data.get("lanes") if isinstance(data.get("lanes"), dict) else None
+        problems.extend(validate_lanes(roles, lanes=lanes))
+    except Exception:
+        pass
     return problems
 
 

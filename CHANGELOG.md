@@ -10,6 +10,47 @@ version.
 
 ## [2.0.5] - unreleased
 
+### Governor
+
+- **Cross-process adaptive rate limiting per gateway host** (round 4,
+  ported from the owner's kit with the review changes applied): one
+  shared token bucket + hard in-flight cap per gateway HOST, state on
+  disk under `~/.halo/governor/` behind cross-platform file locks
+  (flock/msvcrt) with a lock timeout, AIMD (an overload status cuts the
+  rate and sets a cooldown honouring `Retry-After` in both its forms,
+  capped; sustained success ramps back), priority fairness (main/
+  orchestrator 0, judge/reviewer/verifier/tester/planner 1, others 2;
+  `governor.priorities` overrides, an agent bio's `limits.priority`
+  wins), dead-pid reaping, and a single half-open probe as the only
+  fail-open. `providers/governor.py` + `providers/governor_state.py`.
+- **One choke point**: every remote model request (`dbx:` `or:` `ant:`
+  `oai:` `hf:` `xp:` `ol:`) goes through `governed_upstream()` in
+  `providers/http.py` carrying the session's role, agent id, session id
+  and model; the Governor owns the 429/overload retry ladder for
+  governed routes and the agent loop's own ladder steps aside for those
+  (still retrying everything else). `cc:`/`cx:` drive a CLI child, not
+  HTTP: not governed. Two caller-side timeouts in a row count as
+  overload; transport errors release neutrally; a plain 500 is neutral
+  unless the body says overloaded.
+- **Failover** (`providers/gateway_routing.py`): fallback candidates
+  (the model, `--fallback-model`, then the new `roles.<name>.fallbacks`)
+  are ordered by gateway health -- circuit-open hosts skipped,
+  least-cooled wins when all are open -- and the switch notice names
+  the health that caused it. `halo roles` warns when a fallback shares
+  the primary's host (the gateway throttles per machine).
+- **Lanes**: models carry a tier, `roles.lanes` maps roles to the
+  weakest tier they may use, and the standing rule (reviewer/judge/
+  tester never weaker than coder) is enforced by the roles validator
+  and the team-template loader.
+- **Surfaces**: `/gov` and `halo gov [host]` print every bucket and one
+  host's recent calls; the status bar shows `gov 4.0 rps / cooldown
+  12 s` while a bucket is below its ceiling; `halo doctor` shows each
+  gateway's health; a `governor_state_unpersisted` event lands in the
+  transcript when state stops persisting. New doc: `docs/GOVERNOR.md`.
+  The suite runs with the Governor off by default
+  (`HALO_GOVERNOR=0` from the shared test env); governor tests turn it
+  on explicitly.
+
 ### cc: route v2
 
 - **The stream-json control channel** (`agent/cc_control.py`, new):

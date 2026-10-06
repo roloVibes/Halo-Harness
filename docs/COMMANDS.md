@@ -1113,6 +1113,18 @@ Claude Code subscription    not set up                                not set up
 TypeSafe                    not set up                                not set up                                      -
 ```
 
+## `halo gov`
+
+```
+Usage: halo gov [host] [--json]
+```
+
+Halo 2.0.5 round 4: the Governor's gateway buckets -- rate vs ceiling,
+in-flight, waiting, cooldown per gateway host -- and, given a host
+argument, that host's recent calls (agent, role, status). Read-only.
+The TUI's `/gov [host]` prints the same table. See
+[GOVERNOR.md](GOVERNOR.md).
+
 ## `halo balances`
 
 ```

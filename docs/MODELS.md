@@ -13,6 +13,11 @@ exhaustive reference for every route's exact wire behavior.
 
 ## Model reference forms
 
+Every remote request below is paced per gateway host by the Governor
+(shared across every halo process on the machine, with failover between
+hosts) -- see [GOVERNOR.md](GOVERNOR.md). `cc:`/`cx:` drive a CLI child,
+not HTTP, so they are not governed.
+
 | Form | Example | Resolves to |
 |---|---|---|
 | `or:vendor/model` | `or:deepseek/deepseek-v3.2` | OpenRouter |
