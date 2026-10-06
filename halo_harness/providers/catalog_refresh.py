@@ -87,6 +87,11 @@ def catalog_ages(state_dir) -> "list[dict]":
     for spec in _specs():
         try:
             age = spec.age_fn(state_dir)
+            if isinstance(age, (int, float)) and age < 0:
+                # A file written in this same tick can read a hair "younger"
+                # than now on Windows (mtime and time.time() tick on different
+                # clocks); an age is never negative.
+                age = 0.0
         except Exception:
             age = None
         try:
