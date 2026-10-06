@@ -837,3 +837,60 @@ warnings (reviewer weaker than coder) and the live cost estimate against
 `budget` -> after the Governor (round 4) and team control (round 5), in the
 2.0.5 fix pass if time allows, else 2.0.6; export/import of a lineup with
 its bios as one folder -> 2.0.6.
+
+## ADDED 2026-10-06 ~09:30 (rolo, after using round 2 on his box): 2.0.5 round 2b "wizard and roles fixes" -- runs BEFORE the Governor resumes
+
+rolo: "The wizard, you need a toggle on and off the roles complete, not
+just legacy. When you are editing an agent bio, the top few chat prompts on
+the right side of the wizard screen get lost by other parts of the settings
+in the agent bio for the wizard. You can't pick from the available models
+when you are setting up the bio like I asked. Lots of bugs in that feature.
+There needs to be a standard template that just uses the model you pick as
+the default. Asking to make changes for role templates or agent bios in the
+session works well."
+
+A model review of v2.0.4 rolo ran on his own box (screenshot, 2026-10-06)
+adds, under "Weak spots": (1) `halo roles template load <name>` writes the
+role mappings but does NOT set `roles.enabled: true`, so the table sits
+inert until a hand edit of config.json; (2) no CLI toggle for
+`roles.enabled` at all, and no way to point the config at a table without
+`load` overwriting the mappings; (3) packaging: the README badge embedded
+in METADATA still says version 2.0.1, and the GitHub Releases page is
+empty (tags only) because the release script writes the CHANGELOG but
+nothing publishes release notes; (4) the "not yet enforced" team sections
+accumulate into the Governor round (known; round 5 team control).
+
+What the round does (brief `plans/briefs/2.0.5/round-2b-wizard-roles-fixes.md`):
+
+1. **Roles on/off is one switch**, everywhere: a toggle at the top of the
+   wizard's "Roles and lineup" step ("Roles: on / off"), `halo roles on`
+   and `halo roles off`, `/roles on|off`; `halo roles` prints the state in
+   its first line; `halo roles template load` turns roles on and says so;
+   `halo teams use <name>` is the documented non-overwriting way to point
+   at a lineup.
+2. **A shipped `standard` lineup**: every role resolves to the session's
+   default model (the one picked in the Default model step) through a
+   `default` model reference resolved at run time, so changing the default
+   model moves every role with it. "Roles: off" means the standard lineup;
+   it is what a fresh install runs.
+3. **Bio editor layout**: the preview pane never covers or pushes out the
+   form's top rows; both panes scroll; verified by pilots at 80x24 and
+   120x40 where every field can be focused and is visible when focused.
+4. **Bio editor model picking**: a visible "Pick..." button beside the
+   preferred and fallback fields (Ctrl+P / Ctrl+F stay), the picker fed by
+   the same enumeration the Providers step produced (run it with progress
+   if it has not happened yet), the bio-needs filter never yielding an
+   empty list silently (falls back to all rows with one line saying why),
+   and the picked model written into the field immediately.
+5. **Bug sweep** of the Agents step, bio editor and lineup editor by
+   driving the whole wizard flow in pilots at both sizes, fixing what
+   breaks, one line per fix in the hand-back.
+6. **Packaging**: `scripts/release.py` updates the README version badge
+   and publishes a GitHub release whose notes are the CHANGELOG section
+   (through the `gh` CLI when present, else the REST API with the git
+   credential token; `--no-github-release` skips it; dry run prints it);
+   a test pins the badge to `__version__`.
+
+Order from here: round 2b -> round 4b (cc: steer on Linux, partial work in
+the stash) -> round 4 the Governor (partial work in the same stash) ->
+round 5 team control -> review -> tag.
