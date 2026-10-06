@@ -891,6 +891,50 @@ What the round does (brief `plans/briefs/2.0.5/round-2b-wizard-roles-fixes.md`):
    credential token; `--no-github-release` skips it; dry run prints it);
    a test pins the badge to `__version__`.
 
-Order from here: round 2b -> round 4b (cc: steer on Linux, partial work in
-the stash) -> round 4 the Governor (partial work in the same stash) ->
-round 5 team control -> review -> tag.
+Order from here: round 2b -> round 2c (below) -> round 4b (cc: steer on
+Linux, partial work in the stash) -> round 4 the Governor (partial work in
+the same stash) -> round 5 team control -> review -> tag.
+
+## ADDED 2026-10-06 ~10:05 (rolo): 2.0.5 round 2c "wizard interaction model" -- the wizard stops being clunky
+
+rolo: "I think that the wizard is getting a little clunky and confusing. We
+really need to make that a lot more intuitive and clear when you're using
+the wizard, period. It's sometimes confusing when something is highlighted
+and then you gotta click through for the next, like even the selection part
+of it in some parts requires you to highlight something in the box and go
+down, tab, and say yes, this one, I want to edit this or make changes to
+this highlighted one. The wizard can be a lot smoother and less clunky.
+Come up with ideas to fix that in these updates."
+
+The interaction model (one page, `docs/WIZARD.md`, every wizard screen
+follows it, each rule pinned by a pilot):
+
+1. Highlight is selection for one-of choices (default model, permission
+   mode, theme, lineup): the highlighted row is the chosen one, marked
+   with a check; Next moves on; no confirm button.
+2. Enter does the obvious thing on a highlighted row: open or edit a bio
+   or lineup, pick a picker row, use the highlighted lineup. Space toggles
+   on/off rows. Buttons stay for the mouse, never the only path.
+3. Autocomplete inside model fields: typing filters the enumerated list in
+   a dropdown under the field, Enter picks; Ctrl+P still opens the full
+   picker with the price, context and speed columns.
+4. A step rail across the top (Providers, Local models, Default model,
+   Permissions, Theme, Agents, Roles and lineup, Orgs, Summary): current
+   step highlighted, done steps ticked; Ctrl+Left / Ctrl+Right are Back
+   and Next from anywhere.
+5. Quick setup by default: keys -> default model -> done, which activates
+   the `standard` lineup with roles off; "Full setup" reveals Agents,
+   Roles and lineup, Orgs and Theme.
+6. One sentence at the top of each step: what it decides and the current
+   choice ("Default model: <ref>. Enter to change.").
+7. Focus lands on the content (the list or the first field) when a screen
+   opens, never on a button; the focused control and the highlighted row
+   look different.
+8. At most two levels deep (list, then editor). Save shows a one-line
+   toast; errors stay inline; Escape is always Back and never destructive.
+9. The footer reads the same on every screen: Enter choose, Space toggle,
+   Ctrl+N new, Ctrl+E edit, Del delete, Ctrl+S save, Esc back.
+10. The Summary step has "Change" jumps back into each step.
+
+Round 2b's sweep applies rules 1, 2 and 7 immediately; round 2c applies
+the rest and re-checks all ten with pilots at 80x24 and 120x40.
