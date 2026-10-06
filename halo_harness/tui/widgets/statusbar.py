@@ -137,6 +137,13 @@ class StatusBar(Static):
         # "blank, not a placeholder" convention as every other optional
         # segment here. Pushed from `message_end` (`CostMeter.saved_usd`).
         self.saved_usd: "float | None" = None
+        # Halo 2.0.5 round 1 (brief item H6, cc: route v2 "Cost line"):
+        # a cc: session's Claude Code subscription turns -- Claude
+        # Code's own ESTIMATE, never real spend, so it is its OWN chip
+        # rather than folded into `cost_usd` above. Same "blank, not a
+        # placeholder" convention: 0/None omits the segment entirely.
+        self.subscription_turns: int = 0
+        self.subscription_cost_usd: "float | None" = None
         self.mode = "default"
         self.cwd = cwd
         self.branch = branch
@@ -202,6 +209,12 @@ class StatusBar(Static):
         # session never blanks out an earlier real reading.
         if data.get("saved_usd") is not None:
             self.saved_usd = data["saved_usd"]
+        # Halo 2.0.5 round 1 (brief item H6): same "absent/None means
+        # unchanged, never blanks a real reading" rule as saved_usd.
+        if data.get("subscription_turns") is not None:
+            self.subscription_turns = data["subscription_turns"]
+        if data.get("subscription_cost_usd") is not None:
+            self.subscription_cost_usd = data["subscription_cost_usd"]
         # 1.0.1 hotfix 14: keep the raw tokens/limit (not just the derived
         # percentage) so `_refresh_display` can render "ctx 12k/1M 1%" --
         # each only overwrites its own attribute when THIS event actually
@@ -447,6 +460,12 @@ class StatusBar(Static):
         # changing its signature would ripple into that unrelated caller).
         if self.saved_usd:
             cost_str = f"{cost_str} · saved ${self.saved_usd:.4f}"
+        # Halo 2.0.5 round 1 (brief item H6): "subscription turns", the
+        # child's own figure labelled an estimate -- NEVER folded into
+        # cost_str's own $ figure, which stays real per-token spend only.
+        if self.subscription_turns:
+            est = f"~${self.subscription_cost_usd:.4f}" if self.subscription_cost_usd else "estimate n/a"
+            cost_str = f"{cost_str} · {self.subscription_turns} subscription turn(s) ({est} est)"
         # Round 5e: a short, never-dropped "offline" tag, same segment
         # style as effort_str below -- blank (no segment) when offline mode
         # is off, the ordinary case.

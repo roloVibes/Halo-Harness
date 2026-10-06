@@ -116,11 +116,24 @@ def build_cc_argv(*, model: str, session_id: str, resume: bool, mcp_config: dict
     `effort` forwards halo's own `--effort`/`/effort` the same
     way. `--json-schema` is NOT forwarded: `output.py`'s sinks already
     apply `_try_structured_output` to whatever final text ANY route
-    (cc: included) produces, so there is nothing cc:-specific to wire."""
+    (cc: included) produces, so there is nothing cc:-specific to wire.
+
+    Halo 2.0.5 round 1 (cc: route v2): `--include-hook-events` is now
+    always added too -- see the `argv` list below for why it is a no-op
+    today (every native hook is disabled) and forward-compatible only."""
     argv = resolve_claude_launch_argv() + [
         "-p", "--model", model,
         "--output-format", "stream-json", "--input-format", "stream-json",
         "--verbose", "--include-partial-messages", "--replay-user-messages",
+        # Halo 2.0.5 round 1 (cc: route v2, brief item H3): requested for
+        # forward-compatibility -- live-verified against 2.1.291 that
+        # with `--settings disableAllHooks: true` (below) this adds
+        # NOTHING today (there are no user hook scripts left to surface
+        # a PreCompact/PostCompact *callback* for); the compaction signal
+        # this harness actually reads is the plain `system.status`
+        # `compacting`/`compact_result` lines (see `agent/cc_control.
+        # forward_compact`), which fire regardless of this flag.
+        "--include-hook-events",
         "--tools", tools_flag, "--strict-mcp-config", "--mcp-config", json.dumps(mcp_config),
         "--settings", json.dumps({"disableAllHooks": True}),
         "--permission-mode", permission_mode,
@@ -213,7 +226,20 @@ class ClaudeCodeProcess:
         {"type":"base64","media_type":...,"data":...}}` shape) -- claude's
         own `--input-format stream-json` user-message content accepts the
         same shapes the Messages API does, so no translation is needed."""
-        line = json.dumps({"type": "user", "message": {"role": "user", "content": blocks}}, ensure_ascii=False)
+        self._write_line(json.dumps({"type": "user", "message": {"role": "user", "content": blocks}},
+                                     ensure_ascii=False))
+
+    def send_control_request(self, request_id: str, request: dict) -> None:
+        """Halo 2.0.5 round 1 (cc: route v2): the stream-json control
+        channel's own request envelope -- `{"type":"control_request",
+        "request_id":..., "request":{"subtype":...}}`, live-verified
+        against 2.1.291 (`docs/harness/CC-CONTROL-CHANNEL.md`). Used by
+        `agent/cc_control.py`, never built inline elsewhere, so every
+        caller sends the exact same shape."""
+        self._write_line(json.dumps({"type": "control_request", "request_id": request_id, "request": request},
+                                     ensure_ascii=False))
+
+    def _write_line(self, line: str) -> None:
         with self._stdin_lock:
             stdin = self._proc.stdin
             if stdin is None or stdin.closed:

@@ -50,6 +50,13 @@ def _since_arg(value: str) -> str:
 def _merge_stats(total: dict, part: dict) -> None:
     total["turns"] += part["turns"]
     total["total_cost_usd"] += part["total_cost_usd"]
+    # Halo 2.0.5 round 1 (brief item H6, "Cost line"): subscription
+    # (cc:) turns -- Claude Code's own estimate, kept OUT of
+    # total_cost_usd above, same as controller.compute_session_stats
+    # itself already keeps them out of a single session's own figure.
+    total["subscription_turns"] = total.get("subscription_turns", 0) + part.get("subscription_turns", 0)
+    total["subscription_cost_usd"] = (total.get("subscription_cost_usd", 0.0)
+                                       + part.get("subscription_cost_usd", 0.0))
     for model, bucket in part["per_model"].items():
         dest = total["per_model"].setdefault(model, {
             "input_tokens": 0, "output_tokens": 0,
@@ -57,6 +64,7 @@ def _merge_stats(total: dict, part: dict) -> None:
             # compute_session_stats itself now tracks -- see its own comment.
             "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
             "cost_usd": 0.0, "calls": 0,
+            "subscription_cost_usd": 0.0, "subscription_turns": 0,
         })
         dest["input_tokens"] += bucket["input_tokens"]
         dest["output_tokens"] += bucket["output_tokens"]
@@ -64,6 +72,8 @@ def _merge_stats(total: dict, part: dict) -> None:
         dest["cache_creation_input_tokens"] += bucket.get("cache_creation_input_tokens", 0)
         dest["cost_usd"] += bucket["cost_usd"]
         dest["calls"] += bucket["calls"]
+        dest["subscription_cost_usd"] += bucket.get("subscription_cost_usd", 0.0)
+        dest["subscription_turns"] += bucket.get("subscription_turns", 0)
     for name, n in part["tool_counts"].items():
         total["tool_counts"][name] = total["tool_counts"].get(name, 0) + n
 
@@ -489,7 +499,8 @@ def cmd_stats(argv: list) -> int:
     cwd = Path(args.cwd).resolve() if args.cwd else Path.cwd()
     files = _session_jsonl_files(cwd, all_projects=args.all_projects, session_id=args.session)
 
-    total = {"turns": 0, "total_cost_usd": 0.0, "per_model": {}, "tool_counts": {}}
+    total = {"turns": 0, "total_cost_usd": 0.0, "subscription_turns": 0, "subscription_cost_usd": 0.0,
+             "per_model": {}, "tool_counts": {}}
     for path in files:
         _merge_stats(total, compute_session_stats(_read_nodes(path)))
 
@@ -501,12 +512,21 @@ def cmd_stats(argv: list) -> int:
     print(f"halo stats ({scope}, {len(files)} session(s)):")
     print(f"  Turns: {total['turns']}")
     print(f"  Total cost: ${total['total_cost_usd']:.4f}")
+    # Halo 2.0.5 round 1 (brief item H6): never folded into "Total cost"
+    # above -- Claude Code's own estimate, not real per-token spend.
+    if total["subscription_turns"]:
+        print(f"  Subscription turns (cc:): {total['subscription_turns']} "
+              f"(~${total['subscription_cost_usd']:.4f} est, Claude Code's own figure)")
     if total["per_model"]:
         print("  Per model:")
         for model, bucket in sorted(total["per_model"].items()):
+            cost_part = f"${bucket['cost_usd']:.4f}"
+            if bucket.get("subscription_turns"):
+                cost_part = (f"{cost_part} + {bucket['subscription_turns']} subscription turn(s) "
+                             f"(~${bucket['subscription_cost_usd']:.4f} est)")
             print(f"    {model}: {bucket['calls']} call(s), "
                   f"{bucket['input_tokens']}in/{bucket['output_tokens']}out tok"
-                  f"{format_cache_tokens_suffix(bucket)}, ${bucket['cost_usd']:.4f}")
+                  f"{format_cache_tokens_suffix(bucket)}, {cost_part}")
     if total["tool_counts"]:
         print("  Tool calls:")
         for name, n in sorted(total["tool_counts"].items()):

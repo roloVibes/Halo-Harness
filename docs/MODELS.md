@@ -1807,10 +1807,15 @@ start-of-session, so a Databricks turn on an endpoint models.dev prices
 gets a real computed running cost through the identical fallback formula
 above -- and still shows `n/a` (falls back to token totals in the status
 bar) whenever no models.dev price exists for that endpoint, which remains
-the common case. A `cc:` row's "cost" is Claude Code's own cumulative
-`total_cost_usd`, delta'd since that subprocess's previous turn -- an
-estimate, never real per-token billing, and never counted toward
-`--max-budget-usd`.
+the common case. Halo 2.0.5 round 1 (cc: route v2, `docs/harness/CC-
+CONTROL-CHANNEL.md` has the full detail): a `cc:` turn is a **subscription
+turn**, tracked SEPARATELY from this section's own real per-token figures
+-- `CostMeter.subscription_turns`/`subscription_cost_usd`, never
+`total_usd`. It shows as its own line/segment everywhere cost shows up
+(`/cost`, `/stats`, `halo stats`, the status bar): Claude Code's own
+cumulative `total_cost_usd`, delta'd since that subprocess's previous
+turn, labelled an estimate -- never real per-token billing, and never
+counted toward `--max-budget-usd`.
 
 **Listed (not live) context/output/price columns** -- what `/model`,
 `/models`, `halo models`, and `init`'s own picker show per row

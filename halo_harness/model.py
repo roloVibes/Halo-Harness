@@ -953,6 +953,19 @@ class CostMeter:
         self.saved_price_in: Optional[float] = None
         self.saved_price_out: Optional[float] = None
         self.saved_price_source: Optional[str] = None
+        # Halo 2.0.5 round 1 (cc: route v2, brief item H6/"Cost line"):
+        # `cc:` usage is a Claude Code SUBSCRIPTION turn, never per-token
+        # spend -- it used to flow through `add_usage("cc", ...)` straight
+        # into `total_usd`/`turns`, silently counting Claude Code's own
+        # cumulative-delta estimate as if it were real billed money (and
+        # toward `--max-budget-usd`, which a subscription has no concept
+        # of). These two fields are the SEPARATE running total every
+        # display surface (`/cost`, `/stats`, the status bar, the session
+        # summary) reads instead, so `total_usd`/`has_cost_data` stay an
+        # honest "real spend" figure even in a session that also used
+        # cc: models.
+        self.subscription_turns: int = 0
+        self.subscription_cost_usd: float = 0.0
 
     def _accumulate_tokens(self, usage) -> None:
         if not isinstance(usage, dict):
@@ -1018,6 +1031,35 @@ class CostMeter:
             self.total_usd += fallback
             return fallback
         self.has_cost_data = False
+        return None
+
+    def add_subscription_usage(self, usage: Optional[dict]) -> Optional[float]:
+        """Halo 2.0.5 round 1 (cc: route v2, brief item H6): the `cc:`
+        counterpart of `add_usage`, called instead of it (never alongside
+        it) for a `cc:`-route turn. Reuses the EXACT same cumulative-delta
+        handling the caller (`agent/cc_runtime.py`'s result handler)
+        already computes (Claude Code's own `total_cost_usd` is
+        cumulative per PROCESS, so the caller passes `usage["cost"]` as
+        the already-delta'd figure) -- but accumulates into
+        `subscription_turns`/`subscription_cost_usd` INSTEAD of `turns`/
+        `total_usd`, and never touches `has_cost_data` -- a session with
+        ONLY cc: turns correctly reports `total_usd == 0.0` with
+        `has_cost_data` still True: real per-token spend for a
+        subscription turn genuinely IS zero (already paid for by the
+        subscription), a known fact, not an unknown price ("n/a" stays
+        reserved for "this provider's price is unknown", a different
+        claim) -- the separate subscription line is what tells the
+        rest of the story. Returns this turn's own estimated cost (or
+        None), the same per-call contract `add_usage` has, for a caller
+        that still wants the per-turn number (the session log's own
+        `usage` node)."""
+        self.subscription_turns += 1
+        self._accumulate_tokens(usage)
+        cost = usage.get("cost") if isinstance(usage, dict) else None
+        if isinstance(cost, (int, float)) and not isinstance(cost, bool):
+            cost = float(cost)
+            self.subscription_cost_usd += cost
+            return cost
         return None
 
     def add_child_total(self, *, cost_usd: Optional[float], has_cost_data: bool, turns: int = 0) -> None:

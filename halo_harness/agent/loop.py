@@ -4285,12 +4285,16 @@ class Session:
         Claude Code auto-compacts its own context; this is the documented
         no-op (README: "`/compact` prints a note")."""
         if self.model_ref.provider == "cc":
-            yield events.compaction(
-                phase="failed", trigger=trigger, turn=turn_no,
-                reason="halo's own compaction is a no-op for cc: sessions -- Claude Code "
-                       "manages its own context/compaction internally.",
-            )
-            return False
+            # Halo 2.0.5 round 1 (brief item H3, cc: route v2): `/compact`
+            # now forwards to the child as a real user-message slash
+            # command instead of this unconditional no-op -- see
+            # `agent/cc_control.forward_compact`'s own docstring for the
+            # live-verified wire shape and why only `trigger == "manual"`
+            # can ever reach here for a cc: session.
+            from halo_harness.agent import cc_runtime
+            compacted = yield from cc_runtime.forward_compact(self, trigger=trigger, turn_no=turn_no,
+                                                                 custom_instructions=custom_instructions)
+            return compacted
         if self.model_ref.provider == "codex":
             # Round 5i part 2: same reasoning as the cc: branch just above
             # -- a cx: turn's model-visible context is whatever Codex's own
@@ -6737,8 +6741,18 @@ class Session:
             model_ref.provider != "cc" or model_ref.model != self.model_ref.model
         ):
             from halo_harness.agent import cc_runtime
-            cc_runtime.close_cc(self)
-            self._cc_state = None
+            # Halo 2.0.5 round 1 (brief item H2, cc: route v2): a cc:->cc:
+            # MODEL change tries a LIVE swap first -- `control_request`
+            # `set_model`, the SAME subprocess/conversation kept exactly
+            # as-is, no --resume restart -- before falling back to this
+            # unchanged close+restart path. `switch_model_live` only ever
+            # returns True for that same-provider case, so an actual
+            # cc:->other PROVIDER switch still closes unconditionally,
+            # same as before this round.
+            swapped = model_ref.provider == "cc" and cc_runtime.switch_model_live(self, model_ref.model)
+            if not swapped:
+                cc_runtime.close_cc(self)
+                self._cc_state = None
         self.model_ref = model_ref
         self.model_profile = model_profile
         # pass-B finding 2 (critical): this used to be `if creds is not
@@ -6930,6 +6944,12 @@ class Session:
             # same "never blanks a real reading" contract message_end's own
             # saved_usd already follows.
             saved_usd=(self.cost_meter.saved_usd if self.cost_meter.saved_turns else None),
+            # Halo 2.0.5 round 1 (brief item H6): same "None until there's
+            # something to show" contract as saved_usd just above, for a
+            # session that used a cc: model.
+            subscription_turns=(self.cost_meter.subscription_turns or None),
+            subscription_cost_usd=(self.cost_meter.subscription_cost_usd
+                                    if self.cost_meter.subscription_turns else None),
         )
 
     @property

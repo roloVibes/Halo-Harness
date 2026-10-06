@@ -8,6 +8,56 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.0.5] - unreleased
+
+### cc: route v2
+
+- **The stream-json control channel** (`agent/cc_control.py`, new):
+  `control_request`/`control_response` wire shapes live-verified against
+  the installed claude 2.1.291 (`docs/harness/CC-CONTROL-CHANNEL.md` has
+  the full research, including the exact probes run and what they found).
+  Detected once per process from `system.init`'s own `capabilities` list,
+  cached on the route.
+- **Steer cuts cleanly instead of queuing.** A mid-turn steer now sends
+  `control_request` `interrupt` and waits for its own `control_response`
+  before sending the steer text as the next message -- the same cut-then-
+  continue shape every other route's own steer already has. v1's "queued
+  for Claude Code" behaviour is kept only as the fallback for an installed
+  version old enough to lack the channel. A real, independently-useful
+  fix landed alongside this: `turn_is_error` now always reflects the MOST
+  RECENT result in a multi-result turn, never an accumulate-and-stick flag
+  that could poison a later, successful result with an earlier one's
+  error state.
+- **Model changes without a restart.** A `cc:`->`cc:` model change tries a
+  live `set_model` control request first -- the SAME subprocess and
+  conversation kept exactly as they were -- before falling back to the
+  existing close-and-`--resume` restart path on anything older or
+  unsupported. `set_permission_mode` is implemented and conformance-
+  tested but intentionally never wired to a live behaviour change (it
+  would re-enable Claude Code's own permission gating, which this route's
+  bridge design deliberately keeps out of the loop).
+- **`/compact` forwards to Claude Code for real.** Answered locally by
+  the child (no model call needed when there isn't enough to summarize),
+  surfaced on halo's transcript the same way a native route's own
+  compaction is, with Claude Code's own summary when it provides one.
+  Halo's own session log is never rewritten by this.
+- **Cost line: subscription turns, never spend.** A `cc:` turn now
+  accumulates into `CostMeter.subscription_turns`/`subscription_cost_usd`
+  instead of `total_usd` -- shown as its own line/segment in `/cost`,
+  `/stats`, `halo stats`, and the status bar, explicitly labelled an
+  estimate, never counted toward `--max-budget-usd`.
+- **Researched, not shipped**: resuming a halo-native transcript as a
+  `cc:` child's OWN history (`--resume` against a transcript halo wrote)
+  would require halo to write one of Claude Code's own session files,
+  which this project's hard rules forbid -- the capped plain-text summary
+  this route has always used is kept, documented, unchanged.
+- Tests: `tests/helpers/fake_claude_cc.py` gained the control channel
+  behind `FAKE_CLAUDE_CC_CONTROL` (default off -- every pre-existing cc:
+  test is unaffected); `tests/test_cc_session.py` gained conformance
+  coverage for every control message shape (request/response, unsupported
+  subtype, malformed response, child exit mid-request) plus the steer,
+  set_model, compaction, and cost-line behaviour above.
+
 ## [2.0.4] - 2026-10-06
 
 ### Tooling

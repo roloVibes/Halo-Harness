@@ -223,31 +223,51 @@ route. `doctor` shows "Claude subscription: logged in ... -- cc: models
 available" when this is usable; `halo models --cc` lists all nine
 names with their current targets and pricing.
 
-**Limitations of this v1**: a steer sent mid-turn is forwarded to Claude
-Code immediately, which queues it on its own terms rather than halo
-cutting the current reply the way it does for every other route -- Claude
-Code may fold it into the reply already in progress, or answer it as its
-own follow-up turn once that one finishes; either way halo waits
-for however many turns it actually takes and shows "queued for Claude
-Code" the moment it's sent. Claude Code applies its own auto-compaction to
-a `cc:` conversation; halo's own `/compact` is a real no-op there (a
-note explains why, rather than the confusing failure earlier builds gave).
-`stats --models`/`/cost` show a `cc:` row's cost as Claude Code's own
-estimate, logged as the delta since that same `claude` process's previous
-turn (its own `total_cost_usd` is cumulative for the whole process) -- a
-subscription isn't billed per token, so this is never exact spend the way
-every other route's real per-token pricing is, and it never counts toward
-`--max-budget-usd`. Switching models into `cc:` mid-session (or resuming a
-process that idled on another route for a while) hands the live/new
-subprocess the prior conversation as one capped plain-text summary message
-rather than true native history; `/clear`, `/fork` and a `cc:` model
-change each start (or branch, for `/fork`) a genuinely new Claude Code
-conversation instead. Claude Code's own tool-call loop drives `cc:`, so a
-sub-agent's ask now gets a real, answerable card (live-forwarded from the
-child) the same way a native tool call's does -- but a bridged call
-inherits the harness's own loop-breaker the same way, so an unusually
-repetitive bridged tool-call pattern can be denied/end the call the same
-way it would on any other route.
+**v2 (2.0.5): the stream-json control channel.** A steer sent mid-turn now
+sends `control_request` `interrupt` first and waits for its own
+`control_response` before sending the steer text as the next message --
+Claude Code cuts the reply already in progress cleanly, the same shape
+every other route's own steer has, instead of queuing behind it; v1's
+"queued for Claude Code" wording is kept only as the fallback for an
+installed version old enough to lack the channel (detected once per
+process, from `system.init`'s own `capabilities` list). A `cc:`->`cc:`
+model change tries a live `set_model` control request first -- the SAME
+subprocess and conversation kept exactly as they were, no restart --
+before falling back to v1's close-and-`--resume` path on anything older
+or unsupported. `/compact` now forwards to Claude Code as a real
+slash command instead of being a no-op: Claude Code answers it locally
+(no model call needed when there isn't enough to summarize yet) and
+halo's transcript shows the same compacting/done/failed line a native
+route's own compaction shows, with Claude Code's own summary when it
+provides one -- halo's own log is never rewritten by this (there is
+nothing to splice: a `cc:` session's log is a complete, passive record,
+never replayed to the child the way `derive_request` replays one for
+every other route). `stats`/`/cost`/the status bar show a `cc:` turn as
+a **subscription turn**, counted and estimated SEPARATELY from real
+spend -- Claude Code's own cumulative-delta figure, explicitly labelled
+an estimate, never folded into `total_cost_usd` and never counted toward
+`--max-budget-usd`. See `docs/harness/CC-CONTROL-CHANNEL.md` for the
+live-verified wire shapes and exactly what's still unverified.
+
+**Still true in v2** (documented limitations that remain, with reasons):
+switching models INTO `cc:` mid-session (or resuming a process that idled
+on another route for a while) still hands the live/new subprocess the
+prior conversation as one capped plain-text summary rather than true
+native history -- doing otherwise would mean halo writing one of Claude
+Code's own session files, which the harness's own rules forbid (see the
+research doc's own section on this); `/clear`, `/fork`, and a `cc:`-away
+model change each still start (or branch, for `/fork`) a genuinely new
+Claude Code conversation. `set_permission_mode` is implemented and
+tested but never actually switches the child's live permission mode --
+this harness's `cc:` child always runs `bypassPermissions` by design
+(halo's own bridge is what gates every tool call), and using
+`set_permission_mode` to change that would re-enable exactly the gating
+the harness exists to keep out of the loop. Claude Code's own tool-call
+loop still drives `cc:`, so a sub-agent's ask gets a real, answerable
+card (live-forwarded from the child) the same way a native tool call's
+does -- but a bridged call still inherits the harness's own loop-breaker
+the same way, so an unusually repetitive bridged tool-call pattern can
+still be denied/end the call the same way it would on any other route.
 
 ### Databricks at work
 
