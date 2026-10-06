@@ -80,7 +80,7 @@ def test_probe_huggingface_models_nested_provider_fallback(ctx: Ctx):
     try:
         rows = probe_huggingface_models(mock.base_url, "tok")
         ctx.check(f"context_length recovered from the nested providers list, got {rows[0]}",
-                  rows[0].get("context_length") == 8192 and rows[0].get("pricing", {}).get("prompt") == 1e-06)
+                  rows[0].get("context_length") == 8192 and rows[0].get("pricing", {}).get("prompt") == 1.0)  # "0.000001"/token -> $1/M
     finally:
         mock.stop()
 
@@ -94,13 +94,13 @@ _TWO_PROVIDER_ENTRY = {
     "id": "org/two-provider-model", "object": "model", "owned_by": "org",
     "providers": [
         {"provider": "expensive-co", "status": "live", "context_length": 32768,
-         "pricing": {"input": 0.000005, "output": 0.000015}, "is_free": False,
+         "pricing": {"input": 0.9, "output": 4.0}, "is_free": False,
          "supports_tools": True, "first_token_latency_ms": 900, "throughput": 20},
         {"provider": "cheap-co", "status": "live", "context_length": 131072,
-         "pricing": {"input": 0.0000002, "output": 0.0000008}, "is_free": False,
+         "pricing": {"input": 0.2, "output": 0.8}, "is_free": False,
          "supports_tools": True, "first_token_latency_ms": 300, "throughput": 80},
         {"provider": "down-co", "status": "error", "context_length": 999999,
-         "pricing": {"input": 0.00000001, "output": 0.00000001}},
+         "pricing": {"input": 0.01, "output": 0.01}},
     ],
 }
 

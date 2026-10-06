@@ -72,8 +72,19 @@ def _normalize_provider_row(row) -> "Optional[dict]":
         out["context_length"] = row["context_length"]
     pricing = row.get("pricing")
     if isinstance(pricing, dict):
-        price_in = _to_float(pricing.get("input")) if pricing.get("input") is not None else _to_float(pricing.get("prompt"))
-        price_out = _to_float(pricing.get("output")) if pricing.get("output") is not None else _to_float(pricing.get("completion"))
+        # Unit, measured live 2026-10-05: the router's provider rows carry USD
+        # PER MILLION tokens as numbers ({"input": 0.42, "output": 3.0}); only
+        # the older OpenRouter-style form is a per-token STRING ("0.0000002").
+        # Everything stored in the cache is $/M, so the picker never converts.
+        def _per_m(raw):
+            val = _to_float(raw)
+            if val is None:
+                return None
+            return val * 1_000_000 if isinstance(raw, str) else val
+        raw_in = pricing.get("input") if pricing.get("input") is not None else pricing.get("prompt")
+        raw_out = pricing.get("output") if pricing.get("output") is not None else pricing.get("completion")
+        price_in = _per_m(raw_in)
+        price_out = _per_m(raw_out)
         if price_in is not None or price_out is not None:
             out["pricing"] = {}
             if price_in is not None:
@@ -295,12 +306,13 @@ def hf_picker_fields(entry: dict, *, pinned_provider: "Optional[str]" = None) ->
     if isinstance(source.get("context_length"), int):
         out["context_tokens"] = source["context_length"]
     pricing = source.get("pricing") if isinstance(source.get("pricing"), dict) else {}
+    # The cache stores $/M (see _normalize_provider_row); no conversion here.
     price_in = _to_float(pricing.get("prompt"))
     price_out = _to_float(pricing.get("completion"))
     if price_in is not None:
-        out["price_in_per_m"] = price_in * 1_000_000
+        out["price_in_per_m"] = price_in
     if price_out is not None:
-        out["price_out_per_m"] = price_out * 1_000_000
+        out["price_out_per_m"] = price_out
     if source.get("is_free") is True:
         out["price_in_per_m"] = 0.0
         out["price_out_per_m"] = 0.0
