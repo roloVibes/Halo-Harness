@@ -126,3 +126,11 @@ declaration files (YAML) behind roles and orgs" and build it in this round:
    migration, the CLI and `/agents`. Docs: docs/AGENTS.md (new) describing
    every field with one example file, linked from CONFIG.md and
    SLASH-COMMANDS.md; CHANGELOG bullets.
+
+## Added 2026-10-06 ~00:25 (rolo): two layers, bios and team templates
+
+Deliverables 6-8 follow ROADMAP section "ADDED 2026-10-06 ~00:25 (rolo):
+agent BIOS and team TEMPLATES are two layers": agent bios (who an agent is)
+and team templates (which agent fills which role or position), with the
+CLIs `halo agents ...` and `halo teams ...`, `/agents` and `/teams`, the
+active-team config key, the migration, and docs/AGENTS.md covering both.

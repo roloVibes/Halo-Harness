@@ -706,3 +706,28 @@ fact attribution in `halo stats --experiential`. Live facts measured
 $0.0000376; `space-bunny-alpha` returned 502 to every body shape that
 evening (all rungs down), so a 502 must read as "every route failed, try
 again later", never as a Halo error.
+
+## ADDED 2026-10-06 ~00:25 (rolo): agent BIOS and team TEMPLATES are two layers
+
+rolo: "agent names should be their own file ... `<agent_name>.yaml` that has
+those sections describing what it does ... a user can create any agent bio.
+Template.yaml calls which one of those agent names and assigns them roles."
+So the agent-file design (section "ADDED 2026-10-05 ~22:45") splits:
+
+- Agent bios: `~/.halo/agents/<agent_name>.yaml` (user), `.halo/agents/`
+  (project), shipped starters `halo_harness/templates/agents/*.yaml`; the
+  sections from the earlier design minus any role or position; `extends`
+  between bios. Who the agent is and what it does.
+- Team templates (lineups): `~/.halo/teams/<template>.yaml`, `.halo/teams/`,
+  shipped `halo_harness/templates/teams/*.yaml` (local-first, balanced,
+  quality, an org starter). `roles: {main: <agent>, subagent: ...,
+  researcher: ..., judge: ..., reviewer: ...}` and `positions: [{title,
+  agent, reports_to, delegates_to}]`, with per-assignment overrides.
+  Precedence: template assignment -> bio -> CLI flags.
+- Config: `team: <template>` (+ overrides) is the active lineup; the wizard's
+  roles step and Auto tab pick a template; the role editor assigns an agent
+  per role (autocomplete over bio names); the org editor assigns agents to
+  positions; bios' models use the enumerated pick list. `halo agents ...`
+  and `halo teams ...` CLIs, `/agents` and `/teams`, `halo doctor --agents`
+  validates bios and the active template. Legacy role table -> a generated
+  `migrated` template + one bio per distinct model, announced once.
