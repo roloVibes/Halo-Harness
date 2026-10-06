@@ -76,7 +76,7 @@ is verified on Windows and the Kali VM and pushed as it lands.
 - [x] round 3 (2886397) learned gateway rules (providers/learned_params.py, `halo rules`, `/rules`, `--forget-rules`, `doctor --work --probe-all --learn`) + the legacy env file no longer read -- shipped 2026-10-06 ~07:40
 - [x] round 2b (9d8eb5a) wizard and roles fixes (rolo 2026-10-06 ~09:30 + the v2.0.4 model review's weak spots: roles on/off everywhere, the `standard` lineup on the default model, bio editor layout and model picking, bug sweep, README badge + GitHub release in the release script) -- shipped 2026-10-06 ~11:25; Ctrl+P root cause = Textual command-palette binding
 - [ ] round 2c wizard interaction model (rolo 2026-10-06 ~10:05 + ~10:15 one Team step = lineups + agents side by side with the custom-roles switch on top: highlight is selection, Enter acts, autocomplete in model fields, step rail, quick/full setup, one-sentence headers, two levels deep, uniform footer, Summary jumps; `docs/WIZARD.md`) -- after 2b
-- [ ] round 4b cc: steer on Linux (round-1 regression; the stash held no cc: changes) -- worker started ~11:50 in parallel with 2c
+- [x] round 4b (9ec1fdd) cc: steer on Linux -- a timing race (steer registered after the control-channel wait), not a platform difference; WSL 57/0 five runs -- shipped 2026-10-06 ~12:20
 - [ ] round 4 the Governor (port + REVIEW items, http.py choke point, failover, lanes, `/gov`, doctor health)
 - [ ] round 5 team control (lineup sections enforced, agent hooks, schedule, triggers)
 - [ ] review covering 2.0.4 (`04ae6e4..b081db8`) and 2.0.5, fix pass, live check, VM suites, `scripts/release.py 2.0.5 --remote <user@host> --identity <key>`
