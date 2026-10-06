@@ -89,10 +89,16 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
 - 2.0.5 control pack, briefs in `plans/briefs/2.0.5/`, order in STATUS.md:
   **round 1 `cc:` route v2 SHIPPED (38852a2)**; CI fix for a literal
   version pin (6d91bc8, see CYCLE.md); **round 2 wizard: agent bios and
-  lineups IN FLIGHT** when this was written (one worker on the build host;
-  its files: `tui/dialogs/agents_step.py`, `agent_bio_editor.py`,
-  `lineup_editor.py` (new), `init_wizard.py`, `agents_yaml.py`,
-  `teams_yaml.py`, tests, docs). Rounds 3-5 not started.
+  lineups SHIPPED (924bad0)**; **round 3 learned gateway rules + the legacy
+  env-file drop IN FLIGHT** when this was written (one worker on the build
+  host, started ~06:55; expected files: `providers/learned_rules.py`, a new
+  `providers/learned_params.py`, `providers/request.py`, `stream.py`,
+  `http.py`, `config/paths.py`, `providers/config.py`, `doctor.py`, a new
+  `rules_cli.py`, tests, docs/CONFIG.md, docs/COMMANDS.md). Rounds 4-5
+  not started. Round 2 left one wiring for round 4:
+  `teams_yaml.member_system_context_addition` (the lineup's `about:` text
+  as "How this team works") is built and unit-tested but not yet called
+  from the live sub-agent session builder.
 - The repeatable cycle (brief -> one worker -> verify -> commit -> CI ->
   live check -> release script) is `plans/CYCLE.md`; every brief is under
   `plans/briefs/`, sanitized (`<repo>`, `<scratchpad>`, `<you>`,
@@ -101,19 +107,19 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
 
 ### How to pick it back up, step by step
 
-1. `git status --short`. A dirty tree with the round-2 files above is the
-   round-2 worker's work in progress, not damage. Run the brief's
+1. `git status --short`. A dirty tree with the in-flight round's files
+   above is that worker's work in progress, not damage. Run the brief's
    verification list (`python tests/test_<touched>.py` for each touched
    test module, `python test_bridge.py`, `python tests/test_privacy_scan.py`,
    `python tests/test_invariants.py`, `python tests/test_docs_commands.py`,
    `python tests/test_docs_slash_commands.py`, `python -m halo_harness audit
    privacy`, all with `BRIDGE_TEST_HOME=<fresh dir>`,
    `BRIDGE_TEST_NO_BACKGROUND_NET=1`, `OLLAMA_HOST=http://127.0.0.1:1`).
-   If green and the five deliverables of `round-2-wizard-agents.md` are
-   present, commit it as one round commit (`feat(wizard): 2.0.5 round 2 --
-   agent bios and lineups in the wizard`) and push. If not, start ONE
-   worker with that brief plus the sentence "the tree already contains
-   <files>; finish the deliverables from there, do not restart".
+   If green and the deliverables of the in-flight round's brief are
+   present, commit it as one round commit (`feat(<area>): 2.0.5 round N --
+   <title>`) and push. If not, start ONE worker with that brief plus the
+   sentence "the tree already contains <files>; finish the deliverables
+   from there, do not restart".
 2. Check CI for the last pushes (`.github/workflows/suites.yml`, Linux +
    Windows): red means diagnose environment versus product first; the
    known shapes are in CYCLE.md and the 2.0.4 log in STATUS.md.
