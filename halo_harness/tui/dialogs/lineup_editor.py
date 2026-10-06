@@ -273,8 +273,22 @@ class LineupEditor(ModalScreen):
         self._refresh_assignments()
         self._refresh_roles_projection()
         self._update_stale_marker()
+        # Same fix as `agent_bio_editor.AgentBioEditor.on_mount` (see its
+        # own comment for the root cause): Textual's App ALWAYS claims
+        # ctrl+p for its command palette as a priority binding, which a
+        # Screen's own `priority=True` Binding on the same key can never
+        # win against -- borrow `app.action_command_palette` for this
+        # dialog's own lifetime instead of renaming the chord.
+        self._restore_command_palette = self.app.action_command_palette
+        self.app.action_command_palette = self.action_pick_agent_or_model
         try:
             self.query_one("#lineup-assignments", OptionList).focus()
+        except Exception:
+            pass
+
+    def on_unmount(self) -> None:
+        try:
+            self.app.action_command_palette = self._restore_command_palette
         except Exception:
             pass
 

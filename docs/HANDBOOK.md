@@ -23,10 +23,12 @@ halo                         # full-screen TUI
    configured); **Permission mode** (`auto` recommended); **Theme** (six
    built-ins, a live preview); **Agents** (Halo 2.0.5 round 2: list/
    create/edit/duplicate/delete agent bios, or import one from a
-   `.claude/agents/*.md` file); **Roles and lineup** (a Lineup pane first
-   -- pick, edit, or build a new lineup assigning bios or plain models to
-   roles, plus a free-text "how the pieces work together" -- and a
-   "Legacy roles" pane with the original switch/three-presets form, never
+   `.claude/agents/*.md` file); **Roles and lineup** (a "Roles: on / off"
+   switch at the top -- off hides everything below it and shows one
+   sentence, every role uses the default model -- above a Lineup pane
+   first (pick, edit, or build a new lineup assigning bios or plain
+   models to roles, plus a free-text "how the pieces work together") and
+   a "Legacy roles" pane with the original three-presets form, never
    removed); **Organizations** (a switch, default off, plus a default
    org); **Linux fixes** (skipped when nothing needs it); **Summary**
    (what was written, doctor, a live "pong"). `--step <key-or-number>`
@@ -391,7 +393,10 @@ per role and manages templates (`templates`/`save`/`load`/`new`/`edit`/
 --roles` sums sub-agent spend per role; `halo completion bash|zsh|
 powershell` completes role names and cached model refs too. A switch,
 `roles.enabled` (default on), turns the whole table off (every role
-resolves to the session model); the init wizard's Roles step (`halo
+resolves to the session model) -- `halo roles on|off`, `/roles on|off`,
+and the wizard's own top-of-step toggle all flip the SAME switch; `halo
+roles` always prints the current state as its first line. The init
+wizard's Roles step (`halo
 init`, `/setup roles`, `halo setup roles`) offers three shipped presets
 (`balanced`/`quality`/`local-first`) with a live preview. See
 [docs/ROLES.md](../docs/ROLES.md) for the full resolution precedence

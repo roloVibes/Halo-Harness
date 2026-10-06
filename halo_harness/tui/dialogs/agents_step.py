@@ -60,6 +60,19 @@ def _row_label(r: dict) -> str:
     return f"{r['name']} [{r['scope']}]{desc}{extra}"
 
 
+def _cache_only_model_rows() -> "list[dict]":
+    """`providers.model_enumeration.build_model_rows` against the already-
+    cached catalog files -- no network, synchronous, fast (the same read
+    `run_agents_list_standalone`/`run_lineup_editor_standalone` already do
+    up front); `[]` on any failure, never raises."""
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.providers.model_enumeration import build_model_rows
+    try:
+        return build_model_rows(bridge_home())
+    except Exception:
+        return []
+
+
 def _import_candidates(*, cwd=None) -> "list[str]":
     """Fold-in "Import from Claude Code": every discovered `.claude/
     agents/*.md` name (`config/agents_md.discover_agents`'s own "user"/
@@ -167,6 +180,15 @@ class _AgentsListMixin:
         elif bid == "agents-import":
             self._import()
 
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        """Bug sweep (round 2b, owner feedback: "you highlight a row, then
+        Tab down to a button and press ... edit this"), rule (a): Enter on
+        a highlighted bio opens it -- the buttons stay, but are never the
+        ONLY path. Moved here (was `AgentsListScreen`-only) so the WIZARD
+        step gets the exact same behaviour as `/agents`/`--form`."""
+        if event.option_list.id == "agents-list":
+            self._open_editor_for_existing()
+
     def _open_editor_for_new(self, *, extends_from: "Optional[str]" = None) -> None:
         import uuid
         default_name = f"{extends_from}-copy" if extends_from else f"agent-{uuid.uuid4().hex[:6]}"
@@ -256,9 +278,23 @@ class AgentsStep(_AgentsListMixin, Screen):
             return self.state.enumerated_models
         list_models = getattr(getattr(self.app, "controller", None), "list_models", None)
         try:
-            return list_models() if callable(list_models) else []
+            rows = list_models() if callable(list_models) else []
         except Exception:
-            return []
+            rows = []
+        if rows:
+            return rows
+        # Deliverable 4: "if [the enumeration] has not run yet, run
+        # build_model_rows" -- reached by `halo init --step agents` (or
+        # any truncated `step_keys` with no "providers" step at all), a
+        # standalone wizard with no live `self.app.controller` either.
+        # `build_model_rows` is a cache-only, synchronous, no-network
+        # read (the SAME file-backed catalog a real Providers step's own
+        # live enumeration writes) -- never re-run once it succeeds,
+        # cached on `state` exactly like a real enumeration would be, so
+        # the roles/org/summary steps that follow this one reuse it too.
+        rows = _cache_only_model_rows()
+        self.state.enumerated_models, self.state.enumeration_done = rows, True
+        return rows
 
     def compose(self):
         with Vertical():
@@ -355,16 +391,15 @@ class AgentsListScreen(_AgentsListMixin, ModalScreen):
         except Exception:
             pass
 
-    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
-        self._open_editor_for_existing()
-
     def action_cancel(self) -> None:
         self.dismiss(None)
 
 
 # Mixin method resolution needs `AgentsListScreen`'s own `on_button_pressed`
-# -- inherited straight from `_AgentsListMixin` (no override here), so a
-# press on "agents-new"/.../"agents-import" works identically to the step.
+# AND `on_option_list_option_selected` -- both inherited straight from
+# `_AgentsListMixin` (no override here), so a press on "agents-new"/.../
+# "agents-import", or Enter on a highlighted row, works identically to
+# the wizard step.
 
 
 def run_agents_list_standalone(*, cwd=None, state_dir=None) -> None:

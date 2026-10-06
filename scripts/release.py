@@ -19,6 +19,7 @@ script (tests/test_privacy_scan.py enforces this tree-wide).
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -33,6 +34,13 @@ if str(REPO_DIR) not in sys.path:
 _VERSION_RE = re.compile(r'^__version__\s*=\s*"([^"]+)"\s*$', re.MULTILINE)
 _REPO_URL = "https://github.com/roloVibes/Halo-Harness"
 _DIRTY_PATHS = ("halo_harness", "tests", "docs")
+
+# round 2b (deliverable 6): the README's own version badge -- ONE regex
+# over both the alt text ("version X.Y.Z") and the shields.io badge URL
+# segment ("badge/version-X.Y.Z-<color>") -- `write_readme_badge_version`
+# below substitutes the SAME new version into both halves in one pass.
+_README_BADGE_RE = re.compile(
+    r'(<img alt="version )([^"]+)(" src="https://img\.shields\.io/badge/version-)([^-"]+)(-)')
 
 
 class ReleaseError(Exception):
@@ -74,6 +82,26 @@ def write_version(version: str, repo_dir: Path = REPO_DIR) -> bool:
     return True
 
 
+def write_readme_badge_version(version: str, repo_dir: Path = REPO_DIR) -> bool:
+    """Deliverable 6 (packaging, the owner's own weak-spot report: "the
+    README badge embedded in METADATA still says version 2.0.1"): sets
+    README.md's version badge -- both the alt text and the badge URL --
+    to `version`, in one regex substitution; returns True iff the file
+    actually changed. Raises ReleaseError when the badge markup isn't
+    found at all (same "a hard requirement a release needs satisfied
+    before it starts" rule `unreleased_section_body` below already
+    follows for the CHANGELOG section)."""
+    readme_path = repo_dir / "README.md"
+    text = readme_path.read_text(encoding="utf-8")
+    new_text, n = _README_BADGE_RE.subn(rf"\g<1>{version}\g<3>{version}\g<5>", text, count=1)
+    if n == 0:
+        raise ReleaseError(f"could not find the version badge markup in {readme_path}")
+    if new_text == text:
+        return False
+    readme_path.write_text(new_text, encoding="utf-8")
+    return True
+
+
 def unreleased_section_body(version: str, repo_dir: Path = REPO_DIR) -> str:
     """Deliverable 2 step 3: the body of the exact `## [<version>] -
     unreleased` section (everything up to, not including, the next `## [`
@@ -109,6 +137,68 @@ def commit_message_body(section_body: str, max_bullets: int = 5) -> str:
     return "\n".join(bullets[:max_bullets])
 
 
+def _gh_cli_path() -> "Optional[str]":
+    import shutil
+    return shutil.which("gh")
+
+
+def git_credential_token(repo_dir: Path = REPO_DIR, *, run_fn: "Optional[Callable]" = None) -> "Optional[str]":
+    """`git credential fill` against github.com -- the token this box is
+    ALREADY authenticated with for git itself (gh's own credential
+    helper, the OS keychain, a PAT `git config` already points at), so
+    there is nothing new to set up or type here. Never printed, never
+    logged, never written to a file by this function -- held only in the
+    returned string, for `publish_github_release` below to pass straight
+    to `curl`'s own argv. `None` when the store has nothing for this host
+    (the caller decides what that means); never raises."""
+    if run_fn is None:
+        run_fn = subprocess.run
+    try:
+        result = run_fn(["git", "credential", "fill"], cwd=str(repo_dir), capture_output=True, text=True,
+                         input="protocol=https\nhost=github.com\n\n", check=False)
+    except Exception:
+        return None
+    for line in (getattr(result, "stdout", "") or "").splitlines():
+        if line.startswith("password="):
+            token = line[len("password="):].strip()
+            return token or None
+    return None
+
+
+def publish_github_release(version: str, notes: str, *, repo_dir: Path = REPO_DIR,
+                            run_fn: "Optional[Callable]" = None, gh_path_fn: "Optional[Callable]" = None,
+                            token_fn: "Optional[Callable]" = None) -> str:
+    """Deliverable 6: publishes a GitHub release for tag `v<version>`
+    with `notes` (the CHANGELOG section's own body) -- through the `gh`
+    CLI when it's on PATH (the common case: already authenticated as
+    whoever is running this release), else `curl` against the REST API
+    with a token from `git_credential_token` above. BOTH paths run
+    EXCLUSIVELY through `run_fn` -- this function never touches a socket,
+    `requests`, or `urllib` itself, so a test can pin the exact command a
+    real run would make without any real network call ever being
+    possible (host rule: "never call the network directly here"). Raises
+    ReleaseError when `gh` is absent AND no credential token is stored --
+    `--no-github-release` (the CLI flag, `main()` below) is the documented
+    way to skip this step outright rather than hit that refusal."""
+    if run_fn is None:
+        run_fn = subprocess.run
+    tag = f"v{version}"
+    gh = (gh_path_fn or _gh_cli_path)()
+    if gh:
+        run_fn([gh, "release", "create", tag, "--title", f"Halo Harness {version}", "--notes", notes],
+               cwd=str(repo_dir), check=True)
+        return f"gh release create {tag} (via the gh CLI)"
+    token = (token_fn or git_credential_token)(repo_dir, run_fn=run_fn)
+    if not token:
+        raise ReleaseError("no `gh` CLI on PATH and `git credential fill` returned no usable github.com "
+                            "token -- cannot publish the GitHub release (--no-github-release skips this step)")
+    url = "https://api.github.com/repos/roloVibes/Halo-Harness/releases"
+    payload = json.dumps({"tag_name": tag, "name": f"Halo Harness {version}", "body": notes})
+    run_fn(["curl", "-sS", "-X", "POST", url, "-H", f"Authorization: token {token}",
+            "-H", "Accept: application/vnd.github+json", "-d", payload], check=True)
+    return f"POST {url} (via curl, token from git credential fill)"
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="release.py", description="Tag and ship a Halo Harness release.")
     p.add_argument("version", help='e.g. "2.0.4"')
@@ -119,20 +209,24 @@ def build_arg_parser() -> argparse.ArgumentParser:
                    help="ssh private key for the --remote refresh; ssh then runs non-interactively "
                         "(BatchMode=yes, ConnectTimeout=15). Without it the call is a plain `ssh user@host`.")
     p.add_argument("--no-install", action="store_true", help="skip refreshing any local/remote install")
+    p.add_argument("--no-github-release", action="store_true",
+                   help="skip publishing a GitHub release for the tag")
     p.add_argument("--dry-run", action="store_true", help="print every step; run and write nothing")
     return p
 
 
 def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
-         run_fn: "Optional[Callable]" = None, pids_fn: "Optional[Callable]" = None) -> int:
-    """`run_fn`/`pids_fn` are test seams (default: real `subprocess.run` /
-    `halo_harness.update.other_halo_pids`) for every command that would
-    otherwise push to a real remote, touch `uv`'s real tool environment,
-    or shell out over ssh -- never monkeypatch `subprocess.run` globally
-    to test this script, pass these instead. The read-only `git status`
-    dirty check always runs for real (local, hermetic, safe even in a
-    test against a scratch repo); only the mutating/network-reaching
-    calls go through `run_fn`."""
+         run_fn: "Optional[Callable]" = None, pids_fn: "Optional[Callable]" = None,
+         gh_path_fn: "Optional[Callable]" = None, token_fn: "Optional[Callable]" = None) -> int:
+    """`run_fn`/`pids_fn`/`gh_path_fn`/`token_fn` are test seams (default:
+    real `subprocess.run` / `halo_harness.update.other_halo_pids` /
+    `shutil.which("gh")` / `git_credential_token`) for every command that
+    would otherwise push to a real remote, touch `uv`'s real tool
+    environment, shell out over ssh, or publish a real GitHub release --
+    never monkeypatch `subprocess.run` globally to test this script, pass
+    these instead. The read-only `git status` dirty check always runs
+    for real (local, hermetic, safe even in a test against a scratch
+    repo); only the mutating/network-reaching calls go through `run_fn`."""
     if run_fn is None:
         run_fn = subprocess.run
     if pids_fn is None:
@@ -165,6 +259,13 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
         if not args.dry_run:
             set_changelog_date(version, date_str, repo_dir)
 
+        # Deliverable 6: the README badge rewrite is staged into the SAME
+        # commit as the version bump and the CHANGELOG date below -- one
+        # release, one commit, exactly like before this round.
+        step(f"rewrite README.md's version badge to {version!r}")
+        if not args.dry_run:
+            write_readme_badge_version(version, repo_dir)
+
         body_text = commit_message_body(section_body)
         commit_subject = f"release: Halo Harness {version}"
         full_message = commit_subject if not body_text else f"{commit_subject}\n\n{body_text}"
@@ -173,11 +274,21 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
         step("git push origin master")
         step(f"git push origin v{version}")
         if not args.dry_run:
-            run_fn(["git", "add", "halo_harness/__init__.py", "CHANGELOG.md"], cwd=str(repo_dir), check=True)
+            run_fn(["git", "add", "halo_harness/__init__.py", "CHANGELOG.md", "README.md"],
+                   cwd=str(repo_dir), check=True)
             run_fn(["git", "commit", "-m", full_message], cwd=str(repo_dir), check=True)
             run_fn(["git", "tag", "-a", f"v{version}", "-m", f"Halo Harness {version}"], cwd=str(repo_dir), check=True)
             run_fn(["git", "push", "origin", "master"], cwd=str(repo_dir), check=True)
             run_fn(["git", "push", "origin", f"v{version}"], cwd=str(repo_dir), check=True)
+
+        if args.no_github_release:
+            step("--no-github-release: skip publishing the GitHub release")
+        else:
+            step(f"publish a GitHub release for v{version}, notes = the CHANGELOG section")
+            if not args.dry_run:
+                release_desc = publish_github_release(version, section_body, repo_dir=repo_dir, run_fn=run_fn,
+                                                        gh_path_fn=gh_path_fn, token_fn=token_fn)
+                steps[-1] = f"{steps[-1]} ({release_desc})"
 
         install_cmd = ["uv", "tool", "install", "--reinstall", f"git+{_REPO_URL}@v{version}"]
         if args.no_install:

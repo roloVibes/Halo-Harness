@@ -843,7 +843,10 @@ def _cmd_roles(args: str, facade: HeadlessFacade) -> str:
                 role_table.update(template["roles"])
             elif template and hasattr(session, "roles"):
                 session.roles.update(template["roles"])
-        return f"Loaded role template {rest!r}."
+        # `apply_role_template` now also turns `roles.enabled` on (round
+        # 2b weak-spot fix) -- said here too, same reasoning as the CLI's
+        # own `roles_cli._cmd_load`.
+        return f"Loaded role template {rest!r} (roles: on)."
 
     if sub == "edit":
         return ("/roles edit opens the roles editor form in the TUI only -- "
@@ -851,6 +854,13 @@ def _cmd_roles(args: str, facade: HeadlessFacade) -> str:
 
     if sub == "set":
         return _set_one_role(rest, facade)
+
+    if sub in ("on", "off"):
+        # 2.0.5 round 2b (brief item 1): "/roles on|off" -- the SAME one
+        # switch `halo roles on|off` and the wizard's own toggle write to.
+        from halo_harness.roles import roles_state_line, set_roles_enabled
+        set_roles_enabled(sub == "on")
+        return roles_state_line()
 
     return _render_roles_table(facade)
 
@@ -1618,8 +1628,8 @@ _BUILTIN_SPECS = {
     "skills": ("core", "List discovered skills", None, _cmd_skills),
     "agents": ("core", "List available sub-agents and agent bios", None, _cmd_agents),
     "teams": ("core", "List team templates (lineups) and the active one", None, _cmd_teams),
-    "roles": ("core", "Show the role table, or manage role templates/set a role",
-              "[templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
+    "roles": ("core", "Show the role table, turn roles on/off, or manage role templates/set a role",
+              "[on|off|templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),
     "org": ("core", "List/show/run organizations (trees of sub-agent positions)",
              "[list|show|new|load|edit|run [<name>] \"<goal>\"]", _cmd_org),

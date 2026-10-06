@@ -1,0 +1,23 @@
+# Halo 2.0.5 round 2b -- shipped agent bio behind the `standard` lineup
+# (deliverable 2). `models.preference: default` is NOT a real model ref --
+# it is the one reference literal `agents_yaml.resolve_agent_bio`
+# substitutes, every time it resolves this bio, with the session's own
+# current default model (the plain `model` key in ~/.halo/config.json).
+# See docs/AGENTS.md's "The `default` model reference" section.
+name: default-model
+description: >-
+  Resolves to the session's own current default model -- the building
+  block behind the standard lineup and "Roles: off".
+version: "1.0"
+tags: [starter]
+kind: main
+models:
+  preference: default
+tools: {}
+context: {}
+limits: {}
+output: {}
+environment: {}
+acceptance:
+  prompt: "Reply with exactly one word: ok"
+  expect: ok

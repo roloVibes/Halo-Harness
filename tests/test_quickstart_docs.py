@@ -263,6 +263,27 @@ def test_version_matches_the_newest_dated_changelog_section(ctx: Ctx):
 
 
 @test
+def test_readme_badge_matches_version(ctx: Ctx):
+    """2.0.5 round 2b (brief item 6, packaging): the README's own version
+    badge -- both the alt text and the shields.io badge URL -- tracks
+    `__version__` exactly, the SAME derived-never-literal rule `test_
+    version_matches_the_newest_dated_changelog_section` above already
+    applies one level up (CHANGELOG -> __version__ -> here, never a
+    literal in either test). Owner's own report, from a review of v2.0.4:
+    "the README badge embedded in METADATA still says version 2.0.1" --
+    three releases stale; `scripts/release.py` now rewrites this file's
+    own badge on every release (`tests/test_release_script.py` pins that
+    rewrite itself)."""
+    from halo_harness import __version__
+    readme = (REPO_DIR / "README.md").read_text(encoding="utf-8")
+    ctx.check(f'README.md badge alt text says "version {__version__}", got '
+              f'the stale-badge check in the surrounding text',
+              f'alt="version {__version__}"' in readme)
+    ctx.check(f"README.md badge URL encodes {__version__!r}",
+              f"badge/version-{__version__}-" in readme)
+
+
+@test
 def test_changelog_2_0_0_mentions_the_fixpass_additions(ctx: Ctx):
     """2.0.0 fixpass finding 3: the state-dir migration (and the deliberate
     choice to leave no link behind -- item B), the env-file copy-forward,

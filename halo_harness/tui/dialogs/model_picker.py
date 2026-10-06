@@ -262,8 +262,15 @@ class ModelPicker(ModalScreen):
 
     def __init__(self, models: "list", *, current: str = "", last_used: str = "",
                  all_models: "Optional[list]" = None, allow_agent_source: bool = True,
-                 cwd=None, state_dir=None) -> None:
+                 cwd=None, state_dir=None, initial_hint: str = "") -> None:
         super().__init__()
+        # Halo 2.0.5 round 2b (deliverable 4): "the bio-needs filter never
+        # yields an empty list silently ... show all rows with one line
+        # saying why" -- the caller's own one-line reason (`agent_bio_
+        # editor.filter_models_for_bio_with_reason`), shown ahead of the
+        # per-provider dim hints `_hint_text` already renders. "" (every
+        # OTHER caller) changes nothing.
+        self.initial_hint = initial_hint
         # `Controller.list_models()` returns dicts; `FakeController`'s own
         # (tests/test_fake_controller.py-pinned) shape is a bare list of ref
         # strings -- normalize both to the dict shape this dialog renders.
@@ -397,8 +404,12 @@ class ModelPicker(ModalScreen):
 
     def _hint_text(self) -> str:
         """H15 item 21.2: one dim line per detected-but-disabled provider,
-        always shown (filter or not) -- never counted as a selectable row."""
-        return "\n".join(f"  {h}" for h in self.hints) if self.hints else ""
+        always shown (filter or not) -- never counted as a selectable row.
+        Round 2b: `self.initial_hint` (the caller's own "showing every
+        row because..." note) leads, when there is one."""
+        lines = [self.initial_hint] if self.initial_hint else []
+        lines += [f"  {h}" for h in self.hints]
+        return "\n".join(lines)
 
     # -- Halo 2.0.5 round 2 (deliverable 2): the Agents source -------------
     def _agent_rows_cached(self) -> "list[dict]":

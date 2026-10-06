@@ -153,6 +153,36 @@ def _normalize_thinking_field(data: dict) -> None:
         models["thinking"] = "native" if models["thinking"] else "off"
 
 
+#: Halo 2.0.5 round 2b (deliverable 2): the ONE reference literal a bio's
+#: `models.preference`/`models.fallback` may hold instead of a real model
+#: ref -- substituted, AT RESOLVE TIME, with the session's own current
+#: default model (`~/.halo/config.json`'s plain `model` key). The shipped
+#: `default-model` bio (`templates/agents/default-model.yaml`), which the
+#: shipped `standard` lineup (`templates/teams/standard.yaml`) assigns to
+#: every role, is the one case this matters for today; see docs/AGENTS.md.
+DEFAULT_MODEL_REFERENCE = "default"
+
+
+def _substitute_default_model_reference(models: dict) -> None:
+    """Replaces a bare `"default"` in `preference`/`fallback` with the
+    session's current default model, in place -- "resolved at run time to
+    the session's default model" (the brief's own wording), so changing
+    that model (the init wizard's own Default model step, `halo config
+    set model ...`, `/model`) moves every role that uses it the very next
+    time a bio resolves, with no file to re-save. Left exactly as typed
+    when there is no session default configured yet (never resolved to
+    `None`/empty) -- same leniency an unknown ref anywhere else in this
+    codebase already gets; a caller that cares can still see the literal
+    `"default"` and act on it (`roles.py`'s own cost-aware-default rung
+    works the same way for an entirely empty role table)."""
+    from halo_harness.theme import get_config_value
+    for key in ("preference", "fallback"):
+        if models.get(key) == DEFAULT_MODEL_REFERENCE:
+            real = get_config_value("model", default=None)
+            if isinstance(real, str) and real.strip():
+                models[key] = real.strip()
+
+
 def _merge_section(parent_section, child_section):
     if not isinstance(parent_section, dict):
         return child_section if child_section is not None else parent_section
@@ -187,6 +217,8 @@ def resolve_agent_bio(name: str, *, cwd=None, state_dir=None, _chain: "Optional[
     resolved = dict(parent) if parent else {}
     for section in BIO_SECTIONS:
         resolved[section] = _merge_section((parent or {}).get(section), raw.get(section))
+    if isinstance(resolved.get("models"), dict):
+        _substitute_default_model_reference(resolved["models"])
     for field in ("description", "version", "tags", "kind"):
         if field in raw:
             resolved[field] = raw[field]

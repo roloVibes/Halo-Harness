@@ -112,6 +112,43 @@ version.
   new `halo agents`/`halo teams` sections), `docs/SLASH-COMMANDS.md`
   (`/agents`/`/teams`).
 
+### Wizard and roles fixes (round 2b)
+
+- **Roles on/off is one switch, everywhere**: `halo roles on|off`,
+  `/roles on|off`, and a "Roles: on / off" toggle at the TOP of the
+  wizard's "Roles and lineup" step (off now hides BOTH panes, not just
+  the legacy one, and shows one sentence instead); `halo roles` prints
+  the state as its first line; `halo roles template load <name>` now
+  also turns roles on (it used to leave the table sitting inert).
+- **The `standard` lineup** (`templates/teams/standard.yaml`) assigns
+  every role to the shipped `default-model` bio, whose `models.
+  preference: default` resolves, live, to the session's own current
+  default model (`agents_yaml.resolve_agent_bio`'s own new substitution)
+  -- "Roles: off" is exactly this, made explicit and inspectable.
+- **Bio editor layout**: both panes are a fixed-height scroll region and
+  every field is Textual's own `compact` style, so name/description/
+  kind/the model fields are visible on open at 80x24 with no scrolling;
+  the preferred/fallback field shares one row with its own "Pick..."
+  button.
+- **Bio editor model picking, root cause**: Ctrl+P/Ctrl+F opened nothing
+  because Textual's App always claims `ctrl+p` for its own command
+  palette as a priority binding, ahead of any Screen's own binding on
+  the same key -- the picker's models were never the problem. Fixed by
+  borrowing `app.action_command_palette` for as long as the bio editor
+  (and the lineup/org editors, which had the identical collision) is on
+  top of the stack.
+- **Bug sweep**: Enter on a highlighted bio/lineup/template row opens or
+  applies it everywhere (the buttons stay, but are no longer the only
+  path); every touched screen focuses its own list/first field on open,
+  never a button; the Roles step's Lineup pane applies the highlighted
+  lineup on a plain Next, with a check mark on the row Next would apply.
+- **Packaging**: `scripts/release.py` rewrites the README's own version
+  badge (alt text and badge URL) to the released version and publishes
+  a GitHub release for the tag (`gh` CLI, else `curl` with a `git
+  credential fill` token -- both only ever through the script's own
+  injectable run function); `--no-github-release` skips it. README's
+  badge fixed to 2.0.4 (was stuck at 2.0.1).
+
 ### Learned gateway rules
 
 - **One engine for parameter rejections** (`providers/learned_params.py`,

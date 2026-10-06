@@ -32,6 +32,15 @@ release = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(release)
 
 _INIT_PY_TEMPLATE = '"""scratch package for test_release_script.py."""\n\n__version__ = "{version}"\n'
+# Shaped exactly like the real README.md's own badge markup (the two
+# spots `release._README_BADGE_RE` matches) -- "9.9.8" so a real run's
+# own rewrite to the target version is observable the same way the
+# version-file write already is.
+_README_TEMPLATE = (
+    '# Scratch\n\n<p align="center">\n'
+    '  <img alt="version 9.9.8" src="https://img.shields.io/badge/version-9.9.8-5b4bd6">\n'
+    "</p>\n"
+)
 _CHANGELOG_TEMPLATE = """# Changelog
 
 ## [{version}] - {heading_date}
@@ -60,6 +69,7 @@ def _scratch_repo(version: str = "9.9.9", *, unreleased: bool = True, dirty_extr
     (repo / "tests").mkdir()
     (repo / "docs").mkdir()
     (repo / "halo_harness" / "__init__.py").write_text(_INIT_PY_TEMPLATE.format(version="9.9.8"), encoding="utf-8")
+    (repo / "README.md").write_text(_README_TEMPLATE, encoding="utf-8")
     heading_date = "unreleased" if unreleased else "2026-01-01"
     (repo / "CHANGELOG.md").write_text(
         _CHANGELOG_TEMPLATE.format(version=version, heading_date=heading_date), encoding="utf-8")
@@ -140,10 +150,12 @@ def test_refuses_when_the_changelog_section_is_missing(ctx: Ctx):
 @test
 def test_version_write_updates_init_py_and_dates_the_changelog(ctx: Ctx):
     """The non-dry-run path, every subprocess call stubbed -- no real git
-    push/tag/uv ever runs. Proves deliverable 2 steps 2-4."""
+    push/tag/uv ever runs. Proves deliverable 2 steps 2-4. `--no-github-
+    release`: this test is about the version/CHANGELOG/commit steps, not
+    the (separately pinned, below) GitHub-release step."""
     repo = _scratch_repo("9.9.9")
     calls: list = []
-    rc = release.main(["9.9.9"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [])
+    rc = release.main(["9.9.9", "--no-github-release"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [])
     ctx.check(f"a real run exits 0 on a clean, well-formed scratch repo, got {rc}", rc == 0)
     init_text = (repo / "halo_harness" / "__init__.py").read_text(encoding="utf-8")
     ctx.check(f'__init__.py now says 9.9.9, got {init_text!r}', '__version__ = "9.9.9"' in init_text)
@@ -184,7 +196,7 @@ def test_no_install_skips_the_local_and_remote_install_steps(ctx: Ctx):
     def _boom_pids():
         raise AssertionError("other_halo_pids must never be consulted under --no-install")
 
-    rc = release.main(["9.9.9", "--no-install", "--remote", "user@host"], repo_dir=repo,
+    rc = release.main(["9.9.9", "--no-install", "--no-github-release", "--remote", "user@host"], repo_dir=repo,
                        run_fn=_fake_run(calls), pids_fn=_boom_pids)
     ctx.check(f"exits 0, got {rc}", rc == 0)
     ctx.check(f"no uv/ssh call was ever made, got {calls}", not any(c[0] in ("uv", "ssh") for c in calls))
@@ -194,7 +206,8 @@ def test_no_install_skips_the_local_and_remote_install_steps(ctx: Ctx):
 def test_remote_runs_the_exact_documented_ssh_command(ctx: Ctx):
     repo = _scratch_repo("9.9.9")
     calls: list = []
-    rc = release.main(["9.9.9", "--remote", "user@host"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [])
+    rc = release.main(["9.9.9", "--remote", "user@host", "--no-github-release"], repo_dir=repo,
+                       run_fn=_fake_run(calls), pids_fn=lambda: [])
     ctx.check(f"exits 0, got {rc}", rc == 0)
     ssh_calls = [c for c in calls if c[0] == "ssh"]
     ctx.check(f"exactly one ssh call, to user@host, got {ssh_calls}",
@@ -212,8 +225,8 @@ def test_identity_adds_the_key_and_batch_mode_to_the_ssh_call(ctx: Ctx):
     remote command itself is unchanged."""
     repo = _scratch_repo("9.9.9")
     calls: list = []
-    rc = release.main(["9.9.9", "--remote", "user@host", "--identity", "some/key"], repo_dir=repo,
-                      run_fn=_fake_run(calls), pids_fn=lambda: [])
+    rc = release.main(["9.9.9", "--remote", "user@host", "--identity", "some/key", "--no-github-release"],
+                       repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [])
     ctx.check(f"exits 0, got {rc}", rc == 0)
     ssh_calls = [c for c in calls if c[0] == "ssh"]
     ctx.check(f"exactly one ssh call, got {ssh_calls}", len(ssh_calls) == 1)
@@ -235,12 +248,125 @@ def test_a_running_halo_session_skips_reinstall_and_prints_the_command_instead(c
     import contextlib
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        rc = release.main(["9.9.9"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [4321])
+        rc = release.main(["9.9.9", "--no-github-release"], repo_dir=repo, run_fn=_fake_run(calls),
+                           pids_fn=lambda: [4321])
     ctx.check(f"exits 0, got {rc}", rc == 0)
     ctx.check(f"uv is never actually invoked while a session looks like it's running, got {calls}",
               not any(c[0] == "uv" for c in calls))
     ctx.check("the uv command is printed instead", "uv tool install --reinstall git+" in buf.getvalue())
     ctx.check("the pid is named", "4321" in buf.getvalue())
+
+
+@test
+def test_readme_badge_is_rewritten_on_a_real_run(ctx: Ctx):
+    """Deliverable 6 (packaging): the README badge rewrite, through a
+    real (non-dry-run) `main()` -- both the alt text and the badge URL
+    move to the new version in one pass; every OTHER line in the scratch
+    README is untouched."""
+    repo = _scratch_repo("9.9.9")
+    calls: list = []
+    rc = release.main(["9.9.9", "--no-github-release"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [])
+    ctx.check(f"exits 0, got {rc}", rc == 0)
+    readme = (repo / "README.md").read_text(encoding="utf-8")
+    ctx.check(f'alt text now says "version 9.9.9", got {readme!r}', 'alt="version 9.9.9"' in readme)
+    ctx.check("badge URL now encodes 9.9.9", "badge/version-9.9.9-5b4bd6" in readme)
+    ctx.check("the old version is gone from the badge", "9.9.8" not in readme)
+    ctx.check("every other line survives untouched", "# Scratch" in readme)
+
+
+@test
+def test_dry_run_never_touches_the_readme_badge(ctx: Ctx):
+    repo = _scratch_repo("9.9.9")
+    rc = release.main(["9.9.9", "--dry-run"], repo_dir=repo)
+    ctx.check(f"exits 0, got {rc}", rc == 0)
+    readme = (repo / "README.md").read_text(encoding="utf-8")
+    ctx.check("dry-run leaves the badge exactly as it found it", "version 9.9.8" in readme)
+
+
+@test
+def test_write_readme_badge_version_refuses_cleanly_with_no_badge_markup(ctx: Ctx):
+    repo = _scratch_repo("9.9.9")
+    (repo / "README.md").write_text("# No badge here at all.\n", encoding="utf-8")
+    raised = False
+    try:
+        release.write_readme_badge_version("9.9.9", repo_dir=repo)
+    except release.ReleaseError as e:
+        raised = True
+        ctx.check(f"the refusal names README.md, got {e}", "README.md" in str(e))
+    ctx.check("a missing badge raises ReleaseError (never a traceback)", raised)
+
+
+@test
+def test_github_release_uses_gh_cli_when_present(ctx: Ctx):
+    """Deliverable 6: `gh` on PATH is the preferred path -- the ONE call
+    goes through `run_fn`, never a real subprocess, and the CHANGELOG
+    section's own body is passed verbatim as the release notes."""
+    repo = _scratch_repo("9.9.9")
+    calls: list = []
+    rc = release.main(["9.9.9"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [],
+                       gh_path_fn=lambda: "/usr/bin/gh")
+    ctx.check(f"exits 0, got {rc}", rc == 0)
+    gh_calls = [c for c in calls if c and c[0] == "/usr/bin/gh"]
+    ctx.check(f"exactly one gh release create call, got {calls}", len(gh_calls) == 1)
+    cmd = gh_calls[0]
+    ctx.check(f"it creates the right tag, got {cmd}", cmd[1:3] == ["release", "create"] and cmd[3] == "v9.9.9")
+    notes = cmd[cmd.index("--notes") + 1]
+    ctx.check(f"the notes carry the CHANGELOG section's own bullet, got {notes!r}",
+              "First bullet of the scratch release." in notes)
+    ctx.check("curl is never also called when gh is present", not any(c[0] == "curl" for c in calls))
+
+
+@test
+def test_github_release_falls_back_to_curl_with_a_credential_token_when_gh_is_absent(ctx: Ctx):
+    """No `gh` on PATH -- `git_credential_token` (itself ALSO routed
+    through `run_fn`, never a real `git credential fill`) supplies the
+    token, and the POST goes out via `curl`, still only through
+    `run_fn`. The real token value is never visible outside that one
+    injected seam -- in particular, never in the printed step list."""
+    repo = _scratch_repo("9.9.9")
+    calls: list = []
+    import io
+    import contextlib
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = release.main(["9.9.9"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [],
+                           gh_path_fn=lambda: None, token_fn=lambda repo_dir, run_fn=None: "s3cr3t-token")
+    ctx.check(f"exits 0, got {rc}", rc == 0)
+    curl_calls = [c for c in calls if c and c[0] == "curl"]
+    ctx.check(f"exactly one curl call, got {calls}", len(curl_calls) == 1)
+    cmd = curl_calls[0]
+    ctx.check(f"it POSTs to the releases endpoint, got {cmd}",
+              "https://api.github.com/repos/roloVibes/Halo-Harness/releases" in cmd)
+    auth_header = next((cmd[i + 1] for i, v in enumerate(cmd) if v == "-H" and cmd[i + 1].startswith("Authorization")),
+                        None)
+    ctx.check(f"the token rides in the Authorization header, got {auth_header!r}",
+              auth_header == "Authorization: token s3cr3t-token")
+    ctx.check("the real token is never in the printed step list", "s3cr3t-token" not in buf.getvalue())
+
+
+@test
+def test_github_release_refuses_cleanly_when_gh_absent_and_no_token(ctx: Ctx):
+    repo = _scratch_repo("9.9.9")
+    calls: list = []
+    rc = release.main(["9.9.9"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [],
+                       gh_path_fn=lambda: None, token_fn=lambda repo_dir, run_fn=None: None)
+    ctx.check(f"refuses (nonzero exit) rather than guess, got {rc}", rc != 0)
+    ctx.check("no gh/curl call was ever made", not any(c[0] in ("gh", "curl") for c in calls if c))
+
+
+@test
+def test_no_github_release_flag_skips_detection_entirely(ctx: Ctx):
+    """`--no-github-release` skips the step OUTRIGHT -- it must never even
+    ask whether `gh` is on PATH or a credential token is stored."""
+    repo = _scratch_repo("9.9.9")
+    calls: list = []
+
+    def _boom():
+        raise AssertionError("gh_path_fn must never be consulted under --no-github-release")
+    rc = release.main(["9.9.9", "--no-github-release"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [],
+                       gh_path_fn=_boom)
+    ctx.check(f"exits 0, got {rc}", rc == 0)
+    ctx.check("no gh/curl call was ever made", not any(c[0] in ("gh", "curl") for c in calls if c))
 
 
 if __name__ == "__main__":

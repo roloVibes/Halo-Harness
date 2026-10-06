@@ -88,7 +88,19 @@ def _cmd_load(rest: list) -> int:
     if not ok:
         print(f"halo roles template load: {'; '.join(problems)}", file=sys.stderr)
         return 1
-    print(f"Loaded role template {args.name!r} into ~/.halo/config.json.")
+    # Weak spot fixed this round: loading a template now also turns
+    # `roles.enabled` on (`apply_role_template`'s own job) -- said here
+    # too, so a terminal reading this one line never needs a second
+    # `halo roles` just to learn that.
+    print(f"Loaded role template {args.name!r} into ~/.halo/config.json (roles: on).")
+    return 0
+
+
+def _cmd_on_off(enabled: bool) -> int:
+    """`halo roles on|off` (brief item 1) -- the ONE switch, from the CLI."""
+    from halo_harness.roles import roles_state_line, set_roles_enabled
+    set_roles_enabled(enabled)
+    print(roles_state_line())
     return 0
 
 
@@ -217,8 +229,15 @@ def _cmd_table() -> int:
     the same rows `/roles` shows minus the live-session price column; a
     role with nothing configured says "(session model)" because that is
     what it resolves to at run time. Found live on the Kali VM: the bare
-    command printed the template usage line and exited 0."""
-    from halo_harness.roles import configured_role_table, known_role_names, role_value_parts
+    command printed the template usage line and exited 0.
+
+    2.0.5 round 2b (brief item 1): the FIRST line is always `roles.
+    roles_state_line()` -- "roles: on (lineup <name>)" / "roles: off
+    (standard: ...)" -- so a terminal reading just the top of the output
+    already knows the one thing that decides whether the table below even
+    applies."""
+    from halo_harness.roles import configured_role_table, known_role_names, role_value_parts, roles_state_line
+    print(roles_state_line())
     table = configured_role_table()
     names = known_role_names(table)
     w = max(len(n) for n in names)
@@ -236,16 +255,23 @@ def cmd_roles(argv: list) -> int:
     """`halo roles template <list|show|save|new|load|edit|export|import>
     [name] [...]` -- the only subcommand GROUP under `halo roles` today
     (bare `/roles` and `/role` live in the TUI/print-mode slash-command
-    path instead, `commands/builtins.py`)."""
+    path instead, `commands/builtins.py`). 2.0.5 round 2b (brief item 1):
+    `halo roles on|off` is the ONE switch from the CLI side."""
     if not argv:
         return _cmd_table()
     if argv[0] in ("-h", "--help"):
         print("usage: halo roles                      show the configured role table", file=sys.stderr)
+        print("       halo roles on|off                turn roles.enabled on/off", file=sys.stderr)
         print("       halo roles template list|show <name>|save <name>|new <name>|load <name>|edit <name>|export <name> [file]|import <file>",
               file=sys.stderr)
         return 0
+    if argv[0] in ("on", "off"):
+        if len(argv) > 1:
+            print(f"halo roles {argv[0]}: takes no arguments", file=sys.stderr)
+            return 2
+        return _cmd_on_off(argv[0] == "on")
     if argv[0] != "template":
-        print(f"halo roles: unknown subcommand {argv[0]!r} (known: template)", file=sys.stderr)
+        print(f"halo roles: unknown subcommand {argv[0]!r} (known: on, off, template)", file=sys.stderr)
         return 2
     rest = argv[1:]
     if not rest:

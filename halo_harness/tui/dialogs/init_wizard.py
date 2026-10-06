@@ -8,9 +8,10 @@ plain `Screen` pushed onto the SAME app's screen stack (`push_screen`/
 steps, and Back genuinely returns to the previous step's own widget state
 (Textual suspends, never destroys, a screen under a newer one).
 
-Steps, in order (`ALL_STEP_KEYS`): providers, default_model, permission_
-mode, theme, roles, orgs, linux_fixes, summary -- `full_step_keys()` drops
-`linux_fixes` when there is nothing for it to offer (brief item 1). A
+Steps, in order (`ALL_STEP_KEYS`): providers, local_models, default_model,
+permission_mode, theme, agents, roles, orgs, linux_fixes, summary --
+`full_step_keys()` drops `linux_fixes` when there is nothing for it to
+offer (brief item 1). A
 SHORTER run (`halo setup`, `/setup roles`) uses a SUBSET of this same list
 via `build_truncated_state`/`first_step_screen` -- the exact same Screen
 classes serve both, which is also what `/setup` (pushed onto a live
@@ -1161,6 +1162,7 @@ class RolesStep(StepScreen):
     RolesStep .wizard-extra-buttons { height: 3; margin-top: 1; }
     RolesStep .wizard-extra-buttons Button { margin-right: 1; }
     RolesStep .wizard-switch-row { height: 3; margin-top: 1; }
+    RolesStep #wiz-roles-off-sentence { margin-top: 1; color: $text-muted; }
     """
 
     def __init__(self, state: WizardState) -> None:
@@ -1172,6 +1174,16 @@ class RolesStep(StepScreen):
         # (roles.* AND `team:`), so it must not ALSO re-apply whatever's
         # highlighted in the (unrelated) Legacy roles tab.
         self._lineup_applied_name: "Optional[str]" = None
+        # Round 2b (deliverable 1 + the owner's "clunky" wizard feedback,
+        # rule c): WHICH pane is on screen decides what a PLAIN Next (no
+        # button pressed at all) applies -- "the highlighted row IS the
+        # selection ... Next moves on without a confirm button". Either
+        # explicit "Use this ..." button still always wins outright, no
+        # matter which pane happens to be showing (`_legacy_applied`,
+        # set by the "wiz-roles-use" button handler, is `_lineup_
+        # applied_name`'s own counterpart for the legacy side).
+        self._active_pane = "lineup"
+        self._legacy_applied = False
 
     def body(self) -> list:
         from textual.widgets import OptionList, Switch
@@ -1196,30 +1208,43 @@ class RolesStep(StepScreen):
         self._templates = list_role_templates()
         enabled = roles_mode_enabled()
         option_list = OptionList(*[Option(n, id=n) for n in self._templates], id="wiz-roles-templates")
-        on_body = Vertical(
+        legacy_pane = Vertical(
             Static("A template sets a model (and effort) per role; pick one, Edit roles... to customize, "
                    "or Skip for now."),
             option_list, Static(id="wiz-roles-preview"),
             Horizontal(Button("Use this template", id="wiz-roles-use", variant="primary"),
                        Button("Edit roles...", id="wiz-roles-edit"), classes="wizard-extra-buttons"),
-            id="wiz-roles-on-body",
+            id="wiz-roles-legacy-pane",
         )
-        switch_row = Horizontal(Switch(value=enabled, id="wiz-roles-switch"),
-                                 Static(" Roles enabled", classes="wizard-switch-label"), classes="wizard-switch-row")
-        legacy_pane = Vertical(switch_row, on_body, id="wiz-roles-legacy-pane")
         lineup_pane = Vertical(*lineup_widgets, id="wiz-roles-lineup-pane")
         pane_switch = Horizontal(
             Button("Lineup", id="wiz-roles-pane-lineup-btn", variant="primary"),
             Button("Legacy roles", id="wiz-roles-pane-legacy-btn"),
             classes="wizard-extra-buttons",
         )
+        # Deliverable 1: ONE switch at the TOP, covering BOTH panes -- the
+        # owner's own report ("you need a toggle on and off the roles
+        # complete, not just legacy"): the PREVIOUS switch lived inside
+        # the legacy pane and only ever hid that pane's own template
+        # picker, leaving the lineup pane (and its own "Use this lineup")
+        # fully live regardless of the switch's value.
+        switch_row = Horizontal(Switch(value=enabled, id="wiz-roles-switch"),
+                                 Static(" Roles: on / off", classes="wizard-switch-label"),
+                                 classes="wizard-switch-row")
+        off_sentence = Static("Every role uses the default model (the picked session model) -- "
+                               "same as the standard lineup.", id="wiz-roles-off-sentence")
+        panes_body = Vertical(pane_switch, lineup_pane, legacy_pane, id="wiz-roles-panes-body")
         return [Static("Roles decide which model does what -- the session model is used when a role is unset.",
-                        classes="dialog-title"), pane_switch, lineup_pane, legacy_pane]
+                        classes="dialog-title"), switch_row, panes_body, off_sentence]
 
     def _show_pane(self, which: str) -> None:
         """`which`: "lineup" or "legacy" -- the manual pane toggle the
         module docstring above explains (TabbedContent can't drive this
-        from `body()`'s own plain-list return shape)."""
+        from `body()`'s own plain-list return shape). Also records which
+        pane a plain Next should apply (`commit()`, rule c: "the
+        highlighted row IS the selection ... Next moves on without a
+        confirm button")."""
+        self._active_pane = which
         try:
             lineup_pane, legacy_pane = self.query_one("#wiz-roles-lineup-pane"), \
                 self.query_one("#wiz-roles-legacy-pane")
@@ -1265,21 +1290,41 @@ class RolesStep(StepScreen):
         self._show_pane("lineup")
         self._refresh_lineup_preview()
         try:
-            option_list = self.query_one("#wiz-roles-templates")
+            legacy_list = self.query_one("#wiz-roles-templates")
+            if legacy_list.option_count:
+                legacy_list.action_first()
+                opt = legacy_list.get_option_at_index(legacy_list.highlighted or 0)
+                if opt.id:
+                    self._update_preview(str(opt.id))
+                    self._mark_selected(legacy_list, opt.id)
         except Exception:
-            return
-        if option_list.option_count:
-            option_list.action_first()
-            opt = option_list.get_option_at_index(option_list.highlighted or 0)
-            if opt.id:
-                self._update_preview(str(opt.id))
+            pass
+        # Rule (b) (the owner's "clunky wizard" feedback): focus lands on
+        # the list that's actually shown (the lineup pane, first), never
+        # on a button -- `_show_pane("lineup")` above already made it the
+        # visible one.
+        try:
+            lineup_list = self.query_one("#wiz-lineup-templates")
+            if lineup_list.option_count:
+                lineup_list.focus()
+                opt = lineup_list.get_option_at_index(lineup_list.highlighted or 0)
+                if opt.id:
+                    self._mark_selected(lineup_list, opt.id)
+        except Exception:
+            pass
 
     def _sync_visibility(self) -> None:
+        """Deliverable 1: the top switch governs BOTH panes (and the
+        Lineup/Legacy roles pane-switch buttons) as one unit -- off shows
+        only the one sentence, never a pane or a template/lineup list."""
         try:
-            on_body, switch = self.query_one("#wiz-roles-on-body"), self.query_one("#wiz-roles-switch")
+            panes_body = self.query_one("#wiz-roles-panes-body")
+            off_sentence = self.query_one("#wiz-roles-off-sentence")
+            switch = self.query_one("#wiz-roles-switch")
         except Exception:
             return
-        on_body.styles.display = "block" if switch.value else "none"
+        panes_body.styles.display = "block" if switch.value else "none"
+        off_sentence.styles.display = "none" if switch.value else "block"
 
     def on_switch_changed(self, event) -> None:
         if event.switch.id == "wiz-roles-switch":
@@ -1288,8 +1333,25 @@ class RolesStep(StepScreen):
     def on_option_list_option_highlighted(self, event) -> None:
         if event.option_list.id == "wiz-roles-templates" and event.option_id:
             self._update_preview(str(event.option_id))
+            self._mark_selected(event.option_list, event.option_id)
         elif event.option_list.id == "wiz-lineup-templates" and event.option_id:
             self._refresh_lineup_preview(str(event.option_id))
+            self._mark_selected(event.option_list, event.option_id)
+
+    @staticmethod
+    def _mark_selected(option_list, selected_id) -> None:
+        """Rule (c) (the owner's "clunky wizard" feedback): "the
+        highlighted row IS the selection, shown with a check mark" -- a
+        plain highlight bar reads as "looking at", not "this is what Next
+        applies"; a literal mark makes the no-confirm-button behaviour
+        `commit()` now follows visible on the row itself."""
+        for i in range(option_list.option_count):
+            opt = option_list.get_option_at_index(i)
+            text = str(opt.prompt)
+            bare = text[2:] if text.startswith("✓ ") else text
+            marked = f"✓ {bare}" if opt.id == selected_id else bare
+            if marked != text:
+                option_list.replace_option_prompt(opt.id, marked)
 
     # -- Halo 2.0.5 round 2 (deliverable 3): the Lineup tab ------------------
     def _highlighted_lineup_name(self) -> "Optional[str]":
@@ -1395,10 +1457,16 @@ class RolesStep(StepScreen):
             # the switch on first (visibly too) so `commit()`'s own read
             # of it, and the config it writes, actually reflect what the
             # user just asked for, even if they'd switched it off first.
+            # `self._legacy_applied`: this EXPLICIT button always means
+            # "apply the legacy table", even when the Lineup pane (the
+            # default) happens to still be the one shown -- same
+            # reasoning `_apply_highlighted_lineup`'s own `_lineup_
+            # applied_name` already uses for the lineup side.
             try:
                 self.query_one("#wiz-roles-switch").value = True
             except Exception:
                 pass
+            self._legacy_applied = True
             self.action_do_next()
         elif bid == "wiz-roles-edit":
             self._open_editor()
@@ -1482,18 +1550,25 @@ class RolesStep(StepScreen):
             self._update_preview(self._templates[idx])
 
     def commit(self) -> None:
-        from halo_harness.theme import set_config_value
-        from halo_harness.roles import apply_role_template, load_role_template
+        from halo_harness.roles import apply_role_template, load_role_template, set_roles_enabled
         enabled = True
         try:
             enabled = bool(self.query_one("#wiz-roles-switch").value)
         except Exception:
             pass
-        set_config_value("roles.enabled", enabled)
+        set_roles_enabled(enabled)
         if not enabled:
             return
         if self._lineup_applied_name:
             self._commit_lineup(self._lineup_applied_name)
+            return
+        # Rule (c): a PLAIN Next (neither explicit button was pressed)
+        # applies whichever pane is ON SCREEN -- "the highlighted row IS
+        # the selection ... Next moves on without a confirm button".
+        if not self._legacy_applied and self._active_pane == "lineup":
+            name = self._highlighted_lineup_name()
+            if name:
+                self._commit_lineup(name)
             return
         name = self._highlighted_template_name()
         if not name:

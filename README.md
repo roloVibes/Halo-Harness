@@ -11,7 +11,7 @@ your existing Claude Code setup so nothing has to be configured twice.
 </p>
 
 <p align="center">
-  <img alt="version 2.0.1" src="https://img.shields.io/badge/version-2.0.1-5b4bd6">
+  <img alt="version 2.0.4" src="https://img.shields.io/badge/version-2.0.4-5b4bd6">
   <img alt="python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776ab">
   <img alt="Linux first" src="https://img.shields.io/badge/platform-Linux%20first%20%7C%20macOS%20%7C%20Windows-2b2b2b">
   <img alt="tests" src="https://img.shields.io/badge/tests-2430%20hermetic-2e8b57">
