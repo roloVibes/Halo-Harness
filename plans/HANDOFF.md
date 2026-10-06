@@ -76,31 +76,94 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
 | `2.0.8-signal-brief.md` | 2.0.8: remote control of sessions from Signal |
 | `2.0.9-review-privacy-brief.md` | 2.0.9: deep code review feature and the privacy/secret audit of repo and history |
 
-## Resume point 2026-10-06 (read this first)
+## Resume point 2026-10-06 ~06:40 (read this first; written as the budget ran out)
 
-- The repeatable cycle (briefs -> one worker -> verify -> commit -> CI ->
-  live check -> release script) is written in `plans/CYCLE.md`. Every round
-  brief used so far is under `plans/briefs/` (2.0.3 fix passes, 2.0.3.1,
-  2.0.4 rounds 0-6, 2.0.5 rounds 1-4), sanitized: `<repo>`, `<scratchpad>`,
-  `<you>` stand for the machine-specific paths.
-- State: v2.0.3, v2.0.3.1 and **v2.0.4 (2026-10-06, release commit
-  b081db8)** released and installed on the build host and the owner's Linux
-  box; history rewritten 2026-10-05 (all hashes changed; old-history backup
-  beside the repo on the build host). v2.0.4 shipped on four green gates
-  (Linux suites, build-host live check, CI Linux, CI Windows); its code
-  review is DEFERRED to the 2.0.5 review for budget reasons: the review
-  before the v2.0.5 tag covers both versions' diffs (2.0.4 = `04ae6e4..
-  b081db8`).
-- Next: 2.0.5 control pack, briefs in `plans/briefs/2.0.5/` in this order:
-  round 1 `cc:` route v2, round 2 wizard: agent bios and lineups (rolo
-  2026-10-06 ~04:35, ROADMAP's last section), round 3 learned gateway
-  rules + the legacy env-file drop, round 4 the Governor, round 5 team
-  control (lineup sections enforced, hooks, schedule, triggers); then the
-  two-version review, fix pass, `scripts/release.py 2.0.5 --remote
-  <user@host> --identity <key>`.
-- Release script note: the remote refresh runs `ssh` non-interactively, so
-  pass the key with `--identity` (added after the 2.0.4 release, whose
-  remote step had to be rerun by hand with `ssh -i`).
-- Budget: the owner's token allowance is nearly spent until Friday
-  2026-10-09; follow CYCLE.md's "Budget discipline" (no per-round VM runs,
-  live checks once per round, status posts only when asked).
+### Where things stand
+
+- Released and installed on both boxes: v2.0.3, v2.0.3.1, **v2.0.4
+  (2026-10-06, release commit b081db8, tag v2.0.4)**. History rewritten
+  2026-10-05 (all hashes changed; old-history backup beside the repo on the
+  build host). v2.0.4 shipped on four green gates (owner's Linux VM suites,
+  build-host live check, CI Linux, CI Windows); its code review is DEFERRED
+  into the 2.0.5 review (budget), which covers `04ae6e4..<2.0.5 head>`.
+- 2.0.5 control pack, briefs in `plans/briefs/2.0.5/`, order in STATUS.md:
+  **round 1 `cc:` route v2 SHIPPED (38852a2)**; CI fix for a literal
+  version pin (6d91bc8, see CYCLE.md); **round 2 wizard: agent bios and
+  lineups IN FLIGHT** when this was written (one worker on the build host;
+  its files: `tui/dialogs/agents_step.py`, `agent_bio_editor.py`,
+  `lineup_editor.py` (new), `init_wizard.py`, `agents_yaml.py`,
+  `teams_yaml.py`, tests, docs). Rounds 3-5 not started.
+- The repeatable cycle (brief -> one worker -> verify -> commit -> CI ->
+  live check -> release script) is `plans/CYCLE.md`; every brief is under
+  `plans/briefs/`, sanitized (`<repo>`, `<scratchpad>`, `<you>`,
+  `<user@host>`, `<key>` stand for machine-specific values that live only
+  in the orchestrator's own notes, never in this repo).
+
+### How to pick it back up, step by step
+
+1. `git status --short`. A dirty tree with the round-2 files above is the
+   round-2 worker's work in progress, not damage. Run the brief's
+   verification list (`python tests/test_<touched>.py` for each touched
+   test module, `python test_bridge.py`, `python tests/test_privacy_scan.py`,
+   `python tests/test_invariants.py`, `python tests/test_docs_commands.py`,
+   `python tests/test_docs_slash_commands.py`, `python -m halo_harness audit
+   privacy`, all with `BRIDGE_TEST_HOME=<fresh dir>`,
+   `BRIDGE_TEST_NO_BACKGROUND_NET=1`, `OLLAMA_HOST=http://127.0.0.1:1`).
+   If green and the five deliverables of `round-2-wizard-agents.md` are
+   present, commit it as one round commit (`feat(wizard): 2.0.5 round 2 --
+   agent bios and lineups in the wizard`) and push. If not, start ONE
+   worker with that brief plus the sentence "the tree already contains
+   <files>; finish the deliverables from there, do not restart".
+2. Check CI for the last pushes (`.github/workflows/suites.yml`, Linux +
+   Windows): red means diagnose environment versus product first; the
+   known shapes are in CYCLE.md and the 2.0.4 log in STATUS.md.
+3. Rounds 3, 4, 5 in order, each: brief -> one worker -> verify (step 1's
+   list) -> one commit -> push -> tick STATUS.md -> next. Round 4 (the
+   Governor) is the largest; its brief points at the vendored kit and
+   REVIEW.md. Round 5 depends on round 4.
+4. Review covering 2.0.4 and 2.0.5 (`git diff 04ae6e4..HEAD`): one
+   reviewer agent (Opus when the budget allows, Sonnet otherwise) with the
+   WORKER-RULES hard constraints as its checklist; criticals and majors
+   fixed in a fix-pass commit; minors listed for 2.0.6.
+5. Pre-tag gates: CI green on the candidate; the three suites on the
+   owner's Linux VM (the runner scripts live beside the repo on the build
+   host, see the orchestrator's notes; they need the VM venv with pyyaml);
+   ONE live check on real keys (the 2.0.4 live-check script pattern) that
+   also runs the `cc:` real-binary interop check from
+   `docs/harness/CC-CONTROL-CHANNEL.md` (steer cuts the reply, `/model
+   cc:<alias>` without a restart, `/compact` shows a summary) and then
+   widens `providers/cc_tested.json` `max` to the installed version.
+6. Release: `python scripts/release.py 2.0.5 --remote <user@host>
+   --identity <key>` (dry-run first); tick STATUS.md and this file; both
+   installs print the version.
+7. Then 2.0.6 hardening (ROADMAP "REORDERED 2026-10-05" + the carried
+   items: `2.0.3-release-notes-for-fix-pass.md` minors, Try it / smoke runs
+   and export-import bundles from the round-2 deferrals, lane warnings and
+   the lineup cost estimate if round 5 did not land them), 2.0.7
+   embeddings, 2.0.8 themes, 2.0.9 Signal, 2.0.10 review. 3.0.1.1 stays
+   parked.
+
+### Facts a resumer needs
+
+- Installed claude on the build host is 2.1.291, above `cc_tested.json`'s
+  max (2.1.284): widen only after step 5's interop check passes.
+- By design, not bugs: `set_permission_mode` is implemented and tested but
+  never invoked (the `cc:` child stays in bypass so Halo's rules govern);
+  native `--resume` history for a mid-session switch into `cc:` is not
+  done (it would mean writing Claude Code's own session files).
+- The release bumps the version AFTER the suites run: no test may pin the
+  version literal (invariant (g); the version check derives it from the
+  newest dated CHANGELOG section). `## [2.0.5] - unreleased` is open at
+  the top of the CHANGELOG; the release script dates it.
+- The remote refresh runs ssh non-interactively: always pass `--identity`.
+- Plans-only pushes do not run CI (paths-ignore); a push that mixes code
+  and plans runs it at the head commit.
+- The coding-flow lineup and its bios ship in the repo:
+  `halo_harness/templates/teams/halo-dev-cycle.yaml` and
+  `halo_harness/templates/agents/{orchestrator,implementer,verifier,
+  reviewer,researcher,release-manager,watchdog}.yaml`; user copies go to
+  `~/.halo/teams/` and `~/.halo/agents/` (project: `.halo/teams/`,
+  `.halo/agents/`) and win over the shipped files.
+- Budget: the owner's token allowance renews Friday 2026-10-09; until then
+  CYCLE.md "Budget discipline" (no per-round VM runs, one live check per
+  round at most, status posts only when asked, one worker at a time).
