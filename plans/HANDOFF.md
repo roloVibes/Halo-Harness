@@ -76,6 +76,25 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
 | `2.0.8-signal-brief.md` | 2.0.8: remote control of sessions from Signal |
 | `2.0.9-review-privacy-brief.md` | 2.0.9: deep code review feature and the privacy/secret audit of repo and history |
 
+## STOPPED 2026-10-06 ~09:10 at the owner's request (token budget 99%)
+
+Both in-flight workers were stopped mid-round. The working tree is DIRTY
+with their partial work, nothing committed after 98fe38b:
+- Round 4 (Governor): `providers/governor.py`, `governor_state.py`,
+  `gateway_routing.py`, `lanes.py` (new); edits to `providers/http.py`,
+  `providers/stream.py`, `agent/loop.py`, `agent/subagent.py`, `roles.py`,
+  `teams_yaml.py`, `tests/helpers/runner.py`; new `tests/test_governor*.py`,
+  `test_lanes.py`, `test_gateway_routing.py`. Unknown how far along: run
+  its tests, read its brief, and either finish with one worker ("the tree
+  already contains ..., finish, do not restart") or `git stash` it and
+  restart the round clean.
+- Round 4b (cc: steer on Linux): any changes under `agent/cc_control.py`,
+  `cc_runtime.py`, `cc_process.py`, `tests/helpers/fake_claude_cc.py`,
+  `tests/test_cc_session.py`. Verify under WSL (command in the section
+  below) and on Windows before committing. Until it lands, CI Linux stays
+  red on three cc: tests; everything else was green on 84eb849.
+Pick up with the section below, starting at "How to pick it back up".
+
 ## Resume point 2026-10-06 ~06:40 (read this first; written as the budget ran out)
 
 ### Where things stand
