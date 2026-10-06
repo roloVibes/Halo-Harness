@@ -823,3 +823,17 @@ Auto tab; the bios and templates exist as files and CLI commands):
 Order: this is 2.0.5 round 2 (brief `plans/briefs/2.0.5/round-2-wizard-agents.md`);
 learned rules + env drop become round 3, the Governor round 4, team control
 round 5.
+
+Folded in 2026-10-06 ~04:50 (rolo: "fold them in", from the orchestrator's
+review of the two editors): new-from with the inherited/override view and
+`extends`; problems inline with a live YAML preview pane; the pick list
+filtered by the bio's needs plus a Suggest chord; rules rendered as plain
+sentences, budget and timeout hints; Import from `.claude/agents/*.md`; the
+lineup grid shows the resolved truth per row with the warnings that need no
+Governor; the about text is drafted and marked stale; the roles table is a
+read-only projection of the lineup. DEFERRED with a home: "Try it" on a bio
+and a lineup smoke run from the forms (cost shown first) -> 2.0.6; lane
+warnings (reviewer weaker than coder) and the live cost estimate against
+`budget` -> after the Governor (round 4) and team control (round 5), in the
+2.0.5 fix pass if time allows, else 2.0.6; export/import of a lineup with
+its bios as one folder -> 2.0.6.
