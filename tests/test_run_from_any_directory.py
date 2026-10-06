@@ -72,9 +72,15 @@ def test_version_from_a_scratch_directory_outside_the_repo(ctx: Ctx):
     # points at this real checkout, so update.installed_build's own
     # PYTHONPATH-checkout fallback (keyed off __file__, never cwd) still
     # finds a real commit/branch -- proof this stays cwd-independent too.
-    ctx.check(f"prints 'halo {__version__}', optionally with (commit, branch), got {result.stdout!r}",
+    # 2.0.5 round 2d: the ASCII banner (banner.py) prints first; the
+    # version line is the LAST line of the multi-line output.
+    from halo_harness.banner import BANNER
+    lines = result.stdout.strip("\n").split("\n")
+    ctx.check(f"the banner block prints first, got {result.stdout!r}",
+              lines[:len(BANNER.split("\n"))] == BANNER.split("\n"))
+    ctx.check(f"last line prints 'halo {__version__}', optionally with (commit, branch), got {lines[-1]!r}",
               re.match(rf"^halo {re.escape(__version__)}( \([0-9a-f]{{7}}(, \S+)?\))?\s*$",
-                        result.stdout) is not None)
+                        lines[-1]) is not None)
 
 
 @test

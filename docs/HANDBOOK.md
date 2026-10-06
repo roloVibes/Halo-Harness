@@ -723,6 +723,16 @@ INSTALL.md's "Cross-checking on WSL" recipe) -- Kali Linux being the actual
 target, not an afterthought. Suites use mock upstreams throughout; no live
 network call happens as part of `python tests/run_all.py` itself.
 
+The README's screenshot gallery is also a test surface: `python
+scripts/screenshots.py` drives the real TUI with Textual pilots over
+fixture data (fixed seed, frozen clock, `BRIDGE_TEST_HOME` scoped to a
+scratch dir) and writes one SVG per scene under `docs/screenshots/`;
+`tests/test_screenshots.py` re-runs it and fails if the committed SVGs
+are not byte-identical to a fresh render. The ASCII banner on `halo
+--version` and in the launch intro comes from one module,
+`halo_harness/banner.py`, and `tests/test_intro_lines.py` pins the
+README's copy against it.
+
 ## Proxy mode (`claude-bridge` / `halo proxy`)
 
 Before halo became its own harness, this repo was `claude-bridge`: a

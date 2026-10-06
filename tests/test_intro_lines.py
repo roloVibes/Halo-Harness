@@ -32,6 +32,28 @@ def test_pool_shape(ctx: Ctx):
 
 
 @test
+def test_banner_is_the_first_pool_entry_and_matches_readme(ctx: Ctx):
+    """2.0.5 round 2d: the ASCII wordmark (banner.py) is INTRO_LINES[0] --
+    banner rows, then 'halo {version}' on its own line under the art --
+    and the README carries the exact same rows in its fenced banner block,
+    so the intro animation, `halo --version` and the front page can never
+    drift apart."""
+    from halo_harness.banner import BANNER
+    from halo_harness.tui.intro_lines import INTRO_LINES
+    first = INTRO_LINES[0]
+    ctx.check("pool entry 0 is the banner followed by the version line",
+              first == BANNER + "\nhalo {version}")
+    ctx.check("every banner row stays under 80 columns",
+              all(len(row) < 80 for row in BANNER.split("\n")))
+    readme = (Path(__file__).resolve().parent.parent / "README.md").read_text(encoding="utf-8")
+    # rstrip on both sides: the art itself is pinned, while invisible
+    # trailing spaces inside the fenced block stay a non-issue if an
+    # editor or hook ever strips them.
+    ctx.check("the README's banner block is the same art, row for row",
+              all(row.rstrip() in readme for row in BANNER.split("\n")))
+
+
+@test
 def test_intro_text_fills_the_version_and_picks_from_the_pool(ctx: Ctx):
     from halo_harness.tui.intro_lines import INTRO_LINES, intro_text
     pool = {line.format(version="9.9.9") for line in INTRO_LINES}

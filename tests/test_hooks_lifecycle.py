@@ -45,7 +45,14 @@ def _hookdef(mode: str, **kw) -> H.HookDef:
 def _runner(hooks_by_event: dict, tmp, **kw) -> H.HookRunner:
     kw.setdefault("session_id", "sess1")
     kw.setdefault("transcript_path", "t.jsonl")
-    kw.setdefault("effective_env", dict(os.environ))
+    # 2.0.5 round 2d: scrub `CLAUDE_ENV_FILE` from the inherited
+    # environment -- a halo session running the suite (the harness itself
+    # exports it for ITS hook children) leaks it into `os.environ` here,
+    # and `_env_for`'s "set it only for _ENV_FILE_EVENTS" contract then
+    # reads as violated even though the runner is behaving correctly.
+    # Same scrub-what-the-parent-injected idiom as every subprocess test
+    # in this suite.
+    kw.setdefault("effective_env", {k: v for k, v in os.environ.items() if k != "CLAUDE_ENV_FILE"})
     return H.HookRunner(hooks_by_event, cwd=tmp, **kw)
 
 
@@ -839,26 +846,30 @@ def test_build_payload_common_fields(ctx: Ctx):
 
 @test
 def test_readme_never_fired_hook_names_are_all_really_in_not_emitted_v1(ctx: Ctx):
-    """W3b docs drift: README's "a name Claude Code also recognizes but
-    this build doesn't fire yet (...)" parenthetical names a handful of
-    NOT_EMITTED_V1 entries by example -- every name it lists must actually
-    be IN that set (the concrete bug this pins: `Notification` was named
-    there even though it had already been removed from NOT_EMITTED_V1,
-    directly contradicting `hooks.py`'s own source of truth); a name
-    REMOVED from NOT_EMITTED_V1 in a future change must be caught here
-    rather than leaving a stale claim in the README."""
-    readme = (REPO_DIR / "README.md").read_text(encoding="utf-8")
+    """W3b docs drift, repointed by 2.0.5 round 2d (the README rewrite
+    dropped the claim; HANDBOOK's hooks section carries it now): the
+    handbook's "a name Claude Code also recognizes but this build doesn't
+    fire yet (...)" parenthetical names a handful of NOT_EMITTED_V1
+    entries by example -- every name it lists must actually be IN that
+    set (the concrete bug this pins: `Notification` was named there even
+    though it had already been removed from NOT_EMITTED_V1, directly
+    contradicting `hooks.py`'s own source of truth); a name REMOVED from
+    NOT_EMITTED_V1 in a future change must be caught here rather than
+    leaving a stale claim in the docs."""
+    handbook = (REPO_DIR / "docs" / "HANDBOOK.md").read_text(encoding="utf-8")
+    # collapse wrapping: the parenthetical may break across lines
+    flat = " ".join(handbook.split())
     marker = "doesn't fire yet ("
-    start = readme.index(marker) + len(marker)
-    end = readme.index(")", start)
-    snippet = readme[start:end]
+    start = flat.index(marker) + len(marker)
+    end = flat.index(")", start)
+    snippet = flat[start:end]
     named = re.findall(r"`([A-Z][A-Za-z]+)`", snippet)
     ctx.check(f"the parenthetical actually names at least one hook, got {named!r} (from {snippet!r})",
               len(named) >= 1)
     for name in named:
-        ctx.check(f"README's {name!r} is really in hooks.NOT_EMITTED_V1, got {sorted(H.NOT_EMITTED_V1)!r}",
+        ctx.check(f"HANDBOOK's {name!r} is really in hooks.NOT_EMITTED_V1, got {sorted(H.NOT_EMITTED_V1)!r}",
                   name in H.NOT_EMITTED_V1)
-    ctx.check("README never claims 'Notification' doesn't fire (it isn't in NOT_EMITTED_V1)",
+    ctx.check("HANDBOOK never claims 'Notification' doesn't fire (it isn't in NOT_EMITTED_V1)",
               "Notification" not in named)
 
 

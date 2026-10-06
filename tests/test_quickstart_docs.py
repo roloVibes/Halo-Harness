@@ -21,24 +21,28 @@ _SECTION_RE = re.compile(r"^##\s+(.+)$", re.MULTILINE)
 
 @test
 def test_readme_first_section_is_quick_start(ctx: Ctx):
+    """2.0.5 round 2d restructured the README (brief: banner, one
+    paragraph, gallery, feature grid, install, themes) -- the old
+    'Quick start first' pin is superseded: the gallery now leads, and the
+    install one-liner + `halo init` + Windows live in ## Install."""
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
     sections = _SECTION_RE.findall(text)
     ctx.check(f"README has at least one ## section, got {sections[:3]}", sections)
-    ctx.check(f"the FIRST ## section is the Kali/Linux quick start, got {sections[0]!r}",
-              sections[0].strip().lower().startswith("quick start"))
-    ctx.check("it names Kali/Linux", "kali" in sections[0].lower() or "linux" in sections[0].lower())
+    ctx.check(f"the FIRST ## section is the gallery, got {sections[0]!r}",
+              sections[0].strip().lower().startswith("what it looks like"))
+    ctx.check("the banner block is above every ## section",
+              text.index("_   _") < text.index("## What it looks like"))
 
 
 @test
 def test_readme_quick_start_mentions_init_and_windows(ctx: Ctx):
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
-    quick_start = text.split("## Quick start", 1)[1].split("\n## ", 1)[0]
+    quick_start = text.split("## Install", 1)[1].split("\n## ", 1)[0]
     ctx.check("mentions `halo init`", "halo init" in quick_start)
     ctx.check("mentions an install command (uv tool install or pipx)",
               "uv tool install" in quick_start or "pipx install" in quick_start)
     ctx.check("covers Windows too, in the same leading section", "Windows" in quick_start)
-    windows_lines = [l for l in quick_start.split("```powershell", 1)[-1].split("```", 1)[0].splitlines() if l.strip()]
-    ctx.check(f"the Windows recipe is a real multi-line walkthrough, got {windows_lines}", len(windows_lines) >= 4)
+    ctx.check("the Windows recipe names install-halo.ps1", "install-halo.ps1" in quick_start)
 
 
 @test
@@ -51,15 +55,19 @@ def test_install_md_points_to_init_near_the_top(ctx: Ctx):
 
 @test
 def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
-    """The brief: "the rest of the README unchanged below it" -- proven by
-    every pre-existing top-level section still being present, in the same
-    relative order, just pushed down by the new Quick start section."""
+    """Superseded shape (was: 'every pre-existing section still present,
+    pushed down by Quick start') -- 2.0.5 round 2d rewrote the README
+    around the gallery; this now pins the new section set and its order
+    so the restructure itself is protected."""
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
-    for heading in ("## What it is", "## Install", "## Models and providers", "## Tests", "## Licence"):
-        ctx.check(f"{heading!r} is still present", heading in text)
-    idx_quick_start = text.index("## Quick start")
-    idx_what_it_is = text.index("## What it is")
-    ctx.check("Quick start comes before What it is", idx_quick_start < idx_what_it_is)
+    headings = ("## What it looks like", "## Features", "## Install", "## Themes",
+                "## Documentation", "## Tests", "## Licence")
+    positions = []
+    for heading in headings:
+        ctx.check(f"{heading!r} is present", heading in text)
+        positions.append(text.index(heading) if heading in text else -1)
+    ctx.check(f"the sections appear in the brief's order, got {positions}",
+              positions == sorted(positions) and -1 not in positions)
 
 
 @test
@@ -311,16 +319,17 @@ def test_upgrading_section_exists_in_readme_and_install_md(ctx: Ctx):
     readme = (REPO_DIR / "README.md").read_text(encoding="utf-8")
     install = (REPO_DIR / "docs" / "harness" / "INSTALL.md").read_text(encoding="utf-8")
     # The front page no longer talks about the previous name at all (2026-10-02
-    # README redo); the upgrade path lives in docs/INSTALL.md, which the
-    # README's Quick start links to.
+    # README redo; 2.0.5 round 2d took it off every front page, and the
+    # upgrade section itself now says "pre-2.0" instead of the name); the
+    # upgrade path lives in docs/INSTALL.md, which the README links to.
     ctx.check("README.md links to docs/INSTALL.md for the upgrade path", "docs/INSTALL.md" in readme)
     ctx.check("docs/INSTALL.md names the upgrade path", "upgrading from" in install.lower()
-              and "rolo-claude 1.0.1" in install.lower())
-    ctx.check("INSTALL.md has a real '## Upgrading from rolo-claude 1.0.1' section",
-              "## Upgrading from rolo-claude 1.0.1" in install)
-    install_section = install.split("## Upgrading from rolo-claude 1.0.1", 1)[1].split("\n## ", 1)[0]
-    for cmd in ("uv tool uninstall rolo-claude", "pipx uninstall rolo-claude", "pip uninstall rolo-claude"):
-        ctx.check(f"INSTALL.md's upgrade section names the exact command {cmd!r}", cmd in install_section)
+              and "pre-2.0 install" in install.lower())
+    ctx.check("INSTALL.md has a real '## Upgrading from a pre-2.0 install (1.0.1)' section",
+              "## Upgrading from a pre-2.0 install (1.0.1)" in install)
+    install_section = install.split("## Upgrading from a pre-2.0 install (1.0.1)", 1)[1].split("\n## ", 1)[0]
+    for cmd in ("uv tool uninstall <old-name>", "pipx uninstall <old-name>", "pip uninstall <old-name>"):
+        ctx.check(f"INSTALL.md's upgrade section names the exact command form {cmd!r}", cmd in install_section)
     ctx.check("INSTALL.md's upgrade section says plainly that uninstalling is recommended, not required",
               "recommended" in install_section.lower())
     ctx.check("INSTALL.md's upgrade section says plainly that no link is left at the old location",
@@ -328,9 +337,7 @@ def test_upgrading_section_exists_in_readme_and_install_md(ctx: Ctx):
     ctx.check("...and that the separate 1.0.1 install must not be used again",
               "1.0.1" in install_section and "must not" in install_section.lower())
     ctx.check("INSTALL.md points an upgrader at the section before the install commands run",
-              install.index("## Upgrading from rolo-claude 1.0.1") < install.index("uv tool install --editable .\n```")
-              if "uv tool install --editable .\n```" in install
-              else install.index("## Upgrading from rolo-claude 1.0.1") < install.index("## Kali / Linux"))
+              install.index("## Upgrading from a pre-2.0 install (1.0.1)") < install.index("## Kali / Linux"))
 
 
 @test
@@ -357,8 +364,8 @@ def test_install_md_top_level_exists_is_linked_from_readme_and_leads_with_one_li
               "cd anywhere" in install.lower() and "type `halo`" in install.lower())
     ctx.check("docs/INSTALL.md says the clone is for git pull only",
               "git pull` only" in install.lower() or "git pull only" in install.lower())
-    ctx.check("docs/INSTALL.md keeps its own Upgrading-from-rolo-claude section",
-              "## Upgrading from rolo-claude 1.0.1" in install)
+    ctx.check("docs/INSTALL.md keeps its own pre-2.0 upgrade section (2.0.5 round 2d naming)",
+              "## Upgrading from a pre-2.0 install (1.0.1)" in install)
     ctx.check("docs/INSTALL.md links onward to the exhaustive docs/harness/INSTALL.md",
               "harness/INSTALL.md" in install)
 
@@ -370,11 +377,13 @@ def test_round6_update_docs_are_in_place(ctx: Ctx):
     PowerShell/Uninstall/Update sections, HANDBOOK/COMMANDS naming `halo
     update`/`/update`, and the CHANGELOG [2.0.2] entry."""
     readme = (REPO_DIR / "README.md").read_text(encoding="utf-8")
-    ctx.check("README has an ## Update section", "## Update" in readme)
+    # 2.0.5 round 2d: the README's update guidance lives INSIDE ## Install
+    # ("Updates: `halo update`, or `/update` inside the TUI") instead of
+    # its own ## Update section.
+    ctx.check("README names halo update and /update",
+              "halo update" in readme and "/update" in readme)
     ctx.check("README's Install section names all three one-liners",
               "install-halo.sh" in readme and "uv tool install git+" in readme and "pipx install git+" in readme)
-    ctx.check("README's Update section names halo update and /update",
-              "halo update" in readme and "/update" in readme)
 
     install = (REPO_DIR / "docs" / "INSTALL.md").read_text(encoding="utf-8")
     ctx.check("docs/INSTALL.md has a Windows PowerShell one-liner naming install-halo.ps1",

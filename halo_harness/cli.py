@@ -484,11 +484,14 @@ def main(argv: Optional[list] = None) -> int:
         # Halo 2.0.2 round 6: `(commit, branch)` once the install's own
         # commit is known (PEP 610 direct_url.json, or git in a live
         # checkout) -- see update.installed_build/format_version_line.
+        # 2.0.5 round 2d: the ASCII wordmark prints above the version
+        # line (multi-line output; banner.py is the one source for it).
+        from halo_harness.banner import banner_with_version
         try:
             from halo_harness.update import format_version_line, installed_build
-            print(format_version_line(installed_build()))
+            print(banner_with_version(format_version_line(installed_build())))
         except Exception:
-            print(f"halo {__version__}")
+            print(banner_with_version(f"halo {__version__}"))
         return 0
 
     for _flags, kwargs, label, milestone in _NOT_YET_FLAGS:

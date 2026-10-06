@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "halo-harness"
 dynamic = ["version"]
-description = "Standalone agent harness (Claude Code-compatible config) driving OpenRouter/Databricks models; includes the claude-bridge proxy. Continues rolo-claude 1.0.1 under a new name."
+description = "Standalone agent harness (Claude Code-compatible config) driving OpenRouter/Databricks models; includes the claude-bridge proxy."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -53,18 +53,19 @@ mlx = [
 ]
 
 [project.scripts]
-# 2.0.1: this distribution ships EXACTLY ONE executable. The 2.0.0 comment
-# here used to say `rolo-claude` would keep working "forever" as a second,
-# installed console-script alias -- superseded by the owner's own first
-# real install attempt on a work VM: an old, separately-installed
-# `rolo-claude` tool already owned that name, so `uv tool install
-# --editable .` of Halo failed outright ("Executable already exists:
-# rolo-claude (use --force to overwrite)") and `halo` never got installed
-# at all. See CHANGELOG [2.0.1]. `rolo-claude` keeps working as a
-# deprecated, UNINSTALLED alias two other ways instead: `bin/rolo-claude`
-# (run straight from a checkout, never registered here) and
-# `cli.main_deprecated_alias` (kept in the source for that script/any
-# future reuse, just no longer wired to a pyproject entry point).
+# 2.0.1: this distribution ships EXACTLY ONE executable. The 2.0.0
+# comment here used to promise the previous project's console script
+# would keep working "forever" as a second, installed alias -- superseded
+# by the owner's own first real install attempt on a work VM: an old,
+# separately-installed copy of the pre-2.0 tool already owned that
+# command name, so `uv tool install --editable .` of Halo failed outright
+# ("Executable already exists" naming it; use --force to overwrite) and
+# `halo` never got installed at all. See CHANGELOG [2.0.1]. The old
+# command keeps working as a deprecated, UNINSTALLED alias two other ways
+# instead: the deprecated bin/ launcher in this checkout (run straight
+# from a clone, never registered here) and `cli.main_deprecated_alias`
+# (kept in the source for that script/any future reuse, just no longer
+# wired to a pyproject entry point).
 halo = "halo_harness.cli:main"
 
 [tool.setuptools]

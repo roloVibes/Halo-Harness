@@ -256,10 +256,17 @@ def test_version_flag(ctx: Ctx):
     # checkout (PYTHONPATH), which always has a real git commit/branch to
     # report, so it's never just the bare "halo 2.0.2" -- see
     # update.format_version_line/installed_build.
+    # 2.0.5 round 2d: the ASCII wordmark (banner.py) prints ABOVE the
+    # version line -- the version line itself is unchanged and is the
+    # LAST line of the multi-line output.
     import re
-    ctx.check(f"prints halo {__version__}, optionally with (commit, branch), got {result.stdout!r}",
+    from halo_harness.banner import BANNER
+    lines = result.stdout.strip("\n").split("\n")
+    ctx.check(f"the banner block prints first, got {result.stdout!r}",
+              lines[:len(BANNER.split("\n"))] == BANNER.split("\n"))
+    ctx.check(f"last line prints halo {__version__}, optionally with (commit, branch), got {lines[-1]!r}",
               re.match(rf"^halo {re.escape(__version__)}( \([0-9a-f]{{7}}(, \S+)?\))?\s*$",
-                        result.stdout) is not None)
+                        lines[-1]) is not None)
 
 
 def _hermetic_child_env() -> dict:

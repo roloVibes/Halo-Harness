@@ -17,7 +17,13 @@ from __future__ import annotations
 
 import random
 
+from halo_harness.banner import BANNER
+
 INTRO_LINES: tuple[str, ...] = (
+    # 2.0.5 round 2d: the ASCII wordmark is the pool's first entry (the
+    # same rows `halo --version` prints and the README shows) -- the
+    # banner types out, then the version lands on its own line under it.
+    BANNER + "\nhalo {version}",
     "I am just a copy, of a copy, of a copy... halo {version}",
     "Yeah, thanks. Took the restrictor plate off to give the Red Dragon a little more juice. "
     "But it's not exactly street legal, so keep it on the down low.. halo {version}",

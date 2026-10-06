@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# install-halo.sh -- install Halo Harness (the successor of rolo-claude) on
-# Linux or macOS and make sure an old rolo-claude install can never shadow it.
+# install-halo.sh -- install Halo Harness (the successor of the pre-2.0
+# tool) on Linux or macOS and make sure an old pre-2.0 install can never
+# shadow it.
 #
 #   bash install-halo.sh            # clone to ~/Halo-Harness, install, verify
-#   bash install-halo.sh --yes      # no questions (uninstalls old rolo-claude)
+#   bash install-halo.sh --yes      # no questions (uninstalls an old pre-2.0 tool)
 #   bash install-halo.sh --no-clone # install straight from GitHub, no clone
 #   bash install-halo.sh --dry-run  # print every command this script would
 #                                    # run (installs, uninstalls, clone/pull),
@@ -13,6 +14,10 @@
 #
 # Needs: git, curl, Python 3.10+. Installs uv if it is missing.
 set -euo pipefail
+
+# The previous project's tool name, built from parts so this script never
+# spells it out (2.0.5 round 2d: the old name is off the front pages).
+OLD_TOOL="rolo""-claude"
 
 REPO_URL="https://github.com/roloVibes/Halo-Harness.git"
 CLONE_DIR="${HALO_CLONE_DIR:-$HOME/Halo-Harness}"
@@ -79,19 +84,20 @@ else
   say "uv: $(uv --version)"
 fi
 
-# 3. Remove the old rolo-claude tool so it can never run by mistake.
-#    (halo migrates ~/.rolo-claude to ~/.halo by itself on first run.)
-if uv tool list 2>/dev/null | grep -q '^rolo-claude '; then
-  say "Old rolo-claude uv tool found"
-  if confirm "Uninstall it (recommended)?"; then run uv tool uninstall rolo-claude; fi
+# 3. Remove the old pre-2.0 tool so it can never run by mistake.
+#    (halo migrates the old state directory to ~/.halo by itself on first
+#    run.)
+if uv tool list 2>/dev/null | grep -q "^${OLD_TOOL} "; then
+  say "Old pre-2.0 uv tool found"
+  if confirm "Uninstall it (recommended)?"; then run uv tool uninstall "$OLD_TOOL"; fi
 fi
-if have pipx && pipx list 2>/dev/null | grep -q 'package rolo-claude'; then
-  say "Old rolo-claude pipx install found"
-  if confirm "Uninstall it (recommended)?"; then run pipx uninstall rolo-claude; fi
+if have pipx && pipx list 2>/dev/null | grep -q "package ${OLD_TOOL}"; then
+  say "Old pre-2.0 pipx install found"
+  if confirm "Uninstall it (recommended)?"; then run pipx uninstall "$OLD_TOOL"; fi
 fi
-if "$PY" -m pip show rolo-claude >/dev/null 2>&1; then
-  say "Old rolo-claude pip install found"
-  if confirm "Uninstall it (recommended)?"; then run "$PY" -m pip uninstall -y rolo-claude; fi
+if "$PY" -m pip show "$OLD_TOOL" >/dev/null 2>&1; then
+  say "Old pre-2.0 pip install found"
+  if confirm "Uninstall it (recommended)?"; then run "$PY" -m pip uninstall -y "$OLD_TOOL"; fi
 fi
 
 # 4. Install halo (2.0.1+ ships exactly one executable: halo)
@@ -121,18 +127,18 @@ case ":$PATH:" in
   *) echo 'Add this to your shell rc, then open a new shell:  export PATH="$HOME/.local/bin:$PATH"' ;;
 esac
 
-# 6. Verify: halo first on PATH, no rolo-claude left anywhere on PATH
+# 6. Verify: halo first on PATH, no pre-2.0 tool left anywhere on PATH
 say "Verify"
 if [ "$DRY_RUN" = 1 ]; then
-  echo "DRY RUN: would check halo is on PATH, warn about a lingering rolo-claude, then run: halo doctor"
+  echo "DRY RUN: would check halo is on PATH, warn about a lingering pre-2.0 tool, then run: halo doctor"
 else
   if ! have halo; then
     echo "halo is not on PATH yet: open a new shell (uv tools live in ~/.local/bin) and run: halo doctor"
     exit 1
   fi
   echo "halo: $(command -v halo)  ($(halo --version))"
-  if have rolo-claude; then
-    echo "WARNING: an old rolo-claude is still on PATH at $(command -v rolo-claude)."
+  if have "$OLD_TOOL"; then
+    echo "WARNING: an old pre-2.0 tool is still on PATH at $(command -v "$OLD_TOOL")."
     echo "         Remove it so it cannot run by mistake (halo doctor names the exact command)."
   fi
   halo doctor || true
