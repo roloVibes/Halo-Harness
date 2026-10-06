@@ -3563,7 +3563,7 @@ def test_local_add_and_forget_reach_add_model_dir_through_the_tui(ctx: Ctx):
     actually exercises `_cmd_local`/`add_model_dir` end to end, not just
     the dispatch routing."""
     async def body():
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:  # hosted Windows: a handle can outlive the test
             cwd = Path(tmp)
             model_dir = Path(tempfile.mkdtemp(prefix="local-add-tui-"))
             controller = _real_controller(cwd)
