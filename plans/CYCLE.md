@@ -23,6 +23,11 @@ owner's machine-specific scripts and keys, which are described, not stored.
    <version> [--remote user@host --identity <key>]` (changelog date,
    release commit, annotated tag, push, install refresh; the remote step
    runs ssh non-interactively, so name the key), then the next version.
+   The release bumps the version AFTER every suite has run, so no test may
+   pin the current version as a literal: the version check derives it from
+   the newest dated CHANGELOG section (`tests/test_quickstart_docs.py`),
+   and `tests/test_invariants.py` refuses a literal pin. The first CI run
+   after v2.0.4 went red on exactly such a pin.
 
 ## One round, step by step
 
