@@ -1449,12 +1449,23 @@ def format_cache_tokens_suffix(bucket: dict) -> str:
 
 
 def compute_session_stats(nodes: list) -> dict:
-    """`/stats`: `{turns, total_cost_usd, per_model: {model: {input_
-    tokens, output_tokens, cache_read_input_tokens, cache_creation_
-    input_tokens, cost_usd, calls}}, tool_counts: {name: n}}`."""
+    """`/stats`: `{turns, total_cost_usd, subscription_turns,
+    subscription_cost_usd, per_model: {model: {input_tokens,
+    output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
+    cost_usd, subscription_cost_usd, subscription_turns, calls}},
+    tool_counts: {name: n}}`.
+
+    Halo 2.0.5 round 1 (cc: route v2, brief item H6 "Cost line"): a
+    `cc:`-route usage node carries `estimate: true` (`agent/log.py`'s
+    `append_usage`) -- its cost routes into `subscription_cost_usd`/
+    `subscription_turns` (both session-wide AND per-model) instead of
+    `cost_usd`/`total_cost_usd`, so `/stats` never counts Claude Code's
+    own cumulative-delta ESTIMATE as if it were real per-token spend."""
     per_model: dict = {}
     tool_counts: dict = {}
     total_cost = 0.0
+    subscription_cost = 0.0
+    subscription_turns = 0
     turns = 0
     current_model = "?"
     for node in nodes:
@@ -1481,6 +1492,7 @@ def compute_session_stats(nodes: list) -> dict:
                 # from cache.
                 "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
                 "cost_usd": 0.0, "calls": 0,
+                "subscription_cost_usd": 0.0, "subscription_turns": 0,
             })
             usage = node.get("usage") or {}
             bucket["input_tokens"] += int(usage.get("input_tokens") or 0)
@@ -1488,8 +1500,15 @@ def compute_session_stats(nodes: list) -> dict:
             bucket["cache_read_input_tokens"] += int(usage.get("cache_read_input_tokens") or 0)
             bucket["cache_creation_input_tokens"] += int(usage.get("cache_creation_input_tokens") or 0)
             cost = node.get("cost_usd")
-            if isinstance(cost, (int, float)):
+            if node.get("estimate"):
+                if isinstance(cost, (int, float)):
+                    bucket["subscription_cost_usd"] += cost
+                    subscription_cost += cost
+                bucket["subscription_turns"] += 1
+                subscription_turns += 1
+            elif isinstance(cost, (int, float)):
                 bucket["cost_usd"] += cost
                 total_cost += cost
             bucket["calls"] += 1
-    return {"turns": turns, "total_cost_usd": total_cost, "per_model": per_model, "tool_counts": tool_counts}
+    return {"turns": turns, "total_cost_usd": total_cost, "subscription_turns": subscription_turns,
+            "subscription_cost_usd": subscription_cost, "per_model": per_model, "tool_counts": tool_counts}

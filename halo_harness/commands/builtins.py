@@ -128,6 +128,16 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
             f"Saved vs cloud: ${cm.saved_usd:.4f} across {cm.saved_turns} turn(s) -- reference price "
             f"${price_in_per_m:.2f}/M in, ${price_out_per_m:.2f}/M out ({cm.saved_price_source})"
         )
+    # Halo 2.0.5 round 1 (brief item H6, "Cost line"): a cc: model's turns
+    # NEVER count toward the "Total cost"/`--max-budget-usd` figure above
+    # -- shown as its own line, Claude Code's own cumulative-delta figure
+    # explicitly labelled an estimate, never spend.
+    if cm is not None and cm.subscription_turns:
+        est = f"${cm.subscription_cost_usd:.4f}" if cm.subscription_cost_usd else "n/a"
+        lines.append(
+            f"Subscription turns (cc:): {cm.subscription_turns} across this session -- {est} "
+            f"(Claude Code's own estimate, not real per-token spend)"
+        )
     return "\n".join(lines)
 
 
@@ -1452,10 +1462,20 @@ def _cmd_stats(args: str, facade: HeadlessFacade) -> str:
     from halo_harness.controller import compute_session_stats, format_cache_tokens_suffix
     stats = compute_session_stats(session.log.nodes())
     lines = [f"Turns: {stats['turns']}", f"Total cost: ${stats['total_cost_usd']:.4f}"]
+    # Halo 2.0.5 round 1 (brief item H6, "Cost line"): a separate line,
+    # never folded into "Total cost" above -- Claude Code's own estimate,
+    # not real per-token spend.
+    if stats["subscription_turns"]:
+        lines.append(f"Subscription turns (cc:): {stats['subscription_turns']} "
+                     f"(~${stats['subscription_cost_usd']:.4f} est, Claude Code's own figure)")
     for model, bucket in sorted(stats["per_model"].items()):
+        cost_part = f"${bucket['cost_usd']:.4f}"
+        if bucket["subscription_turns"]:
+            cost_part = (f"{cost_part} + {bucket['subscription_turns']} subscription turn(s) "
+                         f"(~${bucket['subscription_cost_usd']:.4f} est)")
         lines.append(f"  {model}: {bucket['calls']} call(s), "
                      f"{bucket['input_tokens']}in/{bucket['output_tokens']}out tok"
-                     f"{format_cache_tokens_suffix(bucket)}, ${bucket['cost_usd']:.4f}")
+                     f"{format_cache_tokens_suffix(bucket)}, {cost_part}")
     for name, n in sorted(stats["tool_counts"].items()):
         lines.append(f"  tool {name}: {n} call(s)")
     return "\n".join(lines)

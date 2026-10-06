@@ -72,10 +72,19 @@ _HOOK_SCRIPT_ARGV = [sys.executable, "-m", "tests.helpers.hook_scripts"]
 
 
 @contextmanager
-def _fake_claude_env(*, logged_in: bool = True):
+def _fake_claude_env(*, logged_in: bool = True, control: bool = False,
+                      compact_result: "str | None" = None, version: "str | None" = None):
+    """`control=True` (Halo 2.0.5 round 1, cc: route v2): the fake's own
+    `system.init` gains a `capabilities` list and it starts answering
+    `control_request` lines for real -- see `fake_claude_cc.py`'s own
+    module docstring. `compact_result`/`version` are the fake's other
+    two new knobs (`FAKE_CLAUDE_CC_COMPACT_RESULT`, `FAKE_CLAUDE_CC_
+    VERSION`); both default to unset (the fake's own defaults) when not
+    given here."""
     saved = {k: os.environ.get(k) for k in
              ("BRIDGE_CLAUDE_EXE", "FAKE_CLAUDE_CC_LOGGED_IN", "BRIDGE_TEST_CC_AUTH_STATUS",
-              "FAKE_CLAUDE_CC_TOOL2_WINDOW_S")}
+              "FAKE_CLAUDE_CC_TOOL2_WINDOW_S", "FAKE_CLAUDE_CC_CONTROL", "FAKE_CLAUDE_CC_COMPACT_RESULT",
+              "FAKE_CLAUDE_CC_VERSION")}
     os.environ["BRIDGE_CLAUDE_EXE"] = '"' + sys.executable + '" "' + str(FAKE_CLAUDE) + '"'
     os.environ["FAKE_CLAUDE_CC_LOGGED_IN"] = "1" if logged_in else "0"
     # The two-call fake waits up to this long for a steer to arrive between
@@ -84,6 +93,15 @@ def _fake_claude_env(*, logged_in: bool = True):
     # stream; a run without a steer pays the full window once.
     os.environ["FAKE_CLAUDE_CC_TOOL2_WINDOW_S"] = "4"
     os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)  # the fake's own real "auth status" answers this now
+    os.environ["FAKE_CLAUDE_CC_CONTROL"] = "1" if control else "0"
+    if compact_result is not None:
+        os.environ["FAKE_CLAUDE_CC_COMPACT_RESULT"] = compact_result
+    else:
+        os.environ.pop("FAKE_CLAUDE_CC_COMPACT_RESULT", None)
+    if version is not None:
+        os.environ["FAKE_CLAUDE_CC_VERSION"] = version
+    else:
+        os.environ.pop("FAKE_CLAUDE_CC_VERSION", None)
     try:
         yield
     finally:
@@ -1118,7 +1136,20 @@ def test_cost_logged_as_per_turn_delta_not_the_raw_cumulative_total(ctx: Ctx):
         ctx.check(f"the SUM of logged per-turn deltas matches the real cumulative total "
                     f"(never double-counted), got sum={total_logged} real={real_cumulative}",
                    abs(total_logged - real_cumulative) < 1e-9)
-        ctx.check("meter total matches too", abs(session.cost_meter.total_usd - real_cumulative) < 1e-9)
+        # Halo 2.0.5 round 1 (brief item H6, "Cost line"): a cc: turn is a
+        # Claude Code SUBSCRIPTION turn, never real per-token spend -- it
+        # now accumulates into `subscription_cost_usd`/`subscription_
+        # turns` instead of `total_usd` (CostMeter.add_subscription_
+        # usage), so `total_usd` stays exactly 0 for a session that only
+        # ever used cc:, and `/cost`/status bar/`--max-budget-usd` never
+        # mistake it for real spend.
+        ctx.check(f"subscription meter total matches too, got "
+                    f"{session.cost_meter.subscription_cost_usd} real={real_cumulative}",
+                   abs(session.cost_meter.subscription_cost_usd - real_cumulative) < 1e-9)
+        ctx.check(f"three subscription turns counted, got {session.cost_meter.subscription_turns}",
+                   session.cost_meter.subscription_turns == 3)
+        ctx.check("total_usd (real spend) stays untouched by cc: turns",
+                   session.cost_meter.total_usd == 0.0)
         session.close_cc()
 
 
@@ -1288,6 +1319,250 @@ def test_posix_sighup_to_a_headless_cc_run_kills_claude_and_bridge(ctx: Ctx):
         subprocess.run(["pkill", "-f", f"fake_claude_cc.py -p --model {marker}"], capture_output=True)
         if proc.poll() is None:
             proc.kill()
+
+
+# ---- Halo 2.0.5 round 1: the cc: route v2 control channel ------------------
+# (agent/cc_control.py; FAKE_CLAUDE_CC_CONTROL=1 behind `_fake_claude_env
+# (control=True)`.) docs/harness/CC-CONTROL-CHANNEL.md has the live-
+# verified wire shapes this fake (and this harness's own reading of them)
+# is built from.
+
+@test
+def test_control_channel_detected_from_system_init_capabilities(ctx: Ctx):
+    """Brief item H1 detection: `FAKE_CLAUDE_CC_CONTROL=1` -- the fake's
+    `system.init` carries a `capabilities` list (the live-verified shape
+    against the real 2.1.291 binary) -- `cc_control.channel_supported`
+    reads it from the very first turn, no live probe needed."""
+    from halo_harness.agent import cc_control
+    with _fake_claude_env(control=True):
+        session, _ = _new_cc_session()
+        list(session.turn("reply with the single word pong"))
+        state = session._cc_state
+        ctx.check("capabilities captured from system.init", len(state.capabilities) > 0)
+        ctx.check("control channel marked supported", cc_control.channel_supported(state) is True)
+        session.close_cc()
+
+
+@test
+def test_control_channel_marked_unsupported_when_fake_control_off(ctx: Ctx):
+    """The default fake (every OTHER test in this file) never advertises
+    `capabilities` -- decided False immediately from the first
+    `system.init` (never left ambiguous, which would otherwise cost
+    every later steer/set_model a live-probe round trip for nothing --
+    see `cc_runtime.py`'s own `system.init` handling)."""
+    from halo_harness.agent import cc_control
+    with _fake_claude_env():
+        session, _ = _new_cc_session()
+        list(session.turn("reply with the single word pong"))
+        state = session._cc_state
+        ctx.check("no capabilities advertised", len(state.capabilities) == 0)
+        ctx.check("control channel marked UNsupported immediately", cc_control.channel_supported(state) is False)
+        session.close_cc()
+
+
+@test
+def test_steer_via_control_channel_cuts_reply_cleanly_and_runs_followup(ctx: Ctx):
+    """Brief item H1, the headline behaviour: with the control channel
+    available, a steer sends `control_request` `interrupt` FIRST --
+    cutting the SLEEP-held round cleanly (the fake's own `is_error=True`
+    "interrupted" result, deliberately the WORST case, never shown as a
+    scary error, never poisons the overall turn -- the
+    `expect_interrupted_result` suppression + "turn_is_error reflects
+    only the latest result" fixes) -- and the steer text then runs as a
+    genuinely NEW round. Never "queued for Claude Code" -- that is v1's
+    fallback-only wording now (pinned for the control-OFF case by
+    `test_steer_sends_immediately_and_is_logged`, unchanged)."""
+    with _fake_claude_env(control=True):
+        session, _ = _new_cc_session()
+        collected = []
+        t = threading.Thread(target=lambda: collected.extend(session.turn("SLEEP:1.5 first")))
+        t.start()
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and getattr(session, "_cc_state", None) is None:
+            time.sleep(0.02)
+        time.sleep(0.2)  # let the round genuinely start sleeping before cutting it
+        ok = session.steer("pong")
+        ctx.check("steer accepted while busy", ok)
+        t.join(timeout=10)
+        ctx.check("the turn finished (worker thread returned)", not t.is_alive())
+        notif_texts = [e.data.get("text", "") for e in collected if e.kind == "notification"]
+        ctx.check(f"steered via the control channel, never the v1 fallback wording, got {notif_texts}",
+                   any("steered" in tx and "cut" in tx for tx in notif_texts)
+                   and not any("queued for Claude Code" in tx for tx in notif_texts))
+        ctx.check(f"the cut round's own is_error=True result never became a visible error event, got "
+                    f"{[e.data for e in collected if e.kind == 'error']}",
+                   not any(e.kind == "error" for e in collected))
+        turn_done = [e for e in collected if e.kind == "turn_done"]
+        ctx.check(f"the overall turn ends end_turn, never error, got {turn_done}",
+                   turn_done and turn_done[-1].data["reason"] == "end_turn")
+        steer_nodes = [n for n in session.log.nodes() if n.get("type") == "user" and n.get("kind") == "steer"]
+        ctx.check(f"steer text logged as a 'steer'-kind user node, got {steer_nodes}", len(steer_nodes) == 1)
+        last_assistant = [n for n in session.log.nodes() if n.get("type") == "assistant"][-1]
+        last_text = "".join(b.get("text", "") for b in last_assistant.get("content") or [] if b.get("type") == "text")
+        ctx.check(f"the transcript's LAST assistant message is the steer's own reply, got {last_text!r}",
+                   "pong" in last_text)
+        session.close_cc()
+
+
+@test
+def test_set_model_live_swap_when_control_channel_supports_it(ctx: Ctx):
+    """Brief item H2: a cc:->cc: MODEL change tries `control_request`
+    `set_model` FIRST when the channel is available -- the SAME
+    subprocess/CcState survives, no --resume restart (contrast
+    `test_model_switch_cc_to_cc_restarts_with_resume_and_new_model`,
+    which pins the UNCHANGED restart fallback for the control-off
+    case, immediately above in this file)."""
+    from halo_harness.agent import cc_control
+    from halo_harness.model import parse_model_ref, resolve_model_profile
+    with _fake_claude_env(control=True):
+        session, _ = _new_cc_session(model="cc:fable")
+        list(session.turn("reply with the single word pong"))
+        state_before = session._cc_state
+        pid_before = state_before.process.pid
+
+        new_ref = parse_model_ref("cc:sonnet-5")
+        new_profile = resolve_model_profile(new_ref, Path(tempfile.mkdtemp(prefix="cc-switch-live-state-")), {})
+        session.set_model(new_ref, new_profile)
+
+        ctx.check("the model ref actually changed", session.model_ref.model == new_ref.model)
+        ctx.check("the SAME CcState survives (no restart)", session._cc_state is state_before)
+        ctx.check("the SAME subprocess pid survives (no restart)", session._cc_state.process.pid == pid_before)
+        ctx.check("set_model found SUPPORTED on this process",
+                   not cc_control.subtype_known_unsupported(state_before, "set_model"))
+        resumed_metas = [n for n in session.log.nodes() if n.get("type") == "meta" and n.get("cc_resumed")]
+        ctx.check(f"no restart-shaped meta node was logged, got {resumed_metas}", not resumed_metas)
+        list(session.turn("reply with the single word pong"))
+        session.close_cc()
+
+
+@test
+def test_compact_forwards_to_claude_and_reports_not_enough_messages(ctx: Ctx):
+    """Brief item H3: `/compact` forwards as a real user-message slash
+    command -- the live-verified "Not enough messages to compact."
+    shape (the fake's own default) -- never the old unconditional
+    no-op. Halo's OWN log is never mutated (no `compacted` marker --
+    there is nothing to splice; see `cc_control.forward_compact`'s own
+    docstring for why)."""
+    with _fake_claude_env():
+        session, _ = _new_cc_session()
+        list(session.turn("reply with the single word pong"))
+        nodes_before = len(session.log.nodes())
+        compaction_events = list(session._run_compaction(session.turn_count, trigger="manual"))
+        phases = [e.data.get("phase") for e in compaction_events if e.kind == "compaction"]
+        ctx.check(f"start then failed (not an unconditional no-op), got {phases}",
+                   phases == ["start", "failed"])
+        reasons = [e.data.get("reason") for e in compaction_events if e.kind == "compaction"
+                    and e.data.get("phase") == "failed"]
+        ctx.check(f"the live-verified exact wording surfaced, got {reasons}",
+                   reasons and "Not enough messages to compact." in reasons[0])
+        ctx.check("halo's own log is untouched by a cc: compaction attempt",
+                   len(session.log.nodes()) == nodes_before)
+        session.close_cc()
+
+
+@test
+def test_compact_forwards_to_claude_and_reports_success_with_summary(ctx: Ctx):
+    """Same path, `FAKE_CLAUDE_CC_COMPACT_RESULT=success` -- the child's
+    own summary text (when it provides one) rides on `events.
+    compaction(phase="done", summary=...)`, the same line native
+    routes print, with the summary from the child instead of halo's
+    own."""
+    with _fake_claude_env(compact_result="success"):
+        session, _ = _new_cc_session()
+        list(session.turn("reply with the single word pong"))
+        compaction_events = list(session._run_compaction(session.turn_count, trigger="manual"))
+        done = [e for e in compaction_events if e.kind == "compaction" and e.data.get("phase") == "done"]
+        ctx.check(f"phase=done, got {[e.data for e in compaction_events]}", done)
+        ctx.check(f"the child's own summary text came through, got {done[0].data.get('summary')!r}",
+                   done[0].data.get("summary") == "Summarized the earlier turns.")
+        session.close_cc()
+
+
+@test
+def test_conformance_unsupported_control_subtype_shape(ctx: Ctx):
+    """Brief item H7, conformance shape 1/5: a subtype this installed
+    version does not implement -- the live-verified EXACT wording
+    ("Unsupported control request subtype: <name>"), and `cc_control`
+    correctly caches it as unsupported on THIS process afterward."""
+    from halo_harness.agent import cc_control
+    with _fake_claude_env(control=True):
+        session, _ = _new_cc_session()
+        list(session.turn("reply with the single word pong"))
+        state = session._cc_state
+        response = cc_control.request_control(state, "frobnicate_xyz", timeout=5.0)
+        ctx.check(f"error shape with the live-verified wording, got {response}",
+                   response is not None and response.get("subtype") == "error"
+                   and response.get("error") == "Unsupported control request subtype: frobnicate_xyz")
+        ctx.check("cached as unsupported for THIS subtype on THIS process",
+                   cc_control.subtype_known_unsupported(state, "frobnicate_xyz"))
+        ctx.check("the CHANNEL itself stays known-supported (this response proves it works at all)",
+                   cc_control.channel_supported(state) is True)
+        session.close_cc()
+
+
+@test
+def test_conformance_malformed_control_response_never_matches_a_waiter(ctx: Ctx):
+    """Brief item H7, conformance shape 2/5: a `control_response` with
+    no `request_id` at all can never be matched to the request that
+    caused it -- `request_control` degrades to a plain timeout/None,
+    never a crash and never a hang."""
+    from halo_harness.agent import cc_control
+    with _fake_claude_env(control=True):
+        session, _ = _new_cc_session()
+        list(session.turn("reply with the single word pong"))
+        state = session._cc_state
+        response = cc_control.request_control(state, "__malformed_response__", timeout=3.0)
+        ctx.check(f"no match -- a well-formed None, never a crash, got {response}", response is None)
+        ctx.check("the process is still alive (a malformed RESPONSE, unlike a malformed REQUEST, "
+                    "never crashes the child)", state.process.alive)
+        session.close_cc()
+
+
+@test
+def test_conformance_child_exit_mid_request_returns_none_not_a_hang(ctx: Ctx):
+    """Brief item H7, conformance shape 3/5 ("child exit mid-request"):
+    the child exits with NO response at all -- `request_control`
+    returns None within its own bounded timeout, never hanging the
+    caller forever."""
+    from halo_harness.agent import cc_control
+    with _fake_claude_env(control=True):
+        session, _ = _new_cc_session()
+        list(session.turn("reply with the single word pong"))
+        state = session._cc_state
+        started = time.monotonic()
+        response = cc_control.request_control(state, "__exit_mid_request__", timeout=5.0)
+        elapsed = time.monotonic() - started
+        ctx.check(f"no response (the process is simply gone), got {response}", response is None)
+        ctx.check(f"returned well before the timeout (the process exit woke it, not a timeout), "
+                    f"got {elapsed:.2f}s", elapsed < 4.5)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and state.process.alive:
+            time.sleep(0.05)
+        ctx.check("the process genuinely exited", not state.process.alive)
+        session.close_cc()
+
+
+@test
+def test_subscription_cost_tracked_separately_never_as_spend(ctx: Ctx):
+    """Brief item H6, "Cost line": `/stats`'s own data source
+    (`compute_session_stats`) shows a cc: session's turns as
+    subscription turns with an estimate, and `total_cost_usd` (what
+    `/cost`'s "Total cost"/`--max-budget-usd` read) stays exactly 0 --
+    never Claude Code's estimate counted as if it were real spend."""
+    from halo_harness.controller import compute_session_stats
+    with _fake_claude_env():
+        session, _ = _new_cc_session()
+        list(session.turn("reply with the single word pong"))
+        list(session.turn("reply with the single word pong"))
+        stats = compute_session_stats(session.log.nodes())
+        ctx.check(f"two subscription turns, zero counted as real spend, got {stats}",
+                   stats["subscription_turns"] == 2 and stats["total_cost_usd"] == 0.0)
+        ctx.check("a real estimate figure was captured (not just a count)", stats["subscription_cost_usd"] > 0)
+        bucket = stats["per_model"][session.model_ref.raw]
+        ctx.check(f"the per-model bucket carries the SAME split, got {bucket}",
+                   bucket["subscription_turns"] == 2 and bucket["cost_usd"] == 0.0
+                   and bucket["subscription_cost_usd"] > 0)
+        session.close_cc()
 
 
 if __name__ == "__main__":

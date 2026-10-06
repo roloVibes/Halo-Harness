@@ -30,12 +30,44 @@ Per-round behaviour is driven by a trigger grammar in the prompt text:
   * `SLEEP:<seconds>` -- sleep before replying.
   * `ERROR:<subtype>` -- an error-shaped reply: only a final `assistant`
     message (no stream deltas) plus `result` with `is_error: true`.
+  * `/compact[ <instructions>]` -- the local-command shape (brief item
+    H3): a `system.status` "compacting" line, then a terminal one
+    carrying `compact_result`/`compact_error` or `compact_summary`
+    (`FAKE_CLAUDE_CC_COMPACT_RESULT`, "fail" default -- the live-
+    verified "Not enough messages to compact." shape -- or "success"),
+    then the ordinary local-command `assistant`+`result` pair.
   * anything containing "pong" -- replies "pong"; anything else --
     "noted".
 
 `--session-id`/`--resume` validation (finding 9) is OPT IN, via
 `FAKE_CLAUDE_CC_REGISTRY` (a path): unset (every existing test) means
 every id is accepted, exactly like before this milestone.
+
+Halo 2.0.5 round 1 (cc: route v2): the stream-json CONTROL CHANNEL
+(`control_request`/`control_response`) behind `FAKE_CLAUDE_CC_CONTROL`
+("1" to turn it on; unset/anything else -- every existing test -- keeps
+this fake behaving EXACTLY as before, including never answering a
+`control_request` at all, the correct stand-in for an old claude that
+pre-dates the channel). When on:
+  * `system.init` gains a `capabilities` list (a representative subset
+    of the REAL installed 2.1.291's own list --
+    `docs/harness/CC-CONTROL-CHANNEL.md` has the full one).
+  * `interrupt`/`set_model`/`set_permission_mode`/`mcp_status`/
+    `get_context_usage` get real `control_response` success shapes;
+    any OTHER subtype gets the live-verified "Unsupported control
+    request subtype: <name>" error shape.
+  * `interrupt` also cuts the round CURRENTLY streaming (if any) --
+    conformance brief item H7's "the cut reply never reaches the
+    transcript as a finished turn".
+  * Two subtype names are TEST-ONLY conformance hooks, never sent by
+    real halo code: `__exit_mid_request__` (the process exits with NO
+    response at all -- "child exit mid-request") and
+    `__malformed_response__` (a `control_response` with no
+    `request_id` at all -- "malformed response", unmatchable by
+    design).
+`FAKE_CLAUDE_CC_VERSION` (default "2.1.284-fake") overrides both
+`--version`'s own output and `system.init`'s `claude_code_version`, so
+a test can simulate a version below `cc_tested.json`'s window.
 """
 
 from __future__ import annotations
@@ -64,6 +96,92 @@ def _auth_status_json() -> dict:
 def _write(obj: dict) -> None:
     sys.stdout.write(json.dumps(obj, ensure_ascii=False) + "\n")
     sys.stdout.flush()
+
+
+def _control_enabled() -> bool:
+    return os.environ.get("FAKE_CLAUDE_CC_CONTROL", "0").strip() == "1"
+
+
+def _fake_version() -> str:
+    return os.environ.get("FAKE_CLAUDE_CC_VERSION", "2.1.284-fake")
+
+
+# A representative subset of the REAL installed 2.1.291's own
+# `system.init.capabilities` list (docs/harness/CC-CONTROL-CHANNEL.md
+# has the full one) -- enough for `agent/cc_control.channel_supported`'s
+# own detection to see a non-empty list and conclude "this version has
+# the channel", without hard-coding every capability this fake doesn't
+# actually need to emulate.
+_FAKE_CAPABILITIES = ["interrupt_receipt_v1", "interrupt_cancel_queued_v1",
+                       "interrupt_send_now_v1", "msg_lifecycle_v1"]
+
+_CONTROL_SUPPORTED_SUBTYPES = {"interrupt", "set_model", "set_permission_mode",
+                                 "mcp_status", "get_context_usage"}
+
+
+class _ControlState:
+    """Per-process (this fake has exactly one `claude` process per test
+    the same as the real binary), mirrors what `agent/cc_control.py`'s
+    own per-CcState bookkeeping tracks on the HALO side -- `interrupt_
+    event` is what `_finish_round` below checks to cut a round already
+    streaming (brief item H1's own conformance case)."""
+
+    def __init__(self) -> None:
+        self.interrupt_event = asyncio.Event()
+        self.model: "str | None" = None
+        self.permission_mode = "bypassPermissions"
+
+
+async def _handle_control_request(obj: dict, session_id: str, control: "_ControlState") -> None:
+    """Answered the moment it arrives, concurrently with whatever round
+    (if any) is currently streaming -- `_serve_turns`'s own reader hands
+    this off as its own `asyncio.create_task`, never blocking on it, the
+    same way the real claude binary answers a control_request mid-turn."""
+    request_id = obj.get("request_id")
+    request = obj.get("request")
+    if not isinstance(request_id, str) or not isinstance(request, dict):
+        # Live-verified: the REAL binary's own process exits outright on
+        # exactly this shape (no `request` object at all) -- this fake
+        # stays a RELIABLE double instead of also crashing the test
+        # process; `tests/test_cc_session.py`'s own "child exit mid-
+        # request" case uses the dedicated `__exit_mid_request__`
+        # subtype below instead, which is deterministic.
+        return
+    subtype = request.get("subtype")
+    if subtype == "__exit_mid_request__":
+        os._exit(1)  # no response, ever -- the process is simply gone
+    if subtype == "__malformed_response__":
+        _write({"type": "control_response", "response": {"subtype": "success", "response": {}}})
+        return
+    if subtype not in _CONTROL_SUPPORTED_SUBTYPES:
+        _write({"type": "control_response", "response": {
+            "subtype": "error", "request_id": request_id,
+            "error": f"Unsupported control request subtype: {subtype}",
+        }})
+        return
+    if subtype == "interrupt":
+        control.interrupt_event.set()
+        _write({"type": "control_response", "response": {
+            "subtype": "success", "request_id": request_id, "response": {"still_queued": []}}})
+    elif subtype == "set_model":
+        control.model = request.get("model")
+        _write({"type": "control_response", "response": {
+            "subtype": "success", "request_id": request_id, "response": {"model": control.model}}})
+    elif subtype == "set_permission_mode":
+        control.permission_mode = request.get("mode")
+        _write({"type": "control_response", "response": {
+            "subtype": "success", "request_id": request_id, "response": {"mode": control.permission_mode}}})
+        # Live-verified side effect: a successful set_permission_mode
+        # ALSO pushes a plain status notice carrying the new mode.
+        _write({"type": "system", "subtype": "status", "status": None,
+                 "permissionMode": control.permission_mode, "session_id": session_id})
+    elif subtype == "mcp_status":
+        _write({"type": "control_response", "response": {
+            "subtype": "success", "request_id": request_id, "response": {"mcpServers": []}}})
+    elif subtype == "get_context_usage":
+        _write({"type": "control_response", "response": {
+            "subtype": "success", "request_id": request_id,
+            "response": {"totalTokens": 0, "maxTokens": 200000}}})
 
 
 def _parse_argv(argv: "list[str]") -> dict:
@@ -282,7 +400,36 @@ def _write_result(session_id: str, final_text: str, *, is_error: bool = False, s
     })
 
 
-async def _run_round(mcp_session, session_id: str, lines: list, turn_index: int, line_queue) -> None:
+async def _handle_compact(session_id: str, msg_id: str) -> None:
+    """Brief item H3 -- the live-verified local-command shape: a
+    "compacting" status line, then a terminal one carrying either
+    `compact_result: "success"` + `compact_summary`, or `compact_result:
+    "failed"` + `compact_error` (default: the EXACT live wording for a
+    short conversation, "Not enough messages to compact."), then the
+    ordinary local-command `assistant`+`result` pair -- never streamed
+    deltas (the real binary doesn't stream a local command's own reply
+    either)."""
+    _write({"type": "system", "subtype": "status", "status": "compacting", "session_id": session_id})
+    await asyncio.sleep(0.02)
+    succeed = os.environ.get("FAKE_CLAUDE_CC_COMPACT_RESULT", "fail").strip().lower() == "success"
+    if succeed:
+        _write({"type": "system", "subtype": "status", "status": None, "compact_result": "success",
+                 "compact_summary": "Summarized the earlier turns.", "session_id": session_id})
+        text = "Compacted the conversation."
+    else:
+        _write({"type": "system", "subtype": "status", "status": None, "compact_result": "failed",
+                 "compact_error": "Not enough messages to compact.", "session_id": session_id})
+        text = "Not enough messages to compact."
+    _write({"type": "assistant", "message": {"id": msg_id, "role": "assistant",
+                                               "content": [{"type": "text", "text": text}]},
+             "session_id": session_id, "local_command_run": {"command": "compact", "args": ""}})
+    _write({"type": "result", "subtype": "success", "is_error": False, "session_id": session_id,
+             "duration_api_ms": 0, "duration_ms": 1, "total_cost_usd": round(_Cost.total, 6), "usage": {},
+             "result": text, "local_command": "compact", "num_turns": 0})
+
+
+async def _run_round(mcp_session, session_id: str, lines: list, turn_index: int, line_queue,
+                       control: "_ControlState | None" = None) -> None:
     """One claude-native "round": echoes every line in `lines` (`lines[0]`
     is what arrived when this round started; anything else in it was
     ALREADY queued behind it at that exact moment -- critical finding 1's
@@ -301,6 +448,10 @@ async def _run_round(mcp_session, session_id: str, lines: list, turn_index: int,
         _echo(ln, session_id)
     absorbed_notes = [f"(absorbed: {_extract_text(ln)[:40]})" for ln in lines[1:]]
     prompt_text = _extract_text(first_line)
+
+    if prompt_text.startswith("/compact"):
+        await _handle_compact(session_id, msg_id)
+        return
 
     m = _ERROR_RE.match(prompt_text)
     if m:
@@ -388,19 +539,50 @@ async def _run_round(mcp_session, session_id: str, lines: list, turn_index: int,
             results.append("noted")
         final_text = " | ".join(results + absorbed_notes)
 
-    await _finish_round(session_id, msg_id, final_text)
+    await _finish_round(session_id, msg_id, final_text, control)
 
 
-async def _finish_round(session_id: str, msg_id: str, final_text: str) -> None:
+async def _finish_round(session_id: str, msg_id: str, final_text: str,
+                          control: "_ControlState | None" = None) -> None:
     """Streamed text deltas (so `state.turn_had_deltas` is True on the
     parent side, the normal/common shape) + the closing `assistant`
-    message + `result` -- shared by every non-error reply."""
+    message + `result` -- shared by every non-error reply.
+
+    Halo 2.0.5 round 1 (brief item H1 conformance: "the cut reply never
+    reaches the transcript as a finished turn"): checked before EACH
+    chunk -- a `control_request` `interrupt` that lands while this round
+    is streaming (`_handle_control_request` sets `control.
+    interrupt_event`, concurrently, via its own asyncio task) cuts it
+    right there: whatever text already streamed stands, the rest is
+    dropped, and the round's own `result` is a plain (`is_error=False`)
+    success carrying ONLY that partial text -- never the full reply the
+    interrupt cut short. The event is cleared here (not by the
+    interrupter) so it can never also cut the NEXT, unrelated round."""
+    emitted = ""
     for chunk in (final_text[:1] or " "), final_text[1:]:
+        if control is not None and control.interrupt_event.is_set():
+            break
         if chunk:
             _write({"type": "stream_event",
                      "event": {"type": "content_block_delta", "index": 0,
                                "delta": {"type": "text_delta", "text": chunk}},
                      "session_id": session_id})
+            emitted += chunk
+    if control is not None and control.interrupt_event.is_set():
+        control.interrupt_event.clear()
+        _write({"type": "assistant", "message": {"id": msg_id, "role": "assistant",
+                                                    "content": [{"type": "text", "text": emitted}]},
+                 "session_id": session_id})
+        # Deliberately `is_error=True` -- the REAL binary's own exact
+        # shape for an interrupted result is unverified (every probe
+        # that could have reached a genuine in-flight interrupt needed
+        # real auth, see docs/harness/CC-CONTROL-CHANNEL.md); this fake
+        # exercises halo's WORST-CASE defense (`cc_runtime.py`'s
+        # `expect_interrupted_result` suppression + "turn_is_error
+        # reflects only the latest result" fix) deliberately, rather
+        # than the easier shape that would never have caught either bug.
+        _write_result(session_id, emitted, is_error=True, subtype="interrupted")
+        return
     _write({"type": "assistant", "message": {"id": msg_id, "role": "assistant",
                                                "content": [{"type": "text", "text": final_text}]},
              "session_id": session_id})
@@ -446,9 +628,19 @@ async def _wait_for_list_changed(mcp_session, *, timeout: float) -> bool:
 
 
 async def _serve_turns(mcp_session, session_id: str, tools_wire: list) -> None:
-    _write({"type": "system", "subtype": "init", "session_id": session_id, "tools": tools_wire,
-             "mcp_servers": ([{"name": "rolo", "status": "connected"}] if mcp_session is not None else []),
-             "model": "fake-model", "permissionMode": "bypassPermissions", "claude_code_version": "0.0.0-fake"})
+    control_on = _control_enabled()
+    control = _ControlState()
+    init_line = {"type": "system", "subtype": "init", "session_id": session_id, "tools": tools_wire,
+                 "mcp_servers": ([{"name": "rolo", "status": "connected"}] if mcp_session is not None else []),
+                 "model": "fake-model", "permissionMode": "bypassPermissions",
+                 "claude_code_version": _fake_version()}
+    if control_on:
+        # Halo 2.0.5 round 1 (cc: route v2): live-verified field on the
+        # REAL installed 2.1.291 -- see `_FAKE_CAPABILITIES`'s own
+        # comment. Absent entirely when the switch is off, the correct
+        # stand-in for an older claude that pre-dates this field.
+        init_line["capabilities"] = _FAKE_CAPABILITIES
+    _write(init_line)
     loop = asyncio.get_event_loop()
     line_queue: "asyncio.Queue" = asyncio.Queue()
 
@@ -464,6 +656,19 @@ async def _serve_turns(mcp_session, session_id: str, tools_wire: list) -> None:
             try:
                 parsed = json.loads(raw_line)
             except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict) and parsed.get("type") == "control_request":
+                if control_on:
+                    # Answered concurrently, never blocking this reader
+                    # (and never put on `line_queue` -- a control_request
+                    # is not a "round" input) -- the real claude binary
+                    # answers one mid-turn the same way.
+                    asyncio.create_task(_handle_control_request(parsed, session_id, control))
+                # Switch off: silently dropped, no response ever -- the
+                # correct stand-in for an old claude that doesn't
+                # understand `control_request` at all (halo's own
+                # `cc_control.request_control` times out and caches
+                # "unsupported", never hangs forever).
                 continue
             await line_queue.put(parsed)
 
@@ -489,7 +694,7 @@ async def _serve_turns(mcp_session, session_id: str, tools_wire: list) -> None:
                     break
                 batch.append(nxt)
             turn_index += 1
-            await _run_round(mcp_session, session_id, batch, turn_index, line_queue)
+            await _run_round(mcp_session, session_id, batch, turn_index, line_queue, control)
     finally:
         reader_task.cancel()
 
@@ -553,7 +758,11 @@ def main(argv=None) -> int:
     if argv and argv[0] == "--version":
         # finding 23: doctor now reads THIS, never claude auth status's
         # own JSON (which has no version key at all, verified live).
-        print("2.1.284-fake (Claude Code)")
+        # Halo 2.0.5 round 1: `FAKE_CLAUDE_CC_VERSION` overrides this
+        # (and `system.init`'s own `claude_code_version`, `_fake_
+        # version()`) so a test can simulate a version below
+        # `cc_tested.json`'s window.
+        print(f"{_fake_version()} (Claude Code)")
         return 0
     if len(argv) >= 2 and argv[0] == "mcp" and argv[1] == "list":
         return _cmd_mcp_list()

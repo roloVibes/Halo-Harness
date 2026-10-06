@@ -95,9 +95,31 @@ class CcState:
     turn_is_error: bool = False     # finding 12: set when a `result` carries is_error -- read at DONE
     turn_had_deltas: bool = False   # finding 12: reset per claude-native message_start
     last_total_cost: "Optional[float]" = None  # finding 11: result.total_cost_usd is CUMULATIVE for the process
+    # Halo 2.0.5 round 1 (cc: route v2, `agent/cc_control.py`): the
+    # stream-json control channel's own bookkeeping, per CcState (= per
+    # `claude` subprocess) -- see that module's docstring for the full
+    # design. `capabilities` is read once from the first `system.init`
+    # line (`_events_for_stdout_obj`, below); `control_channel_supported`
+    # and `control_subtype_supported` are the "detected ONCE per process"
+    # cache the brief asks for (None = not yet known either way).
+    # `control_waiters` + `control_cond` let `cc_control.py` wait for a
+    # `control_response` that the TURN's own reader thread will see on
+    # the shared stdout stream (mirrors `tool_use_cond` above for the
+    # exact same reason: only ONE thread may ever call `read_event()`).
+    capabilities: frozenset = field(default_factory=frozenset)
+    control_channel_supported: "Optional[bool]" = None
+    control_subtype_supported: dict = field(default_factory=dict)
+    control_waiters: dict = field(default_factory=dict)
+    control_cond: "Optional[threading.Condition]" = None
+    # Set right before `cc_control.steer_via_interrupt` sends an
+    # `interrupt` control_request for a steer; read (and cleared) by the
+    # very next `result` so that one result's own is_error/stop_reason
+    # never surfaces as a scary error card or poisons the overall turn.
+    expect_interrupted_result: bool = False
 
     def __post_init__(self) -> None:
         self.tool_use_cond = threading.Condition(self.lock)
+        self.control_cond = threading.Condition(self.lock)
 
 
 # 2.0.1 W3a: "the cc: route prints one line on first use outside the
@@ -526,6 +548,40 @@ def notify_catalog_changed(session) -> None:
         state.bridge.notify_tools_changed()
 
 
+def switch_model_live(session, new_model: str) -> bool:
+    """Halo 2.0.5 round 1 (brief item H2): `Session.set_model`'s cc:->cc:
+    MODEL-change branch calls this FIRST -- a thin call into `agent/
+    cc_control.py`'s `request_control` for the actual `set_model`
+    control_request/response. Returns True (model swapped live, the
+    SAME claude subprocess and conversation kept exactly as they were --
+    no `--resume` restart) only on a genuine `control_response` success;
+    False for anything else (no control channel, an older child, a
+    timed-out/error response), in which case the caller's own existing
+    restart-with-`--resume` path runs completely unchanged."""
+    state: Optional[CcState] = getattr(session, "_cc_state", None)
+    if state is None or not state.process.alive:
+        return False
+    from halo_harness.agent import cc_control
+    if cc_control.subtype_known_unsupported(state, "set_model"):
+        return False
+    response = cc_control.request_control(state, "set_model", model=new_model, timeout=10.0)
+    return bool(response is not None and response.get("subtype") == "success")
+
+
+def forward_compact(session, *, trigger: str, turn_no: int, custom_instructions: Optional[str] = None):
+    """Halo 2.0.5 round 1 (brief item H3): `Session._run_compaction`'s
+    cc: branch calls this instead of its old unconditional no-op. A thin
+    generator pass-through into `agent/cc_control.forward_compact` (the
+    actual `/compact`-as-a-user-message send + the `system.status`
+    compacting/compact_result read loop live-verified against 2.1.291);
+    see that function's own docstring for the full behaviour and why
+    only `trigger == "manual"` can ever reach a cc: session at all."""
+    from halo_harness.agent import cc_control
+    result = yield from cc_control.forward_compact(session, trigger=trigger, turn_no=turn_no,
+                                                      custom_instructions=custom_instructions)
+    return result
+
+
 def one_shot_cc_call(model: str, system_text: str, user_text: str, *, timeout_s: float = 60.0) -> str:
     """H11b finding 22: a quick, STATELESS `claude -p` call for
     `Session.call_small_model`'s cc: branch (title generation, prompt/
@@ -855,17 +911,43 @@ def _is_replay_echo(obj: dict) -> bool:
 
 
 def steer_cc(session, text: str) -> bool:
-    """`Session.steer`'s cc: branch -- sends immediately (claude queues or
-    absorbs it internally; `--replay-user-messages` echoes it back once
-    actually consumed). Finding 1: NOT logged here -- a steer becomes a
-    session-log "steer" node only once `turn_body_cc`'s reader sees that
-    echo, never ahead of output it did not influence."""
+    """`Session.steer`'s cc: branch. Halo 2.0.5 round 1 (brief item H1,
+    the `cc:` route v2 control channel): when the installed claude's
+    control channel is available, sends `control_request` `interrupt`
+    FIRST and waits (bounded) for its `control_response` -- cutting the
+    reply already in progress cleanly, the same shape every other
+    route's own steer already has -- before falling through to v1's
+    unchanged send below. `state.expect_interrupted_result` tells
+    `_events_for_stdout_obj` to not treat the (now-cut) turn's own
+    `result` as a real error. On an older child with no control channel
+    (or a timed-out/failed interrupt), falls straight through to v1's
+    behaviour unchanged: send the steer text alone and let Claude Code
+    queue it on its own terms ("queued for Claude Code") -- see
+    `agent/cc_control.py` for the channel-detection/request/response
+    plumbing this calls into.
+
+    Finding 1 (unchanged): NOT logged here either way -- a steer becomes
+    a session-log "steer" node only once `turn_body_cc`'s reader sees the
+    `--replay-user-messages` echo, never ahead of output it did not
+    influence."""
     state: Optional[CcState] = getattr(session, "_cc_state", None)
     if state is None or not session.busy:
         return False
+    with state.lock:
+        if not state.process.alive:
+            return False
+    from halo_harness.agent import cc_control
+    interrupted_cleanly = False
+    if not cc_control.subtype_known_unsupported(state, "interrupt"):
+        response = cc_control.request_control(state, "interrupt", timeout=3.0)
+        if response is not None and response.get("subtype") == "success":
+            interrupted_cleanly = True
+            with state.lock:
+                state.expect_interrupted_result = True
     entry = {"kind": "steer", "text": text}
     with state.lock:
         if not state.process.alive:
+            state.expect_interrupted_result = False
             return False
         state.unconfirmed.append(entry)
     try:
@@ -876,8 +958,12 @@ def steer_cc(session, text: str) -> bool:
                 state.unconfirmed.remove(entry)
             except ValueError:
                 pass
+            state.expect_interrupted_result = False
         return False
-    _emit(session, events.notification("↳ queued for Claude Code"))
+    if interrupted_cleanly:
+        _emit(session, events.notification("↳ steered (Claude Code cut the current reply)"))
+    else:
+        _emit(session, events.notification("↳ queued for Claude Code"))
     return True
 
 
@@ -929,6 +1015,16 @@ def turn_body_cc(session, turn_no: int, text: str, *, images: Optional[list] = N
                     q.put("EOF")
                     return
                 _confirm_session_id(session, state, obj)
+                if obj.get("type") == "control_response":
+                    # Halo 2.0.5 round 1 (cc: route v2): a control_request
+                    # WE sent (`cc_control.py`) mid-turn -- this thread is
+                    # the only one reading `state.process`, so the waiter
+                    # that sent it cannot read the response itself (see
+                    # `cc_control.py`'s own module docstring). Never
+                    # queued/logged as a transcript item.
+                    from halo_harness.agent import cc_control
+                    cc_control.dispatch_control_response(state, obj)
+                    continue
                 if _is_replay_echo(obj):
                     with state.tool_use_cond:
                         entry = state.unconfirmed.popleft() if state.unconfirmed else None
@@ -1093,6 +1189,63 @@ def _events_for_stdout_obj(session, turn_no: int, obj: dict, state: CcState) -> 
                     out.append(events.notification(
                         f"cc: the tool bridge did not connect (status: {server.get('status')}) -- every "
                         f"bridged tool is unavailable this turn.", level="error"))
+            # Halo 2.0.5 round 1 (cc: route v2): live-verified against
+            # 2.1.291 -- `system.init` carries a `capabilities` list
+            # (`["interrupt_receipt_v1", ...]`) naming the control-channel
+            # features THIS installed version actually has. Captured once
+            # (every later `system.init` -- the installed version
+            # re-announces one after certain operations, e.g. `/compact`
+            # -- repeats the same list) so `cc_control.channel_supported`
+            # never has to guess from the version window alone.
+            caps = obj.get("capabilities")
+            if isinstance(caps, list):
+                if not state.capabilities:
+                    state.capabilities = frozenset(c for c in caps if isinstance(c, str))
+                if state.control_channel_supported is None:
+                    # the KEY being present at all (even an empty list)
+                    # already proves this installed version speaks the
+                    # control protocol.
+                    state.control_channel_supported = True
+            elif state.control_channel_supported is None:
+                # Halo 2.0.5 round 1: NO `capabilities` key at all on the
+                # first `system.init` -- decided here, immediately, as
+                # "unsupported" rather than leaving it None (which would
+                # make `cc_control.subtype_known_unsupported` return
+                # False -- "unknown, go ahead and try") and paying a
+                # live probe's own round-trip timeout on EVERY cc: steer/
+                # set_model just to learn the same thing the slow way. An
+                # installed claude old enough to omit this field almost
+                # certainly pre-dates the whole control channel too.
+                state.control_channel_supported = False
+        elif obj.get("subtype") == "status":
+            # Halo 2.0.5 round 1 (brief item H3, compaction): live-
+            # verified -- `/compact` sent as a plain user message is
+            # handled LOCALLY (no model call needed to notice "not enough
+            # messages") and announced through `system.status` lines, not
+            # a PreCompact/PostCompact HOOK event (this child always runs
+            # with every native hook disabled, `--settings
+            # disableAllHooks`, so there would be nothing to surface on
+            # that channel even with `--include-hook-events`). See
+            # `cc_control.forward_compact`, the only caller that sends
+            # `/compact` and is ready to wait for exactly this pair of
+            # lines; this generic reader path just makes sure the SAME
+            # notice reaches halo's own transcript in the ordinary
+            # (not-explicitly-awaited) case too.
+            if obj.get("status") == "compacting":
+                out.append(events.compaction(phase="start", trigger="manual", turn=turn_no))
+            elif "compact_result" in obj:
+                ok = obj.get("compact_result") == "success"
+                summary = obj.get("compact_summary") or obj.get("summary")
+                if ok:
+                    out.append(events.compaction(phase="done", trigger="manual", turn=turn_no, summary=summary))
+                else:
+                    out.append(events.compaction(phase="failed", trigger="manual", turn=turn_no,
+                                                    reason=obj.get("compact_error") or "compaction failed"))
+            # Note: a successful `set_permission_mode` control_response
+            # also triggers a `system.status` line carrying the new
+            # `permissionMode` (live-verified) -- not consulted here;
+            # see `cc_control.py`'s own docstring for why this harness
+            # never actually sends `set_permission_mode` in production.
         return out
 
     if typ == "assistant":
@@ -1134,17 +1287,40 @@ def _events_for_stdout_obj(session, turn_no: int, obj: dict, state: CcState) -> 
         usage_for_meter = dict(usage)
         if isinstance(turn_delta_cost, (int, float)):
             usage_for_meter["cost"] = turn_delta_cost
-        turn_cost = session.cost_meter.add_usage("cc", usage_for_meter)
+        # Halo 2.0.5 round 1 (brief item H6, "Cost line"): a subscription
+        # turn, never per-token spend -- see CostMeter.add_subscription_
+        # usage's own docstring for why this is a SEPARATE running total
+        # from add_usage's `total_usd`/`has_cost_data`, which this no
+        # longer touches at all.
+        turn_cost = session.cost_meter.add_subscription_usage(usage_for_meter)
         session.log.append_usage(usage, cost_usd=turn_delta_cost, model=session.model_ref.raw, route="cc",
                                    provider="cc", finish_reason=stop_reason,
                                    latency_ms=obj.get("duration_api_ms"),
                                    status=("error" if is_error else "ok"), estimate=True)
         out.append(events.message_end(turn=turn_no, stop_reason=stop_reason, usage=usage,
                                         cost_usd=turn_cost if turn_cost is not None else turn_delta_cost))
-        if is_error:
+        # Halo 2.0.5 round 1 (control channel, brief item H1): a result
+        # for the turn WE just cut with our own control-channel
+        # `interrupt` (cc_control.steer_via_interrupt) is not a real
+        # failure -- every other route's own Esc/interrupt path ends with
+        # reason="interrupted" and no error card; this one result (and
+        # only this one -- the flag is cleared right here, every time)
+        # is suppressed the same way, so a cc: steer "behaves like every
+        # other route's" (the brief's own words).
+        suppress_as_interrupted = state.expect_interrupted_result
+        state.expect_interrupted_result = False
+        if is_error and not suppress_as_interrupted:
             state.turn_is_error = True
             msg = obj.get("result") or f"claude reported an error ({subtype or 'unknown'})"
             out.append(events.error(str(msg), turn=turn_no, err_type=f"cc_{subtype or 'api_error'}"))
+        else:
+            # Halo 2.0.5 round 1: an intermediate result's error state
+            # must never stick around to poison a LATER, successful
+            # result in the same rolo turn (a steer the child absorbed as
+            # its own follow-up turn, H11b's own documented multi-result
+            # shape) -- `turn_is_error` now always reflects the MOST
+            # RECENT result, never an accumulate-and-stick flag.
+            state.turn_is_error = False
         with state.lock:
             # finding 20: an announcement claude made but never actually
             # called (a bare `Read` it rejected, ...) never survives past
