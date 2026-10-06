@@ -509,6 +509,30 @@ async def _apply_event_inner(app, event) -> None:
                 if enriched is not None:
                     status_data = {**data, "effort": enriched}
             app.status_bar.apply_status(status_data)
+    elif kind == "governor":
+        # Halo 2.0.5 round 4: the Governor's telemetry (throttle/recover/
+        # waiting) forwarded from providers/http.py's choke point through
+        # the session's event sink -- drives the status bar's
+        # "gov 4.0 rps / cooldown 12 s" segment. A recovered/healthy
+        # bucket (rate back at ceiling) clears the segment.
+        if agent_id is None:
+            rate = data.get("rate")
+            ceiling = data.get("rate_ceiling")
+            cooldown = data.get("cooldown_remaining") or 0.0
+            if rate is not None and ceiling is not None and rate < ceiling:
+                app.status_bar.set_gov_state((rate, ceiling, cooldown))
+            else:
+                app.status_bar.set_gov_state(None)
+    elif kind == "governor_state_unpersisted":
+        # 2.0.5 round 4: the Governor's shared state stopped persisting --
+        # rate limiting fell back to per-process, which is not shared
+        # across sessions. A transcript line (not a toast): the condition
+        # persists, a toast would not.
+        if agent_id is None:
+            await app.transcript.add_note(
+                f"Governor: state not persisting ({data.get('reason')}) -- "
+                "rate limiting is per-process only, not shared across sessions.",
+                kind="error")
     elif kind == "message_end":
         if agent_id is None:
             # 1.0.1 hotfix 14: pass the raw context_tokens/context_limit and

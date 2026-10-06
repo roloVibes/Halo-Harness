@@ -1196,6 +1196,41 @@ def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
     return "Usage: /providers [list|enable <name>|disable <name>|setup <name>]"
 
 
+def _cmd_gov(args: str, facade: HeadlessFacade) -> str:
+    """Halo 2.0.5 round 4: `/gov [host]` -- the Governor's gateway buckets,
+    the SAME table `halo gov` prints (`gov_cli`'s own formatter is reused
+    line for line), plus the recent calls of one host when named. Read-
+    only: it inspects persisted bucket state, never sends a request."""
+    from halo_harness.gov_cli import _bucket_key_for_arg, _format_bucket
+    from halo_harness.providers import governor
+    host = (args or "").strip()
+    lines = []
+    buckets = governor.inspect_all()
+    if not buckets:
+        lines.append("No governed gateways yet (buckets appear once a governed request runs).")
+    else:
+        lines.append("Governor gateway buckets:")
+        for st in buckets:
+            lines.append(_format_bucket(st))
+        from halo_harness.providers.governor_state import is_degraded
+        d = is_degraded()
+        if d:
+            lines.append(f"  ! state not persisting: {d}")
+    if host:
+        key = _bucket_key_for_arg(host)
+        lines.append("")
+        lines.append(f"Recent calls for {key}:")
+        recent = governor.recent_calls(key, limit=30)
+        if not recent:
+            lines.append("  (none logged yet)")
+        for rec in recent:
+            ok = rec.get("ok")
+            verdict = {True: "ok", False: "overload"}.get(ok, "neutral")
+            lines.append(f"  {rec.get('agent', '?'):>10} {str(rec.get('role', '?')):>12} "
+                         f"{str(rec.get('status', '-')):>3} {verdict:>8}  {str(rec.get('model') or '')}")
+    return "\n".join(lines)
+
+
 def _cmd_balances(args: str, facade: HeadlessFacade) -> str:
     """Halo 2.0.4 round 3 (deliverable 2): `/balances [refresh]` -- the
     SAME table `halo balances` prints (`providers.balances.
@@ -1638,6 +1673,7 @@ _BUILTIN_SPECS = {
                   _cmd_providers),
     "balances": ("core", "Show the cached balance/credit figure for every provider that offers one",
                  "[refresh]", _cmd_balances),
+    "gov": ("core", "Show the Governor's gateway rate buckets and recent calls", "[host]", _cmd_gov),
     "rules": ("core", "List learned parameter-rejection rules (endpoint, field, action, age)",
               "[forget <provider:model>]", _cmd_rules),
     "settings": ("core", "Show the merged Claude Code / Codex / halo settings view", "[primary claude|codex]",

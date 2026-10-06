@@ -164,6 +164,12 @@ class CompletionRequest:
     # openai-chat nor Anthropic-passthrough nor Ollama's native API, so it
     # gets its own field rather than overloading any of the other three.
     prebuilt_responses_body: Optional[dict] = None
+    # Halo 2.0.5 round 4: the Governor context threaded into every http.py
+    # call -- {agent, role, session, model, priority, abort}. None (the
+    # proxy's permanent default) still goes through the choke point with
+    # the proxy's own defaults (agent "system", role "main"); agent/loop.py
+    # passes the real role so priority fairness works.
+    governor_ctx: Optional[dict] = None
 
 
 class ContextOverflow(Exception):
@@ -385,8 +391,7 @@ def _run_phase1(req: CompletionRequest, abort: "threading.Event | None" = None):
             return call_databricks_chat(
                 base_url=req.creds.base_url, api_key=req.creds.api_key, body=oai_body,
                 extra_headers=req.extra_headers, state_dir=req.state_dir, model=req.route.upstream_model,
-                on_connect=_register_sock,
-            )
+                on_connect=_register_sock, governor_ctx=req.governor_ctx)
     else:
         # Pass-B finding 9 (major): `req.openrouter_base_url` is SESSION
         # state (`HALO_OPENROUTER_BASE_URL`, set once at session start)
@@ -403,8 +408,7 @@ def _run_phase1(req: CompletionRequest, abort: "threading.Event | None" = None):
             return call_openai_chat(
                 base_url=base_url, api_key=req.creds.api_key, body=oai_body,
                 extra_headers=req.extra_headers, state_dir=req.state_dir,
-                on_connect=_register_sock,
-            )
+                on_connect=_register_sock, governor_ctx=req.governor_ctx)
 
     max_attempts = 2
     watcher_done = threading.Event()
@@ -737,8 +741,7 @@ def _run_phase1_anthropic(req: CompletionRequest, abort: "threading.Event | None
         return call_anthropic_native(
             base_url=req.creds.base_url, api_key=req.creds.api_key, body=body,
             extra_headers=req.extra_headers, state_dir=req.state_dir,
-            route_provider=req.route.provider, on_connect=_register_sock,
-        )
+            route_provider=req.route.provider, on_connect=_register_sock, governor_ctx=req.governor_ctx)
 
     watcher_done = threading.Event()
     watcher = None
@@ -1019,8 +1022,7 @@ def _run_phase1_ollama_attempt(req: CompletionRequest, body: dict, abort: "threa
     def _call_upstream():
         return call_ollama_chat(
             base_url=req.creds.base_url, api_key=(req.creds.api_key or None), body=body,
-            extra_headers=req.extra_headers, state_dir=req.state_dir, on_connect=_register_sock,
-        )
+            extra_headers=req.extra_headers, state_dir=req.state_dir, on_connect=_register_sock, governor_ctx=req.governor_ctx)
 
     watcher_done = threading.Event()
     watcher = None
@@ -1238,8 +1240,7 @@ def _run_phase1_responses(req: CompletionRequest, abort: "threading.Event | None
     def _call_upstream():
         return call_openai_responses(
             base_url=req.creds.base_url, api_key=req.creds.api_key, body=body,
-            extra_headers=req.extra_headers, state_dir=req.state_dir, on_connect=_register_sock,
-        )
+            extra_headers=req.extra_headers, state_dir=req.state_dir, on_connect=_register_sock, governor_ctx=req.governor_ctx)
 
     watcher_done = threading.Event()
     watcher = None

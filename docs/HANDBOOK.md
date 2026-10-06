@@ -188,6 +188,12 @@ config` all work the same as Claude Code's own flags.
 
 ## Models and providers
 
+Every remote model request is paced by the Governor -- one shared,
+adaptive per-host rate limiter across every halo process on the
+machine, with priority fairness and host failover. See
+[GOVERNOR.md](GOVERNOR.md) for the five properties, the config table
+and how to read a 429 storm.
+
 Model reference forms:
 
 | Form | Example | Resolves to |

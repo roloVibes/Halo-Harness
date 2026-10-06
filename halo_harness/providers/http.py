@@ -12,6 +12,14 @@ open_upstream/UpstreamConnectError. Both directions are only used INSIDE
 function bodies (never at class/module scope), so the cross-imports are
 deferred (done locally inside the functions that need them) to avoid a
 circular import at module-load time -- see databricks.py's matching note.
+
+Halo 2.0.5 round 4: this module is also the Governor's ONE choke point --
+every remote model request (call_openai_chat, call_ollama_chat, the
+Databricks posts, call_anthropic_native) goes through
+`governed_upstream()`, which paces per gateway host, reports the outcome
+to the shared bucket, and owns the 429/overload retry ladder for
+governed routes (the agent loop's own ladder stops retrying those).
+`cc:`/`cx:` drive a CLI child, not HTTP: not governed.
 """
 
 from __future__ import annotations
@@ -581,9 +589,140 @@ class UpstreamResult:
     body_bytes: bytes | None = None
 
 
+def governor_params_for_host(host: "str | None") -> "dict | None":
+    """The Governor tuning for one gateway host: `governor.*` from
+    config.json layered with `governor.hosts.<netloc>` per-host
+    overrides, or None when the Governor is off (`governor.enabled`,
+    default on; `HALO_GOVERNOR=0` forces off -- the test suite's default
+    -- and `HALO_GOVERNOR=1` forces on, overriding config). Never
+    raises."""
+    try:
+        import os as _os
+        from halo_harness.theme import get_config_value
+        env_flag = _os.environ.get("HALO_GOVERNOR")
+        if env_flag is not None:
+            if env_flag.strip() in ("0", "false", "no", "off"):
+                return None
+        else:
+            if not get_config_value("governor.enabled", default=True):
+                return None
+        cfg = get_config_value("governor", default={}) or {}
+        if not isinstance(cfg, dict):
+            cfg = {}
+        hosts = cfg.get("hosts") or {}
+        host_over = hosts.get((host or "").lower(), {}) if isinstance(hosts, dict) else {}
+        merged = {k: v for k, v in cfg.items() if k not in ("enabled", "hosts")}
+        if isinstance(host_over, dict):
+            merged.update(host_over)
+        return merged
+    except Exception:
+        return {}
+
+
+def governed_upstream(host: "str | None", do_call, ctx: "dict | None" = None,
+                      post_connect_error=None):
+    """2.0.5 round 4: run ONE remote request through the Governor (the
+    single choke point every model call in this module funnels through).
+
+    `do_call()` must build and send the request and return an
+    UpstreamResult (status known, resp unread). Pacing, the in-flight
+    cap, priority fairness and overload reporting (honouring
+    Retry-After) live here for every governed route; the transparent
+    429/overload RETRY LADDER runs only for HARNESS calls (a non-None
+    ctx -- agent/loop.py's own ladder steps aside for those): an
+    overload response is read (bounded), reported, and the request
+    RETRIED once the bucket's cooldown elapses, up to `max_retries` --
+    then the last overload UpstreamResult is returned for the caller to
+    surface. The PROXY (ctx=None) is a relay: its overload responses
+    pass through single-shot exactly as before, still counted against
+    the shared bucket (pacing and AIMD apply; only the retry is
+    skipped -- the proxy's client asked once and gets the upstream's
+    own answer, never a silently-retried one).
+
+    A success returns the ORIGINAL UpstreamResult with the live `resp`
+    untouched (streaming works exactly as before; the permit releases
+    when headers arrive -- the gateway has accepted the request, which
+    is what its rate limiter actually counts). Timeouts report with
+    `timeout_signal` (two in a row cut the rate, one is a blip); other
+    transport errors release NEUTRALLY and propagate; `abort` (the
+    turn's abort event, threaded via ctx) interrupts a waiting acquire.
+
+    ctx (None = the proxy's default): {agent, role, session, model,
+    priority, abort}. `governor.enabled` false, a missing host, or the
+    Governor import failing degrades to a plain `do_call()`.
+    `post_connect_error(exc)` (each call site passes its own formatter)
+    wraps a post-connect failure into the SAME UpstreamConnectError the
+    ungoverned path raised, after the Governor has recorded the outcome
+    -- the suite pins those wordings, and the governor must see the raw
+    timeout identity first (two in a row count as overload).
+    """
+    params = governor_params_for_host(host)
+    if params is None or not host:
+        return do_call()
+    from halo_harness.providers import governor
+    key = "host:" + host.lower()
+    # `c`, never a reassignment of `ctx`: "ctx is None" IS the proxy-vs-
+    # harness distinction (the proxy relays, the harness retries) -- an
+    # earlier `ctx = ctx or {}` here silently turned every proxy call
+    # into a retrying harness call (found live by test_bridge's scripted
+    # mock scenarios serving the NEXT row's status).
+    c = ctx or {}
+    gparams = governor.params_for({"name": host}, params)
+    attempt = 0
+    while True:
+        h = governor.acquire(key, gparams, agent=c.get("agent", "system"),
+                             role=c.get("role", "main"), abort=c.get("abort"),
+                             explicit_priority=c.get("priority"),
+                             session=c.get("session"), model=c.get("model"))
+        try:
+            result = do_call()
+        except (TimeoutError, socket.timeout) as e:
+            governor.report(h, ok=None, status=None, params=gparams, timeout_signal=True)
+            if post_connect_error is not None:
+                raise post_connect_error(e) from e
+            raise
+        except governor.GovernorAborted:
+            raise
+        except Exception as e:
+            governor.report(h, ok=None, params=gparams)  # neutral: not evidence about load
+            if post_connect_error is not None:
+                raise post_connect_error(e) from e
+            raise
+        status = result.status
+        if status == 500:
+            # REVIEW item 6: 500 is neutral unless the body says overloaded.
+            try:
+                peek = result.resp.read(2048) if result.resp is not None else b""
+                result.body_bytes = peek or result.body_bytes
+            except Exception:
+                peek = b""
+            body_text = (peek or b"").decode("utf-8", "replace")
+        else:
+            body_text = ""
+        overloaded = governor.is_overload_status(status, statuses=gparams.get("overload_statuses")) or \
+            (status == 500 and governor.is_overload_body(body_text))
+        retry_after = governor.retry_after_seconds(result.headers, cap=gparams.get("retry_after_cap", 120.0)) \
+            if overloaded else None
+        telem = governor.report(h, ok=not overloaded, status=status, retry_after=retry_after, params=gparams)
+        on_event = c.get("on_event")
+        if telem.get("event") and on_event is not None:
+            on_event(telem)
+        if not overloaded:
+            return result
+        # the proxy (ctx=None) relays single-shot: counted against the
+        # bucket, never silently retried -- only the harness retries.
+        if ctx is None:
+            return result
+        attempt += 1
+        if attempt > int(gparams.get("max_retries", 5)):
+            return result  # the caller surfaces the last overload
+        # loop: acquire() waits out the cooldown just set
+
+
 def call_openai_chat(base_url: str, api_key: str, body: dict, extra_headers: dict, state_dir: Path,
-                      on_connect=None) -> UpstreamResult:
-    """POST to OpenAI-compatible chat completions endpoint."""
+                      on_connect=None, governor_ctx: "dict | None" = None) -> UpstreamResult:
+    """POST to OpenAI-compatible chat completions endpoint (through the
+    Governor's choke point -- `governed_upstream`)."""
     # Normalize base_url
     if base_url.endswith("/"):
         base_url = base_url.rstrip("/")
@@ -626,27 +765,21 @@ def call_openai_chat(base_url: str, api_key: str, body: dict, extra_headers: dic
         conn = open_upstream(host, port, tls, on_connect=on_connect)
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
         raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
-    try:
+
+    def _send() -> UpstreamResult:
         conn.request("POST", path, body=body_bytes, headers=headers)
         resp = conn.getresponse()
-
-        # Collect headers (lowercase keys)
         resp_headers = {k.lower(): v for k, v in resp.getheaders()}
+        return UpstreamResult(status=resp.status, headers=resp_headers, resp=resp, conn=conn)
 
-        return UpstreamResult(
-            status=resp.status,
-            headers=resp_headers,
-            resp=resp,
-            conn=conn,
-        )
-    except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
-        raise UpstreamConnectError(format_post_connect_error(host, e), host=host) from e
+    def _post_connect_err(e) -> Exception:
+        return UpstreamConnectError(format_post_connect_error(host, e), host=host)
 
-
+    return governed_upstream(host, _send, governor_ctx, post_connect_error=_post_connect_err)
 
 
 def call_openai_responses(base_url: str, api_key: str, body: dict, extra_headers: dict, state_dir: Path,
-                           on_connect=None) -> UpstreamResult:
+                           on_connect=None, governor_ctx: "dict | None" = None) -> UpstreamResult:
     """POST to the OpenAI Responses endpoint (`<base_url>/responses`) --
     Halo 2.0.3 round 5i part 1, the `openai-responses` dialect's own
     sibling of `call_openai_chat` just above: same headers/connect/retry
@@ -678,17 +811,21 @@ def call_openai_responses(base_url: str, api_key: str, body: dict, extra_headers
         conn = open_upstream(host, port, tls, on_connect=on_connect)
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
         raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
-    try:
+
+    def _send() -> UpstreamResult:
         conn.request("POST", path, body=body_bytes, headers=headers)
         resp = conn.getresponse()
         resp_headers = {k.lower(): v for k, v in resp.getheaders()}
         return UpstreamResult(status=resp.status, headers=resp_headers, resp=resp, conn=conn)
-    except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
-        raise UpstreamConnectError(format_post_connect_error(host, e), host=host) from e
+
+    def _post_connect_err(e) -> Exception:
+        return UpstreamConnectError(format_post_connect_error(host, e), host=host)
+
+    return governed_upstream(host, _send, governor_ctx, post_connect_error=_post_connect_err)
 
 
 def call_ollama_chat(base_url: str, api_key: "str | None", body: dict, extra_headers: dict, state_dir: Path,
-                      on_connect=None) -> UpstreamResult:
+                     on_connect=None, governor_ctx: "dict | None" = None) -> UpstreamResult:
     """POST to Ollama's native `/api/chat` (Halo 2.0.3 round 2) -- local,
     LAN, or Ollama Cloud, all through this one function: only `base_url`
     and whether `api_key` is set (an unauthenticated local/LAN host passes
@@ -721,17 +858,21 @@ def call_ollama_chat(base_url: str, api_key: "str | None", body: dict, extra_hea
         conn = open_upstream(host, port, tls, on_connect=on_connect)
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
         raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
-    try:
+
+    def _send() -> UpstreamResult:
         conn.request("POST", path, body=body_bytes, headers=headers)
         resp = conn.getresponse()
         resp_headers = {k.lower(): v for k, v in resp.getheaders()}
         return UpstreamResult(status=resp.status, headers=resp_headers, resp=resp, conn=conn)
-    except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
-        raise UpstreamConnectError(format_post_connect_error(host, e), host=host) from e
+
+    def _post_connect_err(e) -> Exception:
+        return UpstreamConnectError(format_post_connect_error(host, e), host=host)
+
+    return governed_upstream(host, _send, governor_ctx, post_connect_error=_post_connect_err)
 
 
 def _dbx_post(base_url: str, path: str, api_key: str, req_body: dict, extra_headers: dict, state_dir,
-               on_connect=None):
+              on_connect=None, governor_ctx: "dict | None" = None):
     """POST to a Databricks endpoint, returning (resp, conn) or raising UpstreamConnectError."""
     parsed = urllib.parse.urlparse(base_url)
     host = parsed.hostname
@@ -754,16 +895,30 @@ def _dbx_post(base_url: str, path: str, api_key: str, req_body: dict, extra_head
         conn = open_upstream(host, port, tls, on_connect=on_connect)
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
         raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
-    try:
+
+    class _RespResult(UpstreamResult):
+        """_dbx_post returns (resp, conn), not UpstreamResult -- a tiny
+        adapter lets it share the governed_upstream choke point."""
+
+        def __init__(self, resp, conn):
+            super().__init__(status=resp.status,
+                             headers={k.lower(): v for k, v in resp.getheaders()},
+                             resp=resp, conn=conn)
+
+    def _send():
         conn.request("POST", path, body=body_bytes, headers=headers)
         resp = conn.getresponse()
-        return resp, conn
-    except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
-        raise UpstreamConnectError(format_post_connect_error(host, e), host=host) from e
+        return _RespResult(resp, conn)
+
+    def _post_connect_err(e) -> Exception:
+        return UpstreamConnectError(format_post_connect_error(host, e), host=host)
+
+    result = governed_upstream(host, _send, governor_ctx, post_connect_error=_post_connect_err)
+    return result.resp, result.conn
 
 
 def call_databricks_chat(base_url: str, api_key: str, body: dict, extra_headers: dict, state_dir, model: str,
-                          on_connect=None) -> UpstreamResult:
+                          on_connect=None, governor_ctx: "dict | None" = None) -> UpstreamResult:
     """POST an OpenAI-chat body to a Databricks route, trying the cached/
     candidate paths with 404 fallback and a max_tokens-limit clamp-retry.
     H14 scope D: candidates (path, whether the body needs "model", and
@@ -803,7 +958,7 @@ def call_databricks_chat(base_url: str, api_key: str, body: dict, extra_headers:
     for pos, (orig_idx, candidate) in enumerate(order):
         req_body = build_databricks_body(body, candidate.include_model, candidate.model_value)
         resp, conn = _dbx_post(base_url, candidate.path, api_key, req_body, extra_headers, state_dir,
-                                on_connect=on_connect)
+                                on_connect=on_connect, governor_ctx=governor_ctx)
         if resp.status == 404 and pos != len(order) - 1:
             resp.read()
             continue
@@ -837,7 +992,7 @@ def call_databricks_chat(base_url: str, api_key: str, body: dict, extra_headers:
             retry_body["max_tokens"] = limit
             req_body = build_databricks_body(retry_body, candidate.include_model, candidate.model_value)
             resp2, conn2 = _dbx_post(base_url, candidate.path, api_key, req_body, extra_headers, state_dir,
-                                      on_connect=on_connect)
+                                      on_connect=on_connect, governor_ctx=governor_ctx)
             dbx_cache_set_max_tokens_limit(model, limit, state_dir)
             headers2 = {k.lower(): v for k, v in resp2.getheaders()}
             return UpstreamResult(status=resp2.status, headers=headers2, resp=resp2, conn=conn2, body_bytes=None)
@@ -849,7 +1004,8 @@ def call_databricks_chat(base_url: str, api_key: str, body: dict, extra_headers:
 
 
 def proxy_anthropic(base_url: str, api_key: str, body: dict, extra_headers: dict, state_dir, path: str = "/v1/messages",
-                     query_suffix: str = "?beta=true", on_connect=None) -> UpstreamResult:
+                     query_suffix: str = "?beta=true", on_connect=None,
+                     governor_ctx: "dict | None" = None) -> UpstreamResult:
     """POST an already-shaped Anthropic-format body straight through to a
     native Claude endpoint; raw relay, no dialect translation. Originally
     Databricks-only (hence the hardcoded `?beta=true`, kept as the default
@@ -878,17 +1034,22 @@ def proxy_anthropic(base_url: str, api_key: str, body: dict, extra_headers: dict
         conn = open_upstream(host, port, tls, on_connect=on_connect)
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
         raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
-    try:
+
+    def _send() -> UpstreamResult:
         conn.request("POST", request_path, body=body_bytes, headers=headers)
         resp = conn.getresponse()
         resp_headers = {k.lower(): v for k, v in resp.getheaders()}
         return UpstreamResult(status=resp.status, headers=resp_headers, resp=resp, conn=conn, body_bytes=None)
-    except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
-        raise UpstreamConnectError(format_post_connect_error(host, e), host=host) from e
+
+    def _post_connect_err(e) -> Exception:
+        return UpstreamConnectError(format_post_connect_error(host, e), host=host)
+
+    return governed_upstream(host, _send, governor_ctx, post_connect_error=_post_connect_err)
 
 
 def call_anthropic_native(base_url: str, api_key: str, body: dict, extra_headers: dict, state_dir,
-                           route_provider: str, on_connect=None) -> UpstreamResult:
+                           route_provider: str, on_connect=None,
+                           governor_ctx: "dict | None" = None) -> UpstreamResult:
     """H5 scope C: the ONE call site `stream.stream_anthropic_completion`
     uses for every native-Anthropic-dialect route. `route_provider` picks
     the host-specific bits `proxy_anthropic` itself stays agnostic of:
@@ -951,7 +1112,7 @@ def call_anthropic_native(base_url: str, api_key: str, body: dict, extra_headers
     endpoint_name = body.get("model") or ""
     fallback_path = f"/serving-endpoints/{endpoint_name}/invocations"
     for path, query_suffix in (("/ai-gateway/anthropic/v1/messages", "?beta=true"), (fallback_path, "")):
-        result = proxy_anthropic(base_url, api_key, body, headers, state_dir,
+        result = proxy_anthropic(base_url, api_key, body, headers, state_dir, governor_ctx=governor_ctx,
                                   path=path, query_suffix=query_suffix, on_connect=on_connect)
         if result.status != 404:
             return result

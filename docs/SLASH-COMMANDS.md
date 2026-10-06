@@ -350,6 +350,15 @@ of half-implementing it. See `docs/MODELS.md`'s "Provider enablement"
 section for the full prefix/label table and the exact per-provider
 detection rule.
 
+### `/gov [host]`
+
+Halo 2.0.5 round 4: the Governor's gateway buckets -- one line per
+gateway host the Governor has state for (rate vs ceiling, in-flight,
+waiting, cooldown), the SAME table `halo gov` prints. With a host
+argument, also that host's recent calls (agent, role, status -- the
+per-bucket log tail). Read-only: it inspects persisted bucket state,
+never sends a request. See GOVERNOR.md for the whole mechanism.
+
 ### `/balances [refresh]`
 Halo 2.0.4 round 3 (deliverable 2): one shared balances surface for every
 provider whose API offers a balance/credit endpoint -- OpenRouter (`GET

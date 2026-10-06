@@ -155,6 +155,25 @@ def _capped_retry_delay(attempts: int, hdrs: dict) -> float:
     return min(raw_s, _MAX_RETRY_WAIT_S)
 
 
+def _overload_owned_by_governor(status, message: str = "") -> bool:
+    """Halo 2.0.5 round 4: is THIS failure one the Governor (providers/
+    http.py's choke point) already paced and retried? True when the
+    Governor is enabled, the status is in its overload set (or the body
+    says overloaded for a 500), and the route is an HTTP one (`cc:`/`cx:`
+    drive a CLI child -- never governed). The loop's own ladder uses
+    this to step aside instead of running a second backoff loop."""
+    try:
+        from halo_harness.providers.http import governor_params_for_host
+        from halo_harness.providers import governor as _gov
+        if governor_params_for_host("probe") is None:
+            return False  # governor.enabled false in config
+        if _gov.is_overload_status(status) or (status == 500 and _gov.is_overload_body(message)):
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def _mcp_blocks_for_log(blocks: list, *, meta, session_dir, tool_use_id) -> list:
     """finding 5: log a block-content tool result (MCP tools; any future
     tool that returns Anthropic-shaped content blocks) AS BLOCKS, never
@@ -1461,6 +1480,29 @@ class Session:
         fallback gets its own full retry budget rather than inheriting the
         exhausted one."""
         old_model = self.model_ref.raw
+        # Halo 2.0.5 round 4: order the remaining fallbacks by gateway
+        # health (the Governor's per-host buckets) BEFORE popping -- a
+        # fallback whose host is circuit-`open` is moved behind a healthy
+        # one; when every host is open the least-cooled wins and the
+        # Governor paces it. `choose` returns the health that caused a
+        # switch, named in the notice below. No Governor state (or the
+        # feature off) leaves the list exactly as configured.
+        _remaining = getattr(self, "_fallback_remaining", None)
+        if _remaining and len(_remaining) > 1:
+            try:
+                from halo_harness.providers import gateway_routing
+                routes = self.agent_runtime.routes if self.agent_runtime is not None else {}
+                pick, health, pivoted = gateway_routing.choose(list(_remaining), routes=routes)
+                if pick is not None and pick != _remaining[0] and health != "unknown":
+                    _remaining.remove(pick)
+                    _remaining.insert(0, pick)
+                    self._fallback_pivot_health = health
+                else:
+                    self._fallback_pivot_health = None
+            except Exception:
+                self._fallback_pivot_health = None
+        else:
+            self._fallback_pivot_health = None
         while True:
             if not self.apply_next_fallback_model():
                 return None
@@ -1473,9 +1515,11 @@ class Session:
                 # unresolvable model string -- move on to the next one.
                 continue
             req = self._build_request(body)
+            _pivot = getattr(self, "_fallback_pivot_health", None)
+            _pivot_txt = f" (gateway {old_model.split(':', 1)[0]} was {_pivot})" if _pivot else ""
             yield events.notification(
                 f"{old_model} failed after exhausting its retries -- switched to fallback model "
-                f"{self.model_ref.raw} for the rest of this turn"
+                f"{self.model_ref.raw} for the rest of this turn{_pivot_txt}"
             )
             return body, req
 
@@ -2760,6 +2804,33 @@ class Session:
             kwargs["prebuilt_responses_body"] = body
         else:
             kwargs["prebuilt_oai_body"] = body
+        # Halo 2.0.5 round 4: the Governor context -- the role this session
+        # runs under (the main session's own name, or the sub-agent's), the
+        # agent id, the session id, the model, and the turn's abort event
+        # so a waiting acquire is interruptible by /stop and a steer. The
+        # on_event hook forwards the Governor's telemetry (throttle/
+        # recover/waiting) to the UI through the session's event sink --
+        # None (no sink, print mode/tests) simply skips the forwarding.
+        _sink = getattr(self, "_event_sink", None)
+
+        def _gov_event(telem, _sink=_sink):
+            if _sink is None:
+                return
+            _sink(events.Event("governor", dict(telem)))
+            # 2.0.5 round 4: the unpersisted telemetry event -- once per
+            # session, the first time the Governor reports it is degraded.
+            if telem.get("degraded") and not getattr(self, "_gov_unpersisted_noted", False):
+                self._gov_unpersisted_noted = True
+                _sink(events.governor_state_unpersisted(str(telem["degraded"])))
+
+        kwargs["governor_ctx"] = {
+            "agent": self.agent_id or "session",
+            "role": self.role_name or "main",
+            "session": getattr(self, "session_id", None),
+            "model": self.model_ref.raw if self.model_ref else None,
+            "abort": (lambda: self.abort.is_set()) if getattr(self, "abort", None) is not None else None,
+            "on_event": _gov_event,
+        }
         return CompletionRequest(**kwargs)
 
     def _stream(self, req: CompletionRequest, abort: "threading.Event | None" = None) -> Iterator[dict]:
@@ -3361,7 +3432,17 @@ class Session:
                 merged_retryable = e.retryable or is_retryable_message(
                     e.status, e.message, host=self.model_ref.provider,
                 )
-                if merged_retryable and attempts <= MAX_RETRIES:
+                # Halo 2.0.5 round 4: on a GOVERNED route the Governor (at
+                # providers/http.py's choke point) already paced and
+                # retried overload statuses itself -- this ladder no longer
+                # sleeps and re-sends those (a second backoff loop on the
+                # same 429 doubles the wall time); the error surfacing
+                # here means the Governor's own `max_retries` ran out, so
+                # fall straight through to the fallback model / the error
+                # line below. Non-overload retryables (a spurious 404, an
+                # empty completion retry, anything not in the Governor's
+                # overload set) keep this ladder exactly as before.
+                if merged_retryable and attempts <= MAX_RETRIES and not _overload_owned_by_governor(e):
                     hdrs = {"retry-after": e.retry_after} if e.retry_after else {}
                     delay = _capped_retry_delay(attempts, hdrs)
                     if self._abort_sleep(delay):
@@ -3480,7 +3561,11 @@ class Session:
                 merged_retryable = retryable or is_retryable_message(
                     wire_error.get("status"), message, host=self.model_ref.provider,
                 )
-                if merged_retryable and attempts <= MAX_RETRIES:
+                # 2.0.5 round 4: same Governor ownership rule as the
+                # UpstreamError branch above -- no second overload backoff
+                # loop on a governed route.
+                if merged_retryable and attempts <= MAX_RETRIES and not _overload_owned_by_governor(
+                        wire_error.get("status"), message):
                     hdrs = {"retry-after": wire_error.get("retry_after")} if wire_error.get("retry_after") else {}
                     delay = _capped_retry_delay(attempts, hdrs)
                     if self._abort_sleep(delay):
@@ -4649,6 +4734,26 @@ class Session:
         # place: the primary from a PRIOR turn is always this turn's
         # starting model).
         self._fallback_remaining = [m for m in self.fallback_models if m != self.model_ref.raw]
+        # Halo 2.0.5 round 4: the ROLE's own fallback chain -- `roles.<name>.
+        # fallbacks` in config.json, appended after the CLI `--fallback-model`
+        # list (the explicit flag stays first). The gateway-routing health
+        # ordering happens later, in `_try_fallback_after_exhaustion`, where
+        # the Governor's bucket state can actually pick the healthy host.
+        try:
+            from halo_harness.theme import get_config_value
+            from halo_harness.roles import role_value_parts
+            _role = self.role_name or "main"
+            _fb = get_config_value("roles", default={}) or {}
+            if isinstance(_fb, dict):
+                _entry = _fb.get(f"{_role}.fallbacks")
+                if not isinstance(_entry, list):
+                    _entry = (_fb.get(_role) or {}).get("fallbacks") if isinstance(_fb.get(_role), dict) else None
+                if isinstance(_entry, list):
+                    self._fallback_remaining += [m for m in _entry
+                                                 if isinstance(m, str) and m != self.model_ref.raw
+                                                 and m not in self._fallback_remaining]
+        except Exception:
+            pass
         # finding 4 (W6a): snapshotted so `_restore_primary_model_after_
         # turn` (this turn's own `finally`, below) can put the session
         # back on whatever it was ACTUALLY on when this turn started --

@@ -270,6 +270,15 @@ def turn_done(*, turn: int = 0, reason: str = "end_turn") -> Event:
     return Event("turn_done", {"reason": reason}, turn=turn)
 
 
+def governor_state_unpersisted(reason: str) -> Event:
+    """data: {reason}. Halo 2.0.5 round 4: the Governor cannot persist its
+    shared state (disk unwritable / lock contended past its timeout) --
+    rate limiting falls back to IN-PROCESS only, which is not shared
+    across sessions. Emitted once per session when it first happens, so
+    the transcript says why limits suddenly look generous."""
+    return Event("governor_state_unpersisted", {"reason": reason})
+
+
 def notification(text: str, *, level: str = "info") -> Event:
     """data: {level, text}"""
     return Event("notification", {"level": level, "text": text})
