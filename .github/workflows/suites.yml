@@ -30,6 +30,9 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Keep LF line endings on checkout
+        run: git config --global core.autocrlf false
+        shell: bash
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
@@ -119,10 +122,19 @@ jobs:
       PYTHONUTF8: "1"
       COLUMNS: "200"
       LINES: "50"
+      # The hosted Windows image's TEMP is an 8.3 short-name path under the
+      # runner user's profile; Halo resolves paths to their long form, so
+      # tests comparing a scratch path with a resolved one failed on the
+      # first run for that reason alone. The runner temp is a plain long path.
+      TEMP: ${{ runner.temp }}
+      TMP: ${{ runner.temp }}
     defaults:
       run:
         shell: bash
     steps:
+      - name: Keep LF line endings on checkout
+        run: git config --global core.autocrlf false
+        shell: bash
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5

@@ -783,7 +783,18 @@ def spawn_server_detached(port: int, state_dir):
         kwargs["creationflags"] = flags
     else:
         kwargs["start_new_session"] = True
-    subprocess.Popen(argv, **kwargs)
+    try:
+        subprocess.Popen(argv, **kwargs)
+    except PermissionError:
+        # A parent running inside a Windows job object that forbids breakaway
+        # (GitHub-hosted runners, some terminals and launchers) gets
+        # "[WinError 5] Access is denied" from CreateProcess for
+        # CREATE_BREAKAWAY_FROM_JOB alone; the server still runs fine as a
+        # member of that job, so retry without the breakaway bit.
+        if os.name != "nt" or "creationflags" not in kwargs:
+            raise
+        kwargs["creationflags"] = kwargs["creationflags"] & ~0x01000000
+        subprocess.Popen(argv, **kwargs)
     logfile.close()
 
 
