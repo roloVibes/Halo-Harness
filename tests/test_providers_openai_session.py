@@ -164,7 +164,9 @@ def test_responses_error_scenarios_surface_plain_messages(ctx: Ctx):
         state_dir = _Path(tempfile.mkdtemp(prefix="oai-err-"))
         route = Route(provider="openai", upstream_model="mock-err", dialect="openai-responses")
         for scenario, expect_status, expect_substr in (
-            ("oai-responses-401", 401, "Incorrect API key"),
+            # Round 3 translates the 401 into Halo's own sentence (the raw upstream
+            # text stays in the debug dump), so the plain message names the key.
+            ("oai-responses-401", 401, "OpenAI API key is invalid"),
             ("oai-responses-429-quota", 429, "exceeded your current quota"),
             ("oai-responses-404-model", 404, "does not exist"),
         ):
