@@ -828,7 +828,7 @@ halo doctor --help
 ```
 ```
 usage: halo doctor [-h] [--work] [--json] [--probe-all] [--both]
-                          [--tools] [--only GLOB] [--local] [--model REF]
+                          [--tools] [--only GLOB] [--learn] [--local] [--model REF]
                           [--agents] [--mock] [--mcp {deep}] [--apply]
                           [--from DIR] [name]
 
@@ -847,6 +847,10 @@ options:
                anthropic gateway
   --tools      With --probe-all: also check one Read tool-call per endpoint
   --only GLOB  With --probe-all: only endpoints matching this glob
+  --learn      With --work --probe-all: also send one minimal probe per
+               optional parameter to each endpoint and learn which ones it
+               rejects (Halo 2.0.5 round 3 -- opt-in, spends real tokens/DBUs,
+               prints the cost estimate first; see `halo rules`)
   --local      Run the 60-second local-model acceptance check (load, tool
                call, structured output, compaction summary) instead of the
                general checks
@@ -1122,6 +1126,49 @@ OpenAI API (key) (oai:): not offered (no balance concept for this provider)
 Experiential Labs (xp:): $5.00 left (of $10.00 total credits)
 ```
 
+## `halo rules`
+
+```
+Usage: halo rules [--forget <provider:model>]
+```
+
+Halo 2.0.5 round 3 (G1): lists every learned PARAMETER-rejection rule
+`providers.learned_params` has recorded -- one line per (endpoint, field),
+with the action taken (`drop`/`clamp` + its value) and the rule's age.
+These are learned the first time a live 400/422 proves a specific
+endpoint rejects a request field this harness itself sent (`reasoning_
+effort`, `temperature`, `top_p`, `tool_choice`, `max_tokens`,
+`max_completion_tokens`, `thinking`, `output_config`, `response_format`,
+`parallel_tool_calls`, `strict`, `store`, `stream_options`, `metadata`,
+`stop`): the smallest fix is applied and the request retried ONCE, and --
+only once that retry is confirmed to have worked -- the fix is remembered
+for every later request against that same endpoint. A `model_table.json`
+row's own explicit value always wins over a learned rule. Rules older
+than 30 days are tried once WITHOUT the fix before being relearned (a
+since-fixed/transient rejection self-heals with no action needed).
+
+`--forget <provider:model>` clears every learned parameter rule for that
+ONE endpoint (never its other learned facts -- `tools_rejected`/
+`reasoning_effort_with_tools` have their own forget surface, `halo mcp
+learned --forget`); `halo models --forget-rules` is the blunt, every-
+endpoint reset. `/rules` (TUI and headless) renders the SAME listing.
+Bare `halo rules` never touches the network -- it only reads `~/.halo/
+learned-rules.json`.
+
+```sh
+halo rules
+```
+```
+databricks:databricks-glm-5-3         stream_options          drop             2d
+databricks:databricks-gpt-5-6-sol     reasoning_effort         clamp -> 'none'  11d
+```
+
+`halo doctor --work --probe-all --learn` pre-learns these rules by
+sending one minimal request per optional parameter to each configured
+Databricks endpoint, instead of waiting for a real turn to discover them
+one at a time -- opt-in, prints the cost estimate before sending
+anything, never runs without `--learn`.
+
 ## `halo work-matrix`
 
 V2b: turns a `doctor --work --probe-all` JSON report (`~/.halo/
@@ -1181,23 +1228,27 @@ halo models --help
 ```
 ```
 usage: halo models [-h] [--refresh] [--cc] [--cx] [--ant] [--urls] [--json]
+                    [--forget-rules]
 
 options:
-  -h, --help  show this help message and exit
-  --refresh   Re-probe OpenRouter/Databricks instead of using the cache
-  --cc        List the Claude subscription models (cc:/ant: aliases) instead
-              of the OpenRouter/Databricks catalog; with --refresh, re-pings
-              each alias to confirm its current canonical id
-  --cx        List the Codex subscription models (cx: aliases) instead of
-              the OpenRouter/Databricks catalog; with --refresh, re-pings
-              each alias to confirm it is accepted (marks refused ids)
-  --ant       List the real, reachable Anthropic API models (ant: aliases
-              plus every other id the key can see) instead of the
-              OpenRouter/Databricks catalog; with --refresh, re-fetches
-              GET /v1/models
-  --urls      Databricks endpoints: also print the exact URL and path type
-              each one resolves to
-  --json      Machine-readable JSON output
+  -h, --help      show this help message and exit
+  --refresh       Re-probe OpenRouter/Databricks instead of using the cache
+  --cc            List the Claude subscription models (cc:/ant: aliases) instead
+                  of the OpenRouter/Databricks catalog; with --refresh, re-pings
+                  each alias to confirm its current canonical id
+  --cx            List the Codex subscription models (cx: aliases) instead of
+                  the OpenRouter/Databricks catalog; with --refresh, re-pings
+                  each alias to confirm it is accepted (marks refused ids)
+  --ant           List the real, reachable Anthropic API models (ant: aliases
+                  plus every other id the key can see) instead of the
+                  OpenRouter/Databricks catalog; with --refresh, re-fetches
+                  GET /v1/models
+  --urls          Databricks endpoints: also print the exact URL and path type
+                  each one resolves to
+  --json          Machine-readable JSON output
+  --forget-rules  Also clear every learned parameter-rejection rule for every
+                  endpoint (Halo 2.0.5 round 3) -- see `halo rules`'s own,
+                  single-endpoint `--forget`
 ```
 
 | Flag | Reads/writes |

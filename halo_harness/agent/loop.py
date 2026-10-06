@@ -2854,6 +2854,26 @@ class Session:
         # can queue one -- same list, same "never shown twice" contract.
         for _notice in self._drain_pending_ollama_notices():
             yield events.notification(_notice, level="info")
+        if self.state_dir is not None:
+            # Halo 2.0.5 round 3 (G1): apply every FRESH learned param fix
+            # for a field THIS request actually carries, before ever
+            # sending it -- "remembered for this endpoint" means the next
+            # request against it never pays for the same round trip again.
+            # A model_table.json row's own explicit temperature/top_p value
+            # always wins (today's precedence, the same rule `resolve_
+            # profile` already applies to `reasoning_effort_with_tools`/
+            # `tools_rejected`); every other watched field has no table-
+            # sourced value here to defer to.
+            from halo_harness.providers.learned_params import (
+                ParamFix, apply_param_fix, learned_param_fix, table_value_wins,
+            )
+            for _field in list(body.keys()):
+                if table_value_wins(_field, self.provider_profile):
+                    continue
+                _fix_row = learned_param_fix(self.state_dir, self.route.provider, self.model_ref.model, _field)
+                if _fix_row:
+                    body = apply_param_fix(body, ParamFix(
+                        field=_field, action=_fix_row.get("action"), value=_fix_row.get("value")))
         req = self._build_request(body)
 
         attempts = 0
@@ -2869,6 +2889,18 @@ class Session:
         # the SAME step.
         effort_none_retried = False
         effort_stripped_retried = False
+        # Halo 2.0.5 round 3 (2.0.3-brief.md G1): ONE more one-shot flag
+        # for the generalised learned-param engine (providers.learned_
+        # params) -- separate from the two effort-specific flags above,
+        # since this one covers every OTHER watched field (and the effort
+        # family too, on a wording neither effort-specific check above
+        # recognizes). `param_fix_pending` holds the ParamFix actually
+        # being tried so it is only persisted/announced once THIS retry is
+        # confirmed to have worked (the clean-stream section below),
+        # mirroring how `effort_none_retried` is only learned on confirmed
+        # success rather than merely having been attempted.
+        param_fix_retried = False
+        param_fix_pending = None
         # H10 Part A: `call_t0` starts once, before the FIRST attempt --
         # `latency_ms` on a call that only succeeded after a retry ladder
         # (429/5xx backoff) reports the user-visible wall-clock time for
@@ -3277,6 +3309,25 @@ class Session:
                              if k not in ("thinking", "output_config", "reasoning", "reasoning_effort")}
                     req = self._build_request(body)
                     continue
+                # Halo 2.0.5 round 3 (G1): the generalised learned-param
+                # engine -- everything the checks above don't already own
+                # (and the effort family too, on a wording neither
+                # recognizes, e.g. a bare "unknown field" 400). One retry,
+                # applied to `body` the same way the effort-specific
+                # retries above already do; persisted only once the retry
+                # is CONFIRMED to have worked (the clean-stream section
+                # below) -- never here, where it has only been PLANNED.
+                if not param_fix_retried:
+                    from halo_harness.providers.learned_params import apply_param_fix, detect_param_rejection
+                    _status_for_fix = e.upstream_status if e.upstream_status is not None else e.status
+                    _fix = detect_param_rejection(_status_for_fix, e.message, body)
+                    if _fix is not None:
+                        param_fix_retried = True
+                        param_fix_pending = _fix
+                        log.warning("%s rejected on this endpoint (%s) -- retrying once", _fix.field, e.message)
+                        body = apply_param_fix(body, _fix)
+                        req = self._build_request(body)
+                        continue
                 # H5 scope F item 2: OpenCode's message-pattern classifier
                 # (Appendix B) is OR'd onto the existing status-table
                 # decision -- either one saying "retry" is enough; only
@@ -3407,6 +3458,24 @@ class Session:
                              if k not in ("thinking", "output_config", "reasoning", "reasoning_effort")}
                     req = self._build_request(body)
                     continue
+                # Halo 2.0.5 round 3 (G1): the SAME generalised learned-
+                # param engine as the matching UpstreamError branch above --
+                # `wire_error` carries no raw status of its own (just
+                # `type`/`message`), so this backstop (a dialect that
+                # somehow surfaces a param rejection mid-stream instead of
+                # as an upfront 400) treats it as the 400-class failure it
+                # always actually is on every dialect this shape has been
+                # seen on.
+                if not param_fix_retried:
+                    from halo_harness.providers.learned_params import apply_param_fix, detect_param_rejection
+                    _fix = detect_param_rejection(400, message, body)
+                    if _fix is not None:
+                        param_fix_retried = True
+                        param_fix_pending = _fix
+                        log.warning("%s rejected on this endpoint (%s) -- retrying once", _fix.field, message)
+                        body = apply_param_fix(body, _fix)
+                        req = self._build_request(body)
+                        continue
                 retryable = wire_error.get("type") in ("overloaded_error", "rate_limit_error", "api_error")
                 merged_retryable = retryable or is_retryable_message(
                     wire_error.get("status"), message, host=self.model_ref.provider,
@@ -3554,6 +3623,19 @@ class Session:
                 log.info("effort '%s' rejected on this route -- cleared for the rest of the session "
                          "after a successful strip retry", self.effort)
                 self.effort = None
+            if param_fix_pending is not None:
+                # Halo 2.0.5 round 3 (G1): the retry just confirmed this
+                # fix actually works -- persist it now (never merely on
+                # having planned/attempted it) and print the one house-
+                # voice line this round's brief specifies.
+                from halo_harness.providers.learned_params import (
+                    describe_fix, learn_param_fix, provider_display_name,
+                )
+                learn_param_fix(self.state_dir, self.route.provider, self.model_ref.model, param_fix_pending)
+                yield events.notification(
+                    f"{provider_display_name(self.route.provider)} rejected {param_fix_pending.field} on this "
+                    f"endpoint; {describe_fix(param_fix_pending)} and retried; remembered for this endpoint",
+                    level="info")
             break  # a clean, non-empty stream -- proceed to build the result
 
         reasoning = None

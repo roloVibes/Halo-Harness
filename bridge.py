@@ -134,10 +134,11 @@ class BridgeStartError(Exception):
 
 def cmd_probe(args) -> None:
     """--probe: report Databricks endpoint reachability and cache the OpenRouter model list."""
-    # 2.0.0 fixpass item A: load_provider_env_files() (new file first, THEN
-    # the legacy ~/.config/vibes-hacker/env filling gaps) -- env_file_path()
-    # alone is a pure path resolver now (finding 4), so a box that only has
-    # the legacy file would otherwise start with no credentials at all.
+    # 2.0.0 fixpass item A: load_provider_env_files() (the new ~/.config/
+    # halo/env file only as of 2.0.5 round 3 -- the legacy ~/.config/
+    # vibes-hacker/env fallback it used to also read is removed; see that
+    # function's own docstring) -- env_file_path() alone is a pure path
+    # resolver, it never touches the filesystem.
     load_provider_env_files()
     dbx = resolve_databricks()
     if dbx is None:

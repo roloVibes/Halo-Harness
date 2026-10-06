@@ -681,9 +681,46 @@ def _scn_tools_rejected_400(handler, body):
     _scn_ok(handler, body)
 
 
+def _scn_param_reject_unless_dropped(handler, body):
+    """Halo 2.0.5 round 3 (G1 learned-rule engine): a plain "Unsupported
+    parameter" 400 naming `max_tokens` -- deliberately NONE of the
+    existing effort-specific wordings ("reasoning_effort"/"function tool"/
+    "output_config") so this exercises ONLY the new generalised engine
+    (`providers.learned_params.detect_param_rejection`), never the gpt-6/
+    GLM/Claude-specific checks that run before it. Also deliberately
+    avoids the Databricks max_tokens-LIMIT clamp wording
+    (`databricks.parse_databricks_max_tokens_limit` needs a "<= N" shape)
+    so THAT pre-existing, unrelated mechanism never intercepts this first.
+    Stateless, driven by the retried body's own shape: only a body with
+    `max_tokens` gone entirely succeeds."""
+    if "max_tokens" in body:
+        _send_json(handler, 400, {"error": {
+            "message": "Unsupported parameter: 'max_tokens' is not supported with this model; omit it.",
+            "type": "invalid_request_error", "param": "max_tokens", "code": None}})
+        return
+    _scn_ok(handler, body)
+
+
+def _scn_stream_options_reject(handler, body):
+    """Halo 2.0.5 round 3 (G1): `halo doctor --probe-all --learn`'s own
+    minimal per-field probe -- this endpoint rejects `stream_options`
+    outright, every time (the probe never retries; it just records the
+    fact). Every other probed field (temperature/top_p/stop -- the only
+    other ones that survive `build_databricks_body`'s own allowlist
+    filtering) is accepted normally."""
+    if "stream_options" in body:
+        _send_json(handler, 400, {"error": {
+            "message": "Unsupported parameter: 'stream_options' is not supported with this model.",
+            "type": "invalid_request_error", "param": "stream_options", "code": None}})
+        return
+    _scn_ok(handler, body)
+
+
 SCENARIOS = {
     "openjev-not-chat-model": _scn_openjev_not_chat_model,
     "tools-rejected-400": _scn_tools_rejected_400,
+    "param-reject-unless-dropped": _scn_param_reject_unless_dropped,
+    "stream-options-reject": _scn_stream_options_reject,
     "reasoning-content-shape": _scn_reasoning_content_shape,
     "reasoning-blocks-shape": _scn_reasoning_blocks_shape,
     "reasoning-effort-tools-reject-unless-none": _scn_reasoning_effort_tools_reject_unless_none,

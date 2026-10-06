@@ -1206,6 +1206,28 @@ def _cmd_balances(args: str, facade: HeadlessFacade) -> str:
     return "\n".join(format_balances_table(entries))
 
 
+def _cmd_rules(args: str, facade: HeadlessFacade) -> str:
+    """Halo 2.0.5 round 3 (deliverable 2): `/rules [forget <endpoint>]` --
+    the SAME listing `halo rules` prints (`providers.learned_params.
+    list_param_rules`/`rules_cli.format_rules_lines`), so the two surfaces
+    never drift apart. Lists every learned PARAMETER-rejection rule
+    (endpoint, field, action, age); `forget <provider:model>` clears that
+    one endpoint's rules, same scope as `halo rules --forget`."""
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.providers.learned_params import forget_param_fixes, list_param_rules
+    from halo_harness.rules_cli import format_rules_lines
+    state_dir = bridge_home()
+    tokens = (args or "").split(maxsplit=1)
+    if tokens[:1] == ["forget"]:
+        if len(tokens) < 2 or not tokens[1].strip():
+            return "Usage: /rules [forget <provider:model>]"
+        endpoint = tokens[1].strip()
+        if forget_param_fixes(state_dir, endpoint):
+            return f"/rules: forgot the learned parameter rule(s) for {endpoint!r}."
+        return f"/rules: no learned parameter rule for {endpoint!r} to forget."
+    return "\n".join(format_rules_lines(list_param_rules(state_dir)))
+
+
 def _cmd_settings(args: str, facade: HeadlessFacade) -> str:
     """Round 5i part 2: the merged Claude-Code/Codex/Halo settings view
     (`providers.settings_merge.effective_settings`) -- `halo doctor`'s
@@ -1606,6 +1628,8 @@ _BUILTIN_SPECS = {
                   _cmd_providers),
     "balances": ("core", "Show the cached balance/credit figure for every provider that offers one",
                  "[refresh]", _cmd_balances),
+    "rules": ("core", "List learned parameter-rejection rules (endpoint, field, action, age)",
+              "[forget <provider:model>]", _cmd_rules),
     "settings": ("core", "Show the merged Claude Code / Codex / halo settings view", "[primary claude|codex]",
                  _cmd_settings),
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),

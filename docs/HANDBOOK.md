@@ -80,9 +80,12 @@ command; this section is the manual/reference version of the same steps.
 
 Put `OPENROUTER_API_KEY` in `~/.config/halo/env` (`KEY=value`, `#`
 comments, optional leading `export`; override the path with
-`HALO_ENV_FILE`, legacy `BRIDGE_ENV_FILE` still honoured; a pre-2.0.0
-`~/.config/vibes-hacker/env` is still read when the new path doesn't exist
-yet) or export it yourself -- that's the only required setup
+`HALO_ENV_FILE`, legacy `BRIDGE_ENV_FILE` still honoured) or export it
+yourself -- that's the only required setup. A pre-2.0.0
+`~/.config/vibes-hacker/env` is no longer read at all (removed in 2.0.5
+round 3, announced back in the [2.0.1] CHANGELOG); `halo init` still
+copies its content forward into the new file, once, the first time it
+writes there, so nothing already configured in it is lost
 for OpenRouter models. Databricks credentials are discovered automatically,
 same chain the whole project has always used: explicit `HALO_DBX_BASE_
 URL`+`HALO_DBX_TOKEN` (legacy `BRIDGE_DBX_BASE_URL`/`BRIDGE_DBX_TOKEN`)

@@ -111,23 +111,30 @@ def _check_claude_layout() -> list:
 
 
 def _check_env_file() -> str:
+    """Halo 2.0.5 round 3 (2.0.3-brief.md G7, 2.0.4-brief.md "5.
+    Deprecations"): the new file existing is the only OK case now that
+    `load_provider_env_files()` no longer falls back to the legacy one
+    (`providers.config.load_provider_env_files`'s own docstring). The
+    legacy-only case is now its own WARN (not silently "configured" --
+    nothing in it is actually read any more), naming `halo init` as the
+    migration exactly like the "neither exists" WARN already does."""
     from halo_harness.config.paths import env_file_path, legacy_env_file_path
     env_path = env_file_path()
-    # 2.0.0 fixpass finding 4: the legacy file is still read (see
-    # _load_env_file_best_effort below), so its mere existence must still
-    # count as "configured" here too -- otherwise this ONE line would WARN
-    # even though every credential in it is actually in effect.
-    if env_path.exists() or legacy_env_file_path().exists():
+    if env_path.exists():
         return f"{OK} env file: {env_path}"
+    if legacy_env_file_path().exists():
+        return _fix(f"{WARN} env file: {legacy_env_file_path()} is the legacy location and is no longer read",
+                     cmd="halo init")
     return _fix(f"{WARN} env file: {env_path}", cmd="halo init")
 
 
 def _load_env_file_best_effort() -> None:
-    """Same env files `run_print_mode` loads (2.0.0 fixpass finding 4: the
-    new `~/.config/halo/env`/HALO_ENV_FILE path, THEN the legacy
-    `~/.config/vibes-hacker/env` one) -- without this, doctor would report
-    a key "not configured" even when the real harness would happily find
-    it there (an env-var-only check would silently disagree with
+    """Same env file `run_print_mode` loads (`providers.config.
+    load_provider_env_files` -- the new `~/.config/halo/env`/HALO_ENV_FILE
+    path ONLY as of 2.0.5 round 3, the legacy env file (`config.paths.legacy_env_file_path()`)
+    fallback having been removed there) -- without this, doctor would
+    report a key "not configured" even when the real harness would happily
+    find it there (an env-var-only check would silently disagree with
     reality)."""
     try:
         from halo_harness.providers.config import load_provider_env_files
@@ -1773,6 +1780,14 @@ def cmd_doctor(argv: list) -> int:
                          help="With --probe-all: also check one Read tool-call per endpoint")
     parser.add_argument("--only", default=None, metavar="GLOB",
                          help="With --probe-all: only endpoints matching this glob")
+    # Halo 2.0.5 round 3 (G1 learned-rule engine): pre-learns the param-
+    # rejection rules a live turn would otherwise discover one request at
+    # a time -- opt-in, prints the cost estimate first, never runs without
+    # this flag (see _run_probe_learn below).
+    parser.add_argument("--learn", action="store_true",
+                         help="With --work --probe-all: also send one minimal probe per optional parameter to "
+                              "each endpoint and learn which ones it rejects (opt-in -- spends real tokens/DBUs, "
+                              "prints the cost estimate first)")
     # Halo 2.0.3 round 5d (brief item 3): the 60-second local-model
     # acceptance check -- its own preset, same shape as --work just above.
     parser.add_argument("--local", action="store_true",
@@ -1895,6 +1910,27 @@ def cmd_doctor(argv: list) -> int:
             return 1
         print(format_table(rows, tools=args.tools))
         print(f"\n  Report written to {report_path} (endpoint names only -- no host, no token).")
+        if args.learn:
+            # Halo 2.0.5 round 3 (G1): opt-in, cost estimate printed BEFORE
+            # a single probe goes out -- never reached without --learn.
+            from halo_harness.providers.config import (
+                derive_workspace_root, merge_databricks_headers, resolve_databricks,
+            )
+            from halo_harness.providers.learned_params import estimate_probe_cost_line, probe_and_learn_params
+            from halo_harness.config.paths import bridge_home as _bridge_home
+            names = [r.name for r in rows if "(anthropic gateway)" not in r.name]
+            print()
+            print("  " + estimate_probe_cost_line(len(names)))
+            dbx = resolve_databricks()
+            if dbx is None or not names:
+                print("  Nothing to learn from (Databricks not configured, or no chat-shaped endpoints).")
+            else:
+                root = derive_workspace_root(dbx.host)
+                headers = merge_databricks_headers(dbx.custom_headers)
+                probed = probe_and_learn_params(_bridge_home(), root, dbx.token, headers, names)
+                hits = [p for p in probed if p["learned"]]
+                print(f"  Learned {len(hits)} new rule(s) from {len(probed)} probe(s)"
+                      + (": " + ", ".join(f"{h['endpoint']}:{h['field']}" for h in hits) if hits else "."))
         return 0 if all(r.status == "200" for r in rows) else 1
     if args.work:
         if args.json:

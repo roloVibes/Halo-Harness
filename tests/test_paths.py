@@ -702,14 +702,16 @@ def test_env_file_path_for_write_marks_the_new_file_and_leaves_the_legacy_file_a
         ctx.check(f"the deleted key does not come back from the legacy file, got {sorted(loaded)}",
                   "OPENROUTER_API_KEY" not in loaded and loaded.get("DATABRICKS_TOKEN") == "tok-legacy")
 
-        # Without the marker (a hand-written new file) the legacy file still
-        # fills the gaps, exactly as before item E.
+        # 2.0.5 round 3: without the marker (a hand-written new file) the
+        # legacy file is STILL not read -- the fallback read is gone for
+        # good (announced in [2.0.1]); the marker helper stays only as a
+        # test seam for the copy-forward above.
         for k in saved_keys:
             os.environ.pop(k, None)
         write_path.write_text("DATABRICKS_TOKEN=tok-new\n", encoding="utf-8")
         loaded = load_provider_env_files()
-        ctx.check(f"a hand-written new file without the marker still falls back to the legacy file, got {sorted(loaded)}",
-                  loaded.get("OPENROUTER_API_KEY") == "from-legacy" and loaded.get("DATABRICKS_TOKEN") == "tok-new")
+        ctx.check(f"a hand-written new file without the marker never falls back to the legacy file, got {sorted(loaded)}",
+                  "OPENROUTER_API_KEY" not in loaded and loaded.get("DATABRICKS_TOKEN") == "tok-new")
     finally:
         for k in saved_keys:
             os.environ.pop(k, None)
@@ -752,7 +754,7 @@ def test_env_file_path_for_write_honors_an_explicit_override(ctx: Ctx):
 
 
 @test
-def test_load_provider_env_files_new_wins_legacy_fills_gaps(ctx: Ctx):
+def test_load_provider_env_files_reads_only_the_new_file(ctx: Ctx):
     from halo_harness.providers.config import load_provider_env_files
 
     old_home = os.environ.get("BRIDGE_TEST_HOME")
@@ -774,13 +776,17 @@ def test_load_provider_env_files_new_wins_legacy_fills_gaps(ctx: Ctx):
 
         loaded = load_provider_env_files()
         ctx.check(f"new file's key wins on a collision, got {loaded}", loaded.get("OPENROUTER_API_KEY") == "from-new")
-        ctx.check(f"a key only in the legacy file still loads, got {loaded}",
-                  loaded.get("DATABRICKS_TOKEN") == "from-legacy")
+        # 2.0.5 round 3: the legacy file is no longer read at all (announced
+        # in [2.0.1]); a key that lives only there never loads. `halo init`'s
+        # one-time copy-forward is the migration (pinned above and in
+        # tests/test_env_file_drop.py).
+        ctx.check(f"a key only in the legacy file no longer loads, got {loaded}",
+                  "DATABRICKS_TOKEN" not in loaded)
         ctx.check(f"a key only in the new file still loads, got {loaded}",
                   loaded.get("DATABRICKS_HOST") == "from-new")
-        ctx.check("os.environ itself reflects the same precedence",
+        ctx.check("os.environ itself reflects the same rule",
                   os.environ.get("OPENROUTER_API_KEY") == "from-new"
-                  and os.environ.get("DATABRICKS_TOKEN") == "from-legacy")
+                  and os.environ.get("DATABRICKS_TOKEN") is None)
     finally:
         if old_home is None:
             os.environ.pop("BRIDGE_TEST_HOME", None)

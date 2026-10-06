@@ -186,7 +186,8 @@ the files above.
 | Path | Holds |
 |---|---|
 | `~/.halo/config.json` | this harness's own settings -- see the key table below |
-| `~/.config/halo/env` (`HALO_ENV_FILE`/legacy `BRIDGE_ENV_FILE` to override; legacy `~/.config/vibes-hacker/env` still READ when this one is absent) | `OPENROUTER_API_KEY`/`DATABRICKS_HOST`/`DATABRICKS_TOKEN` etc., `KEY=value` lines, `#` comments, optional `export`; written mode 0600, dir 0700 (POSIX) by `halo init` |
+| `~/.config/halo/env` (`HALO_ENV_FILE`/legacy `BRIDGE_ENV_FILE` to override) | `OPENROUTER_API_KEY`/`DATABRICKS_HOST`/`DATABRICKS_TOKEN` etc., `KEY=value` lines, `#` comments, optional `export`; written mode 0600, dir 0700 (POSIX) by `halo init`. The PRE-2.0.0 location, `~/.config/vibes-hacker/env`, was read as a fallback through 2.0.4 (announced in the [2.0.1] CHANGELOG, WARNed by `halo doctor` since [2.0.2]) -- as of 2.0.5 round 3 it is no longer read at all; `halo init` still copies it forward into this file (with an import marker, one time) the first time it writes here, so nothing already configured there is lost, and the legacy file itself is never modified or deleted (other tools on the same box may still read it). |
+| `~/.halo/learned-rules.json` | per-endpoint learned facts, keyed `"<provider>:<model>"`: `tools_rejected` (24h TTL), `reasoning_effort_with_tools`, `ignored_params` (the `xp:` gateway's disclosed-ignored-parameters header), `mcp_fix`, and `params` (Halo 2.0.5: `{"<field>": {"action": "drop"\|"clamp", "value", "error", "date"}}`, one entry per request field a live 400/422 proved this endpoint rejects -- 30-day TTL; `halo rules`/`/rules` lists these, `halo rules --forget <endpoint>`/`halo models refresh --forget-rules` clear them; see `docs/COMMANDS.md`) |
 | `~/.halo/sessions/<project-slug>/<id>.jsonl` | one append-only session log per session (see `docs/ARCHITECTURE.md`) |
 | `~/.halo/sessions/<project-slug>/index.json` | per-session title/first-prompt/turns/cost, for `/resume`'s picker and `-r <text>` |
 | `~/.halo/models.json`, `dbx-endpoints.json`, `models-dev.json`, `cc-models.json` | cached model catalogs (`docs/MODELS.md`) |
@@ -287,7 +288,7 @@ good, with no `HALO_` twin, since the test suites depend on the exact name.
 | `ANTHROPIC_CUSTOM_HEADERS` | one-or-more `Name: value` lines, merged onto every Databricks request |
 | `HALO_DBX_BASE_URL`, `HALO_DBX_TOKEN` (legacy `BRIDGE_DBX_BASE_URL`/`BRIDGE_DBX_TOKEN`) | explicit override, wins outright over every other Databricks discovery step |
 | `HALO_MODEL`, `HALO_MODEL_SMALL` (legacy `BRIDGE_MODEL`/`BRIDGE_MODEL_SMALL`) | override the resolved default main/small model (also used by `halo proxy`) |
-| `HALO_ENV_FILE` (legacy `BRIDGE_ENV_FILE`) | path to the `KEY=value` env file (default `~/.config/halo/env`, falling back to legacy `~/.config/vibes-hacker/env` when that's absent) |
+| `HALO_ENV_FILE` (legacy `BRIDGE_ENV_FILE`) | path to the `KEY=value` env file (default `~/.config/halo/env`; the legacy `~/.config/vibes-hacker/env` fallback read was removed in 2.0.5 round 3 -- `halo init`'s one-time copy-forward is the migration) |
 | `BRIDGE_STATE_DIR` | this harness's own state directory (default `~/.halo`; a test-only-style seam that keeps its bare `BRIDGE_` name for good -- see the note above) |
 | `BRIDGE_TEST_HOME` | test/scratch seam: overrides `home()` everywhere (`~/.claude`, `~/.halo`, ...) -- never set this for real use |
 | `HALO_CLAUDE_EXE` (legacy `BRIDGE_CLAUDE_EXE`) | override how the `claude` binary is launched (`cc:` route, `--chrome`) |

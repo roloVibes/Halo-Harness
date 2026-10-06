@@ -286,10 +286,24 @@ def cmd_models(argv) -> int:
     parser.add_argument("--urls", action="store_true",
                          help="Databricks endpoints: also print the exact URL and path type each one resolves to")
     parser.add_argument("--json", action="store_true", help="Machine-readable JSON output")
+    # Halo 2.0.5 round 3 (G1): the blunt, whole-cache reset -- clears every
+    # learned PARAMETER-rejection rule (providers.learned_params), on every
+    # endpoint, in one go. Pairs naturally with a catalog refresh (a
+    # provider-side change that invalidates one likely invalidates others);
+    # `halo rules --forget <endpoint>` is the scoped, single-endpoint twin.
+    parser.add_argument("--forget-rules", action="store_true",
+                         help="Also clear every learned parameter-rejection rule for every endpoint")
     args = parser.parse_args(argv)
 
-    # 2.0.0 fixpass finding 4: the new env file, then the legacy one too.
+    # 2.0.0 fixpass finding 4: the new env file (2.0.5 round 3: the legacy
+    # fallback this comment used to describe was removed -- see
+    # providers.config.load_provider_env_files's own docstring).
     load_provider_env_files()
+
+    if args.forget_rules:
+        from halo_harness.providers.learned_params import forget_all_param_rules
+        cleared = forget_all_param_rules(bridge_home())
+        print(f"halo models: forgot learned parameter rules for {cleared} endpoint(s).")
 
     state_dir = bridge_home()
     if args.cc:
