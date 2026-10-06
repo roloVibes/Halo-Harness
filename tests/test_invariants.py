@@ -545,6 +545,31 @@ def test_invariant_f_no_test_module_sets_bridge_state_dir_at_module_level(ctx: C
     ctx.check("no test module sets BRIDGE_STATE_DIR at module level:\n  " + "\n  ".join(problems), not problems)
 
 
+@test
+def test_invariant_g_no_test_pins_the_package_version_as_a_literal(ctx: Ctx):
+    """House invariant (g), added after the first CI run following the
+    v2.0.4 tag went red: a 2.0.3.1-era test asserted `__version__ ==
+    "2.0.3.1"`. `scripts/release.py` bumps the version AFTER every suite
+    has run, so a literal pin can only ever fail on the push right after a
+    release -- and no earlier run can catch it. The version check lives in
+    tests/test_quickstart_docs.py and derives the expected value from the
+    newest dated CHANGELOG section; this invariant keeps a literal from
+    creeping back in anywhere."""
+    import re
+    pin = re.compile(r"""__version__\s*(?:==|!=)\s*["']\d""")
+    problems = []
+    candidates = [REPO_DIR / "test_bridge.py", REPO_DIR / "test_tui.py"] + \
+        sorted((REPO_DIR / "tests").glob("test_*.py"))
+    for path in candidates:
+        if not path.exists():
+            continue
+        rel = path.resolve().relative_to(REPO_DIR).as_posix()
+        for line_no, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+            if pin.search(line):
+                problems.append(f"{rel}:{line_no}: compares __version__ to a literal; derive it from the CHANGELOG instead")
+    ctx.check("no test pins the package version as a literal:\n  " + "\n  ".join(problems), not problems)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

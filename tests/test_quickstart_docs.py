@@ -236,15 +236,23 @@ def test_version_bumped_to_2_0_3_and_changelog_has_an_entry(ctx: Ctx):
 
 
 @test
-def test_version_bumped_to_2_0_3_1_and_changelog_has_an_entry(ctx: Ctx):
-    """Halo Harness 2.0.3.1 (clipboard image paste): Ctrl+V/Shift+Insert
-    read a real clipboard image, `/paste`/`/images`, every route actually
-    sends the attached image (or a plain-text path mention for a no-
-    vision model), and `--image`/stream-json `image` content blocks give
-    print mode the same capability. THIS release's own version-bump pin."""
+def test_version_matches_the_newest_dated_changelog_section(ctx: Ctx):
+    """The version pin, release-proof. The 2.0.3.1 form of this test pinned
+    the literal "2.0.3.1", so it could only break AFTER `scripts/release.py`
+    bumped the version -- which happens after every suite has run -- and
+    it did, on the first CI run after the v2.0.4 tag. The rule now: the
+    package version equals the newest DATED `## [x.y.z] - YYYY-MM-DD`
+    section of the CHANGELOG (an `unreleased` section above it is the next
+    version in progress and is skipped). True during development, true the
+    moment the release script dates a section, no literal to forget."""
+    import re
     from halo_harness import __version__
-    ctx.check(f"__version__ is 2.0.3.1, got {__version__!r}", __version__ == "2.0.3.1")
     changelog = (REPO_DIR / "CHANGELOG.md").read_text(encoding="utf-8")
+    dated = re.findall(r"^## \[(\d+(?:\.\d+)+)\] - \d{4}-\d{2}-\d{2}\s*$", changelog, flags=re.M)
+    ctx.check("CHANGELOG.md has at least one dated section", bool(dated))
+    newest = dated[0] if dated else None
+    ctx.check(f"__version__ equals the newest dated CHANGELOG section {newest!r}, got {__version__!r}",
+              __version__ == newest)
     ctx.check("CHANGELOG.md has a [2.0.3.1] entry", "[2.0.3.1]" in changelog)
     entry = changelog.split("[2.0.3.1]", 1)[1].split("\n## [", 1)[0]
     for phrase in ("clipboard", "image"):
