@@ -75,3 +75,20 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
 | `2.0.5-ollama-brief.md` | now 2.0.3 (moved ahead 2026-10-03): local and LAN Ollama models |
 | `2.0.8-signal-brief.md` | 2.0.8: remote control of sessions from Signal |
 | `2.0.9-review-privacy-brief.md` | 2.0.9: deep code review feature and the privacy/secret audit of repo and history |
+
+## Resume point 2026-10-06 (read this first)
+
+- The repeatable cycle (briefs -> one worker -> verify -> commit -> CI ->
+  live check -> release script) is written in `plans/CYCLE.md`. Every round
+  brief used so far is under `plans/briefs/` (2.0.3 fix passes, 2.0.3.1,
+  2.0.4 rounds 0-4), sanitized: `<repo>`, `<scratchpad>`, `<you>` stand for
+  the machine-specific paths.
+- State: v2.0.3 and v2.0.3.1 released and installed; history rewritten
+  2026-10-05 (all hashes changed; old-history backup beside the repo on the
+  build host); 2.0.4 rounds 0-3 shipped, round 4 (roles wizard + agent YAML
+  files) in flight; remaining 2.0.4 rounds in ROADMAP's dated sections
+  (Databricks enumeration, MCP doctor deep dive, new-labs coverage, xp:
+  contract alignment), then the tag via `scripts/release.py 2.0.4`.
+- Budget: the owner's token allowance is nearly spent until Friday
+  2026-10-09; follow CYCLE.md's "Budget discipline" (no per-round VM runs,
+  live checks once per round, status posts only when asked).
