@@ -20,6 +20,13 @@ import json
 import subprocess
 import sys
 import tempfile
+
+# The machine-name rule reads the owner's own terms from HALO_PRIVACY_TERMS
+# or the state dir (never from the repo); this module plants a made-up term
+# and names it here so the check is active and deterministic in every
+# environment. Set before halo_harness.privacy_rules is first imported.
+import os
+os.environ["HALO_PRIVACY_TERMS"] = "plexbox-zeta"
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -47,7 +54,7 @@ _NOTES_TXT = (
     "Mirror: http://leaky-mirror.local:9999/status\n"
     "Known real key-shaped value (should be flagged): sk-or-v1-REALLOOKINGKEYSHAPEDVALUE1234567890\n"
     "Allowlisted key-shaped value (should be suppressed): sk-ant-ALLOWLISTEDFAKEVALUE1234567890AB\n"
-    "Machine name (should be flagged): REDACTED-HOSTNAME\n"
+    "Machine name (should be flagged): plexbox-zeta\n"
     "Contact: morgan.test@personalmailbox.io\n"
 )
 _ALLOWLIST_TXT = "# scratch allowlist\nsk-ant-ALLOWLISTEDFAKEVALUE1234567890AB\n"
