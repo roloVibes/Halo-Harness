@@ -46,7 +46,7 @@ _STATE_GLYPH = {
 }
 
 _LEGEND = ("r reconnect  R all  a approve  l login  L log  e edit  "
-           "i install  d disable  t test  Esc close")
+           "i install  d disable  t test  D deep dive  A apply fix  Esc close")
 
 # Halo 2.0.2 round D leftover 1: `e`'s external-editor launch used to pass
 # vim's own `+<line>` argument to EVERY `$EDITOR`, unconditionally -- fine
@@ -97,6 +97,12 @@ def _row(entry: dict) -> str:
     backoff = entry.get("backoff_status")
     if backoff:
         line += f" [{backoff}]"
+    # round6 brief deliverable 4: the last deep-dive diagnosis, when there
+    # is one (`Controller.list_mcp_servers` injects this field the same
+    # place `backoff_status` already rides along -- see its own comment).
+    last_diagnosis = entry.get("last_diagnosis")
+    if last_diagnosis:
+        line += f" ({last_diagnosis})"
     return line
 
 
@@ -112,6 +118,8 @@ class McpStatus(ModalScreen):
         Binding("i", "install_hint", "Install hint", show=False),
         Binding("d", "toggle_disabled", "Disable/enable", show=False),
         Binding("t", "test_server", "Test", show=False),
+        Binding("D", "deep_dive", "Deep dive", show=False),
+        Binding("A", "apply_fix", "Apply fix", show=False),
     ]
     DEFAULT_CSS = """
     McpStatus { align: center middle; }
@@ -123,7 +131,8 @@ class McpStatus(ModalScreen):
                  approve: Optional[Callable] = None, reconnect_all: Optional[Callable] = None,
                  login: Optional[Callable] = None, test: Optional[Callable] = None,
                  disable: Optional[Callable] = None, resolve_config: Optional[Callable] = None,
-                 refresh: Optional[Callable[[], list]] = None) -> None:
+                 refresh: Optional[Callable[[], list]] = None,
+                 deep_dive: Optional[Callable] = None, apply_fix: Optional[Callable] = None) -> None:
         super().__init__()
         self.servers = servers
         # 2.0.2 review finding 19: `Controller.list_mcp_servers` (cache-only,
@@ -144,6 +153,11 @@ class McpStatus(ModalScreen):
         self._test = test
         self._disable = disable
         self._resolve_config = resolve_config
+        # round6 brief ("MCP connectivity deep dive"): `D` (diagnose only,
+        # never applies) / `A` (the explicit yes -- diagnoses again and,
+        # when the proposal is mechanically appliable, applies + re-tests).
+        self._deep_dive = deep_dive
+        self._apply_fix = apply_fix
         # finding 9: the in-flight action's own abort Event, or None when
         # nothing is running -- `action_cancel` checks this to decide
         # "cancel the busy operation" vs. "close the dialog".
@@ -240,6 +254,12 @@ class McpStatus(ModalScreen):
 
     def action_test_server(self) -> None:
         self._run_action_async(self._test, verb="Testing")
+
+    def action_deep_dive(self) -> None:
+        self._run_action_async(self._deep_dive, verb="Deep-diving")
+
+    def action_apply_fix(self) -> None:
+        self._run_action_async(self._apply_fix, verb="Applying a fix for")
 
     def action_toggle_disabled(self) -> None:
         if self._disable is None or self._busy_abort is not None:

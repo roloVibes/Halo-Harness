@@ -126,7 +126,17 @@ already configured); runs off the UI thread in the TUI, same as
 ### `/mcp`
 `[TUI-only for the interactive dialog]` -- lists configured MCP servers
 with live health in `-p`; in the TUI, opens an interactive status dialog
-(reconnect a server, approve a pending `.mcp.json` entry).
+(reconnect a server, approve a pending `.mcp.json` entry). 2.0.4 round 6
+adds the deep dive: `D` diagnoses the highlighted server (resolve, a
+real spawn+handshake with stdout/stderr, an env/PATH diff, a config-shape
+check, then one proposed fix from a model) without applying anything;
+`A` is the explicit yes -- diagnoses again and, when the proposal is a
+config-edit/path/url fix, writes it and re-tests (a fix that verifies
+healthy is remembered, so the identical failure elsewhere self-heals with
+no model call next time). Each row shows its own last diagnosis (when,
+the verdict, the fix proposed or applied) once one has run. See
+`docs/TROUBLESHOOTING.md`'s "The deep dive" section, and `halo doctor
+--mcp deep` (`docs/COMMANDS.md`) for the same thing from the CLI.
 
 ### `/ollama [--host NAME] [--refresh]`
 Halo 2.0.3 round 3: per-configured-host Ollama analysis -- reachable,

@@ -118,6 +118,13 @@ class FakeController:
         self.logins: list = []
         self.tests: list = []
         self.disables: list = []
+        # Halo 2.0.4 round 6 ("MCP connectivity deep dive"): `D`/`A` in
+        # `/mcp` -- recorded the same way every other repair action above
+        # already is. `deep_dive_fix` is the canned proposal line
+        # `deep_dive_mcp_server` reports, overridable per test.
+        self.deep_dives: list = []
+        self.applies: list = []
+        self.deep_dive_fix: str = "CONFIG_EDIT: env.FOO=bar"
         # Halo 2.0.3.1: every `images=` a pilot test's `submit()` call
         # carried, in call order -- `None`/omitted rides along as `None`
         # rather than `[]`, so a test can tell "no images kwarg at all"
@@ -233,6 +240,24 @@ class FakeController:
     def test_mcp_server(self, name: str, abort=None) -> list:
         self.tests.append(name)
         return [f"{name}: tools/list ok in 1ms -- 0 tool(s). (fake)"]
+
+    def deep_dive_mcp_server(self, name: str, abort=None) -> list:
+        # Halo 2.0.4 round 6 ("MCP connectivity deep dive"): test-fixture
+        # mirror of `Controller.deep_dive_mcp_server` -- no real probe/
+        # model call, just a recorded, scripted result (`deep_dive_fix`,
+        # defaulting to a plain proposal line) a pilot test can set up
+        # front to drive `A`'s own apply path deterministically.
+        self.deep_dives.append(name)
+        return [f"=== MCP deep dive: {name} (verdict: failed) ===", f"proposed fix: {self.deep_dive_fix}"]
+
+    def apply_mcp_fix(self, name: str, abort=None) -> list:
+        self.applies.append(name)
+        for entry in self.mcp_servers:
+            if entry.get("name") == name:
+                entry["state"] = "connected"
+                entry["error"] = None
+        return [f"=== MCP deep dive: {name} (verdict: healthy) ===",
+                f"{name}: fixed and verified -- learned this fix for next time. (fake)"]
 
     def set_mcp_server_disabled(self, name: str, disabled: bool) -> list:
         self.disables.append((name, disabled))

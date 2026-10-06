@@ -748,9 +748,27 @@ class McpServerHandle:
         # doctor's WHY display (mcp_cli.failure_reason) covers both without
         # a separate code path.
         self.error: Optional[str] = config.disabled_reason
+        # round6 brief deliverable 1: WHEN the current `.error` happened --
+        # wall-clock `time.time()` (never `time.monotonic()`, which has no
+        # fixed epoch to render as a human time), set alongside `.error`
+        # on every connect failure (`start()`'s except branch) and every
+        # mid-session death (`_mark_dead`) -- `None` iff `.error` is also
+        # None (never connected/attempted, or a disabled placeholder whose
+        # "error" is really just its static disabled_reason, not a timed
+        # failure at all). `mcp_cli.format_mcp_list_line`/`/mcp`'s `_row`
+        # both render this so a down server stays listed with WHEN it went
+        # down, not just that it's down.
+        self.last_error_at: Optional[float] = None
         self.instructions: Optional[str] = None
         self.tools: list = []       # raw SDK Tool objects
         self.tools_fetch_failed = False
+        # round6 brief deliverable 2: the actual `tools/list` exception
+        # text when `tools_fetch_failed` is True -- `_connect_once` used to
+        # only ever set the bare bool, with the real exception string going
+        # nowhere but a debug log line; `doctor_probe`'s handshake step (and
+        # anything else that wants to say WHY a tools/list failed, not just
+        # THAT it did) reads this instead of re-deriving it.
+        self.tools_fetch_failed_error: Optional[str] = None
         self._stack = None
         self._session = None
         self._errlog = None
@@ -1050,7 +1068,9 @@ class McpServerHandle:
         # never carry a stale error/tools_fetch_failed/cleanup-future from
         # the PREVIOUS attempt into a freshly-successful one.
         self.error = None
+        self.last_error_at = None
         self.tools_fetch_failed = False
+        self.tools_fetch_failed_error = None
         self._connect_cleanup_future = None
 
         async def _do():
@@ -1085,6 +1105,7 @@ class McpServerHandle:
             # failed -- "! Connected . tools fetch failed" in mcp_cli.py's
             # status vocabulary, not a hard "failed" state.
             self.tools_fetch_failed = True
+            self.tools_fetch_failed_error = f"{type(e).__name__}: {e}"
             log.debug("mcp %s: tools/list failed after a clean initialize: %s", self.config.name, e)
 
     async def _lifecycle_task(self, connect_future: "concurrent.futures.Future") -> None:
@@ -1158,6 +1179,7 @@ class McpServerHandle:
         except Exception as e:
             self.state = "needs_auth" if http_sse_mod.looks_like_auth_required(e) else "failed"
             self.error = f"{type(e).__name__}: {e}"
+            self.last_error_at = time.time()
             _append_server_log(self.config.name, f"connect failed ({self.state}): {self.error}")
             return
         self.state = "connected"
@@ -1173,6 +1195,7 @@ class McpServerHandle:
         eventually runs; clearing it here too would leak the subprocess."""
         self.state = "failed"
         self.error = f"{type(exc).__name__}: {exc} (connection lost)"
+        self.last_error_at = time.time()
         self._session = None
         _append_server_log(self.config.name, f"connection lost: {self.error}")
         # round4 brief item 2: arms the reconnect backoff (replaces a bare
@@ -1556,6 +1579,15 @@ class McpManager:
             except Exception as e:
                 h.state = "needs_auth" if http_sse_mod.looks_like_auth_required(e) else "failed"
                 h.error = f"{type(e).__name__}: {e}"
+                # round6 brief deliverable 1: this path (start_all()/
+                # ensure_lazy_started_all()/start_many(), ALL of which share
+                # this one parallel-start helper) is the one every real
+                # session actually connects through -- `McpServerHandle.
+                # start()`'s own matching except branch (the single-server
+                # `/mcp` `r`/`reconnect_manual` path) is a SEPARATE call site
+                # that must set this the same way, not something this one
+                # could just delegate to.
+                h.last_error_at = time.time()
 
         async def _start_all_coro() -> None:
             # `asyncio.gather(...)` must be CALLED from inside a coroutine
@@ -1595,6 +1627,7 @@ class McpManager:
                 if h.state == "connecting":
                     h.state = "failed"
                     h.error = f"startup exceeded MCP_TIMEOUT ({overall:.1f}s): {type(e).__name__}: {e}"
+                    h.last_error_at = time.time()
 
     def ensure_started(self, name: str, abort=None) -> None:
         """`mcpLazy` servers (and a not-yet-approved `.mcp.json` server
@@ -1738,7 +1771,13 @@ class McpManager:
             out.append({
                 "name": name, "type": h.config.type, "command": h.config.command, "args": h.config.args,
                 "url": h.config.url, "state": h.state, "error": h.error,
+                # round6 brief deliverable 1: when `.error` happened (epoch
+                # seconds, `None` iff there's no error) -- a server that
+                # fails to connect stays listed here with WHEN it failed,
+                # not just that it did.
+                "last_error_at": h.last_error_at,
                 "tools_fetch_failed": h.tools_fetch_failed,
+                "tools_fetch_failed_error": h.tools_fetch_failed_error,
                 # H13 Part A: a "cached" server's tool count is known (from
                 # mcp.tools_cache) even though it was never actually
                 # connected -- reported the same as a real "connected" one.
@@ -1795,7 +1834,9 @@ class McpManager:
         cached_tools_before = list(h.tools) if h.state == "cached" else None
         h.close(timeout=mcp_timeout_s() + 5.0, abort=abort)
         h.error = None
+        h.last_error_at = None
         h.tools_fetch_failed = False
+        h.tools_fetch_failed_error = None
         h._reconnect_on_next_call = False
         h.state = "pending_approval" if h.config.pending_approval else "pending"
         h.start(abort=abort)

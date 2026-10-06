@@ -40,6 +40,14 @@ Modes (`FAKE_MCP_MODE` env, default "normal"):
                  a direct unit test that injects a synthetic 401-shaped
                  exception rather than relying on a stdio process to
                  produce one (documented in test_mcp_manager.py).
+  - needs-env:   round6 (doctor --mcp deep): exits(1) with a stderr line
+                 naming `FAKE_MCP_REQUIRED_VAR` unless that env var is
+                 exactly "expected-value" in THIS process's own
+                 environment -- a "wrong/missing env var" failure, fixed by
+                 adding that var to the server's config `env` block.
+  - tools-list-error: round6: initialize succeeds (a real session), but
+                 `list_tools()` always raises -- `tools_fetch_failed`/
+                 `tools_fetch_failed_error`, never a hard "failed" state.
 """
 
 from __future__ import annotations
@@ -100,6 +108,49 @@ def serve_http_401():
     finally:
         httpd.shutdown()
         httpd.server_close()
+        thread.join(timeout=5)
+
+
+@contextmanager
+def serve_plain_tcp_no_tls():
+    """round6 (doctor --mcp deep tests, "bad TLS answer"): a bare TCP
+    listener that accepts a connection and then just sits there, speaking
+    no protocol at all -- for an `https://`/`wss://` url pointed at it, the
+    client's own TLS `ClientHello` never gets a TLS answer back, so
+    `ssl.SSLSocket.wrap_socket`/do_handshake raises a real `ssl.SSLError`
+    (or the connection is simply reset) end to end, no mock. Yields the
+    bound port (127.0.0.1)."""
+    import socket
+    import threading
+
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(5)
+    port = srv.getsockname()[1]
+    stop = threading.Event()
+
+    def _accept_loop() -> None:
+        srv.settimeout(0.2)
+        while not stop.is_set():
+            try:
+                conn, _addr = srv.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                return
+            try:
+                conn.close()
+            except OSError:
+                pass
+
+    thread = threading.Thread(target=_accept_loop, daemon=True, name="fake-plain-tcp-no-tls")
+    thread.start()
+    try:
+        yield port
+    finally:
+        stop.set()
+        srv.close()
         thread.join(timeout=5)
 
 
@@ -335,8 +386,34 @@ def main() -> None:
         sys.exit(1)
     if mode == "slow":
         time.sleep(float(os.environ.get("FAKE_MCP_SLEEP_S", "2.0")))
+    if mode == "needs-env":
+        # round6 brief (doctor --mcp deep tests): "wrong env var" -- a
+        # server that refuses to start unless the launcher's config
+        # actually set this specific var to the expected value (never a
+        # real secret -- a fixed, known-in-advance test string). The
+        # client sees exactly the same observable shape "crash" produces
+        # (spawned, then exited before completing the handshake), but the
+        # stderr line names the SPECIFIC var so doctor_probe's handshake
+        # evidence (its captured log tail) can point a fix proposal at it.
+        want = os.environ.get("FAKE_MCP_REQUIRED_VAR")
+        if want != "expected-value":
+            sys.stderr.write("fake_mcp_server: FAKE_MCP_REQUIRED_VAR is missing or wrong (needs-env mode)\n")
+            sys.exit(1)
 
     app = build_app()
+    if mode == "tools-list-error":
+        # round6 brief: "tools/list error" -- initialize succeeds (a real,
+        # live session), but the tool LISTING itself fails -- distinct from
+        # every other failure mode here, which all fail before or during
+        # initialize. `list_tools` is assigned directly on the INSTANCE
+        # (not via the `@app.list_tools()` decorator, which re-registers a
+        # handler -- a plain instance attribute is what `_handle_list_
+        # tools`'s own `await self.list_tools()` call actually reads), so
+        # no `self` parameter: a function stored on an instance is never
+        # bound the way a class attribute would be.
+        async def _raise_list_tools():
+            raise RuntimeError("tools/list intentionally broken (FAKE_MCP_MODE=tools-list-error)")
+        app.list_tools = _raise_list_tools
     # H9 Part B item 12: http/sse transports via a REAL fake server (never
     # exercised for real anywhere else in this suite -- see http_sse.py's
     # own module docstring: "none of the owner's real 15 configured servers use

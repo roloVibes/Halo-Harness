@@ -542,6 +542,12 @@ _ALLOWED_RAW_NETWORK_CALLERS = {
         "MCP SERVER OAuth discovery/token exchange -- a user-configured MCP server's own endpoint "
         "(which may itself be local), a separate concern from the model-provider/update/catalog network "
         "surface this round's brief enumerates; not wired to the offline gate this round",
+    "halo_harness/mcp/doctor_probe.py":
+        "round6 'MCP connectivity deep dive': a bare TCP connect + TLS handshake PRE-CHECK against a "
+        "user-configured http/sse/ws MCP server's own url (often a LAN/local address) -- same category "
+        "as mcp/oauth.py just above (the user's own server, not the model-provider/update/catalog "
+        "surface), and the user explicitly asked for this one diagnostic run (`halo doctor --mcp deep`/ "
+        "`D` in /mcp); not wired to the offline gate this round either",
 }
 
 _RAW_NETWORK_RE = re.compile(
