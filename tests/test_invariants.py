@@ -570,6 +570,49 @@ def test_invariant_g_no_test_pins_the_package_version_as_a_literal(ctx: Ctx):
     ctx.check("no test pins the package version as a literal:\n  " + "\n  ".join(problems), not problems)
 
 
+# House invariant (h) -- 2.0.5 round 2d. The previous project name is
+# built from parts here and nowhere spelled out as one literal: the brief
+# ("never write that name into any new text, including this round's
+# tests") and this test's own scan both forbid it. `_FIRST`+`_REST` join
+# into the hyphenated form; the underscored variant swaps the separator.
+# The compat CODE keeps working with the real string (cli.py, config/
+# paths.py, doctor.py, its tests) -- this invariant governs only the
+# front pages a visitor or pip page reads first.
+_FIRST, _REST = ("ro" + "lo"), ("cla" + "ude")
+_OLD_NAME_HYPHEN = _FIRST + "-" + _REST
+_OLD_NAME_UNDERSCORE = _FIRST + "_" + _REST
+FRONT_PAGES = (
+    "README.md", "pyproject.toml",
+    "docs/INSTALL.md", "docs/harness/INSTALL.md", "docs/HANDBOOK.md",
+    "docs/COMMANDS.md",
+    "scripts/install-halo.sh", "scripts/install-halo.ps1",
+)
+
+
+@test
+def test_invariant_h_the_previous_project_name_is_off_the_front_pages(ctx: Ctx):
+    """Protects: the previous project name (owner's call, 2026-10-06:
+    "just don't mention it directly on the first pages of the repo,
+    whatever if it's in the change logs") appears on none of the front
+    pages -- case-insensitive, both the hyphenated and underscored
+    forms. The compatibility code, its tests, the CHANGELOG and plans/
+    history keep it (invariant scope is exactly FRONT_PAGES above)."""
+    problems = []
+    for rel in FRONT_PAGES:
+        path = REPO_DIR / rel
+        if not path.exists():
+            problems.append(f"{rel}: front page listed in FRONT_PAGES does not exist")
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace").lower()
+        for variant in (_OLD_NAME_HYPHEN, _OLD_NAME_UNDERSCORE):
+            idx = text.find(variant)
+            if idx != -1:
+                line_no = text.count("\n", 0, idx) + 1
+                problems.append(f"{rel}:{line_no}: the previous project name "
+                                f"({'-' if '-' in variant else '_'} form) is on a front page")
+    ctx.check("the previous project name appears on no front page:\n  " + "\n  ".join(problems), not problems)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

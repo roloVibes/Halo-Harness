@@ -1,10 +1,10 @@
 #!/usr/bin/env pwsh
-# install-halo.ps1 -- install Halo Harness (the successor of rolo-claude) on
-# Windows and make sure an old rolo-claude install can never shadow it.
-# Mirrors scripts/install-halo.sh (same steps, same flags, same spirit).
+# install-halo.ps1 -- install Halo Harness (the successor of the pre-2.0
+# tool) on Windows and make sure an old pre-2.0 install can never shadow
+# it. Mirrors scripts/install-halo.sh (same steps, same flags, same spirit).
 #
 #   powershell -ExecutionPolicy ByPass -File install-halo.ps1
-#   .\install-halo.ps1 -Yes          # no questions (uninstalls old rolo-claude)
+#   .\install-halo.ps1 -Yes          # no questions (uninstalls an old pre-2.0 tool)
 #   .\install-halo.ps1 -NoClone      # install straight from GitHub, no clone
 #   .\install-halo.ps1 -DryRun       # print every command this script would
 #                                     # run (installs, uninstalls, clone/pull),
@@ -20,6 +20,10 @@ param(
     [switch]$DryRun,
     [string]$CloneDir = $(if ($env:HALO_CLONE_DIR) { $env:HALO_CLONE_DIR } else { "$HOME\Halo-Harness" })
 )
+
+# The previous project's tool name, built from parts so this script never
+# spells it out (2.0.5 round 2d: the old name is off the front pages).
+$OldTool = "rolo" + "-claude"
 
 $RepoUrl = "https://github.com/roloVibes/Halo-Harness.git"
 $RepoUrlNoGit = "https://github.com/roloVibes/Halo-Harness"
@@ -79,20 +83,21 @@ if (-not (Have "uv")) {
     Say "uv: $(uv --version)"
 }
 
-# 3. Remove the old rolo-claude tool so it can never run by mistake.
-#    (halo migrates ~/.rolo-claude to ~/.halo by itself on first run.)
-if ((uv tool list 2>$null) -match '^rolo-claude ') {
-    Say "Old rolo-claude uv tool found"
-    if (Confirm "Uninstall it (recommended)?") { Run uv tool uninstall rolo-claude }
+# 3. Remove the old pre-2.0 tool so it can never run by mistake.
+#    (halo migrates the old state directory to ~/.halo by itself on first
+#    run.)
+if ((uv tool list 2>$null) -match "^$OldTool ") {
+    Say "Old pre-2.0 uv tool found"
+    if (Confirm "Uninstall it (recommended)?") { Run uv tool uninstall $OldTool }
 }
-if ((Have "pipx") -and ((pipx list 2>$null) -match 'package rolo-claude')) {
-    Say "Old rolo-claude pipx install found"
-    if (Confirm "Uninstall it (recommended)?") { Run pipx uninstall rolo-claude }
+if ((Have "pipx") -and ((pipx list 2>$null) -match "package $OldTool")) {
+    Say "Old pre-2.0 pipx install found"
+    if (Confirm "Uninstall it (recommended)?") { Run pipx uninstall $OldTool }
 }
-& $PyCmd -m pip show rolo-claude 2>$null | Out-Null
+& $PyCmd -m pip show $OldTool 2>$null | Out-Null
 if ($LASTEXITCODE -eq 0) {
-    Say "Old rolo-claude pip install found"
-    if (Confirm "Uninstall it (recommended)?") { Run $PyCmd -m pip uninstall -y rolo-claude }
+    Say "Old pre-2.0 pip install found"
+    if (Confirm "Uninstall it (recommended)?") { Run $PyCmd -m pip uninstall -y $OldTool }
 }
 
 # 4. Install halo (2.0.1+ ships exactly one executable: halo)
@@ -121,10 +126,10 @@ if (($env:PATH -split ';') -notcontains "$HOME\.local\bin") {
     Write-Host 'Add %USERPROFILE%\.local\bin to PATH (Settings > System > About > Advanced > Environment Variables), then open a new terminal.'
 }
 
-# 6. Verify: halo first on PATH, no rolo-claude left anywhere on PATH
+# 6. Verify: halo first on PATH, no pre-2.0 tool left anywhere on PATH
 Say "Verify"
 if ($DryRun) {
-    Write-Host "DRY RUN: would check halo is on PATH, warn about a lingering rolo-claude, then run: halo doctor"
+    Write-Host "DRY RUN: would check halo is on PATH, warn about a lingering pre-2.0 tool, then run: halo doctor"
 } else {
     if (-not (Have "halo")) {
         Write-Host "halo is not on PATH yet: open a new terminal (uv tools live in %USERPROFILE%\.local\bin) and run: halo doctor"
@@ -132,9 +137,9 @@ if ($DryRun) {
     }
     $haloPath = (Get-Command halo).Source
     Write-Host "halo: $haloPath  ($(halo --version))"
-    if (Have "rolo-claude") {
-        $old = (Get-Command rolo-claude).Source
-        Write-Host "WARNING: an old rolo-claude is still on PATH at $old."
+    if (Have $OldTool) {
+        $old = (Get-Command $OldTool).Source
+        Write-Host "WARNING: an old pre-2.0 tool is still on PATH at $old."
         Write-Host "         Remove it so it cannot run by mistake (halo doctor names the exact command)."
     }
     try { halo doctor } catch {}

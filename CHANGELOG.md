@@ -264,6 +264,53 @@ around the two items below) and `docs/COMMANDS.md`.
   wrong once the new file exists, and keeps its ordinary WARN when
   neither exists.
 
+### The old name is gone
+
+- **The previous project name is off the front pages** (owner's call,
+  2026-10-06: "just don't mention it directly on the first pages of the
+  repo, whatever if it's in the change logs"). `README.md`, the two
+  INSTALL pages, `docs/HANDBOOK.md`, `docs/COMMANDS.md`, the package
+  description in `pyproject.toml` and every line the installers print say
+  only `halo`; where a legacy behaviour must be described they say "the
+  previous name" or "pre-2.0 installs". The compatibility code, its
+  tests, this CHANGELOG and the plans/ history are untouched on purpose
+  -- the old command still works exactly as documented. A new house
+  invariant (tests/test_invariants.py, (h)) refuses the name -- both
+  separators, case-insensitive -- on exactly those front pages, with the
+  pattern built from parts so even the test never spells it out. The
+  installers' old-tool detection and uninstall commands build the name
+  from parts too and behave identically.
+
+### README and screenshots
+
+- **`halo --version` prints an ASCII wordmark** -- a five-row figlet-style
+  HALO banner from one new module (`halo_harness/banner.py`), with the
+  version line underneath. The same banner is the first entry of the
+  launch intro pool (it types out, then the version lands under the art)
+  and the README's opening block; `tests/test_intro_lines.py` pins the
+  README's copy against the module so the three can never drift.
+- **`scripts/screenshots.py` renders the README's gallery** -- seven
+  120x36 SVG scenes (first launch, a mid-turn with the phase line and a
+  running tool card, the model picker, the wizard's Team step, the `/mcp`
+  dialog with a failing server, a permission card, balances) driven by
+  Textual pilots over fixture data only: a scripted FakeController,
+  fixture picker rows, fixture bios and the shipped team templates, a
+  fake MCP server list, a fixture permission ask, fixture balances.
+  Deterministic by construction -- fixed seed, a frozen clock set through
+  the same `started_at`/`_refresh` seams the tests use, Textual's random
+  per-export CSS id normalized, LF line endings pinned by
+  `.gitattributes` -- so a rerun is byte-identical. `tests/test_
+  screenshots.py` re-renders and fails if the committed `docs/screenshots/
+  *.svg` are not the script's exact output. The SVGs carry no real path,
+  balance or model id (the session cwd is the literal `~/project`).
+- **The README is restructured around them**: banner, one paragraph of
+  what Halo is, the gallery with one-sentence captions, a two-column
+  feature grid (routes, agent bios and lineups, the wizard, the MCP deep
+  dive, learned rules, balances and picker columns, the privacy audit,
+  CI and the release script), a three-line install, and a themes section
+  the 2.0.8 theme pack (DOOM, Metroid, Mario) will fill with one render
+  each.
+
 ## [2.0.4] - 2026-10-06
 
 ### Tooling

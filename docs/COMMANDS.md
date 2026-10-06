@@ -27,7 +27,12 @@ export PYTHONPATH=/path/to/halo-harness   # a dev checkout; skip if installed
 halo --version
 ```
 ```
-halo 1.0.1
+ _   _      _      _        ___
+| | | |    / \    | |      / _ \
+| |_| |   / _ \   | |     | | | |
+|  _  |  / ___ \  | |___  | |_| |
+|_| |_| /_/   \_\ |_____|  \___/
+halo <version>
 ```
 
 There is no `sessions` subcommand in this build -- session resume/fork/
@@ -438,7 +443,10 @@ What: repeats the demo script's own synthetic load N times (a throughput/UI
 smoke test, not a real benchmark).
 
 #### `-v`, `--version`
-What: prints `halo <version>` and exits 0, before any config is read.
+What: prints the ASCII banner (2.0.5 round 2d; the same wordmark the launch
+intro types out and the README shows) followed by `halo <version>` -- with
+the install's own `(commit, branch)` once known -- and exits 0, before any
+config is read.
 
 ### Flags parsed but not implemented yet
 

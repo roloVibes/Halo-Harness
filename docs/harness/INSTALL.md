@@ -16,57 +16,58 @@ fixes, all in one command, and is always safe to re-run. Everything else in
 this file is the manual/reference version of what `init` automates, plus the
 offline/work-box and reproducible-install recipes it doesn't cover.
 
-## Upgrading from rolo-claude 1.0.1
+## Upgrading from a pre-2.0 install (1.0.1)
 
 `halo` is a rename, not a fresh product -- the installed console script
-from 1.0.1 is still named `rolo-claude`. In 2.0.0, installing `halo` right
-next to it was its own small mess (every installer either refused outright
-or did something surprising); **as of 2.0.1, `halo`'s own distribution no
-longer registers a `rolo-claude` executable at all** (`pyproject.toml`
-ships exactly one, `halo` -- see CHANGELOG [2.0.1]), so none of that
-applies any more: `uv tool install --editable .` / `pipx install --editable
-.` / `pip install --user -e .` all install `halo` cleanly whether or not
-the old 1.0.1 `rolo-claude` tool is still sitting on PATH, no `--force`
-needed, nothing silently overwritten.
+from 1.0.1 still carries the previous project's name. In 2.0.0, installing
+`halo` right next to it was its own small mess (every installer either
+refused outright or did something surprising); **as of 2.0.1, `halo`'s own
+distribution no longer registers a second executable at all**
+(`pyproject.toml` ships exactly one, `halo` -- see CHANGELOG [2.0.1]), so
+none of that applies any more: `uv tool install --editable .` / `pipx
+install --editable .` / `pip install --user -e .` all install `halo`
+cleanly whether or not the old 1.0.1 tool is still sitting on PATH, no
+`--force` needed, nothing silently overwritten.
 
 **Uninstalling the old tool first is still recommended**, though -- not to
 make the install succeed (it already will), but so the stale 1.0.1 command
-can never run by mistake once `halo` exists. Whichever installer you used
-for it:
+can never run by mistake once `halo` exists. `<old-name>` below is the
+previous project's package name (the command `halo doctor` names for you
+on PATH); whichever installer you used for it:
 
 ```sh
-uv tool uninstall rolo-claude      # installed with `uv tool install`
-pipx uninstall rolo-claude         # installed with `pipx`
-pip uninstall rolo-claude          # installed with `pip install --user -e .`
+uv tool uninstall <old-name>      # installed with `uv tool install`
+pipx uninstall <old-name>         # installed with `pipx`
+pip uninstall <old-name>          # installed with `pip install --user -e .`
 ```
 
-`halo doctor` WARNs if it finds a `rolo-claude` left on PATH that isn't
-this checkout's own `bin/rolo-claude` script (below) -- that WARN's own fix
-line names the exact uninstall command for your box.
+`halo doctor` WARNs if it finds the old 1.0.1 launcher left on PATH that
+isn't this checkout's own deprecated `bin/` launcher (below) -- that
+WARN's own fix line names the exact uninstall command for your box.
 
 Either way, once `halo` is installed:
 
 - The state directory migrates itself the first time anything in `halo`
-  resolves it: an existing `~/.rolo-claude` is renamed (never copied) to
-  `~/.halo`, announced with one stderr line. No link is created at the old
-  location -- after this first run, `~/.rolo-claude` is simply gone (a
-  trailing-slash `rm -rf ~/.rolo-claude/` on a leftover link would follow
+  resolves it: an existing pre-2.0 state directory is renamed (never
+  copied) to `~/.halo`, announced with one stderr line. No link is created
+  at the old location -- after this first run, the old directory is simply
+  gone (a trailing-slash `rm -rf` of it on a leftover link would follow
   it and empty `~/.halo` right along with it, so the decision is to leave
   nothing behind there at all).
 - Use only `halo` from here on -- the separate, actually-still-installed
-  `rolo-claude` 1.0.1 binary (if you kept it on PATH instead of
-  uninstalling) **must not be used again** once `~/.halo` exists -- with the real
-  `~/.rolo-claude` renamed away and no link left behind, it would start
-  from a truly empty state directory the next time it runs. (`rolo-claude`
-  typed after installing `halo` now only ever means `bin/rolo-claude` --
-  this repo's own no-install-at-all fallback SCRIPT, run straight from a
+  1.0.1 binary (if you kept it on PATH instead of uninstalling)
+  **must not be used again** once `~/.halo` exists -- with the old state
+  directory renamed away and no link left behind, it would start from a
+  truly empty state directory the next time it runs. (The old command
+  typed after installing `halo` now only ever means this repo's own
+  no-install-at-all fallback SCRIPT under `bin/`, run straight from a
   checkout, never an installed console script -- or whichever separate
   1.0.1 install is still on PATH; `halo`'s own distribution installs
   nothing under that name any more.)
-- If your box somehow ends up with both `~/.rolo-claude` and `~/.halo`
-  holding real data (most commonly a rename that failed partway through,
-  e.g. a locked file on Windows), `halo doctor` reports a WARN naming both
-  paths -- follow its fix.
+- If your box somehow ends up with both the old pre-2.0 state directory
+  and `~/.halo` holding real data (most commonly a rename that failed
+  partway through, e.g. a locked file on Windows), `halo doctor` reports
+  a WARN naming both paths -- follow its fix.
 
 ## Kali / Linux
 
