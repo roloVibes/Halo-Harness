@@ -596,9 +596,13 @@ def test_agents_step_enter_opens_the_highlighted_bio_no_button_needed(ctx: Ctx):
 @test
 def test_agents_step_and_bio_editor_focus_on_open_is_never_a_button(ctx: Ctx):
     """Rule (b): "when a screen opens, focus lands on the list or the
-    first field, never on a button"."""
+    first field, never on a button". 2.0.5 release gate: the fixed
+    pauses raced a loaded CI runner twice (2aadbee + 5d9dcb1: focus
+    still on the VerticalScroll container a beat after the editor
+    pushed) -- both waits are bounded polls now, same as the H9b
+    lesson: poll the condition, never sleep a guessed constant."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from textual.widgets import Button, OptionList
+    from textual.widgets import Button, Input, OptionList
 
     async def body():
         with _Env():
@@ -606,12 +610,28 @@ def test_agents_step_and_bio_editor_focus_on_open_is_never_a_button(ctx: Ctx):
             state.enumerated_models, state.enumeration_done = FIXTURE_MODELS, True
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
-                await pilot.pause(0.1)
+                import time as _time
+
+                async def _wait_until(cond, *, timeout=5.0, step=0.05):
+                    deadline = _time.monotonic() + timeout
+                    while True:
+                        await pilot.pause(step)
+                        try:
+                            if cond():
+                                return True
+                        except Exception:
+                            pass
+                        if _time.monotonic() >= deadline:
+                            try:
+                                return bool(cond())
+                            except Exception:
+                                return False
+
+                await _wait_until(lambda: isinstance(app.focused, OptionList))
                 ctx.check(f"the Team step focuses a list, never a button, got {type(app.focused).__name__}",
                           isinstance(app.focused, OptionList) and not isinstance(app.focused, Button))
                 app.screen.query_one("#agents-new", Button).press()
-                await pilot.pause(0.35)
-                from textual.widgets import Input
+                await _wait_until(lambda: isinstance(app.focused, Input))
                 ctx.check(f"the bio editor focuses a field, got {type(app.focused).__name__}",
                           isinstance(app.focused, Input))
     run(body())

@@ -11,6 +11,7 @@ import asyncio
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -19,6 +20,28 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 test, TESTS = new_registry()
+
+
+async def _wait_until(pilot, cond, *, timeout: float = 5.0, step: float = 0.05) -> bool:
+    """Bounded poll for a TUI condition (the H9b lesson, applied to pilot
+    tests): a fixed `pilot.pause(0.2)` races a loaded runner -- a pushed
+    screen can exist before its widgets mount (CI 143c1f9: 'No nodes
+    match #bio-pref on AgentBioEditor()'). Poll until `cond()` holds or
+    the deadline passes; `cond` may raise (not-yet-mounted widgets) --
+    that counts as not-yet, never as failure."""
+    deadline = time.monotonic() + timeout
+    while True:
+        await pilot.pause(step)
+        try:
+            if cond():
+                return True
+        except Exception:
+            pass
+        if time.monotonic() >= deadline:
+            try:
+                return bool(cond())
+            except Exception:
+                return False
 
 FIXTURE_MODELS = [
     {"ref": "or:vendor/strong-model", "provider": "openrouter", "group": "OpenRouter (or:)",
@@ -141,7 +164,12 @@ def test_agents_step_create_save_reload_edit_duplicate_delete(ctx: Ctx):
                 ctx.check(f"opened on the Agents step, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "TeamStep")
                 app.screen.query_one("#agents-new", Button).press()
-                await pilot.pause(0.2)
+                # 2.0.5 release gate: poll for the editor AND its fields --
+                # the screen can push before its widgets mount under load
+                await _wait_until(pilot, lambda: (
+                    isinstance(app.screen, AgentBioEditor)
+                    and app.screen.query("#bio-name")
+                    and app.screen.query("#bio-pref")))
                 editor = app.screen
                 ctx.check("New opened the bio editor", isinstance(editor, AgentBioEditor))
                 editor.query_one("#bio-name", Input).value = "pilot-bio"
@@ -151,7 +179,7 @@ def test_agents_step_create_save_reload_edit_duplicate_delete(ctx: Ctx):
                 ctx.check('no validation problems while typing a good bio',
                           _static_text(editor.query_one("#bio-hint")) == "Looks good.")
                 editor.action_save()
-                await pilot.pause(0.2)
+                await _wait_until(pilot, lambda: type(app.screen).__name__ == "TeamStep")
                 ctx.check(f"save returned to the step, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "TeamStep")
                 rows = app.screen.query_one("#agents-list", OptionList)
@@ -165,7 +193,9 @@ def test_agents_step_create_save_reload_edit_duplicate_delete(ctx: Ctx):
                 # -- edit a limit ---------------------------------------------
                 rows.highlighted = names.index("pilot-bio")
                 app.screen.query_one("#agents-edit", Button).press()
-                await pilot.pause(0.2)
+                await _wait_until(pilot, lambda: (
+                    isinstance(app.screen, AgentBioEditor)
+                    and app.screen.query("#bio-limit-max-iter")))
                 editor2 = app.screen
                 editor2.query_one("#bio-limit-max-iter", Input).value = "7"
                 editor2.action_save()
@@ -179,8 +209,10 @@ def test_agents_step_create_save_reload_edit_duplicate_delete(ctx: Ctx):
                 names2 = [str(rows2.get_option_at_index(i).id) for i in range(rows2.option_count)]
                 rows2.highlighted = names2.index("coder")
                 app.screen.query_one("#agents-duplicate", Button).press()
-                await pilot.pause(0.2)
                 from halo_harness.agents_yaml import find_agent_bio_path
+                await _wait_until(pilot, lambda: (
+                    find_agent_bio_path("coder") is not None
+                    and find_agent_bio_path("coder")[1] == "user"))
                 found = find_agent_bio_path("coder")
                 ctx.check(f"coder now resolves to user scope, got {found}", found and found[1] == "user")
 
