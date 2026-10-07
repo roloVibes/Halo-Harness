@@ -368,7 +368,16 @@ def test_real_sigint_delivers_exit_130_posix(ctx: Ctx):
         env = _hermetic_child_env()
         env.update({"BRIDGE_TEST_HOME": str(fh["home"]), "BRIDGE_OPENROUTER_BASE_URL": mock.base_url,
                     "OPENROUTER_API_KEY": "test-key", "PYTHONPATH": str(REPO_DIR)})
-        args = [sys.executable, "-m", "halo_harness", "-p", "take a while", "--model", "or:mock/slow",
+        # 2.0.5 release gate: `or:mock/slow` here (headers, then ONE 2s
+        # sleep) raced a FULLY LOADED VM -- under suite load the scheduler
+        # can lag the send_signal() delivery past the whole 2s window, the
+        # child finishes its answer and exits 0, and the SIGINT lands on a
+        # corpse (verified 130 on an idle box, exit-0 inside the suite).
+        # `long-abort` streams a chunk every 100ms for 6s instead: bytes
+        # flow the whole time so the KeyboardInterrupt fires at the next
+        # bytecode in the read loop, and no plausible scheduling lag
+        # outlives the window.
+        args = [sys.executable, "-m", "halo_harness", "-p", "take a while", "--model", "or:mock/long-abort",
                 "--cwd", str(fh["proj"])]
         proc = subprocess.Popen(args, env=env, cwd=str(REPO_DIR), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                  text=True)
