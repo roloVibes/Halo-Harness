@@ -93,3 +93,22 @@ they stop being skips and start actually exercising the real path:
 
 See `docs/DEVELOPMENT.md`'s "Live and real-binary checks" for the one-line
 pointer back to this file.
+
+## Soak: the real-machine half (2.0.6 round 9)
+
+`tools/soak.py` covers the hermetic half (idle gaps, clock jump, resize,
+steer, permission-card idle, 429/reset/drop, `/compact`, against the
+mock). Two things deliberately need a REAL machine session, run by hand:
+
+- **tmux detach/reattach**: start `halo` inside tmux, run a multi-minute
+  turn, detach (`Ctrl+B D`), wait a few minutes, reattach (`tmux attach`)
+  -- the session must still answer a prompt within the usual deadline and
+  the status bar must show the live elapsed ticking again (2.0.6 round
+  1's tenths make a frozen render instantly visible).
+- **A real 30-minute idle**: leave the session idle for 30 minutes (a
+  laptop sleep mid-idle counts double -- the clock-jump seam), then send
+  a prompt; it must answer, and `halo bugreport` must show no watchdog
+  dump for the idle window itself (a dump only ever names a stalled TURN,
+  never a quiet prompt).
+
+Record both results in the release notes' live-check line when run.
