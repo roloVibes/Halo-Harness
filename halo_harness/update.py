@@ -415,6 +415,25 @@ def _fetch_latest(channel: str, *, run_fn, fetch_json) -> dict:
     return {"channel": channel, "commit": None, "ref": None, "reason": "network unavailable"}
 
 
+def tag_checksums(tag: str, *, fetch_json=None) -> "Optional[list[dict]]":
+    """2.0.6 round 8: the GitHub release assets of `tag` (e.g. "v2.0.6")
+    -- `[{"name": ..., "browser_download_url": ...}, ...]`, or None when
+    the release or its assets can't be read (offline, rate-limited, no
+    such tag). The verification half of the signed-releases item: a tag
+    whose release carries a `checksums.txt` was built by `scripts/
+    release.py` (the tag's own `git archive` + its sha256); `halo update
+    --verify` refuses to install a tag that has NO checksums asset when
+    any other tag in the repo does (a missing artifact is a broken
+    release, not a reason to install unverified)."""
+    if fetch_json is None:
+        fetch_json = http_get_json
+    rel = fetch_json(f"https://api.github.com/repos/roloVibes/Halo-Harness/releases/tags/{tag}")
+    if not isinstance(rel, dict):
+        return None
+    assets = rel.get("assets")
+    return assets if isinstance(assets, list) else None
+
+
 def latest_available(channel: Optional[str] = None, *, refresh: bool = False,
                       state_dir: Optional[Path] = None, build: Optional[dict] = None,
                       run_fn=None, fetch_json=None) -> dict:

@@ -10,6 +10,18 @@ version.
 
 ## [2.0.6] - unreleased
 
+### Signed releases (round 8)
+
+Every release now ships a checksummed artifact: the tag's own source
+archive (`git archive` of the tag -- the tree and nothing else, no
+working-tree dirt possible) plus a `checksums.txt` (the sha256sum
+layout), both attached to the GitHub release. And `halo update`
+verifies before installing: an update to a TAG checks the target
+release carries that checksums asset and refuses one that verifiably
+does not (a broken or foreign release); `--no-verify` skips the check,
+an unreadable release (offline, rate-limited) fails open with a
+warning -- a network blip never blocks an explicitly requested update.
+
 ### `halo doctor --roles` (round 7)
 
 The roles lineup's hygiene, headless (the v2.0.4 review's item 6): a

@@ -1048,7 +1048,14 @@ line) exempts deliberate fixture values from either mode.
 
 Checks the installed build (PEP 610 `direct_url.json`, or `git` in a live
 checkout) against what's available upstream (cached 24h in
-`~/.halo/update-check.json`), and, unless `--check`, applies it. See
+`~/.halo/update-check.json`), and, unless `--check`, applies it. Since
+2.0.6 every release carries a checksummed artifact (the tag's own
+source archive plus its `checksums.txt`, both attached to the GitHub
+release), and an update to a TAG verifies the target release has that
+checksums asset before installing -- a tag without one is refused as a
+broken or foreign release (`--no-verify` skips the check; an unreadable
+release fails open with a warning, never blocking an explicitly
+requested update on a network blip). See
 "Update" in `docs/INSTALL.md` for the full walkthrough; `/update` inside
 the TUI is the same check with an update-and-restart dialog.
 

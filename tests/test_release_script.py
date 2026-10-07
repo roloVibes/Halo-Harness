@@ -86,6 +86,17 @@ def _scratch_repo(version: str = "9.9.9", *, unreleased: bool = True, dirty_extr
 def _fake_run(calls: list):
     def _run(cmd, **kwargs):
         calls.append(cmd)
+        # 2.0.6 round 8: build_release_artifact's `git archive -o <path>`
+        # is the one command whose SIDE EFFECT the release flow needs --
+        # fake it by creating the artifact file, so the sha256 + upload
+        # steps have something real to read.
+        if len(cmd) >= 2 and cmd[0] == "git" and "archive" in cmd:
+            try:
+                out = Path(cmd[cmd.index("-o") + 1])
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(b"fake-archive-contents")
+            except (OSError, ValueError):
+                pass
 
         class _R:
             returncode = 0
@@ -298,21 +309,33 @@ def test_write_readme_badge_version_refuses_cleanly_with_no_badge_markup(ctx: Ct
 
 @test
 def test_github_release_uses_gh_cli_when_present(ctx: Ctx):
-    """Deliverable 6: `gh` on PATH is the preferred path -- the ONE call
-    goes through `run_fn`, never a real subprocess, and the CHANGELOG
-    section's own body is passed verbatim as the release notes."""
+    """Deliverable 6 + 2.0.6 round 8: `gh` on PATH is the preferred path --
+    the release create AND the artifact/checksums upload both go through
+    `run_fn`, never a real subprocess, and the CHANGELOG section's own
+    body is passed verbatim as the release notes."""
     repo = _scratch_repo("9.9.9")
     calls: list = []
     rc = release.main(["9.9.9"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [],
                        gh_path_fn=lambda: "/usr/bin/gh")
     ctx.check(f"exits 0, got {rc}", rc == 0)
     gh_calls = [c for c in calls if c and c[0] == "/usr/bin/gh"]
-    ctx.check(f"exactly one gh release create call, got {calls}", len(gh_calls) == 1)
-    cmd = gh_calls[0]
-    ctx.check(f"it creates the right tag, got {cmd}", cmd[1:3] == ["release", "create"] and cmd[3] == "v9.9.9")
+    creates = [c for c in gh_calls if c[1:3] == ["release", "create"]]
+    uploads = [c for c in gh_calls if c[1:3] == ["release", "upload"]]
+    ctx.check(f"exactly one gh release create call, got {gh_calls}", len(creates) == 1)
+    ctx.check(f"and exactly one upload call, got {gh_calls}", len(uploads) == 1)
+    cmd = creates[0]
+    ctx.check(f"it creates the right tag, got {cmd}", cmd[3] == "v9.9.9")
     notes = cmd[cmd.index("--notes") + 1]
     ctx.check(f"the notes carry the CHANGELOG section's own bullet, got {notes!r}",
               "First bullet of the scratch release." in notes)
+    # 2.0.6 round 8: the upload carries the tag's own tar.gz (built by
+    # `git archive` of the tag -- the tree and nothing else) and its
+    # checksums.txt, both real files under a temp dir
+    up = uploads[0]
+    ctx.check(f"the upload targets the same tag, got {up}", up[3] == "v9.9.9")
+    names = [Path(a).name for a in up[4:]]
+    ctx.check(f"the artifact and checksums ride together, got {names}",
+              "halo-harness-9.9.9.tar.gz" in names and "checksums.txt" in names)
     ctx.check("curl is never also called when gh is present", not any(c[0] == "curl" for c in calls))
 
 
