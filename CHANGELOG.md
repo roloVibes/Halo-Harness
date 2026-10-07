@@ -10,6 +10,16 @@ version.
 
 ## [2.0.6] - unreleased
 
+### `halo doctor --roles` (round 7)
+
+The roles lineup's hygiene, headless (the v2.0.4 review's item 6): a
+missing `main`, a judge in the same model family as the coder
+(self-preference bias -- the family is a coarse first-digit bucket:
+glm/qwen/deepseek/...), and unreachable gateway endpoints (one
+reachability probe per distinct gateway, no model calls). Exit 1 with
+one plain sentence per problem, `--json` for the machine-readable
+list; clean lineups print `RESULT: clean`.
+
 ### Turn checkpoints, `/rewind turn <N>` (round 6)
 
 Shadow steps now carry the TURN their tool_result event belonged to,
