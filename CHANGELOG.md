@@ -490,6 +490,14 @@ fix has a pinning test in `tests/test_governor_review.py`,
   the ownership check declines it -- a dropped keep-alive retries on
   the loop's own ladder again, pinned both synthetically and against a
   real socket close with the Governor on.
+- **A pure read no longer creates the Governor's state dir** (found by
+  CI's real-state guard, red since round 4): `state_dir()` made the
+  directory on every call, so `/gov`'s table, `halo doctor`'s gateway
+  health and a plain state `load` conjured an empty `~/.halo/governor/`
+  on a machine that had never run a governed call. Path resolution and
+  directory creation are split now -- the three writers (the bucket
+  lock, the state save, the call-log append) create it on demand, with
+  the same one-warning degraded fallback when the dir cannot be made.
 
 ## [2.0.4] - 2026-10-06
 
