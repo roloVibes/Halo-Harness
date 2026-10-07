@@ -459,7 +459,20 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   mechanism -- silence is indistinguishable from failure), and
   `halo doctor` reporting the copy path verdict per platform. Also:
   copying a WHOLE turn, a code block, and the raw text of a diff must
-  each have one obvious binding, tested end to end.
+  each have one obvious binding, tested end to end. DIAGNOSED 2026-10-07
+  (the same evening, live on the owner's box): the external fallback
+  round-trips fine (clip.exe present, copy+read verified) and OSC 52
+  fires on every copy -- the UX killer is that `_selected_transcript_
+  text` deliberately copies the WHOLE text of every widget the drag
+  TOUCHED, "even just partially" (its own W4c comment): selecting five
+  words of a long answer copies the entire message, and a grazing drag
+  copies half the screen. The fix must extract the SELECTED RANGE
+  (Textual's own Selection.extract on the widget's cells, or an
+  equivalent char-range mapping), never whole-widget text; the
+  whole-widget behavior stays only for the explicit copy-turn binding.
+  Also verify the BOM: a PowerShell read of the clipboard showed a
+  leading U+FEFF -- confirm clip.exe writes no BOM (or strip it), since
+  an invisible BOM pasted into a file breaks it silently.
 - **2.0.8 = theme pack:** DOOM, Metroid, Mario (see "ADDED 2026-10-04:
   2.0.7 becomes a theme pack"; the content is unchanged, only the number).
 - **2.0.9 = Signal remote control** (plan `2.0.8-signal-brief.md`, content
