@@ -290,7 +290,45 @@ def build_manager(
         manager.start_all()
         if lazy_names:
             notices.extend(bootstrap_lazy_from_cache(manager, configs, lazy_names))
+    else:
+        # 2.0.6 round 10 ("MCP connects off the TUI startup path"): start
+        # == False means DEFERRED -- seed every server's catalog from cache
+        # (eager and lazy alike, zero connections: the TUI paints with its
+        # full frozen tool catalog from the warm cache) and flag the
+        # manager for the app's own background worker to connect behind
+        # the paint (Manager.complete_deferred_start). First-ever-run
+        # boxes (no cache yet) simply connect in that worker instead of
+        # blocking the first paint; print mode never takes this path.
+        eager_names = [name for name in configs if name not in lazy_names]
+        seed_cached_servers(manager, configs, eager_names)
+        seed_cached_servers(manager, configs, lazy_names)
+        manager.deferred_start = True
     return manager, notices
+
+
+def seed_cached_servers(manager, configs: "dict[str, object]", names) -> "list[str]":
+    """Seed every still-pending server in `names` from `mcp.tools_cache`
+    when the cache's hash matches its CURRENT config -- zero connections,
+    `mark_cached` only. Returns the names that had NO usable cache (the
+    caller decides whether to connect them now or defer). The per-server
+    half of `bootstrap_lazy_from_cache`, factored out for 2.0.6 round 10
+    so the deferred-start path can seed EAGER servers' catalogs the same
+    way."""
+    from halo_harness.mcp import tools_cache
+    needs_connect: list = []
+    for name in names:
+        h = manager.handles.get(name)
+        cfg = configs.get(name)
+        if h is None or cfg is None or h.state != "pending":
+            continue  # disabled/pending_approval -- nothing this bootstrap can do
+        key = tools_cache.config_cache_key(cfg)
+        entry = tools_cache.read_cache(name)
+        if entry is not None and entry.get("hash") == key:
+            manager.mark_cached(name, [tools_cache.tool_from_dict(d) for d in (entry.get("tools") or [])],
+                                 entry.get("instructions"))
+        else:
+            needs_connect.append(name)
+    return needs_connect
 
 
 def bootstrap_lazy_from_cache(manager, configs: "dict[str, object]", lazy_names: set) -> list:
@@ -327,22 +365,11 @@ def bootstrap_lazy_from_cache(manager, configs: "dict[str, object]", lazy_names:
     function in this module, for whichever future case needs one)."""
     from halo_harness.mcp import tools_cache
     notices: list = []
-    needs_connect: list = []
-    for name in lazy_names:
-        h = manager.handles.get(name)
-        cfg = configs.get(name)
-        if h is None or cfg is None or h.state != "pending":
-            continue  # disabled/pending_approval -- nothing this bootstrap can do
-        key = tools_cache.config_cache_key(cfg)
-        entry = tools_cache.read_cache(name)
-        if entry is not None and entry.get("hash") == key:
-            manager.mark_cached(name, [tools_cache.tool_from_dict(d) for d in (entry.get("tools") or [])],
-                                 entry.get("instructions"))
-        else:
-            needs_connect.append(name)
+    needs_connect = seed_cached_servers(manager, configs, lazy_names)
 
     if needs_connect:
         manager.start_many(needs_connect)
+        from halo_harness.mcp import tools_cache
         for name in needs_connect:
             h = manager.handles[name]
             if h.state == "connected":

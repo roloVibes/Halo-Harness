@@ -1173,7 +1173,14 @@ def build_session(
             mcp_config_flag=mcp_config, strict_mcp_config=strict_mcp_config,
             chrome=chrome_enabled, playwright=playwright,
             playwright_cdp=playwright_cdp, playwright_headless=playwright_headless,
-            bypass_mode=(resolved_mode in ("auto", "bypassPermissions")), start=True, trusted=trusted,
+            bypass_mode=(resolved_mode in ("auto", "bypassPermissions")),
+            # 2.0.6 round 10: the TUI (print_mode False) defers MCP connects
+            # off the startup path -- build_manager(start=False) seeds every
+            # catalog from cache (zero connections) and the app's own
+            # background worker completes the connects behind the paint
+            # (Manager.complete_deferred_start). Print mode keeps the
+            # blocking start: a one-shot -p wants its tools ready.
+            start=bool(print_mode), trusted=trusted,
             extra_plugin_roots=plugin_roots,
         )
         if mcp_manager is not None:

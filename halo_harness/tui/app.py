@@ -537,6 +537,13 @@ class BridgeApp(App):
         self.set_interval(1.0, lambda: self._tick_spinner())
         self.set_interval(5.0, self._refresh_cwd_branch)
         self._start_watchdog()
+        # 2.0.6 round 10: MCP connects OFF the startup path. build_session
+        # built the manager deferred (catalogs seeded from cache, zero
+        # connections) so this app could paint immediately; THIS worker
+        # completes the connects behind the paint -- never the UI thread
+        # (a hung server must never freeze the app), best-effort, with
+        # one transcript line when anything actually connected.
+        self._mcp_deferred_start_worker()
         statusline_cfg = self._statusline_config()
         if statusline_cfg is not None:
             self._refresh_statusline()
@@ -780,6 +787,35 @@ class BridgeApp(App):
                                                 bg_kinds=kinds_str, hang_watch_s=hang_watch)
 
     # ---- H15 Part B: hang watchdog -----------------------------------
+
+    def _mcp_deferred_start_worker(self) -> None:
+        """2.0.6 round 10: complete the deferred MCP connects on a worker
+        thread (see on_mount's own comment). The manager was built with
+        start=False (catalogs cache-seeded, nothing connected); this
+        connects pending + cached-eager servers behind the paint and
+        pushes one transcript line when anything landed. No-op (and no
+        worker at all) when the manager never deferred."""
+        manager = None
+        try:
+            manager = getattr(getattr(self.controller, "session", None), "mcp_manager", None)
+        except Exception:
+            return
+        if manager is None or not getattr(manager, "deferred_start", False):
+            return
+
+        def _work() -> None:
+            def _note(line: str) -> None:
+                try:
+                    self.controller.events.put(__import__("halo_harness.events", fromlist=["Event"]).Event(
+                        "system_note", {"text": line}))
+                except Exception:
+                    pass
+            try:
+                manager.complete_deferred_start(note_fn=_note)
+            except Exception:
+                pass
+        self.run_worker(_work, thread=True, name="mcp-deferred-start",
+                        group="mcp-deferred-start")
 
     def _start_watchdog(self) -> None:
         """A daemon thread, started once from `on_mount`, completely
