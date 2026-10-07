@@ -12,9 +12,13 @@ Design per `plans/2.0.3-ollama-round2-brief.md` "Round 2" and
 ("ollama") reaches a local daemon, a named LAN host, or Ollama Cloud, all
 through the SAME native `/api/chat` wire shape -- only `base_url` and
 (cloud-only) an `Authorization: Bearer <api_key>` header differ (research
-doc Q7). Every host is addressed by name (`ol:<model>@<hostname>`); never a
-literal LAN address in this file or in any test/doc (`tests/
-test_privacy_scan.py`).
+doc Q7). Halo 2.0.5 round 5 adds ONE opt-out per host entry:
+`"dialect": "openai"` (an OpenAI-dialect gateway in front of Ollama) --
+the `ol:` ref then rides the openai-chat machinery and this module's
+catalog/probes read `/v1/models` instead (see `host_is_openai_dialect`/
+`apply_host_dialect` below). Every host is addressed by name
+(`ol:<model>@<hostname>`); never a literal LAN address in this file or in
+any test/doc (`tests/test_privacy_scan.py`).
 """
 
 from __future__ import annotations
@@ -111,6 +115,29 @@ class OllamaHost:
     # anything in this harness itself; false by default, same as every
     # other local/LAN host before this field existed.
     offline_ok: bool = False
+    # Halo 2.0.5 round 5: `"openai"` opts this host entry into the OpenAI
+    # dialect -- an OpenAI-dialect GATEWAY in front of Ollama (a no-think
+    # proxy serving only `/v1/chat/completions` + `/v1/models`, with the
+    # entry's own `api_key` as its bearer) can then be used as an `ol:`
+    # host: requests ride `providers.http.call_openai_chat` and the
+    # catalog/enumeration read is `GET /v1/models`, both with this host's
+    # own url/api_key. `None` (or any unrecognized value -- see
+    # `_parse_dialect_field`) keeps the native `/api/chat` dialect
+    # exactly as before this field existed; only the literal "openai"
+    # (case-insensitive) means the OpenAI dialect.
+    dialect: Optional[str] = None
+
+
+def _parse_dialect_field(raw) -> Optional[str]:
+    """Halo 2.0.5 round 5: the `ollama.hosts[].dialect` value, stripped and
+    lowercased. Only the literal "openai" changes any behavior
+    (`host_is_openai_dialect`); any OTHER non-empty value is kept as-is so
+    `halo doctor`'s ollama check can NAME it in its WARN line while the
+    entry falls back to the native dialect everywhere else. `None`/blank/
+    non-string -> `None` (native, the pre-2.0.5 behavior exactly)."""
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    return raw.strip().lower()
 
 
 def _normalize_host_url(raw: str) -> str:
@@ -190,6 +217,7 @@ def _host_from_dict(d: dict) -> Optional[OllamaHost]:
         else None,
         ssh=d.get("ssh") if isinstance(d.get("ssh"), str) and d.get("ssh") else None,
         offline_ok=bool(d.get("offline_ok", False)),
+        dialect=_parse_dialect_field(d.get("dialect")),
     )
 
 
@@ -250,6 +278,62 @@ def resolve_ollama_host(name: Optional[str] = None, env: Optional[dict] = None) 
         if h.default:
             return h
     return hosts[0]
+
+
+def host_is_openai_dialect(host: Optional[OllamaHost]) -> bool:
+    """Halo 2.0.5 round 5: True only when `host.dialect` is exactly
+    "openai" (the one value `_parse_dialect_field` and the docs treat as
+    the OpenAI-dialect opt-in). Every other value -- `None` (the default)
+    or an unrecognized string -- is native, so a typo'd config value can
+    never half-switch a host onto the wrong wire shape: it just falls
+    back to native with a doctor WARN naming the value."""
+    return host is not None and bool(host.dialect) and str(host.dialect).strip().lower() == "openai"
+
+
+def openai_base_url_for_host(host: OllamaHost) -> Optional[str]:
+    """Halo 2.0.5 round 5: the base_url the openai-chat machinery needs
+    for an OpenAI-dialect host -- `providers.http.call_openai_chat` posts
+    `<base_url>/chat/completions`, so the host entry's own `url` (a bare
+    `http://host:port`, the same shape every native entry uses) gains a
+    `/v1` segment here; an entry that already ends in `/v1` is used
+    verbatim. `None` for every native host (the caller keeps `host.url`,
+    the pre-2.0.5 behavior exactly)."""
+    if not host_is_openai_dialect(host):
+        return None
+    base = (host.url or "").rstrip("/")
+    return base if base.endswith("/v1") else f"{base}/v1"
+
+
+def apply_host_dialect(ref, env: Optional[dict] = None):
+    """Halo 2.0.5 round 5: the ONE ModelRef.dialect override point for an
+    `ol:` ref on an OpenAI-dialect host. `parse_model_ref` is pure
+    routes-only (it cannot see `~/.halo/config.json`), so the "which wire
+    shape does this host speak" decision is made HERE, where the host
+    entry is already resolved: a ref whose named host entry sets
+    `dialect: "openai"` comes back with `dialect="openai-chat"` (a fresh
+    dataclass via `dataclasses.replace`, never a mutation), so every
+    Route built from it -- `Session.__init__`/`set_model`/
+    `call_small_model`/the compaction override -- dispatches through
+    `call_openai_chat` with this host's own url/key (`headless.
+    _resolve_creds` builds those creds the same way).
+
+    Identity-preserving for every other ref (the SAME object comes back,
+    never a copy): `call_small_model` compares `ref is self.model_ref`
+    and must keep seeing the main model as itself. Idempotent -- a ref
+    already carrying "openai-chat" comes back unchanged, so a ref
+    overridden once at Session construction survives a second application
+    with its identity intact. The native default is NEVER touched:
+    `dialect` unset, a native entry, or an unrecognized value all keep
+    the parse-time "ollama" dialect exactly as before this round."""
+    if getattr(ref, "provider", None) != "ollama":
+        return ref
+    if getattr(ref, "dialect", None) == "openai-chat":
+        return ref
+    host = resolve_ollama_host(getattr(ref, "host", None), env)
+    if not host_is_openai_dialect(host):
+        return ref
+    import dataclasses
+    return dataclasses.replace(ref, dialect="openai-chat")
 
 
 # research doc section 1/6: gpt-oss is the only model documented with
@@ -632,6 +716,36 @@ def fetch_ps(host: OllamaHost, *, timeout: float = _READ_TIMEOUT_S) -> Optional[
     return _get_json(host, "/api/ps", timeout=timeout)
 
 
+def probe_openai_models(host: OllamaHost, *, timeout: float = _READ_TIMEOUT_S) -> Optional[dict]:
+    """Halo 2.0.5 round 5: `GET /v1/models` for an OpenAI-dialect host --
+    the gateway's own model list (the OpenAI shape `{"object": "list",
+    "data": [{"id": ...}]}`), sent with the host entry's own bearer when
+    `api_key` is set. This is the reachability/catalog stand-in for a
+    host whose native probes (`/api/version`, `/api/tags`) 404 because
+    only the OpenAI paths are served. `None` on ANY failure, same
+    best-effort never-raises contract as every other probe in this
+    file."""
+    return _get_json(host, "/v1/models", timeout=timeout)
+
+
+def _openai_models_as_tags(payload: Optional[dict]) -> "list[dict]":
+    """Halo 2.0.5 round 5: translate an OpenAI `/v1/models` payload into
+    the native `/api/tags` row shape every catalog reader expects --
+    `{"model": id, "name": id}` per entry. `details`/`digest`/
+    `capabilities`/`model_info` have no OpenAI counterpart and are
+    simply absent (every reader -- `_ollama_rows`, `trained_context_for`,
+    the fit estimate -- already treats them as optional and degrades to
+    "nothing known" without failing)."""
+    rows: "list[dict]" = []
+    for entry in ((payload or {}).get("data") or []):
+        if not isinstance(entry, dict):
+            continue
+        model_id = entry.get("id")
+        if isinstance(model_id, str) and model_id:
+            rows.append({"model": model_id, "name": model_id})
+    return rows
+
+
 def _open_conn(host: OllamaHost, *, timeout: float):
     from halo_harness.providers.http import open_upstream
     parsed = urllib.parse.urlparse(host.url)
@@ -794,6 +908,11 @@ _CATALOG_CACHE: dict = {}  # host.url -> (monotonic_ts, catalog_dict)
 
 
 def _build_catalog(host: OllamaHost) -> dict:
+    if host_is_openai_dialect(host):
+        # Halo 2.0.5 round 5: an OpenAI-dialect host has no `/api/tags`/
+        # `/api/show` to merge -- `/v1/models` IS the whole catalog (a
+        # gateway in front of Ollama 404s both native paths).
+        return {"models": _openai_models_as_tags(probe_openai_models(host)), "fetched_at": time.time()}
     tags = fetch_tags(host) or {}
     models = []
     for entry in (tags.get("models") or []):

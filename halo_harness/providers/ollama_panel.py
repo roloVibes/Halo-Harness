@@ -17,7 +17,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 from halo_harness.providers.ollama import (
-    fetch_ps, get_catalog, probe_version, resolve_num_ctx_and_source, trained_context_for,
+    fetch_ps, get_catalog, host_is_openai_dialect, probe_openai_models, probe_version,
+    resolve_num_ctx_and_source, trained_context_for,
 )
 from halo_harness.providers.ollama_fit import estimate_catalog_prompt_tokens, kv_bytes_per_token, resolve_ollama_tools_max
 from halo_harness.providers.ollama_hw import (
@@ -112,9 +113,20 @@ def analyze_host(host, *, hw_runner=None, force: bool = False, state_dir=None) -
     holds), and (round 5b) a `catalog_fits` row -- learned cap, "what
     fits" now, and its one-phrase source -- for EVERY catalog model, not
     just currently-loaded ones."""
-    version_info = probe_version(host)
-    reachable = isinstance(version_info, dict)
-    version = (version_info or {}).get("version") if isinstance(version_info, dict) else None
+    # Halo 2.0.5 round 5: an OpenAI-dialect host has no `/api/version` to
+    # probe (a gateway in front of Ollama 404s it) -- `GET /v1/models` is
+    # both the reachability probe and, via `get_catalog` just below, the
+    # model list. `version` stays None (a gateway reports no Ollama
+    # version; the panel renders "?" for it) and `loaded` stays empty
+    # (`fetch_ps`'s `/api/ps` 404s too, and a gateway reports no per-model
+    # residency at all).
+    if host_is_openai_dialect(host):
+        reachable = isinstance(probe_openai_models(host), dict)
+        version = None
+    else:
+        version_info = probe_version(host)
+        reachable = isinstance(version_info, dict)
+        version = (version_info or {}).get("version") if isinstance(version_info, dict) else None
     catalog = get_catalog(host, force=force) if reachable else {"models": []}
     ps = fetch_ps(host) if reachable else None
     loaded = []

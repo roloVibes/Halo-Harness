@@ -334,6 +334,32 @@ around the two items below) and `docs/COMMANDS.md`.
   one retry, the transcript line, and pre-emptive application on a later
   turn. No network, no real model.
 
+### OpenAI-dialect Ollama hosts (round 5)
+
+- **`ollama.hosts` entries learn an optional `"dialect": "openai"`** --
+  an OpenAI-dialect GATEWAY in front of Ollama (a no-think proxy serving
+  only `/v1/chat/completions` + `/v1/models`, with the entry's
+  `api_key` as its bearer) can be used as a real `ol:` host, keeping the
+  `ol:` provider identity (picker grouping, balances, error mapping)
+  instead of burning an `or:` alias + `OPENROUTER_BASE_URL` override on
+  it. The ref keeps parsing as `ol:` (native dialect, exactly as
+  before); the flip happens where the host entry is already resolved --
+  `providers.ollama.apply_host_dialect` (identity-preserving,
+  idempotent, never changes a native host) is applied at Session
+  construction, `set_model`, `call_small_model` (hooks/titles/`/local`)
+  and the compaction-model override, so the whole session rides
+  `call_openai_chat` with the host entry's own url (`/v1` added) and
+  key. Catalog/enumeration (`get_catalog` -> `/local`/`/model`/`halo
+  models`), the `halo ollama` panel's reachability probe, `halo doctor`
+  (names the dialect per host) and `halo doctor --local` (the generic
+  openai-chat sender) all read `/v1/models` for such a host. An
+  unrecognized dialect value falls back to native with a doctor WARN
+  naming the value. Tests: `tests/test_ollama_openai_host.py` (new) --
+  parse/fallback, the doctor lines, a MockUpstream gateway end-to-end
+  through a real `halo -p` child (path `/v1/chat/completions`, the
+  host's own bearer, zero `/api/chat`), a native control child, and the
+  per-dialect enumeration path.
+
 ### Deprecations
 
 - **The legacy env file is no longer read.** `~/.config/vibes-hacker/env`
