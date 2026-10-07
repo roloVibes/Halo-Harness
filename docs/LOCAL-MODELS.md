@@ -59,6 +59,35 @@ Structured output (`format`) does not work against Ollama Cloud (Ollama's
 own docs say so); tools and streaming are expected to behave like a
 local host, but that parity is unconfirmed (see "Still unconfirmed").
 
+### OpenAI-dialect hosts: a proxy in front of Ollama
+
+A gateway that serves only the OpenAI paths (`/v1/chat/completions`,
+`/v1/models`) -- a no-think proxy in front of Ollama, for instance --
+has no native `/api/chat` for the `ol:` dialect to post to. Add
+`"dialect": "openai"` to that host entry and the whole `ol:` route rides
+the OpenAI wire shape instead: requests go through the same
+openai-chat machinery `or:`/`dbx:` use, with the entry's own `url` (a
+`/v1` segment is added for you) and `api_key` as the bearer, and model
+enumeration (`halo models`, `/model`, `/local`) reads `/v1/models`.
+
+```json
+{"ollama": {"hosts": [{"name": "lan", "url": "http://host:11435", "api_key": "<token>", "dialect": "openai"}]}}
+```
+
+```sh
+halo -p "reply with the single word pong" --model ol:qwen3-coder:30b@lan
+```
+
+The `ol:` provider identity is kept throughout (picker grouping, balances
+reporting, error mapping), unlike routing the same gateway through an
+`or:` alias. Everything native stays native: a host entry with no
+`dialect` field behaves exactly as before, `halo doctor` names the
+dialect per host, and an unrecognized dialect value falls back to native
+with a WARN line. Context sizing note: a gateway reports no trained
+context (there is no `/api/show`), so `num_ctx`/fit calibration do not
+apply -- set `max_ctx` on the entry or a routes.json profile if you need
+a specific window.
+
 ### `ollama.hosts`, calibration, and learned caps
 
 A host entry is `{name, url, default, keep_alive, max_ctx,

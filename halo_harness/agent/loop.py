@@ -758,6 +758,20 @@ class Session:
         # helper can tell a root session (0) from a sub-agent's own child
         # Session (parent's + 1) without walking the runtime tree.
         self.agent_depth: int = agent_depth
+        # Halo 2.0.5 round 5: an `ol:` ref on an OpenAI-dialect host entry
+        # (a gateway in front of Ollama serving only /v1/chat/completions)
+        # flips to the openai-chat dialect HERE, before the Route below is
+        # built -- the one point where a session's own refs meet the
+        # resolved host config (`parse_model_ref` itself is pure
+        # routes-only and cannot see ~/.halo/config.json). Identity-
+        # preserving for every native ref and idempotent for an
+        # already-flipped one (see providers.ollama.apply_host_dialect);
+        # the native default never changes.
+        from halo_harness.providers.ollama import apply_host_dialect
+        _host_dialect_env = settings.effective_env if settings is not None else None
+        model_ref = apply_host_dialect(model_ref, _host_dialect_env)
+        if small_model_ref is not None:
+            small_model_ref = apply_host_dialect(small_model_ref, _host_dialect_env)
         self.cwd = cwd
         self.model_ref = model_ref
         self.small_model_ref = small_model_ref
@@ -2364,6 +2378,15 @@ class Session:
         on the session's own main model entirely instead; every existing
         same-provider caller is unaffected either way."""
         ref = model_ref or self.small_model_ref or self.model_ref
+        # Halo 2.0.5 round 5: the same host-dialect override __init__
+        # applies to the session's own refs, applied to a ref PARSED
+        # ELSEWHERE (a hook's own model, `/local <question>`'s model) --
+        # identity-preserving for native refs and for self.model_ref/
+        # self.small_model_ref (already overridden at construction), so
+        # every `ref is self.model_ref` check below keeps its meaning.
+        from halo_harness.providers.ollama import apply_host_dialect
+        ref = apply_host_dialect(
+            ref, self.settings.effective_env if self.settings is not None else None)
         if ref.provider == "cc":
             from halo_harness.agent.cc_runtime import one_shot_cc_call
             return one_shot_cc_call(ref.model, system_text, user_text, timeout_s=timeout_s)
@@ -4478,6 +4501,14 @@ class Session:
             log.warning("compactionModel %r is cx: (no HTTP route for a one-shot summarisation call); "
                         "using the session's main model for this summary", raw)
             return None
+        # Halo 2.0.5 round 5: the same host-dialect override __init__
+        # applies to the session's own refs -- an `ol:` compactionModel on
+        # an OpenAI-dialect host rides call_openai_chat for this
+        # summarisation call too (the Route just below is built from
+        # `ref.dialect`, so the flip must happen before it).
+        from halo_harness.providers.ollama import apply_host_dialect
+        ref = apply_host_dialect(
+            ref, self.settings.effective_env if self.settings is not None else None)
         route = Route(provider=ref.provider, upstream_model=ref.model, dialect=ref.dialect)
         profile = resolve_profile(route)
         model_profile = resolve_model_profile(ref, self.state_dir, routes)
@@ -7118,6 +7149,16 @@ class Session:
         far>` stashed but unsent forever -- `ensure_cc_state`'s reuse path
         now drains it (capped) before returning, see that function."""
         old_model_raw = self.model_ref.raw
+        # Halo 2.0.5 round 5: the SAME host-dialect override __init__
+        # applies to a starting ref, applied to every MID-session switch
+        # (`/model`, the fallback chain, a restore) -- a freshly parsed
+        # `ol:` ref on an OpenAI-dialect host must route through
+        # call_openai_chat here too, or a switch onto it would 404 the
+        # gateway's native paths. `model_ref.raw` (the label and the
+        # PreModelSwitch payload just above) is never affected.
+        from halo_harness.providers.ollama import apply_host_dialect
+        model_ref = apply_host_dialect(
+            model_ref, self.settings.effective_env if self.settings is not None else None)
         self._fire_model_switch("PreModelSwitch", old_model=old_model_raw, new_model=model_ref.raw)
         if model_ref.provider == "cc" and self.model_ref.provider != "cc":
             from halo_harness.agent import cc_runtime

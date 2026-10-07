@@ -1065,7 +1065,9 @@ def _check_ollama_hosts() -> "list[tuple[str, str]]":
     "not configured" vocabulary this whole module already uses for
     OpenRouter/Databricks."""
     try:
-        from halo_harness.providers.ollama import fetch_ps, probe_version, resolve_ollama_hosts
+        from halo_harness.providers.ollama import (
+            fetch_ps, host_is_openai_dialect, probe_openai_models, probe_version, resolve_ollama_hosts,
+        )
     except Exception as e:
         return [("ollama_hosts", f"{WARN} Ollama: could not check ({type(e).__name__}: {e})")]
     try:
@@ -1075,6 +1077,29 @@ def _check_ollama_hosts() -> "list[tuple[str, str]]":
     entries: "list[tuple[str, str]]" = []
     for host in hosts:
         cid = f"ollama_host_{host.name}"
+        # Halo 2.0.5 round 5: name the dialect per host entry, and WARN on
+        # an unrecognized value -- the entry fell back to the native
+        # dialect (a typo where "openai" was meant, most likely), which
+        # the user should see rather than wonder about later.
+        dialect_note = ""
+        if host.dialect:
+            if host_is_openai_dialect(host):
+                dialect_note = " (openai dialect)"
+            else:
+                entries.append((f"{cid}_dialect", f"{WARN} Ollama ({host.name}): unknown dialect "
+                                                  f"{host.dialect!r} -- falling back to the native Ollama API"))
+        if host_is_openai_dialect(host):
+            # An OpenAI-dialect host has no /api/version (or /api/ps) to
+            # probe -- /v1/models is the gateway's own reachability check
+            # and model count in one.
+            models_payload = probe_openai_models(host)
+            if not isinstance(models_payload, dict):
+                entries.append((cid, f"{OK} Ollama ({host.name}): not reachable at {host.url}{dialect_note}"))
+                continue
+            count = len(models_payload.get("data") or [])
+            entries.append((cid, f"{OK} Ollama ({host.name}): reachable, {count} model(s) via /v1/models "
+                                 f"({host.url}{dialect_note})"))
+            continue
         version_info = probe_version(host)
         if not isinstance(version_info, dict):
             entries.append((cid, f"{OK} Ollama ({host.name}): not reachable at {host.url}"))
@@ -1083,7 +1108,7 @@ def _check_ollama_hosts() -> "list[tuple[str, str]]":
         ps = fetch_ps(host) or {}
         loaded = len(ps.get("models") or [])
         entries.append((cid, f"{OK} Ollama ({host.name}): reachable, version {version}, "
-                              f"{loaded} model(s) loaded ({host.url})"))
+                              f"{loaded} model(s) loaded ({host.url}{dialect_note})"))
         # Round 5b part 2 (brief item 4): "the matching section in `halo
         # doctor`" -- the SAME `host_setup_checklist` text `halo ollama
         # doctor` prints, one [OK] line per sentence (never a block) so

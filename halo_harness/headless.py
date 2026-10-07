@@ -94,11 +94,18 @@ def _resolve_creds(ref, settings=None) -> Optional[ProviderCreds]:
         # plain str (its declared type), matching `stream_ollama_
         # completion`'s own `req.creds.api_key or None` read on the way
         # back out.
-        from halo_harness.providers.ollama import resolve_ollama_host
+        from halo_harness.providers.ollama import openai_base_url_for_host, resolve_ollama_host
         host = resolve_ollama_host(getattr(ref, "host", None), env)
         if host is None:
             return None
-        return ProviderCreds(base_url=host.url, api_key=host.api_key or "")
+        # Halo 2.0.5 round 5: an OpenAI-dialect host entry (a gateway in
+        # front of Ollama serving only /v1/chat/completions) rides the
+        # openai-chat path, so its creds must point at the gateway's /v1
+        # root -- call_openai_chat posts `<base_url>/chat/completions` --
+        # with this host's own api_key as the bearer. Native hosts keep
+        # `host.url` exactly as before this round.
+        base_url = openai_base_url_for_host(host)
+        return ProviderCreds(base_url=base_url or host.url, api_key=host.api_key or "")
     if ref.provider == "huggingface":
         # Halo 2.0.3 round 4: `ref.host` set means `hf:endpoint/<name>` --
         # a dedicated Inference Endpoint's OWN url/token, resolved from

@@ -125,6 +125,15 @@ def _resolved(model_ref_raw, state_dir):
     host = resolve_ollama_host(ref.host)
     if host is None:
         return None, None, None, None, None, f"no configured Ollama host for {ref_raw!r}"
+    from halo_harness.providers.ollama import host_is_openai_dialect
+    if host_is_openai_dialect(host):
+        # Halo 2.0.5 round 5: an OpenAI-dialect `ol:` host (a gateway in
+        # front of Ollama) has no native /api/chat for gym_send's battery
+        # -- it rides the SAME generic openai-chat sender the hf:local
+        # branch uses (`_send_turn_for` below), with `profile`/`decision`
+        # None exactly like that branch (unused by that sender).
+        route = Route(provider="ollama", upstream_model=ref.model, dialect="openai-chat")
+        return host, route, None, None, ref_raw, None
     route = Route(provider="ollama", upstream_model=ref.model, dialect="ollama")
     profile = resolve_profile(route, state_dir=state_dir)
     decision = resolve_context_decision(ref)
@@ -143,6 +152,15 @@ def _send_turn_for(*, host, route, profile, decision, **kwargs):
     if route.provider == "huggingface":
         from halo_harness.providers.huggingface_send import send_hf_turn
         return send_hf_turn(base_url=host.base_url, api_key=host.api_key, model_id=route.upstream_model, **kwargs)
+    if route.dialect == "openai-chat":
+        # Halo 2.0.5 round 5: an OpenAI-dialect `ol:` host -- the same
+        # generic openai-chat sender, pointed at the host entry's /v1
+        # root with the entry's own bearer (never gym_send's native-only
+        # wire shape, which a gateway in front of Ollama does not serve).
+        from halo_harness.providers.huggingface_send import send_hf_turn
+        from halo_harness.providers.ollama import openai_base_url_for_host
+        return send_hf_turn(base_url=openai_base_url_for_host(host) or host.url, api_key=host.api_key,
+                            model_id=route.upstream_model, **kwargs)
     return send_turn(host=host, route=route, profile=profile, decision=decision, **kwargs)
 
 
