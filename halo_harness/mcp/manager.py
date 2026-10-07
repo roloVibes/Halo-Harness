@@ -1659,6 +1659,50 @@ class McpManager:
             except Exception:
                 log.debug("mcp: on_lazy_connect callback raised for %r", name, exc_info=True)
 
+    def complete_deferred_start(self, *, note_fn=None) -> "dict":
+        """2.0.6 round 10: the background half of `build_manager(start=
+        False)` -- connect everything the deferred build left unconnected:
+        still-pending eager servers (start_all) and cache-seeded `cached`
+        EAGER handles (their tools are already in the catalog from cache;
+        connecting them restores eager semantics -- live, warm handles --
+        without the first tool call paying the latency). LAZY servers are
+        deliberately left alone (first-use connect is their contract).
+        Idempotent, never raises; returns `{"connected": [names],
+        "failed": [names]}` and calls `note_fn(summary_line)` best-effort
+        when anything actually connected. Called by the TUI's own startup
+        worker, never on the UI thread."""
+        out = {"connected": [], "failed": []}
+        try:
+            started_pending: list = []
+            if getattr(self, "deferred_start", False):
+                started_pending = [name for name, h in self.handles.items()
+                                   if name not in self._lazy_names and h.state == "pending"]
+                self.start_all()
+                self.deferred_start = False
+            cached_eager = [name for name, h in self.handles.items()
+                            if name not in self._lazy_names and h.state == "cached"]
+            if cached_eager:
+                self._start_targets_parallel([self.handles[n] for n in cached_eager])
+            # the summary counts everything THIS call moved: start_all's
+            # pending->connected transitions AND the cached-eager connects
+            for name, h in self.handles.items():
+                if name in self._lazy_names or name in out["connected"] or name in out["failed"]:
+                    continue
+                if h.state == "connected" and (name in cached_eager or name in started_pending):
+                    out["connected"].append(name)
+                elif h.state in ("failed", "needs_auth") and (name in cached_eager or name in started_pending):
+                    out["failed"].append(name)
+            if note_fn is not None and (out["connected"] or out["failed"]):
+                line = (f"mcp: {len(out['connected'])} server(s) connected"
+                        + (f", {len(out['failed'])} failed" if out["failed"] else ""))
+                try:
+                    note_fn(line)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return out
+
     def ensure_lazy_started_all(self, abort=None) -> "list[str]":
         """Linux/H4 must-do: start EVERY still-`pending` `mcpLazy` server
         now -- a lazy server otherwise never appears in `all_tools()`

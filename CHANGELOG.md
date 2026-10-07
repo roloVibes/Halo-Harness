@@ -10,6 +10,20 @@ version.
 
 ## [2.0.6] - unreleased
 
+### MCP connects off the TUI startup path (round 10)
+
+The TUI paints with its full frozen tool catalog immediately: MCP
+connects moved behind the paint. `build_manager(start=False)` (now what
+an interactive launch passes) seeds every server's catalog from the
+tools cache -- eager and lazy alike, zero connections -- and flags the
+manager deferred; the app's own background worker
+(`Manager.complete_deferred_start`) then connects pending and
+cache-seeded eager servers off the UI thread, posting one transcript
+line when anything lands. First-ever runs (no cache yet) connect in
+that worker instead of blocking the first paint; lazy servers keep
+their first-use contract; print mode (`-p`) keeps the blocking start --
+a one-shot wants its tools ready.
+
 ### The soak harness (round 9)
 
 `tools/soak.py`: a headless Textual pilot run for a configurable
