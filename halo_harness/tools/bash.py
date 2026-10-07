@@ -81,6 +81,68 @@ def _strip_markers(output: str, nonce: str) -> "tuple[str, object, object]":
     return "".join(kept).rstrip("\n"), exit_code, cwd
 
 
+# ---- 2.0.6 round 5: provably-read-only Bash classification -----------------
+#
+# The parallel read-only batch (tools/registry.run_read_only_batch) runs
+# Read/Grep/Glob concurrently; a Bash call COULD join it when its command
+# provably only reads. "Provably" is a WHITELIST, never a blacklist: a
+# single plain command (after optional leading env-VAR=VALUE assignments),
+# zero shell metacharacters -- any of ; | & > < ` $( ) newline disqualifies
+# the WHOLE command (no partially-parsed chains) -- whose argv[0]
+# (path-stripped) is a known read-only binary, or `git <read-only-sub>`.
+
+_BASH_READ_ONLY_BINARIES = frozenset({
+    "cat", "ls", "head", "tail", "grep", "rg", "find", "wc", "file", "stat",
+    "du", "df", "ps", "which", "whereis", "type", "echo", "pwd", "whoami",
+    "uname", "hostname", "id", "env", "printenv", "date", "cal", "tree",
+    "md5sum", "sha1sum", "sha256sum", "cksum", "b2sum", "xxd", "hexdump",
+    "strings", "nl", "od", "tac", "rev", "basename", "dirname", "realpath",
+    "readlink", "seq", "true", "test", "[",
+})
+_BASH_GIT_READ_ONLY_SUBCOMMANDS = frozenset({
+    "status", "log", "diff", "show", "branch", "remote", "tag", "stash list",
+    "blame", "shortlog", "describe", "rev-parse", "ls-files", "ls-remote",
+    "config --get", "config --list", "grep", "cat-file", "count-objects",
+})
+_BASH_READ_ONLY_METACHARS = frozenset(";|&><`\n($(!")
+
+
+def bash_command_is_read_only(command) -> bool:
+    """True only for a command that PROVABLY only reads -- the whitelist
+    above, whole-command or nothing. Used by `agent/loop.py`'s dispatch
+    to decide whether a Bash call may join the concurrent read-only
+    batch; everything else (a pipe, a redirect, a chain, a variable
+    expansion, an unknown binary) runs sequentially exactly as before.
+    Deliberately dumb: no argument parsing beyond argv[0] (and `git`'s
+    subcommand), because a clever classifier is a WRONG classifier the
+    day it meets `grep pattern $(rm -rf ~)`."""
+    if not isinstance(command, str) or not command.strip():
+        return False
+    if any(ch in command for ch in _BASH_READ_ONLY_METACHARS):
+        return False
+    if "*" in command or "?" in command or "~" in command:
+        return False  # globbing/expansion is the SHELL's business, not ours
+    import re as _re
+    words = command.split()
+    # strip leading VAR=VALUE assignments (POSIX: they only set env for
+    # the command that follows)
+    while words and _re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[0]):
+        words = words[1:]
+    if not words:
+        return False
+    argv0 = words[0].rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    if argv0.lower().endswith(".exe"):
+        argv0 = argv0[:-4]  # a Windows path's binary, same whitelist entry
+    if argv0 in _BASH_READ_ONLY_BINARIES:
+        return True
+    if argv0 == "git" and len(words) > 1:
+        rest = " ".join(words[1:])
+        for sub in _BASH_GIT_READ_ONLY_SUBCOMMANDS:
+            if rest == sub or rest.startswith(sub + " "):
+                return True
+    return False
+
+
 class BashTool(Tool):
     name = "Bash"
     description = DESCRIPTION

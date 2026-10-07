@@ -10,6 +10,19 @@ version.
 
 ## [2.0.6] - unreleased
 
+### Parallel read-only tool calls: the Bash half (round 5)
+
+The concurrent read-only batch (Read/Grep/Glob, the H3 pool) now admits
+a Bash call whose command PROVABLY only reads: a single plain command
+from a whitelist (cat, ls, head, tail, grep, rg, find, wc, stat, du,
+which, echo, git status/log/diff/show/branch/...), zero shell
+metacharacters -- any pipe, redirect, chain, substitution, glob or
+history expansion disqualifies the WHOLE command -- after stripping
+leading VAR=VALUE assignments and path/.exe suffixes. The classifier is
+deliberately dumb (whitelist-only, no cleverness to fool); everything
+else runs sequentially exactly as before, and writes never join the
+batch.
+
 ### Session replay for model swaps (round 4)
 
 `halo replay <session-id> --model <ref> [--turn N] [--json]`: fork the
