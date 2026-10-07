@@ -396,6 +396,60 @@ around the two items below) and `docs/COMMANDS.md`.
   the 2.0.8 theme pack (DOOM, Metroid, Mario) will fill with one render
   each.
 
+### Release-review fix pass
+
+Four blockers from the 2.0.5 release review, plus minors and nits. Each
+fix has a pinning test in `tests/test_governor_review.py`,
+`tests/test_agents_schedule.py` or `tests/test_teams_runtime.py`.
+
+- **The Governor's retry ladder broke on real connections** (finding 1):
+  every `call_*` opens one `http.client` connection and re-requests it,
+  so an overload response that was never drained made the retry's
+  `conn.request()` raise `ResponseNotReady` (surfacing as a connect
+  failure the loop then retried as a 502) or corrupt the next parse. The
+  retry branch now drains and closes the overload response before
+  looping -- only the retry branch; a success (and the proxy's
+  single-shot overload) still streams untouched.
+- **The loop's "step aside" never fired for raised overload errors**
+  (finding 2): `_step`'s UpstreamError branch passed the exception
+  object where `(status, message)` was expected, so the check was always
+  false and the loop re-ran its own backoff over 429/503 -- the exact
+  double ladder round 4 removed (and GOVERNOR.md documented). Fixed; the
+  pin drives a real turn against a 429 upstream with the Governor on and
+  asserts exactly one loop-level attempt.
+- **Cron schedules never fired** (finding 3): the next fire was computed
+  from `now`, but `cron_next` returns a time strictly after its argument,
+  so a due cron entry was never due. The next fire is now computed from
+  the last fire point (or arming), like `every:` always did. The `5/2`
+  step form (a single-value base with a step) also matches the whole run
+  5,7,9,... now, not just 5 (nit 14).
+- **A contended cross-process lock escaped the choke point** (finding 4):
+  `LockFailed` after the 30 s lock timeout surfaced raw from every
+  governed call (REVIEW item 4's warning + degraded flag + in-process
+  fallthrough were never wired into `governed_upstream`). The acquire/
+  report calls now catch it: one `warn_once` (which sets the degraded
+  flag `is_degraded()`/doctor report), and the call proceeds ungoverned
+  for that one call. A re-registered waiter (reaped between passes) is
+  persisted immediately too (finding 7).
+- **500 bodies were truncated at 2 KB** by the overload-peek (finding 5):
+  the bounded read is 64 KB now.
+- **Scheduled/triggered fires ran a bare prompt session, not the agent**
+  (finding 6): both fire argv builders (`build_fire_argv`/`run_once`)
+  pass `--agent` and `--team` when the entry carries them. The detached
+  fallback (no live job registry) also spawns the argv LIST directly
+  instead of a `shlex.join` string through `shell=True`, which cmd.exe
+  mangles (nit 10), and `last_note` is written under the scheduler lock
+  (nit 13).
+- **A declined team escalation came back every turn** (finding 8): the
+  decline path now sets `team.escalated`, so the card is shown once
+  (the accepted switch already set it).
+- **`HALO_GOVERNOR` typos silently forced the Governor on** (nit 9):
+  only an explicit `1`/`true`/`yes`/`on` forces on and
+  `0`/`false`/`no`/`off` forces off; any other value (case-insensitive)
+  is ignored and config decides. The dead `select` import in
+  `governor_state` is gone (nit 11). Learned-rules caching (nit 12) is
+  deferred to 2.0.6.
+
 ## [2.0.4] - 2026-10-06
 
 ### Tooling

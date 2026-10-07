@@ -406,6 +406,338 @@ def test_same_host_fallback_warning(ctx: Ctx):
     ctx.check("the warning names the fallback and the primary", "or:other/model" in lines[0])
 
 
+# ---------------------------------------------------------------------------
+# 2.0.5 release-review fix pass (findings 1, 2, 4 + nit 9)
+# ---------------------------------------------------------------------------
+
+class _RevEnv:
+    """Scopes BRIDGE_TEST_HOME/BRIDGE_STATE_DIR + GOVERNOR_STATE_DIR +
+    HALO_GOVERNOR=1 and writes a FAST `governor.*` config (the older
+    tests in this file only scope GOVERNOR_STATE_DIR and never read
+    config). Resets the degraded flag on both ends, like _fresh_state."""
+
+    def __init__(self, *, max_retries: int = 1):
+        self._max_retries = max_retries
+
+    def __enter__(self):
+        from halo_harness.providers import governor_state
+        governor_state.reset_degraded_for_tests()
+        self._saved = {k: os.environ.get(k) for k in
+                       ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "GOVERNOR_STATE_DIR", "HALO_GOVERNOR")}
+        d = Path(tempfile.mkdtemp(prefix="halo-govrev2-"))
+        os.environ["BRIDGE_TEST_HOME"] = str(d)
+        os.environ["BRIDGE_STATE_DIR"] = str(d / ".halo")
+        os.environ["GOVERNOR_STATE_DIR"] = str(d / ".halo" / "governor")
+        os.environ["HALO_GOVERNOR"] = "1"
+        (d / ".halo").mkdir(parents=True, exist_ok=True)
+        (d / ".halo" / "config.json").write_text(json.dumps({
+            "governor": {"enabled": True, "max_retries": self._max_retries, "cooldown_base": 0.2,
+                         "backoff_mult": 0.5, "rate_rps": 8.0, "burst": 8,
+                         "max_inflight": 4, "max_wait": 3.0},
+        }), encoding="utf-8")
+        self.home = d
+        return self
+
+    def __exit__(self, *exc):
+        from halo_harness.providers import governor_state
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        governor_state.reset_degraded_for_tests()
+
+
+@test
+def test_governor_retry_drains_the_real_connection(ctx: Ctx):
+    """Finding 1's pin, on a REAL socket: a do_call that reuses ONE
+    http.client.HTTPConnection (the call_* shape -- each opens the
+    connection once and `_send` re-requests it) against a localhost
+    server serving 429-with-JSON-body rows (Content-Length, keep-alive)
+    then a 200. The retry branch must drain+close the overload response
+    before looping, or the next conn.request() raises (ResponseNotReady/
+    CannotSendRequest -- call_* wraps it as a marker-less
+    UpstreamConnectError the loop then retries as a 502). The 200 must
+    surface and the server must have seen at least 2 POSTs."""
+    import http.client
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from halo_harness.providers.http import UpstreamResult, governed_upstream
+
+    posts = {"n": 0}
+
+    class _H(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"  # keep-alive
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            posts["n"] += 1
+            if posts["n"] <= 2:
+                status, obj = 429, {"error": {"message": "rate limit hit", "type": "rate_limit_error"}}
+                extra = {"Retry-After": "0"}
+            else:
+                status, obj, extra = 200, {"ok": True}, {}
+            body = json.dumps(obj).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            for k, v in extra.items():
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    class _Srv(ThreadingHTTPServer):
+        def handle_error(self, request, client_address):
+            pass  # the client tearing down mid-keep-alive at test end is not a failure
+
+    with _RevEnv(max_retries=2):
+        srv = _Srv(("127.0.0.1", 0), _H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            conn = http.client.HTTPConnection("127.0.0.1", srv.server_address[1], timeout=10)
+
+            def do_call():
+                conn.request("POST", "/v1/chat/completions", body=b"{}",
+                             headers={"Content-Type": "application/json", "Content-Length": "2"})
+                resp = conn.getresponse()
+                return UpstreamResult(status=resp.status, resp=resp, conn=conn,
+                                      headers={k.lower(): v for k, v in resp.getheaders()})
+
+            result = governed_upstream("127.0.0.1", do_call, {"agent": "pin", "role": "coder"})
+            ctx.check(f"the 200 surfaced after the governor's retries (server saw {posts['n']} POSTs)",
+                      result.status == 200)
+            ctx.check(f"the server saw at least 2 POSTs, got {posts['n']}", posts["n"] >= 2)
+            try:
+                result.resp.close()
+            except Exception:
+                pass
+            conn.close()
+        finally:
+            srv.shutdown()
+            srv.server_close()
+
+
+@test
+def test_loop_upstream_error_branch_steps_aside_on_real_429(ctx: Ctx):
+    """Finding 2's pin: the REAL UpstreamError branch of Session._step,
+    driven by one full turn against the mock upstream's 429 scenario with
+    HALO_GOVERNOR=1. The governor already paced and retried the 429 at
+    the choke point (max_retries=1 in the fixture config -> exactly 2
+    requests), so the loop's own ladder must step aside after ONE
+    loop-level attempt -- the mock never sees a loop-level re-send."""
+    from tests.helpers.mock_openai import SCENARIOS, MockUpstream, send_json_response
+    from tests.helpers.provider_env_defaults import ensure_default_provider_credentials
+    ensure_default_provider_credentials()
+
+    def _serve_429(h, b):
+        send_json_response(h, 429, {"error": {"message": "rate limit hit", "type": "rate_limit_error"}},
+                           {"Retry-After": "0"})
+
+    SCENARIOS["revfix-429"] = _serve_429
+    mock = MockUpstream().start()
+    try:
+        with _RevEnv() as env:
+            from halo_harness.agent.assemble import SessionContext
+            from halo_harness.agent.loop import Session
+            from halo_harness.hooks import HookRunner
+            from halo_harness.model import ModelProfile, parse_model_ref
+            from halo_harness.providers.stream import ProviderCreds
+            cwd = env.home / "project"
+            cwd.mkdir(parents=True, exist_ok=True)
+            state_dir = Path(os.environ["BRIDGE_STATE_DIR"])
+            session = Session(
+                cwd=cwd, model_ref=parse_model_ref("or:mock/revfix-429"), model_profile=ModelProfile(),
+                creds=ProviderCreds(base_url=mock.base_url, api_key="k"),
+                state_dir=state_dir, model_label="mock/revfix-429",
+                session_context=SessionContext(cwd=cwd, model_label="mock/revfix-429"),
+                openrouter_base_url=mock.base_url, max_turns=2,
+                hook_runner=HookRunner({}, cwd=cwd, session_id="govrev-429",
+                                       transcript_path=str(state_dir / "revfix429.jsonl")),
+            )
+            events_out = list(session.turn("say anything"))
+            errors = [e for e in events_out if getattr(e, "kind", "") == "error"]
+            ctx.check(f"the turn surfaced the 429 error, got {[getattr(e, 'kind', '') for e in events_out]}",
+                      bool(errors) and any("429" in str(getattr(e, "data", {})) for e in errors))
+            ctx.check(f"exactly one loop-level attempt: the mock saw {len(mock.requests)} POSTs (2 = the "
+                      f"governor's own ladder, more = the loop re-sent)",
+                      len(mock.requests) == 2)
+    finally:
+        mock.stop()
+        SCENARIOS.pop("revfix-429", None)
+
+
+@test
+def test_lock_failed_falls_through_to_the_ungoverned_call(ctx: Ctx):
+    """Finding 4's pin: the bucket lock held the way a stuck process
+    holds it -- governed_upstream's acquire times out (LOCK_TIMEOUT_S
+    patched down for the test) and the call still returns do_call()'s
+    result with the degraded flag set (governor_state.warn_once /
+    is_degraded), never a raw LockFailed escaping the choke point. The
+    same-thread hold works because _Lock's per-key RLock is reentrant
+    while the OS-level flock/msvcrt lock is not."""
+    from halo_harness.providers import governor_state as gs
+    from halo_harness.providers.http import UpstreamResult, governed_upstream
+
+    with _RevEnv():
+        key = "host:lockpin.test"
+        sentinel = UpstreamResult(status=200, headers={}, resp=None, conn=None)
+        old_timeout = gs.LOCK_TIMEOUT_S
+        gs.LOCK_TIMEOUT_S = 0.4  # fast on POSIX; msvcrt's LK_LOCK still costs ~10s/attempt on Windows
+        try:
+            with gs._Lock(key):
+                result = governed_upstream("lockpin.test", lambda: sentinel,
+                                           {"agent": "pin", "role": "coder"})
+            ctx.check("governed_upstream returned do_call()'s result", result is sentinel)
+            ctx.check(f"the degraded flag is set afterwards, got {gs.is_degraded()!r}",
+                      bool(gs.is_degraded()))
+        finally:
+            gs.LOCK_TIMEOUT_S = old_timeout
+
+
+@test
+def test_500_peek_keeps_a_long_overload_body(ctx: Ctx):
+    """Finding 5's pin: the 500-overload peek reads the body BOUNDED at
+    64 KB (was 2048) -- the peeked bytes become `body_bytes`, which the
+    wire mapper treats as the WHOLE body, so a provider error page whose
+    overload wording sits past the first 2 KB must not be cut short."""
+    from halo_harness.providers.http import UpstreamResult, governed_upstream
+
+    class _R:
+        def __init__(self):
+            self.status = 500
+            self.headers = {}
+            body = {"error": {"message": "x" * 5000 + " upstream overloaded"}}
+            self._body = json.dumps(body).encode("utf-8")
+
+        def read(self, n=-1):
+            return self._body if n is None or n < 0 or n >= len(self._body) else self._body[:n]
+
+        def close(self):
+            pass
+
+    with _RevEnv(max_retries=1):
+        result = governed_upstream("peekpin.test", lambda: UpstreamResult(
+            status=500, headers={}, resp=_R(), conn=None), {"agent": "pin", "role": "coder"})
+        ctx.check(f"the overload body survived the peek whole (>2048 bytes), got {len(result.body_bytes or b'')}",
+                  result.body_bytes is not None and len(result.body_bytes) > 2048
+                  and b"upstream overloaded" in result.body_bytes)
+
+
+@test
+def test_reregistered_waiter_is_persisted(ctx: Ctx):
+    """Finding 7's pin: a waiter REAPED between passes (another process's
+    `_reap` drops it, or a missed save made it stale) is re-registered by
+    the `mine is None` branch -- and that re-registration must be
+    PERSISTED. Previously the branch never set `took`, so the write only
+    came from the 1 s `updated` fallback or the 1 s heartbeat: with a
+    fresh `updated` and the heartbeat suppressed, the on-disk waiter's
+    `hb` stayed frozen and every other process kept reaping it (priority
+    fairness silently broken). `_WAITER_STALE` is patched small so every
+    pass reaps our own waiter and walks the re-registration path; the
+    ONLY thing that can move the on-disk `hb` is the branch's own save."""
+    from halo_harness.providers import governor
+    from halo_harness.providers import governor_state as gs
+    _fresh_state()
+    try:
+        key = "host:regpin.test"
+        state_file = gs.paths(key)[0]
+        blocked = {"rate_rps": 8.0, "burst": 0, "max_inflight": 1, "max_wait": 30.0}
+        stop = {"flag": False}
+        holder = {}
+
+        def _acquire():
+            try:
+                governor.acquire(key, blocked, agent="pin", role="worker",
+                                 abort=lambda: stop["flag"])
+            except BaseException as e:
+                holder["err"] = e
+
+        def _disk_hb() -> float:
+            try:
+                st = json.loads(state_file.read_text(encoding="utf-8"))
+                ws = (st.get("waiters") or {}) if isinstance(st, dict) else {}
+                return max((float(w.get("hb", 0)) for w in ws.values()), default=0.0)
+            except (OSError, ValueError):
+                return 0.0
+
+        old_stale, old_hb = governor._WAITER_STALE, governor._HEARTBEAT_WRITE_S
+        # every pass reaps our own waiter (walks the re-registration
+        # branch); the heartbeat cannot write (30 s) -- and the watch
+        # window (0.7 s) is well inside the 1 s `updated` fallback's
+        # earliest possible fire, so ONLY the branch's own save can move
+        # the on-disk hb in time.
+        governor._WAITER_STALE, governor._HEARTBEAT_WRITE_S = 0.05, 30.0
+        t = threading.Thread(target=_acquire, daemon=True)
+        t.start()
+        try:
+            deadline = time.time() + 3.0
+            hb0 = 0.0
+            while time.time() < deadline:  # the initial out-of-loop registration save
+                hb0 = _disk_hb()
+                if hb0:
+                    break
+                time.sleep(0.02)
+            advanced = 0.0
+            deadline2 = time.time() + 0.7
+            while time.time() < deadline2:
+                advanced = _disk_hb() - hb0
+                if advanced > 0.05:  # a re-registration pass landed on disk
+                    break
+                time.sleep(0.02)
+            ctx.check(f"the re-registered waiter's hb advanced on disk ({advanced:.2f}s past the "
+                      f"initial registration) -- the re-registration itself persists", advanced > 0.05)
+        finally:
+            stop["flag"] = True
+            t.join(timeout=5)
+            governor._WAITER_STALE, governor._HEARTBEAT_WRITE_S = old_stale, old_hb
+        ctx.check(f"the aborted acquire raised GovernorAborted, got {holder.get('err')!r}",
+                  isinstance(holder.get("err"), governor.GovernorAborted))
+    finally:
+        _clear_state_env()
+
+
+@test
+def test_halo_governor_typo_values_never_force_the_governor_on(ctx: Ctx):
+    """Nit 9's pin: only an explicit yes-spelling of HALO_GOVERNOR
+    ("1"/"true"/"yes"/"on") forces on and only a no-spelling forces off;
+    anything else (a typo like "of", prose, an empty string) is IGNORED
+    and config decides -- a stray value can never silently switch every
+    governed call on."""
+    from halo_harness.providers.http import governor_params_for_host
+
+    with _RevEnv() as env:
+        cfg_path = Path(os.environ["BRIDGE_STATE_DIR"]) / "config.json"
+        saved = os.environ.get("HALO_GOVERNOR")
+        try:
+            for typo in ("of", "yes please", "l", ""):
+                os.environ["HALO_GOVERNOR"] = typo
+                ctx.check(f"typo {typo!r} defers to config (enabled here -> on)",
+                          governor_params_for_host("probe") is not None)
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            cfg["governor"]["enabled"] = False
+            cfg_path.write_text(json.dumps(cfg), encoding="utf-8")
+            os.environ["HALO_GOVERNOR"] = "1"
+            ctx.check("an explicit 1 still forces on over config off",
+                      governor_params_for_host("probe") is not None)
+            for typo in ("of", "TRUE-ish"):
+                os.environ["HALO_GOVERNOR"] = typo
+                ctx.check(f"typo {typo!r} defers to config off -> off",
+                          governor_params_for_host("probe") is None)
+            os.environ["HALO_GOVERNOR"] = "0"
+            ctx.check("an explicit 0 forces off", governor_params_for_host("probe") is None)
+            os.environ["HALO_GOVERNOR"] = "ON"
+            ctx.check("case-insensitive: ON forces on", governor_params_for_host("probe") is not None)
+            os.environ.pop("HALO_GOVERNOR", None)
+            ctx.check("unset defers to config off", governor_params_for_host("probe") is None)
+        finally:
+            if saved is None:
+                os.environ.pop("HALO_GOVERNOR", None)
+            else:
+                os.environ["HALO_GOVERNOR"] = saved
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

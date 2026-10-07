@@ -188,6 +188,20 @@ def build_fake_home(root: Optional[Path] = None) -> dict:
     )
     (proj_dir / "sub" / "CLAUDE.md").write_text("# Sub CLAUDE.md (fake)\n\nSub-directory instructions.\n", encoding="utf-8")
 
+    # ~/.halo/config.json -- the fixture home's own config. Halo 2.0.5
+    # round 4/5: the Governor is OFF here. The suite's in-process default
+    # (HALO_GOVERNOR=0 in provider_env_defaults) cannot reach a SUBPROCESS
+    # child (`halo -p` never imports the test helpers), and the child's
+    # default is ON -- a governed child transparently retries overload
+    # statuses at the http.py choke point, which double-counted attempts
+    # in every scripted-scenario test that spawns one (found by CI:
+    # "exactly two attempts (503 then 200), got 3"). A test that WANTS a
+    # governed child sets HALO_GOVERNOR=1 itself (the env var overrides
+    # config), same as the governor tests already do.
+    halo_dir = home / ".halo"
+    halo_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(halo_dir / "config.json", {"governor": {"enabled": False}})
+
     return {
         "root": root,
         "home": home,

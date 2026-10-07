@@ -91,6 +91,14 @@ def test_cron_next_matches_basic_expressions(ctx: Ctx):
               cron_next("15,45 8-18 * * *", now) == datetime.datetime(2026, 10, 6, 12, 15))
     ctx.check("garbage is None, never a crash", cron_next("not cron") is None)
     ctx.check("four fields is not five", cron_next("* * * *") is None)
+    # 2.0.5 release-review nit 14: a single-value base WITH a step is the
+    # run 5,7,9,... to the field's end -- not "only 5".
+    ctx.check("a step off a single base runs to the field's end (5/2 -> 5,7,9,...)",
+              cron_next("5/2 * * * *", datetime.datetime(2026, 10, 6, 12, 5, 30))
+              == datetime.datetime(2026, 10, 6, 12, 7))
+    ctx.check("a bare single value still matches only that value",
+              cron_next("5 * * * *", datetime.datetime(2026, 10, 6, 12, 5, 30))
+              == datetime.datetime(2026, 10, 6, 13, 5))
 
 
 @test
@@ -157,6 +165,36 @@ def test_every_1s_fires_twice_and_stops_when_the_session_closes(ctx: Ctx):
 
 
 @test
+def test_cron_entry_armed_70s_ago_fires_exactly_once(ctx: Ctx):
+    """Finding 3's pin: a cron entry's next fire is computed from the LAST
+    fire point (or arming), never from `now` (cron_next is strictly-after
+    its argument) -- a '* * * * *' entry armed 70 s ago must fire (a fire
+    point already passed), then NOT fire again at the same clock instant,
+    then fire again a full minute later."""
+    with _Env() as e:
+        from halo_harness.agents_schedule import TeamScheduler
+
+        class _Team:
+            name = "cron-pin-team"
+
+        start = time.time() - 70.0
+        now = [start]
+        fired = []
+        scheduler = TeamScheduler(_Session(e), _Team(), fire_fn=lambda s, entry: fired.append(entry["id"]),
+                                  clock=lambda: now[0])
+        scheduler.arm_bio({"name": "cron-bio", "schedule": {"cron": "* * * * *", "prompt": "tick"}}, "main")
+        now[0] = start + 70.0  # 70 s after arming
+        scheduler._fire_due()
+        ctx.check(f"a '* * * * *' entry armed 70s ago fired, got {len(fired)}", len(fired) == 1)
+        scheduler._fire_due()
+        ctx.check(f"no second fire at the same clock instant, got {len(fired)}", len(fired) == 1)
+        now[0] += 60.0
+        scheduler._fire_due()
+        ctx.check(f"a full minute later it fires again, got {len(fired)}", len(fired) == 2)
+        scheduler.stop()
+
+
+@test
 def test_each_trigger_kind_fires_once(ctx: Ctx):
     with _Env() as e:
         _fixture(e)
@@ -210,14 +248,55 @@ def test_arm_session_persists_and_the_cli_lists_and_runs(ctx: Ctx):
                 scheduler.stop()
         # run_once with a fake popen: the bg surface is exercised, no real child
         from halo_harness.agents_schedule import run_once
+        seen_argv = []
+
         class _FakePopen:
             def __init__(self, argv, **kw):
-                self.argv = argv
+                seen_argv.append(list(argv))
                 self.pid = 4242
+
         out = run_once("sched-bio", state_dir=e.state_dir, popen=_FakePopen)
         ctx.check(f"run_once fires through the bg surface, got {out!r}",
                   out.startswith("fired 'sched-bio' as background run"))
+        # 2.0.5 release-review finding 6: the fired job runs AS the agent
+        # (--agent/--team ride along, not a bare prompt session).
+        argv = seen_argv[0] if seen_argv else []
+        ctx.check(f"run_once's argv carries --agent and --team, got {argv}",
+                  "--agent" in argv and argv[argv.index("--agent") + 1] == "sched-bio"
+                  and "--team" in argv and argv[argv.index("--team") + 1] == "sched-team")
         ctx.check("an unknown name says so", "no armed schedule" in run_once("nope", state_dir=e.state_dir))
+        # finding 6, the other argv builder: build_fire_argv/build_fire_command
+        import shlex
+        from halo_harness.agents_schedule import build_fire_argv, build_fire_command, _default_fire
+        entry = next(en for en in list_schedules(e.state_dir) if en.get("kind") == "schedule")
+        fargv = build_fire_argv(entry)
+        ctx.check(f"build_fire_argv carries --agent and --team, got {fargv}",
+                  "--agent" in fargv and fargv[fargv.index("--agent") + 1] == "sched-bio"
+                  and "--team" in fargv and fargv[fargv.index("--team") + 1] == "sched-team")
+        ctx.check("build_fire_command is the shlex form of the same argv",
+                  build_fire_command(entry) == shlex.join(fargv))
+        # 2.0.5 release-review nit 10: the detached fallback passes the
+        # argv LIST straight to Popen (shlex.join through shell=True
+        # mangles on Windows cmd.exe).
+        import subprocess as _subprocess
+        popen_seen = {}
+
+        class _NoPopen:
+            def __init__(self, args, **kw):
+                popen_seen["args"] = args
+                popen_seen["kw"] = kw
+                self.pid = 99
+
+        _real_popen = _subprocess.Popen
+        _subprocess.Popen = _NoPopen
+        try:
+            _default_fire(session, entry)
+        finally:
+            _subprocess.Popen = _real_popen
+        ctx.check(f"the detached fallback passes an argv LIST, no shell, got {popen_seen.get('args')!r}",
+                  isinstance(popen_seen.get("args"), list) and popen_seen.get("kw", {}).get("shell") is not True)
+        ctx.check("the detached argv carries --agent/--team too",
+                  "--agent" in (popen_seen.get("args") or []) and "--team" in (popen_seen.get("args") or []))
         # the CLI lists (and pauses/resumes/rm) the same store
         from halo_harness.agents_cli import cmd_agents
         buf = io.StringIO()

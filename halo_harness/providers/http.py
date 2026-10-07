@@ -595,15 +595,24 @@ def governor_params_for_host(host: "str | None") -> "dict | None":
     overrides, or None when the Governor is off (`governor.enabled`,
     default on; `HALO_GOVERNOR=0` forces off -- the test suite's default
     -- and `HALO_GOVERNOR=1` forces on, overriding config). Never
-    raises."""
+    raises.
+
+    2.0.5 release-review nit 9: only an explicit YES spelling
+    ("1"/"true"/"yes"/"on", case-insensitive) FORCES on; only an
+    explicit NO spelling ("0"/"false"/"no"/"off") forces off. Any OTHER
+    non-empty value -- a typo like "of", arbitrary text, an empty
+    string -- is IGNORED and config decides, so a stray value can never
+    silently switch every governed call on."""
     try:
         import os as _os
         from halo_harness.theme import get_config_value
-        env_flag = _os.environ.get("HALO_GOVERNOR")
-        if env_flag is not None:
-            if env_flag.strip() in ("0", "false", "no", "off"):
+        env_flag = (_os.environ.get("HALO_GOVERNOR") or "").strip().lower()
+        if env_flag:
+            if env_flag in ("0", "false", "no", "off"):
                 return None
-        else:
+            if env_flag not in ("1", "true", "yes", "on"):
+                env_flag = ""  # unrecognized: ignored, config decides
+        if not env_flag:
             if not get_config_value("governor.enabled", default=True):
                 return None
         cfg = get_config_value("governor", default={}) or {}
@@ -660,6 +669,7 @@ def governed_upstream(host: "str | None", do_call, ctx: "dict | None" = None,
     if params is None or not host:
         return do_call()
     from halo_harness.providers import governor
+    from halo_harness.providers import governor_state as _gs
     key = "host:" + host.lower()
     # `c`, never a reassignment of `ctx`: "ctx is None" IS the proxy-vs-
     # harness distinction (the proxy relays, the harness retries) -- an
@@ -668,31 +678,57 @@ def governed_upstream(host: "str | None", do_call, ctx: "dict | None" = None,
     # mock scenarios serving the NEXT row's status).
     c = ctx or {}
     gparams = governor.params_for({"name": host}, params)
+
+    def _lock_contended(e) -> None:
+        # 2.0.5 release-review finding 4: a LockFailed (the cross-process
+        # lock unavailable past its timeout) must never escape the choke
+        # point -- no call_* caller handles that type. governor_state's
+        # own docstring promised one warning + the degraded flag + an
+        # in-process fallthrough for that call; `warn_once` sets the flag,
+        # `is_degraded()`/doctor report it.
+        _gs.warn_once(f"governor: cross-process lock contended ({e}); "
+                      "running this call ungoverned, in-process limiting only")
+
+    def _report(*a, **k):
+        try:
+            return governor.report(*a, **k)
+        except _gs.LockFailed as e:
+            _lock_contended(e)
+            return {}
+
     attempt = 0
     while True:
-        h = governor.acquire(key, gparams, agent=c.get("agent", "system"),
-                             role=c.get("role", "main"), abort=c.get("abort"),
-                             explicit_priority=c.get("priority"),
-                             session=c.get("session"), model=c.get("model"))
+        try:
+            h = governor.acquire(key, gparams, agent=c.get("agent", "system"),
+                                 role=c.get("role", "main"), abort=c.get("abort"),
+                                 explicit_priority=c.get("priority"),
+                                 session=c.get("session"), model=c.get("model"))
+        except _gs.LockFailed as e:
+            _lock_contended(e)
+            return do_call()
         try:
             result = do_call()
         except (TimeoutError, socket.timeout) as e:
-            governor.report(h, ok=None, status=None, params=gparams, timeout_signal=True)
+            _report(h, ok=None, status=None, params=gparams, timeout_signal=True)
             if post_connect_error is not None:
                 raise post_connect_error(e) from e
             raise
         except governor.GovernorAborted:
             raise
         except Exception as e:
-            governor.report(h, ok=None, params=gparams)  # neutral: not evidence about load
+            _report(h, ok=None, params=gparams)  # neutral: not evidence about load
             if post_connect_error is not None:
                 raise post_connect_error(e) from e
             raise
         status = result.status
         if status == 500:
             # REVIEW item 6: 500 is neutral unless the body says overloaded.
+            # 2.0.5 release-review finding 5: read(2048) truncated -- the
+            # peeked bytes become `body_bytes`, which stream.py/the wire
+            # mapper treat as the WHOLE body, so a long provider error
+            # page was cut at 2 KB. 64 KB bounded read, still one read.
             try:
-                peek = result.resp.read(2048) if result.resp is not None else b""
+                peek = result.resp.read(65536) if result.resp is not None else b""
                 result.body_bytes = peek or result.body_bytes
             except Exception:
                 peek = b""
@@ -703,7 +739,7 @@ def governed_upstream(host: "str | None", do_call, ctx: "dict | None" = None,
             (status == 500 and governor.is_overload_body(body_text))
         retry_after = governor.retry_after_seconds(result.headers, cap=gparams.get("retry_after_cap", 120.0)) \
             if overloaded else None
-        telem = governor.report(h, ok=not overloaded, status=status, retry_after=retry_after, params=gparams)
+        telem = _report(h, ok=not overloaded, status=status, retry_after=retry_after, params=gparams)
         on_event = c.get("on_event")
         if telem.get("event") and on_event is not None:
             on_event(telem)
@@ -716,6 +752,20 @@ def governed_upstream(host: "str | None", do_call, ctx: "dict | None" = None,
         attempt += 1
         if attempt > int(gparams.get("max_retries", 5)):
             return result  # the caller surfaces the last overload
+        # 2.0.5 release-review finding 1: drain and close the overload
+        # response BEFORE the retry, and ONLY here -- every call_* opens
+        # ONE http.client connection outside `_send` and `_send` re-
+        # `request()`s it, so an unread `getresponse()` makes the next
+        # `conn.request()` raise ResponseNotReady (wrapped by call_* as a
+        # marker-less UpstreamConnectError the loop then retries as a 502)
+        # or corrupts the next parse. Never on the return paths: a success
+        # (and the proxy's single-shot overload) must leave `resp`
+        # untouched for streaming.
+        try:
+            result.resp.read()
+            result.resp.close()
+        except Exception:
+            pass
         # loop: acquire() waits out the cooldown just set
 
 

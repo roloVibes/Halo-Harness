@@ -174,7 +174,6 @@ class _Lock:
             self._fd = os.open(str(self._p), os.O_CREAT | os.O_RDWR, 0o644)
             deadline = time.monotonic() + LOCK_TIMEOUT_S
             if _HAVE_FLOCK:
-                import select
                 while True:
                     try:
                         fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)

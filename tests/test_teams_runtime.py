@@ -430,6 +430,12 @@ def test_team_escalation_switches_and_ask_shows_the_card(ctx: Ctx):
                   any(getattr(o, "kind", "") == "approval_request" for o in out))
         ctx.check(f"declined stays on the current model, got {stub.model_label}",
                   stub.model_label == "or:mock/team-worker")
+        # 2.0.5 release-review finding 8: a DECLINE ends escalation for
+        # the team (no second card on the next turn).
+        out_again = list(Session._maybe_team_escalate(stub, 2))
+        ctx.check(f"a declined escalation does not re-show the card next turn, got "
+                  f"{[getattr(o, 'kind', '') for o in out_again]}",
+                  not any(getattr(o, "kind", "") == "approval_request" for o in out_again))
         stub2 = _EscSession(control, interactive=True, state_dir=e.state_dir)
         stub2._reply = {"action": "accept"}
         control.escalated = False

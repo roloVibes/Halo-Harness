@@ -1846,13 +1846,19 @@ def cmd_doctor(argv: list) -> int:
     parser.add_argument("--teams", action="store_true",
                          help="Validate the active (or named) team template and exercise its first required "
                              "pipeline gate")
-    parser.add_argument("teams_name", nargs="?", default=None, metavar="NAME",
-                         help="With --teams: this team template instead of the active one")
+    # ONE shared optional positional for BOTH `--teams [NAME]` and
+    # `--mcp deep [NAME]` (mutually exclusive presets): a second
+    # `nargs="?"` positional here -- the round-5 `teams_name` -- made
+    # argparse assign the single positional to the FIRST declared, so
+    # `--mcp deep <name>` reached `_cmd_mcp_deep` with mcp_name=None and
+    # exited 0 "nothing to diagnose" (found by CI on 3cd2161; the teams
+    # path worked, the MCP path silently lost its argument).
     # Halo 2.0.4 round 6 ("MCP connectivity deep dive"): `halo doctor --mcp
     # deep [name]` -- see `_cmd_mcp_deep` below. `mcp_name` is a plain
-    # positional (meaningful only with `--mcp deep`) rather than another
-    # flag, matching the brief's own `halo doctor --mcp deep [name]`
-    # syntax; harmless for every other preset (always None there).
+    # positional (meaningful only with `--mcp deep` and `--teams`) rather
+    # than another flag, matching the brief's own
+    # `halo doctor --mcp deep [name]` syntax; harmless for every other
+    # preset (always None there).
     parser.add_argument("--mcp", choices=["deep"], default=None,
                          help="Run the MCP connectivity deep dive (`--mcp deep [name]`) instead of the "
                              "general checks")
@@ -1928,7 +1934,7 @@ def cmd_doctor(argv: list) -> int:
               "gate -- the same gate the live agent loop runs between stages (a real model call unless "
               "--mock; the acceptance prompt spends tokens and takes a moment).")
         call_fn = (lambda _role, _prompt: "") if args.mock else None
-        team_name, results = check_team_gates(args.teams_name, cwd=doctor_cwd, call_fn=call_fn)
+        team_name, results = check_team_gates(args.mcp_name, cwd=doctor_cwd, call_fn=call_fn)
         if args.json:
             print(json.dumps({"team": team_name,
                               "gates": [{"stage": s, "ok": ok, "message": m} for s, ok, m in results]},

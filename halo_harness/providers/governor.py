@@ -276,6 +276,13 @@ def acquire(key: str, params: Dict[str, Any], *, agent: str = "system", role: st
                 if mine is None:
                     st["waiters"][ticket] = {"priority": prio, "ts": t0, "hb": now,
                                              "pid": os.getpid(), "agent": agent, "role": role}
+                    # 2.0.5 release-review finding 7: a re-registered
+                    # waiter (reaped by another process between passes)
+                    # must persist NOW -- without `took` the write only
+                    # happened on the 1 s "updated" fallback, so the
+                    # re-registration itself was never saved and the
+                    # next pass found the waiter gone again.
+                    took = True
                 elif now - mine.get("hb", 0) >= _HEARTBEAT_WRITE_S:
                     mine["hb"] = now  # REVIEW item 7: at most one hb write per second
                     last_hb_write = now
