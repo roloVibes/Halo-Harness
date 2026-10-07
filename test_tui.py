@@ -7134,8 +7134,29 @@ def test_bare_effort_card_selection_persists_like_the_plain_text_path(ctx: Ctx):
         async with app.run_test(size=(100, 40)) as pilot:
             app.controller.session = session
             ctx.check("nothing persisted yet", launch_state.resolve_last_effort(app.cwd) != "medium")
+            # 2.0.6 round 13 (the order-sensitive flake, made deterministic):
+            # the fixed pilot.pause()s below raced a loaded runner -- the
+            # card was read before its mount landed ("the bare /effort card
+            # opened" failed once under full-suite load, green alone).
+            # Bounded polls for each observable instead, the same _wait_until
+            # pattern the wizard pilot races got at the 2.0.5 tag.
+            async def _wait_until(cond, *, timeout=5.0, step=0.05):
+                import time as _time
+                deadline = _time.monotonic() + timeout
+                while True:
+                    await pilot.pause(step)
+                    try:
+                        if cond():
+                            return True
+                    except Exception:
+                        pass
+                    if _time.monotonic() >= deadline:
+                        try:
+                            return bool(cond())
+                        except Exception:
+                            return False
             await slash_mod._handle_effort(app, "")
-            await pilot.pause(0.05)
+            await _wait_until(lambda: isinstance(app.pending_card, EffortCard))
             card = app.pending_card
             ctx.check(f"the bare /effort card opened, got {type(card).__name__}", isinstance(card, EffortCard))
             ctx.check(f"starts on the session's current level 'low', got index={card.index}",
@@ -7143,7 +7164,8 @@ def test_bare_effort_card_selection_persists_like_the_plain_text_path(ctx: Ctx):
             await pilot.press("right")  # low -> medium
             await pilot.pause(0.05)
             await pilot.press("enter")  # apply -- fires on_select("medium")
-            await pilot.pause(0.1)
+            await _wait_until(lambda: app.pending_card is None)
+            await _wait_until(lambda: session.effort == "medium")
             ctx.check("the card closed", app.pending_card is None)
             ctx.check(f"the session's own effort was actually set to 'medium', got {session.effort!r}",
                       session.effort == "medium")

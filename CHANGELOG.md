@@ -10,6 +10,25 @@ version.
 
 ## [2.0.6] - unreleased
 
+### Lineup export/import bundles (round 13)
+
+`halo teams export <name> --bundle <dir>` writes the whole lineup as
+one portable folder -- the full team template plus every non-shipped
+bio it references (shipped-template bios are skipped: every install
+already has them) and a `bundle.json` manifest. `halo teams import
+<dir>` applies it on any other box: bios land in USER scope, the team
+goes through the same validated save path `halo teams import` uses,
+and a bio that already exists is never silently overwritten (`--force`
+is the explicit opt-in). One command instead of the manual scp.
+
+Also this round: the test-runner SystemExit fix (a test tripping
+argparse's `parser.error()` or a stray `sys.exit()` used to escape
+`except Exception` and kill the ENTIRE suite run -- it is a failed
+test now and the run continues, at both the import and the per-test
+layers; KeyboardInterrupt still aborts) and the last order-sensitive
+TUI flake (the bare-/effort card test) made deterministic with bounded
+polls.
+
 ### Carried fix-pass minors, batch B, part 2 (round 12)
 
 The last two: the local-server auto-detect probe gains a 60 s TTL cache

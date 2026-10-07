@@ -186,6 +186,18 @@ def run_all(tests: list, ctx: Ctx):
         except AssertionError as e:
             results.append((name, "FAIL", str(e), time.monotonic() - t0))
             failed += 1
+        except SystemExit as e:
+            # 2.0.6 round 13 (the test-runner SystemExit fix): SystemExit
+            # is a BaseException, not an Exception -- one test tripping
+            # argparse's parser.error() (or a stray sys.exit() on an
+            # in-process path) used to escape this handler and kill the
+            # WHOLE suite run, every later module unrun. It is a FAILED
+            # TEST now, and the run continues. KeyboardInterrupt stays
+            # uncaught on purpose (a deliberate Ctrl+C must still abort).
+            results.append((name, "FAIL", f"SystemExit({e.code}) -- a test tried to exit the "
+                                          "process; counted as a failure, suite continues",
+                            time.monotonic() - t0))
+            failed += 1
         except Exception as e:
             detail = f"{type(e).__name__}: {e}\n{traceback.format_exc(limit=6)}"
             results.append((name, "FAIL", detail, time.monotonic() - t0))
