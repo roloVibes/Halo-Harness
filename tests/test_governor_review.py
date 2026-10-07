@@ -569,6 +569,70 @@ def test_loop_upstream_error_branch_steps_aside_on_real_429(ctx: Ctx):
 
 
 @test
+def test_post_connect_drop_ladders_even_with_governor_on(ctx: Ctx):
+    """Release-regression pin (found by the pre-tag full suite,
+    test_step_retries_a_post_connect_failure_through_the_normal_ladder):
+    a REAL socket drop after the request was sent, with HALO_GOVERNOR=1.
+    The wire mapper re-labels the drop a plain 502, but no HTTP response
+    existed -- the Governor paces response statuses only (its exception
+    path re-raises without retrying), so the Governor never paced this
+    and the loop's own backoff ladder must own the retry: phase 1's two
+    immediate re-dials (2 POSTs), one laddered re-send (3rd POST) which
+    the scenario answers -- the turn RECOVERS, no error event."""
+    import time as _time
+    from tests.helpers.mock_openai import SCENARIOS, MockUpstream, _finish
+    from tests.helpers.provider_env_defaults import ensure_default_provider_credentials
+    ensure_default_provider_credentials()
+    seen = [0]
+
+    def _serve_drop_then_ok(h, b):
+        seen[0] += 1
+        if seen[0] <= 2:  # hard-close AFTER the request was read: a post-connect drop
+            h.connection.close()
+            return
+        _finish(h, [
+            {"choices": [{"index": 0, "delta": {"role": "assistant"}}]},
+            {"choices": [{"index": 0, "delta": {"content": "ok"}}]},
+            {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]},
+        ])
+
+    SCENARIOS["revfix-drop"] = _serve_drop_then_ok
+    mock = MockUpstream().start()
+    try:
+        with _RevEnv() as env:
+            from halo_harness.agent.assemble import SessionContext
+            from halo_harness.agent.loop import Session
+            from halo_harness.hooks import HookRunner
+            from halo_harness.model import ModelProfile, parse_model_ref
+            from halo_harness.providers.stream import ProviderCreds
+            cwd = env.home / "project"
+            cwd.mkdir(parents=True, exist_ok=True)
+            state_dir = Path(os.environ["BRIDGE_STATE_DIR"])
+            session = Session(
+                cwd=cwd, model_ref=parse_model_ref("or:mock/revfix-drop"), model_profile=ModelProfile(),
+                creds=ProviderCreds(base_url=mock.base_url, api_key="k"),
+                state_dir=state_dir, model_label="mock/revfix-drop",
+                session_context=SessionContext(cwd=cwd, model_label="mock/revfix-drop"),
+                openrouter_base_url=mock.base_url, max_turns=2,
+                hook_runner=HookRunner({}, cwd=cwd, session_id="govrev-drop",
+                                       transcript_path=str(state_dir / "revfixdrop.jsonl")),
+            )
+            t0 = _time.monotonic()
+            events_out = list(session.turn("say anything"))
+            elapsed = _time.monotonic() - t0
+            kinds = [getattr(e, "kind", "") for e in events_out]
+            ctx.check(f"the turn RECOVERED via the ladder, got kinds={kinds}",
+                      "error" not in kinds)
+            ctx.check(f"phase 1's 2 immediate re-dials + the ladder's one re-send = 3 POSTs, "
+                      f"the mock saw {len(mock.requests)}", len(mock.requests) == 3)
+            ctx.check(f"a real backoff sleep happened before the re-send, got elapsed={elapsed:.2f}s",
+                      elapsed >= 1.0)
+    finally:
+        mock.stop()
+        SCENARIOS.pop("revfix-drop", None)
+
+
+@test
 def test_lock_failed_falls_through_to_the_ungoverned_call(ctx: Ctx):
     """Finding 4's pin: the bucket lock held the way a stuck process
     holds it -- governed_upstream's acquire times out (LOCK_TIMEOUT_S
