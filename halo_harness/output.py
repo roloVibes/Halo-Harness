@@ -370,6 +370,17 @@ class PrintModeSink:
                     self.stream.flush()
                 print(f"\nerror: --max-budget-usd (${self.max_budget_usd}) reached", file=sys.stderr)
             elif self._had_error:
+                # 2.0.6 round 12 (the carried minor): the provider's own
+                # sentence is the RESULT TEXT -- a script consuming stdout
+                # (the whole point of -p) must see WHY the run died, not
+                # an empty stream with the answer only on stderr. JSON
+                # mode already carries it (result_text's error fallback
+                # below); text mode writes it to the stream too.
+                if self._error_message:
+                    self.stream.write(self._error_message)
+                    if not self._error_message.endswith("\n"):
+                        self.stream.write("\n")
+                    self.stream.flush()
                 print(f"\nerror: {self._error_message}", file=sys.stderr)
             elif self._final_text:
                 self.stream.write(self._final_text)

@@ -10,6 +10,17 @@ version.
 
 ## [2.0.6] - unreleased
 
+### Carried fix-pass minors, batch B, part 1 (round 12)
+
+Text-mode print output carries the provider's own error sentence as the
+result text (a script consuming `halo -p`'s stdout sees WHY the run
+died, not an empty stream -- JSON mode already did); the cc-session
+steer test's race is made deterministic (gated on the first tool RESULT
+arriving, not `_cc_state` appearing -- the steer now provably lands
+between tool calls 1 and 2); and the Linux chmod-0600 wizard-save
+verify passed on the VM (both the env file and config.json are 0600
+after saves).
+
 ### Carried fix-pass minors, batch A (round 12)
 
 Seven small ones from the 2.0.3 fix-pass notes: `halo config set`'s echo

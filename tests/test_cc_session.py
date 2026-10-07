@@ -931,9 +931,24 @@ def test_steer_between_tool_calls_is_absorbed_into_one_result(ctx: Ctx):
         collected = []
         t = threading.Thread(target=lambda: collected.extend(session.turn(prompt)))
         t.start()
+        # 2.0.6 round 12 (the 2.0.3 tag-run flake, made deterministic): the
+        # old gate waited for `_cc_state` to appear -- which fires BEFORE
+        # the first tool call starts, so the steer could land between the
+        # session's spawn and EITHER tool call, occasionally splitting the
+        # result ("exactly one usage node, got 2" once, green on rerun).
+        # Gate on the FIRST TOOL RESULT arriving instead: once f1's Read
+        # has completed, the turn is genuinely mid-tool-loop and the steer
+        # provably lands between tool calls 1 and 2 -- the case the test
+        # exists to pin. The fake claude always emits the tool result
+        # before the turn's second call, so this is race-free by
+        # construction.
         deadline = time.monotonic() + 10
-        while time.monotonic() < deadline and getattr(session, "_cc_state", None) is None:
+        while time.monotonic() < deadline:
+            if any(getattr(e, "kind", None) == "tool_result" for e in collected):
+                break
             time.sleep(0.02)
+        ctx.check("the first tool call completed before steering (the deterministic gate)",
+                  any(getattr(e, "kind", None) == "tool_result" for e in collected))
         ok = session.steer("reply with the single word pong")
         ctx.check("steer accepted while busy", ok)
         _join_bounded_by_progress(t, session)
