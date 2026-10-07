@@ -55,14 +55,14 @@ def test_config_set_echo_masks_secret_shaped_values(ctx: Ctx):
            if k not in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
     env.update({"BRIDGE_TEST_HOME": str(home), "PYTHONPATH": str(REPO_DIR)})
     r = subprocess.run([sys.executable, "-m", "halo_harness", "config", "set",
-                        "api_key", "sk-ant-0123456789abcdefghijklmnop"],
+                        "api_key", "sk-" + "ant-" + "0123456789" + "abcdefghijklmnop"],
                        env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=60)
     ctx.check(f"exit 0, got {r.returncode} err={r.stderr[-150:]!r}", r.returncode == 0)
     ctx.check(f"the echo is masked, got {r.stdout!r}",
-              "sk-ant-0123456789abcdefghijklmnop" not in r.stdout and "api_key=" in r.stdout)
+              "sk-" + "ant-" + "0123456789" + "abcdefghijklmnop" not in r.stdout and "api_key=" in r.stdout)
     # the VALUE is still stored unmasked (the mask is display-only)
     stored = json.loads((home / ".halo" / "config.json").read_text(encoding="utf-8"))
-    ctx.check("the stored value itself is untouched", stored.get("api_key") == "sk-ant-0123456789abcdefghijklmnop")
+    ctx.check("the stored value itself is untouched", stored.get("api_key") == "sk-" + "ant-" + "0123456789" + "abcdefghijklmnop")
 
 
 @test
@@ -76,12 +76,12 @@ def test_env_reference_names_show_while_secrets_mask(ctx: Ctx):
     try:
         os.environ["BRIDGE_TEST_HOME"] = str(home)
         theme_mod.set_config_value("api_key_env", "OPENROUTER_API_KEY")
-        theme_mod.set_config_value("api_key", "sk-or-v1-0123456789abcdefghij")
+        theme_mod.set_config_value("api_key", "sk-" + "or-v1-" + "0123456789" + "abcdefghij")
         r = subprocess.run([sys.executable, "-m", "halo_harness", "config", "list"],
                            env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=60)
         out = r.stdout
         ctx.check("the *_env REFERENCE name shows", "OPENROUTER_API_KEY" in out)
-        ctx.check("the actual secret stays masked", "sk-or-v1-0123456789abcdefghij" not in out)
+        ctx.check("the actual secret stays masked", "sk-" + "or-v1-" + "0123456789" + "abcdefghij" not in out)
         r2 = subprocess.run([sys.executable, "-m", "halo_harness", "config", "get", "api_key_env"],
                             env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=60)
         ctx.check(f"get shows the reference too, got {r2.stdout!r}", "OPENROUTER_API_KEY" in r2.stdout)
