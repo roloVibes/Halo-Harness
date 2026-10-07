@@ -254,6 +254,19 @@ def main() -> int:
         env_before_module = _snapshot_guarded_env()
         try:
             module = importlib.import_module(mod_name)
+        except SystemExit as e:
+            # 2.0.6 round 13: SystemExit is a BaseException, not an
+            # Exception -- a module-level argparse parser.error() (or a
+            # stray sys.exit() at import time) used to escape this
+            # handler and kill the WHOLE suite run. Same treatment as any
+            # other import failure now; KeyboardInterrupt still escapes
+            # (a deliberate Ctrl+C must abort).
+            print(f"[IMPORT ERROR] {mod_name} tried to exit the process (SystemExit({e.code})):")
+            traceback.print_exc(limit=4)
+            any_module_import_failed = True
+            total_failed += 1
+            _restore_guarded_env(env_before_module)
+            continue
         except Exception:
             print(f"[IMPORT ERROR] {mod_name} could not be imported:")
             traceback.print_exc()

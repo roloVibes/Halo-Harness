@@ -202,7 +202,17 @@ def _cmd_export(rest: list) -> int:
     parser = argparse.ArgumentParser(prog="halo teams export", add_help=True)
     parser.add_argument("name")
     parser.add_argument("file", nargs="?", default=None)
+    # 2.0.6 round 13: the lineup WITH its bios as one folder
+    parser.add_argument("--bundle", default=None, metavar="DIR",
+                        help="export the team plus every non-shipped bio it references as one "
+                             "importable folder (see `halo teams import <dir>`)")
     args = parser.parse_args(rest)
+    if args.bundle:
+        from halo_harness.teams_bundle import bundle_export
+        ok, lines = bundle_export(args.name, args.bundle)
+        for line in lines:
+            print(line)
+        return 0 if ok else 1
     template = resolve_team_template(args.name)
     if template is None:
         print(f"halo teams export: no such team template {args.name!r}", file=sys.stderr)
@@ -225,8 +235,19 @@ def _cmd_import(rest: list) -> int:
     import yaml
     parser = argparse.ArgumentParser(prog="halo teams import", add_help=True)
     parser.add_argument("file")
+    # 2.0.6 round 13: importing a bundle FOLDER (a directory carrying
+    # bundle.json) applies the whole lineup; --force overwrites colliding
+    # user-scope bios instead of skipping them.
+    parser.add_argument("--force", action="store_true",
+                        help="with a bundle folder: overwrite user-scope bios that already exist")
     args = parser.parse_args(rest)
     path = Path(args.file)
+    if path.is_dir():
+        from halo_harness.teams_bundle import bundle_import
+        ok, lines = bundle_import(path, force=args.force)
+        for line in lines:
+            print(line)
+        return 0 if ok else 1
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as e:

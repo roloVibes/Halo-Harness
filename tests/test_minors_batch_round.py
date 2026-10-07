@@ -364,6 +364,44 @@ def test_vram_fit_is_cached_per_turn(ctx: Ctx):
         ollama_hw._fits_beside_main_uncached = real_ps
         ollama_hw.reset_fits_cache()
 
+
+
+@test
+def test_a_systemexit_in_one_test_does_not_kill_the_suite(ctx: Ctx):
+    """The test-runner SystemExit fix: a test raising SystemExit (argparse's
+    parser.error, a stray sys.exit) is a FAILED TEST, and the tests after
+    it still run. Before, it escaped `except Exception` (BaseException)
+    and killed the whole run."""
+    from tests.helpers.runner import Ctx as _Ctx, new_registry as _nr, run_all as _ra
+    # build a tiny registry the same way the helper does
+    reg_test, reg_tests = _nr()
+
+    @reg_test
+    def t_first(ctx2):
+        ctx2.check("first runs", True)
+
+    @reg_test
+    def t_exits(ctx2):
+        import argparse
+        p = argparse.ArgumentParser(prog="x")
+        p.error("boom")  # raises SystemExit(2)
+
+    @reg_test
+    def t_after(ctx2):
+        ctx2.check("the test AFTER the exiter still ran", True)
+
+    results, passed, failed, skipped = _ra(reg_tests, _Ctx())
+    names = [n for n, s, d, dt in results]
+    ctx.check(f"all three tests recorded (none killed the run), got {names}",
+              names == ["t_first", "t_exits", "t_after"])
+    statuses = {n: s for n, s, d, dt in results}
+    ctx.check(f"the exiter is a FAIL, got {statuses}",
+              statuses["t_first"] == "PASS" and statuses["t_exits"] == "FAIL"
+              and statuses["t_after"] == "PASS")
+    detail = next(d for n, s, d, dt in results if n == "t_exits")
+    ctx.check(f"the failure names SystemExit, got {detail!r}", "SystemExit" in detail)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
