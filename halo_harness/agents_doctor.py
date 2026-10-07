@@ -140,3 +140,99 @@ def check_active_team(*, cwd=None, state_dir=None) -> "list[str]":
         return [f"active team {active!r} could not be loaded"]
     problems = validate_team_template(raw, name=active, cwd=cwd, state_dir=state_dir)
     return [f"active team {active!r}: {p}" for p in problems]
+
+
+# ---- 2.0.6 round 7: `halo doctor --roles` (roles hygiene, headless) --------
+
+def _model_family(ref: str) -> "str | None":
+    """The rough model family of a ref -- the part after the route prefix,
+    lowercased up to the first non-alphanumeric run (e.g.
+    `or:z-ai/glm-5.3` -> `z-ai/glm`, `cc:sonnet` -> `sonnet`,
+    `ol:qwen3-coder:30b@lan` -> `qwen3`). Used ONLY for the
+    self-preference-bias heuristic (judge in the same family as coder);
+    a coarse bucket, never a claim about identity."""
+    part = ref.split(":", 1)[1] if ":" in ref else ref
+    part = part.split("@", 1)[0].split("/", 1)[-1]
+    # the family is everything up to the first digit-run: "glm-5.3" ->
+    # "glm", "qwen3-coder" -> "qwen", "deepseek-v4-pro" -> "deepseek",
+    # "sonnet" -> "sonnet"
+    fam = ""
+    for ch in part.lower():
+        if ch.isdigit():
+            break
+        if ch.isalnum() or ch == "-":
+            fam += ch
+        else:
+            break
+    fam = fam.rstrip("-")
+    # a trailing "-v" is a version marker, not family ("deepseek-v4" ->
+    # "deepseek", not "deepseek-v")
+    if fam.endswith("-v"):
+        fam = fam[:-2]
+    return fam or None
+
+
+def check_roles_hygiene(*, cwd=None, state_dir=None) -> "list[str]":
+    """The roles lineup's own warning set, run headless (2.0.6 round 7 /
+    the v2.0.4 review's item 6): every warning the wizard's lineup editor
+    shows inline, plus the two the editor does not -- a dead ENDPOINT (the
+    configured model's host is unreachable) and judge-in-the-same-family-
+    as-coder self-preference bias. One plain sentence per problem, `[]`
+    when the lineup is clean.
+
+    Sources: config.json's `roles` table (`configured_role_table`) and
+    the bios' own `models.preference` for the roles the table leaves
+    unset. No model calls, no MCP -- a fast local pass plus at most one
+    reachability probe per distinct gateway host."""
+    import re as _re
+    from halo_harness.roles import configured_role_table
+    problems: "list[str]" = []
+    table = configured_role_table()
+
+    def _pref_for(role: str):
+        v = table.get(role)
+        if isinstance(v, dict):
+            return v.get("model")
+        return v
+
+    # 1. exactly one main, and it exists
+    if "main" not in table:
+        problems.append("roles table has no 'main' -- the session's own model is unset "
+                        "(`halo setup roles` or the wizard's roles step fixes this).")
+    # 2. judge in the same family as coder (self-preference bias)
+    coder_pref, judge_pref = _pref_for("coder"), _pref_for("judge")
+    if coder_pref and judge_pref:
+        cf, jf = _model_family(coder_pref), _model_family(judge_pref)
+        if cf and jf and cf == jf:
+            problems.append(f"judge and coder are both {cf!r}-family models ({judge_pref} / {coder_pref}) "
+                            " -- a judge from the same family shares its biases; pick a different "
+                            "family for one of them.")
+
+    # 3. bios referenced by the table must exist and have a model
+    from halo_harness.agents_yaml import list_agent_bios, resolve_agent_bio
+    known_bios = set(list_agent_bios(cwd=cwd, state_dir=state_dir))
+
+    # 4. dead endpoints: one probe per distinct gateway host across the table
+    hosts: "dict[str, list[str]]" = {}
+    for role, v in table.items():
+        pref = _pref_for(role)
+        if not isinstance(pref, str) or not pref:
+            continue
+        route = pref.split(":", 1)[0] if ":" in pref else ""
+        if route in ("or", "dbx", "xp", "hf"):  # remote gateways worth probing
+            host = {"or": "openrouter.ai", "dbx": "databricks", "xp": "experiential",
+                    "hf": "huggingface.co"}[route]
+            hosts.setdefault(host, []).append(f"{role}={pref}")
+    from halo_harness.providers.http import open_upstream
+    import socket
+    from urllib.parse import urlparse
+    for host, uses in hosts.items():
+        try:
+            conn = open_upstream(host, 443, True, connect_timeout=4.0)
+            conn.close()
+        except Exception:
+            problems.append(f"gateway {host} is unreachable right now -- {', '.join(uses[:3])}"
+                            + (f" (+{len(uses) - 3} more)" if len(uses) > 3 else "")
+                            + "; the roles using it will fail until it is back.")
+    del _re, socket, urlparse
+    return problems

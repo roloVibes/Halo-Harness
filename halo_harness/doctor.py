@@ -1871,6 +1871,14 @@ def cmd_doctor(argv: list) -> int:
     parser.add_argument("--teams", action="store_true",
                          help="Validate the active (or named) team template and exercise its first required "
                              "pipeline gate")
+    # Halo 2.0.6 round 7 (the v2.0.4 review's item 6): `halo doctor
+    # --roles` -- the lineup editor's own warning set, headless: no
+    # 'main', judge in the same family as coder (self-preference bias),
+    # dead gateway endpoints. Fast (one reachability probe per distinct
+    # gateway, no model calls).
+    parser.add_argument("--roles", action="store_true",
+                         help="Check the roles lineup's hygiene headlessly: a missing 'main', "
+                             "judge/coder family bias, unreachable gateways")
     # ONE shared optional positional for BOTH `--teams [NAME]` and
     # `--mcp deep [NAME]` (mutually exclusive presets): a second
     # `nargs="?"` positional here -- the round-5 `teams_name` -- made
@@ -1952,6 +1960,22 @@ def cmd_doctor(argv: list) -> int:
                                                                        if m != "no acceptance block") else 1
     if args.mcp == "deep":
         return _cmd_mcp_deep(mcp_name=args.mcp_name, apply=args.apply, corpus_dir=args.mcp_from, cwd=doctor_cwd)
+    if args.roles:
+        from halo_harness.agents_doctor import check_roles_hygiene
+        print("halo doctor --roles")
+        print("  The roles lineup's hygiene, headless: no 'main' set, judge in the same model family as "
+              "coder (self-preference bias), unreachable gateways. Fast -- one reachability probe per "
+              "distinct gateway, no model calls.")
+        problems = check_roles_hygiene(cwd=doctor_cwd)
+        if args.json:
+            print(json.dumps({"problems": problems}, indent=2))
+        else:
+            for p in problems:
+                print(f"  {p}")
+            n = len(problems)
+            print(f"RESULT: {'clean --' if not n else f'{n} problem(s);'} the roles lineup "
+                  f"{'looks healthy.' if not n else 'needs attention.'}")
+        return 0 if not problems else 1
     if args.teams:
         from halo_harness.agents_doctor import check_team_gates
         print("halo doctor --teams")
