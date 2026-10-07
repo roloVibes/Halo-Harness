@@ -6409,9 +6409,13 @@ def test_waiting_line_between_a_tool_result_and_the_next_call_reuses_the_line(ct
                       "Waiting for model…" in str(waiting_line.render()))
             await pilot.pause(1.1)
             await app._drain()
-            ctx.check(f"its own elapsed ticks too, got {str(waiting_line.render())!r}",
-                      "Waiting for model… (1 s)" in str(waiting_line.render())
-                      or "Waiting for model… (2 s)" in str(waiting_line.render()))
+            # 2.0.6 round 1: live lines tick in TENTHS now -- '1.2 s', not
+            # '1 s' -- so a stalled render is instantly distinguishable
+            # from a stalled turn (the round brief's own contract).
+            ctx.check(f"its own elapsed ticks too (tenths, per 2.0.6 round 1), "
+                      f"got {str(waiting_line.render())!r}",
+                      "Waiting for model… (1." in str(waiting_line.render())
+                      or "Waiting for model… (2." in str(waiting_line.render()))
 
             app._local_events.put(ev.phase(state="request_sent", turn=1, model="or:mock/x2"))
             await _drain_a_few(app, pilot, n=2, pause=0.02)

@@ -434,6 +434,9 @@ async def _apply_event_inner(app, event) -> None:
         if agent_id is None:
             app.status_bar.set_phase_word("tool")
             app.status_bar.set_tool_name(data.get("name"))
+            # 2.0.6 round 1 (liveness): the live phase line names what the
+            # turn is now waiting on -- this tool, not the model stream.
+            app.transcript.phase_wait_target(turn, f"tool: {data.get('name', '?')}")
         else:
             card = app.transcript.subagent_cards.get(agent_id)
             if card is not None:
@@ -453,6 +456,10 @@ async def _apply_event_inner(app, event) -> None:
             # before.
             card.set_result(ok=bool(data.get("ok")), summary=data.get("summary", ""), content=data.get("content"),
                              images=data.get("images"))
+        if agent_id is None:
+            # 2.0.6 round 1: the tool round is over -- back to waiting on
+            # the model stream's own labels.
+            app.transcript.phase_wait_target(turn, None)
         _maybe_record_shadow_step(app, data.get("id"), bool(data.get("ok")), data.get("bash_shadow_before"))
     elif kind == "permission_request":
         # H5c finding 8: a FOREGROUND sub-agent's own "ask" (when its
@@ -669,6 +676,14 @@ async def _apply_event_inner(app, event) -> None:
         # "running" agent yet, so it never touches this counter).
         app._agents_running_count = getattr(app, "_agents_running_count", 0) + 1
         app.status_bar.set_agents_running(app._agents_running_count)
+        # 2.0.6 round 1 (liveness): the MAIN phase line names the
+        # sub-agent round while it runs. A DIRECT child's start event is
+        # built in the main loop, so its `turn` is the main line's key;
+        # a NESTED child's start carries that child's own turn, the
+        # (None, turn) lookup misses, and the direct child's name stays
+        # -- exactly the right display for free. (A child's own tool
+        # rounds are that child's card's business, never this line's.)
+        app.transcript.phase_wait_target(turn, f"agent: {name}")
         if child_agent_id:
             # Halo 2.0.2 round C: "the status bar keeps a live signal ...
             # the oldest one's elapsed time" -- `BridgeApp._tick_
@@ -688,6 +703,12 @@ async def _apply_event_inner(app, event) -> None:
     elif kind == "subagent_end":
         app._agents_running_count = max(0, getattr(app, "_agents_running_count", 0) - 1)
         app.status_bar.set_agents_running(app._agents_running_count)
+        if app._agents_running_count == 0:
+            # 2.0.6 round 1: the last sub-agent round handed back -- the
+            # main phase line returns to the model-stream labels (the
+            # same turn-keying as subagent_start above: a nested child's
+            # own-turn lookup misses this line and is a no-op).
+            app.transcript.phase_wait_target(turn, None)
         child_agent_id = data.get("agent_id") or agent_id  # finding 6, see subagent_start's own comment above
         if child_agent_id:
             getattr(app, "_agents_started_at", {}).pop(child_agent_id, None)

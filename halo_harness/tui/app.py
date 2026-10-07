@@ -319,6 +319,12 @@ class BridgeApp(App):
         # H15 Part B: hang watchdog -- see on_mount/_watchdog_loop.
         self._last_heartbeat_monotonic = time.monotonic()
         self._watchdog_last_dump_at = 0.0
+        # 2.0.6 round 1 (liveness): set by `_watchdog_loop` the moment the
+        # heartbeat age crosses the threshold, cleared on recovery -- read
+        # by `_tick_background_activity` to render `⏠ hang-watch Ns` on
+        # the status bar. Maintained by the watchdog THREAD (which runs
+        # even when this pump does not), rendered by the pump when it can.
+        self._watchdog_stall_since: "float | None" = None
         self._watchdog_thread: Optional[threading.Thread] = None
         # 1.0.1 part 2 fixpass finding 14: paused around a KNOWN, genuinely
         # blocking main-thread call (`self.suspend()`, Ctrl+E/`/improve`'s
@@ -734,19 +740,44 @@ class BridgeApp(App):
         straight off each JobRecord)."""
         starts = list(getattr(self, "_agents_started_at", {}).values())
         bg_jobs = 0
+        kinds: "dict[str, int]" = {}
         job_registry = getattr(getattr(self.controller, "session", None), "job_registry", None)
         if job_registry is not None:
             try:
                 for job in job_registry.list_jobs():
                     if job.get("status") == "running":
                         bg_jobs += 1
+                        # 2.0.6 round 1: one word per running job, from its
+                        # own description (first word, lowercased) -- the
+                        # command's own argv[0] when no description was
+                        # given. "bg jobs 3 (suites 2, build 1)" reads
+                        # without /tasks.
+                        label = str(job.get("description") or "").strip()
+                        if not label:
+                            label = str(job.get("command") or "").strip()
+                        word = (label.split()[0].lower() if label else "job")
+                        # a script path reads better without its extension
+                        for ext in (".ps1", ".py", ".sh", ".exe", ".cmd", ".bat"):
+                            if word.endswith(ext):
+                                word = word[: -len(ext)]
+                                break
+                        kinds[word] = kinds.get(word, 0) + 1
                         started = job.get("started_at")
                         if isinstance(started, (int, float)):
                             starts.append(started)
             except Exception:
                 pass
         oldest_elapsed = (time.time() - min(starts)) if starts else None
-        self.status_bar.set_background_activity(bg_jobs=bg_jobs, oldest_elapsed_s=oldest_elapsed)
+        kinds_str = ", ".join(f"{w} {n}" for w, n in sorted(kinds.items())) if bg_jobs else ""
+        # 2.0.6 round 1: the hang watchdog's stall clock made visible --
+        # `_watchdog_loop` (the daemon thread) maintains
+        # `_watchdog_stall_since` independently of this pump-driven tick;
+        # a slow-but-alive pump can still render it, a fully dead one
+        # cannot (the dump log remains the record for that case).
+        stall_since = getattr(self, "_watchdog_stall_since", None)
+        hang_watch = (time.monotonic() - stall_since) if stall_since is not None else None
+        self.status_bar.set_background_activity(bg_jobs=bg_jobs, oldest_elapsed_s=oldest_elapsed,
+                                                bg_kinds=kinds_str, hang_watch_s=hang_watch)
 
     # ---- H15 Part B: hang watchdog -----------------------------------
 
@@ -833,7 +864,14 @@ class BridgeApp(App):
                 continue  # finding 14: a KNOWN blocking call is in progress -- not a hang either
             age = time.monotonic() - self._last_heartbeat_monotonic
             if age < HANG_HEARTBEAT_THRESHOLD_S:
+                if self._watchdog_stall_since is not None:
+                    self._watchdog_stall_since = None  # 2.0.6 round 1: recovered
                 continue
+            if self._watchdog_stall_since is None:
+                # 2.0.6 round 1: first poll past the threshold -- the
+                # status bar chip's clock starts HERE (age, not now, so
+                # the chip agrees with the dump's own numbers).
+                self._watchdog_stall_since = time.monotonic() - age
             now = time.monotonic()
             if now - self._watchdog_last_dump_at < HANG_DUMP_MIN_INTERVAL_S:
                 continue  # already dumped recently -- at most once a minute while it persists
