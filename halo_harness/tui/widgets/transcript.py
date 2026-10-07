@@ -189,6 +189,11 @@ class ThinkingBlock(Static):
 
     NO_DATA_THRESHOLD_S = 30.0
     NO_DATA_REFRESH_S = 10.0
+    # 2.0.6 round 1 (liveness): once a phase has SEEN activity (reasoning
+    # or text deltas), this many seconds of silence gets a visible
+    # "· quiet N s" -- a mid-stream stall pops without any config. Under
+    # the threshold it is omitted (normal think-time between chunks).
+    QUIET_THRESHOLD_S = 2.0
     # A model call with no reasoning/text/tool activity at all for this
     # long is still "sending"/"headers" -- not a realistic wait, just a
     # safety cap so `_elapsed()` never prints an absurd number if a test
@@ -202,9 +207,16 @@ class ThinkingBlock(Static):
         self.reasoning_text = ""
         self.written_chars = 0
         self.ttfb_ms: Optional[float] = None
+        # 2.0.6 round 1 (liveness): what this phase is waiting on, set by
+        # Transcript.phase_wait_target -- None/"model" (streaming the
+        # model), "tool: Bash" (a tool round), "agent: implementer" (a
+        # subagent round), "bg" (a background job gates the turn).
+        # Display-only; the loop never reads it.
+        self.wait_target: Optional[str] = None
         now = time.monotonic()
         self.started_at = now
         self.last_activity_at = now
+        self.has_activity = False
         self.final_elapsed = 0.0
         self._last_rendered: Optional[str] = None
         # Back-compat: `action_toggle_verbose` iterates `transcript._blocks.
@@ -265,6 +277,13 @@ class ThinkingBlock(Static):
         self.phase_state = "writing"
         self.written_chars += max(0, delta_chars)
         self.last_activity_at = time.monotonic()
+        self.has_activity = True
+        self._refresh_display()
+
+    def set_wait_target(self, target: Optional[str]) -> None:
+        """2.0.6 round 1: name what this phase is waiting on (display
+        only). None/"model" clears to the plain streaming labels."""
+        self.wait_target = target or None
         self._refresh_display()
 
     def enter_done(self) -> None:
@@ -288,6 +307,7 @@ class ThinkingBlock(Static):
     def append(self, delta: str) -> None:
         self.reasoning_text += delta
         self.last_activity_at = time.monotonic()
+        self.has_activity = True
         self._refresh_display()
 
     def set_expanded(self, value: bool) -> None:
@@ -318,6 +338,31 @@ class ThinkingBlock(Static):
         shown_str = f"{shown:g}"
         return f" · no data for {shown_str} s, Esc interrupts, typing steers"
 
+    def _quiet_suffix(self) -> str:
+        """2.0.6 round 1: activity SEEN, then silence -- `· quiet N s`
+        once past QUIET_THRESHOLD_S. The mirror of `_no_data_suffix`
+        (nothing yet); together they cover both stall shapes."""
+        if self.phase_state not in ("reasoning", "writing") or not self.has_activity:
+            return ""
+        quiet = time.monotonic() - self.last_activity_at
+        if quiet < self.QUIET_THRESHOLD_S:
+            return ""
+        return f" · quiet {int(quiet)} s"
+
+    def _live_elapsed(self) -> str:
+        """2.0.6 round 1: LIVE lines show tenths (`12.4 s`) so a stalled
+        RENDER (frozen tenth) is instantly distinguishable from a stalled
+        TURN (running tenth, growing quiet-N). Final summaries keep the
+        integer `format_elapsed_seconds` form."""
+        return f"{max(0.0, self._elapsed()):.1f} s"
+
+    def _wait_label(self) -> str:
+        """2.0.6 round 1: what the phase is waiting on, when it is not
+        the model stream itself. Kept to one short word-pair."""
+        if self.wait_target and self.wait_target not in ("model", ""):
+            return f" (waiting on {self.wait_target})"
+        return ""
+
     def _preview_lines(self, n: int = 3) -> str:
         width = max(20, (self.size.width or 76) - 4)
         wrapped: "list[str]" = []
@@ -328,22 +373,26 @@ class ThinkingBlock(Static):
     def _refresh_display(self) -> None:
         if self.phase_state == "sending":
             label = f" to {self.model_label}" if self.model_label else ""
-            text = f"✻ Sending request{label}…"
+            text = f"✻ Sending request{label}…{self._wait_label()}"
         elif self.phase_state == "headers":
-            text = f"✻ Thinking… ({format_elapsed_seconds(self._elapsed())}, no tokens yet){self._no_data_suffix()}"
+            text = (f"✻ Thinking… ({self._live_elapsed()}, no tokens yet)"
+                    f"{self._wait_label()}{self._no_data_suffix()}")
         elif self.phase_state == "reasoning":
-            header = (f"✻ Thinking… ({format_elapsed_seconds(self._elapsed())} · "
-                      f"{format_live_token_count(self._reasoning_tokens())} reasoning tokens)")
+            header = (f"✻ Thinking… ({self._live_elapsed()} · "
+                      f"{format_live_token_count(self._reasoning_tokens())} reasoning tokens)"
+                      f"{self._wait_label()}{self._quiet_suffix()}")
             # A2: expanded (the last 3 wrapped lines) WHILE actively
             # streaming, regardless of Ctrl+O -- or whenever Ctrl+O/verbose
             # is on (so toggling it mid-stream still does something, even
             # though streaming is already auto-expanded).
             text = f"{header}\n{self._preview_lines()}" if self.reasoning_text.strip() else header
         elif self.phase_state == "writing":
-            text = (f"✻ Writing… ({format_elapsed_seconds(self._elapsed())} · "
-                    f"{format_live_token_count(self.written_chars // 4)} tokens){self._no_data_suffix()}")
+            text = (f"✻ Writing… ({self._live_elapsed()} · "
+                    f"{format_live_token_count(self.written_chars // 4)} tokens)"
+                    f"{self._wait_label()}{self._quiet_suffix()}")
         elif self.phase_state == "waiting":
-            text = f"✻ Waiting for model… ({format_elapsed_seconds(self._elapsed())}){self._no_data_suffix()}"
+            text = (f"✻ Waiting for model… ({self._live_elapsed()})"
+                    f"{self._wait_label()}{self._no_data_suffix()}")
         else:  # "done"
             summary = (f"✻ Thought for {format_elapsed_seconds(self.final_elapsed)} "
                       f"({format_live_token_count(self._reasoning_tokens())} tokens)")
@@ -619,6 +668,16 @@ class Transcript(VerticalScroll):
         widget = self._phase_lines.get((agent_id, turn))
         if widget is not None:
             widget.enter_headers(ttfb_ms)
+
+    def phase_wait_target(self, turn: int, target: "str | None", *, agent_id: "str | None" = None) -> None:
+        """2.0.6 round 1 (liveness): name what the live phase line is
+        waiting on -- `tool: Bash`, `agent: implementer`, `bg`, or
+        None/`model` to clear back to the plain streaming labels. Called
+        by dispatch when a tool card begins/ends, a sub-agent round
+        starts/hands back, or a background job gates the turn."""
+        widget = self._phase_lines.get((agent_id, turn))
+        if widget is not None:
+            widget.set_wait_target(target)
 
     def phase_first_token(self, turn: int, *, agent_id: "str | None" = None, kind=None) -> None:
         widget = self._phase_lines.get((agent_id, turn))

@@ -122,6 +122,14 @@ class StatusBar(Static):
         # react to (agent/jobs.py).
         self.bg_jobs_running: int = 0
         self.oldest_bg_elapsed_s: "float | None" = None
+        # 2.0.6 round 1 (liveness): one word per RUNNING background job,
+        # from its own label (`suites 2, build 1`) -- so "bg jobs 3" can
+        # be told apart without /tasks; and the hang-watchdog's own
+        # stall clock made visible (`⏠ hang-watch Ns`) whenever the
+        # watchdog thread is counting a stalled heartbeat -- display
+        # only, the dump log stays the authoritative record.
+        self.bg_kinds: str = ""
+        self.hang_watch_s: "float | None" = None
         # Halo 2.0.3 round 5e: `network.offline` -- set once at session
         # build time (`providers.http.offline_mode_enabled()`) and pushed
         # live by `/offline on|off` (tui/slash.py's own `_handle_offline`,
@@ -388,15 +396,22 @@ class StatusBar(Static):
             self.agents_running = count
             self._refresh_display()
 
-    def set_background_activity(self, *, bg_jobs: int, oldest_elapsed_s: "float | None") -> None:
+    def set_background_activity(self, *, bg_jobs: int, oldest_elapsed_s: "float | None",
+                                bg_kinds: str = "", hang_watch_s: "float | None" = None) -> None:
         """Round C: called every second (`BridgeApp._tick_background_
         activity`), whether or not a turn is running -- unlike every
         other setter here, this one ALWAYS redraws (never gated on "did
         anything change") so the elapsed-seconds text visibly keeps
         ticking up on its own, the same liveness convention `tick_
-        spinner`'s own live phase segment already follows."""
+        spinner`'s own live phase segment already follows.
+
+        2.0.6 round 1: `bg_kinds` (one word per running job, counted)
+        and `hang_watch_s` (the watchdog's stall clock, None when the
+        heartbeat is healthy) ride the same call."""
         self.bg_jobs_running = max(0, bg_jobs)
         self.oldest_bg_elapsed_s = oldest_elapsed_s
+        self.bg_kinds = bg_kinds or ""
+        self.hang_watch_s = hang_watch_s
         self._refresh_display()
 
     def set_offline(self, value: bool) -> None:
@@ -569,6 +584,9 @@ class StatusBar(Static):
         # OLDEST one's own elapsed time -- so a quiet screen with real
         # work still running elsewhere never reads as just "idle".
         bg_jobs_str = f"bg jobs {self.bg_jobs_running}" if self.bg_jobs_running else ""
+        if bg_jobs_str and self.bg_kinds:
+            bg_jobs_str = f"{bg_jobs_str} ({self.bg_kinds})"
+        hang_str = f"⏠ hang-watch {format_elapsed_seconds(self.hang_watch_s)}" if self.hang_watch_s else ""
         oldest_str = (f"oldest {format_elapsed_seconds(self.oldest_bg_elapsed_s)}"
                       if self.oldest_bg_elapsed_s is not None and (self.agents_running or self.bg_jobs_running)
                       else "")
@@ -592,8 +610,8 @@ class StatusBar(Static):
             def _overflow(loc: str, mcp_on: bool, bal_on: bool, tp_on: bool) -> int:
                 bits = [b for b in (ctx_str, cost_str, bal_on and or_balance_str, mode_str, effort_str,
                                      offline_str, permission_str, needs_you_str, agents_str, bg_jobs_str,
-                                     oldest_str, mcp_on and mcp_str, tp_on and throughput_str, gov_str,
-                                     spinner_str, new_str) if b]
+                                     oldest_str, hang_str, mcp_on and mcp_str, tp_on and throughput_str,
+                                     gov_str, spinner_str, new_str) if b]
                 # Each segment below is rendered as "<text> " with a "│ "
                 # separator before it -- 3 extra columns per segment is
                 # that separator plus its own trailing space, a close-
@@ -681,6 +699,13 @@ class StatusBar(Static):
         if oldest_str:
             text.append("│ ", style="dim")
             text.append(f"{oldest_str} ", style="dim")
+        if hang_str:
+            # 2.0.6 round 1: the watchdog's stall clock, bold so it is
+            # the first thing read -- it means the UI pump itself is
+            # struggling, and that is exactly when the owner wonders
+            # whether anything is alive.
+            text.append("│ ", style="dim")
+            text.append(f"{hang_str} ", style="bold yellow")
         if loc_str:
             text.append("│ ", style="dim")
             text.append(f"{loc_str} ", style="dim")
