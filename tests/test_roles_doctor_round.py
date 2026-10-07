@@ -86,11 +86,23 @@ def test_hygiene_flags_the_three_problems(ctx: Ctx):
     ctx.check(f"the same-family judge/coder warns, got {problems}",
               len(bias) == 1 and "qwen" in bias[0])
 
-    # 2. no main
+    # 2. no main at all (neither roles.main nor a top-level model)
     _scoped(home, {"coder": "ol:qwen3-coder:30b@lan", "judge": "or:deepseek/deepseek-v4-flash"})
     with _env(home):
         problems = check_roles_hygiene()
-    ctx.check(f"a missing main warns, got {problems}", any("'main'" in p for p in problems))
+    ctx.check(f"a missing main warns, got {problems}", any("no main model" in p for p in problems))
+
+    # 2b. a top-level `model` key alone is a VALID main (the VM's own
+    # config spells it that way) -- no warning
+    cfg = home / ".halo" / "config.json"
+    cfg.write_text(json.dumps({"model": "ol:qwen3.8:27b@lan",
+                               "roles": {"coder": "ol:qwen3-coder:30b@lan",
+                                         "judge": "or:deepseek/deepseek-v4-flash"}}),
+                   encoding="utf-8")
+    with _env(home):
+        problems = check_roles_hygiene()
+    ctx.check(f"a top-level model is a valid main, got {problems}",
+              not any("no main model" in p for p in problems))
 
     # 3. a clean table: different families, main set, mock gateways only
     # (the local-model `ol:` route needs no probe; nothing remote configured)
