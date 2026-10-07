@@ -10,6 +10,17 @@ version.
 
 ## [2.0.6] - unreleased
 
+### Gym cloud-model ranking (round 11)
+
+`halo gym propose --candidates local|cloud|all`: the proposal's ranking
+pool was local-only by construction, even though the gym already runs
+against any reachable model (`halo gym --model or:...`). "cloud" ranks
+the `or:`/`dbx:`/`xp:`/endpoint refs only; "all" ranks both pools
+together; the default stays "local" -- byte-for-byte the old behavior.
+The tokens-per-second term normalizes within the CHOSEN pool, so a
+cloud model's throughput is never measured against a local GPU's
+ceiling (or vice versa).
+
 ### MCP connects off the TUI startup path (round 10)
 
 The TUI paints with its full frozen tool catalog immediately: MCP

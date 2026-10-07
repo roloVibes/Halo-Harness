@@ -111,8 +111,9 @@ def _cmd_propose(argv: list) -> int:
 
     parser = argparse.ArgumentParser(
         prog="halo gym propose", add_help=True,
-        description="Turn saved `halo gym` scores into a role-table proposal (the best LOCAL model per "
-                    "supporting role) -- one sentence per choice naming the score behind it.")
+        description="Turn saved `halo gym` scores into a role-table proposal (the best model per "
+                    "supporting role, from the --candidates pool) -- one sentence per choice naming "
+                    "the score behind it.")
     parser.add_argument("--apply", action="store_true",
                          help="save the proposal as a role template via the existing `halo roles template "
                              "import` path (`halo roles template load NAME` then applies it)")
@@ -123,6 +124,12 @@ def _cmd_propose(argv: list) -> int:
     parser.add_argument("--main", default=None, metavar="REF",
                          help="use REF, not the configured default model, as the VRAM-fit reference point "
                              "(main itself is never proposed either way)")
+    # 2.0.6 round 11: rank cloud models too -- the gym already RUNS
+    # against any reachable ref (`halo gym --model or:...`); the proposal
+    # just refused to look at anything non-local until now.
+    parser.add_argument("--candidates", choices=["local", "cloud", "all"], default="local",
+                        help="which pool to rank: local (default, the old behavior), cloud (or:/dbx:/xp:/"
+                             "endpoint refs only), or all (both together)")
     args = parser.parse_args(argv)
     try:
         roles = _parse_roles(args.roles) or None
@@ -135,7 +142,8 @@ def _cmd_propose(argv: list) -> int:
     if not results:
         print("halo gym propose: no saved gym results yet -- run `halo gym` first.", file=sys.stderr)
         return 1
-    roles_dict, sentences = propose_role_table(results, roles=roles, main_ref_raw=args.main, state_dir=state_dir)
+    roles_dict, sentences = propose_role_table(results, roles=roles, main_ref_raw=args.main,
+                                                state_dir=state_dir, candidates=args.candidates)
     for s in sentences:
         print(s)
     if not roles_dict:
