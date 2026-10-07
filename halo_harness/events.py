@@ -54,6 +54,15 @@ EVENT_KINDS = frozenset({
     "replay", "notification", "steer_queued", "steer_applied",
     "compaction",  # H5 scope B
     "phase", "steer_restart",  # Halo 2.0.1 W2a (liveness-tips-brief Part A6/GLM-brief item 3)
+    # Halo 2.0.5 round 4: the Governor's throttle/recover/waiting telemetry,
+    # forwarded from providers/http.py's choke point through the session's
+    # event sink (tui/dispatch.py renders the status bar's gov segment from
+    # it). Found by the 2.0.6 soak: the kind was emitted and dispatched but
+    # never added HERE, so the FIRST real TUI run where the Governor paced a
+    # 429 crashed the turn with "unknown event kind: 'governor'" -- every
+    # earlier test drove the Governor headless (no sink: the forwarding is
+    # skipped) or with the governor off, so the TUI+sink path never fired.
+    "governor",
     "system_note",  # Halo 2.0.1 W5b: an async, out-of-band transcript line (e.g.
                      # background connector discovery finishing) -- pushed straight
                      # onto Controller.events from whatever thread noticed, never

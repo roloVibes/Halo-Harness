@@ -10,6 +10,24 @@ version.
 
 ## [2.0.6] - unreleased
 
+### The soak harness (round 9)
+
+`tools/soak.py`: a headless Textual pilot run for a configurable
+duration against the mock upstream, injecting idle gaps, a monotonic
+clock jump, terminal resizes, a connection reset mid-stream, a
+connect-phase drop, a 429 with retry-after, a permission card left
+unanswered then answered, a steer during a silent call, and `/compact`
+-- after every event a prompt must get a response within a deadline,
+the drain tick count must rise monotonically, no traceback may reach
+the log, RSS growth stays bounded, and the status cluster must return
+to idle. **It caught its first real bug on its first run**: the
+Governor's telemetry event (`governor`) was emitted by round 4 and
+handled by the TUI, but never registered as a valid event kind -- the
+first real TUI session where the Governor paced a 429 crashed the turn
+(every earlier test ran headless, where the forwarding is skipped).
+The real-machine half (tmux detach/reattach, a 30-minute idle) is the
+runbook's, in `docs/harness/LIVE-CHECKS.md`.
+
 ### Signed releases (round 8)
 
 Every release now ships a checksummed artifact: the tag's own source
