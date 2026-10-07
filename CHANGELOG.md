@@ -10,6 +10,19 @@ version.
 
 ## [2.0.6] - unreleased
 
+### Turn checkpoints, `/rewind turn <N>` (round 6)
+
+Shadow steps now carry the TURN their tool_result event belonged to,
+and the store groups them into turn checkpoints: `/rewind turn <N>`
+restores the working tree to the START of that turn -- the last step
+of the previous turn when one exists (created-by-later-steps files
+deleted, exactly like a step rewind), or the session's own start
+otherwise (every file any step created is deleted, nothing restored).
+`/rewind turn` with no number lists the turns that have checkpoints.
+One key rolls back a whole bad agent run's edits; the per-step
+`/rewind`/`/undo`/`/redo` flow is unchanged, and pre-round-6 logs
+(steps without turn info) simply never group.
+
 ### Parallel read-only tool calls: the Bash half (round 5)
 
 The concurrent read-only batch (Read/Grep/Glob, the H3 pool) now admits

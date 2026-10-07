@@ -129,7 +129,7 @@ def _read_for_shadow(path: "Path"):
     return raw
 
 
-def _maybe_record_shadow_step(app, tool_id, ok: bool, bash_shadow_before=None) -> None:
+def _maybe_record_shadow_step(app, tool_id, ok: bool, bash_shadow_before=None, turn=None) -> None:
     """U5 scope B / W4a: every successful Write/Edit/NotebookEdit records a
     git-shadow snapshot of the file's RESULTING (post-edit) content, keyed
     to this step, so `/rewind`/`/undo`/`/redo` has something to restore to
@@ -149,7 +149,7 @@ def _maybe_record_shadow_step(app, tool_id, ok: bool, bash_shadow_before=None) -
         return
     name, input_data, pre_exists = info
     if name == "Bash":
-        _maybe_record_bash_shadow_step(app, name, input_data, ok, bash_shadow_before)
+        _maybe_record_bash_shadow_step(app, name, input_data, ok, bash_shadow_before, turn)
         return
     if not ok:
         return
@@ -170,18 +170,18 @@ def _maybe_record_shadow_step(app, tool_id, ok: bool, bash_shadow_before=None) -
             return
         created = [file_path] if pre_exists is False else []
         store.record_step({file_path: content}, label=f"{name}({Path(file_path).name})", trigger="tool",
-                           created=created)
+                           created=created, turn=turn)
     except Exception:
         pass
 
 
-def _maybe_record_bash_shadow_step(app, name, input_data, ok: bool, before) -> None:
+def _maybe_record_bash_shadow_step(app, name, input_data, ok: bool, before, turn=None) -> None:
     if not ok or before is None:
         return
-    app.run_worker(lambda: _bash_shadow_after_worker(app, before), thread=True, name="shadow-bash-after")
+    app.run_worker(lambda: _bash_shadow_after_worker(app, before, turn), thread=True, name="shadow-bash-after")
 
 
-def _bash_shadow_after_worker(app, before: dict) -> None:
+def _bash_shadow_after_worker(app, before: dict, turn=None) -> None:
     """W5 (carried from W4a): `before`/`after` are now `git_status_
     dirty_paths`'s own `{path: status_code}` dicts (untracked AND
     tracked-modified), not just the old untracked-only set -- a path
@@ -212,7 +212,7 @@ def _bash_shadow_after_worker(app, before: dict) -> None:
                 created.append(p)
         if files:
             label = "Bash(new file(s))" if len(created) == len(files) else "Bash(file changes)"
-            store.record_step(files, label=label, trigger="tool", created=created)
+            store.record_step(files, label=label, trigger="tool", created=created, turn=turn)
     except Exception:
         pass
 
@@ -460,7 +460,7 @@ async def _apply_event_inner(app, event) -> None:
             # 2.0.6 round 1: the tool round is over -- back to waiting on
             # the model stream's own labels.
             app.transcript.phase_wait_target(turn, None)
-        _maybe_record_shadow_step(app, data.get("id"), bool(data.get("ok")), data.get("bash_shadow_before"))
+        _maybe_record_shadow_step(app, data.get("id"), bool(data.get("ok")), data.get("bash_shadow_before"), turn=turn)
     elif kind == "permission_request":
         # H5c finding 8: a FOREGROUND sub-agent's own "ask" (when its
         # parent session is interactive) is now a LIVE, answerable card

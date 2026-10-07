@@ -146,12 +146,20 @@ class ShadowStore:
     # ---- recording ---------------------------------------------------
 
     def record_step(self, files: "dict[str, str]", *, label: str, trigger: str = "tool",
-                     created: "Optional[list]" = None) -> dict:
+                     created: "Optional[list]" = None, turn: "Optional[int]" = None) -> dict:
         """`files`: `{absolute_path_str: resulting_content}` -- the content
         of every file this step touched, AFTER the change. Writes each into
         the shadow repo, commits, and appends one step to the index.
         `{}`/no real change -> returns `{}` and records nothing (a no-op
         step is never worth a rewind target).
+
+        `turn` (2.0.6 round 6): the TURN this step belongs to (from the
+        tool_result event itself), so `turn_checkpoints`/`rewind_to_turn_
+        start` can offer one-key rollback of a whole turn's edits -- the
+        v2.0.4 review's "snapshot the changed files at each turn boundary
+        so one key rolls back a turn's edits after a bad agent run".
+        None on pre-round-6 steps (and any caller without a turn at hand):
+        those simply do not group into checkpoints.
 
         `created` (U5 scope B / W4a: "steps record files CREATED so undo
         deletes them"): the subset of `files` that did NOT exist on disk
@@ -203,12 +211,86 @@ class ShadowStore:
             "label": label or "snapshot", "trigger": trigger, "files": sorted(files),
             "created": sorted(created_set),
         }
+        if turn is not None:
+            step["turn"] = int(turn)
         self.steps.append(step)
         self.cursor = len(self.steps) - 1
         self._append_index(step)
         return step
 
     # ---- restoring -----------------------------------------------------
+
+    # ---- 2.0.6 round 6: turn checkpoints ----------------------------------
+
+    def turn_checkpoints(self) -> "list[dict]":
+        """One entry per TURN that has at least one shadow step -- the
+        v2.0.4 review's "one key rolls back a turn's edits after a bad
+        agent run". `{turn, steps, files, created, first_label, rewind_to}`:
+        `rewind_to` is the id of the LAST step of the PREVIOUS turn (the
+        state the tree should return to), or None when this is the first
+        turn with steps -- rewinding then means "back to the session's
+        start" (every created file deleted, nothing restored). Steps
+        without turn info (pre-round-6 logs) never group; an empty list
+        means no checkpoints exist for this session."""
+        out: "list[dict]" = []
+        last_step_of_prev_turn: "Optional[dict]" = None
+        i = 0
+        steps = self.steps
+        while i < len(steps):
+            turn = steps[i].get("turn")
+            if turn is None:
+                i += 1
+                continue
+            j = i
+            files: "set[str]" = set()
+            created: "set[str]" = set()
+            while j < len(steps) and steps[j].get("turn") == turn:
+                files.update(steps[j].get("files") or [])
+                created.update(steps[j].get("created") or [])
+                j += 1
+            out.append({
+                "turn": turn, "steps": j - i, "files": sorted(files), "created": sorted(created),
+                "first_label": steps[i].get("label") or "snapshot",
+                "rewind_to": (last_step_of_prev_turn or {}).get("id"),
+            })
+            last_step_of_prev_turn = steps[j - 1]
+            i = j
+        return out
+
+    def rewind_to_turn_start(self, turn: int) -> "Optional[dict]":
+        """Restore the working tree to the START of `turn` -- the state
+        just before its first step ran. That is the LAST step of the
+        previous turn when one exists (`rewind_to` does the real work,
+        including deleting later-created files), or the session's own
+        start otherwise: every file any step CREATED is deleted and
+        nothing is restored (the tree predates every snapshot). Returns
+        the same `{"step", "files", "deleted"}` shape `rewind_to` does
+        (a synthesized pseudo-step for the session-start case), or None
+        when the turn has no checkpoints."""
+        cps = {c["turn"]: c for c in self.turn_checkpoints()}
+        cp = cps.get(turn)
+        if cp is None:
+            return None
+        if cp["rewind_to"] is not None:
+            return self.rewind_to(cp["rewind_to"])
+        # the session's own start: nothing to restore, everything CREATED
+        # by any step goes away
+        deleted: "list[str]" = []
+        seen: "set[str]" = set()
+        for step in self.steps:
+            for path in step.get("created") or []:
+                if path in seen:
+                    continue
+                seen.add(path)
+                try:
+                    Path(path).unlink()
+                    deleted.append(path)
+                except OSError:
+                    pass
+        self.cursor = -1
+        return {"step": {"id": "session-start", "label": f"start of turn {turn}", "files": [],
+                         "created": [], "deleted": []},
+                "files": [], "deleted": deleted}
 
     def _restore_commit(self, commit_hash: str) -> "list[str]":
         """Checks out EVERY file tracked as of `commit_hash` back to its
