@@ -10,6 +10,16 @@ version.
 
 ## [2.0.6] - unreleased
 
+### Carried fix-pass minors, batch B, part 2 (round 12)
+
+The last two: the local-server auto-detect probe gains a 60 s TTL cache
+keyed on the port list (a picker paint on a warm process probes
+nothing; an explicit refresh forces through) -- the C-11 nuance; and
+`fits_beside_main` (the VRAM-aware role redirect) gains the same 60 s
+TTL keyed on `(host, main, candidate)` with `None` never cached, so
+every role resolution no longer re-pays a `/api/ps` fetch plus a GPU
+read -- the C-13 nuance.
+
 ### Carried fix-pass minors, batch B, part 1 (round 12)
 
 Text-mode print output carries the provider's own error sentence as the

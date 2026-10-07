@@ -657,8 +657,20 @@ class OllamaContextDecision:
     supports_thinking: bool = True
 
 
+_FITS_TTL_S = 60.0
+_fits_cache: "dict[tuple, tuple[float, Optional[bool]]]" = {}
+_fits_cache_lock = threading.Lock()
+
+
+def reset_fits_cache() -> None:
+    """Tests only: the per-turn fit cache below holds state across test
+    cases otherwise."""
+    with _fits_cache_lock:
+        _fits_cache.clear()
+
+
 def fits_beside_main(host, *, main_model: str, candidate_model: str, catalog: Optional[dict],
-                      hw_runner=None) -> Optional[bool]:
+                     hw_runner=None) -> Optional[bool]:
     """Halo 2.0.3 round 5b part 2 (brief item 3, "VRAM-aware role
     defaults"): would `candidate_model`'s own on-disk weight size
     (`catalog_row(...)["size"]`, the same bytes Ollama loads into VRAM --
@@ -675,7 +687,33 @@ def fits_beside_main(host, *, main_model: str, candidate_model: str, catalog: Op
     all (local: `get_local_gpu_memories`; remote: only when `host.ssh` is
     configured, else always `None` -- same reachability rule every other
     GPU read in this module already follows). `True`/`False` only when
-    every input was a real measurement."""
+    every input was a real measurement.
+
+    2.0.6 round 12 (the carried C-13 nuance): a 60 s TTL cache keyed on
+    `(host.url, main_model, candidate_model)` -- `roles.vram_aware_
+    override` runs on EVERY role resolution (each spawn, each `/roles`
+    render), and each uncached call pays a `/api/ps` fetch plus a GPU
+    read. The same (main, candidate) pair inside one window now probes
+    once; `None` (unknown) is never cached, so a load that lands mid-
+    window is noticed on the very next call."""
+    import time as _time
+    key = (host.url if host is not None else None, main_model, candidate_model)
+    now = _time.monotonic()
+    with _fits_cache_lock:
+        hit = _fits_cache.get(key)
+    if hit is not None and (now - hit[0]) < _FITS_TTL_S:
+        return hit[1]
+    result = _fits_beside_main_uncached(host, main_model=main_model, candidate_model=candidate_model,
+                                        catalog=catalog, hw_runner=hw_runner)
+    if result is not None:
+        with _fits_cache_lock:
+            _fits_cache[key] = (now, result)
+    return result
+
+
+def _fits_beside_main_uncached(host, *, main_model: str, candidate_model: str, catalog: Optional[dict],
+                               hw_runner=None) -> Optional[bool]:
+    """The pre-cache body of `fits_beside_main`, unchanged."""
     from halo_harness.providers.ollama import fetch_ps, ollama_names_match
     ps = fetch_ps(host) or {}
     main_entry = None
