@@ -6988,6 +6988,20 @@ class Session:
                 pending_batch.append(item)
                 continue  # deferred -- dispatched only when the run breaks (below) or at the end
 
+            # 2.0.6 round 5 (parallel read-only tool calls, the review's
+            # item 4): a Bash call whose command is PROVABLY read-only (a
+            # single plain command from the read-only whitelist, zero
+            # shell metacharacters -- `bash_command_is_read_only`'s own
+            # docstring) joins the same concurrent batch as Read/Grep/
+            # Glob. Anything else (a pipe, a redirect, an && chain, an
+            # unknown binary) stays sequential exactly as before.
+            if item["ready"] and name == "Bash" and "result" not in item:
+                from halo_harness.tools.bash import bash_command_is_read_only
+                cmd = (item.get("input") or {}).get("command")
+                if isinstance(cmd, str) and bash_command_is_read_only(cmd):
+                    pending_batch.append(item)
+                    continue
+
             # This call breaks any read-only run in progress: run + finalize
             # the WHOLE pending batch first (those calls were already
             # announced earlier and never depend on anything after them),
