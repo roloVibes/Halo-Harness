@@ -78,28 +78,43 @@ def _is_local_ref(model_ref) -> bool:
     return isinstance(model_ref, str) and model_ref.startswith(_LOCAL_REF_PREFIXES)
 
 
-def best_candidate_for_role(results: "list[dict]", role: str, *, main_ref=None) -> "tuple[Optional[dict], Optional[str]]":
+def best_candidate_for_role(results: "list[dict]", role: str, *, main_ref=None,
+                            candidates: str = "local") -> "tuple[Optional[dict], Optional[str]]":
     """`(value_for_role_table, one_sentence)` -- `value_for_role_table` is
-    `None` when no LOCAL candidate has a usable score for `role` at all
-    (brief's own "a role with no candidate" case), in which case the
-    sentence says so in plain English rather than being omitted. "Local"
-    (round 5i) is `ol:`/`hf:local/*`/`hf:mlx/*` -- never a router/
-    endpoint/cloud ref. The round 5b VRAM-aware rule below is applied to
-    EVERY winner regardless of provider, never a separate branch here --
+    `None` when no candidate in scope has a usable score for `role` at
+    all (brief's own "a role with no candidate" case), in which case the
+    sentence says so in plain English rather than being omitted.
+
+    `candidates` (2.0.6 round 11, the gym cloud-model ranking): "local"
+    (the default, byte-for-byte the old behavior) is `ol:`/`hf:local/*`/
+    `hf:mlx/*` only; "cloud" is every NON-local ref (`or:`, `dbx:`,
+    `xp:`, `hf:<endpoint>`, ...); "all" ranks both pools together. The
+    tokens/s normalization is computed within the CHOSEN pool (a cloud
+    model's tok/s is never normalized against a local GPU's ceiling, and
+    vice versa). The round 5b VRAM-aware rule below is applied to EVERY
+    winner regardless of provider, never a separate branch here --
     `roles.vram_aware_override` already no-ops on its own whenever either
     `main_ref` or the candidate isn't an `ollama` ref (its own existing
     guard clauses), which is exactly "skipped when no Ollama host is
     involved" for an hf: winner or an hf:-main `--main`."""
-    local = [r for r in results if _is_local_ref(r.get("model_ref"))]
-    tps_values = [r["tokens_per_second"] for r in local if isinstance(r.get("tokens_per_second"), (int, float))]
+    if candidates == "cloud":
+        pool = [r for r in results if not _is_local_ref(r.get("model_ref"))]
+        pool_label = "cloud model"
+    elif candidates == "all":
+        pool = list(results)
+        pool_label = "model"
+    else:
+        pool = [r for r in results if _is_local_ref(r.get("model_ref"))]
+        pool_label = "local model"
+    tps_values = [r["tokens_per_second"] for r in pool if isinstance(r.get("tokens_per_second"), (int, float))]
     max_tps = max(tps_values) if tps_values else None
     scored = []
-    for r in local:
+    for r in pool:
         score, terms = composite_score(r, role, max_tps=max_tps)
         if score is not None:
             scored.append((score, r, terms))
     if not scored:
-        return None, f"{role} -> no local model has a usable score for this role yet -- run `halo gym` first."
+        return None, f"{role} -> no {pool_label} has a usable score for this role yet -- run `halo gym` first."
     scored.sort(key=lambda t: (-t[0], t[1].get("model_ref", "")))
     score, result, terms = scored[0]
     value = result["model_ref"]
@@ -115,13 +130,16 @@ def best_candidate_for_role(results: "list[dict]", role: str, *, main_ref=None) 
 
 
 def propose_role_table(results: "list[dict]", *, roles: "Optional[list]" = None,
-                        main_ref_raw: "Optional[str]" = None, state_dir=None) -> "tuple[dict, list]":
+                        main_ref_raw: "Optional[str]" = None, state_dir=None,
+                        candidates: str = "local") -> "tuple[dict, list]":
     """`(roles_dict, sentences)` -- `roles_dict` is ready to drop straight
     into a role template's own `"roles"` key (brief: "the existing roles
     v2 shape, nothing new"). `roles` narrows which of `gym.SUPPORTING_
     ROLES` to propose (default: all four); a role with no candidate is
     left OUT of `roles_dict` entirely (never a null placeholder) but
-    still gets its plain-English sentence."""
+    still gets its plain-English sentence. `candidates` (round 11):
+    "local" (default, the old behavior) / "cloud" / "all" -- threaded
+    straight into `best_candidate_for_role`."""
     from halo_harness.model import parse_model_ref
     from halo_harness.theme import get_config_value
     wanted = [r for r in (roles or SUPPORTING_ROLES) if r in SUPPORTING_ROLES]
@@ -135,7 +153,8 @@ def propose_role_table(results: "list[dict]", *, roles: "Optional[list]" = None,
     roles_dict: dict = {}
     sentences: "list[str]" = []
     for role in wanted:
-        chosen, no_candidate_sentence = best_candidate_for_role(results, role, main_ref=main_ref)
+        chosen, no_candidate_sentence = best_candidate_for_role(results, role, main_ref=main_ref,
+                                                                 candidates=candidates)
         if chosen is None:
             sentences.append(no_candidate_sentence)
             continue
