@@ -366,6 +366,7 @@ class AgentBioEditor(ModalScreen):
                     yield Static(" Save to project scope (.halo/agents/)", classes="wizard-switch-label")
                 with Horizontal(classes="wizard-extra-buttons"):
                     yield Button("Save (ctrl+s)", id="bio-save", variant="primary", compact=True)
+                    yield Button("Try it (cost first)", id="bio-try", compact=True)
                     yield Button("Cancel (esc)", id="bio-cancel", compact=True)
                 yield Static("", id="bio-hint")
             with VerticalScroll(id="bio-preview-pane"):
@@ -523,6 +524,62 @@ class AgentBioEditor(ModalScreen):
             self.action_pick_preference()
         elif bid == "bio-fallback-pick":
             self.action_pick_fallback()
+        elif bid == "bio-try":
+            self.action_try_it()
+
+    def action_try_it(self) -> None:
+        """2.0.6 round 14 ("Try it" on a bio, cost shown first): the COST
+        LINE prints into the hint the moment the button is pressed --
+        before a single token is spent -- then the smoke call runs on a
+        worker (never the UI thread) and its one-sentence reply lands in
+        the same hint. The bio's own acceptance prompt is the probe when
+        it has one (that is what 'try' means for a bio); otherwise the
+        fixed smoke prompt."""
+        from halo_harness.smoke_run import run_bio_smoke, smoke_cost_line
+        pref = ""
+        try:
+            pref = self.query_one("#bio-pref", Input).value.strip()
+        except Exception:
+            pref = ""
+        acceptance_prompt = None
+        try:
+            data = self._collect_form()
+            acceptance_prompt = ((data.get("acceptance") or {}).get("prompt")
+                                 if isinstance(data.get("acceptance"), dict) else None)
+        except Exception:
+            acceptance_prompt = None
+        if not pref:
+            try:
+                self.query_one("#bio-hint", Static).update(
+                    "Try it: no model picked yet -- pick a preference first.")
+            except Exception:
+                pass
+            return
+        cost_line = smoke_cost_line(pref)
+        try:
+            hint_widget = self.query_one("#bio-hint", Static)
+            hint_widget.update(
+                f"Try it -- cost first: {cost_line}\nrunning the smoke call...")
+        except Exception:
+            return
+
+        def _work() -> None:
+            out = run_bio_smoke(pref, acceptance_prompt)
+            summary = (out.strip().splitlines() or [""])[-1][:200]
+            verdict = "replied" if summary else "no output (credentials/model issue?)"
+            try:
+                # the widget is captured ON the UI thread above; only the
+                # .update rides call_from_thread (query_one itself is not
+                # thread-safe)
+                self.app.call_from_thread(
+                    hint_widget.update,
+                    f"Try it -- cost first: {cost_line}\n{verdict}: {summary if summary else '-'}")
+            except Exception:
+                pass
+        try:
+            self.run_worker(_work, thread=True, name="bio-try-it", group="bio-try-it")
+        except Exception:
+            pass
 
     # -- form <-> dict -------------------------------------------------------
     def _is_overridden(self, section: str, key: str) -> bool:

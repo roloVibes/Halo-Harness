@@ -10,6 +10,19 @@ version.
 
 ## [2.0.6] - unreleased
 
+### "Try it" and the lineup smoke run, cost shown first (round 14)
+
+The bio editor gains a "Try it (cost first)" button and the lineup
+editor a "Smoke run (cost first)" button: the estimated cost of every
+distinct model the lineup resolves to prints BEFORE a single token is
+spent -- real catalog prices times the smoke prompt's token footprint
+(`~$0.0011 (600 in / 300 out at $0.6/$2.4 per 1M)`), `price not in the
+catalog -- cost unknown` when a model has no prices, never a fake
+$0.00. The call itself rides the proven print-mode subprocess path
+(the bio's own acceptance prompt when it has one), on a worker thread;
+the verdict lands beside the cost line. The deferred item from 2.0.5
+round 2's list, closed.
+
 ### Lineup export/import bundles (round 13)
 
 `halo teams export <name> --bundle <dir>` writes the whole lineup as
