@@ -291,9 +291,10 @@ def test_json_mode_unconfigured_provider_result_is_not_empty(ctx: Ctx):
 
 @test
 def test_text_mode_unconfigured_provider_result_is_not_empty(ctx: Ctx):
-    """The text-format twin of the test above -- `finish()`'s text branch
-    already worked before this round; pinned here so a future change can't
-    silently regress it while fixing the JSON branch."""
+    """The text-format twin of the test above -- 2.0.6 round 12 flipped
+    text mode to the JSON branch's own contract: the provider's own
+    sentence IS the result text (a stdout-consuming script sees WHY the
+    run died), and the same sentence still reaches stderr."""
     from halo_harness import events as ev
     from halo_harness.output import PrintModeSink
 
@@ -303,11 +304,14 @@ def test_text_mode_unconfigured_provider_result_is_not_empty(ctx: Ctx):
     with redirect_stderr(stderr_buf):
         code = sink.consume(iter([ev.error("Databricks not configured -- run `halo init --preset work`",
                                             err_type="not_configured")]))
-    ctx.check(f"non-zero exit code, got {code}", code == 1)
-    ctx.check(f"stdout stays empty (text mode never prints a bare error to stdout), got {stream.getvalue()!r}",
-               stream.getvalue() == "")
-    ctx.check(f"the sentence reaches stderr, got {stderr_buf.getvalue()!r}",
-               "Databricks not configured" in stderr_buf.getvalue())
+        ctx.check(f"non-zero exit code, got {code}", code == 1)
+    # 2.0.6 round 12: the provider's own sentence IS the result text now
+    # (a stdout-consuming script sees WHY the run died -- the JSON branch's
+    # own contract), never an empty stream.
+    ctx.check(f"stdout carries the provider's own sentence as the result text, got {stream.getvalue()!r}",
+              "Databricks not configured -- run `halo init --preset work`" in stream.getvalue())
+    ctx.check(f"the SAME sentence also reaches stderr, got {stderr_buf.getvalue()!r}",
+              "Databricks not configured" in stderr_buf.getvalue())
 
 
 @test
