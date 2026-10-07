@@ -1857,6 +1857,26 @@ accepted as shorthand for `config set key value`. The value is parsed as
 JSON when possible (`true`, `123`, a quoted string), so non-string values
 round-trip too.
 
+## `halo replay`
+
+Replay one turn of a recorded session against a different model and
+compare the outcomes side by side -- "did swapping the researcher from
+one model to another help?", answered with a diff over real task
+history instead of a synthetic gym battery. The session is forked
+first (the original file is never appended to), the fork is truncated
+to just before the chosen turn's user prompt, and that turn's own
+prompt is re-sent through plain print mode against the swapped model
+-- same cwd, same tools, same hooks as any `halo -p`.
+
+```sh
+halo replay <session-id> --model or:qwen/qwen3.8-flash [--turn 2] [--json]
+```
+
+`--turn N` (1-based, default 1) picks which real user turn to replay;
+the report shows both outcomes (chars, tokens, cost, tools used) and
+`SAME` / `DIFFERENT (first divergence at line N)` for the final
+answer. `--json` prints the machine-readable report.
+
 ## `halo stats`
 
 A headless, cross-session version of the TUI's own `/stats` -- aggregates

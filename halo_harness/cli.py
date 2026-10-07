@@ -465,6 +465,9 @@ def main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "gym":
         from halo_harness.gym_cli import cmd_gym
         return cmd_gym(argv[1:])
+    if argv and argv[0] == "replay":
+        from halo_harness.replay_cli import cmd_replay
+        return cmd_replay(argv[1:])
     if argv and argv[0] == "local":
         from halo_harness.local_cli import cmd_local
         return cmd_local(argv[1:])
