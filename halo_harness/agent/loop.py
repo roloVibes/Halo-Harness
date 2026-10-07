@@ -161,12 +161,23 @@ def _overload_owned_by_governor(status, message: str = "") -> bool:
     Governor is enabled, the status is in its overload set (or the body
     says overloaded for a 500), and the route is an HTTP one (`cc:`/`cx:`
     drive a CLI child -- never governed). The loop's own ladder uses
-    this to step aside instead of running a second backoff loop."""
+    this to step aside instead of running a second backoff loop.
+
+    Release-regression guard: a POST-connect transport drop (dropped
+    keep-alive, RST mid-response) is re-labelled a plain 502 by the wire
+    mapper, but no HTTP response ever existed -- the Governor's choke
+    point paces response STATUSES only and its exception path re-raises
+    without retrying, so it never paced this. The ladder owns the retry
+    (the 1.0.1 fixpass-2 contract,
+    test_step_retries_a_post_connect_failure_through_the_normal_ladder)."""
     try:
-        from halo_harness.providers.http import governor_params_for_host
+        from halo_harness.providers.http import (governor_params_for_host,
+                                                 is_post_connect_failure_message)
         from halo_harness.providers import governor as _gov
         if governor_params_for_host("probe") is None:
             return False  # governor.enabled false in config
+        if is_post_connect_failure_message(message):
+            return False  # transport drop, never an overload response
         if _gov.is_overload_status(status) or (status == 500 and _gov.is_overload_body(message)):
             return True
     except Exception:

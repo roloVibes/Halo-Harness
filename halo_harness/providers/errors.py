@@ -400,11 +400,25 @@ def map_upstream_error(status: int, body: dict | bytes | str, provider: str,
         #     recognizes a connect failure by re-matching that exact text
         #     AFTER it comes back out through `UpstreamError.message`
         #     (test_is_connect_failure_message_survives_both_wire_mappers).
+        #   - a POST-connect transport-drop wording
+        #     (`is_post_connect_failure_message`, 2.0.5 release
+        #     regression): `format_post_connect_error`'s "upstream
+        #     connection to <host> was interrupted (...)" must survive for
+        #     the same reason -- without it the canned 529 "gateway
+        #     returned a bad response" sentence replaces the transport
+        #     signal, `agent/loop.py`'s Governor step-aside then mistakes
+        #     the drop for an already-paced overload (the Governor paces
+        #     HTTP response STATUSES only; a dropped connection produced
+        #     none) and the ladder never retries a genuinely recoverable
+        #     dropped keep-alive.
         #   - an offline-refusal wording (`is_offline_refusal_message`,
         #     same reasoning/caller).
-        from halo_harness.providers.http import is_connect_failure_message, is_offline_refusal_message
+        from halo_harness.providers.http import (is_connect_failure_message,
+                                                 is_offline_refusal_message,
+                                                 is_post_connect_failure_message)
         if (not is_context_overflow_message(status, msg, body if isinstance(body, dict) else None)
-                and not is_connect_failure_message(msg) and not is_offline_refusal_message(msg)):
+                and not is_connect_failure_message(msg) and not is_offline_refusal_message(msg)
+                and not is_post_connect_failure_message(msg)):
             sentence = translate_upstream_sentence(status, body, provider)
             retry_override = is_translated_sentence_retryable(status, body, provider)
     if sentence is not None:

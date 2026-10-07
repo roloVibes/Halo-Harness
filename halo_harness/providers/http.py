@@ -406,6 +406,21 @@ def format_post_connect_error(host: "str | None", detail) -> str:
     return f"upstream connection to {named} was interrupted ({detail})"
 
 
+def is_post_connect_failure_message(message) -> bool:
+    """True for the exact wording `format_post_connect_error` bakes in --
+    a failure AFTER the connection was established (a dropped keep-alive,
+    a mid-response RST, the header-wait timeout). The mirror of
+    `is_connect_failure_message` (the connect-phase lead-in): together
+    they let a caller tell a TRANSPORT failure from a real HTTP error
+    status. This matters because the wire mapper re-labels a post-connect
+    drop as a plain 502 -- but no HTTP response ever existed, so anything
+    keyed on the status alone (e.g. agent/loop.py's "the Governor already
+    paced this overload" step-aside) would wrongly claim it."""
+    return (isinstance(message, str)
+            and message.startswith("upstream connection to ")
+            and " was interrupted (" in message)
+
+
 def _bounded_connect(conn, timeout_s: float, host: str) -> None:
     """Runs `conn.connect()` (which performs `getaddrinfo` THEN the TCP/TLS
     handshake) on a background thread and waits at most `timeout_s`
