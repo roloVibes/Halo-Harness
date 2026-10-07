@@ -432,19 +432,21 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
 - **2.0.7 = embeddings + the wizard deep review:** local embeddings
   through Ollama or a managed server with the same fit rules, memory and
   search, the generic `local:` route. ADDED 2026-10-07, rolo ("do a deep
-  review of the wizard. it's cumbersome and confusing. I am mostly
-  concerned with the roles wizard settings. it needs to be much much
-  more clearer in that section, there's a lot going on, and this section
-  to me is incredibly important"): a full UX pass over `halo --init`'s
-  wizard, with THE ROLES/TEAM STEP AS THE PRIORITY AND THE ACCEPTANCE
-  BAR -- currently the Team step stacks model+effort+price picks, the
-  role table, bio create/edit/duplicate, lineup toggles and validation
-  hints on one screen; the review must cut what shows by default,
-  explain each control in one plain line as it's focused, and make the
-  RESULT of a choice visible before it's saved (what model, what it
-  costs, when it gets used). The step gets its own round with pilot
-  tests driving a first-time user's path; the other wizard steps get
-  the same treatment after.
+  review of the wizard. it's cumbersome and confusing... everything to
+  do with ROLES, ROLE TEMPLATES, and AGENT BIOS needs to be incredibly
+  smooth and clear on what is going on and how to use this" -- the team
+  control RUNTIME is not the important part): the priority is the whole
+  roles surface -- the wizard's roles step, `halo setup roles`, the
+  roles/bios editors, `/roles` -- made so a first-time user always
+  knows (1) what a role IS and when it fires, (2) what each field of a
+  bio does, (3) what the current lineup is and what it costs, before
+  anything is saved. Cut what shows by default, one plain-line
+  explanation per focused control, visible consequences (which model,
+  what price, when it gets used). The Team step currently stacks
+  model+effort+price picks, the role table, bio create/edit/duplicate,
+  lineup toggles and validation hints on ONE screen -- that is the
+  thing to fix. Its own round, pilot-tested as a first-time user's
+  path; other wizard steps after.
 - **2.0.8 = theme pack:** DOOM, Metroid, Mario (see "ADDED 2026-10-04:
   2.0.7 becomes a theme pack"; the content is unchanged, only the number).
 - **2.0.9 = Signal remote control** (plan `2.0.8-signal-brief.md`, content
