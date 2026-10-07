@@ -10,6 +10,20 @@ version.
 
 ## [2.0.6] - unreleased
 
+### Acceptance-gated sub-agent returns (round 3)
+
+A sub-agent's hand-back is checked against its bio's own `acceptance`
+criteria now (the same `expect` wording the teams doctor and the
+pipeline gates use). A failure gets ONE retry -- the critique as a
+second user turn on the SAME child session, so it corrects itself with
+its own context intact (the bio's `critique:` overrides the default
+wording). A second failure escalates with the failure MARKED: the
+hand-back carries the note, the cost rollup counts the task failed
+(round 2's cost-per-accepted), and the task meta records the verdict.
+A run that errored never retries on acceptance; a bio with no
+acceptance block is the byte-for-byte old path. Team members' criteria
+come from the team's own bio for the role.
+
 ### Per-role cost attribution (round 2)
 
 Every cost entry names the role that spent it: the session's own model

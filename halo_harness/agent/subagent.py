@@ -1073,6 +1073,58 @@ def _child_turn_outcome(child_events: list) -> "tuple[bool, Optional[str]]":
     return (reason in _ABNORMAL_TURN_DONE_REASONS), reason
 
 
+def _return_acceptance_for(spec, role_name: "Optional[str]", team_control, child) -> "Optional[dict]":
+    """2.0.6 round 3: the bio's own `acceptance` block for THIS return --
+    the team assignment's bio first (a team member's criteria are the
+    team's), else the bio of the same name resolved against the CHILD's
+    own cwd/state (project scope first, then user). None when neither has
+    one (the byte-for-byte old path: no gate, no retry)."""
+    if team_control is not None and role_name:
+        try:
+            bio = team_control.bio_for(role_name) or {}
+            acceptance = bio.get("acceptance")
+            if acceptance:
+                return acceptance
+        except Exception:
+            pass
+    from halo_harness.agents_yaml import resolve_agent_bio
+    try:
+        bio = resolve_agent_bio(spec.name, cwd=getattr(child, "cwd", None),
+                                state_dir=getattr(child, "state_dir", None)) or {}
+    except Exception:
+        return None
+    acceptance = bio.get("acceptance")
+    return acceptance if isinstance(acceptance, dict) else None
+
+
+def _check_return_acceptance(spec, role_name: "Optional[str]", team_control, child,
+                             text: str) -> "tuple[bool, Optional[str]]":
+    """`(ok, note)` -- note is None when no criteria applied (accepted by
+    default, and the caller knows not to record a verdict). The check
+    itself is `agents_doctor.check_expectation`, the SAME one the teams
+    doctor and the pipeline gates use (a prompt-driven judge check is the
+    doctor's own path; a live return stays local and deterministic)."""
+    acceptance = _return_acceptance_for(spec, role_name, team_control, child)
+    if not acceptance:
+        return True, None
+    from halo_harness.agents_doctor import check_expectation
+    expect = acceptance.get("expect") or "non-empty"
+    ok = bool(check_expectation(text or "", expect))
+    return ok, f"acceptance {expect!r}"
+
+
+def _acceptance_critique(spec, role_name: "Optional[str]", team_control, child, note: str) -> str:
+    """The retry prompt: the bio's own `critique` wording when it has one,
+    else a default that names the failed criterion. Sent as a SECOND user
+    turn on the SAME child session (it keeps its context)."""
+    acceptance = _return_acceptance_for(spec, role_name, team_control, child) or {}
+    custom = acceptance.get("critique")
+    if isinstance(custom, str) and custom.strip():
+        return custom.strip()
+    return ("Your previous result did not meet your acceptance criteria and was rejected. "
+            f"Failed check: {note}. Re-read the criteria, fix the result, and return it again.")
+
+
 def _rollup_child_cost_into_parent(parent, child, *, agent_id: str, since_index: int = 0,
                                     role: Optional[str] = None, ok: Optional[bool] = None,
                                     bio: Optional[str] = None) -> None:
@@ -2168,16 +2220,53 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # max_turns/interruption partway through used to hand back whatever
     # was logged last with no signal it wasn't a real, complete answer.
     is_error, abnormal_reason = _child_turn_outcome(child_events)
+    # Halo 2.0.6 round 3 (acceptance-gated returns): check the hand-back
+    # against the bio's own `acceptance` criteria; a failure gets ONE
+    # retry -- the critique as a second user turn on the SAME child (it
+    # keeps its context, so "address this and return again" is all the
+    # prompt needs) -- and a second failure escalates with the failure
+    # MARKED: the hand-back carries the note, the rollup's ok (round 2's
+    # cost-per-accepted) counts it failed, and the task meta records it.
+    # A run that errored never retries on acceptance (a dead run is not
+    # a rejected result); a bio with no acceptance block is byte-for-byte
+    # the old path.
+    acceptance_failed = None
+    had_acceptance = False
+    if not is_error:
+        acc_ok, acc_note = _check_return_acceptance(spec, role_name, team_control, child, text)
+        had_acceptance = acc_note is not None
+        if not acc_ok:
+            critique = _acceptance_critique(spec, role_name, team_control, child, acc_note)
+            retry_events = _run_child_to_completion(
+                child, critique, agent_id=agent_id, parent_tool_use_id=tool_id, on_event=on_event)
+            child_events = retry_events
+            text = _final_text_from_log(child)
+            is_error, abnormal_reason = _child_turn_outcome(child_events)
+            if not is_error:
+                acc_ok2, acc_note2 = _check_return_acceptance(spec, role_name, team_control, child, text)
+                if not acc_ok2:
+                    acceptance_failed = (f"acceptance failed after 2 attempts "
+                                         f"({acc_note2}; first attempt: {acc_note})")
+    accepted = (not is_error) and acceptance_failed is None
     _fire_subagent_hook(child, "SubagentStop")
     _fire_task_hook(parent, "TaskCompleted", task_id=new_task_id, spec_name=spec.name, description=description)
     # Halo 2.0.2 round 3 (brief C): `is_error`/`finished` -- see _bg_run's
     # own matching comment just above.
-    _write_meta(meta_path, {"status": "completed", "is_error": is_error, "finished": time.time()})
+    _write_meta(meta_path, {"status": "completed", "is_error": is_error,
+                            # 2.0.6 round 3: the acceptance verdict rides
+                            # the task meta -- True/False when criteria
+                            # existed, absent when they never did.
+                            **({"accepted": accepted} if had_acceptance else {}),
+                            **({"acceptance_note": acceptance_failed} if acceptance_failed else {}),
+                            "finished": time.time()})
     # H9 whole-tree review finding 13: see the background path's own
     # comment above -- a FOREGROUND child's usage/cost gets the same
     # rollup, just synchronously here instead of at the end of `_bg_run`.
+    # 2.0.6 round 3: `ok` is the ACCEPTED outcome now -- a result that
+    # ran cleanly but failed its acceptance twice counts as a failed
+    # task in round 2's cost-per-accepted.
     _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name,
-                                   ok=not is_error, bio=spec.name)
+                                   ok=accepted, bio=spec.name)
     # 2.0.2 review finding 5: `child.cost_meter.total_usd` is this call's
     # own delta already -- see `_bg_run`'s own matching comment above for
     # why a before/after subtraction on the shared PARENT meter is wrong.
@@ -2222,6 +2311,11 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
 
     if is_error:
         text = f"[sub-agent did not finish normally ({abnormal_reason}) -- this may be a stale/partial answer]\n{text}"
+    if acceptance_failed:
+        # 2.0.6 round 3: the escalation mark -- the result IS returned (the
+        # parent decides what to do with it), but never silently.
+        text = (f"[acceptance gate: {acceptance_failed} -- the result below failed its bio's "
+                f"acceptance criteria twice and is returned marked]\n{text}")
     worktree_note = _finalize_child_isolation_worktree(child)
     if worktree_note:
         text = f"{text}\n\n{worktree_note}"
