@@ -30,6 +30,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -304,11 +305,24 @@ def _run_print_mode(env: dict, extra_args: Optional[list] = None):
 @test
 def test_print_mode_default_never_discovers_a_cold_cache(ctx: Ctx):
     home = Path(tempfile.mkdtemp(prefix="w5b-cli-default-"))
+    t0 = time.monotonic()
     result = _run_print_mode(_cli_env(home))
+    elapsed = time.monotonic() - t0
     ctx.check(f"exit 0, got {result.returncode} stderr={result.stderr[-400:]!r}", result.returncode == 0)
     ctx.check("prompt still ran (pong in stdout)", "pong" in result.stdout)
-    ctx.check("never blocked on a connector discovery by default (cache still cold)",
-              not _cache_file(home).exists())
+    # The contract is "never BLOCKED", not "the cache file never appears":
+    # headless.py deliberately kicks ensure_discovered_in_background() in
+    # print mode too (a non-blocking fill so the NEXT run has connectors),
+    # and on a fast machine that background write can land before the
+    # process exits -- asserting file-absence made this test a
+    # machine-speed race (green on slow CI runners, red on the owner's
+    # box; the 2.0.1-W5 carried item). A default run against the local
+    # mock finishes in ~1-2s; one that WAITED on a discovery would sit
+    # through the bounded 20s claude spawn first, so 15s separates the
+    # two cleanly.
+    ctx.check(f"never BLOCKED on a connector discovery by default (a background fill may "
+              f"land, but the run must not wait on it), got elapsed={elapsed:.1f}s",
+              elapsed < 15.0)
 
 
 @test
