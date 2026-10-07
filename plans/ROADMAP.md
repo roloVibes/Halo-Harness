@@ -446,7 +446,20 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   model+effort+price picks, the role table, bio create/edit/duplicate,
   lineup toggles and validation hints on ONE screen -- that is the
   thing to fix. Its own round, pilot-tested as a first-time user's
-  path; other wizard steps after.
+  path; other wizard steps after. ADDED 2026-10-07 evening, rolo
+  ("copying text from the session to another file seems to not really
+  work well"): **copy out of the session is a first-class fix** -- the
+  whole copy stack (selection copy, Ctrl+C/Y's copy-turn, `/copy`, the
+  transcript widgets' own `copy_text()`) audited and made RELIABLE on
+  every platform the harness ships on: OSC 52 as primary only where it
+  provably lands, a verified system-clipboard write as the floor
+  (clip.exe/PowerShell on Windows, pbcopy on macOS, wl-copy/xclip/xsel
+  on Linux -- install-hinted when absent), a visible CONFIRMATION line
+  every single time (what was copied, how many chars, through which
+  mechanism -- silence is indistinguishable from failure), and
+  `halo doctor` reporting the copy path verdict per platform. Also:
+  copying a WHOLE turn, a code block, and the raw text of a diff must
+  each have one obvious binding, tested end to end.
 - **2.0.8 = theme pack:** DOOM, Metroid, Mario (see "ADDED 2026-10-04:
   2.0.7 becomes a theme pack"; the content is unchanged, only the number).
 - **2.0.9 = Signal remote control** (plan `2.0.8-signal-brief.md`, content
