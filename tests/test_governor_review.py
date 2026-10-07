@@ -800,6 +800,48 @@ def test_halo_governor_typo_values_never_force_the_governor_on(ctx: Ctx):
                 os.environ.pop("HALO_GOVERNOR", None)
             else:
                 os.environ["HALO_GOVERNOR"] = saved
+@test
+def test_reads_never_create_the_governor_state_dir(ctx: Ctx):
+    """Release-gate pin (CI's REAL STATE DIR GUARD caught the leak on a
+    clean runner, red since round 4): the READ paths -- `inspect_all`
+    (`/gov`'s table, doctor's gateway health), `load`,
+    `read_recent_calls` -- resolve the state dir but must never CREATE
+    it; `halo doctor` on a fresh machine used to conjure an empty
+    `~/.halo/governor/` out of a pure read. The WRITERS (the bucket
+    lock, `save`, the call-log append) create it on demand instead, so
+    a governed call still works on a clean machine."""
+    saved = {k: os.environ.get(k) for k in
+             ("GOVERNOR_STATE_DIR", "BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
+    home = Path(tempfile.mkdtemp(prefix="halo-govread-"))
+    try:
+        os.environ.pop("GOVERNOR_STATE_DIR", None)
+        os.environ["BRIDGE_TEST_HOME"] = str(home)
+        os.environ.pop("BRIDGE_STATE_DIR", None)
+        from halo_harness.providers import governor, governor_state
+        governor_state.reset_degraded_for_tests()
+        gov_dir = governor_state.state_dir()
+        ctx.check(f"state_dir resolves under the scoped home, got {gov_dir}",
+                  str(gov_dir).startswith(str(home)))
+        # the three read paths, on a home with NO governor state at all
+        _ = governor.inspect_all()
+        _ = governor_state.load("host:never-seen", {"rate_rps": 1.0}, time.time())
+        _ = governor_state.read_recent_calls("host:never-seen")
+        ctx.check(f"a pure read created the dir anyway ({gov_dir.exists()})",
+                  not gov_dir.exists())
+        # a governed call (the real writer path: lock + state) still works
+        # and creates the dir on demand
+        h = governor.acquire("host:govread.test", {"rate_rps": 2.0, "burst": 2,
+                                                   "max_inflight": 1, "max_retries": 0},
+                             agent="w", role="worker")
+        governor.report(h, ok=True, params={"rate_rps": 2.0})
+        ctx.check(f"the writer path created the dir on demand ({gov_dir.exists()})",
+                  gov_dir.exists())
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
 
 
 if __name__ == "__main__":
