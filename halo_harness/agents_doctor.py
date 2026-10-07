@@ -186,6 +186,7 @@ def check_roles_hygiene(*, cwd=None, state_dir=None) -> "list[str]":
     reachability probe per distinct gateway host."""
     import re as _re
     from halo_harness.roles import configured_role_table
+    from halo_harness.theme import get_config_value
     problems: "list[str]" = []
     table = configured_role_table()
 
@@ -195,9 +196,13 @@ def check_roles_hygiene(*, cwd=None, state_dir=None) -> "list[str]":
             return v.get("model")
         return v
 
-    # 1. exactly one main, and it exists
-    if "main" not in table:
-        problems.append("roles table has no 'main' -- the session's own model is unset "
+    # 1. a main model, from either spelling: an explicit roles.main, or
+    # the top-level `model` key a bare config carries (the session's own
+    # model -- exactly as valid; the VM's own config spells it that way).
+    # Only when NEITHER exists is the lineup actually headless.
+    top_model = get_config_value("model", default=None)
+    if _pref_for("main") is None and not (isinstance(top_model, str) and top_model):
+        problems.append("no main model -- neither roles.main nor the top-level `model` is set "
                         "(`halo setup roles` or the wizard's roles step fixes this).")
     # 2. judge in the same family as coder (self-preference bias)
     coder_pref, judge_pref = _pref_for("coder"), _pref_for("judge")
