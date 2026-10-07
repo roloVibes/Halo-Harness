@@ -135,7 +135,14 @@ def cmd_update(argv: "list[str]") -> int:
     parser.add_argument("--force", action="store_true",
                          help="Reinstall even if another halo process looks like it's running")
     parser.add_argument("--refresh", action="store_true",
-                         help="(always on now -- kept for compatibility) ignore the cache, always check live")
+                        help="(always on now -- kept for compatibility) ignore the cache, always check live")
+    # 2.0.6 round 8 (the v2.0.4 review's item 7, the verification half):
+    # refuse to install a target tag whose GitHub release has no
+    # checksums.txt asset -- every release.py-built tag carries one
+    # (the tag's own git archive + its sha256); a missing one means a
+    # broken or foreign release, not something to install unverified.
+    parser.add_argument("--no-verify", dest="verify", action="store_false",
+                        help="Skip the target tag's release-checksums check before installing")
     args = parser.parse_args(argv)
     if args.channel:
         from halo_harness.theme import set_config_value
@@ -167,4 +174,22 @@ def cmd_update(argv: "list[str]") -> int:
     if code == 0:
         print("halo update: already up to date")
         return 0
+    # 2.0.6 round 8: the target tag must carry a checksums.txt release
+    # asset before we install it. Only a TAG-shaped target can be checked
+    # (a branch/commit target has no release); an unreadable release
+    # (offline, rate-limited) fails OPEN with a printed warning -- a
+    # network blip must not block the update the user explicitly asked
+    # for, only a tag that verifiably lacks the asset refuses.
+    if getattr(args, "verify", True):
+        target = args.to or avail.get("commit")
+        if isinstance(target, str) and target.startswith("v") and target[1:].replace(".", "").isdigit():
+            assets = upd.tag_checksums(target)
+            if assets is not None and not any(a.get("name") == "checksums.txt" for a in assets):
+                print(f"halo update: refusing -- release {target} has no checksums.txt asset "
+                      f"(broken or foreign release; --no-verify skips this check)", file=sys.stderr)
+                return 1
+            elif assets is None:
+                print(f"halo update: could not read release {target}'s assets "
+                      f"(offline or rate-limited) -- installing without the checksums check",
+                      file=sys.stderr)
     return apply_update(cmd=cmd, force=args.force)

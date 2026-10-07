@@ -165,6 +165,33 @@ def git_credential_token(repo_dir: Path = REPO_DIR, *, run_fn: "Optional[Callabl
     return None
 
 
+def build_release_artifact(version: str, *, repo_dir: Path = REPO_DIR,
+                            run_fn: "Optional[Callable]" = None,
+                            tmp_dir: "Optional[Path]" = None) -> "tuple[Path, Path]":
+    """2.0.6 round 8 (the v2.0.4 review's item 7, the half 2.0.5 left):
+    build the tag's own source archive (`git archive` of the tag -- the
+    tree and nothing else, no working-tree dirt possible) and its
+    `checksums.txt` (`<sha256>  <name>`, the sha256sum layout every
+    verifier reads). Returns `(artifact_path, checksums_path)` under
+    `tmp_dir` (a real tempfile dir when the caller passes none) -- the
+    caller uploads both as the release's assets. `halo update --verify`
+    checks the checksums asset exists for the tag before installing."""
+    import hashlib
+    import tempfile
+    if run_fn is None:
+        run_fn = subprocess.run
+    tag = f"v{version}"
+    out_dir = Path(tmp_dir) if tmp_dir is not None else Path(tempfile.mkdtemp(prefix="halo-release-"))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    artifact = out_dir / f"halo-harness-{version}.tar.gz"
+    run_fn(["git", "-C", str(repo_dir), "archive", "--format=tar.gz",
+            "-o", str(artifact), tag], check=True)
+    digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    checksums = out_dir / "checksums.txt"
+    checksums.write_text(f"{digest}  {artifact.name}\n", encoding="utf-8")
+    return artifact, checksums
+
+
 def publish_github_release(version: str, notes: str, *, repo_dir: Path = REPO_DIR,
                             run_fn: "Optional[Callable]" = None, gh_path_fn: "Optional[Callable]" = None,
                             token_fn: "Optional[Callable]" = None) -> str:
@@ -185,18 +212,38 @@ def publish_github_release(version: str, notes: str, *, repo_dir: Path = REPO_DI
     tag = f"v{version}"
     gh = (gh_path_fn or _gh_cli_path)()
     if gh:
+        artifact, checksums = build_release_artifact(version, repo_dir=repo_dir, run_fn=run_fn)
         run_fn([gh, "release", "create", tag, "--title", f"Halo Harness {version}", "--notes", notes],
                cwd=str(repo_dir), check=True)
-        return f"gh release create {tag} (via the gh CLI)"
+        run_fn([gh, "release", "upload", tag, str(artifact), str(checksums)],
+               cwd=str(repo_dir), check=True)
+        return f"gh release create {tag} + artifact upload (via the gh CLI)"
     token = (token_fn or git_credential_token)(repo_dir, run_fn=run_fn)
     if not token:
         raise ReleaseError("no `gh` CLI on PATH and `git credential fill` returned no usable github.com "
                             "token -- cannot publish the GitHub release (--no-github-release skips this step)")
     url = "https://api.github.com/repos/roloVibes/Halo-Harness/releases"
     payload = json.dumps({"tag_name": tag, "name": f"Halo Harness {version}", "body": notes})
-    run_fn(["curl", "-sS", "-X", "POST", url, "-H", f"Authorization: token {token}",
-            "-H", "Accept: application/vnd.github+json", "-d", payload], check=True)
-    return f"POST {url} (via curl, token from git credential fill)"
+    created = run_fn(["curl", "-sS", "-X", "POST", url, "-H", f"Authorization: token {token}",
+                      "-H", "Accept: application/vnd.github+json", "-d", payload],
+                     check=True, capture_output=True, text=True)
+    # 2.0.6 round 8: upload the artifact + checksums to the release we
+    # just made -- the release's numeric id comes from that same response
+    # (the upload endpoint needs it). Unparseable response -> the release
+    # itself exists but has no assets; say so rather than guessing.
+    import re as _re
+    m = _re.search(r"\"id\"\s*:\s*(\d+)", getattr(created, "stdout", "") or "")
+    if not m:
+        return (f"POST {url} (via curl) -- release created, but the asset upload was skipped: "
+                "the create response's id could not be read (use the gh CLI for asset uploads)")
+    artifact, checksums = build_release_artifact(version, repo_dir=repo_dir, run_fn=run_fn)
+    upload_base = f"https://uploads.github.com/repos/roloVibes/Halo-Harness/releases/{m.group(1)}/assets"
+    for path in (artifact, checksums):
+        run_fn(["curl", "-sS", "-X", "POST", f"{upload_base}?name={path.name}",
+                "-H", f"Authorization: token {token}",
+                "-H", "Content-Type: application/octet-stream",
+                "--data-binary", f"@{path}"], check=True)
+    return f"POST {url} + {upload_base} artifact upload (via curl, token from git credential fill)"
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
