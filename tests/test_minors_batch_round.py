@@ -266,6 +266,47 @@ def test_hf_local_server_save_merges_not_replaces(ctx: Ctx):
                 os.environ[k] = v
 
 
+
+
+@test
+def test_child_escalation_decisions_reach_the_parent(ctx: Ctx):
+    """The C-5 remainder: a child's own hybrid-escalation decisions are
+    forwarded onto the PARENT's list at handback (tagged with the agent
+    name), so /escalation and the result JSON see them."""
+    from halo_harness.agent.subagent import _forward_child_escalation_decisions
+    from halo_harness.agent.escalation import EscalationDecision
+
+    class _S:
+        def __init__(self, decisions):
+            self._escalation_decisions = decisions
+
+    from dataclasses import replace as _replace
+    child = _S([EscalationDecision(turn=3, trigger="tool_failures", to="or:vendor/big",
+                                   action="switched", note="4 tool failures")])
+    parent = _S([])
+    spec = type("S", (), {"name": "implementer"})()
+    _forward_child_escalation_decisions(parent, child, spec)
+    ctx.check(f"the decision reached the parent, got {parent._escalation_decisions}",
+              len(parent._escalation_decisions) == 1)
+    d = parent._escalation_decisions[0]
+    note = getattr(d, "note", "")
+    ctx.check(f"it is tagged with the agent name, got {note!r}",
+              note.startswith("[implementer]") and "4 tool failures" in note)
+    ctx.check("the other fields ride along",
+              getattr(d, "to", None) == "or:vendor/big" and getattr(d, "action", None) == "switched")
+    # a child with none is a no-op; a parent without the list never breaks
+    _forward_child_escalation_decisions(parent, _S([]), spec)
+    _forward_child_escalation_decisions(_S(None), child, spec)
+    ctx.check("empty/no-list cases are silent no-ops", len(parent._escalation_decisions) == 1)
+    # dict-shaped entries (loop.py's other append shape) forward too
+    child2 = _S([{"turn": 1, "trigger": "context_overflow", "to": "or:x", "action": "asked", "note": "n"}])
+    _forward_child_escalation_decisions(parent, child2, spec)
+    ctx.check(f"dict-shaped decisions forward, got {len(parent._escalation_decisions)}",
+              len(parent._escalation_decisions) == 2)
+    ctx.check("the dict shape is tagged too",
+              parent._escalation_decisions[1]["note"].startswith("[implementer]"))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

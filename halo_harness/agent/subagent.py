@@ -1073,6 +1073,33 @@ def _child_turn_outcome(child_events: list) -> "tuple[bool, Optional[str]]":
     return (reason in _ABNORMAL_TURN_DONE_REASONS), reason
 
 
+def _forward_child_escalation_decisions(parent, child, spec) -> None:
+    """2.0.6 round 12 (the carried C-5 minor): a background or foreground
+    child's own hybrid-escalation decisions (agent/loop.py::_maybe_
+    escalate appends to the CHILD session's list) used to die with the
+    child -- the main session's /escalation view and the result JSON's
+    escalations field never saw them. Copy any onto the PARENT's list,
+    tagged with the agent's name so the view can say whose escalation it
+    was. Best-effort: never lets a forwarding failure break the handback."""
+    try:
+        child_decisions = list(getattr(child, "_escalation_decisions", []) or [])
+        if not child_decisions:
+            return
+        parent_list = getattr(parent, "_escalation_decisions", None)
+        if parent_list is None:
+            return
+        for d in child_decisions:
+            note = (getattr(d, "note", "") or "")
+            tagged = f"[{spec.name}] {note}" if note else f"[{spec.name}]"
+            if isinstance(d, dict):
+                parent_list.append({**d, "note": tagged})
+            else:
+                from dataclasses import replace
+                parent_list.append(replace(d, note=tagged))
+    except Exception:
+        pass
+
+
 def _return_acceptance_for(spec, role_name: "Optional[str]", team_control, child) -> "Optional[dict]":
     """2.0.6 round 3: the bio's own `acceptance` block for THIS return --
     the team assignment's bio first (a team member's criteria are the
@@ -1557,6 +1584,7 @@ def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: s
         _write_meta(meta_path, {"status": "completed", "is_error": is_error, "finished": time.time()})
         _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name,
                                        ok=not is_error, bio=spec.name)
+        _forward_child_escalation_decisions(parent, child, spec)
         # 2.0.2 review finding 5: a fan-out job's own spend now reaches the
         # SAME budget tracker a single spawn already does -- this path
         # never called `record_spend` at all before. `child.cost_meter.
@@ -2074,6 +2102,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                 # `/stats` already reflect it.
                 _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name,
                                                ok=not bg_is_error, bio=spec.name)
+                _forward_child_escalation_decisions(parent, child, spec)
                 # 2.0.2 review finding 5 (major): `child.cost_meter.total_usd`
                 # is already scoped to exactly this call (a fresh CostMeter
                 # per Session construction) -- a before/after subtraction on
@@ -2267,6 +2296,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # task in round 2's cost-per-accepted.
     _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name,
                                    ok=accepted, bio=spec.name)
+    _forward_child_escalation_decisions(parent, child, spec)
     # 2.0.2 review finding 5: `child.cost_meter.total_usd` is this call's
     # own delta already -- see `_bg_run`'s own matching comment above for
     # why a before/after subtraction on the shared PARENT meter is wrong.
@@ -2750,6 +2780,9 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
     _write_meta(meta_path, {"status": "completed", "is_error": is_error, "finished": time.time()})
     _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name,
                                    ok=not is_error, bio=spec.name)
+    # 2.0.6 round 12: the child's own escalation decisions reach the
+    # parent's /escalation view (the C-5 remainder).
+    _forward_child_escalation_decisions(parent, child, spec)
     # Finding 5: a resumed call's own spend now reaches the SAME budget
     # tracker a fresh spawn already does -- `child.cost_meter.total_usd`
     # (never a before/after subtraction on the shared PARENT meter) is
