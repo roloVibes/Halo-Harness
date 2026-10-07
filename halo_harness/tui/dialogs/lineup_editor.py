@@ -257,6 +257,7 @@ class LineupEditor(ModalScreen):
                 yield TextArea(id="lineup-about")
                 with Horizontal(classes="wizard-extra-buttons"):
                     yield Button("Draft (ctrl+g)", id="lineup-about-draft")
+                    yield Button("Smoke run (cost first)", id="lineup-smoke", compact=True)
                 yield Static("", id="lineup-about-stale")
                 with Horizontal(classes="wizard-extra-buttons"):
                     yield Switch(value=self.project, id="lineup-project-toggle")
@@ -337,6 +338,14 @@ class LineupEditor(ModalScreen):
         else:
             self._current_index = None
         self._refresh_warnings()
+
+    def _show_note(self, text: str) -> None:
+        """2.0.6 round 14: the smoke-run status line -- the warnings
+        static, prefixed so a warnings refresh never eats it silently."""
+        try:
+            self.query_one("#lineup-warnings", Static).update(text)
+        except Exception:
+            pass
 
     def _refresh_warnings(self) -> None:
         warnings = lineup_warnings(self._agents(), cwd=self.cwd, state_dir=self.state_dir)
@@ -481,6 +490,8 @@ class LineupEditor(ModalScreen):
             self.action_pick_agent_or_model()
         elif bid == "lineup-about-draft":
             self.action_draft_about()
+        elif bid == "lineup-smoke":
+            self.action_smoke_run()
         elif bid == "lineup-save":
             self.action_save()
         elif bid == "lineup-cancel":
@@ -548,6 +559,57 @@ class LineupEditor(ModalScreen):
                               lambda saved: self._agent_or_model_picked({"agent": saved}) if saved else None)
 
     # -- draft the about text -------------------------------------------------
+    def action_smoke_run(self) -> None:
+        """2.0.6 round 14 (the lineup smoke run, cost shown first): every
+        distinct model the lineup resolves to gets its cost line printed
+        BEFORE anything runs, then each member's own acceptance prompt
+        (the same probe `halo doctor --teams` exercises) fires on a
+        worker through the real print-mode subprocess path. The result
+        note lands beside the warnings when the worker finishes."""
+        from halo_harness.smoke_run import smoke_cost_line
+        agents = self._agents()
+        prefs = []
+        for e in agents:
+            if isinstance(e, dict):
+                ov = e.get("models") or {}
+                pref = (ov.get("preference")
+                        or ((self._bio_models(e.get("agent")) or {}).get("preference")))
+                if isinstance(pref, str) and pref.strip() and pref not in prefs:
+                    prefs.append(pref.strip())
+        if not prefs:
+            self._show_note("Smoke run: no models resolve in this lineup yet -- pick preferences first.")
+            return
+        cost_lines = [smoke_cost_line(p) for p in prefs]
+        self._show_note("Smoke run -- cost first:\n  " + "\n  ".join(cost_lines)
+                   + "\nrunning " + str(len(prefs)) + " smoke call(s) on a worker...")
+
+        def _work() -> None:
+            from halo_harness.agents_doctor import run_all_acceptance
+            results = run_all_acceptance(
+                names=[e.get("agent") for e in agents if isinstance(e, dict) and e.get("agent")])
+            summary = "; ".join(f"{n}: {'ok' if ok else m[:40]}" for n, ok, m in results) or "nothing ran"
+            try:
+                self.app.call_from_thread(
+                    self._show_note,
+                    "Smoke run -- cost first:\n  " + "\n  ".join(cost_lines)
+                    + "\nresults: " + summary[:400])
+            except Exception:
+                pass
+        try:
+            self.run_worker(_work, thread=True, name="lineup-smoke", group="lineup-smoke")
+        except Exception:
+            pass
+
+    @staticmethod
+    def _bio_models(agent_name):
+        from halo_harness.agents_yaml import resolve_agent_bio
+        try:
+            bio = resolve_agent_bio(agent_name, cwd=None, state_dir=None) or {}
+        except Exception:
+            return {}
+        m = bio.get("models")
+        return m if isinstance(m, dict) else {}
+
     def action_draft_about(self) -> None:
         self._commit_current_assignment()
         text = draft_about_text(self.template)
