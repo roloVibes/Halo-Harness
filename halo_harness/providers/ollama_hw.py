@@ -264,6 +264,12 @@ def run_via_ssh(user_host: str, *, timeout: float = _GPU_PROBE_TIMEOUT_S):
     import shlex
 
     def _runner(argv: list, call_timeout: float) -> Optional[str]:
+        # 2.0.6 round 12 (the carried minor): the offline gate every other
+        # network-reaching path already runs -- ssh is as much "the
+        # network" as HTTPS.
+        from halo_harness.providers.http import offline_mode_enabled
+        if offline_mode_enabled():
+            return None
         remote_cmd = " ".join(shlex.quote(str(a)) for a in argv)
         ssh_argv = ["ssh", "-o", "BatchMode=yes", "-o", f"ConnectTimeout={max(1, int(timeout))}",
                     user_host, remote_cmd]

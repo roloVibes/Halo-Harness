@@ -616,7 +616,15 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
             servers = get_config_value("huggingface.local_servers", default=None)
             servers = [s for s in servers if isinstance(s, dict)] if isinstance(servers, list) else []
             local_key = (values.get("local_key") or "").strip()
-            entry = {"name": "default", "url": local_url}
+            # 2.0.6 round 12 (the carried C-1 minor): MERGE into the
+            # existing "default" entry's own fields -- exactly the C-2
+            # finding-15 fix the Ollama branch got -- instead of replacing
+            # it outright, so a re-save can never drop the entry's own
+            # `default` flag or anything else a previous save carried.
+            existing = next((s for s in servers if s.get("name") == "default"), None)
+            entry = dict(existing) if existing else {}
+            entry["name"] = "default"
+            entry["url"] = local_url
             if local_key:
                 # finding 16: see the ollama branch above -- a reference,
                 # never the plaintext key, goes into config.json.

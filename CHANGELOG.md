@@ -10,6 +10,25 @@ version.
 
 ## [2.0.6] - unreleased
 
+### Carried fix-pass minors, batch A (round 12)
+
+Seven small ones from the 2.0.3 fix-pass notes: `halo config set`'s echo
+masks secret-shaped values exactly like the readers (a recorded terminal
+never sees the secret twice; the stored value is untouched);
+`config list`/`get` show `*_env` REFERENCE names (a variable name is not
+a secret) while actual secrets stay masked; `pick_proxy` answers a
+plain-HTTP target with `HTTP_PROXY` first (it used to answer
+`HTTPS_PROXY` -- backwards for split setups); a plain-HTTP request
+through a proxy carries the ABSOLUTE request-target form (`GET
+http://host:port/path`, not `/path` -- a proxy cannot know the origin
+from a relative line), with the Host header naming the target; the
+optional ssh GPU read, `halo models --cc --refresh`, and the Databricks
+catalog auto-refresh thread all run the offline gate every other
+network path runs (offline, the cc refresh returns the last cached
+catalog instead of an empty one); and the wizard's Hugging Face tab
+merges into the default local server's existing fields on re-save
+instead of replacing them (the same fix the Ollama tab got).
+
 ### Gym cloud-model ranking (round 11)
 
 `halo gym propose --candidates local|cloud|all`: the proposal's ranking

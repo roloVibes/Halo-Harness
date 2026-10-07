@@ -475,7 +475,7 @@ def _bounded_connect(conn, timeout_s: float, host: str) -> None:
         raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
 
 
-def pick_proxy(host: str) -> str | None:
+def pick_proxy(host: str, tls: bool = True) -> str | None:
     """Return proxy URL from env if host not bypassed, else None.
 
     Halo 2.0.3 fix pass C-1 (review finding 2): a loopback target, or a
@@ -488,7 +488,14 @@ def pick_proxy(host: str) -> str | None:
     exempted loopback/allow-listed hosts at all, so under offline mode a
     loopback or LAN `ol:`/`hf:local` request -- prompt body included --
     went to whatever HTTPS_PROXY/HTTP_PROXY named, same as it would have
-    for any other host."""
+    for any other host.
+
+    2.0.6 round 12 (the carried C-1 minor): `tls` picks the env-var
+    ORDER -- a plain-HTTP target prefers HTTP_PROXY/http_proxy (falling
+    back to the HTTPS ones only when unset), a TLS target the reverse.
+    The old single order answered an `http://` target with HTTPS_PROXY,
+    which is exactly backwards for split setups (a local HTTP proxy for
+    plain traffic, a remote one for TLS)."""
     if _is_loopback_host(host):
         return None
     try:
@@ -500,12 +507,34 @@ def pick_proxy(host: str) -> str | None:
     if urllib.request.proxy_bypass_environment(host):
         return None
 
-    # Check environment variables in order
-    for var in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"):
+    # Check environment variables in order (tls-appropriate first)
+    order = ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy") if tls \
+        else ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy")
+    for var in order:
         proxy = os.environ.get(var)
         if proxy:
             return proxy
     return None
+
+
+class _ProxiedPlainHTTPConnection(http.client.HTTPConnection):
+    """2.0.6 round 12 (the carried C-1 minor): a plain-HTTP request through
+    a proxy needs an ABSOLUTE request-target (`GET http://host:port/path
+    HTTP/1.1`), not the relative form callers naturally pass (`/path`) --
+    with a relative line the proxy cannot know which origin server is
+    meant. http.client has no first-class support for this (unlike
+    HTTPSConnection's set_tunnel), so this subclass rewrites any relative
+    path in `request()` to its absolute form; the Host header then also
+    names the TARGET (correct proxy semantics), not the proxy itself."""
+
+    def __init__(self, proxy_host, proxy_port, *, target_host, target_port, **kw):
+        super().__init__(proxy_host, proxy_port, **kw)
+        self._proxy_target_origin = f"http://{target_host}:{target_port}"
+
+    def request(self, method, url, body=None, headers=None, *, encode_chunked=False):
+        if isinstance(url, str) and url.startswith("/"):
+            url = self._proxy_target_origin + url
+        return super().request(method, url, body, headers, encode_chunked=encode_chunked)
 
 
 def open_upstream(host: str, port: int, tls: bool, connect_timeout: int = DEFAULT_CONNECT_TIMEOUT_S,
@@ -534,7 +563,7 @@ def open_upstream(host: str, port: int, tls: bool, connect_timeout: int = DEFAUL
     passthrough request this harness makes) all funnel through, so offline
     enforcement lives here exactly once."""
     _check_offline_allowed(host)
-    proxy_url = pick_proxy(host)
+    proxy_url = pick_proxy(host, tls)
     # Halo 2.0.3 fix pass C-1 (review finding 2): defense in depth -- the
     # real socket peer whenever a proxy IS used is the PROXY host, never
     # `host` itself, so offline mode must gate that too. `pick_proxy`
@@ -564,8 +593,9 @@ def open_upstream(host: str, port: int, tls: bool, connect_timeout: int = DEFAUL
             )
             conn.set_tunnel(host, port)
         else:
-            # HTTP via proxy
-            conn = http.client.HTTPConnection(proxy_host, proxy_port, timeout=connect_timeout)
+            # HTTP via proxy -- absolute request-target form (round 12)
+            conn = _ProxiedPlainHTTPConnection(proxy_host, proxy_port, timeout=connect_timeout,
+                                               target_host=host, target_port=port)
     else:
         # Direct connection
         if tls:
