@@ -1529,6 +1529,36 @@ async def _handle_rewind(app, args: str) -> None:
     if not callable(steps_fn):
         app.notify("Rewind needs a real session.", severity="warning", title="/rewind")
         return
+    # 2.0.6 round 6: `/rewind turn <N>` -- one-key rollback of a whole
+    # turn's edits (the v2.0.4 review's item 5): confirm against the
+    # turn's own summary, then restore to the START of that turn (the
+    # last step of the previous one, or the session's start).
+    if step_id.lower().startswith("turn"):
+        num = step_id[4:].strip().lstrip("#")
+        if not num.isdigit():
+            cps_fn = getattr(app.controller, "turn_checkpoints", None)
+            cps = cps_fn() if callable(cps_fn) else []
+            if not cps:
+                app.notify("No turn checkpoints recorded (turns with no file changes have none).",
+                           severity="warning", title="/rewind")
+                return
+            app.notify("Turns with checkpoints: " + ", ".join(f"#{c['turn']}" for c in cps),
+                       title="/rewind turn")
+            return
+        turn_no = int(num)
+        cps_fn = getattr(app.controller, "turn_checkpoints", None)
+        cps = {c["turn"]: c for c in (cps_fn() if callable(cps_fn) else [])}
+        cp = cps.get(turn_no)
+        if cp is None:
+            app.notify(f"No checkpoint for turn {turn_no}.", severity="error", title="/rewind turn")
+            return
+        step = {
+            "id": f"turn-{turn_no}-start", "label": f"start of turn {turn_no}",
+            "files": cp["files"], "created": cp["created"],
+            "detail": f"{cp['steps']} step(s) this turn; rewinds {len(cp['files'])} file(s)",
+        }
+        await _show_turn_rewind_confirmation(app, step, turn_no)
+        return
     if step_id:
         step = next((s for s in steps_fn() if step_id in (s.get("id"), s.get("hash"))), None)
         if step is None:
@@ -1585,6 +1615,39 @@ def _apply_rewind_worker(app, step_id: str, verb: str) -> None:
         return
     files = result.get("files") or []
     text = f"↩ {verb.capitalize()} complete -- restored {len(files)} file(s) to step {step_id}."
+    app.call_from_thread(app.transcript.add_note, text, kind="command")
+
+
+async def _show_turn_rewind_confirmation(app, step: dict, turn_no: int) -> None:
+    """2.0.6 round 6: `/rewind turn N`'s confirm card -- same pending-card
+    choke point as the step rewind, then the TURN restore worker."""
+    note = _pending_card_note(app, "rewind")
+    if note:
+        app.notify(note, title="/rewind")
+        return
+    from halo_harness.tui.widgets.cards import RewindCard
+
+    def on_decide(confirmed: bool) -> None:
+        app.clear_pending_card()
+        if confirmed:
+            app.run_worker(lambda: _apply_turn_rewind_worker(app, turn_no), thread=True,
+                           name="rewind-turn-apply", group="rewind-turn-apply")
+
+    card = RewindCard(step=step, verb="rewind", on_decide=on_decide)
+    await app.transcript.mount_widget(card)
+    app.set_pending_card(card)
+
+
+def _apply_turn_rewind_worker(app, turn_no: int) -> None:
+    result = app.controller.rewind_turn(turn_no)
+    if result is None:
+        app.call_from_thread(app.notify, f"Rewind failed (no checkpoint for turn {turn_no}).",
+                             severity="error", title="/rewind turn")
+        return
+    files = result.get("files") or []
+    deleted = result.get("deleted") or []
+    text = (f"↩ Turn {turn_no} rolled back -- restored {len(files)} file(s), "
+            f"deleted {len(deleted)} created file(s).")
     app.call_from_thread(app.transcript.add_note, text, kind="command")
 
 

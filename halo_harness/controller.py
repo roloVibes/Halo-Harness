@@ -1274,6 +1274,21 @@ class Controller:
         store = store_for_controller(self)
         return store.list_steps() if store is not None else []
 
+    def turn_checkpoints(self) -> list:
+        """2.0.6 round 6: one checkpoint per TURN that has shadow steps --
+        `/rewind turn <N>`'s picker data."""
+        from halo_harness.shadow import store_for_controller
+        store = store_for_controller(self)
+        return store.turn_checkpoints() if store is not None else []
+
+    def rewind_turn(self, turn: int) -> Optional[dict]:
+        """2.0.6 round 6: restore the working tree to the START of `turn`
+        (the last step of the previous turn, or the session's own start
+        when none). Same return shape as `rewind_apply`."""
+        from halo_harness.shadow import store_for_controller
+        store = store_for_controller(self)
+        return store.rewind_to_turn_start(turn) if store is not None else None
+
     def rewind_preview_undo(self) -> Optional[dict]:
         from halo_harness.shadow import store_for_controller
         store = store_for_controller(self)
