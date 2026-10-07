@@ -32,8 +32,20 @@ def _print_all() -> int:
         # `"token": "..."` wherever they appear in the serialized value,
         # legacy plaintext entries included (an env-ref entry has
         # nothing left to mask -- it only ever holds a variable NAME).
-        print(f"{key}={sanitize_text(json.dumps(data[key]))}")
+        print(f"{key}={_mask_value(key, data[key])}")
     return 0
+
+
+def _mask_value(key: str, value) -> str:
+    """The serialized value, secret-shaped content redacted -- EXCEPT for
+    `*_env` reference fields (2.0.6 round 12, the carried minor): a value
+    like `api_key_env: "OPENROUTER_API_KEY"` holds a variable NAME, not a
+    secret, and the name-based redactor masks it into uselessness; the
+    reference shows while any actual secret stays hidden."""
+    text = json.dumps(value)
+    if key.endswith("_env") or key.split(".")[-1].endswith("_env"):
+        return text
+    return sanitize_text(text)
 
 
 def _cmd_get(rest: list) -> int:
@@ -51,8 +63,9 @@ def _cmd_get(rest: list) -> int:
     if value is theme_mod._MISSING:
         print(f"halo config: {args.key!r} is not set", file=sys.stderr)
         return 1
-    # finding 16: same masking as _print_all above.
-    print(sanitize_text(json.dumps(value)))
+    # finding 16: same masking as _print_all above (incl. the round-12
+    # *_env reference-name exemption).
+    print(_mask_value(args.key, value))
     return 0
 
 
@@ -70,7 +83,10 @@ def _cmd_set(rest: list) -> int:
               f"(expected one of {sorted(theme_mod.VALID_THEMES)})", file=sys.stderr)
         return 2
     theme_mod.set_config_value(args.key, value)
-    print(f"{args.key}={json.dumps(value)}")
+    # 2.0.6 round 12 (the carried minor): the echo masks exactly like the
+    # readers -- a value that IS secret-shaped prints back redacted, so a
+    # recorded/shared terminal never sees it twice.
+    print(f"{args.key}={_mask_value(args.key, value)}")
     return 0
 
 

@@ -620,6 +620,14 @@ def refresh_cc_catalog(*, state_dir: Optional[Path] = None, timeout: float = 30.
     most output tokens (never just `next(iter(...))`, which is dict-
     iteration-order, not "the model that actually answered") is what gets
     cached as the canonical id."""
+    # 2.0.6 round 12 (the carried minor): the offline gate every other
+    # network path runs -- nine real `claude` pings are as much "the
+    # network" as anything else. Offline returns the LAST cached catalog
+    # (stale-but-real beats an empty answer the CLI would then write
+    # back over it).
+    from halo_harness.providers.http import offline_mode_enabled
+    if offline_mode_enabled():
+        return _load_cc_models_cache(state_dir=state_dir)
     try:
         argv = resolve_claude_launch_argv()
     except ClaudeCodeNotFoundError:

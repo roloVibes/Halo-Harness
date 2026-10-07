@@ -1119,6 +1119,13 @@ def build_session(
         import threading as _threading
         def _bg_dbx_refresh() -> None:
             try:
+                # 2.0.6 round 12 (the carried minor): the offline gate the
+                # synchronous paths already run -- a background thread must
+                # never be the one thing that still reaches the network
+                # under `network.offline`.
+                from halo_harness.providers.http import offline_mode_enabled
+                if offline_mode_enabled():
+                    return
                 from halo_harness.providers.databricks import dbx_endpoints_age_seconds, refresh_dbx_catalog_if_stale
                 if dbx_endpoints_age_seconds(state_dir) is not None:
                     # N2c (1.0.1 final pass): this session's own trust-
