@@ -475,6 +475,21 @@ fix has a pinning test in `tests/test_governor_review.py`,
   is ignored and config decides. The dead `select` import in
   `governor_state` is gone (nit 11). Learned-rules caching (nit 12) is
   deferred to 2.0.6.
+- **A regression finding 2's fix introduced, caught by the pre-tag
+  suite gate** (CI was red on it, both platforms): a post-connect
+  transport drop (a dropped keep-alive, a mid-response RST) is
+  re-labelled a plain 502 by the wire mapper, and the error translator
+  then replaced its message with the canned 529 "gateway returned a bad
+  response" sentence -- so the loop's new, working Governor step-aside
+  mistook the drop for an overload the Governor had already paced and
+  retried (it had not: the Governor paces HTTP response statuses only;
+  a dropped connection produced no response). The turn died after phase
+  1's single immediate re-dial instead of riding the backoff ladder.
+  `is_post_connect_failure_message` now joins the byte-for-byte guard
+  in the translator (beside the connect-failure wording it mirrors) and
+  the ownership check declines it -- a dropped keep-alive retries on
+  the loop's own ladder again, pinned both synthetically and against a
+  real socket close with the Governor on.
 
 ## [2.0.4] - 2026-10-06
 
