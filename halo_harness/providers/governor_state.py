@@ -115,19 +115,34 @@ def reset_degraded_for_tests() -> None:
 def state_dir() -> Path:
     """`GOVERNOR_STATE_DIR` (the share-with-another-tool override) wins;
     otherwise `<halo state dir>/governor/`, scoped by BRIDGE_TEST_HOME /
-    BRIDGE_STATE_DIR exactly like every other piece of Halo state."""
+    BRIDGE_STATE_DIR exactly like every other piece of Halo state.
+
+    Pure PATH resolution, never a mkdir (2.0.5 release-gate fix): the
+    read paths (`inspect_all` for `/gov` and doctor's gateway health,
+    `load`, `read_recent_calls`) must not create anything -- on a clean
+    machine `halo doctor` used to conjure `~/.halo/governor/` out of a
+    pure read (CI's REAL STATE DIR GUARD caught it: the round-4 suite
+    left the runner's home with an empty governor dir). The WRITERS
+    (`save`, the bucket lock, the call-log append) create the dir on
+    demand via `_ensure_parent`, which keeps the old unwritable-dir
+    behavior: one warning, the degraded flag, in-process-only limiting."""
     override = os.environ.get("GOVERNOR_STATE_DIR")
     if override:
-        base = Path(override)
-    else:
-        from halo_harness.config.paths import bridge_home
-        base = Path(bridge_home()) / "governor"
+        return Path(override)
+    from halo_harness.config.paths import bridge_home
+    return Path(bridge_home()) / "governor"
+
+
+def _ensure_parent(p: Path) -> None:
+    """Writers' on-demand directory creation (see `state_dir`): a no-op
+    when it already exists, one warning + the degraded flag when it
+    cannot be made (the caller's own OSError handling then keeps the
+    process alive on in-process limits)."""
     try:
-        base.mkdir(parents=True, exist_ok=True)
+        p.parent.mkdir(parents=True, exist_ok=True)
     except OSError as e:
-        warn_once(f"governor: cannot create state dir {base}: {e}; "
+        warn_once(f"governor: cannot create state dir {p.parent}: {e}; "
                   "falling back to IN-PROCESS only limiting (not shared across sessions)")
-    return base
 
 
 def _safe(key: str) -> str:
@@ -171,6 +186,7 @@ class _Lock:
     def __enter__(self):
         self._proc_lock.acquire()
         try:
+            _ensure_parent(self._p)
             self._fd = os.open(str(self._p), os.O_CREAT | os.O_RDWR, 0o644)
             deadline = time.monotonic() + LOCK_TIMEOUT_S
             if _HAVE_FLOCK:
@@ -311,6 +327,7 @@ def save(key: str, st: Dict[str, Any]) -> None:
     st["updated"] = time.time()
     tmp = p.with_name(p.name + f".tmp.{os.getpid()}")
     try:
+        _ensure_parent(p)
         st["schema"] = STATE_SCHEMA
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(st, fh)
@@ -333,6 +350,7 @@ def append_log(key: str, record: Dict[str, Any]) -> None:
     bucket lock (append-mode writes are not atomic on Windows)."""
     p = paths(key)[2]
     try:
+        _ensure_parent(p)
         if p.exists() and p.stat().st_size > LOG_ROTATE_BYTES:
             rotated = p.with_name(p.name + ".1")
             try:
