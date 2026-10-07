@@ -1733,6 +1733,12 @@ class Session:
             yield card
             answer = self._await_reply(self._approval_waiters, request_id)
             if not answer or answer.get("action") != "accept":
+                # 2.0.5 release-review finding 8: a DECLINE ends
+                # escalation for this team too -- `escalation_decision`
+                # only checks `escalated`, which previously only the
+                # successful switch ever set, so the card came back
+                # every turn after a decline.
+                team.escalated = True
                 yield events.notification(f"stayed on {self.model_label} -- team escalation declined", level="info")
                 return
         elif ask:
@@ -3632,7 +3638,8 @@ class Session:
                 # line below. Non-overload retryables (a spurious 404, an
                 # empty completion retry, anything not in the Governor's
                 # overload set) keep this ladder exactly as before.
-                if merged_retryable and attempts <= MAX_RETRIES and not _overload_owned_by_governor(e):
+                if merged_retryable and attempts <= MAX_RETRIES and not _overload_owned_by_governor(
+                        e.status, e.message):
                     hdrs = {"retry-after": e.retry_after} if e.retry_after else {}
                     delay = _capped_retry_delay(attempts, hdrs)
                     if self._abort_sleep(delay):

@@ -45,6 +45,13 @@ def _cron_field_matches(field: str, value: int) -> bool:
         if "-" in base:
             lo_s, _, hi_s = base.partition("-")
             lo, hi = int(lo_s), int(hi_s)
+        elif slash:
+            # 2.0.5 release-review nit 14: a single-value base WITH a
+            # step ("5/2") is the run 5,7,9,... to the field's end (cron
+            # semantics), not "only 5". `value` is always a real datetime
+            # component, so the field's own maximum is the ceiling and
+            # never gates this match.
+            lo, hi = int(base), 10 ** 9
         else:
             lo = hi = int(base)
         if lo <= value <= hi and (value - lo) % step_n == 0:
@@ -72,9 +79,16 @@ def cron_next(expr: str, now: "Optional[datetime.datetime]" = None) -> "Optional
 
 def next_fire_at(entry: dict, now: "Optional[datetime.datetime]" = None) -> "Optional[datetime.datetime]":
     """A schedule entry's next fire time -- `cron` through `cron_next`,
-    `every` as `last_run (or armed_at) + every_s`."""
+    `every` as `last_run (or armed_at) + every_s`.
+
+    2.0.5 release-review finding 3: a cron entry's next fire is computed
+    from the LAST fire point (or arming), never from `now` -- `cron_next`
+    returns a time strictly AFTER its argument, so computing from `now`
+    meant `nxt <= now` was never true and a cron schedule never fired.
+    Both branches therefore share the same base rule."""
     if entry.get("cron"):
-        return cron_next(entry["cron"], now)
+        base = entry.get("last_run") or entry.get("armed_at") or 0
+        return cron_next(entry["cron"], datetime.datetime.fromtimestamp(float(base)))
     every_s = entry.get("every_s")
     if not every_s or every_s <= 0:
         return None
@@ -138,14 +152,27 @@ def schedule_status_lines(entries: "list[dict]") -> "list[str]":
     return lines
 
 
-def build_fire_command(entry: dict) -> str:
-    """The headless invocation a schedule/trigger fires: this very harness,
-    print mode, the entry's prompt and model (`shlex.join`-quoted -- never
-    a shell string built by hand)."""
+def build_fire_argv(entry: dict) -> "list[str]":
+    """The headless invocation a schedule/trigger fires, as an argv LIST:
+    this very harness, print mode, the entry's prompt, then --agent/--team
+    (2.0.5 release-review finding 6: the fired job previously ran a bare
+    prompt session, not the AGENT -- both flags exist on the main parser)
+    and the entry's model when it carries one."""
     argv = [sys.executable, "-m", "halo_harness", "-p", str(entry.get("prompt") or "")]
+    if entry.get("agent"):
+        argv += ["--agent", str(entry["agent"])]
+    if entry.get("team"):
+        argv += ["--team", str(entry["team"])]
     if entry.get("model"):
         argv += ["--model", str(entry["model"])]
-    return shlex.join(argv)
+    return argv
+
+
+def build_fire_command(entry: dict) -> str:
+    """`shlex.join(build_fire_argv(entry))` -- the string form for callers
+    that run through a POSIX shell (the job registry's git-bash path);
+    never a shell string built by hand."""
+    return shlex.join(build_fire_argv(entry))
 
 
 def _default_fire(session, entry: dict) -> str:
@@ -153,10 +180,12 @@ def _default_fire(session, entry: dict) -> str:
     status bar's background-jobs count, `/tasks`) -- a real background job
     running the headless invocation, never the UI thread."""
     registry = getattr(session, "job_registry", None)
-    command = build_fire_command(entry)
     if registry is None:
+        # 2.0.5 release-review nit 10: the detached fallback passes the
+        # argv LIST straight to Popen (no shell=True) -- shlex.join's
+        # POSIX quoting through cmd.exe mangles on Windows.
         import subprocess
-        subprocess.Popen(command, shell=True, cwd=str(getattr(session, "cwd", ".")),
+        subprocess.Popen(build_fire_argv(entry), cwd=str(getattr(session, "cwd", ".")),
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
         return f"fired {entry.get('name')} (detached; no live job registry)"
     try:
@@ -164,7 +193,7 @@ def _default_fire(session, entry: dict) -> str:
         shell_path = str(git_bash())
     except Exception:
         shell_path = "bash"
-    record, err = registry.start_background(command, description=f"schedule {entry.get('name')}",
+    record, err = registry.start_background(build_fire_command(entry), description=f"schedule {entry.get('name')}",
                                             cwd=str(getattr(session, "cwd", ".")), env={}, shell_path=shell_path)
     if err is not None:
         return f"could not fire {entry.get('name')}: {err}"
@@ -308,7 +337,11 @@ class TeamScheduler:
             note = self.fire_fn(self.session, entry)
         except Exception as e:
             note = f"fire failed: {type(e).__name__}"
-        entry["last_note"] = f"{why}: {note}"
+        # 2.0.5 release-review nit 13: the last_note write is under the
+        # lock (it raced the tick loop's entry scans and _persist's
+        # snapshot); fire_fn itself stays OUTSIDE it -- it may block.
+        with self._lock:
+            entry["last_note"] = f"{why}: {note}"
         self._persist()
 
     def _persist(self) -> None:
@@ -350,7 +383,14 @@ def run_once(name: str, *, state_dir=None, popen=None) -> str:
     if entry is None:
         return f"no armed schedule or trigger named {name!r}"
     import subprocess
+    # 2.0.5 release-review finding 6: same shape as build_fire_argv -- the
+    # agent and team ride along (start_background_run prepends the harness
+    # itself), so the fired job runs AS the agent, not as a bare session.
     argv = ["-p", str(entry.get("prompt") or "")]
+    if entry.get("agent"):
+        argv += ["--agent", str(entry["agent"])]
+    if entry.get("team"):
+        argv += ["--team", str(entry["team"])]
     if entry.get("model"):
         argv += ["--model", str(entry["model"])]
     run = start_background_run(argv, popen=popen or subprocess.Popen)
