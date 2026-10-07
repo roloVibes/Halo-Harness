@@ -57,8 +57,13 @@ def test_summarize_nodes_tags_role_from_rolled_up_usage_node(ctx: Ctx):
         {"type": "usage", "usage": {"input_tokens": 5, "output_tokens": 1}, "cost_usd": 0.0001},
     ]
     s = _summarize_nodes(session_id="s1", slug="p", path="s1.jsonl", mtime=0, size=0, nodes=nodes, corrupt_lines=0)
+    # 2.0.6 round 2: the counters gain tasks/accepted -- a rollup node
+    # (agent_id set) IS one task; ok absent (a pre-round log, or a failed
+    # child that logged no outcome) counts the task but not an accepted
+    # one. The untagged third node still never touches the role table.
     ctx.check(f"only the role-tagged node counted, got {s.roles}", s.roles == {
-        "reviewer": {"calls": 1, "tokens_in": 40, "tokens_out": 10, "tokens_cached": 0, "cost_usd": 0.005},
+        "reviewer": {"calls": 1, "tokens_in": 40, "tokens_out": 10, "tokens_cached": 0, "cost_usd": 0.005,
+                     "tasks": 1, "accepted": 0},
     })
 
 

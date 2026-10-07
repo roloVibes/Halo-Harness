@@ -165,7 +165,8 @@ class SessionLog:
                       estimate: Optional[bool] = None, role: Optional[str] = None,
                       ttfb_ms: Optional[float] = None, first_reasoning_ms: Optional[float] = None,
                       first_text_ms: Optional[float] = None, first_tool_ms: Optional[float] = None,
-                      reasoning_streamed: Optional[bool] = None, experiential_meta: Optional[dict] = None) -> dict:
+                      reasoning_streamed: Optional[bool] = None, experiential_meta: Optional[dict] = None,
+                      ok: Optional[bool] = None, bio: Optional[str] = None) -> dict:
         """H9 whole-tree review finding 13: `agent_id`, when given, tags
         this usage node as a SUB-AGENT's rolled-up total (agent/subagent.py
         calls this on the PARENT's own log once a child finishes) rather
@@ -207,6 +208,18 @@ class SessionLog:
             node["estimate"] = estimate
         if agent_id is not None:
             node["agent_id"] = agent_id
+        # 2.0.6 round 2 (per-role cost attribution): `ok`/`bio` ride the
+        # SAME rolled-up sub-agent node `role` already does -- `ok` is the
+        # Agent call's own outcome (True = an accepted result: the child
+        # ran to a normal completion, False = error/abnormal end), `bio`
+        # the agent NAME that spent it (the spec's own name, "general-
+        # purpose" for an anonymous spawn). Main-session nodes carry
+        # neither (they are not tasks); their `role` is the session's own
+        # role label ("main" for a root session).
+        if ok is not None:
+            node["ok"] = ok
+        if bio is not None:
+            node["bio"] = bio
         if model is not None:
             node["model"] = model
         if route is not None:

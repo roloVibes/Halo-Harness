@@ -1478,6 +1478,20 @@ async def _handle_stats(app, args: str) -> None:
     for model, bucket in sorted((stats.get("per_model") or {}).items()):
         lines.append(f"  {model}: {bucket['calls']} call(s), "
                      f"{bucket['input_tokens']}in/{bucket['output_tokens']}out tok, ${bucket['cost_usd']:.4f}")
+    # 2.0.6 round 2: who spent what -- role rows with task/accepted
+    # counts and the two per-unit costs (the review's "a role assignment
+    # can be judged by evidence"), same shape as `halo stats --roles`.
+    for role, rb in sorted((stats.get("per_role") or {}).items()):
+        line = f"  role {role}: {rb['calls']} call(s), ${rb['cost_usd']:.4f}"
+        if rb["tasks"]:
+            line += f" | {rb['tasks']} task(s), {rb['accepted']} accepted"
+            if rb["cost_usd"]:
+                line += f", ${rb['cost_usd'] / rb['tasks']:.4f}/task"
+                if rb["accepted"]:
+                    line += f", ${rb['cost_usd'] / rb['accepted']:.4f}/accepted"
+        if rb.get("subscription_cost_usd"):
+            line += f" | subscription ${rb['subscription_cost_usd']:.4f} (estimate)"
+        lines.append(line)
     for name, n in sorted((stats.get("tool_counts") or {}).items()):
         lines.append(f"  tool {name}: {n} call(s)")
     await app.transcript.add_note("\n".join(lines), kind="command")

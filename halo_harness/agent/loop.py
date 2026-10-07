@@ -4066,6 +4066,10 @@ class Session:
             {}, None, model=self.model_ref.raw,
             route=self._ROUTE_LABELS.get(self.model_ref.provider, self.model_ref.provider),
             status=status, retries=retries,
+            # 2.0.6 round 2: every cost entry names the role that spent
+            # it -- the session's own label ("main" for a root session,
+            # the bio's role for a child).
+            role=self.role_name or "main",
         )
 
     def _account_usage(self, result: "_StepResult") -> None:
@@ -4110,6 +4114,7 @@ class Session:
             first_text_ms=result.first_text_ms, first_tool_ms=result.first_tool_ms,
             reasoning_streamed=result.reasoning_streamed,
             experiential_meta=xp_meta or None,
+            role=self.role_name or "main",
         )
         if self.model_ref.provider == "databricks":
             record_databricks_output_tokens(self.model_ref.raw, generated_tokens_for_otpm(result.usage))
@@ -4611,6 +4616,7 @@ class Session:
                                 ev["usage"], cost, model=self.model_ref.raw,
                                 route=self._ROUTE_LABELS.get(self.model_ref.provider, self.model_ref.provider),
                                 finish_reason=stop_reason, status="ok",
+                                role=self.role_name or "main",
                             )
                     elif kind == "error":
                         wire_error = ev.get("error") or {}

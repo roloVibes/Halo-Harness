@@ -1463,6 +1463,10 @@ def compute_session_stats(nodes: list) -> dict:
     own cumulative-delta ESTIMATE as if it were real per-token spend."""
     per_model: dict = {}
     tool_counts: dict = {}
+    # 2.0.6 round 2 (per-role cost attribution): role -> {calls, tasks,
+    # accepted, cost_usd, subscription_cost_usd} -- the session's own
+    # nodes, so `/stats` answers "who spent what" without touching disk.
+    per_role: dict = {}
     total_cost = 0.0
     subscription_cost = 0.0
     subscription_turns = 0
@@ -1510,5 +1514,25 @@ def compute_session_stats(nodes: list) -> dict:
                 bucket["cost_usd"] += cost
                 total_cost += cost
             bucket["calls"] += 1
+            # 2.0.6 round 2: the role bucket on the SAME pass -- "main"
+            # for the session's own calls (tagged by `_account_usage`/
+            # `_log_call_failure` since this round), a sub-agent's
+            # resolved role on a rollup node. A rollup node (agent_id
+            # set) is one TASK; its `ok` decides accepted.
+            role = node.get("role")
+            if role:
+                rb = per_role.setdefault(role, {"calls": 0, "tasks": 0, "accepted": 0,
+                                                "cost_usd": 0.0, "subscription_cost_usd": 0.0})
+                rb["calls"] += 1
+                if node.get("agent_id"):
+                    rb["tasks"] += 1
+                    if node.get("ok") is True:
+                        rb["accepted"] += 1
+                if node.get("estimate"):
+                    if isinstance(cost, (int, float)):
+                        rb["subscription_cost_usd"] += cost
+                elif isinstance(cost, (int, float)):
+                    rb["cost_usd"] += cost
     return {"turns": turns, "total_cost_usd": total_cost, "subscription_turns": subscription_turns,
-            "subscription_cost_usd": subscription_cost, "per_model": per_model, "tool_counts": tool_counts}
+            "subscription_cost_usd": subscription_cost, "per_model": per_model, "tool_counts": tool_counts,
+            "per_role": per_role}

@@ -8,6 +8,21 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.0.6] - unreleased
+
+### Per-role cost attribution (round 2)
+
+Every cost entry names the role that spent it: the session's own model
+calls tag their role ("main" for a root session, the bio's role for a
+child), and a sub-agent's rolled-up total carries the role, the bio
+(agent name) and `ok` -- the Agent call's own outcome. `/stats` and
+`halo stats --roles` now answer "who spent what" with task counts
+(one rollup node = one Agent-call completion), accepted/total, cost per
+task and cost per accepted result, so a role assignment can be judged
+by evidence. The main session's own spend appears as its own row for
+the first time (it was invisible to `--roles` before); a `cc:` estimate
+keeps landing in the subscription lane, never counted as real spend.
+
 ## [2.0.5] - 2026-10-07
 
 ### Team control (round 5)

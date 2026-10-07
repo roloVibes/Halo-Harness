@@ -1074,7 +1074,8 @@ def _child_turn_outcome(child_events: list) -> "tuple[bool, Optional[str]]":
 
 
 def _rollup_child_cost_into_parent(parent, child, *, agent_id: str, since_index: int = 0,
-                                    role: Optional[str] = None) -> None:
+                                    role: Optional[str] = None, ok: Optional[bool] = None,
+                                    bio: Optional[str] = None) -> None:
     """H9 whole-tree review finding 13: a child's usage/cost used to be
     visible ONLY in its own `subagents/agent-<id>.jsonl` -- never reaching
     `parent.cost_meter` (so `--max-budget-usd`, which reads the PARENT's
@@ -1123,7 +1124,7 @@ def _rollup_child_cost_into_parent(parent, child, *, agent_id: str, since_index:
     # module's own docstring) can reach this at the same moment, so the
     # `total_usd +=` inside it is guarded with the SAME lock `_bg_run`
     # already uses for every other write to shared parent state.
-    parent.log.append_usage(combined, child_cost, agent_id=agent_id, role=role)
+    parent.log.append_usage(combined, child_cost, agent_id=agent_id, role=role, ok=ok, bio=bio)
     with parent._agent_notices_lock:
         parent.cost_meter.add_child_total(cost_usd=child_cost, has_cost_data=child.cost_meter.has_cost_data,
                                            turns=child.cost_meter.turns)
@@ -1502,7 +1503,8 @@ def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: s
         _fire_task_hook(parent, "TaskCompleted", task_id=new_task_id, spec_name=spec.name,
                          description=job["description"])
         _write_meta(meta_path, {"status": "completed", "is_error": is_error, "finished": time.time()})
-        _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name)
+        _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name,
+                                       ok=not is_error, bio=spec.name)
         # 2.0.2 review finding 5: a fan-out job's own spend now reaches the
         # SAME budget tracker a single spawn already does -- this path
         # never called `record_spend` at all before. `child.cost_meter.
@@ -2008,13 +2010,18 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                 text = _final_text_from_log(child)
                 _fire_subagent_hook(child, "SubagentStop")
                 _fire_task_hook(parent, "TaskCompleted", task_id=new_task_id, spec_name=spec.name, description=description)
-                _write_meta(meta_path, {"status": "completed"})
+                # 2.0.6 round 2: the bg path never computed the outcome
+                # before its rollup -- `ok` needs it (per-role cost
+                # attribution: accepted vs failed tasks per role).
+                bg_is_error, _bg_reason = _child_turn_outcome(child_events)
+                _write_meta(meta_path, {"status": "completed", "is_error": bg_is_error, "finished": time.time()})
                 # H9 whole-tree review finding 13: roll this background child's
                 # own usage/cost into the parent BEFORE the completion notice
                 # is queued, so by the time the parent's next turn (which
                 # applies that notice) actually runs, `--max-budget-usd`/
                 # `/stats` already reflect it.
-                _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name)
+                _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name,
+                                               ok=not bg_is_error, bio=spec.name)
                 # 2.0.2 review finding 5 (major): `child.cost_meter.total_usd`
                 # is already scoped to exactly this call (a fresh CostMeter
                 # per Session construction) -- a before/after subtraction on
@@ -2169,7 +2176,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # H9 whole-tree review finding 13: see the background path's own
     # comment above -- a FOREGROUND child's usage/cost gets the same
     # rollup, just synchronously here instead of at the end of `_bg_run`.
-    _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name)
+    _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name,
+                                   ok=not is_error, bio=spec.name)
     # 2.0.2 review finding 5: `child.cost_meter.total_usd` is this call's
     # own delta already -- see `_bg_run`'s own matching comment above for
     # why a before/after subtraction on the shared PARENT meter is wrong.
@@ -2646,7 +2654,8 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
     # own foreground path -- see its comment.
     is_error, abnormal_reason = _child_turn_outcome(child_events)
     _write_meta(meta_path, {"status": "completed", "is_error": is_error, "finished": time.time()})
-    _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name)
+    _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name,
+                                   ok=not is_error, bio=spec.name)
     # Finding 5: a resumed call's own spend now reaches the SAME budget
     # tracker a fresh spawn already does -- `child.cost_meter.total_usd`
     # (never a before/after subtraction on the shared PARENT meter) is
