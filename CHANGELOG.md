@@ -10,6 +10,18 @@ version.
 
 ## [2.0.6] - unreleased
 
+### Session replay for model swaps (round 4)
+
+`halo replay <session-id> --model <ref> [--turn N] [--json]`: fork the
+recorded session (the original file is never appended to), truncate the
+fork to just before turn N's user prompt, and re-send that turn's own
+prompt against the swapped model through plain print mode -- same cwd,
+tools and hooks as any `halo -p`. The side-by-side report names both
+outcomes (chars, tokens, cost, tools used) and SAME / DIFFERENT with
+the first diverging line, turning "did swapping the researcher help?"
+into a diff over real task history (the gym stays for synthetic
+batteries; this is your own sessions).
+
 ### Acceptance-gated sub-agent returns (round 3)
 
 A sub-agent's hand-back is checked against its bio's own `acceptance`
