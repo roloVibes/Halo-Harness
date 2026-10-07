@@ -416,7 +416,19 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   item (doctor budgets for thinking models, confirmation before a
   multi-model gym run, zombie checks on every child-process stop, config
   writers refusing the real home under a test marker, the escalation
-  approval card, print-mode saved_usd); invariants extended.
+  approval card, print-mode saved_usd); invariants extended. ADDED
+  2026-10-07 ~05:20, rolo ("the seconds keep ticking and I see a steering
+  message, tells me nothing what is going on; need better clarity it's
+  not frozen"): **liveness in the TUI** -- during a long turn the phase
+  line carries a live elapsed timer that visibly ticks (sub-second
+  refresh, so a stalled render is instantly distinguishable from a
+  stalled turn), names WHAT is being waited on (model streaming vs tool
+  running vs subagent round vs background suite), and shows the age of
+  the last sign of life from upstream (bytes N s ago; the existing
+  hang-watchdog heartbeat becomes visible instead of only dumping a
+  log); background jobs surface their state in the status bar the same
+  way. A quiet second counter is not "reassurance" -- it is the
+  difference between "wait" and "restart".
 - **2.0.7 = embeddings:** local embeddings through Ollama or a managed
   server with the same fit rules, memory and search, the generic `local:`
   route.
