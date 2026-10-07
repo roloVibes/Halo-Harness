@@ -1885,8 +1885,10 @@ options:
   --models         Show the richer per-(model,provider) telemetry table
                    (repairs, edit failures, ttft/latency, ...)
   --tools          Show the per-tool telemetry table
-  --roles          Show sub-agent spend per role
-                   (orchestrator/coder/reviewer/researcher/small)
+  --roles          Show spend per role, including the session's own
+                   ("main") -- with task counts (Agent-call completions),
+                   accepted/total, cost per task and per accepted result,
+                   so a role assignment can be judged by evidence
   --wide           Show every --models column instead of the terminal-fit
                    compact default
   --since SINCE    Time window for --models/--tools: "all", or "<N>d" (e.g.

@@ -235,6 +235,15 @@ _ROLE_COLUMNS = [
     ("effort", lambda r: r.get("effort") or "-"),
     ("sessions", lambda r: str(r["sessions"])),
     ("calls", lambda r: str(r["calls"])),
+    # 2.0.6 round 2 (per-role cost attribution): tasks = Agent-tool call
+    # completions rolled up under this role; ok = the accepted ones; the
+    # two $/ columns are the review's "cost per task and cost per
+    # accepted result, so a role assignment can be judged by evidence".
+    # "-" (never $0.0000) when there is nothing to divide.
+    ("tasks", lambda r: str(r.get("tasks", 0)) if r.get("tasks") else "-"),
+    ("ok", lambda r: f"{r.get('accepted', 0)}/{r.get('tasks', 0)}" if r.get("tasks") else "-"),
+    ("$/task", lambda r: f"${r['cost_per_task']:.4f}" if r.get("cost_per_task") else "-"),
+    ("$/ok", lambda r: f"${r['cost_per_accepted']:.4f}" if r.get("cost_per_accepted") else "-"),
     ("tok in/out", lambda r: f"{r['tokens_in']}/{r['tokens_out']}"),
     ("tok cached", lambda r: str(r["tokens_cached"])),
     ("cost", lambda r: f"${r['cost_usd']:.4f}"),

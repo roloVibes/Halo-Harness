@@ -81,8 +81,15 @@ def _new_role_counters() -> dict:
     own, separately-globbed `subagents/*.jsonl`, deliberately never
     double-counted here -- see `stats_cli.py`'s own docstring) -- just the
     spend `_rollup_child_cost_into_parent` already summed for that one
-    Agent-tool call."""
-    return {"calls": 0, "tokens_in": 0, "tokens_out": 0, "tokens_cached": 0, "cost_usd": 0.0}
+    Agent-tool call.
+
+    2.0.6 round 2 (per-role cost attribution): `tasks`/`accepted` -- a
+    rollup node IS one task (one Agent-tool call completion); `accepted`
+    counts the ones whose `ok` is True (the child ran to a normal
+    completion). Main-session nodes (role="main", no agent_id, tagged
+    since this round) count as calls but never as tasks."""
+    return {"calls": 0, "tokens_in": 0, "tokens_out": 0, "tokens_cached": 0, "cost_usd": 0.0,
+            "tasks": 0, "accepted": 0}
 
 
 def _new_tool_counters() -> dict:
@@ -344,6 +351,12 @@ def _summarize_nodes(*, session_id: str, slug: str, path: str, mtime: float, siz
                                              + int(usage.get("cache_creation_input_tokens") or 0))
                     if isinstance(cost, (int, float)):
                         rb["cost_usd"] += cost
+                    # 2.0.6 round 2: only a ROLLUP node (agent_id set) is a
+                    # task; its `ok` decides accepted vs failed.
+                    if node.get("agent_id"):
+                        rb["tasks"] += 1
+                        if node.get("ok") is True:
+                            rb["accepted"] += 1
         elif ntype == "assistant":
             if node.get("stop_reason") == "interrupted":
                 b = model_bucket()
@@ -674,7 +687,8 @@ def aggregate_by_role(summaries: "list[SessionSummary]") -> "list[dict]":
         for role, b in s.roles.items():
             dest = merged.setdefault(role, _new_role_counters())
             sessions_per_role.setdefault(role, set()).add(s.session_id)
-            for field_name in ("calls", "tokens_in", "tokens_out", "tokens_cached", "cost_usd"):
+            for field_name in ("calls", "tokens_in", "tokens_out", "tokens_cached", "cost_usd",
+                               "tasks", "accepted"):
                 dest[field_name] += b.get(field_name, 0)
     rows = []
     for role in sorted(merged):
@@ -683,6 +697,14 @@ def aggregate_by_role(summaries: "list[SessionSummary]") -> "list[dict]":
             "role": role, "sessions": len(sessions_per_role.get(role, ())), "calls": c["calls"],
             "tokens_in": c["tokens_in"], "tokens_out": c["tokens_out"], "tokens_cached": c["tokens_cached"],
             "cost_usd": round(c["cost_usd"], 4),
+            "tasks": c["tasks"], "accepted": c["accepted"],
+            # 2.0.6 round 2: cost per task / per ACCEPTED result -- the
+            # review's "a role assignment can be judged by evidence".
+            # None (renders "-") when the denominator is zero or no cost
+            # data at all, never a divide-by-zero $0.0000.
+            "cost_per_task": (round(c["cost_usd"] / c["tasks"], 4) if c["tasks"] and c["cost_usd"] else None),
+            "cost_per_accepted": (round(c["cost_usd"] / c["accepted"], 4)
+                                  if c["accepted"] and c["cost_usd"] else None),
         })
     return rows
 
