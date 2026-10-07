@@ -252,7 +252,12 @@ def probe_models_endpoint(base_url: str, *, name: str = "", api_key: Optional[st
                                 runtime_label=_runtime_label_for(base_url, props_ctx=props_ctx))
 
 
-def auto_detect_local_servers(*, env: Optional[dict] = None, timeout: float = _PROBE_TIMEOUT_S) -> "list":
+_AUTO_DETECT_TTL_S = 60.0
+_auto_detect_cache: "tuple[float, tuple, tuple] | None" = None  # (ts, ports_key, results)
+
+
+def auto_detect_local_servers(*, env: Optional[dict] = None, timeout: float = _PROBE_TIMEOUT_S,
+                              force: bool = False) -> "list":
     """Probes every port `local_probe_ports(env)` names, on 127.0.0.1
     ONLY, for a real OpenAI-compatible `/v1/models` response. A no-op
     (empty list, no network at all) under `BRIDGE_TEST_NO_BACKGROUND_NET`
@@ -260,15 +265,32 @@ def auto_detect_local_servers(*, env: Optional[dict] = None, timeout: float = _P
     background` honours (round 5 brief item 2). Sequential, not threaded:
     at most a handful of default ports, each bounded by `timeout` -- call
     this itself from a worker thread (never the UI thread), same as every
-    other live probe in this codebase."""
+    other live probe in this codebase.
+
+    2.0.6 round 12 (the carried C-11 nuance): a short in-process TTL cache
+    (60 s), same pattern as the Ollama catalog's own -- a picker paint
+    (`build_local_view(refresh=False)` -> here) on a warm process re-probes
+    NOTHING, and `force=True` (an explicit refresh) always re-probes. The
+    port LIST is the cache key's second component: a different
+    `local_probe_ports(env)` (a config change, or a test's scoped env)
+    never sees another port list's cached answer."""
+    global _auto_detect_cache
+    import time as _time
     from halo_harness.config.paths import background_net_disabled
     if background_net_disabled():
         return []
+    ports = tuple(local_probe_ports(env))
+    now = _time.monotonic()
+    if (not force and _auto_detect_cache is not None
+            and _auto_detect_cache[1] == ports
+            and (now - _auto_detect_cache[0]) < _AUTO_DETECT_TTL_S):
+        return list(_auto_detect_cache[2])
     out = []
-    for port in local_probe_ports(env):
+    for port in ports:
         info = probe_models_endpoint(f"http://127.0.0.1:{port}/v1", name=f"auto:{port}", timeout=timeout)
         if info is not None:
             out.append(info)
+    _auto_detect_cache = (now, ports, tuple(out))
     return out
 
 

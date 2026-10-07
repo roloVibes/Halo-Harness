@@ -238,7 +238,7 @@ def build_local_view(*, refresh: bool = False, env: Optional[dict] = None, state
         rows.extend(_ollama_rows(host, refresh=refresh, hw_runner=hw_runner, state_dir=state_dir))
     from halo_harness.providers.huggingface import resolve_huggingface_local_servers
     from halo_harness.providers.huggingface_local_probe import auto_detect_local_servers, probe_manual_server
-    detected = auto_detect_local_servers(env=env)
+    detected = auto_detect_local_servers(env=env, force=refresh)
     for i, info in enumerate(detected):
         rows.extend(_hf_server_rows(info, reachable=True, addressable=(i == 0)))
     for server in resolve_huggingface_local_servers():

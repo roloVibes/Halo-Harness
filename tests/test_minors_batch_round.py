@@ -307,6 +307,63 @@ def test_child_escalation_decisions_reach_the_parent(ctx: Ctx):
               parent._escalation_decisions[1]["note"].startswith("[implementer]"))
 
 
+
+
+@test
+def test_vram_fit_is_cached_per_turn(ctx: Ctx):
+    """The C-13 nuance: the same (host, main, candidate) pair inside the
+    TTL window probes ONCE -- the second call is answered from the cache
+    (a recorder-counted pin), and an unknown (None) answer is never
+    cached (a load landing mid-window is noticed next call)."""
+    from halo_harness.providers import ollama_hw
+    ollama_hw.reset_fits_cache()
+    calls = []
+    real_ps = ollama_hw._fits_beside_main_uncached
+
+    class _Host:
+        url = "http://192.0.2.9:11434"
+
+    class _Card:
+        total_bytes = 24_000_000_000
+
+    def _fake_uncached(host, *, main_model, candidate_model, catalog, hw_runner=None):
+        calls.append((main_model, candidate_model))
+        return True
+
+    ollama_hw._fits_beside_main_uncached = _fake_uncached
+    try:
+        h = _Host()
+        r1 = ollama_hw.fits_beside_main(h, main_model="big:latest",
+                                        candidate_model="coder:30b", catalog={})
+        r2 = ollama_hw.fits_beside_main(h, main_model="big:latest",
+                                        candidate_model="coder:30b", catalog={})
+        ctx.check("both calls answer True", r1 is True and r2 is True)
+        ctx.check(f"exactly ONE probe for the same pair, got {calls}", len(calls) == 1)
+        # a different candidate is a different key -> probes again
+        ollama_hw.fits_beside_main(h, main_model="big:latest",
+                                   candidate_model="other:7b", catalog={})
+        ctx.check(f"a different pair probes, got {calls}", len(calls) == 2)
+    finally:
+        ollama_hw._fits_beside_main_uncached = real_ps
+        ollama_hw.reset_fits_cache()
+    # None is never cached: an unknown answer probes again next call
+    ollama_hw.reset_fits_cache()
+    n = [0]
+
+    def _fake_none(host, *, main_model, candidate_model, catalog, hw_runner=None):
+        n[0] += 1
+        return None
+
+    ollama_hw._fits_beside_main_uncached = _fake_none
+    try:
+        h2 = _Host()
+        ollama_hw.fits_beside_main(h2, main_model="m", candidate_model="c", catalog={})
+        ollama_hw.fits_beside_main(h2, main_model="m", candidate_model="c", catalog={})
+        ctx.check(f"an unknown answer is never cached (2 probes), got {n[0]}", n[0] == 2)
+    finally:
+        ollama_hw._fits_beside_main_uncached = real_ps
+        ollama_hw.reset_fits_cache()
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
