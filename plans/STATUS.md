@@ -131,7 +131,8 @@ is verified on Windows and the Kali VM and pushed as it lands.
 - [x] Wizard deep review: the roles surface rebuilt around first-time-user clarity (what-a-role-is + when-it-fires lines on every surface, Team step one-pane-at-a-time, lineup editor cost footer + field labels, bio editor focused-control help with zero new rows); tests/test_round_wizard_deep_review.py 4/4
 - [x] Copy-out fix: selected-RANGE copies, mechanism-confirmed copies with visible failures, tmux/Kali OSC-52 detection + the set-clipboard fix named everywhere, BOM strip, doctor path verdict; tests/test_round_copy_out.py 6/6
 - [x] Dead-model-id detection (doctor --roles resolves or:/dbx:/ol: ids against their catalogs; empty catalog = skip) + the child's own 404 message riding every errored handback + balances remaining-first with the total/used breakdown; tests/test_round_doctor_dead_ids.py 6/6 (ollama polish items moved to the release round)
-- [ ] release
+- [x] release prep: full battery 4116/4131 (the 2: the by-design pre-tag version pin + the h5c_f07 load-flake passing 4/4 standalone); CHANGELOG dated 2026-10-08 with the summary
+- [ ] release (tag v2.0.7, push, installs)
 
 ## 2.0.8 (`2.0.8-signal-brief.md`)
 

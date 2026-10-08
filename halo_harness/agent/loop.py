@@ -6040,14 +6040,16 @@ class Session:
             # external review finding 13 (2026-10-08): the plan specials
             # bypassed decide() ENTIRELY, so the owner's own deny rules
             # (`deny EnterPlanMode`, `deny ExitPlanMode`) could never gate
-            # them. A DENY-ONLY evaluation runs here: the tools' own bodies
-            # already handle their confirmation round trips (plan_review),
-            # so an "ask" outcome stays the tool's own business -- only a
-            # hard deny short-circuits, with the same refusal shape every
-            # other denied call gets.
+            # them. A deny-RULE-ONLY evaluation runs here: plan mode's own
+            # mode table denies everything by default (that default is the
+            # mode's business, not a verdict on THESE tools -- their bodies
+            # handle their own confirmation round trips), so ONLY a deny
+            # that actually matched one of the owner's rules gates the
+            # call, with the same refusal shape every other denied call
+            # gets.
             _plan_tool = self.tool_registry.get(name)
             _plan_decision = self.permission_engine.decide(name, tool_input, tool=_plan_tool)
-            if _plan_decision.action == "deny":
+            if _plan_decision.action == "deny" and _plan_decision.matched_rule is not None:
                 _text = f"Permission denied: {_plan_decision.reason}"
                 if _plan_decision.suggested_rule:
                     _text += f" (suggested rule: {_plan_decision.suggested_rule})"

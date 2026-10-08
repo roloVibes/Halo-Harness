@@ -8,8 +8,18 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [2.0.7] - unreleased
+## [2.0.7] - 2026-10-08
 
+The session-UX + cyber-pillars + reliability release: notices stop
+impersonating the user, steers reach running work, filter-aware routing
+and the verify-everything preflight (the "restrictor plates off" order),
+the concierge + one media agent, local embeddings with `/recall` and the
+generic `local:` route, the wizard's roles surface rebuilt for a
+first-time user, the copy-out fix (selected-range copies, mechanism
+confirmation, the tmux/Kali OSC-52 fix), dead-model-id detection with
+404s surfaced in sub-agent handbacks, balances remaining-first,
+`halo local warm`, an external-review fix pass (13 findings), and paste
+reliability through bare `/paste`.
 ### External review fix pass (crash class + wrong behavior)
 
 A second-opinion review of 2.0.6.1 (13 confirmed findings, several
