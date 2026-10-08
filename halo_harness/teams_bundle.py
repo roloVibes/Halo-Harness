@@ -134,8 +134,17 @@ def bundle_import(dir_path, *, force: bool = False, cwd=None, state_dir=None) ->
 
     ok, problems = save_team_template(name, team, cwd=cwd, state_dir=state_dir)
     if not ok:
-        return False, [*(f"team: {p}" for p in problems),
-                       *(f"bios already copied: {', '.join(copied)}" if copied else [])]
+        # 2.0.6 review finding 3 (minor, fixed): bios copied BEFORE the
+        # team save used to be left behind when the save failed -- roll
+        # back the copies this import itself made (never a file that
+        # existed before: those were skipped above unless --force, and
+        # --force means the user explicitly chose overwrite semantics).
+        for bio_name in copied:
+            try:
+                (user_dir / f"{bio_name}.yaml").unlink()
+            except OSError:
+                pass
+        return False, [*(f"team: {p}" for p in problems)]
     lines.append(f"imported team {name!r}")
     lines.append(f"  bios copied to user scope: {', '.join(copied) if copied else '(none)'}")
     if skipped:
