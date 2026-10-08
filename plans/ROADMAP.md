@@ -510,6 +510,21 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   docs/ROLES.md: mechanical/verify work -> local; anything needing
   composition or judgment -> the paid implementer (deepseek) or the
   session itself. Not a bug — a routing fact.
+- ADDED 2026-10-07 late evening (rolo, live reports): (6) **hover
+  repaint bug**: black text lines in the transcript DISAPPEAR when the
+  mouse passes over them (no :hover CSS exists in halo — this is
+  Textual's mouse-capture repainting dirty regions without preserving
+  the cells under them; likely a transcript-widget dirty-marking bug).
+  Repro: hover any recent output line. (7) **balances shows USED, not
+  REMAINING**: `halo balances` prints "$145.15 used" while the owner
+  wants the remaining credit (OpenRouter /api/v1/credits returns
+  total_credits + total_usage directly — show "remaining = total -
+  usage" first, used second). (8) **Windows fork failures under load**:
+  "bash.exe: fatal error in forked process - WFSO timed out after
+  longjmp" during concurrent suite gates — the same low-virtual-memory
+  class as the documented 2026-09-11 session drops; halo should stagger
+  concurrent full suites on one box (a simple per-host gate lock) and
+  the runbook says one gate at a time on Windows.
 - **2.0.8 = theme pack:** DOOM, Metroid, Mario (see "ADDED 2026-10-04:
   2.0.7 becomes a theme pack"; the content is unchanged, only the number).
 - **2.0.9 = Signal remote control** (plan `2.0.8-signal-brief.md`, content
