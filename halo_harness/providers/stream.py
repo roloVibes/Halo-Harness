@@ -424,6 +424,7 @@ def _run_phase1(req: CompletionRequest, abort: "threading.Event | None" = None):
 
 def _run_phase1_attempts(req, oai_body, _call_upstream, abort, max_attempts):
     overflow_retries = 0
+    pending_overflow = None
     result = None
     for attempt in range(max_attempts):
         if abort is not None and abort.is_set():
@@ -508,6 +509,16 @@ def _run_phase1_attempts(req, oai_body, _call_upstream, abort, max_attempts):
                 if overflow:
                     if overflow.fixable and overflow_retries < 1:
                         overflow_retries += 1
+                        # external review finding 9 (2026-10-08): remember
+                        # WHY this attempt continues -- the overflow retry
+                        # and the post-connect re-dial share the same
+                        # 2-attempt budget, so a fixable overflow on the
+                        # LAST attempt used to fall out of the loop into
+                        # the generic "upstream failure after retries" 502
+                        # (retryable!), misclassifying an oversized request
+                        # as transient overload: compaction never triggered
+                        # and the ladder re-sent the same body.
+                        pending_overflow = overflow
                         oai_body["max_tokens"] = max(1, overflow.limit - overflow.prompt_tokens - 256)
                         continue
                     raise ContextOverflow(overflow.limit, overflow.prompt_tokens, overflow.total)
@@ -533,6 +544,12 @@ def _run_phase1_attempts(req, oai_body, _call_upstream, abort, max_attempts):
         # map_upstream_error's own remapped client-facing figure.
         raise _upstream_error_from_mapping(status, jbody, hdrs, upstream_status=result.status)
     else:
+        if pending_overflow is not None:
+            # external review finding 9: the budget ran out ON an overflow
+            # retry -- the honest signal is the overflow itself (compaction
+            # path), never a retryable generic 502.
+            raise ContextOverflow(pending_overflow.limit, pending_overflow.prompt_tokens,
+                                  pending_overflow.total)
         status, jbody, hdrs = map_upstream_error(502, {"error": {"message": "upstream failure after retries"}}, req.route.provider)
         raise _upstream_error_from_mapping(status, jbody, hdrs)
 
@@ -771,7 +788,15 @@ def _run_phase1_anthropic(req: CompletionRequest, abort: "threading.Event | None
                 raise _upstream_error_from_mapping(status, jbody, hdrs) from e
             if 200 <= result.status < 300:
                 return body, result
-            raw = result.resp.read() if result.resp else b""
+            # external review finding 13 (2026-10-08): the Governor's
+            # shared 500-peek (http.py) consumes up to 64 KB of the body
+            # into `body_bytes` -- the openai-chat phase1 already honors
+            # that field; this anthropic path used to read the REMAINDER
+            # (usually empty), losing the provider's whole error body.
+            if result.body_bytes is not None:
+                raw = result.body_bytes
+            else:
+                raw = result.resp.read() if result.resp else b""
             try:
                 err_obj = json.loads(raw.decode("utf-8", "replace")) if raw else {}
             except (json.JSONDecodeError, ValueError):

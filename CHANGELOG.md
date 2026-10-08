@@ -10,6 +10,63 @@ version.
 
 ## [2.0.7] - unreleased
 
+### External review fix pass (crash class + wrong behavior)
+
+A second-opinion review of 2.0.6.1 (13 confirmed findings, several
+verified live) -- the crash-class and wrong-behavior items, fixed:
+
+- `governor_state_unpersisted` was never registered in `EVENT_KINDS`
+  (the same bug class the 2.0.6 `governor` kind had) -- the first real
+  TUI run where the Governor cannot persist state died with "unknown
+  event kind".
+- `flatten_content_parts`: a null reasoning summary text made
+  `len(None)` raise, losing the whole reply (buffered tool calls
+  included) as "malformed data".
+- MCP misreports: `headless.py`'s server preamble admitted only
+  "connected" while the deferred pool also admits "cached" (a lazy
+  server's ~90 tools showed while the prompt said "none are
+  configured") -- one `manager.state_serves` predicate now feeds every
+  filter; `halo doctor`'s MCP check passes the loader the same
+  approval/plugin inputs a real session does.
+- `translate.anthropic_to_openai`: a plain-string content (legal
+  Anthropic shape) vanished entirely; `stop_sequences` was never
+  translated to `stop`; a tool result carrying BOTH text and an image
+  replaced the text with the marker.
+- Non-streaming parallel tool calls merged into ONE buffer (no
+  `index` on JSON-body tool_calls + the finding-11 "index-less
+  continues current" rule) -- the collector now synthesizes the index,
+  so each call keeps its own name/args.
+- `StreamJsonSink` budget-exceeded result line carried the PREVIOUS
+  turn's answer (`_final_text` is not reset per-consume and
+  `turn_done` never fires) -- captured at `message_end`, same as
+  PrintModeSink.
+- A fixable context-overflow retry that exhausted the shared 2-attempt
+  budget (overflow retry + post-connect re-dial) fell into the generic
+  "upstream failure after retries" retryable 502 instead of raising
+  `ContextOverflow` -- compaction never triggered.
+- The per-tool steer checkpoint ran the deferred read-only batch and
+  spawned queued sub-agents AFTER the user redirected (the top-of-loop
+  checkpoint already refused them) -- same refusal on both paths.
+- `clear_temporary_allow_rules` swept by INDEX: a permanent session
+  grant added later in the same turn was deleted with the temporary
+  ones -- now swept by identity.
+- An agent bio's `permission_mode: bypassPermissions` re-applied
+  bypass under `--restricted` ("refuses bypassPermissions") -- same
+  refusal the CLI flag gets.
+- Foreground task resumes never set the in-flight guard (two
+  Agent(task_id=X) calls in one message interleaved two writers over
+  the same child log) and fired ZERO hooks/events (no
+  SubagentStart/Stop, TaskCreated/Completed, subagent_start/end) --
+  both fixed, same shapes the fresh-spawn path uses.
+- `parse_context_overflow`'s derived prompt_tokens could go NEGATIVE
+  (total < requested max_tokens), making the "clamped" retry budget
+  LARGER than the limit -- floored at 0.
+- The Governor's shared 500-peek consumed the body into `body_bytes`;
+  the Anthropic passthrough phase1 ignored it and read the (usually
+  empty) remainder, losing the provider's whole error body.
+
+Pinned by `tests/test_external_review_fixes.py` (11/11).
+
 ### Round 0b: background notices stop impersonating the user
 
 rolo's live report (2026-10-08): with a background job or sub-agent

@@ -138,9 +138,13 @@ def parse_context_overflow(status: int, err_msg: str, raw_meta: str | None,
         # Fallback (finding 4): a wording that only ever states a total T with
         # no per-part breakdown -- derive A = T - requested max_tokens so a
         # fixable overflow is still recognized instead of an unconditional
-        # compaction rewrite.
+        # compaction rewrite. Floored at 0 (external review finding 13,
+        # 2026-10-08): a wording where T < the requested max_tokens used to
+        # derive a NEGATIVE prompt, and the retry budget then computed
+        # ABOVE the limit -- the "clamped" retry was bigger than the
+        # original request.
         if prompt_tokens is None and total is not None and isinstance(requested_max_tokens, int):
-            prompt_tokens = total - requested_max_tokens
+            prompt_tokens = max(0, total - requested_max_tokens)
 
     # Only fixable (worth a silent max_tokens-clamped retry) if the PROMPT
     # itself still fits under the limit (a prompt that alone exceeds it can
@@ -903,7 +907,12 @@ def flatten_content_parts(content) -> str:
         elif ptype == "reasoning":
             for s in part.get("summary") or []:
                 if isinstance(s, dict):
-                    rtext = s.get("text", "")
+                    # external review finding 2 (2026-10-08): same
+                    # present-but-null trap finding 6 fixed for "text" --
+                    # {"type":"reasoning","summary":[{"text":null}]} made
+                    # len(None) raise here, losing the whole reply (buffered
+                    # tool calls included) as "malformed data".
+                    rtext = _coerce_text(s.get("text"))
                     log.debug("databricks reasoning part (not emitted), length=%d", len(rtext))
     return "".join(texts)
 

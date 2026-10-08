@@ -651,6 +651,13 @@ class StreamJsonSink:
                     self._total_cost_usd = cost
                     if self.max_budget_usd is not None and cost >= self.max_budget_usd:
                         self._budget_exceeded = True
+                        # external review finding 7 (2026-10-08): the same
+                        # capture PrintModeSink already does -- `turn_done`
+                        # never arrives once consume() breaks out, and
+                        # `_final_text` is NOT reset per-consume, so the
+                        # budget-exceeded result line used to carry the
+                        # PREVIOUS turn's answer as this turn's text.
+                        self._final_text = think_tag_strip("".join(buf["text"]))
         elif kind == "error":
             if agent_id is None:
                 self._had_error = True

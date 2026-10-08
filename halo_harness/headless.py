@@ -1344,9 +1344,15 @@ def build_session(
                 # loop just above already filtered every OTHER connector.
                 tools_subset=tools_subset, bare_denied_names=bare_denied_names,
             )
+            # external review finding 3 (2026-10-08): the deferred pool
+            # admits "cached" alongside "connected" (manager.state_serves)
+            # -- this preamble used to admit only "connected", so a lazy
+            # server whose tools were warm in the cache showed up as ~90
+            # deferred tools while the prompt said "none are configured".
+            from halo_harness.mcp.manager import state_serves
             mcp_servers_for_prompt = [
                 {"name": name, "instructions": h.instructions}
-                for name, h in mcp_manager.handles.items() if h.state == "connected"
+                for name, h in mcp_manager.handles.items() if state_serves(h.state)
             ]
     debug_timeline.mark("mcp discovery")
 
@@ -1371,6 +1377,16 @@ def build_session(
         agent_type_restriction = agent_spec.allowed_subagent_types()
         if agent_spec.permission_mode and not permission_mode and not dangerously_skip_permissions:
             resolved_mode = agent_spec.permission_mode
+            # external review finding 12 (2026-10-08): --restricted
+            # "refuses bypassPermissions" for the CLI flag (the downgrade
+            # above) -- an agent SPEC carrying permission_mode
+            # bypassPermissions used to restore it here, past the
+            # downgrade. Same refusal, same shape.
+            if (cli_flags or {}).get("restricted") and resolved_mode == "bypassPermissions":
+                print("halo: --restricted is read-only, so the agent bio's permission mode "
+                      "bypassPermissions is ignored -- the default permission mode applies",
+                      file=sys.stderr)
+                resolved_mode = "default"
             permission_engine.mode = resolved_mode
             if resolved_mode == "plan" and permission_engine.plan_file is None:
                 permission_engine.set_plan_file(ensure_plan_file(cwd, settings))
