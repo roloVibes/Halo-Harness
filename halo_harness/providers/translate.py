@@ -67,6 +67,12 @@ def anthropic_to_openai(body: dict, route: Route, profile: dict | None = None) -
     for key in ["temperature", "top_p", "stop"]:
         if key in body:
             oai_body[key] = body[key]
+    # external review finding 13 (2026-10-08): Anthropic's own
+    # `stop_sequences` (a list) was never translated -- OpenAI's
+    # equivalent is `stop`, and without this the sequences silently
+    # stopped stopping.
+    if "stop_sequences" in body and body["stop_sequences"]:
+        oai_body["stop"] = body["stop_sequences"]
     # Explicitly drop
     for key in ["top_k", "metadata", "thinking"]:
         oai_body.pop(key, None)
@@ -113,6 +119,14 @@ def _flatten_messages(messages: list, system) -> list:
     for msg in messages:
         role = msg.get("role")
         content = msg.get("content", [])
+        # external review finding 5 (2026-10-08): a LEGAL plain-string
+        # content ("content": "Hello") used to fall through both branches'
+        # `content if isinstance(content, list) else []` and vanish -- the
+        # model never saw the message. Normalized to a one-text-block list
+        # up front (the harness's own layer always emits lists; this is the
+        # proxy path, where third-party clients send strings).
+        if isinstance(content, str):
+            content = [{"type": "text", "text": content}]
         if role == "assistant":
             # Split into text and tool_use blocks
             text_parts = []
@@ -171,11 +185,16 @@ def _flatten_messages(messages: list, system) -> list:
                     text = extract_text(cnt)
                     if result.get("is_error"):
                         text = "[tool error] " + text
-                    # Check for image
+                    # Check for image (external review finding 13,
+                    # 2026-10-08): a result carrying BOTH text and an
+                    # image used to REPLACE the text with the marker --
+                    # keep the text and append the marker instead, so the
+                    # model never loses the tool's textual answer.
                     if isinstance(cnt, list):
                         for part in cnt:
                             if isinstance(part, dict) and part.get("type") == "image":
-                                text = "(image in next message)"
+                                text = (text + "\n(image in next message)") if text.strip() \
+                                    else "(image in next message)"
                                 break
                     content_text = text
                 protos.append({"role": "tool", "tool_call_id": tid, "content": content_text})

@@ -668,7 +668,18 @@ class MessageCollector:
             delta["content"] = content
         tool_calls = msg.get("tool_calls")
         if tool_calls is not None:
-            delta["tool_calls"] = tool_calls
+            # external review finding 6 (2026-10-08): a non-streaming
+            # body's tool_calls carry NO "index" (that field exists only
+            # in streaming deltas), so the state machine's finding-11 rule
+            # ("an index-less delta continues the CURRENT call") merged
+            # PARALLEL calls into one buffer -- first call's name
+            # overwritten, both argument strings concatenated into invalid
+            # JSON. Synthesize the index here: each completed call becomes
+            # its own key, exactly like the streamed shape.
+            delta["tool_calls"] = [
+                {**tc, "index": i} for i, tc in enumerate(tool_calls)
+                if isinstance(tc, dict)
+            ]
         # A non-streaming (JSON-not-SSE-fallback) response carries reasoning
         # directly on `msg`, not nested under a stream "delta" -- copy it
         # through under the SAME keys feed_chunk already understands, so

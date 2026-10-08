@@ -63,6 +63,13 @@ EVENT_KINDS = frozenset({
     # earlier test drove the Governor headless (no sink: the forwarding is
     # skipped) or with the governor off, so the TUI+sink path never fired.
     "governor",
+    # 2.0.5 round 4's OTHER governor telemetry kind, missed by the same
+    # registry the first one was (external review finding 1, 2026-10-08:
+    # emitted and dispatched but never registered, so the first real TUI
+    # run where the Governor cannot persist shared state dies with
+    # "unknown event kind" -- every health test drives it with no sink,
+    # which skips the validation entirely).
+    "governor_state_unpersisted",
     "system_note",  # Halo 2.0.1 W5b: an async, out-of-band transcript line (e.g.
                      # background connector discovery finishing) -- pushed straight
                      # onto Controller.events from whatever thread noticed, never

@@ -1161,6 +1161,13 @@ class PermissionEngine:
         # "until the next user message") can strip exactly these and only
         # these, never a rule the user themselves granted interactively.
         self._temp_allow_start: Optional[int] = None
+        # external review finding 11 (2026-10-08): the index marker above
+        # alone was UNSAFE -- a PERMANENT session grant arriving later in
+        # the same turn (allow_session after a Skill's allowed-tools)
+        # landed past the marker and got swept with the temporary ones.
+        # The temporary rule OBJECTS are tracked here too, so the sweep
+        # removes exactly those by identity, marker or not.
+        self._temp_allow_rules: list = []
 
     def set_plan_file(self, path) -> None:
         """Called when a session enters plan mode (agent/planmode.py, both
@@ -1186,8 +1193,10 @@ class PermissionEngine:
         target = {"allow": self.allow_rules, "deny": self.deny_rules, "ask": self.ask_rules}.get(action)
         if target is None:
             return False
-        if action == "allow" and temporary and self._temp_allow_start is None:
-            self._temp_allow_start = len(self.allow_rules)
+        if action == "allow" and temporary:
+            if self._temp_allow_start is None:
+                self._temp_allow_start = len(self.allow_rules)
+            self._temp_allow_rules.append(rule)  # finding 11: identity, not just index
         target.append(rule)
         return True
 
@@ -1201,8 +1210,10 @@ class PermissionEngine:
         rule = parse_rule(rule_text, source="session", base_dir=self.cwd, action="allow")
         if rule is None or rule.kind == "invalid":
             return False
-        if temporary and self._temp_allow_start is None:
-            self._temp_allow_start = len(self.allow_rules)
+        if temporary:
+            if self._temp_allow_start is None:
+                self._temp_allow_start = len(self.allow_rules)
+            self._temp_allow_rules.append(rule)  # finding 11: identity, not just index
         self.allow_rules.append(rule)
         return True
 
@@ -1212,9 +1223,14 @@ class PermissionEngine:
         user message"), never a rule the user granted interactively via
         `allow_session`/`allow_always` (those call `add_session_allow_rule`
         with `temporary=False`, the default, and are never in this range)."""
-        if self._temp_allow_start is not None:
-            del self.allow_rules[self._temp_allow_start:]
-            self._temp_allow_start = None
+        # external review finding 11: remove the temporary rules BY
+        # IDENTITY -- the old index sweep also deleted any PERMANENT
+        # session grant that happened to be added later in the same turn.
+        temp_ids = {id(r) for r in self._temp_allow_rules}
+        if temp_ids:
+            self.allow_rules[:] = [r for r in self.allow_rules if id(r) not in temp_ids]
+        self._temp_allow_rules = []
+        self._temp_allow_start = None
 
     def working_dirs(self) -> list:
         return [self.cwd] + self.extra_dirs

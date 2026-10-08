@@ -713,6 +713,18 @@ def _looks_like_dead_transport(exc: BaseException) -> bool:
 # connected | failed | disabled | needs_auth | closed [D-CFG]. H13 Part A
 # adds "cached": a lazy server whose tools were seeded from
 # `mcp.tools_cache` without ever connecting -- see `McpManager.mark_cached`.
+
+
+def state_serves(state: "str | None") -> bool:
+    """True iff a handle in this state is SERVING tools right now -- the
+    ONE predicate every "which servers count?" filter must use (external
+    review finding 3, 2026-10-08: headless.py's preamble said "none are
+    configured" while ~90 deferred tools existed, because it hand-rolled
+    `== "connected"` while the deferred pool admits "cached" too; the two
+    filters lived 400 lines and 2 modules apart)."""
+    return state in ("connected", "cached")
+
+
 class McpServerHandle:
     """One server's whole connection lifecycle, transport-agnostic past
     `_connect_once` (stdio vs http vs sse only matters for how the
@@ -1765,7 +1777,7 @@ class McpManager:
         which state a tool's own server was in when this list was built."""
         out = []
         for server_name, h in self.handles.items():
-            if h.state not in ("connected", "cached"):
+            if not state_serves(h.state):
                 continue
             for t in h.tools:
                 out.append((server_name, mcp_tool_name(server_name, t.name), t))
@@ -1825,7 +1837,7 @@ class McpManager:
                 # H13 Part A: a "cached" server's tool count is known (from
                 # mcp.tools_cache) even though it was never actually
                 # connected -- reported the same as a real "connected" one.
-                "tool_count": len(h.tools) if h.state in ("connected", "cached") else 0,
+                "tool_count": len(h.tools) if state_serves(h.state) else 0,
                 "instructions": h.instructions, "scope": h.config.scope,
                 # round4 brief item 2: the `/mcp` row's own "attempt count
                 # and next retry" -- `None` whenever nothing is armed.

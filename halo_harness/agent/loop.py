@@ -6037,6 +6037,27 @@ class Session:
             # permissions.py's own mode table gives it real dontAsk-mode
             # semantics that must not be skipped.
             item["special"] = name
+            # external review finding 13 (2026-10-08): the plan specials
+            # bypassed decide() ENTIRELY, so the owner's own deny rules
+            # (`deny EnterPlanMode`, `deny ExitPlanMode`) could never gate
+            # them. A DENY-ONLY evaluation runs here: the tools' own bodies
+            # already handle their confirmation round trips (plan_review),
+            # so an "ask" outcome stays the tool's own business -- only a
+            # hard deny short-circuits, with the same refusal shape every
+            # other denied call gets.
+            _plan_tool = self.tool_registry.get(name)
+            _plan_decision = self.permission_engine.decide(name, tool_input, tool=_plan_tool)
+            if _plan_decision.action == "deny":
+                _text = f"Permission denied: {_plan_decision.reason}"
+                if _plan_decision.suggested_rule:
+                    _text += f" (suggested rule: {_plan_decision.suggested_rule})"
+                item["text"] = _text
+                item["permission_denial"] = _plan_decision.permission_denial or {
+                    "tool_name": name, "tool_input": tool_input,
+                    "reason": _plan_decision.reason, "suggested_rule": _plan_decision.suggested_rule,
+                }
+                self._fire_permission_denied(name, tool_input, _plan_decision.reason)
+                return item
             item["ready"] = True
             return item
 
@@ -7397,6 +7418,24 @@ class Session:
                     turn_no, tool_use_blocks[i + 1:], ctx.session_dir,
                     reason="not run: the user sent a new message first",
                 )
+                # external review finding 8 (2026-10-08): the top-of-loop
+                # steer branch above already refuses pending_batch/
+                # agent_batch the same way -- this per-tool branch used to
+                # break WITHOUT clearing them, so the flush below the loop
+                # then RAN the deferred read-only batch and SPAWNED the
+                # queued sub-agents even though the user had redirected.
+                # Same refusal, same "not run" results, same reason.
+                reason = "not run: the user sent a new message first"
+                for batched_item in pending_batch:
+                    batched_item["ready"] = False
+                    batched_item["text"] = reason
+                    yield from self._finalize_tool_result(turn_no, batched_item, ctx.session_dir)
+                pending_batch = []
+                for agent_item in agent_batch:
+                    agent_item["ready"] = False
+                    agent_item["text"] = reason
+                    yield from self._finalize_tool_result(turn_no, agent_item, ctx.session_dir)
+                agent_batch = []
                 break
 
         if pending_batch:

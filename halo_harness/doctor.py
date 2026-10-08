@@ -992,7 +992,27 @@ def _check_mcp_servers(cwd: Optional[Path]) -> str:
         from halo_harness.config.claude_json import load_claude_json
         from halo_harness.mcp.manager import resolve_server_configs
         claude_json = load_claude_json()
-        resolved, _notices = resolve_server_configs(cwd=cwd, claude_json=claude_json)
+        # external review finding 4 (2026-10-08): this used to call the
+        # loader with NONE of the approval/plugin inputs a real session
+        # passes it (mcp_setup.py's own call), so an approval-gated
+        # .mcp.json and every plugin server counted as "none configured"
+        # from any cwd except exactly the home dir. Same inputs, same
+        # pure-config enumeration (nothing connects).
+        approvals = None
+        try:
+            from halo_harness.mcp_setup import load_mcp_approvals
+            approvals = load_mcp_approvals()
+        except Exception:
+            pass
+        plugin_servers = {}
+        try:
+            from halo_harness.config.plugins import discover_plugin_mcp_servers
+            plugin_servers, _n = discover_plugin_mcp_servers(env=dict(os.environ), cwd=cwd)
+        except Exception:
+            pass
+        resolved, _notices = resolve_server_configs(
+            cwd=cwd, claude_json=claude_json, approvals=approvals,
+            plugin_servers=plugin_servers)
     except Exception as e:
         return _fix(f"{WARN} MCP servers: could not enumerate ({type(e).__name__}: {e})",
                      cmd="halo doctor")

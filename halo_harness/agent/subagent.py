@@ -2786,6 +2786,24 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
     # here on is THIS call's own new spend.
     since_index = len(child.log.nodes())
     runtime.live_children[agent_id] = child  # H11b finding 14, see run_agent_call's own comment
+    # external review finding 10 (2026-10-08), double-writer half: the
+    # in-flight guard checked above was never SET for a foreground
+    # resume, so two Agent(task_id=X) calls in ONE assistant message both
+    # passed it and built two independent Sessions over the same child
+    # log files -- interleaved JSONL writers. Set for the duration, reset
+    # in the same finally that pops live_children (same "never stuck
+    # True" reasoning _bg_run's own comment gives).
+    record["running_in_process"] = True
+    _dock_name = spec.dock_label or spec.name
+    _desc = tool_input.get("description") or record.get("description") or "resume"
+    start_ev = events.Event("subagent_start", {"agent_id": agent_id, "name": _dock_name,
+                                               "description": _desc, "parent_tool_use_id": tool_id,
+                                               "task_id": task_id})
+    start_ev.agent_id = agent_id
+    _fire_subagent_hook(child, "SubagentStart")
+    _fire_task_hook(parent, "TaskCreated", task_id=task_id, spec_name=spec.name, description=_desc)
+    if on_event is not None:
+        on_event(start_ev)
     prompt = tool_input.get("prompt") or "Please continue."
     try:
         # finding 10: the session-/org-wide cap, never just one pool's own.
@@ -2795,10 +2813,27 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
     finally:
         child.close_cc()
         runtime.live_children.pop(agent_id, None)
+        # finding 10: reset the in-flight guard the same finally owns.
+        with runtime.lock:
+            entry = runtime.tasks.get(task_id)
+            if isinstance(entry, dict):
+                entry["running_in_process"] = False
     text = _final_text_from_log(child)
     # H9 whole-tree review finding 26: same treatment as run_agent_call's
     # own foreground path -- see its comment.
     is_error, abnormal_reason = _child_turn_outcome(child_events)
+    # external review finding 10 (2026-10-08), hooks half: a resume used
+    # to fire ZERO hooks/events -- no SubagentStart/Stop, no TaskCreated/
+    # Completed, no subagent_start/end -- so a resumed task was invisible
+    # to every hook and every dock. Same shapes the fresh-spawn path
+    # fires, in the same order.
+    _fire_subagent_hook(child, "SubagentStop")
+    _fire_task_hook(parent, "TaskCompleted", task_id=task_id, spec_name=spec.name, description=_desc)
+    end_ev = events.Event("subagent_end", {"agent_id": agent_id, "name": _dock_name,
+                                           "result_preview": _one_line_preview(text), "task_id": task_id})
+    end_ev.agent_id = agent_id
+    if on_event is not None:
+        on_event(end_ev)
     _write_meta(meta_path, {"status": "completed", "is_error": is_error, "finished": time.time()})
     _rollup_child_cost_into_parent(parent, child, agent_id=agent_id, since_index=since_index, role=role_name,
                                    ok=not is_error, bio=spec.name)
