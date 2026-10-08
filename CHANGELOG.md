@@ -133,6 +133,29 @@ prefers. Pinned by `tests/test_round_0e_concierge_media.py` (role
 resolution, `/ask` log-isolation, eyes on/off, digest + archive, real
 ffmpeg frame extraction, bio sanity).
 
+### Local embeddings + /recall + the generic `local:` route (the old 2.0.6 scope)
+
+Semantic search over auto-memory topics and past sessions on a LOCAL
+embedding model: `halo recall <query> [--k N] [--no-refresh]
+[--build-only]` and `/recall <query>` in the TUI. Two transports, one
+config (`embeddings` in `~/.halo/config.json`): Ollama's native
+`/api/embed` on the default or named host, or any OpenAI-compatible
+`/v1/embeddings` server (`base_url`/`api_key`) -- LM Studio, llama.cpp
+server, vLLM, a managed server. The index (`~/.halo/index/
+embeddings.jsonl`) refreshes incrementally (mtime-keyed: unchanged
+files are never re-embedded; vanished sources are pruned); sessions are
+indexed by title/first-prompt/last-answer, memory topics by their full
+text; results rank by cosine similarity with scores, kinds and paths.
+DISABLED until `embeddings.model` is set -- nothing probes, nothing
+costs, until the owner asks. The generic `local:` chat route lands with
+it: `local:<model>` or `local:<model>@<name>` against a `local.servers`
+config entry (LM Studio, llama.cpp server, vLLM), plain openai-chat
+dialect with per-server `context` discovery. Pinned by
+`tests/test_round_embeddings_local.py` (disabled-until-configured, both
+transports against a real local HTTP server, index build/incremental/
+prune, ranking, CLI exit codes, `local:` parsing/creds/context, and a
+real session turn through the route).
+
 ## [2.0.6.1] - 2026-10-08
 
 Hotfix release: two owner-live TUI fixes from the 2.0.6 release

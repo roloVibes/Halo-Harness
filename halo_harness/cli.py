@@ -411,6 +411,9 @@ def main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "preflight":
         from halo_harness.preflight import cmd_preflight
         return cmd_preflight(argv[1:])
+    if argv and argv[0] == "recall":
+        from halo_harness.recall import cmd_recall
+        return cmd_recall(argv[1:])
     if argv and argv[0] == "audit":
         from halo_harness.audit_cli import cmd_audit
         return cmd_audit(argv[1:])

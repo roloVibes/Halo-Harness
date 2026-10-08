@@ -930,6 +930,26 @@ a clean, deterministic answer, never a crash. See [MODELS.md](MODELS.md)'s
 "Finding and using file-backed models"/"Apple Silicon (`hf:mlx/*`, round
 5f)" sections; new local-model users are pointed at this command first.
 
+`halo recall <query> [--k N] [--no-refresh] [--build-only]` (2.0.7, the
+old 2.0.6 scope) is semantic search over auto-memory topics and past
+sessions on a LOCAL embedding model -- Ollama's native `/api/embed` on
+the default (or named) host, or any OpenAI-compatible `/v1/embeddings`
+server. The index lives at `~/.halo/index/embeddings.jsonl` and refreshes
+incrementally (mtime-keyed: unchanged files are never re-embedded). Each
+hit shows its similarity score, kind (memo/sess), title and path.
+DISABLED until configured: set `embeddings.model` in `~/.halo/
+config.json` (e.g. `"nomic-embed-text"`, `ollama pull nomic-embed-text`
+first; `embeddings.host` names a non-default Ollama host;
+`embeddings.base_url`/`api_key` point at an OpenAI-compatible server
+instead). `--build-only` rebuilds the index without searching; exit 0
+with hits, 1 with none, 2 when unconfigured/usage. The TUI twin is
+`/recall <query>` (`docs/SLASH-COMMANDS.md`). The generic
+OpenAI-compatible local-server CHAT route -- `local:<model>` or
+`local:<model>@<name>` against a `local.servers` config entry (LM
+Studio, llama.cpp server, vLLM; per-server `context` discovery) -- is
+the same version's sibling, configured under `local.servers` in
+`~/.halo/config.json`.
+
 `halo doctor --agents [--mock]` (2.0.4 round 4) validates every agent
 bio's shape (`halo_harness/agents_yaml.py`) and the ACTIVE team template
 (`team` in config.json -- every agent it references must exist), then
