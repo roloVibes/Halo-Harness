@@ -172,6 +172,79 @@ def _model_family(ref: str) -> "str | None":
     return fam or None
 
 
+def _catalog_model_ids(provider: str, *, state_dir=None) -> "set[str] | None":
+    """The set of known model ids for one provider's catalog, or None when
+    the catalog can't be read (never a false 'dead id' from a missing
+    catalog). 2.0.7 dead-model-id round: `or:` reads models.json (the
+    picker's own source, so a stale-but-known id stays quiet), `dbx:` the
+    endpoints cache, `ol:` the host's live tag list (cheap, already the
+    panel's own probe)."""
+    try:
+        if provider == "or":
+            from halo_harness.providers.databricks import load_models_json
+            from halo_harness.config.paths import bridge_home
+            models = load_models_json(state_dir or bridge_home()) or {}
+            # An EMPTY models.json means "never fetched / nothing cached" --
+            # not "every id is dead". Read as unverifiable (None), never a
+            # wall of false dead-id warnings on a fresh install.
+            return set(models) or None
+        if provider == "dbx":
+            from halo_harness.providers.databricks import load_dbx_endpoints_json
+            from halo_harness.config.paths import bridge_home
+            endpoints = load_dbx_endpoints_json(state_dir or bridge_home()) or {}
+            return set(endpoints)
+        if provider == "ol":
+            from halo_harness.providers.ollama import get_catalog, resolve_ollama_host
+            host = resolve_ollama_host(None)
+            if host is None:
+                return None
+            catalog = get_catalog(host)
+            return {m.get("name") or m.get("model") for m in (catalog or {}).get("models", [])}
+    except Exception:
+        return None
+    return None
+
+
+def check_dead_model_ids(*, cwd=None, state_dir=None) -> "list[str]":
+    """2.0.7 dead-model-id detection (rolo's live 2.0.6 finding: the role
+    table's `or:deepseek/deepseek-v4-pro-0813` was 404ing SILENTLY --
+    sub-agents handed back empty results and nothing said why). Resolves
+    every role's configured model against the provider's own catalog and
+    reports each id the catalog does not know, naming the role and a
+    concrete fix. Providers without a readable catalog (or local lanes,
+    which have no catalog to check) are skipped, never guessed at."""
+    from halo_harness.roles import configured_role_table
+    problems: "list[str]" = []
+    table = configured_role_table()
+
+    def _pref_for(role):
+        v = table.get(role)
+        if isinstance(v, dict):
+            return v.get("model")
+        return v
+
+    catalogs: "dict[str, set | None]" = {}
+    for role in sorted(table):
+        pref = _pref_for(role)
+        if not isinstance(pref, str) or ":" not in pref:
+            continue
+        provider = pref.split(":", 1)[0]
+        if provider not in ("or", "dbx", "ol"):
+            continue
+        if provider not in catalogs:
+            catalogs[provider] = _catalog_model_ids(provider, state_dir=state_dir)
+        known = catalogs[provider]
+        if known is None:
+            continue
+        bare = pref.split(":", 1)[1].split("@")[0]
+        if bare not in known:
+            problems.append(
+                f"{role}'s model id {pref!r} is not in the {provider} catalog -- requests for it 404 "
+                f"silently (sub-agents come back empty). Pick a live id from the model picker, or "
+                f"`halo models --refresh` first if the catalog is stale.")
+    return problems
+
+
 def check_roles_hygiene(*, cwd=None, state_dir=None) -> "list[str]":
     """The roles lineup's own warning set, run headless (2.0.6 round 7 /
     the v2.0.4 review's item 6): every warning the wizard's lineup editor

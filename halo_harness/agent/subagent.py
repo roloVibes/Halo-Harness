@@ -1073,6 +1073,22 @@ def _child_turn_outcome(child_events: list) -> "tuple[bool, Optional[str]]":
     return (reason in _ABNORMAL_TURN_DONE_REASONS), reason
 
 
+def _last_child_error_text(child_events: list) -> "Optional[str]":
+    """2.0.7 dead-model-id round: the LAST `error` event's message from a
+    child's own stream -- the 404's own words ("no endpoints found for
+    model deepseek/..."), the exact thing a SILENT empty handback used to
+    hide. Only ever used to DECORATE an already-abnormal handback (never
+    a healthy one), so a transient early error that a later retry
+    survived stays invisible, as it should."""
+    last = None
+    for ev in child_events:
+        if getattr(ev, "kind", None) == "error":
+            msg = (ev.data or {}).get("message") if isinstance(ev.data, dict) else None
+            if isinstance(msg, str) and msg.strip():
+                last = msg.strip()
+    return last
+
+
 def _forward_child_escalation_decisions(parent, child, spec) -> None:
     """2.0.6 round 12 (the carried C-5 minor): a background or foreground
     child's own hybrid-escalation decisions (agent/loop.py::_maybe_
@@ -1603,8 +1619,16 @@ def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: s
         end_ev.agent_id = agent_id
         on_event(end_ev)
         if is_error:
-            text = (f"[sub-agent did not finish normally ({abnormal_reason}) -- this may be a "
-                     f"stale/partial answer]\n{text}")
+            # 2.0.7 dead-model-id round: same decoration the fresh-spawn
+            # path got -- the child's own last error message rides the
+            # handback (the 404's own words, never a silent empty result).
+            _child_err = _last_child_error_text(child_events)
+            if _child_err:
+                text = (f"[sub-agent did not finish normally ({abnormal_reason}): {_child_err}\n"
+                        f"this may be a stale/partial answer]\n{text}")
+            else:
+                text = (f"[sub-agent did not finish normally ({abnormal_reason}) -- this may be a "
+                         f"stale/partial answer]\n{text}")
         worktree_note = _finalize_child_isolation_worktree(child)
         if worktree_note:
             text = f"{text}\n\n{worktree_note}"
@@ -2355,7 +2379,16 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
         on_event(end_ev)  # H5c finding 8: live too, same reasoning as start_ev above
 
     if is_error:
-        text = f"[sub-agent did not finish normally ({abnormal_reason}) -- this may be a stale/partial answer]\n{text}"
+        # 2.0.7 dead-model-id round: the child's OWN last error message
+        # rides the handback -- a 404'd model id used to hand back a
+        # silently-empty/partial answer with the actual "no endpoints
+        # found for model X" nowhere in sight.
+        _child_err = _last_child_error_text(child_events)
+        if _child_err:
+            text = (f"[sub-agent did not finish normally ({abnormal_reason}): {_child_err}\n"
+                    f"this may be a stale/partial answer]\n{text}")
+        else:
+            text = f"[sub-agent did not finish normally ({abnormal_reason}) -- this may be a stale/partial answer]\n{text}"
     if acceptance_failed:
         # 2.0.6 round 3: the escalation mark -- the result IS returned (the
         # parent decides what to do with it), but never silently.
@@ -2849,7 +2882,14 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
                    if effective_runtime.org_budget is not None else None)
     parent.permission_denials.extend(child.permission_denials)  # H6/D10, see run_agent_call's own comment
     if is_error:
-        text = f"[sub-agent did not finish normally ({abnormal_reason}) -- this may be a stale/partial answer]\n{text}"
+        # 2.0.7 dead-model-id round: same decoration the fresh-spawn path
+        # got -- the child's own last error message rides the handback.
+        _child_err = _last_child_error_text(child_events)
+        if _child_err:
+            text = (f"[sub-agent did not finish normally ({abnormal_reason}): {_child_err}\n"
+                    f"this may be a stale/partial answer]\n{text}")
+        else:
+            text = f"[sub-agent did not finish normally ({abnormal_reason}) -- this may be a stale/partial answer]\n{text}"
     worktree_note = _finalize_child_isolation_worktree(child)
     if worktree_note:
         text = f"{text}\n\n{worktree_note}"

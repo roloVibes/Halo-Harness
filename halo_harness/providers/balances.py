@@ -149,7 +149,9 @@ def refresh_all_balances(state_dir, *, env: "Optional[dict]" = None) -> dict:
             entry = refresh_cached_openrouter_balance(orc.base_url, orc.api_key, management_key=management_key)
             if entry is not None:
                 out["openrouter"] = {"status": "ok", "amount": entry["amount"], "kind": entry["kind"],
-                                      "label": entry.get("label"), "fetched_at_wall": entry.get("fetched_at_wall", now)}
+                                      "label": entry.get("label"), "fetched_at_wall": entry.get("fetched_at_wall", now),
+                                      "total_credits": entry.get("total_credits"),
+                                      "total_usage": entry.get("total_usage")}
             else:
                 out["openrouter"] = {"status": "unreachable"}
         else:
@@ -216,12 +218,25 @@ def format_balance_entry(provider_label: str, entry: "Optional[dict]") -> str:
         return f"{provider_label}: not fetched yet"
     kind = entry.get("kind")
     verb = "remaining" if kind in ("limit_remaining", "credits") else ("spent" if kind == "spend" else "used")
+    # 2.0.7 balances-remaining round (rolo: "you want what's LEFT, not
+    # '$145 used'"): REMAINING leads everywhere it exists, and the
+    # total/used breakdown rides the same line whenever the provider
+    # offered it -- a used/spent figure never stands alone without its
+    # remaining twin.
+    if kind == "spend" and isinstance(entry.get("total_credits"), (int, float)):
+        remaining = entry["total_credits"] - amount
+        total_note = f" (of ${entry['total_credits']:.2f} total, ${amount:.2f} used, ${remaining:.2f} left)"
+    elif kind in ("limit_remaining", "credits") and isinstance(entry.get("total_credits"), (int, float)):
+        total_note = (f" (of ${entry['total_credits']:.2f} total, "
+                      f"${entry.get('total_usage') or 0:.2f} used)")
+    else:
+        total_note = ""
     when = ""
     if isinstance(entry.get("fetched_at_wall"), (int, float)):
         when = f", as of {datetime.datetime.fromtimestamp(entry['fetched_at_wall']).strftime('%H:%M:%S')}"
     note = f" ({entry['note']})" if entry.get("note") else ""
     label = f" (key: {entry['label']})" if entry.get("label") else ""
-    return f"{provider_label}: ${amount:.2f} {verb}{note}{label}{when}"
+    return f"{provider_label}: ${amount:.2f} {verb}{total_note}{note}{label}{when}"
 
 
 def format_balances_table(entries: dict) -> "list[str]":

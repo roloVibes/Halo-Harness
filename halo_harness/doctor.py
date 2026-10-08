@@ -1984,11 +1984,16 @@ def cmd_doctor(argv: list) -> int:
         from halo_harness.agents_doctor import check_roles_hygiene
         print("halo doctor --roles")
         print("  The roles lineup's hygiene, headless: no 'main' set, judge in the same model family as "
-              "coder (self-preference bias), unreachable gateways. Fast -- one reachability probe per "
-              "distinct gateway, no model calls.")
+              "coder (self-preference bias), unreachable gateways, and 2.0.7's dead model ids -- every "
+              "configured model resolved against its provider's own catalog (the silent-404 case "
+              "rolo hit live: a retired deepseek id, sub-agents coming back empty).")
+        from halo_harness.agents_doctor import check_dead_model_ids
         problems = check_roles_hygiene(cwd=doctor_cwd)
+        dead_ids = check_dead_model_ids(cwd=doctor_cwd)
+        if dead_ids:
+            problems = problems + dead_ids
         if args.json:
-            print(json.dumps({"problems": problems}, indent=2))
+            print(json.dumps({"problems": problems, "dead_model_ids": dead_ids}, indent=2))
         else:
             for p in problems:
                 print(f"  {p}")

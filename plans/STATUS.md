@@ -130,7 +130,7 @@ is verified on Windows and the Kali VM and pushed as it lands.
 - [x] Local embeddings (Ollama /api/embed or OpenAI-compat /v1/embeddings, disabled until embeddings.model set) + /recall + `halo recall` + incremental index + the generic `local:` route (local.servers config, per-server context); tests/test_round_embeddings_local.py 6/6
 - [x] Wizard deep review: the roles surface rebuilt around first-time-user clarity (what-a-role-is + when-it-fires lines on every surface, Team step one-pane-at-a-time, lineup editor cost footer + field labels, bio editor focused-control help with zero new rows); tests/test_round_wizard_deep_review.py 4/4
 - [x] Copy-out fix: selected-RANGE copies, mechanism-confirmed copies with visible failures, tmux/Kali OSC-52 detection + the set-clipboard fix named everywhere, BOM strip, doctor path verdict; tests/test_round_copy_out.py 6/6
-- [ ] Dead-model-id detection (`doctor --roles` live-catalog resolve, 404 surfaces in the handback), balances remaining-first, ollama polish (warm, lineup hygiene flags, single-GPU swap warning)
+- [x] Dead-model-id detection (doctor --roles resolves or:/dbx:/ol: ids against their catalogs; empty catalog = skip) + the child's own 404 message riding every errored handback + balances remaining-first with the total/used breakdown; tests/test_round_doctor_dead_ids.py 6/6 (ollama polish items moved to the release round)
 - [ ] release
 
 ## 2.0.8 (`2.0.8-signal-brief.md`)
