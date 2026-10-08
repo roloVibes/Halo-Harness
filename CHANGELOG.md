@@ -8,6 +8,20 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.0.7] - unreleased
+
+### Steering text now renders the instant you hit Enter
+
+rolo's live report (2026-10-07 night): a steer typed mid-turn showed
+only "↳ steering…" while the actual words sat invisible for over a
+minute ("it just said thinking for a long ass time"). Root cause: the
+steer's text only rendered as a user bubble at APPLY time ("moments
+later"), but a turn parked inside a long tool call (a sub-agent over
+OpenRouter, a long Bash) can go minutes between steer safe points. The
+text now renders immediately as a real user bubble at submit; the
+apply-time duplicate is suppressed (deduped by text against the
+pending-steer list; a genuinely identical LATER message still renders).
+
 ## [2.0.6] - 2026-10-07
 
 ### The transcript code-block hover bug (release-gate fix)

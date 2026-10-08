@@ -1203,3 +1203,36 @@ So 2.0.7 opens with:
 Both ahead of embeddings/wizard/copy. Everything OUT stays OUT
 (engagement objects, safety-as-architecture, fleet: halo-hacker /
 serverMode, never this repo).
+
+## ADDED 2026-10-07 night (rolo, live reports from the 2.0.6 release
+session): 2.0.7 round 0 "session UX" — two fixes from the owner's own
+usage, landing BEFORE the cyber pillars (small, surgical)
+
+1. **DONE already (03d54e7): steer text renders instantly.** A steer
+   typed mid-turn showed only "↳ steering…" while the words sat
+   invisible for 60s+ (the apply-time bubble assumed "moments later";
+   a turn parked inside a sub-agent call breaks that assumption). The
+   bubble now renders at submit; apply-time duplicate suppressed.
+2. **Notice delivery must stop impersonating the user (round 0b):**
+   when a background job or sub-agent finishes while the session is
+   between turns, `_apply_pending_job_notices` /
+   `_apply_pending_agent_notices` deliver the completion as a
+   USER-ROLE message merged into the next turn — so the model reads a
+   status blob interleaved with the owner's actual question and
+   answers the status first ("typing a question, getting a blob back
+   of what's been done, then an answer is not a good flow" — rolo).
+   Redesign: deliver pending notices as clearly-marked SYSTEM-role
+   status blocks (a distinct log kind + context-builder rendering with
+   an explicit "status notices — answer the human first, fold these in
+   only where relevant" frame), placed AFTER the human's message in
+   the turn. Print mode keeps its current behavior.
+3. **Steer-through-tool-calls (round 0c, deeper):** steers apply only
+   at safe points BETWEEN tool calls — a steer arriving during a
+   running sub-agent or long Bash waits for it to finish (the 60s+ lag
+   above). Direction: the per-call loop notices a pending steer, and
+   (a) long-running Bash gets the existing kill/abort plumbing, (b) a
+   foreground sub-agent gets the steer FORWARDED into itself (children
+   already share the parent's abort Event — H6 scope B) so the human's
+   words reach the work instead of queueing behind it. Cost guard: an
+   interrupted child's partial work is preserved in its log (resumable
+   via task_id) before any abort.
