@@ -472,7 +472,27 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   whole-widget behavior stays only for the explicit copy-turn binding.
   Also verify the BOM: a PowerShell read of the clipboard showed a
   leading U+FEFF -- confirm clip.exe writes no BOM (or strip it), since
-  an invisible BOM pasted into a file breaks it silently.
+  an invisible BOM pasted into a file breaks it silently. ADDED
+  2026-10-07 late (rolo: "any errors you encounter using ollama should
+  be added to 2.0.7"): the first live delegation run through the local
+  lineup (worker + verify, both `ol:qwen3-coder:30b@lan`) completed
+  clean at $0.0000 with working tool calls -- NO errors -- but surfaced
+  three real items: (1) **cold-load UX**: the first dispatch paid a
+  full 18.6 GB model load with nothing in VRAM; a pre-warm or
+  keep-alive for team-routed local models (session start, or an
+  explicit `halo local warm` command) would cut first-token latency
+  from ~a minute to seconds; (2) **lineup hygiene**: the ACTIVE team's
+  role table routed worker AND verify to the same model --
+  `halo doctor --roles` should flag "verify and worker share a model"
+  the way it flags judge/coder family overlap (a verifier on the same
+  weights shares its blind spots); (3) **the VRAM/swap tension**: a
+  lineup that separates verify onto a DIFFERENT local model forces a
+  full model swap per role change on a single-GPU box (qwen3-coder
+  18.6 GB + qwen3.8 17.7 GB cannot co-reside on 24 GB) -- the team
+  default for single-GPU hosts should either prefer same-model
+  verification or warn at `teams use` time. All three are polish, not
+  blockers: the delegation stack itself (Ollama dialect, tool calls,
+  acceptance, cost attribution at $0.0000) held up on real hardware.
 - **2.0.8 = theme pack:** DOOM, Metroid, Mario (see "ADDED 2026-10-04:
   2.0.7 becomes a theme pack"; the content is unchanged, only the number).
 - **2.0.9 = Signal remote control** (plan `2.0.8-signal-brief.md`, content
