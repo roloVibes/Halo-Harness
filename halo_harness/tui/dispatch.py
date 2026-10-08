@@ -369,7 +369,22 @@ async def _apply_event_inner(app, event) -> None:
     kind, data, turn = event.kind, event.data, event.turn
     agent_id = event.agent_id
     if kind == "user_message":
-        await app.transcript.add_user(data.get("text", ""))
+        text = data.get("text", "")
+        # 2.0.7 round 0 (rolo's live report, 2026-10-07 night): a steer's
+        # apply-time `user_message` is the SECOND rendering of text the
+        # user already saw at SUBMIT time -- steer_queued below renders
+        # the real bubble the instant Enter is hit, because "moments
+        # later" (the old U5 assumption) is broken by minute-long tool
+        # calls (a sub-agent or a long Bash parks the turn between safe
+        # points, and the user stares at their own typed words being
+        # nowhere in the transcript). Suppress the duplicate here and
+        # take the text out of the pending list; a genuinely identical
+        # LATER message (typed after this one applied) renders normally.
+        pending = getattr(app, "_pending_steer_note_texts", None)
+        if pending and text in pending:
+            pending.remove(text)
+            return
+        await app.transcript.add_user(text)
     elif kind == "message_start":
         app.transcript.begin_message(turn, agent_id=agent_id)
         # H9 whole-tree review finding 11: a child's own `message_start`
@@ -758,10 +773,16 @@ async def _apply_event_inner(app, event) -> None:
         # never a toast, and never logged/sent to the model.
         await app.transcript.add_note(data.get("text", ""), kind="note")
     elif kind == "steer_queued":
-        # U5 must-do: the steer's own TEXT is never embedded in this note
-        # -- it shows up exactly once, moments later, as an ordinary user
-        # bubble (the `user_message` event `_apply_pending_steers_events`
-        # yields right before `steer_applied`).
+        # 2.0.7 round 0 (rolo's live report, 2026-10-07 night): the steer's
+        # TEXT now renders IMMEDIATELY, as a real user bubble, right here
+        # at submit time -- the old "↳ steering…" with no text assumed the
+        # apply-time `user_message` bubble would follow "moments later",
+        # but a turn parked inside a minute-long tool call (a sub-agent
+        # over OpenRouter, a long Bash) leaves the user staring at a
+        # transcript that swallowed their words. The apply-time bubble is
+        # suppressed in the `user_message` branch above (deduped by text
+        # against this same pending list); the note below keeps the
+        # "this is steering the running turn, not a new one" affordance.
         #
         # H5c finding 19: this event genuinely fires TWICE for one logical
         # steer -- once immediately at submit time (`Controller.submit`,
@@ -784,7 +805,8 @@ async def _apply_event_inner(app, event) -> None:
             pass  # the same steer's own second (apply-time) emission
         else:
             pending.append(text)
-            await app.transcript.add_note("↳ steering…", kind="steer")
+            await app.transcript.add_user(text)
+            await app.transcript.add_note("↳ steering the running turn…", kind="steer")
     elif kind == "steer_applied":
         pending = getattr(app, "_pending_steer_note_texts", None)
         text = data.get("text")
