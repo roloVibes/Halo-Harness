@@ -780,6 +780,17 @@ def _status_notice_block(text: str) -> str:
     result>` payload stays byte-identical inside the tags."""
     return _STATUS_NOTICE_FRAME_HEAD + "\n" + text + "\n</status-notices>"
 
+
+def _status_notice_digest_block(digest: str) -> str:
+    """Halo 2.0.7 round 0e: the CONCIERGE-digested variant -- the model
+    sees frame + a short digest + a pointer, never the full notice body;
+    the verbatim block is preserved in the log as a meta node (never
+    model-visible) by the delivery helper."""
+    return (_STATUS_NOTICE_FRAME_HEAD
+            + "\nconcierge digest of the finished work:\n" + digest.strip()
+            + "\n\n(full results are preserved in the session log -- /tasks lists every task)\n"
+            + "</status-notices>")
+
 class Session:
     """One conversation against one model. `session_context.system_prompt`
     is computed ONCE by the caller and logged as the session's single
@@ -2431,7 +2442,8 @@ class Session:
         )
 
     def call_small_model(self, *, system_text: str, user_text: str, max_tokens: int = 4096,
-                          timeout_s: float = 60.0, model_ref: Optional[ModelRef] = None) -> str:
+                          timeout_s: float = 60.0, model_ref: Optional[ModelRef] = None,
+                          images: Optional[list] = None) -> str:
         """A ONE-SHOT request built directly via `build_request_body`
         (never through `derive_request`/the session log, so this call is
         NEVER part of the logged conversation) -- shared by
@@ -2502,7 +2514,21 @@ class Session:
         # model (`ref is not self.model_ref`) -- the plain main-model
         # fallback case is completely unchanged.
         effort = self.effort if ref is self.model_ref else (self.small_model_effort or self.effort)
-        messages = [{"role": "user", "content": [{"type": "text", "text": user_text}]}]
+        user_content = [{"type": "text", "text": user_text}]
+        # Halo 2.0.7 round 0e (the concierge's eyes): optional image
+        # blocks on this one-shot call -- the same logged-image shape
+        # `Session.turn` attaches ({"type": "image", "path": ...} dicts
+        # are converted, pre-shaped blocks pass through). Only meaningful
+        # when the resolved ref's profile claims vision; a blind ref gets
+        # text-only (the call still succeeds, images simply don't ride).
+        if images and getattr(profile, "vision", False):
+            from halo_harness.agent import image_attach
+            for img in images:
+                if isinstance(img, dict) and img.get("type") == "image":
+                    user_content.append(image_attach.image_block_for_log(img))
+                elif isinstance(img, dict):
+                    user_content.append(img)
+        messages = [{"role": "user", "content": user_content}]
         if route.dialect == "ollama":
             body = self._build_ollama_body_for_ref(
                 ref=ref, route=route, profile=profile, system_text=system_text, messages=messages,
@@ -5266,8 +5292,28 @@ class Session:
             from halo_harness.agent import image_attach
             vision_ok = bool(self.model_profile.vision) if images else True
             if images and not vision_ok:
-                yield events.notification(
-                    f"{self.model_ref.raw} does not take images; attached as a path")
+                # Halo 2.0.7 round 0e (the concierge's eyes): before the
+                # images degrade to bare path mentions ("graceful but
+                # useless"), let a configured concierge with vision
+                # DESCRIBE them -- the descriptions fold into this turn's
+                # context as a snapshot right after the prompt, so the
+                # blind main model still gets real image understanding.
+                # No concierge / concierge blind / call failed: exactly
+                # the old behavior (path mention + the notice below).
+                eyes_text = None
+                try:
+                    from halo_harness.concierge import describe_images_for_blind_model
+                    eyes_text = describe_images_for_blind_model(self, images)
+                except Exception:
+                    eyes_text = None
+                if eyes_text:
+                    self.log.append_snapshot([{"type": "text", "text": eyes_text}],
+                                             kind="concierge_vision")
+                    yield events.notification(
+                        "the concierge described the image(s) -- the active model is blind")
+                else:
+                    yield events.notification(
+                        f"{self.model_ref.raw} does not take images; attached as a path")
             blocks = [{"type": "text", "text": text}]
             for img in (images or []):
                 if isinstance(img, dict) and img.get("type") == "image":
@@ -6670,6 +6716,32 @@ class Session:
         slot["event"].set()
         return True
 
+    def _deliver_status_notice(self, turn_no: int, text: str, notif: str) -> Iterator[events.Event]:
+        """Halo 2.0.7 round 0e: the ONE delivery path both pending-notice
+        appliers share. With a concierge configured, the notice body is
+        DIGESTED to a couple of lines for the model (frame + digest +
+        pointer) and the verbatim framed block is archived as a meta node
+        -- model-visible means logged, and the digest IS in the log, while
+        the full text survives for /tasks, resume and `halo export`
+        without ever entering a model request. Without a concierge (or a
+        failed digest call): the round-0b verbatim delivery, unchanged."""
+        digest = None
+        try:
+            from halo_harness.concierge import digest_notice_block
+            digest = digest_notice_block(self, text)
+        except Exception:
+            digest = None
+        if digest:
+            framed = _status_notice_digest_block(digest)
+            self.log.append_snapshot([{"type": "text", "text": framed}], kind="status_notice")
+            self.log.append_meta(archived_notice=_status_notice_block(text))
+            yield events.status_notice(text, framed=framed, turn=turn_no)
+        else:
+            framed = _status_notice_block(text)
+            self.log.append_snapshot([{"type": "text", "text": framed}], kind="status_notice")
+            yield events.status_notice(text, framed=framed, turn=turn_no)
+        yield events.notification(notif)
+
     def _apply_pending_agent_notices(self, turn_no: int):
         """Pop every queued background-sub-agent-completion notice and
         apply it as a SYSTEM-FRAMED status block (H6 scope F lineage:
@@ -6706,10 +6778,7 @@ class Session:
         else:
             text = _compact_notices_text(notices, noun="sub-agent")
             notif = f"{len(notices)} background sub-agents finished while you were away"
-        framed = _status_notice_block(text)
-        self.log.append_snapshot([{"type": "text", "text": framed}], kind="status_notice")
-        yield events.status_notice(text, framed=framed, turn=turn_no)
-        yield events.notification(notif)
+        yield from self._deliver_status_notice(turn_no, text, notif)
 
     def _apply_pending_job_notices(self, turn_no: int):
         """H8 scope A: the background-Bash-job sibling of
@@ -6729,10 +6798,7 @@ class Session:
         else:
             text = _compact_notices_text(notices, noun="job")
             notif = f"{len(notices)} background jobs finished while you were away"
-        framed = _status_notice_block(text)
-        self.log.append_snapshot([{"type": "text", "text": framed}], kind="status_notice")
-        yield events.status_notice(text, framed=framed, turn=turn_no)
-        yield events.notification(notif)
+        yield from self._deliver_status_notice(turn_no, text, notif)
 
     def _await_reply(self, waiters: dict, request_id: str, *, timeout: Optional[float] = None):
         """Block the WORKER thread until a UI-thread `resolve_*` call answers

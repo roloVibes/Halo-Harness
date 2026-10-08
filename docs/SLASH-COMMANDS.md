@@ -184,6 +184,23 @@ sub-verb -- see `docs/COMMANDS.md`.
 Shows the auto-memory directory path, whether `MEMORY.md` exists, and how
 many topic files are indexed.
 
+### `/ask <question>` (2.0.7 round 0e)
+The concierge secretary: `roles.concierge` (e.g.
+`or:z-ai/glm-5.3-flash` -- vision=True at a fraction of the main model's
+price) answers quick questions and "what's been done" updates WITHOUT
+waking the orchestrator -- a one-shot call over a deterministic digest of
+the session's recent history (prompts, actions, tool results, status
+notices), never through the session log: the question and answer render
+as a command note, never a logged user/assistant turn, so nothing here is
+replayed into a later request. The same role powers the eyes (images
+arriving on a blind active model get concierge descriptions folded into
+the turn) and the pending-notice digest (a status block the main model
+would otherwise see verbatim is compressed to a couple of lines, with the
+full text archived in the log). Unset -> `/ask` says how to configure it;
+every other surface degrades silently to the pre-0e behavior. Set it with
+`/roles` or `roles.concierge` in `~/.halo/config.json` -- see
+[AGENTS.md](AGENTS.md).
+
 ### `/permissions`
 Shows the active permission mode and the allow/ask/deny rule counts.
 `[TUI-only]`: opens an interactive rules dialog instead of a text summary.

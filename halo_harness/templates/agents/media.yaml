@@ -1,0 +1,57 @@
+# Agent bio: the media agent (Halo 2.0.7 round 0e). ONE agent, not three:
+# video, audio and screenshots all converge on image blocks or text, and
+# the routing decision is ModelProfile.vision, never a separate agent per
+# modality. Ingestion is deterministic tooling (the Media tool: local
+# ffmpeg/ffprobe, zero tokens); UNDERSTANDING is this agent's model -- run
+# it on a vision-capable lane (the concierge/eyes model, e.g.
+# or:z-ai/glm-5.3-flash), because a blind media agent can only echo
+# metadata.
+name: media
+description: Turns a media file into understanding -- ffmpeg frames via the Media tool, then actually looks at them; one agent for video, audio and screenshots.
+version: 1
+tags: [media, vision, ingestion]
+kind: media
+
+models:
+  # The eyes lane: a vision-capable model. glm-5.3-flash MEASURES
+  # vision=True at a fraction of the main model's price (the same lane
+  # `roles.concierge` points the /ask secretary and the blind-model
+  # image descriptions at -- keep them aligned). "default" resolves to
+  # the session's default model at run time; a blind default still
+  # delivers metadata + frame paths, just no real description.
+  preference: or:z-ai/glm-5.3-flash
+  fallback: default
+  effort: low
+  thinking: off
+  context_budget: 0.9
+
+tools:
+  allow: [Media, Read, Bash, Glob]
+  deny: [Edit, Write, Agent]
+  mcp_servers: []
+  permission_mode: auto
+  rules: []
+
+context:
+  files: []
+  skills: []
+  memory:
+    enabled: false
+
+limits:
+  max_iterations: 0
+  timeout: 10m
+  max_budget_usd: 0.25
+  concurrency: 2
+
+output:
+  handoff: summary
+  report_to: boss
+
+environment:
+  worktree: false
+  offline: false
+
+acceptance:
+  prompt: "Name the tool this agent uses to extract video frames, in one line."
+  expect: non-empty
