@@ -1858,6 +1858,22 @@ started, by the SAME `<model>` name it was started with. Works even in a
 brand new `halo` process -- it reads `~/.halo/run/local-servers.json` and
 kills by the recorded pid, rather than needing a live handle.
 
+### `halo local warm [MODELS...] [--host NAME] [--keep-alive DURATION]` (2.0.7)
+
+Pre-loads local Ollama models so the FIRST real call skips the
+cold-load: one 1-token `/api/chat` per model, `keep_alive` set so the
+weights actually STAY (default `30m`, matching a work session; `-1`
+forever, `0` drops them right after). Already-resident models (`/api/ps`)
+are reported and skipped, never re-paid. With no model args, warms every
+`ol:` ref in the roles table plus the default `model` when it is one --
+run it before a long autonomous session (`halo local warm`) so the first
+implement->verify transitions don't each pay a minute of load.
+
+`halo teams use` (2.0.7) also warns at ACTIVATION when a lineup's local
+lanes measured as unable to co-reside on one GPU (the single-GPU model
+swap cost), with the fix named -- measured via `fits_beside_main`,
+never a guess.
+
 ### `halo local import <model> [--name NAME] [--host NAME] [--yes]`
 
 Copies a `.gguf` file into an Ollama host's own model store (writes a

@@ -125,6 +125,18 @@ clean table, empty-catalog skip, doctor wiring, the error-text
 extraction, a full e2e dead-lane spawn surfacing the 404 in the
 handback, the balance lines).
 
+### Ollama polish: `halo local warm`, single-GPU swap warning at `teams use`
+
+- **`halo local warm [MODELS...] [--host NAME] [--keep-alive DURATION]`**
+  pre-loads local Ollama models (one 1-token `/api/chat` each,
+  `keep_alive` default 30m so the weights STAY) so the first real call
+  skips the cold-load; already-resident models are reported and skipped;
+  with no args it warms every `ol:` ref in the roles table plus a local
+  default model -- run before a long autonomous session.
+- **`halo teams use` warns at activation** when a lineup's local lanes
+  measured as unable to co-reside on one GPU (`fits_beside_main`, never
+  a guess) -- the single-GPU model-swap cost named with its fix.
+
 ### Round 0b: background notices stop impersonating the user
 
 rolo's live report (2026-10-08): with a background job or sub-agent

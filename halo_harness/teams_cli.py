@@ -191,10 +191,56 @@ def _cmd_use(rest: list) -> int:
     if problems:
         print(f"halo teams use: {args.name!r} has problems: {'; '.join(problems)}", file=sys.stderr)
         return 1
+    # 2.0.7 ollama polish (rolo's single-GPU reality): a lineup whose
+    # worker/verify lanes are DIFFERENT local models that cannot co-reside
+    # pays a full model swap (~a minute of dead load on a 24 GB card) on
+    # every implement->verify transition. Warn at ACTIVATION, when the fix
+    # (same model for both, or a smaller second lane) is cheapest. Measured
+    # via fits_beside_main -- never a guess; unknown (remote host, nothing
+    # loaded yet) stays silent.
+    try:
+        _warn_single_gpu_swaps(template)
+    except Exception:
+        pass
     from halo_harness.theme import set_config_value
     set_config_value("team", args.name)
     print(f"Active team: {args.name!r}.")
     return 0
+
+
+def _warn_single_gpu_swaps(template: dict) -> None:
+    """One plain warning per LOCAL model pair in the lineup that measured
+    as unable to co-reside on the default Ollama host. `ol:` refs only;
+    non-local and unknown-fit pairs stay silent (benefit of the doubt)."""
+    from halo_harness.providers.ollama import resolve_ollama_host
+    from halo_harness.providers.ollama_hw import fits_beside_main
+    host = resolve_ollama_host(None)
+    if host is None:
+        return
+    # The distinct ol: models this lineup references (roles shorthand or
+    # full agents list).
+    refs = set()
+    roles = template.get("roles") or {}
+    if isinstance(roles, dict):
+        for v in roles.values():
+            if isinstance(v, str) and v.startswith("ol:"):
+                refs.add(v[3:].split("@")[0])
+            elif isinstance(v, dict) and isinstance(v.get("model"), str) and v["model"].startswith("ol:"):
+                refs.add(v["model"][3:].split("@")[0])
+    for entry in template.get("agents") or []:
+        if isinstance(entry, dict):
+            m = entry.get("model") or ""
+            if isinstance(m, str) and m.startswith("ol:"):
+                refs.add(m[3:].split("@")[0])
+    refs = {r for r in refs if r}
+    if len(refs) < 2:
+        return
+    import itertools
+    for a, b in itertools.combinations(sorted(refs), 2):
+        if fits_beside_main(host, main_model=a, candidate_model=b, catalog=None) is False:
+            print(f"  [!] {a} + {b} cannot co-reside on this GPU -- every switch between their roles "
+                  f"pays a full model swap (~1 min on a 24 GB card). Consider one model for both "
+                  f"lanes, or a smaller second lane.", file=sys.stderr)
 
 
 def _cmd_export(rest: list) -> int:
