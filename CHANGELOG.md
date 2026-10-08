@@ -14,7 +14,7 @@ version.
 steer-through-tool-calls, round 0e concierge + media, then the cyber
 pillars -- see plans/ROADMAP.md.)
 
-## [2.0.6.1] - unreleased
+## [2.0.6.1] - 2026-10-08
 
 Hotfix release: two owner-live TUI fixes from the 2.0.6 release
 session, shipped the same way 2.0.3.1 shipped clipboard images.
