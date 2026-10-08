@@ -493,6 +493,15 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   verification or warn at `teams use` time. All three are polish, not
   blockers: the delegation stack itself (Ollama dialect, tool calls,
   acceptance, cost attribution at $0.0000) held up on real hardware.
+  (4) **DEAD MODEL IDS, found live 2026-10-07**: the reviewer role's
+  `or:deepseek/deepseek-v4-pro-0813` returned 404 on OpenRouter --
+  every reviewer call this cycle silently produced nothing at $0.0000
+  (empty handbacks, no error surfaced in the lineup view). `halo
+  doctor --roles` must resolve each role's model id against the
+  provider's LIVE catalog (one cached lookup per gateway) and flag
+  retired ids; a sub-agent whose model 404s must surface the error in
+  its handback line, never hand back empty. Fixed in the lineup by
+  moving to `or:deepseek/deepseek-v4-pro` (same family, cheaper).
 - **2.0.8 = theme pack:** DOOM, Metroid, Mario (see "ADDED 2026-10-04:
   2.0.7 becomes a theme pack"; the content is unchanged, only the number).
 - **2.0.9 = Signal remote control** (plan `2.0.8-signal-brief.md`, content
