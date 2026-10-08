@@ -56,6 +56,10 @@ async def handle_slash(app, name: str, args: str) -> None:
         # Halo 2.0.7 round 0e: the concierge secretary -- quick Q&A and
         # "what's been done" without waking the orchestrator.
         "ask": _handle_ask,
+        # Halo 2.0.7 (old 2.0.6 scope): semantic search over memory and
+        # sessions -- a real embedding call + possible index build, off
+        # the UI thread.
+        "recall": _handle_recall,
         # U5 scope B: git-shadow rewind.
         "rewind": _handle_rewind, "undo": _handle_undo, "redo": _handle_redo,
         # U5 scope A: keymap.
@@ -1491,6 +1495,45 @@ def _ask_worker(app, question: str) -> None:
                              f"/ask {question}\n\n(error: {type(e).__name__}: {e})", kind="command")
         return
     app.call_from_thread(app.transcript.add_note, f"/ask {question}\n\n{answer}", kind="command")
+
+
+async def _handle_recall(app, args: str) -> None:
+    """Halo 2.0.7 (the old 2.0.6 scope): `/recall <query>` -- semantic
+    search over auto-memory topics and past sessions on the LOCAL
+    embedding model (providers/embeddings.py). A real embedding call
+    (plus a possible incremental index build), so always off the UI
+    thread; results render as a command note."""
+    query = (args or "").strip()
+    if not query:
+        await app.transcript.add_note(
+            "/recall <query> -- semantic search over memory topics and past sessions "
+            "(set embeddings.model first, e.g. nomic-embed-text on your Ollama host)",
+            kind="command")
+        return
+    session = getattr(app.controller, "session", None)
+    state_dir = getattr(session, "state_dir", None)
+    app.run_worker(lambda: _recall_worker(app, query, state_dir), thread=True,
+                   name="recall", group="recall")
+
+
+def _recall_worker(app, query: str, state_dir) -> None:
+    from halo_harness.recall import search
+    try:
+        hits = search(query, state_dir=state_dir, k=8)
+    except Exception as e:
+        app.call_from_thread(app.transcript.add_note,
+                             f"/recall: {type(e).__name__}: {e}", kind="command")
+        return
+    if not hits:
+        app.call_from_thread(app.transcript.add_note,
+                             f"/recall {query}\n\nno matches (is the embedding model pulled? index built?)",
+                             kind="command")
+        return
+    lines = [f"/recall {query}"]
+    for h in hits:
+        icon = "memo" if h["kind"] == "memory" else "sess"
+        lines.append(f"  {h['score']:+.3f} [{icon}] {h['title']}  ({h['id']})")
+    app.call_from_thread(app.transcript.add_note, "\n".join(lines), kind="command")
 
 
 async def _handle_stats(app, args: str) -> None:

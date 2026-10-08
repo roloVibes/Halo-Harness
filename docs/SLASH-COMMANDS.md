@@ -184,6 +184,17 @@ sub-verb -- see `docs/COMMANDS.md`.
 Shows the auto-memory directory path, whether `MEMORY.md` exists, and how
 many topic files are indexed.
 
+### `/recall <query>` (2.0.7, the old 2.0.6 scope)
+Semantic search over auto-memory topics and past sessions on the LOCAL
+embedding model -- ranks every indexed memory file and session log
+(title, first prompt, last answer) by cosine similarity to the query and
+shows the top 8 with scores. Needs `embeddings.model` set in
+`~/.halo/config.json` (e.g. `"nomic-embed-text"` pulled on your Ollama
+host; `embeddings.base_url`/`api_key` for an OpenAI-compatible server).
+The index (`~/.halo/index/embeddings.jsonl`) refreshes incrementally
+before each search; the CLI twin is `halo recall <query>`
+(`docs/COMMANDS.md`).
+
 ### `/ask <question>` (2.0.7 round 0e)
 The concierge secretary: `roles.concierge` (e.g.
 `or:z-ai/glm-5.3-flash` -- vision=True at a fraction of the main model's

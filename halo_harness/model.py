@@ -27,6 +27,8 @@ _ANT_PREFIX = "ant:"
 _DBX_PREFIX = "dbx:"
 _OR_PREFIX = "or:"
 _CC_PREFIX = "cc:"
+# Halo 2.0.7: the generic OpenAI-compatible local-server route.
+_LOCAL_PREFIX = "local:"
 _OL_PREFIX = "ol:"
 _HF_PREFIX = "hf:"
 _HF_ENDPOINT_PREFIX = "endpoint/"
@@ -418,6 +420,24 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
         if not bare:
             raise InvalidModelError(f"no route: {raw!r} (cx: needs a model id, e.g. cx:astra)")
         return ModelRef(raw=raw, provider="codex", model=resolve_codex_alias(bare), dialect="codex-subprocess")
+    if resolved.startswith(_LOCAL_PREFIX):
+        # Halo 2.0.7 (the old 2.0.6 scope): the GENERIC local route --
+        # `local:<model>` on the default OpenAI-compatible server, or
+        # `local:<model>@<name>` naming an entry of `local.servers` in
+        # config.json (LM Studio, llama.cpp server, vLLM, ...). Dialect is
+        # plain openai-chat so the SAME request/stream/profile code
+        # OpenRouter/HF already use serves it; `host` carries the server
+        # name (same field ol:/hf:local already reuse for "which config
+        # entry"). Partition on the first "@" -- a served model id may
+        # contain ":" but never "@".
+        bare = resolved[len(_LOCAL_PREFIX):]
+        model_part, _, server_part = bare.partition("@")
+        if not model_part:
+            raise InvalidModelError(
+                f"no route: {raw!r} (local: needs a model id, e.g. local:qwen3-30b-a3b "
+                f"or local:model@my-lmstudio)")
+        return ModelRef(raw=raw, provider="local", model=model_part,
+                        dialect="openai-chat", host=server_part or None)
     if resolved.startswith(_CC_PREFIX):
         from halo_harness.providers.cc_models import resolve_cc_alias
         bare = resolved[len(_CC_PREFIX):]
@@ -639,6 +659,23 @@ def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict]
             vision=bool(fields.get("vision", True)), reasoning="openai",
         )
 
+    if ref.provider == "local":
+        # Halo 2.0.7 (the old 2.0.6 scope): per-server context discovery
+        # for the generic local route -- the `context` field of the
+        # `local.servers` entry this ref points at (LM Studio/llama.cpp/
+        # vLLM servers fix context at launch time, so the owner declares
+        # it once per server, never per model). No catalog tiers: a local
+        # server was never listed by any router's /v1/models; the bare
+        # dataclass default (128k) applies when the entry doesn't say.
+        from halo_harness.theme import get_config_value
+        servers = get_config_value("local.servers", {})
+        if isinstance(servers, dict) and servers:
+            name = ref.host if ref.host in servers else next(iter(servers))
+            entry = servers.get(name) or {}
+            ctx = entry.get("context") if isinstance(entry, dict) else None
+            if isinstance(ctx, int) and ctx > 0:
+                return ModelProfile(context_tokens=ctx)
+        return ModelProfile()
     if ref.provider == "huggingface":
         # Halo 2.0.3 round 4 brief: just two tiers for `hf:` refs -- the
         # router catalog (below), else the bare dataclass default; never

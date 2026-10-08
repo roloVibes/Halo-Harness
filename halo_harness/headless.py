@@ -106,6 +106,29 @@ def _resolve_creds(ref, settings=None) -> Optional[ProviderCreds]:
         # `host.url` exactly as before this round.
         base_url = openai_base_url_for_host(host)
         return ProviderCreds(base_url=base_url or host.url, api_key=host.api_key or "")
+    if ref.provider == "local":
+        # Halo 2.0.7 (the old 2.0.6 scope): the generic OpenAI-compatible
+        # local-server route -- `local.servers` in config.json:
+        # {"my-lmstudio": {"base_url": "http://127.0.0.1:1234/v1",
+        #                  "api_key": "...", "context": 8192}}. `ref.host`
+        # names the entry; unset/None -> the FIRST entry (the "default
+        # server"), same leniency `hf:local` gives. `context` is advisory
+        # metadata (context discovery), never a credential -- read by
+        # profile resolution, not here.
+        from halo_harness.theme import get_config_value
+        servers = get_config_value("local.servers", {})
+        if not isinstance(servers, dict) or not servers:
+            return None
+        name = getattr(ref, "host", None)
+        if name is None or name not in servers:
+            if name is not None:
+                return None  # a NAMED entry that doesn't exist is an error, never a silent default
+            name = next(iter(servers))
+        entry = servers.get(name) or {}
+        base_url = entry.get("base_url")
+        if not isinstance(base_url, str) or not base_url:
+            return None
+        return ProviderCreds(base_url=base_url, api_key=entry.get("api_key") or "")
     if ref.provider == "huggingface":
         # Halo 2.0.3 round 4: `ref.host` set means `hf:endpoint/<name>` --
         # a dedicated Inference Endpoint's OWN url/token, resolved from
