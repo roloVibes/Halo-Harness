@@ -129,8 +129,70 @@ def _cmd_runtime(argv: list) -> int:
     return 2
 
 
+def _cmd_warm(argv: list) -> int:
+    """2.0.7 ollama polish: `halo local warm [MODELS...] [--host NAME]
+    [--keep-alive DURATION]` -- pre-load the session's local-role models
+    (or the named ones) so the FIRST real call doesn't pay the cold-load.
+    One 1-token /api/chat per model at its fit-num_ctx, `keep_alive` set
+    so the weights actually STAY (default: 30m, matching a work session;
+    `--keep-alive 0` drops them right after, `--keep-alive -1` forever).
+    With no model args, warms every `ol:` ref in the roles table plus the
+    default `model` when it is one."""
+    from halo_harness.providers.ollama import _get_json, resolve_ollama_host
+    parser = argparse.ArgumentParser(
+        prog="halo local warm",
+        description="Pre-load local models so the first real call skips the cold-load.")
+    parser.add_argument("models", nargs="*", help="Model names (default: every ol: role in the table)")
+    parser.add_argument("--host", default=None, help="A named Ollama host (default: the default host)")
+    parser.add_argument("--keep-alive", default="30m",
+                        help="How long weights stay resident after warming (default 30m; -1 = forever)")
+    args = parser.parse_args(argv)
+    host = resolve_ollama_host(args.host)
+    if host is None:
+        print("halo local warm: no Ollama host configured -- set ollama.hosts in ~/.halo/config.json")
+        return 2
+    models = list(args.models)
+    if not models:
+        from halo_harness.roles import configured_role_table
+        from halo_harness.theme import get_config_value
+        for value in list(configured_role_table().values()) + [get_config_value("model", default=None)]:
+            if isinstance(value, str) and value.startswith("ol:"):
+                name = value[3:].split("@")[0]
+                if name and name not in models:
+                    models.append(name)
+    if not models:
+        print("halo local warm: no models named and no ol: roles configured -- nothing to warm.")
+        return 0
+    # Check what is actually resident first (/api/ps): already-loaded
+    # models are reported, not re-paid.
+    ps = _get_json(host, "/api/ps") or {}
+    resident = {m.get("name") or m.get("model") for m in ps.get("models", [])}
+    failed = []
+    for name in models:
+        if name in resident:
+            print(f"  {name}: already resident -- nothing to do")
+            continue
+        # A tiny 1-token chat forces the load; the fit ctx is not needed
+        # for warming (the first real call re-seats it if larger).
+        body = {"model": name, "stream": False,
+                "messages": [{"role": "user", "content": "hi"}],
+                "options": {"num_predict": 1},
+                "keep_alive": args.keep_alive}
+        out = _get_json(host, "/api/chat", method="POST", body=body, timeout=180.0)
+        if out is None:
+            failed.append(name)
+            print(f"  {name}: FAILED to load (host reachable? model pulled?)")
+        else:
+            print(f"  {name}: warmed (keep_alive={args.keep_alive})")
+    if failed:
+        print(f"halo local warm: {len(failed)} model(s) failed: {', '.join(failed)}")
+        return 1
+    print(f"halo local warm: {len(models)} model(s) ready.")
+    return 0
+
+
 _SUBCOMMANDS = {"add": _cmd_add, "forget": _cmd_forget, "serve": _cmd_serve, "stop": _cmd_stop,
-                "import": _cmd_import, "runtime": _cmd_runtime}
+                "import": _cmd_import, "runtime": _cmd_runtime, "warm": _cmd_warm}
 
 
 def cmd_local(argv: list) -> int:
