@@ -66,6 +66,24 @@ AssistantText {
     color: $bridge-assistant;
 }
 
+/* 2.0.6 release-gate (rolo's live report, 2026-10-07 evening): code
+   blocks in the transcript turned into BLACK BOXES that vanished when
+   the mouse passed over them. Root cause: Textual's MarkdownFence is
+   itself a scrollable container (overflow: scroll hidden) -- on mouse
+   entry Textual repaints the region as a scroll target, and that
+   repaint races the ongoing stream updates, leaving the fence's
+   background painted over lines whose content hasn't re-rendered yet.
+   Local models surfaced it constantly (qwen wraps most answers in
+   fences). A fence inside a TRANSCRIPT never needs to scroll (the
+   transcript itself scrolls): pinned to a plain non-scrolling block,
+   the hover repaint path disappears entirely. */
+AssistantText MarkdownFence {
+    overflow: hidden;
+    scrollbar-size-horizontal: 0;
+    scrollbar-size-vertical: 0;
+    height: auto;
+}
+
 /* H9 whole-tree review finding 11: a sub-agent's own streamed text/
    thinking blocks get a left border + the SAME accent color
    .system-note-subagent already uses for its start/end markers, so a
