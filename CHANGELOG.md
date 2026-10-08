@@ -67,6 +67,37 @@ verified live) -- the crash-class and wrong-behavior items, fixed:
 
 Pinned by `tests/test_external_review_fixes.py` (11/11).
 
+### The copy-out fix (copy out of the session is first-class)
+
+rolo (2026-10-07): "copying text from the session to another file seems
+to not really work well." The whole copy stack, made reliable:
+
+- **A transcript mouse-drag copies the SELECTED RANGE.** A partial
+  selection narrows to exactly what was dragged (`Selection.extract`
+  over the widget's stored source); a whole-widget drag keeps the
+  stored-source path unchanged. A grazing drag no longer copies half
+  the screen.
+- **Every explicit copy confirms the mechanism that actually landed**:
+  "Copy verified via system clipboard (N characters)" from the
+  external-tool floor, and a total failure (no OSC 52 trust + no tool)
+  becomes a visible error naming the install hint -- silence is no
+  longer indistinguishable from failure.
+- **tmux/Kali over SSH**: OSC 52 is the only path from a headless VM to
+  the user's REAL local clipboard, and tmux drops it unless
+  `set-clipboard` is on (its default is off). halo now detects the tmux
+  interception (`tmux set -gv set-clipboard`, cached); both the copy
+  failure and `halo doctor` name the one-line fix (`tmux set -g
+  set-clipboard on`, then detach/attach).
+- **A leading BOM is stripped on clipboard reads** (clip.exe's UTF-16
+  trick surfaces as a literal char in some readers).
+- **`halo doctor`'s clipboard line states the full path verdict** --
+  write mechanisms, read direction, the range behavior, and the tmux
+  warning when it applies.
+
+Pinned by `tests/test_round_copy_out.py` (6/6: range narrowing,
+whole-widget path, mechanism confirmation, failure warnings incl. the
+tmux fix, BOM strip, doctor verdicts).
+
 ### Round 0b: background notices stop impersonating the user
 
 rolo's live report (2026-10-08): with a background job or sub-agent
