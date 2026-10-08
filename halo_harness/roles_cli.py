@@ -23,6 +23,29 @@ import subprocess
 import sys
 
 
+#: Halo 2.0.7 wizard deep review: the one plain line per KNOWN role that
+#: answers "when does this fire?" -- the second thing a first-time user
+#: needs to know, after "what a role is". Unlisted/custom roles simply
+#: show no note (their bio/lineup position is the authority).
+ROLE_WHEN_IT_FIRES = {
+    "main": "the session's own conversation model.",
+    "orchestrator": "a team/org position that delegates instead of doing the work itself.",
+    "boss": "a team/org position that briefs and verifies other roles' work.",
+    "worker": "a team/org position that implements (the one role most lineups run hot).",
+    "coder": "any sub-agent whose bio or position asks for the coder role.",
+    "implementer": "implementation sub-agents (the halo-dev-cycle's build role).",
+    "reviewer": "review sub-agents (dimension reviewers, release review passes).",
+    "researcher": "research/docs sub-agents (docs-only rounds).",
+    "verifier": "verification sub-agents (suite runs, triage).",
+    "tester": "test-writing/running sub-agents.",
+    "judge": "verification-by-judgment passes (comparing reviewer claims).",
+    "compaction": "summarizing an old conversation when context runs low.",
+    "small": "cheap one-shot calls -- titles, hook verdicts, /local questions.",
+    "subagent_default": "any sub-agent whose bio names no model of its own.",
+    "concierge": "the /ask secretary, image descriptions for a blind main model, notice digests.",
+}
+
+
 def _cmd_list(rest: list) -> int:
     from halo_harness.roles import list_role_templates
     argparse.ArgumentParser(prog="halo roles template list", add_help=True).parse_args(rest)
@@ -238,16 +261,25 @@ def _cmd_table() -> int:
     applies."""
     from halo_harness.roles import configured_role_table, known_role_names, role_value_parts, roles_state_line
     print(roles_state_line())
+    # Halo 2.0.7 wizard deep review (rolo 2026-10-07: "everything to do
+    # with ROLES ... needs to be incredibly smooth and clear"): the two
+    # plain lines a FIRST-TIME user needs before the table means anything
+    # -- what a role IS, and WHEN it fires.
+    print("A role names the model for one job; it fires whenever that job runs "
+          "(a sub-agent's bio or an active lineup names it).")
+    print("Roles are off -> every job, including halo's own sub-agents, uses the session model.")
     table = configured_role_table()
     names = known_role_names(table)
     w = max(len(n) for n in names)
     print("Configured roles (model / effort; `halo roles template ...` manages saved tables):")
     for name in names:
         model, effort = role_value_parts(table.get(name))
+        fires = ROLE_WHEN_IT_FIRES.get(name)
+        fires_note = f"   -- {fires}" if fires else ""
         if model is None and effort is None:
-            print(f"  {name:<{w}}  (session model)")
+            print(f"  {name:<{w}}  (session model){fires_note}")
         else:
-            print(f"  {name:<{w}}  {model or '(session model)'}  {effort or '-'}")
+            print(f"  {name:<{w}}  {model or '(session model)'}  {effort or '-'}{fires_note}")
     # Halo 2.0.5 round 4: same-host fallback warnings -- a fallback on the
     # primary's own gateway host cannot help (the gateway throttles per
     # machine, both trip together).

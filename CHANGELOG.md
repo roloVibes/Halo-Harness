@@ -156,6 +156,38 @@ transports against a real local HTTP server, index build/incremental/
 prune, ranking, CLI exit codes, `local:` parsing/creds/context, and a
 real session turn through the route).
 
+### The wizard deep review: the roles surface, clear for a first-time user
+
+rolo (2026-10-07): "everything to do with ROLES, ROLE TEMPLATES, and
+AGENT BIOS needs to be incredibly smooth and clear on what is going on
+and how to use this." Every roles surface now answers the three
+first-time questions BEFORE anything is saved -- what a role IS and
+when it fires, what each field does, what the lineup is and what it
+costs:
+
+- `halo roles` / `halo setup roles` / the roles CLI face open with the
+  two plain lines (what a role is; what happens when roles are off) and
+  every known role row carries its when-it-fires note
+  (`roles_cli.ROLE_WHEN_IT_FIRES`).
+- The wizard's Team step: the same plain sentence on the step itself,
+  and ONE pane at a time at every width -- the old 120x40
+  side-by-side stack (lineups + agents + switch + hints on one screen)
+  is gone; a first-time user meets Lineups first. Lineup rows carry
+  their role count.
+- The lineup editor: a what-a-lineup-is sentence on open, per-field
+  plain labels, and a live COST footer -- per role, the model's own
+  picker price (in/out per 1M) while you pick; a local lane reads
+  "free/unknown", never a fabricated number.
+- The bio editor: a what-a-bio-is line plus ONE shared line that always
+  explains the FOCUSED control (roadmap: "one plain-line explanation
+  per focused control") -- zero new layout rows (the identity-hint slot
+  doubles as it, fixed at one row), so the round-2c "#bio-pref visible
+  on open at 80x24" pin keeps holding.
+
+Pinned by `tests/test_round_wizard_deep_review.py` (pilot path: CLI
+lines, one-pane-at-every-width, cost footer, focused-control help);
+the old both-panes pin updated to the new one-pane contract.
+
 ## [2.0.6.1] - 2026-10-08
 
 Hotfix release: two owner-live TUI fixes from the 2.0.6 release

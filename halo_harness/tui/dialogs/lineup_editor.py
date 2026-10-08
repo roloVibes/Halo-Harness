@@ -217,6 +217,11 @@ class LineupEditor(ModalScreen):
             with Vertical(id="lineup-left-pane"):
                 title = "New lineup" if self.is_new else f"Lineup: {self.lineup_name}"
                 yield Static(title, classes="dialog-title")
+                # 2.0.7 wizard deep review: the ONE plain sentence a
+                # first-time user needs before any field.
+                yield Static("A lineup is the role table: each row picks the model (and effort) for one "
+                              "job. It applies when custom roles are ON and this lineup is active.",
+                              id="lineup-what-sentence")
                 yield Static("Ctrl+N add  |  Ctrl+D delete  |  Ctrl+P pick agent/model  |  Ctrl+G draft about  |  "
                               "Ctrl+S save  |  Esc cancel", classes="dialog-subtitle")
                 yield OptionList(id="lineup-assignments")
@@ -224,25 +229,30 @@ class LineupEditor(ModalScreen):
                     yield Button("Add", id="lineup-add")
                     yield Button("Remove", id="lineup-remove")
                 yield Static("", id="lineup-warnings")
+                # 2.0.7 wizard deep review: visible consequences -- what
+                # each row costs, while it's being edited, not after.
+                yield Static("Costs, while you pick (per 1M tokens, in+out -- what each row spends "
+                              "when it fires):", classes="dialog-subtitle")
+                yield Static("", id="lineup-cost-footer")
                 yield Static("Roles table (read-only projection -- edited through the lineup above):",
                               classes="dialog-subtitle")
                 yield Static("", id="lineup-roles-projection")
             with VerticalScroll(id="lineup-right-pane"):
                 yield Static("Selected assignment", classes="bio-section-title")
                 with Horizontal(classes="lineup-field-row"):
-                    yield Static("Role")
+                    yield Static("Role -- which job this row picks the model for (coder, reviewer, ...)")
                 yield Input(id="lineup-field-role")
                 with Horizontal(classes="lineup-field-row"):
-                    yield Static("Agent or model (Ctrl+P to pick)")
+                    yield Static("Agent or model (Ctrl+P to pick) -- what runs that job; a price shows in Costs")
                 with Horizontal():
                     yield AutocompleteInput(id="lineup-field-agent", option_list_id="lineup-field-agent-ac")
                     yield Button("Pick...", id="lineup-field-agent-pick")
                 yield AutocompleteDropdown(id="lineup-field-agent-ac")
                 with Horizontal(classes="lineup-field-row"):
-                    yield Static("Alias (as)")
+                    yield Static("Alias (as) -- the name positions/bios call this role by")
                 yield Input(id="lineup-field-as")
                 with Horizontal(classes="lineup-field-row"):
-                    yield Static("Instances")
+                    yield Static("Instances -- how many copies may run at once")
                 yield Input(id="lineup-field-instances")
                 with Horizontal(classes="lineup-field-row"):
                     yield Static("Use for (comma-separated task kinds)")
@@ -338,6 +348,32 @@ class LineupEditor(ModalScreen):
         else:
             self._current_index = None
         self._refresh_warnings()
+        self._refresh_cost_footer()
+
+    def _refresh_cost_footer(self) -> None:
+        """2.0.7 wizard deep review: visible consequences -- per role, the
+        model's own price from the picker rows (when the enumerated
+        catalog carries one), so the cost of a lineup is on screen WHILE
+        it's edited, never discovered on the first bill. A model the
+        catalog doesn't price (a local `ol:` lane, an unknown id) shows
+        'free/unknown' -- never a fabricated number."""
+        from halo_harness.model_display import format_price_per_m
+        lines = []
+        for e in self._agents():
+            label = e.get("role") or e.get("as") or "?"
+            ref = e.get("model") or e.get("agent") or ""
+            row = self._models_by_ref.get(ref) if ref else None
+            if row:
+                pin, pout = row.get("price_in_per_m"), row.get("price_out_per_m")
+                if pin is not None or pout is not None:
+                    lines.append(f"{label}: {format_price_per_m(pin)} in / {format_price_per_m(pout)} out")
+                    continue
+            lines.append(f"{label}: {ref or '(unset)'} -- free/unknown price")
+        try:
+            self.query_one("#lineup-cost-footer", Static).update(
+                "\n".join(lines) or "(no rows yet -- Ctrl+N adds the first)")
+        except Exception:
+            pass
 
     def _show_note(self, text: str) -> None:
         """2.0.6 round 14: the smoke-run status line -- the warnings
@@ -750,9 +786,16 @@ def team_rows(*, cwd=None, state_dir=None) -> "list[dict]":
     rows = []
     for name in list_team_templates(cwd=cwd, state_dir=state_dir):
         found = find_team_template_path(name, cwd=cwd, state_dir=state_dir)
-        template = resolve_team_template(name, cwd=cwd, state_dir=state_dir)
+        template = resolve_team_template(name, cwd=cwd, state_dir=state_dir) or {}
+        # 2.0.7 wizard deep review: the role COUNT rides every row (the
+        # "what the lineup is" half; the editor's cost footer is the
+        # price half) -- resolved from the same template, so the shipped
+        # `roles:` shorthand and a full `agents:` list both count right.
+        roles = template.get("roles") or {}
+        n_roles = len(roles) if isinstance(roles, dict) else len(template.get("agents") or [])
         rows.append({"name": name, "scope": found[1] if found else "?",
-                     "description": (template or {}).get("description") or "", "active": name == active})
+                     "description": template.get("description") or "", "active": name == active,
+                     "roles": n_roles})
     return rows
 
 
