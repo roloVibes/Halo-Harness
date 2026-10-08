@@ -457,9 +457,13 @@ def test_background_agent_completion_notice_on_next_turn(ctx: Ctx):
         SCENARIOS["h6-parent-bg-turn2"] = ScriptedTurns([_text_step("noted the background result")])
         _switch_model(session, "or:mock/h6-parent-bg-turn2")
         second_events = _drain(session, "anything new?")
-        notice_messages = [e.data.get("text", "") for e in second_events if e.kind == "user_message"]
-        ctx.check("the background notice was injected as a user message",
+        # 2.0.7 round 0b: the notice rides as a status_notice event (never
+        # user_message) and the log node is a status_notice snapshot.
+        notice_messages = [e.data.get("text", "") for e in second_events if e.kind == "status_notice"]
+        ctx.check("the background notice was injected as a status notice",
                   any("Background sub-agent" in t for t in notice_messages))
+        snap_kinds = [n.get("kind") for n in session.log.nodes() if n.get("type") == "snapshot"]
+        ctx.check("the log carries the framed status_notice snapshot", "status_notice" in snap_kinds)
     finally:
         mock.stop()
 

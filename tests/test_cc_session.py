@@ -883,9 +883,16 @@ def test_background_job_notice_is_sent_to_claude_not_just_logged(ctx: Ctx):
         # turn -- claude echoes every line it consumes (isReplay), so the
         # notice text reaching claude shows up as its own logged "steer"-
         # shaped context, never just sitting in session.log alone.
-        user_texts = [n for n in session.log.nodes() if n.get("type") == "user"]
-        ctx.check("the notice was logged as its own user-role node (by the applier, as before)",
-                   any(n.get("kind") == "job_notice" for n in user_texts))
+        # 2.0.7 round 0b: the applier logs a status_notice SNAPSHOT (never
+        # a user node with kind=job_notice) whose content is the framed
+        # block, and cc_runtime collects the framed copy as the context
+        # line it sends to the claude process.
+        snapshots = [n for n in session.log.nodes() if n.get("type") == "snapshot"]
+        ctx.check("the notice was logged as a status_notice snapshot (0b shape)",
+                   any(n.get("kind") == "status_notice" for n in snapshots))
+        ctx.check("the snapshot content carries the framed block",
+                  any("NOT a message from the human" in (n.get("content") or [{}])[0].get("text", "")
+                      for n in snapshots if n.get("kind") == "status_notice"))
         ctx.check("no notice left stranded across the turn", session._pending_job_notices == [])
         session.close_cc()
 

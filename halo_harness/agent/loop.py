@@ -727,6 +727,42 @@ def _compact_notices_text(notices: "list[str]", *, noun: str) -> str:
     lines.append("(see /tasks, or resume the task_id above, for each one's full result)")
     return "\n\n".join(lines)
 
+
+# Halo 2.0.7 round 0b (rolo's live report, 2026-10-08): the wrapper that
+# stops pending notices from impersonating the user. Pre-0b a notice was
+# logged as a `user` node and yielded as a `user_message` event -- the
+# model received a status blob as plain user text inside the same user
+# turn as the owner's actual question, and answered the status first
+# ("typing a question, getting a blob back of what's been done, then an
+# answer is not a good flow"). The block below is SYSTEM-FRAMED: an
+# explicit machine-source tag plus the one instruction that fixes the
+# ordering ("answer the human's own message first"), riding as a
+# snapshot content block AFTER the human's message in the turn (log
+# order: `_turn_inner` appends the prompt BEFORE `_turn_body` calls the
+# `_apply_pending_*_notices` methods, so derive_request folds this block
+# into the same pending user turn, behind the human's words). A user
+# ROLE is kept on the wire (not a mid-conversation `system` role) --
+# every dialect takes it, and the proxy-era M4-6 bug (a trailing
+# OpenAI `system` message made models continue the environment text
+# instead of answering) is exactly what a system role here would
+# re-create on OpenAI-compat routes.
+_STATUS_NOTICE_FRAME_HEAD = (
+    "<status-notices source=\"harness\">\n"
+    "Automated harness status: background work finished while you were away.\n"
+    "This block is NOT a message from the human. Answer the human's own message first and fully;\n"
+    "fold the status below in only where it is relevant to what they asked.\n"
+)
+
+
+def _status_notice_block(text: str) -> str:
+    """One notice text (single, or already combined by
+    `_compact_notices_text`) -> the model-facing framed block logged as a
+    `status_notice` snapshot. The body rides verbatim inside the frame --
+    `_apply_pending_*_notices` keep the pre-0b "full text, no preview
+    wrapping" contract for a single notice, so a sub-agent's `<task_
+    result>` payload stays byte-identical inside the tags."""
+    return _STATUS_NOTICE_FRAME_HEAD + "\n" + text + "\n</status-notices>"
+
 class Session:
     """One conversation against one model. `session_context.system_prompt`
     is computed ONCE by the caller and logged as the session's single
@@ -6501,19 +6537,30 @@ class Session:
 
     def _apply_pending_agent_notices(self, turn_no: int):
         """Pop every queued background-sub-agent-completion notice and
-        apply it as a user-role message (H6 scope F / dsh: "background
-        jobs ... report completion as a user-role notice in the next
-        step") -- called once at the START of `_turn_body`, so the model
-        sees any sub-agent that finished while this session was between
-        turns (or during a PRIOR turn's own tool dispatch) before it does
-        anything else this turn.
+        apply it as a SYSTEM-FRAMED status block (H6 scope F lineage:
+        "background jobs ... report completion ... in the next step") --
+        called once at the START of `_turn_body`, so the model sees any
+        sub-agent that finished while this session was between turns (or
+        during a PRIOR turn's own tool dispatch) before it does anything
+        else this turn.
 
         Halo 2.0.2 round C (the owner's own background-streaming report):
-        a SINGLE notice is applied exactly as before (its own full text,
-        one user_message, one notification) -- but 2+, which used to
-        reach the model as that many separate full-length messages back
-        to back ("a flood of raw results"), are now collapsed into ONE
-        block by `_compact_notices_text` first."""
+        a SINGLE notice keeps its full text (the round-C preview
+        compacting only ever applied to 2+ queued notices).
+
+        Halo 2.0.7 round 0b (rolo: notices must stop impersonating the
+        user): the notice is no longer logged as a `user` node / yielded
+        as a `user_message` event. It is logged as a `status_notice`
+        SNAPSHOT whose content is the `_status_notice_block` frame --
+        derive_request folds that block into the same pending user turn
+        as the human's own message (which `_turn_inner` appended FIRST,
+        so the frame lands AFTER their words), and the frame itself says
+        what the block is and to answer the human first. The event is
+        the new `status_notice` kind: the TUI renders it as a transcript
+        note (not a user bubble), `cc:`/`cx:` collect its `framed` text
+        as child context, print mode ignores it exactly as it ignored
+        the old user_message (its surface is the `notification` below,
+        unchanged)."""
         with self._agent_notices_lock:
             notices, self._pending_agent_notices = self._pending_agent_notices, []
         if not notices:
@@ -6524,18 +6571,19 @@ class Session:
         else:
             text = _compact_notices_text(notices, noun="sub-agent")
             notif = f"{len(notices)} background sub-agents finished while you were away"
-        self.log.append_user([{"type": "text", "text": text}], kind="agent_notice")
-        yield events.user_message(text, turn=turn_no)
+        framed = _status_notice_block(text)
+        self.log.append_snapshot([{"type": "text", "text": framed}], kind="status_notice")
+        yield events.status_notice(text, framed=framed, turn=turn_no)
         yield events.notification(notif)
 
     def _apply_pending_job_notices(self, turn_no: int):
         """H8 scope A: the background-Bash-job sibling of
-        `_apply_pending_agent_notices` (same dsh rule, same "called once at
-        the START of `_turn_body`" timing, same round-C compacting for 2+
-        queued notices) -- a job that finished while this session was
-        between turns (or during a prior turn's own tool dispatch) is
-        applied as a user-role message before the model does anything
-        else this turn."""
+        `_apply_pending_agent_notices` (same timing, same round-C
+        compacting for 2+ queued notices, same 0b system-framed delivery
+        -- see that method's own docstring for the full round-0b story)
+        -- a job that finished while this session was between turns (or
+        during a prior turn's own tool dispatch) is applied as a framed
+        status block before the model does anything else this turn."""
         with self._job_notices_lock:
             notices, self._pending_job_notices = self._pending_job_notices, []
         if not notices:
@@ -6546,8 +6594,9 @@ class Session:
         else:
             text = _compact_notices_text(notices, noun="job")
             notif = f"{len(notices)} background jobs finished while you were away"
-        self.log.append_user([{"type": "text", "text": text}], kind="job_notice")
-        yield events.user_message(text, turn=turn_no)
+        framed = _status_notice_block(text)
+        self.log.append_snapshot([{"type": "text", "text": framed}], kind="status_notice")
+        yield events.status_notice(text, framed=framed, turn=turn_no)
         yield events.notification(notif)
 
     def _await_reply(self, waiters: dict, request_id: str, *, timeout: Optional[float] = None):

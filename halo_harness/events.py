@@ -67,6 +67,13 @@ EVENT_KINDS = frozenset({
                      # background connector discovery finishing) -- pushed straight
                      # onto Controller.events from whatever thread noticed, never
                      # tied to an active turn's own generator.
+    # Halo 2.0.7 round 0b: a pending background job / sub-agent completion
+    # notice, delivered at the START of the next turn as a system-framed
+    # status block (see `status_notice` below) -- replacing the old
+    # user_message delivery that impersonated the user. The TUI renders it
+    # as a transcript note; print mode ignores it (the companion
+    # `notification` toast was always its own print surface).
+    "status_notice",
     # Halo 2.0.2 round D (brief item 2, "approval gates"): a `requires_
     # approval: true` org position's just-finished result, held for a
     # human decision (accept/edit-and-rerun/stop) -- `agent/subagent.py`'s
@@ -304,6 +311,24 @@ def system_note(text: str) -> Event:
     at any time, including while no turn is active -- the 30 Hz drain loop
     (`tui/app.py::_drain`) is unconditional."""
     return Event("system_note", {"text": text})
+
+
+def status_notice(text: str, *, framed: Optional[str] = None, turn: int = 0) -> Event:
+    """data: {text, framed}. Halo 2.0.7 round 0b: a background job /
+    sub-agent completion notice delivered at the START of the next turn --
+    `text` is the notice's own plain text (unchanged from the pre-0b
+    contract: full output, no preview wrapping), `framed` the same text
+    wrapped in the model-facing `<status-notices>` block that says these
+    are automated status lines, NOT words from the human ("answer the
+    human first, fold these in only where relevant"). Replaces the old
+    `user_message` delivery, which impersonated the user: the model read a
+    status blob interleaved with the owner's actual question and answered
+    the status first. The TUI renders this as a transcript note (never a
+    user bubble); `cc:`/`cx:` turn runtimes collect `framed` as extra
+    context for their child binary; print mode ignores the event exactly
+    as it ignored the old one (the companion `notification` toast is the
+    print-mode surface, unchanged)."""
+    return Event("status_notice", {"text": text, "framed": framed if framed is not None else text}, turn=turn)
 
 
 def compaction(*, phase: str, trigger: str = "auto", turn: int = 0, tokens_before: Optional[int] = None,
