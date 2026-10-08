@@ -88,6 +88,19 @@ import halo_harness.tui.clipboard as clipboard_mod
 # module's own pure dispatch logic (which argv, which platform) is tested
 # directly, with its own stubbing, in tests/test_clipboard.py.
 clipboard_mod.copy_via_external_tool = lambda *a, **kw: False
+# 2026-10-08 (found while reproducing the lost-large-paste report): the
+# READ direction was never stubbed here, so every Ctrl+V pilot in this
+# file read the DEVELOPER'S real OS clipboard -- observed live: a test
+# expecting "nothing on the clipboard" inserted a real screenshot's
+# image chip instead. The one test that genuinely exercises the read
+# path (`test_ctrl_v_with_stubbed_clipboard_tool_inserts_the_text`)
+# re-stubs it itself, so a file-wide empty default is safe.
+clipboard_mod.read_via_external_tool = lambda *a, **kw: None
+# Same reasoning for the clipboard IMAGE reader -- the Ctrl+V and bare
+# /paste workers fall back to it, and an unstubbed read picks up
+# whatever screenshot the developer last copied.
+import halo_harness.tui.clipboard_image as clipboard_image_mod
+clipboard_image_mod.read_clipboard_image = lambda *a, **kw: None
 
 test, TESTS = new_registry()
 
@@ -7515,6 +7528,77 @@ def test_ctrl_v_with_stubbed_clipboard_tool_inserts_the_text(ctx: Ctx):
         asyncio.run(body())
     finally:
         clipboard_mod.read_via_external_tool = old_read
+
+
+@test
+def test_bare_paste_reads_a_large_clipboard_whole(ctx: Ctx):
+    """2026-10-08 (rolo's live report): the terminal's own large-paste path
+    confirmed and then silently dropped a ~6K clipboard on Windows -- the
+    loss lives in Textual's win32 console-event input layer, never in
+    halo's handler. Bare `/paste` is the RELIABLE path: it reads the
+    system clipboard directly (never through terminal stdin) and inserts
+    through the same placeholder rule, so ANY size lands whole."""
+    import halo_harness.tui.clipboard as clipboard_mod
+
+    big = "Halo review paste test\n" + "\n".join(f"review line {i} " + "x" * 60 for i in range(90))
+    assert len(big) > 5000
+    old_read = clipboard_mod.read_via_external_tool
+    seen_timeout = []
+    clipboard_mod.read_via_external_tool = lambda **kw: (seen_timeout.append(kw.get("timeout_s")), big)[1]
+    try:
+        async def body():
+            fake = FakeController()
+            app = await _mounted(fake)
+            async with app.run_test(size=(100, 40)) as pilot:
+                from halo_harness.tui import slash as slash_mod
+                await slash_mod._handle_paste(app, "")
+                await app.workers.wait_for_complete()
+                await pilot.pause(0.1)
+                ctx.check(f"the whole payload landed as the placeholder, got {app.prompt_input.text[:40]!r}",
+                          app.prompt_input.text == f"[Pasted text #1 +{big.count(chr(10))+1} lines]")
+                ctx.check(f"nothing was lost ({len(app.prompt_input.pasted.get(1, ''))} of {len(big)} chars)",
+                          len(app.prompt_input.pasted.get(1, "")) == len(big))
+                ctx.check(f"the recovery read uses the generous timeout, got {seen_timeout}",
+                          seen_timeout and seen_timeout[0] == 10.0)
+        asyncio.run(body())
+    finally:
+        clipboard_mod.read_via_external_tool = old_read
+
+
+@test
+def test_bare_paste_falls_back_to_an_image_clipboard(ctx: Ctx):
+    """Bare `/paste` keeps its 2.0.3.1 image behavior when the clipboard
+    has no text: an image lands as a chip (stubbed here; the file-wide
+    stub is deliberately bypassed by this test only)."""
+    import halo_harness.tui.clipboard as clipboard_mod
+    import halo_harness.tui.clipboard_image as clipboard_image_mod
+    from pathlib import Path as _P
+
+    class _FakeImg:
+        path = _P("C:/fake/clip-1.png")
+        width, height, media_type = 100, 50, "image/png"
+
+    old_read = clipboard_mod.read_via_external_tool
+    old_img = clipboard_image_mod.read_clipboard_image
+    clipboard_mod.read_via_external_tool = lambda **kw: None
+    clipboard_image_mod.read_clipboard_image = lambda **kw: _FakeImg()
+    try:
+        async def body():
+            fake = FakeController()
+            app = await _mounted(fake)
+            async with app.run_test(size=(100, 40)) as pilot:
+                from halo_harness.tui import slash as slash_mod
+                await slash_mod._handle_paste(app, "")
+                await app.workers.wait_for_complete()
+                await pilot.pause(0.1)
+                ctx.check(f"the image clipboard landed as a chip, got {app.prompt_input.text!r}",
+                          app.prompt_input.text == "[Image #1 100x50]")
+                ctx.check("the image is registered for the turn",
+                          len(app.prompt_input.images) == 1)
+        asyncio.run(body())
+    finally:
+        clipboard_mod.read_via_external_tool = old_read
+        clipboard_image_mod.read_clipboard_image = old_img
 
 
 @test

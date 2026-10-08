@@ -2366,7 +2366,11 @@ class BridgeApp(App):
 
     def _paste_from_clipboard_worker(self) -> None:
         from halo_harness.tui.clipboard import read_via_external_tool
-        text = read_via_external_tool()
+        # 2026-10-08 (rolo's live report): a multi-KB clipboard read can
+        # exceed the old 3s default (cold PowerShell + a big payload),
+        # which surfaced as a false "no text on the clipboard" right when
+        # the user needed it most. 10s for the interactive path too.
+        text = read_via_external_tool(timeout_s=10.0)
         if text:
             self.call_from_thread(self.prompt_input.paste_text, text)
             return
