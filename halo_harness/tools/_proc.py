@@ -225,6 +225,8 @@ def run_streamed(
     argv: list, *, cwd, env: dict, timeout_s: float, abort=None,
     progress_cb: Optional[Callable[[str], None]] = None, poll_interval: float = POLL_INTERVAL_S,
     on_timeout_handoff: Optional[Callable[["subprocess.Popen", "queue.Queue", "_CappedCollector"], None]] = None,
+    steer_cut: Optional["threading.Event"] = None,
+    on_steer_handoff: Optional[Callable[["subprocess.Popen", "queue.Queue", "_CappedCollector"], None]] = None,
 ) -> "tuple[str, Optional[int], bool, bool]":
     """Run `argv`, return (merged_output, exit_code, timed_out, aborted).
     `exit_code` is None only when the process itself could never be
@@ -233,6 +235,20 @@ def run_streamed(
     the process is still running, ownership just moved elsewhere. `abort`
     is a threading.Event polled alongside the timeout; either firing kills
     the whole process group, never just the immediate child.
+
+    Halo 2.0.7 round 0c: `steer_cut` is a SEPARATE, softer early-exit
+    signal -- the harness sets it the instant a user steer is queued while
+    this command runs, so the turn can reach its steer safe point without
+    waiting out a long command. When it fires AND `on_steer_handoff` is
+    given, the still-live `(proc, q, collector)` are handed off with the
+    SAME clean single-writer contract as a timeout handoff (the caller --
+    agent.jobs.JobRegistry -- takes over draining and owns the process;
+    nothing is killed), and the tuple returns `aborted=True` with
+    `exit_code=None` so the caller knows the wait ended early but the
+    process lives on. Without a callback `steer_cut` is ignored entirely
+    (the command runs to completion, the pre-0c behavior). A real `abort`
+    always wins the race: it is checked FIRST, so an Esc arriving in the
+    same poll tick as the steer still kills the process group.
 
     finding 7: completion is keyed on the PROCESS exiting (`proc.poll()`),
     never on stdout EOF -- a backgrounded child (`sleep 100 &`) keeps the
@@ -284,6 +300,7 @@ def run_streamed(
     deadline = (time.monotonic() + timeout_s) if timeout_s and timeout_s > 0 else None
     timed_out = False
     aborted = False
+    steer_cut_fired = False
     stream_closed = False
     drain_deadline: Optional[float] = None
 
@@ -317,8 +334,16 @@ def run_streamed(
         if deadline is not None and now >= deadline:
             timed_out = True
             break
+        # 0c: a real abort always WINS the race with a steer cut (Esc in
+        # the same tick still kills); steer_cut is checked second and only
+        # ever breaks the wait when a handoff callback can keep the
+        # process alive.
         if abort is not None and abort.is_set():
             aborted = True
+            break
+        if (steer_cut is not None and on_steer_handoff is not None
+                and steer_cut.is_set()):
+            steer_cut_fired = True
             break
 
     if pending and progress_cb is not None:
@@ -326,6 +351,16 @@ def run_streamed(
             progress_cb("".join(pending))
         except Exception:
             pass
+
+    if steer_cut_fired and not aborted and on_steer_handoff is not None:
+        # 0c: the clean single-writer handoff, steer variant -- never a
+        # kill; the registry adopts the still-live process and this
+        # function never touches any of the three again.
+        try:
+            on_steer_handoff(proc, q, collector)
+        except Exception:
+            pass
+        return collector.result(), None, False, True
 
     if timed_out and not aborted and on_timeout_handoff is not None:
         try:

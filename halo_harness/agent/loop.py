@@ -1040,6 +1040,21 @@ class Session:
         self._busy = threading.Event()
         self._steer_lock = threading.Lock()
         self._steer_queue: list = []
+        # Halo 2.0.7 round 0c: set by `_dispatch_tools`'s steer watcher the
+        # moment a steer is queued while a tool call is RUNNING -- Bash
+        # polls it (ToolContext.steer_cut -> run_streamed's steer_cut=) and
+        # hands its still-live process to the job registry instead of
+        # making the steer wait out the command. Cleared at every steer
+        # safe point (`_apply_pending_steers_events`) and defensively at
+        # dispatch boundaries, so it can never leak into a later tool call
+        # as a phantom cut. A watcher thread is the only writer; the
+        # watcher is started and stopped inside `_dispatch_tools`.
+        self._steer_cut_event = threading.Event()
+        # 0c: the watcher thread handle (at most ONE alive per session --
+        # `_ensure_steer_cut_watcher` starts it on the first dispatch of a
+        # turn; it exits by itself once the turn's `_busy` clears, so no
+        # dispatch has to own its cleanup).
+        self._steer_cut_watcher: Optional[threading.Thread] = None
         # finding 5: steer text still queued when `turn()`'s `finally` runs
         # (never reached a safe point to apply) -- drained there, read and
         # cleared by `run()` right after, worker-thread-only on both ends
@@ -5239,6 +5254,10 @@ class Session:
             self._steer_queue = []
             pending_writes, self._pending_worker_writes = self._pending_worker_writes, []
             self._busy.clear()
+        # 0c: the turn is over -- the steer-cut watcher exits by itself on
+        # this same `_busy` clear, and the event must not survive into a
+        # later turn as a phantom cut on some future Bash call.
+        self._steer_cut_event.clear()
         for kind, payload in pending_writes:
             self._apply_log_write(kind, payload)
 
@@ -6772,7 +6791,17 @@ class Session:
                                rule_text, temporary=True),
                            env_file=env_file_path(self.log.session_id),
                            permission_engine=self.permission_engine, effort=self.effort,
-                           plugin_roots=self.plugin_roots)
+                           plugin_roots=self.plugin_roots,
+                           # 2.0.7 round 0c: Bash's steer-cut channel (see
+                           # `_steer_cut_event`'s own init comment). Deliberately
+                           # NOT folded into ctx.abort -- only Bash-shaped
+                           # subprocess calls that can hand off to the job
+                           # registry observe it; every other tool keeps the
+                           # pre-0c "running tools finish" contract.
+                           steer_cut=self._steer_cut_event)
+        # 0c: arm the steer-cut watcher for this turn (no-op when one is
+        # already alive -- a turn with many dispatches shares ONE watcher).
+        self._ensure_steer_cut_watcher()
         # H10 Part A: `_turn_body` (this method's one real caller) now
         # computes this UP FRONT, so it can log `tool_meta` on the SAME
         # assistant node before this method ever runs, and passes it in --
@@ -6803,13 +6832,30 @@ class Session:
             completion` streaming every event via an `on_event` callback
             (never buffering first) is what makes this whole fix possible.
             Each item's `tool_result` is finalized (in ORIGINAL order) only
-            once every child in this batch has actually finished."""
+            once every child in this batch has actually finished.
+
+            Halo 2.0.7 round 0c: the drain loop no longer BLOCKS on
+            `q.get()` -- it polls with a timeout so a steer queued while
+            the batch runs is noticed within ~0.25s and FORWARDED into the
+            live children (`_forward_pending_steers_to_children`), so the
+            human's words reach the running work instead of queueing
+            behind the whole batch."""
             nonlocal end_turn
             from halo_harness.agent.subagent import effective_max_concurrent, run_agent_call, run_org_call
             from halo_harness.tools.base import ToolResult
 
+            # 0c: nothing for the cut event to do while the batch runs
+            # (steers are FORWARDED, not waited out) -- never let a stale
+            # set event from before the batch leak into a child-adjacent
+            # solo dispatch afterwards.
+            self._steer_cut_event.clear()
             q: "queue.Queue" = queue.Queue()
             _DONE = object()
+            # 0c: children that exist BEFORE this batch began are someone
+            # else's work (a still-running background task from an earlier
+            # turn) -- only children NEW since the snapshot are this
+            # batch's, and only they receive forwarded steers.
+            _pre_keys = set(self.agent_runtime.live_children.keys())
 
             def _run_one(it: dict) -> None:
                 try:
@@ -6830,9 +6876,15 @@ class Session:
                     # direct-dispatch fallback.
                     _input = it["input"] if isinstance(it["input"], dict) else {}
                     _dispatch = run_org_call if _input.get("org") else run_agent_call
+
+                    def _grab_child(child) -> None:
+                        # 0c: keep the child Session handle on the item so
+                        # the finally below can hand unapplied steers back.
+                        it["child"] = child
+
                     _, tr = _dispatch(
                         runtime=self.agent_runtime, tool_id=it["tool_id"], tool_input=it["input"],
-                        tool_name=it["name"], on_event=q.put,
+                        tool_name=it["name"], on_event=q.put, on_child=_grab_child,
                     )
                     it["result"] = tr
                 except Exception as e:  # run_agent_call is documented "never raises" -- defense in depth anyway
@@ -6840,6 +6892,21 @@ class Session:
                     it["result"] = ToolResult(f"Sub-agent dispatch failed: {type(e).__name__}: {e}", is_error=True)
                 finally:
                     q.put((_DONE, it))
+                    # 0c cost guard: a forwarded steer the child never got
+                    # to apply (its turn ended between our forward and its
+                    # next safe point) sits in the child's own leftover
+                    # list -- nobody drains a child's leftovers (only
+                    # `run()`/headless drain the MAIN session's), so hand
+                    # every one back to THIS session, where the next safe
+                    # point applies it. The child's turn is fully over
+                    # here (same thread ran it), so the read is race-free.
+                    _child = it.get("child")
+                    if _child is not None:
+                        _left = list(getattr(_child, "_leftover_steer_texts", None) or [])
+                        if _left:
+                            for _text in _left:
+                                self.steer(_text)
+                            _child._leftover_steer_texts = []
 
             # 2.0.2 review finding 10: `wrap_for_pool`, called on THIS
             # (submitting) thread -- see `SessionConcurrencyGate`'s own
@@ -6853,7 +6920,19 @@ class Session:
                     pool.submit(_run_one, it)
                 remaining = len(agent_batch)
                 while remaining > 0:
-                    got = q.get()
+                    # 0c: poll for a steer typed while the batch runs --
+                    # checked on EVERY iteration (a lock peek, cheap), not
+                    # only on quiet timeouts, so a chatty child streaming
+                    # deltas nonstop can never starve the check.
+                    if self._pending_steer():
+                        n = self._forward_pending_steers_to_children(_pre_keys)
+                        if n:
+                            yield events.system_note(
+                                f"↳ steer forwarded into {n} running sub-agent{'s' if n != 1 else ''}")
+                    try:
+                        got = q.get(timeout=0.25)
+                    except queue.Empty:
+                        continue
                     if isinstance(got, tuple) and len(got) == 2 and got[0] is _DONE:
                         remaining -= 1
                         continue
@@ -7100,6 +7179,11 @@ class Session:
                     # (`_finalize_tool_result`), never through the log.
                     from halo_harness.shadow import git_status_dirty_paths
                     item["_bash_shadow_before"] = git_status_dirty_paths(self.cwd)
+                # 0c: a clean slate for exactly the call about to run -- a
+                # cut event left set by an earlier steer (consumed by the
+                # safe point, or forwarded into children) must never
+                # insta-kill this call.
+                self._steer_cut_event.clear()
                 item["result"] = self.tool_registry.dispatch(name, item["input"], item_ctx)
                 for chunk in progress_chunks.chunks:
                     yield events.Event("tool_progress", {"id": tool_id, "name": name, "text": chunk}, turn=turn_no)
@@ -7582,6 +7666,70 @@ class Session:
         with self._steer_lock:
             return bool(self._steer_queue)
 
+    def _ensure_steer_cut_watcher(self) -> None:
+        """Halo 2.0.7 round 0c: (re)arm the session's steer-cut watcher --
+        at most ONE alive at a time. It polls `_pending_steer()` every
+        0.2s while THIS session's turn is running (`_busy` set) and sets
+        `_steer_cut_event` whenever a steer is queued, re-arming after
+        every safe-point clear (a second steer typed later in the same
+        turn gets the same protection as the first). It exits by itself
+        once the turn ends (`_busy` clears), so a dispatch never has to
+        own its lifetime -- and a session parked between turns has NO
+        watcher running at all."""
+        w = self._steer_cut_watcher
+        if w is not None and w.is_alive():
+            return
+
+        def _watch() -> None:
+            while self._busy.is_set():
+                if self._pending_steer():
+                    self._steer_cut_event.set()
+                time.sleep(0.2)
+
+        self._steer_cut_watcher = threading.Thread(target=_watch, daemon=True, name="halo-steer-cut")
+        self._steer_cut_watcher.start()
+
+    def _forward_pending_steers_to_children(self, pre_keys: "set") -> int:
+        """Halo 2.0.7 round 0c: pop every queued steer and FORWARD each into
+        every live child spawned since `pre_keys` (this batch's children;
+        pre-existing background tasks are someone else's work and never
+        touched). A steer a child ACCEPTED (`child.steer(text)` returned
+        True -- its own turn is running) is consumed here: the child's own
+        safe points apply it, and its finished tool_result carries the
+        effect back to this session, so this session must NOT also re-apply
+        the same text at its next safe point. A steer NO child could take
+        (no children yet, pool still queued, or every child already past
+        its turn) is requeued on THIS session unchanged, preserving the
+        pre-0c behavior for it. Returns how many steer texts were
+        forwarded into at least one child.
+
+        The vanish race this relies on being closed elsewhere: a child can
+        accept a steer and still end its turn before any safe point
+        applies it -- `_run_one`'s own `finally` (agent-batch runner in
+        `_dispatch_tools`) then hands the child's leftover list back to
+        THIS session, so a forwarded steer is never silently lost."""
+        with self._steer_lock:
+            texts, self._steer_queue = self._steer_queue, []
+        forwarded = 0
+        for text in texts:
+            targets = [child for agent_id, child in list(self.agent_runtime.live_children.items())
+                       if agent_id not in pre_keys]
+            took = False
+            for child in targets:
+                try:
+                    if child.steer(text):
+                        took = True
+                except Exception:
+                    pass
+            if took:
+                forwarded += 1
+            else:
+                # Nobody could take it -- keep it on THIS session's queue.
+                # `steer()` re-enqueues while busy (this method only ever
+                # runs mid-turn, inside a tool dispatch).
+                self.steer(text)
+        return forwarded
+
     def _pop_all_steers(self) -> list:
         with self._steer_lock:
             texts, self._steer_queue = self._steer_queue, []
@@ -7657,6 +7805,12 @@ class Session:
             yield events.user_message(text, turn=turn_no)
             yield events.steer_applied(text, turn=turn_no)
             applied_any = True
+        # 0c: this safe point just drained every pending steer -- the cut
+        # event has nothing left to signal (unconditional: a forwarded-
+        # into-children steer consumed the queue without this method ever
+        # seeing a text, and the watcher re-arms the event if a NEW steer
+        # arrives later in the turn).
+        self._steer_cut_event.clear()
         return applied_any
 
     def _pump_turn(self, text: str, images, out) -> None:

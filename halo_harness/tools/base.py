@@ -83,6 +83,17 @@ class ToolContext:
     # foreground) and BashOutput/TaskStop report a plain error instead of
     # crashing.
     job_registry: Optional[object] = None
+    # Halo 2.0.7 round 0c: the session's steer-cut Event, set by
+    # agent/loop.py's dispatch watcher the moment a steer is queued while a
+    # tool call is running. Bash/PowerShell poll it (alongside `abort`) via
+    # run_streamed's `steer_cut=` parameter: instead of killing the process
+    # group the way a real abort does, a still-live command is HANDED OFF
+    # to the job registry (the same adopt-from-timeout plumbing) so the
+    # turn can reach its steer safe point immediately without destroying
+    # the work. None (every bare unit-test ToolContext) disables the
+    # behavior: the command runs to completion and the steer applies at
+    # the next safe point, exactly the pre-0c contract.
+    steer_cut: Optional["threading.Event"] = None
     # H8 scope B: whether the configured model accepts image content
     # blocks (model.ModelProfile.vision, threaded through by agent/loop.py)
     # -- Read consults this to decide whether a png/jpg/gif/webp file
