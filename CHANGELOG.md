@@ -81,6 +81,29 @@ text did stream. Pinned by `tests/test_round_1_filter_routing.py`
 (census record/rank/corruption, reroute + never-persist, sensitive
 reroute, no-lane terminal error, both-lanes-filtered exhaustion).
 
+### Cyber Pillar 2: verify-everything preflight + continuous canaries
+
+`halo preflight [--lanes A,B] [--json] [--skip-local] [--no-vision]
+[--timeout S]` is the exit-code-gated gate a long autonomous run is
+worth starting under. Local tools are verified BY EFFECT -- the bytes
+really land on disk, the grep really matches; a tool that reports
+success without the effect fails the gate. Each provider lane gets one
+measured canary: a real completion, one tool call the lane must emit
+and the probe must actually run (a lane whose replies never carry tool
+calls fails -- datasheets lie, measurements don't), an image the lane
+must accept when its profile claims vision (catches lying vision
+flags), and a truncation check comparing the usage echo against what
+was sent. Every result lands in the canary census
+(`<state_dir>/canary-census.json`). During long runs, a continuous
+canary rides every model call with zero extra requests: a one-time
+warning when a usage echo accounts for under half of what was sent
+(silent context truncation), and a periodic health note (calls,
+filtered, failures, spend, context fill) every 25 calls or 10 minutes,
+env-tunable. Pinned by `tests/test_round_2_preflight.py` (effect
+verification incl. a sabotaged tool, full-pass/no-tools/truncation/
+vision lane canaries, CLI exit codes + the green path end to end, and
+the continuous canary's truncation warning + periodic note).
+
 ## [2.0.6.1] - 2026-10-08
 
 Hotfix release: two owner-live TUI fixes from the 2.0.6 release

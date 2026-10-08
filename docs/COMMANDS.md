@@ -937,6 +937,26 @@ runs each bio's own `acceptance` block against a real one-shot model
 call (`halo -p <prompt> --model <ref> --max-turns 1`); `--mock` (tests
 only) never calls a real model. See [AGENTS.md](AGENTS.md).
 
+`halo preflight [--lanes A,B] [--json] [--skip-local] [--no-vision]
+[--timeout S]` (2.0.7 cyber Pillar 2) is the exit-code-gated
+verify-everything check a long autonomous run is worth starting under.
+Local tools are verified BY EFFECT (the bytes really land on disk, the
+grep really matches -- a tool that "succeeds" without the effect fails
+the gate), and each provider lane gets ONE measured canary: a real
+completion, one tool call the lane must actually emit and the probe must
+actually run (catches lanes whose replies never carry tool calls), an
+image the lane must accept when its profile claims vision (catches lying
+vision flags), and a truncation check comparing the usage echo against
+what was sent. Every result is recorded into the canary census
+(`<state_dir>/canary-census.json`) for lane ranking. Default lanes: the
+pinned default model, or `--lanes`; `--json` prints the machine-readable
+report; exit 0 iff everything passed, 1 any failure, 2 a usage error.
+The in-run counterpart runs automatically during long sessions: a
+one-time truncation warning when a usage echo accounts for under half of
+what was sent, and a periodic health note (calls, filtered, failures,
+spend, context fill) every 25 model calls or 10 minutes (env-tunable via
+`HALO_CANARY_EVERY_N_CALLS`/`HALO_CANARY_EVERY_S`).
+
 `halo doctor --teams [NAME] [--mock]` (2.0.5 round 5) validates the named
 (or active) team template and then exercises its FIRST `required`
 pipeline gate end to end -- the same gate the live agent loop runs
