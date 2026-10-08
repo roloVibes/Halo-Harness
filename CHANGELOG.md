@@ -10,6 +10,18 @@ version.
 
 ## [2.0.7] - unreleased
 
+### Ctrl+Alt+V: pasting an image when the terminal eats Ctrl+V
+
+rolo's live report (2026-10-08): pasting a freshly-taken screenshot did
+nothing. The 2.0.3.1 clipboard-image path was fine -- the keypress
+never reached halo: on Windows Terminal (and most modern terminals)
+Ctrl+V is intercepted by the TERMINAL, which runs its own paste, finds
+no text on an image-only clipboard, and does nothing. Ctrl+Alt+V is
+not a terminal default anywhere and always reaches the app; the
+existing paste worker already reads text-first-then-image, so the one
+key covers both payloads. (Shift+Insert, the other 2.0.3.1 paste key,
+was also missing from the tips-validation key set -- added.)
+
 ### Steering text now renders the instant you hit Enter
 
 rolo's live report (2026-10-07 night): a steer typed mid-turn showed

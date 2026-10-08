@@ -106,6 +106,18 @@ class PromptInput(TextArea):
         # below (overridden, never the inherited in-process-register
         # paste), so both keys share one path with no new message type.
         Binding("shift+insert", "paste", "Paste", show=False),
+        # 2.0.7 round 0d (rolo's live report, 2026-10-08): pasting a
+        # freshly-taken SCREENSHOT did nothing at all. Root cause: on
+        # Windows Terminal (and most modern terminals) Ctrl+V is
+        # intercepted by the TERMINAL itself -- it runs its own paste,
+        # finds no text on an image-only clipboard, and does nothing;
+        # the keypress never reaches halo, so the 2.0.3.1 image-read
+        # path below never runs. Ctrl+Alt+V is not a terminal default
+        # anywhere (Windows Terminal, mintty, gnome-terminal, kitty all
+        # pass it through) -- it always reaches the app, and
+        # `action_paste`'s worker already reads text-first-then-image,
+        # so this one key covers both payloads.
+        Binding("ctrl+alt+v", "paste", "Paste", show=False),
     ]
 
     def __init__(self, **kwargs) -> None:
