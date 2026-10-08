@@ -9,8 +9,9 @@ checked; Enter edits, Ctrl+N new, Ctrl+D duplicate into user scope under
 the same name -- `_AgentsListMixin._duplicate_highlighted`'s own "shadow
 the shipped one" semantic, applied to lineups), right "Agents" (the bios;
 Enter edits, Ctrl+N new, Ctrl+D duplicate, Del delete -- `agents_step.
-_AgentsListMixin`, reused verbatim). Side by side at 120x40, stacked
-behind a pane-switch at 80x24 (`WIDE_COLUMNS`).
+_AgentsListMixin`, reused verbatim). Halo 2.0.7 wizard deep review: ONE
+pane at a time at every width (the pane-switch bar is always visible) --
+the old 120x40 side-by-side is gone, a first-time user meets Lineups first.
 
 A NEW module (hard constraint: `init_wizard.py` grows by registration
 lines only). Same "duplicate `StepScreen`'s own small Back/Skip/Next/Esc-
@@ -37,13 +38,15 @@ from halo_harness.tui.dialogs.agents_step import AGENTS_LIST_BINDINGS, _AgentsLi
 from halo_harness.tui.dialogs.step_rail import STEP_RAIL_BINDINGS, StepRailMixin
 from halo_harness.tui.dialogs.wizard_ux import focus_first, footer_hint, one_sentence, toast
 
-WIDE_COLUMNS = 100  # >= this: Lineups/Agents side by side; below: stacked behind a pane switch.
+WIDE_COLUMNS = 100  # 2.0.7 wizard deep review: no longer switches layout -- ONE pane at a time at every width.
 
 
 def _lineup_row_label(r: dict) -> str:
     mark = "✓ " if r["active"] else ""  # the active lineup's own check mark (rule 11), not the highlight.
     desc = f": {r['description']}" if r["description"] else ""
-    return f"{mark}{r['name']} [{r['scope']}]{desc}"
+    roles = r.get("roles")
+    count = f"  · {roles} role{'s' if roles != 1 else ''}" if isinstance(roles, int) else ""
+    return f"{mark}{r['name']} [{r['scope']}]{count}{desc}"
 
 
 def _default_model_label(state) -> str:
@@ -120,9 +123,16 @@ class TeamStep(StepRailMixin, _AgentsListMixin, Screen):
             yield Static(self.rail_text(self.state.step_keys, self.state.index, _TEAM_STEP_TITLES()),
                           classes="wizard-rail", id="wizard-rail")
             yield Static(self._header_sentence(enabled), id="wiz-team-header-sentence", classes="dialog-title")
+            # 2.0.7 wizard deep review (rolo: "incredibly smooth and clear
+            # on what is going on"): the ONE plain sentence a first-time
+            # user needs -- what a role IS and WHEN it fires -- visible on
+            # the step itself, before any pane.
+            yield Static("A role names the model for one job; it fires whenever that job runs "
+                          "(a sub-agent's bio or the active lineup names it). With roles off, every "
+                          "job uses the default model.", id="wiz-team-what-sentence")
             yield Horizontal(Switch(value=enabled, id="wiz-team-switch"),
-                              Static(" Custom roles: off / on", classes="wizard-switch-label"),
-                              classes="wizard-switch-row")
+                             Static(" Custom roles: off / on", classes="wizard-switch-label"),
+                             classes="wizard-switch-row")
             yield Static(self._off_sentence_text(), id="wiz-team-off-sentence")
             with Vertical(id="wiz-team-on-body"):
                 with Horizontal(id="wiz-team-pane-switch"):
@@ -130,11 +140,13 @@ class TeamStep(StepRailMixin, _AgentsListMixin, Screen):
                     yield Button("Agents", id="wiz-team-switch-agents-btn")
                 with Horizontal(id="wiz-team-panes"):
                     with Vertical(id="wiz-team-lineups-pane"):
-                        yield Static("Lineups", classes="bio-section-title")
+                        yield Static("Lineups -- which roles exist and which model each uses",
+                                      classes="bio-section-title")
                         for w in self._lineups_pane_widgets():
                             yield w
                     with Vertical(id="wiz-team-agents-pane"):
-                        yield Static("Agents", classes="bio-section-title")
+                        yield Static("Agents -- the bios a lineup's positions are built from",
+                                      classes="bio-section-title")
                         for w in self._agents_list_widgets():
                             yield w
             with Horizontal(classes="wizard-footer"):
@@ -280,23 +292,15 @@ class TeamStep(StepRailMixin, _AgentsListMixin, Screen):
         off_sentence.styles.display = "none" if switch.value else "block"
 
     def _apply_layout(self) -> None:
-        """Rule 11: side by side at 120x40 (`WIDE_COLUMNS`), stacked
-        behind a pane switch at 80x24 -- both panes stay permanently
-        mounted inside one `Horizontal` (`#wiz-team-panes`); only
-        `display` toggles, so nothing is ever rebuilt by a resize."""
-        try:
-            switch_bar = self.query_one("#wiz-team-pane-switch")
-            lineups_pane = self.query_one("#wiz-team-lineups-pane")
-            agents_pane = self.query_one("#wiz-team-agents-pane")
-        except Exception:
-            return
-        wide = self.size.width >= WIDE_COLUMNS
-        switch_bar.styles.display = "none" if wide else "block"
-        if wide:
-            lineups_pane.styles.display = "block"
-            agents_pane.styles.display = "block"
-        else:
-            self._show_narrow_pane(self._narrow_pane)
+        """Halo 2.0.7 wizard deep review (rolo: the Team step stacking
+        everything on ONE screen was "the thing to fix"): ONE pane at a
+        time, at every width -- the Lineups/Agents switch bar is always
+        visible and only the selected pane is shown. (The old 120x40
+        side-by-side is gone deliberately: a first-time user should meet
+        lineups FIRST, not both lists at once.) Both panes stay
+        permanently mounted inside one `Horizontal` (`#wiz-team-panes`);
+        only `display` toggles, so nothing is ever rebuilt by a resize."""
+        self._show_narrow_pane(self._narrow_pane)
 
     def _show_narrow_pane(self, which: str) -> None:
         self._narrow_pane = which

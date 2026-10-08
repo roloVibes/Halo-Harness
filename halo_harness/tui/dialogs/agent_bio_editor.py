@@ -41,6 +41,36 @@ from halo_harness.agents_yaml import BIO_SECTIONS, KNOWN_KINDS, is_valid_agent_n
 # every key a bio schema can carry (docs/AGENTS.md) -- `temperature`/
 # `lean_prompt`/`escalation`/`context.obsidian`/per-tool `limits`/etc. have
 # no form field this round and round-trip untouched (see module docstring).
+#: 2.0.7 wizard deep review: the ONE plain line per field ("what does
+#: this field DO?") a first-time user sees under each control -- keyed by
+#: (section, key); a field with no entry shows no line (its label already
+#: says it all).
+FIELD_HELP = {
+    ("models", "preference"): "the model this agent runs on, when it runs",
+    ("models", "fallback"): "what to switch to when the preferred model keeps failing",
+    ("models", "effort"): "how hard the model thinks (higher = better, slower, pricier)",
+    ("models", "thinking"): "let the model's own native thinking blocks through",
+    ("models", "context_budget"): "cap this agent's context at a fraction of the model's window",
+    ("tools", "allow"): "the ONLY tools this agent may call (blank = the default set)",
+    ("tools", "deny"): "tools to withhold from this agent, even when allowed elsewhere",
+    ("tools", "mcp_servers"): "which MCP servers' tools this agent may call",
+    ("tools", "permission_mode"): "how permission asks are decided for this agent's tool calls",
+    ("tools", "rules"): "extra allow/deny rules, same grammar as settings.json",
+    ("context", "files"): "files prepended to this agent's prompt (its reading list)",
+    ("context", "skills"): "skills this agent may invoke",
+    ("context", "memory"): "a private memory namespace (blank = no auto-memory)",
+    ("limits", "max_iterations"): "stop after this many model turns (0 = no cap)",
+    ("limits", "timeout"): "stop the whole run after this long",
+    ("limits", "max_budget_usd"): "stop when this agent's own spend passes this",
+    ("limits", "concurrency"): "how many copies may run at once",
+    ("output", "handoff"): "how the result returns: a summary, the full text, or structured",
+    ("output", "report_to"): "which position its results go back to",
+    ("environment", "worktree"): "run in its own git worktree (isolated edits)",
+    ("environment", "offline"): "never touch the network",
+    ("acceptance", "prompt"): "the one-line smoke prompt `halo doctor --agents` runs",
+    ("acceptance", "expect"): "what a passing answer looks like",
+}
+
 FIELDS = (
     ("models", "preference", "modelref", "pref", "Preferred model"),
     ("models", "fallback", "modelref", "fallback", "Fallback model"),
@@ -282,6 +312,11 @@ class AgentBioEditor(ModalScreen):
     AgentBioEditor #bio-preview-pane { width: 38%; height: 100%; padding: 1 2; }
     AgentBioEditor .bio-section-title { color: $accent; text-style: bold; margin-top: 1; height: 1; }
     AgentBioEditor .bio-hint { color: $text-muted; }
+    /* 2.0.7 wizard deep review: the identity hint doubles as the shared
+       focused-control help line -- FIXED at one row (an empty auto-height
+       Static is 0 rows, so the first poll write would grow the layout and
+       push #bio-pref below the 80x24 fold). */
+    AgentBioEditor #bio-identity-hint { height: 1; }
     AgentBioEditor .bio-field-row { height: 1; margin-top: 1; }
     AgentBioEditor .bio-field-row Switch { width: 8; }
     AgentBioEditor .bio-modelref-row { height: 1; }
@@ -310,6 +345,10 @@ class AgentBioEditor(ModalScreen):
             from halo_harness.agents_yaml import resolve_agent_bio
             self._parent_resolved = resolve_agent_bio(self.extends_from, cwd=cwd, state_dir=state_dir)
         self._last_problems: "list[str]" = []
+        # 2.0.7 wizard deep review: widget-id -> (label, plain-line help)
+        # for the shared focused-control explanation line.
+        self._help_by_wid: dict = {}
+        self._help_last_wid: "Optional[str]" = None
 
     # -- identity/current name -------------------------------------------------
     def _current_name(self) -> str:
@@ -388,6 +427,9 @@ class AgentBioEditor(ModalScreen):
             if self.extends_from:
                 yield Switch(value=override_default, id=f"{wid}-ov")
             yield Static(label)
+        # 2.0.7 wizard deep review: register this field's plain line for
+        # the shared focused-control help (see #bio-focused-help above).
+        self._help_by_wid[wid] = (label, FIELD_HELP.get((section, key)))
         if kind == "bool":
             value = own if has_own else (inherited if inherited is not None else False)
             value = (value == "native") if key == "thinking" else bool(value)
@@ -436,6 +478,19 @@ class AgentBioEditor(ModalScreen):
     # -- mount / change handling --------------------------------------------
     def on_mount(self) -> None:
         self._refresh_preview()
+        # 2.0.7 wizard deep review: the identity fields join the shared
+        # focused-control help map, then the light poll keeps the one
+        # shared line (the IDENTITY HINT slot, already in the layout --
+        # zero new rows, the round-2c "#bio-pref visible on open at
+        # 80x24" pin keeps holding) in step with whatever has focus.
+        self._help_by_wid.update({
+            "bio-name": ("Name", "how /agent and lineups call this bio"),
+            "bio-description": ("Description", "one line: what this agent is FOR"),
+            "bio-kind": ("Kind", f"which family it belongs to ({'/'.join(KNOWN_KINDS)})"),
+            "bio-tags": ("Tags", "search labels, comma-separated"),
+            "bio-extends": ("Extends", "inherit every field of another bio, override here"),
+        })
+        self.set_interval(0.25, self._help_poll)
         # ROOT CAUSE of "pressing Ctrl+P shows no models" (traced live):
         # Textual's own App ALWAYS registers ctrl+p as a PRIORITY binding
         # for its command palette (`textual.app.App`'s own `__init__`/
@@ -460,6 +515,36 @@ class AgentBioEditor(ModalScreen):
             first.focus()
         except Exception:
             pass
+
+    _WHAT_SENTENCE = ("A bio describes ONE sub-agent: the model it runs on, the tools it may use, "
+                      "and how it reports back. Lineups and /agent calls spawn it by name.")
+
+    def _help_poll(self) -> None:
+        """Keep the identity-hint line explaining the FOCUSED control
+        (roadmap: "one plain-line explanation per focused control"); with
+        nothing relevant focused it carries the what-a-bio-is sentence. A
+        poll (not a Focus-event handler) because Textual 8.2.8's Focus
+        event does not bubble to the screen; 0.25s is instant to a human
+        and free next to a keystroke. Only ever writes when focus CHANGED,
+        so a live validation message in the same slot is never clobbered
+        while the user stays put."""
+        try:
+            focused = self.app.focused
+            wid = getattr(focused, "id", None)
+        except Exception:
+            wid = None
+        if wid == self._help_last_wid:
+            return
+        self._help_last_wid = wid
+        try:
+            line = self.query_one(f"#{_IDENTITY_HINT_ID}")
+        except Exception:
+            return
+        if wid and wid in self._help_by_wid:
+            label, help_text = self._help_by_wid[wid]
+            line.update(f"{label}: {help_text}" if help_text else self._WHAT_SENTENCE)
+        else:
+            line.update(self._WHAT_SENTENCE)
 
     def on_unmount(self) -> None:
         try:

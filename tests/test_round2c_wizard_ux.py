@@ -270,9 +270,11 @@ def test_team_step_switch_off_shows_only_the_sentence(ctx: Ctx):
 
 @test
 def test_team_step_on_shows_both_panes_at_both_sizes(ctx: Ctx):
-    """"on shows both panes" -- side by side at 120x40, reachable one at a
-    time behind the pane switch at 80x24 (both actually built either
-    way)."""
+    """2.0.7 wizard deep review UPDATED: ONE pane at a time at EVERY width
+    (the old 120x40 side-by-side stack was the "thing to fix" in rolo's
+    2026-10-07 order -- a first-time user meets Lineups first, never both
+    lists at once); the pane-switch bar is always visible, both panes stay
+    mounted (only display toggles)."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from textual.widgets import Button
 
@@ -286,17 +288,14 @@ def test_team_step_on_shows_both_panes_at_both_sizes(ctx: Ctx):
                 lineups_pane = step.query_one("#wiz-team-lineups-pane")
                 agents_pane = step.query_one("#wiz-team-agents-pane")
                 switch_bar = step.query_one("#wiz-team-pane-switch")
-                if w >= 100:
-                    ctx.check(f"wide: both panes visible at once at {w}x{h}",
-                              lineups_pane.styles.display == "block" and agents_pane.styles.display == "block")
-                    ctx.check(f"wide: no pane-switch bar needed at {w}x{h}", switch_bar.styles.display == "none")
-                else:
-                    ctx.check(f"narrow: Lineups shown first at {w}x{h}",
-                              lineups_pane.styles.display == "block" and agents_pane.styles.display == "none")
-                    step.query_one("#wiz-team-switch-agents-btn", Button).press()
-                    await pilot.pause(0.1)
-                    ctx.check(f"narrow: switch reaches Agents at {w}x{h}",
-                              agents_pane.styles.display == "block" and lineups_pane.styles.display == "none")
+                ctx.check(f"the pane-switch bar is always visible at {w}x{h}",
+                          switch_bar.styles.display != "none")
+                ctx.check(f"Lineups shown first at {w}x{h}",
+                          lineups_pane.styles.display == "block" and agents_pane.styles.display == "none")
+                step.query_one("#wiz-team-switch-agents-btn", Button).press()
+                await pilot.pause(0.1)
+                ctx.check(f"the switch reaches Agents at {w}x{h}",
+                          agents_pane.styles.display == "block" and lineups_pane.styles.display == "none")
     for size in SIZES:
         run(body(*size))
 
