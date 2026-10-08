@@ -10,6 +10,15 @@ version.
 
 ## [2.0.7] - unreleased
 
+(Planned: round 0b notices as system-framed status, round 0c
+steer-through-tool-calls, round 0e concierge + media, then the cyber
+pillars -- see plans/ROADMAP.md.)
+
+## [2.0.6.1] - 2026-10-08
+
+Hotfix release: two owner-live TUI fixes from the 2.0.6 release
+session, shipped the same way 2.0.3.1 shipped clipboard images.
+
 ### Ctrl+Alt+V: pasting an image when the terminal eats Ctrl+V
 
 rolo's live report (2026-10-08): pasting a freshly-taken screenshot did
