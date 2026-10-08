@@ -1733,12 +1733,18 @@ halo gym propose --roles small,judge
 halo gym propose --main ol:qwen3-coder:30b
 halo gym propose --apply
 halo gym propose --apply --name my-local-roles
+halo gym propose --candidates cloud
 ```
 
 Turns saved `halo gym` scores into a role-table proposal -- the best LOCAL
 model per supporting role, respecting the round 5b VRAM-aware rule, with
 one plain sentence per role naming the composite score behind it (or
-saying plainly that no local model has a usable score for that role yet).
+saying plainly that no candidate has a usable score for that role yet).
+`--candidates local|cloud|all` picks the ranking pool (default `local`,
+the original behavior; `cloud` ranks the `or:`/`dbx:`/`xp:`/endpoint
+refs the gym can already run against; `all` ranks both together -- the
+tokens-per-second term normalizes within the chosen pool, never a cloud
+model against a local GPU's ceiling).
 `main` is never proposed; `--main REF` only changes which model the VRAM
 rule compares candidates against (the configured default model otherwise).
 `--apply` saves the proposal as a role template through the existing `halo
@@ -2355,6 +2361,13 @@ new, edit, activate); every other subcommand stays plain text. See
 [AGENTS.md](AGENTS.md) for the lineup editor's own sections and the
 resolved-truth warnings its assignments grid shows.
 
+
+The export/import pair also ships lineups as one PORTABLE FOLDER:
+`halo teams export <name> --bundle <dir>` writes the full template plus
+every non-shipped bio it references (and a `bundle.json` manifest);
+`halo teams import <dir> [--force]` applies it on any box -- bios land
+in user scope, a colliding bio is reported and skipped unless
+`--force`, and the team goes through the same validated save path.
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 
 ```sh

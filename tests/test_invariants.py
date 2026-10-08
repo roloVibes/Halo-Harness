@@ -465,7 +465,8 @@ def test_invariant_c_path_home_outside_paths_py_is_a_reasoned_exception(ctx: Ctx
 
 
 def _is_main_guard(node) -> bool:
-    """True for the canonical `if __name__ == "__main__":` guard -- its
+    """True for the canonical `
+` guard -- its
     body never runs on import (only on direct execution), so a module-
     level assignment inside one is not the bug invariant (f) guards
     against, unlike a bare module-level `if`/`with`/`try` block (which
@@ -611,6 +612,32 @@ def test_invariant_h_the_previous_project_name_is_off_the_front_pages(ctx: Ctx):
                 problems.append(f"{rel}:{line_no}: the previous project name "
                                 f"({'-' if '-' in variant else '_'} form) is on a front page")
     ctx.check("the previous project name appears on no front page:\n  " + "\n  ".join(problems), not problems)
+
+
+@test
+def test_invariant_i_the_round_surface_parity(ctx: Ctx):
+    """2.0.6 round 14 (invariants extended): every command surface this
+    cycle ADDED is present in the docs-coverage table and in COMMANDS.md
+    -- the exact class of drift invariant D protects against, extended
+    to the new subcommands (halo replay, the teams/gym/update flags)."""
+    import re as _re
+    problems = []
+    coverage = (REPO_DIR / "tests" / "test_docs_commands.py").read_text(encoding="utf-8")
+    for label in ("halo replay", "halo teams", "halo gym"):
+        if f'"{label}"' not in coverage:
+            problems.append(f"the docs-coverage table does not gather {label!r}")
+    doc = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
+    for probe in ("halo replay", "--bundle", "--candidates", "--no-verify", "--roles"):
+        if probe not in doc:
+            problems.append(f"COMMANDS.md does not mention {probe!r}")
+    cli_src = (REPO_DIR / "halo_harness" / "cli.py").read_text(encoding="utf-8")
+    for m in _re.finditer(r'argv\[0\] == "([a-z-]+)"', cli_src):
+        name = m.group(1)
+        if name in ("main", "audit"):
+            continue
+        if not _re.search(rf"halo {name}", doc):
+            problems.append(f"cli.py dispatches 'halo {name}' but COMMANDS.md never names it")
+    ctx.check("round-surface parity: " + "; ".join(problems), not problems)
 
 
 if __name__ == "__main__":

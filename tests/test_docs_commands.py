@@ -87,6 +87,11 @@ def _gather_real_flags() -> "dict[str, set]":
     out["halo work-matrix"] = _flags_in(_capture(work_matrix_mod.cmd_work_matrix, ["--help"]))
     out["halo work-matrix show"] = _flags_in(_capture(work_matrix_mod.cmd_work_matrix, ["show", "--help"]))
     out["halo work-matrix apply"] = _flags_in(_capture(work_matrix_mod.cmd_work_matrix, ["apply", "--help"]))
+    # 2.0.6 rounds: the new surfaces join the table
+    from halo_harness import teams_cli, gym_cli, replay_cli
+    out["halo teams"] = _flags_in(_capture(teams_cli.cmd_teams, ["--help"]))
+    out["halo gym"] = _flags_in(_capture(gym_cli.cmd_gym, ["--help"]))
+    out["halo replay"] = _flags_in(_capture(replay_cli.cmd_replay, ["--help"]))
     return out
 
 
