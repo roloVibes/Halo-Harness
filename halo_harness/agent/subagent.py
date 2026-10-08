@@ -1779,14 +1779,21 @@ def _apply_approval_gate(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str
 
 
 def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, tool_name: str,
-                    on_event=None) -> "tuple[list, object]":
+                    on_event=None, on_child=None) -> "tuple[list, object]":
     """`(events, ToolResult)` for ONE Agent/Task tool_use. Never raises --
     every failure mode becomes an `is_error` ToolResult so a sub-agent's
     own bug can never crash the parent's turn. `on_event` (H5c finding 8):
     forwarded to the FOREGROUND child's own `_run_child_to_completion` so
     its events (most importantly `permission_request`) reach a live caller
     the instant they happen -- never used for a background child (see
-    `_bg_run`, whose events are not forwarded to any live stream)."""
+    `_bg_run`, whose events are not forwarded to any live stream).
+
+    Halo 2.0.7 round 0c: `on_child`, when given, is called ONCE with the
+    child Session right after it is built (before its turn ever runs) --
+    agent/loop.py's agent-batch runner uses it to keep a handle on each
+    live child so a steer typed while the batch runs can be FORWARDED
+    into it, and so a forwarded steer the child never got to apply can be
+    handed back to the parent when the child finishes."""
     from halo_harness.tools.base import ToolResult
     from halo_harness.tools.truncate import spill_and_truncate
 
@@ -1947,6 +1954,14 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # parameter.
     if not background and on_event is None:
         child._subagent_live_asks = False
+    # 2.0.7 round 0c: the caller's child handle (see this function's own
+    # docstring) -- before anything can fail, so a caller that wants to
+    # forward steers always has it.
+    if on_child is not None:
+        try:
+            on_child(child)
+        except Exception:
+            pass
     # Halo 2.0.5 round 5: team `permissions.offline` -- offline mode is
     # process-global in this harness (env/config), so a per-member "runs
     # offline" is enforced at the SPAWN point instead: a member whose

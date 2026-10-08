@@ -123,7 +123,7 @@ is verified on Windows and the Kali VM and pushed as it lands.
 - [x] Round 0a: steer text renders at submit, apply-time duplicate suppressed (03d54e7)
 - [x] Round 0d: Ctrl+Alt+V pastes images when the terminal eats Ctrl+V (3a5e4f2)
 - [x] Round 0b: pending notices delivered as system-framed `status_notice` blocks AFTER the human's message (never user_message/user nodes); TUI renders a note, cc:/cx: collect the framed copy, print mode unchanged. Pinned by tests/test_round_0b_status_notices.py + updated h9b/background-jobs/agent-tool/subagent-e2e/cc-session suites
-- [ ] Round 0c: steer-through-tool-calls (forward steers into running children)
+- [x] Round 0c: steer-through-tool-calls -- Bash steer-cut adopts to background (never killed, Esc still kills), foreground children get steers FORWARDED (consumed, with leftover-return so nothing is lost); tests/test_round_0c_steer_through.py 7/7 + steering/bash/jobs/subagent/loop suites green
 - [ ] Cyber Pillar 1: filter-aware routing (1.1-1.3)
 - [ ] Cyber Pillar 2: verify-everything preflight + canaries
 - [ ] Round 0e: concierge (glm-5.3-flash secretary + eyes) + one media agent, capability routing off ModelProfile.vision

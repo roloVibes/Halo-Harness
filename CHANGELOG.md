@@ -32,6 +32,37 @@ full text verbatim; 2+ still collapse into one compact block
 (2.0.2 round C, unchanged); `/stats` never counted these and still
 does not. Pinned by `tests/test_round_0b_status_notices.py`.
 
+### Round 0c: steers reach running work (through tool calls)
+
+rolo's live report (2026-10-08): a steer typed while a sub-agent or a
+long Bash command ran waited for it to finish -- 60s+ of the words
+sitting invisible to the work. Steers now cut THROUGH running calls:
+
+- **A foreground Bash command is moved to the background, not killed.**
+  A per-session steer-cut watcher fires the moment a steer queues while
+  a tool runs; Bash hands its still-live process to the job registry
+  (the same adopt-from-timeout plumbing) and returns "cut short by the
+  user's new message -- moved to the background as shell_id X". The
+  turn reaches its steer safe point immediately, the command keeps
+  running, and its output lands later as a round-0b status notice. A
+  real Esc/interrupt still kills the process group exactly as before
+  (abort always wins the race); PowerShell and every other tool keep
+  the pre-0c "running tools finish" contract.
+- **A foreground sub-agent gets the steer forwarded into itself.** The
+  agent-batch drain loop polls for pending steers and forwards each
+  into every live child of the batch (`child.steer(text)`), so the
+  child applies the words at ITS next safe point -- its own Bash gets
+  the same cut treatment, recursively. A forwarded steer is consumed
+  by the child (the parent never re-applies it); if no child can take
+  it, it stays on the parent queue exactly as before.
+- **Nothing is ever lost.** A forwarded steer the child never got to
+  apply (its turn ended between the forward and its next safe point)
+  is handed back to the parent when the child finishes, and applies at
+  the parent's next safe point. Pinned by
+  `tests/test_round_0c_steer_through.py` (run_streamed handoff/abort
+  race, Bash adoption, forwarding consume/fallback, the on_child hook,
+  and a full parent-child e2e with a mid-Bash steer).
+
 ## [2.0.6.1] - 2026-10-08
 
 Hotfix release: two owner-live TUI fixes from the 2.0.6 release

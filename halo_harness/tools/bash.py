@@ -319,6 +319,13 @@ class BashTool(Tool):
             [str(shell_path), "-lc", wrapped], cwd=cwd, env=env, timeout_s=timeout_ms / 1000.0,
             abort=getattr(ctx, "abort", None), progress_cb=getattr(ctx, "progress_cb", None),
             on_timeout_handoff=(_on_timeout if job_registry is not None else None),
+            # 2.0.7 round 0c: a steer arriving while THIS command runs
+            # hands the still-live process to the job registry (the same
+            # adopt plumbing a timeout uses) instead of waiting out the
+            # command -- the turn reaches its steer safe point immediately
+            # and the work keeps running in the background.
+            steer_cut=getattr(ctx, "steer_cut", None),
+            on_steer_handoff=(_on_timeout if job_registry is not None else None),
         )
 
         if exit_code is None and not timed_out and not aborted:
@@ -332,7 +339,7 @@ class BashTool(Tool):
             # subprocess.Popen(cwd=...) on Windows needs a native path
             # (C:\Users\...) or it fails to launch the NEXT call outright.
             # finding 9: from_posix is only meaningful for THAT Windows/
-            # Git-Bash translation -- applied unconditionally it also
+            # Git Bash translation -- applied unconditionally it also
             # rewrites a genuine POSIX path on real Linux/WSL bash whose
             # single-letter top-level dir happens to look like a drive
             # form (e.g. `/a/bcd`), corrupting it into `A:/bcd`.
@@ -340,6 +347,18 @@ class BashTool(Tool):
         final_exit = reported_exit if reported_exit is not None else exit_code
 
         if aborted:
+            if adopted:
+                # 0c steer-cut handoff: the wait ended early because the
+                # user steered mid-command, and the still-live process was
+                # adopted -- the command did NOT fail, it just isn't done
+                # yet, so this is not an error result (same shape as the
+                # timeout adoption below).
+                job_id = adopted[0].job_id
+                note = (f"[command cut short by the user's new message -- moved to the background as "
+                        f"shell_id {job_id} -- use BashOutput with shell_id={job_id!r} to check on it, or "
+                        f"TaskStop to stop it]")
+                body = text.strip() + "\n" + note if text.strip() else note
+                return ToolResult(body)
             body = text.strip() + "\n[command aborted]" if text.strip() else "[command aborted]"
             return ToolResult(body, is_error=True)
         if timed_out:
