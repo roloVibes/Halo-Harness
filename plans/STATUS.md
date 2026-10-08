@@ -129,7 +129,7 @@ is verified on Windows and the Kali VM and pushed as it lands.
 - [x] Round 0e: concierge (roles.concierge secretary + eyes + notice digest, glm-5.3-flash measured lane) + ONE media agent (templates/agents/media.yaml on the new deterministic Media tool: ffmpeg frames/ffprobe metadata, zero-token ingestion); tests/test_round_0e_concierge_media.py 8/8
 - [x] Local embeddings (Ollama /api/embed or OpenAI-compat /v1/embeddings, disabled until embeddings.model set) + /recall + `halo recall` + incremental index + the generic `local:` route (local.servers config, per-server context); tests/test_round_embeddings_local.py 6/6
 - [x] Wizard deep review: the roles surface rebuilt around first-time-user clarity (what-a-role-is + when-it-fires lines on every surface, Team step one-pane-at-a-time, lineup editor cost footer + field labels, bio editor focused-control help with zero new rows); tests/test_round_wizard_deep_review.py 4/4
-- [ ] Copy-out fix: selection copies the SELECTED RANGE (not whole-widget text), verified clipboard floor + confirmation line + BOM strip, `halo doctor` copy verdict
+- [x] Copy-out fix: selected-RANGE copies, mechanism-confirmed copies with visible failures, tmux/Kali OSC-52 detection + the set-clipboard fix named everywhere, BOM strip, doctor path verdict; tests/test_round_copy_out.py 6/6
 - [ ] Dead-model-id detection (`doctor --roles` live-catalog resolve, 404 surfaces in the handback), balances remaining-first, ollama polish (warm, lineup hygiene flags, single-GPU swap warning)
 - [ ] release
 

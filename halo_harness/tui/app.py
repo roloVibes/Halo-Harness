@@ -2196,7 +2196,7 @@ class BridgeApp(App):
             return  # the focused card's own Esc binding handles it
         self.controller.interrupt()
 
-    def copy_to_clipboard(self, text: str) -> None:
+    def copy_to_clipboard(self, text: str, *, confirm: bool = False) -> None:
         """W4c item 3: OSC 52 is only EMITTED when this terminal is known to
         relay it (`clipboard.osc52_trusted()` -- Windows Terminal yes, a
         plain `conhost` console host no). Overridden at the APP level
@@ -2208,17 +2208,51 @@ class BridgeApp(App):
         The external-tool fallback (`clip.exe` on win32, xclip/wl-copy/xsel
         on Linux, pbcopy on macOS) always ALSO runs, belt-and-suspenders,
         regardless of whether OSC 52 itself was trusted -- see tui/
-        clipboard.py's own module docstring for why two mechanisms exist."""
+        clipboard.py's own module docstring for why two mechanisms exist.
+
+        2.0.7 copy-out fix (rolo: "silence is indistinguishable from
+        failure"): `confirm=True` (the explicit copy actions) asks the
+        fallback worker to report WHICH mechanism actually landed -- the
+        confirmation line names it, and a total failure (no OSC 52 trust +
+        no tool) becomes a visible warning naming the install hint."""
         from halo_harness.tui.clipboard import osc52_trusted
         if self._driver is not None and osc52_trusted():
             super().copy_to_clipboard(text)
         else:
             self._clipboard = text
-        self.run_worker(lambda: self._clipboard_fallback_worker(text), thread=True, name="clipboard-fallback")
+        self.run_worker(lambda: self._clipboard_fallback_worker(text, confirm=confirm),
+                        thread=True, name="clipboard-fallback")
 
-    def _clipboard_fallback_worker(self, text: str) -> None:
+    def _clipboard_fallback_worker(self, text: str, *, confirm: bool = False) -> None:
         from halo_harness.tui.clipboard import copy_via_external_tool
-        copy_via_external_tool(text)
+        ok = copy_via_external_tool(text)
+        if not confirm:
+            return
+        # 2.0.7 copy-out fix: the visible confirmation names the mechanism
+        # that actually landed -- OSC 52 (when trusted AND we emitted it)
+        # is the primary, the external tool is the verified floor.
+        from halo_harness.tui.clipboard import osc52_trusted, tmux_clipboard_mode
+        if ok:
+            self.call_from_thread(self.notify,
+                                  f"Copy verified via system clipboard ({len(text)} characters)",
+                                  timeout=3)
+            return
+        tmux_mode = tmux_clipboard_mode()
+        if tmux_mode is not None and tmux_mode not in ("on", "external"):
+            # The Kali-over-SSH case: OSC 52 through tmux was the only path
+            # to the user's real local clipboard, and tmux is dropping it.
+            self.call_from_thread(
+                self.notify,
+                "Copy FAILED -- tmux is dropping OSC 52 (set-clipboard is off). Fix once: "
+                "'tmux set -g set-clipboard on', then detach and re-attach.",
+                severity="error", timeout=8)
+            return
+        if not osc52_trusted():
+            self.call_from_thread(
+                self.notify,
+                "Copy FAILED -- no clipboard mechanism landed (OSC 52 untrusted here and no "
+                "clipboard tool found; install xclip/wl-copy/xsel, or run inside Windows Terminal)",
+                severity="error", timeout=6)
 
     def perform_copy(self, text: "Optional[str]", *, label: str) -> bool:
         """W4c item 2: the ONE place every EXPLICIT copy action (`/copy`,
@@ -2231,48 +2265,80 @@ class BridgeApp(App):
         matches what actually lands on the clipboard). Returns whether
         anything was actually copied, so a caller with its own more
         specific "nothing yet" wording (e.g. `/copy code`'s "no code
-        blocks") can show that instead of a generic one."""
+        blocks") can show that instead of a generic one.
+
+        2.0.7 copy-out fix: the copy rides with confirm=True -- the worker
+        above adds the mechanism-verified line (or the failure warning)
+        on top of this one."""
         if not text:
             return False
         from halo_harness.tui.clipboard import apply_crlf_if_configured
         final_text = apply_crlf_if_configured(text)
-        self.copy_to_clipboard(final_text)
+        self.copy_to_clipboard(final_text, confirm=True)
         self.notify(f"Copied {label} ({len(final_text)} characters)", timeout=2)
         return True
 
-    def _copy_text_for_widgets(self, widgets) -> "Optional[str]":
+    def _copy_text_for_widgets(self, widgets, selections=None) -> "Optional[str]":
         """W4c item 1: every widget's own `copy_text()` (its stored
         source -- see each widget class for what that means to it), cleaned
         (`clean_copy_text`) and concatenated in the given order
         (`join_copied_texts`). A widget with no `copy_text` at all (a
         permission/question/plan/effort/rewind/improve card -- none of
         them ever the target of a transcript drag in practice) simply
-        contributes nothing; there is no cell-reading fallback."""
+        contributes nothing; there is no cell-reading fallback.
+
+        2.0.7 copy-out fix (rolo 2026-10-07: "copying text from the session
+        to another file seems to not really work well"): `selections`, when
+        given, is the SAME map `_selected_transcript_text` read -- for a
+        widget whose Selection is a PARTIAL range (not the widget's whole
+        extent), the copy is narrowed to that RANGE of its source text via
+        `Selection.extract` (Textual offsets are line/x within the widget's
+        content), so a grazing drag copies exactly what was dragged, never
+        the whole widget. The widget's own `Selection.full` (a drag covering
+        its entire extent) keeps the whole-text path -- its source, cleaned,
+        unchanged."""
         from halo_harness.tui.clipboard import clean_copy_text, join_copied_texts
         parts = []
         for widget in widgets:
             get_text = getattr(widget, "copy_text", None)
             if callable(get_text):
-                parts.append(clean_copy_text(get_text()))
+                raw = get_text()
+                sel = (selections or {}).get(widget)
+                if sel is not None and getattr(sel, "start", None) is not None:
+                    # Full-coverage detection without a `.full` attribute
+                    # (Textual 8.2.8's Selection is a NamedTuple): a
+                    # selection whose line span already covers every line
+                    # of the widget's own content IS the whole widget --
+                    # keep the stored-source path (cleaning and all).
+                    n_lines = len(raw.splitlines())
+                    covers_all = (sel.start.y <= 0 and sel.end is not None
+                                  and sel.end.y >= n_lines - 1)
+                    if not covers_all:
+                        try:
+                            extracted = sel.extract(raw)
+                            if extracted:
+                                raw = extracted
+                        except Exception:
+                            pass
+                parts.append(clean_copy_text(raw))
         return join_copied_texts(parts) or None
 
     def _selected_transcript_text(self) -> "Optional[str]":
         """W4c item 1: `screen.selections` is Textual's own PUBLIC
         selection map (`{widget: Selection(start, end)}`, kept live by its
-        native mouse-drag handling) -- only the KEYS matter here (which
-        widgets the drag touched AT ALL, even just partially); the actual
-        text always comes from `_copy_text_for_widgets` above, never
-        `Selection.extract`/`widget.get_selection` (the screen-CELL path
-        this replaces, `Screen.get_selected_text`'s own mechanism). Ordered
-        by each widget's position in the transcript, not dict order (which
-        Textual gives no documented guarantee about)."""
+        native mouse-drag handling) -- the KEYS decide which widgets the
+        drag touched, and 2.0.7's copy-out fix narrows each PARTIAL
+        selection to its dragged RANGE (see `_copy_text_for_widgets`);
+        a whole-widget drag keeps the stored-source path. Ordered by each
+        widget's position in the transcript, not dict order (which Textual
+        gives no documented guarantee about)."""
         selected = self.screen.selections
         if not selected:
             return None
         order = self.transcript.widgets_in_order()
         ordered = [w for w in order if w in selected]
         ordered.extend(w for w in selected if w not in ordered)
-        return self._copy_text_for_widgets(ordered)
+        return self._copy_text_for_widgets(ordered, selections=selected)
 
     def _current_turn_text(self) -> "Optional[str]":
         """W4c item 2 (`Y`): every transcript widget from the LAST

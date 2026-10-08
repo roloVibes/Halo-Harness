@@ -588,6 +588,20 @@ Every form shows a toast naming what was copied and how many characters.
 In `-p` there is no transcript or clipboard to copy to/from, so it is a
 no-op note instead.
 
+2.0.7 (the copy-out fix): every copy now also confirms WHICH mechanism
+actually landed ("Copy verified via system clipboard (N characters)" --
+the external-tool floor), and a total failure becomes a visible error
+with the fix spelled out. A transcript mouse-drag copies the SELECTED
+RANGE (a grazing drag no longer copies whole widgets), a leading BOM is
+stripped on paste reads, and `halo doctor`'s clipboard line states the
+full write/read path verdict. **Over SSH on Linux (e.g. a Kali VM)**:
+OSC 52 is the only path to your REAL local clipboard, and **tmux drops
+it unless `set-clipboard` is on** -- halo detects this (`tmux set -gv
+set-clipboard`) and both the copy failure and `halo doctor` name the
+one-line fix: `tmux set -g set-clipboard on`, then detach and re-attach.
+Without tmux, OSC 52 passes straight through SSH to Windows Terminal
+and just works.
+
 ### `/rename <title>`
 Sets the session's title, real in both `-p` and the TUI (no live worker
 thread needed -- it's a plain index-file write).

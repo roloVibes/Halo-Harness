@@ -115,10 +115,19 @@ def osc52_trusted(env: "Optional[dict]" = None, *, platform: "Optional[str]" = N
     bare `cmd.exe`/PowerShell window, not inside Windows Terminal) does
     not relay it at all -- the write is a silent no-op there, so `clip.exe`
     (always available on Windows) is what actually has to do the work.
+
+    2.0.7 copy-out fix (rolo's Kali report, 2026-10-08: "copying from kali
+    is not working"): the other big interceptor is TMUX -- it eats every
+    OSC 52 sequence unless `set-clipboard` is on/external, and its default
+    is OFF. Over SSH that is the ONE path that reaches the user's real
+    local clipboard (an xclip fallback on a headless VM writes to a
+    clipboard nobody sees), so "in tmux with set-clipboard off" now reads
+    as untrusted, and the doctor/confirm lines name the one-line fix:
+    `tmux set -g set-clipboard on`.
+
     Every other platform's terminals are assumed to relay it (xterm, kitty,
-    iTerm, tmux/screen passthrough, gnome-terminal, ... -- the existing,
-    unconditional assumption this app already made before this brief); the
-    external-tool fallback always ALSO runs regardless of this result
+    iTerm, screen passthrough, gnome-terminal, ...); the external-tool
+    fallback always ALSO runs regardless of this result
     (belt-and-suspenders), so a wrong `True` here on some exotic terminal
     never loses the copy outright. `env`/`platform` default to the real
     `os.environ`/`sys.platform` -- both are test seams."""
@@ -126,7 +135,38 @@ def osc52_trusted(env: "Optional[dict]" = None, *, platform: "Optional[str]" = N
     plat = platform if platform is not None else sys.platform
     if plat == "win32":
         return bool(environ.get("WT_SESSION"))
+    mode = tmux_clipboard_mode(environ)
+    if mode is not None:
+        return mode in ("on", "external")
     return True
+
+
+_TMUX_MODE_CACHE: dict = {}
+
+
+def tmux_clipboard_mode(env: "Optional[dict]" = None) -> "Optional[str]":
+    """'on'/'external' (tmux relays OSC 52 outward), 'off' (tmux drops it),
+    or None when this process is not inside tmux at all. Asks tmux itself
+    (`tmux show -gv set-clipboard`) once per tmux session, cached -- a
+    missing/unreachable tmux binary reads as 'off' (the conservative,
+    default-value answer, never a false 'works')."""
+    environ = env if env is not None else os.environ
+    tmux_env = environ.get("TMUX")
+    if not tmux_env:
+        return None
+    cached = _TMUX_MODE_CACHE.get(tmux_env)
+    if cached is not None:
+        return cached
+    mode = "off"
+    try:
+        out = subprocess.run(["tmux", "show", "-gv", "set-clipboard"],
+                             capture_output=True, text=True, timeout=2.0)
+        if out.returncode == 0:
+            mode = (out.stdout or "").strip() or "off"
+    except Exception:
+        pass
+    _TMUX_MODE_CACHE[tmux_env] = mode
+    return mode
 
 
 def active_clipboard_backend_name(env: "Optional[dict]" = None, *,
@@ -144,7 +184,13 @@ def active_clipboard_backend_name(env: "Optional[dict]" = None, *,
         return "clip.exe (OSC 52 is not relayed by this console host)"
     if plat == "darwin":
         return "OSC 52, plus the pbcopy fallback"
+    tmux_mode = tmux_clipboard_mode(env)
     found = find_clipboard_tool()
+    if tmux_mode is not None and tmux_mode not in ("on", "external"):
+        # The Kali case: over SSH, OSC 52 through tmux was the ONLY path to
+        # the user's real local clipboard.
+        return (f"tmux set-clipboard={tmux_mode} -- OSC 52 is DROPPED here; fix with "
+                f"'tmux set -g set-clipboard on'")
     if found is not None:
         return f"OSC 52, backed up by {found[0]} (found on PATH)"
     return "OSC 52 only -- no xclip/wl-copy/xsel on PATH for a fallback"
@@ -211,6 +257,12 @@ def read_via_external_tool(*, timeout_s: float = 3.0, platform: "Optional[str]" 
             if proc.returncode != 0:
                 return None
             text_out = proc.stdout.decode("utf-8", errors="replace")
+            # 2.0.7 copy-out fix: a clipboard written by `Out-File -
+            # Encoding Unicode` (and halo's own clip.exe write) carries a
+            # UTF-16 BOM some readers surface as a literal char -- strip
+            # ONE leading BOM from the decoded text, nothing else.
+            if text_out.startswith(chr(0xFEFF)):
+                text_out = text_out[1:]
             if text_out.endswith("\r\n"):
                 text_out = text_out[:-2]
             elif text_out.endswith("\n"):
@@ -232,17 +284,35 @@ def clipboard_doctor_line(env: "Optional[dict]" = None, *, platform: "Optional[s
     case where there's genuinely nothing backing OSC 52 up) is the only
     WARN, everything else is OK since every other case has a working
     mechanism. `env`/`platform` are the same test seams `active_clipboard_
-    backend_name`/`osc52_trusted` take."""
+    backend_name`/`osc52_trusted` take.
+
+    2.0.7 copy-out fix: the line now also states the copy PATH VERDICT --
+    which mechanism a copy actually rides (OSC 52 when trusted, plus the
+    external tool as the verified floor), and whether the read direction
+    (Ctrl+V / bare /paste) has a tool behind it too."""
     plat = platform if platform is not None else sys.platform
     name = active_clipboard_backend_name(env, platform=plat)
     if plat == "win32":
-        return f"[OK] Clipboard backend: win32 -- {name}"
+        return (f"[OK] Clipboard backend: win32 -- {name} "
+                f"(write: OSC 52 when trusted + clip.exe floor; read: Get-Clipboard; "
+                f"selection copies narrow to the dragged range)")
     if plat == "darwin":
-        return f"[OK] Clipboard backend: darwin -- {name}"
-    if find_clipboard_tool() is not None:
-        return f"[OK] Clipboard backend: {name}"
+        return (f"[OK] Clipboard backend: darwin -- {name} "
+                f"(write: OSC 52 when trusted + pbcopy floor; read: pbpaste; "
+                f"selection copies narrow to the dragged range)")
+    read_tool = find_clipboard_tool()
+    tmux_mode = tmux_clipboard_mode(env)
+    if tmux_mode is not None and tmux_mode not in ("on", "external"):
+        return (f"[WARN] Clipboard backend: {name} -- tmux is intercepting OSC 52 with "
+                f"set-clipboard={tmux_mode}, so copies DIE here (over SSH that was the only path to "
+                f"your real clipboard). Fix: 'tmux set -g set-clipboard on', then detach/attach.")
+    if read_tool is not None:
+        return (f"[OK] Clipboard backend: {name} "
+                f"(write: OSC 52 when trusted + {read_tool[0]} floor; read: {read_tool[0]}; "
+                f"selection copies narrow to the dragged range)")
     return (f"[WARN] Clipboard backend: {name} (Ctrl+C on a selection still works on terminals that "
-            "relay OSC 52, but there's no backup if the terminal/multiplexer doesn't)")
+            "relay OSC 52, but there's no backup if the terminal/multiplexer doesn't -- "
+            "and the READ direction has nothing: install xclip/wl-copy/xsel)")
 
 
 # ============================================================================
