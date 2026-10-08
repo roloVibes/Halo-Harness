@@ -98,6 +98,33 @@ Pinned by `tests/test_round_copy_out.py` (6/6: range narrowing,
 whole-widget path, mechanism confirmation, failure warnings incl. the
 tmux fix, BOM strip, doctor verdicts).
 
+### Dead-model-id detection, surfaced 404 handbacks, balances remaining
+
+rolo's live 2.0.6 finding: the role table's `or:deepseek/
+deepseek-v4-pro-0813` was 404ing SILENTLY -- sub-agents handed back
+empty results and nothing said why.
+
+- **`halo doctor --roles` resolves every configured model against its
+  provider's own catalog** (models.json for `or:`, dbx-endpoints.json
+  for `dbx:`, the host's live tag list for `ol:`) and reports each
+  unknown id, naming the role and the fix. A provider with no readable
+  catalog (or an empty one -- a fresh install) is skipped, never
+  guessed at; `cc:`/`ant:`/`cx:` lanes have no catalog to check.
+- **An errored sub-agent's handback carries the child's OWN last error
+  message** (`_last_child_error_text`): a dead lane now reads
+  "[sub-agent did not finish normally (error): HTTP 404: OpenRouter has
+  no such model or endpoint...]" instead of a silently-empty result --
+  on all three handback paths (fresh spawn, resume, background).
+- **Balances lead with what's LEFT** (rolo: "you want what's LEFT, not
+  '$145 used'"): the /credits total/used breakdown rides every line
+  that has one ("$145.00 spent (of $200.00 total, $145.00 used,
+  $55.00 left)", "$55.00 remaining (of $200.00 total, $145.00 used)").
+
+Pinned by `tests/test_round_doctor_dead_ids.py` (6/6: dead-id report +
+clean table, empty-catalog skip, doctor wiring, the error-text
+extraction, a full e2e dead-lane spawn surfacing the 404 in the
+handback, the balance lines).
+
 ### Round 0b: background notices stop impersonating the user
 
 rolo's live report (2026-10-08): with a background job or sub-agent

@@ -222,6 +222,12 @@ def refresh_cached_openrouter_balance(base_url: str, api_key: str, *,
         "amount": balance["amount"], "kind": balance["kind"],
         "label": key_info.label if key_info else None,
         "is_free_tier": key_info.is_free_tier if key_info else False,
+        # 2.0.7 balances-remaining round (rolo: "you want what's LEFT, not
+        # '$145 used'"): carry the total/used breakdown whenever the
+        # /credits management read gave us one, so every surface can show
+        # "remaining (of total, used)" instead of a bare used figure.
+        "total_credits": credits.total_credits if credits is not None else None,
+        "total_usage": credits.total_usage if credits is not None else None,
         # monotonic for the status bar's own staleness math; wall-clock for
         # the human-readable "as of HH:MM:SS" `/cost`/`/providers` print.
         "fetched_at": time.monotonic(), "fetched_at_wall": time.time(),
