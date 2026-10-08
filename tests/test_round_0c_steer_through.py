@@ -111,7 +111,7 @@ def test_run_streamed_steer_cut_hands_off_without_killing(ctx: Ctx):
     t.start()
     try:
         out, code, timed_out, aborted = run_streamed(
-            ["bash", "-lc", "sleep 3"], cwd=".", env=dict(os.environ), timeout_s=30,
+            [sys.executable, "-c", "import time; time.sleep(3)"], cwd=".", env=dict(os.environ), timeout_s=30,
             steer_cut=steer_cut, on_steer_handoff=lambda proc, q, col: handed.append(proc),
         )
     finally:
@@ -133,7 +133,7 @@ def test_run_streamed_without_callback_steer_cut_is_ignored(ctx: Ctx):
     try:
         t0 = time.monotonic()
         out, code, timed_out, aborted = run_streamed(
-            ["bash", "-lc", "sleep 1"], cwd=".", env=dict(os.environ), timeout_s=30,
+            [sys.executable, "-c", "import time; time.sleep(1)"], cwd=".", env=dict(os.environ), timeout_s=30,
             steer_cut=steer_cut,
         )
         elapsed = time.monotonic() - t0
@@ -153,7 +153,7 @@ def test_run_streamed_real_abort_wins_over_steer_cut(ctx: Ctx):
     abort.set()
     steer_cut.set()
     out, code, timed_out, aborted = run_streamed(
-        ["bash", "-lc", "sleep 3"], cwd=".", env=dict(os.environ), timeout_s=30,
+        [sys.executable, "-c", "import time; time.sleep(3)"], cwd=".", env=dict(os.environ), timeout_s=30,
         abort=abort, steer_cut=steer_cut,
         on_steer_handoff=lambda proc, q, col: handed.append(proc),
     )
