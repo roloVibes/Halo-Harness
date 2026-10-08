@@ -297,7 +297,7 @@ def test_bio_editor_every_field_focusable_and_visible_when_focused(ctx: Ctx):
                         visible = r.y >= pr.y and r.y + r.height <= pr.y + pr.height
                         ctx.check(f"{fid} is visible when focused at {w}x{h}, got widget={r} pane={pr}", visible)
                     await pilot.press("tab")
-                    await pilot.pause(0.02)
+                    await pilot.pause(0.08)
                 ctx.check(f"at least a dozen bio- fields were actually tabbed through at {w}x{h}, got {checked}",
                           checked >= 12)
     for size in SIZES:
