@@ -3905,22 +3905,49 @@ class Session:
                     turn=turn_no, err_type="context_overflow", category=CONTEXT_WINDOW_EXCEEDED,
                 )
                 return None
-            if harness_meta.get("sensitive_finish"):
-                # GLM-brief.md item 3: "sensitive becomes an error event
-                # carrying the provider's message" -- a clear, NEVER-RETRIED
-                # failure (unlike the overflow/empty-completion cases above,
-                # re-running the identical request against a content-policy
-                # refusal would just repeat it). `text_so_far` (computed
-                # just below, pulled up here too) is whatever the provider
-                # DID stream before refusing -- its own explanation, when it
-                # sends one as ordinary content, same as a real wire 4xx
-                # would have in its JSON body.
-                sensitive_text = "".join(
-                    b.get("text", "") for b in assistant_blocks if b and b.get("type") == "text") or "(no message)"
-                self._log_call_failure("sensitive", retries=attempts - 1)
+            # Halo 2.0.7 cyber Pillar 1 (filter-aware routing): every filter
+            # signal -- GLM's `finish_reason: "sensitive"`, the generic
+            # `content_filter`, a native Anthropic `stop_reason: "refusal"`
+            # -- is a provider content filter, NOT an answer. The filtered
+            # attempt is NEVER persisted as an assistant turn (this branch
+            # sits above the log write, and `continue`-ing the ladder
+            # discards `assistant_blocks`): the observation is recorded in
+            # the measured filter census (Pillar 1.2,
+            # providers/filter_census.py), the user is told, and the request
+            # is rerouted to the next fallback lane (Pillar 1.3 -- a
+            # DIFFERENT provider may serve what this one filtered; re-running
+            # against the SAME model would just repeat, which is why the
+            # lane comes from the fallback chain, never an in-place retry).
+            # With no lane left, the pre-1.3 GLM contract stands: a clear,
+            # never-retried error carrying whatever text DID stream.
+            _filter_reason = None
+            if harness_meta.get("content_filter_finish"):
+                _filter_reason = "content_filter"
+            elif harness_meta.get("sensitive_finish"):
+                _filter_reason = "sensitive"
+            elif stop_reason == "refusal":
+                _filter_reason = "refusal"
+            if _filter_reason is not None:
+                from halo_harness.providers.filter_census import record_filter_observation
+                record_filter_observation(self.state_dir, self.model_ref.raw, _filter_reason)
+                self._log_call_failure(_filter_reason, retries=attempts - 1)
+                _filtered_text = "".join(
+                    b.get("text", "") for b in assistant_blocks if b and b.get("type") == "text")
+                if _filtered_text:
+                    yield events.notification(
+                        f"{self.model_ref.raw} filtered the reply ({_filter_reason}): "
+                        f"{_filtered_text[:200]}", level="warning")
+                fallback = yield from self._try_fallback_after_exhaustion(tool_choice, no_tools)
+                if fallback is not None:
+                    yield events.notification(
+                        f"rerouting the filtered request to {self.model_ref.raw}")
+                    body, req = fallback
+                    attempts = 0
+                    continue
                 yield events.error(
-                    f"upstream ended the reply early (finish_reason=sensitive): {sensitive_text}",
-                    turn=turn_no, err_type="sensitive",
+                    f"upstream filtered the reply ({_filter_reason}) and no fallback lane is "
+                    f"configured (--fallback-model): {(_filtered_text or '(no message)')[:400]}",
+                    turn=turn_no, err_type=_filter_reason,
                 )
                 return None
             if harness_meta.get("length_with_minimal_output"):

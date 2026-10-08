@@ -63,6 +63,24 @@ sitting invisible to the work. Steers now cut THROUGH running calls:
   race, Bash adoption, forwarding consume/fallback, the on_child hook,
   and a full parent-child e2e with a mid-Bash steer).
 
+### Cyber Pillar 1: filter-aware routing (1.1-1.3)
+
+A provider content filter is not an answer. `finish_reason:
+"content_filter"` (generic chat dialect), GLM's `finish_reason:
+"sensitive"`, and a native Anthropic `stop_reason: "refusal"` are now
+recognized on every harness-driven response, and a filtered reply is
+NEVER persisted as an assistant turn. Each live filter signal is
+recorded in a measured per-machine census (`<state_dir>/filter-
+census.json`, keyed by raw model ref, built purely from real traffic --
+nothing is ever probed), and the request is transparently rerouted to
+the next fallback lane (a DIFFERENT model -- re-running against the
+same one would just repeat), with a notification naming what was
+filtered and where the request went. With no lane configured, the old
+GLM contract stands: a clear, never-retried error carrying whatever
+text did stream. Pinned by `tests/test_round_1_filter_routing.py`
+(census record/rank/corruption, reroute + never-persist, sensitive
+reroute, no-lane terminal error, both-lanes-filtered exhaustion).
+
 ## [2.0.6.1] - 2026-10-08
 
 Hotfix release: two owner-live TUI fixes from the 2.0.6 release

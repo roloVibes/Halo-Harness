@@ -493,6 +493,13 @@ class OpenAIStreamToAnthropic:
         # shape "end_turn" -- these two booleans are the real signal.
         model_context_window_exceeded = self.finish_reason == "model_context_window_exceeded"
         sensitive_finish = self.finish_reason == "sensitive"
+        # Halo 2.0.7 cyber Pillar 1.1 (filter-aware routing): an explicit
+        # `finish_reason: "content_filter"` is a provider content filter,
+        # not an answer -- `decide_stop_reason` above still maps it to the
+        # ordinary "end_turn" for wire compatibility, but this flag lets
+        # agent/loop.py's `_step` refuse to persist the reply and reroute
+        # to a filter-free lane instead.
+        content_filter_finish = self.finish_reason == "content_filter"
         harness_meta = None
         if self.capture_reasoning or self.strict_tool_json:
             harness_meta = {
@@ -503,6 +510,7 @@ class OpenAIStreamToAnthropic:
                 "responding_provider": self.responding_provider,
                 "model_context_window_exceeded": model_context_window_exceeded,
                 "sensitive_finish": sensitive_finish,
+                "content_filter_finish": content_filter_finish,
                 "reasoning_chunk_count": self.reasoning_chunk_count,
                 "first_reasoning_wall": self.first_reasoning_wall,
                 "first_tool_wall": self.first_tool_wall,
