@@ -10,6 +10,17 @@ version.
 
 ## [2.0.6] - unreleased
 
+### The transcript code-block hover bug (release-gate fix)
+
+Code blocks in the transcript turned into black boxes that vanished
+when the mouse passed over them (worst with local models, which wrap
+most answers in fences). Root cause: Textual's MarkdownFence is itself
+a scrollable container -- on mouse entry Textual repaints the region
+as a scroll target, and that repaint races the ongoing stream updates.
+Fences inside a transcript never need to scroll (the transcript itself
+scrolls), so they are pinned to non-scrolling now and the hover repaint
+path disappears entirely.
+
 ### "Try it" and the lineup smoke run, cost shown first (round 14)
 
 The bio editor gains a "Try it (cost first)" button and the lineup
