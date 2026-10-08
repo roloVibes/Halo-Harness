@@ -275,12 +275,19 @@ def test_new_from_writes_only_override_keys_and_shows_inherited_greyed(ctx: Ctx)
             state.enumerated_models, state.enumeration_done = FIXTURE_MODELS, True
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
-                await pilot.pause(0.1)
+                await _wait_until(pilot, lambda: app.screen.query_one("#agents-list", OptionList)
+                                  is not None and app.screen.query("#agents-new-from"))
                 rows = app.screen.query_one("#agents-list", OptionList)
                 names = [str(rows.get_option_at_index(i).id) for i in range(rows.option_count)]
                 rows.highlighted = names.index("coder")
                 app.screen.query_one("#agents-new-from", Button).press()
-                await pilot.pause(0.2)
+                # 2.0.6 round 14 (the CI flake): a fixed pause raced the
+                # editor's widget mount -- poll for the editor AND its
+                # override switch, the same bounded pattern the other pilot
+                # races in this file got.
+                await _wait_until(pilot, lambda: (
+                    isinstance(app.screen, AgentBioEditor)
+                    and app.screen.query("#bio-pref-ov")))
                 editor = app.screen
                 ctx.check("extends_from is set", isinstance(editor, AgentBioEditor) and editor.extends_from == "coder")
                 pref_ov = editor.query_one("#bio-pref-ov", Switch)
