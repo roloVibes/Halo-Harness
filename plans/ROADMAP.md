@@ -502,6 +502,14 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   retired ids; a sub-agent whose model 404s must surface the error in
   its handback line, never hand back empty. Fixed in the lineup by
   moving to `or:deepseek/deepseek-v4-pro` (same family, cheaper).
+  (5) **local-worker capability boundary, measured live**: qwen3-coder:30b
+  ran mechanical tasks perfectly (suites, verifications, exact-report
+  commands — 4/4 clean at $0.0000) but failed BOTH synthesis tasks
+  (release-notes drafting) even with a tight spec — it wrote code ABOUT
+  the task instead of doing it. The lineup guidance this implies goes in
+  docs/ROLES.md: mechanical/verify work -> local; anything needing
+  composition or judgment -> the paid implementer (deepseek) or the
+  session itself. Not a bug — a routing fact.
 - **2.0.8 = theme pack:** DOOM, Metroid, Mario (see "ADDED 2026-10-04:
   2.0.7 becomes a theme pack"; the content is unchanged, only the number).
 - **2.0.9 = Signal remote control** (plan `2.0.8-signal-brief.md`, content
