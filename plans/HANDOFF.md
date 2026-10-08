@@ -4,6 +4,51 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-08 04:45 CDT (authoritative, read this first)
+
+**v2.0.6.1 IS RELEASED** (tag `5e025ad`, signed assets on GitHub, VM on it,
+Windows installs it on the session-exit watcher -- the owner is restarting
+RIGHT NOW to pick it up). 2.0.7 is open, unreleased, tree clean at `master`.
+
+**2.0.7 running list (ROADMAP.md tail sections are the detail authority):**
+- DONE 0a: steer text renders at submit, apply-time duplicate suppressed
+  (`03d54e7`).
+- DONE 0d: Ctrl+Alt+V pastes images when the terminal eats Ctrl+V (`3a5e4f2`).
+- DESIGNED 0e: concierge role = glm-5.3-flash (vision=True, $0.50/M out vs
+  main glm-5.3 vision=False $7.00/M -- measured live, see ROADMAP 2026-10-08
+  section); ONE media agent (ffmpeg frames / whisper transcript / paste all
+  converge on image-or-text), capability routing off ModelProfile.vision.
+- NEXT **0b: notices stop impersonating the user.** `_apply_pending_job_notices`
+  / `_apply_pending_agent_notices` (agent/loop.py ~6530) deliver background
+  job/sub-agent completions as USER-role messages merged into the owner's next
+  turn -- the model reads status interleaved with the human's question and
+  answers the status first (rolo: "typing a question, getting a blob back of
+  what's been done, then an answer is not a good flow"). Fix: deliver as
+  clearly-marked system-framed status blocks placed AFTER the human's message,
+  framed "answer the human first, fold status in only where relevant". Print
+  mode keeps current behavior. Tests: tests/test_parallel_round.py,
+  test_acceptance_round.py touch notice paths.
+- THEN 0c: steer-through-tool-calls (forward steers into running sub-agents;
+  children already share the parent's abort Event -- H6 scope B, subagent.py).
+- THEN the cyber pillars (rolo 2026-10-07: "put those at the head", restrictor
+  plates off, NO fleet): 1. filter-aware routing (Pillar 1.1-1.3), 2. preflight
+  + canaries (Pillar 2). THEN 3. embeddings, 4. wizard deep review + concierge
+  template (same surface), 5. copy-out fix, 6. dead-model-id detection,
+  7. balances-remaining ($145 shown "used" but owner wants remaining via
+  OpenRouter /credits total_credits-total_usage).
+
+**Conventions that matter:** 250-line write cap, comment-dense house style,
+every round = tests + changelog entry + commit + push, run suites via
+`python -m tests.test_<name>` (NOT pytest), full gate scripts at
+appDev/halo-harness-runners, Windows gates run ONE AT A TIME (bash.exe WFSO
+fork failures under parallel load), release via scripts/release.py
+(CHANGELOG section must say "unreleased" -- the script stamps the date; the
+local install step needs --no-install while a session holds halo.exe).
+Owner live-reports are gold: diagnose in THIS session's style (find the real
+mechanism, fix at the choke point, pilot-verify, document in the changelog).
+
+---
+
 ## Where things stand (2026-10-02)
 
 Halo Harness 2.0.1 is seven parts in on `master`, every part verified on
