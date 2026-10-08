@@ -4,7 +4,26 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-08 04:45 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-08 ~23:30 CDT (authoritative, read this first)
+
+**v2.0.7 IS RELEASED** (tag `2c9af54`/v2.0.7, GitHub release published,
+--no-install: the owner is refreshing installs himself). Everything in
+2.0.7 shipped: rounds 0b (status notices), 0c (steer-through-tool-calls),
+Pillar 1 (filter-aware routing), Pillar 2 (preflight + canaries), 0e
+(concierge + media agent), local embeddings + /recall + the generic
+`local:` route, the wizard deep review (roles surface), the copy-out fix
+(selected-range copies + mechanism confirmation + the tmux/Kali OSC-52
+fix), dead-model-id detection + surfaced 404 handbacks + balances
+remaining-first, `halo local warm` + the single-GPU swap warning, the
+external-review fix pass (13 findings), and paste reliability (bare
+/paste reads the clipboard directly). Known-flake: test_h5c_f07 fails
+only under full-battery load on THIS box (passes standalone, green on
+every CI run). NEXT when resumed: 2.0.8 theme pack (DOOM/Metroid/Mario)
+per ROADMAP.md.
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-08 04:45 CDT (previous)
 
 **v2.0.6.1 IS RELEASED** (tag `5e025ad`, signed assets on GitHub, VM on it,
 Windows installs it on the session-exit watcher -- the owner is restarting
