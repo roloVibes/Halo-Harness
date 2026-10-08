@@ -512,9 +512,15 @@ def _run_background_bash_job_notice_test(ctx: Ctx, fh: dict) -> None:
     ok = _wait_until(lambda: bool(session._pending_job_notices), timeout=5.0)
     ctx.check("a background job completion notice was queued", ok and len(session._pending_job_notices) == 1)
     turn_events = list(session._apply_pending_job_notices(2))
-    user_msgs = [e for e in turn_events if e.kind == "user_message"]
-    ctx.check("the notice was applied as a user_message event", len(user_msgs) == 1)
-    ctx.check("the notice carries the job's real output", "bash-bg-done" in user_msgs[0].data.get("text", ""))
+    # 2.0.7 round 0b: delivery is a `status_notice` event (never a
+    # user_message -- notices stopped impersonating the user).
+    status_evs = [e for e in turn_events if e.kind == "status_notice"]
+    ctx.check("the notice was applied as a status_notice event", len(status_evs) == 1)
+    ctx.check("no user_message event impersonates the user",
+              not [e for e in turn_events if e.kind == "user_message"])
+    ctx.check("the notice carries the job's real output", "bash-bg-done" in status_evs[0].data.get("text", ""))
+    ctx.check("the framed copy states it is not from the human",
+              "NOT a message from the human" in status_evs[0].data.get("framed", ""))
     ctx.check("notices are cleared after being applied once", session._pending_job_notices == [])
     session.job_registry.kill_all()
 

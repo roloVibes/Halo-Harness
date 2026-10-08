@@ -356,12 +356,15 @@ def turn_body_cx(session, turn_no: int, text: str, *, images: Optional[list] = N
 
     context_texts = []
     for ev in session._apply_pending_job_notices(turn_no):
-        if ev.kind == "user_message":
-            context_texts.append(ev.data.get("text", ""))
+        # 2.0.7 round 0b: notices are `status_notice` events now -- collect
+        # the FRAMED text (the automated-status block, not the human's
+        # words) instead of the old raw user_message text.
+        if ev.kind == "status_notice":
+            context_texts.append(ev.data.get("framed") or ev.data.get("text", ""))
         yield ev
     for ev in session._apply_pending_agent_notices(turn_no):
-        if ev.kind == "user_message":
-            context_texts.append(ev.data.get("text", ""))
+        if ev.kind == "status_notice":
+            context_texts.append(ev.data.get("framed") or ev.data.get("text", ""))
         yield ev
     if hook_context:
         context_texts.append(hook_context)

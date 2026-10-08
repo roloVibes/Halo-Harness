@@ -49,6 +49,15 @@ Screen {
     color: $bridge-accent;
 }
 
+/* 2.0.7 round 0b: background job / sub-agent completion notices --
+   automated status, not the owner's words, so they read as machine
+   output: accent color like the subagent markers but italic, keeping
+   them visually distinct from both user bubbles and plain notes. */
+.system-note-status {
+    color: $bridge-accent;
+    text-style: italic;
+}
+
 .folded-history {
     color: $bridge-muted;
     text-style: italic;

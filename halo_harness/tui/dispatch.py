@@ -772,6 +772,15 @@ async def _apply_event_inner(app, event) -> None:
         # discovery finishing is the first user) -- a real transcript note,
         # never a toast, and never logged/sent to the model.
         await app.transcript.add_note(data.get("text", ""), kind="note")
+    elif kind == "status_notice":
+        # 2.0.7 round 0b (rolo: notices must stop impersonating the user):
+        # a pending background job / sub-agent completion, delivered at the
+        # start of this turn. Renders as a STATUS note -- never a user
+        # bubble (`add_user`), which is exactly what the old user_message
+        # delivery did and why the transcript looked like the owner typed
+        # the status blob. The model-facing framed copy rides in the log's
+        # `status_notice` snapshot, not through this event.
+        await app.transcript.add_note(data.get("text", ""), kind="status")
     elif kind == "steer_queued":
         # 2.0.7 round 0 (rolo's live report, 2026-10-07 night): the steer's
         # TEXT now renders IMMEDIATELY, as a real user bubble, right here

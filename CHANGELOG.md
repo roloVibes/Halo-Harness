@@ -10,9 +10,27 @@ version.
 
 ## [2.0.7] - unreleased
 
-(Planned: round 0b notices as system-framed status, round 0c
-steer-through-tool-calls, round 0e concierge + media, then the cyber
-pillars -- see plans/ROADMAP.md.)
+### Round 0b: background notices stop impersonating the user
+
+rolo's live report (2026-10-08): with a background job or sub-agent
+finishing between turns, the completion notice was delivered as a
+USER-role message merged into the next turn -- the model read a status
+blob interleaved with the owner's actual question and answered the
+status first ("typing a question, getting a blob back of what's been
+done, then an answer is not a good flow"). Pending notices are now
+delivered as clearly-marked SYSTEM-FRAMED status blocks: a
+`status_notice` snapshot logged AFTER the human's own message (the
+derived request folds it into the same user turn, behind their words),
+wrapped in a frame that says the block is automated harness status,
+NOT a message from the human, and to answer the human first. The event
+stream carries a new `status_notice` event (plain text + framed copy):
+the TUI renders it as an italic status note instead of a user bubble,
+`cc:`/`cx:` turns collect the framed copy as child context, and print
+mode ignores it exactly as it ignored the old delivery (its surface
+was always the toast, unchanged). A single notice still carries its
+full text verbatim; 2+ still collapse into one compact block
+(2.0.2 round C, unchanged); `/stats` never counted these and still
+does not. Pinned by `tests/test_round_0b_status_notices.py`.
 
 ## [2.0.6.1] - 2026-10-08
 

@@ -251,9 +251,10 @@ def test_background_agent_returns_immediately_and_notices_next_turn(ctx: Ctx):
             time.sleep(0.05)
         ctx.check("a background completion notice was queued", len(session._pending_agent_notices) == 1)
         turn_events = list(session._apply_pending_agent_notices(2))
-        user_msgs = [e for e in turn_events if e.kind == "user_message"]
-        ctx.check("the notice was applied as a user_message event", len(user_msgs) == 1)
-        ctx.check("the notice text carries the child's result", "background result ready" in user_msgs[0].data.get("text", ""))
+        # 2.0.7 round 0b: status_notice event, never user_message.
+        status_evs = [e for e in turn_events if e.kind == "status_notice"]
+        ctx.check("the notice was applied as a status_notice event", len(status_evs) == 1)
+        ctx.check("the notice text carries the child's result", "background result ready" in status_evs[0].data.get("text", ""))
         ctx.check("notices are cleared after being applied once", session._pending_agent_notices == [])
     finally:
         mock.stop()
