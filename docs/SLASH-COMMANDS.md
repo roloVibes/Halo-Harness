@@ -745,9 +745,14 @@ image. Over SSH (no remote clipboard reaches the terminal at all) every
 reader comes back empty -- the one-line notice names the other two
 ways in: `/paste <path>` or dragging a file.
 
-- **`/paste`** -- reads the OS clipboard image (same mechanism as
-  Ctrl+V) and adds a chip; with no image on the clipboard, shows the
-  same "no image on this machine's clipboard" line Ctrl+V does.
+- **`/paste`** -- reads the OS clipboard DIRECTLY (never through the
+  terminal's own paste path) and inserts whatever it holds: text first
+  (any size, through the same 4-line placeholder rule), then an image
+  chip. This is the RELIABLE paste: a terminal that confirms its
+  "large paste" warning and then silently drops the payload (observed
+  on Windows -- the loss is in the console-event input layer below the
+  terminal, not in halo) loses nothing here, because nothing travels
+  through stdin. Uses a generous 10s clipboard read.
 - **`/paste <path>`** -- attaches an existing image file by path, no
   clipboard involved.
 - **`/images`** -- lists every pending attachment (its number, size,

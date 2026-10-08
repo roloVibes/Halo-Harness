@@ -2054,8 +2054,24 @@ async def _handle_paste(app, args: str) -> None:
 
 
 def _paste_clipboard_image_worker(app) -> None:
+    """Bare `/paste` -- the RELIABLE paste (2026-10-08, rolo's live report:
+    the terminal's own large-paste path can confirm and then silently drop
+    a multi-KB payload on Windows; Textual's win32 console-event input
+    layer, not halo's handler, is where it dies). This worker reads the
+    system clipboard DIRECTLY and inserts through `paste_text`/the image
+    chip path -- never through terminal stdin -- so a clipboard of ANY
+    size lands whole. Text first (a clipboard with both keeps the text);
+    then an image; then the honest empty notice."""
     from halo_harness.agent.image_attach import ImageTooLarge, attachments_dir_for_session
+    from halo_harness.tui.clipboard import read_via_external_tool
     from halo_harness.tui.clipboard_image import read_clipboard_image
+    # A large clipboard (the exact case this exists for) can take real
+    # seconds through a cold PowerShell; the 3s default is tuned for
+    # interactive Ctrl+V, not for the recovery path.
+    text = read_via_external_tool(timeout_s=10.0)
+    if text:
+        app.call_from_thread(app.prompt_input.paste_text, text)
+        return
     session = getattr(app.controller, "session", None)
     dest_dir = attachments_dir_for_session(session) if session is not None else None
     try:
@@ -2068,7 +2084,7 @@ def _paste_clipboard_image_worker(app) -> None:
     if image is None:
         app.call_from_thread(
             app.transcript.add_note,
-            "No image on this machine's clipboard; use /paste <path> or drag a file.", kind="note")
+            "No text or image on this machine's clipboard; use /paste <path> or drag a file.", kind="note")
         return
     app.call_from_thread(app.prompt_input.add_image_chip, path=image.path, width=image.width,
                           height=image.height, media_type=image.media_type)
