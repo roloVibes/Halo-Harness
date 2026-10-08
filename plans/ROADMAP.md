@@ -1236,3 +1236,41 @@ usage, landing BEFORE the cyber pillars (small, surgical)
    words reach the work instead of queueing behind it. Cost guard: an
    interrupted child's partial work is preserved in its log (resumable
    via task_id) before any abort.
+
+## ADDED 2026-10-08 (rolo: media roles + a secretary before the
+orchestrator): 2.0.7 round 0e "concierge + media" — one secretary that
+is also the eyes, one media agent, not three
+
+Live catalog resolve (the deciding data): `z-ai/glm-5.3-flash` is
+vision=True at $0.15/M in + $0.50/M out (1,048k ctx) while the main
+`z-ai/glm-5.3` is vision=FALSE at $7.00/M out — the main model CANNOT
+see the screenshots the 0d fix now pastes. deepseek-v4-pro/-flash:
+blind. qwen/qwen3.8-flash: vision=True.
+
+**The concierge role (secretary + eyes), glm-5.3-flash:**
+- quick Q&A and "what's been done" updates answered WITHOUT waking the
+  orchestrator (~$0.0004/answer; reads plan files + session log
+  deterministically for status, near-zero tokens);
+- media first-look: image present + active model blind (always, today)
+  -> the concierge describes it, the description enters context;
+- the round-0b notice blob lands with IT, never interleaved into the
+  human's question.
+
+**One media agent, not three (video/audio/display):** ingestion is
+deterministic tooling, not model choice — video -> ffmpeg frame
+extraction (local, free) -> images; audio -> whisper on the 4090
+(local, free) -> transcript; screenshots already work. All converge on
+image blocks or text; the only model question is vision lane or not,
+and ModelProfile.vision already answers it.
+
+**The router piece:** media present + blind active model -> route to
+the eyes lane automatically (today the image rides as a path mention
+with a notification — graceful but useless). The census pattern from
+cyber Pillar 2 (measured canary image per lane, not datasheets) also
+catches lying vision flags (catalog says google/gemini-3-flash
+vision=False — suspicious, census target) and dead model IDs.
+
+**Sequencing (cyber pillars stay first per the standing order):** 0e
+lands AFTER rounds 1-2 (filter-aware routing, preflight/canaries) —
+the concierge benefits from the census the canaries build. Template
+work joins the wizard deep-review round (they are the same surface).
