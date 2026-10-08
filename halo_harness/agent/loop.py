@@ -746,6 +746,23 @@ def _compact_notices_text(notices: "list[str]", *, noun: str) -> str:
 # OpenAI `system` message made models continue the environment text
 # instead of answering) is exactly what a system role here would
 # re-create on OpenAI-compat routes.
+# 2.0.7 cyber Pillar 2 (continuous canaries): the periodic health note's
+# cadence, env-tunable so a test (or an owner who wants denser signal)
+# can move it without touching code. Zero disables the cadence half.
+def _canary_every_n_calls() -> int:
+    try:
+        return max(0, int(os.environ.get("HALO_CANARY_EVERY_N_CALLS", "25")))
+    except ValueError:
+        return 25
+
+
+def _canary_every_s() -> float:
+    try:
+        return max(0.0, float(os.environ.get("HALO_CANARY_EVERY_S", "600")))
+    except ValueError:
+        return 600.0
+
+
 _STATUS_NOTICE_FRAME_HEAD = (
     "<status-notices source=\"harness\">\n"
     "Automated harness status: background work finished while you were away.\n"
@@ -1055,6 +1072,16 @@ class Session:
         # turn; it exits by itself once the turn's `_busy` clears, so no
         # dispatch has to own its cleanup).
         self._steer_cut_watcher: Optional[threading.Thread] = None
+        # 2.0.7 cyber Pillar 2 (continuous canaries): the in-run health
+        # counters -- calls, filtered replies, failures -- behind the
+        # periodic note `_maybe_continuous_canary` emits during long runs
+        # (every N calls / M seconds, env-tunable, default 25/600).
+        self._canary_calls = 0
+        self._canary_filtered = 0
+        self._canary_failures = 0
+        self._canary_last_note_call = 0
+        self._canary_last_note_ts = 0.0
+        self._canary_truncation_noted = False
         # finding 5: steer text still queued when `turn()`'s `finally` runs
         # (never reached a safe point to apply) -- drained there, read and
         # cleared by `run()` right after, worker-thread-only on both ends
@@ -4080,6 +4107,11 @@ class Session:
             if b.get("type") in ("text", "thinking") and isinstance(b.get("text"), str):
                 b["text"] = repair_truncated_text(b["text"])
             cleaned.append(b)
+        # 2.0.7 cyber Pillar 2: the continuous canary rides the success
+        # path of every model call (cheap counters + a periodic note; the
+        # truncation check compares the usage echo against the request
+        # body both already in hand here).
+        yield from self._maybe_continuous_canary(turn_no, usage, body)
         return _StepResult(assistant_blocks=cleaned, stop_reason=stop_reason, usage=usage, reasoning=reasoning,
                             body=body, tool_call_flags=harness_meta.get("tool_call_flags") or {},
                             latency_ms=round((time.monotonic() - call_t0) * 1000, 1), ttft_ms=ttft_ms,
@@ -4132,6 +4164,57 @@ class Session:
             return "5xx"
         return "connect_error"
 
+    def _maybe_continuous_canary(self, turn_no: int, usage: dict, body: dict) -> Iterator[events.Event]:
+        """Halo 2.0.7 cyber Pillar 2 (continuous canaries): the cheap,
+        request-free health check that runs after every successful model
+        call -- no extra traffic, everything it reports is already in hand.
+
+        Two signals are immediate (one-time, per session):
+          * TRUNCATION: the usage echo accounts for less than half of what
+            we estimate was sent (cache reads/writes included in "seen") --
+            the provider is silently dropping context.
+        One signal is periodic (every N calls / M seconds, env-tunable via
+        HALO_CANARY_EVERY_N_CALLS / HALO_CANARY_EVERY_S): the health note
+        itself -- calls, filtered, failures, spend, context fill -- so a
+        long autonomous run's drift is visible in the transcript instead
+        of silently compounding."""
+        self._canary_calls += 1
+        try:
+            est = max(1, len(json.dumps(body, ensure_ascii=False, default=str)) // 4)
+        except Exception:
+            est = 0
+        # `_total_prompt_tokens` (H5b finding 4): input + cache_read +
+        # cache_creation -- the prompt's real size as the provider saw it.
+        seen = _total_prompt_tokens(usage) or 0
+        if (not self._canary_truncation_noted and est >= 1000 and seen
+                and seen < est * 0.5):
+            self._canary_truncation_noted = True
+            yield events.notification(
+                f"canary: context truncation suspected on {self.model_ref.raw} -- the usage echo "
+                f"accounts for ~{seen} input tokens of an estimated {est} sent; later turns may "
+                f"be missing earlier context", level="warning")
+        n_every = _canary_every_n_calls()
+        s_every = _canary_every_s()
+        now = time.monotonic()
+        due = (self._canary_calls - self._canary_last_note_call >= n_every
+               or (s_every and now - self._canary_last_note_ts >= s_every))
+        if due:
+            self._canary_last_note_call = self._canary_calls
+            self._canary_last_note_ts = now
+            spend = self.cost_meter.total_usd if self.cost_meter.has_cost_data else None
+            fill = (seen / self.model_profile.context_tokens * 100
+                    if seen and getattr(self.model_profile, "context_tokens", None) else None)
+            parts = [f"{self._canary_calls} calls",
+                     f"{self._canary_filtered} filtered",
+                     f"{self._canary_failures} failed"]
+            if spend is not None:
+                parts.append(f"${spend:.4f} spent")
+            if fill is not None:
+                parts.append(f"context ~{min(fill, 999):.0f}%")
+            yield events.notification(
+                f"canary: {', '.join(parts)} this session (model {self.model_ref.raw})",
+                level="info")
+
     def _log_call_failure(self, status: str, *, retries: int = 0) -> None:
         """H10 Part A: a model call that never produced a `_StepResult` at
         all (every retry exhausted, or a non-retryable failure) previously
@@ -4140,6 +4223,12 @@ class Session:
         set is enough for telemetry.py to count a 429/5xx/connect_error/
         overflow without inventing a second node type; `cost_usd=None`
         (never 0.0) so a stats sum never mistakes "no data" for "free"."""
+        # 2.0.7 cyber Pillar 2 (continuous canaries): the ONE choke point
+        # every failed call funnels through -- the in-run health note's
+        # failure counter.
+        self._canary_failures += 1
+        if status in ("content_filter", "sensitive", "refusal"):
+            self._canary_filtered += 1
         self.log.append_usage(
             {}, None, model=self.model_ref.raw,
             route=self._ROUTE_LABELS.get(self.model_ref.provider, self.model_ref.provider),
