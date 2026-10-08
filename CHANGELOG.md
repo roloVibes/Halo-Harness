@@ -104,6 +104,35 @@ verification incl. a sabotaged tool, full-pass/no-tools/truncation/
 vision lane canaries, CLI exit codes + the green path end to end, and
 the continuous canary's truncation warning + periodic note).
 
+### Round 0e: the concierge (secretary + eyes) + one media agent
+
+One secretary that is also the eyes, one media agent -- not three (rolo,
+2026-10-08). The concierge is a ROLE (`roles.concierge`, measured lane:
+`or:z-ai/glm-5.3-flash`, vision=True at $0.50/M out vs the main
+glm-5.3's $7.00/M and blind). Three surfaces, each degrading to the
+pre-0e behavior when the role is unset:
+
+- **`/ask <question>`** -- quick Q&A and "what's been done" answered
+  WITHOUT waking the orchestrator: a one-shot call over a deterministic
+  digest of the recent session history, never through the session log.
+- **The eyes** -- images arriving on a blind active model (the main
+  glm-5.3 cannot see the screenshots the 0d fix pastes) are DESCRIBED by
+  the concierge and the descriptions fold into the turn as a
+  `concierge_vision` snapshot: the blind model still gets real image
+  understanding. No concierge -> the old path-mention behavior.
+- **The notice digest** -- a pending status block (round 0b) is
+  digested to a couple of lines for the model (frame + digest +
+  pointer), with the verbatim block archived in a meta node, never
+  model-visible; `/tasks`, resume and export still see everything.
+
+The ONE media agent (`templates/agents/media.yaml`) rides a new
+deterministic `Media` tool: local ffmpeg/ffprobe extraction of evenly
+spaced frames + metadata (zero tokens -- ingestion is tooling, not model
+work), with understanding left to the vision-capable lane the bio
+prefers. Pinned by `tests/test_round_0e_concierge_media.py` (role
+resolution, `/ask` log-isolation, eyes on/off, digest + archive, real
+ffmpeg frame extraction, bio sanity).
+
 ## [2.0.6.1] - 2026-10-08
 
 Hotfix release: two owner-live TUI fixes from the 2.0.6 release

@@ -53,6 +53,9 @@ async def handle_slash(app, name: str, args: str) -> None:
         # U5 scope C: sessions UX.
         "rename": _handle_rename, "fork": _handle_fork, "export": _handle_export,
         "stats": _handle_stats,
+        # Halo 2.0.7 round 0e: the concierge secretary -- quick Q&A and
+        # "what's been done" without waking the orchestrator.
+        "ask": _handle_ask,
         # U5 scope B: git-shadow rewind.
         "rewind": _handle_rewind, "undo": _handle_undo, "redo": _handle_redo,
         # U5 scope A: keymap.
@@ -1453,6 +1456,41 @@ async def _handle_export(app, args: str) -> None:
     out_path = export_fn(sanitize=sanitize, path=(files[0] if files else None))
     await app.transcript.add_note(f"⬇ Exported to {out_path}{' (sanitized)' if sanitize else ''}.",
                                    kind="command")
+
+
+async def _handle_ask(app, args: str) -> None:
+    """Halo 2.0.7 round 0e: `/ask <question>` -- the CONCIERGE answers
+    (roles.concierge, e.g. or:z-ai/glm-5.3-flash) from a deterministic
+    digest of the session's recent history, WITHOUT waking the
+    orchestrator: a one-shot call that never touches the main
+    conversation's context. The answer renders as a command note, never
+    an assistant turn."""
+    question = (args or "").strip()
+    if not question:
+        await app.transcript.add_note(
+            "/ask <question> -- the concierge answers without involving the main model "
+            "(set roles.concierge first, e.g. or:z-ai/glm-5.3-flash)", kind="command")
+        return
+    session = getattr(app.controller, "session", None)
+    if session is None:
+        await app.transcript.add_note("/ask: no live session.", kind="command")
+        return
+    app.run_worker(lambda: _ask_worker(app, question), thread=True, name="ask", group="ask")
+
+
+def _ask_worker(app, question: str) -> None:
+    from halo_harness.concierge import ask_concierge, resolve_concierge
+    session = app.controller.session
+    try:
+        answer = ask_concierge(session, question)
+    except RuntimeError as e:
+        app.call_from_thread(app.transcript.add_note, f"/ask: {e}", kind="command")
+        return
+    except Exception as e:
+        app.call_from_thread(app.transcript.add_note,
+                             f"/ask {question}\n\n(error: {type(e).__name__}: {e})", kind="command")
+        return
+    app.call_from_thread(app.transcript.add_note, f"/ask {question}\n\n{answer}", kind="command")
 
 
 async def _handle_stats(app, args: str) -> None:

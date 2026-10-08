@@ -26,6 +26,7 @@ from halo_harness.tools.bash_output import BashOutputTool
 from halo_harness.tools.edit import EditTool
 from halo_harness.tools.glob_tool import GlobTool
 from halo_harness.tools.grep_tool import GrepTool
+from halo_harness.tools.media import MediaTool
 from halo_harness.tools.notebook_edit import NotebookEditTool
 from halo_harness.tools.read import ReadTool
 from halo_harness.tools.skill import SkillTool
@@ -50,7 +51,11 @@ def default_tools() -> list:
     that assumes `powershell.exe` might exist)."""
     tools = [
         AgentTool(), AskUserQuestionTool(), BashTool(), BashOutputTool(), EditTool(), EnterPlanModeTool(),
-        ExitPlanModeTool(), GlobTool(), GrepTool(), NotebookEditTool(), ReadTool(), SkillTool(),
+        ExitPlanModeTool(), GlobTool(), GrepTool(),
+        # Halo 2.0.7 round 0e: the one deterministic media-ingestion tool
+        # (ffmpeg frames / ffprobe metadata) behind the media agent.
+        MediaTool(),
+        NotebookEditTool(), ReadTool(), SkillTool(),
         # Halo 2.0.2 round 3 (brief C item 3): the shared task board.
         TaskCreateTool(), TaskListTool(), TaskStopTool(), TaskTool(), TaskUpdateTool(), TodoWriteTool(),
         ToolSearchTool(), WebFetchTool(), WriteTool(),
