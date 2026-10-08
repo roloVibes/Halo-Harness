@@ -49,7 +49,9 @@ BIO_SECTIONS = ("models", "tools", "context", "limits", "output", "environment",
 HOOK_EVENT_KEYS = ("pre_tool", "post_tool", "on_start", "on_finish")
 SCHEDULE_TRIGGER_KINDS = ("file_change", "event", "message")
 IDENTITY_FIELDS = ("name", "description", "version", "tags", "kind", "extends")
-KNOWN_KINDS = ("main", "subagent", "researcher", "judge", "reviewer", "custom")
+# 2.0.7 round 0e: "media" joins the list -- the one media agent is a
+# first-class shipped bio (templates/agents/media.yaml), not a `custom`.
+KNOWN_KINDS = ("main", "subagent", "researcher", "judge", "reviewer", "custom", "media")
 
 
 def is_valid_agent_name(name: str) -> bool:

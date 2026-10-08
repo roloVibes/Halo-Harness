@@ -603,6 +603,52 @@ def _cmd_memory(args: str, facade: HeadlessFacade) -> str:
             f"Topic files: {len(idx.topics)}")
 
 
+def _cmd_ask(args: str, facade: HeadlessFacade) -> str:
+    """Halo 2.0.7 round 0e: `/ask <question>` -- the concierge (roles.
+    concierge) answers from a digest of the session's recent history
+    without touching the main conversation's context. Print-mode twin of
+    the TUI's thread-worker handler (tui/slash.py)."""
+    question = (args or "").strip()
+    if not question:
+        return ("/ask <question> -- the concierge answers without involving the main model "
+                "(set roles.concierge first, e.g. or:z-ai/glm-5.3-flash)")
+    session = getattr(facade, "session", None)
+    if session is None:
+        return "/ask needs a live session with history to digest."
+    from halo_harness.concierge import ask_concierge
+    try:
+        return ask_concierge(session, question)
+    except RuntimeError as e:
+        return f"/ask: {e}"
+    except Exception as e:
+        return f"/ask: {type(e).__name__}: {e}"
+
+
+def _cmd_recall(args: str, facade: HeadlessFacade) -> str:
+    """Halo 2.0.7 (the old 2.0.6 scope): `/recall <query>` -- semantic
+    search over auto-memory topics and past sessions on the local
+    embedding model. Print-mode twin of `halo recall` / the TUI's
+    thread-worker handler."""
+    from halo_harness.recall import search
+    query = (args or "").strip()
+    if not query:
+        return ("/recall <query> -- semantic search over memory topics and past sessions "
+                "(set embeddings.model first, e.g. nomic-embed-text on your Ollama host)")
+    session = getattr(facade, "session", None)
+    state_dir = getattr(session, "state_dir", None)
+    try:
+        hits = search(query, state_dir=state_dir, k=8)
+    except Exception as e:
+        return f"/recall: {type(e).__name__}: {e}"
+    if not hits:
+        return "no matches (is the embedding model pulled? index built?)"
+    lines = []
+    for h in hits:
+        icon = "memo" if h["kind"] == "memory" else "sess"
+        lines.append(f"  {h['score']:+.3f} [{icon}] {h['title']}  ({h['id']})")
+    return "\n".join(lines)
+
+
 def _cmd_permissions(args: str, facade: HeadlessFacade) -> str:
     s = facade.settings
     allow = len(s.permissions_allow) if s else 0
@@ -1732,6 +1778,12 @@ _BUILTIN_SPECS = {
     "rename": ("ui", "Rename this session", "<title>", _cmd_rename),
     "fork": ("ui", "Fork this session into a new one", None, _cmd_fork),
     "stats": ("core", "Show tokens/cost per model and tool-call counts (--models, --tools)", None, _cmd_stats),
+    # Halo 2.0.7 round 0e: the concierge secretary; 2.0.7 (old 2.0.6
+    # scope): semantic search over memory + sessions.
+    "ask": ("core", "Ask the concierge (roles.concierge) a quick question without waking the main model",
+            "<question>", _cmd_ask),
+    "recall": ("core", "Semantic search over memory topics and past sessions (local embeddings)",
+               "<query>", _cmd_recall),
     "tasks": ("core", "List background Bash jobs started this session", None, _cmd_tasks),
     "rewind": ("ui", "Restore the working tree to a recorded step", "[step-id]", _cmd_rewind),
     "undo": ("ui", "Rewind one recorded step back", None, _cmd_undo),
