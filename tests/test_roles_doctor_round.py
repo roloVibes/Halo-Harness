@@ -115,6 +115,58 @@ def test_hygiene_flags_the_three_problems(ctx: Ctx):
 
 
 @test
+def test_dbx_roles_probe_the_real_workspace_host_never_a_bare_literal(ctx: Ctx):
+    """The review's MAJOR finding: the dbx: probe used the un-resolvable
+    literal "databricks" as a hostname, warning "unreachable" on every
+    run. Now the REAL workspace host (env -> settings chain) is probed,
+    and with none configured the warning names the missing config
+    instead of a gateway that can never answer."""
+    import contextlib
+
+    @contextlib.contextmanager
+    def _env(home):
+        saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR",
+                                                "DATABRICKS_HOST", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL")}
+        os.environ["BRIDGE_TEST_HOME"] = str(home)
+        os.environ.pop("BRIDGE_STATE_DIR", None)
+        os.environ.pop("DATABRICKS_HOST", None)
+        os.environ.pop("ANTHROPIC_BASE_URL", None)
+        os.environ.pop("ANTHROPIC_MODEL", None)
+        try:
+            yield
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+    from halo_harness.agents_doctor import check_roles_hygiene
+    home = Path(tempfile.mkdtemp(prefix="rolesdbx-"))
+    # no DATABRICKS_HOST anywhere -> the NAMED problem is the missing
+    # config, never "gateway databricks is unreachable"
+    _scoped(home, {"main": "ol:qwen3.8:27b@lan", "researcher": "dbx:some-endpoint"})
+    with _env(home):
+        problems = check_roles_hygiene()
+    ctx.check(f"no bare 'databricks' host is ever probed, got {problems}",
+              not any("gateway databricks" in p for p in problems))
+    ctx.check(f"the missing host is named plainly, got {problems}",
+              any("no DATABRICKS_HOST" in p for p in problems))
+    # a configured host -> THAT host is the one probed (192.0.2.x never
+    # answers; the warning names it, proving the real host was used)
+    _scoped(home, {"main": "ol:qwen3.8:27b@lan", "researcher": "dbx:some-endpoint"})
+    with _env(home):
+        # _known_databricks_host is gated on a work signal alongside the
+        # host (an incidental DATABRICKS_HOST is deliberately ignored) --
+        # set both, the way a real work box has both
+        os.environ["DATABRICKS_HOST"] = "https://cnc-pretend.cloud.databricks.com"
+        os.environ["ANTHROPIC_MODEL"] = "some-endpoint"
+        problems2 = check_roles_hygiene()
+    ctx.check(f"the REAL workspace host is the one probed, got {problems2}",
+              any("cnc-pretend.cloud.databricks.com" in p for p in problems2))
+
+
+@test
 def test_cli_exit_codes_and_json(ctx: Ctx):
     home = Path(tempfile.mkdtemp(prefix="rolescli-"))
     # clean lineup (all-local ol: models, no remote probe)

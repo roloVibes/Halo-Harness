@@ -146,9 +146,9 @@ def check_active_team(*, cwd=None, state_dir=None) -> "list[str]":
 
 def _model_family(ref: str) -> "str | None":
     """The rough model family of a ref -- the part after the route prefix,
-    lowercased up to the first non-alphanumeric run (e.g.
-    `or:z-ai/glm-5.3` -> `z-ai/glm`, `cc:sonnet` -> `sonnet`,
-    `ol:qwen3-coder:30b@lan` -> `qwen3`). Used ONLY for the
+    lowercased up to the first digit run (e.g. `or:z-ai/glm-5.3` ->
+    `glm`, `cc:sonnet` -> `sonnet`, `ol:qwen3-coder:30b@lan` -> `qwen`,
+    `or:deepseek/deepseek-v4-pro` -> `deepseek`). Used ONLY for the
     self-preference-bias heuristic (judge in the same family as coder);
     a coarse bucket, never a claim about identity."""
     part = ref.split(":", 1)[1] if ":" in ref else ref
@@ -224,13 +224,30 @@ def check_roles_hygiene(*, cwd=None, state_dir=None) -> "list[str]":
         if not isinstance(pref, str) or not pref:
             continue
         route = pref.split(":", 1)[0] if ":" in pref else ""
-        if route in ("or", "dbx", "xp", "hf"):  # remote gateways worth probing
-            host = {"or": "openrouter.ai", "dbx": "databricks", "xp": "experiential",
+        # 2.0.6 review finding 1 (MAJOR, fixed): the dbx: probe used the
+        # literal string "databricks" as a hostname -- never resolvable, a
+        # false "unreachable" warning on every run. The REAL workspace
+        # host comes from the same chain init_cli uses (env -> settings),
+        # stripped to its bare hostname; with none configured the dbx:
+        # roles are reported as "host not configured" instead of probing
+        # a name that can never answer.
+        if route in ("or", "xp", "hf"):
+            host = {"or": "openrouter.ai", "xp": "experiential",
                     "hf": "huggingface.co"}[route]
             hosts.setdefault(host, []).append(f"{role}={pref}")
+        elif route == "dbx":
+            from halo_harness.init_cli import _known_databricks_host
+            from urllib.parse import urlparse as _urlparse
+            dbx_host = _known_databricks_host()
+            bare = None
+            if dbx_host:
+                bare = _urlparse(dbx_host if "//" in dbx_host else f"https://{dbx_host}").hostname
+            if bare:
+                hosts.setdefault(bare, []).append(f"{role}={pref}")
+            else:
+                problems.append(f"dbx: roles configured ({pref}) but no DATABRICKS_HOST is set -- "
+                                "the gateway cannot be probed (run `halo init --preset work`).")
     from halo_harness.providers.http import open_upstream
-    import socket
-    from urllib.parse import urlparse
     for host, uses in hosts.items():
         try:
             conn = open_upstream(host, 443, True, connect_timeout=4.0)
@@ -239,5 +256,4 @@ def check_roles_hygiene(*, cwd=None, state_dir=None) -> "list[str]":
             problems.append(f"gateway {host} is unreachable right now -- {', '.join(uses[:3])}"
                             + (f" (+{len(uses) - 3} more)" if len(uses) > 3 else "")
                             + "; the roles using it will fail until it is back.")
-    del _re, socket, urlparse
     return problems
