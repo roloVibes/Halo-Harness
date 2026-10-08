@@ -1192,6 +1192,14 @@ chassis); on-box local-models-only engagement mode -> default OUT
 (engagement-flavored; halo's existing offline mode covers the generic
 case).
 
-**Placement:** the kept items land as rounds in 2.0.6 (preflight/canaries
-fit hardening exactly) with filter-aware routing right behind them, or in
-the 2.0.10 security pass if 2.0.6 runs long — decided at 2.0.6 planning.
+**Placement — DECIDED 2026-10-07 late (rolo: "put those at the head of
+2.0.6" = the next release, 2.0.7, as its FIRST rounds): "I want to
+implement all cyber features suggested previously that would have
+snagged a pen tester like me using a harness, this is supposed to remove
+the restrictor plates. NO FLEET features, just what we agreed on."**
+So 2.0.7 opens with:
+1. **Filter-aware routing (Pillar 1.1-1.3)** — first release round.
+2. **Verify-everything preflight + canaries (Pillar 2)** — second.
+Both ahead of embeddings/wizard/copy. Everything OUT stays OUT
+(engagement objects, safety-as-architecture, fleet: halo-hacker /
+serverMode, never this repo).
