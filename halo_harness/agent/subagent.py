@@ -2384,7 +2384,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
 
 
 def run_org_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, tool_name: str,
-                  on_event=None, org_override: "Optional[dict]" = None) -> "tuple[list, object]":
+                  on_event=None, on_child=None, org_override: "Optional[dict]" = None) -> "tuple[list, object]":
     """`Agent(org=<name>, prompt=<goal>)` / `/org run <name> "<goal>"`
     (Halo 2.0.2 round 2, brief B): spawns the org's ROOT position as an
     ORDINARY child of `runtime.parent`, through `run_agent_call` itself
@@ -2541,7 +2541,14 @@ def run_org_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, tool_
     # SAME org run, so all of them get the same tag.
     before_task_ids = set(runtime.tasks)
     result = run_agent_call(runtime=org_runtime, tool_id=tool_id, tool_input=inner_input, tool_name=tool_name,
-                             on_event=on_event)
+                             on_event=on_event,
+                             # 2.0.7 round 0c: the agent-batch runner passes
+                             # on_child for EVERY Agent call it dispatches
+                             # (org runs included) -- the org's own root
+                             # child lands in live_children the same way an
+                             # ordinary one does, so a mid-batch steer
+                             # reaches org work too.
+                             on_child=on_child)
     for new_id in set(org_runtime.tasks) - before_task_ids:
         entry = org_runtime.tasks.get(new_id)
         if isinstance(entry, dict):

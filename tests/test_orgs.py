@@ -453,7 +453,7 @@ def test_run_org_call_max_depth_is_relative_to_callers_own_depth(ctx: Ctx):
     ensure_builtin_orgs(state_dir=state_dir)  # company: tree depth 3
     captured = {}
 
-    def fake_run_agent_call(*, runtime, tool_id, tool_input, tool_name, on_event=None):
+    def fake_run_agent_call(*, runtime, tool_id, tool_input, tool_name, on_event=None, on_child=None):
         captured["depth"] = runtime.depth
         captured["max_depth"] = runtime.max_depth
         from halo_harness.tools.base import ToolResult
@@ -500,7 +500,7 @@ def test_run_org_call_shares_live_children_with_the_callers_runtime(ctx: Ctx):
     ensure_builtin_orgs(state_dir=state_dir)
     captured = {}
 
-    def fake_run_agent_call(*, runtime, tool_id, tool_input, tool_name, on_event=None):
+    def fake_run_agent_call(*, runtime, tool_id, tool_input, tool_name, on_event=None, on_child=None):
         captured["live_children"] = runtime.live_children
         from halo_harness.tools.base import ToolResult
         return [], ToolResult("ok")
