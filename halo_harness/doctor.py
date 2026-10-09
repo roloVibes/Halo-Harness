@@ -1331,12 +1331,20 @@ def _check_permission_mode() -> str:
     never disagrees with what a real session would actually start in."""
     from halo_harness.permissions import normalize_permission_mode
     from halo_harness.theme import get_config_value
+    # vibes/review.md finding 79: `resolve_settings` was called below with NO
+    # import anywhere in this function (the module's other two imports of it
+    # live in different function bodies), so every run raised NameError that
+    # the surrounding `except Exception` silently swallowed -- the settings
+    # branch of the precedence chain this docstring documents was never
+    # actually checked, and a settings.json `permissions.defaultMode` never
+    # showed up in doctor output.
+    from halo_harness.config.settings import resolve_settings
     config_mode = get_config_value("permission_mode", default=None)
     if isinstance(config_mode, str) and config_mode:
         mode = normalize_permission_mode(config_mode)
         return f"{OK} Permission mode: {mode} (source: halo config.json)"
     try:
-        settings = resolve_settings(Path.cwd())
+        settings = resolve_settings(Path.cwd(), trusted=True)
         settings_mode = settings.permissions_default_mode
     except Exception:
         settings_mode = None

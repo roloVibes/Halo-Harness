@@ -620,6 +620,24 @@ def open_upstream(host: str, port: int, tls: bool, connect_timeout: int = DEFAUL
     return conn
 
 
+def _reopened_if_needed(conn, host: str, port: int, tls: bool, on_connect=None):
+    """vibes/review.md finding 35: after an overload response that carried
+    `Connection: close`, the retry loop in `governed_upstream` drains and
+    closes the response, leaving `conn.sock` set to None -- and http.client's
+    `auto_open` then SILENTLY reconnects inside the next `conn.request()`
+    using the CONSTRUCTOR's 8 s connect timeout: open_upstream's 300 s idle
+    timeout is never re-applied and `on_connect`'s abort-watcher registration
+    never re-fires, so a slow first SSE byte (ordinary for a big generation
+    queued behind a rate-limit retry) died as a socket.timeout mid-request,
+    and Esc could no longer interrupt the retried call. Rebuilding through
+    open_upstream restores the full window, the proxy/TLS/offline handling
+    and the watcher. No-op while the socket still lives (the ordinary retry
+    on a kept-alive connection). Returns the (possibly new) connection."""
+    if getattr(conn, "sock", None) is not None:
+        return conn
+    return open_upstream(host, port, tls, on_connect=on_connect)
+
+
 @dataclass
 class UpstreamResult:
     """Result of an upstream HTTP call."""
@@ -862,6 +880,11 @@ def call_openai_chat(base_url: str, api_key: str, body: dict, extra_headers: dic
         raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
 
     def _send() -> UpstreamResult:
+        # finding 35: a Connection:close'd overload must not silently
+        # auto-reconnect on the 8 s constructor timeout -- see
+        # _reopened_if_needed's own docstring.
+        nonlocal conn
+        conn = _reopened_if_needed(conn, host, port, tls, on_connect=on_connect)
         conn.request("POST", path, body=body_bytes, headers=headers)
         resp = conn.getresponse()
         resp_headers = {k.lower(): v for k, v in resp.getheaders()}
@@ -908,6 +931,8 @@ def call_openai_responses(base_url: str, api_key: str, body: dict, extra_headers
         raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
 
     def _send() -> UpstreamResult:
+        nonlocal conn  # finding 35: see _reopened_if_needed
+        conn = _reopened_if_needed(conn, host, port, tls, on_connect=on_connect)
         conn.request("POST", path, body=body_bytes, headers=headers)
         resp = conn.getresponse()
         resp_headers = {k.lower(): v for k, v in resp.getheaders()}
@@ -955,6 +980,8 @@ def call_ollama_chat(base_url: str, api_key: "str | None", body: dict, extra_hea
         raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
 
     def _send() -> UpstreamResult:
+        nonlocal conn  # finding 35: see _reopened_if_needed
+        conn = _reopened_if_needed(conn, host, port, tls, on_connect=on_connect)
         conn.request("POST", path, body=body_bytes, headers=headers)
         resp = conn.getresponse()
         resp_headers = {k.lower(): v for k, v in resp.getheaders()}
@@ -1001,6 +1028,8 @@ def _dbx_post(base_url: str, path: str, api_key: str, req_body: dict, extra_head
                              resp=resp, conn=conn)
 
     def _send():
+        nonlocal conn  # finding 35: see _reopened_if_needed
+        conn = _reopened_if_needed(conn, host, port, tls, on_connect=on_connect)
         conn.request("POST", path, body=body_bytes, headers=headers)
         resp = conn.getresponse()
         return _RespResult(resp, conn)
@@ -1009,7 +1038,12 @@ def _dbx_post(base_url: str, path: str, api_key: str, req_body: dict, extra_head
         return UpstreamConnectError(format_post_connect_error(host, e), host=host)
 
     result = governed_upstream(host, _send, governor_ctx, post_connect_error=_post_connect_err)
-    return result.resp, result.conn
+    # vibes/review.md finding 37: return the peeked body too -- the Governor's
+    # choke point drains a 500's response into `result.body_bytes`, and the
+    # old `(resp, conn)` shape threw that away here, so `call_databricks_chat`
+    # rebuilt its own UpstreamResult with body_bytes=None over an
+    # already-drained resp: every Databricks 500 surfaced as an empty error.
+    return result.resp, result.conn, result.body_bytes
 
 
 def call_databricks_chat(base_url: str, api_key: str, body: dict, extra_headers: dict, state_dir, model: str,
@@ -1049,18 +1083,18 @@ def call_databricks_chat(base_url: str, api_key: str, body: dict, extra_headers:
     else:
         order = list(enumerate(candidates))
 
-    chosen = None  # (orig_idx, candidate, resp, conn)
+    chosen = None  # (orig_idx, candidate, resp, conn, peeked_body)
     for pos, (orig_idx, candidate) in enumerate(order):
         req_body = build_databricks_body(body, candidate.include_model, candidate.model_value)
-        resp, conn = _dbx_post(base_url, candidate.path, api_key, req_body, extra_headers, state_dir,
-                                on_connect=on_connect, governor_ctx=governor_ctx)
+        resp, conn, peeked = _dbx_post(base_url, candidate.path, api_key, req_body, extra_headers, state_dir,
+                                       on_connect=on_connect, governor_ctx=governor_ctx)
         if resp.status == 404 and pos != len(order) - 1:
             resp.read()
             continue
-        chosen = (orig_idx, candidate, resp, conn)
+        chosen = (orig_idx, candidate, resp, conn, peeked)
         break
 
-    orig_idx, candidate, resp, conn = chosen
+    orig_idx, candidate, resp, conn, peeked = chosen
     dbx_cache_set_route(model, orig_idx, state_dir)
     headers = {k.lower(): v for k, v in resp.getheaders()}
 
@@ -1086,14 +1120,19 @@ def call_databricks_chat(base_url: str, api_key: str, body: dict, extra_headers:
             retry_body = dict(body)
             retry_body["max_tokens"] = limit
             req_body = build_databricks_body(retry_body, candidate.include_model, candidate.model_value)
-            resp2, conn2 = _dbx_post(base_url, candidate.path, api_key, req_body, extra_headers, state_dir,
-                                      on_connect=on_connect, governor_ctx=governor_ctx)
+            resp2, conn2, peeked2 = _dbx_post(base_url, candidate.path, api_key, req_body, extra_headers, state_dir,
+                                              on_connect=on_connect, governor_ctx=governor_ctx)
             dbx_cache_set_max_tokens_limit(model, limit, state_dir)
             headers2 = {k.lower(): v for k, v in resp2.getheaders()}
-            return UpstreamResult(status=resp2.status, headers=headers2, resp=resp2, conn=conn2, body_bytes=None)
+            # finding 37: carry the clamp-retry's own peeked body (a 500 on
+            # the second attempt has the same drain problem).
+            return UpstreamResult(status=resp2.status, headers=headers2, resp=resp2, conn=conn2, body_bytes=peeked2)
         return UpstreamResult(status=400, headers=headers, resp=resp, conn=conn, body_bytes=raw)
 
-    return UpstreamResult(status=resp.status, headers=headers, resp=resp, conn=conn, body_bytes=None)
+    # finding 37: `peeked` is the Governor's 500-drained body (None for any
+    # other status, where resp is still unread) -- carrying it stops the
+    # non-400 error path from returning an empty body over a drained resp.
+    return UpstreamResult(status=resp.status, headers=headers, resp=resp, conn=conn, body_bytes=peeked)
 
 
 
@@ -1131,6 +1170,8 @@ def proxy_anthropic(base_url: str, api_key: str, body: dict, extra_headers: dict
         raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
 
     def _send() -> UpstreamResult:
+        nonlocal conn  # finding 35: see _reopened_if_needed
+        conn = _reopened_if_needed(conn, host, port, tls, on_connect=on_connect)
         conn.request("POST", request_path, body=body_bytes, headers=headers)
         resp = conn.getresponse()
         resp_headers = {k.lower(): v for k, v in resp.getheaders()}
@@ -1169,12 +1210,17 @@ def call_anthropic_native(base_url: str, api_key: str, body: dict, extra_headers
     if route_provider == "anthropic":
         headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
         headers.update(extra_headers)
-        return proxy_anthropic(base_url, api_key, body, headers, state_dir,
+        # vibes/review.md finding 34: this branch (and "experiential" below)
+        # never passed `governor_ctx`, so ant:/xp: calls skipped the Governor
+        # entirely -- no cross-process rate limiting, no 429/529 retry ladder
+        # -- while the agent loop assumed the retry layer had already run and
+        # surfaced every overload as an immediate hard failure.
+        return proxy_anthropic(base_url, api_key, body, headers, state_dir, governor_ctx=governor_ctx,
                                 path="/v1/messages", query_suffix="", on_connect=on_connect)
     if route_provider == "experiential":
         headers = {"x-api-key": api_key}
         headers.update(extra_headers)
-        return proxy_anthropic(base_url, api_key, body, headers, state_dir,
+        return proxy_anthropic(base_url, api_key, body, headers, state_dir, governor_ctx=governor_ctx,
                                 path="/messages", query_suffix="", on_connect=on_connect)
     # finding 16 (major, h4-h5-h3c review): the databricks branch never
     # added `Authorization: Bearer <token>` -- this docstring (and
@@ -1189,31 +1235,49 @@ def call_anthropic_native(base_url: str, api_key: str, body: dict, extra_headers
     # does for `x-api-key`.
     headers = {"Authorization": f"Bearer {api_key}"}
     headers.update(extra_headers)
-    # databricks: try the ai-gateway path first, fall back on a 404 to the
-    # endpoint's OWN by-name invocations path -- `/serving-endpoints/<name>/
-    # invocations`, the SAME universal last-resort candidate `docs/
-    # DATABRICKS.md`'s routing table and `chat_route_candidates` (the
-    # openai-chat dialect's own route table) already use for every family.
-    # V2b fix (flagged during V2a): this used to hardcode the LITERAL,
-    # non-existent endpoint name "anthropic" here
-    # (`/serving-endpoints/anthropic/v1/messages`) -- no real workspace has
-    # a serving endpoint actually named "anthropic"; the real name is
-    # always `body["model"]` (`build_anthropic_request_body` always sets
-    # it to `route.upstream_model`), same field `call_databricks_chat`
-    # already reads for the identical purpose on the openai-chat side. No
-    # query suffix on the fallback -- a plain invocations call never uses
+    # databricks: three candidate paths, tried in order, only advancing on a
+    # 404 (route-not-found -- anything else is a real answer):
+    #   1. `/ai-gateway/anthropic/v1/messages?beta=true` -- the Unity
+    #      Gateway route Claude Code is officially pointed at (research
+    #      doc: docs.databricks.com "query Claude Code / ai-gateway").
+    #   2. `/serving-endpoints/anthropic/v1/messages` -- the LITERAL
+    #      pay-per-token Anthropic Messages route Databricks documents
+    #      (research_notes databricks_model_source.md: "Query with the
+    #      Anthropic Messages API", page updated 2026-09-22). V2b here was
+    #      WRONG to delete this: it misread the path's "anthropic" segment
+    #      as an endpoint NAME ("no real workspace has a serving endpoint
+    #      actually named 'anthropic'") -- it is not a name, it is the
+    #      documented reserved route; a workspace without the AI gateway
+    #      had NO working dbx-Claude candidate at all (vibes/review.md
+    #      finding 36).
+    #   3. `/serving-endpoints/<name>/invocations` -- the endpoint's OWN
+    #      by-name invocations path, the universal last-resort candidate
+    #      `docs/DATABRICKS.md` and `chat_route_candidates` already use
+    #      (a custom/provisioned endpoint speaking the anthropic dialect).
+    #      `body["model"]` is always set to `route.upstream_model` by
+    #      `build_anthropic_request_body`; an empty model skips this
+    #      candidate entirely (never `/serving-endpoints//invocations`).
+    # No query suffix on 2/3 -- plain serving-endpoint calls never take
     # Databricks' `?beta=true` AI-gateway flag (see `call_databricks_chat`/
-    # `_dbx_post`, which never appends one either).
+    # `_dbx_post`, which never append one either).
     endpoint_name = body.get("model") or ""
-    fallback_path = f"/serving-endpoints/{endpoint_name}/invocations"
-    for path, query_suffix in (("/ai-gateway/anthropic/v1/messages", "?beta=true"), (fallback_path, "")):
+    candidates = [("/ai-gateway/anthropic/v1/messages", "?beta=true"),
+                  ("/serving-endpoints/anthropic/v1/messages", "")]
+    if endpoint_name:
+        candidates.append((f"/serving-endpoints/{endpoint_name}/invocations", ""))
+    for path, query_suffix in candidates:
         result = proxy_anthropic(base_url, api_key, body, headers, state_dir, governor_ctx=governor_ctx,
                                   path=path, query_suffix=query_suffix, on_connect=on_connect)
         if result.status != 404:
             return result
         try:
             if result.resp is not None:
-                result.resp.read()
+                # vibes/review.md finding 36 (second half): capture the 404's
+                # own error body BEFORE draining it -- if this was the LAST
+                # candidate, the result returned below must still carry the
+                # server's actual error text (a drained resp + body_bytes=None
+                # surfaced as a bare, explanation-free "404").
+                result.body_bytes = result.resp.read() or result.body_bytes
         except Exception:
             pass
         # NEW (H9 post-acceptance): a 404'd attempt's own connection was

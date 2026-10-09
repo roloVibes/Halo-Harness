@@ -1993,14 +1993,21 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # starts, with the same host rule the real request gate applies.
     if team_control is not None and team_control.member_permissions().get("offline"):
         from halo_harness.providers.http import _is_loopback_host, allowlisted_local_hosts
-        _host = getattr(model_ref, "host", None)
+        # vibes/review.md finding 24: this block read a bare `model_ref` that
+        # has never existed in this scope (pyflakes F821) -- every Agent call
+        # on a team template with `permissions.offline: true` died as a
+        # NameError instead of producing this explanatory ToolResult, and the
+        # failed-meta write below never happened either (the child "leaked" in
+        # the tasks panel as forever-running). The child session's OWN
+        # resolved ref is what the host rule must judge.
+        _host = getattr(child.model_ref, "host", None)
         if not _is_loopback_host(_host) and (_host or "").strip().lower() not in allowlisted_local_hosts():
             _, failed_meta_path = _child_log_paths(parent, agent_id)
             _write_meta(failed_meta_path, {"agent_id": agent_id, "type": spec.name, "description": description,
                                             "status": "completed", "is_error": True, "finished": time.time(),
                                             "parent_tool_use_id": tool_id})
             return [], ToolResult(
-                f"team permissions.offline: member {spec.name!r} resolves to {model_ref.raw} (host {_host or '?'}) "
+                f"team permissions.offline: member {spec.name!r} resolves to {child.model_ref.raw} (host {_host or '?'}) "
                 f"-- a network host this team runs offline against; point the role at a local model "
                 f"or drop permissions.offline from the template.", is_error=True)
     # H9 whole-tree review finding 13: captured BEFORE the child ever makes
@@ -2169,7 +2176,14 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                     text = team_control.handoff_text(role_name, text, cost_usd=child.cost_meter.total_usd,
                                                      child_log_path=str(child.log.path))
                     report_line = team_control.record_report(
-                        role_name, f"{spec.name} {'failed' if is_error else 'finished'}"
+                        # vibes/review.md finding 25: read the OUTCOME the bg
+                        # path actually computed (`bg_is_error`, line ~2135) --
+                        # the bare `is_error` here has no assignment anywhere
+                        # in this scope (pyflakes F821), so a background
+                        # sub-agent under a team raised NameError mid-report,
+                        # died with no completion notice, and left the parent
+                        # waiting on it forever.
+                        role_name, f"{spec.name} {'failed' if bg_is_error else 'finished'}"
                                    f" (${child.cost_meter.total_usd:.4f})")
                     _team_queue_report(parent, report_line)
                 # H6/D10 (see the foreground path's own comment): merge even

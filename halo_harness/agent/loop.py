@@ -2563,6 +2563,22 @@ class Session:
                 system_text=system_text, messages=messages, tools=[], tool_choice=None,
                 route=route, profile=profile, effort=effort, requested_max_tokens=max_tokens,
             )
+        elif route.dialect == "anthropic-passthrough":
+            # vibes/review.md finding 32: ant:/dbx-Claude one-shot calls used
+            # to fall into the openai-chat `build_request_body` + bare
+            # `stream_completion` pair below -- an OpenAI-shaped body sent to
+            # an anthropic-passthrough wire -- which reproduced as an EMPTY
+            # request (no messages survived the shape mismatch), breaking
+            # title generation, prompt/agent hooks, /improve drafting,
+            # concierge digests and image descriptions on every Claude
+            # route; the judge call swallowed the error and always answered
+            # "confident", so low-confidence escalation never fired either.
+            # Same builder + same dispatcher the main turn itself uses.
+            body = build_anthropic_request_body(
+                system_text=system_text, messages=messages, tools=[], tool_choice=None,
+                route=route, profile=profile, effort=effort,
+                requested_max_tokens=max_tokens,
+            )
         else:
             body = build_request_body(
                 system_text=system_text, messages=messages,
@@ -2593,7 +2609,13 @@ class Session:
         # "ollama"/"openai-responses" only, same as before this round,
         # rather than widening this one-line ternary into a three-way
         # branch that would just re-derive `_stream`'s own fallback.
-        gen = (self._stream(req, abort=abort) if route.dialect in ("ollama", "openai-responses")
+        # vibes/review.md finding 32: "anthropic-passthrough" now also goes
+        # through `_stream` (whose own dispatch sends it to
+        # stream_anthropic_completion) -- it carries a body built by
+        # build_anthropic_request_body above, not the openai-chat shape the
+        # bare `stream_completion` fallback expects.
+        gen = (self._stream(req, abort=abort)
+               if route.dialect in ("ollama", "openai-responses", "anthropic-passthrough")
                else stream_completion(req, abort=abort))
         try:
             for ev in gen:
