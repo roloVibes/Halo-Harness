@@ -126,10 +126,20 @@ def _write_env_var(path: Path, key: str, value: str) -> None:
             new_lines.append(line)
     if not replaced:
         new_lines.append(f"{key}={value}")
-    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    # vibes/review.md finding 15: three bugs in the old tail. (1) In-place
+    # `write_text` truncated every stored key on a mid-write crash and was
+    # briefly world-readable under the umask before the chmod -- now
+    # mkstemp(0600) + os.replace, atomic and private by construction.
+    # (2) `path.parent.chmod(0o700)` chmod'd the parent of WHATEVER
+    # HALO_ENV_FILE pointed at -- `~/.env` made it chmod $HOME. The chmod
+    # now only runs for halo's OWN canonical config directory (computed
+    # from the default base, never from the override).
+    from halo_harness.privateio import write_private_atomic, ensure_private_dir
+    write_private_atomic(path, "\n".join(new_lines) + "\n")
     if os.name != "nt":
-        path.parent.chmod(0o700)
-        path.chmod(0o600)
+        from halo_harness.config.paths import env_file_default_parent
+        if path.parent == env_file_default_parent():
+            ensure_private_dir(path.parent)
 
 
 # ---------------------------------------------------------------------------

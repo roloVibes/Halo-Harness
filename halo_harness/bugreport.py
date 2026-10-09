@@ -39,14 +39,74 @@ from halo_harness.redact import _GENERIC_SECRET_NAME, _SECRET_ENV_NAMES, redact_
 _GENERIC_SECRET_NAME_RE = re.compile(f"^(?:{_GENERIC_SECRET_NAME})$")
 
 
-def _collect_known_secret_values() -> tuple:
+def _collect_known_secret_values(settings=None, mcp_servers=None) -> tuple:
     """Every CURRENT value of a secret-shaped env var this process can see
     -- `redact_for_bugreport`'s own value-based pass catches a key even
-    when it doesn't match any of this module's shape patterns."""
+    when it doesn't match any of this module's shape patterns.
+
+    vibes/review.md finding 16: the harvest used to stop at os.environ.
+    A bugreport also renders settings-derived text and MCP config text,
+    and (a) `settings.effective_env` values, (b) every MCP server's own
+    `env` and `headers` values (GitHub plugins put their token under
+    `headers.Authorization`, not `env`!) never entered the verbatim pass
+    -- a name-shape pattern only helps if the KEY has a secret-shaped
+    name, which `headers` values like `token ghs_...` do not.
+
+    Name-gated on EVERY source (the first, ungated version of this harvest
+    pulled a real config's TMPDIR-shaped path fragments and the verbatim
+    pass then gutted every path in the report): env keys must be
+    secret-shaped, header keys must be one of the credential-bearing
+    header names. Non-secret-named values still get the shape-pattern and
+    hex/base64 passes inside `redact_for_bugreport` itself."""
     values = []
+    _secret_header_names = ("authorization", "x-api-key", "api-key", "cookie",
+                            "private-token", "proxy-authorization")
+
+    def _name_is_secret(name: str) -> bool:
+        return name in _SECRET_ENV_NAMES or bool(_GENERIC_SECRET_NAME_RE.match(name))
+
     for name, value in os.environ.items():
-        if value and (name in _SECRET_ENV_NAMES or _GENERIC_SECRET_NAME_RE.match(name)):
+        if value and _name_is_secret(name):
             values.append(value)
+    # (a) the settings-merged env block (settings.json `env`, --settings
+    # env values) -- the values a real session would actually export.
+    eff_env = getattr(settings, "effective_env", None)
+    if isinstance(eff_env, dict):
+        for name, value in eff_env.items():
+            if isinstance(value, str) and value and _name_is_secret(name):
+                values.append(value)
+    # (b) MCP server configs: `env` and `headers` dicts, whatever object
+    # shape the config came in (McpServerConfig attrs or raw dicts).
+    def _harvest_server(cfg):
+        if cfg is None:
+            return
+        env_block = cfg.get("env") if isinstance(cfg, dict) else getattr(cfg, "env", None)
+        if isinstance(env_block, dict):
+            for name, value in env_block.items():
+                if isinstance(value, str) and value and _name_is_secret(name):
+                    values.append(value)
+        hdr_block = cfg.get("headers") if isinstance(cfg, dict) else getattr(cfg, "headers", None)
+        if isinstance(hdr_block, dict):
+            for name, value in hdr_block.items():
+                if isinstance(value, str) and value and str(name).lower() in _secret_header_names:
+                    values.append(value)
+    if isinstance(mcp_servers, dict):
+        for cfg in mcp_servers.values():
+            _harvest_server(cfg)
+    # The headless path has no live facade -- read the same MCP config
+    # sources a real session would (managed-mcp.json/.claude.json/.mcp.json
+    # tiers collapse into name -> config here). Best-effort: any failure
+    # just means fewer verbatim values collected (the shape-based patterns
+    # above still run).
+    try:
+        from halo_harness.config.claude_json import load_claude_json
+        from halo_harness.mcp.manager import resolve_server_configs
+        claude_json = load_claude_json()
+        resolved, _notices = resolve_server_configs(cwd=Path.cwd(), claude_json=claude_json or {})
+        for cfg in resolved.values():
+            _harvest_server(cfg)
+    except Exception:
+        pass
     return tuple(values)
 
 
@@ -389,7 +449,8 @@ def build_bugreport_text(*, facade=None, session=None, settings=None, state_dir:
     lines.extend(f"  {ln}" for ln in _recent_log_lines(state_dir))
 
     text = "\n".join(str(ln) for ln in lines) + "\n"
-    return redact_for_bugreport(text, known_secret_values=_collect_known_secret_values())
+    return redact_for_bugreport(
+        text, known_secret_values=_collect_known_secret_values(settings=settings, mcp_servers=mcp_servers))
 
 
 def write_bugreport(text: str, state_dir: Path) -> Path:

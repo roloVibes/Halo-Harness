@@ -136,6 +136,14 @@ def remove_worktree(worktree_path: Path, *, repo_root_hint: Optional[Path] = Non
     result = _git(["worktree", "remove", str(worktree_path)], cwd)
     if result.returncode != 0:
         return False, "failed"
-    if branch:
-        _git(["branch", "-D", branch], cwd)
+    # vibes/review.md finding 20: only ever delete a branch HALO itself
+    # named, and only with `-d` (safe delete -- refuses an unmerged
+    # branch). The old `branch -D <whatever was checked out>` destroyed
+    # unmerged work when the worktree held a USER branch (`halo worktree
+    # rm` on a worktree the user repurposed) and silently discarded a
+    # sub-agent's committed work whenever `isolation: worktree`'s branch
+    # carried commits -- `-d` fails loudly instead, and non-halo branch
+    # names are never touched at all.
+    if branch and branch.startswith("halo-worktree-"):
+        _git(["branch", "-d", branch], cwd)
     return True, None

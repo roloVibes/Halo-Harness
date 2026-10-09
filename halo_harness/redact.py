@@ -45,13 +45,14 @@ _SECRET_ENV_NAMES = (
     # only the bare `xpl_...` token-shape pattern in `_TOKEN_PATTERNS`.
     "EXPLABS_API_KEY", "EXPLABS_PROVISIONING_KEY",
 )
-# Any identifier containing API_KEY/TOKEN/SECRET anywhere in its name (a
-# generic catch-all for names this list doesn't happen to enumerate, e.g. a
-# plugin's own `SLACK_BOT_TOKEN` or `MY_SERVICE_SECRET`) -- deliberately a
-# substring match (a wildcard-shaped name check, not a strict identifier
-# segmentation), since over-redacting a rare false positive is the safe
-# failure mode for a "best-effort, share this transcript safely" tool.
-_GENERIC_SECRET_NAME = r"[A-Z0-9_]*(?:API_KEY|APIKEY|TOKEN|SECRET)[A-Z0-9_]*"
+# Any identifier containing API_KEY/TOKEN/SECRET/PASSWORD anywhere in its
+# name (a generic catch-all for names this list doesn't happen to
+# enumerate, e.g. a plugin's own `SLACK_BOT_TOKEN` or `MY_SERVICE_SECRET`)
+# -- deliberately a substring match (a wildcard-shaped name check, not a
+# strict identifier segmentation), since over-redacting a rare false
+# positive is the safe failure mode for a "best-effort, share this
+# transcript safely" tool.
+_GENERIC_SECRET_NAME = r"[A-Z0-9_]*(?:API_KEY|APIKEY|TOKEN|SECRET|PASSWORD|PASSWD)[A-Z0-9_]*"
 _NAME_ALT = "|".join(re.escape(n) for n in _SECRET_ENV_NAMES) + "|" + _GENERIC_SECRET_NAME
 # A literal `"`/`'` OR a JSON-escaped `\"` (one optional backslash then a
 # quote) -- matches a value's opening/closing quote whether this text is
@@ -82,9 +83,47 @@ _ENV_ASSIGN_RE = re.compile(
                      # token was issued yesterday" has no `:`/`=` right
                      # after "token", so it never matches at all).
 )
+# vibes/review.md finding 16: a QUOTED value with spaces used to leak its
+# tail -- the value class above stops at the first whitespace, so
+# `"MY_API_KEY": "hunter two seeks"` redacted just `hunter` and left
+# ` two seeks"` sitting there. These two patterns consume the WHOLE quoted
+# value (spaces included) and must run BEFORE _ENV_ASSIGN_RE, which then
+# only mops up unquoted/simple shapes. Two SEPARATE patterns (double/single
+# quoted), each excluding only ITS OWN delimiter (and backslash) from the
+# value class: a joint `[^'"]` class would let an apostrophe terminate a
+# "-quoted value, and a shared escape arm (`\\.`) would let the value EAT
+# its own closing `\"` delimiter and swallow everything up to the next
+# quote in the text -- including unrelated JSON fields (`"a": "x", "b":
+# "y"` became `"a": "<redacted>"` with b's key AND value gone). An
+# apostrophe inside a double-quoted value (the common prose case) stays
+# intact: `[^"\\]` does not exclude `'`.
+_ENV_ASSIGN_QUOTED_DQ_RE = re.compile(
+    r'(?P<lead_q>[\'"])?\b(?P<name>' + _NAME_ALT + r')(?P<mid_q>[\'"])?\s*(?P<sep>[:=])\s*'
+    r'(?P<open_q>\\?")(?P<value>[^"\\]*)(?P<close_q>\\?")',
+    re.IGNORECASE,
+)
+_ENV_ASSIGN_QUOTED_SQ_RE = re.compile(
+    r'(?P<lead_q>[\'"])?\b(?P<name>' + _NAME_ALT + r')(?P<mid_q>[\'"])?\s*(?P<sep>[:=])\s*'
+    r"(?P<open_q>\\?')(?P<value>[^'\\]*)(?P<close_q>\\?')",
+    re.IGNORECASE,
+)
+# A bare JSON number / true / false / null is never a secret, and
+# redacting it CORRUPTS the JSON (`"input_tokens": 12` ->
+# `"input_tokens": <redacted>` is invalid JSON, which made sanitize_node
+# drop the whole node -- every assistant message carrying usage stats was
+# silently omitted from `--sanitize` exports). Numbers with a unit suffix
+# (`12s`, `4096px`) are still redacted when the name matched; the pure
+# count shape is the only exclusion.
+_NOT_A_SECRET_VALUE_RE = re.compile(r'^(?:-?\d+(?:\.\d+)?|true|false|null)$', re.IGNORECASE)
 
 
 def _redact_env_assign(m: "re.Match") -> str:
+    # rstrip trailing structural punctuation: the unquoted value class
+    # happily consumes it (`"input_tokens": 12,` -> value `12,`, and the
+    # LAST field in a JSON object -> value `4096}`), which would otherwise
+    # defeat the numeric guard below.
+    if _NOT_A_SECRET_VALUE_RE.match((m.group('value') or '').rstrip(',;)}]')):
+        return m.group(0)  # a count/bool/null -- redacting it breaks JSON for nothing
     return (f"{m.group('lead_q') or ''}{m.group('name')}{m.group('mid_q') or ''}{m.group('sep')}"
             f"{m.group('open_q') or ''}<redacted>{m.group('close_q') or ''}")
 
@@ -93,12 +132,23 @@ _TOKEN_PATTERNS = (
     re.compile(r"sk-ant-[A-Za-z0-9\-_]{16,}"),
     re.compile(r"sk-or-v1-[A-Za-z0-9]{16,}"),
     re.compile(r"sk-proj-[A-Za-z0-9\-_]{16,}"),
+    re.compile(r"sk_live_[A-Za-z0-9\-_]{16,}"),
     re.compile(r"sk-[A-Za-z0-9]{16,}"),
     re.compile(r"ghp_[A-Za-z0-9]{20,}"),
     re.compile(r"gho_[A-Za-z0-9]{20,}"),
+    # vibes/review.md finding 16: the GitHub server-to-server OAuth shape
+    # (`ghs_`), used by GitHub App installations -- same family as
+    # ghp_/gho_ above, same 20+ alnum body.
+    re.compile(r"ghs_[A-Za-z0-9]{20,}"),
     re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
     re.compile(r"dapi[a-f0-9]{20,}"),  # Databricks personal access token shape
     re.compile(r"AKIA[A-Z0-9]{12,}"),  # AWS access key id shape
+    # vibes/review.md finding 16: Slack bot/user tokens (`xoxb-`/`xoxp-`)
+    # and Google API keys (`AIza...`, always 35 chars) -- none of the
+    # above shapes catch them, and a webhook/token pasted into a
+    # transcript or config excerpt went out verbatim.
+    re.compile(r"xox[bp]-[A-Za-z0-9\-]{10,}"),
+    re.compile(r"AIza[0-9A-Za-z\-_]{30,}"),
     # Halo 2.0.3 fix pass C-1 (review finding 17): Hugging Face's own
     # token shape (`hf_` + ~34 alnum chars) and Experiential Labs'
     # (`xpl_` + 40 lowercase hex chars, docs/harness/EXPERIENTIAL-
@@ -112,6 +162,29 @@ _TOKEN_PATTERNS = (
     re.compile(r"xpl_[a-f0-9]{30,}"),
 )
 _BEARER_RE = re.compile(r"(Bearer\s+)([A-Za-z0-9\-_.]{16,})", re.IGNORECASE)
+# vibes/review.md finding 16: the `Authorization: Token ...` (GitHub/gitea
+# style) and `Authorization: Basic ...` header forms -- Bearer was the
+# only scheme covered, and `X-Api-Key: value` / `x-api-key: value` had no
+# pattern at all.
+_AUTH_HEADER_RE = re.compile(
+    r'(?i)\b((?:authorization|x-api-key|api-key)\s*:\s*)'
+    r'(?:(?:bearer|token|basic)\s+)?[A-Za-z0-9\-_.=+/]{8,}')
+# URL credentials (`postgres://user:password@host/...` -- also mysql,
+# redis, mongodb, amqp, ftp): the user:password pair goes, the scheme and
+# host stay (the host is what a bugreport actually needs).
+_URL_CRED_RE = re.compile(
+    r'(?P<scheme>(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp|ftp)://)'
+    r'(?P<user>[^\s\'"/:@]+):(?P<pass>[^\s\'"/@]*)@')
+# Slack incoming-webhook URLs carry three unguessable path segments --
+# the whole path is the secret.
+_SLACK_WEBHOOK_RE = re.compile(r'\bhttps://hooks\.slack\.com/services/[A-Za-z0-9/_+]+')
+# A PEM private key block (RSA/EC/OpenSSH/PKCS8...): the whole body goes.
+# The second alternative catches a TRUNCATED block (BEGIN with no END --
+# e.g. the head of a key file excerpted into a log) so at least its base64
+# body is consumed. Must run before the bare token patterns chew the body.
+_PEM_KEY_RE = re.compile(
+    r'-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----'
+    r'|-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[A-Za-z0-9+/=\s]{40,}')
 
 # 2.0.1 W3a (halo bugreport): a bugreport's surface is far wider than one
 # session's own JSONL (env values, config.json, routes.json, cached catalog
@@ -138,8 +211,14 @@ def sanitize_text(text: str) -> str:
     hyphenated key (which `sk-[A-Za-z0-9]{16,}` alone can never match, since
     `-` isn't in that class) sitting right there, unredacted, next to a
     stray already-redacted fragment."""
+    text = _PEM_KEY_RE.sub("<redacted PEM key>", text)
+    text = _ENV_ASSIGN_QUOTED_DQ_RE.sub(_redact_env_assign, text)
+    text = _ENV_ASSIGN_QUOTED_SQ_RE.sub(_redact_env_assign, text)
     text = _ENV_ASSIGN_RE.sub(_redact_env_assign, text)
+    text = _AUTH_HEADER_RE.sub(lambda m: f"{m.group(1)}<redacted>", text)
     text = _BEARER_RE.sub(lambda m: f"{m.group(1)}<redacted>", text)
+    text = _URL_CRED_RE.sub(lambda m: f"{m.group('scheme')}<redacted>@", text)
+    text = _SLACK_WEBHOOK_RE.sub("https://hooks.slack.com/services/<redacted>", text)
     for pat in _TOKEN_PATTERNS:
         text = pat.sub("<redacted>", text)
     return text

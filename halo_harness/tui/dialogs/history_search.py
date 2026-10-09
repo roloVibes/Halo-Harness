@@ -6,6 +6,7 @@ the chosen text, or `None` if cancelled.
 
 from __future__ import annotations
 
+from rich.text import Text
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.screen import ModalScreen
@@ -41,14 +42,27 @@ class HistorySearchDialog(ModalScreen):
         option_list.clear_options()
         query_low = query.strip().lower()
         matches = [e for e in self.entries if query_low in e.lower()] if query_low else self.entries
-        for e in matches[:200]:
-            option_list.add_option(Option(e.replace("\n", " ⏎ ")[:200], id=e))
+        # vibes/review.md findings 27+28: the option id used to be the
+        # PROMPT TEXT itself, so a repeated prompt (the common case --
+        # "continue", "go on") raised DuplicateID and crashed the TUI on
+        # Ctrl+R; ids are now the filtered list index (kept in sync via
+        # `_current_ids`). The label is wrapped in Text() so a prompt
+        # containing markup-shaped text (`[/path]`, square brackets in a
+        # filename) renders literally instead of raising MarkupError.
+        self._current_ids = matches[:200]
+        for i, e in enumerate(matches[:200]):
+            option_list.add_option(Option(Text(e.replace("\n", " ⏎ ")[:200]), id=str(i)))
 
     def on_input_changed(self, event: Input.Changed) -> None:
         self._refresh(event.value)
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
-        self.dismiss(event.option_id)
+        # finding 27: dismiss with the ENTRY TEXT (what the caller fills
+        # the input with), resolved from the index id -- never the raw id.
+        try:
+            self.dismiss(self._current_ids[int(event.option_id)])
+        except (ValueError, IndexError, AttributeError):
+            self.dismiss(None)
 
     def action_cancel(self) -> None:
         self.dismiss(None)

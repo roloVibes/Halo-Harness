@@ -243,6 +243,17 @@ def env_file_path() -> Path:
     return home() / ".config" / "halo" / "env"
 
 
+def env_file_default_parent() -> Path:
+    """The CANONICAL env-file parent (`home()/.config/halo`), computed from
+    the same `home()` base `env_file_path_for_write`'s default uses -- but
+    NEVER from the HALO_ENV_FILE override (vibes/review.md finding 15):
+    this is the one directory `init_cli._write_env_var` may chmod 0700,
+    and the whole point is that an override pointing elsewhere (`~/.env`)
+    must never make that chmod land on a directory this harness does not
+    own ($HOME itself)."""
+    return home() / ".config" / "halo"
+
+
 def env_file_path_for_write() -> Path:
     """The path a WRITER (`halo init`, the tabbed provider setup) should
     open to add/update a credential (2.0.0 fixpass finding 4): same

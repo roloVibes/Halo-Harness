@@ -70,11 +70,52 @@ def load_persisted_theme() -> Optional[str]:
     return theme if isinstance(theme, str) else None
 
 
+class CorruptConfigError(RuntimeError):
+    """vibes/review.md finding 19: `set_config_value` refuses to write when
+    the config file exists but cannot be parsed as a JSON object. The old
+    path called `load_config()` -- which returns `{}` on ANY parse error --
+    and then wrote `{key: value}` over the file, silently wiping every
+    other key (model, routes, theme, improve settings, ...) the moment the
+    file had one bad byte. Callers that can surface this to a human
+    (`halo config set`) catch it and print the path; programmatic callers
+    propagate it, because destroying the file to record one setting is
+    never the right failure mode."""
+
+
+def _load_config_for_write(path: Path) -> dict:
+    """The strict read `set_config_value` builds on: `{}` for a missing or
+    EMPTY file, the parsed dict otherwise, `CorruptConfigError` for a file
+    that exists with content that is not a JSON object."""
+    if not path.exists():
+        return {}
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as e:
+        raise CorruptConfigError(f"cannot read {path}: {e}") from e
+    if not raw.strip():
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError as e:
+        raise CorruptConfigError(
+            f"{path} is not valid JSON ({e}); refusing to overwrite it -- fix or "
+            "delete the file, then re-run the setting") from e
+    if not isinstance(data, dict):
+        raise CorruptConfigError(
+            f"{path} is valid JSON but not an object (got {type(data).__name__}); "
+            "refusing to overwrite it")
+    return data
+
+
 def set_config_value(key: str, value) -> Path:
     """Write `data[key] = value` into `~/.halo/config.json` (tmp +
     `os.replace`, preserving every other key already there) -- the generic
     form `persist_theme` and `halo config set` both build on. Never
     touches Claude Code's own settings.json.
+
+    Raises `CorruptConfigError` when the file exists but doesn't parse
+    (finding 19: never wipe a config over one setting -- see the class's
+    own docstring).
 
     H10 Part B: `key` may be dotted (`"improve.model"`, `"improve.
     hint_threshold.repairs"`) to set a NESTED value -- `halo config
@@ -84,7 +125,7 @@ def set_config_value(key: str, value) -> Path:
     exactly as before."""
     path = _config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = load_config()
+    data = _load_config_for_write(path)
     if "." in key:
         parts = key.split(".")
         cursor = data

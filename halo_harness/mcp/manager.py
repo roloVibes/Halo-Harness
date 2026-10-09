@@ -19,7 +19,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from halo_harness.config.paths import lookup_project
 
@@ -325,10 +325,38 @@ def parse_server(name: str, raw, *, scope: str, source_path: Optional[str] = Non
     if stype not in ("stdio", "http", "sse", "ws", "websocket"):
         return McpServerConfig(name=name, type="invalid", scope=scope, source_path=source_path,
                                 disabled_reason=f"unknown transport {stype!r}")
+    # vibes/review.md finding 30: a malformed entry must become a DISABLED
+    # placeholder with a reason, never an exception -- `"env": ["A=B"]`
+    # (a list) or a string `headers` value raised inside dict() and took
+    # the whole session startup down, including for a cloned repo's
+    # .mcp.json parsed BEFORE the approval check. A string `args` value
+    # used to reach list() and silently split into single characters.
+    raw_args = raw.get("args")
+    if isinstance(raw_args, str):
+        import shlex
+        raw_args = shlex.split(raw_args)
+    elif not isinstance(raw_args, list):
+        raw_args = [] if raw_args is None else None
+    if raw_args is None:
+        return McpServerConfig(name=name, type="invalid", scope=scope, source_path=source_path,
+                                disabled_reason=f"`args` must be a list (or a shell-style string), "
+                                                f"got {type(raw.get('args')).__name__}")
+    raw_env = raw.get("env")
+    if raw_env is None:
+        raw_env = {}
+    elif not isinstance(raw_env, dict):
+        return McpServerConfig(name=name, type="invalid", scope=scope, source_path=source_path,
+                                disabled_reason=f"`env` must be an object, got {type(raw_env).__name__}")
+    raw_headers = raw.get("headers")
+    if raw_headers is None:
+        raw_headers = {}
+    elif not isinstance(raw_headers, dict):
+        return McpServerConfig(name=name, type="invalid", scope=scope, source_path=source_path,
+                                disabled_reason=f"`headers` must be an object, got {type(raw_headers).__name__}")
     return McpServerConfig(
-        name=name, type=stype, command=command, args=list(raw.get("args") or []),
-        env=dict(raw.get("env") or {}), cwd=raw.get("cwd"), url=url,
-        headers=dict(raw.get("headers") or {}), headers_helper=raw.get("headersHelper"),
+        name=name, type=stype, command=command, args=list(raw_args),
+        env=dict(raw_env), cwd=raw.get("cwd"), url=url,
+        headers=dict(raw_headers), headers_helper=raw.get("headersHelper"),
         timeout_ms=raw.get("timeout"), always_load=bool(raw.get("alwaysLoad", False)),
         # H13 Part A: preserve tri-state here -- an entry with no "mcpLazy"
         # key at all must resolve against the GLOBAL default later
@@ -340,12 +368,23 @@ def parse_server(name: str, raw, *, scope: str, source_path: Optional[str] = Non
 
 
 def expand_config(config: McpServerConfig, env: dict) -> "tuple[McpServerConfig, list[str]]":
+    """vibes/review.md finding 41: url/headers now expand to their REAL
+    values. The old `credential_blank=True` here broke every remote server
+    whose auth rides in a header (`Authorization: Bearer
+    ${GITHUB_PERSONAL_ACCESS_TOKEN}` literally sent `Bearer ` -- the
+    official GitHub plugin never connected), while protecting a threat
+    that no longer exists at the display side: every DISPLAY site already
+    masks (doctor_deep runs url through mask_url, tools_cache only hashes
+    the shape, the TUI status shows name/state/error only, bugreport's
+    verbatim pass redacts header values by key name). `credential_blank`
+    stays available on expand_string for any future display-adjacent
+    caller that needs it."""
     warnings: list = []
     command = expand_string(config.command, env, warnings=warnings) if config.command else config.command
     args = [expand_string(a, env, warnings=warnings) for a in config.args]
     env_block = {k: expand_string(v, env, warnings=warnings) for k, v in config.env.items()}
-    url = expand_string(config.url, env, credential_blank=True, warnings=warnings) if config.url else config.url
-    headers = {k: expand_string(v, env, credential_blank=True, warnings=warnings) for k, v in config.headers.items()}
+    url = expand_string(config.url, env, warnings=warnings) if config.url else config.url
+    headers = {k: expand_string(v, env, warnings=warnings) for k, v in config.headers.items()}
     new_cfg = dataclass_replace_config(config, command=command, args=args, env=env_block, url=url, headers=headers)
     return new_cfg, warnings
 
@@ -1419,6 +1458,11 @@ class McpManager:
         self.configs = configs
         self._lazy_names = set(lazy_names or ())
         self._closed = False
+        # vibes/review.md finding 42: per-name first-use connect locks --
+        # `ensure_started` holds the server's own lock across its whole
+        # pending/cached -> connected/failed transition so parallel first
+        # callers can't double-start or fail each other.
+        self._connect_locks: dict = {}
         # H13 Part A: names whose real, post-connect `tools/list` turned out
         # to differ from what a stale-but-hash-matching cache had promised
         # (`ensure_started`/`reconnect` populate this) -- drained by
@@ -1651,20 +1695,36 @@ class McpManager:
         (`McpManager.call` always runs this first). On a successful
         cached->connected transition, the fresh `tools/list` is compared
         against what the cache had promised and a new cache entry is
-        written either way (see `_refresh_tools_cache`)."""
-        h = self.handles.get(name)
-        if h is None or h.state not in ("pending", "cached"):
-            return
-        was_cached = h.state == "cached"
-        cached_tools_before = list(h.tools) if was_cached else None
-        h.start(abort=abort)
-        if was_cached and h.state == "connected":
-            self._refresh_tools_cache(name, h, cached_tools_before)
+        written either way (see `_refresh_tools_cache`).
+
+        vibes/review.md finding 42: the whole transition is under a
+        PER-NAME lock. Parallel first calls on a lazy server (two read-only
+        tools in one turn, a sub-agent racing the parent) used to both see
+        `pending`/`cached`, both run `h.start()`, and either spawn two
+        subprocesses or fail one caller with "not connected
+        (state=connecting)". Under the lock the second caller re-reads the
+        state (now connected/failed) and returns through the normal path.
+        Per-name, never global: a slow server starting must not delay any
+        other server's first call."""
+        import threading
+        lock = self._connect_locks.setdefault(name, threading.Lock())
+        with lock:
+            h = self.handles.get(name)
+            if h is None or h.state not in ("pending", "cached"):
+                return
+            was_cached = h.state == "cached"
+            cached_tools_before = list(h.tools) if was_cached else None
+            h.start(abort=abort)
+            if was_cached and h.state == "connected":
+                self._refresh_tools_cache(name, h, cached_tools_before)
         # C-2 EXTRA: either origin state (cached or plain pending) means
         # "wasn't actually connected a moment ago, is now" -- the guard at
         # the top of this method already ensures this body only ever runs
         # once per real transition, so this fires exactly once per lazy
         # server's first real connect, never on every later tool call.
+        # Deliberately OUTSIDE the lock (finding 42): the callback can
+        # re-enter manager code that calls ensure_started for this same
+        # name, and a non-reentrant per-name Lock would deadlock.
         if name in self._lazy_names and h.state == "connected" and self._on_lazy_connect is not None:
             try:
                 self._on_lazy_connect(name)
