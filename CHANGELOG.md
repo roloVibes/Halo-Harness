@@ -8,6 +8,63 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [unreleased]
+
+### vibes/review.md fix pass, round 1 (crash class + provider reliability)
+
+The owner's own whole-tree review of 2.0.7 (92 findings, eight areas) --
+first round applied; the permission-engine deny-integrity reshaping, the
+credential/file-safety helper, the MCP cluster and the remaining P1/P2
+items follow in later rounds. The review's classifier-shaped suggestions
+(env-var allowlists, substitution-refusal on allow matches, blanket
+here-string rejection) are intentionally NOT applied -- auto mode stays
+"allow all except explicit deny/ask" per the standing order.
+
+- **f24/f25 (crash):** `subagent.py` read `model_ref` and `is_error`,
+  two names that never existed in their scopes (pyflakes F821) -- every
+  Agent call on a team template with `permissions.offline: true` died as
+  a NameError, and a background sub-agent under a team died mid-report
+  with no completion notice (the parent waited forever). Now reads
+  `child.model_ref` and the computed `bg_is_error`.
+- **f79:** `doctor.py`'s permission-mode check called `resolve_settings`
+  without importing it; the `except Exception` swallowed the NameError,
+  so a settings.json `permissions.defaultMode` never showed in doctor.
+- **f32:** `call_small_model` built an OpenAI-chat body and used the
+  bare `stream_completion` for `ant:`/dbx-Claude routes -- an empty
+  request on the anthropic wire, silently breaking titles, prompt/agent
+  hooks, `/improve` drafts, concierge digests and image descriptions on
+  every Claude route (and the judge always answered "confident", so
+  low-confidence escalation never fired). Now builds with
+  `build_anthropic_request_body` and streams through the `_stream`
+  dialect dispatcher.
+- **f34:** the `ant:`/`xp:` branches of `call_anthropic_native` dropped
+  `governor_ctx` -- no cross-process rate limiting and no 429/529 retry
+  ladder on Claude/experiential calls while the loop assumed the retry
+  layer had already run.
+- **f35:** after a `Connection: close` overload, the retry silently
+  auto-reconnected via http.client's `auto_open` using the 8 s
+  constructor timeout -- open_upstream's 300 s idle window and the
+  `on_connect` abort watcher never re-applied, so slow models died
+  mid-retry and Esc could not interrupt. All five `_send` sites now
+  rebuild through `_reopened_if_needed` (open_upstream) when the socket
+  is gone.
+- **f36:** the Databricks Claude 404 fallback had deleted the LITERAL
+  documented pay-per-token route `/serving-endpoints/anthropic/v1/messages`
+  (V2b misread the path segment as an endpoint name) -- workspaces
+  without the AI gateway had no working dbx-Claude candidate. Candidate
+  order is now gateway -> pay-per-token route -> by-name invocations; an
+  empty model skips the by-name candidate (never `//invocations`); and a
+  final 404 keeps its error body (previously drained to an empty 404).
+- **f37:** 500 error bodies the Governor had already peeked were thrown
+  away (`_dbx_post`'s 2-tuple return; `stream.py` reading a drained
+  `resp`) -- Databricks chat, Ollama and `oai:` 500s surfaced as empty
+  messages. `_dbx_post` now returns the peeked body and both stream
+  paths prefer `body_bytes`.
+- Tests: `tests/test_review2_round1.py` (9 pins, drafted on the local
+  Ollama model and corrected in-session -- the token-thrift offload
+  flow); `test_anthropic_native.py`'s two V2b fallback tests reshaped to
+  the corrected candidate order.
+
 ## [2.0.7] - 2026-10-08
 
 The session-UX + cyber-pillars + reliability release: notices stop

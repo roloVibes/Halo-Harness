@@ -213,10 +213,14 @@ def test_h5b_f16_databricks_bearer_header_survives_the_ai_gateway_404_fallback(c
         result = call_anthropic_native(mock.base_url, "k", body, {"x-databricks-use-coding-agent-mode": "true"},
                                         Path(tempfile.mkdtemp(prefix="ant-dbx-fallback-")), route_provider="databricks")
         ctx.check(f"eventually 200, got {result.status}", result.status == 200)
-        # V2b fix: the fallback is the endpoint's OWN by-name invocations
-        # path, never the literal (non-existent) "anthropic" endpoint name.
-        ctx.check(f"fell back to the by-name invocations path, got {mock.requests[-1]['path']}",
-                  mock.requests[-1]["path"].startswith("/serving-endpoints/claude-sonnet-ok/invocations"))
+        # vibes/review.md finding 36: with only the gateway 404'd, the winner
+        # is now the DOCUMENTED literal pay-per-token route (V2b had deleted
+        # it, misreading the "anthropic" path segment as an endpoint name) --
+        # the by-name invocations candidate only runs when this one 404s too.
+        ctx.check(f"fell back to the literal pay-per-token route, got {mock.requests[-1]['path']}",
+                  mock.requests[-1]["path"] == "/serving-endpoints/anthropic/v1/messages")
+        ctx.check("no beta=true query flag on the serving-endpoints fallback",
+                  "beta=true" not in mock.requests[-1]["path"])
         ctx.check("Authorization header present on the FALLBACK attempt too",
                   mock.requests[-1]["headers"].get("authorization") == "Bearer k")
         # And also on the FIRST (404'd) attempt.
@@ -230,14 +234,16 @@ def test_h5b_f16_databricks_bearer_header_survives_the_ai_gateway_404_fallback(c
 
 @test
 def test_v2b_anthropic_fallback_uses_real_endpoint_name_not_literal_anthropic(ctx: Ctx):
-    """V2b fix (flagged during V2a): the 404 fallback must be built from
-    THIS request's own real endpoint name (`body["model"]`), not a
-    hardcoded literal "anthropic" segment -- proven with a name that looks
-    nothing like the old literal, so a regression back to the hardcoded
-    string would fail this immediately."""
+    """V2b reshaped by vibes/review.md finding 36: the literal
+    `/serving-endpoints/anthropic/v1/messages` candidate is CORRECT (a
+    documented pay-per-token route, not an endpoint name), so the by-name
+    invocations candidate is now the THIRD try -- proven with a name that
+    looks nothing like the literal: force the first TWO paths to 404 and the
+    by-name one must win, with the literal tried in between."""
     mock = MockAnthropic().start()
     try:
-        mock.force_404_paths = {"/ai-gateway/anthropic/v1/messages"}
+        mock.force_404_paths = {"/ai-gateway/anthropic/v1/messages",
+                                "/serving-endpoints/anthropic/v1/messages"}
         body = build_anthropic_request_body(
             system_text="SYS", messages=[{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
             tools=None, route=_route("databricks-claude-opus-4-6", provider="databricks"), profile=_profile(),
@@ -245,8 +251,10 @@ def test_v2b_anthropic_fallback_uses_real_endpoint_name_not_literal_anthropic(ct
         result = call_anthropic_native(mock.base_url, "k", body, {}, Path(tempfile.mkdtemp(prefix="ant-dbx-name-")),
                                         route_provider="databricks")
         ctx.check(f"200, got {result.status}", result.status == 200)
-        ctx.check(f"fallback path names the real endpoint, got {mock.requests[-1]['path']}",
+        ctx.check(f"final fallback path names the real endpoint, got {mock.requests[-1]['path']}",
                   mock.requests[-1]["path"].startswith("/serving-endpoints/databricks-claude-opus-4-6/invocations"))
+        ctx.check("the literal pay-per-token route was tried before it",
+                  any(r["path"] == "/serving-endpoints/anthropic/v1/messages" for r in mock.requests))
         ctx.check("no beta=true query flag on the plain invocations fallback",
                   "beta=true" not in mock.requests[-1]["path"])
     finally:

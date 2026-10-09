@@ -1069,7 +1069,11 @@ def _run_phase1_ollama_attempt(req: CompletionRequest, body: dict, abort: "threa
                 raise _upstream_error_from_mapping(status, jbody, hdrs) from e
             if 200 <= result.status < 300:
                 return body, result, None
-            raw = result.resp.read() if result.resp else b""
+            # vibes/review.md finding 37: prefer `body_bytes` -- the
+            # Governor's choke point already peeked (and drained) a 500's
+            # body into it, so `resp.read()` here returned b"" and every
+            # Databricks chat / Ollama 500 surfaced as an empty message.
+            raw = result.body_bytes if result.body_bytes else (result.resp.read() if result.resp else b"")
             try:
                 err_obj = json.loads(raw.decode("utf-8", "replace")) if raw else {}
             except (json.JSONDecodeError, ValueError):
@@ -1287,7 +1291,9 @@ def _run_phase1_responses(req: CompletionRequest, abort: "threading.Event | None
                 raise _upstream_error_from_mapping(status, jbody, hdrs) from e
             if 200 <= result.status < 300:
                 return body, result
-            raw = result.resp.read() if result.resp else b""
+            # finding 37: see the ollama path's identical comment -- a
+            # Governor-drained 500 must still surface its error body.
+            raw = result.body_bytes if result.body_bytes else (result.resp.read() if result.resp else b"")
             try:
                 err_obj = json.loads(raw.decode("utf-8", "replace")) if raw else {}
             except (json.JSONDecodeError, ValueError):
