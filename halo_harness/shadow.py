@@ -200,7 +200,11 @@ class ShadowStore:
             mangled.append(rel)
         if not mangled:
             return {}
-        self._git("add", "-A", "--", *mangled)
+        # vibes/review.md finding 23: `-f` forces past `.gitignore` and
+        # exclude files -- the shadow repo exists to snapshot EVERYTHING
+        # for `/rewind`, but a recorded .gitignore made later snapshots
+        # silently skip matching files, so /rewind could not restore them.
+        self._git("add", "-A", "-f", "--", *mangled)
         self._git("commit", "-q", "--allow-empty", "-m", label or "snapshot")
         commit_hash = self._git("rev-parse", "HEAD").stdout.strip()
         if not commit_hash:

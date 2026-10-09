@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -224,26 +225,45 @@ def publish_github_release(version: str, notes: str, *, repo_dir: Path = REPO_DI
                             "token -- cannot publish the GitHub release (--no-github-release skips this step)")
     url = "https://api.github.com/repos/roloVibes/Halo-Harness/releases"
     payload = json.dumps({"tag_name": tag, "name": f"Halo Harness {version}", "body": notes})
-    created = run_fn(["curl", "-sS", "-X", "POST", url, "-H", f"Authorization: token {token}",
-                      "-H", "Accept: application/vnd.github+json", "-d", payload],
-                     check=True, capture_output=True, text=True)
-    # 2.0.6 round 8: upload the artifact + checksums to the release we
-    # just made -- the release's numeric id comes from that same response
-    # (the upload endpoint needs it). Unparseable response -> the release
-    # itself exists but has no assets; say so rather than guessing.
-    import re as _re
-    m = _re.search(r"\"id\"\s*:\s*(\d+)", getattr(created, "stdout", "") or "")
-    if not m:
-        return (f"POST {url} (via curl) -- release created, but the asset upload was skipped: "
-                "the create response's id could not be read (use the gh CLI for asset uploads)")
-    artifact, checksums = build_release_artifact(version, repo_dir=repo_dir, run_fn=run_fn)
-    upload_base = f"https://uploads.github.com/repos/roloVibes/Halo-Harness/releases/{m.group(1)}/assets"
-    for path in (artifact, checksums):
-        run_fn(["curl", "-sS", "-X", "POST", f"{upload_base}?name={path.name}",
-                "-H", f"Authorization: token {token}",
-                "-H", "Content-Type: application/octet-stream",
-                "--data-binary", f"@{path}"], check=True)
-    return f"POST {url} + {upload_base} artifact upload (via curl, token from git credential fill)"
+    # vibes/review.md finding 17: the token used to ride the argv of every
+    # curl invocation (`-H "Authorization: token ..."`), where any local
+    # user's `ps`/`/proc` read it. It now lives in a 0600 curl config file
+    # passed with -K -- argv never sees it -- and `-f` (--fail) makes curl
+    # exit nonzero on HTTP errors, so a failed asset upload can no longer
+    # "succeed" (the old -sS swallowed 4xx bodies with exit 0 under
+    # check=True). The config file is deleted in the finally below.
+    import tempfile
+    import urllib.parse
+    cfg_fd, cfg_path = tempfile.mkstemp(prefix=".release-curl-", suffix=".cfg")
+    with os.fdopen(cfg_fd, "w", encoding="utf-8") as f:
+        f.write(f'header = "Authorization: token {token}"\n')
+    try:
+        os.chmod(cfg_path, 0o600)
+        created = run_fn(["curl", "-sS", "-f", "-K", cfg_path, "-X", "POST", url,
+                          "-H", "Accept: application/vnd.github+json", "-d", payload],
+                         check=True, capture_output=True, text=True)
+        # 2.0.6 round 8: upload the artifact + checksums to the release we
+        # just made -- the release's numeric id comes from that same response
+        # (the upload endpoint needs it). Unparseable response -> the release
+        # itself exists but has no assets; say so rather than guessing.
+        import re as _re
+        m = _re.search(r"\"id\"\s*:\s*(\d+)", getattr(created, "stdout", "") or "")
+        if not m:
+            return (f"POST {url} (via curl) -- release created, but the asset upload was skipped: "
+                    "the create response's id could not be read (use the gh CLI for asset uploads)")
+        artifact, checksums = build_release_artifact(version, repo_dir=repo_dir, run_fn=run_fn)
+        upload_base = f"https://uploads.github.com/repos/roloVibes/Halo-Harness/releases/{m.group(1)}/assets"
+        for path in (artifact, checksums):
+            run_fn(["curl", "-sS", "-f", "-K", cfg_path, "-X", "POST",
+                    f"{upload_base}?name={urllib.parse.quote(path.name)}",
+                    "-H", "Content-Type: application/octet-stream",
+                    "--data-binary", f"@{path}"], check=True)
+    finally:
+        try:
+            os.unlink(cfg_path)
+        except OSError:
+            pass
+    return f"POST {url} + asset upload (via curl -K, token from git credential fill)"
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

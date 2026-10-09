@@ -126,7 +126,17 @@ async def handle_slash(app, name: str, args: str) -> None:
         "agents": _handle_agents, "teams": _handle_teams,
     }.get(name)
     if handler is not None:
-        await handler(app, args)
+        # vibes/review.md finding 29: a raise in ANY slash handler (the
+        # review's repro: `/export .` or `/export /root/x` with an invalid
+        # path; a custom command or skill whose worker raised) used to
+        # propagate straight out of the dispatch and take the whole TUI
+        # down. Every handler now runs under a catch that reports the
+        # error as a notification -- the session, the transcript and the
+        # input box all survive.
+        try:
+            await handler(app, args)
+        except Exception as e:
+            app.notify(f"/{name} failed: {type(e).__name__}: {e}", severity="error", title=f"/{name}")
         return
     # finding 17 (W6a): `Controller.run_slash` used to be called directly
     # on the UI thread here -- the fallback for every custom command AND
@@ -135,11 +145,22 @@ async def handle_slash(app, name: str, args: str) -> None:
     # default timeout, no abort), so a slow one froze the WHOLE TUI, not
     # just this one command. Same thread-worker + call_from_thread
     # pattern `_handle_doctor`/`_handle_providers` above already use.
-    app.run_worker(lambda: _run_slash_worker(app, name, args), thread=True, name="run-slash", group="run-slash")
+    app.run_worker(lambda: _run_slash_worker(app, name, args), thread=True, name="run-slash", group="run-slash", exit_on_error=False)
 
 
 def _run_slash_worker(app, name: str, args: str) -> None:
-    result = app.controller.run_slash(name, args)
+    # vibes/review.md finding 29: this is the shared worker behind every
+    # custom command/skill (and several builtins' fallbacks) -- a raise
+    # here is a Textual thread-worker error, and Textual's default
+    # `exit_on_error=True` took the whole app down. Caught here (notify,
+    # keep running) AND the spawns below carry `exit_on_error=False` as
+    # belt-and-suspenders.
+    try:
+        result = app.controller.run_slash(name, args)
+    except Exception as e:
+        app.call_from_thread(app.notify, f"/{name} failed: {type(e).__name__}: {e}",
+                             severity="error", title=f"/{name}")
+        return
     if result:
         app.call_from_thread(app.transcript.add_note, result, kind="command")
 
@@ -240,7 +261,7 @@ async def _handle_roles(app, args: str) -> None:
     parts = (args or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else ""
     if sub != "edit":
-        app.run_worker(lambda: _run_slash_worker(app, "roles", args), thread=True, name="run-slash", group="run-slash")
+        app.run_worker(lambda: _run_slash_worker(app, "roles", args), thread=True, name="run-slash", group="run-slash", exit_on_error=False)
         return
     name = parts[1].strip() if len(parts) > 1 else ""
     if not name:
@@ -270,7 +291,20 @@ def _edit_role_template_externally(app, name: str) -> None:
     if not editor:
         app.notify("No $VISUAL/$EDITOR set.", severity="warning", title="/roles edit")
         return
+    # vibes/review.md finding 22: distinguish "no template file yet" from
+    # "a file exists but is invalid". `load_role_template` returns None for
+    # BOTH, and the old code then saved `{"roles": {}}` over it -- so one
+    # bad byte in a template file (a truncated write, a hand edit) meant
+    # `/roles edit` cheerfully replaced the whole template with an empty
+    # one. A file that exists-but-doesn't-load is refused, not clobbered.
     if load_role_template(name) is None:
+        existing_path = role_templates_dir() / f"{name}.json"
+        if existing_path.exists():
+            app.notify(f"Template {name!r} exists at {existing_path} but cannot be loaded "
+                       "(invalid JSON or schema); fix or remove the file first -- refusing to "
+                       "overwrite it with an empty template.",
+                       severity="error", title="/roles edit")
+            return
         ok, problems = save_role_template(name, {"roles": {}})
         if not ok:
             app.notify(f"Could not create {name!r}: " + "; ".join(problems), severity="error", title="/roles edit")
@@ -354,7 +388,7 @@ async def _handle_org(app, args: str) -> None:
         app.run_worker(lambda: _run_org_resume_worker(app), thread=True, name="resume-org", group="resume-org")
         return
     if sub != "edit":
-        app.run_worker(lambda: _run_slash_worker(app, "org", args), thread=True, name="run-slash", group="run-slash")
+        app.run_worker(lambda: _run_slash_worker(app, "org", args), thread=True, name="run-slash", group="run-slash", exit_on_error=False)
         return
     name = parts[1].strip() if len(parts) > 1 else ""
     if not name:
@@ -836,7 +870,7 @@ async def _handle_offline(app, args: str) -> None:
     args = args.strip()
     if not args:
         app.run_worker(lambda: _run_slash_worker(app, "offline", args), thread=True,
-                        name="run-slash", group="run-slash")
+                        name="run-slash", group="run-slash", exit_on_error=False)
         return
     result = app.controller.run_slash("offline", args)
     if result:
@@ -1457,7 +1491,13 @@ async def _handle_export(app, args: str) -> None:
     tokens = args.split()
     sanitize = "--sanitize" in tokens
     files = [t for t in tokens if t != "--sanitize"]
-    out_path = export_fn(sanitize=sanitize, path=(files[0] if files else None))
+    try:
+        out_path = export_fn(sanitize=sanitize, path=(files[0] if files else None))
+    except Exception as e:
+        # finding 29's own repro: an invalid export path (`.`,
+        # `/root/x`) raised and closed the app.
+        app.notify(f"/export failed: {type(e).__name__}: {e}", severity="error", title="/export")
+        return
     await app.transcript.add_note(f"⬇ Exported to {out_path}{' (sanitized)' if sanitize else ''}.",
                                    kind="command")
 
@@ -1483,7 +1523,7 @@ async def _handle_ask(app, args: str) -> None:
 
 
 def _ask_worker(app, question: str) -> None:
-    from halo_harness.concierge import ask_concierge, resolve_concierge
+    from halo_harness.concierge import ask_concierge
     session = app.controller.session
     try:
         answer = ask_concierge(session, question)

@@ -10,6 +10,97 @@ version.
 
 ## [unreleased]
 
+### vibes/review.md fix pass, rounds 2+3 (credentials, data loss, MCP, TUI crashes)
+
+The owner's own whole-tree review of 2.0.7 -- rounds 2 (R5) and 3
+(R6/R7/R2) applied. The review's classifier-shaped suggestions remain
+intentionally NOT applied; auto mode stays "allow all except explicit
+deny/ask" per the standing order.
+
+**R5 -- credentials and file safety:**
+
+- **f14:** `halo proxy launch`'s `launch-<pid>.json` (proxy token +
+  Databricks PAT) is now written by the new
+  `halo_harness.privateio.write_private_atomic` -- 0600 by construction
+  (mkstemp), atomic (os.replace, never a truncate window), and the state
+  dir gets 0700. The old bare `open(..., "w")` landed it world-readable
+  and a SIGKILL left it behind forever.
+- **f15:** the env-file writer is atomic and private, and only ever
+  chmods halo's OWN `~/.config/halo` (computed from the default base,
+  never the `HALO_ENV_FILE` override -- `~/.env` used to chmod `$HOME`).
+  A mid-write crash no longer truncates every stored key.
+- **f16:** the shared redactor learned `password`/`passwd` keys,
+  `Authorization: Token/Basic` and `x-api-key` headers, URL credentials
+  (`postgres://user:pw@host`), Slack webhook URLs, `ghs_`/`sk_live_`/
+  `xoxb-`/`AIza` token shapes, and whole PEM private-key blocks. A quoted
+  value with spaces no longer leaks its tail (the value class used to
+  stop at the first space). Numeric usage keys (`"input_tokens": 12`)
+  are no longer "redacted" into invalid JSON -- that mangle made
+  `--sanitize` silently drop every assistant message carrying usage.
+  `halo bugreport` now also verbatim-redacts settings-`env` and MCP
+  `env`/`headers` values (name-gated; the ungated first cut gutted every
+  path in the report).
+- **f17:** `release.py` carries the GitHub token in a 0600 curl `-K`
+  config file instead of argv (visible to any local `ps`), adds `--fail`
+  (a failed asset upload can no longer report success), and URL-encodes
+  the asset name.
+
+**R6 -- data loss:**
+
+- **f19:** `set_config_value` refuses to write over a `config.json` that
+  doesn't parse (`CorruptConfigError`; `halo config set` prints it and
+  exits 2, file untouched). The old path silently wiped every key the
+  moment the file had one bad byte.
+- **f20:** worktree removal only deletes branches named `halo-worktree-*`
+  and only with the safe `git branch -d` (refuses unmerged). The old
+  `branch -D <checked-out-branch>` destroyed user branches and discarded
+  uncommitted sub-agent work.
+- **f21:** the launch no longer rewrites `~/.claude/settings.json` unless
+  the content actually changed; the write is atomic, keeps the user's
+  indentation, and honors `CLAUDE_CONFIG_DIR`.
+- **f22:** `/roles edit` refuses to overwrite a template file that exists
+  but doesn't load (it used to replace it with an empty template).
+- **f23:** the shadow repo snapshots gitignored files too (`git add -f`)
+  so `/rewind` can restore them.
+
+**R7 -- MCP:**
+
+- **f41:** `${TOKEN}`-style variables in a remote server's `url`/`headers`
+  expand to their REAL values (the official GitHub plugin -- `Bearer
+  ${GITHUB_PERSONAL_ACCESS_TOKEN}` -- literally sent `Bearer ` and never
+  connected). Every display site already masks; the two tests that
+  asserted the broken blanking are reshaped.
+- **f42:** first-use connect on a lazy server holds a per-name lock --
+  parallel first calls can't double-spawn the subprocess or fail each
+  other with "not connected (state=connecting)".
+- **f30:** a malformed MCP entry (`"env": ["A=B"]`, a string `headers`,
+  a non-list `args`) becomes a disabled placeholder with a reason instead
+  of crashing session startup (including a cloned repo's `.mcp.json`,
+  parsed before the approval check); a string `args` is shlex-split
+  instead of char-split.
+
+**R2 -- TUI crash class:**
+
+- **f27:** Ctrl+R no longer crashes on a repeated prompt (option ids are
+  indices, not the prompt text -- `DuplicateID`).
+- **f28:** option labels render as rich `Text` everywhere (history
+  search, AskUserQuestion cards, session picker) -- `[/etc/hosts]`-shaped
+  labels no longer raise `MarkupError`.
+- **f29:** a raise in any slash handler (`/export .` was the repro), in
+  the shared custom-command worker, or in a run-slash worker no longer
+  closes the TUI: the dispatch catches and notifies, the worker catches
+  and notifies, and the run-slash spawns carry `exit_on_error=False`.
+- pyflakes sweep: bridge.py's never-imported `UpstreamResult` annotation
+  (TYPE_CHECKING import), manager.py's `Callable`, one dead import in
+  slash.py.
+
+Tests: `tests/test_review2_round2.py` (6 pins) and
+`tests/test_review2_round3.py` (9 pins), both Ollama-drafted and
+corrected in-session; `test_mcp_manager`/`test_mcp_plugins` blanking
+tests reshaped to the real-credential contract. Suites re-run green:
+mcp_manager 88/88, mcp_plugins 24/24, bugreport 19/19, worktree 11/11,
+shadow 2/2, TUI battery 285 passed/0 failed, bridge battery exit 0.
+
 ### vibes/review.md fix pass, round 1 (crash class + provider reliability)
 
 The owner's own whole-tree review of 2.0.7 (92 findings, eight areas) --

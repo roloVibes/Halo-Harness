@@ -726,14 +726,13 @@ def test_real_github_plugin_copy_is_discovered_and_named_correctly(ctx: Ctx):
         cfg = servers[expected_name]
         ctx.check(f"type/url carried through from the bare .mcp.json map, got {cfg.type!r}/{cfg.url!r}",
                   cfg.type == "http" and cfg.url == "https://api.githubcopilot.com/mcp/")
-        # manager.py's own `credential_blank` rule: a credential-SHAPED var
-        # name (GITHUB_PERSONAL_ACCESS_TOKEN matches /TOKEN/i) is expanded
-        # to "" in a header/url regardless of whether it's actually set --
-        # a real secret must never land in a logged/displayed config. The
-        # ${VAR} SYNTAX itself still resolved (no literal "${...}" left
-        # behind); only the VALUE is deliberately blanked.
-        ctx.check(f"the templated header expanded (blanked, not left literal), got {cfg.headers}",
-                  cfg.headers.get("Authorization") == "Bearer ")
+        # vibes/review.md finding 41 (test reshaped): the templated header
+        # must expand to its REAL value -- the old `credential_blank` rule
+        # sent `Bearer ` (the official GitHub plugin never connected)
+        # while every display site already masks (mask_url, hash-only
+        # cache keys, bugreport's verbatim header-value redaction).
+        ctx.check(f"the templated header expanded to the real credential, got {cfg.headers}",
+                  cfg.headers.get("Authorization") == "Bearer test-token-123")
     finally:
         if old is None:
             os.environ.pop("CLAUDE_CONFIG_DIR", None)

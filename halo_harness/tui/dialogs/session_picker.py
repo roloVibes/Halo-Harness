@@ -86,7 +86,12 @@ class SessionPicker(ModalScreen):
                 disabled=True))
             return
         for s in self._filtered:
-            option_list.add_option(Option(_row(s), id=s.get("id")))
+            # vibes/review.md finding 28: a session row containing markup-
+            # shaped text (a cwd with brackets, a summary quoting `[/x]`)
+            # raised MarkupError and crashed the picker -- rich Text
+            # renders it literally.
+            from rich.text import Text
+            option_list.add_option(Option(Text(_row(s)), id=s.get("id")))
         # 1.0.1 hotfix addendum 7: see model_picker.py's matching comment --
         # highlights the first row up front so "Down twice" lands on the
         # third, not the second.

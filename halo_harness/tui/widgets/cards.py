@@ -494,7 +494,12 @@ class QuestionCard(Static, can_focus=True):
     def compose(self):
         for i, (question, options) in enumerate(self.questions):
             yield Static(f"? {question}", markup=False, classes="question-heading")
-            opts = [*options, self.OTHER]
+            # vibes/review.md finding 28: option labels are parsed as
+            # markup, so an AskUserQuestion option containing `[/...]`
+            # (a path in brackets, "[/etc/hosts]") raised MarkupError and
+            # crashed the dialog. rich Text renders the label literally.
+            from rich.text import Text
+            opts = [Text(str(o)) for o in (*options, self.OTHER)]
             ol = OptionList(*opts, id=f"q-opt-{i}")
             self._lists.append(ol)
             yield ol

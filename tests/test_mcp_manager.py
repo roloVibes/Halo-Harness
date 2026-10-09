@@ -76,14 +76,19 @@ def test_expand_string_credential_blanking(ctx: Ctx):
 
 
 @test
-def test_expand_config_credential_blanking_only_url_and_headers(ctx: Ctx):
+def test_expand_config_url_and_headers_carry_real_credentials(ctx: Ctx):
+    """vibes/review.md finding 41 (test reshaped): url/headers now expand
+    to their REAL values -- the old credential-blanking sent `Bearer ` to
+    every token-in-header remote server (the official GitHub plugin never
+    connected) while every display site already masks. env/command were
+    never blanked and still aren't."""
     cfg = M.McpServerConfig(name="s", type="http", url="https://x/${TOKEN}", headers={"Authorization": "Bearer ${TOKEN}"},
                              command="${TOKEN}", env={"K": "${TOKEN}"})
     expanded, warns = M.expand_config(cfg, {"TOKEN": "shh"})
-    ctx.check("url blanks the credential var", expanded.url == "https://x/")
-    ctx.check("headers blank the credential var", expanded.headers["Authorization"] == "Bearer ")
-    ctx.check("command is NOT credential-blanked (not remote url/headers)", expanded.command == "shh")
-    ctx.check("env is NOT credential-blanked", expanded.env["K"] == "shh")
+    ctx.check("url carries the real credential", expanded.url == "https://x/shh")
+    ctx.check("headers carry the real credential", expanded.headers["Authorization"] == "Bearer shh")
+    ctx.check("command expands as before", expanded.command == "shh")
+    ctx.check("env expands as before", expanded.env["K"] == "shh")
 
 
 # ---- timeouts ---------------------------------------------------------------

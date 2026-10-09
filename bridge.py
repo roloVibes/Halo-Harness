@@ -20,6 +20,16 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # vibes/review.md (pyflakes sweep): `_handle_passthrough_stream`'s
+    # `result: UpstreamResult` annotation referenced a name never imported
+    # anywhere in bridge.py -- latent only because `from __future__ import
+    # annotations` stringifies it; TYPE_CHECKING resolves it without an
+    # import cycle at runtime.
+    from halo_harness.providers.http import UpstreamResult  # noqa: F401
+
 import re
 import json
 import time
@@ -329,7 +339,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
                 pass
 
-    def _handle_passthrough_stream(self, result: UpstreamResult):
+    def _handle_passthrough_stream(self, result: "UpstreamResult"):
         """Raw byte relay of a Databricks Claude passthrough response back to the client (status + headers relayed, body bytes forwarded unparsed)."""
         self.send_response(result.status)
         skip_headers = {"content-length", "connection", "transfer-encoding"}
@@ -1044,10 +1054,24 @@ def cmd_launch(args, forwarded_claude_args=None):
                 settings[k] = v
 
     settings_path = state_dir / f"launch-{os.getpid()}.json"
-    with open(settings_path, "w", encoding="utf-8") as f:
-        json.dump(settings, f)
+    # vibes/review.md finding 14: this file carries the proxy token AND the
+    # Databricks PAT -- written with the old bare `open(..., "w")` it landed
+    # with umask perms (0644, world-readable on a multi-user box) and a
+    # SIGKILL left it on disk forever. write_private_atomic: 0600 by
+    # construction, atomic, no truncate window; the state dir itself gets
+    # 0700 (only ever a directory this harness owns).
+    from halo_harness.privateio import write_private_atomic, ensure_private_dir
+    write_private_atomic(settings_path, json.dumps(settings))
+    ensure_private_dir(state_dir)
 
-    claude_settings_path = home() / ".claude" / "settings.json"
+    # vibes/review.md finding 21 (second half): honor CLAUDE_CONFIG_DIR --
+    # the same resolution the rest of the harness uses (config.paths.
+    # claude_config_dir) -- instead of always home()/.claude, which
+    # snapshot-restored the WRONG file whenever the owner pointed Claude
+    # Code at a custom config dir (the model key then landed in a settings
+    # file nothing reads).
+    from halo_harness.config.paths import claude_config_dir
+    claude_settings_path = claude_config_dir() / "settings.json"
     snapshot_model = None
     snapshot_missing = False
     if claude_settings_path.exists():
@@ -1085,6 +1109,16 @@ def cmd_launch(args, forwarded_claude_args=None):
             pass
 
         if not snapshot_missing:
+            # vibes/review.md finding 21: the restore used to rewrite
+            # ~/.claude/settings.json on EVERY launch -- compact, in-place
+            # (a crash mid-write truncates it), and blind to whether
+            # anything had actually changed, so a concurrent session's
+            # edits between snapshot and restore were silently reverted.
+            # Now: nothing written unless the content actually differs, the
+            # write is tmp + os.replace (atomic -- the file is never a
+            # half-written truncate), and the original indent (2, Claude
+            # Code's own) is preserved instead of compacting the user's
+            # file to one line.
             try:
                 if claude_settings_path.exists():
                     with open(claude_settings_path, "r", encoding="utf-8") as f:
@@ -1095,8 +1129,18 @@ def cmd_launch(args, forwarded_claude_args=None):
                     current.pop("model", None)
                 else:
                     current["model"] = snapshot_model
-                with open(claude_settings_path, "w", encoding="utf-8") as f:
-                    json.dump(current, f)
+                new_text = json.dumps(current, indent=2) + "\n"
+                try:
+                    if claude_settings_path.read_text(encoding="utf-8") == new_text:
+                        pass  # nothing changed -- leave the file (and its mtime) alone
+                    else:
+                        tmp_path = claude_settings_path.with_name(
+                            claude_settings_path.name + f".tmp{os.getpid()}")
+                        with open(tmp_path, "w", encoding="utf-8") as f:
+                            f.write(new_text)
+                        os.replace(tmp_path, claude_settings_path)
+                except OSError:
+                    pass
             except Exception:
                 pass
 

@@ -82,7 +82,13 @@ def _cmd_set(rest: list) -> int:
         print(f"halo config: not a valid theme name: {value!r} "
               f"(expected one of {sorted(theme_mod.VALID_THEMES)})", file=sys.stderr)
         return 2
-    theme_mod.set_config_value(args.key, value)
+    try:
+        theme_mod.set_config_value(args.key, value)
+    except theme_mod.CorruptConfigError as e:
+        # vibes/review.md finding 19: the human-facing writer surfaces the
+        # refusal instead of crashing -- the file is left exactly as it was.
+        print(f"halo config: {e}", file=sys.stderr)
+        return 2
     # 2.0.6 round 12 (the carried minor): the echo masks exactly like the
     # readers -- a value that IS secret-shaped prints back redacted, so a
     # recorded/shared terminal never sees it twice.
