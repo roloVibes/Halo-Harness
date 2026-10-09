@@ -489,10 +489,27 @@ class LineupEditor(ModalScreen):
         if field_id == "lineup-field-agent":
             self._refresh_agent_dropdown(event.value)
         if field_id.startswith("lineup-field-"):
+            # vibes/review.md finding 66: the commit+reload used to run on
+            # EVERY keystroke -- committing re-reads every field through
+            # .strip()/int()/comma-split and the reload writes the parsed
+            # value back, so a space or comma was eaten the instant it was
+            # typed. The live keystroke now only marks the form stale;
+            # `_commit_current_assignment` runs on submit/blur/pick (the
+            # places that already call it) and on save.
+            self._update_stale_marker()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if (event.input.id or "").startswith("lineup-field-"):
             self._commit_current_assignment()
             self._refresh_assignments()
             self._refresh_roles_projection()
             self._update_stale_marker()
+
+    def on_blur(self, event) -> None:
+        from textual.widgets import Input as _Input
+        if isinstance(event.widget, _Input) and (event.widget.id or "").startswith("lineup-field-"):
+            self._commit_current_assignment()
+            self._refresh_assignments()
 
     def _refresh_agent_dropdown(self, query: str) -> None:
         """Rule 3: autocomplete here suggests BIO NAMES (what this field

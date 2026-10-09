@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+from typing import Optional
 
 SCAN_CAP = 20_000
 MAX_RESULTS = 50

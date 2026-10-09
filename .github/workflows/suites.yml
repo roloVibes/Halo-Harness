@@ -53,6 +53,28 @@ jobs:
           mkdir -p "$RUNNER_TEMP/halo-test-home"
           echo "BRIDGE_TEST_HOME=$RUNNER_TEMP/halo-test-home" >> "$GITHUB_ENV"
 
+      # vibes/review.md findings 24/25/79's follow-up (the review's own
+      # suggested order, item 2): a pyflakes undefined-names gate before
+      # the suites -- every crash-class finding this pass fixed
+      # (model_ref/is_error/resolve_settings/UpstreamResult/Callable) was
+      # a latent undefined name CI would have caught. Only "undefined
+      # name" output FAILS: unused-import/redefinition notes exist in
+      # older modules and are being burned down separately.
+      - name: pyflakes (undefined names gate)
+        run: |
+          python -m pip install pyflakes
+          python - <<'EOF'
+          import subprocess, sys
+          proc = subprocess.run([sys.executable, "-m", "pyflakes", "halo_harness/", "bridge.py"],
+                                capture_output=True, text=True)
+          undefined = [ln for ln in proc.stdout.splitlines() if "undefined name" in ln]
+          for ln in undefined:
+              print(ln)
+          if undefined:
+              sys.exit(1)
+          print(f"pyflakes: no undefined names ({len(proc.stdout.splitlines())} other notes)")
+          EOF
+
       # Each suite is its own step so one hanging/failing suite never hides
       # the other two: continue-on-error keeps the job going, timeout-
       # minutes bounds each suite individually (inside the job's own hard

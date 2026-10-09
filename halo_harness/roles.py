@@ -452,9 +452,18 @@ def resolve_role_ref(name: str, *, role_table: Optional[dict] = None, cli_overri
         table_raw, _reason = vram_aware_override(name, table_raw, main_ref=parent_ref, state_dir=state_dir)
     raw = cli_raw if cli_raw is not None else table_raw
     model, effort = role_value_parts(raw)
-    if not model:
-        return parent_ref, parent_profile, None, "session model"
-    ref = parse_model_ref(model, routes)
+    # vibes/review.md finding 59: `inherit` (and any bare value the current
+    # routes/env cannot resolve, e.g. `haiku` with no default alias route
+    # configured) used to raise InvalidModelError straight out of here --
+    # `/roles` crashed, and the confidence judge's resolve fell into its
+    # exception path and always answered "confident". Both now mean "use
+    # the parent's model", with the reason saying so.
+    if not model or str(model).strip().lower() in ("inherit", "parent", "-"):
+        return parent_ref, parent_profile, None, "session model (inherit)"
+    try:
+        ref = parse_model_ref(model, routes)
+    except Exception:
+        return parent_ref, parent_profile, None, f"session model (unresolvable role value {model!r})"
     profile = resolve_model_profile(ref, state_dir, routes)
     return ref, profile, effort, ("CLI --role" if cli_raw is not None else "role table")
 

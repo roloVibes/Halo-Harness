@@ -115,11 +115,15 @@ def scan_text_content(text: str, *, rel_path: str, allowlist: "set[str]") -> "li
     if any(rel_path == root or rel_path.startswith(root) for root in EXTENDED_SCAN_ROOTS):
         lower = text.lower()
         for term in EXTENDED_SCAN_TERMS:
-            idx = lower.find(term)
+            # P2 (vibes/review.md): the term itself is lowercased too -- a
+            # `ci:` term written with uppercase letters in privacy-terms.txt
+            # could never match the lowercased text.
+            needle = term.lower()
+            idx = lower.find(needle)
             while idx != -1:
                 findings.append({"kind": "machine-name", "line": _line_no(text, idx),
                                   "excerpt": _masked_excerpt(text, idx, idx + len(term))})
-                idx = lower.find(term, idx + 1)
+                idx = lower.find(needle, idx + 1)
 
     for m in EMAIL_RE.finditer(text):
         addr = m.group(0)

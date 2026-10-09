@@ -10,6 +10,54 @@ version.
 
 ## [unreleased]
 
+### vibes/review.md fix pass, round 5 (R9/R10 slice + the pyflakes CI gate)
+
+The last slice of the owner's whole-tree review that fits this pass --
+everyday-reliability and correctness items, plus the review's own
+suggested CI gate. The remaining findings (MCP internals 43-46, loop
+scheduling 49-53, sub-agent/roles 54-58/60-62/64, TUI 67-75, CLI/doctor
+76-80/82-83, telemetry 84-92, and the rest of the P2s) are enumerated in
+plans/HANDOFF.md for the next session.
+
+- **f48:** slash-command `$ARGUMENTS`/`$N` substitution is now ONE pass:
+  a `$5` inside the user's own arguments is no longer re-replaced,
+  `$1` inside single quotes (an awk body) stays literal, and
+  `$ARGUMENTS[N]` works as the docstring always claimed.
+- **f50 (batch half):** the concurrent read-only batch's whitelist drops
+  `env` (dumps secrets into shared results / runs commands) and `find`
+  (`-delete`/`-exec`); `git branch`/`git tag` join only in list form.
+- **f59:** `resolve_role_ref` no longer raises on `inherit` or an
+  unresolvable role value -- `/roles` stopped crashing and the confidence
+  judge stopped silently answering "confident".
+- **f63:** cron day-of-week `7` is Sunday (both spellings agree), and
+  day-of-month/day-of-week are ORed when both are restricted (standard
+  cron) -- impossible-schedule minute-scans under the lock are gone.
+- **f65:** in-TUI `/resume` and Ctrl+P now actually switch sessions: the
+  session's log is reopened on the picked id (the next prompt appends to
+  the resumed file) with a fresh cost meter.
+- **f66:** the lineup editor commits on submit/blur/pick instead of every
+  keystroke -- spaces and commas can be typed again.
+- **f81:** `halo preflight` identifies the lane from `HALO_MODEL`,
+  config.json, or routes.json; when NO lane can be identified it fails
+  loudly (exit 2) instead of printing "PASS (0 lane(s) checked)" -- a
+  vacuous pass is worse than none.
+- **pyflakes CI gate:** the suites workflow runs pyflakes over the
+  package before the trio, failing on any "undefined name" (every
+  crash-class finding this pass fixed was one); four more latent
+  `Optional` annotations fixed to make it green (stats_cli, completion,
+  model_picker x2).
+- **P2s:** the canary token estimate excludes base64 image data (no more
+  false truncation warnings on image conversations); NotebookEdit
+  categorization reads `notebook_path` (acceptEdits no longer asks for
+  every notebook edit); privacy-scan `ci:` terms match regardless of
+  case; one unreachable `return` removed from models_dev.
+
+Tests: `tests/test_review2_round5.py` (6 pins). Suites re-run green:
+commands_registry 21/21, round_2_preflight 8/8, wizard_lineup 10/10,
+roles 18/18, agents_schedule 6/6 (one timing flake re-run green),
+privacy_scan unchanged from HEAD (one pre-existing failure), full-package
+pyflakes 0 undefined names.
+
 ### vibes/review.md fix pass, round 4 (R8: deny-rule integrity)
 
 The permission contract, hardened -- per the standing order this round

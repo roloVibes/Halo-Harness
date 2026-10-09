@@ -92,15 +92,21 @@ def _strip_markers(output: str, nonce: str) -> "tuple[str, object, object]":
 # (path-stripped) is a known read-only binary, or `git <read-only-sub>`.
 
 _BASH_READ_ONLY_BINARIES = frozenset({
-    "cat", "ls", "head", "tail", "grep", "rg", "find", "wc", "file", "stat",
+    "cat", "ls", "head", "tail", "grep", "rg", "wc", "file", "stat",
     "du", "df", "ps", "which", "whereis", "type", "echo", "pwd", "whoami",
-    "uname", "hostname", "id", "env", "printenv", "date", "cal", "tree",
+    "uname", "hostname", "id", "printenv", "date", "cal", "tree",
     "md5sum", "sha1sum", "sha256sum", "cksum", "b2sum", "xxd", "hexdump",
     "strings", "nl", "od", "tac", "rev", "basename", "dirname", "realpath",
     "readlink", "seq", "true", "test", "[",
 })
+# vibes/review.md finding 50: `env` and `find` dropped, and `branch`/`tag`
+# restricted to their list forms. `env NAME=x cmd` RUNS cmd (and `env`
+# alone dumps every secret into the batch's shared results); `find
+# -delete`/`-exec`/`-fprint*` mutate or execute; `git branch <name>`
+# creates and `git tag -d` deletes -- none of them belong in a batch whose
+# whole contract is "provably only reads" (and which caps them at 30s).
 _BASH_GIT_READ_ONLY_SUBCOMMANDS = frozenset({
-    "status", "log", "diff", "show", "branch", "remote", "tag", "stash list",
+    "status", "log", "diff", "show", "remote", "stash list",
     "blame", "shortlog", "describe", "rev-parse", "ls-files", "ls-remote",
     "config --get", "config --list", "grep", "cat-file", "count-objects",
 })
@@ -139,6 +145,11 @@ def bash_command_is_read_only(command) -> bool:
         rest = " ".join(words[1:])
         for sub in _BASH_GIT_READ_ONLY_SUBCOMMANDS:
             if rest == sub or rest.startswith(sub + " "):
+                return True
+        # finding 50: branch/tag only in their LIST forms
+        if words[1] in ("branch", "tag"):
+            tail = words[2:]
+            if not tail or tail[0] in ("-l", "--list"):
                 return True
     return False
 

@@ -15,6 +15,7 @@ plain `sessions`/`tool_counts` as before).
 from __future__ import annotations
 
 import argparse
+from typing import Optional
 import json
 import os
 import shutil
