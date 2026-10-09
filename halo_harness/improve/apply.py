@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime
 import hashlib
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -98,24 +99,65 @@ def _next_available(base: Path, *, is_dir: bool) -> "tuple[Path, bool, Optional[
         n += 1
 
 
+def _contained_under(base: Path, target: Path) -> bool:
+    """vibes/review.md finding 12: the resolved target must stay INSIDE its
+    base directory -- the model (or a prompt injection reaching it) chose
+    `candidate.path`, and an absolute path or a `../` walk used to escape
+    the memory/rules/skills directory freely (writing to
+    `~/.claude/agents/...` was the review's repro)."""
+    try:
+        target.resolve().relative_to(base.resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+def _validate_candidate_path(candidate) -> str:
+    """The containment pre-check: returns a cleaned path string or raises
+    ValueError naming the reason. No absolute paths, no `..`, and for
+    memory/rule targets no separators at all (a single filename)."""
+    raw = getattr(candidate, "path", "") or ""
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError("empty path")
+    if raw.startswith("/") or raw.startswith("\\") or re.match(r"^[A-Za-z]:[/\\]", raw) or raw.startswith("~"):
+        raise ValueError(f"absolute/home paths are not allowed ({raw!r})")
+    parts = [p for p in re.split(r"[/\\]+", raw) if p not in ("", ".")]
+    if ".." in parts:
+        raise ValueError(f"'..' is not allowed in a path ({raw!r})")
+    if candidate.kind in ("memory", "rule") and len(parts) > 1:
+        raise ValueError(f"a {candidate.kind} path is a single filename, not a subpath ({raw!r})")
+    return "/".join(parts)
+
+
 def resolve_target_path(candidate, *, cwd: Path, settings=None) -> ResolvedTarget:
+    # finding 12: every branch below builds from a validated, contained
+    # path; the resolved path is checked once more against its base as the
+    # backstop before anything is returned.
+    cleaned = _validate_candidate_path(candidate)
+    from dataclasses import replace as _dc_replace
+    candidate = _dc_replace(candidate, path=cleaned)
     if candidate.kind == "memory":
         from halo_harness.config.memory import MemoryStore
         store = MemoryStore(cwd, settings)
         filename = candidate.path if candidate.path.endswith(".md") else candidate.path + ".md"
-        base = store.memory_dir_path / filename
+        base_dir = store.memory_dir_path
+        base = base_dir / filename
         path, is_update, renamed_from = _next_available(base, is_dir=False)
     elif candidate.kind == "rule":
         filename = candidate.path if candidate.path.endswith(".md") else candidate.path + ".md"
-        base = _rule_dir(candidate.scope, cwd) / filename
+        base_dir = _rule_dir(candidate.scope, cwd)
+        base = base_dir / filename
         path, is_update, renamed_from = _next_available(base, is_dir=False)
     elif candidate.kind == "skill":
         name = candidate.path.strip("/\\")
-        base = _skill_dir(candidate.scope, cwd) / name
+        base_dir = _skill_dir(candidate.scope, cwd)
+        base = base_dir / name
         path, is_update, renamed_from = _next_available(base, is_dir=True)
         path = path / "SKILL.md"
     else:
         raise ValueError(f"unknown candidate kind: {candidate.kind!r}")
+    if not _contained_under(base_dir, path):
+        raise ValueError(f"resolved path escapes the {candidate.kind} directory: {path}")
 
     exists = path.exists()
     existing_text = None

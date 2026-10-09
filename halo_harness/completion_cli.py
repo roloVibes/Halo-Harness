@@ -17,7 +17,6 @@ completion script has no need to trigger any of it).
 from __future__ import annotations
 
 import argparse
-import sys
 
 # Mirrors cli.py::main's own `if argv and argv[0] == "<name>":` dispatch
 # table, plus the Halo 2.0.2 additions this round introduces. 2.0.2
@@ -63,7 +62,28 @@ def _completion_data(state_dir=None) -> "tuple[list[str], list[str], list[str]]"
     return list(SUBCOMMANDS), list(known_role_names()), cached_model_refs(state_dir)
 
 
+_SAFE_COMPLETION_WORD_RE = None  # compiled lazily below (module import order)
+
+
+def _completion_safe_words(words: list) -> list:
+    """vibes/review.md finding 13: model refs come from the NETWORK-sourced
+    OpenRouter cache and land verbatim inside a script the user runs with
+    `eval "$(halo completion bash)"` -- a malicious/poisoned catalog ID
+    containing quotes/`$()`/backticks was arbitrary shell code at eval
+    time. Only words made of shell-inert characters survive; everything
+    else is dropped from completion (it still works typed by hand)."""
+    import re as _re
+    global _SAFE_COMPLETION_WORD_RE
+    if _SAFE_COMPLETION_WORD_RE is None:
+        _SAFE_COMPLETION_WORD_RE = _re.compile(r"^[A-Za-z0-9._/:@+\\-]+$")
+    return [w for w in words if isinstance(w, str) and w and _SAFE_COMPLETION_WORD_RE.match(w)]
+
+
 def _bash_script(subcommands: list, role_names: list, model_refs: list) -> str:
+    # finding 13: sanitize EVERY word list that lands in the generated
+    # script (see _completion_safe_words) -- role names are local, but the
+    # model refs are cached from the network.
+    subcommands, role_names, model_refs = (_completion_safe_words(x) for x in (subcommands, role_names, model_refs))
     words = " ".join(subcommands + role_names + model_refs)
     subs = " ".join(subcommands)
     # 2.0.2 review finding 37: `:` is in bash's own default COMP_WORDBREAKS
@@ -99,6 +119,8 @@ def _zsh_script(subcommands: list, role_names: list, model_refs: list) -> str:
     # "deepseek/deepseek-chat", so only "or" (never the real ref) was
     # ever offered/inserted. Escaped as `\:` here, the same way zsh's own
     # own completion functions escape a literal colon in a candidate.
+    # finding 13: sanitized first -- see _completion_safe_words.
+    subcommands, role_names, model_refs = (_completion_safe_words(x) for x in (subcommands, role_names, model_refs))
     escaped_words = [w.replace(":", "\\:") for w in (subcommands + role_names + model_refs)]
     words = " ".join(escaped_words)
     subs = " ".join(subcommands)

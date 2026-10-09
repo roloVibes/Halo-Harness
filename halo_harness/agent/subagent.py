@@ -647,7 +647,22 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
     # override` already get over this agent's own file/role defaults.
     _effective_effort = effort_override or spec.effort or _role_effort or parent.effort
 
-    permission_mode = spec.permission_mode or parent.permission_engine.mode
+    # vibes/review.md finding 11: an agent FILE's frontmatter used to be
+    # able to raise its own session above the parent's -- a cloned repo's
+    # `.claude/agents/x.md` with `permissionMode: bypassPermissions` (or
+    # `acceptEdits` to escape plan mode) overrode the owner's mode, and a
+    # plugin/project agent's own `hooks:` were merged and run. Two rules
+    # now: (1) `project:`/`plugin:`-sourced agent files (NOT the owner's
+    # own `user`/`managed`/`cli-agents`/`built-in` ones) lose their
+    # `permissionMode` entirely, same policy Claude Code applies; (2) no
+    # agent, from any source, may run MORE permissive than its parent.
+    _UNTRUSTED_AGENT_SOURCE = str(getattr(spec, "source", "") or "").startswith(("project:", "plugin:"))
+    _PERMISSIVENESS_RANK = {"default": 0, "acceptEdits": 1, "plan": 1, "dontAsk": 2, "auto": 3, "bypassPermissions": 4}
+    _requested_mode = (None if _UNTRUSTED_AGENT_SOURCE else spec.permission_mode) or parent.permission_engine.mode
+    if _PERMISSIVENESS_RANK.get(_requested_mode, 0) > _PERMISSIVENESS_RANK.get(parent.permission_engine.mode, 0):
+        permission_mode = parent.permission_engine.mode  # clamp: never above the parent
+    else:
+        permission_mode = _requested_mode
     # finding 14 (W6a): both of these used to root at `parent.cwd`
     # unconditionally -- for an `isolation: worktree` child (`child_cwd`
     # above, the worktree path), every edit landed OUTSIDE the engine's
@@ -714,7 +729,11 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
         member_hooks = {}
         if team_control is not None:
             member_hooks = team_control.member_hooks(_effective_role_name)
-        elif isinstance(getattr(spec, "hooks", None), dict):
+        elif isinstance(getattr(spec, "hooks", None), dict) and not _UNTRUSTED_AGENT_SOURCE:
+            # finding 11: hooks from a project:/plugin:-sourced agent file
+            # are NOT merged (a cloned repo's agent file shipping its own
+            # hook commands is someone else's code escalating into the
+            # child's lifecycle); the owner's own agent files keep them.
             member_hooks = spec.hooks
         _child_hooks_by_event = parent.hook_runner.hooks_by_event
         if member_hooks:
