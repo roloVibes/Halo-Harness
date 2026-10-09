@@ -4,7 +4,70 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-08 ~23:30 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-09 ~01:30 CDT (authoritative, read this first)
+
+**The vibes/review.md fix pass (the owner's own 92-finding whole-tree
+review of 2.0.7, at `C:/Users/rolo/Documents/vibes/review.md`) is five
+rounds in, all pushed to master: `c858334` (R1 crash+providers), `2a05160`
+(R5 credentials + R6 data loss + R7 MCP + R2 TUI crashes), `25a615a`
+(R8 deny-rule integrity), `f2aaad4` (R9/R10 slice + pyflakes CI gate).**
+~55 of 92 findings fixed. Test files: `tests/test_review2_round1..5.py`.
+CRITICAL CONTRACT (standing order, encoded in test_review2_round4): deny
+rules must hold in every mode; auto mode with NO rules must stay allow --
+the review's classifier-shaped suggestions (env-var allowlists #3,
+allow-match substitution refusal #4, blanket `<<<` rejection, #6's
+heuristic pile) are REJECTED, never re-add them.
+
+**REMAINING from the review, in rough priority order (read the review
+file for each finding's detail):**
+- 43-45 (MCP: HTTP/SSE + ws connectors carry creds/streams through
+  `connectors.py`), 46 (TCP preflight ignores HTTP(S)_PROXY,
+  `mcp/http_sse.py:243-287`), 47 (timed-out plugin clone cached valid
+  forever + no `--` separator, `plugin_fetch.py:82-104`)
+- 49-53 (loop scheduling: read-only batch runs after Agent call; the 30s
+  read-only cap ignoring the model's own timeout; typed-during-/compact
+  loss; `tool_choice=required` overflow sentinel AttributeError;
+  Esc-queued batch + waiter-slot leaks, `loop.py:7174-7343`)
+- 54-58/60-62/64 (sub-agents/roles: concurrent-resume TOCTOU; cc: Stop
+  hook continuation unread; task_id resume drops role/model/effort;
+  team max_parallel overridden; role table never recomputed; team role
+  names rejected; tools:Agent(X) unenforced; export snake_case keys;
+  worktree leak on failed model resolve, `subagent.py`)
+- 33/38-40 (provider tail: escalation set_model half-switch; xp:
+  count_tokens; proxy cred scopes; non-JSON 200 handling)
+- 67-75 (TUI: xclip DEVNULL; slash drops image attachments; shadow
+  snapshots on the UI thread; roles-editor ctrl+s; card race; recalled
+  paste placeholder; image-chip delete; invalid YAML silently kept;
+  auto-title/stream-json state resets)
+- 76-78/80/82-83 (CLI/doctor: -p -c silent new session; providers setup
+  argparse; doctor --json prints text first; PATH check reads own env;
+  --fork + --no-session-persistence leak; -w before validation)
+- 84-92 (telemetry/stats: sub-agent costs on the parent row; stats cache
+  schema; replay kinds; bg PID-reuse on macOS; recall temp file +
+  cross-project prune; U+2028/9 line splits; gym nodigest; bg -p stdin;
+  shared-state file locks, `launch_state.py`/`update.py`/`history.py`)
+- P2 tail: ollama `_get_json` HTTPException; http.py non-final-404
+  connection leak + bad-route caching; oai_stream cache-write pricing;
+  mcp/oauth single-request callback; mcp_cli one project-key form;
+  gym_tool_tasks docstring
+- The review's own #299 suggestion 1 (permission bypass test file) is
+  DONE as test_review2_round4; suggestion 2 (pyflakes CI) DONE in
+  .github/workflows/suites.yml.
+
+**Known flakes (this box, not CI):** test_h5c_f07 under full battery;
+test_agents_schedule's `every_1s` disarm timing check (passes on re-run);
+test_privacy_scan's key-shaped-fragment check fails on clean HEAD too.
+
+**Before any tag:** the full battery (test_bridge + tests/run_all +
+test_tui) -- NOT yet run since these five rounds; the release itself
+release.py needs CHANGELOG "unreleased" + a clean tree.
+
+After the remaining findings: the 2.0.7.1 (or 2.0.8) release, then the
+2.0.8 theme pack (DOOM/Metroid/Mario) per ROADMAP.md.
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-08 ~23:30 CDT (previous)
 
 **v2.0.7 IS RELEASED** (tag `2c9af54`/v2.0.7, GitHub release published,
 --no-install: the owner is refreshing installs himself). Everything in
