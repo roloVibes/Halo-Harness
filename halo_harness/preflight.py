@@ -312,13 +312,31 @@ def run_lane_canary(raw_ref: str, *, state_dir, settings=None, cwd: Optional[Pat
 # ---- the CLI --------------------------------------------------------------------
 
 def _default_lane(state_dir) -> Optional[str]:
-    """The session's current default model, if one is pinned."""
+    """The session's current default model, if one can be identified.
+    vibes/review.md finding 81: this used to read config.json's
+    model/last_model ONLY -- a session whose model comes from HALO_MODEL
+    or routes.json resolved NO lane, preflight checked 0 lanes, and still
+    printed PASS (a vacuous pass is worse than none). All three sources
+    are consulted now."""
+    from halo_harness.config.paths import env_compat
+    env_lane = env_compat("MODEL")
+    if env_lane:
+        return str(env_lane)
     try:
         cfg = json.loads((Path(state_dir) / "config.json").read_text(encoding="utf-8"))
         lane = cfg.get("model") or cfg.get("last_model")
-        return str(lane) if lane else None
+        if lane:
+            return str(lane)
     except Exception:
-        return None
+        pass
+    try:
+        routes = json.loads((Path(state_dir) / "routes.json").read_text(encoding="utf-8"))
+        lane = routes.get("model")
+        if lane:
+            return str(lane)
+    except Exception:
+        pass
+    return None
 
 
 def cmd_preflight(argv: list) -> int:
@@ -357,6 +375,15 @@ def cmd_preflight(argv: list) -> int:
         # Nothing to check at all (--skip-local with no lanes and no pinned
         # default model) -- a usage error, not a vacuous PASS.
         print("halo preflight: no lanes to check (pass --lanes or pin a default model)", file=sys.stderr)
+        return 2
+    if not skip_local and not lanes:
+        # finding 81's other half: local checks alone are NOT a preflight
+        # PASS when the operator never asked for local-only -- no lane
+        # could be identified (no --lanes, no HALO_MODEL, no routes.json
+        # default, no pinned model), so fail loudly instead of printing
+        # "PASS (0 lane(s) checked)".
+        print("halo preflight: no model lane identified -- pass --lanes, set HALO_MODEL, "
+              "or pin a default model (local-only preflight is --skip-local)", file=sys.stderr)
         return 2
 
     report = {"local": None, "lanes": {}, "ok": True}

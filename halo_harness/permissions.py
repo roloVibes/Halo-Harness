@@ -1696,7 +1696,12 @@ class PermissionEngine:
                 return "edit_write_in_workdir"
             return "other"
         if tool_name in ("Edit", "Write", "NotebookEdit"):
-            target = self._resolve_target_path(tool_input.get("file_path", ""))
+            # P2 (vibes/review.md): NotebookEdit's input carries
+            # `notebook_path`, not `file_path` -- reading file_path made
+            # every notebook edit categorize as "other", so acceptEdits
+            # always asked for them.
+            _path_key = "notebook_path" if tool_name == "NotebookEdit" and tool_input.get("notebook_path") else "file_path"
+            target = self._resolve_target_path(tool_input.get(_path_key, ""))
             # H6 scope C: plan mode's ONE writable path -- checked BEFORE
             # the ordinary in-workdir test so it wins even though the plan
             # file normally lives OUTSIDE cwd (~/.claude/plans/...), which

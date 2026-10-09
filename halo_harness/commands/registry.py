@@ -238,19 +238,55 @@ def split_args(args_text: str) -> list:
 
 
 def substitute_arguments(body: str, args_text: str) -> str:
-    """`$ARGUMENTS` -> the raw joined text; `$0`..`$9` -> 0-based
-    whitespace/quote-split tokens (skills/commands convention -- explicitly
-    NOT 1-based). No placeholder used AND arguments were given -> append
-    `ARGUMENTS: <input>`."""
+    """`$ARGUMENTS` -> the raw joined text; `$ARGUMENTS[N]`/`$0`..`$9` ->
+    0-based whitespace/quote-split tokens (skills/commands convention --
+    explicitly NOT 1-based). No placeholder used AND arguments were given
+    -> append `ARGUMENTS: <input>`.
+
+    vibes/review.md finding 48: substitution is now ONE pass over the
+    body that (a) never re-scans what it inserts -- `$ARGUMENTS`'s text
+    used to be inserted first and then `$5` INSIDE the user's own
+    arguments was replaced by the command's 5th token; (b) skips
+    single-quoted spans entirely, so `$1` inside an awk body
+    (`awk '{print $1}'`) stays literal exactly as the shell itself would
+    leave it; (c) implements the `$ARGUMENTS[N]` form the module
+    docstring already promised."""
     tokens = split_args(args_text)
-    used_placeholder = "$ARGUMENTS" in body
-    out = body.replace("$ARGUMENTS", args_text)
-    for i in range(10):
-        placeholder = f"${i}"
-        if placeholder in out:
-            used_placeholder = True
-            out = out.replace(placeholder, tokens[i] if i < len(tokens) else "")
-    if not used_placeholder and args_text:
+    used = [False]
+
+    def _repl(m):
+        tok = m.group(0)
+        if tok == "$ARGUMENTS":
+            used[0] = True
+            return args_text
+        if tok.startswith("$ARGUMENTS["):
+            used[0] = True
+            idx = int(m.group(1))
+            return tokens[idx] if 0 <= idx < len(tokens) else ""
+        used[0] = True
+        i = int(tok[1:])
+        return tokens[i] if i < len(tokens) else ""
+
+    pattern = re.compile(r"\$ARGUMENTS\[(\d+)\]|\$ARGUMENTS|\$[0-9]")
+    parts = []
+    i, n = 0, len(body)
+    while i < n:
+        c = body[i]
+        if c == "'":  # single-quoted span: literal, never substituted
+            j = body.find("'", i + 1)
+            j = n if j == -1 else j + 1
+            parts.append(body[i:j])
+            i = j
+            continue
+        m = pattern.match(body, i)
+        if m:
+            parts.append(_repl(m))
+            i = m.end()
+            continue
+        parts.append(c)
+        i += 1
+    out = "".join(parts)
+    if not used[0] and args_text:
         out = out.rstrip("\n") + f"\n\nARGUMENTS: {args_text}"
     return out
 

@@ -32,6 +32,7 @@ import json
 import logging
 import os
 import queue
+import re
 import threading
 import time
 import uuid
@@ -379,13 +380,27 @@ def _strip_promoted_leak_text(text: str) -> str:
     return text[:earliest].rstrip()
 
 
+_B64_RUN_RE = None
+
+
 def _rough_estimate(system_text: str, messages: list) -> int:
     """len(json)/4, matching providers.config.estimate_tokens' own rule of
-    thumb -- used only for the max_tokens budget headroom calculation."""
+    thumb -- used only for the max_tokens budget headroom calculation.
+
+    P2 (vibes/review.md): base64 image data is EXCLUDED before dividing --
+    a pasted screenshot is megabytes of base64 but its TOKEN cost is the
+    image's own fixed price (or is billed per-tile), never len/4; counting
+    it produced false "approaching the context limit" truncation warnings
+    on every image-bearing conversation."""
+    global _B64_RUN_RE
     try:
         blob = json.dumps({"system": system_text, "messages": messages}, ensure_ascii=False)
     except (TypeError, ValueError):
         blob = str(messages)
+    if _B64_RUN_RE is None:
+        # a 120+ char run of base64 alphabet with no spaces = inline media
+        _B64_RUN_RE = re.compile(r"[A-Za-z0-9+/=]{120,}")
+    blob = _B64_RUN_RE.sub("", blob)
     return max(1, len(blob) // 4)
 
 

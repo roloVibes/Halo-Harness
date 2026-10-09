@@ -446,4 +446,3 @@ def vendor_family_profile_fields(raw_model_id, full_models_dev: dict, *,
                 fields["price_source"] = "vendor_list_price"
                 return fields
     return None
-    return out

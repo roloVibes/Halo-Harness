@@ -721,6 +721,24 @@ class Controller:
         self.replay_messages = _messages_from_nodes(log.nodes())
         if self.replay_messages:
             self.events.put(events.replay(self.replay_messages))
+        # vibes/review.md finding 65: the session's own LOG was never
+        # reopened -- the picker showed the old history (the replay event
+        # above) but the next prompt appended to the CURRENT session's
+        # file, so /resume and Ctrl+P never actually switched anything.
+        # Swapping `session.log` makes every later append/derive land on
+        # the resumed session's file (its nodes are already loaded); the
+        # per-session cost meter is rebuilt fresh so the two sessions'
+        # stats don't mix.
+        session = getattr(self, "session", None)
+        if session is not None and getattr(session, "log", None) is not None:
+            session.log = log
+            cm = getattr(session, "cost_meter", None)
+            if cm is not None:
+                try:
+                    from halo_harness.agent.loop import CostMeter
+                    session.cost_meter = CostMeter(price_in=cm.price_in, price_out=cm.price_out)
+                except Exception:
+                    pass
 
     def mcp_status(self) -> "Optional[dict]":
         return self._mcp_status()

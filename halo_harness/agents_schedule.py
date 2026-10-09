@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import re
 import shlex
 import sys
 import threading
@@ -59,19 +60,44 @@ def _cron_field_matches(field: str, value: int) -> bool:
     return False
 
 
+def _cron_day_matches(dom_field: str, dow_field: str, dom: int, dow: int) -> bool:
+    """Standard cron day semantics: a `*` day field always matches; when
+    BOTH day fields are restricted, EITHER matching is enough (dom OR dow
+    -- `0 0 1 * 1` = the 1st of the month plus every Monday); when only
+    one is restricted, that one must match."""
+    dom_ok = dom_field == "*" or _cron_field_matches(dom_field, dom)
+    dow_ok = dow_field == "*" or _cron_field_matches(dow_field, dow)
+    if dom_field != "*" and dow_field != "*":
+        return dom_ok or dow_ok
+    return dom_ok and dow_ok
+
+
 def cron_next(expr: str, now: "Optional[datetime.datetime]" = None) -> "Optional[datetime.datetime]":
     """The next minute (strictly after `now`) a 5-field cron expression
     fires, or None when it never does within ~a year. Dow field: 0 or 7 is
-    Sunday. Minute resolution, same as cron itself."""
+    Sunday. Minute resolution, same as cron itself.
+
+    vibes/review.md finding 63: (a) a literal 7 in the dow field (a
+    documented Sunday spelling) never matched -- the computed value is
+    always 0-6, so every `7` in the field is normalized to `0` up front;
+    (b) day-of-month and day-of-week are ORed when BOTH are restricted
+    (standard cron semantics -- `0 0 1 * 1` fires on the 1st AND on every
+    Monday), not ANDed. The old AND made many real schedules impossible,
+    and an impossible expression drove the full 366-day minute scan
+    (~527k iterations) on every scheduler tick while holding the lock."""
     fields = (expr or "").split()
     if len(fields) != 5:
         return None
+    dom_field, dow_field = fields[2], fields[4]
+    dow_field = re.sub(r"\d+", lambda m: "0" if m.group(0) == "7" else m.group(0), dow_field)
     base = (now or datetime.datetime.now()).replace(second=0, microsecond=0)
     candidate = base + datetime.timedelta(minutes=1)
     for _ in range(366 * 24 * 60):
         values = (candidate.minute, candidate.hour, candidate.day,
                   candidate.month, (candidate.weekday() + 1) % 7)
-        if all(_cron_field_matches(f, v) for f, v in zip(fields, values)):
+        if (all(_cron_field_matches(f, v) for f, v in zip(fields[:2], values[:2]))
+                and _cron_field_matches(fields[3], values[3])
+                and _cron_day_matches(dom_field, dow_field, values[2], values[4])):
             return candidate
         candidate += datetime.timedelta(minutes=1)
     return None
