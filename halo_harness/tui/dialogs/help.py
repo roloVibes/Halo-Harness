@@ -15,10 +15,10 @@ _KEY_ROWS = [
     ("Enter", "Submit"),
     ("\\ + Enter, Ctrl+J, Alt+Enter", "Insert a newline"),
     ("Esc", "Interrupt the running turn / dismiss a card / deny"),
-    ("Ctrl+C (x2)", "Interrupt, then quit on a second press -- never reaches your shell, the "
-                     "terminal stays open either way; a selection -- in the chat box or the "
-                     "transcript -- copies it instead; config quit_on_double_ctrl_c: false turns "
-                     "off the second-press quit"),
+    ("Ctrl+C (x2)", "Copy the selection, else the last reply (never interrupts a turn -- Esc "
+                     "does); a second press within 3 s asks 'Quit Halo?' -- Enter quits, Esc "
+                     "stays; the terminal stays open either way; config quit_on_double_ctrl_c: "
+                     "false turns the card off"),
     ("Ctrl+A", "Select all text in the chat box"),
     ("Ctrl+V", "Paste the system clipboard into the chat box (notifies if no clipboard "
                 "tool is found -- use your terminal's own paste instead)"),

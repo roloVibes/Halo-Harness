@@ -2538,6 +2538,9 @@ def test_ctrl_c_twice_quits_cleanly(ctx: Ctx):
             await pilot.press("ctrl+c")
             await pilot.pause(0.1)
             await pilot.press("ctrl+c")
+            await pilot.pause(0.2)
+            # 2.0.7 round 7c: the second press asks; Enter quits.
+            await pilot.press("enter")
             await pilot.pause(0.3)
         ctx.check("controller.quit() was called", fake.quit_called is True)
         ctx.check(f"app exited with return_code 0, got {app.return_code}", app.return_code == 0)
@@ -7683,7 +7686,7 @@ def test_help_text_lists_copy_cut_select_all_and_paste_keys(ctx: Ctx):
     ctx.check(f"Ctrl+X row names cutting a selection, got {rows.get('Ctrl+X')!r}",
               "Cuts a chat-box selection" in rows.get("Ctrl+X", ""))
     ctx.check(f"Ctrl+C row mentions copying a selection, got {rows.get('Ctrl+C (x2)')!r}",
-              "copies it" in rows.get("Ctrl+C (x2)", ""))
+              "Copy the selection" in rows.get("Ctrl+C (x2)", ""))
 
 
 # ============================================================================
@@ -8618,7 +8621,7 @@ def test_keys_slash_command_opens_the_tester_dialog_and_shows_received_keys(ctx:
 
 
 @test
-def test_ctrl_c_toast_says_halo_and_that_the_terminal_stays_open(ctx: Ctx):
+def test_ctrl_c_first_press_copies_and_says_what_it_did(ctx: Ctx):
     async def body():
         fake = FakeController()
         app = await _mounted(fake)
@@ -8626,8 +8629,8 @@ def test_ctrl_c_toast_says_halo_and_that_the_terminal_stays_open(ctx: Ctx):
             notified = []
             app.notify = lambda msg, **kw: notified.append(msg)
             await pilot.press("ctrl+c")
-            ctx.check(f"the exact reassurance wording was shown, got {notified}",
-                      any(m == "Press Ctrl+C again to exit halo (your terminal stays open)" for m in notified))
+            ctx.check(f"2.0.7 round 7c: the first press copies (nothing yet here), got {notified}",
+                      any(m.startswith("Nothing to copy") for m in notified))
     asyncio.run(body())
 
 
@@ -8648,8 +8651,8 @@ def test_quit_on_double_ctrl_c_false_disables_the_second_press_quit(ctx: Ctx):
             ctx.check("a second Ctrl+C within the window does NOT quit when the switch is off",
                       fake.quit_called is False)
             ctx.check(f"app.return_code is still unset, got {app.return_code!r}", app.return_code is None)
-            ctx.check(f"the toast explains Ctrl+C never exits halo here, got {notified}",
-                      any("never exits halo here" in m for m in notified))
+            ctx.check(f"the second press just copied again (no card), got {notified}",
+                      sum(1 for m in notified if m.startswith("Nothing to copy")) == 2)
     try:
         theme_mod.set_config_value("quit_on_double_ctrl_c", False)
         asyncio.run(body())

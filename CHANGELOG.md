@@ -14,6 +14,25 @@ version.
 
 - fix: tool-arg schema validation no longer crashes on union types (`type` as a list), needed by MCP servers whose schemas declare `string|null` (cherry-picked as e521b24).
 
+### Ctrl+C copies; quitting asks
+
+Owner report (2026-10-09): one Ctrl+C in a PowerShell session closed Halo.
+- fix: on a Windows console the TUI no longer lets Ctrl+C end the process.
+  The console input handle's `ENABLE_PROCESSED_INPUT` flag (the thing that
+  turns Ctrl+C into a `CTRL_C_EVENT` / SIGINT instead of a key) is cleared
+  for the TUI's lifetime and re-cleared every half second if another
+  console process switches it back on, and a control handler swallows
+  `CTRL_C_EVENT`; the mode is restored on exit, crash included
+  (`halo_harness/tui/console_mode.py`, inert on POSIX; print mode keeps
+  SIGINT = exit 130).
+- change: the first Ctrl+C copies -- a selection (chat box, any text field,
+  transcript range), else the last assistant reply -- and toasts "Copied N
+  characters" or "Nothing to copy". It no longer interrupts a running turn
+  (Esc does) or clears the chat box.
+- change: a second Ctrl+C within 3 s (was 1.5 s) opens a "Quit Halo? Enter
+  quits, Esc stays" card instead of quitting; `quit_on_double_ctrl_c:
+  false` makes every press just copy. Ctrl+D, Ctrl+Q and `/exit` unchanged.
+
 ### Subscription routes are off until accepted
 
 The owner's own decision (2026-10-09): a detected Claude Code/Codex

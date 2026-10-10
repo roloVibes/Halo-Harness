@@ -61,8 +61,8 @@ TIPS: "tuple[Tip, ...]" = (
     # only /exit, Ctrl+D and Ctrl+Q do. Gated like every other
     # conditionally-true tip above, on a new `needs` flag `detect_
     # enabled_needs` below sets from that same config value.
-    Tip('Esc interrupts the current step; Ctrl+C twice quits', needs=("double_ctrl_c",)),
-    Tip('Esc interrupts the current step; Ctrl+C never quits here, use /exit, Ctrl+D or Ctrl+Q',
+    Tip('Esc interrupts the current step; Ctrl+C copies, twice asks to quit', needs=("double_ctrl_c",)),
+    Tip('Esc interrupts the current step; Ctrl+C only copies here, quit with /exit, Ctrl+D or Ctrl+Q',
         needs=("single_ctrl_c",)),
     Tip('Ctrl+Q force-quits immediately, skipping the ordinary quit path'),
     Tip('@path mentions a file in your prompt; Tab completes the path'),

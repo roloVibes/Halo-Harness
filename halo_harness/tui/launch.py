@@ -63,9 +63,15 @@ def run_tui(args) -> int:
         no_inline_images=bool(getattr(args, "no_inline_images", False)),
         show_intro=_show_intro_for(args),
     )
+    # 2.0.7 round 7c: on a Windows console Ctrl+C must only ever be a key
+    # for the TUI's lifetime (inert on POSIX); restored in the `finally`.
+    from halo_harness.tui import console_mode
+    console_guard = console_mode.install()
+    app.console_guard = console_guard
     try:
         app.run()
     finally:
+        console_guard.restore()
         # review finding 5: `app.run()` returning (or raising) via any
         # path OTHER than the app's own `_quit_worker` (an uncaught
         # exception escaping Textual's event loop, e.g.) must still stop

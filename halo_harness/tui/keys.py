@@ -48,8 +48,8 @@ MODE_DESCRIPTIONS = {
 }
 
 
-# Ctrl+C "double press to quit" window (D-TUI: 1.5s).
-DOUBLE_CTRL_C_WINDOW_S = 1.5
+# Ctrl+C "double press to quit" window (2.0.7 round 7c: 3 s).
+DOUBLE_CTRL_C_WINDOW_S = 3.0
 
 # Auto-grow bounds for PromptInput (D-TUI: "1-8 lines").
 PROMPT_MIN_LINES = 1

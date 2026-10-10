@@ -822,10 +822,10 @@ build/VCS directories like `.git`/`node_modules`/`__pycache__` are pruned).
 ## Key bindings
 
 These single keys are bound globally, always available regardless of
-focus: `Ctrl+C` (interrupt the turn, or quit on a second press within
-1.5s -- never reaches your shell, the terminal stays open either way;
-copies a text selection instead if one exists; 2.0.1 `quit_on_double_
-ctrl_c: false` in `~/.halo/config.json` turns the second-press quit off,
+focus: `Ctrl+C` (copies the selection, else the last assistant reply; never
+interrupts a turn -- `Esc` does; a second press within 3s opens a "Quit
+Halo? Enter quits, Esc stays" card, and the terminal stays open either way;
+`quit_on_double_ctrl_c: false` in `~/.halo/config.json` removes the card,
 leaving `/exit`/`Ctrl+D`/`Ctrl+Q` as the only ways to leave), `Ctrl+D`
 (quit when the prompt is empty, else forward-delete), `Ctrl+Q` (1.0.1:
 force quit -- exits even if the session is wedged; waits at most 2s for a
