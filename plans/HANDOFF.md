@@ -6,6 +6,8 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## WHERE THINGS STAND -- 2026-10-09 ~01:30 CDT (authoritative, read this first)
 
+**Update 2026-10-09 22:50 (the next session, resumed):** round 6 of the fix pass SHIPPED as `ebe2ce8` (the nine tests red on CI after rounds 1-5: five product bugs, four stale pins; CI should be green on both platforms). Rounds 7-10 are briefed under `plans/briefs/2.0.7-fixpass/` (7: MCP 43-47 + provider tail + P2 tail, IN FLIGHT from 22:50; 8: loop 49-53 + sub-agents 54-64; 9: TUI 67-75 + CLI 76-83; 10: telemetry 84-92 + final sweep), then the full battery and the 2.0.7.1 tag, then 2.0.8 themes and 2.0.9 Signal (the owner's order, 2026-10-09).
+
 **The vibes/review.md fix pass (the owner's own 92-finding whole-tree
 review of 2.0.7, at `<review file>` (the owner keeps it outside the repo)) is five
 rounds in, all pushed to master: `c858334` (R1 crash+providers), `2a05160`
