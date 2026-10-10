@@ -100,6 +100,11 @@ def format_providers_table(rows: "list[dict]", *, openai_spend_line: "str | None
     for r in rows:
         models = str(r["model_count"]) if r["model_count"] is not None else "-"
         lines.append(f"{r['label']:<26} {r['status']:<40} {r['reachable']:<42} {models:>6}")
+    # Halo 2.0.7 round 7b: the owner's consent gate for cc:/cx: -- shown
+    # once, right after the table, same wording `halo doctor` uses.
+    from halo_harness.subscription_consent import status_line as _subscription_status_line
+    lines.append("")
+    lines.append(_subscription_status_line())
     # H15 part 2 addendum 4: the same balance figure the status bar/`/cost`
     # show, with the key label and reading time -- appended once, after the
     # table, when a fetch has ever succeeded (OpenRouter only, this round).

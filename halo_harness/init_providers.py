@@ -287,7 +287,19 @@ def configured_providers() -> "list[str]":
     calls `ensure_providers_migrated`) is unaffected -- `is_enabled` fails
     open in that case, exactly like before this item existed."""
     from halo_harness.providers.enablement import is_enabled
-    return [p for p in PROVIDERS if provider_status(p) in ("configured", "logged in") and is_enabled(p)]
+    # Halo 2.0.7 round 7b: a configured+enabled claude/codex subscription
+    # still never joins the cross-provider default-model pick while the
+    # consent gate is off -- "cc:/cx: are not offered until accepted"
+    # applies here too, not just at the model-ref/picker layer.
+    from halo_harness.subscription_consent import is_accepted
+    out = []
+    for p in PROVIDERS:
+        if provider_status(p) not in ("configured", "logged in") or not is_enabled(p):
+            continue
+        if p in ("claude", "codex") and not is_accepted():
+            continue
+        out.append(p)
+    return out
 
 
 # ---------------------------------------------------------------------------

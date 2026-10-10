@@ -1278,6 +1278,32 @@ def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
     return "Usage: /providers [list|enable <name>|disable <name>|setup <name>]"
 
 
+def _cmd_subscriptions(args: str, facade: HeadlessFacade) -> str:
+    """Halo 2.0.7 round 7b: `/subscriptions` -- the consent gate for the
+    cc:/cx: subscription routes. Headless/bare prints the status line plus
+    the full notice and how to accept it (typing the exact acceptance
+    phrase needs a real interactive prompt -- `halo subscriptions accept`
+    or the TUI's own notice screen, see `tui/slash.py::_handle_
+    subscriptions`); `/subscriptions revoke` works right here, same as
+    `halo subscriptions revoke`."""
+    from halo_harness.subscription_consent import ACCEPT_PHRASE, notice_text, revoke, status_line
+    tokens = (args or "").split()
+    sub = tokens[0] if tokens else ""
+    if sub == "revoke":
+        revoke()
+        return "Revoked. cc:/cx: are off again until accepted."
+    if sub == "status" or not sub:
+        lines = [status_line()]
+        if sub != "status":
+            lines.append("")
+            lines.append(notice_text())
+            lines.append("")
+            lines.append(f'To accept: run `halo subscriptions accept` and type "{ACCEPT_PHRASE}" '
+                          "(the TUI opens the same notice as a dialog).")
+        return "\n".join(lines)
+    return "Usage: /subscriptions [status|revoke]"
+
+
 def _cmd_gov(args: str, facade: HeadlessFacade) -> str:
     """Halo 2.0.5 round 4: `/gov [host]` -- the Governor's gateway buckets,
     the SAME table `halo gov` prints (`gov_cli`'s own formatter is reused
@@ -1753,6 +1779,8 @@ _BUILTIN_SPECS = {
     "setup": ("core", "Open the roles/organizations guided setup screens", "[roles|orgs]", _cmd_setup),
     "providers": ("core", "Show/enable/disable providers (dbx:/or:/ant:/cc:)", "[list|enable|disable <name>]",
                   _cmd_providers),
+    "subscriptions": ("ui", "Review and accept/revoke the cc:/cx: subscription-routes notice",
+                       "[status|revoke]", _cmd_subscriptions),
     "balances": ("core", "Show the cached balance/credit figure for every provider that offers one",
                  "[refresh]", _cmd_balances),
     "gov": ("core", "Show the Governor's gateway rate buckets and recent calls", "[host]", _cmd_gov),

@@ -223,6 +223,20 @@ aren't in the table above, which predates them; see
 [docs/LOCAL-MODELS.md](LOCAL-MODELS.md) for the end-to-end guide and
 [docs/MODELS.md](MODELS.md) for the exhaustive per-route reference.
 
+### Accepting the subscription-routes notice (`cc:`/`cx:`, 2.0.7 round 7b)
+
+`cc:`/`cx:` are off by default -- a fresh install, and an upgraded one
+that never saw this round before, both start at "not accepted", with no
+migration ever flipping it on. Run `halo subscriptions accept` (or
+`/subscriptions` in the TUI, or just type `/model cc:opus`/`/model
+cx:astra` and accept when the notice opens) to review "Your subscription,
+a third-party harness" -- the facts, both providers' terms, and the
+account-responsibility sentence -- and type `I accept` exactly to turn the
+routes on, once per machine. `halo subscriptions status` prints the
+current state; `halo subscriptions revoke` (or `/subscriptions revoke`)
+turns them back off. See [MODELS.md](MODELS.md#subscription-routes-consent-halo-207-round-7b)
+for the full text and every surface this gate reaches.
+
 ### Claude models with your subscription (`cc:`)
 
 `cc:fable`, `cc:opus`, `cc:opus-5`, `cc:opus-5.0`, `cc:opus-4.8`,

@@ -3985,6 +3985,12 @@ def test_cc_route_permission_card_in_default_mode_runs_after_allow(ctx: Ctx):
         os.environ["BRIDGE_CLAUDE_EXE"] = '"' + sys.executable + '" "' + str(fake) + '"'
         os.environ["FAKE_CLAUDE_CC_LOGGED_IN"] = "1"
         os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)
+        # Halo 2.0.7 round 7b: this test is a real cc: TUI pilot (its own
+        # docstring above), not about the subscription-routes consent gate
+        # -- accept once for this fresh fake home so cc:fable keeps
+        # resolving exactly as it did before that gate existed.
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         controller = None
         try:
             from halo_harness.tui.bootstrap import build_controller
@@ -4062,6 +4068,11 @@ def test_terminal_title_reasserted_after_a_fake_claude_child_exits(ctx: Ctx):
         os.environ["BRIDGE_CLAUDE_EXE"] = '"' + sys.executable + '" "' + str(fake) + '"'
         os.environ["FAKE_CLAUDE_CC_LOGGED_IN"] = "1"
         os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)
+        # Halo 2.0.7 round 7b: same accept-once fix as the permission-card
+        # pilot above -- this test is about the terminal-title hook, not
+        # the consent gate.
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         controller = None
         titles_set: list = []
         orig_set_terminal_title = termtitle.set_terminal_title
@@ -5585,6 +5596,15 @@ def test_first_frame_renders_fast_despite_a_slow_claude_auth_check_then_cc_group
         os.environ.pop(k, None)  # a real gateway/test-seam env var here would mask the scenario under test
     cc_models_mod.claude_auth_status = _slow_claude_auth_status
     cc_models_mod.reset_cached_claude_auth_status()
+    # Halo 2.0.7 round 7b: this test is about the startup worker landing
+    # the auth-status cache without blocking the first frame, not the
+    # subscription-routes consent gate -- patched (not `record_
+    # acceptance()`) since this test has no scoped home of its own and
+    # must never leak an "accepted" config.json into whatever
+    # BRIDGE_TEST_HOME the rest of this process run shares.
+    import halo_harness.subscription_consent as subscription_consent_mod
+    real_is_accepted = subscription_consent_mod.is_accepted
+    subscription_consent_mod.is_accepted = lambda: True
 
     async def body():
         with tempfile.TemporaryDirectory() as tmp:
@@ -5615,6 +5635,7 @@ def test_first_frame_renders_fast_despite_a_slow_claude_auth_check_then_cc_group
     finally:
         cc_models_mod.claude_auth_status = real_claude_auth_status
         cc_models_mod.reset_cached_claude_auth_status()
+        subscription_consent_mod.is_accepted = real_is_accepted
         _restore_cc_auth_env(saved_env)
 
 

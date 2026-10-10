@@ -451,6 +451,18 @@ def resolve_role_table(template: dict, *, cwd=None, state_dir=None) -> "tuple[di
             notes.append(f"{key}: agent {agent_name!r} has no models.preference/fallback of its own -- "
                          f"left out of the role table (falls through to the session model)")
             continue
+        # Halo 2.0.7 round 7b: a lineup naming a cc:/cx: model while the
+        # subscription routes are off resolves to the default model
+        # instead, with one plain note -- never a hard failure at
+        # resolve time (this function's own contract: "never a crash,
+        # never a null placeholder", same as the "no model at all" case
+        # just above).
+        if isinstance(model_ref, str) and model_ref.startswith(("cc:", "cx:")):
+            from halo_harness.subscription_consent import is_accepted
+            if not is_accepted():
+                notes.append(f"{key}: {model_ref} is available after acceptance (run `halo subscriptions "
+                              f"accept`) -- left out of the role table (falls through to the default model)")
+                continue
         role_table[key] = {"model": model_ref, "effort": effort} if effort else model_ref
     return role_table, notes
 

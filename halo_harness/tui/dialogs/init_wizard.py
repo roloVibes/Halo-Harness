@@ -458,6 +458,13 @@ class ProvidersStep(StepScreen):
         if provider == "codex":
             yield Static("Uses your existing `codex` ChatGPT login as-is -- nothing is stored here; an "
                          "API-key login belongs on the OpenAI API (key) tab instead.", classes="tab-help")
+        if provider in ("claude", "codex"):
+            # Halo 2.0.7 round 7b: the owner's consent gate for cc:/cx: --
+            # shown here (one status line + one key to open the real
+            # notice) since a login alone no longer offers the route.
+            from halo_harness.subscription_consent import status_line
+            yield Static(status_line(), id=f"wiz-{provider}-subs-status", classes="tab-help")
+            yield Button("Review subscription notice", id=f"wiz-{provider}-subs-notice")
         if provider == "settings_sources":
             yield Static("What halo found in Claude Code's and Codex's own settings/instruction files, "
                          "merged into one view (`/settings`, `halo doctor`). Pick which one wins when they "
@@ -635,6 +642,22 @@ class ProvidersStep(StepScreen):
         bid = event.button.id or ""
         if bid.endswith("-save"):
             self._save(bid[len("wiz-"):-len("-save")])
+        elif bid.endswith("-subs-notice"):
+            self._open_subscription_notice(bid[len("wiz-"):-len("-subs-notice")])
+
+    def _open_subscription_notice(self, provider: str) -> None:
+        from halo_harness.tui.dialogs.subscription_notice import SubscriptionNoticeScreen
+
+        def _after(accepted: bool) -> None:
+            if accepted:
+                from halo_harness.subscription_consent import record_acceptance, status_line
+                record_acceptance()
+                try:
+                    self.query_one(f"#wiz-{provider}-subs-status", Static).update(status_line())
+                except Exception:
+                    pass
+
+        self.app.push_screen(SubscriptionNoticeScreen(), _after)
 
     def _collect_values(self, provider: str) -> dict:
         state = self._state_cache[provider]

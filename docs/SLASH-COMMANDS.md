@@ -391,6 +391,24 @@ of half-implementing it. See `docs/MODELS.md`'s "Provider enablement"
 section for the full prefix/label table and the exact per-provider
 detection rule.
 
+### `/subscriptions [status|revoke]`
+
+Halo 2.0.7 round 7b: the consent gate for the `cc:`/`cx:` subscription
+routes. These two routes are OFF until accepted -- a fresh install and an
+upgraded install both start at "not accepted", and nothing migrates this
+on. Bare `/subscriptions` opens the notice screen ("Your subscription, a
+third-party harness": the facts, both providers' terms by title and URL,
+the account-responsibility sentence, and the acceptance rule -- type `I
+accept` exactly and Enter; Escape or anything else leaves the routes
+off); `/subscriptions status` prints the one-line state ("subscription
+routes: off (not accepted)" / "... on (accepted <date>, v<version>)");
+`/subscriptions revoke` turns the routes back off right here, same as
+`halo subscriptions revoke`. Typing `/model cc:<name>`/`/model cx:<name>`
+(or picking one in the picker) while the routes are off opens the SAME
+notice instead of a plain error; accepting there applies that model
+immediately. See `docs/MODELS.md`'s "Subscription-routes consent" section
+and `halo subscriptions` in `docs/COMMANDS.md` for the CLI form.
+
 ### `/gov [host]`
 
 Halo 2.0.5 round 4: the Governor's gateway buckets -- one line per

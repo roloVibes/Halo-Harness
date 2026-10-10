@@ -323,6 +323,16 @@ def _check_codex_subscription() -> str:
     return f"{OK} Codex subscription: logged in (ChatGPT) -- cx: models available"
 
 
+def _check_subscription_consent() -> str:
+    """Halo 2.0.7 round 7b: the owner's consent gate -- "subscription
+    routes: off (not accepted)" or "... on (accepted <date>, v<version>)".
+    Never a WARN/fail on its own (an un-accepted machine is the normal,
+    off-by-default state, not a problem to fix) -- always OK, since "off"
+    is a correct, deliberate answer, not a misconfiguration."""
+    from halo_harness.subscription_consent import status_line
+    return f"{OK} {status_line()}"
+
+
 def _check_codex_settings() -> str:
     """Round 5i part 2: the merged Claude-Code/Codex/Halo settings view's
     own doctor line -- what was found in each place and which is primary,
@@ -1768,6 +1778,7 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("experiential", _check_experiential()))
     entries.append(("claude_subscription", _check_claude_subscription()))
     entries.append(("codex_subscription", _check_codex_subscription()))
+    entries.append(("subscription_consent", _check_subscription_consent()))
     entries.append(("codex_settings", _check_codex_settings()))
     entries.append(("chrome", _check_chrome()))
     entries.append(("playwright", _check_playwright()))

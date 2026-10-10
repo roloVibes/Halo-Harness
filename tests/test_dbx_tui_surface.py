@@ -228,6 +228,12 @@ def test_list_models_shows_cc_group_when_logged_in_via_claude_ai(ctx: Ctx):
     try:
         with _Env() as env:
             os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
+            # Halo 2.0.7 round 7b: a detected+auto-enabled login alone no
+            # longer shows the cc: group -- accept the subscription-
+            # routes consent gate too (this test is about the auto-
+            # enablement/detection path, not the consent gate itself).
+            from halo_harness.subscription_consent import record_acceptance
+            record_acceptance()
             ctrl = _controller(env.state_dir)
             models = ctrl.list_models()
             cc_rows = [m for m in models if m.get("provider") == "cc"]

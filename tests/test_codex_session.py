@@ -27,6 +27,13 @@ from tests.helpers.provider_env_defaults import ensure_default_provider_credenti
 
 os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="cx-session-scratchhome-")
 ensure_default_provider_credentials()
+# Halo 2.0.7 round 7b: this module is about cx: SESSION mechanics (its own
+# docstring above), not the subscription-routes consent gate -- pre-accept
+# once, for this module's one shared scratch home, so every pre-existing
+# real `cx:` test below keeps resolving exactly as it did before that gate
+# existed (see test_cc_session.py's own identical comment).
+from halo_harness.subscription_consent import record_acceptance as _accept_subscriptions_for_this_module
+_accept_subscriptions_for_this_module()
 # Deliberately NOT a blanket default here (mirrors test_cc_session.py's own
 # reasoning) -- the two tests that exercise "not logged in"/"binary
 # missing" need the REAL absence, not a default masking it.

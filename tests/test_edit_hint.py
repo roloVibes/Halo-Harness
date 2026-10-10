@@ -116,6 +116,11 @@ def test_headless_build_session_cc_and_ant_edit_has_no_line_and_wire_is_otherwis
     old_auth = os.environ.get("BRIDGE_TEST_CC_AUTH_STATUS")
     os.environ["BRIDGE_TEST_HOME"] = str(home)
     os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
+    # Halo 2.0.7 round 7b: this test is about the Edit-tool family hint
+    # (its own docstring above), not the subscription-routes consent gate
+    # -- accept once for this fresh home so cc:sonnet keeps resolving.
+    from halo_harness.subscription_consent import record_acceptance
+    record_acceptance()
     try:
         ds = headless.build_session(cwd=REPO_DIR, model_ref_raw="or:deepseek/deepseek-v4.1-flash",
                                      bare=True, print_mode=True)
@@ -211,6 +216,8 @@ def test_real_multiple_matches_error_not_reinforced_for_claude(ctx: Ctx):
     old_auth = os.environ.get("BRIDGE_TEST_CC_AUTH_STATUS")
     os.environ["BRIDGE_TEST_HOME"] = str(fh)
     os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
+    from halo_harness.subscription_consent import record_acceptance
+    record_acceptance()
     try:
         target = fh / "ambiguous.txt"
         target.write_text("line one\nmarker\nline two\nmarker\nline three\n", encoding="utf-8")

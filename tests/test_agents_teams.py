@@ -32,6 +32,17 @@ class _Env:
         self.state_dir = d / ".halo"
         self.cwd = d / "project"
         self.cwd.mkdir(parents=True, exist_ok=True)
+        # Halo 2.0.7 round 7b: every shipped agent bio in this tree
+        # (implementer/orchestrator/release-manager/reviewer/researcher/
+        # verifier/watchdog) prefers a cc: model -- this module is about
+        # agents/teams MECHANICS (its own docstring above), not the
+        # subscription-routes consent gate, which has its own dedicated
+        # tests/test_subscription_consent*.py files (including the
+        # gate's own "a lineup falls back to the default model with a
+        # note" behavior). Pre-accept once per fresh scratch home so
+        # every pre-existing resolution below keeps working unchanged.
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         return self
 
     def __exit__(self, *exc):

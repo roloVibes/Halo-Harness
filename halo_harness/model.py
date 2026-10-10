@@ -416,6 +416,12 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
         # own.
         from halo_harness.providers.codex_models import resolve_codex_alias
         bare = resolved[len(_CX_PREFIX):]
+        # Halo 2.0.7 round 7b: the subscription-consent gate runs BEFORE
+        # the ordinary enablement gate -- "cc:/cx: are not offered until
+        # accepted" is a precondition on the whole route, never just an
+        # enablement override (see subscription_consent.py).
+        from halo_harness.subscription_consent import refuse_if_not_accepted
+        refuse_if_not_accepted("cx")
         _refuse_if_disabled("codex_subscription")
         if not bare:
             raise InvalidModelError(f"no route: {raw!r} (cx: needs a model id, e.g. cx:astra)")
@@ -441,6 +447,9 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
     if resolved.startswith(_CC_PREFIX):
         from halo_harness.providers.cc_models import resolve_cc_alias
         bare = resolved[len(_CC_PREFIX):]
+        # Halo 2.0.7 round 7b: same consent gate as the cx: branch above.
+        from halo_harness.subscription_consent import refuse_if_not_accepted
+        refuse_if_not_accepted("cc")
         _refuse_if_disabled("claude_subscription")
         return ModelRef(raw=raw, provider="cc", model=resolve_cc_alias(bare), dialect="cc-subprocess")
     if resolved.startswith(_ANT_PREFIX):

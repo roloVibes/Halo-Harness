@@ -47,6 +47,13 @@ class _Env:
         os.environ["OPENROUTER_API_KEY"] = "sk-or-scratch"  # the "scratch or: session" the brief's test names
         self.home = d
         self.state_dir = d / ".halo"
+        # Halo 2.0.7 round 7b: this module is about creds-clearing/
+        # refusal mechanics around set_model (its own docstring above),
+        # not the subscription-routes consent gate -- pre-accept for this
+        # fresh scratch home so the existing cc:/cx: cases below keep
+        # resolving exactly as they did before that gate existed.
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         return self
 
     def __exit__(self, *exc):

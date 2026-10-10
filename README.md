@@ -28,6 +28,17 @@ on `halo --version`, and the launch intro types it out.
   <img alt="tests" src="https://img.shields.io/badge/tests-4100%2B%20hermetic-2e8b57">
 </p>
 
+> **Using your Claude Code or Codex subscription through Halo.** The
+> `cc:`/`cx:` routes drive the official `claude`/`codex` binaries under
+> your own personal subscription, through a third-party harness that is
+> not the provider's own product -- the provider's own terms govern your
+> account, and there have been public reports of account restrictions for
+> tools that use subscription tokens this way. Halo never reads either
+> tool's stored credentials, and these two routes are **off until you
+> accept** a one-time notice (`halo subscriptions accept`, or
+> `/subscriptions` in the TUI) -- see
+> [docs/MODELS.md](docs/MODELS.md#subscription-routes-consent-halo-207-round-7b).
+
 ## What it looks like
 
 Real renders of the TUI, produced by `scripts/screenshots.py` -- Textual

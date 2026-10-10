@@ -21,6 +21,16 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 # own comment on this same line for why it's set once, at import time.
 os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="cc-models-scratchhome-")
 
+# Halo 2.0.7 round 7b: this module is about alias RESOLUTION mechanics
+# (the subject of its own docstring above), not the subscription-routes
+# consent gate -- which has its own dedicated tests/test_subscription_
+# consent*.py files. Pre-accepting once, for this module's one shared
+# scratch home, keeps every pre-existing `parse_model_ref("cc:...")`/
+# `"ant:..."` call below resolving exactly as it did before that gate
+# existed (ant: was never gated at all; this only matters for cc:).
+from halo_harness.subscription_consent import record_acceptance as _accept_subscriptions_for_this_module
+_accept_subscriptions_for_this_module()
+
 test, TESTS = new_registry()
 
 
@@ -617,6 +627,11 @@ def test_list_models_cc_rows_carry_the_display_detail_and_the_part_c_group_label
         os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
         d = Path(tempfile.mkdtemp(prefix="cc-list-models-"))
         os.environ["BRIDGE_TEST_HOME"] = str(d)
+        # Halo 2.0.7 round 7b: this test's own temp home is NEW (not the
+        # module-level one this file's own top-of-module accept() wrote
+        # to) -- accept again, here, for this specific home.
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         enable("claude_subscription")
 
         class _FakeModelRef:
