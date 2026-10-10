@@ -1274,3 +1274,27 @@ vision=False — suspicious, census target) and dead model IDs.
 lands AFTER rounds 1-2 (filter-aware routing, preflight/canaries) —
 the concierge benefits from the census the canaries build. Template
 work joins the wizard deep-review round (they are the same surface).
+
+## ADDED 2026-10-09 ~23:10 (rolo): the subscription routes are off until the user accepts the terms risk (2.0.7 fix pass round 7b)
+
+rolo: "I did not know that using the claude subscription in another harness
+would result in a ban. If so we need to have a huge alert that tells people
+this might happen. If halo discovers subscription creds that might lead to a
+ban, that feature should be off by default and then a big alert and
+acceptance needs to happen before that even turns on."
+
+The facts (verified in the tree the same evening): Halo never reads the
+Claude Code OAuth token or Codex's credentials; `cc:` drives the official
+`claude` binary in its documented headless mode and `cx:` the official
+`codex` binary; both still use a personal subscription through a
+third-party harness, the provider's terms govern the account, and there
+have been public reports of account restrictions for tools that use
+subscription tokens outside the provider's own products. Decision: `cc:`
+and `cx:` are OFF by default (fresh and upgraded installs), every surface
+that would use one opens a notice with those facts and the providers'
+terms, acceptance is typed (`I accept`) and stored with date and version,
+`halo subscriptions status|accept|revoke`, `/subscriptions`, doctor and
+`/providers` show the state, README and MODELS.md carry the warning. A
+consent gate the owner chose for his users, never safety or refusal
+logic. Brief: `plans/briefs/2.0.7-fixpass/round-7b-subscription-consent.md`;
+runs right after round 7, before round 8.
