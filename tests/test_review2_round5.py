@@ -58,7 +58,14 @@ def test_f50b_bash_batch_whitelist(ctx: Ctx):
     ctx.check("env no longer batch-read-only", not ro("env"))
     ctx.check("env NAME=x cmd not batch-read-only", not ro("FOO=1 env"))
     ctx.check("find -delete not batch-read-only", not ro("find . -delete"))
-    ctx.check("find not in the batch at all", not ro("find . -name x"))
+    ctx.check("find -exec not batch-read-only", not ro("find . -exec rm {} +"))
+    # round-6-ci-red finding 4: finding 50's first cut dropped `find`
+    # ENTIRELY, not just its mutating/executing flags -- too broad (it
+    # also blocked the overwhelming majority of `find` calls that only
+    # ever print matches). Restored: read-only unless a mutating/
+    # executing flag (`-delete`/`-exec`/... , both checked above) is
+    # present.
+    ctx.check("plain find (no mutating/executing flag) IS batch-read-only", ro("find . -name x"))
     ctx.check("git branch <name> not batch-read-only", not ro("git branch newb"))
     ctx.check("git branch -d not batch-read-only", not ro("git branch -d x"))
     ctx.check("git tag -d not batch-read-only", not ro("git tag -d v1"))

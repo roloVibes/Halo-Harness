@@ -458,6 +458,17 @@ def resolve_role_ref(name: str, *, role_table: Optional[dict] = None, cli_overri
     # `/roles` crashed, and the confidence judge's resolve fell into its
     # exception path and always answered "confident". Both now mean "use
     # the parent's model", with the reason saying so.
+    #
+    # round-6-ci-red finding 7: finding 59's first cut gave BOTH that case
+    # and the pre-existing "nothing configured at all" case (no CLI
+    # override, no role-table entry -- `model` falsy because `raw` itself
+    # is `None`) the SAME "session model (inherit)" label, silently
+    # changing the long-pinned plain "session model" source for a role
+    # nobody ever set anything for. Only an explicit inherit-shaped VALUE
+    # (`raw` is not `None`, but resolves to no usable model string) means
+    # "inherit"; nothing configured at all keeps the original label.
+    if raw is None:
+        return parent_ref, parent_profile, None, "session model"
     if not model or str(model).strip().lower() in ("inherit", "parent", "-"):
         return parent_ref, parent_profile, None, "session model (inherit)"
     try:

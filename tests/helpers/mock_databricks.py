@@ -787,7 +787,23 @@ class _Handler(BaseHTTPRequestHandler):
         # list of blocks) is Anthropic-Messages-only -- the openai-chat
         # dialect always folds system into `messages[0]` instead, and
         # `system` is not on `DATABRICKS_BODY_ALLOWLIST`.
-        if self.path.startswith("/ai-gateway/anthropic/v1/messages") or (
+        #
+        # round-6-ci-red finding 8: vibes/review.md finding 36 (c858334)
+        # re-added `/serving-endpoints/anthropic/v1/messages` as
+        # `call_anthropic_native`'s SECOND candidate path (the literal,
+        # documented pay-per-token Anthropic Messages route) without
+        # teaching this mock about it -- that exact literal path matches
+        # NEITHER this `or`'s first arm (it isn't `/ai-gateway/...`) nor
+        # its second (it has no `/invocations` segment), so it fell into
+        # the openai-chat allowlist guard below and 400'd on the
+        # Anthropic-only `system` field instead of ever reaching the real
+        # scenario (here, a 404) -- `call_anthropic_native`'s own
+        # 404-advances-to-the-next-candidate loop then stopped on that
+        # spurious 400 one candidate early. This route is always the
+        # Anthropic dialect on the real workspace, so it is routed here
+        # unconditionally, the same as the ai-gateway path.
+        if (self.path.startswith("/ai-gateway/anthropic/v1/messages")
+                or self.path.startswith("/serving-endpoints/anthropic/v1/messages")) or (
                 "/invocations" in self.path and isinstance(body.get("system"), (list, str))):
             _dispatch_anthropic(self, body)
             return

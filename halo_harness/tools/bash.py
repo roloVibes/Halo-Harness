@@ -99,12 +99,23 @@ _BASH_READ_ONLY_BINARIES = frozenset({
     "strings", "nl", "od", "tac", "rev", "basename", "dirname", "realpath",
     "readlink", "seq", "true", "test", "[",
 })
-# vibes/review.md finding 50: `env` and `find` dropped, and `branch`/`tag`
-# restricted to their list forms. `env NAME=x cmd` RUNS cmd (and `env`
-# alone dumps every secret into the batch's shared results); `find
-# -delete`/`-exec`/`-fprint*` mutate or execute; `git branch <name>`
-# creates and `git tag -d` deletes -- none of them belong in a batch whose
+# vibes/review.md finding 50: `env` dropped (`env NAME=x cmd` RUNS cmd,
+# and `env` alone dumps every secret into the batch's shared results), and
+# `branch`/`tag` restricted to their list forms (`git branch <name>`
+# creates and `git tag -d` deletes) -- neither belongs in a batch whose
 # whole contract is "provably only reads" (and which caps them at 30s).
+#
+# round-6-ci-red finding 4: finding 50's first cut dropped `find`
+# ENTIRELY for the same reason (`-delete`/`-exec`/`-fprint*` mutate or
+# execute) -- too broad: it also blocked the overwhelming majority of
+# `find` invocations that only ever print matches. `find` is read-only
+# UNLESS one of its own mutating/executing flags appears anywhere in its
+# arguments (checked below, not in this whitelist, since it needs the
+# actual argv rather than a bare argv[0] membership test).
+_FIND_MUTATING_OR_EXECUTING_FLAGS = frozenset({
+    "-exec", "-execdir", "-ok", "-okdir", "-delete",
+    "-fprint", "-fprint0", "-fprintf", "-fls",
+})
 _BASH_GIT_READ_ONLY_SUBCOMMANDS = frozenset({
     "status", "log", "diff", "show", "remote", "stash list",
     "blame", "shortlog", "describe", "rev-parse", "ls-files", "ls-remote",
@@ -141,13 +152,24 @@ def bash_command_is_read_only(command) -> bool:
         argv0 = argv0[:-4]  # a Windows path's binary, same whitelist entry
     if argv0 in _BASH_READ_ONLY_BINARIES:
         return True
+    if argv0 == "find":
+        return not any(w in _FIND_MUTATING_OR_EXECUTING_FLAGS for w in words[1:])
     if argv0 == "git" and len(words) > 1:
         rest = " ".join(words[1:])
         for sub in _BASH_GIT_READ_ONLY_SUBCOMMANDS:
             if rest == sub or rest.startswith(sub + " "):
                 return True
-        # finding 50: branch/tag only in their LIST forms
-        if words[1] in ("branch", "tag"):
+        # finding 50: branch/tag only in their LIST forms. round-6-ci-red
+        # finding 4: the first cut only accepted bare `branch`/`-l`/
+        # `--list`, missing `branch -a`/`-r`/`--all`/`--remotes` (still
+        # only ever LIST, local+remote or remote-only -- never mutating,
+        # unlike `tag -a NAME` which CREATES an annotated tag, so that
+        # pair is branch-only, never extended to tag).
+        if words[1] == "branch":
+            tail = words[2:]
+            if not tail or tail[0] in ("-l", "--list", "-a", "--all", "-r", "--remotes"):
+                return True
+        elif words[1] == "tag":
             tail = words[2:]
             if not tail or tail[0] in ("-l", "--list"):
                 return True

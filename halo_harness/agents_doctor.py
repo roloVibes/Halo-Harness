@@ -199,7 +199,16 @@ def _catalog_model_ids(provider: str, *, state_dir=None) -> "set[str] | None":
             if host is None:
                 return None
             catalog = get_catalog(host)
-            return {m.get("name") or m.get("model") for m in (catalog or {}).get("models", [])}
+            ids = {m.get("name") or m.get("model") for m in (catalog or {}).get("models", [])}
+            # round-6-ci-red finding 6: an unreachable host (or one with no
+            # cached catalog yet) makes `get_catalog` return `{"models":
+            # []}`, same shape as a REAL empty catalog -- the SAME "never a
+            # false dead-id from a missing catalog" rule the `or:` branch
+            # above already applies must hold here too, or every `ol:`
+            # role in the lineup gets falsely flagged dead the moment the
+            # configured Ollama host cannot be reached right now (verified:
+            # `doctor --roles` on an all-local, otherwise-clean lineup).
+            return ids or None
     except Exception:
         return None
     return None

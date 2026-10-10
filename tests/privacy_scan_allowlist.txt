@@ -34,3 +34,23 @@ gpubox.local
 # source trips this repo's real scan) --
 sk-ant-ALLOWLISTEDFAKEVALUE1234567890AB
 sk-or-v1-REALLOOKINGKEYSHAPEDVALUE1234567890
+# -- round-6-ci-red finding 2: redaction-battery fixtures (tests/
+# test_h9b_findings.py's sanitize_text coverage, tests/
+# test_review2_round2.py's test_f16_redaction_battery, tests/
+# test_review2_round3.py's test_f17_release_token_off_argv and
+# test_f41_real_credential_expansion) -- every one is a synthetic
+# key-shaped string (sequential characters or a literal "test"/"redacted"
+# substring) deliberately fed to the redaction/expansion code under test,
+# never a real credential --
+xoxb-should-be-redacted-by-name
+xoxb-should-be-redacted
+xoxb-123456789-abcdef
+sk-ant-testtesttesttest
+ghp_abcdefghijklmnopqrstuvwx
+ghp_testtoken123456789abcdef
+ghp_realtoken123456789012345
+Bearer ghp_realtoken123456789012345
+AIzaSyA1234567890abcdefghijklmnopqrstu
+Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+# 2.0.7 fix pass round 6: the review round-2 URL-credential redaction fixture (fake password at a placeholder host, read as an email shape)
+s3cretpw@db.internal
