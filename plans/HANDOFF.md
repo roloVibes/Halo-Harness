@@ -4,7 +4,28 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-10 00:45 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-10 ~18:45 CDT (authoritative, read this first)
+
+Resumed on the Windows build host. Shipped and pushed today: `c1b6542`
+(pyflakes gate: round 7 used `Optional` in providers/http.py without the
+import; CI on 7b was red for that alone, Windows job green) and `e8a0d6a`
+round 7c (Ctrl+C copies; second press within 3 s opens the "Quit Halo?"
+card; `tui/console_mode.py` keeps the Windows console from killing the
+session -- verified LIVE in Windows Terminal on this host: single press ->
+toast, double -> card, Enter -> clean exit to the shell prompt). The
+owner's second clone under his home folder was behind origin and carried
+a duplicate of e521b24; it is now reset to origin/master (branch
+`backup-c9ea633` keeps the old tip).
+
+**IN FLIGHT: round 8** (`round-8-loop-subagents.md`, findings 49-53 +
+54-64), one worker. Then round 9 -> round 10 + final sweep -> full battery
+both platforms -> `scripts/release.py 2.0.7.1` -> 2.0.8 themes -> 2.0.9
+Signal, exactly as the 00:45 snapshot below orders it. Status crons
+(:00/:15/:30/:45, 4-10 AM every 30 min) are session-only; re-create.
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-10 00:45 CDT (previous)
 
 **Owner paused the session ("finish what you're doing, save a handoff").**
 
