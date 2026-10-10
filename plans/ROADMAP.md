@@ -1298,3 +1298,20 @@ terms, acceptance is typed (`I accept`) and stored with date and version,
 consent gate the owner chose for his users, never safety or refusal
 logic. Brief: `plans/briefs/2.0.7-fixpass/round-7b-subscription-consent.md`;
 runs right after round 7, before round 8.
+
+## ADDED 2026-10-09 ~23:45 (rolo): Ctrl+C copies; a second press asks before quitting; PowerShell never kills the session (2.0.7 fix pass round 7c)
+
+rolo: "When I press Ctrl+C once in a Halo session in PowerShell, it closes. I
+need Ctrl+C for copying. The first Ctrl+C should copy; if a user does that
+twice they probably want to quit, and a popup should show confirming they
+want to quit Halo."
+
+Halo already had a double-press design (first press interrupts or notifies,
+second within a window quits), so the single-press close is the Windows
+console delivering Ctrl+C as a control event before the key reaches the
+TUI. Round 7c: own the key on the Windows console for the TUI's lifetime;
+first Ctrl+C copies the selection or the last reply (never interrupts a
+turn; Esc does that); second press within 3 s opens a Quit Halo? card
+that never quits by itself; `quit_on_double_ctrl_c: false` makes the
+second press copy again. Brief: `plans/briefs/2.0.7-fixpass/round-7c-ctrl-c.md`;
+runs right after round 7b, before round 8.
