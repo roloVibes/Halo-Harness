@@ -345,14 +345,32 @@ def test_github_release_falls_back_to_curl_with_a_credential_token_when_gh_is_ab
     through `run_fn`, never a real `git credential fill`) supplies the
     token, and the POST goes out via `curl`, still only through
     `run_fn`. The real token value is never visible outside that one
-    injected seam -- in particular, never in the printed step list."""
+    injected seam -- in particular, never in the printed step list.
+
+    round-6-ci-red finding 5: vibes/review.md finding 17 moved the token
+    OFF argv (`-H "Authorization: token ..."` used to be readable by any
+    local user's `ps`/`/proc`) into a 0600 `-K` curl config file instead
+    -- argv now carries only `-K <path>`, never the header. This test's
+    old assertion (an `-H Authorization...` pair in argv) pinned the
+    PRE-finding-17 transport and went stale the moment finding 17 landed;
+    it now reads the config file's own content (the actual transport the
+    token rides in today) through the SAME injected `run_fn` seam, before
+    `publish_github_release`'s `finally` deletes it."""
     repo = _scratch_repo("9.9.9")
     calls: list = []
+    cfg_contents: list = []
+
+    def _run(cmd, **kwargs):
+        if cmd and cmd[0] == "curl" and "-K" in cmd:
+            cfg_path = cmd[cmd.index("-K") + 1]
+            cfg_contents.append(Path(cfg_path).read_text(encoding="utf-8"))
+        return _fake_run(calls)(cmd, **kwargs)
+
     import io
     import contextlib
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        rc = release.main(["9.9.9"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [],
+        rc = release.main(["9.9.9"], repo_dir=repo, run_fn=_run, pids_fn=lambda: [],
                            gh_path_fn=lambda: None, token_fn=lambda repo_dir, run_fn=None: "s3cr3t-token")
     ctx.check(f"exits 0, got {rc}", rc == 0)
     curl_calls = [c for c in calls if c and c[0] == "curl"]
@@ -360,10 +378,10 @@ def test_github_release_falls_back_to_curl_with_a_credential_token_when_gh_is_ab
     cmd = curl_calls[0]
     ctx.check(f"it POSTs to the releases endpoint, got {cmd}",
               "https://api.github.com/repos/roloVibes/Halo-Harness/releases" in cmd)
-    auth_header = next((cmd[i + 1] for i, v in enumerate(cmd) if v == "-H" and cmd[i + 1].startswith("Authorization")),
-                        None)
-    ctx.check(f"the token rides in the Authorization header, got {auth_header!r}",
-              auth_header == "Authorization: token s3cr3t-token")
+    ctx.check(f"the token never rides on argv any more, got {cmd}",
+              not any("s3cr3t-token" in part for part in cmd))
+    ctx.check(f"the token rides in the curl config file's own Authorization header, got {cfg_contents!r}",
+              len(cfg_contents) == 1 and cfg_contents[0].strip() == 'header = "Authorization: token s3cr3t-token"')
     ctx.check("the real token is never in the printed step list", "s3cr3t-token" not in buf.getvalue())
 
 

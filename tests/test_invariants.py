@@ -412,6 +412,12 @@ _PATH_HOME_ALLOWED_CALLERS = {
     "halo_harness/mcp_cli.py":
         "Claude Desktop's OWN config path on macOS (an external application's file, read-only) -- has "
         "its own BRIDGE_TEST_CLAUDE_DESKTOP_CONFIG override",
+    "halo_harness/permissions.py":
+        "_bash_live_cwd/_bash_is_edit_like_in_workdir resolve a literal `cd ~` the SAME way the real shell "
+        "would (vibes/review.md finding 7) -- this must be the real machine home regardless of "
+        "BRIDGE_TEST_HOME, since BRIDGE_TEST_HOME only relocates halo's OWN state, never what `~` expands "
+        "to for a command being classified; routing it through config.paths.home() would make the "
+        "permission check disagree with the shell it is modeling",
     "halo_harness/providers/codex_settings.py":
         "Codex CLI's OWN $CODEX_HOME default (an external tool's config, read-only) -- checks CODEX_HOME first",
     "halo_harness/providers/config.py":

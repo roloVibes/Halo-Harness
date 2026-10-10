@@ -7,7 +7,7 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 ## WHERE THINGS STAND -- 2026-10-09 ~01:30 CDT (authoritative, read this first)
 
 **The vibes/review.md fix pass (the owner's own 92-finding whole-tree
-review of 2.0.7, at `C:/Users/rolo/Documents/vibes/review.md`) is five
+review of 2.0.7, at `<review file>` (the owner keeps it outside the repo)) is five
 rounds in, all pushed to master: `c858334` (R1 crash+providers), `2a05160`
 (R5 credentials + R6 data loss + R7 MCP + R2 TUI crashes), `25a615a`
 (R8 deny-rule integrity), `f2aaad4` (R9/R10 slice + pyflakes CI gate).**

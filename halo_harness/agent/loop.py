@@ -32,7 +32,6 @@ import json
 import logging
 import os
 import queue
-import re
 import threading
 import time
 import uuid
@@ -380,27 +379,52 @@ def _strip_promoted_leak_text(text: str) -> str:
     return text[:earliest].rstrip()
 
 
-_B64_RUN_RE = None
+def _drop_inline_media_b64(obj):
+    """Recursively replace a recognized image content block's base64
+    payload (`{"type": "image", "source": {"type": "base64", "data": ...}}`
+    -- the shape agent/image_attach.py builds) with an empty string, so
+    `_rough_estimate` never counts a pasted screenshot's megabytes of
+    base64 -- the image's real token cost is its own fixed price (or
+    billed per-tile), never len/4; counting it produced false "approaching
+    the context limit" truncation warnings on every image-bearing
+    conversation (P2, vibes/review.md).
+
+    round-6-ci-red finding 1: the first cut of this (f2aaad4) used a blind
+    regex over the WHOLE serialized blob for any 120+-char run of
+    base64-alphabet characters -- that alphabet (`A-Za-z0-9+/=`) also
+    matches perfectly ordinary dense text (a long hash, URL, or any
+    unbroken run of plain characters with no spaces), silently
+    undercounting it and defeating the compaction trigger it feeds
+    (verified: `test_h5c_f03_ineffective_compaction_backs_off...` built a
+    huge ASCII tail precisely out of such characters and the backoff never
+    armed because the tail's own size vanished from the estimate). Walking
+    the actual message structure and stripping only real image blocks
+    fixes the false-truncation report without undercounting ordinary
+    text."""
+    if isinstance(obj, dict):
+        if (obj.get("type") == "image" and isinstance(obj.get("source"), dict)
+                and obj["source"].get("type") == "base64" and "data" in obj["source"]):
+            stripped = dict(obj)
+            stripped["source"] = dict(obj["source"])
+            stripped["source"]["data"] = ""
+            return stripped
+        return {k: _drop_inline_media_b64(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_drop_inline_media_b64(v) for v in obj]
+    return obj
 
 
 def _rough_estimate(system_text: str, messages: list) -> int:
     """len(json)/4, matching providers.config.estimate_tokens' own rule of
     thumb -- used only for the max_tokens budget headroom calculation.
-
-    P2 (vibes/review.md): base64 image data is EXCLUDED before dividing --
-    a pasted screenshot is megabytes of base64 but its TOKEN cost is the
-    image's own fixed price (or is billed per-tile), never len/4; counting
-    it produced false "approaching the context limit" truncation warnings
-    on every image-bearing conversation."""
-    global _B64_RUN_RE
+    Inline image base64 is excluded first via `_drop_inline_media_b64`."""
     try:
-        blob = json.dumps({"system": system_text, "messages": messages}, ensure_ascii=False)
+        blob = json.dumps(
+            {"system": system_text, "messages": _drop_inline_media_b64(messages)},
+            ensure_ascii=False,
+        )
     except (TypeError, ValueError):
         blob = str(messages)
-    if _B64_RUN_RE is None:
-        # a 120+ char run of base64 alphabet with no spaces = inline media
-        _B64_RUN_RE = re.compile(r"[A-Za-z0-9+/=]{120,}")
-    blob = _B64_RUN_RE.sub("", blob)
     return max(1, len(blob) // 4)
 
 
