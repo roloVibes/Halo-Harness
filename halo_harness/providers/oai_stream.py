@@ -604,8 +604,21 @@ def map_usage(u: dict) -> dict:
     cached = _int_or_none((u.get("prompt_tokens_details") or {}).get("cached_tokens")) or 0
     if cached:
         result["cache_read_input_tokens"] = cached
+    # P2 tail: `cache_write`/`cache_creation_input_tokens` is a THIRD
+    # subset of the same inclusive `prompt_tokens` total `cached_tokens`
+    # already is (every vendor's own docs: fresh-input + cache-read +
+    # cache-write == prompt_tokens) -- computed BEFORE `input_tokens`
+    # below so it can be excluded the same way `cached` already is. Left
+    # out of that subtraction before this fix, cache-write tokens were
+    # billed TWICE: once at the ordinary input rate (still counted inside
+    # `input_tokens`) and again at the cache-write rate (via their own
+    # `cache_creation_input_tokens` bucket, model.py's own CostMeter).
+    cache_write = _int_or_none(u.get("cache_write_tokens")) or _int_or_none(u.get("cache_creation_input_tokens")) or 0
+    if cache_write:
+        result["cache_creation_input_tokens"] = cache_write
     if "prompt_tokens" in u:
-        result["input_tokens"] = max(0, prompt_tokens - cached) if prompt_tokens is not None else u["prompt_tokens"]
+        result["input_tokens"] = (max(0, prompt_tokens - cached - cache_write) if prompt_tokens is not None
+                                   else u["prompt_tokens"])
 
     completion_tokens = _int_or_none(u.get("completion_tokens"))
     reasoning_tokens = _int_or_none((u.get("completion_tokens_details") or {}).get("reasoning_tokens")) or 0
@@ -615,9 +628,6 @@ def map_usage(u: dict) -> dict:
         result["output_tokens"] = (max(0, completion_tokens - reasoning_tokens) if completion_tokens is not None
                                     else u["completion_tokens"])
 
-    cache_write = u.get("cache_write_tokens") or u.get("cache_creation_input_tokens")
-    if cache_write is not None:
-        result["cache_creation_input_tokens"] = cache_write
     if u.get("cost") is not None:
         result["cost"] = u["cost"]
     return result

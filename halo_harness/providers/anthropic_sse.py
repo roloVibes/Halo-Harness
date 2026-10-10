@@ -61,6 +61,48 @@ class AnthropicSSEDecoder:
         return []
 
 
+def synthesize_events_from_message(message: dict) -> "list[dict]":
+    """finding 40: turns one COMPLETE (non-streamed) Anthropic Messages
+    response body into the same event sequence a real SSE stream would
+    have produced. A server that ignores `stream: true` in the request
+    and answers with a plain JSON 200 instead (`providers.stream.sse_
+    reader_thread` already detects this by content-type and hands the
+    parsed body back as a `("json", obj)` queue item -- the SAME shape
+    the openai-chat dialect's own non-streamed-JSON fallback already
+    consumes) used to leave `stream_anthropic_completion` with no branch
+    for it at all, so the turn silently ended with no text and no error.
+    Never raises -- a malformed `message` (missing `content`/`usage`)
+    degrades to the fields it does have; `message.get(...)` throughout."""
+    events: "list[dict]" = []
+    usage = message.get("usage") if isinstance(message.get("usage"), dict) else {}
+    msg_meta = {k: v for k, v in message.items() if k != "content"}
+    events.append({"type": "message_start", "message": {**msg_meta, "content": [], "usage": usage}})
+    content = message.get("content") if isinstance(message.get("content"), list) else []
+    for idx, block in enumerate(content):
+        if not isinstance(block, dict):
+            continue
+        btype = block.get("type")
+        if btype == "text":
+            start_block = {"type": "text", "text": ""}
+            delta = {"type": "text_delta", "text": block.get("text") or ""}
+        elif btype == "tool_use":
+            start_block = {"type": "tool_use", "id": block.get("id"), "name": block.get("name"), "input": {}}
+            delta = {"type": "input_json_delta", "partial_json": json.dumps(block.get("input") or {})}
+        else:
+            start_block = dict(block)
+            delta = None
+        events.append({"type": "content_block_start", "index": idx, "content_block": start_block})
+        if delta is not None:
+            events.append({"type": "content_block_delta", "index": idx, "delta": delta})
+        events.append({"type": "content_block_stop", "index": idx})
+    events.append({"type": "message_delta",
+                   "delta": {"stop_reason": message.get("stop_reason"),
+                             "stop_sequence": message.get("stop_sequence")},
+                   "usage": usage})
+    events.append({"type": "message_stop"})
+    return events
+
+
 def build_anthropic_body(body: dict, route: Route, profile: dict | None = None) -> dict:
     """Rewrite an Anthropic Messages request body for a native (non-OpenAI-
     dialect) upstream. This is the minimal, provider-agnostic version of

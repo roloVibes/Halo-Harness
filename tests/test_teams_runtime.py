@@ -381,6 +381,10 @@ class _EscSession:
         self.interactive = interactive
         self.model_label = "or:mock/team-worker"
         self.model_ref = None
+        self.model_profile = None
+        self.creds = None
+        self.effort = "high"
+        self.effort_source = "default"
         self._escalation_decisions = []
         self._approval_waiters = {}
         self.settings = None
@@ -396,6 +400,19 @@ class _EscSession:
 
     def _await_reply(self, waiters, request_id):
         return self._reply
+
+    def set_model(self, model_ref, model_profile, creds=None) -> None:
+        """finding 33: `_maybe_team_escalate` now switches through the
+        real `/model`-equivalent `Session.set_model` instead of a raw
+        `model_ref`/`model_profile`/`creds` field assignment -- this stub
+        mirrors just the observable effects this test actually asserts on
+        (`model_label`), the same minimal surface `_EscSession` already
+        limits itself to everywhere else."""
+        self.model_ref = model_ref
+        self.model_profile = model_profile
+        if creds is not None:
+            self.creds = creds
+        self.model_label = model_ref.raw
 
 
 def _text(text: str):

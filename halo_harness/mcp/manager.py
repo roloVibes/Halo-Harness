@@ -996,10 +996,20 @@ class McpServerHandle:
         except Exception as e:
             if not self._looks_like_auth_failure(e):
                 raise
+            import asyncio
             from halo_harness.mcp import oauth
             stored = oauth.load_tokens(self.config.name) or {}
-            new_tokens, err = oauth.refresh_tokens(
-                self.config.name, stored, oauth_cfg=(self.config.oauth or {}), server_url=self.config.url or "")
+            # finding 45: `oauth.refresh_tokens` is a plain blocking
+            # function (two sequential synchronous HTTP round trips at a
+            # 15s timeout each, plus `discover_endpoints`'s own 10s one --
+            # up to ~25s worst case) -- called inline it used to block
+            # THIS coroutine's own event loop (the ONE shared `McpLoop`
+            # every other server's connect/call also runs on), the same
+            # must-do `_resolved_headers`'s own `headersHelper` call just
+            # above already applies to its own blocking `subprocess.run`.
+            new_tokens, err = await asyncio.to_thread(
+                oauth.refresh_tokens, self.config.name, stored,
+                oauth_cfg=(self.config.oauth or {}), server_url=self.config.url or "")
             if err or not new_tokens:
                 raise RuntimeError(f"{e} -- run `halo mcp login {self.config.name}`") from e
             refreshed = dict(headers)
@@ -1008,6 +1018,37 @@ class McpServerHandle:
                 return await connect_fn(url=self.config.url, headers=refreshed, connect_timeout=connect_timeout)
             except Exception as e2:
                 raise RuntimeError(f"{e2} -- run `halo mcp login {self.config.name}`") from e2
+
+    def _with_initialize(self, raw_connect_fn):
+        """finding 43: wraps a plain `(url, headers, connect_timeout) ->
+        (stack, session)` connector (`http_sse.connect_http`/`connect_sse`)
+        so that OAuth refresh (`_connect_with_oauth_retry` above) and the
+        Streamable-HTTP -> SSE fallback (`_open_transport`'s own except
+        branch below) ALSO cover a 401/405 that only actually arrives once
+        `initialize()` runs, not only one from the bare connect step --
+        verified against the real wire behaviour: a server that accepts
+        the HTTP/SSE handshake but rejects the first real MCP request
+        (`initialize`) used to get neither a token refresh nor an SSE
+        retry, because `_connect_once`'s own `_do()` called `initialize()`
+        AFTER `_open_transport` had already returned successfully, with no
+        retry logic of its own at that point -- the handle just went
+        straight to needs_auth/failed. On an `initialize()` failure the
+        transport this just opened is closed before re-raising, same as
+        `connect_http`/`connect_sse` themselves already do for a failure
+        during their OWN opening step -- this always runs in the SAME task
+        that opened it, so there is no cross-task cancel-scope hazard."""
+        async def _connect(*, url, headers, connect_timeout):
+            stack, session = await raw_connect_fn(url=url, headers=headers, connect_timeout=connect_timeout)
+            try:
+                init_result = await session.initialize()
+            except BaseException:
+                try:
+                    await stack.aclose()
+                except Exception:
+                    pass
+                raise
+            return stack, session, init_result
+        return _connect
 
     async def _open_transport(self, connect_timeout: float):
         from halo_harness.mcp import http_sse as http_sse_mod
@@ -1023,23 +1064,31 @@ class McpServerHandle:
         if self.config.type == "http":
             headers = await self._resolved_headers()
             try:
+                # finding 43: the retried connect_fn is now `_with_
+                # initialize(connect_http)`, not bare `connect_http` --
+                # see that wrapper's own docstring for why `initialize()`
+                # has to ride inside the SAME OAuth-retry/SSE-fallback
+                # this except block already provides for the connect step.
                 return await self._connect_with_oauth_retry(
-                    http_sse_mod.connect_http, headers=headers, connect_timeout=connect_timeout)
+                    self._with_initialize(http_sse_mod.connect_http),
+                    headers=headers, connect_timeout=connect_timeout)
             except Exception as http_exc:
                 # OpenCode-H9 MCP-compatibility item: "Streamable HTTP ->
                 # SSE fallback" -- a server declared `type: "http"`
                 # (Streamable HTTP, the current spec) that only actually
                 # speaks the OLDER `sse` transport rejects the Streamable
                 # HTTP handshake outright (typically a 4xx/405 on the very
-                # first POST); retry the SAME url over the deprecated `sse`
-                # transport before giving up, same as every other MCP
-                # client's own documented fallback. Costs nothing when the
-                # server DOES speak Streamable HTTP -- this branch is only
-                # ever reached after that already failed.
+                # first POST, or -- finding 43 -- on the first real request
+                # after a handshake it DID accept, i.e. `initialize()`);
+                # retry the SAME url over the deprecated `sse` transport
+                # before giving up, same as every other MCP client's own
+                # documented fallback. Costs nothing when the server DOES
+                # speak Streamable HTTP -- this branch is only ever reached
+                # after that already failed.
                 log.debug("mcp %s: streamable-http connect failed (%s), retrying as sse",
                           self.config.name, http_exc)
                 try:
-                    return await http_sse_mod.connect_sse(
+                    return await self._with_initialize(http_sse_mod.connect_sse)(
                         url=self.config.url, headers=headers, connect_timeout=connect_timeout)
                 except Exception:
                     # ruff B904: `from None` is deliberate -- http_exc is the
@@ -1052,7 +1101,8 @@ class McpServerHandle:
             log.debug("mcp %s: 'sse' transport is deprecated (use 'http')", self.config.name)
             headers = await self._resolved_headers()
             return await self._connect_with_oauth_retry(
-                http_sse_mod.connect_sse, headers=headers, connect_timeout=connect_timeout)
+                self._with_initialize(http_sse_mod.connect_sse),
+                headers=headers, connect_timeout=connect_timeout)
         if self.config.type in ("ws", "websocket"):
             # only ever reached when parse_server already found a real
             # mcp.client.websocket (websocket_client_available()) -- a
@@ -1125,7 +1175,15 @@ class McpServerHandle:
         self._connect_cleanup_future = None
 
         async def _do():
-            stack, session = await self._open_transport(connect_timeout)
+            opened = await self._open_transport(connect_timeout)
+            # finding 43: an http/sse transport's own connect_fn is now
+            # `_with_initialize(...)` (see its docstring), so it already
+            # ran `initialize()` -- under the SAME OAuth-retry/SSE-fallback
+            # as the connect step -- and returns the 3-tuple directly.
+            # stdio/websocket (2-tuple, no change) still initialize here.
+            if len(opened) == 3:
+                return opened
+            stack, session = opened
             try:
                 init_result = await session.initialize()
             except BaseException:
@@ -1217,7 +1275,8 @@ class McpServerHandle:
         waiting is used in this codebase) is cut short as soon as it
         fires, via `wait_future_abortable` -- lets a `/mcp` reconnect
         started from the TUI honour Esc instead of freezing the whole app
-        for up to MCP_TIMEOUT+4s."""
+        for up to MCP_TIMEOUT*2+4s (finding 44: see this wait's own
+        timeout comment just below for why it is not MCP_TIMEOUT+4s)."""
         if self.state in ("disabled", "pending_approval"):
             return
         from halo_harness.mcp import http_sse as http_sse_mod
@@ -1226,7 +1285,18 @@ class McpServerHandle:
         self._lifecycle_future = self._loop.spawn(self._lifecycle_task(connect_future))
         self._lifecycle_future.add_done_callback(self._on_lifecycle_done)
         try:
-            self._loop.wait_future_abortable(connect_future, timeout=mcp_timeout_s() + 4, abort=abort)
+            # finding 44: `connect_future` only resolves once `_connect_
+            # once()` returns, which bounds connect+initialize by ONE
+            # `task_timeout(overall_timeout)` and THEN list_tools by a
+            # SECOND, separate one -- up to `2 * mcp_timeout_s()` of real
+            # wall-clock time in the worst case, not `mcp_timeout_s()`
+            # once. A `+4` budget here used to mark the handle "failed"
+            # while `_connect_once` was still genuinely running (verified:
+            # the detached lifecycle task then went on to connect
+            # successfully, orphaned -- this handle never learned about
+            # it). Budgeted for both inner timeouts plus the same `+4`
+            # connect-phase grace as before.
+            self._loop.wait_future_abortable(connect_future, timeout=mcp_timeout_s() * 2 + 4, abort=abort)
         except Exception as e:
             self.state = "needs_auth" if http_sse_mod.looks_like_auth_required(e) else "failed"
             self.error = f"{type(e).__name__}: {e}"
@@ -1660,9 +1730,16 @@ class McpManager:
             await asyncio.gather(*(_start_one(h) for h in targets), return_exceptions=True)
 
         overall = mcp_timeout_s()
+        # finding 44: same budget fix as `McpServerHandle.start()`'s own
+        # `wait_future_abortable` call -- each `_start_one` runs a full
+        # `_connect_once()` (connect+initialize bounded by ONE
+        # `task_timeout(overall)`, list_tools by a SECOND, separate one),
+        # so the outer bound here must cover `overall * 2`, not `overall`
+        # once, or this can mark a target "failed" while it is still
+        # genuinely connecting.
         try:
             if abort is None:
-                self.loop.run(_start_all_coro(), timeout=overall + 3)
+                self.loop.run(_start_all_coro(), timeout=overall * 2 + 3)
             else:
                 # abortable variant: spawn (don't block-run) the gather
                 # coroutine, then WAIT on it the same interruptible way
@@ -1671,7 +1748,7 @@ class McpManager:
                 # everywhere else in this module (see wait_future_abortable's
                 # own docstring).
                 fut = self.loop.spawn(_start_all_coro())
-                self.loop.wait_future_abortable(fut, timeout=overall + 3, abort=abort)
+                self.loop.wait_future_abortable(fut, timeout=overall * 2 + 3, abort=abort)
         except Exception as e:
             # the OUTER bound itself lapsed/was aborted (belt-and-suspenders
             # past each target's own inner wait_for) -- anything still

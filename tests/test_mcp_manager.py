@@ -709,13 +709,22 @@ def test_http_transport_falls_back_to_sse_on_connect_failure(ctx: Ctx):
 
     calls = {"http": 0, "sse": 0}
 
+    class _FakeSession:
+        # finding 43: `_open_transport`'s http/sse branches now run
+        # `initialize()` INSIDE the retried/fallback connect_fn (see
+        # `McpServerHandle._with_initialize`), so a fake session stood in
+        # for a real `mcp.ClientSession` needs a real (awaitable)
+        # `initialize()` too.
+        async def initialize(self):
+            return "FAKE_INIT_RESULT"
+
     async def _fake_connect_http(*, url, headers, connect_timeout):
         calls["http"] += 1
         raise RuntimeError("405 Method Not Allowed (streamable-http not supported)")
 
     async def _fake_connect_sse(*, url, headers, connect_timeout):
         calls["sse"] += 1
-        return "FAKE_STACK", "FAKE_SESSION"
+        return "FAKE_STACK", _FakeSession()
 
     orig_http, orig_sse = http_sse.connect_http, http_sse.connect_sse
     http_sse.connect_http = _fake_connect_http
@@ -723,11 +732,14 @@ def test_http_transport_falls_back_to_sse_on_connect_failure(ctx: Ctx):
     try:
         cfg = M.McpServerConfig(name="fallback-test", type="http", url="https://example.com/mcp")
         handle = M.McpServerHandle(cfg, loop=None, tool_env={}, cwd=Path("."))
-        stack, session = asyncio.run(handle._open_transport(connect_timeout=1.0))
+        stack, session, init_result = asyncio.run(handle._open_transport(connect_timeout=1.0))
         ctx.check("streamable-http was tried first", calls["http"] == 1)
         ctx.check("sse fallback was used", calls["sse"] == 1)
-        ctx.check(f"the sse connection's own result is returned, got {(stack, session)}",
-                  (stack, session) == ("FAKE_STACK", "FAKE_SESSION"))
+        ctx.check(f"the sse connection's own stack is returned, got {stack!r}", stack == "FAKE_STACK")
+        ctx.check(f"the sse connection's own (already-initialized) session is returned, got {session!r}",
+                  isinstance(session, _FakeSession))
+        ctx.check(f"initialize() ran as part of the fallback, got {init_result!r}",
+                  init_result == "FAKE_INIT_RESULT")
     finally:
         http_sse.connect_http, http_sse.connect_sse = orig_http, orig_sse
 

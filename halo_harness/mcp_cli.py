@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from halo_harness.config.paths import claude_json_path, normalize_cwd
+from halo_harness.config.paths import claude_json_path, normalize_cwd, project_key_candidates
 from halo_harness.not_yet import print_not_yet
 
 # Halo 2.0.1 W4b: every subcommand real `claude mcp` has is now implemented
@@ -245,17 +245,34 @@ def set_server_disabled_in_config(name: str, *, cwd: Path, disabled: bool) -> st
     AFTER every tier resolves, so it hides a server of ANY scope (local/
     user/project/managed/plugin) for just this directory without ever
     touching its own definition. Returns where it was written, for the
-    confirmation message."""
+    confirmation message.
+
+    P2 tail: `lookup_project` (the READ side `resolve_server_configs`
+    actually uses) merges every `projects[key]` record whose key matches
+    `project_key_candidates(cwd)` -- Claude Code itself may have written
+    this project's record under EITHER key form (forward- or backslash-
+    separated). Writing only the normalized form left the OTHER form's
+    own `disabledMcpServers` list stale: adding a name still worked (the
+    merge unions both lists), but a RE-ENABLE (discard) looked like a
+    no-op whenever the other form still listed the name too. Every
+    EXISTING matching key is now updated; a project with no record under
+    either form yet still creates the normalized one, as before."""
     data, indent, trailing_newline, bom = _read_claude_json_raw()
-    data.setdefault("projects", {})
+    projects = data.setdefault("projects", {})
     key = normalize_cwd(cwd)
-    proj = data["projects"].setdefault(key, {})
-    current = set(proj.get("disabledMcpServers") or [])
-    if disabled:
-        current.add(name)
-    else:
-        current.discard(name)
-    proj["disabledMcpServers"] = sorted(current)
+    candidates = set(project_key_candidates(cwd))
+    touched = [k for k, v in projects.items() if isinstance(v, dict) and normalize_cwd(k) in candidates]
+    if not touched:
+        projects.setdefault(key, {})
+        touched = [key]
+    for k in touched:
+        proj = projects[k]
+        current = set(proj.get("disabledMcpServers") or [])
+        if disabled:
+            current.add(name)
+        else:
+            current.discard(name)
+        proj["disabledMcpServers"] = sorted(current)
     _write_claude_json_raw(data, indent, trailing_newline=trailing_newline, bom=bom)
     return f"{claude_json_path()} (projects[{key}].disabledMcpServers)"
 

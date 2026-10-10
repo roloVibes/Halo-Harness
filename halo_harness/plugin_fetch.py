@@ -36,7 +36,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -76,9 +79,21 @@ def clone_plugin_url(url: str, state_dir: Path, *, timeout: float = 60.0) -> Opt
     plugin's own version is pinned to whatever was there on first use,
     same spirit as this harness's other caches). Returns `None` (never
     raises) when `git` is missing or the clone fails -- the caller's own
-    notice is what the user actually sees; this stays silent about why."""
+    notice is what the user actually sees; this stays silent about why.
+
+    finding 47: cloned into a fresh temp directory FIRST, `os.replace`d
+    into `dest` only once `git clone` actually finished and `dest/.git`
+    is confirmed -- a clone that TIMED OUT (or was killed/crashed)
+    partway used to leave a half-written `dest` behind, and the cache-hit
+    check above (`.git` is a directory the instant `git` creates it,
+    long before the clone finishes) then treated that half-clone as a
+    permanently valid cache hit on every later call, with no way to ever
+    retry. The `--` separator also means a url shaped like an option
+    (e.g. `--upload-pack=...`) is read as a positional argument, never as
+    a flag `git clone` would otherwise honour."""
     digest = hashlib.sha1(url.encode("utf-8", "replace")).hexdigest()[:16]
-    dest = _clone_cache_dir(state_dir) / digest
+    cache_dir = _clone_cache_dir(state_dir)
+    dest = cache_dir / digest
     if (dest / ".git").is_dir():
         return dest
     # Halo 2.0.3 fix pass C-1 (review finding 3): checked AFTER the
@@ -92,14 +107,23 @@ def clone_plugin_url(url: str, state_dir: Path, *, timeout: float = 60.0) -> Opt
     if offline_mode_enabled():
         log.debug("plugin_fetch: offline mode is on -- skipping git clone of a --plugin-url")
         return None
+    tmp_dest = Path(tempfile.mkdtemp(prefix=f"{digest}.", dir=str(cache_dir)))
     try:
         result = subprocess.run(
-            ["git", "clone", "--depth", "1", url, str(dest)],
+            ["git", "clone", "--depth", "1", "--", url, str(tmp_dest)],
             capture_output=True, text=True, timeout=timeout,
         )
     except (OSError, subprocess.SubprocessError):
+        result = None
+    if result is None or result.returncode != 0 or not (tmp_dest / ".git").is_dir():
+        shutil.rmtree(tmp_dest, ignore_errors=True)
         return None
-    if result.returncode != 0 or not dest.is_dir():
+    try:
+        if dest.exists():
+            shutil.rmtree(dest, ignore_errors=True)
+        os.replace(tmp_dest, dest)
+    except OSError:
+        shutil.rmtree(tmp_dest, ignore_errors=True)
         return None
     return dest
 
