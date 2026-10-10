@@ -236,7 +236,7 @@ directly by the features that own them:
 | `connectors.<slug>.alwaysLoad` | `false` | hand-edited; preloads that connector's tool instead of leaving it to ToolSearch |
 | `connectors.<slug>.max_turns` | `4` | hand-edited; forwarded as the bridge's own `claude -p --max-turns` |
 | `connectors.discover_on_start` | `false` | `halo config set connectors.discover_on_start true`; print mode (`-p`) normally never blocks a run on a cold-cache connector discovery -- this opts every run in (the TUI always discovers in the background regardless; `--tools` naming a `connector__<slug>` tool, or a `ToolSearch` call mentioning "connector", also triggers it for just that run) |
-| `quit_on_double_ctrl_c` | `true` | `halo config set quit_on_double_ctrl_c false` turns off the second-Ctrl+C quit (only `/exit`/`Ctrl+D`/`Ctrl+Q` leave) |
+| `quit_on_double_ctrl_c` | `true` | `halo config set quit_on_double_ctrl_c false` turns off the "Quit Halo?" card the second Ctrl+C (within 3 s) opens -- every Ctrl+C press then just copies (`/exit`/`Ctrl+D`/`Ctrl+Q` still leave) |
 | `clipboard.crlf` | `false` | hand-edited; `true` makes a copy use `\r\n` line endings instead of `\n` |
 | `worktree.remove_on_exit` | `false` | `halo config set worktree.remove_on_exit true`; a `-w/--worktree` session removes its OWN worktree (fires `WorktreeRemoved`) when it ends instead of leaving it on disk |
 | `update.check` | `true` | `halo config set update.check false` turns off `halo update`/`/update`'s own check entirely (never shells out, never touches the network) |

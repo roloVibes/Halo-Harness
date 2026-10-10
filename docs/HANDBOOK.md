@@ -498,6 +498,20 @@ Print mode gets the same thing via `--input-format stream-json` lines
 arriving mid-turn. The transcript shows "steering..." while one is in
 flight.
 
+## Keys: Ctrl+C copies, a second press asks before quitting
+
+`Ctrl+C` is the copy key. One press copies the current selection (the chat
+box, any text field, or a transcript drag), or, with nothing selected, your
+last assistant reply, and says "Copied N characters" (or "Nothing to
+copy"). It never interrupts a running turn -- `Esc` does that. Press it a
+second time within 3 seconds and a card asks "Quit Halo? Enter quits, Esc
+stays"; nothing closes until you press `Enter`. `halo config set
+quit_on_double_ctrl_c false` removes the card (every press just copies).
+`Ctrl+D` on an empty prompt, `Ctrl+Q` and `/exit` quit as before. On
+Windows, Halo keeps the console from turning `Ctrl+C` into a process-ending
+event for as long as the TUI runs, so a single press can no longer close
+the session from PowerShell or Windows Terminal.
+
 ## Hooks, skills, commands, MCP, browser
 
 **Hooks**: the events this harness actually fires are `SessionStart`/

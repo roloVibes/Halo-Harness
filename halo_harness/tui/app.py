@@ -283,6 +283,9 @@ class BridgeApp(App):
         self._pending_markers: "dict" = {}
         self._borrowing_card = None
         self._ctrl_c_deadline: Optional[float] = None
+        # 2.0.7 round 7c: set by `tui/launch.py` on Windows consoles (a
+        # `console_mode.Guard`); None everywhere else, including tests.
+        self.console_guard = None
         self._quitting = False
         # 1.0.1 fixpass finding 5: Ctrl+Q's OWN flag, never shared with
         # `_quitting` -- see action_force_quit's own docstring.
@@ -536,6 +539,10 @@ class BridgeApp(App):
         # `self._tick_spinner` on every tick instead.
         self.set_interval(1.0, lambda: self._tick_spinner())
         self.set_interval(5.0, self._refresh_cwd_branch)
+        if self.console_guard is not None and getattr(self.console_guard, "active", False):
+            # Something sharing the console may switch ENABLE_PROCESSED_INPUT
+            # back on mid-session; two cheap kernel32 calls put it right.
+            self.set_interval(0.5, self.console_guard.reassert)
         self._start_watchdog()
         # 2.0.6 round 10: MCP connects OFF the startup path. build_session
         # built the manager deferred (catalogs seeded from cache, zero
@@ -2361,58 +2368,57 @@ class BridgeApp(App):
             self.notify("Nothing to copy yet.", severity="warning", title="Y")
 
     def action_interrupt_or_quit(self) -> None:
-        # W2c item 2: a selection made INSIDE the prompt TextArea (mouse
-        # drag or Shift+arrows) is `prompt_input.selected_text` -- a
-        # COMPLETELY different mechanism from the transcript/screen-level
-        # drag-select just below, so Ctrl+C in the chat box used to fall
-        # straight through to the double-press-quit arming below instead of
-        # copying. Checked FIRST, and only while the prompt genuinely has
-        # focus (a stale selection left over from before focus moved
-        # elsewhere must never be copied). Wording kept EXACTLY as W2c left
-        # it (pinned by test_ctrl_c_with_input_selection_copies_and_does_
-        # not_arm_quit) -- only the mechanism it copies THROUGH changed
-        # (`copy_to_clipboard` above is now OSC-52-trust-gated).
-        if self.screen.focused is self.prompt_input and self.prompt_input.selected_text:
-            selected = self.prompt_input.selected_text
-            self.copy_to_clipboard(selected)
-            self.notify(f"Copied {len(selected)} characters", timeout=2)
+        """2.0.7 round 7c (rolo: "I need Ctrl+C for copying"). The FIRST
+        Ctrl+C copies -- a selection (the chat box, any focused Input or
+        TextArea, or the transcript's own drag range) if one exists, else
+        the last assistant reply -- and never interrupts a running turn
+        (Esc keeps that job). A SECOND press within `DOUBLE_CTRL_C_WINDOW_S`
+        opens the "Quit Halo?" card; only Enter on that card quits. With
+        `quit_on_double_ctrl_c: false` every press just copies. A copy of
+        an explicit SELECTION never arms the window (copying the same
+        selection twice is not a request to quit)."""
+        from halo_harness.tui.dialogs.quit_confirm import QuitConfirmScreen
+        if isinstance(self.screen, QuitConfirmScreen):
+            return  # the card owns Enter/Esc; a further Ctrl+C changes nothing
+        focused = self.screen.focused
+        picked = getattr(focused, "selected_text", None) if focused is not None else None
+        if picked and isinstance(picked, str):
+            self.copy_to_clipboard(picked, confirm=True)
+            self.notify(f"Copied {len(picked)} characters", timeout=2)
             return
-        # W4c item 1: review finding 16's original fix here (priority
-        # Ctrl+C shadowing Textual's own screen-level copy) still applies,
-        # but the EXTRACTION is now `_selected_transcript_text` (each
-        # touched widget's own stored source, see its docstring) rather
-        # than `Screen.get_selected_text()`'s cell-by-cell walk.
         selected = self._selected_transcript_text()
         if selected:
-            self.copy_to_clipboard(selected)
+            self.copy_to_clipboard(selected, confirm=True)
             self.notify(f"Copied selection ({len(selected)} characters)", timeout=2)
             return
         from halo_harness.theme import get_config_value
-        # W4c item 4: "quit_on_double_ctrl_c (default true) turns the
-        # double-press exit off" -- `_ctrl_c_deadline` is simply never armed
-        # when it's false, so the `now < deadline` branch below can never
-        # fire from Ctrl+C again; only /exit, Ctrl+D and Ctrl+Q still quit.
         quit_on_double = bool(get_config_value("quit_on_double_ctrl_c", True))
         now = time.monotonic()
         if quit_on_double and self._ctrl_c_deadline is not None and now < self._ctrl_c_deadline:
-            self._begin_quit()
+            self._ctrl_c_deadline = None
+            self.push_screen(QuitConfirmScreen(), self._after_quit_card)
             return
         self._ctrl_c_deadline = now + DOUBLE_CTRL_C_WINDOW_S if quit_on_double else None
-        if self._borrowing_card is None and self.pending_card is None:
-            if self.prompt_input.text:
-                self.prompt_input.clear_submitted()
-            else:
-                self.controller.interrupt()
-        if quit_on_double:
-            # W4c item 4: the exact wording the owner asked for -- "I worry
-            # that doing ctrl c in a windows operating system will close
-            # the terminal" -- Ctrl+C here only ever closes HALO, never the
-            # terminal it's running in.
-            self.notify("Press Ctrl+C again to exit halo (your terminal stays open)",
-                        timeout=DOUBLE_CTRL_C_WINDOW_S)
-        else:
-            self.notify("Interrupted (Ctrl+C never exits halo here -- use /exit, Ctrl+D or Ctrl+Q)",
-                        timeout=2)
+        self._copy_last_reply_for_ctrl_c()
+
+    def _after_quit_card(self, answer: "Optional[bool]") -> None:
+        self._ctrl_c_deadline = None
+        if answer:
+            self._begin_quit()
+
+    def _copy_last_reply_for_ctrl_c(self) -> None:
+        from halo_harness.tui.clipboard import apply_crlf_if_configured, clean_copy_text
+        from halo_harness.tui.slash import _last_widget_of_type
+        from halo_harness.tui.widgets.transcript import AssistantText
+        widget = _last_widget_of_type(self, AssistantText)
+        text = clean_copy_text(widget.copy_text()) if widget is not None else ""
+        running = " (Esc interrupts the running turn)" if self._turn_running else ""
+        if not text:
+            self.notify("Nothing to copy" + running, severity="warning", timeout=2)
+            return
+        final_text = apply_crlf_if_configured(text)
+        self.copy_to_clipboard(final_text, confirm=True)
+        self.notify(f"Copied {len(final_text)} characters" + running, timeout=2)
 
     # ---- Ctrl+V: a real system-clipboard paste (W2c item 3) --------------
     #
