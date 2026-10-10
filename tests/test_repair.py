@@ -225,6 +225,28 @@ def test_schema_rejects_bool_where_number_expected(ctx: Ctx):
 
 
 @test
+def test_schema_union_type_list_does_not_crash(ctx: Ctx):
+    # MCP tool schemas (e.g. the ArtCraft apps) use ["string", "null"] unions;
+    # dict.get on an unhashable list used to raise TypeError.
+    schema = {"type": "object", "properties": {"path": {"type": ["string", "null"]}}, "required": []}
+    coerced, errors = repair.validate_and_coerce({"path": "C:/tmp/x.png"}, schema)
+    ctx.check(f"string passes a union, got {errors}", errors == [])
+    coerced, errors = repair.validate_and_coerce({"path": None}, schema)
+    ctx.check(f"null passes a union with null, got {errors}", errors == [])
+    coerced, errors = repair.validate_and_coerce({"path": True}, schema)
+    ctx.check(f"bool still rejected by a union without boolean, got {errors}", len(errors) == 1)
+
+
+@test
+def test_schema_union_with_boolean_accepts_bool(ctx: Ctx):
+    schema = {"type": "object", "properties": {"flag": {"type": ["boolean", "string"]}}, "required": []}
+    coerced, errors = repair.validate_and_coerce({"flag": True}, schema)
+    ctx.check(f"bool passes a union containing boolean, got {errors}", errors == [])
+    coerced, errors = repair.validate_and_coerce({"flag": "true"}, schema)
+    ctx.check(f"string passes a union containing string, got {errors}", errors == [])
+
+
+@test
 def test_schema_enum_violation(ctx: Ctx):
     schema = {"type": "object", "properties": {"output_mode": {"type": "string", "enum": ["content", "count"]}}, "required": []}
     coerced, errors = repair.validate_and_coerce({"output_mode": "bogus"}, schema)
