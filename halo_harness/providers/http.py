@@ -518,7 +518,7 @@ def pick_proxy(host: str, tls: bool = True) -> str | None:
     return None
 
 
-def _proxy_auth_header(proxy_url: str) -> Optional[dict]:
+def _proxy_auth_header(proxy_url: str) -> "dict | None":
     """finding 39: `userinfo@host` credentials in `HTTP(S)_PROXY`
     (`http://user:pass@proxy:3128`) used to be dropped on the floor --
     neither the HTTPS CONNECT tunnel nor a plain-HTTP proxied request ever
@@ -552,7 +552,7 @@ class _ProxiedPlainHTTPConnection(http.client.HTTPConnection):
     `Proxy-Authorization`."""
 
     def __init__(self, proxy_host, proxy_port, *, target_host, target_port,
-                 proxy_auth_header: Optional[dict] = None, **kw):
+                 proxy_auth_header: "dict | None" = None, **kw):
         super().__init__(proxy_host, proxy_port, **kw)
         self._proxy_target_origin = f"http://{target_host}:{target_port}"
         self._proxy_auth_header = proxy_auth_header or {}
