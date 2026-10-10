@@ -190,10 +190,25 @@ def validate_and_coerce(input: dict, schema: dict) -> "tuple[dict, list]":
         if not isinstance(prop_schema, dict):
             continue
         expected = prop_schema.get("type")
-        py_types = _JSON_TYPES.get(expected)
-        if py_types is None:
-            continue
-        if isinstance(value, bool) and py_types is not bool:
+        if isinstance(expected, list):
+            # JSON-Schema union, e.g. ["string", "null"] -- common in MCP
+            # tool schemas (unhashable, so _JSON_TYPES.get would raise).
+            # Validate against any listed type; coercions below only fire
+            # for the single-type case.
+            py_types = tuple(_JSON_TYPES[e] for e in expected
+                             if isinstance(e, str) and e in _JSON_TYPES)
+            if not py_types:
+                continue
+            if value is None and "null" in expected:
+                continue
+        else:
+            py_types = _JSON_TYPES.get(expected)
+            if py_types is None:
+                continue
+            if value is None and expected == "null":
+                continue
+        bool_ok = py_types is bool or (isinstance(py_types, tuple) and bool in py_types)
+        if isinstance(value, bool) and not bool_ok:
             errors.append(f"parameter {key!r} must be {expected}, got a boolean")
             continue
         if isinstance(value, py_types):
