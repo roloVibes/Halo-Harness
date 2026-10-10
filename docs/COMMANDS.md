@@ -1190,6 +1190,29 @@ Claude Code subscription    not set up                                not set up
 TypeSafe                    not set up                                not set up                                      -
 ```
 
+## `halo subscriptions`
+
+```
+Usage: halo subscriptions [status|accept|revoke]
+```
+
+Halo 2.0.7 round 7b: the consent gate the owner chose for his users --
+`cc:`/`cx:` (the subscription routes, driven through the official
+`claude`/`codex` binaries) are off until accepted, on every fresh AND
+every upgraded install (no migration ever flips this on). `status` prints
+one line: `subscription routes: off (not accepted)` or `... on (accepted
+<date>, v<version>)`. `accept` prints the notice ("Your subscription, a
+third-party harness": the five facts, both providers' terms by title and
+URL, the account-responsibility sentence) and reads the typed acceptance
+from stdin -- only the EXACT phrase `I accept` flips it on, with the
+current date and notice version recorded; a non-interactive stdin (piped,
+no TTY, nothing to read) never accepts. `revoke` turns the routes back
+off. A later Halo version whose notice text actually changed bumps
+`NOTICE_VERSION` (`halo_harness/subscription_consent.py`), which asks
+again even on a machine that already accepted an older version. See
+`docs/MODELS.md`'s "Subscription-routes consent" section and `/subscriptions`
+in `docs/SLASH-COMMANDS.md` for the TUI form.
+
 ## `halo gov`
 
 ```

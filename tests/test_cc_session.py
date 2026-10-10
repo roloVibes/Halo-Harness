@@ -36,6 +36,17 @@ from tests.helpers.provider_env_defaults import ensure_default_provider_credenti
 # background_jobs.py (or any other module) happening to set this first.
 os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="cc-session-scratchhome-")
 
+# Halo 2.0.7 round 7b: this module is about cc: SESSION mechanics (its own
+# docstring above), not the subscription-routes consent gate -- which has
+# its own dedicated tests/test_subscription_consent*.py files. Pre-accept
+# once, for this module's one shared scratch home, so every pre-existing
+# real `cc:` test below keeps resolving exactly as it did before that gate
+# existed; the "not logged in"/"binary missing" tests are unaffected
+# either way (a different, enablement-shaped refusal, checked after this
+# one -- see model.py's own `_CC_PREFIX` branch).
+from halo_harness.subscription_consent import record_acceptance as _accept_subscriptions_for_this_module
+_accept_subscriptions_for_this_module()
+
 # H15 part 2 addendum 3.1: or:/ant:/dbx: refs below need a believable
 # default credential now that parse_model_ref refuses an auto-detected-
 # disabled provider. Deliberately NOT a blanket BRIDGE_TEST_CC_AUTH_STATUS

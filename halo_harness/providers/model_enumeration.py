@@ -154,7 +154,16 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
     # H15 item 21.2/21.6: shown only once the Claude subscription is ALSO
     # enabled -- a real claude.ai login no longer lists cc: models on its
     # own (item 21.1: a login never enables anything by itself).
-    if cc_available and is_enabled("claude_subscription", detected=cc_available):
+    # Halo 2.0.7 round 7b: the subscription-consent gate runs BEFORE
+    # enablement -- "cc:/cx: are not offered until accepted" (the owner's
+    # own wording) applies even to a detected-and-enabled login. A detected
+    # login while the routes are off gets its own "available after
+    # acceptance" hint instead of the usual "detected but not enabled" one
+    # (which would be misleading -- enabling it changes nothing while the
+    # consent gate is still closed).
+    from halo_harness.subscription_consent import is_accepted as _subs_accepted
+    subs_accepted = _subs_accepted()
+    if cc_available and subs_accepted and is_enabled("claude_subscription", detected=cc_available):
         for alias, cc_target in CC_ALIASES.items():
             ref = f"cc:{alias}"
             if ref in seen:
@@ -168,7 +177,10 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
                 "detail": alias_display_detail(alias),
                 "provider": "cc", "group": label_with_prefix("claude_subscription"),
             })
-    if cc_available and not is_enabled("claude_subscription", detected=cc_available):
+    elif cc_available and not subs_accepted:
+        hints.append({"hint": f"{label_for('claude_subscription')} detected -- available after acceptance "
+                               f"(run `halo subscriptions accept`)"})
+    elif cc_available and not is_enabled("claude_subscription", detected=cc_available):
         hints.append({"hint": f"{label_for('claude_subscription')} detected but not enabled -- "
                                f"run `halo providers enable claude_subscription`"})
     # H15 item 21: the `ant:` (direct Anthropic API key) group -- the
@@ -448,7 +460,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
     except Exception:
         cx_status = None
     cx_available = bool(cx_status and cx_status.logged_in and cx_status.auth_method == "chatgpt")
-    if cx_available and is_enabled("codex_subscription", detected=cx_available):
+    if cx_available and subs_accepted and is_enabled("codex_subscription", detected=cx_available):
         for alias in CODEX_ALIASES:
             ref = f"cx:{alias}"
             if ref in seen:
@@ -461,7 +473,10 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
                 "detail": cx_alias_display_detail(alias),
                 "provider": "codex", "group": label_with_prefix("codex_subscription"),
             })
-    if cx_available and not is_enabled("codex_subscription", detected=cx_available):
+    elif cx_available and not subs_accepted:
+        hints.append({"hint": f"{label_for('codex_subscription')} detected -- available after acceptance "
+                               f"(run `halo subscriptions accept`)"})
+    elif cx_available and not is_enabled("codex_subscription", detected=cx_available):
         hints.append({"hint": f"{label_for('codex_subscription')} detected but not enabled -- "
                                f"run `halo providers enable codex_subscription`"})
 

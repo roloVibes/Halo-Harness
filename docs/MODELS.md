@@ -100,6 +100,58 @@ refresh` has run against this table (no ChatGPT login on the build host) --
 is (a cheap one-token headless call per id, refused ones marked) but
 unexercised; see `docs/harness/CODEX-RESEARCH.md` section 2.
 
+### Subscription-routes consent (Halo 2.0.7 round 7b)
+
+The owner's own decision: "if Halo discovers subscription creds that
+might lead to a ban, that feature should be off by default and then a big
+alert and acceptance needs to happen before that even turns on." `cc:` and
+`cx:` are therefore gated by a SEPARATE consent step, ahead of (and
+independent from) the ordinary provider-enablement table below -- a
+detected, logged-in `claude`/`codex` subscription still never offers its
+route until this is accepted. This is a user choice the owner built in,
+never safety/refusal logic: the words used everywhere are "accepted" /
+"not accepted" / "available after acceptance".
+
+A fresh install, and an upgraded install that never saw this round before,
+both start at **not accepted** -- no migration ever flips it on.
+Until accepted: the `/model` picker and `halo models` show `cc:`/`cx:`
+rows as a dim hint ("... detected -- available after acceptance") instead
+of selectable models; a hand-typed `--model cc:...`/`--model cx:...` (or
+the bare subscription alias, `opus`/`sonnet`/..., when it would otherwise
+route to `cc:`) is refused with the same wording; a lineup/bio that names
+a `cc:`/`cx:` model resolves to the default model instead, with a plain
+one-line note; `halo doctor` and `/providers`/`halo providers` print one
+line, `subscription routes: off (not accepted)` or `... on (accepted
+<date>, v<version>)`; the `init` wizard's Providers step shows the same
+line on the `claude`/`codex` tabs with a button that opens the real
+notice.
+
+**The notice** ("Your subscription, a third-party harness", the TUI
+screen and `halo subscriptions accept`'s plain-text form use the exact
+same words): Halo never reads the Claude Code OAuth token
+(`~/.claude/.credentials.json`) or Codex's own stored credentials; `cc:`
+drives the official `claude` binary in its documented headless mode,
+`cx:` the official `codex` binary the same way; both still use the
+user's own personal subscription, through a third-party harness that is
+not the provider's own product; the provider's own terms govern the
+account, not Halo's; there have been public reports of account
+restrictions for tools that use subscription tokens outside the
+provider's own products, with no claim made about any individual case.
+Both providers' terms are named by title with their URL (the Anthropic
+Consumer Terms of Service and the OpenAI Terms of Use), followed by the
+sentence that the account -- and what happens to it -- is the user's own
+responsibility. Acceptance: typing `I accept` (exact) and Enter; Escape
+or anything else leaves the routes off.
+
+Acceptance is per machine, stored in `~/.halo/config.json`'s
+`subscription_routes` key (`{accepted, accepted_at, accepted_version,
+routes: ["cc", "cx"]}`) with the date and the notice's own `NOTICE_VERSION`
+(`halo_harness/subscription_consent.py`) -- a later Halo version whose
+notice text actually changed bumps that constant, which asks again even
+on a machine that already accepted an older version. `halo subscriptions
+status|accept|revoke` and the TUI's `/subscriptions` are the two
+surfaces; see `docs/COMMANDS.md`/`docs/SLASH-COMMANDS.md`.
+
 ## Provider enablement
 
 A provider's models reach `/model`/`halo models`/the `init` default

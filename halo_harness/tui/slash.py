@@ -44,6 +44,9 @@ async def handle_slash(app, name: str, args: str) -> None:
         # shells out even more; both now build their result in a
         # `thread=True` worker and post it back with `call_from_thread`.
         "providers": _handle_providers, "doctor": _handle_doctor,
+        # Halo 2.0.7 round 7b: the cc:/cx: subscription-routes consent
+        # gate -- bare opens the real notice screen.
+        "subscriptions": _handle_subscriptions,
         # Halo 2.0.4 round 2: `/xp routes <slug>` is a real bounded network
         # call too (GET /api/models/<slug>/providers), same reasoning as
         # providers/doctor just above.
@@ -744,6 +747,21 @@ def _resolve_bare_alias_worker(app, ref: str) -> None:
 def _apply_model(app, ref) -> None:
     if not ref:
         return
+    # Halo 2.0.7 round 7b: a cc:/cx: ref (explicit, or a bare alias that
+    # would route to one) with the subscription routes off opens the
+    # notice INSTEAD of the plain error `set_model` would otherwise
+    # surface -- a cheap, local-only probe parse (no network, no
+    # subprocess), same "probe first, mutate on success" shape `set_model`
+    # already uses for its own mlx check just above this call site.
+    from halo_harness.model import parse_model_ref
+    from halo_harness.subscription_consent import SubscriptionConsentRequiredError
+    try:
+        parse_model_ref(ref, app.controller.routes)
+    except SubscriptionConsentRequiredError:
+        _open_subscription_notice(app, on_accept=lambda: _apply_model(app, ref))
+        return
+    except Exception:
+        pass  # any other parse problem: let set_model below produce its usual message
     err = app.controller.set_model(ref)
     if err:
         app.notify(err, severity="error", title="/model")
@@ -1113,6 +1131,40 @@ def _providers_list_worker(app) -> None:
     from halo_harness.providers_cli import format_providers_table, provider_rows
     text = format_providers_table(provider_rows())
     app.call_from_thread(app.transcript.add_note, text, kind="command")
+
+
+async def _handle_subscriptions(app, args: str) -> None:
+    """Halo 2.0.7 round 7b: `/subscriptions` -- bare opens the real notice
+    screen (same words as `halo subscriptions accept`'s plain-text form);
+    `status`/`revoke` act directly, no dialog needed."""
+    sub = (args or "").strip().split()[0].lower() if (args or "").strip() else ""
+    if sub == "status":
+        from halo_harness.subscription_consent import status_line
+        await app.transcript.add_note(status_line(), kind="command")
+        return
+    if sub == "revoke":
+        from halo_harness.subscription_consent import revoke
+        revoke()
+        await app.transcript.add_note("Revoked. cc:/cx: are off again until accepted.", kind="command")
+        return
+    _open_subscription_notice(app)
+
+
+def _open_subscription_notice(app, *, on_accept=None) -> None:
+    from halo_harness.tui.dialogs.subscription_notice import SubscriptionNoticeScreen
+
+    def _after(accepted: bool) -> None:
+        if accepted:
+            from halo_harness.subscription_consent import record_acceptance
+            state = record_acceptance()
+            app.notify(f"Accepted (v{state['accepted_version']}). cc:/cx: are now available.",
+                       title="/subscriptions")
+            if on_accept is not None:
+                on_accept()
+        else:
+            app.notify("Not accepted -- cc:/cx: remain off.", title="/subscriptions")
+
+    app.push_screen(SubscriptionNoticeScreen(), _after)
 
 
 async def _handle_doctor(app, _args: str) -> None:

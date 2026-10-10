@@ -10,6 +10,24 @@ version.
 
 ## [unreleased]
 
+### Fixes carried from the owner's second clone
+
+- fix: tool-arg schema validation no longer crashes on union types (`type` as a list), needed by MCP servers whose schemas declare `string|null` (cherry-picked as e521b24).
+
+### Subscription routes are off until accepted
+
+The owner's own decision (2026-10-09): a detected Claude Code/Codex
+subscription no longer offers `cc:`/`cx:` on its own -- both routes stay
+off, on every fresh AND every upgraded install (no migration flips this
+on), until a one-time notice ("Your subscription, a third-party harness")
+is accepted, once per machine. `halo subscriptions status|accept|revoke`
+and the TUI's `/subscriptions` are the new surfaces; a hand-typed
+`--model cc:...`/`--model cx:...`, the bare subscription alias, the
+`/model` picker, `halo models`, a lineup/bio naming either route, `halo
+doctor`, `/providers`, and the `init` wizard's Providers step all show or
+enforce the gate. See docs/MODELS.md's "Subscription-routes consent"
+section.
+
 ### vibes/review.md fix pass, round 5 (R9/R10 slice + the pyflakes CI gate)
 
 The last slice of the owner's whole-tree review that fits this pass --

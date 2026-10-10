@@ -187,6 +187,12 @@ def test_codex_subscription_disabled_message_refuses_parse(ctx: Ctx):
         from halo_harness.providers.enablement import disable
         from halo_harness.model import parse_model_ref
         from halo_harness.providers.routing import InvalidModelError
+        # Halo 2.0.7 round 7b: accept the subscription-routes consent gate
+        # first -- it runs BEFORE enablement, and this test is specifically
+        # about the ENABLEMENT-disabled message, not the consent gate
+        # (which has its own tests/test_subscription_consent*.py files).
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         os.environ["BRIDGE_TEST_CODEX_LOGIN_STATUS"] = "Logged in using ChatGPT"
         disable("codex_subscription")
         try:

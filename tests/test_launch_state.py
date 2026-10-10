@@ -244,6 +244,12 @@ def test_build_session_last_model_cc_route_is_never_rejected_for_missing_creds(c
     from halo_harness import launch_state
     with _Env() as env, tempfile.TemporaryDirectory() as cwd:
         os.environ["OPENROUTER_API_KEY"] = "test-key-not-real"
+        # Halo 2.0.7 round 7b: this test is about the credentials check
+        # never applying to cc: (its own docstring above), not the
+        # subscription-routes consent gate -- accept once for this fresh
+        # home so cc:fable keeps resolving.
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         launch_state.record_last_model("cc:fable", cwd=Path(cwd))
         build = _build(Path(cwd))
         ctx.check(f"the remembered cc: ref is used as-is, got {build.model_ref.raw}",

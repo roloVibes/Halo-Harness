@@ -323,6 +323,12 @@ def test_cc_hand_typed_ref_with_no_override_and_no_login_resolves_at_parse_time(
     loss of detail, just at the right time instead of speculatively."""
     from halo_harness.model import parse_model_ref
     with _Env():
+        # Halo 2.0.7 round 7b: accept the subscription-routes consent gate
+        # first -- it runs before enablement, and this test is about the
+        # ENABLEMENT gate being override-only, not consent (which has its
+        # own tests/test_subscription_consent*.py files).
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": False})
         os.environ["ANTHROPIC_API_KEY"] = "sk-ant-fake"
         ref = parse_model_ref("cc:opus")
@@ -363,6 +369,8 @@ def test_cc_explicit_disable_still_uses_the_generic_message_not_the_preflight_on
     from halo_harness.providers.enablement import disable
     from halo_harness.providers.routing import InvalidModelError
     with _Env():
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
         disable("claude_subscription")
         try:
@@ -513,6 +521,8 @@ def test_cc_group_shown_once_enabled(ctx: Ctx):
     from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
     from halo_harness.providers.enablement import enable
     with _Env() as env:
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
         refresh_cached_claude_auth_status()
         enable("claude_subscription")
