@@ -44,11 +44,13 @@ def run_tool_call_accuracy_task(*, host, route, profile, decision, scratch_dir: 
                                  state_dir, timing: Optional[list] = None) -> ToolCallAccuracy:
     """N independent trials: ask the model to call `Read` on a known
     scratch file, with `Read` the only tool offered. A reply with no tool
-    call at all, or one whose arguments fail `agent.repair.validate_and_
-    coerce` against Read's own schema, gets exactly ONE local repair round
-    (brief: "counting repair rounds separately") before being counted
-    `failed`. Never actually dispatches Read (that would always succeed
-    for ANY plausible file_path guess, telling the accuracy score
+    call at all is counted `failed` outright, with no repair round (the
+    repair path below needs an actual call's `input` to send back); one
+    that DID call a tool but whose arguments fail `agent.repair.validate_
+    and_coerce` against Read's own schema gets exactly ONE local repair
+    round (brief: "counting repair rounds separately") before being
+    counted `failed`. Never actually dispatches Read (that would always
+    succeed for ANY plausible file_path guess, telling the accuracy score
     nothing) -- only the CALL's own shape is judged here; `run_edit_
     success_task` is where a tool call is actually applied and diffed."""
     from halo_harness.agent.repair import validate_and_coerce

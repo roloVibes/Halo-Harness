@@ -886,6 +886,21 @@ def stream_anthropic_completion(req: CompletionRequest, abort: "threading.Event 
                         terminal_reached = True
                 if decoder.done:
                     break
+            elif kind == "json":
+                # finding 40: a server that ignored `stream: true` and
+                # answered with one complete, non-streamed JSON body
+                # instead (sse_reader_thread detects this by content-type,
+                # same as the openai-chat dialect's own non-streamed-JSON
+                # fallback already handles) used to have no branch here at
+                # all -- the turn ended with no text and no error at all.
+                from halo_harness.providers.anthropic_sse import synthesize_events_from_message
+                dumped_lines.append(value)
+                msg = value if isinstance(value, dict) else {}
+                for ev in synthesize_events_from_message(msg):
+                    dumped_events.append(ev)
+                    yield ev
+                terminal_reached = True
+                break
             elif kind == "eof":
                 for ev in decoder.on_eof():
                     dumped_events.append(ev)

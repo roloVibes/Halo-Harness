@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 from contextlib import AsyncExitStack
 from typing import Optional
@@ -147,12 +148,35 @@ async def preflight_tcp_reachability(url: str, *, timeout: float, open_connectio
     genuinely slow-but-reachable server must still get its usual, longer
     chance via the real connect attempt that follows, unchanged), or any
     other surprise -- a false positive here would wrongly fail a server
-    this was never meant to touch at all."""
+    this was never meant to touch at all.
+
+    finding 46: a direct `asyncio.open_connection(host, port)` ignores
+    `HTTP(S)_PROXY`/`http(s)_proxy` entirely -- behind an egress proxy the
+    real connect (`connect_http`/`connect_sse`, both via `httpx`) reaches
+    the server THROUGH the proxy and may work fine, while this probe dials
+    `host:port` directly and sees a refusal/timeout that says nothing
+    about whether the server is actually reachable. Skipped outright
+    (same "inconclusive -- let the real connect attempt decide" return as
+    every other can't-confirm-either-way case above) whenever a proxy is
+    configured for this URL's scheme and `host` isn't bypassed for it --
+    never probes the PROXY host either, since a proxy's own TCP liveness
+    says nothing about the upstream server this preflight exists to
+    fail fast on."""
     from urllib.parse import urlparse
     parsed = urlparse(url)
     host = parsed.hostname
     if not host:
         return
+    try:
+        import urllib.request
+        if not urllib.request.proxy_bypass_environment(host):
+            tls = parsed.scheme == "https"
+            order = ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy") if tls \
+                else ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy")
+            if any(os.environ.get(var) for var in order):
+                return
+    except Exception:
+        pass
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     open_connection = open_connection or asyncio.open_connection
     try:

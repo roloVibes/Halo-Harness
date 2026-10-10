@@ -24,6 +24,7 @@ governed routes (the agent loop's own ladder stops retrying those).
 
 from __future__ import annotations
 
+import base64
 import http.client
 import ipaddress
 import json
@@ -517,6 +518,23 @@ def pick_proxy(host: str, tls: bool = True) -> str | None:
     return None
 
 
+def _proxy_auth_header(proxy_url: str) -> Optional[dict]:
+    """finding 39: `userinfo@host` credentials in `HTTP(S)_PROXY`
+    (`http://user:pass@proxy:3128`) used to be dropped on the floor --
+    neither the HTTPS CONNECT tunnel nor a plain-HTTP proxied request ever
+    sent a `Proxy-Authorization` header, so every model call behind an
+    authenticating corporate proxy failed with 407. Returns `None` (no
+    header to add) when the proxy URL carries no userinfo at all, the
+    common, unauthenticated-proxy case."""
+    parsed = urllib.parse.urlparse(proxy_url)
+    if not parsed.username:
+        return None
+    user = urllib.parse.unquote(parsed.username)
+    pw = urllib.parse.unquote(parsed.password) if parsed.password else ""
+    token = base64.b64encode(f"{user}:{pw}".encode("utf-8")).decode("ascii")
+    return {"Proxy-Authorization": f"Basic {token}"}
+
+
 class _ProxiedPlainHTTPConnection(http.client.HTTPConnection):
     """2.0.6 round 12 (the carried C-1 minor): a plain-HTTP request through
     a proxy needs an ABSOLUTE request-target (`GET http://host:port/path
@@ -525,15 +543,27 @@ class _ProxiedPlainHTTPConnection(http.client.HTTPConnection):
     meant. http.client has no first-class support for this (unlike
     HTTPSConnection's set_tunnel), so this subclass rewrites any relative
     path in `request()` to its absolute form; the Host header then also
-    names the TARGET (correct proxy semantics), not the proxy itself."""
+    names the TARGET (correct proxy semantics), not the proxy itself.
 
-    def __init__(self, proxy_host, proxy_port, *, target_host, target_port, **kw):
+    finding 39: `proxy_auth_header` (when the proxy URL carried
+    credentials) is merged into every request's headers here -- a plain
+    CONNECT tunnel never applies (there isn't one for cleartext HTTP), so
+    this is the ONLY place a plain-HTTP proxied call can ever attach
+    `Proxy-Authorization`."""
+
+    def __init__(self, proxy_host, proxy_port, *, target_host, target_port,
+                 proxy_auth_header: Optional[dict] = None, **kw):
         super().__init__(proxy_host, proxy_port, **kw)
         self._proxy_target_origin = f"http://{target_host}:{target_port}"
+        self._proxy_auth_header = proxy_auth_header or {}
 
     def request(self, method, url, body=None, headers=None, *, encode_chunked=False):
         if isinstance(url, str) and url.startswith("/"):
             url = self._proxy_target_origin + url
+        if self._proxy_auth_header:
+            headers = dict(headers or {})
+            for k, v in self._proxy_auth_header.items():
+                headers.setdefault(k, v)
         return super().request(method, url, body, headers, encode_chunked=encode_chunked)
 
 
@@ -586,16 +616,21 @@ def open_upstream(host: str, port: int, tls: bool, connect_timeout: int = DEFAUL
         proxy_host = proxy_parts.hostname
         proxy_port = proxy_parts.port or (443 if proxy_parts.scheme == "https" else 80)
         
+        # finding 39: `userinfo@` credentials in HTTP(S)_PROXY, if any.
+        proxy_auth_header = _proxy_auth_header(proxy_url)
         if tls:
-            # HTTPS via proxy tunnel
+            # HTTPS via proxy tunnel -- `set_tunnel`'s own `headers=` rides
+            # along on the CONNECT request only, exactly where a proxy
+            # expects Proxy-Authorization for a tunneled (HTTPS) target.
             conn = http.client.HTTPSConnection(
                 proxy_host, proxy_port, timeout=connect_timeout, context=ssl_context
             )
-            conn.set_tunnel(host, port)
+            conn.set_tunnel(host, port, headers=proxy_auth_header)
         else:
             # HTTP via proxy -- absolute request-target form (round 12)
             conn = _ProxiedPlainHTTPConnection(proxy_host, proxy_port, timeout=connect_timeout,
-                                               target_host=host, target_port=port)
+                                               target_host=host, target_port=port,
+                                               proxy_auth_header=proxy_auth_header)
     else:
         # Direct connection
         if tls:
@@ -1090,12 +1125,26 @@ def call_databricks_chat(base_url: str, api_key: str, body: dict, extra_headers:
                                        on_connect=on_connect, governor_ctx=governor_ctx)
         if resp.status == 404 and pos != len(order) - 1:
             resp.read()
+            # P2 tail: this connection was never closed before trying the
+            # next candidate path -- one leaked socket per skipped 404
+            # candidate, every call that needed more than one try.
+            try:
+                conn.close()
+            except Exception:
+                pass
             continue
         chosen = (orig_idx, candidate, resp, conn, peeked)
         break
 
     orig_idx, candidate, resp, conn, peeked = chosen
-    dbx_cache_set_route(model, orig_idx, state_dir)
+    # P2 tail: only cache a route that actually answered -- the loop above
+    # only advances past a 404 when another candidate remains, so the
+    # FINAL candidate's own 404 (the last one in `order`) used to fall
+    # through to `chosen` unchecked and get cached as this model's route
+    # for every later call, permanently skipping the other candidates that
+    # might have worked.
+    if resp.status != 404:
+        dbx_cache_set_route(model, orig_idx, state_dir)
     headers = {k.lower(): v for k, v in resp.getheaders()}
 
     if resp.status == 400:
@@ -1292,9 +1341,42 @@ def call_anthropic_native(base_url: str, api_key: str, body: dict, extra_headers
     return result
 
 
-def call_databricks_count_tokens(base_url: str, api_key: str, body: dict, extra_headers: dict, state_dir) -> UpstreamResult:
-    """Blocking (non-streaming) relay to Databricks' count_tokens endpoint."""
-    return proxy_anthropic(base_url, api_key, body, extra_headers, state_dir, path="/v1/messages/count_tokens")
+def call_databricks_count_tokens(base_url: str, api_key: str, body: dict, extra_headers: dict, state_dir,
+                                  route_provider: str = "databricks") -> UpstreamResult:
+    """Blocking (non-streaming) relay to the count_tokens endpoint for
+    whichever anthropic-passthrough host this route actually uses.
+
+    finding 38: this used to always POST a hardcoded `/v1/messages/
+    count_tokens` with NO auth header at all for `ant:`/`xp:` (`proxy_
+    anthropic` never adds one of its own from `api_key` -- see
+    `call_anthropic_native`'s matching comment -- and `extra_headers`
+    here carried only non-auth bits), so every call 401'd for those two
+    routes -- paying a full blocking round trip on every compaction check
+    for an answer that always failed anyway. `route_provider="databricks"`
+    (the default) keeps the ORIGINAL path/query shape unchanged: bridge.py's
+    own proxy caller already builds `base_url` as `<workspace-root>/
+    ai-gateway/anthropic` and already supplies a real `Authorization`
+    header of its own via `extra_headers` -- changing the path here would
+    double that gateway prefix, and `extra_headers.update()` below always
+    wins over the default added here either way, so that caller is
+    unaffected. `agent/loop.py`'s own `_count_tokens_via_api` (the OTHER
+    caller, genuinely broken before this fix: no auth header at all for
+    its `dbx:` sessions either) builds that same `/ai-gateway/anthropic`
+    suffix onto ITS OWN `base_url` before calling here -- see that call
+    site's own comment."""
+    if route_provider == "anthropic":
+        headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
+        headers.update(extra_headers)
+        return proxy_anthropic(base_url, api_key, body, headers, state_dir,
+                                path="/v1/messages/count_tokens", query_suffix="")
+    if route_provider == "experiential":
+        headers = {"x-api-key": api_key}
+        headers.update(extra_headers)
+        return proxy_anthropic(base_url, api_key, body, headers, state_dir,
+                                path="/messages/count_tokens", query_suffix="")
+    headers = {"Authorization": f"Bearer {api_key}"}
+    headers.update(extra_headers)
+    return proxy_anthropic(base_url, api_key, body, headers, state_dir, path="/v1/messages/count_tokens")
 
 
 def passthrough_reader_thread(resp, q) -> None:

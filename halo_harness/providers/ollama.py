@@ -23,6 +23,7 @@ any test/doc (`tests/test_privacy_scan.py`).
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import threading
@@ -638,7 +639,13 @@ def _get_json(host: OllamaHost, path: str, *, timeout: float = _READ_TIMEOUT_S,
     except UpstreamConnectError as e:
         log.debug("ollama: %s %s unreachable: %s", method, full_path, e)
         return None
-    except (OSError, ValueError) as e:
+    except (OSError, ValueError, http.client.HTTPException) as e:
+        # P2 tail: `http.client.HTTPException` (BadStatusLine,
+        # IncompleteRead, ...) isn't an OSError subclass -- a malformed or
+        # truncated response from `conn.getresponse()`/`resp.read()` used
+        # to propagate straight out of this best-effort probe, uncaught,
+        # instead of degrading to "nothing to report" like every other
+        # failure shape here already does.
         log.debug("ollama: %s %s failed: %s", method, full_path, e)
         return None
     finally:

@@ -127,6 +127,24 @@ class _CallbackResult:
 def _make_handler(result: _CallbackResult):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
+            # P2 tail: `HTTPServer.handle_request()` serves exactly ONE
+            # request, on ANY path -- a browser's own incidental request
+            # (a favicon fetch, an http->https upgrade probe, anything
+            # that happens to reach this ephemeral port before the real
+            # `/callback` redirect does) used to consume that one slot, so
+            # the genuine callback never got served at all and the
+            # caller's own poll loop just timed out. A request for any
+            # other path gets a plain 404 and never sets `result.event`,
+            # so `_serve_until_matched`'s own loop below keeps waiting for
+            # the real one.
+            if urlparse(self.path).path != "/callback":
+                body = b"not found"
+                self.send_response(404)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
             qs = parse_qs(urlparse(self.path).query)
             result.code = (qs.get("code") or [None])[0]
             result.state = (qs.get("state") or [None])[0]
@@ -144,6 +162,23 @@ def _make_handler(result: _CallbackResult):
             pass
 
     return Handler
+
+
+def _serve_until_matched(httpd: HTTPServer, result: _CallbackResult, deadline: float) -> None:
+    """Background-thread target for `run_authorization_flow`'s callback
+    server: loops `handle_request()` (each call serves exactly one
+    request) until the real `/callback` request sets `result.event`, the
+    caller's own `deadline` passes, or the socket is closed out from
+    under it (`server_close()`, once the caller's own poll loop below
+    gives up) -- any of which cleanly ends this thread. `httpd.timeout`
+    bounds each individual `handle_request()` call so a quiet port
+    doesn't block this loop past `deadline`/a closed socket forever."""
+    httpd.timeout = 0.5
+    while not result.event.is_set() and time.monotonic() < deadline:
+        try:
+            httpd.handle_request()
+        except OSError:
+            return
 
 
 def run_authorization_flow(*, server_name: str, server_url: str, oauth_cfg: dict,
@@ -186,7 +221,6 @@ def run_authorization_flow(*, server_name: str, server_url: str, oauth_cfg: dict
         except Exception:
             pass
 
-    threading.Thread(target=httpd.handle_request, daemon=True, name=f"halo-oauth-{server_name}").start()
     # 2.0.2 review finding 14 (major): a single `result.event.wait(timeout
     # =callback_timeout)` had no way to react to `abort` at all -- Esc on
     # the TUI's own McpStatus dialog (`action_cancel`) only ever set the
@@ -195,6 +229,8 @@ def run_authorization_flow(*, server_name: str, server_url: str, oauth_cfg: dict
     # stayed stuck until the full 120s timeout elapsed either way. Short
     # polls instead, so an `abort` set mid-wait is noticed within ~0.2s.
     deadline = time.monotonic() + callback_timeout
+    threading.Thread(target=_serve_until_matched, args=(httpd, result, deadline),
+                      daemon=True, name=f"halo-oauth-{server_name}").start()
     got = False
     while time.monotonic() < deadline:
         if abort is not None and abort.is_set():

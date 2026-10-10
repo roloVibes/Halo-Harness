@@ -1915,8 +1915,22 @@ class Session:
         from halo_harness.model import resolve_model_profile
         profile = resolve_model_profile(target, self.state_dir, self.agent_runtime.routes or {})
         old_label = self.model_label
-        self.model_ref, self.model_profile, self.creds = target, profile, creds
-        self.model_label = target.raw
+        # finding 33: this used to set `model_ref`/`model_profile`/`creds`
+        # directly -- a half-switch that left `route`, `provider_profile`,
+        # the cost meter's prices and the vision/tool-cap re-gating all on
+        # the OLD model, and (with no `_primary_model_snapshot` update
+        # either) got silently REVERTED at the next `_restore_primary_
+        # model_after_turn` call if an earlier fallback/local-escalation
+        # had already snapshotted one this turn. `set_model` is the real
+        # `/model`-equivalent switch every other escalation/fallback path
+        # here already uses; the snapshot update right after it is the
+        # SAME "make this new model stick, never auto-reverted" treatment
+        # `_maybe_escalate`'s own local-model path already gives its own
+        # switch, for the identical reason -- a team escalation is a
+        # deliberate, standing decision, not a transient fallback.
+        self.set_model(target, profile, creds)
+        self._primary_model_snapshot = (self.model_ref, self.model_profile, self.creds,
+                                         self.effort, self.effort_source)
         team.escalated = True
         self._escalation_decisions.append({"turn": turn_no, "from": old_label, "to": target.raw,
                                            "why": f"team {team.name} trigger {trigger}"})
@@ -4599,8 +4613,32 @@ class Session:
             )
             body.pop("stream", None)
             body.pop("max_tokens", None)
+            # finding 38 (second half): `self.extra_headers` is a snapshot
+            # from THIS session's STARTING model_ref (patched by
+            # `set_model` for `anthropic-beta` only) -- after a `/model`
+            # switch it can still carry a different provider's own
+            # headers (e.g. a Databricks custom header) straight to
+            # api.anthropic.com. `_extra_headers_for_route` (Pass-B
+            # finding 10) rebuilds them fresh for THIS route every time,
+            # same as every real request this session sends already does.
+            count_tokens_base_url = self.creds.base_url
+            if self.route.provider == "databricks":
+                # finding 38: `call_databricks_count_tokens`'s own
+                # "databricks" default keeps its path RELATIVE to an
+                # already-`/ai-gateway/anthropic`-suffixed base_url --
+                # the same shape bridge.py's own proxy caller already
+                # builds (`derive_workspace_root(...) + "/ai-gateway/
+                # anthropic"`) -- `self.creds.base_url` here is the bare
+                # workspace root every other dbx: call site (`_dbx_post`'s
+                # own candidate paths) already assumes, so it needs the
+                # SAME suffix appended before this call, or every dbx:
+                # compaction-gate count_tokens attempt 404s.
+                from halo_harness.providers.config import derive_workspace_root
+                count_tokens_base_url = f"{derive_workspace_root(self.creds.base_url or '')}/ai-gateway/anthropic"
             result = call_databricks_count_tokens(
-                self.creds.base_url, self.creds.api_key, body, self.extra_headers or {}, self.state_dir,
+                count_tokens_base_url, self.creds.api_key, body,
+                self._extra_headers_for_route(self.route), self.state_dir,
+                route_provider=self.route.provider,
             )
             try:
                 if result.status != 200 or result.resp is None:
