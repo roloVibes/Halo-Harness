@@ -93,7 +93,7 @@ version.
   `test_studio_ui.py` (headless Chrome), `docs/media/studio.png` from
   `tools/capture_studio.py`.
 
-## [2.0.11] - unreleased
+## [2.0.11] - 2026-10-11
 
 ### The front page
 
