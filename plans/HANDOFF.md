@@ -4,7 +4,35 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-11 ~04:05 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-11 ~09:00 CDT (authoritative, read this first)
+
+**2.0.9 Signal remote control is CODE-COMPLETE, tag pending CI.** Rounds
+pushed: 1 `0df8bac` (SIGNAL-RESEARCH.md refreshed to signal-cli 0.14.9,
+nine questions answered, section 8 design adjustments incl. the
+contact-request pairing flow, section 9 verified controller surface),
+2 `797e053` (per-session control socket, SessionHandle for TUI + print
+mode, sessions registry, `remote.enabled` default false), 3 `069f38d`
+(signal-cli stdio transport, pairing, HMAC signing with a 32-word
+phrase, bridge + rendering, fake signal-cli tests), 4 (the commit after
+`68803d3`: `halo remote signal ...` CLI with an original QR encoder, the
+/remote dialog, the `⇄ remote` chip + HUD slot, doctor checks, REMOTE.md
+complete). Briefs: `plans/briefs/2.0.9-signal/round-{1,2,3,4}-*.md`.
+CHANGELOG already carries `## [2.0.9] - unreleased` with four sections.
+
+**REMAINING for the tag**: CI green on both platforms for round 4 ->
+`python scripts/release.py 2.0.9 --no-install` -> handoff + memory.
+**THE LIVE CHECK IS THE OWNER'S** (needs a dedicated Signal number and
+the Kali VM): docs/REMOTE.md "Live verification" is the step list, and
+"Confirm on the first live run" lists what only a real signal-cli can
+settle (trust accepting plain digits, redelivery after trust, manual
+receive-mode queueing, param shapes, attachment paths, .bat spawn on
+Windows, --scrub-log). Expect a 2.0.9.1 fix pass after that run.
+
+**THEN 2.0.10 review/security** (ROADMAP tail).
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-11 ~04:05 CDT (previous)
 
 **v2.0.8 IS RELEASED** (tag v2.0.8 at `1d001be`, GitHub release
 published, `--no-install`: the owner refreshes installs himself). The
