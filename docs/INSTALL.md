@@ -21,15 +21,17 @@ alternative that needs no `uv` at all.
 ### Fresh install, nothing downloaded yet (Linux / macOS)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/scripts/install-halo.sh | bash
+curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v2.0.10/scripts/install-halo.sh | bash
 ```
 
 `scripts/install-halo.sh` checks for Python 3.10+, installs `uv` if it is
 missing, offers to uninstall an old pre-2.0 install (uv, pipx or pip) so
-it can never run by mistake, clones to `~/Halo-Harness` (or pulls an
-existing clone), runs `uv tool install --reinstall .`, checks PATH, verifies that
+it can never run by mistake, clones to `~/Halo-Harness` (or fetches an
+existing clone), checks out the newest `vX.Y.Z` tag (or `--ref <tag|branch|commit>`) and prints the tag and
+commit, runs `uv tool install --reinstall --constraints requirements.lock .` (exact dependency versions;
+the hashes in that file are enforced by `pip install --require-hashes -r requirements.lock`), checks PATH, verifies that
 `halo` is the installed command, and finishes with `halo doctor`. Options:
-`--yes` (no questions), `--no-clone` (install straight from GitHub),
+`--yes` (no questions), `--ref <tag>` (default: the newest tag), `--no-clone` (install straight from GitHub at that ref),
 `--dry-run` (print every command it would run -- installs, uninstalls,
 clone/pull -- without running any of them; never prompts), `HALO_CLONE_
 DIR=/some/dir`. Then `cd ~ && halo init`. The sections below are the same
@@ -72,14 +74,14 @@ release instead.
 ### Windows
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/scripts/install-halo.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v2.0.10/scripts/install-halo.ps1 | iex"
 ```
 
 Mirrors `install-halo.sh` exactly: installs `uv` if missing, offers to
 uninstall an old pre-2.0 install (uv, pipx or pip), clones to
-`%USERPROFILE%\Halo-Harness` (or pulls an existing clone), runs `uv tool
-install --reinstall .`, checks PATH, and finishes with `halo doctor`.
-Same options too: `-Yes`, `-NoClone`, `-DryRun`, `-CloneDir <path>`. By
+`%USERPROFILE%\Halo-Harness` (or fetches an existing clone), checks out the newest tag, runs `uv tool
+install --reinstall --constraints requirements.lock .`, checks PATH, and finishes with `halo doctor`.
+Same options too: `-Yes`, `-Ref <tag>`, `-NoClone`, `-DryRun`, `-CloneDir <path>`. By
 hand, from PowerShell:
 
 ```powershell

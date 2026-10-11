@@ -1,4 +1,4 @@
-# Security review of the harness's own attack surface (2.0.10 round 2)
+# Security review of the harness's own attack surface (2.0.10 round 2; fixed in rounds 3-5, see plans/briefs/2.0.10-review/SWEEP.md)
 
 Scope: `plans/2.0.9-review-privacy-brief.md` section A2, all seven areas, at
 HEAD after 2.0.10 round 1. Method: each area walked with the code open (by
@@ -34,6 +34,8 @@ and no error is shown. Today only tests call it, so this is latent; it is
 the documented phrase-to-key path for any signing app. (confirmed by halo
 review) Fix: raise `ValueError` unless exactly `SECRET_BYTES` words.
 
+Fixed in round 5: `phrase_to_secret` raises `ValueError` unless exactly 32 known words; `secret_from_hex` and the new `parse_pair_uri` accept exactly 64 hex characters and the documented `v`/`alg`/`len` (`test_f1_*`).
+
 **2. The signing secret is delivered inside the Signal chat it protects** (medium)
 `remote/bridge.py:198`. On redeem the bridge replies "Paired. Signing secret
 (shown once)" with the 32 words and the `halo-remote://` link in the same
@@ -46,6 +48,8 @@ owner's account, reads Note to Self history, signs commands. (confirmed by halo 
 phrase/QR only on the computer (`cli_pair.show_pairing`) and send the phone
 nothing but "Paired"; or send it once and delete the message.
 
+Fixed in round 5: the chat reply after pairing is "Paired. Your signing phrase is on the Halo screen." and nothing else; the phrase and link are shown only by `halo remote signal pair` and the /remote dialog (`test_f2_*`).
+
 **3. The phone permission card truncates the command and hides what "3" persists** (medium)
 `remote/bridge_cards.py:16,27-45`. `ONE_LINE = 160` cuts the command, collapses
 whitespace and newlines, and shows only the first of
@@ -57,6 +61,8 @@ suggestions persist silently. Fix: show up to ~1500 chars with an explicit
 "+N more characters" marker (long ones as the existing text attachment) and
 append the rule text to option 3.
 
+Fixed in round 5: the card shows the whole command (newlines and spacing kept; over 1500 characters it goes as its own message or attachment, the choices after it) and option 3 reads `3 always allow (saves rule: <rule>)`, or says nothing is saved (`test_f3_*`).
+
 **4. A peer with `signed: true` and no secret verifies against an empty key** (medium)
 `remote/bridge.py:219`, `signing.verify`. `bytes.fromhex(sg.get("secret_hex") or "")`
 turns a missing or empty secret (hand-edited `peers.json`, older schema, a
@@ -64,6 +70,8 @@ failed pairing write) into `b""`; `hmac.new(b"", ...)` works, so any sender
 who knows the (public) MAC format signs commands. Repro: `signing.sign(b"", 1,
 "/status")` passes `verify(b"", 0, ...)`. Fix: treat a missing or non-64-hex
 secret as "peer not usable" (audit + notice), never as an empty key. (confirmed by halo review)
+
+Fixed in round 5: a `signed: true` peer whose secret is missing or not 64 hex characters refuses every command, audits `no_secret`, replies with a re-pair notice and leaves a notice on the computer; `signed: false` is the only unsigned path (`test_f4_*`).
 
 **5. Pre-verification rate limit, unbounded audit/contact tables** (low)
 `bridge.py:210`, `audit.py:69`, `pairing.py:119`, `pairing_files.py:20`.
@@ -84,6 +92,8 @@ bridge and CLI (confirmed by halo review). Fix: count only verified commands aga
 separate, stricter counter), cap/rotate the audit file, expire pending
 requests after a day, log and audit handler exceptions, count only
 authenticated connections against `MAX_CONNS`.
+
+Fixed in round 5: the signature check runs first and only verified commands spend `rate_per_minute` (bad ones have a separate counter of at most 10 a minute); `audit.jsonl` rotates at 5 MB into `audit.jsonl.1`; pending contact requests are capped at 32 and the oldest unapproved one is dropped; handler exceptions leave an audit line; control-socket connections still in the Windows handshake sit in their own pool of 16 and at most 16 connections hold a feed. Not done: expiring pending requests after a day (the cap replaces it) (`test_f5_*`).
 
 ## B. Trust boundaries -- `mcp/`, `config/settings.py`, `init_cli.py`
 
@@ -336,6 +346,8 @@ stop on mismatch (keep gpg as the extra check); `extractall(filter="data")`,
 which also drops device and FIFO members. (the gpg-any-key and fail-open
 paths and the device members confirmed by halo review)
 
+Fixed in round 5: the SHA-256 of each pinned 0.14.9 asset (read from the release API, `assets[].digest`) is checked before unpacking and an unpinned asset refuses; gpg counts only when the signature is made by `RELEASE_KEY_FINGERPRINT` (left empty: the key was not fetched, so setup reports `digest-only`); extraction rejects device, FIFO, link, absolute and `..` members and uses the `data` filter when available (`test_f21_*`).
+
 **22. The `cc:` route trusts `--tools ""` and never checks it** (low)
 `agent/cc_process.py:98-150`. The child `claude` runs with
 `--permission-mode bypassPermissions`; halo's rules apply only because
@@ -345,12 +357,16 @@ Bash/Write run with no halo rules and no hooks. Fix: compare the init tool
 list to the bridged set and end the turn with a plain error when a built-in
 is present.
 
+Fixed in round 5: the first `system.init` is checked and a built-in (non `mcp__`) tool name ends the turn with a plain error, stops the child, and the next turn starts a fresh child that is checked again (`test_f22_*`).
+
 **23. The registration-lock PIN and SMS code travel on argv** (low)
 `remote/cli_setup.py:136-147`, `cli_common.run_cli`: `signal-cli setPin <pin>`
 and `verify <code> --pin <pin>` are visible to every local account in
 `ps` for the duration of the call; the PIN gates re-registration of the number.
 Fix: pass through a form that does not use argv if signal-cli has one; else
 document the window and run under `hidepid`.
+
+Fixed in round 5: `setPin` goes through a `signal-cli jsonRpc` child's stdin and `verify --pin` is tried there first; signal-cli 0.14.9 has no JSON-RPC `verify`, so `--pin` then goes on argv for that one call and the command says so (`test_f23_*`).
 
 ## F. File tools and `~/.halo`
 
@@ -392,6 +408,8 @@ raw host runs code on each installing machine. Fix: publish tagged releases
 with a SHA-256 file, make the one-liner fetch a tag and verify it, pin the
 uv installer version.
 
+Fixed in round 5: the scripts install the newest `vX.Y.Z` tag (`--ref` / `-Ref` overrides), print the tag and the commit, pin the uv bootstrap version and install with `--constraints requirements.lock`; the README one-liners fetch the script from a tag URL. Not done: signed tags or a checksums file for the script itself (`halo update` already checks release checksums) (`test_f26_*`).
+
 **27. Dependencies resolve unpinned and are never audited** (low)
 `pyproject.toml` (`mcp>=2.2,<3`, `rich>=14,<16`, `pyyaml>=6,<7`; only textual
 exact); `requirements.lock` has no hashes and neither the installer nor CI
@@ -400,6 +418,8 @@ has no `pip-audit` step and pins actions by tag (`@v4`, `@v5`). Scenario: a
 bad in-range release of `mcp` reaches the next installer. Fix: CI step
 `pip-audit -r requirements.lock`; install from a hashed lock; pin actions by
 commit.
+
+Fixed in round 5: `requirements.lock` is regenerated with hashes (`uv pip compile pyproject.toml --universal --generate-hashes -o requirements.lock`, existing pins kept; `pyyaml` was missing from the old file), CI installs it with `pip install --require-hashes --no-deps` and runs `scripts/pip_audit_gate.py` (pip-audit with `.github/pip-audit-allowlist.txt`) in both jobs. `uv tool install` does not enforce hashes (tested), so the installers constrain versions only. Not done: pinning actions by commit (`test_f27_*`).
 
 ## Second opinion (`halo review`, security dimension, glm-5.3-flash)
 
@@ -434,10 +454,18 @@ credential sent in clear for an `http://` target behind an `https://` proxy.
 - Bash and PowerShell rules are string matching: variable indirection
   (`x=rm; $x y`), `$IFS` splitting, interpreters (`python -c`), `find -exec`,
   aliases and unlisted wrappers escape any pattern.
-- The signing MAC is 32 bits. The online bound is the per-minute limiter
-  (30/min gives about 2^31/30 minutes for a holder of only the ACI); a very
-  high `remote.rate_per_minute` shrinks it and there is no lockout after bad
-  MACs.
+- The signing MAC is 32 bits. Since round 5 the online bound is the bad-message
+  counter (at most 10 unsigned or bad-MAC messages a minute per peer, about
+  2^32/10 minutes of guessing for a holder of only the ACI) rather than the
+  command budget; there is still no lockout after bad MACs.
+- The pinned signal-cli digests come from the release page's own `digest` field,
+  so they protect against a swapped or corrupted download, not against a
+  compromised release; the gpg check adds nothing until the release key's
+  fingerprint is filled in (round 5). `verify --pin` on a locked number still
+  puts the PIN on argv for that one call (signal-cli 0.14.9 has no other form).
+- `uv tool install` does not enforce the hashes in `requirements.lock` (tested
+  in round 5): the installers constrain exact versions, and the hashes are
+  enforced by `pip install --require-hashes` in CI.
 - Secrets at rest are plaintext files, 0600 where tightened: the env file,
   `peers.json` signing secrets, OAuth tokens, signal-cli's key store, the
   registration PIN. No OS keyring.

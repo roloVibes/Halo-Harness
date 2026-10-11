@@ -79,12 +79,14 @@ pilots over fixture data with a fixed clock, so a rerun is byte-identical
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/scripts/install-halo.sh | bash
+curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v2.0.10/scripts/install-halo.sh | bash
 halo init        # the wizard: provider, model, permission mode, theme, roles
 halo             # the full-screen TUI, from any directory
 ```
 
-Windows: `powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/scripts/install-halo.ps1 | iex"`.
+The script comes from a release tag (not a moving branch) and installs the newest tag; `--ref <tag>` picks another
+(`bash install-halo.sh --ref v2.0.7`), and it prints the tag and commit it installs.
+Windows: `powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v2.0.10/scripts/install-halo.ps1 | iex"` (`-Ref <tag>` there).
 No installer at all: `uv tool install git+https://github.com/roloVibes/Halo-Harness`
 (or `pipx install git+https://github.com/roloVibes/Halo-Harness`). Updates:
 `halo update`, or `/update` inside the TUI.

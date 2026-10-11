@@ -1154,6 +1154,19 @@ available (main): e1f2a3b (master)
 update command: uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness
 ```
 
+## The installer scripts (`install-halo.sh`, `install-halo.ps1`)
+
+`bash scripts/install-halo.sh [--ref <tag|branch|commit>] [--yes] [--no-clone] [--dry-run] [--dir=<path>]`
+and `install-halo.ps1 [-Ref <tag|branch|commit>] [-Yes] [-NoClone] [-DryRun] [-CloneDir <path>]`.
+Without `--ref` the scripts install the newest `vX.Y.Z` tag of the repository (found with
+`git ls-remote --tags`), never a moving branch; `--ref master` tracks master on purpose. Both print the
+tag and the commit they install. The clone path checks the ref out detached and installs with
+`uv tool install --reinstall --constraints requirements.lock .`; `--no-clone` installs
+`git+https://github.com/roloVibes/Halo-Harness@<ref>` with that ref's `requirements.lock` as the
+constraints. The uv bootstrap is version-pinned. The README one-liner fetches the script from a tag URL
+(`.../Halo-Harness/v2.0.10/scripts/install-halo.sh`), not from `master`. `--dry-run` prints every command
+(including the `git ls-remote` that picks the tag) without running any.
+
 ## `halo providers`
 
 ```
@@ -2604,7 +2617,10 @@ prints the captcha page when Signal asks for one; pass the token with
 `--captcha`; `--voice` asks for a call (only after an SMS was requested); `--code`
 completes the registration; `--pin` supplies the registration-lock PIN of a
 number that already has one. A Signal rate limit prints `retryAfterSeconds`.
-After `--code` a registration-lock PIN is set and kept in
+The registration-lock PIN reaches signal-cli through its JSON-RPC stdin (`setPin`,
+and `verify` when signal-cli offers it), never on the command line; only when
+signal-cli has no such method for `verify --pin` does `--pin` go on argv, and then
+the command says so. After `--code` a registration-lock PIN is set and kept in
 `~/.halo/remote/registration-pin` (0600).
 
 ### `halo remote signal link`
@@ -2629,6 +2645,8 @@ bridge's notices (a changed safety number, a rate limit). `--approve N` (a
 number from the list, or an ACI prefix) issues the six-digit code and, waiting
 up to `--wait` seconds (default 600), prints the 32-word signing phrase and the
 `halo-remote://` link as text and a QR code once the phone has sent the code.
+This screen (and the `/remote` dialog) is the only place the phrase is shown: the
+chat reply to the phone is just "Paired. Your signing phrase is on the Halo screen."
 
 ### `halo remote signal peers`, `unpair`, `reverify`
 

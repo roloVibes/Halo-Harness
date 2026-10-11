@@ -158,7 +158,8 @@ def on_feed(b, rt, frame: dict) -> None:
         b.transport.typing.start(aci)
     elif ev == "permission_request":
         rt.permission.append({"id": data.get("id")})
-        b.say(aci, cards.permission_card(data))
+        for part in cards.permission_messages(data):
+            b.say(aci, part)
     elif ev == "question":
         qs = cards.normalize_questions(data)
         if qs:

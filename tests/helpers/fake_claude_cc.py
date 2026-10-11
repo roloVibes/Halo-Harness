@@ -733,6 +733,8 @@ async def _amain(argv: "list[str]") -> int:
             await mcp_session.initialize()
             listed = await mcp_session.list_tools()
             tools_wire = [f"mcp__rolo__{t.name}" for t in listed.tools] + _connector_tool_names()
+            if os.environ.get("FAKE_CC_LEAK_BUILTIN"):  # a claude that ignored `--tools ""` (review finding 22)
+                tools_wire += ["Bash", "Write"]
             await _serve_turns(mcp_session, session_id, tools_wire)
     return 0
 

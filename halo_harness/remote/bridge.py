@@ -14,8 +14,11 @@ default the `time` module). `config` is a dict: `identity_model`, `own_aci`,
 One thread runs the loop; signal-cli's reader and the per-session feed
 threads only enqueue. An envelope goes through: sender identity (an unknown
 sender is never answered), blocked-peer check, rate limit, long-text
-attachment, signature, read receipt, then routing (bridge_commands.py).
-Nothing of a message is logged or stored; the audit line is a hash.
+attachment, signature, rate limit, read receipt, then routing
+(bridge_commands.py). The signature check comes before the rate limit, so
+unsigned or garbled messages (any device of the account in `linked` mode) never
+spend the real phone's budget; they have their own stricter counter. Nothing of
+a message is logged or stored; the audit line is a hash.
 """
 
 from __future__ import annotations
@@ -36,6 +39,10 @@ from halo_harness.remote.ratelimit import DROP_NOTIFY, OK, RateLimiter
 from halo_harness.remote.signal_errors import RateLimited, SignalError, UntrustedKey
 
 SIGNED_HINT = "Commands must end with ' #<counter>:<mac>' (see docs/REMOTE.md, Signing)."
+NO_SECRET_NOTICE = ("This phone is set to signed commands but has no usable signing secret. "
+                    "Pair it again: on the computer run `halo remote signal unpair` for this phone, then pair.")
+PAIRED_REPLY = "Paired. Your signing phrase is on the Halo screen."
+BAD_PER_MINUTE = 10  # unsigned / bad-MAC attempts per peer per minute (stricter than the command budget)
 SIGN_REFUSALS = {"unsigned": SIGNED_HINT, "bad_mac": "That signature did not match. " + SIGNED_HINT,
                  "stale": "That command is outside the allowed time window; send it again.",
                  "replay": "That counter was already used; use a higher one."}
@@ -56,7 +63,9 @@ class Bridge:
                                           ttl=int(config.get("pair_code_ttl_s") or 600), trust_needed=not self.linked)
         self.audit = audit or Audit(clock=self.clock.time)
         self.client_factory = client_factory
-        self.limiter = limiter or RateLimiter(int(config.get("rate_per_minute") or 30), self.clock.monotonic)
+        per_min = int(config.get("rate_per_minute") or 30)
+        self.limiter = limiter or RateLimiter(per_min, self.clock.monotonic)
+        self.bad_limiter = RateLimiter(min(BAD_PER_MINUTE, per_min), self.clock.monotonic)
         self.window = int(config.get("stale_window_s") or signing.WINDOW_S)
         self.inbox: "queue.Queue" = queue.Queue()
         self.rts: dict = {}
@@ -89,8 +98,11 @@ class Bridge:
             if item is not None:
                 self.handle(item)
             self.pairing.service(self.transport)
-        except Exception:
-            pass  # one bad item must never end the daemon
+        except Exception as e:  # one bad item must never end the daemon; it leaves an audit line
+            try:
+                self.audit.record("-", 0, type(e).__name__, "error", "handler_exception")
+            except Exception:
+                pass
 
     def shutdown(self) -> None:
         for rt in self.rts.values():
@@ -194,12 +206,25 @@ class Bridge:
         self.transport.take_attachments(atts, False)
         res = self.pairing.redeem(aci, text, number)
         if res.status == "paired":
-            phrase = signing.secret_to_phrase(res.secret)
-            self.say(aci, "Paired. Signing secret (shown once):\n" + phrase + "\n\n"
-                     + signing.pair_uri(res.secret, aci) + "\n\nEnd each command with ' #<counter>:<mac>'.")
+            # The secret never travels in the chat it protects (finding 2): the computer shows it.
+            self.say(aci, PAIRED_REPLY)
             self.audit.record(aci, 0, "pairing-code", "pair", "paired")
         elif res.status == "ignored":
             self.contact(aci, number)
+
+    def refuse_bad(self, aci: str, text: str, reason: str, notice: str, counter: int = 0) -> None:
+        """An unsigned, bad-MAC, stale, replayed or no-secret message: its own counter, not the command budget."""
+        verdict = self.bad_limiter.allow(aci)
+        if verdict != OK:
+            if verdict == DROP_NOTIFY:
+                self.audit.record(aci, counter, text, "refused", "bad_rate_limited")
+                self.say(aci, "Too many invalid commands; slow down. Further ones this minute are dropped.")
+            return
+        self.audit.record(aci, counter, text, "refused", reason)
+        if reason == "no_secret":
+            self.pairing.add_notice("no_secret", aci, f"{aci[:8]} is set to signed commands but has no usable signing secret; "
+                                    "unpair and pair it again")
+        self.say(aci, notice)
 
     def on_peer(self, peer: dict, number, ts, msg: str, atts: list) -> None:
         aci = peer["aci"]
@@ -207,23 +232,25 @@ class Bridge:
         if peer.get("blocked_until_reverified"):
             self.audit.record(aci, 0, text, "refused", "blocked")
             return
-        verdict = self.limiter.allow(aci)
-        if verdict != OK:
-            self.audit.record(aci, 0, text, "refused", "rate_limited")
-            if verdict == DROP_NOTIFY:
-                self.say(aci, "Too many commands; slow down. Further commands this minute are dropped.")
-            return
         counter, shown = 0, text
         if peer.get("signed", True):
-            sg = peer.get("signing") or {}
-            v = signing.verify(bytes.fromhex(sg.get("secret_hex") or ""), sg.get("counter", 0), text, ts,
-                               self.clock.time(), self.window)
+            try:
+                key = signing.secret_from_hex((peer.get("signing") or {}).get("secret_hex"))
+            except ValueError:  # signed: true with no usable secret never verifies against an empty key
+                self.refuse_bad(aci, text, "no_secret", NO_SECRET_NOTICE)
+                return
+            v = signing.verify(key, (peer.get("signing") or {}).get("counter", 0), text, ts, self.clock.time(), self.window)
             if not v.ok:
-                self.audit.record(aci, v.counter, text, "refused", v.reason)
-                self.say(aci, SIGN_REFUSALS.get(v.reason, SIGNED_HINT))
+                self.refuse_bad(aci, text, v.reason, SIGN_REFUSALS.get(v.reason, SIGNED_HINT), v.counter)
                 return
             counter, shown = v.counter, v.text
             self.pairing.advance_counter(aci, counter)
+        verdict = self.limiter.allow(aci)  # only commands that passed the signature spend the budget
+        if verdict != OK:
+            self.audit.record(aci, counter, shown, "refused", "rate_limited")
+            if verdict == DROP_NOTIFY:
+                self.say(aci, "Too many commands; slow down. Further commands this minute are dropped.")
+            return
         try:
             if ts:
                 self.transport.send_receipt(aci, ts)

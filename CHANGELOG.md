@@ -122,6 +122,43 @@ the allow side is unchanged and auto mode with no rules still allows. Pins:
 - **25: ids used as file names.** A session id is validated (clear error) and `--resume` only
   joins a safe id; a `tool_use_id` becomes a safe file stem for spill files.
 
+### Security review fix pass, round 3 (remote control, subprocesses, supply chain)
+
+Findings 1-5, 21-23 and 26-27 of [docs/harness/SECURITY-REVIEW-2.0.10.md](docs/harness/SECURITY-REVIEW-2.0.10.md);
+every finding of the review is now fixed, rejected or listed as left in
+`plans/briefs/2.0.10-review/SWEEP.md`. Pins: `tests/test_security_round5.py`, `5b`, `5c`.
+
+- **1: exact lengths.** `phrase_to_secret` raises `ValueError` unless it gets exactly 32 known
+  words; the new `parse_pair_uri` and `secret_from_hex` accept exactly 64 hex characters.
+- **2: the secret stays out of the chat.** After the one-time code the phone gets "Paired. Your
+  signing phrase is on the Halo screen."; the phrase, link and QR are shown only by
+  `halo remote signal pair` and the `/remote` dialog.
+- **3: the phone permission card.** It shows the whole command (newlines and spacing kept, long
+  ones as their own message or attachment) and labels `3` with the rule it writes, for example
+  `3 always allow (saves rule: Bash(sudo:*))`.
+- **4: no empty keys.** A `signed: true` peer with no usable secret refuses every command and
+  tells you to pair again; `signed: false` is the only unsigned path.
+- **5: limits.** The signature is checked before the rate limit (bad messages have their own
+  10-a-minute counter), `audit.jsonl` rotates at 5 MB, pending contact requests are capped at 32
+  (oldest dropped), handler exceptions leave an audit line, and the control socket caps feed
+  subscribers at 16 and keeps unauthenticated connections in a separate pool of 16.
+- **21: signal-cli download.** The pinned SHA-256 of the 0.14.9 archive is checked before
+  unpacking (an unpinned asset refuses); gpg counts only for the pinned release key (fingerprint
+  still empty, so the result reads `digest-only`); the unpacking rejects device, FIFO, link,
+  absolute and `..` members.
+- **22: the `cc:` route checks `--tools ""`.** A built-in tool in the child's first `system.init`
+  ends the turn with an error and stops the child.
+- **23: the registration PIN is off argv.** `setPin` (and `verify --pin` when offered) goes through
+  signal-cli's JSON-RPC stdin; 0.14.9 has no JSON-RPC `verify`, so `--pin` is passed on argv for that
+  call only, with a one-line note.
+- **26: the install channel.** `install-halo.sh` / `.ps1` install the newest `vX.Y.Z` tag (`--ref`
+  / `-Ref` overrides), print the tag and commit, pin the uv bootstrap, and install with
+  `--constraints requirements.lock`; the README one-liners fetch the script from a tag URL.
+- **27: dependencies.** `requirements.lock` is regenerated with hashes
+  (`uv pip compile pyproject.toml --universal --generate-hashes -o requirements.lock`; it also
+  gains the missing `pyyaml`); CI installs it with `pip install --require-hashes` and runs
+  `pip-audit` through `scripts/pip_audit_gate.py` with an allowlist file, in both jobs.
+
 ## [2.0.9] - 2026-10-11
 
 ### Remote control: the session control socket

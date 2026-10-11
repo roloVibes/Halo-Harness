@@ -9,8 +9,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import queue
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -105,6 +108,69 @@ def run_cli(cfg: dict, *args: str, account: Optional[str] = None, timeout: float
     return subprocess.run(cli_argv(cfg, *args, account=account, json_out=json_out), capture_output=True, text=True,
                           timeout=timeout, stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace",
                           env=tool_child_env(dict(os.environ)))
+
+
+class RpcResult:
+    """`ok`, the JSON-RPC `result`, or the `code`/`message` of the error (code None: no answer at all)."""
+
+    def __init__(self, ok: bool, result=None, code=None, message: str = "") -> None:
+        self.ok, self.result, self.code, self.message = ok, result, code, message
+
+    @property
+    def unsupported(self) -> bool:
+        return self.code == -32601  # method not found: the caller may choose another route
+
+
+def rpc_once(cfg: dict, method: str, params: dict, *, account: Optional[str] = None,
+             timeout: float = 120.0) -> RpcResult:
+    """One JSON-RPC call through a short-lived `signal-cli jsonRpc` child (2.0.10 review finding 23).
+    The parameters travel on the child's stdin, so a PIN or code never appears in `ps`. The child
+    is closed as soon as its answer arrives."""
+    Path(cfg["data_dir"]).mkdir(parents=True, exist_ok=True)
+    from halo_harness.providers.config import tool_child_env
+    argv = binary_words(cfg) + (["-a", account] if account else []) + ["-d", str(cfg["data_dir"]),
+                                                                       "jsonRpc", "--receive-mode", "manual"]
+    try:
+        proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                text=True, encoding="utf-8", errors="replace", env=tool_child_env(dict(os.environ)))
+    except OSError as e:
+        return RpcResult(False, message=str(e))
+    lines: "queue.Queue" = queue.Queue()
+    threading.Thread(target=lambda: ([lines.put(x) for x in proc.stdout], lines.put(None)), daemon=True).start()
+    rid = "halo-1"
+    try:
+        proc.stdin.write(json.dumps({"jsonrpc": "2.0", "id": rid, "method": method, "params": params}) + "\n")
+        proc.stdin.flush()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            try:
+                line = lines.get(timeout=0.2)
+            except queue.Empty:
+                continue
+            if line is None:
+                break
+            try:
+                msg = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(msg, dict) and msg.get("id") == rid:
+                err = msg.get("error")
+                if isinstance(err, dict):
+                    return RpcResult(False, code=err.get("code"), message=str(err.get("message") or ""))
+                return RpcResult(True, result=msg.get("result"))
+        return RpcResult(False, message="signal-cli did not answer")
+    except OSError as e:
+        return RpcResult(False, message=str(e))
+    finally:
+        for fn in (proc.stdin.close, proc.terminate):
+            try:
+                fn()
+            except OSError:
+                pass
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
 
 
 def configured(as_json: bool = False) -> "tuple[Optional[dict], int]":

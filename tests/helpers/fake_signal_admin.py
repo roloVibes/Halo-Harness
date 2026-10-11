@@ -31,6 +31,17 @@ def main(argv: list) -> int:
         words.append(argv[i])
         i += 1
     cmd, rest = (words[0], words[1:]) if words else ("", [])
+    if cmd == "jsonRpc":  # one request on stdin, one answer on stdout (params are logged: they never are argv)
+        req = json.loads(sys.stdin.readline())
+        if log:
+            with open(log, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"rpc": req["method"], "params": req.get("params")}) + "\n")
+        if req["method"] == "setPin":
+            reply = {"jsonrpc": "2.0", "id": req["id"], "result": {}}
+        else:  # signal-cli 0.14.9 has no `verify` over JSON-RPC (SIGNAL-RESEARCH section 1)
+            reply = {"jsonrpc": "2.0", "id": req["id"], "error": {"code": -32601, "message": "Method not found"}}
+        print(json.dumps(reply), flush=True)
+        return 0
     if cmd == "register":
         if mode == "ratelimit":
             print("Rate limit reached: retryAfterSeconds: 3600", file=sys.stderr)

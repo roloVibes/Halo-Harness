@@ -109,6 +109,9 @@ class CcState:
     # the shared stdout stream (mirrors `tool_use_cond` above for the
     # exact same reason: only ONE thread may ever call `read_event()`).
     capabilities: frozenset = field(default_factory=frozenset)
+    # 2.0.10 review finding 22: built-in (non `mcp__`) tool names the child advertised on `system.init`
+    # although `--tools ""` told it to have none; non-empty -> the turn ends and the child is stopped.
+    leaked_tools: list = field(default_factory=list)
     control_channel_supported: "Optional[bool]" = None
     control_subtype_supported: dict = field(default_factory=dict)
     control_waiters: dict = field(default_factory=dict)
@@ -1073,6 +1076,11 @@ def turn_body_cc(session, turn_no: int, text: str, *, images: Optional[list] = N
                     continue
                 for ev in _events_for_stdout_obj(session, turn_no, obj, state):
                     q.put(ev)
+                if state.leaked_tools:
+                    state.process.kill()
+                    state.process.wait(timeout=2.0)
+                    q.put("TOOL_LEAK")
+                    return
                 if obj.get("type") == "result":
                     with state.lock:
                         done = not state.unconfirmed
@@ -1140,6 +1148,9 @@ def turn_body_cc(session, turn_no: int, text: str, *, images: Optional[list] = N
                     if tail.strip():
                         msg += f" -- {tail.strip().splitlines()[-1][:300]}"
                     yield events.error(msg, turn=turn_no, err_type="cc_eof")
+                    reason = "error"
+                    break
+                if item == "TOOL_LEAK":
                     reason = "error"
                     break
                 if item == "ABORTED":
@@ -1210,6 +1221,17 @@ def turn_body_cc(session, turn_no: int, text: str, *, images: Optional[list] = N
     yield events.turn_done(turn=turn_no, reason=reason)
 
 
+def builtin_tools_in_init(obj: dict) -> list:
+    """The tool names in a `system.init` line that are not bridged MCP tools. The child runs with
+    `--tools ""` plus a strict MCP config, so every advertised name should start with `mcp__`;
+    anything else is a built-in (Bash, Write, ...) that the flag failed to remove."""
+    tools = obj.get("tools")
+    if not isinstance(tools, list):
+        return []
+    names = [t if isinstance(t, str) else (t.get("name") if isinstance(t, dict) else None) for t in tools]
+    return [n for n in names if isinstance(n, str) and n and not n.startswith("mcp__")]
+
+
 def _events_for_stdout_obj(session, turn_no: int, obj: dict, state: CcState) -> list:
     """Pure(ish) translation of one parsed stream-json line into zero or
     more UI events -- also does the corresponding session-log write, so
@@ -1244,6 +1266,14 @@ def _events_for_stdout_obj(session, turn_no: int, obj: dict, state: CcState) -> 
         # make the whole claude invocation fail outright) leaves claude
         # running with zero bridged tools and, until now, no warning.
         if obj.get("subtype") == "init":
+            leaked = builtin_tools_in_init(obj)
+            if leaked:
+                state.leaked_tools = leaked
+                out.append(events.error(
+                    "cc: refusing to continue -- Claude Code advertised built-in tools it was started without ("
+                    + ", ".join(leaked[:8]) + (", ..." if len(leaked) > 8 else "") + "); they would run without Halo's "
+                    "permission rules or hooks. The child was stopped; update Claude Code or switch routes.",
+                    turn=turn_no, err_type="cc_builtin_tools"))
             for server in obj.get("mcp_servers") or []:
                 if isinstance(server, dict) and server.get("name") == "rolo" \
                         and server.get("status") not in (None, "connected"):

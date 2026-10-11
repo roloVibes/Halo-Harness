@@ -5,14 +5,35 @@ signal-cli's own `data/` and `attachments/`), and `signal.json` points at it.
 
 Pin: signal-cli 0.14.9, released 2026-10-07 (docs/harness/SIGNAL-RESEARCH.md
 section 1). Linux x86-64 gets the native tarball; every other host gets the
-JVM tarball and needs a JRE 25. The `.asc` beside each archive is checked
-with `gpg` when it is installed. `download` is the only function here that
+JVM tarball and needs a JRE 25. `download` is the only function here that
 touches the network; tests replace it.
+
+What setup verifies (2.0.10 review finding 21), in this order:
+
+1. The SHA-256 of the downloaded archive against `SHA256` below, BEFORE
+   anything is unpacked or run. A mismatch, or an asset with no pinned digest,
+   stops the install and deletes the download. This is the gate.
+2. The extraction itself: device, FIFO, link, absolute-path and `..` members
+   are rejected, and `tarfile`'s `data` filter is applied when available.
+3. The `.asc` beside the archive, when `gpg` is installed AND
+   `RELEASE_KEY_FINGERPRINT` is filled in: the signature must be good AND made
+   by that exact key (`gpg --status-fd` VALIDSIG), not "some key in your
+   keyring". A good signature by any other key stops the install. While
+   `RELEASE_KEY_FINGERPRINT` is empty gpg is not consulted and the result is
+   reported as `digest-only`. No key is ever downloaded or imported by Halo.
+
+The digests are the `digest` field GitHub publishes for each release asset
+(fetched 2026-10-11 from the release API, cross-checked twice):
+https://api.github.com/repos/AsamK/signal-cli/releases/tags/v0.14.9
+(page: https://github.com/AsamK/signal-cli/releases/tag/v0.14.9). To re-pin a
+new version, read `assets[].digest` from that URL shape for the two archives
+and change `VERSION`, `RELEASED` and `SHA256` together.
 """
 
 from __future__ import annotations
 
 import calendar
+import hashlib
 import os
 import re
 import shutil
@@ -20,7 +41,7 @@ import subprocess
 import sys
 import tarfile
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Callable, Optional
 
 from halo_harness.remote.signal_config import remote_dir
@@ -30,6 +51,13 @@ RELEASED = "2026-10-07"
 RELEASED_TS = float(calendar.timegm((2026, 10, 7, 0, 0, 0)))
 STALE_AFTER_DAYS = 90
 MIN_JRE = 25
+SHA256 = {
+    "signal-cli-0.14.9-Linux-native.tar.gz": "a8fab78b5e8053abf3db5725272957ad11d1745b9a16848ddb2ace4743dfa5d5",
+    "signal-cli-0.14.9.tar.gz": "c32b87f587198cbd277c9d71228716ee6047ee2b63e8e88728e8280d9407d65a",
+}
+# The signal-cli release signing key's full 40-hex fingerprint, upper case, no spaces. EMPTY until the
+# owner fills it in from a source they trust (Halo does not fetch keys): while empty, gpg is not consulted.
+RELEASE_KEY_FINGERPRINT = ""
 BASE_URL = "https://github.com/AsamK/signal-cli/releases/download/v{v}/{name}"
 HOSTS = ("chat.signal.org", "cdn.signal.org", "cdn2.signal.org", "cdn3.signal.org", "storage.signal.org",
          "cdsi.signal.org", "svr2.signal.org")
@@ -125,22 +153,59 @@ def download(url: str, dest: Path, progress: Optional[Callable[[int], None]] = N
         raise InstallError(f"download failed: {e}") from None
 
 
+def verify_digest(archive: Path, name: str) -> str:
+    """The archive's SHA-256 must equal the pinned digest for `name`; returns the hex digest.
+    A missing, empty or placeholder pin refuses (nothing is installed from an unpinned asset)."""
+    want = str(SHA256.get(name) or "").lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", want):
+        raise InstallError(f"no pinned SHA-256 for {name}; refusing to install an unverified archive")
+    h = hashlib.sha256()
+    with open(archive, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    got = h.hexdigest()
+    if got != want:
+        raise InstallError(f"SHA-256 mismatch for {name}: expected {want}, got {got}; the archive was not unpacked")
+    return got
+
+
 def verify_signature(archive: Path, sig: Optional[Path], runner: Callable = subprocess.run) -> tuple:
-    """`(status, detail)`: verified | unverified | no-gpg | no-signature | bad."""
+    """`(status, detail)`: verified | unverified | digest-only | no-gpg | no-signature | bad.
+    `verified` means a good signature made by `RELEASE_KEY_FINGERPRINT`, not by any key."""
+    want = RELEASE_KEY_FINGERPRINT.replace(" ", "").upper()
+    if not want:
+        return "digest-only", "no release key fingerprint is pinned, so gpg was not consulted"
     if sig is None or not sig.exists():
         return "no-signature", "no .asc file was downloaded"
     if shutil.which("gpg") is None:
         return "no-gpg", "gpg is not installed, so the .asc was not checked"
     try:
-        res = runner(["gpg", "--verify", str(sig), str(archive)], capture_output=True, text=True, timeout=60)
+        res = runner(["gpg", "--status-fd", "1", "--verify", str(sig), str(archive)], capture_output=True, text=True,
+                     timeout=60)
     except (OSError, subprocess.SubprocessError) as e:
         return "unverified", f"gpg could not run: {e}"
     out = (res.stderr or "") + (res.stdout or "")
-    if res.returncode == 0:
-        return "verified", "gpg: good signature"
-    if "BAD signature" in out:
+    if "BADSIG" in out or "BAD signature" in out:
         return "bad", "gpg reports a BAD signature"
-    return "unverified", "the signing key is not in your gpg keyring (import it, then run `gpg --verify` by hand)"
+    valid = [ln.split() for ln in out.splitlines() if ln.startswith("[GNUPG:] VALIDSIG")]
+    if res.returncode == 0 and valid:
+        fprs = {t.upper() for parts in valid for t in (parts[2], parts[-1]) if len(t) == 40}
+        if want in fprs:
+            return "verified", f"gpg: good signature by {want}"
+        return "bad", "gpg: good signature, but not by the pinned signal-cli release key"
+    return "unverified", "the pinned signing key is not in your gpg keyring (import it, then run `gpg --verify` by hand)"
+
+
+def _unsafe_member(m: "tarfile.TarInfo", base: Path, dest: Path) -> bool:
+    name = m.name
+    if m.isdev() or m.isfifo() or m.islnk() or m.issym() or not (m.isfile() or m.isdir()):
+        return True
+    if name.startswith(("/", chr(92))) or PureWindowsPath(name).is_absolute() or PurePosixPath(name).is_absolute():
+        return True
+    if ".." in PurePosixPath(name.replace(chr(92), "/")).parts:
+        return True
+    target = (dest / name).resolve()
+    return not (target == base or base in target.parents)
 
 
 def extract(archive: Path, dest: Path) -> None:
@@ -149,11 +214,13 @@ def extract(archive: Path, dest: Path) -> None:
     with tarfile.open(archive, "r:*") as tar:
         members = []
         for m in tar.getmembers():
-            target = (dest / m.name).resolve()
-            if m.islnk() or m.issym() or not (target == base or base in target.parents):
-                raise InstallError(f"unsafe path in archive: {m.name}")
+            if _unsafe_member(m, base, dest):
+                raise InstallError(f"unsafe member in archive: {m.name}")
             members.append(m)
-        tar.extractall(dest, members=members)
+        if hasattr(tarfile, "data_filter"):
+            tar.extractall(dest, members=members, filter="data")
+        else:
+            tar.extractall(dest, members=members)
 
 
 def install(say: Callable[[str], None], work: Optional[Path] = None, runner: Callable = subprocess.run,
@@ -166,6 +233,12 @@ def install(say: Callable[[str], None], work: Optional[Path] = None, runner: Cal
     archive, sig = work / name, work / (name + ".asc")
     say(f"Downloading {asset_url(name)}")
     download(asset_url(name), archive)
+    try:
+        verify_digest(archive, name)
+    except InstallError:
+        archive.unlink(missing_ok=True)
+        raise
+    say("SHA-256 matches the pinned digest.")
     try:
         download(asset_url(name + ".asc"), sig)
     except InstallError:

@@ -15,6 +15,12 @@ its own reader thread; a subscribed connection also gets a writer thread
 that drains its bounded `Subscription` (256 frames). When that queue fills
 the subscription is dropped and the socket is force-closed, so a stalled
 client never blocks the session or other clients.
+
+Slots (2.0.10 review finding 5): `MAX_CONNS` (32) counts AUTHENTICATED
+connections only; on Windows a connection still inside its 5 s handshake sits in
+a separate pool of `MAX_PREAUTH` (16) and the oldest of them is closed when a new
+one arrives, so a local process looping silent connects never starves real
+clients. At most `MAX_SUBSCRIBERS` (16) connections hold a feed at once.
 """
 
 from __future__ import annotations
@@ -30,6 +36,7 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness.config.paths import bridge_home
+from halo_harness.remote.handle import HandleError
 from halo_harness.remote.protocol import handle_request
 
 LOOPBACK = "127.0.0.1"
@@ -37,6 +44,8 @@ HANDSHAKE_TIMEOUT_S = 5.0
 ACCEPT_POLL_S = 0.5
 MAX_LINE = 1 << 20
 MAX_CONNS = 32
+MAX_PREAUTH = 16
+MAX_SUBSCRIBERS = 16
 _SURROGATES = re.compile("[\ud800-\udfff]")
 
 
@@ -66,6 +75,7 @@ class _Conn:
         self._writer: Optional[threading.Thread] = None
         self._dead = threading.Event()
         self.noted: set = set()  # phones this connection announced (protocol `note`)
+        self.authed = os.name != "nt"  # POSIX: the 0600 socket is the auth; Windows: set after the token
 
     def send(self, obj: dict) -> bool:
         data = encode_line(obj)
@@ -86,6 +96,8 @@ class _Conn:
 
     def start_feed(self, kinds) -> None:
         self.stop_feed()
+        if not self.server.reserve_feed(self):
+            raise HandleError(f"too many subscribers (at most {MAX_SUBSCRIBERS} at a time)")
         sub = self.server.handle.subscribe(kinds=kinds)
         sub.on_drop = self.force_close
         self._sub = sub
@@ -106,8 +118,9 @@ class _Conn:
     def serve(self) -> None:
         rf = self.sock.makefile("rb")
         try:
-            if os.name == "nt" and not self._handshake(rf):
-                return
+            if os.name == "nt":
+                if not self._handshake(rf) or not self.server.promote(self):
+                    return
             while not self.server.closed.is_set() and not self._dead.is_set():
                 line = rf.readline(MAX_LINE + 1)
                 if not line:
@@ -216,11 +229,33 @@ class ControlServer:
             conn = _Conn(self, sock)
             with self._lock:
                 self._conns = [c for c in self._conns if not c._dead.is_set()]
-                if len(self._conns) >= MAX_CONNS:
+                if conn.authed and len(self._conns) >= MAX_CONNS:
                     conn.force_close()
                     continue
+                if not conn.authed:  # inside the handshake: a bounded pool, oldest closed first
+                    waiting = [c for c in self._conns if not c.authed]
+                    while len(waiting) >= MAX_PREAUTH:
+                        waiting.pop(0).force_close()
+                    self._conns = [c for c in self._conns if not c._dead.is_set()]
                 self._conns.append(conn)
             threading.Thread(target=conn.serve, name="halo-ctl-conn", daemon=True).start()
+
+    def reserve_feed(self, conn: "_Conn") -> bool:
+        """True when `conn` may hold a feed (it already holds one, or fewer than MAX_SUBSCRIBERS do)."""
+        with self._lock:
+            live = [c for c in self._conns if not c._dead.is_set() and c._sub is not None and c is not conn]
+            return len(live) < MAX_SUBSCRIBERS
+
+    def promote(self, conn: "_Conn") -> bool:
+        """A Windows connection passed the token: it now counts against MAX_CONNS."""
+        with self._lock:
+            if sum(1 for c in self._conns if c.authed and not c._dead.is_set()) >= MAX_CONNS:
+                ok = False
+            else:
+                conn.authed = ok = True
+        if not ok:
+            conn.send({"id": None, "ok": False, "error": "too many connections"})
+        return ok
 
     def close(self) -> None:
         self.closed.set()

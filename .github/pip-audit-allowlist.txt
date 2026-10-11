@@ -1,0 +1,4 @@
+# Advisory ids that scripts/pip_audit_gate.py (the CI "pip-audit" step) accepts.
+# One id per line (PYSEC-..., GHSA-..., CVE-...); everything after # is the reason.
+# Empty on purpose: add an id here only with the package, the reason it does not
+# apply to Halo, and the date to look at it again.

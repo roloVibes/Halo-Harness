@@ -3,7 +3,8 @@
 # tool) on Windows and make sure an old pre-2.0 install can never shadow
 # it. Mirrors scripts/install-halo.sh (same steps, same flags, same spirit).
 #
-#   powershell -ExecutionPolicy ByPass -File install-halo.ps1
+#   powershell -ExecutionPolicy ByPass -File install-halo.ps1   # clone, check out the LATEST TAG, install
+#   .\install-halo.ps1 -Ref v2.0.7  # a specific tag (or branch / commit); -Ref master tracks master
 #   .\install-halo.ps1 -Yes          # no questions (uninstalls an old pre-2.0 tool)
 #   .\install-halo.ps1 -NoClone      # install straight from GitHub, no clone
 #   .\install-halo.ps1 -DryRun       # print every command this script would
@@ -12,12 +13,18 @@
 #                                     # no filesystem change, never prompts
 #   .\install-halo.ps1 -CloneDir C:\src\Halo-Harness
 #
+# The default is the newest vX.Y.Z tag of the repository, never a moving branch;
+# the script prints the tag and the commit it installs. With a clone, the
+# dependencies are pinned to requirements.lock (exact versions; the hashes in
+# that file are checked by `uv pip install --require-hashes -r requirements.lock`).
+#
 # Needs: git, Python 3.10+. Installs uv if it is missing.
 [CmdletBinding()]
 param(
     [switch]$Yes,
     [switch]$NoClone,
     [switch]$DryRun,
+    [string]$Ref = "",
     [string]$CloneDir = $(if ($env:HALO_CLONE_DIR) { $env:HALO_CLONE_DIR } else { "$HOME\Halo-Harness" })
 )
 
@@ -27,6 +34,8 @@ $OldTool = "rolo" + "-claude"
 
 $RepoUrl = "https://github.com/roloVibes/Halo-Harness.git"
 $RepoUrlNoGit = "https://github.com/roloVibes/Halo-Harness"
+$RawUrl = "https://raw.githubusercontent.com/roloVibes/Halo-Harness"
+$UvInstallerVersion = "0.11.14"   # the uv bootstrap is version-pinned, never "latest"
 # Deliberately NOT "Stop": several steps below call a native .exe (pip,
 # git, uv) whose normal, non-fatal stderr chatter (progress output, a
 # "not found" warning on a routine existence check) would otherwise be
@@ -72,10 +81,10 @@ Say "Python: $(& $PyCmd --version)"
 # 2. uv (isolated tool installs)
 if (-not (Have "uv")) {
     if ($DryRun) {
-        Say "DRY RUN: uv not found -- would install it: irm https://astral.sh/uv/install.ps1 | iex"
+        Say "DRY RUN: uv not found -- would install it: irm https://astral.sh/uv/$UvInstallerVersion/install.ps1 | iex"
     } else {
         Say "uv not found: installing it from https://astral.sh/uv"
-        powershell -ExecutionPolicy ByPass -Command "irm https://astral.sh/uv/install.ps1 | iex"
+        powershell -ExecutionPolicy ByPass -Command "irm https://astral.sh/uv/$UvInstallerVersion/install.ps1 | iex"
         $env:PATH = "$HOME\.local\bin;$env:PATH"
         if (-not (Have "uv")) { Write-Host "uv still not on PATH; open a new terminal and re-run."; exit 1 }
     }
@@ -100,23 +109,68 @@ if ($LASTEXITCODE -eq 0) {
     if (Confirm "Uninstall it (recommended)?") { Run $PyCmd -m pip uninstall -y $OldTool }
 }
 
+# 3b. Which version: -Ref, else the newest vX.Y.Z tag -- never a moving branch.
+#     Prints the tag and the commit that gets installed.
+$RefSha = ""
+function Resolve-Ref {
+    if ($DryRun) {
+        if (-not $script:Ref) {
+            Write-Host "DRY RUN: git ls-remote --tags $RepoUrl   (the newest vX.Y.Z tag becomes the install ref)"
+            $script:Ref = "<latest-tag>"
+        } else {
+            Write-Host "DRY RUN: would install ref $($script:Ref) (git ls-remote $RepoUrl resolves its commit)"
+        }
+        return
+    }
+    if (-not $script:Ref) {
+        $tags = git ls-remote --tags $RepoUrl
+        if ($LASTEXITCODE -ne 0 -or -not $tags) {
+            Write-Host "Could not list the tags of $RepoUrl (network?). Re-run with -Ref <tag>."; exit 1
+        }
+        $names = @($tags | ForEach-Object { if ($_ -match 'refs/tags/(v[0-9][0-9.]*)$') { $Matches[1] } })
+        if (-not $names) { Write-Host "No vX.Y.Z tag found at $RepoUrl. Re-run with -Ref <ref>."; exit 1 }
+        $script:Ref = ($names | Sort-Object { [version]($_.Substring(1)) } | Select-Object -Last 1)
+    }
+    if ($script:Ref -match '^[0-9a-f]{40}$') {
+        $script:RefSha = $script:Ref
+    } else {
+        $lines = @(git ls-remote $RepoUrl "refs/tags/$($script:Ref)" "refs/tags/$($script:Ref)^{}" "refs/heads/$($script:Ref)" 2>$null)
+        $peeled = @($lines | Where-Object { $_ -like '*^{}' })
+        $pick = if ($peeled.Count) { $peeled[0] } elseif ($lines.Count) { $lines[0] } else { "" }
+        if ($pick) { $script:RefSha = ($pick -split '\s+')[0] }
+    }
+    $shown = if ($script:RefSha) { $script:RefSha } else { "resolved after checkout" }
+    Say "Installing $($script:Ref) (commit $shown)"
+}
+Resolve-Ref
+
 # 4. Install halo (2.0.1+ ships exactly one executable: halo)
 if ($NoClone) {
-    Say "Installing halo straight from GitHub"
-    Run uv tool install --reinstall "git+$RepoUrlNoGit"
+    Say "Installing halo straight from GitHub at $Ref"
+    Run uv tool install --reinstall --constraints "$RawUrl/$Ref/requirements.lock" "git+$RepoUrlNoGit@$Ref"
 } else {
     if (Test-Path (Join-Path $CloneDir ".git")) {
         Say "Updating the clone at $CloneDir"
-        if ($DryRun) { Write-Host "DRY RUN: git -C $CloneDir pull --ff-only" }
-        else { git -C $CloneDir pull --ff-only }
+        if ($DryRun) { Write-Host "DRY RUN: git -C $CloneDir fetch --tags --force origin" }
+        else { git -C $CloneDir fetch --tags --force origin }
     } else {
         Say "Cloning to $CloneDir"
         if ($DryRun) { Write-Host "DRY RUN: git clone $RepoUrl $CloneDir" }
         else { git clone $RepoUrl $CloneDir }
     }
-    Say "Installing halo from the clone"
-    if ($DryRun) { Write-Host "DRY RUN: (cd $CloneDir && uv tool install --reinstall .)" }
-    else { Push-Location $CloneDir; try { uv tool install --reinstall . } finally { Pop-Location } }
+    if ($DryRun) {
+        Write-Host "DRY RUN: git -C $CloneDir checkout --detach $Ref"
+    } else {
+        $target = $Ref
+        git -C $CloneDir rev-parse --verify -q "refs/remotes/origin/$Ref^{commit}" *> $null
+        if ($LASTEXITCODE -eq 0) { $target = "origin/$Ref" }
+        git -C $CloneDir checkout --detach $target
+        if ($LASTEXITCODE -ne 0) { Write-Host "Could not check out $Ref in $CloneDir."; exit 1 }
+        Say "Checked out $Ref at commit $(git -C $CloneDir rev-parse HEAD)"
+    }
+    Say "Installing halo from the clone (dependencies pinned by requirements.lock)"
+    if ($DryRun) { Write-Host "DRY RUN: (cd $CloneDir && uv tool install --reinstall --constraints requirements.lock .)" }
+    else { Push-Location $CloneDir; try { uv tool install --reinstall --constraints requirements.lock . } finally { Pop-Location } }
 }
 
 # 5. PATH for the uv tools directory
@@ -149,8 +203,8 @@ Say "Done. Next:"
 Write-Host "  cd ~ ; halo init      # pick a provider (Databricks at work, OpenRouter at home), then a live pong"
 Write-Host "  halo                  # the TUI, from any directory"
 if (-not $NoClone) {
-    Write-Host "Updates later:  cd $CloneDir ; git pull ; uv tool install --reinstall ."
+    Write-Host "Updates later:  re-run this installer (it installs the newest tag), or: .\install-halo.ps1 -Ref <tag>"
 } else {
-    Write-Host "Updates later:  uv tool install --reinstall git+$RepoUrlNoGit"
+    Write-Host "Updates later:  re-run this installer, or: uv tool install --reinstall git+$RepoUrlNoGit@<tag>"
 }
 Write-Host "Or just:        halo update    (or /update inside halo)"

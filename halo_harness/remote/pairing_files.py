@@ -17,7 +17,7 @@ from halo_harness.privateio import write_private_atomic
 CODE_TTL_S = 600
 CODE_DIGITS = 6
 MAX_ATTEMPTS = 3
-MAX_PENDING = 20
+MAX_PENDING = 32  # contact requests; the oldest unapproved one is dropped for a new one
 MAX_NOTICES = 20
 
 

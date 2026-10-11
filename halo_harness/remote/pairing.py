@@ -14,8 +14,9 @@ signal-cli running `--trust-new-identities never`:
    `verifiedSafetyNumber` (right away when a transport is attached; otherwise
    queued in pending.json and run by the bridge's next `service()` tick).
 3. The phone's next message must be exactly that code. `redeem()` writes the
-   peer (a fresh signing secret included) and returns it for the one-time
-   "Paired. Signing secret: ..." reply. Three wrong codes (a wrong six-digit
+   peer (a fresh signing secret included) and returns the secret to the
+   bridge, which tells the phone only "Paired."; the phrase and link are shown on
+   the computer (`halo remote signal pair`, the /remote dialog). Three wrong codes (a wrong six-digit
    message; other chatter is not a guess), or expiry, drop the request.
 
 A changed safety number (`block()`, from the receive-side notification or a
@@ -116,8 +117,13 @@ class Pairing:
             reqs = q.setdefault("requests", {})
             r = reqs.get(aci)
             if r is None:
-                if len(reqs) >= MAX_PENDING:
-                    return {"aci": aci, "state": "ignored"}
+                if len(reqs) >= MAX_PENDING:  # throwaway accounts must not block new pairings forever
+                    stale = sorted((x for x in reqs.values() if x.get("state") != "approved"),
+                                   key=lambda x: x.get("first_seen", 0))
+                    if not stale:
+                        return {"aci": aci, "state": "ignored"}
+                    reqs.pop(stale[0]["aci"], None)
+                    q["ops"] = [o for o in q.get("ops", []) if o.get("aci") != stale[0]["aci"]]
                 r = reqs[aci] = {"aci": aci, "number": number, "safety_number": safety_number,
                                  "first_seen": self.clock(), "state": "pending", "attempts": 0}
             r["number"] = r.get("number") or number
