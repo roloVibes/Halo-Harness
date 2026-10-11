@@ -4,6 +4,44 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-11 ~19:00 CDT (authoritative, read this first)
+
+**v2.1.0 IS RELEASED** (tag v2.1.0 at `e045330`: the Team step in Quick
+setup, `halo teams apply/preview/diff`, `halo studio`; GitHub release
+published; the local uv tool install refreshed to 2.1.0 via `uv pip
+install --python <tool venv python> --reinstall-package halo-harness
+<clone>`). v2.0.11 earlier today (front page, wordmark, level band).
+
+**2.2.0 "Org mode" IS MERGED INTO MASTER AND WAITING ON CI** (from branch
+`track-c`, worktree `<home>/Halo-C`): halo_harness/paperclip/ (client,
+`halo paperclip-run` process adapter, `halo paperclip status|install|
+open|link|sync|pull|org`), Studio's Roles | Org toggle over Paperclip,
+docs/PAPERCLIP.md, the wizard Orgs step pointer, ORGS.md note, README
+story, docs/media/studio-org.png; invariant exceptions reasoned in
+tests/test_offline_mode.py and tests/test_invariants.py. NEXT: CI green on
+both platforms (gate on the run's CONCLUSION, not the watch's exit) ->
+`python scripts/release.py 2.2.0 --no-install` (CHANGELOG has `## [2.2.0]
+- unreleased`) -> refresh the install -> `halo paperclip sync
+halo-dev-cycle --company "Halo Harness"` so the live agents run the
+installed `halo` (they currently point at a deleted wrapper script) ->
+handoff. Then the plan is complete; nothing else is queued.
+
+**Paperclip on this host:** installed at `~/.paperclip`, server
+http://127.0.0.1:3100 (`local_trusted`, no login), company "Halo
+Harness" (id a5b477bf...) with the halo-dev-cycle agents; test issues
+HAL-1/HAL-2 exist. Start it after a reboot with `npx paperclipai run`
+(or `npx paperclipai service install` once).
+
+**KNOWN:** `tests/test_wizard_agents_bios.py::test_bio_editor_opens_with_
+a_sentence_and_per_field_help` flaked once on the Windows runner; a `cc:`/
+`cx:` bio fails a heartbeat until `halo subscriptions accept` ran on the
+machine; assigning an issue auto-wakes the agent (a manual
+`heartbeat:invoke` right after is a duplicate run). Owner actions:
+upload docs/media/social-preview.png (GitHub Settings -> Social preview);
+the live Signal check (docs/REMOTE.md).
+
+--- previous snapshot below ---
+
 ## WHERE THINGS STAND -- 2026-10-11 ~16:30 CDT (authoritative, read this first)
 
 **v2.0.11 IS RELEASED** (tag v2.0.11 at `8ee57be`, GitHub release
