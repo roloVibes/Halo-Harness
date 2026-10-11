@@ -4,6 +4,54 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-12 ~00:15 CDT (authoritative, read this first)
+
+**EVERYTHING THROUGH 3.0.1.0 IS RELEASED.** Tags on master: v2.0.11
+(`8ee57be`, the front page), v2.1.0 (`e045330`, Team step + `halo
+studio`), v2.2.0 (`904d3c1`, Org mode on Paperclip), **v3.0.1.0
+(`7659258`, Halo Design)**. GitHub releases published for each with their
+artifacts. The local uv tool install reports `halo 3.0.1.0`. The Paperclip
+company "Halo Harness" (seven halo-dev-cycle agents) runs the installed
+`halo paperclip-run`. PR #3 (track-d) is merged by fast-forward; the
+temporary `branches: [master, track-d]` workflow trigger was reverted
+before the merge. Branch worktrees Halo-B/C/D can be removed (`git
+worktree remove`) once the owner is done with them.
+
+**3.0.1.0 in one paragraph:** `halo models --best-for design|visual|
+audio|video|image` ranks the catalog from its own modality/price/context
+facts; `halo design new|list|show|run|sync|comment|restore|export|
+handoff|critique|doctor` works a project under `~/.halo/design/<slug>/`
+(artboards with versions, pins, knobs, system.json, history) where a turn
+is `halo -p` in the project folder with the seven ArtCraft MCP servers as
+its ONLY MCP servers (strict `--mcp-config` per run) and the Design skill
+appended; Studio's third mode `Roles | Org | Design` shows the artboards
+as frames (sandboxed iframes / renders via `/design-files/...` with its
+own CSP), chat with streamed turns, comment pins, knobs that rewrite
+`:root` with no model call, direct text edits, a version slider,
+variants, a critique pass, a WCAG contrast table, an assets drop zone,
+exports and the handoff bundle. docs/DESIGN.md, docs/STUDIO.md "Design
+mode", docs/MODELS.md "Which model for what".
+
+**Live acceptance on this host:** `halo design run` on
+`or:anthropic/claude-haiku-5.5` built an HTML hero with two knobs and a
+VectorCraft logo mark (SVG+PNG) for $0.029 (project `halo-launch-page`);
+knob -> v2 through the Studio API; `halo design doctor --probe` found all
+seven craft apps up with their render tools.
+
+**KNOWN / OWNER ACTIONS:** the Paperclip `review` agent shows a stale
+"Process exited with code 1" from an earlier duplicate heartbeat (clears
+on its next run); `studio/api.py` (267) and `studio/model.py` (282) sit
+over the 250-line cap from before; known flakes:
+`test_tui.py::test_bare_effort_card_selection_persists_like_the_plain_
+text_path`, `tests/test_wizard_agents_bios.py::test_bio_editor_opens_
+with_a_sentence_and_per_field_help`; GitHub's API applies a secondary
+rate limit when two `gh run watch` loops poll at once (watch one run at
+a time); owner still uploads docs/media/social-preview.png (Settings ->
+Social preview) and does the live Signal check (docs/REMOTE.md). Nothing
+is queued after 3.0.1.0: the roadmap through Track D is complete.
+
+--- previous snapshot below ---
+
 ## WHERE THINGS STAND -- 2026-10-11 ~22:40 CDT (authoritative, read this first)
 
 **v2.0.11 and v2.1.0 ARE RELEASED** (tags at `8ee57be` and `e045330`; local
