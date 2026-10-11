@@ -73,6 +73,13 @@ class ControllerHandle(_BaseHandle):
     def _add_rule(self, rule: str, scope: str):
         return self.controller.add_permission_rule(rule, scope)
 
+    def _remote_changed(self, count: int, peers: list, peer: str, attached: bool) -> None:
+        try:
+            self.controller.events.put(events.remote_attached(count, peers, peer=peer, attached=attached))
+        except Exception:
+            pass
+        self._note(f"phone {peer} {'attached' if attached else 'detached'}")
+
     def _resolve_permission(self, request_id: str, reply: dict) -> bool:
         return self.controller.answer_permission(request_id, reply)
 

@@ -79,7 +79,19 @@ def live_sessions(b) -> list:
     return sorted(rows, key=lambda r: r.get("started") or 0, reverse=True)
 
 
+def tell_session(rt, attached: bool) -> None:
+    """Tell the attached session a phone came or went (control-socket `note`;
+    drives the TUI's `remote` chip). Best effort: an old session ignores it."""
+    if rt.client is None:
+        return
+    try:
+        rt.client.call("note", name="remote.attached", peer=rt.aci[:8], attached=attached)
+    except Exception:
+        pass
+
+
 def detach(b, rt) -> None:
+    tell_session(rt, False)
     rt.gen += 1
     if rt.feed is not None:
         rt.feed.stop_ev.set()
@@ -104,6 +116,7 @@ def attach(b, rt, entry: dict) -> Optional[str]:
     rt.feed = _Feed(b, rt, entry, rt.gen)
     rt.feed.start()
     rt.feed.ready.wait(3.0)  # events after this point are not missed
+    tell_session(rt, True)
     return None
 
 

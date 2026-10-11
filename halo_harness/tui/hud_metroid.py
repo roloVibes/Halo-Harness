@@ -50,7 +50,7 @@ PANELS = (
 
 STRIP = (
     Segment("phase"), Segment("permission"), Segment("needs_you"), Segment("mode"), Segment("effort"),
-    Segment("model", glyphs="▸"), Segment("agents"), Segment("bg"), Segment("offline"), Segment("gov"),
+    Segment("model", glyphs="▸"), Segment("agents"), Segment("bg"), Segment("offline"), Segment("remote"), Segment("gov"),
     Segment("hang"), Segment("new"), Segment("cwd", glyphs="⌂"), Segment("mcp"), Segment("throughput"),
     Segment("statusline"),
 )
@@ -95,7 +95,7 @@ METROID = HudSkin(
     # first removed first; phase, context, cost, face, area, mode, needs-you,
     # permission and offline are never removed.
     drop_order=("statusline", "throughput", "cwd", "mcp", "providers", "tools", "gov", "bg", "new", "effort",
-                "turns", "model", "agents", "hang", "tokens"),
+                "turns", "model", "agents", "hang", "remote", "tokens"),
     faces=FACES,
     glyphs=LIGHT,
     glyphs_ascii=PLAIN,

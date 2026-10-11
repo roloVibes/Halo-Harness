@@ -37,9 +37,9 @@ def _drain_kinds(q) -> list:
 @test
 def test_every_cmd_round_trips(ctx: Ctx):
     from halo_harness.remote.protocol import CMDS
-    ctx.check("cmd set is exactly the brief's thirteen",
+    ctx.check("cmd set is the brief's thirteen plus round 4's `note`",
               set(CMDS) == {"status", "submit", "steer", "interrupt", "answer", "model", "effort", "mode",
-                            "slash", "tail", "subscribe", "unsubscribe", "ping"})
+                            "slash", "tail", "subscribe", "unsubscribe", "ping", "note"})
     with Rig() as rig:
         c = rig.client()
         r = c.call("ping")

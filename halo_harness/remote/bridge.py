@@ -28,7 +28,7 @@ from typing import Optional
 from halo_harness.remote import bridge_commands as commands
 from halo_harness.remote import bridge_session as sess
 from halo_harness.remote.bridge_session import PeerRT
-from halo_harness.remote import render, signing
+from halo_harness.remote import bridge_state, render, signing
 from halo_harness.remote.audit import Audit
 from halo_harness.remote.client import ControlClient
 from halo_harness.remote.pairing import Pairing
@@ -43,7 +43,8 @@ SIGN_REFUSALS = {"unsigned": SIGNED_HINT, "bad_mac": "That signature did not mat
 
 class Bridge:
     def __init__(self, config: dict, transport, registry=None, clock=None, *, pairing: Optional[Pairing] = None,
-                 audit: Optional[Audit] = None, client_factory=ControlClient, limiter=None) -> None:
+                 audit: Optional[Audit] = None, client_factory=ControlClient, limiter=None,
+                 pulse: "Optional[bridge_state.BridgeState]" = None) -> None:
         if registry is None:
             from halo_harness.remote import registry as registry_mod
             registry = registry_mod
@@ -59,16 +60,24 @@ class Bridge:
         self.window = int(config.get("stale_window_s") or signing.WINDOW_S)
         self.inbox: "queue.Queue" = queue.Queue()
         self.rts: dict = {}
+        self.pulse = pulse  # the CLI's bridge.json writer; tests leave it None
+        self._stop_path = bridge_state.stop_path() if pulse is not None else None
 
     # ---- loop ---------------------------------------------------------------
     def run(self, stop: threading.Event, tick: float = 0.25) -> "Bridge":
         self.transport.set_sink(self.inbox.put)
+        if self.pulse is not None:
+            self.pulse.write("starting")
         self.transport.start()
         try:
             while not stop.is_set():
                 self.step(tick)
+                if self._stop_path is not None and self._stop_path.exists():
+                    break  # `halo remote signal off` (or /remote Off) asked for it
         finally:
             self.shutdown()
+            if self.pulse is not None:
+                self.pulse.write("stopped")
         return self
 
     def step(self, timeout: float = 0.25) -> None:
@@ -101,10 +110,19 @@ class Bridge:
             if rt is not None and item["gen"] == rt.gen:
                 sess.detach(self, rt)
                 self.say(rt.aci, "The attached session ended. /sessions lists the live ones.")
-        elif kind == "notice" and item.get("name") == "rate_limited":
+        elif kind == "notice":
+            self.on_notice(item)
+
+    def on_notice(self, item: dict) -> None:
+        name = item.get("name")
+        if name == "rate_limited":
+            wait = float(item.get("retry_after") or 0)
             tok = f" Captcha token: {item['token']}" if item.get("token") else ""
-            self.pairing.add_notice("rate_limited", "", f"Signal rate limit: sending paused for "
-                                    f"{int(item.get('retry_after') or 0)} s.{tok}")
+            self.pairing.add_notice("rate_limited", "", f"Signal rate limit: sending paused for {int(wait)} s.{tok}")
+            if self.pulse is not None:
+                self.pulse.write("rate-limited", self.clock.time() + wait)
+        elif self.pulse is not None and name in ("connected", "disconnected"):
+            self.pulse.write("connected" if name == "connected" else "starting")
 
     # ---- sending --------------------------------------------------------------
     def rt(self, aci: str) -> PeerRT:

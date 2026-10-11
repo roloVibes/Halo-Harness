@@ -61,7 +61,7 @@ from rich.cells import cell_len
 SLOTS = (
     "model", "tokens", "context", "tools", "mcp", "cost", "providers", "cwd", "branch", "mode", "effort",
     "phase", "elapsed", "needs_you", "permission", "agents", "bg", "hang", "offline", "gov", "new",
-    "throughput", "statusline", "area", "turns", "face",
+    "throughput", "statusline", "area", "turns", "remote", "face",
 )
 FACE_STATES = ("idle", "thinking", "writing", "error", "needs_you")
 

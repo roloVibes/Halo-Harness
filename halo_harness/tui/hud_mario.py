@@ -54,7 +54,7 @@ PANELS = (
 
 STRIP = (
     Segment("phase"), Segment("permission"), Segment("needs_you"), Segment("mode"), Segment("effort"),
-    Segment("model", glyphs="▸"), Segment("agents"), Segment("bg"), Segment("offline"), Segment("gov"),
+    Segment("model", glyphs="▸"), Segment("agents"), Segment("bg"), Segment("offline"), Segment("remote"), Segment("gov"),
     Segment("hang"), Segment("new"), Segment("cwd", glyphs="⌂"), Segment("mcp"), Segment("throughput"),
     Segment("statusline"),
 )
@@ -108,7 +108,7 @@ MARIO = HudSkin(
     # first removed first; phase, context, cost, face, area, mode, needs-you,
     # permission and offline are never removed. The timer goes last of all.
     drop_order=("statusline", "throughput", "cwd", "mcp", "providers", "tools", "gov", "bg", "new", "effort",
-                "turns", "model", "agents", "hang", "tokens", "elapsed"),
+                "turns", "model", "agents", "hang", "remote", "tokens", "elapsed"),
     faces=FACES,
     glyphs=DOUBLE,
     glyphs_ascii=PLAIN,

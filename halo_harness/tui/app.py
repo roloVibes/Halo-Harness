@@ -583,6 +583,10 @@ class BridgeApp(App):
         # `self._tick_spinner` on every tick instead.
         self.set_interval(1.0, lambda: self._tick_spinner())
         self.set_interval(5.0, self._refresh_cwd_branch)
+        # Halo 2.0.9 round 4: bridge notices (changed safety number, rate
+        # limit, captcha) become notifications; only when remote.enabled.
+        from halo_harness.tui.slash_remote import start_notice_poll
+        start_notice_poll(self)
         if self.console_guard is not None and getattr(self.console_guard, "active", False):
             # Something sharing the console may switch ENABLE_PROCESSED_INPUT
             # back on mid-session; two cheap kernel32 calls put it right.

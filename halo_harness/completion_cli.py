@@ -37,6 +37,13 @@ SUBCOMMANDS = (
     "remote",
 )
 
+# Halo 2.0.9 round 4: the words that follow `halo remote` / `halo remote
+# signal` (completion offers one flat word list after the first argument, so
+# these join the role names there). Kept equal to remote/cli.py by
+# tests/test_remote_cli_signal.py.
+REMOTE_WORDS = ("sessions", "signal", "setup", "register", "link", "run", "pair", "peers", "unpair", "reverify",
+                "status", "off", "on")
+
 
 def cached_model_refs(state_dir=None) -> "list[str]":
     """`or:<id>` for every OpenRouter `models.json` key, `dbx:<name>` for
@@ -61,7 +68,7 @@ def cached_model_refs(state_dir=None) -> "list[str]":
 
 def _completion_data(state_dir=None) -> "tuple[list[str], list[str], list[str]]":
     from halo_harness.roles import known_role_names
-    return list(SUBCOMMANDS), list(known_role_names()), cached_model_refs(state_dir)
+    return list(SUBCOMMANDS), list(known_role_names()) + list(REMOTE_WORDS), cached_model_refs(state_dir)
 
 
 _SAFE_COMPLETION_WORD_RE = None  # compiled lazily below (module import order)

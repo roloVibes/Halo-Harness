@@ -552,6 +552,11 @@ async def _apply_event_inner(app, event) -> None:
                 if enriched is not None:
                     status_data = {**data, "effort": enriched}
             app.status_bar.apply_status(status_data)
+    elif kind == "remote_attached":
+        # Halo 2.0.9 round 4: the Signal bridge attached / detached a phone
+        # (control-socket `note`); the status bar's `remote` chip follows.
+        if agent_id is None:
+            app.status_bar.set_remote_attached(data.get("count") or 0)
     elif kind == "governor":
         # Halo 2.0.5 round 4: the Governor's telemetry (throttle/recover/
         # waiting) forwarded from providers/http.py's choke point through

@@ -1757,6 +1757,17 @@ def run_work_checks_structured() -> "tuple[list, bool]":
     return checks, ok
 
 
+def _check_remote() -> "list[tuple[str, str]]":
+    """Halo 2.0.9 round 4: remote control (control sockets, the Signal bridge,
+    signal-cli's version pin, the JRE, ~/.halo/remote/ permissions, proxy egress
+    hosts) -- see remote/doctor_check.py. One quiet line when it is not in use."""
+    try:
+        from halo_harness.remote.doctor_check import entries
+        return entries()
+    except Exception as e:
+        return [("remote", f"{WARN} Remote control: the check failed ({type(e).__name__}: {e})")]
+
+
 def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = None) -> "list[tuple[str, str]]":
     """`[(id, rendered_line), ...]` -- the ONE table both `run_checks`
     (the plain `lines`/`ok` pair every existing caller/test already uses)
@@ -1823,6 +1834,7 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("install", _check_install()))
     entries.append(("command_on_path", check_command_on_path()))
     entries.append(("old_rolo_claude_on_path", _check_old_rolo_claude_leftover()))
+    entries.extend(_check_remote())
     return [(cid, line) for cid, line in entries if line is not None]
 
 

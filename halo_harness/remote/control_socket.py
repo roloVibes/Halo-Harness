@@ -65,6 +65,7 @@ class _Conn:
         self._sub = None
         self._writer: Optional[threading.Thread] = None
         self._dead = threading.Event()
+        self.noted: set = set()  # phones this connection announced (protocol `note`)
 
     def send(self, obj: dict) -> bool:
         data = encode_line(obj)
@@ -124,6 +125,11 @@ class _Conn:
             pass
         finally:
             self.stop_feed()
+            for peer in list(self.noted):
+                try:
+                    self.server.handle.set_remote_peer(peer, False)
+                except Exception:
+                    pass
             try:
                 rf.close()
             except OSError:
