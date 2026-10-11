@@ -4,7 +4,26 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-11 ~01:45 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-11 ~04:05 CDT (authoritative, read this first)
+
+**v2.0.8 IS RELEASED** (tag v2.0.8 at `1d001be`, GitHub release
+published, `--no-install`: the owner refreshes installs himself). The
+theme pack shipped complete: DOOM, Metroid (five areas), Mario (two
+palettes) on the shared game-HUD engine, the toggle contract, docs and
+the README gallery. CI green on Linux and Windows at `86da95b` (the two
+CI-only reds after round 3: cue calls now guard a missing status bar;
+`release.py` re-renders docs/screenshots/ into the release commit so the
+launch banner never drifts again). Pack follow-ups left open (small, not
+blocking): Tab completion of `/metroid <area>` and `/mario <variant>`;
+the ASCII fallback strips coin/heart/star glyphs instead of substituting.
+
+**NEXT = 2.0.9 Signal** (`plans/2.0.8-signal-brief.md`; the owner's
+order is a RESEARCH round first, then implementation rounds), then
+2.0.10 review/security. Status crons are session-only; re-create.
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-11 ~01:45 CDT (previous)
 
 **2.0.8 theme pack: all three skins are IN and pushed**: round 1
 `e29da72` (names, `tui/hud.py` engine, DOOM, the toggle contract), round
