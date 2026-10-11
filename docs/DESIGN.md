@@ -1,0 +1,137 @@
+# Halo Design
+
+Halo 3.0.1.0. Designs, prototypes, pages, decks, logos, photo work, motion and
+video, made by a model you choose, on the creative apps already on your machine.
+It is the third mode of Halo Studio (`Roles | Org | Design`) and a command family
+(`halo design`). Nothing leaves your machine except the model calls you already
+make with Halo.
+
+## The model
+
+A **project** is a folder under `~/.halo/design/<slug>/`:
+
+| path | what |
+|---|---|
+| `design.json` | name, created, the project's model, the artboard list |
+| `artboards/<id>/` | an artboard's CURRENT files |
+| `artboards/<id>/v<n>/` | a snapshot after each turn that changed it (versions) |
+| `comments.json` | pinned comments: artboard, x/y as percentages, text, resolved |
+| `assets/` | uploads, captures and exports from the craft apps |
+| `system.json` | the design system: tokens by group, components, where they came from |
+| `history.jsonl` | one line per turn: prompt, model, cost, the versions it made |
+
+An **artboard** is one of two things:
+
+- a **web prototype, page or deck**: `index.html`, self-contained (inline CSS and
+  JS, no CDN), reading the design tokens as CSS variables on `:root`;
+- a **craft render**: `render.png`, `render.svg`, `render.pdf` or `render.mp4`
+  saved by the app's own export tool, plus `source.json` naming the app, the saved
+  document, the kind and a title.
+
+Either may carry `controls.json`, the knobs a person moves without a model call:
+
+```json
+[{"name": "Spacing", "kind": "range", "target": "css:--space", "min": 0, "max": 64, "step": 1, "value": 16},
+ {"name": "Accent", "kind": "color", "target": "css:--accent", "value": "#89b4fa"}]
+```
+
+A `css:` target rewrites that variable in `index.html` in place and versions the
+artboard. A `craft:<tool>:<param>` target is queued for the next turn.
+
+## A design turn
+
+`halo design run <slug> "<prompt>"` (or the Chat panel in Studio) is one headless
+Halo turn (`halo -p`) in the project folder, on the project's model, with the file
+tools and every registered craft app allowed as tools, and the Design skill
+appended to the system prompt. The skill carries the artboard contract above, the
+recipe per craft app, the design system's tokens and components, the open comments
+and the artboards already there. When the turn ends every changed artboard gets a
+new version and the turn is logged with its cost.
+
+The craft apps are the seven ArtCraft MCP servers, each registered in Claude
+Code's user config, so a Halo session already has their tools:
+
+| app | for | render step |
+|---|---|---|
+| DesignCraft | pages, one-pagers, decks, posters | `export_png`, PDF |
+| VectorCraft | logos, icons, illustrations | `export` SVG / PNG |
+| PhotoCraft | compositing, retouching, raster mockups | `doc_export` PNG |
+| LightCraft | developing and batch-exporting photos | `export` |
+| EffectCraft | motion graphics, animated titles | `render_frame` |
+| FilmCraft | video cuts, trailers, product clips | `render_frame`, `render_preview` |
+| PdfCraft | assembling, annotating, signing, checking PDFs | `page_render`, `doc_save` |
+
+`halo design doctor` says which are registered; `--probe` spawns each one, counts
+its tools and checks the render tool is there (exit 1 when one is down). An app
+that is not registered is simply left out of the skill: prototypes and SVG are
+still written by hand.
+
+## Which model
+
+Any model Halo can reach, chosen per project (`--model` on `new` or `run`, or the
+picker in Studio). `halo models --best-for design` ranks the catalog for the job
+(vision, context, tool support, price, speed) with a one-line reason each; `visual`,
+`image`, `audio` and `video` are the other rankings. See
+[MODELS.md](MODELS.md) "Which model for what".
+
+## Refining
+
+- **Chat**: the next prompt. The model sees the artboards it already made.
+- **Comments**: `halo design comment <slug> <artboard> "text" --at 40,12`, or click
+  a spot on a frame in Studio. "Send comments" turns the open pins into the next
+  prompt and resolves them when the turn succeeds.
+- **Knobs**: the sliders from `controls.json`, live, no model call. Ask for knobs
+  in a turn ("add knobs for spacing and the accent colour").
+- **Direct text edits**: "Edit text" on an HTML artboard in Studio makes the frame
+  editable; Ctrl+S saves it as a new version.
+- **Versions**: `halo design show` lists them; `halo design restore <slug> <artboard> <n>`
+  brings one back; Studio has a slider per artboard.
+
+## Design systems
+
+`halo design sync <slug> [PATH|URL]` writes `system.json` with provenance:
+
+- a **codebase**: CSS custom properties (grouped into colors, typography, spacing,
+  radii, shadows), a `tailwind.config.*` `theme.extend`, `tokens.json` /
+  `*.tokens.json` (W3C design tokens), and component names from `components/`,
+  `ui/`, `src/components/`, `app/components/`;
+- a **URL**: the page's inline and linked stylesheets;
+- images and documents dropped into `assets/` are read by the model in a turn.
+
+Syncing again merges. Nothing is guessed: a token not in a source is not written.
+
+## Exports and the handoff
+
+`halo design export <slug> --as folder` writes a static site with an index page
+(every artboard, shareable as is); `--as html|png|svg|pdf` copies the prototypes or
+renders; a PDF of an HTML artboard is asked for in a turn ("export hero as a PDF
+through PdfCraft"). `halo design handoff <slug>` writes a bundle: the artboards'
+current files, `system.json`, `assets/` and a `HANDOFF.md` that a Halo or Claude
+Code session continues from:
+
+```sh
+halo --cwd ~/.halo/design/launch-page/exports/<stamp>-handoff "continue from HANDOFF.md"
+```
+
+## Studio's Design mode
+
+Press `D` in Studio (or open `?mode=design`). The rail lists projects, artboards and
+the design system; the canvas shows artboards as frames (HTML in a sandboxed frame
+that cannot reach Studio's API, renders as images), with device frames, comment
+pins and a version slider; the panel is Chat, Comments, Knobs, System and Export.
+See [STUDIO.md](STUDIO.md).
+
+## The command family
+
+```sh
+halo design new <name> [--model M]
+halo design list
+halo design show <slug>
+halo design run <slug> "<prompt>" [--model M] [--budget USD]
+halo design sync <slug> [PATH|URL]
+halo design comment <slug> <artboard> "<text>" [--at X,Y]
+halo design restore <slug> <artboard> <version>
+halo design export <slug> [--as html|pdf|png|svg|folder] [--out DIR] [--artboard ID]
+halo design handoff <slug> [--out DIR]
+halo design doctor [--probe]
+```
