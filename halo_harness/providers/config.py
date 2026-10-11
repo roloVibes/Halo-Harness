@@ -1236,6 +1236,13 @@ def setup_logging(state_dir: Path) -> logging.Logger:
     """
     state_dir.mkdir(parents=True, exist_ok=True)
     log_file = state_dir / "bridge.log"
+    if not log_file.exists():
+        # 2.0.10 finding 24: the log is owner-only from its first byte.
+        from halo_harness.privateio import private_opener
+        try:
+            os.close(private_opener(str(log_file), os.O_CREAT | os.O_WRONLY | os.O_APPEND))
+        except OSError:
+            pass
 
     # Remove any existing handlers from the bridge logger
     logger = logging.getLogger("bridge")

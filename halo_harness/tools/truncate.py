@@ -27,6 +27,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from halo_harness.privateio import private_mkdir, private_write_text
+from halo_harness.safe_id import safe_file_stem
+
 # OpenCode's own truncation constants (deep review item 15/Appendix D).
 MAX_LINES = 2000
 MAX_BYTES = 50 * 1024
@@ -73,9 +76,9 @@ def spill_and_truncate(content: str, *, cap: Optional[int], session_dir: Optiona
     if session_dir is not None and tool_use_id:
         try:
             results_dir = Path(session_dir) / "tool-results"
-            results_dir.mkdir(parents=True, exist_ok=True)
-            spill_path = results_dir / f"{tool_use_id}.txt"
-            spill_path.write_text(content, encoding="utf-8")
+            private_mkdir(results_dir)
+            spill_path = results_dir / f"{safe_file_stem(tool_use_id)}.txt"
+            private_write_text(spill_path, content)
             spill_note = f" Full output saved to {spill_path}."
         except OSError:
             spill_path = None

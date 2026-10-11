@@ -178,11 +178,17 @@ def _read_lines(path: Path) -> list:
 
 
 def _format(ordered: list, *, output_mode: str, show_line_numbers: bool,
-            before: int, after: int, head_limit) -> str:
+            before: int, after: int, head_limit, keep=None) -> str:
     """`ordered` is `[(path, [(line_no, line_text), ...]), ...]` -- the ONE
     shared shape both the Python engine and the rg-output parser produce, so
     formatting (and therefore the final text a model sees) never depends on
-    which backend found the matches."""
+    which backend found the matches.
+
+    `keep` (2.0.10 finding 15): an optional `path -> bool`; a file it rejects
+    is left out of the result (the session's Read deny rules, see
+    PermissionEngine.read_denied)."""
+    if keep is not None:
+        ordered = [(p, m) for p, m in ordered if keep(p)]
     if output_mode == "files_with_matches":
         lines = [str(p) for p, _ in ordered]
     elif output_mode == "count":
@@ -212,14 +218,16 @@ def _format(ordered: list, *, output_mode: str, show_line_numbers: bool,
 
 
 def _run_python_backend(pattern, regex, base, *, glob_pattern, file_type, output_mode,
-                         show_line_numbers, before, after, head_limit):
+                         show_line_numbers, before, after, head_limit, keep=None):
     ordered = []
     for f in sorted(_iter_files(base, glob_pattern, file_type), key=str):
+        if keep is not None and not keep(f):
+            continue
         matches = _search_file(f, regex, bool(regex.flags & re.DOTALL))
         if matches:
             ordered.append((f, matches))
     return _format(ordered, output_mode=output_mode, show_line_numbers=show_line_numbers,
-                    before=before, after=after, head_limit=head_limit)
+                    before=before, after=after, head_limit=head_limit, keep=keep)
 
 
 def _parse_rg_line_output(text: str) -> dict:
@@ -253,7 +261,7 @@ class _RipgrepUnavailable(Exception):
 
 
 def _run_ripgrep_backend(pattern, base, *, ignore_case, glob_pattern, file_type,
-                          output_mode, show_line_numbers, before, after, head_limit, multiline):
+                          output_mode, show_line_numbers, before, after, head_limit, multiline, keep=None):
     rg = shutil.which("rg")
     if not rg:
         raise _RipgrepUnavailable()
@@ -289,7 +297,7 @@ def _run_ripgrep_backend(pattern, base, *, ignore_case, glob_pattern, file_type,
     per_file = _parse_rg_line_output(proc.stdout)
     ordered = sorted(per_file.items(), key=lambda kv: str(kv[0]))
     return _format(ordered, output_mode=output_mode, show_line_numbers=show_line_numbers,
-                    before=before, after=after, head_limit=head_limit)
+                    before=before, after=after, head_limit=head_limit, keep=keep)
 
 
 class GrepTool(Tool):
@@ -374,12 +382,17 @@ class GrepTool(Tool):
                 is_error=True,
             )
 
+        # finding 15: files a Read deny rule names never appear in results.
+        engine = getattr(ctx, "permission_engine", None)
+        reader = getattr(engine, "read_denied", None)
+        keep = (lambda p: not reader(p)) if reader is not None else None
+
         if shutil.which("rg"):
             try:
                 body = _run_ripgrep_backend(
                     pattern, base, ignore_case=ignore_case, glob_pattern=glob_pattern, file_type=file_type,
                     output_mode=output_mode, show_line_numbers=show_line_numbers, before=before, after=after,
-                    head_limit=head_limit, multiline=multiline,
+                    head_limit=head_limit, multiline=multiline, keep=keep,
                 )
                 return ToolResult(body)
             except _RipgrepUnavailable:
@@ -388,5 +401,6 @@ class GrepTool(Tool):
         body = _run_python_backend(
             pattern, regex, base, glob_pattern=glob_pattern, file_type=file_type, output_mode=output_mode,
             show_line_numbers=show_line_numbers, before=before, after=after, head_limit=head_limit,
+            keep=keep,
         )
         return ToolResult(body)

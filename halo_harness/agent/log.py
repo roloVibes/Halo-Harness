@@ -26,6 +26,8 @@ import uuid
 from typing import Optional
 
 from halo_harness.config.paths import bridge_home, project_slug
+from halo_harness.privateio import private_mkdir, private_opener
+from halo_harness.safe_id import validate_session_id
 
 NODE_TYPES = frozenset({
     "meta", "system", "user", "assistant", "tool_result",
@@ -46,9 +48,12 @@ class SessionLog:
     def __init__(self, cwd, session_id: Optional[str] = None):
         self.cwd = cwd
         self.slug = project_slug(cwd)
-        self.session_id = session_id or uuid.uuid4().hex
+        # 2.0.10 finding 25: the id becomes a file name -- a caller-supplied
+        # one with separators is rejected, not joined.
+        self.session_id = validate_session_id(session_id) if session_id else uuid.uuid4().hex
         self.dir = bridge_home() / "sessions" / self.slug
-        self.dir.mkdir(parents=True, exist_ok=True)
+        # finding 24: directories created here are 0700, the transcript 0600.
+        private_mkdir(self.dir)
         self.path = self.dir / f"{self.session_id}.jsonl"
         self._nodes: list = []
         self._lock = threading.Lock()
@@ -69,7 +74,8 @@ class SessionLog:
                 # surrogateescape round-trips it back to the exact original
                 # bytes instead, the same error handler `os.fsdecode`
                 # itself used to produce it in the first place.
-                with open(self.path, "a", encoding="utf-8", errors="surrogateescape") as f:
+                with open(self.path, "a", encoding="utf-8", errors="surrogateescape",
+                          opener=private_opener) as f:
                     f.write(json.dumps(node, ensure_ascii=False) + "\n")
             except OSError:
                 pass

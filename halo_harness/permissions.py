@@ -33,6 +33,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from halo_harness import perm_ps as _pa
+from halo_harness import perm_shell as _ps
+
 # =============================================================================
 # 1. Pattern-content helpers.
 # =============================================================================
@@ -229,11 +232,31 @@ def split_powershell_segments(command: str) -> list:
     return [s.strip() for s in segments if s.strip()]
 
 
+def ps_candidates(command: str, _depth: int = 0) -> list:
+    """The command, each of its segments, and (finding 12) the segments of
+    every script block / group body and of every string payload a nested
+    `powershell -Command` / `cmd /c` receives; each also without its call
+    operator or block closer."""
+    out = [command]
+    for seg in split_powershell_segments(command):
+        out.append(seg)
+        cleaned = _pa.clean_head(seg)
+        if cleaned != seg:
+            out.append(cleaned)
+        if _depth < 3:
+            for payload in _pa.payloads(seg):
+                out.extend(ps_candidates(payload, _depth + 1))
+    if _depth < 3:
+        for body in _pa.bodies(command):
+            out.extend(ps_candidates(body, _depth + 1))
+    return out
+
+
 def powershell_deny_or_ask_matches(command: str, rules: list) -> Optional["Rule"]:
     """Segment-split counterpart to `bash_deny_or_ask_matches` for
     PowerShell (finding 1): the raw command AND every split segment are
     each tried both raw and canonicalised, case-insensitive."""
-    candidates = [command] + split_powershell_segments(command)
+    candidates = ps_candidates(command)
     for cand in candidates:
         canon = canonicalize_powershell(cand)
         for rule in rules:
@@ -255,6 +278,57 @@ def _abs_posix(path) -> str:
     if re.match(r"^[A-Za-z]:/", s):
         s = s[0].upper() + s[1:]
     return s.rstrip("/") or "/"
+
+
+_IS_WINDOWS = os.name == "nt"
+_GLOB_CHARS = "*?[{"
+
+
+def _win_normalize_posix(path: str) -> str:
+    """Windows opens `C:/proj/.env.`, `C:/proj/.env ` and `C:/proj/.env::$DATA`
+    as `.env`: drop the trailing dots/spaces and the stream suffix of every
+    component, the way the OS does, so a deny rule judges the file that is
+    actually opened (2.0.10 finding 16)."""
+    out = []
+    for i, comp in enumerate(path.split("/")):
+        if comp in ("", ".", "..") or (i == 0 and re.match(r"^[A-Za-z]:$", comp)):
+            out.append(comp)
+            continue
+        out.append(comp.split(":", 1)[0].rstrip(". "))
+    return "/".join(out)
+
+
+def _resolved_alt(full: str) -> Optional[str]:
+    """`full` (an absolute posix-style rule path, may hold glob characters)
+    with its literal leading components resolved through symlinks -- the same
+    resolution the target path gets. None when nothing changes."""
+    parts = full.split("/")
+    lit = []
+    for part in parts:
+        if any(c in part for c in _GLOB_CHARS):
+            break
+        lit.append(part)
+    prefix = "/".join(lit)
+    if len(lit) < 2 or not prefix:
+        return None
+    try:
+        resolved = _abs_posix(prefix)
+    except (OSError, ValueError, RuntimeError):
+        return None
+    alt = "/".join([resolved.rstrip("/")] + parts[len(lit):])
+    return alt if alt != full else None
+
+
+def _with_resolved(full: str, flags: int = 0) -> "re.Pattern":
+    """Regex for an absolute rule path: as written OR with its symlinks
+    resolved (finding 16 -- `link -> real`, deny `Read(//link/**)` must hit
+    `real/secret`, which is what the resolved target looks like)."""
+    forms = [full]
+    alt = _resolved_alt(full)
+    if alt:
+        forms.append(alt)
+    body = "|".join(_translate_glob_tail(f) for f in forms)
+    return re.compile(f"^(?:{body})(?:/.*)?$", flags)
 
 
 def _translate_glob_tail(tail: str) -> str:
@@ -304,16 +378,13 @@ def path_rule_regex(rule_value: str, base_dir: Path, *, any_depth: bool) -> "tup
     if value.startswith("//"):
         rest = value[2:]
         full = ("/" + rest) if not re.match(r"^[A-Za-z]:", rest) else rest
-        tail_pattern = _translate_glob_tail(full.replace("\\", "/").rstrip("/"))
-        return re.compile(f"^{tail_pattern}(?:/.*)?$"), True
+        return _with_resolved(full.replace("\\", "/").rstrip("/")), True
     if value.startswith("~/") or value == "~":
         full = str(Path(value).expanduser()).replace("\\", "/").rstrip("/")
-        tail_pattern = _translate_glob_tail(full)
-        return re.compile(f"^{tail_pattern}(?:/.*)?$"), True
+        return _with_resolved(full), True
     if re.match(r"^[A-Za-z]:[\\/]", value):
         full = value.replace("\\", "/").rstrip("/")
-        tail_pattern = _translate_glob_tail(full)
-        return re.compile(f"^{tail_pattern}(?:/.*)?$", re.IGNORECASE), True
+        return _with_resolved(full, re.IGNORECASE), True
 
     if value.startswith("/"):
         value = value[1:]
@@ -329,6 +400,11 @@ def path_rule_regex(rule_value: str, base_dir: Path, *, any_depth: bool) -> "tup
         pattern = f"^{base_fragment}/(?:.*/)?{tail_pattern}(?:/.*)?$"
     else:
         pattern = f"^{base_fragment}/{tail_pattern}(?:/.*)?$"
+    # finding 16: a symlink inside the rule's own literal text (`link/x`, or
+    # `.env` that is itself a link) is resolved like the target is.
+    alt = _resolved_alt(base_posix + "/" + tail)
+    if alt:
+        pattern = f"(?:{pattern})|(?:^{_translate_glob_tail(alt)}(?:/.*)?$)"
     return re.compile(pattern), False
 
 
@@ -571,7 +647,7 @@ def strip_wrappers_and_env(segment: str) -> str:
 # `FOO=a b` token as one unit; the rebuilt, space-joined result also
 # collapses any run of whitespace to one space (binary sec.4).
 _ENV_ASSIGN_ANY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-_DENY_STRIP_WRAPPERS = _WRAPPER_CMDS | frozenset({"sudo", "doas", "env"})
+_DENY_STRIP_WRAPPERS = _WRAPPER_CMDS | frozenset({"sudo", "doas", "env"}) | _ps.EXTRA_WRAPPERS
 
 
 def _tokenize_loose(segment: str) -> list:
@@ -594,6 +670,7 @@ _WRAPPER_VALUE_OPTS = {
     "env": {"-u", "--unset"},
     "xargs": {"-I", "-o", "-P", "--replace", "--max-procs"},
     "stdbuf": {"-i", "-o", "-e", "--input", "--output", "--error"},
+    **_ps.EXTRA_WRAPPER_VALUE_OPTS,
 }
 
 
@@ -617,18 +694,32 @@ def strip_wrappers_and_env_for_deny(segment: str) -> str:
             tokens.pop(0)
             changed = True
             continue
+        # finding 12: compound-statement words (`then rm x`, `do rm $f`,
+        # `! rm x`, `case a in a) rm x`) are not the command either.
+        if tokens[0] in _ps.CONTROL_WORDS:
+            tokens.pop(0)
+            changed = True
+            continue
+        if _ps.strip_case_prefix(tokens):
+            changed = True
+            continue
         if tokens[0] in _DENY_STRIP_WRAPPERS:
             wrapper = tokens.pop(0)
             value_opts = _WRAPPER_VALUE_OPTS.get(wrapper, frozenset())
+            seen_opts = set()
             while tokens and tokens[0].startswith("-") and tokens[0] != "-":
                 opt = tokens.pop(0)
                 base_opt = opt.split("=", 1)[0]
+                seen_opts.add(base_opt)
                 if (opt in value_opts or base_opt in value_opts) and tokens \
                         and "=" not in opt:
                     tokens.pop(0)
-            if wrapper in ("timeout", "nice") and tokens \
+            if wrapper in _ps.NUMERIC_AFTER_OPTS and tokens \
                     and tokens[0].lstrip("+-").replace(".", "", 1).isdigit():
                 tokens.pop(0)
+            positional = _ps.EXTRA_WRAPPER_POSITIONAL.get(wrapper, 0)
+            if positional and not (seen_opts & _ps.POSITIONAL_SKIPPED_BY.get(wrapper, set())):
+                del tokens[:positional]
             changed = True
     return " ".join(tokens)
 
@@ -712,6 +803,17 @@ def _is_opaque_reexec(command: str) -> bool:
             return True
         if head in ("sh", "bash", "zsh", "dash", "ksh") and "-c" in tokens[1:2] or tokens[1:2] == ["-c"]:
             return True
+        # finding 12: `bash -lc '...'` (clustered flags) and a script fed on
+        # stdin (`sh <<EOF`, `sh <<< 'rm x'`, `... | sh`) are the same
+        # opaque string; so is `exec`/`watch` reaching a shell through the
+        # wrapper strip above (head is already the shell here).
+        if head in ("sh", "bash", "zsh", "dash", "ksh"):
+            if any(re.fullmatch(r"-[A-Za-z]*c[A-Za-z]*", t) for t in tokens[1:3]):
+                return True
+            if any(t.startswith("<<") for t in tokens[1:]) or "-s" in tokens[1:2]:
+                return True
+            if len(tokens) == 1:  # a bare shell reads its script from stdin
+                return True
     return False
 
 
@@ -903,6 +1005,7 @@ def bash_deny_or_ask_matches(command: str, rules: list) -> Optional["Rule"]:
         b = _basename_first(seg)
         if b:
             candidates.append(_collapse_ws(b))
+        candidates.extend(_extra_deny_candidates(seg))
     for body in extract_subshell_bodies(command) + _extract_group_bodies(command):
         candidates.append(_collapse_ws(body))
         stripped = strip_wrappers_and_env_for_deny(body)
@@ -919,6 +1022,7 @@ def bash_deny_or_ask_matches(command: str, rules: list) -> Optional["Rule"]:
             sub_stripped = strip_wrappers_and_env_for_deny(sub_seg)
             if sub_stripped and sub_stripped != sub_seg:
                 candidates.append(_collapse_ws(sub_stripped))
+            candidates.extend(_extra_deny_candidates(sub_seg))
     for cand in candidates:
         for rule in rules:
             if rule.kind not in ("exact", "prefix", "glob"):
@@ -926,6 +1030,28 @@ def bash_deny_or_ask_matches(command: str, rules: list) -> Optional["Rule"]:
             if _pattern_matches_text(rule.kind, rule.value, cand):
                 return rule
     return None
+
+
+def _extra_deny_candidates(seg: str, _depth: int = 0) -> list:
+    """2.0.10 findings 12/13: more DENY/ASK candidates for ONE segment --
+    the wrapper-stripped form's basename (`sudo /usr/bin/git push`), each
+    form with the tool's global options dropped (`git -C x push` ->
+    `git push`), and the command text a wrapper carries as a payload
+    (`flock f -c 'rm x'`, `find . -exec rm {} ;`). Only ever adds."""
+    stripped = strip_wrappers_and_env_for_deny(seg)
+    forms = [_collapse_ws(seg), _collapse_ws(stripped)]
+    base = _basename_first(stripped)
+    if base:
+        forms.append(_collapse_ws(base))
+    for form in list(forms):
+        no_opts = _ps.strip_tool_global_options(form)
+        if no_opts:
+            forms.append(_collapse_ws(no_opts))
+    if _depth < 3:
+        for payload in _ps.payload_strings(seg):
+            for sub in split_bash_segments(payload) or [payload]:
+                forms.extend(_extra_deny_candidates(sub, _depth + 1))
+    return [f for f in forms if f]
 
 
 # =============================================================================
@@ -1515,21 +1641,31 @@ class PermissionEngine:
             return None
         target_posix = _abs_posix(target)
         any_depth = action in ("deny", "ask")
+        # finding 16 (Windows): the name the OS opens, for deny/ask only.
+        target_forms = [target_posix]
+        if any_depth and _IS_WINDOWS:
+            normalized = _win_normalize_posix(target_posix)
+            if normalized != target_posix:
+                target_forms.append(normalized)
 
         def _rule_regex(r: Rule):
             base = r.base_dir or self.cwd
             regex, _is_abs = path_rule_regex(r.value, base, any_depth=any_depth)
             return regex
 
+        def _hits(r: Rule) -> bool:
+            regex = _rule_regex(r)
+            return any(regex.match(form) for form in target_forms)
+
         positive_hit: Optional[Rule] = None
         for r in path_rules:
-            if not r.negated and _rule_regex(r).match(target_posix):
+            if not r.negated and _hits(r):
                 positive_hit = r
                 break
         if positive_hit is None:
             return None
         for r in path_rules:
-            if r.negated and _rule_regex(r).match(target_posix):
+            if r.negated and _hits(r):
                 return None  # the exception cancels the positive hit
         return positive_hit
 
@@ -1540,7 +1676,55 @@ class PermissionEngine:
     _BASH_FILE_READERS = frozenset({
         "cat", "head", "tail", "less", "more", "strings", "od", "hexdump", "xxd", "nl",
         "tac", "rev", "zcat", "bzcat", "xzcat", "file", "stat", "wc", "md5sum", "sha256sum",
+        # finding 15: searchers, stream editors and copiers read the file too
+        "grep", "egrep", "fgrep", "rg", "ag", "sed", "awk", "gawk", "mawk", "cp", "tar",
+        "sort", "uniq", "cut", "paste", "diff", "cmp", "jq", "bat", "base64", "sha1sum", "sha512sum",
     })
+    # readers whose first non-option word is a pattern / script, not a path
+    _BASH_PATTERN_FIRST = frozenset({"grep", "egrep", "fgrep", "rg", "ag", "sed", "awk", "gawk", "mawk", "jq"})
+    _REDIRECT_IN_RE = re.compile(r"(?<![<>&])<(?![<(&>])\s*(\S+)")
+
+    def _bash_reader_paths(self, head: str, args: list) -> list:
+        """The path-like words of one reader command: every non-option
+        argument (a pattern/script word is skipped unless `-e`/`-f` supplied
+        it), the value of `--opt=value`, and for `cp` only the sources."""
+        paths: list = []
+        pattern_given = head not in self._BASH_PATTERN_FIRST
+        positional: list = []
+        skip_next = False
+        for tok in args:
+            if skip_next:
+                skip_next = False
+                continue
+            if tok in ("-e", "--regexp"):
+                pattern_given, skip_next = True, True
+                continue
+            if tok in ("-f", "--file", "--from-file", "-T", "--files-from"):
+                pattern_given = True
+                continue
+            if tok.startswith("--") and "=" in tok:
+                paths.append(tok.split("=", 1)[1])
+                continue
+            if tok.startswith("-") and tok != "-":
+                continue
+            if not pattern_given:
+                pattern_given = True
+                continue
+            positional.append(tok)
+        to_dir = any(a in ("-t", "--target-directory") or a.startswith("--target-directory=") for a in args)
+        if head == "cp" and not to_dir and len(positional) > 1:
+            positional = positional[:-1]  # the last word is the destination
+        return paths + positional
+
+    def _bash_read_units(self, command: str) -> list:
+        """Every command-line fragment a reader could hide in: the segments,
+        the `$()`/backtick/group bodies' segments, and exec payloads."""
+        units: list = []
+        for part in [command] + extract_subshell_bodies(command) + _extract_group_bodies(command):
+            for seg in split_bash_segments(part):
+                units.append(seg)
+                units.extend(_ps.payload_strings(seg))
+        return units
 
     def _bash_read_deny_hit(self, command: str, action: str = "deny") -> Optional[Rule]:
         """vibes/review.md finding 10: a Read deny/ask PATH rule also gates
@@ -1548,7 +1732,10 @@ class PermissionEngine:
         command is a reader, every non-option argument is resolved against
         the live cwd (finding 7) and tested against the Read path rules --
         one hit fires. Nothing happens when no Read path rule exists (the
-        overwhelmingly common case -- zero added friction)."""
+        overwhelmingly common case -- zero added friction). 2.0.10 finding
+        15: `~`/`$HOME` words expand, `< file` redirections count, glob
+        words expand against the live cwd, bodies and payloads are scanned,
+        and the reader set includes grep/sed/awk/cp/tar and friends."""
         rules = self.deny_rules if action == "deny" else self.ask_rules
         read_path_rules = [r for r in rules if r.kind == "path" and r.tool == "Read"]
         if not read_path_rules:
@@ -1556,17 +1743,67 @@ class PermissionEngine:
         live_cwd = self._bash_live_cwd(command)
         if live_cwd is None:
             live_cwd = self.cwd
-        for seg in split_bash_segments(command):
+        for seg in self._bash_read_units(command):
             stripped = strip_wrappers_and_env_for_deny(seg)
             tokens = _tokenize_loose(stripped)
-            if not tokens or tokens[0] not in self._BASH_FILE_READERS:
-                continue
-            for tok in tokens[1:]:
-                if tok.startswith("-") or any(ch in tok for ch in "<>{}*?$`"):
+            words = [m.strip("'\"") for m in self._REDIRECT_IN_RE.findall(seg)]
+            if tokens:
+                head = tokens[0].replace("\\", "/").rsplit("/", 1)[-1]
+                if head in self._BASH_FILE_READERS:
+                    words += self._bash_reader_paths(head, tokens[1:])
+            for tok in words:
+                tok = _ps.expand_home_token(tok)
+                if any(ch in tok for ch in "<>{}$`"):
                     continue
-                candidate = Path(tok)
-                target = candidate if candidate.is_absolute() else (live_cwd / candidate)
-                hit = self._path_rule_hit(rules, "Read", {"file_path": str(target)}, None, action=action)
+                targets = [tok]
+                if any(ch in tok for ch in "*?["):
+                    import glob as _glob
+                    base = tok if Path(tok).is_absolute() else str(live_cwd / tok)
+                    targets = _glob.glob(base)[:200]
+                for t in targets:
+                    candidate = Path(t)
+                    target = candidate if candidate.is_absolute() else (live_cwd / candidate)
+                    hit = self._path_rule_hit(rules, "Read", {"file_path": str(target)}, None, action=action)
+                    if hit is not None:
+                        return hit
+        return None
+
+    # ---- finding 15: Grep/Glob reach files below a directory ---------------
+
+    def read_denied(self, path) -> bool:
+        """True when a Read DENY path rule covers `path`. Grep and Glob call
+        this for each file they would return (tools/grep_tool.py,
+        tools/glob_tool.py), so a directory-wide search skips the files the
+        user's `Read(...)` deny rules name. No Read path deny rule -> False
+        without touching the filesystem."""
+        if not any(r.kind == "path" and r.tool == "Read" for r in self.deny_rules):
+            return False
+        return self._path_rule_hit(self.deny_rules, "Read", {"file_path": str(path)}, None,
+                                   action="deny") is not None
+
+    def _dir_read_ask_hit(self, tool_name: str, tool_input: dict) -> Optional[Rule]:
+        """A Grep/Glob whose directory holds a file a Read ASK rule names is
+        asked about as a whole (a result list cannot be half-asked). Bounded
+        walk; only runs when a Read ask path rule exists."""
+        if tool_name not in ("Glob", "Grep"):
+            return None
+        if not any(r.kind == "path" and r.tool == "Read" for r in self.ask_rules):
+            return None
+        target = self._resolve_target_path(tool_input.get("path", "")) or self.cwd
+        try:
+            if not target.is_dir():
+                return None
+        except OSError:
+            return None
+        seen = 0
+        for root, dirs, files in os.walk(str(target)):
+            dirs[:] = [d for d in dirs if d not in (".git", "node_modules")]
+            for name in files:
+                seen += 1
+                if seen > 20000:
+                    return None
+                hit = self._path_rule_hit(self.ask_rules, "Read", {"file_path": os.path.join(root, name)},
+                                          None, action="ask")
                 if hit is not None:
                     return hit
         return None
@@ -1652,6 +1889,16 @@ class PermissionEngine:
             hit = powershell_deny_or_ask_matches(command, [r for r in ps_rules(self.ask_rules) if r.kind in ("exact", "prefix", "glob")])
             if hit is not None:
                 return self._resolve_ask("PowerShell", tool_input, None, hit)
+            # finding 12: `iex ...` / `powershell -EncodedCommand ...` run a
+            # string the matcher cannot scan. When the user wrote ANY
+            # PowerShell deny/ask rule it is asked about (same contract as
+            # Bash's `eval`); with no such rule nothing changes.
+            if deny_bare or ps_rules(self.deny_rules) or ps_rules(self.ask_rules) or ask_bare:
+                if any(_pa.is_opaque(c) for c in ps_candidates(command)):
+                    return self._resolve_ask(
+                        "PowerShell", tool_input, None,
+                        Rule(tool="PowerShell", kind="exact", value="<opaque re-exec>",
+                             raw="PowerShell(iex|-EncodedCommand) -- opaque to the deny matcher"))
 
         if self.mode in ("auto", "bypassPermissions"):
             return Decision("allow", "mode allows (no deny/ask rule matched)", source="mode")
@@ -1975,6 +2222,8 @@ class PermissionEngine:
             hit = self._path_rule_hit(self.ask_rules, tool_name, tool_input, tool, action="ask")
             if hit is None:
                 hit = self._match_any(self.ask_rules, tool_name, tool_input, tool, action="ask")
+            if hit is None:
+                hit = self._dir_read_ask_hit(tool_name, tool_input)
             if hit is not None:
                 return self._resolve_ask(tool_name, tool_input, tool, hit)
 
@@ -2174,6 +2423,46 @@ def build_rules_from_settings(settings, *, cwd: Path, claude_json_allowed_tools=
     for r in (session_allow or []):
         allow.append(parse_rule(r, source="session", base_dir=cwd, action="allow"))
     return deny, ask, allow
+
+
+def invalid_rules(deny=None, ask=None, allow=None) -> list:
+    """2.0.10 finding 14: `[(action, raw, error, source), ...]` for every
+    rule that parsed as `kind="invalid"` -- such a rule matches nothing, so
+    the user who wrote it must be told. Nothing is repaired or reinterpreted;
+    a malformed rule is reported exactly as written."""
+    out: list = []
+    for action, rules in (("deny", deny), ("ask", ask), ("allow", allow)):
+        for r in rules or []:
+            if r.kind == "invalid":
+                out.append((action, r.raw or r.tool, r.error or "malformed rule", r.source or "?"))
+    return out
+
+
+_INVALID_NOTICED: set = set()
+
+
+def describe_invalid_rules(deny=None, ask=None, allow=None) -> str:
+    """One line naming every inactive deny/ask rule (empty when all parse).
+    A malformed allow rule only fails to allow, so it is left out of the
+    load notice; `/permissions` lists all of them."""
+    bad = invalid_rules(deny, ask)
+    if not bad:
+        return ""
+    parts = [f"{action} {raw!r} ({err}; from {src})" for action, raw, err, src in bad]
+    n = len(bad)
+    return (f"halo: warning: {n} permission rule{'s' if n != 1 else ''} could not be parsed and "
+            f"{'do' if n != 1 else 'does'} not apply: " + "; ".join(parts))
+
+
+def notice_invalid_rules(deny=None, ask=None, *, file=None) -> str:
+    """Print `describe_invalid_rules` once per distinct text (a session that
+    builds several engines does not repeat the line). Returns the text."""
+    text = describe_invalid_rules(deny, ask)
+    if text and text not in _INVALID_NOTICED:
+        _INVALID_NOTICED.add(text)
+        import sys as _sys
+        print(text, file=file or _sys.stderr)
+    return text
 
 
 def normalize_permission_mode(raw: Optional[str]) -> str:

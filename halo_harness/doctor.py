@@ -1326,6 +1326,38 @@ def _check_providers_enabled(cwd: Optional[Path] = None, settings_flag: Optional
     return line
 
 
+def _check_permission_rules(cwd: Optional[Path] = None) -> Optional[str]:
+    """2.0.10 finding 14: a deny/ask rule that does not parse matches
+    nothing -- name each one. None (no entry at all) when every rule parses."""
+    try:
+        from halo_harness.config.settings import resolve_settings
+        from halo_harness.permissions import build_rules_from_settings, invalid_rules
+        base = Path(cwd) if cwd else Path.cwd()
+        deny, ask, _allow = build_rules_from_settings(resolve_settings(base, trusted=True), cwd=base)
+        bad = invalid_rules(deny, ask)
+    except Exception:
+        return None
+    if not bad:
+        return None
+    shown = "; ".join(f"{action} {raw!r}: {err}" for action, raw, err, _src in bad[:5])
+    return _fix(f"{WARN} Permission rules: {len(bad)} deny/ask rule(s) could not be parsed and do not apply "
+                f"({shown})", see="docs/CONFIG.md (permissions)")
+
+
+def _check_state_modes() -> Optional[str]:
+    """2.0.10 finding 24: transcripts, tool results and shadow snapshots live
+    under the state dir; tighten any that are group/world readable (POSIX)."""
+    try:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.privateio import tighten_state_tree
+        changed = tighten_state_tree(bridge_home(), force=True)
+    except Exception:
+        return None
+    if not changed:
+        return None
+    return f"{OK} State dir: tightened {changed} entries under ~/.halo to owner-only (0700 dirs, 0600 files)"
+
+
 def _check_permission_mode() -> str:
     """1.0.1 hotfix 18.3: the effective STARTING permission mode a new
     session would actually launch with, and which layer of the precedence
@@ -1829,6 +1861,8 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.extend(_check_ollama_hosts())
     entries.append(("mlx_extra", _check_mlx_extra()))
     entries.append(("default_model", _check_default_model()))
+    entries.append(("permission_rules", _check_permission_rules(cwd)))
+    entries.append(("state_modes", _check_state_modes()))
     entries.append(("permission_mode", _check_permission_mode()))
     entries.append(("providers_enabled", _check_providers_enabled(cwd, settings_flag)))
     entries.append(("install", _check_install()))

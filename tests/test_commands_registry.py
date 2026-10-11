@@ -163,12 +163,13 @@ def test_custom_command_namespaced_by_subdir(ctx: Ctx):
 
 @test
 def test_custom_command_project_wins_over_user(ctx: Ctx):
+    # 2.0.10: "review" became a builtin (which always wins), so the example name is "triage".
     env = _Env()
     try:
-        env.write("proj/.claude/commands/review.md", "---\ndescription: project version\n---\nbody\n")
-        env.write("home/.claude/commands/review.md", "---\ndescription: user version\n---\nbody\n")
+        env.write("proj/.claude/commands/triage.md", "---\ndescription: project version\n---\nbody\n")
+        env.write("home/.claude/commands/triage.md", "---\ndescription: user version\n---\nbody\n")
         reg = env.discover()
-        cmd = reg.resolve("review")
+        cmd = reg.resolve("triage")
         ctx.check(f"project copy wins, got {cmd.description!r}", cmd.description == "project version")
     finally:
         env.close()
@@ -385,10 +386,10 @@ def test_synced_skill_alias_skipped_on_builtin_collision(ctx: Ctx):
 def test_skill_wins_over_same_named_custom_command(ctx: Ctx):
     env = _Env()
     try:
-        env.write("proj/.claude/commands/review.md", "---\ndescription: custom command version\n---\nbody\n")
-        env.write("proj/.claude/skills/review/SKILL.md", "---\ndescription: skill version\n---\nbody\n")
+        env.write("proj/.claude/commands/triage.md", "---\ndescription: custom command version\n---\nbody\n")
+        env.write("proj/.claude/skills/triage/SKILL.md", "---\ndescription: skill version\n---\nbody\n")
         reg = env.discover()
-        cmd = reg.resolve("review")
+        cmd = reg.resolve("triage")
         ctx.check(f"skill wins over a same-named custom command, got source={cmd.source!r}", cmd.source == "skill")
     finally:
         env.close()

@@ -489,6 +489,17 @@ path globs, `mcp__server`/`mcp__server__tool`, WebFetch domains, etc.),
 read from `permissions.allow`/`.ask`/`.deny` in the same settings chain,
 plus `--allowedTools`/`--disallowedTools`/`--dangerously-skip-permissions`.
 
+A deny or ask rule follows the command it names: it still fires when the
+command is reached through `if`/`for`/`while`/`case` bodies, `!`, `exec`, a
+wrapper (`sudo`, `env`, `watch`, `flock`, `strace`, `unshare`, ...), a `-c`
+payload or `find -exec`, a tool's global options (`git -C x push`, `docker
+--context x run`), PowerShell script blocks and `-Command` strings, and a
+`Read(...)` rule also covers the Bash readers (`cat ~/.ssh/id_rsa`, `grep`,
+`sed`, `awk`, `cp`, `< file`) and files below a directory handed to Grep or
+Glob. An allow rule matches exactly as before and auto mode with no rules
+still allows. A rule that does not parse is reported (a line at startup,
+`/permissions`, `halo doctor`) instead of silently doing nothing.
+
 ## Steering
 
 Typing while a turn is running queues a mid-turn steer (multiple steers

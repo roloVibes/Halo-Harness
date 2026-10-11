@@ -176,6 +176,8 @@ that a segment with substitution/process-substitution/redirection-to-file
 also passes the read-only check for each body (or fall through to the mode
 table), exactly as the no-rules path already does. (confirmed by halo review)
 
+Rejected by the standing contract (allow side): an explicit allow rule keeps matching exactly as before, and no heuristic about which commands are dangerous is added. The deny side of the same shape (a user's deny or ask rule seeing the body of `$(...)`, backticks, groups) is covered by 12 and was already in place for substitution bodies (`test_f11_rejected_allow_side_is_unchanged`).
+
 **12. Deny and ask rules are skipped by shell compound keywords and some wrappers** (high)
 `permissions.py:397-480,574,600-632`. `split_bash_segments` splits on
 `; && || |` but leaves `then`, `do`, `else`, `!` and `exec` glued to the
@@ -192,6 +194,8 @@ PowerShell deny/ask has no opaque re-exec handling at all (`powershell
 strip leading `then|do|else|elif|if|while|until|!|exec|{` words from every
 segment candidate and add the wrappers above to `_DENY_STRIP_WRAPPERS`.
 
+Fixed in round 4: a deny or ask rule follows the command through `if/then/elif/else`, `for/do`, `while/until`, `!`, `time`, `exec` and `case` arms; through `watch`, `flock`, `unshare`, `chroot`, `strace`, `ltrace`, `fakeroot`, `nsenter`, `taskset`, `chrt`, `setarch`, `runuser`, `pkexec`, `busybox` and a few siblings (options and positional operands skipped); and through `-c` payloads (`flock f -c ...`) and `find -exec`. `bash -lc`, `sh <<EOF`, `... | sh` ask when a Bash deny/ask rule exists. PowerShell: script blocks, groups, the call operator, quoted command names, and the strings given to `powershell -Command` / `cmd /c` reach the rule; `iex` and `-EncodedCommand` ask when a PowerShell deny/ask rule exists. The allow side and auto mode with no rules are unchanged (`test_f12_*`, `halo_harness/perm_shell.py`, `perm_ps.py`).
+
 **13. Tool-global options between the binary and the subcommand defeat prefix rules** (medium)
 `permissions.py:886-930`. Repro (deny `Bash(git push:*)`): `git -C /x push`,
 `git --no-pager push`, `git --git-dir=.git push --force` return `allow`
@@ -201,6 +205,8 @@ publish`. Fix: for deny/ask candidates, also generate the form with the
 tool's leading `-x`/`--opt[=v]` words removed (table per multi-word verb in
 `_MULTI_WORD_VERBS`).
 
+Fixed in round 4: the deny/ask candidates for a command also carry the form without the tool's leading global options (`git -C x push`, `docker --context x run`, `docker compose -f f up`, `kubectl -n x delete`, `npm --prefix x publish`, `cargo +nightly publish`, `terraform -chdir=x apply`, `make -C x deploy`, `aws`, `helm`, `gh`, `uv`, `pip`, `yarn`, `pnpm`, `systemctl`); allow matching is untouched (`test_f13_*`).
+
 **14. A malformed deny or ask rule is silently inert** (medium)
 `permissions.py:1023-1063,1438`. `parse_rule` returns `kind="invalid"` with an
 `error`; `_rule_matches` returns False; only the agent bio editor and hook
@@ -209,6 +215,8 @@ must be at the end`; in auto mode `rm -rf /tmp/x` is `allow`. A user who
 typo'd a deny rule in `settings.json` believes it holds. Fix: collect
 invalid settings/CLI rules in `build_rules_from_settings` and print one
 line at startup, in `halo doctor` and in `/permissions`.
+
+Fixed in round 4: a malformed deny/ask rule is named in one load line on stderr (once per distinct text), in `/permissions` (headless: "Inactive deny rule ...", TUI: marked `[INACTIVE: reason]`), and in `halo doctor` (`permission_rules`, silent when every rule parses). It is never rewritten into another rule (`test_f14_*`).
 
 **15. Read deny/ask path rules do not reach `cat ~/...`, Grep/Glob over a directory, or most Bash readers** (high)
 `permissions.py:1111-1128,1498-1541,1538-1570`. Rules match only the literal
@@ -225,6 +233,8 @@ Grep/Glob evaluate the Read rules against each matched file path before
 returning results (deterministic, no command list); add
 grep/egrep/fgrep/sed/awk/cp/tar to the reader set.
 
+Fixed in round 4: Bash readers for Read deny/ask rules now include `grep`/`egrep`/`fgrep`/`rg`/`ag`, `sed`, `awk`/`gawk`/`mawk`, `cp` (sources only), `tar`, `sort`, `uniq`, `cut`, `paste`, `diff`, `cmp`, `jq`, `bat`, `base64` and the checksum tools, with the pattern or script word skipped; `~`, `$HOME` and `${HOME}` expand, `< file` counts, glob words expand against the live cwd, and `$()`/group bodies and `find -exec` payloads are scanned. Grep and Glob skip every file a Read deny rule names (`PermissionEngine.read_denied`, applied in both Grep backends and in Glob), and a directory-wide Grep/Glob asks when a Read ask rule names a file below it. Residual: a recursive Bash reader over a directory (`grep -r K .`) is not expanded (`test_f15_*`).
+
 **16. A path rule whose own text contains a symlink never matches** (low)
 `permissions.py:295-337` (`path_rule_regex`). The target is resolved with
 `Path.resolve()` (symlinks followed) but `~/` and `//abs` rule values are
@@ -235,6 +245,8 @@ a trailing dot or space (`C:\proj\.env.`) is judged as written while
 `open()` opens `.env`, so a `Write(.env)` deny does not match (confirmed by halo
 review).
 Fix: `resolve()` the non-wildcard prefix of absolute rule values too.
+
+Fixed in round 4: the non-wildcard prefix of an absolute rule (`//abs`, `~/`, drive form) and of a relative rule is resolved through symlinks as well as written, and the rule matches either spelling. On Windows a deny/ask match also judges the name the OS opens (trailing dots and spaces, `::$DATA` stripped); the allow side is not widened (`test_f16_*`).
 
 ## D. Credentials -- `redact.py`, `providers/`, `mcp/oauth.py`, `permissions.py`
 
@@ -353,6 +365,8 @@ shared lab VM or CI runner; another account reads transcripts. Fix:
 `ensure_private_dir(bridge_home())` on first use, 0600/0700 on create (or
 `umask 077` around the writers), and a one-time tighten in `halo doctor`.
 
+Fixed in round 4: directories the harness creates under the state dir (sessions, shadow, `tool-results`) are 0700 and transcripts, `shadow-index.jsonl`, spilled tool results and `bridge.log` are created 0600 (`private_mkdir`, `private_opener`); `halo` tightens an existing tree once per state dir (marker `.modes-v1`, one stderr line) and `halo doctor` re-tightens on demand. No-op on Windows (`test_f24_*`).
+
 **25. Provider- and CLI-supplied identifiers are used as file names** (low)
 `tools/truncate.py:73-79`, `tools/mcp_tool.py:376-380`:
 `results_dir / f"{tool_use_id}.txt"`, with the id kept verbatim for
@@ -361,6 +375,8 @@ shared lab VM or CI runner; another account reads transcripts. Fix:
 `agent/log.py:52` joins `--resume <id>` into `sessions/<slug>/<id>.jsonl`
 unchecked, so an id with separators appends the transcript outside the state
 dir (confirmed by halo review). Fix: map each id through `re.sub(r"[^A-Za-z0-9._-]", "_", id)` at the join.
+
+Fixed in round 4: a session id that reaches `SessionLog` is validated (`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`, otherwise `ValueError: invalid session id ...`), `--resume <value>` only treats a safe value as an exact id, and a provider `tool_use_id` becomes a safe file stem (`functions.Read:0` -> `functions.Read_0`, separators and leading dots replaced) in both spill writers. Deviation from "reject": a tool id is mapped to a safe name rather than turned away, so a legitimate tool call with an id like `functions.Read:0` keeps its spill file (`test_f25_*`).
 
 ## G. Supply chain
 

@@ -558,7 +558,10 @@ class Controller:
         out: list = []
         for action, rules in (("deny", engine.deny_rules), ("ask", engine.ask_rules), ("allow", engine.allow_rules)):
             for r in rules:
-                out.append({"action": action, "source": r.source or "?", "rule": r.raw or r.value or r.tool})
+                text = r.raw or r.value or r.tool
+                if r.kind == "invalid":  # finding 14: say it matches nothing
+                    text = f"{text}   [INACTIVE: {r.error or 'malformed rule'}]"
+                out.append({"action": action, "source": r.source or "?", "rule": text})
         return out
 
     # ---- slash commands ---------------------------------------------------

@@ -663,8 +663,16 @@ def _cmd_permissions(args: str, facade: HeadlessFacade) -> str:
     allow = len(s.permissions_allow) if s else 0
     ask = len(s.permissions_ask) if s else 0
     deny = len(s.permissions_deny) if s else 0
-    return (f"Permission mode: {facade.permission_mode}\n"
+    text = (f"Permission mode: {facade.permission_mode}\n"
             f"Settings rules -- allow: {allow}  ask: {ask}  deny: {deny}")
+    # finding 14: name every settings rule that parses as invalid (inert).
+    if s is not None:
+        from halo_harness.permissions import invalid_rules, parse_rule
+        bad = invalid_rules(*[[parse_rule(r, source="settings", action=a) for r in getattr(s, f"permissions_{a}")]
+                              for a in ("deny", "ask", "allow")])
+        for action, raw, err, _src in bad:
+            text += f"\nInactive {action} rule {raw!r}: {err}"
+    return text
 
 
 def _cmd_plan(args: str, facade: HeadlessFacade) -> str:
