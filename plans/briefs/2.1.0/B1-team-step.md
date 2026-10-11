@@ -1,7 +1,7 @@
 # 2.1.0 round B1 -- the Team step is back, and it explains itself
 
 Read `plans/WORKER-RULES.md` first. Work ONLY in this checkout
-(`C:\Users\rolo\Halo-B`, branch `track-b`). Do not commit or push.
+(`<home>\Halo-B`, branch `track-b`). Do not commit or push.
 
 ## Why
 
