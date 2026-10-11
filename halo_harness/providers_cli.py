@@ -18,6 +18,15 @@ from halo_harness.providers.enablement import (
 )
 
 
+# Providers `halo init --provider` does not take (finding 77): what to set.
+_NON_SEQUENTIAL_SETUP = {
+    "openai": "set OPENAI_API_KEY in the env file",
+    "huggingface": "set HF_TOKEN in the env file",
+    "experiential": "set EXPLABS_API_KEY in the env file",
+    "codex_subscription": "log in with `codex login`",
+}
+
+
 def _model_count(name: str) -> "int | None":
     """Cached model count for the table -- None (never a bare 0) when this
     provider has no catalog concept of its own (TypeSafe)."""
@@ -230,8 +239,20 @@ def cmd_providers(argv: list) -> int:
                   "(set TYPESAFE_API_KEY in the env file, then `halo providers enable typesafe`).",
                   file=sys.stderr)
             return 2
-        picker_name = {"claude_subscription": "claude", "codex_subscription": "codex"}.get(name, name)
+        from halo_harness.init_providers import PROVIDERS as _SEQUENTIAL
+        picker_name = {"claude_subscription": "claude"}.get(name, name)
         from halo_harness.init_cli import cmd_init
-        return cmd_init(["--provider", picker_name] + argv[2:])
+        if picker_name in _SEQUENTIAL:
+            return cmd_init(["--provider", picker_name] + argv[2:])
+        # Finding 77: openai, huggingface, experiential and the codex
+        # subscription have no `--provider` flow (argparse rejected them).
+        # On a terminal the init wizard has a tab for each; otherwise say
+        # exactly what to set.
+        if sys.stdin.isatty() and sys.stdout.isatty() and "--yes" not in argv[2:]:
+            print(f"{label_for(name)}: opening the init wizard -- use its {label_for(name)} tab.")
+            return cmd_init([])
+        print(f"{label_for(name)}: {_NON_SEQUENTIAL_SETUP.get(name, 'run `halo init` on a terminal')}. "
+              f"Then `halo providers enable {name}`.", file=sys.stderr)
+        return 2
     print(f"halo providers: unrecognized arguments: {' '.join(argv)}", file=sys.stderr)
     return 2

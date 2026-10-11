@@ -688,6 +688,9 @@ class StreamJsonSink:
             self._handle(event)
             if self._budget_exceeded:
                 event_iter.close()
+                # Finding 75: `turn_done` never arrives once we break out,
+                # so the message in flight would never be written.
+                self._flush_pending(None)
                 break
         return self.finish() if finish else None
 
@@ -731,5 +734,8 @@ class StreamJsonSink:
         # kept accumulating across every turn in this multi-turn
         # stream-json loop instead of measuring just this one.
         self._prompt_suggestion = None
+        # Finding 75: notices are per result -- a later turn's result used
+        # to repeat every earlier turn's background notices.
+        self._background_notices = []
         self._start_monotonic = time.monotonic()
         return 1 if is_error else 0

@@ -377,13 +377,19 @@ class RolesEditor(ModalScreen):
             return
         if self._pending_role is None:
             return
-        effort = event.value.strip()
+        self._commit_pending(event.value.strip(), event.input)
+
+    def _commit_pending(self, effort: str, effort_input: Input) -> bool:
+        """Commit the model just picked (plus `effort`) into the form; False
+        when the effort text is not a recognized level (the hint says so and
+        nothing is committed). Shared by Enter in the effort prompt and by
+        ctrl+s while that prompt is still open (finding 70)."""
         from halo_harness.providers.profiles import EFFORT_LEVELS
         hint = self.query_one("#roles-hint", Static)
         if effort and effort not in EFFORT_LEVELS:
             hint.update(f"Not a recognized effort level: {effort!r} (expected one of {', '.join(EFFORT_LEVELS)}, "
                         f"or blank for the route's own default)")
-            return
+            return False
         picked_ref = self._pending_model
         picked_agent = self._pending_agent
         # Halo 2.0.5 round 2 (deliverable 2): "In a legacy role table a
@@ -401,8 +407,8 @@ class RolesEditor(ModalScreen):
         else:
             self.roles[self._pending_role] = picked_ref
         self._pending_role = self._pending_model = self._pending_agent = None
-        event.input.value = ""
-        event.input.styles.display = "none"
+        effort_input.value = ""
+        effort_input.styles.display = "none"
         # Deliverable 2: the note names the FINAL, actually-committed ref
         # -- shown here (not back in `_model_picked`) so it survives this
         # same method's own commit, instead of being overwritten by it.
@@ -410,6 +416,7 @@ class RolesEditor(ModalScreen):
                     f"{picked_ref!r} is not in the enumerated list; kept as typed.")
         self._refresh_list()
         self.query_one("#roles-list", OptionList).focus()
+        return True
 
     def _save_as(self, name: str) -> None:
         """Round 7, item 2: "Save as template..." -- a COPY of the
@@ -435,6 +442,12 @@ class RolesEditor(ModalScreen):
 
     def action_save(self) -> None:
         from halo_harness.roles import save_role_template
+        if self._pending_role is not None:
+            # finding 70: a model was picked and the effort prompt is still
+            # open -- commit it (with whatever effort is typed) before saving.
+            effort_input = self.query_one("#roles-effort-input", Input)
+            if not self._commit_pending(effort_input.value.strip(), effort_input):
+                return
         ok, problems = save_role_template(self.template_name, {"description": self.description, "roles": self.roles})
         if not ok:
             self.query_one("#roles-hint", Static).update("Could not save: " + "; ".join(problems))

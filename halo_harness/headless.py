@@ -1479,14 +1479,12 @@ def build_session(
     # ORIGINAL session's own file is never appended to by the fork.
     resolved_session_id = session_id
     resume_error: Optional[str] = None
-    if resolved_session_id is None and continue_:
-        resolved_session_id = agent_sessions.resolve_continue(cwd)
-        if resolved_session_id is None:
-            resume_error = "no sessions found for this directory to --continue"
-    if resolved_session_id is None and resume is not None:
-        resolved_session_id, resume_error = agent_sessions.resolve_resume(cwd, resume if resume else None)
+    if resolved_session_id is None:
+        resolved_session_id, resume_error = agent_sessions.resolve_session_request(cwd, continue_, resume)
+    _forked_here = False
     if resolved_session_id is not None and fork_session_flag:
         resolved_session_id = agent_sessions.fork_session(cwd, resolved_session_id)
+        _forked_here = True
     # finding 1 (W6a): remember whether a log already exists on disk for
     # this id -- i.e. whether -c/--resume/--session-id/--fork-session
     # handed us a PRE-EXISTING session -- before `SessionLog` touches
@@ -1495,7 +1493,10 @@ def build_session(
     # length to truncate back to for one it merely resumed.
     _pre_existing_log_path = (
         agent_sessions.sessions_dir(cwd) / f"{resolved_session_id}.jsonl") if resolved_session_id else None
-    _pre_existing_log = bool(_pre_existing_log_path and _pre_existing_log_path.is_file())
+    # Finding 82: a log this very call just forked is NOT pre-existing --
+    # --no-session-persistence must delete it, not truncate it back to its
+    # copied length and leave the fork on disk.
+    _pre_existing_log = bool(_pre_existing_log_path and _pre_existing_log_path.is_file()) and not _forked_here
     _pre_existing_log_size = _pre_existing_log_path.stat().st_size if _pre_existing_log else 0
     session_log = SessionLog(cwd, session_id=resolved_session_id or uuid.uuid4().hex)
     # critical fix: `SessionLog.__init__` never reads its own file (only
@@ -1724,7 +1725,9 @@ def run_print_mode(
     process's exit code (the LAST turn's, for stream-json input)."""
     cwd = Path(cwd).resolve() if cwd else Path.cwd()
     cli_flags = dict(cli_flags or {})
-    cwd = maybe_create_worktree(cwd, cli_flags)
+    # Finding 83: the worktree is created only AFTER the flags that can end
+    # the run (--session-id, -c/-r) were validated, so a bad flag leaves
+    # nothing behind. (`maybe_create_worktree` is called further down.)
 
     # Halo 2.0.2 W7 round 1 (brief F): "set halo at start and restore the
     # previous title at exit" -- captured/set as early as possible (before
@@ -1776,6 +1779,19 @@ def run_print_mode(
         if _resolved_probe is None and resume_err:
             print(f"halo: --resume: {resume_err}", file=sys.stderr)
             return _pm_title_exit(2)
+    # Finding 76: `-c` with no earlier session (and a bare `-r`) used to
+    # start a NEW session and exit 0; it is an error, like `-r <text>` above.
+    _request_id = None
+    if session_id is None and (continue_ or resume is not None):
+        _request_id, _request_err = agent_sessions.resolve_session_request(cwd, continue_, resume)
+        if _request_id is None and _request_err:
+            _flag = "--continue" if continue_ else "--resume"
+            print(f"halo: {_flag}: {_request_err}", file=sys.stderr)
+            return _pm_title_exit(2)
+    _original_cwd = cwd
+    cwd = maybe_create_worktree(cwd, cli_flags)
+    if _request_id is not None and cwd != _original_cwd:
+        agent_sessions.carry_session(_original_cwd, cwd, _request_id)
 
     # u2-h3b finding 9: everything through a ready-to-drive Session is now
     # the ONE shared builder both -p and the TUI call -- see

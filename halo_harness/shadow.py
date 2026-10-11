@@ -26,15 +26,69 @@ undo.
 
 from __future__ import annotations
 
+import functools
 import json
+import queue
 import re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Optional
 
 _DRIVE_RE = re.compile(r"^([A-Za-z]):/(.*)$")
+
+# vibes/review.md finding 69: snapshots ran git on the TUI thread and raced
+# the Bash snapshot worker (two stores loading/appending the same index).
+# Every snapshot job now goes through ONE FIFO worker thread (`enqueue_job`),
+# and the mutating `ShadowStore` methods hold `SHADOW_LOCK`, so a rewind on
+# another thread can never interleave with a recording step.
+SHADOW_LOCK = threading.RLock()
+_JOBS: "queue.Queue" = queue.Queue()
+_JOB_STATE: dict = {"thread": None}
+_JOB_START = threading.Lock()
+
+
+def _job_loop() -> None:
+    while True:
+        fn = _JOBS.get()
+        try:
+            fn()
+        except Exception:
+            pass  # a shadow snapshot is a convenience, never an error
+        finally:
+            _JOBS.task_done()
+
+
+def enqueue_job(fn) -> None:
+    """Run `fn` on the shared shadow worker thread, strictly in submission
+    order; never blocks the caller."""
+    with _JOB_START:
+        if _JOB_STATE["thread"] is None or not _JOB_STATE["thread"].is_alive():
+            t = threading.Thread(target=_job_loop, name="shadow-jobs", daemon=True)
+            _JOB_STATE["thread"] = t
+            t.start()
+    _JOBS.put(fn)
+
+
+def drain_jobs(timeout: float = 10.0) -> bool:
+    """Wait (off the UI thread only) until every queued snapshot has run;
+    True when the queue emptied inside `timeout`."""
+    deadline = time.monotonic() + timeout
+    while _JOBS.unfinished_tasks:
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.01)
+    return True
+
+
+def _locked(method):
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with SHADOW_LOCK:
+            return method(self, *args, **kwargs)
+    return wrapper
 
 
 def _mangle(path: Path) -> str:
@@ -145,6 +199,7 @@ class ShadowStore:
 
     # ---- recording ---------------------------------------------------
 
+    @_locked
     def record_step(self, files: "dict[str, str]", *, label: str, trigger: str = "tool",
                      created: "Optional[list]" = None, turn: "Optional[int]" = None) -> dict:
         """`files`: `{absolute_path_str: resulting_content}` -- the content
@@ -261,6 +316,7 @@ class ShadowStore:
             i = j
         return out
 
+    @_locked
     def rewind_to_turn_start(self, turn: int) -> "Optional[dict]":
         """Restore the working tree to the START of `turn` -- the state
         just before its first step ran. That is the LAST step of the
@@ -324,6 +380,7 @@ class ShadowStore:
                 continue
         return restored
 
+    @_locked
     def rewind_to(self, step_id: str) -> "Optional[dict]":
         """Restore the working tree to the step whose `id` (or full
         `hash`) is `step_id`. Returns `{"step": step, "files": [...],
@@ -502,10 +559,18 @@ def store_for_controller(controller) -> "Optional[ShadowStore]":
     (the tool-result recorder in `tui/dispatch.py`, the `/rewind` family in
     `tui/slash.py`) never need to share one cached instance to see each
     other's writes."""
+    where = store_dir_for_controller(controller)
+    return ShadowStore(where) if where is not None else None
+
+
+def store_dir_for_controller(controller) -> "Optional[Path]":
+    """The directory `store_for_controller` would root a store at, without
+    building the store (no git work), so a caller on the TUI thread can ask
+    "is there a store at all?" cheaply."""
     explicit = getattr(controller, "shadow_dir", None)
     if explicit is not None:
-        return ShadowStore(Path(explicit))
+        return Path(explicit)
     log = getattr(getattr(controller, "session", None), "log", None)
     if log is None:
         return None
-    return ShadowStore(Path(log.dir) / log.session_id)
+    return Path(log.dir) / log.session_id

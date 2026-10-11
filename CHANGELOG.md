@@ -10,6 +10,61 @@ version.
 
 ## [unreleased]
 
+### vibes/review.md fix pass, round 9 (TUI + CLI/doctor)
+
+- **f67:** the xclip/xsel fallback copy no longer reports a copy that landed
+  as failed after 3 seconds. Those tools fork a daemon that keeps the
+  inherited stdout pipe open, so the old captured-stdout run waited out its
+  timeout; stdout now goes to the null device and stderr to a temp file, read
+  back so a real failure keeps its message (`last_copy_error()`).
+- **f68:** a typed slash command (including one typed while a card is
+  pending) no longer discards the pending image attachments: the chips and
+  their records stay for the next real prompt, and `/images` can list them.
+- **f69:** shadow snapshots (Write/Edit/NotebookEdit and Bash) are recorded
+  on one FIFO worker thread instead of running git on the TUI thread, the
+  mutating `ShadowStore` methods share one lock, and `/undo`/`/redo`/
+  `/rewind` wait for queued snapshots before restoring.
+- **f70:** ctrl+s in the roles editor while the effort prompt is open commits
+  the model just picked (with the effort typed so far) before saving; an
+  unrecognized effort is reported and nothing is saved.
+- **f71:** pending-card hand-offs are serialized behind one lock and every
+  card goes through the queue, so a card arriving while the next one is being
+  handed to the dock can no longer be shown over (and orphaned by) it, and a
+  late dock clear never hides a live card.
+- **f72:** recalling a pasted prompt with Up restores its paste contents
+  (history stores them), so the model gets the pasted text instead of the
+  literal `[Pasted text #1 ...]` placeholder.
+- **f73:** each image chip keeps the label it was attached under; deleting a
+  chip by selecting over it, cutting it or clearing the box now drops its
+  image, and the surviving chips keep their numbers.
+- **f74:** save in the lineup editor stops on invalid YAML (or a non-mapping)
+  in any section and names the section, instead of silently writing the old
+  value.
+- **f75:** `/clear` resets the first-turn counter so the new context is
+  auto-titled; stream-json clears its background notices after each result
+  (they repeated in every later result) and writes the final assistant line
+  when the budget limit stops a turn.
+- **f76:** `-p -c` with no earlier session, and a bare `-r`, now fail with
+  exit 2 and a message instead of starting a new session and exiting 0;
+  `-r <path>.jsonl` from another project imports that transcript into this
+  project's sessions so the resume has its history.
+- **f77:** `halo providers setup openai|huggingface|experiential|
+  codex_subscription` no longer dies in argparse: on a terminal it opens the
+  init wizard, otherwise it names the variable or login to set. Doctor's
+  setup suggestions only use `--provider` values `halo init` accepts, and
+  fall back to plain `halo init`.
+- **f78:** `doctor --agents/--roles/--teams/--local --json` print nothing but
+  the JSON, and `--work --probe-all --json` prints its probe rows as JSON.
+- **f80:** the `~/.local/bin` PATH check starts its shell without halo's own
+  `PATH` (it always passed before) and starts bash as a login shell, which is
+  what reads the rc file; the rc file written is the one a login bash reads
+  (`~/.bash_profile` or `~/.bash_login` when present, else `~/.profile`).
+- **f82:** `--fork-session --no-session-persistence` deletes the fork it made
+  (it was treated as a pre-existing log and only truncated).
+- **f83:** `-w` validates `--session-id` and `-c`/`-r` before creating the
+  worktree, so a bad flag leaves nothing behind; a resumed session is copied
+  into the worktree's project so `-w -c` finds its history.
+
 ### vibes/review.md fix pass, round 8 (loop scheduling + sub-agents/roles)
 
 - **f49:** read-only calls the model listed BEFORE an Agent call in one

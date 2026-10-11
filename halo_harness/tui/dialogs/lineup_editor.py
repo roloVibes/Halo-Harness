@@ -330,6 +330,28 @@ class LineupEditor(ModalScreen):
             return self.template.get(section)  # kept as-was; action_save's own validate_team_template still runs
         return parsed if isinstance(parsed, dict) else self.template.get(section)
 
+    def _section_error(self, section: str) -> "Optional[str]":
+        """Why this section's text cannot be saved (invalid YAML, or YAML
+        that is not a mapping), or None when it is blank/valid. Finding 74:
+        `_section_dict` quietly keeps the previous value for such text, so
+        save must name the problem instead of writing a stale section."""
+        import yaml
+        try:
+            text = self.query_one(f"#lineup-section-{section}", TextArea).text
+        except Exception:
+            return None
+        if not text.strip():
+            return None
+        try:
+            parsed = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            mark = getattr(exc, "problem_mark", None)
+            where = f" (line {mark.line + 1})" if mark is not None else ""
+            return f"{section}: invalid YAML{where}"
+        if parsed is not None and not isinstance(parsed, dict):
+            return f"{section}: must be a YAML mapping (key: value lines)"
+        return None
+
     # -- assignments list ----------------------------------------------------
     def _refresh_assignments(self) -> None:
         try:
@@ -677,6 +699,10 @@ class LineupEditor(ModalScreen):
     def action_save(self) -> None:
         from halo_harness.teams_yaml import save_team_template, validate_team_template
         self._commit_current_assignment()
+        errors = [e for e in (self._section_error(sec) for sec in TOP_SECTIONS) if e]
+        if errors:
+            self.query_one("#lineup-hint", Static).update("Not saved -- " + "; ".join(errors))
+            return
         data = {k: v for k, v in self.template.items() if not k.startswith("_")}
         for section in TOP_SECTIONS:
             value = self._section_dict(section)

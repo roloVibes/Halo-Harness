@@ -1429,6 +1429,9 @@ async def _handle_clear(app, _args: str) -> None:
         await app.transcript.add_note(error, kind="error")
         return
     await app.transcript.clear_view()
+    # Finding 75: the new session context is untitled and gets its own
+    # after-first-turn auto-title, so the first-turn counter starts over.
+    app._turn_done_count = 0
     await app.transcript.add_note("Conversation cleared -- starting a new session context.", kind="note")
 
 
@@ -1782,6 +1785,8 @@ async def _show_rewind_confirmation(app, step: dict, verb: str) -> None:
 
 
 def _apply_rewind_worker(app, step_id: str, verb: str) -> None:
+    from halo_harness.shadow import drain_jobs
+    drain_jobs(5.0)  # finding 69: let queued snapshots land before restoring
     result = app.controller.rewind_apply(step_id, verb=verb)
     if result is None:
         app.call_from_thread(app.notify, "Rewind failed (step vanished?).", severity="error", title=f"/{verb}")
@@ -1812,6 +1817,8 @@ async def _show_turn_rewind_confirmation(app, step: dict, turn_no: int) -> None:
 
 
 def _apply_turn_rewind_worker(app, turn_no: int) -> None:
+    from halo_harness.shadow import drain_jobs
+    drain_jobs(5.0)  # finding 69
     result = app.controller.rewind_turn(turn_no)
     if result is None:
         app.call_from_thread(app.notify, f"Rewind failed (no checkpoint for turn {turn_no}).",

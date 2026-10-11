@@ -160,17 +160,25 @@ def _maybe_record_shadow_step(app, tool_id, ok: bool, bash_shadow_before=None, t
     if not isinstance(file_path, str) or not file_path:
         return
     try:
-        from halo_harness.shadow import store_for_controller
+        from halo_harness.shadow import enqueue_job, store_dir_for_controller, store_for_controller
 
-        store = store_for_controller(app.controller)
-        if store is None:
+        if store_dir_for_controller(app.controller) is None:
             return
+        # The file is read NOW (its content right after this edit); the git
+        # work runs on the shared shadow worker (finding 69), never here.
         content = _read_for_shadow(Path(file_path))
         if content is None:
             return
         created = [file_path] if pre_exists is False else []
-        store.record_step({file_path: content}, label=f"{name}({Path(file_path).name})", trigger="tool",
-                           created=created, turn=turn)
+        controller = app.controller
+
+        def _record() -> None:
+            store = store_for_controller(controller)
+            if store is not None:
+                store.record_step({file_path: content}, label=f"{name}({Path(file_path).name})",
+                                   trigger="tool", created=created, turn=turn)
+
+        enqueue_job(_record)
     except Exception:
         pass
 
@@ -178,7 +186,8 @@ def _maybe_record_shadow_step(app, tool_id, ok: bool, bash_shadow_before=None, t
 def _maybe_record_bash_shadow_step(app, name, input_data, ok: bool, before, turn=None) -> None:
     if not ok or before is None:
         return
-    app.run_worker(lambda: _bash_shadow_after_worker(app, before, turn), thread=True, name="shadow-bash-after")
+    from halo_harness.shadow import enqueue_job
+    enqueue_job(lambda: _bash_shadow_after_worker(app, before, turn))  # finding 69: the shared FIFO worker
 
 
 def _bash_shadow_after_worker(app, before: dict, turn=None) -> None:

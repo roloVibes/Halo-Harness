@@ -149,6 +149,8 @@ def test_bash_shadow_captures_both_a_new_file_and_a_modified_tracked_file(ctx: C
     new_file = repo / "brand_new.txt"
     new_file.write_text("hi", encoding="utf-8")
     _maybe_record_bash_shadow_step(app, "Bash", {"command": "echo"}, True, before)
+    from halo_harness.shadow import drain_jobs
+    drain_jobs()  # review finding 69: snapshots run on the shared shadow worker
 
     store = ShadowStore(shadow_dir)
     ctx.check(f"exactly one shadow step was recorded, got {store.steps}", len(store.steps) == 1)
@@ -239,6 +241,8 @@ def test_f8_w6a_bash_shadow_round_trips_a_binary_file_byte_exact(ctx: Ctx):
     original_bytes = b"\x89PNG\r\n\x1a\n" + bytes(range(256)) + b"\x00\xff\xfe\x00more binary data"
     png.write_bytes(original_bytes)
     _maybe_record_bash_shadow_step(app, "Bash", {"command": "echo"}, True, before)
+    from halo_harness.shadow import drain_jobs
+    drain_jobs()  # review finding 69: snapshots run on the shared shadow worker
 
     store = ShadowStore(shadow_dir)
     ctx.check(f"exactly one shadow step was recorded, got {store.steps}", len(store.steps) == 1)
@@ -293,6 +297,8 @@ def test_f8_w6a_bash_shadow_round_trips_crlf_text_without_doubling_it(ctx: Ctx):
     original_bytes = b"line one\r\nline two\r\n"  # NATIVE CRLF, written raw (never via write_text)
     doc.write_bytes(original_bytes)
     _maybe_record_bash_shadow_step(app, "Bash", {"command": "echo"}, True, before)
+    from halo_harness.shadow import drain_jobs
+    drain_jobs()  # review finding 69: snapshots run on the shared shadow worker
 
     store = ShadowStore(shadow_dir)
     ctx.check(f"exactly one shadow step was recorded, got {store.steps}", len(store.steps) == 1)

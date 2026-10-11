@@ -767,7 +767,11 @@ terminal paste or Ctrl+V whose text is the path of an existing
 with or without quotes) attaches that file the same way instead of
 inserting the path. Backspace removes the last chip when the input is
 nothing but chip labels (no other text typed); typing real text around a
-chip leaves it alone, same as a long pasted-text placeholder does.
+chip leaves it alone, same as a long pasted-text placeholder does. Select a
+chip and type over it (or cut it, or clear the box) and its image is dropped
+with it; the other chips keep their numbers. A slash command typed with chips
+pending keeps them for the next real prompt. Up-arrow recall of a prompt that
+held a long paste brings the pasted text back with it.
 Every pending chip becomes a real image on the NEXT submit, carried all
 the way to the model (shown inline in the transcript when the terminal
 supports it, else the same caption text the chip itself showed); a
