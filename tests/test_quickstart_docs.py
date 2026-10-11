@@ -21,17 +21,20 @@ _SECTION_RE = re.compile(r"^##\s+(.+)$", re.MULTILINE)
 
 @test
 def test_readme_first_section_is_quick_start(ctx: Ctx):
-    """2.0.5 round 2d restructured the README (brief: banner, one
-    paragraph, gallery, feature grid, install, themes) -- the old
-    'Quick start first' pin is superseded: the gallery now leads, and the
-    install one-liner + `halo init` + Windows live in ## Install."""
+    """2.0.10 round 6 (the front-page redo) supersedes the 2.0.5 round 2d
+    shape: the hero image and the wordmark block lead, then the install
+    block is the FIRST ## section (install in three lines), then the
+    stories. The old 'gallery first' pin is gone with the gallery's move
+    below the stories."""
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
     sections = _SECTION_RE.findall(text)
     ctx.check(f"README has at least one ## section, got {sections[:3]}", sections)
-    ctx.check(f"the FIRST ## section is the gallery, got {sections[0]!r}",
-              sections[0].strip().lower().startswith("what it looks like"))
+    ctx.check(f"the FIRST ## section is Install, got {sections[0]!r}",
+              sections[0].strip().lower().startswith("install"))
+    ctx.check("the hero image is above every ## section",
+              text.index("docs/media/hero.svg") < text.index("## Install"))
     ctx.check("the banner block is above every ## section",
-              text.index("_   _") < text.index("## What it looks like"))
+              text.index("_   _") < text.index("## Install"))
 
 
 @test
@@ -57,11 +60,12 @@ def test_install_md_points_to_init_near_the_top(ctx: Ctx):
 def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
     """Superseded shape (was: 'every pre-existing section still present,
     pushed down by Quick start') -- 2.0.5 round 2d rewrote the README
-    around the gallery; this now pins the new section set and its order
-    so the restructure itself is protected."""
+    around the gallery; 2.0.10 round 6 moved the install block and the
+    stories above it. This pins the current section set and its order so
+    the restructure itself is protected."""
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
-    headings = ("## What it looks like", "## Features", "## Install", "## Themes",
-                "## Documentation", "## Tests", "## Licence")
+    headings = ("## Install", "## What makes Halo stand out", "## How Halo compares", "## What it looks like",
+                "## Features", "## Themes", "## Documentation", "## Tests", "## Licence")
     positions = []
     for heading in headings:
         ctx.check(f"{heading!r} is present", heading in text)

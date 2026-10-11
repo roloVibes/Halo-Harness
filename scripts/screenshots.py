@@ -192,9 +192,7 @@ async def scene_turn(out: Path) -> None:
         _write_svg(out / "turn.svg", await _export(app, pilot, stage=stage))
 
 
-async def scene_picker(out: Path) -> None:
-    from halo_harness.tui.dialogs.model_picker import ModelPicker
-    models = [
+PICKER_MODELS = [
         {"ref": "or:demo/atlas-pro", "provider": "openrouter", "price_in_per_m": 0.65,
          "price_out_per_m": 3.25, "context_tokens": 1_000_000, "speed_ttft_s": 0.8, "speed_tokens_per_second": 65},
         {"ref": "or:demo/atlas-flash", "provider": "openrouter", "price_in_per_m": 0.07,
@@ -206,12 +204,21 @@ async def scene_picker(out: Path) -> None:
         {"ref": "ol:demo:32b", "provider": "ollama", "group": "Ollama (default)"},
         {"ref": "xp:demo-preview", "provider": "experiential", "price_in_per_m": 0,
          "price_out_per_m": 0, "context_tokens": 1_000_000, "speed_ttft_s": 0.9, "speed_tokens_per_second": 55},
-    ]
+]
+
+
+async def picker_svg(models=None, size=SIZE) -> str:
+    from halo_harness.tui.dialogs.model_picker import ModelPicker
+    models = PICKER_MODELS if models is None else models
     app = BridgeApp(FakeController(model=MODEL), cwd=CWD)
-    async with app.run_test(size=SIZE) as pilot:
+    async with app.run_test(size=size) as pilot:
         app.push_screen(ModelPicker(models, current=MODEL))
         await pilot.pause(0.3)
-        _write_svg(out / "picker.svg", await _export(app, pilot))
+        return await _export(app, pilot)
+
+
+async def scene_picker(out: Path) -> None:
+    _write_svg(out / "picker.svg", await picker_svg())
 
 
 async def scene_team_step(out: Path) -> None:
@@ -231,23 +238,27 @@ async def scene_team_step(out: Path) -> None:
         _write_svg(out / "team-step.svg", await _export(app, pilot))
 
 
-async def scene_mcp(out: Path) -> None:
+def mcp_fixture_servers() -> list:
+    return [
+        {"name": "fixture-stdio", "type": "stdio", "command": "fixture-server", "args": [],
+         "state": "connected", "error": None, "tool_count": 12, "scope": "user", "backoff_status": None},
+        {"name": "broken-fixture", "type": "http", "command": "https://fixture.invalid/mcp", "args": [],
+         "state": "failed", "error": "connection refused (fixture)", "tool_count": 0,
+         "scope": "project", "backoff_status": None},
+    ]
+
+
+async def mcp_svg(servers_fn=mcp_fixture_servers, size=SIZE) -> str:
     from halo_harness.tui.dialogs.mcp_status import McpStatus
-
-    def servers():
-        return [
-            {"name": "fixture-stdio", "type": "stdio", "command": "fixture-server", "args": [],
-             "state": "connected", "error": None, "tool_count": 12, "scope": "user", "backoff_status": None},
-            {"name": "broken-fixture", "type": "http", "command": "https://fixture.invalid/mcp", "args": [],
-             "state": "failed", "error": "connection refused (fixture)", "tool_count": 0,
-             "scope": "project", "backoff_status": None},
-        ]
-
     app = BridgeApp(FakeController(), cwd=CWD)
-    async with app.run_test(size=SIZE) as pilot:
-        app.push_screen(McpStatus(servers(), test=lambda name, abort=None: [f"{name}: fixture"], refresh=servers))
+    async with app.run_test(size=size) as pilot:
+        app.push_screen(McpStatus(servers_fn(), test=lambda name, abort=None: [f"{name}: fixture"], refresh=servers_fn))
         await pilot.pause(0.3)
-        _write_svg(out / "mcp.svg", await _export(app, pilot))
+        return await _export(app, pilot)
+
+
+async def scene_mcp(out: Path) -> None:
+    _write_svg(out / "mcp.svg", await mcp_svg())
 
 
 async def scene_permission(out: Path) -> None:
@@ -281,13 +292,8 @@ async def scene_balances(out: Path) -> None:
         _write_svg(out / "balances.svg", await _export(app, pilot))
 
 
-async def scene_remote_dialog(out: Path) -> None:
-    """The `/remote` dialog (2.0.9): bridge connected, one contact request just
-    approved (its one-time code shown large), one signed and one blocked phone.
-    Fixture data only -- fake ids and numbers, a fixed clock label."""
-    import halo_harness.tui.dialogs.remote_status as rs
-
-    snap = {
+def remote_fixture_snap() -> dict:
+    return {
         "bridge": {"state": "connected", "pid": 4242, "started": None, "until": 0.0, "running": True},
         "signal_enabled": True,
         "control": "control socket: on unix:~/.halo/run/example.ctl\nregistry: 1 live session",
@@ -299,26 +305,41 @@ async def scene_remote_dialog(out: Path) -> None:
                   {"aci": "c9d0e1f2-0000-4000-8000-000000000003", "aci_prefix": "c9d0e1f2", "number": None,
                    "paired_at": 0, "signed": True, "blocked": True}],
     }
+
+
+async def remote_svg(snap=None, size=SIZE, code="482916") -> str:
+    """The `/remote` dialog (2.0.9): the snapshot's pending contact requests,
+    paired phones and (when `code`) a one-time code shown large. Fixture
+    data only -- fake ids and numbers, a fixed clock label."""
+    import halo_harness.tui.dialogs.remote_status as rs
+    snap = remote_fixture_snap() if snap is None else snap
     saved_when, rs._when = rs._when, lambda ts: "12:34"  # local-time formatting would vary by machine
     try:
         app = BridgeApp(FakeController(), cwd=CWD)
-        async with app.run_test(size=SIZE) as pilot:
+        async with app.run_test(size=size) as pilot:
             screen = rs.RemoteStatus(snap, poll=0)
             app.push_screen(screen)
             await pilot.pause(0.3)
-            screen._show_code({"code": "482916", "expires": 0, "trusted": True})
-            await pilot.pause(0.1)
-            _write_svg(out / "remote-dialog.svg", await _export(app, pilot))
+            if code:
+                screen._show_code({"code": code, "expires": 0, "trusted": True})
+                await pilot.pause(0.1)
+            return await _export(app, pilot)
     finally:
         rs._when = saved_when
 
 
-async def _game_theme_scene(out: Path, theme: str, variant: "str | None" = None) -> None:
+async def scene_remote_dialog(out: Path) -> None:
+    _write_svg(out / "remote-dialog.svg", await remote_svg())
+
+
+async def game_theme_svg(theme: str, variant: "str | None" = None, size=SIZE, prelude=None) -> str:
     """The main screen under a game theme (Halo 2.0.8): the HUD status bar
     mid-turn, with the face in its writing state. `variant` (a Metroid
     area, a Mario palette) is set on the app directly, never persisted."""
     app = BridgeApp(FakeController(model=MODEL), cwd=CWD, theme_name=theme)
-    async with app.run_test(size=SIZE) as pilot:
+    async with app.run_test(size=size) as pilot:
+        if prelude is not None:
+            await prelude(app)  # finished turns above the live one (the front-page captures)
         for e in (
             ev.user_message("Add a rotate tool to the model picker", turn=1),
             ev.status(phase="thinking", model=MODEL, turn=1),
@@ -352,7 +373,11 @@ async def _game_theme_scene(out: Path, theme: str, variant: "str | None" = None)
             bar._phase_started_at = _NOW - 23.0
             bar._turn_started_at = _NOW - 23.0  # the HUD's TIME clock (Mario)
 
-        _write_svg(out / f"theme-{theme}.svg", await _export(app, pilot, stage=stage))
+        return await _export(app, pilot, stage=stage)
+
+
+async def _game_theme_scene(out: Path, theme: str, variant: "str | None" = None) -> None:
+    _write_svg(out / f"theme-{theme}.svg", await game_theme_svg(theme, variant))
 
 
 async def scene_theme_doom(out: Path) -> None:

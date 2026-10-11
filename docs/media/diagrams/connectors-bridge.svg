@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" width="960" height="420" role="img" aria-labelledby="t d" font-family="'Fira Code','DejaVu Sans Mono',Consolas,Menlo,monospace">
+<title id="t">Connectors bridge</title>
+<desc id="d">A non-Claude model calls a connector tool in Halo; Halo asks the claude binary, which talks to the account's claude.ai connector such as Claude Docs.</desc>
+<defs><marker id="ah-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#89b4fa"/></marker><marker id="ah-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#a6e3a1"/></marker><marker id="ah-yellow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f9e2af"/></marker><marker id="ah-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f38ba8"/></marker><marker id="ah-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94e2d5"/></marker><marker id="ah-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#fab387"/></marker><marker id="ah-mauve" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#cba6f7"/></marker><marker id="ah-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9399b2"/></marker></defs>
+<rect width="960" height="420" rx="16" fill="#1e1e2e"/>
+<text x="24" y="38" font-size="22" fill="#cdd6f4" text-anchor="start" font-weight="700">Connectors: a non-Claude model reaching Claude Docs</text>
+<text x="24" y="60" font-size="12" fill="#9399b2" text-anchor="start" font-weight="400">the login stays in claude; Halo never reads claude's credentials file</text>
+<rect x="24" y="100" width="190" height="110" rx="10" fill="#2a2b3d" stroke="#fab387" stroke-width="1.6"/>
+<rect x="24" y="100" width="190" height="6" rx="3" fill="#fab387" opacity="0.9"/>
+<text x="119.0" y="129" font-size="15" fill="#fab387" text-anchor="middle" font-weight="700">Any model</text>
+<text x="119.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">demo/atlas-pro via or:</text>
+<text x="119.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">emits a tool call:</text>
+<text x="119.0" y="186" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">connector__claude-docs</text>
+<rect x="264" y="100" width="190" height="110" rx="10" fill="#2a2b3d" stroke="#cba6f7" stroke-width="1.6"/>
+<rect x="264" y="100" width="190" height="6" rx="3" fill="#cba6f7" opacity="0.9"/>
+<text x="359.0" y="129" font-size="15" fill="#cba6f7" text-anchor="middle" font-weight="700">Halo</text>
+<text x="359.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">connector tools appear</text>
+<text x="359.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">in the tool list, rules</text>
+<text x="359.0" y="186" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">and /mcp like any other</text>
+<rect x="504" y="100" width="190" height="110" rx="10" fill="#2a2b3d" stroke="#94e2d5" stroke-width="1.6"/>
+<rect x="504" y="100" width="190" height="6" rx="3" fill="#94e2d5" opacity="0.9"/>
+<text x="599.0" y="129" font-size="15" fill="#94e2d5" text-anchor="middle" font-weight="700">claude (binary)</text>
+<text x="599.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">claude mcp list,</text>
+<text x="599.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">your own sign-in,</text>
+<text x="599.0" y="186" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">asked per call</text>
+<rect x="744" y="100" width="190" height="110" rx="10" fill="#2a2b3d" stroke="#89b4fa" stroke-width="1.6"/>
+<rect x="744" y="100" width="190" height="6" rx="3" fill="#89b4fa" opacity="0.9"/>
+<text x="839.0" y="129" font-size="15" fill="#89b4fa" text-anchor="middle" font-weight="700">claude.ai connector</text>
+<text x="839.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">Claude Docs</text>
+<text x="839.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">Calendar, Drive, ...</text>
+<text x="839.0" y="186" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">(your account's)</text>
+<line x1="214" y1="155" x2="264" y2="155" stroke="#fab387" stroke-width="1.8" marker-end="url(#ah-orange)"/>
+<text x="239.0" y="147" font-size="11" fill="#fab387" text-anchor="middle" font-weight="400">call</text>
+<line x1="454" y1="155" x2="504" y2="155" stroke="#cba6f7" stroke-width="1.8" marker-end="url(#ah-mauve)"/>
+<text x="479.0" y="147" font-size="11" fill="#cba6f7" text-anchor="middle" font-weight="400">ask</text>
+<line x1="694" y1="155" x2="744" y2="155" stroke="#94e2d5" stroke-width="1.8" marker-end="url(#ah-teal)"/>
+<text x="719.0" y="147" font-size="11" fill="#94e2d5" text-anchor="middle" font-weight="400">MCP</text>
+<line x1="744" y1="190" x2="694" y2="190" stroke="#89b4fa" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#ah-blue)"/>
+<line x1="504" y1="190" x2="454" y2="190" stroke="#94e2d5" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#ah-teal)"/>
+<line x1="264" y1="190" x2="214" y2="190" stroke="#cba6f7" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#ah-mauve)"/>
+<rect x="24" y="250" width="440" height="40" rx="20.0" fill="#313244" stroke="#89b4fa" stroke-width="1.4"/>
+<text x="40" y="275.0" font-size="13" fill="#89b4fa" text-anchor="start" font-weight="700">/mcp</text>
+<text x="448" y="275.0" font-size="11" fill="#9399b2" text-anchor="end" font-weight="400">state, reason, deep dive (D), re-auth hint (l)</text>
+<rect x="494" y="250" width="440" height="40" rx="20.0" fill="#313244" stroke="#f9e2af" stroke-width="1.4"/>
+<text x="510" y="275.0" font-size="13" fill="#f9e2af" text-anchor="start" font-weight="700">needs_auth</text>
+<text x="918" y="275.0" font-size="11" fill="#9399b2" text-anchor="end" font-weight="400">authorize once at claude.ai, then reconnect</text>
+<rect x="24" y="322" width="910" height="62" rx="10" fill="none" stroke="#9399b2" stroke-width="1.4" stroke-dasharray="3 5"/>
+<text x="479.0" y="346" font-size="12" fill="#9399b2" text-anchor="middle" font-weight="700">results come back the same way, as a normal tool result</text>
+<text x="479.0" y="364" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">a connector that needs a login shows the fix in /mcp instead of failing silently</text>
+</svg>

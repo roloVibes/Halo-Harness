@@ -1,0 +1,19 @@
+{
+  "size": [120, 40],
+  "theme": "claude-dark",
+  "scale": 2,
+  "captures": [
+    {"name": "auto-mode", "scene": "auto"},
+    {"name": "turn-phase-line", "scene": "turn-phase", "anim": true, "frame_seconds": [1.2, 1.8, 2.6, 4.0]},
+    {"name": "pending-dock", "scene": "pending-dock"},
+    {"name": "model-picker", "scene": "picker", "size": [120, 30]},
+    {"name": "tasks-org-tree", "scene": "tasks", "size": [120, 16]},
+    {"name": "mcp-connectors", "scene": "mcp", "size": [120, 22]},
+    {"name": "hud-doom", "scene": "hud-doom", "theme": "doom"},
+    {"name": "hud-metroid-norfair", "scene": "hud-metroid", "theme": "metroid"},
+    {"name": "hud-mario", "scene": "hud-mario", "theme": "mario"},
+    {"name": "review-cards", "scene": "review"},
+    {"name": "remote-contact-request", "scene": "remote", "size": [120, 22]},
+    {"name": "steer-mid-turn", "scene": "steer", "anim": true, "frame_seconds": [2.2, 2.2, 1.6, 3.4]}
+  ]
+}
