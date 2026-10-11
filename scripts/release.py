@@ -83,6 +83,29 @@ def write_version(version: str, repo_dir: Path = REPO_DIR) -> bool:
     return True
 
 
+_INSTALL_TAG_RE = re.compile(r"(/Halo-Harness/)v\d+\.\d+\.\d+(?:\.\d+)?(/scripts/install-halo\.(?:sh|ps1))")
+_INSTALL_TAG_FILES = ("README.md", "docs/INSTALL.md")
+
+
+def write_install_tag_urls(version: str, repo_dir: Path = REPO_DIR) -> "list[str]":
+    """2.0.10 security finding 26: the install one-liners pin the script
+    to a TAG URL (`.../Halo-Harness/v<version>/scripts/install-halo.sh`),
+    so each release rewrites them to the version being tagged -- in the
+    SAME release commit, exactly like the README badge. Returns the files
+    that changed; a file with no such URL (a scratch repo) is skipped."""
+    changed = []
+    for rel in _INSTALL_TAG_FILES:
+        path = repo_dir / rel
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        new_text, n = _INSTALL_TAG_RE.subn(rf"\g<1>v{version}\g<2>", text)
+        if n and new_text != text:
+            path.write_text(new_text, encoding="utf-8")
+            changed.append(rel)
+    return changed
+
+
 def write_readme_badge_version(version: str, repo_dir: Path = REPO_DIR) -> bool:
     """Deliverable 6 (packaging, the owner's own weak-spot report: "the
     README badge embedded in METADATA still says version 2.0.1"): sets
@@ -332,6 +355,9 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
         step(f"rewrite README.md's version badge to {version!r}")
         if not args.dry_run:
             write_readme_badge_version(version, repo_dir)
+        step(f"rewrite the install one-liners' tag URL to v{version} (README.md, docs/INSTALL.md)")
+        if not args.dry_run:
+            write_install_tag_urls(version, repo_dir)
 
         # 2.0.8: the README gallery under docs/screenshots/ embeds the
         # version string (the launch scene's banner), and
@@ -353,6 +379,8 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
         step(f"git push origin v{version}")
         if not args.dry_run:
             to_add = ["halo_harness/__init__.py", "CHANGELOG.md", "README.md"]
+            if (repo_dir / "docs" / "INSTALL.md").exists():
+                to_add.append("docs/INSTALL.md")
             if (repo_dir / "docs" / "screenshots").is_dir():
                 to_add.append("docs/screenshots")
             run_fn(["git", "add", *to_add], cwd=str(repo_dir), check=True)
