@@ -26,7 +26,7 @@ halo                         # full-screen TUI
    tab is missing, add a local/LAN host or server where that applies,
    Save, repeat for another, any tab Skippable); **Default model** (a
    picker across everything just configured); **Permission mode** (`auto`
-   recommended); **Theme** (six built-ins, a live preview); **Team**
+   recommended); **Theme** (nine names: six built-ins plus the DOOM, Metroid and Mario game themes, a live preview and a one-line description for each game theme); **Team**
    (Halo 2.0.5 round 2c: a "Custom roles: off / on" switch -- off shows
    one sentence and nothing else; on shows **Lineups** (pick, edit, or
    build a new lineup assigning bios or plain models to roles) and
@@ -497,6 +497,67 @@ still waiting for its own answer doesn't answer that card, it just queues.
 Print mode gets the same thing via `--input-format stream-json` lines
 arriving mid-turn. The transcript shows "steering..." while one is in
 flight.
+
+## Themes
+
+`/theme <name>` (or `halo init`'s Theme step, `halo config set theme <name>`,
+`--theme`, `HALO_THEME`) picks one of nine names: `claude-dark`,
+`claude-light` and their `-daltonized` and `-ansi` variants, plus the three
+game themes below. A game theme is its own look and has no `-ansi` or
+`-daltonized` sibling. The choice persists in `~/.halo/config.json` under
+`theme`.
+
+| Theme | Look |
+|---|---|
+| `doom` | Dark greys, blood reds, rust browns, muted greens and amber text. Heavy borders on cards, panels and dialogs, and a three-row bottom-HUD status bar with an original ASCII face (below). |
+| `metroid` | Visor blues and greens with a power-suit orange accent. Palette and accent today; the suit-HUD status bar arrives in the next 2.0.8 round. |
+| `mario` | Sky blue, brick red, pipe green and coin gold. Palette and accent today; the world-and-coins status bar arrives in the next 2.0.8 round. |
+
+### The toggles: `/doom`, `/metroid`, `/mario`
+
+Each is a toggle with one rule for all three:
+
+- If that theme is not active, `/<name>` remembers the active theme as
+  `theme_toggle_previous` in `~/.halo/config.json`, applies the game theme
+  and persists it as `theme`.
+- If it is active, `/<name>` restores `theme_toggle_previous` (`claude-dark`
+  when none is stored) and clears the key.
+- Going straight from one game theme to another keeps the original
+  non-game theme as the previous one: `/doom`, `/metroid`, `/metroid` lands
+  back on whatever was active before `/doom`.
+- `/theme <name>` is the explicit form. Moving onto a game theme records the
+  previous theme the same way; moving off a game theme onto a normal one
+  clears it. The state survives a relaunch because it lives in `config.json`.
+
+### The DOOM status-bar HUD
+
+Under `doom` the status bar is three rows: a captioned panel row, the values,
+and a ticker line set into the bottom border. Panels run left to right in
+the order a shooter's HUD uses:
+
+| Panel | Shows | Notes |
+|---|---|---|
+| AMMO | tokens remaining in the context window (`812k left`) | dropped last of the optional panels |
+| HEALTH | context remaining as a percent with a meter | turns amber at 30% left or less and red at 10% or less |
+| ARMS | tools loaded (MCP tool count; `MCP n/m` before the first count) | dropped second |
+| (face) | an original ASCII face: idle `o_o`, thinking `'_'`, writing `^o^`, error `x_x`, needs-you `O!O` | needs-you outranks error; an error face stays until the next model call starts; thinking and writing animate with the spinner |
+| ARMOR | cost, with the provider balance next to it when one is known (`$0.0123 · OR $12.40 left`) | never dropped |
+| KEYS | providers in play (the active prefix first, then any with a live balance) | dropped first of the panels |
+
+The ticker carries everything else the status bar shows: the phase clock,
+a pending permission, needs-you count, mode, effort, model, agents, background jobs and the
+oldest one's age, offline, the governor, the hang watch, the "new" counter,
+cwd and branch, `MCP n/m`, local throughput and a custom `statusLine`.
+
+As the terminal narrows, parts drop in this order: the custom status line,
+throughput, `MCP n/m`, KEYS, the governor, background jobs, the "new"
+counter, effort, model, agents, the hang watch, ARMS, AMMO. The phase,
+context percent, cost, face, cwd, mode, needs-you, permission and offline
+parts are never dropped. Below 46 columns the HUD becomes a single line:
+face, phase, context percent, cost, mode, cwd.
+
+On a terminal without truecolor the borders and meter fall back to ASCII
+(`+ - |`, `#`) and the face wears `[ ]` braces instead of half blocks.
 
 ## Keys: Ctrl+C copies, a second press asks before quitting
 

@@ -588,8 +588,31 @@ this same headless text today; a directory is normally added via
 
 ### `/theme [name]`
 No argument: shows the current theme. With a name (`claude-dark`,
-`claude-light`, or either with a `-daltonized`/`-ansi` suffix), persists it
-to `~/.halo/config.json` and (in the TUI) re-applies it live.
+`claude-light`, either with a `-daltonized`/`-ansi` suffix, or one of the
+game themes `doom`, `metroid`, `mario`), persists it to
+`~/.halo/config.json` and (in the TUI) re-applies it live. Moving onto a game
+theme records the theme you were on as `theme_toggle_previous`; moving off
+one onto a normal theme clears it. In the TUI, Tab completes theme names
+(the game themes first). See the Themes section of the
+[handbook](HANDBOOK.md).
+
+### `/doom`
+Toggle the DOOM theme (Halo 2.0.8): dark greys, blood reds and amber text,
+heavy borders, and a three-row bottom-HUD status bar (ammo, health, arms,
+a face that follows the phase, armor, keys, plus a ticker line for the rest
+of the status bar). Not active: remembers the current theme as
+`theme_toggle_previous` and applies DOOM. Active: restores the remembered
+theme (`claude-dark` when none) and clears it. `/doom`, `/metroid`, `/doom`
+returns to what was active before the first `/doom`. In `-p` the same toggle
+runs against `config.json`.
+
+### `/metroid`
+Toggle the Metroid theme (visor blues and greens, power-suit orange accent).
+Same toggle rule as `/doom`.
+
+### `/mario`
+Toggle the Mario theme (sky blue, brick red, coin gold). Same toggle rule as
+`/doom`.
 
 ### `/exit`, `/quit` `[TUI-only for /quit]`
 `/exit` in `-p` is a no-op note (the call already ends after this turn).

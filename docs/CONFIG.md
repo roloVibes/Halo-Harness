@@ -217,7 +217,8 @@ directly by the features that own them:
 |---|---|---|
 | `model` | unset (built-in default applies) | `halo init`, `halo config set model ...` |
 | `team` | unset (no active team template) | `halo teams use <name>` -- names the ACTIVE lineup; a session running under it enforces its sections through `teams_runtime.py` (Halo 2.0.5 round 5; `--team <name>` overrides per-run, never persisted); see [AGENTS.md](AGENTS.md) |
-| `theme` | auto-detected from terminal truecolor support | `/theme`, `halo config set theme ...` |
+| `theme` | auto-detected from terminal truecolor support | `/theme`, `/doom`, `/metroid`, `/mario`, `halo config set theme ...` (nine names: `claude-dark`, `claude-light`, each with `-daltonized`/`-ansi`, and `doom`, `metroid`, `mario`) |
+| `theme_toggle_previous` | unset | written by `/doom`, `/metroid`, `/mario` and by `/theme <game>`: the theme to restore when the game theme is toggled off (`claude-dark` when missing); cleared when you leave the game themes |
 | `images` | `"inline"` | `--no-inline-images` overrides per-run |
 | `intro` | `true` | `--no-intro` overrides per-run; set `false` to turn off the launch intro for good |
 | `mcpPreload` | unset | hand-edited: a list of wire tool names to preload regardless of the catalog's own `alwaysLoad` rule |

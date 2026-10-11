@@ -53,6 +53,9 @@ async def handle_slash(app, name: str, args: str) -> None:
         "xp": _handle_xp,
         "resume": _handle_resume, "permissions": _handle_permissions,
         "exit": _handle_exit, "quit": _handle_exit, "theme": _handle_theme,
+        # Halo 2.0.8 theme pack: the game-theme toggles (one contract for all
+        # three, see halo_harness/theme_toggle.py).
+        "doom": _handle_doom, "metroid": _handle_metroid, "mario": _handle_mario,
         # U5 scope C: sessions UX.
         "rename": _handle_rename, "fork": _handle_fork, "export": _handle_export,
         "stats": _handle_stats,
@@ -1493,6 +1496,7 @@ async def _handle_exit(app, _args: str) -> None:
 
 async def _handle_theme(app, args: str) -> None:
     from halo_harness import theme as theme_mod
+    from halo_harness import theme_toggle
 
     name = args.strip()
     if not name:
@@ -1502,9 +1506,26 @@ async def _handle_theme(app, args: str) -> None:
         app.notify(f"Not a valid theme name: {name} (expected one of {sorted(theme_mod.VALID_THEMES)})",
                    severity="error", title="/theme")
         return
-    theme_mod.persist_theme(name)
+    theme_toggle.select_theme(name, app.theme_name)
     app.apply_theme(name)
     app.notify(f"Theme set to {name}", title="/theme")
+
+
+def _game_theme_handler(game: str):
+    """Halo 2.0.8 theme pack: `/doom`, `/metroid`, `/mario` -- apply the game
+    theme remembering the active one; again restores it (the toggle contract
+    lives in halo_harness/theme_toggle.py, shared with the headless form)."""
+    async def handler(app, _args: str) -> None:
+        from halo_harness import theme_toggle
+        applied = theme_toggle.toggle_game_theme(game, app.theme_name)
+        app.apply_theme(applied)
+        app.notify(theme_toggle.toggle_message(game, applied), title=f"/{game}")
+    return handler
+
+
+_handle_doom = _game_theme_handler("doom")
+_handle_metroid = _game_theme_handler("metroid")
+_handle_mario = _game_theme_handler("mario")
 
 
 # ============================================================================

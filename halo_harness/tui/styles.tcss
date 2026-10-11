@@ -197,3 +197,34 @@ AssistantText MarkdownFence {
     text-style: bold;
     margin-bottom: 1;
 }
+
+/* Halo 2.0.8 theme pack: a skin that declares `heavy_borders` (tui/hud.py)
+   puts the `hud-heavy` class on the app; panels, cards and dialogs then
+   trade their round borders for heavy ones. The colours still come from the
+   theme's palette variables. */
+.hud-heavy .permission-card, .hud-heavy .question-card, .hud-heavy .plan-card,
+.hud-heavy .rewind-card, .hud-heavy .approval-card {
+    border: heavy $bridge-warning;
+}
+
+.hud-heavy .folded-history, .hud-heavy .diff-view {
+    border: heavy $bridge-border;
+}
+
+.hud-heavy #which-key-overlay {
+    border: heavy $bridge-accent;
+}
+
+.hud-heavy #completion-popup {
+    border: heavy $bridge-border;
+}
+
+.hud-heavy #prompt-row {
+    border-top: heavy $bridge-border;
+}
+
+.hud-heavy ModalScreen > Vertical, .hud-heavy ModalScreen > VerticalScroll,
+.hud-heavy ModalScreen > Horizontal, .hud-heavy PagerScreen > Static,
+.hud-heavy QuitConfirmScreen > Static {
+    border: heavy $bridge-accent;
+}

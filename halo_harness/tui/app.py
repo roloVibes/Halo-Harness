@@ -444,6 +444,7 @@ class BridgeApp(App):
         self.pending_dock = self.query_one(PendingDock)
         self.prompt_input = self.query_one(PromptInput)
         self.status_bar = self.query_one(StatusBar)
+        self._sync_theme_chrome()
         # Halo 2.0.3 round 5e: the "offline" chip's own initial reading --
         # `--offline`/a persisted `network.offline` -- pushed once here,
         # the same "direct push, no event round-trip" pattern `/offline`
@@ -1710,6 +1711,8 @@ class BridgeApp(App):
             self._completion_items = self._complete_role_command_arg(event.token)
         elif event.kind == "orgarg":
             self._completion_items = self._complete_org_command_arg(event.token)
+        elif event.kind == "themearg":
+            self._completion_items = self._complete_theme_command_arg(event.token)
         else:
             self._completion_items = complete_at_path(event.token, str(self.cwd))
         self.completion_popup.show(self._completion_items)
@@ -1775,6 +1778,16 @@ class BridgeApp(App):
         pieces = role_command_args(line) or []
         model_text = pieces[1] if len(pieces) > 1 else ""
         return filter_items(self._effort_levels_for(model_text), token)
+
+    def _complete_theme_command_arg(self, token: str) -> "list":
+        """Halo 2.0.8: theme names for `/theme <name>` -- the game themes
+        first, then the built-in family (`halo_harness.theme.VALID_THEMES`)."""
+        from halo_harness.theme import GAME_THEMES, VALID_THEMES
+        from halo_harness.tui.completion import filter_items
+        names = list(GAME_THEMES) + sorted(VALID_THEMES - set(GAME_THEMES))
+        if token in names:
+            return []
+        return filter_items(names, token)
 
     def _complete_org_command_arg(self, token: str) -> "list":
         """Round B fix pass ("No Tab completion for org/position names in
@@ -2666,6 +2679,18 @@ class BridgeApp(App):
         read_board = getattr(self.controller, "read_task_board", None)
         self.push_screen(TasksPanel(list_agent_tasks=list_tasks, read_task_board=read_board))
 
+    def _sync_theme_chrome(self) -> None:
+        """Halo 2.0.8 theme pack: the status bar's HUD skin and the heavy
+        panel/dialog borders follow the active theme (both are declared by
+        the theme's `HudSkin`, see tui/hud.py)."""
+        from halo_harness.tui.hud import skin_for
+        skin = skin_for(self.theme_name)
+        self.set_class(bool(skin is not None and skin.heavy_borders), "hud-heavy")
+        bar = getattr(self, "status_bar", None)
+        if bar is not None:
+            bar.set_theme(self.theme_name)
+
     def apply_theme(self, name: str) -> None:
         self.theme_name = name
+        self._sync_theme_chrome()
         self.refresh_css(animate=False)

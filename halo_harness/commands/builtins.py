@@ -1541,8 +1541,21 @@ def _cmd_theme(args: str, facade: HeadlessFacade) -> str:
         return f"Current theme: {facade.theme or theme_mod.DEFAULT_THEME}"
     if not theme_mod.is_valid_theme(name):
         return f"halo: not a valid theme name: {name!r} (expected one of {sorted(theme_mod.VALID_THEMES)})"
-    theme_mod.persist_theme(name)
+    from halo_harness import theme_toggle
+    theme_toggle.select_theme(name, facade.theme or theme_mod.load_persisted_theme() or theme_mod.DEFAULT_THEME)
     return f"Theme set to {name}."
+
+
+def _game_theme_cmd(game: str):
+    """Halo 2.0.8 theme pack: the headless `/doom`, `/metroid`, `/mario`
+    (same toggle contract as the TUI -- see halo_harness/theme_toggle.py)."""
+    def run(args: str, facade: HeadlessFacade) -> str:
+        from halo_harness import theme as theme_mod
+        from halo_harness import theme_toggle
+        active = facade.theme or theme_mod.load_persisted_theme() or theme_mod.DEFAULT_THEME
+        applied = theme_toggle.toggle_game_theme(game, active)
+        return theme_toggle.toggle_message(game, applied) + "."
+    return run
 
 
 def _cmd_exit(args: str, facade: HeadlessFacade) -> str:
@@ -1804,6 +1817,12 @@ _BUILTIN_SPECS = {
     "timeline": ("core", "Show the last turn's request/tool/timing timeline", "[N]", _cmd_timeline),
     "add-dir": ("core", "Add a working directory", "<directory>", _cmd_add_dir),
     "theme": ("core", "Show or set the color theme", "[theme]", _cmd_theme),
+    "doom": ("ui", "Toggle the DOOM theme: a bottom-HUD status bar with a face that follows the phase",
+             None, _game_theme_cmd("doom")),
+    "metroid": ("ui", "Toggle the Metroid theme: visor blues and greens, suit-HUD look",
+                None, _game_theme_cmd("metroid")),
+    "mario": ("ui", "Toggle the Mario theme: sky blue, brick red and coin gold",
+              None, _game_theme_cmd("mario")),
     "exit": ("ui", "Exit halo", None, _cmd_exit),
     "copy": ("ui", "Copy the last reply, a code block, or the last tool output to the clipboard",
              "[code [N]|tool]", _cmd_copy),

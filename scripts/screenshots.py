@@ -5,7 +5,7 @@ scripted FakeController turn, fixture picker rows, fixture bios and the
 shipped team templates, a fake MCP server list, a fixture permission ask,
 fixture balances -- and saves one SVG per scene (120x36) under
 docs/screenshots/: launch, turn, picker, team-step, mcp, permission,
-balances. Deterministic by construction: fixed seed, a frozen clock in
+balances, theme-doom. Deterministic by construction: fixed seed, a frozen clock in
 the widget modules (elapsed text is set through the same started_at /
 _refresh seams the tests use, never a real timer read), no network, no
 real keys, no real paths (the session cwd is the literal "~/project"),
@@ -281,7 +281,44 @@ async def scene_balances(out: Path) -> None:
         _write_svg(out / "balances.svg", await _export(app, pilot))
 
 
-SCENES = (scene_launch, scene_turn, scene_picker, scene_team_step, scene_mcp, scene_permission, scene_balances)
+async def scene_theme_doom(out: Path) -> None:
+    """The main screen under the DOOM theme (Halo 2.0.8): the bottom-HUD
+    status bar mid-turn, with the face in its writing state."""
+    app = BridgeApp(FakeController(model=MODEL), cwd=CWD, theme_name="doom")
+    async with app.run_test(size=SIZE) as pilot:
+        for e in (
+            ev.user_message("Add a rotate tool to the model picker", turn=1),
+            ev.status(phase="thinking", model=MODEL, turn=1),
+            ev.Event("message_start", {"model": MODEL}, turn=1),
+            ev.text_delta("The sort keys live in the picker dialog, so the new column goes there.\n", turn=1),
+            ev.Event("tool_use_start", {"id": "tu1", "name": "Read"}, turn=1),
+            ev.Event("tool_use_ready", {"id": "tu1", "name": "Read",
+                                        "input": {"file_path": "halo_harness/tui/dialogs/model_picker.py"},
+                                        "repaired": False}, turn=1),
+            ev.text_delta("Next I will wire the column into the row format.", turn=1),
+        ):
+            await apply_event(app, e)
+        bar = app.status_bar
+        bar.hud_ascii = False
+        bar.apply_status({"model": MODEL, "context_tokens": 312_000, "context_limit": 1_000_000,
+                          "cost_usd": 0.0412, "permission_mode": "auto", "effort": "high",
+                          "mcp": {"connected": 3, "total": 3, "tools": 41}})
+        bar.set_provider_balance("openrouter", "OR $12.40 left")
+        bar.set_cwd_branch(CWD, "main")
+        bar.set_agents_running(2)
+        bar.set_phase_word("writing")
+
+        def stage():
+            for block in app.transcript.children:
+                if isinstance(block, _cards.ToolCard):
+                    _stage_elapsed(block, 4.0)
+            bar._phase_started_at = _NOW - 23.0
+
+        _write_svg(out / "theme-doom.svg", await _export(app, pilot, stage=stage))
+
+
+SCENES = (scene_launch, scene_turn, scene_picker, scene_team_step, scene_mcp, scene_permission,
+          scene_balances, scene_theme_doom)
 
 
 async def main(out: Path) -> int:

@@ -121,6 +121,8 @@ def current_token(text: str, cursor_pos: int) -> "tuple[str, int, str]":
         return "arg", start, token
     if org_command_arg_index(text, cursor_pos) is not None:
         return "orgarg", start, token
+    if theme_command_arg_index(text, cursor_pos) is not None:
+        return "themearg", start, token
     return "", start, token
 
 
@@ -202,6 +204,20 @@ def org_command_arg_index(text: str, cursor_pos: int) -> "object":
     pieces = re.split(r"[ \t]+", after_command)
     index = len(pieces) - 1
     return index if index == 0 else None
+
+
+_THEME_ARG_COMMAND_RE = re.compile(r"^/theme\s")
+
+
+def theme_command_arg_index(text: str, cursor_pos: int) -> "object":
+    """`0` for a cursor inside the theme-NAME argument of `/theme <name>`
+    (Halo 2.0.8: the three game themes appear in this completion), `None`
+    otherwise."""
+    m = _THEME_ARG_COMMAND_RE.match(text)
+    if not m:
+        return None
+    after_command = text[:cursor_pos][m.end():].lstrip()
+    return 0 if len(after_command.split()) <= 1 and not after_command.endswith((" ", "\t")) else None
 
 
 def filter_items(items: "list[str]", prefix: str) -> "list[str]":

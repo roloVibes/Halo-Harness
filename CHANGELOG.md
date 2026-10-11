@@ -8,6 +8,53 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.0.8] - unreleased
+
+### Theme pack: the game-HUD engine and DOOM
+
+- **Three new theme names:** `doom`, `metroid` and `mario` join the built-in
+  themes (nine names in all; the game themes have no `-ansi` or
+  `-daltonized` siblings). They appear in the wizard's Theme step with a
+  one-line description each, in `/theme` Tab completion (game themes first)
+  and as slash commands. `metroid` and `mario` carry their palette and accent
+  today; their status-bar skins land in the next two rounds.
+- **Toggle contract, one rule for all three:** `/doom`, `/metroid` and
+  `/mario` remember the active theme as `theme_toggle_previous` in
+  `~/.halo/config.json` and apply the game theme; running the same command
+  again restores the remembered theme (`claude-dark` when none) and clears
+  the key. Going straight from one game theme to another keeps the original
+  previous, so `/doom`, `/metroid`, `/metroid` returns to what was active
+  before `/doom`. `/theme <name>` and the wizard record the previous the
+  same way when moving onto a game theme and clear it when moving off. The
+  state survives a relaunch. New module `halo_harness/theme_toggle.py`.
+- **A game-HUD status-bar engine** (`tui/hud.py`, `hud_render.py`,
+  `hud_fields.py`): a skin is a declaration (`HudSkin`) of ordered
+  segments, each `(slot, label, glyphs, width_min)`, a face table for the
+  phase, border and meter glyph sets (with an ASCII set for terminals
+  without truecolor), a drop order and a compact form. Slots name the
+  status bar's own fields (tokens, context, tools, cost, providers, cwd,
+  mode, effort, phase, needs-you, agents and the rest), so every value the
+  default bar shows stays reachable. The status bar renders through the
+  active theme's skin and through today's layout otherwise.
+- **The DOOM skin:** dark greys, blood reds, rust browns, muted greens and
+  amber text; heavy borders on cards, panels and dialogs; a three-row bottom
+  HUD with ammo (tokens remaining), health (context remaining percent with a
+  meter), arms (tools loaded), an original ASCII face (idle, thinking,
+  writing, error, needs-you), armor (cost or balance) and keys (providers),
+  plus a ticker line in the bottom border for mode, effort, model, cwd and
+  branch, agents, background jobs, offline, the governor and the rest. The
+  width cascade drops parts in a declared order and keeps phase, context,
+  cost, cwd and mode at the narrowest; below 46 columns it becomes one line.
+- **Status feed:** the MCP status carries a tool count (`tools`) for the
+  HUD's arms panel, and an `error` event shows the error face until the next
+  model call starts.
+- **Docs and gallery:** HANDBOOK Themes section (names, toggles, the DOOM HUD
+  fields table), SLASH-COMMANDS entries for `/doom`, `/metroid` and
+  `/mario`, CONFIG `theme_toggle_previous`, README themes table with the DOOM
+  render, `scripts/screenshots.py` scene `theme-doom`, and nine new TUI
+  snapshots (every face state and four width tiers) under
+  `docs/harness/tui-snapshots/`.
+
 ## [2.0.7.1] - 2026-10-10
 
 ### vibes/review.md fix pass, round 10 (telemetry, stats, shared state)
