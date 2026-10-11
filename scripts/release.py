@@ -333,6 +333,17 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
         if not args.dry_run:
             write_readme_badge_version(version, repo_dir)
 
+        # 2.0.8: the README gallery under docs/screenshots/ embeds the
+        # version string (the launch scene's banner), and
+        # tests/test_screenshots.py pins every committed SVG to a fresh
+        # render -- so the bump re-renders the gallery into the SAME
+        # release commit. Skipped when the script is absent (scratch repos).
+        shots = repo_dir / "scripts" / "screenshots.py"
+        if shots.exists():
+            step("re-render docs/screenshots/ with scripts/screenshots.py (the banner carries the version)")
+            if not args.dry_run:
+                run_fn([sys.executable, str(shots)], cwd=str(repo_dir), check=True)
+
         body_text = commit_message_body(section_body)
         commit_subject = f"release: Halo Harness {version}"
         full_message = commit_subject if not body_text else f"{commit_subject}\n\n{body_text}"
@@ -341,8 +352,10 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
         step("git push origin master")
         step(f"git push origin v{version}")
         if not args.dry_run:
-            run_fn(["git", "add", "halo_harness/__init__.py", "CHANGELOG.md", "README.md"],
-                   cwd=str(repo_dir), check=True)
+            to_add = ["halo_harness/__init__.py", "CHANGELOG.md", "README.md"]
+            if (repo_dir / "docs" / "screenshots").is_dir():
+                to_add.append("docs/screenshots")
+            run_fn(["git", "add", *to_add], cwd=str(repo_dir), check=True)
             run_fn(["git", "commit", "-m", full_message], cwd=str(repo_dir), check=True)
             run_fn(["git", "tag", "-a", f"v{version}", "-m", f"Halo Harness {version}"], cwd=str(repo_dir), check=True)
             run_fn(["git", "push", "origin", "master"], cwd=str(repo_dir), check=True)

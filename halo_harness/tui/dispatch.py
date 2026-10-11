@@ -26,6 +26,16 @@ _SHADOW_TOOLS = frozenset({"Write", "Edit", "NotebookEdit"})
 _SHADOW_PATH_FIELD = {"Write": "file_path", "Edit": "file_path", "NotebookEdit": "notebook_path"}
 
 
+
+def _fire_cue(app, event: str) -> None:
+    """Halo 2.0.8 round 3: hand a completion cue to the status bar when the
+    app has one (test fakes and headless shells may not), and let the bar
+    decide whether the active skin draws anything for it."""
+    bar = getattr(app, "status_bar", None)
+    fire = getattr(bar, "fire_cue", None)
+    if callable(fire):
+        fire(event)
+
 def _phase_word_for(state: "str | None", kind: "str | None") -> "str | None":
     """Halo 2.0.1 W2b (liveness-tips-brief Part A3/A5): a `phase` event's
     (state, kind) -> the short display word the main status bar AND a
@@ -731,7 +741,7 @@ async def _apply_event_inner(app, event) -> None:
     elif kind == "subagent_end":
         app._agents_running_count = max(0, getattr(app, "_agents_running_count", 0) - 1)
         app.status_bar.set_agents_running(app._agents_running_count)
-        app.status_bar.fire_cue("agent_done")  # Halo 2.0.8 round 3: a skin with cues flashes its 1-UP
+        _fire_cue(app, "agent_done")  # Halo 2.0.8 round 3: a skin with cues flashes its 1-UP
         if app._agents_running_count == 0:
             # 2.0.6 round 1: the last sub-agent round handed back -- the
             # main phase line returns to the model-stream labels (the
@@ -795,7 +805,7 @@ async def _apply_event_inner(app, event) -> None:
         # the status blob. The model-facing framed copy rides in the log's
         # `status_notice` snapshot, not through this event.
         await app.transcript.add_note(data.get("text", ""), kind="status")
-        app.status_bar.fire_cue("job_done")  # Halo 2.0.8 round 3: the coin cue (no-op for skins without cues)
+        _fire_cue(app, "job_done")  # Halo 2.0.8 round 3: the coin cue (no-op for skins without cues)
     elif kind == "steer_queued":
         # 2.0.7 round 0 (rolo's live report, 2026-10-07 night): the steer's
         # TEXT now renders IMMEDIATELY, as a real user bubble, right here
