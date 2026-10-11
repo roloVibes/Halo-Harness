@@ -82,19 +82,32 @@ def _cost_of(line: dict) -> Optional[float]:
     return None
 
 
-def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Optional[Callable[[dict], None]] = None,
-             max_budget_usd: Optional[float] = None, max_turns: int = 40, registered=None, env: Optional[dict] = None,
-             runner: Optional[Callable] = None, timeout: int = 1800) -> dict:
-    """Run one design turn. `runner(cmd, cwd, env, on_line)` can replace the
-    subprocess (tests). Returns {code, cost, text, versions, events}."""
-    registered = crafts.registered_craft_servers() if registered is None else registered
-    fd, name = tempfile.mkstemp(prefix="halo-design-skill-", suffix=".md")
+def _temp(prefix: str, suffix: str, text: str) -> Path:
+    fd, name = tempfile.mkstemp(prefix=prefix, suffix=suffix)
     os.close(fd)  # Windows keeps an open handle from unlinking the file afterwards
-    skill_path = Path(name)
-    skill_path.write_text(skill_text(project, registered), encoding="utf-8")
+    Path(name).write_text(text, encoding="utf-8")
+    return Path(name)
+
+
+def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Optional[Callable[[dict], None]] = None,
+             max_budget_usd: Optional[float] = None, max_turns: int = 40, registered=None, entries: Optional[dict] = None,
+             env: Optional[dict] = None, runner: Optional[Callable] = None, timeout: int = 1800) -> dict:
+    """Run one design turn. `runner(cmd, cwd, env, on_line)` can replace the
+    subprocess (tests). The craft apps are the turn's ONLY MCP servers (a
+    strict --mcp-config written for the run); `--tools` keeps the core
+    built-ins. Returns {code, cost, text, versions, events}."""
+    from halo_harness.design.crafts_probe import craft_server_entries
+    if entries is None:
+        entries = craft_server_entries(cwd=project.path)
+        if registered is not None:
+            entries = {k: v for k, v in entries.items() if k in {str(r).lower() for r in registered}}
+    registered = set(entries) if registered is None else registered
+    skill_path = _temp("halo-design-skill-", ".md", skill_text(project, registered))
+    mcp_path = _temp("halo-design-mcp-", ".json", json.dumps({"mcpServers": entries}, indent=1))
     model = model or str(project.meta().get("model") or "")
     cmd = [sys.executable, "-m", "halo_harness", "-p", prompt, "--cwd", str(project.path), "--output-format", "stream-json",
            "--permission-mode", "auto", "--append-system-prompt-file", str(skill_path),
+           "--mcp-config", str(mcp_path), "--strict-mcp-config",
            "--tools", crafts.allowed_tools(registered), "--max-turns", str(max_turns), "--no-intro"]
     if model:
         cmd += ["--model", model]
@@ -136,10 +149,11 @@ def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Option
                 proc.kill()
                 code = 124
     finally:
-        try:
-            skill_path.unlink()
-        except OSError:
-            pass
+        for p in (skill_path, mcp_path):
+            try:
+                p.unlink()
+            except OSError:
+                pass
     versions = project.snapshot(note=prompt[:80])
     project.log_turn({"prompt": prompt, "model": model, "cost": cost, "code": code, "versions": versions})
     done = {"type": "halo_design", "code": code, "cost": cost, "versions": versions}
