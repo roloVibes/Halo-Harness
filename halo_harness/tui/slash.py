@@ -2393,11 +2393,15 @@ async def _handle_teams(app, args: str) -> None:
         if problems:
             app.notify("; ".join(problems), severity="error", title="/teams activate")
             return
-        from halo_harness.theme import set_config_value
-        set_config_value("team", rest)
-        app.notify(f"Active team: {rest!r}.", title="/teams activate")
+        from halo_harness.teams_cli_views import apply_lineup
+        ok, lines, _notes = apply_lineup(rest, cwd=app.cwd)
+        app.notify(f"Now using lineup {rest!r}." if ok else "; ".join(lines),
+                   severity="information" if ok else "error", title="/teams activate")
         return
-    if sub and sub != "list":
+    if sub != "list":
+        # bare `/teams` prints the overview (same words as `halo teams`);
+        # apply / preview / diff / show run through the shared builtin.
+        # `/teams list` is the interactive list screen.
         app.run_worker(lambda: _run_slash_worker(app, "teams", args), thread=True, name="run-slash",
                         group="run-slash")
         return

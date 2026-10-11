@@ -511,7 +511,8 @@ def test_cmd_agents_lists_bios_alongside_sub_agent_definitions(ctx: Ctx):
         text = _cmd_agents("", facade)
         ctx.check(f"the built-in sub-agent definitions still show, got {text!r}", "general-purpose" in text)
         ctx.check(f"the agent BIOS section shows too, got {text!r}",
-                  "Agent bios" in text and "orchestrator" in text and "coder" in text)
+                  "Shipped agents:" in text and "orchestrator" in text and "coder" in text
+                  and text.rstrip().endswith("halo agents show <name>"))
 
 
 @test
@@ -522,8 +523,8 @@ def test_cmd_teams_lists_templates_and_marks_the_active_one(ctx: Ctx):
         set_config_value("team", "halo-dev-cycle")
         facade = HeadlessFacade(cwd=e.cwd)
         text = _cmd_teams("", facade)
-        ctx.check(f"every template listed, got {text!r}", "halo-dev-cycle" in text and "balanced" in text)
-        ctx.check(f"the active one is marked, got {text!r}", "halo-dev-cycle [active]" in text)
+        ctx.check(f"the active lineup is named and the others listed, got {text!r}",
+                  "Active lineup: halo-dev-cycle" in text and "balanced" in text)
 
 
 # ---------------------------------------------------------------------------
@@ -664,6 +665,180 @@ def test_cli_flags_and_headless_accept_the_team_flag(ctx: Ctx):
     ctx.check(f"--team lands in cli_flags, got {flags}", flags.get("team") == "my-lineup")
     flags = cli_flags_from_args(type("A", (), {})())
     ctx.check("no flag means no team override", flags.get("team") is None)
+
+
+# ---------------------------------------------------------------------------
+# Halo 2.1.0 round B2: one obvious path to pick and inspect a lineup.
+# ---------------------------------------------------------------------------
+
+@test
+def test_b2_halo_teams_bare_prints_overview_with_tree_and_other_lineups(ctx: Ctx):
+    from halo_harness.teams_cli import cmd_teams
+    from halo_harness.theme import set_config_value
+    with _Env():
+        rc, out = _run_cli(cmd_teams, [])
+        ctx.check(f"nothing applied yet says so, got rc={rc}\n{out}", rc == 0 and "No lineup applied yet" in out)
+        ctx.check("every reachable lineup gets a line with its scope",
+                  "  halo-dev-cycle [" in out and "  balanced [" in out)
+        set_config_value("team", "halo-dev-cycle")
+        rc, out = _run_cli(cmd_teams, [])
+        ctx.check(f"the active lineup is named, got {out!r}", "Active lineup: halo-dev-cycle" in out)
+        ctx.check(f"its tree is the wizard's preview (role -> agent -> model), got {out!r}",
+                  "main (boss) -> orchestrator ->" in out)
+        ctx.check("the active lineup is not repeated in the others list", "\n  halo-dev-cycle [" not in out)
+        ctx.check("the others are listed", "\n  balanced [" in out)
+        set_config_value("roles.enabled", False)
+        rc, out = _run_cli(cmd_teams, [])
+        ctx.check(f"roles off reads as one model for everything, got {out!r}",
+                  out.startswith("One model for everything:") and "Active lineup" not in out)
+
+
+@test
+def test_b2_apply_and_use_write_team_roles_and_enabled(ctx: Ctx):
+    from halo_harness.roles import roles_mode_enabled, set_roles_enabled
+    from halo_harness.teams_cli import cmd_teams
+    from halo_harness.theme import get_config_value, set_config_value
+    with _Env():
+        for verb in ("apply", "use"):
+            set_roles_enabled(False)
+            set_config_value("team", None)
+            rc, out = _run_cli(cmd_teams, [verb, "halo-dev-cycle"])
+            ctx.check(f"{verb}: ok, got rc={rc}\n{out}", rc == 0)
+            ctx.check(f"{verb}: team written", get_config_value("team", default=None) == "halo-dev-cycle")
+            ctx.check(f"{verb}: roles.* written like the wizard",
+                      bool(get_config_value("roles.boss", default=None)))
+            ctx.check(f"{verb}: custom roles switched ON", roles_mode_enabled() is True)
+            ctx.check(f"{verb}: the resolved roles are printed, got {out!r}",
+                      "Lineup: halo-dev-cycle" in out and "  boss:" in out)
+
+
+@test
+def test_b2_apply_standard_and_one_model_turn_roles_off(ctx: Ctx):
+    from halo_harness.roles import roles_mode_enabled
+    from halo_harness.teams_cli import cmd_teams
+    from halo_harness.theme import get_config_value
+    with _Env():
+        for argv in (["apply", "standard"], ["apply", "--one-model"]):
+            _run_cli(cmd_teams, ["apply", "halo-dev-cycle"])
+            ctx.check("precondition: roles on", roles_mode_enabled() is True)
+            rc, out = _run_cli(cmd_teams, argv)
+            ctx.check(f"{argv}: ok, got rc={rc}\n{out}", rc == 0)
+            ctx.check(f"{argv}: roles off", roles_mode_enabled() is False)
+            ctx.check(f"{argv}: standard is the recorded lineup", get_config_value("team", default=None) == "standard")
+            ctx.check(f"{argv}: says one model for everything, got {out!r}",
+                      "One model for everything" in out)
+
+
+@test
+def test_b2_apply_refuses_an_unknown_lineup_with_the_validators_lines(ctx: Ctx):
+    from halo_harness.roles import roles_mode_enabled
+    from halo_harness.teams_cli import cmd_teams
+    from halo_harness.theme import get_config_value
+    with _Env():
+        buf = io.StringIO()
+        from contextlib import redirect_stderr
+        with redirect_stderr(buf):
+            rc, _out = _run_cli(cmd_teams, ["apply", "no-such-lineup"])
+        ctx.check(f"refused, got rc={rc}", rc == 1)
+        ctx.check(f"the validator's line is shown, got {buf.getvalue()!r}", "no-such-lineup" in buf.getvalue())
+        ctx.check("nothing was written", get_config_value("team", default=None) is None
+                  and get_config_value("roles.boss", default=None) is None)
+        ctx.check("roles still default on", roles_mode_enabled() is True)
+
+
+@test
+def test_b2_preview_and_diff(ctx: Ctx):
+    from halo_harness.teams_cli import cmd_teams
+    from halo_harness.teams_yaml import save_team_template
+    with _Env() as e:
+        rc, out = _run_cli(cmd_teams, ["preview", "halo-dev-cycle"])
+        ctx.check(f"preview prints the tree, got rc={rc}\n{out}", rc == 0 and "main (boss) -> orchestrator" in out
+                  and ("per turn" in out or "price unknown" in out))
+        rc, out = _run_cli(cmd_teams, ["diff", "halo-dev-cycle", "halo-dev-cycle"])
+        ctx.check(f"equal lineups say so, got {out!r}", rc == 0 and "No difference" in out)
+        rc, out = _run_cli(cmd_teams, ["diff", "halo-dev-cycle", "quality"])
+        ctx.check(f"different lineups show markers, got {out!r}",
+                  rc == 0 and "No difference" not in out and "- boss:" in out and "+ judge:" in out)
+        save_team_template("tweak", {"description": "t", "agents": [
+            {"agent": "orchestrator", "role": "main", "as": "boss"}]}, state_dir=e.state_dir)
+        save_team_template("tweak2", {"description": "t", "agents": [
+            {"agent": "reviewer", "role": "main", "as": "boss"}]}, state_dir=e.state_dir)
+        rc, out = _run_cli(cmd_teams, ["diff", "tweak", "tweak2"])
+        ctx.check(f"a changed agent is marked ~, got {out!r}",
+                  "~ boss: orchestrator /" in out and "->  reviewer /" in out)
+        buf = io.StringIO()
+        from contextlib import redirect_stderr
+        with redirect_stderr(buf):
+            rc, _ = _run_cli(cmd_teams, ["diff", "tweak", "nope"])
+        ctx.check(f"an unknown side is refused, got rc={rc} {buf.getvalue()!r}", rc == 1 and "nope" in buf.getvalue())
+
+
+@test
+def test_b2_halo_agents_bare_groups_by_scope_and_bare_name_shows(ctx: Ctx):
+    from halo_harness.agents_cli import cmd_agents
+    from halo_harness.agents_yaml import save_agent_bio
+    with _Env() as e:
+        save_agent_bio("my-agent", {"description": "mine", "kind": "subagent",
+                                     "models": {"preference": "or:vendor/m"}}, state_dir=e.state_dir)
+        rc, out = _run_cli(cmd_agents, [])
+        ctx.check(f"ok, got rc={rc}\n{out}", rc == 0)
+        lines = out.splitlines()
+        ctx.check(f"user then shipped groups, got {out!r}",
+                  "User agents:" in lines and "Shipped agents:" in lines
+                  and lines.index("User agents:") < lines.index("Shipped agents:"))
+        ctx.check(f"kind and preferred model on the line, got {out!r}",
+                  any(l.startswith("  my-agent (subagent) or:vendor/m") for l in lines))
+        ctx.check(f"ends with the show hint, got {lines[-1]!r}", lines[-1] == "halo agents show <name>")
+        rc, shown = _run_cli(cmd_agents, ["my-agent"])
+        rc2, shown2 = _run_cli(cmd_agents, ["show", "my-agent"])
+        ctx.check(f"`halo agents <name>` is `show`, got {shown!r}", rc == 0 and shown == shown2 and "my-agent" in shown)
+        buf = io.StringIO()
+        from contextlib import redirect_stderr
+        with redirect_stderr(buf):
+            rc3, _ = _run_cli(cmd_agents, ["not-an-agent"])
+        ctx.check(f"an unknown name is a plain error, got rc={rc3} {buf.getvalue()!r}",
+                  rc3 == 1 and "no agent named" in buf.getvalue())
+
+
+@test
+def test_b2_halo_roles_says_where_each_value_came_from(ctx: Ctx):
+    from halo_harness.roles_cli import cmd_roles
+    from halo_harness.theme import set_config_value
+    with _Env():
+        _run_cli(__import__("halo_harness.teams_cli", fromlist=["cmd_teams"]).cmd_teams, ["apply", "halo-dev-cycle"])
+        set_config_value("roles.coder", "or:vendor/legacy-model")
+        rc, out = _run_cli(cmd_roles, [])
+        lines = out.splitlines()
+        ctx.check(f"first line still names the state and lineup, got {lines[0]!r}",
+                  lines[0] == "roles: on (lineup halo-dev-cycle)")
+        ctx.check(f"a lineup role says so, got {out!r}",
+                  "[lineup halo-dev-cycle]" in out)
+        ctx.check(f"a role set outside the lineup is the legacy table, got {out!r}",
+                  any(l.strip().startswith("coder") and "[legacy table]" in l for l in lines))
+        ctx.check(f"an unset role is the session default, got {out!r}",
+                  any("[session default]" in l for l in lines))
+
+
+@test
+def test_b2_slash_teams_overview_apply_preview(ctx: Ctx):
+    from halo_harness.commands.builtins import HeadlessFacade, _cmd_teams
+    from halo_harness.roles import roles_mode_enabled
+    from halo_harness.theme import get_config_value
+    with _Env() as e:
+        facade = HeadlessFacade(cwd=e.cwd)
+        text = _cmd_teams("", facade)
+        ctx.check(f"bare /teams is the overview, got {text!r}", "No lineup applied yet" in text and "balanced [" in text)
+        text = _cmd_teams("preview halo-dev-cycle", facade)
+        ctx.check(f"/teams preview prints the tree, got {text!r}", "main (boss) -> orchestrator" in text)
+        text = _cmd_teams("apply halo-dev-cycle", facade)
+        ctx.check(f"/teams apply writes team + roles on, got {text!r}",
+                  get_config_value("team", default=None) == "halo-dev-cycle" and roles_mode_enabled()
+                  and "Lineup: halo-dev-cycle" in text)
+        text = _cmd_teams("apply standard", facade)
+        ctx.check(f"/teams apply standard turns roles off, got {text!r}",
+                  not roles_mode_enabled() and "One model for everything" in text)
+        ctx.check("a bad name is a plain sentence", "Could not use" in _cmd_teams("apply nope", facade))
+        ctx.check("diff works too", "No difference" in _cmd_teams("diff standard standard", facade))
 
 
 if __name__ == "__main__":
