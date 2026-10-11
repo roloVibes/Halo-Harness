@@ -42,6 +42,45 @@ version.
   socket appear in the transcript as `(remote) ...` notes. New
   `docs/REMOTE.md`, `remote.enabled` in `docs/CONFIG.md`.
 
+### Remote control: the Signal bridge
+
+- **The signal-cli transport** (`remote/signal_transport.py`): spawns
+  `signal-cli -a ACCOUNT --trust-new-identities never --scrub-log -d
+  ~/.halo/remote/signal-cli jsonRpc ...` and talks newline JSON-RPC over stdio
+  (no port, no socket file), or is a client of `daemon --socket` (POSIX) /
+  `daemon --tcp` (Windows); settings from `~/.halo/remote/signal.json`.
+  `send`, `sendTyping` (re-sent every 10 s, `stop` at turn end),
+  `sendReceipt` (read), `listIdentities`, `trust`, `subscribeReceive`.
+  Respawn/reconnect with backoff; signal-cli's `-3`/`-4`/`-5`/`-1`/`-6` codes
+  map to errors (a `-5` pauses sending and surfaces the captcha token).
+  Inbound `text/x-signal-plain` becomes the prompt, other attachments are
+  ignored, and every downloaded file is deleted; a long reply goes out as a
+  `data:` URI attachment, never a file.
+- **Contact-request pairing** (`remote/pairing.py`, `peers.json` 0600): an
+  unknown sender is never answered; it becomes a pending request with the
+  safety number from `listIdentities`; approving it runs `trust` with that
+  number and yields a six-digit, ten-minute code the phone sends back. Three
+  wrong codes or expiry drop the request; a changed safety number blocks the
+  peer until `reverify`; `unpair`; `remote.rate_per_minute` (30) per peer.
+- **Command signing** (`remote/signing.py`): a per-peer 256-bit secret shown
+  once as a `halo-remote://pair?...` link and a 32-word phrase; commands end
+  `#<counter>:<hmac8>` (HMAC-SHA256 over `counter|text`), with a strictly
+  increasing counter and a 5-minute window; `signed: false` turns it off.
+- **The bridge** (`remote/bridge.py`, `bridge_commands.py`, `bridge_session.py`,
+  `bridge_cards.py`, `render.py`): plain text is a prompt or steer; `/sessions`,
+  `/attach`, `/status`, `/stop`, `/mode`, `/model`, `/effort`, `/quiet`,
+  `/loud`, `/tail`, `/remote pair|unpair|status`, other `/x` as slash commands;
+  permission cards answered by number, questions by letter, plans by
+  `approve`/`feedback`, approval gates by `accept`/`edit`/`stop`. Replies are
+  plain text (Markdown flattened, code marked monospace), split at 1800 bytes,
+  or one message plus `reply.txt` past four. One hashed audit line per
+  command in `audit.jsonl`; no message content is logged or stored.
+- Tested against a fake signal-cli child (`tests/helpers/fake_signal_cli.py`).
+  `docs/REMOTE.md` gains the pairing, signing, chat-command and storage
+  sections; `remote.rate_per_minute`, `remote.verbosity`,
+  `remote.stale_window_s`, `remote.pair_code_ttl_s` are in `docs/CONFIG.md`.
+  The `halo remote signal` commands and the `/remote` dialog follow.
+
 ## [2.0.8] - 2026-10-11
 
 ### Theme pack: Mario

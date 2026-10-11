@@ -134,7 +134,7 @@ class FakeSession:
                 emit(events.message_start(turn=n, model="mock/fake"))
                 if "ask-question" in text:
                     self.answers["q_1"] = self._wait(self._question_waiters, "q_1", emit, events.Event(
-                        "question", {"id": "q_1", "name": "AskUserQuestion", "input": {"question": "which?"}}, turn=n))
+                        "question", {"id": "q_1", "name": "AskUserQuestion", "input": {"questions": [{"question": "which?", "options": [{"label": "red"}, {"label": "blue"}]}]}}, turn=n))
                 elif "ask-plan" in text:
                     self.answers["plan_1"] = self._wait(self._plan_waiters, "plan_1", emit, events.Event(
                         "plan_review", {"id": "plan_1", "plan": "do the thing", "path": ""}, turn=n))
