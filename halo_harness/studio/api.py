@@ -1,0 +1,261 @@
+"""halo_harness.studio.api -- Studio's JSON routes (Halo 2.1.0 round B3).
+
+Every handler takes a `Request` and returns `(status, body)`. Writes
+validate through `teams_yaml` / `agents_yaml` first and answer 422 with the
+validator's own lines; shipped (template-scope) files are read-only and
+answer 409 with "duplicate to edit". Scope is `?scope=user|project`.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Callable
+
+from halo_harness import agents_yaml as A
+from halo_harness import teams_yaml as T
+from halo_harness.studio import model as M
+
+
+@dataclass
+class Request:
+    method: str
+    path: str
+    query: dict
+    body: dict
+    cwd: Path
+    state_dir: Path
+    params: dict = field(default_factory=dict)
+
+    @property
+    def project(self) -> bool:
+        return self.query.get("scope") == "project"
+
+
+def _active_team() -> str:
+    from halo_harness.theme import get_config_value
+    return str(get_config_value("team", "") or "")
+
+
+def _problems(lines: list, status: int = 422):
+    return status, {"error": lines[0] if lines else "invalid", "problems": list(lines)}
+
+
+# -- state ---------------------------------------------------------------------
+
+def get_state(req: Request):
+    from halo_harness import __version__
+    from halo_harness.roles import roles_mode_enabled
+    from halo_harness.theme import get_config_value
+    return 200, {"version": __version__, "active_team": _active_team(), "roles_enabled": bool(roles_mode_enabled()),
+                 "default_model": str(get_config_value("model", "") or ""), "cwd": str(req.cwd),
+                 "state_dir": str(req.state_dir), "shipped_lineups": T.list_bundled_team_templates(),
+                 "shipped_bios": A.list_bundled_agent_templates(), "top_sections": list(T.TOP_SECTIONS)}
+
+
+# -- lineups --------------------------------------------------------------------
+
+def get_lineups(req: Request):
+    active = _active_team()
+    names = T.list_team_templates(cwd=req.cwd, state_dir=req.state_dir)
+    rows = [M.lineup_summary(n, cwd=req.cwd, state_dir=req.state_dir, active=active) for n in names]
+    return 200, [r for r in rows if r]
+
+
+def get_lineup(req: Request):
+    data = M.lineup_payload(req.params["name"], cwd=req.cwd, state_dir=req.state_dir, active=_active_team())
+    if data is None:
+        return 404, {"error": f"no lineup named {req.params['name']!r}"}
+    data["layout"] = M.read_layout(req.state_dir, req.params["name"])
+    return 200, data
+
+
+def _incoming(req: Request):
+    if "yaml" in req.body:
+        try:
+            return M.from_yaml(str(req.body.get("yaml") or ""))
+        except Exception as e:  # yaml errors carry their own message
+            return _problems([f"YAML: {e}"])
+    raw = req.body.get("raw")
+    if not isinstance(raw, dict):
+        return _problems(["the body needs a 'raw' mapping or a 'yaml' string"])
+    return raw
+
+
+def put_lineup(req: Request):
+    name = req.params["name"]
+    raw = _incoming(req)
+    if isinstance(raw, tuple):
+        return raw
+    found = T.find_team_template_path(name, cwd=req.cwd, state_dir=req.state_dir)
+    if found and found[1] == "template" and not req.query.get("duplicate"):
+        return 409, {"error": f"{name} is a shipped lineup: duplicate to edit", "problems": []}
+    raw = M.clean(raw)
+    raw["name"] = name
+    problems = T.validate_team_template(raw, name=name, cwd=req.cwd, state_dir=req.state_dir)
+    if problems:
+        return _problems(problems)
+    ok, saved = T.save_team_template(name, raw, cwd=req.cwd, state_dir=req.state_dir, project=req.project)
+    if not ok:
+        return _problems(saved or ["save failed"], 500)
+    return get_lineup(req)
+
+
+def post_lineup(req: Request):
+    name = str(req.body.get("name") or "").strip()
+    if not T.is_valid_team_name(name):
+        return _problems([f"{name!r} is not a valid lineup name (letters, digits, - and _)"])
+    ok, problems = T.new_team_template_from_template(name, req.body.get("from") or None, cwd=req.cwd,
+                                                     state_dir=req.state_dir, project=req.project)
+    if not ok:
+        return _problems(problems or ["could not create the lineup"])
+    req.params["name"] = name
+    status, data = get_lineup(req)
+    return (201 if status == 200 else status), data
+
+
+def delete_lineup(req: Request):
+    name = req.params["name"]
+    found = T.find_team_template_path(name, cwd=req.cwd, state_dir=req.state_dir)
+    if found and found[1] == "template":
+        return 409, {"error": "a shipped lineup cannot be deleted"}
+    return (200, {"ok": True}) if T.delete_team_template(name, cwd=req.cwd, state_dir=req.state_dir, project=req.project) else (404, {"error": "not found"})
+
+
+def apply_lineup(req: Request):
+    name = req.params["name"]
+    ok, problems, notes = T.apply_team_template(name, cwd=req.cwd, state_dir=req.state_dir)
+    if not ok:
+        return _problems(problems or ["apply failed"])
+    from halo_harness.roles import set_roles_enabled
+    set_roles_enabled(True)
+    return 200, {"ok": True, "notes": list(notes), "active_team": _active_team()}
+
+
+def get_layout(req: Request):
+    return 200, M.read_layout(req.state_dir, req.params["name"])
+
+
+def put_layout(req: Request):
+    positions = req.body.get("positions")
+    if not isinstance(positions, dict):
+        return _problems(["positions must be a mapping of node id -> {x, y}"])
+    M.write_layout(req.state_dir, req.params["name"], positions)
+    return 200, {"ok": True}
+
+
+# -- bios -------------------------------------------------------------------------
+
+def get_bios(req: Request):
+    rows = [M.bio_summary(n, cwd=req.cwd, state_dir=req.state_dir) for n in A.list_agent_bios(cwd=req.cwd, state_dir=req.state_dir)]
+    return 200, [r for r in rows if r]
+
+
+def get_bio(req: Request):
+    data = M.bio_payload(req.params["name"], cwd=req.cwd, state_dir=req.state_dir)
+    return (200, data) if data else (404, {"error": f"no agent bio named {req.params['name']!r}"})
+
+
+def put_bio(req: Request):
+    name = req.params["name"]
+    raw = _incoming(req)
+    if isinstance(raw, tuple):
+        return raw
+    found = A.find_agent_bio_path(name, cwd=req.cwd, state_dir=req.state_dir)
+    if found and found[1] == "template" and not req.query.get("duplicate"):
+        return 409, {"error": f"{name} is a shipped bio: duplicate to edit", "problems": []}
+    raw = M.clean(raw)
+    raw["name"] = name
+    problems = A.validate_agent_bio(raw, name=name, cwd=req.cwd, state_dir=req.state_dir)
+    if problems:
+        return _problems(problems)
+    ok, saved = A.save_agent_bio(name, raw, cwd=req.cwd, state_dir=req.state_dir, project=req.project)
+    if not ok:
+        return _problems(saved or ["save failed"], 500)
+    return get_bio(req)
+
+
+def post_bio(req: Request):
+    name = str(req.body.get("name") or "").strip()
+    if not A.is_valid_agent_name(name):
+        return _problems([f"{name!r} is not a valid agent name (letters, digits, - and _)"])
+    ok, problems = A.new_agent_bio_from_template(name, req.body.get("from") or None, cwd=req.cwd,
+                                                 state_dir=req.state_dir, project=req.project)
+    if not ok:
+        return _problems(problems or ["could not create the bio"])
+    req.params["name"] = name
+    status, data = get_bio(req)
+    return (201 if status == 200 else status), data
+
+
+def delete_bio(req: Request):
+    found = A.find_agent_bio_path(req.params["name"], cwd=req.cwd, state_dir=req.state_dir)
+    if found and found[1] == "template":
+        return 409, {"error": "a shipped bio cannot be deleted"}
+    return (200, {"ok": True}) if A.delete_agent_bio(req.params["name"], cwd=req.cwd, state_dir=req.state_dir, project=req.project) else (404, {"error": "not found"})
+
+
+# -- models, validation, yaml, session ----------------------------------------------
+
+def get_models(req: Request):
+    return 200, M.model_rows(req.state_dir)
+
+
+def post_validate(req: Request):
+    raw = _incoming(req)
+    if isinstance(raw, tuple):
+        return raw
+    raw = M.clean(raw)
+    name = str(req.body.get("name") or raw.get("name") or "")
+    if req.body.get("kind") == "bio":
+        return 200, {"problems": A.validate_agent_bio(raw, name=name or None, cwd=req.cwd, state_dir=req.state_dir)}
+    problems = T.validate_team_template(raw, name=name or None, cwd=req.cwd, state_dir=req.state_dir)
+    return 200, {"problems": problems, "graph": M.graph_for(raw, cwd=req.cwd, state_dir=req.state_dir)}
+
+
+def post_yaml(req: Request):
+    if "yaml" in req.body:
+        try:
+            return 200, {"raw": M.from_yaml(str(req.body.get("yaml") or ""))}
+        except Exception as e:
+            return _problems([f"YAML: {e}"])
+    return 200, {"yaml": M.to_yaml(req.body.get("raw") or {})}
+
+
+def get_session(req: Request):
+    return 200, M.session_payload(req.state_dir)
+
+
+def get_tools(req: Request):
+    try:
+        from halo_harness.tools.registry import builtin_tool_names  # optional helper
+        names = list(builtin_tool_names())
+    except Exception:
+        names = ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Agent", "WebFetch", "WebSearch", "TodoWrite", "NotebookEdit"]
+    return 200, names
+
+
+ROUTES: list = [
+    ("GET", r"^state$", get_state),
+    ("GET", r"^lineups$", get_lineups), ("POST", r"^lineup$", post_lineup),
+    ("GET", r"^lineup/(?P<name>[^/]+)$", get_lineup), ("PUT", r"^lineup/(?P<name>[^/]+)$", put_lineup),
+    ("DELETE", r"^lineup/(?P<name>[^/]+)$", delete_lineup), ("POST", r"^lineup/(?P<name>[^/]+)/apply$", apply_lineup),
+    ("GET", r"^layout/(?P<name>[^/]+)$", get_layout), ("PUT", r"^layout/(?P<name>[^/]+)$", put_layout),
+    ("GET", r"^bios$", get_bios), ("POST", r"^bio$", post_bio),
+    ("GET", r"^bio/(?P<name>[^/]+)$", get_bio), ("PUT", r"^bio/(?P<name>[^/]+)$", put_bio), ("DELETE", r"^bio/(?P<name>[^/]+)$", delete_bio),
+    ("GET", r"^models$", get_models), ("POST", r"^validate$", post_validate), ("POST", r"^yaml$", post_yaml),
+    ("GET", r"^session$", get_session), ("GET", r"^tools$", get_tools),
+]
+
+
+def dispatch(req: Request):
+    """Route `req` (path without the /api/ prefix) to its handler."""
+    for method, pattern, fn in ROUTES:
+        m = re.match(pattern, req.path)
+        if m and method == req.method:
+            req.params = {k: v for k, v in m.groupdict().items()}
+            return fn(req)
+    if any(re.match(p, req.path) for _, p, _ in ROUTES):
+        return 405, {"error": "method not allowed"}
+    return 404, {"error": f"no route for {req.method} /api/{req.path}"}

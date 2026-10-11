@@ -488,6 +488,10 @@ def main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "teams":
         from halo_harness.teams_cli import cmd_teams
         return cmd_teams(argv[1:])
+    if argv and argv[0] == "studio":
+        # 2.1.0 round B3: the local web GUI for lineups and agent bios.
+        from halo_harness.studio import cmd_studio
+        return cmd_studio(argv[1:])
     if argv and argv[0] == "ollama":
         from halo_harness.ollama_cli import cmd_ollama
         return cmd_ollama(argv[1:])
