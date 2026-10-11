@@ -8,6 +8,19 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.0.11] - unreleased
+
+### The front page
+
+- **Every generated SVG has an explicit size** (round A1). Textual's export
+  writes a `viewBox` only, and an SVG with no intrinsic size is laid out at
+  the replaced-element default of about 300x150 px wherever it sits in an
+  `<img>` -- GitHub's file view, the page a README click opens, showed every
+  capture as a thumbnail. `scripts/screenshots.py::sized_svg` now adds
+  `width`/`height` to every export (and the animation assembler to its root),
+  all 24 capture SVGs are regenerated, and `tests/test_front_page_media.py`
+  pins the attribute on every committed SVG so the bug cannot return.
+
 ## [2.0.10] - 2026-10-11
 
 ### Front page: real captures, diagrams, the stories

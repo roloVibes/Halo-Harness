@@ -106,6 +106,28 @@ def test_diagrams_and_hero_exist_and_are_small(ctx: Ctx):
 
 
 @test
+def test_every_svg_has_an_explicit_size(ctx: Ctx):
+    """2.0.11 round A1: a viewBox-only SVG has no intrinsic size, so an
+    <img> of it (GitHub's file view, the page a README click opens) lays it
+    out at about 300x150 px -- every capture showed as a thumbnail. The
+    export helper (`scripts/screenshots.py::sized_svg`) and the animation
+    assembler now write `width`/`height`; this pins every committed SVG."""
+    root = re.compile(r"<svg\b[^>]*>")
+    svgs = sorted(MEDIA.rglob("*.svg")) + sorted((REPO_DIR / "docs" / "screenshots").glob("*.svg"))
+    ctx.check(f"found the committed SVGs, got {len(svgs)}", len(svgs) >= 20)
+    for path in svgs:
+        tag = root.search(path.read_text(encoding="utf-8")[:4000])
+        head = tag.group(0) if tag else ""
+        ctx.check(f"{path.relative_to(REPO_DIR).as_posix()} root carries width and height",
+                  ' width="' in head and ' height="' in head)
+    sys.path.insert(0, str(REPO_DIR / "scripts"))
+    from screenshots import sized_svg
+    once = sized_svg('<svg class="rich-terminal" viewBox="0 0 1482 928.4" xmlns="x">\n</svg>')
+    ctx.check("sized_svg adds width/height from the viewBox", 'width="1482" height="928.4" viewBox="0 0 1482 928.4"' in once)
+    ctx.check("sized_svg is idempotent", sized_svg(once) == once)
+
+
+@test
 def test_media_carries_no_real_paths_hosts_or_versions(ctx: Ctx):
     bad = re.compile(r"C:\\Users|C:/Users|/home/[a-z]|/Users/[A-Za-z]|AppData|\b(?:10|192\.168|172\.(?:1[6-9]|2\d|3[01]))\.\d+\.\d+(?:\.\d+)?\b")
     for path in sorted(MEDIA.rglob("*.svg")):

@@ -80,7 +80,8 @@ def assemble_animation(frames: "list[str]", seconds: "list[float]") -> str:
     cannot collide) whose `visibility` is stepped by a discrete <animate>."""
     width, height = viewbox(frames[0])
     total = sum(seconds)
-    out = [f'<svg class="rich-terminal" viewBox="0 0 {width:g} {height:g}" xmlns="http://www.w3.org/2000/svg">',
+    out = [f'<svg class="rich-terminal" width="{width:g}" height="{height:g}" viewBox="0 0 {width:g} {height:g}" '
+           'xmlns="http://www.w3.org/2000/svg">',
            f"<!-- {len(frames)} frames, {total:g} s loop; assembled by tools/capture_screens.py -->"]
     start = 0.0
     for i, (frame, dur) in enumerate(zip(frames, seconds)):
