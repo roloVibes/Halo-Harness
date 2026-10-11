@@ -286,6 +286,37 @@ def test_readme_badge_is_rewritten_on_a_real_run(ctx: Ctx):
 
 
 @test
+def test_install_tag_urls_are_rewritten_on_a_real_run(ctx: Ctx):
+    """2.0.10 security finding 26: the install one-liners pin a tag URL;
+    the release rewrites README.md and docs/INSTALL.md to the version
+    being tagged, in the same commit; a dry run leaves them alone."""
+    url = "https://raw.githubusercontent.com/roloVibes/Halo-Harness/v9.9.8/scripts/install-halo.sh | bash"
+    ps1 = "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v9.9.8/scripts/install-halo.ps1 | iex"
+    repo = _scratch_repo("9.9.9")
+    readme_path = repo / "README.md"
+    nl = chr(10)
+    readme_path.write_text(readme_path.read_text(encoding="utf-8") + nl + url + nl, encoding="utf-8")
+    (repo / "docs").mkdir(exist_ok=True)
+    (repo / "docs" / "INSTALL.md").write_text("# Install" + nl + nl + url + nl + nl + ps1 + nl, encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=str(repo), check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "tag urls"], cwd=str(repo), check=True, capture_output=True)
+    rc = release.main(["9.9.9", "--dry-run"], repo_dir=repo)
+    ctx.check(f"dry run exits 0, got {rc}", rc == 0)
+    ctx.check("dry run leaves the tag URL alone", "v9.9.8/scripts/install-halo.sh" in readme_path.read_text(encoding="utf-8"))
+    calls: list = []
+    rc = release.main(["9.9.9", "--no-github-release"], repo_dir=repo, run_fn=_fake_run(calls), pids_fn=lambda: [])
+    ctx.check(f"real run exits 0, got {rc}", rc == 0)
+    readme = readme_path.read_text(encoding="utf-8")
+    install = (repo / "docs" / "INSTALL.md").read_text(encoding="utf-8")
+    ctx.check("README one-liner now pins v9.9.9", "v9.9.9/scripts/install-halo.sh" in readme and "v9.9.8/" not in readme)
+    ctx.check("INSTALL.md sh and ps1 one-liners pin v9.9.9",
+              "v9.9.9/scripts/install-halo.sh" in install and "v9.9.9/scripts/install-halo.ps1" in install and "v9.9.8/" not in install)
+    added = [c for c in calls if c[:2] == ["git", "add"]]
+    ctx.check(f"docs/INSTALL.md is staged into the release commit, got {added}",
+              any("docs/INSTALL.md" in c for c in added))
+
+
+@test
 def test_dry_run_never_touches_the_readme_badge(ctx: Ctx):
     repo = _scratch_repo("9.9.9")
     rc = release.main(["9.9.9", "--dry-run"], repo_dir=repo)
