@@ -2509,6 +2509,28 @@ network call of its own). `eval "$(halo completion bash)"` (or `zsh`) in
 your shell's rc file, or dot-source the `powershell` form from your
 `$PROFILE`.
 
+## `halo remote`
+
+Halo 2.0.9 round 2. Remote control of a running session; the full
+description (the control socket, its wire, the registry) is in
+[REMOTE.md](REMOTE.md). Only one subcommand exists so far; the Signal
+subcommands arrive in later 2.0.9 rounds.
+
+### `halo remote sessions`
+
+Lists the live sessions that opened a control socket (config
+`remote.enabled`): session id prefix, pid, kind (`tui` or `print`),
+permission mode, age, working directory, endpoint and title. Entries whose
+process is gone or whose endpoint refuses a connection are pruned first. It
+prints nothing secret (the Windows loopback token is never shown). With none
+live it says so and exits 0; any other `halo remote` argument prints the
+usage line and exits 2.
+
+```sh
+halo config set remote.enabled true
+halo remote sessions
+```
+
 ## `halo proxy`
 
 The original `claude-bridge`: a single-file HTTP proxy (`bridge.py`) that

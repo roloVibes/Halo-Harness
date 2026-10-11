@@ -168,6 +168,14 @@ def _cmd_offline(args: str, facade: HeadlessFacade) -> str:
             f"local host (ollama.hosts, huggingface.local_servers, a managed local server).")
 
 
+def _cmd_remote(args: str, facade: HeadlessFacade) -> str:
+    """Halo 2.0.9 round 2: whether THIS session opened a control socket
+    (config `remote.enabled`) and how many live sessions the registry holds.
+    The full `/remote` dialog (peers, pairing) arrives with the Signal rounds."""
+    from halo_harness.remote.runtime import status_line
+    return status_line()
+
+
 def _cmd_escalation(args: str, facade: HeadlessFacade) -> str:
     """Halo 2.0.3 round 5e: shows `routing.escalation`'s policy and this
     session's last few decisions -- read-only (the policy itself is set
@@ -1820,6 +1828,8 @@ _BUILTIN_SPECS = {
                  _cmd_settings),
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
+    "remote": ("core", "Show whether this session's remote control socket is on, and the live-session count",
+               None, _cmd_remote),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,
                    _cmd_escalation),
     "init": ("prompt", "Analyze the codebase and write/update CLAUDE.md", None, _cmd_init),

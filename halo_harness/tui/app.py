@@ -560,6 +560,13 @@ class BridgeApp(App):
         starter = getattr(self.controller, "start", None)
         if callable(starter):
             starter()
+            # Halo 2.0.9 round 2: config `remote.enabled` opens the session's
+            # control socket (closed again by Controller.quit()).
+            try:
+                from halo_harness.remote.runtime import start_for_controller
+                start_for_controller(self.controller)
+            except Exception:
+                pass
         else:
             self.status_bar.apply_status({
                 "model": getattr(self.controller, "model", None),

@@ -241,6 +241,7 @@ directly by the features that own them:
 | `quit_on_double_ctrl_c` | `true` | `halo config set quit_on_double_ctrl_c false` turns off the "Quit Halo?" card the second Ctrl+C (within 3 s) opens -- every Ctrl+C press then just copies (`/exit`/`Ctrl+D`/`Ctrl+Q` still leave) |
 | `clipboard.crlf` | `false` | hand-edited; `true` makes a copy use `\r\n` line endings instead of `\n` |
 | `worktree.remove_on_exit` | `false` | `halo config set worktree.remove_on_exit true`; a `-w/--worktree` session removes its OWN worktree (fires `WorktreeRemoved`) when it ends instead of leaving it on disk |
+| `remote.enabled` | `false` | `halo config set remote.enabled true`; every session started afterwards (the TUI and `halo -p`, `--bg` included) opens a local control socket and lists itself in `~/.halo/run/sessions.json`, so a script or the Signal bridge can drive it (see [REMOTE.md](REMOTE.md)); `/remote` shows whether this session's socket is on |
 | `update.check` | `true` | `halo config set update.check false` turns off `halo update`/`/update`'s own check entirely (never shells out, never touches the network) |
 | `update.notify` | `true` | `halo config set update.notify false` turns off just the once-a-day "update available" startup note (the check itself, and `/update`'s own dialog, still work) |
 | `update.channel` | unset (derived from the install: `stable` when pinned to a `v*` tag, else `main`) | `halo update --channel stable\|main` |
