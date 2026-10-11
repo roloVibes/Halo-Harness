@@ -44,6 +44,16 @@ PNG rendering needs Chrome or Chromium (`--headless=new`). The tool looks for
 SVGs, prints that the PNG step was skipped and exits 0; there is no Python
 dependency for any of this.
 
+## Every SVG carries an explicit size
+
+Textual's export writes a `viewBox` only. An SVG with no intrinsic size is
+laid out at about 300x150 px wherever it sits in an `<img>` -- GitHub's file
+view, the page a README click opens, rendered every capture as a thumbnail.
+`scripts/screenshots.py::sized_svg` adds `width`/`height` (the viewBox's own
+numbers) to every export, the animation assembler writes them on its root,
+and `tests/test_front_page_media.py` fails on any committed SVG without them.
+A hand-drawn SVG (the hero, the diagrams) must carry them too.
+
 ## What is deterministic and what is not
 
 - **Deterministic:** every SVG, including the animations. A rerun produces
