@@ -10,6 +10,48 @@ version.
 
 ## [2.0.8] - unreleased
 
+### Theme pack: Metroid
+
+- **The Metroid skin** (`tui/hud_metroid.py`, one more `HudSkin` on the
+  round 1 engine): a three-row suit HUD. ENERGY is the context meter as ten
+  energy tanks (one per ten percent remaining) with the exact number beside
+  them, RESERVE the tokens left, MISSILE the turns taken this session,
+  SUPER the tools loaded, then an original visor-slit face (idle, thinking,
+  writing, error, needs-you), COST, BEAM (providers) and AREA (the cwd's
+  last component with the branch as its sub-label). Everything else the
+  status bar shows rides the bottom-border ticker; the cascade keeps phase,
+  ENERGY, cost, face, AREA, mode, needs-you, permission and offline, renders
+  in 80 columns and falls back to ASCII without truecolor. The `metroid`
+  palette is no longer a placeholder accent on the default layout.
+- **Five areas as variants of the one theme:** Crateria (blues and greys,
+  the default), Brinstar (greens and pinks), Norfair (reds and oranges),
+  Maridia (teals), Tourian (greys), each with its own palette, HUD colours
+  and AREA prefix glyph. `/metroid <area>` and `/theme metroid <area>` pick
+  one (bare `/metroid` is still the round 1 toggle and leaves the area
+  alone), persisted as `theme_variant` in `~/.halo/config.json`
+  (`halo config set theme_variant ...` validates it); the wizard's Theme step
+  shows the five areas when `metroid` is highlighted.
+- **Map-grid panels and the visor input:** under `metroid` cards, dialogs,
+  the diff and folded-history panels, the completion popup and the which-key
+  overlay get dashed borders (ASCII borders without truecolor), and the
+  input line is framed by `◖` and `◗` (`(` and `)` without truecolor). Both
+  are declared on the skin (`panel_border`, `input_frame`) and applied as
+  `hud-border-*` / `hud-visor` classes on the app, the way `hud-heavy` is.
+- **Engine seams, all generic:** `HudSkin.meter_cells` (the meter length),
+  `HudSkin.variants` plus `skin_for(theme, variant)` (per-variant styles and
+  glyphs), `panel_border` / `input_frame` and their ASCII forms, an optional
+  `meter_off` style for empty meter cells, and two new slots: `turns` (a
+  per-session user-turn counter on the status bar) and `area`.
+  `tui/theme_metroid.py` holds the five palettes; `theme.py` gains
+  `GAME_VARIANTS` and `variant_for`. DOOM renders byte for byte as before.
+- **Docs and gallery:** HANDBOOK Themes (the Metroid HUD fields table, the
+  areas, the map-grid and visor chrome), SLASH-COMMANDS `/metroid [area]`,
+  CONFIG `theme_variant`, README themes table with the Metroid render,
+  `scripts/screenshots.py` scene `theme-metroid`, and fifteen new TUI
+  snapshots (five visor faces, four width tiers, five areas, a map-grid
+  permission card) under `docs/harness/tui-snapshots/`. Tests:
+  `tests/test_hud_metroid.py` and the shared `tests/helpers/hud_skin_checks.py`.
+
 ### Theme pack: the game-HUD engine and DOOM
 
 - **Three new theme names:** `doom`, `metroid` and `mario` join the built-in
@@ -17,7 +59,7 @@ version.
   `-daltonized` siblings). They appear in the wizard's Theme step with a
   one-line description each, in `/theme` Tab completion (game themes first)
   and as slash commands. `metroid` and `mario` carry their palette and accent
-  today; their status-bar skins land in the next two rounds.
+  today; their status-bar skins land in the next two rounds (Metroid's, in the section above, is the first).
 - **Toggle contract, one rule for all three:** `/doom`, `/metroid` and
   `/mario` remember the active theme as `theme_toggle_previous` in
   `~/.halo/config.json` and apply the game theme; running the same command

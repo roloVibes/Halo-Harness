@@ -228,3 +228,77 @@ AssistantText MarkdownFence {
 .hud-heavy QuitConfirmScreen > Static {
     border: heavy $bridge-accent;
 }
+
+/* Halo 2.0.8 theme pack, round 2: a skin that declares `panel_border`
+   (tui/hud.py) puts `hud-border-<type>` on the app -- the Metroid map-grid
+   look is `dashed`, and `ascii` when the terminal has no truecolor. Same
+   targets as `hud-heavy` above. */
+
+.hud-border-dashed .permission-card, .hud-border-dashed .question-card, .hud-border-dashed .plan-card,
+.hud-border-dashed .rewind-card, .hud-border-dashed .approval-card {
+    border: dashed $bridge-warning;
+}
+
+.hud-border-dashed .folded-history, .hud-border-dashed .diff-view {
+    border: dashed $bridge-border;
+}
+
+.hud-border-dashed #which-key-overlay {
+    border: dashed $bridge-accent;
+}
+
+.hud-border-dashed #completion-popup {
+    border: dashed $bridge-border;
+}
+
+.hud-border-dashed #prompt-row {
+    border-top: dashed $bridge-border;
+}
+
+.hud-border-dashed ModalScreen > Vertical, .hud-border-dashed ModalScreen > VerticalScroll,
+.hud-border-dashed ModalScreen > Horizontal, .hud-border-dashed PagerScreen > Static,
+.hud-border-dashed QuitConfirmScreen > Static {
+    border: dashed $bridge-accent;
+}
+
+.hud-border-ascii .permission-card, .hud-border-ascii .question-card, .hud-border-ascii .plan-card,
+.hud-border-ascii .rewind-card, .hud-border-ascii .approval-card {
+    border: ascii $bridge-warning;
+}
+
+.hud-border-ascii .folded-history, .hud-border-ascii .diff-view {
+    border: ascii $bridge-border;
+}
+
+.hud-border-ascii #which-key-overlay {
+    border: ascii $bridge-accent;
+}
+
+.hud-border-ascii #completion-popup {
+    border: ascii $bridge-border;
+}
+
+.hud-border-ascii #prompt-row {
+    border-top: ascii $bridge-border;
+}
+
+.hud-border-ascii ModalScreen > Vertical, .hud-border-ascii ModalScreen > VerticalScroll,
+.hud-border-ascii ModalScreen > Horizontal, .hud-border-ascii PagerScreen > Static,
+.hud-border-ascii QuitConfirmScreen > Static {
+    border: ascii $bridge-accent;
+}
+
+/* The skin's `input_frame` (the visor): the left glyph replaces the prompt
+   marker and a right glyph closes the line; both hidden for every other
+   theme. */
+#prompt-frame-r {
+    display: none;
+    width: 2;
+    color: $bridge-accent;
+    text-style: bold;
+    content-align: center middle;
+}
+
+.hud-visor #prompt-frame-r {
+    display: block;
+}

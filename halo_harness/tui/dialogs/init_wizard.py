@@ -1150,7 +1150,10 @@ class ThemeStep(StepScreen):
     DEFAULT_CSS = """
     ThemeStep OptionList { height: 10; margin-top: 1; }
     ThemeStep #wiz-theme-preview { height: 8; margin-top: 1; border: round $primary-darken-1; padding: 1; }
+    ThemeStep #wiz-theme-variants { height: 7; margin-top: 1; display: none; }
     """
+
+    _variants_for = ""
 
     def body(self) -> list:
         from textual.widgets import OptionList
@@ -1166,8 +1169,47 @@ class ThemeStep(StepScreen):
         if current in names:
             option_list.highlighted = names.index(current)
             mark_checked(option_list, current)
+        # Halo 2.0.8 round 2: a game theme with variants (Metroid's areas)
+        # shows a second list under the first, filled by `_show_variants`.
         return [Static(one_sentence("Theme", current), classes="dialog-title"),
-                option_list, Static(id="wiz-theme-preview")]
+                option_list, OptionList(id="wiz-theme-variants"), Static(id="wiz-theme-preview")]
+
+    def _variant_list(self):
+        from textual.widgets import OptionList
+        try:
+            return self.query_one("#wiz-theme-variants", OptionList)
+        except Exception:
+            return None
+
+    def _show_variants(self, name: str) -> None:
+        """Show the variant list when theme `name` has variants (filling it,
+        persisted variant highlighted), hide it otherwise."""
+        from textual.widgets.option_list import Option
+        from halo_harness import theme as theme_mod
+        lst = self._variant_list()
+        if lst is None:
+            return
+        names = theme_mod.variants_of(name)
+        lst.display = bool(names)
+        if names and self._variants_for != name:
+            self._variants_for = name
+            lst.clear_options()
+            lst.add_options([Option(v, id=v) for v in names])
+            current = theme_mod.variant_for(name)
+            lst.highlighted = names.index(current)
+            mark_checked(lst, current)
+
+    def _selected_variant(self, name: str):
+        """The variant highlighted in the variant list for theme `name`
+        (None when the theme has none)."""
+        from halo_harness import theme as theme_mod
+        lst = self._variant_list()
+        if lst is None or not theme_mod.variants_of(name) or self._variants_for != name:
+            return None
+        if lst.highlighted is None:
+            return None
+        opt = lst.get_option_at_index(lst.highlighted)
+        return str(opt.id) if opt.id else None
 
     def on_mount(self) -> None:
         from textual.widgets import OptionList
@@ -1178,13 +1220,20 @@ class ThemeStep(StepScreen):
         if option_list.highlighted is not None:
             opt = option_list.get_option_at_index(option_list.highlighted)
             if opt.id:
+                self._show_variants(str(opt.id))
                 self._update_preview(str(opt.id))
         focus_first(self, ["#wiz-theme-list"])
 
     def on_option_list_option_highlighted(self, event) -> None:
         if event.option_list.id == "wiz-theme-list" and event.option_id:
+            self._show_variants(str(event.option_id))
             self._update_preview(str(event.option_id))
             mark_checked(event.option_list, event.option_id)
+        elif event.option_list.id == "wiz-theme-variants" and event.option_id:
+            mark_checked(event.option_list, event.option_id)
+            lst = self.query_one("#wiz-theme-list")
+            if lst.highlighted is not None:
+                self._update_preview(str(lst.get_option_at_index(lst.highlighted).id))
 
     def _update_preview(self, name: str) -> None:
         from rich.text import Text
@@ -1193,7 +1242,7 @@ class ThemeStep(StepScreen):
             preview = self.query_one("#wiz-theme-preview", Static)
         except Exception:
             return
-        v = variables_for(name)
+        v = variables_for(name, self._selected_variant(name))
         text = Text()
         text.append("You: ", style=f"bold {v['bridge-user']}")
         text.append("add a .gitignore entry\n", style=v["bridge-text"])
@@ -1219,7 +1268,7 @@ class ThemeStep(StepScreen):
         if chosen and theme_mod.is_valid_theme(chosen):
             from halo_harness import theme_toggle
             active = theme_mod.get_config_value("theme", default=None) or theme_mod.DEFAULT_THEME
-            theme_toggle.select_theme(chosen, active)
+            theme_toggle.select_theme(chosen, active, self._selected_variant(chosen))
             self.state.theme_name = chosen
 
 

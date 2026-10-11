@@ -394,6 +394,8 @@ async def _apply_event_inner(app, event) -> None:
             pending.remove(text)
             return
         await app.transcript.add_user(text)
+        if agent_id is None:
+            app.status_bar.note_turn()  # the HUD's turn counter
     elif kind == "message_start":
         app.transcript.begin_message(turn, agent_id=agent_id)
         # H9 whole-tree review finding 11: a child's own `message_start`

@@ -45,7 +45,7 @@ _ANSI_LIGHT = {
 }
 
 
-def variables_for(theme_name: str) -> dict:
+def variables_for(theme_name: str, variant: "str | None" = None) -> dict:
     """CSS custom-property values (no leading `$`) for `theme_name` --
     always returns a complete dict, falling back to `claude-dark`'s
     palette for an unrecognized name rather than raising (a stale/typo'd
@@ -53,9 +53,9 @@ def variables_for(theme_name: str) -> dict:
     fallback philosophy)."""
     if not is_valid_theme(theme_name):
         theme_name = DEFAULT_THEME
-    from halo_harness.tui.theme_games import PALETTES
+    from halo_harness.tui.theme_games import PALETTES, palette_for
     if theme_name in PALETTES:  # doom / metroid / mario: their own look, no suffix variants
-        return dict(PALETTES[theme_name])
+        return palette_for(theme_name, variant)  # `variant` = a Metroid area (2.0.8 round 2)
     if theme_name.endswith("-ansi"):
         return dict(_ANSI_LIGHT if theme_name.startswith("claude-light") else _ANSI_DARK)
     # "-daltonized" and the plain base share a palette today -- see module note.

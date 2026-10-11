@@ -70,11 +70,12 @@ def test_doom_skin_is_a_pure_declaration_over_the_slot_vocabulary(ctx: Ctx):
 
 @test
 def test_only_game_themes_with_a_skin_use_the_engine(ctx: Ctx):
-    for name in ("claude-dark", "claude-light-ansi", "metroid", "mario", "", None, "not-a-theme"):
+    for name in ("claude-dark", "claude-light-ansi", "mario", "", None, "not-a-theme"):
         ctx.check(f"{name!r} renders through the default layout", skin_for(name) is None)
-    ctx.check("metroid keeps a placeholder accent until round 2", hud_mod.accent_for("metroid") is not None)
+    ctx.check("metroid has a skin since round 2", skin_for("metroid") is not None)
     ctx.check("mario keeps a placeholder accent until round 3", hud_mod.accent_for("mario") is not None)
-    ctx.check("doom needs no placeholder accent", hud_mod.accent_for("doom") is None)
+    ctx.check("doom and metroid need no placeholder accent",
+              hud_mod.accent_for("doom") is None and hud_mod.accent_for("metroid") is None)
 
 
 @test

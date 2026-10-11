@@ -199,6 +199,8 @@ class StatusBar(Static):
         # starts), and an explicit ASCII-glyph override (None = decide from
         # terminal truecolor support).
         self.theme_name = "claude-dark"
+        self.theme_variant: "str | None" = None
+        self.turn_count = 0
         self.tools_loaded: "int | None" = None
         self.error = False
         self.hud_ascii: "bool | None" = None
@@ -328,12 +330,19 @@ class StatusBar(Static):
             self.error = value
             self._refresh_display()
 
-    def set_theme(self, name: str) -> None:
+    def note_turn(self) -> None:
+        """A user turn started: the HUD's turn counter (Metroid's missiles)."""
+        self.turn_count += 1
+        self._refresh_display()
+
+    def set_theme(self, name: str, variant: "str | None" = None) -> None:
         """Called by BridgeApp on mount and on every theme change: picks the
-        HUD skin (or the default layout) and the bar's row count."""
+        HUD skin (or the default layout), its variant (a Metroid area) and
+        the bar's row count."""
         from halo_harness.tui.hud import skin_for
         self.theme_name = name or "claude-dark"
-        skin = skin_for(self.theme_name)
+        self.theme_variant = variant
+        skin = skin_for(self.theme_name, variant)
         self._set_rows(skin.rows if skin is not None else 1)
         self._refresh_display()
 
@@ -637,7 +646,7 @@ class StatusBar(Static):
         # the skin engine (tui/hud.py); everything above is shared, so every
         # field stays reachable. Other themes fall through to the layout below.
         from halo_harness.tui.hud import accent_for, face_state_for, skin_for
-        skin = skin_for(self.theme_name)
+        skin = skin_for(self.theme_name, self.theme_variant)
         if skin is not None:
             from halo_harness.theme import supports_truecolor
             from halo_harness.tui.hud_fields import build_fields
@@ -646,6 +655,7 @@ class StatusBar(Static):
                 mcp_str=mcp_str, cost_str=cost_str, or_balance_str=or_balance_str, loc_str=loc_str,
                 cwd_short=(f"{_cwd_last_component(self.cwd)} ({self.branch})" if self.branch
                            else _cwd_last_component(self.cwd)) if self.cwd else "",
+                area_str=_cwd_last_component(self.cwd) if self.cwd else "",
                 mode_str=mode_str, effort_str=effort_str, needs_you_str=needs_you_str, agents_str=agents_str,
                 offline_str=offline_str, gov_str=gov_str, new_str=new_str, hang_str=hang_str,
                 throughput_str=throughput_str, permission_str=permission_str, bg_jobs_str=bg_jobs_str,

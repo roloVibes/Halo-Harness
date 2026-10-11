@@ -1498,7 +1498,7 @@ async def _handle_theme(app, args: str) -> None:
     from halo_harness import theme as theme_mod
     from halo_harness import theme_toggle
 
-    name = args.strip()
+    name, variant, _extra = theme_toggle.parse_theme_args(args)
     if not name:
         app.notify(f"Current theme: {app.theme_name}", title="/theme")
         return
@@ -1506,17 +1506,34 @@ async def _handle_theme(app, args: str) -> None:
         app.notify(f"Not a valid theme name: {name} (expected one of {sorted(theme_mod.VALID_THEMES)})",
                    severity="error", title="/theme")
         return
-    theme_toggle.select_theme(name, app.theme_name)
+    try:
+        theme_toggle.select_theme(name, app.theme_name, variant)
+    except ValueError as exc:
+        app.notify(str(exc), severity="error", title="/theme")
+        return
     app.apply_theme(name)
-    app.notify(f"Theme set to {name}", title="/theme")
+    app.notify(f"Theme set to {name}" + (f", area {variant}" if variant else ""), title="/theme")
 
 
 def _game_theme_handler(game: str):
     """Halo 2.0.8 theme pack: `/doom`, `/metroid`, `/mario` -- apply the game
     theme remembering the active one; again restores it (the toggle contract
-    lives in halo_harness/theme_toggle.py, shared with the headless form)."""
-    async def handler(app, _args: str) -> None:
+    lives in halo_harness/theme_toggle.py, shared with the headless form).
+    A game with variants also takes one (`/metroid brinstar`): it persists
+    the variant and applies the theme without toggling it off."""
+    async def handler(app, args: str) -> None:
+        from halo_harness import theme as theme_mod
         from halo_harness import theme_toggle
+        variant = args.strip().lower()
+        if variant and theme_mod.variants_of(game):
+            try:
+                applied = theme_toggle.set_game_variant(game, variant, app.theme_name)
+            except ValueError as exc:
+                app.notify(str(exc), severity="error", title=f"/{game}")
+                return
+            app.apply_theme(applied)
+            app.notify(theme_toggle.variant_message(game, variant), title=f"/{game}")
+            return
         applied = theme_toggle.toggle_game_theme(game, app.theme_name)
         app.apply_theme(applied)
         app.notify(theme_toggle.toggle_message(game, applied), title=f"/{game}")

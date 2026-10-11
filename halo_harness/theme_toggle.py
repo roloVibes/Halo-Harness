@@ -12,6 +12,9 @@ theme pack), pinned once for `/doom`, `/metroid` and `/mario`.
     `/theme <name>` (the explicit form) records the previous the same way
         when it moves onto a game theme, and clears it when it moves off to
         a non-game theme.
+    `/metroid <area>` and `/theme metroid <area>` (round 2) also persist the
+        theme's variant as `theme_variant`; the bare `/metroid` toggle is
+        unchanged and leaves the variant alone.
 
 Pure data and config.json I/O -- no Textual. The TUI handlers, the headless
 slash builtins and the wizard all go through here so there is one contract.
@@ -79,19 +82,59 @@ def toggle_game_theme(game: str, active: Optional[str]) -> str:
     return game
 
 
-def select_theme(name: str, active: Optional[str]) -> str:
-    """The explicit `/theme <name>` form: persists `name`, records the
-    previous theme when moving onto a game theme from a non-game one, and
-    clears a stale previous when moving onto a non-game theme."""
+def select_theme(name: str, active: Optional[str], variant: Optional[str] = None) -> str:
+    """The explicit `/theme <name> [variant]` form: persists `name`, records
+    the previous theme when moving onto a game theme from a non-game one,
+    and clears a stale previous when moving onto a non-game theme. A
+    `variant` (Halo 2.0.8 round 2, e.g. `/theme metroid norfair`) is
+    persisted as `theme_variant`; an unknown one raises ValueError."""
+    if variant is not None and not theme_mod.is_valid_variant(name, variant):
+        raise ValueError(variant_error(name, variant))
     if is_game_theme(name):
         _remember_previous(active)
     else:
         unset_config_value(PREVIOUS_KEY)
     theme_mod.persist_theme(name)
+    if variant is not None:
+        theme_mod.set_config_value(theme_mod.VARIANT_KEY, variant)
     return name
+
+
+def set_game_variant(game: str, variant: str, active: Optional[str]) -> str:
+    """`/metroid <area>`: persist the variant and make sure the game theme
+    is active (the previous theme is remembered when coming from a
+    non-game one). Unlike the bare toggle it never switches the theme off,
+    so naming an area while the theme is already active just re-tints it.
+    Returns the theme name to apply."""
+    if not theme_mod.is_valid_variant(game, variant):
+        raise ValueError(variant_error(game, variant))
+    theme_mod.set_config_value(theme_mod.VARIANT_KEY, variant)
+    if active != game:
+        _remember_previous(active)
+        theme_mod.persist_theme(game)
+    return game
+
+
+def variant_error(game: str, variant: str) -> str:
+    names = theme_mod.variants_of(game)
+    if not names:
+        return f"{game} has no variants"
+    return f"not a {game} variant: {variant!r} (expected one of {', '.join(names)})"
+
+
+def parse_theme_args(args: str) -> tuple:
+    """`/theme` arguments -> (name, variant or None, extra words)."""
+    words = (args or "").split()
+    name = words[0] if words else ""
+    variant = words[1].lower() if len(words) > 1 else None
+    return name, variant, words[2:]
 
 
 def toggle_message(game: str, applied: str) -> str:
     if applied == game:
         return f"Theme set to {game} (run /{game} again to go back)"
     return f"Theme restored to {applied}"
+
+
+def variant_message(game: str, variant: str) -> str:
+    return f"Theme set to {game}, area {variant} (run /{game} again to go back)"

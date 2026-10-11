@@ -589,7 +589,8 @@ this same headless text today; a directory is normally added via
 ### `/theme [name]`
 No argument: shows the current theme. With a name (`claude-dark`,
 `claude-light`, either with a `-daltonized`/`-ansi` suffix, or one of the
-game themes `doom`, `metroid`, `mario`), persists it to
+game themes `doom`, `metroid`, `mario`; `metroid` also takes an area, as in
+`/theme metroid norfair`), persists it to
 `~/.halo/config.json` and (in the TUI) re-applies it live. Moving onto a game
 theme records the theme you were on as `theme_toggle_previous`; moving off
 one onto a normal theme clears it. In the TUI, Tab completes theme names
@@ -606,9 +607,17 @@ theme (`claude-dark` when none) and clears it. `/doom`, `/metroid`, `/doom`
 returns to what was active before the first `/doom`. In `-p` the same toggle
 runs against `config.json`.
 
-### `/metroid`
-Toggle the Metroid theme (visor blues and greens, power-suit orange accent).
-Same toggle rule as `/doom`.
+### `/metroid [area]`
+Toggle the Metroid theme (Halo 2.0.8): a three-row suit-HUD status bar (ten
+energy tanks for the context left, reserve, missile and super counters, a
+visor face, cost, providers and the area panel), dashed map-grid cards and
+dialogs, and a visor-framed input line. With no argument it is the same
+toggle as `/doom`. With an area (`crateria`, `brinstar`, `norfair`,
+`maridia` or `tourian`) it switches to that palette and applies the theme
+when it is not active, without toggling it off; the area persists as
+`theme_variant` in `~/.halo/config.json`, and bare `/metroid` leaves it
+alone. An unknown area is reported with the five valid names and changes
+nothing. In `-p` the same forms run against `config.json`.
 
 ### `/mario`
 Toggle the Mario theme (sky blue, brick red, coin gold). Same toggle rule as

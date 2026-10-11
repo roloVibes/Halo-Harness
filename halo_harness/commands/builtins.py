@@ -1536,23 +1536,35 @@ def _cmd_add_dir(args: str, facade: HeadlessFacade) -> str:
 
 def _cmd_theme(args: str, facade: HeadlessFacade) -> str:
     from halo_harness import theme as theme_mod
-    name = args.strip()
+    from halo_harness import theme_toggle
+    name, variant, _extra = theme_toggle.parse_theme_args(args)
     if not name:
         return f"Current theme: {facade.theme or theme_mod.DEFAULT_THEME}"
     if not theme_mod.is_valid_theme(name):
         return f"halo: not a valid theme name: {name!r} (expected one of {sorted(theme_mod.VALID_THEMES)})"
-    from halo_harness import theme_toggle
-    theme_toggle.select_theme(name, facade.theme or theme_mod.load_persisted_theme() or theme_mod.DEFAULT_THEME)
-    return f"Theme set to {name}."
+    try:
+        theme_toggle.select_theme(
+            name, facade.theme or theme_mod.load_persisted_theme() or theme_mod.DEFAULT_THEME, variant)
+    except ValueError as exc:
+        return f"halo: {exc}"
+    return f"Theme set to {name}, area {variant}." if variant else f"Theme set to {name}."
 
 
 def _game_theme_cmd(game: str):
     """Halo 2.0.8 theme pack: the headless `/doom`, `/metroid`, `/mario`
-    (same toggle contract as the TUI -- see halo_harness/theme_toggle.py)."""
+    (same toggle contract as the TUI -- see halo_harness/theme_toggle.py).
+    A game with variants also takes one: `/metroid brinstar`."""
     def run(args: str, facade: HeadlessFacade) -> str:
         from halo_harness import theme as theme_mod
         from halo_harness import theme_toggle
         active = facade.theme or theme_mod.load_persisted_theme() or theme_mod.DEFAULT_THEME
+        variant = args.strip().lower()
+        if variant and theme_mod.variants_of(game):
+            try:
+                theme_toggle.set_game_variant(game, variant, active)
+            except ValueError as exc:
+                return f"halo: {exc}."
+            return theme_toggle.variant_message(game, variant) + "."
         applied = theme_toggle.toggle_game_theme(game, active)
         return theme_toggle.toggle_message(game, applied) + "."
     return run
@@ -1819,8 +1831,8 @@ _BUILTIN_SPECS = {
     "theme": ("core", "Show or set the color theme", "[theme]", _cmd_theme),
     "doom": ("ui", "Toggle the DOOM theme: a bottom-HUD status bar with a face that follows the phase",
              None, _game_theme_cmd("doom")),
-    "metroid": ("ui", "Toggle the Metroid theme: visor blues and greens, suit-HUD look",
-                None, _game_theme_cmd("metroid")),
+    "metroid": ("ui", "Toggle the Metroid theme: suit-HUD look, five area palettes (/metroid <area>)",
+                "[area]", _game_theme_cmd("metroid")),
     "mario": ("ui", "Toggle the Mario theme: sky blue, brick red and coin gold",
               None, _game_theme_cmd("mario")),
     "exit": ("ui", "Exit halo", None, _cmd_exit),

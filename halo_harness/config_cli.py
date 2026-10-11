@@ -82,6 +82,11 @@ def _cmd_set(rest: list) -> int:
         print(f"halo config: not a valid theme name: {value!r} "
               f"(expected one of {sorted(theme_mod.VALID_THEMES)})", file=sys.stderr)
         return 2
+    if args.key == theme_mod.VARIANT_KEY and not any(
+            theme_mod.is_valid_variant(game, value) for game in theme_mod.GAME_VARIANTS):
+        known = sorted({v for names in theme_mod.GAME_VARIANTS.values() for v in names})
+        print(f"halo config: not a theme variant: {value!r} (expected one of {known})", file=sys.stderr)
+        return 2
     try:
         theme_mod.set_config_value(args.key, value)
     except theme_mod.CorruptConfigError as e:
