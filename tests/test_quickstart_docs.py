@@ -33,8 +33,8 @@ def test_readme_first_section_is_quick_start(ctx: Ctx):
               sections[0].strip().lower().startswith("install"))
     ctx.check("the hero image is above every ## section",
               text.index("docs/media/hero.svg") < text.index("## Install"))
-    ctx.check("the banner block is above every ## section",
-              text.index("_   _") < text.index("## Install"))
+    ctx.check("the banner block is above every ## section",  # 2.0.11: the block art
+              text.index("██╗  ██╗") < text.index("## Install"))
 
 
 @test
@@ -64,8 +64,10 @@ def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
     stories above it. This pins the current section set and its order so
     the restructure itself is protected."""
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
-    headings = ("## Install", "## What makes Halo stand out", "## How Halo compares", "## What it looks like",
-                "## Features", "## Themes", "## Documentation", "## Tests", "## Licence")
+    # 2.0.11 round A4: the product-page shape.
+    headings = ("## Install", "## What Halo is", "## Your subscription, your call", "## What it feels like",
+                "## The levels", "## How Halo compares", "## Features", "## Documentation", "## Tests",
+                "## Contributing and security", "## Licence")
     positions = []
     for heading in headings:
         ctx.check(f"{heading!r} is present", heading in text)

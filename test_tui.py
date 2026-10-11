@@ -6396,7 +6396,9 @@ def test_intro_types_out_the_full_line_then_the_cursor_disappears(ctx: Ctx):
                       rendered in expected_pool)
             ctx.check(f"the real version ({__version__!r}) is in the rendered line", __version__ in rendered)
             ctx.check("the widget itself reports done", widget.done is True)
-            ctx.check(f"the block cursor is gone once done, got {rendered!r}", IntroLine.CURSOR not in rendered)
+            # 2.0.11 round A2: the art itself is drawn with the block glyph, so
+            # "gone" means the line no longer ENDS with the cursor.
+            ctx.check(f"the block cursor is gone once done, got {rendered!r}", not rendered.endswith(IntroLine.CURSOR))
             # Visual proof (D-TUI convention): a real SVG screenshot of the
             # completed intro line, written to docs/harness/tui-snapshots/.
             path, svg = _write_snapshot(app, "launch-intro")
