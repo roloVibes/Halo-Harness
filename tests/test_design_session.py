@@ -32,6 +32,8 @@ def _fake_runner(lines, make_files=None):
 
     def runner(cmd, cwd, env, on_line):
         seen["cmd"], seen["cwd"], seen["env"] = cmd, cwd, env
+        if "--mcp-config" in cmd:  # read it while it exists (the turn removes it afterwards)
+            seen["mcp_cfg"] = json.loads(Path(cmd[cmd.index("--mcp-config") + 1]).read_text(encoding="utf-8"))
         if make_files:
             make_files(Path(cwd))
         for line in lines:
@@ -62,18 +64,21 @@ def test_turn_command_skill_events_and_snapshot(ctx: Ctx):
                            "not json at all",
                            {"type": "result", "result": "Done: hero artboard.", "total_cost_usd": 0.0123}], make)
     events = []
-    r = run_turn(p, "A hero section", on_event=events.append, max_budget_usd=2.5, registered={"designcraft"}, runner=runner)
+    fake_entry = {"type": "stdio", "command": "designcraft-cli", "args": ["mcp"]}
+    r = run_turn(p, "A hero section", on_event=events.append, max_budget_usd=2.5, registered={"designcraft"},
+                 entries={"designcraft": fake_entry}, runner=runner)
     cmd = runner.seen["cmd"]
     ctx.check("the turn is a print-mode run in the project folder with stream-json and auto permissions",
               "-p" in cmd and "--cwd" in cmd and cmd[cmd.index("--cwd") + 1] == str(p.path) and "stream-json" in cmd and "auto" in cmd)
     ctx.check("the model, the budget and the skill file are passed", cmd[cmd.index("--model") + 1] == "or:v/eyes" and "2.5" in cmd and "--append-system-prompt-file" in cmd)
     tools = cmd[cmd.index("--tools") + 1]
-    ctx.check("the allowlist has the file tools and only the present craft app", "Read" in tools and "mcp__designcraft__*" in tools and "mcp__vectorcraft__*" not in tools)
+    ctx.check("the allowlist is the core built-in tools", "Read" in tools and "Write" in tools and "mcp__" not in tools)
+    ctx.check("the craft apps are the turn's only MCP servers (strict config)", "--strict-mcp-config" in cmd and runner.seen["mcp_cfg"] == {"mcpServers": {"designcraft": fake_entry}})
     ctx.check("events stream in order and a non-JSON line is kept as stdout", [e.get("type") for e in events] == ["system", "assistant", "stdout", "result", "halo_design"])
     ctx.check("the cost and the reply are captured", r["cost"] == 0.0123 and r["text"] == "Done: hero artboard." and r["code"] == 0)
     ctx.check("the changed artboard was discovered and versioned", r["versions"] == [("hero", 1)] and p.artboards()[0]["latest"] == 1)
     ctx.check("the turn is in the history with its cost", p.history()[-1]["cost"] == 0.0123 and p.history()[-1]["prompt"] == "A hero section")
-    ctx.check("the skill file is removed afterwards", not any(Path(c).exists() for c in cmd if "halo-design-skill-" in c))
+    ctx.check("the skill and mcp files are removed afterwards", not any(Path(c).exists() for c in cmd if "halo-design-skill-" in c or "halo-design-mcp-" in c))
     ctx.check("the child reads UTF-8", runner.seen["env"].get("PYTHONIOENCODING") == "utf-8")
 
 
@@ -102,7 +107,7 @@ def test_cli_surface_and_doctor(ctx: Ctx):
     ctx.check("doctor lists the seven craft apps", rc == 0 and buf.getvalue().count("craft") >= 7)
     from halo_harness.design.crafts import allowed_tools, guide_lines, which_apps
     ctx.check("which_apps filters by registration", set(which_apps({"PdfCraft", "nope"})) == {"pdfcraft"})
-    ctx.check("allowed_tools is the core tools plus present apps", allowed_tools({"filmcraft"}).endswith("mcp__filmcraft__*"))
+    ctx.check("allowed_tools is the core built-ins only", "mcp__" not in allowed_tools({"filmcraft"}) and allowed_tools().startswith("Read,"))
     ctx.check("with no app the guide says to write HTML and SVG", "No craft app" in guide_lines(set())[0])
 
 

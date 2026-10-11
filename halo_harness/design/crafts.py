@@ -76,10 +76,10 @@ def which_apps(registered: "set[str] | list[str] | None") -> dict:
 
 
 def allowed_tools(registered=None) -> str:
-    """The --tools allowlist for a design turn: the core file tools and
-    every tool of every present craft app."""
-    apps = which_apps(registered)
-    return ",".join([*CORE_TOOLS, *(f"mcp__{app}__*" for app in apps)])
+    """The --tools allowlist for a design turn: the core built-in tools.
+    (`--tools` filters built-ins only; the craft apps reach the turn as its
+    strict MCP config, see session.run_turn.)"""
+    return ",".join(CORE_TOOLS)
 
 
 def guide_lines(registered=None) -> list:
