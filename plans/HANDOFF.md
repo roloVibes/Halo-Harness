@@ -4,7 +4,36 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-10 ~23:15 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-11 ~01:45 CDT (authoritative, read this first)
+
+**2.0.8 theme pack: all three skins are IN and pushed**: round 1
+`e29da72` (names, `tui/hud.py` engine, DOOM, the toggle contract), round
+2 `4f39d27` (Metroid: tanks/missile/super/area, five area variants,
+map-grid cards, visor input frame), round 3 `69c330c` (Mario: score/
+power/coins/world/time/turns, bros+world palettes, brick cards + pipe
+frame, 1-UP/coin cues on sub-agent/job completion), plus `de279d6`
+(Windows Terminal = truecolor via WT_SESSION). Each skin was verified
+LIVE on this host (`/doom`, `/metroid norfair`, `/mario`, and each
+toggle-again restore). README themes table is complete (three renders
+under docs/screenshots/). CHANGELOG already carries `## [2.0.8] -
+unreleased` with the three sections. Full test_tui is green at 291
+tests; test_bridge 101/101.
+
+**REMAINING for the 2.0.8 tag**: CI green on both platforms for
+`69c330c` (watch was running at the pause) -> `python scripts/release.py
+2.0.8 --no-install` (owner refreshes installs himself) -> handoff +
+memory. Known cosmetic drift: docs/screenshots/launch.svg still shows
+"halo 2.0.7" (regenerate with scripts/screenshots.py after a bump if
+wanted). Left open from the pack (small follow-ups, not blocking): Tab
+completion of `/metroid <area>` and `/mario <variant>` arguments; the
+ASCII fallback strips the coin/heart/star glyphs instead of substituting.
+
+**THEN 2.0.9 Signal** (`plans/2.0.8-signal-brief.md`, research round
+first), then 2.0.10 review/security.
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-10 ~23:15 CDT (previous)
 
 **v2.0.7.1 IS RELEASED** (tag v2.0.7.1 at `f2a70fb`, GitHub release
 published, `--no-install`: the owner refreshes installs himself; the Kali
