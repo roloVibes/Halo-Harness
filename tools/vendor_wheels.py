@@ -115,6 +115,13 @@ def filtered_requirements(python_full_version: str) -> "list[str]":
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
+        # 2.0.10 finding 27: the lock now carries `--hash=` continuation
+        # lines (dropped here -- pip download resolves the wheel itself)
+        # and a trailing line-continuation backslash on the package line.
+        if line.startswith("--"):
+            continue
+        if line.endswith("\\"):
+            line = line[:-1].rstrip()
         if ";" in line:
             req, _, marker = line.partition(";")
             if not marker_applies(marker.strip(), env=env):

@@ -68,6 +68,17 @@ def run_tui(args) -> int:
     from halo_harness.tui import console_mode
     console_guard = console_mode.install()
     app.console_guard = console_guard
+    # 2.0.10 finding 24: an existing ~/.halo tree is made owner-only once;
+    # the TUI says so in one notification (print mode stays silent).
+    try:
+        from halo_harness.config.paths import bridge_home as _bridge_home
+        from halo_harness.privateio import tighten_state_tree
+        _changed = tighten_state_tree(_bridge_home())
+    except Exception:
+        _changed = 0
+    if _changed:
+        app.startup_notice = (f"Made {_changed} entr{'y' if _changed == 1 else 'ies'} under "
+                              f"{_bridge_home()} owner-only (0700 directories, 0600 files)")
     try:
         app.run()
     finally:

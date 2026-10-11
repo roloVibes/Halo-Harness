@@ -126,27 +126,28 @@ def test_f15_read_deny_reaches_home_paths_and_more_readers(ctx: Ctx):
 
 @test
 def test_f15_grep_and_glob_over_a_directory_skip_denied_files(ctx: Ctx):
+    # a non-hidden name: ripgrep (CI Linux) skips dotfiles on its own, which is not what this pins
     tmp = _tmp()
-    (tmp / ".env").write_text("SECRET_KEY=1\n", encoding="utf-8")
+    (tmp / "secret.env").write_text("SECRET_KEY=1\n", encoding="utf-8")
     (tmp / "ok.txt").write_text("SECRET_KEY=2\n", encoding="utf-8")
     (tmp / "sub").mkdir()
-    (tmp / "sub" / ".env").write_text("SECRET_KEY=3\n", encoding="utf-8")
-    engine = _engine(tmp, deny=["Read(./.env)"])
+    (tmp / "sub" / "secret.env").write_text("SECRET_KEY=3\n", encoding="utf-8")
+    engine = _engine(tmp, deny=["Read(./secret.env)"])
     tctx = ToolContext(cwd=tmp, permission_engine=engine)
     grep = GrepTool().run({"pattern": "SECRET_KEY", "path": str(tmp), "output_mode": "content"}, tctx)
     ctx.check("Grep finds the allowed file", "ok.txt" in grep.content and "SECRET_KEY=2" in grep.content)
-    ctx.check("Grep never returns the denied file", ".env" not in grep.content and "SECRET_KEY=1" not in grep.content
+    ctx.check("Grep never returns the denied file", "secret.env" not in grep.content and "SECRET_KEY=1" not in grep.content
               and "SECRET_KEY=3" not in grep.content)
     nopath = GrepTool().run({"pattern": "SECRET_KEY"}, tctx)
-    ctx.check("Grep with no path (cwd) is filtered too", ".env" not in nopath.content and "ok.txt" in nopath.content)
+    ctx.check("Grep with no path (cwd) is filtered too", "secret.env" not in nopath.content and "ok.txt" in nopath.content)
     glob = GlobTool().run({"pattern": "**/*", "path": str(tmp)}, tctx)
     ctx.check("Glob lists the allowed file and skips the denied ones",
-              "ok.txt" in glob.content and ".env" not in glob.content)
+              "ok.txt" in glob.content and "secret.env" not in glob.content)
     plain = ToolContext(cwd=tmp)
     ctx.check("without an engine nothing is filtered (auto, no rules)",
-              ".env" in GrepTool().run({"pattern": "SECRET_KEY", "path": str(tmp)}, plain).content)
+              "secret.env" in GrepTool().run({"pattern": "SECRET_KEY", "path": str(tmp)}, plain).content)
     ctx.check("engine.read_denied answers per path",
-              engine.read_denied(tmp / ".env") and not engine.read_denied(tmp / "ok.txt"))
+              engine.read_denied(tmp / "secret.env") and not engine.read_denied(tmp / "ok.txt"))
 
 
 @test

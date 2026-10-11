@@ -154,6 +154,8 @@ def test_f22_builtin_tools_in_system_init_end_the_turn(ctx: Ctx):
               and cc_runtime.builtin_tools_in_init({}) == [])
     from tests.test_cc_session import _fake_claude_env, _new_cc_session
     with _fake_claude_env():
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()  # the cc: route is gated per home (2.0.7 round 7b)
         os.environ["FAKE_CC_LEAK_BUILTIN"] = "1"
         try:
             session, _ = _new_cc_session()
