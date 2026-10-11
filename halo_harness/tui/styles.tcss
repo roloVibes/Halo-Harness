@@ -209,6 +209,15 @@ AssistantText MarkdownFence {
     border: none;
 }
 
+/* 2.0.11 round A3: the level band above the prompt row (widgets/scene_band.py
+   toggles its own display; the rows are painted by the scene engine). */
+#scene-band {
+    display: none;
+    height: 3;
+    width: 100%;
+    background: $bridge-bg;
+}
+
 .status-bar {
     height: 1;
     width: 100%;

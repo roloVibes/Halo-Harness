@@ -35,6 +35,9 @@ def _fire_cue(app, event: str) -> None:
     fire = getattr(bar, "fire_cue", None)
     if callable(fire):
         fire(event)
+    band = getattr(app, "scene_band", None)  # 2.0.11 round A3: the level band's cue sprite
+    if band is not None:
+        band.fire_cue(event)
 
 def _phase_word_for(state: "str | None", kind: "str | None") -> "str | None":
     """Halo 2.0.1 W2b (liveness-tips-brief Part A3/A5): a `phase` event's

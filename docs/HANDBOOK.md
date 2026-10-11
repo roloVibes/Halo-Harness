@@ -536,6 +536,36 @@ game themes below. A game theme is its own look and has no `-ansi` or
 | `metroid` | Visor blues and greys with a power-suit orange accent (the Crateria area; four more areas below). Light borders, dashed map-grid cards and dialogs, a visor-framed input line and a three-row suit-HUD status bar with energy tanks and an original visor face (below). |
 | `mario` | Sky blue, brick red, pipe green and coin gold (the `bros` palette; `world` below). Brick-pattern cards and dialogs, a pipe-framed input line and a three-row top-bar status bar with coins, a timer and a world slot (below). |
 
+### The level band: `/level`
+
+Each game theme draws a three-row level directly above the prompt
+(`halo_harness/tui/scene.py` and `scene_doom.py`, `scene_metroid.py`,
+`scene_mario.py`; the widget is `tui/widgets/scene_band.py`). A hero sprite
+stands on the ground; while the model writes the ground and the scenery
+scroll and the hero runs; while it thinks an enemy crosses the band; an
+error and a needs-you state each have their own pose; a finished sub-agent
+or background job shows the scene's pickup beside the hero for two seconds
+(the same cue events the HUD face gets).
+
+| Theme | Hero | Enemy (phase) | Scenery | Pickups |
+|---|---|---|---|---|
+| `mario` | a plumber in a red cap | a winged turtle gliding by (writing) | warp pipes, brick rows with a question block, clouds | a 1-UP mushroom (sub-agent done), a coin (job done) |
+| `metroid` | a hunter in a power suit with an arm cannon | a floating alien that drifts in (thinking) and latches on (error) | rock pillars, hatches, stalactites; the ground is the area's own: lava in Norfair, water in Maridia | an energy tank, a missile |
+| `doom` | a marine in green armour with a shotgun (it flashes while writing) | an imp stalking in (thinking); its fireball lands on an error | steel pillars, barrels, a sealed door, ceiling lamps | the imp down, a health bonus |
+
+All of it is original art drawn for Halo in the spirit of the 8-bit era;
+nothing is copied from any game. The band animates four times a second
+while a turn is live and once a second otherwise, draws with half-block
+glyphs on a truecolor terminal and with plain characters otherwise, and
+paints its sky in the theme's background so it sits flush with the
+transcript.
+
+`/level` toggles it, `/level on|off` sets it, persisted as `theme_scene`
+in `~/.halo/config.json` (on by default). The band also yields on its
+own: it is hidden on a terminal under 30 rows or 60 columns, while a
+pending card (a permission ask, a question, a plan review) is docked,
+and under any theme without a scene.
+
 ### The toggles: `/doom`, `/metroid`, `/mario`
 
 Each is a toggle with one rule for all three:

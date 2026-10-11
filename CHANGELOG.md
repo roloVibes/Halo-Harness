@@ -41,6 +41,27 @@ version.
   their `<desc>`, and `tests/test_front_page_media.py` pins the hero to
   `banner.py` through them.
 
+- **The game themes have a level** (round A3). A three-row band directly
+  above the prompt draws an original 8-bit-style scene for the active game
+  theme (`tui/scene.py`, the engine; `scene_mario.py`, `scene_metroid.py`,
+  `scene_doom.py`, the art; `tui/widgets/scene_band.py`, the widget):
+  Mario's plumber runs past warp pipes, brick rows and question blocks under
+  drifting clouds while a winged turtle glides by; Metroid's hunter crosses a
+  cavern of rock pillars and hatches (the ground is the area's own -- lava in
+  Norfair, water in Maridia) while a floating alien drifts in and latches on
+  at an error; DOOM's marine walks a tech base of steel pillars, barrels and a
+  sealed door, the shotgun flashing while the model writes, an imp stalking in
+  while it thinks. The hero runs and the scenery scrolls while the model
+  writes; a finished sub-agent or job shows the scene's pickup beside the hero
+  for two seconds (the HUD's own cue events). Half-block pixels on truecolor,
+  plain characters otherwise; the sky is the theme's background. `/level`
+  toggles it (`theme_scene` in config.json, on by default); the band yields on
+  its own under 30 rows or 60 columns, while a pending card is docked, and
+  under a theme without a scene. `tests/test_scene.py` pins the engine (every
+  theme, phase, width, ASCII), the placement, the variants and the widget.
+  Three animated front-page captures (`level-mario`, `level-metroid-norfair`,
+  `level-doom`) join `tools/captures.json`.
+
 ## [2.0.10] - 2026-10-11
 
 ### Front page: real captures, diagrams, the stories

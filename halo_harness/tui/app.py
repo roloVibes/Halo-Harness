@@ -40,6 +40,7 @@ from halo_harness.tui.keys import DOUBLE_CTRL_C_WINDOW_S, DRAIN_HZ, next_mode
 from halo_harness.tui.widgets.input import CompletionPopup, PromptInput
 from halo_harness.tui.widgets.pending_dock import PendingDock
 from halo_harness.tui.widgets.statusbar import StatusBar
+from halo_harness.tui.widgets.scene_band import SceneBand
 from halo_harness.tui.widgets.transcript import IntroLine, Transcript
 from halo_harness.tui.widgets.whichkey import WhichKeyOverlay
 
@@ -422,6 +423,11 @@ class BridgeApp(App):
         # separator and a status bar and nothing to type into (found live
         # on a Kali box; the pilots never checked geometry).
         with Vertical(id="bottom-dock"):
+            # 2.0.11 round A3: the level band sits above the prompt row,
+            # inside the same docked container (hidden unless a game
+            # theme's scene is on and the terminal has room; see
+            # widgets/scene_band.py).
+            yield SceneBand()
             with Horizontal(id="prompt-row"):
                 yield Static("❯", id="prompt-glyph")
                 yield PromptInput(placeholder=self._current_placeholder_text())
@@ -2742,6 +2748,17 @@ class BridgeApp(App):
             pass  # not mounted yet: on_mount runs this again
         if bar is not None:
             bar.set_theme(self.theme_name, self.theme_variant)
+        band = getattr(self, "scene_band", None)
+        if band is not None:
+            band.set_theme(self.theme_name, self.theme_variant)
+
+    @property
+    def scene_band(self):
+        """The level band (2.0.11 round A3), or None before compose."""
+        try:
+            return self.query_one("#scene-band", SceneBand)
+        except Exception:
+            return None
 
     def apply_theme(self, name: str) -> None:
         self.theme_name = name

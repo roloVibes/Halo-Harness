@@ -82,8 +82,9 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
             ctx.check(f"docs/media/{n}.png has the PNG signature", (MEDIA / f"{n}.png").read_bytes()[:8] == b"\x89PNG\r\n\x1a\n")
     for png in MEDIA.glob("*.png"):
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
-    ctx.check("the two animated captures are the turn and the steer",
-              {c["name"] for c in caps if c.get("anim")} == {"turn-phase-line", "steer-mid-turn"})
+    ctx.check("the animated captures are the turn, the steer and the three levels (2.0.11 round A3)",
+              {c["name"] for c in caps if c.get("anim")}
+              == {"turn-phase-line", "steer-mid-turn", "level-mario", "level-metroid-norfair", "level-doom"})
 
 
 @test
