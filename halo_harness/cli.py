@@ -488,6 +488,10 @@ def main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "teams":
         from halo_harness.teams_cli import cmd_teams
         return cmd_teams(argv[1:])
+    if argv and argv[0] == "design":
+        # 3.0.1.0: Halo Design -- projects, turns, systems, exports, the handoff.
+        from halo_harness.design.cli import cmd_design
+        return cmd_design(argv[1:])
     if argv and argv[0] == "paperclip":
         # 2.2.0: Paperclip (the company of agents): status, install, sync, org.
         from halo_harness.paperclip.cli import cmd_paperclip
