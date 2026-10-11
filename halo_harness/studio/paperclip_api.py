@@ -76,8 +76,9 @@ def install(req):
         return 409, {"error": "an install is already running"}
     if shutil.which("node") is None:
         return 422, {"error": "Paperclip needs Node.js 24 or newer; install Node first", "problems": ["node not found on PATH"]}
-    if installed_locally() and _client(req.state_dir).reachable():
-        return 409, {"error": "Paperclip is already installed and running"}
+    client = _client(req.state_dir)
+    if client.reachable():  # a reachable instance (local or linked) means there is nothing to install
+        return 409, {"error": f"Paperclip is already running at {client.base_url}"}
     threading.Thread(target=_run_install, name="halo-paperclip-install", daemon=True).start()
     return 202, {"running": True}
 
