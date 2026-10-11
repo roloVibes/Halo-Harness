@@ -27,6 +27,7 @@ from __future__ import annotations
 import hmac
 import json
 import os
+import re
 import secrets
 import socket
 import threading
@@ -40,6 +41,7 @@ _ACCEPT_POLL_S = 0.5
 _HANDSHAKE_TIMEOUT_S = 5.0    # finding 16: an unauthenticated connection that never sends a line must not pin a thread forever
 _TOOLS_AWAIT_TIMEOUT_S = 25.0  # finding 6: long-poll bound for tools/await_change -- always returns eventually
 _STALE_SOCKET_PROBE_S = 0.2
+_SURROGATES = re.compile("[\ud800-\udfff]")  # review finding 31: lone surrogates cannot be UTF-8 encoded
 
 
 def _sweep_stale_sockets(run_dir: Path) -> None:
@@ -208,8 +210,16 @@ class ToolBridgeServer:
 
     @staticmethod
     def _write(wf, obj: dict) -> None:
+        text = json.dumps(obj, ensure_ascii=False) + "\n"
         try:
-            wf.write((json.dumps(obj, ensure_ascii=False) + "\n").encode("utf-8"))
+            data = text.encode("utf-8")
+        except UnicodeEncodeError:
+            # review finding 31: a lone surrogate in a tool result cannot be
+            # encoded, and the error used to end this connection's thread
+            # (every later cc: tool call then failed for the session).
+            data = _SURROGATES.sub("�", text).encode("utf-8")
+        try:
+            wf.write(data)
         except OSError:
             pass
 

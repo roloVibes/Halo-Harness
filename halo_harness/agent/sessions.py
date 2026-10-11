@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness.config.paths import bridge_home, project_slug
+from halo_harness.textlines import split_lines
 
 
 def sessions_dir(cwd) -> Path:
@@ -75,7 +76,7 @@ def carry_session(src_cwd, dst_cwd, session_id: str) -> None:
 def _read_nodes(path: Path) -> list:
     out = []
     try:
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        for line in split_lines(path.read_text(encoding="utf-8", errors="replace")):
             try:
                 out.append(json.loads(line))
             except ValueError:

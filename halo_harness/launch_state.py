@@ -21,10 +21,11 @@ one notice) before ever using it.
 from __future__ import annotations
 
 import json
-import os
 import time
 from pathlib import Path
 from typing import Optional
+
+from halo_harness.filelock import file_lock
 
 STATE_FILENAME = "state.json"
 
@@ -50,13 +51,9 @@ def _write(data: dict) -> None:
     `/effort` change) -- tmp file in the SAME directory + `os.replace`
     (atomic on both POSIX and Windows for a same-filesystem rename, so a
     reader never observes a truncated file mid-write)."""
-    path = state_path()
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, sort_keys=True)
-        os.replace(tmp_path, path)
+        from halo_harness.privateio import write_private_atomic
+        write_private_atomic(state_path(), json.dumps(data, indent=2, sort_keys=True))
     except OSError:
         pass
 
@@ -69,6 +66,14 @@ def _cwd_key(cwd: "str | Path") -> str:
 
 
 def _record(field: str, entry: dict, *, cwd: "str | Path") -> None:
+    # review finding 92: read-modify-write under a lock, so two halo
+    # processes recording at once keep both changes; the temp file name is
+    # unique per write (the old pid-only name was shared by two threads).
+    with file_lock(state_path()):
+        _record_locked(field, entry, cwd=cwd)
+
+
+def _record_locked(field: str, entry: dict, *, cwd: "str | Path") -> None:
     data = _load()
     section = data.get(field)
     if not isinstance(section, dict):

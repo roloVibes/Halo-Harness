@@ -1257,15 +1257,26 @@ def _rollup_child_cost_into_parent(parent, child, *, agent_id: str, since_index:
     if child.cost_meter.turns <= 0:
         return
     combined: dict = {}
+    # review finding 84: which (model, provider, route) the child spent on
+    # -- the heaviest by tokens when it used more than one -- so `stats
+    # --models` charges the child's row, not the parent's.
+    spent_by: dict = {}
     for node in child.log.nodes()[since_index:]:
         if node.get("type") != "usage":
             continue
         usage = node.get("usage") or {}
+        weight = 0
         for key in ("input_tokens", "output_tokens", "cache_read_input_tokens",
                     "cache_creation_input_tokens", "reasoning_tokens"):
             value = usage.get(key)
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 combined[key] = combined.get(key, 0) + value
+                weight += value
+        if node.get("model"):
+            ident = (node["model"], node.get("provider"), node.get("route"))
+            spent_by[ident] = spent_by.get(ident, 0) + weight + 1
+    child_model = max(spent_by, key=spent_by.get) if spent_by else (
+        getattr(getattr(child, "model_ref", None), "raw", None), None, None)
     child_cost = child.cost_meter.total_usd if child.cost_meter.has_cost_data else None
     # `SessionLog.append_usage` locks internally (safe from any thread on
     # its own); `CostMeter.add_child_total` does not -- both a background
@@ -1274,7 +1285,9 @@ def _rollup_child_cost_into_parent(parent, child, *, agent_id: str, since_index:
     # module's own docstring) can reach this at the same moment, so the
     # `total_usd +=` inside it is guarded with the SAME lock `_bg_run`
     # already uses for every other write to shared parent state.
-    parent.log.append_usage(combined, child_cost, agent_id=agent_id, role=role, ok=ok, bio=bio)
+    parent.log.append_usage(combined, child_cost, agent_id=agent_id, role=role, ok=ok, bio=bio,
+                            model=child_model[0] if isinstance(child_model[0], str) else None,
+                            provider=child_model[1], route=child_model[2])
     with parent._agent_notices_lock:
         parent.cost_meter.add_child_total(cost_usd=child_cost, has_cost_data=child.cost_meter.has_cost_data,
                                            turns=child.cost_meter.turns)

@@ -208,6 +208,13 @@ def test_f55_cc_stop_hook_continuation_reply_is_read_before_turn_done(ctx: Ctx):
         cwd=proj, session_id="r8-cc-stop", transcript_path=str(proj / "t.jsonl"), effective_env=hook_env)
     saved_home = os.environ.get("BRIDGE_TEST_HOME")
     try:
+        # The subscription-routes consent lives in the active test home;
+        # test_cc_session only accepts it for its own scratch home at import
+        # time, so a full-battery run (home restored between modules) needs
+        # the acceptance recorded here.
+        os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="r8-cc-stop-home-")
+        from halo_harness.subscription_consent import record_acceptance
+        record_acceptance()
         with CC._fake_claude_env():
             session, _ = CC._new_cc_session(cwd=proj, hook_runner=runner)
             first = list(session.turn("reply with the single word pong"))

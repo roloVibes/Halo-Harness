@@ -47,7 +47,9 @@ of that role's weighted average instead of zeroing it).
 from __future__ import annotations
 
 import json
+import os
 import re
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -213,19 +215,25 @@ def gym_dir(state_dir) -> Path:
     return Path(state_dir) / GYM_DIR_NAME
 
 
-def result_path(state_dir, host_name: Optional[str], digest: Optional[str]) -> Path:
-    return gym_dir(state_dir) / host_slug(host_name) / f"{digest_slug(digest)}.json"
+def result_path(state_dir, host_name: Optional[str], digest: Optional[str],
+                model: Optional[str] = None) -> Path:
+    """review finding 90: a result with no digest is filed under its model
+    name (`nodigest-<model>.json`) instead of one shared `nodigest.json`
+    that the next digest-less result overwrote."""
+    name = digest_slug(digest)
+    if name == "nodigest" and model:
+        name = f"nodigest-{_slug(model, fallback='model')}"
+    return gym_dir(state_dir) / host_slug(host_name) / f"{name}.json"
 
 
 def save_result(state_dir, result: dict) -> Path:
     """Atomic tmp+replace write, the same idiom every other gym-adjacent
     store in this codebase uses (`ollama_calibrate.save_fit_store`,
     `ollama_capability.save_capability_cache`)."""
-    path = result_path(state_dir, result.get("host_name"), result.get("digest"))
+    path = result_path(state_dir, result.get("host_name"), result.get("digest"), result.get("model"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
+    tmp = path.with_name(f"{path.name}.{os.getpid()}-{threading.get_ident()}.tmp")
     tmp.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    import os
     os.replace(tmp, path)
     return path
 

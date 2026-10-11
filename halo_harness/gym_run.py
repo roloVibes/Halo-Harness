@@ -10,6 +10,7 @@ above it only ever takes an already-resolved `host`/`route`/`profile`/
 from __future__ import annotations
 
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -80,11 +81,24 @@ def _run_battery(result: GymResult, *, host, route, profile, decision, quick: bo
     return result
 
 
-def _scratch_dir(scratch_dir) -> Path:
+@contextmanager
+def _scratch_dir(scratch_dir):
+    """The directory the battery's file tasks work in. One the caller named
+    is theirs and is left alone; one made here is removed afterwards
+    (review finding 90: it used to be left behind in the temp directory
+    after every run)."""
+    import shutil
     import tempfile
-    scratch = Path(scratch_dir) if scratch_dir else Path(tempfile.mkdtemp(prefix="halo-gym-"))
-    scratch.mkdir(parents=True, exist_ok=True)
-    return scratch
+    if scratch_dir:
+        scratch = Path(scratch_dir)
+        scratch.mkdir(parents=True, exist_ok=True)
+        yield scratch
+        return
+    scratch = Path(tempfile.mkdtemp(prefix="halo-gym-"))
+    try:
+        yield scratch
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def _run_gym_for_ollama_model(ref, model_ref_raw: str, *, quick: bool, state_dir, scratch_dir) -> dict:
@@ -114,8 +128,9 @@ def _run_gym_for_ollama_model(ref, model_ref_raw: str, *, quick: bool, state_dir
         fitted_context=decision.num_ctx, ollama_version=(version_info or {}).get("version"),
         started_at=started, quick=quick,
     )
-    result = _run_battery(result, host=host, route=route, profile=profile, decision=decision, quick=quick,
-                           scratch=_scratch_dir(scratch_dir), state_dir=state_dir)
+    with _scratch_dir(scratch_dir) as scratch:
+        result = _run_battery(result, host=host, route=route, profile=profile, decision=decision, quick=quick,
+                               scratch=scratch, state_dir=state_dir)
     d = result.to_dict()
     save_result(state_dir, d)
     return d
@@ -183,8 +198,9 @@ def _run_gym_for_huggingface_model(ref, model_ref_raw: str, *, quick: bool, stat
         model=ref.model, model_ref=model_ref_raw, host_name="huggingface", host_url=host.base_url,
         digest=stable_id, fitted_context=decision.num_ctx, started_at=started, quick=quick,
     )
-    result = _run_battery(result, host=host, route=route, profile=None, decision=decision, quick=quick,
-                           scratch=_scratch_dir(scratch_dir), state_dir=state_dir)
+    with _scratch_dir(scratch_dir) as scratch:
+        result = _run_battery(result, host=host, route=route, profile=None, decision=decision, quick=quick,
+                               scratch=scratch, state_dir=state_dir)
     d = result.to_dict()
     save_result(state_dir, d)
     return d
@@ -201,6 +217,19 @@ def run_gym_for_model(model_ref_raw: str, *, quick: bool = False, state_dir, scr
     provider` -- `ol:` (round 5d, the original scope) or `hf:local/*`/
     `hf:mlx/*` (round 5i) -- anything else is refused with a plain error,
     never silently skipped."""
+    started = time.time()
+    try:
+        return _dispatch_gym(model_ref_raw, quick=quick, state_dir=state_dir, scratch_dir=scratch_dir)
+    except Exception as e:
+        # review finding 90: the docstring promises "never raises" -- a
+        # bad ref, a catalog/profile lookup or the result write failing
+        # comes back as a result with one plain line in `errors`.
+        return GymResult(model=str(model_ref_raw), model_ref=str(model_ref_raw), host_name="?", host_url="?",
+                          started_at=started, finished_at=time.time(), quick=quick,
+                          errors=[f"{type(e).__name__}: {e}"]).to_dict()
+
+
+def _dispatch_gym(model_ref_raw: str, *, quick: bool, state_dir, scratch_dir) -> dict:
     from halo_harness.model import parse_model_ref
     ref = parse_model_ref(model_ref_raw)
     if ref.provider == "huggingface":
