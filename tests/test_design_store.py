@@ -26,10 +26,10 @@ test, TESTS = new_registry()
 @test
 def test_projects_artboards_versions_and_restore(ctx: Ctx):
     from halo_harness.design.store import Project
-    p = Project.create("Launch Page", model="or:v/eyes")
-    ctx.check("a project is a folder with design.json under ~/.halo/design", p.slug == "launch-page" and (p.path / "design.json").is_file())
-    ctx.check("open and list find it", Project.open("launch-page") is not None and any(r["slug"] == "launch-page" for r in Project.list()))
-    ctx.check("a second project with the same name gets a numbered slug", Project.create("Launch Page").slug == "launch-page-2")
+    p = Project.create("Store Launch Page", model="or:v/eyes")
+    ctx.check("a project is a folder with design.json under ~/.halo/design", p.slug == "store-launch-page" and (p.path / "design.json").is_file())
+    ctx.check("open and list find it", Project.open("store-launch-page") is not None and any(r["slug"] == "store-launch-page" for r in Project.list()))
+    ctx.check("a second project with the same name gets a numbered slug", Project.create("Store Launch Page").slug == "store-launch-page-2")
     a = p.add_artboard("Hero", "prototype")
     (p.artboard_dir(a["id"]) / "index.html").write_text("<h1>v1</h1>", encoding="utf-8")
     ctx.check("the first snapshot makes v1", p.snapshot("first") == [("hero", 1)])

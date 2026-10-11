@@ -12,6 +12,18 @@ version.
 
 ### Halo Design
 
+- **Studio Design mode** (round D3): a third mode, `Roles | Org | Design`
+  (`D`, `?mode=design`). A rail of projects, artboards and the design system;
+  a pan/zoom canvas of frame cards (sandboxed iframe for HTML, image for a
+  render, link card for PDF/MP4) with a device select, comment pins and a
+  version slider; a panel with Chat (streamed turn events, cost, history),
+  Comments (pins, Send comments), Knobs (a `css:--var` control rewrites the
+  page's `:root` in place with no model call, `design/controls.py`), System,
+  and Export plus the handoff bundle. Direct text edits through a
+  contenteditable frame. Backend `studio/design_api*.py` (`/api/design/...`,
+  one live turn per project polled every 500 ms) and the raw artboard route
+  `/design-files/<slug>/<artboard>/<file>` with its own sandbox CSP.
+  `tools/capture_studio.py --mode design` and `docs/media/studio-design.png`.
 - **Which model for what** (round D1): catalog rows carry `modalities_in`,
   `modalities_out`, `image_output` and `tools` straight from the catalog
   (OpenRouter modalities and image pricing, the subscription `vision` flag,

@@ -254,6 +254,9 @@ def dispatch(req: Request):
     if req.path == "pc" or req.path.startswith("pc/"):  # 2.2.0: Org mode (Paperclip) routes
         from halo_harness.studio.paperclip_api import dispatch_pc
         return dispatch_pc(req)
+    if req.path == "design" or req.path.startswith("design/"):  # 3.0.1.0: Design mode routes
+        from halo_harness.studio.design_api import dispatch_design
+        return dispatch_design(req)
     for method, pattern, fn in ROUTES:
         m = re.match(pattern, req.path)
         if m and method == req.method:

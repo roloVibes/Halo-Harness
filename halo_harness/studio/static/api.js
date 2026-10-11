@@ -63,5 +63,7 @@
     pcSync: (body) => call("POST", "pc/sync", body),
     pcPull: (body) => call("POST", "pc/pull", body),
     pc: (method, path, body, query) => call(method, "pc/" + path, body, query),
+    // 3.0.1.0 Design mode: projects, turns, comments, knobs, versions, exports (raw artboard files are /design-files/..., no token)
+    design: (method, path, body, query) => call(method, "design/" + path, body, query),
   };
 })();

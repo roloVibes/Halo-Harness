@@ -6,21 +6,22 @@
 <meta name="color-scheme" content="dark light">
 <title>Halo Studio</title>
 <link rel="stylesheet" href="studio.css">
+<link rel="stylesheet" href="design.css">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231e1e2e'/%3E%3Cellipse cx='16' cy='9' rx='10' ry='4' fill='none' stroke='%23f9e2af' stroke-width='2.5'/%3E%3Ctext x='16' y='26' font-size='13' font-family='monospace' font-weight='700' text-anchor='middle' fill='%2389b4fa'%3EHALO%3C/text%3E%3C/svg%3E">
 </head>
 <body>
 
 <header id="top">
   <div class="brand" title="Halo Studio: your agents, as a graph"><span class="ring"></span>HALO <small>Studio</small></div>
-  <div class="scope-toggle mode-toggle" role="group" aria-label="Mode" title="Roles: your lineups. Org: your company in Paperclip (R / O)">
-    <button data-mode="roles" class="on">Roles</button><button data-mode="org">Org</button>
+  <div class="scope-toggle mode-toggle" role="group" aria-label="Mode" title="Roles: your lineups. Org: your company in Paperclip. Design: prototypes, pages and decks on your own apps (R / O / D)">
+    <button data-mode="roles" class="on">Roles</button><button data-mode="org">Org</button><button data-mode="design">Design</button>
   </div>
   <select id="lineup-select" aria-label="Lineup"></select>
   <span id="lineup-badges"></span>
   <select id="company-select" aria-label="Company" style="display:none"></select>
   <span id="org-badges"></span>
   <div class="spacer"></div>
-  <div class="scope-toggle" title="Where new files are written" role="group" aria-label="Scope">
+  <div class="scope-toggle" id="scope-toggle" title="Where new files are written" role="group" aria-label="Scope">
     <button data-scope="user" class="on">user</button><button data-scope="project">project</button>
   </div>
   <button class="btn ghost" id="btn-validate" title="Validate (Ctrl+Enter)">Validate</button>
@@ -108,6 +109,10 @@
 <script src="bio-form.js"></script>
 <script src="palette.js"></script>
 <script src="org.js"></script>
+<script src="design.js"></script>
+<script src="design-canvas.js"></script>
+<script src="design-panel.js"></script>
+<script src="design-panel2.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

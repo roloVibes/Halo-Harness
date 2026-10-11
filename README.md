@@ -194,6 +194,20 @@ reply lands on the issue. See [docs/PAPERCLIP.md](docs/PAPERCLIP.md).
 
 <a href="docs/media/studio-org.png"><img alt="Studio's Org mode: the halo-dev-cycle lineup as a Paperclip company, reporting lines on the canvas" src="docs/media/studio-org.png" width="100%"></a>
 
+### Design, on your own apps
+
+Flip Studio to **Design** (or run `halo design`) and the canvas holds artboards: HTML
+prototypes in sandboxed frames, logos and pages rendered by the creative apps already on
+your machine. A design turn is a real Halo turn in the project folder with the seven
+ArtCraft apps (DesignCraft, VectorCraft, PhotoCraft, LightCraft, EffectCraft, FilmCraft,
+PdfCraft) as its tools, on any model you pick from the `design` ranking. Refine by chat,
+pinned comments, direct text edits and knobs that move spacing or a colour live without a
+model call; every turn versions what changed; sync a design system from your codebase or a
+URL; export a folder, HTML, PNG, SVG or PDF; hand off a bundle the next session continues
+from. See [docs/DESIGN.md](docs/DESIGN.md).
+
+<a href="docs/media/studio-design.png"><img alt="Studio's Design mode: a hero prototype and a VectorCraft logo mark as artboards, knobs and comments in the panel" src="docs/media/studio-design.png" width="100%"></a>
+
 ### Connectors: Claude Docs from a non-Claude model
 
 Your claude.ai connectors (Claude Docs, a calendar, a drive) appear as tools to whatever
@@ -273,6 +287,7 @@ tool, so check each tool's own docs.
 | Sessions | Resume, rewind, `/tasks`, per-role cost attribution, `halo bugreport` | Resume is common; the rest varies |
 | Remote control | From a phone over Signal, with pairing, signed commands and a kill switch | Rare in a terminal harness |
 | Review | `/review` with parallel reviewers, a judge and ranked cards | Varies |
+| Design | `halo design` and Studio's Design mode: artboards, versions, comments, knobs, a design system from your code, exports and a handoff, with the ArtCraft apps as the model's tools | Not a thing most harnesses do |
 
 ## Features
 
@@ -284,6 +299,7 @@ tool, so check each tool's own docs.
 | **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in the wizard, with `halo teams apply <lineup>`, or in Studio. |
 | **Halo Studio** | `halo studio`: your lineups and bios as an editable graph in the browser, served from a loopback-only server with a per-launch token; Org mode shows the same team as a Paperclip company. |
 | **Paperclip** | `halo paperclip sync <lineup>` makes a company of agents that run Halo on their heartbeats; `halo paperclip-run` is the adapter. |
+| **Halo Design** | `halo design new|run|sync|export|handoff` and Studio's Design mode: a design project on disk, a turn with the craft apps as tools, knobs without a model call, `halo models --best-for design`. |
 | **Per-model tool-call repairs** | Fourteen model families' quirks are repaired on the fly: Kimi's `functions.{name}:{idx}` ids, GLM's always-on thinking, Qwen's system-message rules, DeepSeek's reasoning echoes. Gateway quirks are learned once per model and remembered (`halo rules`). |
 | **Measured, not guessed** | `/stats` per model and per tool, price/context/speed columns in the picker, per-role cost attribution, and `halo preflight` canaries each lane before a long run. |
 | **Filter-aware routing** | A provider content filter is not an answer: a filtered reply never persists as one, and the request reroutes to a fallback lane you choose. |
@@ -311,6 +327,7 @@ tool, so check each tool's own docs.
 | [docs/DATABRICKS.md](docs/DATABRICKS.md) | Databricks endpoints, API types and the work matrix |
 | [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups: the 90-second version, then the field reference |
 | [docs/STUDIO.md](docs/STUDIO.md) | Halo Studio, the visual editor for lineups and bios, and its Org mode |
+| [docs/DESIGN.md](docs/DESIGN.md) | Halo Design: the project on disk, a design turn, the craft apps, knobs, systems, exports, the handoff |
 | [docs/PAPERCLIP.md](docs/PAPERCLIP.md) | Paperclip: your lineups as a company of agents |
 | [docs/ROLES.md](docs/ROLES.md) | Roles and the role table |
 | [docs/GOVERNOR.md](docs/GOVERNOR.md) | The Governor: shared per-host rate limiting, failover and lanes |
