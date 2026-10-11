@@ -33,7 +33,7 @@ MARKERS = {
     "launch.svg": ("halo 2.",),                  # the version line under the intro (2.0.11: the art is drawn with block glyphs)
     "turn.svg": ("Grep", "18"),                  # the running tool card + staged phase elapsed
     "picker.svg": ("atlas-pro", "ctx"),          # fixture rows + the context column
-    "team-step.svg": ("Custom roles",),          # the switch, flipped on
+    "team-step.svg": ("One model for everything",),  # 2.1.0 B1: the first row of the lineup list
     "mcp.svg": ("broken-fixture", "deep dive"),  # the failing server + the legend
     "permission.svg": ("fixture-build",),        # the fixture ask's command
     "balances.svg": ("$12.40", "OpenRouter"),    # the chip + the table row
