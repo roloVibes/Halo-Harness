@@ -4,7 +4,39 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-11 ~18:10 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-11 ~22:15 CDT (authoritative, read this first)
+
+**v2.0.10 IS RELEASED** (tag v2.0.10 at `d49f60d`, GitHub release
+published, `--no-install`: the owner refreshes installs himself). CI
+green on Linux and Windows at `f375925`. Four releases this session:
+2.0.7.1 (review fix pass), 2.0.8 (theme pack), 2.0.9 (Signal remote
+control), 2.0.10 (/review feature, the security review with 26/27
+findings fixed + SECURITY.md, the front page redo). The roadmap through
+2.0.10 is COMPLETE; 3.0.1.1 (serverless collaboration) is PARKED by the
+owner -- do not start it unless he re-opens it.
+
+**OWNER ACTIONS PENDING**
+1. The live Signal check (dedicated number + Kali VM): docs/REMOTE.md
+   "Live verification" + "Confirm on the first live run". Findings ->
+   a 2.0.10.1 fix pass (update tests/helpers/fake_signal_cli.py to the
+   real shapes). Also unverified live: signal-cli `setPin` over jsonRpc
+   stdin; the gpg release-key fingerprint is empty (digest-only setup).
+2. Refresh his installs (`halo update` on a clone checked out on a tag
+   needs `--ref`; the installers now install the newest tag).
+3. Two behaviour changes from the security pass to know: `${VAR}` in a
+   project .mcp.json no longer expands provider tokens (warning), and
+   the install one-liners pin a tag.
+
+**IF RESUMED WITHOUT NEW ORDERS**: nothing is queued. Candidates the
+sweep/residuals name (all small): SHA-pin the GitHub actions; Tab
+completion for `/metroid <area>` and `/mario <variant>`; expire pending
+contact requests after a day; `halo -c` in the TUI with no prior
+session still starts fresh silently; wizard roles toggles do not
+refresh a live role table. Status crons are session-only.
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-11 ~18:10 CDT (previous)
 
 **2.0.10 is five rounds in, all pushed**: 1 `f88a012` (/review + halo
 review, live-accepted with glm-5.3-flash), 2 `7b6b78c` (the security
