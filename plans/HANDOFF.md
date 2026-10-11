@@ -4,7 +4,40 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-11 ~10:20 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-11 ~18:10 CDT (authoritative, read this first)
+
+**2.0.10 is five rounds in, all pushed**: 1 `f88a012` (/review + halo
+review, live-accepted with glm-5.3-flash), 2 `7b6b78c` (the security
+review: docs/harness/SECURITY-REVIEW-2.0.10.md, 27 findings / 7 high, +
+SECURITY.md), 3 `8376d4a` (fix pass 1: trust 6-10, credentials 17-20),
+4 `3725d23` (fix pass 2: deny/ask rules hold through compound forms
+12-16, state-dir modes 24-25; 11 REJECTED by the standing contract),
+5 `9c78ff8` (fix pass 3: remote 1-5, subprocesses 21-23, supply chain
+26-27) + `6edd212` (release.py rewrites the installer tag URLs).
+`plans/briefs/2.0.10-review/SWEEP.md`: 26 fixed, 1 rejected, 0 open;
+residual risks listed there (uv tool install ignores lock hashes; CI
+actions not SHA-pinned; signal-cli setPin stdin path unverified live;
+gpg release-key fingerprint left empty -> digest-only).
+
+**IN FLIGHT: round 6, the front-page redo** (`round-6-front-page.md`:
+tools/capture_screens.py + captures.json -> docs/media/ PNGs via
+headless Chrome + SMIL-animated SVGs, hand-drawn diagrams, README top
+half rewritten as stories + a comparison table, tests/test_front_page_
+media.py, docs/MEDIA.md). THEN: CI green on both platforms (watch the
+new pip-audit / --require-hashes steps in suites.yml -- first run after
+round 5) -> `python scripts/release.py 2.0.10 --no-install` -> handoff +
+memory. Behaviour changes worth telling the owner: `${VAR}` in a project
+.mcp.json no longer expands provider tokens (warning instead); the
+installers now install the newest tag (`--ref master` for the old
+behaviour); `halo update` on a tag-checked-out clone needs `--ref`.
+
+**OWNER ACTIONS PENDING**: the live Signal check (docs/REMOTE.md "Live
+verification") -> 2.0.9.1/2.0.10.1 fix pass; after 2.0.10 the roadmap
+has 3.0.1.1 PARKED by the owner (do not start it).
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-11 ~10:20 CDT (previous)
 
 **v2.0.9 IS RELEASED** (tag v2.0.9 at `b691a0d`, GitHub release
 published, `--no-install`: the owner refreshes installs himself). CI was
