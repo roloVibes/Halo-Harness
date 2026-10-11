@@ -8,6 +8,7 @@ near-miss slug correction for a `--model` that doesn't match anything.
 from __future__ import annotations
 
 import argparse
+import os
 import difflib
 import json
 import sys
@@ -268,6 +269,34 @@ def format_dbx_table_lines(rows: dict, *, urls: bool = False) -> "list[str]":
     return lines
 
 
+def _cmd_models_capabilities(args) -> int:
+    """`halo models --capabilities` / `--best-for KIND` (3.0.1.0 D1)."""
+    from halo_harness.capabilities import KINDS, best_for, capability_lines
+    from halo_harness.providers.config import load_provider_env_files, load_routes
+    from halo_harness.providers.model_enumeration import build_model_rows
+    load_provider_env_files()
+    state_dir = bridge_home()
+    routes = load_routes(state_dir / "routes.json" if state_dir.exists() else None)
+    rows = [r for r in build_model_rows(state_dir, env=dict(os.environ), routes=routes) if r.get("ref")]
+    if args.best_for:
+        kind = args.best_for.strip().lower()
+        if kind not in KINDS:
+            print(f"halo models: --best-for takes one of {', '.join(KINDS)}, not {args.best_for!r}", file=sys.stderr)
+            return 2
+        ranked = best_for(rows, kind)
+        if not ranked:
+            print(f"No model in the catalog states what {kind} needs; `halo models --refresh` updates the catalog.")
+            return 1
+        print(f"Best for {kind} (from the catalog's own modality, context, price and speed facts; score 0-1):")
+        for i, r in enumerate(ranked, 1):
+            print(f"{i:>2}. {r['ref']:<40} {r['score']:.2f}  {r['chips']:<24} {r['reason']}")
+        return 0
+    print("ref                                      in: what the model accepts  out: what it produces ('?' = not stated by the catalog)")
+    for line in capability_lines(rows):
+        print(line)
+    return 0
+
+
 def cmd_models(argv) -> int:
     parser = argparse.ArgumentParser(prog="halo models", add_help=True)
     parser.add_argument("--refresh", action="store_true", help="Re-probe OpenRouter/Databricks instead of using the cache")
@@ -293,7 +322,14 @@ def cmd_models(argv) -> int:
     # `halo rules --forget <endpoint>` is the scoped, single-endpoint twin.
     parser.add_argument("--forget-rules", action="store_true",
                          help="Also clear every learned parameter-rejection rule for every endpoint")
+    # 3.0.1.0 D1: which model for what -- straight from the catalog's own modality fields.
+    parser.add_argument("--capabilities", action="store_true",
+                         help="One line per model: what it accepts (text, image, audio, video, file) and what it outputs")
+    parser.add_argument("--best-for", metavar="KIND", default="",
+                         help="Rank models for one job: visual | audio | video | image | design (with a reason each)")
     args = parser.parse_args(argv)
+    if args.capabilities or args.best_for:
+        return _cmd_models_capabilities(args)
 
     # 2.0.0 fixpass finding 4: the new env file (2.0.5 round 3: the legacy
     # fallback this comment used to describe was removed -- see

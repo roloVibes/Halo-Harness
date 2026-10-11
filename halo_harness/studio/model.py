@@ -44,6 +44,7 @@ def from_yaml(text: str) -> dict:
 # -- the model catalog --------------------------------------------------------
 
 def model_rows(state_dir=None) -> list:
+    from halo_harness.capabilities import capability_profile
     from halo_harness.model_display import format_price_per_m, format_speed, format_token_count
     import os
     from halo_harness.providers.config import default_state_dir, load_provider_env_files, load_routes
@@ -64,6 +65,8 @@ def model_rows(state_dir=None) -> list:
             "context_tokens": row.get("context_tokens"),
             "speed": format_speed(row.get("speed_ttft_s"), row.get("speed_tokens_per_second")) or "?",
             "local": row.get("provider") in ("ollama", "huggingface"),
+            "chips": capability_profile(row)["chips"],  # 3.0.1.0 D1: vision / audio / video / files / image-out, or ? when unknown
+            "modalities_in": row.get("modalities_in"), "image_output": bool(row.get("image_output")),
         })
     return rows
 

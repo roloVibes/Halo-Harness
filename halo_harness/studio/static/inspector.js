@@ -37,7 +37,7 @@
     const draw = () => {
       const q = i.value.toLowerCase();
       const rows = (window.app.models || []).filter((m) => !q || m.ref.toLowerCase().includes(q)).slice(0, 60);
-      menu.innerHTML = rows.map((m) => `<div data-ref="${esc(m.ref)}"><span>${esc(m.ref)}</span><small>${esc(m.price)}</small><small>ctx ${esc(m.context)}</small><small>${esc(m.speed)}</small></div>`).join("") || `<div><small>no catalog rows match; type a ref and press Enter</small></div>`;
+      menu.innerHTML = rows.map((m) => `<div data-ref="${esc(m.ref)}"><span>${esc(m.ref)}${m.chips && m.chips !== "text" ? ` <small class="chips-inline">${esc(m.chips)}</small>` : ""}</span><small>${esc(m.price)}</small><small>ctx ${esc(m.context)}</small><small>${esc(m.speed)}</small></div>`).join("") || `<div><small>no catalog rows match; type a ref and press Enter</small></div>`;
       menu.style.display = "";
     };
     i.addEventListener("focus", draw); i.addEventListener("input", draw);
