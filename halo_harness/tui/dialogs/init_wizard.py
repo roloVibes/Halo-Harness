@@ -1337,8 +1337,14 @@ class OrgsStep(StepScreen):
         from halo_harness.theme import get_config_value
         default_name = get_config_value("orgs.default", default=None)
         current = ("off (no organization runs)" if not enabled else default_name or "on, no default yet")
+        # 2.2.0: organizations run in Paperclip (Studio's Org mode); the switch
+        # below is Halo's older built-in org runner, kept for existing configs.
+        pointer = Static("Organizations now run in Paperclip: open `halo studio` and flip to Org, or run "
+                         "`halo paperclip sync <lineup>` to turn a lineup into a company (docs/PAPERCLIP.md). "
+                         "The switch below is Halo's older built-in org runner, kept for existing setups.",
+                         id="wiz-orgs-pointer")
         return [Static(one_sentence("Organizations", current, hint="Enter to change, or Make this the default."),
-                        classes="dialog-title"), switch_row, on_body]
+                        classes="dialog-title"), pointer, switch_row, on_body]
 
     def on_mount(self) -> None:
         self._sync_visibility()
