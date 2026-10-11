@@ -70,14 +70,8 @@ def save_tokens(server_name: str, tokens: dict) -> Path:
             pass
     data = dict(tokens)
     data["saved_at"] = time.time()
-    tmp = path.with_name(path.name + f".tmp{os.getpid()}")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    if os.name != "nt":
-        try:
-            os.chmod(tmp, 0o600)
-        except OSError:
-            pass
-    os.replace(tmp, path)
+    from halo_harness.privateio import write_private_atomic  # finding 20: 0600 from birth
+    write_private_atomic(path, json.dumps(data, indent=2, ensure_ascii=False))
     return path
 
 
@@ -96,6 +90,41 @@ def _pkce_pair() -> "tuple[str, str]":
     return verifier, challenge
 
 
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def endpoint_error(url: object, label: str) -> Optional[str]:
+    """2.0.10 round 3 (finding 8): an OAuth endpoint -- from the config or
+    from a server's own metadata -- is accepted only as `https`, or `http`
+    on a loopback host (a local dev server); anything else (`file:`, a
+    custom scheme, a bare path, plaintext http to a remote host, control
+    characters) reaches neither `webbrowser.open` nor a token POST."""
+    if not isinstance(url, str) or not url:
+        return f"{label} is missing"
+    if any(ord(c) <= 0x20 or ord(c) == 0x7F for c in url):
+        return f"{label} has whitespace or control characters"
+    try:
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+    except ValueError:
+        return f"{label} is not a valid URL"
+    if parsed.scheme == "https" and host:
+        return None
+    if parsed.scheme == "http" and host in _LOOPBACK_HOSTS:
+        return None
+    return f"{label} must be an https URL (or http on localhost), got scheme {parsed.scheme or 'none'!r}"
+
+
+def _validated_endpoints(auth_ep: object, token_ep: object, *, need_auth: bool = True) -> "Optional[str]":
+    if need_auth and auth_ep:
+        bad = endpoint_error(auth_ep, "authorization_endpoint")
+        if bad:
+            return bad
+    if token_ep:
+        return endpoint_error(token_ep, "token_endpoint")
+    return None
+
+
 def discover_endpoints(server_url: str, oauth_cfg: dict, *,
                         timeout: float = 10.0) -> "tuple[Optional[str], Optional[str], Optional[str]]":
     """`(authorization_endpoint, token_endpoint, error)` -- explicit
@@ -103,7 +132,8 @@ def discover_endpoints(server_url: str, oauth_cfg: dict, *,
     else RFC 8414 metadata discovery, generic (no vendor ever named)."""
     auth_ep, token_ep = oauth_cfg.get("authorization_endpoint"), oauth_cfg.get("token_endpoint")
     if auth_ep and token_ep:
-        return auth_ep, token_ep, None
+        bad = _validated_endpoints(auth_ep, token_ep)
+        return (None, None, bad) if bad else (auth_ep, token_ep, None)
     parsed = urlparse(server_url or "")
     if not parsed.scheme or not parsed.netloc:
         return auth_ep, token_ep, "no server URL to discover OAuth endpoints from"
@@ -113,7 +143,14 @@ def discover_endpoints(server_url: str, oauth_cfg: dict, *,
             meta = json.loads(resp.read().decode("utf-8"))
     except (URLError, HTTPError, ValueError, TimeoutError) as e:
         return auth_ep, token_ep, f"could not discover OAuth endpoints at {metadata_url}: {type(e).__name__}: {e}"
-    return auth_ep or meta.get("authorization_endpoint"), token_ep or meta.get("token_endpoint"), None
+    if not isinstance(meta, dict):
+        return auth_ep, token_ep, f"OAuth metadata at {metadata_url} is not a JSON object"
+    auth_ep = auth_ep or meta.get("authorization_endpoint")
+    token_ep = token_ep or meta.get("token_endpoint")
+    bad = _validated_endpoints(auth_ep, token_ep)
+    if bad:
+        return None, None, f"OAuth metadata at {metadata_url} rejected: {bad}"
+    return auth_ep, token_ep, None
 
 
 class _CallbackResult:
@@ -264,6 +301,10 @@ def run_authorization_flow(*, server_name: str, server_url: str, oauth_cfg: dict
         return None, f"token exchange failed: {type(e).__name__}: {e}"
     if not isinstance(tokens, dict) or not tokens.get("access_token"):
         return None, f"token endpoint did not return an access_token: {tokens!r}"
+    # finding 8: pin the endpoint the code was exchanged at; a refresh uses
+    # this one instead of re-discovering (a server whose metadata changes
+    # later never receives the stored refresh_token / client_secret).
+    tokens["token_endpoint"] = token_ep
     return tokens, None
 
 
@@ -279,7 +320,13 @@ def refresh_tokens(server_name: str, stored: dict, *, oauth_cfg: dict,
     refresh_token = stored.get("refresh_token") if isinstance(stored, dict) else None
     if not refresh_token:
         return None, "no refresh_token on file for this server"
-    _auth_ep, token_ep, err = discover_endpoints(server_url, oauth_cfg)
+    pinned = stored.get("token_endpoint") if isinstance(stored, dict) else None
+    if oauth_cfg.get("token_endpoint"):
+        token_ep, err = oauth_cfg["token_endpoint"], _validated_endpoints(None, oauth_cfg["token_endpoint"])
+    elif pinned:
+        token_ep, err = pinned, _validated_endpoints(None, pinned)
+    else:
+        _auth_ep, token_ep, err = discover_endpoints(server_url, oauth_cfg)
     if err:
         return None, err
     if not token_ep:
@@ -300,5 +347,6 @@ def refresh_tokens(server_name: str, stored: dict, *, oauth_cfg: dict,
     # A refresh response commonly omits `refresh_token` (the old one stays
     # valid) -- carried over so a LATER refresh still has one to use.
     tokens.setdefault("refresh_token", refresh_token)
+    tokens["token_endpoint"] = token_ep
     save_tokens(server_name, tokens)
     return tokens, None

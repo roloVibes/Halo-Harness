@@ -179,9 +179,8 @@ def set_config_value(key: str, value) -> Path:
         cursor[parts[-1]] = value
     else:
         data[key] = value
-    tmp_path = path.with_name(path.name + f".tmp{os.getpid()}")
-    tmp_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    os.replace(tmp_path, path)
+    from halo_harness.privateio import write_private_atomic  # finding 20: 0600 from birth
+    write_private_atomic(path, json.dumps(data, indent=2) + "\n")
     # Halo 2.0.3 fix pass C-1 (review finding 16): config.json can hold
     # secret-bearing fields now (`ollama.hosts[].api_key_env`'s shared env
     # file is 0600 already, but an existing/legacy plaintext `api_key`/

@@ -15,7 +15,16 @@ _PROJECT_EXCLUDED_KEYS = frozenset({"autoMemoryDirectory"})
 # 6/D-CFG); deny/ask stay -- only allow/additionalDirectories/env/hooks/
 # autoMemoryDirectory require trust.
 _TRUST_GATED_PERMISSION_KEYS = frozenset({"allow", "additionalDirectories"})
-_TRUST_GATED_TOP_KEYS = frozenset({"env", "hooks", "autoMemoryDirectory"})
+# 2.0.10 round 3 (findings 6/7): the keys that approve a repo's own
+# `.mcp.json` servers, and the ones that name a command to run, are trust-
+# gated too -- an untrusted repo can neither approve its own servers nor run
+# its `statusLine` command.
+_TRUST_GATED_TOP_KEYS = frozenset({
+    "env", "hooks", "autoMemoryDirectory",
+    "enableAllProjectMcpServers", "enabledMcpjsonServers",
+    "statusLine", "apiKeyHelper", "awsAuthRefresh", "awsCredentialExport",
+    "gcpAuthRefresh", "otelHeadersHelper",
+})
 
 
 @dataclass
@@ -292,7 +301,9 @@ def _apply_trust_filter(layer_data: dict, layer_name: str, trusted: bool) -> dic
     """Drop the keys that require a trusted folder from an untrusted
     project/local layer before it ever reaches `_merge_layers` (finding 6):
     `permissions.allow`/`additionalDirectories`, `env`, `hooks`,
-    `autoMemoryDirectory`. `permissions.deny`/`ask` are always kept."""
+    `autoMemoryDirectory`, the MCP approval keys and the command-naming keys
+    (`statusLine`, `apiKeyHelper`, ...). `permissions.deny`/`ask` are always
+    kept."""
     if trusted or layer_name not in ("projectSettings", "localSettings"):
         return layer_data
     filtered = dict(layer_data)

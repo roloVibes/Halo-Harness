@@ -36,8 +36,10 @@ that one sub-object. `fallbackModel`/`modelPicker`/`availableModels`/
 field.
 
 **Trust**: an *untrusted* `project`/`local` layer has `permissions.allow`,
-`permissions.additionalDirectories`, `env`, `hooks`, and
-`autoMemoryDirectory` stripped before merging -- `permissions.deny`/`.ask`
+`permissions.additionalDirectories`, `env`, `hooks`,
+`autoMemoryDirectory`, `enableAllProjectMcpServers`/`enabledMcpjsonServers`
+and the command-naming keys (`statusLine`, `apiKeyHelper`,
+`otelHeadersHelper`, ...) stripped before merging -- `permissions.deny`/`.ask`
 always survive regardless of trust (a repo you haven't trusted yet can still
 have its own denials honored, just never its own extra permissions/secrets/
 hooks). Trust itself (`config/claude_json.py::is_trusted`) is true when any
@@ -137,9 +139,14 @@ entirely.
   path in this harness ever writes this file.
 - **`.mcp.json`** (project-scope MCP servers): read from `<cwd>/.mcp.json`;
   a server there needs first-time approval (`enabledMcpjsonServers`/
-  `enableAllProjectMcpServers` in `~/.claude.json` or settings, or a
-  print-mode run, or a prior approval recorded in
-  `~/.halo/mcp-approvals.json`) before it's ever started.
+  `enableAllProjectMcpServers` in `~/.claude.json` or user settings, or a
+  print-mode run in a trusted folder, or a prior approval recorded in
+  `~/.halo/mcp-approvals.json`) before it's ever started. A repo's own
+  settings cannot approve its servers, and `-p` in an untrusted folder does
+  not auto-approve them. Server names cannot contain `__` (it separates the
+  server and tool in `mcp__<server>__<tool>`); such an entry shows as
+  invalid. `${VAR}` in an entry expands from the environment minus the
+  harness's own provider keys.
 - **Plugins**: `~/.claude/plugins/installed_plugins.json` (both the V1
   single-dict and the real V2 per-scope-array manifest shapes), each
   enabled plugin's own `.mcp.json`/`.claude-plugin/plugin.json` (MCP

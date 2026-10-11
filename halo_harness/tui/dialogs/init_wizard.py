@@ -380,6 +380,9 @@ def _pv_status_text(provider: str, *, state: Optional[dict] = None) -> str:
         return f"picked up from {state['source']}: {state['masked']}"
     if state.get("known_host"):
         return f"host picked up from {state['source']}: {state['known_host']} -- token still needed"
+    if state.get("host_hint"):
+        return (f"{state['source']} (a file in this project) names the host {state['host_hint']} -- "
+                f"type it below to use it for your token")
     return "not set up"
 
 

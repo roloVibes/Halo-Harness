@@ -1545,7 +1545,9 @@ Authorization Server Metadata discovery (RFC 8414) at the server's own
 on a local callback, exchanges the code for tokens, and stores them at
 `~/.halo/mcp/oauth/<name>.json` -- never in any of Claude Code's files, and
 halo never reads `~/.claude/.credentials.json` either. `logout` deletes that
-one file. Tested only against a local fake OAuth server
+one file. Both endpoints must be `https` (or `http` on localhost); the token
+endpoint used at login is recorded in the token file and is the one a later
+refresh posts to. Tested only against a local fake OAuth server
 (`tests/helpers/fake_oauth_server.py`); this flow has not been verified
 against any specific vendor's real endpoints, and no vendor is named here
 or in the code.

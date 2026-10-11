@@ -339,7 +339,32 @@ class _OfflineAwareRedirectHandler(urllib.request.HTTPRedirectHandler):
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         _check_offline_allowed(urllib.parse.urlparse(newurl).hostname)
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        # 2.0.10 round 3 (finding 18): urllib keeps every request header
+        # across a redirect, so an `Authorization`/`x-api-key`/user header
+        # reached whatever host the 3xx named. When the scheme, host or port
+        # changes, only the plain transport headers survive.
+        if new is not None and _origin(req.full_url) != _origin(newurl):
+            new.headers = {k: v for k, v in new.headers.items() if k.lower() in _CROSS_ORIGIN_KEEP_HEADERS}
+            new.unredirected_hdrs = {k: v for k, v in new.unredirected_hdrs.items()
+                                     if k.lower() in _CROSS_ORIGIN_KEEP_HEADERS}
+        return new
+
+
+_CROSS_ORIGIN_KEEP_HEADERS = frozenset({
+    "accept", "accept-encoding", "accept-language", "user-agent", "content-type", "content-length",
+})
+
+
+def _origin(url: str) -> tuple:
+    parsed = urllib.parse.urlparse(url)
+    scheme = (parsed.scheme or "").lower()
+    default_port = {"http": 80, "https": 443}.get(scheme)
+    try:
+        port = parsed.port or default_port
+    except ValueError:
+        port = None
+    return scheme, (parsed.hostname or "").lower(), port
 
 
 def urlopen_tls(req, timeout=None):

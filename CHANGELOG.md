@@ -51,6 +51,46 @@ version.
   `test_review_slash.py`, `test_review_tui.py` (scripted reviewer, judge and
   coder replies through the mock upstream; scratch git repos; a fake `gh`).
 
+### Security review fix pass, round 1 (trust boundaries + credentials)
+
+Findings 6-10 and 17-20 of [docs/harness/SECURITY-REVIEW-2.0.10.md](docs/harness/SECURITY-REVIEW-2.0.10.md).
+Each is the trust gate the docs already promised, or a secret not leaking --
+no new gates. Pins: `tests/test_security_round3.py`, `3b`, `3c`, `3d`.
+
+- **6: a repo cannot approve its own `.mcp.json` servers.** `enableAllProjectMcpServers`
+  and `enabledMcpjsonServers` are dropped from an untrusted project/local settings
+  layer, and `-p` auto-approves `.mcp.json` servers only in a trusted folder (a hash
+  approval or the user's own enabled list still approves).
+- **7: a project `statusLine` does not run in an untrusted folder.** `statusLine`,
+  `apiKeyHelper`, `awsAuthRefresh`, `awsCredentialExport`, `gcpAuthRefresh` and
+  `otelHeadersHelper` join the keys an untrusted layer loses.
+- **8: OAuth endpoints are checked.** Authorization and token endpoints (config or
+  server metadata) must be `https`, or `http` on localhost, with no whitespace or
+  control characters, before `webbrowser.open` or a token POST sees them. The token
+  endpoint used at login is stored in the token file and used for every refresh, so
+  a server that later changes its metadata never receives the refresh token.
+- **9: `__` in a server name.** Such an entry is a disabled placeholder with a reason;
+  `suggest_rule` keeps the whole tool name (`mcp__srv__do__thing`) and escapes a `*`
+  in a command token.
+- **10: the Databricks host from a project `team.json`.** It must be `https`; `halo init`
+  and the wizard name the file and make you retype the host before a token is stored
+  for it (`--yes` cannot confirm it); a `~/.halo/team.json` or `--team` host is used as before.
+- **17: redaction.** `sanitize_node` redacts every string leaf as plain text before the
+  JSON pass (pairs quoted inside tool results), URL credentials cover any `scheme://user:pass@`,
+  values with backslashes are cut whole, `PIN=...` and numeric secret values go while token
+  counts (`input_tokens: 12`) stay, JSON-escaped spellings of known secret values are replaced,
+  header dicts (`{'Authorization': 'Bearer ...'}`) are caught, and `bridge.log`'s
+  `RedactingFormatter` now runs the same redactor.
+- **18: redirects.** When a redirect changes scheme, host or port, `urlopen_tls` forwards
+  only plain transport headers (no `Authorization`, `x-api-key` or user headers).
+- **19: stripped environment.** signal-cli (`run_cli`, `open_link`) gets
+  `tool_child_env`; `.mcp.json` `${VAR}` expands from the stripped environment;
+  `halo mcp list`/`get` show a remote url as scheme://host/path (no query).
+- **20: secret files.** The proxy token, OAuth tokens, `config.json` and the imported env
+  file are written through `write_private_atomic` (0600 from birth, no world-readable window);
+  `add_allow_rule` keeps the settings file's mode; the proxy token is compared with
+  `hmac.compare_digest`.
+
 ## [2.0.9] - 2026-10-11
 
 ### Remote control: the session control socket

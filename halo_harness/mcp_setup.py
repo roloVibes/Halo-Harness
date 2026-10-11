@@ -271,8 +271,11 @@ def build_manager(
         cwd=cwd, claude_json=claude_json, mcp_config_flag=mcp_config_flag,
         strict_mcp_config=strict_mcp_config, print_mode=print_mode,
         approvals=load_mcp_approvals(), managed_mcp_path=managed_mcp_json_path(),
-        env_for_expansion=base_env, extra_dynamic=dynamic, settings=settings,
-        plugin_servers=plugin_servers,
+        # finding 19: `${VAR}` expands from the same secret-stripped env the
+        # server child gets, so `{"env": {"K": "${OPENROUTER_API_KEY}"}}`
+        # cannot hand a provider key to a server.
+        env_for_expansion=tool_child_env(base_env), extra_dynamic=dynamic, settings=settings,
+        plugin_servers=plugin_servers, trusted=trusted,
     )
     notices.extend(resolve_notices)
 

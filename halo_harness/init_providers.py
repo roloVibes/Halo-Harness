@@ -370,13 +370,27 @@ def tab_credential_state(provider: str, *, team_cfg: Optional[dict] = None,
         from halo_harness.init_cli import _known_databricks_host
         discovered_host = _known_databricks_host()
         team_host = (team_cfg or {}).get("host")
+        host_hint = None
+        if team_host and not discovered_host:
+            # finding 10: only an https host is adopted, and a host chosen
+            # by a file in the project folder is shown as a hint to retype,
+            # never pre-filled or used implicitly.
+            from halo_harness.team_config import team_host_needs_confirm, team_host_problem
+            if team_host_problem(team_host):
+                team_host = None
+            elif team_host_needs_confirm(team_cfg):
+                host_hint, team_host = team_host, None
         host = discovered_host or team_host
         fields = []
         if not host:
             fields.append({"name": "host", "label": "DATABRICKS_HOST", "secret": False})
         fields.append({"name": "token", "label": "DATABRICKS_TOKEN", "secret": True})
         source = "Claude Code's settings" if discovered_host else ("the team config" if team_host else None)
-        return {"configured": False, "source": source, "masked": host, "known_host": host, "fields": fields}
+        out = {"configured": False, "source": source, "masked": host, "known_host": host, "fields": fields}
+        if host_hint:
+            out["host_hint"] = host_hint
+            out["source"] = (team_cfg or {}).get("_source", "the project's team config")
+        return out
     if provider == "openrouter":
         from halo_harness.providers.config import resolve_openrouter
         orc = resolve_openrouter(env)
@@ -525,6 +539,16 @@ def _secret_env_var_name(kind: str, name: str) -> str:
     return f"HALO_SECRET_{kind}_{safe}"
 
 
+def _safe_team_host(team_cfg: Optional[dict]) -> str:
+    """finding 10: the team host the wizard may fall back to -- https only,
+    and never one a project file chose (the user must type that one)."""
+    from halo_harness.team_config import team_host_needs_confirm, team_host_problem
+    host = (team_cfg or {}).get("host")
+    if not host or team_host_problem(host) or team_host_needs_confirm(team_cfg):
+        return ""
+    return host
+
+
 def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict] = None) -> "tuple[bool, str]":
     """Writes `values` (keyed by `tab_credential_state`'s own `fields`
     `name`s) to the SAME shared env file + this process's live env every
@@ -548,7 +572,7 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
     from halo_harness.init_cli import _env_file_path, _write_env_var
     if provider == "databricks":
         from halo_harness.init_cli import _known_databricks_host
-        host = (values.get("host") or "").strip() or _known_databricks_host() or (team_cfg or {}).get("host") or ""
+        host = (values.get("host") or "").strip() or _known_databricks_host() or _safe_team_host(team_cfg)
         token = (values.get("token") or "").strip()
         if not host or not token:
             return False, "both DATABRICKS_HOST and DATABRICKS_TOKEN are needed"
