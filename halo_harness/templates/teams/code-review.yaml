@@ -1,0 +1,16 @@
+# Halo 2.0.10 round 1 -- shipped team template for `/review` and `halo review`.
+# Three roles do the three parts of a review: `reviewer` runs the dimension
+# reviewers, `judge` verifies every finding, `coder` applies the `--fix` pass.
+# As shipped each uses the session's default model (the `default-model` bio);
+# edit the installed copy (`halo teams edit code-review`) to give each part its
+# own model, for example a cheap one for reviewers and a stronger one for the
+# judge. See docs/REVIEW.md.
+name: code-review
+description: Reviewers, judge and fixer for /review -- change which model does which part of a code review.
+version: 1
+tags: [starter, review]
+roles:
+  main: general
+  reviewer: default-model
+  judge: default-model
+  coder: default-model

@@ -83,7 +83,7 @@ include = ["halo_harness*"]
 # drop every *.json under providers/, same class of bug package-data
 # already exists to prevent for styles.tcss.
 halo_harness = ["tui/*.tcss", "providers/*.json", "providers/catalog/*.json",
-                "templates/agents/*.yaml", "templates/teams/*.yaml"]
+                "templates/agents/*.yaml", "templates/teams/*.yaml", "review/prompts/*.md"]
 
 [tool.setuptools.dynamic]
 version = { attr = "halo_harness.__version__" }

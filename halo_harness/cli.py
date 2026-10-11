@@ -509,6 +509,9 @@ def main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "remote":
         from halo_harness.remote.cli import cmd_remote
         return cmd_remote(argv[1:])
+    if argv and argv[0] == "review":
+        from halo_harness.review.cli import cmd_review
+        return cmd_review(argv[1:])
     if argv and argv[0] == "completion":
         from halo_harness.completion_cli import cmd_completion
         return cmd_completion(argv[1:])

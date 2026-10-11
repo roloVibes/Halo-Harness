@@ -8,6 +8,49 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.0.10] - unreleased
+
+### /review: parallel dimension reviewers, a judge, an optional fix pass
+
+- **`/review` and `halo review`** (`halo_harness/review/`, [docs/REVIEW.md](docs/REVIEW.md)),
+  modelled on Claude Code's `/code-review`. `[target]` is nothing (the current
+  branch against its merge base with the default branch, uncommitted and
+  untracked changes included), a range `a..b`, a branch, a pull request
+  (`#123` or `123`, through `gh pr diff` / `gh pr view --json`), or paths and
+  globs reviewed as they are. Large diffs are split per file into shards.
+- **Five read-only reviewers in parallel**, one sub-agent per dimension
+  (`correctness`, `security`, `performance`, `tests`, `docs-consistency`) on the
+  `reviewer` role, each with its own prompt under `review/prompts/`, run under
+  `agents.max_concurrent` and visible in `/tasks`. Findings come back as JSON
+  (`file, line, severity, category, short_summary, summary, failure_scenario`),
+  parsed tolerantly (a fenced block anywhere in the reply) with one "output only
+  the JSON array" repair. `--level low|medium|high` caps findings per reviewer
+  at 3 / 8 / 20 and sets how speculative they may be; `--dimensions a,b`
+  restricts.
+- **A judge verifies every finding** (`judge` role): `CONFIRMED`, `PLAUSIBLE` or
+  `DISMISSED` with a reason. Dismissed findings are dropped (kept in `--json`
+  under `dismissed`), the rest are deduplicated (same file, line and category)
+  and ranked severity-first, then verdict. `--no-verify` skips the judge.
+- **`--fix`**: one `coder` sub-agent per CONFIRMED finding applies a minimal
+  fix in the working tree (never committing), then the judge re-verifies the
+  finding; each gets an `outcome` of `fixed`, `skipped` or `no_change_needed`.
+- **Surfaces.** In the TUI: `/review ...` runs on a worker thread, the
+  reviewers show in `/tasks`, and the result is a one-line header ("N findings
+  (c confirmed, p plausible) from d reviewers in t s, $cost") plus one card per
+  finding (clickable `file:line`, severity, verdict badge, failure scenario
+  folded); Esc aborts every reviewer. In print mode: `halo review [target]`
+  prints the same as text, or `--json` as `{target, findings[], dismissed[],
+  reviewers[], cost_usd, elapsed_s}` in the ReportFindings field names;
+  `--model`, `--role NAME=MODEL` and `--cwd` are accepted. `-p "/review ..."`
+  prints the text form.
+- **`code-review` team template** (`templates/teams/code-review.yaml`): maps the
+  `reviewer`, `judge` and `coder` roles so the user can change which model does
+  which part; it shows in the wizard's Team step, `/teams` and `halo teams`.
+- Tests: `tests/test_review_target.py`, `test_review_findings.py`,
+  `test_review_run.py`, `test_review_fix.py`, `test_review_cli.py`,
+  `test_review_slash.py`, `test_review_tui.py` (scripted reviewer, judge and
+  coder replies through the mock upstream; scratch git repos; a fake `gh`).
+
 ## [2.0.9] - 2026-10-11
 
 ### Remote control: the session control socket
