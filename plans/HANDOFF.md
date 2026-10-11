@@ -4,6 +4,62 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-11 ~22:40 CDT (authoritative, read this first)
+
+**v2.0.11 and v2.1.0 ARE RELEASED** (tags at `8ee57be` and `e045330`; local
+install refreshed to 2.1.0 with the `uv pip install --python <tool venv
+python> --reinstall-package halo-harness <clone>` recipe, since `uv tool
+install --reinstall` fails while a `halo.exe` session runs).
+
+**2.2.0 "Org mode" IS ON MASTER WAITING ON CI** (merge `3848dbd`; one CI fix
+`7f7832b`: the Studio install endpoint started a real `npx` install on Linux
+CI because the fake Paperclip was reachable but nothing was under
+`~/.paperclip`; it now refuses whenever an instance is reachable). Gate the
+release on `gh run view <id> --json conclusion` == success (never on the
+watch command's exit), then `python scripts/release.py 2.2.0 --no-install`
+(CHANGELOG has `## [2.2.0] - unreleased`), refresh the install, then
+`halo paperclip sync halo-dev-cycle --company "Halo Harness"` so the live
+Paperclip agents point at the installed `halo` (they still name a deleted
+scratch runner).
+
+**3.0.1.0 "Halo Design" IS IN FLIGHT ON `track-d`** (worktree <home>/Halo-D,
+branched from track-c; the 2.2.0 CI fix is cherry-picked there as
+`87309c2`). Done and committed: D1 capabilities (`halo models
+--capabilities|--best-for KIND`, `halo_harness/capabilities.py`, Studio
+chips); D2 `halo_harness/design/` (store, session, sync, export, cli; `halo
+design new|list|show|run|sync|comment|restore|export|handoff|doctor`); D4
+`design/crafts_probe.py` + `halo design doctor --probe` (all seven craft
+apps up with their render tools on the build host); D3 Studio Design mode
+(worker, verified: `studio/design_api*.py`, `design_files.py`, the raw
+artboard route with its own sandbox CSP, `static/design*.js|css`,
+`tests/test_studio_design.py` 9/9 incl. headless Chrome, `tools/
+design_demo.py`, `capture_studio.py --mode design`, docs/media/
+studio-design.png); docs/DESIGN.md, docs/STUDIO.md Design section,
+COMMANDS.md sections, README story + rows, CHANGELOG `## [3.0.1.0] -
+unreleased` (D1-D4 bullets). A design turn hands the model ONLY the craft
+MCP servers (a strict `--mcp-config` written per run; `--tools` filters
+built-ins only). **Live acceptance passed**: `halo design run` on
+`or:anthropic/claude-haiku-5.5` made an HTML hero with two knobs and a
+VectorCraft logo mark (SVG+PNG) for $0.029; export folder, handoff, the
+Studio Design API (knob -> v2, raw route, ranking) all checked against the
+real project `~/.halo/design/halo-launch-page`.
+
+**IN FLIGHT: D5 polish** (worker from `plans/briefs/D5-design-polish.md`:
+variants, critique pins, contrast check, assets, run-view cost line,
+shortcuts, Design tour steps, docs/media/studio-design-knob.png, docs).
+Then D6: CHANGELOG D5 bullets, the CI trio on track-d (push the branch,
+watch the run), merge to master AFTER 2.2.0 is tagged, `release.py 3.0.1.0
+--no-install`, refresh the install, memory, this handoff.
+
+**KNOWN:** `studio/api.py` (267) and `studio/model.py` (282) sit over the
+250-line cap from before; `test_tui.py::test_bare_effort_card_selection_
+persists_like_the_plain_text_path` and `tests/test_wizard_agents_bios.py::
+test_bio_editor_opens_with_a_sentence_and_per_field_help` are known
+flakes; the three shields badges render blank through GitHub's camo
+briefly after a push; owner still uploads docs/media/social-preview.png.
+
+--- previous snapshot below ---
+
 ## WHERE THINGS STAND -- 2026-10-11 ~16:30 CDT (authoritative, read this first)
 
 **v2.0.11 IS RELEASED** (tag v2.0.11 at `8ee57be`, GitHub release
