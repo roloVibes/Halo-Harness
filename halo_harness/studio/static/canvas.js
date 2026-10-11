@@ -14,7 +14,7 @@
       this.svg = svg; this.minimap = minimap; this.world = svg.querySelector("#world");
       this.gEdges = svg.querySelector("#edges"); this.gNodes = svg.querySelector("#nodes"); this.marquee = svg.querySelector("#marquee");
       this.nodes = []; this.edges = []; this.selected = new Set(); this.live = {};
-      this.t = { x: 80, y: 80, k: 1 }; this.onSelect = () => {}; this.onMove = () => {}; this.onDrop = () => {}; this.onOpen = () => {};
+      this.t = { x: 80, y: 80, k: 1 }; this.onSelect = () => {}; this.onMove = () => {}; this.onDrop = () => {}; this.onOpen = () => {}; this.onDropOn = null;
       this._bind();
     }
     setGraph(nodes, edges, positions) {
@@ -25,6 +25,7 @@
       this.render();
     }
     positions() { return Object.fromEntries(this.nodes.map((n) => [n.id, { x: n.x, y: n.y }])); }
+    nodeAt(x, y, except = []) { return this.nodes.find((n) => !except.includes(n.id) && x >= n.x && x <= n.x + W && y >= n.y && y <= n.y + H) || null; }
     node(id) { return this.nodes.find((n) => n.id === id); }
     setLive(live) { this.live = live || {}; this.render(); }
     select(ids, additive) { if (!additive) this.selected.clear(); for (const id of ids) this.selected.add(id); this.render(); this.onSelect([...this.selected]); }
@@ -83,16 +84,16 @@
       }
       for (const n of this.nodes) {
         const live = this.live[n.id];
-        const g = el("g", { class: `node${this.selected.has(n.id) ? " selected" : ""}${live ? " live" : ""}${n.justDropped ? " dropped" : ""}`, transform: `translate(${n.x} ${n.y})`, "data-role": n.role, "data-id": n.id, tabindex: 0, role: "button", "aria-label": `${n.agent}, ${n.role}` }, this.gNodes);
+        const g = el("g", { class: `node${this.selected.has(n.id) ? " selected" : ""}${live ? " live" : ""}${n.justDropped ? " dropped" : ""}`, transform: `translate(${n.x} ${n.y})`, "data-role": n.role, "data-kind": n.kind || "lineup", "data-id": n.id, tabindex: 0, role: "button", "aria-label": `${n.agent}, ${n.role}` }, this.gNodes);
         const fo = el("foreignObject", { width: W, height: H + 40 }, g);
-        const status = n.problems?.length ? "bad" : n.warnings?.length ? "warn" : live?.state === "running" ? "running" : "";
+        const status = n.statusClass || (n.problems?.length ? "bad" : n.warnings?.length ? "warn" : live?.state === "running" ? "running" : "");
         const title = (n.problems || []).concat(n.warnings || []).join("\n");
         fo.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml" class="card" style="position:relative" title="${esc(title)}">
           <div class="band"></div>
           <div class="head"><span class="agent">${esc(n.agent)}</span>${n.scope === "template" ? '<span class="lock" title="shipped: duplicate to edit">🔒</span>' : ""}</div>
-          <div class="role">${esc(n.role)}${n.alias && n.alias !== n.role ? " · as " + esc(n.alias) : ""}${n.instances > 1 ? " · ×" + n.instances : ""}</div>
-          <div class="model" title="${esc(n.model || "no model")}"><span>${esc(n.model || "no model resolves")}</span></div>
-          <div class="meta">${n.price && n.price !== "?" ? `<span><b>${esc(n.price)}</b></span>` : `<span>price ?</span>`}${n.context ? `<span>ctx <b>${esc(n.context)}</b></span>` : ""}${n.tools != null ? `<span>tools <b>${n.tools}</b></span>` : ""}</div>
+          <div class="role">${n.subtitle != null ? esc(n.subtitle) : esc(n.role) + (n.alias && n.alias !== n.role ? " · as " + esc(n.alias) : "") + (n.instances > 1 ? " · ×" + n.instances : "")}</div>
+          <div class="model" title="${esc(n.chip || n.model || "no model")}"><span>${esc(n.chip || n.model || "no model resolves")}</span></div>
+          <div class="meta">${n.metaHtml != null ? n.metaHtml : (n.price && n.price !== "?" ? `<span><b>${esc(n.price)}</b></span>` : `<span>price ?</span>`) + (n.context ? `<span>ctx <b>${esc(n.context)}</b></span>` : "") + (n.tools != null ? `<span>tools <b>${n.tools}</b></span>` : "")}</div>
           <div class="run">${live ? esc(`${live.state}${live.cost ? " · $" + live.cost : ""}${live.turns ? " · " + live.turns + " turns" : ""}`) : ""}</div>
           <span class="status ${status}"></span></div>`;
         n.justDropped = false;
@@ -128,7 +129,11 @@
       });
       const up = (ev) => {
         if (pan) { pan = null; svg.classList.remove("panning"); }
-        if (drag) { if (drag.moved) for (const n of drag.nodes) this.onMove(n.id, n.x, n.y); else this.select([drag.nodes[0].id], ev.ctrlKey || ev.metaKey); for (const n of drag.nodes) n.dragging = false; drag = null; this.render(); }
+        if (drag) {
+          if (drag.moved) { const p = this.toWorld(ev.clientX, ev.clientY); const over = drag.nodes.length === 1 ? this.nodeAt(p.x, p.y, [drag.nodes[0].id]) : null; if (over && this.onDropOn) this.onDropOn(drag.nodes[0].id, over.id, drag.nodes[0]); else for (const n of drag.nodes) this.onMove(n.id, n.x, n.y); }
+          else this.select([drag.nodes[0].id], ev.ctrlKey || ev.metaKey);
+          for (const n of drag.nodes) n.dragging = false; drag = null; this.render();
+        }
         if (box) { const r = box.rect; if (r) this.select(this.nodes.filter((n) => n.x + W > r.x && n.x < r.x + r.w && n.y + H > r.y && n.y < r.y + r.h).map((n) => n.id), ev.ctrlKey); this.marquee.style.display = "none"; this.marquee.setAttribute("width", 0); box = null; }
       };
       svg.addEventListener("pointerup", up); svg.addEventListener("pointercancel", up);

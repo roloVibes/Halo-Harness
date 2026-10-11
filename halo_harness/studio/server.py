@@ -129,7 +129,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
         if ctype.startswith("text/") or ctype in ("application/javascript", "application/json"):
             ctype += "; charset=utf-8"
-        self._send(200, target.read_bytes(), ctype, {"Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"})
+        self._send(200, target.read_bytes(), ctype, {"Content-Security-Policy": "default-src 'self'; img-src 'self' data: http://127.0.0.1:* http://localhost:*; style-src 'self' 'unsafe-inline'; frame-src http://127.0.0.1:* http://localhost:*"})
 
     def do_GET(self):
         self._api("GET") if self.path.startswith("/api/") else self._static()
@@ -142,6 +142,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_PUT(self):
         self._api("PUT")
+
+    def do_PATCH(self):
+        self._api("PATCH")
 
     def do_DELETE(self):
         self._api("DELETE")

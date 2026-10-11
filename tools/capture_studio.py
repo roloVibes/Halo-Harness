@@ -70,9 +70,22 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
+    parser.add_argument("--org", action="store_true", help="Org mode over a fake Paperclip seeded with the halo-dev-cycle company")
     args = parser.parse_args(argv)
     state = seeded_home()
+    fake = None
+    if args.org:
+        from halo_harness.paperclip.client import Paperclip, save_config
+        from halo_harness.paperclip.sync import sync_lineup
+        from tests.helpers.fake_paperclip import FakePaperclip
+        fake = FakePaperclip(company_name="Halo Harness")
+        save_config({"base_url": fake.base_url, "company_id": fake.company["id"]}, state)
+        sync_lineup(Paperclip(fake.base_url), fake.company["id"], "halo-dev-cycle", cwd=state.parent / "project", state_dir=state, out=open(os.devnull, "w"))
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-org.png"
     srv, url = serve(state)
+    if args.org:
+        url = url.replace("?tour=off", "?tour=off&mode=org")
     try:
         if args.dom:
             r = chrome(["--dump-dom", url])
@@ -92,6 +105,8 @@ def main(argv: list) -> int:
     finally:
         srv.shutdown()
         srv.server_close()
+        if fake is not None:
+            fake.close()
         shutil.rmtree(state.parent, ignore_errors=True)
 
 

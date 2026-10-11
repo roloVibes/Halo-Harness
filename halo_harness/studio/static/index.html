@@ -12,8 +12,13 @@
 
 <header id="top">
   <div class="brand" title="Halo Studio: your agents, as a graph"><span class="ring"></span>HALO <small>Studio</small></div>
+  <div class="scope-toggle mode-toggle" role="group" aria-label="Mode" title="Roles: your lineups. Org: your company in Paperclip (R / O)">
+    <button data-mode="roles" class="on">Roles</button><button data-mode="org">Org</button>
+  </div>
   <select id="lineup-select" aria-label="Lineup"></select>
   <span id="lineup-badges"></span>
+  <select id="company-select" aria-label="Company" style="display:none"></select>
+  <span id="org-badges"></span>
   <div class="spacer"></div>
   <div class="scope-toggle" title="Where new files are written" role="group" aria-label="Scope">
     <button data-scope="user" class="on">user</button><button data-scope="project">project</button>
@@ -102,6 +107,7 @@
 <script src="inspector.js"></script>
 <script src="bio-form.js"></script>
 <script src="palette.js"></script>
+<script src="org.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
