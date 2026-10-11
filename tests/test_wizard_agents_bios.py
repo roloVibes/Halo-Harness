@@ -163,6 +163,8 @@ def test_agents_step_create_save_reload_edit_duplicate_delete(ctx: Ctx):
                 await pilot.pause(0.1)
                 ctx.check(f"opened on the Agents step, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "TeamStep")
+                app.screen.query_one("#wiz-team-agents", Button).press()  # 2.1.0 B1: Agents... button
+                await _wait_until(pilot, lambda: type(app.screen).__name__ == "AgentsListScreen")
                 app.screen.query_one("#agents-new", Button).press()
                 # 2.0.5 release gate: poll for the editor AND its fields --
                 # the screen can push before its widgets mount under load
@@ -179,9 +181,9 @@ def test_agents_step_create_save_reload_edit_duplicate_delete(ctx: Ctx):
                 ctx.check('no validation problems while typing a good bio',
                           _static_text(editor.query_one("#bio-hint")) == "Looks good.")
                 editor.action_save()
-                await _wait_until(pilot, lambda: type(app.screen).__name__ == "TeamStep")
-                ctx.check(f"save returned to the step, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "TeamStep")
+                await _wait_until(pilot, lambda: type(app.screen).__name__ == "AgentsListScreen")
+                ctx.check(f"save returned to the bios list, got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "AgentsListScreen")
                 rows = app.screen.query_one("#agents-list", OptionList)
                 names = [str(rows.get_option_at_index(i).id) for i in range(rows.option_count)]
                 ctx.check(f"the new bio is listed, got {names}", "pilot-bio" in names)
@@ -243,6 +245,8 @@ def test_agents_step_bad_save_shows_lines_and_keeps_the_form(ctx: Ctx):
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.1)
+                app.screen.query_one("#wiz-team-agents", Button).press()
+                await pilot.pause(0.3)
                 app.screen.query_one("#agents-new", Button).press()
                 await pilot.pause(0.2)
                 editor = app.screen
@@ -275,8 +279,10 @@ def test_new_from_writes_only_override_keys_and_shows_inherited_greyed(ctx: Ctx)
             state.enumerated_models, state.enumeration_done = FIXTURE_MODELS, True
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
-                await _wait_until(pilot, lambda: app.screen.query_one("#agents-list", OptionList)
-                                  is not None and app.screen.query("#agents-new-from"))
+                await _wait_until(pilot, lambda: app.screen.query("#wiz-team-agents"))
+                app.screen.query_one("#wiz-team-agents", Button).press()
+                await _wait_until(pilot, lambda: type(app.screen).__name__ == "AgentsListScreen"
+                                  and app.screen.query("#agents-new-from"))
                 rows = app.screen.query_one("#agents-list", OptionList)
                 names = [str(rows.get_option_at_index(i).id) for i in range(rows.option_count)]
                 rows.highlighted = names.index("coder")

@@ -358,6 +358,8 @@ def test_ctrl_p_opens_the_picker_with_fixture_rows_and_the_filter_completes(ctx:
                 await _wizard_to_agents_step(pilot, app, state)
                 ctx.check(f"the Providers step's own enumeration reached the Agents step at {w}x{h}, "
                           f"got enumeration_done={state.enumeration_done}", state.enumeration_done)
+                app.screen.query_one("#wiz-team-agents", Button).press()  # 2.1.0 B1: Agents... button
+                await pilot.pause(0.3)
                 app.screen.query_one("#agents-new", Button).press()
                 await pilot.pause(0.2)
                 editor = app.screen
@@ -457,12 +459,12 @@ def test_empty_filter_never_yields_an_empty_picker_silently(ctx: Ctx):
 # ---------------------------------------------------------------------------
 
 @test
-def test_roles_step_toggle_off_hides_both_panes_and_shows_one_sentence(ctx: Ctx):
-    """Round 2c folded the Agents/Roles-and-lineup steps into one "Team"
-    step -- the SAME switch-covers-everything invariant this test pins,
-    now at `#wiz-team-*` ids (`team_step.TeamStep`)."""
+def test_roles_step_one_model_row_shows_one_sentence_and_a_lineup_shows_its_tree(ctx: Ctx):
+    """2.1.0 B1: the Custom roles switch is gone; the first row, "One model
+    for everything", IS the off state and previews the one sentence, any
+    other row previews its tree."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from textual.widgets import Switch
+    from textual.widgets import OptionList
 
     async def body(w, h):
         with _Env():
@@ -471,19 +473,17 @@ def test_roles_step_toggle_off_hides_both_panes_and_shows_one_sentence(ctx: Ctx)
             async with app.run_test(size=(w, h)) as pilot:
                 await pilot.pause(0.15)
                 step = app.screen
-                panes = step.query_one("#wiz-team-on-body")
-                sentence = step.query_one("#wiz-team-off-sentence")
-                ctx.check(f"panes shown, sentence hidden by default at {w}x{h}",
-                          panes.styles.display == "block" and sentence.styles.display == "none")
-                step.query_one("#wiz-team-switch", Switch).value = False
+                preview = step.query_one("#wiz-team-preview")
+                ctx.check(f"the one sentence by default at {w}x{h}, got {_static_text(preview)!r}",
+                          "Halo uses" in _static_text(preview) and "sub-agents" in _static_text(preview))
+                lst = step.query_one("#wiz-team-lineups-list", OptionList)
+                lst.highlighted = 1
                 await pilot.pause(0.1)
-                ctx.check(f"off hides the Lineups/Agents panes at {w}x{h}", panes.styles.display == "none")
-                ctx.check(f"off shows the one sentence at {w}x{h}", sentence.styles.display == "block")
-                ctx.check(f"the sentence describes delegation+questions at {w}x{h}, got {_static_text(sentence)!r}",
-                          "Halo uses" in _static_text(sentence) and "sub-agents" in _static_text(sentence))
-                step.query_one("#wiz-team-switch", Switch).value = True
+                ctx.check(f"another row previews a tree at {w}x{h}", " -> " in _static_text(preview))
+                lst.highlighted = 0
                 await pilot.pause(0.1)
-                ctx.check(f"on shows the panes again at {w}x{h}", panes.styles.display == "block")
+                ctx.check(f"back on the first row, the sentence again at {w}x{h}",
+                          "Halo uses" in _static_text(preview))
     for size in SIZES:
         run(body(*size))
 
@@ -581,6 +581,8 @@ def test_agents_step_enter_opens_the_highlighted_bio_no_button_needed(ctx: Ctx):
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.1)
+                app.screen.query_one("#wiz-team-agents").press()
+                await pilot.pause(0.3)
                 rows = app.screen.query_one("#agents-list", OptionList)
                 ctx.check("a shipped bio is listed to press Enter on", rows.option_count > 0)
                 rows.highlighted = 0
@@ -630,6 +632,8 @@ def test_agents_step_and_bio_editor_focus_on_open_is_never_a_button(ctx: Ctx):
                 await _wait_until(lambda: isinstance(app.focused, OptionList))
                 ctx.check(f"the Team step focuses a list, never a button, got {type(app.focused).__name__}",
                           isinstance(app.focused, OptionList) and not isinstance(app.focused, Button))
+                app.screen.query_one("#wiz-team-agents", Button).press()
+                await _wait_until(lambda: type(app.screen).__name__ == "AgentsListScreen")
                 app.screen.query_one("#agents-new", Button).press()
                 await _wait_until(lambda: isinstance(app.focused, Input))
                 ctx.check(f"the bio editor focuses a field, got {type(app.focused).__name__}",
@@ -661,11 +665,7 @@ def test_sweep_team_toggle_orgs_summary_handoff(ctx: Ctx):
                 # toggle off then back on, then Next (Skip-equivalent: no
                 # lineup/template highlighted -- "off" must still commit
                 # cleanly and move on, never raise).
-                app.screen.query_one("#wiz-team-switch", Switch).value = False
-                await pilot.pause(0.05)
-                app.screen.query_one("#wiz-team-switch", Switch).value = True
-                await pilot.pause(0.05)
-                app.screen.action_do_next()  # Team -> Orgs
+                app.screen.action_do_next()  # Team -> Orgs (the first row applies "standard", roles off)
                 await pilot.pause(0.2)
                 ctx.check(f"lands on Organizations, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "OrgsStep")

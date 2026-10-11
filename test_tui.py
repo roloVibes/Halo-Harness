@@ -10089,7 +10089,7 @@ def test_init_wizard_enter_on_a_lineup_opens_the_editor_and_returns_to_the_step(
                 await pilot.pause(0.1)
                 team_screen = app.screen
                 lineups_list = team_screen.query_one("#wiz-team-lineups-list", OptionList)
-                lineups_list.highlighted = 0
+                lineups_list.highlighted = 1  # row 0 is "One model for everything" (2.1.0 B1)
                 lineups_list.focus()
                 await pilot.pause(0.05)
                 await pilot.press("enter")

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" width="960" height="420" role="img" aria-labelledby="t d" font-family="'Fira Code','DejaVu Sans Mono',Consolas,Menlo,monospace">
+<title id="t">How agents, lineups and roles fit together</title>
+<desc id="d">A bio says what an agent is. A lineup assigns bios to roles. A role is a slot the session loop fills. The session runs each job with the agent and model its role names.</desc>
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9399b2"/></marker></defs>
+<rect width="960" height="420" rx="16" fill="#1e1e2e"/>
+<text x="24" y="38" font-size="22" fill="#cdd6f4" font-weight="700">Agents, lineups and roles</text>
+<text x="24" y="60" font-size="12" fill="#9399b2">bio -&gt; lineup -&gt; role -&gt; session: you pick the lineup, Halo fills the roles</text>
+<rect x="24" y="92" width="196" height="196" rx="10" fill="#2a2b3d" stroke="#89b4fa" stroke-width="1.6"/>
+<rect x="24" y="92" width="196" height="6" rx="3" fill="#89b4fa"/>
+<text x="122" y="124" font-size="15" fill="#89b4fa" text-anchor="middle" font-weight="700">1. A bio</text>
+<text x="122" y="150" font-size="12" fill="#cdd6f4" text-anchor="middle">what an agent IS</text>
+<text x="122" y="176" font-size="11" fill="#9399b2" text-anchor="middle">name, model,</text>
+<text x="122" y="192" font-size="11" fill="#9399b2" text-anchor="middle">tools, limits</text>
+<text x="122" y="224" font-size="11" fill="#cdd6f4" text-anchor="middle">coder: strong model</text>
+<text x="122" y="240" font-size="11" fill="#cdd6f4" text-anchor="middle">local-small: free</text>
+<text x="122" y="272" font-size="11" fill="#89b4fa" text-anchor="middle">halo agents</text>
+<rect x="268" y="92" width="196" height="196" rx="10" fill="#2a2b3d" stroke="#a6e3a1" stroke-width="1.6"/>
+<rect x="268" y="92" width="196" height="6" rx="3" fill="#a6e3a1"/>
+<text x="366" y="124" font-size="15" fill="#a6e3a1" text-anchor="middle" font-weight="700">2. A lineup</text>
+<text x="366" y="150" font-size="12" fill="#cdd6f4" text-anchor="middle">which bio fills which job</text>
+<text x="366" y="176" font-size="11" fill="#9399b2" text-anchor="middle">six ship: standard,</text>
+<text x="366" y="192" font-size="11" fill="#9399b2" text-anchor="middle">balanced, quality ...</text>
+<text x="366" y="224" font-size="11" fill="#cdd6f4" text-anchor="middle">main -&gt; general</text>
+<text x="366" y="240" font-size="11" fill="#cdd6f4" text-anchor="middle">coder -&gt; coder</text>
+<text x="366" y="272" font-size="11" fill="#a6e3a1" text-anchor="middle">halo teams</text>
+<rect x="512" y="92" width="196" height="196" rx="10" fill="#2a2b3d" stroke="#f9e2af" stroke-width="1.6"/>
+<rect x="512" y="92" width="196" height="6" rx="3" fill="#f9e2af"/>
+<text x="610" y="124" font-size="15" fill="#f9e2af" text-anchor="middle" font-weight="700">3. A role</text>
+<text x="610" y="150" font-size="12" fill="#cdd6f4" text-anchor="middle">a slot the loop fills</text>
+<text x="610" y="176" font-size="11" fill="#9399b2" text-anchor="middle">planning, coding,</text>
+<text x="610" y="192" font-size="11" fill="#9399b2" text-anchor="middle">review, research</text>
+<text x="610" y="224" font-size="11" fill="#cdd6f4" text-anchor="middle">roles.enabled on:</text>
+<text x="610" y="240" font-size="11" fill="#cdd6f4" text-anchor="middle">each role has a model</text>
+<text x="610" y="272" font-size="11" fill="#f9e2af" text-anchor="middle">halo roles</text>
+<rect x="756" y="92" width="180" height="196" rx="10" fill="#2a2b3d" stroke="#cba6f7" stroke-width="1.6"/>
+<rect x="756" y="92" width="180" height="6" rx="3" fill="#cba6f7"/>
+<text x="846" y="124" font-size="15" fill="#cba6f7" text-anchor="middle" font-weight="700">4. Your session</text>
+<text x="846" y="150" font-size="12" fill="#cdd6f4" text-anchor="middle">runs each job on</text>
+<text x="846" y="166" font-size="12" fill="#cdd6f4" text-anchor="middle">its role's model</text>
+<text x="846" y="198" font-size="11" fill="#9399b2" text-anchor="middle">sub-agents too</text>
+<text x="846" y="230" font-size="11" fill="#cdd6f4" text-anchor="middle">roles off: one</text>
+<text x="846" y="246" font-size="11" fill="#cdd6f4" text-anchor="middle">model for everything</text>
+<path d="M222,190 L264,190" stroke="#9399b2" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+<path d="M466,190 L508,190" stroke="#9399b2" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+<path d="M710,190 L752,190" stroke="#9399b2" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+<rect x="24" y="320" width="912" height="72" rx="10" fill="#2a2b3d" stroke="#94e2d5" stroke-width="1.6"/>
+<text x="44" y="348" font-size="13" fill="#94e2d5" font-weight="700">Three ways to pick a lineup</text>
+<text x="44" y="370" font-size="12" fill="#cdd6f4">wizard: halo init (Team step)   |   CLI: halo teams use &lt;name&gt;   |   Studio: coming in 2.1.0</text>
+</svg>

@@ -17,12 +17,45 @@ via `halo init --provider databricks`. Round 7 (the init wizard) is
 verified against `halo_harness/tui/dialogs/init_wizard.py` and
 `setup_cli.py` too.
 
+## The 90-second version
+
+Four words, in this order: **bio -> lineup -> role -> session**.
+
+- A **bio** says what an agent IS: its name, its model, its tools, its
+  limits. `coder` is a bio; so is `local-small`. (`halo agents`.)
+- A **lineup** hands bios to jobs: "planning goes to this bio, coding to that
+  one". Six ship with Halo -- `standard`, `balanced`, `quality`,
+  `local-first`, `code-review`, `halo-dev-cycle` -- and you can write your
+  own. (`halo teams`.)
+- A **role** is one job slot the session fills: main, planner, coder,
+  reviewer, researcher and so on. A lineup gives every role an agent and a
+  model. (`halo roles`.)
+- Your **session** runs each job on the model its role names, and the
+  sub-agents Halo spawns do the same. With roles off, nothing changes:
+  **one model for everything**, the default model you picked.
+
+![How bios, lineups and roles fit together](media/diagrams/agents-model.svg)
+
+Three ways to pick a lineup, all writing the same two config keys (`team`
+and `roles.enabled`):
+
+1. **The wizard** -- `halo init` (Quick setup includes the Team step) or
+   `halo init --step team`. The first row, "One model for everything", is
+   the off state; every other row previews its `role -> agent -> model`
+   tree with prices before you apply it.
+2. **The command line** -- `halo teams use <name>` points the active
+   lineup at one; `halo roles on|off` flips the switch.
+3. **Studio** -- coming in 2.1.0.
+
+Everything below is the field-by-field reference; nothing in it changed.
+
 ## Roles on/off is one switch (Halo 2.0.5 round 2b)
 
 `roles.enabled` (default **on**) is the ONE switch, everywhere: `halo
 roles on`/`halo roles off` (CLI), `/roles on|off` (TUI/print mode), and a
-**"Custom roles: off / on"** toggle at the TOP of the wizard's "Team"
-step (Halo 2.0.5 round 2c retitled/merged what round 2b calls "Roles and
+**"One model for everything"** row at the TOP of the wizard's "Team"
+step (Halo 2.1.0 B1 replaced the round-2c "Custom roles: off / on"
+switch with it; picking a lineup is the on state) (Halo 2.0.5 round 2c retitled/merged what round 2b calls "Roles and
 lineup" below into this one screen -- see "Setting up with the wizard"
 further down) -- off hides BOTH panes and shows one sentence, "every
 role uses the default model", rather than leaving one pane live while
@@ -46,9 +79,11 @@ equivalent to.
 Halo 2.0.5 round 2c (`docs/WIZARD.md`, rule 11): the wizard's own step is
 now called **Team** (`"team"` in `init_wizard.ALL_STEP_KEYS`; `--step
 agents`/`--step roles`, `halo setup roles`, `/setup roles` all still land
-there as aliases) and carries ONLY the **"Custom roles: off / on"**
-switch (still the exact same `roles.enabled` config key this whole
-section describes) plus, when on, the Lineups/Agents panes
+there as aliases) and, since Halo 2.1.0 B1, carries a lineup list whose
+first row, **"One model for everything"**, is the off state (the exact
+same `roles.enabled` config key this whole section describes, always
+written explicitly by the step), plus a live preview and an **Agents...**
+button
 `docs/AGENTS.md`'s own "Halo 2.0.5 round 2c: the Team step" section
 covers -- the three-preset picker ("Use this template"/"Edit roles.../
 "Skip for now") this section goes on to describe is NO LONGER shown

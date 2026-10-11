@@ -1,10 +1,9 @@
 """halo_harness.tui.dialogs.setup_mode -- Halo 2.0.5 round 2c, deliverable
 5: rule 5 of `docs/WIZARD.md` -- the wizard's own FIRST screen, before
-Providers: "Quick setup" (keys -> default model -> done, which activates
-the `standard` lineup with roles off -- see `docs/AGENTS.md`'s own "the
-`default` model reference and the `standard` lineup" section for why
-"roles off" and "every role on the `standard` lineup" are the same
-observable state) or "Full setup" (every other step). Quick is the
+Providers: "Quick setup" (provider key -> default model -> Team -> done;
+Halo 2.1.0 B1 put the Team step back into Quick, where "One model for
+everything" is the preselected row -- the `standard` lineup with roles off
+-- see `docs/AGENTS.md`) or "Full setup" (every other step). Quick is the
 default (highlighted first, rule 1 -- "no confirm button": Next alone
 picks it).
 
@@ -24,7 +23,7 @@ from textual.widgets.option_list import Option
 
 from halo_harness.tui.dialogs.wizard_ux import focus_first, mark_checked
 
-QUICK_STEP_KEYS = ("providers", "default_model", "summary")
+QUICK_STEP_KEYS = ("providers", "default_model", "team", "summary")
 
 
 class SetupModeStep(Screen):
@@ -45,9 +44,9 @@ class SetupModeStep(Screen):
     def compose(self) -> ComposeResult:
         with Vertical():
             yield Static("halo init", classes="wizard-header")
-            yield Static("Quick setup: keys, a default model, done -- every role (including the sub-agents "
-                          "halo spawns on its own) uses that model. Full setup walks every step (Permissions, "
-                          "Theme, Team, Organizations, ...).", classes="dialog-title")
+            yield Static("Quick setup: a provider key, your default model, and which lineup of agents runs "
+                          "your work. Full setup walks every step (Permissions, Theme, Team, "
+                          "Organizations, ...).", classes="dialog-title")
             yield OptionList(Option("Quick setup", id="quick"), Option("Full setup", id="full"),
                               id="wiz-setup-mode-list")
             with Horizontal(classes="wizard-footer"):

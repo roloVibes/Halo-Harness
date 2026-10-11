@@ -194,19 +194,21 @@ def test_quick_setup_ends_on_summary_with_standard_active_and_roles_off(ctx: Ctx
                 app.screen.query_one("#wiz-next").press()  # Quick is the highlighted default
                 await pilot.pause(0.2)
                 ctx.check(f"Quick shrinks step_keys, got {state.step_keys}",
-                          state.step_keys == ("providers", "default_model", "summary"))
+                          state.step_keys == ("providers", "default_model", "team", "summary"))
                 app.screen.action_do_next()  # providers (no_live branch)
                 await pilot.pause(0.2)
                 app.screen.action_do_next()  # default_model, nothing picked -- keeps the configured default
+                await pilot.pause(0.4)
+                app.screen.action_do_next()  # team: "One model for everything" is preselected
                 await pilot.pause(0.5)
                 ctx.check(f"lands on Summary, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "SummaryStep")
                 ctx.check(f"team is 'standard', got {get_config_value('team', default=None)!r}",
                           get_config_value("team", default=None) == "standard")
                 ctx.check(f"roles are off, got {roles_mode_enabled()!r}", roles_mode_enabled() is False)
-                note = app.screen.query_one("#wiz-summary-quick-note")
-                ctx.check(f"the Summary says Quick setup ran, got {_static_text(note)!r}",
-                          "Quick setup" in _static_text(note))
+                note = app.screen.query_one("#wiz-summary-lineup")
+                ctx.check(f"the Summary names the one-model state, got {_static_text(note)!r}",
+                          "One model for everything: or:vendor/strong-model" in _static_text(note))
     run(body())
 
 
@@ -243,69 +245,66 @@ def test_full_setup_walks_every_step(ctx: Ctx):
 # ---------------------------------------------------------------------------
 
 @test
-def test_team_step_switch_off_shows_only_the_sentence(ctx: Ctx):
+def test_team_step_first_row_is_one_model_and_preselected_on_a_fresh_install(ctx: Ctx):
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from textual.widgets import Switch
+    from textual.widgets import OptionList
 
     async def body(w, h):
         with _Env():
             state = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(w, h)) as pilot:
-                await pilot.pause(0.15)
+                await pilot.pause(0.2)
                 step = app.screen
-                on_body = step.query_one("#wiz-team-on-body")
-                off_sentence = step.query_one("#wiz-team-off-sentence")
-                ctx.check(f"on by default at {w}x{h}", on_body.styles.display == "block"
-                          and off_sentence.styles.display == "none")
-                step.query_one("#wiz-team-switch", Switch).value = False
-                await pilot.pause(0.1)
-                ctx.check(f"off hides the panes at {w}x{h}", on_body.styles.display == "none")
-                ctx.check(f"off shows the sentence at {w}x{h}", off_sentence.styles.display == "block")
-                ctx.check(f"the sentence covers delegation+questions at {w}x{h}, got {_static_text(off_sentence)!r}",
-                          "sub-agents" in _static_text(off_sentence) and "questions" in _static_text(off_sentence))
+                lst = step.query_one("#wiz-team-lineups-list", OptionList)
+                first = lst.get_option_at_index(0)
+                ctx.check(f"first row is One model for everything at {w}x{h}, got {first.prompt!s}",
+                          "One model for everything" in str(first.prompt) and str(first.prompt).startswith("✓ "))
+                ctx.check(f"it is highlighted at {w}x{h}", lst.highlighted == 0)
+                text = _static_text(step.query_one("#wiz-team-preview"))
+                ctx.check(f"the preview is the one-model sentence at {w}x{h}, got {text!r}",
+                          "for everything" in text and "sub-agents" in text and "questions" in text)
+                header = _static_text(step.query_one("#wiz-team-header-sentence"))
+                ctx.check(f"the header explains lineups at {w}x{h}", "A lineup gives each job" in header)
+                for bid in ("wiz-team-use", "wiz-team-customize", "wiz-team-lineup-new", "wiz-team-agents",
+                            "wiz-back", "wiz-skip", "wiz-next"):
+                    step.query_one(f"#{bid}")
     for size in SIZES:
         run(body(*size))
 
 
 @test
-def test_team_step_on_shows_both_panes_at_both_sizes(ctx: Ctx):
-    """2.0.7 wizard deep review UPDATED: ONE pane at a time at EVERY width
-    (the old 120x40 side-by-side stack was the "thing to fix" in rolo's
-    2026-10-07 order -- a first-time user meets Lineups first, never both
-    lists at once); the pane-switch bar is always visible, both panes stay
-    mounted (only display toggles)."""
+def test_team_step_preview_follows_the_highlight_and_stacks_when_narrow(ctx: Ctx):
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from textual.widgets import Button
+    from textual.widgets import OptionList
 
-    async def body(w, h):
+    async def body(w, h, layout):
         with _Env():
             state = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(w, h)) as pilot:
-                await pilot.pause(0.15)
+                await pilot.pause(0.2)
                 step = app.screen
-                lineups_pane = step.query_one("#wiz-team-lineups-pane")
-                agents_pane = step.query_one("#wiz-team-agents-pane")
-                switch_bar = step.query_one("#wiz-team-pane-switch")
-                ctx.check(f"the pane-switch bar is always visible at {w}x{h}",
-                          switch_bar.styles.display != "none")
-                ctx.check(f"Lineups shown first at {w}x{h}",
-                          lineups_pane.styles.display == "block" and agents_pane.styles.display == "none")
-                step.query_one("#wiz-team-switch-agents-btn", Button).press()
+                ctx.check(f"layout at {w}x{h} is {layout}",
+                          str(step.query_one("#wiz-team-panes").styles.layout.name) == layout)
+                lst = step.query_one("#wiz-team-lineups-list", OptionList)
+                names = [str(lst.get_option_at_index(i).id) for i in range(lst.option_count)]
+                lst.highlighted = names.index("balanced")
                 await pilot.pause(0.1)
-                ctx.check(f"the switch reaches Agents at {w}x{h}",
-                          agents_pane.styles.display == "block" and lineups_pane.styles.display == "none")
-    for size in SIZES:
-        run(body(*size))
+                text = _static_text(step.query_one("#wiz-team-preview"))
+                ctx.check(f"preview shows balanced's tree at {w}x{h}, got {text!r}",
+                          "balanced" in text and "researcher -> " in text)
+    run(body(80, 24, "vertical"))
+    run(body(120, 40, "horizontal"))
 
 
 @test
-def test_team_step_enter_edits_from_each_pane(ctx: Ctx):
+def test_team_step_enter_edits_and_agents_button_opens_the_bios(ctx: Ctx):
     from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+    from halo_harness.tui.dialogs.agents_step import AgentsListScreen
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from halo_harness.tui.dialogs.lineup_editor import LineupEditor
-    from textual.widgets import OptionList
+    from textual.widgets import Button, OptionList
 
     async def body():
         with _Env():
@@ -316,7 +315,7 @@ def test_team_step_enter_edits_from_each_pane(ctx: Ctx):
                 await pilot.pause(0.15)
                 step = app.screen
                 lineups_list = step.query_one("#wiz-team-lineups-list", OptionList)
-                lineups_list.highlighted = 0
+                lineups_list.highlighted = 1
                 lineups_list.focus()
                 await pilot.pause(0.05)
                 await pilot.press("enter")
@@ -325,7 +324,11 @@ def test_team_step_enter_edits_from_each_pane(ctx: Ctx):
                           isinstance(app.screen, LineupEditor))
                 app.screen.action_cancel()
                 await pilot.pause(0.1)
-                agents_list = step.query_one("#agents-list", OptionList)
+                step.query_one("#wiz-team-agents", Button).press()
+                await pilot.pause(0.3)
+                ctx.check(f"Agents... opens the bios list, got {type(app.screen).__name__}",
+                          isinstance(app.screen, AgentsListScreen))
+                agents_list = app.screen.query_one("#agents-list", OptionList)
                 agents_list.highlighted = 0
                 agents_list.focus()
                 await pilot.pause(0.05)
@@ -338,6 +341,7 @@ def test_team_step_enter_edits_from_each_pane(ctx: Ctx):
 
 @test
 def test_team_step_active_lineup_checkmark(ctx: Ctx):
+    from halo_harness.roles import set_roles_enabled
     from halo_harness.teams_yaml import apply_team_template, ensure_builtin_team_templates
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from textual.widgets import OptionList
@@ -345,7 +349,8 @@ def test_team_step_active_lineup_checkmark(ctx: Ctx):
     async def body():
         with _Env() as e:
             ensure_builtin_team_templates(state_dir=e.state_dir)
-            apply_team_template("standard", state_dir=e.state_dir)
+            apply_team_template("balanced", state_dir=e.state_dir)
+            set_roles_enabled(True)
             state = WizardState(cwd=e.cwd, step_keys=("team",), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
@@ -354,13 +359,13 @@ def test_team_step_active_lineup_checkmark(ctx: Ctx):
                 labels = [str(lineups_list.get_option_at_index(i).prompt) for i in range(lineups_list.option_count)]
                 checked = [label for label in labels if label.startswith("✓ ")]
                 ctx.check(f"exactly the active lineup is checked, got {labels}",
-                          len(checked) == 1 and checked[0].startswith("✓ standard "))
+                          len(checked) == 1 and checked[0].startswith("✓ balanced "))
+                ctx.check("and it is the highlighted row", lineups_list.highlighted == labels.index(checked[0]))
     run(body())
 
 
 @test
-def test_team_step_ctrl_n_and_ctrl_d_dispatch_by_focused_pane(ctx: Ctx):
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+def test_team_step_ctrl_n_and_ctrl_e_open_the_lineup_editor(ctx: Ctx):
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from halo_harness.tui.dialogs.lineup_editor import LineupEditor
     from textual.widgets import OptionList
@@ -372,21 +377,67 @@ def test_team_step_ctrl_n_and_ctrl_d_dispatch_by_focused_pane(ctx: Ctx):
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.15)
                 step = app.screen
-                step.query_one("#wiz-team-lineups-list", OptionList).focus()
+                lst = step.query_one("#wiz-team-lineups-list", OptionList)
+                lst.focus()
                 await pilot.pause(0.05)
                 await pilot.press("ctrl+n")
                 await pilot.pause(0.3)
-                ctx.check(f"Ctrl+N from Lineups opens a NEW lineup, got {type(app.screen).__name__}",
+                ctx.check(f"Ctrl+N opens a NEW lineup, got {type(app.screen).__name__}",
                           isinstance(app.screen, LineupEditor))
                 app.screen.action_cancel()
                 await pilot.pause(0.1)
-                step.query_one("#agents-list", OptionList).focus()
+                lst.highlighted = 1
                 await pilot.pause(0.05)
-                await pilot.press("ctrl+n")
+                await pilot.press("ctrl+e")
                 await pilot.pause(0.3)
-                ctx.check(f"Ctrl+N from Agents opens a NEW bio, got {type(app.screen).__name__}",
-                          isinstance(app.screen, AgentBioEditor))
+                ctx.check(f"Ctrl+E customizes the highlighted lineup, got {type(app.screen).__name__}",
+                          isinstance(app.screen, LineupEditor))
     run(body())
+
+
+@test
+def test_team_step_plain_next_applies_the_highlighted_row(ctx: Ctx):
+    """Quick setup reaches the Team step; `balanced` + Next writes `team:
+    balanced` and `roles.enabled: true`; the first row writes `team:
+    standard` and `roles.enabled: false`."""
+    from halo_harness.roles import roles_mode_enabled
+    from halo_harness.theme import get_config_value, set_config_value
+    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, full_step_keys
+    from textual.widgets import OptionList
+
+    async def body(pick_balanced):
+        with _Env():
+            set_config_value("model", "or:vendor/strong-model")
+            state = WizardState(cwd=REPO_DIR, step_keys=full_step_keys(), no_live=True, offer_quick_full=True)
+            app = InitWizardApp(state)
+            async with app.run_test(size=(120, 40)) as pilot:
+                await pilot.pause(0.15)
+                app.screen.query_one("#wiz-next").press()
+                await pilot.pause(0.2)
+                app.screen.action_do_next()  # providers
+                await pilot.pause(0.2)
+                app.screen.action_do_next()  # default model
+                await pilot.pause(0.4)
+                ctx.check(f"Quick reaches the Team step, got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "TeamStep")
+                lst = app.screen.query_one("#wiz-team-lineups-list", OptionList)
+                names = [str(lst.get_option_at_index(i).id) for i in range(lst.option_count)]
+                lst.highlighted = names.index("balanced") if pick_balanced else 0
+                await pilot.pause(0.1)
+                app.screen.query_one("#wiz-next").press()
+                await pilot.pause(0.5)
+                ctx.check(f"then the Summary, got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "SummaryStep")
+                want = "balanced" if pick_balanced else "standard"
+                ctx.check(f"team is {want!r}, got {get_config_value('team', default=None)!r}",
+                          get_config_value("team", default=None) == want)
+                ctx.check(f"roles.enabled is {pick_balanced}, got {roles_mode_enabled()!r}",
+                          roles_mode_enabled() is pick_balanced)
+                shown = _static_text(app.screen.query_one("#wiz-summary-lineup"))
+                ctx.check(f"the Summary names it, got {shown!r}",
+                          ("Lineup: balanced" in shown) if pick_balanced else ("One model for everything" in shown))
+    run(body(True))
+    run(body(False))
 
 
 @test
@@ -578,7 +629,7 @@ def test_autocomplete_roles_editor_quick_filter(ctx: Ctx):
 # ---------------------------------------------------------------------------
 
 @test
-def test_save_toast_on_returning_to_the_agents_pane(ctx: Ctx):
+def test_save_toast_on_returning_to_the_agents_list(ctx: Ctx):
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from textual.widgets import Input, OptionList
 
@@ -590,7 +641,9 @@ def test_save_toast_on_returning_to_the_agents_pane(ctx: Ctx):
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.15)
                 step = app.screen
-                step.query_one("#agents-list", OptionList).focus()
+                step.query_one("#wiz-team-agents").press()
+                await pilot.pause(0.3)
+                app.screen.query_one("#agents-list", OptionList).focus()
                 await pilot.press("ctrl+n")
                 await pilot.pause(0.3)
                 editor = app.screen
@@ -598,8 +651,8 @@ def test_save_toast_on_returning_to_the_agents_pane(ctx: Ctx):
                 await pilot.pause(0.05)
                 editor.action_save()
                 await pilot.pause(0.2)
-                ctx.check(f"back on the Team step after save, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "TeamStep")
+                ctx.check(f"back on the Agents list after save, got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "AgentsListScreen")
                 hint = app.screen.query_one("#agents-hint")
                 ctx.check(f"a one-line toast names what was saved, got {_static_text(hint)!r}",
                           "Saved" in _static_text(hint))
