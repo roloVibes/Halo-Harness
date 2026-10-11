@@ -8,6 +8,34 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.2.0] - unreleased
+
+### Org mode: Paperclip owns organizations
+
+- **Halo as a Paperclip agent** (rounds C1-C2): `halo_harness/paperclip/`,
+  a stdlib REST client for a Paperclip instance (board token from
+  `~/.halo/paperclip.json`, or a heartbeat run's `PAPERCLIP_*` environment
+  with the run id on every write) and `halo paperclip-run`, the command
+  Paperclip's `process` adapter spawns: pick the run's issue (or the oldest
+  open assigned one), check it out, build the prompt from the heartbeat
+  context, run `halo -p` on the bio's model, post the reply as a comment and
+  mark the issue done, or report the failure. Verified live against
+  Paperclip 2026.1005.0.
+- **Lineup -> company sync** (round C3): `halo paperclip sync <lineup>
+  [--new NAME|--company X]` creates or updates one process agent per
+  assignment with reporting lines from the lineup's `org.positions` or
+  everyone -> main, idempotent through agent metadata; `halo paperclip pull`
+  writes the company's lines back into the lineup; `status`, `install`,
+  `open`, `link`, `org`. docs/PAPERCLIP.md.
+- **Studio Org mode** (round C4): the Roles | Org toggle; the company's
+  agents as cards with reports-to edges, drag-to-re-parent, an inspector
+  that edits the agent, lists and creates issues, embeds the agent's own
+  Paperclip page, and syncs a lineup into the company; Studio's server
+  proxies `/api/pc/<path>` with the board token kept server-side and can run
+  the install with its log streamed. `tests/test_paperclip.py`,
+  `tests/test_studio_org.py` over `tests/helpers/fake_paperclip.py`;
+  `docs/media/studio-org.png`.
+
 ## [2.1.0] - unreleased
 
 ### Agents and roles, made clear

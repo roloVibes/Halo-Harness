@@ -42,6 +42,29 @@ halo studio --port 8765  # a fixed port instead of a free one
 - **Run view:** overlays the newest session's sub-agents on the cards (which
   node is running, cost so far) and a timeline strip of them. Read-only.
 
+## Org mode: the company in Paperclip
+
+The **Roles | Org** toggle in the top bar (`R` / `O`) swaps the canvas to
+your company in [Paperclip](PAPERCLIP.md). Agents are cards (title, role,
+adapter, status, spend against budget), reporting lines are the edges, and
+dragging a card onto another makes it report there (a confirm, then a
+`PATCH` of the agent's `reportsTo`). The rail lists the agents and the
+company's goals and projects; the inspector has **Agent** (title, role,
+reports-to, budget; Wake, Pause / Resume, Terminate; the adapter it runs),
+**Issues** (the agent's issues, or all of them; create one, which wakes
+its assignee), **Paperclip** (the agent's own Paperclip page embedded, with
+"open" for a full tab) and **Company** (stats, **Sync lineup -> company**,
+**Pull reporting lines -> lineup**, "Open Paperclip").
+
+Studio talks to Paperclip through its own server (`/api/pc/...`), which adds
+the board token from `~/.halo/paperclip.json` server-side; the page never
+holds it. When Paperclip is not installed the Org canvas explains it and
+offers **Install Paperclip** with the install log streamed into the page
+(Node 24+ required); when it is installed but not running it says how to
+start it.
+
+![Org mode: the halo-dev-cycle lineup as a Paperclip company](media/studio-org.png)
+
 ## Validate, save, apply
 
 **Validate** runs `teams_yaml.validate_team_template` (the CLI's own checks)
