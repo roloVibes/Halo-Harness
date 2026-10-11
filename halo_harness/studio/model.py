@@ -67,6 +67,7 @@ def model_rows(state_dir=None) -> list:
             "local": row.get("provider") in ("ollama", "huggingface"),
             "chips": capability_profile(row)["chips"],  # 3.0.1.0 D1: vision / audio / video / files / image-out, or ? when unknown
             "modalities_in": row.get("modalities_in"), "image_output": bool(row.get("image_output")),
+            "price_in_per_m": row.get("price_in_per_m"), "tools": row.get("tools"),  # the raw keys capabilities.best_for scores on
         })
     return rows
 
