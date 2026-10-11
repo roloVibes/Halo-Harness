@@ -1,0 +1,57 @@
+"""tests.test_studio_ui -- the Studio page boots in a real browser (Halo
+2.1.0 round B3): headless Chrome loads the page over a seeded scratch home,
+the lineup draws its node cards, and docs/media/studio.png (the README's
+capture) exists and is a PNG. Skipped when no Chrome is found, like the
+front-page PNG step.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
+
+test, TESTS = new_registry()
+REPO = Path(__file__).resolve().parent.parent
+
+
+def _chrome() -> "str | None":
+    sys.path.insert(0, str(REPO / "tools"))
+    from capture_screens import find_chrome
+    return find_chrome(os.environ.get("HALO_CHROME", ""))
+
+
+@test
+def test_page_boots_and_draws_nodes_in_headless_chrome(ctx: Ctx):
+    if not _chrome():
+        raise SkipTest("no Chrome found (the page smoke needs headless Chrome)")
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
+    env["PYTHONPATH"] = str(REPO)
+    env["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
+    r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_studio.py"), "--dom"], capture_output=True, text=True, timeout=240, env=env, cwd=str(REPO))
+    ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
+    try:
+        info = json.loads(r.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        info = {}
+    ctx.check(f"the page drew the halo-dev-cycle cards, got {info}", info.get("nodes", 0) >= 7 and "Halo Studio" in info.get("title", ""))
+
+
+@test
+def test_readme_capture_exists(ctx: Ctx):
+    png = REPO / "docs" / "media" / "studio.png"
+    ctx.check("docs/media/studio.png exists", png.is_file())
+    if png.is_file():
+        ctx.check("it is a PNG under 1 MB", png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n" and png.stat().st_size < 1024 * 1024)
+
+
+if __name__ == "__main__":
+    ctx = Ctx()
+    results, passed, failed, skipped = run_all(TESTS, ctx)
+    sys.exit(print_results(results, passed, failed, skipped, label="studio ui tests"))

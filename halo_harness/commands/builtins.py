@@ -158,6 +158,18 @@ def _cmd_level(args: str, facade: HeadlessFacade) -> str:
     return f"Level band: {'on' if value else 'off'}" + ("" if value else " (run /level to bring it back)")
 
 
+def _cmd_studio(args: str, facade: HeadlessFacade) -> str:
+    """2.1.0 round B3: `/studio` opens Halo Studio (the lineups-and-bios
+    graph) in the browser, served from this process; `/studio url` prints
+    the URL without opening a browser (SSH: forward the port it names)."""
+    from pathlib import Path
+    from halo_harness.providers.config import default_state_dir
+    from halo_harness.studio.server import ensure_background
+    cwd = Path(getattr(facade, "cwd", None) or Path.cwd())
+    url = ensure_background(cwd=cwd, state_dir=Path(default_state_dir()), open_browser=(args or "").strip() != "url")
+    return f"Halo Studio: {url}\n(served from this session; it closes with it. Over SSH: forward the port and open the same URL.)"
+
+
 def _cmd_offline(args: str, facade: HeadlessFacade) -> str:
     """Halo 2.0.3 round 5e: `/offline` (bare) reports the current state and
     its source; `/offline on|off` persists `network.offline` to
@@ -1863,6 +1875,7 @@ _BUILTIN_SPECS = {
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
     "level": ("core", "Toggle the game themes' level band above the prompt", "[on|off]", _cmd_level),
+    "studio": ("core", "Open Halo Studio: lineups and agent bios as an editable graph", "[url]", _cmd_studio),
     "remote": ("core", "Remote control: control socket, Signal bridge state, paired phones, pairing, kill switch",
                "[status|pair [N]|off]", _cmd_remote),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,
