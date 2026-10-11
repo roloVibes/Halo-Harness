@@ -1857,6 +1857,18 @@ def run_print_mode(
         )
         slash_names = [f"/{c.name}" for c in registry.all()]
 
+        # Halo 2.0.9 round 2: with config `remote.enabled`, this run opens a
+        # control socket too (`halo remote sessions` lists it); the turn
+        # stream is teed into the socket's event feed. None when off.
+        from halo_harness.remote import runtime as _remote_rt
+        _remote = _remote_rt.start_for_print(
+            session, cwd, registry=registry, facade=facade, state_dir=build.state_dir, routes=build.routes,
+            settings=build.settings, disable_slash_commands=disable_slash_commands)
+        _remote_handle = _remote[0] if _remote else None
+
+        def _remote_tee(stream):
+            return _remote_handle.tee(stream) if _remote_handle is not None else stream
+
         def _make_sink():
             if output_format == "stream-json":
                 # Halo 2.0.1 W2a: `effort_sent` mirrors the status bar's own
@@ -1934,6 +1946,8 @@ def run_print_mode(
                 )
                 reader.start()
 
+            if _remote_handle is not None:
+                _remote_handle.input_queue = line_queue
             exit_code = 0
             sink = _make_sink()  # ONE sink for the whole run: `init` (stream-json) is per-SESSION, not per-turn
             turn_no = 0
@@ -1974,7 +1988,8 @@ def run_print_mode(
                     # suggestions` now also works per-turn in THIS loop
                     # (previously left for a follow-up -- see the worker
                     # report).
-                    sink.consume(session.turn(final_prompt or turn_text, images=turn_images), finish=False)
+                    sink.consume(_remote_tee(session.turn(final_prompt or turn_text, images=turn_images)),
+                                 finish=False)
                     _maybe_add_prompt_suggestion(session, sink, cli_flags)
                     exit_code = sink.finish()
                     # finding 5/10: a steer that landed after the turn's
@@ -2038,7 +2053,8 @@ def run_print_mode(
             # folds in any background-job notice and is the ONE place that
             # calls `sink.finish()` for this whole process (see its own
             # docstring for the multi-JSON-object/exit-code bug this closes).
-            sink.consume(session.turn(final_prompt or prompt_text, images=cli_images or None), finish=False)
+            sink.consume(_remote_tee(session.turn(final_prompt or prompt_text, images=cli_images or None)),
+                         finish=False)
             _maybe_add_prompt_suggestion(session, sink, cli_flags)
             # H8 scope A must-do: a single -p text-input call has no later
             # turn to deliver a background job's completion notice through
@@ -2051,6 +2067,12 @@ def run_print_mode(
                 cwd, session_log.session_id,
                 cost_usd=(session.cost_meter.total_usd if session.cost_meter.has_cost_data else None))
     finally:
+        # Halo 2.0.9 round 2: the control socket + registry entry go first.
+        try:
+            from halo_harness.remote.runtime import stop as _remote_stop
+            _remote_stop()
+        except Exception:
+            pass
         try:
             session._fire_session_end("quit")
         except Exception:

@@ -33,6 +33,8 @@ SUBCOMMANDS = (
     # round touched this file -- a separate, pre-existing gap, left as
     # found; see the round 5d worker report.
     "gym",
+    # Halo 2.0.9 round 2: remote control (`halo remote sessions`).
+    "remote",
 )
 
 

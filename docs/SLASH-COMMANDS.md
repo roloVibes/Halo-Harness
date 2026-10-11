@@ -494,6 +494,13 @@ when nothing more specific was set anywhere. See
 [MODELS.md](MODELS.md)'s "Reasoning effort" section for the accepted-level
 table per route family.
 
+### `/remote`
+Halo 2.0.9 round 2. One line saying whether this session opened its remote
+control socket (`control socket: on <endpoint>` or `off`, with the reason when
+`remote.enabled` is false) and how many live sessions the registry holds. The
+full dialog (pairing a phone, peers) comes with the Signal rounds; see
+[REMOTE.md](REMOTE.md) for the socket itself.
+
 ### `/offline [on|off]`
 Halo 2.0.3 round 5e. Bare `/offline` reports whether offline mode is on and
 where that reading came from (`--offline`/`HALO_OFFLINE` for this one

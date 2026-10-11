@@ -42,6 +42,34 @@ from halo_harness.permissions import Decision, add_allow_rule
 QUIT_DEADLINE_S = 5.0
 
 
+class _TeeQueue(queue.Queue):
+    """`Controller.events`: a plain `queue.Queue` (the TUI's drain loop stays
+    its ONE reader) that also hands every put item to registered taps --
+    the remote control socket's event feed (Halo 2.0.9 round 2). A tap runs
+    on the producing thread, must be quick, and its failure never reaches
+    the producer. The `None` worker-gone sentinel is not tapped."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._taps: list = []
+
+    def add_tap(self, fn: Callable) -> None:
+        self._taps.append(fn)
+
+    def remove_tap(self, fn: Callable) -> None:
+        if fn in self._taps:
+            self._taps.remove(fn)
+
+    def put(self, item, block: bool = True, timeout=None) -> None:
+        super().put(item, block, timeout)
+        if item is not None and self._taps:
+            for tap in tuple(self._taps):
+                try:
+                    tap(item)
+                except Exception:
+                    pass
+
+
 def _default_model_resolver(raw: str, *, state_dir: Path, routes: dict, settings=None):
     """`(ModelRef, ModelProfile, creds)` for a `--model`-style string --
     the same resolution headless.py does at startup, reused here so `/model`
@@ -117,7 +145,7 @@ class Controller:
         # Session, a unit test, or `--bare`.
         self.mcp_manager = mcp_manager
 
-        self.events: "queue.Queue" = queue.Queue()
+        self.events: "queue.Queue" = _TeeQueue()
         self.commands: "queue.Queue" = queue.Queue()
         self._worker: Optional[threading.Thread] = None
         self._stopped = threading.Event()
@@ -174,6 +202,18 @@ class Controller:
     def alive(self) -> bool:
         return self._worker is not None and self._worker.is_alive()
 
+    def add_event_tap(self, fn: Callable) -> None:
+        """Halo 2.0.9 round 2: a copy of every event put on `events`
+        (the remote control socket's feed). Never a second queue reader."""
+        adder = getattr(self.events, "add_tap", None)
+        if callable(adder):
+            adder(fn)
+
+    def remove_event_tap(self, fn: Callable) -> None:
+        remover = getattr(self.events, "remove_tap", None)
+        if callable(remover):
+            remover(fn)
+
     def quit(self) -> int:
         """Ask the worker to finish and join it with the 5 s deadline
         (D-TUI). A turn still running when the deadline expires is
@@ -194,6 +234,13 @@ class Controller:
                 self._worker.join(QUIT_DEADLINE_S)
         finally:
             self._stopped.set()
+            # Halo 2.0.9 round 2: the control socket and its registry entry
+            # go away first, on every quit path (all of them call here).
+            try:
+                from halo_harness.remote.runtime import stop_for
+                stop_for(self)
+            except Exception:
+                pass
             # H4 scope B: SessionEnd(quit) -- fired here, after the worker
             # has stopped touching the log but before MCP servers close (a
             # SessionEnd hook may itself want to reach an MCP server).
@@ -1211,6 +1258,11 @@ class Controller:
         title = (title or "").strip()
         if title:
             self.session.log.append_meta(title=title)
+            try:  # Halo 2.0.9 round 2: the sessions registry shows the new title
+                from halo_harness.remote.runtime import note_title
+                note_title(title)
+            except Exception:
+                pass
 
     def maybe_autoname_title(self) -> Optional[str]:
         """After the FIRST turn completes (`tui/app.py`'s `turn_done`

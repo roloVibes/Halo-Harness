@@ -8,6 +8,40 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.0.9] - unreleased
+
+### Remote control: the session control socket
+
+- **A per-session control socket** (`halo_harness/remote/`), behind config
+  `remote.enabled` (default `false`): the TUI at mount and `halo -p` (so
+  `--bg` too) open `~/.halo/run/<session_id>.ctl` (Unix socket, 0600, run dir
+  0700) or, on Windows, loopback TCP on an OS-assigned port with a random
+  16-byte token that must arrive as the first line within 5 s. Nothing
+  listens on a non-loopback address; the token is never logged. Newline JSON,
+  `{id, cmd, ...}` -> `{id, ok, result|error}`, with the commands `status`,
+  `submit`, `steer`, `interrupt`, `answer` (permission / question / plan /
+  approval, with the TUI's once / session / always scopes), `model`,
+  `effort`, `mode`, `slash`, `tail`, `subscribe`, `unsubscribe`, `ping`. The
+  socket calls `Controller` methods (a `SessionHandle` with two
+  implementations: `ControllerHandle` for the TUI, `PrintModeHandle` for
+  `-p`), never raw commands.
+- **An event feed that cannot steal events.** `Controller.events` is now a
+  tee queue: the TUI's drain stays its only reader and each put item is also
+  handed to the socket's hub (print mode wraps the turn stream the same way).
+  Subscribers get every event kind as-is, `text_delta`s merged into one
+  `text_chunk` per 2 s / 1800 bytes, no `thinking_delta`; each has a
+  256-frame queue and is dropped, never waited on, when it fills.
+- **The sessions registry** `~/.halo/run/sessions.json` (atomic, locked):
+  session id, cwd, pid, endpoint, start time, title (follows the auto-title
+  and `/rename`), mode (follows Shift+Tab). Dead pids and endpoints that
+  refuse a connect are swept; `Controller.quit()` (every quit path) and print
+  mode's exit remove the entry and the socket, with an `atexit` hook for a
+  crash. The `cc:` bridge's `*.sock` files and sweep are untouched.
+- **`halo remote sessions`** lists the live sessions; `/remote` shows this
+  session's socket and the registry count. Commands that arrive over the
+  socket appear in the transcript as `(remote) ...` notes. New
+  `docs/REMOTE.md`, `remote.enabled` in `docs/CONFIG.md`.
+
 ## [2.0.8] - 2026-10-11
 
 ### Theme pack: Mario
