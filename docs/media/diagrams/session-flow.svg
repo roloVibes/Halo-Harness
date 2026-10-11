@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" width="960" height="470" role="img" aria-labelledby="t d" font-family="'Fira Code','DejaVu Sans Mono',Consolas,Menlo,monospace">
+<title id="t">How a Halo session runs</title>
+<desc id="d">You type into the TUI; the controller feeds the session loop; the loop calls a provider route and the tools; every step is an event on one stream the TUI, print mode and the remote bridge all read.</desc>
+<defs><marker id="ah-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#89b4fa"/></marker><marker id="ah-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#a6e3a1"/></marker><marker id="ah-yellow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f9e2af"/></marker><marker id="ah-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f38ba8"/></marker><marker id="ah-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94e2d5"/></marker><marker id="ah-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#fab387"/></marker><marker id="ah-mauve" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#cba6f7"/></marker><marker id="ah-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9399b2"/></marker></defs>
+<rect width="960" height="470" rx="16" fill="#1e1e2e"/>
+<text x="24" y="38" font-size="22" fill="#cdd6f4" text-anchor="start" font-weight="700">How a session runs</text>
+<text x="24" y="60" font-size="12" fill="#9399b2" text-anchor="start" font-weight="400">one loop, one event stream, any model behind it</text>
+<rect x="24" y="100" width="130" height="100" rx="10" fill="#2a2b3d" stroke="#94e2d5" stroke-width="1.6"/>
+<rect x="24" y="100" width="130" height="6" rx="3" fill="#94e2d5" opacity="0.9"/>
+<text x="89.0" y="129" font-size="15" fill="#94e2d5" text-anchor="middle" font-weight="700">You</text>
+<text x="89.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">prompt</text>
+<text x="89.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">steer while it runs</text>
+<text x="89.0" y="186" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">Esc to interrupt</text>
+<rect x="224" y="100" width="170" height="100" rx="10" fill="#2a2b3d" stroke="#89b4fa" stroke-width="1.6"/>
+<rect x="224" y="100" width="170" height="6" rx="3" fill="#89b4fa" opacity="0.9"/>
+<text x="309.0" y="129" font-size="15" fill="#89b4fa" text-anchor="middle" font-weight="700">TUI</text>
+<text x="309.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">transcript, dock,</text>
+<text x="309.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">status bar, /tasks,</text>
+<text x="309.0" y="186" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">/mcp, /review</text>
+<rect x="464" y="100" width="200" height="100" rx="10" fill="#2a2b3d" stroke="#cba6f7" stroke-width="1.6"/>
+<rect x="464" y="100" width="200" height="6" rx="3" fill="#cba6f7" opacity="0.9"/>
+<text x="564.0" y="129" font-size="15" fill="#cba6f7" text-anchor="middle" font-weight="700">Session loop</text>
+<text x="564.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">messages -&gt; model call</text>
+<text x="564.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">tool calls -&gt; results</text>
+<text x="564.0" y="186" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">hooks, rules, steering</text>
+<rect x="734" y="100" width="200" height="100" rx="10" fill="#2a2b3d" stroke="#fab387" stroke-width="1.6"/>
+<rect x="734" y="100" width="200" height="6" rx="3" fill="#fab387" opacity="0.9"/>
+<text x="834.0" y="129" font-size="15" fill="#fab387" text-anchor="middle" font-weight="700">Provider route</text>
+<text x="834.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">or: dbx: local: cc: cx: oai:</text>
+<text x="834.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">tool-call repairs</text>
+<text x="834.0" y="186" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">rate limits, failover</text>
+<line x1="154" y1="140" x2="224" y2="140" stroke="#94e2d5" stroke-width="1.8" marker-end="url(#ah-teal)"/>
+<text x="189.0" y="132" font-size="11" fill="#94e2d5" text-anchor="middle" font-weight="400">type</text>
+<line x1="394" y1="140" x2="464" y2="140" stroke="#89b4fa" stroke-width="1.8" marker-end="url(#ah-blue)"/>
+<text x="429.0" y="132" font-size="11" fill="#89b4fa" text-anchor="middle" font-weight="400">submit</text>
+<line x1="464" y1="180" x2="394" y2="180" stroke="#9399b2" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#ah-muted)"/>
+<text x="429.0" y="196" font-size="11" fill="#9399b2" text-anchor="middle" font-weight="400">events</text>
+<line x1="664" y1="140" x2="734" y2="140" stroke="#cba6f7" stroke-width="1.8" marker-end="url(#ah-mauve)"/>
+<text x="699.0" y="132" font-size="11" fill="#cba6f7" text-anchor="middle" font-weight="400">request</text>
+<line x1="734" y1="180" x2="664" y2="180" stroke="#fab387" stroke-width="1.8" marker-end="url(#ah-orange)"/>
+<text x="699.0" y="196" font-size="11" fill="#fab387" text-anchor="middle" font-weight="400">stream</text>
+<rect x="520" y="252" width="200" height="100" rx="10" fill="#2a2b3d" stroke="#a6e3a1" stroke-width="1.6"/>
+<rect x="520" y="252" width="200" height="6" rx="3" fill="#a6e3a1" opacity="0.9"/>
+<text x="620.0" y="281" font-size="15" fill="#a6e3a1" text-anchor="middle" font-weight="700">Tools</text>
+<text x="620.0" y="304" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">Bash Read Edit Grep ...</text>
+<text x="620.0" y="321" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">MCP servers, connectors</text>
+<text x="620.0" y="338" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">sub-agents (roles, orgs)</text>
+<line x1="560" y1="200" x2="560" y2="252" stroke="#cba6f7" stroke-width="1.8" marker-end="url(#ah-mauve)"/>
+<text x="552" y="232" font-size="11" fill="#cba6f7" text-anchor="end" font-weight="400">tool_use</text>
+<line x1="630" y1="252" x2="630" y2="200" stroke="#a6e3a1" stroke-width="1.8" marker-end="url(#ah-green)"/>
+<text x="670" y="232" font-size="11" fill="#a6e3a1" text-anchor="middle" font-weight="400">result</text>
+<line x1="476" y1="200" x2="476" y2="392" stroke="#9399b2" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#ah-muted)"/>
+<rect x="24" y="392" width="910" height="62" rx="10" fill="none" stroke="#9399b2" stroke-width="1.4" stroke-dasharray="3 5"/>
+<text x="479.0" y="416" font-size="12" fill="#9399b2" text-anchor="middle" font-weight="700">event stream</text>
+<text x="479.0" y="434" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">phase - text_delta - tool_use - permission_request - steer_applied - turn_done</text>
+<line x1="309" y1="392" x2="309" y2="200" stroke="#89b4fa" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#ah-blue)"/>
+<text x="372" y="300" font-size="11" fill="#89b4fa" text-anchor="middle" font-weight="400">rendered live</text>
+<text x="750" y="300" font-size="12" fill="#9399b2" text-anchor="start" font-weight="400">print mode and the</text>
+<text x="750" y="318" font-size="12" fill="#9399b2" text-anchor="start" font-weight="400">remote bridge read</text>
+<text x="750" y="336" font-size="12" fill="#9399b2" text-anchor="start" font-weight="400">the same stream</text>
+</svg>

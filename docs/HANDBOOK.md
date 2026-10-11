@@ -8,6 +8,9 @@ troubleshooting, security posture, tests and proxy mode.
 
 ## A 10-minute walkthrough
 
+
+How a session fits together, in one picture: [the session flow](media/diagrams/session-flow.svg). The pictures themselves are made by `tools/capture_screens.py` ([MEDIA.md](MEDIA.md)).
+
 ```sh
 halo init                    # pick a provider, set credentials, doctor, live pong
 halo                         # full-screen TUI
@@ -187,6 +190,9 @@ added via `halo mcp add` is equally visible to `claude mcp list`.
 config` all work the same as Claude Code's own flags.
 
 ## Models and providers
+
+
+The route prefixes and what a session reuses, drawn: [routes](media/diagrams/routes.svg).
 
 Every remote model request is paced by the Governor -- one shared,
 adaptive per-host rate limiter across every halo process on the
@@ -399,6 +405,9 @@ stays the general harness across all four routes above.
 
 ### Roles
 
+
+Lineup, organization tree and the tasks panel side by side: [roles and organizations](media/diagrams/roles-orgs.svg).
+
 Ten built-in roles (V2c, widened in Halo 2.0.2 --
 `orchestrator`/`planner`/`coder`/`reviewer`/`judge`/`researcher`/`tester`/
 `compaction`/`small`/`subagent_default`) let a team point different kinds of
@@ -501,6 +510,9 @@ still allows. A rule that does not parse is reported (a line at startup,
 `/permissions`, `halo doctor`) instead of silently doing nothing.
 
 ## Steering
+
+
+A steer landing mid-turn, as an animated capture: [steer-mid-turn](media/steer-mid-turn.anim.svg).
 
 Typing while a turn is running queues a mid-turn steer (multiple steers
 apply in order); a steer that arrives while a permission/question card is
@@ -705,6 +717,9 @@ declare none, so the events do nothing there. There are no sounds.
 
 ## Remote control from Signal
 
+
+The path from phone to session, drawn: [remote control](media/diagrams/remote-control.svg).
+
 Halo 2.0.9 can be driven from a phone: message a Signal number, and the text
 becomes a prompt in a session running on your computer; permission cards, plan
 reviews and questions come back to the phone and are answered by number or
@@ -740,6 +755,8 @@ event for as long as the TUI runs, so a single press can no longer close
 the session from PowerShell or Windows Terminal.
 
 ## Hooks, skills, commands, MCP, browser
+
+Claude.ai connectors reaching a non-Claude model through the claude binary, drawn: [the connectors bridge](media/diagrams/connectors-bridge.svg).
 
 **Hooks**: the events this harness actually fires are `SessionStart`/
 `SessionEnd`, `UserPromptSubmit`/`UserPromptExpansion`, `PreToolUse`/
@@ -1011,7 +1028,7 @@ INSTALL.md's "Cross-checking on WSL" recipe) -- Kali Linux being the actual
 target, not an afterthought. Suites use mock upstreams throughout; no live
 network call happens as part of `python tests/run_all.py` itself.
 
-The README's screenshot gallery is also a test surface: `python
+The README's pictures are a test surface too (`tools/capture_screens.py --check`, see [MEDIA.md](MEDIA.md)), and so is its screenshot gallery: `python
 scripts/screenshots.py` drives the real TUI with Textual pilots over
 fixture data (fixed seed, frozen clock, `BRIDGE_TEST_HOME` scoped to a
 scratch dir) and writes one SVG per scene under `docs/screenshots/`;

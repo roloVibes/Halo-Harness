@@ -10,6 +10,42 @@ version.
 
 ## [2.0.10] - unreleased
 
+### Front page: real captures, diagrams, the stories
+
+- **`tools/capture_screens.py` + `tools/captures.json`**: one deterministic
+  capture list (name, scene, size 120x40, theme, 2x) rendered from the real TUI
+  over mock data -- the phase line counting and collapsing to its summary, auto
+  mode finishing a turn with no ask, a steer landing mid-turn, two queued asks in
+  the pending dock, the model picker's price/context/speed columns, `/tasks` with
+  a running organization tree, `/mcp` with a failure reason and two connectors,
+  `/review` cards with a confirmed finding, the `/remote` dialog with a pending
+  contact request, and the DOOM, Metroid (Norfair) and Mario HUDs. Each writes
+  `docs/media/<name>.svg` (byte-identical on rerun) and, through headless Chrome
+  when it is installed, a 2x `<name>.png`; the turn and the steer also get a
+  hand-assembled looping SMIL `<name>.anim.svg`. No new Python dependency; the
+  PNG step is skipped, SVGs kept, when Chrome is absent. The scenes live in
+  `scripts/capture_scenes.py` and `scripts/capture_dialogs.py`, built on the
+  existing pilot helpers of `scripts/screenshots.py` (whose scenes were factored
+  into reusable `*_svg` functions; the older gallery output is unchanged).
+- **Hand-drawn diagrams** under `docs/media/diagrams/` (each under 60 KB, on its
+  own dark card so they read on a light or dark page): how a session runs, the
+  routes, roles and organizations, the connectors bridge, and the remote-control
+  path; plus a `docs/media/hero.svg` banner carrying the launch wordmark.
+- **README, top half redone**: the hero, the pitch, the install block, then "What
+  makes Halo stand out" as short stories with a picture each (auto mode, steering,
+  watching a model think, the dock, one session across providers, roles and
+  organizations, connectors, `halo bugreport`, `/review`, remote control, the game
+  HUDs), a comparison table, then the gallery, features, themes and the rest.
+  `tests/test_quickstart_docs.py` now pins the new section order.
+- **Checks**: `tests/test_front_page_media.py` -- every README image exists and is
+  under 1 MB, every PNG is a capture named in `captures.json`, every capture has
+  its files, the diagrams stay under 60 KB, no real path or address is in any
+  SVG, and `tools/capture_screens.py --check` (a fresh render compared byte for
+  byte with the committed SVGs; PNGs are checked only for existence and size).
+- **Docs**: [docs/MEDIA.md](docs/MEDIA.md) (the two commands, the Chrome
+  requirement, what is and is not deterministic); the HANDBOOK links each
+  diagram where it fits.
+
 ### /review: parallel dimension reviewers, a judge, an optional fix pass
 
 - **`/review` and `halo review`** (`halo_harness/review/`, [docs/REVIEW.md](docs/REVIEW.md)),

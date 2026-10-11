@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" width="960" height="400" role="img" aria-labelledby="t d" font-family="'Fira Code','DejaVu Sans Mono',Consolas,Menlo,monospace">
+<title id="t">Remote control from Signal</title>
+<desc id="d">A phone message goes through Signal and signal-cli to the Halo bridge, which checks the pairing and the signature, then talks to a live session over a control socket.</desc>
+<defs><marker id="ah-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#89b4fa"/></marker><marker id="ah-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#a6e3a1"/></marker><marker id="ah-yellow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f9e2af"/></marker><marker id="ah-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f38ba8"/></marker><marker id="ah-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94e2d5"/></marker><marker id="ah-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#fab387"/></marker><marker id="ah-mauve" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#cba6f7"/></marker><marker id="ah-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9399b2"/></marker></defs>
+<rect width="960" height="400" rx="16" fill="#1e1e2e"/>
+<text x="24" y="38" font-size="22" fill="#cdd6f4" text-anchor="start" font-weight="700">Remote control: phone to session</text>
+<text x="24" y="60" font-size="12" fill="#9399b2" text-anchor="start" font-weight="400">contact-request pairing, HMAC-signed commands, a kill switch</text>
+<rect x="24" y="100" width="160" height="100" rx="10" fill="#2a2b3d" stroke="#94e2d5" stroke-width="1.6"/>
+<rect x="24" y="100" width="160" height="6" rx="3" fill="#94e2d5" opacity="0.9"/>
+<text x="104.0" y="129" font-size="15" fill="#94e2d5" text-anchor="middle" font-weight="700">Phone</text>
+<text x="104.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">Signal app</text>
+<text x="104.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">your own number</text>
+<rect x="202" y="100" width="160" height="100" rx="10" fill="#2a2b3d" stroke="#89b4fa" stroke-width="1.6"/>
+<rect x="202" y="100" width="160" height="6" rx="3" fill="#89b4fa" opacity="0.9"/>
+<text x="282.0" y="129" font-size="15" fill="#89b4fa" text-anchor="middle" font-weight="700">Signal</text>
+<text x="282.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">end-to-end</text>
+<text x="282.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">encrypted</text>
+<rect x="380" y="100" width="160" height="100" rx="10" fill="#2a2b3d" stroke="#cba6f7" stroke-width="1.6"/>
+<rect x="380" y="100" width="160" height="6" rx="3" fill="#cba6f7" opacity="0.9"/>
+<text x="460.0" y="129" font-size="15" fill="#cba6f7" text-anchor="middle" font-weight="700">signal-cli</text>
+<text x="460.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">runs on your host</text>
+<text x="460.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">receives the message</text>
+<rect x="558" y="100" width="160" height="100" rx="10" fill="#2a2b3d" stroke="#fab387" stroke-width="1.6"/>
+<rect x="558" y="100" width="160" height="6" rx="3" fill="#fab387" opacity="0.9"/>
+<text x="638.0" y="129" font-size="15" fill="#fab387" text-anchor="middle" font-weight="700">Halo bridge</text>
+<text x="638.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">approved contact?</text>
+<text x="638.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">signature valid?</text>
+<text x="638.0" y="186" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">kill switch off?</text>
+<rect x="736" y="100" width="160" height="100" rx="10" fill="#2a2b3d" stroke="#a6e3a1" stroke-width="1.6"/>
+<rect x="736" y="100" width="160" height="6" rx="3" fill="#a6e3a1" opacity="0.9"/>
+<text x="816.0" y="129" font-size="15" fill="#a6e3a1" text-anchor="middle" font-weight="700">Control socket</text>
+<text x="816.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">local, per session</text>
+<text x="816.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">live registry</text>
+<line x1="184" y1="150" x2="202" y2="150" stroke="#9399b2" stroke-width="1.8" marker-end="url(#ah-muted)"/>
+<line x1="362" y1="150" x2="380" y2="150" stroke="#9399b2" stroke-width="1.8" marker-end="url(#ah-muted)"/>
+<line x1="540" y1="150" x2="558" y2="150" stroke="#9399b2" stroke-width="1.8" marker-end="url(#ah-muted)"/>
+<line x1="718" y1="150" x2="736" y2="150" stroke="#9399b2" stroke-width="1.8" marker-end="url(#ah-muted)"/>
+<rect x="736" y="250" width="160" height="100" rx="10" fill="#2a2b3d" stroke="#cba6f7" stroke-width="1.6"/>
+<rect x="736" y="250" width="160" height="6" rx="3" fill="#cba6f7" opacity="0.9"/>
+<text x="816.0" y="279" font-size="15" fill="#cba6f7" text-anchor="middle" font-weight="700">Session</text>
+<text x="816.0" y="302" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">prompt runs,</text>
+<text x="816.0" y="319" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">reply streams back,</text>
+<text x="816.0" y="336" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">permission cards,</text>
+<text x="816.0" y="353" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400"> answered by number</text>
+<line x1="816" y1="200" x2="816" y2="250" stroke="#a6e3a1" stroke-width="1.8" marker-end="url(#ah-green)"/>
+<text x="852" y="232" font-size="11" fill="#a6e3a1" text-anchor="middle" font-weight="400">drive</text>
+<line x1="736" y1="300" x2="560" y2="300" stroke="#cba6f7" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#ah-mauve)"/>
+<text x="648" y="292" font-size="11" fill="#cba6f7" text-anchor="middle" font-weight="400">streamed reply</text>
+<rect x="380" y="250" width="178" height="100" rx="10" fill="#2a2b3d" stroke="#89b4fa" stroke-width="1.6"/>
+<rect x="380" y="250" width="178" height="6" rx="3" fill="#89b4fa" opacity="0.9"/>
+<text x="469.0" y="279" font-size="15" fill="#89b4fa" text-anchor="middle" font-weight="700">/remote</text>
+<text x="469.0" y="302" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">bridge state,</text>
+<text x="469.0" y="319" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">pairing requests,</text>
+<text x="469.0" y="336" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">paired phones</text>
+<rect x="24" y="250" width="330" height="100" rx="10" fill="none" stroke="#9399b2" stroke-width="1.4" stroke-dasharray="3 5"/>
+<text x="189.0" y="274" font-size="12" fill="#9399b2" text-anchor="middle" font-weight="700">first contact</text>
+<text x="189.0" y="292" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">a request shows up in /remote;</text>
+<text x="189.0" y="310" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">you approve it and read the</text>
+<text x="189.0" y="328" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">safety number out loud</text>
+</svg>
