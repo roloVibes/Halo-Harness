@@ -1155,10 +1155,14 @@ class ThemeStep(StepScreen):
     def body(self) -> list:
         from textual.widgets import OptionList
         from textual.widgets.option_list import Option
-        from halo_harness.theme import DEFAULT_THEME, VALID_THEMES, get_config_value
+        from halo_harness.theme import (
+            DEFAULT_THEME, GAME_THEME_DESCRIPTIONS, GAME_THEMES, VALID_THEMES, get_config_value)
         current = get_config_value("theme", default=None) or DEFAULT_THEME
-        names = sorted(VALID_THEMES)
-        option_list = OptionList(*[Option(n, id=n) for n in names], id="wiz-theme-list")
+        names = sorted(VALID_THEMES - set(GAME_THEMES)) + list(GAME_THEMES)
+        # Halo 2.0.8 theme pack: the game themes carry a one-line description.
+        option_list = OptionList(
+            *[Option(f"{n}  --  {GAME_THEME_DESCRIPTIONS[n]}" if n in GAME_THEMES else n, id=n) for n in names],
+            id="wiz-theme-list")
         if current in names:
             option_list.highlighted = names.index(current)
             mark_checked(option_list, current)
@@ -1213,7 +1217,9 @@ class ThemeStep(StepScreen):
         except Exception:
             chosen = None
         if chosen and theme_mod.is_valid_theme(chosen):
-            theme_mod.persist_theme(chosen)
+            from halo_harness import theme_toggle
+            active = theme_mod.get_config_value("theme", default=None) or theme_mod.DEFAULT_THEME
+            theme_toggle.select_theme(chosen, active)
             self.state.theme_name = chosen
 
 

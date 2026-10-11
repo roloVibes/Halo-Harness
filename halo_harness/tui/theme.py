@@ -53,6 +53,9 @@ def variables_for(theme_name: str) -> dict:
     fallback philosophy)."""
     if not is_valid_theme(theme_name):
         theme_name = DEFAULT_THEME
+    from halo_harness.tui.theme_games import PALETTES
+    if theme_name in PALETTES:  # doom / metroid / mario: their own look, no suffix variants
+        return dict(PALETTES[theme_name])
     if theme_name.endswith("-ansi"):
         return dict(_ANSI_LIGHT if theme_name.startswith("claude-light") else _ANSI_DARK)
     # "-daltonized" and the plain base share a palette today -- see module note.

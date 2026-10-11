@@ -192,6 +192,17 @@ class StatusBar(Static):
         self.ollama_tokens_per_second: "float | None" = None
         self.ollama_prefill_seconds: "float | None" = None
         self.ollama_offloaded: "bool | None" = None
+        # Halo 2.0.8 theme pack: the active theme name (BridgeApp pushes it
+        # via `set_theme`), the MCP tool count for the HUD's "tools loaded"
+        # slot (None until the first status that carries one), the sticky
+        # error flag behind the HUD face (cleared when the next call
+        # starts), and an explicit ASCII-glyph override (None = decide from
+        # terminal truecolor support).
+        self.theme_name = "claude-dark"
+        self.tools_loaded: "int | None" = None
+        self.error = False
+        self.hud_ascii: "bool | None" = None
+        self._rows = 1
         self._refresh_display()
 
     def set_statusline_text(self, text: "str | None") -> None:
@@ -251,6 +262,8 @@ class StatusBar(Static):
         if isinstance(mcp, dict):
             self.mcp_connected = mcp.get("connected", self.mcp_connected)
             self.mcp_total = mcp.get("total", self.mcp_total)
+            if isinstance(mcp.get("tools"), int) and not isinstance(mcp.get("tools"), bool):
+                self.tools_loaded = mcp["tools"]
         # Halo 2.0.3 round 5b: the three `ollama_*` fields are only ever
         # sent TOGETHER, by `Session.status_event` -- a partial status dict
         # from elsewhere in dispatch.py (e.g. a bare `{"phase": ...}`) never
@@ -266,6 +279,8 @@ class StatusBar(Static):
         if phase and phase != self.phase:
             self.phase = phase
             self._phase_started_at = time.monotonic()
+            if phase != "idle":
+                self.error = False
         self._refresh_display()
 
     # ---- Halo 2.0.1 W2b: the liveness cluster (liveness-tips-brief Part A3)
@@ -289,6 +304,7 @@ class StatusBar(Static):
         self._phase_started_at = time.monotonic()
         self.received_chars = 0
         self.running_tool_name = None
+        self.error = False
         self._refresh_display()
 
     def set_phase_word(self, word: str) -> None:
@@ -302,6 +318,29 @@ class StatusBar(Static):
             if word != "tool":
                 self.running_tool_name = None
         self._refresh_display()
+
+    def set_error(self, value: bool = True) -> None:
+        """An `error` event landed: the HUD face shows the error state until
+        the next model call starts (display only; the default layout has no
+        error chip, the transcript note stays the record)."""
+        value = bool(value)
+        if value != self.error:
+            self.error = value
+            self._refresh_display()
+
+    def set_theme(self, name: str) -> None:
+        """Called by BridgeApp on mount and on every theme change: picks the
+        HUD skin (or the default layout) and the bar's row count."""
+        from halo_harness.tui.hud import skin_for
+        self.theme_name = name or "claude-dark"
+        skin = skin_for(self.theme_name)
+        self._set_rows(skin.rows if skin is not None else 1)
+        self._refresh_display()
+
+    def _set_rows(self, rows: int) -> None:
+        if rows != self._rows:
+            self._rows = rows
+            self.styles.height = rows
 
     def set_tool_name(self, name: "str | None") -> None:
         self.running_tool_name = name
@@ -541,6 +580,7 @@ class StatusBar(Static):
         # "running"/"compacting" keep their pre-2.0.1 bare "glyph elapsed"
         # form -- outside this brief's scope.
         spinner_str = ""
+        elapsed_str = ""
         glyph = SPINNER_FRAMES[self.spinner_index]
         if self.phase in _LIVE_PHASE_WORDS:
             elapsed_str = format_elapsed_seconds(time.monotonic() - self._phase_started_at)
@@ -592,6 +632,34 @@ class StatusBar(Static):
                       else "")
         loc_str = self.cwd if not self.branch else f"{self.cwd} ({self.branch})"
         model_label = self.model
+
+        # Halo 2.0.8 theme pack: a game theme with a HUD skin renders through
+        # the skin engine (tui/hud.py); everything above is shared, so every
+        # field stays reachable. Other themes fall through to the layout below.
+        from halo_harness.tui.hud import accent_for, face_state_for, skin_for
+        skin = skin_for(self.theme_name)
+        if skin is not None:
+            from halo_harness.theme import supports_truecolor
+            from halo_harness.tui.hud_fields import build_fields
+            from halo_harness.tui.hud_render import render_hud
+            strings = dict(
+                mcp_str=mcp_str, cost_str=cost_str, or_balance_str=or_balance_str, loc_str=loc_str,
+                cwd_short=(f"{_cwd_last_component(self.cwd)} ({self.branch})" if self.branch
+                           else _cwd_last_component(self.cwd)) if self.cwd else "",
+                mode_str=mode_str, effort_str=effort_str, needs_you_str=needs_you_str, agents_str=agents_str,
+                offline_str=offline_str, gov_str=gov_str, new_str=new_str, hang_str=hang_str,
+                throughput_str=throughput_str, permission_str=permission_str, bg_jobs_str=bg_jobs_str,
+                oldest_str=oldest_str, spinner_str=spinner_str, elapsed_str=elapsed_str)
+            state = face_state_for(self.phase, error=self.error,
+                                   needs_you=bool(self.permission_pending or self.needs_you_count))
+            ascii_mode = self.hud_ascii if self.hud_ascii is not None else not supports_truecolor()
+            hud_text = render_hud(skin, build_fields(self, strings), width=self.size.width, face_state=state,
+                                  frame=self.spinner_index, ascii_mode=ascii_mode)
+            self._set_rows(len(hud_text.plain.splitlines()) or 1)
+            self.update(hud_text)
+            return
+        accent = accent_for(self.theme_name)
+        model_style = f"bold {accent}" if accent else "bold"
 
         # point 4: order is model, ctx, cost, mode, THEN cwd/branch and MCP
         # -- on a narrow terminal the cwd/branch is what shrinks first
@@ -661,7 +729,7 @@ class StatusBar(Static):
             throughput_str = ""
 
         text = Text()
-        text.append(f" {model_label} ", style="bold")
+        text.append(f" {model_label} ", style=model_style)
         if throughput_str:
             text.append(f"{throughput_str} ", style="dim")
         text.append("│ ", style="dim")

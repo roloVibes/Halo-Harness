@@ -606,6 +606,8 @@ async def _apply_event_inner(app, event) -> None:
         prefix = f"[sub-agent {agent_id}] " if agent_id else ""
         await app.transcript.add_note(f"✗ Error: {prefix}{message}", kind="error")
         app.notify(f"{prefix}{message}", severity="error", title="Error")
+        if agent_id is None:
+            app.status_bar.set_error(True)  # the HUD face shows the error until the next call starts
     elif kind == "turn_done":
         # finding 11: a child's own turn_done must never drive the MAIN
         # session's own idle/auto-title bookkeeping (verified: a child's

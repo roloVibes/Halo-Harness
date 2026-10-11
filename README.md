@@ -90,11 +90,16 @@ is [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Themes
 
-The gallery above is the default theme.
+The gallery above is the default theme. The 2.0.8 theme pack adds three game
+themes, each with its own toggle (`/doom`, `/metroid`, `/mario`: run it again
+and your previous theme comes back) and a one-line entry in the wizard's
+Theme step; `/theme <name>` is the explicit form.
 
-> The 2.0.8 theme pack adds one render each: **DOOM** (a HUD-style status
-> bar, `/doom` toggles it and restores your previous theme), **Metroid**,
-> and **Mario**.
+| Theme | Render |
+|---|---|
+| `doom` (`/doom`) -- a three-row bottom-HUD status bar: ammo, health, arms, a face that follows the phase, armor, keys | ![DOOM](docs/screenshots/theme-doom.svg) |
+| `metroid` (`/metroid`) -- visor blues and greens; the suit-HUD status bar is the next round | _render to come_ |
+| `mario` (`/mario`) -- sky blue, brick red, coin gold; the world-and-coins status bar is the next round | _render to come_ |
 
 ## Documentation
 

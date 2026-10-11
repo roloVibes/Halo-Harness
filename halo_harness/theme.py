@@ -29,7 +29,17 @@ _SUFFIXES = ("", "-daltonized", "-ansi")
 # or "-ansi" suffix (plan D-TUI: "claude-dark/claude-light (+ daltonized,
 # ansi variants)"; help capture's own shorthand for the family is
 # "claude-dark", "claude-light", "*-daltonized", "*-ansi").
-VALID_THEMES = frozenset(f"{base}{suffix}" for base in _BASE_THEMES for suffix in _SUFFIXES)
+# Halo 2.0.8 theme pack: the three game themes are their own look (no
+# -daltonized/-ansi siblings) and each has a slash toggle (/doom, /metroid,
+# /mario -- see `halo_harness.theme_toggle`).
+GAME_THEMES = ("doom", "metroid", "mario")
+GAME_THEME_DESCRIPTIONS = {
+    "doom": "dark greys, blood red and amber with a bottom HUD status bar and a face that follows the phase",
+    "metroid": "visor blues and greens with a suit-HUD status bar",
+    "mario": "sky blue, brick red and coin gold with a world-and-coins status bar",
+}
+VALID_THEMES = frozenset(
+    [f"{base}{suffix}" for base in _BASE_THEMES for suffix in _SUFFIXES] + list(GAME_THEMES))
 
 # HALO_THEME is the 2.0.0 canonical name; CLAUDE_BRIDGE_THEME (claude-bridge
 # era) and ROLO_CLAUDE_THEME (rolo-claude era) both still work, checked in

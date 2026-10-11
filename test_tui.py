@@ -2934,6 +2934,70 @@ def test_svg_snapshots_main_permission_question_model_picker(ctx: Ctx):
     asyncio.run(body())
 
 
+def _doom_bar_fixture(app) -> None:
+    """A fully populated DOOM bar: model, 70% context left, 41 tools, cost
+    plus balance, providers, cwd and branch, two agents."""
+    bar = app.status_bar
+    bar.hud_ascii = False
+    bar.apply_status({"model": "or:demo/atlas-pro", "context_tokens": 300_000, "context_limit": 1_000_000,
+                      "cost_usd": 0.0123, "permission_mode": "auto", "effort": "high",
+                      "mcp": {"connected": 3, "total": 3, "tools": 41}})
+    bar.set_provider_balance("openrouter", "OR $12.40 left")
+    bar.set_cwd_branch("~/project", "main")
+    bar.set_agents_running(2)
+    bar.spinner_index = 0
+    app.prompt_input.placeholder = ""
+
+
+@test
+def test_svg_snapshots_doom_hud_every_face_state_and_the_width_cascade(ctx: Ctx):
+    """Halo 2.0.8 theme pack: one SVG per face state and one per width tier
+    (wide, medium, narrow, compact) of the DOOM status-bar HUD."""
+    async def body():
+        faces = [("idle", "▐o_o▌", lambda b: None),
+                 ("thinking", "▐'_'▌", lambda b: b.start_phase_clock("thinking")),
+                 ("writing", "▐^o^▌", lambda b: (b.start_phase_clock("thinking"), b.set_phase_word("writing"))),
+                 ("error", "▐x_x▌", lambda b: b.set_error(True)),
+                 ("needs-you", "▐O!O▌", lambda b: b.set_pending_permission(True))]
+        for name, face, stage in faces:
+            app = await _mounted(FakeController(), theme_name="doom")
+            async with app.run_test(size=(100, 12)) as pilot:
+                await pilot.pause(0.1)
+                _doom_bar_fixture(app)
+                stage(app.status_bar)
+                app.status_bar._phase_started_at = time.monotonic()
+                app.status_bar._refresh_display()
+                await pilot.pause(0.05)
+                path, svg = _write_snapshot(app, f"doom-hud-face-{name}")
+                ctx.check(f"{name}: snapshot written", path.exists())
+                ctx.check(f"{name}: its face is on screen", face in __import__("html").unescape(svg))
+                ctx.check(f"{name}: the HUD captions are on screen", all(w in svg for w in ("AMMO", "HEALTH", "ARMS", "ARMOR")))
+        tiers = [("wide", 140, ("KEYS", "OR $12.40 left", "700k left", "41 tools", "~/project (main)")),
+                 ("medium", 80, ("AMMO", "HEALTH", "ARMS", "ARMOR", "$0.0123")),
+                 ("narrow", 50, ("HEALTH", "ARMOR", "$0.0123", "auto")),
+                 ("compact", 40, ("70%", "$0.0123", "auto"))]
+        for name, width, needles in tiers:
+            app = await _mounted(FakeController(), theme_name="doom")
+            async with app.run_test(size=(width, 12)) as pilot:
+                await pilot.pause(0.1)
+                _doom_bar_fixture(app)
+                app.status_bar._refresh_display()
+                await pilot.pause(0.05)
+                path, svg = _write_snapshot(app, f"doom-hud-width-{name}")
+                ctx.check(f"{name} ({width} columns): snapshot written", path.exists())
+                for needle in needles:
+                    ctx.check(f"{name}: {needle!r} on screen", needle in svg)
+                rows = app.status_bar.size.height
+                ctx.check(f"{name}: bar is {1 if name == 'compact' else 3} rows, got {rows}",
+                          rows == (1 if name == "compact" else 3))
+                if name == "narrow":
+                    ctx.check("narrow: ARMS and KEYS have dropped, AMMO is still there",
+                              "ARMS" not in svg and "KEYS" not in svg and "AMMO" in svg)
+                if name == "medium":
+                    ctx.check("medium: every panel up to ARMOR is still there", all(w in svg for w in ("AMMO", "HEALTH", "ARMS")))
+    asyncio.run(body())
+
+
 # ============================================================================
 # Real end-to-end pilot: a REAL Session/Controller (tui/bootstrap.py) against
 # the mock upstream -- NOT the FakeController. Type a prompt, see streamed
