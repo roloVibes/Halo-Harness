@@ -1388,28 +1388,39 @@ halo models --help
 ```
 ```
 usage: halo models [-h] [--refresh] [--cc] [--cx] [--ant] [--urls] [--json]
-                    [--forget-rules]
+                   [--forget-rules] [--capabilities] [--best-for KIND]
 
 options:
-  -h, --help      show this help message and exit
-  --refresh       Re-probe OpenRouter/Databricks instead of using the cache
-  --cc            List the Claude subscription models (cc:/ant: aliases) instead
-                  of the OpenRouter/Databricks catalog; with --refresh, re-pings
-                  each alias to confirm its current canonical id
-  --cx            List the Codex subscription models (cx: aliases) instead of
-                  the OpenRouter/Databricks catalog; with --refresh, re-pings
-                  each alias to confirm it is accepted (marks refused ids)
-  --ant           List the real, reachable Anthropic API models (ant: aliases
-                  plus every other id the key can see) instead of the
-                  OpenRouter/Databricks catalog; with --refresh, re-fetches
-                  GET /v1/models
-  --urls          Databricks endpoints: also print the exact URL and path type
-                  each one resolves to
-  --json          Machine-readable JSON output
-  --forget-rules  Also clear every learned parameter-rejection rule for every
-                  endpoint (Halo 2.0.5 round 3) -- see `halo rules`'s own,
-                  single-endpoint `--forget`
+  -h, --help       show this help message and exit
+  --refresh        Re-probe OpenRouter/Databricks instead of using the cache
+  --cc             List the Claude subscription models (cc:/ant: aliases)
+                   instead of the OpenRouter/Databricks catalog; with
+                   --refresh, re-pings each alias to confirm its current
+                   canonical id
+  --cx             List the Codex subscription models (cx: aliases) instead of
+                   the OpenRouter/Databricks catalog; with --refresh, re-pings
+                   each alias to confirm it is accepted (marks refused ids)
+  --ant            List the real, reachable Anthropic API models (ant: aliases
+                   plus every other id the key can see) instead of the
+                   OpenRouter/Databricks catalog; with --refresh, re-fetches
+                   GET /v1/models
+  --urls           Databricks endpoints: also print the exact URL and path
+                   type each one resolves to
+  --json           Machine-readable JSON output
+  --forget-rules   Also clear every learned parameter-rejection rule for every
+                   endpoint
+  --capabilities   One line per model: what it accepts (text, image, audio,
+                   video, file) and what it outputs
+  --best-for KIND  Rank models for one job: visual | audio | video | image |
+                   design (with a reason each)
 ```
+
+Halo 3.0.1.0: `--capabilities` adds what each model takes in (text, image,
+audio, video, files) and puts out (image), read from the catalogs, never
+guessed; `--best-for visual|audio|video|image|design` ranks the catalog for
+that job with a one-line reason per model (vision, context, tools, price,
+speed). Halo Design's model pick opens on the `design` ranking. See
+[MODELS.md](MODELS.md) "Which model for what".
 
 | Flag | Reads/writes |
 |---|---|
