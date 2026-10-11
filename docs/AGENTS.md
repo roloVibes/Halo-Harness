@@ -55,8 +55,9 @@ and `roles.enabled`):
    `halo init --step team`. The first row, "One model for everything", is
    the off state; every other row previews its `role -> agent -> model`
    tree with prices before you apply it.
-2. **The command line** -- `halo teams use <name>` points the active
-   lineup at one; `halo roles on|off` flips the switch.
+2. **The command line** -- `halo teams` shows the active lineup, its tree
+   and the others; `halo teams apply <name>` uses one (the same result as
+   the wizard); `halo roles on|off` flips the switch.
 3. **Studio** -- coming in 2.1.0.
 
 Everything below is the field-by-field reference; nothing in it changed.
@@ -345,19 +346,24 @@ teams show halo-dev-cycle` prints the resolved role table; `halo doctor
 ## CLI
 
 ```
+halo agents                                bios grouped by project / user / shipped, with kind and model
 halo agents list                           every reachable bio name
-halo agents show <name>                    resolved identity + every section
+halo agents show <name>                    resolved identity + every section (`halo agents <name>` too)
 halo agents validate [name]                shape-check one bio, or every one (exit 1 on a problem)
 halo agents new <name> [--from BIO] [--project]
 halo agents edit <name>                     $VISUAL/$EDITOR on the raw YAML
 halo agents export <name> [file] [--claude-md]     plain YAML, or .claude/agents/<name>.md frontmatter
 halo agents import <file> | --claude-md <name>     a YAML file, or a discovered .claude/agents/*.md
 
+halo teams                                 the active lineup, its tree, one line per other lineup
 halo teams list                            every reachable team template name
 halo teams show <name>                      the lineup, the resolved role table, any org
+halo teams preview <name>                   the lineup as the wizard shows it: role -> agent -> model
+halo teams apply <name> [--one-model]       use a lineup: writes roles.* and team, turns roles on
+                                            (`standard` / --one-model turns roles off); `use` is the same
+halo teams diff <a> <b>                     role-by-role comparison (-, +, ~; "No difference" when equal)
 halo teams validate [name]                  shape-and-reference-check (exit 1 on a problem)
 halo teams new <name> [--from TEMPLATE] [--project]
-halo teams use <name>                       sets the ACTIVE team (`team` in config.json); refuses an invalid one
 halo teams export <name> [file]
 halo teams import <file>
 ```

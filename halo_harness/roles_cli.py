@@ -65,7 +65,7 @@ def _cmd_show(rest: list) -> int:
     args = parser.parse_args(rest)
     template = load_role_template(args.name)
     if template is None:
-        print(f"halo roles template show: no such template {args.name!r} (or it failed validation)", file=sys.stderr)
+        print(f"halo roles template show: no such template {args.name!r} (or its file has problems)", file=sys.stderr)
         return 1
     print(f"{template['name']} -- {template['description'] or '(no description)'}")
     for role_name, value in sorted(template["roles"].items()):
@@ -138,7 +138,7 @@ def _cmd_export(rest: list) -> int:
     args = parser.parse_args(rest)
     template = load_role_template(args.name)
     if template is None:
-        print(f"halo roles template export: no such template {args.name!r} (or it failed validation)",
+        print(f"halo roles template export: no such template {args.name!r} (or its file has problems)",
               file=sys.stderr)
         return 1
     text = json.dumps(template, indent=2, sort_keys=True) + "\n"
@@ -175,14 +175,14 @@ def _cmd_import(rest: list) -> int:
     try:
         data = json.loads(raw)
     except ValueError as e:
-        print(f"halo roles template import: {args.file} is not valid JSON: {e}", file=sys.stderr)
+        print(f"halo roles template import: {args.file} is not readable JSON: {e}", file=sys.stderr)
         return 1
     name = data.get("name") if isinstance(data, dict) else None
     if not isinstance(name, str) or not name.strip():
         name = path.stem
     ok, problems = save_role_template(name, data)
     if not ok:
-        print(f"halo roles template import: {args.file} is not a valid role template:", file=sys.stderr)
+        print(f"halo roles template import: {args.file} is not a usable role template:", file=sys.stderr)
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 1
@@ -220,7 +220,7 @@ def _cmd_edit(rest: list) -> int:
     args = parser.parse_args(rest)
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
     if not editor:
-        print("halo roles template edit: no $VISUAL/$EDITOR set", file=sys.stderr)
+        print("halo roles template edit: set $EDITOR (or $VISUAL) to your text editor", file=sys.stderr)
         return 1
     if load_role_template(args.name) is None:
         save_role_template(args.name, {"description": "", "roles": {}})
@@ -231,10 +231,10 @@ def _cmd_edit(rest: list) -> int:
     try:
         problems = validate_role_template(json.loads(path.read_text(encoding="utf-8")))
     except (OSError, ValueError) as e:
-        print(f"halo roles template edit: could not re-read {path}: {e}", file=sys.stderr)
+        print(f"halo roles template edit: could not read {path} again: {e}", file=sys.stderr)
         return 1
     if problems:
-        print(f"halo roles template edit: saved file is invalid: {'; '.join(problems)}", file=sys.stderr)
+        print(f"halo roles template edit: the saved file has problems: {'; '.join(problems)}", file=sys.stderr)
         return 1
     print(f"Saved role template {args.name!r}.")
     return 0
@@ -245,6 +245,33 @@ _TEMPLATE_SUBCOMMANDS = {
     "new": _cmd_new, "load": _cmd_load, "edit": _cmd_edit,
     "export": _cmd_export, "import": _cmd_import,
 }
+
+
+def _active_lineup_keys() -> "tuple[str | None, set]":
+    """The active lineup's name and the role names its agents define (empty
+    when no lineup is set or it cannot be resolved)."""
+    try:
+        from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
+        from halo_harness.theme import get_config_value
+        team = get_config_value("team", default=None)
+        if not (isinstance(team, str) and team.strip()):
+            return None, set()
+        template = resolve_team_template(team.strip())
+        if template is None:
+            return team.strip(), set()
+        return team.strip(), set(resolve_role_table(template)[0])
+    except Exception:
+        return None, set()
+
+
+def _role_source(name: str, model, effort, lineup_keys: set, team) -> str:
+    """Where one role's value came from: its lineup, the older saved role
+    table, or nothing set (it follows the session model)."""
+    if model is None and effort is None:
+        return "session default"
+    if team and name in lineup_keys:
+        return f"lineup {team}"
+    return "legacy table"
 
 
 def _cmd_table() -> int:
@@ -271,15 +298,17 @@ def _cmd_table() -> int:
     table = configured_role_table()
     names = known_role_names(table)
     w = max(len(n) for n in names)
-    print("Configured roles (model / effort; `halo roles template ...` manages saved tables):")
+    team, lineup_keys = _active_lineup_keys()
+    print("Configured roles (model / effort / where it came from; `halo roles template ...` manages saved tables):")
     for name in names:
         model, effort = role_value_parts(table.get(name))
         fires = ROLE_WHEN_IT_FIRES.get(name)
         fires_note = f"   -- {fires}" if fires else ""
+        src = _role_source(name, model, effort, lineup_keys, team)
         if model is None and effort is None:
-            print(f"  {name:<{w}}  (session model){fires_note}")
+            print(f"  {name:<{w}}  (session model)  [{src}]{fires_note}")
         else:
-            print(f"  {name:<{w}}  {model or '(session model)'}  {effort or '-'}{fires_note}")
+            print(f"  {name:<{w}}  {model or '(session model)'}  {effort or '-'}  [{src}]{fires_note}")
     # Halo 2.0.5 round 4: same-host fallback warnings -- a fallback on the
     # primary's own gateway host cannot help (the gateway throttles per
     # machine, both trip together).
@@ -317,7 +346,7 @@ def cmd_roles(argv: list) -> int:
             return 2
         return _cmd_on_off(argv[0] == "on")
     if argv[0] != "template":
-        print(f"halo roles: unknown subcommand {argv[0]!r} (known: on, off, template)", file=sys.stderr)
+        print(f"halo roles: {argv[0]!r} is not a command (try: on, off, template)", file=sys.stderr)
         return 2
     rest = argv[1:]
     if not rest:
@@ -327,7 +356,7 @@ def cmd_roles(argv: list) -> int:
     sub, sub_rest = rest[0], rest[1:]
     fn = _TEMPLATE_SUBCOMMANDS.get(sub)
     if fn is None:
-        print(f"halo roles template: unknown subcommand {sub!r} (known: {', '.join(sorted(_TEMPLATE_SUBCOMMANDS))})",
+        print(f"halo roles template: {sub!r} is not a command (try: {', '.join(sorted(_TEMPLATE_SUBCOMMANDS))})",
               file=sys.stderr)
         return 2
     return fn(sub_rest)

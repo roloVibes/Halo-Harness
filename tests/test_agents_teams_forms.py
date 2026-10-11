@@ -137,8 +137,8 @@ def test_teams_edit_subcommand_exists_and_is_listed_in_help(ctx: Ctx):
     symmetrically with `agents_cli.py`'s own `edit`."""
     import halo_harness.teams_cli as teams_cli_mod
     ctx.check("'edit' is a real teams subcommand", "edit" in teams_cli_mod._SUBCOMMANDS)
-    rc, out = _capture(teams_cli_mod.cmd_teams, [])
-    ctx.check(f"the bare usage line mentions edit, got {out!r}", "edit" in out)
+    rc, out = _capture(teams_cli_mod.cmd_teams, ["--help"])
+    ctx.check(f"the usage line mentions edit, got {out!r}", "edit" in out)
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +156,11 @@ class _FakeTranscript:
 class _FakeController:
     def list_models(self):
         return FIXTURE_MODELS
+
+    def run_slash(self, name, args):
+        """The headless builtin the real controller falls through to."""
+        from halo_harness.commands.builtins import HeadlessFacade, _BUILTIN_SPECS
+        return _BUILTIN_SPECS[name][3](args, HeadlessFacade(cwd=Path.cwd()))
 
 
 async def _poll_until(pilot, predicate, *, iterations: int = 60, step_s: float = 0.05) -> bool:
@@ -269,7 +274,9 @@ def test_slash_teams_new_edit_and_activate(ctx: Ctx):
 
 
 @test
-def test_slash_teams_bare_opens_the_list_screen(ctx: Ctx):
+def test_slash_teams_bare_prints_overview_and_apply_preview_work(ctx: Ctx):
+    from halo_harness.roles import roles_mode_enabled
+    from halo_harness.theme import get_config_value
     from halo_harness.tui.dialogs.lineup_editor import TeamsListScreen
     from halo_harness.tui.slash import handle_slash
 
@@ -279,8 +286,36 @@ def test_slash_teams_bare_opens_the_list_screen(ctx: Ctx):
             async with app.run_test(size=(120, 45)) as pilot:
                 await pilot.pause(0.05)
                 await handle_slash(app, "teams", "")
+                found = await _poll_until(pilot, lambda: bool(app.transcript.notes))
+                ctx.check(f"bare /teams printed the overview note, got {app.transcript.notes!r}",
+                          found and "No lineup applied yet" in app.transcript.notes[-1][0])
+                ctx.check("and did not open the list screen", not isinstance(app.screen, TeamsListScreen))
+                await handle_slash(app, "teams", "preview halo-dev-cycle")
+                found = await _poll_until(pilot, lambda: len(app.transcript.notes) >= 2)
+                ctx.check(f"/teams preview printed the tree, got {app.transcript.notes!r}",
+                          found and "main (boss) -> orchestrator" in app.transcript.notes[-1][0])
+                await handle_slash(app, "teams", "apply halo-dev-cycle")
+                found = await _poll_until(pilot, lambda: len(app.transcript.notes) >= 3)
+                ctx.check(f"/teams apply printed the roles, got {app.transcript.notes!r}",
+                          found and "Lineup: halo-dev-cycle" in app.transcript.notes[-1][0])
+                ctx.check("and wrote team: and turned roles on",
+                          get_config_value("team", default=None) == "halo-dev-cycle" and roles_mode_enabled())
+    asyncio.run(body())
+
+
+@test
+def test_slash_teams_bare_opens_the_list_screen(ctx: Ctx):
+    from halo_harness.tui.dialogs.lineup_editor import TeamsListScreen
+    from halo_harness.tui.slash import handle_slash
+
+    async def body():
+        with _Env() as e:
+            app = _build_slash_host_app(e.cwd)
+            async with app.run_test(size=(120, 45)) as pilot:
+                await pilot.pause(0.05)
+                await handle_slash(app, "teams", "list")
                 found = await _poll_until(pilot, lambda: isinstance(app.screen, TeamsListScreen))
-                ctx.check(f"bare /teams opened the list screen, got {type(app.screen).__name__}", found)
+                ctx.check(f"/teams list opened the list screen, got {type(app.screen).__name__}", found)
     asyncio.run(body())
 
 

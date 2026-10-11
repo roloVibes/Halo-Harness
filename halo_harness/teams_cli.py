@@ -16,7 +16,7 @@ def _cmd_list(rest: list) -> int:
     ensure_builtin_team_templates()
     names = list_team_templates()
     if not names:
-        print("No team templates found (not even a shipped one -- this shouldn't happen).")
+        print("No lineups found.")
         return 0
     for n in names:
         print(n)
@@ -30,7 +30,7 @@ def _cmd_show(rest: list) -> int:
     args = parser.parse_args(rest)
     template = resolve_team_template(args.name)
     if template is None:
-        print(f"halo teams show: no such team template {args.name!r} (or it failed validation)", file=sys.stderr)
+        print(f"halo teams show: no lineup named {args.name!r}, or its file has problems (`halo teams validate` says what)", file=sys.stderr)
         return 1
     print(f"{template['name']} -- {template.get('description') or '(no description)'}")
     print(f"  source: {template.get('_source')} ({template.get('_path')})")
@@ -109,13 +109,13 @@ def _cmd_new(rest: list) -> int:
         if not saved:
             print("halo teams new: cancelled.", file=sys.stderr)
             return 1
-        print(f"Created team template {saved!r}.")
+        print(f"Created lineup {saved!r}.")
         return 0
     ok, problems = new_team_template_from_template(args.name, args.from_template, project=args.project)
     if not ok:
         print(f"halo teams new: {'; '.join(problems)}", file=sys.stderr)
         return 1
-    print(f"Created team template {args.name!r}" + (f" from {args.from_template!r}" if args.from_template else "")
+    print(f"Created lineup {args.name!r}" + (f" from {args.from_template!r}" if args.from_template else "")
           + ".")
     return 0
 
@@ -139,7 +139,7 @@ def _cmd_edit(rest: list) -> int:
         if not saved:
             print("halo teams edit: cancelled.", file=sys.stderr)
             return 1
-        print(f"Saved team template {saved!r}.")
+        print(f"Saved lineup {saved!r}.")
         return 0
     import os
     import shlex
@@ -147,7 +147,7 @@ def _cmd_edit(rest: list) -> int:
     import subprocess
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
     if not editor:
-        print("halo teams edit: no $VISUAL/$EDITOR set", file=sys.stderr)
+        print("halo teams edit: set $EDITOR (or $VISUAL) to your text editor, or add --form", file=sys.stderr)
         return 1
     if load_team_template_raw(args.name) is None:
         save_team_template(args.name, {"description": ""})
@@ -165,47 +165,81 @@ def _cmd_edit(rest: list) -> int:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as e:
-        print(f"halo teams edit: could not re-read {path}: {e}", file=sys.stderr)
+        print(f"halo teams edit: could not read {path} again: {e}", file=sys.stderr)
         return 1
     problems = validate_team_template(data, name=args.name)
     if problems:
-        print(f"halo teams edit: saved file is invalid: {'; '.join(problems)}", file=sys.stderr)
+        print(f"halo teams edit: the saved file has problems: {'; '.join(problems)}", file=sys.stderr)
         return 1
-    print(f"Saved team template {args.name!r}.")
+    print(f"Saved lineup {args.name!r}.")
     return 0
 
 
-def _cmd_use(rest: list) -> int:
-    """Halo 2.0.4 round 4 (refinement 2): "the active team is one config
-    key (`team: <template name>`...)". Refuses an unknown/invalid name
-    outright -- never points the active team at nothing."""
-    from halo_harness.teams_yaml import resolve_team_template, validate_team_template
-    parser = argparse.ArgumentParser(prog="halo teams use", add_help=True)
-    parser.add_argument("name")
+def _cmd_use(rest: list, *, verb: str = "use") -> int:
+    """`halo teams apply|use <name> [--one-model]`: the same result as the
+    wizard's Team step -- writes the lineup's roles and `team:`, turns
+    custom roles on (off for `standard` / `--one-model`), then prints the
+    roles now in force. An unknown or invalid lineup changes nothing."""
+    from halo_harness.teams_cli_views import apply_lineup
+    from halo_harness.teams_yaml import resolve_team_template
+    parser = argparse.ArgumentParser(prog=f"halo teams {verb}", add_help=True)
+    parser.add_argument("name", nargs="?", default=None)
+    parser.add_argument("--one-model", action="store_true",
+                        help="use one model for everything (same as applying `standard`)")
     args = parser.parse_args(rest)
-    template = resolve_team_template(args.name)
-    if template is None:
-        print(f"halo teams use: no such team template {args.name!r}", file=sys.stderr)
-        return 1
-    problems = validate_team_template(template, name=args.name)
-    if problems:
-        print(f"halo teams use: {args.name!r} has problems: {'; '.join(problems)}", file=sys.stderr)
-        return 1
+    name = "standard" if args.one_model else args.name
+    if not name:
+        print(f"halo teams {verb}: say which lineup, e.g. `halo teams {verb} balanced` "
+              f"(`halo teams` lists them).", file=sys.stderr)
+        return 2
     # 2.0.7 ollama polish (rolo's single-GPU reality): a lineup whose
     # worker/verify lanes are DIFFERENT local models that cannot co-reside
-    # pays a full model swap (~a minute of dead load on a 24 GB card) on
-    # every implement->verify transition. Warn at ACTIVATION, when the fix
-    # (same model for both, or a smaller second lane) is cheapest. Measured
-    # via fits_beside_main -- never a guess; unknown (remote host, nothing
-    # loaded yet) stays silent.
+    # pays a full model swap on every implement->verify transition. Warn at
+    # ACTIVATION, when the fix is cheapest.
+    template = resolve_team_template(name)
+    ok, lines, notes = apply_lineup(name)
+    if not ok:
+        print(f"halo teams {verb}: could not use {name!r}:", file=sys.stderr)
+        for line in lines:
+            print(f"  - {line}", file=sys.stderr)
+        return 1
     try:
-        _warn_single_gpu_swaps(template)
+        if template is not None:
+            _warn_single_gpu_swaps(template)
     except Exception:
         pass
-    from halo_harness.theme import set_config_value
-    set_config_value("team", args.name)
-    print(f"Active team: {args.name!r}.")
+    for note in notes:
+        print(f"note: {note}")
+    for line in lines:
+        print(line)
     return 0
+
+
+def _cmd_apply(rest: list) -> int:
+    return _cmd_use(rest, verb="apply")
+
+
+def _cmd_preview(rest: list) -> int:
+    from halo_harness.teams_cli_views import preview_text
+    parser = argparse.ArgumentParser(prog="halo teams preview", add_help=True)
+    parser.add_argument("name")
+    args = parser.parse_args(rest)
+    found, lines = preview_text(args.name)
+    for line in lines:
+        print(line, file=sys.stdout if found else sys.stderr)
+    return 0 if found else 1
+
+
+def _cmd_diff(rest: list) -> int:
+    from halo_harness.teams_cli_views import diff_lines
+    parser = argparse.ArgumentParser(prog="halo teams diff", add_help=True)
+    parser.add_argument("a")
+    parser.add_argument("b")
+    args = parser.parse_args(rest)
+    ok, lines = diff_lines(args.a, args.b)
+    for line in lines:
+        print(line, file=sys.stdout if ok else sys.stderr)
+    return 0 if ok else 1
 
 
 def _warn_single_gpu_swaps(template: dict) -> None:
@@ -261,7 +295,7 @@ def _cmd_export(rest: list) -> int:
         return 0 if ok else 1
     template = resolve_team_template(args.name)
     if template is None:
-        print(f"halo teams export: no such team template {args.name!r}", file=sys.stderr)
+        print(f"halo teams export: no lineup named {args.name!r}", file=sys.stderr)
         return 1
     import yaml
     payload = {k: v for k, v in template.items() if not k.startswith("_") and k != "roles"}
@@ -269,7 +303,7 @@ def _cmd_export(rest: list) -> int:
     if args.file:
         from pathlib import Path
         Path(args.file).write_text(text, encoding="utf-8")
-        print(f"Exported team template {args.name!r} to {args.file}.")
+        print(f"Exported lineup {args.name!r} to {args.file}.")
     else:
         print(text, end="")
     return 0
@@ -297,7 +331,7 @@ def _cmd_import(rest: list) -> int:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as e:
-        print(f"halo teams import: {args.file} is not valid YAML: {e}", file=sys.stderr)
+        print(f"halo teams import: {args.file} is not a readable YAML file: {e}", file=sys.stderr)
         return 1
     name = data.get("name") if isinstance(data, dict) else None
     if not isinstance(name, str) or not name.strip():
@@ -305,28 +339,39 @@ def _cmd_import(rest: list) -> int:
     from halo_harness.teams_yaml import save_team_template
     ok, problems = save_team_template(name, data)
     if not ok:
-        print(f"halo teams import: {args.file} is not a valid team template:", file=sys.stderr)
+        print(f"halo teams import: {args.file} is not a usable lineup:", file=sys.stderr)
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 1
-    print(f"Imported team template {name!r} from {args.file}.")
+    print(f"Imported lineup {name!r} from {args.file}.")
     return 0
 
 
 _SUBCOMMANDS = {"list": _cmd_list, "show": _cmd_show, "validate": _cmd_validate, "new": _cmd_new,
-                "edit": _cmd_edit, "use": _cmd_use, "export": _cmd_export, "import": _cmd_import}
+                "edit": _cmd_edit, "use": _cmd_use, "apply": _cmd_apply,
+                "preview": _cmd_preview, "diff": _cmd_diff, "export": _cmd_export, "import": _cmd_import}
 
 
 def cmd_teams(argv: list) -> int:
-    if not argv or argv[0] in ("-h", "--help"):
-        print("usage: halo teams list|show <name>|validate [name]|"
-              "new <name> [--from TEMPLATE] [--project] [--form]|edit <name> [--form]|"
-              "use <name>|export <name> [file]|import <file>", file=sys.stderr)
-        return 0 if argv else 2
+    if not argv:
+        from halo_harness.teams_cli_views import overview_lines
+        for line in overview_lines():
+            print(line)
+        return 0
+    if argv[0] in ("-h", "--help"):
+        print("usage: halo teams                                  show the active lineup and the others\n"
+              "       halo teams list|show <name>|validate [name]\n"
+              "       halo teams preview <name>                   the lineup as a tree\n"
+              "       halo teams apply <name> [--one-model]       use a lineup (`use` does the same)\n"
+              "       halo teams diff <a> <b>                     compare two lineups role by role\n"
+              "       halo teams new <name> [--from TEMPLATE] [--project] [--form]\n"
+              "       halo teams edit <name> [--form]\n"
+              "       halo teams export <name> [file]|import <file>", file=sys.stderr)
+        return 0
     sub, rest = argv[0], argv[1:]
     fn = _SUBCOMMANDS.get(sub)
     if fn is None:
-        print(f"halo teams: unknown subcommand {sub!r} (known: {', '.join(sorted(_SUBCOMMANDS))})",
+        print(f"halo teams: {sub!r} is not a command (try: {', '.join(sorted(_SUBCOMMANDS))}).",
               file=sys.stderr)
         return 2
     return fn(rest)

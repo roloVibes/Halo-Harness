@@ -34,6 +34,22 @@ version.
   `docs/AGENTS.md` now lists all six shipped lineups and drops the
   120-column side-by-side claim. Tests: `tests/test_team_preview.py` and
   the updated wizard pilots.
+- **One obvious command line for lineups** (round B2). `halo teams` with no
+  arguments prints the active lineup (or "One model for everything"), its
+  tree exactly as the wizard previews it, and one line per other lineup.
+  `halo teams apply <name>` (and `use`) now writes `roles.*` AND `team:` and
+  turns custom roles on -- the same config as the wizard (before, `use`
+  wrote only `team:`); `apply standard` / `--one-model` turns roles off.
+  New `halo teams preview <name>` and `halo teams diff <a> <b>`. `halo
+  agents` with no arguments lists bios grouped by project / user / shipped
+  with kind and model; `halo agents <name>` works as its usage line always
+  promised. `halo roles` shows where each role's value came from (`[lineup
+  <name>]`, `[legacy table]`, `[session default]`). The TUI and print mode
+  get the same words: `/teams` (overview), `/teams apply|preview|diff`,
+  and `/teams list` for the interactive screen. Error and notice strings in
+  the three commands were reworded in plain language. New module
+  `halo_harness/teams_cli_views.py`. Tests: `tests/test_agents_teams.py`
+  (`test_b2_*`) and `tests/test_agents_teams_forms.py`.
 
 ## [2.0.11] - unreleased
 

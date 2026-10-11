@@ -2280,6 +2280,7 @@ refusing a still-running one unless `--force` (which stops it first).
 
 ```sh
 halo roles                           print the roles state, then the configured table
+                                     (each role says where its value came from)
 halo roles on
 halo roles off
 halo roles template list
@@ -2297,7 +2298,10 @@ the other two surfaces that write the SAME key). Bare `halo roles` always
 prints the state as its first line -- `roles: on (lineup <name>)` when a
 lineup is active, `roles: on (legacy role table)` with roles on but no
 lineup, or `roles: off (standard: every role uses the default model)` --
-before the configured table below it. `halo roles template load <name>`
+before the configured table below it. **Halo 2.1.0**: each role line ends
+with its source in brackets -- `[lineup <name>]` (the active lineup defines
+it), `[legacy table]` (set outside the lineup) or `[session default]`
+(nothing set; it follows the session model). `halo roles template load <name>`
 also turns roles ON (the fixed weak spot: loading used to leave the table
 sitting inert until a hand edit of config.json); `halo teams use <name>`
 ([AGENTS.md](AGENTS.md)) is the non-overwriting way to just point the
@@ -2433,8 +2437,9 @@ repository or directory to review (default: the current directory).
 ## `halo agents`
 
 ```sh
+halo agents
 halo agents list
-halo agents show <name>
+halo agents show <name>      (or just: halo agents <name>)
 halo agents validate [name]
 halo agents new <name> [--from BIO] [--project] [--form]
 halo agents edit <name> [--form]
@@ -2446,6 +2451,11 @@ halo agents schedule pause <name>
 halo agents schedule resume <name>
 halo agents schedule rm <name>
 ```
+
+**Halo 2.1.0**: bare `halo agents` lists the bios grouped by where they
+live (project, user, shipped), one per line with its kind and preferred
+model, and ends with `halo agents show <name>`; `halo agents <name>` is the
+same as `show`.
 
 Halo 2.0.4 round 4: manages agent BIOS (`~/.halo/agents/<name>.yaml`
 user, `.halo/agents/<name>.yaml` project, shipped read-only starters
@@ -2482,8 +2492,12 @@ for the bio schema.
 ## `halo teams`
 
 ```sh
+halo teams
 halo teams list
 halo teams show <name>
+halo teams preview <name>
+halo teams apply <name> [--one-model]
+halo teams diff <a> <b>
 halo teams validate [name]
 halo teams new <name> [--from TEMPLATE] [--project] [--form]
 halo teams edit <name> [--form]
@@ -2491,6 +2505,19 @@ halo teams use <name>
 halo teams export <name> [file]
 halo teams import <file>
 ```
+
+**Halo 2.1.0**: one obvious path. Bare `halo teams` prints the active
+lineup (or "One model for everything: <model>"), its tree exactly as the
+wizard previews it (`role -> agent -> model`, price, warnings, one cost
+line), then one line per other lineup with its scope and description.
+`apply <name>` (and `use <name>`, the same thing) writes the lineup's
+`roles.*` and `team:` and turns custom roles on -- the same config the
+wizard's Team step writes -- then prints the roles now in force;
+`apply standard` or `apply --one-model` applies `standard` with roles off.
+An unknown or invalid lineup changes nothing and prints the validator's
+lines. `preview <name>` prints the tree; `diff <a> <b>` compares two
+lineups role by role (`-` only on the left, `+` only on the right, `~`
+differs, "No difference" when equal).
 
 Halo 2.0.4 round 4: manages team templates ("lineups",
 `~/.halo/teams/<name>.yaml` user, `.halo/teams/<name>.yaml` project,
@@ -2503,8 +2530,7 @@ its resolved role table, any `org:`, and -- since Halo 2.0.5 round 5 --
 the per-section ENFORCEMENT state (enforced / not set / checked by
 doctor, with the one behaviour line each: a session running under the
 team executes these through `teams_runtime.py`, `--team <name>` for one
-run); `use <name>` sets the active
-`team:` in `config.json` (refusing an invalid name outright).
+run); `use <name>` is `apply <name>` (see above).
 
 **Halo 2.0.5 round 2**: `edit` is new this round (symmetrical with
 `agents edit` -- `$VISUAL`/`$EDITOR` on the raw YAML, or `--form`);
