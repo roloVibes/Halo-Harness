@@ -5,7 +5,7 @@ scripted FakeController turn, fixture picker rows, fixture bios and the
 shipped team templates, a fake MCP server list, a fixture permission ask,
 fixture balances -- and saves one SVG per scene (120x36) under
 docs/screenshots/: launch, turn, picker, team-step, mcp, permission,
-balances, theme-doom. Deterministic by construction: fixed seed, a frozen clock in
+balances, theme-doom, theme-metroid. Deterministic by construction: fixed seed, a frozen clock in
 the widget modules (elapsed text is set through the same started_at /
 _refresh seams the tests use, never a real timer read), no network, no
 real keys, no real paths (the session cwd is the literal "~/project"),
@@ -281,10 +281,11 @@ async def scene_balances(out: Path) -> None:
         _write_svg(out / "balances.svg", await _export(app, pilot))
 
 
-async def scene_theme_doom(out: Path) -> None:
-    """The main screen under the DOOM theme (Halo 2.0.8): the bottom-HUD
-    status bar mid-turn, with the face in its writing state."""
-    app = BridgeApp(FakeController(model=MODEL), cwd=CWD, theme_name="doom")
+async def _game_theme_scene(out: Path, theme: str, variant: "str | None" = None) -> None:
+    """The main screen under a game theme (Halo 2.0.8): the HUD status bar
+    mid-turn, with the face in its writing state. `variant` (a Metroid
+    area) is set on the app directly, never persisted."""
+    app = BridgeApp(FakeController(model=MODEL), cwd=CWD, theme_name=theme)
     async with app.run_test(size=SIZE) as pilot:
         for e in (
             ev.user_message("Add a rotate tool to the model picker", turn=1),
@@ -300,6 +301,10 @@ async def scene_theme_doom(out: Path) -> None:
             await apply_event(app, e)
         bar = app.status_bar
         bar.hud_ascii = False
+        if variant is not None:
+            app.theme_variant = variant
+            app.refresh_css(animate=False)
+        app._sync_theme_chrome()
         bar.apply_status({"model": MODEL, "context_tokens": 312_000, "context_limit": 1_000_000,
                           "cost_usd": 0.0412, "permission_mode": "auto", "effort": "high",
                           "mcp": {"connected": 3, "total": 3, "tools": 41}})
@@ -314,11 +319,21 @@ async def scene_theme_doom(out: Path) -> None:
                     _stage_elapsed(block, 4.0)
             bar._phase_started_at = _NOW - 23.0
 
-        _write_svg(out / "theme-doom.svg", await _export(app, pilot, stage=stage))
+        _write_svg(out / f"theme-{theme}.svg", await _export(app, pilot, stage=stage))
+
+
+async def scene_theme_doom(out: Path) -> None:
+    await _game_theme_scene(out, "doom")
+
+
+async def scene_theme_metroid(out: Path) -> None:
+    """The Metroid HUD (Crateria): energy tanks, counters, the area panel,
+    the visor face, the dashed map-grid border and the visor input frame."""
+    await _game_theme_scene(out, "metroid", "crateria")
 
 
 SCENES = (scene_launch, scene_turn, scene_picker, scene_team_step, scene_mcp, scene_permission,
-          scene_balances, scene_theme_doom)
+          scene_balances, scene_theme_doom, scene_theme_metroid)
 
 
 async def main(out: Path) -> int:

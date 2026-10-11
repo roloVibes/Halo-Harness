@@ -148,6 +148,16 @@ def _recalled_pastes(raw) -> dict:
     return out
 
 
+def _theme_variant(theme_name: str) -> "Optional[str]":
+    """The persisted variant of a game theme that has some (Metroid's area),
+    else None; never raises (a bad config must not stop the app)."""
+    try:
+        from halo_harness.theme import variant_for
+        return variant_for(theme_name)
+    except Exception:
+        return None
+
+
 class BridgeApp(App):
     CSS_PATH = "styles.tcss"
     ENABLE_COMMAND_PALETTE = False
@@ -229,6 +239,7 @@ class BridgeApp(App):
         # initial stylesheet) before returning -- `theme_name` must exist
         # on `self` BEFORE `super().__init__()` runs, not after.
         self.theme_name = theme_name or tui_theme.DEFAULT_THEME
+        self.theme_variant = _theme_variant(self.theme_name)
         super().__init__()
         # 2.0.0 Launch intro: defaults OFF (never auto-detected here) so
         # every existing/future test that constructs a BridgeApp directly
@@ -411,11 +422,12 @@ class BridgeApp(App):
             with Horizontal(id="prompt-row"):
                 yield Static("❯", id="prompt-glyph")
                 yield PromptInput(placeholder=self._current_placeholder_text())
+                yield Static("", id="prompt-frame-r")  # the visor's right edge (hidden unless a skin frames the input)
             yield StatusBar(cwd=str(self.cwd))
 
     def get_css_variables(self) -> dict:
         variables = dict(super().get_css_variables())
-        variables.update(tui_theme.variables_for(self.theme_name))
+        variables.update(tui_theme.variables_for(self.theme_name, self.theme_variant))
         return variables
 
     def check_action(self, action: str, parameters: "tuple") -> "bool | None":
@@ -2680,17 +2692,39 @@ class BridgeApp(App):
         self.push_screen(TasksPanel(list_agent_tasks=list_tasks, read_task_board=read_board))
 
     def _sync_theme_chrome(self) -> None:
-        """Halo 2.0.8 theme pack: the status bar's HUD skin and the heavy
-        panel/dialog borders follow the active theme (both are declared by
-        the theme's `HudSkin`, see tui/hud.py)."""
+        """Halo 2.0.8 theme pack: the status bar's HUD skin, the heavy
+        panel/dialog borders, the map-grid border type and the visor frame
+        around the input line follow the active theme (all declared by the
+        theme's `HudSkin`, see tui/hud.py)."""
+        from halo_harness.theme import supports_truecolor
         from halo_harness.tui.hud import skin_for
-        skin = skin_for(self.theme_name)
+        skin = skin_for(self.theme_name, self.theme_variant)
         self.set_class(bool(skin is not None and skin.heavy_borders), "hud-heavy")
         bar = getattr(self, "status_bar", None)
+        ascii_mode = (getattr(bar, "hud_ascii", None) if bar is not None else None)
+        if ascii_mode is None:
+            ascii_mode = not supports_truecolor()
+        border = ""
+        if skin is not None and skin.panel_border:  # the ascii type only applies to a skin that has a map border
+            border = (skin.panel_border_ascii if ascii_mode else skin.panel_border) or ""
+        for cls in [c for c in self.classes if c.startswith("hud-border-")]:
+            self.remove_class(cls)
+        if border:
+            self.add_class(f"hud-border-{border}")
+        frame = ()
+        if skin is not None:
+            frame = (skin.input_frame_ascii if ascii_mode else skin.input_frame) or ()
+        self.set_class(bool(frame), "hud-visor")
+        try:
+            self.query_one("#prompt-glyph", Static).update(frame[0] if frame else "❯")
+            self.query_one("#prompt-frame-r", Static).update(frame[1] if frame else "")
+        except Exception:
+            pass  # not mounted yet: on_mount runs this again
         if bar is not None:
-            bar.set_theme(self.theme_name)
+            bar.set_theme(self.theme_name, self.theme_variant)
 
     def apply_theme(self, name: str) -> None:
         self.theme_name = name
+        self.theme_variant = _theme_variant(name)
         self._sync_theme_chrome()
         self.refresh_css(animate=False)

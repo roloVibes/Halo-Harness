@@ -98,7 +98,7 @@ Theme step; `/theme <name>` is the explicit form.
 | Theme | Render |
 |---|---|
 | `doom` (`/doom`) -- a three-row bottom-HUD status bar: ammo, health, arms, a face that follows the phase, armor, keys | ![DOOM](docs/screenshots/theme-doom.svg) |
-| `metroid` (`/metroid`) -- visor blues and greens; the suit-HUD status bar is the next round | _render to come_ |
+| `metroid` (`/metroid [area]`) -- a suit-HUD status bar: ten energy tanks for the context left, reserve, missile and super counters, a visor face, the area panel; five area palettes (Crateria, Brinstar, Norfair, Maridia, Tourian), dashed map-grid cards and a visor-framed input line | ![Metroid](docs/screenshots/theme-metroid.svg) |
 | `mario` (`/mario`) -- sky blue, brick red, coin gold; the world-and-coins status bar is the next round | _render to come_ |
 
 ## Documentation

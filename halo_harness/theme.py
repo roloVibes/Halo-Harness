@@ -35,11 +35,36 @@ _SUFFIXES = ("", "-daltonized", "-ansi")
 GAME_THEMES = ("doom", "metroid", "mario")
 GAME_THEME_DESCRIPTIONS = {
     "doom": "dark greys, blood red and amber with a bottom HUD status bar and a face that follows the phase",
-    "metroid": "visor blues and greens with a suit-HUD status bar",
+    "metroid": "visor blues and greens with a suit-HUD status bar, energy tanks and five area palettes",
     "mario": "sky blue, brick red and coin gold with a world-and-coins status bar",
 }
 VALID_THEMES = frozenset(
     [f"{base}{suffix}" for base in _BASE_THEMES for suffix in _SUFFIXES] + list(GAME_THEMES))
+
+# Halo 2.0.8 theme pack, round 2: a game theme may offer selectable variants
+# (Metroid's five areas). The chosen one is `theme_variant` in config.json;
+# the first name is the default. Palettes live in `tui/theme_metroid.py`.
+GAME_VARIANTS = {"metroid": ("crateria", "brinstar", "norfair", "maridia", "tourian")}
+VARIANT_KEY = "theme_variant"
+
+
+def variants_of(name: Optional[str]) -> tuple:
+    return GAME_VARIANTS.get(name or "", ())
+
+
+def is_valid_variant(name: Optional[str], variant: Optional[str]) -> bool:
+    return isinstance(variant, str) and variant in variants_of(name)
+
+
+def variant_for(name: Optional[str]) -> Optional[str]:
+    """The active variant of theme `name` (None when it has none): the
+    persisted `theme_variant` when it names one of the theme's variants,
+    else the theme's default (its first)."""
+    names = variants_of(name)
+    if not names:
+        return None
+    value = get_config_value(VARIANT_KEY, default=None)
+    return value if value in names else names[0]
 
 # HALO_THEME is the 2.0.0 canonical name; CLAUDE_BRIDGE_THEME (claude-bridge
 # era) and ROLO_CLAUDE_THEME (rolo-claude era) both still work, checked in

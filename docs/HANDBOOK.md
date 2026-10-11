@@ -510,7 +510,7 @@ game themes below. A game theme is its own look and has no `-ansi` or
 | Theme | Look |
 |---|---|
 | `doom` | Dark greys, blood reds, rust browns, muted greens and amber text. Heavy borders on cards, panels and dialogs, and a three-row bottom-HUD status bar with an original ASCII face (below). |
-| `metroid` | Visor blues and greens with a power-suit orange accent. Palette and accent today; the suit-HUD status bar arrives in the next 2.0.8 round. |
+| `metroid` | Visor blues and greys with a power-suit orange accent (the Crateria area; four more areas below). Light borders, dashed map-grid cards and dialogs, a visor-framed input line and a three-row suit-HUD status bar with energy tanks and an original visor face (below). |
 | `mario` | Sky blue, brick red, pipe green and coin gold. Palette and accent today; the world-and-coins status bar arrives in the next 2.0.8 round. |
 
 ### The toggles: `/doom`, `/metroid`, `/mario`
@@ -558,6 +558,69 @@ face, phase, context percent, cost, mode, cwd.
 
 On a terminal without truecolor the borders and meter fall back to ASCII
 (`+ - |`, `#`) and the face wears `[ ]` braces instead of half blocks.
+
+### The Metroid suit-HUD
+
+Under `metroid` the status bar is three rows like DOOM's (captioned panels,
+values, a ticker set into the bottom border), laid out the way a visor HUD
+is, from the left:
+
+| Panel | Shows | Notes |
+|---|---|---|
+| ENERGY | context remaining as ten energy tanks, one per ten percent (a full tank is `■`, an empty one `□`), with the exact number beside them (`■■■■■■□□□□ 55%`) | tanks turn amber at 30% left or less and red at 10% or less; when the panel is too narrow the tanks give way and the number stays |
+| RESERVE | tokens remaining in the context window (`812k left`) | the reserve tank; dropped last of the optional panels |
+| MISSILE | turns taken this session (`07`) | the missile counter; counts your messages, never a sub-agent's |
+| SUPER | tools loaded (MCP tool count; `MCP n/m` before the first count) | the super-missile counter |
+| (visor) | an original visor-slit face: idle `-o-`, thinking `o--` sweeping across, writing `<=>`, error `x-x`, needs-you `!-!` between half-circle braces | needs-you outranks error; an error face stays until the next model call starts |
+| COST | cost, with the provider balance next to it when one is known | never dropped |
+| BEAM | providers in play | dropped early |
+| AREA | the cwd's last component with the branch as its sub-label (`project · main`) behind a prefix glyph that names the active area | never dropped |
+
+The ticker carries everything else the status bar shows: the phase clock, a
+pending permission, needs-you, mode, effort, model, agents, background jobs,
+offline, the governor, the hang watch, the "new" counter, the full cwd and
+branch, `MCP n/m`, local throughput and a custom `statusLine`.
+
+As the terminal narrows, parts drop in this order: the custom status line,
+throughput, the full cwd, `MCP n/m`, BEAM, SUPER, the governor, background
+jobs, the "new" counter, effort, MISSILE, model, agents, the hang watch,
+RESERVE. The phase, ENERGY, cost, face, AREA, mode, needs-you, permission and
+offline parts are never dropped. Below 46 columns the HUD is one line: face,
+phase, context percent, cost, mode, cwd. The bar renders in 80 columns; on a
+terminal without truecolor the borders and tanks fall back to ASCII (`+ - |`,
+`#` and `.`), the visor wears `( )` braces, and the map-grid card borders
+become plain ASCII ones.
+
+#### Areas
+
+The five areas are variants of the one `metroid` theme. Each has its own
+palette, HUD colours and AREA prefix glyph; the glyph and the accent say which
+area is active, the cwd stays readable beside them.
+
+| Area | Colours | Prefix glyph |
+|---|---|---|
+| `crateria` (default) | rain-dark blues and slate greys, orange accent | `◇` |
+| `brinstar` | overgrown greens, spore-pink accent | `◈` |
+| `norfair` | cooled-lava reds and oranges | `◆` |
+| `maridia` | deep-water teals | `≈` |
+| `tourian` | cold machine greys, pale accent | `▣` |
+
+`/metroid <area>` or `/theme metroid <area>` picks one (and applies the theme
+when it is not active; bare `/metroid` is still the toggle and leaves the area
+alone). The choice persists as `theme_variant` in `~/.halo/config.json`
+(`halo config set theme_variant norfair` works too, and the wizard's Theme
+step shows a list of the five areas when `metroid` is highlighted).
+
+#### Map-grid cards and the visor input
+
+Cards (permission, question, plan, rewind), the diff and folded-history
+panels, the completion popup, the which-key overlay and dialogs get dashed
+borders under `metroid` (plain ASCII borders without truecolor), and the input
+line is framed by a visor: `◖` at its left in place of the prompt marker and
+`◗` at its right (`(` and `)` without truecolor). Both come from the skin's
+declaration: the app puts `hud-border-dashed` / `hud-border-ascii` and
+`hud-visor` on itself the way DOOM gets `hud-heavy`, and `styles.tcss` styles
+those classes.
 
 ## Keys: Ctrl+C copies, a second press asks before quitting
 

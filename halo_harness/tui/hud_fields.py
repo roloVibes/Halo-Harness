@@ -70,6 +70,9 @@ def build_fields(bar, s: dict) -> dict:
         f["cwd"] = HudField(s["loc_str"], s["cwd_short"], "dim")
     if bar.branch:
         f["branch"] = HudField(bar.branch, "", "dim")
+    if s.get("area_str"):  # the cwd's last component, the branch as its sub-label
+        f["area"] = HudField(f"{s['area_str']} · {bar.branch}" if bar.branch else s["area_str"], s["area_str"], "dim")
+    f["turns"] = HudField(f"{bar.turn_count:02d}", "", "dim" if not bar.turn_count else "")
     f["mode"] = HudField(s["mode_str"], s["mode_str"])
     for slot, key, tone in (("effort", "effort_str", ""), ("needs_you", "needs_you_str", "warn"),
                             ("agents", "agents_str", ""), ("offline", "offline_str", "warn"),

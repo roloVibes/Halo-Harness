@@ -80,10 +80,10 @@ def test_leaving_doom_restores_the_one_row_default_bar(ctx: Ctx):
             ctx.check(f"1 row again, got {app.status_bar.size.height}", app.status_bar.size.height == 1)
             ctx.check("heavy-border class removed", not app.has_class("hud-heavy"))
             ctx.check("no HUD captions left", "AMMO" not in _plain(app.status_bar))
-            app.apply_theme("metroid")
+            app.apply_theme("mario")
             await pilot.pause(0.1)
-            ctx.check("metroid uses the default layout for now (1 row)", app.status_bar.size.height == 1)
-            ctx.check("metroid default layout still shows the context field", "ctx" in _plain(app.status_bar))
+            ctx.check("mario uses the default layout until round 3 (1 row)", app.status_bar.size.height == 1)
+            ctx.check("mario default layout still shows the context field", "ctx" in _plain(app.status_bar))
     asyncio.run(body())
 
 

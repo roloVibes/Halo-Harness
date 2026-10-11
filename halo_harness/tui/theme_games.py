@@ -4,11 +4,15 @@ themes (Halo 2.0.8 theme pack). Same key set as the base palettes in
 
 Original colour choices only, inspired by each game's mood. A palette is
 the whole of a skin's colour story: the status-bar layout lives in
-`tui/hud.py` + `tui/hud_doom.py`, so a new game theme is one palette dict
-here plus one `HudSkin` declaration.
+`tui/hud.py` + `tui/hud_doom.py` / `hud_metroid.py`, so a new game theme is
+one palette dict here plus one `HudSkin` declaration.
 """
 
 from __future__ import annotations
+
+from typing import Optional
+
+from halo_harness.tui.theme_metroid import AREAS, DEFAULT_AREA
 
 # DOOM: dark greys, blood reds, rust browns, muted greens, amber text.
 DOOM = {
@@ -19,16 +23,10 @@ DOOM = {
     "bridge-tool": "#c9773b", "bridge-thinking": "#5f5044",
 }
 
-# Metroid: Crateria blues and greys with a power-suit orange accent.
-# Round 2 refines this (per-area accents) and adds the suit-HUD skin; until
-# then the status bar uses the default layout tinted with this accent.
-METROID = {
-    "bridge-bg": "#0a1220", "bridge-surface": "#101b2f", "bridge-panel": "#17263f",
-    "bridge-text": "#c9d8ec", "bridge-muted": "#6f86a6", "bridge-border": "#2f4a73",
-    "bridge-accent": "#f09a2a", "bridge-success": "#58c27d", "bridge-warning": "#f2c14e",
-    "bridge-error": "#ee5d6c", "bridge-user": "#5fd0c8", "bridge-assistant": "#c9d8ec",
-    "bridge-tool": "#e0803a", "bridge-thinking": "#55698a",
-}
+# Metroid: five area palettes (Crateria blues and greys with a power-suit
+# orange accent, Brinstar, Norfair, Maridia, Tourian), see tui/theme_metroid.py.
+# `METROID` is the default (Crateria) palette; `palette_for` picks a variant.
+METROID = AREAS[DEFAULT_AREA]["palette"]
 
 # Mario: sky blue, brick red, pipe green, coin gold, question-block orange.
 # Round 3 refines this and adds the world-and-coins skin; until then the
@@ -42,3 +40,12 @@ MARIO = {
 }
 
 PALETTES = {"doom": DOOM, "metroid": METROID, "mario": MARIO}
+
+VARIANT_PALETTES = {"metroid": {name: area["palette"] for name, area in AREAS.items()}}
+
+
+def palette_for(name: str, variant: Optional[str] = None) -> dict:
+    """The palette of game theme `name`; a known `variant` (a Metroid area)
+    selects that variant's palette, anything else the theme's default."""
+    variants = VARIANT_PALETTES.get(name) or {}
+    return dict(variants.get(variant or "") or PALETTES[name])

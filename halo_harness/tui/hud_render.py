@@ -34,9 +34,9 @@ def _glyph(seg: Segment, ascii_mode: bool) -> str:
     return ascii_only(seg.glyphs) if ascii_mode else seg.glyphs
 
 
-def _meter(frac: float, g) -> str:
-    on = max(0, min(METER_CELLS, round(frac * METER_CELLS)))
-    return f"{g.meter_l}{g.meter_on * on}{g.meter_off * (METER_CELLS - on)}{g.meter_r}"
+def _meter(frac: float, g, cells: int = METER_CELLS) -> str:
+    on = max(0, min(cells, round(frac * cells)))
+    return f"{g.meter_l}{g.meter_on * on}{g.meter_off * (cells - on)}{g.meter_r}"
 
 
 def _strip_text(seg: Segment, f: HudField, short: bool, ascii_mode: bool) -> str:
@@ -76,10 +76,10 @@ def cascade(skin: HudSkin, fields: dict, width: int, ascii_mode: bool):
     return panels, strip, forms
 
 
-def _panel_candidates(seg, f, g, ascii_mode):
+def _panel_candidates(seg, f, g, ascii_mode, cells: int = METER_CELLS):
     gl = _glyph(seg, ascii_mode)
     prefix = f"{gl} " if gl else ""
-    meter = _meter(f.frac, g) if f.frac is not None else ""
+    meter = _meter(f.frac, g, cells) if f.frac is not None else ""
     out = []
     for body in (f.long, f.short):
         if not body:
@@ -91,12 +91,12 @@ def _panel_candidates(seg, f, g, ascii_mode):
     return out
 
 
-def _panel_natural(seg, f, g, ascii_mode, *, short: bool = False) -> int:
+def _panel_natural(seg, f, g, ascii_mode, *, short: bool = False, cells: int = METER_CELLS) -> int:
     """The width a panel wants: its long form (or, with `short`, the first
     candidate built from the short text)."""
     if f is None:
         return _label_min(seg)
-    cands = _panel_candidates(seg, f, g, ascii_mode)
+    cands = _panel_candidates(seg, f, g, ascii_mode, cells)
     pick = cands[0]
     if short and f.short:
         pick = next((c for c in cands if c[2] == f.short), cands[0])
@@ -130,11 +130,14 @@ def _panel_pieces(skin, seg, f, w, g, ascii_mode, face_text, face_style):
     if f is None:
         return [(pad("-", w), st.get("dim", ""))]
     tone_style = st.get(f.tone or "value", st.get("value", ""))
-    for prefix, meter, body in _panel_candidates(seg, f, g, ascii_mode):
+    for prefix, meter, body in _panel_candidates(seg, f, g, ascii_mode, skin.meter_cells):
         if cell_len(prefix) + cell_len(meter) + cell_len(body) <= w:
             used = cell_len(prefix) + cell_len(meter) + cell_len(body)
-            return [(prefix, st.get("glyph", "")), (meter, tone_style), (body, tone_style),
-                    (" " * (w - used), "")]
+            meter_pieces = [(meter, tone_style)]
+            if meter and st.get("meter_off"):  # a skin may dim the empty cells (Metroid's empty tanks)
+                full = g.meter_l + g.meter_on * meter.count(g.meter_on)
+                meter_pieces = [(full, tone_style), (meter[len(full):], st["meter_off"])]
+            return [(prefix, st.get("glyph", "")), *meter_pieces, (body, tone_style), (" " * (w - used), "")]
     return [(pad(clip(f.short or f.long, w), w), tone_style)]
 
 
@@ -224,7 +227,8 @@ def render_hud(skin: HudSkin, fields: dict, *, width: int, face_state: str = "id
     widths = {s.slot: _label_min(s) for s in panels}
     face_w = _face_width(skin, g)
     naturals = [{s.slot: (face_w if s.slot == "face" else _panel_natural(s, fields.get(s.slot), g, ascii_mode,
-                                                                          short=short)) for s in panels}
+                                                                          short=short, cells=skin.meter_cells))
+                  for s in panels}
                 for short in (True, False)]
     widths = {s.slot: max(widths[s.slot], face_w if s.slot == "face" else 0) for s in panels}
     _distribute(panels, widths, naturals, width)

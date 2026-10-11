@@ -26,13 +26,26 @@ A skin is a DECLARATION, not a fork of the status bar:
 * `compact` -- the slots kept on the single-line form used below
   `compact_below` columns.
 
-Round 2 (Metroid) and round 3 (Mario) add a palette in `tui/theme_games.py`
-and one `HudSkin` in their own module, registered with `register_skin`.
+Round 2 (Metroid) added the generic seams below; round 3 (Mario) adds a
+palette in `tui/theme_games.py` and one `HudSkin` in its own module,
+registered with `register_skin`:
+
+* `meter_cells` -- how many cells the `frac` meter has (default 6; Metroid's
+  energy tanks use 10, one per ten percent).
+* `variants` -- `{variant: {"styles": {...}, "face_styles": {...},
+  "glyphs": {slot: glyph}}}`: per-variant overrides, merged over the base
+  skin by `skin_for(theme, variant)` (Metroid's five areas).
+* `panel_border` / `panel_border_ascii` -- a Textual border type for cards
+  and dialogs (the app puts `hud-border-<type>` on itself, `styles.tcss`
+  styles it); `input_frame` / `input_frame_ascii` -- the (left, right) glyph
+  pair framing the input line (`hud-visor` class).
+* the slots `area` (cwd's last component, the branch as its sub-label) and
+  `turns` (user turns this session).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 from rich.cells import cell_len
@@ -42,7 +55,7 @@ from rich.cells import cell_len
 SLOTS = (
     "model", "tokens", "context", "tools", "mcp", "cost", "providers", "cwd", "branch", "mode", "effort",
     "phase", "elapsed", "needs_you", "permission", "agents", "bg", "hang", "offline", "gov", "new",
-    "throughput", "statusline", "face",
+    "throughput", "statusline", "area", "turns", "face",
 )
 FACE_STATES = ("idle", "thinking", "writing", "error", "needs_you")
 
@@ -99,33 +112,54 @@ class HudSkin:
     compact_below: int = 46
     heavy_borders: bool = True
     rows: int = 3
+    meter_cells: int = 6
+    variants: dict = field(default_factory=dict)
+    panel_border: str = ""
+    panel_border_ascii: str = "ascii"
+    input_frame: tuple = ()
+    input_frame_ascii: tuple = ()
 
 
 _SKINS: dict = {}
-_BUILTIN_SKIN_MODULES = ("halo_harness.tui.hud_doom",)
+_BUILTIN_SKIN_MODULES = ("halo_harness.tui.hud_doom", "halo_harness.tui.hud_metroid")
 _loaded = False
 
 # Themes that already have a palette but whose HUD skin is still to come:
 # the status bar keeps the default layout and tints the model label with
-# this accent. Filled by round 2 (metroid) and round 3 (mario), which move
-# their entry into `register_skin`.
-PLACEHOLDER_ACCENTS = {"metroid": "#f09a2a", "mario": "#f8b830"}
+# this accent. Round 3 (mario) moves its entry into `register_skin`.
+PLACEHOLDER_ACCENTS = {"mario": "#f8b830"}
 
 
 def register_skin(skin: HudSkin) -> None:
     _SKINS[skin.name] = skin
 
 
-def skin_for(theme_name: Optional[str]) -> Optional[HudSkin]:
+_resolved: dict = {}
+
+
+def skin_for(theme_name: Optional[str], variant: Optional[str] = None) -> Optional[HudSkin]:
     """The HUD skin a theme renders through, or None for the default
-    layout (every non-game theme, and the placeholder themes)."""
+    layout (every non-game theme, and the placeholder themes). A known
+    `variant` returns the skin with that variant's overrides applied."""
     global _loaded
     if not _loaded:
         _loaded = True
         import importlib
         for module in _BUILTIN_SKIN_MODULES:  # each registers its skin on import
             importlib.import_module(module)
-    return _SKINS.get(theme_name or "")
+    skin = _SKINS.get(theme_name or "")
+    if skin is None or not variant or variant not in skin.variants:
+        return skin
+    key = (skin.name, variant)
+    if key not in _resolved or _resolved[key][0] is not skin:
+        over = skin.variants[variant]
+        glyphs = over.get("glyphs", {})
+        segments = tuple(replace(seg, glyphs=glyphs[seg.slot]) if seg.slot in glyphs else seg
+                         for seg in skin.segments)
+        _resolved[key] = (skin, replace(
+            skin, segments=segments, styles={**skin.styles, **over.get("styles", {})},
+            face_styles={**skin.face_styles, **over.get("face_styles", {})}))
+    return _resolved[key][1]
 
 
 def accent_for(theme_name: Optional[str]) -> Optional[str]:
