@@ -1317,6 +1317,13 @@ def test_posix_sighup_to_a_headless_cc_run_kills_claude_and_bridge(ctx: Ctx):
     import uuid
     marker = f"cc-sighup-marker-{uuid.uuid4().hex[:10]}"
     home = Path(tempfile.mkdtemp(prefix="cc-sighup-home-"))
+    # Round 7b's consent gate: the child runs in THIS fresh home, so the
+    # module-level acceptance above does not reach it -- record it there.
+    from halo_harness import subscription_consent as _sc
+    (home / ".halo").mkdir(parents=True, exist_ok=True)
+    (home / ".halo" / "config.json").write_text(json.dumps({_sc.CONFIG_KEY: {
+        "accepted": True, "accepted_at": "2026-01-01T00:00:00Z",
+        "accepted_version": _sc.NOTICE_VERSION, "routes": list(_sc.GATED_ROUTES)}}), encoding="utf-8")
     env = dict(os.environ, PYTHONPATH=str(REPO_DIR), BRIDGE_TEST_HOME=str(home),
                BRIDGE_CLAUDE_EXE='"' + sys.executable + '" "' + str(FAKE_CLAUDE) + '"',
                FAKE_CLAUDE_CC_LOGGED_IN="1")

@@ -956,8 +956,23 @@ def test_h9_ensure_lazy_started_all_starts_targets_in_parallel(ctx: Ctx):
                                      args=["-m", "tests.helpers.fake_mcp_server"],
                                      cwd=str(REPO_DIR), lazy=True)
             for name in ("lazyA", "lazyB", "lazyC")}
-    mgr = M.McpManager(cfgs, tool_env={**os.environ, "FAKE_MCP_MODE": "slow", "FAKE_MCP_SLEEP_S": "1.5"},
-                        cwd=REPO_DIR, lazy_names=set(cfgs))
+    tool_env = {**os.environ, "FAKE_MCP_MODE": "slow", "FAKE_MCP_SLEEP_S": "1.5"}
+    # Baseline: ONE slow lazy start on this host (hosted Windows runners
+    # spend seconds just spawning a Python process, so a fixed wall-clock
+    # bound flaked there -- 7.78 s once). Three in parallel must come in
+    # well under three baselines; serial would be ~3x.
+    one = M.McpManager({"solo": M.McpServerConfig(name="solo", type="stdio", command=sys.executable,
+                                                  args=["-m", "tests.helpers.fake_mcp_server"],
+                                                  cwd=str(REPO_DIR), lazy=True)},
+                       tool_env=tool_env, cwd=REPO_DIR, lazy_names={"solo"})
+    try:
+        one.start_all()
+        t0 = time.monotonic()
+        one.ensure_lazy_started_all()
+        baseline = time.monotonic() - t0
+    finally:
+        one.close_all()
+    mgr = M.McpManager(cfgs, tool_env=tool_env, cwd=REPO_DIR, lazy_names=set(cfgs))
     try:
         mgr.start_all()  # no-op: all 3 are lazy, none eager
         t0 = time.monotonic()
@@ -966,7 +981,9 @@ def test_h9_ensure_lazy_started_all_starts_targets_in_parallel(ctx: Ctx):
         ctx.check(f"all 3 lazy servers started, got {sorted(started)}", sorted(started) == ["lazyA", "lazyB", "lazyC"])
         states = [mgr.handles[n].state for n in cfgs]
         ctx.check(f"all 3 connect, got {states}", states == ["connected"] * 3)
-        ctx.check(f"parallel (~1.5s), not serial (~4.5s) -- took {elapsed:.2f}s", elapsed < 4.0)  # 4.0: hosted CI runners took 3.02s
+        bound = max(4.0, 2.2 * baseline)
+        ctx.check(f"parallel (~1 baseline of {baseline:.2f}s), not serial (~3x) -- took {elapsed:.2f}s, bound {bound:.2f}s",
+                  elapsed < bound)
     finally:
         mgr.close_all()
 
