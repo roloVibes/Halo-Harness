@@ -60,6 +60,8 @@ def test_every_readme_png_comes_from_captures_json(ctx: Ctx):
     for ref in sorted(set(pngs)):
         path = Path(ref)
         ctx.check(f"{ref} lives in docs/media/", path.parent.as_posix() == "docs/media")
+        if path.stem in ("studio", "studio-org"):  # tools/capture_studio.py renders these, not the TUI pilots
+            continue
         ctx.check(f"{ref} matches a capture name in tools/captures.json", path.stem in names)
     for ref in sorted({i for i in _readme_images() if i.endswith(".anim.svg")}):
         ctx.check(f"{ref} belongs to an animated capture",
