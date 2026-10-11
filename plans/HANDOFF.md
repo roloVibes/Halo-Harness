@@ -4,6 +4,50 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-11 ~16:30 CDT (authoritative, read this first)
+
+**v2.0.11 IS RELEASED** (tag v2.0.11 at `8ee57be`, GitHub release
+published; the local uv tool install is refreshed to 2.0.11 -- note: `uv
+tool install --reinstall` fails while a `halo.exe` session is running
+(Scripts dir locked); `uv pip install --python <tool venv python>
+--reinstall-package halo-harness <clone>` refreshes the package without
+touching Scripts). The owner still uploads docs/media/social-preview.png
+in GitHub Settings -> Social preview.
+
+**2.1.0 IS MERGED INTO MASTER AND WAITING ON CI** (branch `track-b`,
+worktree C:/Users/rolo/Halo-B, merged after this handoff): B1 the Team
+step back in Quick setup with the lineup preview (`tui/dialogs/
+team_preview.py`), B2 the CLI (`halo teams` overview/apply/preview/diff,
+`halo agents` overview, `halo roles` sources, `/teams` overview), B3
+`halo studio` (halo_harness/studio/, docs/STUDIO.md, three test
+modules, docs/media/studio.png), B4 README/docs. NEXT: CI green on both
+platforms -> `python scripts/release.py 2.1.0 --no-install` (CHANGELOG
+has `## [2.1.0] - unreleased`) -> refresh the install -> handoff.
+
+**2.2.0 "Org mode" IS CODE-COMPLETE ON `track-c`** (worktree C:/Users/
+rolo/Halo-C, branched from track-b, master merged in): C1-C3
+halo_harness/paperclip/ (client, `halo paperclip-run` adapter, `halo
+paperclip status|install|open|link|sync|pull|org`), C4 Studio's Roles |
+Org toggle over Paperclip (proxy `/api/pc/...`, org canvas, re-parent,
+issues, embedded pages, install from the page), C5 docs/PAPERCLIP.md,
+ORGS.md note, the wizard Orgs step pointer, README story,
+docs/media/studio-org.png. Verified live against Paperclip 2026.1005.0
+installed on this host (`~/.paperclip`, http://127.0.0.1:3100, company
+"Halo Harness" with the halo-dev-cycle agents; a heartbeat ran the
+adapter end to end). NEXT after 2.1.0 ships: merge master into track-c,
+CI, `release.py 2.2.0`. Plan: ~/.claude/plans/awesome-job-on-getting-
+robust-stardust.md (Track C at the end).
+
+**KNOWN:** the CI steer-capture flake is fixed (two layout passes in
+`scripts/screenshots.py::_export`); `tests/test_wizard_agents_bios.py::
+test_bio_editor_opens_with_a_sentence_and_per_field_help` flaked once on
+the Windows CI runner (focus timing) -- watch it; Paperclip auto-wakes an
+assignee on assignment, so `agent heartbeat:invoke` right after assigning
+makes a duplicate run that 403s on the comment; `cc:`/`cx:` bios fail a
+heartbeat until `halo subscriptions accept` ran on the machine.
+
+--- previous snapshot below ---
+
 ## WHERE THINGS STAND -- 2026-10-11 ~13:45 CDT (authoritative, read this first)
 
 **2.0.11 "the front page" is code-complete and pushed** (`f4859ee` on
