@@ -133,6 +133,9 @@ async def handle_slash(app, name: str, args: str) -> None:
         # Halo 2.0.9 round 4: bare /remote opens the Signal remote-control
         # dialog; /remote status|pair|off print text (see tui/slash_remote.py).
         "remote": _handle_remote,
+        # Halo 2.0.10: /review -- parallel dimension reviewers on a worker
+        # thread, finding cards in the transcript (see tui/slash_review.py).
+        "review": _handle_review,
     }.get(name)
     if handler is not None:
         # vibes/review.md finding 29: a raise in ANY slash handler (the
@@ -1321,6 +1324,11 @@ def _ollama_analyses(args: str) -> list:
     elif names:
         hosts = [h for h in hosts if h.name.lower() in {n.lower() for n in names}]
     return [analyze_host(h, force=force) for h in hosts]
+
+
+async def _handle_review(app, args: str) -> None:
+    from halo_harness.tui.slash_review import handle_review
+    await handle_review(app, args)
 
 
 async def _handle_remote(app, args: str) -> None:

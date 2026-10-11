@@ -1785,6 +1785,12 @@ def _cmd_keybindings(args: str, facade: HeadlessFacade) -> str:
 
 
 # name -> (kind, description, argument_hint, run)
+def _cmd_review(args: str, facade: HeadlessFacade) -> str:
+    """Halo 2.0.10: `/review` -- see halo_harness/review/ and docs/REVIEW.md."""
+    from halo_harness.review.slash import cmd_review
+    return cmd_review(args, facade)
+
+
 _BUILTIN_SPECS = {
     "help": ("core", "Show available commands", None, _cmd_help),
     "clear": ("ui", "Clear the conversation history", None, _cmd_clear),
@@ -1815,6 +1821,8 @@ _BUILTIN_SPECS = {
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),
     "org": ("core", "List/show/run organizations (trees of sub-agent positions)",
              "[list|show|new|load|edit|run [<name>] \"<goal>\"]", _cmd_org),
+    "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",
+               "[target] [--level low|medium|high] [--dimensions a,b] [--fix] [--no-verify]", _cmd_review),
     "setup": ("core", "Open the roles/organizations guided setup screens", "[roles|orgs]", _cmd_setup),
     "providers": ("core", "Show/enable/disable providers (dbx:/or:/ant:/cc:)", "[list|enable|disable <name>]",
                   _cmd_providers),

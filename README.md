@@ -72,6 +72,7 @@ pilots over fixture data with a fixed clock, so a rerun is byte-identical
 | **MCP deep dive** | stdio/HTTP/SSE servers from every Claude Code scope, `D` diagnoses a failing server end to end, claude.ai connectors bridge through as tools. |
 | **Balances and picker columns** | Per-provider balances in the status bar (remaining first); free variants sit beside their paid rows in the picker. |
 | **Remote control from Signal** | Message a number, drive a session from your phone: prompts, streamed replies, permission cards answered by number. Contact-request pairing, HMAC-signed commands, a kill switch, a `/remote` dialog and a status chip -- see [docs/REMOTE.md](docs/REMOTE.md). |
+| **Code review** | `/review` and `halo review`: parallel read-only reviewers per dimension (correctness, security, performance, tests, docs), a judge that confirms or dismisses every finding, ranked cards or `--json`, and an optional `--fix` pass -- see [docs/REVIEW.md](docs/REVIEW.md). |
 | **Privacy audit** | `halo audit privacy` scans the tree for real paths, hosts and key-shaped strings; the release refuses to ship one red line. |
 | **CI and release script** | Every push runs the three suites on Linux and Windows; `scripts/release.py` versions, tags, pushes and refreshes both installs. |
 

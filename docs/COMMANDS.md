@@ -2365,6 +2365,56 @@ asking. See [ORGS.md](ORGS.md) for the full schema, the three built-ins,
 how a run flows through the tree, budgets, goals, approval gates,
 export/import and resume.
 
+## `halo review`
+
+```sh
+halo review [target ...] [--level {low,medium,high}] [--dimensions LIST] [--fix] [--no-verify]
+            [--json] [--model REF] [--role NAME=MODEL[:EFFORT]] [--cwd DIR]
+```
+
+Halo 2.0.10: review a change with parallel dimension reviewers and a judge,
+and print the ranked findings (the same thing `/review` does in the TUI).
+`target` is nothing (this branch against its merge base with the default
+branch, uncommitted changes included), a range `a..b`, a branch, a pull
+request (`#123` or `123`, through `gh`), or one or more paths/globs reviewed
+as they are. Exit code 0 whenever the review ran (findings never change it),
+1 if every reviewer failed, 2 for usage errors and targets that cannot be
+resolved. Progress lines go to stderr; the result goes to stdout. See
+[REVIEW.md](REVIEW.md) for the pipeline, the JSON shape and the cost.
+
+#### `--level {low,medium,high}`
+
+How many findings each reviewer may report (3, 8, 20) and how speculative
+it may be. Default `medium`.
+
+#### `--dimensions LIST`
+
+A comma-separated subset of `correctness`, `security`, `performance`,
+`tests`, `docs-consistency`. Default: all five.
+
+#### `--fix`
+
+After verification, a `coder` sub-agent applies a minimal fix in the working
+tree for each CONFIRMED finding (never committing) and the judge re-checks
+it; each finding gets an `outcome` of `fixed`, `skipped` or
+`no_change_needed`. Runs the session in `acceptEdits` mode. Not combinable
+with `--no-verify`.
+
+#### `--no-verify`
+
+Skip the judge: findings stay PLAUSIBLE and none are dismissed.
+
+#### `--json`
+
+Print one JSON object `{target, findings, dismissed, reviewers, cost_usd,
+elapsed_s}` with the ReportFindings field names instead of text.
+
+#### `--model REF`, `--role NAME=MODEL[:EFFORT]`, `--cwd DIR`
+
+`--model` is the model for roles with none of their own; `--role` (repeatable)
+sets the `reviewer`, `judge` or `coder` role for this run; `--cwd` is the
+repository or directory to review (default: the current directory).
+
 ## `halo agents`
 
 ```sh

@@ -359,6 +359,23 @@ autocomplete suggestions from the same merged, enumerated list as it's
 typed, and a one-line note if the committed value matches nothing in it
 (still accepted either way).
 
+### `/review [target] [--level low|medium|high] [--dimensions a,b] [--fix] [--no-verify]`
+Halo 2.0.10: review a change with parallel dimension reviewers (correctness,
+security, performance, tests, docs-consistency; one read-only sub-agent each,
+on the `reviewer` role) and a judge that checks every finding (`judge` role).
+`target` is nothing (this branch against its base, uncommitted changes
+included), a range `a..b`, a branch, a PR number (`#123`, needs `gh`), or paths
+and globs reviewed as they are. The reviewers appear live in `/tasks`; the
+result lands in the transcript as a header line ("N findings (c confirmed, p
+plausible) from d reviewers in t s, $cost") and one card per finding: severity,
+`file:line` (click it, or press `c`, to copy), the verdict badge and the short
+summary, with the failure scenario folded (Enter or a click unfolds it, `y`
+copies the finding). `--fix` has a `coder` sub-agent apply a minimal fix per
+CONFIRMED finding in the working tree (never committing) and re-verifies it;
+`--no-verify` skips the judge. Esc aborts every reviewer. Runs on a worker
+thread. In print mode (`-p "/review ..."`) it prints the text form; `halo
+review` is the CLI form, with `--json`. See `docs/REVIEW.md`.
+
 ### `/setup [roles|orgs]`
 Halo 2.0.2 round 7: opens the init wizard's own Roles/Organizations setup
 screen(s) over the live session (a modal screen stack, not a separate

@@ -35,6 +35,8 @@ SUBCOMMANDS = (
     "gym",
     # Halo 2.0.9 round 2: remote control (`halo remote sessions`).
     "remote",
+    # Halo 2.0.10 round 1: `halo review`.
+    "review",
 )
 
 # Halo 2.0.9 round 4: the words that follow `halo remote` / `halo remote

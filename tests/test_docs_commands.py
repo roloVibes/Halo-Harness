@@ -92,6 +92,9 @@ def _gather_real_flags() -> "dict[str, set]":
     out["halo teams"] = _flags_in(_capture(teams_cli.cmd_teams, ["--help"]))
     out["halo gym"] = _flags_in(_capture(gym_cli.cmd_gym, ["--help"]))
     out["halo replay"] = _flags_in(_capture(replay_cli.cmd_replay, ["--help"]))
+    # 2.0.10 round 1: `halo review`
+    from halo_harness.review import cli as review_cli
+    out["halo review"] = _flags_in(_capture(review_cli.cmd_review, ["--help"]))
     return out
 
 
@@ -99,7 +102,7 @@ def _gather_real_flags() -> "dict[str, set]":
 def test_every_subcommand_is_documented(ctx: Ctx):
     text = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
     for name in ("init", "doctor", "update", "models", "mcp", "config", "stats", "export", "improve", "proxy",
-                 "work-matrix", "ollama"):
+                 "work-matrix", "ollama", "review"):
         label = f"halo {name}"
         ctx.check(f"COMMANDS.md documents {label!r} (as a heading)",
                   re.search(rf"^#{{1,3}}\s+.*`?{re.escape(label)}`?", text, re.MULTILINE) is not None)

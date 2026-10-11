@@ -866,6 +866,30 @@ versions of the TUI's own `/export`/`/stats` slash commands -- the former
 redacts API keys/tokens/secrets from a session log before handing it to
 someone else, the latter aggregates turn/cost/token stats across sessions.
 
+## Code review
+
+`/review` (TUI) and `halo review` (print mode) review a change the way Claude
+Code's `/code-review` does: five read-only reviewers run in parallel (one each
+for correctness, security, performance, tests and docs-consistency), a judge
+checks every finding against the code, and you get a ranked list with a
+verdict on each (`CONFIRMED`, `PLAUSIBLE`; `DISMISSED` ones are dropped).
+
+```sh
+halo review                          # this branch against its base
+halo review '#123'                   # a pull request (needs gh)
+halo review main..feature --level high --dimensions security,correctness
+halo review src/ --json              # files as they are, JSON out
+halo review --fix                    # fix every CONFIRMED finding in the working tree
+```
+
+In the TUI the reviewers show up in `/tasks` while they work and the result
+lands as one card per finding; click a card's `file:line` to copy it, press
+Enter to unfold its failure scenario, Esc to abort. A review reports and never
+gates anything; `--fix` edits the working tree but never commits. The
+`code-review` team template (`halo teams use code-review`) maps the `reviewer`,
+`judge` and `coder` roles so each part can run on its own model. Details,
+the JSON shape and cost notes: [REVIEW.md](REVIEW.md).
+
 ## Telemetry and `/improve`
 
 `halo stats --models [--tools] [--since 7d|30d|all] [--all-projects]

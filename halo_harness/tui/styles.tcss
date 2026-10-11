@@ -126,6 +126,29 @@ AssistantText MarkdownFence {
     color: $bridge-error;
 }
 
+/* 2.0.10 /review: one card per finding, the border colour follows the severity. */
+.review-card {
+    color: $bridge-tool;
+    border-left: thick $bridge-border;
+    padding: 0 1;
+}
+
+.review-card.review-sev-high {
+    border-left: thick $bridge-error;
+}
+
+.review-card.review-sev-medium {
+    border-left: thick $bridge-warning;
+}
+
+.review-card.review-sev-low {
+    border-left: thick $bridge-success;
+}
+
+.review-header {
+    text-style: bold;
+}
+
 .diff-view {
     border: round $bridge-border;
     padding: 0 1;
