@@ -65,7 +65,7 @@ def test_version_from_a_scratch_directory_outside_the_repo(ctx: Ctx):
     scratch = _scratch_dir_outside_the_repo("halo-run-anywhere-version-")
     env = _hermetic_env({"PYTHONPATH": str(REPO_DIR)})
     result = subprocess.run([sys.executable, "-m", "halo_harness", "--version"],
-                             cwd=str(scratch), env=env, capture_output=True, text=True, timeout=30)
+                             cwd=str(scratch), env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=30)
     ctx.check(f"exit 0, got {result.returncode} (stderr: {result.stderr[-400:]!r})", result.returncode == 0)
     # Halo 2.0.2 round 6: `(commit, branch)` is appended once known --
     # this subprocess's cwd is the scratch dir, but PYTHONPATH still
@@ -74,10 +74,13 @@ def test_version_from_a_scratch_directory_outside_the_repo(ctx: Ctx):
     # finds a real commit/branch -- proof this stays cwd-independent too.
     # 2.0.5 round 2d: the ASCII banner (banner.py) prints first; the
     # version line is the LAST line of the multi-line output.
-    from halo_harness.banner import BANNER
+    from halo_harness.banner import BANNER, BANNER_ART
     lines = result.stdout.strip("\n").split("\n")
+    # 2.0.11 round A2: the block art on a UTF-8 stream, the ASCII form on
+    # a stream that cannot encode it.
+    art, ascii_ = BANNER_ART.split("\n"), BANNER.split("\n")
     ctx.check(f"the banner block prints first, got {result.stdout!r}",
-              lines[:len(BANNER.split("\n"))] == BANNER.split("\n"))
+              lines[:len(art)] == art or lines[:len(ascii_)] == ascii_)
     ctx.check(f"last line prints 'halo {__version__}', optionally with (commit, branch), got {lines[-1]!r}",
               re.match(rf"^halo {re.escape(__version__)}( \([0-9a-f]{{7}}(, \S+)?\))?\s*$",
                         lines[-1]) is not None)

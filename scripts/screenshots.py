@@ -151,22 +151,7 @@ async def _export(app, pilot, stage=None) -> str:
     return sized_svg(re.sub(r"terminal-\d+-", "terminal-0-", app.export_screenshot()))
 
 
-_VIEWBOX = re.compile(r'(<svg\b[^>]*?)\s+viewBox="0 0 ([\d.]+) ([\d.]+)"')
-
-
-def sized_svg(svg: str) -> str:
-    """Give the Textual export an explicit `width`/`height` matching its
-    viewBox (2.0.11 round A1). Textual writes a viewBox only; an SVG with
-    no intrinsic size is laid out at the replaced-element default of about
-    300x150 px wherever it sits in an <img> -- GitHub's file view, the page
-    a README click opens, showed every capture as a thumbnail. Idempotent:
-    a root tag that already carries a width is returned unchanged."""
-    m = _VIEWBOX.search(svg)
-    if not m or re.search(r'<svg\b[^>]*\bwidth=', svg[:m.end()]):
-        return svg
-    w, h = float(m.group(2)), float(m.group(3))
-    head = f'{m.group(1)} width="{w:g}" height="{h:g}" viewBox="0 0 {m.group(2)} {m.group(3)}"'
-    return svg[:m.start()] + head + svg[m.end():]
+from svgsize import sized_svg  # noqa: E402  (pure; scripts/ is on sys.path when this runs)
 
 
 async def _seed_bios() -> None:

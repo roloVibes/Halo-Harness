@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/roloVibes/Halo-Harness/releases"><img alt="release" src="https://img.shields.io/github/v/release/roloVibes/Halo-Harness?label=release&color=5b4bd6"></a>
+  <a href="https://github.com/roloVibes/Halo-Harness/releases"><img alt="version 2.0.10" src="https://img.shields.io/badge/version-2.0.10-5b4bd6"></a>
   <a href="https://github.com/roloVibes/Halo-Harness/actions/workflows/suites.yml"><img alt="CI" src="https://github.com/roloVibes/Halo-Harness/actions/workflows/suites.yml/badge.svg"></a>
   <img alt="python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776ab">
   <img alt="Linux, macOS, Windows" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-2b2b2b">
