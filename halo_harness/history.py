@@ -19,11 +19,14 @@ comparing, so a caller never has to care which form a given line used.
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 from typing import Optional
 
 from halo_harness.config.paths import claude_config_dir, bridge_home, normalize_cwd
+from halo_harness.filelock import file_lock
+from halo_harness.textlines import split_lines
 
 HISTORY_SCHEMA_KEYS = ("display", "pastedContents", "project", "sessionId", "timestamp")
 
@@ -75,7 +78,7 @@ def _read_jsonl(path: Path) -> list:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return []
-    for line in text.splitlines():
+    for line in split_lines(text):
         line = line.strip()
         if not line:
             continue
@@ -150,10 +153,30 @@ def append_history_entry(display: str, cwd: str, *, session_id: Optional[str] = 
         "timestamp": timestamp if timestamp is not None else time.time() * 1000.0,
     }
     path = rolo_history_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _append_line(path, json.dumps(entry, ensure_ascii=False) + "\n")
     except OSError:
         pass
     return entry
+
+
+def _append_line(path: Path, line: str) -> None:
+    """review finding 92: one whole-line append, under the file lock, to a
+    file created 0600 (prompt history can hold anything the user typed). A
+    crash or kill mid-write can leave the last line without its newline; the
+    next entry then starts on a fresh line instead of being glued onto the
+    fragment (which would lose BOTH)."""
+    data = line.encode("utf-8")
+    with file_lock(path):
+        fd = os.open(str(path), os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_BINARY", 0), 0o600)
+        try:
+            size = os.fstat(fd).st_size
+            if size:
+                with open(path, "rb") as probe:
+                    probe.seek(size - 1)
+                    if probe.read(1) != b"\n":
+                        data = b"\n" + data
+            os.write(fd, data)
+        finally:
+            os.close(fd)

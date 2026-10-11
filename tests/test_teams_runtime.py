@@ -426,6 +426,10 @@ def _text(text: str):
 @test
 def test_team_escalation_switches_and_ask_shows_the_card(ctx: Ctx):
     from halo_harness.agent.loop import Session
+    # Another module imports this one (tests/test_review2_round8c.py), so
+    # the import-time call above can run in THAT module's window and be
+    # undone by run_all's env restore before this test; re-apply here.
+    ensure_default_provider_credentials()
     with _Env() as e:
         control = _control(e, escalation_ask=False)
         control.record_spend(1.0)

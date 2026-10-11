@@ -36,7 +36,13 @@ from halo_harness.agent import sessions as agent_sessions
 # Mirrors controller.py's own _NON_PROMPT_USER_KINDS (kept local on
 # purpose: that set is controller-internal and this module must not drag
 # the TUI/controller import graph into a CLI-only path).
-_NON_PROMPT_USER_KINDS = frozenset({
+# review finding 86: the kinds the log actually writes (compaction summary
+# and re-appended tail, continuation, background agent/job notices, steer)
+# are telemetry's set; the older names below stay for logs that used them.
+from halo_harness.telemetry import _NON_PROMPT_USER_KINDS as _LOGGED_NON_PROMPT_KINDS
+from halo_harness.textlines import split_lines
+
+_NON_PROMPT_USER_KINDS = _LOGGED_NON_PROMPT_KINDS | frozenset({
     "command", "notice", "subagent", "tool_result", "interrupt", "compact",
     "steer", "system", "error",
 })
@@ -62,7 +68,7 @@ def parse_turns(log_path: Path) -> "list[ReplayTurn]":
     turns: "list[ReplayTurn]" = []
     current: Optional[ReplayTurn] = None
     try:
-        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        lines = split_lines(log_path.read_text(encoding="utf-8", errors="replace"))
     except OSError:
         return []
     for i, line in enumerate(lines):
@@ -109,7 +115,7 @@ def parse_turns(log_path: Path) -> "list[ReplayTurn]":
 def _truncate_fork(fork_path: Path, keep_lines: int) -> None:
     """Cut the fork's file down to its first `keep_lines` lines -- the
     shared prefix everything before the target turn produced."""
-    lines = fork_path.read_text(encoding="utf-8", errors="replace").splitlines(keepends=True)
+    lines = split_lines(fork_path.read_text(encoding="utf-8", errors="replace"), keepends=True)
     fork_path.write_text("".join(lines[:keep_lines]), encoding="utf-8")
 
 

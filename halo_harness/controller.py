@@ -36,6 +36,7 @@ from typing import Callable, Optional
 
 from halo_harness import events
 from halo_harness.config.paths import bridge_home, project_slug
+from halo_harness.textlines import split_lines
 from halo_harness.permissions import Decision, add_allow_rule
 
 QUIT_DEADLINE_S = 5.0
@@ -674,7 +675,7 @@ class Controller:
         for path in sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True):
             summary, title, model, cost_usd, turns = "", "", "", 0.0, 0
             try:
-                for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                for line in split_lines(path.read_text(encoding="utf-8", errors="replace")):
                     try:
                         node = json.loads(line)
                     except ValueError:
@@ -1519,7 +1520,10 @@ def compute_session_stats(nodes: list) -> dict:
                     name = block.get("name", "?")
                     tool_counts[name] = tool_counts.get(name, 0) + 1
         elif ntype == "usage":
-            bucket = per_model.setdefault(current_model, {
+            # review finding 84: a sub-agent rollup is charged to the
+            # child's own model, not the session's current one.
+            usage_model = node["model"] if (node.get("agent_id") and node.get("model")) else current_model
+            bucket = per_model.setdefault(usage_model, {
                 "input_tokens": 0, "output_tokens": 0,
                 # finding 29: a cached Claude route's own `message_start`
                 # reports ONLY the uncached portion in `input_tokens` (see

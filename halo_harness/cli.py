@@ -324,6 +324,26 @@ def _read_stdin_prompt() -> "tuple[Optional[str], Optional[str]]":
     return sys.stdin.read(), None  # fallback for a replaced (non-buffer) stdin, e.g. some test harnesses
 
 
+def _stdin_is_terminal() -> bool:
+    try:
+        return sys.stdin is None or sys.stdin.isatty()
+    except (OSError, ValueError):
+        return True
+
+
+def _read_stdin_bytes() -> "tuple[Optional[bytes], Optional[str]]":
+    """Piped stdin as raw bytes under the same cap `_read_stdin_prompt`
+    has: `(data, None)`, or `(None, error)` past the cap."""
+    buf = getattr(sys.stdin, "buffer", None)
+    try:
+        raw = buf.read(_STDIN_CAP_BYTES + 1) if buf is not None else sys.stdin.read().encode("utf-8")
+    except (OSError, ValueError):
+        return b"", None
+    if len(raw) > _STDIN_CAP_BYTES:
+        return None, f"stdin prompt exceeds the {_STDIN_CAP_BYTES // (1024 * 1024)} MB cap"
+    return raw, None
+
+
 def _parse_stream_json_lines(raw: str) -> list:
     """One JSON object per non-empty line; a malformed line is skipped
     (best-effort, matches history.py's own JSONL tolerance)."""
@@ -571,7 +591,17 @@ def main(argv: Optional[list] = None) -> int:
     if _flag_was_set(getattr(args, "background", False)):
         from halo_harness.bg_run import start_background_run
         filtered = [a for a in argv if a not in ("--bg", "--background")]
-        info = start_background_run(filtered)
+        # review finding 91: the detached child cannot read this terminal's
+        # pipe, so piped input (the prompt, or stream-json lines) is read
+        # here -- under the same 10 MB cap a foreground `-p` has -- and
+        # handed over as the child's stdin.
+        stdin_data = None
+        if (args.prompt is None or args.input_format == "stream-json") and not _stdin_is_terminal():
+            stdin_data, stdin_err = _read_stdin_bytes()
+            if stdin_err is not None:
+                print(f"halo: {stdin_err}", file=sys.stderr)
+                return 2
+        info = start_background_run(filtered, stdin_data=stdin_data)
         print(f"halo: started in the background, id={info['id']}", file=sys.stderr)
         print(f"halo: log -> {info['log_path']}", file=sys.stderr)
         return 0

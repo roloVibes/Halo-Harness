@@ -16,12 +16,15 @@ configured: `search()` returns [] and the index is never built.
 from __future__ import annotations
 
 import json
+import os
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Optional
 
 from halo_harness.config.paths import bridge_home
+from halo_harness.textlines import split_lines
 
 _MAX_SESSION_BYTES = 8 * 1024 * 1024
 _SESSION_SNAPSHOT_CHARS = 1200
@@ -37,7 +40,7 @@ def _index_path(state_dir) -> Path:
 def _load_index(path: Path) -> dict:
     entries: dict = {}
     if path.exists():
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in split_lines(path.read_text(encoding="utf-8", errors="replace")):
             try:
                 obj = json.loads(line)
             except ValueError:
@@ -48,10 +51,20 @@ def _load_index(path: Path) -> dict:
 
 
 def _save_index(path: Path, entries: dict) -> None:
-    tmp = path.with_suffix(".jsonl.tmp")
-    tmp.write_text("".join(json.dumps(e, ensure_ascii=False) + "\n"
-                           for e in entries.values()), encoding="utf-8")
-    tmp.replace(path)
+    """review finding 88: a temp file of its own per write (the fixed
+    `embeddings.jsonl.tmp` was shared by two concurrent builds, which then
+    wrote into and renamed the same file), then an atomic replace."""
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=".embeddings.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write("".join(json.dumps(e, ensure_ascii=False) + "\n" for e in entries.values()))
+        os.replace(tmp_name, path)
+    except Exception:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def _memory_sources(cwd) -> list:
@@ -72,9 +85,15 @@ def _memory_sources(cwd) -> list:
         return []
 
 
-def _session_sources(state_dir) -> list:
+def _session_sources(state_dir, known: "Optional[dict]" = None) -> list:
     """(id, title, text, mtime) for every session log -- the title, the
-    first real user prompt, and the last assistant answer, bounded."""
+    first real user prompt, and the last assistant answer, bounded.
+
+    review finding 88: a log whose mtime matches its entry in `known` (the
+    existing index) is NOT opened again -- it comes back with `text=None`
+    and the title already indexed, because nothing will be re-embedded for
+    it. Logs that are read are streamed line by line and the read stops as
+    soon as the three parts are found."""
     base = Path(state_dir) if state_dir is not None else bridge_home()
     sessions_dir = base / "sessions"
     out = []
@@ -82,32 +101,39 @@ def _session_sources(state_dir) -> list:
         return out
     for path in sorted(sessions_dir.rglob("*.jsonl")):
         try:
-            if path.stat().st_size > _MAX_SESSION_BYTES:
+            st = path.stat()
+            if st.st_size > _MAX_SESSION_BYTES:
+                continue
+            old = (known or {}).get(str(path))
+            if old is not None and old.get("mtime") == st.st_mtime:
+                out.append((str(path), old.get("title") or path.stem, None, st.st_mtime))
                 continue
             title, first_prompt, last_answer = None, None, None
-            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-                try:
-                    node = json.loads(line)
-                except ValueError:
-                    continue
-                ntype = node.get("type")
-                if ntype == "meta" and title is None and node.get("title"):
-                    title = node["title"]
-                elif ntype == "user" and node.get("kind") is None and first_prompt is None:
-                    for b in node.get("content") or []:
-                        if isinstance(b, dict) and b.get("type") == "text" and b.get("text"):
-                            first_prompt = b["text"]
-                            break
-                elif ntype == "assistant":
-                    for b in node.get("content") or []:
-                        if isinstance(b, dict) and b.get("type") == "text" and b.get("text"):
-                            last_answer = b["text"]
-                if first_prompt and title and last_answer:
-                    break
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    try:
+                        node = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(node, dict):
+                        continue
+                    ntype = node.get("type")
+                    if ntype == "meta" and title is None and node.get("title"):
+                        title = node["title"]
+                    elif ntype == "user" and node.get("kind") is None and first_prompt is None:
+                        for b in node.get("content") or []:
+                            if isinstance(b, dict) and b.get("type") == "text" and b.get("text"):
+                                first_prompt = b["text"]
+                                break
+                    elif ntype == "assistant":
+                        for b in node.get("content") or []:
+                            if isinstance(b, dict) and b.get("type") == "text" and b.get("text"):
+                                last_answer = b["text"]
+                    if first_prompt and title and last_answer:
+                        break
             text = "\n".join(x for x in (title, first_prompt, last_answer) if x)
             if text.strip():
-                out.append((str(path), title or path.stem, text[:_SESSION_SNAPSHOT_CHARS],
-                            path.stat().st_mtime))
+                out.append((str(path), title or path.stem, text[:_SESSION_SNAPSHOT_CHARS], st.st_mtime))
         except OSError:
             continue
     return out
@@ -123,10 +149,13 @@ def build_index(state_dir=None, *, cwd=None, force: bool = False) -> dict:
     path = _index_path(state_dir)
     existing = _load_index(path)
     sources = _memory_sources(cwd or Path.cwd())
-    sources += _session_sources(state_dir)
+    sources += _session_sources(state_dir, None if force else existing)
 
+    # review finding 88: an entry is pruned only when its source file is
+    # gone. The memory sources above cover just THIS project, so "not in
+    # the live set" used to delete every other project's vectors.
     live_ids = {sid for sid, *_ in sources}
-    pruned = [sid for sid in existing if sid not in live_ids]
+    pruned = [sid for sid in existing if sid not in live_ids and not os.path.exists(sid)]
     for sid in pruned:
         existing.pop(sid, None)
 

@@ -10,6 +10,53 @@ version.
 
 ## [unreleased]
 
+### vibes/review.md fix pass, round 10 (telemetry, stats, shared state)
+
+- **f84:** a sub-agent's spend is charged to the child's own model row in
+  `stats --models` (and in the session `/stats` per-model table). The
+  rollup node written into the parent's log now carries the child's
+  model/provider/route (the heaviest by tokens when it used several), and
+  the aggregator keys a rollup by those without moving the session's current
+  model. A rollup logged before the model was recorded gets a `(sub-agents)`
+  row instead of inflating the parent's.
+- **f85:** the stats cache carries a schema version; a cache from an older
+  summarizer is rebuilt instead of served (older sessions never gained the
+  newer fields), and entries for deleted session files are pruned on scan.
+- **f86:** `halo replay --turn N` skips every user-node kind the log
+  writes (continuation, compaction summary and tail, background agent and
+  job notices, steer), so N counts real prompts only.
+- **f87:** with no `/proc` (macOS) the run's start-time fingerprint comes
+  from `ps -o lstart=`, so the PID-reuse guard works there; a run whose
+  `status.json` exists is over regardless of what now owns the pid.
+- **f88:** the recall index is written through a temp file of its own per
+  write, prunes only entries whose source file is gone (it used to drop
+  every other project's memory vectors), and reads a session log again only
+  when its mtime changed (streamed, stopping once it has what it needs).
+- **f89:** log readers (replay and its fork truncation, recall, the
+  session node reader, the session picker, prompt history) split records at
+  newline only; a record holding U+2028/U+2029 is no longer cut in two and
+  lost.
+- **f90:** a gym result with no digest is filed under its model name instead
+  of one shared `nodigest.json`; `run_gym_for_model` really never raises (a
+  failure comes back as an error result); the scratch directory a run makes
+  is removed when it ends.
+- **f91:** `echo task | halo --bg -p` reads the piped input (same 10 MB cap
+  as a foreground `-p`), spools it in the run directory and hands it to the
+  detached child as its stdin; a prompt on the command line reads nothing.
+- **f92:** `state.json`, `update-check.json` and `history.jsonl` writes are
+  serialized across processes with a small advisory lock (new
+  `halo_harness/filelock.py`; it never hangs or fails a launch), temp files
+  are unique per write, `state.json` and a new `history.jsonl` are created
+  0600, and a history entry never glues onto a torn last line.
+- **Sweep (still open after round 9):** f26 -- jobs a schedule or trigger
+  fires carry `HALO_SCHEDULED_FIRE=1` and do not arm the team's schedules
+  again; f31 -- a lone surrogate in a tool result no longer ends the MCP
+  bridge connection thread. f18 is rejected with a pin: an https URL is
+  never retried as http (only a typed http URL returns to http after its
+  https upgrade fails). `plans/briefs/2.0.7-fixpass/SWEEP.md` lists every
+  finding's status.
+- Tests: `tests/test_review2_round10.py`, `round10b`, `round10c`.
+
 ### vibes/review.md fix pass, round 9 (TUI + CLI/doctor)
 
 - **f67:** the xclip/xsel fallback copy no longer reports a copy that landed

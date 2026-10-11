@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -49,6 +50,17 @@ _NON_PROMPT_USER_KINDS = frozenset({
 })
 
 _SINCE_DAYS = {"7d": 7, "30d": 30, "all": None}
+
+# Row name for a sub-agent rollup whose child model was never recorded (a
+# log written before rollups carried `model`).
+_UNATTRIBUTED_ROLLUP_MODEL = "(sub-agents)"
+
+# review finding 85: bumped whenever the shape of a cached SessionSummary
+# or how a log is summarized changes, so an older cache is rebuilt instead
+# of serving rows that lack the new fields. v2 = rollups keyed by the
+# child's model (finding 84).
+STATS_CACHE_SCHEMA = 2
+_SCHEMA_KEY = "__schema__"
 
 
 def _new_model_counters() -> dict:
@@ -294,21 +306,35 @@ def _summarize_nodes(*, session_id: str, slug: str, path: str, mtime: float, siz
             # H10 and never logged its own `model` -- see `current_model`'s
             # own comment above for why this is the fix for the "almost no
             # model rows" bug.
-            model = node.get("model") or current_model
+            # review finding 84: a sub-agent ROLLUP node (agent_id set) is
+            # the CHILD's spend. It is keyed by the child's own model and
+            # never moves the session's current model, so its cost can no
+            # longer land on the parent's row (or get the parent's later
+            # tool calls attributed to the child). A rollup logged before
+            # the child's model was recorded cannot be attributed to any
+            # real model; it gets its own row instead of inflating the
+            # parent's.
+            is_rollup = bool(node.get("agent_id"))
+            model = node.get("model") or (_UNATTRIBUTED_ROLLUP_MODEL if is_rollup else current_model)
             if model:
                 provider = node.get("provider")
-                if provider:
+                if is_rollup:
+                    row_key = (f"{model}\x1f{provider}" if provider
+                               else last_key_for_model.get(model, f"{model}\x1f"))
+                elif provider:
                     current_key = f"{model}\x1f{provider}"
                     last_key_for_model[model] = current_key
+                    row_key = current_key
                 else:
                     current_key = last_key_for_model.get(model, f"{model}\x1f")
-                b = model_bucket()
+                    row_key = current_key
+                b = s.models.setdefault(row_key, _new_model_counters())
                 route = node.get("route") or _route_from_model(model)
                 if route:
                     b["route"] = route
                 usage = node.get("usage") or {}
                 b["calls"] += 1
-                turns_for_key = turns_seen_per_key.setdefault(current_key, set())
+                turns_for_key = turns_seen_per_key.setdefault(row_key, set())
                 if s.turns not in turns_for_key:
                     turns_for_key.add(s.turns)
                     b["turns"] += 1
@@ -455,7 +481,13 @@ def _load_cache() -> dict:
         if not p.exists():
             return {}
         data = json.loads(p.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
+        if not isinstance(data, dict):
+            return {}
+        # review finding 85: a cache written by an older summarizer lacks
+        # the newer fields (and attribution fixes); start it over.
+        if data.get(_SCHEMA_KEY) != STATS_CACHE_SCHEMA:
+            return {}
+        return data
     except (OSError, ValueError):
         return {}
 
@@ -464,8 +496,10 @@ def _save_cache(cache: dict) -> None:
     p = cache_path()
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
-        tmp = p.with_name(p.name + f".tmp{os.getpid()}")
-        tmp.write_text(json.dumps(cache, ensure_ascii=False), encoding="utf-8")
+        tmp = p.with_name(p.name + f".tmp{os.getpid()}-{threading.get_ident()}")
+        stamped = dict(cache)
+        stamped[_SCHEMA_KEY] = STATS_CACHE_SCHEMA
+        tmp.write_text(json.dumps(stamped, ensure_ascii=False), encoding="utf-8")
         os.replace(tmp, p)
     except OSError:
         pass  # best-effort -- a failed cache write never fails a scan
@@ -576,6 +610,12 @@ def scan(sessions_dir: Optional[Path] = None, *, since: str = "7d", slug: Option
         out.append(summary)
         cache[key] = {"size": st.st_size, "mtime": st.st_mtime, "summary": summary.to_dict()}
         cache_dirty = True
+    if use_cache:
+        # review finding 85: drop entries whose session file is gone, so the
+        # cache stops growing with every deleted session.
+        for stale in [k for k in cache if k != _SCHEMA_KEY and not os.path.exists(k)]:
+            del cache[stale]
+            cache_dirty = True
     if cache_dirty and use_cache:
         _save_cache(cache)
     return out

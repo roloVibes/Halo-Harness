@@ -1801,6 +1801,10 @@ class Session:
             return
         if getattr(self, "agent_depth", 0) != 0 or getattr(self, "team_control", None) is None:
             return
+        # review finding 26: a job a schedule/trigger itself fired never
+        # arms (and so never re-fires) the team's schedules.
+        if os.environ.get("HALO_SCHEDULED_FIRE"):
+            return
         from halo_harness.agents_schedule import arm_session
         try:
             self._team_scheduler = arm_session(self, self.team_control)

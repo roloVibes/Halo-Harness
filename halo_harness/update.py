@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Callable, Optional
@@ -350,11 +351,27 @@ def _save_cache(state_dir: Path, cache: dict) -> None:
     path = _cache_path(state_dir)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(path.name + f".tmp{os.getpid()}")
+        tmp = path.with_name(path.name + f".tmp{os.getpid()}-{threading.get_ident()}")
         tmp.write_text(json.dumps(cache, indent=2), encoding="utf-8")
         os.replace(tmp, path)
     except OSError:
         pass
+
+
+def _update_cache(state_dir: Path, change: "Callable[[dict], object]"):
+    """review finding 92: reload the cache, apply `change(cache)` and save,
+    all under the file lock, so a second halo process (another terminal, the
+    launch-time worker) updating `update-check.json` at the same moment
+    keeps both changes instead of the last writer erasing the first.
+    `change` returns False to say "nothing changed, do not write"; anything
+    else is handed back to the caller."""
+    from halo_harness.filelock import file_lock
+    with file_lock(_cache_path(state_dir)):
+        cache = _load_cache(state_dir)
+        outcome = change(cache)
+        if outcome is not False:
+            _save_cache(state_dir, cache)
+    return outcome
 
 
 def _newest_tag(names) -> Optional[str]:
@@ -497,8 +514,7 @@ def latest_available(channel: Optional[str] = None, *, refresh: bool = False,
         # entry is still the most recent REAL data this channel has).
         return {**cached, "source": "cache"}
     result["checked_at"] = now
-    cache[channel] = result
-    _save_cache(state_dir, cache)
+    _update_cache(state_dir, lambda c: c.__setitem__(channel, result))
     return {**result, "source": "live"}
 
 
@@ -574,12 +590,13 @@ def note_due_today(state_dir: Path) -> bool:
     twice."""
     import datetime
     today = datetime.date.today().isoformat()
-    cache = _load_cache(state_dir)
-    if cache.get("notified_date") == today:
-        return False
-    cache["notified_date"] = today
-    _save_cache(state_dir, cache)
-    return True
+    def _claim(cache: dict):
+        if cache.get("notified_date") == today:
+            return False
+        cache["notified_date"] = today
+        return True
+
+    return bool(_update_cache(state_dir, _claim))
 
 
 # ---------------------------------------------------------------------------

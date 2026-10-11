@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 import re
 import shlex
 import sys
@@ -178,6 +179,12 @@ def schedule_status_lines(entries: "list[dict]") -> "list[str]":
     return lines
 
 
+# review finding 26: every job a schedule or trigger fires carries this, and
+# a session that sees it does not arm the team's schedules/triggers again --
+# otherwise each fired `halo -p --team` armed its own copy and fired more.
+FIRE_ENV = {"HALO_SCHEDULED_FIRE": "1"}
+
+
 def build_fire_argv(entry: dict) -> "list[str]":
     """The headless invocation a schedule/trigger fires, as an argv LIST:
     this very harness, print mode, the entry's prompt, then --agent/--team
@@ -212,6 +219,7 @@ def _default_fire(session, entry: dict) -> str:
         # POSIX quoting through cmd.exe mangles on Windows.
         import subprocess
         subprocess.Popen(build_fire_argv(entry), cwd=str(getattr(session, "cwd", ".")),
+                         env={**os.environ, **FIRE_ENV},
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
         return f"fired {entry.get('name')} (detached; no live job registry)"
     try:
@@ -220,7 +228,7 @@ def _default_fire(session, entry: dict) -> str:
     except Exception:
         shell_path = "bash"
     record, err = registry.start_background(build_fire_command(entry), description=f"schedule {entry.get('name')}",
-                                            cwd=str(getattr(session, "cwd", ".")), env={}, shell_path=shell_path)
+                                            cwd=str(getattr(session, "cwd", ".")), env=dict(FIRE_ENV), shell_path=shell_path)
     if err is not None:
         return f"could not fire {entry.get('name')}: {err}"
     return f"fired {entry.get('name')} as background job {record.job_id}"
@@ -419,7 +427,7 @@ def run_once(name: str, *, state_dir=None, popen=None) -> str:
         argv += ["--team", str(entry["team"])]
     if entry.get("model"):
         argv += ["--model", str(entry["model"])]
-    run = start_background_run(argv, popen=popen or subprocess.Popen)
+    run = start_background_run(argv, popen=popen or subprocess.Popen, env={**os.environ, **FIRE_ENV})
     return f"fired {name!r} as background run {run['id']} (log: {run['log_path']})"
 
 

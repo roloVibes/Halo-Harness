@@ -31,7 +31,8 @@ def _bg_root() -> Path:
     return bridge_home() / "bg"
 
 
-def start_background_run(argv: list, *, popen=subprocess.Popen) -> dict:
+def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Optional[bytes] = None,
+                         env: Optional[dict] = None) -> dict:
     """Spawns `[sys.executable, -m halo_harness] + argv` (forcing `-p` when
     neither `-p` nor `--print` is already present -- a detached child has no
     terminal a TUI could ever render into), stdout+stderr merged into
@@ -61,9 +62,18 @@ def start_background_run(argv: list, *, popen=subprocess.Popen) -> dict:
     command = [sys.executable, "-m", "halo_harness._bg_wrapper", str(status_path), *real_command]
 
     log_fh = open(log_path, "ab")
+    # review finding 91: piped input (`echo task | halo --bg -p`) is spooled
+    # to a file in the run directory and handed to the child as its stdin;
+    # the child used to get the null device and saw an empty prompt.
+    stdin_fh = None
+    if stdin_data is not None:
+        (run_dir / "stdin.bin").write_bytes(stdin_data)
+        stdin_fh = open(run_dir / "stdin.bin", "rb")
     try:
         proc = popen(
-            command, cwd=str(Path.cwd()), stdout=log_fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+            command, cwd=str(Path.cwd()), stdout=log_fh, stderr=subprocess.STDOUT,
+            stdin=stdin_fh if stdin_fh is not None else subprocess.DEVNULL,
+            **({"env": env} if env is not None else {}),
             # review finding 37: CREATE_NEW_PROCESS_GROUP alone still
             # leaves this child attached to the launching console --
             # Windows sends CTRL_CLOSE_EVENT to every process attached to
@@ -79,6 +89,8 @@ def start_background_run(argv: list, *, popen=subprocess.Popen) -> dict:
         )
     finally:
         log_fh.close()  # the CHILD inherited its own duplicate fd; this process's copy is done with it
+        if stdin_fh is not None:
+            stdin_fh.close()
 
     meta = {"id": run_id, "pid": proc.pid, "command": real_command, "cwd": str(Path.cwd()),
             "started": time.time(), "log_path": str(log_path), "status_path": str(status_path),
@@ -104,6 +116,8 @@ def process_start_time(pid: int) -> Optional[str]:
         return None
     if os.name == "nt":
         return _windows_process_start_time(pid)
+    if not os.path.exists("/proc/self/stat"):
+        return _ps_process_start_time(pid)  # macOS and the BSDs have no /proc
     try:
         with open(f"/proc/{pid}/stat", "r", encoding="utf-8", errors="replace") as fh:
             content = fh.read()
@@ -115,6 +129,20 @@ def process_start_time(pid: int) -> Optional[str]:
         return after[19]
     except (OSError, IndexError, ValueError):
         return None
+
+
+def _ps_process_start_time(pid: int) -> Optional[str]:
+    """review finding 87: the start time from `ps -o lstart=` where there
+    is no /proc (macOS). Without it `process_start_time` was always None
+    there, so the PID-reuse guard in `is_our_process` could never refuse
+    anything and `halo bg stop` could kill an unrelated process group."""
+    try:
+        result = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)], capture_output=True, text=True,
+                                timeout=5, env={**os.environ, "LC_ALL": "C", "LANG": "C"})
+    except (OSError, subprocess.SubprocessError):
+        return None
+    text = " ".join((result.stdout or "").split())
+    return f"ps:{text}" if result.returncode == 0 and text else None
 
 
 def _windows_process_start_time(pid: int) -> Optional[str]:
@@ -149,6 +177,12 @@ def is_our_process(meta: dict) -> bool:
     all, falls back to the pid-only check rather than a false refusal."""
     pid = meta.get("pid")
     if not pid_alive(pid):
+        return False
+    # The wrapper writes `status.json` when the real command exits, so its
+    # presence means this run is over whatever now owns the pid (covers a
+    # run recorded without a start time).
+    status_path = meta.get("status_path")
+    if status_path and os.path.exists(status_path):
         return False
     expected = meta.get("start_time")
     if not expected:
