@@ -2612,7 +2612,7 @@ halo design comment <slug> <artboard> "<text>" [--at X,Y]
 halo design restore <slug> <artboard> <version>
 halo design export <slug> [--as html|pdf|png|svg|folder] [--out DIR] [--artboard ID]
 halo design handoff <slug> [--out DIR]             the bundle a Halo or Claude Code session continues from
-halo design doctor                                 which craft apps are registered
+halo design doctor [--probe]                       which craft apps are registered; --probe spawns each and checks its tools
 ```
 
 Halo 3.0.1.0: Halo Design. A project is a folder of artboards (an
