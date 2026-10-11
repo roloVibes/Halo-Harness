@@ -511,7 +511,7 @@ game themes below. A game theme is its own look and has no `-ansi` or
 |---|---|
 | `doom` | Dark greys, blood reds, rust browns, muted greens and amber text. Heavy borders on cards, panels and dialogs, and a three-row bottom-HUD status bar with an original ASCII face (below). |
 | `metroid` | Visor blues and greys with a power-suit orange accent (the Crateria area; four more areas below). Light borders, dashed map-grid cards and dialogs, a visor-framed input line and a three-row suit-HUD status bar with energy tanks and an original visor face (below). |
-| `mario` | Sky blue, brick red, pipe green and coin gold. Palette and accent today; the world-and-coins status bar arrives in the next 2.0.8 round. |
+| `mario` | Sky blue, brick red, pipe green and coin gold (the `bros` palette; `world` below). Brick-pattern cards and dialogs, a pipe-framed input line and a three-row top-bar status bar with coins, a timer and a world slot (below). |
 
 ### The toggles: `/doom`, `/metroid`, `/mario`
 
@@ -621,6 +621,76 @@ line is framed by a visor: `◖` at its left in place of the prompt marker and
 declaration: the app puts `hud-border-dashed` / `hud-border-ascii` and
 `hud-visor` on itself the way DOOM gets `hud-heavy`, and `styles.tcss` styles
 those classes.
+
+### The Mario top bar
+
+Under `mario` the status bar is three rows (captioned panels, values, a
+ticker set into the bottom border) laid out like a platformer's top bar,
+with double-line borders:
+
+| Panel | Shows | Notes |
+|---|---|---|
+| SCORE | tokens remaining in the context window (`812k left`) | the score; dropped late |
+| POWER | context remaining as six blocks (`█` full, `▒` empty) with the exact number (`███▒▒▒ 55%`) | blocks turn amber at 30% left or less and red at 10% or less; when the panel is too narrow the blocks give way and the number stays |
+| COINS | a coin glyph, the cost, and the provider balance beside it (`● $0.0123 · OR $12.40 left`) | never dropped |
+| (face) | an original cap-and-moustache face: idle `'o~o'`, thinking eyes glancing `'.~o'` / `'o~.'`, writing `'^~^'` / `'>~<'`, error `'x~x'`, needs-you `'!~!'` / `'O~O'` between half-block braces | needs-you outranks error; an error face stays until the next model call starts; the 1-UP and coin cues flash here |
+| WORLD | the cwd's last component as the world, the branch as the level (`project · main`) | never dropped |
+| TIME | the clock of the current turn counting up (`1:05`); between turns it shows the last turn's time, and a dash before the first | M:SS, H:MM:SS from an hour; the last panel to drop |
+| TURNS | turns taken this session (`♥× 07`) | a lives-style counter; counts your messages, never a sub-agent's |
+| TOOLS | tools loaded (`★× 41 tools`) | a lives-style counter; falls back to `MCP n/m` before the first count |
+| PIPES | providers in play | dropped early |
+
+The ticker carries everything else the status bar shows: the phase clock, a
+pending permission, needs-you, mode, effort, model, agents, background jobs,
+offline, the governor, the hang watch, the "new" counter, the full cwd and
+branch, `MCP n/m`, local throughput and a custom `statusLine`.
+
+As the terminal narrows, parts drop in this order: the custom status line,
+throughput, the full cwd, `MCP n/m`, PIPES, TOOLS, the governor, background
+jobs, the "new" counter, effort, TURNS, model, agents, the hang watch, SCORE,
+TIME. The phase, POWER, cost, face, WORLD, mode, needs-you, permission and
+offline parts are never dropped; at 80 columns COINS, TIME and WORLD are all
+on screen. Below 46 columns the HUD is one line: face, phase, context percent,
+cost, mode, cwd. On a terminal without truecolor the borders and blocks fall
+back to ASCII (`+ - |`, `#` and `.`), the face wears `( )` braces and the
+coin glyph is dropped.
+
+#### Palettes
+
+The two palettes are variants of the one `mario` theme. Each has its own
+colours and coin glyph:
+
+| Variant | Colours | Coin glyph |
+|---|---|---|
+| `bros` (default) | night-sky navy, brick-red borders, coin-gold accent, pipe green | `●` |
+| `world` | a brighter blue sky, question-block orange borders, feather-yellow accent, pipe green | `◉` |
+
+`/mario <variant>` or `/theme mario <variant>` picks one (and applies the
+theme when it is not active; bare `/mario` is still the toggle and leaves the
+variant alone). The choice persists as `theme_variant` in
+`~/.halo/config.json` (`halo config set theme_variant world` works too, and
+the wizard's Theme step shows the two variants when `mario` is highlighted).
+`theme_variant` is one key shared by the games that have variants: a value
+that is not a variant of the active game falls back to that game's default.
+
+#### Brick cards, the pipe input and the cues
+
+Cards (permission, question, plan, rewind), the diff and folded-history
+panels, the completion popup, the which-key overlay and dialogs get a
+brick-pattern border (`▒`, in the theme's border colour; plain ASCII borders
+without truecolor), and the input line is framed like a horizontal pipe: `╞`
+at its left in place of the prompt marker and `╡` at its right (`[` and `]`
+without truecolor). Both come from the skin's declaration (`panel_border`,
+`input_frame`); the `brick` border type is registered by `tui/borders.py`
+against the pinned Textual and its rules live in `tui/styles_brick.tcss`.
+
+**Cues.** When a sub-agent finishes (the `subagent_end` event) the face slot
+flashes a short 1-UP (`1-UP!!!`) for about two seconds; when a background job
+completes (the status bar's job count drops, or the job's completion notice
+is delivered) it flashes a spinning coin (`(o) +1`). The flash is a Textual
+timer on the status bar, never a sleep, and the face returns by itself. It is
+declared on the skin as `HudSkin.cues` (event to frames); DOOM and Metroid
+declare none, so the events do nothing there. There are no sounds.
 
 ## Keys: Ctrl+C copies, a second press asks before quitting
 

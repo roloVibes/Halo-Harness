@@ -40,6 +40,13 @@ def _pct_tone(used_pct) -> str:
     return "bad" if used_pct >= 90 else ("warn" if used_pct >= 70 else "ok")
 
 
+def _clock(seconds: float) -> str:
+    """M:SS (H:MM:SS from an hour) -- the timer-style turn clock."""
+    n = int(max(0.0, seconds))
+    hours, rest = divmod(n, 3600)
+    return f"{hours}:{rest // 60:02d}:{rest % 60:02d}" if hours else f"{rest // 60}:{rest % 60:02d}"
+
+
 def build_fields(bar, s: dict) -> dict:
     """`bar` is the StatusBar; `s` the strings its `_refresh_display` built
     (cost_str, ctx_str, or_balance_str, ... plus `cwd_short`)."""
@@ -90,6 +97,9 @@ def build_fields(bar, s: dict) -> dict:
         f["phase"] = HudField(s["spinner_str"], word, "warn")
         if s.get("elapsed_str"):
             f["elapsed"] = HudField(s["elapsed_str"], "", "warn")
+    seconds, running = bar.hud_turn_seconds()  # the TIME clock: the turn counting up, idle = the last turn
+    if seconds is not None:
+        f["elapsed"] = HudField(_clock(seconds), "", "warn" if running else "dim")
     if bar.statusline_text:
         try:
             plain = Text.from_ansi(bar.statusline_text).plain

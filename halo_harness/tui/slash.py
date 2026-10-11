@@ -1512,7 +1512,8 @@ async def _handle_theme(app, args: str) -> None:
         app.notify(str(exc), severity="error", title="/theme")
         return
     app.apply_theme(name)
-    app.notify(f"Theme set to {name}" + (f", area {variant}" if variant else ""), title="/theme")
+    app.notify(f"Theme set to {name}" + (f", {theme_toggle.noun_of(name)} {variant}" if variant else ""),
+               title="/theme")
 
 
 def _game_theme_handler(game: str):

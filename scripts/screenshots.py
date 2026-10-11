@@ -5,7 +5,7 @@ scripted FakeController turn, fixture picker rows, fixture bios and the
 shipped team templates, a fake MCP server list, a fixture permission ask,
 fixture balances -- and saves one SVG per scene (120x36) under
 docs/screenshots/: launch, turn, picker, team-step, mcp, permission,
-balances, theme-doom, theme-metroid. Deterministic by construction: fixed seed, a frozen clock in
+balances, theme-doom, theme-metroid, theme-mario. Deterministic by construction: fixed seed, a frozen clock in
 the widget modules (elapsed text is set through the same started_at /
 _refresh seams the tests use, never a real timer read), no network, no
 real keys, no real paths (the session cwd is the literal "~/project"),
@@ -284,7 +284,7 @@ async def scene_balances(out: Path) -> None:
 async def _game_theme_scene(out: Path, theme: str, variant: "str | None" = None) -> None:
     """The main screen under a game theme (Halo 2.0.8): the HUD status bar
     mid-turn, with the face in its writing state. `variant` (a Metroid
-    area) is set on the app directly, never persisted."""
+    area, a Mario palette) is set on the app directly, never persisted."""
     app = BridgeApp(FakeController(model=MODEL), cwd=CWD, theme_name=theme)
     async with app.run_test(size=SIZE) as pilot:
         for e in (
@@ -318,6 +318,7 @@ async def _game_theme_scene(out: Path, theme: str, variant: "str | None" = None)
                 if isinstance(block, _cards.ToolCard):
                     _stage_elapsed(block, 4.0)
             bar._phase_started_at = _NOW - 23.0
+            bar._turn_started_at = _NOW - 23.0  # the HUD's TIME clock (Mario)
 
         _write_svg(out / f"theme-{theme}.svg", await _export(app, pilot, stage=stage))
 
@@ -332,8 +333,14 @@ async def scene_theme_metroid(out: Path) -> None:
     await _game_theme_scene(out, "metroid", "crateria")
 
 
+async def scene_theme_mario(out: Path) -> None:
+    """The Mario HUD (bros): coins, timer, world, score, lives counters, the
+    cap-and-moustache face, the brick border and the pipe input frame."""
+    await _game_theme_scene(out, "mario", "bros")
+
+
 SCENES = (scene_launch, scene_turn, scene_picker, scene_team_step, scene_mcp, scene_permission,
-          scene_balances, scene_theme_doom, scene_theme_metroid)
+          scene_balances, scene_theme_doom, scene_theme_metroid, scene_theme_mario)
 
 
 async def main(out: Path) -> int:

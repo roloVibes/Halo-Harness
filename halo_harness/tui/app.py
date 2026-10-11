@@ -33,6 +33,7 @@ from textual.widgets import Static
 from halo_harness import events as ev
 from halo_harness.tui import keys as tui_keys
 from halo_harness.tui import theme as tui_theme
+from halo_harness.tui.borders import BRICK_READY
 from halo_harness.tui.dispatch import apply_event
 from halo_harness.tui.events import drain_queue
 from halo_harness.tui.keys import DOUBLE_CTRL_C_WINDOW_S, DRAIN_HZ, next_mode
@@ -159,7 +160,9 @@ def _theme_variant(theme_name: str) -> "Optional[str]":
 
 
 class BridgeApp(App):
-    CSS_PATH = "styles.tcss"
+    # styles_brick.tcss (the Mario skin's border) needs the `brick` border
+    # type registered by tui/borders.py; without it the stylesheet is skipped.
+    CSS_PATH = ["styles.tcss", "styles_brick.tcss"] if BRICK_READY else "styles.tcss"
     ENABLE_COMMAND_PALETTE = False
     TITLE = "halo"
 

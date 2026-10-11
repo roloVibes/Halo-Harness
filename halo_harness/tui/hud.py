@@ -28,7 +28,7 @@ A skin is a DECLARATION, not a fork of the status bar:
 
 Round 2 (Metroid) added the generic seams below; round 3 (Mario) adds a
 palette in `tui/theme_games.py` and one `HudSkin` in its own module,
-registered with `register_skin`:
+registered with `register_skin`, plus the `cues` seam:
 
 * `meter_cells` -- how many cells the `frac` meter has (default 6; Metroid's
   energy tanks use 10, one per ten percent).
@@ -41,6 +41,12 @@ registered with `register_skin`:
   pair framing the input line (`hud-visor` class).
 * the slots `area` (cwd's last component, the branch as its sub-label) and
   `turns` (user turns this session).
+* `cues` -- `{event: frames}`: a short flash in the face slot when `event`
+  ("agent_done" for a finished sub-agent, "job_done" for a finished
+  background job) fires. The StatusBar plays the frames from a Textual timer
+  for about two seconds and then the face returns; a skin without `cues`
+  ignores every event (no timer, no change). Frames are plain ASCII and
+  should be as wide as the skin's face (face glyph pair included).
 """
 
 from __future__ import annotations
@@ -118,16 +124,18 @@ class HudSkin:
     panel_border_ascii: str = "ascii"
     input_frame: tuple = ()
     input_frame_ascii: tuple = ()
+    cues: dict = field(default_factory=dict)
 
 
 _SKINS: dict = {}
-_BUILTIN_SKIN_MODULES = ("halo_harness.tui.hud_doom", "halo_harness.tui.hud_metroid")
+_BUILTIN_SKIN_MODULES = ("halo_harness.tui.hud_doom", "halo_harness.tui.hud_metroid", "halo_harness.tui.hud_mario")
 _loaded = False
 
 # Themes that already have a palette but whose HUD skin is still to come:
 # the status bar keeps the default layout and tints the model label with
-# this accent. Round 3 (mario) moves its entry into `register_skin`.
-PLACEHOLDER_ACCENTS = {"mario": "#f8b830"}
+# this accent. Empty since round 3 (every game theme has a skin); the
+# mechanism stays for any future theme ({theme name: accent colour}).
+PLACEHOLDER_ACCENTS: dict = {}
 
 
 def register_skin(skin: HudSkin) -> None:

@@ -1,0 +1,31 @@
+/* Halo 2.0.8 theme pack, round 3: the Mario skin's brick-pattern border
+   (`panel_border = "brick"`, registered by tui/borders.py; this file is
+   loaded only when the type registered). Same targets as `hud-heavy` and
+   the map-grid rules in styles.tcss. */
+
+.hud-border-brick .permission-card, .hud-border-brick .question-card, .hud-border-brick .plan-card,
+.hud-border-brick .rewind-card, .hud-border-brick .approval-card {
+    border: brick $bridge-warning;
+}
+
+.hud-border-brick .folded-history, .hud-border-brick .diff-view {
+    border: brick $bridge-border;
+}
+
+.hud-border-brick #which-key-overlay {
+    border: brick $bridge-accent;
+}
+
+.hud-border-brick #completion-popup {
+    border: brick $bridge-border;
+}
+
+.hud-border-brick #prompt-row {
+    border-top: brick $bridge-border;
+}
+
+.hud-border-brick ModalScreen > Vertical, .hud-border-brick ModalScreen > VerticalScroll,
+.hud-border-brick ModalScreen > Horizontal, .hud-border-brick PagerScreen > Static,
+.hud-border-brick QuitConfirmScreen > Static {
+    border: brick $bridge-accent;
+}

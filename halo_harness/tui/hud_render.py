@@ -27,6 +27,9 @@ def _face_width(skin: HudSkin, g) -> int:
     for frames in skin.faces.values():
         for fr in frames:
             widest = max(widest, cell_len(g.face_l + fr + g.face_r))
+    for frames in skin.cues.values():  # a cue flashes in the face slot: keep room for it
+        for fr in frames:
+            widest = max(widest, cell_len(fr))
     return widest
 
 
@@ -214,13 +217,17 @@ def render_compact(skin: HudSkin, fields: dict, face_text: str, face_style: str,
 
 
 def render_hud(skin: HudSkin, fields: dict, *, width: int, face_state: str = "idle", frame: int = 0,
-               ascii_mode: bool = False) -> Text:
+               ascii_mode: bool = False, cue: str = "") -> Text:
     """The HUD for `width` columns: three rows (labelled panels, values,
-    ticker) or the one-line compact form below `skin.compact_below`."""
+    ticker) or the one-line compact form below `skin.compact_below`. A
+    non-empty `cue` (one frame of a skin cue) replaces the face for now."""
     g = skin.glyphs_ascii if ascii_mode else skin.glyphs
     width = width or 100
     face_text = _face_text(skin, face_state, frame, g)
     face_style = skin.face_styles.get(face_state, skin.styles.get("value", ""))
+    if cue:
+        face_text = cue
+        face_style = skin.face_styles.get("cue", face_style)
     if width < skin.compact_below:
         return render_compact(skin, fields, face_text, face_style, width)
     panels, strip, forms = cascade(skin, fields, width, ascii_mode)

@@ -10,6 +10,52 @@ version.
 
 ## [2.0.8] - unreleased
 
+### Theme pack: Mario
+
+- **The Mario skin** (`tui/hud_mario.py`, the third `HudSkin` on the engine):
+  a three-row top bar. SCORE is the tokens left, POWER the context left as six
+  blocks with the exact percent, COINS the cost behind a coin glyph with the
+  provider balance beside it, then an original cap-and-moustache face (idle,
+  thinking, writing, error, needs-you), WORLD (the cwd's last component, the
+  branch as the level), TIME (the turn clock counting up, the last turn's time
+  when idle), TURNS and TOOLS as lives-style counters, and PIPES (providers).
+  Everything else rides the bottom-border ticker; the cascade keeps phase,
+  POWER, cost, face, WORLD, mode, needs-you, permission and offline, keeps
+  coins, timer and world in 80 columns and falls back to ASCII without
+  truecolor. `PLACEHOLDER_ACCENTS` is now empty (the mechanism stays for any
+  future theme).
+- **Two palettes as variants of the one theme:** `bros` (night sky, brick red,
+  pipe green, coin gold; the default) and `world` (a brighter sky,
+  question-block orange, feather yellow, pipe green), each with its own HUD
+  colours and coin glyph. `/mario <variant>` and `/theme mario <variant>` pick
+  one (bare `/mario` is still the round 1 toggle and leaves the variant
+  alone), persisted as `theme_variant` (`halo config set theme_variant ...`
+  validates it against both games); the wizard's Theme step shows the two
+  variants when `mario` is highlighted. Confirmation messages say "palette"
+  for Mario and "area" for Metroid.
+- **Brick cards, a pipe input and the 1-UP / coin cues:** cards, dialogs and
+  panels get a brick-pattern border (a `brick` Textual border type registered
+  by `tui/borders.py` and styled in `tui/styles_brick.tcss`; ASCII borders
+  without truecolor), the input line a pipe frame (`╞` `╡`; `[` `]` without
+  truecolor). When a sub-agent finishes or a background job completes the face
+  slot flashes a 1-UP or a spinning coin for about two seconds, from a Textual
+  timer on the status bar. No sounds.
+- **Engine seams, generic and pinned:** `HudSkin.cues` (`{event: frames}`)
+  with `StatusBar.fire_cue(event)` (a no-op returning False for any skin
+  without that cue, so DOOM and Metroid are untouched), triggered from
+  `subagent_end`, the delivered job-completion `status_notice` and a drop in
+  the polled background-job count; `render_hud(..., cue=...)`; a turn clock on
+  the status bar (`hud_turn_seconds`) behind the `elapsed` slot, which now
+  holds the last turn's time while idle. `tui/theme_mario.py` holds the two
+  palettes; `theme.GAME_VARIANTS` gains `mario` and `VARIANT_NOUNS`.
+- **Docs and gallery:** HANDBOOK Themes (the Mario HUD fields table, the
+  palettes, the brick and pipe chrome, the cues), SLASH-COMMANDS
+  `/mario [variant]`, CONFIG `theme_variant`, the README themes table with the
+  Mario render (all three rows now have one), `scripts/screenshots.py` scene
+  `theme-mario`, and thirteen new TUI snapshots (five faces, four width tiers,
+  two palettes, the 1-UP cue, a brick permission card) under
+  `docs/harness/tui-snapshots/`. Tests: `tests/test_hud_mario.py`.
+
 ### Theme pack: Metroid
 
 - **The Metroid skin** (`tui/hud_metroid.py`, one more `HudSkin` on the

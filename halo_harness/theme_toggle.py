@@ -12,9 +12,10 @@ theme pack), pinned once for `/doom`, `/metroid` and `/mario`.
     `/theme <name>` (the explicit form) records the previous the same way
         when it moves onto a game theme, and clears it when it moves off to
         a non-game theme.
-    `/metroid <area>` and `/theme metroid <area>` (round 2) also persist the
-        theme's variant as `theme_variant`; the bare `/metroid` toggle is
-        unchanged and leaves the variant alone.
+    `/metroid <area>` and `/theme metroid <area>` (round 2), and round 3's
+        `/mario <variant>` and `/theme mario <variant>`, also persist the
+        theme's variant as `theme_variant`; the bare toggle is unchanged and
+        leaves the variant alone.
 
 Pure data and config.json I/O -- no Textual. The TUI handlers, the headless
 slash builtins and the wizard all go through here so there is one contract.
@@ -137,4 +138,9 @@ def toggle_message(game: str, applied: str) -> str:
 
 
 def variant_message(game: str, variant: str) -> str:
-    return f"Theme set to {game}, area {variant} (run /{game} again to go back)"
+    return f"Theme set to {game}, {noun_of(game)} {variant} (run /{game} again to go back)"
+
+
+def noun_of(game: str) -> str:
+    """What `game` calls its variant in messages: "area" or "palette"."""
+    return theme_mod.VARIANT_NOUNS.get(game, "variant")

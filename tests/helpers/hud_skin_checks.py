@@ -27,6 +27,7 @@ def sample_fields() -> dict:
         "cwd": HudField("~/project (main)", "project (main)", "dim"),
         "area": HudField("project · main", "project", "dim"),
         "turns": HudField("07"),
+        "elapsed": HudField("0:23", "", "warn"),
         "mode": HudField("auto", "auto"),
         "effort": HudField("high"),
         "agents": HudField("agents 2"),
