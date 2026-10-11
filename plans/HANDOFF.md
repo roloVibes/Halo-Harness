@@ -4,6 +4,47 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-11 ~13:45 CDT (authoritative, read this first)
+
+**2.0.11 "the front page" is code-complete and pushed** (`f4859ee` on
+master; CHANGELOG `## [2.0.11] - unreleased`), the plan is
+`~/.claude/plans/awesome-job-on-getting-robust-stardust.md` (two tracks:
+A = 2.0.11 front page, B = 2.1.0 agents revamp + `halo studio`). Rounds:
+A1 `62deb5e` every generated SVG carries width/height (GitHub's file
+view showed every capture at ~180 px: viewBox-only SVGs have no
+intrinsic size); A2 `46b5e13` the block-art HALO wordmark under a halo
+ring (`banner.py` BANNER_ART + ASCII fallback), the intro reveals it row
+by row in a gradient, the pool is the art + NIN line + Red Dragon line
+only, `tools/hero_svg.py` draws hero.svg and social-preview.svg; A3
+`b9568f8` the level band (`tui/scene.py` engine, `scene_mario/metroid/
+doom.py` original 8-bit art, `widgets/scene_band.py`, `/level`,
+`theme_scene`), three animated level captures; A4 `f4859ee` the README
+as a product page, the GitHub description/topics set, docs/media/
+social-preview.png.
+
+**NEXT (in order):** 1. CI run 38163490762 green on Linux + Windows ->
+`git checkout -- docs/harness/tui-snapshots` (test_tui churns them) ->
+`python scripts/release.py 2.0.11 --no-install` -> refresh installs
+(`halo update` / the installers). 2. Owner uploads
+docs/media/social-preview.png in GitHub Settings -> Social preview (no
+API). 3. Track B (2.1.0): B1 the Team step back in Quick setup, B2 the
+CLI (`halo teams apply/preview/diff`, `use` writes roles too), B3 `halo
+studio`, B4 docs, B5 release -- the plan file has every detail.
+
+**KNOWN / FOUND THIS SESSION:** `test_tui.py::test_bare_effort_card_
+selection_persists_like_the_plain_text_path` fails locally on master
+("nothing persisted yet") BEFORE this session's changes -- check whether
+CI sees it; the 2.0.10 release run's Windows job failed on
+`test_committed_capture_svgs_are_a_fresh_renders_output` (the steer
+capture flipped 1 in 3 on a scrollbar that appears one layout pass late;
+`scripts/screenshots.py::_export` now settles two passes and four
+consecutive checks agreed). Three shields badges (release, platform,
+MIT) showed blank through GitHub's image proxy right after the push
+while shields served them directly -- re-check; swap to static badges
+if it persists. Status crons: session-only, every 15 min (30 min 4-10 AM).
+
+--- previous snapshot below ---
+
 ## WHERE THINGS STAND -- 2026-10-11 ~22:15 CDT (authoritative, read this first)
 
 **v2.0.10 IS RELEASED** (tag v2.0.10 at `d49f60d`, GitHub release
