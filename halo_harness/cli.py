@@ -536,9 +536,9 @@ def main(argv: Optional[list] = None) -> int:
         from halo_harness.banner import banner_with_version
         try:
             from halo_harness.update import format_version_line, installed_build
-            print(banner_with_version(format_version_line(installed_build())))
+            print(banner_with_version(format_version_line(installed_build()), sys.stdout.encoding))
         except Exception:
-            print(banner_with_version(f"halo {__version__}"))
+            print(banner_with_version(f"halo {__version__}", sys.stdout.encoding))
         return 0
 
     for _flags, kwargs, label, milestone in _NOT_YET_FLAGS:

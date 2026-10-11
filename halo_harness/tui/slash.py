@@ -1464,10 +1464,11 @@ async def _handle_intro(app, args: str) -> None:
     a fresh random pick from the pool in `tui/intro_lines.py`; `/intro <n>`
     replays line n (numbered from 1)."""
     from halo_harness import __version__ as _halo_version
-    from halo_harness.tui.intro_lines import intro_text, parse_intro_index
+    from halo_harness.tui.intro_lines import banner_row_styles, intro_text, is_banner_intro, parse_intro_index
     from halo_harness.tui.widgets.transcript import IntroLine
 
-    widget = IntroLine(intro_text(_halo_version, index=parse_intro_index(args)))
+    text = intro_text(_halo_version, index=parse_intro_index(args))
+    widget = IntroLine(text, row_styles=banner_row_styles(app.get_css_variables()) if is_banner_intro(text) else None)
     app.intro_line = widget
     await app.transcript.mount_widget(widget)
 

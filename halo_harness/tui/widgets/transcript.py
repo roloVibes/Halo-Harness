@@ -93,13 +93,40 @@ class IntroLine(Static):
     PAUSE_DELAY_S = 0.15     # slightly longer pause after a comma
     ELLIPSIS_PAUSE_DELAY_S = 0.22  # slightly longer pause after "..."
     CURSOR = "█"        # block cursor, shown only while typing
+    ROW_TICKS = 4       # the art: one row per BASE_DELAY_S * ROW_TICKS (about 140 ms)
 
-    def __init__(self, full_text: str) -> None:
+    def __init__(self, full_text: str, row_styles: "list[str] | None" = None) -> None:
         super().__init__("", markup=False, classes="intro-line")
         self.full_text = full_text
+        # 2.0.11 round A2: the block-art entry reveals ROW by row (one more
+        # row per tick, `BASE_DELAY_S * ROW_TICKS` apart) with one Rich
+        # style per row -- the ring gold, the letters a gradient -- instead
+        # of a 360-character crawl. Any other line types as before.
+        self.row_styles = list(row_styles) if row_styles else None
         self._shown = 0
         self.done = False
         self._timer = None
+
+    def _styled(self, upto: int, cursor: bool):
+        """The renderable for the first `upto` characters: plain text for
+        a typed line, a per-row-styled `rich.text.Text` for the art."""
+        if not self.row_styles:
+            return self.full_text[:upto] + (self.CURSOR if cursor else "")
+        from rich.text import Text
+        out = Text(no_wrap=True)
+        for i, row in enumerate(self.full_text[:upto].split("\n")):
+            if i:
+                out.append("\n")
+            out.append(row, self.row_styles[min(i, len(self.row_styles) - 1)])
+        if cursor:
+            out.append(self.CURSOR)
+        return out
+
+    def _next_shown(self) -> int:
+        if not self.row_styles:
+            return self._shown + 1
+        nl = self.full_text.find("\n", self._shown)
+        return len(self.full_text) if nl < 0 else nl + 1
 
     def on_mount(self) -> None:
         self._timer = self.set_timer(self._delay_before_next_char(), self._reveal_one)
@@ -108,6 +135,8 @@ class IntroLine(Static):
         """The pause BEFORE revealing the character at `self._shown`,
         based on what was just revealed (index `self._shown - 1`) -- a
         comma, or the line's own ellipsis having just completed."""
+        if self.row_styles:
+            return self.BASE_DELAY_S * self.ROW_TICKS
         if self._shown == 0:
             return self.BASE_DELAY_S
         if self.full_text[max(0, self._shown - 3): self._shown] == "...":
@@ -117,13 +146,13 @@ class IntroLine(Static):
         return self.BASE_DELAY_S
 
     def _reveal_one(self) -> None:
-        self._shown += 1
+        self._shown = self._next_shown()
         if self._shown < len(self.full_text):
-            self.update(self.full_text[: self._shown] + self.CURSOR)
+            self.update(self._styled(self._shown, cursor=True))
             self._timer = self.set_timer(self._delay_before_next_char(), self._reveal_one)
         else:
             self.done = True
-            self.update(self.full_text[: self._shown])  # cursor gone -- the line is complete
+            self.update(self._styled(self._shown, cursor=False))  # cursor gone -- the line is complete
 
     def skip(self) -> None:
         """Any keypress, or a submitted prompt, during the intro: reveal
@@ -136,7 +165,7 @@ class IntroLine(Static):
             self._timer = None
         self._shown = len(self.full_text)
         self.done = True
-        self.update(self.full_text)
+        self.update(self._styled(self._shown, cursor=False))
 
     def copy_text(self) -> str:
         """W4c item 1: the full line regardless of how much has actually
