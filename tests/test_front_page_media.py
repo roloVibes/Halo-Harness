@@ -128,7 +128,7 @@ def test_every_svg_has_an_explicit_size(ctx: Ctx):
         ctx.check(f"{path.relative_to(REPO_DIR).as_posix()} root carries width and height",
                   ' width="' in head and ' height="' in head)
     sys.path.insert(0, str(REPO_DIR / "scripts"))
-    from screenshots import sized_svg
+    from svgsize import sized_svg  # pure: scripts/screenshots.py freezes the clock and seeds the RNG on import
     once = sized_svg('<svg class="rich-terminal" viewBox="0 0 1482 928.4" xmlns="x">\n</svg>')
     ctx.check("sized_svg adds width/height from the viewBox", 'width="1482" height="928.4" viewBox="0 0 1482 928.4"' in once)
     ctx.check("sized_svg is idempotent", sized_svg(once) == once)
