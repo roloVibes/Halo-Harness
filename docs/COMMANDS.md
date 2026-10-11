@@ -2589,6 +2589,33 @@ an optional board token and the default company in `~/.halo/paperclip.json`.
 `halo paperclip-run` is not for hands: Paperclip runs it with the heartbeat's
 `PAPERCLIP_*` environment. See [PAPERCLIP.md](PAPERCLIP.md).
 
+## `halo design`
+
+```sh
+halo design new <name> [--model M]                 a project under ~/.halo/design/<slug>/
+halo design list                                   every project
+halo design show <slug>                            artboards, versions, open comments, the system, cost so far
+halo design run <slug> "<prompt>" [--model M] [--budget USD]
+halo design sync <slug> [PATH|URL]                 a design system from a codebase or a page
+halo design comment <slug> <artboard> "<text>" [--at X,Y]
+halo design restore <slug> <artboard> <version>
+halo design export <slug> [--as html|pdf|png|svg|folder] [--out DIR] [--artboard ID]
+halo design handoff <slug> [--out DIR]             the bundle a Halo or Claude Code session continues from
+halo design doctor                                 which craft apps are registered
+```
+
+Halo 3.0.1.0: Halo Design. A project is a folder of artboards (an
+`index.html` prototype, or a craft app's render plus its source) with
+versions, pinned comments, knobs (`controls.json`) and a design system
+(`system.json`). `run` is one design turn: a headless Halo session in the
+project folder, on the project's model, with the file tools and every
+registered craft app (DesignCraft, VectorCraft, PhotoCraft, LightCraft,
+EffectCraft, FilmCraft, PdfCraft) as its tools; afterwards every changed
+artboard gets a new version and the turn's cost is logged. `sync` reads CSS
+custom properties, a Tailwind config, `tokens.json` files and component
+names from a codebase, or a page's stylesheets from a URL. Studio's Design
+mode is the same project in the browser. See [DESIGN.md](DESIGN.md).
+
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 
 ```sh
