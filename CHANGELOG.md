@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [unreleased]
+## [2.0.7.1] - 2026-10-10
 
 ### vibes/review.md fix pass, round 10 (telemetry, stats, shared state)
 
