@@ -183,6 +183,17 @@ See [docs/STUDIO.md](docs/STUDIO.md).
 
 <a href="docs/media/studio.png"><img alt="Halo Studio: the halo-dev-cycle lineup as a graph, with the inspector" src="docs/media/studio.png" width="100%"></a>
 
+### Your company, in Paperclip
+
+Flip Studio to **Org** and the same canvas shows your company in
+[Paperclip](https://github.com/paperclipai/paperclip), the open-source control plane
+for agent teams: titles, reporting lines, budgets, issues and heartbeats. One command
+turns a lineup into a company (`halo paperclip sync halo-dev-cycle --new Halo`), each
+agent runs `halo paperclip-run` on its heartbeat on the model its bio names, and the
+reply lands on the issue. See [docs/PAPERCLIP.md](docs/PAPERCLIP.md).
+
+<a href="docs/media/studio-org.png"><img alt="Studio's Org mode: the halo-dev-cycle lineup as a Paperclip company, reporting lines on the canvas" src="docs/media/studio-org.png" width="100%"></a>
+
 ### Connectors: Claude Docs from a non-Claude model
 
 Your claude.ai connectors (Claude Docs, a calendar, a drive) appear as tools to whatever
@@ -271,7 +282,8 @@ tool, so check each tool's own docs.
 | **Your Claude Code setup, in place** | `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers and memory are read where they are. Nothing is configured twice. |
 | **Steering** | Type while a turn runs: the steer shows at once and reaches the work, a running command moves to the background instead of dying, sub-agents get your words forwarded into them. |
 | **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in the wizard, with `halo teams apply <lineup>`, or in Studio. |
-| **Halo Studio** | `halo studio`: your lineups and bios as an editable graph in the browser, served from a loopback-only server with a per-launch token. |
+| **Halo Studio** | `halo studio`: your lineups and bios as an editable graph in the browser, served from a loopback-only server with a per-launch token; Org mode shows the same team as a Paperclip company. |
+| **Paperclip** | `halo paperclip sync <lineup>` makes a company of agents that run Halo on their heartbeats; `halo paperclip-run` is the adapter. |
 | **Per-model tool-call repairs** | Fourteen model families' quirks are repaired on the fly: Kimi's `functions.{name}:{idx}` ids, GLM's always-on thinking, Qwen's system-message rules, DeepSeek's reasoning echoes. Gateway quirks are learned once per model and remembered (`halo rules`). |
 | **Measured, not guessed** | `/stats` per model and per tool, price/context/speed columns in the picker, per-role cost attribution, and `halo preflight` canaries each lane before a long run. |
 | **Filter-aware routing** | A provider content filter is not an answer: a filtered reply never persists as one, and the request reroutes to a fallback lane you choose. |
@@ -298,7 +310,8 @@ tool, so check each tool's own docs.
 | [docs/LOCAL-MODELS.md](docs/LOCAL-MODELS.md) | Ollama, Hugging Face, the OpenAI API and Codex, end to end |
 | [docs/DATABRICKS.md](docs/DATABRICKS.md) | Databricks endpoints, API types and the work matrix |
 | [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups: the 90-second version, then the field reference |
-| [docs/STUDIO.md](docs/STUDIO.md) | Halo Studio, the visual editor for lineups and bios |
+| [docs/STUDIO.md](docs/STUDIO.md) | Halo Studio, the visual editor for lineups and bios, and its Org mode |
+| [docs/PAPERCLIP.md](docs/PAPERCLIP.md) | Paperclip: your lineups as a company of agents |
 | [docs/ROLES.md](docs/ROLES.md) | Roles and the role table |
 | [docs/GOVERNOR.md](docs/GOVERNOR.md) | The Governor: shared per-host rate limiting, failover and lanes |
 | [docs/REVIEW.md](docs/REVIEW.md) | `/review` and `halo review` |
