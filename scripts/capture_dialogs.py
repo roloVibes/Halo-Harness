@@ -127,8 +127,26 @@ def _hud(name):
     return scene
 
 
+async def scene_level(size, theme, name: str) -> list:
+    """2.0.11 round A3: the level band mid-turn, four frames of the hero
+    running and the enemy crossing (the still is the last frame)."""
+    variant = {"doom": None, "metroid": "norfair", "mario": "bros"}[name]
+
+    async def prelude(app):
+        await C.history(app, first_turn=-1)
+    frames = (40, 41, 42, 43) if name != "doom" else (12, 13, 14, 15)
+    return await S.game_theme_svg(name, variant, size, prelude=prelude, band_frames=frames)
+
+
+def _level(name):
+    async def scene(size, theme):
+        return await scene_level(size, theme, name)
+    return scene
+
+
 SCENES = {
     "turn-phase": C.scene_turn_phase, "auto": C.scene_auto, "steer": C.scene_steer, "pending-dock": C.scene_pending_dock,
     "picker": scene_picker, "tasks": scene_tasks, "mcp": scene_mcp, "review": scene_review, "remote": scene_remote,
     "hud-doom": _hud("doom"), "hud-metroid": _hud("metroid"), "hud-mario": _hud("mario"),
+    "level-doom": _level("doom"), "level-metroid": _level("metroid"), "level-mario": _level("mario"),
 }

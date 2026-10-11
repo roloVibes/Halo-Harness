@@ -55,7 +55,7 @@ async def handle_slash(app, name: str, args: str) -> None:
         "exit": _handle_exit, "quit": _handle_exit, "theme": _handle_theme,
         # Halo 2.0.8 theme pack: the game-theme toggles (one contract for all
         # three, see halo_harness/theme_toggle.py).
-        "doom": _handle_doom, "metroid": _handle_metroid, "mario": _handle_mario,
+        "level": _handle_level, "doom": _handle_doom, "metroid": _handle_metroid, "mario": _handle_mario,
         # U5 scope C: sessions UX.
         "rename": _handle_rename, "fork": _handle_fork, "export": _handle_export,
         "stats": _handle_stats,
@@ -892,6 +892,18 @@ async def _handle_effort(app, args: str) -> None:
 # /effort above. Bare /offline (nothing to push) falls through to the
 # generic headless-text path.
 # ============================================================================
+
+async def _handle_level(app, args: str) -> None:
+    """2.0.11 round A3: persist through the builtin, then re-apply the
+    theme chrome so the band appears or disappears at once."""
+    from halo_harness.commands.builtins import _cmd_level
+    result = _cmd_level(args, getattr(app.controller, "facade", None))
+    if result:
+        await app.transcript.add_note(result, kind="command")
+    band = getattr(app, "scene_band", None)
+    if band is not None:
+        band.set_theme(app.theme_name, app.theme_variant)
+
 
 async def _handle_offline(app, args: str) -> None:
     args = args.strip()

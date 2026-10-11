@@ -135,7 +135,11 @@ async def _export(app, pilot, stage=None) -> str:
     which renders the fixture "~/project" as "~\\project" on Windows and
     "~/project" everywhere else (found by CI -- the Linux run failed the
     byte-parity check on exactly that slash flip)."""
+    band = getattr(app, "scene_band", None)  # 2.0.11 round A3: no band tick may land between stage and export
+    if band is not None:
+        band.pause()
     await pilot.pause(0)
+    await pilot.pause(0)  # a second pass: a scrollbar that appears one layout pass late flipped the steer capture (1 in 3)
     if stage is not None:
         stage()
     bar = getattr(app, "status_bar", None)
@@ -350,10 +354,14 @@ async def scene_remote_dialog(out: Path) -> None:
     _write_svg(out / "remote-dialog.svg", await remote_svg())
 
 
-async def game_theme_svg(theme: str, variant: "str | None" = None, size=SIZE, prelude=None) -> str:
+async def game_theme_svg(theme: str, variant: "str | None" = None, size=SIZE, prelude=None,
+                         band_frames: "tuple[int, ...]" = (6,), cue: str = ""):
     """The main screen under a game theme (Halo 2.0.8): the HUD status bar
     mid-turn, with the face in its writing state. `variant` (a Metroid
-    area, a Mario palette) is set on the app directly, never persisted."""
+    area, a Mario palette) is set on the app directly, never persisted.
+    2.0.11 round A3: the level band is frozen at each of `band_frames`
+    (frame k, scroll 2k) and one export is made per entry -- a str for a
+    single entry, a list for several (the animated captures)."""
     app = BridgeApp(FakeController(model=MODEL), cwd=CWD, theme_name=theme)
     async with app.run_test(size=size) as pilot:
         if prelude is not None:
@@ -391,7 +399,13 @@ async def game_theme_svg(theme: str, variant: "str | None" = None, size=SIZE, pr
             bar._phase_started_at = _NOW - 23.0
             bar._turn_started_at = _NOW - 23.0  # the HUD's TIME clock (Mario)
 
-        return await _export(app, pilot, stage=stage)
+        outs = []
+        for k in band_frames:
+            band = app.scene_band
+            if band is not None:
+                band.freeze(k, 2 * k, cue)
+            outs.append(await _export(app, pilot, stage=stage))
+        return outs if len(band_frames) > 1 else outs[0]
 
 
 async def _game_theme_scene(out: Path, theme: str, variant: "str | None" = None) -> None:

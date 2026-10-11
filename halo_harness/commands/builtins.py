@@ -141,6 +141,23 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
     return "\n".join(lines)
 
 
+def _cmd_level(args: str, facade: HeadlessFacade) -> str:
+    """2.0.11 round A3: `/level` toggles the game themes' level band (the
+    three-row scene above the prompt); `/level on|off` sets it. Persisted
+    as `theme_scene` in ~/.halo/config.json; the TUI redraws at once."""
+    from halo_harness.theme import get_config_value, set_config_value
+    requested = (args or "").strip().lower()
+    current = bool(get_config_value("theme_scene", True))
+    if requested in ("on", "off"):
+        value = requested == "on"
+    elif requested:
+        return "Usage: /level [on|off]"
+    else:
+        value = not current
+    set_config_value("theme_scene", value)
+    return f"Level band: {'on' if value else 'off'}" + ("" if value else " (run /level to bring it back)")
+
+
 def _cmd_offline(args: str, facade: HeadlessFacade) -> str:
     """Halo 2.0.3 round 5e: `/offline` (bare) reports the current state and
     its source; `/offline on|off` persists `network.offline` to
@@ -1845,6 +1862,7 @@ _BUILTIN_SPECS = {
                  _cmd_settings),
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
+    "level": ("core", "Toggle the game themes' level band above the prompt", "[on|off]", _cmd_level),
     "remote": ("core", "Remote control: control socket, Signal bridge state, paired phones, pairing, kill switch",
                "[status|pair [N]|off]", _cmd_remote),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,

@@ -30,7 +30,7 @@ SCENES = ("launch", "turn", "picker", "team-step", "mcp", "permission", "balance
 # One visible, stable string per scene -- decoded the way the SVG encodes
 # text (entity nbsp -> space), so a marker never depends on raw XML.
 MARKERS = {
-    "launch.svg": ("_   _", "halo 2."),          # the banner rows + version line
+    "launch.svg": ("halo 2.",),                  # the version line under the intro (2.0.11: the art is drawn with block glyphs)
     "turn.svg": ("Grep", "18"),                  # the running tool card + staged phase elapsed
     "picker.svg": ("atlas-pro", "ctx"),          # fixture rows + the context column
     "team-step.svg": ("Custom roles",),          # the switch, flipped on

@@ -632,6 +632,15 @@ one onto a normal theme clears it. In the TUI, Tab completes theme names
 (the game themes first). See the Themes section of the
 [handbook](HANDBOOK.md).
 
+### `/level` `[on|off]`
+Halo 2.0.11: toggles the game themes' level band -- the three-row scene
+above the prompt that DOOM, Metroid and Mario draw (a hero, scrolling
+scenery, an enemy that crosses while the model thinks; see HANDBOOK
+"The level band"). Bare `/level` flips it, `on`/`off` sets it; persisted as
+`theme_scene` in `~/.halo/config.json`, applied at once in the TUI. The
+band hides on its own under 30 rows or 60 columns, while a pending card is
+docked, and under a theme without a scene.
+
 ### `/doom`
 Toggle the DOOM theme (Halo 2.0.8): dark greys, blood reds and amber text,
 heavy borders, and a three-row bottom-HUD status bar (ammo, health, arms,
