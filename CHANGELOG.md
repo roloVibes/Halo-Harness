@@ -34,6 +34,27 @@ version.
   context, a price tier, speed, tool calls, the preflight canaries). Studio's
   model pickers show capability chips. docs/MODELS.md "Which model for what".
 
+- **The design project and the design turn** (round D2): `halo_harness/design/`.
+  A project is a folder under `~/.halo/design/<slug>/` (design.json, artboards
+  with versions snapshotted only when files change, comments.json pins,
+  controls.json knobs, system.json, history.jsonl, assets/). A turn is a real
+  headless Halo run (`halo -p`, stream-json) in the project folder on the
+  project's model with the file tools and the registered craft apps as its
+  ONLY MCP servers (a strict `--mcp-config` written for the run) and the
+  Design skill appended (the artboard contract, the recipe per app, the
+  tokens, the open comments). `halo design new|list|show|run|sync|comment|
+  restore|export|handoff|doctor`; `sync` reads CSS custom properties, a
+  Tailwind config, tokens.json files and component names from a codebase or
+  a page's stylesheets from a URL, with provenance; `export --as folder|html|
+  png|svg|pdf` (a static site with an index page) and `handoff` (the bundle
+  with HANDOFF.md a Halo or Claude Code session continues from). docs/DESIGN.md.
+- **The craft apps, probed for real** (round D4): `design/crafts_probe.py`
+  finds the seven ArtCraft servers (DesignCraft, VectorCraft, PhotoCraft,
+  LightCraft, EffectCraft, FilmCraft, PdfCraft) in the session's own MCP
+  config, and `halo design doctor --probe` spawns each through an ordinary
+  manager handshake, counts its tools and checks the render tool (exit 1 when
+  one is down or lacks it). `halo models --best-for design` is the model pick.
+
 ## [2.2.0] - unreleased
 
 ### Org mode: Paperclip owns organizations
