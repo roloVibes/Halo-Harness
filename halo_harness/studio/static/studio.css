@@ -233,3 +233,6 @@ body[data-mode="org"] #company-select { display: inline-block !important; }
 .issue-row .st.in_progress { color: var(--accent); } .issue-row .st.done { color: var(--success); } .issue-row .st.blocked { color: var(--error); }
 .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-size: 12.5px; margin: 6px 0 12px; }
 .kv b { color: var(--muted); font-weight: 500; }
+
+/* 3.0.1.0 D1: capability chips in the model picker (vision / audio / video / files / image-out) */
+.chips-inline { color: var(--user); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; margin-left: 6px; }

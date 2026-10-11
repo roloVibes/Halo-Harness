@@ -103,6 +103,11 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             "max_output_tokens": entry.get("max_output_tokens") or 16384,
             "price_in_per_m": _per_m(pricing.get("prompt")), "price_out_per_m": _per_m(pricing.get("completion")),
             "provider": "openrouter",
+            # 3.0.1.0 D1: modalities straight from the catalog (never guessed; absent = unknown)
+            "modalities_in": list(entry.get("input_modalities") or []) or None,
+            "modalities_out": list(entry.get("output_modalities") or []) or (["text", "image"] if pricing.get("image_output") else None),
+            "image_output": bool(pricing.get("image_output")) or "image" in (entry.get("output_modalities") or []),
+            "tools": ("tools" in (entry.get("supported_parameters") or [])) if entry.get("supported_parameters") else None,
         })
     _maybe_hint("openrouter", detected=or_detected)
     if or_enabled:
@@ -176,6 +181,8 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
                 # H15 addendum 2: "-> <resolved-id>" next to the alias.
                 "detail": alias_display_detail(alias),
                 "provider": "cc", "group": label_with_prefix("claude_subscription"),
+                "modalities_in": ["text", "image"] if fields.get("vision") else (["text"] if fields else None),
+                "tools": True,  # the official binaries always take tool calls
             })
     elif cc_available and not subs_accepted:
         hints.append({"hint": f"{label_for('claude_subscription')} detected -- available after acceptance "
@@ -520,6 +527,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             "price_in_per_m": 0, "price_out_per_m": 0,
             "provider": "ollama" if row.ref.startswith("ol:") else "huggingface",
             "group": row.group, "detail": row.capability,
+            "modalities_in": (["text", "image"] if "vision" in str(row.capability or "").lower() else None),
         })
 
     current = current_ref

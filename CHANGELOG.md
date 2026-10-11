@@ -8,6 +8,20 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.0.1.0] - unreleased
+
+### Halo Design
+
+- **Which model for what** (round D1): catalog rows carry `modalities_in`,
+  `modalities_out`, `image_output` and `tools` straight from the catalog
+  (OpenRouter modalities and image pricing, the subscription `vision` flag,
+  a local model's declared capabilities; absent stays unknown).
+  `halo_harness/capabilities.py` turns them into profiles and rankings:
+  `halo models --capabilities` and `halo models --best-for visual|audio|
+  video|image|design`, each row with a score and a plain reason (vision,
+  context, a price tier, speed, tool calls, the preflight canaries). Studio's
+  model pickers show capability chips. docs/MODELS.md "Which model for what".
+
 ## [2.2.0] - unreleased
 
 ### Org mode: Paperclip owns organizations

@@ -100,6 +100,32 @@ refresh` has run against this table (no ChatGPT login on the build host) --
 is (a cheap one-token headless call per id, refused ones marked) but
 unexercised; see `docs/harness/CODEX-RESEARCH.md` section 2.
 
+## Which model for what (Halo 3.0.1.0)
+
+The catalog states what a model accepts and produces (OpenRouter's
+`input_modalities` and `output_modalities`, `pricing.image_output`, the
+subscription profiles' `vision` flag, a local model's declared capabilities).
+Halo never guesses: a row that states nothing shows `?` and ranks below one
+that does.
+
+```sh
+halo models --capabilities              # one line per model: in: text,image,audio  out: text
+halo models --best-for visual           # reading screenshots, mockups, photos
+halo models --best-for audio            # listening
+halo models --best-for video            # watching clips
+halo models --best-for image            # making pictures (image output)
+halo models --best-for design           # iterating a design with the craft tools
+```
+
+Each ranking prints a score and a plain reason per model. `visual` weighs
+vision, context and a price tier (free rows are usually small or preview
+models, the mid range is where the workhorses sit); `design` additionally
+requires tool calls (the craft apps are tools), weighs speed and output
+length, and demotes a lane that failed `halo preflight`'s image or tool
+canary. Studio's model pickers show the same facts as chips (vision, audio,
+video, files, image-out) and the Design mode opens its model pick on the
+`design` ranking.
+
 ### Subscription-routes consent (Halo 2.0.7 round 7b)
 
 The owner's own decision: "if Halo discovers subscription creds that
