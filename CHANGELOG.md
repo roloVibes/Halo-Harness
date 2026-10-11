@@ -8,6 +8,33 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [2.1.0] - unreleased
+
+### Agents and roles, made clear
+
+- **The Team step is back, and it explains itself** (round B1). A fresh
+  `halo init` used to run Quick setup, which skipped the Team step and
+  silently applied the `standard` lineup with roles off, so a new user never
+  saw agents at all (and a later `--step team` opened with the switch off and
+  both panes hidden). Quick setup is now `providers, default_model, team,
+  summary`. The step is rebuilt: a plain-words header, a lineup list whose
+  first row is "One model for everything" (applies `standard`, roles off)
+  followed by every shipped, user and project lineup with a scope badge, and
+  a live preview of the highlighted row -- the `role -> agent -> model` tree
+  with price and context, the lineup's `about:` text, warnings, and one
+  "Roughly $X per turn" line (or "price unknown for `<model>`", never a
+  blank). Buttons: Use this lineup, Customize..., New lineup, Agents... (the
+  bios list is no longer a pane). The "Custom roles: off / on" switch is
+  gone; the step always writes `roles.enabled` explicitly. The Summary names
+  the applied lineup with one line per role instead of applying `standard`
+  itself. `halo_harness/tui/dialogs/team_preview.py` (`preview_lines`,
+  `cost_hint`) is reusable by `halo teams preview` and `/teams`. Docs:
+  `docs/WIZARD.md`, `docs/ROLES.md` and `docs/AGENTS.md` open with "The
+  90-second version" and the new `docs/media/diagrams/agents-model.svg`;
+  `docs/AGENTS.md` now lists all six shipped lineups and drops the
+  120-column side-by-side claim. Tests: `tests/test_team_preview.py` and
+  the updated wizard pilots.
+
 ## [2.0.11] - unreleased
 
 ### The front page

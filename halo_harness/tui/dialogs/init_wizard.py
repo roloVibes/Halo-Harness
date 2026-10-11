@@ -1532,16 +1532,11 @@ class SummaryStep(StepScreen):
         from textual.widgets import OptionList
         from textual.widgets.option_list import Option
         widgets = [Static("Summary:", classes="dialog-title")]
-        # Deliverable 5 (rule 5): "the Summary says what it chose" --
-        # Quick setup's own "activates the standard lineup with roles
-        # off" is otherwise invisible (no Team step ever ran this run to
-        # print its own state line).
-        if self.state.quick_setup:
-            widgets.append(Static(
-                "Quick setup: every role (including the sub-agents halo spawns on its own) uses the "
-                "default model picked above -- the same observable state as the standard lineup with "
-                "custom roles off. Full setup (Theme, Team, Organizations, ...) is still one `halo init "
-                "--step team` (or `halo setup`) away any time.", id="wiz-summary-quick-note"))
+        # 2.1.0 B1: the Summary names what the Team step applied (read back
+        # from config, so a skipped Team step shows the real state too).
+        from halo_harness.tui.dialogs.team_preview import applied_summary_lines
+        lineup_text = "\n".join(applied_summary_lines(cwd=self.state.cwd, default_model=self.state.final_model))
+        widgets.append(Static(lineup_text, id="wiz-summary-lineup"))
         widgets.append(Static("Running checks…", id="wiz-summary-text"))
         # Rule 10: "Change" jumps back into each step -- every key this
         # run actually used (never "summary" itself, nothing to jump to).
@@ -1553,38 +1548,7 @@ class SummaryStep(StepScreen):
         return widgets
 
     def on_mount(self) -> None:
-        if self.state.quick_setup:
-            self._activate_standard_quick()
         self.run_worker(self._run_checks_worker, thread=True, name="wiz-summary-checks")
-
-    def _activate_standard_quick(self) -> None:
-        """Rule 5: "Quick setup ... activates the standard lineup with
-        roles off" -- run HERE (Summary's own `on_mount`), after every
-        earlier step's `commit()` already ran, specifically so the
-        `standard` lineup's own `models.preference: default` bio
-        resolves against the REAL default model `DefaultModelStep.
-        commit()` just wrote -- applying this any earlier (e.g. the
-        instant Quick is picked, before a model is even chosen) would
-        freeze the literal string "default" into every `roles.<name>`
-        config entry instead of a real ref (`agents_yaml.resolve_agent_
-        bio`'s own "left as typed" rule for an unset session default),
-        defeating the whole point of the standard lineup's live
-        tracking. Written explicitly (`team: "standard"` AND `roles.
-        enabled: false`) rather than left as whatever the switch already
-        was, so the result is the same named, inspectable state a Full
-        setup's "Use this lineup" on `standard` would leave (`docs/
-        AGENTS.md`'s "the `default` model reference and the `standard`
-        lineup"), never an accident of a machine's pre-existing config."""
-        from halo_harness.roles import set_roles_enabled
-        from halo_harness.teams_yaml import apply_team_template, ensure_builtin_team_templates
-        try:
-            ensure_builtin_team_templates()
-            ok, _problems, _notes = apply_team_template("standard", cwd=self.state.cwd)
-            if ok:
-                self.state.written.append("quick setup: lineup 'standard' applied, roles off")
-        except Exception:
-            pass
-        set_roles_enabled(False)
 
     def on_option_list_option_selected(self, event) -> None:
         if event.option_list.id == "wiz-summary-change-list" and event.option_id:

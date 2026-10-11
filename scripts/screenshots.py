@@ -244,7 +244,6 @@ async def scene_picker(out: Path) -> None:
 
 
 async def scene_team_step(out: Path) -> None:
-    from textual.widgets import Switch
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, _resolve_start_index, full_step_keys
     await _seed_bios()
     keys = full_step_keys()
@@ -253,10 +252,9 @@ async def scene_team_step(out: Path) -> None:
     app = InitWizardApp(state)
     async with app.run_test(size=SIZE) as pilot:
         await pilot.pause(0.3)
-        switch = app.screen.query_one("#wiz-team-switch", Switch)
-        if not switch.value:
-            await pilot.click("#wiz-team-switch")
-            await pilot.pause(0.2)
+        lineups = app.screen.query_one("#wiz-team-lineups-list")
+        lineups.highlighted = min(1, lineups.option_count - 1)  # a real lineup, so the preview shows its tree
+        await pilot.pause(0.2)
         _write_svg(out / "team-step.svg", await _export(app, pilot))
 
 

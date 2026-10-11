@@ -93,7 +93,7 @@ def test_roles_table_opens_with_the_two_plain_lines(ctx: Ctx):
 
 
 @test
-def test_team_step_one_pane_at_a_time_at_every_width(ctx: Ctx):
+def test_team_step_header_list_and_preview_at_every_width(ctx: Ctx):
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
 
     async def body(w, h):
@@ -102,20 +102,12 @@ def test_team_step_one_pane_at_a_time_at_every_width(ctx: Ctx):
             app = InitWizardApp(state)
             async with app.run_test(size=(w, h)) as pilot:
                 await pilot.pause(0.2)
-                what = app.screen.query_one("#wiz-team-what-sentence")
-                ctx.check(f"the what-a-role-is sentence shows at {w}x{h}",
-                          "A role names the model for one job" in _static_text(what))
-                lineups = app.screen.query_one("#wiz-team-lineups-pane")
-                agents = app.screen.query_one("#wiz-team-agents-pane")
-                switch_bar = app.screen.query_one("#wiz-team-pane-switch")
-                ctx.check(f"the pane switch is ALWAYS visible at {w}x{h}",
-                          switch_bar.styles.display != "none")
-                lp = lineups.styles.display
-                ap = agents.styles.display
-                ctx.check(f"exactly ONE pane visible at {w}x{h} (lineups={lp}, agents={ap})",
-                          (lp == "none") != (ap == "none"))
-                ctx.check("lineups pane is the one shown first",
-                          lp != "none" and ap == "none")
+                head = app.screen.query_one("#wiz-team-header-sentence")
+                ctx.check(f"the plain-words header shows at {w}x{h}",
+                          "unless you pick a lineup" in _static_text(head))
+                ctx.check(f"the lineup list and the preview both exist at {w}x{h}",
+                          app.screen.query("#wiz-team-lineups-list") and app.screen.query("#wiz-team-preview"))
+                ctx.check(f"no Custom roles switch any more at {w}x{h}", not app.screen.query("#wiz-team-switch"))
 
     for size in ((80, 24), (120, 40), (160, 50)):
         _run(body(*size))

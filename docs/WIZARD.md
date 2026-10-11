@@ -7,6 +7,38 @@ wizard stops being clunky"). Ten rules, followed by every wizard screen --
 Verified against `halo_harness/tui/dialogs/init_wizard.py`, `wizard_ux.py`,
 `step_rail.py`, `autocomplete.py`, `setup_mode.py`, and `team_step.py`.
 
+## The 90-second version
+
+Four words, in this order: **bio -> lineup -> role -> session**.
+
+- A **bio** says what an agent IS: its name, its model, its tools, its
+  limits. `coder` is a bio; so is `local-small`. (`halo agents`.)
+- A **lineup** hands bios to jobs: "planning goes to this bio, coding to that
+  one". Six ship with Halo -- `standard`, `balanced`, `quality`,
+  `local-first`, `code-review`, `halo-dev-cycle` -- and you can write your
+  own. (`halo teams`.)
+- A **role** is one job slot the session fills: main, planner, coder,
+  reviewer, researcher and so on. A lineup gives every role an agent and a
+  model. (`halo roles`.)
+- Your **session** runs each job on the model its role names, and the
+  sub-agents Halo spawns do the same. With roles off, nothing changes:
+  **one model for everything**, the default model you picked.
+
+![How bios, lineups and roles fit together](media/diagrams/agents-model.svg)
+
+Three ways to pick a lineup, all writing the same two config keys (`team`
+and `roles.enabled`):
+
+1. **The wizard** -- `halo init` (Quick setup includes the Team step) or
+   `halo init --step team`. The first row, "One model for everything", is
+   the off state; every other row previews its `role -> agent -> model`
+   tree with prices before you apply it.
+2. **The command line** -- `halo teams use <name>` points the active
+   lineup at one; `halo roles on|off` flips the switch.
+3. **Studio** -- coming in 2.1.0.
+
+Everything below is the field-by-field reference; nothing in it changed.
+
 ## The ten rules
 
 1. **Highlight is selection** for a one-of choice (default model,
@@ -24,10 +56,11 @@ Verified against `halo_harness/tui/dialogs/init_wizard.py`, `wizard_ux.py`,
    Default model, Permissions, Theme, Team, Orgs, Summary): the current
    step highlighted, done steps ticked. Ctrl+Left/Ctrl+Right are Back/Next
    from anywhere.
-5. **Quick setup by default**: the first screen offers "Quick setup" (keys
-   -> default model -> done -- every role, including the sub-agents halo
-   spawns on its own, uses that model) and "Full setup" (every step).
-   Quick is the highlighted default; the Summary says which one ran.
+5. **Quick setup by default**: the first screen offers "Quick setup" (a
+   provider key, your default model, and which lineup of agents runs your
+   work -- the Team step, with "One model for everything" preselected) and
+   "Full setup" (every step). Quick is the highlighted default; the Summary
+   names the lineup that was applied.
 6. **One sentence at the top of each step**: what it decides and the
    current choice -- "Default model: `<ref>`. Enter to change."
 7. **Focus lands on the content** (the list, or the first field) the
@@ -63,7 +96,7 @@ The very first screen of a genuine `halo init` (never a `--step .../
 
 | Choice | What runs | What it leaves |
 |---|---|---|
-| **Quick setup** (default, highlighted) | Providers -> Default model -> Summary | Every role -- including a spawned sub-agent with none of its own -- resolves to that one model; the observable state is identical to the shipped `standard` lineup with custom roles off (see `docs/AGENTS.md`'s "the `default` model reference and the `standard` lineup"). |
+| **Quick setup** (default, highlighted) | Providers -> Default model -> Team -> Summary | Whatever the Team step applied: the preselected "One model for everything" row leaves the shipped `standard` lineup with roles off (every role, including a spawned sub-agent, resolves to the default model -- see `docs/AGENTS.md`'s "the `default` model reference and the `standard` lineup"); picking a lineup turns roles on. |
 | **Full setup** | Every step: Providers, Local models, Default model, Permissions, Theme, Team, Organizations, Linux fixes (Linux only, only when needed), Summary | Whatever each step's own section of this doc/`docs/AGENTS.md`/`docs/ROLES.md`/`docs/ORGS.md` says it writes. |
 
 Nothing is ever permanently closed off by picking Quick: `halo init --step
@@ -72,38 +105,40 @@ afterward.
 
 ## The Team step (rule 11)
 
-One screen, titled "Team", replacing the round-2/2b "Agents" step and
-"Roles and lineup" step. A single switch at the top, **"Custom roles: off
-/ on"**:
+One screen, titled "Team" (Halo 2.1.0 round B1 rebuilt it; Quick setup now
+includes it). Top to bottom:
 
-- **Off**: one sentence -- "Halo uses `<default model>` for everything,
-  including the sub-agents it spawns on its own, and still asks you
-  questions when it needs to." -- and nothing else. Delegation and the
-  question card both keep working exactly as described, through the
-  shipped `standard` lineup (`docs/AGENTS.md`); this is the SAME
-  observable state Quick setup leaves things in.
-- **On**: two panes --
-  - **Lineups** (left): every reachable team template, the ACTIVE one
-    (`team:` in `config.json`) marked with a check -- not the arrow-key
-    highlight, which is rule 1's OWN mark on the four pickers above; this
-    pane is a management list, like Agents, so Enter edits a highlighted
-    lineup (`LineupEditor`) rather than selecting it. Ctrl+N opens a new
-    lineup; Ctrl+D duplicates the highlighted one into user scope under
-    the SAME name (so it shadows a shipped one -- never a clone under a
-    new name). A plain Next (footer) applies whichever lineup is
-    highlighted -- writing `roles.*` and `team:` -- the one place this
-    step still follows rule 1's "no confirm button needed".
-  - **Agents** (right): every reachable agent bio (`agents_step.
-    bio_rows`) -- Enter edits, Ctrl+N new, Ctrl+D duplicate (same
-    shadow-under-the-same-name rule), Del deletes a project/user-scope
-    one.
+- **A plain-words header**: "Halo runs one model for everything unless you
+  pick a lineup. A lineup gives each job (planning, coding, reviewing,
+  research) its own agent and model."
+- **The lineup list.** The FIRST row is always **"One model for
+  everything"** -- applying it writes `team: standard` and `roles.enabled:
+  false` (the same state Quick setup used to leave silently). Then every
+  reachable lineup (shipped, user, project) with its role count, its
+  one-line description and a scope badge. The active one carries the check
+  mark; a fresh install highlights the first row.
+- **A live preview** of the highlighted row (beside the list from 100
+  columns up, below it otherwise): a tree `role -> agent -> model` with the
+  model's price and context window when the catalog knows them, the
+  lineup's `about:` text, any warnings, and one cost line -- "Roughly $X per
+  turn at these prices", or "price unknown for `<model>`" when a model has
+  no price (never a blank that reads as free). For the first row it is the
+  sentence "Halo uses `<default model>` for everything, including the
+  sub-agents it spawns on its own, and still asks you questions when it
+  needs to." `tui/dialogs/team_preview.py` (`preview_lines`, `cost_hint`)
+  builds the same text for the command line.
+- **Buttons**: **Use this lineup** (apply now), **Customize...** (opens the
+  lineup editor on the highlighted lineup; a shipped one is duplicated into
+  user scope first under the same name), **New lineup**, and **Agents...**
+  (the bios list -- it is no longer a pane of this step).
 
-  Side by side at 120 columns or wider; below that, stacked behind a
-  small pane switch ("Lineups" / "Agents" buttons) showing one at a time
-  -- Ctrl+N/Ctrl+D/Del always act on whichever pane is actually focused.
-  Editing a lineup's own assignment grid picks from those same bios, or
-  from the plain model list (`ModelPicker`'s own Agents/Models source
-  switch, Ctrl+A).
+A plain Next applies whichever row is highlighted (rule 1) and always
+writes `roles.enabled` explicitly: off for the first row, on for any
+lineup. Enter on a row opens its editor (rule 2). Keys: Ctrl+N new lineup,
+Ctrl+E customize, Esc back, Ctrl+Left/Ctrl+Right step. The body scrolls, so
+every control is reachable at 80x24. The Summary step then names what was
+applied: the lineup with one line per resolved role, or "One model for
+everything: `<model>`".
 
 `halo init --step team` reaches it directly; `--step agents` and `--step
 roles` are kept as plain aliases (so is the pre-existing `/setup roles`/
