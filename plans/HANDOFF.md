@@ -4,7 +4,32 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-11 ~09:00 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-11 ~10:20 CDT (authoritative, read this first)
+
+**v2.0.9 IS RELEASED** (tag v2.0.9 at `b691a0d`, GitHub release
+published, `--no-install`: the owner refreshes installs himself). CI was
+green on Linux and Windows at `5252e14`. Three releases this session:
+2.0.7.1 (review fix pass), 2.0.8 (theme pack), 2.0.9 (Signal remote
+control, rounds 1-4; code-complete, hermetically tested against a fake
+signal-cli).
+
+**OWNER ACTION PENDING: the live Signal check** -- a dedicated Signal
+number on the Kali VM, following docs/REMOTE.md "Live verification"
+(setup -> register -> run -> pair from the phone -> /sessions, attach,
+prompt, permission card by number, /stop, unpair, second phone ignored)
+and noting the items under "Confirm on the first live run". Findings
+from that run become the 2.0.9.1 fix pass (brief it from the owner's
+notes; the fake signal-cli in tests/helpers/fake_signal_cli.py must be
+updated to whatever real shapes differ).
+
+**NEXT on the roadmap: 2.0.10 review/security** (ROADMAP tail: a whole-
+tree review -- the owner's own review file pattern from 2.0.7 worked:
+numbered findings outside the repo, briefs point workers at it, one
+round per area, pins per finding, SWEEP.md at the end).
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-11 ~09:00 CDT (previous)
 
 **2.0.9 Signal remote control is CODE-COMPLETE, tag pending CI.** Rounds
 pushed: 1 `0df8bac` (SIGNAL-RESEARCH.md refreshed to signal-cli 0.14.9,
