@@ -532,6 +532,11 @@ def test_status_bar_offline_chip(ctx: Ctx):
 # Each pattern is a raw primitive capable of opening a socket OUTSIDE
 # providers.http's own open_upstream/urlopen_tls. (file, reason):
 _ALLOWED_RAW_NETWORK_CALLERS = {
+    "halo_harness/paperclip/client.py":
+        "2.2.0: the Paperclip instance's own REST API -- a local service the user installed "
+        "(127.0.0.1:3100 by default), the same category as mcp/oauth.py and mcp/doctor_probe.py: the "
+        "user's own server, not the model-provider/update/catalog surface the offline gate covers; a "
+        "heartbeat run must reach it even in offline mode or the run cannot report back",
     "halo_harness/providers/http.py":
         "the choke point itself -- open_upstream/urlopen_tls/default_tls_context are DEFINED here using "
         "these primitives; _check_offline_allowed runs inside both before either is ever used",

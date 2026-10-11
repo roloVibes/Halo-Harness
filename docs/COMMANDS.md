@@ -2566,6 +2566,29 @@ stops it. Over SSH, forward the printed port and open the same URL. The
 TUI's `/studio` serves the same page from the running session. See
 [STUDIO.md](STUDIO.md).
 
+## `halo paperclip` and `halo paperclip-run`
+
+```sh
+halo paperclip status                     health, version, companies, the linked one
+halo paperclip install                    npx paperclipai@latest onboard --yes (Node 24+)
+halo paperclip open                       the Paperclip UI in the browser
+halo paperclip link [--url U] [--token T] [--company ID|NAME]
+halo paperclip sync <lineup> [--company ID|NAME | --new NAME] [--cwd DIR]
+halo paperclip pull <lineup> [--company ID|NAME] [--project]
+halo paperclip org [--company ID|NAME]
+halo paperclip-run                        the adapter entrypoint Paperclip spawns on a heartbeat
+```
+
+Halo 2.2.0: Paperclip owns organizations. `sync` turns a lineup into a
+company of agents (one `process` agent per assignment running `halo
+paperclip-run` in `--cwd`, reporting lines from the lineup's `org.positions`
+or everyone -> main, idempotent), `pull` writes the company's reporting lines
+back into the lineup, `org` prints the chart, `status` the instance and its
+companies, `install` runs Paperclip's own onboarding, `link` stores the URL,
+an optional board token and the default company in `~/.halo/paperclip.json`.
+`halo paperclip-run` is not for hands: Paperclip runs it with the heartbeat's
+`PAPERCLIP_*` environment. See [PAPERCLIP.md](PAPERCLIP.md).
+
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 
 ```sh
