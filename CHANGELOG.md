@@ -50,6 +50,20 @@ version.
   the three commands were reworded in plain language. New module
   `halo_harness/teams_cli_views.py`. Tests: `tests/test_agents_teams.py`
   (`test_b2_*`) and `tests/test_agents_teams_forms.py`.
+- **Halo Studio** (round B3): `halo studio` (and `/studio`) serves a page from
+  a loopback-only stdlib server (a per-launch token in the URL, an origin
+  guard, a strict content-security policy, no CDN) that draws the active
+  lineup as a graph: one card per assignment with the resolved model, price,
+  context and tool count; delegation, reports-to and pipeline edges; drag,
+  marquee, minimap, auto-layout and remembered positions. The inspector edits
+  the assignment, the bio behind it (every section, typed fields, the "about
+  N turns at this price" hint), the lineup's sections and the YAML both
+  ways; Validate / Save / Apply go through `teams_yaml` and `agents_yaml`, a
+  shipped file is duplicated into your scope on the first save. A command
+  palette, a first-run tour, a run view over the newest session. docs/
+  STUDIO.md, `tests/test_studio_api.py` / `test_studio_model.py` /
+  `test_studio_ui.py` (headless Chrome), `docs/media/studio.png` from
+  `tools/capture_studio.py`.
 
 ## [2.0.11] - unreleased
 

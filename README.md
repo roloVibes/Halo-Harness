@@ -172,6 +172,17 @@ role is a sub-agent on its own model, visible in `/tasks` with its state, tools 
 
 <a href="docs/media/tasks-org-tree.png"><img alt="The /tasks panel with a running organization tree" src="docs/media/tasks-org-tree.png" width="100%"></a>
 
+### See your agents: Halo Studio
+
+`halo studio` opens the active lineup as a graph in your browser: one card per
+assignment with the model that resolves for it, its price and context; delegation,
+reporting and pipeline edges; drag a bio onto the canvas to add it. The inspector
+edits the assignment, the bio behind it and the lineup's sections, with the YAML
+both ways, and Validate / Save / Apply run the same checks `halo teams` does.
+See [docs/STUDIO.md](docs/STUDIO.md).
+
+<a href="docs/media/studio.png"><img alt="Halo Studio: the halo-dev-cycle lineup as a graph, with the inspector" src="docs/media/studio.png" width="100%"></a>
+
 ### Connectors: Claude Docs from a non-Claude model
 
 Your claude.ai connectors (Claude Docs, a calendar, a drive) appear as tools to whatever
@@ -247,7 +258,7 @@ tool, so check each tool's own docs.
 | Liveness | A live phase line (seconds, token counts, `quiet`/`no data` counters) plus a status-bar word and timer | Commonly a spinner |
 | Permissions | Auto mode allows everything except your own deny/ask rules and hooks; asks dock above the prompt and queue | Commonly a built-in approval policy of the tool's own |
 | MCP | stdio/HTTP/SSE from every Claude Code scope, `/mcp` with failure reasons and a deep dive, claude.ai connectors as tools | MCP support is common; diagnosis and connector bridging vary |
-| Agents | Lineups and organizations with a model per role, per-role cost, `/tasks` | Sub-agents are common; a model per role and cost attribution vary |
+| Agents | Lineups with a model per role, per-role cost, `/tasks`, and Studio, a visual editor for lineups and bios | Sub-agents are common; a model per role, cost attribution and a visual editor vary |
 | Sessions | Resume, rewind, `/tasks`, per-role cost attribution, `halo bugreport` | Resume is common; the rest varies |
 | Remote control | From a phone over Signal, with pairing, signed commands and a kill switch | Rare in a terminal harness |
 | Review | `/review` with parallel reviewers, a judge and ranked cards | Varies |
@@ -259,7 +270,8 @@ tool, so check each tool's own docs.
 | **Routes** | `or:` `dbx:` `ant:` `oai:` `ol:` `hf:` `local:` `cc:` `cx:` -- one session, any of them, and `/model` swaps the lane without losing context. |
 | **Your Claude Code setup, in place** | `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers and memory are read where they are. Nothing is configured twice. |
 | **Steering** | Type while a turn runs: the steer shows at once and reaches the work, a running command moves to the background instead of dying, sub-agents get your words forwarded into them. |
-| **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. `halo teams use <lineup>` applies one. |
+| **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in the wizard, with `halo teams apply <lineup>`, or in Studio. |
+| **Halo Studio** | `halo studio`: your lineups and bios as an editable graph in the browser, served from a loopback-only server with a per-launch token. |
 | **Per-model tool-call repairs** | Fourteen model families' quirks are repaired on the fly: Kimi's `functions.{name}:{idx}` ids, GLM's always-on thinking, Qwen's system-message rules, DeepSeek's reasoning echoes. Gateway quirks are learned once per model and remembered (`halo rules`). |
 | **Measured, not guessed** | `/stats` per model and per tool, price/context/speed columns in the picker, per-role cost attribution, and `halo preflight` canaries each lane before a long run. |
 | **Filter-aware routing** | A provider content filter is not an answer: a filtered reply never persists as one, and the request reroutes to a fallback lane you choose. |
@@ -285,7 +297,8 @@ tool, so check each tool's own docs.
 | [docs/MODELS.md](docs/MODELS.md) | Model families, effort levels, per-route rules and the subscription consent |
 | [docs/LOCAL-MODELS.md](docs/LOCAL-MODELS.md) | Ollama, Hugging Face, the OpenAI API and Codex, end to end |
 | [docs/DATABRICKS.md](docs/DATABRICKS.md) | Databricks endpoints, API types and the work matrix |
-| [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups |
+| [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups: the 90-second version, then the field reference |
+| [docs/STUDIO.md](docs/STUDIO.md) | Halo Studio, the visual editor for lineups and bios |
 | [docs/ROLES.md](docs/ROLES.md) | Roles and the role table |
 | [docs/GOVERNOR.md](docs/GOVERNOR.md) | The Governor: shared per-host rate limiting, failover and lanes |
 | [docs/REVIEW.md](docs/REVIEW.md) | `/review` and `halo review` |
