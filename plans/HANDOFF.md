@@ -4,7 +4,39 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-10 ~18:45 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-10 ~23:15 CDT (authoritative, read this first)
+
+**v2.0.7.1 IS RELEASED** (tag v2.0.7.1 at `f2a70fb`, GitHub release
+published, `--no-install`: the owner refreshes installs himself; the Kali
+VM was unreachable all evening so its battery is CI's Linux job). The
+vibes/review.md fix pass is COMPLETE: rounds 8 (`e793810`), 9 (`e774fe4`),
+10 + sweep (`1efed92`), the three CI-only reds after round 9 (`63c57c1`:
+POSIX project-key match, SIGHUP test under the consent gate, h9 timing
+bound). `plans/briefs/2.0.7-fixpass/SWEEP.md`: 89/92 fixed, 3 rejected
+(3, 4 by the standing contract; 18 does not hold), none open. CI green on
+Linux and Windows at `63c57c1`. run_all on this host: 4298 tests / 335
+modules green (takes ~55 min here; give workers a long timeout).
+
+**IN FLIGHT: 2.0.8 theme pack, round 1** (`plans/briefs/2.0.8-themes/
+round-1-hud-engine-doom.md`: theme names doom/metroid/mario registered,
+`tui/hud.py` skin engine on the status bar, the DOOM skin with the 5-state
+ASCII face + width cascade snapshots, the `/doom` `/metroid` `/mario`
+toggle contract pinned once, docs + `theme-doom` screenshot scene).
+THEN round 2 Metroid (Super Metroid areas as variants, HUD energy/missile
+counters, map-grid panels, visor input framing), round 3 Mario (SMB/SMW
+palettes, coins=cost, timer clock, world-level cwd, brick/pipe borders,
+1-up/coin cues on finished tasks), round 4 README renders per theme +
+CHANGELOG + full battery + `release.py 2.0.8`. Then 2.0.9 Signal
+(`plans/2.0.8-signal-brief.md`, research round first).
+
+Left open from the fix pass (not blocking): TUI `halo -c` with no prior
+session still starts fresh silently (finding 76 was print-mode only);
+init-wizard roles toggles do not refresh a live role table (58). Status
+crons are session-only; re-create on resume.
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-10 ~18:45 CDT (previous)
 
 Resumed on the Windows build host. Shipped and pushed today: `c1b6542`
 (pyflakes gate: round 7 used `Optional` in providers/http.py without the
