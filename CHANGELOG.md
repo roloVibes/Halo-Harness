@@ -36,7 +36,7 @@ version.
   `tests/test_studio_org.py` over `tests/helpers/fake_paperclip.py`;
   `docs/media/studio-org.png`.
 
-## [2.1.0] - unreleased
+## [2.1.0] - 2026-10-11
 
 ### Agents and roles, made clear
 
