@@ -135,12 +135,12 @@ def test_f1_no_session_persistence_resume_flag_variant_also_preserves(ctx: Ctx):
 
 
 @test
-def test_f1_no_session_persistence_fork_session_variant_also_preserves(ctx: Ctx):
+def test_f1_no_session_persistence_fork_session_variant_preserves_the_original_and_erases_the_fork(ctx: Ctx):
     """Same again via `--resume <id> --fork-session`: the id came from
-    neither -c nor a bare --resume, but from fork_session (brief:
-    "whether the id came from -c / --resume / --session-id / --fork")
-    -- the FORKED copy must be truncated back to its own pre-run-2 bytes,
-    never deleted, and the ORIGINAL session must be untouched throughout."""
+    neither -c nor a bare --resume, but from fork_session. Review finding 82
+    (round 9) changed the old contract: the fork is a log THIS run created, so
+    --no-session-persistence erases it (it used to be truncated and left on
+    disk); the ORIGINAL session must be untouched throughout."""
     from halo_harness.agent import sessions as agent_sessions
 
     fh, mock = _begin()
@@ -159,12 +159,7 @@ def test_f1_no_session_persistence_fork_session_variant_also_preserves(ctx: Ctx)
 
         forked_ids = [p.stem for p in agent_sessions.sessions_dir(fh["proj"]).glob("*.jsonl")
                       if p.stem != original_sid]
-        ctx.check(f"exactly one forked session file exists, got {forked_ids}", len(forked_ids) == 1)
-        forked_path = agent_sessions.sessions_dir(fh["proj"]) / f"{forked_ids[0]}.jsonl"
-        ctx.check("the forked copy still exists (truncated, never deleted)", forked_path.exists())
-        ctx.check(f"truncated back to the ORIGINAL's own byte-for-byte content at fork time, got sizes "
-                  f"{forked_path.stat().st_size if forked_path.exists() else None} vs {len(original_bytes)}",
-                  forked_path.exists() and forked_path.read_bytes() == original_bytes)
+        ctx.check(f"the fork was erased, got {forked_ids}", forked_ids == [])
     finally:
         _end(mock)
 

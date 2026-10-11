@@ -49,6 +49,13 @@ def rc_file_for_shell(shell: Optional[str] = None, *, home: Optional[Path] = Non
     name = Path(shell).name if shell else ""
     if "zsh" in name:
         return _home(home) / ".zshenv"
+    if "bash" in name:
+        # A login bash reads the FIRST of these that exists; ~/.profile only
+        # when neither does -- writing .profile beside a .bash_profile would
+        # never take effect (finding 80).
+        for candidate in (".bash_profile", ".bash_login"):
+            if (_home(home) / candidate).exists():
+                return _home(home) / candidate
     return _home(home) / ".profile"
 
 
@@ -63,9 +70,19 @@ def local_bin_on_noninteractive_path(*, shell: Optional[str] = None, home: Optio
     own os.environ PATH instead of raising."""
     local_bin = str(_home(home) / ".local" / "bin")
     shell_path = shell if shell is not None else (os.environ.get("SHELL") or "/bin/sh")
-    run = run or (lambda argv: subprocess.run(argv, capture_output=True, text=True, timeout=5))
+    # Finding 80: the child used to inherit THIS process's PATH (already
+    # widened by whatever launched halo), so the check always passed. It now
+    # starts without PATH/BASH_ENV/ENV, so the PATH it prints is what the
+    # shell's own startup files produce. bash is started as a login shell
+    # (`-l`): that is what reads ~/.profile, which a plain `bash -c` never
+    # does; zsh reads ~/.zshenv on every start.
+    clean_env = {k: v for k, v in os.environ.items() if k not in ("PATH", "BASH_ENV", "ENV")}
+    if home is not None:
+        clean_env["HOME"] = str(_home(home))
+    flags = ["-l", "-c"] if "bash" in Path(shell_path).name else ["-c"]
+    run = run or (lambda argv: subprocess.run(argv, capture_output=True, text=True, timeout=5, env=clean_env))
     try:
-        proc = run([shell_path, "-c", "echo $PATH"])
+        proc = run([shell_path, *flags, "echo $PATH"])
         path_value = (proc.stdout or "").strip()
     except (OSError, subprocess.SubprocessError):
         path_value = ""

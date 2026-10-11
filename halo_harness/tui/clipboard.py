@@ -28,6 +28,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from typing import Optional
 
 # Checked in order; the first one found on PATH is used.
@@ -76,11 +77,33 @@ def _copy_windows_clipboard(text: str, *, timeout_s: float) -> bool:
         return False
 
 
+_LAST_COPY_ERROR: dict = {"text": ""}
+
+
+def last_copy_error() -> str:
+    """What the last external copy tool wrote to stderr (or the exception it
+    raised), '' after a clean run -- the reason a fallback copy failed."""
+    return _LAST_COPY_ERROR["text"]
+
+
 def _copy_argv(argv: list, text: str, *, timeout_s: float) -> bool:
+    """Pipe `text` into `argv`. xclip (and xsel) fork a daemon that keeps
+    the selection alive and inherits the child's stdout, so a captured
+    stdout PIPE never reaches EOF and `run` sat out the whole timeout while
+    the copy had already landed (review finding 67). stdout goes to DEVNULL;
+    stderr goes to a temp FILE (a daemon holding a file open blocks nothing)
+    and is read back so a real failure keeps its message."""
+    _LAST_COPY_ERROR["text"] = ""
     try:
-        proc = subprocess.run(argv, input=text, capture_output=True, text=True, timeout=timeout_s)
+        with tempfile.TemporaryFile() as err:
+            proc = subprocess.run(argv, input=text.encode("utf-8"), stdout=subprocess.DEVNULL,
+                                  stderr=err, timeout=timeout_s)
+            if proc.returncode != 0:
+                err.seek(0)
+                _LAST_COPY_ERROR["text"] = err.read(2000).decode("utf-8", "replace").strip()
         return proc.returncode == 0
-    except (OSError, subprocess.SubprocessError, ValueError):
+    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+        _LAST_COPY_ERROR["text"] = str(exc)
         return False
 
 

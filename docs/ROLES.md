@@ -85,7 +85,9 @@ REPLACES the form's own roles (never merges) through the SAME
 use -- also pushed straight into a LIVE session's own role table when
 this form runs via `/setup roles` inside one, no restart needed.
 `ctrl+s` saves to the name this form was opened with; a separate `Save
-as template...` action saves a COPY under a new name instead.
+as template...` action saves a COPY under a new name instead. `ctrl+s` with
+the effort prompt still open commits the model just picked (with the effort
+typed so far) first; an unrecognized effort is reported and nothing is saved.
 
 ## Enumeration after the keys step (2.0.4 round 4)
 

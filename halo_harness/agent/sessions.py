@@ -42,6 +42,36 @@ def resolve_continue(cwd) -> Optional[str]:
     return candidates[0].stem if candidates else None
 
 
+def resolve_session_request(cwd, continue_: bool, resume: Optional[str]) -> "tuple[Optional[str], Optional[str]]":
+    """`(session_id, error)` for the -c/--continue and -r/--resume flags
+    together, in the order `build_session` applies them (continue first,
+    then resume as the fallback). `(None, None)` when neither was asked
+    for; `(None, message)` when one was asked for and nothing matched."""
+    sid: Optional[str] = None
+    err: Optional[str] = None
+    if continue_:
+        sid = resolve_continue(cwd)
+        if sid is None:
+            err = "no sessions found for this directory to --continue"
+    if sid is None and resume is not None:
+        sid, err = resolve_resume(cwd, resume if resume else None)
+    return sid, (None if sid else err)
+
+
+def carry_session(src_cwd, dst_cwd, session_id: str) -> None:
+    """Copy `session_id`'s log from one project's session directory into
+    another's (a `-w` worktree is a different project directory) so a
+    -c/-r resolved before the worktree existed still finds its history."""
+    src = sessions_dir(src_cwd) / f"{session_id}.jsonl"
+    dst_dir = sessions_dir(dst_cwd)
+    if src.is_file() and not (dst_dir / src.name).is_file():
+        try:
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            (dst_dir / src.name).write_bytes(src.read_bytes())
+        except OSError:
+            pass
+
+
 def _read_nodes(path: Path) -> list:
     out = []
     try:
@@ -85,6 +115,18 @@ def resolve_resume(cwd, value: Optional[str]) -> "tuple[Optional[str], Optional[
 
     candidate_path = Path(value)
     if candidate_path.suffix == ".jsonl" and candidate_path.is_file():
+        # Finding 76: a transcript that lives outside THIS project's session
+        # directory used to resume as an empty session (the id existed only
+        # as a filename). Bring it in so the resume has its history.
+        inside = sessions_dir(cwd)
+        if candidate_path.resolve().parent != inside.resolve():
+            imported = inside / f"{candidate_path.stem}.jsonl"
+            if not imported.is_file():
+                try:
+                    inside.mkdir(parents=True, exist_ok=True)
+                    imported.write_bytes(candidate_path.read_bytes())
+                except OSError as exc:
+                    return None, f"cannot read transcript {value!r}: {exc}"
         return candidate_path.stem, None
 
     directory = sessions_dir(cwd)

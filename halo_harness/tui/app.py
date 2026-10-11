@@ -12,6 +12,7 @@ widget, so nothing here is ever called from another thread.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
 import os
@@ -127,6 +128,24 @@ def _expand_pasted(text: str, pasted: Optional[dict]) -> str:
         return pasted.get(n, m.group(0))
 
     return _PASTE_PLACEHOLDER_RE.sub(_sub, text)
+
+
+def _recalled_pastes(raw) -> dict:
+    """A history entry's `pastedContents` as `{int n: text}` -- this
+    harness stores the text directly, Claude Code's own file stores
+    `{"id", "type", "content"}` objects; JSON keys are strings."""
+    out: dict = {}
+    if not isinstance(raw, dict):
+        return out
+    for key, value in raw.items():
+        try:
+            n = int(key)
+        except (TypeError, ValueError):
+            continue
+        text = value.get("content") if isinstance(value, dict) else value
+        if isinstance(text, str):
+            out[n] = text
+    return out
 
 
 class BridgeApp(App):
@@ -280,6 +299,7 @@ class BridgeApp(App):
         # arrives (see `enqueue_pending_card`) -- popped and rewritten to
         # the card's own `decision_line` once it's actually answered.
         self._pending_queue: "list" = []
+        self._pending_lock = asyncio.Lock()  # finding 71: serializes dock hand-offs
         self._pending_markers: "dict" = {}
         self._borrowing_card = None
         self._ctrl_c_deadline: Optional[float] = None
@@ -294,9 +314,10 @@ class BridgeApp(App):
         # (anchored to the bottom) right before the CURRENTLY pending card
         # took focus -- see set_pending_card/clear_pending_card.
         self._card_interrupted_following = False
-        self._history_cache: "list[str]" = []
+        self._history_cache: "list[tuple]" = []  # (display, {n: pasted text})
         self._history_index = 0
         self._history_draft = ""
+        self._history_draft_pasted: dict = {}
         self._completion_kind = ""
         self._completion_items: "list[str]" = []
         # 2.0.2 review finding 24: `_complete_role_command_arg`'s model-
@@ -1161,7 +1182,7 @@ class BridgeApp(App):
 
         if self._borrowing_card is not None:
             if is_slash_command:
-                self.prompt_input.clear_submitted()
+                self.prompt_input.clear_submitted(keep_images=True)  # finding 68
                 # W2c item 1: this slash command used to bypass history
                 # entirely (only the DEFAULT path at the bottom of this
                 # method, via `_submit_prompt`, ever appended) -- Up now
@@ -1191,7 +1212,10 @@ class BridgeApp(App):
         # but never turns them into image blocks -- answering a card is
         # not starting a new turn.
         pending_images = list(self.prompt_input.images)
-        self.prompt_input.clear_submitted()
+        # finding 68: a typed slash command (any branch below) keeps the
+        # pending image chips for the next real prompt, and `/images` can
+        # still list them.
+        self.prompt_input.clear_submitted(keep_images=is_slash_command)
         self.completion_popup.hide()
         from halo_harness.tui.widgets.cards import EffortCard
         if self.pending_card is not None and not isinstance(self.pending_card, EffortCard):
@@ -1837,8 +1861,10 @@ class BridgeApp(App):
                 entries = history_mod.load_merged_history(str(self.cwd))
             except OSError:
                 entries = []
-            all_displays = [e.get("display", "") for e in entries if e.get("display")]
+            all_displays = [(e.get("display", ""), _recalled_pastes(e.get("pastedContents")))
+                            for e in entries if e.get("display")]
             self._history_draft = self.prompt_input.text
+            self._history_draft_pasted = dict(self.prompt_input.pasted)
             # W2c item 1: "with text typed on the first line, Up walks only
             # entries that start with that text" (Claude Code's own prefix-
             # filtered recall); "Up on an EMPTY first line recalls the
@@ -1848,17 +1874,28 @@ class BridgeApp(App):
             # further with Up/Down never re-derives it from whatever
             # recalled text is currently showing.
             prefix = self.prompt_input.document.get_line(0)
-            self._history_cache = ([d for d in all_displays if d.startswith(prefix)] if prefix
+            self._history_cache = ([d for d in all_displays if d[0].startswith(prefix)] if prefix
                                     else all_displays)
             self._history_index = len(self._history_cache)
         if event.direction < 0 and self._history_index > 0:
             self._history_index -= 1
-            self.prompt_input.text = self._history_cache[self._history_index]
+            self._show_recalled(*self._history_cache[self._history_index])
         elif event.direction > 0 and self._history_index < len(self._history_cache):
             self._history_index += 1
-            self.prompt_input.text = (self._history_draft if self._history_index == len(self._history_cache)
-                                       else self._history_cache[self._history_index])
+            if self._history_index == len(self._history_cache):
+                self._show_recalled(self._history_draft, self._history_draft_pasted)
+            else:
+                self._show_recalled(*self._history_cache[self._history_index])
         self.prompt_input.move_cursor(self.prompt_input.document.end)
+
+    def _show_recalled(self, display: str, pasted: dict) -> None:
+        """Put a recalled entry in the box WITH its paste contents (finding
+        72): a `[Pasted text #n ...]` placeholder is only expanded at submit
+        time from `prompt_input.pasted`, so recalling the text alone sent
+        the placeholder to the model literally."""
+        self.prompt_input.text = display
+        self.prompt_input.pasted = dict(pasted)
+        self.prompt_input._paste_counter = max(pasted, default=0)
 
     # ---- inline cards (D-TUI scope D) -------------------------------------
 
@@ -1920,16 +1957,31 @@ class BridgeApp(App):
         card is tracked here but not yet a live widget anywhere."""
         marker = await self.transcript.add_note(marker_text, kind="pending-marker")
         self._pending_markers[id(card)] = marker
-        if self.pending_card is None:
-            await self.pending_dock.show_card(card)
-            self.set_pending_card(card)
-        else:
-            self._pending_queue.append(card)
-            self._refresh_needs_you_tag()
+        # Finding 71: every card goes through the queue and ONE serialized
+        # activation, so a card arriving while the previous one is being
+        # handed over can never be shown over (and orphaned by) the other.
+        self._pending_queue.append(card)
+        self._refresh_needs_you_tag()
+        await self._activate_next_pending_card()
 
-    async def _activate_next_pending_card(self, card) -> None:
-        await self.pending_dock.show_card(card)
-        self.set_pending_card(card)
+    async def _activate_next_pending_card(self) -> None:
+        """Show the queue's front card in the dock when no card is active.
+        Serialized by a lock and re-checked inside it: a second caller (the
+        hand-off scheduled by `clear_pending_card`, or a new ask) finds the
+        slot taken or the queue empty and does nothing."""
+        async with self._pending_lock:
+            if self.pending_card is not None or not self._pending_queue:
+                return
+            nxt = self._pending_queue.pop(0)
+            await self.pending_dock.show_card(nxt)
+            self.set_pending_card(nxt)
+
+    async def _clear_dock_if_idle(self) -> None:
+        """Hide the dock only when no card is active or queued -- a card
+        that arrived after the clear was scheduled must stay visible."""
+        async with self._pending_lock:
+            if self.pending_card is None and not self._pending_queue:
+                await self.pending_dock.clear()
 
     def _maybe_notify_input_needed(self) -> None:
         """U5 scope D: "terminal bell + notify-send/toast when input is
@@ -1992,8 +2044,7 @@ class BridgeApp(App):
         # from many SYNC contexts (a card's own on_decide/on_answer/on_reply
         # closure, itself invoked from a Textual key-binding action).
         if self._pending_queue:
-            nxt = self._pending_queue.pop(0)
-            self.call_later(self._activate_next_pending_card, nxt)
+            self.call_later(self._activate_next_pending_card)
         else:
             if marker is not None:
                 # `finished` went through `enqueue_pending_card` (it's the
@@ -2001,7 +2052,7 @@ class BridgeApp(App):
                 # hide the dock. An EffortCard/RewindCard/ImproveCard etc.
                 # (no marker at all -- never routed through the dock) skips
                 # this entirely, same as before this brief.
-                self.call_later(self.pending_dock.clear)
+                self.call_later(self._clear_dock_if_idle)
             self._refresh_needs_you_tag()
 
     def borrow_input(self, card, *, placeholder: str) -> None:

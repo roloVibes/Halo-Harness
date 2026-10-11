@@ -205,7 +205,7 @@ def _check_experiential() -> str:
         return _fix(f"{WARN} Experiential Labs: could not check ({type(e).__name__}: {e})", cmd="halo init")
     if xp is None:
         return _fix(f"{WARN} Experiential Labs: not configured (no EXPLABS_API_KEY found)",
-                     cmd="halo init --provider experiential")
+                     cmd="halo init")
     try:
         from halo_harness.providers.reachability import reachability_tag
         reach = reachability_tag("experiential", detected=True)
@@ -1270,11 +1270,9 @@ def _check_default_model() -> str:
             from halo_harness.providers.enablement import is_provider_disabled_message
             disabled_msg = is_provider_disabled_message(provider_guess)
             if disabled_msg:
-                provider_flag = {"databricks": "databricks", "claude_subscription": "claude",
-                                  "codex_subscription": "codex",
-                                  "anthropic": "anthropic"}.get(provider_guess, "openrouter")
+                from halo_harness.init_providers import init_command_for
                 return _fix(f"{WARN} Default model: {configured} -- {disabled_msg}",
-                             cmd=f"halo init --provider {provider_flag}")
+                             cmd=init_command_for(provider_guess))
         return _fix(f"{WARN} Default model: config.json's model={configured!r} does not resolve ({e})",
                      cmd=f"halo config set model {DEFAULT_MODEL_REF}")
     except Exception as e:
@@ -1294,10 +1292,9 @@ def _check_default_model() -> str:
     # 1.0.1 hotfix 13 (drive-by): this suggestion still said `--preset
     # work`/`--preset home` -- the deprecated alias still works, but every
     # OTHER user-facing spot already moved to `--provider` at item 13.
-    provider_flag = {"databricks": "databricks", "cc": "claude", "anthropic": "anthropic"}.get(
-        ref.provider, "openrouter")
+    from halo_harness.init_providers import init_command_for
     return _fix(f"{WARN} Default model: {configured} -- {provider_label} not configured",
-                 cmd=f"halo init --provider {provider_flag}")
+                 cmd=init_command_for(ref.provider))
 
 
 def _check_providers_enabled(cwd: Optional[Path] = None, settings_flag: Optional[str] = None) -> str:
@@ -1963,10 +1960,11 @@ def cmd_doctor(argv: list) -> int:
     if args.agents:
         from halo_harness.agents_doctor import check_active_team, run_all_acceptance
         from halo_harness.agents_yaml import list_agent_bios, load_agent_bio_raw, validate_agent_bio
-        print("halo doctor --agents")
-        print("  Validates every agent bio's shape and the active team template, then runs each bio's "
-              "own acceptance prompt against a real model call (--mock: never call one, tests only) -- "
-              "real requests spend tokens and take a moment.")
+        if not args.json:  # finding 78: --json output starts at the JSON
+            print("halo doctor --agents")
+            print("  Validates every agent bio's shape and the active team template, then runs each bio's "
+                  "own acceptance prompt against a real model call (--mock: never call one, tests only) -- "
+                  "real requests spend tokens and take a moment.")
         shape_problems = []
         for name in list_agent_bios(cwd=doctor_cwd):
             raw = load_agent_bio_raw(name, cwd=doctor_cwd)
@@ -2001,11 +1999,12 @@ def cmd_doctor(argv: list) -> int:
         return _cmd_mcp_deep(mcp_name=args.mcp_name, apply=args.apply, corpus_dir=args.mcp_from, cwd=doctor_cwd)
     if args.roles:
         from halo_harness.agents_doctor import check_roles_hygiene
-        print("halo doctor --roles")
-        print("  The roles lineup's hygiene, headless: no 'main' set, judge in the same model family as "
-              "coder (self-preference bias), unreachable gateways, and 2.0.7's dead model ids -- every "
-              "configured model resolved against its provider's own catalog (the silent-404 case "
-              "rolo hit live: a retired deepseek id, sub-agents coming back empty).")
+        if not args.json:
+            print("halo doctor --roles")
+            print("  The roles lineup's hygiene, headless: no 'main' set, judge in the same model family as "
+                  "coder (self-preference bias), unreachable gateways, and 2.0.7's dead model ids -- every "
+                  "configured model resolved against its provider's own catalog (the silent-404 case "
+                  "rolo hit live: a retired deepseek id, sub-agents coming back empty).")
         from halo_harness.agents_doctor import check_dead_model_ids
         problems = check_roles_hygiene(cwd=doctor_cwd)
         dead_ids = check_dead_model_ids(cwd=doctor_cwd)
@@ -2022,10 +2021,11 @@ def cmd_doctor(argv: list) -> int:
         return 0 if not problems else 1
     if args.teams:
         from halo_harness.agents_doctor import check_team_gates
-        print("halo doctor --teams")
-        print("  Validates the active (or named) team template and exercises its first required pipeline "
-              "gate -- the same gate the live agent loop runs between stages (a real model call unless "
-              "--mock; the acceptance prompt spends tokens and takes a moment).")
+        if not args.json:
+            print("halo doctor --teams")
+            print("  Validates the active (or named) team template and exercises its first required pipeline "
+                  "gate -- the same gate the live agent loop runs between stages (a real model call unless "
+                  "--mock; the acceptance prompt spends tokens and takes a moment).")
         call_fn = (lambda _role, _prompt: "") if args.mock else None
         team_name, results = check_team_gates(args.mcp_name, cwd=doctor_cwd, call_fn=call_fn)
         if args.json:
@@ -2041,9 +2041,10 @@ def cmd_doctor(argv: list) -> int:
     if args.local:
         from halo_harness.config.paths import bridge_home
         from halo_harness.doctor_local import format_acceptance_lines, run_local_acceptance_check
-        print(f"halo doctor --local{f' --model {args.model}' if args.model else ''}")
-        print("  Loads the model, makes one real tool call, one structured-output call, and one "
-              "compaction-style summary -- real requests against the live host this takes a moment.")
+        if not args.json:
+            print(f"halo doctor --local{f' --model {args.model}' if args.model else ''}")
+            print("  Loads the model, makes one real tool call, one structured-output call, and one "
+                  "compaction-style summary -- real requests against the live host this takes a moment.")
         steps, ok = run_local_acceptance_check(args.model, state_dir=bridge_home())
         if args.json:
             print(json.dumps(steps, indent=2))
@@ -2053,10 +2054,16 @@ def cmd_doctor(argv: list) -> int:
         return 0 if ok else 1
     if args.work and args.probe_all:
         from halo_harness.work_matrix import format_table, run_work_matrix
-        print("halo doctor --work --probe-all")
-        print("  Sends one short pong (and a tool call with --tools) to each endpoint below -- "
-              "this spends real tokens/DBUs against your Databricks workspace.")
+        if not args.json:
+            print("halo doctor --work --probe-all")
+            print("  Sends one short pong (and a tool call with --tools) to each endpoint below -- "
+                  "this spends real tokens/DBUs against your Databricks workspace.")
         rows, report_path = run_work_matrix(only=args.only, both=args.both, tools=args.tools)
+        if args.json:
+            # finding 78: --json was ignored here; the probe rows are the result.
+            import dataclasses
+            print(json.dumps([dataclasses.asdict(r) for r in rows], indent=2))
+            return 0 if rows and all(r.status == "200" for r in rows) else 1
         if not rows:
             print("  No chat-shaped endpoints to probe (Databricks not configured, or the catalog is empty -- "
                   "run `halo models --refresh` first).")

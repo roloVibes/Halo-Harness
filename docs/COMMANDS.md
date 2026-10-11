@@ -140,7 +140,9 @@ halo --offline -p "reply with the single word pong" --model ol:qwen3-coder:30b
 #### `-c`, `--continue`
 What: resumes the most recently modified session for the current directory
 (by the session `.jsonl` file's own mtime). Reads:
-`~/.halo/sessions/<slug>/*.jsonl`.
+`~/.halo/sessions/<slug>/*.jsonl`. With no earlier session for the directory
+(and likewise a bare `-r`), `-p` stops with exit 2 and a message -- it never
+quietly starts a new session.
 ```sh
 halo -p -c "keep going"
 ```
@@ -158,7 +160,8 @@ halo -p -r a1b2c3d4 "one more thing"
 #### `--fork-session`
 What: combined with `-c`/`-r`, continues from that session's log *without
 overwriting it* -- the new turns land in a fresh session id, the source is
-untouched (same file-copy mechanism as `/fork`).
+untouched (same file-copy mechanism as `/fork`). With
+`--no-session-persistence` the fork is deleted again when the run ends.
 
 #### `--session-id UUID`
 What: use this exact session id for a brand-new session (must not already
@@ -661,6 +664,9 @@ worktree add` itself fails. The same mechanism backs a sub-agent's own
 `isolation: worktree` frontmatter key. Fires `WorktreeCreated`; the tree is
 left on disk when the session ends unless `worktree.remove_on_exit` is set
 (see `halo worktree`, below) -- `rm` it yourself, or with `halo worktree rm`.
+`--session-id`, `-c` and `-r` are checked before the worktree is created, so
+a bad value leaves nothing behind; a session resumed with `-c`/`-r` is copied
+into the worktree's own session directory.
 
 ## `halo init`
 
@@ -917,6 +923,10 @@ options:
                never applies anything
 ```
 
+With `--json`, `--agents`, `--roles`, `--teams`, `--local` and `--work
+--probe-all` print only the JSON value (no heading text ahead of it), so the
+output pipes straight into `jq`.
+
 `halo doctor --local [--model ol:x]` (round 5d; round 5f extends `--model`
 to `hf:local/*`/`hf:mlx/*`) is the 60-second "works out of the box" proof
 for a local model on THIS machine: load, one real Read tool call, one
@@ -1164,7 +1174,10 @@ stores OVERRIDES only -- `enable <name>`/`disable <name>` write an explicit
 `true`/`false` there that always wins over auto-detection (`cc`/`ant`/
 `dbx`/`or`/`hf`/`oai` are accepted aliases for the canonical names); `setup <name>`
 needs a real terminal and runs the same per-provider tab `halo init`
-shows.
+shows. For `openai`, `huggingface`, `experiential` and `codex_subscription`
+(which `halo init --provider` does not take) it opens the init wizard on a
+terminal, and otherwise says what to set (`OPENAI_API_KEY`, `HF_TOKEN`,
+`EXPLABS_API_KEY`, or `codex login`) before `halo providers enable <name>`.
 
 Bare `halo providers` (or `list`) prints one row per provider --
 status (`auto (detected from <source>)` / `disabled by you` / `enabled by

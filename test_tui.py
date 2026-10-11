@@ -3649,6 +3649,9 @@ def test_write_then_rewind_undo_restores_the_file_via_real_shadow_hook(ctx: Ctx)
                     "repaired": False}, turn=1))
                 await apply_event(app, ev.Event("tool_result", {"id": "w2", "ok": True, "summary": "wrote"}, turn=1))
 
+                # review finding 69: snapshots land on the shared shadow worker now.
+                from halo_harness.shadow import drain_jobs
+                await asyncio.to_thread(drain_jobs, 10.0)
                 ctx.check(f"2 shadow steps recorded automatically, got {len(controller.shadow_steps())}",
                           len(controller.shadow_steps()) == 2)
 

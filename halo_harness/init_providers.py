@@ -57,6 +57,23 @@ PROVIDER_DEFAULT_MODEL = {
     "claude": "cc:sonnet",
 }
 
+# Internal provider names (model-ref providers and enablement names) that
+# `halo init --provider` accepts, mapped to its spelling.
+_INIT_FLAG_FOR = {
+    "databricks": "databricks", "openrouter": "openrouter", "anthropic": "anthropic",
+    "claude": "claude", "cc": "claude", "claude_subscription": "claude",
+}
+
+
+def init_command_for(provider: str) -> str:
+    """The command that sets `provider` up: `halo init --provider X` for the
+    four the sequential picker offers, plain `halo init` (the wizard has a
+    tab for every other provider) otherwise -- `--provider openai` and the
+    like are rejected by argparse (review finding 77)."""
+    flag = _INIT_FLAG_FOR.get(provider)
+    return f"halo init --provider {flag}" if flag else "halo init"
+
+
 # 1.0.1 hotfix 13 point 5: `--preset` stays accepted as a deprecated alias
 # for `--provider` so documented commands like `init --preset work --yes`
 # keep working verbatim.

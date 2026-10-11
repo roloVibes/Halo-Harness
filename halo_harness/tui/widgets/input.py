@@ -196,11 +196,19 @@ class PromptInput(TextArea):
         self.insert("\n")
         self._auto_grow()
 
-    def clear_submitted(self) -> None:
+    def clear_submitted(self, keep_images: bool = False) -> None:
+        """Empty the box after a submit. `keep_images=True` (a typed slash
+        command, review finding 68) keeps the pending image chips: the
+        records stay and their labels are put back as the box text, so the
+        next real prompt still carries the attachments."""
+        kept = list(self.images) if keep_images else []
         self.text = ""
         self.pasted = {}
         self._paste_counter = 0
-        self.images = []
+        self.images = kept
+        if kept:
+            self.text = "".join(self._chip_labels())
+            self.move_cursor((0, len(self.text)))
         self._auto_grow()
 
     # ---- auto-grow 1-8 lines -------------------------------------------
@@ -223,6 +231,7 @@ class PromptInput(TextArea):
         self.styles.height = lines
 
     def on_text_area_changed(self, _event: TextArea.Changed) -> None:
+        self._drop_orphaned_images()
         self._auto_grow()
         self._maybe_query_completion()
 
@@ -298,15 +307,29 @@ class PromptInput(TextArea):
         return self._register_image_attachment(path, width, height, media_type)
 
     def _register_image_attachment(self, path: Path, width, height, media_type: str) -> str:
-        self.images.append({"path": path, "width": width, "height": height, "media_type": media_type})
-        return self._chip_labels()[-1]
+        # The label is fixed when the image is attached (finding 73): the
+        # record is matched to its visible chip by this exact text, so a
+        # chip removed by selecting-and-typing takes its record with it and
+        # the surviving chips keep their numbers.
+        seq = max((int(i.get("seq", 0)) for i in self.images), default=0) + 1
+        label = f"[Image #{seq} {width}x{height}]" if (width and height) else f"[Image #{seq}]"
+        self.images.append({"path": path, "width": width, "height": height, "media_type": media_type,
+                            "seq": seq, "label": label})
+        return label
 
     def _chip_labels(self) -> "list[str]":
-        out = []
-        for i, img in enumerate(self.images, start=1):
-            w, h = img.get("width"), img.get("height")
-            out.append(f"[Image #{i} {w}x{h}]" if (w and h) else f"[Image #{i}]")
-        return out
+        return [img.get("label") or f"[Image #{i}]" for i, img in enumerate(self.images, start=1)]
+
+    def _drop_orphaned_images(self) -> None:
+        """Finding 73: drop the pending image whose chip label is no longer
+        in the box (selected over and typed on, cut, ...), so a removed chip
+        never leaves its image attached to the next prompt."""
+        if not self.images:
+            return
+        text = self.text
+        kept = [img for img in self.images if (img.get("label") or "") in text]
+        if len(kept) != len(self.images):
+            self.images = kept
 
     def add_image_chip(self, *, path, width=None, height=None, media_type: str = "image/png") -> None:
         """Called by `app.py`/`tui/slash.py` once a REAL clipboard image

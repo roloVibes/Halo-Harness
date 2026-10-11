@@ -593,7 +593,8 @@ killed when the session quits.
 ## Sessions
 
 `-c`/`--continue` resumes the most recent session for the current
-directory; `-r`/`--resume [ID]` resumes a specific one, or opens a picker
+directory (in print mode, with no earlier session, it exits 2 with a message
+rather than starting a new one); `-r`/`--resume [ID]` resumes a specific one, or opens a picker
 with a live fuzzy text filter (title, first prompt, cwd, model -- `/resume
 <text>` in the TUI opens it pre-filtered) when given no id at all; `-r
 <text>` on the command line resumes the one session that text uniquely
@@ -607,7 +608,9 @@ cwd (a `git status` diff before and after the command catches both a
 brand-new file and a pre-existing tracked file the command modified; a
 non-git cwd, a file already dirty before the command, and a rename/copy are
 the documented limits -- see `tui/dispatch.py`'s `_maybe_record_shadow_step`/
-`_bash_shadow_after_worker`). Auto-compaction
+`_bash_shadow_after_worker`). Snapshots are taken on one background worker
+(never the UI thread), and `/undo`/`/redo`/`/rewind` wait for any still
+queued before they restore. Auto-compaction
 triggers well before the model's real context ceiling (an 80%-of-usable
 default, floored so a small-context open-weight model still gets a
 sensible trigger point instead of ~0), summarizing older turns while
