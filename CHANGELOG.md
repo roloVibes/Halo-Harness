@@ -10,6 +10,61 @@ version.
 
 ## [unreleased]
 
+### vibes/review.md fix pass, round 8 (loop scheduling + sub-agents/roles)
+
+- **f49:** read-only calls the model listed BEFORE an Agent call in one
+  message now run (and are logged) before that sub-agent starts, instead of
+  being deferred until after it and observing its edits.
+- **f50:** the read-only pool no longer cuts a batched Bash command off at
+  30 s: it waits the command's own timeout (the model's `timeout`, else the
+  tool default, clamped to the tool maximum) plus a short grace. Every other
+  tool keeps the 30 s cap. (The whitelist half of the finding -- `env`,
+  `find -delete`/`-exec`, `git branch -D`, `git tag -d` -- was already closed
+  in earlier rounds.)
+- **f51:** text typed while a manual `/compact` or `/clear` held the session
+  busy is now resubmitted, in arrival order, as the next turn the moment that
+  command ends; it used to sit in the leftover list until some later turn
+  finished.
+- **f52:** the forced `tool_choice=required` retry no longer feeds the
+  context-overflow sentinel to the usage accounting (an AttributeError); it
+  compacts once and retries once more, and falls back to the original reply
+  if that still yields nothing.
+- **f53:** Esc no longer starts read-only calls or sub-agents that were only
+  queued (they finish as "interrupted"), including when the interrupt lands
+  after the last call was queued; a permission or question slot parked
+  between "resolved" and "waiting" is released instead of living for the
+  rest of the session.
+- **f54:** the concurrent-resume guard for `Agent(task_id=...)` is claimed
+  atomically under the runtime lock; two resumes of one task in one message
+  can no longer both build a session over the same child log.
+- **f55:** a Stop-hook continuation on a `cc:` route is now read in the same
+  turn (a fresh reader drains claude's reply, and the Stop hook sees it);
+  before, the reply leaked into the next turn, and `-p` mode dropped it.
+- **f56:** resuming a task keeps the `role=`, `model=` and `effort` it was
+  spawned with (stored on the task record and in its meta.json, restored
+  after a restart); an explicit value on the resume call still wins. An org
+  task's name, depth and concurrency are persisted the same way.
+- **f57:** a team's `delegation.max_parallel` now lives on the runtime too,
+  so each Agent batch no longer resets the gate to `agents.max_concurrent`.
+- **f58:** the live role table is recomputed in place on `/roles on|off` and
+  on a `/model` provider switch (session and team additions are kept), and
+  an explicit `CLAUDE_CODE_SUBAGENT_MODEL` / `subagentModel` now beats the
+  cost-aware Databricks default instead of losing to its `researcher` row.
+- **f60:** a role the active team (or the session's resolved role table)
+  defines is accepted by `Agent(role=...)`, batch/count fan-out items and
+  resumes, not just the built-ins and the persisted config table.
+- **f61:** an agent file's `tools: Agent(X)` content restriction now reaches
+  the sub-agent it describes (an org position's explicit `reports` set still
+  wins).
+- **f62:** agent export writes the keys the loader reads (`permissionMode`,
+  `mcpServers`, `maxTurns`), and dumps lists indented so the loader's
+  block-list reader reads them back.
+- **f64:** a failed model resolve no longer strands the `isolation:
+  worktree` tree it had already created; a resumed org starts with the
+  budget it had left (the interrupted run's spend is recorded in
+  `org-run.json`); `validate_org` reports a non-string `reports` entry as a
+  problem line instead of raising.
+
 ### Fixes carried from the owner's second clone
 
 - fix: tool-arg schema validation no longer crashes on union types (`type` as a list), needed by MCP servers whose schemas declare `string|null` (cherry-picked as e521b24).

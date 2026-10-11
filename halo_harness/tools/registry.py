@@ -43,6 +43,25 @@ READ_ONLY_POOL_SIZE = 4
 # never hold up the whole turn -- every future is awaited with this
 # per-call bound, abort-aware.
 READ_ONLY_CALL_TIMEOUT_S = 30.0
+# vibes/review.md finding 50: a Bash call in the batch carries its OWN
+# timeout (the model's `timeout` argument, or the tool's default); the pool
+# waits that long plus this grace instead of cutting it off at 30 s.
+READ_ONLY_BASH_GRACE_S = 5.0
+
+
+def pool_wait_s(name: str, tool_input) -> float:
+    """Seconds the read-only pool waits on one call before giving up. 30 s
+    for every tool, except Bash: its own timeout (model-supplied `timeout`
+    in ms, clamped like the tool clamps it, else the tool default) plus a
+    short grace, never less than the 30 s floor."""
+    if name != "Bash":
+        return READ_ONLY_CALL_TIMEOUT_S
+    from halo_harness.tools.bash import DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS
+    ms = tool_input.get("timeout") if isinstance(tool_input, dict) else None
+    if not isinstance(ms, int) or isinstance(ms, bool) or ms <= 0:
+        ms = DEFAULT_TIMEOUT_MS
+    ms = min(ms, MAX_TIMEOUT_MS)
+    return max(READ_ONLY_CALL_TIMEOUT_S, ms / 1000.0 + READ_ONLY_BASH_GRACE_S)
 
 
 def default_tools() -> list:
@@ -183,18 +202,20 @@ def run_read_only_batch(registry: ToolRegistry, calls: list, ctx: ToolContext) -
     pool = ThreadPoolExecutor(max_workers=min(READ_ONLY_POOL_SIZE, len(calls)))
     try:
         futures = []
+        waits = []
         for entry in calls:
             name, tool_input, tool_use_id = entry if len(entry) == 3 else (*entry, None)
             futures.append(pool.submit(registry.dispatch, name, tool_input, _ctx_for(tool_use_id)))
+            waits.append(pool_wait_s(name, tool_input))
         results = []
-        for f in futures:
-            deadline = time.monotonic() + READ_ONLY_CALL_TIMEOUT_S
+        for f, wait_s in zip(futures, waits):
+            deadline = time.monotonic() + wait_s
             result = None
             while True:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     result = ToolResult(
-                        f"Tool call timed out after {READ_ONLY_CALL_TIMEOUT_S:.0f}s waiting in the "
+                        f"Tool call timed out after {wait_s:.0f}s waiting in the "
                         f"read-only pool.", is_error=True,
                     )
                     break

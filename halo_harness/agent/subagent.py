@@ -421,6 +421,33 @@ def _child_credential_message(ref) -> str:
 def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: str,
                           model_override: Optional[str], parent_tool_use_id: str, background: bool = False,
                           role_override: Optional[str] = None, effort_override: Optional[str] = None):
+    """vibes/review.md finding 64: an `isolation: worktree` agent's tree is
+    created first thing in the real builder, BEFORE the model resolves --
+    so an unresolvable model (or an unconfigured provider) raised out with
+    the fresh worktree and its branch stranded under the state dir, one
+    per failed attempt. The tree this call created is removed again when
+    the build raises, then the error propagates unchanged."""
+    created: list = []
+    try:
+        return _build_child_session_inner(
+            runtime=runtime, spec=spec, agent_id=agent_id, model_override=model_override,
+            parent_tool_use_id=parent_tool_use_id, background=background, role_override=role_override,
+            effort_override=effort_override, _created_worktrees=created,
+        )
+    except BaseException:
+        for wt_path in created:
+            try:
+                from halo_harness.worktree import remove_worktree
+                remove_worktree(wt_path, repo_root_hint=runtime.parent.cwd)
+            except Exception:
+                log.warning("could not remove the unused isolation worktree %s", wt_path)
+        raise
+
+
+def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: str,
+                                model_override: Optional[str], parent_tool_use_id: str, background: bool = False,
+                                role_override: Optional[str] = None, effort_override: Optional[str] = None,
+                                _created_worktrees: Optional[list] = None):
     """A real `agent.loop.Session` for `spec`: its OWN fresh (or resumed)
     log, a tool subset frozen from the PARENT's own catalog (never grows
     it -- brief B), its `body` as the full system prompt (CLAUDE.md/memory
@@ -457,6 +484,8 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
         if wt_path is not None:
             child_cwd = wt_path
             isolation_worktree_path = wt_path
+            if _created_worktrees is not None:
+                _created_worktrees.append(wt_path)
             try:
                 branch_result = subprocess.run(
                     ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=str(wt_path),
@@ -826,7 +855,14 @@ def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: st
         # (previously set only on the TOP-level session by headless.py;
         # no in-tree caller ever passed it down before this). `None` for
         # every non-org spec, unchanged.
-        agent_type_restriction=spec.delegate_restriction,
+        # vibes/review.md finding 61: an agent FILE's `tools: Agent(X)`
+        # content restriction (`allowed_subagent_types()`) used to be read
+        # only for the top-level `--agent` session; for a sub-agent the
+        # restriction was just the org `reports` one, so the file's own
+        # restriction never applied. An org position's explicit set (even
+        # an empty one) still wins.
+        agent_type_restriction=(spec.delegate_restriction if spec.delegate_restriction is not None
+                                 else spec.allowed_subagent_types()),
     )
     if hook_runner is not None:
         hook_runner.prompt_caller = child._call_model_for_hook
@@ -1358,10 +1394,26 @@ def _hydrate_tasks_from_disk(runtime: AgentRuntime) -> None:
                 "child_session_id": session_id, "spec_name": spec_name, "cwd": str(parent.cwd),
                 "abort_event": None, "reconstructed": True, "running_in_process": False,
                 "was_background": bool(data.get("background")),
+                **{k: data[k] for k in _OVERRIDE_KEYS if isinstance(data.get(k), str) and data[k]},
+                **{k: data[k] for k in ("org_name", "goal_task_id") if isinstance(data.get(k), str) and data[k]},
+                **{k: data[k] for k in ("org_max_depth", "org_max_concurrent")
+                   if isinstance(data.get(k), int) and not isinstance(data.get(k), bool)},
             }
 
 
-def _invalid_role_error(role: "Optional[str]") -> "Optional[str]":
+def _override_fields(role: "Optional[str]", model: "Optional[str]", effort: "Optional[str]") -> dict:
+    """vibes/review.md finding 56: the per-call `role=`/`model=`/`effort=`
+    a task was spawned with, as the keys stored on its `runtime.tasks`
+    record and in its meta.json (only the ones actually set), so a later
+    `Agent(task_id=...)` resume keeps resolving the same way."""
+    return {k: v for k, v in (("role_override", role), ("model_override", model),
+                              ("effort_override", effort)) if isinstance(v, str) and v}
+
+
+_OVERRIDE_KEYS = ("role_override", "model_override", "effort_override")
+
+
+def _invalid_role_error(role: "Optional[str]", runtime: "Optional[AgentRuntime]" = None) -> "Optional[str]":
     """2.0.2 review finding 22: `None` when `role` is unset or a KNOWN
     role name; otherwise an error string listing the known roles. Shared
     by every `Agent(role=...)` surface (single call, batch/count fan-out
@@ -1372,13 +1424,22 @@ def _invalid_role_error(role: "Optional[str]") -> "Optional[str]":
     if not role:
         return None
     from halo_harness.roles import known_role_names
-    known = known_role_names()
+    # vibes/review.md finding 60: a role the active team (or the session's
+    # resolved role table) defines is a valid name for `Agent(role=...)`,
+    # not only the built-ins and the persisted config table.
+    extra: list = []
+    if runtime is not None:
+        extra.append(getattr(runtime, "role_table", None))
+        _tc = getattr(runtime, "team_control", None)
+        extra.append(getattr(_tc, "aliases", None) if _tc is not None else None)
+    known = known_role_names(*[t for t in extra if isinstance(t, dict)])
     if role in known:
         return None
     return f"Unknown role {role!r}. Known roles: {', '.join(known)}"
 
 
-def _prepare_fanout_jobs(spec: AgentSpec, tool_input: dict) -> "tuple[Optional[list], Optional[str]]":
+def _prepare_fanout_jobs(spec: AgentSpec, tool_input: dict,
+                         runtime: "Optional[AgentRuntime]" = None) -> "tuple[Optional[list], Optional[str]]":
     """Parses `count`/`batch` into a list of per-job dicts (`prompt`,
     `role`, `model`, `effort`, `description`) -- `(jobs, None)` on
     success, `(None, error_text)` on a bad shape. The caller only reaches
@@ -1396,7 +1457,7 @@ def _prepare_fanout_jobs(spec: AgentSpec, tool_input: dict) -> "tuple[Optional[l
             item_role = item.get("role") or tool_input.get("role")
             # finding 22: an unknown role in a batch item (or the shared
             # top-level one) used to silently resolve to the session model.
-            role_error = _invalid_role_error(item_role)
+            role_error = _invalid_role_error(item_role, runtime)
             if role_error is not None:
                 return None, f"batch[{i}]: {role_error}"
             jobs.append({
@@ -1420,7 +1481,7 @@ def _prepare_fanout_jobs(spec: AgentSpec, tool_input: dict) -> "tuple[Optional[l
     prompt = tool_input.get("prompt") or spec.initial_prompt or description
     if not prompt:
         return None, "The prompt parameter is required"
-    role_error = _invalid_role_error(tool_input.get("role"))  # finding 22
+    role_error = _invalid_role_error(tool_input.get("role"), runtime)  # finding 22
     if role_error is not None:
         return None, role_error
     jobs = [{"prompt": prompt, "role": tool_input.get("role"), "model": tool_input.get("model"),
@@ -1451,7 +1512,7 @@ def _run_agent_fanout(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str, t
     nothing will ever deliver."""
     from halo_harness.tools.base import ToolResult
 
-    jobs, error = _prepare_fanout_jobs(spec, tool_input)
+    jobs, error = _prepare_fanout_jobs(spec, tool_input, runtime)
     if error is not None:
         return [], ToolResult(error, is_error=True)
     n = len(jobs)
@@ -1477,7 +1538,8 @@ def _run_agent_fanout(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str, t
         with runtime.lock:
             runtime.tasks[new_task_id] = {"child_session_id": f"agent-{agent_id}", "spec_name": spec.name,
                                            "cwd": str(parent.cwd), "abort_event": None,
-                                           "running_in_process": True, "status": "queued"}
+                                           "running_in_process": True, "status": "queued",
+                                           **_override_fields(job["role"], job["model"], job["effort"])}
         # A minimal meta.json stub, written up front -- the tasks panel
         # reads meta.json (what survives a `-c` resume), not just this
         # in-memory dict, so it must see "queued" right away; `_build_
@@ -1585,7 +1647,8 @@ def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: s
             child._subagent_live_asks = False
         since_index = len(child.log.nodes())
         runtime.live_children[agent_id] = child
-        _write_meta(meta_path, {"task_id": new_task_id, "background": False})
+        _write_meta(meta_path, {"task_id": new_task_id, "background": False,
+                                **_override_fields(job["role"], job["model"], job["effort"])})
         with runtime.lock:
             entry = runtime.tasks.get(new_task_id)
             if entry is not None:
@@ -1915,7 +1978,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # finding 22: a typo'd/unknown `Agent(role=...)` used to silently
     # resolve against the session model instead of erroring the way an
     # unknown subagent_type already does.
-    role_error = _invalid_role_error(role_override)
+    role_error = _invalid_role_error(role_override, runtime)
     if role_error is not None:
         return [], ToolResult(role_error, is_error=True)
     role_name = role_override or spec.role
@@ -1945,7 +2008,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
             # against the team's OWN alias map first, the global role
             # table second.
             if team_target not in team_control.aliases:
-                role_error = _invalid_role_error(team_target)
+                role_error = _invalid_role_error(team_target, runtime)
                 if role_error is not None:
                     return [], ToolResult(role_error, is_error=True)
             role_override = team_target
@@ -2068,7 +2131,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                                         # resume while this is True instead
                                         # of racing `_bg_run`'s own appends
                                         # to the SAME child log file.
-                                        "running_in_process": background}
+                                        "running_in_process": background,
+                                        **_override_fields(role_override, model_override, effort_override)}
     # H9 whole-tree review finding 27 (task-map persistence half): the
     # task_id just minted lives ONLY in the in-memory dict updated above --
     # a fresh process (a `-c` resume, most commonly) would never see it and
@@ -2079,7 +2143,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # (minus `abort_event`, which cannot survive a process restart -- see
     # that function's own docstring) on a later process's first Agent or
     # TaskStop call.
-    _write_meta(meta_path, {"task_id": new_task_id, "background": background})
+    _write_meta(meta_path, {"task_id": new_task_id, "background": background,
+                            **_override_fields(role_override, model_override, effort_override)})
 
     # Halo 2.0.2 round 2 (brief B): an org position's own `dock_label`
     # ("<title> (<role>)") in place of the bare name on the dock -- `None`
@@ -2544,6 +2609,10 @@ def run_org_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, tool_
     # this org run started.
     from halo_harness.orgs import build_budget_tracker
     org_budget = build_budget_tracker(org, baseline_usd=runtime.parent.cost_meter.total_usd)
+    _resumed = org.get("_resumed_spend") if isinstance(org.get("_resumed_spend"), dict) else None
+    if _resumed:
+        org_budget.org_spent_usd = float(_resumed.get("org_spent_usd") or 0.0)
+        org_budget.spent_by_position = dict(_resumed.get("spent_by_position") or {})
     # Halo 2.0.2 round D (brief item 4, "/org resume"): a best-effort
     # on-disk record of THIS run's own caps/budget -- `resume_org_run`
     # reads it back later (possibly from a brand new process entirely) to
@@ -2560,6 +2629,7 @@ def run_org_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, tool_
                                   and isinstance(p.get("budget_usd"), (int, float))
                                   and not isinstance(p.get("budget_usd"), bool)},
             "started": time.time(),
+            "org_spent_usd": org_budget.org_spent_usd, "spent_by_position": dict(org_budget.spent_by_position),
         })
     except Exception:
         pass
@@ -2623,6 +2693,24 @@ def run_org_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, tool_
             entry["org_max_concurrent"] = org_runtime.max_concurrent
             entry["org_budget"] = org_budget
             entry["goal_task_id"] = goal_task_id
+            # vibes/review.md finding 56: the same tag in meta.json, so a
+            # task reconstructed after a restart can still rebuild its org
+            # runtime on resume (the budget object itself is not persisted
+            # per task -- the run record below carries the spend).
+            try:
+                _sid = str(entry.get("child_session_id") or "")
+                _, _mp = _child_log_paths(runtime.parent, _sid[len("agent-"):] if _sid.startswith("agent-") else _sid)
+                _write_meta(_mp, {"org_name": name, "org_max_depth": org_runtime.max_depth,
+                                  "org_max_concurrent": org_runtime.max_concurrent, "goal_task_id": goal_task_id})
+            except Exception:
+                pass
+    try:
+        _record = _read_org_run_record(session_dir) or {}
+        _record.update({"org_spent_usd": org_budget.org_spent_usd,
+                        "spent_by_position": dict(org_budget.spent_by_position)})
+        _write_org_run_record(session_dir, _record)
+    except Exception:
+        pass
     return result
 
 
@@ -2705,6 +2793,12 @@ def _org_with_record_overrides(org: dict, record: dict) -> dict:
         org["max_concurrent"] = record["max_concurrent"]
     if record.get("budget_usd") is not None:
         org["budget_usd"] = record["budget_usd"]
+    # vibes/review.md finding 64: the spend the interrupted run already
+    # booked rides along, so the resumed run starts with the REMAINING
+    # budget instead of the whole cap again.
+    if isinstance(record.get("org_spent_usd"), (int, float)) and not isinstance(record.get("org_spent_usd"), bool):
+        org["_resumed_spend"] = {"org_spent_usd": float(record["org_spent_usd"]),
+                                  "spent_by_position": dict(record.get("spent_by_position") or {})}
     position_budgets = record.get("position_budgets") or {}
     if isinstance(position_budgets, dict) and position_budgets:
         positions = [dict(p) if isinstance(p, dict) else p for p in (org.get("positions") or [])]
@@ -2759,13 +2853,39 @@ def resume_org_run(*, runtime: AgentRuntime, tool_id: str, tool_name: str, sessi
 
 
 def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id: str, *, on_event=None):
+    """vibes/review.md finding 54: the in-flight guard is CLAIMED here,
+    check-and-set under `runtime.lock` -- two `Agent(task_id=X)` calls in
+    one assistant message used to both read False before either set True
+    (the old check ran at the top, the set far below), so both built a
+    Session over the same child log. The loser gets the same "still
+    running" error; the winner's claim is released in the `finally`
+    whatever path the resume takes (the inner body resets it too)."""
+    from halo_harness.tools.base import ToolResult
+
+    record = runtime.tasks.get(task_id)
+    if record is None:
+        return [], ToolResult(f"Unknown task_id {task_id!r} -- it may belong to a different session.", is_error=True)
+    with runtime.lock:
+        if record.get("running_in_process"):
+            return [], ToolResult(
+                f"Task {task_id!r} is still running in the background -- resuming it now would race its own "
+                f"in-progress work. Wait for its completion notice before sending it another prompt.",
+                is_error=True,
+            )
+        record["running_in_process"] = True
+    try:
+        return _resume_task_claimed(runtime, task_id, tool_input, tool_id, on_event=on_event)
+    finally:
+        with runtime.lock:
+            record["running_in_process"] = False
+
+
+def _resume_task_claimed(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id: str, *, on_event=None):
     from halo_harness.tools.base import ToolResult
     from halo_harness.tools.truncate import spill_and_truncate
 
     parent = runtime.parent
     record = runtime.tasks.get(task_id)
-    if record is None:
-        return [], ToolResult(f"Unknown task_id {task_id!r} -- it may belong to a different session.", is_error=True)
     # H9 whole-tree review finding 27 (concurrent-resume half): a
     # background child still has its OWN `_bg_run` thread appending to
     # this exact task_id's child log/meta.json -- resuming NOW would build
@@ -2775,12 +2895,6 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
     # never be a stale True surviving a `-c` restart -- a reconstructed
     # task (`record.get("reconstructed")`) is never True here, because the
     # thread that would have set it died with the old process.
-    if record.get("running_in_process"):
-        return [], ToolResult(
-            f"Task {task_id!r} is still running in the background -- resuming it now would race its own "
-            f"in-progress work. Wait for its completion notice before sending it another prompt.",
-            is_error=True,
-        )
     spec = runtime.agents.get(record["spec_name"])
     effective_runtime = runtime
     # Fix-pass notes ("outer org task resume" -- REFUTED as "loses max_
@@ -2819,9 +2933,16 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
     role_override = tool_input.get("role")
     # finding 22: same check as the single-spawn path above -- a resume's
     # own fresh `role=` override was never validated either.
-    role_error = _invalid_role_error(role_override)
+    role_error = _invalid_role_error(role_override, runtime)
     if role_error is not None:
         return [], ToolResult(role_error, is_error=True)
+    # vibes/review.md finding 56: a resume without its own overrides keeps
+    # the ones the task was spawned with (stored on the record / meta.json)
+    # instead of falling back to the agent file's defaults; an explicit
+    # value on the resume call still wins and becomes the new stored one.
+    role_override = role_override or record.get("role_override")
+    model_override = tool_input.get("model") or record.get("model_override")
+    effort_override = tool_input.get("effort") or record.get("effort_override")
     role_name = role_override or spec.role
     # Finding 5: the SAME hard-stop-before-spawn check run_agent_call's
     # single-spawn path already makes -- a resume used to skip org
@@ -2832,9 +2953,9 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
             return [], ToolResult(refusal, is_error=True)
     try:
         child, meta_path = _build_child_session(
-            runtime=effective_runtime, spec=spec, agent_id=agent_id, model_override=tool_input.get("model"),
+            runtime=effective_runtime, spec=spec, agent_id=agent_id, model_override=model_override,
             parent_tool_use_id=tool_id, background=False,  # a resume always runs in the foreground
-            role_override=role_override, effort_override=tool_input.get("effort"),
+            role_override=role_override, effort_override=effort_override,
         )
     except Exception as e:
         # Finding 4: same "never raises" contract run_agent_call's own
@@ -2859,7 +2980,8 @@ def _resume_task(runtime: AgentRuntime, task_id: str, tool_input: dict, tool_id:
     # log files -- interleaved JSONL writers. Set for the duration, reset
     # in the same finally that pops live_children (same "never stuck
     # True" reasoning _bg_run's own comment gives).
-    record["running_in_process"] = True
+    record["running_in_process"] = True  # already claimed by `_resume_task`; kept for direct callers
+    record.update(_override_fields(role_override, model_override, effort_override))
     _dock_name = spec.dock_label or spec.name
     _desc = tool_input.get("description") or record.get("description") or "resume"
     start_ev = events.Event("subagent_start", {"agent_id": agent_id, "name": _dock_name,

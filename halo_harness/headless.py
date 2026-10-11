@@ -1037,7 +1037,10 @@ def build_session(
     # summaries/titles/`/improve`/the compaction fallback.
     from halo_harness.roles import parse_role_flags, resolve_role_table, role_value_parts
     cli_roles = parse_role_flags(roles_flag)
-    persisted_roles = resolve_role_table(provider=model_ref.provider)
+    persisted_roles = resolve_role_table(
+        provider=model_ref.provider,
+        subagent_model=(settings.effective_env.get("CLAUDE_CODE_SUBAGENT_MODEL") or settings.subagent_model),
+    )
     _small_role_raw = cli_roles.get("small")
     _small_role_from_table = _small_role_raw is None
     if _small_role_raw is None:

@@ -237,7 +237,7 @@ def roles_state_line() -> str:
     return "roles: on (legacy role table)"
 
 
-def resolve_role_table(*, provider: Optional[str] = None) -> dict:
+def resolve_role_table(*, provider: Optional[str] = None, subagent_model: Optional[str] = None) -> dict:
     """The persisted role table a session resolves agents against --
     `configured_role_table()` verbatim whenever it holds ANYTHING at all;
     otherwise the cost-aware defaults, but only when `provider` (the
@@ -248,14 +248,24 @@ def resolve_role_table(*, provider: Optional[str] = None) -> dict:
     Round 7: `{}` outright when `roles.enabled` is False -- checked FIRST,
     ahead of even the cost-aware default, since "every role resolves to
     the session model" (the mode's own documented meaning) must win over
-    everything else this function would otherwise apply."""
+    everything else this function would otherwise apply.
+
+    vibes/review.md finding 58: `subagent_model` is the explicit
+    `CLAUDE_CODE_SUBAGENT_MODEL` / `subagentModel` setting, when one is
+    set. The cost-aware default is a fallback nobody typed, so it must
+    not outrank that explicit choice: with one present the default's
+    sub-agent role (`researcher`) is left out, and the explicit model
+    reaches those agents through `resolve_agent_model`'s own chain."""
     if not roles_mode_enabled():
         return {}
     configured = configured_role_table()
     if configured:
         return configured
     if provider == "databricks":
-        return dict(COST_AWARE_DEFAULTS)
+        defaults = dict(COST_AWARE_DEFAULTS)
+        if isinstance(subagent_model, str) and subagent_model.strip():
+            defaults.pop("researcher", None)
+        return defaults
     return {}
 
 

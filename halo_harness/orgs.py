@@ -207,7 +207,13 @@ def validate_org(data) -> "list[str]":
         if not isinstance(reports, list):
             problems.append(f'position {p["title"]!r}: "reports" must be a list')
             continue
-        dangling = sorted({t for t in reports if t not in title_set})
+        # vibes/review.md finding 64: a non-string entry (a number, a list)
+        # used to raise out of `sorted`/the set build; it is a plain
+        # problem line instead.
+        bad_entries = [t for t in reports if not isinstance(t, str)]
+        if bad_entries:
+            problems.append(f'position {p["title"]!r}: "reports" entries must be strings')
+        dangling = sorted({t for t in reports if isinstance(t, str) and t not in title_set})
         if dangling:
             problems.append(f"position {p['title']!r}: reports to unknown title(s) {', '.join(dangling)} "
                              f"(known titles: {', '.join(sorted(title_set))})")
