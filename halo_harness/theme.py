@@ -244,6 +244,11 @@ def supports_truecolor(env: Optional[dict] = None) -> bool:
     term = (environ.get("TERM") or "").strip().lower()
     if "kitty" in term or "wezterm" in term or "ghostty" in term:
         return True
+    # Windows Terminal renders 24-bit colour but sets neither COLORTERM nor
+    # TERM; it does set WT_SESSION (seen live 2026-10-10: the game-HUD
+    # skins fell back to their ASCII glyph sets there).
+    if (environ.get("WT_SESSION") or "").strip():
+        return True
     return False
 
 
