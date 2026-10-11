@@ -33,7 +33,6 @@ version.
   video|image|design`, each row with a score and a plain reason (vision,
   context, a price tier, speed, tool calls, the preflight canaries). Studio's
   model pickers show capability chips. docs/MODELS.md "Which model for what".
-
 - **Plus more** (round D5): "3 directions" makes N variant artboards in one
   turn (`halo design run --variants N --base ID`); a **critique** turn
   (`halo design critique <slug> <artboard>`, a second model, Read-only tools,
@@ -66,7 +65,7 @@ version.
   manager handshake, counts its tools and checks the render tool (exit 1 when
   one is down or lacks it). `halo models --best-for design` is the model pick.
 
-## [2.2.0] - unreleased
+## [2.2.0] - 2026-10-11
 
 ### Org mode: Paperclip owns organizations
 
