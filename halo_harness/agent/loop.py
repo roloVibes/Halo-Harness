@@ -1332,6 +1332,10 @@ class Session:
         # case a role-bearing agent just falls through to the parent's own
         # model (its documented "orchestrator" default anyway).
         self.roles = roles or {}
+        # vibes/review.md finding 58: what the role table held when this
+        # session was built (the persisted/cost-aware layer), so
+        # `refresh_role_table` can tell it apart from session additions.
+        self._role_table_base: dict = dict(self.roles)
         self.cli_roles = cli_roles or {}
         # Halo 2.0.3 round 5e: which role (if any) THIS session was built
         # under -- `None` for the main/orchestrator session, a sub-agent's
@@ -1378,7 +1382,18 @@ class Session:
                 if delegation.get("max_depth") is not None:
                     self.agent_runtime.max_depth = int(delegation["max_depth"])
                 if delegation.get("max_parallel") is not None:
-                    self.agent_runtime.concurrency_semaphore.set_limit(int(delegation["max_parallel"]))
+                    # vibes/review.md finding 57: set on the RUNTIME too (the
+                    # value `effective_max_concurrent` reads first, and every
+                    # child runtime copies) -- the gate alone was reset to
+                    # `agents.max_concurrent` by each Agent batch's
+                    # `pool(limit=effective_max_concurrent(...))`.
+                    try:
+                        _team_parallel = int(delegation["max_parallel"])
+                    except (TypeError, ValueError):
+                        _team_parallel = 0
+                    if _team_parallel > 0:
+                        self.agent_runtime.max_concurrent = _team_parallel
+                        self.agent_runtime.concurrency_semaphore.set_limit(_team_parallel)
                 # The team's OWN resolved role table rides on top of the
                 # persisted one -- a `--team <name>` run never touches
                 # config, so its aliases/routed roles must still resolve
@@ -5678,6 +5693,19 @@ class Session:
                 elif self.provider_profile.tool_choice_required_supported and _looks_like_attempted_tool_call(text_so_far):
                     retry_result = yield from self._step(turn_no, tool_choice="required")
                     model_calls += 1
+                    if retry_result is _OVERFLOW_NEEDS_COMPACTION:
+                        # vibes/review.md finding 52: the forced retry can
+                        # overflow the window too -- the sentinel is not a
+                        # `_StepResult` (feeding it to `_account_usage`
+                        # raised AttributeError). Compact once, retry once
+                        # more with `overflow_handled=True`; if that still
+                        # yields nothing usable, the original result stands.
+                        retry_result = None
+                        if (yield from self._run_compaction(turn_no, trigger="overflow")):
+                            retry_result = yield from self._step(turn_no, tool_choice="required", overflow_handled=True)
+                            model_calls += 1
+                            if retry_result is _OVERFLOW_NEEDS_COMPACTION:
+                                retry_result = None
                     if retry_result is not None:
                         self._account_usage(retry_result)
                         result = retry_result
@@ -7265,6 +7293,29 @@ class Session:
             for it, tr in zip(pending_batch, results, strict=True):
                 it["result"] = tr
 
+        def _abandon_queued(reason: str) -> Iterator[events.Event]:
+            """vibes/review.md finding 53: Esc (the session's abort Event)
+            while read-only calls or Agent calls are only QUEUED -- not yet
+            dispatched -- must not start them. Each queued item already got
+            its `tool_use_ready`; here it is finalized as an interrupted
+            result instead of running (a call whose dispatch genuinely began
+            still finishes: only never-started work is abandoned)."""
+            nonlocal pending_batch, agent_batch
+            for queued in pending_batch + agent_batch:
+                queued["ready"] = False
+                queued["text"] = reason
+                yield from self._finalize_tool_result(turn_no, queued, ctx.session_dir)
+            pending_batch = []
+            agent_batch = []
+
+        def _release_item_waiters(it: dict) -> None:
+            """finding 53: a permission/question slot parked by
+            `_resolve_tool_call` is only popped by `_await_reply` -- an
+            interrupt that lands BETWEEN the two left it registered for the
+            life of the session. Pop whatever this item parked."""
+            self._permission_waiters.pop(it.get("ask_request_id"), None)
+            self._question_waiters.pop(it.get("question_request_id"), None)
+
         # ruff B905: repair_assistant_turn appends exactly one outcome per
         # input block, always (see its own docstring/loop) -- strict=True
         # documents that invariant instead of silently tolerating a future
@@ -7277,15 +7328,7 @@ class Session:
                 # this and every remaining call become synthesized
                 # interrupted results instead of ever reaching decide()/
                 # dispatch. Flush whatever was already announced first.
-                if pending_batch:
-                    _dispatch_pending_batch()
-                    yield from self._fire_post_tool_batch(turn_no, pending_batch)
-                    for batched_item in pending_batch:
-                        yield from self._finalize_tool_result(turn_no, batched_item, ctx.session_dir)
-                    pending_batch = []
-                if agent_batch:
-                    yield from _run_agent_batch()
-                    agent_batch = []
+                yield from _abandon_queued("Tool call interrupted by user")
                 yield from self._synthesize_unrun_tool_results(
                     turn_no, tool_use_blocks[i:], ctx.session_dir, reason="Tool call interrupted by user",
                 )
@@ -7337,15 +7380,8 @@ class Session:
                 # only checked `abort` there, so a hook that noticed the
                 # interrupt and returned early still let the gated Write
                 # run anyway.
-                if pending_batch:
-                    _dispatch_pending_batch()
-                    yield from self._fire_post_tool_batch(turn_no, pending_batch)
-                    for batched_item in pending_batch:
-                        yield from self._finalize_tool_result(turn_no, batched_item, ctx.session_dir)
-                    pending_batch = []
-                if agent_batch:
-                    yield from _run_agent_batch()
-                    agent_batch = []
+                _release_item_waiters(item)
+                yield from _abandon_queued("Tool call interrupted by user")
                 yield from self._synthesize_unrun_tool_results(
                     turn_no, tool_use_blocks[i:], ctx.session_dir, reason="Tool call interrupted by user",
                 )
@@ -7409,6 +7445,18 @@ class Session:
                 yield from self._handle_exit_plan_mode(turn_no, item)
 
             if item["ready"] and name in ("Agent", "Task"):
+                if pending_batch:
+                    # vibes/review.md finding 49: read-only calls the model
+                    # listed BEFORE this Agent call run (and are finalized)
+                    # first -- deferred to the end of the run they used to
+                    # execute AFTER the sub-agent, observing its edits.
+                    _dispatch_pending_batch()
+                    yield from self._fire_post_tool_batch(turn_no, pending_batch)
+                    for batched_item in pending_batch:
+                        yield from self._finalize_tool_result(turn_no, batched_item, ctx.session_dir)
+                        if batched_item.get("end_turn"):
+                            end_turn = True
+                    pending_batch = []
                 agent_batch.append(item)
                 continue  # deferred -- dispatched together (<=4 concurrent) when this run breaks
 
@@ -7539,6 +7587,12 @@ class Session:
                 agent_batch = []
                 break
 
+        if self.abort.is_set() and (pending_batch or agent_batch):
+            # finding 53: an Esc that landed after the last call was queued
+            # (the loop's own checks only run at the top of an iteration)
+            # must not start the deferred batch either.
+            yield from _abandon_queued("Tool call interrupted by user")
+            return True
         if pending_batch:
             _dispatch_pending_batch()
             yield from self._fire_post_tool_batch(turn_no, pending_batch)
@@ -7596,6 +7650,35 @@ class Session:
 
     # ---- the interactive command pump (U2, D-Contract) -------------------
 
+    def refresh_role_table(self) -> None:
+        """vibes/review.md finding 58: recompute the persisted/cost-aware
+        layer of the live role table (`/roles on|off`, a `/model` provider
+        switch) IN PLACE -- the dict is shared by reference with `self.roles`
+        and every child runtime, so sub-agent routing follows. Entries the
+        session added on top of the layer it was built with (a team's
+        roles, a loaded template) are kept; `roles.enabled` off empties the
+        table outright, the same "every role is the session model" it
+        always meant at build time. Never raises."""
+        try:
+            from halo_harness.roles import resolve_role_table, roles_mode_enabled
+            table = self.agent_runtime.role_table
+            if not isinstance(table, dict):
+                return
+            env = getattr(self, "tool_env", None) or {}
+            sub = env.get("CLAUDE_CODE_SUBAGENT_MODEL") or (
+                self.settings.subagent_model if self.settings is not None else None)
+            base = resolve_role_table(provider=self.model_ref.provider, subagent_model=sub)
+            old = self._role_table_base or {}
+            extras = ({k: v for k, v in table.items() if k not in old or old[k] != v}
+                      if roles_mode_enabled() else {})
+            fresh = dict(base)
+            fresh.update(extras)
+            table.clear()
+            table.update(fresh)
+            self._role_table_base = dict(base)
+        except Exception:
+            log.debug("refresh_role_table failed", exc_info=True)
+
     def set_model(self, model_ref: ModelRef, model_profile: ModelProfile, creds=None) -> None:
         """Swap the active model mid-session (`/model`): the ref, its
         profile and (when given) its credentials, plus the derived Route/
@@ -7635,6 +7718,7 @@ class Session:
         far>` stashed but unsent forever -- `ensure_cc_state`'s reuse path
         now drains it (capped) before returning, see that function."""
         old_model_raw = self.model_ref.raw
+        _old_provider = self.model_ref.provider
         # Halo 2.0.5 round 5: the SAME host-dialect override __init__
         # applies to a starting ref, applied to every MID-session switch
         # (`/model`, the fallback chain, a restore) -- a freshly parsed
@@ -7699,6 +7783,8 @@ class Session:
         self.creds = creds
         self.model_label = model_ref.raw
         self.route = Route(provider=model_ref.provider, upstream_model=model_ref.model, dialect=model_ref.dialect)
+        if model_ref.provider != _old_provider:
+            self.refresh_role_table()  # finding 58: the cost-aware default follows the provider
         # parity gap (W6a): `--betas`'s own `anthropic-beta` header was
         # computed ONCE, at construction time (`headless.build_session`),
         # gated on the STARTING route alone -- `set_model` never
@@ -8202,6 +8288,19 @@ class Session:
         finally:
             self._end_busy_period()
 
+    def _resubmit_leftover_steers(self, commands) -> None:
+        """vibes/review.md finding 51: text typed while a manual `/compact`
+        or `/clear` held the session busy is queued as a steer and stashed
+        in `_leftover_steer_texts` by `_end_busy_period` -- only a turn's own
+        tail used to resubmit it, so it sat there until some LATER turn ended
+        (reordered behind newer input) or was lost on exit. Every command
+        that can hold `_busy` now resubmits what it collected, in arrival
+        order, as the next `user_input` on this same worker thread."""
+        if self._leftover_steer_texts:
+            leftover, self._leftover_steer_texts = self._leftover_steer_texts, []
+            for leftover_text in leftover:
+                commands.put(events.Command("user_input", {"text": leftover_text}))
+
     def run(self, commands, out, *, mcp_status_fn=None) -> int:
         """The worker-thread command pump (D-Contract): consume `Command`s
         from `commands` (a `queue.Queue`) until a `None` sentinel arrives,
@@ -8243,12 +8342,10 @@ class Session:
                 # fresh turn, since `_busy` is already clear by now), so a
                 # steer that missed every internal checkpoint still isn't
                 # silently lost, it just becomes the next turn instead.
-                if self._leftover_steer_texts:
-                    leftover, self._leftover_steer_texts = self._leftover_steer_texts, []
-                    for leftover_text in leftover:
-                        commands.put(events.Command("user_input", {"text": leftover_text}))
+                self._resubmit_leftover_steers(commands)
             elif kind == "run_clear":
                 self._pump_clear(out)
+                self._resubmit_leftover_steers(commands)
             elif kind == "run_compact":
                 # finding 11 / U5: handled BETWEEN turns, same slot in this
                 # loop as user_input -- Controller.run_compact (below) is
@@ -8257,6 +8354,7 @@ class Session:
                 # concurrently with a turn; it's still safe either way
                 # (this loop only ever does one Command at a time).
                 self._pump_compaction(data.get("instructions"), out)
+                self._resubmit_leftover_steers(commands)
             elif kind == "interrupt":
                 self.abort.set()
             elif kind == "steer":

@@ -103,10 +103,13 @@ def frontmatter_text_from_bio(bio: dict) -> str:
         front["tools"] = ", ".join(tools["allow"]) if tools["allow"] else ""
     if tools.get("deny") is not None:
         front["disallowedTools"] = ", ".join(tools["deny"]) if tools["deny"] else ""
+    # vibes/review.md finding 62: the keys the agent-file LOADER reads
+    # (`config/agents_md.py`) are camelCase -- snake_case ones written here
+    # were silently ignored on the way back in.
     if tools.get("permission_mode"):
-        front["permission_mode"] = tools["permission_mode"]
+        front["permissionMode"] = tools["permission_mode"]
     if tools.get("mcp_servers"):
-        front["mcp_servers"] = tools["mcp_servers"]
+        front["mcpServers"] = tools["mcp_servers"]
     context = bio.get("context") or {}
     if context.get("skills"):
         front["skills"] = ", ".join(context["skills"])
@@ -114,11 +117,20 @@ def frontmatter_text_from_bio(bio: dict) -> str:
         front["memory"] = context["memory"]
     limits = bio.get("limits") or {}
     if limits.get("max_iterations") is not None:
-        front["max_turns"] = limits["max_iterations"]
+        front["maxTurns"] = limits["max_iterations"]
     if bio.get("color"):
         front["color"] = bio["color"]
     body = (bio.get("context") or {}).get("system_prompt") or ""
-    frontmatter_yaml = yaml.safe_dump(front, sort_keys=False, default_flow_style=False, allow_unicode=True)
+    # The loader's block-list reader only accepts items indented deeper than
+    # their key; PyYAML's default writes them flush with the key
+    # (indentless), which reads back as an empty string -- so lists are
+    # dumped indented.
+    class _IndentedDumper(yaml.SafeDumper):
+        def increase_indent(self, flow=False, indentless=False):
+            return super().increase_indent(flow, False)
+
+    frontmatter_yaml = yaml.dump(front, Dumper=_IndentedDumper, sort_keys=False, default_flow_style=False,
+                                 allow_unicode=True)
     return f"---\n{frontmatter_yaml}---\n\n{body}\n" if body else f"---\n{frontmatter_yaml}---\n"
 
 

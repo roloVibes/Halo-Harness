@@ -1002,6 +1002,10 @@ def steer_cc(session, text: str) -> bool:
     return True
 
 
+# vibes/review.md finding 55: most Stop-hook continuations one cc: turn will drive.
+_MAX_STOP_CONTINUATIONS = 8
+
+
 def turn_body_cc(session, turn_no: int, text: str, *, images: Optional[list] = None,
                   hook_context: Optional[str] = None):
     """The cc: equivalent of `Session._turn_body` -- hooked from
@@ -1119,61 +1123,79 @@ def turn_body_cc(session, turn_no: int, text: str, *, images: Optional[list] = N
             reason = "error"
             return
 
+        stop_rounds = 0
         while True:
-            item = q.get()
-            if isinstance(item, events.Event):
-                yield item
-                continue
-            if item == "DONE":
-                break
-            if item == "EOF":
-                # finding 8: surface WHY, not just THAT -- a resume/model/
-                # auth failure claude only ever explains on stderr.
-                tail = state.process.stderr_tail()
-                msg = "the claude subprocess ended unexpectedly"
-                if tail.strip():
-                    msg += f" -- {tail.strip().splitlines()[-1][:300]}"
-                yield events.error(msg, turn=turn_no, err_type="cc_eof")
+            while True:
+                item = q.get()
+                if isinstance(item, events.Event):
+                    yield item
+                    continue
+                if item == "DONE":
+                    break
+                if item == "EOF":
+                    # finding 8: surface WHY, not just THAT -- a resume/model/
+                    # auth failure claude only ever explains on stderr.
+                    tail = state.process.stderr_tail()
+                    msg = "the claude subprocess ended unexpectedly"
+                    if tail.strip():
+                        msg += f" -- {tail.strip().splitlines()[-1][:300]}"
+                    yield events.error(msg, turn=turn_no, err_type="cc_eof")
+                    reason = "error"
+                    break
+                if item == "ABORTED":
+                    deadline = time.monotonic() + _KILL_GRACE_S + 2.0
+                    while time.monotonic() < deadline:
+                        with state.lock:
+                            if not state.in_flight:
+                                break
+                        time.sleep(0.02)
+                    reason = "interrupted"
+                    break
+                if isinstance(item, tuple) and item[0] == "READER_ERROR":
+                    yield events.error(f"cc: reader failed: {item[1]}", turn=turn_no)
+                    reason = "error"
+                    break
+            if reason == "end_turn" and state.turn_is_error:
                 reason = "error"
-                break
-            if item == "ABORTED":
-                deadline = time.monotonic() + _KILL_GRACE_S + 2.0
-                while time.monotonic() < deadline:
-                    with state.lock:
-                        if not state.in_flight:
-                            break
-                    time.sleep(0.02)
-                reason = "interrupted"
-                break
-            if isinstance(item, tuple) and item[0] == "READER_ERROR":
-                yield events.error(f"cc: reader failed: {item[1]}", turn=turn_no)
-                reason = "error"
-                break
-        if reason == "end_turn" and state.turn_is_error:
-            reason = "error"
-        if reason == "end_turn" and session.hook_runner is not None and session.hook_runner.has_hooks("Stop"):
-            # must-do: Stop hooks fire on `result` -- never for an error/
-            # interrupted end (matching the normal route's own "only on a
-            # genuine stop" gate). `blocked` can't re-drive claude's own
-            # internal loop the way it re-calls the model for every other
-            # route -- the continuation is sent as one more stdin line
-            # (logged + tracked exactly like a steer) for claude's NEXT
-            # turn to see, rather than extending this one.
-            last_text = _last_assistant_text(session.log)
-            stop_outcome = session._run_hook_stop("Stop", last_assistant_message=last_text,
-                                                   prompt_id=f"turn_{turn_no}", abort=session.abort)
-            for msg in stop_outcome.system_messages:
-                yield events.notification(msg)
-            if stop_outcome.blocked:
-                continuation = stop_outcome.block_reason or "Please continue."
-                session.log.append_user([{"type": "text", "text": continuation}], kind="continuation")
-                yield events.user_message(continuation, turn=turn_no)
-                try:
-                    with state.lock:
-                        state.unconfirmed.append({"kind": "context", "text": continuation})
-                    state.process.send_user_line(continuation)
-                except (BrokenPipeError, OSError):
-                    pass
+            if reason == "end_turn" and session.hook_runner is not None and session.hook_runner.has_hooks("Stop"):
+                # must-do: Stop hooks fire on `result` -- never for an error/
+                # interrupted end (matching the normal route's own "only on a
+                # genuine stop" gate). `blocked` can't re-drive claude's own
+                # internal loop the way it re-calls the model for every other
+                # route -- the continuation is sent as one more stdin line
+                # (logged + tracked exactly like a steer) for claude's NEXT
+                # turn to see, rather than extending this one.
+                last_text = _last_assistant_text(session.log)
+                stop_outcome = session._run_hook_stop("Stop", last_assistant_message=last_text,
+                                                       prompt_id=f"turn_{turn_no}", abort=session.abort)
+                for msg in stop_outcome.system_messages:
+                    yield events.notification(msg)
+                if stop_outcome.blocked:
+                    continuation = stop_outcome.block_reason or "Please continue."
+                    session.log.append_user([{"type": "text", "text": continuation}], kind="continuation")
+                    yield events.user_message(continuation, turn=turn_no)
+                    try:
+                        with state.lock:
+                            state.unconfirmed.append({"kind": "context", "text": continuation})
+                        # vibes/review.md finding 55: the continuation is a real
+                        # claude turn -- its reply must be READ before this
+                        # turn_done, not left in the pipe for the next turn (or
+                        # dropped when `-p` exits). The first reader thread has
+                        # returned on its DONE; a fresh one drains the next
+                        # result into the same queue, and the Stop hook then
+                        # gets another look at the new reply (its own
+                        # consecutive-block cap, plus this module's, bound it).
+                        state.turn_is_error = False
+                        reader_thread = threading.Thread(target=reader, daemon=True,
+                                                         name=f"cc-reader-{turn_no}-c{stop_rounds + 1}")
+                        reader_thread.start()
+                        state.process.send_user_line(continuation)
+                        stop_rounds += 1
+                        if stop_rounds < _MAX_STOP_CONTINUATIONS:
+                            continue
+                    except (BrokenPipeError, OSError):
+                        pass
+            break
     finally:
         turn_finished.set()
         state.active_queue = None

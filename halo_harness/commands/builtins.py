@@ -942,6 +942,10 @@ def _cmd_roles(args: str, facade: HeadlessFacade) -> str:
         # switch `halo roles on|off` and the wizard's own toggle write to.
         from halo_harness.roles import roles_state_line, set_roles_enabled
         set_roles_enabled(sub == "on")
+        # vibes/review.md finding 58: the live session's table follows the
+        # switch now, not only the next launch.
+        if session is not None and hasattr(session, "refresh_role_table"):
+            session.refresh_role_table()
         return roles_state_line()
 
     return _render_roles_table(facade)
