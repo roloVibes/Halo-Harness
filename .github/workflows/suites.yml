@@ -11,7 +11,7 @@ name: suites
 
 on:
   push:
-    branches: [master, track-d]  # track-d: 3.0.1.0 bakes here until its merge (revert on merge)
+    branches: [master]
     # Planning-only commits never change code or docs under test: no run, no
     # failure e-mail for a stale flake on a plans commit.
     paths-ignore:
