@@ -2551,6 +2551,21 @@ every non-shipped bio it references (and a `bundle.json` manifest);
 `halo teams import <dir> [--force]` applies it on any box -- bios land
 in user scope, a colliding bio is reported and skipped unless
 `--force`, and the team goes through the same validated save path.
+## `halo studio`
+
+```sh
+halo studio [--port N] [--no-open] [--cwd DIR]
+```
+
+Halo 2.1.0: opens Halo Studio, your lineups and agent bios as an editable
+graph in the browser. Starts a loopback-only server on a free port (or
+`--port`), prints its URL (the URL carries a per-launch token: open exactly
+that) and opens the browser unless `--no-open`; `--cwd` is the project
+directory for project-scope files (default: the current directory). Ctrl+C
+stops it. Over SSH, forward the printed port and open the same URL. The
+TUI's `/studio` serves the same page from the running session. See
+[STUDIO.md](STUDIO.md).
+
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 
 ```sh

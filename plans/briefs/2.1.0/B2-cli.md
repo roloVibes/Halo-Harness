@@ -1,7 +1,7 @@
 # 2.1.0 round B2 -- the CLI: one obvious path to pick and inspect a lineup
 
 Read `plans/WORKER-RULES.md` first. Work ONLY in this checkout
-(`C:\Users\rolo\Halo-B`, branch `track-b`). Do not commit or push. Round B1
+(`<home>\Halo-B`, branch `track-b`). Do not commit or push. Round B1
 (the Team step, `tui/dialogs/team_preview.py`) and B3 (`halo studio`) are
 already committed on this branch; build on them, never rewrite them.
 

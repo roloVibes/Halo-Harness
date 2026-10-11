@@ -15,7 +15,7 @@ touching Scripts). The owner still uploads docs/media/social-preview.png
 in GitHub Settings -> Social preview.
 
 **2.1.0 IS MERGED INTO MASTER AND WAITING ON CI** (branch `track-b`,
-worktree C:/Users/rolo/Halo-B, merged after this handoff): B1 the Team
+worktree <home>/Halo-B, merged after this handoff): B1 the Team
 step back in Quick setup with the lineup preview (`tui/dialogs/
 team_preview.py`), B2 the CLI (`halo teams` overview/apply/preview/diff,
 `halo agents` overview, `halo roles` sources, `/teams` overview), B3
