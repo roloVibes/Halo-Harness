@@ -17,7 +17,7 @@ from typing import Any
 from halo_harness.remote.base import HandleError
 
 CMDS = ("status", "submit", "steer", "interrupt", "answer", "model", "effort", "mode", "slash", "tail",
-        "subscribe", "unsubscribe", "ping")
+        "subscribe", "unsubscribe", "ping", "note")
 ANSWER_KINDS = ("permission", "question", "plan", "approval")
 TAIL_DEFAULT = 20
 TAIL_MAX = 200
@@ -54,6 +54,24 @@ def _answer(handle, req: dict) -> dict:
     return {"resolved": True}
 
 
+def _note(handle, req: dict, conn) -> dict:
+    """`{"cmd": "note", "name": "remote.attached", "peer": "<id prefix>",
+    "attached": true|false}` -- the Signal bridge telling the session a
+    phone attached or detached. A connection that closes takes its peers
+    with it, so a crashed bridge never leaves the chip lit."""
+    name = _str(req, "name")
+    if name != "remote.attached":
+        raise HandleError(f"unknown note {name!r} (expected remote.attached)")
+    peer = _str(req, "peer").strip()[:16]
+    if not peer:
+        raise HandleError("note remote.attached needs a peer")
+    attached = bool(req.get("attached"))
+    noted = getattr(conn, "noted", None)
+    if noted is not None:
+        (noted.add if attached else noted.discard)(peer)
+    return {"attached": handle.set_remote_peer(peer, attached)}
+
+
 def run_cmd(handle, req: dict, conn) -> Any:
     """Execute one request; `conn` offers `start_feed(kinds)` / `stop_feed()`."""
     cmd = req.get("cmd")
@@ -83,6 +101,8 @@ def run_cmd(handle, req: dict, conn) -> Any:
         n = req.get("n", TAIL_DEFAULT)
         n = n if isinstance(n, int) and not isinstance(n, bool) else TAIL_DEFAULT
         return {"markdown": handle.tail(max(1, min(n, TAIL_MAX)))}
+    if cmd == "note":
+        return _note(handle, req, conn)
     if cmd == "subscribe":
         kinds = req.get("kinds")
         conn.start_feed([k for k in kinds if isinstance(k, str)] if isinstance(kinds, list) else None)

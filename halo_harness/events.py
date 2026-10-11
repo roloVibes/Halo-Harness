@@ -89,6 +89,10 @@ EVENT_KINDS = frozenset({
     # PendingDock queue a `permission_request`/`question`/`plan_review`
     # card already uses. data: {id, position, text, is_error}.
     "approval_request",
+    # Halo 2.0.9 round 4: the Signal bridge attached to / detached from THIS
+    # session (a `note` on the control socket). data: {count, peers, peer,
+    # attached}; the status bar's `remote` chip follows `count`.
+    "remote_attached",
 })
 
 COMMAND_KINDS = frozenset({
@@ -305,6 +309,13 @@ def governor_state_unpersisted(reason: str) -> Event:
 def notification(text: str, *, level: str = "info") -> Event:
     """data: {level, text}"""
     return Event("notification", {"level": level, "text": text})
+
+
+def remote_attached(count: int, peers: "list | None" = None, *, peer: str = "", attached: bool = True) -> Event:
+    """data: {count, peers, peer, attached} -- how many phones are attached
+    to this session now (Halo 2.0.9 round 4), and which one just changed."""
+    return Event("remote_attached", {"count": int(count), "peers": list(peers or []), "peer": peer,
+                                     "attached": bool(attached)})
 
 
 def system_note(text: str) -> Event:

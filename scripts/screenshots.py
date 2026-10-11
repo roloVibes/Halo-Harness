@@ -5,7 +5,7 @@ scripted FakeController turn, fixture picker rows, fixture bios and the
 shipped team templates, a fake MCP server list, a fixture permission ask,
 fixture balances -- and saves one SVG per scene (120x36) under
 docs/screenshots/: launch, turn, picker, team-step, mcp, permission,
-balances, theme-doom, theme-metroid, theme-mario. Deterministic by construction: fixed seed, a frozen clock in
+balances, theme-doom, theme-metroid, theme-mario, remote-dialog. Deterministic by construction: fixed seed, a frozen clock in
 the widget modules (elapsed text is set through the same started_at /
 _refresh seams the tests use, never a real timer read), no network, no
 real keys, no real paths (the session cwd is the literal "~/project"),
@@ -281,6 +281,38 @@ async def scene_balances(out: Path) -> None:
         _write_svg(out / "balances.svg", await _export(app, pilot))
 
 
+async def scene_remote_dialog(out: Path) -> None:
+    """The `/remote` dialog (2.0.9): bridge connected, one contact request just
+    approved (its one-time code shown large), one signed and one blocked phone.
+    Fixture data only -- fake ids and numbers, a fixed clock label."""
+    import halo_harness.tui.dialogs.remote_status as rs
+
+    snap = {
+        "bridge": {"state": "connected", "pid": 4242, "started": None, "until": 0.0, "running": True},
+        "signal_enabled": True,
+        "control": "control socket: on unix:~/.halo/run/example.ctl\nregistry: 1 live session",
+        "pending": [{"index": 1, "aci": "a1b2c3d4-0000-4000-8000-000000000001", "aci_prefix": "a1b2c3d4",
+                     "number": "+15555550101", "state": "approved", "first_seen": 0,
+                     "safety_number": "11111 22222 33333 44444 55555 66666 77777 88888 99999 00000 11111 22222"}],
+        "peers": [{"aci": "e5f6a7b8-0000-4000-8000-000000000002", "aci_prefix": "e5f6a7b8", "number": "+15555550102",
+                   "paired_at": 0, "signed": True, "blocked": False},
+                  {"aci": "c9d0e1f2-0000-4000-8000-000000000003", "aci_prefix": "c9d0e1f2", "number": None,
+                   "paired_at": 0, "signed": True, "blocked": True}],
+    }
+    saved_when, rs._when = rs._when, lambda ts: "12:34"  # local-time formatting would vary by machine
+    try:
+        app = BridgeApp(FakeController(), cwd=CWD)
+        async with app.run_test(size=SIZE) as pilot:
+            screen = rs.RemoteStatus(snap, poll=0)
+            app.push_screen(screen)
+            await pilot.pause(0.3)
+            screen._show_code({"code": "482916", "expires": 0, "trusted": True})
+            await pilot.pause(0.1)
+            _write_svg(out / "remote-dialog.svg", await _export(app, pilot))
+    finally:
+        rs._when = saved_when
+
+
 async def _game_theme_scene(out: Path, theme: str, variant: "str | None" = None) -> None:
     """The main screen under a game theme (Halo 2.0.8): the HUD status bar
     mid-turn, with the face in its writing state. `variant` (a Metroid
@@ -340,7 +372,7 @@ async def scene_theme_mario(out: Path) -> None:
 
 
 SCENES = (scene_launch, scene_turn, scene_picker, scene_team_step, scene_mcp, scene_permission,
-          scene_balances, scene_theme_doom, scene_theme_metroid, scene_theme_mario)
+          scene_balances, scene_theme_doom, scene_theme_metroid, scene_theme_mario, scene_remote_dialog)
 
 
 async def main(out: Path) -> int:

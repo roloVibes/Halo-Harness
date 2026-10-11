@@ -162,6 +162,10 @@ class StatusBar(Static):
         # None (no segment; a healthy gateway at its ceiling shows
         # nothing). Pushed from the governor's on_event telemetry.
         self.gov_state: "tuple | None" = None
+        # Halo 2.0.9 round 4: how many phones the Signal bridge attached to
+        # THIS session (the `remote_attached` event, from a control-socket
+        # `note`); 0 omits the `remote` chip.
+        self.remote_attached: int = 0
         self.mode = "default"
         self.cwd = cwd
         self.branch = branch
@@ -549,6 +553,21 @@ class StatusBar(Static):
             self.saved_usd = saved_usd
             self._refresh_display()
 
+    def set_remote_attached(self, count: int) -> None:
+        """2.0.9 round 4: the attached-phone count behind the `remote` chip."""
+        count = max(0, int(count or 0))
+        if count != self.remote_attached:
+            self.remote_attached = count
+            self._refresh_display()
+
+    def _remote_str(self) -> str:
+        if not self.remote_attached:
+            return ""
+        from halo_harness.theme import supports_truecolor
+        from halo_harness.tui.hud_fields import remote_chip
+        ascii_mode = self.hud_ascii if self.hud_ascii is not None else not supports_truecolor()
+        return remote_chip(self.remote_attached, ascii_mode)
+
     def set_gov_state(self, state: "tuple | None") -> None:
         """2.0.5 round 4: `(rate, ceiling, cooldown_remaining)` for this
         session's model host bucket, or None to clear the segment. The
@@ -618,6 +637,7 @@ class StatusBar(Static):
         # style as effort_str below -- blank (no segment) when offline mode
         # is off, the ordinary case.
         offline_str = "offline" if self.offline else ""
+        remote_str = self._remote_str()
         # Halo 2.0.3 round 5b (brief item 7): "41 tok/s · prefill 1.2 s"
         # (plus "· offloaded"), right next to the model chip -- "" (no
         # segment) before the first `ol:` reply of the session, or on any
@@ -730,7 +750,7 @@ class StatusBar(Static):
                 area_str=_cwd_last_component(self.cwd) if self.cwd else "",
                 mode_str=mode_str, effort_str=effort_str, needs_you_str=needs_you_str, agents_str=agents_str,
                 offline_str=offline_str, gov_str=gov_str, new_str=new_str, hang_str=hang_str,
-                throughput_str=throughput_str, permission_str=permission_str, bg_jobs_str=bg_jobs_str,
+                remote_str=remote_str, throughput_str=throughput_str, permission_str=permission_str, bg_jobs_str=bg_jobs_str,
                 oldest_str=oldest_str, spinner_str=spinner_str, elapsed_str=elapsed_str)
             state = face_state_for(self.phase, error=self.error,
                                    needs_you=bool(self.permission_pending or self.needs_you_count))
@@ -763,7 +783,7 @@ class StatusBar(Static):
         if width and self.cwd:
             def _overflow(loc: str, mcp_on: bool, bal_on: bool, tp_on: bool) -> int:
                 bits = [b for b in (ctx_str, cost_str, bal_on and or_balance_str, mode_str, effort_str,
-                                     offline_str, permission_str, needs_you_str, agents_str, bg_jobs_str,
+                                     offline_str, remote_str, permission_str, needs_you_str, agents_str, bg_jobs_str,
                                      oldest_str, hang_str, mcp_on and mcp_str, tp_on and throughput_str,
                                      gov_str, spinner_str, new_str) if b]
                 # Each segment below is rendered as "<text> " with a "│ "
@@ -838,6 +858,9 @@ class StatusBar(Static):
         if offline_str:
             text.append("│ ", style="dim")
             text.append(f"{offline_str} ", style="bold yellow")
+        if remote_str:
+            text.append("│ ", style="dim")
+            text.append(f"{remote_str} ", style="bold green")
         if permission_str:
             text.append("│ ", style="dim")
             text.append(f"{permission_str} ", style="bold yellow")

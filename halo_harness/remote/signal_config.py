@@ -67,6 +67,21 @@ SIGNAL_DEFAULTS = {
 }
 
 
+def signal_enabled() -> bool:
+    """`remote.signal.enabled` (default false): whether the Signal bridge may run."""
+    from halo_harness.theme import get_config_value
+    try:
+        value = get_config_value("remote.signal.enabled", False)
+    except Exception:
+        return False
+    return value is True or (isinstance(value, str) and value.strip().lower() in ("1", "true", "yes", "on"))
+
+
+def set_signal_enabled(value: bool) -> None:
+    from halo_harness.theme import set_config_value
+    set_config_value("remote.signal.enabled", bool(value))
+
+
 def remote_dir() -> Path:
     d = bridge_home() / "remote"
     d.mkdir(parents=True, exist_ok=True)

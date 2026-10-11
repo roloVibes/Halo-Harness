@@ -1,12 +1,34 @@
-"""halo_harness.remote.cli -- `halo remote ...` (Halo 2.0.9 round 2: only
-`halo remote sessions`; the Signal subcommands arrive in later rounds)."""
+"""halo_harness.remote.cli -- `halo remote ...` (Halo 2.0.9).
+
+    halo remote sessions               live halo sessions that opened a control socket
+    halo remote signal <verb> [...]    the Signal bridge: setup, register, link, run,
+                                       pair, peers, unpair, reverify, status, off, on
+
+Every `signal` verb takes `--json`. The verbs live in cli_setup.py,
+cli_link.py, cli_run.py and cli_pair.py.
+"""
 
 from __future__ import annotations
 
 import sys
 import time
 
-USAGE = "usage: halo remote sessions\n  sessions   list the live halo sessions that opened a control socket"
+SIGNAL_VERBS = ("setup", "register", "link", "run", "pair", "peers", "unpair", "reverify", "status", "off", "on")
+USAGE = """usage: halo remote sessions
+       halo remote signal <verb> [--json] [...]
+
+  sessions   list the live halo sessions that opened a control socket
+  signal     control halo from Signal; verbs:
+    setup      choose dedicated number or linked device; find or download signal-cli
+    register   register the dedicated number (captcha, SMS code, registration lock)
+    link       link signal-cli to your own Signal account (QR code)
+    run        run the bridge (--daemon writes a service-manager file)
+    pair       list contact requests; --approve N issues the pairing code
+    peers      list paired phones
+    unpair     remove a paired phone
+    reverify   trust a blocked phone's new safety number
+    status     bridge, signal-cli, account and phones at a glance
+    off / on   the kill switch: stop the bridge and disable it / enable it again"""
 
 
 def _age(started) -> str:
@@ -35,11 +57,29 @@ def cmd_sessions() -> int:
     return 0
 
 
+def cmd_signal(argv: list) -> int:
+    verb, rest = (argv[0], argv[1:]) if argv else ("", [])
+    if verb in ("", "-h", "--help") or verb not in SIGNAL_VERBS:
+        print(USAGE, file=sys.stdout if verb in ("", "-h", "--help") else sys.stderr)
+        return 0 if verb in ("", "-h", "--help") else 2
+    if verb in ("setup", "register"):
+        from halo_harness.remote import cli_setup as m
+    elif verb == "link":
+        from halo_harness.remote import cli_link as m
+    elif verb in ("run", "status", "off", "on"):
+        from halo_harness.remote import cli_run as m
+    else:
+        from halo_harness.remote import cli_pair as m
+    return getattr(m, "cmd_" + verb)(rest)
+
+
 def cmd_remote(argv: list) -> int:
     if argv and argv[0] in ("-h", "--help"):
         print(USAGE)
         return 0
     if argv and argv[0] == "sessions" and len(argv) == 1:
         return cmd_sessions()
+    if argv and argv[0] == "signal":
+        return cmd_signal(argv[1:])
     print(USAGE, file=sys.stderr)
     return 2

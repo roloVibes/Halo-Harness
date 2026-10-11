@@ -32,7 +32,7 @@ PANELS = (
 
 STRIP = (
     Segment("phase"), Segment("permission"), Segment("needs_you"), Segment("mode"), Segment("effort"),
-    Segment("model", glyphs="▸"), Segment("agents"), Segment("bg"), Segment("offline"), Segment("gov"),
+    Segment("model", glyphs="▸"), Segment("agents"), Segment("bg"), Segment("offline"), Segment("remote"), Segment("gov"),
     Segment("hang"), Segment("new"), Segment("cwd", glyphs="⌂"), Segment("mcp"), Segment("throughput"),
     Segment("statusline"),
 )
@@ -52,7 +52,7 @@ DOOM = HudSkin(
     # first removed first; phase, context, cost, face, cwd, mode, needs-you,
     # permission and offline are never removed.
     drop_order=("statusline", "throughput", "mcp", "providers", "gov", "bg", "new", "effort", "model",
-                "agents", "hang", "tools", "tokens"),
+                "agents", "hang", "remote", "tools", "tokens"),
     faces=FACES,
     glyphs=HEAVY,
     glyphs_ascii=PLAIN,

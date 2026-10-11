@@ -494,12 +494,23 @@ when nothing more specific was set anywhere. See
 [MODELS.md](MODELS.md)'s "Reasoning effort" section for the accepted-level
 table per route family.
 
-### `/remote`
-Halo 2.0.9 round 2. One line saying whether this session opened its remote
-control socket (`control socket: on <endpoint>` or `off`, with the reason when
-`remote.enabled` is false) and how many live sessions the registry holds. The
-full dialog (pairing a phone, peers) comes with the Signal rounds; see
-[REMOTE.md](REMOTE.md) for the socket itself.
+### `/remote [status|pair [N]|off]`
+Halo 2.0.9. Bare `/remote` in the TUI opens the remote-control dialog: the
+Signal bridge's state (off, starting, connected, rate-limited, stopped), the
+control-socket line, the paired phones (ACI prefix, number, paired time, signed,
+blocked) and the contact requests waiting for you. `a` approves the highlighted
+request and shows the one-time code large, then the signing phrase and link once
+(`w` = "I wrote it down"); `s` turns signing on or off for a phone, `u` unpairs,
+`v` reverifies after a safety-number change, `o` is the kill switch, `r`
+refreshes, Esc closes. The bridge itself is never started in the TUI: when it is
+not running the dialog says to run `halo remote signal run`. The bridge's notices
+(changed safety number, rate limit, captcha) arrive as notifications.
+
+`/remote status`, `/remote pair` (list the requests), `/remote pair <N>`
+(approve request N, print the code) and `/remote off` do the same as text in
+the transcript, and are what print mode answers. While a phone is attached to
+this session the status bar shows a `⇄ remote` chip. See
+[REMOTE.md](REMOTE.md).
 
 ### `/offline [on|off]`
 Halo 2.0.3 round 5e. Bare `/offline` reports whether offline mode is on and

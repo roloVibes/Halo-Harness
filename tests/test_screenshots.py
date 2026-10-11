@@ -25,7 +25,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 test, TESTS = new_registry()
 
-SCENES = ("launch", "turn", "picker", "team-step", "mcp", "permission", "balances")
+SCENES = ("launch", "turn", "picker", "team-step", "mcp", "permission", "balances", "remote-dialog")
 
 # One visible, stable string per scene -- decoded the way the SVG encodes
 # text (entity nbsp -> space), so a marker never depends on raw XML.
@@ -37,6 +37,7 @@ MARKERS = {
     "mcp.svg": ("broken-fixture", "deep dive"),  # the failing server + the legend
     "permission.svg": ("fixture-build",),        # the fixture ask's command
     "balances.svg": ("$12.40", "OpenRouter"),    # the chip + the table row
+    "remote-dialog.svg": ("Remote control", "Bridge: connected"),  # the /remote dialog (2.0.9), fixture phones
 }
 
 

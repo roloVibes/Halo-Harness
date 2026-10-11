@@ -54,6 +54,7 @@ pilots over fixture data with a fixed clock, so a rerun is byte-identical
 | ![MCP status](docs/screenshots/mcp.svg) | The `/mcp` dialog: one failing server, its reason, the deep-dive action. |
 | ![A permission ask](docs/screenshots/permission.svg) | A permission card docked above the prompt with its suggested rule. |
 | ![Balances](docs/screenshots/balances.svg) | The balances chip in the status bar and the `/balances` table. |
+| ![The remote dialog](docs/screenshots/remote-dialog.svg) | The `/remote` dialog: the Signal bridge's state, contact requests, paired phones, a pairing code just issued. |
 
 ## Features
 
@@ -70,6 +71,7 @@ pilots over fixture data with a fixed clock, so a rerun is byte-identical
 | **The wizard** | `halo init`: provider, model, permission mode, theme, roles, orgs -- every step explains itself and `halo doctor` ends each warning with its fix. |
 | **MCP deep dive** | stdio/HTTP/SSE servers from every Claude Code scope, `D` diagnoses a failing server end to end, claude.ai connectors bridge through as tools. |
 | **Balances and picker columns** | Per-provider balances in the status bar (remaining first); free variants sit beside their paid rows in the picker. |
+| **Remote control from Signal** | Message a number, drive a session from your phone: prompts, streamed replies, permission cards answered by number. Contact-request pairing, HMAC-signed commands, a kill switch, a `/remote` dialog and a status chip -- see [docs/REMOTE.md](docs/REMOTE.md). |
 | **Privacy audit** | `halo audit privacy` scans the tree for real paths, hosts and key-shaped strings; the release refuses to ship one red line. |
 | **CI and release script** | Every push runs the three suites on Linux and Windows; `scripts/release.py` versions, tags, pushes and refreshes both installs. |
 

@@ -169,11 +169,12 @@ def _cmd_offline(args: str, facade: HeadlessFacade) -> str:
 
 
 def _cmd_remote(args: str, facade: HeadlessFacade) -> str:
-    """Halo 2.0.9 round 2: whether THIS session opened a control socket
-    (config `remote.enabled`) and how many live sessions the registry holds.
-    The full `/remote` dialog (peers, pairing) arrives with the Signal rounds."""
-    from halo_harness.remote.runtime import status_line
-    return status_line()
+    """Halo 2.0.9: `/remote [status | pair [N] | off]` as text -- the control
+    socket line, the Signal bridge state and the paired phones, contact
+    requests and the pairing code, or the kill switch. The TUI opens a dialog
+    for bare `/remote`; print mode answers with the status text."""
+    from halo_harness.remote.dialog_model import text_command
+    return text_command(args)
 
 
 def _cmd_escalation(args: str, facade: HeadlessFacade) -> str:
@@ -1828,8 +1829,8 @@ _BUILTIN_SPECS = {
                  _cmd_settings),
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
-    "remote": ("core", "Show whether this session's remote control socket is on, and the live-session count",
-               None, _cmd_remote),
+    "remote": ("core", "Remote control: control socket, Signal bridge state, paired phones, pairing, kill switch",
+               "[status|pair [N]|off]", _cmd_remote),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,
                    _cmd_escalation),
     "init": ("prompt", "Analyze the codebase and write/update CLAUDE.md", None, _cmd_init),

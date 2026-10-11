@@ -47,6 +47,11 @@ def _clock(seconds: float) -> str:
     return f"{hours}:{rest // 60:02d}:{rest % 60:02d}" if hours else f"{rest // 60}:{rest % 60:02d}"
 
 
+def remote_chip(count: int, ascii_mode: bool = False) -> str:
+    """The Signal-remote chip: `⇄ remote 1` (ASCII `<> remote 1`)."""
+    return f"{'<>' if ascii_mode else chr(0x21C4)} remote {int(count)}"
+
+
 def build_fields(bar, s: dict) -> dict:
     """`bar` is the StatusBar; `s` the strings its `_refresh_display` built
     (cost_str, ctx_str, or_balance_str, ... plus `cwd_short`)."""
@@ -87,6 +92,8 @@ def build_fields(bar, s: dict) -> dict:
                             ("throughput", "throughput_str", "dim")):
         if s.get(key):
             f[slot] = HudField(s[key], "", tone)
+    if s.get("remote_str"):
+        f["remote"] = HudField(s["remote_str"], s["remote_str"].split(" ", 1)[0], "ok")
     if s["permission_str"]:
         f["permission"] = HudField(s["permission_str"], "permission needed", "warn")
     bg = s["bg_jobs_str"]

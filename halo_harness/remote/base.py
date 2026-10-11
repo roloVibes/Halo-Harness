@@ -6,6 +6,7 @@ always permission scopes), status, tail, subscribe. See remote/handle.py."""
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -43,6 +44,8 @@ class _BaseHandle:
         self.cwd = Path(cwd)
         self.hub = EventHub()
         self._suggested: dict = {}
+        self._remote_peers: set = set()
+        self._remote_lock = threading.Lock()
         self.hub.add_observer(self._observe)
 
     # ---- subclass hooks --------------------------------------------------
@@ -57,6 +60,9 @@ class _BaseHandle:
 
     def _add_rule(self, rule: str, scope: str):
         raise NotImplementedError
+
+    def _remote_changed(self, count: int, peers: list, peer: str, attached: bool) -> None:
+        """A phone attached or detached (see set_remote_peer)."""
 
     def _resolve_permission(self, request_id: str, reply: dict) -> bool:
         return self.session.resolve_permission(request_id, _decision(reply))
@@ -94,10 +100,23 @@ class _BaseHandle:
                 "plan": sorted(getattr(s, "_plan_waiters", {}) or {}),
                 "approval": sorted(getattr(s, "_approval_waiters", {}) or {})}
 
+    def set_remote_peer(self, peer: str, attached: bool) -> int:
+        """Record that phone `peer` (an ACI prefix) attached or detached;
+        returns how many are attached now."""
+        with self._remote_lock:
+            before = len(self._remote_peers)
+            (self._remote_peers.add if attached else self._remote_peers.discard)(peer)
+            peers = sorted(self._remote_peers)
+            changed = len(peers) != before
+        if changed:
+            self._remote_changed(len(peers), peers, peer, attached)
+        return len(peers)
+
     def status(self) -> dict:
         data = dict(self.session.status_event().data)
         data.update(session_id=self.session_id, cwd=str(self.cwd), title=self.title(), busy=bool(self.session.busy),
-                    kind=self.kind, pid=os.getpid(), pending=self._pending())
+                    kind=self.kind, pid=os.getpid(), pending=self._pending(),
+                    remote_attached=len(self._remote_peers))
         return data
 
     def tail(self, n: int = 20) -> str:

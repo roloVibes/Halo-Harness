@@ -692,6 +692,28 @@ timer on the status bar, never a sleep, and the face returns by itself. It is
 declared on the skin as `HudSkin.cues` (event to frames); DOOM and Metroid
 declare none, so the events do nothing there. There are no sounds.
 
+## Remote control from Signal
+
+Halo 2.0.9 can be driven from a phone: message a Signal number, and the text
+becomes a prompt in a session running on your computer; permission cards, plan
+reviews and questions come back to the phone and are answered by number or
+letter. It is off until you turn it on:
+
+```sh
+halo config set remote.enabled true       # sessions open a local control socket
+halo remote signal setup                  # dedicated number (recommended) or linked device
+halo remote signal register +15555550123  # captcha, SMS code, registration lock (dedicated)
+halo remote signal run                    # the bridge, in its own terminal
+```
+
+Then message the number, approve the contact request in `/remote` (compare the
+safety number first), and send the six-digit code back; commands afterwards carry
+an HMAC signature from a secret only your phone has. A `⇄ remote` chip shows in the
+status bar while a phone is attached, `halo remote signal off` is the kill switch,
+and `halo doctor` checks signal-cli, its version pin and the folder permissions.
+The threat model, setup per OS (Kali, Windows, macOS, a proxied VM), the chat
+commands and a live checklist are in [REMOTE.md](REMOTE.md).
+
 ## Keys: Ctrl+C copies, a second press asks before quitting
 
 `Ctrl+C` is the copy key. One press copies the current selection (the chat

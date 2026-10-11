@@ -81,6 +81,44 @@ version.
   `remote.stale_window_s`, `remote.pair_code_ttl_s` are in `docs/CONFIG.md`.
   The `halo remote signal` commands and the `/remote` dialog follow.
 
+### Remote control: CLI, `/remote`, doctor
+
+- **`halo remote signal ...`** (`remote/cli*.py`): `setup` (dedicated number or
+  linked device; finds or downloads signal-cli 0.14.9 into
+  `~/.halo/remote/signal-cli/dist/`, native build on Linux x86-64, JVM build
+  elsewhere or with `--jvm`, `.asc` checked with `gpg` when present, the
+  download only after a yes), `register` (captcha, SMS or voice, code,
+  registration-lock PIN kept 0600, rate limit with `retryAfterSeconds`), `link`
+  (the `sgnl://linkdevice` URI as text and a terminal QR code), `run`
+  (`--daemon` writes a systemd unit, a launchd plist or a Task Scheduler XML and
+  prints the one enable command), `pair` (contact requests with safety numbers,
+  `--approve`, the code, then the 32-word phrase, link and QR code), `peers`,
+  `unpair`, `reverify`, `status`, and the kill switch `off` / `on`
+  (`remote.signal.enabled`; a stop file the bridge polls). Every verb has
+  `--json`; `halo completion` offers them.
+- **A stdlib QR encoder** (`remote/qr.py`, `qr_tables.py`, `qr_render.py`):
+  byte and alphanumeric modes, level L, versions 1 to 10, half-block rendering;
+  the Reed-Solomon tables are computed, and the output is pinned against
+  published vectors and round-tripped through an independent reader in the tests.
+- **The `/remote` dialog** (`tui/dialogs/remote_status.py`): bridge state,
+  the control-socket line, the paired phones, contact requests with Approve (the
+  code shown large, then the signing phrase and link once), per-phone signed
+  toggle, Unpair, Reverify and the kill switch; `/remote status|pair [N]|off`
+  as text; bridge notices become TUI notifications. The bridge is never started
+  inside the TUI.
+- **The `remote` status chip** (`⇄ remote 1`, ASCII `<> remote 1`) in the
+  default status bar and as a ticker slot in the DOOM, Metroid and Mario skins,
+  driven by a new `note` command on the control socket (the one protocol
+  addition: `remote.attached`, with `remote_attached` in `status`).
+- **`halo doctor`**: remote control checks (`remote`, `remote_bridge`,
+  `remote_signal_cli` with the 0.14.9 pin and a warning at 90 days,
+  `remote_jre`, `remote_dir` permissions, `remote_egress` hosts behind a
+  proxy), writing nothing.
+- **Docs**: `docs/REMOTE.md` completed (threat model, the two identity models,
+  setup per OS, the proxied-VM recipe, pairing walkthrough, service files, the
+  live checklist and the checks to confirm on the first live run); the
+  `remote-dialog` screenshot; COMMANDS, SLASH-COMMANDS, CONFIG, HANDBOOK, README.
+
 ## [2.0.8] - 2026-10-11
 
 ### Theme pack: Mario
