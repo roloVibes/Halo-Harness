@@ -45,8 +45,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      # 2.0.10 review finding 27: the dependencies come from the hashed lock
+      # first (pip refuses any file whose hash differs), then this repo.
+      - name: Install pinned dependencies (requirements.lock, hashes enforced)
+        run: pip install --require-hashes --no-deps -r requirements.lock
+
       - name: Install halo-harness (dev extra)
         run: pip install -e ".[dev]"
+
+      # Fails on a known CVE in any pinned dependency; accepted ids live in
+      # .github/pip-audit-allowlist.txt, each with its reason.
+      - name: pip-audit (requirements.lock)
+        run: |
+          python -m pip install pip-audit==2.10.1
+          python scripts/pip_audit_gate.py
 
       - name: Fresh test home
         run: |
@@ -169,8 +181,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      # 2.0.10 review finding 27: the dependencies come from the hashed lock
+      # first (pip refuses any file whose hash differs), then this repo.
+      - name: Install pinned dependencies (requirements.lock, hashes enforced)
+        run: pip install --require-hashes --no-deps -r requirements.lock
+
       - name: Install halo-harness (dev extra)
         run: pip install -e ".[dev]"
+
+      # Fails on a known CVE in any pinned dependency; accepted ids live in
+      # .github/pip-audit-allowlist.txt, each with its reason.
+      - name: pip-audit (requirements.lock)
+        run: |
+          python -m pip install pip-audit==2.10.1
+          python scripts/pip_audit_gate.py
 
       - name: Fresh test home
         run: |

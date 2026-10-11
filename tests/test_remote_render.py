@@ -121,11 +121,12 @@ def test_cards_and_replies(ctx: Ctx):
     card = cards.permission_card({"name": "Bash", "input": {"command": "rm -rf build"}, "reason": "writes files"})
     ctx.check("permission card: tool, one-line detail, reason, four choices",
               card.splitlines()[:3] == ["Permission needed: Bash", "rm -rf build", "Why: writes files"]
-              and card.splitlines()[3:] == ["1 allow once", "2 allow for this session", "3 always allow",
+              and card.splitlines()[3:] == ["1 allow once", "2 allow for this session",
+                                            "3 always allow (no rule was suggested, so nothing is saved)",
                                             "4 deny (4 <reason> to explain)"])
-    ctx.check("a long multi-line input is flattened to one short line",
-              len(cards.describe_input("Bash", {"command": "a\n  b " * 100}).splitlines()) == 1
-              and len(cards.describe_input("Bash", {"command": "a " * 500})) <= 160)
+    ctx.check("a long multi-line input is shown in full, never flattened or cut",
+              cards.describe_input("Bash", {"command": "a\n  b " * 100}) == ("a\n  b " * 100).strip("\n")
+              and len(cards.describe_input("Bash", {"command": "a " * 500})) == 1000)
     for text, want in (("1", ("allow", "once", "")), ("2", ("allow", "session", "")), ("3", ("allow", "always", "")),
                        ("4", ("deny", "once", "")), ("4 too risky", ("deny", "once", "too risky")),
                        (" 2 ", ("allow", "session", ""))):

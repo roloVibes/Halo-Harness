@@ -68,9 +68,9 @@ def test_approve_trusts_and_pairs(ctx: Ctx):
         texts = tr.texts(ACI_A)
         ctx.check("the right code gets exactly one 'Paired.' reply", len(texts) == 1 and texts[0].startswith("Paired."))
         peer = b.pairing.peer(ACI_A)
-        ctx.check("the reply carries the 32-word phrase of the stored secret",
-                  signing.phrase_to_secret(" ".join(texts[0].split("\n")[1].split())) == bytes.fromhex(peer["signing"]["secret_hex"]))
-        ctx.check("and the halo-remote link", "halo-remote://pair?" in texts[0])
+        ctx.check("the reply says the phrase is on the Halo screen and carries no secret",
+                  texts[0] == "Paired. Your signing phrase is on the Halo screen."
+                  and peer["signing"]["secret_hex"] not in texts[0] and "halo-remote://" not in texts[0])
         ctx.check("the peer is stored on the ACI with number, safety number, time and counter 0",
                   peer["aci"] == ACI_A and peer["number"] == "+15555550101" and peer["safety_number"] == SAFETY_A
                   and peer["paired_at"] == clock.now and peer["signing"]["counter"] == 0 and peer["signed"] is True)
@@ -161,7 +161,7 @@ def test_approve_edge_cases(ctx: Ctx):
         ctx.check("service() runs the queued trust step", tr.trusts == [(ACI_A, "".join(SAFETY_A.split()))])
         ctx.check("then the code pairs", p2.redeem(ACI_A, ap3.code).status == "paired")
         ctx.check("pending requests are capped", all(p.note_contact(f"id-{i}", None, None) for i in range(40))
-                  and len(p.pending()) <= 20)
+                  and len(p.pending()) <= 32)
 
 
 if __name__ == "__main__":

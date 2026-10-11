@@ -5,6 +5,10 @@ A line is `{"ts", "peer", "h", "kind", "outcome"}` where `h` is the first 16
 hex characters of `sha256("<aci>|<counter>|<text>")`. The text itself, the
 reply, and every other byte of a conversation are never written anywhere by
 the bridge; `peer` is the first 8 characters of the ACI.
+
+The file rotates at `MAX_BYTES` (5 MB): `audit.jsonl` becomes `audit.jsonl.1`
+(one previous file is kept, an older one is replaced) and a fresh file starts
+(2.0.10 review finding 5).
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ from pathlib import Path
 from halo_harness.privateio import write_private_atomic
 from halo_harness.remote.signal_config import remote_dir
 
+MAX_BYTES = 5 * 1024 * 1024
 _LOCK = threading.Lock()
 
 
@@ -36,6 +41,7 @@ class Audit:
                "h": command_hash(aci, counter, text), "kind": kind, "outcome": outcome}
         line = json.dumps(row, sort_keys=True) + "\n"
         with _LOCK:
+            self._rotate()
             if not self.path.exists():
                 write_private_atomic(self.path, "")
             with open(self.path, "a", encoding="utf-8") as f:
@@ -44,6 +50,14 @@ class Audit:
                 os.chmod(self.path, 0o600)
             except OSError:
                 pass
+
+    def _rotate(self) -> None:
+        try:
+            if self.path.stat().st_size < MAX_BYTES:
+                return
+            os.replace(self.path, self.path.with_name(self.path.name + ".1"))
+        except OSError:
+            pass
 
     def lines(self) -> list:
         try:

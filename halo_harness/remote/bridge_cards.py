@@ -2,7 +2,11 @@
 cards (Halo 2.0.9 round 3) and the parsing of the replies to them.
 
 Permission card: reply `1` allow once, `2` allow for the session, `3` always
-allow, `4` deny (`4 <reason>` sends the reason back to the model).
+allow, `4` deny (`4 <reason>` sends the reason back to the model). The card
+shows the WHOLE command as the model wrote it (newlines and spacing kept; a
+command over `INLINE_COMMAND` characters goes out as its own message or
+messages, then the choices follow in a short last one) and `3` names the exact
+rule it will write (2.0.10 review finding 3).
 Question: lettered options (`b`, or `a,c` when several may be picked); any
 other text is the answer itself. Plan review: `approve` or `feedback <text>`.
 Approval gate: `accept`, `edit <instruction>` or `stop`.
@@ -14,6 +18,7 @@ import re
 from typing import Optional
 
 ONE_LINE = 160
+INLINE_COMMAND = 1500
 PERMISSION_CHOICES = {"1": ("allow", "once", "Allowed once."), "2": ("allow", "session", "Allowed for this session."),
                       "3": ("allow", "always", "Always allowed."), "4": ("deny", "once", "Denied.")}
 _PERM_REPLY = re.compile(r"^([1-4])(?:\s+(.+))?$", re.S)
@@ -24,29 +29,49 @@ def one_line(text, limit: int = ONE_LINE) -> str:
     return s if len(s) <= limit else s[:limit - 3] + "..."
 
 
+def _full(text: str) -> str:
+    return text.replace("\r\n", "\n").strip("\n")
+
+
 def describe_input(name: str, data) -> str:
+    """The tool input's main field in full (never truncated or collapsed)."""
     if not isinstance(data, dict):
         return ""
     for key in ("command", "file_path", "path", "url", "pattern", "query", "prompt", "description"):
         if isinstance(data.get(key), str) and data[key].strip():
-            return one_line(data[key])
+            return _full(data[key])
     for v in data.values():
         if isinstance(v, str) and v.strip():
-            return one_line(v)
+            return _full(v)
     return ""
 
 
-def permission_card(data: dict) -> str:
+def always_label(rule) -> str:
+    rules = [r.strip() for r in str(rule or "").split(", ") if r.strip()]
+    if not rules:
+        return "3 always allow (no rule was suggested, so nothing is saved)"
+    return "3 always allow (saves rule: " + ", ".join(rules) + ")"
+
+
+def permission_messages(data: dict) -> list:
+    """The card as one message, or two when the command is long: the command
+    (the renderer chunks it or attaches it whole) and then the choices."""
     name = data.get("name") or "a tool"
-    lines = [f"Permission needed: {name}"]
     detail = describe_input(name, data.get("input"))
-    if detail:
-        lines.append(detail)
+    head = f"Permission needed: {name}"
+    tail = []
     reason = one_line(data.get("reason"))
     if reason:
-        lines.append(f"Why: {reason}")
-    lines += ["1 allow once", "2 allow for this session", "3 always allow", "4 deny (4 <reason> to explain)"]
-    return "\n".join(lines)
+        tail.append(f"Why: {reason}")
+    tail += ["1 allow once", "2 allow for this session", always_label(data.get("suggested_rule")),
+             "4 deny (4 <reason> to explain)"]
+    if len(detail) <= INLINE_COMMAND:
+        return ["\n".join([head] + ([detail] if detail else []) + tail)]
+    return [f"{head} ({len(detail)} characters, shown in full)\n{detail}", "\n".join([f"Choices for {name}:"] + tail)]
+
+
+def permission_card(data: dict) -> str:
+    return "\n".join(permission_messages(data))
 
 
 def parse_permission_reply(text: str) -> "Optional[tuple]":

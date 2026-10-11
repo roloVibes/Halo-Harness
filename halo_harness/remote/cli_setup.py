@@ -13,6 +13,8 @@ from __future__ import annotations
 import json
 import re
 import secrets
+import subprocess
+import sys
 import shutil
 import time
 from pathlib import Path
@@ -131,9 +133,27 @@ def _request(cfg: dict, a) -> "tuple[int, str, dict]":
     return 1, "error", {"detail": out.strip()[:300]}
 
 
+PIN_ARGV_NOTE = ("note: signal-cli 0.14.9 has no non-argv form of `verify --pin`; the PIN is visible to other local "
+                 "accounts in `ps` for the length of this one call.")
+
+
+def _run_verify(cfg: dict, a, code: str):
+    """`verify`: the PIN (when there is one) goes through JSON-RPC stdin; only if signal-cli offers no
+    such method does it fall back to `--pin` on argv, and then the owner is told. The SMS code alone
+    is single-use and short-lived, so it travels as the positional argument."""
+    if a.pin:
+        res = C.rpc_once(cfg, "verify", {"account": a.number, "verificationCode": code, "pin": a.pin})
+        if res.ok:
+            return subprocess.CompletedProcess([], 0, "", "")
+        if not res.unsupported and res.code is not None:
+            return subprocess.CompletedProcess([], 1, "", res.message)
+        print(PIN_ARGV_NOTE, file=sys.stderr)
+    return C.run_cli(cfg, "verify", code, *(["--pin", a.pin] if a.pin else []), account=a.number)
+
+
 def _verify(cfg: dict, a) -> int:
     code = re.sub(r"\D", "", a.code)
-    res = C.run_cli(cfg, "verify", code, *(["--pin", a.pin] if a.pin else []), account=a.number)
+    res = _run_verify(cfg, a, code)
     if res.returncode != 0:
         out = ((res.stdout or "") + (res.stderr or "")).strip()
         hint = " The number has a registration lock; add --pin <its PIN>." if re.search(r"pin|lock", out, re.I) else ""
@@ -143,8 +163,8 @@ def _verify(cfg: dict, a) -> int:
     locked = False
     if not pin_file.exists():
         pin = a.pin or "".join(secrets.choice("0123456789") for _ in range(8))
-        set_res = C.run_cli(cfg, "setPin", pin, account=a.number)
-        if set_res.returncode == 0:
+        set_res = C.rpc_once(cfg, "setPin", {"pin": pin}, account=a.number)  # stdin, never argv
+        if set_res.ok:
             write_private_atomic(pin_file, pin + "\n")
             locked = True
     if a.json:

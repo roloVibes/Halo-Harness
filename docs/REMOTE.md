@@ -41,7 +41,7 @@ the registry holds.
 | Platform | Endpoint | Auth |
 |---|---|---|
 | Linux / macOS | Unix socket `~/.halo/run/<session_id>.ctl`, mode 0600, directory 0700 | the file mode |
-| Windows | loopback TCP `127.0.0.1:<port>` (OS-assigned) | a random 16-byte hex token; the first line of a connection must be `{"token": "..."}` within 5 seconds or the connection is closed |
+| Windows | loopback TCP `127.0.0.1:<port>` (OS-assigned) | a random 16-byte hex token; the first line of a connection must be `{"token": "..."}` within 5 seconds or the connection is closed. Connections still in that handshake sit in a separate pool of 16 (the oldest is closed for a new one) and only authenticated ones count against the 32 slots; at most 16 connections hold an event feed |
 
 Nothing ever listens on a non-loopback address. The token is never logged or
 printed by `halo remote sessions`; on Windows it is stored in the registry
@@ -157,7 +157,7 @@ layers. Each one is listed with what it stops and what it does not.
 | 3 | **Command signing**: every command after pairing ends `#<counter>:<mac>`, an HMAC only the paired phone can make, with a strictly rising counter and a 5-minute window | a device someone else linked to your Signal account (it shares your ACI but not the signing secret); a replayed or delayed message; a thief with the phone unlocked but not the secret | anyone holding both the phone and the secret; a compromised computer, where the secret is stored; it does not hide content (layer 1 does) |
 | 4 | **At rest**: `~/.halo/remote/` is 0700 and its files 0600; the bridge keeps no message text (the audit line is `sha256` of the command, 16 hex characters); signal-cli runs with `--scrub-log` and its stderr is discarded; a downloaded attachment is deleted as soon as it is read; long replies go out as a `data:` attachment, never a file | another account on the same machine reading your files; a log or backup that leaks conversation text | root, or anyone who can read your account's files (signal-cli's data directory holds the Signal keys, and the signing secret sits in `peers.json`); there is no OS keyring in this release |
 | 5 | **The local control socket**: a Unix socket in a 0700 directory with mode 0600, or on Windows loopback TCP plus a random 16-byte token; nothing listens on a non-loopback address | another machine, or another user on the same machine | another process running as you, which can already do what you do |
-| 6 | **Rate limiting and the kill switch**: `remote.rate_per_minute` commands per peer per minute (30), and `halo remote signal off` / `/remote` Off | a paired phone that floods the session; a bridge you want gone now | an authenticated owner. There is no content filter anywhere: a paired, signed phone can do everything the keyboard can, including answering a permission card with `3` (always allow) |
+| 6 | **Rate limiting and the kill switch**: `remote.rate_per_minute` commands per peer per minute (30), spent only by commands that passed the signature check (unsigned or bad-MAC messages have their own stricter counter, so they cannot lock the real phone out), and `halo remote signal off` / `/remote` Off | a paired phone that floods the session; a bridge you want gone now | an authenticated owner. There is no content filter anywhere: a paired, signed phone can do everything the keyboard can, including answering a permission card with `3` (always allow) |
 
 Treat a paired phone like your keyboard. Unpair a phone you lose
 (`halo remote signal unpair <id>` on the computer, or `/remote unpair` from
@@ -201,6 +201,14 @@ forgotten PIN can lock the number for up to 7 days). `--voice` asks for a call
 instead, and only works after an SMS was requested for that number. A Signal
 rate limit (`-5`) prints `retryAfterSeconds`; wait that long.
 
+The registration-lock PIN does not go on a command line: `setPin` (and `verify
+--pin`, when your signal-cli offers it over JSON-RPC) is sent through a
+short-lived `signal-cli jsonRpc` child's stdin, so it never shows in `ps`.
+signal-cli 0.14.9 has no JSON-RPC `verify`, so for a number that already has a
+lock `--pin` is passed to `verify` as an argument as a last resort, and the
+command tells you that the PIN is visible to other local accounts for that one
+call. The SMS code itself is single-use and short-lived and stays on argv.
+
 Linked device, step by step:
 
 ```sh
@@ -225,9 +233,17 @@ The JVM build is picked automatically wherever the native one does not exist;
 `setup --jvm` forces it on Linux x86-64. If `java -version` is older than 25,
 setup says so and `halo doctor` keeps warning until it is fixed.
 
-If the archive's `.asc` signature can be checked with `gpg`, setup does so and
-says the result (`verified`, or that the key is not in your keyring, or that
-`gpg` is missing); a signature that gpg reports as BAD stops the install.
+What setup verifies, in this order. (1) The SHA-256 of the downloaded archive
+against the digest pinned in `halo_harness/remote/signal_install.py` for that
+exact asset (the digests GitHub publishes for the 0.14.9 release); a mismatch,
+or an asset with no pinned digest, stops the install and deletes the download
+before anything is unpacked. (2) The unpacking: device, FIFO, link, absolute
+and `..` members are rejected. (3) When `gpg` is installed and the release
+key's fingerprint is pinned (`RELEASE_KEY_FINGERPRINT`, empty until you fill it
+in from a source you trust), the `.asc` must be a good signature made by that
+exact key; a good signature by any other key, or a BAD one, stops the install.
+While the fingerprint is empty gpg is not consulted and the result reads
+`digest-only`. Halo never downloads or imports a key.
 
 **A VM behind a proxy.** signal-cli has no proxy flag; it asks the JVM for the
 proxy that applies to an `https://` URL. Use the JVM build (`setup --jvm`; the
@@ -285,9 +301,10 @@ one-time code typed on the phone. Nobody is answered before it finishes.
    trust that key with exactly that safety number, and shows you a six-digit
    code that is good for ten minutes.
 4. On the phone, send that code as the next message, nothing else. The
-   bridge replies once with `Paired.`, the 32-word signing phrase and a
-   `halo-remote://pair?...` link (see Signing). The phone is now stored in
-   `peers.json` under its ACI.
+   bridge replies once with "Paired. Your signing phrase is on the Halo screen."
+   and nothing else: the 32-word signing phrase and the `halo-remote://pair?...`
+   link (see Signing) are shown only on the computer, never in the chat. The
+   phone is now stored in `peers.json` under its ACI.
 
 Chatter before the code is ignored. Three wrong six-digit codes, or ten
 minutes, drop the request, and a new message starts a new one. In `linked`
@@ -299,7 +316,12 @@ identity. The bridge marks the peer blocked, tells you, and ignores its
 messages until you confirm the new safety number with `reverify`. A peer is
 removed with `unpair` (from the computer, or `/remote unpair` from the
 phone). Each peer may send `remote.rate_per_minute` commands a minute
-(default 30); over that, commands are dropped and the phone is told once.
+(default 30); over that, commands are dropped and the phone is told once. The
+limit counts only commands that passed the signature check; messages that fail
+it (unsigned, bad MAC, stale, replayed) have their own counter of at most 10 a
+minute, after which they are dropped with one notice and not audited line by
+line. Pending contact requests are capped at 32 (the oldest unapproved one is
+dropped for a new one).
 
 ### Pairing walkthrough
 
@@ -318,10 +340,11 @@ With the bridge running (`halo remote signal run`) and `remote.enabled` on:
    safety number, and a six-digit code is shown (large, in the dialog), valid
    for ten minutes (`remote.pair_code_ttl_s`).
 5. **On the phone**, send the code as the next message, nothing else. The
-   bridge replies once with `Paired.`, the 32-word signing phrase and a
-   `halo-remote://pair?...` link. The computer shows the same phrase and link
-   once (the CLI also draws the link as a QR code; the dialog keeps it until
-   you press `w`, "I wrote it down").
+   bridge replies once with "Paired. Your signing phrase is on the Halo screen."
+   The computer shows the 32-word phrase and the `halo-remote://pair?...` link
+   (the CLI also draws the link as a QR code; the dialog keeps it until you
+   press `w`, "I wrote it down"). The chat never carries the secret, so a device
+   someone links to your account later cannot read it from the history.
 6. **Set up the signing app on the phone** with the phrase or link (any
    HMAC-SHA256 tool works; see Signing), and send `/status #1:<mac>` as the
    first command.
@@ -335,9 +358,11 @@ phones as two lists, the pairing code, and the keys along the bottom.
 ### Signing
 
 After pairing, every command carries a signature that only your phone can
-make. The bridge creates a random 256-bit secret per peer and shows it once,
-as a link and as 32 words (one of 256 words per byte; `phrase_to_secret`
-reverses it). A command is the text, a space, and `#<counter>:<mac>`:
+make. The bridge creates a random 256-bit secret per peer and shows it once on
+the computer, as a link and as 32 words (one of 256 words per byte;
+`phrase_to_secret` reverses it and accepts exactly 32 words, and the link
+parser exactly 64 hex characters; anything else is an error, never a short
+key). A command is the text, a space, and `#<counter>:<mac>`:
 
 ```
 /status #1:9ef2aa6c
@@ -358,9 +383,19 @@ reverses it). A command is the text, a space, and `#<counter>:<mac>`:
   `/status` with counter 1 signs as `/status #1:9ef2aa6c`, and
   `run the tests` with counter 7 as `run the tests #7:e3173adf`.
 * `signed: false` on a peer in `peers.json` turns the check off for that
-  peer, leaving the pairing and the Signal encryption in place.
+  peer, leaving the pairing and the Signal encryption in place. It is the only
+  unsigned path: a peer that is `signed: true` (the default) but whose stored
+  secret is missing or not 64 hex characters refuses every command with a
+  "pair it again" notice (and a notice on the computer); it is never checked
+  against an empty key.
 
 ### Chat commands
+
+A permission card on the phone shows the whole command the model wrote (spacing
+and newlines kept; a very long one goes out as its own message or attachment,
+then the choices follow) and labels `3` with the exact rule it will write, for
+example `3 always allow (saves rule: Bash(sudo:*))`, or says that nothing is
+saved when no rule was suggested.
 
 Plain text is a prompt (or a steer while a turn is running). The first
 command attaches the most recently started live session.
@@ -403,7 +438,7 @@ All under `~/.halo/remote/` (directory 0700, files 0600):
 | `registration-pin`, `register.json` | the registration-lock PIN of the dedicated number (0600); the last SMS request (number and time) so `--voice` knows one happened |
 | `signal-cli/dist/<version>/` | the signal-cli build `setup` downloaded (beside signal-cli's own `data/`) |
 | `halo-remote.service`, `dev.halo.remote.plist`, `halo-remote-task.xml` | service-manager files written by `run --daemon` (never enabled by Halo) |
-| `audit.jsonl` | one line per command: time, the first 8 characters of the ACI, `sha256("<aci>\|<counter>\|<text>")` truncated to 16 hex, kind and outcome |
+| `audit.jsonl` | one line per command: time, the first 8 characters of the ACI, `sha256("<aci>\|<counter>\|<text>")` truncated to 16 hex, kind and outcome; rotates at 5 MB into `audit.jsonl.1` (one previous file is kept) |
 
 No message text, reply or attachment is written by the bridge, logged, or
 kept: the audit hash cannot be reversed, `signal-cli` runs with `--scrub-log`
@@ -588,8 +623,11 @@ and the code is written to cope with either answer:
   JVM proxy properties; neither matters until you hit them.
 - *`listAccounts` in 0.14.9* naming your account id, which `link` uses for
   `own_aci`; if it does not, add `"own_aci"` to `signal.json` by hand.
-- *The download itself:* the GPG key for the `.asc` is not shipped with Halo;
-  setup reports `unverified` until you import signal-cli's release key.
+- *The download itself:* the archive is checked against a pinned SHA-256
+  before it is unpacked (see "What setup verifies"). The GPG key for the `.asc`
+  is not shipped with Halo and its fingerprint is not pinned yet, so gpg adds
+  nothing until you fill in `RELEASE_KEY_FINGERPRINT` and import that key
+  yourself.
 
 ## Config keys
 

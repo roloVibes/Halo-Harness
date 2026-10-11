@@ -3,7 +3,8 @@
 # tool) on Linux or macOS and make sure an old pre-2.0 install can never
 # shadow it.
 #
-#   bash install-halo.sh            # clone to ~/Halo-Harness, install, verify
+#   bash install-halo.sh            # clone to ~/Halo-Harness, check out the LATEST TAG, install, verify
+#   bash install-halo.sh --ref v2.0.7   # a specific tag (or a branch / commit); --ref master tracks master
 #   bash install-halo.sh --yes      # no questions (uninstalls an old pre-2.0 tool)
 #   bash install-halo.sh --no-clone # install straight from GitHub, no clone
 #   bash install-halo.sh --dry-run  # print every command this script would
@@ -11,6 +12,11 @@
 #                                    # never actually runs them -- no network,
 #                                    # no filesystem change, never prompts
 #   HALO_CLONE_DIR=~/src/Halo-Harness bash install-halo.sh
+#
+# The default is the newest vX.Y.Z tag of the repository, never a moving branch;
+# the script prints the tag and the commit it installs. With a clone, the
+# dependencies are pinned to requirements.lock (exact versions; the hashes in
+# that file are checked by `uv pip install --require-hashes -r requirements.lock`).
 #
 # Needs: git, curl, Python 3.10+. Installs uv if it is missing.
 set -euo pipefail
@@ -20,20 +26,30 @@ set -euo pipefail
 OLD_TOOL="rolo""-claude"
 
 REPO_URL="https://github.com/roloVibes/Halo-Harness.git"
+UV_INSTALLER_VERSION="0.11.14"   # the uv bootstrap is version-pinned, never "latest"
 CLONE_DIR="${HALO_CLONE_DIR:-$HOME/Halo-Harness}"
 YES=0
 NO_CLONE=0
 DRY_RUN=0
+REF=""
+NEXT_IS_REF=0
 for a in "$@"; do
+  if [ "$NEXT_IS_REF" = 1 ]; then REF="$a"; NEXT_IS_REF=0; continue; fi
   case "$a" in
     --yes|-y) YES=1 ;;
     --no-clone) NO_CLONE=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --dir=*) CLONE_DIR="${a#--dir=}" ;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+    --ref=*) REF="${a#--ref=}" ;;
+    --ref) NEXT_IS_REF=1 ;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
     *) echo "unknown option: $a"; exit 2 ;;
   esac
 done
+
+if [ "$NEXT_IS_REF" = 1 ]; then
+  echo "--ref needs a value (a tag such as v2.0.7, a branch, or a commit)"; exit 2
+fi
 
 say() { printf '\n==> %s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -73,10 +89,10 @@ say "Python: $("$PY" --version)"
 # 2. uv (isolated tool installs; sidesteps PEP 668 on Kali/Debian)
 if ! have uv; then
   if [ "$DRY_RUN" = 1 ]; then
-    say "DRY RUN: uv not found -- would install it: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    say "DRY RUN: uv not found -- would install it: curl -LsSf https://astral.sh/uv/${UV_INSTALLER_VERSION}/install.sh | sh"
   else
     say "uv not found: installing it from https://astral.sh/uv"
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    curl -LsSf https://astral.sh/uv/${UV_INSTALLER_VERSION}/install.sh | sh
     export PATH="$HOME/.local/bin:$PATH"
     have uv || { echo "uv still not on PATH; open a new shell and re-run."; exit 1; }
   fi
@@ -100,23 +116,61 @@ if "$PY" -m pip show "$OLD_TOOL" >/dev/null 2>&1; then
   if confirm "Uninstall it (recommended)?"; then run "$PY" -m pip uninstall -y "$OLD_TOOL"; fi
 fi
 
+# 3b. Which version: --ref, else the newest vX.Y.Z tag -- never a moving branch.
+#     Prints the tag and the commit that gets installed.
+REF_SHA=""
+RAW_URL="https://raw.githubusercontent.com/roloVibes/Halo-Harness"
+resolve_ref() {
+  local tags out
+  if [ "$DRY_RUN" = 1 ]; then
+    if [ -z "$REF" ]; then
+      printf 'DRY RUN: git ls-remote --tags %s   (the newest vX.Y.Z tag becomes the install ref)\n' "$REPO_URL"
+      REF="<latest-tag>"
+    else
+      printf 'DRY RUN: would install ref %s (git ls-remote %s resolves its commit)\n' "$REF" "$REPO_URL"
+    fi
+    return 0
+  fi
+  if [ -z "$REF" ]; then
+    tags="$(git ls-remote --tags "$REPO_URL")" || { echo "Could not list the tags of $REPO_URL (network?). Re-run with --ref <tag>."; exit 1; }
+    REF="$(printf '%s\n' "$tags" | sed -n 's#^[0-9a-f]*[[:space:]]refs/tags/\(v[0-9][0-9.]*\)$#\1#p' | sort -V | tail -n1)"
+    [ -n "$REF" ] || { echo "No vX.Y.Z tag found at $REPO_URL. Re-run with --ref <ref>."; exit 1; }
+  fi
+  if printf '%s' "$REF" | grep -Eq '^[0-9a-f]{40}$'; then
+    REF_SHA="$REF"
+  else
+    out="$(git ls-remote "$REPO_URL" "refs/tags/$REF" "refs/tags/$REF^{}" "refs/heads/$REF" 2>/dev/null || true)"
+    REF_SHA="$(printf '%s\n' "$out" | { grep -F '^{}' || cat; } | awk 'NR==1{print $1}')"
+  fi
+  say "Installing ${REF} (commit ${REF_SHA:-resolved after checkout})"
+}
+resolve_ref
+
 # 4. Install halo (2.0.1+ ships exactly one executable: halo)
 if [ "$NO_CLONE" = 1 ]; then
-  say "Installing halo straight from GitHub"
-  run uv tool install --reinstall "git+${REPO_URL%.git}"
+  say "Installing halo straight from GitHub at $REF"
+  run uv tool install --reinstall --constraints "${RAW_URL}/${REF}/requirements.lock" "git+${REPO_URL%.git}@${REF}"
 else
   if [ -d "$CLONE_DIR/.git" ]; then
     say "Updating the clone at $CLONE_DIR"
-    if [ "$DRY_RUN" = 1 ]; then printf 'DRY RUN: git -C %s pull --ff-only\n' "$CLONE_DIR"
-    else git -C "$CLONE_DIR" pull --ff-only; fi
+    if [ "$DRY_RUN" = 1 ]; then printf 'DRY RUN: git -C %s fetch --tags --force origin\n' "$CLONE_DIR"
+    else git -C "$CLONE_DIR" fetch --tags --force origin; fi
   else
     say "Cloning to $CLONE_DIR"
     if [ "$DRY_RUN" = 1 ]; then printf 'DRY RUN: git clone %s %s\n' "$REPO_URL" "$CLONE_DIR"
     else git clone "$REPO_URL" "$CLONE_DIR"; fi
   fi
-  say "Installing halo from the clone"
-  if [ "$DRY_RUN" = 1 ]; then printf 'DRY RUN: (cd %s && uv tool install --reinstall .)\n' "$CLONE_DIR"
-  else (cd "$CLONE_DIR" && uv tool install --reinstall .); fi
+  if [ "$DRY_RUN" = 1 ]; then
+    printf 'DRY RUN: git -C %s checkout --detach %s\n' "$CLONE_DIR" "$REF"
+  else
+    target="$REF"
+    git -C "$CLONE_DIR" rev-parse --verify -q "refs/remotes/origin/$REF^{commit}" >/dev/null 2>&1 && target="origin/$REF"
+    git -C "$CLONE_DIR" checkout --detach "$target"
+    say "Checked out $REF at commit $(git -C "$CLONE_DIR" rev-parse HEAD)"
+  fi
+  say "Installing halo from the clone (dependencies pinned by requirements.lock)"
+  if [ "$DRY_RUN" = 1 ]; then printf 'DRY RUN: (cd %s && uv tool install --reinstall --constraints requirements.lock .)\n' "$CLONE_DIR"
+  else (cd "$CLONE_DIR" && uv tool install --reinstall --constraints requirements.lock .); fi
 fi
 
 # 5. PATH for the uv tools directory
@@ -148,7 +202,7 @@ say "Done. Next:"
 echo "  cd ~ && halo init      # pick a provider (Databricks at work, OpenRouter at home), then a live pong"
 echo "  halo                   # the TUI, from any directory"
 if [ "$NO_CLONE" = 0 ]; then
-  echo "Updates later:  cd $CLONE_DIR && git pull && uv tool install --reinstall ."
+  echo "Updates later:  re-run this installer (it installs the newest tag), or: bash install-halo.sh --ref <tag>"
 else
-  echo "Updates later:  uv tool install --reinstall git+${REPO_URL%.git}"
+  echo "Updates later:  re-run this installer, or: uv tool install --reinstall git+${REPO_URL%.git}@<tag>"
 fi

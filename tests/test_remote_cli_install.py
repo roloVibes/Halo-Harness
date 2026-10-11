@@ -63,7 +63,13 @@ def test_install_helpers_never_leave_the_directory_and_honour_offline(ctx: Ctx):
             err = str(e)
         ctx.check("network.offline blocks the download before any socket", "offline" in err.lower())
         st, _ = inst.verify_signature(Path("a"), None)
-        ctx.check("no .asc -> no-signature", st == "no-signature")
+        ctx.check("no pinned release key -> gpg is not consulted (digest-only)", st == "digest-only")
+        inst.RELEASE_KEY_FINGERPRINT = "A" * 40
+        try:
+            st, _ = inst.verify_signature(Path("a"), None)
+        finally:
+            inst.RELEASE_KEY_FINGERPRINT = ""
+        ctx.check("a pinned key and no .asc -> no-signature", st == "no-signature")
 
 
 @test

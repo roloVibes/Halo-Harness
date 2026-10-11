@@ -23,6 +23,8 @@ class Env:
     def __init__(self, mode: str = "ok") -> None:
         keys = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR") + FAKE_VARS
         self._saved = {k: os.environ.get(k) for k in keys}
+        from halo_harness.remote import signal_install
+        self._sha = dict(signal_install.SHA256)  # make_archive() pins its stand-in archive; restored on exit
         os.environ.pop("BRIDGE_STATE_DIR", None)
         os.environ.pop("HALO_OFFLINE", None)
         self.home = tempfile.mkdtemp(prefix="cli-home-")
@@ -35,6 +37,9 @@ class Env:
         return self
 
     def __exit__(self, *exc) -> bool:
+        from halo_harness.remote import signal_install
+        signal_install.SHA256.clear()
+        signal_install.SHA256.update(self._sha)
         for k, v in self._saved.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -78,3 +83,8 @@ def make_archive(dest: Path, native: bool = False) -> None:
         f.write_bytes(body.encode("ascii"))
         with tarfile.open(dest, "w:gz") as tar:
             tar.add(f, arcname=name if native and not bat else f"signal-cli-0.14.9/bin/{name}")
+    import hashlib
+    from halo_harness.remote import signal_install
+    digest = hashlib.sha256(Path(dest).read_bytes()).hexdigest()
+    for asset in list(signal_install.SHA256):  # the stand-in is "the pinned archive" for these tests
+        signal_install.SHA256[asset] = digest

@@ -141,7 +141,7 @@ def test_register_captcha_rate_limit_voice_and_verify(ctx: Ctx):
         pin_file = remote_dir() / "registration-pin"
         pin = pin_file.read_text(encoding="utf-8").strip()
         ctx.check("a registration-lock PIN (8 digits) was set and stored", len(pin) == 8 and pin.isdigit()
-                  and any("setPin" in c for c in env.calls()))
+                  and any(isinstance(c, dict) and c.get("rpc") == "setPin" for c in env.calls()))
         ctx.check("the PIN is never printed", pin not in out + err)
         if os.name != "nt":
             ctx.check("the PIN file is 0600", (pin_file.stat().st_mode & 0o777) == 0o600)

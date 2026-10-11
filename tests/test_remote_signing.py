@@ -34,7 +34,7 @@ def test_phrase_round_trip(ctx: Ctx):
         ctx.check(f"phrase of {secret[:2].hex()}.. is 32 words", len(phrase.split()) == 32)
         ctx.check(f"phrase round-trips {secret[:2].hex()}..", signing.phrase_to_secret(phrase) == secret)
     ctx.check("phrase parsing ignores case and spacing",
-              signing.phrase_to_secret("  ACORN   alarm ") == bytes([0, 1]))
+              signing.phrase_to_secret("  " + signing.secret_to_phrase(VEC_SECRET).upper().replace(" ", "   ") + " ") == VEC_SECRET)
     try:
         signing.phrase_to_secret("acorn notaword")
         ctx.check("an unknown word is a ValueError", False)
