@@ -62,6 +62,18 @@ version.
   Three animated front-page captures (`level-mario`, `level-metroid-norfair`,
   `level-doom`) join `tools/captures.json`.
 
+- **The README reads like a product page** (round A4): a one-line pitch under
+  the hero, real release and CI badges, a contents row, "What Halo is" with the
+  three kinds of people it is built for, a GitHub warning callout that says
+  plainly that the subscription routes may violate the provider's terms and
+  are off until accepted, the stories with every screenshot linking to its
+  full-size PNG, "The levels" with the three animated captures, the comparison
+  table with agents and review rows, the features table led by routes and
+  config reuse, a documentation table that includes SECURITY.md, and a
+  contributing section. The GitHub description is one line and the topics
+  name the models and the protocols; `docs/media/social-preview.png` (from
+  `tools/hero_svg.py --social`) is the image for Settings -> Social preview.
+
 ## [2.0.10] - 2026-10-11
 
 ### Front page: real captures, diagrams, the stories
