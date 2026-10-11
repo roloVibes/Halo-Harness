@@ -242,6 +242,10 @@ directly by the features that own them:
 | `clipboard.crlf` | `false` | hand-edited; `true` makes a copy use `\r\n` line endings instead of `\n` |
 | `worktree.remove_on_exit` | `false` | `halo config set worktree.remove_on_exit true`; a `-w/--worktree` session removes its OWN worktree (fires `WorktreeRemoved`) when it ends instead of leaving it on disk |
 | `remote.enabled` | `false` | `halo config set remote.enabled true`; every session started afterwards (the TUI and `halo -p`, `--bg` included) opens a local control socket and lists itself in `~/.halo/run/sessions.json`, so a script or the Signal bridge can drive it (see [REMOTE.md](REMOTE.md)); `/remote` shows whether this session's socket is on |
+| `remote.rate_per_minute` | `30` | the Signal bridge: commands per minute per paired phone; over it commands are dropped and the phone is told once (see [REMOTE.md](REMOTE.md), "How pairing works") |
+| `remote.verbosity` | `loud` | the Signal bridge: `loud` relays the session's text as well as cards and errors, `quiet` only cards, errors and the closing line; `/quiet` and `/loud` change it per phone |
+| `remote.stale_window_s` | `300` | the Signal bridge: a signed command whose message timestamp is further than this many seconds from the computer's clock is refused (see "Signing") |
+| `remote.pair_code_ttl_s` | `600` | the Signal bridge: seconds the one-time pairing code stays valid |
 | `update.check` | `true` | `halo config set update.check false` turns off `halo update`/`/update`'s own check entirely (never shells out, never touches the network) |
 | `update.notify` | `true` | `halo config set update.notify false` turns off just the once-a-day "update available" startup note (the check itself, and `/update`'s own dialog, still work) |
 | `update.channel` | unset (derived from the install: `stable` when pinned to a `v*` tag, else `main`) | `halo update --channel stable\|main` |
