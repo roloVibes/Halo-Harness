@@ -9,7 +9,7 @@
     halo design restore <slug> <artboard> <version>
     halo design export <slug> --as html|pdf|png|svg|folder [--out DIR]
     halo design handoff <slug> [--out DIR]       the bundle a Halo or Claude Code session continues from
-    halo design doctor                           which craft apps are registered
+    halo design doctor [--probe]                 which craft apps are registered (and answer)
 """
 
 from __future__ import annotations
@@ -133,12 +133,19 @@ def cmd_handoff(args) -> int:
 
 
 def cmd_doctor(args) -> int:
-    from halo_harness.design.crafts import APPS, registered_craft_servers
-    present = registered_craft_servers()
+    from halo_harness.design.crafts import APPS
+    from halo_harness.design.crafts_probe import craft_server_configs, probe_crafts, probe_lines
+    configs = craft_server_configs()
     for app, spec in APPS.items():
-        print(f"  {app:<12} {'registered' if app in present else 'not registered':<15} {spec['for'][:70]}")
-    print(f"{len(present)} of {len(APPS)} craft apps registered; a design turn allows every present one as tools")
-    return 0
+        print(f"  {app:<12} {'registered' if app in configs else 'not registered':<15} {spec['for'][:70]}")
+    print(f"{len(configs)} of {len(APPS)} craft apps registered; a design turn allows every present one as tools")
+    if not args.probe:
+        print("add --probe to spawn each one and check its tools and render step")
+        return 0
+    rows = probe_crafts(configs)
+    print("\n".join(probe_lines(rows)) if rows else "  nothing to probe")
+    bad = [r for r in rows if r["state"] != "connected" or not r["render_present"]]
+    return 1 if bad else 0
 
 
 def cmd_design(argv: list) -> int:
@@ -153,7 +160,7 @@ def cmd_design(argv: list) -> int:
     p = sub.add_parser("restore", help="restore an artboard version"); p.add_argument("slug"); p.add_argument("artboard"); p.add_argument("version"); p.set_defaults(fn=cmd_restore)
     p = sub.add_parser("export", help="export artboards"); p.add_argument("slug"); p.add_argument("--as", dest="as_", default="folder", choices=["html", "pdf", "png", "svg", "folder"]); p.add_argument("--out"); p.add_argument("--artboard"); p.set_defaults(fn=cmd_export)
     p = sub.add_parser("handoff", help="the bundle a Halo or Claude Code session continues from"); p.add_argument("slug"); p.add_argument("--out"); p.set_defaults(fn=cmd_handoff)
-    sub.add_parser("doctor", help="which craft apps are registered").set_defaults(fn=cmd_doctor)
+    p = sub.add_parser("doctor", help="which craft apps are registered"); p.add_argument("--probe", action="store_true", help="spawn each app's server and check its tools"); p.set_defaults(fn=cmd_doctor)
     args = parser.parse_args(argv)
     if not args.cmd:
         parser.print_help()

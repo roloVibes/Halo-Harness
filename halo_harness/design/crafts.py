@@ -97,25 +97,8 @@ def guide_lines(registered=None) -> list:
     return out
 
 
-def registered_craft_servers() -> set:
-    """The craft apps whose MCP server is registered for this user (the
-    same user-scope config every Halo session loads)."""
-    found = set()
-    try:
-        from halo_harness.mcp.config import discover_servers  # type: ignore
-        for name in discover_servers().keys():  # pragma: no cover - depends on the local config
-            if name.lower() in APPS:
-                found.add(name.lower())
-        return found
-    except Exception:
-        pass
-    try:
-        import json
-        from pathlib import Path
-        cfg = json.loads((Path.home() / ".claude.json").read_text(encoding="utf-8"))
-        for name in (cfg.get("mcpServers") or {}):
-            if name.lower() in APPS:
-                found.add(name.lower())
-    except Exception:
-        pass
-    return found
+def registered_craft_servers(claude_json=None, cwd=None) -> set:
+    """The craft apps whose MCP server is registered for this user or
+    project (the same config every Halo session loads)."""
+    from halo_harness.design.crafts_probe import registered_craft_servers as _reg
+    return _reg(claude_json, cwd)

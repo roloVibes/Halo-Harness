@@ -1,6 +1,6 @@
 # Brief D3: Studio Design mode (Halo 3.0.1.0)
 
-Worktree: `C:\Users\rolo\Halo-D` (branch `track-d`). You draft; the owner's lead verifies,
+Worktree: the Halo-D worktree (branch `track-d`; the lead tells you its path). You draft; the owner's lead verifies,
 runs the battery and commits. Do NOT commit, do NOT push, do NOT touch `~/.claude.json`,
 `~/.claude/settings.json` or anything under `~/.halo` of the real user.
 
@@ -8,9 +8,9 @@ runs the battery and commits. Do NOT commit, do NOT push, do NOT touch `~/.claud
 
 - Every file you write stays under 250 lines. Split instead of growing.
 - Tests run as `python -m tests.test_X` from the repo root (never pytest) with
-  `PYTHONPATH=C:/Users/rolo/Halo-D BRIDGE_TEST_HOME=<a fresh scratch dir>
+  `PYTHONPATH=<worktree> BRIDGE_TEST_HOME=<a fresh scratch dir>
   BRIDGE_TEST_NO_BACKGROUND_NET=1 PYTHONIOENCODING=utf-8`. Scratch dirs go under
-  `C:\Users\rolo\AppData\Local\Temp\claude\C--Users-rolo\475585f4-0b6d-4b08-a371-1b8d5350c499\scratchpad\`.
+  `<scratchpad>\`.
 - No safety / refusal / "for your protection" wording anywhere. No new runtime Python deps.
   No CDN, no fetched fonts in the page (CSP is `default-src 'self'`).
 - Bash heredocs mangle backslashes on this host: write files with the Write tool.
