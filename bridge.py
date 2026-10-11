@@ -547,7 +547,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             })
             return
         token = self.check_auth()
-        if token != SERVER_TOKEN:
+        if not _token_ok(token):
             self.send_json(401, {"error": {"type": "authentication_error", "message": "invalid or missing token"}})
             return
         if path == "/v1/models":
@@ -567,7 +567,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         body_data = self._read_full_body()
 
         token = self.check_auth()
-        if token != SERVER_TOKEN:
+        if not _token_ok(token):
             self.send_json(401, {"error": {"type": "authentication_error",
                                            "message": "invalid or missing token"}})
             return
@@ -599,6 +599,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
 SERVER_STATE_DIR = None
 SERVER_PORT = None
 SERVER_TOKEN = None
+
+
+def _token_ok(presented) -> bool:
+    """Constant-time check of the proxy token (2.0.10 round 3, finding 20)."""
+    import hmac
+    if SERVER_TOKEN is None or presented is None:
+        return presented is None and SERVER_TOKEN is None  # same as the old `!=` when no token is set
+    return hmac.compare_digest(str(presented).encode("utf-8"), str(SERVER_TOKEN).encode("utf-8"))
 SERVER_CFG = None
 SERVER_OPENROUTER = None
 SERVER_MOCK_BASE_URL = None

@@ -81,7 +81,10 @@ that isn't one of those four, or that merely *looks* like a credential
 its own name), is dropped with a loud warning rather than silently
 accepted -- team.json is meant to be committed/shared, so this is a hard
 guard against someone accidentally checking in a real token. See
-`team.example.json` for the shape.
+`team.example.json` for the shape. The `host` must be an `https://` URL; when
+it comes from the project's own `.halo/team.json`, `halo init` and the wizard
+name that file and ask you to retype the host before a token is stored for it
+(a `~/.halo/team.json` or `--team` host is used as before).
 
 ```json
 {

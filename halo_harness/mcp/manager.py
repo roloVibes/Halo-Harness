@@ -299,6 +299,13 @@ def parse_server(name: str, raw, *, scope: str, source_path: Optional[str] = Non
     (malformed config) is the only case that returns None."""
     if not isinstance(raw, dict):
         return None
+    if "__" in sanitize_name(name):
+        # finding 9: `__` is the separator in `mcp__<server>__<tool>`; a
+        # server `github__evil` would register tools under `mcp__github__...`
+        # and be matched by a rule written for the server `github`.
+        return McpServerConfig(name=name, type="invalid", scope=scope, source_path=source_path,
+                                disabled_reason="server names cannot contain `__` (it separates server "
+                                                "and tool in `mcp__<server>__<tool>`) -- rename it")
     stype = raw.get("type")
     command = raw.get("command")
     url = raw.get("url")
@@ -479,6 +486,7 @@ def resolve_server_configs(
     approvals: Optional[dict] = None, managed_mcp_path: Optional[Path] = None,
     env_for_expansion: Optional[dict] = None, extra_dynamic: Optional[dict] = None,
     settings: Optional[object] = None, plugin_servers: Optional[dict] = None,
+    trusted: bool = True,
 ) -> "tuple[dict[str, McpServerConfig], list[str]]":
     """(name -> McpServerConfig, notices). First-name-wins across tiers, in
     THIS order [D-CFG, finding 14]: `managed-mcp.json` present -> EXCLUSIVE
@@ -578,7 +586,10 @@ def resolve_server_configs(
                 cfg = parse_server(name, raw, scope="project", source_path=str(mcp_json_path))
                 if cfg is None:
                     continue
-                approved = (name in enabled) or enable_all or print_mode \
+                # finding 6: `-p` auto-approves a repo's `.mcp.json` servers
+                # only in a trusted folder; an untrusted one needs an
+                # explicit approval (user-scope enabled list or the hash).
+                approved = (name in enabled) or enable_all or (print_mode and trusted) \
                     or bool(our_approvals.get(mcp_approval_key(raw)))
                 if not approved:
                     cfg.pending_approval = True

@@ -59,6 +59,13 @@ def status_label(entry: dict) -> str:
     return _STATUS_LABELS.get(entry.get("state"), "✗ Connection error")
 
 
+def _shown_url(url) -> str:
+    """finding 19: the expanded url of a remote server can carry a token
+    (`?token=${PAT}`); lists show scheme://host:port/path only."""
+    from halo_harness.mcp.doctor_probe import mask_url
+    return mask_url(url)
+
+
 def format_mcp_list_line(entry: dict) -> str:
     """`${name}: ${url} (SSE|HTTP) - ${status}` or `${name}: ${command}
     ${args} - ${status}` (binary-facts sec.9, verbatim); W4b connectors
@@ -77,7 +84,7 @@ def format_mcp_list_line(entry: dict) -> str:
         where = entry.get("host") or entry.get("url") or "?"
         return f"claude.ai connector (via claude) {who}: {where} - {label}"
     if entry.get("type") in ("http", "sse"):
-        url = entry.get("url") or "?"
+        url = _shown_url(entry.get("url"))
         kind = "SSE" if entry.get("type") == "sse" else "HTTP"
         line = f"{name}: {url} ({kind}) - {label}"
     else:
@@ -446,7 +453,7 @@ def _cmd_get(rest: list) -> int:
             print(f"  Command: {entry.get('command')}")
             print(f"  Args: {' '.join(str(a) for a in (entry.get('args') or []))}")
         else:
-            print(f"  URL: {entry.get('url')}")
+            print(f"  URL: {_shown_url(entry.get('url'))}")
         if entry.get("instructions"):
             print(f"  Instructions: {entry['instructions']}")
         if entry.get("error"):

@@ -61,6 +61,25 @@ def write_private_atomic(path: Path, data: str) -> None:
         raise
 
 
+def write_atomic_keep_mode(path: Path, data: str, *, new_file_mode: int = 0o644) -> None:
+    """`write_private_atomic`'s sibling for a file that is NOT always secret
+    (a `settings.json` whose `env` block may hold tokens): the temp file is
+    private while it is written, and the target lands with the mode the old
+    file had (`new_file_mode` when there was none) -- a 0600 file never
+    comes back 0644, and a shared project file never comes back 0600."""
+    path = Path(path)
+    try:
+        mode = os.stat(path).st_mode & 0o777
+    except OSError:
+        mode = new_file_mode
+    write_private_atomic(path, data)
+    if os.name != "nt":
+        try:
+            os.chmod(path, mode)
+        except OSError:
+            pass
+
+
 def ensure_private_dir(path: Path) -> None:
     """chmod 0700 a directory this harness OWNS (the proxy state dir, the
     canonical `~/.config/halo`). Callers must pass a path they own --

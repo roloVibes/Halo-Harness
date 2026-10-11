@@ -101,6 +101,8 @@ repo, run `halo` or `halo -p` in it. Fix: add both keys to the trust gate,
 approve in `-p` only from user/managed scope or a hash-keyed approval, and
 ask once in the TUI. (print-mode half confirmed by halo review) 
 
+Fixed in round 3: `enableAllProjectMcpServers`/`enabledMcpjsonServers` are trust-gated and `-p` approves `.mcp.json` servers only in a trusted folder (`test_f6_*`).
+
 **7. A project `statusLine.command` runs in an untrusted folder** (high)
 `config/settings.py:171`, `tui/app.py:602,1160-1175`, `statusline.py:60`.
 `statusLine` is not in the trust gate and the TUI runs it on the first
@@ -112,6 +114,8 @@ Scenario: open any cloned repo in the TUI. The same layer may also set
 `.git/hooks/post-checkout` need no prompt. (statusLine half confirmed by halo
 review) Fix: add `statusLine` (and any
 other key that names a command) to `_TRUST_GATED_TOP_KEYS`.
+
+Fixed in round 3: `statusLine` and the other command-naming keys (`apiKeyHelper`, `awsAuthRefresh`, `awsCredentialExport`, `gcpAuthRefresh`, `otelHeadersHelper`) are trust-gated (`test_f7_*`). `permissions.defaultMode` in an untrusted layer is unchanged (not in this finding's fix).
 
 **8. OAuth endpoints from server metadata reach `webbrowser.open` and the token POST unchecked** (high)
 `mcp/oauth.py:104-116,214-220,259,292`. `authorization_endpoint` and
@@ -128,6 +132,8 @@ Scenario: add a remote MCP server, run `halo mcp login`; its metadata says
 `https` (or loopback `http`) for both endpoints, pin the token endpoint in
 the stored token file at login and use that one for refresh.
 
+Fixed in round 3: endpoints must be https or loopback http, and the token endpoint is pinned at login and used for refresh (`test_f8_*`).
+
 **9. Server names containing `__` collide in the `mcp__<server>__<tool>` namespace** (medium)
 `mcp/manager.py:197-212`, `permissions.py:1163,2084`. The name is split at
 the first `__`, so server `github__evil` with tool `x` is
@@ -140,6 +146,8 @@ offers `Bash(docker *:*)` for the call `docker * --privileged`. (the `__` alias
 confirmed by halo review) Fix: reject or rename server names containing `__`; build rules from the
 registered (server, tool) pair, not by splitting the wire name.
 
+Fixed in round 3: server names with `__` become disabled placeholders; `suggest_rule` keeps the whole tool name and escapes `*` (`test_f9_*`).
+
 **10. A project `.halo/team.json` chooses the Databricks host `halo init` stores a token for** (medium)
 `team_config.py:34`, `init_cli.py:283-304`, `init_providers.py:372`,
 `tui/dialogs/init_wizard.py:413`. With Databricks unconfigured the wizard
@@ -149,6 +157,8 @@ is needed", prompts for the token, writes `DATABRICKS_HOST` and
 host. No scheme check, no domain check, and the source (a file inside the
 cloned repo) is not named. Fix: name the source path, require `https`, and
 ask the user to retype or confirm the host when it came from a project file.
+
+Fixed in round 3: https only; a host from a project file is named and retyped before a token is stored, in `halo init` and the wizard (`test_f10_*`).
 
 ## C. Permission engine -- `permissions.py` (correctness of the user's rules)
 
@@ -258,6 +268,8 @@ Scenario: any `log.warning` that formats a header dict or an upstream error
 body writes the key into a file that is world-readable (finding 24). Fix:
 make `RedactingFormatter.format` call `redact.sanitize_text`.
 
+Fixed in round 3: leaf-first redaction in `sanitize_node`, any-scheme URL credentials, backslash/numeric/PIN values, escaped known values, header dicts, and `RedactingFormatter` uses `sanitize_text` (`test_f17_*`).
+
 **18. HTTP redirects carry credentials to the new host** (medium)
 `providers/http.py:325-373` (`_OfflineAwareRedirectHandler`, used by
 `urlopen_tls`). The handler only adds the offline check; urllib keeps every
@@ -271,6 +283,8 @@ The same handler also follows an https-to-http downgrade. (confirmed by halo
 review) Fix: override `redirect_request` to drop `Authorization`, `x-api-key` and
 user-supplied headers when scheme or host change.
 
+Fixed in round 3: a redirect that changes scheme, host or port keeps only plain transport headers (`test_f18_*`).
+
 **19. Two child-process paths skip the secret-stripping environment** (low)
 (a) `remote/signal_link.py:159` and `remote/cli_common.py:103` start signal-cli
 (a downloaded third-party binary) with the full environment, the provider
@@ -282,6 +296,8 @@ stated intent of `tool_child_env`; `mcp list` prints the expanded `url` of a
 `?token=${PAT}` entry unmasked (confirmed by halo review). Fix: pass `tool_child_env(os.environ)` to
 signal-cli; expand from the stripped dict.
 
+Fixed in round 3: signal-cli and `${VAR}` expansion use `tool_child_env`; `mcp list`/`get` show the url without its query (`test_f19_*`).
+
 **20. Secret files are written then chmod'd, or rewritten without their mode** (low)
 `providers/config.py:1147-1155` (`ensure_token`: proxy token via `write_text`
 then `chmod`; `bridge.py:550,570` compares `token != SERVER_TOKEN`, not
@@ -291,6 +307,8 @@ constant-time), `mcp/oauth.py:73-79`, `theme.py:180-195`,
 `~/.claude/settings.json` (whose `env` block can hold tokens) through a fresh
 temp file, so a 0600 file lands 0644. (the oauth temp file confirmed by halo review) Fix: `privateio.write_private_atomic`
 plus copy the old mode; `hmac.compare_digest` for the proxy token.
+
+Fixed in round 3: `write_private_atomic` for the proxy token, OAuth tokens, `config.json` and the env import; `add_allow_rule` keeps the file mode; `hmac.compare_digest` for the proxy token (`test_f20_*`).
 
 ## E. Subprocesses and shells
 

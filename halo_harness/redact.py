@@ -53,7 +53,9 @@ _SECRET_ENV_NAMES = (
 # positive is the safe failure mode for a "best-effort, share this
 # transcript safely" tool.
 _GENERIC_SECRET_NAME = r"[A-Z0-9_]*(?:API_KEY|APIKEY|TOKEN|SECRET|PASSWORD|PASSWD)[A-Z0-9_]*"
-_NAME_ALT = "|".join(re.escape(n) for n in _SECRET_ENV_NAMES) + "|" + _GENERIC_SECRET_NAME
+# 2.0.10 round 3 (finding 17): a PIN / *_PIN / PIN_* name too (`PIN=123456`).
+_PIN_NAME = r"(?:[A-Z0-9_]*_)?PIN(?:_[A-Z0-9_]*)?"
+_NAME_ALT = "|".join(re.escape(n) for n in _SECRET_ENV_NAMES) + "|" + _GENERIC_SECRET_NAME + "|" + _PIN_NAME
 # A literal `"`/`'` OR a JSON-escaped `\"` (one optional backslash then a
 # quote) -- matches a value's opening/closing quote whether this text is
 # raw (a live transcript, a Read of a real file), already JSON-string-
@@ -73,9 +75,14 @@ _Q = r'\\?[\'"]'
 # (rather than part of the secret itself) would corrupt that syntax;
 # preserving each one exactly as matched -- while replacing only what was
 # BETWEEN them -- can't.
+# 2.0.10 round 3 (finding 17): `lead_q`/`mid_q` accept a JSON-escaped quote
+# too (`\"NAME\": \"v\"`, the shape a pair has once its node was JSON-dumped),
+# and a value may contain a backslash (a backslash plus any non-space,
+# non-quote char is consumed as one unit, so a trailing `\"` delimiter is
+# never eaten and the match stays linear).
 _ENV_ASSIGN_RE = re.compile(
-    r'(?P<lead_q>[\'"])?\b(?P<name>' + _NAME_ALT + r')(?P<mid_q>[\'"])?\s*(?P<sep>[:=])\s*'
-    r'(?P<open_q>' + _Q + r')?(?P<value>[^\s"\'\\]+)(?P<close_q>' + _Q + r')?',
+    r'(?P<lead_q>\\?[\'"])?\b(?P<name>' + _NAME_ALT + r')(?P<mid_q>\\?[\'"])?\s*(?P<sep>[:=])\s*'
+    r'(?P<open_q>' + _Q + r')?(?P<value>(?:[^\s"\'\\]|\\[^\s"\'])+)(?P<close_q>' + _Q + r')?',
     re.IGNORECASE,  # `"api_key": "..."`/`token=...` must redact regardless
                      # of case -- the shape (name immediately followed by
                      # `:`/`=` then a value) is what makes this safe from
@@ -98,13 +105,13 @@ _ENV_ASSIGN_RE = re.compile(
 # apostrophe inside a double-quoted value (the common prose case) stays
 # intact: `[^"\\]` does not exclude `'`.
 _ENV_ASSIGN_QUOTED_DQ_RE = re.compile(
-    r'(?P<lead_q>[\'"])?\b(?P<name>' + _NAME_ALT + r')(?P<mid_q>[\'"])?\s*(?P<sep>[:=])\s*'
-    r'(?P<open_q>\\?")(?P<value>[^"\\]*)(?P<close_q>\\?")',
+    r'(?P<lead_q>\\?[\'"])?\b(?P<name>' + _NAME_ALT + r')(?P<mid_q>\\?[\'"])?\s*(?P<sep>[:=])\s*'
+    r'(?P<open_q>\\?")(?P<value>(?:[^"\\]|\\[^"])*)(?P<close_q>\\?")',
     re.IGNORECASE,
 )
 _ENV_ASSIGN_QUOTED_SQ_RE = re.compile(
-    r'(?P<lead_q>[\'"])?\b(?P<name>' + _NAME_ALT + r')(?P<mid_q>[\'"])?\s*(?P<sep>[:=])\s*'
-    r"(?P<open_q>\\?')(?P<value>[^'\\]*)(?P<close_q>\\?')",
+    r'(?P<lead_q>\\?[\'"])?\b(?P<name>' + _NAME_ALT + r')(?P<mid_q>\\?[\'"])?\s*(?P<sep>[:=])\s*'
+    r"(?P<open_q>\\?')(?P<value>(?:[^'\\]|\\[^'])*)(?P<close_q>\\?')",
     re.IGNORECASE,
 )
 # A bare JSON number / true / false / null is never a secret, and
@@ -122,10 +129,35 @@ def _redact_env_assign(m: "re.Match") -> str:
     # happily consumes it (`"input_tokens": 12,` -> value `12,`, and the
     # LAST field in a JSON object -> value `4096}`), which would otherwise
     # defeat the numeric guard below.
-    if _NOT_A_SECRET_VALUE_RE.match((m.group('value') or '').rstrip(',;)}]')):
-        return m.group(0)  # a count/bool/null -- redacting it breaks JSON for nothing
+    raw_value = (m.group('value') or '').rstrip(',;)}]')
+    if raw_value.startswith('<redacted>'):
+        return m.group(0)  # already redacted (a second pass over the same text)
+    tail = (m.group('value') or '')[len(raw_value):] if not m.group('close_q') else ''
+    open_q, close_q = m.group('open_q') or '', m.group('close_q') or ''
+    if _NOT_A_SECRET_VALUE_RE.match(raw_value):
+        # a count/bool/null -- redacting it breaks JSON for nothing. Except a
+        # number under a name that is a secret by itself (`PIN=123456`,
+        # `"api_key": 123456`): that one goes, and a bare JSON number is
+        # replaced by a quoted placeholder so the JSON stays valid.
+        if raw_value.lower() in ('true', 'false', 'null') or not _is_strong_secret_name(m.group('name')):
+            return m.group(0)
+        if not open_q and m.group('sep') == ':' and m.group('mid_q'):
+            open_q = close_q = m.group('mid_q')
+    # structural punctuation the unquoted value class swallowed (`12,` / `4096}`)
+    # goes back after the placeholder, so a bare JSON number that was replaced
+    # keeps its separator and the JSON stays valid.
     return (f"{m.group('lead_q') or ''}{m.group('name')}{m.group('mid_q') or ''}{m.group('sep')}"
-            f"{m.group('open_q') or ''}<redacted>{m.group('close_q') or ''}")
+            f"{open_q}<redacted>{close_q}{tail}")
+
+
+_STRONG_NAME_RE = re.compile(r'API_?KEY|SECRET|PASSWORD|PASSWD|(?:^|_)PIN(?:_|$)', re.IGNORECASE)
+_EXPLICIT_NAMES_UPPER = frozenset(n.upper() for n in _SECRET_ENV_NAMES)
+
+
+def _is_strong_secret_name(name: str) -> bool:
+    """A name whose NUMERIC value is still a secret (a PIN, a password, an
+    API key), as opposed to a `*_tokens` count (`input_tokens: 12`)."""
+    return name.upper() in _EXPLICIT_NAMES_UPPER or bool(_STRONG_NAME_RE.search(name))
 
 
 _TOKEN_PATTERNS = (
@@ -167,13 +199,13 @@ _BEARER_RE = re.compile(r"(Bearer\s+)([A-Za-z0-9\-_.]{16,})", re.IGNORECASE)
 # only scheme covered, and `X-Api-Key: value` / `x-api-key: value` had no
 # pattern at all.
 _AUTH_HEADER_RE = re.compile(
-    r'(?i)\b((?:authorization|x-api-key|api-key)\s*:\s*)'
+    r'(?i)\b((?:authorization|x-api-key|api-key)\\?[\'"]?\s*:\s*\\?[\'"]?)'
     r'(?:(?:bearer|token|basic)\s+)?[A-Za-z0-9\-_.=+/]{8,}')
 # URL credentials (`postgres://user:password@host/...` -- also mysql,
 # redis, mongodb, amqp, ftp): the user:password pair goes, the scheme and
 # host stay (the host is what a bugreport actually needs).
 _URL_CRED_RE = re.compile(
-    r'(?P<scheme>(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp|ftp)://)'
+    r'(?P<scheme>\b[A-Za-z][A-Za-z0-9+.\-]*://)'
     r'(?P<user>[^\s\'"/:@]+):(?P<pass>[^\s\'"/@]*)@')
 # Slack incoming-webhook URLs carry three unguessable path segments --
 # the whole path is the secret.
@@ -224,6 +256,16 @@ def sanitize_text(text: str) -> str:
     return text
 
 
+def _sanitize_leaves(obj):
+    if isinstance(obj, str):
+        return sanitize_text(obj)
+    if isinstance(obj, list):
+        return [_sanitize_leaves(v) for v in obj]
+    if isinstance(obj, dict):
+        return {k: _sanitize_leaves(v) for k, v in obj.items()}
+    return obj
+
+
 def sanitize_node(node: dict) -> dict:
     """Sanitize one JSONL log node by round-tripping it through JSON text --
     the simplest way to catch a secret wherever it's nested (a tool_result's
@@ -234,8 +276,12 @@ def sanitize_node(node: dict) -> dict:
     naming the node's own `type`/`role` rather than the ORIGINAL node --
     silently falling back to the unsanitized text would defeat the entire
     point of asking for `--sanitize` in the first place."""
+    # 2.0.10 round 3 (finding 17): redact every string leaf as plain text
+    # FIRST (no JSON escaping in the way: `"NAME": "value"` pairs quoted
+    # inside a tool result, values with a backslash or a quote), then the
+    # JSON text for secrets that sit in the structure itself.
     try:
-        blob = json.dumps(node, ensure_ascii=False)
+        blob = json.dumps(_sanitize_leaves(node), ensure_ascii=False)
     except (TypeError, ValueError):
         return {"type": node.get("type", "?"), "_sanitize_error": "could not serialize this node"}
     cleaned = sanitize_text(blob)
@@ -266,4 +312,9 @@ def redact_for_bugreport(text: str, *, known_secret_values: "tuple | None" = Non
     for value in known_secret_values or ():
         if value and len(value) >= 4:  # never blanket-replace a trivially short/empty value
             text = text.replace(value, "<redacted>")
+            # finding 17: the same value as JSON text spells it (`\"`, `\\`,
+            # `\n`) when the line is a JSON dump.
+            for escaped in (json.dumps(value)[1:-1], json.dumps(value, ensure_ascii=False)[1:-1]):
+                if escaped != value and len(escaped) >= 4:
+                    text = text.replace(escaped, "<redacted>")
     return text

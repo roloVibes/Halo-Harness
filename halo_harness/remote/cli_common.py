@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -100,8 +101,10 @@ def run_cli(cfg: dict, *args: str, account: Optional[str] = None, timeout: float
             json_out: bool = False) -> subprocess.CompletedProcess:
     """Run one signal-cli command to completion (stdin closed, output captured)."""
     Path(cfg["data_dir"]).mkdir(parents=True, exist_ok=True)
+    from halo_harness.providers.config import tool_child_env  # finding 19: no provider keys for signal-cli
     return subprocess.run(cli_argv(cfg, *args, account=account, json_out=json_out), capture_output=True, text=True,
-                          timeout=timeout, stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace")
+                          timeout=timeout, stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace",
+                          env=tool_child_env(dict(os.environ)))
 
 
 def configured(as_json: bool = False) -> "tuple[Optional[dict], int]":

@@ -280,7 +280,28 @@ def _ensure_databricks_creds(args, console: Console) -> Optional[Path]:
     # they're off" -- a host already known (Claude Code's own settings env,
     # or a shared team.json) means ONLY the token is asked for.
     team_cfg = _load_team_config(args, console)
-    host = _known_databricks_host() or (team_cfg or {}).get("host")
+    host = _known_databricks_host()
+    team_host = (team_cfg or {}).get("host")
+    if not host and team_host:
+        # finding 10: a token is about to be stored for this host, so name
+        # the file it came from, require https, and make a host chosen by a
+        # project file be retyped before it is trusted.
+        from halo_harness.team_config import same_host, team_host_needs_confirm, team_host_problem
+        source = (team_cfg or {}).get("_source", "the team config")
+        problem = team_host_problem(team_host)
+        if problem:
+            console.print(f"   [WARN] team config {source}: {problem} ({team_host!r}) -- ignored.")
+        elif team_host_needs_confirm(team_cfg):
+            console.print(f"   [WARN] {source} (a file in this project folder) names the Databricks host "
+                           f"{team_host}.")
+            typed = "" if args.yes else _prompt_plain("   retype that host to use it for your token (blank to skip)")
+            if same_host(typed, team_host):
+                host = team_host
+            else:
+                console.print("   [WARN] host not confirmed -- enter your own below, or use "
+                               "`--team <path>` / ~/.halo/team.json.")
+        else:
+            host = team_host
     if host:
         console.print(f"   [OK] Databricks host configured: {host} -- only the token is needed.")
         if args.yes and sys.stdin.isatty():

@@ -289,13 +289,8 @@ def env_file_path_for_write() -> Path:
             # Atomic: a crash mid-write must never leave a marked, truncated
             # file behind (that would switch the legacy fallback off with
             # half the credentials missing).
-            tmp_path = new_path.with_name(new_path.name + ".tmp")
-            tmp_path.write_text(ENV_IMPORT_MARKER + "\n" + content, encoding="utf-8")
-            try:
-                os.chmod(tmp_path, 0o600)
-            except OSError:
-                pass
-            os.replace(tmp_path, new_path)
+            from halo_harness.privateio import write_private_atomic  # finding 20: 0600 from birth
+            write_private_atomic(new_path, ENV_IMPORT_MARKER + "\n" + content)
     return new_path
 
 

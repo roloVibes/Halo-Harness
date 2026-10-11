@@ -60,12 +60,20 @@ def build_argv(cfg: dict) -> list:
     return argv
 
 
+def _child_env() -> dict:
+    from halo_harness.providers.config import tool_child_env
+    return tool_child_env(dict(os.environ))
+
+
 def open_link(cfg: dict, popen=subprocess.Popen) -> Link:
     mode = cfg.get("transport") or "stdio"
     if mode == "stdio":
         flags = 0x08000000 if os.name == "nt" else 0
+        # 2.0.10 round 3 (finding 19): signal-cli is a downloaded third-party
+        # binary -- it gets the secret-stripped environment, not the provider
+        # keys the env file loaded into this process.
         proc = popen(build_argv(cfg), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                     stderr=subprocess.DEVNULL, bufsize=0, creationflags=flags)
+                     stderr=subprocess.DEVNULL, bufsize=0, creationflags=flags, env=_child_env())
 
         def interrupter() -> None:
             try:

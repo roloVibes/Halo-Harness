@@ -1149,9 +1149,8 @@ def ensure_token(state_dir: Path) -> str:
     token = secrets.token_urlsafe(32)
     state_dir.mkdir(parents=True, exist_ok=True)
     try:
-        token_file.write_text(token, encoding="utf-8")
-        if os.name != "nt":
-            token_file.chmod(0o600)
+        from halo_harness.privateio import write_private_atomic  # finding 20: 0600 from birth
+        write_private_atomic(token_file, token)
     except OSError:
         pass
     return token
@@ -1220,7 +1219,11 @@ class RedactingFormatter(logging.Formatter):
     ]
 
     def format(self, record: logging.LogRecord) -> str:
-        msg = super().format(record)
+        # 2.0.10 round 3 (finding 17): the shared redactor first (header and
+        # dict forms, `NAME=value`, `?api_key=...`, URL credentials, bare key
+        # shapes), then the legacy patterns below for what it does not name.
+        from halo_harness.redact import sanitize_text
+        msg = sanitize_text(super().format(record))
         for pattern, replacement in self.SENSITIVE_PATTERNS:
             msg = re.sub(pattern, replacement, msg)
         return msg

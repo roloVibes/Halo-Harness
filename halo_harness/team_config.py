@@ -87,7 +87,51 @@ def load_team_config(cwd: Path, *, team_flag: Optional[str] = None) -> "tuple[Op
             warnings.append(f"team config {source!r}: unrecognized key {key!r} ignored")
             continue
         cleaned[key] = value
+    if cleaned:
+        # 2.0.10 round 3 (finding 10): remember WHERE the preset came from so
+        # `init` and the wizard can name it and ask before storing a token
+        # for a host a repo file chose. Underscore keys are metadata only.
+        cleaned["_source"] = str(source)
+        cleaned["_project_file"] = (not team_flag) and _is_project_file(cwd, source)
     return (cleaned or None), warnings
+
+
+def _is_project_file(cwd: Path, source: str) -> bool:
+    """True when `source` is the checked-in `<cwd>/.halo/team.json` (or the
+    legacy `.rolo-claude` one) -- a file the cloned repo controls."""
+    try:
+        src = Path(source).resolve()
+        return src in {(Path(cwd) / d / "team.json").resolve() for d in (".halo", ".rolo-claude")}
+    except OSError:
+        return False
+
+
+def team_host_problem(host: object) -> Optional[str]:
+    """None for a usable Databricks host (an `https://` URL with a host
+    name); else a one-line reason. A token is sent to this host later."""
+    from urllib.parse import urlparse
+    if not isinstance(host, str) or not host.strip():
+        return "the host is empty"
+    host = host.strip()
+    if any(ord(c) <= 0x20 or ord(c) == 0x7F for c in host):
+        return "the host has whitespace or control characters"
+    try:
+        parsed = urlparse(host)
+        name = parsed.hostname
+    except ValueError:
+        return "the host is not a valid URL"
+    if parsed.scheme != "https" or not name:
+        return "the host must be an https:// URL"
+    return None
+
+
+def team_host_needs_confirm(team_cfg: Optional[dict]) -> bool:
+    """True when the team host came from a file inside the project folder."""
+    return bool((team_cfg or {}).get("_project_file"))
+
+
+def same_host(a: str, b: str) -> bool:
+    return (a or "").strip().rstrip("/").lower() == (b or "").strip().rstrip("/").lower()
 
 
 def apply_gateway_preference(gateway_preference: dict) -> None:

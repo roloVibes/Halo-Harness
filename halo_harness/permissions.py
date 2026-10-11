@@ -1289,9 +1289,11 @@ def add_allow_rule(rule_text: str, destination: str, *, cwd: Path) -> Path:
     if rule_text not in allow_list:
         allow_list.append(rule_text)
 
-    tmp_path = path.with_name(path.name + f".tmp{os.getpid()}")
-    tmp_path.write_text(json.dumps(data, indent=indent) + "\n", encoding="utf-8")
-    os.replace(tmp_path, path)
+    # finding 20: private temp file, then the OLD file's mode (a 0600
+    # `~/.claude/settings.json` holding an `env` token stays 0600).
+    from halo_harness.privateio import write_atomic_keep_mode
+    write_atomic_keep_mode(path, json.dumps(data, indent=indent) + "\n",
+                           new_file_mode=0o600 if destination == "user" else 0o644)
     return path
 
 
@@ -2049,10 +2051,13 @@ class PermissionEngine:
                 if not tokens:
                     continue
                 verb = tokens[0]
+                # finding 9: a `*` in a command token is a literal star in
+                # the suggested rule (`docker * --x` must not become
+                # `Bash(docker *:*)`, a different, wider rule).
                 if verb in _MULTI_WORD_VERBS and len(tokens) > 1:
-                    text = f"Bash({_escape_rule_content(verb + ' ' + tokens[1])}:*)"
+                    text = f"Bash({_escape_rule_content(verb + ' ' + tokens[1]).replace('*', chr(92) + '*')}:*)"
                 else:
-                    text = f"Bash({_escape_rule_content(verb)}:*)"
+                    text = f"Bash({_escape_rule_content(verb).replace('*', chr(92) + '*')}:*)"
                 if text not in suggestions:
                     suggestions.append(text)
             return ", ".join(suggestions) if suggestions else None
@@ -2079,7 +2084,10 @@ class PermissionEngine:
             host = urlparse(tool_input.get("url", "")).hostname
             return f"WebFetch(domain:{host})" if host else None
         if tool_name.startswith("mcp__"):
-            parts = tool_name.split("__")
+            # finding 9: server names carry no `__`, so the FIRST `__` after
+            # `mcp__` ends the server and the REST is the tool (which may
+            # itself contain `__`) -- never cut the tool name at its own `__`.
+            parts = tool_name.split("__", 2)
             if len(parts) >= 3:
                 return f"mcp__{parts[1]}__{parts[2]}"
             if len(parts) == 2:
