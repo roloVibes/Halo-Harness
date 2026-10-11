@@ -104,3 +104,18 @@ body[data-mode="design"] #btn-validate, body[data-mode="design"] #btn-save, body
 .d-handoff { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--panel); }
 .d-handoff span { flex: 1; overflow-wrap: anywhere; font-size: 11.5px; }
 @media (prefers-reduced-motion: reduce) { .d-dots i { animation: none; } }
+
+/* -- 3.0.1.0 D5: directions, critique, contrast, assets --------------------------- */
+.d-runrow2 { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; margin: -4px 0 12px; } .d-runrow2 .btn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+.d-pin.crit { background: var(--warn, #e0a030); } .badge.crit { background: color-mix(in srgb, var(--warn, #e0a030) 25%, transparent); color: var(--warn, #e0a030); margin-right: 4px; }
+.d-contrast { width: 100%; border-collapse: collapse; font-size: 11.5px; margin-bottom: 6px; } .d-contrast th { text-align: left; color: var(--muted); font-weight: 600; padding: 2px 4px; }
+.d-contrast td { padding: 3px 4px; border-top: 1px solid var(--glass-border); } .d-contrast td.num { font-family: var(--mono); text-align: right; } .d-contrast code { color: var(--muted); }
+.d-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.d-dot.ok { background: var(--success, #4cc38a); } .d-dot.warn { background: var(--warn, #e0a030); } .d-dot.bad { background: var(--danger, #e5484d); }
+.d-drop { margin: 6px 0; padding: 12px 8px; text-align: center; font-size: 11.5px; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: background var(--t) var(--ease); }
+.d-drop:hover, #rail.dropping .d-drop, #design-canvas.dropping { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+#design-canvas.dropping { outline: 2px dashed var(--accent); outline-offset: -6px; }
+.d-assetlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.d-assetlist li { display: grid; grid-template-columns: 32px 1fr auto; gap: 8px; align-items: center; padding: 4px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; } .d-assetlist li:hover { background: var(--panel); }
+.d-assetlist img, .d-kind { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; background: var(--panel); display: grid; place-items: center; font-size: 9px; font-style: normal; color: var(--muted); }
+.d-assetlist .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .d-assetlist small { color: var(--muted); font-family: var(--mono); font-size: 10.5px; }

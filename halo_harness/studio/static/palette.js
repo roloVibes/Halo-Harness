@@ -49,13 +49,22 @@
     return { open, close, toggle: () => (modal.classList.contains("open") ? close() : open()) };
   }
 
-  const STEPS = [
+  const ROLES_STEPS = [
     ["Your lineup, as a graph", "Every card is an assignment: an agent bio (what it IS) in a role (the slot it fills), with the model that resolves for it. Edges are delegation from main, org reporting lines and pipeline order."],
     ["Drag, drop, connect", "Drag an agent from the left rail onto the canvas to add an assignment. Drag cards to arrange them; positions are remembered per lineup. Shift-drag selects several."],
     ["The inspector", "Select a card to edit the assignment, then the Agent tab to edit the bio behind it: models, tools, limits, acceptance. The YAML tab shows the file as it will be written, and edits go both ways."],
     ["Validate, save, apply", "Validate runs the same checks the CLI does. Save writes YAML to your user scope (or the project). Apply makes this the active lineup for new sessions, exactly like halo teams use."],
   ];
+  const DESIGN_STEPS = [
+    ["Projects and artboards", "A project is a folder of artboards: prototypes, pages, decks and logos. Make one in the left rail (N), then say what to design in the Chat tab. Every turn saves a new version of whatever changed."],
+    ["Frame cards and pins", "Each artboard is a card on the canvas. Drag it by its title, switch the device size, edit text in place, or slide back through its versions. Press C and click a frame to pin a comment."],
+    ["Knobs and contrast", "The Knobs tab moves spacing, colours and sizes without asking the model. The Contrast table under it checks text against background and updates every time a knob moves."],
+    ["Chat, variants and critique", "Enter in the Chat box runs one turn. V explores three directions side by side. K has a second model review the selected artboard and pin its notes. Drop images on the rail to use them."],
+    ["Export and handoff", "The Export tab writes a shareable folder, HTML, PNG, SVG or PDF. Handoff bundles the artboards, the design system and HANDOFF.md so a Halo or Claude Code session can carry on from there."],
+  ];
+  const inDesign = (app) => { let saved = ""; try { saved = localStorage.getItem("halo-studio-mode") || ""; } catch (e) {} return app.mode === "design" || /[?&]mode=design/.test(location.search) || (saved === "design" && !/[?&]mode=/.test(location.search)); };
   function tour(app, force = false) {
+    const STEPS = inDesign(app) ? DESIGN_STEPS : ROLES_STEPS;
     let seen = false; try { seen = localStorage.getItem("halo-studio-tour") === "done"; } catch (e) {}
     if (seen && !force) return;
     const modal = document.getElementById("tour"); let i = 0;

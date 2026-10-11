@@ -34,6 +34,17 @@ version.
   context, a price tier, speed, tool calls, the preflight canaries). Studio's
   model pickers show capability chips. docs/MODELS.md "Which model for what".
 
+- **Plus more** (round D5): "3 directions" makes N variant artboards in one
+  turn (`halo design run --variants N --base ID`); a **critique** turn
+  (`halo design critique <slug> <artboard>`, a second model, Read-only tools,
+  no MCP servers) posts its findings as comment pins with a severity; a
+  WCAG **contrast** check (`design/contrast.py`, pure Python) pairs the
+  page's text/accent tokens with its backgrounds and sits under the Knobs
+  tab, refreshing after a knob moves; an **assets** rail with a drop zone
+  (`design/assets.py`, upload + list, basenames only, 15 MB cap); the
+  history shows tool calls, seconds and cost per turn; every Design command
+  has a shortcut in the palette and the tour has Design steps.
+  docs/media/studio-design-knob.png.
 - **The design project and the design turn** (round D2): `halo_harness/design/`.
   A project is a folder under `~/.halo/design/<slug>/` (design.json, artboards
   with versions snapshotted only when files change, comments.json pins,

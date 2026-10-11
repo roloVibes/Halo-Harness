@@ -2606,7 +2606,8 @@ an optional board token and the default company in `~/.halo/paperclip.json`.
 halo design new <name> [--model M]                 a project under ~/.halo/design/<slug>/
 halo design list                                   every project
 halo design show <slug>                            artboards, versions, open comments, the system, cost so far
-halo design run <slug> "<prompt>" [--model M] [--budget USD]
+halo design run <slug> "<prompt>" [--model M] [--budget USD] [--variants N] [--base ID]   --variants makes N artboards named <base>-a, -b, ...
+halo design critique <slug> <artboard> [--model M]   a read-only second opinion (Read and Glob only), pinned as comments
 halo design sync <slug> [PATH|URL]                 a design system from a codebase or a page
 halo design comment <slug> <artboard> "<text>" [--at X,Y]
 halo design restore <slug> <artboard> <version>

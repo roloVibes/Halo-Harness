@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|design-knob]
 """
 
 from __future__ import annotations
@@ -71,15 +71,22 @@ def main(argv: list) -> int:
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--org", action="store_true", help="Org mode over a fake Paperclip seeded with the halo-dev-cycle company")
-    parser.add_argument("--mode", choices=["roles", "org", "design"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), 1440x900")
+    parser.add_argument("--mode", choices=["roles", "org", "design", "design-knob"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), 1440x900; design-knob: the same with the Knobs tab open and Spacing moved to 48")
     args = parser.parse_args(argv)
     args.org = args.org or args.mode == "org"
-    design = args.mode == "design"
+    design = args.mode in ("design", "design-knob")
     state = seeded_home()
     fake = None
     if design:
         from design_demo import seed
-        seed(state)
+        proj = seed(state)
+        if args.mode == "design-knob":  # the Spacing knob moved to 48, exactly what the Knobs slider does
+            from halo_harness.design import controls as C
+            page = proj.artboard_dir("hero") / "index.html"
+            html = page.read_text(encoding="utf-8")
+            page.write_text(C.apply_css_control(html, "--space", C.css_value(html, "--space", 48, "px")), encoding="utf-8")
+            proj.set_control("hero", "Spacing", 48)
+            proj.snapshot(note="knob Spacing")
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-design.png"
     if args.org:
@@ -95,7 +102,7 @@ def main(argv: list) -> int:
     if args.org:
         url = url.replace("?tour=off", "?tour=off&mode=org")
     if design:
-        url = url.replace("?tour=off", "?tour=off&mode=design")
+        url = url.replace("?tour=off", "?tour=off&mode=design" + ("&dtab=knobs" if args.mode == "design-knob" else ""))
     try:
         if args.dom:
             r = chrome(["--dump-dom", url])

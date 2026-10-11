@@ -208,6 +208,8 @@ from. See [docs/DESIGN.md](docs/DESIGN.md).
 
 <a href="docs/media/studio-design.png"><img alt="Studio's Design mode: a hero prototype and a VectorCraft logo mark as artboards, knobs and comments in the panel" src="docs/media/studio-design.png" width="100%"></a>
 
+<a href="docs/media/studio-design-knob.png"><img alt="The Knobs tab: the Spacing knob moved to 48 reflows the hero with no model call, and the contrast table grades the page's colour pairs" src="docs/media/studio-design-knob.png" width="100%"></a>
+
 ### Connectors: Claude Docs from a non-Claude model
 
 Your claude.ai connectors (Claude Docs, a calendar, a drive) appear as tools to whatever

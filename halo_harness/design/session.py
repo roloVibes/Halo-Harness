@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -91,11 +92,13 @@ def _temp(prefix: str, suffix: str, text: str) -> Path:
 
 def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Optional[Callable[[dict], None]] = None,
              max_budget_usd: Optional[float] = None, max_turns: int = 40, registered=None, entries: Optional[dict] = None,
-             env: Optional[dict] = None, runner: Optional[Callable] = None, timeout: int = 1800) -> dict:
+             env: Optional[dict] = None, runner: Optional[Callable] = None, timeout: int = 1800,
+             tools_override: Optional[str] = None) -> dict:
     """Run one design turn. `runner(cmd, cwd, env, on_line)` can replace the
     subprocess (tests). The craft apps are the turn's ONLY MCP servers (a
     strict --mcp-config written for the run); `--tools` keeps the core
-    built-ins. Returns {code, cost, text, versions, events}."""
+    built-ins; `tools_override` (a critique's "Read,Glob") replaces the tool list.
+    Returns {code, cost, text, versions, events}."""
     from halo_harness.design.crafts_probe import craft_server_entries
     if entries is None:
         entries = craft_server_entries(cwd=project.path)
@@ -108,17 +111,17 @@ def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Option
     cmd = [sys.executable, "-m", "halo_harness", "-p", prompt, "--cwd", str(project.path), "--output-format", "stream-json",
            "--permission-mode", "auto", "--append-system-prompt-file", str(skill_path),
            "--mcp-config", str(mcp_path), "--strict-mcp-config",
-           "--tools", crafts.allowed_tools(registered), "--max-turns", str(max_turns), "--no-intro"]
+           "--tools", tools_override or crafts.allowed_tools(registered), "--max-turns", str(max_turns), "--no-intro"]
     if model:
         cmd += ["--model", model]
     if max_budget_usd:
         cmd += ["--max-budget-usd", str(max_budget_usd)]
     child_env = dict(os.environ if env is None else env)
     child_env["PYTHONIOENCODING"] = "utf-8"
-    events, texts, cost = [], [], None
+    events, texts, cost, tool_calls, started = [], [], None, 0, time.monotonic()
 
     def handle(line: str) -> None:
-        nonlocal cost
+        nonlocal cost, tool_calls
         line = line.strip()
         if not line:
             return
@@ -127,6 +130,8 @@ def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Option
         except ValueError:
             obj = {"type": "stdout", "text": line}
         events.append(obj)
+        if obj.get("type") == "assistant":
+            tool_calls += sum(1 for b in (obj.get("message") or {}).get("content") or [] if isinstance(b, dict) and b.get("type") == "tool_use")
         c = _cost_of(obj)
         if c is not None:
             cost = c
@@ -155,7 +160,8 @@ def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Option
             except OSError:
                 pass
     versions = project.snapshot(note=prompt[:80])
-    project.log_turn({"prompt": prompt, "model": model, "cost": cost, "code": code, "versions": versions})
+    project.log_turn({"prompt": prompt, "model": model, "cost": cost, "code": code, "versions": versions,
+                      "elapsed": round(time.monotonic() - started, 1), "tool_calls": tool_calls})
     done = {"type": "halo_design", "code": code, "cost": cost, "versions": versions}
     if on_event:
         on_event(done)

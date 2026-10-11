@@ -20,8 +20,10 @@ def live_turn(slug: str):
     return tid if tid and tid in TURNS and not TURNS[tid]["done"] else None
 
 
-def start(project, prompt: str, *, model: str = "", budget=None, runner=None, registered=None):
-    """Begin a turn; None when this project already has one running."""
+def start(project, prompt: str, *, model: str = "", budget=None, runner=None, registered=None, after=None, **turn_kw):
+    """Begin a turn; None when this project already has one running. `after(result)`
+    returns extra keys for the finished result (a critique's pins); `turn_kw` goes
+    to `run_turn` (tools_override, entries, max_turns)."""
     from halo_harness.design import session
     with _LOCK:
         if live_turn(project.slug):
@@ -34,14 +36,17 @@ def start(project, prompt: str, *, model: str = "", budget=None, runner=None, re
     def work() -> None:
         try:
             r = session.run_turn(project, prompt, model=model, on_event=turn["events"].append, max_budget_usd=budget,
-                                 registered=registered, runner=runner)
+                                 registered=registered, runner=runner, **turn_kw)
             turn["result"] = {"code": r["code"], "cost": r["cost"], "text": r["text"], "versions": [list(v) for v in r["versions"]]}
+            if after is not None:
+                turn["result"].update(after(turn["result"]))
         except Exception as e:  # a failed turn is a result the page can show, not a dead thread
             turn["result"] = {"code": 1, "cost": None, "text": "", "versions": [], "error": f"{type(e).__name__}: {e}"}
         finally:
             turn["done"] = True
 
-    threading.Thread(target=work, name=f"halo-design-{tid}", daemon=True).start()
+    turn["thread"] = threading.Thread(target=work, name=f"halo-design-{tid}", daemon=True)
+    turn["thread"].start()
     return turn
 
 

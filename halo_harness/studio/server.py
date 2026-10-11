@@ -92,7 +92,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         if n <= 0:
             return {}
-        if n > 4_000_000:
+        if n > (22_000_000 if self.path.startswith("/api/design/") and self.path.endswith("/assets") else 4_000_000):  # a design asset is 15 MB base64
             raise ValueError("body too large")
         data = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
         return data if isinstance(data, dict) else {"value": data}
