@@ -120,6 +120,10 @@ def test_auto_theme_for_env_downgrades_to_ansi_without_truecolor_signal(ctx: Ctx
               t.supports_truecolor({"COLORTERM": "truecolor"}) is True)
     ctx.check("supports_truecolor(...) says True for a kitty TERM even without COLORTERM",
               t.supports_truecolor({"TERM": "xterm-kitty"}) is True)
+    ctx.check("supports_truecolor(...) says True under Windows Terminal (WT_SESSION set, no COLORTERM/TERM)",
+              t.supports_truecolor({"WT_SESSION": "4f1a-session"}) is True)
+    ctx.check("an EMPTY WT_SESSION is not a signal",
+              t.supports_truecolor({"WT_SESSION": "", "TERM": "xterm"}) is False)
     ctx.check("an EXPLICIT theme choice at any tier is never auto-downgraded to -ansi",
               t.resolve_theme(cli_theme="claude-light", env={"TERM": "xterm"}) == "claude-light")
 
