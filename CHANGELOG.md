@@ -91,6 +91,37 @@ no new gates. Pins: `tests/test_security_round3.py`, `3b`, `3c`, `3d`.
   `add_allow_rule` keeps the settings file's mode; the proxy token is compared with
   `hmac.compare_digest`.
 
+### Security review fix pass, round 2 (permission rules hold through compound commands; state-dir modes)
+
+Findings 12-16 and 24-25 of [docs/harness/SECURITY-REVIEW-2.0.10.md](docs/harness/SECURITY-REVIEW-2.0.10.md);
+11 is rejected (allow side, the standing contract). Deny and ask rules the user wrote now hold;
+the allow side is unchanged and auto mode with no rules still allows. Pins:
+`tests/test_security_round4.py`, `4b`, `4c`.
+
+- **11: rejected.** An explicit allow rule matches exactly as before; allow matching is not
+  changed and no "dangerous command" heuristic is added.
+- **12: compound forms and wrappers.** A deny or ask rule fires through `if/then`, `for/do`,
+  `while`, `until`, `!`, `exec`, `case` arms, `watch`, `flock`, `unshare`, `chroot`, `strace`,
+  `fakeroot`, `nsenter`, `taskset`, `chrt`, `runuser` and siblings, `flock -c '...'` and
+  `find -exec`. `bash -lc` and a script fed to `sh` ask when a Bash rule exists. PowerShell
+  script blocks, the call operator and `powershell -Command` / `cmd /c` payloads reach the
+  rule, and `iex` / `-EncodedCommand` ask when a PowerShell rule exists.
+- **13: tool-global options.** `git -C x push`, `docker --context x run`, `kubectl -n x delete`,
+  `npm --prefix x publish` and the same shape for `cargo`, `helm`, `terraform`, `make`, `aws` and
+  more match the user's prefix rule.
+- **14: malformed rules are named.** A deny/ask rule that does not parse prints one line at
+  startup, is marked in `/permissions` and appears in `halo doctor`; it is never rewritten.
+- **15: Read rules reach the readers.** `cat ~/...` (and `$HOME`), `grep`/`sed`/`awk`/`cp`/`tar` and
+  friends, `< file`, glob words, and `$()` bodies are checked; Grep and Glob over a directory skip
+  files a Read deny rule names, and ask when a Read ask rule names one below the directory.
+- **16: symlinks and Windows names.** A path rule is matched as written and with its symlinks
+  resolved; on Windows trailing dots and spaces are judged as the OS opens the file.
+- **24: the state tree is owner-only.** New state directories are 0700, transcripts, shadow
+  index, spilled tool results and `bridge.log` are 0600; an existing tree is tightened once with
+  one notice (POSIX; no-op on Windows).
+- **25: ids used as file names.** A session id is validated (clear error) and `--resume` only
+  joins a safe id; a `tool_use_id` becomes a safe file stem for spill files.
+
 ## [2.0.9] - 2026-10-11
 
 ### Remote control: the session control socket

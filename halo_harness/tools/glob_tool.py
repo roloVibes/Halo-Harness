@@ -69,8 +69,12 @@ class GlobTool(Tool):
             return ToolResult(f"Invalid glob pattern {pattern!r}: {e}", is_error=True)
 
         matches = []
+        # finding 15: files a Read deny rule names never appear in results.
+        reader = getattr(getattr(ctx, "permission_engine", None), "read_denied", None)
         for p in candidates:
             try:
+                if reader is not None and reader(p):
+                    continue
                 if not p.is_file():
                     continue
                 if any(part in _PRUNE_DIRS for part in p.relative_to(base).parts[:-1]):

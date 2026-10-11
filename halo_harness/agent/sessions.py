@@ -131,8 +131,11 @@ def resolve_resume(cwd, value: Optional[str]) -> "tuple[Optional[str], Optional[
         return candidate_path.stem, None
 
     directory = sessions_dir(cwd)
+    # finding 25: only a safe id is joined into a path as an exact-id match;
+    # anything else (`../x`, `a/b`) can still match by title text below.
+    from halo_harness.safe_id import is_safe_session_id
     direct = directory / f"{value}.jsonl"
-    if direct.is_file():
+    if is_safe_session_id(value) and direct.is_file():
         return value, None
 
     if not directory.is_dir():

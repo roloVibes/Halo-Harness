@@ -37,6 +37,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from halo_harness.privateio import private_mkdir, private_opener
+
 _DRIVE_RE = re.compile(r"^([A-Za-z]):/(.*)$")
 
 # vibes/review.md finding 69: snapshots ran git on the TUI thread and raced
@@ -123,7 +125,7 @@ class ShadowStore:
     def __init__(self, session_dir: Path):
         self.session_dir = Path(session_dir)
         self.dir = self.session_dir / "shadow"
-        self.dir.mkdir(parents=True, exist_ok=True)
+        private_mkdir(self.dir)  # finding 24: 0700, parents created here included
         self._index_path = self.session_dir / "shadow-index.jsonl"
         self.steps: "list[dict]" = self._load_index()
         self.cursor = len(self.steps) - 1  # -1: no steps yet
@@ -192,7 +194,7 @@ class ShadowStore:
 
     def _append_index(self, step: dict) -> None:
         try:
-            with open(self._index_path, "a", encoding="utf-8") as f:
+            with open(self._index_path, "a", encoding="utf-8", opener=private_opener) as f:
                 f.write(json.dumps(step, ensure_ascii=False) + "\n")
         except OSError:
             pass
@@ -231,7 +233,7 @@ class ShadowStore:
         for real_path, content in files.items():
             rel = _mangle(Path(real_path))
             dest = self.dir / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
+            private_mkdir(dest.parent)
             try:
                 # finding 8 (W6a): ALWAYS written as bytes now, `str`
                 # content included -- `write_text` on Windows translates

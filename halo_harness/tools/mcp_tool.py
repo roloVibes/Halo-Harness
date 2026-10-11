@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness.mcp.manager import mcp_tool_name
+from halo_harness.privateio import private_mkdir, private_write_text
+from halo_harness.safe_id import safe_file_stem
 from halo_harness.tools.base import Tool, ToolContext, ToolResult
 from halo_harness.tools.imageutil import image_block_or_note
 
@@ -374,9 +376,9 @@ def cap_and_spill(blocks: list, *, meta: Optional[dict] = None,
         full_text = "\n".join(b.get("text", "") or "" for b in blocks if b.get("type") == "text")
         try:
             results_dir = Path(session_dir) / "tool-results"
-            results_dir.mkdir(parents=True, exist_ok=True)
-            spill_path = results_dir / f"{tool_use_id}.txt"
-            spill_path.write_text(full_text, encoding="utf-8")
+            private_mkdir(results_dir)
+            spill_path = results_dir / f"{safe_file_stem(tool_use_id)}.txt"
+            private_write_text(spill_path, full_text)
             spill_note = f" Full output saved to {spill_path}."
         except OSError:
             pass
