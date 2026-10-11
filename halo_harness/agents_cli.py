@@ -20,7 +20,7 @@ def _cmd_list(rest: list) -> int:
     argparse.ArgumentParser(prog="halo agents list", add_help=True).parse_args(rest)
     names = list_agent_bios()
     if not names:
-        print("No agent bios found (not even a shipped template -- this shouldn't happen).")
+        print("No agents found.")
         return 0
     for n in names:
         print(n)
@@ -34,7 +34,7 @@ def _cmd_show(rest: list) -> int:
     args = parser.parse_args(rest)
     bio = resolve_agent_bio(args.name)
     if bio is None:
-        print(f"halo agents show: no such agent bio {args.name!r} (or it failed validation)", file=sys.stderr)
+        print(f"halo agents show: no agent named {args.name!r}, or its file has problems (`halo agents validate` says what)", file=sys.stderr)
         return 1
     print(f"{bio['name']} ({bio.get('kind') or 'custom'}) -- {bio.get('description') or '(no description)'}")
     print(f"  source: {bio.get('_source')} ({bio.get('_path')})")
@@ -88,13 +88,13 @@ def _cmd_new(rest: list) -> int:
         if not saved:
             print("halo agents new: cancelled.", file=sys.stderr)
             return 1
-        print(f"Created agent bio {saved!r}.")
+        print(f"Created agent {saved!r}.")
         return 0
     ok, problems = new_agent_bio_from_template(args.name, args.from_template, project=args.project)
     if not ok:
         print(f"halo agents new: {'; '.join(problems)}", file=sys.stderr)
         return 1
-    print(f"Created agent bio {args.name!r}" + (f" from {args.from_template!r}" if args.from_template else "") + ".")
+    print(f"Created agent {args.name!r}" + (f" from {args.from_template!r}" if args.from_template else "") + ".")
     return 0
 
 
@@ -125,11 +125,11 @@ def _cmd_edit(rest: list) -> int:
         if not saved:
             print("halo agents edit: cancelled.", file=sys.stderr)
             return 1
-        print(f"Saved agent bio {saved!r}.")
+        print(f"Saved agent {saved!r}.")
         return 0
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
     if not editor:
-        print("halo agents edit: no $VISUAL/$EDITOR set", file=sys.stderr)
+        print("halo agents edit: set $EDITOR (or $VISUAL) to your text editor, or add --form", file=sys.stderr)
         return 1
     if load_agent_bio_raw(args.name) is None:
         save_agent_bio(args.name, {"description": ""})
@@ -141,13 +141,13 @@ def _cmd_edit(rest: list) -> int:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as e:
-        print(f"halo agents edit: could not re-read {path}: {e}", file=sys.stderr)
+        print(f"halo agents edit: could not read {path} again: {e}", file=sys.stderr)
         return 1
     problems = validate_agent_bio(data, name=args.name)
     if problems:
-        print(f"halo agents edit: saved file is invalid: {'; '.join(problems)}", file=sys.stderr)
+        print(f"halo agents edit: the saved file has problems: {'; '.join(problems)}", file=sys.stderr)
         return 1
-    print(f"Saved agent bio {args.name!r}.")
+    print(f"Saved agent {args.name!r}.")
     return 0
 
 
@@ -161,12 +161,12 @@ def _cmd_export(rest: list) -> int:
     args = parser.parse_args(rest)
     bio = resolve_agent_bio(args.name)
     if bio is None:
-        print(f"halo agents export: no such agent bio {args.name!r}", file=sys.stderr)
+        print(f"halo agents export: no agent named {args.name!r}", file=sys.stderr)
         return 1
     if args.claude_md:
         from halo_harness.agents_md_bridge import export_agent_bio
         _ok, path = export_agent_bio(args.name, bio)
-        print(f"Exported agent bio {args.name!r} to {path}.")
+        print(f"Exported agent {args.name!r} to {path}.")
         return 0
     import yaml
     payload = {k: v for k, v in bio.items() if not k.startswith("_")}
@@ -174,7 +174,7 @@ def _cmd_export(rest: list) -> int:
     if args.file:
         from pathlib import Path
         Path(args.file).write_text(text, encoding="utf-8")
-        print(f"Exported agent bio {args.name!r} to {args.file}.")
+        print(f"Exported agent {args.name!r} to {args.file}.")
     else:
         print(text, end="")
     return 0
@@ -196,7 +196,7 @@ def _cmd_import(rest: list) -> int:
         if not ok:
             print(f"halo agents import: {'; '.join(save_problems)}", file=sys.stderr)
             return 1
-        print(f"Imported agent bio {args.source!r} from .claude/agents/{args.source}.md.")
+        print(f"Imported agent {args.source!r} from .claude/agents/{args.source}.md.")
         return 0
     from pathlib import Path
     import yaml
@@ -204,7 +204,7 @@ def _cmd_import(rest: list) -> int:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as e:
-        print(f"halo agents import: {args.source} is not valid YAML: {e}", file=sys.stderr)
+        print(f"halo agents import: {args.source} is not a readable YAML file: {e}", file=sys.stderr)
         return 1
     name = data.get("name") if isinstance(data, dict) else None
     if not isinstance(name, str) or not name.strip():
@@ -212,11 +212,11 @@ def _cmd_import(rest: list) -> int:
     from halo_harness.agents_yaml import save_agent_bio
     ok, problems = save_agent_bio(name, data)
     if not ok:
-        print(f"halo agents import: {args.source} is not a valid agent bio:", file=sys.stderr)
+        print(f"halo agents import: {args.source} is not a usable agent:", file=sys.stderr)
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 1
-    print(f"Imported agent bio {name!r} from {args.source}.")
+    print(f"Imported agent {name!r} from {args.source}.")
     return 0
 
 
@@ -271,18 +271,27 @@ _SUBCOMMANDS = {"list": _cmd_list, "show": _cmd_show, "validate": _cmd_validate,
 
 
 def cmd_agents(argv: list) -> int:
-    if not argv or argv[0] in ("-h", "--help"):
-        print("usage: halo agents list|show <name>|validate [name]|"
-              "new <name> [--from BIO] [--project] [--form]|edit <name> [--form]|"
-              "export <name> [file] [--claude-md]|import <file>|"
-              "schedule list|run <name>|pause <name>|resume <name>|rm <name>|"
-              "<name> [--claude-md]",
+    if not argv:
+        from halo_harness.teams_cli_views import agent_group_lines
+        for line in agent_group_lines():
+            print(line)
+        return 0
+    if argv[0] in ("-h", "--help"):
+        print("usage: halo agents                                 list agents by where they live\n"
+              "       halo agents show <name>                     (or just `halo agents <name>`)\n"
+              "       halo agents list|validate [name]\n"
+              "       halo agents new <name> [--from AGENT] [--project] [--form]\n"
+              "       halo agents edit <name> [--form]\n"
+              "       halo agents export <name> [file] [--claude-md]|import <file> [--claude-md]\n"
+              "       halo agents schedule list|run <name>|pause <name>|resume <name>|rm <name>",
               file=sys.stderr)
-        return 0 if argv else 2
+        return 0
     sub, rest = argv[0], argv[1:]
     fn = _SUBCOMMANDS.get(sub)
     if fn is None:
-        print(f"halo agents: unknown subcommand {sub!r} (known: {', '.join(sorted(_SUBCOMMANDS))})",
+        if not sub.startswith("-"):
+            return _cmd_show([sub, *rest])
+        print(f"halo agents: {sub!r} is not a command (try: {', '.join(sorted(_SUBCOMMANDS))}).",
               file=sys.stderr)
         return 2
     return fn(rest)

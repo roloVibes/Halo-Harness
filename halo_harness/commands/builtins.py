@@ -825,21 +825,33 @@ def _cmd_agents(args: str, facade: HeadlessFacade) -> str:
             spec = agents[name]
             lines.append(f"  {name} ({spec.source}) -- {spec.description}")
     else:
-        lines.append("No sub-agent definitions found (not even the built-ins -- this shouldn't happen).")
+        lines.append("No sub-agent definitions found.")
     try:
-        from halo_harness.agents_yaml import list_agent_bios, resolve_agent_bio
-        bio_names = list_agent_bios(cwd=facade.cwd)
-    except Exception:
-        bio_names = []
-    if bio_names:
+        from halo_harness.teams_cli_views import agent_group_lines
         lines.append("")
-        lines.append("Agent bios (`halo agents show <name>` for the full YAML):")
-        for name in bio_names:
-            bio = resolve_agent_bio(name, cwd=facade.cwd)
-            desc = (bio.get("description") if bio else None) or "(failed to load)"
-            kind = (bio.get("kind") if bio else None) or "custom"
-            lines.append(f"  {name} ({kind}) -- {desc}")
+        lines.extend(agent_group_lines(cwd=facade.cwd))
+    except Exception:
+        pass
     return "\n".join(lines)
+
+
+def _teams_verb(verb: str, rest: str, facade: HeadlessFacade) -> str:
+    """`/teams apply|use <name>`, `/teams preview <name>`, `/teams diff <a>
+    <b>` -- the same words `halo teams` prints."""
+    from halo_harness.teams_cli_views import apply_lineup, diff_lines, preview_text
+    names = rest.split()
+    if verb == "diff":
+        if len(names) != 2:
+            return "Usage: /teams diff <lineup> <lineup>"
+        return "\n".join(diff_lines(names[0], names[1], cwd=facade.cwd)[1])
+    if len(names) != 1:
+        return f"Usage: /teams {verb} <lineup>"
+    if verb == "preview":
+        return "\n".join(preview_text(names[0], cwd=facade.cwd)[1])
+    ok, lines, notes = apply_lineup(names[0], cwd=facade.cwd, session=getattr(facade, "session", None))
+    if not ok:
+        return f"Could not use {names[0]!r}:\n" + "\n".join(f"  - {x}" for x in lines)
+    return "\n".join([*(f"note: {n}" for n in notes), *lines])
 
 
 def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
@@ -856,20 +868,26 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
     except Exception:
         names = []
     if not names:
-        return "No team templates found (not even a shipped one -- this shouldn't happen)."
+        return "No lineups found."
     active = get_config_value("team", default=None)
     # Halo 2.0.5 round 5: `/teams show <name>` -- the SAME resolved print
     # `halo teams show` gives (assignments, role table, org, enforcement
     # state per section); bare `/teams` keeps its list.
     parts = (args or "").strip().split(None, 1)
+    verb = parts[0].lower() if parts else ""
+    if verb in ("apply", "use", "preview", "diff"):
+        return _teams_verb(verb, (parts[1].strip() if len(parts) > 1 else ""), facade)
+    if not parts:
+        from halo_harness.teams_cli_views import overview_lines
+        return "\n".join(overview_lines(cwd=facade.cwd))
     if parts and parts[0].lower() == "show":
         from halo_harness.teams_yaml import enforcement_lines, resolve_role_table, resolve_org
         name = parts[1].strip() if len(parts) > 1 else active
         if not name:
-            return "Usage: /teams show <name> (no team is active to default to)"
+            return "Usage: /teams show <name> (no lineup is active yet)"
         template = resolve_team_template(name, cwd=facade.cwd)
         if template is None:
-            return f"No such team template: {name!r} (or it failed validation)"
+            return f"No lineup named {name!r}, or its file has problems."
         lines = [f"{template['name']} -- {template.get('description') or '(no description)'}"]
         for entry in template.get("agents") or []:
             label = entry.get("as") or entry.get("role")
@@ -1852,7 +1870,7 @@ _BUILTIN_SPECS = {
     "config": ("core", "Show or set a config value", "[key=value]", _cmd_config),
     "skills": ("core", "List discovered skills", None, _cmd_skills),
     "agents": ("core", "List available sub-agents and agent bios", None, _cmd_agents),
-    "teams": ("core", "List team templates (lineups) and the active one", None, _cmd_teams),
+    "teams": ("core", "Show the active lineup; apply, preview or diff lineups", "[apply|preview <name>|diff <a> <b>]", _cmd_teams),
     "roles": ("core", "Show the role table, turn roles on/off, or manage role templates/set a role",
               "[on|off|templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),

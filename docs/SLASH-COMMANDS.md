@@ -254,6 +254,10 @@ for the full YAML) -- a different, additive concept describing what an
 agent IS (models/tools/context/limits), assigned to a role by a **team
 template**.
 
+**Halo 2.1.0**: in print mode, the bios section of `/agents` uses the same
+grouped lines as `halo agents` (project / user / shipped, kind and model per
+line, ending with the `halo agents show <name>` hint).
+
 **Halo 2.0.5 round 2**: bare `/agents` instead opens an interactive
 list-with-actions screen over the bios (New, New from..., Edit,
 Duplicate, Delete, Import from `.claude/agents/*.md`, one result line
@@ -274,7 +278,14 @@ fire time -- the same lines `halo agents schedule list` prints. A bio's
 is alive and disarm when it closes; see [AGENTS.md](AGENTS.md)'s
 `hooks`/`schedule`/`triggers` section.
 
-### `/teams [new <name>|edit <name>|activate <name>]`
+### `/teams [apply <name>|preview <name>|diff <a> <b>|list|new <name>|edit <name>|activate <name>]`
+**Halo 2.1.0**: bare `/teams` prints the same overview as `halo teams` (the
+active lineup, its tree, one line per other lineup); `/teams apply <name>`
+(or `use`) applies a lineup exactly like `halo teams apply` (writes
+`roles.*` and `team:`, turns roles on; `standard` turns them off);
+`/teams preview <name>` prints the tree; `/teams diff <a> <b>` compares two
+lineups. The interactive list screen moved to `/teams list`.
+
 Bare `/teams` lists every installed **team template** ("lineup" --
 `halo_harness/teams_yaml.py`, `~/.halo/teams/<name>.yaml`), marking the
 active one (`team` in config.json, `halo teams use <name>`).
@@ -631,6 +642,12 @@ theme records the theme you were on as `theme_toggle_previous`; moving off
 one onto a normal theme clears it. In the TUI, Tab completes theme names
 (the game themes first). See the Themes section of the
 [handbook](HANDBOOK.md).
+
+### `/studio` `[url]`
+Halo 2.1.0: opens Halo Studio -- your lineups and agent bios as an editable
+graph in the browser -- served from this session (it closes with it).
+`/studio url` prints the URL without opening a browser; over SSH, forward
+the port it names and open the same URL. See [STUDIO.md](STUDIO.md).
 
 ### `/level` `[on|off]`
 Halo 2.0.11: toggles the game themes' level band -- the three-row scene
