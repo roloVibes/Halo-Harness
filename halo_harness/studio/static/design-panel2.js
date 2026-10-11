@@ -14,7 +14,7 @@
       const r = await d.call("POST", "control", { artboard: aid, name, value });
       if (r.queued) d.toast(`${name} is saved: the next turn applies it`, "ok");
       else d.bust[aid] = (d.bust[aid] || 0) + 1;
-      await d.reload(false);
+      await d.reload(false); if (d.refreshContrast) d.refreshContrast();
     } catch (e) { d.toast((e.data && e.data.problems && e.data.problems[0]) || e.message, "bad"); }
   };
   const boardPicker = (body, withAll, onPick) => {
@@ -29,7 +29,7 @@
     boardPicker(body, false, (id) => { d.selected = id; d.rail(); d.drawCards(); d.showTab("knobs"); });
     const a = d.artboard(d.selected) || D.artboards[0];
     const knobs = a.controls || [];
-    if (!knobs.length) { body.appendChild(h(`<p class="hint">${esc(a.title || a.id)} has no knobs yet. Ask for them in a turn: "add knobs for spacing and the accent colour".</p>`)); return; }
+    if (!knobs.length) { body.appendChild(h(`<p class="hint">${esc(a.title || a.id)} has no knobs yet. Ask for them in a turn: "add knobs for spacing and the accent colour".</p>`)); d.contrastSection(body, a); return; }
     knobs.forEach((k) => {
       let control; const timer = { t: null };
       const send = (v) => { clearTimeout(timer.t); timer.t = setTimeout(() => d.setKnob(a.id, k.name, v), 150); };
@@ -42,6 +42,7 @@
       row.appendChild(h(`<div class="hint mono">${esc(k.target || "")}${String(k.target || "").startsWith("css:") ? "" : " · applies on the next turn"}</div>`));
       body.appendChild(row);
     });
+    d.contrastSection(body, a);
   };
 
   d.systemTab = (body) => {

@@ -205,10 +205,10 @@ class Project:
     def comments(self) -> list:
         return _read_json(self.path / "comments.json", [])
 
-    def add_comment(self, artboard: str, text: str, *, x: float = 0, y: float = 0, path: str = "", version: int = 0) -> dict:
+    def add_comment(self, artboard: str, text: str, *, x: float = 0, y: float = 0, path: str = "", version: int = 0, source: str = "") -> dict:
         rows = self.comments()
         c = {"id": f"c{len(rows) + 1}-{int(time.time())}", "artboard": artboard, "version": version, "x": x, "y": y,
-             "path": path, "text": text, "resolved": False, "created": _now()}
+             "path": path, "text": text, "resolved": False, "created": _now(), **({"source": source} if source else {})}
         rows.append(c)
         _write_json(self.path / "comments.json", rows)
         return c

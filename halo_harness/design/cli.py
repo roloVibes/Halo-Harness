@@ -3,7 +3,8 @@
     halo design new <name> [--model M]          a project under ~/.halo/design/<slug>/
     halo design list                             every project
     halo design show <slug>                      artboards, versions, comments, the system
-    halo design run <slug> "<prompt>" [--model M] [--budget USD]   one design turn
+    halo design run <slug> "<prompt>" [--model M] [--budget USD] [--variants N --base ID]   one design turn
+    halo design critique <slug> <artboard> [--model M]   a read-only second opinion, pinned as comments
     halo design sync <slug> [PATH|URL]           a design system from a codebase or a page
     halo design comment <slug> <artboard> "<text>" [--at X,Y]
     halo design restore <slug> <artboard> <version>
@@ -62,12 +63,21 @@ def cmd_show(args) -> int:
     if hist:
         spent = sum(float(h.get("cost") or 0) for h in hist)
         print(f"  {len(hist)} turn(s), ${spent:.3f} so far")
+        for h in hist[-5:]:
+            cost = f"${float(h['cost']):.3f}" if h.get("cost") is not None else "$?"
+            print(f"    {h.get('tool_calls', '?')} tool calls · {h.get('elapsed', '?')} s · {cost}  {str(h.get('prompt', ''))[:50]}")
     return 0
 
 
 def cmd_run(args) -> int:
     from halo_harness.design.session import run_turn
     p = _open(args.slug)
+    prompt = args.prompt
+    if args.variants:
+        from halo_harness.design.critique import MAX_VARIANTS, variants_prompt
+        if not 2 <= args.variants <= MAX_VARIANTS:
+            raise SystemExit(f"halo design run: --variants is a number from 2 to {MAX_VARIANTS}")
+        prompt = variants_prompt(prompt, args.variants, args.base or "design")
 
     def on_event(ev: dict) -> None:
         t = ev.get("type")
@@ -80,7 +90,22 @@ def cmd_run(args) -> int:
         elif t == "halo_design":
             vs = ", ".join(f"{a} v{n}" for a, n in ev.get("versions") or []) or "no artboard changed"
             print(f"turn done (exit {ev.get('code')}, cost {'$%.4f' % ev['cost'] if ev.get('cost') is not None else '?'}): {vs}")
-    r = run_turn(p, args.prompt, model=args.model or "", on_event=on_event, max_budget_usd=args.budget)
+    r = run_turn(p, prompt, model=args.model or "", on_event=on_event, max_budget_usd=args.budget)
+    return 0 if r["code"] == 0 else 1
+
+
+def cmd_critique(args) -> int:
+    from halo_harness.design.critique import add_pins, critique_prompt
+    from halo_harness.design.session import run_turn
+    p = _open(args.slug)
+    board = next((a for a in p.artboards() if a["id"] == args.artboard), None)
+    if board is None:
+        raise SystemExit(f"halo design critique: no artboard {args.artboard!r} in {p.slug}")
+    r = run_turn(p, critique_prompt(p, board["id"]), model=args.model or "", max_turns=6, registered=set(), entries={}, tools_override="Read,Glob")
+    pins, note = add_pins(p, board["id"], r["text"], version=board["latest"]) if r["code"] == 0 else ([], f"the critique turn ended with exit {r['code']}")
+    for c in pins:
+        print(f"  {c['x']:.0f}%,{c['y']:.0f}%  {c['text']}")
+    print(note)
     return 0 if r["code"] == 0 else 1
 
 
@@ -154,7 +179,8 @@ def cmd_design(argv: list) -> int:
     p = sub.add_parser("new", help="create a project"); p.add_argument("name"); p.add_argument("--model"); p.set_defaults(fn=cmd_new)
     sub.add_parser("list", help="every project").set_defaults(fn=cmd_list)
     p = sub.add_parser("show", help="a project's artboards and state"); p.add_argument("slug"); p.set_defaults(fn=cmd_show)
-    p = sub.add_parser("run", help="one design turn"); p.add_argument("slug"); p.add_argument("prompt"); p.add_argument("--model"); p.add_argument("--budget", type=float); p.set_defaults(fn=cmd_run)
+    p = sub.add_parser("run", help="one design turn"); p.add_argument("slug"); p.add_argument("prompt"); p.add_argument("--model"); p.add_argument("--budget", type=float); p.add_argument("--variants", type=int, help="make N directions as <base>-a, <base>-b, ..."); p.add_argument("--base", help="the artboard id the directions are named after"); p.set_defaults(fn=cmd_run)
+    p = sub.add_parser("critique", help="a read-only second opinion on an artboard, pinned as comments"); p.add_argument("slug"); p.add_argument("artboard"); p.add_argument("--model"); p.set_defaults(fn=cmd_critique)
     p = sub.add_parser("sync", help="a design system from a codebase path or a URL"); p.add_argument("slug"); p.add_argument("source", nargs="?"); p.set_defaults(fn=cmd_sync)
     p = sub.add_parser("comment", help="pin a comment on an artboard"); p.add_argument("slug"); p.add_argument("artboard"); p.add_argument("text"); p.add_argument("--at"); p.set_defaults(fn=cmd_comment)
     p = sub.add_parser("restore", help="restore an artboard version"); p.add_argument("slug"); p.add_argument("artboard"); p.add_argument("version"); p.set_defaults(fn=cmd_restore)

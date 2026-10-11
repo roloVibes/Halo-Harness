@@ -113,6 +113,26 @@ Code session continues from:
 halo --cwd ~/.halo/design/launch-page/exports/<stamp>-handoff "continue from HANDOFF.md"
 ```
 
+## Plus more
+
+- **Directions**: `halo design run <slug> "<prompt>" --variants 3 --base hero` makes
+  hero-a, hero-b, hero-c in one turn, clearly different in layout, type and colour,
+  all keeping the design system. Studio's **3 directions** button (or `V`) does the
+  same and tiles the new artboards side by side.
+- **Critique**: `halo design critique <slug> <artboard>` runs a read-only turn (Read
+  and Glob, no MCP servers, six turns) on the project's model or `--model`. It
+  judges hierarchy, spacing, type scale, contrast, token use, copy and accessibility,
+  and each note becomes a comment pin marked `critique` with its severity.
+- **Contrast**: WCAG ratios for every text-like colour token on every background-like
+  token, read from the artboard's `:root` (the design system fills gaps). No model
+  call; Studio's Knobs tab shows the table and refreshes it after a knob moves.
+- **Assets**: files in the project's `assets/` folder. Studio lists them, takes drops
+  from the desktop (15 MB each) and puts `Use assets/<name>` in the prompt; a drop on
+  a frame says `Place assets/<name> on <artboard>`.
+- **Run view**: each history line records tool calls and seconds beside the cost;
+  `halo design show` prints the last five and Studio's History shows
+  "12 tool calls · 48 s · $0.03".
+
 ## Studio's Design mode
 
 Press `D` in Studio (or open `?mode=design`). The rail lists projects, artboards and
@@ -127,7 +147,8 @@ See [STUDIO.md](STUDIO.md).
 halo design new <name> [--model M]
 halo design list
 halo design show <slug>
-halo design run <slug> "<prompt>" [--model M] [--budget USD]
+halo design run <slug> "<prompt>" [--model M] [--budget USD] [--variants N] [--base ID]
+halo design critique <slug> <artboard> [--model M]
 halo design sync <slug> [PATH|URL]
 halo design comment <slug> <artboard> "<text>" [--at X,Y]
 halo design restore <slug> <artboard> <version>

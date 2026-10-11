@@ -36,6 +36,7 @@
     let last = ""; try { last = localStorage.getItem("halo-design-project") || ""; } catch (e) {}
     const pick = d.projects.find((p) => p.slug === last) || d.projects[0];
     if (pick) await d.open(pick.slug); else { d.slug = null; d.data = null; d.refreshAll(); }
+    try { const t = (location.search.match(/[?&]dtab=(\w+)/) || [])[1]; if (t && d.data) d.showTab(t); } catch (e) {}  // captures open a tab with ?dtab=knobs
     d.loadRanking();
   };
   d.leave = (app) => { if (!d.app) return; d.app = null; $("canvas-empty").style.display = d.prevEmpty || "none"; };
@@ -76,8 +77,11 @@
     if (!d.slug) { d.toast("Create or open a project first", "warn"); return null; }
     if (d.live()) { d.toast("A turn is already running in this project", "warn"); return null; }
     try {
-      const r = await d.call("POST", "run", { prompt, model: opts.model || undefined, budget: opts.budget || undefined });
-      return await d.attach(r.turn, prompt);
+      const before = ((d.data && d.data.artboards) || []).map((a) => a.id);
+      const r = await d.call("POST", "run", { prompt, model: opts.model || undefined, budget: opts.budget || undefined, variants: opts.variants || undefined, base: opts.base || undefined });
+      const done = await d.attach(r.turn, opts.variants ? `${opts.variants} directions: ${prompt}` : prompt);
+      if (opts.variants && done && d.tileNew) d.tileNew(before);  // the new directions side by side, the first selected
+      return done;
     } catch (e) { d.toast(e.message, "bad"); return null; }
   };
   d.attach = (tid, prompt) => new Promise((resolve) => {
@@ -141,6 +145,7 @@
     $("d-projects").onclick = (ev) => { const li = ev.target.closest("li[data-slug]"); if (li && li.dataset.slug !== d.slug) d.open(li.dataset.slug); };
     $("d-boards").onclick = (ev) => { const li = ev.target.closest("li[data-id]"); if (li) { d.selected = li.dataset.id; d.rail(); d.drawCards(); d.centerOn(li.dataset.id); if (d.tab === "knobs" || d.tab === "export") d.showTab(d.tab); } };
     $("d-sync-go").onclick = d.sync; $("d-sync-src").onkeydown = (ev) => { if (ev.key === "Enter") d.sync(); };
+    if (d.paintAssets) d.paintAssets(root);
   };
   d.sync = async () => {
     const src = $("d-sync-src").value.trim(); if (!src || !d.slug) return;
@@ -161,20 +166,4 @@
     box.innerHTML = `<div class="inner"><h2>${esc(D.meta.name)} is empty</h2><p>Pick a prompt to start from, or write your own in the Chat tab.</p><div class="starters">${d.suggestions.map((s, i) => `<button data-i="${i}"><b>${esc(s.split(":")[0].slice(0, 54))}</b><small>${esc(s)}</small></button>`).join("")}</div></div>`;
     box.querySelectorAll("button[data-i]").forEach((b) => b.addEventListener("click", () => { d.draft = d.suggestions[Number(b.dataset.i)]; d.showTab("chat"); const p = document.querySelector(".d-prompt"); if (p) p.focus(); }));
   };
-  d.key = (ev) => {
-    if (ev.ctrlKey || ev.metaKey || ev.altKey) return false;
-    if (ev.key === "f") { d.fit(); return true; }
-    if (ev.key === "c") { d.setTool("comment"); return true; }
-    if (ev.key === "v" || ev.key === "Escape") { d.setTool("select"); return ev.key === "v"; }
-    return ev.key === "a" || ev.key === "Delete" || ev.key === "Backspace";
-  };
-  d.commands = () => [
-    { label: "Design: New project", key: "", run: () => d.openNew() },
-    { label: "Design: Run a turn", key: "", run: () => { d.showTab("chat"); const p = document.querySelector(".d-prompt"); if (p) p.focus(); } },
-    { label: "Design: Send comments", key: "", run: () => d.sendComments() },
-    { label: "Design: Sync design system", key: "", run: () => { const i = $("d-sync-src"); if (i) i.focus(); } },
-    { label: "Design: Export folder", key: "", run: () => d.exportAs("folder") },
-    { label: "Design: Handoff bundle", key: "", run: () => d.handoff() },
-    { label: "Design: Fit canvas", key: "F", run: () => d.fit() },
-  ];
 })();

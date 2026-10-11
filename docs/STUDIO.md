@@ -128,13 +128,50 @@ page embeds them as `<iframe sandbox="allow-scripts">` without
 `allow-same-origin`, so a prototype runs but cannot reach Studio's API or its
 token.
 
+**Plus more.**
+
+- **Explore directions**: the **3 directions** button beside Run turn (or `V`)
+  wraps the prompt as "Make 3 directions of: ..." with artboards named
+  `<name>-a`, `-b`, `-c` (the name box beside the button, the selected artboard
+  by default). It is one turn; afterwards the canvas tiles the new artboards
+  side by side and selects the first. `POST design/<slug>/run` takes
+  `{"variants": N, "base": "<id>"}`, and the CLI takes `--variants N --base ID`.
+- **Critique**: **Critique <artboard>** (or `K`) starts a read-only turn (Read
+  and Glob, no MCP servers) where a second model, the project's or the one picked,
+  reviews the artboard. Its notes land as comment pins with a `critique` badge and
+  a `[high]` / `[medium]` / `[low]` prefix; Send comments includes them.
+  `POST design/<slug>/critique {artboard, model?}`.
+- **Contrast**: the Knobs tab ends with a table of text-on-background pairs with
+  ratio and AA / AAA verdicts (failing pairs first, red / amber / green dots),
+  refreshed after every knob move. `GET design/<slug>/artboard/<id>/contrast`.
+- **Assets**: the rail's Assets list (name, size, thumbnail) with a drop zone.
+  Drop files from the desktop onto the rail or the canvas to upload them; the
+  Chat box gets "Use assets/<name> ...". An image dropped on a frame card adds
+  "Place assets/<name> on <artboard>". Click an asset to insert its path.
+  `GET` / `POST design/<slug>/assets`, 15 MB at most.
+- **Run view**: History shows "12 tool calls · 48 s · $0.03" per turn.
+
+![The Knobs tab with Spacing at 48 and the Contrast table](media/studio-design-knob.png)
+
 | Key | Action (Design mode) |
 |---|---|
 | `D` / `R` / `O` | switch mode |
-| `C` / `V` | comment tool / select tool |
+| `N` | new project |
+| `Enter` in the Chat box | run the turn |
+| `C` | toggle the comment tool (`Esc` returns to select) |
+| `V` | explore 3 directions of the Chat prompt |
+| `K` | critique the selected artboard |
+| `X` | check contrast (opens Knobs) |
+| `S` | send comments |
+| `Y` | sync the design system |
+| `U` | add assets |
+| `E` / `H` | export folder / handoff bundle |
 | `F` | fit the canvas |
 | `Ctrl`+wheel, space-drag | zoom, pan |
-| `Ctrl`/`Cmd`+`K` | palette: New project, Run a turn, Send comments, Sync design system, Export folder, Handoff, Fit canvas |
+| `Ctrl`/`Cmd`+`K` | the palette lists every Design command with its key |
+
+Shortcuts are inactive while you type in a box. The tour (`?`) shows five Design
+steps when the page is in Design mode.
 
 ## Validate, save, apply
 

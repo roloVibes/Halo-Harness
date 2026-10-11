@@ -12,6 +12,7 @@ import re
 
 from halo_harness.design import controls as C
 from halo_harness.design.store import Project
+from halo_harness.studio import design_api_more as more
 from halo_harness.studio import design_api_turns as turns
 from halo_harness.studio.design_api_io import _artboard, _bad, _project, export, handoff, put_system, restore, sync, versions
 
@@ -53,6 +54,9 @@ def run(req):
     prompt = str(req.body.get("prompt") or "").strip()
     if not prompt:
         return _bad("write what to design first")
+    prompt, err = more.variants_of(prompt, req.body)
+    if err:
+        return err
     try:
         budget = float(req.body["budget"]) if req.body.get("budget") not in (None, "") else None
     except (TypeError, ValueError):
@@ -149,6 +153,8 @@ ROUTES = [
     ("POST", _S + r"/comment$", comment), ("POST", _S + r"/comments/resolve$", resolve), ("POST", _S + r"/control$", control),
     ("POST", _S + r"/text-edit$", text_edit), ("PUT", _S + r"/system$", put_system),
     ("GET", _S + r"/artboard/(?P<aid>[^/]+)/versions$", versions), ("POST", _S + r"/artboard/(?P<aid>[^/]+)/restore$", restore),
+    ("POST", _S + r"/critique$", more.critique), ("GET", _S + r"/artboard/(?P<aid>[^/]+)/contrast$", more.contrast),
+    ("GET", _S + r"/assets$", more.assets_list), ("POST", _S + r"/assets$", more.assets_post),
     ("POST", _S + r"/sync$", sync), ("POST", _S + r"/export$", export), ("POST", _S + r"/handoff$", handoff),
 ]
 
