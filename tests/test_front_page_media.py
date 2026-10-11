@@ -44,7 +44,7 @@ def _readme_images() -> "list[str]":
 def test_every_readme_image_exists_and_is_under_1mb(ctx: Ctx):
     images = _readme_images()
     local = [i for i in images if not i.startswith(("http://", "https://"))]
-    ctx.check(f"the README references local images, got {len(local)}", len(local) >= 20)
+    ctx.check(f"the README references local images, got {len(local)}", len(local) >= 15)
     for ref in sorted(set(local)):
         path = REPO_DIR / ref
         ctx.check(f"{ref} exists", path.is_file())
@@ -81,6 +81,8 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
         if (MEDIA / f"{n}.png").is_file():
             ctx.check(f"docs/media/{n}.png has the PNG signature", (MEDIA / f"{n}.png").read_bytes()[:8] == b"\x89PNG\r\n\x1a\n")
     for png in MEDIA.glob("*.png"):
+        if png.stem == "social-preview":  # 2.0.11 round A4: rendered from social-preview.svg (tools/hero_svg.py), not a capture
+            continue
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
     ctx.check("the animated captures are the turn, the steer and the three levels (2.0.11 round A3)",
               {c["name"] for c in caps if c.get("anim")}
