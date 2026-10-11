@@ -64,7 +64,9 @@ ever covered the legacy pane). `halo roles` always prints the state as
 its own first line --
 `roles: on (lineup <name>)`, `roles: on (legacy role table)`, or `roles:
 off (standard: every role uses the default model)` -- before the
-configured table below it. `halo roles template load <name>` now also
+configured table below it; since 2.1.0 every role line also ends with its
+source -- `[lineup <name>]`, `[legacy table]` or `[session default]`.
+`halo roles template load <name>` now also
 turns roles ON (previously it wrote the role mappings and left `roles.
 enabled` exactly as it was, so a freshly loaded table sat inert until a
 hand edit of config.json); `halo teams use <name>` ([AGENTS.md](AGENTS.
