@@ -6,7 +6,8 @@
   function palette(app) {
     const modal = document.getElementById("palette"), box = document.getElementById("palette-input"), list = document.getElementById("palette-list");
     let items = [], cursor = 0;
-    const commands = () => [
+    const commands = () => (app.mode === "design" ? [...window.designMode.commands(), ...rolesCommands().filter((c) => /light|rail|inspector|tour/i.test(c.label))] : rolesCommands());
+    const rolesCommands = () => [
       { label: "Validate lineup", key: "Ctrl+Enter", run: () => app.validate() },
       { label: "Save lineup", key: "Ctrl+S", run: () => app.save() },
       { label: "Apply lineup (make it active)", key: "", run: () => app.apply() },

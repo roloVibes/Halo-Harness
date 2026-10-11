@@ -60,7 +60,7 @@ def test_every_readme_png_comes_from_captures_json(ctx: Ctx):
     for ref in sorted(set(pngs)):
         path = Path(ref)
         ctx.check(f"{ref} lives in docs/media/", path.parent.as_posix() == "docs/media")
-        if path.stem in ("studio", "studio-org"):  # tools/capture_studio.py renders these, not the TUI pilots
+        if path.stem in ("studio", "studio-org", "studio-design"):  # tools/capture_studio.py renders these, not the TUI pilots
             continue
         ctx.check(f"{ref} matches a capture name in tools/captures.json", path.stem in names)
     for ref in sorted({i for i in _readme_images() if i.endswith(".anim.svg")}):
@@ -83,7 +83,7 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
         if (MEDIA / f"{n}.png").is_file():
             ctx.check(f"docs/media/{n}.png has the PNG signature", (MEDIA / f"{n}.png").read_bytes()[:8] == b"\x89PNG\r\n\x1a\n")
     for png in MEDIA.glob("*.png"):
-        if png.stem in ("social-preview", "studio", "studio-org"):  # hero_svg.py --social and tools/capture_studio.py, not TUI captures
+        if png.stem in ("social-preview", "studio", "studio-org", "studio-design"):  # hero_svg.py --social and tools/capture_studio.py, not TUI captures
             continue
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
     ctx.check("the animated captures are the turn, the steer and the three levels (2.0.11 round A3)",

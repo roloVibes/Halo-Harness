@@ -14,8 +14,9 @@
     if (mode === app.mode) return;
     document.querySelectorAll(".mode-toggle button").forEach((b) => b.classList.toggle("on", b.dataset.mode === mode));
     try { localStorage.setItem("halo-studio-mode", mode); } catch (e) {}
-    if (mode === "org") { app.mode = "org"; app.canvas.select([]); await window.orgMode.enter(app); }
-    else { window.orgMode.leave(app); app.mode = "roles"; document.body.dataset.mode = "roles"; const heads = $("rail").querySelectorAll("h3"); heads[0].firstChild.textContent = "Lineups "; heads[1].firstChild.textContent = "Agents "; restoreTabs(); app.canvas.onMove = rolesOnMove; if (app.current) { const name = app.current.name; app.current = null; await app.selectLineup(name); } else { app.canvas.setGraph([], []); await app.reloadLists(); status(); } }
+    if (mode === "org") { window.designMode.leave(app); app.mode = "org"; app.canvas.select([]); await window.orgMode.enter(app); }
+    else if (mode === "design") { window.orgMode.leave(app); app.mode = "design"; app.canvas.select([]); await window.designMode.enter(app); }  // 3.0.1.0
+    else { window.orgMode.leave(app); window.designMode.leave(app); app.mode = "roles"; document.body.dataset.mode = "roles"; const heads = $("rail").querySelectorAll("h3"); heads[0].firstChild.textContent = "Lineups "; heads[1].firstChild.textContent = "Agents "; restoreTabs(); app.canvas.onMove = rolesOnMove; if (app.current) { const name = app.current.name; app.current = null; await app.selectLineup(name); } else { app.canvas.setGraph([], []); await app.reloadLists(); status(); } }
   };
   const TABS = ["assignment:Assignment", "agent:Agent", "lineup:Lineup", "yaml:YAML"];
   function restoreTabs() {
@@ -69,11 +70,12 @@
   };
   app.changed = async () => { app.dirty = true; await app.refreshGraph(); if (app.tab !== "yaml") app.showTab(app.tab); else if (app.current._yamlBox) app.current._yamlBox.value = (await api.toYaml(app.current.raw)).yaml; };
   app.replaceRaw = async (raw) => { app.current.raw = raw; app.dirty = true; await app.refreshGraph(); };
-  app.removeSelected = async () => { if (app.mode === "org") return; const n = app.selectedNode(); if (!n) return; app.current.raw.agents.splice(n.index, 1); app.selected = []; await app.changed(); };
+  app.removeSelected = async () => { if (app.mode !== "roles") return; const n = app.selectedNode(); if (!n) return; app.current.raw.agents.splice(n.index, 1); app.selected = []; await app.changed(); };
 
   // -- tabs ----------------------------------------------------------------------
   app.showTab = async (tab) => {
     if (app.mode === "org") return window.orgMode.showTab(tab);
+    if (app.mode === "design") return window.designMode.showTab(tab);
     app.tab = tab; document.querySelectorAll("#inspector .tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
     const body = $("inspector-body"); body.innerHTML = "";
     if (tab === "assignment") window.inspector.assignmentTab(body, app);
@@ -160,7 +162,8 @@
     if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") { ev.preventDefault(); app.validate(); return; }
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "n") { ev.preventDefault(); app.newLineup(); return; }
     if (typing) return;
-    if (ev.key === "o") { app.setMode("org"); return; } if (ev.key === "r") { app.setMode("roles"); return; }
+    if (ev.key === "o") { app.setMode("org"); return; } if (ev.key === "r") { app.setMode("roles"); return; } if (ev.key === "d") { app.setMode("design"); return; }
+    if (app.mode === "design" && window.designMode.key(ev)) return;
     if (ev.key === "a") app.canvas.autoLayout(); else if (ev.key === "f") app.canvas.fit(); else if (ev.key === "?") studioTour(app, true);
     else if (ev.key === "[") document.body.classList.toggle("rail-hidden"); else if (ev.key === "]") document.body.classList.toggle("inspector-hidden");
     else if (ev.key === "Delete" || ev.key === "Backspace") app.removeSelected(); else if (ev.key === "Escape") app.canvas.select([]);
@@ -179,7 +182,8 @@
       if (first) await app.selectLineup(first); else { $("canvas-empty").style.display = ""; status(); app.showTab("assignment"); }
       if (!/[?&]tour=off/.test(location.search)) studioTour(app);  // captures and tests pass ?tour=off
       let saved = ""; try { saved = localStorage.getItem("halo-studio-mode") || ""; } catch (e) {}
-      if (/[?&]mode=org/.test(location.search) || saved === "org") app.setMode("org");
+      if (/[?&]mode=design/.test(location.search) || (saved === "design" && !/[?&]mode=/.test(location.search))) app.setMode("design");
+      else if (/[?&]mode=org/.test(location.search) || saved === "org") app.setMode("org");
     } catch (e) {
       $("canvas-empty").style.display = ""; $("canvas-empty").querySelector("h2").textContent = "Studio cannot reach its server";
       $("canvas-empty").querySelector("p").textContent = e.message + " — open the exact URL `halo studio` printed (it carries the token).";

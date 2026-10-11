@@ -59,7 +59,7 @@ def apply_css_control(html: str, var: str, value) -> str:
         if not decl.search(m.group(2)):
             return m.group(0)
         hit = True
-        return m.group(1) + decl.sub(lambda d: name + d.group(1) + value, m.group(2)) + m.group(3)
+        return m.group(1) + decl.sub(lambda d: name + d.group(1) + value + d.group(2)[len(d.group(2).rstrip()):], m.group(2)) + m.group(3)
 
     out = _ROOT.sub(fix, html)
     if hit:

@@ -65,6 +65,77 @@ start it.
 
 ![Org mode: the halo-dev-cycle lineup as a Paperclip company](media/studio-org.png)
 
+## Design mode: prototypes, pages and decks on your own apps
+
+The third button in the top bar, `Roles | Org | Design` (keys `R` / `O` / `D`,
+or `?mode=design`; the choice is remembered). It is the page for `halo design`
+projects under `~/.halo/design/<slug>/`.
+
+![Design mode: the Launch page project](media/studio-design.png)
+
+**What you see.** The left rail lists projects (with a New project form that
+opens its model picker on the design ranking, capability chips included), the
+open project's artboards (id, kind, app, latest version) and its design system
+(token groups with counts, plus a "Sync from..." box that takes a folder path
+or a URL). The canvas is a dot-grid of frame cards: title row (title, kind,
+app, `v<n>`), the frame itself (a sandboxed iframe for an HTML artboard, an
+image for a `render.png` / `render.svg`, a link card for a PDF or MP4), a
+device select (phone 390, tablet 820, desktop 1280 wide; the frame scales to
+fit the card) and a version slider. Drag a card by its title row; positions
+are kept in your browser per project. Pan with space-drag, the middle button
+or a drag on the empty background; zoom with `Ctrl`+wheel; `F` fits.
+
+**The panel** replaces the inspector tabs: Chat, Comments, Knobs, System,
+Export.
+
+- **Chat**: the prompt box (`Enter` sends, `Shift+Enter` adds a line), a model
+  override and a budget, the turn's events as they stream (assistant text,
+  compact tool cards, the result with its cost), the project's running cost and
+  the history. One turn runs per project at a time; the page polls the turn
+  every 500 ms.
+- **Comments**: press `C` (the Comment tool) and click a frame to pin a note
+  (the position is kept as a percentage of the frame). Open pins are grouped by
+  artboard with Resolve; **Send comments** turns every open pin into one prompt
+  ("Address these comments: ...") and runs a turn, then resolves them when it
+  succeeds.
+- **Knobs**: the artboard's `controls.json` as sliders, colour inputs and
+  selects. A `css:--name` knob rewrites that variable in the page's `:root`
+  block in place, with no model call, and makes a new version; a `craft:` knob
+  is saved and applied by the next turn. Ask for knobs in a turn: "add knobs for
+  spacing and the accent colour".
+- **System**: the design system's tokens by group, editable, saved with Save
+  tokens; sources and components below.
+- **Export**: folder, HTML, PNG, SVG or PDF (optionally for one artboard) with
+  the returned lines, and **Handoff bundle**, which shows the bundle's path
+  with a Copy button.
+
+**Direct text edits.** "Edit text" on an HTML card reloads the frame with
+`?edit=1`: the page becomes editable, and `Ctrl+S` or leaving the text posts
+the page back to Studio, which saves it as a new version ("direct edit"). The
+helper script is wrapped in `<!--halo-edit-->` markers and never reaches the
+saved file.
+
+**Versions.** Every turn, knob move, direct edit and restore is a version.
+The slider under a card swaps the frame to `v<n>/...`; at an older version,
+**Restore this version** makes it the newest one.
+
+**The raw file route and its sandbox.** Artboard files are served at
+`GET /design-files/<slug>/<artboard>/<file>` (and `.../v<n>/<file>`), loopback
+only and confined to that artboard's folder (`..` is a 404). They carry their
+own `Content-Security-Policy: default-src 'self' 'unsafe-inline' data: blob:`
+and `nosniff`, not Studio's, because a prototype has inline CSS and JS. The
+page embeds them as `<iframe sandbox="allow-scripts">` without
+`allow-same-origin`, so a prototype runs but cannot reach Studio's API or its
+token.
+
+| Key | Action (Design mode) |
+|---|---|
+| `D` / `R` / `O` | switch mode |
+| `C` / `V` | comment tool / select tool |
+| `F` | fit the canvas |
+| `Ctrl`+wheel, space-drag | zoom, pan |
+| `Ctrl`/`Cmd`+`K` | palette: New project, Run a turn, Send comments, Sync design system, Export folder, Handoff, Fit canvas |
+
 ## Validate, save, apply
 
 **Validate** runs `teams_yaml.validate_team_template` (the CLI's own checks)
@@ -121,6 +192,6 @@ in your own browser.
 ## Files
 
 `halo_harness/studio/server.py` (the server, the guard, the command),
-`api.py` (the routes), `model.py` (the graph, the catalog rows, the session
+`api.py` (the routes), `design_api.py` / `design_api_io.py` / `design_api_turns.py` / `design_files.py` (Design mode), `model.py` (the graph, the catalog rows, the session
 reader), `static/` (the page). Tests: `tests/test_studio_api.py`,
 `tests/test_studio_model.py`.

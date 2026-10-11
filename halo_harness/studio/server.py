@@ -131,8 +131,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             ctype += "; charset=utf-8"
         self._send(200, target.read_bytes(), ctype, {"Content-Security-Policy": "default-src 'self'; img-src 'self' data: http://127.0.0.1:* http://localhost:*; style-src 'self' 'unsafe-inline'; frame-src http://127.0.0.1:* http://localhost:*"})
 
+    def _design_file(self) -> None:
+        """3.0.1.0 D3: a design artboard's raw file for the page's sandboxed iframes (its own CSP, loopback only)."""
+        from halo_harness.studio import design_files
+        if self.client_address[0] not in LOOPBACK:
+            self._json(403, {"error": "studio only answers the local machine"})
+            return
+        parts = urlsplit(self.path)
+        status, body, ctype = design_files.read(self.server.state_dir, parts.path, {k: v[-1] for k, v in parse_qs(parts.query).items()})
+        self._send(status, body, ctype, {"Content-Security-Policy": design_files.CSP})
+
     def do_GET(self):
-        self._api("GET") if self.path.startswith("/api/") else self._static()
+        if self.path.startswith("/design-files/"):
+            self._design_file()
+        else:
+            self._api("GET") if self.path.startswith("/api/") else self._static()
 
     def do_HEAD(self):
         self.do_GET()

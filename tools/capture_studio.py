@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design]
 """
 
 from __future__ import annotations
@@ -71,9 +71,17 @@ def main(argv: list) -> int:
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--org", action="store_true", help="Org mode over a fake Paperclip seeded with the halo-dev-cycle company")
+    parser.add_argument("--mode", choices=["roles", "org", "design"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), 1440x900")
     args = parser.parse_args(argv)
+    args.org = args.org or args.mode == "org"
+    design = args.mode == "design"
     state = seeded_home()
     fake = None
+    if design:
+        from design_demo import seed
+        seed(state)
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-design.png"
     if args.org:
         from halo_harness.paperclip.client import Paperclip, save_config
         from halo_harness.paperclip.sync import sync_lineup
@@ -86,16 +94,19 @@ def main(argv: list) -> int:
     srv, url = serve(state)
     if args.org:
         url = url.replace("?tour=off", "?tour=off&mode=org")
+    if design:
+        url = url.replace("?tour=off", "?tour=off&mode=design")
     try:
         if args.dom:
             r = chrome(["--dump-dom", url])
             if r is None:
                 print("no Chrome found")
                 return 2
-            print(json.dumps({"nodes": r.stdout.count('class="node'), "title": r.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in r.stdout else ""}))
+            print(json.dumps({"cards": r.stdout.count('class="d-card'), "frames": r.stdout.count("<iframe"), "pins": r.stdout.count('class="d-pin"'), "tabs": r.stdout.count("data-tab=") if design else 0,
+                              "nodes": r.stdout.count('class="node'), "title": r.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in r.stdout else ""}))
             return 0
-        out = Path(args.out)
-        r = chrome([f"--screenshot={out}", "--window-size=1500,900", "--force-device-scale-factor=2", url])
+        out = Path(args.out).resolve()
+        r = chrome([f"--screenshot={out}", "--window-size=1440,900" if design else "--window-size=1500,900", "--force-device-scale-factor=2", url])
         if r is None:
             print("no Chrome found: nothing rendered")
             return 2
