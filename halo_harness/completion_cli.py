@@ -27,7 +27,7 @@ import argparse
 SUBCOMMANDS = (
     "proxy", "models", "mcp", "config", "doctor", "update", "work-matrix", "init",
     "providers", "stats", "improve", "export", "bugreport", "timeline",
-    "worktree", "bg", "roles", "org", "setup", "completion", "studio",
+    "worktree", "bg", "roles", "org", "setup", "completion", "studio", "paperclip",
     # Halo 2.0.3 round 5d: this round's own new top-level command.
     # "ollama"/"local" (rounds 2/5) were already missing here before this
     # round touched this file -- a separate, pre-existing gap, left as

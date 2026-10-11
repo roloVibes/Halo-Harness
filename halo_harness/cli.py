@@ -488,6 +488,14 @@ def main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "teams":
         from halo_harness.teams_cli import cmd_teams
         return cmd_teams(argv[1:])
+    if argv and argv[0] == "paperclip":
+        # 2.2.0: Paperclip (the company of agents): status, install, sync, org.
+        from halo_harness.paperclip.cli import cmd_paperclip
+        return cmd_paperclip(argv[1:])
+    if argv and argv[0] == "paperclip-run":
+        # 2.2.0: the command Paperclip's process adapter spawns on a heartbeat.
+        from halo_harness.paperclip.cli import cmd_paperclip_run
+        return cmd_paperclip_run(argv[1:])
     if argv and argv[0] == "studio":
         # 2.1.0 round B3: the local web GUI for lineups and agent bios.
         from halo_harness.studio import cmd_studio
