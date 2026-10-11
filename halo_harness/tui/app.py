@@ -453,6 +453,9 @@ class BridgeApp(App):
         # unless `--debug` was passed (debug_timeline.mark's own contract).
         from halo_harness import debug_timeline
         self.call_after_refresh(lambda: debug_timeline.mark("first paint"))
+        _startup_notice = getattr(self, "startup_notice", None)
+        if _startup_notice:
+            self.call_after_refresh(lambda: self.notify(_startup_notice, timeout=6))
         self.transcript = self.query_one(Transcript)
         self.completion_popup = self.query_one(CompletionPopup)
         self.which_key = self.query_one(WhichKeyOverlay)

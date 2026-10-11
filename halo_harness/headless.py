@@ -847,8 +847,8 @@ def build_session(
     notice_invalid_rules(deny_rules, ask_rules)
     # 2.0.10 finding 24: tighten an existing ~/.halo tree once, with one notice.
     from halo_harness.config.paths import bridge_home as _bridge_home
-    from halo_harness.privateio import tighten_state_tree_notice
-    tighten_state_tree_notice(_bridge_home())
+    from halo_harness.privateio import tighten_state_tree
+    tighten_state_tree(_bridge_home())  # silent here; the TUI launch and doctor say so
     # W4 MCP connectors-bridge item 6: the user's own deny/ask (and, for
     # symmetry, allow) rules for `mcp__claude_ai_<Name>__*` in Claude Code's
     # own settings are translated to the matching `connector__<slug>` rule,

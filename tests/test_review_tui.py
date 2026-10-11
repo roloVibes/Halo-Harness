@@ -21,10 +21,25 @@ from tests.helpers import review_mock as rm
 
 ensure_default_provider_credentials()
 import halo_harness.tui.clipboard as clipboard_mod
-clipboard_mod.copy_via_external_tool = lambda *a, **kw: False     # never touch the real clipboard
-clipboard_mod.read_via_external_tool = lambda *a, **kw: None
 
 test, TESTS = new_registry()
+
+
+def _without_real_clipboard(fn):
+    """Every test in this module runs with the external clipboard tools
+    stubbed -- and RESTORED afterwards: a module-level override leaked
+    into tests/run_all.py's single process and broke
+    test_round_copy_out's own read_via_external_tool pin on CI."""
+    def wrapped(ctx):
+        saved = (clipboard_mod.copy_via_external_tool, clipboard_mod.read_via_external_tool)
+        clipboard_mod.copy_via_external_tool = lambda *a, **kw: False     # never touch the real clipboard
+        clipboard_mod.read_via_external_tool = lambda *a, **kw: None
+        try:
+            return fn(ctx)
+        finally:
+            clipboard_mod.copy_via_external_tool, clipboard_mod.read_via_external_tool = saved
+    wrapped.__name__ = fn.__name__
+    return wrapped
 _ORIGINAL_HOME = os.environ.get("BRIDGE_TEST_HOME")
 
 
@@ -192,6 +207,9 @@ def test_zzz_restore_env(ctx: Ctx):
     else:
         os.environ["BRIDGE_TEST_HOME"] = _ORIGINAL_HOME
     ctx.check("env restored", True)
+
+
+TESTS[:] = [(name, _without_real_clipboard(fn)) for name, fn in TESTS]
 
 
 if __name__ == "__main__":
