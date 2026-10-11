@@ -251,6 +251,9 @@ ROUTES: list = [
 
 def dispatch(req: Request):
     """Route `req` (path without the /api/ prefix) to its handler."""
+    if req.path == "pc" or req.path.startswith("pc/"):  # 2.2.0: Org mode (Paperclip) routes
+        from halo_harness.studio.paperclip_api import dispatch_pc
+        return dispatch_pc(req)
     for method, pattern, fn in ROUTES:
         m = re.match(pattern, req.path)
         if m and method == req.method:

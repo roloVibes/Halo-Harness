@@ -4,13 +4,16 @@
 (function () {
   "use strict";
   const KEY = "halo-studio-token";
+  window.__studioErrors = [];  // every uncaught error and rejection, readable by tests and the status bar
+  window.addEventListener("error", (ev) => window.__studioErrors.push(String(ev.message || ev.error)));
+  window.addEventListener("unhandledrejection", (ev) => window.__studioErrors.push("rejection: " + String(ev.reason && (ev.reason.stack || ev.reason.message) || ev.reason)));
   let token = "";
   const m = /[#&]t=([A-Za-z0-9_-]+)/.exec(location.hash || "");
   if (m) { token = m[1]; try { sessionStorage.setItem(KEY, token); } catch (e) {} history.replaceState(null, "", location.pathname + location.search); }
   else { try { token = sessionStorage.getItem(KEY) || ""; } catch (e) {} }
   window.addEventListener("hashchange", () => {  // a fresh `halo studio` URL pasted over a stale tab (fragment-only change, no reload)
     const n = /[#&]t=([A-Za-z0-9_-]+)/.exec(location.hash || "");
-    if (n) { token = n[1]; try { sessionStorage.setItem(KEY, token); } catch (e) {} history.replaceState(null, "", location.pathname + location.search); location.reload(); }
+    if (n) { token = n[1]; try { sessionStorage.setItem(KEY, token); } catch (e) {} history.replaceState(null, "", location.pathname + location.search); if (window.app && window.app.reboot) window.app.reboot(); }
   });
 
   async function call(method, path, body, query) {
@@ -52,5 +55,13 @@
     fromYaml: (yaml) => call("POST", "yaml", { yaml }),
     session: () => call("GET", "session"),
     tools: () => call("GET", "tools"),
+    // 2.2.0 Org mode: Paperclip through Studio's proxy (the board token stays server-side)
+    pcStatus: () => call("GET", "pc/status"),
+    pcInstall: () => call("POST", "pc/install"),
+    pcInstallLog: () => call("GET", "pc/install"),
+    pcLink: (body) => call("POST", "pc/link", body),
+    pcSync: (body) => call("POST", "pc/sync", body),
+    pcPull: (body) => call("POST", "pc/pull", body),
+    pc: (method, path, body, query) => call(method, "pc/" + path, body, query),
   };
 })();
