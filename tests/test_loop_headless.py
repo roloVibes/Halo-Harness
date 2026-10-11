@@ -247,8 +247,12 @@ def test_without_p_flag_prints_tui_notice_exit_2(ctx: Ctx):
 def test_version_flag(ctx: Ctx):
     env = _hermetic_child_env()
     env["PYTHONPATH"] = str(REPO_DIR)
+    # 2.0.11 round A2: the child prints UTF-8 (cli.py reconfigures its
+    # stdout), so decode as UTF-8 explicitly -- a locale decode on Windows
+    # (cp1252) chokes on the box-drawing bytes inside the reader thread and
+    # leaves `stdout` as None.
     result = subprocess.run([sys.executable, "-m", "halo_harness", "--version"], env=env, cwd=str(REPO_DIR),
-                             capture_output=True, text=True, timeout=15)
+                             capture_output=True, encoding="utf-8", errors="replace", timeout=15)
     ctx.check(f"exit 0, got {result.returncode}", result.returncode == 0)
     from halo_harness import __version__
     # Halo 2.0.2 round 6: `(commit, branch)` is appended once the install's
@@ -260,10 +264,14 @@ def test_version_flag(ctx: Ctx):
     # version line -- the version line itself is unchanged and is the
     # LAST line of the multi-line output.
     import re
-    from halo_harness.banner import BANNER
+    from halo_harness.banner import BANNER, BANNER_ART
     lines = result.stdout.strip("\n").split("\n")
+    # 2.0.11 round A2: the block art on a UTF-8 stream, the ASCII form on
+    # a stream that cannot encode it (cli.py reconfigures stdout to UTF-8
+    # when it can, so the art is the usual case).
+    art, ascii_ = BANNER_ART.split("\n"), BANNER.split("\n")
     ctx.check(f"the banner block prints first, got {result.stdout!r}",
-              lines[:len(BANNER.split("\n"))] == BANNER.split("\n"))
+              lines[:len(art)] == art or lines[:len(ascii_)] == ascii_)
     ctx.check(f"last line prints halo {__version__}, optionally with (commit, branch), got {lines[-1]!r}",
               re.match(rf"^halo {re.escape(__version__)}( \([0-9a-f]{{7}}(, \S+)?\))?\s*$",
                         lines[-1]) is not None)

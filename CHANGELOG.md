@@ -21,6 +21,26 @@ version.
   all 24 capture SVGs are regenerated, and `tests/test_front_page_media.py`
   pins the attribute on every committed SVG so the bug cannot return.
 
+- **The wordmark is block art under a halo** (round A2). `halo_harness/banner.py`
+  holds `BANNER_ART`: six rows of block-letter HALO with box-drawing shadows
+  under a three-row shaded ring, 41 columns wide, plus the old figlet form
+  as `BANNER` for a stream that cannot encode block elements
+  (`banner_for_encoding`). `halo --version` prints the art on a UTF-8
+  stream; the launch intro reveals it row by row (about 140 ms a row, not a
+  360-character crawl) with the ring in the palette's gold and the letters in
+  an accent-to-user gradient (`intro_lines.banner_row_styles`, `IntroLine`'s
+  new `row_styles`); `/intro 1` replays it the same way. The README's banner
+  block and the hero carry the same rows. The intro pool is now exactly the
+  art, the copy-of-a-copy line and the Red Dragon line (the three 2.0.3
+  taglines are gone).
+- **The hero and the social preview are generated** (`tools/hero_svg.py`):
+  the art drawn as vector cells (never text, so no font can leave seams),
+  a gold glow behind the ring, the model chips, the tagline;
+  `docs/media/hero.svg` (1280x330) and `docs/media/social-preview.svg`
+  (1280x640, the GitHub social-preview size). Both carry the art rows in
+  their `<desc>`, and `tests/test_front_page_media.py` pins the hero to
+  `banner.py` through them.
+
 ## [2.0.10] - 2026-10-11
 
 ### Front page: real captures, diagrams, the stories

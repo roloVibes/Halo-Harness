@@ -779,8 +779,11 @@ Replays the 2.0.0 launch intro (the typewriter line a fresh interactive
 session shows above its first turn) -- a fresh `IntroLine` mounted at the
 current transcript position and typed out again from scratch; any
 keypress or a submitted prompt finishes it instantly, same as the
-launch-time one. In `-p`, prints a note pointing at the interactive TUI
-(there is no transcript to replay it into).
+launch-time one. `/intro <n>` replays line n of the pool (1 the block-art
+wordmark, revealed row by row with the ring in gold and the letters in a
+gradient; 2 the copy-of-a-copy line; 3 the Red Dragon line). In `-p`,
+prints a note pointing at the interactive TUI (there is no transcript to
+replay it into).
 
 ### `/tips`
 Halo 2.0.1: prints every tip that applies to this session right now --

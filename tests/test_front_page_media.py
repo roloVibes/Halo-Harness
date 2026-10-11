@@ -100,9 +100,13 @@ def test_diagrams_and_hero_exist_and_are_small(ctx: Ctx):
     readme = (REPO_DIR / "README.md").read_text(encoding="utf-8")
     for d in diagrams:
         ctx.check(f"the README shows diagrams/{d}.svg", f"docs/media/diagrams/{d}.svg" in readme)
-    from halo_harness.banner import BANNER
+    from halo_harness.banner import BANNER_ART
     hero_text = hero.read_text(encoding="utf-8") if hero.is_file() else ""
-    ctx.check("the hero's wordmark is the launch banner's rows", all(row.rstrip().replace("&", "&amp;") in hero_text for row in BANNER.split("\n")))
+    # 2.0.11 round A2: tools/hero_svg.py draws the block art as vector cells
+    # and carries the rows themselves in the <desc>, so the hero can never
+    # drift from banner.py.
+    ctx.check("the hero's wordmark is the launch banner's rows", all(row.rstrip() in hero_text for row in BANNER_ART.split("\n")))
+    ctx.check("the hero carries an explicit size", 'width="1280" height="330"' in hero_text[:600])
 
 
 @test

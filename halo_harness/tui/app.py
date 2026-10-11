@@ -511,10 +511,13 @@ class BridgeApp(App):
         # real content for that spot.
         if self.show_intro:
             from halo_harness import __version__ as _halo_version
-            from halo_harness.tui.intro_lines import intro_text
+            from halo_harness.tui.intro_lines import banner_row_styles, intro_text, is_banner_intro
             # 2.0.3: a random pick from the pool in tui/intro_lines.py,
-            # not the same line every launch (rolo, 2026-10-05).
-            self.intro_line = IntroLine(intro_text(_halo_version))
+            # not the same line every launch (rolo, 2026-10-05). 2.0.11
+            # round A2: the art entry reveals row by row in colour.
+            text = intro_text(_halo_version)
+            styles = banner_row_styles(self.get_css_variables()) if is_banner_intro(text) else None
+            self.intro_line = IntroLine(text, row_styles=styles)
             await self.transcript._mount_tracked(self.intro_line)
         # U5/review "must-do": git ran INLINE here even though the 5s
         # periodic refresh below was already threaded -- this first call

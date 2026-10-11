@@ -14,7 +14,8 @@ the literal cwd `~/project`, with a frozen clock, seeded tips and a scratch
 | `docs/media/<name>.svg` | The Textual export of one capture | `tools/capture_screens.py` |
 | `docs/media/<name>.png` | The same SVG rendered at 2x by headless Chrome | `tools/capture_screens.py`, when Chrome is found |
 | `docs/media/<name>.anim.svg` | Animated captures only (`turn-phase-line`, `steer-mid-turn`): 4 frames assembled into one looping SMIL SVG | `tools/capture_screens.py` |
-| `docs/media/hero.svg` | The README banner, with the launch screen's wordmark | drawn by hand |
+| `docs/media/hero.svg` | The README banner: the block-art wordmark from `halo_harness/banner.py` drawn as vector cells, the model chips, the tagline | `tools/hero_svg.py` |
+| `docs/media/social-preview.svg` | The same wordmark at 1280x640 for GitHub's Settings -> Social preview (upload the PNG render by hand; GitHub has no API for it) | `tools/hero_svg.py --social` |
 | `docs/media/diagrams/*.svg` | The five explanatory diagrams (session flow, routes, roles and organizations, the connectors bridge, remote control), each under 60 KB, on their own dark card so they read on a light or a dark page | drawn by hand |
 | `docs/screenshots/*.svg` | The older gallery under "What it looks like" | `scripts/screenshots.py` |
 | `tools/captures.json` | The capture list: name, scene, size (default 120x40), theme, scale (2), and for an animation its frame durations | edited by hand |
@@ -65,8 +66,10 @@ A hand-drawn SVG (the hero, the diagrams) must carry them too.
   monospace), so they are never compared byte for byte. The tests check only
   that each capture's PNG exists, is a PNG, is under 1 MB, and that every PNG
   the README shows is named in `tools/captures.json`.
-- **Not generated:** the hero and the five diagrams are hand-drawn SVGs. The
-  tests check that they exist, stay under 60 KB, and that the hero carries the
+- **Generated from the art:** the hero and the social preview come from
+  `tools/hero_svg.py` (deterministic; the art rows sit in each file's `<desc>`).
+- **Not generated:** the five diagrams are hand-drawn SVGs. The tests check
+  that they and the hero exist, stay under 60 KB, and that the hero carries the
   launch banner's rows.
 
 ## Adding a capture
