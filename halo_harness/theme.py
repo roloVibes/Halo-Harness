@@ -36,15 +36,21 @@ GAME_THEMES = ("doom", "metroid", "mario")
 GAME_THEME_DESCRIPTIONS = {
     "doom": "dark greys, blood red and amber with a bottom HUD status bar and a face that follows the phase",
     "metroid": "visor blues and greens with a suit-HUD status bar, energy tanks and five area palettes",
-    "mario": "sky blue, brick red and coin gold with a world-and-coins status bar",
+    "mario": "sky blue, brick red and coin gold with a coins, timer and world status bar, two palettes",
 }
 VALID_THEMES = frozenset(
     [f"{base}{suffix}" for base in _BASE_THEMES for suffix in _SUFFIXES] + list(GAME_THEMES))
 
 # Halo 2.0.8 theme pack, round 2: a game theme may offer selectable variants
-# (Metroid's five areas). The chosen one is `theme_variant` in config.json;
-# the first name is the default. Palettes live in `tui/theme_metroid.py`.
-GAME_VARIANTS = {"metroid": ("crateria", "brinstar", "norfair", "maridia", "tourian")}
+# (Metroid's five areas, Mario's two palettes). The chosen one is
+# `theme_variant` in config.json; the first name is the default. Palettes
+# live in `tui/theme_metroid.py` and `tui/theme_mario.py`.
+GAME_VARIANTS = {
+    "metroid": ("crateria", "brinstar", "norfair", "maridia", "tourian"),
+    "mario": ("bros", "world"),
+}
+# What a theme calls its variant in messages ("area norfair", "palette world").
+VARIANT_NOUNS = {"metroid": "area", "mario": "palette"}
 VARIANT_KEY = "theme_variant"
 
 

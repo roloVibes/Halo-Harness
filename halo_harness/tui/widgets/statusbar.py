@@ -26,6 +26,11 @@ _LIVE_PHASE_WORDS = frozenset({"thinking", "writing", "tool", "waiting"})
 
 SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
+# Halo 2.0.8 round 3: a skin cue (tui/hud.py `HudSkin.cues`) plays from a
+# Textual timer, one frame per CUE_STEP seconds, and ends after CUE_SECONDS.
+CUE_SECONDS = 2.0
+CUE_STEP = 0.25
+
 
 def _cwd_last_component(cwd: str) -> str:
     """point 4 (Halo 2.0.1 W2c live-capture polish): the final path
@@ -204,6 +209,11 @@ class StatusBar(Static):
         self.tools_loaded: "int | None" = None
         self.error = False
         self.hud_ascii: "bool | None" = None
+        self._turn_started_at: "float | None" = None  # the HUD's TIME clock: set by note_turn, read by hud_turn_seconds
+        self.last_turn_s: "float | None" = None
+        self._cue: "tuple | None" = None  # (event, frames, tick) while a skin cue plays
+        self._cue_timer = None
+        self._prev_bg_jobs = 0
         self._rows = 1
         self._refresh_display()
 
@@ -333,7 +343,62 @@ class StatusBar(Static):
     def note_turn(self) -> None:
         """A user turn started: the HUD's turn counter (Metroid's missiles)."""
         self.turn_count += 1
+        self._turn_started_at = time.monotonic()
         self._refresh_display()
+
+    def hud_turn_seconds(self) -> "tuple[float | None, bool]":
+        """(seconds, running) for the HUD's TIME panel: the user turn's clock
+        counting up while a call is live, else the last finished turn's
+        time (None before any)."""
+        if self.phase in _LIVE_PHASE_WORDS or self.phase in ("running", "compacting"):
+            start = self._turn_started_at if self._turn_started_at is not None else self._phase_started_at
+            return max(0.0, time.monotonic() - start), True
+        return self.last_turn_s, False
+
+    # ---- Halo 2.0.8 round 3: skin cues (the 1-UP / coin flash) -------------
+
+    def fire_cue(self, event: str) -> bool:
+        """Flash the active skin's cue for `event` ("agent_done", "job_done")
+        in the face slot for about CUE_SECONDS. A skin without that cue (or
+        the default layout) ignores it: no timer, no redraw, returns False."""
+        from halo_harness.tui.hud import skin_for
+        skin = skin_for(self.theme_name, self.theme_variant)
+        frames = skin.cues.get(event) if skin is not None else None
+        if not frames:
+            return False
+        self._stop_cue()
+        self._cue = (event, tuple(frames), 0)
+        try:
+            self._cue_timer = self.set_interval(CUE_STEP, self._advance_cue)
+        except Exception:  # not attached to a running app: nothing to time the flash with
+            self._cue = None
+            return False
+        self._refresh_display()
+        return True
+
+    def cue_active(self) -> "str | None":
+        return self._cue[0] if self._cue else None
+
+    def _advance_cue(self) -> None:
+        if self._cue is None:
+            self._stop_cue()
+            return
+        event, frames, tick = self._cue
+        tick += 1
+        if tick * CUE_STEP >= CUE_SECONDS - 1e-6:
+            self._stop_cue()
+        else:
+            self._cue = (event, frames, tick)
+        self._refresh_display()
+
+    def _stop_cue(self) -> None:
+        self._cue = None
+        timer, self._cue_timer = self._cue_timer, None
+        if timer is not None:
+            try:
+                timer.stop()
+            except Exception:
+                pass
 
     def set_theme(self, name: str, variant: "str | None" = None) -> None:
         """Called by BridgeApp on mount and on every theme change: picks the
@@ -342,6 +407,7 @@ class StatusBar(Static):
         from halo_harness.tui.hud import skin_for
         self.theme_name = name or "claude-dark"
         self.theme_variant = variant
+        self._stop_cue()
         skin = skin_for(self.theme_name, variant)
         self._set_rows(skin.rows if skin is not None else 1)
         self._refresh_display()
@@ -364,6 +430,9 @@ class StatusBar(Static):
         received-token counter/running tool name get their own reset, so
         neither can ever carry a stale reading into the NEXT turn (the
         "stuck-glyph defect" this brief's A3 calls out by name)."""
+        if self._turn_started_at is not None:
+            self.last_turn_s = max(0.0, time.monotonic() - self._turn_started_at)
+            self._turn_started_at = None
         self.phase = "idle"
         self.received_chars = 0
         self.running_tool_name = None
@@ -456,6 +525,9 @@ class StatusBar(Static):
         2.0.6 round 1: `bg_kinds` (one word per running job, counted)
         and `hang_watch_s` (the watchdog's stall clock, None when the
         heartbeat is healthy) ride the same call."""
+        if bg_jobs < self._prev_bg_jobs:  # a background job completed: the coin cue
+            self.fire_cue("job_done")
+        self._prev_bg_jobs = max(0, bg_jobs)
         self.bg_jobs_running = max(0, bg_jobs)
         self.oldest_bg_elapsed_s = oldest_elapsed_s
         self.bg_kinds = bg_kinds or ""
@@ -663,8 +735,12 @@ class StatusBar(Static):
             state = face_state_for(self.phase, error=self.error,
                                    needs_you=bool(self.permission_pending or self.needs_you_count))
             ascii_mode = self.hud_ascii if self.hud_ascii is not None else not supports_truecolor()
+            cue = ""
+            if self._cue is not None:
+                _event, frames, tick = self._cue
+                cue = frames[tick % len(frames)]
             hud_text = render_hud(skin, build_fields(self, strings), width=self.size.width, face_state=state,
-                                  frame=self.spinner_index, ascii_mode=ascii_mode)
+                                  frame=self.spinner_index, ascii_mode=ascii_mode, cue=cue)
             self._set_rows(len(hud_text.plain.splitlines()) or 1)
             self.update(hud_text)
             return

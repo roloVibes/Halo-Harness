@@ -4,7 +4,7 @@ themes (Halo 2.0.8 theme pack). Same key set as the base palettes in
 
 Original colour choices only, inspired by each game's mood. A palette is
 the whole of a skin's colour story: the status-bar layout lives in
-`tui/hud.py` + `tui/hud_doom.py` / `hud_metroid.py`, so a new game theme is
+`tui/hud.py` + `tui/hud_doom.py` / `hud_metroid.py` / `hud_mario.py`, so a new game theme is
 one palette dict here plus one `HudSkin` declaration.
 """
 
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from halo_harness.tui.theme_mario import DEFAULT_LOOK, LOOKS
 from halo_harness.tui.theme_metroid import AREAS, DEFAULT_AREA
 
 # DOOM: dark greys, blood reds, rust browns, muted greens, amber text.
@@ -28,24 +29,21 @@ DOOM = {
 # `METROID` is the default (Crateria) palette; `palette_for` picks a variant.
 METROID = AREAS[DEFAULT_AREA]["palette"]
 
-# Mario: sky blue, brick red, pipe green, coin gold, question-block orange.
-# Round 3 refines this and adds the world-and-coins skin; until then the
-# status bar uses the default layout tinted with this accent.
-MARIO = {
-    "bridge-bg": "#0e1830", "bridge-surface": "#15234a", "bridge-panel": "#1c2d5e",
-    "bridge-text": "#f4f4f4", "bridge-muted": "#9db0e6", "bridge-border": "#b5471a",
-    "bridge-accent": "#f8b830", "bridge-success": "#3fb83f", "bridge-warning": "#f8b830",
-    "bridge-error": "#e8442c", "bridge-user": "#5cc8fc", "bridge-assistant": "#f4f4f4",
-    "bridge-tool": "#e8651a", "bridge-thinking": "#6879b5",
-}
+# Mario: two looks (bros, world), see tui/theme_mario.py. `MARIO` is the
+# default (bros) palette; `palette_for` picks a variant.
+MARIO = LOOKS[DEFAULT_LOOK]["palette"]
 
 PALETTES = {"doom": DOOM, "metroid": METROID, "mario": MARIO}
 
-VARIANT_PALETTES = {"metroid": {name: area["palette"] for name, area in AREAS.items()}}
+VARIANT_PALETTES = {
+    "metroid": {name: area["palette"] for name, area in AREAS.items()},
+    "mario": {name: look["palette"] for name, look in LOOKS.items()},
+}
 
 
 def palette_for(name: str, variant: Optional[str] = None) -> dict:
-    """The palette of game theme `name`; a known `variant` (a Metroid area)
-    selects that variant's palette, anything else the theme's default."""
+    """The palette of game theme `name`; a known `variant` (a Metroid area,
+    a Mario look) selects that variant's palette, anything else the
+    theme's default."""
     variants = VARIANT_PALETTES.get(name) or {}
     return dict(variants.get(variant or "") or PALETTES[name])

@@ -731,6 +731,7 @@ async def _apply_event_inner(app, event) -> None:
     elif kind == "subagent_end":
         app._agents_running_count = max(0, getattr(app, "_agents_running_count", 0) - 1)
         app.status_bar.set_agents_running(app._agents_running_count)
+        app.status_bar.fire_cue("agent_done")  # Halo 2.0.8 round 3: a skin with cues flashes its 1-UP
         if app._agents_running_count == 0:
             # 2.0.6 round 1: the last sub-agent round handed back -- the
             # main phase line returns to the model-stream labels (the
@@ -794,6 +795,7 @@ async def _apply_event_inner(app, event) -> None:
         # the status blob. The model-facing framed copy rides in the log's
         # `status_notice` snapshot, not through this event.
         await app.transcript.add_note(data.get("text", ""), kind="status")
+        app.status_bar.fire_cue("job_done")  # Halo 2.0.8 round 3: the coin cue (no-op for skins without cues)
     elif kind == "steer_queued":
         # 2.0.7 round 0 (rolo's live report, 2026-10-07 night): the steer's
         # TEXT now renders IMMEDIATELY, as a real user bubble, right here

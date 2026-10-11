@@ -82,8 +82,14 @@ def test_leaving_doom_restores_the_one_row_default_bar(ctx: Ctx):
             ctx.check("no HUD captions left", "AMMO" not in _plain(app.status_bar))
             app.apply_theme("mario")
             await pilot.pause(0.1)
-            ctx.check("mario uses the default layout until round 3 (1 row)", app.status_bar.size.height == 1)
-            ctx.check("mario default layout still shows the context field", "ctx" in _plain(app.status_bar))
+            ctx.check(f"mario has its own 3-row HUD since round 3, got {app.status_bar.size.height}",
+                      app.status_bar.size.height == 3)
+            ctx.check("mario's HUD still shows the context field", "POWER" in _plain(app.status_bar))
+            app.status_bar.theme_name = "future-theme"  # a theme with no skin keeps the one-row default bar
+            app.status_bar.set_theme("future-theme")
+            await pilot.pause(0.1)
+            ctx.check("a theme without a skin falls back to the default one-row layout",
+                      app.status_bar.size.height == 1 and "ctx" in _plain(app.status_bar))
     asyncio.run(body())
 
 

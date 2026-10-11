@@ -589,8 +589,8 @@ this same headless text today; a directory is normally added via
 ### `/theme [name]`
 No argument: shows the current theme. With a name (`claude-dark`,
 `claude-light`, either with a `-daltonized`/`-ansi` suffix, or one of the
-game themes `doom`, `metroid`, `mario`; `metroid` also takes an area, as in
-`/theme metroid norfair`), persists it to
+game themes `doom`, `metroid`, `mario`; `metroid` also takes an area and
+`mario` a palette, as in `/theme metroid norfair` and `/theme mario world`), persists it to
 `~/.halo/config.json` and (in the TUI) re-applies it live. Moving onto a game
 theme records the theme you were on as `theme_toggle_previous`; moving off
 one onto a normal theme clears it. In the TUI, Tab completes theme names
@@ -619,9 +619,19 @@ when it is not active, without toggling it off; the area persists as
 alone. An unknown area is reported with the five valid names and changes
 nothing. In `-p` the same forms run against `config.json`.
 
-### `/mario`
-Toggle the Mario theme (sky blue, brick red, coin gold). Same toggle rule as
-`/doom`.
+### `/mario [variant]`
+Toggle the Mario theme (Halo 2.0.8): a three-row top-bar status bar (a score
+for the tokens left, a power meter for the context left, coins for the cost
+with the balance beside it, a cap-and-moustache face, the world and level for
+the cwd and branch, a turn timer, turns and tools as lives-style counters),
+brick-pattern cards and dialogs, a pipe-framed input line, and a short 1-UP or
+coin flash in the face slot when a sub-agent finishes or a background job
+completes. With no argument it is the same toggle as `/doom`. With a variant
+(`bros` or `world`) it switches to that palette and applies the theme when it
+is not active, without toggling it off; the variant persists as
+`theme_variant` in `~/.halo/config.json`, and bare `/mario` leaves it alone.
+An unknown variant is reported with the two valid names and changes nothing.
+In `-p` the same forms run against `config.json`.
 
 ### `/exit`, `/quit` `[TUI-only for /quit]`
 `/exit` in `-p` is a no-op note (the call already ends after this turn).

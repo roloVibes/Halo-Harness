@@ -1547,7 +1547,8 @@ def _cmd_theme(args: str, facade: HeadlessFacade) -> str:
             name, facade.theme or theme_mod.load_persisted_theme() or theme_mod.DEFAULT_THEME, variant)
     except ValueError as exc:
         return f"halo: {exc}"
-    return f"Theme set to {name}, area {variant}." if variant else f"Theme set to {name}."
+    return (f"Theme set to {name}, {theme_toggle.noun_of(name)} {variant}." if variant
+            else f"Theme set to {name}.")
 
 
 def _game_theme_cmd(game: str):
@@ -1833,8 +1834,8 @@ _BUILTIN_SPECS = {
              None, _game_theme_cmd("doom")),
     "metroid": ("ui", "Toggle the Metroid theme: suit-HUD look, five area palettes (/metroid <area>)",
                 "[area]", _game_theme_cmd("metroid")),
-    "mario": ("ui", "Toggle the Mario theme: sky blue, brick red and coin gold",
-              None, _game_theme_cmd("mario")),
+    "mario": ("ui", "Toggle the Mario theme: coins, timer and world status bar, two palettes (/mario <variant>)",
+              "[variant]", _game_theme_cmd("mario")),
     "exit": ("ui", "Exit halo", None, _cmd_exit),
     "copy": ("ui", "Copy the last reply, a code block, or the last tool output to the clipboard",
              "[code [N]|tool]", _cmd_copy),
