@@ -562,7 +562,7 @@ transcript.
 
 `/level` toggles it, `/level on|off` sets it, persisted as `theme_scene`
 in `~/.halo/config.json` (on by default). The band also yields on its
-own: it is hidden on a terminal under 30 rows or 60 columns, while a
+own: it is hidden on a terminal under 32 rows or 60 columns, while a
 pending card (a permission ask, a question, a plan review) is docked,
 and under any theme without a scene.
 

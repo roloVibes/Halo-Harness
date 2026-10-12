@@ -1,75 +1,49 @@
-"""halo_harness.tui.scene -- the level-band engine (Halo 2.0.11 round A3).
+"""halo_harness.tui.scene -- the level-band engine (Halo 2.0.11 round A3,
+rebuilt in 3.0.2.0 "the levels, second generation").
 
-A game theme can declare a `Scene`: a three-row strip above the prompt that
-looks like a side-scrolling level -- a hero sprite, scenery that scrolls
-while the model writes, an enemy that crosses the screen, a cue sprite
-when a sub-agent finishes. Pure data and one render function; no Textual
-here (`tui/widgets/scene_band.py` owns the timer and the widget).
+A game theme declares a `Scene`: a strip above the prompt that plays like a
+16-bit side-scroller. Six terminal rows hold twelve pixel rows (two per cell
+through the half-block glyphs); one pixel per column. A sprite is a tuple
+of rows of palette letters (`.` is transparent). Uppercase letters are the
+palette, and a lowercase letter that the palette does not name is the
+darker shade of its uppercase, so art carries its own shadows.
 
-Pixels: the band is 6 px tall (ROWS cells, two px per cell through the
-half-block glyphs ▀ ▄ █) and one px per column wide. A sprite is a tuple
-of rows of palette letters (`"."` is transparent); `Scene.colors` maps a
-letter to a hex colour. All art is original: silhouettes in the spirit of
-the 8-bit era, nothing copied from any game.
+What a scene can have, all pure data (the themes live in scene_mario.py,
+scene_metroid.py and scene_doom.py; `scene_fx.py` holds shading, lights
+and projectiles; `scene_text.py` turns pixels into Rich text):
 
-`render_scene(scene, width, phase=..., frame=..., scroll=..., ...)` is a
-pure function: `frame` is the animation tick (the widget advances it
-while a turn is live), `scroll` the pixels the ground has travelled (it
-advances only in `scene.scroll_phases`). Phases are the HUD's face states
-(`hud.face_state_for`): idle, thinking, writing, error, needs_you.
+- `sky`: a vertical gradient (one hex per pixel row) behind everything;
+- `ground`: an animated tile (frames), bottom-aligned;
+- `layers`: parallax scenery at its own speed and height, optionally
+  blinking (`twinkle`) or casting light (`light`);
+- `hero`: frames per phase, a `jump` table while writing, a `flash`
+  (muzzle, every N frames, with a light) and a `hero_shot` (a projectile
+  fired to the right while writing);
+- `mover`: the enemy crossing right to left in its phases, with a sine
+  `bob` and its own `shot` fired to the left;
+- `cues`: a sprite shown beside the hero for a moment (agent done, job done).
+
+`render_pixels` returns the 12 x width colour buffer; `render_scene` the
+Rich Text. Both are pure functions of (phase, frame, scroll, cue, variant),
+so captures are deterministic. All art is original: silhouettes in the
+spirit of the 16-bit era, nothing copied from any game.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Mapping, Optional
+import math
+from typing import Optional
 
-from rich.style import Style
 from rich.text import Text
 
-ROWS = 3
+ROWS = 6
 HEIGHT = ROWS * 2
 PHASES = ("idle", "thinking", "writing", "error", "needs_you")
 
-Sprite = tuple[str, ...]
+from halo_harness.tui.scene_model import Flash, Layer, Mover, Scene, Shot, Sprite  # noqa: F401  (re-exported)
 
 
-@dataclass(frozen=True)
-class Layer:
-    """Scenery repeated along the ground: one of `sprites` every `spacing`
-    px (picked by position, so the mix is stable), bottom-aligned at
-    `y` rows from the band's bottom (0 sits on the ground), scrolling at
-    `speed` times the ground (clouds drift slower)."""
-    sprites: tuple[Sprite, ...]
-    spacing: int
-    speed: float = 1.0
-    y: int = 0
-
-
-@dataclass(frozen=True)
-class Mover:
-    """The enemy: crosses right to left at `speed` px per frame while the
-    phase is one of `phases`, cycling `frames`; `y` as for a Layer."""
-    frames: tuple[Sprite, ...]
-    phases: frozenset
-    speed: int = 2
-    y: int = 0
-
-
-@dataclass(frozen=True)
-class Scene:
-    name: str
-    colors: Mapping[str, str]
-    ground: Sprite                       # a repeating tile, bottom-aligned
-    hero: Mapping[str, tuple[Sprite, ...]]  # phase -> frames; "idle" is the fallback
-    ascii: Mapping[str, tuple[str, ...]]    # "hero", "mover", "tile": 3 rows each; "ground": one char
-    hero_x: int = 8
-    layers: tuple[Layer, ...] = ()
-    mover: Optional[Mover] = None
-    cues: Mapping[str, Sprite] = field(default_factory=dict)
-    scroll_phases: frozenset = frozenset({"writing"})
-    variants: Mapping[str, Mapping[str, str]] = field(default_factory=dict)  # variant -> colour overrides
-
+# -- drawing ----------------------------------------------------------------
 
 def _stamp(buf, sprite: Sprite, x: int, bottom: int, colors, width: int) -> None:
     """Draw `sprite` with its last row on pixel row `bottom` (inclusive)."""
@@ -84,23 +58,31 @@ def _stamp(buf, sprite: Sprite, x: int, bottom: int, colors, width: int) -> None
                 buf[py][px] = colors.get(letter)
 
 
+def scene_ground(scene: Scene, variant: str = "") -> tuple:
+    return scene.grounds.get(variant or "", scene.ground)
+
+
 def _ground_rows(scene: Scene) -> int:
-    return len(scene.ground)
+    return len(scene.ground[0])
 
 
-def _layers(buf, scene, width, scroll, colors) -> None:
+def _layers(buf, scene, width, scroll, frame, colors, lights) -> None:
     base = HEIGHT - _ground_rows(scene) - 1
     for layer in scene.layers:
         shift = int(scroll * layer.speed)
         first = -(shift % layer.spacing) - layer.spacing
         for x in range(first, width + layer.spacing, layer.spacing):
             k = (x + shift) // layer.spacing
+            if layer.twinkle and ((k * 7 + frame) // layer.twinkle) % 3 == 0:
+                continue
             sprite = layer.sprites[k % len(layer.sprites)]
             _stamp(buf, sprite, x, base - layer.y, colors, width)
+            if layer.light:
+                lights.append((x + len(sprite[0]) // 2, base - layer.y - len(sprite) // 2, layer.light))
 
 
 def _mover_x(mover: Mover, frame: int, width: int) -> int:
-    span = width + 12
+    span = width + 16
     return width - ((frame * mover.speed) % span)
 
 
@@ -110,109 +92,101 @@ def hero_frame(scene: Scene, phase: str, frame: int) -> Sprite:
 
 
 def scene_colors(scene: Scene, variant: str = "") -> dict:
+    """The palette with the variant's overrides and auto-derived shadows:
+    a lowercase letter the palette lacks is 55 % of its uppercase."""
+    from halo_harness.tui.scene_fx import shade
     colors = dict(scene.colors)
     colors.update(scene.variants.get(variant or "", {}))
+    for letter, hex_ in list(colors.items()):
+        low = letter.lower()
+        if letter.isupper() and low not in colors:
+            colors[low] = shade(hex_, 0.55)
     return colors
 
 
+def scene_sky(scene: Scene, variant: str = "") -> tuple:
+    sky = scene.skies.get(variant or "", scene.sky)
+    if not sky:
+        return ()
+    return tuple(sky[min(len(sky) - 1, i * len(sky) // HEIGHT)] for i in range(HEIGHT))
+
+
+def _shots(buf, shot: Shot, origin_x: int, base: int, frame: int, colors, width: int, lights) -> None:
+    """Every live launch of `shot` at this frame, deterministically."""
+    if shot is None or shot.every <= 0:
+        return
+    first = max(0, (frame - shot.life) // shot.every)
+    for k in range(first, frame // shot.every + 1):
+        age = frame - k * shot.every
+        if not 0 <= age < shot.life:
+            continue
+        x = origin_x + shot.dx * shot.speed * age
+        sprite = shot.frames[age % len(shot.frames)]
+        if x + len(sprite[0]) < 0 or x >= width:
+            continue
+        _stamp(buf, sprite, x, base - shot.y, colors, width)
+        if shot.light:
+            lights.append((x + len(sprite[0]) // 2, base - shot.y - len(sprite) // 2, shot.light))
+
+
 def render_pixels(scene: Scene, width: int, *, phase: str = "idle", frame: int = 0, scroll: int = 0,
-                  cue: str = "", variant: str = "") -> list:
-    """The 6 x width pixel buffer (hex colour or None for the sky)."""
+                  cue: str = "", variant: str = "", bg: str = "#000000") -> list:
+    """The 12 x width colour buffer (hex per pixel; None for a bare sky
+    when the scene has no gradient)."""
+    from halo_harness.tui.scene_fx import apply_lights
     colors = scene_colors(scene, variant)
     buf = [[None] * width for _ in range(HEIGHT)]
-    ground_h = _ground_rows(scene)
-    tile_w = max(1, len(scene.ground[0]))
+    lights: list = []
+    tiles = scene_ground(scene, variant)
+    ground = tiles[frame % len(tiles)]
+    tile_w = max(1, len(ground[0]))
     start = -(scroll % tile_w)
     for x in range(start, width, tile_w):
-        _stamp(buf, scene.ground, x, HEIGHT - 1, colors, width)
-    _layers(buf, scene, width, scroll, colors)
-    base = HEIGHT - ground_h - 1
+        _stamp(buf, ground, x, HEIGHT - 1, colors, width)
+    _layers(buf, scene, width, scroll, frame, colors, lights)
+    base = HEIGHT - _ground_rows(scene) - 1
+    writing = phase in scene.scroll_phases
     if scene.mover is not None and phase in scene.mover.phases:
         mv = scene.mover
-        _stamp(buf, mv.frames[frame % len(mv.frames)], _mover_x(mv, frame, width), base - mv.y, colors, width)
+        mx = _mover_x(mv, frame, width)
+        bob = int(round(mv.bob * math.sin(frame / 2.0))) if mv.bob else 0
+        _stamp(buf, mv.frames[frame % len(mv.frames)], mx, base - mv.y - bob, colors, width)
+        if mv.shot is not None:
+            _shots(buf, mv.shot, mx - 2, base, frame, colors, width, lights)
     hero = hero_frame(scene, phase, frame)
-    _stamp(buf, hero, scene.hero_x, base, colors, width)
+    lift = scene.jump[frame % len(scene.jump)] if (writing and scene.jump) else 0
+    _stamp(buf, hero, scene.hero_x, base - lift, colors, width)
+    hero_right = scene.hero_x + len(hero[0])
+    if writing and scene.flash is not None and frame % scene.flash.every == 0:
+        fl = scene.flash
+        _stamp(buf, fl.sprite, hero_right + fl.x, base - fl.y - lift, colors, width)
+        if fl.light:
+            lights.append((hero_right + fl.x + len(fl.sprite[0]) // 2, base - fl.y - lift, fl.light))
+    if writing and scene.hero_shot is not None:
+        _shots(buf, scene.hero_shot, hero_right, base - lift, frame, colors, width, lights)
     if cue and cue in scene.cues:
-        sprite = scene.cues[cue]
-        _stamp(buf, sprite, scene.hero_x + len(hero[0]) + 1, base - 1, colors, width)
+        _stamp(buf, scene.cues[cue], hero_right + 2, base - 1, colors, width)
+    sky = scene_sky(scene, variant)
+    if lights:
+        apply_lights(buf, lights, sky, bg)
+    if sky:
+        for r in range(HEIGHT):
+            row = buf[r]
+            for c in range(width):
+                if row[c] is None:
+                    row[c] = sky[r]
     return buf
-
-
-def _cell(top, bot, bg: str):
-    if top is None and bot is None:
-        return " ", Style(bgcolor=bg)
-    if top == bot:
-        return "█", Style(color=top, bgcolor=bg)
-    if bot is None:
-        return "▀", Style(color=top, bgcolor=bg)
-    if top is None:
-        return "▄", Style(color=bot, bgcolor=bg)
-    return "▀", Style(color=top, bgcolor=bot)
-
-
-def pixels_to_text(buf, bg: str) -> Text:
-    width = len(buf[0]) if buf else 0
-    text = Text(no_wrap=True, overflow="crop")
-    for row in range(ROWS):
-        if row:
-            text.append("\n")
-        run, run_style = "", None
-        for col in range(width):
-            ch, style = _cell(buf[2 * row][col], buf[2 * row + 1][col], bg)
-            if style == run_style:
-                run += ch
-            else:
-                if run:
-                    text.append(run, run_style)
-                run, run_style = ch, style
-        if run:
-            text.append(run, run_style)
-    return text
-
-
-def render_ascii(scene: Scene, width: int, *, phase: str = "idle", frame: int = 0, scroll: int = 0) -> Text:
-    """The no-truecolor form: three rows of plain characters, the same
-    positions, no colour."""
-    rows = [[" "] * width for _ in range(ROWS)]
-
-    def put(art, x, bottom_row=ROWS - 1):
-        top = bottom_row - len(art) + 1
-        for r, line in enumerate(art):
-            for c, ch in enumerate(line):
-                px, py = x + c, top + r
-                if ch != " " and 0 <= px < width and 0 <= py < ROWS:
-                    rows[py][px] = ch
-
-    ground = scene.ascii.get("ground", ("=",))[0]
-    rows[ROWS - 1] = list((ground * width)[:width])
-    tile = scene.ascii.get("tile")
-    if tile:
-        spacing = max(len(tile[0]) + 10, 16)
-        first = -(scroll % spacing) - spacing
-        for x in range(first, width + spacing, spacing):
-            put(tile, x, ROWS - 2)
-    mover = scene.ascii.get("mover")
-    if mover and scene.mover is not None and phase in scene.mover.phases:
-        put(mover, _mover_x(scene.mover, frame, width), ROWS - 2)
-    hero = scene.ascii.get("hero", ("o", "|", "^"))
-    put(hero, scene.hero_x, ROWS - 2)
-    text = Text(no_wrap=True, overflow="crop")
-    for r, row in enumerate(rows):
-        if r:
-            text.append("\n")
-        text.append("".join(row)[:width])
-    return text
 
 
 def render_scene(scene: Scene, width: int, *, phase: str = "idle", frame: int = 0, scroll: int = 0,
                  ascii_mode: bool = False, cue: str = "", bg: str = "#000000", variant: str = "") -> Text:
     """The band for `width` columns: ROWS rows, every row exactly `width`
-    cells, the sky painted `bg` (the theme's background, so the band sits
-    flush with the transcript)."""
+    cells, bare sky painted `bg` (the theme's background)."""
+    from halo_harness.tui.scene_text import pixels_to_text, render_ascii
     width = max(1, int(width or 80))
     if ascii_mode:
         return render_ascii(scene, width, phase=phase, frame=frame, scroll=scroll)
-    buf = render_pixels(scene, width, phase=phase, frame=frame, scroll=scroll, cue=cue, variant=variant)
+    buf = render_pixels(scene, width, phase=phase, frame=frame, scroll=scroll, cue=cue, variant=variant, bg=bg)
     return pixels_to_text(buf, bg)
 
 

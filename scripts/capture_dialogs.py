@@ -134,7 +134,7 @@ async def scene_level(size, theme, name: str) -> list:
 
     async def prelude(app):
         await C.history(app, first_turn=-1)
-    frames = (40, 41, 42, 43) if name != "doom" else (12, 13, 14, 15)
+    frames = tuple(range(40, 46)) if name != "doom" else tuple(range(12, 18))  # 3.0.2.0: six frames, a stride and a shot
     return await S.game_theme_svg(name, variant, size, prelude=prelude, band_frames=frames)
 
 

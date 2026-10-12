@@ -273,27 +273,39 @@ from. See [docs/DESIGN.md](docs/DESIGN.md).
 ## The levels
 
 Three game themes, each a full skin: a palette, a HUD status bar whose face follows the
-phase of the turn, and a level that lives directly above the prompt. The hero runs and
-the scenery scrolls while the model writes; an enemy crosses while it thinks; a finished
-sub-agent or background job drops a pickup beside the hero. `/doom`, `/metroid` and
-`/mario` toggle a theme, `/level` toggles the band. All of the art is original, drawn
-for Halo in the spirit of the 8-bit era.
+phase of the turn, and a level that lives directly above the prompt, six rows tall,
+twelve pixels of sky-to-floor at eight frames a second. Each level has its own sky
+gradient, three layers of parallax scenery, shaded sprites with four-frame strides,
+projectiles and lighting, and its own way of moving. The hero runs and the scenery
+scrolls while the model writes; an enemy crosses while it thinks; a finished sub-agent
+or background job drops a pickup beside the hero. `/doom`, `/metroid` and `/mario`
+toggle a theme, `/level` toggles the band. All of the art is original, drawn for Halo
+in the spirit of the 16-bit era.
 
-**Mario.** A plumber in a red cap, warp pipes, brick rows with a question block, clouds,
-a winged turtle gliding by; a 1-UP mushroom when a sub-agent finishes. Two palettes:
+**Mario.** Dusk over the overworld: far hills drift, clouds pass, bushes, warp pipes and
+a brick row with a question block scroll by, coins twinkle. The plumber runs a four-frame
+stride and hops every couple of seconds; a winged turtle flaps past; he looks up with a
+`?` while the model thinks, flattens on an error and waves when it needs you. A 1-UP
+mushroom when a sub-agent finishes, a coin when a job completes. Two palettes:
 `/mario bros` and `/mario world`.
 
 ![The Mario level: the plumber running past pipes while a winged turtle crosses, the top-bar HUD below](docs/media/level-mario.anim.svg)
 
-**Metroid.** A hunter in a power suit with an arm cannon, rock pillars, hatches and
-stalactites; a floating alien drifts in while the model thinks and latches on when a turn
-errors. Five areas, each with its own ground: `/metroid norfair` is lava, `maridia` is
-water.
+**Metroid.** A cavern that darkens toward the floor: far wall silhouettes, stalactites,
+spores that glow and fade, rock pillars and blue hatches. The hunter fires charge-beam
+bolts that light the rock as they fly while the model writes; a floating alien bobs in,
+pulsing, while the model thinks and latches onto the helmet on an error; the helmet beacon
+blinks when it needs you. Five areas, each with its own sky and floor: `/metroid norfair`
+runs on animated lava, `maridia` under water.
 
 ![The Metroid level in Norfair: the hunter running over lava, the suit HUD below](docs/media/level-metroid-norfair.anim.svg)
 
-**DOOM.** A marine in green armour, a shotgun that flashes while the model writes, steel
-pillars, barrels and a sealed door; an imp stalks in while the model thinks.
+**DOOM.** A tech base with a hell-red glow at the floor: far arches, strobing ceiling
+lamps that pool light on the grating, steel pillars, barrels, panels and a rusted door.
+The marine fires the shotgun every half second while the model writes, with a muzzle
+flash that lights the walls, a recoil frame and a shell casing; an imp stalks in throwing
+fireballs while the model thinks, and one lands on an error. A fallen imp when a
+sub-agent finishes, a health bonus when a job completes.
 
 ![The DOOM level: the marine walking a tech base, the bottom HUD below](docs/media/level-doom.anim.svg)
 
