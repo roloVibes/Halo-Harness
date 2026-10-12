@@ -26,7 +26,7 @@ DESCRIPTION = (
     "`description` (3-5 words) and a self-contained `prompt` -- the sub-agent has no memory of this "
     "conversation, so include everything it needs. `subagent_type` picks which agent definition runs "
     "(default \"general-purpose\"); `model` overrides which model it uses; `role` (one of {role_names}) "
-    "resolves the model from the configured role table instead, "
+    "resolves the model from the configured role table instead ({roles_state}), "
     "overriding the agent's own default role for just this call; `effort` overrides the reasoning effort "
     "sent for this call. `run_in_background=true` starts it without blocking this turn -- its result is "
     "reported to you as a notice once it finishes. Pass `task_id` (from an earlier <task_result>) to "
@@ -101,7 +101,10 @@ class AgentTool(Tool):
         # finding 33: the real, LIVE role list (built-ins + whatever
         # custom roles config.json/team.json/a loaded template add right
         # now) -- never the fixed five names this used to hardcode.
-        return text.format(role_names=", ".join(known_role_names()))
+        from halo_harness.roles import roles_mode_enabled
+        roles_state = ("custom roles are on" if roles_mode_enabled() else
+                       "custom roles are off: every role is the session model, so pass `model` to use a cheaper one")
+        return text.format(role_names=", ".join(known_role_names()), roles_state=roles_state)
 
     @property
     def input_schema(self) -> dict:

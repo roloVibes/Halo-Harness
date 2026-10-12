@@ -358,7 +358,7 @@ def test_ctrl_p_opens_the_picker_with_fixture_rows_and_the_filter_completes(ctx:
                 await _wizard_to_agents_step(pilot, app, state)
                 ctx.check(f"the Providers step's own enumeration reached the Agents step at {w}x{h}, "
                           f"got enumeration_done={state.enumeration_done}", state.enumeration_done)
-                app.screen.query_one("#wiz-team-agents", Button).press()  # 2.1.0 B1: Agents... button
+                app.screen._open_agents()  # 3.0.2.0: the Agents editor is Ctrl+A now (Studio has the button)
                 await pilot.pause(0.3)
                 app.screen.query_one("#agents-new", Button).press()
                 await pilot.pause(0.2)
@@ -581,7 +581,7 @@ def test_agents_step_enter_opens_the_highlighted_bio_no_button_needed(ctx: Ctx):
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.1)
-                app.screen.query_one("#wiz-team-agents").press()
+                app.screen._open_agents()
                 await pilot.pause(0.3)
                 rows = app.screen.query_one("#agents-list", OptionList)
                 ctx.check("a shipped bio is listed to press Enter on", rows.option_count > 0)
@@ -632,7 +632,7 @@ def test_agents_step_and_bio_editor_focus_on_open_is_never_a_button(ctx: Ctx):
                 await _wait_until(lambda: isinstance(app.focused, OptionList))
                 ctx.check(f"the Team step focuses a list, never a button, got {type(app.focused).__name__}",
                           isinstance(app.focused, OptionList) and not isinstance(app.focused, Button))
-                app.screen.query_one("#wiz-team-agents", Button).press()
+                app.screen._open_agents()
                 await _wait_until(lambda: type(app.screen).__name__ == "AgentsListScreen")
                 app.screen.query_one("#agents-new", Button).press()
                 await _wait_until(lambda: isinstance(app.focused, Input))

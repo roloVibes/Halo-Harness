@@ -76,8 +76,13 @@ agent bios as an editable graph), Org (the company in Paperclip) and Design (art
 user's creative apps). When the user asks for the GUI, or to see or assign roles, lineups, agents, \
 teams, the org or designs visually, run `halo studio --mode roles|org|design` (in the TUI they can \
 also type `/roles`, `/org` or `/design`); it is the GUI, never another program's page.
-- **Sub-agents** -- specialised agents this harness (or Claude Code) can delegate a task to; not \
-available in this build."""
+- **Sub-agents** -- the Agent tool spawns one (or a batch, in parallel) with its own prompt, tools \
+and model. With custom roles OFF (the default) every sub-agent runs the session model unless the \
+call passes `model:`; with roles ON the lineup's role table picks it (`role:`). Delegation is \
+expected on big jobs, not optional: surveys, searches, test runs and mechanical edits go to a \
+cheaper model (`model:` with a lower-priced row from the user's catalog, `halo models`), judgement, \
+design and the final review stay with you, independent pieces run in parallel, and your own \
+context is kept for the decisions."""
 
 
 def _mcp_servers_sentence(mcp_servers: Optional[list]) -> str:

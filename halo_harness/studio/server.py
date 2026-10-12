@@ -214,10 +214,26 @@ def cmd_studio(argv: list) -> int:
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
+    parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
     args = parser.parse_args(argv)
     from halo_harness.providers.config import default_state_dir
     state_dir = Path(default_state_dir())
     cwd = Path(args.cwd).resolve() if args.cwd else Path.cwd()
+    from halo_harness.studio.launch import existing_url, stop
+    if args.stop:
+        ok, note = stop(state_dir)
+        print(f"halo studio: {note}")
+        return 0 if ok else 1
+    running = existing_url(state_dir, args.mode)
+    if running and not args.port:  # 3.0.2.0: one Studio per machine -- reuse it
+        print(f"Halo Studio is already running at {running}")
+        print("halo studio --stop stops it.")
+        if not args.no_open:
+            try:
+                webbrowser.open(running)
+            except Exception:
+                pass
+        return 0
     try:
         server = start_server(port=args.port, cwd=cwd, state_dir=state_dir)
     except OSError as e:
@@ -226,12 +242,14 @@ def cmd_studio(argv: list) -> int:
     url = url_for(server, args.mode)
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
-        studio_info_path(state_dir).write_text(json.dumps({"pid": os.getpid(), "port": server.server_address[1]}), encoding="utf-8")
+        from halo_harness.privateio import write_private_atomic
+        write_private_atomic(studio_info_path(state_dir),
+                             json.dumps({"pid": os.getpid(), "port": server.server_address[1], "token": server.token}))
     except OSError:
         pass
     print(f"Halo Studio is at {url}")
     print("Over SSH: ssh -L {p}:127.0.0.1:{p} <host>, then open the same URL on your machine.".format(p=server.server_address[1]))
-    print("Ctrl+C stops it.")
+    print("Ctrl+C stops it (from another shell: halo studio --stop).")
     if not args.no_open:
         try:
             threading.Timer(0.3, lambda: webbrowser.open(url)).start()

@@ -163,7 +163,7 @@ def test_agents_step_create_save_reload_edit_duplicate_delete(ctx: Ctx):
                 await pilot.pause(0.1)
                 ctx.check(f"opened on the Agents step, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "TeamStep")
-                app.screen.query_one("#wiz-team-agents", Button).press()  # 2.1.0 B1: Agents... button
+                app.screen._open_agents()  # 3.0.2.0: the Agents editor is Ctrl+A now (Studio has the button)
                 await _wait_until(pilot, lambda: type(app.screen).__name__ == "AgentsListScreen")
                 app.screen.query_one("#agents-new", Button).press()
                 # 2.0.5 release gate: poll for the editor AND its fields --
@@ -245,7 +245,7 @@ def test_agents_step_bad_save_shows_lines_and_keeps_the_form(ctx: Ctx):
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.1)
-                app.screen.query_one("#wiz-team-agents", Button).press()
+                app.screen._open_agents()
                 await pilot.pause(0.3)
                 app.screen.query_one("#agents-new", Button).press()
                 await pilot.pause(0.2)
@@ -279,8 +279,8 @@ def test_new_from_writes_only_override_keys_and_shows_inherited_greyed(ctx: Ctx)
             state.enumerated_models, state.enumeration_done = FIXTURE_MODELS, True
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
-                await _wait_until(pilot, lambda: app.screen.query("#wiz-team-agents"))
-                app.screen.query_one("#wiz-team-agents", Button).press()
+                await _wait_until(pilot, lambda: app.screen.query("#wiz-team-studio"))
+                app.screen._open_agents()
                 await _wait_until(pilot, lambda: type(app.screen).__name__ == "AgentsListScreen"
                                   and app.screen.query("#agents-new-from"))
                 rows = app.screen.query_one("#agents-list", OptionList)

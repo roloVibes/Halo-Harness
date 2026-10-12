@@ -125,6 +125,12 @@ class HudSkin:
     input_frame: tuple = ()
     input_frame_ascii: tuple = ()
     cues: dict = field(default_factory=dict)
+    # 3.0.2.0 (owner: "I don't like losing the bottom info"): "plain" keeps
+    # the ordinary status bar (model, cost, context, mode, cwd) under this
+    # theme, tinted with `accent`; the skin's borders, input frame and level
+    # still apply. "hud" renders the skin's own panel rows.
+    status_bar: str = "hud"
+    accent: str = ""
 
 
 _SKINS: dict = {}
@@ -170,7 +176,26 @@ def skin_for(theme_name: Optional[str], variant: Optional[str] = None) -> Option
     return _resolved[key][1]
 
 
+# "hud" forces every skin's own rows (the HUD engine tests set it); None
+# honours each skin's `status_bar`.
+STATUS_BAR_OVERRIDE: Optional[str] = None
+
+
+def _bar_mode(skin: HudSkin) -> str:
+    return STATUS_BAR_OVERRIDE or skin.status_bar
+
+
+def bar_skin_for(theme_name: Optional[str], variant: Optional[str] = None) -> Optional[HudSkin]:
+    """The skin the STATUS BAR renders through: None when the theme keeps
+    the plain bar (3.0.2.0: every game theme), else the skin itself."""
+    skin = skin_for(theme_name, variant)
+    return None if skin is None or _bar_mode(skin) == "plain" else skin
+
+
 def accent_for(theme_name: Optional[str]) -> Optional[str]:
+    skin = skin_for(theme_name)
+    if skin is not None and _bar_mode(skin) == "plain" and skin.accent:
+        return skin.accent
     return PLACEHOLDER_ACCENTS.get(theme_name or "")
 
 

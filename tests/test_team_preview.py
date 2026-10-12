@@ -73,7 +73,7 @@ def test_preview_lines_for_every_shipped_lineup(ctx: Ctx):
         names = list_bundled_team_templates()
         ctx.check(f"six lineups ship, got {names}", len(names) == 6)
         for name in names:
-            lines = preview_lines(name, cwd=e.cwd, state_dir=e.state_dir, models_by_ref={})
+            lines = preview_lines(name, cwd=e.cwd, state_dir=e.state_dir, models_by_ref={}, width=200)
             tree = [ln for ln in lines if " -> " in ln]
             roles = len(resolve_team_template(name, cwd=e.cwd, state_dir=e.state_dir).get("agents") or [])
             ctx.check(f"{name}: one tree line per role ({roles}), got {len(tree)}", len(tree) == roles and roles > 0)

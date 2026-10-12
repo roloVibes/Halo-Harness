@@ -36,6 +36,15 @@ teams/`.
 > accept`; a bio of your own that names one resolves to the default model
 > with a note until then. See docs/MODELS.md, "Subscription-routes consent".
 
+> **Roles off still delegates.** With custom roles off (the default) the
+> main agent runs your session model and still spawns sub-agents through
+> the Agent tool when a job is big; the system prompt tells it to hand
+> surveys, searches, test runs and mechanical edits to a cheaper model
+> (`model:` on the call) and keep judgement and the final review for
+> itself. A lineup (roles on) replaces that per-call pick with the role
+> table. The wizard's Team step is the switch; Studio's Roles mode is
+> where lineups and bios are edited.
+
 ## The 90-second version
 
 Four words, in this order: **bio -> lineup -> role -> session**.
@@ -59,9 +68,10 @@ Three ways to pick a lineup, all writing the same two config keys (`team`
 and `roles.enabled`):
 
 1. **The wizard** -- `halo init` (Quick setup includes the Team step) or
-   `halo init --step team`. The first row, "One model for everything", is
-   the off state; every other row previews its `role -> agent -> model`
-   tree with prices before you apply it.
+   `halo init --step team`. The Custom roles switch (3.0.2.0) and the first
+   row, "One model for everything", are the off state; every other row
+   previews its `role -> agent -> model` tree with prices before you apply
+   it, and **Open Studio (Roles)** edits in the browser.
 2. **The command line** -- `halo teams` shows the active lineup, its tree
    and the others; `halo teams apply <name>` uses one (the same result as
    the wizard); `halo roles on|off` flips the switch.
@@ -563,10 +573,11 @@ on" switch and the two panes are gone) and put it back into Quick setup:
   the `role -> agent -> model` tree with price and context, the lineup's
   `about:` text, `lineup_warnings`, one cost line), beside the list from 100
   columns up and below it otherwise;
-- buttons **Use this lineup**, **Customize...** (the lineup editor; a shipped
-  lineup is duplicated into user scope under the same name first), **New
-  lineup**, and **Agents...** (pushes `AgentsListScreen`, the bios list --
-  no longer a pane of this step).
+- buttons **Use this lineup** and **Open Studio (Roles)** (3.0.2.0: the
+  Customize / New lineup / Agents buttons are gone; editing happens in
+  Studio, and the terminal editors stay on Enter, Ctrl+E, Ctrl+N and
+  Ctrl+A). A **Custom roles** switch above the list mirrors the highlighted
+  row: off is the first row, on is a lineup.
 
 A plain Next applies whichever row is highlighted (`TeamStep.commit`) and
 writes `roles.enabled` explicitly (off for the first row, on for a lineup);

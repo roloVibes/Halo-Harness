@@ -12,7 +12,15 @@ halo studio                 # starts a local server, opens the browser in the mo
 halo studio --mode roles    # straight into Roles (lineups and bios), --mode org, --mode design
 halo studio --no-open       # prints the URL only (SSH, a headless box)
 halo studio --port 8765     # a fixed port instead of a free one
+halo studio --stop          # stop the Studio running in the background
 ```
+
+One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json`
+holds its pid, port and token (private), and a second `halo studio` reuses
+that instance (prints its URL, opens the browser) instead of starting
+another. The wizard's **Open Studio (Roles)** and **Open Studio (Org)**
+buttons start it detached, so it outlives `halo init`; `halo studio --stop`
+ends it. `halo_harness/studio/launch.py` is the small module behind both.
 
 Inside the TUI, `/roles`, `/org` and `/design` open Studio straight into that
 mode from the live session; `/studio [roles|org|design]` is the long form and
