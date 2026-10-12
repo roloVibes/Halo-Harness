@@ -272,6 +272,8 @@ async def _handle_roles(app, args: str) -> None:
     exactly like `/effort`'s own bare case)."""
     parts = (args or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else ""
+    if not sub:  # 3.0.2.0: bare /roles opens Halo Studio's Roles mode (`/roles table` is the text table)
+        args = sub = "gui"
     if sub != "edit":
         app.run_worker(lambda: _run_slash_worker(app, "roles", args), thread=True, name="run-slash", group="run-slash", exit_on_error=False)
         return
@@ -376,6 +378,8 @@ async def _handle_org(app, args: str) -> None:
     off the UI thread)."""
     parts = (args or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else ""
+    if not sub:  # 3.0.2.0: bare /org opens Halo Studio's Org mode (`/org list` is the text list)
+        args = sub = "gui"
     if sub == "run":
         from halo_harness.orgs import default_org_name, parse_run_args
         rest = parts[1].strip() if len(parts) > 1 else ""

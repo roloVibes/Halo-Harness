@@ -135,7 +135,8 @@ halo --cwd ~/.halo/design/launch-page/exports/<stamp>-handoff "continue from HAN
 
 ## Studio's Design mode
 
-Press `D` in Studio (or open `?mode=design`). The rail lists projects, artboards and
+Press `D` in Studio, type `/design` in the TUI, or run `halo studio --mode design`
+(the page honours `?mode=design`). The rail lists projects, artboards and
 the design system; the canvas shows artboards as frames (HTML in a sandboxed frame
 that cannot reach Studio's API, renders as images), with device frames, comment
 pins and a version slider; the panel is Chat, Comments, Knobs, System and Export.

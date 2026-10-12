@@ -275,9 +275,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo", add_help=True,
         description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
-        epilog="Commands: init, proxy, mcp, models, config, doctor, update, stats, improve, export, "
-               "roles, completion "
-               "(run `halo <command> --help`; `halo init` sets up a fresh box in one go)",
+        epilog="Commands: init, studio, design, teams, agents, roles, paperclip, models, mcp, proxy, "
+               "config, doctor, update, stats, review, preflight, subscriptions, audit, improve, export, "
+               "completion (run `halo <command> --help`; `halo init` sets up a fresh box in one go). "
+               "The GUI: `halo studio --mode roles|org|design` -- lineups and agent bios as a graph, "
+               "the company in Paperclip, designs on artboards; in the TUI, /roles, /org and /design.",
     )
     try:
         parser._positionals.title = "Arguments"

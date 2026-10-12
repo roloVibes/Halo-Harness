@@ -182,8 +182,10 @@
       if (first) await app.selectLineup(first); else { $("canvas-empty").style.display = ""; status(); app.showTab("assignment"); }
       if (!/[?&]tour=off/.test(location.search)) studioTour(app);  // captures and tests pass ?tour=off
       let saved = ""; try { saved = localStorage.getItem("halo-studio-mode") || ""; } catch (e) {}
-      if (/[?&]mode=design/.test(location.search) || (saved === "design" && !/[?&]mode=/.test(location.search))) app.setMode("design");
-      else if (/[?&]mode=org/.test(location.search) || saved === "org") app.setMode("org");
+      // 3.0.2.0: ?mode=roles|org|design (halo studio --mode, /roles, /org, /design) beats the saved mode
+      const asked = (location.search.match(/[?&]mode=(roles|org|design)/) || [])[1];
+      const mode = asked || saved;
+      if (mode === "design") app.setMode("design"); else if (mode === "org") app.setMode("org");
     } catch (e) {
       $("canvas-empty").style.display = ""; $("canvas-empty").querySelector("h2").textContent = "Studio cannot reach its server";
       $("canvas-empty").querySelector("p").textContent = e.message + " — open the exact URL `halo studio` printed (it carries the token).";

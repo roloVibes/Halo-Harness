@@ -22,6 +22,7 @@ import socket
 import sys
 import threading
 import webbrowser
+from typing import Optional
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
@@ -175,14 +176,21 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
     return server
 
 
-def url_for(server: _Server) -> str:
-    return f"http://127.0.0.1:{server.server_address[1]}/#t={server.token}"
+STUDIO_MODES = ("roles", "org", "design")
+
+
+def url_for(server: _Server, mode: Optional[str] = None) -> str:
+    """The page URL with the per-launch token. `mode` (3.0.2.0: roles |
+    org | design) lands in the query so the page opens straight into it,
+    ahead of the saved mode; the token stays in the fragment."""
+    query = f"?mode={mode}" if mode in STUDIO_MODES else ""
+    return f"http://127.0.0.1:{server.server_address[1]}/{query}#t={server.token}"
 
 
 _BACKGROUND: dict = {}
 
 
-def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True) -> str:
+def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, mode: Optional[str] = None) -> str:
     """`/studio` from a live session: start the server in a daemon thread of
     THIS process once (a second call reuses it) and return the URL. The
     server dies with the session; nothing is left behind."""
@@ -191,7 +199,7 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True) 
         srv = start_server(port=0, cwd=cwd, state_dir=state_dir)
         threading.Thread(target=srv.serve_forever, name="halo-studio", daemon=True).start()
         _BACKGROUND["server"] = srv
-    url = url_for(srv)
+    url = url_for(srv, mode)
     if open_browser:
         try:
             webbrowser.open(url)
@@ -201,7 +209,8 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True) 
 
 
 def cmd_studio(argv: list) -> int:
-    parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio: your lineups and agent bios as an editable graph.")
+    parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: Roles (lineups and agent bios as a graph), Org (the company in Paperclip) and Design (artboards on your own apps).")
+    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, org or design (default: the mode you used last)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
@@ -214,7 +223,7 @@ def cmd_studio(argv: list) -> int:
     except OSError as e:
         print(f"halo studio: cannot bind 127.0.0.1:{args.port or 'auto'}: {e}", file=sys.stderr)
         return 1
-    url = url_for(server)
+    url = url_for(server, args.mode)
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
         studio_info_path(state_dir).write_text(json.dumps({"pid": os.getpid(), "port": server.server_address[1]}), encoding="utf-8")

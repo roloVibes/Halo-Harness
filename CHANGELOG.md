@@ -8,6 +8,33 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.0.2.0] - unreleased
+
+### The GUI is one command away from every door
+
+- **`/roles`, `/org`, `/design`** in the TUI open Halo Studio straight into that
+  mode (Roles: lineups and bios as a graph; Org: the company in Paperclip;
+  Design: artboards on your own apps). `/roles gui` and `/org gui` say the same
+  anywhere, `... url` prints the URL only, `/roles table` is the text table and
+  `/org list` the text list (what bare `/roles` and `/org` still print outside
+  the TUI). `/studio [roles|org|design]` is the long form; `/design` is new.
+- **`halo studio --mode roles|org|design`** opens the page in that mode; the URL
+  carries `?mode=` ahead of the token and the page honours it over the mode it
+  remembered (before, a remembered Org or Design mode won over `?mode=roles`).
+- **Every model learns where the GUI is.** The system prompt's "How this
+  harness works" section now names Halo Studio, its three modes and the command
+  (a session on GLM 5.3 flash, asked to "open the gui for roles", ran `halo
+  --help`, found no `studio` in it and opened Paperclip's own dashboard
+  instead). `halo --help` lists studio, design, teams, agents and paperclip and
+  ends with the GUI line; `halo roles|teams|agents --help` each end with a
+  `GUI:` line.
+- **Front page**: a `## Halo Studio` section with a three-mode banner
+  (`docs/media/studio-modes.png`, `tools/studio_modes_banner.py`) and a
+  mode table; the pitch names the GUI. tests/test_studio_modes.py.
+- **CI**: the launch-scene marker follows the package version (the 3.0.1.0
+  release run failed on `halo 2.`); `write_private_atomic` retries the final
+  rename on Windows when a reader holds the file open.
+
 ## [3.0.1.0] - 2026-10-11
 
 ### Halo Design
