@@ -24,7 +24,7 @@
     await org.refresh(app, true);
     if (!org._poll) org._poll = setInterval(() => { if (document.body.dataset.mode === "org" && org.company) org.refresh(app, false).catch(() => {}); }, 8000);
   };
-  org.leave = (app) => { app.canvas.onDropOn = null; org.selected = null; };
+  org.leave = (app) => { app.canvas.onDropOn = null; org.selected = null; $("org-badges").innerHTML = ""; };  // 3.0.2.0: no Org header in Roles or Design
 
   org.refresh = async (app, full) => {
     try { org.status = await api.pcStatus(); } catch (e) { org.status = { error: e.message, companies: [] }; }
