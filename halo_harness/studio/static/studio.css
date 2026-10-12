@@ -172,11 +172,11 @@ textarea.yaml { width: 100%; height: calc(100vh - 220px); padding: 10px 12px; bo
 .problems { margin: 8px 0 0; padding: 0; list-style: none; }
 .problems li { padding: 6px 10px; margin-bottom: 4px; border-radius: 6px; background: color-mix(in srgb, var(--error) 14%, transparent); color: var(--error); font-size: 12.5px; }
 .problems li.warn { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); }
-.model-pick { position: relative; }
-.model-pick .menu { position: absolute; z-index: 20; left: 0; right: 0; top: 36px; max-height: 320px; overflow: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--panel); box-shadow: var(--shadow); }
-.model-pick .menu div { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; padding: 7px 10px; font-family: var(--mono); font-size: 12px; cursor: pointer; }
-.model-pick .menu div:hover, .model-pick .menu div.on { background: var(--panel-2); }
-.model-pick .menu div small { color: var(--muted); }
+.model-pick { display: grid; gap: 4px; }
+.model-pick select { width: 100%; height: 32px; cursor: pointer; }
+.model-pick .filter { height: 26px; font-size: 11.5px; border-style: dashed; }
+.model-pick optgroup { color: var(--muted); font-style: normal; font-weight: 600; }
+.model-pick option { color: var(--text); background: var(--panel); font-weight: 400; }
 
 /* -- status bar, toasts, palette, tour ------------------------------------- */
 #status { grid-area: status; display: flex; align-items: center; gap: 16px; padding: 0 16px; font-size: 12px; color: var(--muted); background: var(--glass); border-top: 1px solid var(--glass-border); }

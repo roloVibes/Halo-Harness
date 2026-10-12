@@ -29,21 +29,59 @@
     t.addEventListener("change", () => onChange(t.value));
     return t;
   }
+  const ROUTE_NAMES = { or: "OpenRouter", ol: "Ollama", dbx: "Databricks", cc: "Claude Code subscription", cx: "Codex subscription",
+                        ant: "Anthropic API", oai: "OpenAI API", hf: "Hugging Face", local: "Local server" };
+  function modelGroup(m) {
+    if (m.group) return m.group;
+    const i = m.ref.indexOf(":"), route = i > 0 ? m.ref.slice(0, i) : "", rest = i > 0 ? m.ref.slice(i + 1) : m.ref;
+    const name = ROUTE_NAMES[route] || route || "models";
+    return route === "or" && rest.includes("/") ? `${name} · ${rest.split("/")[0]}` : name;
+  }
+  function modelLabel(m) {
+    const bits = [m.ref.replace(/^or:[^/]+\//, ""), m.price, m.context ? `ctx ${m.context}` : ""];
+    if (m.chips && m.chips !== "text") bits.push(m.chips);
+    return bits.filter(Boolean).join(" · ");
+  }
   function modelPicker(value, onChange, placeholder = "a model ref, or pick one") {
+    // 3.0.2.0: a real dropdown -- every catalog row, grouped by route and vendor with price, context and
+    // capability chips in the label -- behind a filter box, plus "Type a ref..." for a model the catalog lacks.
+    const CUSTOM = "__custom__";
     const wrap = h(`<div class="model-pick"></div>`);
-    const i = h(`<input class="mono" placeholder="${esc(placeholder)}" value="${esc(value)}">`);
-    const menu = h(`<div class="menu" style="display:none"></div>`);
-    wrap.append(i, menu);
-    const draw = () => {
-      const q = i.value.toLowerCase();
-      const rows = (window.app.models || []).filter((m) => !q || m.ref.toLowerCase().includes(q)).slice(0, 60);
-      menu.innerHTML = rows.map((m) => `<div data-ref="${esc(m.ref)}"><span>${esc(m.ref)}${m.chips && m.chips !== "text" ? ` <small class="chips-inline">${esc(m.chips)}</small>` : ""}</span><small>${esc(m.price)}</small><small>ctx ${esc(m.context)}</small><small>${esc(m.speed)}</small></div>`).join("") || `<div><small>no catalog rows match; type a ref and press Enter</small></div>`;
-      menu.style.display = "";
+    const filter = h(`<input class="mono filter" placeholder="filter: deepseek, flash, 200k, vision...">`);
+    const sel = h(`<select class="mono"></select>`);
+    const custom = h(`<input class="mono" placeholder="${esc(placeholder)}" style="display:none">`);
+    const hint = h(`<div class="hint"></div>`);
+    wrap.append(filter, sel, custom, hint);
+    const rows = () => window.app.models || [];
+    const describe = (ref) => {
+      const m = rows().find((x) => x.ref === ref);
+      hint.textContent = m ? [m.price, m.context ? `ctx ${m.context}` : "", m.speed && m.speed !== "?" ? m.speed : "", m.chips && m.chips !== "text" ? m.chips : "", m.detail].filter(Boolean).join(" · ")
+                           : (ref ? "not in the catalog (typed by hand)" : "");
     };
-    i.addEventListener("focus", draw); i.addEventListener("input", draw);
-    i.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { menu.style.display = "none"; onChange(i.value.trim()); } if (ev.key === "Escape") menu.style.display = "none"; });
-    i.addEventListener("blur", () => setTimeout(() => { menu.style.display = "none"; if (i.value.trim() !== value) onChange(i.value.trim()); }, 150));
-    menu.addEventListener("mousedown", (ev) => { const d = ev.target.closest("[data-ref]"); if (d) { i.value = d.dataset.ref; onChange(d.dataset.ref); } });
+    const draw = () => {
+      const q = filter.value.trim().toLowerCase();
+      const groups = new Map();
+      for (const m of rows()) {
+        if (q && !(m.ref.toLowerCase().includes(q) || modelLabel(m).toLowerCase().includes(q) || modelGroup(m).toLowerCase().includes(q))) continue;
+        const g = modelGroup(m); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(m);
+      }
+      let html = `<option value="">(none)</option>`;
+      const listed = [...groups.values()].some((ms) => ms.some((m) => m.ref === value));
+      if (value && !listed) html += `<option value="${esc(value)}" selected>${esc(value)}${rows().some((m) => m.ref === value) ? "" : " (not in the catalog)"}</option>`;
+      for (const [g, ms] of groups) html += `<optgroup label="${esc(g)} (${ms.length})">` + ms.map((m) => `<option value="${esc(m.ref)}"${m.ref === value ? " selected" : ""}>${esc(modelLabel(m))}</option>`).join("") + `</optgroup>`;
+      html += `<option value="${CUSTOM}">Type a ref...</option>`;
+      sel.innerHTML = html;
+      describe(value);
+    };
+    filter.addEventListener("input", draw);
+    sel.addEventListener("change", () => {
+      if (sel.value === CUSTOM) { custom.style.display = ""; custom.value = value; custom.focus(); return; }
+      value = sel.value; describe(value); onChange(value);
+    });
+    const commitCustom = () => { if (custom.style.display === "none") return; custom.style.display = "none"; value = custom.value.trim(); draw(); onChange(value); };
+    custom.addEventListener("keydown", (ev) => { if (ev.key === "Enter") commitCustom(); if (ev.key === "Escape") { custom.style.display = "none"; draw(); } });
+    custom.addEventListener("blur", commitCustom);
+    draw();
     return wrap;
   }
   function chips(values, onChange, { suggestions = [], cls = "" } = {}) {
