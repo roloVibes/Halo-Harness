@@ -14,7 +14,8 @@
 
 <p align="center">
 DeepSeek, GLM, Kimi, Qwen and Claude get the same tools, the same configuration and the same working habits as Claude Code.<br>
-Halo reads your <code>~/.claude</code> setup in place, so nothing is configured twice, and <code>/model</code> swaps the model mid-conversation.
+Halo reads your <code>~/.claude</code> setup in place, so nothing is configured twice, and <code>/model</code> swaps the model mid-conversation.<br>
+<code>halo studio</code> is the browser GUI: your agents as a graph, your company in Paperclip, your designs on artboards.
 </p>
 
 <p align="center">
@@ -22,6 +23,7 @@ Halo reads your <code>~/.claude</code> setup in place, so nothing is configured 
   <a href="#what-halo-is">What Halo is</a> ·
   <a href="#your-subscription-your-call">Subscriptions</a> ·
   <a href="#what-it-feels-like">What it feels like</a> ·
+  <a href="#halo-studio">Studio</a> ·
   <a href="#the-levels">The levels</a> ·
   <a href="#how-halo-compares">Compare</a> ·
   <a href="#features">Features</a> ·
@@ -91,6 +93,9 @@ It is built for three kinds of people:
 - **You put agents to work in teams**: a lineup assigns a model to each role, an
   organization is a tree of those roles working one goal, and every role shows its
   state, tools and cost while it runs.
+- **You want to see it, not just type it**: Halo Studio draws the lineups, the company
+  and the designs in your browser, on a canvas you edit with the mouse, served from a
+  loopback-only server with no account and nothing fetched from a CDN.
 
 Auto mode allows everything except your own deny and ask rules and your hooks. There
 is no built-in safety classifier, no protected-path heuristic, no refusal layer. Rules
@@ -172,44 +177,6 @@ role is a sub-agent on its own model, visible in `/tasks` with its state, tools 
 
 <a href="docs/media/tasks-org-tree.png"><img alt="The /tasks panel with a running organization tree" src="docs/media/tasks-org-tree.png" width="100%"></a>
 
-### See your agents: Halo Studio
-
-`halo studio` opens the active lineup as a graph in your browser: one card per
-assignment with the model that resolves for it, its price and context; delegation,
-reporting and pipeline edges; drag a bio onto the canvas to add it. The inspector
-edits the assignment, the bio behind it and the lineup's sections, with the YAML
-both ways, and Validate / Save / Apply run the same checks `halo teams` does.
-See [docs/STUDIO.md](docs/STUDIO.md).
-
-<a href="docs/media/studio.png"><img alt="Halo Studio: the halo-dev-cycle lineup as a graph, with the inspector" src="docs/media/studio.png" width="100%"></a>
-
-### Your company, in Paperclip
-
-Flip Studio to **Org** and the same canvas shows your company in
-[Paperclip](https://github.com/paperclipai/paperclip), the open-source control plane
-for agent teams: titles, reporting lines, budgets, issues and heartbeats. One command
-turns a lineup into a company (`halo paperclip sync halo-dev-cycle --new Halo`), each
-agent runs `halo paperclip-run` on its heartbeat on the model its bio names, and the
-reply lands on the issue. See [docs/PAPERCLIP.md](docs/PAPERCLIP.md).
-
-<a href="docs/media/studio-org.png"><img alt="Studio's Org mode: the halo-dev-cycle lineup as a Paperclip company, reporting lines on the canvas" src="docs/media/studio-org.png" width="100%"></a>
-
-### Design, on your own apps
-
-Flip Studio to **Design** (or run `halo design`) and the canvas holds artboards: HTML
-prototypes in sandboxed frames, logos and pages rendered by the creative apps already on
-your machine. A design turn is a real Halo turn in the project folder with the seven
-ArtCraft apps (DesignCraft, VectorCraft, PhotoCraft, LightCraft, EffectCraft, FilmCraft,
-PdfCraft) as its tools, on any model you pick from the `design` ranking. Refine by chat,
-pinned comments, direct text edits and knobs that move spacing or a colour live without a
-model call; every turn versions what changed; sync a design system from your codebase or a
-URL; export a folder, HTML, PNG, SVG or PDF; hand off a bundle the next session continues
-from. See [docs/DESIGN.md](docs/DESIGN.md).
-
-<a href="docs/media/studio-design.png"><img alt="Studio's Design mode: a hero prototype and a VectorCraft logo mark as artboards, knobs and comments in the panel" src="docs/media/studio-design.png" width="100%"></a>
-
-<a href="docs/media/studio-design-knob.png"><img alt="The Knobs tab: the Spacing knob moved to 48 reflows the hero with no model call, and the contrast table grades the page's colour pairs" src="docs/media/studio-design-knob.png" width="100%"></a>
-
 ### Connectors: Claude Docs from a non-Claude model
 
 Your claude.ai connectors (Claude Docs, a calendar, a drive) appear as tools to whatever
@@ -243,6 +210,65 @@ kill switch, a `/remote` dialog and a status chip. See [docs/REMOTE.md](docs/REM
 `halo bugreport` (or `/bugreport` in a session) writes a redacted diagnostic report:
 version, environment, provider and route state, MCP servers, the last turn's timeline,
 every secret-shaped value stripped. `--copy` puts it on the clipboard.
+
+## Halo Studio
+
+Halo has a GUI. `halo studio` (or `/studio` in the TUI) starts a loopback-only server
+with a per-launch token, opens your browser, and shows one canvas with three modes.
+`R`, `O` and `D` switch between them; `Ctrl`/`Cmd`+`K` opens the command palette and
+`?` replays the tour. Nothing leaves your machine: no account, no CDN, no fonts
+fetched, no analytics.
+
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's three modes side by side: Roles (lineups and bios as a graph), Org (the company in Paperclip) and Design (artboards on your own apps)" src="docs/media/studio-modes.png" width="100%"></a>
+
+| Mode | The canvas holds | What you do there |
+|---|---|---|
+| **Roles** (`R`) | Your lineups and agent bios as a graph: one card per assignment with the model that resolves for it, its price, context and tool count; delegation, reporting and pipeline edges | Drag a bio in; edit the assignment, the bio behind it or any lineup section in the inspector, with the YAML both ways; Validate, Save and Apply run the same checks `halo teams` does |
+| **Org** (`O`) | Your company in [Paperclip](https://github.com/paperclipai/paperclip): agents as cards with title, role, adapter, status and spend against budget; reporting lines as edges | Re-parent by dragging one card onto another; Wake, Pause, Resume, Terminate; open and create issues; sync a lineup into a company and pull reporting lines back; the agent's own Paperclip page embedded |
+| **Design** (`D`) | Artboards: HTML prototypes in sandboxed frames and logos, pages, photos and frames rendered by the ArtCraft apps; a design system; versions | Chat, pin comments, edit text in place, move knobs with no model call, slide through versions, fan out three directions, run a critique, check contrast, drop assets, export, hand off |
+
+The three captures below are headless-Chrome renders of Studio over fixture data
+(`tools/capture_studio.py`), the same way the TUI pictures are made. See
+[docs/STUDIO.md](docs/STUDIO.md) for every panel and shortcut, and the
+[Over SSH](docs/STUDIO.md#over-ssh) recipe when Halo runs on a box you reach remotely.
+
+### Roles: see your agents
+
+`halo studio` opens the active lineup as a graph in your browser: one card per
+assignment with the model that resolves for it, its price and context; delegation,
+reporting and pipeline edges; drag a bio onto the canvas to add it. The inspector
+edits the assignment, the bio behind it and the lineup's sections, with the YAML
+both ways, and Validate / Save / Apply run the same checks `halo teams` does.
+See [docs/STUDIO.md](docs/STUDIO.md).
+
+<a href="docs/media/studio.png"><img alt="Halo Studio: the halo-dev-cycle lineup as a graph, with the inspector" src="docs/media/studio.png" width="100%"></a>
+
+### Org: your company, in Paperclip
+
+Press `O` and the same canvas shows your company in
+[Paperclip](https://github.com/paperclipai/paperclip), the open-source control plane
+for agent teams: titles, reporting lines, budgets, issues and heartbeats. One command
+turns a lineup into a company (`halo paperclip sync halo-dev-cycle --new Halo`), each
+agent runs `halo paperclip-run` on its heartbeat on the model its bio names, and the
+reply lands on the issue. See [docs/PAPERCLIP.md](docs/PAPERCLIP.md).
+
+<a href="docs/media/studio-org.png"><img alt="Studio's Org mode: the halo-dev-cycle lineup as a Paperclip company, reporting lines on the canvas" src="docs/media/studio-org.png" width="100%"></a>
+
+### Design: on your own apps
+
+Press `D` (or run `halo design`) and the canvas holds artboards: HTML
+prototypes in sandboxed frames, logos and pages rendered by the creative apps already on
+your machine. A design turn is a real Halo turn in the project folder with the seven
+ArtCraft apps (DesignCraft, VectorCraft, PhotoCraft, LightCraft, EffectCraft, FilmCraft,
+PdfCraft) as its tools, on any model you pick from the `design` ranking. Refine by chat,
+pinned comments, direct text edits and knobs that move spacing or a colour live without a
+model call; every turn versions what changed; sync a design system from your codebase or a
+URL; export a folder, HTML, PNG, SVG or PDF; hand off a bundle the next session continues
+from. See [docs/DESIGN.md](docs/DESIGN.md).
+
+<a href="docs/media/studio-design.png"><img alt="Studio's Design mode: a hero prototype and a VectorCraft logo mark as artboards, knobs and comments in the panel" src="docs/media/studio-design.png" width="100%"></a>
+
+<a href="docs/media/studio-design-knob.png"><img alt="The Knobs tab: the Spacing knob moved to 48 reflows the hero with no model call, and the contrast table grades the page's colour pairs" src="docs/media/studio-design-knob.png" width="100%"></a>
 
 ## The levels
 
@@ -299,7 +325,7 @@ tool, so check each tool's own docs.
 | **Your Claude Code setup, in place** | `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers and memory are read where they are. Nothing is configured twice. |
 | **Steering** | Type while a turn runs: the steer shows at once and reaches the work, a running command moves to the background instead of dying, sub-agents get your words forwarded into them. |
 | **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in the wizard, with `halo teams apply <lineup>`, or in Studio. |
-| **Halo Studio** | `halo studio`: your lineups and bios as an editable graph in the browser, served from a loopback-only server with a per-launch token; Org mode shows the same team as a Paperclip company. |
+| **Halo Studio** | `halo studio`: the browser GUI with three modes on one canvas. Roles edits lineups and bios as a graph, Org shows the same team as a Paperclip company, Design works artboards with the craft apps. Loopback only, per-launch token, no CDN. |
 | **Paperclip** | `halo paperclip sync <lineup>` makes a company of agents that run Halo on their heartbeats; `halo paperclip-run` is the adapter. |
 | **Halo Design** | `halo design new|run|sync|export|handoff` and Studio's Design mode: a design project on disk, a turn with the craft apps as tools, knobs without a model call, `halo models --best-for design`. |
 | **Per-model tool-call repairs** | Fourteen model families' quirks are repaired on the fly: Kimi's `functions.{name}:{idx}` ids, GLM's always-on thinking, Qwen's system-message rules, DeepSeek's reasoning echoes. Gateway quirks are learned once per model and remembered (`halo rules`). |
@@ -328,7 +354,7 @@ tool, so check each tool's own docs.
 | [docs/LOCAL-MODELS.md](docs/LOCAL-MODELS.md) | Ollama, Hugging Face, the OpenAI API and Codex, end to end |
 | [docs/DATABRICKS.md](docs/DATABRICKS.md) | Databricks endpoints, API types and the work matrix |
 | [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups: the 90-second version, then the field reference |
-| [docs/STUDIO.md](docs/STUDIO.md) | Halo Studio, the visual editor for lineups and bios, and its Org mode |
+| [docs/STUDIO.md](docs/STUDIO.md) | Halo Studio, the browser GUI: Roles, Org and Design modes, the security model, SSH, every shortcut |
 | [docs/DESIGN.md](docs/DESIGN.md) | Halo Design: the project on disk, a design turn, the craft apps, knobs, systems, exports, the handoff |
 | [docs/PAPERCLIP.md](docs/PAPERCLIP.md) | Paperclip: your lineups as a company of agents |
 | [docs/ROLES.md](docs/ROLES.md) | Roles and the role table |
