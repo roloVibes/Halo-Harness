@@ -214,6 +214,7 @@ textarea.yaml { width: 100%; height: calc(100vh - 220px); padding: 10px 12px; bo
 .mode-toggle button.on { color: var(--accent); font-weight: 600; }
 body[data-mode="org"] #lineup-select, body[data-mode="org"] #lineup-badges, body[data-mode="org"] #btn-apply, body[data-mode="org"] #btn-validate { display: none; }
 body[data-mode="org"] #company-select { display: inline-block !important; }
+body:not([data-mode="org"]) #org-badges { display: none; }  /* 3.0.2.0: the Org mode switch and the Paperclip badge belong to Org mode only */
 .node[data-kind="org"] .band { background: var(--mauve); }
 .node[data-kind="org"][data-role="ceo"] .band { background: var(--warning); }
 .node[data-kind="org"][data-role="engineer"] .band { background: var(--success); }
