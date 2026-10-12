@@ -250,7 +250,9 @@ Press `O` and the same canvas shows your company in
 for agent teams: titles, reporting lines, budgets, issues and heartbeats. One command
 turns a lineup into a company (`halo paperclip sync halo-dev-cycle --new Halo`), each
 agent runs `halo paperclip-run` on its heartbeat on the model its bio names, and the
-reply lands on the issue. See [docs/PAPERCLIP.md](docs/PAPERCLIP.md).
+reply lands on the issue. Org mode is off until you turn it on (the header button,
+`/org on`, `halo paperclip on`, or the wizard): until then only your own session
+orchestrates anything. See [docs/PAPERCLIP.md](docs/PAPERCLIP.md).
 
 <a href="docs/media/studio-org.png"><img alt="Studio's Org mode: the halo-dev-cycle lineup as a Paperclip company, reporting lines on the canvas" src="docs/media/studio-org.png" width="100%"></a>
 

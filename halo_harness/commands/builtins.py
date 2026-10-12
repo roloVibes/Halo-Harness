@@ -1138,6 +1138,17 @@ def _cmd_org(args: str, facade: HeadlessFacade) -> str:
     rest = parts[1].strip() if len(parts) > 1 else ""
     if sub == "gui":  # 3.0.2.0: Studio's Org mode (what bare /org does in the TUI)
         return _cmd_studio("org " + rest, facade)
+    if sub in ("on", "off"):  # 3.0.2.0: the Org mode switch (paperclip/mode.py)
+        from halo_harness.paperclip.mode import EXPLAINER, mode_line, set_org_mode
+        res = set_org_mode(sub == "on", state_dir=state_dir)
+        lines = [mode_line(res["enabled"])]
+        if res["agents"]:
+            lines.append(f"{'resumed' if res['enabled'] else 'paused'}: {', '.join(res['agents'])}")
+        if res["note"]:
+            lines.append(res["note"])
+        if not res["enabled"]:
+            lines.append(EXPLAINER)
+        return "\n".join(lines)
 
     if sub in ("", "list"):
         from halo_harness.orgs import list_orgs, load_org
@@ -1899,8 +1910,8 @@ _BUILTIN_SPECS = {
     "roles": ("core", "Open Studio's Roles GUI (bare, in the TUI); the role table, roles on/off, role templates",
               "[gui|table|on|off|templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),
-    "org": ("core", "Open Studio's Org GUI (bare, in the TUI); list/show/run Halo's own organizations",
-             "[gui|list|show|new|load|edit|run [<name>] \"<goal>\"]", _cmd_org),
+    "org": ("core", "Open Studio's Org GUI (bare, in the TUI); on|off is the Org mode switch; list/show/run Halo's own organizations",
+             "[gui|on|off|list|show|new|load|edit|run [<name>] \"<goal>\"]", _cmd_org),
     "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",
                "[target] [--level low|medium|high] [--dimensions a,b] [--fix] [--no-verify]", _cmd_review),
     "setup": ("core", "Open the roles/organizations guided setup screens", "[roles|orgs]", _cmd_setup),

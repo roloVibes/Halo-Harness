@@ -1339,12 +1339,14 @@ class OrgsStep(StepScreen):
         current = ("off (no organization runs)" if not enabled else default_name or "on, no default yet")
         # 2.2.0: organizations run in Paperclip (Studio's Org mode); the switch
         # below is Halo's older built-in org runner, kept for existing configs.
-        pointer = Static("Organizations now run in Paperclip: open `halo studio` and flip to Org, or run "
-                         "`halo paperclip sync <lineup>` to turn a lineup into a company (docs/PAPERCLIP.md). "
-                         "The switch below is Halo's older built-in org runner, kept for existing setups.",
+        from halo_harness.paperclip.mode import EXPLAINER, org_mode_enabled
+        pointer = Static(EXPLAINER + " The second switch is Halo's older built-in org runner, kept for existing setups.",
                          id="wiz-orgs-pointer")
+        mode_row = Horizontal(Switch(value=org_mode_enabled(), id="wiz-org-mode-switch"),
+                              Static(" Org mode: Paperclip wakes the company's agents (off by default)", classes="wizard-switch-label"),
+                              classes="wizard-switch-row")
         return [Static(one_sentence("Organizations", current, hint="Enter to change, or Make this the default."),
-                        classes="dialog-title"), pointer, switch_row, on_body]
+                        classes="dialog-title"), pointer, mode_row, switch_row, on_body]
 
     def on_mount(self) -> None:
         self._sync_visibility()
@@ -1468,6 +1470,15 @@ class OrgsStep(StepScreen):
         enabled = False
         try:
             enabled = bool(self.query_one("#wiz-orgs-switch").value)
+        except Exception:
+            pass
+        try:  # 3.0.2.0: the Org mode (Paperclip) switch, written explicitly either way
+            from halo_harness.paperclip.mode import org_mode_enabled, set_org_mode
+            wanted = bool(self.query_one("#wiz-org-mode-switch").value)
+            if wanted != org_mode_enabled():
+                set_org_mode(wanted)
+            else:
+                set_config_value("paperclip.enabled", wanted)
         except Exception:
             pass
         set_config_value("orgs.enabled", enabled)

@@ -17,6 +17,30 @@ Three surfaces, one source of truth (Paperclip's database):
 - **Paperclip's own UI** at `http://127.0.0.1:3100` for everything else it
   does (goals, approvals, costs, routines, connections).
 
+## Org mode is off by default: who orchestrates what
+
+Two different things can orchestrate models on a machine running Halo:
+
+- **Your session.** The model you picked, and with a lineup, one agent per
+  role that the session spawns and waits for. It runs when you type and
+  stops when the turn ends. Studio's **Roles** mode edits exactly this.
+- **Paperclip.** A separate control plane with its own server, scheduler and
+  database. It wakes agents on heartbeats and issues, and every wake is a
+  fresh `halo paperclip-run` process, whether or not a Halo session is
+  open. Studio's **Org** mode is a window onto it.
+
+`paperclip.enabled` in `~/.halo/config.json` is the switch, **off** on a
+fresh install. While it is off, `halo paperclip-run` answers every heartbeat
+with an idle exit (so a synced company cannot run anything behind your
+back), Studio's Org canvas shows the explanation above with a "Turn Org mode
+on" button, and `halo paperclip status` starts with `Org mode: off`. Turning
+it on resumes the linked company's Halo agents; turning it off pauses them
+(best effort: the switch holds even when Paperclip is not running).
+
+Four doors flip the same key: `halo paperclip on|off`, `/org on|off` in the
+TUI, the wizard's Organizations step (`halo init --step orgs`), and the
+**Org mode** button in Studio's header.
+
 ## Install
 
 Paperclip needs Node.js 24 or newer. Then either:

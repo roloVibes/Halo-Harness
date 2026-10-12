@@ -2589,7 +2589,9 @@ TUI's `/studio` serves the same page from the running session. See
 ## `halo paperclip` and `halo paperclip-run`
 
 ```sh
-halo paperclip status                     health, version, companies, the linked one
+halo paperclip status                     Org mode on/off, health, version, companies, the linked one
+halo paperclip on|off                     the Org mode switch (off by default): on resumes the company's
+                                          Halo agents, off pauses them and heartbeats answer idle
 halo paperclip install                    npx paperclipai@latest onboard --yes (Node 24+)
 halo paperclip open                       the Paperclip UI in the browser
 halo paperclip link [--url U] [--token T] [--company ID|NAME]
