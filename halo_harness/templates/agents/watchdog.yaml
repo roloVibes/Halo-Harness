@@ -10,7 +10,7 @@ tags: [monitoring]
 kind: custom
 
 models:
-  preference: cc:claude-haiku-4-5
+  preference: or:anthropic/claude-haiku-4.5
   fallback: ol:qwen3-coder:30b
   effort: low
   thinking: off

@@ -29,6 +29,13 @@ Verified against `halo_harness/agents_yaml.py`, `agents_md_bridge.py`,
 files under `halo_harness/templates/agents/` and `halo_harness/templates/
 teams/`.
 
+> **No shipped bio or lineup names a subscription route.** Every model in
+> the shipped templates is an API route (`or:`, `ol:`, `default`). The
+> `cc:`/`cx:` subscription routes stay off everywhere -- the catalog, the
+> pickers, Studio, the wizard, the lineups -- until `halo subscriptions
+> accept`; a bio of your own that names one resolves to the default model
+> with a note until then. See docs/MODELS.md, "Subscription-routes consent".
+
 ## The 90-second version
 
 Four words, in this order: **bio -> lineup -> role -> session**.
@@ -107,7 +114,7 @@ extends: coder                 # optional -- another bio to inherit from
 models:
   preference: ol:qwen3-coder:30b
   fallback: or:deepseek/deepseek-v4.1-flash
-  escalation: cc:claude-opus-5-5   # the roles.py-style escalation target
+  escalation: or:anthropic/claude-opus-5.5   # the roles.py-style escalation target
   effort: medium
   temperature: 0.2
   thinking: native               # native | off
@@ -252,7 +259,7 @@ or `--team <name>`):
 delegation: {mode: by-skill, max_parallel: 2, max_depth: 1, handoff: structured, forward_text: false}
 routing: {implement: worker, review: review, default: boss}     # task kind -> role or alias
 budget: {max_budget_usd: 20, max_total_turns: 400, max_wall_time: 3h, agents_may_exceed: false}
-escalation: {triggers: [tool_failures, context_overflow], to: cc:claude-opus-5-5, ask: false, allow_fallbacks: true}
+escalation: {triggers: [tool_failures, context_overflow], to: or:anthropic/claude-opus-5.5, ask: false, allow_fallbacks: true}
 context: {files: [CLAUDE.md], skills: [], memory: {namespace: my-team, writers: [boss]}}
 permissions: {mode: auto, rules: [], offline: false}
 org:

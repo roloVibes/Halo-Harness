@@ -9,7 +9,7 @@ tags: [implementation]
 kind: subagent
 
 models:
-  preference: cc:claude-sonnet-5
+  preference: or:anthropic/claude-sonnet-5
   fallback: or:qwen/qwen3-coder
   effort: medium
   thinking: off

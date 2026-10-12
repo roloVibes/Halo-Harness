@@ -88,6 +88,16 @@ def _effective_model(entry: dict, bio: Optional[dict]) -> tuple[str, str]:
     return str(pref or ""), str(over.get("fallback") or bm.get("fallback") or "")
 
 
+def _subscription_warnings(*refs) -> list:
+    """3.0.2.0: a cc:/cx: pick while the subscription routes are not
+    accepted falls through to the default model -- say so on the card."""
+    from halo_harness.subscription_consent import is_accepted
+    out = []
+    if any(str(r or "").startswith(("cc:", "cx:")) for r in refs) and not is_accepted():
+        out.append("names a subscription route (cc:/cx:) that is not accepted -- it falls through to the default model until `halo subscriptions accept`")
+    return out
+
+
 def _node_id(entry: dict, i: int) -> str:
     return str(entry.get("as") or entry.get("role") or entry.get("agent") or f"n{i}") + f"#{i}"
 
@@ -113,7 +123,7 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
             "model": model, "fallback": fallback, "price": cat.get("price", ""), "context": cat.get("context", ""),
             "tools": len(((bio or {}).get("tools") or {}).get("allow") or []) if bio else None,
             "scope": (bio or {}).get("_source", ""), "kind": (bio or {}).get("kind", ""),
-            "description": (bio or {}).get("description", ""), "problems": problems, "warnings": [],
+            "description": (bio or {}).get("description", ""), "problems": problems, "warnings": _subscription_warnings(model, fallback),
             "overrides": {k: v for k, v in e.items() if k not in ("agent", "role", "as", "instances", "use_for")},
         }
         nodes.append(node)

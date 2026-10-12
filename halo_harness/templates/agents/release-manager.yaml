@@ -9,8 +9,8 @@ tags: [release]
 kind: custom
 
 models:
-  preference: cc:claude-sonnet-5
-  fallback: cc:claude-haiku-4-5
+  preference: or:anthropic/claude-sonnet-5
+  fallback: or:anthropic/claude-haiku-4.5
   effort: low
   thinking: off
   context_budget: 0.6

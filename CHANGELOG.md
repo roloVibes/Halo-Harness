@@ -22,6 +22,19 @@ version.
   `/org on|off`, the wizard's Organizations step, the **Org mode** button in
   Studio's header (`paperclip/mode.py`, `POST /api/pc/mode`).
 
+### Subscription routes: off everywhere until accepted, now including the shipped lineups
+
+- **No shipped bio or lineup names a `cc:`/`cx:` model any more.** Seven
+  shipped bios and the `halo-dev-cycle` escalation target preferred
+  `cc:claude-*`, so Roles mode in Studio and the wizard's lineup preview
+  showed a Claude Code subscription model as the default pick before any
+  acceptance (the role table fell through to the default model with a
+  note, but the pick was on screen). They name the same models over
+  OpenRouter now. `tests/test_subscription_defaults.py` pins it: shipped
+  templates, the catalog, Studio's model list and every resolved shipped
+  bio carry no subscription route while `halo subscriptions accept` has
+  not been run.
+
 ### `halo update` says what it will do, not what you should type
 
 - An up-to-date install prints one line (`already up to date -- <commit> is
