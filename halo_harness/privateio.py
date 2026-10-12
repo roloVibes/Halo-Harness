@@ -28,7 +28,24 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
 from pathlib import Path
+
+
+def _replace_with_retry(src: str, dst: Path, *, tries: int = 12, pause: float = 0.025) -> None:
+    """`os.replace` that rides out Windows' sharing rule: a reader that has
+    `dst` open without FILE_SHARE_DELETE makes the rename fail with
+    PermissionError (WinError 5 / 32) for the few milliseconds the handle
+    lives. A bounded retry (about 300 ms in all) is cheaper than a lock
+    file and changes nothing on POSIX, where the first try succeeds."""
+    for attempt in range(tries):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if os.name != "nt" or attempt == tries - 1:
+                raise
+            time.sleep(pause)
 
 
 def write_private_atomic(path: Path, data: str) -> None:
@@ -50,7 +67,7 @@ def write_private_atomic(path: Path, data: str) -> None:
             os.chmod(tmp_name, 0o600)
         except OSError:
             pass
-        os.replace(tmp_name, path)
+        _replace_with_retry(tmp_name, path)
     except Exception:
         # Never leave the temp file behind on a failed write -- it can
         # carry the very credentials this helper exists to protect.

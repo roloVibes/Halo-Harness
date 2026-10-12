@@ -21,6 +21,7 @@ from pathlib import Path
 REPO_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_DIR))
 
+from halo_harness import __version__
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 test, TESTS = new_registry()
@@ -30,7 +31,7 @@ SCENES = ("launch", "turn", "picker", "team-step", "mcp", "permission", "balance
 # One visible, stable string per scene -- decoded the way the SVG encodes
 # text (entity nbsp -> space), so a marker never depends on raw XML.
 MARKERS = {
-    "launch.svg": ("halo 2.",),                  # the version line under the intro (2.0.11: the art is drawn with block glyphs)
+    "launch.svg": (f"halo {__version__}",),      # the version line under the intro (2.0.11: the art is drawn with block glyphs)
     "turn.svg": ("Grep", "18"),                  # the running tool card + staged phase elapsed
     "picker.svg": ("atlas-pro", "ctx"),          # fixture rows + the context column
     "team-step.svg": ("One model for everything",),  # 2.1.0 B1: the first row of the lineup list
