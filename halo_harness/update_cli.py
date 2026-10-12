@@ -30,7 +30,7 @@ def _retarget_spec(spec: Optional[str], to: str) -> Optional[str]:
 
 
 def _print_report(build: dict, avail: dict, lines: list, count, cmd: Optional[str], *,
-                   ordering: Optional[bool] = None) -> None:
+                   ordering: Optional[bool] = None, show_cmd: bool = True) -> None:
     print(f"installed: {upd.format_version_line(build)}")
     if avail.get("commit"):
         ref = f", {avail['ref']}" if avail.get("ref") else ""
@@ -51,7 +51,10 @@ def _print_report(build: dict, avail: dict, lines: list, count, cmd: Optional[st
             print(f"  {line}")
     elif count:
         print(f"{count} commit(s) ahead (no local checkout here to list them one by one)")
-    print(f"update command: {cmd or '(unknown -- could not determine how halo was installed)'}")
+    if show_cmd:
+        # 3.0.2.0: this is what `halo update` runs for you, not a command
+        # to copy (it read as one, and its `&&` is not PowerShell 5.1).
+        print(f"to apply: halo update  (it runs: {cmd or 'unknown -- could not determine how halo was installed'})")
 
 
 def _exit_code(build: dict, avail: dict) -> int:
@@ -167,12 +170,16 @@ def cmd_update(argv: "list[str]") -> int:
     checkout = Path(build["checkout"]) if build.get("checkout") else None
     lines, count = upd.commits_between(build.get("commit"), avail.get("commit"), checkout=checkout)
     ordering = upd.commit_is_ancestor(build.get("commit"), avail.get("commit"), checkout=checkout)
-    _print_report(build, avail, lines, count, cmd, ordering=ordering)
     code = _exit_code(build, avail)
+    # The reinstall command is shown only when there is something to apply
+    # (or a --to was asked for) and this is a --check: an apply prints "running: ..." itself,
+    # and an up-to-date install has nothing to run.
+    _print_report(build, avail, lines, count, cmd, ordering=ordering, show_cmd=bool(args.check and (code == 10 or args.to)))
     if args.check:
         return code
     if code == 0:
-        print("halo update: already up to date")
+        where = f" ({avail.get('ref')})" if avail.get("ref") else ""
+        print(f"halo update: already up to date -- {build.get('commit') or '?'} is the newest on {channel}{where}")
         return 0
     # 2.0.6 round 8: the target tag must carry a checksums.txt release
     # asset before we install it. Only a TAG-shaped target can be checked

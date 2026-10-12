@@ -1151,8 +1151,13 @@ available (main): e1f2a3b (master)
 3 commit(s):
   e1f2a3b fix: ...
   ...
-update command: uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness
+to apply: halo update  (it runs: uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness)
 ```
+
+The last line is what `halo update` runs for you; you never type it. A plain
+`halo update` on an install that is already at the newest commit prints one
+line, `halo update: already up to date -- <commit> is the newest on <channel>`,
+and runs nothing.
 
 ## The installer scripts (`install-halo.sh`, `install-halo.ps1`)
 

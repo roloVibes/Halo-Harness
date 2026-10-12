@@ -308,6 +308,29 @@ def test_cmd_update_to_retargets_the_spec_in_the_printed_command(ctx: Ctx):
 
 
 @test
+def test_up_to_date_prints_no_reinstall_command(ctx: Ctx):
+    """3.0.2.0: the reinstall command read as something to type (and its
+    `&&` is not PowerShell 5.1); an up-to-date install prints none of it."""
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="aaaaaaa")
+    try:
+        code, out, _err = _capture(update_cli.cmd_update, [])
+        ctx.check(f"plain `halo update` says up to date with the commit and channel, got {out!r}",
+                  code == 0 and "already up to date -- aaaaaaa is the newest on main" in out)
+        ctx.check("and prints no command at all", "uv tool install" not in out and "to apply" not in out)
+        code, out, _err = _capture(update_cli.cmd_update, ["--check"])
+        ctx.check(f"--check on an up-to-date install prints no command either, got {out!r}", "uv tool install" not in out)
+    finally:
+        _restore_all(orig)
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb")
+    try:
+        code, out, _err = _capture(update_cli.cmd_update, ["--check"])
+        ctx.check(f"--check with an update pending names halo update as the thing to run, got {out!r}",
+                  code == 10 and "to apply: halo update  (it runs: " in out and "update command:" not in out)
+    finally:
+        _restore_all(orig)
+
+
+@test
 def test_cmd_update_channel_flag_is_remembered_in_config(ctx: Ctx):
     state_dir = Path(tempfile.mkdtemp(prefix="halo-update-channel-"))
     old_state_dir_env = os.environ.get("BRIDGE_STATE_DIR")
