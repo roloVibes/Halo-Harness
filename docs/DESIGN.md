@@ -66,6 +66,44 @@ its tools and checks the render tool is there (exit 1 when one is down). An app
 that is not registered is simply left out of the skill: prototypes and SVG are
 still written by hand.
 
+### What the apps add, and what works without them
+
+Design needs none of the apps. A turn attaches only the craft servers that are
+registered in `~/.claude.json`; with none, the model writes `index.html` and SVG
+by hand, and every Studio feature (frames, knobs, comments, versions, variants,
+critique, contrast, exports, the handoff) works on that. The apps change what a
+turn can *deliver* and how reliably:
+
+- **Real documents, not approximations.** A model can write SVG; it cannot write
+  a layered PSD, a print-ready PDF, a developed RAW or an MP4. Through the MCP it
+  drives the engine that can, and the artboard's `source.json` names the saved
+  document, which opens in that app afterwards.
+- **Commands with undo instead of guessed markup.** Each app exposes its full
+  command list as typed tools; the model lists them, executes, and can undo.
+- **Inspection in the loop.** The apps return the document state (items, bounds,
+  overset text, layer trees), so the model checks its work mid-turn and fixes
+  it, the way it reads a file after editing code.
+- **The render is the app's own.** `render.png`, `render.svg` or `render.pdf` is
+  what the app exported, at the scale you asked, with selectable text in PDFs.
+- **Local.** The servers run headless on your machine; only the model call
+  leaves it.
+
+| App | What Design gets from it |
+|---|---|
+| DesignCraft | pages, one-pagers, posters and decks laid out in frames, rendered to PNG and PDF |
+| VectorCraft | logos, icons and illustrations as true vector paths, exported SVG and PNG |
+| PhotoCraft | compositing, retouching and raster mockups, exported PNG |
+| LightCraft | RAW photos developed and batch-exported into the project's assets |
+| EffectCraft | motion graphics and animated titles, rendered frames |
+| FilmCraft | video cuts and product clips, preview renders |
+| PdfCraft | assembled, signed, form-filled and accessibility-checked PDFs |
+
+Installed on this machine but not used by Design: DeckCraft (PowerPoint-class,
+PPTX in and out), WordCraft (Word-class, DOCX, Markdown, PDF), GridCraft
+(Excel-class, XLSX, charts), CADCraft and SoundCraft. The first three are the
+natural next additions (decks with PPTX export, documents with DOCX, spreadsheets
+as input); the last two do not belong on a design canvas.
+
 ## Which model
 
 Any model Halo can reach, chosen per project (`--model` on `new` or `run`, or the
