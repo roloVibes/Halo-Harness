@@ -98,6 +98,11 @@ def run_halo(prompt: str, model: str, cwd: str, env: dict, timeout: int = 3600) 
 
 def run_heartbeat(env: Optional[dict] = None, *, runner=run_halo, out=sys.stdout) -> int:
     env = dict(os.environ if env is None else env)
+    from halo_harness.paperclip.mode import org_mode_enabled
+    if not org_mode_enabled():
+        # 3.0.2.0: the switch is the owner's: nothing runs that was not asked for.
+        print("Org mode is off on this machine (halo paperclip on turns it on): heartbeat answered idle", file=out)
+        return 0
     client = Paperclip.from_env(env)
     agent_id, company_id, run_id = env.get("PAPERCLIP_AGENT_ID", ""), env.get("PAPERCLIP_COMPANY_ID", ""), env.get("PAPERCLIP_RUN_ID", "")
     if not agent_id or not company_id:

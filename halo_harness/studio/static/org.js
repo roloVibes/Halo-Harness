@@ -29,7 +29,14 @@
   org.refresh = async (app, full) => {
     try { org.status = await api.pcStatus(); } catch (e) { org.status = { error: e.message, companies: [] }; }
     const st = org.status;
-    $("org-badges").innerHTML = st.reachable ? `<span class="badge live">Paperclip ${esc(st.version)}</span>` : `<span class="badge">Paperclip ${st.installed ? "not running" : "not installed"}</span>`;
+    // 3.0.2.0: the Org mode switch lives in the header; off is the default
+    const sw = `<button class="btn ${st.enabled ? "primary" : ""}" id="org-mode-switch" title="${esc(st.explainer || "")}">Org mode: ${st.enabled ? "on" : "off"}</button>`;
+    $("org-badges").innerHTML = sw + (st.reachable ? ` <span class="badge live">Paperclip ${esc(st.version)}</span>` : ` <span class="badge">Paperclip ${st.installed ? "not running" : "not installed"}</span>`);
+    $("org-mode-switch").addEventListener("click", async () => {
+      try { const r = await api.pcMode(!st.enabled); window.app.toast(r.enabled ? ("Org mode on" + (r.agents.length ? ": resumed " + r.agents.join(", ") : "")) : ("Org mode off" + (r.agents.length ? ": paused " + r.agents.join(", ") : "")), "ok"); if (r.note) window.app.toast(r.note, "warn"); org.refresh(window.app, true); }
+      catch (e) { window.app.toast(e.message, "bad"); }
+    });
+    if (!st.enabled) { org.company = null; org.agents = []; app.canvas.setGraph([], []); $("canvas-empty").style.display = ""; org.offState(app); org.rail(app); org.showTab("company"); return; }
     if (!st.reachable) { org.company = null; org.agents = []; app.canvas.setGraph([], []); $("canvas-empty").style.display = ""; org.emptyState(app); org.rail(app); org.showTab("company"); return; }
     $("canvas-empty").style.display = "none";
     const sel = $("company-select");
@@ -167,6 +174,17 @@
     }));
     const open = h(`<a class="btn ghost" target="_blank" href="${esc(st.base_url)}/${esc(org.prefix())}">Open Paperclip ↗</a>`);
     row.append(sync, pull, open); body.appendChild(row);
+  };
+
+  org.offState = (app) => {
+    // Org mode is off: say what would orchestrate, and offer the switch
+    const box = $("canvas-empty").querySelector(".inner");
+    box.querySelector("h2").textContent = "Org mode is off";
+    box.querySelector("p").textContent = (org.status && org.status.explainer) || "Turn it on from the header, /org on, or halo paperclip on.";
+    $("starters").innerHTML = "";
+    const on = h(`<button class="btn primary">Turn Org mode on</button>`);
+    on.addEventListener("click", () => $("org-mode-switch").click());
+    $("starters").appendChild(on);
   };
 
   org.emptyState = (app, noCompany = false, into = null) => {

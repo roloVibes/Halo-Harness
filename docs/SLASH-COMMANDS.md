@@ -347,11 +347,15 @@ that resolves this role picks it up. `<name>` must already be a known role
 (a built-in, or a custom name a team.json/loaded template actually defined)
 -- an unknown name errors with the list of known ones. See `docs/ROLES.md`.
 
-### `/org [gui|list|show <name>|new <name>|load <name>|install <name> [--force]|edit <name>|run [<name>] "<goal>"|export <name> [file]|import <file>|resume]`
+### `/org [gui|on|off|list|show <name>|new <name>|load <name>|install <name> [--force]|edit <name>|run [<name>] "<goal>"|export <name> [file]|import <file>|resume]`
 Halo 3.0.2.0: in the TUI, bare `/org` opens **Halo Studio's Org mode** (your
 company in Paperclip: titles, reporting lines, budgets, issues; see
 [STUDIO.md](STUDIO.md) and [PAPERCLIP.md](PAPERCLIP.md)); `/org gui` does the
-same anywhere, `/org gui url` prints the URL only. `/org list` is the text list
+same anywhere, `/org gui url` prints the URL only. **`/org on|off` is the Org
+mode switch** (off by default): on resumes the linked company's Halo agents so
+Paperclip's heartbeats run them, off pauses them and every heartbeat answers
+idle; the reply says who orchestrates what ([PAPERCLIP.md](PAPERCLIP.md)).
+`/org list` is the text list
 of Halo's own legacy organizations below, which bare `/org` still prints
 outside the TUI.
 

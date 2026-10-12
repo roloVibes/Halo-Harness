@@ -57,6 +57,7 @@
     tools: () => call("GET", "tools"),
     // 2.2.0 Org mode: Paperclip through Studio's proxy (the board token stays server-side)
     pcStatus: () => call("GET", "pc/status"),
+    pcMode: (enabled) => call("POST", "pc/mode", { enabled }),
     pcInstall: () => call("POST", "pc/install"),
     pcInstallLog: () => call("GET", "pc/install"),
     pcLink: (body) => call("POST", "pc/link", body),

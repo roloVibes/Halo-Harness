@@ -49,6 +49,12 @@ and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 
 ## Org mode: the company in Paperclip
 
+**Off by default.** The header's **Org mode: off/on** button is the switch
+(`paperclip.enabled`; also `halo paperclip on|off` and `/org on|off`). While
+it is off the canvas explains who orchestrates what (your session in Roles,
+Paperclip's heartbeats in Org) and nothing runs on a heartbeat; on, the
+company's Halo agents resume. See [PAPERCLIP.md](PAPERCLIP.md).
+
 The **Roles | Org** toggle in the top bar (`R` / `O`) swaps the canvas to
 your company in [Paperclip](PAPERCLIP.md). Agents are cards (title, role,
 adapter, status, spend against budget), reporting lines are the edges, and

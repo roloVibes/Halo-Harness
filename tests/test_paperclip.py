@@ -60,6 +60,8 @@ def _env(fake, agent):
 @test
 def test_heartbeat_run_idle_done_and_failed(ctx: Ctx):
     from halo_harness.paperclip.adapter import build_prompt, run_heartbeat
+    from halo_harness.theme import set_config_value
+    set_config_value("paperclip.enabled", True)  # 3.0.2.0: Org mode is off by default; this test runs a real heartbeat
     fake = FakePaperclip()
     try:
         agent = fake.add_agent("worker", title="Builds things", metadata={"halo_agent": "implementer"})
@@ -87,6 +89,7 @@ def test_heartbeat_run_idle_done_and_failed(ctx: Ctx):
         ctx.check("build_prompt caps its length", len(build_prompt({"issue": {"title": "t", "description": "x" * 100_000}}, {}, {})) <= 60_000)
     finally:
         fake.close()
+        set_config_value("paperclip.enabled", False)
 
 
 @test

@@ -3,9 +3,12 @@
 > **Halo 2.2.0: organizations run in Paperclip.** Studio's Org mode and
 > `halo paperclip sync <lineup>` turn a lineup into a company with titles,
 > reporting lines, budgets, issues and heartbeats -- see
-> [PAPERCLIP.md](PAPERCLIP.md). Everything below is Halo's older built-in
-> org runner (`~/.halo/orgs/*.json`, `/org`, `halo org`, the wizard's Orgs
-> switch), kept working for existing configs and no longer the default path.
+> [PAPERCLIP.md](PAPERCLIP.md). **Org mode is off by default** (`halo
+> paperclip on|off`, `/org on|off`, the wizard, Studio's header); while it is
+> off nothing runs on a Paperclip heartbeat. Everything below is Halo's older
+> built-in org runner (`~/.halo/orgs/*.json`, `/org list|run`, `halo org`,
+> the wizard's second switch), kept working for existing configs and no
+> longer the default path.
 
 
 Halo 2.0.2 round 2 (brief B): a named, reusable TREE of sub-agent

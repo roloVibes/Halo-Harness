@@ -41,9 +41,25 @@ def _company_id(client: Paperclip, ref: str) -> str:
     raise SystemExit(f"halo paperclip: no company matches {ref!r}; `halo paperclip status` lists them")
 
 
+def cmd_mode(args) -> int:
+    """`halo paperclip on|off`: the Org mode switch (paperclip/mode.py)."""
+    from halo_harness.paperclip.mode import EXPLAINER, mode_line, set_org_mode
+    res = set_org_mode(args.cmd == "on", client=_client())
+    print(mode_line(res["enabled"]))
+    if res["agents"]:
+        print(f"  {'resumed' if res['enabled'] else 'paused'}: {', '.join(res['agents'])}")
+    if res["note"]:
+        print(f"  {res['note']}")
+    if not res["enabled"]:
+        print("  " + EXPLAINER)
+    return 0
+
+
 def cmd_status(args) -> int:
+    from halo_harness.paperclip.mode import mode_line
     cfg = load_config()
     client = _client()
+    print(mode_line())
     print(f"Paperclip at {client.base_url}" + (" (token set)" if client.token else " (no token: loopback trusted mode)"))
     try:
         h = client.health()
@@ -162,7 +178,9 @@ def cmd_org(args) -> int:
 def cmd_paperclip(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo paperclip", description="Paperclip: your lineups as a company of agents.")
     sub = parser.add_subparsers(dest="cmd")
-    sub.add_parser("status", help="health, companies, the Halo link").set_defaults(fn=cmd_status)
+    sub.add_parser("status", help="Org mode, health, companies, the Halo link").set_defaults(fn=cmd_status)
+    sub.add_parser("on", help="turn Org mode on: Paperclip wakes the company's Halo agents (resumes them)").set_defaults(fn=cmd_mode)
+    sub.add_parser("off", help="turn Org mode off (the default): heartbeats answer idle, agents paused").set_defaults(fn=cmd_mode)
     sub.add_parser("install", help="npx paperclipai onboard --yes").set_defaults(fn=cmd_install)
     sub.add_parser("open", help="open the Paperclip UI").set_defaults(fn=cmd_open)
     p = sub.add_parser("link", help="store the URL, a board token and the default company")

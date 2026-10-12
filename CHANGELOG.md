@@ -10,6 +10,18 @@ version.
 
 ## [3.0.2.0] - unreleased
 
+### Org mode is a switch, off by default
+
+- **Who orchestrates what, said plainly.** Your session (Roles) spawns agents
+  when you type; Paperclip (Org) wakes them on heartbeats whether or not a
+  session is open. `paperclip.enabled` is the switch and starts **off**: while
+  off, `halo paperclip-run` answers every heartbeat idle, Studio's Org canvas
+  explains the two orchestrators with a "Turn Org mode on" button, and `halo
+  paperclip status` leads with the mode. On resumes the linked company's Halo
+  agents; off pauses them (best effort). Four doors: `halo paperclip on|off`,
+  `/org on|off`, the wizard's Organizations step, the **Org mode** button in
+  Studio's header (`paperclip/mode.py`, `POST /api/pc/mode`).
+
 ### Typing without stray text (Windows)
 
 - **Mouse reports no longer type themselves into the prompt.** Textual's

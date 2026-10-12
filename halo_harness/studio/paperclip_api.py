@@ -31,7 +31,9 @@ def installed_locally() -> bool:
 def status(req):
     cfg = load_config(Path(req.state_dir))
     client = _client(req.state_dir)
-    out = {"installed": installed_locally(), "base_url": client.base_url, "token": bool(client.token),
+    from halo_harness.paperclip.mode import EXPLAINER, org_mode_enabled
+    out = {"enabled": org_mode_enabled(), "explainer": EXPLAINER,
+           "installed": installed_locally(), "base_url": client.base_url, "token": bool(client.token),
            "company_id": cfg.get("company_id") or "", "reachable": False, "version": "", "companies": [],
            "node": shutil.which("node") is not None, "install": {"running": _INSTALL["running"], "code": _INSTALL["code"]}}
     try:
@@ -81,6 +83,14 @@ def install(req):
         return 409, {"error": f"Paperclip is already running at {client.base_url}"}
     threading.Thread(target=_run_install, name="halo-paperclip-install", daemon=True).start()
     return 202, {"running": True}
+
+
+def mode(req):
+    """POST {enabled: bool}: the Org mode switch (paperclip/mode.py); pauses or
+    resumes the linked company's Halo agents when Paperclip is reachable."""
+    from halo_harness.paperclip.mode import set_org_mode
+    res = set_org_mode(bool(req.body.get("enabled")), state_dir=Path(req.state_dir), client=_client(req.state_dir))
+    return 200, res
 
 
 def link(req):
@@ -143,6 +153,8 @@ def dispatch_pc(req):
         return install(req)
     if sub == "link" and req.method == "POST":
         return link(req)
+    if sub == "mode" and req.method == "POST":
+        return mode(req)
     if sub == "sync" and req.method == "POST":
         return sync(req)
     if sub == "pull" and req.method == "POST":
