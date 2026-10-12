@@ -266,6 +266,26 @@ model call; every turn versions what changed; sync a design system from your cod
 URL; export a folder, HTML, PNG, SVG or PDF; hand off a bundle the next session continues
 from. See [docs/DESIGN.md](docs/DESIGN.md).
 
+**The craft apps are optional, and they are the point.** Without them, Design is a model
+writing HTML, CSS and SVG by hand, and Studio still shows, versions, comments and exports
+it. With them, the model drives the real engine through its MCP server: it asks the app
+for its command list, executes with undo, inspects the document mid-turn and fixes it, and
+leaves a real file on disk that opens in the app afterwards. The render Studio shows is the
+app's own. Each app that is registered adds one kind of deliverable; each that is missing
+is simply left out of the turn. The [ArtCraft](https://getartcraft.com/apps) apps are
+open source, run headless on your machine, and nothing but the model call leaves the box.
+
+| App | What Design gets from it |
+|---|---|
+| DesignCraft | pages, one-pagers, posters and decks laid out in frames, rendered to PNG and PDF |
+| VectorCraft | logos, icons and illustrations as true vector paths, exported SVG and PNG |
+| PhotoCraft | compositing, retouching and raster mockups, exported PNG |
+| LightCraft | RAW photos developed and batch-exported into the project's assets |
+| EffectCraft | motion graphics and animated titles, rendered frames |
+| FilmCraft | video cuts and product clips, preview renders |
+| PdfCraft | assembled, signed, form-filled and accessibility-checked PDFs |
+
+
 <a href="docs/media/studio-design.png"><img alt="Studio's Design mode: a hero prototype and a VectorCraft logo mark as artboards, knobs and comments in the panel" src="docs/media/studio-design.png" width="100%"></a>
 
 <a href="docs/media/studio-design-knob.png"><img alt="The Knobs tab: the Spacing knob moved to 48 reflows the hero with no model call, and the contrast table grades the page's colour pairs" src="docs/media/studio-design-knob.png" width="100%"></a>
