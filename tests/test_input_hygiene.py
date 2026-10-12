@@ -28,7 +28,7 @@ ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
-from halo_harness.tui.win32_input import ALT_OR_CTRL, install, keep_key_record  # noqa: E402
+from halo_harness.tui.win32_input import ALT_OR_CTRL, PendingInput, drop_orphan_tails, install, keep_key_record  # noqa: E402
 from halo_harness.tui.widgets.input_sanitize import looks_like_mouse_report, strip_mouse_reports  # noqa: E402
 
 test, TESTS = new_registry()
@@ -59,6 +59,56 @@ def test_install_is_a_no_op_off_windows_and_idempotent_on_it(ctx: Ctx):
         ctx.check("the patched class keeps Textual's signature", win32.EventMonitor.__init__ is win32.EventMonitor.__mro__[1].__init__)
     else:
         ctx.check("a no-op off Windows", first is False and second is False)
+
+
+def _replay(batches, *, pending: bool, gap_s: float = 0.15):
+    """Feed batches to Textual's real parser the way the input thread
+    does, with a quiet gap (longer than ESCDELAY) between them."""
+    import time
+    from textual._xterm_parser import XTermParser
+    parser = XTermParser()
+    stage = PendingInput()
+    out = []
+    for i, batch in enumerate(batches):
+        if i:
+            time.sleep(gap_s)
+            out.extend(parser.tick())
+            if pending and stage.held:
+                pass  # the thread keeps waiting (30 ms polls) while it holds a tail
+        text = stage.push(batch) if pending else batch
+        if text:
+            out.extend(parser.feed(text))
+    if pending and stage.held:
+        out.extend(parser.feed(stage.flush()))
+    time.sleep(gap_s)
+    out.extend(parser.tick())
+    return [(type(e).__name__, getattr(e, "key", None)) for e in out]
+
+
+@test
+def test_a_report_split_across_two_reads_never_becomes_text(ctx: Ctx):
+    split = ["\x1b[<35;72;1", "8M"]
+    raw = _replay(split, pending=False)
+    ctx.check(f"Textual alone types the whole report after the escape delay (the bug), got {raw}",
+              ("Key", "M") in raw and ("Key", "left_square_bracket") in raw and not any(n == "MouseMove" for n, _k in raw))
+    fixed = _replay(split, pending=True)
+    ctx.check(f"with the pending stage it is one mouse move, got {fixed}", fixed == [("MouseMove", None)])
+    lone = _replay(["\x1b[<35;1;1M", "\x1b"], pending=True)
+    ctx.check(f"a real Esc after a report still arrives, got {lone}", lone == [("MouseMove", None), ("Key", "escape")])
+    stage = PendingInput()
+    ctx.check("a paste ending in text is not held", stage.push("\x1b[200~3;4M\x1b[201~") == "\x1b[200~3;4M\x1b[201~" and not stage.held)
+    ctx.check("an incomplete CSI is held", stage.push("ab\x1b[") == "ab" and stage.held == "\x1b[")
+    ctx.check("and released with the rest", stage.push("<0;3;4M") == "\x1b[<0;3;4M" and not stage.held)
+
+
+@test
+def test_orphan_report_tails_are_dropped_before_the_parser(ctx: Ctx):
+    for tail in ("[<35;72;18M", "8;17M", ";93;17M", "19;19M129;23M", "[<35;115;19M19;19M"):
+        ctx.check(f"a batch of tails is dropped: {tail!r}", drop_orphan_tails(tail) == "")
+    report = "\x1b[<35;10;5M"
+    ctx.check("tails beside complete reports leave the reports", drop_orphan_tails(report + "8;17M" + report) == report + report)
+    for keep in ("M", "m", "a", "3", ";", "x;1M", "hello", report + "a", "\x1b[200~3;4M\x1b[201~", "\x1b[A"):
+        ctx.check(f"typed text survives: {keep!r}", drop_orphan_tails(keep) == keep)
 
 
 @test
