@@ -27,6 +27,15 @@ and [ARCHITECTURE.md](ARCHITECTURE.md) for how compaction/retries work.
   preinstalled; see `docs/harness/INSTALL.md`'s "Work box" section
   (`tools/vendor_wheels.py`, and specifically **do not** pass
   `--no-build-isolation`).
+- **`uv tool install --reinstall` ends with `failed to remove directory
+  '...\uv\tools\halo-harness\Scripts': Access is denied. (os error 5)`
+  and `halo` then prints `ModuleNotFoundError: No module named
+  'halo_harness'`** (Windows) -- another `halo` was running (a session, a
+  `halo studio` server, a `halo proxy`) and held `halo.exe` open, so uv
+  emptied the old environment but could not finish. Close every halo
+  (`tasklist | findstr halo`), run the same reinstall again, and it
+  rebuilds cleanly. `halo update` refuses to start while another halo is
+  running, for exactly this reason.
 - **A different `python3`/version than expected gets picked up** -- both
   `uv tool install` and `pip install --user -e .` bind to whichever
   interpreter ran the install command; pin one explicitly with
