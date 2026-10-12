@@ -219,6 +219,7 @@ def test_a_press_outside_the_window_copies(ctx: Ctx):
                 await pilot.pause(0.2)
                 await app.transcript.append_text(1, 0, "reply")
                 await pilot.press("ctrl+c")
+                await app.workers.wait_for_complete()  # the first copy lands before the sink is cleared (a slow CI runner)
                 app._ctrl_c_deadline = time.monotonic() - 0.5  # the window has lapsed
                 env.sink.clear()
                 await pilot.press("ctrl+c")

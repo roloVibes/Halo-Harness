@@ -532,6 +532,10 @@ def test_status_bar_offline_chip(ctx: Ctx):
 # Each pattern is a raw primitive capable of opening a socket OUTSIDE
 # providers.http's own open_upstream/urlopen_tls. (file, reason):
 _ALLOWED_RAW_NETWORK_CALLERS = {
+    "halo_harness/studio/launch.py":
+        "3.0.2.0: a loopback probe (socket.create_connection to 127.0.0.1:<port>) that asks whether the "
+        "Studio this machine already runs still answers, so `halo studio` and the wizard reuse it instead "
+        "of starting another; never a remote host, nothing the offline gate covers",
     "halo_harness/paperclip/client.py":
         "2.2.0: the Paperclip instance's own REST API -- a local service the user installed "
         "(127.0.0.1:3100 by default), the same category as mcp/oauth.py and mcp/doctor_probe.py: the "
