@@ -584,14 +584,19 @@ a guess when there is truly no existing value yet.
   existing local file is always checked first and always wins, but a
   *missing* file falls through to the ambiguous-shape check. Fix: double-check
   the path, or use a `--cwd`-relative path instead of an absolute one.
-- **Random `[<35;72;18M` text types itself into the chat box while the
-  mouse moves** -- the terminal's SGR mouse reports reaching the prompt
-  with their `ESC` lost. Cause: Textual's Windows input thread skipped any
-  synthetic key record whose virtual-key code is zero while any control
-  state bit is set, and NumLock/CapsLock set those bits, so the `ESC` of
-  every report was dropped (turning NumLock off made it stop, which is why
-  it came and went). Fixed in 3.0.2.0 (`tui/win32_input.py`); the prompt
-  also strips any fragment that still arrives. `Ctrl+U` clears the box.
+- **Random `[<35;72;18M` or `8;17M` text types itself into the chat box
+  while the mouse moves, mostly right after launch** -- the terminal's SGR
+  mouse reports, or their tails, reaching the prompt as text. Cause:
+  Textual's parser gives up on an escape sequence 100 ms after its last
+  character, and a report that straddles two reads of the console while
+  the main thread is busy (startup) is fed as `ESC` and then its tail as
+  typed text; a console whose input mode flips mid-report (a child
+  process that inherits it) hands over the tail alone. Fixed in 3.0.2.0
+  (`tui/win32_input.py`: an incomplete trailing sequence is held until the
+  rest arrives, a batch of orphaned tails is dropped); the prompt also
+  strips any fragment that still arrives, and `Ctrl+U` clears the box. If
+  it persists, say which terminal you run Halo in (Windows Terminal,
+  conhost, VS Code, another app's terminal pane).
 - **`--file`/`--add-dir`/`--mcp-config`/`--betas` swallow the prompt that
   follows them** -- these flags are `nargs="+"` (they accept more than one
   value) and will keep consuming bare words until the next flag; put
