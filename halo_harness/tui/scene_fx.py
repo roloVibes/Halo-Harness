@@ -41,6 +41,14 @@ def mix(a: str, b: str, t: float) -> str:
     return _hex(ar + (br - ar) * t, ag + (bg_ - ag) * t, ab + (bb - ab) * t)
 
 
+def rnd(seed: int) -> int:
+    """A stable 15-bit pseudo-random for `seed` (particle births, scatter):
+    the same number on every machine, so captures stay byte-identical."""
+    x = (seed * 1103515245 + 12345) & 0x7FFFFFFF
+    x ^= x >> 13
+    return (x * 2654435761 >> 16) & 0x7FFF
+
+
 def gradient(top: str, bottom: str, steps: int = HEIGHT) -> tuple:
     """`steps` colours from `top` to `bottom`, a sky in one line."""
     if steps <= 1:

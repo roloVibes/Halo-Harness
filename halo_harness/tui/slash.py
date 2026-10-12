@@ -56,6 +56,7 @@ async def handle_slash(app, name: str, args: str) -> None:
         # Halo 2.0.8 theme pack: the game-theme toggles (one contract for all
         # three, see halo_harness/theme_toggle.py).
         "level": _handle_level, "doom": _handle_doom, "metroid": _handle_metroid, "mario": _handle_mario,
+        "beetlejuice": _handle_beetlejuice, "alien": _handle_alien,
         # U5 scope C: sessions UX.
         "rename": _handle_rename, "fork": _handle_fork, "export": _handle_export,
         "stats": _handle_stats,
@@ -1577,6 +1578,8 @@ def _game_theme_handler(game: str):
 _handle_doom = _game_theme_handler("doom")
 _handle_metroid = _game_theme_handler("metroid")
 _handle_mario = _game_theme_handler("mario")
+_handle_beetlejuice = _game_theme_handler("beetlejuice")  # 3.0.2.0
+_handle_alien = _game_theme_handler("alien")
 
 
 # ============================================================================

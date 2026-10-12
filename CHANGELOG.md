@@ -22,6 +22,51 @@ version.
   `/org on|off`, the wizard's Organizations step, the **Org mode** button in
   Studio's header (`paperclip/mode.py`, `POST /api/pc/mode`).
 
+### The levels, third generation, and two new themes
+
+- **Sixteen pixels tall.** The band is eight rows now (`scene.ROWS`), with
+  13-pixel heroes drawn in three tones so they read at a glance: the
+  plumber's cap, moustache and gloves, the hunter's visor and pauldrons,
+  the marine's helmet glare and shotgun. Six-frame strides with swinging
+  arms, idle breathing, and a pose per state.
+- **Things happen.** Ambient particles (`scene_model.Particle`: dust at
+  the plumber's heels, embers rising through DOOM's floor, spores and drips
+  in the cavern, steam from the corridor vents, sparks on the hillside),
+  projectiles with gravity (the shell casing arcs back over the marine's
+  shoulder), lamps that breathe (`Layer.flicker`), scenery that cycles
+  (`Layer.animate`: the question block flashes, coins spin, panels blink),
+  a helmet lamp (`Scene.hero_light`), a second enemy per scene (a shroom
+  walker, a spiny crawler, a husk), and cue animations (`cues` are frame
+  sequences now, rising by `cue_rise`: the mushroom pops out of a bumped
+  block, the imp collapses). Everything stays a pure function of (phase,
+  frame, scroll, cue, cue frame), so captures repeat byte for byte.
+- **The level fights back** (`tui/scene_combat.py`; owner: "if the bad
+  guy gets to the player, the player should die and then regenerate; when
+  the player hits the bad guy 3-5 times it dies"). Every hero attacks while
+  the model writes (Mario throws fireballs, the hunter's charge beam, the
+  marine's shotgun pellets with the casing now a harmless eject, the
+  trickster's conjured sparks, the flamethrower's longer reach); each
+  projectile that reaches an enemy counts one hit, four bring it down
+  (`Mover.hp`; its own `death` frames or the generic fall) and the next one
+  walks in a few seconds later; an enemy that reaches the hero kills them
+  (pop up, flip, fall through the floor) and they blink back, untouchable
+  for a moment. The band steps the fight once per frame; a capture
+  simulates it from a cold start, so every picture still repeats byte for
+  byte.
+- **Beetlejuice** (`/beetlejuice [house|saturn]`): a striped trickster on a
+  haunted hillside under a dusk-purple sky, a giant sandworm surfacing
+  while the model writes, a bat and a ball of green sparks while it thinks,
+  a shrunken head on an error, a sign when it needs you; the afterlife
+  desert as the second place.
+- **Alien** (`/alien [nostromo|hive]`): an officer with a flamethrower in
+  the ribbed corridor of a deep-space freighter, jets of flame lighting the
+  ribs while the model writes, the creature stalking the corridor, the motion tracker pinging while it
+  thinks, a facehugger on an error, a flashlight when it
+  needs you; the hive as the second deck. Both are palettes
+  (`tui/theme_games.py`), scenes (`tui/scene_beetlejuice.py`,
+  `tui/scene_alien.py`), slash toggles and wizard choices like the other
+  three, with the plain status bar tinted in their accent.
+
 ### The wizard hands roles and orgs to Studio
 
 - **The Team step has a Custom roles switch** (off: one model for

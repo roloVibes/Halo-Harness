@@ -33,11 +33,37 @@ METROID = AREAS[DEFAULT_AREA]["palette"]
 # default (bros) palette; `palette_for` picks a variant.
 MARIO = LOOKS[DEFAULT_LOOK]["palette"]
 
-PALETTES = {"doom": DOOM, "metroid": METROID, "mario": MARIO}
+# Beetlejuice (3.0.2.0): dusk purple with black-and-white stripe borders and
+# a neon-green accent; `saturn` warms the surfaces toward the afterlife sand.
+BEETLEJUICE = {
+    "bridge-bg": "#130c1c", "bridge-surface": "#1c1228", "bridge-panel": "#241a34",
+    "bridge-text": "#e6e0f0", "bridge-muted": "#9c8cb8", "bridge-border": "#b8b8c0",
+    "bridge-accent": "#8cff4a", "bridge-success": "#8cff4a", "bridge-warning": "#e0a060",
+    "bridge-error": "#ff4f6a", "bridge-user": "#c08aff", "bridge-assistant": "#e6e0f0",
+    "bridge-tool": "#e0a060", "bridge-thinking": "#6a5a80",
+}
+BEETLEJUICE_SATURN = {**BEETLEJUICE, "bridge-bg": "#1c1210", "bridge-surface": "#2a1a14", "bridge-panel": "#36241a",
+                      "bridge-muted": "#c09a70", "bridge-border": "#e0a060"}
+
+# Alien (3.0.2.0): deep-space greys with CRT green text and accent; `hive`
+# darkens the surfaces toward resin brown.
+ALIEN = {
+    "bridge-bg": "#090c0e", "bridge-surface": "#0f1518", "bridge-panel": "#141c20",
+    "bridge-text": "#b8d8c0", "bridge-muted": "#5f7a6a", "bridge-border": "#3a4a50",
+    "bridge-accent": "#58ff7a", "bridge-success": "#58ff7a", "bridge-warning": "#e0c060",
+    "bridge-error": "#ff4040", "bridge-user": "#7ab8ff", "bridge-assistant": "#c0e0c8",
+    "bridge-tool": "#9fb8a8", "bridge-thinking": "#3a5a48",
+}
+ALIEN_HIVE = {**ALIEN, "bridge-bg": "#0e0c08", "bridge-surface": "#171209", "bridge-panel": "#1f180c",
+              "bridge-border": "#4a3a28", "bridge-muted": "#7a6a50"}
+
+PALETTES = {"doom": DOOM, "metroid": METROID, "mario": MARIO, "beetlejuice": BEETLEJUICE, "alien": ALIEN}
 
 VARIANT_PALETTES = {
     "metroid": {name: area["palette"] for name, area in AREAS.items()},
     "mario": {name: look["palette"] for name, look in LOOKS.items()},
+    "beetlejuice": {"house": BEETLEJUICE, "saturn": BEETLEJUICE_SATURN},
+    "alien": {"nostromo": ALIEN, "hive": ALIEN_HIVE},
 }
 
 

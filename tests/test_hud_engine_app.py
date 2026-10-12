@@ -18,6 +18,11 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
 
+# 3.0.2.0: the shipped skins keep the plain status bar; these tests exercise
+# the HUD rows themselves, so force them on for this process.
+import halo_harness.tui.hud as _hud_override
+_hud_override.STATUS_BAR_OVERRIDE = "hud"
+
 test, TESTS = new_registry()
 
 

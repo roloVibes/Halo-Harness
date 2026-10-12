@@ -24,6 +24,7 @@ import time
 from textual.widgets import Static
 
 from halo_harness.tui.scene import render_scene, scene_for
+from halo_harness.tui.scene_combat import Combat, simulate
 
 LIVE_STEP_S = 0.125
 IDLE_STEP_S = 1.0
@@ -49,6 +50,8 @@ class SceneBand(Static):
         self._timer = None
         self._cue = ""
         self._cue_until = 0.0
+        self._cue_frame0 = 0
+        self.combat = None
         self.display = False
 
     # -- theme ---------------------------------------------------------------
@@ -57,6 +60,7 @@ class SceneBand(Static):
         self.scene = scene_for(theme) if scene_enabled() else None
         self.variant = variant or ""
         self.frame = self.scroll = 0
+        self.combat = Combat(self.scene, self._width()) if self.scene is not None else None
         self._cue = ""
         self._sync_visibility()
         self._refresh_band()
@@ -85,6 +89,7 @@ class SceneBand(Static):
         if self.scene is None or event not in self.scene.cues:
             return False
         self._cue = event
+        self._cue_frame0 = self.frame
         self._cue_until = time.monotonic() + CUE_SECONDS
         self._refresh_band()
         return True
@@ -101,11 +106,14 @@ class SceneBand(Static):
             self._timer.stop()
             self._timer = None
 
-    def freeze(self, frame: int, scroll: int, cue: str = "") -> None:
+    def freeze(self, frame: int, scroll: int, cue: str = "", cue_frame: int = 0) -> None:
         """A still at exactly this animation state: stops the timer, sets
         the frame, the scroll and an optional cue, and redraws."""
         self.pause()
         self.frame, self.scroll, self._cue = frame, scroll, cue
+        self._cue_frame0 = frame - cue_frame
+        if self.scene is not None:   # the fight as it stands after `frame` frames in this phase
+            self.combat = simulate(self.scene, self._width(), self.phase_state(), frame)
         self._cue_until = float("inf") if cue else 0.0
         self._sync_visibility()
         self._refresh_band()
@@ -126,6 +134,8 @@ class SceneBand(Static):
         state = self.phase_state()
         if state in self.scene.scroll_phases:
             self.scroll += 2
+        if self.combat is not None:
+            self.combat.step(state, self._width())
         if self._cue and time.monotonic() >= self._cue_until:
             self._cue = ""
         self._sync_visibility()
@@ -149,6 +159,12 @@ class SceneBand(Static):
         if show != self.display:
             self.display = show
 
+    def _width(self) -> int:
+        try:
+            return self.size.width or getattr(getattr(self.app, "size", None), "width", 0) or 80
+        except Exception:
+            return 80
+
     def on_resize(self) -> None:
         self._sync_visibility()
         self._refresh_band()
@@ -165,7 +181,9 @@ class SceneBand(Static):
             bg = self.app.get_css_variables().get("bridge-bg", "#000000")
         except Exception:
             bg = "#000000"
-        width = self.size.width or getattr(getattr(self.app, "size", None), "width", 0) or 80
+        width = self._width()
         self.update(render_scene(self.scene, width, phase=self.phase_state(), frame=self.frame,
-                                 scroll=self.scroll, ascii_mode=bool(ascii_mode), cue=self._cue, bg=bg,
+                                 scroll=self.scroll, ascii_mode=bool(ascii_mode), cue=self._cue,
+                                 cue_frame=max(0, self.frame - self._cue_frame0), bg=bg,
+                                 combat=self.combat.snapshot() if self.combat is not None else None,
                                  variant=self.variant))

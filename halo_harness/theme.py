@@ -32,11 +32,13 @@ _SUFFIXES = ("", "-daltonized", "-ansi")
 # Halo 2.0.8 theme pack: the three game themes are their own look (no
 # -daltonized/-ansi siblings) and each has a slash toggle (/doom, /metroid,
 # /mario -- see `halo_harness.theme_toggle`).
-GAME_THEMES = ("doom", "metroid", "mario")
+GAME_THEMES = ("doom", "metroid", "mario", "beetlejuice", "alien")
 GAME_THEME_DESCRIPTIONS = {
-    "doom": "dark greys, blood red and amber with a bottom HUD status bar and a face that follows the phase",
-    "metroid": "visor blues and greens with a suit-HUD status bar, energy tanks and five area palettes",
-    "mario": "sky blue, brick red and coin gold with a coins, timer and world status bar, two palettes",
+    "doom": "dark greys, blood red and amber; a marine with a shotgun in a tech base above the prompt",
+    "metroid": "visor blues and greens; a hunter in a power suit in a cavern, five area palettes",
+    "mario": "sky blue, brick red and coin gold; a plumber on an overworld, two palettes",
+    "beetlejuice": "dusk purple, neon green and black-and-white stripes; a trickster on a haunted hillside, two places",
+    "alien": "deep-space greys and CRT green; an officer with a flamethrower in a ribbed corridor, two decks",
 }
 VALID_THEMES = frozenset(
     [f"{base}{suffix}" for base in _BASE_THEMES for suffix in _SUFFIXES] + list(GAME_THEMES))
@@ -48,9 +50,11 @@ VALID_THEMES = frozenset(
 GAME_VARIANTS = {
     "metroid": ("crateria", "brinstar", "norfair", "maridia", "tourian"),
     "mario": ("bros", "world"),
+    "beetlejuice": ("saturn", "house"),
+    "alien": ("nostromo", "hive"),
 }
 # What a theme calls its variant in messages ("area norfair", "palette world").
-VARIANT_NOUNS = {"metroid": "area", "mario": "palette"}
+VARIANT_NOUNS = {"metroid": "area", "mario": "palette", "beetlejuice": "place", "alien": "deck"}
 VARIANT_KEY = "theme_variant"
 
 

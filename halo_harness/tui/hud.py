@@ -141,7 +141,7 @@ _loaded = False
 # the status bar keeps the default layout and tints the model label with
 # this accent. Empty since round 3 (every game theme has a skin); the
 # mechanism stays for any future theme ({theme name: accent colour}).
-PLACEHOLDER_ACCENTS: dict = {}
+PLACEHOLDER_ACCENTS: dict = {"beetlejuice": "#8cff4a", "alien": "#58ff7a"}  # 3.0.2.0: level-only themes
 
 
 def register_skin(skin: HudSkin) -> None:

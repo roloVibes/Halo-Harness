@@ -294,42 +294,73 @@ open source, run headless on your machine, and nothing but the model call leaves
 
 ## The levels
 
-Three game themes, each a full skin: a palette, themed borders and input frames, and a
-level that lives directly above the prompt, six rows tall,
-twelve pixels of sky-to-floor at eight frames a second. Each level has its own sky
-gradient, three layers of parallax scenery, shaded sprites with four-frame strides,
-projectiles and lighting, and its own way of moving. The hero runs and the scenery
-scrolls while the model writes; an enemy crosses while it thinks; a finished sub-agent
-or background job drops a pickup beside the hero. `/doom`, `/metroid` and `/mario`
-toggle a theme, `/level` toggles the band. All of the art is original, drawn for Halo
-in the spirit of the 16-bit era.
+Five game themes, each a full skin: a palette, themed borders and input frames, and a
+level that lives directly above the prompt, eight rows tall, sixteen pixels of sky to
+floor at eight frames a second. Each level has its own sky gradient, five or more
+layers of parallax scenery, 13-pixel heroes with six-frame strides and three-tone
+shading, ambient particles (dust, embers, spores, steam, sparks), projectiles with
+gravity, lamps that breathe light, and short animations for the moments that matter.
+The hero runs and the scenery scrolls while the model writes; an enemy crosses while it
+thinks; an error and a needs-you state each have a pose; a finished sub-agent or
+background job plays a pickup beside the hero. And it is a fight: every hero attacks
+while the model writes (fireballs, the charge beam, the shotgun, conjured sparks, the
+flamethrower), four hits bring an enemy down, and an enemy that reaches the hero kills
+them, who pops up, falls through the floor and blinks back in place. `/doom`, `/metroid`, `/mario`,
+`/beetlejuice` and `/alien` toggle a theme, `/level` toggles the band. The status bar
+stays the ordinary one under every theme. All of the art is original, drawn for Halo in
+the spirit of the 16-bit era.
 
-**Mario.** Dusk over the overworld: far hills drift, clouds pass, bushes, warp pipes and
-a brick row with a question block scroll by, coins twinkle. The plumber runs a four-frame
-stride and hops every couple of seconds; a winged turtle flaps past; he looks up with a
-`?` while the model thinks, flattens on an error and waves when it needs you. A 1-UP
-mushroom when a sub-agent finishes, a coin when a job completes. Two palettes:
+**Mario.** A bright overworld: far mountains and hills drift, clouds pass, bushes, warp
+pipes and a brick row with a flashing question block scroll by, coins spin. The plumber
+runs a six-frame stride with dust at his heels and hops every couple of seconds while a
+shroom walker trundles by; a winged turtle flaps past and he looks up with a `?` while the
+model thinks; he flattens on an error and waves when it needs you. A mushroom pops out of
+a block when a sub-agent finishes, a coin spins up when a job completes. Two palettes:
 `/mario bros` and `/mario world`.
 
 ![The Mario level: the plumber running past pipes while a winged turtle crosses, the status bar below](docs/media/level-mario.anim.svg)
 
-**Metroid.** A cavern that darkens toward the floor: far wall silhouettes, stalactites,
-spores that glow and fade, rock pillars and blue hatches. The hunter fires charge-beam
-bolts that light the rock as they fly while the model writes; a floating alien bobs in,
-pulsing, while the model thinks and latches onto the helmet on an error; the helmet beacon
-blinks when it needs you. Five areas, each with its own sky and floor: `/metroid norfair`
-runs on animated lava, `maridia` under water.
+**Metroid.** A cavern that darkens toward the floor: far wall silhouettes, stalactites
+that drip, spores that drift up and glow, rock columns and blue hatches. The hunter fires
+charge-beam bolts that light the rock while the model writes as a spiny crawler scuttles
+by; the arm cannon charges with a pulsing glow while the model thinks and a floating alien
+drifts in; it latches onto the helmet on an error; the visor beacon lights when it needs
+you. Five areas, each with its own sky and floor: `/metroid norfair` runs on animated
+lava, `maridia` under water.
 
-![The Metroid level in Norfair: the hunter running over lava, the status bar below](docs/media/level-metroid-norfair.anim.svg)
+![The Metroid level in Crateria: the hunter running through the purple cave, the status bar below](docs/media/level-metroid.anim.svg)
 
-**DOOM.** A tech base with a hell-red glow at the floor: far arches, strobing ceiling
-lamps that pool light on the grating, steel pillars, barrels, panels and a rusted door.
-The marine fires the shotgun every half second while the model writes, with a muzzle
-flash that lights the walls, a recoil frame and a shell casing; an imp stalks in throwing
-fireballs while the model thinks, and one lands on an error. A fallen imp when a
-sub-agent finishes, a health bonus when a job completes.
+**DOOM.** A tech base with a hell-red glow at the floor and embers rising through it: far
+arches, ceiling lamps that breathe light onto the grating, pipes along the top, blinking
+panels, barrels, steel pillars and a rusted door. The marine fires the shotgun every half
+second while the model writes, with a muzzle flash that lights the walls, a recoil and a
+shell casing arcing back over his shoulder, as a hunched husk shambles by; he pumps the
+shotgun while the model thinks and an imp stalks in throwing fireballs; one lands on an
+error. The imp collapses when a sub-agent finishes, a health bonus bobs when a job
+completes.
 
 ![The DOOM level: the marine walking a tech base, the status bar below](docs/media/level-doom.anim.svg)
+
+**Beetlejuice.** A haunted hillside under a dusk-purple sky: a yellow moon far back, a
+crooked house and dead trees, tombstones and fog, green sparkles drifting. The trickster
+in the striped suit struts with his arms out while the model writes as a giant striped
+sandworm surfaces and crosses; he conjures a ball of green sparks while the model thinks
+and a bat flaps by; his head shrinks on an error; he holds up a sign when it needs you. A
+baby sandworm pops up when a sub-agent finishes, a waiting-room ticket flutters when a
+job completes. Two places: `/beetlejuice house` and `/beetlejuice saturn` (the striped
+sand of the afterlife desert).
+
+![The Beetlejuice level: the striped trickster on a haunted hillside, the status bar below](docs/media/level-beetlejuice.anim.svg)
+
+**Alien.** The ribbed corridor of a deep-space freighter: far bulkheads, chains, consoles
+that blink green, steam from the floor vents, an airlock and eggs on the floor. The
+officer torches the dark with a flamethrower while the model writes, jets of flame
+lighting the ribs, as a facehugger scuttles by; the creature stalks the corridor behind her; the motion tracker pings in
+her hand while the model thinks; the facehugger latches on in an error; the
+flashlight comes on when it needs you. Acid splashes when a sub-agent finishes, the ship's
+cat sits down when a job completes. Two decks: `/alien nostromo` and `/alien hive`.
+
+![The Alien level: the officer with a flamethrower in a ribbed corridor, the status bar below](docs/media/level-alien.anim.svg)
 
 ## How Halo compares
 

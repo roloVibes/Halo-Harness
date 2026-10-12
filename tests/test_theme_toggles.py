@@ -30,7 +30,7 @@ from halo_harness import theme as theme_mod
 from halo_harness import theme_toggle as tt
 
 test, TESTS = new_registry()
-GAMES = ("doom", "metroid", "mario")
+GAMES = ("doom", "metroid", "mario", "beetlejuice", "alien")
 
 
 @contextlib.contextmanager
@@ -65,7 +65,7 @@ def test_game_theme_names_are_valid_and_exact(ctx: Ctx):
         for suffix in ("-ansi", "-daltonized"):
             ctx.check(f"{name}{suffix} is NOT a theme (the three are their own look)",
                       not theme_mod.is_valid_theme(name + suffix))
-    ctx.check("the base family is unchanged (6 + 3)", len(theme_mod.VALID_THEMES) == 9)
+    ctx.check("the base family is unchanged (6 + 5)", len(theme_mod.VALID_THEMES) == 11)
     ctx.check("explicit theme choice resolves", theme_mod.resolve_theme(cli_theme="doom", env={}) == "doom")
     ctx.check("persisted game theme resolves without truecolor",
               theme_mod.resolve_theme(env={"TERM": "xterm"}, persisted_theme="mario") == "mario")

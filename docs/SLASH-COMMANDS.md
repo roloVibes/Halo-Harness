@@ -717,6 +717,22 @@ is not active, without toggling it off; the variant persists as
 An unknown variant is reported with the two valid names and changes nothing.
 In `-p` the same forms run against `config.json`.
 
+### `/beetlejuice [place]`
+Toggle the Beetlejuice theme (Halo 3.0.2.0): dusk purple, black-and-white
+stripe borders, a neon-green accent, and the level band above the prompt (a
+striped trickster, a sandworm, a bat). The same toggle rule as `/doom`. With
+a place (`house` or `saturn`) it switches to that palette and floor -- the
+haunted hillside, or the striped sand of the afterlife desert -- and applies
+the theme when it is not active; the place persists as `theme_variant`.
+
+### `/alien [deck]`
+Toggle the Alien theme (Halo 3.0.2.0): deep-space greys with CRT-green text,
+and the level band above the prompt (an officer with a flamethrower, the
+creature, a facehugger). The same toggle rule as `/doom`. With a deck
+(`nostromo` or `hive`) it switches to that palette and floor -- the ribbed
+corridor, or the resin of the hive -- and applies the theme when it is not
+active; the deck persists as `theme_variant`.
+
 ### `/exit`, `/quit` `[TUI-only for /quit]`
 `/exit` in `-p` is a no-op note (the call already ends after this turn).
 `/quit` is a TUI-only alias that actually closes the app (same as `Ctrl+D`

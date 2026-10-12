@@ -23,7 +23,7 @@ ensure_scoped_state_dir_once()
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-THEMES = ("mario", "metroid", "doom")
+THEMES = ("doom", "metroid", "mario", "beetlejuice", "alien")
 
 
 def _rows(text) -> list:
@@ -71,7 +71,9 @@ def test_hero_mover_and_cue_placement(ctx: Ctx):
         scene = scene_for(theme)
         colors = scene_colors(scene)
         hero = hero_frame(scene, "idle", 0)
-        buf = render_pixels(scene, 120, phase="idle", frame=0, scroll=0)
+        from dataclasses import replace
+        unlit = replace(scene, layers=(), particles=(), hero_light=None)  # 3.0.2.0: lamps may tint the hero
+        buf = render_pixels(unlit, 120, phase="idle", frame=0, scroll=0)
         base = HEIGHT - len(scene.ground[0]) - 1
         top = base - len(hero) + 1
         painted = [(r, c) for r, row in enumerate(hero) for c, ch in enumerate(row) if ch != "."]
