@@ -38,10 +38,10 @@ def test_valid_theme_names(ctx: Ctx):
     ctx.check("claude-dark-ansi valid", t.is_valid_theme("claude-dark-ansi"))
     ctx.check("claude-light-ansi valid", t.is_valid_theme("claude-light-ansi"))
     # Halo 2.0.8 theme pack: the three game themes are valid names, with no suffix variants.
-    for game in ("doom", "metroid", "mario"):
+    for game in ("doom", "metroid", "mario", "beetlejuice", "alien"):
         ctx.check(f"{game} valid", t.is_valid_theme(game))
         ctx.check(f"{game}-ansi is not a theme", not t.is_valid_theme(f"{game}-ansi"))
-    ctx.check("exactly nine names: six built-ins + three game themes", len(t.VALID_THEMES) == 9)
+    ctx.check("exactly eleven names: six built-ins + five game themes", len(t.VALID_THEMES) == 11)
     ctx.check("garbage invalid", not t.is_valid_theme("solarized"))
     ctx.check("None invalid", not t.is_valid_theme(None))
 

@@ -87,7 +87,7 @@ class TeamStep(StepRailMixin, TeamActionsMixin, Screen):
             yield Static(tp.HEADER_TEXT, id="wiz-team-header-sentence", classes="dialog-title")
             with VerticalScroll(id="wiz-team-body"):
                 with Horizontal(classes="wizard-switch-row"):
-                    yield Switch(value=roles_on, id="wiz-roles-switch")
+                    yield Switch(value=roles_on, id="wiz-roles-switch", animate=False)  # no slider animation: captures stay byte-stable
                     yield Static(SWITCH_LABEL, classes="wizard-switch-label")
                 with Horizontal(id="wiz-team-panes"):
                     yield OptionList(*[Option(self._label(r), id=r["name"]) for r in self._lineups],

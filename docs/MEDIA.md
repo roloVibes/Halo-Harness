@@ -13,7 +13,7 @@ the literal cwd `~/project`, with a frozen clock, seeded tips and a scratch
 |---|---|---|
 | `docs/media/<name>.svg` | The Textual export of one capture | `tools/capture_screens.py` |
 | `docs/media/<name>.png` | The same SVG rendered at 2x by headless Chrome | `tools/capture_screens.py`, when Chrome is found |
-| `docs/media/<name>.anim.svg` | Animated captures only (`turn-phase-line`, `steer-mid-turn`, and the three `level-*` captures at six frames): the frames assembled into one looping SMIL SVG, each under 1 MB | `tools/capture_screens.py` |
+| `docs/media/<name>.anim.svg` | Animated captures only (`turn-phase-line`, `steer-mid-turn`, and the five `level-*` captures at six frames): the frames assembled into one looping SMIL SVG, each under 1 MB | `tools/capture_screens.py` |
 | `docs/media/hero.svg` | The README banner: the block-art wordmark from `halo_harness/banner.py` drawn as vector cells, the model chips, the tagline | `tools/hero_svg.py` |
 | `docs/media/social-preview.svg` | The same wordmark at 1280x640 for GitHub's Settings -> Social preview (upload the PNG render by hand; GitHub has no API for it) | `tools/hero_svg.py --social` |
 | `docs/media/studio*.png` | Halo Studio in the browser: the Roles, Org, Design and knob captures, headless Chrome over fixture data | `tools/capture_studio.py --mode roles\|org\|design\|design-knob` |

@@ -524,8 +524,8 @@ flight.
 ## Themes
 
 `/theme <name>` (or `halo init`'s Theme step, `halo config set theme <name>`,
-`--theme`, `HALO_THEME`) picks one of nine names: `claude-dark`,
-`claude-light` and their `-daltonized` and `-ansi` variants, plus the three
+`--theme`, `HALO_THEME`) picks one of eleven names: `claude-dark`,
+`claude-light` and their `-daltonized` and `-ansi` variants, plus the five
 game themes below. A game theme is its own look and has no `-ansi` or
 `-daltonized` sibling. The choice persists in `~/.halo/config.json` under
 `theme`.
@@ -535,26 +535,40 @@ game themes below. A game theme is its own look and has no `-ansi` or
 | `doom` | Dark greys, blood reds, rust browns, muted greens and amber text. Heavy borders on cards, panels and dialogs; the status bar stays the plain one, tinted blood red (3.0.2.0). |
 | `metroid` | Visor blues and greys with a power-suit orange accent (the Crateria area; four more areas below). Light borders, dashed map-grid cards and dialogs, a visor-framed input line; the status bar stays the plain one, tinted suit orange (3.0.2.0). |
 | `mario` | Sky blue, brick red, pipe green and coin gold (the `bros` palette; `world` below). Brick-pattern cards and dialogs, a pipe-framed input line; the status bar stays the plain one, tinted coin gold (3.0.2.0). |
+| `beetlejuice` | Dusk purple, black-and-white stripe borders and a neon-green accent (3.0.2.0; `house` and `saturn` places). The plain status bar, tinted neon green. |
+| `alien` | Deep-space greys with CRT-green text and accent (3.0.2.0; `nostromo` and `hive` decks). The plain status bar, tinted green. |
 
 ### The level band: `/level`
 
-Each game theme draws a three-row level directly above the prompt
-(`halo_harness/tui/scene.py` and `scene_doom.py`, `scene_metroid.py`,
-`scene_mario.py`; the widget is `tui/widgets/scene_band.py`). A hero sprite
-stands on the ground; while the model writes the ground and the scenery
-scroll and the hero runs; while it thinks an enemy crosses the band; an
-error and a needs-you state each have their own pose; a finished sub-agent
-or background job shows the scene's pickup beside the hero for two seconds
-(the same cue events the HUD face gets).
+Each game theme draws an eight-row level (sixteen pixels of sky to floor)
+directly above the prompt (`halo_harness/tui/scene.py` and `scene_doom.py`,
+`scene_metroid.py`, `scene_mario.py`, `scene_beetlejuice.py`,
+`scene_alien.py`; the widget is `tui/widgets/scene_band.py`). A 13-pixel
+hero stands on the ground; while the model writes the ground and the
+scenery scroll and the hero runs a six-frame stride; while it thinks an
+enemy crosses the band; an error and a needs-you state each have their own
+pose; a finished sub-agent or background job plays a short animation beside
+the hero for two seconds. The level fights back (`tui/scene_combat.py`):
+every hero attacks while the model writes (fireballs, the charge beam, the
+shotgun, conjured sparks, the flamethrower), each projectile that reaches
+an enemy counts one hit, four hits bring it down (its own death frames, or
+upside down and sinking into the ground) and a fresh one walks in a few
+seconds later; an enemy that reaches the hero kills them -- a pop up, a
+flip, a fall through the floor -- and they blink back in place, untouchable
+for a moment. The fight is deterministic, so captures repeat. Ambient particles (dust, embers, spores, steam,
+sparks), projectiles with gravity and lamps that breathe light are part of
+every scene (3.0.2.0, the third generation).
 
 | Theme | Hero | Enemy (phase) | Scenery | Pickups |
 |---|---|---|---|---|
 | `mario` | a plumber in a red cap | a winged turtle gliding by (writing) | warp pipes, brick rows with a question block, clouds | a 1-UP mushroom (sub-agent done), a coin (job done) |
-| `metroid` | a hunter in a power suit with an arm cannon | a floating alien that drifts in (thinking) and latches on (error) | rock pillars, hatches, stalactites; the ground is the area's own: lava in Norfair, water in Maridia | an energy tank, a missile |
-| `doom` | a marine in green armour with a shotgun (it flashes while writing) | an imp stalking in (thinking); its fireball lands on an error | steel pillars, barrels, a sealed door, ceiling lamps | the imp down, a health bonus |
+| `metroid` | a hunter in a power suit with an arm cannon | the round alien, red nuclei under a green dome, fangs below, drifting in (thinking and writing) and latching on (error); a spiny crawler (writing) | rock pillars, hatches, stalactites; the ground is the area's own: lava in Norfair, water in Maridia | an energy tank, a missile |
+| `doom` | a marine in green armour with a shotgun (it flashes while writing; he pumps it while thinking) | an imp stalking in (thinking), a husk shambling by (writing); the fireball lands on an error | steel pillars, barrels, panels, a sealed door, ceiling lamps, embers | the imp collapsing, a health bonus |
+| `beetlejuice` | a trickster in a striped suit (he conjures sparks while thinking) | a giant sandworm surfacing (writing), a bat (thinking); his head shrinks on an error | a moon, a crooked house, dead trees, tombstones, fog | a baby sandworm, a waiting-room ticket |
+| `alien` | an officer with a flamethrower (jets of flame while writing, a motion tracker while thinking) | the creature stalking the corridor (thinking and writing), a facehugger (writing); it latches on in an error | ribs, bulkheads, chains, blinking consoles, an airlock, eggs, steam | an acid splash, the ship's cat |
 
 All of it is original art drawn for Halo in the spirit of the 8-bit era;
-nothing is copied from any game. The band animates four times a second
+nothing is copied from any game. The band animates eight times a second
 while a turn is live and once a second otherwise, draws with half-block
 glyphs on a truecolor terminal and with plain characters otherwise, and
 paints its sky in the theme's background so it sits flush with the
@@ -566,9 +580,9 @@ own: it is hidden on a terminal under 32 rows or 60 columns, while a
 pending card (a permission ask, a question, a plan review) is docked,
 and under any theme without a scene.
 
-### The toggles: `/doom`, `/metroid`, `/mario`
+### The toggles: `/doom`, `/metroid`, `/mario`, `/beetlejuice`, `/alien`
 
-Each is a toggle with one rule for all three:
+Each is a toggle with one rule for all five:
 
 - If that theme is not active, `/<name>` remembers the active theme as
   `theme_toggle_previous` in `~/.halo/config.json`, applies the game theme

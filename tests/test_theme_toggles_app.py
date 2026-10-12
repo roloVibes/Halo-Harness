@@ -124,8 +124,10 @@ def test_theme_name_completion_lists_the_game_themes(ctx: Ctx):
             async with app.run_test(size=(100, 24)) as pilot:
                 await pilot.pause(0.05)
                 names = app._complete_theme_command_arg("")
-                ctx.check(f"game themes lead the list: {names[:3]}", names[:3] == list(GAMES))
-                ctx.check("the whole family is offered", len(names) == 9)
+                from halo_harness import theme as _theme_mod
+                n = len(_theme_mod.GAME_THEMES)
+                ctx.check(f"game themes lead the list: {names[:n]}", names[:n] == list(_theme_mod.GAME_THEMES))
+                ctx.check("the whole family is offered", len(names) == 11)
                 ctx.check("a prefix filters", app._complete_theme_command_arg("me")[0] == "metroid")
                 ctx.check("an exact name closes the popup", app._complete_theme_command_arg("doom") == [])
     asyncio.run(body())

@@ -79,8 +79,9 @@ def test_only_game_themes_with_a_skin_use_the_engine(ctx: Ctx):
         ctx.check(f"{name!r} renders through the default layout", skin_for(name) is None)
     ctx.check("metroid has a skin since round 2, mario since round 3",
               skin_for("metroid") is not None and skin_for("mario") is not None)
-    ctx.check("no game theme needs a placeholder accent any more",
-              hud_mod.PLACEHOLDER_ACCENTS == {} and all(hud_mod.accent_for(n) is None for n in ("doom", "metroid", "mario")))
+    ctx.check("a placeholder accent belongs only to a theme without a skin (3.0.2.0: beetlejuice, alien)",
+              all(hud_mod.skin_for(n) is None for n in hud_mod.PLACEHOLDER_ACCENTS)
+              and all(hud_mod.accent_for(n) is None for n in ("doom", "metroid", "mario")))
     hud_mod.PLACEHOLDER_ACCENTS["future-theme"] = "#123456"  # the mechanism stays for any future theme
     try:
         ctx.check("the placeholder mechanism still tints a theme without a skin",

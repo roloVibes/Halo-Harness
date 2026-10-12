@@ -130,7 +130,7 @@ def _hud(name):
 async def scene_level(size, theme, name: str) -> list:
     """2.0.11 round A3: the level band mid-turn, four frames of the hero
     running and the enemy crossing (the still is the last frame)."""
-    variant = {"doom": None, "metroid": "norfair", "mario": "bros"}[name]
+    variant = {"doom": None, "metroid": "crateria", "mario": "bros", "beetlejuice": "saturn", "alien": "nostromo"}[name]
 
     async def prelude(app):
         await C.history(app, first_turn=-1)
@@ -149,4 +149,5 @@ SCENES = {
     "picker": scene_picker, "tasks": scene_tasks, "mcp": scene_mcp, "review": scene_review, "remote": scene_remote,
     "hud-doom": _hud("doom"), "hud-metroid": _hud("metroid"), "hud-mario": _hud("mario"),
     "level-doom": _level("doom"), "level-metroid": _level("metroid"), "level-mario": _level("mario"),
+    "level-beetlejuice": _level("beetlejuice"), "level-alien": _level("alien"),
 }

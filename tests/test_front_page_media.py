@@ -88,7 +88,7 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
     ctx.check("the animated captures are the turn, the steer and the three levels (2.0.11 round A3)",
               {c["name"] for c in caps if c.get("anim")}
-              == {"turn-phase-line", "steer-mid-turn", "level-mario", "level-metroid-norfair", "level-doom"})
+              == {"turn-phase-line", "steer-mid-turn", "level-mario", "level-metroid", "level-doom", "level-beetlejuice", "level-alien"})
 
 
 @test
