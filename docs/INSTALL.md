@@ -49,6 +49,15 @@ uv tool install --reinstall .
 the ONE command you run both the first time and every later time -- see
 "After every `git pull`" below.
 
+> **Windows: close every running `halo` first.** A `halo` session, a `halo
+> studio` server or a `halo proxy` keeps `halo.exe` open, and `uv tool
+> install --reinstall` then fails with `failed to remove directory
+> '...\uv\tools\halo-harness\Scripts': Access is denied` AFTER it has
+> already emptied the old environment, which leaves `halo` printing
+> `ModuleNotFoundError: No module named 'halo_harness'`. Close them and run
+> the same command again; it rebuilds cleanly. `halo update` checks for
+> other halo processes before it starts and refuses instead.
+
 No `uv`? `pipx install --force -e .` is the alternative (`pip install
 --user -e .` works too) -- `halo`'s own distribution installs exactly one
 executable, `halo` itself, so none of these ever touch a separate,
@@ -134,7 +143,9 @@ cd ~                                # done -- back to running `halo` from anywhe
 
 The exact same reinstall command as the first install, every time --
 `halo doctor`/`halo init`'s PATH check names this command for your box if
-you ever forget and the installed copy drifts out of date.
+you ever forget and the installed copy drifts out of date. On Windows,
+close every other `halo` (sessions, `halo studio`, `halo proxy`) before
+this step, or use `halo update`, which checks for them.
 
 ## Update
 
