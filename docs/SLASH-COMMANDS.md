@@ -678,7 +678,7 @@ above the prompt that DOOM, Metroid and Mario draw (a hero, scrolling
 scenery, an enemy that crosses while the model thinks; see HANDBOOK
 "The level band"). Bare `/level` flips it, `on`/`off` sets it; persisted as
 `theme_scene` in `~/.halo/config.json`, applied at once in the TUI. The
-band hides on its own under 30 rows or 60 columns, while a pending card is
+band hides on its own under 32 rows or 60 columns, while a pending card is
 docked, and under a theme without a scene.
 
 ### `/doom`

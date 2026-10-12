@@ -10,6 +10,27 @@ version.
 
 ## [3.0.2.0] - unreleased
 
+### The levels, second generation
+
+- **Twice the height, eight frames a second, 16-bit looks.** The level band is
+  six rows (twelve pixel rows) instead of three, ticks at 8 fps while a turn is
+  live, and every scene now has a sky gradient, three parallax layers (far,
+  mid, ground speed), shaded sprites (a lowercase palette letter is the auto
+  shadow of its uppercase), four-frame strides, projectiles, muzzle flashes and
+  a lighting pass (`tui/scene_fx.py`: lamps, beams and flashes brighten the
+  pixels around them). The engine (`tui/scene.py`, data in `scene_model.py`,
+  text in `scene_text.py`) renders 200 columns in about 3 ms.
+- **Three levels that play differently.** Mario: dusk sky, hills, clouds, bushes,
+  pipes, a brick row, twinkling coins, a hop every couple of seconds, a flapping
+  turtle, a `?` while thinking. Metroid: a cavern darkening to the floor, far
+  walls, stalactites, glowing spores, charge-beam bolts that light the rock,
+  a bobbing alien, lava that animates in Norfair, a sky and floor per area.
+  DOOM: a hell-red floor glow, far arches, strobing lamps pooling light on the
+  grating, a shotgun that fires every half second with a flash, recoil and a
+  casing, an imp that throws fireballs with light trails.
+- The band needs 32 rows now (was 30); the three level captures are six-frame
+  animations.
+
 ### The GUI is one command away from every door
 
 - **`/roles`, `/org`, `/design`** in the TUI open Halo Studio straight into that

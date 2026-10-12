@@ -72,7 +72,7 @@ def test_hero_mover_and_cue_placement(ctx: Ctx):
         colors = scene_colors(scene)
         hero = hero_frame(scene, "idle", 0)
         buf = render_pixels(scene, 120, phase="idle", frame=0, scroll=0)
-        base = HEIGHT - len(scene.ground) - 1
+        base = HEIGHT - len(scene.ground[0]) - 1
         top = base - len(hero) + 1
         painted = [(r, c) for r, row in enumerate(hero) for c, ch in enumerate(row) if ch != "."]
         ctx.check(f"{theme}: the hero stands on the ground at x={scene.hero_x}",
