@@ -1615,12 +1615,12 @@ def _cmd_update(args: str, facade: HeadlessFacade) -> str:
         lines.append(f"available ({avail.get('channel')}): {avail['commit']}{ref}")
     else:
         lines.append(f"available ({avail.get('channel')}): unknown ({avail.get('reason') or 'no reason given'})")
-    lines.append(f"update command: {kind.get('reinstall_cmd') or '(unknown)'}")
     if build.get("commit") and avail.get("commit") and build["commit"] == avail["commit"]:
         lines.append("Already up to date.")
     else:
         lines.append("Run `halo update` from a shell, or open the full-screen TUI and use /update there "
                       "to update and restart in place.")
+        lines.append(f"(halo update runs: {kind.get('reinstall_cmd') or 'unknown'})")
     return "\n".join(lines)
 
 

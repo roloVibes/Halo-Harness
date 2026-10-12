@@ -22,6 +22,16 @@ version.
   `/org on|off`, the wizard's Organizations step, the **Org mode** button in
   Studio's header (`paperclip/mode.py`, `POST /api/pc/mode`).
 
+### `halo update` says what it will do, not what you should type
+
+- An up-to-date install prints one line (`already up to date -- <commit> is
+  the newest on <channel>`) and nothing else. The reinstall command line
+  (`git -C ... pull --ff-only && uv tool install ...`) read as an
+  instruction, and its `&&` is not even PowerShell 5.1 syntax; it now
+  appears only under `--check` when an update exists, prefixed
+  `to apply: halo update  (it runs: ...)`. The headless `/update` report
+  matches.
+
 ### Typing without stray text (Windows)
 
 - **Mouse reports no longer type themselves into the prompt.** Textual's
