@@ -46,8 +46,9 @@ def test_no_shipped_template_names_a_subscription_route(ctx: Ctx):
 
 @test
 def test_catalog_and_resolved_bios_carry_no_subscription_route_while_off(ctx: Ctx):
-    from halo_harness.subscription_consent import is_accepted
-    ctx.check("the gate is off in a fresh home", is_accepted() is False)
+    from halo_harness.subscription_consent import is_accepted, revoke
+    revoke()  # the combined CI run shares one home with suites that accept the routes
+    ctx.check("the gate is off", is_accepted() is False)
     from halo_harness.providers.model_enumeration import build_model_rows
     from halo_harness.providers.config import default_state_dir
     rows = build_model_rows(default_state_dir())

@@ -117,7 +117,16 @@ def test_launch_finds_a_running_studio_and_stop_reports_none(ctx: Ctx):
 
 @test
 def test_game_themes_keep_the_plain_status_bar(ctx: Ctx):
+    from halo_harness.tui import hud as hud_mod
     from halo_harness.tui.hud import accent_for, bar_skin_for, skin_for
+    saved, hud_mod.STATUS_BAR_OVERRIDE = hud_mod.STATUS_BAR_OVERRIDE, None  # the HUD suites force the rows on in a shared run
+    try:
+        _check_plain_bars(ctx, accent_for, bar_skin_for, skin_for)
+    finally:
+        hud_mod.STATUS_BAR_OVERRIDE = saved
+
+
+def _check_plain_bars(ctx, accent_for, bar_skin_for, skin_for):
     for theme in ("doom", "metroid", "mario"):
         ctx.check(f"{theme} still has a skin (borders, frame, level)", skin_for(theme) is not None)
         ctx.check(f"{theme}'s status bar is the plain one", bar_skin_for(theme) is None and skin_for(theme).status_bar == "plain")
