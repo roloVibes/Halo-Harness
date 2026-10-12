@@ -17,6 +17,7 @@ from textual.widgets import OptionList, TextArea
 
 from halo_harness.tools.imageutil import IMAGE_EXTENSIONS
 from halo_harness.tui.keys import PASTE_PLACEHOLDER_MIN_LINES, PROMPT_MAX_LINES, PROMPT_MIN_LINES
+from halo_harness.tui.widgets.input_sanitize import looks_like_mouse_report, strip_mouse_reports
 
 
 class CompletionPopup(OptionList):
@@ -118,6 +119,10 @@ class PromptInput(TextArea):
         # `action_paste`'s worker already reads text-first-then-image,
         # so this one key covers both payloads.
         Binding("ctrl+alt+v", "paste", "Paste", show=False),
+        # 3.0.2.0: Ctrl+U clears the whole box (readline's kill-line; Ctrl+C
+        # is the copy key here, so it cannot be the clear key). Esc does the
+        # same when nothing is running -- app.py's escape action.
+        Binding("ctrl+u", "clear_prompt", "Clear", show=False),
     ]
 
     def __init__(self, **kwargs) -> None:
@@ -190,7 +195,16 @@ class PromptInput(TextArea):
             self._auto_grow()
             return
         await super()._on_key(event)
+        if event.character in ("M", "m") and looks_like_mouse_report(self.text):
+            # 3.0.2.0: a terminal mouse report that lost its ESC lands here as
+            # text ("[<35;72;18M"); the final M is the moment to drop it.
+            self.text = strip_mouse_reports(self.text)
+            self.move_cursor(self.document.end)
         self._auto_grow()
+
+    def action_clear_prompt(self) -> None:
+        """Ctrl+U: empty the box (text, pastes and image chips)."""
+        self.clear_submitted()
 
     def action_insert_newline(self) -> None:
         self.insert("\n")
@@ -254,7 +268,7 @@ class PromptInput(TextArea):
         # call to `TextArea._on_paste` performs the (correct, one-time)
         # insertion itself, using our substituted text.
         event.stop()  # never let it also bubble to the Screen/App
-        event.text = self._text_or_image_chip_for(event.text)
+        event.text = self._text_or_image_chip_for(strip_mouse_reports(event.text))
         # `_auto_grow`/`_maybe_query_completion` run from `on_text_area_
         # changed` once the (still-pending) real insertion actually happens.
 

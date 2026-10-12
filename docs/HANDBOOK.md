@@ -784,6 +784,18 @@ Windows, Halo keeps the console from turning `Ctrl+C` into a process-ending
 event for as long as the TUI runs, so a single press can no longer close
 the session from PowerShell or Windows Terminal.
 
+**Clearing the chat box.** `Ctrl+U` empties it (text, pastes and image
+chips) at any time. `Esc` does the same when nothing is running; while a
+turn runs, `Esc` interrupts the turn and leaves your draft alone. `Ctrl+A`
+then `Delete` works too.
+
+**Stray `[<35;72;18M` text while the mouse moves (Windows).** Those are the
+terminal's mouse reports. Textual's Windows input loop dropped the lead
+`ESC` of each report whenever NumLock or CapsLock was on, so the rest
+arrived as typed text. Halo 3.0.2.0 replaces that loop's filter (only a
+held Alt or Ctrl drops a synthetic record now) and strips any fragment
+that still lands in the box the moment its final `M` arrives.
+
 ## Hooks, skills, commands, MCP, browser
 
 Claude.ai connectors reaching a non-Claude model through the claude binary, drawn: [the connectors bridge](media/diagrams/connectors-bridge.svg).
