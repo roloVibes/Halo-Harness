@@ -2949,7 +2949,24 @@ def _doom_bar_fixture(app) -> None:
     app.prompt_input.placeholder = ""
 
 
+def _with_hud_rows(fn):
+    """3.0.2.0: the shipped game skins keep the plain status bar; these
+    snapshot tests exercise the HUD rows themselves, so force them on."""
+    import functools
+    from halo_harness.tui import hud as _hud
+
+    @functools.wraps(fn)
+    def run(ctx):
+        _hud.STATUS_BAR_OVERRIDE = "hud"
+        try:
+            return fn(ctx)
+        finally:
+            _hud.STATUS_BAR_OVERRIDE = None
+    return run
+
+
 @test
+@_with_hud_rows
 def test_svg_snapshots_doom_hud_every_face_state_and_the_width_cascade(ctx: Ctx):
     """Halo 2.0.8 theme pack: one SVG per face state and one per width tier
     (wide, medium, narrow, compact) of the DOOM status-bar HUD."""
@@ -3020,6 +3037,7 @@ def _metroid_bar_fixture(app, area: str = "crateria") -> None:
 
 
 @test
+@_with_hud_rows
 def test_svg_snapshots_metroid_hud_every_face_state_and_the_width_cascade(ctx: Ctx):
     """Halo 2.0.8 theme pack, round 2: one SVG per visor face state and one
     per width tier (wide, medium, narrow, compact) of the Metroid HUD."""
@@ -3072,6 +3090,7 @@ def test_svg_snapshots_metroid_hud_every_face_state_and_the_width_cascade(ctx: C
 
 
 @test
+@_with_hud_rows
 def test_svg_snapshots_metroid_area_variants_and_the_map_grid_card(ctx: Ctx):
     """One SVG of the main screen per area (wide), plus a permission card to
     show the map-grid border. Each area has its own palette on screen."""
@@ -3133,6 +3152,7 @@ def _mario_bar_fixture(app, variant: str = "bros") -> None:
 
 
 @test
+@_with_hud_rows
 def test_svg_snapshots_mario_hud_every_face_state_and_the_width_cascade(ctx: Ctx):
     """Halo 2.0.8 theme pack, round 3: one SVG per face state and one per
     width tier (wide, medium, narrow, compact) of the Mario HUD."""
@@ -3185,6 +3205,7 @@ def test_svg_snapshots_mario_hud_every_face_state_and_the_width_cascade(ctx: Ctx
 
 
 @test
+@_with_hud_rows
 def test_svg_snapshots_mario_variants_the_one_up_cue_and_the_brick_card(ctx: Ctx):
     """One SVG of the main screen per palette (wide), the 1-UP cue flashing in
     the face slot, and a permission card to show the brick border."""
@@ -10325,7 +10346,7 @@ def test_init_wizard_providers_next_enumerates_then_team_and_orgs_share_the_cach
                           and any("Ollama" in ln for ln in state.enumeration_lines))
 
                 team_screen = app.screen
-                team_screen.query_one("#wiz-team-lineup-new", Button).press()
+                team_screen.action_new_lineup()
                 await _wait_for_wizard(pilot, lambda: isinstance(app.screen, LineupEditor))
                 editor = app.screen
                 ctx.check("the lineup editor opened with the SAME cached rows",

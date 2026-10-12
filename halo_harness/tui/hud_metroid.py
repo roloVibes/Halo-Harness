@@ -90,6 +90,7 @@ VARIANTS = {
 
 METROID = HudSkin(
     name="metroid",
+    status_bar="plain", accent="#f08a24",  # 3.0.2.0: the plain bar, tinted
     segments=PANELS,
     strip=STRIP,
     # first removed first; phase, context, cost, face, area, mode, needs-you,

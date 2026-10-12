@@ -365,7 +365,7 @@ class StatusBar(Static):
         """Flash the active skin's cue for `event` ("agent_done", "job_done")
         in the face slot for about CUE_SECONDS. A skin without that cue (or
         the default layout) ignores it: no timer, no redraw, returns False."""
-        from halo_harness.tui.hud import skin_for
+        from halo_harness.tui.hud import bar_skin_for as skin_for  # 3.0.2.0: None for a plain-bar skin
         skin = skin_for(self.theme_name, self.theme_variant)
         frames = skin.cues.get(event) if skin is not None else None
         if not frames:
@@ -408,7 +408,7 @@ class StatusBar(Static):
         """Called by BridgeApp on mount and on every theme change: picks the
         HUD skin (or the default layout), its variant (a Metroid area) and
         the bar's row count."""
-        from halo_harness.tui.hud import skin_for
+        from halo_harness.tui.hud import bar_skin_for as skin_for  # 3.0.2.0: None for a plain-bar skin
         self.theme_name = name or "claude-dark"
         self.theme_variant = variant
         self._stop_cue()
@@ -737,7 +737,8 @@ class StatusBar(Static):
         # Halo 2.0.8 theme pack: a game theme with a HUD skin renders through
         # the skin engine (tui/hud.py); everything above is shared, so every
         # field stays reachable. Other themes fall through to the layout below.
-        from halo_harness.tui.hud import accent_for, face_state_for, skin_for
+        from halo_harness.tui.hud import accent_for, face_state_for
+        from halo_harness.tui.hud import bar_skin_for as skin_for  # 3.0.2.0: the game themes keep the plain bar
         skin = skin_for(self.theme_name, self.theme_variant)
         if skin is not None:
             from halo_harness.theme import supports_truecolor

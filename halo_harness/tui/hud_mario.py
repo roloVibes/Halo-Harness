@@ -103,6 +103,7 @@ VARIANTS = {
 
 MARIO = HudSkin(
     name="mario",
+    status_bar="plain", accent="#f8c020",  # 3.0.2.0: the plain bar, tinted
     segments=PANELS,
     strip=STRIP,
     # first removed first; phase, context, cost, face, area, mode, needs-you,

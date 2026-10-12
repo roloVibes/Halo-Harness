@@ -22,6 +22,34 @@ version.
   `/org on|off`, the wizard's Organizations step, the **Org mode** button in
   Studio's header (`paperclip/mode.py`, `POST /api/pc/mode`).
 
+### The wizard hands roles and orgs to Studio
+
+- **The Team step has a Custom roles switch** (off: one model for
+  everything, the default) and an **Open Studio (Roles)** button; the
+  Customize / New lineup / Agents buttons are gone (the terminal editors
+  were "too bunched up" and overlapped their labels on Kali; Enter, Ctrl+E,
+  Ctrl+N and Ctrl+A still reach them). The Orgs step gets **Open Studio
+  (Org)**. Both buttons start Studio detached and print its URL.
+- **One Studio per machine.** `halo studio` writes `~/.halo/studio.json`
+  (pid, port, token; private) while it serves; a second `halo studio`
+  reuses the running one, and `halo studio --stop` ends it
+  (`studio/launch.py`).
+- **Roles off still delegates.** The system prompt no longer calls
+  sub-agents "not available in this build": it says the Agent tool spawns
+  them, that with roles off every sub-agent runs the session model unless
+  the call passes `model:`, and that big jobs are expected to hand surveys,
+  searches, test runs and mechanical edits to a cheaper model. The Agent
+  tool's description states the current roles state the same way.
+
+### The game themes keep the plain status bar
+
+- DOOM, Metroid and Mario no longer replace the status bar with their own
+  panel rows (health, ammo, energy, coins, a timer); the bar is the
+  ordinary one -- model, cost, context, mode, directory -- tinted in the
+  theme's accent, so the information is never lost. Borders, the visor or
+  pipe input frame and the level band stay. `HudSkin.status_bar` (`"plain"`
+  for the shipped skins) and `hud.bar_skin_for` carry it.
+
 ### Subscription routes: off everywhere until accepted, now including the shipped lineups
 
 - **No shipped bio or lineup names a `cc:`/`cx:` model any more.** Seven

@@ -294,8 +294,8 @@ open source, run headless on your machine, and nothing but the model call leaves
 
 ## The levels
 
-Three game themes, each a full skin: a palette, a HUD status bar whose face follows the
-phase of the turn, and a level that lives directly above the prompt, six rows tall,
+Three game themes, each a full skin: a palette, themed borders and input frames, and a
+level that lives directly above the prompt, six rows tall,
 twelve pixels of sky-to-floor at eight frames a second. Each level has its own sky
 gradient, three layers of parallax scenery, shaded sprites with four-frame strides,
 projectiles and lighting, and its own way of moving. The hero runs and the scenery
@@ -311,7 +311,7 @@ stride and hops every couple of seconds; a winged turtle flaps past; he looks up
 mushroom when a sub-agent finishes, a coin when a job completes. Two palettes:
 `/mario bros` and `/mario world`.
 
-![The Mario level: the plumber running past pipes while a winged turtle crosses, the top-bar HUD below](docs/media/level-mario.anim.svg)
+![The Mario level: the plumber running past pipes while a winged turtle crosses, the status bar below](docs/media/level-mario.anim.svg)
 
 **Metroid.** A cavern that darkens toward the floor: far wall silhouettes, stalactites,
 spores that glow and fade, rock pillars and blue hatches. The hunter fires charge-beam
@@ -320,7 +320,7 @@ pulsing, while the model thinks and latches onto the helmet on an error; the hel
 blinks when it needs you. Five areas, each with its own sky and floor: `/metroid norfair`
 runs on animated lava, `maridia` under water.
 
-![The Metroid level in Norfair: the hunter running over lava, the suit HUD below](docs/media/level-metroid-norfair.anim.svg)
+![The Metroid level in Norfair: the hunter running over lava, the status bar below](docs/media/level-metroid-norfair.anim.svg)
 
 **DOOM.** A tech base with a hell-red glow at the floor: far arches, strobing ceiling
 lamps that pool light on the grating, steel pillars, barrels, panels and a rusted door.
@@ -329,7 +329,7 @@ flash that lights the walls, a recoil frame and a shell casing; an imp stalks in
 fireballs while the model thinks, and one lands on an error. A fallen imp when a
 sub-agent finishes, a health bonus when a job completes.
 
-![The DOOM level: the marine walking a tech base, the bottom HUD below](docs/media/level-doom.anim.svg)
+![The DOOM level: the marine walking a tech base, the status bar below](docs/media/level-doom.anim.svg)
 
 ## How Halo compares
 
@@ -371,7 +371,7 @@ tool, so check each tool's own docs.
 | **Balances and picker columns** | Per-provider balances in the status bar (remaining first); free variants sit beside their paid rows in the picker. |
 | **Remote control from Signal** | Prompts, streamed replies, permission cards answered by number, pairing, signed commands, a kill switch. |
 | **Code review** | `/review` and `halo review`: parallel reviewers, a judge, ranked cards or `--json`, an optional `--fix` pass. |
-| **Themes with levels** | DOOM, Metroid and Mario: a palette, a HUD with a face that follows the turn, and an animated level above the prompt. |
+| **Themes with levels** | DOOM, Metroid and Mario: a palette, themed borders and an animated level above the prompt; the status bar stays the plain one, so model and cost are always in view. |
 | **Privacy audit** | `halo audit privacy` scans the tree for real paths, hosts and key-shaped strings; the release refuses to ship one red line. |
 | **CI and release script** | Every push runs the three suites on Linux and Windows; `scripts/release.py` versions, tags, pushes and refreshes both installs. |
 

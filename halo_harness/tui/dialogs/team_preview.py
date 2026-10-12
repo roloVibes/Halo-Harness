@@ -33,8 +33,9 @@ def default_model_label(default_model: str = "") -> str:
 
 
 def one_model_sentence(default_model: str = "") -> str:
-    return (f"Halo uses {default_model_label(default_model)} for everything, including the sub-agents it "
-            f"spawns on its own, and still asks you questions when it needs to.")
+    return (f"Halo uses {default_model_label(default_model)} for everything. The main agent still spawns "
+            f"sub-agents when a job is big, hands surveys and mechanical steps to cheaper models on its own, "
+            f"and still asks you questions when it needs to.")
 
 
 def catalog_by_ref() -> dict:

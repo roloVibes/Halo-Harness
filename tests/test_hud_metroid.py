@@ -29,6 +29,11 @@ from rich.cells import cell_len
 from halo_harness import theme as theme_mod
 from halo_harness import theme_toggle as tt
 from halo_harness.tui.hud import HudField, skin_for
+
+# 3.0.2.0: the shipped skins keep the plain status bar; these tests exercise
+# the HUD rows themselves, so force them on for this process.
+import halo_harness.tui.hud as _hud_override
+_hud_override.STATUS_BAR_OVERRIDE = "hud"
 from halo_harness.tui.theme import variables_for
 from halo_harness.tui.theme_metroid import AREAS
 from tests.helpers import hud_skin_checks as chk

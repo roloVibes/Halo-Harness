@@ -2575,6 +2575,12 @@ in user scope, a colliding bio is reported and skipped unless
 `--force`, and the team goes through the same validated save path.
 ## `halo studio`
 
+3.0.2.0: `halo studio --stop` ends a Studio running in the background (the
+wizard's Open Studio buttons start one, detached); a second `halo studio`
+while one runs reuses it (prints the URL, opens the browser) unless
+`--port` asks for another.
+
+
 ```sh
 halo studio [--mode roles|org|design] [--port N] [--no-open] [--cwd DIR]
 ```

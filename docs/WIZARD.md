@@ -111,6 +111,10 @@ includes it). Top to bottom:
 - **A plain-words header**: "Halo runs one model for everything unless you
   pick a lineup. A lineup gives each job (planning, coding, reviewing,
   research) its own agent and model."
+- **A Custom roles switch** (3.0.2.0): off is one model for everything,
+  on is a lineup. The switch and the list below are one choice: switching
+  on highlights the first lineup (or the active one), switching off
+  highlights the first row, and highlighting a lineup turns the switch on.
 - **The lineup list.** The FIRST row is always **"One model for
   everything"** -- applying it writes `team: standard` and `roles.enabled:
   false` (the same state Quick setup used to leave silently). Then every
@@ -127,16 +131,20 @@ includes it). Top to bottom:
   sub-agents it spawns on its own, and still asks you questions when it
   needs to." `tui/dialogs/team_preview.py` (`preview_lines`, `cost_hint`)
   builds the same text for the command line.
-- **Buttons**: **Use this lineup** (apply now), **Customize...** (opens the
-  lineup editor on the highlighted lineup; a shipped one is duplicated into
-  user scope first under the same name), **New lineup**, and **Agents...**
-  (the bios list -- it is no longer a pane of this step).
+- **Buttons**: **Use this lineup** (apply now) and **Open Studio (Roles)**,
+  which starts Halo Studio in the background, opens your browser on the
+  Roles canvas and prints the URL; it keeps running after setup until
+  `halo studio --stop`. Editing lineups and bios happens there (3.0.2.0:
+  the terminal editors were "too bunched up" and overlapped their labels
+  on some terminals; they stay reachable from the keyboard: Enter on a row
+  or Ctrl+E customize, Ctrl+N new lineup, Ctrl+A agents).
 
 A plain Next applies whichever row is highlighted (rule 1) and always
 writes `roles.enabled` explicitly: off for the first row, on for any
-lineup. Enter on a row opens its editor (rule 2). Keys: Ctrl+N new lineup,
-Ctrl+E customize, Esc back, Ctrl+Left/Ctrl+Right step. The body scrolls, so
-every control is reachable at 80x24. The Summary step then names what was
+lineup. With roles off the main agent still spawns sub-agents for big
+jobs and hands surveys and mechanical steps to cheaper models (the system
+prompt and the Agent tool both say so). Keys: Esc back, Ctrl+Left/Ctrl+Right
+step. The body scrolls, so every control is reachable at 80x24. The Summary step then names what was
 applied: the lineup with one line per resolved role, or "One model for
 everything: `<model>`".
 

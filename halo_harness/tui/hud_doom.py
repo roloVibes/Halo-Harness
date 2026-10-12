@@ -47,6 +47,7 @@ FACES = {
 
 DOOM = HudSkin(
     name="doom",
+    status_bar="plain", accent="#c8372d",  # 3.0.2.0: the plain bar, tinted
     segments=PANELS,
     strip=STRIP,
     # first removed first; phase, context, cost, face, cwd, mode, needs-you,

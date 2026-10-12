@@ -266,7 +266,7 @@ def test_team_step_first_row_is_one_model_and_preselected_on_a_fresh_install(ctx
                           "for everything" in text and "sub-agents" in text and "questions" in text)
                 header = _static_text(step.query_one("#wiz-team-header-sentence"))
                 ctx.check(f"the header explains lineups at {w}x{h}", "A lineup gives each job" in header)
-                for bid in ("wiz-team-use", "wiz-team-customize", "wiz-team-lineup-new", "wiz-team-agents",
+                for bid in ("wiz-roles-switch", "wiz-team-use", "wiz-team-studio",
                             "wiz-back", "wiz-skip", "wiz-next"):
                     step.query_one(f"#{bid}")
     for size in SIZES:
@@ -324,7 +324,7 @@ def test_team_step_enter_edits_and_agents_button_opens_the_bios(ctx: Ctx):
                           isinstance(app.screen, LineupEditor))
                 app.screen.action_cancel()
                 await pilot.pause(0.1)
-                step.query_one("#wiz-team-agents", Button).press()
+                step._open_agents()
                 await pilot.pause(0.3)
                 ctx.check(f"Agents... opens the bios list, got {type(app.screen).__name__}",
                           isinstance(app.screen, AgentsListScreen))
@@ -641,7 +641,7 @@ def test_save_toast_on_returning_to_the_agents_list(ctx: Ctx):
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.15)
                 step = app.screen
-                step.query_one("#wiz-team-agents").press()
+                step._open_agents()
                 await pilot.pause(0.3)
                 app.screen.query_one("#agents-list", OptionList).focus()
                 await pilot.press("ctrl+n")

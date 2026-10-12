@@ -687,19 +687,18 @@ docked, and under a theme without a scene.
 
 ### `/doom`
 Toggle the DOOM theme (Halo 2.0.8): dark greys, blood reds and amber text,
-heavy borders, and a three-row bottom-HUD status bar (ammo, health, arms,
-a face that follows the phase, armor, keys, plus a ticker line for the rest
-of the status bar). Not active: remembers the current theme as
+heavy borders, and the level band above the prompt; the status bar stays
+the plain one, tinted blood red (3.0.2.0 -- the three-row HUD rows are
+gone, so model and cost are always in view). Not active: remembers the current theme as
 `theme_toggle_previous` and applies DOOM. Active: restores the remembered
 theme (`claude-dark` when none) and clears it. `/doom`, `/metroid`, `/doom`
 returns to what was active before the first `/doom`. In `-p` the same toggle
 runs against `config.json`.
 
 ### `/metroid [area]`
-Toggle the Metroid theme (Halo 2.0.8): a three-row suit-HUD status bar (ten
-energy tanks for the context left, reserve, missile and super counters, a
-visor face, cost, providers and the area panel), dashed map-grid cards and
-dialogs, and a visor-framed input line. With no argument it is the same
+Toggle the Metroid theme (Halo 2.0.8): dashed map-grid cards and dialogs,
+a visor-framed input line and the level band; the status bar stays the
+plain one, tinted suit orange (3.0.2.0). With no argument it is the same
 toggle as `/doom`. With an area (`crateria`, `brinstar`, `norfair`,
 `maridia` or `tourian`) it switches to that palette and applies the theme
 when it is not active, without toggling it off; the area persists as
@@ -708,13 +707,10 @@ alone. An unknown area is reported with the five valid names and changes
 nothing. In `-p` the same forms run against `config.json`.
 
 ### `/mario [variant]`
-Toggle the Mario theme (Halo 2.0.8): a three-row top-bar status bar (a score
-for the tokens left, a power meter for the context left, coins for the cost
-with the balance beside it, a cap-and-moustache face, the world and level for
-the cwd and branch, a turn timer, turns and tools as lives-style counters),
-brick-pattern cards and dialogs, a pipe-framed input line, and a short 1-UP or
-coin flash in the face slot when a sub-agent finishes or a background job
-completes. With no argument it is the same toggle as `/doom`. With a variant
+Toggle the Mario theme (Halo 2.0.8): brick-pattern cards and dialogs, a
+pipe-framed input line, the level band (with its 1-UP mushroom when a
+sub-agent finishes); the status bar stays the plain one, tinted coin gold
+(3.0.2.0). With no argument it is the same toggle as `/doom`. With a variant
 (`bros` or `world`) it switches to that palette and applies the theme when it
 is not active, without toggling it off; the variant persists as
 `theme_variant` in `~/.halo/config.json`, and bare `/mario` leaves it alone.

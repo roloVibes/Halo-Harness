@@ -1345,8 +1345,21 @@ class OrgsStep(StepScreen):
         mode_row = Horizontal(Switch(value=org_mode_enabled(), id="wiz-org-mode-switch"),
                               Static(" Org mode: Paperclip wakes the company's agents (off by default)", classes="wizard-switch-label"),
                               classes="wizard-switch-row")
+        studio_row = Horizontal(Button("Open Studio (Org)", id="wiz-orgs-studio"), classes="wizard-extra-buttons")
         return [Static(one_sentence("Organizations", current, hint="Enter to change, or Make this the default."),
-                        classes="dialog-title"), pointer, mode_row, switch_row, on_body]
+                        classes="dialog-title"), pointer, mode_row, studio_row, switch_row, on_body]
+
+    def action_open_studio(self) -> None:
+        """3.0.2.0: the company is edited in Studio's Org mode (the browser)."""
+        from halo_harness.studio.launch import launch_detached
+        from halo_harness.providers.config import default_state_dir
+
+        def _work() -> str:
+            return launch_detached("org", cwd=Path(self.state.cwd), state_dir=Path(default_state_dir()))
+
+        def _done(url: str) -> None:
+            self.notify(f"Studio: {url} (halo studio --stop ends it)" if url else "Studio did not start -- run `halo studio --mode org` in a shell.")
+        self.run_worker(lambda: self.app.call_from_thread(_done, _work()), thread=True, name="wiz-orgs-studio")
 
     def on_mount(self) -> None:
         self._sync_visibility()
@@ -1419,6 +1432,8 @@ class OrgsStep(StepScreen):
             self.action_do_next()
         elif bid == "wiz-orgs-edit":
             self._open_editor()
+        elif bid == "wiz-orgs-studio":
+            self.action_open_studio()
 
     def _controller_models(self) -> list:
         """See `team_step.TeamStep._models_for_picker`'s own docstring --
