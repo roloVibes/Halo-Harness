@@ -58,7 +58,8 @@ and `roles.enabled`):
 2. **The command line** -- `halo teams` shows the active lineup, its tree
    and the others; `halo teams apply <name>` uses one (the same result as
    the wizard); `halo roles on|off` flips the switch.
-3. **Studio** -- coming in 2.1.0.
+3. **Studio** -- `halo studio`: the lineup as a graph in your browser; Apply
+   there writes the same keys ([STUDIO.md](STUDIO.md)).
 
 Everything below is the field-by-field reference; nothing in it changed.
 
