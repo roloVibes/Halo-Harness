@@ -9,8 +9,8 @@ tags: [review, quality]
 kind: reviewer
 
 models:
-  preference: cc:claude-opus-5-5
-  fallback: cc:claude-sonnet-5
+  preference: or:anthropic/claude-opus-5.5
+  fallback: or:anthropic/claude-sonnet-5
   effort: high
   thinking: native
   context_budget: 0.85

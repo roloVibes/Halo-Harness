@@ -138,6 +138,19 @@ route until this is accepted. This is a user choice the owner built in,
 never safety/refusal logic: the words used everywhere are "accepted" /
 "not accepted" / "available after acceptance".
 
+Halo 3.0.2.0 closes the one door that stayed open: the shipped agent bios
+(orchestrator, implementer, reviewer, researcher, verifier, watchdog,
+release-manager) and the `halo-dev-cycle` lineup's escalation target
+named `cc:` models by preference, so Roles mode in Studio and the wizard's
+lineup preview showed a subscription model as the default pick even
+before acceptance (the role table itself fell through to the default
+model, with a note). They now name the same models over OpenRouter
+(`or:anthropic/claude-sonnet-5`, `or:anthropic/claude-opus-5.5`,
+`or:anthropic/claude-fable-5.1`, `or:anthropic/claude-haiku-4.5`).
+`tests/test_subscription_defaults.py` keeps every shipped template, the
+catalog, the Studio model list and the resolved shipped bios free of
+`cc:`/`cx:` while the gate is off.
+
 A fresh install, and an upgraded install that never saw this round before,
 both start at **not accepted** -- no migration ever flips it on.
 Until accepted: the `/model` picker and `halo models` show `cc:`/`cx:`

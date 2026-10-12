@@ -9,7 +9,7 @@ tags: [testing, ci]
 kind: custom
 
 models:
-  preference: cc:claude-sonnet-5
+  preference: or:anthropic/claude-sonnet-5
   fallback: ol:qwen3-coder:30b
   effort: medium
   thinking: off

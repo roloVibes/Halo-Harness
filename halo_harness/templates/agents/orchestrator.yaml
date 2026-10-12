@@ -9,8 +9,8 @@ tags: [orchestration, planning]
 kind: main
 
 models:
-  preference: cc:claude-fable-5-1
-  fallback: cc:claude-opus-5-5
+  preference: or:anthropic/claude-fable-5.1
+  fallback: or:anthropic/claude-opus-5.5
   effort: high
   thinking: native
   context_budget: 0.75

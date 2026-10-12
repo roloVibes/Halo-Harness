@@ -9,7 +9,7 @@ tags: [research, docs]
 kind: researcher
 
 models:
-  preference: cc:claude-sonnet-5
+  preference: or:anthropic/claude-sonnet-5
   fallback: or:deepseek/deepseek-chat
   effort: medium
   thinking: off
