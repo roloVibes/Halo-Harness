@@ -16,7 +16,7 @@ from halo_harness.subscription_consent import (
 def cmd_subscriptions(argv: list) -> int:
     action = argv[0] if argv else "status"
     if action in ("-h", "--help"):
-        print("Usage: halo subscriptions [status|accept|revoke]")
+        print("Usage: halo subscriptions [status|accept|revoke|scrub]")
         return 0
     if action == "status":
         print(status_line())
@@ -36,6 +36,15 @@ def cmd_subscriptions(argv: list) -> int:
         revoke()
         print("Revoked. cc:/cx: are off again until accepted.")
         return 0
+    if action == "scrub":   # 3.0.2.0: bios and lineups on disk lose their subscription refs
+        from pathlib import Path
+        from halo_harness.subscription_scrub import scrub_files
+        done = scrub_files(cwd=Path.cwd())
+        for path, changes in done:
+            print(f"{path}: " + ", ".join(changes))
+        print(f"scrubbed {len(done)} file(s); no bio or lineup names a cc:/cx: model now"
+              if done else "nothing to scrub: no bio or lineup names a cc:/cx: model")
+        return 0
     print(f"halo subscriptions: unrecognized argument: {action!r} "
-          f"(expected status|accept|revoke)", file=sys.stderr)
+          f"(expected status|accept|revoke|scrub)", file=sys.stderr)
     return 2

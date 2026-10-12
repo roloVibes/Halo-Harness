@@ -228,6 +228,8 @@ def resolve_agent_bio(name: str, *, cwd=None, state_dir=None, _chain: "Optional[
         resolved[section] = _merge_section((parent or {}).get(section), raw.get(section))
     if isinstance(resolved.get("models"), dict):
         _substitute_default_model_reference(resolved["models"])
+        from halo_harness.subscription_scrub import scrub_model_block
+        scrub_model_block(resolved["models"], where=f"{name}.models")   # 3.0.2.0: never a cc:/cx: model in a bio
     for field in ("description", "version", "tags", "kind"):
         if field in raw:
             resolved[field] = raw[field]

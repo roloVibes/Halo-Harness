@@ -67,6 +67,18 @@ version.
   `tui/scene_alien.py`), slash toggles and wizard choices like the other
   three, with the plain status bar tinted in their accent.
 
+### Studio: connect boxes to boxes
+
+- In Roles mode a member hung off the starting box and nothing else
+  (the owner: "I want to be able to connect a new agent and role to
+  something other than the starting agent / box"). Drag a card onto
+  another card, or pick a box in the new **Reports to** field of the
+  Assignment tab, and the member reports to that box: the lineup's
+  `org.positions[].reports_to` (title = alias, else role, else agent),
+  the edge moves with it, and dropping on the starting box hangs it off
+  main again. The Org header (mode switch, Paperclip badge) no longer
+  stays on screen in Roles or Design.
+
 ### The wizard hands roles and orgs to Studio
 
 - **The Team step has a Custom roles switch** (off: one model for
@@ -97,6 +109,13 @@ version.
 
 ### Subscription routes: off everywhere until accepted, now including the shipped lineups
 
+- **Bios and lineups never run on a subscription route, accepted or not.**
+  `subscription_scrub.py` rewrites `cc:`/`cx:` refs in the user and project
+  `agents/` and `teams/` files to their OpenRouter equivalents (once per
+  process when lineups are listed, and `halo subscriptions scrub` by hand),
+  and `resolve_agent_bio` / `resolve_role_table` map any ref written later
+  at resolve time, with a note. The owner's words: "it shouldn't occur
+  regardless so people don't get banned."
 - **No shipped bio or lineup names a `cc:`/`cx:` model any more.** Seven
   shipped bios and the `halo-dev-cycle` escalation target preferred
   `cc:claude-*`, so Roles mode in Studio and the wizard's lineup preview

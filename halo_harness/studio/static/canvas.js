@@ -90,13 +90,15 @@
         const title = (n.problems || []).concat(n.warnings || []).join("\n");
         fo.innerHTML = `<div xmlns="http://www.w3.org/1999/xhtml" class="card" style="position:relative" title="${esc(title)}">
           <div class="band"></div>
-          <div class="head"><span class="agent">${esc(n.agent)}</span>${n.scope === "template" ? '<span class="lock" title="shipped: duplicate to edit">🔒</span>' : ""}</div>
+          <div class="head"><span class="agent">${esc(n.agent)}</span>${n.scope === "template" ? '<span class="lock" title="This agent bio ships with Halo and is read-only. Click here (or open the Agent tab) and press Duplicate to get an editable copy in your scope.">🔒 shipped</span>' : ""}</div>
           <div class="role">${n.subtitle != null ? esc(n.subtitle) : esc(n.role) + (n.alias && n.alias !== n.role ? " · as " + esc(n.alias) : "") + (n.instances > 1 ? " · ×" + n.instances : "")}</div>
           <div class="model" title="${esc(n.chip || n.model || "no model")}"><span>${esc(n.chip || n.model || "no model resolves")}</span></div>
           <div class="meta">${n.metaHtml != null ? n.metaHtml : (n.price && n.price !== "?" ? `<span><b>${esc(n.price)}</b></span>` : `<span>price ?</span>`) + (n.context ? `<span>ctx <b>${esc(n.context)}</b></span>` : "") + (n.tools != null ? `<span>tools <b>${n.tools}</b></span>` : "")}</div>
           <div class="run">${live ? esc(`${live.state}${live.cost ? " · $" + live.cost : ""}${live.turns ? " · " + live.turns + " turns" : ""}`) : ""}</div>
           <span class="status ${status}"></span></div>`;
         n.justDropped = false;
+        const lock = fo.querySelector(".lock");  // 3.0.2.0: the lock is a badge, not a toggle -- say so
+        if (lock) lock.addEventListener("pointerdown", (ev) => { ev.stopPropagation(); this.select([n.id]); if (this.onLock) this.onLock(n.id); });
         g.addEventListener("pointerdown", (ev) => this._nodeDown(ev, n));
         g.addEventListener("dblclick", (ev) => { ev.stopPropagation(); this.onOpen(n.id); });
         g.addEventListener("keydown", (ev) => { if (ev.key === "Enter") this.onOpen(n.id); });

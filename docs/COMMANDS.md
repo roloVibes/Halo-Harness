@@ -2573,6 +2573,15 @@ every non-shipped bio it references (and a `bundle.json` manifest);
 `halo teams import <dir> [--force]` applies it on any box -- bios land
 in user scope, a colliding bio is reported and skipped unless
 `--force`, and the team goes through the same validated save path.
+## `halo subscriptions scrub`
+
+3.0.2.0: rewrites every `cc:`/`cx:` model ref in your bios and lineups
+(`~/.halo/agents`, `~/.halo/teams`, the project's `.halo/agents` and
+`.halo/teams`) to its OpenRouter equivalent and prints what moved. It also
+runs on its own the first time lineups are listed in a process, so
+pre-made copies from older versions stop naming subscription models
+without anyone asking.
+
 ## `halo studio`
 
 3.0.2.0: `halo studio --stop` ends a Studio running in the background (the

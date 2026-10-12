@@ -122,6 +122,33 @@ def test_cli_reaches_studio(ctx: Ctx):
     ctx.check("the static page ships as package data", "studio/static/*.html" in text and "studio/static/*.js" in text and "studio/static/*.css" in text)
 
 
+@test
+def test_reports_to_connects_a_box_to_another_box(ctx: Ctx):
+    """3.0.2.0: a member with org.positions[].reports_to hangs off that
+    member's card instead of main; titles resolve by alias, role or agent."""
+    from halo_harness.studio.model import graph_for
+    raw = {"name": "t", "agents": [{"agent": "orchestrator", "role": "main", "as": "boss"},
+                                   {"agent": "implementer", "role": "subagent", "as": "worker"},
+                                   {"agent": "verifier", "role": "reviewer", "as": "tester"}],
+           "org": {"positions": [{"title": "tester", "agent": "verifier", "reports_to": "worker"}]}}
+    g = graph_for(raw, catalog={})
+    ids = {n["alias"]: n["id"] for n in g["nodes"]}
+    kinds = {(e["from"], e["to"]): e["kind"] for e in g["edges"]}
+    ctx.check(f"worker still hangs off main, got {kinds}", kinds.get((ids["boss"], ids["worker"])) == "delegation")
+    ctx.check("tester hangs off worker (a reports edge), not main", kinds.get((ids["tester"], ids["worker"])) == "reports" and (ids["boss"], ids["tester"]) not in kinds)
+    raw["org"]["positions"][0]["reports_to"] = "boss"
+    g2 = graph_for(raw, catalog={})
+    kinds2 = {(e["from"], e["to"]): e["kind"] for e in g2["edges"]}
+    ctx.check("reporting to the main box keeps the delegation edge from main", kinds2.get((ids["boss"], ids["tester"])) == "delegation" and kinds2.get((ids["tester"], ids["boss"])) == "reports")
+    from pathlib import Path as _P
+    REPO_DIR = _P(__file__).resolve().parent.parent
+    js = (REPO_DIR / "halo_harness" / "studio" / "static" / "app.js").read_text(encoding="utf-8")
+    ins = (REPO_DIR / "halo_harness" / "studio" / "static" / "inspector.js").read_text(encoding="utf-8")
+    ctx.check("the page connects by drop and by a Reports-to field", "app.setReportsTo" in js and "rolesDropOn" in js and "Reports to (which box" in ins)
+    canvas = (REPO_DIR / "halo_harness" / "studio" / "static" / "canvas.js").read_text(encoding="utf-8")
+    ctx.check("the lock says what it is and what to do", "🔒 shipped" in canvas and "press Duplicate" in canvas and "onLock" in js)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -188,9 +188,10 @@ def test_lineup_naming_cc_falls_back_with_a_note(ctx: Ctx):
             role_table, notes = teams_yaml.resolve_role_table(template)
         finally:
             agents_yaml_mod.resolve_agent_bio = real_resolve_bio
-        ctx.check(f"cc: role left out of the table, got {role_table}", "worker" not in role_table)
+        ctx.check(f"3.0.2.0: a cc: pick maps to its API equivalent instead of being left out, got {role_table}",
+                  role_table.get("worker") == "or:anthropic/claude-opus-5.5")
         ctx.check(f"a one-line note names acceptance, got {notes}",
-                  any("available after acceptance" in n for n in notes))
+                  any("->" in n and "never run a lineup" in n for n in notes))
 
 
 if __name__ == "__main__":
