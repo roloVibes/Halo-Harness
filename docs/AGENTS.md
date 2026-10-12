@@ -32,9 +32,11 @@ teams/`.
 > **No shipped bio or lineup names a subscription route.** Every model in
 > the shipped templates is an API route (`or:`, `ol:`, `default`). The
 > `cc:`/`cx:` subscription routes stay off everywhere -- the catalog, the
-> pickers, Studio, the wizard, the lineups -- until `halo subscriptions
-> accept`; a bio of your own that names one resolves to the default model
-> with a note until then. See docs/MODELS.md, "Subscription-routes consent".
+> pickers, Studio, the wizard -- until `halo subscriptions accept`, and a
+> bio or lineup never runs on one even after: a `cc:`/`cx:` ref in a bio or
+> lineup file is rewritten to its OpenRouter equivalent on disk (`halo
+> subscriptions scrub`, also automatic) and mapped again at resolve time.
+> See docs/MODELS.md, "Subscription-routes consent".
 
 > **Roles off still delegates.** With custom roles off (the default) the
 > main agent runs your session model and still spawns sub-agents through

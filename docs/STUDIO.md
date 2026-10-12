@@ -30,6 +30,11 @@ and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 
 ## What you see
 
+- **The lock on a card** (`🔒 shipped`) is a badge, not a switch: the agent
+  bio behind that slot ships with Halo and is read-only. Click it (or open
+  the Agent tab) and press **Duplicate** to get an editable copy in your
+  scope, which then shadows the shipped one. A card without the lock is
+  yours already.
 - **The rail (left):** every lineup you can reach (shipped, user, project; the
   active one marked), and every agent bio. Drag a bio onto the canvas to add
   an assignment to the open lineup.
@@ -191,6 +196,25 @@ token.
 
 Shortcuts are inactive while you type in a box. The tour (`?`) shows five Design
 steps when the page is in Design mode.
+
+## Connecting boxes (3.0.2.0)
+
+Every member hangs off the starting box (the `main` assignment) until you
+connect it elsewhere. Two ways, both writing the lineup's own
+`org.positions[].reports_to` (a title is the assignment's alias, else its
+role, else its agent):
+
+- **Drag a card onto another card.** The dragged member now reports to
+  the card you dropped it on, and its edge moves there; drop it on the
+  starting box to hang it off main again.
+- **The Reports-to field** in the Assignment tab: pick any other box, or
+  blank for the starting box.
+
+The canvas redraws the tree as you connect (a member that reports to
+another member no longer gets the main -> member delegation edge), Save
+writes it like any other change, and `halo teams show` prints the same
+org positions. Runtime: `reports_to` addresses the member's one-line
+completion report (docs/AGENTS.md, "org").
 
 ## Validate, save, apply
 

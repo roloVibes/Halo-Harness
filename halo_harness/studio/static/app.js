@@ -16,7 +16,7 @@
     try { localStorage.setItem("halo-studio-mode", mode); } catch (e) {}
     if (mode === "org") { window.designMode.leave(app); app.mode = "org"; app.canvas.select([]); await window.orgMode.enter(app); }
     else if (mode === "design") { window.orgMode.leave(app); app.mode = "design"; app.canvas.select([]); await window.designMode.enter(app); }  // 3.0.1.0
-    else { window.orgMode.leave(app); window.designMode.leave(app); app.mode = "roles"; document.body.dataset.mode = "roles"; const heads = $("rail").querySelectorAll("h3"); heads[0].firstChild.textContent = "Lineups "; heads[1].firstChild.textContent = "Agents "; restoreTabs(); app.canvas.onMove = rolesOnMove; if (app.current) { const name = app.current.name; app.current = null; await app.selectLineup(name); } else { app.canvas.setGraph([], []); await app.reloadLists(); status(); } }
+    else { window.orgMode.leave(app); window.designMode.leave(app); app.mode = "roles"; document.body.dataset.mode = "roles"; const heads = $("rail").querySelectorAll("h3"); heads[0].firstChild.textContent = "Lineups "; heads[1].firstChild.textContent = "Agents "; restoreTabs(); app.canvas.onMove = rolesOnMove; app.canvas.onDropOn = rolesDropOn; if (app.current) { const name = app.current.name; app.current = null; await app.selectLineup(name); } else { app.canvas.setGraph([], []); await app.reloadLists(); status(); } }
   };
   const TABS = ["assignment:Assignment", "agent:Agent", "lineup:Lineup", "yaml:YAML"];
   function restoreTabs() {
@@ -68,6 +68,33 @@
     app.current.problems = r.problems; app.current.graph = r.graph;
     app.canvas.setGraph(r.graph.nodes, r.graph.edges, app.canvas.positions()); status();
   };
+  // 3.0.2.0: connect a box to another box. The connection is the lineup's
+  // own `org.positions[].reports_to` (titles = alias, else role, else agent);
+  // "" (or main) means it hangs off the starting box again.
+  app.titleOf = (entry) => entry.as || entry.role || entry.agent || "";
+  app.setReportsTo = async (index, target) => {
+    const raw = app.current.raw; const entry = raw.agents[index]; if (!entry) return;
+    const title = app.titleOf(entry);
+    raw.org = raw.org && typeof raw.org === "object" ? raw.org : {};
+    raw.org.positions = Array.isArray(raw.org.positions) ? raw.org.positions : [];
+    let pos = raw.org.positions.find((p) => p && p.title === title);
+    const mainEntry = raw.agents.find((e) => e.role === "main");
+    const toMain = !target || (mainEntry && target === app.titleOf(mainEntry));
+    if (toMain) { if (pos) { delete pos.reports_to; if (Object.keys(pos).filter((k) => k !== "title" && k !== "agent").length === 0) raw.org.positions = raw.org.positions.filter((p) => p !== pos); } }
+    else { if (!pos) { pos = { title, agent: entry.agent }; raw.org.positions.push(pos); } pos.reports_to = target; }
+    if (!raw.org.positions.length) delete raw.org.positions;
+    if (!Object.keys(raw.org).length) delete raw.org;
+    await app.changed();
+    app.toast(toMain ? `${title} hangs off the starting box again` : `${title} now reports to ${target}`, "ok");
+  };
+  const rolesDropOn = (draggedId, targetId) => {
+    const g = app.current && app.current.graph; if (!g) return;
+    const from = g.nodes.find((n) => n.id === draggedId), to = g.nodes.find((n) => n.id === targetId);
+    if (!from || !to || from.role === "main") { if (from && from.role === "main") app.toast("the starting box stays the root; drag another card onto it instead", "warn"); return; }
+    app.setReportsTo(from.index, app.titleOf(app.current.raw.agents[to.index]));
+  };
+  app.rolesDropOn = rolesDropOn;
+  app.canvas.onLock = (id) => { app.showTab("agent"); app.toast("A shipped bio is read-only: press Duplicate in the Agent tab for an editable copy in your scope. The lock is a badge, not a switch.", "warn"); };
   app.changed = async () => { app.dirty = true; await app.refreshGraph(); if (app.tab !== "yaml") app.showTab(app.tab); else if (app.current._yamlBox) app.current._yamlBox.value = (await api.toYaml(app.current.raw)).yaml; };
   app.replaceRaw = async (raw) => { app.current.raw = raw; app.dirty = true; await app.refreshGraph(); };
   app.removeSelected = async () => { if (app.mode !== "roles") return; const n = app.selectedNode(); if (!n) return; app.current.raw.agents.splice(n.index, 1); app.selected = []; await app.changed(); };
@@ -136,6 +163,7 @@
   let layoutTimer = null;
   const rolesOnMove = () => { if (!app.current) return; clearTimeout(layoutTimer); layoutTimer = setTimeout(() => api.saveLayout(app.current.name, app.canvas.positions()).catch(() => {}), 500); };
   app.canvas.onMove = rolesOnMove;
+  app.canvas.onDropOn = app.rolesDropOn;  // 3.0.2.0: drop a card onto another to connect them
   app.canvas.onDrop = async (name, x, y) => {
     if (!app.current) { app.toast("Pick a lineup first", "warn"); return; }
     const bio = app.bios.find((b) => b.name === name); const role = bio && ["main", "subagent", "reviewer", "researcher", "judge"].includes(bio.kind) ? bio.kind : "subagent";

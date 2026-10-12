@@ -151,6 +151,20 @@ model, with a note). They now name the same models over OpenRouter
 catalog, the Studio model list and the resolved shipped bios free of
 `cc:`/`cx:` while the gate is off.
 
+**Bios and lineups never run on a subscription route, accepted or not**
+(3.0.2.0, the owner: "it shouldn't occur regardless so people don't get
+banned"). `halo_harness/subscription_scrub.py` rewrites every `cc:`/`cx:`
+ref in the user and project `agents/` and `teams/` folders to its
+OpenRouter equivalent (`cc:claude-opus-5-5` -> `or:anthropic/claude-opus-5.5`,
+`cc:opus` -> the family's current row, `cx:gpt-5` -> `or:openai/gpt-5`)
+the first time lineups are listed in a process, and `halo subscriptions
+scrub` does it by hand and prints what moved. The resolvers do the same
+at resolve time for anything written afterwards: `resolve_agent_bio` maps
+a bio's preference/fallback/escalation, `resolve_role_table` maps a
+lineup's pick with a note, and a ref with no equivalent falls through to
+the default model. Acceptance still governs the session model you pick by
+hand (`/model cc:...`); it never reaches a bio or a lineup.
+
 A fresh install, and an upgraded install that never saw this round before,
 both start at **not accepted** -- no migration ever flips it on.
 Until accepted: the `/model` picker and `halo models` show `cc:`/`cx:`

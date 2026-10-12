@@ -88,6 +88,55 @@ def test_studio_model_list_and_lineup_graph_carry_none(ctx: Ctx):
                   status == 200 and not _refs(text))
 
 
+@test
+def test_subscription_refs_map_to_api_equivalents_everywhere(ctx: Ctx):
+    from halo_harness.subscription_scrub import equivalent_ref, scrub_model_block, scrub_text
+    ctx.check("cc:claude-opus-5-5 -> or:anthropic/claude-opus-5.5", equivalent_ref("cc:claude-opus-5-5") == "or:anthropic/claude-opus-5.5")
+    ctx.check("cc:claude-sonnet-5 keeps a single version", equivalent_ref("cc:claude-sonnet-5") == "or:anthropic/claude-sonnet-5")
+    ctx.check("a dated id drops the date", equivalent_ref("cc:claude-haiku-4-5-20251001") == "or:anthropic/claude-haiku-4.5")
+    ctx.check("a bare family alias goes to the family's current row", equivalent_ref("cc:opus") == "or:anthropic/claude-opus-5.5")
+    ctx.check("cx: goes to openai/", equivalent_ref("cx:gpt-5") == "or:openai/gpt-5")
+    ctx.check("an API ref is untouched", equivalent_ref("or:deepseek/deepseek-chat") == "or:deepseek/deepseek-chat" and equivalent_ref("default") == "default")
+    models = {"preference": "cc:claude-sonnet-5", "fallback": "ol:qwen3", "escalation": "cx:gpt-5"}
+    notes = scrub_model_block(models, where="x.models")
+    ctx.check(f"a model block is rewritten in place with notes, got {models} {notes}",
+              models == {"preference": "or:anthropic/claude-sonnet-5", "fallback": "ol:qwen3", "escalation": "or:openai/gpt-5"} and len(notes) == 2)
+    text, changes = scrub_text("models:\n  preference: cc:claude-fable-5-1\n  fallback: or:x/y\nescalation: {to: cx:gpt-5}\n")
+    ctx.check(f"a YAML text is scrubbed token by token, got {changes}", "cc:" not in text and "cx:" not in text and len(changes) == 2 and "or:x/y" in text)
+
+
+@test
+def test_copies_on_disk_are_scrubbed_and_a_handwritten_bio_never_resolves_to_a_subscription(ctx: Ctx):
+    import tempfile
+    from pathlib import Path as _P
+    from halo_harness.providers.config import default_state_dir
+    from halo_harness.subscription_consent import record_acceptance, revoke
+    from halo_harness.subscription_scrub import scrub_files
+    from halo_harness.agents_yaml import resolve_agent_bio, save_agent_bio, user_agents_dir
+    state = _P(default_state_dir())
+    proj = _P(tempfile.mkdtemp(prefix="halo-scrub-"))
+    (proj / ".halo" / "teams").mkdir(parents=True)
+    (proj / ".halo" / "teams" / "old.yaml").write_text("name: old\nroles:\n  main: general\nescalation:\n  to: cc:claude-opus-5-5\n", encoding="utf-8")
+    done = scrub_files(state_dir=state, cwd=proj)
+    ctx.check(f"a project lineup copy loses its cc: ref, got {done}", any(p.name == "old.yaml" for p, _c in done)
+              and "cc:" not in (proj / ".halo" / "teams" / "old.yaml").read_text(encoding="utf-8"))
+    ctx.check("a second scrub changes nothing", scrub_files(state_dir=state, cwd=proj) == [])
+    user_agents_dir(state_dir=state).mkdir(parents=True, exist_ok=True)
+    save_agent_bio("sub-bio", {"name": "sub-bio", "description": "names a subscription", "kind": "subagent",
+                               "models": {"preference": "cc:claude-sonnet-5", "fallback": "cx:gpt-5"}}, state_dir=state)
+    record_acceptance()
+    try:
+        bio = resolve_agent_bio("sub-bio", state_dir=state)
+        ctx.check(f"even with the routes accepted the bio resolves to API models, got {bio.get('models')}",
+                  bio["models"]["preference"] == "or:anthropic/claude-sonnet-5" and bio["models"]["fallback"] == "or:openai/gpt-5")
+    finally:
+        revoke()
+    from halo_harness.teams_yaml import resolve_role_table
+    table, notes = resolve_role_table({"name": "t", "agents": [{"agent": "sub-bio", "role": "main"}]}, state_dir=state)
+    ctx.check(f"the role table never carries a subscription route, got {table} {notes}",
+              table.get("main") == "or:anthropic/claude-sonnet-5" and not any(str(v).startswith(("cc:", "cx:")) for v in table.values()))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

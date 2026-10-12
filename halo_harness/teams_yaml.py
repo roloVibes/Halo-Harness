@@ -457,12 +457,18 @@ def resolve_role_table(template: dict, *, cwd=None, state_dir=None) -> "tuple[di
         # resolve time (this function's own contract: "never a crash,
         # never a null placeholder", same as the "no model at all" case
         # just above).
+        # 3.0.2.0 (the owner: "it shouldn't occur regardless so people don't
+        # get banned"): a lineup or bio naming a cc:/cx: model gets the API
+        # equivalent, accepted or not; one with no equivalent falls through.
         if isinstance(model_ref, str) and model_ref.startswith(("cc:", "cx:")):
-            from halo_harness.subscription_consent import is_accepted
-            if not is_accepted():
-                notes.append(f"{key}: {model_ref} is available after acceptance (run `halo subscriptions "
-                              f"accept`) -- left out of the role table (falls through to the default model)")
+            from halo_harness.subscription_scrub import equivalent_ref
+            mapped = equivalent_ref(model_ref)
+            if not mapped:
+                notes.append(f"{key}: {model_ref} is a subscription route with no API equivalent -- left out of "
+                              f"the role table (falls through to the default model)")
                 continue
+            notes.append(f"{key}: {model_ref} -> {mapped} (subscription routes never run a lineup)")
+            model_ref = mapped
         role_table[key] = {"model": model_ref, "effort": effort} if effort else model_ref
     return role_table, notes
 
@@ -634,6 +640,12 @@ def migrate_legacy_role_table(role_table: dict, *, cwd=None, state_dir=None) -> 
 
 
 def ensure_builtin_team_templates(*, state_dir=None) -> None:
+    _ensure_builtin_team_templates(state_dir=state_dir)
+    from halo_harness.subscription_scrub import scrub_once
+    scrub_once(state_dir=state_dir)   # 3.0.2.0: copies on disk lose their cc:/cx: refs, once per process
+
+
+def _ensure_builtin_team_templates(*, state_dir=None) -> None:
     """Copies every shipped `templates/teams/*.yaml` into `user_teams_
     dir()` the first time its name is missing there -- never overwritten
     after (same "copy on first use" rule `orgs.ensure_builtin_orgs`/

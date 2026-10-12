@@ -116,6 +116,14 @@
     body.appendChild(field("Alias (as)", input(entry.as || "", (v) => { if (v) entry.as = v; else delete entry.as; app.changed(); }, 'placeholder="worker, review, boss…"'), "routing and reports_to name this"));
     body.appendChild(field("Instances", input(String(entry.instances || 1), (v) => { entry.instances = Math.max(1, parseInt(v, 10) || 1); app.changed(); }, 'type="number" min="1"')));
     body.appendChild(field("Use for (words in a task that route here)", chips(entry.use_for = Array.isArray(entry.use_for) ? entry.use_for : [], () => app.changed())));
+    if (entry.role !== "main") {  // 3.0.2.0: connect this box to another box
+      const others = app.current.raw.agents.map((e, i) => ({ e, i })).filter(({ i }) => i !== node.index).map(({ e }) => app.titleOf(e)).filter(Boolean);
+      const pos = ((app.current.raw.org || {}).positions || []).find((p) => p && p.title === app.titleOf(entry));
+      const mainEntry = app.current.raw.agents.find((e) => e.role === "main");
+      const current = pos && pos.reports_to && !(mainEntry && pos.reports_to === app.titleOf(mainEntry)) ? pos.reports_to : "";
+      body.appendChild(field("Reports to (which box this one hangs off)", select(current, ["", ...others.filter((t) => t !== current), ...(current ? [current] : [])].filter((v, i, a) => a.indexOf(v) === i), (v) => app.setReportsTo(node.index, v)),
+        "blank = the starting box. You can also drag this card onto another card on the canvas."));
+    }
     const over = (entry.models = entry.models && typeof entry.models === "object" ? entry.models : {});
     body.appendChild(field("Model override (blank = the bio's own)", modelPicker(over.preference || "", (v) => { if (v) over.preference = v; else delete over.preference; if (!Object.keys(over).length) delete entry.models; app.changed(); })));
     body.appendChild(h(`<div class="section-head"><span>Resolved</span></div>`));
