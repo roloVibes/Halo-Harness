@@ -143,6 +143,17 @@ def test_page_honours_mode_query_over_the_saved_mode(ctx: Ctx):
     ctx.check("the asked mode beats the saved one", "const mode = asked || saved;" in js)
 
 
+@test
+def test_model_picker_is_a_grouped_dropdown_of_the_whole_catalog(ctx: Ctx):
+    js = (REPO_DIR / "halo_harness" / "studio" / "static" / "inspector.js").read_text(encoding="utf-8")
+    picker = js.split("function modelPicker(", 1)[1].split("function chips(", 1)[0]
+    ctx.check("the picker is a <select> with <optgroup>s", "<select" in picker and "<optgroup" in picker)
+    ctx.check("no row cap (the old popup showed the first 60 rows only)", "slice(0, 60)" not in js)
+    ctx.check("a filter box narrows the list", 'class="mono filter"' in picker)
+    ctx.check("a hand-typed ref is still possible", "Type a ref..." in picker)
+    ctx.check("groups are route and vendor", 'route === "or" && rest.includes("/")' in js)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
