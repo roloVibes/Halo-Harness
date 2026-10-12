@@ -366,7 +366,9 @@ def cmd_teams(argv: list) -> int:
               "       halo teams diff <a> <b>                     compare two lineups role by role\n"
               "       halo teams new <name> [--from TEMPLATE] [--project] [--form]\n"
               "       halo teams edit <name> [--form]\n"
-              "       halo teams export <name> [file]|import <file>", file=sys.stderr)
+              "       halo teams export <name> [file]|import <file>\n"
+              "GUI:   halo studio --mode roles                    lineups and bios as an editable graph (Halo Studio; /roles in the TUI)",
+              file=sys.stderr)
         return 0
     sub, rest = argv[0], argv[1:]
     fn = _SUBCOMMANDS.get(sub)

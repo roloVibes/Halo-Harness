@@ -283,7 +283,8 @@ def cmd_agents(argv: list) -> int:
               "       halo agents new <name> [--from AGENT] [--project] [--form]\n"
               "       halo agents edit <name> [--form]\n"
               "       halo agents export <name> [file] [--claude-md]|import <file> [--claude-md]\n"
-              "       halo agents schedule list|run <name>|pause <name>|resume <name>|rm <name>",
+              "       halo agents schedule list|run <name>|pause <name>|resume <name>|rm <name>\n"
+              "GUI:   halo studio --mode roles                    bios and lineups as an editable graph (Halo Studio; /roles in the TUI)",
               file=sys.stderr)
         return 0
     sub, rest = argv[0], argv[1:]

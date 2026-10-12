@@ -158,16 +158,35 @@ def _cmd_level(args: str, facade: HeadlessFacade) -> str:
     return f"Level band: {'on' if value else 'off'}" + ("" if value else " (run /level to bring it back)")
 
 
+_STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
+                       "org": "Org: the company in Paperclip",
+                       "design": "Design: artboards on your own apps"}
+
+
 def _cmd_studio(args: str, facade: HeadlessFacade) -> str:
-    """2.1.0 round B3: `/studio` opens Halo Studio (the lineups-and-bios
-    graph) in the browser, served from this process; `/studio url` prints
-    the URL without opening a browser (SSH: forward the port it names)."""
+    """2.1.0 round B3: `/studio` opens Halo Studio in the browser, served
+    from this process; `/studio url` prints the URL without opening a
+    browser (SSH: forward the port it names). 3.0.2.0: `/studio roles|org|
+    design` opens straight into that mode -- `/roles`, `/org` and `/design`
+    (bare, in the TUI) and `/roles gui`, `/org gui` land here too."""
     from pathlib import Path
     from halo_harness.providers.config import default_state_dir
-    from halo_harness.studio.server import ensure_background
+    from halo_harness.studio.server import STUDIO_MODES, ensure_background
+    words = (args or "").split()
+    mode = next((w.lower() for w in words if w.lower() in STUDIO_MODES), None)
+    open_browser = "url" not in [w.lower() for w in words]
     cwd = Path(getattr(facade, "cwd", None) or Path.cwd())
-    url = ensure_background(cwd=cwd, state_dir=Path(default_state_dir()), open_browser=(args or "").strip() != "url")
-    return f"Halo Studio: {url}\n(served from this session; it closes with it. Over SSH: forward the port and open the same URL.)"
+    url = ensure_background(cwd=cwd, state_dir=Path(default_state_dir()), open_browser=open_browser, mode=mode)
+    what = _STUDIO_MODE_LABELS.get(mode, "Roles | Org | Design")
+    return (f"Halo Studio ({what}): {url}\n"
+            "(served from this session; it closes with it. Over SSH: forward the port and open the same URL.)")
+
+
+def _cmd_design(args: str, facade: HeadlessFacade) -> str:
+    """3.0.2.0: `/design` opens Halo Studio's Design mode (artboards,
+    knobs, comments, versions, the craft apps as the model's tools);
+    `/design url` prints the URL only. The command family is `halo design`."""
+    return _cmd_studio("design " + (args or ""), facade)
 
 
 def _cmd_offline(args: str, facade: HeadlessFacade) -> str:
@@ -932,6 +951,10 @@ def _cmd_roles(args: str, facade: HeadlessFacade) -> str:
     parts = (args or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else ""
     rest = parts[1].strip() if len(parts) > 1 else ""
+    if sub == "gui":  # 3.0.2.0: the browser GUI (what bare /roles does in the TUI)
+        return _cmd_studio("roles " + rest, facade)
+    if sub == "table":  # the text table, explicitly (bare /roles outside the TUI)
+        sub, rest = "", ""
 
     if sub == "templates":
         from halo_harness.roles import list_role_templates
@@ -1113,6 +1136,8 @@ def _cmd_org(args: str, facade: HeadlessFacade) -> str:
     parts = (args or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else ""
     rest = parts[1].strip() if len(parts) > 1 else ""
+    if sub == "gui":  # 3.0.2.0: Studio's Org mode (what bare /org does in the TUI)
+        return _cmd_studio("org " + rest, facade)
 
     if sub in ("", "list"):
         from halo_harness.orgs import list_orgs, load_org
@@ -1871,11 +1896,11 @@ _BUILTIN_SPECS = {
     "skills": ("core", "List discovered skills", None, _cmd_skills),
     "agents": ("core", "List available sub-agents and agent bios", None, _cmd_agents),
     "teams": ("core", "Show the active lineup; apply, preview or diff lineups", "[apply|preview <name>|diff <a> <b>]", _cmd_teams),
-    "roles": ("core", "Show the role table, turn roles on/off, or manage role templates/set a role",
-              "[on|off|templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
+    "roles": ("core", "Open Studio's Roles GUI (bare, in the TUI); the role table, roles on/off, role templates",
+              "[gui|table|on|off|templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),
-    "org": ("core", "List/show/run organizations (trees of sub-agent positions)",
-             "[list|show|new|load|edit|run [<name>] \"<goal>\"]", _cmd_org),
+    "org": ("core", "Open Studio's Org GUI (bare, in the TUI); list/show/run Halo's own organizations",
+             "[gui|list|show|new|load|edit|run [<name>] \"<goal>\"]", _cmd_org),
     "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",
                "[target] [--level low|medium|high] [--dimensions a,b] [--fix] [--no-verify]", _cmd_review),
     "setup": ("core", "Open the roles/organizations guided setup screens", "[roles|orgs]", _cmd_setup),
@@ -1893,7 +1918,8 @@ _BUILTIN_SPECS = {
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
     "level": ("core", "Toggle the game themes' level band above the prompt", "[on|off]", _cmd_level),
-    "studio": ("core", "Open Halo Studio: lineups and agent bios as an editable graph", "[url]", _cmd_studio),
+    "studio": ("core", "Open Halo Studio, the browser GUI: Roles | Org | Design", "[roles|org|design] [url]", _cmd_studio),
+    "design": ("core", "Open Studio's Design GUI: artboards on your own apps (the `halo design` family)", "[url]", _cmd_design),
     "remote": ("core", "Remote control: control socket, Signal bridge state, paired phones, pairing, kill switch",
                "[status|pair [N]|off]", _cmd_remote),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,

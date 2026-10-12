@@ -8,12 +8,17 @@ them through the exact functions `halo teams` and `halo agents` use. Nothing
 is a second source of truth.
 
 ```sh
-halo studio              # starts a local server, opens the browser
-halo studio --no-open    # prints the URL only (SSH, a headless box)
-halo studio --port 8765  # a fixed port instead of a free one
+halo studio                 # starts a local server, opens the browser in the mode you used last
+halo studio --mode roles    # straight into Roles (lineups and bios), --mode org, --mode design
+halo studio --no-open       # prints the URL only (SSH, a headless box)
+halo studio --port 8765     # a fixed port instead of a free one
 ```
 
-`/studio` inside the TUI does the same from a live session.
+Inside the TUI, `/roles`, `/org` and `/design` open Studio straight into that
+mode from the live session; `/studio [roles|org|design]` is the long form and
+`/studio url` prints the URL without opening a browser. A model running in a
+Halo session knows this too: the system prompt names Studio, its three modes
+and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 
 ## What you see
 

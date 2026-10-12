@@ -308,8 +308,15 @@ set / checked by doctor, one behaviour line each) -- a session running
 under the team (`team:` in config.json or `--team <name>`) executes
 those sections through `teams_runtime.py`.
 
-### `/roles [on|off|templates|save <name>|load <name>|new <name>|edit <name>|show <name>|set <name> <model> [effort]]`
-V2c (H15), extended Halo 2.0.2: bare `/roles` shows the resolved role table
+### `/roles [gui|table|on|off|templates|save <name>|load <name>|new <name>|edit <name>|show <name>|set <name> <model> [effort]]`
+Halo 3.0.2.0: in the TUI, bare `/roles` opens **Halo Studio's Roles mode** in
+the browser (lineups and agent bios as an editable graph, see
+[STUDIO.md](STUDIO.md)); `/roles gui` says the same thing anywhere, `/roles
+gui url` prints the URL without opening a browser, and `/roles table` is the
+text table below. Outside the TUI (`halo -p`, Signal) bare `/roles` stays the
+text table.
+
+V2c (H15), extended Halo 2.0.2: the text table: the resolved role table
 (model, effort, endpoint/path type, price per role), pulled from the live
 session's own `agent_runtime.role_table`/`.cli_role_overrides` (the SAME
 table a role-bearing `Agent`/`Task` call actually resolves against) so it
@@ -340,8 +347,15 @@ that resolves this role picks it up. `<name>` must already be a known role
 (a built-in, or a custom name a team.json/loaded template actually defined)
 -- an unknown name errors with the list of known ones. See `docs/ROLES.md`.
 
-### `/org [list|show <name>|new <name>|load <name>|install <name> [--force]|edit <name>|run [<name>] "<goal>"|export <name> [file]|import <file>|resume]`
-Halo 2.0.2 round 2: bare `/org` (and `/org list`) lists saved
+### `/org [gui|list|show <name>|new <name>|load <name>|install <name> [--force]|edit <name>|run [<name>] "<goal>"|export <name> [file]|import <file>|resume]`
+Halo 3.0.2.0: in the TUI, bare `/org` opens **Halo Studio's Org mode** (your
+company in Paperclip: titles, reporting lines, budgets, issues; see
+[STUDIO.md](STUDIO.md) and [PAPERCLIP.md](PAPERCLIP.md)); `/org gui` does the
+same anywhere, `/org gui url` prints the URL only. `/org list` is the text list
+of Halo's own legacy organizations below, which bare `/org` still prints
+outside the TUI.
+
+Halo 2.0.2 round 2: `/org list` (bare `/org` outside the TUI) lists saved
 organizations (`~/.halo/orgs/<name>.json`), each with its own one-line
 README (its `description`); `show` prints the text tree; `new` creates a
 one-position "Orchestrator" starter; `load` re-installs a built-in's
@@ -643,11 +657,20 @@ one onto a normal theme clears it. In the TUI, Tab completes theme names
 (the game themes first). See the Themes section of the
 [handbook](HANDBOOK.md).
 
-### `/studio` `[url]`
-Halo 2.1.0: opens Halo Studio -- your lineups and agent bios as an editable
+### `/studio` `[roles|org|design] [url]`
+Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, in the mode
+you name (`roles`, `org`, `design`) or the one you used last. Bare `/roles`,
+`/org` and `/design` are the short forms. Roles is your lineups and agent bios as an editable
 graph in the browser -- served from this session (it closes with it).
 `/studio url` prints the URL without opening a browser; over SSH, forward
 the port it names and open the same URL. See [STUDIO.md](STUDIO.md).
+
+### `/design` `[url]`
+Halo 3.0.2.0: opens Halo Studio's **Design mode**: artboards (HTML prototypes
+in sandboxed frames, renders from the ArtCraft apps), chat, comment pins,
+knobs, versions, variants, critique, contrast, exports and the handoff. The
+same as `/studio design`; `/design url` prints the URL only. The command
+family on the shell is `halo design` ([DESIGN.md](DESIGN.md)).
 
 ### `/level` `[on|off]`
 Halo 2.0.11: toggles the game themes' level band -- the three-row scene

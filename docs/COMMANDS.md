@@ -2302,6 +2302,8 @@ halo roles template load <name>
 halo roles template edit <name>
 ```
 
+GUI: `halo studio --mode roles` shows the same roles as a graph in the browser (in the TUI, `/roles`).
+
 Halo 2.0.5 round 2b: `on`/`off` is the ONE switch for `roles.enabled`,
 from the CLI (`/roles on|off` in the TUI/print mode, and a "Roles: on /
 off" toggle at the top of the init wizard's "Roles and lineup" step are
@@ -2463,6 +2465,8 @@ halo agents schedule resume <name>
 halo agents schedule rm <name>
 ```
 
+GUI: `halo studio --mode roles` edits bios and lineups as a graph in the browser (in the TUI, `/roles`).
+
 **Halo 2.1.0**: bare `halo agents` lists the bios grouped by where they
 live (project, user, shipped), one per line with its kind and preferred
 model, and ends with `halo agents show <name>`; `halo agents <name>` is the
@@ -2517,6 +2521,8 @@ halo teams export <name> [file]
 halo teams import <file>
 ```
 
+GUI: `halo studio --mode roles` edits lineups as a graph in the browser (in the TUI, `/roles`).
+
 **Halo 2.1.0**: one obvious path. Bare `halo teams` prints the active
 lineup (or "One model for everything: <model>"), its tree exactly as the
 wizard previews it (`role -> agent -> model`, price, warnings, one cost
@@ -2565,11 +2571,14 @@ in user scope, a colliding bio is reported and skipped unless
 ## `halo studio`
 
 ```sh
-halo studio [--port N] [--no-open] [--cwd DIR]
+halo studio [--mode roles|org|design] [--port N] [--no-open] [--cwd DIR]
 ```
 
-Halo 2.1.0: opens Halo Studio, your lineups and agent bios as an editable
-graph in the browser. Starts a loopback-only server on a free port (or
+Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
+into `--mode roles` (lineups and agent bios as an editable graph), `--mode org`
+(the company in Paperclip) or `--mode design` (artboards on your own apps);
+without `--mode` it opens in the mode you used last. The TUI's `/roles`, `/org`
+and `/design` are the same three doors from a live session. It Starts a loopback-only server on a free port (or
 `--port`), prints its URL (the URL carries a per-launch token: open exactly
 that) and opens the browser unless `--no-open`; `--cwd` is the project
 directory for project-scope files (default: the current directory). Ctrl+C
@@ -2615,6 +2624,8 @@ halo design export <slug> [--as html|pdf|png|svg|folder] [--out DIR] [--artboard
 halo design handoff <slug> [--out DIR]             the bundle a Halo or Claude Code session continues from
 halo design doctor [--probe]                       which craft apps are registered; --probe spawns each and checks its tools
 ```
+
+GUI: `halo studio --mode design` opens the same projects as artboards in the browser (in the TUI, `/design`).
 
 Halo 3.0.1.0: Halo Design. A project is a folder of artboards (an
 `index.html` prototype, or a craft app's render plus its source) with

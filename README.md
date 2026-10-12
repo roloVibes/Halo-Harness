@@ -213,9 +213,9 @@ every secret-shaped value stripped. `--copy` puts it on the clipboard.
 
 ## Halo Studio
 
-Halo has a GUI. `halo studio` (or `/studio` in the TUI) starts a loopback-only server
-with a per-launch token, opens your browser, and shows one canvas with three modes.
-`R`, `O` and `D` switch between them; `Ctrl`/`Cmd`+`K` opens the command palette and
+Halo has a GUI. `halo studio` starts a loopback-only server with a per-launch token,
+opens your browser, and shows one canvas with three modes. In the TUI, `/roles`, `/org`
+and `/design` open it straight into that mode; `R`, `O` and `D` switch once you are in; `Ctrl`/`Cmd`+`K` opens the command palette and
 `?` replays the tour. Nothing leaves your machine: no account, no CDN, no fonts
 fetched, no analytics.
 
