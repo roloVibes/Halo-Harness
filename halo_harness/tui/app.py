@@ -160,6 +160,14 @@ def _theme_variant(theme_name: str) -> "Optional[str]":
         return None
 
 
+if sys.platform == "win32":
+    # 3.0.2.0: Textual's Windows input loop drops the ESC of every mouse
+    # report while NumLock/CapsLock is on, and the rest of the report
+    # ("[<35;72;18M") lands in the prompt as text. tui/win32_input.py.
+    from halo_harness.tui.win32_input import install as _install_win32_input
+    _install_win32_input()
+
+
 class BridgeApp(App):
     # styles_brick.tcss (the Mario skin's border) needs the `brick` border
     # type registered by tui/borders.py; without it the stylesheet is skipped.
@@ -2303,6 +2311,12 @@ class BridgeApp(App):
             return
         if self.pending_card is not None:
             return  # the focused card's own Esc binding handles it
+        if not self._turn_running and self.prompt_input.text:
+            # 3.0.2.0: nothing to interrupt -- Esc clears what was typed
+            # (the owner had to hold Delete after a stray paste).
+            self.prompt_input.clear_submitted()
+            self.prompt_input.placeholder = self._current_placeholder_text()
+            return
         self.controller.interrupt()
 
     def copy_to_clipboard(self, text: str, *, confirm: bool = False) -> None:

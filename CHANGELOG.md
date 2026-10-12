@@ -10,6 +10,19 @@ version.
 
 ## [3.0.2.0] - unreleased
 
+### Typing without stray text (Windows)
+
+- **Mouse reports no longer type themselves into the prompt.** Textual's
+  Windows input loop dropped the lead `ESC` of every terminal mouse report
+  whenever NumLock or CapsLock was on (a synthetic record with a zero
+  virtual-key code and any control-state bit was skipped), so `[<35;72;18M`
+  fragments poured into the chat box while the mouse moved. `tui/win32_input.py`
+  installs a monitor whose filter drops a synthetic record only while Alt or
+  Ctrl is held; the prompt also strips any fragment that still lands, on its
+  final `M`, and on paste (`widgets/input_sanitize.py`).
+- **`Ctrl+U` clears the chat box**, and `Esc` clears it when nothing is
+  running (it still interrupts a running turn). Both in `?` and the handbook.
+
 ### The levels, second generation
 
 - **Twice the height, eight frames a second, 16-bit looks.** The level band is
