@@ -7673,10 +7673,16 @@ class Session:
                 self.settings.subagent_model if self.settings is not None else None)
             base = resolve_role_table(provider=self.model_ref.provider, subagent_model=sub)
             old = self._role_table_base or {}
-            extras = ({k: v for k, v in table.items() if k not in old or old[k] != v}
-                      if roles_mode_enabled() else {})
+            # 3.0.1.0 review item 52: the session's additions (a team's
+            # roles merged at build time, a loaded template) accumulate in
+            # their own dict, so `/roles off` then `/roles on` brings them
+            # back instead of losing them with the emptied table.
+            extras = dict(getattr(self, "_role_table_extras", None) or {})
+            extras.update({k: v for k, v in table.items() if k not in old or old[k] != v})
+            self._role_table_extras = extras
             fresh = dict(base)
-            fresh.update(extras)
+            if roles_mode_enabled():
+                fresh.update(extras)
             table.clear()
             table.update(fresh)
             self._role_table_base = dict(base)

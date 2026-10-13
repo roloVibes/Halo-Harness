@@ -13,7 +13,8 @@ import sys
 def _cmd_list(rest: list) -> int:
     from halo_harness.teams_yaml import ensure_builtin_team_templates, list_team_templates
     argparse.ArgumentParser(prog="halo teams list", add_help=True).parse_args(rest)
-    ensure_builtin_team_templates()
+    for line in ensure_builtin_team_templates():
+        print(f"halo: {line}", file=sys.stderr)
     names = list_team_templates()
     if not names:
         print("No lineups found.")

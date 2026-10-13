@@ -528,6 +528,15 @@ def assign_role(role_name: str, model_ref: str) -> "tuple[bool, list[str]]":
         return False, [f"invalid role name {role_name!r} (expected [a-z][a-z0-9_]*)"]
     if not isinstance(model_ref, str) or not model_ref.strip():
         return False, ["a model reference is required"]
+    # 3.0.1.0 review item 125: a value no spawn could resolve here (a
+    # subscription route not accepted, an unknown provider) is never written.
+    if model_ref.strip().lower() not in ("inherit", "parent", "-", "haiku"):
+        model, _effort = role_value_parts(model_ref.strip())
+        try:
+            from halo_harness.model import parse_model_ref
+            parse_model_ref(model)
+        except Exception as e:
+            return False, [f"{model_ref.strip()!r} is not a usable model reference here: {e}"]
     from halo_harness.theme import set_config_value
     set_config_value(f"roles.{role_name}", model_ref.strip())
     return True, []

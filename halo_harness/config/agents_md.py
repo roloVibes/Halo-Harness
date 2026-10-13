@@ -510,6 +510,37 @@ def resolve_agent_model(*, invocation_model: Optional[str] = None, frontmatter_m
            or (subagent_default_model if not role_name else None))
     if not raw or raw == "inherit":
         return parent_ref, parent_profile
+    # 3.0.1.0 review item 125: a ROLE-TABLE value (never an explicit
+    # invocation/CLI/frontmatter one) that does not resolve here -- a
+    # subscription route not accepted, a provider no longer configured --
+    # runs on the session model, the same answer `/roles` shows for it.
+    table_sourced = not (invocation_model or role_cli_model or frontmatter_model) and (
+        (role_table_model and raw == role_table_model)
+        or (not role_name and not env.get("CLAUDE_CODE_SUBAGENT_MODEL")
+            and not (settings.subagent_model if settings is not None else None)
+            and not subagent_default_cli and raw == subagent_default_table))
+    if table_sourced:
+        try:
+            return _resolve_agent_model_ref(raw, parent_ref=parent_ref, parent_profile=parent_profile,
+                                            parent_small_ref=parent_small_ref,
+                                            parent_small_profile=parent_small_profile,
+                                            state_dir=state_dir, routes=routes)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).info(
+                "role %r: role-table value %r does not resolve (%s) -- using the session model",
+                role_name or "subagent_default", raw, e)
+            return parent_ref, parent_profile
+    return _resolve_agent_model_ref(raw, parent_ref=parent_ref, parent_profile=parent_profile,
+                                    parent_small_ref=parent_small_ref, parent_small_profile=parent_small_profile,
+                                    state_dir=state_dir, routes=routes)
+
+
+def _resolve_agent_model_ref(raw: str, *, parent_ref, parent_profile, parent_small_ref, parent_small_profile,
+                             state_dir, routes):
+    """The tail of `resolve_agent_model`: one non-empty, non-`inherit`
+    model value to `(ModelRef, ModelProfile)`."""
+    from halo_harness.model import ModelRef, parse_model_ref, resolve_model_profile
     if raw == "haiku":
         if parent_small_ref is not None:
             profile = parent_small_profile or resolve_model_profile(parent_small_ref, state_dir, routes)

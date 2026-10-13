@@ -16,7 +16,6 @@ from __future__ import annotations
 import datetime
 import json
 import os
-import re
 import shlex
 import sys
 import threading
@@ -67,7 +66,11 @@ def _cron_day_matches(dom_field: str, dow_field: str, dom: int, dow: int) -> boo
     -- `0 0 1 * 1` = the 1st of the month plus every Monday); when only
     one is restricted, that one must match."""
     dom_ok = dom_field == "*" or _cron_field_matches(dom_field, dom)
-    dow_ok = dow_field == "*" or _cron_field_matches(dow_field, dow)
+    # 3.0.1.0 review item 51: Sunday is both 0 and 7 in the
+    # dow field, so a Sunday also matches a field that only spells it 7
+    # (`7`, `5-7`, `1-7`) -- the field text itself is never rewritten.
+    dow_ok = (dow_field == "*" or _cron_field_matches(dow_field, dow)
+              or (dow == 0 and _cron_field_matches(dow_field, 7)))
     if dom_field != "*" and dow_field != "*":
         return dom_ok or dow_ok
     return dom_ok and dow_ok
@@ -80,7 +83,8 @@ def cron_next(expr: str, now: "Optional[datetime.datetime]" = None) -> "Optional
 
     vibes/review.md finding 63: (a) a literal 7 in the dow field (a
     documented Sunday spelling) never matched -- the computed value is
-    always 0-6, so every `7` in the field is normalized to `0` up front;
+    always 0-6, so a Sunday is also checked as 7 (`_cron_day_matches`;
+    rewriting the field text broke ranges such as `5-7`);
     (b) day-of-month and day-of-week are ORed when BOTH are restricted
     (standard cron semantics -- `0 0 1 * 1` fires on the 1st AND on every
     Monday), not ANDed. The old AND made many real schedules impossible,
@@ -90,7 +94,6 @@ def cron_next(expr: str, now: "Optional[datetime.datetime]" = None) -> "Optional
     if len(fields) != 5:
         return None
     dom_field, dow_field = fields[2], fields[4]
-    dow_field = re.sub(r"\d+", lambda m: "0" if m.group(0) == "7" else m.group(0), dow_field)
     base = (now or datetime.datetime.now()).replace(second=0, microsecond=0)
     candidate = base + datetime.timedelta(minutes=1)
     for _ in range(366 * 24 * 60):
