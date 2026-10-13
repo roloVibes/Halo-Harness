@@ -1105,7 +1105,10 @@ release), and an update to a TAG verifies the target release has that
 checksums asset before installing -- a tag without one is refused as a
 broken or foreign release (`--no-verify` skips the check; an unreadable
 release fails open with a warning, never blocking an explicitly
-requested update on a network blip). See
+requested update on a network blip). On the stable channel the target is
+the newest tag, so a plain `halo update` (no `--to`) is checked and
+installed at that tag; the check confirms the release carries a
+`checksums.txt`, it does not compare the installed source against it. See
 "Update" in `docs/INSTALL.md` for the full walkthrough; `/update` inside
 the TUI is the same check with an update-and-restart dialog.
 
@@ -1170,7 +1173,9 @@ tag and the commit they install. The clone path checks the ref out detached and 
 `git+https://github.com/roloVibes/Halo-Harness@<ref>` with that ref's `requirements.lock` as the
 constraints. The uv bootstrap is version-pinned. The README one-liner fetches the script from a tag URL
 (`.../Halo-Harness/v2.0.10/scripts/install-halo.sh`), not from `master`. `--dry-run` prints every command
-(including the `git ls-remote` that picks the tag) without running any.
+(including the `git ls-remote` that picks the tag) without running any. The final PATH step
+(`uv tool update-shell`, which edits a shell startup file) is asked first, skipped by
+`--no-modify-path` / `HALO_NO_MODIFY_PATH=1`, and printed rather than run under `--dry-run`.
 
 ## `halo providers`
 

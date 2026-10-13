@@ -64,8 +64,12 @@ powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/rol
 ```
 
 The installer is fetched from a release tag, never a moving branch, and installs the
-newest tag; `--ref <tag>` (`-Ref` on Windows) pins another. No installer at all:
-`uv tool install git+https://github.com/roloVibes/Halo-Harness` or
+newest tag; `--ref <tag>` (`-Ref` on Windows) pins another. The installer may run
+`uv tool update-shell`, which adds `~/.local/bin` to your shell startup file (the user PATH on
+Windows): it asks first, shows what uv changed, and `--no-modify-path` (`-NoModifyPath`, or
+`HALO_NO_MODIFY_PATH=1`) skips it. No installer at all:
+`uv tool install git+https://github.com/roloVibes/Halo-Harness --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/requirements.lock`
+(the constraints file pins dependency versions; without it the latest versions resolve) or
 `pipx install git+https://github.com/roloVibes/Halo-Harness`. Update with `halo update`
 or `/update` inside the TUI. Offline work boxes, PEP 668 and reproducible installs are
 covered in [docs/INSTALL.md](docs/INSTALL.md).

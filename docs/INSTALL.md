@@ -29,13 +29,22 @@ missing, offers to uninstall an old pre-2.0 install (uv, pipx or pip) so
 it can never run by mistake, clones to `~/Halo-Harness` (or fetches an
 existing clone), checks out the newest `vX.Y.Z` tag (or `--ref <tag|branch|commit>`) and prints the tag and
 commit, runs `uv tool install --reinstall --constraints requirements.lock .` (exact dependency versions;
-the hashes in that file are enforced by `pip install --require-hashes -r requirements.lock`), checks PATH, verifies that
+a constraints file pins versions only -- uv does not compare its hashes on install, CI does with `pip install
+--require-hashes`), checks PATH, verifies that
 `halo` is the installed command, and finishes with `halo doctor`. Options:
-`--yes` (no questions), `--ref <tag>` (default: the newest tag), `--no-clone` (install straight from GitHub at that ref),
+`--yes` (no questions), `--no-modify-path` (see below), `--ref <tag>` (default: the newest tag), `--no-clone` (install straight from GitHub at that ref),
 `--dry-run` (print every command it would run -- installs, uninstalls,
 clone/pull -- without running any of them; never prompts), `HALO_CLONE_
 DIR=/some/dir`. Then `cd ~ && halo init`. The sections below are the same
 steps by hand.
+
+**Shell startup file.** When `~/.local/bin` is not already on your PATH, the
+installer offers to run `uv tool update-shell`, which appends a PATH line to
+your shell startup file (`~/.bashrc`, `~/.zshrc`, ...; on Windows it changes the
+user PATH). It asks first (auto-yes under `--yes`), lets uv print the file it
+changed, and `--dry-run` only prints the command. Pass `--no-modify-path`
+(`-NoModifyPath` on Windows) or set `HALO_NO_MODIFY_PATH=1` to leave your startup
+files alone and add `export PATH="$HOME/.local/bin:$PATH"` yourself.
 
 ### From a clone (recommended -- this is also how you get `git pull` updates)
 
@@ -72,10 +81,12 @@ they're listed first.
 ### Directly from GitHub (no clone at all)
 
 ```sh
-uv tool install git+https://github.com/roloVibes/Halo-Harness
+uv tool install git+https://github.com/roloVibes/Halo-Harness --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/requirements.lock
 ```
 
-Nothing to `cd` into first -- good for a box that only ever needs to RUN
+The constraints file pins the dependency versions to the repository's
+`requirements.lock` (without it, the latest versions resolve; uv does not
+check the lock's hashes). Nothing to `cd` into first -- good for a box that only ever needs to RUN
 `halo`, never to `git pull` it. You cannot update this install with `git
 pull` (there is no local clone); re-run the same command to pick up a new
 release instead.
@@ -141,6 +152,12 @@ uv tool install --reinstall .      # or: pipx install --force -e .
 cd ~                                # done -- back to running `halo` from anywhere
 ```
 
+A clone the installer made sits on a detached tag, where `git pull` cannot
+work ("You are not currently on a branch"). Move it with `git fetch --tags
+--force origin && git checkout --detach <tag>` (or `origin/master`) instead
+of `git pull`, then run the same reinstall -- or just use `halo update`, which
+does exactly that.
+
 The exact same reinstall command as the first install, every time --
 `halo doctor`/`halo init`'s PATH check names this command for your box if
 you ever forget and the installed copy drifts out of date. On Windows,
@@ -159,7 +176,12 @@ it and reports the before/after commit by re-running `halo --version`.
 The manual command, per install kind: `uv tool install --reinstall
 <spec>` (uv tool), `pipx install --force <spec>` (pipx), `python -m pip
 install --upgrade <spec>` (pip), `git pull` then the same reinstall
-(editable checkout), or plain `git pull` (bare checkout on PYTHONPATH).
+(editable checkout), or plain `git pull` (bare checkout on PYTHONPATH). A
+checkout left on a detached tag by the installer uses `git fetch --tags --force
+origin && git checkout --detach <tag>` in place of `git pull`. Every reinstall
+keeps the dependency versions pinned to `requirements.lock` (`--constraints`).
+On the stable channel a plain `halo update` moves a `git+URL@vX.Y.Z` install
+to the newest tag.
 
 **Windows note:** close other `halo` sessions first -- the install can't
 be replaced while any of them still has it open. `/update` inside the

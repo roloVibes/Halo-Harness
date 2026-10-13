@@ -1239,23 +1239,54 @@ def _guess_provider_for_doctor_message(configured: str) -> "Optional[str]":
     return None
 
 
-def _check_default_model() -> str:
-    """New (RECOMMENDATIONS.md P0 #2): `~/.halo/config.json`'s own
-    `"model"` key (written by `halo init` step 3, or a plain
-    `halo config set model ...`) and whether ITS provider actually
-    resolves -- via `model.parse_model_ref`, the SAME parser `headless.
-    build_session` uses, so this line never disagrees with what a real
-    session would actually pick. Not set at all is perfectly normal (the
-    built-in default applies) and reported OK, never WARN."""
+def _effective_default_model(cwd: Optional[Path], settings_flag: Optional[str]) -> "tuple[Optional[str], str]":
+    """`(model, origin)` -- the model a session launched here would start on,
+    in `build_session`'s own order: the last-used model (`/model`), then
+    HALO_MODEL > routes.json `default` > config.json `model` > the
+    Databricks work-env shortcut. `(None, "")` when only the built-in
+    default would apply."""
+    from halo_harness import launch_state
+    from halo_harness.config.paths import bridge_home, env_compat
+    from halo_harness.model import DEFAULT_MODEL_REF, resolve_default_model_raw
+    from halo_harness.providers.config import listing_effective_env, load_routes
+    from halo_harness.theme import get_config_value
+    memory = get_config_value("model_memory", default="cwd")
+    last = launch_state.resolve_last_model(cwd or Path.cwd(), memory=memory if isinstance(memory, str) else "cwd")
+    if last:
+        return str(last), "last-used model"
+    routes = load_routes(bridge_home() / "routes.json")
+    if env_compat("MODEL"):
+        return str(env_compat("MODEL")), "HALO_MODEL"
+    if routes.get("default"):
+        return str(routes["default"]), "routes.json default"
+    configured = get_config_value("model", default=None)
+    if isinstance(configured, str) and configured:
+        return configured, "config.json's model"
+    raw = resolve_default_model_raw(routes, env=listing_effective_env(cwd, settings_flag))
+    return (raw, "work environment") if raw != DEFAULT_MODEL_REF else (None, "")
+
+
+def _check_default_model(cwd: Optional[Path] = None, settings_flag: Optional[str] = None) -> str:
+    """New (RECOMMENDATIONS.md P0 #2): the model a session would start on
+    (the last-used model, HALO_MODEL, routes.json `default`, config.json's
+    `"model"` key written by `halo init` step 3 or `halo config set model
+    ...`) and whether ITS provider actually resolves -- via `model.
+    parse_model_ref`, the SAME parser `headless.build_session` uses, so
+    this line never disagrees with what a real session would actually
+    pick; `cwd`/`settings_flag` are this command's `--cwd`/`--settings`.
+    Nothing set at all is perfectly normal (the built-in default applies)
+    and reported OK, never WARN."""
     from halo_harness.model import DEFAULT_MODEL_REF, parse_model_ref
     from halo_harness.providers.routing import InvalidModelError
-    from halo_harness.theme import get_config_value
-    configured = get_config_value("model", default=None)
-    if not isinstance(configured, str) or not configured:
+    configured, origin = _effective_default_model(cwd, settings_flag)
+    if not configured:
         return (f"{OK} Default model: not set in config.json -- built-in default {DEFAULT_MODEL_REF!r} "
                 f"applies (HALO_MODEL/routes.json still win when set)")
+    from_note = "" if origin == "config.json's model" else f" [from {origin}]"
     try:
-        ref = parse_model_ref(configured)
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.providers.config import load_routes
+        ref = parse_model_ref(configured, load_routes(bridge_home() / "routes.json"))
     except InvalidModelError as e:
         # H15 part 2 addendum 3.1: parse_model_ref now ALSO refuses a
         # syntactically-fine ref whose provider just isn't auto-detected as
@@ -1273,10 +1304,10 @@ def _check_default_model() -> str:
                 from halo_harness.init_providers import init_command_for
                 return _fix(f"{WARN} Default model: {configured} -- {disabled_msg}",
                              cmd=init_command_for(provider_guess))
-        return _fix(f"{WARN} Default model: config.json's model={configured!r} does not resolve ({e})",
+        return _fix(f"{WARN} Default model: {origin}={configured!r} does not resolve ({e})",
                      cmd=f"halo config set model {DEFAULT_MODEL_REF}")
     except Exception as e:
-        return _fix(f"{WARN} Default model: config.json's model={configured!r} does not resolve ({e})",
+        return _fix(f"{WARN} Default model: {origin}={configured!r} does not resolve ({e})",
                      cmd=f"halo config set model {DEFAULT_MODEL_REF}")
     provider_ok, provider_label = _provider_configured(ref)
     if provider_ok:
@@ -1288,7 +1319,7 @@ def _check_default_model() -> str:
             # this SAME message, so doctor must not call it just "OK".
             return _fix(f"{WARN} Default model: {configured} -- {disabled_msg}",
                         cmd=f"halo providers enable {ref.provider}")
-        return f"{OK} Default model: {configured} ({provider_label} configured)"
+        return f"{OK} Default model: {configured} ({provider_label} configured){from_note}"
     # 1.0.1 hotfix 13 (drive-by): this suggestion still said `--preset
     # work`/`--preset home` -- the deprecated alias still works, but every
     # OTHER user-facing spot already moved to `--provider` at item 13.
@@ -1358,7 +1389,7 @@ def _check_state_modes() -> Optional[str]:
     return f"{OK} State dir: tightened {changed} entries under ~/.halo to owner-only (0700 dirs, 0600 files)"
 
 
-def _check_permission_mode() -> str:
+def _check_permission_mode(cwd: Optional[Path] = None, settings_flag: Optional[str] = None) -> str:
     """1.0.1 hotfix 18.3: the effective STARTING permission mode a new
     session would actually launch with, and which layer of the precedence
     chain decided it -- `--dangerously-skip-permissions` >
@@ -1383,7 +1414,7 @@ def _check_permission_mode() -> str:
         mode = normalize_permission_mode(config_mode)
         return f"{OK} Permission mode: {mode} (source: halo config.json)"
     try:
-        settings = resolve_settings(Path.cwd(), trusted=True)
+        settings = resolve_settings(cwd or Path.cwd(), trusted=True, settings_flag=settings_flag)
         settings_mode = settings.permissions_default_mode
     except Exception:
         settings_mode = None
@@ -1860,10 +1891,10 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("mcp_connectors", _check_mcp_connectors()))
     entries.extend(_check_ollama_hosts())
     entries.append(("mlx_extra", _check_mlx_extra()))
-    entries.append(("default_model", _check_default_model()))
+    entries.append(("default_model", _check_default_model(cwd, settings_flag)))
     entries.append(("permission_rules", _check_permission_rules(cwd)))
     entries.append(("state_modes", _check_state_modes()))
-    entries.append(("permission_mode", _check_permission_mode()))
+    entries.append(("permission_mode", _check_permission_mode(cwd, settings_flag)))
     entries.append(("providers_enabled", _check_providers_enabled(cwd, settings_flag)))
     entries.append(("install", _check_install()))
     entries.append(("command_on_path", check_command_on_path()))
