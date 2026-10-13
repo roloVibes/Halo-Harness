@@ -114,8 +114,11 @@ class SignalTransport(SignalCalls):
                 self._connected.set()
                 self._notice("connected")
                 if (self.cfg.get("receive_mode") or "manual") == "manual":
-                    threading.Thread(target=self._subscribe, daemon=True, name="halo-signal-sub").start()
-                self._read_loop(link)
+                    threading.Thread(target=self._subscribe, args=(link,), daemon=True, name="halo-signal-sub").start()
+                try:
+                    self._read_loop(link)
+                except Exception:  # a reply the loop cannot handle drops the link like an EOF (then a respawn)
+                    pass
                 self._drop(link)
                 if time.monotonic() - link.born >= STABLE_S:
                     idx = 0
@@ -141,11 +144,13 @@ class SignalTransport(SignalCalls):
         if not self._stop.is_set():
             self._notice("disconnected")
 
-    def _subscribe(self) -> None:
+    def _subscribe(self, link: Optional[Link] = None) -> None:
         try:
             self.request("subscribeReceive", {})
         except E.SignalError:
             self._notice("subscribe_failed")
+            if link is not None and self._link is link:
+                link.interrupt()  # unsubscribed means deaf: respawn (with the supervisor's backoff) and retry
 
     # ---- reading -----------------------------------------------------------
     def _read_loop(self, link: Link) -> None:
@@ -175,8 +180,11 @@ class SignalTransport(SignalCalls):
                                 "exception": p.get("exception") if isinstance(p.get("exception"), dict) else None,
                                 "account": p.get("account")})
             return
+        rid = msg.get("id")
+        if not isinstance(rid, (int, str)) or isinstance(rid, bool):
+            return  # not one of our request ids (an unhashable id must not reach the dict)
         with self._plock:
-            slot = self._pending.pop(msg.get("id"), None)
+            slot = self._pending.pop(rid, None)
         if slot is not None:
             slot["response"] = msg
             slot["event"].set()
@@ -207,9 +215,11 @@ class SignalTransport(SignalCalls):
             if isinstance(exc, E.IOFailure):
                 link.interrupt()  # the supervisor respawns/reconnects
             elif isinstance(exc, E.RateLimited):
-                self.paused_until = time.monotonic() + exc.retry_after
-                self.captcha_token = exc.token
-                self._notice("rate_limited", retry_after=exc.retry_after, token=exc.token)
+                fresh = self.rate_limited() <= 0 or (exc.token and exc.token != self.captcha_token)
+                self.paused_until = max(self.paused_until, time.monotonic() + exc.retry_after)
+                self.captcha_token = exc.token or self.captcha_token
+                if fresh:  # one notice per pause (or per new captcha token), not one per failed call
+                    self._notice("rate_limited", retry_after=exc.retry_after, token=exc.token)
             raise exc
         return resp.get("result")
 

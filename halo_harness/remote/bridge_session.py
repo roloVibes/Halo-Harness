@@ -9,6 +9,7 @@ import threading
 from typing import Optional
 
 from halo_harness.remote import bridge_cards as cards
+from halo_harness.remote import bridge_outbox as outbox
 from halo_harness.remote.client import default_token_for
 
 
@@ -31,6 +32,7 @@ class PeerRT:
         self.plan: Optional[dict] = None
         self.approval: Optional[dict] = None
         self.md_state: dict = {}
+        self.undelivered: list = []  # card messages whose send failed (bridge_outbox.py)
 
 
 class _Feed(threading.Thread):
@@ -101,6 +103,7 @@ def detach(b, rt) -> None:
         rt.client = None
     rt.entry = None
     rt.permission, rt.question, rt.plan, rt.approval = [], None, None, None
+    outbox.forget(b, rt, "dropped_detached")
     b.transport.typing.stop(rt.aci)
 
 
@@ -159,23 +162,24 @@ def on_feed(b, rt, frame: dict) -> None:
     elif ev == "permission_request":
         rt.permission.append({"id": data.get("id")})
         for part in cards.permission_messages(data):
-            b.say(aci, part)
+            b.say(aci, part, card=True)
     elif ev == "question":
         qs = cards.normalize_questions(data)
         if qs:
             rt.question = {"id": data.get("id"), "questions": qs, "idx": 0, "answers": {}}
-            b.say(aci, cards.question_card(qs[0], 0, len(qs)))
+            b.say(aci, cards.question_card(qs[0], 0, len(qs)), card=True)
     elif ev == "plan_review":
         rt.plan = {"id": data.get("id")}
-        b.say(aci, cards.plan_card(data), markdown=True)
+        b.say(aci, cards.plan_card(data), markdown=True, card=True)
     elif ev == "approval_request":
         rt.approval = {"id": data.get("id")}
-        b.say(aci, cards.approval_card(data))
+        b.say(aci, cards.approval_card(data), card=True)
     elif ev == "error":
         b.say(aci, "Error: " + cards.one_line(data.get("message"), 600))
     elif ev == "turn_done":
         b.transport.typing.stop(aci)
         rt.md_state.clear()
         rt.permission, rt.question, rt.plan, rt.approval = [], None, None, None
+        outbox.forget(b, rt, "dropped_turn_done")
         st = call(b, rt, "status")
         b.say(aci, cards.cost_line(st.get("result") or {}) if st.get("ok") else "Done.")

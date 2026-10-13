@@ -100,14 +100,20 @@ def cli_argv(cfg: dict, *args: str, account: Optional[str] = None, json_out: boo
     return argv + ["-d", str(cfg["data_dir"])] + [str(a) for a in args]
 
 
+def child_env() -> dict:
+    """The environment for signal-cli, java and the other third-party binaries the remote verbs
+    run: this process's environment minus every provider key (2.0.7 finding 19)."""
+    from halo_harness.providers.config import tool_child_env
+    return tool_child_env(dict(os.environ))
+
+
 def run_cli(cfg: dict, *args: str, account: Optional[str] = None, timeout: float = 120.0,
             json_out: bool = False) -> subprocess.CompletedProcess:
     """Run one signal-cli command to completion (stdin closed, output captured)."""
     Path(cfg["data_dir"]).mkdir(parents=True, exist_ok=True)
-    from halo_harness.providers.config import tool_child_env  # finding 19: no provider keys for signal-cli
     return subprocess.run(cli_argv(cfg, *args, account=account, json_out=json_out), capture_output=True, text=True,
                           timeout=timeout, stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace",
-                          env=tool_child_env(dict(os.environ)))
+                          env=child_env())
 
 
 class RpcResult:
@@ -127,12 +133,11 @@ def rpc_once(cfg: dict, method: str, params: dict, *, account: Optional[str] = N
     The parameters travel on the child's stdin, so a PIN or code never appears in `ps`. The child
     is closed as soon as its answer arrives."""
     Path(cfg["data_dir"]).mkdir(parents=True, exist_ok=True)
-    from halo_harness.providers.config import tool_child_env
     argv = binary_words(cfg) + (["-a", account] if account else []) + ["-d", str(cfg["data_dir"]),
                                                                        "jsonRpc", "--receive-mode", "manual"]
     try:
         proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                                text=True, encoding="utf-8", errors="replace", env=tool_child_env(dict(os.environ)))
+                                text=True, encoding="utf-8", errors="replace", env=child_env())
     except OSError as e:
         return RpcResult(False, message=str(e))
     lines: "queue.Queue" = queue.Queue()

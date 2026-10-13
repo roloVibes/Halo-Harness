@@ -284,7 +284,19 @@ bridge respawns or reconnects it with a growing delay (1, 2, 4, 8, 15, 30 s).
 Other signal-cli errors are told apart by their JSON-RPC code, never by their
 text: `-4` an untrusted or changed key (the peer is blocked, below), `-5` a
 server rate limit (sending pauses for `retryAfterSeconds` and the captcha
-token is shown to you as a notice), `-1` a user error, `-6` a rejected captcha.
+token is shown to you as a notice, once per pause; typing indicators and read
+receipts wait out the pause too), `-1` a user error, `-6` a rejected captcha.
+A card (permission, question, plan, approval) whose send fails on a dropped
+link, a timeout or the `-5` pause is kept and sent again after the reconnect
+or before the next message to that phone; a card the session stops waiting on
+first (the turn ended, or it was answered at the keyboard) is dropped, with an
+audit line. If signal-cli cannot subscribe to incoming messages, or its reply
+breaks the reader, the link is restarted the same way.
+
+The bridge answers direct messages only. A message posted in a Signal group
+that contains the Halo number is ignored: it is never a command, a card
+answer or a contact request, and nobody in the group gets a reply. You get one
+notice per group, so you know the number was added to one.
 
 ### How pairing works
 
@@ -299,7 +311,10 @@ one-time code typed on the phone. Nobody is answered before it finishes.
    (Signal: the chat's name, then View safety number).
 3. Approve the request on the computer. The bridge then tells signal-cli to
    trust that key with exactly that safety number, and shows you a six-digit
-   code that is good for ten minutes.
+   code that is good for ten minutes. If signal-cli refuses the trust step it
+   is not repeated: you get a "trust step failed" notice and can approve
+   again. While signal-cli is unreachable the step is retried with a growing
+   delay (up to a minute) for about seven minutes, then reported the same way.
 4. On the phone, send that code as the next message, nothing else. The
    bridge replies once with "Paired. Your signing phrase is on the Halo screen."
    and nothing else: the 32-word signing phrase and the `halo-remote://pair?...`
@@ -416,7 +431,9 @@ While a card is open: permission `1` allow once, `2` allow for the session,
 `3` always allow, `4` deny (`4 <reason>` tells the model why); a question is
 answered with its letter (`b`, or `a,c`) or by typing the answer; a plan
 review with `approve` or `feedback <notes>`; an approval gate with `accept`,
-`edit <instruction>` or `stop`. Replies are plain text: Markdown is flattened,
+`edit <instruction>` or `stop`. A card you already answered at the keyboard
+is closed on the phone too: the next text you send is a prompt (or a steer),
+not an answer to that card. Replies are plain text: Markdown is flattened,
 code keeps its lines and is marked monospace, a message holds at most 1800
 bytes (long output is split on spaces), and an answer longer than four
 messages arrives as one short message plus `reply.txt`. A running turn shows
@@ -512,7 +529,8 @@ transcript instead of opening the dialog:
 | `/remote off` | the kill switch |
 
 The bridge's notices (a changed safety number, a Signal rate limit with its
-captcha token, an expired pairing code, a failed trust step) are shown as TUI
+captcha token, an expired pairing code, a failed trust step, the Halo number
+being in a Signal group) are shown as TUI
 notifications and cleared, whether or not the dialog is open (checked every
 five seconds while `remote.enabled` is on).
 

@@ -58,7 +58,7 @@ def show_pairing(view: dict, ascii_only: bool = False) -> None:
 def _approve(a, pairing: Pairing) -> int:
     rows = pending_rows(pairing)
     target = None
-    if a.approve.isdigit() and 1 <= int(a.approve) <= len(rows):
+    if a.approve.isascii() and a.approve.isdigit() and 1 <= int(a.approve) <= len(rows):
         target = rows[int(a.approve) - 1]["aci"]
     else:
         target, err = C.resolve_prefix([r["aci"] for r in rows], a.approve, "contact request")

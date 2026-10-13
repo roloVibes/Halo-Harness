@@ -12,7 +12,8 @@ default the `time` module). `config` is a dict: `identity_model`, `own_aci`,
 (`signal_config.bridge_settings()` plus `load_signal_config()`).
 
 One thread runs the loop; signal-cli's reader and the per-session feed
-threads only enqueue. An envelope goes through: sender identity (an unknown
+threads only enqueue. A group message is dropped first (never a command,
+never a contact request). An envelope goes through: sender identity (an unknown
 sender is never answered), blocked-peer check, rate limit, long-text
 attachment, signature, rate limit, read receipt, then routing
 (bridge_commands.py). The signature check comes before the rate limit, so
@@ -29,6 +30,7 @@ import time
 from typing import Optional
 
 from halo_harness.remote import bridge_commands as commands
+from halo_harness.remote import bridge_outbox as outbox
 from halo_harness.remote import bridge_session as sess
 from halo_harness.remote.bridge_session import PeerRT
 from halo_harness.remote import bridge_state, render, signing
@@ -36,7 +38,7 @@ from halo_harness.remote.audit import Audit
 from halo_harness.remote.client import ControlClient
 from halo_harness.remote.pairing import Pairing
 from halo_harness.remote.ratelimit import DROP_NOTIFY, OK, RateLimiter
-from halo_harness.remote.signal_errors import RateLimited, SignalError, UntrustedKey
+from halo_harness.remote.signal_errors import SignalError, UntrustedKey
 
 SIGNED_HINT = "Commands must end with ' #<counter>:<mac>' (see docs/REMOTE.md, Signing)."
 NO_SECRET_NOTICE = ("This phone is set to signed commands but has no usable signing secret. "
@@ -69,6 +71,7 @@ class Bridge:
         self.window = int(config.get("stale_window_s") or signing.WINDOW_S)
         self.inbox: "queue.Queue" = queue.Queue()
         self.rts: dict = {}
+        self.groups_seen: set = set()
         self.pulse = pulse  # the CLI's bridge.json writer; tests leave it None
         self._stop_path = bridge_state.stop_path() if pulse is not None else None
 
@@ -133,8 +136,11 @@ class Bridge:
             self.pairing.add_notice("rate_limited", "", f"Signal rate limit: sending paused for {int(wait)} s.{tok}")
             if self.pulse is not None:
                 self.pulse.write("rate-limited", self.clock.time() + wait)
-        elif self.pulse is not None and name in ("connected", "disconnected"):
-            self.pulse.write("connected" if name == "connected" else "starting")
+        elif name in ("connected", "disconnected"):
+            if self.pulse is not None:
+                self.pulse.write("connected" if name == "connected" else "starting")
+            if name == "connected":
+                outbox.flush_all(self)  # cards that failed while the link was down
 
     # ---- sending --------------------------------------------------------------
     def rt(self, aci: str) -> PeerRT:
@@ -142,23 +148,31 @@ class Bridge:
             self.rts[aci] = PeerRT(aci, str(self.cfg.get("verbosity") or "loud"))
         return self.rts[aci]
 
-    def say(self, aci: str, text: str, *, markdown: bool = False, state: Optional[dict] = None) -> None:
+    def say(self, aci: str, text: str, *, markdown: bool = False, state: Optional[dict] = None,
+            card: bool = False) -> None:
+        """Send `text`; a `card` that fails to send is kept and sent again (bridge_outbox.py)."""
         if not text or not text.strip():
             return
         out = render.render_markdown(text, state) if markdown else render.render_plain(text)
-        for i, m in enumerate(out.messages):
-            if m.text.strip():
-                self._send(aci, m.text, out.attachment if i == 0 else None, m.styles)
+        parts = [(m.text, out.attachment if i == 0 else None, m.styles) for i, m in enumerate(out.messages)
+                 if m.text.strip()]
+        if card:
+            outbox.send_card(self, aci, parts)
+            return
+        if aci in self.rts and self.rts[aci].undelivered:
+            outbox.flush(self, self.rts[aci])  # a kept card goes out before newer text
+        for part in parts:
+            self._send(aci, *part)
 
-    def _send(self, aci: str, text: str, attachment=None, styles=None) -> None:
+    def _send(self, aci: str, text: str, attachment=None, styles=None) -> bool:
+        """False when the send failed in a way a later retry can fix (link down, timeout, -5 pause)."""
         try:
             self.transport.send(aci, text, attachment=attachment, styles=styles)
         except UntrustedKey:
             self.pairing.block(aci, self.safe_safety_number(aci))
-        except RateLimited:
-            pass  # the transport's notice already told the owner
-        except SignalError:
-            pass
+        except SignalError:  # RateLimited included: the transport's notice already told the owner
+            return False
+        return True
 
     def safe_safety_number(self, aci: str) -> Optional[str]:
         try:
@@ -175,9 +189,13 @@ class Bridge:
             sent = (env.get("syncMessage") or {}).get("sentMessage")
             if not isinstance(sent, dict) or sent.get("destinationUuid") != self.own_aci:
                 return
+            if sent.get("groupInfo"):
+                return  # the owner's own group posts: never commands
             aci, msg, atts = self.own_aci, sent.get("message"), sent.get("attachments") or []
         elif env.get("dataMessage") is not None:
             dm = env["dataMessage"]
+            if isinstance(dm, dict) and dm.get("groupInfo"):
+                return self.on_group(dm["groupInfo"])  # group chatter is never a command or a contact request
             msg, atts = dm.get("message"), dm.get("attachments") or []
         if not aci:
             return
@@ -191,6 +209,14 @@ class Bridge:
             self.on_stranger(aci, number, msg or "", atts)
         else:
             self.on_peer(peer, number, ts, msg or "", atts)
+
+    def on_group(self, info) -> None:
+        """A group message: dropped unanswered; the owner gets one notice per group per run."""
+        gid = str(info.get("groupId") or "") if isinstance(info, dict) else ""
+        if gid not in self.groups_seen:
+            self.groups_seen.add(gid)
+            self.pairing.add_notice("group_message", "", "The Halo number is in a Signal group; group messages "
+                                    "are ignored (only direct messages from a paired phone are commands).")
 
     def on_untrusted(self, aci: str, number) -> None:
         if self.pairing.is_paired(aci):
@@ -244,13 +270,14 @@ class Bridge:
                 self.refuse_bad(aci, text, v.reason, SIGN_REFUSALS.get(v.reason, SIGNED_HINT), v.counter)
                 return
             counter, shown = v.counter, v.text
-            self.pairing.advance_counter(aci, counter)
         verdict = self.limiter.allow(aci)  # only commands that passed the signature spend the budget
-        if verdict != OK:
+        if verdict != OK:  # a dropped command keeps its counter unused, so resending it works
             self.audit.record(aci, counter, shown, "refused", "rate_limited")
             if verdict == DROP_NOTIFY:
                 self.say(aci, "Too many commands; slow down. Further commands this minute are dropped.")
             return
+        if counter:
+            self.pairing.advance_counter(aci, counter)
         try:
             if ts:
                 self.transport.send_receipt(aci, ts)

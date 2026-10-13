@@ -53,7 +53,7 @@ def cmd_link(argv: list) -> int:
     argv_ = C.cli_argv(cfg, "link", "-n", a.name)
     try:
         proc = subprocess.Popen(argv_, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, encoding="utf-8", errors="replace", bufsize=1)
+                                text=True, encoding="utf-8", errors="replace", bufsize=1, env=C.child_env())
     except OSError as e:
         return C.fail(a.json, "spawn_failed", f"Could not start signal-cli: {e}")
     lines: "queue.Queue" = queue.Queue()
