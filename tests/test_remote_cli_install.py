@@ -100,9 +100,10 @@ def test_daemon_units_per_os_are_written_and_never_enabled(ctx: Ctx):
         ctx.check("systemd: the printed command links and enables", cmd.startswith("systemctl --user link ") and "enable --now" in cmd)
         path, cmd = du.write_unit("macos", argv, {})
         text = path.read_text(encoding="utf-8")
-        ctx.check("launchd: a plist with ProgramArguments and KeepAlive",
+        ctx.check("launchd: a plist with ProgramArguments and KeepAlive on failure only (SuccessfulExit false)",
                   path.name == "dev.halo.remote.plist" and "<key>ProgramArguments</key>" in text and "<string>signal</string>" in text
-                  and "KeepAlive" in text and cmd.startswith("launchctl bootstrap gui/"))
+                  and "<key>KeepAlive</key>\n  <dict>\n    <key>SuccessfulExit</key>\n    <false/>\n  </dict>" in text
+                  and "<key>KeepAlive</key>\n  <true/>" not in text and cmd.startswith("launchctl bootstrap gui/"))
         path, cmd = du.write_unit("windows", ["C:\\Program Files\\halo\\halo.exe", "remote", "signal", "run"], {})
         text = path.read_bytes().decode("utf-16")
         ctx.check("Task Scheduler: XML with a logon trigger and the command",

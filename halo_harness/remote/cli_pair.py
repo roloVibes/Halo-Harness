@@ -12,6 +12,7 @@ from datetime import datetime
 from halo_harness.remote import cli_common as C
 from halo_harness.remote import signing
 from halo_harness.remote.pairing import Pairing, PairingError
+from halo_harness.remote.signal_config import remote_setting
 
 
 def _when(ts) -> str:
@@ -99,7 +100,7 @@ def cmd_pair(argv: list) -> int:
     a, rc = C.parse(p, argv)
     if a is None:
         return rc
-    pairing = Pairing()
+    pairing = Pairing(ttl=remote_setting("remote.pair_code_ttl_s"))  # the code's lifetime is the user's setting
     if a.approve:
         return _approve(a, pairing)
     rows, notices = pending_rows(pairing), pairing.notices()

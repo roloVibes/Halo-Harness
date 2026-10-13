@@ -40,6 +40,8 @@ from halo_harness.remote.signal_typing import TypingKeeper
 BACKOFF = (1.0, 2.0, 4.0, 8.0, 15.0, 30.0)
 STABLE_S = 10.0
 REQUEST_TIMEOUT_S = 30.0
+SUBSCRIBE_TRIES = 4
+PERMANENT_CODES = (-32601, -32602)  # method not found / invalid params: retrying cannot help
 
 
 class SignalTransport(SignalCalls):
@@ -142,10 +144,33 @@ class SignalTransport(SignalCalls):
             self._notice("disconnected")
 
     def _subscribe(self) -> None:
-        try:
-            self.request("subscribeReceive", {})
-        except E.SignalError:
-            self._notice("subscribe_failed")
+        """subscribeReceive for the link just opened, retried on the BACKOFF
+        schedule; a permanent rejection (or the bound) is reported once per
+        link as `subscribe_failed`, and no reply at all drops the link so the
+        supervisor reconnects. A daemon client names the account, since a
+        multi-account daemon refuses the call without it."""
+        link = self._link
+        params = {} if (self.cfg.get("transport") or "stdio") == "stdio" else {"account": self.account}
+        err: Optional[E.SignalError] = None
+        for attempt in range(SUBSCRIBE_TRIES):
+            if self._stop.is_set() or link is None or self._link is not link:
+                return
+            try:
+                self.request("subscribeReceive", params)
+                return
+            except E.SignalError as e:
+                err = e
+            if self._link is not link or not self._connected.is_set():
+                return  # the link went away; the next one subscribes again
+            if isinstance(err, E.IOFailure):  # no reply: an unsubscribed link is worse than a reconnect
+                if str(err.message).startswith("no reply"):
+                    self._notice("subscribe_failed", code=err.code, message=err.message)
+                link.interrupt()
+                return
+            if err.code in PERMANENT_CODES or self._stop.wait(self.backoff[min(attempt, len(self.backoff) - 1)]):
+                break
+        if err is not None and not self._stop.is_set() and self._link is link:
+            self._notice("subscribe_failed", code=err.code, message=err.message)
 
     # ---- reading -----------------------------------------------------------
     def _read_loop(self, link: Link) -> None:

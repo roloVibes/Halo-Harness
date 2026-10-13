@@ -2,13 +2,15 @@
 (Halo 2.0.9 round 4), so `halo remote signal status`, the `/remote` dialog
 and `halo doctor` can say what a bridge running in another process is doing.
 
-    <remote>/bridge.json   {pid, started, state, until, updated}   0600
+    <remote>/bridge.json   {pid, pstart, started, state, until, updated}   0600
     <remote>/stop          its existence asks a running bridge to end
 
 `state` is what the bridge last wrote: starting, connected, rate-limited
 (until `until`, a unix time) or stopped. `read()` turns that into what a
 viewer should show: off (no file), starting, connected, rate-limited or
-stopped; a file whose process is gone reads as stopped.
+stopped; a file whose process is gone reads as stopped. `pstart` is the
+process's own start record (proc_ident.start_token): a PID the system handed
+to another process after a crash or a reboot does not read as this bridge.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness.privateio import write_private_atomic
+from halo_harness.remote import proc_ident
 from halo_harness.remote.signal_config import remote_dir
 
 STATES = ("off", "starting", "connected", "rate-limited", "stopped")
@@ -41,6 +44,7 @@ class BridgeState:
         self.clock = clock
         self.pid = pid if pid is not None else os.getpid()
         self.started = self.clock()
+        self.pstart = proc_ident.start_token(self.pid)
         self.state, self.until = "starting", 0.0
 
     def write(self, state: Optional[str] = None, until: Optional[float] = None) -> None:
@@ -48,7 +52,7 @@ class BridgeState:
             self.state = state
         if until is not None:
             self.until = until
-        row = {"pid": self.pid, "started": self.started, "state": self.state, "until": self.until,
+        row = {"pid": self.pid, "pstart": self.pstart, "started": self.started, "state": self.state, "until": self.until,
                "updated": self.clock()}
         try:
             write_private_atomic(self.path, json.dumps(row, sort_keys=True))
@@ -56,11 +60,26 @@ class BridgeState:
             pass
 
 
-def _alive(pid) -> bool:
+BOOT_SLACK_S = 5.0
+
+
+def _alive(row: dict) -> bool:
+    """The pulse's process is running AND is the bridge that wrote it."""
+    pid = row.get("pid")
     if not isinstance(pid, int) or pid <= 0:
         return False
     from halo_harness.remote.registry import pid_alive
-    return pid_alive(pid)
+    if not pid_alive(pid):
+        return False
+    want = row.get("pstart")
+    if want:
+        have = proc_ident.start_token(pid)
+        if have is not None:
+            return have == want
+    started, boot = row.get("started"), proc_ident.boot_time()
+    if isinstance(started, (int, float)) and boot is not None and started < boot - BOOT_SLACK_S:
+        return False  # written before this boot: the PID now belongs to something else
+    return True
 
 
 def read(path: Optional[Path] = None, now: Optional[float] = None) -> dict:
@@ -72,7 +91,7 @@ def read(path: Optional[Path] = None, now: Optional[float] = None) -> dict:
     if not isinstance(row, dict):
         return {"state": "off", "pid": None, "started": None, "until": 0.0, "running": False}
     pid, state = row.get("pid"), str(row.get("state") or "stopped")
-    alive = _alive(pid) and state in ("starting", "connected", "rate-limited")
+    alive = state in ("starting", "connected", "rate-limited") and _alive(row)
     if state not in STATES or not alive:
         state = "stopped"
     until = float(row.get("until") or 0.0)

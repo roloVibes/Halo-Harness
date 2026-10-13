@@ -82,6 +82,10 @@ def _watch_status(ev) -> None:
     """Keep `mode` (and the key, after /clear or a fork) in the registry."""
     if ev.kind != "status" or _active is None:
         return
+    # A sub-agent's own status events reach the same tap tagged with its
+    # agent_id (session_id "agent-<id>"); they never describe this session.
+    if getattr(ev, "agent_id", None) or str(ev.data.get("session_id") or "").startswith("agent-"):
+        return
     from halo_harness.remote import registry
     act = _active
     sid, mode = ev.data.get("session_id"), ev.data.get("permission_mode")
