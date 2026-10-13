@@ -4,7 +4,36 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-12 ~00:15 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-13 evening CDT (authoritative, read this first)
+
+**THE 3.0.1.0 REVIEW FIX PASS IS INTEGRATED, HEADING FOR 3.0.2.0.** The
+owner's 15-reviewer cloud review of 3.0.1.0 (161 confirmed findings; the
+owner's edited copy removed item 6 and trimmed 1/2/16/25 under the standing
+contract) was worked as fifteen parallel worktrees under `<home>/hh-fix/`
+(branches `fix/A-permissions`, `B-trust`, `C-studio-tools`, `D1-remote-core`,
+`D2-signal`, `E-session-data`, `F-install-update`, `G1-providers-wire`,
+`G2-local-catalog`, `G3-mcp-commands`, `L-agent-loop`, `S-subagents-teams`,
+`T-tui`, `P-design-paperclip`, `M-data-misc`), one Opus/Sonnet worker each,
+then merged in sequence onto branch `integrate` (hand-resolved: D1/D2 in
+bridge.py, bridge_session.py, signal_transport.py; E/C in design/jsonio.py
+and store.py; G1/G2 in learned_params.py). Status: 158 DONE, 1 PARTIAL
+(81: the stable channel cannot hash-compare a uv git build), 1 REJECTED
+(25: does not hold, pinned), plus owner item 162 (every game level keeps the
+full plain status bar, pinned across every theme and variant; the skin
+default is now plain). `plans/briefs/3.0.2-fixpass/SWEEP.md` has the
+per-item table. CHANGELOG `## [3.0.2.0] - unreleased` carries the section.
+Pre-existing on this Windows host: `tests/test_cli_flags.py::
+test_version_flag_short_and_long` fails on untouched master (cp1252
+subprocess decode); baseline run_all on master = 4668 passed / 1 failed /
+14 skipped. Remaining: full three-suite gate on `integrate`, fast-forward
+master, push, CI, `release.py 3.0.2.0`, refresh the install (`uv pip install
+--python <tool venv python> --reinstall-package halo-harness <clone>`),
+remove the hh-fix worktrees. Lesson: never `git stash` in a shared-stash
+worktree farm (two workers swapped trees; recovered from saved patches).
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-12 ~00:15 CDT
 
 **EVERYTHING THROUGH 3.0.1.0 IS RELEASED.** Tags on master: v2.0.11
 (`8ee57be`, the front page), v2.1.0 (`e045330`, Team step + `halo

@@ -10,6 +10,101 @@ version.
 
 ## [3.0.2.0] - unreleased
 
+### The 3.0.1.0 review fix pass: 160 findings closed
+
+An independent 15-reviewer code review of 3.0.1.0 (read-only, 161 confirmed
+findings: 15 high, 75 medium, 71 low) was worked through as fifteen parallel
+rounds, one per area, each pinned by its own `tests/test_review3_*.py`
+modules (about 190 new tests, plus a data-driven probe that runs every
+permission-engine command through all six modes). One finding (a WebFetch
+redirect guard) was dropped under the standing contract, and one (the
+WebFetch cache key) turned out not to hold and is pinned as it stands. Every
+fix is deny/ask-side, plan-mode, acceptEdits or Read-deny integrity;
+allow-side matching, auto mode and bypassPermissions are unchanged.
+
+**Permission engine.**
+- A Bash deny or ask rule now catches a command written on the same line as a heredoc opener (`cat <<EOF; rm -rf x`), in every mode. Plan mode and the read-only check no longer let such a command through.
+- acceptEdits and Read-deny checks now follow where `cd` really goes: a bare `cd`, `cd -- ~`, `cd -P ~`, `pushd ~`, a `cd` inside a `{ }` group, and a trailing `cd`. Each part of a command is judged in the directory it runs in, and an unknowable `cd` is never guessed as the project directory.
+- Deny rules now see through `timeout 5s`, `xargs -n 1`, `xargs -o`, `time -p`, `env -C DIR` and sudo's `-r/-t/-h/-C/-T/-U` options, and match the command inside `sh -c '...'`, `bash -lc`, `eval ...` and `find -exec sh -c '...'`, including in bypassPermissions mode.
+- Commands whose first option is `-c` (`wc -c`, `grep -c`, `gcc -c`, `git -c`) are no longer asked about or denied just because a Bash deny rule exists.
+- A Read deny or ask rule now also covers `grep -eX`/`--regexp=X` forms, `cat -e`/`tail -f`, `$PWD/...`, `{a,b}` brace words, and recursive readers (`grep -r`, `rg`, `cp -r`, `tar c`) whose directory holds the denied file.
+- Parentheses and braces inside quoted strings or `#` comments (`git commit -m "cleanup (rm build dir)"`) no longer trigger a Bash deny rule. A real subshell or `$( )` still does, nested ones included.
+- A tool call whose arguments have the wrong type (`"command": null`) now gets a normal permission decision instead of ending the turn. Hook `if` gates no longer crash on such calls either.
+- In plan mode a PowerShell allow rule no longer lifts the plan-mode ban. PowerShell deny rules now catch commands after cmd.exe's `&` inside `cmd /c "..."`, after a here-string, and launched through `Start-Process`.
+- Permission rules and `--disallowedTools` spelled `Task` or `Task(name)` now govern the Agent tool, the same as rules spelled `Agent`.
+
+**Trust boundaries.**
+- A sub-agent can no longer run in a more permissive mode than the session that started it. Plan mode now always carries over to sub-agents, dontAsk can no longer be escaped, and a team lineup's `permissions.mode` is capped at the parent's mode too. In a folder you have not trusted, a project team template keeps its deny and ask rules, but its mode and allow rules are ignored.
+- An untrusted project or local settings file can no longer set `permissions.defaultMode`, `disableAllHooks` or `plansDirectory`.
+- `connector__<slug>` calls now accept only one of that connector's own tool names in `tool`. The session's whole-tool deny rules (for example `Bash`, `Write`, `mcp__<server>`) now also hold inside the inner claude.
+- `@file` mentions (typed, or inside a command or skill body) and `@server:resource` mentions now honour your deny rules. A denied file or server is noted as not attached, and its content is never read.
+- A `.mcp.json` server approval now holds only in the folder where you gave it. Approvals saved before this update are asked for once more.
+- `halo design doctor --probe`, `halo mcp serve`, `halo remote signal link` and the signal-cli and Java version checks now start their child processes without halo's own provider keys, like every other tool child.
+
+**Studio and tools.**
+- Studio refuses requests whose Host header is not its own loopback address and port, so a DNS-rebinding page can no longer read artboards or the page. A refused request closes its connection, so the next request no longer gets a bogus 400.
+- Studio's artboard route no longer follows a symlinked artboard folder out of the project, and HTML/SVG artboards are served with a sandbox directive of their own. History and comment values read from project files are shown as numbers and escaped.
+- Design artboards whose names start with "v" (vector-logo, video-hero) are now found, versioned and listed. Comment pins, knobs, design.json and system.json are written under a per-project lock with atomic replace, and a damaged file is left as it is instead of being overwritten.
+- A hand-edited lineup or bio opens in Studio with the validator's message instead of a 500. Layout and delete routes validate names.
+- The Paperclip install finishes on its success line (the page stops polling and refreshes), a second click can no longer start a second install, and the installed server survives Studio stopping.
+- `halo studio --stop` asks the running Studio to shut down and never kills an unrelated process that reused the pid in a stale studio.json. A damaged studio.json no longer crashes the wizard's Open Studio buttons.
+- Large foreground Bash output spill files are deleted at session end. Grep without ripgrep now skips hidden files and .gitignore'd paths like ripgrep does. The 50 KB output backstop is enforced in bytes.
+- The parallel read-only pool no longer batches `git remote add/set-url`, `--output`/`--ext-diff` forms, `tail -f` or other flag-dependent forms. Read-only MCP tools running in parallel get their own server timeout instead of a flat 30 s, and Grep gets ripgrep's own limit.
+
+**Remote control and the Signal bridge.**
+- A signed phone command that arrived late and was refused can no longer be sent again later by another device on the same account; a command dropped by the per-minute limit keeps its counter, so resending it a minute later works.
+- A sub-agent finishing its turn no longer closes the permission card the phone is waiting on, and its status updates no longer replace the running session in `halo remote sessions`. A sub-agent's own cards reach the phone marked with its id.
+- After a crash or a reboot, `halo remote signal run` no longer refuses to start because another process got the old bridge's pid, and `off`/`status` no longer report a dead bridge as running. The macOS launchd agent restarts the bridge only after a failure.
+- A card that could not be sent (link dropped, timeout, rate-limit pause) is kept and sent again once the link is back. A card answered at the keyboard is closed on the phone too. When signal-cli refuses to deliver messages the bridge retries, shows `starting` with a notice, and respawns the link.
+- Messages posted in a Signal group that contains the Halo number are ignored, with one notice per group. Typing indicators and read receipts wait out a rate-limit pause, which is announced once.
+- Denying a permission from a remote client with "session" or "always" no longer saves the card's suggested allow rules. Wrong, expired and failed pairing-code attempts are audited. `remote.pair_code_ttl_s` is honoured. Sessions starting at once no longer delete each other's control sockets.
+- A signal-cli download cut off mid-stream is a normal error, a refused trust step fails once instead of retrying forever, a changed safety number gives one notice, and `/attach ²`-style digits no longer crash the handler.
+
+**Sessions, data and the agent loop.**
+- /resume and the Ctrl+P session pick now really switch the live session, between turns only (a pick during a turn is refused with a notification). The transcript is replaced by the resumed conversation, and hooks, the `cc:`/`cx:` process, the tool-results folder, the cost meter and auto-titling all follow the new session.
+- /undo, /redo and /rewind snapshots keep working when your global git config signs commits or runs hooks; a snapshot that cannot be committed is never recorded with a wrong id; /rewind restores files whose names have accents, quotes or backslashes.
+- Writing a credential or config file through a symlink updates the target and keeps the link. Toggling a game theme off keeps config.json private. Saving a role template, organization, agent bio or team template is atomic and reports an unwritable folder instead of crashing.
+- Team schedules and triggers fired from a live session now start with the session's full environment. Schedules whose day-of-week range ends in 7 now fire.
+- When the model enters plan mode itself, the plan-file path reaches it, and in `-p` under `bypassPermissions` or `acceptEdits` the drafted plan is approved and implemented with the original mode restored.
+- A team escalation with `ask: true` in a non-interactive session announces the switch once. A pasted screenshot no longer triggers a false "context truncation suspected" warning. `Agent(org=...)` runs under a team respect `delegation.max_parallel`.
+- With `compactionModel` set, summary calls are billed at that model's prices. When the `--max-turns` wrap-up overflows the context window, Halo compacts and retries it once, else ends with a clear error.
+- On a cc: session a Stop hook that keeps blocking no longer leaves a reply being read after the turn ends. `--resume <file>.jsonl` with an odd name imports under a stable valid id. A failed `Agent(task_id=...)` resume no longer marks the original task as failed.
+- `/roles off` then `/roles on` keeps the active lineup's roles. Per-position org budgets count every dollar under concurrency. `halo teams import` validates every bio first and says when a bundle bio shadows a shipped one. The automatic cc:/cx: scrub rewrites only model keys and keeps CRLF files. An unresolvable role value runs sub-agents on the session model, as `/roles` says.
+
+**Providers.**
+- If the Governor's state directory cannot be written, Halo warns once and limits requests in-process instead of failing every model call. Esc during a Governor cooldown ends the turn as interrupted. The status bar shows the queue position and countdown while waiting. A report that could not get its lock no longer holds a slot for up to 30 minutes.
+- A 4xx error is no longer retried just because its message contains numbers; only 429 and 408 among 4xx statuses are retried. Errors that arrive inside a stream keep their own type and code.
+- `--effort minimal`/`none` on an `oai:` reasoning route sends the route's lowest level. `--effort xhigh` reaches the wire on Claude models that accept it. Claude Haiku 5.5 uses adaptive thinking. The forced-tool repair retry is not sent to Opus 5.5, Sonnet 5.5, Fable 5.1 or Mythos 5.1. These facts live in a per-family table in `model_table.json`.
+- Mistral-style tool ids are unique within a reply and across turns.
+- Two sessions on one Ollama host no longer corrupt `ollama-fit.json` or the capability cache. `hf:mlx/<repo>` no longer reuses a dead server. A malformed .gguf file or Ollama host URL no longer crashes `/local`, `halo local`, `halo doctor` or `halo ollama`. A 400 that echoes the rejected value no longer makes Halo "clamp" to that text.
+- `halo local warm --keep-alive -1` works. Empty model refs (`ol:`, `or:`...) and a malformed alias table give clear errors. `halo balances --refresh` tolerates a string `total_usage`. On Apple Silicon the VRAM budget is the GPU share, not all RAM. Managed local servers are recorded as soon as they start, the registry lock is released around slow shutdowns, and the catalog caches are written atomically.
+- docs/DATABRICKS.md now says GLM/Kimi endpoints try mlflow chat and then invocations; the native anthropic gateway is opt-in.
+
+**MCP and commands.**
+- `halo completion powershell` no longer puts unsafe model IDs into the script; all three shells reject words with quotes, `$()`, backticks or a backslash.
+- An MCP server over HTTP that answers 401 is treated as needing login and the OAuth refresh runs. Tokenized MCP urls no longer appear in `/mcp`, `halo mcp list`, `halo mcp get` or the per-server log. Connect failures at session start land in the per-server log.
+- A malformed `args` string in an MCP entry disables that one server with a reason instead of crashing startup. Two simultaneous calls to a dead server reconnect it once. `halo mcp add/remove -s project` and the `/mcp` edit form write `.mcp.json` atomically.
+- `$ARGUMENTS` and `$0`..`$9` are substituted after an apostrophe in command and skill prose. `halo doctor --mcp deep` no longer sends literal secrets from `args` or non-credential env values to the model.
+
+**The TUI.**
+- A permission, question or plan card that arrives while a picker or dialog is open waits underneath and takes the keys once the dialog closes.
+- Escape sequences inside tool output, model text, diffs and cards are shown as visible symbols instead of reaching the terminal; they can no longer retitle the window, write the clipboard or clear the screen. Pasted text is never altered, and typed SGR literals survive.
+- A background task that fails (/doctor, /resume, /providers and the rest) shows an error notice instead of closing Halo. Esc interrupts a turn started from your phone. `!cmd` keeps pending image attachments.
+- The Studio address stays on screen until replaced. Back from a Summary "Change:" step returns to the Summary. The model picker filters about 30 times faster on large catalogs. Picking a new model for a role keeps its escalation setting. Turning Org mode on or off no longer freezes the wizard while Paperclip is slow. The lineup editor reports a bad Instances value. /roles edit and /org edit refuse to open a file that exists but cannot be loaded.
+- **Every game level** (all DOOM, Metroid, Mario, Beetlejuice and Alien variants) keeps the full ordinary status bar: model, context, cost and balance, mode, effort, agents, directory, phase, permission, jobs, remote, governor, offline and statusline. Only the colour changes, no setting or variant swaps the bar for panel boxes, and the level band draws no made-up counters. Pinned by a test over every theme and variant.
+
+**Install, update and CI.**
+- `halo update` works on the install the one-liner makes (a clone on a detached tag), and a tag-pinned checkout is treated as the stable channel; a plain `halo update` on the stable channel moves to the newest tag and checks that release's checksums asset. Four-part tags count as releases.
+- Update reinstall commands keep the dependency versions pinned to requirements.lock; the installer and install docs no longer claim the lock's hashes are verified on install (CI does). The installers ask before running `uv tool update-shell` and accept `--no-modify-path` / `HALO_NO_MODIFY_PATH=1`.
+- The proxy launch only rewrites ~/.claude/settings.json when its parsed content changed, keeping mode, symlink and formatting. A corrupt config.json prints one `halo: ...` line (exit 2) from every command. `halo preflight` canaries the lane a session would really start on. `/update` no longer re-sends the original prompt. `halo doctor` honours --cwd/--settings. `halo update` no longer refuses because an unrelated command mentions "halo". The release script's credential lookup cannot hang on a prompt.
+- CI workflow: read-only token permissions, actions pinned to commit SHAs, every install from a hash-locked file.
+
+**Design, Paperclip, redaction and the rest.**
+- The Paperclip client goes through the same network helper as every other HTTP client (no token on cross-host redirects, offline mode honoured). A heartbeat with a very long issue description no longer crashes; the prompt travels on stdin. A design turn whose child hangs is killed at the turn timeout. `halo paperclip pull` writes back to the lineup it loaded.
+- `halo design export --as folder` reruns into an existing folder; the exported index page escapes titles; `halo design sync` resolves stylesheet links correctly and no longer skips a folder whose own path contains `build` or `dist`; contrast checks judge WCAG on the true ratio.
+- `halo export --sanitize` keeps object and list values under secret-named keys, and redacts `Cookie`, `Set-Cookie`, `Proxy-Authorization` and `Private-Token`. Bug reports collect secret values from lowercase and camelCase env keys.
+- `halo work-matrix apply` treats a 429, 408, 5xx or timeout as "retry the probe", never as a permanent override. `--ax-screen-reader` answers approval requests. `/improve` counts a correction only on a whole cue word. The privacy scan honours the allowlist for machine-name terms. `halo gym propose --apply` leaves no temp directory behind.
+
 ### Org mode is a switch, off by default
 
 - **Who orchestrates what, said plainly.** Your session (Roles) spawns agents
