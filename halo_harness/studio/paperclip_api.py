@@ -16,7 +16,8 @@ from pathlib import Path
 
 from halo_harness.paperclip.client import DEFAULT_URL, Paperclip, PaperclipError, load_config
 
-_INSTALL: dict = {"running": False, "log": [], "code": None}
+_INSTALL: dict = {"running": False, "log": [], "code": None, "gen": 0}
+_LOCK = threading.Lock()
 
 
 def _client(state_dir) -> Paperclip:
@@ -47,41 +48,55 @@ def status(req):
     return 200, out
 
 
-def _run_install() -> None:
-    _INSTALL.update(running=True, log=[], code=None)
+def _run_install(gen: "int | None" = None) -> None:
+    gen = _INSTALL["gen"] if gen is None else gen
     npx = shutil.which("npx") or "npx"
     cmd = [npx, "--yes", "--registry", "https://registry.npmjs.org", "paperclipai@latest", "onboard", "--yes"]
     _INSTALL["log"].append("$ " + " ".join(cmd))
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
-                                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+                                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0), start_new_session=(sys.platform != "win32"))
+        _INSTALL["log"].append("(the installed server runs on its own: it keeps running when Studio stops)")
         for line in proc.stdout:  # type: ignore[union-attr]
             _INSTALL["log"].append(line.rstrip("\n"))
             if len(_INSTALL["log"]) > 400:
                 del _INSTALL["log"][:100]
-            if "Server startup recovery complete" in line or "startup recovery complete" in line:
-                _INSTALL["code"] = 0  # the server keeps running in the foreground: that is the success line
+            if "startup recovery complete" in line and _INSTALL["gen"] == gen:
+                # the server keeps running in the foreground: that line is the success; the install is done, keep draining
+                _INSTALL.update(code=0, running=False)
         proc.wait()
-        if _INSTALL["code"] is None:
+        if _INSTALL["code"] is None and _INSTALL["gen"] == gen:
             _INSTALL["code"] = proc.returncode
     except OSError as e:
         _INSTALL["log"].append(f"cannot run npx: {e}")
         _INSTALL["code"] = 1
     finally:
-        _INSTALL["running"] = False
+        if _INSTALL["gen"] == gen:
+            _INSTALL["running"] = False
 
 
 def install(req):
     if req.method == "GET":
         return 200, {"running": _INSTALL["running"], "code": _INSTALL["code"], "log": _INSTALL["log"][-200:]}
-    if _INSTALL["running"]:
-        return 409, {"error": "an install is already running"}
+    with _LOCK:  # check-and-set in one step: two POSTs can never start two npx children
+        if _INSTALL["running"]:
+            return 409, {"error": "an install is already running"}
+        _INSTALL.update(running=True, gen=_INSTALL["gen"] + 1)
+        gen = _INSTALL["gen"]
+
+    def release(status, body):
+        with _LOCK:
+            if _INSTALL["gen"] == gen:
+                _INSTALL["running"] = False
+        return status, body
+
     if shutil.which("node") is None:
-        return 422, {"error": "Paperclip needs Node.js 24 or newer; install Node first", "problems": ["node not found on PATH"]}
+        return release(422, {"error": "Paperclip needs Node.js 24 or newer; install Node first", "problems": ["node not found on PATH"]})
     client = _client(req.state_dir)
     if client.reachable():  # a reachable instance (local or linked) means there is nothing to install
-        return 409, {"error": f"Paperclip is already running at {client.base_url}"}
-    threading.Thread(target=_run_install, name="halo-paperclip-install", daemon=True).start()
+        return release(409, {"error": f"Paperclip is already running at {client.base_url}"})
+    _INSTALL.update(log=[], code=None)  # a refused POST above leaves the last install's log and code alone
+    threading.Thread(target=_run_install, args=(gen,), name="halo-paperclip-install", daemon=True).start()
     return 202, {"running": True}
 
 

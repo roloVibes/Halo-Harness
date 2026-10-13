@@ -147,10 +147,13 @@ The slider under a card swaps the frame to `v<n>/...`; at an older version,
 `GET /design-files/<slug>/<artboard>/<file>` (and `.../v<n>/<file>`), loopback
 only and confined to that artboard's folder (`..` is a 404). They carry their
 own `Content-Security-Policy: default-src 'self' 'unsafe-inline' data: blob:`
-and `nosniff`, not Studio's, because a prototype has inline CSS and JS. The
-page embeds them as `<iframe sandbox="allow-scripts">` without
+and `nosniff`, not Studio's, because a prototype has inline CSS and JS. HTML
+and SVG responses add `; sandbox allow-scripts` to that policy, so the
+document gets an opaque origin even when it is framed without a sandbox
+attribute or opened on its own; renders (PNG, PDF, MP4) keep the plain policy.
+The page embeds them as `<iframe sandbox="allow-scripts">` without
 `allow-same-origin`, so a prototype runs but cannot reach Studio's API or its
-token.
+token. An artboard folder that is a symlink is never served.
 
 **Plus more.**
 

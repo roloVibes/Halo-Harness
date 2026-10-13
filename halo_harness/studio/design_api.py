@@ -14,7 +14,7 @@ from halo_harness.design import controls as C
 from halo_harness.design.store import Project
 from halo_harness.studio import design_api_more as more
 from halo_harness.studio import design_api_turns as turns
-from halo_harness.studio.design_api_io import _artboard, _bad, _project, export, handoff, put_system, restore, sync, versions
+from halo_harness.studio.design_api_io import _artboard, _bad, _project, clean_comments, clean_history, export, handoff, put_system, restore, sync, versions
 
 RUNNER = None
 REGISTERED = None
@@ -43,8 +43,8 @@ def get_project(req):
     if err:
         return err
     p.discover_artboards()
-    return 200, {"slug": p.slug, "meta": p.meta(), "artboards": p.artboards(), "comments": p.comments(), "system": p.system(),
-                 "history": p.history(), "live_turn": turns.live_turn(p.slug)}
+    return 200, {"slug": p.slug, "meta": p.meta(), "artboards": p.artboards(), "comments": clean_comments(p.comments()), "system": p.system(),
+                 "history": clean_history(p.history()), "live_turn": turns.live_turn(p.slug)}
 
 
 def run(req):

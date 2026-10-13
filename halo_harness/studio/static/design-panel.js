@@ -63,7 +63,7 @@
     if (d.turn) d.paintEvents();
     body.appendChild(h(`<div class="section-head"><span>History</span><span class="hint">${hist.length}</span></div>`));
     if (!hist.length) body.appendChild(h(`<p class="hint">Every turn lands here with its cost and the versions it made.</p>`));
-    hist.slice().reverse().slice(0, 40).forEach((x) => body.appendChild(h(`<div class="d-hist" title="${esc(x.prompt)}"><div class="prose">${esc((x.prompt || "").slice(0, 160))}</div><small>${esc(x.ts || "")} · ${x.tool_calls != null ? `${x.tool_calls} tool calls · ${Math.round(Number(x.elapsed) || 0)} s · ` : ""}${money(x.cost)} · ${esc((x.versions || []).map((v) => v[0] + " v" + v[1]).join(", ") || "no change")}${x.code ? " · exit " + esc(x.code) : ""}</small></div>`)));
+    hist.slice().reverse().slice(0, 40).forEach((x) => body.appendChild(h(`<div class="d-hist" title="${esc(x.prompt)}"><div class="prose">${esc((x.prompt || "").slice(0, 160))}</div><small>${esc(x.ts || "")} · ${x.tool_calls != null ? `${esc(x.tool_calls)} tool calls · ${Math.round(Number(x.elapsed) || 0)} s · ` : ""}${money(x.cost)} · ${esc((x.versions || []).map((v) => v[0] + " v" + v[1]).join(", ") || "no change")}${x.code ? " · exit " + esc(x.code) : ""}</small></div>`)));
   };
 
   d.commentsTab = (body) => {
@@ -76,7 +76,7 @@
       const mine = open.filter((c) => c.artboard === a.id); if (!mine.length) return;
       body.appendChild(h(`<div class="d-group"><b>${esc(a.title || a.id)}</b> <small>${esc(a.id)} · v${a.latest}</small></div>`));
       mine.forEach((c, i) => {
-        const row = h(`<div class="d-comment"><span class="d-pin sm${c.source === "critique" ? " crit" : ""}">${i + 1}</span><div>${c.source === "critique" ? `<span class="badge crit">critique</span> ` : ""}<div class="prose">${esc(c.text)}</div><small>${Math.round(c.x)}%, ${Math.round(c.y)}%${c.path ? " · " + esc(c.path) : ""} · on v${c.version || "?"}</small></div><button class="btn ghost">Resolve</button></div>`);
+        const row = h(`<div class="d-comment"><span class="d-pin sm${c.source === "critique" ? " crit" : ""}">${i + 1}</span><div>${c.source === "critique" ? `<span class="badge crit">critique</span> ` : ""}<div class="prose">${esc(c.text)}</div><small>${Math.round(Number(c.x) || 0)}%, ${Math.round(Number(c.y) || 0)}%${c.path ? " · " + esc(c.path) : ""} · on v${esc(c.version || "?")}</small></div><button class="btn ghost">Resolve</button></div>`);
         row.querySelector("button").addEventListener("click", async () => { await d.call("POST", "comments/resolve", { ids: [c.id] }); await d.reload(true); });
         row.addEventListener("mouseenter", () => d.centerOn(a.id)); body.appendChild(row);
       });
