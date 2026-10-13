@@ -10,9 +10,11 @@ regardless so people don't get banned." Three layers:
    tests/test_subscription_defaults.py).
 2. Copies already on disk are rewritten: `scrub_files` walks the user and
    project `agents/` and `teams/` folders and swaps every `cc:`/`cx:` ref
-   for its OpenRouter equivalent (`equivalent_ref`), keeping the file
-   otherwise byte-for-byte. It runs once per process whenever lineups are
-   listed or resolved, and by hand as `halo subscriptions scrub`.
+   in a MODEL-VALUED key for its OpenRouter equivalent (`equivalent_ref`),
+   keeping the file otherwise byte-for-byte (prose, URLs and line endings
+   included). It runs once per process whenever lineups are listed or
+   resolved (the list surfaces print one line per file it rewrote), and by
+   hand as `halo subscriptions scrub`.
 3. The resolvers never carry one: `resolve_agent_bio` and
    `resolve_role_table` map a `cc:`/`cx:` ref the same way at resolve time
    (a bio someone hand-wrote after the scrub), whether or not the routes
@@ -27,7 +29,15 @@ from pathlib import Path
 from typing import Optional
 
 SUB_PREFIXES = ("cc:", "cx:")
-_SUB_REF_RE = re.compile(r"\b(cc|cx):([A-Za-z0-9][\w.\-]*)")
+# A ref never ends in "." (a sentence's full stop is not part of the id).
+_SUB_REF_RE = re.compile(r"(?<![\w./:-])(cc|cx):([A-Za-z0-9](?:[\w.\-]*[\w\-])?)")
+# The YAML keys whose value is a model ref (or a flow mapping/list of them):
+# models.preference/fallback/escalation, escalation.to, org positions'
+# model, and an assignment's own `models:` written inline.
+MODEL_VALUE_KEYS = frozenset({"preference", "fallback", "escalation", "to", "model", "models"})
+_KEY_LINE_RE = re.compile(r"^(\s*)(-\s+)?([\w.\-]+|\"[^\"]*\"|'[^']*')\s*:(\s|$)(.*)$")
+_SEQ_LINE_RE = re.compile(r"^(\s*)-\s+(.*)$")
+_BLOCK_SCALAR_RE = re.compile(r"^[|>][0-9+\-]*\s*(#.*)?$")
 _CLAUDE_ID_RE = re.compile(r"^claude-([a-z]+)-(\d+)(?:-(\d+))?(?:-\d{8})?$")
 _FAMILY_LATEST = {"opus": "anthropic/claude-opus-5.5", "sonnet": "anthropic/claude-sonnet-5.5",
                   "haiku": "anthropic/claude-haiku-5.5", "fable": "anthropic/claude-fable-5.1"}
@@ -90,8 +100,11 @@ def scrub_model_block(models: dict, *, where: str = "") -> list:
 
 
 def scrub_text(text: str) -> "tuple[str, list]":
-    """Every `cc:`/`cx:` token in a YAML file swapped for its equivalent;
-    one that has none is left for the resolver to drop."""
+    """Every `cc:`/`cx:` ref in a model-valued key of a bio or lineup YAML
+    (see `MODEL_VALUE_KEYS`, plus a block list under one) swapped for its
+    equivalent; descriptions, prompts, block scalars and comments are never
+    touched, and every line keeps its own line ending. A ref with no
+    equivalent is left for the resolver to drop."""
     changes = []
 
     def swap(m):
@@ -101,7 +114,50 @@ def scrub_text(text: str) -> "tuple[str, list]":
             changes.append(f"{ref} -> {new}")
             return new
         return ref
-    return _SUB_REF_RE.sub(swap, text), changes
+
+    def swap_value(value: str) -> str:
+        body, hash_, comment = value.partition(" #")
+        return _SUB_REF_RE.sub(swap, body) + hash_ + comment
+
+    out = []
+    stack: "list[tuple[int, str]]" = []   # (indent, key) of the open mapping keys
+    block_indent: "Optional[int]" = None  # inside a block scalar deeper than this
+    for raw in re.split(r"(?<=\n)", text):
+        line = raw.rstrip("\r\n")
+        ending = raw[len(line):]
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip(" "))
+        if block_indent is not None:
+            if not stripped or indent > block_indent:
+                out.append(raw)
+                continue
+            block_indent = None
+        if not stripped or stripped.startswith("#"):
+            out.append(raw)
+            continue
+        km = _KEY_LINE_RE.match(line)
+        if km:
+            key_indent = indent + len(km.group(2) or "")
+            while stack and stack[-1][0] >= key_indent:
+                stack.pop()
+            key = km.group(3).strip("\"'")
+            stack.append((key_indent, key))
+            value = km.group(5)
+            if _BLOCK_SCALAR_RE.match(value.strip()):
+                block_indent = key_indent
+            elif key in MODEL_VALUE_KEYS and value.strip():
+                head = line[:len(line) - len(value)]
+                line = head + swap_value(value)
+            out.append(line + ending)
+            continue
+        sm = _SEQ_LINE_RE.match(line)
+        if sm:
+            while stack and stack[-1][0] > indent:
+                stack.pop()
+            if stack and stack[-1][1] in MODEL_VALUE_KEYS:
+                line = line[:len(line) - len(sm.group(2))] + swap_value(sm.group(2))
+        out.append(line + ending)
+    return "".join(out), changes
 
 
 def _dirs(state_dir, cwd) -> list:
@@ -126,14 +182,14 @@ def scrub_files(*, state_dir=None, cwd=None) -> list:
         if not d.is_dir():
             continue
         for path in sorted(d.glob("*.yaml")):
-            try:
-                text = path.read_text(encoding="utf-8")
-            except OSError:
+            try:   # bytes in, bytes out: CRLF files stay CRLF (review item 124)
+                text = path.read_bytes().decode("utf-8")
+            except (OSError, UnicodeDecodeError):
                 continue
             new, changes = scrub_text(text)
             if changes and new != text:
                 try:
-                    path.write_text(new, encoding="utf-8", newline="")
+                    path.write_bytes(new.encode("utf-8"))
                     done.append((path, changes))
                 except OSError:
                     continue
@@ -154,3 +210,8 @@ def scrub_once(*, state_dir=None, cwd=None) -> list:
         return scrub_files(state_dir=state_dir, cwd=cwd)
     except Exception:
         return []
+
+
+def scrub_report_lines(done: list) -> "list[str]":
+    """One line per rewritten file, for a surface to show the user."""
+    return [f"rewrote subscription model refs in {path}: " + ", ".join(changes) for path, changes in done]

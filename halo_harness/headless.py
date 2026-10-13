@@ -1791,6 +1791,9 @@ def run_print_mode(
     _request_id = None
     if session_id is None and (continue_ or resume is not None):
         _request_id, _request_err = agent_sessions.resolve_session_request(cwd, continue_, resume)
+        from halo_harness.safe_id import is_safe_session_id
+        if _request_id is not None and not is_safe_session_id(_request_id):   # review item 50
+            _request_err, _request_id = f"{_request_id!r} is not a valid session id", None
         if _request_id is None and _request_err:
             _flag = "--continue" if continue_ else "--resume"
             print(f"halo: {_flag}: {_request_err}", file=sys.stderr)
