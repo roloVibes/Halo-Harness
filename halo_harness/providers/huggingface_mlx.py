@@ -85,6 +85,26 @@ def consent_sentence(repo_id: str, *, env: Optional[dict] = None) -> str:
             f"`halo local stop {repo_id}`.")
 
 
+def _live_registered_server(repo_id: str, state_dir) -> "Optional[ResolvedLocalServer]":
+    """The registry's server for `repo_id`, only when it answers `/v1/models`.
+    A row that does not (a reboot or crash left it behind) is dropped so the
+    caller starts a fresh server instead of reusing a dead port. The served
+    ids are not compared with `repo_id`: `mlx_lm.server` lists what is in the
+    Hub cache, not necessarily the one model it was started with, and a live
+    server must not be orphaned over its id list."""
+    from halo_harness.providers.huggingface_local_probe import probe_models_endpoint
+    from halo_harness.providers.huggingface_local_resolve import resolve_managed_server_by_model
+    from halo_harness.providers.local_runtime import drop_stale_registry_entry
+    candidate = resolve_managed_server_by_model(repo_id, state_dir=state_dir)
+    if candidate is None:
+        return None
+    info = probe_models_endpoint(candidate.base_url, name=candidate.name, api_key=candidate.api_key)
+    if info is not None:
+        return candidate
+    drop_stale_registry_entry(state_dir, repo_id, candidate.base_url)
+    return None
+
+
 def ensure_mlx_server(repo_id: str, *, confirm: "Optional[Callable[[str], bool]]" = None, state_dir=None,
                        keep: bool = False, port: "Optional[int]" = None, platform_name: Optional[str] = None,
                        machine: Optional[str] = None, binary_argv: "Optional[list]" = None,
@@ -97,7 +117,7 @@ def ensure_mlx_server(repo_id: str, *, confirm: "Optional[Callable[[str], bool]]
        else attempted (brief item 1).
     2. Already running (an EXACT `model == repo_id` match in the round 5c
        registry, `huggingface_local_resolve.resolve_managed_server_by_
-       model`) -> reused as-is, no consent asked again, no second process
+       model`, that also answers `/v1/models` -- a dead row is dropped) -> reused as-is, no consent asked again, no second process
        started (brief item 2: "reused when already running").
     3. Otherwise: prints `consent_sentence`, asks `confirm` (default: a
        bare `lambda _q: True` -- every real call site auto-proceeds and
@@ -124,8 +144,7 @@ def ensure_mlx_server(repo_id: str, *, confirm: "Optional[Callable[[str], bool]]
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
-    from halo_harness.providers.huggingface_local_resolve import resolve_managed_server_by_model
-    existing = resolve_managed_server_by_model(repo_id, state_dir=state_dir)
+    existing = _live_registered_server(repo_id, state_dir)
     if existing is not None:
         return existing, [f"Reusing the running mlx_lm server for {repo_id} on {existing.base_url}."]
     confirm = confirm or (lambda _q: True)
