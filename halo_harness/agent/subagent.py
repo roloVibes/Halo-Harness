@@ -2977,7 +2977,13 @@ def _resume_task_claimed(runtime: AgentRuntime, task_id: str, tool_input: dict, 
         # own `model:` only went bad after this task was created) used to
         # raise straight out of here.
         _, failed_meta_path = _child_log_paths(parent, agent_id)
-        _write_meta(failed_meta_path, {"status": "completed", "is_error": True, "finished": time.time()})
+        # 3.0.1.0 review item 123: the original run's own outcome stays as
+        # it was; the failed resume is recorded beside it. Only a task with
+        # no meta.json at all gets a failed status written.
+        _attempt = {"last_resume_error": f"{type(e).__name__}: {e}", "last_resume_at": time.time()}
+        if not failed_meta_path.exists():
+            _attempt.update({"status": "completed", "is_error": True, "finished": time.time()})
+        _write_meta(failed_meta_path, _attempt)
         return [], ToolResult(f"Could not resume sub-agent for task_id {task_id!r}: {type(e).__name__}: {e}",
                                is_error=True)
     # H9 whole-tree review finding 13: see run_agent_call's own comment on

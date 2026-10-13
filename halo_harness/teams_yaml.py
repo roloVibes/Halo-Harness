@@ -443,6 +443,9 @@ def resolve_role_table(template: dict, *, cwd=None, state_dir=None) -> "tuple[di
             notes.append(f"{key}: agent bio {agent_name!r} not found -- left out of the role table")
             continue
         bio_models = bio.get("models") or {}
+        if not isinstance(bio_models, dict):   # review item 54: a hand-edited bio never crashes this
+            notes.append(f"{key}: agent bio {agent_name!r} has a \"models\" value that is not a mapping -- ignored")
+            bio_models = {}
         override = entry.get("models") or {}
         model_ref = override.get("preference") or bio_models.get("preference") \
             or override.get("fallback") or bio_models.get("fallback")
@@ -501,7 +504,8 @@ def resolve_org(template: dict, *, cwd=None, state_dir=None) -> "tuple[Optional[
             bio = resolve_agent_bio(agent_name, cwd=cwd, state_dir=state_dir)
             if bio is not None:
                 bio_models = bio.get("models") or {}
-                model_ref = bio_models.get("preference") or bio_models.get("fallback")
+                if isinstance(bio_models, dict):
+                    model_ref = bio_models.get("preference") or bio_models.get("fallback")
             if model_ref is None:
                 notes.append(f"{title}: agent {agent_name!r} has no resolvable model -- "
                              f"position saved with no model of its own")
@@ -639,10 +643,13 @@ def migrate_legacy_role_table(role_table: dict, *, cwd=None, state_dir=None) -> 
     return "migrated", notes
 
 
-def ensure_builtin_team_templates(*, state_dir=None) -> None:
+def ensure_builtin_team_templates(*, state_dir=None) -> "list[str]":
+    """Copies the shipped lineups on first use and scrubs cc:/cx: model refs
+    from the copies on disk (once per process). Returns one line per file
+    the scrub rewrote, for the list surfaces to show (review item 124)."""
     _ensure_builtin_team_templates(state_dir=state_dir)
-    from halo_harness.subscription_scrub import scrub_once
-    scrub_once(state_dir=state_dir)   # 3.0.2.0: copies on disk lose their cc:/cx: refs, once per process
+    from halo_harness.subscription_scrub import scrub_once, scrub_report_lines
+    return scrub_report_lines(scrub_once(state_dir=state_dir))
 
 
 def _ensure_builtin_team_templates(*, state_dir=None) -> None:
@@ -718,7 +725,10 @@ def member_system_context_addition(agent_name: str, *, team_name: "Optional[str]
     parts: "list[str]" = []
     if bio:
         context = bio.get("context") or {}
-        for rel in context.get("files") or []:
+        if not isinstance(context, dict):   # review item 54: a hand-edited bio adds nothing, never crashes
+            context = {}
+        files = context.get("files") or []
+        for rel in (files if isinstance(files, list) else []):
             try:
                 from pathlib import Path
                 base = Path(cwd) if cwd is not None else Path.cwd()

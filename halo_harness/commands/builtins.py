@@ -881,13 +881,14 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
     <name>`/`/teams show <name>` prints the full resolved role table."""
     from halo_harness.teams_yaml import ensure_builtin_team_templates, list_team_templates, resolve_team_template
     from halo_harness.theme import get_config_value
+    scrub_lines: "list[str]" = []
     try:
-        ensure_builtin_team_templates()
+        scrub_lines = ensure_builtin_team_templates() or []
         names = list_team_templates(cwd=facade.cwd)
     except Exception:
         names = []
     if not names:
-        return "No lineups found."
+        return "\n".join([*scrub_lines, "No lineups found."])
     active = get_config_value("team", default=None)
     # Halo 2.0.5 round 5: `/teams show <name>` -- the SAME resolved print
     # `halo teams show` gives (assignments, role table, org, enforcement
@@ -898,7 +899,7 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
         return _teams_verb(verb, (parts[1].strip() if len(parts) > 1 else ""), facade)
     if not parts:
         from halo_harness.teams_cli_views import overview_lines
-        return "\n".join(overview_lines(cwd=facade.cwd))
+        return "\n".join([*scrub_lines, *overview_lines(cwd=facade.cwd)])
     if parts and parts[0].lower() == "show":
         from halo_harness.teams_yaml import enforcement_lines, resolve_role_table, resolve_org
         name = parts[1].strip() if len(parts) > 1 else active
@@ -923,7 +924,7 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
             lines.append("  enforcement (Halo 2.0.5: the live loop runs these):")
             lines.extend(enforced)
         return "\n".join(lines)
-    lines = ["Team templates (`halo teams show <name>`/`halo teams use <name>`):"]
+    lines = [*scrub_lines, "Team templates (`halo teams show <name>`/`halo teams use <name>`):"]
     for name in names:
         template = resolve_team_template(name, cwd=facade.cwd)
         marker = " [active]" if name == active else ""
