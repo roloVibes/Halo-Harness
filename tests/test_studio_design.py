@@ -196,7 +196,7 @@ def test_raw_artboard_file_route_and_its_sandbox(ctx: Ctx):
         status, h, body = s.raw(f"/design-files/{slug}/hero/index.html")
         csp = h.get("Content-Security-Policy", "")
         ctx.check("index.html is served as HTML with the sandbox CSP and nosniff", status == 200 and b"--space:16px" in body and h["Content-Type"].startswith("text/html")
-                  and csp == "default-src 'self' 'unsafe-inline' data: blob:" and h.get("X-Content-Type-Options") == "nosniff")
+                  and csp == "default-src 'self' 'unsafe-inline' data: blob:; sandbox allow-scripts" and h.get("X-Content-Type-Options") == "nosniff")
         status, h, body = s.raw(f"/design-files/{slug}/hero/v1/index.html")
         ctx.check("a version's file is served too", status == 200 and b"--space:16px" in body)
         ctx.check("a path with .. is a 404", s.raw(f"/design-files/{slug}/hero/../../design.json")[0] == 404 and s.raw(f"/design-files/{slug}/hero/%2e%2e/design.json")[0] == 404)

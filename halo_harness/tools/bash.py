@@ -8,12 +8,13 @@ non-zero exit; process-GROUP kill on timeout/abort.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import uuid
 from pathlib import Path
 
 from halo_harness.config.paths import from_posix, git_bash, to_posix
-from halo_harness.tools._proc import run_streamed
+from halo_harness.tools._proc import run_streamed, track_orphan_spill
 from halo_harness.tools.base import Tool, ToolContext, ToolResult
 
 DEFAULT_TIMEOUT_MS = 120_000
@@ -116,8 +117,24 @@ _FIND_MUTATING_OR_EXECUTING_FLAGS = frozenset({
     "-exec", "-execdir", "-ok", "-okdir", "-delete",
     "-fprint", "-fprint0", "-fprintf", "-fls",
 })
+# Pool scheduling only (never a permission): which flags keep an otherwise
+# whitelisted command out of the concurrent read-only pool, because they
+# follow a file forever, write a file, or run a program.
+_BASH_FOLLOW_FLAG_RE = re.compile(r"^(?:-[A-Za-z0-9]*[fF][A-Za-z0-9]*|--follow(?:=.*)?|--retry)$")
+_BASH_UNSAFE_FLAGS = {
+    "tail": _BASH_FOLLOW_FLAG_RE,
+    "head": _BASH_FOLLOW_FLAG_RE,
+    "date": re.compile(r"^(?:-s.*|--set(?:=.*)?)$"),
+    "tree": re.compile(r"^(?:-o.*|--output(?:=.*)?)$"),
+    "rg": re.compile(r"^--pre(?:-glob)?(?:=.*)?$"),
+    "file": re.compile(r"^(?:-C|--compile)$"),
+    "hostname": re.compile(r"^(?:-[bF].*|--boot|--file(?:=.*)?)$"),
+    "xxd": re.compile(r"^-[A-Za-z]*r[A-Za-z]*$"),
+}
+# `git log --ext-diff` runs a configured program; --output/-O write a file or run a pager.
+_BASH_GIT_UNSAFE_FLAG_RE = re.compile(r"^(?:--output(?:=.*)?|-O.*|--open-files-in-pager(?:=.*)?|--ext-diff)$")
 _BASH_GIT_READ_ONLY_SUBCOMMANDS = frozenset({
-    "status", "log", "diff", "show", "remote", "stash list",
+    "status", "log", "diff", "show", "stash list",
     "blame", "shortlog", "describe", "rev-parse", "ls-files", "ls-remote",
     "config --get", "config --list", "grep", "cat-file", "count-objects",
 })
@@ -151,10 +168,17 @@ def bash_command_is_read_only(command) -> bool:
     if argv0.lower().endswith(".exe"):
         argv0 = argv0[:-4]  # a Windows path's binary, same whitelist entry
     if argv0 in _BASH_READ_ONLY_BINARIES:
-        return True
+        screen = _BASH_UNSAFE_FLAGS.get(argv0)
+        if screen is not None and any(screen.match(w) for w in words[1:]):
+            return False  # tail -f and friends: follows forever, writes a file or runs a program
+        return argv0 != "hostname" or all(w.startswith("-") for w in words[1:])  # `hostname NAME` sets it
     if argv0 == "find":
         return not any(w in _FIND_MUTATING_OR_EXECUTING_FLAGS for w in words[1:])
     if argv0 == "git" and len(words) > 1:
+        if any(_BASH_GIT_UNSAFE_FLAG_RE.match(w) for w in words[2:]):
+            return False
+        if words[1] == "remote":  # list forms only: add / set-url / remove / rename mutate the repo config
+            return len(words) == 2 or words[2] in ("-v", "--verbose", "show")
         rest = " ".join(words[1:])
         for sub in _BASH_GIT_READ_ONLY_SUBCOMMANDS:
             if rest == sub or rest.startswith(sub + " "):
@@ -359,6 +383,8 @@ class BashTool(Tool):
             # and the work keeps running in the background.
             steer_cut=getattr(ctx, "steer_cut", None),
             on_steer_handoff=(_on_timeout if job_registry is not None else None),
+            # a foreground command's capped-output spill file is deleted at session end
+            on_spill=(job_registry.track_spill if job_registry is not None else track_orphan_spill),
         )
 
         if exit_code is None and not timed_out and not aborted:

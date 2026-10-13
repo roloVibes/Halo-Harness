@@ -5,8 +5,10 @@ Security model: binds 127.0.0.1 on a random port (or --port); a per-launch
 token goes into the URL fragment the browser opens with and must come back
 as `Authorization: Bearer` on every /api call; a request from a non-loopback
 peer, or one carrying an Origin that is not this server's own, is refused
-before any handler runs. Nothing is written outside ~/.halo (and a project's
-.halo/ when the page chooses project scope). Stdlib only, like bridge.py.
+before any handler runs, and so is one whose Host header is not this
+server's own loopback address and port (a DNS-rebinding page). Nothing is
+written outside ~/.halo (and a project's .halo/ when the page chooses project
+scope). Stdlib only, like bridge.py.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ import json
 import mimetypes
 import os
 import secrets
+import signal
 import socket
 import sys
 import threading
@@ -60,6 +63,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
+        if status >= 400:  # a refused request may leave its body unread: do not parse it as the next request line
+            self.close_connection = True
+            self.send_header("Connection", "close")
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -73,10 +79,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
         port = self.server.server_address[1]
         return {f"http://127.0.0.1:{port}", f"http://localhost:{port}", f"http://[::1]:{port}"}
 
-    def _guard(self) -> bool:
-        """Loopback peer, own Origin (when one is sent), the launch token."""
+    def _local_only(self) -> bool:
+        """Loopback peer and a Host header that names this server (127.0.0.1, localhost or [::1] on its own port)."""
         if self.client_address[0] not in LOOPBACK:
             self._json(403, {"error": "studio only answers the local machine"})
+            return False
+        host = (self.headers.get("Host") or "").strip().lower()
+        name, _, port = host.rpartition(":") if not host.endswith("]") else (host, "", "")
+        if name not in ("127.0.0.1", "localhost", "[::1]") or port != str(self.server.server_address[1]):
+            self._json(403, {"error": "studio only answers its own address: open the URL `halo studio` printed"})
+            return False
+        return True
+
+    def _guard(self) -> bool:
+        """Loopback peer and Host, own Origin (when one is sent), the launch token."""
+        if not self._local_only():
             return False
         origin = self.headers.get("Origin")
         if origin and origin not in self._own_origin():
@@ -105,6 +122,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         parts = urlsplit(self.path)
         path = unquote(parts.path)[len("/api/"):]
+        if method == "POST" and path == "shutdown":  # `halo studio --stop`: end serve_forever so studio.json is removed
+            self._json(200, {"ok": True})
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+            return
         query = {k: v[-1] for k, v in parse_qs(parts.query).items()}
         try:
             body = self._body() if method in ("POST", "PUT", "PATCH") else {}
@@ -119,8 +140,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._json(status, obj)
 
     def _static(self) -> None:
-        if self.client_address[0] not in LOOPBACK:
-            self._json(403, {"error": "studio only answers the local machine"})
+        if not self._local_only():
             return
         rel = unquote(urlsplit(self.path).path).lstrip("/") or "index.html"
         target = (STATIC / rel).resolve()
@@ -135,12 +155,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def _design_file(self) -> None:
         """3.0.1.0 D3: a design artboard's raw file for the page's sandboxed iframes (its own CSP, loopback only)."""
         from halo_harness.studio import design_files
-        if self.client_address[0] not in LOOPBACK:
-            self._json(403, {"error": "studio only answers the local machine"})
+        if not self._local_only():
             return
         parts = urlsplit(self.path)
         status, body, ctype = design_files.read(self.server.state_dir, parts.path, {k: v[-1] for k, v in parse_qs(parts.query).items()})
-        self._send(status, body, ctype, {"Content-Security-Policy": design_files.CSP})
+        self._send(status, body, ctype, {"Content-Security-Policy": design_files.csp_for(ctype)})
 
     def do_GET(self):
         if self.path.startswith("/design-files/"):
@@ -255,6 +274,12 @@ def cmd_studio(argv: list) -> int:
             threading.Timer(0.3, lambda: webbrowser.open(url)).start()
         except Exception:
             pass
+    def _on_term(*_a):
+        raise KeyboardInterrupt
+    try:
+        signal.signal(signal.SIGTERM, _on_term)  # a plain `kill` also reaches the finally below
+    except (ValueError, OSError):
+        pass
     try:
         server.serve_forever()
     except KeyboardInterrupt:
