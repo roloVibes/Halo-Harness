@@ -39,7 +39,9 @@ from halo_harness.remote import signing
 from halo_harness.remote.pairing_files import (CODE_DIGITS, CODE_TTL_S, MAX_ATTEMPTS, MAX_NOTICES, MAX_PENDING,
                                                Approval, PairingError, Redeem, _digits, _edit, _hash, _read)
 from halo_harness.remote.signal_config import remote_dir
-from halo_harness.remote.signal_errors import SignalError, UserFailure
+from halo_harness.remote.signal_errors import IOFailure, SignalError
+
+TRUST_TRIES = 12  # attempts of one queued trust step over a failing link (backoff 2 s .. 60 s)
 
 
 class Pairing:
@@ -52,6 +54,7 @@ class Pairing:
         self.transport, self.clock, self.ttl = transport, clock, ttl
         self.trust_needed = trust_needed  # False in Note-to-Self mode (nothing to trust)
         self._mu = threading.RLock()
+        self._retry: dict = {}  # queued trust step -> (failed attempts, next attempt at)
 
     def peers(self) -> dict:
         return dict(_read(self.peers_path, {}).get("peers", {}))
@@ -182,14 +185,22 @@ class Pairing:
         with self._mu:
             ops = list(_read(self.pending_path, {}).get("ops", []))
             for op in ops:
+                key = (op.get("kind"), op.get("aci"), op.get("safety_number"))
+                if self._retry.get(key, (0, 0.0))[1] > self.clock():
+                    continue  # backing off after a network failure
                 try:
                     tr.trust(op["aci"], _digits(op["safety_number"]))
-                except UserFailure as e:
-                    self._finish(op, ok=False, why=e.message or "trust refused")
-                except SignalError:
-                    continue  # network trouble: keep it queued, try on the next tick
+                except IOFailure as e:  # network trouble: retry with backoff, then give up with a notice
+                    n = self._retry.get(key, (0, 0.0))[0] + 1
+                    if n < TRUST_TRIES:
+                        self._retry[key] = (n, self.clock() + min(60.0, 2.0 ** n))
+                        continue
+                    self._finish(op, ok=False, why=f"signal-cli unreachable ({e.message or 'I/O error'})")
+                except SignalError as e:  # refused (-1) or any other error: retrying would not change it
+                    self._finish(op, ok=False, why=e.message or f"trust refused (code {e.code})")
                 else:
                     self._finish(op, ok=True)
+                self._retry.pop(key, None)
                 done.append(op)
         return done
 
@@ -223,7 +234,7 @@ class Pairing:
                 self.add_notice("code_expired", aci, "pairing code expired; the contact request was dropped")
                 return Redeem("expired", None, b"")
             given = (text or "").strip()
-            if not (len(given) == CODE_DIGITS and given.isdigit()):
+            if not (len(given) == CODE_DIGITS and given.isascii() and given.isdigit()):
                 return Redeem("ignored", None, b"")  # chatter (or a message redelivered after trust) is not a guess
             if not hmac.compare_digest(_hash(given, req["salt"]), req["code_hash"]):
                 attempts = int(req.get("attempts", 0)) + 1
@@ -249,8 +260,11 @@ class Pairing:
                 p = d.setdefault("peers", {}).get(aci)
                 if p is None:
                     return False
+                was = p.get("blocked_until_reverified"), p.get("pending_safety_number")
                 p["blocked_until_reverified"] = True
                 p["pending_safety_number"] = new_safety_number or p.get("pending_safety_number")
-            self.add_notice("identity_changed", aci,
-                            "the safety number changed; commands are refused until `reverify` confirms the new one")
+                news = not was[0] or p["pending_safety_number"] != was[1]
+            if news:  # one notice per change, not one per undecryptable message
+                self.add_notice("identity_changed", aci,
+                                "the safety number changed; commands are refused until `reverify` confirms the new one")
             return True
