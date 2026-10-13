@@ -18,6 +18,7 @@ cycle with the modules that call it.
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import logging
 import re
@@ -89,7 +90,19 @@ _ALNUM9_RE = re.compile(r"[^a-zA-Z0-9]")
 _KIMI_NATIVE_ID_RE = re.compile(r"^functions\.[^:]+:\d+$")
 
 
-def normalize_tool_id(raw_id: Optional[str], *, name: str, tool_id_format: str, counter) -> str:
+def _alnum9_from(text: str) -> str:
+    """9 base-36 characters derived from a hash of `text` (the full id)."""
+    n = int(hashlib.sha1(text.encode("utf-8")).hexdigest(), 16)
+    digits = "0123456789abcdefghijklmnopqrstuvwxyz"
+    out = []
+    for _ in range(9):
+        n, r = divmod(n, 36)
+        out.append(digits[r])
+    return "".join(out)
+
+
+def normalize_tool_id(raw_id: Optional[str], *, name: str, tool_id_format: str, counter,
+                      seen: "Optional[set]" = None) -> str:
     """Decide the id a `tool_use` block is actually emitted (and later
     logged/replayed) with. `counter` is a single-element list `[n]` the
     caller owns (one per stream) -- mutated in place so successive calls in
@@ -99,9 +112,14 @@ def normalize_tool_id(raw_id: Optional[str], *, name: str, tool_id_format: str, 
       is (finding 1's core fix -- Kimi/MiniMax ids must round-trip
       byte-for-byte; a synthesized id drops Kimi's tool-loop pass rate to
       20% and MiniMax rejects one outright with error 2013).
-    - "alnum9" (Mistral): `[^a-zA-Z0-9]` stripped, truncated/padded to
-      exactly 9 chars -- Mistral's tokenizer-level id constraint, applied
-      identically whether the raw id already looked mistral-shaped or not.
+    - "alnum9" (Mistral): exactly 9 `[a-zA-Z0-9]` chars -- Mistral's
+      tokenizer-level id constraint. An id that is already 9 alphanumerics
+      (Mistral's own) or shorter after stripping is kept (zero-padded); a
+      longer one is HASHED to 9 base-36 chars, never prefix-truncated
+      (host-minted `chatcmpl-tool-<hex>` ids share their first 9 chars, so
+      a prefix made every call the same id). `seen` (one set per stream)
+      makes the result unique within the stream: a collision is re-hashed
+      with a counter until free. Ids must be unique, the constraint says.
     - "kimi_functions_idx": Kimi's own native shape is already
       `functions.{name}:{idx}` on the wire -- left untouched when it
       already matches; only an id that DOESN'T (empty, or one carried over
@@ -122,7 +140,14 @@ def normalize_tool_id(raw_id: Optional[str], *, name: str, tool_id_format: str, 
         return ""
     if tool_id_format == "alnum9":
         base = _ALNUM9_RE.sub("", raw_id or "")
-        return (base[:9] or "0").ljust(9, "0")
+        out = _alnum9_from(raw_id) if len(base) > 9 else (base or "0").ljust(9, "0")
+        if seen is not None:
+            n = 1
+            while out in seen:
+                out = _alnum9_from(f"{raw_id or ''}#{n}")
+                n += 1
+            seen.add(out)
+        return out
     if tool_id_format == "kimi_functions_idx":
         if raw_id and _KIMI_NATIVE_ID_RE.match(raw_id):
             return raw_id

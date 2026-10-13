@@ -379,6 +379,10 @@ def test_chat_route_candidates_glm_kimi_default_mlflow(ctx: Ctx):
         ctx.check(f"{name} default is mlflow, got {[c.key for c in cands]}", cands[0].key == "mlflow")
         ctx.check(f"{name} mlflow model value is foundation_model_name", cands[0].model_value == fm)
         ctx.check(f"{name} ends with invocations", cands[-1].key == "invocations")
+        # review3 item 132: the documented order, in full -- the anthropic
+        # gateway (listed by this endpoint too) is never a fallback here.
+        ctx.check(f"{name} order is exactly mlflow, invocations, got {[c.key for c in cands]}",
+                  [c.key for c in cands] == ["mlflow", "invocations"])
 
 
 @test

@@ -1692,8 +1692,8 @@ needs a real bug report to pin down.
 `modelSettings.<id>.effortLevel` when neither of those was given, maps
 through `providers/profiles.py::map_effort`/`providers/request.py::
 map_effort_anthropic` to whatever field the resolved profile actually
-needs: `output_config.effort` (adaptive-thinking Opus/Sonnet 4.6+/Fable/
-Mythos) or a `thinking.budget_tokens` value (4096/10000/24000/32000/32000
+needs: `output_config.effort` (adaptive-thinking Opus/Sonnet 4.6+, Haiku
+5+, Fable/Mythos) or a `thinking.budget_tokens` value (4096/10000/24000/32000/32000
 for low/medium/high/xhigh/max, older Claude models) on the native Anthropic
 dialect, `reasoning.effort` on OpenRouter, or `reasoning_effort` on a
 Databricks chat endpoint. A profile with `reasoning_no_disable: true`
@@ -1704,7 +1704,7 @@ own default instead of ever sending `disabled`.
 **The "high" default (1.0.1 hotfix 19, scoped by the H14c fixpass finding
 11).** When NOTHING more specific is set anywhere (no `--effort`, no
 `/effort`, no settings `effortLevel`) AND the model is ADAPTIVE-capable
-(Opus/Fable/Mythos always, Sonnet 4.6+), the route now defaults to `high`
+(Fable/Mythos always, Opus/Sonnet 4.6+, Haiku 5+), the route now defaults to `high`
 rather than omitting the field. A NON-adaptive Anthropic-family model
 (Haiku 4.5, Sonnet 4.5 or older) keeps the old "omit -> provider default"
 behavior instead -- that family has no `{type: "adaptive"}` mode at all,
@@ -1722,7 +1722,8 @@ reaches the wire):
 
 | Route family | Accepted levels |
 |---|---|
-| Anthropic Messages (`cc:`, `ant:`, Databricks Claude foundation) | `low`, `medium`, `high`, `max` (no `xhigh` -- that endpoint schema rejects it outright) |
+| Anthropic Messages (`cc:`, `ant:`, Databricks Claude foundation), Opus/Sonnet 4.7+, Haiku 5.5+, Fable, Mythos | `low`, `medium`, `high`, `xhigh`, `max` |
+| Anthropic Messages, Opus/Sonnet 4.6 and older, Haiku 4.5 | `low`, `medium`, `high`, `max` (no `xhigh` -- that generation's endpoint schema rejects it outright) |
 | Databricks GLM (`databricks-glm-*`) | `low`, `high`, `max` ONLY -- narrower than the general chat-dialect set below; see "Databricks GLM" just under this table |
 | OpenRouter / Databricks chat, every other family (DeepSeek, Kimi, Qwen, ...) | `low`, `medium`, `high`, `xhigh` (no `max` as of the H14c fixpass finding 13 -- that's an Anthropic-only level; a chat route 400'd on it before this) |
 | OpenRouter GLM 5.x (`z-ai/glm-5`, `-5.2`, `-5.3`, `-5.3-flash`) | the full seven Z.ai-direct values: `max`, `high`, `low`, `medium`, `minimal`, `none`, `xhigh` -- OpenRouter forwards them to Z.ai as-is |
@@ -1798,10 +1799,13 @@ seeded GLM row's temperature is already 1.0; and GLM never receives
 layer's text-nudge fallback is used instead, same as DeepSeek-thinking/Qwen).
 
 `xhigh` on a route that doesn't list it becomes `max` ONLY when that
-route's own accepted set includes `max` (Anthropic, or a GLM-5.3-style
-tabled exception) -- that route's own strongest level; any other
-unrecognized value (including a now-rejected `max` on an ordinary chat
-route) falls back to the route's own default. This is what fixed a live
+route's own accepted set includes `max` (Anthropic 4.6-generation models,
+or a GLM-5.3-style tabled exception) -- that route's own strongest level.
+A request for LESS reasoning (`none`, `minimal`, or `low` on a route
+without it) becomes the route's WEAKEST accepted level -- `oai:o3
+--effort minimal` sends `low`, never the route's strongest-level default.
+Any other unrecognized value (including a now-rejected `max` on an
+ordinary chat route) falls back to the route's own default. This is what fixed a live
 400 on `dbx:databricks-claude-opus-4-6`: the user's own
 `~/.claude/settings.json` `effortLevel: "xhigh"` (valid for real Claude
 Code's own routes) reached `output_config.effort` verbatim and was
@@ -1825,7 +1829,15 @@ major version `4` (a literal-dot `claude-sonnet-4.6` was already read
 correctly). Thinking is dropped entirely on the one-shot
 `tool_choice: "any"` repair retry (the leak-parser fallback) -- Anthropic
 rejects extended thinking together with any forced (non-`"auto"`)
-`tool_choice`.
+`tool_choice`. Claude Opus 5.5, Sonnet 5.5, Fable 5.1 and Mythos 5.1
+reject a forced `tool_choice` outright (400), so the repair retry is not
+issued on those models; the reply stands as the model sent it.
+
+Which Claude model does what (adaptive thinking, `xhigh`, forced
+`tool_choice`) is DATA: `model_table.json`'s `anthropic_model_capabilities`
+lists, per family, the version each behaviour starts at, read through
+`providers/anthropic_caps.py`. A new Claude generation is a one-line edit
+there.
 
 **`/effort`** (1.0.1 hotfix 20): shows the effective level, its source
 (`flag`/`settings`/`default`/`session`), and this route's own accepted

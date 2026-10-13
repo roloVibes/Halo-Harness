@@ -1,4 +1,33 @@
 {
+  "anthropic_model_capabilities": {
+    "comment": "Claude Messages API behaviour by family, as the version each behaviour starts at (read by providers/anthropic_caps.py; \"0\" = every version). adaptive_thinking_from: thinking {type: adaptive} + output_config.effort, older ids take thinking.budget_tokens (Haiku 5.5 rejects budget_tokens with a 400; Haiku 4.5 still takes it). effort_xhigh_from: output_config.effort accepts xhigh (Opus 4.6 rejects it, live 400 on Databricks). forced_tool_choice_rejected_from: tool_choice {type: any}/{type: tool} returns 400 (Opus 5.5, Sonnet 5.5, Fable 5.1, Mythos 5.1; Opus 5, Sonnet 5, Fable 5 still accept it). Source: the Claude API reference's thinking/effort and tool_choice tables (2026-10-06). A new generation is a one-line edit here, never a code change.",
+    "families": {
+      "opus": {
+        "adaptive_thinking_from": "4.6",
+        "effort_xhigh_from": "4.7",
+        "forced_tool_choice_rejected_from": "5.5"
+      },
+      "sonnet": {
+        "adaptive_thinking_from": "4.6",
+        "effort_xhigh_from": "4.7",
+        "forced_tool_choice_rejected_from": "5.5"
+      },
+      "haiku": {
+        "adaptive_thinking_from": "5.0",
+        "effort_xhigh_from": "5.5"
+      },
+      "fable": {
+        "adaptive_thinking_from": "0",
+        "effort_xhigh_from": "0",
+        "forced_tool_choice_rejected_from": "5.1"
+      },
+      "mythos": {
+        "adaptive_thinking_from": "0",
+        "effort_xhigh_from": "0",
+        "forced_tool_choice_rejected_from": "5.1"
+      }
+    }
+  },
   "decision_only_name_patterns": {
     "patterns": ["openjev", "jev-judge"],
     "comment": "Halo 2.0.2 round 5 (Qwen-at-work brief, item 1): case-insensitive substrings of a BARE upstream model id that mark it decision-only (a judge/verdict endpoint -- yes/no, choice, or scoring answers, never tools) even with NO model_table.json row of its own. The owner's work-VM \"openjev qwen\" bugreport matched Databricks' own `databricks-openjev-qwen35-4b` (see its row below, and docs/harness/QWEN-RESEARCH.md). A wrong guess here is a ONE-LINE fix -- edit this list, never providers/profiles.py's code -- see providers.profiles.decision_only_info, the single reader of this key."

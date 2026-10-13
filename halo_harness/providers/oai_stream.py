@@ -76,6 +76,7 @@ class OpenAIStreamToAnthropic:
         # fresh per-stream counter that always restarted at 0 collided with
         # ids minted several turns ago (see that function's own docstring).
         self._kimi_counter_box = [kimi_tool_id_start]
+        self._alnum9_seen: set = set()  # one stream's alnum9 ids, kept unique
         self.finish_reason = None
         self.usage = {}
         self.done = False
@@ -271,7 +272,14 @@ class OpenAIStreamToAnthropic:
             msg = err.get("message") if isinstance(err, dict) else None
             if not isinstance(msg, str):
                 msg = err if isinstance(err, str) else _coerce_text(err)
-            return {"kind": "error", "events": [self.error_event(msg)]}
+            # the chunk's own code/type decide the error type (a 402/400
+            # mid-stream is not an overload and must not be retried)
+            from halo_harness.providers.errors import stream_error_fields
+            fields = stream_error_fields(err)
+            ev = self.error_event(msg, fields["type"])
+            if fields.get("status") is not None:
+                ev["error"]["status"] = fields["status"]
+            return {"kind": "error", "events": [ev]}
 
         events = []
         # review finding 32: shared across all three reasoning shapes
@@ -462,6 +470,7 @@ class OpenAIStreamToAnthropic:
             tool_id = normalize_tool_id(
                 buf.get("raw_id"), name=buf["name"] or "unknown",
                 tool_id_format=self.tool_id_format, counter=self._kimi_counter_box,
+                seen=self._alnum9_seen,
             ) or f"toolu_{uuid.uuid4().hex[:24]}"
             if flags and self.strict_tool_json:
                 self.tool_call_flags[tool_id] = flags

@@ -813,9 +813,12 @@ def governed_upstream(host: "str | None", do_call, ctx: "dict | None" = None,
                       "running this call ungoverned, in-process limiting only")
 
     def _report(*a, **k):
+        # governor.report itself queues the permit's release for this
+        # process's next successful lock on the key when its own lock
+        # fails, so swallowing the failure here never leaks the slot.
         try:
             return governor.report(*a, **k)
-        except _gs.LockFailed as e:
+        except (_gs.LockFailed, OSError) as e:
             _lock_contended(e)
             return {}
 
@@ -825,8 +828,9 @@ def governed_upstream(host: "str | None", do_call, ctx: "dict | None" = None,
             h = governor.acquire(key, gparams, agent=c.get("agent", "system"),
                                  role=c.get("role", "main"), abort=c.get("abort"),
                                  explicit_priority=c.get("priority"),
-                                 session=c.get("session"), model=c.get("model"))
-        except _gs.LockFailed as e:
+                                 session=c.get("session"), model=c.get("model"),
+                                 on_event=c.get("on_event"))
+        except (_gs.LockFailed, OSError) as e:
             _lock_contended(e)
             return do_call()
         try:

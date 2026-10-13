@@ -74,7 +74,12 @@ def test_normalize_tool_id_preserve_and_mint(ctx: Ctx):
 def test_normalize_tool_id_alnum9_mistral(ctx: Ctx):
     got = hooks.normalize_tool_id("2968-LWy3uasib", name="f", tool_id_format="alnum9", counter=[0])
     ctx.check(f"exactly 9 chars, alnum only, got {got!r}", len(got) == 9 and got.isalnum())
-    ctx.check("matches OpenCode's own scrub for this exact input", got == "2968LWy3u")
+    # review3 item 126: a longer id is hashed, not prefix-truncated (host-
+    # minted ids share their first 9 chars, so a prefix collided).
+    other = hooks.normalize_tool_id("2968-LWy3uXXXX", name="f", tool_id_format="alnum9", counter=[0])
+    ctx.check(f"two ids sharing a 9-char prefix stay distinct, got {got!r}/{other!r}", got != other)
+    short = hooks.normalize_tool_id("Ab3dE6gH9", name="f", tool_id_format="alnum9", counter=[0])
+    ctx.check("a Mistral-native 9-char id is kept verbatim", short == "Ab3dE6gH9")
 
 
 @test

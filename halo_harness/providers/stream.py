@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Iterator, Optional
 
 from halo_harness.providers.config import dump_debug, estimate_tokens
+from halo_harness.providers.governor import GovernorAborted
 from halo_harness.providers.databricks import databricks_unreachable_response, dbx_cache_get_max_tokens_limit
 from halo_harness.providers.errors import (
     map_upstream_error, parse_context_overflow,
@@ -285,6 +286,13 @@ class _Aborted(Exception):
     watcher below. Caught in `stream_completion`, which then simply
     returns without yielding anything, exactly like an abort during
     phase 2."""
+
+
+# The turn's abort firing while the Governor parks the request in
+# `acquire` (a cooling bucket) raises GovernorAborted out of the choke
+# point -- the same "interrupted" as `_Aborted`, so every dialect's
+# phase-1 caller catches both and simply stops.
+_ABORTED = (_Aborted, GovernorAborted)
 
 
 def _phase1_abort_watcher(abort: "threading.Event", done: threading.Event, sock_box: list) -> None:
@@ -563,7 +571,7 @@ def stream_completion(req: CompletionRequest, abort: "threading.Event | None" = 
     stops consuming so cleanup runs promptly rather than waiting on GC."""
     try:
         oai_body, result = _run_phase1(req, abort=abort)
-    except _Aborted:
+    except _ABORTED:
         return
 
     estimate = estimate_tokens(oai_body)
@@ -832,7 +840,7 @@ def stream_anthropic_completion(req: CompletionRequest, abort: "threading.Event 
     `providers.request.build_anthropic_request_body` first)."""
     try:
         _body, result = _run_phase1_anthropic(req, abort=abort)
-    except _Aborted:
+    except _ABORTED:
         return
 
     decoder = AnthropicSSEDecoder()
@@ -1157,7 +1165,7 @@ def stream_ollama_completion(req: CompletionRequest, abort: "threading.Event | N
     never discarded. Capped at exactly one retry per turn."""
     try:
         _body, result = _run_phase1_ollama(req, abort=abort)
-    except _Aborted:
+    except _ABORTED:
         return
 
     estimate = estimate_tokens(req.prebuilt_ollama_body)
@@ -1241,7 +1249,7 @@ def stream_ollama_completion(req: CompletionRequest, abort: "threading.Event | N
         sm = OllamaStreamToAnthropic(req.model_label, estimate, msg_id=sm.msg_id)
         try:
             _body, result = _run_phase1_ollama(req, abort=abort)
-        except _Aborted:
+        except _ABORTED:
             break
         except (UpstreamError, ProviderNotConfigured) as e:
             ev = sm.error_event(str(e))
@@ -1334,7 +1342,7 @@ def stream_openai_responses_completion(req: CompletionRequest, abort: "threading
     responses_body` first)."""
     try:
         _body, result = _run_phase1_responses(req, abort=abort)
-    except _Aborted:
+    except _ABORTED:
         return
 
     estimate = estimate_tokens(req.prebuilt_responses_body)

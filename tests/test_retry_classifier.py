@@ -121,8 +121,11 @@ def test_retryable_message_pattern_table(ctx: Ctx):
         "rate limit exceeded, back off",
         "the model is currently overloaded",
     ]
+    # review3 item 56: the message patterns decide only when there is no
+    # definitive 4xx status (a transport / mid-stream failure: status None).
     for msg in cases:
-        ctx.check(f"retryable by message pattern: {msg!r}", is_retryable_message(400, msg) is True)
+        ctx.check(f"retryable by message pattern: {msg!r}", is_retryable_message(None, msg) is True)
+        ctx.check(f"but never under a definitive 400: {msg!r}", is_retryable_message(400, msg) is False)
 
 
 @test
@@ -134,7 +137,7 @@ def test_non_retryable_ordinary_400(ctx: Ctx):
 @test
 def test_retryable_checks_body_text_too(ctx: Ctx):
     ctx.check("a retryable pattern found only in body_text still counts",
-              is_retryable_message(400, "", body_text="upstream terminated the connection") is True)
+              is_retryable_message(None, "", body_text="upstream terminated the connection") is True)
 
 
 # ---------------------------------------------------------------------------

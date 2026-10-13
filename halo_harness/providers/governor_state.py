@@ -186,8 +186,19 @@ class _Lock:
     def __enter__(self):
         self._proc_lock.acquire()
         try:
-            _ensure_parent(self._p)
-            self._fd = os.open(str(self._p), os.O_CREAT | os.O_RDWR, 0o644)
+            try:
+                _ensure_parent(self._p)
+                self._fd = os.open(str(self._p), os.O_CREAT | os.O_RDWR, 0o644)
+            except OSError as e:
+                # The lock file cannot exist (state dir unwritable, a path
+                # component is a regular file, ...): degrade to the per-key
+                # process RLock already held -- one warning, the flag, and
+                # in-process-only limiting, never an exception out of the
+                # choke point.
+                self._fd = None
+                warn_once(f"governor: cannot open lock file {self._p}: {e}; "
+                          "falling back to IN-PROCESS only limiting (not shared across sessions)")
+                return self
             deadline = time.monotonic() + LOCK_TIMEOUT_S
             if _HAVE_FLOCK:
                 while True:

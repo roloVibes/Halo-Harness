@@ -159,7 +159,7 @@ advertise):
 
 | Family | Order | Wire `model` value |
 |---|---|---|
-| `glm`, `kimi` | `mlflow` chat, then `anthropic` | the endpoint's own `foundation_model.name` |
+| `glm`, `kimi` | `mlflow` chat only, then invocations (the native `anthropic` gateway is NOT a fallback here -- the two dialects never mix mid-request; opt in per call with `dbx:<endpoint>@anthropic` or per model with `databricks.gateway.<endpoint>: anthropic`; `doctor --work --probe-all --both` probes it alongside) | the endpoint's own `foundation_model.name` |
 | `deepseek`, `qwen`, `llama`, `gemma`, `gpt_oss`, `inkling` | `mlflow` chat only | the endpoint's own `foundation_model.name` (never a guessed `system.ai.` prefix) |
 | `gpt` | `mlflow` chat, then `cursor` chat | as above |
 | `gpt_pro` (`databricks-gpt-5-5-pro`) | `cursor` chat only -- no mlflow chat exists for it | as above |
