@@ -4,7 +4,10 @@ for the audit line (never the text).
 
 Order: an open card's answer first (permission `1`-`4`, question letters,
 plan `approve`/`feedback`, approval `accept`/`edit`/`stop`), then `/commands`,
-then plain text (a prompt, or a steer while a turn runs).
+then plain text (a prompt, or a steer while a turn runs). Before text is taken
+as an answer, the cards are checked against the session's `status.pending`:
+a card answered at the keyboard is dropped here and the text is routed as
+usual, so the phone's next prompt is never swallowed by a stale card.
 
 Chat commands: /sessions, /attach <n>, /status, /stop, /mode <name>,
 /model <ref>, /effort <level>, /quiet, /loud, /tail <n>, /remote
@@ -21,6 +24,11 @@ from halo_harness.remote.client import ControlClient, default_token_for
 HELP = ("Chat commands:\n/sessions  /attach <n>  /status  /stop\n/mode <name>  /model <ref>  /effort <level>\n"
         "/quiet  /loud  /tail <n>  /remote pair|unpair|status\nAnything else starting with / runs in the session; "
         "plain text is a prompt (or a steer while a turn runs).")
+
+
+def _number(s: str) -> bool:
+    """ASCII digits only: `str.isdigit` also takes superscripts and other scripts' digits `int` rejects."""
+    return s.isascii() and s.isdigit()
 
 
 def _fail(b, aci: str, resp: dict) -> str:
@@ -54,16 +62,38 @@ def route(b, rt, text: str) -> tuple:
 
 
 # ---- answers to open cards ----------------------------------------------------------------
-def _answer(b, rt, **fields) -> dict:
+def _answer(b, rt, *, quiet: bool = False, **fields) -> dict:
     resp = call(b, rt, "answer", **fields)
-    if not resp.get("ok"):
+    if not resp.get("ok") and not quiet:
         b.say(rt.aci, "That card is no longer waiting.")
     return resp
 
 
+def reconcile(b, rt) -> None:
+    """Drop the open cards the session no longer waits on (answered at the keyboard). One
+    `status` call; an older session without `pending`, or a failed call, leaves them as they are."""
+    if rt.client is None or not (rt.permission or rt.question or rt.plan or rt.approval):
+        return
+    resp = call(b, rt, "status")
+    pend = (resp.get("result") or {}).get("pending") if resp.get("ok") else None
+    if not isinstance(pend, dict):
+        return
+
+    def live(kind: str) -> set:
+        return {str(x) for x in pend.get(kind) or []}
+    rt.permission = [c for c in rt.permission if str(c.get("id")) in live("permission")]
+    if rt.question and str(rt.question.get("id")) not in live("question"):
+        rt.question = None
+    if rt.plan and not pend.get("plan"):
+        rt.plan = None
+    if rt.approval and str(rt.approval.get("id")) not in live("approval"):
+        rt.approval = None
+
+
 def answer_open_card(b, rt, t: str) -> str:
-    """The outcome string when `t` answered an open card, else ''."""
+    """The outcome string when `t` answered an open card, else '' (route it as usual)."""
     low = t.lower()
+    reconcile(b, rt)
     if rt.permission:
         parsed = cards.parse_permission_reply(t)
         if parsed:
@@ -72,34 +102,38 @@ def answer_open_card(b, rt, t: str) -> str:
             if _answer(b, rt, kind="permission", request_id=card["id"], action=action, scope=scope,
                        message=message).get("ok"):
                 b.say(rt.aci, done)
-            return "ok"
+                return "ok"
+            return "stale"
     if rt.question and not t.startswith("/"):
         q = rt.question
         qs = q["questions"]
         q["answers"][qs[q["idx"]]["question"]] = cards.parse_question_reply(qs[q["idx"]], t)
         q["idx"] += 1
         if q["idx"] < len(qs):
-            b.say(rt.aci, cards.question_card(qs[q["idx"]], q["idx"], len(qs)))
+            b.say(rt.aci, cards.question_card(qs[q["idx"]], q["idx"], len(qs)), card=True)
             return "ok"
         rt.question = None
         answers = q["answers"]
         value = next(iter(answers.values())) if len(answers) == 1 else answers
-        if _answer(b, rt, kind="question", request_id=q["id"], answer=value).get("ok"):
+        if _answer(b, rt, quiet=True, kind="question", request_id=q["id"], answer=value).get("ok"):
             b.say(rt.aci, "Answered.")
-        return "ok"
+            return "ok"
+        return "" if len(qs) == 1 else "stale"  # a one-question card gone stale: the text is a prompt
     if rt.plan and (low == "approve" or low.startswith("feedback ")):
         rt.plan = None
         approved = low == "approve"
         if _answer(b, rt, kind="plan", approved=approved, feedback="" if approved else t[9:].strip()).get("ok"):
             b.say(rt.aci, "Plan approved." if approved else "Feedback sent.")
-        return "ok"
+            return "ok"
+        return "stale"
     if rt.approval and (low in ("accept", "stop") or low.startswith("edit ")):
         card, rt.approval = rt.approval, None
         action = "edit" if low.startswith("edit ") else low
         if _answer(b, rt, kind="approval", request_id=card["id"], action=action,
                    instruction=t[5:].strip() if action == "edit" else "").get("ok"):
             b.say(rt.aci, {"accept": "Accepted.", "edit": "Edit sent.", "stop": "Stopped."}[action])
-        return "ok"
+            return "ok"
+        return "stale"
     return ""
 
 
@@ -133,7 +167,7 @@ def cmd_sessions(b, rt, args: str):
 
 def cmd_attach(b, rt, args: str):
     rows = rt.sessions or sess.live_sessions(b)
-    if not args.isdigit() or not 1 <= int(args) <= len(rows):
+    if not _number(args) or not 1 <= int(args) <= len(rows):
         b.say(rt.aci, "Usage: /attach <n> (see /sessions).")
         return "usage"
     err = sess.attach(b, rt, rows[int(args) - 1])
@@ -171,7 +205,7 @@ def cmd_verbosity(level: str):
 
 
 def cmd_tail(b, rt, args: str):
-    n = int(args) if args.isdigit() else 5
+    n = int(args) if _number(args) else 5
     resp = call(b, rt, "tail", n=n)
     if not resp.get("ok"):
         return _fail(b, rt.aci, resp)

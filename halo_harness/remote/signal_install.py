@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import calendar
 import hashlib
+import http.client
 import os
 import re
 import shutil
@@ -44,6 +45,7 @@ import time
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Callable, Optional
 
+from halo_harness.remote.cli_common import child_env  # no provider keys for signal-cli or java
 from halo_harness.remote.signal_config import remote_dir
 
 VERSION = "0.14.9"
@@ -112,7 +114,7 @@ def java_major(runner: Callable = subprocess.run) -> Optional[int]:
     if shutil.which("java") is None:
         return None
     try:
-        res = runner(["java", "-version"], capture_output=True, text=True, timeout=10)
+        res = runner(["java", "-version"], capture_output=True, text=True, timeout=10, env=child_env())
     except (OSError, subprocess.SubprocessError):
         return None
     m = re.search(r'version "(\d+)(?:\.(\d+))?', (res.stderr or "") + (res.stdout or ""))
@@ -126,11 +128,18 @@ def version_of(binary, runner: Callable = subprocess.run) -> Optional[str]:
     """`0.14.9` from `signal-cli --version`, or None."""
     argv = [str(x) for x in binary] if isinstance(binary, (list, tuple)) else [str(binary)]
     try:
-        res = runner(argv + ["--version"], capture_output=True, text=True, timeout=20)
+        res = runner(argv + ["--version"], capture_output=True, text=True, timeout=20, env=child_env())
     except (OSError, subprocess.SubprocessError):
         return None
     m = re.search(r"signal-cli\s+(\d+\.\d+\.\d+(?:\.\d+)?)", (res.stdout or "") + (res.stderr or ""))
     return m.group(1) if m else None
+
+
+def _discard(path: Path) -> None:
+    try:
+        Path(path).unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def download(url: str, dest: Path, progress: Optional[Callable[[int], None]] = None) -> None:
@@ -148,9 +157,11 @@ def download(url: str, dest: Path, progress: Optional[Callable[[int], None]] = N
                 if progress:
                     progress(done)
     except OfflineBlocked as e:
+        _discard(dest)
         raise InstallError(f"network.offline is on; {e}") from None
-    except OSError as e:
-        raise InstallError(f"download failed: {e}") from None
+    except (OSError, http.client.HTTPException) as e:  # IncompleteRead and friends are not OSErrors
+        _discard(dest)  # never leave a partial archive behind
+        raise InstallError(f"download failed: {type(e).__name__}: {e}") from None
 
 
 def verify_digest(archive: Path, name: str) -> str:
