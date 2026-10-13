@@ -47,19 +47,26 @@ def _is_halo_agent(agent: dict) -> bool:
     return "paperclip-run" in [str(a) for a in args] or bool((agent.get("metadata") or {}).get("halo_lineup"))
 
 
-def set_org_mode(enabled: bool, *, state_dir: Optional[Path] = None, client=None) -> dict:
+def set_org_mode(enabled: bool, *, state_dir: Optional[Path] = None, client=None, timeout: float = 30.0) -> dict:
     """Write the switch, then pause (off) or resume (on) the linked
     company's Halo agents when Paperclip is reachable. Returns
     {"enabled", "agents": [names touched], "note": a one-line reason when
     nothing was touched}."""
     from halo_harness.theme import set_config_value
     set_config_value(KEY, bool(enabled))
+    return sync_agents(enabled, state_dir=state_dir, client=client, timeout=timeout)
+
+
+def sync_agents(enabled: bool, *, state_dir: Optional[Path] = None, client=None, timeout: float = 30.0) -> dict:
+    """The courtesy half of `set_org_mode`, after the switch is written:
+    network calls only, so a UI runs it off its event loop. `timeout` bounds
+    each Paperclip request (the health probe is shorter still)."""
     out = {"enabled": bool(enabled), "agents": [], "note": ""}
     try:
         from halo_harness.paperclip.client import Paperclip, PaperclipError, load_config
         cfg = load_config(state_dir)
         company_id = cfg.get("company_id") or ""
-        client = client or Paperclip.from_config(state_dir)
+        client = client or Paperclip.from_config(state_dir, timeout=timeout)
         if not company_id:
             out["note"] = "no company linked (halo paperclip link --company ...)"
             return out

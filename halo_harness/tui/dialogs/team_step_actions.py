@@ -54,8 +54,8 @@ class TeamActionsMixin:
         return _lineup_row_label(r)
 
     # -- actions ----------------------------------------------------------------
-    def _hint(self, text: str) -> None:
-        toast(self.query_one("#wiz-team-lineup-hint", Static), text)
+    def _hint(self, text: str, *, persist: bool = False) -> None:
+        toast(self.query_one("#wiz-team-lineup-hint", Static), text, persist=persist)
 
     def action_new_lineup(self) -> None:
         self._open_editor(f"lineup-{__import__('uuid').uuid4().hex[:6]}", {}, True)

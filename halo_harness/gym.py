@@ -266,23 +266,24 @@ def iter_results(state_dir) -> "list[dict]":
     return out
 
 
-def find_results_for_model(state_dir, model_or_ref: str) -> "list[dict]":
+def find_results_for_model(state_dir, model_or_ref: str, *, results: "Optional[list]" = None) -> "list[dict]":
     """Every saved result whose own `model`/`model_ref` names
     `model_or_ref` -- matched the SAME tag-aware way the Ollama provider
     matches a catalog row (`providers.ollama.ollama_names_match`), so an
     untagged lookup (`qwen3-coder:30b` vs. a stored `qwen3-coder:30b:
-    latest`) still finds its own entry."""
+    latest`) still finds its own entry. `results` (an `iter_results` list
+    the caller already loaded) skips re-reading every file per lookup."""
     from halo_harness.providers.ollama import ollama_names_match
     bare = model_or_ref.split("@", 1)[0]
     for prefix in ("ol:", "hf:local/", "hf:mlx/"):
         if bare.startswith(prefix):
             bare = bare[len(prefix):]
             break
-    return [r for r in iter_results(state_dir)
+    return [r for r in (iter_results(state_dir) if results is None else results)
             if ollama_names_match(r.get("model"), bare) or r.get("model_ref") == model_or_ref]
 
 
-def picker_score_suffix(model_ref: str, state_dir=None) -> str:
+def picker_score_suffix(model_ref: str, state_dir=None, *, results: "Optional[list]" = None) -> str:
     """Halo 2.0.3 round 5d (brief item 2: "the picker shows the gym score
     beside a model when one exists"): a short, LOCAL-FILE-ONLY lookup
     (never a network call -- safe to call from the picker's own
@@ -293,7 +294,7 @@ def picker_score_suffix(model_ref: str, state_dir=None) -> str:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
     try:
-        rows = find_results_for_model(state_dir, model_ref)
+        rows = find_results_for_model(state_dir, model_ref, results=results)
     except Exception:
         return ""
     if not rows:

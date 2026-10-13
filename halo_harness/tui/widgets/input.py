@@ -17,7 +17,7 @@ from textual.widgets import OptionList, TextArea
 
 from halo_harness.tools.imageutil import IMAGE_EXTENSIONS
 from halo_harness.tui.keys import PASTE_PLACEHOLDER_MIN_LINES, PROMPT_MAX_LINES, PROMPT_MIN_LINES
-from halo_harness.tui.widgets.input_sanitize import looks_like_mouse_report, strip_mouse_reports
+from halo_harness.tui.widgets.input_sanitize import report_start_before
 
 
 class CompletionPopup(OptionList):
@@ -195,11 +195,15 @@ class PromptInput(TextArea):
             self._auto_grow()
             return
         await super()._on_key(event)
-        if event.character in ("M", "m") and looks_like_mouse_report(self.text):
+        if event.character in ("M", "m"):
             # 3.0.2.0: a terminal mouse report that lost its ESC lands here as
             # text ("[<35;72;18M"); the final M is the moment to drop it.
-            self.text = strip_mouse_reports(self.text)
-            self.move_cursor(self.document.end)
+            # Only the fragment that ends at the cursor, in report shape --
+            # the rest of the box is the user's own text (review 3 item 74).
+            row, col = self.cursor_location
+            start = report_start_before(self.document.get_line(row)[:col])
+            if start is not None:
+                self.delete((row, start), (row, col))
         self._auto_grow()
 
     def action_clear_prompt(self) -> None:
@@ -268,7 +272,10 @@ class PromptInput(TextArea):
         # call to `TextArea._on_paste` performs the (correct, one-time)
         # insertion itself, using our substituted text.
         event.stop()  # never let it also bubble to the Screen/App
-        event.text = self._text_or_image_chip_for(strip_mouse_reports(event.text))
+        # A bracketed paste is never stripped: a mouse report that lost its
+        # ESC arrives as typed keys, and a pasted script's `\033[1;31m`
+        # must reach the model as pasted (review 3 item 74).
+        event.text = self._text_or_image_chip_for(event.text)
         # `_auto_grow`/`_maybe_query_completion` run from `on_text_area_
         # changed` once the (still-pending) real insertion actually happens.
 

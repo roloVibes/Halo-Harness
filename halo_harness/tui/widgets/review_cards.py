@@ -13,6 +13,8 @@ from textual.binding import Binding
 from textual.markup import escape
 from textual.widgets import Static
 
+from halo_harness.tui.widgets.input_sanitize import SafeStatic
+
 _VERDICT_MARK = {"CONFIRMED": "confirmed", "PLAUSIBLE": "plausible", "DISMISSED": "dismissed"}
 
 
@@ -24,7 +26,7 @@ def location_text(finding: dict) -> str:
     return f"{file}:{line}" if line else file
 
 
-class ReviewCard(Static, can_focus=True):
+class ReviewCard(SafeStatic, can_focus=True):
     BINDINGS = [
         Binding("enter", "toggle_details", "Details", show=False),
         Binding("c", "copy_location", "Copy location", show=False),
