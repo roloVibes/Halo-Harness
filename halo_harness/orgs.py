@@ -629,30 +629,33 @@ class OrgBudgetTracker:
         flags `refusal_before_spawn` reads for the NEXT spawn attempt.
         `parent_total_usd` is accepted for backward compatibility but no
         longer used for the org-wide check -- see `org_spent_usd`."""
-        if spent_usd > 0:
-            self.spent_by_position[title] = self.spent_by_position.get(title, 0.0) + spent_usd
-            with self._lock:
-                self.org_spent_usd += spent_usd
+        # 3.0.1.0 review item 53: the per-position read-modify-write, the
+        # org total and every threshold check share ONE critical section,
+        # so concurrent fan-out calls for the same title never lose spend.
         notes: "list[str]" = []
-        budget = self.position_budgets.get(title)
-        if isinstance(budget, (int, float)) and not isinstance(budget, bool) and budget > 0:
+        with self._lock:
+            if spent_usd > 0:
+                self.spent_by_position[title] = self.spent_by_position.get(title, 0.0) + spent_usd
+                self.org_spent_usd += spent_usd
             spent = self.spent_by_position.get(title, 0.0)
-            if spent >= budget:
-                self.stopped_positions.add(title)
-                notes.append(f"[budget] position {title!r} has reached its ${budget:.2f} budget -- "
-                              f"it will be refused if spawned again this run")
-            elif spent >= 0.8 * budget:
-                notes.append(f"[budget] position {title!r} has used {spent / budget:.0%} of its ${budget:.2f} budget")
-        if self.org_budget_usd is not None and self.org_budget_usd > 0:
-            with self._lock:
-                total = self.org_spent_usd
-            if total >= self.org_budget_usd:
-                self.org_stopped = True
-                notes.append(f"[budget] organization {self.org_name!r} has reached its "
-                              f"${self.org_budget_usd:.2f} budget -- budget reached")
-            elif total >= 0.8 * self.org_budget_usd:
-                notes.append(f"[budget] organization {self.org_name!r} has used "
-                              f"{total / self.org_budget_usd:.0%} of its ${self.org_budget_usd:.2f} budget")
+            total = self.org_spent_usd
+            budget = self.position_budgets.get(title)
+            if isinstance(budget, (int, float)) and not isinstance(budget, bool) and budget > 0:
+                if spent >= budget:
+                    self.stopped_positions.add(title)
+                    notes.append(f"[budget] position {title!r} has reached its ${budget:.2f} budget -- "
+                                  f"it will be refused if spawned again this run")
+                elif spent >= 0.8 * budget:
+                    notes.append(f"[budget] position {title!r} has used {spent / budget:.0%} "
+                                  f"of its ${budget:.2f} budget")
+            if self.org_budget_usd is not None and self.org_budget_usd > 0:
+                if total >= self.org_budget_usd:
+                    self.org_stopped = True
+                    notes.append(f"[budget] organization {self.org_name!r} has reached its "
+                                  f"${self.org_budget_usd:.2f} budget -- budget reached")
+                elif total >= 0.8 * self.org_budget_usd:
+                    notes.append(f"[budget] organization {self.org_name!r} has used "
+                                  f"{total / self.org_budget_usd:.0%} of its ${self.org_budget_usd:.2f} budget")
         return "; ".join(notes) if notes else None
 
 

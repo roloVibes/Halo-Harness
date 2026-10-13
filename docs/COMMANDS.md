@@ -2581,17 +2581,26 @@ resolved-truth warnings its assignments grid shows.
 The export/import pair also ships lineups as one PORTABLE FOLDER:
 `halo teams export <name> --bundle <dir>` writes the full template plus
 every non-shipped bio it references (and a `bundle.json` manifest);
-`halo teams import <dir> [--force]` applies it on any box -- bios land
-in user scope, a colliding bio is reported and skipped unless
-`--force`, and the team goes through the same validated save path.
+`halo teams import <dir> [--force]` applies it on any box -- every bio
+is validated first (one invalid bio refuses the whole import, nothing
+written), bios land in user scope, a bio colliding with one of your own
+(user or project scope) is reported and skipped unless `--force`, a bio
+named like a shipped one is installed and the import prints a
+"shadows shipped bio(s)" line (every lineup on that machine that assigns
+it then uses the bundle's copy), and the team goes through the same
+validated save path.
 ## `halo subscriptions scrub`
 
 3.0.2.0: rewrites every `cc:`/`cx:` model ref in your bios and lineups
 (`~/.halo/agents`, `~/.halo/teams`, the project's `.halo/agents` and
-`.halo/teams`) to its OpenRouter equivalent and prints what moved. It also
-runs on its own the first time lineups are listed in a process, so
-pre-made copies from older versions stop naming subscription models
-without anyone asking.
+`.halo/teams`) to its OpenRouter equivalent and prints what moved. Only
+model-valued keys change (`models.preference`/`fallback`/`escalation`,
+`escalation.to`, a position's `model`, an inline `models:`); descriptions,
+prompts, comments and URLs stay as written, and a file keeps its own line
+endings. It also runs on its own the first time lineups are listed in a
+process (`halo teams list`, `/teams`), which then print one line per file
+it rewrote, so pre-made copies from older versions stop naming
+subscription models.
 
 ## `halo studio`
 

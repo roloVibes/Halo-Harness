@@ -39,7 +39,9 @@ def resolve_continue(cwd) -> Optional[str]:
     directory = sessions_dir(cwd)
     if not directory.is_dir():
         return None
-    candidates = sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    from halo_harness.safe_id import is_safe_session_id
+    candidates = sorted((p for p in directory.glob("*.jsonl") if is_safe_session_id(p.stem)),
+                        key=lambda p: p.stat().st_mtime, reverse=True)
     return candidates[0].stem if candidates else None
 
 
@@ -114,26 +116,33 @@ def resolve_resume(cwd, value: Optional[str]) -> "tuple[Optional[str], Optional[
         latest = resolve_continue(cwd)
         return (latest, None) if latest else (None, "no sessions found for this directory")
 
+    from halo_harness.safe_id import is_safe_session_id
     candidate_path = Path(value)
     if candidate_path.suffix == ".jsonl" and candidate_path.is_file():
         # Finding 76: a transcript that lives outside THIS project's session
         # directory used to resume as an empty session (the id existed only
         # as a filename). Bring it in so the resume has its history.
+        # 3.0.1.0 review item 50: a file name that is not a valid session id
+        # (a space, a leading dot, too long) is imported under an id derived
+        # from its resolved path -- the same id every time, so the print-mode
+        # pre-check and the session build agree and a re-resume reuses it.
         inside = sessions_dir(cwd)
-        if candidate_path.resolve().parent != inside.resolve():
-            imported = inside / f"{candidate_path.stem}.jsonl"
+        session_id = candidate_path.stem
+        if not is_safe_session_id(session_id):
+            session_id = uuid.uuid5(uuid.NAMESPACE_URL, str(candidate_path.resolve())).hex
+        if candidate_path.resolve() != (inside / f"{session_id}.jsonl").resolve():
+            imported = inside / f"{session_id}.jsonl"
             if not imported.is_file():
                 try:
                     inside.mkdir(parents=True, exist_ok=True)
                     imported.write_bytes(candidate_path.read_bytes())
                 except OSError as exc:
                     return None, f"cannot read transcript {value!r}: {exc}"
-        return candidate_path.stem, None
+        return session_id, None
 
     directory = sessions_dir(cwd)
     # finding 25: only a safe id is joined into a path as an exact-id match;
     # anything else (`../x`, `a/b`) can still match by title text below.
-    from halo_harness.safe_id import is_safe_session_id
     direct = directory / f"{value}.jsonl"
     if is_safe_session_id(value) and direct.is_file():
         return value, None
@@ -143,6 +152,8 @@ def resolve_resume(cwd, value: Optional[str]) -> "tuple[Optional[str], Optional[
 
     needle = value.lower()
     for path in sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True):
+        if not is_safe_session_id(path.stem):   # review item 50: never hand back an id SessionLog refuses
+            continue
         nodes = _read_nodes(path)
         title, summary = _title_for(nodes), _first_user_text(nodes)
         if needle in title.lower() or needle in summary.lower() or needle in path.stem.lower():

@@ -1181,7 +1181,17 @@ def turn_body_cc(session, turn_no: int, text: str, *, images: Optional[list] = N
                                                        prompt_id=f"turn_{turn_no}", abort=session.abort)
                 for msg in stop_outcome.system_messages:
                     yield events.notification(msg)
-                if stop_outcome.blocked:
+                if stop_outcome.blocked and stop_rounds >= _MAX_STOP_CONTINUATIONS:
+                    # 3.0.1.0 review item 49: the cap is checked BEFORE a
+                    # continuation is logged or sent -- every continuation
+                    # that does go out has its reply drained by a reader
+                    # inside this turn, and no reader outlives turn_done.
+                    yield events.notification(
+                        f"A Stop hook blocked the turn from ending {stop_rounds} consecutive times "
+                        f"-- ending the turn.")
+                    if hasattr(session.hook_runner, "stop_block_count"):
+                        session.hook_runner.stop_block_count = 0
+                elif stop_outcome.blocked:
                     continuation = stop_outcome.block_reason or "Please continue."
                     session.log.append_user([{"type": "text", "text": continuation}], kind="continuation")
                     yield events.user_message(continuation, turn=turn_no)
@@ -1202,8 +1212,7 @@ def turn_body_cc(session, turn_no: int, text: str, *, images: Optional[list] = N
                         reader_thread.start()
                         state.process.send_user_line(continuation)
                         stop_rounds += 1
-                        if stop_rounds < _MAX_STOP_CONTINUATIONS:
-                            continue
+                        continue
                     except (BrokenPipeError, OSError):
                         pass
             break
