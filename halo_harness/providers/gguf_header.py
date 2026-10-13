@@ -110,12 +110,17 @@ def _read_gguf_string(f, *, max_bytes: Optional[int] = None) -> str:
 def _skip_exact(f, n: int, file_size: int) -> None:
     if n < 0:
         raise GGUFParseError("truncated GGUF file (negative-length value)")
-    f.seek(n, 1)
-    if f.tell() > file_size:
+    # Checked BEFORE seeking: a u64 length near 2**64 would make the seek
+    # itself raise OverflowError/ValueError instead of a parse error.
+    if n > file_size - f.tell():
         raise GGUFParseError("truncated GGUF file (a value runs past end of file)")
+    f.seek(n, 1)
 
 
-def _skip_value(f, vtype: int, file_size: int) -> None:
+_MAX_ARRAY_DEPTH = 32
+
+
+def _skip_value(f, vtype: int, file_size: int, depth: int = 0) -> None:
     """Discards one metadata VALUE without materializing it -- the only
     path a huge array (a 100k+-entry tokenizer vocabulary is the common
     case) ever takes, by seeking rather than reading, so this stays cheap
@@ -124,6 +129,8 @@ def _skip_value(f, vtype: int, file_size: int) -> None:
         _skip_exact(f, _read_u64(f), file_size)
         return
     if vtype == _ARRAY:
+        if depth >= _MAX_ARRAY_DEPTH:
+            raise GGUFParseError(f"arrays nested deeper than {_MAX_ARRAY_DEPTH} levels")
         elem_type = _read_u32(f)
         count = _read_u64(f)
         if elem_type == _STRING:
@@ -131,7 +138,7 @@ def _skip_value(f, vtype: int, file_size: int) -> None:
                 _skip_exact(f, _read_u64(f), file_size)
         elif elem_type == _ARRAY:
             for _ in range(count):
-                _skip_value(f, _ARRAY, file_size)
+                _skip_value(f, _ARRAY, file_size, depth + 1)
         elif elem_type in _SCALAR_STRUCT:
             _skip_exact(f, struct.calcsize(_SCALAR_STRUCT[elem_type]) * count, file_size)
         else:
@@ -223,6 +230,6 @@ def gguf_model_info_for_file(path) -> "tuple[Optional[dict], Optional[str]]":
     (`providers.local_fit`) calls, never `parse_gguf_header` directly."""
     try:
         header = parse_gguf_header(path)
-    except (GGUFParseError, OSError):
+    except (GGUFParseError, OSError, ValueError, OverflowError, RecursionError, struct.error):
         return None, None
     return gguf_model_info(header.metadata), gguf_quant_name(header.metadata)

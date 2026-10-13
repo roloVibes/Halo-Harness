@@ -421,7 +421,10 @@ def is_local_host(host) -> bool:
     just as capable as loopback for everything EXCEPT the local OS
     probe (constrained decoding, say: `is_ollama_cloud_host` below is
     the right predicate there, review fix pass finding 7)."""
-    hostname = (urllib.parse.urlparse(host.url).hostname or "").lower()
+    try:
+        hostname = (urllib.parse.urlparse(host.url).hostname or "").lower()
+    except ValueError:
+        return False
     return hostname in ("127.0.0.1", "localhost", "::1")
 
 
@@ -438,7 +441,10 @@ def is_ollama_cloud_host(host) -> bool:
     on-premise Ollama daemon with the identical structured-output support
     loopback has; only Ollama's OWN cloud is documented NOT to support
     it."""
-    hostname = (urllib.parse.urlparse(host.url).hostname or "").lower()
+    try:
+        hostname = (urllib.parse.urlparse(host.url).hostname or "").lower()
+    except ValueError:
+        hostname = ""
     if hostname == "ollama.com":
         return True
     return bool(getattr(host, "api_key", None))
@@ -677,7 +683,8 @@ def fits_beside_main(host, *, main_model: str, candidate_model: str, catalog: Op
     `estimate_fit_for_host`'s own docstring) fit ALONGSIDE `main_model`'s
     CURRENTLY RESIDENT weight footprint (`/api/ps`'s own `size_vram` --
     requires `main_model` to be loaded right now; a measured fact, never
-    a guess) without exceeding this host's total GPU memory. Literally
+    a guess) without exceeding this host's usable GPU memory (`gpu_budget_bytes`:
+    a card's total, or the GPU share of unified RAM on Apple Silicon). Literally
     the brief's own formula: "weights of the candidate plus the main
     model's resident size exceed the host's memory". `None` (unknown,
     never a guess -- the caller's own house policy of "benefit of the
@@ -738,10 +745,24 @@ def _fits_beside_main_uncached(host, *, main_model: str, candidate_model: str, c
         cards = [card] if card is not None else []
     else:
         return None
-    total_bytes = [c.total_bytes for c in cards if c is not None and isinstance(c.total_bytes, int)]
-    if not total_bytes:
+    budgets = [gpu_budget_bytes(c) for c in cards if c is not None]
+    budgets = [b for b in budgets if b is not None]
+    if not budgets:
         return None
-    return (main_resident + candidate_weight) <= sum(total_bytes)
+    return (main_resident + candidate_weight) <= sum(budgets)
+
+
+def gpu_budget_bytes(card: GpuMemory) -> Optional[int]:
+    """Bytes of one card that models can actually occupy. A discrete card's
+    budget is its total memory. On Apple Silicon the reported total is ALL
+    unified RAM, and the usable share (the wired limit, or the default
+    fraction of RAM) is what the probe stored in `free_bytes`, so that is
+    the budget there."""
+    def _int(v):
+        return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
+    if card.vendor == "apple" and _int(card.free_bytes) is not None:
+        return card.free_bytes
+    return _int(card.total_bytes)
 
 
 def resolve_context_decision(model_ref, env=None, *, hw_runner=None) -> OllamaContextDecision:

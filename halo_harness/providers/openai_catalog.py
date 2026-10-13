@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import os
 import socket
 import ssl
 import threading
@@ -84,10 +85,9 @@ def write_oai_models_json(state_dir, model_ids: "list[str]") -> None:
         Path(state_dir).mkdir(parents=True, exist_ok=True)
         out = {mid: {} for mid in model_ids}
         path = oai_models_json_path(state_dir)
-        tmp_path = path.with_name(f".{path.name}.tmp")
+        tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(out, f, indent=2)
-        import os
         os.replace(tmp_path, path)
     except OSError:
         pass

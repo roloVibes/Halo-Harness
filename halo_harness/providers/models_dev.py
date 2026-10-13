@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import os
 import re
 import socket
 import ssl
@@ -106,8 +107,13 @@ def write_models_dev_json(state_dir, data: dict) -> None:
     crash -- same contract as every other write_*_json in this package)."""
     try:
         Path(state_dir).mkdir(parents=True, exist_ok=True)
-        with open(models_dev_json_path(state_dir), "w", encoding="utf-8") as f:
+        # tmp + os.replace, like every other catalog writer: readers (the
+        # picker, profile resolution) never see a half-written multi-MB file.
+        path = models_dev_json_path(state_dir)
+        tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(data, f)
+        os.replace(tmp_path, path)
     except OSError:
         pass
 
