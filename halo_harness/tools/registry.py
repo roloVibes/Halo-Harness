@@ -49,12 +49,24 @@ READ_ONLY_CALL_TIMEOUT_S = 30.0
 READ_ONLY_BASH_GRACE_S = 5.0
 
 
-def pool_wait_s(name: str, tool_input) -> float:
-    """Seconds the read-only pool waits on one call before giving up. 30 s
-    for every tool, except Bash: its own timeout (model-supplied `timeout`
-    in ms, clamped like the tool clamps it, else the tool default) plus a
-    short grace, never less than the 30 s floor."""
+def pool_wait_s(name: str, tool_input, tool: Optional[Tool] = None) -> float:
+    """Seconds the read-only pool waits on one call before giving up, never
+    less than the 30 s floor. Bash: its own timeout (model-supplied
+    `timeout` in ms, clamped like the tool clamps it, else the tool
+    default) plus a short grace. Any other tool that states its own limit
+    through `Tool.pool_wait_s` (an MCP tool's server `timeout` /
+    MCP_TOOL_TIMEOUT, Grep's ripgrep limit) gets that limit plus the same
+    grace, so the pool never gives up on a call that is still inside its
+    own contract; the rest keep the 30 s floor."""
     if name != "Bash":
+        own = None
+        if tool is not None:
+            try:
+                own = tool.pool_wait_s(tool_input)
+            except Exception:
+                own = None
+        if isinstance(own, (int, float)) and not isinstance(own, bool) and own > 0:
+            return max(READ_ONLY_CALL_TIMEOUT_S, float(own) + READ_ONLY_BASH_GRACE_S)
         return READ_ONLY_CALL_TIMEOUT_S
     from halo_harness.tools.bash import DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS
     ms = tool_input.get("timeout") if isinstance(tool_input, dict) else None
@@ -203,10 +215,11 @@ def run_read_only_batch(registry: ToolRegistry, calls: list, ctx: ToolContext) -
     try:
         futures = []
         waits = []
+        lookup = getattr(registry, "get", None)
         for entry in calls:
             name, tool_input, tool_use_id = entry if len(entry) == 3 else (*entry, None)
             futures.append(pool.submit(registry.dispatch, name, tool_input, _ctx_for(tool_use_id)))
-            waits.append(pool_wait_s(name, tool_input))
+            waits.append(pool_wait_s(name, tool_input, lookup(name) if lookup is not None else None))
         results = []
         for f, wait_s in zip(futures, waits):
             deadline = time.monotonic() + wait_s

@@ -256,6 +256,9 @@ def _parse_rg_line_output(text: str) -> dict:
     return per_file
 
 
+_RG_TIMEOUT_S = 60
+
+
 class _RipgrepUnavailable(Exception):
     pass
 
@@ -284,7 +287,7 @@ def _run_ripgrep_backend(pattern, base, *, ignore_case, glob_pattern, file_type,
     args.extend(["-e", pattern, str(base)])
     try:
         proc = subprocess.run(args, capture_output=True, text=True, encoding="utf-8",
-                               errors="replace", timeout=60)
+                               errors="replace", timeout=_RG_TIMEOUT_S)
     except (OSError, subprocess.SubprocessError) as e:
         # ruff B904: chain the real cause -- _RipgrepUnavailable is a
         # control-flow signal (the caller falls back to the pure-Python
@@ -326,6 +329,10 @@ class GrepTool(Tool):
 
     def summary(self, input: dict) -> str:
         return f"Grep({input.get('pattern', '')})"
+
+    def pool_wait_s(self, input: dict) -> float:
+        """ripgrep's own limit, so a big tree is not cut at the pool's 30 s."""
+        return float(_RG_TIMEOUT_S)
 
     def permission_content(self, input: dict) -> str:
         return input.get("path", "") if isinstance(input, dict) else ""
