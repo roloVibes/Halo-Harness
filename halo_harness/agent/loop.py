@@ -3996,16 +3996,19 @@ class Session:
                 )
                 # 2.0.5 round 4: same Governor ownership rule as the
                 # UpstreamError branch above -- no second overload backoff
-                # loop on a governed route.
+                # loop on a governed route. The status is NOT passed: a
+                # wire error's `status` is the code an error chunk carried
+                # INSIDE a 200 stream, which the Governor (it paces HTTP
+                # response statuses) never saw, so this ladder owns it.
                 if merged_retryable and attempts <= MAX_RETRIES and not _overload_owned_by_governor(
-                        wire_error.get("status"), message):
+                        None, message):
                     hdrs = {"retry-after": wire_error.get("retry_after")} if wire_error.get("retry_after") else {}
                     delay = _capped_retry_delay(attempts, hdrs)
                     if self._abort_sleep(delay):
                         return None
                     continue
                 # a wire error drops the partial reply -- never committed to the log
-                wire_status = _WIRE_ERROR_TYPE_TO_STATUS.get(wire_error.get("type"), 500)
+                wire_status = wire_error.get("status") or _WIRE_ERROR_TYPE_TO_STATUS.get(wire_error.get("type"), 500)
                 self._log_call_failure(self._status_label(wire_status), retries=attempts - 1)
                 # W5 (carried from W4a): same fallback attempt as the
                 # UpstreamError branch above, for a retryable failure that

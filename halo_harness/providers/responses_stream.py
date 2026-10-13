@@ -209,7 +209,12 @@ class ResponsesStreamToAnthropic:
                 response = data.get("response") if isinstance(data.get("response"), dict) else {}
                 err = response.get("error") if isinstance(response.get("error"), dict) else None
             msg = (err.get("message") if err else None) or data.get("message") or "the Responses API reported a failure"
-            return {"kind": "error", "events": [self.error_event(msg)]}
+            from halo_harness.providers.errors import stream_error_fields
+            fields = stream_error_fields(err if err else {k: data.get(k) for k in ("code",) if data.get(k)})
+            ev = self.error_event(msg, fields["type"])
+            if fields.get("status") is not None:
+                ev["error"]["status"] = fields["status"]
+            return {"kind": "error", "events": [ev]}
 
         return {"kind": "events", "events": []}
 

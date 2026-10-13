@@ -41,8 +41,10 @@ The Governor paces and fails over; it never declines a request.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import socket
+import threading
 import time
 import uuid
 from email.utils import parsedate_to_datetime
@@ -207,6 +209,30 @@ def _reap(st: Dict[str, Any], now: float) -> None:
             del st["waiters"][tk]
 
 
+#: Permits whose `report()` could not take the cross-process lock (key ->
+#: call ids). Released from the on-disk `inflight` map under the next lock
+#: this process does get for that key, so a contended report never holds
+#: one of `max_inflight` until the 1800 s live-pid reap.
+_PENDING_RELEASE: Dict[str, set] = {}
+_PENDING_GUARD = threading.Lock()
+
+
+def _defer_release(key: str, call_id: str) -> None:
+    with _PENDING_GUARD:
+        _PENDING_RELEASE.setdefault(key, set()).add(call_id)
+    mem = gs._MEM_STATE.get(key)  # keep the degraded in-process view consistent too
+    if isinstance(mem, dict) and isinstance(mem.get("inflight"), dict):
+        mem["inflight"].pop(call_id, None)
+
+
+def _apply_pending_releases(key: str, st: Dict[str, Any]) -> None:
+    """Called with the bucket lock held, right after `load`."""
+    with _PENDING_GUARD:
+        ids = _PENDING_RELEASE.pop(key, None)
+    for cid in ids or ():
+        st["inflight"].pop(cid, None)
+
+
 def _refill(st: Dict[str, Any], now: float) -> None:
     dt = max(0.0, now - st.get("last_refill", now))
     st["tokens"] = min(st["burst"], st.get("tokens", 0.0) + st["rate"] * dt)
@@ -259,6 +285,7 @@ def acquire(key: str, params: Dict[str, Any], *, agent: str = "system", role: st
     last_hb_write = 0.0
     with gs._Lock(key):
         st = gs.load(key, params, t0)
+        _apply_pending_releases(key, st)
         _reap(st, t0)
         st["waiters"][ticket] = {"priority": prio, "ts": t0, "hb": t0, "pid": os.getpid(),
                                  "agent": agent, "role": role}
@@ -271,6 +298,7 @@ def acquire(key: str, params: Dict[str, Any], *, agent: str = "system", role: st
             took = False
             with gs._Lock(key):
                 st = gs.load(key, params, now)
+                _apply_pending_releases(key, st)
                 _reap(st, now)
                 mine = st["waiters"].get(ticket)
                 if mine is None:
@@ -315,7 +343,7 @@ def acquire(key: str, params: Dict[str, Any], *, agent: str = "system", role: st
                                 if (w.get("priority", 9), w.get("ts", 0)) < (prio, t0))
                     on_event({"event": "waiting", "key": key, "position": ahead + 1,
                               "cooldown_remaining": round(max(0.0, st.get("cooldown_until", 0.0) - now), 1),
-                              "rate": round(st["rate"], 3)})
+                              "rate": round(st["rate"], 3), "rate_ceiling": st["rate_ceiling"]})
                 # REVIEW item 7: skip the save when nothing but the read
                 # changed (no hb write this pass, no waiter mutation).
                 if took or st.get("updated", 0) < now - 1.0:
@@ -330,6 +358,24 @@ def acquire(key: str, params: Dict[str, Any], *, agent: str = "system", role: st
         except Exception:
             pass
         raise
+
+
+@contextlib.contextmanager
+def _report_lock(handle: "Handle"):
+    """`gs._Lock` for `report`: when the lock cannot be taken the permit
+    is queued for release under this process's next successful lock on the
+    key (and dropped from the in-process view now), then the error
+    propagates as before."""
+    lock = gs._Lock(handle.key)
+    try:
+        lock.__enter__()
+    except (gs.LockFailed, OSError):
+        _defer_release(handle.key, handle.call_id)
+        raise
+    try:
+        yield
+    finally:
+        lock.__exit__(None, None, None)
 
 
 def report(handle: Handle, ok: "Optional[bool]", status: "Optional[int]" = None,
@@ -352,8 +398,9 @@ def report(handle: Handle, ok: "Optional[bool]", status: "Optional[int]" = None,
     params = params or {}
     now = time.time()
     event: "Optional[str]" = None
-    with gs._Lock(handle.key):
+    with _report_lock(handle):
         st = gs.load(handle.key, params, now)
+        _apply_pending_releases(handle.key, st)
         st["inflight"].pop(handle.call_id, None)
         st["last_status"] = status
         prev_rate = st["rate"]

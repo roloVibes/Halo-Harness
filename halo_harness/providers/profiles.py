@@ -62,7 +62,14 @@ OPENAI_EFFORT_LEVELS = ("low", "medium", "high", "xhigh")
 # Anthropic-passthrough routes must not forward as-is). Every
 # `thinking_format == "anthropic_thinking"` profile uses this narrower set
 # instead of the general `EFFORT_LEVELS` above.
+# That 400 holds for the 4.6 generation only: `xhigh` is a valid
+# `output_config.effort` value from Opus 4.7 / Sonnet 4.7 / Haiku 5.5 on and
+# on every Fable/Mythos (`model_table.json`'s `anthropic_model_capabilities`
+# `effort_xhigh_from`, read through `providers.anthropic_caps`), so those
+# models get ANTHROPIC_EFFORT_LEVELS_XHIGH and an `xhigh` request reaches
+# the wire as `xhigh`, never the slower, costlier `max`.
 ANTHROPIC_EFFORT_LEVELS = ("low", "medium", "high", "max")
+ANTHROPIC_EFFORT_LEVELS_XHIGH = ("low", "medium", "high", "xhigh", "max")
 
 # Halo 2.0.3 round 5i part 1 (docs/harness/OPENAI-RESEARCH.md section 5,
 # confirmed live against the Responses API reference, 2026-10-04): the
@@ -407,11 +414,19 @@ def resolve_profile(route, model_table: Optional[dict] = None, state_dir=None) -
     decision_only_reason = _decision.get("reason") if _decision else None
 
     if route.dialect == "anthropic-passthrough":
+        # Per-model Messages API facts (xhigh accepted; forced tool_choice
+        # `{type: any}` rejected with a 400 on Opus/Sonnet 5.5+ and
+        # Fable/Mythos 5.1+, so the loop's forced-tool repair retry is never
+        # issued there) come from model_table.json's family table.
+        from halo_harness.providers.anthropic_caps import capabilities as _ant_caps
+        caps = _ant_caps(route.upstream_model, model_table)
         return ProviderProfile(
             system_vs_developer="system", thinking_format="anthropic_thinking",
             reasoning_replay="thinking", reasoning_effort_supported=True,
             family=family, edit_format=row.get("edit_format", "diff"),
-            effort_values_supported=ANTHROPIC_EFFORT_LEVELS,
+            effort_values_supported=(ANTHROPIC_EFFORT_LEVELS_XHIGH if caps["effort_xhigh"]
+                                     else ANTHROPIC_EFFORT_LEVELS),
+            tool_choice_required_supported=caps["forced_tool_choice"],
             model_id=route.upstream_model,
         )
 
@@ -759,6 +774,9 @@ def resolve_profile(route, model_table: Optional[dict] = None, state_dir=None) -
 
 _DISABLING_EFFORTS = frozenset({"none", "disabled", "off", "minimal"})
 
+# Weakest -> strongest, for picking a route's cheapest accepted level.
+_EFFORT_RANK = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
+
 
 def clamp_effort(effort: Optional[str], profile: ProviderProfile) -> Optional[str]:
     """1.0.1 hotfix 19: the LAST step before `effort` reaches any body-
@@ -788,7 +806,11 @@ def clamp_effort(effort: Optional[str], profile: ProviderProfile) -> Optional[st
     route's OWN default (`reasoning_default_effort` when the profile has
     one, else the harness-wide default `"medium"`) rather than silently
     passing through and risking the exact 400 this function exists to
-    prevent."""
+    prevent. The exception is a request for LESS reasoning (`none`,
+    `minimal`, `off`, `disabled`, or `low` on a route without it): that
+    becomes the route's WEAKEST accepted level, never its default -- an
+    `oai:` reasoning route's default is its strongest level (so max/xhigh
+    narrow correctly), and "cheapest" must never be sent as "dearest"."""
     if effort is None:
         return None
     supported = profile.effort_values_supported or EFFORT_LEVELS
@@ -807,6 +829,10 @@ def clamp_effort(effort: Optional[str], profile: ProviderProfile) -> Optional[st
         clamped = "max" if "max" in supported else (profile.reasoning_default_effort or "medium")
     elif effort == "max" and "max" not in supported and "xhigh" in supported:
         clamped = "xhigh"
+    elif effort.lower() in _DISABLING_EFFORTS or effort.lower() == "low":
+        ranked = [v for v in _EFFORT_RANK if v in supported]
+        clamped = ranked[0] if ranked else (profile.reasoning_default_effort
+                                            if profile.reasoning_default_effort in supported else "medium")
     else:
         clamped = profile.reasoning_default_effort if profile.reasoning_default_effort in supported else "medium"
     log.debug("clamp_effort: %r not accepted by this route (accepts %r) -- using %r instead",

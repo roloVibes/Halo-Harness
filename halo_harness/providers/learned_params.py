@@ -207,7 +207,10 @@ def detect_param_rejection(status: int, message: str, body: Optional[dict] = Non
     if sub and isinstance(sent, dict):
         sent = sent.get(sub)
     allowed = _allowed_values(message, field, sent)
-    if allowed:
+    # A structured value (`thinking`, `tool_choice`: {"type": ...}) is never
+    # "clamped" to one of the message's quoted words -- a bare string where
+    # an object belongs is just a different 400. Drop it instead.
+    if allowed and not isinstance(sent, (dict, list)):
         return ParamFix(field=field, action="clamp", value=_nearest_allowed(sent, allowed), error=message[:200])
     return ParamFix(field=field, action="drop", error=message[:200])
 

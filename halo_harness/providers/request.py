@@ -531,67 +531,28 @@ def apply_anthropic_cache_control(system_text: str, messages: list) -> "tuple[li
 _ANTHROPIC_MIN_THINKING_BUDGET = 1024  # Anthropic's own documented floor for budget_tokens
 
 
-_ADAPTIVE_ALWAYS_FAMILIES = ("fable", "mythos")  # always adaptive-capable, whatever the version
-# opus joins sonnet in the version gate: Opus 4.1/4.5 (both served on Databricks) take
-# `budget_tokens`, not `thinking: adaptive`; adaptive starts at 4.6 for both families.
-_ADAPTIVE_VERSION_GATED_FAMILIES = ("opus", "sonnet")  # adaptive only from _ADAPTIVE_MIN_VERSION onward
-_ADAPTIVE_MIN_VERSION = 4.6  # sonnet: adaptive from 4.6 onward (4.5 and older stay budget_tokens)
-
-
 def _anthropic_model_supports_adaptive_thinking(model_id: str) -> bool:
-    """H5c finding 16: `{type: "adaptive"}` (never `budget_tokens`, which
-    Sonnet 5 rejects with a 400) is required on Sonnet 4.6 onward, in
-    addition to every Opus/Fable/Mythos id (unconditionally adaptive-
-    capable already, unchanged from before this fix) -- the OLD check
-    (`"opus" in low or "fable" in low`) missed Sonnet 5 (and Sonnet 4.6)
-    entirely, routing it into the `budget_tokens` branch below, which it
-    does not accept. Haiku (any version) and Sonnet 4.5 or older are the
-    opposite: no adaptive mode at all, always `budget_tokens`. Parses a
-    trailing `<family>-<version>` (`claude-sonnet-4.6` -> ("sonnet", 4.6));
-    an unparseable id (or an unrecognised family) falls back to the
-    ORIGINAL substring check (a dated/legacy snapshot id that still names
-    "opus"/"fable" somewhere) rather than guessing wrong either way."""
-    low = (model_id or "").lower()
-    # 1.0.1 fixpass finding 11: real model ids hyphenate the minor version
-    # (`claude-sonnet-4-6`, `databricks-claude-sonnet-4-6`) -- the old
-    # pattern's `(?:\.\d+)?` only ever recognised a LITERAL dot separator
-    # (`sonnet-4.6`), so a hyphenated id parsed as bare major version "4"
-    # (`float("4") == 4.0 < 4.6`), misclassifying 4.6+ Sonnet as pre-4.6 and
-    # routing it into the `budget_tokens` branch it rejects. The minor
-    # group is capped at 2 digits with a trailing `(?!\d)` so a snapshot-
-    # dated id (`claude-sonnet-4-20250514`) never misreads the date's first
-    # digits as a fake minor version -- that case correctly falls back to
-    # "no minor" (bare major "4") instead.
-    m = re.search(r"(opus|sonnet|haiku|fable|mythos)[-_](\d+)(?:[-_.](\d{1,2})(?!\d))?", low)
-    # Bedrock/external ids put the version BEFORE the family
-    # (`us-anthropic-claude-3-7-sonnet-20250219-v1-0`): read that order
-    # first, or the snapshot date after the family would parse as a huge
-    # "major" version and wrongly classify Claude 3.x as adaptive.
-    rev = re.search(r"claude[-_](\d+)(?:[-_.](\d{1,2})(?!\d))?[-_](opus|sonnet|haiku)", low)
-    if rev is not None:
-        family, major, minor = rev.group(3), rev.group(1), rev.group(2)
-    elif m is None:
-        return "opus" in low or "fable" in low
-    else:
-        family, major, minor = m.group(1), m.group(2), m.group(3)
-    version_str = f"{major}.{minor}" if minor is not None else major
-    if family in _ADAPTIVE_ALWAYS_FAMILIES:
-        return True
-    if family not in _ADAPTIVE_VERSION_GATED_FAMILIES:
-        return False  # haiku, or any other recognised-but-never-adaptive family
-    try:
-        version = float(version_str)
-    except ValueError:
-        return "opus" in low or "fable" in low
-    return version >= _ADAPTIVE_MIN_VERSION
+    """`{type: "adaptive"}` + `output_config.effort` (never `budget_tokens`,
+    which these models reject with a 400) vs `thinking.budget_tokens`, per
+    model. The facts live in DATA -- `model_table.json`'s
+    `anthropic_model_capabilities` (family -> the version adaptive starts
+    at: Opus/Sonnet 4.6, Haiku 5.0, every Fable/Mythos), read through
+    `providers.anthropic_caps`, whose id parser handles hyphenated minors
+    (`claude-sonnet-4-6`), snapshot dates (`claude-sonnet-4-20250514` is
+    major 4, not 4.20) and the external `claude-3-7-sonnet-...` order. An
+    unparseable id keeps the original substring rule (adaptive only when it
+    names opus/fable)."""
+    from halo_harness.providers.anthropic_caps import capabilities
+    return capabilities(model_id)["adaptive_thinking"]
 
 
 def map_effort_anthropic(effort: Optional[str], model_id: str, *, max_tokens: Optional[int] = None) -> dict:
     """`{"thinking": {"type": "adaptive"}, "output_config": {"effort":
-    ...}}` (Fable/Mythos, Opus/Sonnet 4.6+ -- `budget_tokens` is REMOVED
-    on these and rejected with a 400) or `{"thinking": {"type": "enabled",
-    "budget_tokens": N}}` (Haiku 4.5 and any older Sonnet/Opus, which have
-    no adaptive mode at all and REQUIRE a budget) from `--effort`. Returns
+    ...}}` (Fable/Mythos, Opus/Sonnet 4.6+, Haiku 5+ -- `budget_tokens` is
+    REMOVED on these and rejected with a 400) or `{"thinking": {"type":
+    "enabled", "budget_tokens": N}}` (Haiku 4.5 and any older Sonnet/Opus,
+    which have no adaptive mode at all and REQUIRE a budget) from
+    `--effort`. Returns
     {} when `effort` is falsy (omit -> provider default, never a disabling
     value sent blindly).
 
