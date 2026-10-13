@@ -20,9 +20,10 @@ from textual.widgets import Markdown, Static
 
 from halo_harness.model_display import format_elapsed_seconds, format_live_token_count
 from halo_harness.tui.keys import FOLD_AFTER_WIDGETS
+from halo_harness.tui.widgets.input_sanitize import SafeStatic, display_safe
 
 
-class UserMessage(Static):
+class UserMessage(SafeStatic):
     """One user turn -- rendered once, never streamed. `markup=False`: a
     user's own text (or a model's tool result echoed nowhere near here) must
     never be parsed as Rich markup -- a literal `[red]` in a prompt must
@@ -39,7 +40,7 @@ class UserMessage(Static):
         return self.raw_text
 
 
-class SystemNote(Static):
+class SystemNote(SafeStatic):
     """Slash-command output, toasts-as-transcript-lines, errors, and
     interrupted/notification lines."""
 
@@ -183,7 +184,7 @@ class FoldedHistory(Static):
         return self.message
 
 
-class ThinkingBlock(Static):
+class ThinkingBlock(SafeStatic):
     """Halo 2.0.1 W2b (HALO-2.0.1-liveness-tips-brief.md Part A1/A2): the
     ONE live status line for a single model call -- "something visible
     changes every second while a turn runs" -- extended in place from the
@@ -465,6 +466,7 @@ class AssistantText(Markdown):
         """Named to avoid shadowing `Markdown.append` (a REAL Textual API
         `MarkdownStream._run` calls internally to flush queued fragments --
         overriding it here would recurse into `_stream.write` forever)."""
+        delta = display_safe(delta)  # model text never drives the terminal (review 3 item 12)
         self.raw_text += delta
         if self._stream is not None:
             await self._stream.write(delta)

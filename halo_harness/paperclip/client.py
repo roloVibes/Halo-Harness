@@ -77,9 +77,9 @@ class Paperclip:
 
     # -- construction -----------------------------------------------------------
     @classmethod
-    def from_config(cls, state_dir: Optional[Path] = None) -> "Paperclip":
+    def from_config(cls, state_dir: Optional[Path] = None, *, timeout: float = 30.0) -> "Paperclip":
         cfg = load_config(state_dir)
-        return cls(str(cfg.get("base_url") or DEFAULT_URL), str(cfg.get("token") or ""))
+        return cls(str(cfg.get("base_url") or DEFAULT_URL), str(cfg.get("token") or ""), timeout=timeout)
 
     @classmethod
     def from_env(cls, env: Optional[dict] = None) -> "Paperclip":
@@ -131,11 +131,16 @@ class Paperclip:
     def health(self) -> dict:
         return self.get("health") or {}
 
-    def reachable(self) -> bool:
+    def reachable(self, timeout: float = 3.0) -> bool:
+        """A health probe with its own short timeout: a host that drops
+        packets answers False in seconds, not after the request timeout."""
+        saved, self.timeout = self.timeout, min(self.timeout, timeout)
         try:
             return bool(self.health().get("status") == "ok")
         except PaperclipError:
             return False
+        finally:
+            self.timeout = saved
 
     def companies(self) -> list:
         return self.get("companies") or []

@@ -18,7 +18,9 @@ from typing import Callable, Optional
 
 from textual.binding import Binding
 from textual.screen import ModalScreen
-from textual.widgets import OptionList, Static
+from textual.widgets import OptionList
+
+from halo_harness.tui.widgets.input_sanitize import SafeStatic, display_safe
 
 STATUS_GLYPHS = {"running": "●", "ok": "✓", "error": "✗", "skipped": "⊘"}
 
@@ -45,7 +47,7 @@ class PagerScreen(ModalScreen):
         self._body = body
 
     def compose(self):
-        yield Static(f"{self._title}\n\n{self._body}", markup=False)
+        yield SafeStatic(f"{self._title}\n\n{self._body}", markup=False)
 
     def action_dismiss_pager(self) -> None:
         self.dismiss()
@@ -65,7 +67,7 @@ def _truncate_lines(text: str, n: int) -> "tuple[str, int]":
     return "\n".join(lines[:n]), len(lines) - n
 
 
-class ToolCard(Static, can_focus=True):
+class ToolCard(SafeStatic, can_focus=True):
     """Keyed by `tool_use_id`. `header` is already the fully-formed one-line
     summary (`"⏺ Bash(git status -sb)"` -- app.py builds it via the
     tool registry's own `summary()`/`permission_content()` so this widget
@@ -234,7 +236,7 @@ def _summarize_call(name: str, input_data: dict) -> str:
     return f"{name}({body[:80]})" if len(body) <= 80 else f"{name}({body[:80]}...)"
 
 
-class SubAgentCard(Static):
+class SubAgentCard(SafeStatic):
     """Halo 2.0.1 W2b (liveness-tips-brief Part A5): the parent's own live
     summary of ONE running sub-agent -- `"agent reviewer · thinking 9 s ·
     3 tools"` -- mounted (by `tui/dispatch.py`) on `subagent_start` in
@@ -301,7 +303,22 @@ class SubAgentCard(Static):
         self.update(text)
 
 
-class PermissionCard(Static, can_focus=True):
+class _AnswerCard(SafeStatic):
+    """A card whose keys answer something (allow, approve, accept). Its
+    bindings only run while its own screen is the one on top: a dialog
+    opened over the base screen keeps every key it is typed (review 3
+    item 11; the App also keeps focus off a hidden card)."""
+
+    def check_action(self, action: str, parameters: tuple) -> "bool | None":
+        try:
+            if self.screen is not self.app.screen:
+                return False
+        except Exception:  # not mounted on any screen
+            return False
+        return super().check_action(action, parameters)
+
+
+class PermissionCard(_AnswerCard, can_focus=True):
     """`on_decide(decision: dict)` fires exactly once with
     `{"action": "allow"|"deny", "scope": "once"|"session"|"always"|None,
     "rule": str|None, "message": str}`. `4`/`n`/`escape` doesn't resolve
@@ -454,7 +471,7 @@ def _option_texts(options) -> list:
     return out
 
 
-class QuestionCard(Static, can_focus=True):
+class QuestionCard(_AnswerCard, can_focus=True):
     """`AskUserQuestion`'s actual schema today is one question + a flat
     list of string options (`halo_harness/tools/ask_user_question.py`) --
     rendered as one `OptionList` plus an "Other..." entry. A forward-
@@ -493,13 +510,13 @@ class QuestionCard(Static, can_focus=True):
 
     def compose(self):
         for i, (question, options) in enumerate(self.questions):
-            yield Static(f"? {question}", markup=False, classes="question-heading")
+            yield SafeStatic(f"? {question}", markup=False, classes="question-heading")
             # vibes/review.md finding 28: option labels are parsed as
             # markup, so an AskUserQuestion option containing `[/...]`
             # (a path in brackets, "[/etc/hosts]") raised MarkupError and
             # crashed the dialog. rich Text renders the label literally.
             from rich.text import Text
-            opts = [Text(str(o)) for o in (*options, self.OTHER)]
+            opts = [Text(display_safe(str(o))) for o in (*options, self.OTHER)]
             ol = OptionList(*opts, id=f"q-opt-{i}")
             self._lists.append(ol)
             yield ol
@@ -563,7 +580,7 @@ class QuestionCard(Static, can_focus=True):
         self._lists[self.active_index].focus()
 
 
-class PlanCard(Static, can_focus=True):
+class PlanCard(_AnswerCard, can_focus=True):
     """Built against the (not-yet-emitted, H6) `plan_review` event --
     `input_data` is whatever payload it eventually carries; `"plan"` (a
     string) is read defensively so this card degrades gracefully rather
@@ -618,7 +635,7 @@ class PlanCard(Static, can_focus=True):
         self._finish({"approved": False, "mode_after": None, "feedback": message})
 
 
-class ApprovalCard(Static, can_focus=True):
+class ApprovalCard(_AnswerCard, can_focus=True):
     """Halo 2.0.2 round D (brief item 2, "approval gates"): a `requires_
     approval: true` org position's just-finished result, held pending a
     human decision -- `on_decide({"action": "accept"|"edit"|"stop",
@@ -690,7 +707,7 @@ class ApprovalCard(Static, can_focus=True):
         self._finish({"action": "edit", "instruction": message})
 
 
-class EffortCard(Static, can_focus=True):
+class EffortCard(SafeStatic, can_focus=True):
     """1.0.1 hotfix 20.2: the inline `/effort` selector, Claude-Code-style
     -- one horizontal row of THIS route's own accepted effort levels
     (`levels`, ordered -- e.g. `["low","medium","high","max"]` for an
@@ -796,7 +813,7 @@ class EffortCard(Static, can_focus=True):
             event.stop()
 
 
-class RewindCard(Static, can_focus=True):
+class RewindCard(SafeStatic, can_focus=True):
     """Confirmation card for `/rewind`/`/undo`/`/redo` (U5 scope B): shows
     the target shadow-repo step and asks to confirm before touching the
     real working tree. `on_decide(confirmed: bool)` fires exactly once."""
@@ -842,7 +859,7 @@ class RewindCard(Static, can_focus=True):
             self._finish(False)
 
 
-class ImproveCard(Static, can_focus=True):
+class ImproveCard(SafeStatic, can_focus=True):
     """One drafted `/improve` candidate (H10 Part B3, RewindCard's own
     confirm/cancel pattern extended to 5 actions): kind badge, target path,
     rendered body (or a unified diff when the target already carries the

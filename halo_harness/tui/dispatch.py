@@ -418,6 +418,10 @@ async def _apply_event_inner(app, event) -> None:
         # (agent_id is None) ever do.
         if agent_id is None:
             app.status_bar.apply_status({"phase": "thinking"})
+            # A turn the remote bridge (or a card) started never went
+            # through `_submit_prompt`: Esc must still interrupt it
+            # (review 3 item 144); `on_turn_done` clears this.
+            app._turn_running = True
     elif kind == "text_delta":
         text = data.get("text", "")
         await app.transcript.append_text(turn, data.get("index", 0), text, agent_id=agent_id)

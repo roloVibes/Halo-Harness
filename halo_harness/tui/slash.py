@@ -312,13 +312,11 @@ def _edit_role_template_externally(app, name: str) -> None:
     # bad byte in a template file (a truncated write, a hand edit) meant
     # `/roles edit` cheerfully replaced the whole template with an empty
     # one. A file that exists-but-doesn't-load is refused, not clobbered.
+    from halo_harness.tui.edit_guard import refusal_text, unloadable_path
     if load_role_template(name) is None:
-        existing_path = role_templates_dir() / f"{name}.json"
-        if existing_path.exists():
-            app.notify(f"Template {name!r} exists at {existing_path} but cannot be loaded "
-                       "(invalid JSON or schema); fix or remove the file first -- refusing to "
-                       "overwrite it with an empty template.",
-                       severity="error", title="/roles edit")
+        existing_path = unloadable_path("role", name)
+        if existing_path is not None:
+            app.notify(refusal_text("role", name, existing_path), severity="error", title="/roles edit")
             return
         ok, problems = save_role_template(name, {"roles": {}})
         if not ok:
@@ -349,6 +347,11 @@ def _roles_edit_form_worker(app, name: str) -> None:
     inside `RolesEditor.action_save` -- so pressing Esc on a template
     that never existed before leaves nothing on disk at all."""
     from halo_harness.roles import load_role_template
+    from halo_harness.tui.edit_guard import refusal_text, unloadable_path
+    broken = unloadable_path("role", name)
+    if broken is not None:  # review 3 item 149: never open (and later save) an empty form over it
+        app.call_from_thread(app.notify, refusal_text("role", name, broken), severity="error", title="/roles edit")
+        return
     template = load_role_template(name) or {"name": name, "description": "", "roles": {}}
     models = app.controller.list_models()
     app.call_from_thread(_open_roles_editor, app, name, template, models)
@@ -523,6 +526,11 @@ def _org_edit_form_worker(app, name: str) -> None:
     editor -- so cancelling one that never existed before leaves nothing
     on disk at all."""
     from halo_harness.orgs import load_org
+    from halo_harness.tui.edit_guard import refusal_text, unloadable_path
+    broken = unloadable_path("org", name)
+    if broken is not None:  # review 3 item 149
+        app.call_from_thread(app.notify, refusal_text("org", name, broken), severity="error", title="/org edit")
+        return
     org = load_org(name) or {"name": name, "description": "", "positions": [
         {"title": "Orchestrator", "role": "orchestrator", "reports": [], "instructions": ""}]}
     models = app.controller.list_models()

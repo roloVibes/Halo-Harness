@@ -128,8 +128,11 @@ class HudSkin:
     # 3.0.2.0 (owner: "I don't like losing the bottom info"): "plain" keeps
     # the ordinary status bar (model, cost, context, mode, cwd) under this
     # theme, tinted with `accent`; the skin's borders, input frame and level
-    # still apply. "hud" renders the skin's own panel rows.
-    status_bar: str = "hud"
+    # still apply. "hud" renders the skin's own panel rows -- reached only
+    # through STATUS_BAR_OVERRIDE (the HUD engine tests); a session always
+    # shows the plain bar, so the default is "plain" and a new skin cannot
+    # bring the panel rows back by omission (review 3 item 162).
+    status_bar: str = "plain"
     accent: str = ""
 
 
@@ -176,8 +179,9 @@ def skin_for(theme_name: Optional[str], variant: Optional[str] = None) -> Option
     return _resolved[key][1]
 
 
-# "hud" forces every skin's own rows (the HUD engine tests set it); None
-# honours each skin's `status_bar`.
+# "hud" forces every skin's own rows; None honours each skin's `status_bar`.
+# A test and capture hook only: no config key, slash command, theme variant
+# or environment variable sets it (tests/test_review3_t3.py pins that).
 STATUS_BAR_OVERRIDE: Optional[str] = None
 
 

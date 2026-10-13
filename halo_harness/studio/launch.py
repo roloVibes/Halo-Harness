@@ -31,14 +31,22 @@ def read_info(state_dir: Path) -> Optional[dict]:
         data = json.loads(studio_info_path(Path(state_dir)).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    return data if isinstance(data, dict) and data.get("port") else None
+    if not isinstance(data, dict):
+        return None
+    # A hand-edited or half-written file ("port": "abc") reads as no Studio,
+    # never as an exception out of the wizard's worker (review 3 item 76).
+    try:
+        port = int(data.get("port"))
+    except (TypeError, ValueError):
+        return None
+    return dict(data, port=port) if 0 < port < 65536 else None
 
 
 def port_answers(port: int, timeout: float = 0.3) -> bool:
     try:
         with socket.create_connection(("127.0.0.1", int(port)), timeout=timeout):
             return True
-    except OSError:
+    except (OSError, ValueError, TypeError, OverflowError):
         return False
 
 
