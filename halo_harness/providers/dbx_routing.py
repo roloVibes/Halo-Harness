@@ -48,7 +48,11 @@ API_TYPE_INFO = {
 # to whichever ones the endpoint's OWN discovered `api_types` actually list
 # (brief: "never a type the endpoint does not list"); `invocations` is always
 # appended last regardless of family. "claude_external" (Bedrock) gets no
-# chat-shaped candidate at all -- invocations only.
+# chat-shaped candidate at all -- invocations only. The "anthropic" entries
+# (glm/kimi, claude_foundation) are classify/override bookkeeping only:
+# chat_route_candidates strips them, so glm/kimi try mlflow then
+# invocations, never the anthropic gateway (that is the anthropic-
+# passthrough dialect, chosen up front by `@anthropic` / the gateway map).
 FAMILY_ROUTE_ORDER: "dict[str, tuple]" = {
     "claude_foundation": ("anthropic", "mlflow", "cursor"),
     "glm": ("mlflow", "anthropic"),
