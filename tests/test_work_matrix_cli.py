@@ -59,8 +59,8 @@ def test_render_show_table_all_failures_lists_every_class(ctx: Ctx):
     ctx.check("wrong-path/anthropic-companion flagged",
               "databricks-glm-5-3" in text and "wrong path" in text)
     ctx.check("gateway override action suggested", "databricks.gateway.databricks-glm-5-3" in text)
-    ctx.check("unrecovered 500 reported as unknown",
-              "databricks-qwen-3-max" in text and "unknown" in text)
+    ctx.check("unrecovered 500 reported as a transient error to retry (never a config suggestion)",
+              "databricks-qwen-3-max" in text and "transient error" in text and "retry the probe" in text)
     ctx.check("tool-call failure flagged", "databricks-deepseek-v4-1-flash" in text
               and "no tool call produced" in text)
     ctx.check("reasoning replay failure flagged", "databricks-gpt-oss-120b" in text

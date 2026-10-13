@@ -527,7 +527,9 @@ var `/compact`'s own trigger math already reads.
 What: runs a plain, line-oriented interactive loop instead of the
 full-screen Textual UI -- flat text, no borders/animations/spinners, one
 line per event. Permission/question/plan asks become a `y`/`n` or numbered
-prompt read from stdin. Not the TUI with styling stripped; a genuinely
+prompt read from stdin, and an approval ask (a position that requires
+approval, or a team escalation) becomes an `a`/`e`/`s` accept / edit / stop
+prompt. Not the TUI with styling stripped; a genuinely
 separate, simpler renderer (`halo_harness/ax_mode.py`) driving the same
 `Controller` the real TUI uses.
 
@@ -1372,8 +1374,9 @@ halo work-matrix show ~/.halo/work-matrix-2026-09-29.json
 ### `work-matrix apply <report.json> [--yes]`
 Recomputes the SAME classification and writes only the one failure class that
 maps onto a real config.json knob (`databricks.gateway.<endpoint>: anthropic`,
-for an endpoint whose default dialect failed but a `--both`-probed anthropic-
-gateway companion row answered 200) -- lists every override it's about to
+for an endpoint whose default dialect was rejected with a 400/404/415/422 while a
+`--both`-probed anthropic-gateway companion row answered 200; a 429, a 5xx or a
+probe that raised is reported as "retry the probe" and never written) -- lists every override it's about to
 write and asks for confirmation first; `--yes` skips the prompt (for
 scripting/CI). The other three failure classes (403/IP, a family-wide
 tool-call rule, a reasoning-replay rule) have no per-endpoint config.json
@@ -2176,7 +2179,8 @@ halo export: no sessions found for this directory
 `--sanitize` redacts (never just masks) OpenRouter/Anthropic/Databricks/
 GitHub/AWS-shaped tokens, quoted or JSON-encoded `export KEY="value"`/
 `"KEY": "value"` assignments (by exact known name, and generically for any
-`*_API_KEY`/`*TOKEN*`/`*SECRET*`-shaped name), and `Bearer <token>` headers,
+`*_API_KEY`/`*TOKEN*`/`*SECRET*`-shaped name), `Bearer <token>`, `Cookie`/`Set-Cookie`/
+`Proxy-Authorization` headers,
 by round-tripping each log node through JSON text -- the same sanitizer the
 TUI's own `/export --sanitize` calls, so the two can never disagree.
 

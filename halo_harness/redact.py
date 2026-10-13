@@ -132,6 +132,11 @@ def _redact_env_assign(m: "re.Match") -> str:
     raw_value = (m.group('value') or '').rstrip(',;)}]')
     if raw_value.startswith('<redacted>'):
         return m.group(0)  # already redacted (a second pass over the same text)
+    if raw_value[:1] in ('{', '[') and m.group('sep') == ':' and not m.group('open_q'):
+        # a JSON object/array under a secret-named key (an MCP tool schema's
+        # `password` property, a `tokens` list): redacting its opening bytes
+        # leaves the JSON unparseable and `sanitize_node` drops the node.
+        return m.group(0)
     tail = (m.group('value') or '')[len(raw_value):] if not m.group('close_q') else ''
     open_q, close_q = m.group('open_q') or '', m.group('close_q') or ''
     if _NOT_A_SECRET_VALUE_RE.match(raw_value):
@@ -201,6 +206,11 @@ _BEARER_RE = re.compile(r"(Bearer\s+)([A-Za-z0-9\-_.]{16,})", re.IGNORECASE)
 _AUTH_HEADER_RE = re.compile(
     r'(?i)\b((?:authorization|x-api-key|api-key)\\?[\'"]?\s*:\s*\\?[\'"]?)'
     r'(?:(?:bearer|token|basic)\s+)?[A-Za-z0-9\-_.=+/]{8,}')
+# Cookie-style headers: the value is a `name=value; name2=value2` list, so it
+# runs to the end of the line (or the closing quote of a JSON/repr string).
+_COOKIE_HEADER_RE = re.compile(
+    r'(?i)\b((?:set-cookie|cookie|proxy-authorization|private-token)\\?[\'"]?[ \t]*:[ \t]*\\?[\'"]?)'
+    r'(?!<redacted>)[^\s"\'\\][^\r\n"\'\\]{2,}')
 # URL credentials (`postgres://user:password@host/...` -- also mysql,
 # redis, mongodb, amqp, ftp): the user:password pair goes, the scheme and
 # host stay (the host is what a bugreport actually needs).
@@ -248,6 +258,7 @@ def sanitize_text(text: str) -> str:
     text = _ENV_ASSIGN_QUOTED_SQ_RE.sub(_redact_env_assign, text)
     text = _ENV_ASSIGN_RE.sub(_redact_env_assign, text)
     text = _AUTH_HEADER_RE.sub(lambda m: f"{m.group(1)}<redacted>", text)
+    text = _COOKIE_HEADER_RE.sub(lambda m: f"{m.group(1)}<redacted>", text)
     text = _BEARER_RE.sub(lambda m: f"{m.group(1)}<redacted>", text)
     text = _URL_CRED_RE.sub(lambda m: f"{m.group('scheme')}<redacted>@", text)
     text = _SLACK_WEBHOOK_RE.sub("https://hooks.slack.com/services/<redacted>", text)

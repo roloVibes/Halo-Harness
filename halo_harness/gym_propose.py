@@ -187,14 +187,16 @@ def apply_proposal(roles_dict: dict, *, template_name: str = "gym-proposed",
     payload = {"name": template_name,
                "description": description or "Proposed by `halo gym propose` from this machine's own gym scores.",
                "roles": roles_dict}
-    tmp_dir = Path(tempfile.mkdtemp(prefix="halo-gym-propose-"))
-    tmp_path = tmp_dir / f"{template_name}.json"
-    tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     import contextlib
     import io
     buf = io.StringIO()
-    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
-        rc = cmd_roles(["template", "import", str(tmp_path)])
+    # The template file is only the hand-off to `roles template import` (which copies it
+    # into the state dir), so the scratch directory goes away on every path.
+    with tempfile.TemporaryDirectory(prefix="halo-gym-propose-") as tmp_dir:
+        tmp_path = Path(tmp_dir) / f"{template_name}.json"
+        tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            rc = cmd_roles(["template", "import", str(tmp_path)])
     if rc != 0:
         return False, [buf.getvalue().strip() or f"halo roles template import exited {rc}"]
     return True, []
