@@ -1542,9 +1542,9 @@ class BridgeApp(App):
             self.prompt_input.text = f"{self.prompt_input.text}@{item['value']} "
             self.prompt_input.move_cursor(self.prompt_input.document.end)
         elif kind == "session":
-            resume = getattr(self.controller, "resume", None)
-            if callable(resume):
-                resume(item["value"])
+            if callable(getattr(self.controller, "resume", None)):
+                from halo_harness.tui.slash import resume_from_ui
+                resume_from_ui(self, item["value"])
 
     async def _run_palette_command(self, name: str) -> None:
         from halo_harness.tui.slash import handle_slash
