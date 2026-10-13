@@ -80,6 +80,10 @@ and `halo_role` in their metadata, which is how a second sync finds them.
 `halo paperclip pull <lineup>` goes the other way: the company's reporting
 lines are written into the lineup's `org.positions`, so the YAML and the
 chart agree after you re-parent agents in Studio or in Paperclip.
+The file is written where the lineup came from: a project lineup stays a project
+file, a user lineup a user file, and a bundled template such as `halo-dev-cycle`
+gets your own copy in `~/.halo/teams/` (the command prints the path and says so).
+`--project` writes to the project scope instead.
 
 ## How a heartbeat runs Halo
 

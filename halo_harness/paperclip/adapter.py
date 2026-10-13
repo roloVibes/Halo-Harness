@@ -30,6 +30,7 @@ from halo_harness.paperclip.client import Paperclip, PaperclipError
 
 OPEN_STATUSES = ("todo", "in_progress")
 MAX_PROMPT_CHARS = 60_000
+MAX_PROMPT_BYTES = 200_000  # UTF-8 bytes; the prompt travels on stdin, never in argv
 
 
 def pick_issue(client: Paperclip, agent_id: str, company_id: str, run_id: str) -> Optional[dict]:
@@ -61,7 +62,11 @@ def build_prompt(ctx: dict, issue: dict, agent: dict) -> str:
     if isinstance(wake, dict) and wake.get("body"):
         lines += ["", "The comment that woke you:", str(wake["body"])]
     text = "\n".join(lines)
-    return text[:MAX_PROMPT_CHARS]
+    text = text[:MAX_PROMPT_CHARS]
+    raw = text.encode("utf-8")
+    if len(raw) > MAX_PROMPT_BYTES:
+        text = raw[:MAX_PROMPT_BYTES].decode("utf-8", "ignore")
+    return text
 
 
 def model_for(agent: dict) -> str:
@@ -81,15 +86,20 @@ def model_for(agent: dict) -> str:
 
 
 def run_halo(prompt: str, model: str, cwd: str, env: dict, timeout: int = 3600) -> tuple[int, str]:
-    cmd = [sys.executable, "-m", "halo_harness", "-p", prompt, "--cwd", cwd]
+    # the prompt goes in on stdin: one argv string is capped (131072 bytes on
+    # Linux, 32767 characters for the whole Windows command line)
+    cmd = [sys.executable, "-m", "halo_harness", "-p", "--cwd", cwd]
     if model:
         cmd += ["--model", model]
     child_env = {k: v for k, v in env.items() if k != "PAPERCLIP_API_KEY"}  # the key stays with this process
     child_env["PYTHONIOENCODING"] = "utf-8"
     try:
-        r = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout, cwd=cwd, env=child_env)
+        r = subprocess.run(cmd, input=prompt, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout,
+                           cwd=cwd, env=child_env)
     except subprocess.TimeoutExpired:
         return 1, f"halo timed out after {timeout} s"
+    except OSError as e:
+        return 1, f"could not start halo: {e}"
     out = (r.stdout or "").strip()
     if r.returncode != 0:
         out = (out + "\n\n" + (r.stderr or "").strip()[-2000:]).strip()
@@ -122,7 +132,10 @@ def run_heartbeat(env: Optional[dict] = None, *, runner=run_halo, out=sys.stdout
                 return 0
         ctx = client.heartbeat_context(issue["id"])
         prompt = build_prompt(ctx if isinstance(ctx, dict) else {}, issue, agent)
-        code, reply = runner(prompt, model_for(agent), os.getcwd(), env)
+        try:
+            code, reply = runner(prompt, model_for(agent), os.getcwd(), env)
+        except Exception as e:  # any runner failure still ends in the failure comment and exit 1
+            code, reply = 1, f"{type(e).__name__}: {e}"
         body = reply if code == 0 else f"The turn failed (exit {code}).\n\n{reply}"
         client.comment(issue["id"], body)
         if code == 0:

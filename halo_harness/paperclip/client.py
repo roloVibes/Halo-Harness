@@ -101,8 +101,9 @@ class Paperclip:
             req.add_header("Authorization", f"Bearer {self.token}")
         if self.run_id and method in ("POST", "PUT", "PATCH", "DELETE"):
             req.add_header("X-Paperclip-Run-Id", self.run_id)
+        from halo_harness.providers.http import UpstreamConnectError, urlopen_tls
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            with urlopen_tls(req, timeout=self.timeout) as r:
                 raw = r.read()
         except urllib.error.HTTPError as e:
             raw = e.read() or b""
@@ -111,7 +112,7 @@ class Paperclip:
             except (ValueError, AttributeError):
                 msg = raw.decode("utf-8", "replace")
             raise PaperclipError(e.code, str(msg)[:400]) from None
-        except (urllib.error.URLError, OSError) as e:
+        except (urllib.error.URLError, OSError, UpstreamConnectError) as e:
             raise PaperclipError(0, f"cannot reach {self.base_url}: {e}") from None
         return json.loads(raw) if raw else None
 

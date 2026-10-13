@@ -9,9 +9,10 @@ HANDOFF.md the next Halo or Claude Code session starts from.
 
 from __future__ import annotations
 
-import json
+import html
 import shutil
 import time
+import urllib.parse
 from pathlib import Path
 from typing import Optional
 
@@ -25,18 +26,32 @@ def _target(project: Project, out: Optional[Path], suffix: str) -> Path:
     return out
 
 
+def _e(value) -> str:
+    return html.escape(str(value if value is not None else ""), quote=True)
+
+
+def _url(path: str) -> str:
+    """A relative path as an attribute-safe URL: each segment percent-encoded."""
+    return _e("/".join(urllib.parse.quote(part) for part in str(path).split("/")))
+
+
+def _thumb(item: dict) -> str:
+    return f'<img src="{_url(item["thumb"])}">' if item.get("thumb") else "<span>html</span>"
+
+
 def _index_html(project: Project, items: list) -> str:
     meta = project.meta()
+    name = _e(meta.get("name", project.slug))
     cards = "\n".join(
-        f'<a class="card" href="{i["href"]}"><div class="thumb">{"<img src=%s>" % json.dumps(i["thumb"]) if i.get("thumb") else "<span>html</span>"}</div>'
-        f'<b>{i["title"]}</b><small>{i["kind"]} · v{i["version"]}</small></a>' for i in items)
-    return f"""<!doctype html><meta charset="utf-8"><title>{meta.get('name', project.slug)}</title>
+        f'<a class="card" href="{_url(i["href"])}"><div class="thumb">{_thumb(i)}</div>'
+        f'<b>{_e(i["title"])}</b><small>{_e(i["kind"])} · v{_e(i["version"])}</small></a>' for i in items)
+    return f"""<!doctype html><meta charset="utf-8"><title>{name}</title>
 <style>body{{font:15px system-ui;margin:0;background:#15161c;color:#e6e6ef}}header{{padding:28px 32px 8px}}h1{{margin:0;font-size:22px}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;padding:16px 32px 40px}}
 .card{{display:block;color:inherit;text-decoration:none;border:1px solid #2a2c38;border-radius:12px;overflow:hidden;background:#1d1f29}}
 .thumb{{aspect-ratio:16/10;background:#0f1016;display:grid;place-items:center;color:#777}}.thumb img{{width:100%;height:100%;object-fit:cover}}
 .card b{{display:block;padding:10px 12px 0}}.card small{{display:block;padding:2px 12px 12px;color:#9a9db0}}</style>
-<header><h1>{meta.get('name', project.slug)}</h1><small>exported by Halo Design</small></header><div class="grid">{cards}</div>"""
+<header><h1>{name}</h1><small>exported by Halo Design</small></header><div class="grid">{cards}</div>"""
 
 
 def export_project(project: Project, kind: str, out: Optional[Path] = None, *, artboard: str = "") -> list:
@@ -47,7 +62,10 @@ def export_project(project: Project, kind: str, out: Optional[Path] = None, *, a
         items = []
         for a in boards:
             dst = target / a["id"]
-            shutil.copytree(project.artboard_dir(a["id"]), dst, ignore=shutil.ignore_patterns("v*", "version.json"))
+            replaced = dst.exists()
+            shutil.copytree(project.artboard_dir(a["id"]), dst, dirs_exist_ok=True, ignore=shutil.ignore_patterns("v*", "version.json"))
+            if replaced:
+                lines.append(f"{a['id']}: overwrote the files in the existing {dst}")
             href = f"{a['id']}/index.html" if "index.html" in a["files"] else (f"{a['id']}/{a['render']}" if a.get("render") else f"{a['id']}/")
             thumb = f"{a['id']}/{a['render']}" if a.get("render") and a["render"] != "index.html" and not a["render"].endswith((".pdf", ".mp4")) else ""
             items.append({"href": href, "thumb": thumb, "title": a["title"], "kind": a["kind"], "version": a["latest"]})

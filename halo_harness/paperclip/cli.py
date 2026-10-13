@@ -158,7 +158,7 @@ def cmd_pull(args) -> int:
     client = _client()
     cid = _company_id(client, args.company)
     try:
-        org = pull_reporting_lines(client, cid, args.lineup, project=args.project)
+        org = pull_reporting_lines(client, cid, args.lineup, project=True if args.project else None, out=sys.stdout)
     except (ValueError, PaperclipError) as e:
         print(f"halo paperclip pull: {e}")
         return 1

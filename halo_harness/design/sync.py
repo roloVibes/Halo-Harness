@@ -85,6 +85,8 @@ def components_in(root: Path) -> list:
         if not d.is_dir():
             continue
         for f in sorted(d.rglob("*")):
+            if any(part in _SKIP_DIRS for part in f.relative_to(root).parts[:-1]):
+                continue
             if f.is_file() and f.suffix in (".tsx", ".jsx", ".vue", ".svelte", ".py", ".html") and not f.name.startswith(("index.", "_")):
                 names.append({"name": f.stem, "path": str(f.relative_to(root)).replace("\\", "/")})
             if len(names) >= 200:
@@ -105,7 +107,7 @@ def scan_codebase(root: Path, *, max_files: int = 400) -> dict:
     for f in root.rglob("*"):
         if seen >= max_files:
             break
-        if any(part in _SKIP_DIRS for part in f.parts):
+        if any(part in _SKIP_DIRS for part in f.relative_to(root).parts[:-1]):  # below the root only
             continue
         if not f.is_file():
             continue
@@ -137,11 +139,15 @@ def capture_url(url: str, *, fetch: Optional[callable] = None) -> dict:
         def fetch(u: str) -> str:  # type: ignore[no-redef]
             with urlopen_tls(u, timeout=20) as r:
                 return r.read(2_000_000).decode("utf-8", "replace")
+    import html as htmllib
+    from urllib.parse import urljoin
     html = fetch(url)
     tokens = tokens_from_css(html)
+    base = re.search(r"<base[^>]+href=[\"']([^\"']+)", html)
+    base_url = urljoin(url, htmllib.unescape(base.group(1))) if base else url
     for href in re.findall(r"<link[^>]+rel=[\"']stylesheet[\"'][^>]+href=[\"']([^\"']+)", html)[:5]:
         try:
-            css_url = href if href.startswith("http") else url.rstrip("/") + "/" + href.lstrip("/")
+            css_url = urljoin(base_url, htmllib.unescape(href))
             _merge(tokens, tokens_from_css(fetch(css_url)))
         except Exception:
             continue
