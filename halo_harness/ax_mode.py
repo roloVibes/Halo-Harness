@@ -94,6 +94,33 @@ def _review_plan(controller, data: dict) -> None:
     controller.answer_plan(approved, feedback=("" if approved else reply))
 
 
+def _ask_approval(controller, data: dict) -> None:
+    """`approval_request` (a position with `requires_approval`, or a team
+    escalation card): the same accept / edit / stop choice the TUI's
+    ApprovalCard offers, read from stdin one line at a time. EOF or an
+    unrecognized line is "stop"."""
+    request_id = data.get("id")
+    position = data.get("position") or "?"
+    suffix = " (with an error)" if data.get("is_error") else ""
+    print(f"\n[approval] {position}{suffix}\n{data.get('text', '')}\n"
+          "accept, edit and re-run, or stop? (a/e/s): ", end="", flush=True)
+    try:
+        reply = input().strip().lower()
+    except EOFError:
+        reply = "s"
+    decision = {"action": "stop", "instruction": None}
+    if reply in ("a", "accept", "y", "yes", "1"):
+        decision = {"action": "accept", "instruction": None}
+    elif reply in ("e", "edit"):
+        print("revision instruction (Enter for none): ", end="", flush=True)
+        try:
+            instruction = input().strip()
+        except EOFError:
+            instruction = ""
+        decision = {"action": "edit", "instruction": instruction}
+    controller.answer_approval(request_id, decision)
+
+
 def _drain_until_idle(controller) -> int:
     """Blocks on `controller.events` (a plain `queue.Queue`) printing one
     line per event until `turn_done` (or the worker thread ends, `None`
@@ -124,6 +151,8 @@ def _drain_until_idle(controller) -> int:
             _ask_question(controller, data)
         elif kind == "plan_review":
             _review_plan(controller, data)
+        elif kind == "approval_request":
+            _ask_approval(controller, data)
         elif kind == "turn_done":
             print()
             reason = data.get("reason", "end_turn")
