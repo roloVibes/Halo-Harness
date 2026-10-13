@@ -123,10 +123,19 @@ def tool_timeout_s(server_timeout_ms: Optional[float]) -> float:
 # transport (stdio, http, sse), so `L` in `/mcp` and `halo mcp fix` have one
 # place to look regardless of why a server is down.
 
+def _scrubbed_error(text: str) -> str:
+    """Connect/transport error text with every url cut to scheme://host/path
+    (the expanded url can carry a real token) -- see mcp/errtext.py."""
+    from halo_harness.mcp.errtext import scrub_error_text
+    return scrub_error_text(text)
+
+
 def _append_server_log(name: str, message: str) -> None:
     """Best-effort: a logging failure must never break the connect/call
-    that triggered it."""
+    that triggered it. The message is scrubbed again here: the per-server
+    log is what `L` and `halo mcp fix` tail."""
     try:
+        message = _scrubbed_error(message)
         import datetime
         from halo_harness.mcp import stdio as stdio_mod
         f = stdio_mod.open_errlog(name)
@@ -341,7 +350,11 @@ def parse_server(name: str, raw, *, scope: str, source_path: Optional[str] = Non
     raw_args = raw.get("args")
     if isinstance(raw_args, str):
         import shlex
-        raw_args = shlex.split(raw_args)
+        try:
+            raw_args = shlex.split(raw_args)
+        except ValueError as e:  # e.g. "No closing quotation" (review item 69)
+            return McpServerConfig(name=name, type="invalid", scope=scope, source_path=source_path,
+                                    disabled_reason=f"`args` string could not be shell-split: {e}")
     elif not isinstance(raw_args, list):
         raw_args = [] if raw_args is None else None
     if raw_args is None:
@@ -991,6 +1004,8 @@ class McpServerHandle:
 
     @staticmethod
     def _looks_like_auth_failure(exc: BaseException) -> bool:
+        if getattr(exc, "http_status", None) in (401, 403):
+            return True  # recorded at the transport (http_sse.HttpAuthRequired)
         text = str(exc).lower()
         return "401" in text or "unauthorized" in text
 
@@ -1052,11 +1067,18 @@ class McpServerHandle:
             stack, session = await raw_connect_fn(url=url, headers=headers, connect_timeout=connect_timeout)
             try:
                 init_result = await session.initialize()
-            except BaseException:
+            except BaseException as exc:
                 try:
                     await stack.aclose()
                 except Exception:
                     pass
+                # review item 67: the SDK's Streamable HTTP client reports a
+                # real 401 as a bare "Server returned an error response";
+                # the status the transport recorded decides auth failure.
+                from halo_harness.mcp import http_sse as _hs
+                wrapped = _hs.with_recorded_status(exc, getattr(stack, "halo_http_status", None))
+                if wrapped is not exc:
+                    raise wrapped from exc
                 raise
             return stack, session, init_result
         return _connect
@@ -1310,7 +1332,7 @@ class McpServerHandle:
             self._loop.wait_future_abortable(connect_future, timeout=mcp_timeout_s() * 2 + 4, abort=abort)
         except Exception as e:
             self.state = "needs_auth" if http_sse_mod.looks_like_auth_required(e) else "failed"
-            self.error = f"{type(e).__name__}: {e}"
+            self.error = _scrubbed_error(f"{type(e).__name__}: {e}")
             self.last_error_at = time.time()
             _append_server_log(self.config.name, f"connect failed ({self.state}): {self.error}")
             return
@@ -1326,7 +1348,7 @@ class McpServerHandle:
         `finally: await self._stack.aclose()` once `close()`/process exit
         eventually runs; clearing it here too would leak the subprocess."""
         self.state = "failed"
-        self.error = f"{type(exc).__name__}: {exc} (connection lost)"
+        self.error = _scrubbed_error(f"{type(exc).__name__}: {exc} (connection lost)")
         self.last_error_at = time.time()
         self._session = None
         _append_server_log(self.config.name, f"connection lost: {self.error}")
@@ -1715,7 +1737,9 @@ class McpManager:
                 h.state = "connected"
             except Exception as e:
                 h.state = "needs_auth" if http_sse_mod.looks_like_auth_required(e) else "failed"
-                h.error = f"{type(e).__name__}: {e}"
+                h.error = _scrubbed_error(f"{type(e).__name__}: {e}")
+                # review item 141: the parallel path logs like start() does.
+                _append_server_log(h.config.name, f"connect failed ({h.state}): {h.error}")
                 # round6 brief deliverable 1: this path (start_all()/
                 # ensure_lazy_started_all()/start_many(), ALL of which share
                 # this one parallel-start helper) is the one every real
@@ -1770,8 +1794,9 @@ class McpManager:
             for h in targets:
                 if h.state == "connecting":
                     h.state = "failed"
-                    h.error = f"startup exceeded MCP_TIMEOUT ({overall:.1f}s): {type(e).__name__}: {e}"
+                    h.error = _scrubbed_error(f"startup exceeded MCP_TIMEOUT ({overall:.1f}s): {type(e).__name__}: {e}")
                     h.last_error_at = time.time()
+                    _append_server_log(h.config.name, f"connect failed ({h.state}): {h.error}")
 
     def ensure_started(self, name: str, abort=None) -> None:
         """`mcpLazy` servers (and a not-yet-approved `.mcp.json` server
@@ -1954,15 +1979,7 @@ class McpManager:
             # minutes); when it's not due yet (or exhausted) this falls
             # straight through to the fast "not connected" failure below,
             # no wasted connect attempt.
-            ok = self.reconnect(server, abort=abort)
-            if ok:
-                h.clear_backoff()
-            else:
-                # still owed -- `reconnect()` itself always clears this
-                # flag before trying, win or lose; re-arm it so a LATER
-                # call checks again once the next backoff rung is due.
-                h.record_backoff_failure()
-                h._reconnect_on_next_call = True
+            self._reconnect_if_armed(server, h, abort=abort)
         effective_timeout = timeout if timeout is not None else tool_timeout_s(h.config.timeout_ms)
         return h.call_tool(tool, arguments, timeout=effective_timeout, abort=abort)
 
@@ -1993,7 +2010,33 @@ class McpManager:
             })
         return out
 
+    def _reconnect_if_armed(self, name: str, h: "McpServerHandle", abort=None) -> None:
+        """`call()`'s reconnect-on-next-call, under the per-server lock
+        (review item 70): two parallel calls on a server that died both see
+        the armed flag, but only the first reconnects -- the second finds
+        it cleared (or the backoff not due) once it gets the lock and goes
+        straight on to the normal call path. The backoff bookkeeping stays
+        inside the lock so a failed reconnect is recorded once."""
+        import threading
+        with self._connect_locks.setdefault(name, threading.Lock()):
+            if not (h._reconnect_on_next_call and h.backoff_due()):
+                return
+            if self._reconnect_locked(name, abort=abort):
+                h.clear_backoff()
+            else:
+                # still owed -- the reconnect always clears the flag before
+                # trying, win or lose; re-arm it so a LATER call checks
+                # again once the next backoff rung is due.
+                h.record_backoff_failure()
+                h._reconnect_on_next_call = True
+
     def reconnect(self, name: str, abort=None) -> bool:
+        """Per-server-locked reconnect (see `_reconnect_locked`)."""
+        import threading
+        with self._connect_locks.setdefault(name, threading.Lock()):
+            return self._reconnect_locked(name, abort=abort)
+
+    def _reconnect_locked(self, name: str, abort=None) -> bool:
         """U2 must-do: unlike a plain `h.close(); h.start()`, this (a)
         waits LONG ENOUGH for the OLD lifecycle task to genuinely finish
         (not just `close()`'s default 5s budget) before spawning a new
@@ -2057,15 +2100,17 @@ class McpManager:
         since asking by hand IS the reset) and, if it fails anyway,
         re-arms a FRESH one so the next automatic use still retries with
         backoff instead of going silent forever."""
-        h = self.handles.get(name)
-        if h is not None:
-            h.clear_backoff()
-            h._reconnect_on_next_call = False
-        ok = self.reconnect(name, abort=abort)
-        h = self.handles.get(name)
-        if h is not None and not ok:
-            h._arm_backoff()
-        return ok
+        import threading
+        with self._connect_locks.setdefault(name, threading.Lock()):
+            h = self.handles.get(name)
+            if h is not None:
+                h.clear_backoff()
+                h._reconnect_on_next_call = False
+            ok = self._reconnect_locked(name, abort=abort)
+            h = self.handles.get(name)
+            if h is not None and not ok:
+                h._arm_backoff()
+            return ok
 
     def test_server(self, name: str, abort=None) -> dict:
         """`t` (`/mcp`) / `halo mcp test` -- connects a still-pending/

@@ -65,13 +65,67 @@ def merged_headers(static_headers: Optional[dict], helper_headers: Optional[dict
     return out
 
 
+class HttpAuthRequired(Exception):
+    """An MCP http/sse request answered 401 (or 403 with a Bearer challenge).
+    The SDK's Streamable HTTP client turns any non-2xx POST without a
+    JSON-RPC body into a bare `Server returned an error response` -- no
+    status, no "401" -- so the transport records the status on the side
+    (`attach_status_recorder`) and `with_recorded_status` re-raises with it.
+    The text names the status so the plain text sniffers still work."""
+
+    def __init__(self, status: int, original: BaseException) -> None:
+        self.http_status = status
+        super().__init__(f"HTTP {status} Unauthorized: {original}")
+
+
+def attach_status_recorder(client, holder: dict) -> None:
+    """Record the last non-2xx status (and any WWW-Authenticate) of every
+    response `client` (an httpx client) receives into `holder`."""
+    async def _record(response) -> None:
+        status = getattr(response, "status_code", 0) or 0
+        if status >= 400:
+            holder["status"] = status
+            try:
+                holder["challenge"] = response.headers.get("www-authenticate", "")
+            except Exception:
+                holder["challenge"] = ""
+
+    try:
+        client.event_hooks["response"].append(_record)
+    except Exception:
+        pass  # a client without event hooks keeps the text sniff only
+
+
+def recorded_auth_status(holder: Optional[dict]) -> Optional[int]:
+    """401, or 403 carrying a Bearer challenge -> that status; else None."""
+    if not holder:
+        return None
+    status = holder.get("status")
+    if status == 401:
+        return 401
+    if status == 403 and "bearer" in str(holder.get("challenge") or "").lower():
+        return 403
+    return None
+
+
+def with_recorded_status(exc: BaseException, holder: Optional[dict]) -> BaseException:
+    """`exc`, or an `HttpAuthRequired` wrapping it when the transport saw an
+    auth status for this attempt."""
+    status = recorded_auth_status(holder)
+    if status is None or not isinstance(exc, Exception) or isinstance(exc, HttpAuthRequired):
+        return exc
+    wrapped = HttpAuthRequired(status, exc)
+    wrapped.__cause__ = exc
+    return wrapped
+
+
 def looks_like_auth_required(exc: BaseException) -> bool:
     """Best-effort 401/oauth-required detection on a connect failure, from
     whatever shape httpx/the SDK raised -- no flow is implemented in v1
     (D-CFG: "oauth/401 -> needs_auth (no flow in v1)"), this just decides
     whether the resulting state is `needs_auth` instead of `failed`."""
     status = getattr(getattr(exc, "response", None), "status_code", None)
-    if status == 401:
+    if status == 401 or getattr(exc, "http_status", None) in (401, 403):
         return True
     text = str(exc).lower()
     return "401" in text or "unauthorized" in text or "oauth" in text
@@ -208,6 +262,8 @@ async def connect_http(*, url: str, headers: dict, connect_timeout: float):
     await preflight_tcp_reachability(url, timeout=connect_timeout)
     http_client = _mcp_http_client_factory(headers=headers or {})
     stack = AsyncExitStack()
+    stack.halo_http_status = {}
+    attach_status_recorder(http_client, stack.halo_http_status)
     try:
         stack.push_async_callback(http_client.aclose)
         async with task_timeout(connect_timeout):
@@ -245,11 +301,18 @@ async def connect_sse(*, url: str, headers: dict, connect_timeout: float):
 
     await preflight_tcp_reachability(url, timeout=connect_timeout)
     stack = AsyncExitStack()
+    stack.halo_http_status = holder = {}
+
+    def _recording_factory(headers=None, timeout=None, auth=None):
+        client = _mcp_http_client_factory(headers=headers, timeout=timeout, auth=auth)
+        attach_status_recorder(client, holder)
+        return client
+
     try:
         async with task_timeout(connect_timeout + 1):
             read, write = await stack.enter_async_context(
                 sse_client(url, headers=headers or {}, timeout=connect_timeout,
-                           httpx_client_factory=_mcp_http_client_factory))
+                           httpx_client_factory=_recording_factory))
         session = await stack.enter_async_context(ClientSession(read, write))
         return stack, session
     except BaseException:
