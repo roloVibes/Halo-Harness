@@ -80,6 +80,8 @@ def cmd_setup(argv: list) -> int:
             path, sig = inst.install(say, jvm=a.jvm)
         except inst.InstallError as e:
             return C.fail(a.json, "install_failed", str(e))
+        except Exception as e:  # anything else is still a failed install, not a traceback
+            return C.fail(a.json, "install_failed", f"{type(e).__name__}: {e}")
         binary, note = str(path), "downloaded"
         status = {"downloaded": True, "signature": sig}
     version = inst.version_of(binary)

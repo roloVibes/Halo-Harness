@@ -37,9 +37,11 @@ def envelope(uuid: str, number=None, ts: int = 0, **body) -> dict:
     return {"envelope": env, "account": ACCOUNT}
 
 
-def data_message(uuid: str, text: str, ts: int, number=None, attachments=None) -> dict:
+def data_message(uuid: str, text: str, ts: int, number=None, attachments=None, group=None) -> dict:
     dm = {"timestamp": ts, "message": text, "expiresInSeconds": 0, "viewOnce": False, "mentions": [],
           "attachments": attachments or [], "contacts": []}
+    if group:  # a message posted in a Signal group (JsonDataMessage.groupInfo)
+        dm["groupInfo"] = {"groupId": group, "groupName": "group", "revision": 1, "type": "DELIVER"}
     return envelope(uuid, number, ts, dataMessage=dm)
 
 
@@ -47,9 +49,11 @@ def attachment(att_id: str, content_type: str, size: int = 10) -> dict:
     return {"contentType": content_type, "filename": None, "id": att_id, "size": size}
 
 
-def sync_sent(own_uuid: str, text: str, ts: int, dest_uuid=None) -> dict:
+def sync_sent(own_uuid: str, text: str, ts: int, dest_uuid=None, group=None) -> dict:
     sent = {"destination": None, "destinationUuid": dest_uuid or own_uuid, "timestamp": ts, "message": text,
             "expiresInSeconds": 0, "viewOnce": False}
+    if group:
+        sent["groupInfo"] = {"groupId": group, "groupName": "group", "revision": 1, "type": "DELIVER"}
     return envelope(own_uuid, ACCOUNT, ts, syncMessage={"sentMessage": sent})
 
 

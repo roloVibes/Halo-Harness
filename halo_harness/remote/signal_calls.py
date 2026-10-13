@@ -39,15 +39,15 @@ class SignalCalls:
         return self.request("send", params)
 
     def send_typing(self, recipient: str, stop: bool = False):
-        if self.linked and recipient == self.own_aci:
-            return None
+        if (self.linked and recipient == self.own_aci) or self.rate_limited() > 0:
+            return None  # no typing during a -5 pause: each one would fail and renew it
         params: dict = {"recipient": [recipient]}
         if stop:
             params["stop"] = True
         return self.request("sendTyping", params)
 
     def send_receipt(self, recipient: str, timestamp: int, kind: str = "read"):
-        if self.linked and recipient == self.own_aci:
+        if (self.linked and recipient == self.own_aci) or self.rate_limited() > 0:
             return None
         return self.request("sendReceipt", {"recipient": recipient, "targetTimestamp": [int(timestamp)], "type": kind})
 
