@@ -18,7 +18,8 @@ import re
 import shlex
 
 # Words that precede the real command inside a compound statement.
-CONTROL_WORDS = frozenset({"if", "then", "else", "elif", "do", "while", "until", "!", "time", "coproc"})
+# (`time` is a wrapper, not a control word: its own `-p` is stripped too.)
+CONTROL_WORDS = frozenset({"if", "then", "else", "elif", "do", "while", "until", "!", "coproc"})
 
 # Extra transparent wrappers for deny/ask (permissions._DENY_STRIP_WRAPPERS
 # is the union of its own set and this one).
@@ -54,6 +55,8 @@ EXTRA_WRAPPER_POSITIONAL = {"flock": 1, "chroot": 1, "setarch": 1, "taskset": 1}
 POSITIONAL_SKIPPED_BY = {"taskset": {"-c", "--cpu-list", "-p", "--pid"}}
 # Wrappers whose positional chrt priority is a bare number.
 NUMERIC_AFTER_OPTS = frozenset({"timeout", "nice", "chrt"})
+# A bare number or a timeout duration (`5`, `+3`, `0.5`, `5s`, `1m`, `2h`, `1d`).
+NUMERIC_ARG_RE = re.compile(r"[+-]?\d+(?:\.\d+)?[smhd]?")
 
 # Wrappers that take their command as a `-c STRING` payload.
 _C_PAYLOAD_WRAPPERS = frozenset({"flock", "runuser", "su"})
@@ -181,6 +184,9 @@ def payload_strings(segment: str) -> list:
                 j += 1
             if body:
                 out.append(" ".join(body))
+                quoted = shlex.join(body)  # keeps `sh -c 'rm {}'` one payload word
+                if quoted != out[-1]:
+                    out.append(quoted)
             i = j
         i += 1
     return out
@@ -194,4 +200,15 @@ def expand_home_token(token: str) -> str:
     for prefix in ("${HOME}", "$HOME"):
         if token == prefix or token.startswith(prefix + "/"):
             return os.path.expanduser("~") + token[len(prefix):]
+    return token
+
+
+def expand_pwd_token(token: str, cwd) -> str:
+    """`$PWD/x` / `${PWD}/x` -> the live cwd joined with the rest; unchanged
+    when the cwd is unknown (None) or the token does not start with it."""
+    if cwd is None:
+        return token
+    for prefix in ("${PWD}", "$PWD"):
+        if token == prefix or token.startswith(prefix + "/"):
+            return str(cwd).replace("\\", "/") + token[len(prefix):]
     return token
