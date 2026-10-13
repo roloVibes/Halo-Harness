@@ -193,6 +193,10 @@ def test_f12_f13_containment_and_completion(ctx: Ctx):
               _raises_value_error(_validate_candidate_path, SimpleNamespace(kind="skill", path="a/../b")))
     words = _completion_safe_words(["ok:ref/x", "evil$(touch x)", "plain"])
     ctx.check("completion filters injection", words == ["ok:ref/x", "plain"])
+    ctx.check("completion filter rejects a backslash word", _completion_safe_words(["a\\b", "ok"]) == ["ok"])
+    from halo_harness.completion_cli import _powershell_script
+    ps = _powershell_script(["mcp"], [], ["ok:ref", "or:x'; Write-Host PWNED; '"])
+    ctx.check("powershell script drops the poisoned model id", "PWNED" not in ps and "'ok:ref'" in ps)
 
 
 if __name__ == "__main__":

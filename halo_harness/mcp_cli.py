@@ -134,9 +134,10 @@ def failure_reason(entry: dict) -> str:
         url = entry.get("url") or ""
         from urllib.parse import urlparse
         parsed = urlparse(url) if url else None
-        hostport = f"{parsed.hostname}:{parsed.port}" if parsed and parsed.hostname and parsed.port else (url or "?")
+        hostport = f"{parsed.hostname}:{parsed.port}" if parsed and parsed.hostname and parsed.port else _shown_url(url)
         return f"connection refused on {hostport}"
-    return error[:200]
+    from halo_harness.mcp.errtext import scrub_error_text
+    return scrub_error_text(error)[:200]
 
 
 def install_hint(entry: dict) -> Optional[str]:
@@ -540,12 +541,16 @@ def _read_dot_mcp_json(path: Path) -> dict:
     data = json.loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(data, dict):
         data = {}
-    data.setdefault("mcpServers", {})
+    servers = data.setdefault("mcpServers", {})
+    if not isinstance(servers, dict):  # review item 140: callers catch ValueError
+        raise ValueError(f"{path}: mcpServers must be an object")
     return data
 
 
 def _write_dot_mcp_json(path: Path, data: dict) -> None:
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    tmp = path.with_name(path.name + f".tmp{os.getpid()}")
+    tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def _raw_entry_for(*, scope: str, name: str, cwd: Path) -> dict:
@@ -558,7 +563,10 @@ def _raw_entry_for(*, scope: str, name: str, cwd: Path) -> dict:
     doesn't itself expose (cwd, timeout, headersHelper, alwaysLoad,
     mcpLazy, any unknown key)."""
     if scope == "project":
-        data = _read_dot_mcp_json(cwd / ".mcp.json")
+        try:
+            data = _read_dot_mcp_json(cwd / ".mcp.json")
+        except (OSError, ValueError):
+            return {}  # unreadable / malformed: the store step reports it
         entry = (data.get("mcpServers") or {}).get(name)
         return dict(entry) if isinstance(entry, dict) else {}
     data, _indent, _nl, _bom = _read_claude_json_raw()
