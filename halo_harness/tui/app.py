@@ -1062,6 +1062,20 @@ class BridgeApp(App):
     # ---- H15 Part B: Textual's own worker/focus lifecycle events, traced
     # under --debug only (see _debug_trace) ------------------------------
 
+    def run_worker(self, work, name="", group="default", description="", exit_on_error=None,
+                   start=True, exclusive=False, thread=False):
+        """Review 3 item 73: a thread worker that does not choose for itself
+        reports an exception as a notification and leaves the app running
+        (Textual's default exits it). Every `app.run_worker(..., thread=True)`
+        in tui/ goes through here."""
+        if exit_on_error is None:
+            exit_on_error = not thread
+            if thread:
+                from halo_harness.tui.worker_guard import guard
+                work = guard(self, work, name or group)
+        return super().run_worker(work, name=name, group=group, description=description,
+                                  exit_on_error=exit_on_error, start=start, exclusive=exclusive, thread=thread)
+
     def on_worker_state_changed(self, event) -> None:
         from textual.worker import WorkerState
         worker = event.worker
@@ -1226,6 +1240,8 @@ class BridgeApp(App):
         # cancelled) so the user can still answer it afterward; only PLAIN
         # text (no leading "/") ever answers a card.
         is_slash_command = stripped.startswith("/") and "\n" not in stripped
+        # Review 3 item 145: a `!cmd` line keeps the pending image chips too.
+        keeps_images = is_slash_command or (stripped.startswith("!") and "\n" not in stripped)
 
         if self._borrowing_card is not None:
             if is_slash_command:
@@ -1237,7 +1253,7 @@ class BridgeApp(App):
                 # the same as any other submission.
                 self._record_submitted_history(text, event.pasted)
                 from halo_harness.tui.slash import handle_slash
-                name, _, args = stripped[1:].partition(" ")
+                name, _, args = self._without_chip_labels(stripped)[1:].partition(" ")
                 await handle_slash(self, name, args)
                 return
             card = self._borrowing_card
@@ -1262,7 +1278,7 @@ class BridgeApp(App):
         # finding 68: a typed slash command (any branch below) keeps the
         # pending image chips for the next real prompt, and `/images` can
         # still list them.
-        self.prompt_input.clear_submitted(keep_images=is_slash_command)
+        self.prompt_input.clear_submitted(keep_images=keeps_images)
         self.completion_popup.hide()
         from halo_harness.tui.widgets.cards import EffortCard
         if self.pending_card is not None and not isinstance(self.pending_card, EffortCard):
@@ -1277,7 +1293,7 @@ class BridgeApp(App):
                 # question card is pending used to never reach history.
                 self._record_submitted_history(text, event.pasted)
                 from halo_harness.tui.slash import handle_slash
-                name, _, args = stripped[1:].partition(" ")
+                name, _, args = self._without_chip_labels(stripped)[1:].partition(" ")
                 await handle_slash(self, name, args)
                 return
             if hasattr(self.pending_card, "resolve_with_message"):
@@ -1318,6 +1334,14 @@ class BridgeApp(App):
         self.transcript.new_since_scroll = 0
         self.status_bar.set_new_count(0)
         await self._submit_prompt(text, event.pasted, pending_images)
+
+    def _without_chip_labels(self, command: str) -> str:
+        """A `/name` or `!cmd` line minus the pending image chip labels the
+        box carried: the chips stay for the next prompt, they are not
+        arguments (review 3 item 145)."""
+        for label in self.prompt_input._chip_labels():
+            command = command.replace(label, "")
+        return command.strip()
 
     def _record_submitted_history(self, text: str, pasted: "dict | None") -> None:
         """W2c item 1: append to `~/.halo/history.jsonl` and invalidate the
@@ -1370,12 +1394,12 @@ class BridgeApp(App):
         # tool + permissions, OUTSIDE the model loop entirely -- checked
         # BEFORE the "/" branch (a bare "!" line is never a slash command).
         if stripped.startswith("!") and "\n" not in stripped:
-            await self._handle_bang_command(stripped[1:].strip())
+            await self._handle_bang_command(self._without_chip_labels(stripped)[1:].strip())
             return
         if stripped.startswith("/") and "\n" not in stripped:
             from halo_harness.tui.slash import handle_slash
 
-            name, _, args = stripped[1:].partition(" ")
+            name, _, args = self._without_chip_labels(stripped)[1:].partition(" ")
             await handle_slash(self, name, args)
             return
         # review finding 4: the MODEL gets the full pasted text, never the
@@ -1975,7 +1999,7 @@ class BridgeApp(App):
         # bottom anchor same as any ordinary scroll -- clear_pending_card
         # below uses this to re-anchor, but only when it's actually needed.
         self._card_interrupted_following = self.transcript.is_following()
-        self.set_focus(card)
+        self._focus_on_base(card)
         self.bell()
         self._maybe_notify_input_needed()
         # 1.0.1 hotfix 17.3: a PermissionCard specifically (not the plan/
@@ -2083,7 +2107,7 @@ class BridgeApp(App):
         self.pending_card = None
         self.prompt_input.placeholder = self._current_placeholder_text()
         self.status_bar.set_pending_permission(False)
-        self.set_focus(self.prompt_input)
+        self._focus_on_base(self.prompt_input)
         # 1.0.1 fixpass finding 15: re-anchor if the transcript was
         # following right before this card interrupted it -- scroll_end()
         # is exactly what Textual's own anchor-reacquire watcher treats as
@@ -2123,7 +2147,21 @@ class BridgeApp(App):
         self.prompt_input.disabled = False
         self.prompt_input.placeholder = placeholder
         self.prompt_input.clear_submitted()
-        self.set_focus(self.prompt_input)
+        self._focus_on_base(self.prompt_input)
+
+    def _focus_on_base(self, widget) -> None:
+        """Focus a widget that lives on the base screen without stealing
+        focus from a dialog on top (review 3 item 11). `App.set_focus` acts
+        on the ACTIVE screen and Textual does not check membership, so a
+        card arriving under a picker became the picker's focused widget and
+        the digits typed into its search box answered the hidden card. With
+        a dialog open the base screen's own focus is set instead; the card
+        takes the keys once the dialog closes."""
+        base = self.screen_stack[0] if self.screen_stack else None
+        if base is None or self.screen is base:
+            self.set_focus(widget)
+        else:
+            base.set_focus(widget)
 
     def resolve_permission_decision(self, request_id: str, decision: dict, *, suggested_rule) -> None:
         from halo_harness.permissions import SettingsWriteRefused
@@ -2622,7 +2660,8 @@ class BridgeApp(App):
         if self._quitting:
             return
         self._quitting = True
-        self.run_worker(self._quit_worker, thread=True, exclusive=True, name="quit")
+        # A raise while quitting still ends the app (exit_on_error=True).
+        self.run_worker(self._quit_worker, thread=True, exclusive=True, name="quit", exit_on_error=True)
 
     def _quit_worker(self) -> None:
         quit_fn = getattr(self.controller, "quit", None)
@@ -2693,7 +2732,10 @@ class BridgeApp(App):
 
     def _build_scrollback_message(self) -> Optional[str]:
         if self.tui_setting is not None and self.tui_setting != "fullscreen":
-            text = "\n\n".join(self.transcript.plain_log)
+            from halo_harness.tui.widgets.input_sanitize import display_safe
+            # Printed straight to the terminal after exit: tool output and
+            # model text never get to drive it (review 3 item 12).
+            text = "\n\n".join(display_safe(e) for e in self.transcript.plain_log)
             return text or None
         return None
 

@@ -397,8 +397,13 @@ class RolesEditor(ModalScreen):
         # `agent: <name>` beside it" -- `roles._normalize_role_value` now
         # carries an `agent` key through a save/reload round trip the same
         # way it already does `effort`/`escalation`.
-        if picked_agent or effort:
-            value = {"model": picked_ref}
+        # Review 3 item 146: keys this editor does not set (`escalation`)
+        # ride along from the role's current value.
+        previous = self.roles.get(self._pending_role)
+        carried = ({k: v for k, v in previous.items() if k not in ("model", "effort", "agent")}
+                   if isinstance(previous, dict) else {})
+        if picked_agent or effort or carried:
+            value = {"model": picked_ref, **carried}
             if effort:
                 value["effort"] = effort
             if picked_agent:

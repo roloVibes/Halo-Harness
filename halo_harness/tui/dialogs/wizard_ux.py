@@ -70,7 +70,7 @@ def one_sentence(label: str, current: "Optional[str]", *, hint: str = "Enter to 
     return f"{label}: {shown}. {hint}"
 
 
-def toast(widget, text: str, *, clear_after: float = 2.5) -> None:
+def toast(widget, text: str, *, clear_after: float = 2.5, persist: bool = False) -> None:
     """Rule 8: "Save shows a one-line toast" -- `widget` is whatever
     Static a screen already uses for its own hint/status line (never a
     new floating widget of its own, so this works identically wherever a
@@ -78,12 +78,35 @@ def toast(widget, text: str, *, clear_after: float = 2.5) -> None:
     it never lingers and gets mistaken for a persistent error. A screen
     that unmounts before the timer fires just lets the exception from a
     dead widget pass (`set_timer`'s own callback already runs on the
-    event loop, never raising INTO caller code either way)."""
+    event loop, never raising INTO caller code either way).
+
+    A newer message cancels the older one's timer, so it is never cleared
+    early; `persist=True` (a URL the user has to read) stays until replaced."""
+    old_timer = getattr(widget, "_halo_toast_timer", None)
+    if old_timer is not None:
+        try:
+            old_timer.stop()
+        except Exception:
+            pass
+    widget._halo_toast_timer = None
     widget.update(text)
+    if persist:
+        return
     try:
-        widget.set_timer(clear_after, lambda: _clear(widget))
+        widget._halo_toast_timer = widget.set_timer(clear_after, lambda: _clear(widget))
     except Exception:
         pass
+
+
+def studio_work(launch):
+    """`launch()` (studio.launch.launch_detached) for a wizard worker: any
+    error reads as "did not start" ('') instead of ending the wizard."""
+    def _work() -> str:
+        try:
+            return launch() or ""
+        except Exception:
+            return ""
+    return _work
 
 
 def _clear(widget) -> None:

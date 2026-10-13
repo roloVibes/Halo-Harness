@@ -60,13 +60,14 @@ def _sort_value(model: dict, key: str):
     return (0, v)
 
 
-def _gym_score_suffix(model_ref: str) -> str:
+def _gym_score_suffix(model_ref: str, results: "Optional[list]" = None, state_dir=None) -> str:
     """Best-effort, synchronous (`gym.picker_score_suffix` only ever reads
     local `~/.halo/gym/*/*.json` files, never the network) -- "" on any
-    failure so a corrupt/unreadable gym result can never break the picker."""
+    failure so a corrupt/unreadable gym result can never break the picker.
+    `results`: the gym results the picker loaded once (review 3 item 78)."""
     try:
         from halo_harness.gym import picker_score_suffix
-        return picker_score_suffix(model_ref)
+        return picker_score_suffix(model_ref, state_dir, results=results)
     except Exception:
         return ""
 
@@ -310,6 +311,31 @@ class ModelPicker(ModalScreen):
         self._agent_rows: "Optional[list]" = None
         self.cwd = cwd
         self.state_dir = state_dir
+        # Review 3 item 78: gym results are read once per picker and each
+        # row's Text is built once, not on every keystroke.
+        self._gym_results: "Optional[list]" = None
+        self._row_cache: dict = {}
+
+    def _row_text(self, m: dict) -> Text:
+        cached = self._row_cache.get(id(m))
+        if cached is not None and cached[0] is m:
+            return cached[1]
+        if self._gym_results is None:
+            try:
+                from halo_harness.gym import iter_results
+                from halo_harness.config.paths import bridge_home
+                self._gym_results = iter_results(self.state_dir or bridge_home())
+            except Exception:
+                self._gym_results = []
+        row_text = Text(format_picker_row(m), no_wrap=True, overflow="ellipsis")
+        # Halo 2.0.3 round 5d: the gym score beside a model when one exists.
+        gym_suffix = _gym_score_suffix(m["ref"], self._gym_results, self.state_dir) if self._gym_results else ""
+        if gym_suffix:
+            row_text.append(gym_suffix, style="dim")
+        if self.last_used and m["ref"] == self.last_used:
+            row_text.append("  (last used)", style="dim italic")
+        self._row_cache[id(m)] = (m, row_text)
+        return row_text
 
     def compose(self):
         with Vertical():
@@ -357,10 +383,10 @@ class ModelPicker(ModalScreen):
         hint = self.query_one("#model-hint", Static)
         if self._filtered:
             sort_key = _SORT_KEYS[self._sort_index]
+            batch: list = []
             for group, members in _grouped(self._filtered):
                 if group:
-                    option_list.add_option(Option(Text(f"── {group} ──", style="bold dim"),
-                                                   disabled=True))
+                    batch.append(Option(Text(f"── {group} ──", style="bold dim"), disabled=True))
                 # Halo 2.0.4 round 3 (deliverable 1): "s cycles the sort
                 # key" -- sorts WITHIN each group only (never re-groups);
                 # `sorted` is stable, so "name" (ascending ref, case-
@@ -375,19 +401,8 @@ class ModelPicker(ModalScreen):
                 # under price/context/speed) -- a no-op shuffle under "name"
                 # order, where they're already adjacent in the normal case.
                 members = _place_free_variants_beside_base(members)
-                for m in members:
-                    row_text = Text(format_picker_row(m), no_wrap=True, overflow="ellipsis")
-                    # Halo 2.0.3 round 5d (brief item 2): "the picker shows
-                    # the gym score beside a model when one exists" -- a
-                    # local-file-only lookup (gym.picker_score_suffix),
-                    # never a network call, so it is safe right here in
-                    # the synchronous row-building loop.
-                    gym_suffix = _gym_score_suffix(m["ref"])
-                    if gym_suffix:
-                        row_text.append(gym_suffix, style="dim")
-                    if self.last_used and m["ref"] == self.last_used:
-                        row_text.append("  (last used)", style="dim italic")
-                    option_list.add_option(Option(row_text, id=m["ref"]))
+                batch.extend(Option(self._row_text(m), id=m["ref"]) for m in members)
+            option_list.add_options(batch)
             # 1.0.1 hotfix addendum 7: highlights the first SELECTABLE row
             # up front (`action_first` skips a disabled group-header, unlike
             # a bare `.highlighted = 0`) -- otherwise `highlighted` starts

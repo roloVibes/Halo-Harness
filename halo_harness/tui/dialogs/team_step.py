@@ -208,12 +208,14 @@ class TeamStep(StepRailMixin, TeamActionsMixin, Screen):
         from pathlib import Path
         self._hint("Opening Studio in your browser...")
 
-        def _work() -> str:
-            return launch_detached("roles", cwd=Path(self.state.cwd), state_dir=Path(default_state_dir()))
+        from halo_harness.tui.dialogs.wizard_ux import studio_work
+        work = studio_work(lambda: launch_detached("roles", cwd=Path(self.state.cwd), state_dir=Path(default_state_dir())))
 
-        def _done(url: str) -> None:
-            self._hint(f"Studio: {url}  (halo studio --stop ends it)" if url else "Studio did not start -- run `halo studio --mode roles` in a shell.")
-        self.run_worker(lambda: self.app.call_from_thread(_done, _work()), thread=True, name="wiz-team-studio")
+        def _done(url: str) -> None:  # stays on screen: over SSH the URL is the only way in (review 3 item 79)
+            self._hint(f"Studio: {url}  (halo studio --stop ends it)" if url
+                       else "Studio did not start -- run `halo studio --mode roles` in a shell.", persist=True)
+        self.run_worker(lambda: self.app.call_from_thread(_done, work()), thread=True, name="wiz-team-studio",
+                        exit_on_error=False)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id or ""

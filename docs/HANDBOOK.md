@@ -605,9 +605,20 @@ status bar under every theme -- model, cost, context, mode, directory --
 with the model label tinted in the theme's accent, so you always see what
 you are running and what it costs. The theme's borders, the visor or pipe
 frame around the input line, and the level band above the prompt are what
-make it a game. `tui/hud.py` keeps the skin engine (`HudSkin.status_bar`
-is `"plain"` for the three shipped skins; a skin that sets `"hud"` renders
-its own rows again).
+make it a game.
+
+Every level keeps the full plain status bar. Under `doom`, all five
+`metroid` areas, both `mario` looks, `beetlejuice` (house and saturn) and
+`alien` (nostromo and hive) the bar shows exactly the segments and values
+it shows under `claude-dark` -- model, context bar and percent, cost and
+provider balance, mode, effort, running agents, directory and branch,
+phase and elapsed time, needs-you, a pending permission, background jobs,
+remote, governor, offline and your `statusLine` text -- and only the colour
+changes. No setting, slash command or theme variant swaps it for panel
+boxes, and the level band draws only the scene: no score, lives, coin or
+ammo counters. `tui/hud.py` keeps the skin engine for its tests
+(`HudSkin.status_bar` defaults to `"plain"`; the panel rows are reachable
+only through a test hook).
 
 ## Remote control from Signal
 

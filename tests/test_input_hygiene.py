@@ -8,7 +8,7 @@ of the prompt, and the prompt has a clear key.
 - `input_sanitize.strip_mouse_reports`: whole reports and cut tails go,
   ordinary text with numbers stays.
 - The widget: typing a report's final `M` drops the fragment; a paste is
-  stripped; Ctrl+U empties the box; Esc empties it when no turn runs.
+  kept as pasted; Ctrl+U empties the box; Esc empties it when no turn runs.
 
 Run: python -m tests.test_input_hygiene
 """
@@ -113,11 +113,15 @@ def test_orphan_report_tails_are_dropped_before_the_parser(ctx: Ctx):
 
 @test
 def test_strip_mouse_reports(ctx: Ctx):
-    leaked = "[<35;72;18M8;17M;93;17M[<35;115;19M19;19M129;23M"
+    # Two-number tails cut from a report ("8;17M") are dropped before the
+    # parser by win32_input.drop_orphan_tails; here only the report shape goes.
+    leaked = "[<35;72;18M<35;115;19M 35;72;18M"
     ctx.check("a leaked burst is recognised", looks_like_mouse_report(leaked))
-    ctx.check(f"a leaked burst strips to nothing, got {strip_mouse_reports(leaked)!r}", strip_mouse_reports(leaked) == ";")
+    ctx.check(f"a leaked burst strips to a space, got {strip_mouse_reports(leaked)!r}", strip_mouse_reports(leaked) == " ")
     ctx.check("a release report strips too", strip_mouse_reports("hi [<0;10;5m there") == "hi  there")
-    for keep in ("fix the bug in model.py", "sum of 3 and 4", "version 2.0.11", "M=3; N=4", "at 10:30"):
+    for keep in ("fix the bug in model.py", "sum of 3 and 4", "version 2.0.11", "M=3; N=4", "at 10:30",
+                 r"fix this script: printf '\033[1;31mERROR\033[0m'", r"echo '\e[1;32m okm",
+                 r"PS1='\[\e[0;32m\]\u@\h\$ '", r"echo -e '\e[1;31;40mred'", "move 12;34M"):
         ctx.check(f"ordinary text survives: {keep!r}", strip_mouse_reports(keep) == keep and not looks_like_mouse_report(keep))
 
 
@@ -152,7 +156,7 @@ def test_prompt_strips_typed_fragments_and_clears_on_ctrl_u_and_esc(ctx: Ctx):
             pi.text = ""
             pi.post_message(Paste("plan [<35;1;2M the work"))
             await pilot.pause(0.1)
-            ctx.check(f"a paste is stripped, got {pi.text!r}", pi.text == "plan  the work")
+            ctx.check(f"a paste is kept exactly as pasted, got {pi.text!r}", pi.text == "plan [<35;1;2M the work")
     asyncio.run(body())
 
 
