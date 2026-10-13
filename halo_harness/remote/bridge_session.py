@@ -148,9 +148,21 @@ def call(b, rt, cmd: str, **fields) -> dict:
         return {"ok": False, "error": "The session is no longer reachable. /sessions lists the live ones."}
 
 
+CHILD_CARDS = ("permission_request", "question", "plan_review", "approval_request")
+
+
 def on_feed(b, rt, frame: dict) -> None:
     ev, data = frame.get("event"), frame.get("data") or {}
     aci = rt.aci
+    child = frame.get("agent_id")
+    if child and ev not in CHILD_CARDS:
+        # A sub-agent's own text, typing, errors, status and turn_done belong
+        # to its parent's tool call (the TUI shows them the same way): a
+        # child's turn_done must never close the parent's open cards or send
+        # "Done." while the parent turn is still running.
+        return
+    # A sub-agent's card is still answerable from the phone; it is tagged.
+    tag = f"[sub-agent {str(child)[:8]}] " if child else ""
     if ev == "text_chunk":
         if rt.verbosity == "loud":
             b.say(aci, str(data.get("text") or ""), markdown=True, state=rt.md_state)
@@ -158,19 +170,19 @@ def on_feed(b, rt, frame: dict) -> None:
         b.transport.typing.start(aci)
     elif ev == "permission_request":
         rt.permission.append({"id": data.get("id")})
-        for part in cards.permission_messages(data):
-            b.say(aci, part)
+        for i, part in enumerate(cards.permission_messages(data)):
+            b.say(aci, (tag if i == 0 else "") + part)
     elif ev == "question":
         qs = cards.normalize_questions(data)
         if qs:
             rt.question = {"id": data.get("id"), "questions": qs, "idx": 0, "answers": {}}
-            b.say(aci, cards.question_card(qs[0], 0, len(qs)))
+            b.say(aci, tag + cards.question_card(qs[0], 0, len(qs)))
     elif ev == "plan_review":
         rt.plan = {"id": data.get("id")}
-        b.say(aci, cards.plan_card(data), markdown=True)
+        b.say(aci, tag + cards.plan_card(data), markdown=True)
     elif ev == "approval_request":
         rt.approval = {"id": data.get("id")}
-        b.say(aci, cards.approval_card(data))
+        b.say(aci, tag + cards.approval_card(data))
     elif ev == "error":
         b.say(aci, "Error: " + cards.one_line(data.get("message"), 600))
     elif ev == "turn_done":

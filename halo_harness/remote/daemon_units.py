@@ -67,7 +67,9 @@ def render_launchd(argv: list, env: Optional[dict] = None) -> str:
             '<plist version="1.0">\n<dict>\n'
             f"  <key>Label</key>\n  <string>{LABEL}</string>\n"
             f"  <key>ProgramArguments</key>\n  <array>\n{args}  </array>\n{envs}"
-            "  <key>RunAtLoad</key>\n  <true/>\n  <key>KeepAlive</key>\n  <true/>\n"
+            # restart on failure only (as systemd / Task Scheduler): the kill switch's clean exit stays down
+            "  <key>RunAtLoad</key>\n  <true/>\n"
+            "  <key>KeepAlive</key>\n  <dict>\n    <key>SuccessfulExit</key>\n    <false/>\n  </dict>\n"
             "  <key>StandardOutPath</key>\n  <string>/dev/null</string>\n"
             "  <key>StandardErrorPath</key>\n  <string>/dev/null</string>\n"
             "</dict>\n</plist>\n")

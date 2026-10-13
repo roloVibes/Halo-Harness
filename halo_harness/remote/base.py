@@ -151,8 +151,10 @@ class _BaseHandle:
         if scope not in ("once", "session", "always"):
             raise HandleError(f"permission scope must be once, session or always, got {scope!r}")
         suggested = rule or self._suggested.get(request_id)
+        # Only an allow learns rules (as the TUI, whose deny carries no scope):
+        # a deny with session/always must never write allow rules anywhere.
         rules = ([r.strip() for r in suggested.split(", ") if r.strip()]
-                 if (scope in ("session", "always") and suggested) else [])
+                 if (action == "allow" and scope in ("session", "always") and suggested) else [])
         reply = {"action": action, "reason": "", "rule": rules[0] if rules else None, "message": message or ""}
         if not self._resolve_permission(request_id, reply):
             return False

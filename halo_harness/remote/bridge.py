@@ -44,7 +44,8 @@ NO_SECRET_NOTICE = ("This phone is set to signed commands but has no usable sign
 PAIRED_REPLY = "Paired. Your signing phrase is on the Halo screen."
 BAD_PER_MINUTE = 10  # unsigned / bad-MAC attempts per peer per minute (stricter than the command budget)
 SIGN_REFUSALS = {"unsigned": SIGNED_HINT, "bad_mac": "That signature did not match. " + SIGNED_HINT,
-                 "stale": "That command is outside the allowed time window; send it again.",
+                 "stale": "That command is outside the allowed time window and its counter is now used; "
+                          "sign it again with a higher counter.",
                  "replay": "That counter was already used; use a higher one."}
 
 
@@ -133,8 +134,21 @@ class Bridge:
             self.pairing.add_notice("rate_limited", "", f"Signal rate limit: sending paused for {int(wait)} s.{tok}")
             if self.pulse is not None:
                 self.pulse.write("rate-limited", self.clock.time() + wait)
+        elif name == "subscribe_failed":
+            self.on_subscribe_failed(item)
         elif self.pulse is not None and name in ("connected", "disconnected"):
             self.pulse.write("connected" if name == "connected" else "starting")
+
+    def on_subscribe_failed(self, item: dict) -> None:
+        """signal-cli refused (or never answered) subscribeReceive: the link is
+        up but nothing arrives, so the pulse must not say connected."""
+        code, why = item.get("code"), " ".join(str(item.get("message") or "").split())[:200]
+        if self.pulse is not None:
+            self.pulse.write("starting")
+        self.audit.record("-", 0, "subscribeReceive", "signal", f"subscribe_failed {code}")
+        if not any(n.get("kind") == "subscribe_failed" for n in self.pairing.notices()):
+            self.pairing.add_notice("subscribe_failed", "", "signal-cli refused subscribeReceive "
+                                    f"(code {code}{': ' + why if why else ''}); messages are not being received")
 
     # ---- sending --------------------------------------------------------------
     def rt(self, aci: str) -> PeerRT:
@@ -209,6 +223,11 @@ class Bridge:
             # The secret never travels in the chat it protects (finding 2): the computer shows it.
             self.say(aci, PAIRED_REPLY)
             self.audit.record(aci, 0, "pairing-code", "pair", "paired")
+        elif res.status in ("wrong", "dropped", "expired"):  # a code guess is an authentication attempt
+            self.audit.record(aci, 0, "pairing-code", "pair", res.status)
+            if res.status == "wrong" and not any(n.get("kind") == "code_wrong" and n.get("aci") == aci
+                                                 for n in self.pairing.notices()):
+                self.pairing.add_notice("code_wrong", aci, "a wrong pairing code was sent for this request")
         elif res.status == "ignored":
             self.contact(aci, number)
 
@@ -241,6 +260,8 @@ class Bridge:
                 return
             v = signing.verify(key, (peer.get("signing") or {}).get("counter", 0), text, ts, self.clock.time(), self.window)
             if not v.ok:
+                if v.reason == "stale":  # a genuine signature is single-use even when refused late
+                    self.pairing.advance_counter(aci, v.counter)
                 self.refuse_bad(aci, text, v.reason, SIGN_REFUSALS.get(v.reason, SIGNED_HINT), v.counter)
                 return
             counter, shown = v.counter, v.text

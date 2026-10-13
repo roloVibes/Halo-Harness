@@ -15,7 +15,7 @@ from typing import Optional
 from halo_harness.remote import bridge_state as BS
 from halo_harness.remote import cli_pair
 from halo_harness.remote.pairing import Pairing, PairingError
-from halo_harness.remote.signal_config import set_signal_enabled, signal_enabled
+from halo_harness.remote.signal_config import remote_setting, set_signal_enabled, signal_enabled
 
 RUN_HINT = "The bridge runs in its own terminal: `halo remote signal run`."
 
@@ -40,7 +40,7 @@ def pop_notices() -> list:
 def approve(aci: str) -> dict:
     """Issue the one-time code for a contact request: `{ok, code, expires, trusted}` or `{ok: False, error}`."""
     try:
-        ap = Pairing().approve(aci)
+        ap = Pairing(ttl=remote_setting("remote.pair_code_ttl_s")).approve(aci)
     except PairingError as e:
         return {"ok": False, "error": str(e)}
     return {"ok": True, "aci": aci, "code": ap.code, "expires": ap.expires, "trusted": ap.trusted}

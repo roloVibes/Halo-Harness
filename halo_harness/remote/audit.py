@@ -1,5 +1,6 @@
 """halo_harness.remote.audit -- `<state>/remote/audit.jsonl`: one hashed line
-per command the bridge acted on or refused (Halo 2.0.9 round 3).
+per command the bridge acted on or refused, per pairing-code attempt and per
+refused subscribeReceive (Halo 2.0.9 round 3).
 
 A line is `{"ts", "peer", "h", "kind", "outcome"}` where `h` is the first 16
 hex characters of `sha256("<aci>|<counter>|<text>")`. The text itself, the
