@@ -1572,7 +1572,9 @@ subset of its own built-in tools (Bash/PowerShell, Read, Write, Edit, Glob,
 Grep, NotebookEdit, TodoWrite, WebFetch -- never Agent/AskUserQuestion/
 ToolSearch/background-job tools, which all need a live session) to any
 other MCP client. The ccbridge code (`halo_harness/ccbridge/__main__.py`,
-the `cc:` route's own tool bridge) is the base this reuses.
+the `cc:` route's own tool bridge) is the base this reuses. Bash and
+PowerShell run with halo's environment minus its own provider keys, the
+same environment every other tool child gets.
 
 ### `mcp login <name> [--no-browser] [--timeout SECONDS]` / `mcp logout <name>`
 A generic OAuth 2.0 authorization-code (+ PKCE) flow for one already-added
@@ -1697,7 +1699,12 @@ underlying tool, the same parenthesised-content grammar every other tool
 rule already has), and the bridge itself never refuses a call. A deny/ask
 rule written for claude's own `mcp__claude_ai_<Name>__*` tool in Claude
 Code's settings is automatically translated to the matching
-`connector__<slug>` rule, so it still applies here.
+`connector__<slug>` rule, so it still applies here. `tool`, when given, is
+one of that connector's own tool names (the call reports an error
+otherwise) and narrows `--allowedTools` to that single name; the session's
+whole-tool deny rules (`Bash`, `Write`, `mcp__<server>`, ...) and the
+connector's per-tool deny/ask rules are passed to the inner claude as
+`--disallowedTools`.
 
 Config (`~/.halo/config.json`, dotted `halo config` keys): `connectors.
 bridge` (default `true`, `false` disables discovery and every connector

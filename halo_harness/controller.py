@@ -644,14 +644,17 @@ class Controller:
             # steer-vs-new-turn; a direct write here would race the worker
             # thread's own concurrent log writes while the session is busy,
             # same bug as `ingest_at_mentions`'s own two loops.
-            for path_str, content in read_at_mention_snapshots(result.text, cwd=self.cwd):
+            _engine = getattr(self.session, "permission_engine", None)  # review 3 item 65
+            for path_str, content in read_at_mention_snapshots(result.text, cwd=self.cwd,
+                                                               permission_engine=_engine):
                 self.session.queue_log_write(
                     "snapshot", {"blocks": [{"type": "text", "text": f"@{path_str}\n{content}"}],
                                  "snapshot_kind": "at_mention"})
             # H8 scope E: `@server:resource` mentions in the expanded body.
             from halo_harness.mcp.mentions import read_server_resource_snapshots
             for label, content in read_server_resource_snapshots(
-                    result.text, mcp_manager=getattr(self.session, "mcp_manager", None)):
+                    result.text, mcp_manager=getattr(self.session, "mcp_manager", None),
+                    permission_engine=_engine):
                 self.session.queue_log_write(
                     "snapshot", {"blocks": [{"type": "text", "text": f"@{label}\n{content}"}],
                                  "snapshot_kind": "at_mention"})
@@ -869,7 +872,7 @@ class Controller:
         except (OSError, ValueError, KeyError) as e:
             return [f"could not read {name}'s .mcp.json entry to approve it: {type(e).__name__}: {e}"]
         from halo_harness import mcp_setup
-        mcp_setup.record_mcp_approval(name, raw_entry)
+        mcp_setup.record_mcp_approval(name, raw_entry, cwd=mcp_json_path.parent)
         handle.config.pending_approval = False
         return self.reconnect_mcp(name, abort=abort)
 
@@ -1091,6 +1094,8 @@ class Controller:
         # abort every @mention in the turn.
         model_profile = getattr(self.session, "model_profile", None)
         ctx = ToolContext(cwd=self.cwd, vision=getattr(model_profile, "vision", False))
+        from halo_harness.commands.registry import AT_MENTION_DENIED_NOTE, at_mention_read_denied
+        engine = getattr(self.session, "permission_engine", None)
         for raw, start, end in mentions:
             path = Path(raw).expanduser()
             if not path.is_absolute():
@@ -1108,7 +1113,11 @@ class Controller:
                 input_data["limit"] = max(1, (end or start) - start + 1)
                 label = f"{raw}#L{start}" if not end or end == start else f"{raw}#L{start}-{end}"
             try:
-                result = tool.run(input_data, ctx)
+                if at_mention_read_denied(resolved, engine):  # review 3 item 65
+                    from halo_harness.tools.base import ToolResult
+                    result = ToolResult(AT_MENTION_DENIED_NOTE)
+                else:
+                    result = tool.run(input_data, ctx)
             except Exception:
                 continue
             if isinstance(result.content, list):
@@ -1146,7 +1155,8 @@ class Controller:
         in the log at the next safe point either way."""
         from halo_harness.mcp.mentions import read_server_resource_snapshots, unresolved_server_mentions
         try:
-            snapshots = read_server_resource_snapshots(text, mcp_manager=mcp_manager)
+            snapshots = read_server_resource_snapshots(
+                text, mcp_manager=mcp_manager, permission_engine=getattr(self.session, "permission_engine", None))
         except Exception:
             snapshots = []
         for res_label, res_content in snapshots:

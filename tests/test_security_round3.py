@@ -96,7 +96,7 @@ def test_f6_untrusted_repo_mcp_json_stays_pending(ctx: Ctx):
     resolved, _ = M.resolve_server_configs(cwd=cwd, claude_json={}, settings=settings, print_mode=True,
                                            trusted=True)
     ctx.check("-p in a trusted folder still approves", resolved["evil"].pending_approval is False)
-    key = M.mcp_approval_key({"command": "evil-cmd"})
+    key = M.mcp_approval_key({"command": "evil-cmd"}, cwd)
     resolved, _ = M.resolve_server_configs(cwd=cwd, claude_json={}, settings=settings, print_mode=True,
                                            trusted=False, approvals={key: True})
     ctx.check("an explicit hash approval still works in an untrusted folder",

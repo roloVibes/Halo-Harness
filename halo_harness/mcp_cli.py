@@ -1034,7 +1034,7 @@ def _apply_fix(name: str, entry: dict, *, manager, cwd: Path, settings) -> int:
             print(f"halo mcp fix: could not read {name}'s .mcp.json entry to approve it: "
                   f"{type(e).__name__}: {e}", file=sys.stderr)
             return 1
-        mcp_setup.record_mcp_approval(name, raw_entry)
+        mcp_setup.record_mcp_approval(name, raw_entry, cwd=mcp_json_path.parent)
         # H3b/Controller.approve_mcp_server's own fix, reproduced here:
         # `record_mcp_approval` only writes the PERSISTED ~/.halo/mcp-
         # approvals.json -- it never touches this LIVE handle's config,

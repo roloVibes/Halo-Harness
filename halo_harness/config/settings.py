@@ -14,16 +14,20 @@ _PROJECT_EXCLUDED_KEYS = frozenset({"autoMemoryDirectory"})
 # Keys dropped from an UNTRUSTED project/local layer before merging (finding
 # 6/D-CFG); deny/ask stay -- only allow/additionalDirectories/env/hooks/
 # autoMemoryDirectory require trust.
-_TRUST_GATED_PERMISSION_KEYS = frozenset({"allow", "additionalDirectories"})
+# Review 3 item 18: `defaultMode` too -- an untrusted repo cannot pick the
+# session's permission mode (acceptEdits would auto-approve its own writes).
+_TRUST_GATED_PERMISSION_KEYS = frozenset({"allow", "additionalDirectories", "defaultMode"})
 # 2.0.10 round 3 (findings 6/7): the keys that approve a repo's own
 # `.mcp.json` servers, and the ones that name a command to run, are trust-
 # gated too -- an untrusted repo can neither approve its own servers nor run
-# its `statusLine` command.
+# its `statusLine` command. Review 3 item 18: nor switch off the owner's
+# hooks (`disableAllHooks`) or move plan mode's writable file
+# (`plansDirectory`).
 _TRUST_GATED_TOP_KEYS = frozenset({
     "env", "hooks", "autoMemoryDirectory",
     "enableAllProjectMcpServers", "enabledMcpjsonServers",
     "statusLine", "apiKeyHelper", "awsAuthRefresh", "awsCredentialExport",
-    "gcpAuthRefresh", "otelHeadersHelper",
+    "gcpAuthRefresh", "otelHeadersHelper", "disableAllHooks", "plansDirectory",
 })
 
 
