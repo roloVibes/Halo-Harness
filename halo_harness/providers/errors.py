@@ -427,34 +427,10 @@ def map_upstream_error(status: int, body: dict | bytes | str, provider: str,
             retry_override = is_translated_sentence_retryable(status, body, provider)
     if sentence is not None:
         msg = sentence
-    # Table mapping: (upstream_status, error_type, client_status, should_retry)
-    table = [
-        (401, "authentication_error", 401, False),
-        (402, "permission_error", 402, False),
-        (403, "permission_error", 403, False),
-        (404, "not_found_error", 404, False),
-        (400, "invalid_request_error", 400, False),
-        # V2a fix: 413 had no row here, so it fell through to this
-        # function's own "anything else" default of should_retry=True --
-        # that default WINS at the caller (agent/loop.py's `e.retryable or
-        # is_retryable_message(...)` short-circuits on a True left side),
-        # so `is_context_overflow_message`'s own unconditional
-        # `status == 413` -> overflow rule (never retryable) was never
-        # actually reachable: a real 413 (a request too large to ever
-        # succeed unmodified) was retried up to MAX_RETRIES times against
-        # the identical failing body instead. 413 is never retryable in
-        # place, matching every other 4xx client-error row above.
-        (413, "invalid_request_error", 413, False),
-        (429, "rate_limit_error", 429, True),
-        (500, "api_error", 500, True),
-        (502, "overloaded_error", 529, True),
-        (503, "overloaded_error", 529, True),
-        (504, "overloaded_error", 529, True),
-    ]
     err_type = "api_error"
     client_status = status
     should_retry = True
-    for st, et, cs, retry in table:
+    for st, et, cs, retry in _STATUS_ERROR_TABLE:
         if status == st:
             err_type, client_status, should_retry = et, cs, retry
             break
@@ -472,6 +448,76 @@ def map_upstream_error(status: int, body: dict | bytes | str, provider: str,
                 break
     json_body = {"error": {"type": err_type, "message": msg}}
     return client_status, json_body, extra_headers
+
+
+# map_upstream_error's status table: (upstream_status, error_type,
+# client_status, should_retry). Also read by `stream_error_fields`, so a
+# mid-stream error chunk carrying a numeric code gets the same taxonomy.
+_STATUS_ERROR_TABLE = [
+    (401, "authentication_error", 401, False),
+    (402, "permission_error", 402, False),
+    (403, "permission_error", 403, False),
+    (404, "not_found_error", 404, False),
+    (400, "invalid_request_error", 400, False),
+    # V2a fix: 413 had no row here, so it fell through to this
+    # function's own "anything else" default of should_retry=True --
+    # that default WINS at the caller (agent/loop.py's `e.retryable or
+    # is_retryable_message(...)` short-circuits on a True left side),
+    # so `is_context_overflow_message`'s own unconditional
+    # `status == 413` -> overflow rule (never retryable) was never
+    # actually reachable: a real 413 (a request too large to ever
+    # succeed unmodified) was retried up to MAX_RETRIES times against
+    # the identical failing body instead. 413 is never retryable in
+    # place, matching every other 4xx client-error row above.
+    (413, "invalid_request_error", 413, False),
+    (429, "rate_limit_error", 429, True),
+    (500, "api_error", 500, True),
+    (502, "overloaded_error", 529, True),
+    (503, "overloaded_error", 529, True),
+    (504, "overloaded_error", 529, True),
+]
+
+_ANTHROPIC_ERROR_TYPES = frozenset({
+    "authentication_error", "permission_error", "not_found_error", "invalid_request_error",
+    "rate_limit_error", "api_error", "overloaded_error",
+})
+
+
+def stream_error_fields(err) -> dict:
+    """`{"type": ..., "status": ...}` for an error object that arrived
+    INSIDE a 200 stream (an OpenAI-shaped chunk's `error`, a Responses
+    `response.failed`/`error` event). A numeric `code` (OpenRouter sends
+    the upstream's HTTP status there) maps through the same status table
+    as a pre-stream HTTP error and is carried as `status`; else a known
+    Anthropic-style `type` is kept; else a string code/type is read by
+    name (rate limit / server-side / anything else a request problem).
+    `overloaded_error` with no status only when the object names nothing."""
+    if not isinstance(err, dict):
+        return {"type": "overloaded_error"}
+    code, etype = err.get("code"), err.get("type")
+    status = None
+    if isinstance(code, int) and not isinstance(code, bool):
+        status = code
+    elif isinstance(code, str) and code.strip().isdigit():
+        status = int(code.strip())
+    if status is not None and 100 <= status < 600:
+        for st, et, _cs, _retry in _STATUS_ERROR_TABLE:
+            if status == st:
+                return {"type": et, "status": status}
+        if status >= 500:
+            return {"type": "overloaded_error", "status": status}
+        if status >= 400:
+            return {"type": "invalid_request_error", "status": status}
+    if isinstance(etype, str) and etype in _ANTHROPIC_ERROR_TYPES:
+        return {"type": etype}
+    named = " ".join(x for x in (code, etype) if isinstance(x, str)).lower()
+    if not named.strip():
+        return {"type": "overloaded_error"}
+    if "rate_limit" in named or "rate limit" in named or "too_many" in named:
+        return {"type": "rate_limit_error"}
+    if any(w in named for w in ("overload", "server_error", "unavailable", "timeout", "internal")):
+        return {"type": "api_error"}
+    return {"type": "invalid_request_error"}
 
 
 # ---- H1 scope D: error taxonomy, backoff ladder, DeepSeek reasoning-replay
@@ -768,7 +814,8 @@ RETRY_MAX_DELAY_MS = 2_147_483_647          # only reachable via a Retry-After h
 RETRY_MAX_RETRIES = 5
 
 RETRYABLE_MESSAGE_PATTERNS = [               # all case-insensitive
-    r"429|500|502|503|504|524",
+    # word-bounded: a token count (15000, 5024) or an id fragment is not a status
+    r"\b(?:429|500|502|503|504|524)\b",
     r"rate increased too quickly|rate limit|rate-limit|rate_limit|too many requests",
     r"overloaded|service unavailable|internal error|provider returned error|provider_returned_error",
     r"terminated|fetch failed|socket hang up|connection refused|econnrefused|econnreset|etimedout",
@@ -788,7 +835,9 @@ def is_retryable_message(status: Optional[int], message: str, *, body_text: str 
     retryable only for that host; `raw_finish_reason == "network_error"`
     (an SDK-level signal, not an HTTP status) and `kind` in
     ("header_timeout", "sse_read_timeout") (the watchdog below) are always
-    retryable; otherwise falls through to the message-pattern list."""
+    retryable; 408 is retryable; any other 4xx is not, whatever the message
+    says; otherwise (no status -- a transport or mid-stream failure -- or a
+    non-error status) falls through to the message-pattern list."""
     if is_context_overflow_message(status or 0, message):
         return False
     if isinstance(status, int) and (status >= 500 or status == 429):
@@ -799,6 +848,12 @@ def is_retryable_message(status: Optional[int], message: str, *, body_text: str 
         return True
     if kind in ("header_timeout", "sse_read_timeout"):
         return True
+    if status == 408:
+        return True
+    if isinstance(status, int) and 400 <= status < 500:
+        # A definitive client-error status is the answer: re-sending the
+        # identical request cannot change it, whatever its text mentions.
+        return False
     text = f"{message or ''} {body_text or ''}"
     return bool(_RETRYABLE_MESSAGE_RE.search(text))
 

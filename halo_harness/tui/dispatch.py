@@ -572,7 +572,10 @@ async def _apply_event_inner(app, event) -> None:
             cooldown = data.get("cooldown_remaining") or 0.0
             if rate is not None and ceiling is not None and rate < ceiling:
                 app.status_bar.set_gov_state((rate, ceiling, cooldown))
-            else:
+            elif data.get("event") != "waiting":
+                # a `waiting` event (queue position / live cooldown while
+                # parked in acquire) only ever updates the segment; it is
+                # never the "bucket healthy again" signal that clears it.
                 app.status_bar.set_gov_state(None)
     elif kind == "governor_state_unpersisted":
         # 2.0.5 round 4: the Governor's shared state stopped persisting --
