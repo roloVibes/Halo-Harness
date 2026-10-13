@@ -111,18 +111,62 @@ def failure_signature(*, command: Optional[str], error_text: str) -> str:
 
 # ---- config entry for the model prompt (masked) -----------------------------
 
+_CREDENTIAL_FLAG_SEGMENTS = frozenset({
+    "key", "apikey", "token", "secret", "password", "passwd", "pass", "auth", "credential",
+    "credentials", "pat", "bearer"})
+
+
+def _credential_flag(name: str) -> bool:
+    """`--api-key`, `--token`, `DB_PASSWORD`, `API_KEY` ... (a name made of
+    credential words; `--keyfile`/`--keyboard` are not)."""
+    segments = [x for x in re.split(r"[-_.\s]+", name.lower()) if x]
+    return any(x in _CREDENTIAL_FLAG_SEGMENTS for x in segments)
+
+
+def _value_shape_mask(value: str) -> str:
+    """Secret-SHAPED text (sk-/ghp_/AKIA... tokens, long key-like runs,
+    url userinfo, Bearer text) blanked, whatever the key or position."""
+    from halo_harness.redact import redact_for_bugreport
+    return redact_for_bugreport(value)
+
+
+def _masked_args(args) -> list:
+    """Every arg that follows a credential-shaped flag (`--api-key X`), is
+    the value of `--flag=X` / `NAME=X` with a credential-shaped name, or
+    itself looks like a secret value, is blanked (review item 143)."""
+    out: list = []
+    blank_next = False
+    for raw in args or []:
+        a = str(raw)
+        if blank_next and not a.startswith("-"):
+            out.append("***")
+            blank_next = False
+            continue
+        blank_next = False
+        name, sep, _value = a.partition("=")
+        if sep and name and _credential_flag(name):
+            out.append(f"{name}=***")
+        elif not sep and a.startswith("-") and _credential_flag(a):
+            out.append(a)
+            blank_next = True
+        else:
+            out.append(_value_shape_mask(a))
+    return out
+
+
 def config_entry_for_prompt(cfg) -> dict:
     """A JSON-shaped, SECRET-MASKED view of `cfg` for the model prompt --
     every credential-shaped env/header value is blanked the same way
     `manager.expand_string(credential_blank=True)` already blanks one in a
     url/header, applied here to the full entry rather than one string."""
     from halo_harness.mcp.manager import _looks_like_credential
-    env = {k: ("***" if _looks_like_credential(k) else v) for k, v in (cfg.env or {}).items()}
+    env = {k: ("***" if _looks_like_credential(k) else _value_shape_mask(str(v)))
+           for k, v in (cfg.env or {}).items()}
     headers = {k: "***" for k in (cfg.headers or {})}
     out = {"type": cfg.type, "scope": cfg.scope}
     if cfg.type == "stdio":
         out["command"] = cfg.command
-        out["args"] = list(cfg.args or [])
+        out["args"] = _masked_args(cfg.args)
         out["env"] = env
         if cfg.cwd:
             out["cwd"] = cfg.cwd
@@ -175,8 +219,10 @@ def propose_fix(evidence_text: str, config_entry: dict, *, cwd: Path,
     codebase already follows."""
     if model_call is None:
         model_call = _default_model_call(cwd)
-    user_text = (f"{evidence_text}\n\nThe server's resolved config entry:\n"
-                 f"{json.dumps(config_entry, indent=2, ensure_ascii=False)}")
+    # backstop: a raw corpus entry (diagnose_from_corpus) or any shape the
+    # per-field masking missed still goes through the value-shape pass.
+    config_text = _value_shape_mask(json.dumps(config_entry, indent=2, ensure_ascii=False))
+    user_text = f"{evidence_text}\n\nThe server's resolved config entry:\n{config_text}"
     try:
         reply = model_call(FIX_SYSTEM_PROMPT, user_text)
     except Exception as e:

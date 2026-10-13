@@ -272,12 +272,18 @@ def substitute_arguments(body: str, args_text: str) -> str:
     i, n = 0, len(body)
     while i < n:
         c = body[i]
-        if c == "'":  # single-quoted span: literal, never substituted
+        if c == "'" and (i == 0 or body[i - 1].isspace() or body[i - 1] in "(=`"):
+            # single-quoted span: literal, never substituted. Only a quote
+            # that STARTS a shell token and has a closing quote on the same
+            # line opens one -- an apostrophe inside a word ("user's",
+            # "Don't") is prose and must not hide a later $ARGUMENTS
+            # (review item 71).
             j = body.find("'", i + 1)
-            j = n if j == -1 else j + 1
-            parts.append(body[i:j])
-            i = j
-            continue
+            eol = body.find(chr(10), i + 1)
+            if j != -1 and (eol == -1 or j < eol):
+                parts.append(body[i:j + 1])
+                i = j + 1
+                continue
         m = pattern.match(body, i)
         if m:
             parts.append(_repl(m))
