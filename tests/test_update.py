@@ -184,7 +184,8 @@ def test_install_kind_uv_tool_via_receipt_file(ctx: Ctx):
     ctx.check(f"spec is the plain git+ URL, got {k['spec']!r}",
               k["spec"] == "git+https://github.com/roloVibes/Halo-Harness")
     ctx.check(f"reinstall_cmd, got {k['reinstall_cmd']!r}",
-              k["reinstall_cmd"] == "uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness")
+              k["reinstall_cmd"] == "uv tool install --reinstall --constraints "
+                                     f"{upd.constraints_url(None)} git+https://github.com/roloVibes/Halo-Harness")
 
 
 @test
@@ -229,6 +230,7 @@ def test_install_kind_pip_fallback_after_fake_uv_and_pipx_list(ctx: Ctx):
     # interpreter).
     ctx.check(f"reinstall_cmd uses sys.executable, got {k['reinstall_cmd']!r}",
               k["reinstall_cmd"] == f"{sys.executable} -m pip install --upgrade "
+                                     f"--constraint {upd.constraints_url(None)} "
                                      f"git+https://github.com/roloVibes/Halo-Harness")
 
 

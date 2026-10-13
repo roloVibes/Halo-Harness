@@ -312,31 +312,34 @@ def run_lane_canary(raw_ref: str, *, state_dir, settings=None, cwd: Optional[Pat
 # ---- the CLI --------------------------------------------------------------------
 
 def _default_lane(state_dir) -> Optional[str]:
-    """The session's current default model, if one can be identified.
-    vibes/review.md finding 81: this used to read config.json's
-    model/last_model ONLY -- a session whose model comes from HALO_MODEL
-    or routes.json resolved NO lane, preflight checked 0 lanes, and still
-    printed PASS (a vacuous pass is worse than none). All three sources
-    are consulted now."""
+    """The model lane a session launched here would start on, so preflight
+    canaries the lane the session really uses (review 3 item 85): the
+    last-used model remembered in state.json (`/model`, per `model_memory`),
+    else `resolve_default_model_raw` -- HALO_MODEL > routes.json `default` >
+    config.json `model` > the work-env shortcut -- the same two steps
+    `headless.build_session` takes. None when nothing is pinned anywhere
+    (the built-in fallback model is a guess, not a lane to certify)."""
+    from halo_harness import launch_state
     from halo_harness.config.paths import env_compat
-    env_lane = env_compat("MODEL")
-    if env_lane:
-        return str(env_lane)
+    from halo_harness.model import DEFAULT_MODEL_REF, resolve_default_model_raw
+    from halo_harness.providers.config import load_routes
+    from halo_harness.theme import get_config_value
     try:
-        cfg = json.loads((Path(state_dir) / "config.json").read_text(encoding="utf-8"))
-        lane = cfg.get("model") or cfg.get("last_model")
-        if lane:
-            return str(lane)
+        memory = get_config_value("model_memory", default="cwd")
+        last = launch_state.resolve_last_model(Path.cwd(), memory=memory if isinstance(memory, str) else "cwd")
+        if last:
+            return str(last)
     except Exception:
         pass
     try:
-        routes = json.loads((Path(state_dir) / "routes.json").read_text(encoding="utf-8"))
-        lane = routes.get("model")
-        if lane:
-            return str(lane)
+        routes = load_routes(Path(state_dir) / "routes.json")
+        raw = resolve_default_model_raw(routes)
+        pinned = env_compat("MODEL") or routes.get("default") or get_config_value("model", default=None)
+        if raw == DEFAULT_MODEL_REF and not pinned:
+            return None
+        return str(raw) if raw else None
     except Exception:
-        pass
-    return None
+        return None
 
 
 def cmd_preflight(argv: list) -> int:

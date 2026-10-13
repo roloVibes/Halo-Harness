@@ -162,7 +162,8 @@ def test_f27_ci_installs_from_the_lock_and_audits_it_in_both_jobs(ctx: Ctx):
     for job in ("linux", "windows"):
         runs = [str(s.get("run") or "") for s in wf["jobs"][job]["steps"]]
         ctx.check(f"f27 {job}: hashed install from requirements.lock", any("--require-hashes" in r and "requirements.lock" in r for r in runs))
-        ctx.check(f"f27 {job}: pip-audit runs through the gate script", any("scripts/pip_audit_gate.py" in r and "pip-audit==" in r for r in runs))
+        ctx.check(f"f27 {job}: pip-audit runs through the gate script", any("scripts/pip_audit_gate.py" in r for r in runs)
+                  and any("requirements-ci.lock" in r and "--require-hashes" in r for r in runs))
     ctx.check("f27 the allowlist file exists", (REPO / ".github" / "pip-audit-allowlist.txt").is_file())
 
 

@@ -177,10 +177,17 @@ def git_credential_token(repo_dir: Path = REPO_DIR, *, run_fn: "Optional[Callabl
     (the caller decides what that means); never raises."""
     if run_fn is None:
         run_fn = subprocess.run
+    # No terminal prompt, no askpass window, and a time cap: a box with no
+    # stored github.com credential answers "nothing" instead of waiting for
+    # someone to type a username (the tag is already pushed by now).
+    quiet_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_ASKPASS": "true", "SSH_ASKPASS": "true"}
     try:
         result = run_fn(["git", "credential", "fill"], cwd=str(repo_dir), capture_output=True, text=True,
-                         input="protocol=https\nhost=github.com\n\n", check=False)
-    except Exception:
+                         input="protocol=https\nhost=github.com\n\n", check=False,
+                         env=quiet_env, timeout=10)
+    except Exception:  # includes subprocess.TimeoutExpired
+        return None
+    if getattr(result, "returncode", 0) != 0:
         return None
     for line in (getattr(result, "stdout", "") or "").splitlines():
         if line.startswith("password="):
