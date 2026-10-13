@@ -533,8 +533,8 @@ def save_team_template(name: str, data: dict, *, cwd=None, state_dir=None, proje
     payload = {k: v for k, v in expanded.items() if not k.startswith("_") and k != "roles"}
     payload["name"] = name
     d = project_teams_dir(cwd) if project else user_teams_dir(state_dir)
-    _write_yaml_file(d / f"{name}.yaml", payload)
-    return True, []
+    problems = _write_yaml_file(d / f"{name}.yaml", payload)
+    return (False, problems) if problems else (True, [])
 
 
 def delete_team_template(name: str, *, cwd=None, state_dir=None, project: bool = False) -> bool:

@@ -98,6 +98,9 @@ EVENT_KINDS = frozenset({
 COMMAND_KINDS = frozenset({
     "user_input", "interrupt", "set_mode", "set_model", "slash", "permission_reply",
     "question_reply", "plan_reply", "steer", "run_compact", "run_clear",
+    # 3.0.2.0: /resume and Ctrl+P switch the session log on the worker
+    # thread, between turns (agent/session_switch.py).
+    "run_resume",
     # Halo 2.0.2 round D (brief item 2): safety-net counterpart to
     # "approval_request" above, mirroring "permission_reply"/"question_
     # reply"/"plan_reply" -- see agent/loop.py's own matching comment on
@@ -377,9 +380,11 @@ def compaction(*, phase: str, trigger: str = "auto", turn: int = 0, tokens_befor
     }, turn=turn)
 
 
-def replay(messages: list) -> Event:
-    """data: {messages} -- used by --resume to hand a UI the prior transcript."""
-    return Event("replay", {"messages": messages})
+def replay(messages: list, *, switched: bool = False) -> Event:
+    """data: {messages} -- used by --resume to hand a UI the prior transcript.
+    `switched` (data key, only when True): a LIVE /resume or Ctrl+P switch,
+    so the UI replaces the transcript it shows instead of appending to it."""
+    return Event("replay", {"messages": messages, **({"switched": True} if switched else {})})
 
 
 def steer_queued(text: str, *, turn: int = 0) -> Event:

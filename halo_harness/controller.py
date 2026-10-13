@@ -754,42 +754,31 @@ class Controller:
                         "cost_usd": cost_usd, "turns": turns})
         return out
 
-    def resume(self, session_id: str) -> None:
-        """Read a prior session's log and push ONE `replay` event carrying
-        its renderable messages. The next prompt continues THAT session:
-        the Session's own log is reopened on it (see
-        `halo_harness.tui.app` for the swap)."""
-        from halo_harness.agent.log import SessionLog
+    def resume(self, session_id: str) -> str:
+        """Continue a prior session: `/resume` and Ctrl+P both call this.
+        Returns "" when the switch was queued, else the reason it was not
+        (a running turn) for the caller to show.
+
+        The switch is queued onto the session's worker thread (`run_resume`,
+        agent/session_switch.py) rather than done here: the worker runs it
+        BETWEEN turns, so a running turn's later appends can never land in
+        the other session's file, and the whole-log read stays off the UI
+        thread. Once switched, ONE `replay` event carries the resumed
+        session's renderable messages."""
+        if self.session.busy:
+            return "A turn is running -- wait or press Esc, then /resume"
         from halo_harness.termtitle import set_terminal_title
 
-        # Halo 2.0.2 W7 round 1 (brief F): "set it ... on resume" -- this
-        # is the one method both the command palette's session pick
-        # (tui/app.py's own `_on_palette_pick`) and the `/resume` picker
-        # (tui/slash.py's `_open_resume_picker`) call, so hooking it here
-        # covers both triggers with no duplication.
+        # Halo 2.0.2 W7 round 1 (brief F): "set it ... on resume" -- the
+        # one method both the palette pick and the `/resume` picker call.
         set_terminal_title("halo")
-        log = SessionLog(self.cwd, session_id=session_id)
-        self.replay_messages = _messages_from_nodes(log.nodes())
-        if self.replay_messages:
-            self.events.put(events.replay(self.replay_messages))
-        # vibes/review.md finding 65: the session's own LOG was never
-        # reopened -- the picker showed the old history (the replay event
-        # above) but the next prompt appended to the CURRENT session's
-        # file, so /resume and Ctrl+P never actually switched anything.
-        # Swapping `session.log` makes every later append/derive land on
-        # the resumed session's file (its nodes are already loaded); the
-        # per-session cost meter is rebuilt fresh so the two sessions'
-        # stats don't mix.
-        session = getattr(self, "session", None)
-        if session is not None and getattr(session, "log", None) is not None:
-            session.log = log
-            cm = getattr(session, "cost_meter", None)
-            if cm is not None:
-                try:
-                    from halo_harness.agent.loop import CostMeter
-                    session.cost_meter = CostMeter(price_in=cm.price_in, price_out=cm.price_out)
-                except Exception:
-                    pass
+
+        def _on_switched(log) -> None:
+            self.replay_messages = _messages_from_nodes(log.nodes())
+            self.events.put(events.replay(self.replay_messages, switched=True))
+
+        self.commands.put(events.Command("run_resume", {"session_id": session_id, "on_switched": _on_switched}))
+        return ""
 
     def mcp_status(self) -> "Optional[dict]":
         return self._mcp_status()

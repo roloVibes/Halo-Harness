@@ -365,11 +365,23 @@ def ensure_builtin_orgs(state_dir=None) -> None:
     a user's own edited copy or an unrelated file they happened to save
     under a built-in's name first."""
     d = orgs_dir(state_dir)
-    d.mkdir(parents=True, exist_ok=True)
     for name, data in _BUILTIN_ORGS.items():
         path = d / f"{name}.json"
         if not path.exists():
-            path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            # best-effort seeding: an unwritable orgs dir just means no
+            # built-in copies, never an exception out of `list_orgs`.
+            _write_org_file(path, data)
+
+
+def _write_org_file(path, data: dict) -> "list[str]":
+    """Atomic write of one org JSON file; `[]` on success, else one
+    problem line (never raises)."""
+    from halo_harness.privateio import write_atomic_keep_mode
+    try:
+        write_atomic_keep_mode(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
+    except OSError as e:
+        return [f"cannot write {path}: {e}"]
+    return []
 
 
 def list_orgs(state_dir=None) -> "list[str]":
@@ -405,12 +417,10 @@ def save_org(name: str, data: dict, state_dir=None) -> "tuple[bool, list[str]]":
     problems = validate_org(data)
     if problems:
         return False, problems
-    d = orgs_dir(state_dir)
-    d.mkdir(parents=True, exist_ok=True)
     payload = dict(data)
     payload.setdefault("name", name)
-    (d / f"{name}.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return True, []
+    problems = _write_org_file(orgs_dir(state_dir) / f"{name}.json", payload)
+    return (False, problems) if problems else (True, [])
 
 
 def reload_builtin_org(name: str, state_dir=None) -> "tuple[bool, list[str]]":
@@ -423,11 +433,8 @@ def reload_builtin_org(name: str, state_dir=None) -> "tuple[bool, list[str]]":
     one of the three shipped built-ins."""
     if name not in _BUILTIN_ORGS:
         return False, [f"{name!r} is not a built-in organization (built-ins: {', '.join(sorted(_BUILTIN_ORGS))})"]
-    d = orgs_dir(state_dir)
-    d.mkdir(parents=True, exist_ok=True)
-    (d / f"{name}.json").write_text(json.dumps(_BUILTIN_ORGS[name], indent=2, sort_keys=True) + "\n",
-                                     encoding="utf-8")
-    return True, []
+    problems = _write_org_file(orgs_dir(state_dir) / f"{name}.json", _BUILTIN_ORGS[name])
+    return (False, problems) if problems else (True, [])
 
 
 # ---------------------------------------------------------------------------
@@ -519,9 +526,8 @@ def install_org_template(name: str, *, force: bool = False, state_dir=None) -> "
         return False, [f"{name!r} already exists at {dest} -- use --force to overwrite it"]
     payload = dict(data)
     payload.setdefault("name", name)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return True, []
+    problems = _write_org_file(dest, payload)
+    return (False, problems) if problems else (True, [])
 
 
 def position_agent_specs(org: dict, *, goal_task_id: Optional[str] = None) -> "dict[str, object]":

@@ -95,10 +95,16 @@ def _read_yaml_file(path: Path) -> "Optional[dict]":
     return data if isinstance(data, dict) else (None if data is not None else {})
 
 
-def _write_yaml_file(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _write_yaml_file(path: Path, data: dict) -> "list[str]":
+    """Atomic YAML write (temp file + replace, the old file's mode kept);
+    `[]` on success, else one problem line -- never raises an OSError."""
+    from halo_harness.privateio import write_atomic_keep_mode
     text = yaml.safe_dump(data, sort_keys=False, default_flow_style=False, allow_unicode=True)
-    path.write_text(text, encoding="utf-8")
+    try:
+        write_atomic_keep_mode(path, text)
+    except OSError as e:
+        return [f"cannot write {path}: {e}"]
+    return []
 
 
 def list_agent_bios(*, cwd=None, state_dir=None, include_templates: bool = True) -> "list[str]":
@@ -450,8 +456,8 @@ def save_agent_bio(name: str, data: dict, *, cwd=None, state_dir=None, project: 
     payload = {k: v for k, v in data.items() if not k.startswith("_")}
     payload["name"] = name
     d = project_agents_dir(cwd) if project else user_agents_dir(state_dir)
-    _write_yaml_file(d / f"{name}.yaml", payload)
-    return True, []
+    problems = _write_yaml_file(d / f"{name}.yaml", payload)
+    return (False, problems) if problems else (True, [])
 
 
 def delete_agent_bio(name: str, *, cwd=None, state_dir=None, project: bool = False) -> bool:
