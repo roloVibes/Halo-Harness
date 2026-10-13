@@ -122,6 +122,10 @@ class JobRegistry:
         self.parent = parent
         self.jobs: "dict[str, JobRecord]" = {}
         self.lock = threading.Lock()
+        self.spills: list = []  # spill files of finished foreground Bash calls; deleted by kill_all()
+
+    def track_spill(self, path) -> None:
+        self.spills.append(path)
 
     def _live_count(self) -> int:
         return sum(1 for j in self.jobs.values() if j.status == "running")
@@ -467,6 +471,12 @@ class JobRegistry:
                     spill_path.unlink(missing_ok=True)
                 except OSError:
                     pass
+        for spill_path in self.spills:
+            try:
+                spill_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        self.spills.clear()
 
     def list_jobs(self) -> list:
         """`[{id, description, command, status, started_at}, ...]`,

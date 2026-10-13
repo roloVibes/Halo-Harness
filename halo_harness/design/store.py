@@ -18,6 +18,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from halo_harness.design.jsonio import locked as _locked, read_json as _read_json, write_json as _write_json
+
 ARTBOARD_KINDS = ("prototype", "page", "deck", "vector", "photo", "motion", "video", "pdf", "image")
 RENDER_NAMES = ("render.png", "render.svg", "render.pdf", "render.mp4", "index.html")
 
@@ -38,23 +40,11 @@ def _now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
 
 
-def _read_json(p: Path, default):
-    try:
-        return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else default
-    except (OSError, ValueError):
-        return default
-
-
 def _read_jsonl_line(line: str):
     try:
         return json.loads(line) if line.strip() else None
     except ValueError:
         return None
-
-
-def _write_json(p: Path, data) -> None:
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 class Project:
@@ -98,6 +88,7 @@ class Project:
     def meta(self) -> dict:
         return _read_json(self.path / "design.json", {})
 
+    @_locked
     def save_meta(self, meta: dict) -> None:
         _write_json(self.path / "design.json", meta)
 
@@ -116,6 +107,7 @@ class Project:
                         "render": next((f for f in RENDER_NAMES if f in files), ""), "controls": _read_json(d / "controls.json", [])})
         return out
 
+    @_locked
     def add_artboard(self, title: str, kind: str = "prototype", app: str = "") -> dict:
         meta = self.meta()
         aid = slugify(title) or "artboard"
@@ -130,6 +122,7 @@ class Project:
         self.artboard_dir(aid).mkdir(parents=True, exist_ok=True)
         return entry
 
+    @_locked
     def remove_artboard(self, aid: str) -> bool:
         meta = self.meta()
         before = len(meta.get("artboards") or [])
@@ -138,13 +131,14 @@ class Project:
         shutil.rmtree(self.artboard_dir(aid), ignore_errors=True)
         return len(meta["artboards"]) < before
 
+    @_locked
     def discover_artboards(self) -> list:
         """Folders under artboards/ the model created without registering them."""
         meta = self.meta()
         known = {a["id"] for a in meta.get("artboards") or []}
         found = []
         for d in sorted((self.path / "artboards").iterdir()) if (self.path / "artboards").is_dir() else []:
-            if d.is_dir() and d.name not in known and not d.name.startswith("v"):
+            if d.is_dir() and d.name not in known and not re.fullmatch(r"v\d+", d.name) and not d.is_symlink():
                 src = _read_json(d / "source.json", {})
                 kind = src.get("kind") if src.get("kind") in ARTBOARD_KINDS else ("prototype" if (d / "index.html").is_file() else "image")
                 entry = {"id": d.name, "title": src.get("title") or d.name.replace("-", " ").title(), "kind": kind,
@@ -205,6 +199,7 @@ class Project:
     def comments(self) -> list:
         return _read_json(self.path / "comments.json", [])
 
+    @_locked
     def add_comment(self, artboard: str, text: str, *, x: float = 0, y: float = 0, path: str = "", version: int = 0, source: str = "") -> dict:
         rows = self.comments()
         c = {"id": f"c{len(rows) + 1}-{int(time.time())}", "artboard": artboard, "version": version, "x": x, "y": y,
@@ -213,6 +208,7 @@ class Project:
         _write_json(self.path / "comments.json", rows)
         return c
 
+    @_locked
     def resolve_comments(self, ids: list) -> int:
         rows = self.comments()
         hits = [c for c in rows if c["id"] in ids and not c.get("resolved")]
@@ -224,6 +220,7 @@ class Project:
     def controls(self, aid: str) -> list:
         return _read_json(self.artboard_dir(aid) / "controls.json", [])
 
+    @_locked
     def set_control(self, aid: str, name: str, value) -> Optional[dict]:
         rows = self.controls(aid)
         hit = next((c for c in rows if c.get("name") == name), None)
@@ -236,6 +233,7 @@ class Project:
     def system(self) -> dict:
         return _read_json(self.path / "system.json", {})
 
+    @_locked
     def save_system(self, system: dict) -> None:
         _write_json(self.path / "system.json", system)
 

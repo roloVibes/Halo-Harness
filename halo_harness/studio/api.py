@@ -117,6 +117,8 @@ def post_lineup(req: Request):
 
 def delete_lineup(req: Request):
     name = req.params["name"]
+    if not T.is_valid_team_name(name):
+        return _problems([f"{name!r} is not a valid lineup name (letters, digits, - and _)"])
     found = T.find_team_template_path(name, cwd=req.cwd, state_dir=req.state_dir)
     if found and found[1] == "template":
         return 409, {"error": "a shipped lineup cannot be deleted"}
@@ -133,11 +135,21 @@ def apply_lineup(req: Request):
     return 200, {"ok": True, "notes": list(notes), "active_team": _active_team()}
 
 
+_LAYOUT_NAME = re.compile(r"^(pc:)?[A-Za-z0-9][A-Za-z0-9_.-]*$")
+
+
+def _layout_name_problem(name: str):
+    return None if _LAYOUT_NAME.match(name) else _problems([f"{name!r} is not a valid layout name (a lineup name, or pc:<company id>)"])
+
+
 def get_layout(req: Request):
-    return 200, M.read_layout(req.state_dir, req.params["name"])
+    return _layout_name_problem(req.params["name"]) or (200, M.read_layout(req.state_dir, req.params["name"]))
 
 
 def put_layout(req: Request):
+    bad = _layout_name_problem(req.params["name"])
+    if bad:
+        return bad
     positions = req.body.get("positions")
     if not isinstance(positions, dict):
         return _problems(["positions must be a mapping of node id -> {x, y}"])
@@ -190,6 +202,8 @@ def post_bio(req: Request):
 
 
 def delete_bio(req: Request):
+    if not A.is_valid_agent_name(req.params["name"]):
+        return _problems([f"{req.params['name']!r} is not a valid bio name (letters, digits, - and _)"])
     found = A.find_agent_bio_path(req.params["name"], cwd=req.cwd, state_dir=req.state_dir)
     if found and found[1] == "template":
         return 409, {"error": "a shipped bio cannot be deleted"}

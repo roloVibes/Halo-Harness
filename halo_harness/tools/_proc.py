@@ -7,6 +7,7 @@ not survive its parent's kill), abort-aware, cross-platform.
 
 from __future__ import annotations
 
+import atexit
 import os
 import queue
 import re
@@ -25,6 +26,24 @@ POLL_INTERVAL_S = 0.5
 _BUFFER_CAP_CHARS = 300_000
 _DRAIN_AFTER_EXIT_S = 0.2  # finding 7: bounded drain once the process itself has exited
 _WAIT_BOUND_S = 5.0
+
+
+_ORPHAN_SPILLS: list = []  # foreground spill files of a call with no job registry; removed at interpreter exit
+
+
+def track_orphan_spill(path: Path) -> None:
+    _ORPHAN_SPILLS.append(path)
+
+
+def _remove_orphan_spills() -> None:
+    for path in _ORPHAN_SPILLS:
+        try:
+            Path(path).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+atexit.register(_remove_orphan_spills)
 
 
 class _CappedCollector:
@@ -227,6 +246,7 @@ def run_streamed(
     on_timeout_handoff: Optional[Callable[["subprocess.Popen", "queue.Queue", "_CappedCollector"], None]] = None,
     steer_cut: Optional["threading.Event"] = None,
     on_steer_handoff: Optional[Callable[["subprocess.Popen", "queue.Queue", "_CappedCollector"], None]] = None,
+    on_spill: Optional[Callable[[Path], None]] = None,
 ) -> "tuple[str, Optional[int], bool, bool]":
     """Run `argv`, return (merged_output, exit_code, timed_out, aborted).
     `exit_code` is None only when the process itself could never be
@@ -406,4 +426,11 @@ def run_streamed(
     # actually can is a pure improvement with no such downside.
     _close_stream_async(proc.stdout)
 
+    # A foreground call keeps its spill file (the result text points at it)
+    # but tells its owner about it, so session teardown can delete it.
+    if on_spill is not None and collector.spill_path is not None:
+        try:
+            on_spill(collector.spill_path)
+        except Exception:
+            pass
     return collector.result(), proc.returncode, timed_out, aborted

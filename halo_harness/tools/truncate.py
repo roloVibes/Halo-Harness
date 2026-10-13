@@ -44,33 +44,36 @@ def spill_and_truncate(content: str, *, cap: Optional[int], session_dir: Optiona
     # backstop, computed only when it would actually bind tighter than the
     # per-tool `cap` already given -- never touches the `cap=None` opt-out
     # above, and never loosens an already-tighter per-tool cap.
-    effective_cap = cap
-    use_backstop_wording = False
+    # The backstop is a BYTE budget (MAX_BYTES, or the UTF-8 bytes of the first
+    # MAX_LINES lines when that is tighter) and is enforced in bytes below, so
+    # multibyte text cannot stay ~3x over it.
+    raw = content.encode("utf-8", errors="replace")
     line_count = content.count("\n") + (0 if content == "" or content.endswith("\n") else 1)
-    byte_len = len(content.encode("utf-8", errors="replace"))
-    if line_count > MAX_LINES or byte_len > MAX_BYTES:
+    backstop = None
+    if line_count > MAX_LINES or len(raw) > MAX_BYTES:
         candidates = []
-        if byte_len > MAX_BYTES:
+        if len(raw) > MAX_BYTES:
             candidates.append(MAX_BYTES)
         if line_count > MAX_LINES:
-            # The character length of just the first MAX_LINES lines -- an
-            # ASCII-equivalent approximation of "2000 lines" as a char
-            # count, which is exactly what this function's own head/tail
-            # slice below already operates in.
-            candidates.append(len("\n".join(content.split("\n")[:MAX_LINES])))
-        backstop_cap = min(candidates)
-        if backstop_cap < effective_cap:
-            effective_cap = backstop_cap
-            use_backstop_wording = True
+            candidates.append(len("\n".join(content.split("\n")[:MAX_LINES]).encode("utf-8", errors="replace")))
+        backstop = min(candidates)
 
-    if len(content) <= effective_cap:
+    fits = len(content) <= cap
+    head_len, tail_len = int(cap * 0.6), int(cap * 0.3)
+    head, tail = (content, "") if fits else (content[:head_len], content[-tail_len:] if tail_len > 0 else "")
+    out_bytes = len(raw) if fits else len(head.encode("utf-8", errors="replace")) + len(tail.encode("utf-8", errors="replace"))
+
+    use_backstop_wording = False
+    if backstop is not None and (backstop < cap or out_bytes > backstop):
+        if len(raw) <= backstop:
+            return content
+        use_backstop_wording = True
+        hb, tb = int(backstop * 0.6), int(backstop * 0.3)  # byte slices; a character split by a cut is dropped
+        head = raw[:hb].decode("utf-8", errors="ignore")
+        tail = raw[-tb:].decode("utf-8", errors="ignore") if tb > 0 else ""
+    elif fits:
         return content
-
-    head_len = int(effective_cap * 0.6)
-    tail_len = int(effective_cap * 0.3)
-    head = content[:head_len]
-    tail = content[-tail_len:] if tail_len > 0 else ""
-    omitted = len(content) - head_len - tail_len
+    omitted = len(content) - len(head) - len(tail)
 
     spill_note = ""
     if session_dir is not None and tool_use_id:
