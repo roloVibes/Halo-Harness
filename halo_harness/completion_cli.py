@@ -86,7 +86,7 @@ def _completion_safe_words(words: list) -> list:
     import re as _re
     global _SAFE_COMPLETION_WORD_RE
     if _SAFE_COMPLETION_WORD_RE is None:
-        _SAFE_COMPLETION_WORD_RE = _re.compile(r"^[A-Za-z0-9._/:@+\\-]+$")
+        _SAFE_COMPLETION_WORD_RE = _re.compile(r"^[A-Za-z0-9._/:@+-]+$")
     return [w for w in words if isinstance(w, str) and w and _SAFE_COMPLETION_WORD_RE.match(w)]
 
 
@@ -154,7 +154,11 @@ _halo "$@"
 
 def _powershell_script(subcommands: list, role_names: list, model_refs: list) -> str:
     def _ps_array(items: list) -> str:
-        return ", ".join(f"'{i}'" for i in items)
+        return ", ".join("'" + str(i).replace("'", "''") + "'" for i in items)
+
+    # Same filter as the bash/zsh scripts: network-sourced model refs never
+    # reach the script unless they are made of shell-inert characters.
+    subcommands, role_names, model_refs = (_completion_safe_words(x) for x in (subcommands, role_names, model_refs))
 
     subs_arr = _ps_array(subcommands)
     words_arr = _ps_array(subcommands + role_names + model_refs)
