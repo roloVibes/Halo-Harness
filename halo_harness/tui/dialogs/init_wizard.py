@@ -348,9 +348,20 @@ class StepScreen(StepRailMixin, Screen):
         elif bid == "wiz-next":
             self.action_do_next()
 
+    def _commit_or_notify(self) -> bool:
+        """`commit()`, with a config.json that does not parse shown as a
+        notice (the step stays put) instead of crashing the wizard."""
+        from halo_harness.theme import CorruptConfigError
+        try:
+            self.commit()
+        except CorruptConfigError as e:
+            self.app.notify(str(e), severity="error", title="config.json")
+            return False
+        return True
+
     def action_do_next(self) -> None:
-        self.commit()
-        advance(self.app, self.state)
+        if self._commit_or_notify():
+            advance(self.app, self.state)
 
     def action_do_skip(self) -> None:
         advance(self.app, self.state, skip=True)
@@ -802,7 +813,8 @@ class ProvidersStep(StepScreen):
     # reused by the Roles step, the Orgs step and the Summary step. Skip
     # (inherited `action_do_skip`, untouched) never enumerates.
     def action_do_next(self) -> None:
-        self.commit()
+        if not self._commit_or_notify():
+            return
         if self.state.no_live:
             # `--no-live` already skips every OTHER live probe on this
             # step ("reachability: skipped (--no-live)") -- the

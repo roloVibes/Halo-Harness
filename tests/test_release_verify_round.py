@@ -82,7 +82,7 @@ def _fake_update_world(assets):
         update_cli.upd.installed_build = lambda **kw: {"checkout": None, "commit": "abc1234"}
         update_cli.upd.default_channel = lambda b: "stable"
         update_cli.upd.latest_available = lambda *a, **kw: {"channel": "stable", "commit": "def5678"}
-        update_cli.upd.install_kind = lambda: {
+        update_cli.upd.install_kind = lambda **kw: {
             "kind": "uv_tool", "spec": "git+https://github.com/roloVibes/Halo-Harness@master",
             "reinstall_cmd": "uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness@master"}
         update_cli.upd.commits_between = lambda *a, **kw: (["behind"], 1)

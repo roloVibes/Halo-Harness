@@ -44,7 +44,8 @@ RESTART_EXIT_CODE = 91
 CACHE_TTL_S = 3600
 
 _UNSET = object()
-_TAG_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
+_TAG_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?$")  # v3.0.1 and v3.0.1.0 alike
+RAW_BASE = "https://raw.githubusercontent.com/roloVibes/Halo-Harness"
 
 
 def _quote_for_shell(path: str) -> str:
@@ -140,6 +141,15 @@ def _git_head(checkout: Path, run_fn) -> "tuple[Optional[str], Optional[str]]":
     return commit, branch
 
 
+def _note_exact_tag(info: dict, run_fn) -> None:
+    """A detached checkout (the installers' `--detach <tag>`) has no branch;
+    the tag it sits on is its requested revision, so `default_channel`
+    reads it as a stable-channel install."""
+    if info.get("commit") and not info.get("branch"):
+        from halo_harness.update_checkout import exact_tag
+        info["requested_revision"] = exact_tag(info["checkout"], run_fn)
+
+
 def _url_to_path(url: Optional[str]) -> Optional[Path]:
     if not url or not url.startswith("file:"):
         return None
@@ -167,6 +177,7 @@ def installed_build(*, direct_url: "object" = _UNSET, run_fn=None) -> dict:
         if checkout is not None:
             info["checkout"] = str(checkout)
             info["commit"], info["branch"] = _git_head(checkout, run_fn)
+            _note_exact_tag(info, run_fn)
         return info
     vcs_info = d.get("vcs_info") if isinstance(d, dict) else None
     dir_info = d.get("dir_info") if isinstance(d, dict) else None
@@ -186,6 +197,7 @@ def installed_build(*, direct_url: "object" = _UNSET, run_fn=None) -> dict:
         if checkout is not None:
             info["checkout"] = str(checkout)
             info["commit"], info["branch"] = _git_head(checkout, run_fn)
+            _note_exact_tag(info, run_fn)
     return info
 
 
@@ -238,34 +250,81 @@ def _spec_from_direct_url(d: dict) -> str:
     return url or REPO_URL
 
 
-def _tool_reinstall_cmd(prefix: str, run_fn, *, editable: bool, path: str = ".") -> str:
+def constraints_url(ref: Optional[str]) -> str:
+    """The hash-locked requirements.lock of `ref` on GitHub (a constraints
+    file: it pins versions; uv does not compare its hashes on install)."""
+    return f"{RAW_BASE}/{ref or DEFAULT_BRANCH}/requirements.lock"
+
+
+def _constraints_for(path: str, spec_ref: Optional[str]) -> Optional[str]:
+    """What to pass as the dependency pin: the checkout's own
+    requirements.lock when `path` is a clone that has one, the raw GitHub
+    URL of the same ref for a git+ spec, else nothing."""
+    if path.startswith("git+"):
+        return constraints_url(spec_ref)
+    lock = Path(path.strip('"'), "requirements.lock")
+    return str(lock) if lock.is_file() else None
+
+
+def _tool_reinstall_cmd(prefix: str, run_fn, *, editable: bool, path: str = ".",
+                        spec_ref: Optional[str] = None) -> str:
     """Which of the three installers THIS install actually used, by the
     same two signals every branch below checks: the tool's own marker file
     sitting right next to the running venv (no TOML/JSON parsing needed --
     existence alone is the uv-tool/pipx tell), or (if that venv isn't the
     one we're even running from right now) `uv tool list`/`pipx list`
-    naming this distribution. Falls back to plain pip."""
+    naming this distribution. Falls back to plain pip. The reinstall keeps
+    the dependency versions pinned to the repo's requirements.lock
+    (`--constraints`), as the installer's own first install does."""
     path = _quote_for_shell(path)
+    lock = _constraints_for(path, spec_ref)
+    lock_q = _quote_for_shell(lock) if lock else None
     if Path(prefix, "uv-receipt.toml").exists() or _uv_tool_has(DIST_NAME, run_fn):
-        return f"uv tool install --reinstall{' --editable' if editable else ''} {path}"
+        pin = f" --constraints {lock_q}" if lock_q else ""
+        return f"uv tool install --reinstall{pin}{' --editable' if editable else ''} {path}"
     if Path(prefix, "pipx_metadata.json").exists() or _pipx_has(DIST_NAME, run_fn):
-        return f"pipx install --force{' -e' if editable else ''} {path}"
+        pin = f' --pip-args="--constraint {lock_q}"' if lock_q else ""
+        return f"pipx install --force{pin}{' -e' if editable else ''} {path}"
     # Finding 16: whichever bare `python` happens to be first on PATH is
     # not necessarily THIS install's own interpreter (a pyenv/conda shim,
     # a different venv) -- `sys.executable` is always the one halo itself
     # is running under right now, same interpreter pip would need to
     # target anyway.
-    return f"{_quote_for_shell(sys.executable)} -m pip install --upgrade{' -e' if editable else ''} {path}"
+    pin = f" --constraint {lock_q}" if lock_q else ""
+    return f"{_quote_for_shell(sys.executable)} -m pip install --upgrade{pin}{' -e' if editable else ''} {path}"
 
 
-def install_kind(*, direct_url: "object" = _UNSET, prefix: Optional[str] = None, run_fn=None) -> dict:
+def _cached_target(channel: Optional[str]) -> Optional[str]:
+    """Where a detached clone moves when the caller named no target: the
+    last answer `latest_available` cached for the channel (no network),
+    else `origin/<branch>`."""
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.update_checkout import pick_target
+    ch = channel or default_channel()
+    cached = _load_cache(bridge_home()).get(ch)
+    return pick_target(ch, cached if isinstance(cached, dict) else None)
+
+
+def _checkout_git_cmd(spec: str, run_fn, target: Optional[str], channel: Optional[str]) -> str:
+    from halo_harness import update_checkout as uc
+    detached = uc.is_detached(spec, run_fn)
+    if detached and not target:
+        target = _cached_target(channel)
+    return uc.sync_cmd(spec, _quote_for_shell, detached=detached, target=target)
+
+
+def install_kind(*, direct_url: "object" = _UNSET, prefix: Optional[str] = None, run_fn=None,
+                 target: Optional[str] = None, channel: Optional[str] = None) -> dict:
     """{"kind", "spec", "reinstall_cmd"} -- `kind` is one of "uv_tool",
     "pipx", "pip", "editable_checkout", "dir_checkout", "bare_checkout",
     "source_dir", "unknown".
     `reinstall_cmd` is the exact command `halo update`/doctor's fix line
     runs or prints; always a plain string meant to be run with a shell
     (it may contain `&&`), never argv split for you. `None` for
-    "source_dir" and "unknown" -- see those two kinds' own notes."""
+    "source_dir" and "unknown" -- see those two kinds' own notes.
+    `target`/`channel` matter only for a clone the installer left on a
+    detached HEAD (a tag): the ref it is moved to (a tag, or
+    `origin/<branch>`); see `update_checkout.pick_target`."""
     run_fn = run_fn or run
     prefix = sys.prefix if prefix is None else prefix
     d = _direct_url() if direct_url is _UNSET else direct_url
@@ -288,13 +347,13 @@ def install_kind(*, direct_url: "object" = _UNSET, prefix: Optional[str] = None,
         # pull tied to the real checkout no matter what directory `halo
         # update`/`/update` is actually invoked from.
         return {"kind": "bare_checkout", "spec": spec,
-                "reinstall_cmd": f"git -C {_quote_for_shell(spec)} pull --ff-only"}
+                "reinstall_cmd": _checkout_git_cmd(spec, run_fn, target, channel)}
     dir_info = d.get("dir_info") if isinstance(d, dict) else None
     if isinstance(dir_info, dict) and dir_info.get("editable"):
         checkout = _url_to_path(d.get("url")) or _checkout_root_on_pythonpath()
         spec = str(checkout) if checkout else "."
         tool_cmd = _tool_reinstall_cmd(prefix, run_fn, editable=True, path=spec)
-        git_cmd = f"git -C {_quote_for_shell(spec)} pull --ff-only" if checkout else "git pull"
+        git_cmd = _checkout_git_cmd(spec, run_fn, target, channel) if checkout else "git pull"
         return {"kind": "editable_checkout", "spec": spec, "reinstall_cmd": f"{git_cmd} && {tool_cmd}"}
     if isinstance(dir_info, dict):
         # Finding 16: both installers' default (`uv tool install
@@ -308,10 +367,12 @@ def install_kind(*, direct_url: "object" = _UNSET, prefix: Optional[str] = None,
         if checkout is not None and (checkout / ".git").exists():
             spec = str(checkout)
             tool_cmd = _tool_reinstall_cmd(prefix, run_fn, editable=False, path=spec)
-            git_cmd = f"git -C {_quote_for_shell(spec)} pull --ff-only"
+            git_cmd = _checkout_git_cmd(spec, run_fn, target, channel)
             return {"kind": "dir_checkout", "spec": spec, "reinstall_cmd": f"{git_cmd} && {tool_cmd}"}
     spec = _spec_from_direct_url(d)
-    tool_cmd = _tool_reinstall_cmd(prefix, run_fn, editable=False, path=spec)
+    vcs_info = d.get("vcs_info") if isinstance(d, dict) else None
+    spec_ref = vcs_info.get("requested_revision") if isinstance(vcs_info, dict) else None
+    tool_cmd = _tool_reinstall_cmd(prefix, run_fn, editable=False, path=spec, spec_ref=spec_ref)
     kind = "uv_tool" if tool_cmd.startswith("uv ") else ("pipx" if tool_cmd.startswith("pipx") else "pip")
     return {"kind": kind, "spec": spec, "reinstall_cmd": tool_cmd}
 
@@ -380,7 +441,7 @@ def _newest_tag(names) -> Optional[str]:
         m = _TAG_RE.match(name or "")
         if not m:
             continue
-        key = tuple(int(x) for x in m.groups())
+        key = tuple(int(x or 0) for x in m.groups())
         if best is None or key > best[0]:
             best = (key, name)
     return best[1] if best else None
@@ -603,22 +664,32 @@ def note_due_today(state_dir: Path) -> bool:
 # 3. Applying an update: another halo process, and the relaunch itself
 # ---------------------------------------------------------------------------
 
+def _base(tok: str) -> str:
+    return tok.strip('"').replace("\\", "/").rsplit("/", 1)[-1].lower()
+
+
 def _is_halo_cmdline(cmdline: str) -> bool:
-    """True only for a process that IS halo: the literal `halo`/`halo.exe`
-    entry point as any whitespace-separated token (by its own basename,
-    so a full path still matches), or a `-m halo_harness`-style module
-    invocation -- never a mere substring hit. Finding 2: the old `"halo"
-    in cmdline.lower()` also matched an editor window titled after this
-    repo (`...\\Halo-Harness`) and `tail -f ~/.halo/bridge.log`; neither
-    names a `halo`/`halo.exe` TOKEN, just a longer word/path containing
-    those letters."""
-    for tok in (cmdline or "").split():
-        if tok == "halo_harness":
-            return True
-        name = tok.strip('"').replace("\\", "/").rsplit("/", 1)[-1].lower()
-        if name in ("halo", "halo.exe"):
-            return True
-    return False
+    """True only for a process that IS halo, judged by position: argv[0] is
+    the `halo`/`halo.exe` entry point, or argv[0] is a Python interpreter
+    whose script is `halo`/`halo.exe` (what ps shows for a uv/pipx console
+    script) or which runs `-m halo_harness`. A later token never counts, so
+    `grep halo notes.txt`, `vim halo` and `man halo` are not halo, nor is
+    an editor window titled after this repo (finding 2) or `tail -f
+    ~/.halo/bridge.log`."""
+    toks = [q or p for q, p in re.findall(r'"([^"]*)"|(\S+)', cmdline or "")]
+    if not toks:
+        return False
+    first = _base(toks[0])
+    if first in ("halo", "halo.exe"):
+        return True
+    if not first.startswith(("python", "pythonw")):
+        return False
+    rest = toks[1:]
+    while rest and rest[0].startswith("-") and rest[0] != "-m":
+        rest = rest[1:]
+    if rest and rest[0] == "-m":
+        return len(rest) > 1 and rest[1] == "halo_harness"
+    return bool(rest) and _base(rest[0]) in ("halo", "halo.exe")
 
 
 def _ancestor_pids(this_pid: int, pid_to_ppid: "dict[int, int]") -> "set[int]":
