@@ -18,6 +18,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from halo_harness.design.jsonio import UnreadableFile, _read_json, _read_jsonl_line, _write_json  # noqa: F401
+
 ARTBOARD_KINDS = ("prototype", "page", "deck", "vector", "photo", "motion", "video", "pdf", "image")
 RENDER_NAMES = ("render.png", "render.svg", "render.pdf", "render.mp4", "index.html")
 
@@ -36,25 +38,6 @@ def design_root(state_dir: Optional[Path] = None) -> Path:
 
 def _now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
-
-
-def _read_json(p: Path, default):
-    try:
-        return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else default
-    except (OSError, ValueError):
-        return default
-
-
-def _read_jsonl_line(line: str):
-    try:
-        return json.loads(line) if line.strip() else None
-    except ValueError:
-        return None
-
-
-def _write_json(p: Path, data) -> None:
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 class Project:
@@ -98,6 +81,9 @@ class Project:
     def meta(self) -> dict:
         return _read_json(self.path / "design.json", {})
 
+    def _meta_for_write(self) -> dict:
+        return _read_json(self.path / "design.json", {}, strict=True)
+
     def save_meta(self, meta: dict) -> None:
         _write_json(self.path / "design.json", meta)
 
@@ -117,7 +103,7 @@ class Project:
         return out
 
     def add_artboard(self, title: str, kind: str = "prototype", app: str = "") -> dict:
-        meta = self.meta()
+        meta = self._meta_for_write()
         aid = slugify(title) or "artboard"
         existing = {a["id"] for a in meta.get("artboards") or []}
         base, n = aid, 2
@@ -131,7 +117,7 @@ class Project:
         return entry
 
     def remove_artboard(self, aid: str) -> bool:
-        meta = self.meta()
+        meta = self._meta_for_write()
         before = len(meta.get("artboards") or [])
         meta["artboards"] = [a for a in meta.get("artboards") or [] if a["id"] != aid]
         self.save_meta(meta)
@@ -139,8 +125,12 @@ class Project:
         return len(meta["artboards"]) < before
 
     def discover_artboards(self) -> list:
-        """Folders under artboards/ the model created without registering them."""
-        meta = self.meta()
+        """Folders under artboards/ the model created without registering them (none
+        while design.json is unreadable: it is left alone, never re-saved)."""
+        try:
+            meta = self._meta_for_write()
+        except UnreadableFile:
+            return []
         known = {a["id"] for a in meta.get("artboards") or []}
         found = []
         for d in sorted((self.path / "artboards").iterdir()) if (self.path / "artboards").is_dir() else []:
@@ -206,7 +196,7 @@ class Project:
         return _read_json(self.path / "comments.json", [])
 
     def add_comment(self, artboard: str, text: str, *, x: float = 0, y: float = 0, path: str = "", version: int = 0, source: str = "") -> dict:
-        rows = self.comments()
+        rows = _read_json(self.path / "comments.json", [], strict=True)
         c = {"id": f"c{len(rows) + 1}-{int(time.time())}", "artboard": artboard, "version": version, "x": x, "y": y,
              "path": path, "text": text, "resolved": False, "created": _now(), **({"source": source} if source else {})}
         rows.append(c)
@@ -214,7 +204,7 @@ class Project:
         return c
 
     def resolve_comments(self, ids: list) -> int:
-        rows = self.comments()
+        rows = _read_json(self.path / "comments.json", [], strict=True)
         hits = [c for c in rows if c["id"] in ids and not c.get("resolved")]
         for c in hits:
             c["resolved"] = True
@@ -225,7 +215,7 @@ class Project:
         return _read_json(self.artboard_dir(aid) / "controls.json", [])
 
     def set_control(self, aid: str, name: str, value) -> Optional[dict]:
-        rows = self.controls(aid)
+        rows = _read_json(self.artboard_dir(aid) / "controls.json", [], strict=True)
         hit = next((c for c in rows if c.get("name") == name), None)
         if hit is None:
             return None

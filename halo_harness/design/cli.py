@@ -128,7 +128,10 @@ def cmd_comment(args) -> int:
             x, y = (float(v) for v in args.at.split(","))
         except ValueError:
             raise SystemExit("halo design comment: --at takes X,Y as percentages, e.g. --at 40,12")
-    c = p.add_comment(args.artboard, args.text, x=x, y=y)
+    try:
+        c = p.add_comment(args.artboard, args.text, x=x, y=y)
+    except ValueError as e:  # comments.json exists but did not parse: left as it is
+        raise SystemExit(f"halo design comment: {e}")
     print(f"comment {c['id']} on {args.artboard}; the next `halo design run` addresses it")
     return 0
 

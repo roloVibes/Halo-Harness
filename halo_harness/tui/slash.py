@@ -1510,9 +1510,22 @@ def _open_resume_picker(app, sessions, query: str = "") -> None:
 
     def _on_pick(session_id) -> None:
         if session_id:
-            app.controller.resume(session_id)
+            resume_from_ui(app, session_id)
 
     app.push_screen(SessionPicker(sessions, initial_query=query), _on_pick)
+
+
+def resume_from_ui(app, session_id: str) -> None:
+    """The `/resume` picker and the Ctrl+P palette's session pick: ask the
+    controller to switch (refused while a turn runs -- shown as a
+    notification, nothing switches), and on success restart the
+    first-turn counter so an untitled resumed session gets its own
+    after-first-turn auto-title, as after /clear."""
+    error = app.controller.resume(session_id)
+    if error:
+        app.notify(error, severity="warning", title="/resume")
+        return
+    app._turn_done_count = 0
 
 
 async def _handle_permissions(app, _args: str) -> None:

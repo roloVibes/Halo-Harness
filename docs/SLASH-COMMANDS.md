@@ -228,7 +228,11 @@ In `-p`: with text, reports the matching session id (you still pass it via
 `-r` on the command line to actually resume); with nothing, lists recent
 sessions for this directory. In the TUI, opens the session picker with a
 live fuzzy filter over title/first prompt/cwd/model, pre-filtered by any
-text typed after `/resume`.
+text typed after `/resume`. Picking a session (here or from Ctrl+P) switches
+the live session to it between turns: the transcript is replaced by the
+resumed conversation, and hooks, the `cc:` process and the cost meter follow
+the new session. While a turn is running the pick is refused with a
+notification; wait for it or press Esc, then pick again.
 
 ### `/status`
 A one-screen dashboard: version, current model, cwd, permission mode, MCP
