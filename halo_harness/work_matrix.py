@@ -414,8 +414,10 @@ def format_table(rows: list, *, tools: bool = False) -> str:
 # -- endpoint names only, never a host or a token) and turns each FAILING
 # row into a suggested action, per the V2 brief's own rules:
 #   - 403               -> off the VPN (Databricks' IP access list).
-#   - any other non-200, with a "<name> (anthropic gateway)" companion row
-#     (only ever present when `--both` probed it) that itself answered 200
+#   - a transient failure (429, 408, 5xx, a probe that raised) -> retry the
+#     probe; never a config suggestion, whatever the companion answered.
+#   - a deterministic 400/404/415/422, with a "<name> (anthropic gateway)"
+#     companion row (only ever present when `--both` probed it) that answered 200
 #     -> the endpoint's DEFAULT dialect is the wrong path; the ONE real,
 #     already-implemented per-endpoint knob that can fix it is
 #     `databricks.gateway.<endpoint>: anthropic` (`providers.dbx_routing.
@@ -440,6 +442,11 @@ def load_report(path) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+# Only a deterministic client-side rejection of the request shape, paired with a
+# working companion row, is evidence that the default dialect is the wrong one.
+_WRONG_PATH_STATUSES = frozenset({"400", "404", "415", "422"})
+
+
 def classify_row(row: dict, rows_by_name: dict) -> Optional[dict]:
     """`row` is one entry of the report's own "rows" list; `rows_by_name`
     maps every row's own `endpoint` name to itself (including a `--both`
@@ -458,7 +465,13 @@ def classify_row(row: dict, rows_by_name: dict) -> Optional[dict]:
                 "config_key": None, "config_value": None}
     if status != "200":
         companion = rows_by_name.get(f"{name} (anthropic gateway)")
-        if companion is not None and str(companion.get("status")) == "200":
+        if status in ("error", "429", "408") or status.startswith("5") or not status.isdigit():
+            # a rate limit, a 5xx or a probe that raised (timeout, connection reset) says nothing
+            # about the dialect -- never turn it into a permanent per-endpoint override.
+            issue = f"transient error (status {status})" + (f": {error[:80]}" if error else "")
+            return {"issue": issue, "action": "retry the probe (a transient failure is not a dialect problem)",
+                    "config_key": None, "config_value": None}
+        if companion is not None and str(companion.get("status")) == "200" and status in _WRONG_PATH_STATUSES:
             return {
                 "issue": f"wrong path -- the default dialect failed (status {status})",
                 "action": f"set databricks.gateway.{name} = anthropic (the anthropic gateway answered correctly)",

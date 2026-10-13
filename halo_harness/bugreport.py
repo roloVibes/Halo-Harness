@@ -36,7 +36,7 @@ from typing import Optional
 from halo_harness import __version__
 from halo_harness.redact import _GENERIC_SECRET_NAME, _SECRET_ENV_NAMES, redact_for_bugreport
 
-_GENERIC_SECRET_NAME_RE = re.compile(f"^(?:{_GENERIC_SECRET_NAME})$")
+_GENERIC_SECRET_NAME_RE = re.compile(f"^(?:{_GENERIC_SECRET_NAME})$", re.IGNORECASE)
 
 
 def _collect_known_secret_values(settings=None, mcp_servers=None) -> tuple:
@@ -63,7 +63,7 @@ def _collect_known_secret_values(settings=None, mcp_servers=None) -> tuple:
                             "private-token", "proxy-authorization")
 
     def _name_is_secret(name: str) -> bool:
-        return name in _SECRET_ENV_NAMES or bool(_GENERIC_SECRET_NAME_RE.match(name))
+        return name.upper() in _SECRET_ENV_NAMES or bool(_GENERIC_SECRET_NAME_RE.match(name))
 
     for name, value in os.environ.items():
         if value and _name_is_secret(name):

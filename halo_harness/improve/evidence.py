@@ -18,6 +18,7 @@ never used to filter, block or reweight a cluster.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -29,6 +30,10 @@ MAX_EXCERPT_CHARS = 600
 # (d): a PLAIN constant list, never a classifier -- matched against the
 # first few words of a user/assistant text, case-insensitively.
 CORRECTION_CUES = ("no", "don't", "stop", "wrong", "instead", "actually", "not that", "use ")
+
+# A cue is a whole word / phrase at the start ("no", "no, that's wrong"), never the
+# prefix of a longer word ("now", "note", "normal", "stopwatch", "user").
+_CORRECTION_RE = re.compile("(?:" + "|".join(re.escape(c.strip()) for c in CORRECTION_CUES) + r")\b")
 
 _MIN_TOOL_ERROR_REPEATS = 2
 _MIN_REPAIR_REPEATS = 2
@@ -83,7 +88,7 @@ def _text_of_user_node(node: dict) -> str:
 
 def _is_correction_text(text: str) -> bool:
     t = text.strip().lower()
-    return any(t.startswith(cue) for cue in CORRECTION_CUES)
+    return _CORRECTION_RE.match(t) is not None
 
 
 def build_clusters(*, since: str = "7d", slug: Optional[str] = None, all_projects: bool = False,

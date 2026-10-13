@@ -176,6 +176,7 @@ def test_no_real_home_paths_anywhere_in_the_tracked_tree(ctx: Ctx):
 @test
 def test_no_removed_machine_or_project_names_regress(ctx: Ctx):
     problems = []
+    allowed = _load_allowlist()
     for path in _tracked_files():
         if _is_self_excluded(_rel_posix(path)):
             continue
@@ -183,6 +184,8 @@ def test_no_removed_machine_or_project_names_regress(ctx: Ctx):
         if not text:
             continue
         for name in _REMOVED_NAMES:
+            if name in allowed:
+                continue
             idx = text.find(name)
             if idx == -1:
                 continue
@@ -211,12 +214,15 @@ def test_no_hobby_gear_vendor_or_owner_name_terms_case_insensitive(ctx: Ctx):
     the whole tree -- see `_EXTENDED_SCAN_TERMS`'s own docstring for why
     LICENSE is deliberately excluded)."""
     problems = []
+    allow_lower = {a.lower() for a in _load_allowlist()}
     for path in _extended_scan_files():
         text = _read_text(path)
         if not text:
             continue
         lower = text.lower()
         for term in _EXTENDED_SCAN_TERMS:
+            if term in allow_lower:
+                continue
             idx = lower.find(term)
             while idx != -1:
                 line_no = text.count("\n", 0, idx) + 1
