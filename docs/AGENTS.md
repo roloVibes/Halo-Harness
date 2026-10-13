@@ -290,7 +290,7 @@ What each section DOES at runtime:
 
 - **delegation** -- `max_depth` is the session's depth cap, `max_parallel`
   its in-flight spawn cap (the same gate `agents.max_concurrent` sizes,
-  per team); `handoff` shapes what a member hands back (`summary` -- the
+  per team; an `Agent(org=...)` run under the team is held to it too); `handoff` shapes what a member hands back (`summary` -- the
   final text, `full` -- plus the child's transcript path, `structured` --
   role/status/cost/result lines); `forward_text: true` prepends the
   parent's latest user text to the delegation prompt.

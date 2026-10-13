@@ -2527,6 +2527,15 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     return [start_ev, *child_events, end_ev], ToolResult(capped, is_error=is_error)
 
 
+def _org_cap_under_team(org_cap, runtime: "AgentRuntime"):
+    """An org run's concurrency cap: its own `max_concurrent`, never above
+    the caller's team `delegation.max_parallel` (which the team session
+    keeps on its runtime's `max_concurrent`, copied to every child)."""
+    team_cap = runtime.max_concurrent if getattr(runtime, "team_control", None) is not None else None
+    caps = [c for c in (org_cap, team_cap) if isinstance(c, int) and not isinstance(c, bool) and c > 0]
+    return min(caps) if caps else None
+
+
 def run_org_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, tool_name: str,
                   on_event=None, on_child=None, org_override: "Optional[dict]" = None) -> "tuple[list, object]":
     """`Agent(org=<name>, prompt=<goal>)` / `/org run <name> "<goal>"`
@@ -2669,7 +2678,7 @@ def run_org_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, tool_
         # `{'depth': 1, 'max_depth': 4}` -- only 3 more hops below depth
         # 1, when the whole tree needs 1 + 3 + 1 = 5.
         max_depth=runtime.depth + org_tree_depth(org) + 1,
-        max_concurrent=org.get("max_concurrent"), org_budget=org_budget,
+        max_concurrent=_org_cap_under_team(org.get("max_concurrent"), runtime), org_budget=org_budget,
         team_control=getattr(runtime, "team_control", None),
     )
     # 2.0.2 review finding 10 (major): a FRESH semaphore, sized for THIS
@@ -2932,7 +2941,8 @@ def _resume_task_claimed(runtime: AgentRuntime, task_id: str, tool_input: dict, 
                     parent=runtime.parent, agents=agents, routes=runtime.routes,
                     role_table=runtime.role_table, cli_role_overrides=runtime.cli_role_overrides,
                     depth=runtime.depth, tasks=runtime.tasks, lock=runtime.lock,
-                    max_depth=record.get("org_max_depth"), max_concurrent=record.get("org_max_concurrent"),
+                    max_depth=record.get("org_max_depth"),
+                    max_concurrent=_org_cap_under_team(record.get("org_max_concurrent"), runtime),
                     org_budget=record.get("org_budget"), concurrency_semaphore=runtime.concurrency_semaphore,
                     team_control=getattr(runtime, "team_control", None),
                 )
