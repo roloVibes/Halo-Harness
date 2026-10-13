@@ -220,7 +220,7 @@ def split_mcp_tool_name(wire_name: str) -> "Optional[tuple[str, str]]":
     return server, tool
 
 
-def mcp_approval_key(raw_entry: dict) -> str:
+def mcp_approval_key(raw_entry: dict, project) -> str:
     """sha256 hex digest of a `.mcp.json` server entry's own JSON shape
     (D-CFG must-do: "approvals keyed by entry sha256", not by name) --
     approving `{"command": "safe.exe"}` under a name must NOT still read
@@ -228,9 +228,20 @@ def mcp_approval_key(raw_entry: dict) -> str:
     exe"}`; keying by content instead of name makes a tampered/edited
     entry require re-approval automatically. `raw_entry` is the UNEXPANDED
     dict exactly as read from `.mcp.json` (stable across `${VAR}`
-    expansion, which can vary per environment)."""
+    expansion, which can vary per environment).
+
+    Review 3 item 66: `project` (the folder holding that `.mcp.json`) is
+    hashed in too -- the same bytes mean a different program in another
+    checkout (`./scripts/server.sh`, `node ./index.js`), so an approval
+    given in one folder never covers another. Records written before this
+    (content-only keys) no longer match: those servers ask again once."""
     import hashlib
-    canonical = json.dumps(raw_entry, sort_keys=True, ensure_ascii=True, default=str)
+    from halo_harness.config.paths import normalize_cwd
+    try:
+        folder = normalize_cwd(Path(project).resolve())
+    except (OSError, ValueError):
+        folder = normalize_cwd(project)
+    canonical = json.dumps({"entry": raw_entry, "project": folder}, sort_keys=True, ensure_ascii=True, default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
@@ -603,7 +614,7 @@ def resolve_server_configs(
                 # only in a trusted folder; an untrusted one needs an
                 # explicit approval (user-scope enabled list or the hash).
                 approved = (name in enabled) or enable_all or (print_mode and trusted) \
-                    or bool(our_approvals.get(mcp_approval_key(raw)))
+                    or bool(our_approvals.get(mcp_approval_key(raw, cwd)))
                 if not approved:
                     cfg.pending_approval = True
                 resolved[name] = cfg

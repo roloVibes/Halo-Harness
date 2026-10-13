@@ -110,12 +110,12 @@ def test_reset_project_choices_forgets_approvals_for_current_mcp_json(ctx: Ctx):
         (cwd / ".mcp.json").write_text(json.dumps({"mcpServers": {"srv": entry}}), encoding="utf-8")
         from halo_harness.mcp_setup import load_mcp_approvals, record_mcp_approval
         from halo_harness.mcp.manager import mcp_approval_key
-        record_mcp_approval("srv", entry)
-        ctx.check("approved beforehand", mcp_approval_key(entry) in load_mcp_approvals())
+        record_mcp_approval("srv", entry, cwd=cwd)
+        ctx.check("approved beforehand", mcp_approval_key(entry, cwd) in load_mcp_approvals())
 
         rc = C.cmd_mcp(["reset-project-choices", "--cwd", str(cwd)])
         ctx.check(f"exit 0, got {rc}", rc == 0)
-        ctx.check("approval forgotten", mcp_approval_key(entry) not in load_mcp_approvals())
+        ctx.check("approval forgotten", mcp_approval_key(entry, cwd) not in load_mcp_approvals())
     _scoped(_run)
 
 

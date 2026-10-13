@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Optional
 
 from halo_harness.mcp import connectors as mcp_connectors
@@ -23,6 +24,12 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "You are a tool proxy. Using only the {prefix}__* connector tools, perform exactly the "
     "request below and return the results verbatim as JSON, with no commentary."
 )
+
+
+# Review 3 item 5: one MCP tool name, nothing else -- the inner claude's
+# --allowedTools/--disallowedTools split their value on commas and spaces.
+_ONE_TOOL_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+_SAFE_RULE_TOOL_RE = re.compile(r"^[A-Za-z0-9_*-]{1,200}$")
 
 
 def _claude_subprocess_env() -> dict:
@@ -118,7 +125,24 @@ class ConnectorTool(Tool):
         so that call still cannot reach the denied tool even when Halo's
         own (necessarily coarse) decision here allowed the call through."""
         data = input if isinstance(input, dict) else {}
-        return data.get("tool") or ""
+        tool = data.get("tool")
+        if not isinstance(tool, str):
+            return ""
+        full = f"mcp__{mcp_connectors.wire_prefix(self.info.name)}__"
+        return tool[len(full):] if tool.startswith(full) else tool
+
+    def _checked_tool(self, data: dict) -> "tuple[Optional[str], Optional[str]]":
+        """`(tool name or None, error or None)`: exactly one of this
+        connector's own tool names (its `mcp__...__` prefix tolerated)."""
+        tool = data.get("tool")
+        if tool is None or tool == "":
+            return None, None
+        name = self.permission_content(data).strip()
+        known = sorted(self.info.tools or [])
+        if not _ONE_TOOL_NAME_RE.match(name) or (known and name not in known):
+            listed = ", ".join(known) if known else "letters, digits, '_' and '-' only"
+            return None, f"{self.name}: 'tool' must be one of this connector's tool names ({listed})."
+        return name, None
 
     def _per_tool_rules_as_mcp_names(self, ctx: ToolContext, prefix: str) -> "list[str]":
         """finding 12 (W6a): every deny/ask rule targeting THIS connector
@@ -132,6 +156,14 @@ class ConnectorTool(Tool):
         if engine is None:
             return []
         names: "list[str]" = []
+        for rule in list(getattr(engine, "deny_rules", None) or []):
+            # Review 3 item 5: the session's whole-tool denies (`Bash`,
+            # `Write`, `mcp__x`) hold inside the inner claude too.
+            raw = getattr(rule, "raw", None) or getattr(rule, "tool", None)
+            if (getattr(rule, "kind", None) in ("bare", "mcp_server", "mcp_server_all", "mcp_tool")
+                    and isinstance(raw, str) and raw != self.name and _SAFE_RULE_TOOL_RE.match(raw)
+                    and raw not in names):
+                names.append(raw)
         for rule in list(getattr(engine, "deny_rules", None) or []) + list(getattr(engine, "ask_rules", None) or []):
             if getattr(rule, "tool", None) != self.name or getattr(rule, "kind", None) == "bare":
                 continue
@@ -147,7 +179,9 @@ class ConnectorTool(Tool):
         request = (data.get("request") or "").strip()
         if not request:
             return ToolResult(f"{self.name}: 'request' is required.", is_error=True)
-        tool = data.get("tool")
+        tool, tool_error = self._checked_tool(data)
+        if tool_error:
+            return ToolResult(tool_error, is_error=True)
         args = data.get("args") if isinstance(data.get("args"), dict) else None
 
         from halo_harness.providers.cc_models import ClaudeCodeNotFoundError, resolve_claude_launch_argv
