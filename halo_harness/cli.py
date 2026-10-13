@@ -386,11 +386,60 @@ def _apply_update_and_relaunch(argv: list) -> int:
         apply_update(force=True)
     except Exception as e:
         print(f"halo: update failed: {e}", file=sys.stderr)
-    relaunch_args = [a for a in argv if a not in ("--continue", "-c")]
-    return relaunch_halo(["--continue", *relaunch_args])
+    return relaunch_halo(["--continue", *_relaunch_flags(argv)])
+
+
+def _relaunch_flags(argv: list) -> list:
+    """`argv` for the post-update `halo --continue`: the original flags
+    without `--continue`/`-c`, without `--fork-session` (the continued
+    session would fork a second time) and without the positional PROMPT
+    (the continued session would send it as a brand new turn). The prompt
+    is found by dropping each argv token equal to it and keeping the first
+    removal after which the parser sees no prompt and every other value
+    unchanged -- so a flag value that happens to read the same stays."""
+    import contextlib
+    import io
+    argv = [a for a in argv if a not in ("--continue", "-c", "--fork-session")]
+    parser = _build_parser()
+    sink = io.StringIO()
+
+    def parse(a: list):
+        try:
+            return parser.parse_intermixed_args(a)
+        except TypeError:
+            return parser.parse_known_args(a)[0]
+
+    try:
+        with contextlib.redirect_stderr(sink):
+            ns = parse(argv)
+            if ns.prompt is None:
+                return argv
+            for i, tok in enumerate(argv):
+                if tok != ns.prompt:
+                    continue
+                trial = argv[:i] + argv[i + 1:]
+                alt = parse(trial)
+                if alt.prompt is None and {**vars(alt), "prompt": ns.prompt} == vars(ns):
+                    return trial
+    except SystemExit:
+        pass
+    return argv
 
 
 def main(argv: Optional[list] = None) -> int:
+    """Entry point. A config.json that does not parse (`CorruptConfigError`
+    from a config writer anywhere below) is reported as one `halo: ...`
+    line and exit 2, never a traceback; library callers still get the
+    exception from `theme.set_config_value` itself."""
+    from halo_harness.theme import CorruptConfigError
+    try:
+        return _main(argv)
+    except CorruptConfigError as e:
+        print(f"halo: {e}", file=sys.stderr)
+        return 2
+
+
+def _main(argv: Optional[list] = None) -> int:
     _make_streams_utf8_safe()
     try:  # best-effort: SIGTERM -> exit 143 (not available on every platform/thread)
         signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(143))

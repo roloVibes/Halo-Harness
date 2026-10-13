@@ -10,6 +10,7 @@ out or opens a socket on its own.
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +28,16 @@ def _retarget_spec(spec: Optional[str], to: str) -> Optional[str]:
     if not spec or not spec.startswith("git+"):
         return spec
     return f"{spec.split('@', 1)[0]}@{to}"
+
+
+def _retarget_cmd(cmd: str, spec: Optional[str], to: str) -> str:
+    """`cmd` with its git+ spec moved to `to`, and the requirements.lock
+    constraints URL (same repo, same ref) moved with it."""
+    retargeted = _retarget_spec(spec, to)
+    if retargeted and retargeted != spec:
+        cmd = cmd.replace(spec, retargeted)
+    return re.sub(re.escape(upd.RAW_BASE) + r"/[^/\s\"]+/requirements\.lock",
+                  upd.constraints_url(to), cmd)
 
 
 def _print_report(build: dict, avail: dict, lines: list, count, cmd: Optional[str], *,
@@ -161,12 +172,16 @@ def cmd_update(argv: "list[str]") -> int:
     # alone now, for the passive startup note only (see latest_
     # available's own docstring).
     avail = upd.latest_available(channel, refresh=True)
-    kind = upd.install_kind()
+    from halo_harness.update_checkout import pick_target
+    kind = upd.install_kind(target=pick_target(channel, avail, args.to), channel=channel)
     cmd = kind.get("reinstall_cmd")
-    if args.to and cmd and kind.get("spec"):
-        retargeted = _retarget_spec(kind["spec"], args.to)
-        if retargeted and retargeted != kind["spec"]:
-            cmd = cmd.replace(kind["spec"], retargeted)
+    # The ref a git+URL install moves to: `--to`, else (stable channel) the
+    # newest tag -- a plain `halo update` on a pinned `@vX.Y.Z` install used
+    # to reinstall the same old tag.
+    stable_tag = avail.get("ref") if channel == "stable" and upd._TAG_RE.match(avail.get("ref") or "") else None
+    new_ref = args.to or stable_tag
+    if new_ref and cmd and kind.get("spec"):
+        cmd = _retarget_cmd(cmd, kind["spec"], new_ref)
     checkout = Path(build["checkout"]) if build.get("checkout") else None
     lines, count = upd.commits_between(build.get("commit"), avail.get("commit"), checkout=checkout)
     ordering = upd.commit_is_ancestor(build.get("commit"), avail.get("commit"), checkout=checkout)
@@ -188,7 +203,7 @@ def cmd_update(argv: "list[str]") -> int:
     # network blip must not block the update the user explicitly asked
     # for, only a tag that verifiably lacks the asset refuses.
     if getattr(args, "verify", True):
-        target = args.to or avail.get("commit")
+        target = args.to or stable_tag
         if isinstance(target, str) and target.startswith("v") and target[1:].replace(".", "").isdigit():
             assets = upd.tag_checksums(target)
             if assets is not None and not any(a.get("name") == "checksums.txt" for a in assets):

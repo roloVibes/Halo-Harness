@@ -7,6 +7,7 @@
 #   bash install-halo.sh --ref v2.0.7   # a specific tag (or a branch / commit); --ref master tracks master
 #   bash install-halo.sh --yes      # no questions (uninstalls an old pre-2.0 tool)
 #   bash install-halo.sh --no-clone # install straight from GitHub, no clone
+#   bash install-halo.sh --no-modify-path   # never edit a shell startup file (or HALO_NO_MODIFY_PATH=1)
 #   bash install-halo.sh --dry-run  # print every command this script would
 #                                    # run (installs, uninstalls, clone/pull),
 #                                    # never actually runs them -- no network,
@@ -15,8 +16,14 @@
 #
 # The default is the newest vX.Y.Z tag of the repository, never a moving branch;
 # the script prints the tag and the commit it installs. With a clone, the
-# dependencies are pinned to requirements.lock (exact versions; the hashes in
-# that file are checked by `uv pip install --require-hashes -r requirements.lock`).
+# dependencies are pinned to requirements.lock (exact versions: it is a
+# constraints file, so uv pins versions but does not compare its hashes; CI
+# installs it with --require-hashes).
+#
+# Step 5 may run `uv tool update-shell`, which appends a PATH line to your shell
+# startup file (~/.bashrc, ~/.zshrc, ...). It asks first (auto-yes under --yes),
+# lets uv print the file it changed, and is skipped with --no-modify-path or
+# HALO_NO_MODIFY_PATH=1, or when ~/.local/bin is already on your PATH.
 #
 # Needs: git, curl, Python 3.10+. Installs uv if it is missing.
 set -euo pipefail
@@ -31,6 +38,8 @@ CLONE_DIR="${HALO_CLONE_DIR:-$HOME/Halo-Harness}"
 YES=0
 NO_CLONE=0
 DRY_RUN=0
+NO_MODIFY_PATH="${HALO_NO_MODIFY_PATH:-0}"
+PATH_AT_START="$PATH"
 REF=""
 NEXT_IS_REF=0
 for a in "$@"; do
@@ -39,10 +48,11 @@ for a in "$@"; do
     --yes|-y) YES=1 ;;
     --no-clone) NO_CLONE=1 ;;
     --dry-run) DRY_RUN=1 ;;
+    --no-modify-path) NO_MODIFY_PATH=1 ;;
     --dir=*) CLONE_DIR="${a#--dir=}" ;;
     --ref=*) REF="${a#--ref=}" ;;
     --ref) NEXT_IS_REF=1 ;;
-    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "unknown option: $a"; exit 2 ;;
   esac
 done
@@ -173,13 +183,27 @@ else
   else (cd "$CLONE_DIR" && uv tool install --reinstall --constraints requirements.lock .); fi
 fi
 
-# 5. PATH for the uv tools directory
-run uv tool update-shell >/dev/null 2>&1 || true
+# 5. PATH for the uv tools directory. `uv tool update-shell` edits a shell
+#    startup file, so it is asked first (auto-yes under --yes), uv's own
+#    "Updated configuration file: ..." line stays visible, and --dry-run
+#    prints it instead of running it.
+case ":$PATH_AT_START:" in *":$HOME/.local/bin:"*) ON_PATH=1 ;; *) ON_PATH=0 ;; esac
+PATH_EDITED=0
+if [ "$NO_MODIFY_PATH" = 1 ]; then
+  say "Not editing any shell startup file (--no-modify-path)"
+elif [ "$ON_PATH" = 1 ]; then
+  say "~/.local/bin is already on your PATH; no shell startup file needs editing"
+elif confirm "Add ~/.local/bin to PATH in your shell startup file (uv edits ~/.bashrc, ~/.zshrc, ...)?"; then
+  run uv tool update-shell || true
+  PATH_EDITED=1
+elif [ "$DRY_RUN" = 1 ]; then
+  printf 'DRY RUN: uv tool update-shell   (only if you answer yes)
+'
+fi
 export PATH="$HOME/.local/bin:$PATH"
-case ":$PATH:" in
-  *":$HOME/.local/bin:"*) ;;
-  *) echo 'Add this to your shell rc, then open a new shell:  export PATH="$HOME/.local/bin:$PATH"' ;;
-esac
+if [ "$ON_PATH" = 0 ] && [ "$PATH_EDITED" = 0 ]; then
+  echo 'Add this to your shell rc, then open a new shell:  export PATH="$HOME/.local/bin:$PATH"'
+fi
 
 # 6. Verify: halo first on PATH, no pre-2.0 tool left anywhere on PATH
 say "Verify"

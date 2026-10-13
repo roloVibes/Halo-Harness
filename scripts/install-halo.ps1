@@ -7,6 +7,7 @@
 #   .\install-halo.ps1 -Ref v2.0.7  # a specific tag (or branch / commit); -Ref master tracks master
 #   .\install-halo.ps1 -Yes          # no questions (uninstalls an old pre-2.0 tool)
 #   .\install-halo.ps1 -NoClone      # install straight from GitHub, no clone
+#   .\install-halo.ps1 -NoModifyPath   # never edit the user PATH (or $env:HALO_NO_MODIFY_PATH=1)
 #   .\install-halo.ps1 -DryRun       # print every command this script would
 #                                     # run (installs, uninstalls, clone/pull),
 #                                     # never actually runs them -- no network,
@@ -15,8 +16,14 @@
 #
 # The default is the newest vX.Y.Z tag of the repository, never a moving branch;
 # the script prints the tag and the commit it installs. With a clone, the
-# dependencies are pinned to requirements.lock (exact versions; the hashes in
-# that file are checked by `uv pip install --require-hashes -r requirements.lock`).
+# dependencies are pinned to requirements.lock (exact versions: it is a
+# constraints file, so uv pins versions but does not compare its hashes; CI
+# installs it with --require-hashes).
+#
+# Step 5 may run `uv tool update-shell`, which adds ~\.local\bin to your user PATH.
+# It asks first (auto-yes under -Yes), lets uv print what it changed, and is
+# skipped with -NoModifyPath or HALO_NO_MODIFY_PATH=1, or when ~\.local\bin is
+# already on your PATH. -DryRun prints it instead of running it.
 #
 # Needs: git, Python 3.10+. Installs uv if it is missing.
 [CmdletBinding()]
@@ -24,6 +31,7 @@ param(
     [switch]$Yes,
     [switch]$NoClone,
     [switch]$DryRun,
+    [switch]$NoModifyPath,
     [string]$Ref = "",
     [string]$CloneDir = $(if ($env:HALO_CLONE_DIR) { $env:HALO_CLONE_DIR } else { "$HOME\Halo-Harness" })
 )
@@ -173,10 +181,24 @@ if ($NoClone) {
     else { Push-Location $CloneDir; try { uv tool install --reinstall --constraints requirements.lock . } finally { Pop-Location } }
 }
 
-# 5. PATH for the uv tools directory
-try { uv tool update-shell *> $null } catch {}
-$env:PATH = "$HOME\.local\bin;$env:PATH"
-if (($env:PATH -split ';') -notcontains "$HOME\.local\bin") {
+# 5. PATH for the uv tools directory. `uv tool update-shell` changes the user
+#    PATH, so it is asked first (auto-yes under -Yes), uv's own output stays
+#    visible, and -DryRun prints it instead of running it.
+$LocalBin = "$HOME\.local\bin"
+$OnPath = (($env:PATH -split ';') -contains $LocalBin)
+$PathEdited = $false
+if ($NoModifyPath -or $env:HALO_NO_MODIFY_PATH -eq "1") {
+    Say "Not editing the user PATH (-NoModifyPath)"
+} elseif ($OnPath) {
+    Say "$LocalBin is already on your PATH; nothing to edit"
+} elseif (Confirm "Add $LocalBin to your user PATH (uv tool update-shell edits it)?") {
+    Run uv tool update-shell
+    $PathEdited = $true
+} elseif ($DryRun) {
+    Write-Host "DRY RUN: uv tool update-shell   (only if you answer yes)"
+}
+$env:PATH = "$LocalBin;$env:PATH"
+if (-not $OnPath -and -not $PathEdited) {
     Write-Host 'Add %USERPROFILE%\.local\bin to PATH (Settings > System > About > Advanced > Environment Variables), then open a new terminal.'
 }
 

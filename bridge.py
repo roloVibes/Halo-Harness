@@ -1117,40 +1117,11 @@ def cmd_launch(args, forwarded_claude_args=None):
             pass
 
         if not snapshot_missing:
-            # vibes/review.md finding 21: the restore used to rewrite
-            # ~/.claude/settings.json on EVERY launch -- compact, in-place
-            # (a crash mid-write truncates it), and blind to whether
-            # anything had actually changed, so a concurrent session's
-            # edits between snapshot and restore were silently reverted.
-            # Now: nothing written unless the content actually differs, the
-            # write is tmp + os.replace (atomic -- the file is never a
-            # half-written truncate), and the original indent (2, Claude
-            # Code's own) is preserved instead of compacting the user's
-            # file to one line.
-            try:
-                if claude_settings_path.exists():
-                    with open(claude_settings_path, "r", encoding="utf-8") as f:
-                        current = json.load(f)
-                else:
-                    current = {}
-                if snapshot_model is None:
-                    current.pop("model", None)
-                else:
-                    current["model"] = snapshot_model
-                new_text = json.dumps(current, indent=2) + "\n"
-                try:
-                    if claude_settings_path.read_text(encoding="utf-8") == new_text:
-                        pass  # nothing changed -- leave the file (and its mtime) alone
-                    else:
-                        tmp_path = claude_settings_path.with_name(
-                            claude_settings_path.name + f".tmp{os.getpid()}")
-                        with open(tmp_path, "w", encoding="utf-8") as f:
-                            f.write(new_text)
-                        os.replace(tmp_path, claude_settings_path)
-                except OSError:
-                    pass
-            except Exception:
-                pass
+            # vibes/review.md finding 21 (and review 3 item 83): only the
+            # parsed content decides whether anything is written, and a
+            # write keeps the file's mode, symlink and layout.
+            from halo_harness.settings_restore import restore_model
+            restore_model(claude_settings_path, snapshot_model)
 
     sys.exit(rc)
 

@@ -129,27 +129,32 @@ def test_f63_cron_sunday_and_day_or(ctx: Ctx):
 
 @test
 def test_f81_preflight_lane_sources(ctx: Ctx):
+    """The lane sources a session really uses (review 3 item 85 corrected
+    this: routes.json's key is `default`, and config.json is read through
+    the scoped state dir)."""
     from halo_harness.preflight import _default_lane
     tmp = Path(tempfile.mkdtemp())
-    old = {k: os.environ.get(k) for k in ("HALO_MODEL", "BRIDGE_MODEL", "ROLO_CLAUDE_MODEL")}
+    keys = ("HALO_MODEL", "BRIDGE_MODEL", "ROLO_CLAUDE_MODEL", "BRIDGE_STATE_DIR")
+    old = {k: os.environ.get(k) for k in keys}
     try:
-        for k in old:
+        for k in keys:
             os.environ.pop(k, None)
+        os.environ["BRIDGE_STATE_DIR"] = str(tmp)
         os.environ["HALO_MODEL"] = "or:vendor/model-x"
         ctx.check("HALO_MODEL identifies the lane", _default_lane(tmp) == "or:vendor/model-x")
         os.environ.pop("HALO_MODEL")
         (tmp / "config.json").write_text('{"model": "or:cfg/model"}', encoding="utf-8")
         ctx.check("config.json model identifies the lane", _default_lane(tmp) == "or:cfg/model")
-        (tmp / "config.json").write_text('{"last_model": "or:last/model"}', encoding="utf-8")
-        ctx.check("last_model identifies the lane", _default_lane(tmp) == "or:last/model")
         (tmp / "config.json").unlink()
-        (tmp / "routes.json").write_text('{"model": "or:routes/model"}', encoding="utf-8")
+        (tmp / "routes.json").write_text('{"default": "or:routes/model"}', encoding="utf-8")
         ctx.check("routes.json default identifies the lane", _default_lane(tmp) == "or:routes/model")
         (tmp / "routes.json").unlink()
         ctx.check("no source -> no lane (never a guess)", _default_lane(tmp) is None)
     finally:
         for k, v in old.items():
-            if v is not None:
+            if v is None:
+                os.environ.pop(k, None)
+            else:
                 os.environ[k] = v
 
 

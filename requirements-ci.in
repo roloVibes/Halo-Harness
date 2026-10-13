@@ -1,0 +1,6 @@
+# CI-only tools, hash-locked in requirements-ci.lock (regenerate with:
+#   uv pip compile requirements-ci.in --constraint requirements.lock --universal --generate-hashes -o requirements-ci.lock)
+# setuptools is the build backend for `pip install --no-build-isolation -e .`
+setuptools>=68
+pyflakes
+pip-audit==2.10.1
