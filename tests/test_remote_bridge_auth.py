@@ -1,6 +1,6 @@
 """tests.test_remote_bridge_auth -- Halo 2.0.9 round 3: the bridge's
 authentication paths. Signed commands (good, unsigned, tampered, replayed,
-stale, `signed: false`), the read receipt only after every check passes, the
+stale (which burns its counter), `signed: false`), the read receipt only after every check passes, the
 hashed audit line, Note to Self filtering, that no message content lands in
 any file under the scratch homes, and one end-to-end run through the REAL
 transport against the fake signal-cli child (contact request -> approve ->
@@ -55,10 +55,13 @@ def test_signed_commands(ctx: Ctx):
         old = signing.sign(h.secret, 50, "/remote status")
         h.tr.deliver(data_message(ACI_A, old, now_ms() - 10 * 60 * 1000))
         ctx.check("a command older than 5 minutes is refused", wait_for(lambda: "outside the allowed time window" in h.joined()))
+        ctx.check("a stale command with a genuine signature burns its counter",
+                  wait_for(lambda: h.bridge.pairing.peer(ACI_A)["signing"]["counter"] == 50))
         h.tr.deliver(data_message(ACI_A, old, now_ms()))
-        ctx.check("a refused stale command did not burn its counter: the fresh copy passes",
-                  wait_for(lambda: h.joined().count("Paired as") == 3))
-        ctx.check("the stored counter is the last accepted", h.bridge.pairing.peer(ACI_A)["signing"]["counter"] == 50)
+        ctx.check("the same bytes re-sent with a fresh timestamp are a replay, not a command",
+                  wait_for(lambda: h.joined().count("already used") == 3) and h.joined().count("Paired as") == 2)
+        h.tr.deliver(data_message(ACI_A, signing.sign(h.secret, 51, "/remote status"), now_ms()))
+        ctx.check("re-signed with a higher counter it passes", wait_for(lambda: h.joined().count("Paired as") == 3))
         ctx.check("a read receipt went out only for the three accepted commands", len(h.tr.receipts) == 3)
         h.bridge.pairing.set_signed(ACI_A, False)
         h.tr.deliver(data_message(ACI_A, "/remote status", now_ms()))
