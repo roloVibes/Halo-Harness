@@ -48,13 +48,28 @@ def _replace_with_retry(src: str, dst: Path, *, tries: int = 12, pause: float = 
             time.sleep(pause)
 
 
+def _final_target(path: Path) -> Path:
+    """`path` itself, or -- when it is a symlink (possibly a chain, possibly
+    dangling) -- the path the link finally resolves to."""
+    try:
+        if path.is_symlink():
+            return Path(os.path.realpath(str(path)))
+    except OSError:
+        pass
+    return path
+
+
 def write_private_atomic(path: Path, data: str) -> None:
     """Write `data` to `path` as a 0600 file, atomically (mkstemp in the
     same directory + os.replace, so the target is either the complete old
     content or the complete new content, never a truncate-in-progress).
     Creates `path.parent` if needed (plain mkdir -- see the module
-    docstring for why this helper deliberately does NOT chmod it)."""
-    path = Path(path)
+    docstring for why this helper deliberately does NOT chmod it).
+
+    A symlinked `path` is written THROUGH: the temp file and the replace
+    happen beside the link's final target, so the link survives and the
+    file it points at (a dotfiles-managed env file, say) gets the data."""
+    path = _final_target(Path(path))
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
     try:
@@ -83,8 +98,9 @@ def write_atomic_keep_mode(path: Path, data: str, *, new_file_mode: int = 0o644)
     (a `settings.json` whose `env` block may hold tokens): the temp file is
     private while it is written, and the target lands with the mode the old
     file had (`new_file_mode` when there was none) -- a 0600 file never
-    comes back 0644, and a shared project file never comes back 0600."""
-    path = Path(path)
+    comes back 0644, and a shared project file never comes back 0600.
+    A symlinked `path` is written through to its final target, as above."""
+    path = _final_target(Path(path))
     try:
         mode = os.stat(path).st_mode & 0o777
     except OSError:

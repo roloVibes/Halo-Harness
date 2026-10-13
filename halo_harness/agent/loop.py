@@ -8350,6 +8350,12 @@ class Session:
             elif kind == "run_clear":
                 self._pump_clear(out)
                 self._resubmit_leftover_steers(commands)
+            elif kind == "run_resume":
+                # /resume and Ctrl+P: the log switch runs HERE, between
+                # turns, never under one (agent/session_switch.py)
+                from halo_harness.agent.session_switch import pump_resume
+                pump_resume(self, data, out)
+                self._resubmit_leftover_steers(commands)
             elif kind == "run_compact":
                 # finding 11 / U5: handled BETWEEN turns, same slot in this
                 # loop as user_input -- Controller.run_compact (below) is

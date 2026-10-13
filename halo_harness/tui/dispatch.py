@@ -796,6 +796,8 @@ async def _apply_event_inner(app, event) -> None:
         widget = await app.transcript.add_note(f"… sub-agent queued: {data.get('name', '?')}", kind="subagent")
         app.transcript.subagent_marks.append(widget)
     elif kind == "replay":
+        if data.get("switched"):  # a live /resume or Ctrl+P switch: show only the resumed session
+            await app.transcript.clear_view()
         await _apply_replay(app, data.get("messages") or [])
     elif kind == "notification":
         app.notify(data.get("text", ""), severity=_SEVERITY.get(data.get("level"), "information"))

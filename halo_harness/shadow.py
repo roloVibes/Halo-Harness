@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import functools
 import json
+import os
 import queue
 import re
 import subprocess
@@ -38,8 +39,10 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness.privateio import private_mkdir, private_opener
+from halo_harness.textlines import split_lines
 
 _DRIVE_RE = re.compile(r"^([A-Za-z]):/(.*)$")
+_HASH_RE = re.compile(r"^[0-9a-f]{40,64}$")
 
 # vibes/review.md finding 69: snapshots ran git on the TUI thread and raced
 # the Bash snapshot worker (two stores loading/appending the same index).
@@ -133,8 +136,17 @@ class ShadowStore:
 
     # ---- git plumbing ---------------------------------------------------
 
+    def _cmd(self, *args: str) -> "list[str]":
+        """Every shadow git call runs with the user's signing, hooks and
+        path quoting switched off for THIS repo: a global `commit.gpgsign`
+        with no usable key, a `core.hooksPath`/template hook that fails, or
+        C-quoted path output must never cost a snapshot or a restore."""
+        no_hooks = str(self.dir / ".git" / "halo-no-hooks")  # never created: no hooks run
+        return ["git", "-C", str(self.dir), "-c", "commit.gpgsign=false", "-c", f"core.hooksPath={no_hooks}",
+                "-c", "core.quotePath=false", *args]
+
     def _git(self, *args: str) -> "subprocess.CompletedProcess":
-        return subprocess.run(["git", "-C", str(self.dir), *args], capture_output=True, text=True,
+        return subprocess.run(self._cmd(*args), capture_output=True, text=True,
                                encoding="utf-8", errors="replace")
 
     def _git_bytes(self, *args: str) -> "subprocess.CompletedProcess":
@@ -143,7 +155,7 @@ class ShadowStore:
         mangles any blob that isn't valid UTF-8 (a binary file a Bash
         command created/modified), so `_restore_commit` below reads the
         raw bytes through this instead and writes them back verbatim."""
-        return subprocess.run(["git", "-C", str(self.dir), *args], capture_output=True)
+        return subprocess.run(self._cmd(*args), capture_output=True)
 
     def _ensure_repo(self) -> None:
         if (self.dir / ".git").exists():
@@ -180,7 +192,8 @@ class ShadowStore:
             return []
         out = []
         try:
-            for line in self._index_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            # cut at "\n" only: a label or path holding U+2028/U+0085/VT/FF stays one record
+            for line in split_lines(self._index_path.read_text(encoding="utf-8", errors="replace")):
                 line = line.strip()
                 if not line:
                     continue
@@ -261,10 +274,17 @@ class ShadowStore:
         # exclude files -- the shadow repo exists to snapshot EVERYTHING
         # for `/rewind`, but a recorded .gitignore made later snapshots
         # silently skip matching files, so /rewind could not restore them.
+        before = self._git("rev-parse", "--verify", "-q", "HEAD").stdout.strip()
         self._git("add", "-A", "-f", "--", *mangled)
-        self._git("commit", "-q", "--allow-empty", "-m", label or "snapshot")
-        commit_hash = self._git("rev-parse", "HEAD").stdout.strip()
-        if not commit_hash:
+        committed = self._git("commit", "-q", "--no-verify", "--no-gpg-sign", "--allow-empty",
+                              "-m", label or "snapshot")
+        head = self._git("rev-parse", "--verify", "-q", "HEAD")
+        commit_hash = head.stdout.strip()
+        # a failed commit records NO step: a stale HEAD (or the literal
+        # "HEAD" on an empty repo) as the step hash would make /undo,
+        # /redo and /rewind restore the wrong content
+        if committed.returncode != 0 or head.returncode != 0 or not _HASH_RE.match(commit_hash) \
+                or commit_hash == before:
             return {}
         created_set = set(created or ()) & set(files)
         step = {
@@ -364,12 +384,14 @@ class ShadowStore:
         binary file a `record_step` call stored (see its own finding-8
         comment above) is never mangled by a text decode on the way back
         out."""
-        listing = self._git("ls-tree", "-r", "--name-only", commit_hash)
+        # -z: NUL-separated, never C-quoted, so a path with non-ASCII bytes,
+        # quotes or backslashes comes back exactly as it was stored
+        listing = self._git_bytes("ls-tree", "-r", "-z", "--name-only", commit_hash)
         restored: "list[str]" = []
-        for rel in listing.stdout.splitlines():
-            rel = rel.strip()
-            if not rel:
+        for raw in (listing.stdout or b"").split(b"\0"):
+            if not raw:
                 continue
+            rel = os.fsdecode(raw)
             shown = self._git_bytes("show", f"{commit_hash}:{rel}")
             if shown.returncode != 0:
                 continue

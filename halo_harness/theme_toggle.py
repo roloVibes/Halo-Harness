@@ -36,8 +36,11 @@ def is_game_theme(name: Optional[str]) -> bool:
 
 
 def unset_config_value(key: str) -> None:
-    """Remove a top-level key from ~/.halo/config.json (tmp + os.replace,
-    every other key preserved). A missing file or key is a no-op."""
+    """Remove a top-level key from ~/.halo/config.json (every other key
+    preserved). A missing file or key is a no-op. Written through the same
+    private atomic writer as `theme.set_config_value`, so the file stays
+    0600 (it can carry secret-bearing fields) and no temp file is left
+    behind on a failed write."""
     path = theme_mod._config_path()
     if not path.exists():
         return
@@ -46,9 +49,13 @@ def unset_config_value(key: str) -> None:
         return
     del data[key]
     import json
-    tmp_path = path.with_name(path.name + f".tmp{os.getpid()}")
-    tmp_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    os.replace(tmp_path, path)
+    from halo_harness.privateio import write_private_atomic
+    write_private_atomic(path, json.dumps(data, indent=2) + "\n")
+    if os.name != "nt":
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
 
 
 def stored_previous() -> Optional[str]:

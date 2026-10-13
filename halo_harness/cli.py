@@ -16,7 +16,6 @@ full-screen TUI (`halo_harness/tui/launch.py`, imported lazily so `-p`/
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import signal
 import sys
@@ -344,23 +343,6 @@ def _read_stdin_bytes() -> "tuple[Optional[bytes], Optional[str]]":
     if len(raw) > _STDIN_CAP_BYTES:
         return None, f"stdin prompt exceeds the {_STDIN_CAP_BYTES // (1024 * 1024)} MB cap"
     return raw, None
-
-
-def _parse_stream_json_lines(raw: str) -> list:
-    """One JSON object per non-empty line; a malformed line is skipped
-    (best-effort, matches history.py's own JSONL tolerance)."""
-    out = []
-    for line in (raw or "").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(obj, dict):
-            out.append(obj)
-    return out
 
 
 def _apply_update_and_relaunch(argv: list) -> int:

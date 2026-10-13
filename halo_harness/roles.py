@@ -774,11 +774,14 @@ def save_role_template(name: str, data: dict, state_dir=None) -> "tuple[bool, li
     problems = validate_role_template(data)
     if problems:
         return False, problems
-    d = role_templates_dir(state_dir)
-    d.mkdir(parents=True, exist_ok=True)
+    from halo_harness.privateio import write_atomic_keep_mode
+    path = role_templates_dir(state_dir) / f"{name}.json"
     payload = {"name": data.get("name") or name, "description": data.get("description") or "",
                "roles": data.get("roles") or {}}
-    (d / f"{name}.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    try:
+        write_atomic_keep_mode(path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    except OSError as e:
+        return False, [f"cannot write {path}: {e}"]
     return True, []
 
 
