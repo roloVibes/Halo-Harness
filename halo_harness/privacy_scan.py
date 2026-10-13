@@ -106,6 +106,8 @@ def scan_text_content(text: str, *, rel_path: str, allowlist: "set[str]") -> "li
                           "excerpt": _masked_excerpt(text, m.start(), m.end())})
 
     for name in REMOVED_NAMES:
+        if name in allowlist:
+            continue
         idx = text.find(name)
         while idx != -1:
             findings.append({"kind": "machine-name", "line": _line_no(text, idx),
@@ -114,11 +116,14 @@ def scan_text_content(text: str, *, rel_path: str, allowlist: "set[str]") -> "li
 
     if any(rel_path == root or rel_path.startswith(root) for root in EXTENDED_SCAN_ROOTS):
         lower = text.lower()
+        allow_lower = {a.lower() for a in allowlist}  # an owner term may be exempted in any case
         for term in EXTENDED_SCAN_TERMS:
             # P2 (vibes/review.md): the term itself is lowercased too -- a
             # `ci:` term written with uppercase letters in privacy-terms.txt
             # could never match the lowercased text.
             needle = term.lower()
+            if needle in allow_lower:
+                continue
             idx = lower.find(needle)
             while idx != -1:
                 findings.append({"kind": "machine-name", "line": _line_no(text, idx),

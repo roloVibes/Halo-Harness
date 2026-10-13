@@ -279,8 +279,9 @@ a token. `work_matrix.py::classify_row` turns each row into one of:
 | Row shape | Suggested action | `apply` writes? |
 |---|---|---|
 | `status == "403"` | "run this on the VPN, then re-probe" | no -- nothing to write |
-| non-200, and a `"<name> (anthropic gateway)"` companion row (only present when `--both` probed it) answered 200 | the endpoint's default dialect is the wrong path -- set `databricks.gateway.<endpoint> = anthropic` | **yes** -- the only failure class `apply` ever writes anything for |
-| non-200, no working companion to point at | genuinely unknown from this data alone | no -- report it |
+| a transient failure (`429`, `408`, any `5xx`, or a probe that raised such as a timeout) | "retry the probe" -- never a dialect problem, whatever the companion answered | no |
+| a deterministic `400`/`404`/`415`/`422`, and a `"<name> (anthropic gateway)"` companion row (only present when `--both` probed it) answered 200 | the endpoint's default dialect is the wrong path -- set `databricks.gateway.<endpoint> = anthropic` | **yes** -- the only failure class `apply` ever writes anything for |
+| any other non-200, no working companion to point at | genuinely unknown from this data alone | no -- report it |
 | 200, but `tool_call_ok is False` (only meaningful with `--tools`) | a FAMILY-wide rule (`model_table.json`'s `tool_choice_required_supported`/schema simplifier), never a per-endpoint config key | no |
 | 200, but `reasoning_replay_ok is False` (only meaningful when `--tools` produced a tool_use to replay) | disable thinking for tool loops on that endpoint -- no existing per-endpoint knob to write | no |
 | 200, neither flag False | clean -- not a failure at all | n/a |
