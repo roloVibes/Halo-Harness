@@ -567,6 +567,9 @@ to the plan file itself. `ExitPlanMode(plan)` writes the file and surfaces a
 auto-accept edits from here), `{"approved": true, "mode_after": "default"}`
 (approve, manual), or `{"approved": false, "feedback": "..."}` (keep
 planning, with optional free-text feedback borrowed from the prompt input).
+With no reviewer (`-p`), the plan is approved when the mode in force before
+plan mode was entered is `acceptEdits` or `bypassPermissions` (that mode comes
+back); otherwise the plan text is the turn's answer.
 
 ## The subscription route and its bridge
 

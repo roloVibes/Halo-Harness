@@ -431,6 +431,13 @@ class McpTool(Tool):
     def always_load(self) -> bool:
         return tool_always_load(self.meta)
 
+    def pool_wait_s(self, input: dict) -> Optional[float]:
+        """The call's real limit: the server's `timeout`, else
+        MCP_TOOL_TIMEOUT, else the long default (`mcp.manager.tool_timeout_s`)."""
+        from halo_harness.mcp.manager import tool_timeout_s
+        handle = (getattr(self.manager, "handles", None) or {}).get(self.server_name)
+        return tool_timeout_s(getattr(getattr(handle, "config", None), "timeout_ms", None))
+
     def summary(self, input: dict) -> str:
         try:
             body = json.dumps(input, ensure_ascii=False, default=str) if input else ""

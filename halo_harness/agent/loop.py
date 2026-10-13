@@ -1914,6 +1914,9 @@ class Session:
                 yield events.notification(f"stayed on {self.model_label} -- team escalation declined", level="info")
                 return
         elif ask:
+            # Told once: with nobody to answer, the decision stands for the
+            # session, same as a decline (the trigger stays true otherwise).
+            team.escalated = True
             yield events.notification(
                 f"team {team.name} escalation trigger {trigger} fired: switch to {to_ref} with /model {to_ref}",
                 level="info")
@@ -4299,8 +4302,14 @@ class Session:
         long autonomous run's drift is visible in the transcript instead
         of silently compounding."""
         self._canary_calls += 1
+        # Inline image base64 (either wire shape) is left out of the
+        # estimate: its characters are not its token cost, and a small image
+        # can cost far fewer tokens than any flat guess, so counting it at
+        # all could only make this under-echo check fire falsely.
+        from halo_harness.providers.config import _strip_image_payloads_for_estimate
         try:
-            est = max(1, len(json.dumps(body, ensure_ascii=False, default=str)) // 4)
+            stripped, _images = _strip_image_payloads_for_estimate(body)
+            est = max(1, len(json.dumps(stripped, ensure_ascii=False, default=str)) // 4)
         except Exception:
             est = 0
         # `_total_prompt_tokens` (H5b finding 4): input + cache_read +
@@ -4855,16 +4864,25 @@ class Session:
             log.warning("compactionModel %r has no resolvable credentials; "
                         "using the session's main model for this summary", raw)
             return None
-        saved = (self.route, self.provider_profile, self.model_profile, self.model_ref, self.effort, self.creds)
+        meter = self.cost_meter
+        saved = (self.route, self.provider_profile, self.model_profile, self.model_ref, self.effort, self.creds,
+                 (meter.price_in, meter.price_out, meter.price_cache_read, meter.price_cache_write))
         self.route, self.provider_profile, self.model_profile, self.model_ref, self.creds = (
             route, profile, model_profile, ref, creds)
+        # The summary call's usage is billed at the compaction model's own
+        # rates (as `set_model` moves them), restored with everything else.
+        meter.price_in, meter.price_out = model_profile.price_in, model_profile.price_out
+        meter.price_cache_read = model_profile.price_cache_read
+        meter.price_cache_write = model_profile.price_cache_write
         if compaction_effort:
             self.effort = compaction_effort
         return saved
 
     def _restore_compaction_model(self, saved) -> None:
         if saved is not None:
-            self.route, self.provider_profile, self.model_profile, self.model_ref, self.effort, self.creds = saved
+            self.route, self.provider_profile, self.model_profile, self.model_ref, self.effort, self.creds = saved[:6]
+            meter = self.cost_meter
+            meter.price_in, meter.price_out, meter.price_cache_read, meter.price_cache_write = saved[6]
 
     def _run_summary_call(self, system_text: str, call_messages: list, tools, requested_max_tokens: int):
         """One streamed summarisation-call attempt, reusing `_step`'s OWN
@@ -5541,6 +5559,20 @@ class Session:
         for kind, payload in pending_writes:
             self._apply_log_write(kind, payload)
 
+    def _wrap_up_after_compaction(self, turn_no: int):
+        """The --max-turns wrap-up's one retry after an overflow compaction;
+        the wrap-up instruction is logged again when the compacted context
+        no longer carries it."""
+        try:
+            _system, messages, _tools = derive_request(self.log)
+            marker = MAX_STEPS_PROMPT.splitlines()[0]
+            carried = marker in json.dumps(messages[-2:], ensure_ascii=False, default=str)
+        except Exception:
+            carried = False
+        if not carried:
+            self.log.append_snapshot([{"type": "text", "text": MAX_STEPS_PROMPT}], kind="max_steps")
+        return (yield from self._step(turn_no, tool_choice="none", no_tools=False, overflow_handled=True))
+
     def _turn_body(self, turn_no: int) -> Iterator[events.Event]:
         # finding 9: `--max-turns` counts MODEL CALLS made WITHIN this one
         # turn (Claude Code semantics) -- `-p` calls `turn()` exactly once,
@@ -5565,6 +5597,25 @@ class Session:
                 # "Tools are disabled until next user input" with a real
                 # wire constraint on every dialect, not just prompt text.
                 final_result = yield from self._step(turn_no, tool_choice="none", no_tools=False)
+                wrap_up_reason = "max_turns"
+                if final_result is _OVERFLOW_NEEDS_COMPACTION:
+                    # The wrap-up overflowed: compact and retry it once, like
+                    # an ordinary step; a second overflow reports its own
+                    # error inside `_step`.
+                    final_result = None
+                    if (yield from self._run_compaction(turn_no, trigger="overflow")):
+                        final_result = yield from self._wrap_up_after_compaction(turn_no)
+                    else:
+                        yield events.error(
+                            "context window overflow on the --max-turns wrap-up and compaction could not free "
+                            "enough room -- try `/compact <instructions>` to focus the summary, or start a new session",
+                            turn=turn_no, err_type="context_overflow", category=CONTEXT_WINDOW_EXCEEDED,
+                        )
+                    if final_result is None and self.abort.is_set():
+                        wrap_up_reason = "interrupted"
+                    elif final_result is None:
+                        wrap_up_reason = "error"
+                        self._fire_stop_failure(turn_no, "the --max-turns wrap-up overflowed the context window")
                 if final_result is not None and final_result is not _OVERFLOW_NEEDS_COMPACTION:
                     self._account_usage(final_result)
                     # H5c finding 20: `tool_choice: "none"` is a REQUEST,
@@ -5605,7 +5656,7 @@ class Session:
                     )
                 yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no,
                                      cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None)
-                yield events.turn_done(turn=turn_no, reason="max_turns")
+                yield events.turn_done(turn=turn_no, reason=wrap_up_reason)
                 return
 
             result = yield from self._step(turn_no)
@@ -7026,6 +7077,10 @@ class Session:
         carries the "research, then ExitPlanMode" instruction."""
         settings = getattr(self.session_context, "settings", None)
         plan_path = ensure_plan_file(self.cwd, settings, existing=self.permission_engine.plan_file)
+        # The mode in force before this entry, for ExitPlanMode's print-mode
+        # approval and restore (a repeated entry keeps the first one).
+        if self.permission_engine.mode != "plan":
+            self._mode_before_plan = self.permission_engine.mode
         self.permission_engine.mode = "plan"
         self.permission_engine.set_plan_file(plan_path)
         self.log.append_snapshot([{"type": "text", "text": PLAN_MODE_NOTE}], kind="plan_mode")
@@ -7066,6 +7121,7 @@ class Session:
             if approved:
                 mode_after = decision.get("mode_after") or "acceptEdits"
                 self.permission_engine.mode = mode_after
+                self._mode_before_plan = None
                 item["result"] = ToolResult("User approved the plan; implement it.")
             else:
                 text = "The user did not approve the plan."
@@ -7074,6 +7130,10 @@ class Session:
                 item["result"] = ToolResult(text, is_error=True)
             return
 
+        before = getattr(self, "_mode_before_plan", None)
+        if self.permission_engine.mode == "plan" and before in ("acceptEdits", "bypassPermissions"):
+            self.permission_engine.mode = before
+            self._mode_before_plan = None
         if self.permission_engine.mode in ("acceptEdits", "bypassPermissions"):
             item["result"] = ToolResult("User approved the plan; implement it.")
             return
@@ -7468,7 +7528,9 @@ class Session:
                 yield from _run_agent_batch()
                 agent_batch = []
 
-            if item["ready"] and self.tool_registry.is_read_only(name):
+            # A call the loop already answered itself (EnterPlanMode, an
+            # AskUserQuestion reply) keeps that result: never re-run it.
+            if item["ready"] and "result" not in item and self.tool_registry.is_read_only(name):
                 pending_batch.append(item)
                 continue  # deferred -- dispatched only when the run breaks (below) or at the end
 
