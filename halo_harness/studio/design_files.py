@@ -4,8 +4,11 @@ design artboard's own files (a prototype's index.html with its inline CSS and
 JS, a render, `v<n>/<file>` for the version slider) to the page's sandboxed
 iframes. It is not a JSON route and does not carry Studio's CSP: the page
 embeds it as `<iframe sandbox="allow-scripts">` (no allow-same-origin), so
-the prototype runs but cannot reach Studio's API or token. The path is
-confined to design_root/<slug>/artboards/<artboard>/.
+the prototype runs but cannot reach Studio's API or token; the server adds a
+`sandbox allow-scripts` CSP directive to every HTML and SVG response too, so
+the same holds when a document is framed without the attribute or opened on
+its own. The path is confined to design_root/<slug>/artboards/<artboard>/
+(an artboard folder that is a symlink is not served).
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ from halo_harness.design.store import design_root
 
 PREFIX = "/design-files/"
 CSP = "default-src 'self' 'unsafe-inline' data: blob:"
+SANDBOXED = "text/html", "image/svg+xml"  # the types that can carry script
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 EDIT_SCRIPT = """<!--halo-edit--><script id="halo-edit-script">(function(){
@@ -37,9 +41,19 @@ def resolve(state_dir, url_path: str) -> Optional[Path]:
     parts = rel.split("/")
     if len(parts) < 3 or not all(_NAME.match(p) for p in parts):
         return None
-    base = (design_root(state_dir) / parts[0] / "artboards" / parts[1]).resolve()
+    root = design_root(state_dir).resolve()
+    folder = root / parts[0] / "artboards" / parts[1]
+    if folder.is_symlink():
+        return None
+    base = folder.resolve()
     target = (base / "/".join(parts[2:])).resolve()
-    return target if base in target.parents and target.is_file() else None
+    inside = root in base.parents and base in target.parents and root in target.parents
+    return target if inside and target.is_file() else None
+
+
+def csp_for(ctype: str) -> str:
+    """The CSP header for a response of this content type: script-capable documents also get an opaque origin."""
+    return CSP + "; sandbox allow-scripts" if ctype.split(";")[0].strip().lower() in SANDBOXED else CSP
 
 
 def read(state_dir, url_path: str, query: dict):

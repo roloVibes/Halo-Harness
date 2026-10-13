@@ -83,7 +83,7 @@ def _catalog_index(state_dir=None) -> dict:
 
 def _effective_model(entry: dict, bio: Optional[dict]) -> tuple[str, str]:
     over = (entry.get("models") or {}) if isinstance(entry.get("models"), dict) else {}
-    bm = (bio or {}).get("models") or {}
+    bm = (bio or {}).get("models") if isinstance((bio or {}).get("models"), dict) else {}
     pref = over.get("preference") or bm.get("preference") or bm.get("fallback") or ""
     return str(pref or ""), str(over.get("fallback") or bm.get("fallback") or "")
 
@@ -117,11 +117,17 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
             problems.append(f"agent bio '{e.get('agent')}' not found")
         if not model:
             problems.append("no model resolves for this assignment")
+        inst = e.get("instances")  # a hand-edited value must not stop the lineup from opening: the validator words the problem
+        good = isinstance(inst, int) and not isinstance(inst, bool) and inst >= 1
+        if inst is not None and not good:
+            problems.append('"instances" must be a positive integer')
+        allow = ((bio or {}).get("tools") or {}).get("allow") if isinstance((bio or {}).get("tools"), dict) else None
         node = {
             "id": _node_id(e, i), "index": i, "agent": str(e.get("agent") or ""), "role": str(e.get("role") or "subagent"),
-            "alias": str(e.get("as") or ""), "instances": int(e.get("instances") or 1), "use_for": list(e.get("use_for") or []),
+            "alias": str(e.get("as") or ""), "instances": inst if good else 1,
+            "use_for": list(e["use_for"]) if isinstance(e.get("use_for"), list) else [],
             "model": model, "fallback": fallback, "price": cat.get("price", ""), "context": cat.get("context", ""),
-            "tools": len(((bio or {}).get("tools") or {}).get("allow") or []) if bio else None,
+            "tools": (len(allow) if isinstance(allow, list) else 0) if bio else None,
             "scope": (bio or {}).get("_source", ""), "kind": (bio or {}).get("kind", ""),
             "description": (bio or {}).get("description", ""), "problems": problems, "warnings": _subscription_warnings(model, fallback),
             "overrides": {k: v for k, v in e.items() if k not in ("agent", "role", "as", "instances", "use_for")},

@@ -104,23 +104,57 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
     return found.get("url", "")
 
 
+def _clear_info(state_dir: Path) -> None:
+    try:
+        studio_info_path(Path(state_dir)).unlink()
+    except OSError:
+        pass
+
+
+def _ask_shutdown(info: dict) -> bool:
+    """POST /api/shutdown with the stored token: True when a Studio answered 200 and its port went quiet."""
+    import urllib.request
+    req = urllib.request.Request(f"http://127.0.0.1:{int(info['port'])}/api/shutdown", data=b"{}", method="POST",
+                                 headers={"Authorization": "Bearer " + str(info.get("token") or ""), "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            if resp.status != 200:
+                return False
+    except (OSError, ValueError):
+        return False
+    deadline = time.time() + 5
+    while port_answers(info["port"]) and time.time() < deadline:
+        time.sleep(0.1)
+    return not port_answers(info["port"])
+
+
+def _pid_is_studio(pid: int) -> bool:
+    """True only when /proc shows this pid is `halo studio` (no /proc, no proof, no kill)."""
+    try:
+        argv = Path(f"/proc/{int(pid)}/cmdline").read_bytes().split(b"\0")
+    except (OSError, ValueError):
+        return False
+    names = [os.path.basename(x) for x in argv[:3]]  # the interpreter, then `-m halo_harness` or the halo launcher
+    return b"studio" in argv[1:] and (b"halo_harness" in b" ".join(argv[:4]) or any(n.startswith((b"halo", b"halo.")) for n in names))
+
+
 def stop(state_dir: Path) -> "tuple[bool, str]":
     info = read_info(state_dir)
     if not info or not info.get("pid"):
         return False, "no Studio is running (no studio.json)"
     pid = int(info["pid"])
+    if port_answers(info["port"]) and _ask_shutdown(info):
+        _clear_info(state_dir)
+        return True, f"stopped Studio (pid {pid}, port {info.get('port')})"
+    if not _pid_is_studio(pid):
+        _clear_info(state_dir)
+        return False, f"studio.json was stale (pid {pid} is not a Studio); cleared it"
     try:
         os.kill(pid, signal.SIGTERM)
     except (OSError, ValueError) as e:
-        try:
-            studio_info_path(Path(state_dir)).unlink()
-        except OSError:
-            pass
+        _clear_info(state_dir)
         return False, f"pid {pid} is not running ({e}); cleared studio.json"
-    try:
-        studio_info_path(Path(state_dir)).unlink()
-    except OSError:
-        pass
+    _clear_info(state_dir)
     return True, f"stopped Studio (pid {pid}, port {info.get('port')})"
 
 

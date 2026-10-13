@@ -1,11 +1,13 @@
 """halo_harness.tools.grep_tool -- the Grep tool (H2 scope A). Wording
 matches Claude Code's own Grep tool exactly. Uses `rg` when it's on PATH,
 else a pure-Python engine with the SAME output modes -- both backends funnel
-their raw matches through the ONE shared `_format` function below, so the
-two are byte-identical for the same query whenever both are available
-(tested directly in tests/test_tools_grep.py; `rg` isn't installed on this
-build host, so that suite mostly exercises the Python engine for real and
-skips the live rg-vs-Python comparison with a stated reason).
+their raw matches through the ONE shared `_format` function below, and both
+search the same file set: hidden entries and `.gitignore`d paths are skipped
+(the Python engine follows ripgrep's defaults through tools/_gitignore.py;
+it does not read a global ignore file or `.ignore`/`.rgignore`). Tested in
+tests/test_tools_glob_grep.py; `rg` isn't installed on this build host, so that
+suite mostly exercises the Python engine for real and skips the live
+rg-vs-Python comparison with a stated reason.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ import stat
 import subprocess
 from pathlib import Path
 
+from halo_harness.tools._gitignore import Ignores
 from halo_harness.tools.base import Tool, ToolContext, ToolResult
 
 DESCRIPTION = (
@@ -125,9 +128,14 @@ def _iter_files(base: Path, glob_pattern, file_type):
         return
     exts = _TYPE_EXTENSIONS.get(file_type) if file_type else None
     glob_re = re.compile(_translate_glob_pattern(glob_pattern)) if glob_pattern else None
+    ignores = Ignores(base)  # hidden entries and .gitignore'd paths, as ripgrep skips them by default
     for root, dirnames, filenames in os.walk(base):
-        dirnames[:] = [d for d in dirnames if d not in _PRUNE_DIRS]
+        here = Path(root)
+        ignores.enter(here)
+        dirnames[:] = [d for d in dirnames if d not in _PRUNE_DIRS and not ignores.skips(here, d, True)]
         for fname in filenames:
+            if ignores.skips(here, fname, False):
+                continue
             if exts is not None and not any(fnmatch.fnmatch(fname, e) for e in exts):
                 continue
             p = Path(root) / fname
