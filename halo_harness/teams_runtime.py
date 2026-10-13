@@ -343,16 +343,21 @@ class TeamControl:
         return trigger, to, bool(section.get("ask"))
 
 
-def load_team_control(name: Optional[str] = None, *, cwd=None, state_dir=None) -> Optional[TeamControl]:
+def load_team_control(name: Optional[str] = None, *, cwd=None, state_dir=None,
+                      trusted: Optional[bool] = None) -> Optional[TeamControl]:
     """Resolve the named (or active) team template into a TeamControl, or
     None when nothing is active / the template fails to resolve. Never
-    raises."""
+    raises. `trusted` (computed from the folder when None) decides whether
+    a project-sourced template layer may set the mode or allow rules."""
     from halo_harness.teams_yaml import resolve_team_template
     team_name = name or active_team_name()
     if not team_name:
         return None
     try:
-        template = resolve_team_template(team_name, cwd=cwd, state_dir=state_dir)
+        if trusted is None:
+            from halo_harness.config.claude_json import is_trusted, load_claude_json
+            trusted = is_trusted(cwd if cwd is not None else Path.cwd(), load_claude_json())
+        template = resolve_team_template(team_name, cwd=cwd, state_dir=state_dir, trusted=trusted)
     except Exception:
         return None
     if not template:

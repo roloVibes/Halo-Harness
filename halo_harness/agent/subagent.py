@@ -685,11 +685,21 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
     # own `user`/`managed`/`cli-agents`/`built-in` ones) lose their
     # `permissionMode` entirely, same policy Claude Code applies; (2) no
     # agent, from any source, may run MORE permissive than its parent.
+    # Review 3 item 4: the team template's `permissions.mode` is folded in
+    # BEFORE the clamp (it used to be applied after it, unclamped); `plan`
+    # is sticky (a write ban, not a rung: a plan parent always yields a
+    # plan child); `dontAsk` ranks below `default` (it denies where
+    # default asks), so neither can be escaped by a child's own request.
     _UNTRUSTED_AGENT_SOURCE = str(getattr(spec, "source", "") or "").startswith(("project:", "plugin:"))
-    _PERMISSIVENESS_RANK = {"default": 0, "acceptEdits": 1, "plan": 1, "dontAsk": 2, "auto": 3, "bypassPermissions": 4}
-    _requested_mode = (None if _UNTRUSTED_AGENT_SOURCE else spec.permission_mode) or parent.permission_engine.mode
-    if _PERMISSIVENESS_RANK.get(_requested_mode, 0) > _PERMISSIVENESS_RANK.get(parent.permission_engine.mode, 0):
-        permission_mode = parent.permission_engine.mode  # clamp: never above the parent
+    _PERMISSIVENESS_RANK = {"dontAsk": 0, "default": 1, "acceptEdits": 2, "auto": 3, "bypassPermissions": 4}
+    _parent_mode = parent.permission_engine.mode
+    team_perms = team_control.member_permissions() if team_control is not None else {}
+    _requested_mode = (team_perms.get("mode") or (None if _UNTRUSTED_AGENT_SOURCE else spec.permission_mode)
+                       or _parent_mode)
+    if _parent_mode == "plan" or _requested_mode == "plan":
+        permission_mode = "plan"
+    elif _PERMISSIVENESS_RANK.get(_requested_mode, 99) > _PERMISSIVENESS_RANK.get(_parent_mode, 1):
+        permission_mode = _parent_mode  # clamp: never above the parent
     else:
         permission_mode = _requested_mode
     # finding 14 (W6a): both of these used to root at `parent.cwd`
@@ -720,8 +730,6 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
     _team_ask: list = []
     _team_allow: list = []
     if team_control is not None:
-        team_perms = team_control.member_permissions()
-        child_mode = team_perms.get("mode") or permission_mode
         _team_deny, _team_ask, _team_allow = team_perms["deny"], team_perms["ask"], team_perms["allow"]
     child_engine = PermissionEngine(
         deny_rules=list(parent.permission_engine.deny_rules) + _team_deny,

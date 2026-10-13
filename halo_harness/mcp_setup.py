@@ -35,17 +35,19 @@ def load_mcp_approvals() -> dict:
     return {}
 
 
-def record_mcp_approval(name: str, raw_entry: dict) -> None:
+def record_mcp_approval(name: str, raw_entry: dict, *, cwd) -> None:
     """Persist an approval for one `.mcp.json` server entry, read-modify-
     write, best-effort (never raises -- an approval that fails to save
     just means the user gets asked again next time, not a crashed
     session). Ready for U2's interactive `question`-event approval flow
     (loop.py's Session.run()/permission-wait-seam, not this module's job)
-    to call once the user answers "yes"."""
+    to call once the user answers "yes". `cwd` is the folder holding that
+    `.mcp.json`: the approval holds there only (review 3 item 66)."""
+    from halo_harness.config.paths import normalize_cwd
     from halo_harness.mcp.manager import mcp_approval_key
     path = bridge_home() / "mcp-approvals.json"
     data = load_mcp_approvals()
-    data[mcp_approval_key(raw_entry)] = {"name": name}
+    data[mcp_approval_key(raw_entry, cwd)] = {"name": name, "project": normalize_cwd(cwd)}
     try:
         import json
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -79,7 +81,7 @@ def reset_project_approvals(mcp_json_path: Path) -> int:
     if not isinstance(servers, dict):
         return 0
     from halo_harness.mcp.manager import mcp_approval_key
-    keys = {mcp_approval_key(raw) for raw in servers.values() if isinstance(raw, dict)}
+    keys = {mcp_approval_key(raw, mcp_json_path.parent) for raw in servers.values() if isinstance(raw, dict)}
     approvals = load_mcp_approvals()
     removed = [k for k in keys if k in approvals]
     if not removed:

@@ -502,13 +502,15 @@ def _append_at_mention_snapshots(session, text: Optional[str], cwd: Path) -> Non
     if not text:
         return
     from halo_harness.commands.registry import read_at_mention_snapshots
-    for path_str, content in read_at_mention_snapshots(text, cwd=cwd):
+    _engine = getattr(session, "permission_engine", None)  # review 3 item 65
+    for path_str, content in read_at_mention_snapshots(text, cwd=cwd, permission_engine=_engine):
         session.log.append_snapshot([{"type": "text", "text": f"@{path_str}\n{content}"}], kind="at_mention")
     # H8 scope E (deferred by H3): `@server:resource` mentions, the MCP
     # sibling of the `@path` handling just above -- same "separate context
     # block, never inlined" rule.
     from halo_harness.mcp.mentions import read_server_resource_snapshots, unresolved_server_mentions
-    for label, content in read_server_resource_snapshots(text, mcp_manager=session.mcp_manager):
+    for label, content in read_server_resource_snapshots(text, mcp_manager=session.mcp_manager,
+                                                         permission_engine=_engine):
         session.log.append_snapshot([{"type": "text", "text": f"@{label}\n{content}"}], kind="at_mention")
     # W4a misc: see controller.py's own identical comment -- a visible
     # warning naming the server, never a silent no-op, for an `@name:uri`

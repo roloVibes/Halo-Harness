@@ -58,7 +58,12 @@ def probe_craft(app: str, cfg, *, tool_env: Optional[dict] = None, cwd: Optional
     {app, state, tool_count, render_tool, render_present, error, elapsed}."""
     from halo_harness.mcp.manager import McpManager, mcp_timeout_s
     render = APPS[app]["render"].split("__", 2)[-1] if app in APPS else ""
-    mgr = McpManager({app: cfg}, tool_env=dict(os.environ if tool_env is None else tool_env), cwd=cwd or Path(os.getcwd()))
+    if tool_env is None:
+        # Review 3 item 40: the same key-stripped env a real session gives
+        # its MCP servers (`mcp/doctor_deep.resolve_tool_env`).
+        from halo_harness.providers.config import tool_child_env
+        tool_env = tool_child_env(dict(os.environ))
+    mgr = McpManager({app: cfg}, tool_env=dict(tool_env), cwd=cwd or Path(os.getcwd()))
     h = mgr.handles[app]
     t0 = time.monotonic()
     try:
