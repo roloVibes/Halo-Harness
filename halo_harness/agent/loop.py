@@ -1375,7 +1375,8 @@ class Session:
         self._team_scheduler = None
         if agent_depth == 0 and not getattr(session_context, "bare", False):
             from halo_harness.teams_runtime import load_team_control
-            self.team_control = load_team_control(team_name, cwd=cwd, state_dir=state_dir)
+            self.team_control = load_team_control(team_name, cwd=cwd, state_dir=state_dir,
+                                                  trusted=getattr(session_context, "trusted", None))
             if self.team_control is not None:
                 self.agent_runtime.team_control = self.team_control
                 delegation = self.team_control.delegation

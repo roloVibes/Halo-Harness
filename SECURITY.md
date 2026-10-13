@@ -17,8 +17,10 @@ show it. The latest 2.0.x release is the supported one.
 - Your own deny, ask and allow rules: they are evaluated in every mode and
   deny always wins; auto mode with no rules allows everything by design.
 - Edited `.mcp.json` entries after approval (approvals are keyed by the
-  entry's hash) and untrusted project settings (`env`, `hooks` and
-  `permissions.allow` are dropped from an untrusted folder).
+  entry's hash and the project folder it was approved in) and untrusted
+  project settings (`env`, `hooks`, `disableAllHooks`, `plansDirectory`,
+  `permissions.allow` and `permissions.defaultMode` are dropped from an
+  untrusted folder, as are a project team template's `mode` and allow rules).
 - A stranger on Signal, a swapped phone, a replayed or delayed command, and
   another local account reaching the control sockets (see below).
 

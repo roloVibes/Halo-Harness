@@ -36,7 +36,8 @@ that one sub-object. `fallbackModel`/`modelPicker`/`availableModels`/
 field.
 
 **Trust**: an *untrusted* `project`/`local` layer has `permissions.allow`,
-`permissions.additionalDirectories`, `env`, `hooks`,
+`permissions.additionalDirectories`, `permissions.defaultMode`, `env`, `hooks`,
+`disableAllHooks`, `plansDirectory`,
 `autoMemoryDirectory`, `enableAllProjectMcpServers`/`enabledMcpjsonServers`
 and the command-naming keys (`statusLine`, `apiKeyHelper`,
 `otelHeadersHelper`, ...) stripped before merging -- `permissions.deny`/`.ask`
@@ -141,7 +142,8 @@ entirely.
   a server there needs first-time approval (`enabledMcpjsonServers`/
   `enableAllProjectMcpServers` in `~/.claude.json` or user settings, or a
   print-mode run in a trusted folder, or a prior approval recorded in
-  `~/.halo/mcp-approvals.json`) before it's ever started. A repo's own
+  `~/.halo/mcp-approvals.json`, which holds for that exact entry in that
+  one folder only) before it's ever started. A repo's own
   settings cannot approve its servers, and `-p` in an untrusted folder does
   not auto-approve them. Server names cannot contain `__` (it separates the
   server and tool in `mcp__<server>__<tool>`); such an entry shows as

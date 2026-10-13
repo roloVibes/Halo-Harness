@@ -248,7 +248,7 @@ def test_item2_dot_mcp_json_pending_before_and_connects_after_approval(ctx: Ctx)
             ctx.check("resolve_server_configs itself reports pending_approval before approval",
                       resolved_before["fake"].pending_approval is True)
 
-            mcp_setup.record_mcp_approval("fake", entry)
+            mcp_setup.record_mcp_approval("fake", entry, cwd=proj)
 
             after = _run([sys.executable, "-m", "halo_harness", "mcp", "list", "--cwd", str(proj)], env=env)
             ctx.check(f"shows Connected AFTER approval, got {after.stdout!r}",

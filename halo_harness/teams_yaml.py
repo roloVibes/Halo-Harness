@@ -181,24 +181,42 @@ def _merge_section(parent_section, child_section):
     return merged
 
 
-def resolve_team_template(name: str, *, cwd=None, state_dir=None, _chain: "Optional[list]" = None) -> "Optional[dict]":
+def _drop_untrusted_raise(raw: dict) -> dict:
+    """Review 3 item 4: a project-sourced layer read in an untrusted folder
+    keeps its deny/ask rules but loses `permissions.mode` and
+    `permissions.rules.allow` (the same trust split settings layers get)."""
+    perms = raw.get("permissions")
+    if raw.get("_source") != "project" or not isinstance(perms, dict):
+        return raw
+    perms = {k: v for k, v in perms.items() if k != "mode"}
+    if isinstance(perms.get("rules"), dict):
+        perms["rules"] = {k: v for k, v in perms["rules"].items() if k != "allow"}
+    return {**raw, "permissions": perms}
+
+
+def resolve_team_template(name: str, *, cwd=None, state_dir=None, _chain: "Optional[list]" = None,
+                          trusted: "Optional[bool]" = None) -> "Optional[dict]":
     """Follows `extends:` (template inheritance): every section in
     `TOP_SECTIONS` merges key-by-key (child's key wins; a child that
     never mentions a section inherits the parent's whole); `agents:`
     (the lineup itself) does NOT merge -- a child that defines its own
     `agents:`/`roles:` REPLACES the parent's lineup entirely (a template
     that only wants to tweak `delegation`/`budget` and reuse the SAME
-    lineup omits `agents:`/`roles:` and inherits it whole instead)."""
+    lineup omits `agents:`/`roles:` and inherits it whole instead).
+    `trusted=False` filters every project-sourced layer of the chain."""
     chain = _chain if _chain is not None else []
     if name in chain:
         return None
     raw = load_team_template_raw(name, cwd=cwd, state_dir=state_dir)
     if raw is None:
         return None
+    if trusted is False:
+        raw = _drop_untrusted_raise(raw)
     parent_name = raw.get("extends")
     parent = None
     if isinstance(parent_name, str) and parent_name.strip():
-        parent = resolve_team_template(parent_name.strip(), cwd=cwd, state_dir=state_dir, _chain=chain + [name])
+        parent = resolve_team_template(parent_name.strip(), cwd=cwd, state_dir=state_dir, _chain=chain + [name],
+                                       trusted=trusted)
     resolved = dict(parent) if parent else {}
     for section in TOP_SECTIONS:
         resolved[section] = _merge_section((parent or {}).get(section), raw.get(section))

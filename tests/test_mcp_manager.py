@@ -389,7 +389,7 @@ def test_resolve_dot_mcp_json_approval_states(ctx: Ctx):
         # our own approvals store also grants approval -- must-do: keyed by
         # the ENTRY's sha256 (mcp_approval_key), never the bare name, so an
         # edited/tampered entry can't silently ride on a stale approval.
-        approval_key = M.mcp_approval_key({"command": "c"})
+        approval_key = M.mcp_approval_key({"command": "c"}, cwd)
         resolved2, _ = M.resolve_server_configs(cwd=cwd, claude_json=claude_json, print_mode=False,
                                                   approvals={approval_key: True})
         ctx.check("our own approvals.json entry approves it too", resolved2["c"].pending_approval is False)

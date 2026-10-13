@@ -468,14 +468,32 @@ def extract_at_mentions(text: str, *, cwd: Path) -> "list[Path]":
     return out
 
 
-def read_at_mention_snapshots(text: str, *, cwd: Path, max_bytes: int = _AT_MENTION_MAX_BYTES) -> "list[tuple[str, str]]":
+AT_MENTION_DENIED_NOTE = "(not attached: a Read deny rule matches this file)"
+
+
+def at_mention_read_denied(path, permission_engine) -> bool:
+    """Review 3 item 65: True when the session's own deny rules cover a
+    Read of `path` -- rule hits only (a mode's ask/deny for paths outside
+    the folder does not apply to a mention the user wrote)."""
+    if permission_engine is None:
+        return False
+    decision = permission_engine.decide("Read", {"file_path": str(path)})
+    return getattr(decision, "action", None) == "deny" and getattr(decision, "matched_rule", None) is not None
+
+
+def read_at_mention_snapshots(text: str, *, cwd: Path, max_bytes: int = _AT_MENTION_MAX_BYTES,
+                              permission_engine=None) -> "list[tuple[str, str]]":
     """`[(path_str, content_text), ...]` for every `@path` mention
     `extract_at_mentions` finds -- best-effort: an unreadable or
     oversized file is silently skipped (its `@mention` stays in the
     submitted text either way; a model that needs it can still Read it
-    directly), never raised."""
+    directly), never raised. A file a Read deny rule covers gets
+    `AT_MENTION_DENIED_NOTE` in place of its content."""
     out: "list[tuple[str, str]]" = []
     for path in extract_at_mentions(text, cwd=cwd):
+        if at_mention_read_denied(path, permission_engine):
+            out.append((str(path), AT_MENTION_DENIED_NOTE))
+            continue
         try:
             if path.stat().st_size > max_bytes:
                 continue

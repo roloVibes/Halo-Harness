@@ -186,7 +186,22 @@ def unresolved_server_mentions(text: str, *, mcp_manager) -> "list[str]":
     return seen
 
 
-def read_server_resource_snapshots(text: str, *, mcp_manager) -> "list[tuple[str, str]]":
+def _server_denied(server: str, permission_engine) -> bool:
+    """Review 3 item 65: a whole-server deny (`mcp__<server>`,
+    `mcp__<server>__*`) or a bare `ReadMcpResourceTool` deny."""
+    from halo_harness.mcp.manager import sanitize_name
+    from halo_harness.permissions import _mcp_server_matches
+    names = {server, sanitize_name(server)}
+    for rule in getattr(permission_engine, "deny_rules", None) or []:
+        kind = getattr(rule, "kind", None)
+        if kind == "bare" and rule.tool == "ReadMcpResourceTool":
+            return True
+        if kind in ("mcp_server", "mcp_server_all") and any(_mcp_server_matches(rule.tool, n) for n in names):
+            return True
+    return False
+
+
+def read_server_resource_snapshots(text: str, *, mcp_manager, permission_engine=None) -> "list[tuple[str, str]]":
     """`[(label, content_text), ...]` -- one per matched `@server:resource`
     mention in `text`, actually read via `McpManager.read_resource`. Never
     raises: a read failure (the resource vanished, the server died between
@@ -194,10 +209,13 @@ def read_server_resource_snapshots(text: str, *, mcp_manager) -> "list[tuple[str
     exactly like `commands.registry.read_at_mention_snapshots`'s own
     resilience for a file that stops existing between mention and read. An
     oversized resource (finding 14) is skipped entirely -- same convention
-    as `@path`."""
+    as `@path`. A server the session's deny rules cover is never read."""
     out = []
     for server, uri in extract_server_resource_mentions(text, mcp_manager=mcp_manager):
         label = f"{server}:{uri}"
+        if _server_denied(server, permission_engine):
+            out.append((label, "(not attached: a deny rule covers this MCP server)"))
+            continue
         try:
             result = mcp_manager.read_resource(server, uri)
         except Exception as e:

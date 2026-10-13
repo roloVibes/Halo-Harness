@@ -312,7 +312,13 @@ What each section DOES at runtime:
   under `<state>/teams/<name>/memory/` that only `writers` may write.
 - **permissions** -- `mode` and `rules` (the settings.json grammar) apply
   to every member on top of the bio's own; `offline: true` keeps a member
-  whose model lives on a network host from ever spawning.
+  whose model lives on a network host from ever spawning. A member never
+  runs in a more permissive mode than the session that spawned it (a
+  `mode` above the parent's is lowered to the parent's, and a plan-mode
+  parent always spawns plan-mode members). In a folder you have not
+  trusted, a project-level template (`.halo/teams/`, including one reached
+  through `extends:`) keeps its deny/ask rules but its `mode` and allow
+  rules are ignored.
 - **org** -- `reports_to` addresses each member's one-line completion
   report (delivered as a user-role notice on the root session's next
   turn); `reporting` drives those one-liners.

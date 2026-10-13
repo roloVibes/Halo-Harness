@@ -50,14 +50,23 @@ def _content_blocks(content, types_mod) -> list:
     return out or [types_mod.TextContent(type="text", text="")]
 
 
+def serve_tool_context(cwd: Path, env: Optional[dict] = None):
+    """Review 3 item 139: the Bash/PowerShell children this server runs get
+    the same key-stripped env as every other tool child (`tool_child_env`),
+    never the raw `os.environ` a `None` env would fall back to."""
+    import os
+    from halo_harness.providers.config import tool_child_env
+    from halo_harness.tools.base import ToolContext
+    return ToolContext(cwd=cwd, env=tool_child_env(dict(os.environ if env is None else env)))
+
+
 async def run_server(cwd: Path, *, env: Optional[dict] = None) -> None:
     import mcp.server.stdio
     import mcp.types as types
     from mcp.server.lowlevel import Server
-    from halo_harness.tools.base import ToolContext
 
     registry = build_serve_registry()
-    ctx = ToolContext(cwd=cwd, env=env)
+    ctx = serve_tool_context(cwd, env)
 
     async def on_list_tools(_ctx, _params):
         return types.ListToolsResult(tools=[_tool_from_def(d, types) for d in registry.definitions()])
