@@ -725,7 +725,15 @@ class Controller:
         out: list = []
         if not directory.is_dir():
             return out
-        for path in sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True):
+        # A file another halo (or a cleanup) removes between the glob and the
+        # stat is skipped, never raised (review 3 item 73).
+        stamped = []
+        for path in directory.glob("*.jsonl"):
+            try:
+                stamped.append((path.stat().st_mtime, path))
+            except OSError:
+                continue
+        for mtime, path in sorted(stamped, key=lambda pair: pair[0], reverse=True):
             summary, title, model, cost_usd, turns = "", "", "", 0.0, 0
             try:
                 for line in split_lines(path.read_text(encoding="utf-8", errors="replace")):
@@ -750,9 +758,11 @@ class Controller:
                         c = node.get("cost_usd")
                         if isinstance(c, (int, float)):
                             cost_usd += c
+            except FileNotFoundError:
+                continue
             except OSError:
                 pass
-            out.append({"id": path.stem, "cwd": str(self.cwd), "mtime": path.stat().st_mtime,
+            out.append({"id": path.stem, "cwd": str(self.cwd), "mtime": mtime,
                         "summary": summary, "title": title, "model": model,
                         "cost_usd": cost_usd, "turns": turns})
         return out

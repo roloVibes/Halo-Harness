@@ -457,14 +457,18 @@ class LineupEditor(ModalScreen):
         self.query_one("#lineup-field-instances", Input).value = str(e.get("instances") or "")
         self.query_one("#lineup-field-use-for", Input).value = ", ".join(e.get("use_for") or [])
 
-    def _commit_current_assignment(self) -> None:
+    def _commit_current_assignment(self) -> bool:
+        """False when Instances is not a whole number >= 1: that field is
+        left as typed, not committed, and the hint says why. The Role is
+        stored as typed, so an empty one is reported at save time
+        (review 3 item 148)."""
         if self._current_index is None:
-            return
+            return True
         agents = self._agents()
         if not (0 <= self._current_index < len(agents)):
-            return
+            return True
         e = agents[self._current_index]
-        e["role"] = self.query_one("#lineup-field-role", Input).value.strip() or e.get("role") or "subagent"
+        e["role"] = self.query_one("#lineup-field-role", Input).value.strip()
         agent_val = self.query_one("#lineup-field-agent", Input).value.strip()
         if agent_val:
             e["agent"] = agent_val
@@ -476,11 +480,16 @@ class LineupEditor(ModalScreen):
         else:
             e.pop("as", None)
         instances_text = self.query_one("#lineup-field-instances", Input).value.strip()
+        ok = True
         if instances_text:
             try:
-                e["instances"] = int(instances_text)
+                count = int(instances_text)
             except ValueError:
-                pass
+                count = 0
+            if count >= 1:
+                e["instances"] = count
+            else:
+                ok = False
         else:
             e.pop("instances", None)
         use_for = [t.strip() for t in self.query_one("#lineup-field-use-for", Input).value.split(",") if t.strip()]
@@ -488,6 +497,13 @@ class LineupEditor(ModalScreen):
             e["use_for"] = use_for
         else:
             e.pop("use_for", None)
+        hint = self.query_one("#lineup-hint", Static)
+        if not ok:
+            hint.update("Instances must be a whole number >= 1")
+        elif getattr(self, "_instances_hint", False):
+            hint.update("")
+        self._instances_hint = not ok
+        return ok
 
     # -- events --------------------------------------------------------------
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
@@ -502,7 +518,9 @@ class LineupEditor(ModalScreen):
             return
         if event.option_list.id != "lineup-assignments":
             return
-        self._commit_current_assignment()
+        if not self._commit_current_assignment():
+            self.query_one("#lineup-field-instances", Input).focus()
+            return
         self._load_assignment(event.option_list.highlighted)
         self._refresh_assignments()
 
@@ -522,7 +540,9 @@ class LineupEditor(ModalScreen):
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if (event.input.id or "").startswith("lineup-field-"):
-            self._commit_current_assignment()
+            if not self._commit_current_assignment():
+                self.query_one("#lineup-field-instances", Input).focus()
+                return
             self._refresh_assignments()
             self._refresh_roles_projection()
             self._update_stale_marker()
@@ -530,7 +550,10 @@ class LineupEditor(ModalScreen):
     def on_blur(self, event) -> None:
         from textual.widgets import Input as _Input
         if isinstance(event.widget, _Input) and (event.widget.id or "").startswith("lineup-field-"):
-            self._commit_current_assignment()
+            if not self._commit_current_assignment():
+                if event.widget.id == "lineup-field-instances":
+                    event.widget.focus()
+                return
             self._refresh_assignments()
 
     def _refresh_agent_dropdown(self, query: str) -> None:
@@ -574,7 +597,8 @@ class LineupEditor(ModalScreen):
 
     # -- assignment add/delete ------------------------------------------------
     def action_add_assignment(self) -> None:
-        self._commit_current_assignment()
+        if not self._commit_current_assignment():
+            return
         agents = self.template.setdefault("agents", [])
         agents.append({"role": "subagent"})
         self._current_index = len(agents) - 1
@@ -698,7 +722,8 @@ class LineupEditor(ModalScreen):
     # -- save / cancel --------------------------------------------------------
     def action_save(self) -> None:
         from halo_harness.teams_yaml import save_team_template, validate_team_template
-        self._commit_current_assignment()
+        if not self._commit_current_assignment():
+            return
         errors = [e for e in (self._section_error(sec) for sec in TOP_SECTIONS) if e]
         if errors:
             self.query_one("#lineup-hint", Static).update("Not saved -- " + "; ".join(errors))

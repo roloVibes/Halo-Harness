@@ -13,7 +13,8 @@ from __future__ import annotations
 import difflib
 
 from rich.text import Text
-from textual.widgets import Static
+
+from halo_harness.tui.widgets.input_sanitize import SafeStatic
 
 
 def unified_diff_text(before: str, after: str, *, path: str = "", context: int = 3) -> str:
@@ -25,7 +26,7 @@ def unified_diff_text(before: str, after: str, *, path: str = "", context: int =
     return text if text else "(no changes)"
 
 
-class DiffView(Static):
+class DiffView(SafeStatic):
     """Renders a unified diff with +/- coloring via Rich `Text`, so callers
     never need their own ANSI/markup escaping concerns."""
 

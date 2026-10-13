@@ -212,9 +212,17 @@ def advance(app, state: WizardState, *, skip: bool = False) -> None:
 
 
 def go_back(app, state: WizardState) -> None:
-    if state.index <= 0:
+    # A step the Summary jumped to ("Change: <step>", even the first one)
+    # goes back to that Summary, so the index follows it there (review 3
+    # item 77).
+    stack = app.screen_stack
+    below = stack[-2] if len(stack) >= 2 else None
+    if isinstance(below, SummaryStep) and "summary" in state.step_keys:
+        state.index = state.step_keys.index("summary")
+    elif state.index <= 0:
         return
-    state.index -= 1
+    else:
+        state.index -= 1
     state.pushed -= 1
     app.pop_screen()
 
@@ -1359,19 +1367,27 @@ class OrgsStep(StepScreen):
                               classes="wizard-switch-row")
         studio_row = Horizontal(Button("Open Studio (Org)", id="wiz-orgs-studio"), classes="wizard-extra-buttons")
         return [Static(one_sentence("Organizations", current, hint="Enter to change, or Make this the default."),
-                        classes="dialog-title"), pointer, mode_row, studio_row, switch_row, on_body]
+                        classes="dialog-title"), pointer, mode_row, studio_row,
+                Static("", id="wiz-orgs-studio-url"), switch_row, on_body]
 
     def action_open_studio(self) -> None:
         """3.0.2.0: the company is edited in Studio's Org mode (the browser)."""
         from halo_harness.studio.launch import launch_detached
         from halo_harness.providers.config import default_state_dir
 
-        def _work() -> str:
-            return launch_detached("org", cwd=Path(self.state.cwd), state_dir=Path(default_state_dir()))
+        from halo_harness.tui.dialogs.wizard_ux import studio_work
 
         def _done(url: str) -> None:
-            self.notify(f"Studio: {url} (halo studio --stop ends it)" if url else "Studio did not start -- run `halo studio --mode org` in a shell.")
-        self.run_worker(lambda: self.app.call_from_thread(_done, _work()), thread=True, name="wiz-orgs-studio")
+            # Review 3 item 79: a line that stays (over SSH the URL is the only way in).
+            try:
+                self.query_one("#wiz-orgs-studio-url", Static).update(
+                    f"Studio: {url}  (halo studio --stop ends it)" if url
+                    else "Studio did not start -- run `halo studio --mode org` in a shell.")
+            except Exception:
+                pass
+        work = studio_work(lambda: launch_detached("org", cwd=Path(self.state.cwd), state_dir=Path(default_state_dir())))
+        self.run_worker(lambda: self.app.call_from_thread(_done, work()), thread=True, name="wiz-orgs-studio",
+                        exit_on_error=False)
 
     def on_mount(self) -> None:
         self._sync_visibility()
@@ -1465,6 +1481,11 @@ class OrgsStep(StepScreen):
 
     def _editor_worker(self, name: str) -> None:
         from halo_harness.orgs import load_org
+        from halo_harness.tui.edit_guard import refusal_text, unloadable_path
+        broken = unloadable_path("org", name)
+        if broken is not None:  # review 3 item 149
+            self.app.call_from_thread(self.app.notify, refusal_text("org", name, broken), severity="error")
+            return
         org = load_org(name) or {"name": name, "description": "", "positions": [
             {"title": "Orchestrator", "role": "orchestrator", "reports": [], "instructions": ""}]}
         self.app.call_from_thread(self._open_editor_screen, name, org, self._controller_models())
@@ -1500,12 +1521,13 @@ class OrgsStep(StepScreen):
         except Exception:
             pass
         try:  # 3.0.2.0: the Org mode (Paperclip) switch, written explicitly either way
-            from halo_harness.paperclip.mode import org_mode_enabled, set_org_mode
+            from halo_harness.paperclip.mode import org_mode_enabled
             wanted = bool(self.query_one("#wiz-org-mode-switch").value)
-            if wanted != org_mode_enabled():
-                set_org_mode(wanted)
-            else:
-                set_config_value("paperclip.enabled", wanted)
+            changed = wanted != org_mode_enabled()
+            set_config_value("paperclip.enabled", wanted)
+            if changed:  # pausing/resuming the agents is network: off the event loop
+                self.app.run_worker(lambda: self._sync_org_agents(wanted), thread=True, exit_on_error=False,
+                                    name="wiz-org-mode")
         except Exception:
             pass
         set_config_value("orgs.enabled", enabled)
@@ -1517,6 +1539,23 @@ class OrgsStep(StepScreen):
         ok, _problems = set_default_org(name)
         if ok:
             self.state.default_org = name
+
+
+    def _sync_org_agents(self, wanted: bool) -> None:
+        """Review 3 item 147: the switch is already written; this pauses or
+        resumes the linked company's Halo agents with short timeouts and
+        reports why nothing changed, if nothing did."""
+        try:
+            from halo_harness.paperclip.mode import sync_agents
+            note = sync_agents(wanted, timeout=8.0).get("note")
+        except Exception as e:
+            note = f"{type(e).__name__}: {e}"
+        if note:
+            try:
+                self.app.call_from_thread(self.app.notify, f"Org mode {'on' if wanted else 'off'}: {note}",
+                                          title="Paperclip")
+            except Exception:
+                pass
 
 
 STEP_FACTORIES["orgs"] = OrgsStep
