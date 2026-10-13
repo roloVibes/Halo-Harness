@@ -66,7 +66,7 @@ event     {"event": "permission_request", "data": {...}, "turn": 3, "agent_id": 
 | `status` | | the status payload (phase, model, context, cost, `permission_mode`, effort), plus `session_id`, `cwd`, `title`, `busy`, `kind` (`tui` or `print`), `pid`, and `pending` (the ids of unanswered permission / question / plan / approval cards) |
 | `submit`, `steer` | `text` | `{steered}`; while a turn runs the text steers it, otherwise it starts the next turn. In `halo -p` the next turn is queued only for `--input-format stream-json` runs |
 | `interrupt` | | `{interrupted}` |
-| `answer` | `kind` = `permission`, `request_id`, `action` (`allow` / `deny`), optional `scope` (`once` / `session` / `always`), `message`, `rule` | `{resolved}`. `session` / `always` learn the card's suggested rule (or `rule`), as the TUI's buttons do |
+| `answer` | `kind` = `permission`, `request_id`, `action` (`allow` / `deny`), optional `scope` (`once` / `session` / `always`), `message`, `rule` | `{resolved}`. With `allow`, `session` / `always` learn the card's suggested rule (or `rule`), as the TUI's buttons do; a `deny` learns nothing whatever its `scope` |
 | `answer` | `kind` = `question`, `request_id`, `answer` | `{resolved}` |
 | `answer` | `kind` = `plan`, `approved`, optional `feedback`, `mode_after` | `{resolved}` |
 | `answer` | `kind` = `approval`, `request_id`, `action` (`accept` / `edit` / `stop`), optional `instruction` | `{resolved}` |
@@ -275,7 +275,7 @@ setup command; every key is optional except `account`):
 | `own_aci` | | the account's own ACI; required for `linked` |
 | `transport` | `stdio` | `stdio` (spawn `signal-cli jsonRpc`), `socket` (client of `daemon --socket`, POSIX) or `tcp` (client of `daemon --tcp 127.0.0.1:PORT`) |
 | `socket`, `tcp` | | the daemon endpoint for those two transports |
-| `receive_mode` | `manual` | `manual` (the bridge calls `subscribeReceive`, so messages wait on Signal's server while it is down), `on-start` or `on-connection` |
+| `receive_mode` | `manual` | `manual` (the bridge calls `subscribeReceive`, so messages wait on Signal's server while it is down; a refused call is retried a few times, then the bridge reads `starting` and leaves a notice naming signal-cli's error, and no reply at all reconnects), `on-start` or `on-connection` |
 | `data_dir` | `~/.halo/remote/signal-cli` | signal-cli's `-d` directory |
 | `extra_args` | `[]` | more global flags, placed before the subcommand |
 
@@ -375,8 +375,11 @@ key). A command is the text, a space, and `#<counter>:<mac>`:
 * The counter must be strictly greater than the last accepted one (gaps are
   fine), and the message's own timestamp must be within 5 minutes
   (`remote.stale_window_s`) of the computer's clock. A repeat or a lower
-  counter is refused with a notice; a refused command does not use up its
-  counter.
+  counter is refused with a notice. A correctly signed command that arrives
+  outside the window is refused too and DOES use up its counter (the
+  timestamp is not part of the MAC, so the same bytes re-sent later would
+  otherwise pass): sign it again with a higher counter. A message whose
+  signature does not match uses up nothing.
 * Any HMAC tool on the phone can compute it. Worked example (a test vector,
   never a real secret): with the secret bytes `00 01 02 ... 1f`
   (hex `000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f`),
@@ -434,11 +437,11 @@ All under `~/.halo/remote/` (directory 0700, files 0600):
 | `signal-cli/` | signal-cli's own data (keys, account database) |
 | `peers.json` | per paired phone: ACI, number, safety number, paired time, signing secret and counter, `signed`, blocked state |
 | `pending.json` | open contact requests (the pairing code only as a salted hash), queued trust steps, notices for the computer |
-| `bridge.json`, `stop` | the bridge's pulse (pid, state) and the stop file `off` creates |
+| `bridge.json`, `stop` | the bridge's pulse (pid, the process's start record so a reused pid never reads as a running bridge, state) and the stop file `off` creates |
 | `registration-pin`, `register.json` | the registration-lock PIN of the dedicated number (0600); the last SMS request (number and time) so `--voice` knows one happened |
 | `signal-cli/dist/<version>/` | the signal-cli build `setup` downloaded (beside signal-cli's own `data/`) |
 | `halo-remote.service`, `dev.halo.remote.plist`, `halo-remote-task.xml` | service-manager files written by `run --daemon` (never enabled by Halo) |
-| `audit.jsonl` | one line per command: time, the first 8 characters of the ACI, `sha256("<aci>\|<counter>\|<text>")` truncated to 16 hex, kind and outcome; rotates at 5 MB into `audit.jsonl.1` (one previous file is kept) |
+| `audit.jsonl` | one line per command (and per pairing-code attempt: paired, wrong, dropped or expired, the code itself never kept; and per refused `subscribeReceive`): time, the first 8 characters of the ACI, `sha256("<aci>\|<counter>\|<text>")` truncated to 16 hex, kind and outcome; rotates at 5 MB into `audit.jsonl.1` (one previous file is kept) |
 
 No message text, reply or attachment is written by the bridge, logged, or
 kept: the audit hash cannot be reversed, `signal-cli` runs with `--scrub-log`
@@ -452,7 +455,8 @@ A second copy is not started: if a bridge is already running the command
 names its pid. It writes a small pulse file (`~/.halo/remote/bridge.json`:
 pid, start time, state `starting`, `connected` or `rate-limited`, and the end
 of a rate-limit pause), which is what `status`, `/remote` and `halo doctor`
-read. It does nothing while `remote.signal.enabled` is false; `setup` sets it
+read. A pulse whose pid now belongs to another process (the bridge was
+killed, or the machine rebooted) reads as stopped, so `run` starts again. It does nothing while `remote.signal.enabled` is false; `setup` sets it
 to true, `halo remote signal off` sets it to false, `halo remote signal on`
 sets it back.
 
@@ -464,21 +468,28 @@ another OS.
 | OS | File | Enable it with |
 |---|---|---|
 | Linux | `halo-remote.service` (systemd user unit, `Restart=on-failure`) | `systemctl --user link ~/.halo/remote/halo-remote.service && systemctl --user enable --now halo-remote.service` |
-| macOS | `dev.halo.remote.plist` (launchd agent, `RunAtLoad`, `KeepAlive`) | `launchctl bootstrap gui/$(id -u) ~/.halo/remote/dev.halo.remote.plist` |
+| macOS | `dev.halo.remote.plist` (launchd agent, `RunAtLoad`, restart on failure only: `KeepAlive` with `SuccessfulExit` false) | `launchctl bootstrap gui/$(id -u) ~/.halo/remote/dev.halo.remote.plist` |
 | Windows | `halo-remote-task.xml` (Task Scheduler, at logon) | `schtasks /Create /TN "Halo Remote" /XML "%USERPROFILE%\.halo\remote\halo-remote-task.xml"` |
 
 The command runs `halo remote signal run` (the `halo` on your PATH, else this
 Python with `-m halo_harness`); the bridge starts signal-cli itself over stdio,
 so there is no second service. A separately managed signal-cli daemon
 (`"transport": "socket"` or `"tcp"` in `signal.json`) is also supported when
-you want signal-cli to outlive the bridge. Under a service manager, signal-cli's
-own output is discarded.
+you want signal-cli to outlive the bridge; start that daemon with `-a <account>`
+(the bridge names the account in `subscribeReceive`, which a multi-account
+daemon requires). Under a service manager, signal-cli's own output is discarded.
 
 **The kill switch.** `halo remote signal off` (or `o` in the `/remote` dialog)
 creates `~/.halo/remote/stop`, which a running bridge polls about four times a
 second; the bridge detaches every phone and exits, and the command waits a few
 seconds for it. It also sets `remote.signal.enabled` to false so a service
-manager does not bring it back. Nothing else on your machine is touched: sessions
+manager does not bring it back: all three service files restart the bridge
+only when it fails, and a clean exit stays down. After `halo remote signal on`,
+start the service copy again yourself (`systemctl --user start halo-remote`,
+`launchctl kickstart -k gui/$(id -u)/dev.halo.remote`, or the Task Scheduler
+task); `launchctl bootout gui/$(id -u)/dev.halo.remote` removes the macOS agent.
+A run that finds no account, or a bridge already running, exits 1, so a
+service manager retries it on its own schedule until that changes. Nothing else on your machine is touched: sessions
 keep their control sockets (turn those off with `remote.enabled`).
 
 ## In the TUI: `/remote` and the status chip

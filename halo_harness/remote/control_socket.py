@@ -189,6 +189,7 @@ class ControlServer:
         if os.name == "nt":
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.bind((LOOPBACK, 0))
+            sock.listen(8)
             self.port = sock.getsockname()[1]
             self.token = secrets.token_hex(16)
             self.endpoint = f"tcp:{LOOPBACK}:{self.port}"
@@ -203,9 +204,9 @@ class ControlServer:
                 pass
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.bind(str(self.socket_path))
+            sock.listen(8)  # at once: a bound socket that refuses connects reads as stale to a sibling's sweep
             os.chmod(self.socket_path, 0o600)
             self.endpoint = f"unix:{self.socket_path}"
-        sock.listen(8)
         self._sock = sock
         self._thread = threading.Thread(target=self._accept_loop, name="halo-ctl-accept", daemon=True)
         self._thread.start()
