@@ -128,7 +128,7 @@ ask).
 |---|---|
 | `name` | the org's own name (also the file stem) |
 | `description` | one line, shown by `/org list`/`halo org list` |
-| `max_concurrent` | optional; overrides `agents.max_concurrent` (config, default 4) for every position in THIS org only |
+| `max_concurrent` | optional; overrides `agents.max_concurrent` (config, default 4) for every position in THIS org only; an org run under a team never goes above the team's `delegation.max_parallel` |
 | `positions` | the tree, one entry per position -- see below |
 | `positions[].title` | the position's identity: its `subagent_type`, unique within the org, renameable in the editor (every other position's own `reports` entry is updated with it) |
 | `positions[].role` | a role name (`roles.known_role_names()`) resolved through the SAME table a role-bearing agent uses -- mutually exclusive with `model` in practice (the editor clears whichever you're not setting) |

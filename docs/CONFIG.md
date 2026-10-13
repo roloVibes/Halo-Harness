@@ -232,7 +232,7 @@ directly by the features that own them:
 | `images` | `"inline"` | `--no-inline-images` overrides per-run |
 | `intro` | `true` | `--no-intro` overrides per-run; set `false` to turn off the launch intro for good |
 | `mcpPreload` | unset | hand-edited: a list of wire tool names to preload regardless of the catalog's own `alwaysLoad` rule |
-| `compactionModel` | unset (uses the session model) | hand-edited |
+| `compactionModel` | unset (uses the session model) | hand-edited; its summary calls are billed at its own rates |
 | `databricks.gateway.<endpoint>` | unset | `halo init --provider databricks` (from a team.json `gateway_preference`), or hand-edited |
 | `databricks.dbu_price_usd` | unset (costs show as raw DBUs) | team.json, or hand-edited |
 | `databricks.catalog_max_age_hours` | `24` | hand-edited |

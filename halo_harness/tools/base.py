@@ -199,6 +199,12 @@ class Tool:
     def run(self, input: dict, ctx: ToolContext) -> ToolResult:
         raise NotImplementedError
 
+    def pool_wait_s(self, input: dict) -> Optional[float]:
+        """This tool's own time limit in seconds for one call, when it has
+        one the concurrent read-only pool must wait out (tools/registry.py
+        `pool_wait_s`); None keeps the pool's 30 s default."""
+        return None
+
     def summary(self, input: dict) -> str:
         """One-line human summary for a tool card / verbose log, e.g.
         "Read(src/main.py)". Defaults to just the tool name; a tool with a

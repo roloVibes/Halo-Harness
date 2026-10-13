@@ -185,6 +185,14 @@ def schedule_status_lines(entries: "list[dict]") -> "list[str]":
 FIRE_ENV = {"HALO_SCHEDULED_FIRE": "1"}
 
 
+def _fire_env(session) -> dict:
+    """A fired job is a whole harness process: it starts from this process's
+    environment (HOME, PATH, proxies and the provider keys it needs to reach
+    its model), takes the session's settings/`--environment` overlay (the
+    `tool_child_env` result a sub-agent's tools see) on top, then the marker."""
+    return {**os.environ, **(getattr(session, "tool_env", None) or {}), **FIRE_ENV}
+
+
 def build_fire_argv(entry: dict) -> "list[str]":
     """The headless invocation a schedule/trigger fires, as an argv LIST:
     this very harness, print mode, the entry's prompt, then --agent/--team
@@ -219,7 +227,7 @@ def _default_fire(session, entry: dict) -> str:
         # POSIX quoting through cmd.exe mangles on Windows.
         import subprocess
         subprocess.Popen(build_fire_argv(entry), cwd=str(getattr(session, "cwd", ".")),
-                         env={**os.environ, **FIRE_ENV},
+                         env=_fire_env(session),
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
         return f"fired {entry.get('name')} (detached; no live job registry)"
     try:
@@ -228,7 +236,7 @@ def _default_fire(session, entry: dict) -> str:
     except Exception:
         shell_path = "bash"
     record, err = registry.start_background(build_fire_command(entry), description=f"schedule {entry.get('name')}",
-                                            cwd=str(getattr(session, "cwd", ".")), env=dict(FIRE_ENV), shell_path=shell_path)
+                                            cwd=str(getattr(session, "cwd", ".")), env=_fire_env(session), shell_path=shell_path)
     if err is not None:
         return f"could not fire {entry.get('name')}: {err}"
     return f"fired {entry.get('name')} as background job {record.job_id}"
