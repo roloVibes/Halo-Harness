@@ -110,11 +110,14 @@ def _probe_get(base_url: str, path_suffix: str, *, api_key: Optional[str], timeo
     import socket
     import ssl
     from halo_harness.providers.http import UpstreamConnectError, open_upstream
-    parsed = urllib.parse.urlparse(base_url)
-    host = parsed.hostname
+    try:
+        parsed = urllib.parse.urlparse(base_url)
+        host = parsed.hostname
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError:
+        return None  # non-numeric port / unbalanced IPv6 bracket
     if not host:
         return None
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
     tls = parsed.scheme == "https"
     path = parsed.path.rstrip("/") + path_suffix
     headers = {"Accept-Encoding": "identity"}

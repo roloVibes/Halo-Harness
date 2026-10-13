@@ -61,9 +61,10 @@ def save_fit_store(state_dir, data: dict) -> None:
     path = _fit_store_path(state_dir)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(path.name + ".tmp")
-        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         import os
+        import threading
+        tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         os.replace(tmp, path)
     except OSError:
         log.debug("ollama: could not persist fit store to %s", path, exc_info=True)
@@ -172,18 +173,20 @@ def record_calibration(state_dir, *, host_url: str, model: str, digest: Optional
     ("measured: does not fit even at the floor") -- distinct from no entry
     at all -- so `has_calibration_entry` still returns True for it and
     auto-calibrate does not keep retrying every turn."""
-    store = load_fit_store(state_dir)
-    entries = store["entries"]
-    entry = _find_entry(entries, host_url=host_url, model=model)
+    from halo_harness.filelock import file_lock
     record = {"host_url": host_url, "model": model, "digest": digest,
               "max_full_gpu_ctx": max_full_gpu_ctx, "measured_at": time.time(),
               "ollama_version": ollama_version}
-    if entry is not None:
-        entry.clear()
-        entry.update(record)
-    else:
-        entries.append(record)
-    save_fit_store(state_dir, store)
+    with file_lock(_fit_store_path(state_dir)):
+        store = load_fit_store(state_dir)
+        entries = store["entries"]
+        entry = _find_entry(entries, host_url=host_url, model=model)
+        if entry is not None:
+            entry.clear()
+            entry.update(record)
+        else:
+            entries.append(record)
+        save_fit_store(state_dir, store)
     return record
 
 
@@ -434,12 +437,14 @@ def record_last_turn_throughput(state_dir, *, host_url: str, model: str, tokens_
     key) -- recorded under a session's own raw ref (often untagged), it
     used to miss the panel's own tagged catalog-row lookup entirely."""
     from halo_harness.providers.ollama import normalize_ollama_model_name
-    store = load_fit_store(state_dir)
-    store["last_turns"][f"{host_url}|{normalize_ollama_model_name(model)}"] = {
-        "tokens_per_second": tokens_per_second, "prefill_seconds": prefill_seconds,
-        "offloaded": offloaded, "output_tokens": output_tokens, "at": time.time(),
-    }
-    save_fit_store(state_dir, store)
+    from halo_harness.filelock import file_lock
+    with file_lock(_fit_store_path(state_dir)):
+        store = load_fit_store(state_dir)
+        store["last_turns"][f"{host_url}|{normalize_ollama_model_name(model)}"] = {
+            "tokens_per_second": tokens_per_second, "prefill_seconds": prefill_seconds,
+            "offloaded": offloaded, "output_tokens": output_tokens, "at": time.time(),
+        }
+        save_fit_store(state_dir, store)
 
 
 def get_last_turn_throughput(state_dir, *, host_url: str, model: str) -> Optional[dict]:

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import os
 import socket
 import ssl
 import threading
@@ -262,10 +263,9 @@ def write_hf_models_json(state_dir, models: "list[dict]") -> None:
                     entry[key] = m[key]
             out[mid] = entry
         path = hf_models_json_path(state_dir)
-        tmp_path = path.with_name(f".{path.name}.tmp")
+        tmp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
         with open(tmp_path, "w", encoding="utf-8") as f:
             json.dump(out, f, indent=2)
-        import os
         os.replace(tmp_path, path)
     except OSError:
         pass

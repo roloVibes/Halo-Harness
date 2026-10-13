@@ -71,6 +71,18 @@ def _save(state_dir, data: dict) -> None:
         pass
 
 
+def _num(value) -> "Optional[float]":
+    """`value` as a float, or None when it is not number-like (a provider may
+    send a numeric string, or something else entirely, for a money field)."""
+    if isinstance(value, bool):
+        return None
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    return out if out == out and out not in (float("inf"), float("-inf")) else None
+
+
 def _fetch_anthropic_usage(env: "Optional[dict]" = None) -> "Optional[dict]":
     """2.0.3-brief part B item 2: no balance endpoint for a plain API
     key; with an Admin key (`ANTHROPIC_ADMIN_KEY`), the organisation cost
@@ -162,9 +174,9 @@ def refresh_all_balances(state_dir, *, env: "Optional[dict]" = None) -> dict:
     if is_enabled_with_env("experiential", env):
         from halo_harness.providers.experiential_account import fetch_experiential_credits
         credits = fetch_experiential_credits(env)
-        if isinstance(credits, dict) and isinstance(credits.get("total_credits"), (int, float)):
-            total = credits["total_credits"]
-            used = credits.get("total_usage") or 0.0
+        total = _num(credits.get("total_credits")) if isinstance(credits, dict) else None
+        if total is not None:
+            used = _num(credits.get("total_usage")) or 0.0
             out["experiential"] = {"status": "ok", "amount": total - used, "kind": "credits",
                                     "note": f"of ${total:.2f} total credits", "fetched_at_wall": now}
         else:
@@ -228,7 +240,7 @@ def format_balance_entry(provider_label: str, entry: "Optional[dict]") -> str:
         total_note = f" (of ${entry['total_credits']:.2f} total, ${amount:.2f} used, ${remaining:.2f} left)"
     elif kind in ("limit_remaining", "credits") and isinstance(entry.get("total_credits"), (int, float)):
         total_note = (f" (of ${entry['total_credits']:.2f} total, "
-                      f"${entry.get('total_usage') or 0:.2f} used)")
+                      f"${_num(entry.get('total_usage')) or 0:.2f} used)")
     else:
         total_note = ""
     when = ""

@@ -159,6 +159,30 @@ def _field_mentions(message: str, body: dict) -> list:
     return [f for _, _, f in hits]
 
 
+_ENUMERATION_CUE_RE = re.compile(
+    r"one of|supported values?|should be|must be|allowed|valid values?|accepted values?", re.IGNORECASE)
+
+
+def _allowed_values(message: str, field: str, sent) -> list:
+    """The quoted tokens in `message` that can really be offered as
+    replacements for `sent`. Upstream 400s echo the REJECTED value and often
+    the model id in quotes too, so those never count: the value that was sent
+    is dropped, and what is left must match the kind of value that was sent
+    (effort words for an effort word, numbers for a number). An effort word
+    needs no further cue (`set reasoning_effort to 'none'` is enough); any
+    other kind needs the message to enumerate choices (`one of`,
+    `supported values`, `must be`, ...). Empty means the caller drops the
+    field instead."""
+    tokens = [t for t in _quoted_tokens(message) if t != field and t != str(sent)]
+    if isinstance(sent, str) and sent in _EFFORT_ORDER:
+        return [t for t in tokens if t in _EFFORT_ORDER]
+    if not _ENUMERATION_CUE_RE.search(message):
+        return []
+    if _looks_numeric(sent) and not isinstance(sent, bool):
+        return [t for t in tokens if _looks_numeric(t)]
+    return tokens
+
+
 def detect_param_rejection(status: int, message: str, body: Optional[dict] = None) -> Optional[ParamFix]:
     """The smallest fix for this (status, message) pair, or `None` when
     nothing in `WATCHED_PARAM_FIELDS` is both named in `message` and
@@ -182,7 +206,7 @@ def detect_param_rejection(status: int, message: str, body: Optional[dict] = Non
     sent = body.get(field)
     if sub and isinstance(sent, dict):
         sent = sent.get(sub)
-    allowed = [t for t in _quoted_tokens(message) if t != field]
+    allowed = _allowed_values(message, field, sent)
     if allowed:
         return ParamFix(field=field, action="clamp", value=_nearest_allowed(sent, allowed), error=message[:200])
     return ParamFix(field=field, action="drop", error=message[:200])

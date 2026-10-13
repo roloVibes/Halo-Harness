@@ -47,9 +47,10 @@ def save_capability_cache(state_dir: Path, data: dict) -> None:
     path = _capability_cache_path(state_dir)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(path.name + ".tmp")
-        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         import os
+        import threading
+        tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         os.replace(tmp, path)
     except OSError:
         log.debug("ollama: could not persist capability cache to %s", path, exc_info=True)
@@ -110,6 +111,9 @@ def probe_tool_capability(host: OllamaHost, model: str, digest: str, state_dir: 
     except Exception:
         log.debug("ollama: capability probe for %s (digest %s) raised", model, digest, exc_info=True)
         return None
-    cache[digest] = {"tool_calls": result, "checked_at": time.time(), "model": model, "host": host.name}
-    save_capability_cache(state_dir, cache)
+    from halo_harness.filelock import file_lock
+    with file_lock(_capability_cache_path(state_dir)):
+        cache = load_capability_cache(state_dir)
+        cache[digest] = {"tool_calls": result, "checked_at": time.time(), "model": model, "host": host.name}
+        save_capability_cache(state_dir, cache)
     return result

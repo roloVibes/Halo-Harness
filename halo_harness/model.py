@@ -266,21 +266,29 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
     ANTHROPIC_API_KEY) -- see providers.cc_models.default_bare_alias_route.
     """
     routes = routes or {}
-    aliases = routes.get("aliases") or {}
+    aliases = routes.get("aliases") if isinstance(routes, dict) else None
+    if not isinstance(aliases, dict):
+        aliases = {}
     seen = set()
     resolved = raw
     hops = 0
     while resolved in aliases and resolved not in seen and hops < _MAX_ALIAS_HOPS:
         seen.add(resolved)
+        if not isinstance(aliases[resolved], str):
+            raise InvalidModelError(f"no route: alias {resolved!r} must name a model string (routes.json aliases)")
         resolved = aliases[resolved]
         hops += 1
 
     if resolved.startswith(_DBX_PREFIX):
         bare = resolved[len(_DBX_PREFIX):]
+        if not bare:
+            raise InvalidModelError(f"no route: {raw!r} (dbx: needs a model id, e.g. dbx:databricks-gpt-5-mini)")
         return _databricks_model_ref(raw, bare)
     if resolved.startswith(_OR_PREFIX):
         bare = resolved[len(_OR_PREFIX):]
         _refuse_if_disabled("openrouter")
+        if not bare:
+            raise InvalidModelError(f"no route: {raw!r} (or: needs a model id, e.g. or:vendor/model)")
         return ModelRef(raw=raw, provider="openrouter", model=bare, dialect="openai-chat")
     if resolved.startswith(_OL_PREFIX):
         # Halo 2.0.3 round 2: `ol:<model>` (the default host) or
@@ -294,6 +302,8 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
         bare = resolved[len(_OL_PREFIX):]
         model_part, _, host_part = bare.partition("@")
         _refuse_if_disabled("ollama")
+        if not model_part:
+            raise InvalidModelError(f"no route: {raw!r} (ol: needs a model, e.g. ol:qwen3:30b or ol:qwen3@my-host)")
         return ModelRef(raw=raw, provider="ollama", model=model_part, dialect="ollama", host=host_part or None)
     if resolved.startswith(_HF_PREFIX):
         # Halo 2.0.3 round 4: `hf:<org>/<model>` (optionally `:fastest`/
@@ -451,11 +461,15 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
         from halo_harness.subscription_consent import refuse_if_not_accepted
         refuse_if_not_accepted("cc")
         _refuse_if_disabled("claude_subscription")
+        if not bare:
+            raise InvalidModelError(f"no route: {raw!r} (cc: needs a model name, e.g. cc:sonnet)")
         return ModelRef(raw=raw, provider="cc", model=resolve_cc_alias(bare), dialect="cc-subprocess")
     if resolved.startswith(_ANT_PREFIX):
         from halo_harness.providers.cc_models import resolve_ant_alias
         bare = resolved[len(_ANT_PREFIX):]
         _refuse_if_disabled("anthropic")
+        if not bare:
+            raise InvalidModelError(f"no route: {raw!r} (ant: needs a model name, e.g. ant:sonnet)")
         return ModelRef(raw=raw, provider="anthropic", model=resolve_ant_alias(bare), dialect="anthropic-passthrough")
     if "/" in resolved and resolved.count("/") == 1:
         # The bare `vendor/model` OpenRouter form needs BOTH halves: a

@@ -17,6 +17,7 @@ served model never outlives the `halo` process that started it unless
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import json
 import logging
 import os
@@ -77,6 +78,10 @@ class ManagedServer:
     owner_start: "Optional[str]" = None  # bg_run.process_start_time(owner_pid) at creation
     proc_start: "Optional[str]" = None  # bg_run.process_start_time(pid) at creation
     cmdline: list = field(default_factory=list)
+    # Written `False` right after the child spawns (so a halo that dies
+    # mid-load still leaves a record the next stop / exit sweep can act on)
+    # and flipped to `True` once `/v1/models` answers.
+    ready: bool = True
 
 
 def runtimes_dir(state_dir) -> Path:
@@ -122,10 +127,14 @@ def _registry_lock(state_dir, *, timeout: float = 5.0):
     path.parent.mkdir(parents=True, exist_ok=True)
     deadline = time.monotonic() + timeout
     held = False
+    token = f"{os.getpid()}:{time.monotonic_ns()}"
     while True:
         try:
             fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            os.close(fd)
+            try:
+                os.write(fd, token.encode("ascii"))
+            finally:
+                os.close(fd)
             held = True
             break
         except FileExistsError:
@@ -144,10 +153,50 @@ def _registry_lock(state_dir, *, timeout: float = 5.0):
         yield
     finally:
         if held:
+            # Only a lock this call created: a holder that overran the stale
+            # threshold may have had its file stolen and re-created by another
+            # process, and that newer lock is not ours to remove.
             try:
-                path.unlink(missing_ok=True)
+                if path.read_text(encoding="ascii", errors="replace") == token:
+                    path.unlink(missing_ok=True)
             except OSError:
                 pass
+
+
+def _upsert_registry_entry(state_dir, entry: dict) -> None:
+    """Replace any entry for the same model with `entry`, under the lock."""
+    with _registry_lock(state_dir):
+        entries = [e for e in load_registry(state_dir) if e.get("model") != entry.get("model")]
+        entries.append(entry)
+        save_registry(state_dir, entries)
+
+
+def drop_stale_registry_entry(state_dir, model: str, base_url: str) -> None:
+    """Remove the row for `model` at `base_url` that a liveness probe just
+    found dead (left by a reboot or crash). A row marked `ready: false`
+    whose process still exists is another session mid-load, not stale, and
+    stays."""
+    from halo_harness.bg_run import pid_alive
+    with _registry_lock(state_dir):
+        entries = load_registry(state_dir)
+        kept = [e for e in entries if not (
+            e.get("model") == model and e.get("base_url") == base_url
+            and not (e.get("ready") is False and pid_alive(e.get("pid"))))]
+        if len(kept) != len(entries):
+            save_registry(state_dir, kept)
+
+
+def drop_registry_entries(state_dir, victims: "list[tuple]") -> None:
+    """Remove the entries matching any `(model, pid)` in `victims`, judged on
+    the file's CURRENT contents (never a stale snapshot), under the lock."""
+    if not victims:
+        return
+    gone = {(m, p) for m, p in victims}
+    with _registry_lock(state_dir):
+        entries = load_registry(state_dir)
+        kept = [e for e in entries if (e.get("model"), e.get("pid")) not in gone]
+        if len(kept) != len(entries):
+            save_registry(state_dir, kept)
 
 
 def _owner_fingerprint() -> "tuple[int, Optional[str]]":
@@ -401,8 +450,27 @@ def start_managed_server(*, model: str, runtime: str, binary_argv: list, model_p
     # (see `_terminate_pid`'s own docstring) instead of leaving a zombie.
     _register_popen(proc)
     base_url = f"http://127.0.0.1:{port}/v1"
-    ready, exited_early = _wait_ready(base_url, timeout=effective_timeout, proc=proc)
+    from halo_harness.bg_run import process_start_time
+    owner_pid, owner_start = _owner_fingerprint()
+    entry = ManagedServer(model=model, runtime=runtime, pid=proc.pid, port=port, base_url=base_url,
+                           started=datetime.now(timezone.utc).isoformat(), keep=bool(keep),
+                           owner_pid=owner_pid, owner_start=owner_start,
+                           proc_start=process_start_time(proc.pid), cmdline=list(argv), ready=False)
+    # Recorded before the (possibly multi-minute) readiness wait: a halo that
+    # dies while the model loads still leaves a row `halo local stop` and the
+    # next sweep can act on, instead of an invisible orphan on a loopback port.
+    _upsert_registry_entry(state_dir, dict(entry.__dict__))
+    try:
+        ready, exited_early = _wait_ready(base_url, timeout=effective_timeout, proc=proc)
+    except BaseException:
+        _terminate_pid(proc.pid)
+        drop_registry_entries(state_dir, [(model, proc.pid)])
+        if stderr_file is not None:
+            stderr_file.close()
+        stderr_path.unlink(missing_ok=True)
+        raise
     if not ready:
+        drop_registry_entries(state_dir, [(model, proc.pid)])
         if stderr_file is not None:
             stderr_file.close()
         tail = _read_stderr_tail(stderr_path) if stderr_file is not None else ""
@@ -430,12 +498,7 @@ def start_managed_server(*, model: str, runtime: str, binary_argv: list, model_p
         # show you why it died" -- the SAME trade finding 19 (temp
         # download dirs) already accepts elsewhere in this module.
         stderr_file.close()
-    from halo_harness.bg_run import process_start_time
-    owner_pid, owner_start = _owner_fingerprint()
-    entry = ManagedServer(model=model, runtime=runtime, pid=proc.pid, port=port, base_url=base_url,
-                           started=datetime.now(timezone.utc).isoformat(), keep=bool(keep),
-                           owner_pid=owner_pid, owner_start=owner_start,
-                           proc_start=process_start_time(proc.pid), cmdline=list(argv))
+    entry = dataclasses.replace(entry, ready=True)
     # The registry FILE is the one source of truth for "which hf:local/*
     # entry is this, for this session" -- `providers.huggingface_local_
     # resolve.resolve_local_server` reads it directly (its own fallback
@@ -445,10 +508,7 @@ def start_managed_server(*, model: str, runtime: str, binary_argv: list, model_p
     # Review fix pass (finding 2): the whole load-filter-append-save
     # sequence is now one locked transaction so a concurrent writer never
     # loses this entry (or has this entry lose one of its own).
-    with _registry_lock(state_dir):
-        entries = [e for e in load_registry(state_dir) if e.get("model") != model]
-        entries.append(dict(entry.__dict__))
-        save_registry(state_dir, entries)
+    _upsert_registry_entry(state_dir, dict(entry.__dict__))
     return entry, None
 
 
@@ -597,26 +657,26 @@ def stop_all_managed_servers_except_kept(state_dir=None) -> None:
     <model>` may stop those. An entry this process DID start but whose
     pid no longer matches the process recorded at creation
     (`_entry_process_matches`) is dropped from the registry WITHOUT being
-    signalled. The whole load-decide-terminate-save sequence is one
-    locked transaction so a concurrent writer's entry is never lost."""
+    signalled. The registry lock is held only to read the candidates and
+    to drop their rows -- never while signalling -- so a concurrent
+    writer's entry is never lost."""
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
     try:
+        # Phase 1 (locked, short): pick this process's own non-kept entries.
+        # Phase 2 (no lock held): signal them -- a slow shutdown must never
+        # outlast the lock's stale threshold and let another session's write
+        # be overwritten. Phase 3 (locked): drop just those rows from the
+        # file as it is NOW, so entries written meanwhile survive.
         with _registry_lock(state_dir):
-            entries = load_registry(state_dir)
-            remaining = []
-            for e in entries:
-                if e.get("keep"):
-                    remaining.append(e)
-                    continue
-                if not _entry_owned_by_this_process(e):
-                    remaining.append(e)
-                    continue
-                if _entry_process_matches(e):
-                    _terminate_pid(e.get("pid"))
-                # else: pid was reused by an unrelated process -- drop the
-                # stale entry without signalling it.
-            save_registry(state_dir, remaining)
+            mine = [e for e in load_registry(state_dir)
+                    if not e.get("keep") and _entry_owned_by_this_process(e)]
+        for e in mine:
+            if _entry_process_matches(e):
+                _terminate_pid(e.get("pid"))
+            # else: pid was reused by an unrelated process -- the stale
+            # entry is dropped below without signalling it.
+        drop_registry_entries(state_dir, [(e.get("model"), e.get("pid")) for e in mine])
     except Exception:
         pass

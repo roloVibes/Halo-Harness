@@ -204,6 +204,11 @@ def _host_from_dict(d: dict) -> Optional[OllamaHost]:
     if not isinstance(url, str) or not url:
         return None
     name = d.get("name") if isinstance(d.get("name"), str) and d.get("name") else url
+    try:
+        urllib.parse.urlparse(_normalize_host_url(url)).port
+    except ValueError:
+        log.debug("ollama: skipped a config.json ollama.hosts entry with an unusable url (name=%r)", name)
+        return None
     max_ctx = d.get("max_ctx")
     num_parallel_hint = d.get("num_parallel_hint")
     return OllamaHost(
@@ -616,16 +621,19 @@ def _get_json(host: OllamaHost, path: str, *, timeout: float = _READ_TIMEOUT_S,
     said something odd" both just mean "nothing to report" rather than an
     exception a background thread would have to catch anyway."""
     from halo_harness.providers.http import UpstreamConnectError, open_upstream
-    parsed = urllib.parse.urlparse(host.url)
-    hostname = parsed.hostname
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
-    tls = parsed.scheme == "https"
-    full_path = parsed.path.rstrip("/") + path
-    headers = {"Accept-Encoding": "identity", "Content-Type": "application/json"}
-    headers.update(_auth_headers(host))
-    body_bytes = json.dumps(body).encode("utf-8") if body is not None else None
+    full_path = path
     conn = None
     try:
+        # Parsed inside the try: a non-numeric port or an unbalanced IPv6
+        # bracket raises ValueError, which is one more "nothing to report".
+        parsed = urllib.parse.urlparse(host.url)
+        hostname = parsed.hostname
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        tls = parsed.scheme == "https"
+        full_path = parsed.path.rstrip("/") + path
+        headers = {"Accept-Encoding": "identity", "Content-Type": "application/json"}
+        headers.update(_auth_headers(host))
+        body_bytes = json.dumps(body).encode("utf-8") if body is not None else None
         conn = open_upstream(hostname, port, tls, connect_timeout=timeout)
         if conn.sock:
             conn.sock.settimeout(timeout)
