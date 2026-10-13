@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Callable, Optional
@@ -90,6 +92,43 @@ def _temp(prefix: str, suffix: str, text: str) -> Path:
     return Path(name)
 
 
+def _pump(proc, handle: Callable[[str], None], timeout: float) -> int:
+    """Feed the child's stdout lines to `handle` on THIS thread while a
+    helper thread does the blocking reads, so the deadline holds even when
+    the child hangs with its stdout open. Past the deadline the child is
+    killed and the code is 124."""
+    lines: "queue.Queue" = queue.Queue()
+
+    def read() -> None:
+        try:
+            for line in proc.stdout:  # type: ignore[union-attr]
+                lines.put(line)
+        except (OSError, ValueError):
+            pass
+        lines.put(None)
+
+    threading.Thread(target=read, daemon=True).start()
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            line = lines.get(timeout=max(0.0, min(0.5, deadline - time.monotonic())))
+        except queue.Empty:
+            if time.monotonic() >= deadline:
+                proc.kill()
+                proc.wait()
+                return 124
+            continue
+        if line is None:
+            break
+        handle(line)
+    try:
+        return proc.wait(timeout=max(1.0, deadline - time.monotonic()))
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        return 124
+
+
 def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Optional[Callable[[dict], None]] = None,
              max_budget_usd: Optional[float] = None, max_turns: int = 40, registered=None, entries: Optional[dict] = None,
              env: Optional[dict] = None, runner: Optional[Callable] = None, timeout: int = 1800,
@@ -146,13 +185,7 @@ def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Option
         else:
             proc = subprocess.Popen(cmd, cwd=str(project.path), env=child_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                     encoding="utf-8", errors="replace")
-            try:
-                for line in proc.stdout:  # type: ignore[union-attr]
-                    handle(line)
-                code = proc.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                code = 124
+            code = _pump(proc, handle, timeout)
     finally:
         for p in (skill_path, mcp_path):
             try:

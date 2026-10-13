@@ -128,7 +128,7 @@ def pull(req):
     client = _client(req.state_dir)
     try:
         org = pull_reporting_lines(client, str(req.body.get("company_id") or ""), str(req.body.get("lineup") or ""),
-                                   cwd_halo=req.cwd, state_dir=req.state_dir, project=bool(req.body.get("project")))
+                                   cwd_halo=req.cwd, state_dir=req.state_dir, project=True if req.body.get("project") else None)
         return 200, {"org": org}
     except (ValueError, PaperclipError) as e:
         return 422, {"error": str(e), "problems": [str(e)]}

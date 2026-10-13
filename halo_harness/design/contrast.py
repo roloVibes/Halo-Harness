@@ -10,6 +10,7 @@ other side of the pair (a translucent background over white).
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Optional
 
@@ -61,13 +62,18 @@ def luminance(rgb: tuple) -> float:
 
 def ratio(a, b) -> float:
     """The WCAG contrast ratio of two colours (strings or tuples), 1.0 to 21.0, two decimals."""
+    return round(raw_ratio(a, b), 2)
+
+
+def raw_ratio(a, b) -> float:
+    """The same ratio, unrounded: what the pass/fail thresholds are tested on."""
     ca, cb = parse_color(a), parse_color(b)
     if ca is None or cb is None:
         raise ValueError(f"not a colour: {a if ca is None else b!r}")
     cb = _over(cb, (255, 255, 255, 1.0))
     ca = _over(ca, cb)
     hi, lo = sorted((luminance(ca), luminance(cb)), reverse=True)
-    return round((hi + 0.05) / (lo + 0.05), 2)
+    return (hi + 0.05) / (lo + 0.05)
 
 
 def role(name: str) -> str:
@@ -106,8 +112,13 @@ def pairs_for(tokens: dict) -> list:
     rows = []
     for fn, fv in fgs.items():
         for bn, bv in bgs.items():
-            r = ratio(fv, bv)
-            rows.append({"fg": fn, "bg": bn, "fg_value": fv, "bg_value": bv, "ratio": r, "aa": r >= 4.5, "aaa": r >= 7.0, "aa_large": r >= 3.0})
+            raw = raw_ratio(fv, bv)
+            shown = round(raw, 2)
+            for limit in (3.0, 4.5, 7.0):
+                if shown >= limit > raw:  # rounding must not display a pass the pair does not have
+                    shown = math.floor(raw * 100) / 100
+            rows.append({"fg": fn, "bg": bn, "fg_value": fv, "bg_value": bv, "ratio": shown,
+                         "aa": raw >= 4.5, "aaa": raw >= 7.0, "aa_large": raw >= 3.0})
     rows.sort(key=lambda x: (x["aa"], x["ratio"]))  # failing pairs first, the weakest at the top
     return rows[:MAX_PAIRS]
 

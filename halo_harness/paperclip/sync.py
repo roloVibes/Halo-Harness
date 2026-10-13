@@ -103,9 +103,15 @@ def sync_lineup(client: Paperclip, company_id: str, lineup: str, *, cwd: Path, c
     return [existing[slot_of(e)] for e in entries if slot_of(e) in existing]
 
 
-def pull_reporting_lines(client: Paperclip, company_id: str, lineup: str, *, cwd_halo=None, state_dir=None, project=False) -> dict:
-    """Write the company's reporting lines into the lineup's org.positions."""
-    from halo_harness.teams_yaml import load_team_template_raw, save_team_template
+def pull_reporting_lines(client: Paperclip, company_id: str, lineup: str, *, cwd_halo=None, state_dir=None,
+                         project: Optional[bool] = None, out=None) -> dict:
+    """Write the company's reporting lines into the lineup's org.positions.
+    The file is written where the lineup was loaded from (a project lineup
+    stays a project file, a user lineup a user file); a bundled template
+    gets a user-scope copy, and `out` is told so. `project=True` forces
+    the project scope."""
+    from halo_harness.teams_yaml import (load_team_template_raw, project_teams_dir, save_team_template,
+                                         user_teams_dir)
     raw = load_team_template_raw(lineup, cwd=cwd_halo, state_dir=state_dir)
     if raw is None:
         raise ValueError(f"no lineup named {lineup!r}")
@@ -125,9 +131,17 @@ def pull_reporting_lines(client: Paperclip, company_id: str, lineup: str, *, cwd
         positions.append(pos)
     clean = {k: v for k, v in raw.items() if not str(k).startswith("_")}
     clean["org"] = {**(clean.get("org") or {}), "positions": positions}
-    ok, problems = save_team_template(lineup, clean, cwd=cwd_halo, state_dir=state_dir, project=project)
+    source = raw.get("_source")
+    to_project = bool(project) if project is not None else source == "project"
+    ok, problems = save_team_template(lineup, clean, cwd=cwd_halo, state_dir=state_dir, project=to_project)
     if not ok:
         raise ValueError("; ".join(problems))
+    if out is not None:
+        dest = (project_teams_dir(cwd_halo) if to_project else user_teams_dir(state_dir)) / f"{lineup}.yaml"
+        if source == "template" and not to_project:
+            print(f"{lineup} is a bundled template: created your own copy at {dest} (it now shadows the shipped one)", file=out)
+        else:
+            print(f"wrote {dest}", file=out)
     return clean["org"]
 
 
