@@ -138,7 +138,7 @@ def _cmd_warm(argv: list) -> int:
     `--keep-alive 0` drops them right after, `--keep-alive -1` forever).
     With no model args, warms every `ol:` ref in the roles table plus the
     default `model` when it is one."""
-    from halo_harness.providers.ollama import _get_json, resolve_ollama_host
+    from halo_harness.providers.ollama import _get_json, ollama_names_match, resolve_ollama_host
     parser = argparse.ArgumentParser(
         prog="halo local warm",
         description="Pre-load local models so the first real call skips the cold-load.")
@@ -147,6 +147,13 @@ def _cmd_warm(argv: list) -> int:
     parser.add_argument("--keep-alive", default="30m",
                         help="How long weights stay resident after warming (default 30m; -1 = forever)")
     args = parser.parse_args(argv)
+    # Ollama reads a bare JSON number as seconds (negative = forever) but a
+    # string only with a unit ("30m"), so "-1" / "0" / "3600" go out as numbers.
+    keep_alive = args.keep_alive
+    try:
+        keep_alive = int(keep_alive)
+    except ValueError:
+        pass
     host = resolve_ollama_host(args.host)
     if host is None:
         print("halo local warm: no Ollama host configured -- set ollama.hosts in ~/.halo/config.json")
@@ -166,10 +173,10 @@ def _cmd_warm(argv: list) -> int:
     # Check what is actually resident first (/api/ps): already-loaded
     # models are reported, not re-paid.
     ps = _get_json(host, "/api/ps") or {}
-    resident = {m.get("name") or m.get("model") for m in ps.get("models", [])}
+    resident = [m.get(k) for m in ps.get("models", []) if isinstance(m, dict) for k in ("name", "model")]
     failed = []
     for name in models:
-        if name in resident:
+        if any(ollama_names_match(name, r) for r in resident):
             print(f"  {name}: already resident -- nothing to do")
             continue
         # A tiny 1-token chat forces the load; the fit ctx is not needed
@@ -177,13 +184,13 @@ def _cmd_warm(argv: list) -> int:
         body = {"model": name, "stream": False,
                 "messages": [{"role": "user", "content": "hi"}],
                 "options": {"num_predict": 1},
-                "keep_alive": args.keep_alive}
+                "keep_alive": keep_alive}
         out = _get_json(host, "/api/chat", method="POST", body=body, timeout=180.0)
         if out is None:
             failed.append(name)
-            print(f"  {name}: FAILED to load (host reachable? model pulled?)")
+            print(f"  {name}: FAILED to load (host reachable? model pulled? keep-alive syntax is 30m, 24h or -1)")
         else:
-            print(f"  {name}: warmed (keep_alive={args.keep_alive})")
+            print(f"  {name}: warmed (keep_alive={keep_alive})")
     if failed:
         print(f"halo local warm: {len(failed)} model(s) failed: {', '.join(failed)}")
         return 1

@@ -66,7 +66,7 @@ def read_fit_inputs_for_path(path, *, fmt: str) -> "tuple[dict, Optional[str], O
         model_info = safetensors_model_info_for_folder(path) or {}
         weight_bytes = sum(p.stat().st_size for p in Path(path).glob("*.safetensors") if p.is_file())
         return model_info, None, (weight_bytes or None)
-    except OSError:
+    except Exception:
         log.debug("local_fit: read_fit_inputs_for_path failed for %r (%s)", path, fmt, exc_info=True)
         return {}, None, None
 
