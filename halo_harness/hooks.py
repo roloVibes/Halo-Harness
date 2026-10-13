@@ -221,15 +221,24 @@ def if_rule_matches(if_rule: Optional[str], tool_name: Optional[str], tool_input
     if rule.kind == "invalid":
         log.debug("hook `if` rule %r is invalid (%s) -- treating as no match", if_rule, rule.error)
         return False
-    tool_input = tool_input or {}
+    tool_input = tool_input if isinstance(tool_input, dict) else {}
+    if tool_name == "Task":  # same canonical name the permission engine uses
+        tool_name = "Agent"
+    command = tool_input.get("command")
+    command = command if isinstance(command, str) else ""
     if tool_name == "Bash" and rule.tool == "Bash" and rule.kind in ("exact", "prefix", "glob"):
-        return bash_deny_or_ask_matches(tool_input.get("command", ""), [rule]) is not None
+        return bash_deny_or_ask_matches(command, [rule]) is not None
     if tool_name == "PowerShell" and rule.tool == "PowerShell" and rule.kind in ("exact", "prefix", "glob"):
-        return powershell_deny_or_ask_matches(tool_input.get("command", ""), [rule]) is not None
+        return powershell_deny_or_ask_matches(command, [rule]) is not None
     engine = PermissionEngine(cwd=cwd)
-    if rule.kind == "path":
-        return engine._path_rule_hit([rule], tool_name, tool_input, tool, action="ask") is not None
-    return engine._rule_matches(rule, tool_name, tool_input, tool, action="ask")
+    try:
+        if rule.kind == "path":
+            return engine._path_rule_hit([rule], tool_name, tool_input, tool, action="ask") is not None
+        return engine._rule_matches(rule, tool_name, tool_input, tool, action="ask")
+    except (TypeError, AttributeError, ValueError, OSError) as e:
+        # a malformed tool_input field: the gate does not match (fails closed)
+        log.debug("hook `if` rule %r could not be evaluated (%s) -- treating as no match", if_rule, e)
+        return False
 
 
 # =============================================================================
