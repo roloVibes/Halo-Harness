@@ -8,6 +8,108 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.0.4.0] - unreleased
+
+### Media: ComfyUI is the eighth craft app, and media models have their own inventory
+
+- `halo media init --url URL` registers the `mcp__comfyui__*` server for every
+  session, Design turn and org position, and stores `comfy.url`. ComfyUI can
+  run on another machine: every output is fetched over HTTP into the project.
+- Tools: `comfy_models`, `comfy_workflows`, `comfy_object_info`,
+  `comfy_inspect`, `comfy_run` (`set` by node id, title or key; `only` to run
+  one stage), `comfy_status`, `comfy_fetch`. Workflows saved in the ComfyUI
+  editor run by name; UI-format graphs, subgraphs included, are converted to
+  API format automatically.
+- Two starter workflows ship: `text-to-image-qwen` (Qwen Image 2.1) and
+  `image-to-video-wan22` (Wan 2.2 i2v with the 4-step LoRA);
+  `--install-workflows` saves them into ComfyUI's workflow browser.
+- `halo media doctor [--smoke]` shows version, GPU, model folders, saved
+  workflows, starter readiness and the registered entry; `--smoke` renders a
+  64x64 test image. `halo media inspect | models | workflows | serve`.
+- Halo Design lists ComfyUI (stills to `render.png`, clips to `render.mp4`)
+  and `halo design doctor --probe` checks it.
+- `halo models --media [image|video|audio|all]` lists the ComfyUI media
+  models by what they produce (image-gen, video-gen, upscale, tts) with size,
+  quantization and family, then the supporting LoRAs, VAEs and encoders;
+  `--refresh` rescans into `~/.halo/media-models.json`. `halo models
+  --best-for image-gen|video-gen|audio-gen|upscale` ranks them. Media models
+  stay out of the LLM picker and the role and org tables; the Design chooser
+  shows them as "Media models (ComfyUI)". docs/COMFYUI.md.
+
+### Flows: a brief through roles, an org, a render you confirm, posts and metrics
+
+- `halo flow new|run|resume|status|stop|report|answer|runs|validate|templates
+  |posts|metrics`. A flow file walks a brief through intake, a lineup's
+  roles, an org, a ComfyUI render into a design-project artboard, a human
+  confirm (accept / redo with an instruction / stop, answered from any
+  terminal or from Studio), posting and metrics. Runs are resumable,
+  budgeted and stoppable, and live under `~/.halo/flows/runs/<id>/`; the
+  artifacts (renders, posts.json, metrics.jsonl) live in the design project.
+- The shipped `social-post` template and the built-in `marketing` org
+  (Strategist, Researcher, Copywriter, an approval-gated Art Director,
+  Publisher, Analyst). The Copywriter returns one JSON block with the text
+  per platform (youtube, instagram, x, tiktok).
+- Posting and metrics go through the Postiz CLI with your `POSTIZ_API_KEY`:
+  `post` is a dry run until the flow says `live: true`; live posts upload
+  the media once and create one post per platform; `metrics` samples
+  `analytics:post` into `metrics.jsonl`, `halo flow run --watch` keeps
+  polling on the step's `every`, `halo flow metrics <run>` samples once,
+  `halo postiz doctor` checks the CLI and credentials. docs/FLOWS.md.
+- Org approval gates now stay live at every depth of an org tree; a position
+  two levels down no longer falls back to the stdin prompt.
+
+### Studio: the Flow section, the Media panels, answering a live session
+
+- Flow (Alt+5, `halo studio --mode flow`, `/studio flow`): a Start view
+  (brief, platforms, budget, project, assets, model; Run, Run with --yes,
+  Dry run; what a flow does; the past runs) until a run is open, then eight
+  panels: Intake, Workflow (the steps as a graph; the confirm step is a
+  diamond that lights amber while it waits on you), Renders (the render
+  inline, Confirm / Redo with an instruction / Stop), Step, Posts, Metrics,
+  Log, Report, live from the `flow_*` feed frames.
+- The Media panels: ComfyUI status with the VRAM bar and Scan, models by
+  image / video / audio / upscale, workflows and their inputs, a quick render
+  into a design project. They are strips in Flow and pop out in Design from
+  the palette; while ComfyUI does not answer they become one card that says
+  how to fix it.
+- The rail's live sessions show their status, and a session waiting on an
+  org approval, a permission or a plan can be answered from Studio.
+  `halo studio --mode orchestra|flow` and `/studio orchestra|flow` open
+  those sections directly.
+- Routes: `/api/flow/...` (templates, runs, start, events, answer, assets,
+  stop, resume, report, posts, metrics), `/api/media/...` (status, models,
+  scan, workflows, inputs, render), `/api/sessions` and
+  `/api/sessions/<sid>/command` (answer, interrupt, steer, submit over the
+  session's control socket). Feed frames `flow_*` and `media_render`.
+  Design files serve `.mp4` as `video/mp4`.
+
+### Studio: clarity (the owner's live review)
+
+- One header: Roles, Org and Design are framed in embedded mode. Their own
+  logo and mode buttons are gone, what remains is a slim toolbar, their
+  status line moves to the shell's status bar, their theme follows the
+  shell's, and R / O / D switch the shell's section.
+- Panels are usable straight away: a click anywhere focuses a panel (a ring;
+  an open Inspector follows it) and panels open on their full face. The
+  title bar is the title, a one-line "about", one Compact / Expand toggle
+  and a "..." menu (Float, Collapse, Reset this panel, Settings, Help).
+- Every panel has help: `?` on a focused panel opens its about line and its
+  how-to lines; the Inspector shows them too.
+- "How this works" for each section (Orchestra, Roles, Org, Design, Flow):
+  numbered steps, the panels and the keys, from the `?` beside the tabs,
+  the palette (Help: how X works) or `?`, shown once as a first-visit
+  welcome. The same copy is in docs/STUDIO.md.
+- Orchestra opens on a Start view when no run is open: the goal form with
+  examples, the five steps, Run, the past runs; the runs are also in the
+  rail. The Goal panel shows every field and Run at its default size.
+- The Roles and Org canvases group their cards in labelled boxes: by role in
+  Roles; by manager in Org with Leadership on top. Drag a box to move the
+  group, drop a card into a box to join it, `A` lays the groups out, and the
+  toolbar's Groups button hides them.
+- Fixed: clicking a panel's title bar no longer marks the layout as yours;
+  the flow run list is newest first even for two runs started in the same
+  second; `halo --help` test is width-independent.
+
 ## [3.0.3.0] - 2026-10-14
 
 ### The Orchestra: five agents write one file at once and nothing is lost
