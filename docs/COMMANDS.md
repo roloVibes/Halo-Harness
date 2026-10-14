@@ -2739,6 +2739,8 @@ halo flow stop <run> [--reason T]                               stop between ste
 halo flow report <run> [--json]                                 the run's report
 halo flow answer <run> <step> accept|redo "<text>"|stop         answer a waiting gate (from any terminal)
 halo flow runs                                                  every run, oldest first
+halo flow posts <run>                                           the run's posts: dry run or live, post id, schedule, text
+halo flow metrics <run> [--days N]                              sample the run's live posts' analytics once; print and total them
 ```
 
 Halo 3.0.4.0: flows. A flow file walks an input through steps: `intake` (the
@@ -2746,13 +2748,26 @@ form; `--brief`, `--input`, `--asset` fill it), `roles` (one call per role of
 a lineup), `org` (an org run; an approval-gated position becomes a gate),
 `render` (a ComfyUI workflow into an artboard of the design project), `confirm`
 (a human gate over the render: accept, redo with an instruction, stop), `post`
-(dry run into the project's `posts.json`), `metrics` (a stub until Postiz) and
+(dry run into the project's `posts.json`; `live: true` posts through the Postiz
+CLI), `metrics` (samples the live posts' analytics into `metrics.jsonl`) and
 `done`. `run` makes `~/.halo/flows/runs/<run-id>/`, prints one line per step,
 the gate prompt when one opens, then the report; exit 0 finished, 1 stopped.
-`--yes` accepts every gate. `--model REF` pins every role and org position
+`--yes` accepts every gate. `--watch` also keeps sampling the live posts'
+metrics on the metrics step's `every` after the run. `--model REF` pins every role and org position
 (default: the lineup's models). `--set render.width=512` overrides a step's
 `set` value. RUN is a run id, a unique prefix, a folder or `last`. See
 [FLOWS.md](FLOWS.md).
+
+## `halo postiz`
+
+```sh
+halo postiz doctor        the postiz CLI on PATH, the credentials (POSTIZ_API_KEY or ~/.postiz/credentials.json; never the key), the connected integrations and which of youtube, instagram, x, tiktok have one; exit 1 when the CLI or the credentials are missing
+```
+
+Halo 3.0.4.0: flows post and measure through the Postiz CLI (`npm i -g
+postiz`, then `postiz auth:login` or `POSTIZ_API_KEY` in the env file). Posts
+are dry runs until a flow's post step says `live: true`. See
+[FLOWS.md](FLOWS.md#posting-with-postiz).
 
 ## `halo orchestra`
 

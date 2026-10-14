@@ -4,6 +4,8 @@
 flags and walks it with the real adapters, printing one line per finished
 step (every event with --watch), the gate prompt when a human gate opens,
 and the report at the end. Exit 0 when the run finished, 1 when it stopped.
+With --watch and live posts, it then keeps sampling their metrics on the
+metrics step's `every` (flows/watch.py).
 """
 
 from __future__ import annotations
@@ -80,6 +82,12 @@ def drive(run_dir, args) -> int:
         print(f"\ninterrupted; continue with: halo flow resume {run_dir.name}", file=sys.stderr)
         return 130
     print(format_report(report))
+    if args.watch and report.get("status") == "finished":
+        from halo_harness.flows.watch import watch_metrics
+        try:
+            watch_metrics(run_dir, say=lambda t: print(t, flush=True))
+        except KeyboardInterrupt:
+            print("metrics polling ended", file=sys.stderr)
     return 0 if report.get("status") == "finished" else 1
 
 

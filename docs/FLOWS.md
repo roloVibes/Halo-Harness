@@ -5,8 +5,9 @@ the result to an org (the marketing org researches and plans), passes the
 org's image prompt to ComfyUI, shows you the render, and on your yes writes
 the posts and starts the metrics. Every artifact lands in a design project
 (`~/.halo/design/<slug>/`, the same folder Halo Design and Studio's Design
-mode open). Posting and metrics go through Postiz in a later round; until
-then the post step is a dry run and the metrics step a stub.
+mode open). Posting and metrics go through the Postiz CLI; every post is a
+dry run until you set `live: true` on the flow's post step (see "Posting with
+Postiz" below).
 
 ```sh
 halo media init --url http://<comfy-host>:8188      # once: the ComfyUI server
@@ -89,8 +90,8 @@ and step budgets adding up to more than the run budget.
 | `org` | runs the org with the goal and the other inputs; its budget is min(the org's, the step's, what is left of the run's) | `{text, cost_usd, positions: {title: {text, prompt?}}}` |
 | `render` | builds the workflow with `set` (refs resolved, `--set` on top), queues it, waits, fetches every output over HTTP into an artboard | `{artboards: [{id, kind, path, prompt_id}], prompt_id, prompt, workflow, set}` |
 | `confirm` | the human gate over the render | `{accepted: [paths], artboards, rounds}` |
-| `post` | `live: false`: one dry-run entry per platform in `<project>/posts.json`; `live: true` stops (Postiz arrives in R4) | `{posts, dry_run, path}` |
-| `metrics` | logs one `metric` line with its schedule | `{}` |
+| `post` | `live: false`: one dry-run entry per platform in `<project>/posts.json`, nothing spawned; `live: true`: uploads the media once and runs `postiz posts:create` per platform | `{posts, dry_run, path}` |
+| `metrics` | samples `analytics:post` for the run's live posts into `<project>/metrics.jsonl` (a dry run logs "dry run: no metrics") | `{samples, every, days, path}` |
 | `done` | marks the end | `{}` |
 
 A position of the org whose tools include `mcp__comfyui__*` (the Art
@@ -145,8 +146,9 @@ re-runs that position with the instruction. `--yes` accepts every gate, and
 - `report.json` -- `{run, name, project, project_path, status, stop_reason,
   created, finished, elapsed_s, cost_usd, budget_usd, steps: [{id, kind,
   state, cost_usd, elapsed_s, rounds, error}], artboards: [{step, id, kind,
-  path, prompt_id}], accepted, posts: [{platform, dry_run, chars, media}],
-  metrics: {notes, summary}}`.
+  path, prompt_id}], accepted, posts: [{platform, dry_run, chars, media,
+  post_id, scheduled_at, error}], metrics: {notes, samples, posts, totals:
+  {views, likes, comments, shares}, summary}}`.
 
 The run stops (status `stopped`, a reason in the report) when its budget is
 spent, when `stop.json` appears, when a gate answers stop, or when a step
@@ -156,12 +158,71 @@ same artboard, a gate left waiting opens again.
 
 ## Posts and metrics
 
-`posts.json` and `metrics.jsonl` sit beside `design.json` in the project.
-A dry-run post is `{platform, text, media, dry_run: true, argv, run, step,
-ts}`; `argv` is the Postiz command that would publish it (`postiz
-posts:create -c <text> -m <media> -i <integration id>`). The text is the
-Copywriter's block for that platform (a heading per platform), else the
-whole text.
+`posts.json` and `metrics.jsonl` sit beside `design.json` in the project
+(`Project.posts()` and `Project.metrics(limit=None)` read them). A post entry
+is `{platform, text, title?, media, dry_run, argv, run, step, ts}`; a live one
+adds `{integration_id, media_urls, post_id, scheduled_at}`, a failed one
+`{error}`. A metrics line is `{ts, post_id, platform, days, metrics: <the
+raw Postiz answer>, run, step}`.
+
+The text of each platform comes from the Copywriter position. The marketing
+org asks it for one fenced JSON block, `{"youtube": {"title", "text"},
+"instagram": {"text"}, "x": {"text"}, "tiktok": {"text"}}` (keys may be
+`twitter`, `ig`, `tik tok`; a value may be a plain string; `caption` and
+`description` count as `text`). Without that block the text is split by
+platform headings (`X:`, `## Instagram`), else every platform gets the whole
+text.
+
+## Posting with Postiz
+
+Halo never talks to the social platforms itself: it runs the Postiz CLI with
+your API key, for youtube, instagram, x and tiktok.
+
+```sh
+npm i -g postiz                      # the CLI
+postiz auth:login                    # or put POSTIZ_API_KEY=... in the env file (~/.config/halo/env)
+halo postiz doctor                   # the CLI, the credentials (never the key), the connected integrations
+```
+
+`POSTIZ_API_URL` points the CLI at a self-hosted Postiz. Halo hands the key
+to the CLI by name only; it is never logged and never written to
+`posts.json`, `metrics.jsonl`, `events.jsonl` or the report.
+
+**Dry run is the default.** With `live: false` (or no `live`) the post step
+writes one `dry_run: true` entry per platform, with the `postiz posts:create`
+command that would publish it, and spawns nothing. Look at them with
+`halo flow posts <run>`. To post for real, set `live: true` on the post step
+(`halo flow validate` warns when no credentials are found). A live post step:
+
+1. stops the run with a one-line reason when the `postiz` CLI is not on PATH
+   or no credentials exist;
+2. matches each requested platform to a connected, enabled integration (the
+   integration's `identifier`: `youtube`, `instagram`, `x` or `twitter`,
+   `tiktok`);
+3. uploads each media file once (`postiz upload`, the returned URL is what
+   `-m` takes) and runs `postiz posts:create -c <text> -m <urls> -s <when> -i
+   <integration> --settings <json>` per platform; `when` is the step's
+   `when:` (ISO time) or one minute from now. The settings carry YouTube's
+   title, TikTok's `DIRECT_POST` and Instagram's `post_type`;
+4. records `post_id` and `scheduled_at` as each post lands. A platform that
+   fails (no integration, a disabled one, a CLI error with its stderr tail)
+   is recorded with its `error` and stops the run once the others went out;
+   `halo flow resume <run>` posts only the platforms still missing.
+
+**Metrics.** The `metrics` step samples `postiz analytics:post <post id> -d
+<days>` for each live post of the run into `metrics.jsonl`, once when the run
+reaches it. `every` (`30m`, `6h`, `1d`) and `days` set the cadence:
+`halo flow run <name> --watch` (or `halo flow resume <run> --watch`) keeps
+sampling on that interval until `days` have passed since the first post,
+`halo flow stop <run>` or Ctrl-C. `halo flow metrics <run> [--days N]` samples
+once on demand and prints the totals. The report totals the latest sample of
+each post (views, likes, comments, shares, read from the labels Postiz
+returns: Views/Impressions, Likes, Comments, Shares/Retweets). Dry-run posts
+have no metrics: the step says "dry run: no metrics".
+
+On Windows the npm CLI is a `postiz.cmd` shim, and cmd.exe can cut an
+argument at a line break or mangle a `&`; live posting of multi-line texts is
+meant for Linux and macOS hosts.
 
 ## In Studio
 
@@ -189,11 +250,9 @@ intake step then finds the files in the project's `assets/` folder.
 
 ## For the next rounds
 
-R4 (Postiz) fills `post` with `live: true` (the `argv` above, run for real,
-the post ids into `posts.json`) and `metrics` (one line per sample into
-`metrics.jsonl` on the `every`/`days` schedule). R5 (Studio) draws the run
-from `flow.json` and `events.jsonl` (or the `flow_*` feed events) and
-answers gates by writing the answer file. The runner's seams
+Studio draws the run from `flow.json` and `events.jsonl` (or the `flow_*`
+feed events) and answers gates by writing the answer file; its Posts and
+Metrics panels read `Project.posts()` and `Project.metrics()`. The runner's seams
 (`halo_harness/flows/adapters.py`):
 
 ```python
