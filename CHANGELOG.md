@@ -8,6 +8,34 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.0.2.2] - unreleased
+
+The follow-ups the 3.0.1.0 review fix pass left open, closed at the source.
+
+- Halo Design turns send the prompt to the child on stdin instead of the
+  command line, so a very long design prompt no longer hits the OS argument
+  limit; it is capped at 1 MB.
+- `/clear` on a `cx:` (Codex) session now closes the Codex bridge, so the
+  next turn starts a fresh thread instead of continuing the old one.
+- `halo remote install` runs `gpg --verify` without your provider API keys in
+  its environment.
+- An error in a background task inside any dialog (setup wizard, init tabs,
+  MCP status, tasks panel, model picker, local and Ollama status, lineup and
+  bio editors) now shows an error notice and the TUI keeps running.
+- Studio Org-mode layouts are saved as `_pc-<company id>.json`, so they
+  persist on Windows; a layout saved under the old `pc:<id>.json` name on
+  Linux or macOS moves to the new name the first time it is read.
+- The role picker (`u` in the model picker) shows why a model cannot take a
+  role and stays open, instead of closing as if the role had been set.
+- `halo update` on the stable channel compares an install made from the
+  release archive with that release's `checksums.txt` and prints
+  `installed archive: match` (or `mismatch`, `no-hash`, `no-checksums`); a
+  git or checkout install has no local artifact to compare, and the docs say
+  so.
+- Maintainers: re-running `tools/ingest_model_table.py` keeps
+  `anthropic_model_capabilities`, `decision_only_name_patterns`, `edit_hints`
+  and hand-added rows in `model_table.json`.
+
 ## [3.0.2.1] - 2026-10-13
 
 - On Linux and macOS, /undo, /redo and /rewind now snapshot and restore a
