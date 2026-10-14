@@ -447,7 +447,8 @@ tool, so check each tool's own docs.
 | [docs/ROLES.md](docs/ROLES.md) | Roles and the role table |
 | [docs/GOVERNOR.md](docs/GOVERNOR.md) | The Governor: shared per-host rate limiting, failover and lanes |
 | [docs/REVIEW.md](docs/REVIEW.md) | `/review` and `halo review` |
-| [docs/REMOTE.md](docs/REMOTE.md) | Remote control over Signal |
+| [docs/REMOTE.md](docs/REMOTE.md) | The per-session control socket, its agent-level commands, and remote control over Signal |
+| [docs/FLEET.md](docs/FLEET.md) | Fleet (3.0.5.0): what each session and agent exposes to Studio, and the controls |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | "Is it frozen?", GLM pauses, copy and paste, connect timeouts |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the pieces fit together |
 | [docs/MEDIA.md](docs/MEDIA.md) | How the front-page pictures are made and regenerated |

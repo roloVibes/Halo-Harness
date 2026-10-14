@@ -43,6 +43,8 @@ from halo_harness import events
 from halo_harness.config.paths import env_compat
 from halo_harness.agent.planmode import PLAN_MODE_NOTE, ensure_plan_file, write_plan
 from halo_harness.agent.jobs import JobRegistry
+from halo_harness.agent import agent_inbox as _fleet_gate
+from halo_harness.agent import agent_hooks as _agent_tree
 from halo_harness.agent.subagent import AgentRuntime
 from halo_harness.agent.compact import (
     CHARS_PER_TOKEN, build_files_read_snapshot, build_summary_instruction, resolve_knobs, select_verbatim_tail,
@@ -5288,12 +5290,18 @@ class Session:
         # -- they live exactly as long as this session does); every event
         # the turn emits is then observed for `on: event` triggers.
         self._arm_team_scheduler_once()
+        # Halo 3.0.5.0 (Fleet): the session's live agent tree sees every
+        # event THIS session produced (a child's own are tagged later).
+        _agent_tree.turn_started(self, text)
         try:
             for ev in self._turn_inner(text, images=images):
                 self._timeline.record_turn_event(ev)
                 self._observe_team_triggers(ev)
+                if not ev.agent_id:
+                    _agent_tree.observe(self, ev)
                 yield ev
         finally:
+            _agent_tree.turn_ended(self)
             record = self._timeline.end_turn()
             if record is not None:
                 try:
@@ -5599,6 +5607,14 @@ class Session:
         yield from self._apply_pending_agent_notices(turn_no)
         yield from self._apply_pending_job_notices(turn_no)
         while True:
+            # Halo 3.0.5.0 (Fleet): before every model call -- hold while
+            # paused, end here when stopped from Studio, else apply the
+            # agent's steer inbox (agent/agent_inbox.py).
+            if (yield from _fleet_gate.before_model(self, turn_no)):
+                yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no,
+                                     cost_usd=self.cost_meter.total_usd if self.cost_meter.has_cost_data else None)
+                yield events.turn_done(turn=turn_no, reason="interrupted")
+                return
             if self.max_turns is not None and model_calls >= self.max_turns:
                 # H5 scope F item 9 (OpenCode Appendix H): inject
                 # MAX_STEPS_PROMPT as a snapshot and give the model ONE more
@@ -7401,6 +7417,18 @@ class Session:
         # documents that invariant instead of silently tolerating a future
         # mismatch.
         for i, (tu, outcome) in enumerate(zip(tool_use_blocks, repair_outcomes, strict=True)):
+            # Halo 3.0.5.0 (Fleet): before every tool call -- hold while
+            # paused (an Esc ends the hold and is seen just below); a stop
+            # (or a redirect) leaves the rest of this round unrun.
+            _fleet = _fleet_gate.before_tool(self)
+            if _fleet is not None:
+                yield from _abandon_queued(_fleet[0])
+                yield from self._synthesize_unrun_tool_results(
+                    turn_no, tool_use_blocks[i:], ctx.session_dir, reason=_fleet[0])
+                if _fleet[1]:
+                    return True
+                break
+
             if self.abort.is_set():
                 # review finding 2: nothing FURTHER starts once
                 # interrupted -- a call already dispatched (solo, or
@@ -7675,6 +7703,10 @@ class Session:
             # must not start the deferred batch either.
             yield from _abandon_queued("Tool call interrupted by user")
             return True
+        _fleet = _fleet_gate.before_tool(self) if (pending_batch or agent_batch) else None
+        if _fleet is not None:  # 3.0.5.0: a stop or redirect that landed after the last call was queued
+            yield from _abandon_queued(_fleet[0])
+            return _fleet[1] or end_turn
         if pending_batch:
             _dispatch_pending_batch()
             yield from self._fire_post_tool_batch(turn_no, pending_batch)

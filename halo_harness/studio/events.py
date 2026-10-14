@@ -4,7 +4,7 @@
 `remote/registry.py`) every `poll_s` seconds and attaches one daemon thread
 per live session: a `remote.client.ControlClient` (1 s timeout on every call)
 that sends `subscribe` and then reads `next_event`. Each frame becomes
-`{session_id, event, data, turn, agent_id, ts}` and is copied into every
+`{session_id, harness, event, data, turn, agent_id, ts}` (kinds: feed_kinds.py) and is copied into every
 browser's bounded queue (512 frames, the oldest dropped first). Attaching and
 detaching a session publish a synthesized `sessions` frame with the public
 fields of every attached session (never its endpoint or token). A pump that
@@ -25,17 +25,12 @@ import time
 from typing import Optional
 from urllib.parse import parse_qs, urlsplit
 
+from halo_harness.studio.feed_kinds import DEFAULT_KINDS, PUBLIC_FIELDS  # noqa: F401  (re-exported)
+
 QUEUE_MAX = 512
 PING_S = 15.0
 RETRY_S = 10.0
 CALL_TIMEOUT_S = 1.0
-DEFAULT_KINDS = ("user_message", "message_start", "message_end", "text_chunk", "tool_use_start", "tool_result",
-                 "tool_progress", "permission_request", "question", "plan_review", "approval_request", "todos",
-                 "status", "error", "turn_done", "subagent_start", "subagent_end", "subagent_queued",
-                 "subagent_progress", "notification", "phase", "compaction", "governor", "remote_attached",
-                 "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
-                 "flow_state", "flow_step", "flow_gate", "flow_post", "flow_metric", "flow_report", "media_render")
-PUBLIC_FIELDS = ("session_id", "title", "mode", "kind", "cwd", "started", "pid")
 
 
 class BrowserQueue:
@@ -178,8 +173,9 @@ class EventBridge:
             while not stop.is_set() and not self._stop.is_set():
                 ev = client.next_event(CALL_TIMEOUT_S)
                 if ev is not None:
-                    self.publish({"session_id": sid, "event": ev.get("event"), "data": ev.get("data"),
-                                  "turn": ev.get("turn"), "agent_id": ev.get("agent_id"), "ts": ev.get("ts") or time.time()})
+                    self.publish({"session_id": sid, "harness": ev.get("harness"), "event": ev.get("event"),
+                                  "data": ev.get("data"), "turn": ev.get("turn"), "agent_id": ev.get("agent_id"),
+                                  "ts": ev.get("ts") or time.time()})
         except Exception:  # a dead or closed socket: detach (and cool down, below)
             pass
         finally:

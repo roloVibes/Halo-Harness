@@ -8,16 +8,20 @@ an `events.EVENT_KINDS` name or `text_chunk` (coalesced `text_delta`s).
 
 `CMDS` is the exact command set. Each maps onto one `SessionHandle` method
 (remote/handle.py); nothing here touches a Controller or Session directly.
+The agent-level commands (`agents`, `agent_tail`, `agent_steer`,
+`agent_stop`, `pause`, `resume`, `shutdown`, `agent_follow`; Halo 3.0.5.0
+Fleet) live in remote/agent_control.py; old clients see the same wire.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from halo_harness.remote.agent_control import AGENT_CMDS
 from halo_harness.remote.base import HandleError
 
 CMDS = ("status", "submit", "steer", "interrupt", "answer", "model", "effort", "mode", "slash", "tail",
-        "subscribe", "unsubscribe", "ping", "note")
+        "subscribe", "unsubscribe", "ping", "note") + AGENT_CMDS
 ANSWER_KINDS = ("permission", "question", "plan", "approval")
 TAIL_DEFAULT = 20
 TAIL_MAX = 200
@@ -110,6 +114,9 @@ def run_cmd(handle, req: dict, conn) -> Any:
     if cmd == "unsubscribe":
         conn.stop_feed()
         return {"subscribed": False}
+    if cmd in AGENT_CMDS:
+        from halo_harness.remote import agent_control
+        return agent_control.run(handle, req)
     raise HandleError(f"unknown cmd {cmd!r} (expected one of {', '.join(CMDS)})")
 
 

@@ -48,13 +48,15 @@ def test_quiet_when_unused_and_writes_nothing(ctx: Ctx):
     with Env() as env, Proxyless():
         before = _remote_files(env)
         e = _entries()
-        ctx.check("one line, OK, names the flag", list(e) == ["remote"] and e["remote"].startswith("[OK] Remote control: off (remote.enabled is false)"))
+        ctx.check("one line, OK, names both switches", list(e) == ["remote"] and e["remote"].startswith(
+            "[OK] Remote control: control sockets on (fleet.enabled), Signal bridge off (remote.enabled is false)"))
         ctx.check("doctor created no ~/.halo/remote and no run dir", _remote_files(env) == before)
         from halo_harness.theme import set_config_value
         set_config_value("remote.enabled", True)
         e = _entries()
-        ctx.check("with remote.enabled the control line says on and counts the registry",
-                  e["remote"].startswith("[OK] Remote control: on (remote.enabled)") and "0 live sessions" in e["remote"])
+        ctx.check("with remote.enabled the control line says the bridge is on and counts the registry",
+                  e["remote"].startswith("[OK] Remote control: control sockets on (fleet.enabled), Signal bridge on "
+                                          "(remote.enabled)") and "0 live sessions" in e["remote"])
         ctx.check("remote.enabled without a signal.json says the bridge is not set up and how",
                   e["remote_signal_cli"].startswith("[WARN] Signal bridge: not set up yet") and "-> fix: halo remote signal setup" in e["remote_signal_cli"])
 

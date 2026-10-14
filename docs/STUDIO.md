@@ -721,6 +721,19 @@ in the Lineup tab; a save that fails leaves the file untouched.
   socket's own error text (for example "no pending approval request"). It
   sits behind the same bearer-token guard as every other route, so only the
   page `halo studio` opened can use it.
+- **The agent routes (3.0.5.0 Fleet, `studio/fleet_api.py`).** The session
+  rows also carry `harness`, `project`, `parent` and `agents` (how many
+  sub-agents are working right now; the rail shows it), and a private
+  session is never listed. `GET /api/sessions/<sid>/agents` is the
+  session's agent tree, `GET /api/sessions/<sid>/agents/<aid>/tail?n=&kinds=`
+  one agent's last entries, `POST /api/sessions/<sid>/agents/<aid>/command
+  {cmd: steer|stop|pause|resume|follow, text?, mode?, reason?, on?}` acts
+  on one agent, and `POST /api/sessions/<sid>/command` also takes `shutdown`
+  (`reason`), `pause` and `resume` (optional `agent_id`). Studio sends `by`
+  = `fleet.name` and `via` = `Studio`. The live feed passes `agent_state`,
+  `agent_event` and `fleet` frames with each frame's `harness`. Shapes and
+  rules: [REMOTE.md](REMOTE.md#agent-level-commands-3050-fleet),
+  [SUBAGENTS.md](SUBAGENTS.md), [FLEET.md](FLEET.md).
 - No CDN, no fonts fetched, no analytics: the page is a handful of static
   files served from the package, under a strict content-security policy.
   The shell (`static/dist/`) gets `default-src 'self'; connect-src 'self'`

@@ -262,6 +262,13 @@ template**.
 grouped lines as `halo agents` (project / user / shipped, kind and model per
 line, ending with the `halo agents show <name>` hint).
 
+**Halo 3.0.5.0 (Fleet)**: `/agents live` lists THIS session's running
+agents instead: the main agent and every sub-agent at every depth (and
+background Bash jobs), indented under their parents, with state, cost so
+far, model and what each one is doing (the tool in flight, or its task).
+It is the same tree Studio and `halo remote agents <session>` show; see
+[SUBAGENTS.md](SUBAGENTS.md).
+
 **Halo 2.0.5 round 2**: bare `/agents` instead opens an interactive
 list-with-actions screen over the bios (New, New from..., Edit,
 Duplicate, Delete, Import from `.claude/agents/*.md`, one result line
@@ -561,6 +568,16 @@ not running the dialog says to run `halo remote signal run`. The bridge's notice
 the transcript, and are what print mode answers. While a phone is attached to
 this session the status bar shows a `⇄ remote` chip. See
 [REMOTE.md](REMOTE.md).
+
+### `/private [on|off]`
+Halo 3.0.5.0 (Fleet). `/private on` makes this session private: it closes
+its control socket and leaves `~/.halo/run/sessions.json`, so Studio,
+`halo remote` and the fleet no longer see it, and the status bar shows a
+`private` chip. `/private off` opens the socket again and lists the
+session. Bare `/private` prints the state and the control-socket line.
+`halo --private` starts a session private, and `fleet.private: true` in
+`~/.halo/config.json` makes every session start private. A `halo -p` run
+started private stays private. See [FLEET.md](FLEET.md).
 
 ### `/offline [on|off]`
 Halo 2.0.3 round 5e. Bare `/offline` reports whether offline mode is on and

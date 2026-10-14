@@ -59,6 +59,11 @@ export type SessionInfo = {
   busy?: boolean;
   pending?: Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;
   model?: string | null;
+  /** 3.0.5.0 Fleet: sub-agents queued, running, waiting or paused right now. */
+  agents?: number | null;
+  harness?: { id?: string; name?: string; host?: string; user?: string; version?: string; os?: string } | null;
+  project?: { root?: string; repo?: string | null; branch?: string | null; dirty?: boolean | null } | null;
+  parent?: string | null;
 };
 
 export type ToastItem = { id: number; text: string; tone: "done" | "error" | "info" };

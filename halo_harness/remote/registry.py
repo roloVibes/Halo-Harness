@@ -2,7 +2,11 @@
 live sessions that opened a control socket (Halo 2.0.9 round 2).
 
 Entries: `{session_id, cwd, pid, endpoint, token_env, started, title, mode}`
-plus `kind` ("tui"/"print") and, on Windows only, `token` (the loopback
+plus `kind` (tui | print | paperclip | orchestra-worker | flow) and, since
+3.0.5.0 (Fleet), `harness` (`{id, name, host, user, version, os}`),
+`project` (`{root, repo, branch, dirty}`) and `parent` (the session that
+spawned it, or None); an entry written before those keys existed still
+loads (`public_entry` fills them in). On Windows only, `token` (the loopback
 socket's token; the file is 0600 and lives in the user's own state dir, so
 it is exactly as private as the home directory). `token_env` is None this
 round (reserved for a token handed over through the environment).
@@ -28,7 +32,9 @@ from halo_harness.privateio import write_private_atomic
 from halo_harness.remote import client
 
 FILENAME = "sessions.json"
-FIELDS = ("session_id", "cwd", "pid", "endpoint", "token_env", "started", "title", "mode")
+FIELDS = ("session_id", "cwd", "pid", "endpoint", "token_env", "started", "title", "mode", "kind", "harness",
+          "project", "parent")
+PUBLIC = ("session_id", "title", "cwd", "mode", "kind", "started", "pid", "harness", "project", "parent")
 
 
 def registry_path() -> Path:
@@ -50,13 +56,27 @@ def _write(path: Path, rows: list) -> None:
 
 
 def make_entry(*, session_id: str, cwd, endpoint: str, pid: Optional[int] = None, token: Optional[str] = None,
-               title: str = "", mode: str = "", kind: str = "tui", started: Optional[float] = None) -> dict:
+               title: str = "", mode: str = "", kind: str = "tui", started: Optional[float] = None,
+               harness: Optional[dict] = None, project: Optional[dict] = None, parent: Optional[str] = None) -> dict:
     entry = {"session_id": session_id, "cwd": str(cwd), "pid": pid if pid is not None else os.getpid(),
              "endpoint": endpoint, "token_env": None, "started": started if started is not None else time.time(),
-             "title": title, "mode": mode, "kind": kind}
+             "title": title, "mode": mode, "kind": kind, "harness": dict(harness or {}),
+             "project": dict(project or {"root": str(cwd), "repo": None, "branch": None, "dirty": None}),
+             "parent": parent}
     if token:
         entry["token"] = token
     return entry
+
+
+def public_entry(entry: dict) -> dict:
+    """The fields a listing may show (never `endpoint`, `token` or `token_env`),
+    with an old entry's missing keys filled in."""
+    row = {k: entry.get(k) for k in PUBLIC}
+    row["kind"] = row["kind"] or "tui"
+    row["harness"] = row["harness"] if isinstance(row["harness"], dict) else {}
+    if not isinstance(row["project"], dict):
+        row["project"] = {"root": row.get("cwd"), "repo": None, "branch": None, "dirty": None}
+    return row
 
 
 def register(entry: dict) -> None:

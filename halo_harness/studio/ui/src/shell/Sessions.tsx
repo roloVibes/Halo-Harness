@@ -101,6 +101,11 @@ export function Sessions() {
               <div className="rail-session" data-status={st}>
                 <span className="rail-session-dot" data-status={st} data-motion={st === "waiting" ? "waiting" : "none"} aria-hidden="true" />
                 <span className="rail-item-text" title={`${s.cwd || ""} ${s.model || ""}`}>{s.title || s.session_id.slice(0, 8)}</span>
+                {!!s.agents && (
+                  <span className="badge mono" title="sub-agents working right now" data-testid="session-agents">
+                    {s.agents} {s.agents === 1 ? "agent" : "agents"}
+                  </span>
+                )}
                 <span className="badge" data-status={st} data-testid="session-status">{st}</span>
                 {st === "waiting" && (
                   <button className="og-link mono" onClick={() => setOpen(open === s.session_id ? "" : s.session_id)} aria-expanded={open === s.session_id}>

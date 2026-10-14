@@ -109,6 +109,7 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir,
     def spawn(lane) -> dict:
         env = child_env(run_dir, lane.n, os.environ)
         env.setdefault("PYTHONIOENCODING", "utf-8")
+        env.update(fleet_parent_env())
         try:
             proc = runner(worker_argv(lane.prompt, ref), cwd=str(lane.worktree), env=env, capture_output=True,
                           text=True, encoding="utf-8", errors="replace", timeout=timeout_s,
@@ -125,6 +126,17 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir,
                 "cost_usd": float(obj.get("total_cost_usd") or 0.0), "session_id": obj.get("session_id"),
                 "error": "" if not obj.get("is_error") else str(obj.get("result") or "worker error")[:500]}
     return spawn
+
+
+def fleet_parent_env() -> dict:
+    """3.0.5.0 (Fleet): a worker's registry entry names the session that started
+    the run (`parent`), when this process has one with a control socket."""
+    try:
+        from halo_harness.remote import fleet_identity, runtime
+        act = runtime.active()
+        return fleet_identity.parent_env(act.session_id if act is not None else None)
+    except Exception:
+        return {}
 
 
 def _last_json(text: str) -> Optional[dict]:

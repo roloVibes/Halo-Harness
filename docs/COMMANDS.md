@@ -137,6 +137,18 @@ section and [SLASH-COMMANDS.md](SLASH-COMMANDS.md)'s `/offline`.
 halo --offline -p "reply with the single word pong" --model ol:qwen3-coder:30b
 ```
 
+#### `--private`
+Halo 3.0.5.0 (Fleet), Halo-only. What: this session registers nothing and
+opens no control socket, so Studio, `halo remote` and the fleet never see
+it (sets `HALO_FLEET_PRIVATE=1` for this process, so the Orchestra workers
+it starts are private too; never written to `~/.halo/config.json`). The
+TUI shows a `private` chip; `/private off` lists it again; `fleet.private:
+true` makes every session private. See [FLEET.md](FLEET.md).
+```sh
+halo --private
+halo --private -p "summarize the diff"
+```
+
 #### `-c`, `--continue`
 What: resumes the most recently modified session for the current directory
 (by the session `.jsonl` file's own mtime). Reads:
@@ -2866,8 +2878,10 @@ reason on stderr), 2 usage. A bare `halo remote signal` prints the verb list.
 
 ### `halo remote sessions`
 
-Lists the live sessions that opened a control socket (config
-`remote.enabled`): session id prefix, pid, kind (`tui` or `print`),
+Lists the live sessions that opened a control socket (every session does
+unless config `fleet.enabled` is false or it is private; before 3.0.5.0 this
+was config `remote.enabled`): session id prefix, pid, kind (`tui`, `print`,
+`paperclip`, `orchestra-worker` or `flow`),
 permission mode, age, working directory, endpoint and title. Entries whose
 process is gone or whose endpoint refuses a connection are pruned first. It
 prints nothing secret (the Windows loopback token is never shown). With none
@@ -2875,9 +2889,34 @@ live it says so and exits 0; any other `halo remote` argument prints the
 usage line and exits 2.
 
 ```sh
-halo config set remote.enabled true
 halo remote sessions
 ```
+
+### `halo remote agents | steer | stop`
+
+Halo 3.0.5.0 (Fleet). One live session's agents from a terminal, over its
+control socket. `<session>` is a session id or a unique prefix of one;
+every verb takes `--json`; exit 1 when the session is unknown, unreachable
+or refuses the command (the reason on stderr).
+
+- `halo remote agents <session>`: the agent tree, one line per agent
+  indented under its parent: id, name, state, cost so far, model, what it
+  is doing.
+- `halo remote steer <session> --agent <id> [--redirect] <text>`: a note
+  that agent reads before its next model call; `--redirect` replaces the
+  rest of its task (`--agent main` steers the main agent).
+- `halo remote stop <session> --agent <id> [--reason <text>]`: stop that
+  agent and every agent under it at the next tool boundary; its parent gets
+  the stopped hand-back and carries on (`--agent main` interrupts the turn).
+
+```sh
+halo remote agents 3f2a
+halo remote steer 3f2a --agent 9c41d2e0 "skip the docs, fix the test first"
+halo remote stop 3f2a --agent 9c41d2e0 --reason "wrong folder"
+```
+
+Each command goes out with `by` = `fleet.name` and `via` = `halo remote`,
+recorded in the agent's transcript. See [SUBAGENTS.md](SUBAGENTS.md).
 
 ### `halo remote signal setup`
 

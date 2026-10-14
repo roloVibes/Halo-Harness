@@ -139,3 +139,76 @@ resolve to exactly one winner, never a lost update or a double-claim.
 task board is shared and additive.
 
 This is the SAME board the tasks panel's own "Board" tab shows live.
+
+
+## The live agent tree and what Studio can do to an agent
+
+Halo 3.0.5.0 (Fleet, round R1): every sub-agent at every depth is something
+you can list, watch, steer, pause and stop, from Studio, from `halo remote`
+or over the control socket ([REMOTE.md](REMOTE.md#agent-level-commands-3050-fleet)
+has the wire; [FLEET.md](FLEET.md) the bigger picture). Verified against
+`halo_harness/agent/agent_registry.py`, `agent_observe.py`, `agent_hooks.py`,
+`agent_inbox.py`, `agent_transcript.py` and `halo_harness/remote/agent_control.py`.
+
+**The tree.** Each session keeps a live tree of its agents: the main agent is
+the root (`main`); every Agent/Task call, count/batch job, org position, team
+member and background sub-agent registers under the agent that spawned it the
+moment it is built (a queued fan-out job as soon as it is minted), and the
+session's background Bash jobs are leaves under main (`job:<id>`). A row has
+`agent_id, parent, name, role, bio, lineup, model, kind, task` (the first line
+of what it was asked), `since, state` (`queued`, `running`, `waiting` on a
+card, `paused`, `done`, `failed`, `stopped`), `turns` (its model calls),
+`cost_usd, current` (the tool in flight with one line of its arguments, or
+`thinking`), `last_text` (the last 200 characters it wrote) and `transcript`
+(its own `subagents/agent-<id>.jsonl`). `/agents live` prints it in the TUI;
+`halo remote agents <session>` from any terminal; `agent_tail` reads one
+agent's transcript as entries (its prompt, text, reasoning, tool calls and
+results, the agents it spawned, its hand-back, and the commands it received).
+
+**Steer.** A steer is delivered to THAT agent, not to main:
+
+- `nudge` (the default): the note goes to the agent's inbox and is applied
+  right before its next model call, as a user-role note `[steer from <by> via
+  Studio] <text>`, through the path a typed steer takes (UserPromptSubmit
+  hooks run on it). The tool calls already planned this round still run.
+- `redirect`: the same, and the rest of the agent's current tool round is
+  left unrun (`not run: redirected by <by> from Studio`), so its next model
+  call starts from the note: `Redirect: the rest of your current task is
+  replaced. Your task is now: <text>`. Its `task` in the tree becomes the
+  note's first line. A round the agent planned after it read the note is not
+  cut.
+- For the main agent a steer is today's steer (the text steers the turn in
+  flight, or starts the next one).
+- A `cc:` child takes the note through its own claude process; a `cx:` child
+  has no live channel, so the steer answers "that agent runs in an external
+  process; stop and respawn". A finished agent takes no steer.
+
+**Stop.** `agent_stop` stops that agent and every agent under it at their
+next tool boundary: the flag is checked before every tool call and before
+every model call, so a model call already streaming finishes first and a
+running tool call finishes too. The calls it had not started are answered
+`not run: stopped by <by> from Studio`. Its parent receives the ordinary
+hand-back, shaped `stopped by <by> from Studio: <reason>` followed by what the
+agent had written so far, and carries on with its own turn (a stopped child
+is not sent back for an acceptance retry). For the main agent a stop is the
+turn-level interrupt. A `cc:` child's process is ended; a background Bash job
+is killed.
+
+**Pause and resume.** `pause` holds an agent and its subtree (or, without an
+agent id, every agent of the session) at the next tool boundary until
+`resume`; its state reads `paused` meanwhile, and a stop, a shutdown or Esc
+end the hold too. `shutdown` ends every agent at its next boundary and then
+closes the session.
+
+**What the parent sees.** One line in its own transcript for a steer, stop or
+pause (`<agent> steered from Studio by <by>: <first 80 characters>`, `...
+stopped from Studio by <by>: <reason>`, `... paused from Studio by <by>`, once
+per pause), the same line in the TUI, and for a stop the hand-back above as
+the Agent tool's result. The agent's own transcript records every command
+(`cmd`, `by`, `via`).
+
+**What a steer never does.** It is a user-role note like any typed steer:
+it never widens a permission, approves or answers a card, changes an
+Orchestra claim or skips a gate (an approval gate, a pipeline gate, a
+budget). The owner's permission engine still decides every tool call the
+agent makes, exactly as before; `by` is a label naming who sent it.

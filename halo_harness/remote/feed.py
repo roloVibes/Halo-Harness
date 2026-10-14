@@ -16,8 +16,10 @@ What a subscriber sees:
 * every other kind in `events.EVENT_KINDS` is forwarded as-is.
 
 Frames are plain dicts: `{"event": kind, "data": {...}, "turn", "agent_id",
-"ts"}`. A subscriber owns a bounded queue; when it fills the subscriber is
-dropped (closed), the session is never blocked.
+"ts"}`, plus whatever the hub's `meta` holds (3.0.5.0 Fleet: `session_id` and
+`harness`, the harness id, on every frame). A subscriber owns a bounded
+queue; when it fills the subscriber is dropped (closed), the session is
+never blocked.
 """
 
 from __future__ import annotations
@@ -95,6 +97,8 @@ class EventHub:
         self._buf_meta: "tuple" = (0, None)
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        self.meta: dict = {}  # merged into every frame (a frame's own keys win)
+        self.greeting: Optional[Callable[[], Optional[dict]]] = None  # a new subscriber's first frame
 
     # ---- lifecycle -------------------------------------------------------
 
@@ -119,6 +123,12 @@ class EventHub:
 
     def subscribe(self, maxsize: int = SUBSCRIBER_QUEUE, kinds: Optional[Iterable[str]] = None) -> Subscription:
         sub = Subscription(maxsize, kinds)
+        try:  # 3.0.5.0: the session's `fleet` frame first, so a client learns who it is talking to
+            hello = self.greeting() if self.greeting is not None else None
+            if hello:
+                sub.offer({**self.meta, **hello})
+        except Exception:
+            pass
         with self._lock:
             self._subs.append(sub)
         return sub
@@ -204,6 +214,8 @@ class EventHub:
                            "agent_id": agent_id, "ts": time.time()})
 
     def _fanout(self, frame: dict) -> None:
+        if self.meta:
+            frame = {**self.meta, **frame}
         for sub in self._subs:
             sub.offer(frame)
 
