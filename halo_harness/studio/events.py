@@ -6,8 +6,8 @@ per live session: a `remote.client.ControlClient` (1 s timeout on every call)
 that sends `subscribe` and then reads `next_event`. Each frame becomes
 `{session_id, harness, event, data, turn, agent_id, ts}` (kinds: feed_kinds.py) and is copied into every
 browser's bounded queue (512 frames, the oldest dropped first). Attaching and
-detaching a session publish a synthesized `sessions` frame with the public
-fields of every attached session (never its endpoint or token). A pump that
+detaching a session publish a `sessions` frame (`harness`: this harness's id, 3.0.5.0 R2)
+with the public fields of every attached session (never an endpoint or token). A pump that
 errors detaches and is not retried for `RETRY_S`. `publish_local` adds a
 frame made in this process (the Orchestra runner: `orchestra:<run id>`).
 `serve_sse(handler)` is `GET /api/events?t=<token>&sessions=all|<sid>`: the
@@ -25,7 +25,7 @@ import time
 from typing import Optional
 from urllib.parse import parse_qs, urlsplit
 
-from halo_harness.studio.feed_kinds import DEFAULT_KINDS, PUBLIC_FIELDS  # noqa: F401  (re-exported)
+from halo_harness.studio.feed_kinds import DEFAULT_KINDS, PUBLIC_FIELDS, local_harness_id  # noqa: F401  (re-exported)
 
 QUEUE_MAX = 512
 PING_S = 15.0
@@ -66,9 +66,9 @@ class BrowserQueue:
 
 
 class EventBridge:
-    def __init__(self, *, poll_s: float = 2.0, kinds=DEFAULT_KINDS, list_live=None):
-        self.poll_s = poll_s
-        self.kinds = list(kinds) if kinds else None
+    def __init__(self, *, poll_s: float = 2.0, kinds=DEFAULT_KINDS, list_live=None, harness_id=None):
+        self.poll_s, self.kinds = poll_s, (list(kinds) if kinds else None)
+        self.harness_id = harness_id  # the `sessions` frame's harness (None: this home's fleet-id)
         self._list_live = list_live
         self._lock = threading.Lock()
         self._clients: "list[BrowserQueue]" = []
@@ -192,7 +192,7 @@ class EventBridge:
     def _sessions_frame(self, **extra) -> dict:
         rows = sorted(list(self._attached.values()), key=lambda r: (r.get("started") or 0, r.get("session_id") or ""))
         return {"session_id": None, "event": "sessions", "data": {"sessions": rows, **extra},
-                "turn": None, "agent_id": None, "ts": time.time()}
+                "turn": None, "agent_id": None, "ts": time.time(), "harness": self.harness_id or local_harness_id()}
 
 
 def bridge_for(server) -> EventBridge:

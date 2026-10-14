@@ -76,11 +76,12 @@ def private_configured() -> bool:
     return truthy(os.environ.get(PRIVATE_ENV), False) or truthy(_config("fleet.private", False), False)
 
 
-def harness_id() -> str:
-    """The per-home id: read `~/.halo/fleet-id`, or create it exclusively
-    (two processes starting at once agree on whichever file won)."""
+def harness_id(home: Optional[Path] = None) -> str:
+    """The per-home id: read `~/.halo/fleet-id` (or `<home>/fleet-id`, R2's
+    hub), or create it exclusively (two processes starting at once agree on
+    whichever file won)."""
     from halo_harness.config.paths import bridge_home
-    path = bridge_home() / FLEET_ID_FILE
+    path = (Path(home) if home is not None else bridge_home()) / FLEET_ID_FILE
     for _ in range(20):
         try:
             text = path.read_text(encoding="utf-8").strip()

@@ -46,12 +46,15 @@ class _Server(http.server.ThreadingHTTPServer):
     def __init__(self, addr, handler, *, token: str, cwd: Path, state_dir: Path):
         self.token, self.cwd, self.state_dir = token, cwd, state_dir
         self.events = None  # studio.events.EventBridge, made by the first /api/events
+        self.fleet_hub = None  # 3.0.5.0 R2: fleet.hub.HubServer (`halo studio --fleet`, studio/fleet_hub_api.py)
         self.events_lock = threading.Lock()
         super().__init__(addr, handler)
 
     def server_close(self):
         if self.events is not None:
             self.events.close()
+        if self.fleet_hub is not None:  # the fleet hub ends with Studio
+            self.fleet_hub.stop()
         super().server_close()
 
     def server_bind(self):
@@ -269,6 +272,7 @@ def cmd_studio(argv: list) -> int:
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
     parser.add_argument("--legacy", action="store_true", help="open the plain page (/legacy/) instead of the shell")
     parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
+    parser.add_argument("--fleet", action="store_true", help="also run the fleet hub in this process: other harnesses join it with `halo fleet join` (docs/FLEET.md)")
     args = parser.parse_args(argv)
     from halo_harness.providers.config import default_state_dir
     state_dir = Path(default_state_dir())
@@ -294,6 +298,9 @@ def cmd_studio(argv: list) -> int:
         print(f"halo studio: cannot bind 127.0.0.1:{args.port or 'auto'}: {e}", file=sys.stderr)
         return 1
     url = url_for(server, args.mode, legacy=args.legacy)
+    if args.fleet:  # 3.0.5.0 R2: the fleet hub inside Studio's process
+        from halo_harness.studio.fleet_hub_api import start_for_flag
+        print(start_for_flag(server, state_dir))
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
         from halo_harness.privateio import write_private_atomic

@@ -734,6 +734,18 @@ in the Lineup tab; a save that fails leaves the file untouched.
   `agent_event` and `fleet` frames with each frame's `harness`. Shapes and
   rules: [REMOTE.md](REMOTE.md#agent-level-commands-3050-fleet),
   [SUBAGENTS.md](SUBAGENTS.md), [FLEET.md](FLEET.md).
+- **The fleet routes (3.0.5.0 R2, `studio/fleet_hub_api.py`).** `halo studio
+  --fleet` (or `halo fleet serve` while Studio runs) starts the fleet hub
+  inside Studio's process, on its own LAN port that serves only the fleet
+  protocol; this API stays on loopback. `GET /api/fleet` is every harness
+  (this one first, then each member of the hub) with its sessions and agent
+  trees; `POST /api/fleet/<harness>/<sid>/command` and `POST
+  /api/fleet/<harness>/<sid>/agents/<aid>/command` act on this harness
+  directly and on a member through the hub, as that member's owner allows
+  (200, 202 `asked`, 403 refused with the reason); `GET
+  /api/fleet/commands/<id>` and `POST /api/fleet/hub {action: start|stop}`.
+  Member frames reach the live feed with their `harness`. See
+  [FLEET.md](FLEET.md#studio-get-apifleet-and-the-commands).
 - No CDN, no fonts fetched, no analytics: the page is a handful of static
   files served from the package, under a strict content-security policy.
   The shell (`static/dist/`) gets `default-src 'self'; connect-src 'self'`

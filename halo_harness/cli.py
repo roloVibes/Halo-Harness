@@ -579,6 +579,10 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "remote":
         from halo_harness.remote.cli import cmd_remote
         return cmd_remote(argv[1:])
+    if argv and argv[0] == "fleet":
+        # 3.0.5.0 R2: the fleet hub, pairing, join and the live table (halo_harness/fleet/).
+        from halo_harness.fleet.cli import cmd_fleet
+        return cmd_fleet(argv[1:])
     if argv and argv[0] == "review":
         from halo_harness.review.cli import cmd_review
         return cmd_review(argv[1:])

@@ -579,6 +579,20 @@ session. Bare `/private` prints the state and the control-socket line.
 `~/.halo/config.json` makes every session start private. A `halo -p` run
 started private stays private. See [FLEET.md](FLEET.md).
 
+### `/fleet [text]`
+Halo 3.0.5.0 (Fleet). Bare `/fleet` opens the fleet table as a dialog: one
+row per agent of every harness this machine sees (harness, session, agent
+indented under its parent, state, what it is doing, cost), refreshed every
+2 s. It reads Studio's `GET /api/fleet` when Studio runs (every member of
+its hub included), else the hub this machine serves, else this harness
+alone. Keys: Up/Down select, `s` steer that agent (type the note, Enter),
+`k` stop it (press `k` twice: the first press asks), `p` pause or resume
+it, `r` refresh, Esc or `q` close. A command for another harness goes
+through the hub and is applied only as that harness's owner allows
+(`fleet.allow_control`). `/fleet text` prints the same table in the
+transcript, and is what print mode answers. The terminal twin is
+`halo fleet`. See [FLEET.md](FLEET.md).
+
 ### `/offline [on|off]`
 Halo 2.0.3 round 5e. Bare `/offline` reports whether offline mode is on and
 where that reading came from (`--offline`/`HALO_OFFLINE` for this one

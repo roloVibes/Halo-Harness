@@ -1,19 +1,16 @@
-"""halo_harness.remote.runtime -- open / close the control socket of every
-session in THIS process and keep its registry entry fresh (Halo 2.0.9 round
-2; Fleet switches 3.0.5.0). `fleet.enabled` (default true): every session
-opens its loopback socket and lists itself in `~/.halo/run/sessions.json`:
-the TUI (`start_for_controller`), `halo -p` (`start_for_print`; Paperclip
-heartbeats and Orchestra workers are `-p` children, `fleet_identity.
-session_kind`) and a flow's org run (`start_for_session`). A private session
-(`--private`, `/private on`, `fleet.private`) opens and registers nothing.
-`remote.enabled` is only the Signal bridge's switch. Openers return None when
-off or on any failure (a socket problem never stops a launch); `stop_one`,
-`stop_for` and `stop` (all of them, also at exit) are idempotent.
-"""
+"""halo_harness.remote.runtime -- open / close the control socket of every session in THIS process and
+keep its registry entry fresh (Halo 2.0.9 round 2; Fleet 3.0.5.0). `fleet.enabled` (default true): every
+session opens its loopback socket and lists itself in `~/.halo/run/sessions.json`: the TUI (`start_for_
+controller`), `halo -p` (`start_for_print`; Paperclip heartbeats and Orchestra workers are `-p` children) and
+a flow's org run (`start_for_session`). A private session (`--private`, `/private on`, `fleet.private`) opens
+and registers nothing; `remote.enabled` is only the Signal bridge's switch. Each open and close also tells the
+fleet relay (fleet/relay_runtime.py, R2). Openers return None when off or on any failure (a socket problem never
+stops a launch); `stop_one`, `stop_for` and `stop` (all of them, also at exit) are idempotent."""
 
 from __future__ import annotations
 
 import atexit
+import contextlib
 import threading
 import time
 from dataclasses import dataclass, field
@@ -26,8 +23,7 @@ _actives: list = []
 _reopeners: list = []  # (controller, opener) for sessions that went (or started) private
 _private_flag: Optional[bool] = None  # /private on|off in this process; None: --private / fleet.private decide
 _atexit_registered = False
-fleet_enabled = FI.fleet_enabled
-remote_enabled = FI.remote_enabled
+fleet_enabled, remote_enabled = FI.fleet_enabled, FI.remote_enabled
 
 
 @dataclass
@@ -106,15 +102,20 @@ def _open(handle, controller=None, *, kind: Optional[str] = None, reopen=None) -
                 pass
             return None
     fleet_frames.joined(act)
+    _relay("session_opened", act)
     return act
+
+
+def _relay(name: str, act) -> None:  # 3.0.5.0 R2: fleet/relay_runtime.py follows these sessions
+    with contextlib.suppress(Exception):  # the relay never stands in a session's way
+        getattr(__import__("halo_harness.fleet.relay_runtime", fromlist=["_"]), name)(act)
 
 
 def _watch_status(act: Active, ev) -> None:
     """Keep `mode` (and the key, after /clear or a fork) in the registry."""
     if ev.kind != "status" or act not in _actives:
         return
-    # A sub-agent's own status events reach the same tap tagged with its
-    # agent_id (session_id "agent-<id>"); they never describe this session.
+    # a sub-agent's own status events reach this tap too (agent_id, session_id "agent-<id>"): never ours
     if getattr(ev, "agent_id", None) or str(ev.data.get("session_id") or "").startswith("agent-"):
         return
     from halo_harness.remote import fleet_frames, registry
@@ -180,8 +181,8 @@ def stop_one(act: Optional[Active]) -> None:
         _actives.remove(act)
     from halo_harness.remote import fleet_frames, registry
     fleet_frames.fleet_frame(act, "unregister")
-    for fn in (lambda: registry.unregister(act.session_id), lambda: fleet_frames.detach(act), act.server.close,
-               act.handle.detach):
+    for fn in (lambda: _relay("session_closed", act), lambda: registry.unregister(act.session_id),
+               lambda: fleet_frames.detach(act), act.server.close, act.handle.detach):
         try:
             fn()
         except Exception:

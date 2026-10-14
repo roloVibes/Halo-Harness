@@ -240,6 +240,16 @@ def _agents_live(session) -> str:
     return "\n".join([head, *("  " + line for line in format_tree(rows))])
 
 
+def _cmd_fleet(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.0.5.0 R2: `/fleet` -- every harness, session and agent this machine
+    sees (Studio's fleet view, this machine's hub, or this harness alone), the
+    same table as `halo fleet --once`; the TUI opens it as a live dialog."""
+    from halo_harness.fleet.table import render, rows, snapshot
+    view, source = snapshot()
+    where = {"studio": "Studio's fleet view", "hub": "this machine's hub", "local": "this harness only"}
+    return f"Fleet ({where.get(source, source)}):\n" + render(rows(view))
+
+
 def _cmd_private(args: str, facade: HeadlessFacade) -> str:
     """Halo 3.0.5.0 (Fleet): `/private [on|off]` -- a private session closes
     its control socket and leaves the registry, so Studio, `halo remote` and
@@ -1978,6 +1988,8 @@ _BUILTIN_SPECS = {
                "[status|pair [N]|off]", _cmd_remote),
     "private": ("core", "Private session: no control socket, no registry entry (Studio and the fleet never see it)",
                 "[on|off]", _cmd_private),
+    "fleet": ("core", "The fleet: every harness, session and agent this machine sees (a live table in the TUI)",
+              "[text]", _cmd_fleet),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,
                    _cmd_escalation),
     "init": ("prompt", "Analyze the codebase and write/update CLAUDE.md", None, _cmd_init),
