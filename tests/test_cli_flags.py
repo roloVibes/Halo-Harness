@@ -106,7 +106,7 @@ def test_unknown_flag_is_an_argparse_error_exit_2(ctx: Ctx):
     env = _hermetic_child_env()
     env["PYTHONPATH"] = str(REPO_DIR)
     result = subprocess.run([sys.executable, "-m", "halo_harness", "--totally-not-a-real-flag", "-p", "hi"],
-                             env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=15)
+                             env=env, cwd=str(REPO_DIR), capture_output=True, encoding="utf-8", errors="replace", timeout=15)
     ctx.check(f"exit code 2, got {result.returncode}", result.returncode == 2)
     ctx.check("argparse error mentions the bad flag", "totally-not-a-real-flag" in result.stderr)
 
@@ -122,7 +122,7 @@ def _run_cli(fh, mock, prompt, extra_args=None, timeout=30, extra_env=None):
 
 
 def _run_bounded(args, *, env, cwd, timeout, interval=0.05):
-    """Same contract as `subprocess.run(..., capture_output=True, text=True,
+    """Same contract as `subprocess.run(..., capture_output=True, encoding="utf-8", errors="replace",
     timeout=timeout)` -- but waits on the child's OWN observable state (has
     it exited yet?) with a bounded poll, rather than handing the whole
     fixed window straight to `subprocess.run`'s internal wait. W5
@@ -132,7 +132,7 @@ def _run_bounded(args, *, env, cwd, timeout, interval=0.05):
     polling lets a caller hand it a generous bound (so a slow-but-healthy
     child still gets to finish) while a genuinely hung child is still
     killed and reported once that bound is reached."""
-    proc = subprocess.Popen(args, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.Popen(args, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", errors="replace")
     deadline = time.monotonic() + timeout
     while proc.poll() is None and time.monotonic() < deadline:
         time.sleep(interval)
@@ -299,9 +299,9 @@ def test_positional_prompt_works_before_and_after_print_flag(ctx: Ctx):
                     "OPENROUTER_API_KEY": "test-key", "PYTHONPATH": str(REPO_DIR)})
         base = [sys.executable, "-m", "halo_harness", "--model", "or:mock/model", "--cwd", str(fh["proj"])]
         before = subprocess.run(base + ["-p", "reply with the single word pong"],
-                                 env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=30)
+                                 env=env, cwd=str(REPO_DIR), capture_output=True, encoding="utf-8", errors="replace", timeout=30)
         after = subprocess.run(base + ["reply with the single word pong", "-p"],
-                                env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=30)
+                                env=env, cwd=str(REPO_DIR), capture_output=True, encoding="utf-8", errors="replace", timeout=30)
         ctx.check(f"'-p prompt' exits 0, got {before.returncode}", before.returncode == 0)
         ctx.check(f"'prompt -p' exits 0, got {after.returncode}", after.returncode == 0)
         ctx.check("'-p prompt' -> pong", "pong" in before.stdout)
@@ -316,7 +316,7 @@ def test_version_flag_short_and_long(ctx: Ctx):
     env["PYTHONPATH"] = str(REPO_DIR)
     for flag in ("-v", "--version"):
         result = subprocess.run([sys.executable, "-m", "halo_harness", flag], env=env, cwd=str(REPO_DIR),
-                                 capture_output=True, text=True, timeout=15)
+                                 capture_output=True, encoding="utf-8", errors="replace", timeout=15)
         ctx.check(f"{flag}: exit 0, got {result.returncode}", result.returncode == 0)
         ctx.check(f"{flag}: prints halo version, got {result.stdout!r}", "halo" in result.stdout)
 
@@ -326,7 +326,7 @@ def test_proxy_version_delegates(ctx: Ctx):
     env = _hermetic_child_env()
     env["PYTHONPATH"] = str(REPO_DIR)
     result = subprocess.run([sys.executable, "-m", "halo_harness", "proxy", "--version"], env=env,
-                             cwd=str(REPO_DIR), capture_output=True, text=True, timeout=15)
+                             cwd=str(REPO_DIR), capture_output=True, encoding="utf-8", errors="replace", timeout=15)
     ctx.check(f"exit 0, got {result.returncode}", result.returncode == 0)
     ctx.check(f"delegated to bridge.py's own --version output ('claude-bridge ...'), got {result.stdout!r}",
               result.stdout.strip().startswith("claude-bridge "))
@@ -380,7 +380,7 @@ def test_real_sigint_delivers_exit_130_posix(ctx: Ctx):
         args = [sys.executable, "-m", "halo_harness", "-p", "take a while", "--model", "or:mock/long-abort",
                 "--cwd", str(fh["proj"])]
         proc = subprocess.Popen(args, env=env, cwd=str(REPO_DIR), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                 text=True)
+                                 encoding="utf-8", errors="replace")
         # NEW from H9b (verified flake): a fixed `time.sleep(0.5)` here
         # raced a cold/loaded box -- if the child hadn't finished its own
         # (heavy: textual, the mcp SDK, ...) imports and reached the mock
@@ -449,6 +449,9 @@ def _hermetic_child_env() -> dict:
     env.pop("BRIDGE_STATE_DIR", None)
     for k in [k for k in env if k.startswith("HALO_")]:
         env.pop(k, None)
+    # The child writes UTF-8 (the banner's block glyphs) and every call here
+    # decodes it as UTF-8, so a cp1252 host console never decides the result.
+    env["PYTHONIOENCODING"] = "utf-8"
     return env
 
 

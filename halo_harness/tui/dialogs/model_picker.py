@@ -21,6 +21,7 @@ special case); a Databricks row's family/path still shows, as a bracketed
 
 from __future__ import annotations
 
+from halo_harness.tui.worker_guard import guarded_worker
 import difflib
 from typing import Optional
 
@@ -536,7 +537,7 @@ class ModelPicker(ModalScreen):
             # the catalog read behind the consequence sentence is a real
             # network call, so it runs off the UI thread and the hint is
             # amended a moment later rather than ever blocking this dialog.
-            self.app.run_worker(lambda: self._consequence_worker(ref), thread=True,
+            guarded_worker(self.app, lambda: self._consequence_worker(ref), thread=True,
                                  name="role-consequence", group="role-consequence")
 
     def _consequence_worker(self, ref: str) -> None:
@@ -588,7 +589,7 @@ class ModelPicker(ModalScreen):
             return
         hint = self.query_one("#model-hint", Static)
         hint.update("Refreshing this group…")
-        self.app.run_worker(lambda: self._refresh_worker(providers=[provider]), thread=True,
+        guarded_worker(self.app, lambda: self._refresh_worker(providers=[provider]), thread=True,
                              name="picker-refresh-group", group="picker-refresh")
 
     def action_refresh_all(self) -> None:
@@ -597,7 +598,7 @@ class ModelPicker(ModalScreen):
         thread."""
         hint = self.query_one("#model-hint", Static)
         hint.update("Refreshing all groups…")
-        self.app.run_worker(lambda: self._refresh_worker(providers=None), thread=True,
+        guarded_worker(self.app, lambda: self._refresh_worker(providers=None), thread=True,
                              name="picker-refresh-all", group="picker-refresh")
 
     def _refresh_worker(self, *, providers) -> None:
@@ -735,7 +736,7 @@ class RoleAssignPicker(ModalScreen):
             # caption just appears a moment later, or never if the probe
             # never finishes before the screen closes (`query_one`'s own
             # `except Exception: pass` below degrades silently).
-            self.run_worker(self._vram_reason_worker, thread=True, name="role-assign-vram-reason")
+            guarded_worker(self, self._vram_reason_worker, thread=True, name="role-assign-vram-reason")
 
     def _vram_reason_worker(self) -> None:
         from halo_harness.model import parse_model_ref
@@ -758,15 +759,24 @@ class RoleAssignPicker(ModalScreen):
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         """`roles.assign_role` is a local config write (no network) --
-        safe to call right here; dismisses with the plain role-name
-        string either way (a write failure is vanishingly rare -- a
-        syntactically bad role name can't reach this list at all, since
-        every option id comes from `known_role_names()` -- so this
-        never needs its own error-reporting shape)."""
+        safe to call right here. On success it dismisses with the plain
+        role-name string. Since review item 125 it returns `(False,
+        [reason])` for a value that cannot run here (an unknown provider,
+        a subscription route this host does not accept): nothing was
+        written, so the reason is shown as a notification and in the
+        subtitle and the picker stays open for another choice or Esc."""
         role_name = str(event.option_id)
         from halo_harness.roles import assign_role
-        assign_role(role_name, self.model_ref)
-        self.dismiss(role_name)
+        ok, reasons = assign_role(role_name, self.model_ref)
+        if ok:
+            self.dismiss(role_name)
+            return
+        reason = "; ".join(str(r) for r in reasons) or f"{self.model_ref!r} was not set as {role_name!r}"
+        self.app.notify(f"Role {role_name!r} not set: {reason}", severity="error", timeout=8)
+        try:
+            self.query_one(".dialog-subtitle", Static).update(f"Not set: {reason}  |  Esc: cancel")
+        except Exception:
+            pass
 
     def action_cancel(self) -> None:
         self.dismiss(None)

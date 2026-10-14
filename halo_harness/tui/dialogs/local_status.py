@@ -20,6 +20,7 @@ a real terminal) -- it names the one-line CLI command to run instead.
 
 from __future__ import annotations
 
+from halo_harness.tui.worker_guard import guarded_worker
 from textual._context import NoActiveAppError
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -108,7 +109,7 @@ class LocalStatus(ModalScreen):
     def action_refresh(self) -> None:
         if self._refresh is None:
             return
-        self.app.run_worker(self._refresh_worker, thread=True, name="local-refresh", group="local-refresh")
+        guarded_worker(self.app, self._refresh_worker, thread=True, name="local-refresh", group="local-refresh")
 
     def _deliver(self, fn, *args) -> None:
         """Hand a thread worker's result to the UI thread. A dialog dismissed
@@ -139,7 +140,7 @@ class LocalStatus(ModalScreen):
     def _on_serve_prompt_result(self, model) -> None:
         if not model:
             return
-        self.app.run_worker(lambda: self._serve_worker(model), thread=True, name="local-serve", group="local-serve")
+        guarded_worker(self.app, lambda: self._serve_worker(model), thread=True, name="local-serve", group="local-serve")
 
     def _serve_worker(self, model: str) -> None:
         from halo_harness.providers.local_use import resolve_local_file

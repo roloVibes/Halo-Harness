@@ -1,6 +1,6 @@
 """halo_harness.tui.widgets.scene_band -- the level band (Halo 2.0.11
-round A3, second generation in 3.0.2.0): six rows directly above the prompt that draw the active game
-theme's `Scene` (tui/scene.py) and animate it with the turn.
+round A3, second generation in 3.0.2.0): `scene.ROWS` (eight) rows directly above the prompt that
+draw the active game theme's `Scene` (tui/scene.py) and animate it with the turn.
 
 The band owns one self-rescheduling timer: `LIVE_STEP_S` between frames
 while the status bar's phase is live (the hero runs, the ground scrolls,
@@ -14,7 +14,8 @@ Visibility is decided here, every tick and on resize: a scene exists for
 the theme, `theme_scene` is on (`/level`, `~/.halo/config.json`), the
 terminal is at least `MIN_ROWS` x `MIN_COLS`, and no pending card is
 docked (a card can take twelve rows; the band yields to it). The band is
-`ROWS` (six) terminal rows tall: twelve pixel rows through the half-blocks.
+`scene.ROWS` (eight) terminal rows tall: `scene.HEIGHT` (sixteen) pixel rows
+through the half-blocks.
 """
 
 from __future__ import annotations

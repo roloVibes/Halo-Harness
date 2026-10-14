@@ -16,6 +16,7 @@ next to the roles/org editors').
 
 from __future__ import annotations
 
+from halo_harness.tui.worker_guard import guarded_worker
 import json
 from pathlib import Path
 from typing import Callable, Optional
@@ -310,7 +311,7 @@ class TasksPanel(ModalScreen):
             except Exception:
                 rows = []
             self.app.call_from_thread(self._apply_rows, tab, rows)
-        self.run_worker(_worker, thread=True, name="tasks-refresh")
+        guarded_worker(self, _worker, thread=True, name="tasks-refresh")
 
     def _apply_rows(self, tab: str, rows: list) -> None:
         """UI-thread-only: builds the OptionList from `rows` (computed
