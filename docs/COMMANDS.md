@@ -2644,8 +2644,13 @@ while one runs reuses it (prints the URL, opens the browser) unless
 
 
 ```sh
-halo studio [--mode roles|org|design|orchestra|flow] [--port N] [--no-open] [--cwd DIR]
+halo studio [--mode roles|org|design|orchestra|flow] [--port N] [--no-open] [--cwd DIR] [--fleet]
 ```
+
+3.0.5.0: `--fleet` also runs the fleet hub inside Studio's process (on
+`fleet.hub.port`, 7430), so other harnesses can join it and Studio's
+`GET /api/fleet` lists them; see [`halo fleet`](#halo-fleet) and
+[FLEET.md](FLEET.md).
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
 into `--mode roles` (lineups and agent bios as an editable graph), `--mode org`
@@ -2980,6 +2985,83 @@ new safety number (the running bridge finishes the step).
 pin, the account, the phones and the last command's time. `off` is the kill
 switch: it asks a running bridge to exit (a stop file it polls) and sets
 `remote.signal.enabled` to false; `on` sets it back.
+
+## `halo fleet`
+
+Halo 3.0.5.0 (Fleet, round R2). One machine runs a hub; other harnesses join
+it with a six-word code; each joined harness shares what it chooses
+(`fleet.share`) and accepts control only as its owner allows
+(`fleet.allow_control`). The full description (share and control levels, the
+owner's card, TLS and HMAC, what never leaves a machine) is in
+[FLEET.md](FLEET.md). Every verb but the table takes `--json` (one JSON
+object on stdout); exit codes are 0 done, 1 could not do it (the reason on
+stderr), 2 usage.
+
+```sh
+halo fleet [--once] [--json]
+halo fleet serve [--port N] [--bind ADDR] [--name NAME] [--no-tls] [--json]
+halo fleet pair [--ttl 10m] [--ascii] [--json]
+halo fleet join <host:port|url> --code "<six words>" [--share status|events|full]
+                [--allow-control none|ask|all] [--fingerprint HEX] [--json]
+halo fleet leave [hub] [--json]
+halo fleet status [--json]
+halo fleet members [--json]
+halo fleet kick <name> [--json]
+```
+
+### `halo fleet` (the live table)
+
+Every harness, session and agent this machine sees, one row per agent
+(harness, session, agent indented under its parent, state, what it is doing,
+cost), redrawn every 2 s: Up/Down select, `s` steer, `k` stop (asks y/N),
+`p` pause or resume, `r` refresh, `q` quit. It reads Studio's `GET
+/api/fleet` when Studio runs, else the hub this machine serves, else this
+harness alone. `--once` prints the table once (also what a pipe gets);
+`--json` prints the view. `/fleet` in the TUI is the same table.
+
+### `halo fleet serve`
+
+Starts the hub. With a Studio running it starts inside Studio's process (and
+stops with it); otherwise it runs here until Ctrl+C. `--port` (default
+`fleet.hub.port`, 7430; `0` picks a free one), `--bind` (default `0.0.0.0`),
+`--name` (default `fleet.name`), `--no-tls` (HMAC-signed plain HTTP even
+when the `cryptography` package would allow TLS). Offline mode refuses it.
+
+### `halo fleet pair`
+
+A one-time code for this machine's hub: six words, good for one harness,
+`--ttl` long (default `10m`; `90s`, `1h`), printed with the exact `halo
+fleet join` line, a QR code (`--ascii` draws it with `#`) and the
+certificate fingerprint.
+
+### `halo fleet join`
+
+Joins a hub (`host:port`, or `http(s)://host:port`) with `--code` and stores
+it in `~/.halo/fleet.json`. `--share` and `--allow-control` set this hub's
+own levels (default: the config keys); `--fingerprint` insists on the hub's
+certificate (otherwise the one the hub vouches for in its code-checked reply
+is pinned). A wrong, spent or expired code is refused.
+
+### `halo fleet leave`, `status`
+
+`leave [hub]` tells the hub and forgets it (every hub when none is named).
+`status` shows this harness, each joined hub (does it answer, does it see
+this harness online and with how many sessions, its share and control
+levels) and the hub this machine serves (members, online, an open code).
+
+### `halo fleet members`, `kick`
+
+On the hub's machine: `members` lists the paired harnesses (name, id, host,
+version, share, control, online, when paired); `kick <name>` (or an id
+prefix) removes one: its key stops working and its links close within a
+second.
+
+```sh
+halo fleet pair --ttl 15m
+halo fleet join hub-machine:7430 --code "acorn badge cobalt dancer ember frost"
+halo fleet status
+halo fleet kick bob@laptop
+```
 
 ## `halo proxy`
 

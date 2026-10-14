@@ -39,6 +39,8 @@ SUBCOMMANDS = (
     "review",
     # Halo 3.0.4.0 round R1: `halo media` (ComfyUI).
     "media",
+    # Halo 3.0.5.0 round R2: `halo fleet` (the hub, pairing, join, the live table).
+    "fleet",
 )
 
 # Halo 2.0.9 round 4: the words that follow `halo remote` / `halo remote

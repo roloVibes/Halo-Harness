@@ -13,6 +13,10 @@ signing, chat commands) | [running it](#running-the-bridge) |
 [command line](#command-line-reference) | [doctor](#doctor) |
 [live verification](#live-verification) | [config keys](#config-keys)
 
+Joining harnesses together (a hub other machines pair with, what each one
+shares, what a hub may do) is [FLEET.md](FLEET.md); it is built on this
+socket and changes nothing about it.
+
 ## What the control socket is
 
 Every interactive `halo` session and every `halo -p` run (including `--bg`
@@ -55,7 +59,9 @@ sessions the registry holds.
 | Linux / macOS | Unix socket `~/.halo/run/<session_id>.ctl`, mode 0600, directory 0700 | the file mode |
 | Windows | loopback TCP `127.0.0.1:<port>` (OS-assigned) | a random 16-byte hex token; the first line of a connection must be `{"token": "..."}` within 5 seconds or the connection is closed. Connections still in that handshake sit in a separate pool of 16 (the oldest is closed for a new one) and only authenticated ones count against the 32 slots; at most 16 connections hold an event feed |
 
-Nothing ever listens on a non-loopback address. The token is never logged or
+Nothing ever listens on a non-loopback address (the fleet hub, `halo fleet
+serve`, is a separate listener on its own port that speaks only the fleet
+protocol: [FLEET.md](FLEET.md#ports-tls-and-hmac)). The token is never logged or
 printed by `halo remote sessions`; on Windows it is stored in the registry
 entry (a 0600 file in your own state directory).
 
@@ -730,6 +736,10 @@ and the code is written to cope with either answer:
 | `fleet.enabled` | `true` | open a control socket and registry entry for each session (3.0.5.0) |
 | `fleet.name` | `user@host` | this harness's name in the registry and on the commands it sends |
 | `fleet.private` | `false` | every session starts private, as with `halo --private` |
+| `fleet.share` | `events` | what a joined harness sends a hub: `status`, `events` or `full` (3.0.5.0 R2, [FLEET.md](FLEET.md)) |
+| `fleet.allow_control` | `ask` | what a hub may do here: `none`, `ask` (a card for the owner) or `all` |
+| `fleet.allow_answers` | `false` | with `allow_control: all`, a hub may also answer this harness's cards (once only) |
+| `fleet.hub.port` | `7430` | the LAN port `halo fleet serve` and `halo studio --fleet` listen on |
 | `remote.enabled` | `false` | the Signal bridge's switch: `halo remote signal run` starts only with it on (before 3.0.5.0 it also opened the control sockets) |
 | `remote.signal.enabled` | `false` | whether the Signal bridge may run: `setup` and `halo remote signal on` set it to true, `off` (or `o` in `/remote`) to false; `run` does nothing while it is false |
 | `remote.rate_per_minute` | `30` | commands per minute per paired phone; over it the bridge drops them and tells the phone once |
