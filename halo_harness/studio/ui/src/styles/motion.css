@@ -1,0 +1,84 @@
+/* The motion vocabulary (lib/motion): data-motion="idle|working|waiting|
+   done|error|live|none" means the same on every element. Under
+   prefers-reduced-motion each becomes a static colour cue instead. */
+
+[data-motion="idle"], [data-motion="working"], [data-motion="waiting"], [data-motion="done"], [data-motion="error"] {
+  position: relative;
+}
+
+/* idle: a slow breathing glow on the border (4 s) */
+.glass[data-motion="idle"], .tab[data-motion="idle"] { animation: m-breathe 4s ease-in-out infinite; }
+@keyframes m-breathe {
+  0%, 100% { border-color: var(--line); box-shadow: var(--glow); }
+  50% { border-color: var(--line-strong); box-shadow: var(--glow), 0 0 22px var(--accent-soft); }
+}
+
+/* working: a thin light flowing along the top edge, left to right */
+[data-motion="working"]::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%) no-repeat;
+  background-size: 35% 100%;
+  animation: m-flow 1.6s linear infinite;
+}
+@keyframes m-flow { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+
+/* waiting: a soft amber pulse (1.2 s) -- it needs you */
+[data-motion="waiting"] { animation: m-wait 1.2s ease-in-out infinite; }
+@keyframes m-wait {
+  0%, 100% { box-shadow: 0 0 0 1px var(--warn-soft); }
+  50% { box-shadow: 0 0 0 1px var(--warn), 0 0 18px var(--warn-soft); }
+}
+
+/* done: one brief green sweep, then still */
+[data-motion="done"]::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; opacity: 0;
+  background: linear-gradient(90deg, transparent, var(--ok-soft), transparent) no-repeat;
+  background-size: 50% 100%;
+  animation: m-sweep 700ms var(--ease) 1;
+}
+@keyframes m-sweep {
+  0% { opacity: 1; background-position: -60% 0; }
+  100% { opacity: 0; background-position: 160% 0; }
+}
+
+/* error: one red flash, then a steady red edge (no loop) */
+[data-motion="error"] { border-color: var(--bad) !important; animation: m-flash 600ms ease-out 1; }
+@keyframes m-flash {
+  0% { box-shadow: 0 0 0 2px var(--bad), 0 0 28px var(--bad-soft); }
+  100% { box-shadow: 0 0 0 1px var(--bad-soft); }
+}
+
+/* live: a small dot that ticks once per event (data-tick flips a/b) */
+.feed-dot, .panel-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none;
+  background: var(--faint); box-shadow: 0 0 0 0 transparent;
+}
+.feed-dot[data-status="open"] { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.feed-dot[data-status="connecting"], .feed-dot[data-status="retrying"] { background: var(--warn); }
+.feed-dot[data-status="down"] { background: var(--bad); }
+.feed-dot[data-motion="live"][data-tick="a"] { animation: m-tick-a 520ms var(--ease) 1; }
+.feed-dot[data-motion="live"][data-tick="b"] { animation: m-tick-b 520ms var(--ease) 1; }
+.feed-dot[data-motion="waiting"] { animation: m-wait-dot 1.2s ease-in-out infinite; }
+@keyframes m-tick-a { 0% { transform: scale(1.9); box-shadow: 0 0 0 4px var(--ok-soft); } 100% { transform: scale(1); } }
+@keyframes m-tick-b { 0% { transform: scale(1.9); box-shadow: 0 0 0 4px var(--ok-soft); } 100% { transform: scale(1); } }
+@keyframes m-wait-dot { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+
+/* a panel's title-bar dot shows its state in colour */
+.panel-dot[data-motion="idle"] { background: var(--accent); opacity: .6; }
+.panel-dot[data-motion="working"] { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.panel-dot[data-motion="working"]::after { display: none; }
+.panel-dot[data-motion="waiting"] { background: var(--warn); }
+.panel-dot[data-motion="done"] { background: var(--ok); }
+.panel-dot[data-motion="done"]::after { display: none; }
+.panel-dot[data-motion="error"] { background: var(--bad); }
+
+/* reduced motion: no animation, the same meaning as a steady colour */
+@media (prefers-reduced-motion: reduce) {
+  [data-motion], [data-motion]::after { animation: none !important; }
+  [data-motion="working"] { box-shadow: inset 0 2px 0 var(--accent); }
+  [data-motion="working"]::after { display: none; }
+  [data-motion="waiting"] { box-shadow: 0 0 0 1px var(--warn); }
+  [data-motion="done"] { box-shadow: 0 0 0 1px var(--ok); }
+  [data-motion="done"]::after { display: none; }
+}

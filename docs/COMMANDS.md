@@ -2694,6 +2694,41 @@ custom properties, a Tailwind config, `tokens.json` files and component
 names from a codebase, or a page's stylesheets from a URL. Studio's Design
 mode is the same project in the browser. See [DESIGN.md](DESIGN.md).
 
+## `halo orchestra`
+
+```sh
+halo orchestra new [--what T --done-when T --stop-when T] [--workers N] [--test CMD] [--file F ...] [--lineup L] [--goal FILE] [--repo DIR]
+halo orchestra status [RUN] [--repo DIR]           the goal, the workflow's steps, live claims, the last events
+halo orchestra claims [RUN] [--repo DIR]           every live claim: key, holder, state, expiry
+halo orchestra log [RUN] [--since N] [--repo DIR]  the timed run log
+halo orchestra runs [--repo DIR]                   every run of this repo, oldest first
+halo orchestra run [RUN] [--model REF] [--dry-run] [--repo DIR]   split, workers, merge, tests, gate, report
+halo orchestra lanes [RUN] [--repo DIR]            every worker lane: state, pieces sent back, cost, holder
+halo orchestra report [RUN] [--repo DIR]           the run's report and its checks
+halo orchestra stop [RUN] [--reason T] [--repo DIR]  ask a running run to stop at its next step
+```
+
+Halo 3.0.3.0: the Orchestra, several agents editing the same files without
+losing a change. `new` writes `<repo>/.halo/orchestra/<run-id>/` with
+`goal.json` (WHAT YOU WANT / DONE WHEN / STOP WHEN, asked on a terminal when
+not given as flags), `workflow.json` (the designed graph) and an empty
+`events.jsonl`. Inside a run (`HALO_ORCHESTRA_RUN`) Write and Edit on the
+goal's files go through claims, and the `OrchestraClaim`/`OrchestraRelease`/
+`OrchestraClaims`/`OrchestraNote` tools appear. RUN is a run id, a unique
+prefix, or a folder; the latest run when omitted. See [ORCHESTRA.md](ORCHESTRA.md).
+
+`run` drives the whole pipeline: the lead splits the goal into jobs (one
+model call, checked by code), each job gets a git worktree and a worker
+(`halo -p` in that worktree, the run and lane in its environment), the
+worker branches merge into `orchestra/<run-id>` one at a time (a conflict
+goes to a fresh judge, its answer applied by code and checked by the
+tests), the gate runs the tests and sends a failing piece back up to
+`return_cap` times, and `report.json` lists the checks. One line per step
+prints as it happens, then the report; exit 0 finished, 1 stopped.
+`--dry-run` prints the lead's split only. `--model REF` sets the model for
+every part (default: each role's model). `/orchestra` shows the same run in
+the TUI.
+
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 
 ```sh

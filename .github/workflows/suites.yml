@@ -263,3 +263,59 @@ jobs:
             echo "one or more suites did not pass -- see the job summary and (on failure) the uploaded logs"
             exit 1
           fi
+
+  # 3.0.3.0: Halo Studio's React shell (halo_harness/studio/ui). The built
+  # bundle is committed under halo_harness/studio/static/dist so an install
+  # needs no node; this job rebuilds it from the lockfile and fails when the
+  # committed dist differs (run `npm run build` in halo_harness/studio/ui and
+  # commit the result). The Python jobs above stay node-free.
+  studio-ui:
+    name: studio-ui (build + drift gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      BRIDGE_TEST_NO_BACKGROUND_NET: "1"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Keep LF line endings on checkout
+        run: git config --global core.autocrlf false
+        shell: bash
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: npm ci (package-lock.json)
+        working-directory: halo_harness/studio/ui
+        run: npm ci --no-audit --no-fund
+
+      - name: npm run build
+        working-directory: halo_harness/studio/ui
+        run: npm run build
+
+      - name: The committed dist matches the build
+        run: |
+          git diff --exit-code -- halo_harness/studio/static/dist
+          # a new or removed chunk shows as untracked / deleted, which git diff alone misses
+          test -z "$(git status --porcelain -- halo_harness/studio/static/dist)" || { git status --short -- halo_harness/studio/static/dist; exit 1; }
+
+      - name: Install pinned dependencies (requirements.lock, hashes enforced)
+        run: |
+          pip install --require-hashes --no-deps -r requirements.lock
+          pip install --require-hashes --no-deps -r requirements-ci.lock
+
+      - name: Fresh test home
+        run: |
+          mkdir -p "$RUNNER_TEMP/halo-test-home"
+          echo "BRIDGE_TEST_HOME=$RUNNER_TEMP/halo-test-home" >> "$GITHUB_ENV"
+
+      - name: tests/test_studio_dist.py
+        run: python tests/test_studio_dist.py

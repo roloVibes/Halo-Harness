@@ -1,0 +1,106 @@
+/* Halo Studio design tokens (3.0.3.0). Dark is "holo": near-black navy,
+   glass panels with a 1px luminous edge, cyan for "this is live / do this",
+   amber for "needs you", magenta-red for errors, mono for data. Light is the
+   Catppuccin Latte palette, the readable fallback. Everything in the shell
+   (and R4's Orchestra views) builds on these names; add no raw colours. */
+
+:root {
+  color-scheme: dark;
+  --bg: #070b14;
+  --bg-2: #0b1222;
+  --surface: #0e1628;
+  --surface-2: #142038;
+  --surface-glass: rgba(14, 22, 40, 0.72);
+  --line: rgba(120, 200, 255, 0.16);
+  --line-strong: rgba(120, 200, 255, 0.34);
+  --glow: 0 0 0 1px rgba(57, 215, 255, 0.10), 0 8px 32px rgba(0, 0, 0, 0.45), 0 0 24px rgba(57, 215, 255, 0.06);
+  --glow-strong: 0 0 0 1px rgba(57, 215, 255, 0.35), 0 0 28px rgba(57, 215, 255, 0.22);
+  --accent: #39d7ff;
+  --accent-2: #7c8cff;
+  --accent-ink: #04121c;
+  --accent-soft: rgba(57, 215, 255, 0.14);
+  --warn: #ffb347;
+  --warn-soft: rgba(255, 179, 71, 0.16);
+  --bad: #ff4d8d;
+  --bad-soft: rgba(255, 77, 141, 0.16);
+  --ok: #4ef0a8;
+  --ok-soft: rgba(78, 240, 168, 0.14);
+  --text: #dbe7ff;
+  --muted: #7d8fb3;
+  --faint: #4a5878;
+  --grid-line: rgba(120, 200, 255, 0.045);
+  --scrim: rgba(2, 5, 12, 0.62);
+  --bracket-alpha: 0.55; /* HUD corner brackets on panels: 0 turns them off */
+  --mono: "JetBrains Mono", "Cascadia Code", "Fira Code", Consolas, Menlo, monospace;
+  --sans: "Inter", "Segoe UI Variable", "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t: 180ms;
+  --t-slow: 240ms;
+  --blur: 14px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eff1f5;
+  --bg-2: #e6e9ef;
+  --surface: #ffffff;
+  --surface-2: #e6e9ef;
+  --surface-glass: rgba(255, 255, 255, 0.82);
+  --line: #ccd0da;
+  --line-strong: #9ca0b0;
+  --glow: 0 1px 0 rgba(76, 79, 105, 0.04), 0 8px 24px rgba(76, 79, 105, 0.12);
+  --glow-strong: 0 0 0 1px rgba(30, 102, 245, 0.45), 0 6px 20px rgba(30, 102, 245, 0.16);
+  --accent: #1e66f5;
+  --accent-2: #8839ef;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(30, 102, 245, 0.10);
+  --warn: #df8e1d;
+  --warn-soft: rgba(223, 142, 29, 0.14);
+  --bad: #d20f39;
+  --bad-soft: rgba(210, 15, 57, 0.10);
+  --ok: #40a02b;
+  --ok-soft: rgba(64, 160, 43, 0.12);
+  --text: #4c4f69;
+  --muted: #6c6f85;
+  --faint: #9ca0b0;
+  --grid-line: rgba(76, 79, 105, 0.06);
+  --scrim: rgba(76, 79, 105, 0.30);
+  --bracket-alpha: 0;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="auto"] {
+    color-scheme: light;
+    --bg: #eff1f5;
+    --bg-2: #e6e9ef;
+    --surface: #ffffff;
+    --surface-2: #e6e9ef;
+    --surface-glass: rgba(255, 255, 255, 0.82);
+    --line: #ccd0da;
+    --line-strong: #9ca0b0;
+    --glow: 0 1px 0 rgba(76, 79, 105, 0.04), 0 8px 24px rgba(76, 79, 105, 0.12);
+    --glow-strong: 0 0 0 1px rgba(30, 102, 245, 0.45), 0 6px 20px rgba(30, 102, 245, 0.16);
+    --accent: #1e66f5;
+    --accent-2: #8839ef;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(30, 102, 245, 0.10);
+    --warn: #df8e1d;
+    --warn-soft: rgba(223, 142, 29, 0.14);
+    --bad: #d20f39;
+    --bad-soft: rgba(210, 15, 57, 0.10);
+    --ok: #40a02b;
+    --ok-soft: rgba(64, 160, 43, 0.12);
+    --text: #4c4f69;
+    --muted: #6c6f85;
+    --faint: #9ca0b0;
+    --grid-line: rgba(76, 79, 105, 0.06);
+    --scrim: rgba(76, 79, 105, 0.30);
+    --bracket-alpha: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --t: 0ms; --t-slow: 0ms; }
+}

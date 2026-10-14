@@ -1,0 +1,12 @@
+{
+  "what": "Write the five functions of basket.py: add_item, remove_item, subtotal, apply_discount and total. Each worker writes one function; nothing another worker wrote is lost.",
+  "done_when": "python -m unittest passes, every function has a docstring, and the merged basket.py keeps all five functions.",
+  "stop_when": "The gate has sent the same piece back twice (return_cap), or a worker reports that a function cannot be written without changing another worker's function.",
+  "workers": 5,
+  "return_cap": 2,
+  "test": "python -m unittest",
+  "files": ["basket.py"],
+  "lineup": "",
+  "lead": "main",
+  "worker": "subagent"
+}

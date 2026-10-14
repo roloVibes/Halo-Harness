@@ -1,0 +1,104 @@
+// The Orchestra view's data: the JSON shapes of /api/orchestra/... (studio/
+// orchestra_api.py), which are the run folder's own files (docs/ORCHESTRA.md).
+
+export type StepState = "pending" | "running" | "done" | "failed" | "skipped";
+export type Step = { id: string; kind: string; lane: number | null; state: StepState; label: string };
+export type Edge = { from: string; to: string; kind: "flow" | "loop" };
+export type Workflow = { workers: number; steps: Step[]; edges: Edge[] };
+
+export type Goal = {
+  what: string;
+  done_when: string;
+  stop_when: string;
+  workers: number;
+  return_cap: number;
+  test: string;
+  test_timeout_s: number;
+  files: string[];
+  lineup: string;
+  lead: string;
+  worker: string;
+};
+
+export type LaneState = "joined" | "writing" | "written" | "in_review" | "waiting" | "merged" | "failed" | "";
+export type LaneStep = { state: LaneState; ts: number; elapsed_s: number; text: string };
+export type Lane = {
+  lane: number;
+  job: string;
+  title: string;
+  claims: string[];
+  order: number;
+  state: LaneState;
+  holder: string;
+  branch: string;
+  head: string;
+  cost_usd: number;
+  started: number | null;
+  ended: number | null;
+  pieces_returned: number;
+  written: Record<string, string>;
+  error: string;
+  history: LaneStep[];
+};
+
+export type Claim = { key: string; holder: string; state: string; ts: number; ttl_s: number; note: string; expires: number };
+
+export type RunEvent = {
+  ts: number;
+  elapsed_s: number;
+  lane: number | null;
+  kind: "state" | "claim" | "merge" | "gate" | "report" | "note";
+  text: string;
+  data: Record<string, unknown>;
+};
+
+export type Check = { id: string; ok: boolean | null; detail: string };
+export type Report = {
+  run_id: string;
+  status: "finished" | "stopped";
+  stop_reason: string;
+  branch: string;
+  finished: string | null;
+  tests_ok: boolean;
+  tests_tail: string;
+  cost_usd: number;
+  ts: number;
+  elapsed_s: number;
+  goal_done_when: string;
+  lanes: { lane: number; title: string; state: string; pieces_returned: number; cost_usd: number }[];
+  checks: Check[];
+};
+
+export type Conflict = { lane: number; file: string; attempt: number; judge_session: string; applied: boolean; tests_ok: boolean };
+export type Merge = { branch: string; base: string; order: number[]; merged: number[]; finished: string | null; conflicts: Conflict[] };
+export type DryRun = { jobs: { id: string; worker: number; title: string; claims: string[] }[]; problems: string[]; stop: string };
+
+export type RunState = "running" | "finished" | "stopped" | "dry run" | "new" | "interrupted";
+export type RunRow = { run_id: string; created: number; state: RunState; workers: number; goal_what: string; cost_usd: number };
+
+export type RunPayload = {
+  run: { run_id: string; created: number; repo_root: string; lead_holder: string | null; state: RunState; cost_usd: number };
+  goal: Goal;
+  workflow: Workflow | null;
+  split: { base: string; jobs: { id: string; title: string; claims: string[]; worker: number }[] } | null;
+  lanes: Lane[];
+  claims: Claim[];
+  merge: Merge | null;
+  report: Report | null;
+  dry_run: DryRun | null;
+  events_count: number;
+  live: boolean;
+};
+
+export type RegionState = "claimed" | "writing" | "written" | "merged";
+export type Region = {
+  key: string;
+  lane: number;
+  holder: string;
+  state: RegionState;
+  lane_state: string;
+  start_line: number;
+  end_line: number;
+  text: string[];
+};
+export type FileView = { path: string; base_ref: string; base: string[]; regions: Region[] };

@@ -1493,6 +1493,12 @@ class Session:
         # two lines above this in `__init__` still benefits).
         if self.permission_engine is not None:
             self.permission_engine.tool_results_dir = self.log.dir / self.log.session_id / "tool-results"
+            # Halo 3.0.3.0: inside an Orchestra run ($HALO_ORCHESTRA_RUN) this
+            # session's Write/Edit calls on the goal's files go through the
+            # claim guard, under this session's own holder name.
+            if os.environ.get("HALO_ORCHESTRA_RUN"):
+                from halo_harness.orchestra.guard import install_from_env
+                install_from_env(self.permission_engine, self.log.dir / self.log.session_id)
         existing_nodes = self.log.nodes()
         if not existing_nodes:
             # finding 4: when a SessionCatalog exists, `.names` (not

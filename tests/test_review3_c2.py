@@ -26,7 +26,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
-STATIC = REPO / "halo_harness" / "studio" / "static"
+STATIC = REPO / "halo_harness" / "studio" / "static" / "legacy"
 IFRAME = '<iframe src="/design-files/probe/hero/index.html"></iframe>'
 
 
