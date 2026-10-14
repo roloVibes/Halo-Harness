@@ -167,10 +167,11 @@ def test_endpoint_disappears_on_quit_and_registry_entry_goes(ctx: Ctx):
     from halo_harness.remote import client as rclient, registry, runtime
     from halo_harness.theme import set_config_value
     with Rig(serve=False) as rig:
-        ctx.check("remote.enabled defaults to false: nothing opened", runtime.start_for_controller(rig.controller) is None
+        set_config_value("fleet.enabled", False)  # 3.0.5.0: the socket's switch (remote.enabled is the Signal bridge's)
+        ctx.check("fleet.enabled false: nothing opened", runtime.start_for_controller(rig.controller) is None
                   and runtime.active() is None)
         ctx.check("/remote says off", runtime.status_line().startswith("control socket: off"))
-        set_config_value("remote.enabled", True)
+        set_config_value("fleet.enabled", True)
         act = runtime.start_for_controller(rig.controller)
         ctx.check("enabled: socket opened", act is not None and runtime.active() is act)
         endpoint = act.endpoint

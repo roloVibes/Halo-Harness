@@ -37,8 +37,11 @@ The 2.0.10 review lists where each of these is still incomplete.
 
 ## Remote control (2.0.9) in five lines
 
-1. Off by default (`remote.enabled`); a session socket is a Unix socket
-   (mode 0600, directory 0700) or Windows loopback TCP plus a random token.
+1. Since 3.0.5.0 every session opens its control socket (`fleet.enabled`;
+   `--private` or `/private on` for one that should not); it is a Unix
+   socket (mode 0600, directory 0700) or Windows loopback TCP plus a random
+   token, never a network address. The phone bridge is off by default
+   (`remote.enabled`).
 2. The Signal bridge answers nobody it has not paired: contact request,
    approval on the computer, a one-time six-digit code, pinned on the ACI.
 3. Every command after pairing ends `#<counter>:<mac>` (HMAC, rising

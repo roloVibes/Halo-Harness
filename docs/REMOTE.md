@@ -15,9 +15,10 @@ signing, chat commands) | [running it](#running-the-bridge) |
 
 ## What the control socket is
 
-With `remote.enabled` set, every interactive `halo` session and every
-`halo -p` run (including `--bg` runs, which re-run the same invocation)
-opens one local socket and lists itself in the registry. A program that can
+Every interactive `halo` session and every `halo -p` run (including `--bg`
+runs, which re-run the same invocation, Paperclip heartbeats and Orchestra
+workers), and a flow's org run, opens one local socket and lists itself in
+the registry. A program that can
 reach that socket can do what the keyboard does: send a prompt (or steer the
 turn in flight), interrupt, switch mode / model / effort, run a slash
 command, answer a permission card, a question, a plan review or an approval
@@ -26,15 +27,26 @@ session's events as they happen. It is the same set of calls the TUI itself
 makes on the `Controller`; the socket never injects raw commands into the
 agent loop.
 
-Off by default. Turn it on with:
+**Two switches since 3.0.5.0 (Fleet).** `fleet.enabled` (default `true`)
+opens the control socket and the registry entry for every session, so
+Studio and `halo remote` can see it; `remote.enabled` (default `false`) is
+the Signal phone bridge's switch and nothing else (`halo remote signal
+run` starts only with it on). Before 3.0.5.0 `remote.enabled` opened the
+socket too.
 
 ```sh
-halo config set remote.enabled true
+halo config set fleet.enabled false    # no session opens a control socket
+halo config set remote.enabled true    # the Signal bridge may run (see below)
 ```
 
-It takes effect for sessions started afterwards. In the TUI, `/remote` says
-whether this session's socket is on (and where) and how many live sessions
-the registry holds.
+Both take effect for sessions started afterwards. **A private session**
+registers nothing and opens no socket: start it with `halo --private`
+(it sets `HALO_FLEET_PRIVATE` for its own process, so the Orchestra
+workers it starts are private too), turn it on and off in the TUI with
+`/private on` / `/private off` (the status bar shows a `private` chip), or
+make every session private with `fleet.private: true`. In the TUI, `/remote`
+says whether this session's socket is on (and where) and how many live
+sessions the registry holds.
 
 ## Where it listens
 
@@ -87,6 +99,33 @@ Several clients may connect at once; a subscription belongs to its
 connection. Commands that arrive over the socket show up in the TUI transcript
 as a `(remote) ...` note, never as a message typed by you.
 
+## Agent-level commands (3.0.5.0 Fleet)
+
+The commands above address the whole session. These address one agent:
+the main agent (`agent_id` `main`, or the session id), any sub-agent at any
+depth (its 8-character id), or a background Bash job (`job:<id>`). They are
+what Studio's Fleet views and `halo remote agents | steer | stop` send; the
+semantics are in [SUBAGENTS.md](SUBAGENTS.md#the-live-agent-tree-and-what-studio-can-do-to-an-agent).
+
+| `cmd` | Fields | Result |
+|---|---|---|
+| `agents` | | `{agents: [row, ...]}`: the session's live agent tree, parents before children. A row is `{agent_id, parent, name, role, bio, lineup, model, kind, task, since, state, turns, cost_usd, current, last_text, transcript}`; `kind` is `main`, `subagent`, `member` (an org position or team member), `background` or `job`; `state` is `queued`, `running`, `waiting`, `paused`, `done`, `failed` or `stopped`; `current` is the tool in flight with one line of its arguments, or `thinking` |
+| `agent_tail` | `agent_id`, `n` (default 100, at most 500), optional `kinds` (a list) | `{agent_id, events: [entry, ...]}`: the last n entries of that agent's own transcript (for `main`, the session's). An entry is `{kind, ...}` with `kind` one of `user`, `text`, `thinking`, `tool_call`, `spawn`, `tool_result`, `handback`, `control`, `note`, `ask`, `error`, `done` |
+| `agent_steer` | `agent_id`, `text`, optional `mode` (`nudge`, the default, or `redirect`) | `{agent_id, mode, delivered}`: `inbox` (the agent reads it before its next model call), `external` (a `cc:` child took it through its own stdin), or for `main` `steer` / `turn` (today's `steer`). A `cx:` child with no live channel answers `ok: false` with `that agent runs in an external process; stop and respawn`; a finished agent answers `ok: false` |
+| `agent_stop` | `agent_id`, optional `reason` | `{agent_id, stopping: [ids]}`: that agent and its subtree end at their next tool boundary. `main` is the turn-level `interrupt` (`{agent_id, interrupted}`); a `job:` id kills the job (`{agent_id, stopped, message}`) |
+| `pause` | optional `agent_id` | `{paused}`: that agent and its subtree (or, with no `agent_id`, every agent of the session) hold at their next tool boundary |
+| `resume` | optional `agent_id` | `{resumed, was_paused}` |
+| `shutdown` | optional `reason` | `{shutdown: true}`: every agent ends at its next tool boundary, then the session closes: the TUI shows `shut down from Studio by <by>: <reason>` and exits, `halo -p` reads no further turn and returns |
+| `agent_follow` | `agent_id`, `on` (default true) | `{agent_id, following: [ids]}`: while on, that agent's entries are also published as `agent_event` frames |
+
+Every one takes `by` (the caller's name: Studio sends `fleet.name`, `halo
+remote` sends it too) and `via` (default `Studio`). The commands that act
+on an agent are recorded in that agent's own transcript as a `meta` node
+(`{"fleet": {"cmd", "by", "via", "agent_id", ...}}`); a steer, stop or pause
+also leaves one line in the parent's transcript (`"<agent> steered from
+Studio by <by>: <first 80 characters>"`) and in the TUI. Old clients see
+the same wire: nothing in the earlier commands changed.
+
 ## The event feed
 
 After `subscribe`, a connection receives the session's events (the kinds in
@@ -96,6 +135,16 @@ changes: consecutive `text_delta`s are merged into one `text_chunk` frame
 bytes, flushed early whenever another event arrives so order is kept, and
 `thinking_delta` is not sent. The feed is a copy taken where the session emits
 events; the TUI's own queue is untouched.
+
+**Fleet frames (3.0.5.0).** Every frame also carries `session_id` and
+`harness` (the harness id). Three kinds join the feed: `agent_state` (a row
+of the agent tree changed: data is the row; state, tool, turns or task at
+once, text and cost alone at most once a second per agent), `agent_event`
+(an entry of an agent someone follows with `agent_follow`) and `fleet` (this
+session's registry entry, public fields only, with `action` `register`,
+`update` or `unregister`). The first frame of every new subscription is the
+session's `fleet` frame with `action: hello`. The `subagent_*` frames are
+unchanged.
 
 Each subscriber has a queue of 256 frames. A client that stops reading is
 dropped (its connection is closed) when the queue fills; the session and the
@@ -109,9 +158,19 @@ socket:
 ```json
 {"version": 1, "sessions": [
   {"session_id": "...", "cwd": "...", "pid": 1234, "endpoint": "unix:<state dir>/run/<session_id>.ctl",
-   "token_env": null, "started": 1791699000.0, "title": "Fix the flaky test", "mode": "default", "kind": "tui"}
+   "token_env": null, "started": 1791699000.0, "title": "Fix the flaky test", "mode": "default", "kind": "tui",
+   "harness": {"id": "5f0c...", "name": "you@laptop", "host": "laptop", "user": "you", "version": "3.0.5.0", "os": "linux"},
+   "project": {"root": "/srv/app", "repo": "app", "branch": "main", "dirty": false}, "parent": null}
 ]}
 ```
+
+Since 3.0.5.0: `kind` is `tui`, `print`, `paperclip`, `orchestra-worker` or
+`flow`; `harness.id` is a stable per-home id kept in `~/.halo/fleet-id` and
+`harness.name` is `fleet.name` (default `user@host`); `project` is read from
+git a moment after the session starts (None fields outside a repo);
+`parent` is the session that started this one (an Orchestra worker names
+the session that ran the Orchestra, through `HALO_FLEET_PARENT`). An entry
+written by an older Halo, without these keys, still loads.
 
 It is written atomically (temp file and replace, under a best-effort lock),
 the title follows the session's auto-title or `/rename`, and `mode` follows
@@ -188,7 +247,7 @@ halo remote signal setup --model dedicated --yes
 halo remote signal register +15555550123        # prints the captcha page to open
 halo remote signal register +15555550123 --captcha 'signalcaptcha://...'
 halo remote signal register +15555550123 --code 123456
-halo config set remote.enabled true             # sessions open a control socket
+halo config set remote.enabled true             # the Signal bridge may run
 halo remote signal run                          # the bridge, in its own terminal
 ```
 
@@ -475,7 +534,9 @@ of a rate-limit pause), which is what `status`, `/remote` and `halo doctor`
 read. A pulse whose pid now belongs to another process (the bridge was
 killed, or the machine rebooted) reads as stopped, so `run` starts again. It does nothing while `remote.signal.enabled` is false; `setup` sets it
 to true, `halo remote signal off` sets it to false, `halo remote signal on`
-sets it back.
+sets it back. Since 3.0.5.0 it also does nothing while `remote.enabled` is
+false: every session's control socket is on by default now (`fleet.enabled`),
+so a phone reaching them stays its own opt-in.
 
 **As a service.** `halo remote signal run --daemon` writes one file for the OS
 you are on under `~/.halo/remote/` and prints the one command that enables it.
@@ -507,7 +568,7 @@ start the service copy again yourself (`systemctl --user start halo-remote`,
 task); `launchctl bootout gui/$(id -u)/dev.halo.remote` removes the macOS agent.
 A run that finds no account, or a bridge already running, exits 1, so a
 service manager retries it on its own schedule until that changes. Nothing else on your machine is touched: sessions
-keep their control sockets (turn those off with `remote.enabled`).
+keep their control sockets (turn those off with `fleet.enabled`, or one session with `--private`).
 
 ## In the TUI: `/remote` and the status chip
 
@@ -564,6 +625,9 @@ on stderr, or in the JSON), 2 usage.
 | Verb | Does |
 |---|---|
 | `halo remote sessions` | live sessions that opened a control socket |
+| `halo remote agents <session>` | that session's agent tree: id, name, state, cost, model, what it is doing (3.0.5.0; `<session>` is an id or a unique prefix) |
+| `halo remote steer <session> --agent <id> [--redirect] <text>` | a note that agent reads before its next model call; `--redirect` replaces the rest of its task |
+| `halo remote stop <session> --agent <id> [--reason <text>]` | stop that agent and its subtree at the next tool boundary (`--agent main` interrupts the turn) |
 | `halo remote signal setup [--model dedicated\|linked] [--yes] [--no-download] [--binary PATH] [--jvm]` | choose the model; find or download signal-cli 0.14.9; write `signal.json`; set `remote.signal.enabled` |
 | `halo remote signal register <number> [--captcha TOKEN] [--voice] [--code CODE] [--pin PIN]` | register the dedicated number (captcha, SMS or voice, code, registration lock) |
 | `halo remote signal link [--name NAME] [--ascii] [--timeout S]` | link as a device of your account: prints the `sgnl://linkdevice` URI and a QR code |
@@ -593,7 +657,7 @@ same `[OK]` / `[WARN]` vocabulary with a `-> fix:` or `-> see:` ending:
 
 | id | Checks |
 |---|---|
-| `remote` | `remote.enabled` and the number of live sessions in the registry; one quiet line when remote control is not in use |
+| `remote` | both switches (`fleet.enabled` for the control sockets, `remote.enabled` for the Signal bridge) and the number of live sessions in the registry; one quiet line when the Signal bridge is not in use |
 | `remote_bridge` | the bridge's state and pid, `remote.signal.enabled` |
 | `remote_signal_cli` | signal-cli present and runnable; its version against the 0.14.9 pin; a **warning at 90 days** from the pinned release date (2026-10-07), since builds older than about three months can stop working |
 | `remote_jre` | a JRE 25 or newer, only when the JVM build is in use |
@@ -609,8 +673,9 @@ The tests drive a fake signal-cli, so the first run with a real number is the
 real check. With a dedicated test number (or a linked test account), in this
 order:
 
-1. `halo config set remote.enabled true`, then start `halo` in a project
-   folder (the session that will be controlled) and leave it idle.
+1. `halo config set remote.enabled true` (the bridge's switch), then start
+   `halo` in a project folder (the session that will be controlled; its
+   control socket is on by default) and leave it idle.
 2. In a second terminal: `halo remote signal setup --yes`, then `register` (or
    `link`), then `halo remote signal run`. `halo remote signal status` should
    say `connected`, and `halo doctor` should show the remote checks green.
@@ -662,7 +727,10 @@ and the code is written to cope with either answer:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `remote.enabled` | `false` | open a control socket and registry entry for each session |
+| `fleet.enabled` | `true` | open a control socket and registry entry for each session (3.0.5.0) |
+| `fleet.name` | `user@host` | this harness's name in the registry and on the commands it sends |
+| `fleet.private` | `false` | every session starts private, as with `halo --private` |
+| `remote.enabled` | `false` | the Signal bridge's switch: `halo remote signal run` starts only with it on (before 3.0.5.0 it also opened the control sockets) |
 | `remote.signal.enabled` | `false` | whether the Signal bridge may run: `setup` and `halo remote signal on` set it to true, `off` (or `o` in `/remote`) to false; `run` does nothing while it is false |
 | `remote.rate_per_minute` | `30` | commands per minute per paired phone; over it the bridge drops them and tells the phone once |
 | `remote.verbosity` | `loud` | what a newly attached phone is sent: `loud` (the session's text, cards, errors) or `quiet` (cards, errors, the closing line); `/quiet` and `/loud` change it per phone |

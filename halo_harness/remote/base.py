@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -14,6 +15,7 @@ from halo_harness.remote.feed import EventHub, Subscription
 
 MODES = ("default", "acceptEdits", "plan", "auto", "dontAsk", "bypassPermissions")
 NOTE_CHARS = 120
+SHUTDOWN_WAIT_S = 900.0  # a shutdown waits this long for the current tool call to end
 
 
 class HandleError(Exception):
@@ -67,6 +69,22 @@ class _BaseHandle:
     def _resolve_permission(self, request_id: str, reply: dict) -> bool:
         return self.session.resolve_permission(request_id, _decision(reply))
 
+    def fleet_shutdown(self, text: str) -> None:
+        """`shutdown` (3.0.5.0): every agent already ends at its next tool
+        boundary (agent/agent_inbox.py); this closes the session once the
+        turn is over. Subclasses say how (`_close_after_shutdown`)."""
+        self._note(text)
+
+        def _wait_then_close() -> None:
+            end = time.monotonic() + SHUTDOWN_WAIT_S
+            while getattr(self.session, "busy", False) and time.monotonic() < end:
+                time.sleep(0.1)
+            self._close_after_shutdown(text)
+        threading.Thread(target=_wait_then_close, daemon=True, name="halo-fleet-shutdown").start()
+
+    def _close_after_shutdown(self, text: str) -> None:
+        """Nothing to close for a bare handle (a flow's org session ends with its run)."""
+
     # ---- feed ------------------------------------------------------------
     def _observe(self, ev) -> None:
         if ev.kind == "permission_request":
@@ -116,7 +134,7 @@ class _BaseHandle:
         data = dict(self.session.status_event().data)
         data.update(session_id=self.session_id, cwd=str(self.cwd), title=self.title(), busy=bool(self.session.busy),
                     kind=self.kind, pid=os.getpid(), pending=self._pending(),
-                    remote_attached=len(self._remote_peers))
+                    remote_attached=len(self._remote_peers), agents=_live_agents(self.session))
         return data
 
     def tail(self, n: int = 20) -> str:
@@ -190,6 +208,15 @@ class _BaseHandle:
         if ok:
             self._note(f"approval {action}")
         return ok
+
+
+def _live_agents(session) -> int:
+    """Sub-agents queued, running, waiting or paused right now (3.0.5.0 Fleet)."""
+    tree = getattr(session, "_fleet_tree", None)
+    try:
+        return tree.live_count() if tree is not None else 0
+    except Exception:
+        return 0
 
 
 def _decision(reply: dict):

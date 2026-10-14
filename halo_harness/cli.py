@@ -112,6 +112,11 @@ _REAL_FLAGS = [
     # `~/.halo/config.json`). Not a Claude Code flag -- Halo-only, same as
     # `--demo`/`--stress`/`--bare` just above.
     (["--offline"], dict(dest="offline", action="store_true")),
+    # Halo 3.0.5.0 (Fleet): this session registers nothing and opens no
+    # control socket -- Studio, `halo remote` and the fleet never see it
+    # (sets HALO_FLEET_PRIVATE for THIS process; `/private on|off` in the
+    # TUI, `fleet.private` in ~/.halo/config.json).
+    (["--private"], dict(dest="private", action="store_true")),
     # Halo 2.0.3.1 (clipboard image paste): `-p`'s own way to attach an
     # image to the one turn it sends, Claude Code stream-json parity for
     # a plain `-p`/`--input-format text` run -- repeatable (several
@@ -626,6 +631,8 @@ def _main(argv: Optional[list] = None) -> int:
     # refresh, ...).
     if getattr(args, "offline", False):
         os.environ["HALO_OFFLINE"] = "1"
+    if getattr(args, "private", False):  # 3.0.5.0: a private session (see the flag's own comment)
+        os.environ["HALO_FLEET_PRIVATE"] = "1"
 
     # review finding 34: `--autocompact <auto|tokens>` used to write
     # straight into `os.environ["CLAUDE_CODE_AUTO_COMPACT_WINDOW"]`, the

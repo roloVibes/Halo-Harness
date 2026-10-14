@@ -46,6 +46,15 @@ class PrintModeHandle(_BaseHandle):
             if callable(close):
                 close()
 
+    def fleet_shutdown(self, text: str) -> None:
+        """3.0.5.0: the current turn ends at its next tool boundary
+        (agent/agent_inbox.py) and no further turn is read: the run returns."""
+        from halo_harness import events
+        self.hub.publish(events.system_note(f"(remote) {text}"))
+        queue_ = self.input_queue
+        if queue_ is not None:
+            (getattr(queue_, "put_urgent", None) or queue_.put)(None)
+
     def _add_rule(self, rule: str, scope: str):
         if scope == "session":
             self.session.permission_engine.add_session_allow_rule(rule)

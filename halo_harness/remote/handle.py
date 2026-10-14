@@ -83,6 +83,15 @@ class ControllerHandle(_BaseHandle):
     def _resolve_permission(self, request_id: str, reply: dict) -> bool:
         return self.controller.answer_permission(request_id, reply)
 
+    def _close_after_shutdown(self, text: str) -> None:
+        """The TUI sets `controller.on_fleet_shutdown` (it shows the line and
+        exits through its own quit path); without one the Controller quits."""
+        hook = getattr(self.controller, "on_fleet_shutdown", None)
+        try:
+            hook(text) if callable(hook) else self.controller.quit()
+        except Exception:
+            pass
+
     def title(self) -> str:
         return self.controller.get_title()
 

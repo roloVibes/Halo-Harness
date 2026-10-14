@@ -631,7 +631,7 @@ reviews and questions come back to the phone and are answered by number or
 letter. It is off until you turn it on:
 
 ```sh
-halo config set remote.enabled true       # sessions open a local control socket
+halo config set remote.enabled true       # the bridge may run (sessions' sockets are on by default)
 halo remote signal setup                  # dedicated number (recommended) or linked device
 halo remote signal register +15555550123  # captcha, SMS code, registration lock (dedicated)
 halo remote signal run                    # the bridge, in its own terminal

@@ -1,16 +1,20 @@
 """halo_harness.studio.sessions_api -- the live sessions Studio can answer
 (Halo 3.0.4.0 round R5). Same guard as every Studio route.
 
-    GET  sessions                 [{session_id, title, cwd, mode, kind, started, pid, status, busy, pending, model, status_age_s}]
-    POST sessions/<sid>/command {cmd: answer|interrupt|steer|submit, kind?, request_id?, action?, instruction?, text?, ...}
+    GET  sessions                 [{session_id, title, cwd, mode, kind, started, pid, harness, project, parent,
+                                    status, busy, pending, model, agents, status_age_s}]
+    POST sessions/<sid>/command {cmd: answer|interrupt|steer|submit|shutdown|pause|resume, kind?, request_id?,
+                                 action?, instruction?, text?, reason?, agent_id?, ...}
                                   -> {ok, result}; 404 for a session not in the registry, 502 with the socket's error
+    sessions/<sid>/agents...      the agent tree, one agent's tail and its commands (studio/fleet_api.py, 3.0.5.0)
 
 The rows come from `remote/registry.list_live()` (never an endpoint or a
 token) plus each session's `status` over its control socket: every call
 has a `STATUS_TIMEOUT_S` timeout, they run side by side on their own
 threads, the request waits at most `STATUS_WAIT_S` for them and a session
 that has not answered keeps its last cached status (`status_age_s` says how
-old). A status is reused for `STATUS_TTL_S`. `status` is `waiting` (a
+old). A status is reused for `STATUS_TTL_S`; `agents` counts the sub-agents
+running right now (3.0.5.0). `status` is `waiting` (a
 permission, question, plan or approval card is open), `busy`, `idle` or
 `unknown`. A command is forwarded as the control protocol's request
 (`remote/protocol.py`): an `answer` with `kind: approval` resolves an org
@@ -27,8 +31,8 @@ STATUS_TIMEOUT_S = 1.0
 STATUS_WAIT_S = 1.5
 STATUS_TTL_S = 2.0
 COMMAND_TIMEOUT_S = 5.0
-COMMANDS = ("answer", "interrupt", "steer", "submit")
-PUBLIC = ("session_id", "title", "cwd", "mode", "kind", "started", "pid")
+COMMANDS = ("answer", "interrupt", "steer", "submit", "shutdown", "pause", "resume")
+FLEET_COMMANDS = ("shutdown", "pause", "resume")  # 3.0.5.0: sent with by = fleet.name, via = Studio
 ANSWER_FIELDS = ("kind", "request_id", "action", "instruction", "scope", "message", "rule", "answer", "approved",
                  "feedback", "mode_after")
 _cache: dict = {}
@@ -37,7 +41,8 @@ _lock = threading.Lock()
 
 def _list_live() -> list:
     from halo_harness.remote import registry
-    return [r for r in registry.list_live() if isinstance(r, dict) and r.get("session_id")]
+    # a private session never registers; an entry marked private anyway is never shown
+    return [r for r in registry.list_live() if isinstance(r, dict) and r.get("session_id") and not r.get("private")]
 
 
 def _client(entry: dict, timeout: float):
@@ -97,9 +102,10 @@ def list_sessions(req):
     rows = []
     for e in sorted(entries, key=lambda r: (r.get("started") or 0, r.get("session_id"))):
         age, data = got.get(e["session_id"], (None, None))
-        row = {k: e.get(k) for k in PUBLIC}
+        from halo_harness.remote.registry import public_entry
+        row = public_entry(e)
         row.update(status=_state(data), busy=bool((data or {}).get("busy")), pending=(data or {}).get("pending"),
-                   model=(data or {}).get("model"), status_age_s=age)
+                   model=(data or {}).get("model"), agents=(data or {}).get("agents"), status_age_s=age)
         rows.append(row)
     return 200, rows
 
@@ -109,6 +115,15 @@ def post_command(req):
     cmd = str(req.body.get("cmd") or "")
     if cmd not in COMMANDS:
         return 422, {"error": f"cmd is one of {', '.join(COMMANDS)}, got {cmd!r}", "problems": []}
+    if cmd in FLEET_COMMANDS:
+        from halo_harness.studio import fleet_api
+        fields = {**fleet_api.caller(), "reason": str(req.body.get("reason") or "")}
+        if req.body.get("agent_id"):
+            fields["agent_id"] = str(req.body["agent_id"])
+        status, result = fleet_api.forward(sid, cmd, fields)
+        with _lock:
+            _cache.pop(sid, None)
+        return (200, {"ok": True, "result": result}) if status == 200 else (status, result)
     entry = next((e for e in _list_live() if e.get("session_id") == sid), None)
     if entry is None:
         return 404, {"error": f"no live session {sid!r}"}
@@ -138,6 +153,8 @@ def post_command(req):
 
 ROUTES = [("GET", r"^sessions$", list_sessions),
           ("POST", r"^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/command$", post_command)]
+from halo_harness.studio.fleet_api import ROUTES as _FLEET_ROUTES  # noqa: E402  (3.0.5.0: the agent routes)
+ROUTES[len(ROUTES):] = _FLEET_ROUTES
 
 
 def dispatch_sessions(req):

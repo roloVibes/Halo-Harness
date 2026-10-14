@@ -37,9 +37,10 @@ def poll_notices_once(app) -> int:
 
 
 def start_notice_poll(app) -> None:
-    """Called from the app's mount: only when `remote.enabled` is on."""
+    """Called from the app's mount: only when `remote.enabled` (the Signal
+    bridge's switch; its notices are the bridge's) is on."""
     from halo_harness.remote import runtime
-    if not runtime.enabled():
+    if not runtime.remote_enabled():
         return
 
     def tick() -> None:

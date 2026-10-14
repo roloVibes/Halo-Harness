@@ -561,6 +561,12 @@ class StatusBar(Static):
             self._refresh_display()
 
     def _remote_str(self) -> str:
+        try:  # 3.0.5.0: a private session (--private, /private on) shows a `private` chip here
+            from halo_harness.remote.runtime import private_chip as _private
+            if _private():
+                return "private"
+        except Exception:
+            pass
         if not self.remote_attached:
             return ""
         from halo_harness.theme import supports_truecolor
