@@ -1,7 +1,8 @@
 """tests.test_studio_ui -- the Studio page boots in a real browser (Halo
 2.1.0 round B3): headless Chrome loads the page over a seeded scratch home,
 the lineup draws its node cards, and docs/media/studio.png (the README's
-capture) exists and is a PNG. Skipped when no Chrome is found, like the
+capture) exists and is a PNG. 3.0.3.0: the classic page is the one at
+/legacy/, and the React shell at / is checked by its data-testid counts. Skipped when no Chrome is found, like the
 front-page PNG step.
 """
 
@@ -41,6 +42,27 @@ def test_page_boots_and_draws_nodes_in_headless_chrome(ctx: Ctx):
     except (ValueError, IndexError):
         info = {}
     ctx.check(f"the page drew the halo-dev-cycle cards, got {info}", info.get("nodes", 0) >= 7 and "Halo Studio" in info.get("title", ""))
+
+
+@test
+def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
+    """3.0.3.0: the React shell at / draws the four section tabs; Orchestra
+    shows its placeholder, Roles frames the classic page at /legacy/."""
+    if not _chrome():
+        raise SkipTest("no Chrome found (the shell smoke needs headless Chrome)")
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
+    env["PYTHONPATH"] = str(REPO)
+    env["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
+    r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_studio.py"), "--mode", "shell", "--dom"], capture_output=True, text=True, timeout=240, env=env, cwd=str(REPO))
+    ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
+    try:
+        info = json.loads(r.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        info = {}
+    orch, roles = info.get("orchestra", {}), info.get("roles", {})
+    ctx.check(f"Orchestra: four section tabs and the placeholder, got {orch}", orch == {"section-tab": 4, "orchestra-root": 1, "legacy-frame": 0})
+    ctx.check(f"Roles: four section tabs and the framed classic page, got {roles}", roles == {"section-tab": 4, "orchestra-root": 0, "legacy-frame": 1})
+    ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
 @test

@@ -188,7 +188,7 @@ def test_history_logs_tool_calls_and_seconds(ctx: Ctx):
 
 @test
 def test_page_files_shortcuts_and_the_design_tour(ctx: Ctx):
-    static = REPO / "halo_harness" / "studio" / "static"
+    static = REPO / "halo_harness" / "studio" / "static" / "legacy"
     page = (static / "index.html").read_text(encoding="utf-8")
     ctx.check("the new scripts are loaded", "design-more.js" in page and "design-assets.js" in page)
     for name in ("design-more.js", "design-assets.js", "design.js", "design-panel.js", "design-panel2.js", "palette.js", "design.css"):

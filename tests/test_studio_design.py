@@ -256,7 +256,7 @@ def test_apply_css_control_unit(ctx: Ctx):
 
 @test
 def test_page_files_and_the_mode_button(ctx: Ctx):
-    static = REPO / "halo_harness" / "studio" / "static"
+    static = REPO / "halo_harness" / "studio" / "static" / "legacy"
     page = (static / "index.html").read_text(encoding="utf-8")
     ctx.check("the toggle has a Design button and the scripts are loaded", 'data-mode="design"' in page and "design.js" in page and "design-panel.js" in page and "design.css" in page)
     for name in ("design.js", "design-canvas.js", "design-panel.js", "design-panel2.js", "design.css"):

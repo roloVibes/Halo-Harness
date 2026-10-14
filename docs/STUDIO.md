@@ -13,6 +13,7 @@ halo studio --mode roles    # straight into Roles (lineups and bios), --mode org
 halo studio --no-open       # prints the URL only (SSH, a headless box)
 halo studio --port 8765     # a fixed port instead of a free one
 halo studio --stop          # stop the Studio running in the background
+halo studio --legacy        # the classic page (/legacy/) instead of the shell
 ```
 
 One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json`
@@ -28,7 +29,82 @@ mode from the live session; `/studio [roles|org|design]` is the long form and
 Halo session knows this too: the system prompt names Studio, its three modes
 and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 
-## What you see
+## The shell (3.0.3.0)
+
+`halo studio` opens a React shell with four sections in the top bar:
+**Orchestra | Roles | Org | Design** (`Alt+1`..`Alt+4`, or `?mode=` in the
+URL). Orchestra is the live run board (this release shows its placeholder,
+the live feed and the attached sessions); Roles, Org and Design are the
+classic pages described below, framed inside the shell from `/legacy/`, so
+everything in them works as before. `halo studio --legacy` opens the classic
+page on its own.
+
+- **A movable workspace.** Every section is a set of panels on a 24-column
+  grid (8 px rows). Drag a panel's title bar to move it, an edge or corner to
+  resize it; the others make room and everything snaps to the grid. Each
+  title bar has **Expand / Glance**, **Collapse** (to a one-line strip),
+  **Pop out** (float over the grid; dock it back the same way) and a **gear**.
+  With a panel focused, `Alt`+arrows move it and `Alt+Shift`+arrows resize
+  it. The arrangement is remembered per section in your browser
+  (`localStorage` key `halo.studio.layout.<section>`); **Reset layout** (the
+  rail, or the palette) returns to the defaults, which follow the window size
+  until you rearrange something.
+- **Three depths per panel.** The **Glance** face says what the panel is,
+  shows one live indicator and one or two big numbers, readable from across
+  the room; **Expand** shows the details; the **gear** opens the Inspector on
+  the right with that panel's settings (face, strip, float, exact grid
+  position, reset, and the panel's own options).
+- **The rail** (left) lists the section's panels (click one to bring it back
+  and focus it), the live sessions, and the layout actions.
+- **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
+  grouped results (Go to, View, Layout, Open), keyboard first: arrows,
+  `Enter`, `Esc`. Every shortcut is shown next to its command.
+- **The status bar** shows the live feed (a dot that is green when
+  connected, amber while connecting or reconnecting, red when unreachable,
+  and ticks once per event), the session and event counts and the section's
+  layout state. `Esc` closes the palette, then the Inspector.
+
+**Visual language.** The dark theme ("holo", the default) is a near-black
+navy with glass panels: a translucent surface, a 1 px luminous edge, a soft
+glow and small corner brackets (`--bracket-alpha`, 0 turns them off). Cyan is
+the one accent for "live" and "do this", amber means "needs you", magenta-red
+an error, green done. Data labels and numbers are monospaced next to a clean
+sans for prose. The light theme is Catppuccin Latte; the theme menu offers
+dark, light and "follow the system". Every colour is a token in
+`ui/src/styles/tokens.css` (`--bg`, `--surface`, `--surface-glass`,
+`--line`, `--glow`, `--accent`, `--accent-2`, `--warn`, `--bad`, `--ok`,
+`--text`, `--muted`, `--mono`, `--sans`, `--radius`, `--ease`, ...).
+Motion is short (150-250 ms, ease-out) and always means the same state,
+through `data-motion` on any element:
+
+| `data-motion` | Looks like | Means |
+|---|---|---|
+| `idle` | a slow breathing glow on the border (4 s) | present, nothing running |
+| `working` | a thin light flowing along the top edge | something is running |
+| `waiting` | a soft amber pulse (1.2 s) | it needs you |
+| `done` | one brief green sweep, then still | it just finished |
+| `error` | one red flash, then a steady red edge | it failed |
+| `live` | a small dot that ticks once per event | a feed is connected |
+
+Under `prefers-reduced-motion` none of it moves; each state keeps its colour
+cue. A section tab "works" while that section has fresh activity, toasts
+sweep green or flash red once, and nothing loops except `idle`, `working`
+and `waiting`, which describe an ongoing state.
+
+## The live feed
+
+`GET /api/events?t=<token>&sessions=all|<session id>` is a Server-Sent
+Events stream. Studio watches the live-session registry
+(`~/.halo/run/sessions.json`) every 2 s and attaches to each running
+session's control socket (`subscribe`, 1 s timeouts, off the request
+threads); every frame is `{session_id, event, data, turn, agent_id, ts}`
+under `event: <kind>`, a `sessions` frame lists the attached sessions (title,
+mode, kind, cwd, started, pid; never an endpoint or token) whenever one
+attaches or detaches, and `: ping` keeps the stream open every 15 s. Each
+browser gets its own queue of 512 frames (the oldest dropped first). The
+shell's status bar, the Orchestra feed panel and the rail read it.
+
+## What you see (Roles)
 
 - **The lock on a card** (`🔒 shipped`) is a badge, not a switch: the agent
   bio behind that slot ships with Halo and is read-only. Click it (or open
@@ -242,8 +318,18 @@ in the Lineup tab; a save that fails leaves the file untouched.
   a bearer header). A request without it is a 401.
 - A request carrying an `Origin` header that is not this server's own is a
   403, so a page on another site cannot drive Studio even with the port.
+- **One exception to the bearer header: `/api/events`.** A browser's
+  `EventSource` cannot send headers, so the live feed takes the same
+  per-launch token in the query (`?t=`), compared in constant time; a
+  missing or wrong token is a 403, and the loopback, Host and Origin checks
+  are the same as for every other call. The token never leaves the machine
+  and the response is `Cache-Control: no-store`.
 - No CDN, no fonts fetched, no analytics: the page is a handful of static
   files served from the package, under a strict content-security policy.
+  The shell (`static/dist/`) gets `default-src 'self'; connect-src 'self'`
+  with no inline styles or scripts; the classic page (`static/legacy/`)
+  keeps its `style-src 'unsafe-inline'`. The built bundle contains no
+  `http://` or `https://` URL at all (a CI test checks).
 - Writes go only to `~/.halo` (and a project's `.halo/` when you choose that
   scope); shipped files under the package are never written or deleted.
 
@@ -275,6 +361,11 @@ in your own browser.
 ## Files
 
 `halo_harness/studio/server.py` (the server, the guard, the command),
+`events.py` (the live feed: the registry watcher and `/api/events`),
+`ui/` (the React shell's sources; see docs/DEVELOPMENT.md "Studio UI"),
+`static/dist/` (its committed build), `static/legacy/` (the classic page),
 `api.py` (the routes), `design_api.py` / `design_api_io.py` / `design_api_turns.py` / `design_files.py` (Design mode), `model.py` (the graph, the catalog rows, the session
-reader), `static/` (the page). Tests: `tests/test_studio_api.py`,
-`tests/test_studio_model.py`.
+reader). Tests: `tests/test_studio_api.py`,
+`tests/test_studio_model.py`, `tests/test_studio_dist.py` (the build and
+its routes), `tests/test_studio_live.py` (the live feed),
+`tests/test_studio_ui.py` (headless Chrome over both pages).
