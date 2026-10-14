@@ -8,6 +8,70 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.0.3.0] - unreleased
+
+### The Orchestra: five agents write one file at once and nothing is lost
+
+The harness from Kem Tossoun's reel, built into Halo: a workflow graph that
+is designed in code before anything runs, a goal with WHAT YOU WANT / DONE
+WHEN / STOP WHEN, a lead that splits the goal into jobs, claims on parts of a
+file, one git worktree per worker, merges one at a time, a fresh agent that
+judges a merge conflict and tests that check its answer, a quality gate that
+sends a failed piece back to its worker, everything logged with time, and a
+report of checks at the end. Code decides wherever it can; a model judges
+only when it must.
+
+- `halo orchestra new|run|status|lanes|claims|log|report|stop|runs`. A run
+  lives in `<repo>/.halo/orchestra/<run-id>/` (goal.json, workflow.json,
+  split.json, claims.jsonl, lanes/, merge.json, events.jsonl, report.json)
+  and is resumable; `run --dry-run` shows the split only; `--model REF`
+  picks the workers' model. The basket.py walkthrough ships in
+  `templates/orchestra/` and docs/ORCHESTRA.md.
+- Claims on a function, a class, a method, a Markdown section or a whole
+  file, one holder per key, with a time limit. Inside a run, Write and Edit
+  on the goal's files check the claims: someone else's unit is refused
+  naming who holds it and until when; an unclaimed unit asks you to claim it
+  first; your own claim goes straight through. The tools OrchestraClaim,
+  OrchestraRelease, OrchestraClaims and OrchestraNote exist only inside a run.
+- The lead's split is one model call checked by code (every key must exist,
+  no key in two jobs, no more jobs than workers). Workers run as fresh
+  `halo -p` children in their own worktrees. Merge order is decided by code
+  (job order, then smallest diff). A conflict goes to a fresh judge that sees
+  only the goal and the conflict hunks; code applies its answer and the tests
+  check it. A piece that fails the gate goes back to its worker at most
+  `return_cap` times. A worker's `STOP:` line, the lead's stop answer, the
+  cap or `halo orchestra stop` end the run, and the report is still written.
+- `/orchestra` in the TUI shows the run's steps, lanes and latest log lines.
+  Run events (`orchestra_state/claim/merge/gate/report`) ride the session feed.
+
+### Halo Studio: a React shell, movable panels, motion that shows state, the Orchestra console
+
+- Studio is now a React + Vite shell with four sections, Orchestra | Roles |
+  Org | Design (`Alt+1..4`). Roles, Org and Design are the classic pages,
+  framed from `/legacy/`; `halo studio --legacy` opens the classic page on its
+  own. The built bundle is committed, so installs need no node; CI's
+  `studio-ui` job rebuilds it and fails on drift.
+- Movable workspace: drag, resize and snap panels on a 24-column grid,
+  collapse a panel to a strip, pop it out to float, `Alt`/`Alt+Shift`+arrows
+  from the keyboard; the arrangement is remembered per section, Reset layout
+  is in the rail and the palette. Every panel has a Glance face, an Expand
+  face and Settings. `Ctrl/Cmd+K` opens a fuzzy, grouped command palette.
+  Theme: dark ("holo"), light, or follow the system.
+- One motion vocabulary (idle, working, waiting, done, error, live) means the
+  same thing everywhere and becomes static colour under reduced motion.
+- Live feed: `GET /api/events` streams events from every running halo
+  session over SSE (the token goes in the query because EventSource cannot
+  send headers). The status bar dot is green, amber or red and ticks per event.
+- The Orchestra section is the run console: eight panels, the goal with Run
+  and Dry run, the workflow graph with its gate diamond and return arrow, a
+  timeline per lane, the live one-file view with each lane's claimed unit as
+  a coloured band holding its current text, a run grid for 5 to 50 lanes, the
+  timed log with filters, the report with its checks and Copy, and the live
+  claims with Release and Steal. Routes `/api/orchestra/...`; a run started
+  from Studio streams its log on the live feed. Palette: new run, stop run,
+  open run, focus lane. docs/STUDIO.md "Orchestra: the run console",
+  docs/media/studio-orchestra.png.
+
 ## [3.0.2.2] - 2026-10-13
 
 The follow-ups the 3.0.1.0 review fix pass left open, closed at the source.
