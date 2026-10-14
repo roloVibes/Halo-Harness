@@ -2,13 +2,14 @@
 round R3): the org step's approval gate answered through the sink (accept,
 redo with an instruction re-running the position, stop), the run budget
 stop, resume after a killed render, stop.json between steps, live posting
-stopping with the R4 message, intake checks and the answer file's rules.
+stopping when the postiz CLI or its credentials are missing, intake checks and the answer file's rules.
 ComfyUI, models and Postiz are fakes.
 """
 
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -17,6 +18,7 @@ from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 
 ensure_scoped_state_dir_once()
 
+from tests.helpers import fake_postiz  # noqa: E402
 from tests.helpers.fake_comfy import FakeComfy  # noqa: E402
 from tests.helpers.fake_flow import Answers, FakeOneShot, FakeOrg, make_adapters, new_run, template_spec  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -132,10 +134,10 @@ def test_live_post_and_intake_checks(ctx: Ctx):
     for s in spec["steps"]:
         if s["id"] == "publish":
             s["live"] = True
-    with FakeComfy() as fake:
+    with FakeComfy() as fake, tempfile.TemporaryDirectory() as empty, fake_postiz.put_on_path(empty, exclusive=True):
         r = run(new_run(spec, project="flow-live"), adapters=make_adapters(fake.url, auto_accept=True))
-        ctx.check(f"live: true stops with the R4 message, got {r.get('stop_reason')}",
-                  r["status"] == "stopped" and "posting arrives in R4" in r["stop_reason"])
+        ctx.check(f"live: true without the postiz CLI stops with that reason, got {r.get('stop_reason')}",
+                  r["status"] == "stopped" and "needs the postiz CLI on PATH" in r["stop_reason"])
         r = run(new_run(template_spec(), brief="", project="flow-nobrief"), adapters=make_adapters(fake.url, auto_accept=True))
         ctx.check(f"a missing brief stops at intake, got {r.get('stop_reason')}",
                   r["status"] == "stopped" and r["stop_reason"].startswith("intake: brief is required"))

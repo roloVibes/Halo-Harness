@@ -4,8 +4,9 @@
      "stop_reason", "created", "finished", "elapsed_s", "cost_usd", "budget_usd",
      "steps": [{"id", "kind", "state", "cost_usd", "elapsed_s", "rounds", "error"}],
      "artboards": [{"step", "id", "kind", "path", "prompt_id"}],
-     "accepted": [paths], "posts": [{"platform", "dry_run", "chars", "media"}],
-     "metrics": {"notes": n, "summary"}}
+     "accepted": [paths],
+     "posts": [{"platform", "dry_run", "chars", "media", "post_id", "scheduled_at", "error"}],
+     "metrics": {"notes": n, "summary", "samples": n, "posts": n, "totals": {views, likes, comments, shares}}}
 """
 
 from __future__ import annotations
@@ -14,12 +15,21 @@ import time
 from pathlib import Path
 from typing import Callable
 
+from halo_harness.flows.metrics_pull import run_totals
+from halo_harness.flows.postiz_parse import format_totals
 from halo_harness.orchestra import jsonl
 
 
 def _elapsed(rec: dict):
     s, f = rec.get("started"), rec.get("finished")
     return round(float(f) - float(s), 3) if isinstance(s, (int, float)) and isinstance(f, (int, float)) else None
+
+
+def _samples(project_path: str, run: str) -> list:
+    if not project_path or not Path(project_path).is_dir():
+        return []
+    from halo_harness.design.store import Project
+    return [m for m in Project(Path(project_path)).metrics() if m.get("run") == run]
 
 
 def build_report(run_dir, *, status: str, stop_reason: str = "", clock: Callable = time.time) -> dict:
@@ -40,9 +50,12 @@ def build_report(run_dir, *, status: str, stop_reason: str = "", clock: Callable
             accepted += list(out.get("accepted") or [])
         if s.get("kind") == "post":
             posts += [{"platform": p.get("platform"), "dry_run": p.get("dry_run"), "chars": len(p.get("text") or ""),
-                       "media": len(p.get("media") or [])} for p in out.get("posts") or []]
+                       "media": len(p.get("media") or []), "post_id": p.get("post_id"),
+                       "scheduled_at": p.get("scheduled_at"), "error": p.get("error")} for p in out.get("posts") or []]
     notes = [e for e in read_events(run_dir) if e.get("kind") == "metric"]
     project_path = str(flow.get("project_path") or "")
+    samples = _samples(project_path, run_dir.name)
+    totals, n_posts = run_totals(samples)
     now = clock()
     created = float(flow.get("created") or now)
     return {"run": run_dir.name, "name": flow.get("name"), "project": flow.get("project"),
@@ -50,7 +63,8 @@ def build_report(run_dir, *, status: str, stop_reason: str = "", clock: Callable
             "created": created, "finished": round(now, 3), "elapsed_s": round(max(0.0, now - created), 3),
             "cost_usd": round(cost, 6), "budget_usd": flow.get("budget_usd"), "steps": rows, "artboards": arts,
             "accepted": accepted, "posts": posts,
-            "metrics": {"notes": len(notes), "summary": notes[-1].get("text") if notes else ""}}
+            "metrics": {"notes": len(notes), "samples": len(samples), "posts": n_posts, "totals": totals,
+                        "summary": format_totals(totals, n_posts) or (notes[-1].get("text") if notes else "")}}
 
 
 def write_report(run_dir, *, status: str, stop_reason: str = "", clock: Callable = time.time) -> dict:
@@ -71,8 +85,9 @@ def format_report(report: dict) -> str:
     for a in report.get("artboards") or []:
         lines.append(f"  artboard {a.get('id')} ({a.get('kind')}): {a.get('path')}")
     for p in report.get("posts") or []:
-        lines.append(f"  post {p.get('platform')}: {'dry run' if p.get('dry_run') else 'live'}, {p.get('chars')} chars, "
-                     f"{p.get('media')} media")
+        what = ("dry run" if p.get("dry_run") else f"failed: {p['error']}" if p.get("error") else
+                f"live, post {p.get('post_id')}" + (f" scheduled {p['scheduled_at']}" if p.get("scheduled_at") else ""))
+        lines.append(f"  post {p.get('platform')}: {what}, {p.get('chars')} chars, {p.get('media')} media")
     if (report.get("metrics") or {}).get("summary"):
         lines.append(f"  metrics: {report['metrics']['summary']}")
     budget = report.get("budget_usd")
