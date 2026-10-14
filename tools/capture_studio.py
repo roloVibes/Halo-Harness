@@ -2,10 +2,11 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|design-knob|shell|orchestra|flow|media]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|shell|orchestra|flow|media]
 
-3.0.3.0: roles/org/design render the classic page at /legacy/ (what the
-shell frames); `--mode shell` renders the React shell at / (Orchestra and
+3.0.3.0: roles/org/design --dom render the classic page at /legacy/ (what the
+shell frames); since 3.0.4.0 docs round `--mode org|design` screenshots go
+through the shell (Alt+3 / Alt+4, the page embedded); `--mode shell` renders the React shell at / (Orchestra and
 Roles) and, with --dom, counts its data-testid values. R4: `--mode
 orchestra` seeds a finished Orchestra run (the R2 fixture: basket.py, five
 lanes, one judged conflict, the report) in a temp git repo, opens the shell's
@@ -91,10 +92,10 @@ def main(argv: list) -> int:
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--org", action="store_true", help="Org mode over a fake Paperclip seeded with the halo-dev-cycle company")
-    parser.add_argument("--mode", choices=["roles", "org", "design", "design-knob", "shell", "orchestra", "flow", "media"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), 1440x900; design-knob: the same with the Knobs tab open and Spacing moved to 48")
+    parser.add_argument("--mode", choices=["roles", "org", "design", "shell", "orchestra", "flow", "media"], default="roles", help="org: the halo-dev-cycle company over a fake Paperclip; design: a seeded Launch page project (tools/design_demo.py); both framed by the shell")
     args = parser.parse_args(argv)
     args.org = args.org or args.mode == "org"
-    design = args.mode in ("design", "design-knob")
+    design = args.mode == "design"
     state = seeded_home()
     if args.mode in ("flow", "media"):  # the Flow section over seeded runs (tools/capture_flow.py)
         from capture_flow import capture
@@ -117,13 +118,6 @@ def main(argv: list) -> int:
     if design:
         from design_demo import seed
         proj = seed(state)
-        if args.mode == "design-knob":  # the Spacing knob moved to 48, exactly what the Knobs slider does
-            from halo_harness.design import controls as C
-            page = proj.artboard_dir("hero") / "index.html"
-            html = page.read_text(encoding="utf-8")
-            page.write_text(C.apply_css_control(html, "--space", C.css_value(html, "--space", 48, "px")), encoding="utf-8")
-            proj.set_control("hero", "Spacing", 48)
-            proj.snapshot(note="knob Spacing")
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-design.png"
     if args.org:
@@ -131,18 +125,22 @@ def main(argv: list) -> int:
         from halo_harness.paperclip.sync import sync_lineup
         from tests.helpers.fake_paperclip import FakePaperclip
         fake = FakePaperclip(company_name="Halo Harness")
+        from halo_harness.theme import set_config_value
+        set_config_value("paperclip.enabled", True)  # Org mode is off by default; the picture shows it on
         save_config({"base_url": fake.base_url, "company_id": fake.company["id"]}, state)
         sync_lineup(Paperclip(fake.base_url), fake.company["id"], "halo-dev-cycle", cwd=state.parent / "project", state_dir=state, out=open(os.devnull, "w"))
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-org.png"
-    shell = args.mode == "shell"
+    shell = args.mode == "shell" or (args.mode in ("org", "design") and not args.dom)  # --dom counts the classic page itself
     if shell and args.out.endswith("studio.png"):
         args.out = args.out[:-4] + "-shell.png"
     srv, url = serve(state, shell)
-    if args.org:
+    if shell and args.mode in ("org", "design"):  # the shell frames the page in embedded mode
+        url = url.replace("mode=orchestra", f"mode={args.mode}").replace("feed=off", "feed=off&tour=off")
+    elif args.org:
         url = url.replace("?tour=off", "?tour=off&mode=org")
-    if design:
-        url = url.replace("?tour=off", "?tour=off&mode=design" + ("&dtab=knobs" if args.mode == "design-knob" else ""))
+    elif design:
+        url = url.replace("?tour=off", "?tour=off&mode=design")
     try:
         if args.dom and shell:  # the shell twice: Orchestra (its Start view: no run here) and Roles (the framed classic page)
             a, b = chrome(["--dump-dom", url]), chrome(["--dump-dom", url.replace("mode=orchestra", "mode=roles")])
@@ -161,7 +159,7 @@ def main(argv: list) -> int:
                               "nodes": r.stdout.count('class="node'), "groups": r.stdout.count('data-testid="canvas-group"'), "title": r.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in r.stdout else ""}))
             return 0
         out = Path(args.out).resolve()
-        r = chrome([f"--screenshot={out}", "--window-size=1440,900" if design else "--window-size=1500,900", "--force-device-scale-factor=2", url])
+        r = chrome(["--virtual-time-budget=20000", f"--screenshot={out}", "--window-size=1500,900", "--force-device-scale-factor=2", url])
         if r is None:
             print("no Chrome found: nothing rendered")
             return 2

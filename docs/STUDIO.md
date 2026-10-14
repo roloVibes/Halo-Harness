@@ -542,7 +542,7 @@ offers **Install Paperclip** with the install log streamed into the page
 (Node 24+ required); when it is installed but not running it says how to
 start it.
 
-![Org mode: the halo-dev-cycle lineup as a Paperclip company](media/studio-org.png)
+![The Org section: the halo-dev-cycle lineup as a Paperclip company](media/studio-org.png)
 
 ## Design mode: prototypes, pages and decks on your own apps
 
@@ -633,7 +633,7 @@ token. An artboard folder that is a symlink is never served.
   `GET` / `POST design/<slug>/assets`, 15 MB at most.
 - **Run view**: History shows "12 tool calls · 48 s · $0.03" per turn.
 
-![The Knobs tab with Spacing at 48 and the Contrast table](media/studio-design-knob.png)
+![The Design section: a hero prototype and a logo mark as artboards](media/studio-design.png)
 
 | Key | Action (Design mode) |
 |---|---|

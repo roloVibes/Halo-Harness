@@ -1,6 +1,6 @@
 """tests.test_studio_ui -- the Studio page boots in a real browser (Halo
 2.1.0 round B3): headless Chrome loads the page over a seeded scratch home,
-the lineup draws its node cards, and docs/media/studio.png (the README's
+the lineup draws its node cards, and docs/media/studio-roles.png (the README's
 capture) exists and is a PNG. 3.0.3.0: the classic page is the one at
 /legacy/, and the React shell at / is checked by its data-testid counts. Skipped when no Chrome is found, like the
 front-page PNG step. 3.0.4.0 R6b (Studio clarity): the Orchestra Start view
@@ -242,8 +242,8 @@ def test_roles_canvas_draws_groups(ctx: Ctx):
 
 @test
 def test_readme_capture_exists(ctx: Ctx):
-    png = REPO / "docs" / "media" / "studio.png"
-    ctx.check("docs/media/studio.png exists", png.is_file())
+    png = REPO / "docs" / "media" / "studio-roles.png"
+    ctx.check("docs/media/studio-roles.png exists", png.is_file())
     if png.is_file():
         ctx.check("it is a PNG under 1 MB", png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n" and png.stat().st_size < 1024 * 1024)
 
