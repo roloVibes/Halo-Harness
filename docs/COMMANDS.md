@@ -2688,11 +2688,34 @@ versions, pinned comments, knobs (`controls.json`) and a design system
 (`system.json`). `run` is one design turn: a headless Halo session in the
 project folder, on the project's model, with the file tools and every
 registered craft app (DesignCraft, VectorCraft, PhotoCraft, LightCraft,
-EffectCraft, FilmCraft, PdfCraft) as its tools; afterwards every changed
+EffectCraft, FilmCraft, PdfCraft, and ComfyUI after `halo media init`) as its tools; afterwards every changed
 artboard gets a new version and the turn's cost is logged. `sync` reads CSS
 custom properties, a Tailwind config, `tokens.json` files and component
 names from a codebase, or a page's stylesheets from a URL. Studio's Design
 mode is the same project in the browser. See [DESIGN.md](DESIGN.md).
+
+## `halo media`
+
+```sh
+halo media init [--url U] [--install-workflows] [--yes]   register mcpServers.comfyui (user scope) and store comfy.url
+halo media doctor [--url U] [--smoke] [--timeout S]       the server, model folders, saved workflows, the starters, the entry
+halo media serve                                         the ComfyUI MCP server on stdio (what the entry runs)
+halo media inspect <workflow> [--json] [--url U]         a workflow's nodes, titles, literal inputs and set keys
+halo media models [image|video|audio] [--url U]          model files by folder
+halo media workflows [--url U]                           workflows saved in ComfyUI and the Halo starters
+```
+
+Halo 3.0.4.0: ComfyUI as the eighth craft app. `init` writes
+`mcpServers.comfyui` (a stdio server, `python -m halo_harness.media.comfy_server`
+with `COMFY_URL` in its env) through the same writer `halo mcp add` uses, and
+`comfy.url` into `~/.halo/config.json`; `--install-workflows` saves the
+starter workflows into ComfyUI's workflow browser, asking once when a starter
+of the same name is already there (`--yes` overwrites). `doctor` exits 1 when
+the server is unreachable or the smoke render fails; `--smoke` renders a
+64x64 image through the text-to-image starter (`--timeout` seconds, default
+900) and prints the output name and the elapsed time. The URL is `--url`,
+else `COMFY_URL`, else `comfy.url`, else `http://127.0.0.1:8188`. Every
+session then has the `mcp__comfyui__*` tools. See [COMFYUI.md](COMFYUI.md).
 
 ## `halo orchestra`
 

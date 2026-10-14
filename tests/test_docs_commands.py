@@ -95,6 +95,10 @@ def _gather_real_flags() -> "dict[str, set]":
     # 2.0.10 round 1: `halo review`
     from halo_harness.review import cli as review_cli
     out["halo review"] = _flags_in(_capture(review_cli.cmd_review, ["--help"]))
+    # 3.0.4.0 round R1: `halo media` (ComfyUI)
+    from halo_harness.media.cli import cmd_media
+    for sub in ("init", "doctor", "inspect", "models", "workflows"):
+        out[f"halo media {sub}"] = _flags_in(_capture(cmd_media, [sub, "--help"]))
     return out
 
 
@@ -102,7 +106,7 @@ def _gather_real_flags() -> "dict[str, set]":
 def test_every_subcommand_is_documented(ctx: Ctx):
     text = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
     for name in ("init", "doctor", "update", "models", "mcp", "config", "stats", "export", "improve", "proxy",
-                 "work-matrix", "ollama", "review"):
+                 "work-matrix", "ollama", "review", "media"):
         label = f"halo {name}"
         ctx.check(f"COMMANDS.md documents {label!r} (as a heading)",
                   re.search(rf"^#{{1,3}}\s+.*`?{re.escape(label)}`?", text, re.MULTILINE) is not None)
