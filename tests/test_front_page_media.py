@@ -83,7 +83,8 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
         if (MEDIA / f"{n}.png").is_file():
             ctx.check(f"docs/media/{n}.png has the PNG signature", (MEDIA / f"{n}.png").read_bytes()[:8] == b"\x89PNG\r\n\x1a\n")
     for png in MEDIA.glob("*.png"):
-        if png.stem in ("social-preview", "studio", "studio-org", "studio-design", "studio-design-knob", "studio-modes"):  # hero_svg.py --social, tools/capture_studio.py and studio_modes_banner.py, not TUI captures
+        if png.stem in ("social-preview", "studio", "studio-org", "studio-design", "studio-design-knob", "studio-modes",
+                        "studio-orchestra"):  # hero_svg.py --social, tools/capture_studio.py and studio_modes_banner.py, not TUI captures
             continue
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
     ctx.check("the animated captures are the turn, the steer and the three levels (2.0.11 round A3)",
