@@ -2725,6 +2725,35 @@ the server is unreachable or the smoke render fails; `--smoke` renders a
 else `COMFY_URL`, else `comfy.url`, else `http://127.0.0.1:8188`. Every
 session then has the `mcp__comfyui__*` tools. See [COMFYUI.md](COMFYUI.md).
 
+## `halo flow`
+
+```sh
+halo flow new <template> [--name N] [--project SLUG] [--force]   copy a shipped template to ~/.halo/flows/<N>.flow.yaml
+halo flow templates                                             the shipped templates (social-post)
+halo flow validate <name>                                       check a flow file; exit 1 on a problem (warnings do not count)
+halo flow run <name> [--brief T] [--input K=V]... [--asset PATH]... [--project SLUG]
+                     [--set STEP.KEY=V]... [--model M] [--yes] [--watch] [--resume]
+halo flow resume <run> [--yes] [--watch] [--model M]            continue a stopped or killed run at its first unfinished step
+halo flow status [run]                                          every run, or one run's steps, costs and open gate
+halo flow stop <run> [--reason T]                               stop between steps, or at an open gate
+halo flow report <run> [--json]                                 the run's report
+halo flow answer <run> <step> accept|redo "<text>"|stop         answer a waiting gate (from any terminal)
+halo flow runs                                                  every run, oldest first
+```
+
+Halo 3.0.4.0: flows. A flow file walks an input through steps: `intake` (the
+form; `--brief`, `--input`, `--asset` fill it), `roles` (one call per role of
+a lineup), `org` (an org run; an approval-gated position becomes a gate),
+`render` (a ComfyUI workflow into an artboard of the design project), `confirm`
+(a human gate over the render: accept, redo with an instruction, stop), `post`
+(dry run into the project's `posts.json`), `metrics` (a stub until Postiz) and
+`done`. `run` makes `~/.halo/flows/runs/<run-id>/`, prints one line per step,
+the gate prompt when one opens, then the report; exit 0 finished, 1 stopped.
+`--yes` accepts every gate. `--model REF` pins every role and org position
+(default: the lineup's models). `--set render.width=512` overrides a step's
+`set` value. RUN is a run id, a unique prefix, a folder or `last`. See
+[FLOWS.md](FLOWS.md).
+
 ## `halo orchestra`
 
 ```sh
