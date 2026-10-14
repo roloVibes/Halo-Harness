@@ -101,7 +101,13 @@ def _mangle(path: Path) -> str:
     repo. A Windows drive letter becomes its own top segment
     (`C:\\Users\\x` -> `_drive_C/Users/x`); a POSIX absolute path just
     drops its leading slash. Two different real files never collide."""
-    s = str(path).replace("\\", "/")
+    # Backslashes are separators only on Windows (or in a Windows-style
+    # drive path); on POSIX a backslash is an ordinary file-name character,
+    # and turning it into "/" would store and restore a DIFFERENT path
+    # (`back\slash.txt` -> `back/slash.txt`), 3.0.2.1.
+    s = str(path)
+    if os.name == "nt" or _DRIVE_RE.match(s.replace("\\", "/")):
+        s = s.replace("\\", "/")
     m = _DRIVE_RE.match(s)
     if m:
         drive, rest = m.groups()

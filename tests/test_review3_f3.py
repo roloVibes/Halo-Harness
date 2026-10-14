@@ -182,6 +182,8 @@ def test_item153_installers_ask_before_editing_shell_startup(ctx: Ctx):
     for rel in ("docs/INSTALL.md", "README.md"):
         t = (REPO / rel).read_text(encoding="utf-8")
         ctx.check(f"{rel} documents the edit and the opt-out", "update-shell" in t and "--no-modify-path" in t)
+    if os.name == "nt":
+        return  # `bash` on a Windows runner can be the WSL stub, which exits non-zero with no distro; the text checks above stand
     try:
         syntax = subprocess.run(["bash", "-n", "scripts/install-halo.sh"], capture_output=True, text=True, cwd=str(REPO))
     except OSError:
