@@ -197,6 +197,45 @@ that touches the network/filesystem/a subprocess in its own `try/except`
 and degrade to a `WARN` naming what went wrong, since one bad check must
 never take down the rest of `doctor`.
 
+## Studio UI
+
+Halo Studio's shell is a React + Vite + TypeScript app in
+`halo_harness/studio/ui/` (React and React DOM are its only runtime
+dependencies; every version is pinned exactly in `package.json` and
+`package-lock.json`). Its built bundle is **committed** under
+`halo_harness/studio/static/dist/` (`index.html`, `studio.js`,
+`studio.css`), so `uv tool install` and `pip install` need no node at all.
+The classic plain-JS page lives in `static/legacy/` and the shell frames it
+for Roles, Org and Design.
+
+```sh
+cd halo_harness/studio/ui
+npm ci                                   # node 22 (.nvmrc); node_modules/ is never committed
+halo studio --no-open --port 8765        # in another shell: the API the dev server talks to
+HALO_STUDIO_PORT=8765 npm run dev        # http://127.0.0.1:5173/#t=<token from the line above>
+npm run build                            # typecheck, then write ../static/dist
+```
+
+`npm run dev` proxies `/api`, `/design-files` and `/legacy` to that Studio
+and drops the `Origin` header, so Studio's guard accepts the dev page; the
+token is the `#t=` value `halo studio` printed. **Every UI change commits
+the rebuilt `static/dist` with it.** The build is deterministic (same
+sources, same bytes on Windows and Linux, node 22 or 24), and the CI job
+`studio-ui` in `.github/workflows/suites.yml` runs `npm ci`, `npm run
+build`, then `git diff --exit-code -- halo_harness/studio/static/dist`:
+a stale or hand-edited dist fails it. The same job runs
+`tests/test_studio_dist.py` (no remote URL in the dist, the routes, the
+250-line cap on every `ui/src` file, the dependency list). The Python
+jobs stay node-free.
+
+Where things go: a section is one entry in `ui/src/routes/index.tsx` (its
+id, title, `Alt+N` key and default `PanelSpec[]`); a panel is a
+`PanelSpec` with a `glance` face, an optional `detail` face and
+`settings`, laid out by `lib/workspace/`; state lives in `lib/store.ts`
+(`useStore(studio, selector)`); the live feed is `lib/events.ts`
+(`onEvent(kind, fn)`); colours, motion and type come from
+`styles/tokens.css` and `styles/motion.css` -- add no raw colours.
+
 ## Coding rules
 
 - **OS-neutral by default**: `halo_harness/config/paths.py` is the one place

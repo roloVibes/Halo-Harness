@@ -1,0 +1,65 @@
+/* The workspace: a 24-column grid with 8 px rows. Each panel is a grid cell
+   (4 px gutter) holding a glass panel; a floating panel sits over the grid.
+   The grid lines show faintly, and clearly while something is dragged. */
+
+.workspace { position: absolute; inset: 0; overflow: auto; padding: 12px; }
+.ws-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  grid-auto-rows: 8px;
+  background-image: linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: calc(100% / 24) 100%;
+  transition: background-color var(--t) var(--ease);
+}
+.workspace[data-dragging] .ws-grid {
+  background-image:
+    linear-gradient(90deg, var(--line) 1px, transparent 1px),
+    linear-gradient(0deg, var(--grid-line) 1px, transparent 1px);
+  background-size: calc(100% / 24) 100%, 100% 32px;
+}
+.workspace[data-dragging] { cursor: grabbing; user-select: none; }
+.workspace[data-dragging] iframe { pointer-events: none; }
+
+.ws-cell { padding: 4px; min-width: 0; min-height: 0; animation: fade var(--t-slow) var(--ease); }
+.ws-cell[data-floating] { padding: 0; }
+
+.panel {
+  height: 100%; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+.panel:focus-visible { outline: none; border-color: var(--accent); box-shadow: var(--glow-strong); }
+.panel[data-inspecting] { border-color: var(--accent); box-shadow: var(--glow-strong); }
+.ws-cell[data-floating] .panel { box-shadow: var(--glow), 0 24px 60px rgba(0, 0, 0, .45); }
+
+.panel-bar {
+  flex: none; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 6px 0 12px;
+  border-bottom: 1px solid var(--line); cursor: grab; user-select: none; touch-action: none;
+}
+.panel[data-collapsed] .panel-bar { border-bottom: 0; }
+.panel-title { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .02em; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-face { font-size: 9.5px; letter-spacing: .14em; color: var(--muted); padding: 1px 6px; border: 1px solid var(--line); border-radius: 99px; }
+.panel-tools { display: inline-flex; gap: 2px; opacity: .75; transition: opacity var(--t) var(--ease); }
+.panel:hover .panel-tools, .panel:focus-within .panel-tools { opacity: 1; }
+
+.panel-body { flex: 1; min-height: 0; overflow: auto; padding: 14px; animation: fade var(--t) var(--ease); }
+.panel-body.face-detail:has(> .legacy-frame) { padding: 0; overflow: hidden; }
+
+/* resize handles: edges 6 px, corners 12 px */
+.rz { position: absolute; z-index: 3; touch-action: none; }
+.rz-n, .rz-s { left: 12px; right: 12px; height: 6px; cursor: ns-resize; }
+.rz-n { top: -3px; }
+.rz-s { bottom: -3px; }
+.rz-e, .rz-w { top: 12px; bottom: 12px; width: 6px; cursor: ew-resize; }
+.rz-e { right: -3px; }
+.rz-w { left: -3px; }
+.rz-ne, .rz-nw, .rz-se, .rz-sw { width: 12px; height: 12px; }
+.rz-ne { top: -3px; right: -3px; cursor: nesw-resize; }
+.rz-sw { bottom: -3px; left: -3px; cursor: nesw-resize; }
+.rz-nw { top: -3px; left: -3px; cursor: nwse-resize; }
+.rz-se { bottom: -3px; right: -3px; cursor: nwse-resize; }
+.rz-se::after {
+  content: ""; position: absolute; right: 5px; bottom: 5px; width: 7px; height: 7px;
+  border-right: 1.5px solid var(--line-strong); border-bottom: 1.5px solid var(--line-strong);
+}
+.panel:hover .rz-se::after { border-color: var(--accent); }
