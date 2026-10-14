@@ -326,8 +326,20 @@ def cmd_models(argv) -> int:
     parser.add_argument("--capabilities", action="store_true",
                          help="One line per model: what it accepts (text, image, audio, video, file) and what it outputs")
     parser.add_argument("--best-for", metavar="KIND", default="",
-                         help="Rank models for one job: visual | audio | video | image | design (with a reason each)")
+                         help="Rank models for one job: visual | audio | video | image | design (with a reason each); "
+                              "image-gen | video-gen | audio-gen | upscale rank the ComfyUI media models")
+    # 3.0.4.0 R2: the ComfyUI media-model inventory, keyed by what a model produces (never mixed with the LLM catalog).
+    parser.add_argument("--media", nargs="?", const="all", default=None, choices=["image", "video", "audio", "all"],
+                         help="List the ComfyUI media models (diffusion, video, upscale, TTS and their LoRAs, VAEs, "
+                              "encoders) by what they produce; with --refresh, rescans the server")
     args = parser.parse_args(argv)
+    from halo_harness.capabilities import OUTPUT_KINDS
+    if args.best_for and args.best_for.strip().lower() in OUTPUT_KINDS:
+        from halo_harness.catalog_media_cli import cmd_best_for_media
+        return cmd_best_for_media(args.best_for.strip().lower(), refresh=args.refresh)
+    if args.media is not None:
+        from halo_harness.catalog_media_cli import cmd_media_inventory
+        return cmd_media_inventory(args.media, refresh=args.refresh, as_json=args.json)
     if args.capabilities or args.best_for:
         return _cmd_models_capabilities(args)
 

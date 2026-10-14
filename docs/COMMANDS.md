@@ -1410,6 +1410,7 @@ halo models --help
 ```
 usage: halo models [-h] [--refresh] [--cc] [--cx] [--ant] [--urls] [--json]
                    [--forget-rules] [--capabilities] [--best-for KIND]
+                   [--media [{image,video,audio,all}]]
 
 options:
   -h, --help       show this help message and exit
@@ -1433,7 +1434,12 @@ options:
   --capabilities   One line per model: what it accepts (text, image, audio,
                    video, file) and what it outputs
   --best-for KIND  Rank models for one job: visual | audio | video | image |
-                   design (with a reason each)
+                   design (with a reason each); image-gen | video-gen |
+                   audio-gen | upscale rank the ComfyUI media models
+  --media [{image,video,audio,all}]
+                   List the ComfyUI media models (diffusion, video, upscale,
+                   TTS and their LoRAs, VAEs, encoders) by what they produce;
+                   with --refresh, rescans the server
 ```
 
 Halo 3.0.1.0: `--capabilities` adds what each model takes in (text, image,
@@ -1452,6 +1458,8 @@ speed). Halo Design's model pick opens on the `design` ranking. See
 | `--ant` | reads `~/.halo/ant-models.json` (real ids `GET /v1/models` returned for this key); `--ant --refresh` re-fetches it -- the nine `ant:` aliases show first with their `-> <resolved-id>` detail, then any OTHER id the key can reach, with no alias of its own |
 | `--urls` | Databricks rows only: adds the exact resolved URL + path type (`mlflow`/`cursor`/`anthropic`/`invocations`) per endpoint -- see `docs/DATABRICKS.md` |
 | `--json` | same data as machine-readable JSON |
+| `--media [image\|video\|audio\|all]` | Halo 3.0.4.0: the ComfyUI media-model inventory (image-gen, video-gen, upscale, tts, then the supporting loras, vaes and encoders) with size, quant and family; reads `~/.halo/media-models.json`, `--media --refresh` rescans the server (`COMFY_URL` / `comfy.url`: `GET /models/<folder>`, `GET /experiment/models/<folder>`, `GET /object_info`) |
+| `--best-for image-gen\|video-gen\|audio-gen\|upscale` | ranks the media inventory by size, quant (bf16 > fp16 > fp8 > int8) and a matching 4-step LoRA, one reason per row; the five LLM kinds above keep their own ranking |
 
 ```sh
 BRIDGE_TEST_HOME=/tmp/demo-home halo models --cc
@@ -2701,7 +2709,7 @@ halo media init [--url U] [--install-workflows] [--yes]   register mcpServers.co
 halo media doctor [--url U] [--smoke] [--timeout S]       the server, model folders, saved workflows, the starters, the entry
 halo media serve                                         the ComfyUI MCP server on stdio (what the entry runs)
 halo media inspect <workflow> [--json] [--url U]         a workflow's nodes, titles, literal inputs and set keys
-halo media models [image|video|audio] [--url U]          model files by folder
+halo media models [image|video|audio] [--url U]          rescan the server and print the media-model inventory (as halo models --media)
 halo media workflows [--url U]                           workflows saved in ComfyUI and the Halo starters
 ```
 

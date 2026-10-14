@@ -14,7 +14,7 @@
     "A pricing section with three tiers, the middle one highlighted, using the design system's colours.",
     "A mobile onboarding flow of three screens as one prototype with tap-through steps, and add knobs for spacing and the accent colour.",
   ];
-  const d = window.designMode = { app: null, slug: null, data: null, projects: [], ranking: [], tab: "chat", tool: "select", selected: null,
+  const d = window.designMode = { app: null, slug: null, data: null, projects: [], ranking: [], media: [], tab: "chat", tool: "select", selected: null,
     view: {}, device: {}, editing: {}, bust: {}, turn: null, draft: "", exportLines: [], handoffPath: "", suggestions: SUGGESTIONS };
 
   d.toast = (m, k) => window.app.toast(m, k);
@@ -41,7 +41,9 @@
   };
   d.leave = (app) => { if (!d.app) return; d.app = null; $("canvas-empty").style.display = d.prevEmpty || "none"; };
   d.loadProjects = async () => { try { d.projects = (await api.design("GET", "projects")).projects; } catch (e) { d.projects = []; d.toast(e.message, "bad"); } };
-  d.loadRanking = async () => { try { d.ranking = await api.design("GET", "models"); } catch (e) { d.ranking = []; } if (d.active()) d.rail(); };
+  d.loadRanking = async () => { try { d.ranking = await api.design("GET", "models"); } catch (e) { d.ranking = []; }
+    try { d.media = ((await api.design("GET", "models", undefined, { media: 1 })) || {}).media || []; } catch (e) { d.media = []; } if (d.active()) d.rail(); };
+  d.llm = (v) => (String(v || "").startsWith("comfy:") ? "" : v);  // a media pick is a hint in the prompt, never the LLM model
 
   d.open = async (slug) => {
     d.slug = slug; d.view = {}; d.bust = {}; d.editing = {}; d.turn = null;
@@ -76,9 +78,10 @@
   d.runTurn = async (prompt, opts = {}) => {
     if (!d.slug) { d.toast("Create or open a project first", "warn"); return null; }
     if (d.live()) { d.toast("A turn is already running in this project", "warn"); return null; }
+    let hint = ""; if (String(opts.model || "").startsWith("comfy:")) { hint = opts.model.slice(6); opts = { ...opts, model: undefined }; }  // the turn's comfy_model hint
     try {
       const before = ((d.data && d.data.artboards) || []).map((a) => a.id);
-      const r = await d.call("POST", "run", { prompt, model: opts.model || undefined, budget: opts.budget || undefined, variants: opts.variants || undefined, base: opts.base || undefined });
+      const r = await d.call("POST", "run", { prompt: hint ? prompt + " (comfy_model: " + hint + ")" : prompt, model: opts.model || undefined, budget: opts.budget || undefined, variants: opts.variants || undefined, base: opts.base || undefined });
       const done = await d.attach(r.turn, opts.variants ? `${opts.variants} directions: ${prompt}` : prompt);
       if (opts.variants && done && d.tileNew) d.tileNew(before);  // the new directions side by side, the first selected
       return done;
@@ -112,10 +115,12 @@
   };
 
   // -- the rail -------------------------------------------------------------------------
-  d.modelSelect = (value = "") => {
+  d.modelSelect = (value = "", withMedia = false) => {
     const rows = d.ranking.length ? d.ranking : (window.app.models || []).slice(0, 12).map((m) => ({ ref: m.ref, chips: m.chips, reason: m.price }));
     const opt = (r) => `<option value="${esc(r.ref)}"${r.ref === value ? " selected" : ""}>${esc(r.ref)}${r.chips && r.chips !== "text" ? " · " + esc(r.chips) : ""}${r.reason ? " · " + esc(String(r.reason).slice(0, 60)) : ""}</option>`;
-    return h(`<select aria-label="Model"><option value="">(default model)</option>${rows.map(opt).join("")}</select>`);
+    const gens = withMedia ? d.media.filter((m) => ["image-gen", "video-gen", "upscale", "tts"].includes(m.kind)) : [];
+    const group = gens.length ? `<optgroup label="Media models (ComfyUI)">${gens.map((m) => `<option value="${esc(m.ref)}">${esc(m.file)} · ${esc(m.kind)}${m.quant && m.quant !== "unknown" ? " · " + esc(m.quant) : ""}</option>`).join("")}</optgroup>` : "";
+    return h(`<select aria-label="Model"><option value="">(default model)</option>${rows.map(opt).join("")}${group}</select>`);
   };
   d.newForm = () => {
     const name = h(`<input placeholder="Project name" aria-label="Project name" maxlength="60">`); const model = d.modelSelect();

@@ -33,6 +33,10 @@ def new_project(req):
 
 
 def get_models(req):
+    if str(req.query.get("media") or "") in ("1", "true"):
+        # the ComfyUI media models (cached inventory, by what each produces): a group of their own in the chooser
+        from halo_harness.providers.media_models import rows_for
+        return 200, {"media": rows_for("all", req.state_dir)}
     from halo_harness.capabilities import best_for
     from halo_harness.studio import model as M
     return 200, best_for(M.model_rows(req.state_dir), "design", limit=12)
