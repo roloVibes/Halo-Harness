@@ -1410,6 +1410,7 @@ halo models --help
 ```
 usage: halo models [-h] [--refresh] [--cc] [--cx] [--ant] [--urls] [--json]
                    [--forget-rules] [--capabilities] [--best-for KIND]
+                   [--media [{image,video,audio,all}]]
 
 options:
   -h, --help       show this help message and exit
@@ -1433,7 +1434,12 @@ options:
   --capabilities   One line per model: what it accepts (text, image, audio,
                    video, file) and what it outputs
   --best-for KIND  Rank models for one job: visual | audio | video | image |
-                   design (with a reason each)
+                   design (with a reason each); image-gen | video-gen |
+                   audio-gen | upscale rank the ComfyUI media models
+  --media [{image,video,audio,all}]
+                   List the ComfyUI media models (diffusion, video, upscale,
+                   TTS and their LoRAs, VAEs, encoders) by what they produce;
+                   with --refresh, rescans the server
 ```
 
 Halo 3.0.1.0: `--capabilities` adds what each model takes in (text, image,
@@ -1452,6 +1458,8 @@ speed). Halo Design's model pick opens on the `design` ranking. See
 | `--ant` | reads `~/.halo/ant-models.json` (real ids `GET /v1/models` returned for this key); `--ant --refresh` re-fetches it -- the nine `ant:` aliases show first with their `-> <resolved-id>` detail, then any OTHER id the key can reach, with no alias of its own |
 | `--urls` | Databricks rows only: adds the exact resolved URL + path type (`mlflow`/`cursor`/`anthropic`/`invocations`) per endpoint -- see `docs/DATABRICKS.md` |
 | `--json` | same data as machine-readable JSON |
+| `--media [image\|video\|audio\|all]` | Halo 3.0.4.0: the ComfyUI media-model inventory (image-gen, video-gen, upscale, tts, then the supporting loras, vaes and encoders) with size, quant and family; reads `~/.halo/media-models.json`, `--media --refresh` rescans the server (`COMFY_URL` / `comfy.url`: `GET /models/<folder>`, `GET /experiment/models/<folder>`, `GET /object_info`) |
+| `--best-for image-gen\|video-gen\|audio-gen\|upscale` | ranks the media inventory by size, quant (bf16 > fp16 > fp8 > int8) and a matching 4-step LoRA, one reason per row; the five LLM kinds above keep their own ranking |
 
 ```sh
 BRIDGE_TEST_HOME=/tmp/demo-home halo models --cc
@@ -2624,12 +2632,14 @@ while one runs reuses it (prints the URL, opens the browser) unless
 
 
 ```sh
-halo studio [--mode roles|org|design] [--port N] [--no-open] [--cwd DIR]
+halo studio [--mode roles|org|design|orchestra|flow] [--port N] [--no-open] [--cwd DIR]
 ```
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
 into `--mode roles` (lineups and agent bios as an editable graph), `--mode org`
-(the company in Paperclip) or `--mode design` (artboards on your own apps);
+(the company in Paperclip) or `--mode design` (artboards on your own apps),
+3.0.4.0: `--mode orchestra` (the run console) or `--mode flow` (the workflow
+console);
 without `--mode` it opens in the mode you used last. The TUI's `/roles`, `/org`
 and `/design` are the same three doors from a live session. It Starts a loopback-only server on a free port (or
 `--port`), prints its URL (the URL carries a per-launch token: open exactly
@@ -2688,11 +2698,78 @@ versions, pinned comments, knobs (`controls.json`) and a design system
 (`system.json`). `run` is one design turn: a headless Halo session in the
 project folder, on the project's model, with the file tools and every
 registered craft app (DesignCraft, VectorCraft, PhotoCraft, LightCraft,
-EffectCraft, FilmCraft, PdfCraft) as its tools; afterwards every changed
+EffectCraft, FilmCraft, PdfCraft, and ComfyUI after `halo media init`) as its tools; afterwards every changed
 artboard gets a new version and the turn's cost is logged. `sync` reads CSS
 custom properties, a Tailwind config, `tokens.json` files and component
 names from a codebase, or a page's stylesheets from a URL. Studio's Design
 mode is the same project in the browser. See [DESIGN.md](DESIGN.md).
+
+## `halo media`
+
+```sh
+halo media init [--url U] [--install-workflows] [--yes]   register mcpServers.comfyui (user scope) and store comfy.url
+halo media doctor [--url U] [--smoke] [--timeout S]       the server, model folders, saved workflows, the starters, the entry
+halo media serve                                         the ComfyUI MCP server on stdio (what the entry runs)
+halo media inspect <workflow> [--json] [--url U]         a workflow's nodes, titles, literal inputs and set keys
+halo media models [image|video|audio] [--url U]          rescan the server and print the media-model inventory (as halo models --media)
+halo media workflows [--url U]                           workflows saved in ComfyUI and the Halo starters
+```
+
+Halo 3.0.4.0: ComfyUI as the eighth craft app. `init` writes
+`mcpServers.comfyui` (a stdio server, `python -m halo_harness.media.comfy_server`
+with `COMFY_URL` in its env) through the same writer `halo mcp add` uses, and
+`comfy.url` into `~/.halo/config.json`; `--install-workflows` saves the
+starter workflows into ComfyUI's workflow browser, asking once when a starter
+of the same name is already there (`--yes` overwrites). `doctor` exits 1 when
+the server is unreachable or the smoke render fails; `--smoke` renders a
+64x64 image through the text-to-image starter (`--timeout` seconds, default
+900) and prints the output name and the elapsed time. The URL is `--url`,
+else `COMFY_URL`, else `comfy.url`, else `http://127.0.0.1:8188`. Every
+session then has the `mcp__comfyui__*` tools. See [COMFYUI.md](COMFYUI.md).
+
+## `halo flow`
+
+```sh
+halo flow new <template> [--name N] [--project SLUG] [--force]   copy a shipped template to ~/.halo/flows/<N>.flow.yaml
+halo flow templates                                             the shipped templates (social-post)
+halo flow validate <name>                                       check a flow file; exit 1 on a problem (warnings do not count)
+halo flow run <name> [--brief T] [--input K=V]... [--asset PATH]... [--project SLUG]
+                     [--set STEP.KEY=V]... [--model M] [--yes] [--watch] [--resume]
+halo flow resume <run> [--yes] [--watch] [--model M]            continue a stopped or killed run at its first unfinished step
+halo flow status [run]                                          every run, or one run's steps, costs and open gate
+halo flow stop <run> [--reason T]                               stop between steps, or at an open gate
+halo flow report <run> [--json]                                 the run's report
+halo flow answer <run> <step> accept|redo "<text>"|stop         answer a waiting gate (from any terminal)
+halo flow runs                                                  every run, oldest first
+halo flow posts <run>                                           the run's posts: dry run or live, post id, schedule, text
+halo flow metrics <run> [--days N]                              sample the run's live posts' analytics once; print and total them
+```
+
+Halo 3.0.4.0: flows. A flow file walks an input through steps: `intake` (the
+form; `--brief`, `--input`, `--asset` fill it), `roles` (one call per role of
+a lineup), `org` (an org run; an approval-gated position becomes a gate),
+`render` (a ComfyUI workflow into an artboard of the design project), `confirm`
+(a human gate over the render: accept, redo with an instruction, stop), `post`
+(dry run into the project's `posts.json`; `live: true` posts through the Postiz
+CLI), `metrics` (samples the live posts' analytics into `metrics.jsonl`) and
+`done`. `run` makes `~/.halo/flows/runs/<run-id>/`, prints one line per step,
+the gate prompt when one opens, then the report; exit 0 finished, 1 stopped.
+`--yes` accepts every gate. `--watch` also keeps sampling the live posts'
+metrics on the metrics step's `every` after the run. `--model REF` pins every role and org position
+(default: the lineup's models). `--set render.width=512` overrides a step's
+`set` value. RUN is a run id, a unique prefix, a folder or `last`. See
+[FLOWS.md](FLOWS.md).
+
+## `halo postiz`
+
+```sh
+halo postiz doctor        the postiz CLI on PATH, the credentials (POSTIZ_API_KEY or ~/.postiz/credentials.json; never the key), the connected integrations and which of youtube, instagram, x, tiktok have one; exit 1 when the CLI or the credentials are missing
+```
+
+Halo 3.0.4.0: flows post and measure through the Postiz CLI (`npm i -g
+postiz`, then `postiz auth:login` or `POSTIZ_API_KEY` in the env file). Posts
+are dry runs until a flow's post step says `live: true`. See
+[FLOWS.md](FLOWS.md#posting-with-postiz).
 
 ## `halo orchestra`
 

@@ -35,7 +35,8 @@ def test_builtin_orgs_are_copied_once_and_valid(ctx: Ctx):
     from halo_harness.orgs import list_orgs, load_org, root_position, validate_org
     state_dir = Path(tempfile.mkdtemp(prefix="orgs-builtin-"))
     names = list_orgs(state_dir=state_dir)
-    ctx.check(f"all three built-ins present, got {names}", names == ["company", "release-flow", "solo"])
+    # 3.0.4.0: the flow template's marketing org joined the built-ins.
+    ctx.check(f"all four built-ins present, got {names}", names == ["company", "marketing", "release-flow", "solo"])
     for name in names:
         org = load_org(name, state_dir=state_dir)
         ctx.check(f"{name} loads", org is not None)

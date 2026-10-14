@@ -1,0 +1,51 @@
+/* The Flow section's Start view (before a run is open), the intake form's
+   run line and its always-visible action row, and the Media fix card shown
+   while ComfyUI does not answer (3.0.4.0 R6). Tokens only. */
+
+.fl-start { position: absolute; inset: 0; overflow: auto; padding: 28px 24px; display: grid; justify-items: center; align-content: start; }
+.fl-start-inner { width: min(1120px, 100%); display: grid; gap: 22px; animation: rise var(--t-slow) var(--ease); }
+.fl-start-head { display: grid; gap: 6px; max-width: 70ch; }
+.fl-start-head p { margin: 0; font-size: 14px; }
+.fl-start-title { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: .01em; }
+.fl-start-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+.fl-start-form { padding: 18px; }
+.fl-start-side { display: grid; gap: 16px; align-content: start; }
+.fl-start-side > .og-link { justify-self: start; font-size: 12px; }
+
+.fl-explain { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: step; }
+.fl-explain li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 13px; }
+.fl-explain li .og-chip { cursor: default; margin-left: 4px; }
+.fl-explain-n {
+  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-size: 11px;
+  color: var(--accent); border: 1px solid var(--accent); background: var(--accent-soft);
+}
+.fl-explain-n[data-gate] { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); border-radius: 5px; }
+.fl-explain-text { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.fl-start-comfy { display: flex; gap: 8px; align-items: center; font-size: 11.5px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+.fl-start-comfy[data-ok="false"] { border-color: var(--bad); color: var(--bad); }
+.fl-start-comfy[data-ok="true"] { color: var(--ok); }
+.fl-start-runs { display: grid; gap: 4px; }
+.fl-start-runs p { margin: 0; font-size: 12.5px; }
+
+/* the intake form: compact, the action row always in view */
+.fl-form { gap: 9px; }
+.fl-form .og-text { min-height: 52px; }
+.fl-actions { flex-wrap: nowrap; align-items: center; }
+.fl-form .fl-drop { min-height: 38px; padding: 6px 10px; }
+.fl-actions { position: sticky; bottom: -14px; z-index: 2; padding: 8px 0; margin-bottom: -8px; background: linear-gradient(transparent, var(--surface) 30%); }
+.fl-start-form .fl-actions { bottom: -18px; }
+.fl-start-form .og-text { min-height: 96px; }
+.fl-runline { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 11.5px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.fl-set summary { padding: 2px 0; }
+.fl-set .og-form-row { margin-top: 6px; }
+
+/* Media: ComfyUI does not answer */
+.md-fix { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--bad); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--bad) 6%, var(--surface)); font-size: 13px; }
+.md-fix p { margin: 0; }
+.md-fix code { font-family: var(--mono); font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--bg-2); border: 1px solid var(--line); }
+.md-fix-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.md-fix .btn { justify-self: start; }
+
+@media (max-width: 1100px) {
+  .fl-start-grid { grid-template-columns: minmax(0, 1fr); }
+}

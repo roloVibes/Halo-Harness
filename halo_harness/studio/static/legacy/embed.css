@@ -1,0 +1,32 @@
+/* Halo Studio -- the classic page framed in the shell (?embedded=1, 3.0.4.0
+   R6b; embed.js sets data-embedded). One header only: no logo, no Roles /
+   Org / Design (the shell's tabs), no theme button (it follows the shell's),
+   no footer (the status line is in the shell's status bar). What is left of
+   the header is a slim one-line toolbar, and the dark colours are the
+   shell's holo tokens, so the frame reads as part of the shell. */
+
+:root[data-embedded]:not([data-theme="light"]) {
+  --bg: #070b14; --surface: #0b1222; --panel: #0e1628; --panel-2: #142038;
+  --text: #dbe7ff; --muted: #7d8fb3; --border: rgba(120, 200, 255, 0.22); --accent: #39d7ff;
+  --success: #4ef0a8; --warning: #ffb347; --error: #ff4d8d; --mauve: #7c8cff; --user: #5ee6d0;
+  --glass: rgba(14, 22, 40, 0.78); --glass-border: rgba(120, 200, 255, 0.16);
+  --shadow: 0 0 0 1px rgba(57, 215, 255, 0.08), 0 10px 30px rgba(0, 0, 0, 0.45);
+  --role-main: #39d7ff; --role-subagent: #4ef0a8; --role-researcher: #5ee6d0; --role-judge: #7c8cff;
+  --mono: "JetBrains Mono", "Cascadia Code", "Fira Code", Consolas, Menlo, monospace;
+  --sans: "Inter", "Segoe UI Variable", "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
+}
+
+:root[data-embedded] body { grid-template-rows: 44px 1fr 0; }
+:root[data-embedded] #status, :root[data-embedded] #btn-theme { display: none; }
+:root[data-embedded] #top {
+  height: 44px; gap: 8px; padding: 0 10px; background: var(--surface); backdrop-filter: none;
+  border-bottom: 1px solid var(--glass-border); box-shadow: none;
+}
+:root[data-embedded] #top select, :root[data-embedded] #top .btn { height: 28px; padding: 0 10px; font-size: 12.5px; }
+:root[data-embedded] #top select { font-family: var(--mono); max-width: 260px; }
+:root[data-embedded] #top .scope-toggle button { height: 26px; font-size: 12px; }
+:root[data-embedded] #top .badge { white-space: nowrap; }
+.embed-label { font-size: 10.5px; letter-spacing: .12em; color: var(--muted); }
+.embed-project { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+.embed-project:empty { display: none; }
+:root[data-embedded] #toasts { top: 52px; }

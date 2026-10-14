@@ -129,12 +129,12 @@ export function arrange(layout: Layout, movedId?: string, pinned = false): Layou
 export function defaultPanel(spec: PanelSpec, fillRows: number): PanelLayout {
   const h = spec.h > 0 ? spec.h : Math.max(minH(spec), fillRows - spec.y);
   const r = clampRect({ x: spec.x, y: spec.y, w: spec.w, h }, spec);
-  return { ...r, collapsed: false, floating: false, fx: 48, fy: 48, fw: 480, fh: 320, face: spec.face ?? "glance", z: 0 };
+  return { ...r, collapsed: !!spec.collapsed, floating: false, fx: 48, fy: 48, fw: 480, fh: 320, face: spec.face ?? "detail", z: 0 };
 }
 
 export function defaultLayout(specs: PanelSpec[], fillRows: number): Layout {
   const out: Layout = {};
-  for (const s of specs) out[s.id] = defaultPanel(s, fillRows);
+  for (const s of specs) if (!s.optional) out[s.id] = defaultPanel(s, fillRows);
   return arrange(out);
 }
 
@@ -145,9 +145,20 @@ export function merge(specs: PanelSpec[], saved: Layout | null, fillRows: number
   const out: Layout = {};
   for (const s of specs) {
     const p = saved[s.id];
-    out[s.id] = p ? { ...base[s.id], ...p, ...clampRect(p, s) } : base[s.id];
+    const d = base[s.id] || defaultPanel(s, fillRows);
+    if (p) out[s.id] = { ...d, ...p, ...clampRect(p, s) };
+    else if (!s.optional) out[s.id] = d;
   }
   return arrange(out);
+}
+
+/** `?open=a,b`: those panels open and go to the top rows, in their columns, ahead of the rest. */
+export function openFirst(layout: Layout, ids: string[]): Layout {
+  const hit = ids.filter((id) => layout[id]);
+  if (!hit.length) return layout;
+  const out: Layout = { ...layout };
+  for (const id of hit) out[id] = { ...out[id], collapsed: false, face: "detail", y: -1 };
+  return compact(out);
 }
 
 /** Rows the grid needs (the lowest panel's bottom). */

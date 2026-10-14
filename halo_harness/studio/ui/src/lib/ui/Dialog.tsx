@@ -12,9 +12,12 @@ type Props = {
   className?: string;
   labelledBy?: string;
   footer?: ReactNode;
+  /** Above the title: a small mono line (a kicker). */
+  kicker?: string;
+  testid?: string;
 };
 
-export function Dialog({ open, onClose, title, children, className, footer }: Props) {
+export function Dialog({ open, onClose, title, children, className, footer, kicker, testid }: Props) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -36,11 +39,14 @@ export function Dialog({ open, onClose, title, children, className, footer }: Pr
   if (!open) return null;
   return (
     <div className="scrim" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={box} role="dialog" aria-modal="true" aria-label={title} className={"dialog" + (className ? " " + className : "")}>
+      <div ref={box} role="dialog" aria-modal="true" aria-label={title} className={"dialog" + (className ? " " + className : "")} data-testid={testid}>
         <Surface className="dialog-surface">
           {title && (
             <header className="dialog-head">
-              <h2 className="dialog-title">{title}</h2>
+              <div>
+                {kicker && <div className="glance-kicker mono">{kicker}</div>}
+                <h2 className="dialog-title">{title}</h2>
+              </div>
               <button className="icon-btn" onClick={onClose} aria-label="Close" title="Close (Esc)">
                 <Icon name="close" />
               </button>

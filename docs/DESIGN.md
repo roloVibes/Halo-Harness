@@ -48,8 +48,9 @@ recipe per craft app, the design system's tokens and components, the open commen
 and the artboards already there. When the turn ends every changed artboard gets a
 new version and the turn is logged with its cost.
 
-The craft apps are the seven ArtCraft MCP servers, each registered in Claude
-Code's user config, so a Halo session already has their tools:
+The craft apps are the seven ArtCraft MCP servers and ComfyUI, each registered
+in Claude Code's user config, so a Halo session already has their tools
+(ComfyUI is registered by `halo media init`, see [COMFYUI.md](COMFYUI.md)):
 
 | app | for | render step |
 |---|---|---|
@@ -60,6 +61,7 @@ Code's user config, so a Halo session already has their tools:
 | EffectCraft | motion graphics, animated titles | `render_frame` |
 | FilmCraft | video cuts, trailers, product clips | `render_frame`, `render_preview` |
 | PdfCraft | assembling, annotating, signing, checking PDFs | `page_render`, `doc_save` |
+| ComfyUI | generated stills, image-to-video clips, upscales from local diffusion models | `comfy_run`, then `comfy_fetch` to `render.png` / `render.mp4` |
 
 `halo design doctor` says which are registered; `--probe` spawns each one, counts
 its tools and checks the render tool is there (exit 1 when one is down). An app
@@ -97,6 +99,7 @@ turn can *deliver* and how reliably:
 | EffectCraft | motion graphics and animated titles, rendered frames |
 | FilmCraft | video cuts and product clips, preview renders |
 | PdfCraft | assembled, signed, form-filled and accessibility-checked PDFs |
+| ComfyUI | images and short clips generated on your own GPU (Qwen Image, Wan 2.2), fetched into the artboard with a `source.json` naming the workflow, prompt id and `set` values |
 
 Installed on this machine but not used by Design: DeckCraft (PowerPoint-class,
 PPTX in and out), WordCraft (Word-class, DOCX, Markdown, PDF), GridCraft

@@ -1,10 +1,12 @@
-// The Inspector: a panel's Settings depth, opened by the gear in its title
-// bar. Face, strip, float, the exact grid position, a per-panel reset, then
-// whatever settings the panel itself declares. Esc closes it.
+// The Inspector: a panel's settings, opened from its title bar's ... menu
+// (Settings); while it is open it follows the panel you click. What the
+// panel is and how to use it (its `about` and `help`), then the face
+// (Expanded / Compact), strip, float, the exact grid position, a per-panel
+// reset, and whatever settings the panel itself declares. Esc closes it.
 import { Button, Field, Icon, Surface } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
-import { defaultPanel, arrange } from "../lib/workspace/grid";
-import { layoutStore, patchPanel, setLayout } from "../lib/workspace/persist";
+import { arrange } from "../lib/workspace/grid";
+import { hidePanel, layoutStore, patchPanel, resetPanel, setLayout } from "../lib/workspace/persist";
 import { ROW, type PanelLayout } from "../lib/workspace/types";
 import { sectionDef } from "../routes";
 
@@ -57,12 +59,20 @@ export function Inspector() {
             <Icon name="close" />
           </button>
         </header>
+        {spec.about && <p className="inspector-about">{spec.about}</p>}
+        {spec.help && (
+          <ul className="inspector-help">
+            {spec.help.split("\n").map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
+        )}
 
         {spec.detail && (
           <div className="segmented" role="group" aria-label="Face">
-            {(["glance", "detail"] as const).map((f) => (
+            {(["detail", "glance"] as const).map((f) => (
               <button key={f} className={p.face === f ? "on" : ""} aria-pressed={p.face === f} onClick={() => patch({ face: f })}>
-                {f === "glance" ? "Glance" : "Expand"}
+                {f === "glance" ? "Compact" : "Expanded"}
               </button>
             ))}
           </div>
@@ -87,16 +97,14 @@ export function Inspector() {
         <div className="inspector-note mono muted">
           {p.floating ? `${p.fw} x ${p.fh} px floating` : `${p.w}/24 columns, ${p.h * ROW} px tall`}
         </div>
-        <Button
-          size="sm"
-          icon={<Icon name="reset" />}
-          onClick={() => {
-            const fill = Math.floor((document.querySelector(".workspace")?.clientHeight || 600) / ROW) - 3;
-            place({ ...defaultPanel(spec, fill), z: p.z });
-          }}
-        >
+        <Button size="sm" icon={<Icon name="reset" />} onClick={() => resetPanel(section, spec)}>
           Reset this panel
         </Button>
+        {spec.optional && (
+          <Button size="sm" variant="ghost" icon={<Icon name="close" />} onClick={() => (hidePanel(section, spec.id), close())}>
+            Remove from {def.title}
+          </Button>
+        )}
 
         {Settings && (
           <section className="inspector-own">

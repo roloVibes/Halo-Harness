@@ -87,7 +87,10 @@ def test_h9_wheel_ships_the_required_runtime_data_files(ctx: Ctx):
         names = set(z.namelist())
     for required_suffix in ("halo_harness/tui/styles.tcss", "halo_harness/providers/model_table.json",
                              "halo_harness/providers/catalog/models_dev_databricks_fallback.json",
-                             "halo_harness/providers/catalog/openrouter_fallback.json"):
+                             "halo_harness/providers/catalog/openrouter_fallback.json",
+                             # 3.0.4.0 round R1: the ComfyUI starter workflows `halo media` and comfy_run load.
+                             "halo_harness/templates/comfy/text-to-image-qwen.json",
+                             "halo_harness/templates/comfy/image-to-video-wan22.json"):
         ctx.check(f"{required_suffix} is in the wheel", any(n.endswith(required_suffix) for n in names))
 
 

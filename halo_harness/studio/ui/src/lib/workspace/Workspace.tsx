@@ -5,13 +5,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { WorkspaceContext, type WorkspaceApi } from "./controller";
-import { merge, usedRows } from "./grid";
+import { merge, openFirst, usedRows } from "./grid";
 import { Panel } from "./Panel";
 import { layoutStore, loadSaved, setLayout } from "./persist";
 import { COLS, ROW, type PanelSpec } from "./types";
 
-export { resetLayout, layoutStore, patchPanel, focusPanel, LAYOUT_PREFIX } from "./persist";
+export { resetLayout, layoutStore, patchPanel, focusPanel, showPanel, hidePanel, LAYOUT_PREFIX } from "./persist";
 export type { PanelSpec, Layout, PanelLayout, Face } from "./types";
+
+/** `?open=media-status,media-render`: panels a link (or a capture) opens first, in a default arrangement only. */
+const OPEN = (/[?&]open=([\w,-]+)/.exec(location.search)?.[1] || "").split(",").filter(Boolean);
 
 export function Workspace({ section, specs }: { section: string; specs: PanelSpec[] }) {
   const outer = useRef<HTMLDivElement>(null);
@@ -36,7 +39,8 @@ export function Workspace({ section, specs }: { section: string; specs: PanelSpe
     // first draw, after a reset, and -- while the user has not rearranged anything -- on every resize
     if (fillRows > 0 && (!layout || (!custom && fillRows !== usedFill.current))) {
       usedFill.current = fillRows;
-      setLayout(section, merge(specs, custom ? loadSaved(section) : null, fillRows), false);
+      const merged = merge(specs, custom ? loadSaved(section) : null, fillRows);
+      setLayout(section, custom ? merged : openFirst(merged, OPEN), false);
     }
   }, [layout, custom, fillRows, section, specs]);
 

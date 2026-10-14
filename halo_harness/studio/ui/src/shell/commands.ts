@@ -1,12 +1,23 @@
-// The palette's commands and its fuzzy matcher. Groups: Go to, Orchestra,
-// View, Layout, Open. Each command may show a key (the same hint the menus show).
-import { cycleTheme, goSection, setTheme, studio, toast, toggleRail } from "../lib/store";
-import { focusPanel, patchPanel, resetLayout } from "../lib/workspace/persist";
-import { SECTIONS, sectionDef } from "../routes";
+// The palette's commands and its fuzzy matcher. Groups: Go to, Help,
+// Orchestra, Flow, Media, View, Layout, Open. Each command may show a key (the
+// same hint the menus show).
+import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
+import { layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
+import type { PanelSpec } from "../lib/workspace/types";
+import { SECTIONS, sectionDef, type SectionDef } from "../routes";
 import { token } from "../lib/api";
+import { flowCommands, mediaCommands } from "../routes/flow/commands";
 import { orchestraCommands } from "../routes/orchestra/commands";
 
 export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; run: () => void };
+
+/** Bring a panel back (or add an optional one) and focus it, bringing the section's workspace up first. */
+export function revealPanel(def: SectionDef, p: PanelSpec): void {
+  const go = () => showPanel(def.id, p, def.id === "design");
+  def.enter?.();
+  if (layoutStore(def.id).get().layout) go();
+  else window.setTimeout(go, 120);
+}
 
 export function commands(): Command[] {
   const cur = sectionDef(studio.get().section);
@@ -18,6 +29,19 @@ export function commands(): Command[] {
     kbd: s.kbd,
     run: () => goSection(s.id),
   }));
+  for (const s of [cur, ...SECTIONS.filter((x) => x.id !== cur.id)]) {
+    out.push({
+      id: "help-" + s.id,
+      group: "Help",
+      label: `Help: how ${s.title} works`,
+      hint: s.id === cur.id ? "the steps, the panels and the keys" : s.blurb,
+      kbd: s.id === cur.id ? "?" : undefined,
+      run: () => {
+        goSection(s.id);
+        openHelp(s.id);
+      },
+    });
+  }
   out.push(
     { id: "theme-toggle", group: "View", label: "Toggle theme", hint: "dark, light, auto", run: cycleTheme },
     { id: "theme-dark", group: "View", label: "Theme: dark (holo)", run: () => setTheme("dark") },
@@ -39,15 +63,12 @@ export function commands(): Command[] {
     out.push({
       id: "panel-" + p.id,
       group: "Layout",
-      label: `Focus panel: ${p.title}`,
+      label: `${p.optional ? "Show" : "Focus"} panel: ${p.title}`,
       hint: "Alt+arrows move it, Alt+Shift+arrows resize it",
-      run: () => {
-        patchPanel(cur.id, p.id, { collapsed: false }, false);
-        focusPanel(cur.id, p.id);
-      },
+      run: () => revealPanel(cur, p),
     });
   }
-  out.push(...orchestraCommands());
+  out.push(...orchestraCommands(), ...flowCommands(), ...mediaCommands());
   out.push({
     id: "open-legacy",
     group: "Open",

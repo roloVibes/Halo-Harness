@@ -1,0 +1,49 @@
+{
+ "checkpoints": [],
+ "diffusion_models": [
+  "Wan2_1-I2V-14B-480p_fp8_e4m3fn_scaled_KJ.safetensors",
+  "qwen_image_2.1_bf16.safetensors",
+  "qwen_image_2.1_int8_convrot.safetensors",
+  "seedvr2_7b_int8_convrot.safetensors",
+  "wan2.1_14B_SCAIL_2_int8_convrot.safetensors",
+  "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+  "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+  "wan2.2_s2v_14B_fp8_scaled.safetensors"
+ ],
+ "text_encoders": [
+  "qwen3vl_8b_int8_convrot.safetensors",
+  "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+ ],
+ "vae": [
+  "Wan2_1_VAE_bf16.safetensors",
+  "qwen_image_2.1_vae_bf16.safetensors",
+  "seedvr2_ema_vae_fp16.safetensors",
+  "wan_2.1_vae.safetensors"
+ ],
+ "loras": [
+  "lightx2v_I2V_14B_480p_cfg_step_distill_rank64_bf16.safetensors",
+  "smoketest_20_steps_00001_.safetensors",
+  "wan2.1_SCAIL_2_DPO_lora_bf16.safetensors",
+  "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors",
+  "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors",
+  "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors"
+ ],
+ "upscale_models": [],
+ "clip_vision": [
+  "clip_vision_h.safetensors"
+ ],
+ "audio_encoders": [
+  "wav2vec2-chinese-base_fp16.safetensors",
+  "wav2vec2_large_english_fp16.safetensors"
+ ],
+ "TTS": [
+  "IndexTTS\\IndexTTS-2.5\\codec.pth",
+  "IndexTTS\\IndexTTS-2.5\\config.yaml",
+  "IndexTTS\\IndexTTS-2.5\\feat1.pt",
+  "IndexTTS\\IndexTTS-2.5\\feat2.pt",
+  "IndexTTS\\IndexTTS-2.5\\gpt.pth",
+  "IndexTTS\\IndexTTS-2.5\\multilingual_zh_ja_yue_char_del.tiktoken",
+  "IndexTTS\\IndexTTS-2.5\\s2mel.pth",
+  "IndexTTS\\IndexTTS-2.5\\wav2vec2bert_stats.pt"
+ ]
+}

@@ -27,10 +27,11 @@ function fail(e: unknown): void {
 export async function loadRuns(): Promise<RunRow[]> {
   try {
     const runs = await api.get<RunRow[]>("orchestra/runs");
-    orch.update(() => ({ runs, error: "" }));
+    orch.update(() => ({ runs, error: "", listed: true }));
     return runs;
   } catch (e) {
     fail(e);
+    orch.update(() => ({ listed: true }));
     return [];
   }
 }
@@ -81,8 +82,9 @@ export async function loadFile(path?: string): Promise<void> {
   }
 }
 
-export async function openRun(id: string): Promise<void> {
-  orch.update(() => ({ runId: id, data: null, events: [], next: 0, files: {}, file: "", focusLane: null, loading: true, doneAt: 0 }));
+/** Open a run: its panels come up (`quiet` keeps the view as it is: the newest run opened at load). */
+export async function openRun(id: string, quiet = false): Promise<void> {
+  orch.update(() => ({ runId: id, data: null, events: [], next: 0, files: {}, file: "", focusLane: null, loading: true, doneAt: 0, ...(quiet ? {} : { view: "auto" as const }) }));
   await refresh();
   await Promise.all([loadEvents(), loadFile()]);
 }
@@ -119,7 +121,7 @@ export function startOrchestra(): void {
     if (s.data?.live && studio.get().feed.status !== "open") void refresh().then(() => Promise.all([loadEvents(), loadFile()]));
   }, POLL_MS);
   void loadRuns().then((runs) => {
-    if (runs.length && !orch.get().runId) return openRun(runs[0].run_id);
+    if (runs.length && !orch.get().runId) return openRun(runs[0].run_id, true);
     orch.update(() => ({ loading: false }));
   });
 }

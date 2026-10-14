@@ -2,7 +2,7 @@
 // lane N (one per run of the repo and per lane of the open run).
 import { goSection } from "../../lib/store";
 import { openPanel } from "./bits";
-import { focusLane, orch } from "./store";
+import { enterWorkspace, focusLane, orch, setView } from "./store";
 import { openRun, startOrchestra, stopRun } from "./sync";
 
 export type OrchCommand = { id: string; group: string; label: string; hint?: string; run: () => void };
@@ -18,7 +18,7 @@ function inOrchestra(fn: () => void): () => void {
 export function orchestraCommands(): OrchCommand[] {
   const s = orch.get();
   const out: OrchCommand[] = [
-    { id: "orch-new", group: "Orchestra", label: "Orchestra: new run", hint: "write the goal, then Run", run: inOrchestra(() => openPanel("goal")) },
+    { id: "orch-new", group: "Orchestra", label: "Orchestra: new run", hint: "the Start view: write the goal, then Run", run: inOrchestra(() => setView("start")) },
   ];
   if (s.data?.live)
     out.push({ id: "orch-stop", group: "Orchestra", label: "Orchestra: stop run", hint: `run ${s.runId} stops at its next step`, run: () => void stopRun() });
@@ -38,6 +38,7 @@ export function orchestraCommands(): OrchCommand[] {
       label: `Orchestra: focus lane ${l.lane}`,
       hint: `${l.state} · ${l.title}`,
       run: inOrchestra(() => {
+        enterWorkspace();
         focusLane(l.lane);
         openPanel("lanes");
       }),

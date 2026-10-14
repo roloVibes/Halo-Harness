@@ -21,6 +21,7 @@ from typing import Optional
 from halo_harness.design.jsonio import (  # noqa: F401
     UnreadableFile, _read_json, _read_jsonl_line, _write_json, locked as _locked,
 )
+from halo_harness.design.store_posts import PostsMixin
 
 ARTBOARD_KINDS = ("prototype", "page", "deck", "vector", "photo", "motion", "video", "pdf", "image")
 RENDER_NAMES = ("render.png", "render.svg", "render.pdf", "render.mp4", "index.html")
@@ -42,7 +43,7 @@ def _now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
 
 
-class Project:
+class Project(PostsMixin):
     def __init__(self, path: Path):
         self.path = Path(path)
         self.slug = self.path.name

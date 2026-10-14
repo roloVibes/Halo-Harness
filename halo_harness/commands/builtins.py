@@ -160,7 +160,9 @@ def _cmd_level(args: str, facade: HeadlessFacade) -> str:
 
 _STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
                        "org": "Org: the company in Paperclip",
-                       "design": "Design: artboards on your own apps"}
+                       "design": "Design: artboards on your own apps",
+                       "orchestra": "Orchestra: runs of your agents, live",
+                       "flow": "Flow: a brief to renders, posts and metrics"}
 
 
 def _cmd_studio(args: str, facade: HeadlessFacade) -> str:
@@ -1940,7 +1942,7 @@ _BUILTIN_SPECS = {
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
     "level": ("core", "Toggle the game themes' level band above the prompt", "[on|off]", _cmd_level),
-    "studio": ("core", "Open Halo Studio, the browser GUI: Roles | Org | Design", "[roles|org|design] [url]", _cmd_studio),
+    "studio": ("core", "Open Halo Studio, the browser GUI: Roles | Org | Design", "[roles|org|design|orchestra|flow] [url]", _cmd_studio),
     "design": ("core", "Open Studio's Design GUI: artboards on your own apps (the `halo design` family)", "[url]", _cmd_design),
     "remote": ("core", "Remote control: control socket, Signal bridge state, paired phones, pairing, kill switch",
                "[status|pair [N]|off]", _cmd_remote),
