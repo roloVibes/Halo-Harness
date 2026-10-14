@@ -32,8 +32,9 @@ PINS = ('Two notes.\n```json\n[{"x": 40, "y": 12, "text": "The headline and sub-
 
 
 def _recording(seen: dict, text: str = "ok", tools: int = 0):
-    def runner(cmd, cwd, env, on_line):
+    def runner(cmd, cwd, env, on_line, stdin=""):
         seen["cmd"] = list(cmd)
+        seen["prompt"] = stdin  # 3.0.2.2: the prompt travels on stdin, never in argv
         if "--mcp-config" in cmd:
             seen["mcp"] = json.loads(Path(cmd[cmd.index("--mcp-config") + 1]).read_text(encoding="utf-8"))
         d = Path(cwd) / "artboards" / "hero"
@@ -63,7 +64,7 @@ def test_variants_wrap_the_prompt_in_run_and_in_the_cli(ctx: Ctx):
             if s.call("GET", f"/api/design/{slug}/turn/{r['turn']}")[1]["done"]:
                 break
             time.sleep(0.05)
-        prompt = _arg(seen["cmd"], "-p")
+        prompt = seen["prompt"]
         ctx.check("the prompt names the directions pricing-a, -b, -c and keeps the design system",
                   prompt.startswith("Make 3 directions of: a pricing page.") and "pricing-a, pricing-b, pricing-c (same kind)" in prompt
                   and "clearly different in layout, type and colour, all keeping the design system." in prompt)
@@ -73,7 +74,7 @@ def test_variants_wrap_the_prompt_in_run_and_in_the_cli(ctx: Ctx):
                   and s.call("POST", f"/api/design/{slug}/run", {"prompt": "x", "variants": 3, "base": "Bad Base!"})[0] == 422)
         seen.clear()
         s.run_turn(slug, "plain prompt")
-        ctx.check("no variants leaves the prompt alone", _arg(seen["cmd"], "-p") == "plain prompt")
+        ctx.check("no variants leaves the prompt alone", seen["prompt"] == "plain prompt")
         from halo_harness.design import cli, session
         got = {}
         orig = session.run_turn
@@ -96,7 +97,7 @@ def test_critique_turn_pins_comments(ctx: Ctx):
         cmd = seen["cmd"]
         ctx.check("the critique turn has only Read,Glob, no MCP servers, six turns and the chosen model",
                   status == 200 and _arg(cmd, "--tools") == "Read,Glob" and seen["mcp"] == {"mcpServers": {}} and _arg(cmd, "--max-turns") == "6" and _arg(cmd, "--model") == "or:v/critic")
-        ctx.check("the prompt asks for the checklist and one fenced json list", all(w in _arg(cmd, "-p") for w in ("hierarchy", "spacing rhythm", "type scale", "contrast", "tokens", "copy", "accessibility", "```json")) and "artboards/hero/index.html" in _arg(cmd, "-p"))
+        ctx.check("the prompt asks for the checklist and one fenced json list", all(w in seen["prompt"] for w in ("hierarchy", "spacing rhythm", "type scale", "contrast", "tokens", "copy", "accessibility", "```json")) and "artboards/hero/index.html" in seen["prompt"])
         ctx.check("the response is {turn, pins} with both pins", r["turn"] and len(r["pins"]) == 2)
         _, d = s.call("GET", f"/api/design/{slug}")
         crit = [c for c in d["comments"] if c.get("source") == "critique"]
