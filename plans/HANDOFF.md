@@ -4,7 +4,40 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-13 evening CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-14 ~01:00 CDT (authoritative, read this first)
+
+**3.0.2.0, 3.0.2.1, 3.0.2.2 AND 3.0.3.0 ARE RELEASED** (tags on master; the
+local install reports `halo 3.0.3.0`). 3.0.2.x = the whole 3.0.1.0 review fix
+pass (160 findings + the follow-up round Z; `plans/briefs/3.0.2-fixpass/
+SWEEP.md`). 3.0.3.0 = the Orchestra (goal -> lead split -> workers in
+worktrees with claims -> merge one at a time -> fresh judge -> gate loop ->
+report; `halo orchestra`, docs/ORCHESTRA.md) and the React + Vite Studio shell
+(committed bundle, `/legacy/` pages, movable workspace, motion vocabulary, SSE
+feed, the Orchestra run console; docs/STUDIO.md). Every release was cut on a
+green CI run read as a value (never on a watcher's exit code).
+
+**IN FLIGHT: 3.0.4.0 "Media and Flow"** (plan: the owner's
+`~/.claude/plans/ok-ther-gui-parts-snappy-hejlsberg.md`; briefs in the
+session scratchpad under `flow/`): R1 Media core (ComfyUI as the eighth craft
+app: `halo media init|doctor|serve|inspect|models|workflows`, the comfyui MCP
+server, starter workflows, docs/COMFYUI.md) and R2 the media-model inventory
+(`halo models --media`, `--best-for image-gen|video-gen|audio-gen|upscale`,
+never in the LLM pickers) are DONE on branches `flow/R1-media-core` and
+`flow/R2-media-inventory`; R3 the flow engine (`halo_harness/flows/`, the
+social-post template, the marketing org, the human confirm gate, dry-run
+post stubs) is running in worktree `<home>/hh-flow/R3-flow-engine`; then R4
+Postiz (CLI, `POSTIZ_API_KEY`, dry-run by default), R5 Studio server routes
+(flow/media APIs + the sessions answer route), R6 the Flow and Media
+sections on the shell, R7 release. 3.0.5.0 = tiers, Home, the Roles rebuild,
+Org/Design ports; 3.0.6.0+ = the Team tab. Rules learned: never `git stash` in
+the worktree farm (shared stack); gate `release.py` on `gh run view <id>
+--json conclusion` == success for the suites run of the exact sha; keep the
+main checkout clean while a release is pending (a local `test_tui.py` run
+rewrites docs/harness/tui-snapshots until it ends).
+
+--- previous snapshot below ---
+
+## WHERE THINGS STAND -- 2026-10-13 evening CDT
 
 **THE 3.0.1.0 REVIEW FIX PASS IS INTEGRATED, HEADING FOR 3.0.2.0.** The
 owner's 15-reviewer cloud review of 3.0.1.0 (161 confirmed findings; the
