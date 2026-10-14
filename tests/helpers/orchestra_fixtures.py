@@ -43,7 +43,11 @@ def git(repo, *args) -> str:
 def make_repo(prefix: str = "orch-run-") -> Path:
     repo = Path(tempfile.mkdtemp(prefix=prefix))
     for name in ("basket.py", "test_basket.py"):
-        shutil.copy(TEMPLATES / name, repo / name)
+        # LF regardless of how this checkout holds the template (a CRLF
+        # checkout would make the first lane's LF edit touch every line and
+        # the second merge conflict for no reason)
+        text = (TEMPLATES / name).read_text(encoding="utf-8")
+        (repo / name).write_text(text, encoding="utf-8", newline="\n")
     (repo / ".gitignore").write_text("__pycache__/\n", encoding="utf-8")
     git(repo, "init", "-q")
     for key, value in (("user.name", "t"), ("user.email", "t@t"), ("core.autocrlf", "false"),
