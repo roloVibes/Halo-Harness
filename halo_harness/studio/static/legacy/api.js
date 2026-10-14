@@ -50,6 +50,8 @@
     newBio: (name, from, scope) => call("POST", "bio", { name, from }, { scope }),
     deleteBio: (name, scope) => call("DELETE", "bio/" + encodeURIComponent(name), undefined, { scope }),
     models: () => call("GET", "models"),
+    modelsStatus: () => call("GET", "models/status"),
+    modelsRefresh: () => call("POST", "models/refresh", {}),
     validate: (kind, raw, name) => call("POST", "validate", { kind, raw, name }),
     toYaml: (raw) => call("POST", "yaml", { raw }),
     fromYaml: (yaml) => call("POST", "yaml", { yaml }),

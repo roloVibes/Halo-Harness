@@ -106,6 +106,11 @@ version.
   Roles; by manager in Org with Leadership on top. Drag a box to move the
   group, drop a card into a box to join it, `A` lays the groups out, and the
   toolbar's Groups button hides them.
+- The model dropdowns (bio form, assignment override) say how many models the
+  catalog holds, and when it holds none they say why per provider (not set
+  up, detected but not enabled, enabled but nothing cached) with a Refresh
+  models button that pulls every enabled provider's catalog in place
+  (`GET /api/models/status`, `POST /api/models/refresh`).
 - Fixed: clicking a panel's title bar no longer marks the layout as yours;
   the flow run list is newest first even for two runs started in the same
   second; `halo --help` test is width-independent.

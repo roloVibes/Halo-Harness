@@ -237,3 +237,9 @@ body:not([data-mode="org"]) #org-badges { display: none; }  /* 3.0.2.0: the Org 
 
 /* 3.0.1.0 D1: capability chips in the model picker (vision / audio / video / files / image-out) */
 .chips-inline { color: var(--user); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; margin-left: 6px; }
+
+/* 3.0.4.0: the model picker notice */
+.model-notice .notice{margin-top:6px;padding:8px 10px;border:1px solid var(--warn,#d9a441);border-radius:8px;background:rgba(217,164,65,.08);font-size:12px}
+.model-notice .notice .why{margin:6px 0;opacity:.85;font-size:11px;white-space:pre-wrap}
+.model-notice .notice .row{display:flex;gap:10px;align-items:center}
+.model-notice.ok .hint a{color:var(--accent,#5ad4ff)}

@@ -475,6 +475,19 @@ A `.mp4` is served as `video/mp4` with no sandbox directive.
   overlap. **Groups** in the toolbar hides them (`localStorage`
   `halo-studio-groups`); without them `A` is the layered layout again.
   Positions are kept in the same layout files as before.
+- **The model dropdowns (3.0.4.0):** every model field (the bio form's
+  preferred / fallback / escalation model, an assignment's override) is a
+  dropdown over the whole catalog, grouped by route and vendor with price,
+  context and capability chips, behind a filter box; "Type a ref..." takes
+  a model the catalog lacks. Under it a line says how many models the
+  catalog holds with a **refresh** link. When it holds none the line becomes
+  a notice that says why, per provider (not set up, detected but not
+  enabled, enabled but nothing cached yet) and a **Refresh models** button
+  that pulls every enabled provider's catalog in place and redraws every
+  dropdown on the page (`GET /api/models/status`, `POST /api/models/refresh`).
+  The catalog is the same one `halo models` prints: a provider lists its
+  models once it is enabled (`halo providers enable <name>` with its key in
+  the environment, or the wizard's keys step).
 - **The canvas:** one card per assignment -- the agent name, its role and
   alias, the model that resolves for it with price and context from the
   catalog, its tool count, a scope badge and a status dot (green valid, amber

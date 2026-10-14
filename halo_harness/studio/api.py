@@ -263,6 +263,9 @@ ROUTES: list = [
     ("GET", r"^session$", get_session), ("GET", r"^tools$", get_tools),
 ]
 
+from .models_api import ROUTES as _MODELS_ROUTES  # noqa: E402  (3.0.4.0: models/status, models/refresh)
+ROUTES[len(ROUTES):] = _MODELS_ROUTES
+
 
 _PREFIXES = (("flow", "halo_harness.studio.flow_api", "dispatch_flow"),
              ("media", "halo_harness.studio.media_api", "dispatch_media"),

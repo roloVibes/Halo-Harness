@@ -236,6 +236,8 @@ def test_roles_canvas_draws_groups(ctx: Ctx):
               got.get("joined") == "reviewer" and got.get("reviewers") == 2)
     ctx.check(f"Groups hides them and shows them again, got {got.get('groups_off')} / {got.get('groups_on')}",
               got.get("groups_off") == "off" and (got.get("groups_on") or 0) >= 5)
+    ctx.check(f"an empty catalog shows the model notice with a Refresh button, got {got.get('models_notice')}",
+              (got.get("models_notice") or 0) >= 1)
 
 
 @test
