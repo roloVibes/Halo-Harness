@@ -529,6 +529,10 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.0.4.0: flows -- brief -> roles -> org -> ComfyUI render -> confirm -> post -> metrics.
         from halo_harness.flows.cli import cmd_flow
         return cmd_flow(argv[1:])
+    if argv and argv[0] == "postiz":
+        # 3.0.4.0: the Postiz CLI check behind flow posting and metrics (doctor).
+        from halo_harness.flows.cli_posts import cmd_postiz
+        return cmd_postiz(argv[1:])
     if argv and argv[0] == "media":
         # 3.0.4.0: ComfyUI as the eighth craft app (init, doctor, serve, inspect, models, workflows).
         from halo_harness.media.cli import cmd_media

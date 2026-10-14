@@ -29,8 +29,9 @@ class FakeOneShot:
 class FakeOrg:
     """The marketing org: the Art Director's prompt goes through the approval sink."""
 
-    def __init__(self, prompt: str = "a lighthouse at dusk, cinematic", cost: float = 0.05, gate: bool = True):
-        self.prompt, self.cost, self.gate = prompt, cost, gate
+    def __init__(self, prompt: str = "a lighthouse at dusk, cinematic", cost: float = 0.05, gate: bool = True,
+                 copy: str = COPY):
+        self.prompt, self.cost, self.gate, self.copy = prompt, cost, gate, copy
         self.calls: list = []
         self.decisions: list = []
 
@@ -52,7 +53,7 @@ class FakeOrg:
         on_event("Strategist finished", {"agent_id": "a1"})
         return {"text": "Campaign plan: tease 3.0.4", "cost_usd": spent, "is_error": False,
                 "positions": {"Strategist": {"text": "Campaign plan: tease 3.0.4"},
-                              "Copywriter": {"text": COPY},
+                              "Copywriter": {"text": self.copy},
                               "Art Director": {"text": f"Prompt: {text}"}}}
 
 

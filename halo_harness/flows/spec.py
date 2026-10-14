@@ -158,6 +158,10 @@ def _check_uses(step: dict, kind: str, sid: str, *, cwd, state_dir, env) -> list
         if not _comfy_known(wf, state_dir, cwd):
             out.append(f"warning: step {sid}: workflow {wf!r} is not a starter, a file or a saved workflow in the "
                        "inventory cache (`halo media models` refreshes it); it is checked again on the server at run time")
+    elif kind == "metrics":
+        from halo_harness.flows.postiz_parse import parse_every
+        if step.get("every") is not None and parse_every(step.get("every")) is None:
+            out.append(f"step {sid}: every is a duration like 30m, 6h or 1d, got {step.get('every')!r}")
     elif kind == "post":
         if step.get("live") is True and not postiz_configured(env):
             out.append(f"warning: step {sid}: live: true, and neither POSTIZ_API_KEY nor ~/.postiz/credentials.json is set")
