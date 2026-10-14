@@ -28,6 +28,7 @@ from halo_harness.tools.glob_tool import GlobTool
 from halo_harness.tools.grep_tool import GrepTool
 from halo_harness.tools.media import MediaTool
 from halo_harness.tools.notebook_edit import NotebookEditTool
+from halo_harness.tools.orchestra_claims import orchestra_tools
 from halo_harness.tools.read import ReadTool
 from halo_harness.tools.skill import SkillTool
 from halo_harness.tools.task_board import TaskCreateTool, TaskListTool, TaskUpdateTool
@@ -91,6 +92,9 @@ def default_tools() -> list:
         TaskCreateTool(), TaskListTool(), TaskStopTool(), TaskTool(), TaskUpdateTool(), TodoWriteTool(),
         ToolSearchTool(), WebFetchTool(), WriteTool(),
     ]
+    # Halo 3.0.3.0: the Orchestra's claim tools, only inside a run
+    # ($HALO_ORCHESTRA_RUN names the run folder).
+    tools.extend(orchestra_tools())
     if sys.platform == "win32":
         from halo_harness.tools.powershell import PowerShellTool
         tools.append(PowerShellTool())

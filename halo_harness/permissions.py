@@ -1466,6 +1466,11 @@ class PermissionEngine:
         # The temporary rule OBJECTS are tracked here too, so the sweep
         # removes exactly those by identity, marker or not.
         self._temp_allow_rules: list = []
+        # Halo 3.0.3.0 (the Orchestra): extra checks consulted by decide()
+        # AFTER the base decision when it is allow or ask -- each has
+        # `check(tool_name, tool_input, decision, engine) -> Decision|None`
+        # (orchestra/guard.py's ClaimGuard). A deny always stands.
+        self.guards: list = []
 
     def set_plan_file(self, path) -> None:
         """Called when a session enters plan mode (agent/planmode.py, both
@@ -2162,7 +2167,10 @@ class PermissionEngine:
             if self.mode == "dontAsk":
                 return Decision("deny", "AskUserQuestion errors on a tool call in dontAsk mode", source="mode")
             return Decision("allow", "AskUserQuestion is allowed in every mode except dontAsk", source="mode")
-        if tool_name in ("TodoWrite", "ToolSearch"):
+        if tool_name in ("TodoWrite", "ToolSearch", "OrchestraClaim", "OrchestraRelease",
+                         "OrchestraClaims", "OrchestraNote"):
+            # (3.0.3.0: the Orchestra's claim tools write only the run's own
+            # claims/events logs -- a worker is never prompted per claim.)
             # finding 12: permission-free tools -- no side effects a mode
             # table needs to gate, in EVERY mode (an explicit deny/ask rule,
             # already checked before this fallback is ever reached, still
@@ -2253,6 +2261,15 @@ class PermissionEngine:
             # review item 21: a malformed tool_input (a field of the wrong
             # type) is an error result for this one call, never a dead turn.
             decision = Decision("deny", f"could not read the arguments of this {tool_name} call: {e}", source="error")
+        for guard in self.guards if decision.action in ("allow", "ask") else ():
+            try:
+                replaced = guard.check(tool_name, ti, decision, self)
+            except (ValueError, OSError, TypeError, AttributeError, KeyError):
+                replaced = None
+            if replaced is not None:
+                decision = replaced
+                if decision.action == "deny":
+                    break
         if decision.action == "deny" and decision.permission_denial is None and self.print_mode:
             decision.permission_denial = {
                 "tool_name": tool_name, "tool_input": ti,
