@@ -3,7 +3,8 @@
 // the user changes it. A section the user never rearranged keeps no key, so
 // its defaults follow the window size. `resetLayout` removes the key.
 import { createStore, writeLocal, type Store } from "../store";
-import type { Layout, PanelLayout } from "./types";
+import { arrange, defaultPanel } from "./grid";
+import type { Layout, PanelLayout, PanelSpec } from "./types";
 
 export const LAYOUT_PREFIX = "halo.studio.layout.";
 const VERSION = 1;
@@ -62,4 +63,31 @@ export function resetLayout(section: string): void {
 
 export function focusPanel(section: string, id: string): void {
   layoutStore(section).update(() => ({ focus: id }));
+}
+
+/** Open a panel and focus it; one not in the layout yet (an optional panel) is added below the
+ *  others, or popped out over the grid with `float` (a section whose canvas fills the view). */
+export function showPanel(section: string, spec: PanelSpec, float = false): void {
+  const cur = layoutStore(section).get().layout;
+  if (!cur) return;
+  if (cur[spec.id]) patchPanel(section, spec.id, { collapsed: false }, false);
+  else {
+    const all = Object.values(cur);
+    const bottom = all.reduce((m, p) => Math.max(m, p.y + p.h), 0);
+    const top = all.reduce((m, p) => Math.max(m, p.z || 0), 0);
+    const n = all.filter((p) => p.floating).length;
+    const p = { ...defaultPanel({ ...spec, collapsed: false }, 60), y: bottom, face: "detail" as const };
+    const placed = float ? { ...p, floating: true, fx: 64 + n * 32, fy: 48 + n * 32, fw: 520, fh: 440, z: top + 1 } : p;
+    setLayout(section, arrange({ ...cur, [spec.id]: placed }, float ? undefined : spec.id), true);
+  }
+  focusPanel(section, spec.id);
+}
+
+/** Take an optional panel out of the layout again. */
+export function hidePanel(section: string, id: string): void {
+  const cur = layoutStore(section).get().layout;
+  if (!cur || !cur[id]) return;
+  const next = { ...cur };
+  delete next[id];
+  setLayout(section, arrange(next), true);
 }

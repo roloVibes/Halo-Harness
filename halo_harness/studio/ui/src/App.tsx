@@ -37,7 +37,7 @@ export function App() {
       <main className="stage" aria-label="Workspace">
         {SECTIONS.filter((s) => visited.includes(s.id)).map((s) => (
           <div key={s.id} className="section-view" hidden={s.id !== section} data-section={s.id}>
-            <Workspace section={s.id} specs={s.panels} />
+            {s.view ? <s.view section={s.id} specs={s.panels} /> : <Workspace section={s.id} specs={s.panels} />}
           </div>
         ))}
       </main>

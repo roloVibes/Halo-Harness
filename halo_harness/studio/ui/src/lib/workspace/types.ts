@@ -33,6 +33,14 @@ export type PanelSpec = {
   settings?: ComponentType;
   /** A hook returning the panel's state motion (called inside the panel). */
   useMotion?: () => MotionState;
+  /** Opens as a one-line strip in the default arrangement. */
+  collapsed?: boolean;
+  /** Not in the default arrangement: the palette or the rail adds it (showPanel). */
+  optional?: boolean;
+  /** One line: what this panel is (shown under the title). */
+  about?: string;
+  /** Three to five short lines: how to use it. */
+  help?: string;
   /** Keep the body mounted while collapsed (an iframe keeps its state). */
   keepAlive?: boolean;
   testid?: string;

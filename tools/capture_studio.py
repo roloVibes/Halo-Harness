@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|design-knob|shell]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|design-knob|shell|orchestra|flow|media]
 
 3.0.3.0: roles/org/design render the classic page at /legacy/ (what the
 shell frames); `--mode shell` renders the React shell at / (Orchestra and
@@ -10,7 +10,10 @@ Roles) and, with --dom, counts its data-testid values. R4: `--mode
 orchestra` seeds a finished Orchestra run (the R2 fixture: basket.py, five
 lanes, one judged conflict, the report) in a temp git repo, opens the shell's
 Orchestra section over it (docs/media/studio-orchestra.png) and, with --dom,
-counts the run console's data-testid values.
+counts the run console's data-testid values. 3.0.4.0 R6: `--mode flow` and
+`--mode media` (tools/capture_flow.py) seed a finished flow run and one
+waiting at its confirm gate over a FakeComfy and render the Flow section
+(docs/media/studio-flow.png, studio-media.png); --dom counts its test ids.
 """
 
 from __future__ import annotations
@@ -92,11 +95,20 @@ def main(argv: list) -> int:
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--org", action="store_true", help="Org mode over a fake Paperclip seeded with the halo-dev-cycle company")
-    parser.add_argument("--mode", choices=["roles", "org", "design", "design-knob", "shell", "orchestra"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), 1440x900; design-knob: the same with the Knobs tab open and Spacing moved to 48")
+    parser.add_argument("--mode", choices=["roles", "org", "design", "design-knob", "shell", "orchestra", "flow", "media"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), 1440x900; design-knob: the same with the Knobs tab open and Spacing moved to 48")
     args = parser.parse_args(argv)
     args.org = args.org or args.mode == "org"
     design = args.mode in ("design", "design-knob")
     state = seeded_home()
+    if args.mode in ("flow", "media"):  # the Flow section over seeded runs (tools/capture_flow.py)
+        from capture_flow import capture
+        from halo_harness.studio.server import url_for
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + f"-{args.mode}.png"
+        try:
+            return capture(args.mode, args.out, args.dom, chrome, url_for)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
     fake = None
     if design:
         from design_demo import seed

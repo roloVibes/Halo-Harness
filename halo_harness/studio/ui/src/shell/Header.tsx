@@ -1,4 +1,4 @@
-// The top bar: brand, the four section tabs (a tab "works" while its section
+// The top bar: brand, the five section tabs (a tab "works" while its section
 // has fresh activity), the command palette button and the theme menu.
 import { useEffect, useRef, useState } from "react";
 import { Button, Icon, Kbd, Tabs, type TabItem } from "../lib/ui";
@@ -9,7 +9,8 @@ import { SECTIONS } from "../routes";
 function useSectionTabs(current: SectionId): TabItem[] {
   const activity = useStore(studio, (s) => s.activity);
   const orchestraBusy = useRecent(activity.orchestra, 3000);
-  const busy: Record<SectionId, boolean> = { orchestra: orchestraBusy, roles: false, org: false, design: false };
+  const flowBusy = useRecent(activity.flow, 3000);
+  const busy: Record<SectionId, boolean> = { orchestra: orchestraBusy, roles: false, org: false, design: false, flow: flowBusy };
   return SECTIONS.map((s) => ({
     id: s.id,
     label: s.title,

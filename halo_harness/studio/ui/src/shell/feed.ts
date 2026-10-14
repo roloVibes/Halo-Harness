@@ -19,9 +19,10 @@ export function startFeed(): void {
   onEvent("*", (f) => {
     if (f.event === "sessions") return;
     const now = Date.now();
+    const section = /^(flow_|media_)/.test(f.event) ? "flow" : "orchestra";
     studio.update((s) => ({
       feed: { ...s.feed, events: s.feed.events + 1, lastKind: f.event, lastTs: now },
-      activity: { ...s.activity, orchestra: now },
+      activity: { ...s.activity, [section]: now },
     }));
     recent.update((r) => ({ frames: [...r.frames.slice(-99), f] }));
   });
