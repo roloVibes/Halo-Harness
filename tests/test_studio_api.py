@@ -9,7 +9,9 @@ page and its security headers.
 from __future__ import annotations
 
 import json
+import os
 import sys
+import tempfile
 import threading
 import urllib.error
 import urllib.request
@@ -28,10 +30,18 @@ test, TESTS = new_registry()
 
 
 class _Studio:
+    """A Studio over a state dir of its own: `BRIDGE_STATE_DIR` points at a
+    fresh folder for the fixture's lifetime (and is put back after), so an
+    earlier module's copy-on-first-use of the shipped lineups into the shared
+    scratch home can never turn a shipped lineup into a user one here."""
+
     def __enter__(self):
-        from halo_harness.providers.config import default_state_dir
         from halo_harness.studio.server import start_server
-        self.state = Path(default_state_dir())
+        self._saved = os.environ.get("BRIDGE_STATE_DIR")
+        root = Path(tempfile.mkdtemp(prefix="studio-api-"))
+        self.state = root / ".halo"
+        self.state.mkdir()
+        os.environ["BRIDGE_STATE_DIR"] = str(self.state)
         self.srv = start_server(port=0, cwd=self.state.parent / "proj", state_dir=self.state)
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
         self.base = f"http://127.0.0.1:{self.srv.server_address[1]}"
@@ -40,6 +50,10 @@ class _Studio:
     def __exit__(self, *a):
         self.srv.shutdown()
         self.srv.server_close()
+        if self._saved is None:
+            os.environ.pop("BRIDGE_STATE_DIR", None)
+        else:
+            os.environ["BRIDGE_STATE_DIR"] = self._saved
 
     def call(self, method, path, body=None, *, token=None, origin=None, raw=False):
         req = urllib.request.Request(self.base + path, method=method,

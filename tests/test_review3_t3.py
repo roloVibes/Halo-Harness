@@ -70,6 +70,15 @@ def _frozen_clock():
     return lambda: setattr(sb_mod, "time", real)
 
 
+def _plain_override():
+    """The HUD engine suites force the panel rows on through the test-only
+    override and leave it set for the rest of a shared run; a session never
+    sets it, so these tests run with it cleared and put it back after."""
+    from halo_harness.tui import hud as hud_mod
+    saved, hud_mod.STATUS_BAR_OVERRIDE = hud_mod.STATUS_BAR_OVERRIDE, None
+    return lambda: setattr(hud_mod, "STATUS_BAR_OVERRIDE", saved)
+
+
 @test
 def test_item162_every_theme_and_variant_renders_the_default_bar(ctx: Ctx):
     from textual.app import App
@@ -92,6 +101,7 @@ def test_item162_every_theme_and_variant_renders_the_default_bar(ctx: Ctx):
             await pilot.pause(0.1)
             bar = app.query_one(StatusBar)
             restore = _frozen_clock()
+            undo = _plain_override()
             try:
                 _load_bar(bar)
                 bar.set_theme("claude-dark")
@@ -110,6 +120,7 @@ def test_item162_every_theme_and_variant_renders_the_default_bar(ctx: Ctx):
                               and not any(w in plain for w in PANEL_WORDS))
             finally:
                 restore()
+                undo()
     asyncio.run(body())
 
 
@@ -125,6 +136,7 @@ def test_item162_the_live_app_keeps_one_plain_row_under_every_level(ctx: Ctx):
             await pilot.pause(0.2)
             bar = app.status_bar
             restore = _frozen_clock()
+            undo = _plain_override()
             try:
                 _load_bar(bar)
                 app.apply_theme("claude-dark")
@@ -140,19 +152,23 @@ def test_item162_the_live_app_keeps_one_plain_row_under_every_level(ctx: Ctx):
                 restore()
                 set_config_value(VARIANT_KEY, None)
                 app.apply_theme("claude-dark")
+                undo()
     asyncio.run(body())
 
 
 @test
 def test_item162_nothing_in_a_session_reaches_the_panel_hud(ctx: Ctx):
     from halo_harness.tui import hud as hud_mod
-    ctx.check("no test has left the override set here", hud_mod.STATUS_BAR_OVERRIDE is None)
-    for theme in GAME_THEMES:
-        skin = hud_mod.skin_for(theme)
-        if skin is not None:
-            ctx.check(f"{theme}'s skin keeps the plain bar", skin.status_bar == "plain")
-        for variant in [v for t, v in _variants() if t == theme]:
-            ctx.check(f"{theme}/{variant}: bar_skin_for is None", hud_mod.bar_skin_for(theme, variant) is None)
+    undo = _plain_override()  # a session never sets the test-only override; the HUD suites do, in a shared run
+    try:
+        for theme in GAME_THEMES:
+            skin = hud_mod.skin_for(theme)
+            if skin is not None:
+                ctx.check(f"{theme}'s skin keeps the plain bar", skin.status_bar == "plain")
+            for variant in [v for t, v in _variants() if t == theme]:
+                ctx.check(f"{theme}/{variant}: bar_skin_for is None", hud_mod.bar_skin_for(theme, variant) is None)
+    finally:
+        undo()
     fresh = hud_mod.HudSkin(name="x", segments=(), strip=(), drop_order=(), faces={},
                             glyphs=None, glyphs_ascii=None, styles={})
     ctx.check("a new skin defaults to the plain bar", fresh.status_bar == "plain")
