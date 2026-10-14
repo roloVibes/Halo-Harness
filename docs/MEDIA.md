@@ -1,5 +1,8 @@
 # The front-page media
 
+(Generated media -- images and video from local diffusion models through
+ComfyUI -- is a different thing: see [COMFYUI.md](COMFYUI.md).)
+
 The README's pictures are generated from the real TUI over mock data, not
 hand-captured from a live session. Nothing in them is a real key, path,
 hostname, username or phone number: the scenes run on a scripted

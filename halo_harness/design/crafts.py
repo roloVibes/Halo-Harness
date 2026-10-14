@@ -1,5 +1,6 @@
 """halo_harness.design.crafts -- the craft apps as design engines (Halo
-3.0.1.0 round D4). Each ArtCraft app ships an MCP server (`<app>-cli mcp`,
+3.0.1.0 round D4; ComfyUI joined in 3.0.4.0 round R1 through
+`halo media init`). Each ArtCraft app ships an MCP server (`<app>-cli mcp`,
 registered in Claude Code's user config, so every Halo session sees its
 tools as `mcp__<app>__<tool>`). This module holds, per app: what it is for,
 the tool recipe the Design skill teaches, the render step that turns its
@@ -62,6 +63,16 @@ APPS = {
                   "mcp__pdfcraft__page_render to artboards/<id>/render.png (page 1) -> mcp__pdfcraft__doc_save to artboards/<id>/render.pdf",
         "render": "mcp__pdfcraft__page_render", "ext": "pdf",
     },
+    "comfyui": {
+        "for": "generated images and video from local diffusion models (Qwen Image, Wan 2.2): stills, image-to-video clips, upscales",
+        "kinds": ("image", "video"),
+        "recipe": "mcp__comfyui__comfy_workflows (saved workflows and the starters text-to-image-qwen, image-to-video-wan22) -> "
+                  "mcp__comfyui__comfy_inspect <workflow> (pick set keys) -> mcp__comfyui__comfy_run {workflow, set: {prompt, width, "
+                  "height, seed, ...}} -> mcp__comfyui__comfy_fetch {output, to_path: artboards/<id>/render.png (a still) or "
+                  "artboards/<id>/render.mp4 (a clip)} -> write artboards/<id>/source.json "
+                  "{\"app\": \"comfyui\", \"workflow\": ..., \"prompt_id\": ..., \"set\": {...}, \"kind\": \"image|video\", \"title\": ...}",
+        "render": "mcp__comfyui__comfy_run", "ext": "png",
+    },
 }
 
 CORE_TOOLS = ("Read", "Write", "Edit", "Glob", "Grep", "Bash", "WebFetch")
@@ -92,7 +103,8 @@ def guide_lines(registered=None) -> list:
     for app, spec in apps.items():
         out.append(f"- {app}: {spec['for']}. Recipe: {spec['recipe']}.")
     out.append("Every craft deliverable ends with its render saved INSIDE the artboard folder (render.png / render.svg / "
-               "render.pdf) and a source.json naming the app, the saved document's path, the kind and a title. "
+               "render.pdf / render.mp4) and a source.json naming the app, the saved document's path (for comfyui: the "
+               "workflow, prompt_id and set), the kind and a title. "
                "Look at your render (the app's own preview tool, or Read the PNG) before you stop.")
     return out
 
