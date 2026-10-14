@@ -158,6 +158,20 @@ def test_write_routes(ctx: Ctx):
         ctx.check("a bad name is a 422", s.call("POST", "/api/lineup", {"name": "bad name!"})[0] == 422)
 
 
+@test
+def test_models_status_and_refresh(ctx: Ctx):
+    # 3.0.4.0: the bio form's model dropdown explains an empty catalog and can refresh it.
+    with _Studio() as s:
+        status, st, _ = s.call("GET", "/api/models/status")
+        ctx.check("models/status answers rows, providers and a reason when the catalog is empty",
+                  status == 200 and isinstance(st["rows"], int) and isinstance(st["providers"], list) and (st["rows"] > 0 or bool(st["reason"])))
+        status, r, _ = s.call("POST", "/api/models/refresh?no_probe=1", {})
+        ctx.check("models/refresh answers the row count and one line per attempt",
+                  status == 200 and isinstance(r["rows"], int) and isinstance(r["attempts"], list))
+        html = s.call("GET", "/legacy/index.html", raw=True)[1].decode("utf-8", "replace")
+        ctx.check("the legacy page loads the model notice script before the inspector", html.find("model-notice.js") < html.find("inspector.js") > 0)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

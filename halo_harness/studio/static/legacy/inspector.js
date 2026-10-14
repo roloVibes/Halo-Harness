@@ -51,7 +51,8 @@
     const sel = h(`<select class="mono"></select>`);
     const custom = h(`<input class="mono" placeholder="${esc(placeholder)}" style="display:none">`);
     const hint = h(`<div class="hint"></div>`);
-    wrap.append(filter, sel, custom, hint);
+    const notice = h(`<div class="model-notice"></div>`);
+    wrap.append(filter, sel, custom, hint, notice);
     const rows = () => window.app.models || [];
     const describe = (ref) => {
       const m = rows().find((x) => x.ref === ref);
@@ -82,6 +83,7 @@
     custom.addEventListener("keydown", (ev) => { if (ev.key === "Enter") commitCustom(); if (ev.key === "Escape") { custom.style.display = "none"; draw(); } });
     custom.addEventListener("blur", commitCustom);
     draw();
+    if (window.modelNotice) window.modelNotice(notice, draw);
     return wrap;
   }
   function chips(values, onChange, { suggestions = [], cls = "" } = {}) {
