@@ -65,6 +65,9 @@ export type ToastItem = { id: number; text: string; tone: "done" | "error" | "in
 
 export type PanelRef = { section: SectionId; panel: string };
 
+/** The "How this works" overlay: which section, and whether it is the first-visit welcome. */
+export type HelpRef = { section: SectionId; welcome: boolean };
+
 export type StudioState = {
   section: SectionId;
   visited: SectionId[];
@@ -72,6 +75,9 @@ export type StudioState = {
   paletteOpen: boolean;
   railOpen: boolean;
   inspector: PanelRef | null;
+  help: HelpRef | null;
+  /** The framed classic pages' status lines (postMessage legacy-status), per section. */
+  legacy: Partial<Record<SectionId, string>>;
   feed: { status: FeedStatus; events: number; lastKind: string; lastTs: number; sessions: SessionInfo[] };
   activity: Partial<Record<SectionId, number>>;
   toasts: ToastItem[];
@@ -117,10 +123,34 @@ export const studio = createStore<StudioState>({
   paletteOpen: false,
   railOpen: readLocal("halo.studio.rail") !== "closed",
   inspector: null,
+  help: null,
+  legacy: {},
   feed: { status: "off", events: 0, lastKind: "", lastTs: 0, sessions: [] },
   activity: {},
   toasts: [],
 });
+
+// -- "How this works": the overlay and the first-visit welcome ------------------
+export const SEEN_PREFIX = "halo.studio.seen.";
+/** `?tour=off` (captures, tests) keeps the first-visit welcome shut, as on the classic page. */
+const NO_WELCOME = typeof location !== "undefined" && /[?&]tour=off\b/.test(location.search);
+
+export function openHelp(section: SectionId, welcome = false): void {
+  studio.update(() => ({ help: { section, welcome }, paletteOpen: false }));
+}
+
+/** Close the overlay; the section counts as seen, so its welcome does not come back. */
+export function closeHelp(): void {
+  const help = studio.get().help;
+  if (help) writeLocal(SEEN_PREFIX + help.section, "1");
+  studio.update(() => ({ help: null }));
+}
+
+/** The first time a section shows in this browser: its welcome card. */
+export function welcomeIfNew(section: SectionId): void {
+  if (NO_WELCOME || studio.get().help || readLocal(SEEN_PREFIX + section)) return;
+  openHelp(section, true);
+}
 
 export function goSection(section: SectionId): void {
   writeLocal("halo.studio.section", section);

@@ -1,0 +1,55 @@
+/* Clarity (3.0.4.0 R6b): the "How this works" overlay and first-visit
+   welcome, the ? beside the section tabs, the Inspector's about and help,
+   the framed page's status line in the status bar, and the Orchestra Start
+   view and goal form (the Flow Start view's classes, flow-start.css, carry
+   the layout). Tokens only. */
+
+/* -- "How this works" ---------------------------------------------------------- */
+.dialog.section-help { width: min(820px, calc(100vw - 32px)); }
+.section-help .dialog-head { align-items: flex-start; }
+.section-help .dialog-title { font-size: 19px; margin-top: 2px; }
+.section-help .dialog-body { max-height: calc(100vh - 230px); overflow: auto; }
+.section-help-body { display: grid; gap: 16px; }
+.section-help-what { margin: 0; font-size: 14px; max-width: 72ch; }
+.section-help-steps { gap: 9px; }
+.section-help-cols { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; }
+.section-help-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
+.section-help-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.section-help-list b { font-weight: 600; }
+.section-help-keys li { flex-wrap: nowrap; }
+.section-help-keys .kbd-group { flex: none; }
+.section-help-tip { margin: 10px 0 0; font-size: 12px; }
+.section-help .dialog-foot { justify-content: space-between; align-items: center; }
+.section-help-note { font-size: 12px; }
+.section-help-btn { margin-left: -6px; }
+@media (max-width: 900px) { .section-help-cols { grid-template-columns: minmax(0, 1fr); } }
+
+/* -- Inspector: what the panel is, how to use it -------------------------------- */
+.inspector-about { margin: -6px 0 0; color: var(--muted); font-size: 13px; }
+.inspector-help { margin: 0; padding: 8px 10px 8px 26px; display: grid; gap: 3px; font-size: 12.5px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+
+/* -- status bar: the framed page's own status line ------------------------------ */
+.legacy-status { overflow: hidden; text-overflow: ellipsis; }
+
+/* -- Orchestra: the Start view and the goal form --------------------------------- */
+.og-start .fl-start-form { padding: 20px; }
+.og-goal-form { gap: 9px; grid-template-columns: minmax(0, 1fr); }
+.og-goal-form .og-text { min-height: 46px; }
+.og-goal-start .og-text { min-height: 64px; }
+.og-goal-start .og-text-tall { min-height: 96px; }
+.og-goal-form .og-form-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.og-goal-form .og-form-row3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); }
+.og-goal-form .input { min-width: 0; }
+.rail-group { grid-template-columns: minmax(0, 1fr); }
+.og-goal-form .field-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.og-more summary { padding: 2px 0; font-size: 11px; color: var(--muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.og-more .og-form-row { margin-top: 6px; }
+.og-runline { font-size: 11.5px; flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
+.og-copy { justify-self: start; font-size: 11.5px; }
+.og-start .fl-start-form .fl-actions { bottom: -20px; }
+.og-rail-run .badge { flex: none; }
+.og-rail-run .badge[data-state="running"] { color: var(--accent); border-color: var(--accent); }
+.og-rail-run .badge[data-state="finished"] { color: var(--ok); border-color: var(--ok); }
+.og-rail-run .badge[data-state="stopped"] { color: var(--bad); border-color: var(--bad); }
+.og-rail-run .badge[data-state="interrupted"] { color: var(--warn); border-color: var(--warn); }
+.og-rail-run[aria-current="true"] { border-color: var(--line-strong); background: var(--accent-soft); }

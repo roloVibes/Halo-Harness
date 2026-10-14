@@ -1,23 +1,24 @@
-// The goal form (GoalPanel's Expand face): WHAT YOU WANT, DONE WHEN, STOP
-// WHEN, then the workers, the return cap, the test, the files, who plays the
-// parts and the model; Run and Dry run post it (POST orchestra/run).
+// The goal form, on the Start view (`start`: a blank goal, room to write) and
+// as the Goal panel's full face (the open run in one line over its goal, laid
+// out so every field and Run show at the panel's default size): WHAT YOU
+// WANT, DONE WHEN, STOP WHEN with examples, the files and the test, the
+// budget (workers, return cap) and the lineup, then who plays the parts and
+// the model under a disclosure. Run and Dry run post it (POST orchestra/run).
 import { useEffect, useState } from "react";
-import { Button, Field } from "../../lib/ui";
-import { orch, useOrch } from "./store";
-import { startRun, type RunForm } from "./sync";
+import { Button, Field, Icon } from "../../lib/ui";
+import { StateBadge } from "./bits";
+import { cost } from "./format";
+import { orch, setView, useOrch } from "./store";
+import { startRun, stopRun, type RunForm } from "./sync";
 
-const EMPTY: RunForm = {
-  what: "",
-  done_when: "",
-  stop_when: "",
-  workers: 5,
-  return_cap: 2,
-  test: "",
-  files: [],
-  lineup: "",
-  lead: "main",
-  worker: "subagent",
-  model: "",
+const EMPTY: RunForm = { what: "", done_when: "", stop_when: "", workers: 5, return_cap: 2, test: "", files: [], lineup: "", lead: "main", worker: "subagent", model: "" };
+
+const EXAMPLE = {
+  what: "e.g. Add input checks to every public function in basket.py, with a clear error for each bad value.",
+  done_when: "e.g. python -m pytest tests/test_basket.py passes and every function rejects bad input.",
+  stop_when: "e.g. a part fails the gate twice, or a change reaches outside basket.py.",
+  files: "e.g. basket.py, prices.py",
+  test: "e.g. python -m pytest -q",
 };
 
 function fromGoal(): RunForm {
@@ -25,75 +26,102 @@ function fromGoal(): RunForm {
   return g ? { ...EMPTY, ...g, files: [...(g.files || [])], model: "" } : { ...EMPTY };
 }
 
-function Text({ label, value, set, rows = 2, hint }: { label: string; value: string; set: (v: string) => void; rows?: number; hint?: string }) {
+type Setter<K extends keyof RunForm> = (v: RunForm[K]) => void;
+
+function Text({ label, value, set, hint, example, tall }: { label: string; value: string; set: (v: string) => void; hint?: string; example: string; tall?: boolean }) {
   return (
     <Field label={label} hint={hint}>
-      {(id) => <textarea id={id} className="input og-text" rows={rows} value={value} onChange={(e) => set(e.target.value)} />}
+      {(id) => <textarea id={id} className={"input og-text" + (tall ? " og-text-tall" : "")} value={value} placeholder={example} title={hint} onChange={(e) => set(e.target.value)} />}
     </Field>
   );
 }
 
-function Line({ label, value, set, mono }: { label: string; value: string; set: (v: string) => void; mono?: boolean }) {
+function Line({ label, value, set, mono, example }: { label: string; value: string; set: (v: string) => void; mono?: boolean; example?: string }) {
   return (
     <Field label={label}>
-      {(id) => <input id={id} className={"input" + (mono ? " mono" : "")} value={value} onChange={(e) => set(e.target.value)} />}
+      {(id) => <input id={id} className={"input" + (mono ? " mono" : "")} value={value} placeholder={example} onChange={(e) => set(e.target.value)} />}
     </Field>
   );
 }
 
-function Num({ label, value, set, min, max }: { label: string; value: number; set: (v: number) => void; min: number; max: number }) {
+function Num({ label, value, set, min, max, title }: { label: string; value: number; set: (v: number) => void; min: number; max: number; title: string }) {
   return (
     <Field label={label}>
       {(id) => (
-        <input
-          id={id}
-          className="input mono"
-          type="number"
-          min={min}
-          max={max}
-          value={value}
-          onChange={(e) => {
-            const n = parseInt(e.target.value, 10);
-            if (!Number.isNaN(n)) set(n);
-          }}
-        />
+        <input id={id} className="input mono" type="number" min={min} max={max} value={value} title={title} onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          if (!Number.isNaN(n)) set(n);
+        }} />
       )}
     </Field>
   );
 }
 
-export function GoalForm() {
+/** The open run in one line: its state and cost (the id on hover), stop while it runs, and a way to a blank goal. */
+function RunLine() {
+  const data = useOrch((s) => s.data);
+  if (!data) return null;
+  return (
+    <div className="fl-runline og-runline" title={`run ${data.run.run_id}: ${data.goal.what}`}>
+      <StateBadge state={data.run.state} />
+      <span className="mono">{cost(data.run.cost_usd)}</span>
+      {data.live && (
+        <button type="button" className="og-link mono" onClick={() => void stopRun()}>
+          stop
+        </button>
+      )}
+      <button type="button" className="og-link mono" onClick={() => setView("start")} title="The Start view: a blank goal">
+        new run
+      </button>
+    </div>
+  );
+}
+
+export function GoalForm({ start }: { start?: boolean }) {
   const runId = useOrch((s) => s.runId);
-  const live = useOrch((s) => !!s.data?.live);
-  const [form, setForm] = useState<RunForm>(fromGoal);
+  const live = useOrch((s) => (s.data?.live ? s.runId : ""));
+  const has = useOrch((s) => !!s.data);
+  const [form, setForm] = useState<RunForm>(() => (start ? { ...EMPTY } : fromGoal()));
   const [problems, setProblems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  useEffect(() => setForm(fromGoal()), [runId]);
-  const set = <K extends keyof RunForm>(k: K) => (v: RunForm[K]) => setForm((f) => ({ ...f, [k]: v }));
+  useEffect(() => {
+    if (!start) setForm(fromGoal());
+  }, [runId, has, start]);
+  const set = <K extends keyof RunForm>(k: K): Setter<K> => (v) => setForm((f) => ({ ...f, [k]: v }));
   const go = async (dry: boolean) => {
     setBusy(true);
     setProblems(await startRun(form, dry));
     setBusy(false);
   };
+  const why = live ? `Run ${live} is live: stop it or wait for its report` : "";
   return (
-    <form className="og-form" onSubmit={(e) => (e.preventDefault(), void go(false))}>
-      <Text label="WHAT YOU WANT" value={form.what} set={set("what")} rows={3} />
-      <Text label="DONE WHEN" value={form.done_when} set={set("done_when")} hint="what the gate checks" />
-      <Text label="STOP WHEN" value={form.stop_when} set={set("stop_when")} hint="when the run gives up" />
+    <form className={"og-form og-goal-form" + (start ? " og-goal-start" : "")} onSubmit={(e) => (e.preventDefault(), void go(false))} data-testid="orchestra-goal-form">
+      {!start && <RunLine />}
+      {start && has && (
+        <button type="button" className="og-link mono og-copy" onClick={() => setForm(fromGoal())}>
+          copy the goal of run {runId}
+        </button>
+      )}
+      <Text label="WHAT YOU WANT" value={form.what} set={set("what")} example={EXAMPLE.what} tall={start} />
+      <Text label="DONE WHEN" value={form.done_when} set={set("done_when")} example={EXAMPLE.done_when} hint={start ? "what the gate checks before the result lands" : undefined} />
+      <Text label="STOP WHEN" value={form.stop_when} set={set("stop_when")} example={EXAMPLE.stop_when} hint={start ? "when the run gives up" : undefined} />
       <div className="og-form-row">
-        <Num label="WORKERS" value={form.workers} set={set("workers")} min={1} max={50} />
-        <Num label="RETURN CAP" value={form.return_cap} set={set("return_cap")} min={0} max={20} />
+        <Line label="FILES (comma separated)" value={form.files.join(", ")} set={(v) => set("files")(v.split(",").map((f) => f.trim()).filter(Boolean))} mono example={EXAMPLE.files} />
+        <Line label="TEST COMMAND" value={form.test} set={set("test")} mono example={EXAMPLE.test} />
       </div>
-      <Line label="TEST COMMAND" value={form.test} set={set("test")} mono />
-      <Line label="FILES (comma separated, from the repo root)" value={form.files.join(", ")} set={(v) => set("files")(v.split(",").map((f) => f.trim()).filter(Boolean))} mono />
-      <div className="og-form-row">
-        <Line label="LINEUP" value={form.lineup} set={set("lineup")} />
-        <Line label="MODEL" value={form.model} set={set("model")} mono />
+      <div className="og-form-row og-form-row3" role="group" aria-label="Budget and lineup">
+        <Num label="WORKERS" value={form.workers} set={set("workers")} min={1} max={50} title="How many lanes, one worker each (1 to 50)" />
+        <Num label="RETURN CAP" value={form.return_cap} set={set("return_cap")} min={0} max={20} title="How many times the gate may send one part back" />
+        <Line label="LINEUP" value={form.lineup} set={set("lineup")} example="optional" />
       </div>
-      <div className="og-form-row">
-        <Line label="LEAD ROLE" value={form.lead} set={set("lead")} />
-        <Line label="WORKER ROLE" value={form.worker} set={set("worker")} />
-      </div>
+      <details className="md-support og-more">
+        <summary className="mono">who plays the parts · the model ({form.lead} leads, {form.worker} works{form.model ? `, ${form.model}` : ""})</summary>
+        <div className="og-form-row og-form-row3">
+          <Line label="LEAD ROLE" value={form.lead} set={set("lead")} />
+          <Line label="WORKER ROLE" value={form.worker} set={set("worker")} />
+          <Line label="MODEL" value={form.model} set={set("model")} mono example="the lineup's" />
+        </div>
+      </details>
       {problems.length > 0 && (
         <ul className="og-problems" role="alert">
           {problems.map((p) => (
@@ -101,16 +129,16 @@ export function GoalForm() {
           ))}
         </ul>
       )}
-      <div className="og-actions">
-        <Button variant="primary" type="submit" disabled={busy || live} title={live ? "A run is live: stop it or wait for its report" : "Start the run"}>
+      <div className="og-actions fl-actions">
+        <Button variant="primary" type="submit" disabled={busy || !!why} title={why || "Start the run"} data-testid="orchestra-run">
           Run
         </Button>
-        <Button onClick={() => void go(true)} disabled={busy || live} title="Ask the lead for the split only: nothing is claimed">
+        <Button onClick={() => void go(true)} disabled={busy || !!why} title={why || "Ask the lead for the split only: nothing is claimed"}>
           Dry run
         </Button>
-        <Button variant="ghost" onClick={() => setForm({ ...EMPTY })} disabled={busy}>
-          Clear
-        </Button>
+        <button type="button" className="icon-btn" onClick={() => setForm({ ...EMPTY })} disabled={busy} title="Clear the form" aria-label="Clear the form">
+          <Icon name="reset" />
+        </button>
       </div>
     </form>
   );

@@ -1,7 +1,10 @@
 /* Halo Studio -- the SVG canvas: pan, zoom, a dot grid, node cards in
    foreignObjects, bezier edges with labels, drag with snap, marquee
    multi-select, a minimap, fit and a layered auto-layout. Pure view: it
-   emits onSelect / onMove / onDrop / onOpen and never touches the API. */
+   emits onSelect / onMove / onDrop / onOpen and never touches the API.
+   3.0.4.0 R6b: window.haloGroups (groups.js) draws the labelled group boxes
+   behind the cards, lays the groups out in rows (`A`), and gets a card
+   dropped into another box (onDropIn). */
 (function () {
   "use strict";
   const W = 236, H = 112, SNAP = 8;
@@ -14,7 +17,7 @@
       this.svg = svg; this.minimap = minimap; this.world = svg.querySelector("#world");
       this.gEdges = svg.querySelector("#edges"); this.gNodes = svg.querySelector("#nodes"); this.marquee = svg.querySelector("#marquee");
       this.nodes = []; this.edges = []; this.selected = new Set(); this.live = {};
-      this.t = { x: 80, y: 80, k: 1 }; this.onSelect = () => {}; this.onMove = () => {}; this.onDrop = () => {}; this.onOpen = () => {}; this.onDropOn = null;
+      this.t = { x: 80, y: 80, k: 1 }; this.onSelect = () => {}; this.onMove = () => {}; this.onDrop = () => {}; this.onOpen = () => {}; this.onDropOn = null; this.onDropIn = null;
       this._bind();
     }
     setGraph(nodes, edges, positions) {
@@ -46,7 +49,11 @@
     }
     _bounds() { const xs = this.nodes.map((n) => n.x), ys = this.nodes.map((n) => n.y); const x = Math.min(...xs), y = Math.min(...ys); return { x, y, w: Math.max(...xs) + W - x, h: Math.max(...ys) + H - y }; }
     autoLayout(render = true) {
-      const byId = Object.fromEntries(this.nodes.map((n) => [n.id, n])); const layer = {}; const inc = {};
+      if (!(window.haloGroups && window.haloGroups.layout(this))) this._layered();
+      if (render) { this.render(); this.fit(); for (const n of this.nodes) this.onMove(n.id, n.x, n.y, true); }
+    }
+    _layered() {
+      const layer = {}; const inc = {};
       for (const e of this.edges) if (e.kind !== "pipeline") (inc[e.to] = inc[e.to] || []).push(e.from);
       const roots = this.nodes.filter((n) => n.role === "main" || !(inc[n.id] || []).length).map((n) => n.id);
       const queue = roots.map((id) => [id, 0]); const seen = new Set();
@@ -55,12 +62,12 @@
       const cols = {}; for (const n of this.nodes) (cols[layer[n.id]] = cols[layer[n.id]] || []).push(n);
       const maxRows = Math.max(...Object.values(cols).map((c) => c.length));
       for (const [l, list] of Object.entries(cols)) list.forEach((n, i) => { n.x = 60 + Number(l) * 330; n.y = 60 + i * 150 + ((maxRows - list.length) * 150) / 2; });
-      if (render) { this.render(); this.fit(); for (const n of this.nodes) this.onMove(n.id, n.x, n.y, true); }
     }
 
     // -- render -------------------------------------------------------------
     render() {
       this.gEdges.innerHTML = ""; this.gNodes.innerHTML = "";
+      if (window.haloGroups) window.haloGroups.draw(this);
       const pos = Object.fromEntries(this.nodes.map((n) => [n.id, n]));
       for (const e of this.edges) {
         const a = pos[e.from], b = pos[e.to]; if (!a || !b) continue;
@@ -132,7 +139,11 @@
       const up = (ev) => {
         if (pan) { pan = null; svg.classList.remove("panning"); }
         if (drag) {
-          if (drag.moved) { const p = this.toWorld(ev.clientX, ev.clientY); const over = drag.nodes.length === 1 ? this.nodeAt(p.x, p.y, [drag.nodes[0].id]) : null; if (over && this.onDropOn) this.onDropOn(drag.nodes[0].id, over.id, drag.nodes[0]); else for (const n of drag.nodes) this.onMove(n.id, n.x, n.y); }
+          if (drag.moved) {
+            const p = this.toWorld(ev.clientX, ev.clientY); const over = drag.nodes.length === 1 ? this.nodeAt(p.x, p.y, [drag.nodes[0].id]) : null;
+            if (over && this.onDropOn) this.onDropOn(drag.nodes[0].id, over.id, drag.nodes[0]);
+            else { for (const n of drag.nodes) this.onMove(n.id, n.x, n.y); if (drag.nodes.length === 1 && this.onDropIn) this.onDropIn(drag.nodes[0], p); }  // into another group box
+          }
           else this.select([drag.nodes[0].id], ev.ctrlKey || ev.metaKey);
           for (const n of drag.nodes) n.dragging = false; drag = null; this.render();
         }
@@ -150,5 +161,6 @@
       new ResizeObserver(() => this._apply()).observe(svg);
     }
   }
+  Canvas.W = W; Canvas.H = H;  // the card size, for groups.js
   window.HaloCanvas = Canvas;
 })();

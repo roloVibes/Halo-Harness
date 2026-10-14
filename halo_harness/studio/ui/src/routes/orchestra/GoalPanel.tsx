@@ -1,12 +1,14 @@
-// Goal: Glance = the three fields as a card (what / done when / stop when),
-// the workers and the run state badge; Expand = the editable goal form with
-// Run and Dry run, then the previous runs to switch to.
+// Goal: the full face = the open run in one line over its goal form (Run and
+// Dry run in view at the default size); the compact face = the three fields
+// as a card (what / done when / stop when), the workers, the cost and the run
+// state badge; Settings = the run to open. The runs of the repo are in the
+// rail and on the Start view.
 import { Button } from "../../lib/ui";
 import { type MotionState } from "../../lib/motion";
-import { Metric, NoRun, StateBadge, openPanel } from "./bits";
-import { clock, cost, short } from "./format";
+import { Metric, NoRun, StateBadge } from "./bits";
+import { cost, short } from "./format";
 import { GoalForm } from "./GoalForm";
-import { runMotion, useOrch } from "./store";
+import { runMotion, setView, useOrch } from "./store";
 import { openRun, stopRun } from "./sync";
 
 function Field3({ label, text, n }: { label: string; text: string; n: number }) {
@@ -27,7 +29,7 @@ export function GoalGlance() {
     return (
       <div className="glance">
         <NoRun what="The goal" />
-        <Button variant="primary" onClick={() => openPanel("goal")}>
+        <Button variant="primary" onClick={() => setView("start")}>
           Write a goal
         </Button>
       </div>
@@ -62,39 +64,8 @@ export function GoalGlance() {
   );
 }
 
-function RunList() {
-  const runs = useOrch((s) => s.runs);
-  const current = useOrch((s) => s.runId);
-  const doneAt = useOrch((s) => s.doneAt);
-  if (!runs.length) return null;
-  return (
-    <section className="og-runs" aria-label="Runs in this repo">
-      <div className="rail-label mono">RUNS · {runs.length}</div>
-      <ul>
-        {runs.map((r) => (
-          <li key={r.run_id}>
-            <button className="og-run" aria-current={r.run_id === current} onClick={() => void openRun(r.run_id)}>
-              <span className="og-run-dot" data-state={r.state} data-motion={runMotion(r.state, r.run_id === current ? doneAt : 0)} />
-              <span className="mono og-run-id">{r.run_id}</span>
-              <span className="og-run-what">{short(r.goal_what, 48)}</span>
-              <span className="mono muted">
-                {r.state} · {r.workers}w · {cost(r.cost_usd)} · {clock(r.created)}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 export function GoalDetail() {
-  return (
-    <div className="og-goal-detail">
-      <GoalForm />
-      <RunList />
-    </div>
-  );
+  return <GoalForm />;
 }
 
 export function GoalSettings() {

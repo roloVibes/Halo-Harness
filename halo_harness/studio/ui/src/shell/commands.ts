@@ -1,7 +1,7 @@
-// The palette's commands and its fuzzy matcher. Groups: Go to, Orchestra,
-// Flow, Media, View, Layout, Open. Each command may show a key (the same hint
-// the menus show).
-import { cycleTheme, goSection, setTheme, studio, toast, toggleRail } from "../lib/store";
+// The palette's commands and its fuzzy matcher. Groups: Go to, Help,
+// Orchestra, Flow, Media, View, Layout, Open. Each command may show a key (the
+// same hint the menus show).
+import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
 import { layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
 import type { PanelSpec } from "../lib/workspace/types";
 import { SECTIONS, sectionDef, type SectionDef } from "../routes";
@@ -29,6 +29,19 @@ export function commands(): Command[] {
     kbd: s.kbd,
     run: () => goSection(s.id),
   }));
+  for (const s of [cur, ...SECTIONS.filter((x) => x.id !== cur.id)]) {
+    out.push({
+      id: "help-" + s.id,
+      group: "Help",
+      label: `Help: how ${s.title} works`,
+      hint: s.id === cur.id ? "the steps, the panels and the keys" : s.blurb,
+      kbd: s.id === cur.id ? "?" : undefined,
+      run: () => {
+        goSection(s.id);
+        openHelp(s.id);
+      },
+    });
+  }
   out.push(
     { id: "theme-toggle", group: "View", label: "Toggle theme", hint: "dark, light, auto", run: cycleTheme },
     { id: "theme-dark", group: "View", label: "Theme: dark (holo)", run: () => setTheme("dark") },

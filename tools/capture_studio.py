@@ -14,6 +14,9 @@ counts the run console's data-testid values. 3.0.4.0 R6: `--mode flow` and
 `--mode media` (tools/capture_flow.py) seed a finished flow run and one
 waiting at its confirm gate over a FakeComfy and render the Flow section
 (docs/media/studio-flow.png, studio-media.png); --dom counts its test ids.
+R6b: `--mode orchestra` lives in tools/capture_orchestra.py and also
+renders the Start view over a repo with no run (studio-orchestra-start.png)
+and the Roles section with its groups (studio-roles.png).
 """
 
 from __future__ import annotations
@@ -66,15 +69,8 @@ def serve(state: Path, shell: bool = False, proj: "Path | None" = None):
     return srv, url_for(srv, legacy=True).replace("/index.html#t=", "/index.html?tour=off#t=")
 
 
-ORCH_IDS = ("orchestra-root", "orchestra-graph", "gate", "lane", "claim-region", "report-check", "grid-tile", "section-tab")
-
-
-def orchestra_counts(dom: str) -> dict:
-    return {k: dom.count(f'data-testid="{k}"') for k in ORCH_IDS}
-
-
 def shell_counts(dom: str) -> dict:
-    return {k: dom.count(f'data-testid="{k}"') for k in ("section-tab", "orchestra-root", "legacy-frame")}
+    return {k: dom.count(f'data-testid="{k}"') for k in ("section-tab", "orchestra-root", "start-view", "legacy-frame")}
 
 
 def chrome(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | None":
@@ -109,6 +105,14 @@ def main(argv: list) -> int:
             return capture(args.mode, args.out, args.dom, chrome, url_for)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
+    if args.mode == "orchestra":  # the run console, the Start view and Roles with its groups (tools/capture_orchestra.py)
+        from capture_orchestra import capture as capture_orchestra
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-orchestra.png"
+        try:
+            return capture_orchestra(args.out, args.dom, chrome, serve, state)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
     fake = None
     if design:
         from design_demo import seed
@@ -131,30 +135,16 @@ def main(argv: list) -> int:
         sync_lineup(Paperclip(fake.base_url), fake.company["id"], "halo-dev-cycle", cwd=state.parent / "project", state_dir=state, out=open(os.devnull, "w"))
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-org.png"
-    orch = args.mode == "orchestra"
-    repo = None
-    if orch:  # a finished run in a temp git repo, which is Studio's folder
-        from tests.helpers.orchestra_studio_rig import finished_run
-        repo, _run_dir = finished_run()
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-orchestra.png"
-    shell = args.mode in ("shell", "orchestra")
-    if args.mode == "shell" and args.out.endswith("studio.png"):
+    shell = args.mode == "shell"
+    if shell and args.out.endswith("studio.png"):
         args.out = args.out[:-4] + "-shell.png"
-    srv, url = serve(state, shell, repo)
+    srv, url = serve(state, shell)
     if args.org:
         url = url.replace("?tour=off", "?tour=off&mode=org")
     if design:
         url = url.replace("?tour=off", "?tour=off&mode=design" + ("&dtab=knobs" if args.mode == "design-knob" else ""))
     try:
-        if args.dom and orch:
-            r = chrome(["--dump-dom", "--window-size=1500,900", url])
-            if r is None:
-                print("no Chrome found")
-                return 2
-            print(json.dumps(orchestra_counts(r.stdout)))
-            return 0
-        if args.dom and shell:  # the shell twice: Orchestra (the placeholder) and Roles (the framed classic page)
+        if args.dom and shell:  # the shell twice: Orchestra (its Start view: no run here) and Roles (the framed classic page)
             a, b = chrome(["--dump-dom", url]), chrome(["--dump-dom", url.replace("mode=orchestra", "mode=roles")])
             if a is None or b is None:
                 print("no Chrome found")
@@ -168,7 +158,7 @@ def main(argv: list) -> int:
                 print("no Chrome found")
                 return 2
             print(json.dumps({"cards": r.stdout.count('class="d-card'), "frames": r.stdout.count("<iframe"), "pins": r.stdout.count('class="d-pin"'), "tabs": r.stdout.count("data-tab=") if design else 0,
-                              "nodes": r.stdout.count('class="node'), "title": r.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in r.stdout else ""}))
+                              "nodes": r.stdout.count('class="node'), "groups": r.stdout.count('data-testid="canvas-group"'), "title": r.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in r.stdout else ""}))
             return 0
         out = Path(args.out).resolve()
         r = chrome([f"--screenshot={out}", "--window-size=1440,900" if design else "--window-size=1500,900", "--force-device-scale-factor=2", url])
@@ -183,9 +173,6 @@ def main(argv: list) -> int:
         srv.server_close()
         if fake is not None:
             fake.close()
-        if repo is not None:
-            from tests.helpers.orchestra_studio_rig import cleanup
-            cleanup(repo)
         shutil.rmtree(state.parent, ignore_errors=True)
 
 

@@ -1,12 +1,14 @@
-// What each Flow and Media panel is (`about`, one line) and how to use it
-// (`help`, a few short lines), spread into their PanelSpecs. A later round
-// shows them under the panel titles and in the Inspector.
-
-type Help = { about: string; help: string };
+// What each panel is (`about`, one line) and how to use it (`help`, a few
+// short lines), spread into the PanelSpecs: Flow and Media here, Orchestra
+// and the classic canvases in help-orchestra.ts. The title bar shows
+// `about`; the ? popover, the Inspector and the section help show both.
+import { CANVAS_HELP, ORCHESTRA_HELP, type Help } from "./help-orchestra";
 
 const lines = (...l: string[]) => l.join("\n");
 
 export const HELP: Record<string, Help> = {
+  ...ORCHESTRA_HELP,
+  ...CANVAS_HELP,
   "flow-intake": {
     about: "Start a run: the brief, the platforms, the budget and the project.",
     help: lines(
@@ -65,7 +67,7 @@ export const HELP: Record<string, Help> = {
       "Filter by step or by kind of line.",
       "Follow keeps the newest line in view.",
       "Click a step name to open that step in Step.",
-      "The gear switches between elapsed time and the clock.",
+      "Settings (the ... menu) switches between elapsed time and the clock.",
     ),
   },
   "flow-report": {

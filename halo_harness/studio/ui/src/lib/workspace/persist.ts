@@ -1,15 +1,18 @@
 // Workspace persistence: one store per section holding its live Layout, saved
-// to localStorage under `halo.studio.layout.<section>` ({v: 1, panels}) when
+// to localStorage under `halo.studio.layout.<section>` ({v: 2, panels}) when
 // the user changes it. A section the user never rearranged keeps no key, so
-// its defaults follow the window size. `resetLayout` removes the key.
+// its defaults follow the window size. `resetLayout` removes the key. A v1
+// arrangement (3.0.3.0, when panels opened on their Glance face) keeps its
+// places and sizes but not its faces, so every panel opens on its full face.
 import { createStore, writeLocal, type Store } from "../store";
 import { arrange, defaultPanel } from "./grid";
-import type { Layout, PanelLayout, PanelSpec } from "./types";
+import { ROW, type Layout, type PanelLayout, type PanelSpec } from "./types";
 
 export const LAYOUT_PREFIX = "halo.studio.layout.";
-const VERSION = 1;
+const VERSION = 2;
 
-export type LayoutState = { layout: Layout | null; custom: boolean; focus: string };
+/** `focus`: a one-shot request to move the keyboard focus to a panel; `active`: the panel the user is on (the ring). */
+export type LayoutState = { layout: Layout | null; custom: boolean; focus: string; active: string };
 
 const stores = new Map<string, Store<LayoutState>>();
 
@@ -22,10 +25,13 @@ export function loadSaved(section: string): Layout | null {
     const raw = localStorage.getItem(layoutKey(section));
     if (!raw) return null;
     const data = JSON.parse(raw);
-    if (!data || data.v !== VERSION || typeof data.panels !== "object") return null;
+    if (!data || (data.v !== VERSION && data.v !== 1) || typeof data.panels !== "object") return null;
     const out: Layout = {};
     for (const [id, p] of Object.entries(data.panels as Record<string, Partial<PanelLayout>>)) {
-      if (p && [p.x, p.y, p.w, p.h].every((n) => typeof n === "number" && isFinite(n))) out[id] = p as PanelLayout;
+      if (!p || ![p.x, p.y, p.w, p.h].every((n) => typeof n === "number" && isFinite(n))) continue;
+      const kept = { ...p };
+      if (data.v === 1) delete kept.face;
+      out[id] = kept as PanelLayout;
     }
     return out;
   } catch {
@@ -36,7 +42,7 @@ export function loadSaved(section: string): Layout | null {
 export function layoutStore(section: string): Store<LayoutState> {
   let s = stores.get(section);
   if (!s) {
-    s = createStore<LayoutState>({ layout: null, custom: loadSaved(section) !== null, focus: "" });
+    s = createStore<LayoutState>({ layout: null, custom: loadSaved(section) !== null, focus: "", active: "" });
     stores.set(section, s);
   }
   return s;
@@ -61,8 +67,22 @@ export function resetLayout(section: string): void {
   layoutStore(section).update(() => ({ layout: null, custom: false }));
 }
 
+/** One panel back to its default place, size and face (the others make room). */
+export function resetPanel(section: string, spec: PanelSpec): void {
+  const cur = layoutStore(section).get().layout;
+  if (!cur || !cur[spec.id]) return;
+  const ws = document.querySelector<HTMLElement>(`.workspace[data-section="${section}"]`);
+  const fill = Math.floor((ws?.clientHeight || 600) / ROW) - 3;
+  setLayout(section, arrange({ ...cur, [spec.id]: { ...defaultPanel(spec, fill), z: cur[spec.id].z } }, spec.id));
+}
+
 export function focusPanel(section: string, id: string): void {
-  layoutStore(section).update(() => ({ focus: id }));
+  layoutStore(section).update(() => ({ focus: id, active: id }));
+}
+
+/** The panel the user clicked or tabbed into: it carries the focus ring. */
+export function activatePanel(section: string, id: string): void {
+  layoutStore(section).update((s) => (s.active === id ? {} : { active: id }));
 }
 
 /** Open a panel and focus it; one not in the layout yet (an optional panel) is added below the
