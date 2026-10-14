@@ -48,11 +48,14 @@ export function useGesture(id: string, g: Gesture) {
     const sx = ev.clientX;
     const sy = ev.clientY;
     let lastKey = "";
+    let moved = false; // a press without a move (a click to focus the panel) changes nothing
     ws.setDragging(true);
     const base = raise(start, id);
     const onMove = (e: globalThis.PointerEvent) => {
       const dxPx = e.clientX - sx;
       const dyPx = e.clientY - sy;
+      if (!moved && Math.abs(dxPx) < 3 && Math.abs(dyPx) < 3) return;
+      moved = true;
       let next: Layout;
       if (p0.floating) {
         const r = applyDeltaPx({ x: p0.fx, y: p0.fy, w: p0.fw, h: p0.fh }, g, dxPx, dyPx, { w: width, h: height });
@@ -72,7 +75,8 @@ export function useGesture(id: string, g: Gesture) {
       el.removeEventListener("pointercancel", onUp);
       ws.setDragging(false);
       const end = current(ws.section);
-      if (end) setLayout(ws.section, p0.floating ? end : arrange(end), true);
+      if (end && moved) setLayout(ws.section, p0.floating ? end : arrange(end), true);
+      else if (end && p0.floating) setLayout(ws.section, raise(end, id), false); // a click brings a floating panel to the front
     };
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);

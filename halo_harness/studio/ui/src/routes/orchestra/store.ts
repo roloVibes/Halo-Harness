@@ -1,7 +1,8 @@
 // The Orchestra view's one store (the lib/store pattern): the runs of the
 // repo, the open run's payload, its event log, the one-file views, the
-// focused lane and the panels' own options (remembered in localStorage).
-// sync.ts fills it; the panels read slices with useOrch(selector).
+// focused lane, the view (the Start view or the panels) and the panels' own
+// options (remembered in localStorage). sync.ts fills it; the panels read
+// slices with useOrch(selector).
 import { createStore, useStore, writeLocal } from "../../lib/store";
 import { settle, type MotionState } from "../../lib/motion";
 import type { FileView, Lane, LaneState, RegionState, RunEvent, RunPayload, RunRow, RunState } from "./types";
@@ -14,6 +15,9 @@ export type OrchOptions = {
   graphLabels: boolean;
   fileOnlyClaimed: boolean;
 };
+
+/** "start": the Start view; "workspace": the panels; "auto": the panels once a run is open. */
+export type OrchView = "auto" | "start" | "workspace";
 
 export type OrchState = {
   runs: RunRow[];
@@ -29,6 +33,9 @@ export type OrchState = {
   lastFrame: number;
   doneAt: number;
   started: boolean;
+  /** The runs of the repo have been read once (the Start view or the panels can decide). */
+  listed: boolean;
+  view: OrchView;
   opts: OrchOptions;
 };
 
@@ -65,8 +72,29 @@ export const orch = createStore<OrchState>({
   lastFrame: 0,
   doneAt: 0,
   started: false,
+  listed: false,
+  view: (/[?&]view=(start|workspace)/.exec(location.search)?.[1] as OrchView) || "auto",
   opts: readOpts(),
 });
+
+export function setView(view: OrchView): void {
+  orch.update(() => ({ view }));
+}
+
+/** Leave the Start view for the panels (the rail or the palette is opening one). */
+export function enterWorkspace(): void {
+  orch.update((s) => (showsStart(s) ? { view: "workspace" } : {}));
+}
+
+/** Whether the Start view shows: asked for, or no run is open once the runs are read. */
+export function showsStart(s: OrchState): boolean {
+  return s.view === "start" || (s.view === "auto" && s.started && !s.data && !s.loading);
+}
+
+/** The runs are being read for the first time (the view waits instead of flashing empty panels). */
+export function loadingFirst(s: OrchState): boolean {
+  return s.view === "auto" && !s.data && !s.listed;
+}
 
 /** A stable empty list for selectors (a new [] per call would re-render forever). */
 export const NONE: never[] = [];

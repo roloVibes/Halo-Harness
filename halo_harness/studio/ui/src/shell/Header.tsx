@@ -1,10 +1,11 @@
 // The top bar: brand, the five section tabs (a tab "works" while its section
-// has fresh activity), the command palette button and the theme menu.
+// has fresh activity), the ? that opens "How this works" for the section, the
+// command palette button and the theme menu.
 import { useEffect, useRef, useState } from "react";
 import { Button, Icon, Kbd, Tabs, type TabItem } from "../lib/ui";
-import { goSection, setTheme, studio, toggleRail, useStore, type SectionId, type ThemeChoice } from "../lib/store";
+import { goSection, openHelp, setTheme, studio, toggleRail, useStore, type SectionId, type ThemeChoice } from "../lib/store";
 import { useRecent } from "../lib/motion";
-import { SECTIONS } from "../routes";
+import { SECTIONS, sectionDef } from "../routes";
 
 function useSectionTabs(current: SectionId): TabItem[] {
   const activity = useStore(studio, (s) => s.activity);
@@ -86,6 +87,15 @@ export function Header() {
         <span className="brand-sub mono">STUDIO</span>
       </div>
       <Tabs label="Sections" items={tabs} value={section} onChange={(id) => goSection(id as SectionId)} />
+      <button
+        className="icon-btn icon-btn-lg section-help-btn"
+        onClick={() => openHelp(section)}
+        title={`How ${sectionDef(section).title} works (?)`}
+        aria-label={`How ${sectionDef(section).title} works`}
+        data-testid="section-help-btn"
+      >
+        <Icon name="help" />
+      </button>
       <div className="spacer" />
       <Button variant="ghost" className="palette-btn" onClick={() => studio.update(() => ({ paletteOpen: true }))} icon={<Icon name="search" />}>
         <span className="palette-btn-text">Command</span>

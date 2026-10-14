@@ -1,9 +1,10 @@
 // The section registry. A section is an id, a title, its Alt+N key, a one-
 // line blurb, the PanelSpecs of its default arrangement and, optionally, a
-// block the rail shows above its panels (Flow: the runs and the flows) and a
-// view drawn instead of the bare Workspace (Flow: the Start view until a run
-// is open). The Workspace does the rest (drag, resize, collapse, pop out,
-// persistence).
+// block the rail shows above its panels (Orchestra: the runs; Flow: the runs
+// and the flows) and a view drawn instead of the bare Workspace (Orchestra
+// and Flow: the Start view until a run is open). The Workspace does the rest
+// (drag, resize, collapse, pop out, persistence). Each section's "How this
+// works" copy is routes/sectionHelp.ts.
 // Design also carries the Media panels as optional ones the palette adds.
 import type { ComponentType } from "react";
 import type { SectionId } from "../lib/store";
@@ -15,6 +16,9 @@ import { enterWorkspace } from "./flow/store";
 import { legacyPanels } from "./legacy/LegacyFrame";
 import { mediaPanels } from "./media/MediaPanels";
 import { orchestraPanels } from "./orchestra/Orchestra";
+import { OrchestraRail } from "./orchestra/OrchRail";
+import { OrchestraView } from "./orchestra/Start";
+import { enterWorkspace as enterOrchestra } from "./orchestra/store";
 
 export type SectionDef = {
   id: SectionId;
@@ -31,7 +35,7 @@ export type SectionDef = {
 };
 
 export const SECTIONS: SectionDef[] = [
-  { id: "orchestra", title: "Orchestra", kbd: "Alt+1", blurb: "Runs of your agents, live", panels: orchestraPanels },
+  { id: "orchestra", title: "Orchestra", kbd: "Alt+1", blurb: "Runs of your agents, live", panels: orchestraPanels, rail: OrchestraRail, view: OrchestraView, enter: enterOrchestra },
   { id: "roles", title: "Roles", kbd: "Alt+2", blurb: "Lineups and agent bios", panels: legacyPanels("roles", "Roles") },
   { id: "org", title: "Org", kbd: "Alt+3", blurb: "Your company in Paperclip", panels: legacyPanels("org", "Org") },
   { id: "design", title: "Design", kbd: "Alt+4", blurb: "Prototypes, pages and decks", panels: [...legacyPanels("design", "Design"), ...mediaPanels(0, "optional")] },

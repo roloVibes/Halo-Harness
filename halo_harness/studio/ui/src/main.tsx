@@ -10,6 +10,7 @@ import "./styles/orchestra-file.css";
 import "./styles/flow.css";
 import "./styles/flow-start.css";
 import "./styles/media.css";
+import "./styles/help.css";
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

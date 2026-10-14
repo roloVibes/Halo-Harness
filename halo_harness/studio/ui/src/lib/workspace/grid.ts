@@ -129,7 +129,7 @@ export function arrange(layout: Layout, movedId?: string, pinned = false): Layou
 export function defaultPanel(spec: PanelSpec, fillRows: number): PanelLayout {
   const h = spec.h > 0 ? spec.h : Math.max(minH(spec), fillRows - spec.y);
   const r = clampRect({ x: spec.x, y: spec.y, w: spec.w, h }, spec);
-  return { ...r, collapsed: !!spec.collapsed, floating: false, fx: 48, fy: 48, fw: 480, fh: 320, face: spec.face ?? "glance", z: 0 };
+  return { ...r, collapsed: !!spec.collapsed, floating: false, fx: 48, fy: 48, fw: 480, fh: 320, face: spec.face ?? "detail", z: 0 };
 }
 
 export function defaultLayout(specs: PanelSpec[], fillRows: number): Layout {

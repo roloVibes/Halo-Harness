@@ -86,7 +86,7 @@ def capture(mode: str, out: str, dom: bool, chrome, url_for) -> int:
         s.post("media/scan")
         paint_renders(s.state)
         # two runs made in the same second sort by their random suffix: name the run to open
-        url = url_for(s.srv).replace("/#t=", "/?mode=flow&feed=off&run={run}#t=")
+        url = url_for(s.srv).replace("/#t=", "/?mode=flow&feed=off&tour=off&run={run}#t=")  # tour=off: no first-visit welcome over the capture
         base = url.format(run=done.name).replace("#t=", f"&open={MEDIA_OPEN}#t=") if mode == "media" else url.format(run=wait.name)
         if dom:
             a = chrome(["--dump-dom", "--window-size=1500,900", url.format(run=wait.name)])

@@ -90,10 +90,13 @@ def run_row(run_dir: Path, live_id: Optional[str]) -> dict:
 
 
 def run_rows(state_dir, live_id: Optional[str]) -> list:
-    """Every flow run, newest first."""
+    """Every flow run, newest first: by `created`, then by id (two runs made in the
+    same second would otherwise sort by their random suffix)."""
     root = state.runs_dir(state_dir)
     dirs = sorted(d for d in root.iterdir() if (d / "flow.json").is_file()) if root.is_dir() else []
-    return [run_row(d, live_id) for d in reversed(dirs)]
+    rows = [run_row(d, live_id) for d in reversed(dirs)]
+    when = lambda r: r.get("created") if isinstance(r.get("created"), (int, float)) else 0  # noqa: E731
+    return sorted(rows, key=lambda r: (when(r), r["run"]), reverse=True)
 
 
 def project_of(run_dir, state_dir):
