@@ -6,6 +6,8 @@
     halo orchestra claims [RUN]          every live claim: key, holder, state, expiry
     halo orchestra log [RUN] [--since N] the timed run log
     halo orchestra runs                  every run of this repo, oldest first
+    halo orchestra run [RUN] [--model REF] [--dry-run]   the pipeline (orchestra_cli_run.py)
+    halo orchestra lanes|report|stop [RUN]
 
 RUN is a run id (or a unique prefix of one) or a run folder; the latest run
 when omitted. `new` prompts for WHAT YOU WANT / DONE WHEN / STOP WHEN when
@@ -48,6 +50,8 @@ def _parser() -> argparse.ArgumentParser:
         if name == "log":
             s.add_argument("--since", type=int, default=0, help="skip the first N entries")
     sub.add_parser("runs", help="every run of this repo")
+    from halo_harness.orchestra_cli_run import add_parsers
+    add_parsers(sub)
     for s in sub.choices.values():
         s.add_argument("--repo", default=None, help="the repo root (default: the current folder)")
     return p
@@ -60,7 +64,9 @@ def cmd_orchestra(argv) -> int:
         parser.print_help()
         return 0
     repo = Path(args.repo or ".").resolve()
-    handler = {"new": _new, "status": _status, "claims": _claims, "log": _log, "runs": _runs}[args.cmd]
+    from halo_harness.orchestra_cli_run import HANDLERS
+    handler = dict({"new": _new, "status": _status, "claims": _claims, "log": _log, "runs": _runs},
+                   **HANDLERS)[args.cmd]
     return handler(args, repo)
 
 

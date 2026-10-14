@@ -36,11 +36,11 @@ def append(run_dir, kind: str, text: str, lane: Optional[int], data: dict) -> di
     """`log` with `data` as one dict (any keys)."""
     if kind not in KINDS:
         raise ValueError(f"event kind must be one of {', '.join(KINDS)}, got {kind!r}")
-    ts = time.time()
-    entry = {"ts": round(ts, 3), "elapsed_s": jsonl.elapsed(run_dir, ts), "lane": lane,
-             "kind": kind, "text": str(text), "data": dict(data or {})}
     path = events_path(run_dir)
     with jsonl.locked(path):
+        ts = time.time()  # taken under the lock, so the file's times never go backwards
+        entry = {"ts": round(ts, 3), "elapsed_s": jsonl.elapsed(run_dir, ts), "lane": lane,
+                 "kind": kind, "text": str(text), "data": dict(data or {})}
         jsonl.append_line(path, entry)
     return entry
 

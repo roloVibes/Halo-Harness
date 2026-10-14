@@ -196,4 +196,8 @@ def install_from_env(engine, session_dir, env=None) -> Optional[ClaimGuard]:
             return g
     guard = ClaimGuard(run_dir, holder)
     guards.append(guard)
+    lane = (env if env is not None else os.environ).get("HALO_ORCHESTRA_LANE")
+    if lane and lane.isdigit() and holder.endswith("/main"):
+        from halo_harness.orchestra.workers import join_lane
+        join_lane(run_dir, int(lane), holder)  # the worker takes over its lane's placeholder claims
     return guard

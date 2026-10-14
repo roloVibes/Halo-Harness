@@ -2,7 +2,8 @@
 
 A goal says WHAT YOU WANT (`what`), DONE WHEN (`done_when`) and STOP WHEN
 (`stop_when`), plus how many workers (`workers`, 1..50), how many times the
-gate may send a piece back (`return_cap`), the test command (`test`), the
+gate may send a piece back (`return_cap`), the test command (`test`) and its
+timeout (`test_timeout_s`, default 600), the
 files the workers share (`files`, relative to the repo root), and who plays
 the parts (`lineup`, `lead`, `worker`).
 
@@ -40,6 +41,7 @@ class Goal:
     workers: int = 5
     return_cap: int = 2
     test: str = ""
+    test_timeout_s: int = 600
     files: list = field(default_factory=list)
     lineup: str = ""
     lead: str = "main"
@@ -74,6 +76,9 @@ def validate_goal(data) -> list:
     cap = data.get("return_cap", 2)
     if isinstance(cap, bool) or not isinstance(cap, int) or cap < 0:
         problems.append(f'"return_cap" must be a whole number 0 or more, got {cap!r}')
+    timeout = data.get("test_timeout_s", 600)
+    if isinstance(timeout, bool) or not isinstance(timeout, int) or timeout < 1:
+        problems.append(f'"test_timeout_s" must be a whole number of seconds, 1 or more, got {timeout!r}')
     for key in ("test", "lineup", "lead", "worker"):
         value = data.get(key, "")
         if value is not None and not isinstance(value, str):

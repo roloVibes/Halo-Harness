@@ -211,6 +211,17 @@ class ClaimLog:
         self._event(f"{by} stole {key}: {reason}", op="steal", holder=by, key=key)
         return result
 
+    def reassign(self, key: str, new_holder: str, by_lead: str, ttl_s: int = DEFAULT_TTL_S) -> Result:
+        """The lead hands `key` to `new_holder` (a `steal` line in the new
+        holder's name): how a worker takes over the `lane:<n>` placeholder
+        claims the split made for its lane."""
+        if not self.is_lead(by_lead):
+            return Refusal(key, f"only the lead ({self.lead_holder() or 'none recorded'}) can reassign `{key}`")
+        with jsonl.locked(self.path):
+            result = self._append("steal", new_holder, key, ttl_s, f"reassigned by {by_lead}")
+        self._event(f"{key} reassigned to {new_holder}", op="reassign", holder=new_holder, key=key)
+        return result
+
     def expire_stale(self, now: Optional[float] = None) -> list:
         """Append an `expire` line for every claim past its TTL; returns their keys."""
         expired = []
