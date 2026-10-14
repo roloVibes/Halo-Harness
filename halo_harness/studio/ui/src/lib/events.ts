@@ -23,6 +23,7 @@ export const KNOWN_KINDS = [
   "error", "turn_done", "subagent_start", "subagent_end", "subagent_queued", "subagent_progress",
   "notification", "phase", "compaction", "governor", "remote_attached",
   "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
+  "flow_state", "flow_step", "flow_gate", "flow_post", "flow_metric", "flow_report", "media_render",
 ];
 
 const handlers = new Map<string, Set<Handler>>();

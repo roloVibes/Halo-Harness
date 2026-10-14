@@ -2632,12 +2632,14 @@ while one runs reuses it (prints the URL, opens the browser) unless
 
 
 ```sh
-halo studio [--mode roles|org|design] [--port N] [--no-open] [--cwd DIR]
+halo studio [--mode roles|org|design|orchestra|flow] [--port N] [--no-open] [--cwd DIR]
 ```
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
 into `--mode roles` (lineups and agent bios as an editable graph), `--mode org`
-(the company in Paperclip) or `--mode design` (artboards on your own apps);
+(the company in Paperclip) or `--mode design` (artboards on your own apps),
+3.0.4.0: `--mode orchestra` (the run console) or `--mode flow` (the workflow
+console);
 without `--mode` it opens in the mode you used last. The TUI's `/roles`, `/org`
 and `/design` are the same three doors from a live session. It Starts a loopback-only server on a free port (or
 `--port`), prints its URL (the URL carries a per-launch token: open exactly

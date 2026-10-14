@@ -4,7 +4,7 @@
 import { Button, Field, Icon, Surface } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { defaultPanel, arrange } from "../lib/workspace/grid";
-import { layoutStore, patchPanel, setLayout } from "../lib/workspace/persist";
+import { hidePanel, layoutStore, patchPanel, setLayout } from "../lib/workspace/persist";
 import { ROW, type PanelLayout } from "../lib/workspace/types";
 import { sectionDef } from "../routes";
 
@@ -97,6 +97,11 @@ export function Inspector() {
         >
           Reset this panel
         </Button>
+        {spec.optional && (
+          <Button size="sm" variant="ghost" icon={<Icon name="close" />} onClick={() => (hidePanel(section, spec.id), close())}>
+            Remove from {def.title}
+          </Button>
+        )}
 
         {Settings && (
           <section className="inspector-own">
