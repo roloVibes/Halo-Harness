@@ -4,6 +4,42 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-14 ~15:30 CDT (authoritative, read this first)
+
+**3.0.4.0 "Media and Flow" IS RELEASED** (tag v3.0.4.0 at 3c3a3fc on master, GitHub
+release published, local install `halo 3.0.4.0`), cut on CI run 38617371390 read
+as `conclusion == success` for sha 93f7839. It carries R1 Media core (ComfyUI as
+the eighth craft app), R2 the media-model inventory, R3 the flow engine, R4
+Postiz, R5 the Studio flow/media/sessions routes, R6 the Studio Flow section and
+Media panels, and R6b "Studio clarity" from the owner's live review (one header:
+legacy pages embedded; panels focus on click and open on their full face with an
+about line and a `?` help; a Start view per section instead of a grid of empty
+panels; "How this works" per section with a first-visit welcome; labelled group
+boxes on the Roles/Org canvases). Two late fixes before the cut: the model
+dropdowns explain an empty catalog and offer Refresh (`GET /api/models/status`,
+`POST /api/models/refresh`; the owner's Kali VM showed "(none)" with no reason),
+and the ComfyUI client joined `_ALLOWED_RAW_NETWORK_CALLERS` (the user's own
+render server, like the MCP probes). CI: the Windows run_all step budget is now
+65 min (the 470-module suite timed out at 45 with four modules left; nothing
+failed), Linux 50.
+
+**Standing owner direction for every Studio round** (memory `feedback-studio-
+clarity`): no nested chrome, panels usable without an activate step, a Start
+view when nothing has run, explanations on every panel and section, visual
+group containers on the canvases, clarity over flourish inside the holo look.
+
+**NEXT: 3.0.5.0** per the owner's plan `~/.claude/plans/ok-ther-gui-parts-snappy-
+hejlsberg.md`: tiers, Home, the Roles rebuild (port the legacy Roles/Org/Design
+pages into the React shell -- the embedded mode is a bridge, not the end state),
+Org/Design ports; 3.0.6.0+ the Team tab. Open and small: the rail still lists the
+hidden Media panels while ComfyUI is down; the embedded Org page briefly draws the
+Roles lineup before switching; the React Flow intake's model select has no
+empty-catalog notice yet (the legacy pickers do). No worktrees remain
+(`git worktree list` = master only); branches `flow/*` and `track-d` are merged
+and may be deleted.
+
+--- previous snapshot below ---
+
 ## WHERE THINGS STAND -- 2026-10-14 ~01:00 CDT (authoritative, read this first)
 
 **3.0.2.0, 3.0.2.1, 3.0.2.2 AND 3.0.3.0 ARE RELEASED** (tags on master; the
