@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.0.2.1] - unreleased
+## [3.0.2.1] - 2026-10-13
 
 - On Linux and macOS, /undo, /redo and /rewind now snapshot and restore a
   file whose name contains a backslash as that same file; the shadow store
