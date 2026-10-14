@@ -93,6 +93,11 @@ EVENT_KINDS = frozenset({
     # session (a `note` on the control socket). data: {count, peers, peer,
     # attached}; the status bar's `remote` chip follows `count`.
     "remote_attached",
+    # Halo 3.0.3.0 (the Orchestra): a run's state changes, claims, merges,
+    # gate verdicts and report, published by orchestra/events.py's `emit`
+    # with the run log's own entry as data: {ts, elapsed_s, lane, kind,
+    # text, data, run}. A UI with no handler for them simply ignores them.
+    "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
 })
 
 COMMAND_KINDS = frozenset({
