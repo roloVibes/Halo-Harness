@@ -220,38 +220,45 @@ every secret-shaped value stripped. `--copy` puts it on the clipboard.
 ## Halo Studio
 
 Halo has a GUI. `halo studio` starts a loopback-only server with a per-launch token,
-opens your browser, and shows one canvas with three modes. In the TUI, `/roles`, `/org`
-and `/design` open it straight into that mode; `R`, `O` and `D` switch once you are in; `Ctrl`/`Cmd`+`K` opens the command palette and
-`?` replays the tour. Nothing leaves your machine: no account, no CDN, no fonts
-fetched, no analytics.
+opens your browser, and shows one window with five sections and one header:
+**Orchestra** (`Alt+1`), **Roles** (`Alt+2`), **Org** (`Alt+3`), **Design** (`Alt+4`) and
+**Flow** (`Alt+5`). Each section opens on a Start view that says what it is for, and its
+panels sit in labelled group boxes you can move and resize. In the TUI, `/roles`, `/org`
+and `/design` open it straight into that section; `Ctrl`/`Cmd`+`K` opens the command
+palette and `?` opens "How this works". Nothing leaves your machine: no account, no CDN,
+no fonts fetched, no analytics.
 
-<a href="docs/media/studio-modes.png"><img alt="Halo Studio's three modes side by side: Roles (lineups and bios as a graph), Org (the company in Paperclip) and Design (artboards on your own apps)" src="docs/media/studio-modes.png" width="100%"></a>
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's five sections side by side: Orchestra, Roles, Org, Design and Flow, under one header" src="docs/media/studio-modes.png" width="100%"></a>
 
-| Mode | The canvas holds | What you do there |
-|---|---|---|
-| **Roles** (`R`) | Your lineups and agent bios as a graph: one card per assignment with the model that resolves for it, its price, context and tool count; delegation, reporting and pipeline edges | Drag a bio in; edit the assignment, the bio behind it or any lineup section in the inspector, with the YAML both ways; Validate, Save and Apply run the same checks `halo teams` does |
-| **Org** (`O`) | Your company in [Paperclip](https://github.com/paperclipai/paperclip): agents as cards with title, role, adapter, status and spend against budget; reporting lines as edges | Re-parent by dragging one card onto another; Wake, Pause, Resume, Terminate; open and create issues; sync a lineup into a company and pull reporting lines back; the agent's own Paperclip page embedded |
-| **Design** (`D`) | Artboards: HTML prototypes in sandboxed frames and logos, pages, photos and frames rendered by the ArtCraft apps; a design system; versions | Chat, pin comments, edit text in place, move knobs with no model call, slide through versions, fan out three directions, run a critique, check contrast, drop assets, export, hand off |
-
-The three captures below are headless-Chrome renders of Studio over fixture data
+The pictures below are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`), the same way the TUI pictures are made. See
 [docs/STUDIO.md](docs/STUDIO.md) for every panel and shortcut, and the
 [Over SSH](docs/STUDIO.md#over-ssh) recipe when Halo runs on a box you reach remotely.
 
+### Orchestra: agents writing the same files
+
+Press `Alt+1`. Several agents write to the same files at the same time and nothing is
+lost: code owns the claims, the merge order, the tests and the gate, and a model judges
+only when two pieces conflict. The run console shows the lanes, the claimed regions, the
+merge gate and the report as a graph, and the Start view sets a goal and begins a run.
+See [docs/ORCHESTRA.md](docs/ORCHESTRA.md).
+
+<a href="docs/media/studio-orchestra.png"><img alt="Studio's Orchestra section: a finished run with five lanes, one judged conflict and the report" src="docs/media/studio-orchestra.png" width="100%"></a>
+
 ### Roles: see your agents
 
-`halo studio` opens the active lineup as a graph in your browser: one card per
+Press `Alt+2`. `halo studio` shows the active lineup as a graph in your browser: one card per
 assignment with the model that resolves for it, its price and context; delegation,
 reporting and pipeline edges; drag a bio onto the canvas to add it. The inspector
 edits the assignment, the bio behind it and the lineup's sections, with the YAML
 both ways, and Validate / Save / Apply run the same checks `halo teams` does.
 See [docs/STUDIO.md](docs/STUDIO.md).
 
-<a href="docs/media/studio.png"><img alt="Halo Studio: the halo-dev-cycle lineup as a graph, with the inspector" src="docs/media/studio.png" width="100%"></a>
+<a href="docs/media/studio-roles.png"><img alt="Studio's Roles section: the halo-dev-cycle lineup as a graph in group boxes, with the inspector" src="docs/media/studio-roles.png" width="100%"></a>
 
 ### Org: your company, in Paperclip
 
-Press `O` and the same canvas shows your company in
+Press `Alt+3` and the section shows your company in
 [Paperclip](https://github.com/paperclipai/paperclip), the open-source control plane
 for agent teams: titles, reporting lines, budgets, issues and heartbeats. One command
 turns a lineup into a company (`halo paperclip sync halo-dev-cycle --new Halo`), each
@@ -260,11 +267,11 @@ reply lands on the issue. Org mode is off until you turn it on (the header butto
 `/org on`, `halo paperclip on`, or the wizard): until then only your own session
 orchestrates anything. See [docs/PAPERCLIP.md](docs/PAPERCLIP.md).
 
-<a href="docs/media/studio-org.png"><img alt="Studio's Org mode: the halo-dev-cycle lineup as a Paperclip company, reporting lines on the canvas" src="docs/media/studio-org.png" width="100%"></a>
+<a href="docs/media/studio-org.png"><img alt="Studio's Org section: the halo-dev-cycle lineup as a Paperclip company, boxed by who reports to whom" src="docs/media/studio-org.png" width="100%"></a>
 
 ### Design: on your own apps
 
-Press `D` (or run `halo design`) and the canvas holds artboards: HTML
+Press `Alt+4` (or run `halo design`) and the canvas holds artboards: HTML
 prototypes in sandboxed frames, logos and pages rendered by the creative apps already on
 your machine. A design turn is a real Halo turn in the project folder with the seven
 ArtCraft apps (DesignCraft, VectorCraft, PhotoCraft, LightCraft, EffectCraft, FilmCraft,
@@ -294,9 +301,18 @@ open source, run headless on your machine, and nothing but the model call leaves
 | PdfCraft | assembled, signed, form-filled and accessibility-checked PDFs |
 
 
-<a href="docs/media/studio-design.png"><img alt="Studio's Design mode: a hero prototype and a VectorCraft logo mark as artboards, knobs and comments in the panel" src="docs/media/studio-design.png" width="100%"></a>
+<a href="docs/media/studio-design.png"><img alt="Studio's Design section: a hero prototype and a VectorCraft logo mark as artboards, knobs and comments in the panel" src="docs/media/studio-design.png" width="100%"></a>
 
-<a href="docs/media/studio-design-knob.png"><img alt="The Knobs tab: the Spacing knob moved to 48 reflows the hero with no model call, and the contrast table grades the page's colour pairs" src="docs/media/studio-design-knob.png" width="100%"></a>
+### Flow: from an input to a post
+
+Press `Alt+5`. A flow takes an input, runs it through agents in roles, hands the result to
+an org, passes the image prompt to [ComfyUI](docs/COMFYUI.md), shows you the render, and on
+your yes writes the posts and starts the metrics; every artifact lands in a design
+project. The section draws the run as a graph with its confirm gate, and the Media panels
+(status, models, workflows, render) show the ComfyUI server, its models and each render.
+See [docs/FLOWS.md](docs/FLOWS.md) and [docs/COMFYUI.md](docs/COMFYUI.md).
+
+<a href="docs/media/studio-flow.png"><img alt="Studio's Flow section: a run waiting at its confirm gate over a ComfyUI render" src="docs/media/studio-flow.png" width="100%"></a>
 
 ## The levels
 

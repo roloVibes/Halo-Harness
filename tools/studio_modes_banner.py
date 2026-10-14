@@ -1,10 +1,10 @@
-"""tools/studio_modes_banner.py -- the Studio triptych for the README.
+"""tools/studio_modes_banner.py -- the Studio five-tile banner for the README.
 
-Composes docs/media/studio.png, studio-org.png and studio-design.png (the
-headless-Chrome captures from tools/capture_studio.py) into one wide banner,
-docs/media/studio-modes.png: three frames side by side on the Studio
-background with a mode label over each (Roles, Org, Design) and the key that
-switches to it. Pure Pillow, no fonts fetched: the label uses the default
+Composes studio-orchestra.png, studio-roles.png, studio-org.png,
+studio-design.png and studio-flow.png (the headless-Chrome captures from
+tools/capture_studio.py) into one wide banner, docs/media/studio-modes.png:
+five frames in a row on the Studio background with a section label over
+each and the key that switches to it (Alt+1 .. Alt+5). Pure Pillow, no fonts fetched: the label uses the default
 bitmap font scaled up, so the file is identical on every machine with the
 same inputs.
 
@@ -24,11 +24,13 @@ MEDIA = REPO / "docs" / "media"
 OUT = MEDIA / "studio-modes.png"
 
 FRAMES = (
-    ("studio.png", "Roles", "R", "lineups and bios as a graph"),
-    ("studio-org.png", "Org", "O", "the company in Paperclip"),
-    ("studio-design.png", "Design", "D", "artboards on your own apps"),
+    ("studio-orchestra.png", "Orchestra", "Alt 1", "agents writing the same files"),
+    ("studio-roles.png", "Roles", "Alt 2", "lineups and bios as a graph"),
+    ("studio-org.png", "Org", "Alt 3", "the company in Paperclip"),
+    ("studio-design.png", "Design", "Alt 4", "artboards on your own apps"),
+    ("studio-flow.png", "Flow", "Alt 5", "input to render to post"),
 )
-FRAME_W = 960           # each capture is scaled to this width
+FRAME_W = 640           # each capture is scaled to this width
 GAP = 28
 PAD = 36
 LABEL_H = 92
@@ -62,20 +64,21 @@ def build() -> Image.Image:
         h = round(im.height * FRAME_W / im.width)
         frames.append(im.resize((FRAME_W, h), Image.LANCZOS))
     frame_h = max(f.height for f in frames)
-    width = PAD * 2 + FRAME_W * 3 + GAP * 2
+    width = PAD * 2 + FRAME_W * len(FRAMES) + GAP * (len(FRAMES) - 1)
     height = PAD + LABEL_H + frame_h + PAD
     canvas = Image.new("RGB", (width, height), BG)
     draw = ImageDraw.Draw(canvas)
-    title_font, key_font, sub_font = _font(34), _font(22), _font(20)
+    title_font, key_font, sub_font = _font(30), _font(19), _font(18)
     x = PAD
     for (name, label, key, blurb), frame in zip(FRAMES, frames):
         # the label block: a key chip, the mode name, a one-line blurb
-        chip = (x, PAD + 14, x + 44, PAD + 14 + 44)
-        draw.rounded_rectangle(chip, radius=8, fill=PANEL, outline=ACCENT, width=2)
+        title_w = draw.textlength(label, font=title_font)
+        draw.text((x, PAD + 6), label, font=title_font, fill=INK)
         kw = draw.textlength(key, font=key_font)
-        draw.text((x + 22 - kw / 2, PAD + 14 + 10), key, font=key_font, fill=ACCENT)
-        draw.text((x + 60, PAD + 6), label, font=title_font, fill=INK)
-        draw.text((x + 60, PAD + 50), blurb, font=sub_font, fill=MUTED)
+        chip = (x + title_w + 14, PAD + 8, x + title_w + 14 + kw + 20, PAD + 8 + 34)
+        draw.rounded_rectangle(chip, radius=8, fill=PANEL, outline=ACCENT, width=2)
+        draw.text((chip[0] + 10, PAD + 8 + 6), key, font=key_font, fill=ACCENT)
+        draw.text((x, PAD + 50), blurb, font=sub_font, fill=MUTED)
         # the frame, rounded, with a hairline border
         y = PAD + LABEL_H
         card = Image.new("RGB", (FRAME_W, frame_h), PANEL)
