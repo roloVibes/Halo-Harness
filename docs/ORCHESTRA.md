@@ -306,6 +306,48 @@ report.json: `run_id`, `status` (`finished` or `stopped`), `stop_reason`,
   lane its own worktree and lane number; a child process can.) In `-p` mode
   the guard's ask is a deny, so a worker claims before it edits.
 
+## In Studio
+
+`halo studio`, started in the repo, opens the Orchestra section: the run
+console described in [STUDIO.md](STUDIO.md#orchestra-the-run-console). Its
+backend is `studio/orchestra_api.py`. The routes sit under `/api/orchestra/`
+behind the same loopback, origin and token guard as every Studio route.
+
+| Route | Answer |
+|---|---|
+| `GET orchestra/runs` | `[{run_id, created, state, workers, goal_what, cost_usd}]`, newest first; `state` is `running`, `finished`, `stopped`, `dry run`, `new` or `interrupted` |
+| `POST orchestra/run` | body `{what, done_when, stop_when, workers, return_cap, test, files, lineup, lead, worker, model?, dry_run?}` -> `201 {run_id}`; an invalid goal is a 422 with `validate_goal`'s lines, a file that is not in the repo is a 422, and a second run while one is live is a 409 naming it |
+| `GET orchestra/<run>` | `{run, goal, workflow, split, lanes, claims (live), merge, report, dry_run, events_count, live}` |
+| `GET orchestra/<run>/events?since=N` | `{events, next}`: the run log from line N |
+| `GET orchestra/<run>/file?path=<rel>` | the one-file view: `{path, base_ref, base: [lines], regions: [{key, lane, holder, state, lane_state, start_line, end_line, text}]}` |
+| `POST orchestra/<run>/stop` | `{ok}`: writes stop.json, as `halo orchestra stop` does |
+| `POST orchestra/<run>/release {key}` | the live claim on `key` lets go (422 when nobody holds it, 403 when `holder` is given and is not the holder) |
+| `POST orchestra/<run>/steal {key}` | the run's lead takes `key` (403 when `by` is given and is not the lead) |
+
+`<run>` is a run id or a unique prefix of one. The file view is composed by
+code (`studio/orchestra_model.py`):
+
+- `base` is the file on the finished branch `orchestra/<run-id>`, which
+  grows one merge at a time; else at the split's base commit; else at HEAD.
+- Each lane's claimed unit is located in `base` by its key (`index`). Its
+  `text` is the lane's current version from its worktree, or its `written`
+  snapshot once the worktree is gone.
+- Its `state` is the live claim's own state (`claimed`, `writing` or
+  `written`); else `merged` once the lane merged; else `written` when the
+  lane holds a snapshot; else `claimed`.
+
+`POST run` never blocks the request (`studio/orchestra_live.py`).
+`new_run` makes the run folder, then `run()` starts on a daemon thread with
+the real adapters (a dry run only asks the lead for the split and checks it
+in code, writing `dry_run.json`; nothing is claimed). A second thread tails
+`events.jsonl` every 0.25 s and publishes each `state`, `claim`, `merge`,
+`gate` and `report` line on Studio's live feed (`EventBridge.publish_local`)
+as `orchestra_<kind>`, with `session_id: "orchestra:<run-id>"` and the line
+plus `run` as data. Lines a worker's child process writes reach the
+browser the same way as the runner's own. `orchestra_api.RUNNER(run_dir,
+goal, model)` replaces the adapters; the tests set it to the fake lead,
+workers and judge (`tests/test_studio_orchestra_api.py`).
+
 ## Walkthrough: the reel's basket.py
 
 `halo_harness/templates/orchestra/` ships `basket.py` (five functions that

@@ -66,6 +66,29 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
 
 
 @test
+def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx):
+    """3.0.3.0 R4: over a seeded finished run (the R2 fixture: five lanes, one
+    judged conflict, eight checks) the Orchestra section draws the graph with
+    its gate, five lanes, five claimed bands, every check and five tiles."""
+    if not _chrome():
+        raise SkipTest("no Chrome found (the Orchestra smoke needs headless Chrome)")
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
+    env["PYTHONPATH"] = str(REPO)
+    env["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
+    r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom"], capture_output=True, text=True, timeout=240, env=env, cwd=str(REPO))
+    ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
+    try:
+        info = json.loads(r.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        info = {}
+    ctx.check(f"the graph and its gate, got {info}", info.get("orchestra-graph") == 1 and info.get("gate", 0) >= 1)
+    ctx.check(f"five lanes and five tiles, got {info}", info.get("lane") == 5 and info.get("grid-tile") == 5)
+    ctx.check(f"a band per claimed unit, got {info}", info.get("claim-region", 0) >= 5)
+    ctx.check(f"every report check, got {info}", info.get("report-check") == 8)
+    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 4 and info.get("orchestra-root") == 1)
+
+
+@test
 def test_readme_capture_exists(ctx: Ctx):
     png = REPO / "docs" / "media" / "studio.png"
     ctx.check("docs/media/studio.png exists", png.is_file())
