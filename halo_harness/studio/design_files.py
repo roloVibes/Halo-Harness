@@ -24,6 +24,10 @@ from halo_harness.design.store import design_root
 PREFIX = "/design-files/"
 CSP = "default-src 'self' 'unsafe-inline' data: blob:"
 SANDBOXED = "text/html", "image/svg+xml"  # the types that can carry script
+# 3.0.4.0 R5: a ComfyUI video render plays in a plain <video> (no sandbox
+# needed); the type is pinned here, never left to the platform's mime table.
+MEDIA_TYPES = {".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".png": "image/png",
+               ".webp": "image/webp", ".wav": "audio/wav", ".mp3": "audio/mpeg", ".flac": "audio/flac"}
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 EDIT_SCRIPT = """<!--halo-edit--><script id="halo-edit-script">(function(){
@@ -62,7 +66,7 @@ def read(state_dir, url_path: str, query: dict):
     if target is None:
         return 404, b'{"error": "not found"}', "application/json"
     data = target.read_bytes()
-    ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+    ctype = MEDIA_TYPES.get(target.suffix.lower()) or mimetypes.guess_type(str(target))[0] or "application/octet-stream"
     if target.suffix.lower() in (".html", ".htm"):
         ctype = "text/html; charset=utf-8"
         if query.get("edit") == "1" and target.parent.parent.name == "artboards":  # the current version only

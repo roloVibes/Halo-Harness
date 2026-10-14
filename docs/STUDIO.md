@@ -148,6 +148,46 @@ One run goes at a time. **Run** is disabled while a run is live, and the
 glance's **stop** asks the runner to stop at its next step. Routes:
 [ORCHESTRA.md, "In Studio"](ORCHESTRA.md#in-studio).
 
+## Flow and Media routes (3.0.4.0)
+
+The JSON routes behind the Flow and Media panels. Every one sits behind the
+same loopback, Host, Origin and bearer-token guard as the rest of `/api/`.
+Flow runs are `~/.halo/flows/runs/<id>/` ([FLOWS.md](FLOWS.md)); renders go
+to ComfyUI at `COMFY_URL`, the config's `comfy.url`, or
+`http://127.0.0.1:8188` ([COMFYUI.md](COMFYUI.md)).
+
+| Route | Answer |
+|---|---|
+| `GET flow/templates` | `[{name, source: template\|user\|project, steps: [{id, kind}], form, budget_usd, version, path}]` |
+| `GET flow/runs` | `[{run, name, status, created, cost_usd, project, budget_usd, live, waiting_step?}]`, newest first |
+| `POST flow/runs {template, intake: {brief, platforms, budget_usd, project}, model?, set?, yes?, start?}` | `201 {run, started, warnings}`; 422 with the validator's lines; 409 naming the live run. `set` is `{"render.width": 64}` or `{"render": {"width": 64}}`; `start: false` makes the run without starting it |
+| `GET flow/runs/<id>` | `{flow, steps, gate, report, posts, metrics_tail, artboards: [{id, kind, step, url, version, versions, file}], events, live, project}` |
+| `GET flow/runs/<id>/events?since=N` | `{events, next}` |
+| `POST flow/runs/<id>/assets {name, data_base64}` | `201 {name, size, kind, path, rel, project, intake}` into the project's `assets/` (15 MB); a run not started yet also gets the file in its intake |
+| `POST flow/runs/<id>/stop {reason?}` / `resume {model?, yes?}` | `{ok, live}` / `{run, started}`; resuming a finished run is a 409 |
+| `POST flow/runs/<id>/answer {step, action: accept\|redo\|stop, instruction?, round?}` | `{ok, message, gate}`; 422 when no gate is open at that step or the round is stale |
+| `GET flow/runs/<id>/report` / `posts?all=1` / `metrics?limit=N` | report.json (404 until it exists) / `{posts}` / `{metrics}` |
+| `GET media/status` | `{url, reachable, version, python, pytorch, gpus, registered, cache: {scanned, age_s, rows, workflows}, checked, age_s, checking}` |
+| `GET media/models?kind=image-gen\|video-gen\|audio-gen\|upscale\|all` | `{kind, rows, scanned, url}` from the cached inventory |
+| `POST media/scan` | `{rows, workflows, scanned, url}`: reads the server into the cache |
+| `GET media/workflows` | `{workflows: [{name, source: starter\|saved}], reachable, url}` (the cache's names when the server is down) |
+| `GET media/workflows/<name>/inputs?source=starter\|saved` | `{workflow, source, label, nodes}`: each node's settable inputs |
+| `POST media/render {workflow, set, project, artboard}` | `202 {prompt_id, project, artboard, workflow, source}`; the render goes on in the background |
+| `GET media/renders/<prompt id>` | the render's last state |
+
+A run started from Studio runs on a background thread with the real
+adapters. Its log reaches the live feed as `flow_state`, `flow_step`,
+`flow_gate`, `flow_post`, `flow_metric` and `flow_report` frames
+(`session_id: "flow:<run id>"`, data = the log line plus `run`). One flow
+run is live per Studio at a time. A render publishes `media_render` frames
+(`session_id: "media:<prompt id>"`, data `{prompt_id, state:
+queued|progress|done|error, text, project, artboard, workflow, artboards?,
+error?}`) and saves each output as an artboard of the design project. A
+render over an existing artboard becomes that artboard's next version.
+`media/status` refreshes in the background every 15 s and never holds a
+request for more than 2 s. An artboard's `url` is a `/design-files/` path.
+A `.mp4` is served as `video/mp4` with no sandbox directive.
+
 ## What you see (Roles)
 
 - **The lock on a card** (`🔒 shipped`) is a badge, not a switch: the agent
@@ -369,6 +409,22 @@ in the Lineup tab; a save that fails leaves the file untouched.
   missing or wrong token is a 403, and the loopback, Host and Origin checks
   are the same as for every other call. The token never leaves the machine
   and the response is `Cache-Control: no-store`.
+- **The sessions routes (3.0.4.0).** `GET /api/sessions` lists the live
+  sessions in `~/.halo/run/sessions.json`: `[{session_id, title, cwd, mode,
+  kind, started, pid, status: idle|busy|waiting|unknown, busy, pending,
+  model, status_age_s}]`. The status comes from each session's control
+  socket (1 s timeouts, asked side by side, cached 2 s; the request waits
+  at most 1.5 s). The endpoint and token are never returned. `POST
+  /api/sessions/<sid>/command {cmd: answer|interrupt|steer|submit, kind?,
+  request_id?, action?, instruction?, text?}` forwards one control-protocol
+  request ([REMOTE.md](REMOTE.md)) to that session over its socket, using
+  the token from the registry. That lets Studio answer a permission,
+  question, plan or org approval card in a running TUI session, steer it,
+  send it a prompt or interrupt it. The answers: `{ok, result}`, 404 for a
+  session not in the registry, 422 for another `cmd`, and 502 with the
+  socket's own error text (for example "no pending approval request"). It
+  sits behind the same bearer-token guard as every other route, so only the
+  page `halo studio` opened can use it.
 - No CDN, no fonts fetched, no analytics: the page is a handful of static
   files served from the package, under a strict content-security policy.
   The shell (`static/dist/`) gets `default-src 'self'; connect-src 'self'`
@@ -409,8 +465,12 @@ in your own browser.
 `events.py` (the live feed: the registry watcher and `/api/events`),
 `ui/` (the React shell's sources; see docs/DEVELOPMENT.md "Studio UI"),
 `static/dist/` (its committed build), `static/legacy/` (the classic page),
-`api.py` (the routes), `design_api.py` / `design_api_io.py` / `design_api_turns.py` / `design_files.py` (Design mode), `model.py` (the graph, the catalog rows, the session
+`api.py` (the routes), `flow_api.py` / `flow_model.py` / `flow_runs.py` (the Flow
+routes and the one live flow run), `media_api.py` / `media_render.py` (the ComfyUI
+routes and a render's background thread), `sessions_api.py` (the live sessions and
+their commands), `design_api.py` / `design_api_io.py` / `design_api_turns.py` / `design_files.py` (Design mode), `model.py` (the graph, the catalog rows, the session
 reader). Tests: `tests/test_studio_api.py`,
 `tests/test_studio_model.py`, `tests/test_studio_dist.py` (the build and
 its routes), `tests/test_studio_live.py` (the live feed),
+`tests/test_studio_flow_api.py` and `tests/test_studio_media_sessions.py` (the 3.0.4.0 routes),
 `tests/test_studio_ui.py` (headless Chrome over both pages).

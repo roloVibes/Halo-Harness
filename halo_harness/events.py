@@ -103,6 +103,10 @@ EVENT_KINDS = frozenset({
     # with the run log's own entry as data: {ts, elapsed_s, step, kind,
     # text, data, run}.
     "flow_state", "flow_step", "flow_gate", "flow_post", "flow_metric", "flow_report",
+    # Halo 3.0.4.0 R5: a ComfyUI render started from Studio (`POST
+    # /api/media/render`): {prompt_id, state: queued|progress|done|error,
+    # text, project, artboard, workflow, artboards?, error?}.
+    "media_render",
 })
 
 COMMAND_KINDS = frozenset({
