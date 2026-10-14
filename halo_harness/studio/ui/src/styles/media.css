@@ -1,0 +1,57 @@
+/* The Media panels (ComfyUI: status, models, workflows, render) and the
+   rail's session rows with their status and inline answer (3.0.4.0 R6).
+   Tokens only. The status dot is the feed dot: green and ticking while the
+   server answers, red when it does not. */
+
+/* -- status ----------------------------------------------------------------------- */
+.md-status .glance-numbers .metric-value { font-size: 24px; }
+.md-dot { width: 10px; height: 10px; }
+.md-state { font-size: 10.5px; letter-spacing: .14em; color: var(--bad); }
+.md-state[data-ok="true"] { color: var(--ok); }
+.md-vram { display: grid; gap: 4px; }
+.md-vram-head { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); }
+.md-error { font-size: 11px; color: var(--bad); padding: 4px 8px; border-left: 2px solid var(--bad); background: var(--bad-soft); border-radius: 0 4px 4px 0; overflow-wrap: anywhere; }
+.md-detail { display: grid; gap: 10px; align-content: start; }
+
+/* -- models ------------------------------------------------------------------------ */
+.md-counts { gap: 16px; }
+.md-counts .metric-value { font-size: 24px; }
+.md-models { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.md-model {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto 7ch; gap: 2px 8px; align-items: center;
+  padding: 4px 6px; border-radius: 4px; font-size: 11.5px; animation: og-slide-in var(--t-slow) var(--ease);
+}
+.md-model:hover { background: var(--accent-soft); }
+.md-model-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-size { text-align: right; color: var(--muted); }
+.md-note { grid-column: 1 / -1; font-size: 10.5px; }
+.md-support summary { cursor: pointer; font-size: 11px; color: var(--muted); padding: 4px 0; }
+.md-support[open] summary { color: var(--accent); }
+
+/* -- workflows and inputs ---------------------------------------------------------- */
+.md-nodes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 11px; }
+.md-nodes li { padding: 4px 6px; border-left: 2px solid var(--line-strong); background: var(--bg-2); border-radius: 0 4px 4px 0; }
+.md-node-id { color: var(--accent); }
+.md-node-inputs { color: var(--muted); overflow-wrap: anywhere; }
+
+/* -- render ----------------------------------------------------------------------------- */
+.md-render .og-text { min-height: 52px; }
+.md-all { display: grid; gap: 8px; padding-top: 6px; }
+.md-progress { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 8px; align-items: center; }
+.md-progress-text { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-progress[data-state="error"] .md-progress-text { color: var(--bad); white-space: normal; }
+.md-thumbs { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.md-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--bg-2); }
+
+/* -- the rail's sessions ------------------------------------------------------------- */
+.rail-session-wrap { display: grid; gap: 4px; }
+.rail-session .badge { flex: none; }
+.rail-session .badge[data-status="waiting"] { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.rail-session .badge[data-status="busy"] { color: var(--accent); border-color: var(--accent); }
+.rail-session-dot[data-status="waiting"] { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.rail-session-dot[data-status="busy"] { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.rail-session-dot[data-status="unknown"] { background: var(--faint); box-shadow: none; }
+.rail-answer { display: grid; gap: 6px; margin: 0 4px 4px; padding: 8px; border: 1px solid var(--warn); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--warn) 6%, var(--surface)); font-size: 11px; }
+.rail-answer-card { display: grid; gap: 6px; }
+.rail-answer .input { height: 28px; font-size: 12px; }
+.rail-answer .og-actions { gap: 4px; }

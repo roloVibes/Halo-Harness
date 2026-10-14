@@ -753,3 +753,14 @@ _BUILTIN_ORGS = {
         ],
     },
 }
+
+
+def _shipped_org_template(name: str) -> dict:
+    """An org shipped as `templates/orgs/<name>.json` (Halo 3.0.4.0: the
+    marketing org the flow template uses) -- one file is both the built-in
+    copied into ~/.halo/orgs/ and what `halo org install <name>` reads."""
+    path = Path(__file__).resolve().parent / "templates" / "orgs" / f"{name}.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+_BUILTIN_ORGS["marketing"] = _shipped_org_template("marketing")

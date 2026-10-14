@@ -15,6 +15,10 @@ row that states the capability. `best_for(rows, kind)` ranks for one job:
                preflight image canary is demoted
 
 Every ranked row carries a one-line `reason` in plain words.
+
+`best_for_media(rows, kind)` ranks the ComfyUI media-model inventory
+(`providers.media_models`) by what a model produces, one of `OUTPUT_KINDS`;
+those rows never mix with the LLM catalog above.
 """
 
 from __future__ import annotations
@@ -22,6 +26,7 @@ from __future__ import annotations
 from typing import Iterable, Optional
 
 KINDS = ("visual", "audio", "video", "image", "design")
+OUTPUT_KINDS = ("image-gen", "video-gen", "audio-gen", "upscale")  # media models, by what they produce
 
 
 def _mods(row: dict, key: str) -> Optional[set]:
@@ -201,3 +206,9 @@ def capability_lines(rows: Iterable[dict]) -> list:
         outs = ",".join(sorted(mo)) if mo else ("image" if row.get("image_output") else "text")
         out.append(f"{row['ref']:<40} in: {ins:<24} out: {outs}")
     return out
+
+
+def best_for_media(rows: Iterable[dict], kind: str, *, limit: int = 10) -> list:
+    """Rank media-model rows for one of `OUTPUT_KINDS` (size, quant, a 4-step LoRA)."""
+    from halo_harness.capabilities_media import best_for_media as rank
+    return rank(rows, kind, limit=limit)

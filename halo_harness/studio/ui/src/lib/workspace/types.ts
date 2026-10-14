@@ -23,16 +23,24 @@ export type PanelSpec = {
   h: number;
   minW?: number;
   minH?: number;
-  /** The face it opens on (default "glance"). */
+  /** The face it opens on (default "detail", the full face; "glance" is the compact one). */
   face?: Face;
-  /** Glance face: what it is, one live indicator, one or two numbers. */
+  /** Compact face (glance): what it is, one live indicator, one or two numbers. */
   glance: ComponentType;
-  /** Expand face: the details. Without it the panel only has a glance. */
+  /** Full face (detail): the panel itself. Without it the panel only has the compact face. */
   detail?: ComponentType;
-  /** Shown in the Inspector when the title bar's gear is pressed. */
+  /** Shown in the Inspector (the title bar's ... menu, Settings). */
   settings?: ComponentType;
   /** A hook returning the panel's state motion (called inside the panel). */
   useMotion?: () => MotionState;
+  /** Opens as a one-line strip in the default arrangement. */
+  collapsed?: boolean;
+  /** Not in the default arrangement: the palette or the rail adds it (showPanel). */
+  optional?: boolean;
+  /** One line: what this panel is (shown in the title bar, the Inspector and the section help). */
+  about?: string;
+  /** Three to five short lines, one per line: how to use it (the ? popover, the Inspector). */
+  help?: string;
   /** Keep the body mounted while collapsed (an iframe keeps its state). */
   keepAlive?: boolean;
   testid?: string;

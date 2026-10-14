@@ -24,45 +24,76 @@ buttons start it detached, so it outlives `halo init`; `halo studio --stop`
 ends it. `halo_harness/studio/launch.py` is the small module behind both.
 
 Inside the TUI, `/roles`, `/org` and `/design` open Studio straight into that
-mode from the live session; `/studio [roles|org|design]` is the long form and
+mode from the live session; `/studio [roles|org|design|orchestra|flow]` is the long form and
 `/studio url` prints the URL without opening a browser. A model running in a
 Halo session knows this too: the system prompt names Studio, its three modes
 and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 
 ## The shell (3.0.3.0)
 
-`halo studio` opens a React shell with four sections in the top bar:
-**Orchestra | Roles | Org | Design** (`Alt+1`..`Alt+4`, or `?mode=` in the
-URL). Orchestra is the live run console (see [Orchestra](#orchestra-the-run-console)
-below); Roles, Org and Design are the
+`halo studio` opens a React shell with five sections in the top bar:
+**Orchestra | Roles | Org | Design | Flow** (`Alt+1`..`Alt+5`, or `?mode=` in
+the URL; Flow since 3.0.4.0). Orchestra is the live run console (see [Orchestra](#orchestra-the-run-console)
+below), Flow the workflow console (see [Flow](#flow-the-workflow-console));
+Roles, Org and Design are the
 classic pages described below, framed inside the shell from `/legacy/`, so
 everything in them works as before. `halo studio --legacy` opens the classic
 page on its own.
 
+- **One header (3.0.4.0).** The framed classic page opens with
+  `?embedded=1`: its own logo and Roles / Org / Design buttons are gone (the
+  shell's tabs do that), and what is left of its header is a slim one-line
+  toolbar (the lineup, company or project, the scope, Validate / Save /
+  Apply, Groups, Run view). Its status line ("valid", the active lineup, the
+  company, the project) shows in the shell's status bar instead of a second
+  footer (the page sends it with `postMessage`, same origin only), its theme
+  follows the shell's, and `R` / `O` / `D` inside it switch the shell's
+  section. `/legacy/` opened on its own keeps its full header.
 - **A movable workspace.** Every section is a set of panels on a 24-column
-  grid (8 px rows). Drag a panel's title bar to move it, an edge or corner to
-  resize it; the others make room and everything snaps to the grid. Each
-  title bar has **Expand / Glance**, **Collapse** (to a one-line strip),
-  **Pop out** (float over the grid; dock it back the same way) and a **gear**.
-  With a panel focused, `Alt`+arrows move it and `Alt+Shift`+arrows resize
-  it. The arrangement is remembered per section in your browser
-  (`localStorage` key `halo.studio.layout.<section>`); **Reset layout** (the
-  rail, or the palette) returns to the defaults, which follow the window size
-  until you rearrange something.
-- **Three depths per panel.** The **Glance** face says what the panel is,
-  shows one live indicator and one or two big numbers, readable from across
-  the room; **Expand** shows the details; the **gear** opens the Inspector on
-  the right with that panel's settings (face, strip, float, exact grid
-  position, reset, and the panel's own options).
-- **The rail** (left) lists the section's panels (click one to bring it back
-  and focus it), the live sessions, and the layout actions.
+  grid (8 px rows). **Click anywhere on a panel to work in it**: a ring
+  marks the panel you are on, and an open Inspector follows it. Drag a
+  panel's title bar to move it, an edge or corner to resize it; the others
+  make room and everything snaps to the grid. The title bar is the title,
+  the panel's one-line **about** (what it is), ONE **Compact / Expand**
+  toggle (on a collapsed strip: the chevron that opens it) and ONE **...**
+  menu: **Float** over the grid (or dock it back),
+  **Collapse** to a one-line strip (or open it), **Reset this panel**,
+  **Settings** and **Help**. With a panel focused, `Alt`+arrows move it and
+  `Alt+Shift`+arrows resize it. The arrangement is remembered per section in
+  your browser (`localStorage` key `halo.studio.layout.<section>`, version 2:
+  an arrangement saved by 3.0.3.0 keeps its places, not its faces);
+  **Reset layout** (the rail, or the palette) returns to the defaults, which
+  follow the window size until you rearrange something.
+- **Two faces and the settings.** Every panel opens on its **full face**,
+  ready to use with no button to press first; **Compact** is its summary (what
+  it is, one live indicator, one or two big numbers, readable from across the
+  room) and is the default only where a section says so (Orchestra's
+  Workflow, Run grid and Log, where it is the whole graph, every tile and the
+  newest lines). **Settings** opens the Inspector on the right: what the
+  panel is and how to use it, the face, strip, float, the exact grid
+  position, reset, and the panel's own options.
+- **Help where you are.** `?` on a focused panel (or Help in its ... menu)
+  opens a small popover with its `about` line and a few lines on how to use
+  it; `?` again, `?` away from a panel, the **?** beside the section tabs and
+  the palette's **Help: how <section> works** open **How this works** for the
+  section: what it is, five to eight numbered steps, every panel with its
+  about line, and the keys (the copy is below, in
+  [How each section works](#how-each-section-works)). The first time a
+  section shows in a browser the same card comes up as its welcome, with
+  **Got it** (`halo.studio.seen.<section>`; `?tour=off` in the URL keeps it
+  shut, as on the classic page).
+- **The rail** (left) has the section's own block (Orchestra and Flow: **New
+  run** and the runs), lists the section's panels (click one to bring it back
+  and focus it), the live sessions with their status (and an inline answer
+  for one that waits on you, 3.0.4.0), and the layout actions.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
   grouped results (Go to, View, Layout, Open), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
 - **The status bar** shows the live feed (a dot that is green when
   connected, amber while connecting or reconnecting, red when unreachable,
-  and ticks once per event), the session and event counts and the section's
-  layout state. `Esc` closes the palette, then the Inspector.
+  and ticks once per event), the session and event counts, the framed
+  classic page's status line (Roles, Org, Design) and the section's layout
+  state. `Esc` closes the palette, a menu or a help card, then the Inspector.
 
 **Visual language.** The dark theme ("holo", the default) is a near-black
 navy with glass panels: a translucent surface, a 1 px luminous edge, a soft
@@ -91,6 +122,142 @@ cue. A section tab "works" while that section has fresh activity, toasts
 sweep green or flash red once, and nothing loops except `idle`, `working`
 and `waiting`, which describe an ongoing state.
 
+## How each section works
+
+The same copy as Studio's **How this works** card (`ui/src/routes/sectionHelp.ts`
+for the steps, `routes/help.ts` and `routes/help-orchestra.ts` for the panels'
+about lines and help).
+
+### Orchestra
+
+**What it is.** Several agents write to the same files at once and nothing is
+lost: a lead splits your goal into lanes, one worker per lane writes its part
+in its own git worktree, and a gate checks the result before it lands.
+
+**How to use it.**
+
+1. **Write the goal**: WHAT YOU WANT, how Halo knows it is done (DONE WHEN)
+   and when to give up (STOP WHEN), plus the files the workers share and the
+   test the gate runs.
+2. **Press Run**. Dry run asks the lead for the split only: nothing is
+   claimed or written.
+3. **The lead splits it into lanes**. Each lane claims a part of the files;
+   one worker per lane builds its part in its own git worktree.
+4. **The gate checks DONE WHEN**. The parts merge one at a time, your test
+   runs, and a part that fails goes back to its worker (up to the return cap).
+5. **Read the report**: every check with a tick or a cross, the finished
+   branch and its sha, the tests, the cost and the time.
+
+**Panels.** Goal: what you want, how it is checked and when to give up; then
+Run. Workflow: the run's plan: goal, lead, split, one node per lane, merge,
+test, gate. Run grid: one tile per lane: writing, in review, waiting or
+merged. Live file: the shared file, each lane's claimed part a band in its
+colour. Lanes: each worker's timeline on the run's clock, from joined to
+merged. Report: the gate's verdict: every check, the finished branch, tests
+and cost. Claims: who holds which part of the files right now, and until
+when. Log: every claim, merge, gate decision and note, with its time.
+
+### Roles
+
+**What it is.** A lineup says which agent, on which model, plays each role in
+your sessions. Studio shows it as cards you can arrange and edit; the files
+are `~/.halo/teams/<name>.yaml` and `~/.halo/agents/<name>.yaml`.
+
+**How to use it.**
+
+1. **Pick a lineup** in the toolbar, or start from a shipped one. Each card
+   is one assignment: an agent bio in a role, with the model that resolves
+   for it.
+2. **Read the boxes**: cards sit in boxes by role (Main, Workers, Reviewers,
+   Researchers ...). **Groups** in the toolbar hides or shows them.
+3. **Move and connect**: drop a card into another box to change its role, or
+   onto another card to make it report there.
+4. **Add an agent**: drag a bio from the left list onto the canvas, or
+   straight into a box.
+5. **Edit**: select a card; the right side has Assignment, Agent (the bio),
+   Lineup and YAML.
+6. **Validate, Save, Apply**: Validate runs the CLI's checks, Save writes the
+   YAML to your scope, Apply makes it the lineup new sessions use.
+
+**Panels.** Roles: your lineup as cards, boxed by role: who plays each part,
+on which model.
+
+![Roles in the shell: one header, the lineup boxed by role](media/studio-roles.png)
+
+### Org
+
+**What it is.** Your company of agents in Paperclip: an org chart with goals,
+issues, heartbeats and budgets. Halo's lineups become its agents.
+
+**How to use it.**
+
+1. **Turn Org mode on**: the toolbar's Org mode button (or `/org on`, `halo
+   paperclip on`). Off is the default: nothing runs on a heartbeat.
+2. **Get Paperclip running**: without it the canvas offers Install Paperclip
+   (Node 24 or newer); once it runs, pick the company in the toolbar.
+3. **Read the boxes**: each card is an agent (title, role, adapter, status,
+   spend against its budget). A box holds one manager's reports ("<manager>'s
+   team", or the agent's `metadata.team`); the top box is **Leadership**.
+4. **Change who reports to whom**: drop a card into another box, or onto a
+   card; Studio asks first, then updates Paperclip.
+5. **Work with an agent**: select a card for Agent (budget, wake, pause),
+   Issues, its Paperclip page, and Company (sync a lineup into the company).
+
+**Panels.** Org: your company in Paperclip: agents as cards, boxed by who
+they report to.
+
+### Design
+
+**What it is.** Prototypes, pages, decks and logos made by your own apps. A
+project is a folder of artboards under `~/.halo/design/<slug>/`, and every
+turn saves a new version.
+
+**How to use it.**
+
+1. **Open a project**: make one in the left rail (`N`) or pick one.
+2. **Say what to design**: type it in the Chat tab and press Enter: one turn,
+   its cost shown as it streams.
+3. **Look and compare**: each artboard is a card; drag it by its title,
+   switch the device size, slide back through its versions.
+4. **Comment**: `C` pins a comment on a frame; Send comments turns the pins
+   into one turn. `K` asks a second model to critique.
+5. **Tune without a model**: Knobs move spacing, colours and sizes; the
+   Contrast table checks text against its background.
+6. **Hand it off**: Export writes a folder, HTML, PNG, SVG or PDF; Handoff
+   bundles it for a Halo or Claude Code session.
+7. **Render pictures**: the palette's Media commands pop the ComfyUI panels
+   over the canvas.
+
+**Panels.** Design: prototypes, pages and decks your apps make, one card per
+artboard; and from the palette, Media status, Media models, Workflows and
+Render (see [Media](#media)).
+
+### Flow
+
+**What it is.** A brief goes through your roles and a marketing org, ComfyUI
+renders the Art Director's prompt, you confirm the picture, then the posts go
+out and their metrics come back, all in one design project.
+
+**How to use it.**
+
+1. **Write a brief** on the Start view: the brief, the platforms, the budget
+   and the design project; drop assets if you have them.
+2. **Press Run**: Run waits for your OK on the render, Run with --yes accepts
+   every gate, Dry run keeps the posts dry.
+3. **The roles and the org work**: a planner and a researcher plan it; a
+   strategist, a copywriter and an art director write the campaign and the
+   image prompt.
+4. **Confirm the render**: ComfyUI renders it; the run waits in Renders until
+   you Confirm, Redo with an instruction, or Stop.
+5. **Posts and metrics**: one post per platform through Postiz (dry runs
+   unless the flow says `live: true`); Metrics samples how they do.
+6. **Read the report**: Report sums it up; New run in the rail goes back to
+   the Start view.
+
+**Panels.** Intake, Workflow, Renders, Step, Posts, Metrics, Log, Report and
+the four Media panels; what each shows is in the [Flow](#flow-the-workflow-console)
+table below.
+
 ## The live feed
 
 `GET /api/events?t=<token>&sessions=all|<session id>` is a Server-Sent
@@ -109,17 +276,33 @@ Orchestra runner publishes its run log here too (`orchestra_*` frames).
 
 `Alt+1` (or `?mode=orchestra`) is the console for [Orchestra](ORCHESTRA.md)
 runs in the git repo that holds Studio's folder (`halo studio` started
-there, or `--cwd`). It opens on the newest run. Its eight panels sit on the
-same movable workspace as everything else. Each panel has a **Glance** face
-(what it is, one live indicator, one or two big numbers), an **Expand** face
-(the details) and the **gear**, which opens the panel's options in the
-Inspector.
+there, or `--cwd`). It opens on the newest run.
+
+**Before a run (3.0.4.0)** the section is one centered **Start** view, not
+eight empty panels: the goal form (WHAT YOU WANT, DONE WHEN, STOP WHEN with
+examples, the files and the test command, the budget: workers and return
+cap, the lineup, and who plays the parts and the model under a disclosure)
+with **Run** and **Dry run**, what a run does in five numbered steps, and the
+past runs to open. Starting or opening a run brings up the panels; **open the
+workspace anyway** does too. **New run** (the rail, or the palette's
+**Orchestra: new run**) returns to the Start view. An Orchestra goal has no
+dollar budget: its budget is how many workers and how many times the gate may
+send a part back.
+
+![Orchestra before a run: the Start view](media/studio-orchestra-start.png)
+
+Its eight panels sit on the same movable workspace as everything else, each
+on its full face with its one-line about and its `?` help (Workflow, Run grid
+and Log open on their compact face, which shows the whole graph, every tile
+and the newest lines at the default size). The Goal panel's default height
+shows every field and **Run** without scrolling. The rail lists the runs of
+the repo (click one to open it).
 
 ![Orchestra: a finished five-lane run over basket.py](media/studio-orchestra.png)
 
-| Panel | Glance | Expand | Motion |
+| Panel | Compact face | Full face | Motion |
 |---|---|---|---|
-| **Goal** | WHAT YOU WANT / DONE WHEN / STOP WHEN as a card, the workers, the cost, the run state badge | the goal form (workers, return cap, test, files, lineup, lead and worker roles, model) with **Run** and **Dry run**; the runs of this repo, click one to open it | the badge follows the run: flowing while it runs, a green sweep when it finishes, red when it stops, amber when it was interrupted |
+| **Goal** | WHAT YOU WANT / DONE WHEN / STOP WHEN as a card, the workers, the cost, the run state badge | the open run in one line (state, cost, **stop** while it runs, **new run**) over its goal form (as on the Start view) with **Run** and **Dry run** | the badge follows the run: flowing while it runs, a green sweep when it finishes, red when it stops, amber when it was interrupted |
 | **Workflow** | steps finished, the running step, the graph | the graph and the step list | the designed graph laid out in SVG: goal, lead, split, one node per lane, merge, test, the gate diamond, done; pending steps are faint, the running step's outline flows, the diamond lights when the gate acts, a failed step is red, and the gate's return arrow turns amber once a piece has been sent back |
 | **Run grid** | the counters (joined, writing, in review, waiting, merged) and one tile per lane, 5 to 50 | larger tiles with each lane's title | a tile that is writing flows, a waiting one pulses amber, a merged one turns green; click a tile to focus that lane in Lanes and Live file |
 | **Lanes** | joined, writing, merged, one strip per lane | the timeline: one trace per worker on the run's clock from "joined" to "merged", a node at each state change, a diamond where the gate sent the piece back; hover a node for its time and text | the running lane's trace flows, a waiting lane pulses amber |
@@ -141,12 +324,135 @@ state, claim, merge, gate and report line as an `orchestra_*` event (the
 session id is `orchestra:<run id>`). A line for the open run refreshes the
 panels within a quarter second; a claim or merge refetches the file view.
 When the feed is not connected and a run is live, the panels poll every
-5 s instead. Palette commands (`Ctrl`/`Cmd`+`K`): **Orchestra: new run**,
-**stop run**, **open run <id>** and **focus lane N**.
+5 s instead. Palette commands (`Ctrl`/`Cmd`+`K`): **Orchestra: new run**
+(the Start view), **stop run**, **open run <id>** and **focus lane N**.
 
-One run goes at a time. **Run** is disabled while a run is live, and the
-glance's **stop** asks the runner to stop at its next step. Routes:
+One run goes at a time. **Run** is disabled while a run is live, and
+**stop** (the Goal panel's run line, or its compact face) asks the runner to
+stop at its next step. Routes:
 [ORCHESTRA.md, "In Studio"](ORCHESTRA.md#in-studio).
+
+## Flow: the workflow console
+
+`Alt+5` (or `?mode=flow`, `halo studio --mode flow`, `/studio flow`) is the
+console for [flows](FLOWS.md): a brief goes through your roles and a
+marketing org, ComfyUI renders the Art Director's prompt, you confirm the
+picture, then the posts go out (dry runs unless the flow says `live:
+true`) and their metrics come back, all in one design project.
+
+![Flow: a run waiting at its confirm gate, the render inline](media/studio-flow.png)
+
+**Before a run is open** the section is one centered **Start** view, not a
+grid of empty panels: the intake form (the flow, the model, the brief, the
+platforms to post on, the budget, the design project, a drop zone for
+assets, the render overrides under a disclosure), what a flow does in six
+numbered steps, whether ComfyUI answers, and the past runs to open.
+**Run** waits for your OK on the render, **Run with --yes** accepts every
+gate, **Dry run** goes through every step but keeps the posts dry. Files
+dropped on the form make the run without starting it, upload each file
+into the project's `assets/`, then resume it. Starting or opening a run
+brings up the panels; **open the workspace anyway** does too. **New run**
+(the rail, or the palette's **Flow: new run**) returns to the Start view.
+
+**The panels.** Every Flow and Media panel opens on its full face (the
+compact face is the summary a strip keeps); its one-line `about` shows in
+the title bar and its few lines of `help` behind `?`.
+
+| Panel | What it shows | Motion |
+|---|---|---|
+| **Intake** | the open run in one line (state, steps done, cost against the budget, **copy its brief**) over the intake form, sized so Run is always in view | the run's state: flowing while it runs, amber while it waits on you, a green sweep when it finishes, red when it stops |
+| **Workflow** | steps done and what runs now (or **WAITING ON YOU**), the steps as nodes in order, the org step's positions as a sub-row, the last log line | pending nodes are faint, the running one's outline flows, done is green, failed red; a `confirm` step is a diamond (`gate-diamond`) that lights amber while it waits on you; the dashed redo arrow runs back to the render and turns amber once a render was sent back |
+| **Renders** | the gate card while the confirm gate is open (the prompt, **Confirm**, an instruction field with **Redo**, **Stop**), the Art Director's prompt, every artboard inline (an image, or a video with controls) with its version badges | amber while the gate waits; after the answer a band says **ACCEPTED** (or sent back, or stopped) |
+| **Step** | the selected step (click a node; by default the one waiting on you, else the running one, else the last done): cost, elapsed, rounds, the error, and its output -- per role for a roles step, per position for the org with the Art Director's prompt marked, the render's prompt and settings; the org's live positions from the run session's `subagent_*` frames; an org approval waiting on you is answered here | the step's state |
+| **Posts** | one row per post: the platform, a grey **DRY RUN** or red **LIVE** badge, the text, the media count, the Postiz post id, the scheduled time, a failure's reason | flowing while the publish step runs |
+| **Metrics** | per post and platform the latest views, likes, comments and shares, with a sparkline over the run's metrics tail; a dry run says "dry run: no metrics yet" | flowing while the measure step runs |
+| **Log** | the run's `events.jsonl` with each line's elapsed time (or the clock), a step filter, kind filters and **follow** | new lines slide in |
+| **Report** | the status, the cost against the budget, the steps table, the artboards, the posts and the metrics summary; **Copy** puts the text `halo flow report` prints on the clipboard | one green sweep when the report lands |
+
+**The gate.** A `confirm` step (and an org position marked
+`requires_approval`) waits for an answer file; Studio's Confirm / Redo /
+Stop posts it through `flow/runs/<id>/answer`, the same file `halo flow
+answer` writes, so a gate opened by a CLI run can be answered here and the
+other way round. The palette offers **Flow: answer gate: accept**,
+**redo...** (opens the gate card for the instruction) and **stop** while a
+gate is open.
+
+**The rail** shows **New run**, the runs (newest first; one that waits on
+you pulses amber) and the flows a run can start from (click one to load it
+into the Start view's form), above the panel list. The live sessions in the
+rail carry their status (`waiting`, `busy`, `idle`); a session that waits on
+you gets an inline **answer**: an org approval card takes Accept, an
+instruction (Send) or Stop, a permission card Allow once or Deny, a plan
+Approve or Send back, all through `sessions/<sid>/command`.
+
+The panels refetch the open run within a quarter second of each `flow_*`
+frame for it; when the feed is not connected and the run is live they poll
+every 5 s. Palette (`Ctrl`/`Cmd`+`K`): **Flow: new run**, **open run
+<id>**, **answer gate**, **stop run**, **resume run**. The panels' options
+(log filters, times, the intake defaults) are kept in your browser
+(`halo.studio.flow.opts`).
+
+## Media
+
+The ComfyUI panels. In Flow they sit as four strips along the bottom (open
+one with its chevron); in Design the palette (**Media: status**, **scan**,
+**models**, **quick render**) pops them out over the canvas, and the
+Inspector's **Remove from Design** takes one away again.
+
+![Media: ComfyUI status, models, workflows and a render](media/studio-media.png)
+
+| Panel | What it shows |
+|---|---|
+| **Media status** | a dot that ticks green on every check (every 15 s while a Media panel is open), the ComfyUI version, the GPU's VRAM bar, the model count and the cache's age, **Scan** (reads the server's model folders and saved workflows into the cache) |
+| **Media models** | tabs image / video / audio / upscale; each row is a file with its family, precision and size (and a note: a 4-step LoRA, the high- or low-noise expert); encoders, LoRAs and VAEs of the same families sit under **supporting files** |
+| **Workflows** | Halo's starters and the workflows saved on the server; click one for the inputs a render can set (`*` marks a named input) |
+| **Render** | the workflow, its named inputs (prompt, negative, size, seed, steps) and every node input under a disclosure, the design project and the artboard; **Render** queues it (`202`), the `media_render` frames show its progress, and the result shows inline (it is also an artboard in Design; a render over an existing artboard is its next version) |
+
+While ComfyUI does not answer, the group is one card instead of four
+panels: where Studio looked, the error, and the fix (start ComfyUI, then
+`halo media init --url <its address>` or `COMFY_URL`, then **Check
+again**). The models tab is remembered in your browser
+(`halo.studio.media.tab`).
+
+## Flow and Media routes (3.0.4.0)
+
+The JSON routes behind the Flow and Media panels. Every one sits behind the
+same loopback, Host, Origin and bearer-token guard as the rest of `/api/`.
+Flow runs are `~/.halo/flows/runs/<id>/` ([FLOWS.md](FLOWS.md)); renders go
+to ComfyUI at `COMFY_URL`, the config's `comfy.url`, or
+`http://127.0.0.1:8188` ([COMFYUI.md](COMFYUI.md)).
+
+| Route | Answer |
+|---|---|
+| `GET flow/templates` | `[{name, source: template\|user\|project, steps: [{id, kind}], form, budget_usd, version, path}]` |
+| `GET flow/runs` | `[{run, name, status, created, cost_usd, project, budget_usd, live, waiting_step?}]`, newest first |
+| `POST flow/runs {template, intake: {brief, platforms, budget_usd, project}, model?, set?, yes?, start?}` | `201 {run, started, warnings}`; 422 with the validator's lines; 409 naming the live run. `set` is `{"render.width": 64}` or `{"render": {"width": 64}}`; `start: false` makes the run without starting it |
+| `GET flow/runs/<id>` | `{flow, steps, gate, report, posts, metrics_tail, artboards: [{id, kind, step, url, version, versions, file}], events, live, project}` |
+| `GET flow/runs/<id>/events?since=N` | `{events, next}` |
+| `POST flow/runs/<id>/assets {name, data_base64}` | `201 {name, size, kind, path, rel, project, intake}` into the project's `assets/` (15 MB); a run not started yet also gets the file in its intake |
+| `POST flow/runs/<id>/stop {reason?}` / `resume {model?, yes?}` | `{ok, live}` / `{run, started}`; resuming a finished run is a 409 |
+| `POST flow/runs/<id>/answer {step, action: accept\|redo\|stop, instruction?, round?}` | `{ok, message, gate}`; 422 when no gate is open at that step or the round is stale |
+| `GET flow/runs/<id>/report` / `posts?all=1` / `metrics?limit=N` | report.json (404 until it exists) / `{posts}` / `{metrics}` |
+| `GET media/status` | `{url, reachable, version, python, pytorch, gpus, registered, cache: {scanned, age_s, rows, workflows}, checked, age_s, checking}` |
+| `GET media/models?kind=image-gen\|video-gen\|audio-gen\|upscale\|all` | `{kind, rows, scanned, url}` from the cached inventory |
+| `POST media/scan` | `{rows, workflows, scanned, url}`: reads the server into the cache |
+| `GET media/workflows` | `{workflows: [{name, source: starter\|saved}], reachable, url}` (the cache's names when the server is down) |
+| `GET media/workflows/<name>/inputs?source=starter\|saved` | `{workflow, source, label, nodes}`: each node's settable inputs |
+| `POST media/render {workflow, set, project, artboard}` | `202 {prompt_id, project, artboard, workflow, source}`; the render goes on in the background |
+| `GET media/renders/<prompt id>` | the render's last state |
+
+A run started from Studio runs on a background thread with the real
+adapters. Its log reaches the live feed as `flow_state`, `flow_step`,
+`flow_gate`, `flow_post`, `flow_metric` and `flow_report` frames
+(`session_id: "flow:<run id>"`, data = the log line plus `run`). One flow
+run is live per Studio at a time. A render publishes `media_render` frames
+(`session_id: "media:<prompt id>"`, data `{prompt_id, state:
+queued|progress|done|error, text, project, artboard, workflow, artboards?,
+error?}`) and saves each output as an artboard of the design project. A
+render over an existing artboard becomes that artboard's next version.
+`media/status` refreshes in the background every 15 s and never holds a
+request for more than 2 s. An artboard's `url` is a `/design-files/` path.
+A `.mp4` is served as `video/mp4` with no sandbox directive.
 
 ## What you see (Roles)
 
@@ -158,6 +464,17 @@ glance's **stop** asks the runner to stop at its next step. Routes:
 - **The rail (left):** every lineup you can reach (shipped, user, project; the
   active one marked), and every agent bio. Drag a bio onto the canvas to add
   an assignment to the open lineup.
+- **The group boxes (3.0.4.0):** behind the cards, one labelled rounded box
+  per role in the lineup (Main, Workers, Researchers, Reviewers, Judges,
+  Custom roles ...; "Agents" for a card without one), tinted with that role's
+  band colour, the label and the count on a strip at its top. Drag the strip
+  to move the whole group; drop a card into another box and it takes that
+  role (Main stays one card); drop a bio from the rail into a box and it is
+  added in that role. `A` lays the groups out in rows (Main on top); a layout
+  saved before the boxes existed is laid out once when the boxes would
+  overlap. **Groups** in the toolbar hides them (`localStorage`
+  `halo-studio-groups`); without them `A` is the layered layout again.
+  Positions are kept in the same layout files as before.
 - **The canvas:** one card per assignment -- the agent name, its role and
   alias, the model that resolves for it with price and context from the
   catalog, its tool count, a scope badge and a status dot (green valid, amber
@@ -193,7 +510,11 @@ The **Roles | Org** toggle in the top bar (`R` / `O`) swaps the canvas to
 your company in [Paperclip](PAPERCLIP.md). Agents are cards (title, role,
 adapter, status, spend against budget), reporting lines are the edges, and
 dragging a card onto another makes it report there (a confirm, then a
-`PATCH` of the agent's `reportsTo`). The rail lists the agents and the
+`PATCH` of the agent's `reportsTo`). The cards sit in labelled boxes (3.0.4.0),
+one per manager's reports ("CEO's team", or the agent's `metadata.team`),
+the top level in **Leadership**; dropping a card into a box makes it report
+to that box's manager (into Leadership: to nobody), after the same confirm.
+The rail lists the agents and the
 company's goals and projects; the inspector has **Agent** (title, role,
 reports-to, budget; Wake, Pause / Resume, Terminate; the adapter it runs),
 **Issues** (the agent's issues, or all of them; create one, which wakes
@@ -330,7 +651,9 @@ role, else its agent):
 
 - **Drag a card onto another card.** The dragged member now reports to
   the card you dropped it on, and its edge moves there; drop it on the
-  starting box to hang it off main again.
+  starting box to hang it off main again. (Dropped into a group box
+  instead, away from any card, it joins that box: in Roles it takes the
+  box's role, in Org it reports to the box's manager.)
 - **The Reports-to field** in the Assignment tab: pick any other box, or
   blank for the starting box.
 
@@ -369,6 +692,22 @@ in the Lineup tab; a save that fails leaves the file untouched.
   missing or wrong token is a 403, and the loopback, Host and Origin checks
   are the same as for every other call. The token never leaves the machine
   and the response is `Cache-Control: no-store`.
+- **The sessions routes (3.0.4.0).** `GET /api/sessions` lists the live
+  sessions in `~/.halo/run/sessions.json`: `[{session_id, title, cwd, mode,
+  kind, started, pid, status: idle|busy|waiting|unknown, busy, pending,
+  model, status_age_s}]`. The status comes from each session's control
+  socket (1 s timeouts, asked side by side, cached 2 s; the request waits
+  at most 1.5 s). The endpoint and token are never returned. `POST
+  /api/sessions/<sid>/command {cmd: answer|interrupt|steer|submit, kind?,
+  request_id?, action?, instruction?, text?}` forwards one control-protocol
+  request ([REMOTE.md](REMOTE.md)) to that session over its socket, using
+  the token from the registry. That lets Studio answer a permission,
+  question, plan or org approval card in a running TUI session, steer it,
+  send it a prompt or interrupt it. The answers: `{ok, result}`, 404 for a
+  session not in the registry, 422 for another `cmd`, and 502 with the
+  socket's own error text (for example "no pending approval request"). It
+  sits behind the same bearer-token guard as every other route, so only the
+  page `halo studio` opened can use it.
 - No CDN, no fonts fetched, no analytics: the page is a handful of static
   files served from the package, under a strict content-security policy.
   The shell (`static/dist/`) gets `default-src 'self'; connect-src 'self'`
@@ -403,14 +742,33 @@ in your own browser.
 | `[` / `]` | hide the rail / the inspector |
 | `?` | the tour |
 
+These keys belong to the classic page (in the shell: once you clicked into
+it). The shell's own keys: `Alt+1`..`Alt+5` sections, `Ctrl`/`Cmd`+`K` the
+palette, `?` the focused panel's help (again, or away from a panel: How this
+works), `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel,
+`Esc` closes.
+
 ## Files
 
 `halo_harness/studio/server.py` (the server, the guard, the command),
 `events.py` (the live feed: the registry watcher and `/api/events`),
 `ui/` (the React shell's sources; see docs/DEVELOPMENT.md "Studio UI"),
 `static/dist/` (its committed build), `static/legacy/` (the classic page),
-`api.py` (the routes), `design_api.py` / `design_api_io.py` / `design_api_turns.py` / `design_files.py` (Design mode), `model.py` (the graph, the catalog rows, the session
+`api.py` (the routes), `flow_api.py` / `flow_model.py` / `flow_runs.py` (the Flow
+routes and the one live flow run), `media_api.py` / `media_render.py` (the ComfyUI
+routes and a render's background thread), `sessions_api.py` (the live sessions and
+their commands), `design_api.py` / `design_api_io.py` / `design_api_turns.py` / `design_files.py` (Design mode), `model.py` (the graph, the catalog rows, the session
 reader). Tests: `tests/test_studio_api.py`,
 `tests/test_studio_model.py`, `tests/test_studio_dist.py` (the build and
 its routes), `tests/test_studio_live.py` (the live feed),
-`tests/test_studio_ui.py` (headless Chrome over both pages).
+`tests/test_studio_flow_api.py` and `tests/test_studio_media_sessions.py` (the 3.0.4.0 routes),
+`tests/test_studio_ui.py` (headless Chrome over both pages; the Flow section
+through `tools/capture_studio.py --mode flow --dom`, the Orchestra Start
+view and grid through `--mode orchestra --dom` (tools/capture_orchestra.py),
+and clicks and keys through `tests/helpers/studio_clarity.py` over the
+DevTools protocol, `tests/helpers/cdp.py`). The Flow and Media
+panels are `ui/src/routes/flow/` and `ui/src/routes/media/`; the Orchestra
+Start view `ui/src/routes/orchestra/Start.tsx`; the help copy
+`ui/src/routes/sectionHelp.ts`, `help.ts` and `help-orchestra.ts`. The
+classic page's group boxes are `static/legacy/groups.js` (+ `groups.css`),
+its embedded mode `embed.js` (+ `embed.css`).

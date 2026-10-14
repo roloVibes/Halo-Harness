@@ -1,6 +1,6 @@
 """tests.test_design_crafts -- the craft apps as design engines (Halo
 3.0.1.0 round D4): discovery from a claude.json-shaped dict (user and
-project scope, case-insensitive, only the seven apps), the parsed configs,
+project scope, case-insensitive, only the craft apps), the parsed configs,
 a live probe over tests/helpers/fake_mcp_server.py registered under a craft
 name (connected, tools counted, the render tool reported missing because
 the fake does not have it), a dead command reported as failed, the doctor
@@ -73,7 +73,7 @@ def test_doctor_command(ctx: Ctx):
         with redirect_stdout(buf):
             rc = dcli.cmd_design(["doctor"])
         out = buf.getvalue()
-        ctx.check("doctor lists registration and hints at --probe", rc == 0 and "1 of 7 craft apps registered" in out and "--probe" in out)
+        ctx.check("doctor lists registration and hints at --probe", rc == 0 and "1 of 8 craft apps registered" in out and "--probe" in out)
         buf = io.StringIO()
         with redirect_stdout(buf):
             rc = dcli.cmd_design(["doctor", "--probe"])

@@ -123,7 +123,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         if n <= 0:
             return {}
-        if n > (22_000_000 if self.path.startswith("/api/design/") and self.path.endswith("/assets") else 4_000_000):  # a design asset is 15 MB base64
+        big = self.path.startswith(("/api/design/", "/api/flow/")) and urlsplit(self.path).path.endswith("/assets")
+        if n > (22_000_000 if big else 4_000_000):  # a design or flow asset is 15 MB base64
             raise ValueError("body too large")
         data = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
         return data if isinstance(data, dict) else {"value": data}
@@ -226,7 +227,7 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
     return server
 
 
-STUDIO_MODES = ("roles", "org", "design")
+STUDIO_MODES = ("roles", "org", "design", "orchestra", "flow")  # 3.0.4.0: the shell's sections too
 
 
 def url_for(server: _Server, mode: Optional[str] = None, legacy: bool = False) -> str:
@@ -262,7 +263,7 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 def cmd_studio(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: Roles (lineups and agent bios as a graph), Org (the company in Paperclip) and Design (artboards on your own apps).")
-    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, org or design (default: the mode you used last)")
+    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, org, design, orchestra or flow (default: the mode you used last)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")

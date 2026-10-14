@@ -234,7 +234,13 @@ id, title, `Alt+N` key and default `PanelSpec[]`); a panel is a
 `settings`, laid out by `lib/workspace/`; state lives in `lib/store.ts`
 (`useStore(studio, selector)`); the live feed is `lib/events.ts`
 (`onEvent(kind, fn)`); colours, motion and type come from
-`styles/tokens.css` and `styles/motion.css` -- add no raw colours.
+`styles/tokens.css` and `styles/motion.css` -- add no raw colours. A
+section may also give a `rail` block (Flow: its runs and flows) and a
+`view` drawn instead of the bare workspace (Flow: the Start view until a
+run is open); a PanelSpec may carry `about` (one line) and `help` (a few
+lines) and is `collapsed` (a strip) or `optional` (added by the palette)
+in the default arrangement. `tools/capture_studio.py --mode flow|media`
+renders the Flow captures over seeded runs.
 
 ## Coding rules
 

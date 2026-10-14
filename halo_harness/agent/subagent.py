@@ -892,6 +892,13 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
     # `_resolve_tool_call` for the same reason (parallel/sequential children's
     # own tool_use ids can collide).
     child._subagent_live_asks = bool(parent.interactive)
+    # Halo 3.0.4.0 (flows): an approval gate stays live at EVERY hop of an
+    # org tree -- `_subagent_live_asks` above only reaches the first hop (a
+    # grandchild's parent is a child, never interactive), so a position two
+    # levels down (the marketing org's Art Director) used to fall back to
+    # the stdin prompt. Approvals only: permission asks keep their own rule.
+    child._approvals_live = (bool(parent.interactive) or bool(getattr(parent, "_subagent_live_asks", False))
+                             or bool(getattr(parent, "_approvals_live", False)))
     child._permission_waiters = parent._permission_waiters
     child._question_waiters = parent._question_waiters
     # Halo 2.0.2 round D (brief item 2, "approval gates"): shared exactly
@@ -1666,6 +1673,7 @@ def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: s
         )
         if not live_asks_ok:
             child._subagent_live_asks = False
+            child._approvals_live = False
         since_index = len(child.log.nodes())
         runtime.live_children[agent_id] = child
         _write_meta(meta_path, {"task_id": new_task_id, "background": False,
@@ -1857,7 +1865,8 @@ def _apply_approval_gate(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str
     # interactive" down through however many org-position hops deep this
     # gate fires at (`_build_child_session` sets it from the SPAWNING
     # session's own `interactive`, propagated at every hop).
-    is_live = bool(getattr(parent, "interactive", False)) or bool(getattr(parent, "_subagent_live_asks", False))
+    is_live = (bool(getattr(parent, "interactive", False)) or bool(getattr(parent, "_subagent_live_asks", False))
+               or bool(getattr(parent, "_approvals_live", False)))
     if is_live and sink is not None:
         decision = _ask_approval_live(parent, sink, request_id, agent_id=agent_id, spec_name=spec.name,
                                         text=text, is_error=is_error)
@@ -2081,6 +2090,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # parameter.
     if not background and on_event is None:
         child._subagent_live_asks = False
+        child._approvals_live = False
     # 2.0.7 round 0c: the caller's child handle (see this function's own
     # docstring) -- before anything can fail, so a caller that wants to
     # forward steers always has it.

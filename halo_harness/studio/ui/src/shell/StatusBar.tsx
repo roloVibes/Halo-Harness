@@ -1,6 +1,8 @@
 // The status bar (a HudStrip): the live feed dot (green connected, amber
 // connecting or reconnecting, red unreachable; it ticks once per event), the
-// session and event counts, the section and its layout, and the keys.
+// session and event counts, the framed classic page's own status line (Roles,
+// Org, Design: the lineup's problems, the company, the project), the section
+// and its layout, and the keys.
 import { HudCell, HudStrip, Kbd } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
@@ -13,6 +15,8 @@ export function StatusBar() {
   const feed = useStore(studio, (s) => s.feed);
   const section = useStore(studio, (s) => s.section);
   const custom = useStore(layoutStore(section), (s) => s.custom);
+  const legacy = useStore(studio, (s) => s.legacy[s.section]);
+  const title = sectionDef(section).title;
   return (
     <HudStrip label="Status">
       <HudCell title="The live feed from every running halo session (/api/events)">
@@ -30,14 +34,21 @@ export function StatusBar() {
           {feed.lastKind ? ` · ${feed.lastKind}` : ""}
         </span>
       </HudCell>
-      <HudCell label="VIEW" grow>
+      {legacy && (
+        <HudCell label={title.toUpperCase()} grow title={legacy}>
+          <span className="mono legacy-status" data-testid="legacy-status">
+            {legacy}
+          </span>
+        </HudCell>
+      )}
+      <HudCell label="VIEW" grow={!legacy}>
         <span className="mono">
-          {sectionDef(section).title.toLowerCase()} · layout {custom ? "yours" : "default"}
+          {title.toLowerCase()} · layout {custom ? "yours" : "default"}
         </span>
       </HudCell>
       <HudCell>
         <span className="hud-keys">
-          <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+4" /> sections <Kbd keys="Esc" /> close
+          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+5" /> sections <Kbd keys="Esc" /> close
         </span>
       </HudCell>
     </HudStrip>

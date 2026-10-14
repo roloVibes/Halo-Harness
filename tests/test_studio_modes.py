@@ -72,6 +72,32 @@ def test_url_for_puts_the_mode_in_the_query_ahead_of_the_token(ctx: Ctx):
 
 
 @test
+def test_the_shell_has_five_sections_and_opens_flow_and_orchestra_by_mode(ctx: Ctx):
+    """3.0.4.0 R6: Flow is the fifth section (Alt+5); `halo studio --mode
+    flow|orchestra` (and `/studio flow`) put it in the query, and the shell
+    reads every section from `?mode=`."""
+    from halo_harness.providers.config import default_state_dir
+    state = Path(default_state_dir())
+    srv = studio_server.start_server(port=0, cwd=state.parent / "proj", state_dir=state)
+    try:
+        for mode in ("flow", "orchestra"):
+            url = studio_server.url_for(srv, mode)
+            ctx.check(f"--mode {mode} carries ?mode={mode} before #t=, got {url!r}", f"/?mode={mode}#t=" in url)
+    finally:
+        srv.server_close()
+    ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src"
+    routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
+    ctx.check("five sections, Flow on Alt+5", routes.count('kbd: "Alt+') == 5 and 'id: "flow", title: "Flow", kbd: "Alt+5"' in routes)
+    store = (ui / "lib" / "store.ts").read_text(encoding="utf-8")
+    ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|org|design|flow)" in store)
+    ctx.check("Alt+1..5 switch sections", "Digit[1-5]" in (ui / "shell" / "keys.ts").read_text(encoding="utf-8"))
+    facade = _facade()
+    with _NoBrowser():
+        out = _cmd_studio("flow url", facade)
+    ctx.check(f"/studio flow url names Flow and its URL, got {out!r}", "Flow:" in out and "?mode=flow#t=" in out)
+
+
+@test
 def test_slash_studio_roles_org_design_open_that_mode(ctx: Ctx):
     facade = _facade()
     with _NoBrowser() as nb:
@@ -113,7 +139,7 @@ def test_tui_bare_roles_and_org_route_to_the_gui(ctx: Ctx):
 @test
 def test_top_level_help_names_the_gui(ctx: Ctx):
     from halo_harness.cli import _build_parser
-    text = _build_parser().format_help()
+    text = " ".join(_build_parser().format_help().split())  # width-independent
     for word in ("studio", "design", "teams", "agents", "paperclip", "--mode roles|org|design", "/roles, /org and /design"):
         ctx.check(f"halo --help mentions {word!r}", word in text)
     for mod, fn in (("halo_harness.roles_cli", "cmd_roles"), ("halo_harness.teams_cli", "cmd_teams"), ("halo_harness.agents_cli", "cmd_agents")):
