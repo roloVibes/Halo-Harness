@@ -22,6 +22,7 @@ after the old one-at-a-time picker loop.
 
 from __future__ import annotations
 
+from halo_harness.tui.worker_guard import guarded_worker
 from pathlib import Path
 from typing import Optional
 
@@ -192,14 +193,14 @@ class InitTabsApp(App):
 
     def on_mount(self) -> None:
         if self._team_cfg_pending:
-            self.run_worker(self._team_cfg_worker, thread=True, name="init-team-config")
+            guarded_worker(self, self._team_cfg_worker, thread=True, name="init-team-config")
         # finding 4: the "claude" tab's own (spawning) state, resolved once
         # off the UI thread regardless of --no-live (a local subprocess
         # check, not a network "live" probe/catalog fetch).
-        self.run_worker(self._claude_state_worker, thread=True, name="init-tab-claude-state")
+        guarded_worker(self, self._claude_state_worker, thread=True, name="init-tab-claude-state")
         # Round 5i part 2: the `codex` tab's own (spawning) state, same
         # reasoning as the claude worker just above.
-        self.run_worker(self._codex_state_worker, thread=True, name="init-tab-codex-state")
+        guarded_worker(self, self._codex_state_worker, thread=True, name="init-tab-codex-state")
         if self._no_live:
             return  # finding 6: --no-live skips every reachability probe/catalog fetch below
         # A.3: the bounded background probe runs right away for whatever's
@@ -209,9 +210,9 @@ class InitTabsApp(App):
         # never re-derives it (finding 4).
         for provider in TAB_PROVIDERS:
             if provider not in ("claude", "codex") and self._state_cache[provider]["configured"]:
-                self.run_worker(lambda p=provider: self._probe_worker(p), thread=True, name=f"init-tab-probe-{provider}")
+                guarded_worker(self, lambda p=provider: self._probe_worker(p), thread=True, name=f"init-tab-probe-{provider}")
         if "ollama" in TAB_PROVIDERS or "huggingface" in TAB_PROVIDERS:
-            self.run_worker(self._detect_local_worker, thread=True, name="init-detect-local")
+            guarded_worker(self, self._detect_local_worker, thread=True, name="init-detect-local")
 
     def _detect_local_worker(self) -> None:
         from halo_harness.providers.local_models import detection_summary_lines
@@ -378,12 +379,12 @@ class InitTabsApp(App):
             # Moved to a thread=True worker + call_from_thread, same pattern
             # _claude_state_worker/_apply_claude_state already use for this
             # tab's own on_mount check.
-            self.run_worker(self._save_claude_worker, thread=True, name="init-tab-save-claude")
+            guarded_worker(self, self._save_claude_worker, thread=True, name="init-tab-save-claude")
             return
         if provider == "codex":
             # Round 5i part 2: the `codex` tab's own counterpart -- same
             # off-the-UI-thread reasoning as the claude branch just above.
-            self.run_worker(self._save_codex_worker, thread=True, name="init-tab-save-codex")
+            guarded_worker(self, self._save_codex_worker, thread=True, name="init-tab-save-codex")
             return
         from halo_harness.init_providers import save_tab_credentials
         values = self._collect_values(provider)
@@ -424,7 +425,7 @@ class InitTabsApp(App):
             self.query_one(f"#{provider}-reach", Static).update("reachability: checking…")
         except Exception:
             pass
-        self.run_worker(lambda: self._finish_tab_worker(provider), thread=True, name=f"init-tab-save-{provider}")
+        guarded_worker(self, lambda: self._finish_tab_worker(provider), thread=True, name=f"init-tab-save-{provider}")
 
     def _save_claude_worker(self) -> None:
         """M3 (1.0.1 final pass): the "claude" tab's own "Check login"
@@ -469,7 +470,7 @@ class InitTabsApp(App):
             self.query_one("#claude-reach", Static).update("reachability: checking…")
         except Exception:
             pass
-        self.run_worker(lambda: self._finish_tab_worker("claude"), thread=True, name="init-tab-save-claude-finish")
+        guarded_worker(self, lambda: self._finish_tab_worker("claude"), thread=True, name="init-tab-save-claude-finish")
 
     def _save_codex_worker(self) -> None:
         """The `codex` tab's own counterpart of `_save_claude_worker` --
@@ -505,7 +506,7 @@ class InitTabsApp(App):
             self.query_one("#codex-reach", Static).update("reachability: checking…")
         except Exception:
             pass
-        self.run_worker(lambda: self._finish_tab_worker("codex"), thread=True, name="init-tab-save-codex-finish")
+        guarded_worker(self, lambda: self._finish_tab_worker("codex"), thread=True, name="init-tab-save-codex-finish")
 
     def _probe_worker(self, provider: str) -> None:
         from halo_harness.providers.reachability import reachability_tag

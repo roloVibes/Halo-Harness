@@ -190,9 +190,10 @@ def verify_signature(archive: Path, sig: Optional[Path], runner: Callable = subp
         return "no-signature", "no .asc file was downloaded"
     if shutil.which("gpg") is None:
         return "no-gpg", "gpg is not installed, so the .asc was not checked"
+    from halo_harness.remote.cli_common import child_env  # provider keys never reach a third-party child
     try:
         res = runner(["gpg", "--status-fd", "1", "--verify", str(sig), str(archive)], capture_output=True, text=True,
-                     timeout=60)
+                     timeout=60, env=child_env())
     except (OSError, subprocess.SubprocessError) as e:
         return "unverified", f"gpg could not run: {e}"
     out = (res.stderr or "") + (res.stdout or "")

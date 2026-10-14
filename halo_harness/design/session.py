@@ -85,6 +85,46 @@ def _cost_of(line: dict) -> Optional[float]:
     return None
 
 
+MAX_PROMPT_BYTES = 1_000_000  # UTF-8 bytes; the prompt travels on stdin (halo -p caps stdin at 10 MB), never in argv
+
+
+def _stdin_prompt(prompt: str) -> str:
+    """The prompt as the child's stdin, capped in UTF-8 bytes on a whole
+    character. One argv string is capped by the OS (131072 bytes on Linux,
+    E2BIG), so the prompt never goes in argv."""
+    raw = str(prompt).encode("utf-8")
+    if len(raw) <= MAX_PROMPT_BYTES:
+        return str(prompt)
+    return raw[:MAX_PROMPT_BYTES].decode("utf-8", "ignore")
+
+
+def _call_runner(runner: Callable, cmd: list, cwd: str, env: dict, handle: Callable, stdin_text: str) -> int:
+    """A test runner gets the stdin text as `stdin=` when it takes it."""
+    import inspect
+    try:
+        params = inspect.signature(runner).parameters.values()
+        takes = any(p.name == "stdin" or p.kind is inspect.Parameter.VAR_KEYWORD for p in params)
+    except (TypeError, ValueError):
+        takes = False
+    return runner(cmd, cwd, env, handle, stdin=stdin_text) if takes else runner(cmd, cwd, env, handle)
+
+
+def _feed_stdin(proc, text: str) -> None:
+    """Write the prompt on a helper thread so a large prompt never blocks
+    the stdout pump, then close stdin so the child sees EOF."""
+    def write() -> None:
+        try:
+            proc.stdin.write(text)
+        except (OSError, ValueError):
+            pass
+        finally:
+            try:
+                proc.stdin.close()
+            except (OSError, ValueError):
+                pass
+    threading.Thread(target=write, daemon=True).start()
+
+
 def _temp(prefix: str, suffix: str, text: str) -> Path:
     fd, name = tempfile.mkstemp(prefix=prefix, suffix=suffix)
     os.close(fd)  # Windows keeps an open handle from unlinking the file afterwards
@@ -147,7 +187,8 @@ def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Option
     skill_path = _temp("halo-design-skill-", ".md", skill_text(project, registered))
     mcp_path = _temp("halo-design-mcp-", ".json", json.dumps({"mcpServers": entries}, indent=1))
     model = model or str(project.meta().get("model") or "")
-    cmd = [sys.executable, "-m", "halo_harness", "-p", prompt, "--cwd", str(project.path), "--output-format", "stream-json",
+    stdin_text = _stdin_prompt(prompt)
+    cmd = [sys.executable, "-m", "halo_harness", "-p", "--cwd", str(project.path), "--output-format", "stream-json",
            "--permission-mode", "auto", "--append-system-prompt-file", str(skill_path),
            "--mcp-config", str(mcp_path), "--strict-mcp-config",
            "--tools", tools_override or crafts.allowed_tools(registered), "--max-turns", str(max_turns), "--no-intro"]
@@ -181,10 +222,11 @@ def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Option
 
     try:
         if runner is not None:
-            code = runner(cmd, str(project.path), child_env, handle)
+            code = _call_runner(runner, cmd, str(project.path), child_env, handle, stdin_text)
         else:
-            proc = subprocess.Popen(cmd, cwd=str(project.path), env=child_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    encoding="utf-8", errors="replace")
+            proc = subprocess.Popen(cmd, cwd=str(project.path), env=child_env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, encoding="utf-8", errors="replace")
+            _feed_stdin(proc, stdin_text)
             code = _pump(proc, handle, timeout)
     finally:
         for p in (skill_path, mcp_path):

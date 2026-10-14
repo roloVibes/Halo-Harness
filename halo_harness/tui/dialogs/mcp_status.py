@@ -29,6 +29,7 @@ on, and the key legend is always visible at the bottom.
 
 from __future__ import annotations
 
+from halo_harness.tui.worker_guard import guarded_worker
 import os
 import threading
 from typing import Callable, Optional
@@ -289,7 +290,7 @@ class McpStatus(ModalScreen):
             except Exception as e:
                 lines = [f"reconnect all failed: {type(e).__name__}: {e}"]
             self.app.call_from_thread(self._apply_bulk_result, lines)
-        self.run_worker(_worker, thread=True, name="mcp-reconnect-all")
+        guarded_worker(self, _worker, thread=True, name="mcp-reconnect-all")
 
     def _run_action_async(self, fn: Optional[Callable], *, verb: str, name: Optional[str] = None) -> None:
         if fn is None or self._busy_abort is not None:
@@ -323,7 +324,7 @@ class McpStatus(ModalScreen):
                 lines = [f"{name}: {type(e).__name__}: {e}"]
             self.app.call_from_thread(self._apply_result, name, index, lines)
 
-        self.run_worker(_worker, thread=True, name=f"mcp-{verb.lower()}-{name}")
+        guarded_worker(self, _worker, thread=True, name=f"mcp-{verb.lower()}-{name}")
 
     def _apply_result(self, name: str, index: int, lines) -> None:
         self._busy_abort = None

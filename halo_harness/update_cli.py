@@ -190,6 +190,14 @@ def cmd_update(argv: "list[str]") -> int:
     # (or a --to was asked for) and this is a --check: an apply prints "running: ..." itself,
     # and an up-to-date install has nothing to run.
     _print_report(build, avail, lines, count, cmd, ordering=ordering, show_cmd=bool(args.check and (code == 10 or args.to)))
+    if channel == "stable":
+        # Review item 81: an install made from the release archive is
+        # compared with that release's checksums.txt; a git or checkout
+        # install kept no archive and prints nothing here.
+        from halo_harness.update_artifact import check_installed_artifact, report_line
+        artifact_line = report_line(check_installed_artifact())
+        if artifact_line:
+            print(artifact_line)
     if args.check:
         return code
     if code == 0:

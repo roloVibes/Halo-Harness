@@ -681,8 +681,8 @@ same as `/studio design`; `/design url` prints the URL only. The command
 family on the shell is `halo design` ([DESIGN.md](DESIGN.md)).
 
 ### `/level` `[on|off]`
-Halo 2.0.11: toggles the game themes' level band -- the three-row scene
-above the prompt that DOOM, Metroid and Mario draw (a hero, scrolling
+Halo 2.0.11: toggles the game themes' level band -- the eight-row scene
+above the prompt that every game theme draws (a hero, scrolling
 scenery, an enemy that crosses while the model thinks; see HANDBOOK
 "The level band"). Bare `/level` flips it, `on`/`off` sets it; persisted as
 `theme_scene` in `~/.halo/config.json`, applied at once in the TUI. The

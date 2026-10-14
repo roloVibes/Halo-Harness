@@ -51,6 +51,7 @@ in test_tui.py keeps passing unchanged.
 
 from __future__ import annotations
 
+from halo_harness.tui.worker_guard import guarded_worker
 import shutil
 import sys
 from dataclasses import dataclass, field
@@ -518,16 +519,16 @@ class ProvidersStep(StepScreen):
 
     def on_mount(self) -> None:
         if self._team_cfg_pending:
-            self.run_worker(self._team_cfg_worker, thread=True, name="wiz-init-team-config")
-        self.run_worker(self._claude_state_worker, thread=True, name="wiz-init-tab-claude-state")
-        self.run_worker(self._codex_state_worker, thread=True, name="wiz-init-tab-codex-state")
+            guarded_worker(self, self._team_cfg_worker, thread=True, name="wiz-init-team-config")
+        guarded_worker(self, self._claude_state_worker, thread=True, name="wiz-init-tab-claude-state")
+        guarded_worker(self, self._codex_state_worker, thread=True, name="wiz-init-tab-codex-state")
         if self.state.no_live:
             return
         for provider in TAB_PROVIDERS:
             if provider not in ("claude", "codex") and self._state_cache[provider]["configured"]:
-                self.run_worker(lambda p=provider: self._probe_worker(p), thread=True, name=f"wiz-init-probe-{provider}")
+                guarded_worker(self, lambda p=provider: self._probe_worker(p), thread=True, name=f"wiz-init-probe-{provider}")
         if "ollama" in TAB_PROVIDERS or "huggingface" in TAB_PROVIDERS:
-            self.run_worker(self._detect_local_worker, thread=True, name="wiz-init-detect-local")
+            guarded_worker(self, self._detect_local_worker, thread=True, name="wiz-init-detect-local")
 
     def _detect_local_worker(self) -> None:
         from halo_harness.providers.local_models import detection_summary_lines
@@ -687,10 +688,10 @@ class ProvidersStep(StepScreen):
 
     def _save(self, provider: str) -> None:
         if provider == "claude":
-            self.run_worker(self._save_claude_worker, thread=True, name="wiz-save-claude")
+            guarded_worker(self, self._save_claude_worker, thread=True, name="wiz-save-claude")
             return
         if provider == "codex":
-            self.run_worker(self._save_codex_worker, thread=True, name="wiz-save-codex")
+            guarded_worker(self, self._save_codex_worker, thread=True, name="wiz-save-codex")
             return
         from halo_harness.init_providers import save_tab_credentials
         values = self._collect_values(provider)
@@ -719,7 +720,7 @@ class ProvidersStep(StepScreen):
             self.query_one(f"#wiz-{provider}-reach", Static).update("reachability: checking…")
         except Exception:
             pass
-        self.run_worker(lambda: self._finish_tab_worker(provider), thread=True, name=f"wiz-finish-tab-{provider}")
+        guarded_worker(self, lambda: self._finish_tab_worker(provider), thread=True, name=f"wiz-finish-tab-{provider}")
 
     def _save_claude_worker(self) -> None:
         from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
@@ -753,7 +754,7 @@ class ProvidersStep(StepScreen):
             self.query_one("#wiz-claude-reach", Static).update("reachability: checking…")
         except Exception:
             pass
-        self.run_worker(lambda: self._finish_tab_worker("claude"), thread=True, name="wiz-finish-tab-claude")
+        guarded_worker(self, lambda: self._finish_tab_worker("claude"), thread=True, name="wiz-finish-tab-claude")
 
     def _save_codex_worker(self) -> None:
         """The `codex` tab's own counterpart of `_save_claude_worker` --
@@ -789,7 +790,7 @@ class ProvidersStep(StepScreen):
             self.query_one("#wiz-codex-reach", Static).update("reachability: checking…")
         except Exception:
             pass
-        self.run_worker(lambda: self._finish_tab_worker("codex"), thread=True, name="wiz-finish-tab-codex")
+        guarded_worker(self, lambda: self._finish_tab_worker("codex"), thread=True, name="wiz-finish-tab-codex")
 
     def _probe_worker(self, provider: str) -> None:
         from halo_harness.providers.reachability import reachability_tag
@@ -844,7 +845,7 @@ class ProvidersStep(StepScreen):
         overlay = self._collect_env_overlay()
         screen = _EnumeratingScreen()
         self.app.push_screen(screen)
-        self.run_worker(lambda: self._enumeration_worker(overlay, screen), thread=True,
+        guarded_worker(self, lambda: self._enumeration_worker(overlay, screen), thread=True,
                          name="wiz-enumerate-models", group="wiz-enumerate-models")
 
     def _collect_env_overlay(self) -> dict:
@@ -953,7 +954,7 @@ class LocalModelsStep(StepScreen):
         ]
 
     def on_mount(self) -> None:
-        self.run_worker(self._detect_worker, thread=True, name="wiz-local-detect")
+        guarded_worker(self, self._detect_worker, thread=True, name="wiz-local-detect")
 
     def _detect_worker(self) -> None:
         from halo_harness.providers.local_models import detection_summary_lines
@@ -1477,7 +1478,7 @@ class OrgsStep(StepScreen):
 
     def _open_editor(self) -> None:
         name = self._highlighted_org_name() or "custom"
-        self.run_worker(lambda: self._editor_worker(name), thread=True, name="wiz-orgs-editor")
+        guarded_worker(self, lambda: self._editor_worker(name), thread=True, name="wiz-orgs-editor")
 
     def _editor_worker(self, name: str) -> None:
         from halo_harness.orgs import load_org
@@ -1631,7 +1632,7 @@ class SummaryStep(StepScreen):
         return widgets
 
     def on_mount(self) -> None:
-        self.run_worker(self._run_checks_worker, thread=True, name="wiz-summary-checks")
+        guarded_worker(self, self._run_checks_worker, thread=True, name="wiz-summary-checks")
 
     def on_option_list_option_selected(self, event) -> None:
         if event.option_list.id == "wiz-summary-change-list" and event.option_id:
