@@ -27,6 +27,7 @@ class Request:
     cwd: Path
     state_dir: Path
     params: dict = field(default_factory=dict)
+    server: object = None  # 3.0.3.0: the HTTP server (its live-feed bridge), None outside one
 
     @property
     def project(self) -> bool:
@@ -271,6 +272,9 @@ def dispatch(req: Request):
     if req.path == "design" or req.path.startswith("design/"):  # 3.0.1.0: Design mode routes
         from halo_harness.studio.design_api import dispatch_design
         return dispatch_design(req)
+    if req.path == "orchestra" or req.path.startswith("orchestra/"):  # 3.0.3.0: the Orchestra run console
+        from halo_harness.studio.orchestra_api import dispatch_orchestra
+        return dispatch_orchestra(req)
     for method, pattern, fn in ROUTES:
         m = re.match(pattern, req.path)
         if m and method == req.method:

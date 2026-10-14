@@ -145,7 +145,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except ValueError as e:
             self._json(400, {"error": f"bad JSON body: {e}"})
             return
-        req = Request(method=method, path=path, query=query, body=body, cwd=self.server.cwd, state_dir=self.server.state_dir)
+        req = Request(method=method, path=path, query=query, body=body, cwd=self.server.cwd, state_dir=self.server.state_dir,
+                      server=self.server)
         try:
             status, obj = dispatch(req)
         except Exception as e:  # a handler bug must never take the server down
