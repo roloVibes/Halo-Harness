@@ -264,6 +264,11 @@ ROUTES: list = [
 ]
 
 
+_PREFIXES = (("flow", "halo_harness.studio.flow_api", "dispatch_flow"),
+             ("media", "halo_harness.studio.media_api", "dispatch_media"),
+             ("sessions", "halo_harness.studio.sessions_api", "dispatch_sessions"))
+
+
 def dispatch(req: Request):
     """Route `req` (path without the /api/ prefix) to its handler."""
     if req.path == "pc" or req.path.startswith("pc/"):  # 2.2.0: Org mode (Paperclip) routes
@@ -275,6 +280,10 @@ def dispatch(req: Request):
     if req.path == "orchestra" or req.path.startswith("orchestra/"):  # 3.0.3.0: the Orchestra run console
         from halo_harness.studio.orchestra_api import dispatch_orchestra
         return dispatch_orchestra(req)
+    for prefix, module, fn in _PREFIXES:  # 3.0.4.0: flows, ComfyUI media, the live sessions
+        if req.path == prefix or req.path.startswith(prefix + "/"):
+            import importlib
+            return getattr(importlib.import_module(module), fn)(req)
     for method, pattern, fn in ROUTES:
         m = re.match(pattern, req.path)
         if m and method == req.method:

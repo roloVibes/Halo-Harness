@@ -163,6 +163,30 @@ posts:create -c <text> -m <media> -i <integration id>`). The text is the
 Copywriter's block for that platform (a heading per platform), else the
 whole text.
 
+## In Studio
+
+`halo studio` serves the runs under `/api/flow/`. The full table is in
+[STUDIO.md, "Flow and Media routes"](STUDIO.md#flow-and-media-routes-3040).
+
+    GET  flow/templates                  the shipped, user and project flows: steps and the intake form
+    GET  flow/runs                       the runs, newest first (waiting_step when a gate is open)
+    POST flow/runs {template, intake, model?, set?, yes?, start?}   201 {run}; 409 while another run is live
+    GET  flow/runs/<id>                  flow.json, steps/<n>.json, the open gate, report, posts, metrics, artboards
+    GET  flow/runs/<id>/events?since=N   {events, next}
+    POST flow/runs/<id>/assets {name, data_base64}   into the project's assets/
+    POST flow/runs/<id>/stop | resume
+    POST flow/runs/<id>/answer {step, action, instruction?, round?}   writes steps/<n>.answer.json
+    GET  flow/runs/<id>/report | posts | metrics?limit=N
+
+A run started from Studio runs on a background thread of the Studio
+process with the real adapters (the same as `halo flow run`). Its log
+lines reach the live feed as `flow_<kind>` frames with `session_id:
+"flow:<run id>"`. The answer route writes the same answer file as `halo
+flow answer`, so a gate opened by a CLI run can be answered from Studio
+too, and the other way round. To start a run with uploaded files, post
+`start: false`, upload each file to `assets`, then post `resume`. The
+intake step then finds the files in the project's `assets/` folder.
+
 ## For the next rounds
 
 R4 (Postiz) fills `post` with `live: true` (the `argv` above, run for real,
