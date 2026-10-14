@@ -78,7 +78,7 @@ def test_guard_token_origin_and_static(ctx: Ctx):
         ctx.check("the page carries a content-security policy and nosniff",
                   "default-src 'self'" in headers.get("Content-Security-Policy", "") and headers.get("X-Content-Type-Options") == "nosniff")
         ctx.check("every static file the page names is served",
-                  all(s.call("GET", "/" + f, raw=True)[0] == 200 for f in ("studio.css", "api.js", "canvas.js", "inspector.js", "bio-form.js", "palette.js", "app.js")))
+                  all(s.call("GET", "/legacy/" + f, raw=True)[0] == 200 for f in ("studio.css", "api.js", "canvas.js", "inspector.js", "bio-form.js", "palette.js", "app.js")))
         ctx.check("a path outside static is refused", s.call("GET", "/../server.py", raw=True)[0] == 404)
         ctx.check("no token is a 401", s.call("GET", "/api/state", token="")[0] == 401)
         ctx.check("a wrong token is a 401", s.call("GET", "/api/state", token="nope")[0] == 401)

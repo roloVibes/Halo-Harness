@@ -95,7 +95,7 @@ def test_status_proxy_sync_pull_and_link(ctx: Ctx):
 def test_org_capture_tool_flags(ctx: Ctx):
     text = (Path(__file__).resolve().parent.parent / "tools" / "capture_studio.py").read_text(encoding="utf-8")
     ctx.check("the capture tool has an --org mode over the fake Paperclip", "--org" in text and "FakePaperclip" in text)
-    page = (Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "static" / "index.html").read_text(encoding="utf-8")
+    page = (Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "static" / "legacy" / "index.html").read_text(encoding="utf-8")
     ctx.check("the page carries the Roles | Org toggle and org.js", 'data-mode="org"' in page and "org.js" in page)
 
 

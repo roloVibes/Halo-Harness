@@ -138,14 +138,14 @@ def test_system_prompt_tells_the_model_about_studio(ctx: Ctx):
 
 @test
 def test_page_honours_mode_query_over_the_saved_mode(ctx: Ctx):
-    js = (REPO_DIR / "halo_harness" / "studio" / "static" / "app.js").read_text(encoding="utf-8")
+    js = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "app.js").read_text(encoding="utf-8")
     ctx.check("app.js reads ?mode=roles|org|design", "mode=(roles|org|design)" in js)
     ctx.check("the asked mode beats the saved one", "const mode = asked || saved;" in js)
 
 
 @test
 def test_model_picker_is_a_grouped_dropdown_of_the_whole_catalog(ctx: Ctx):
-    js = (REPO_DIR / "halo_harness" / "studio" / "static" / "inspector.js").read_text(encoding="utf-8")
+    js = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "inspector.js").read_text(encoding="utf-8")
     picker = js.split("function modelPicker(", 1)[1].split("function chips(", 1)[0]
     ctx.check("the picker is a <select> with <optgroup>s", "<select" in picker and "<optgroup" in picker)
     ctx.check("no row cap (the old popup showed the first 60 rows only)", "slice(0, 60)" not in js)

@@ -1,0 +1,26 @@
+{
+  "name": "halo-studio-ui",
+  "private": true,
+  "version": "3.0.3",
+  "description": "Halo Studio's React shell. The built bundle is committed under ../static/dist.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "4.7.0",
+    "typescript": "5.9.3",
+    "vite": "6.4.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

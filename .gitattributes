@@ -7,3 +7,5 @@ docs/screenshots/*.svg text eol=lf
 docs/media/*.svg text eol=lf
 docs/media/diagrams/*.svg text eol=lf
 docs/media/*.png binary
+halo_harness/studio/static/dist/* text eol=lf
+halo_harness/studio/ui/** text eol=lf
