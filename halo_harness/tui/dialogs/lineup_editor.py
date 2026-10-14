@@ -19,6 +19,7 @@ block instead of N separate inputs."""
 
 from __future__ import annotations
 
+from halo_harness.tui.worker_guard import guarded_worker
 from typing import Optional
 
 from textual.binding import Binding
@@ -695,7 +696,7 @@ class LineupEditor(ModalScreen):
             except Exception:
                 pass
         try:
-            self.run_worker(_work, thread=True, name="lineup-smoke", group="lineup-smoke")
+            guarded_worker(self, _work, thread=True, name="lineup-smoke", group="lineup-smoke")
         except Exception:
             pass
 

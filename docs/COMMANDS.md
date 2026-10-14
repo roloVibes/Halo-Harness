@@ -1112,7 +1112,13 @@ release fails open with a warning, never blocking an explicitly
 requested update on a network blip). On the stable channel the target is
 the newest tag, so a plain `halo update` (no `--to`) is checked and
 installed at that tag; the check confirms the release carries a
-`checksums.txt`, it does not compare the installed source against it. See
+`checksums.txt`. On the stable channel the report also compares an install
+made FROM the release archive (`halo-harness-<version>.tar.gz`, recorded as
+`archive_info` in `direct_url.json`) with its release's `checksums.txt`
+(`installed archive: match` / `mismatch` / `no-hash` / `no-checksums`). A
+`git+https://...` install and a checkout install keep no archive (the
+installer builds a wheel from a clone), so for them there is nothing to
+hash and the report prints no such line. See
 "Update" in `docs/INSTALL.md` for the full walkthrough; `/update` inside
 the TUI is the same check with an update-and-restart dialog.
 

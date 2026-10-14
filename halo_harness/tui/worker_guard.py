@@ -33,6 +33,29 @@ def guard(app, work: Callable, label: str) -> Callable:
     return _guarded
 
 
+def guarded_worker(node, work: Callable, *, name: str = "", group: str = "default", exit_on_error=None,
+                   thread: bool = True, **kw):
+    """`node.run_worker(work, ...)` for a screen, widget or app, with a thread
+    worker that does not choose for itself guarded the same way
+    `BridgeApp.run_worker` guards the app's own: an exception becomes an error
+    notification and the app keeps running. Screens and widgets inherit
+    Textual's `exit_on_error=True` from `DOMNode.run_worker`, which never goes
+    through the app's override, so every dialog worker calls this instead."""
+    if exit_on_error is None:
+        exit_on_error = not thread
+        if thread:
+            work = guard(_app_of(node), work, name or group)
+    return node.run_worker(work, name=name, group=group, exit_on_error=exit_on_error, thread=thread, **kw)
+
+
+def _app_of(node):
+    try:
+        app = node.app
+    except Exception:  # no active app context (a node built outside a running app)
+        app = None
+    return app if app is not None else node
+
+
 def report(app, label: str, exc: BaseException) -> None:
     text = f"{label or 'A background task'} failed: {type(exc).__name__}: {exc}"
     try:

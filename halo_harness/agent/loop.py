@@ -2442,6 +2442,12 @@ class Session:
             from halo_harness.agent import cc_runtime
             cc_runtime.close_cc(self)
             self._cc_state = None
+        # A live `cx:` codex bridge holds the old conversation's thread id the
+        # same way; close it like /resume does (agent/session_switch.py).
+        if getattr(self, "_cx_state", None) is not None:
+            from halo_harness.agent import codex_runtime
+            codex_runtime.close_cx(self)
+            self._cx_state = None
         self._fire_session_end("clear")
         self._reset_prune_state()  # H5b finding 2: no old log left for these ids to refer to
         self.log = SessionLog(self.cwd)

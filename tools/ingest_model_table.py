@@ -251,14 +251,33 @@ def compile_row(model: dict, families: dict, host: str) -> "dict | None":
     }
 
 
-def main() -> int:
+def merge_sections(existing: dict, compiled: dict) -> dict:
+    """The compiled host tables replace the old ones; every other top-level
+    section the shipped table carries (`anthropic_model_capabilities`,
+    `decision_only_name_patterns`, `edit_hints`, and any added later) is
+    hand-authored, not in the report, and is kept as it is, in its place.
+    Inside a host table a row the report does not produce (added by hand)
+    is kept, and so is a field a compiled row does not carry; a field the
+    report does produce takes the report's value."""
+    out = dict(existing) if isinstance(existing, dict) else {}
+    for host, rows in compiled.items():
+        old_rows = out.get(host) if isinstance(out.get(host), dict) else {}
+        merged = dict(old_rows)
+        for alias, row in rows.items():
+            prev = old_rows.get(alias) if isinstance(old_rows.get(alias), dict) else {}
+            merged[alias] = {**row, **{k: v for k, v in prev.items() if k not in row}}
+        out[host] = merged
+    return out
+
+
+def main(report_path: Path = REPORT_PATH, out_path: Path = OUT_PATH) -> int:
     global GLOBAL_UNVERIFIED
-    data = extract_json_block(REPORT_PATH.read_text(encoding="utf-8"))
+    data = extract_json_block(Path(report_path).read_text(encoding="utf-8"))
     families = data["families"]
     models = data["models"]
     GLOBAL_UNVERIFIED = list(data.get("unverified") or [])
 
-    out: dict = {"openrouter": {}, "databricks": {}}
+    compiled: dict = {"openrouter": {}, "databricks": {}}
     row_count = 0
     for model in models:
         for host in ("openrouter", "databricks"):
@@ -266,12 +285,20 @@ def main() -> int:
             if row is None:
                 continue
             alias = model["aliases"][host]
-            out[host][alias] = row
+            compiled[host][alias] = row
             row_count += 1
 
-    OUT_PATH.write_text(json.dumps(out, indent=2, ensure_ascii=False, sort_keys=False) + "\n", encoding="utf-8")
+    out_path = Path(out_path)
+    try:
+        existing = json.loads(out_path.read_text(encoding="utf-8")) if out_path.is_file() else {}
+    except ValueError:
+        raise SystemExit(f"{out_path} is not valid JSON; fix it before re-running (its other sections are kept)")
+    out = merge_sections(existing, compiled)
+    out_path.write_text(json.dumps(out, indent=2, ensure_ascii=False, sort_keys=False) + "\n", encoding="utf-8")
+    kept = [k for k in out if k not in compiled]
     print(f"ingested {len(models)} model rows -> {row_count} (host, alias) rows "
-          f"({len(out['openrouter'])} openrouter, {len(out['databricks'])} databricks) -> {OUT_PATH}")
+          f"({len(compiled['openrouter'])} openrouter, {len(compiled['databricks'])} databricks) -> {out_path}"
+          + (f"; kept {', '.join(kept)}" if kept else ""))
     return 0
 
 
