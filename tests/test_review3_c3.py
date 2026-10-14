@@ -21,7 +21,7 @@ from tests.test_review3_c import _Studio  # noqa: E402  (scopes the state dir th
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-STATIC = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "static"
+STATIC = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "static" / "legacy"
 
 
 @test

@@ -93,6 +93,8 @@ async def handle_slash(app, name: str, args: str) -> None:
         "org": _handle_org,
         # Halo 2.0.2 round 3 (brief C item 1): same toggle Ctrl+T uses.
         "tasks": _handle_tasks,
+        # Halo 3.0.3.0: the latest Orchestra run's lanes, refreshed from its run log.
+        "orchestra": _handle_orchestra,
         # Halo 2.0.2 round 6: /update -- the check (git/network) runs on a
         # worker, never the UI thread; the dialog's own Enter is what
         # actually requests the quit-update-relaunch handoff (see
@@ -1328,6 +1330,12 @@ async def _handle_mcp(app, _args: str) -> None:
 
 async def _handle_tasks(app, _args: str) -> None:
     app.action_toggle_tasks()
+
+
+async def _handle_orchestra(app, args: str) -> None:
+    """`/orchestra [run]`: the panel over the run (the latest of this folder's repo)."""
+    from halo_harness.tui.dialogs.orchestra import OrchestraPanel, run_finder
+    app.push_screen(OrchestraPanel(run_finder(app.cwd, (args or "").strip() or None)))
 
 
 def _ollama_analyses(args: str) -> list:

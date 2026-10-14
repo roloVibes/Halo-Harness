@@ -2,7 +2,15 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|design-knob]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|design-knob|shell]
+
+3.0.3.0: roles/org/design render the classic page at /legacy/ (what the
+shell frames); `--mode shell` renders the React shell at / (Orchestra and
+Roles) and, with --dom, counts its data-testid values. R4: `--mode
+orchestra` seeds a finished Orchestra run (the R2 fixture: basket.py, five
+lanes, one judged conflict, the report) in a temp git repo, opens the shell's
+Orchestra section over it (docs/media/studio-orchestra.png) and, with --dom,
+counts the run console's data-testid values.
 """
 
 from __future__ import annotations
@@ -44,13 +52,26 @@ def seeded_home() -> Path:
     return state
 
 
-def serve(state: Path):
+def serve(state: Path, shell: bool = False, proj: "Path | None" = None):
     from halo_harness.studio.server import start_server, url_for
-    proj = state.parent / "project"  # an empty project dir: nothing resolves to project scope
+    proj = proj or state.parent / "project"  # an empty project dir: nothing resolves to project scope
     proj.mkdir(exist_ok=True)
     srv = start_server(port=0, cwd=proj, state_dir=state)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    return srv, url_for(srv).replace("/#t=", "/?tour=off#t=")
+    if shell:
+        return srv, url_for(srv).replace("/#t=", "/?mode=orchestra&feed=off#t=")  # an open EventSource stalls --virtual-time-budget
+    return srv, url_for(srv, legacy=True).replace("/index.html#t=", "/index.html?tour=off#t=")
+
+
+ORCH_IDS = ("orchestra-root", "orchestra-graph", "gate", "lane", "claim-region", "report-check", "grid-tile", "section-tab")
+
+
+def orchestra_counts(dom: str) -> dict:
+    return {k: dom.count(f'data-testid="{k}"') for k in ORCH_IDS}
+
+
+def shell_counts(dom: str) -> dict:
+    return {k: dom.count(f'data-testid="{k}"') for k in ("section-tab", "orchestra-root", "legacy-frame")}
 
 
 def chrome(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | None":
@@ -71,7 +92,7 @@ def main(argv: list) -> int:
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--org", action="store_true", help="Org mode over a fake Paperclip seeded with the halo-dev-cycle company")
-    parser.add_argument("--mode", choices=["roles", "org", "design", "design-knob"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), 1440x900; design-knob: the same with the Knobs tab open and Spacing moved to 48")
+    parser.add_argument("--mode", choices=["roles", "org", "design", "design-knob", "shell", "orchestra"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), 1440x900; design-knob: the same with the Knobs tab open and Spacing moved to 48")
     args = parser.parse_args(argv)
     args.org = args.org or args.mode == "org"
     design = args.mode in ("design", "design-knob")
@@ -98,12 +119,37 @@ def main(argv: list) -> int:
         sync_lineup(Paperclip(fake.base_url), fake.company["id"], "halo-dev-cycle", cwd=state.parent / "project", state_dir=state, out=open(os.devnull, "w"))
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-org.png"
-    srv, url = serve(state)
+    orch = args.mode == "orchestra"
+    repo = None
+    if orch:  # a finished run in a temp git repo, which is Studio's folder
+        from tests.helpers.orchestra_studio_rig import finished_run
+        repo, _run_dir = finished_run()
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-orchestra.png"
+    shell = args.mode in ("shell", "orchestra")
+    if args.mode == "shell" and args.out.endswith("studio.png"):
+        args.out = args.out[:-4] + "-shell.png"
+    srv, url = serve(state, shell, repo)
     if args.org:
         url = url.replace("?tour=off", "?tour=off&mode=org")
     if design:
         url = url.replace("?tour=off", "?tour=off&mode=design" + ("&dtab=knobs" if args.mode == "design-knob" else ""))
     try:
+        if args.dom and orch:
+            r = chrome(["--dump-dom", "--window-size=1500,900", url])
+            if r is None:
+                print("no Chrome found")
+                return 2
+            print(json.dumps(orchestra_counts(r.stdout)))
+            return 0
+        if args.dom and shell:  # the shell twice: Orchestra (the placeholder) and Roles (the framed classic page)
+            a, b = chrome(["--dump-dom", url]), chrome(["--dump-dom", url.replace("mode=orchestra", "mode=roles")])
+            if a is None or b is None:
+                print("no Chrome found")
+                return 2
+            print(json.dumps({"orchestra": shell_counts(a.stdout), "roles": shell_counts(b.stdout),
+                              "title": a.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in a.stdout else ""}))
+            return 0
         if args.dom:
             r = chrome(["--dump-dom", url])
             if r is None:
@@ -125,6 +171,9 @@ def main(argv: list) -> int:
         srv.server_close()
         if fake is not None:
             fake.close()
+        if repo is not None:
+            from tests.helpers.orchestra_studio_rig import cleanup
+            cleanup(repo)
         shutil.rmtree(state.parent, ignore_errors=True)
 
 

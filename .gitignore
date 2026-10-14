@@ -19,3 +19,6 @@ build/
 
 # A Windows shell-cache folder that an env-var mishap created in the checkout; never ours
 %SystemDrive%/
+
+# Studio UI (halo_harness/studio/ui): npm installs here, never committed
+node_modules/
