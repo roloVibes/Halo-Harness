@@ -153,8 +153,15 @@ def test_item152_workflow_is_least_privilege_pinned_and_hash_locked(ctx: Ctx):
         loose = [ln for ln in pip_lines if "--require-hashes" not in ln and "-e ." not in ln]
         ctx.check(f"no loose pip install in the job, got {loose}", not loose)
         editable = [ln for ln in pip_lines if "-e ." in ln]
+        # a job without an editable install (the studio-ui build job runs the
+        # tests from the checkout on PYTHONPATH) is fine; one that has it must
+        # resolve nothing
         ctx.check(f"the editable install resolves nothing, got {editable}",
-                  editable and all("--no-deps" in ln and "--no-build-isolation" in ln for ln in editable))
+                  all("--no-deps" in ln and "--no-build-isolation" in ln for ln in editable))
+    suites_jobs = [j for j in wf["jobs"].values() if "suites" in str(j.get("name", ""))]
+    ctx.check("the suites jobs install the package editable and hash-locked",
+              suites_jobs and all(any("-e ." in ln for s in j["steps"] for ln in str(s.get("run") or "").splitlines())
+                                  for j in suites_jobs))
     lock = (REPO / "requirements-ci.lock").read_text(encoding="utf-8")
     blocks = re.split(r"\n(?=[A-Za-z0-9_.-]+==)", lock)[1:]
     names = {b.split("==")[0].lower() for b in blocks}
