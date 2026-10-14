@@ -120,6 +120,15 @@ class ComfyClient:
     def models(self, folder: str) -> list:
         return list(self._json("GET", "/models/" + urllib.parse.quote(folder, safe="")) or [])
 
+    def model_sizes(self, folder: str) -> dict:
+        """{file: bytes} from `GET /experiment/models/<folder>`; {} when the server has no such route."""
+        try:
+            rows = self._json("GET", "/experiment/models/" + urllib.parse.quote(folder, safe=""))
+        except ComfyError:
+            return {}
+        return {str(r["name"]): int(r["size"]) for r in rows or [] if isinstance(r, dict) and "name" in r
+                and isinstance(r.get("size"), (int, float))}
+
     def object_info(self, node: Optional[str] = None) -> dict:
         path = "/object_info" + ("/" + urllib.parse.quote(node, safe="") if node else "")
         return self._json("GET", path, timeout=max(self.timeout, 120)) or {}

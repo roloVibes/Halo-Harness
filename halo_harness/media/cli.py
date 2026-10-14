@@ -4,7 +4,7 @@
     halo media doctor [--url U] [--smoke] [--timeout S]       server, model folders, workflows, the entry
     halo media serve                                         the MCP stdio server (what the entry runs)
     halo media inspect <workflow> [--json]                   a workflow's nodes and literal inputs
-    halo media models [image|video|audio]                    model files by folder
+    halo media models [image|video|audio]                    the model inventory by what each produces
     halo media workflows                                     saved workflows and the starters
 """
 
@@ -31,22 +31,9 @@ def _client(url: Optional[str] = None) -> ComfyClient:
 
 
 def cmd_models(modality: Optional[str], url: Optional[str] = None) -> int:
-    client = _client(url)
-    folders = client.model_folders()
-    from halo_harness.media.setup_cli import NON_MODEL_FOLDERS
-    wanted = [f for f in MODALITY_FOLDERS[modality] if f in folders] if modality else         [f for f in folders if f not in NON_MODEL_FOLDERS]
-    shown = 0
-    for f in wanted:
-        files = client.models(f)
-        if not files:
-            continue
-        shown += 1
-        print(f"{f} ({len(files)})")
-        for name in files:
-            print(f"  {name}")
-    if not shown:
-        print(f"no model files{' for ' + modality if modality else ''} on {client.url}")
-    return 0
+    """Rescan the server and print the media-model inventory (halo models --media's table)."""
+    from halo_harness.catalog_media_cli import cmd_media_inventory
+    return cmd_media_inventory(modality or "all", refresh=True, url=url or resolve_url())
 
 
 def cmd_workflows(url: Optional[str] = None) -> int:
@@ -109,7 +96,7 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("workflow", help="saved name, starter name or .json path")
     s.add_argument("--json", action="store_true", help="print JSON")
     s.add_argument("--url", help="the ComfyUI server to read from")
-    s = sub.add_parser("models", help="model files by folder")
+    s = sub.add_parser("models", help="the model inventory by what each model produces (also: halo models --media)")
     s.add_argument("modality", nargs="?", choices=sorted(MODALITY_FOLDERS), help="only the folders for this modality")
     s.add_argument("--url", help="the ComfyUI server to read from")
     s = sub.add_parser("workflows", help="saved workflows and the starters")

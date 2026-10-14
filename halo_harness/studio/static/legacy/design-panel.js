@@ -39,7 +39,7 @@
     body.appendChild(h(`<div class="section-head"><span>${esc(D.meta.name)}</span><span class="d-cost" title="Sum of every turn's cost">$${d.spent().toFixed(3)} · ${hist.length} turn(s)</span></div>`));
     const prompt = h(`<textarea class="d-prompt" rows="5" aria-label="Design prompt" placeholder="Describe what to make or change. Enter sends, Shift+Enter adds a line."></textarea>`);
     prompt.value = d.draft || "";
-    const model = d.modelSelect(""); model.options[0].textContent = `(project model: ${(D.meta.model || "default")})`;
+    const model = d.modelSelect("", true); model.options[0].textContent = `(project model: ${(D.meta.model || "default")})`;
     const budget = h(`<input type="number" min="0" step="0.5" placeholder="max $" aria-label="Budget in US dollars" class="d-budget">`);
     const run = h(`<button class="btn primary" id="d-run">Run turn</button>`);
     const go = async () => {
@@ -55,7 +55,7 @@
     const dirs = h(`<button class="btn" id="d-variants" title="Explore 3 directions of this prompt (V)"${d.live() ? " disabled" : ""}>3 directions</button>`);
     dirs.addEventListener("click", () => Promise.resolve(d.variants(3, { prompt: prompt.value, model: model.value, budget: parseFloat(budget.value) || undefined, base: base.value.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-") || undefined })).then(() => { if (!d.draft) prompt.value = ""; }));
     const crit = h(`<button class="btn" id="d-critique" title="A second model reviews the selected artboard (K)"${d.live() || !d.selected ? " disabled" : ""}>Critique ${esc(d.selected || "")}</button>`);
-    crit.addEventListener("click", () => d.critique(d.selected, model.value));
+    crit.addEventListener("click", () => d.critique(d.selected, d.llm(model.value)));
     const row2 = h(`<div class="d-runrow2"></div>`); row2.append(dirs, base, crit);
     body.append(prompt, row, row2, h(`<div id="d-events" class="d-events" aria-live="polite"></div>`));
     if (!D.artboards.length && !d.turn) body.appendChild(h(`<div class="hint">Try: ${d.suggestions.map((s, i) => `<button class="btn ghost d-sugg" data-i="${i}">${esc(s.slice(0, 44))}…</button>`).join(" ")}</div>`));

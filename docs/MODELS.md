@@ -126,6 +126,33 @@ canary. Studio's model pickers show the same facts as chips (vision, audio,
 video, files, image-out) and the Design mode opens its model pick on the
 `design` ranking.
 
+### Media models (Halo 3.0.4.0)
+
+Diffusion checkpoints, video models, upscalers, TTS voices and their LoRAs,
+VAEs and encoders are a different kind of asset from the models above, so
+they have their own inventory, keyed by what a model PRODUCES. They come from
+a ComfyUI server (see [COMFYUI.md](COMFYUI.md) "Inventory") and never appear in
+`/model`, the roles or the org tables: a `comfy:` ref is not an LLM.
+
+```sh
+halo models --media                   # image-gen, video-gen, upscale, tts + the supporting rows
+halo models --media video             # only video-gen and the loras, vaes and encoders of those families
+halo models --media --refresh         # rescan the server (COMFY_URL or comfy.url)
+halo models --best-for image-gen      # also: video-gen | audio-gen | upscale
+halo models --best-for video-gen      # the Wan rows, best first, one reason each
+```
+
+What is ranked: the generators (`image-gen`, `video-gen`, `upscale`, `tts`
+shown as `audio-gen`). A row scores its file size (a larger file is more
+parameters), its quantization (bf16, then fp16, fp8, int8) and a small bonus
+when a 4-step distill LoRA for the same family, mode (i2v, t2v, s2v) and noise
+expert is installed, shown as the `4-step` chip. What is only listed: LoRAs,
+VAEs, text, vision and audio encoders and everything else (`other`, such as a
+segmentation model); they are the parts a workflow loads next to a generator,
+never a choice of their own. Studio's Design chooser shows the generators as a
+second group, "Media models (ComfyUI)"; picking one adds a
+`(comfy_model: <file>)` hint to that turn's prompt and leaves the LLM as is.
+
 ### Subscription-routes consent (Halo 2.0.7 round 7b)
 
 The owner's own decision: "if Halo discovers subscription creds that

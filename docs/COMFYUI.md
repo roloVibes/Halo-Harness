@@ -111,6 +111,37 @@ halo media inspect "Image to video (smart fit)"
 the `set` keys: `comfy_run {"workflow": "Image to video (smart fit)", "set":
 {"3001.image": "start.png", "3050:93.text": "the subject turns and smiles"}}`.
 
+## Inventory
+
+Models on the server are listed by what they produce, not by folder:
+
+```sh
+halo models --media --refresh
+halo models --best-for video-gen
+```
+
+`--refresh` reads `GET /models/<folder>` (every folder except `custom_nodes`
+and `configs`), the file sizes from `GET /experiment/models/<folder>` and the
+node classes from `GET /object_info`, and writes `~/.halo/media-models.json`
+(`{"scanned", "url", "rows", "workflows"}`); the other commands read that
+cache. A row is `{ref: "comfy:<file>", provider: "comfyui", folder, file,
+kind, modalities_in, modalities_out, local, price_in_per_m: 0,
+price_out_per_m: 0, size_bytes, quant, family, notes}`.
+
+| kind | what lands there |
+|---|---|
+| `image-gen` | `diffusion_models` and `checkpoints` files, unless the name says video |
+| `video-gen` | the name says `i2v` (image in), `s2v` (audio in), `t2v`, `wan`, `SCAIL`, `ltx` and similar |
+| `upscale` | `upscale_models` and SeedVR |
+| `tts` | one row per `TTS/<engine>` folder, when the server has a TTS engine node (otherwise `other`) |
+| `lora`, `vae`, `encoder`, `other` | supporting rows: listed, never ranked |
+
+`quant` is read from the file name (bf16, fp16, fp8, int8, else `unknown`);
+`family` groups the parts of one model (`qwen-image`, `wan`, `seedvr`, `sam`).
+The Design model chooser shows the generators as "Media models (ComfyUI)"
+(`GET /api/design/models?media=1`), and `halo media models` prints the same
+table after a fresh scan. See [MODELS.md](MODELS.md) "Media models".
+
 ## In Halo Design
 
 Once registered, ComfyUI is listed by `halo design doctor` and taught to every

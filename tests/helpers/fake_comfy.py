@@ -1,7 +1,7 @@
 """tests.helpers.fake_comfy -- a stdlib stand-in for a ComfyUI 0.37 server
 (Halo 3.0.4.0 round R1) with the response shapes seen on a live one
-(2026-10-14): /system_stats, /models and /models/<folder> (the live file
-lists as a fixture), /object_info[/<node>] (the classes the starter
+(2026-10-14): /system_stats, /models, /models/<folder> and
+/experiment/models/<folder> (file sizes) (the live file lists as a fixture), /object_info[/<node>] (the classes the starter
 workflows use), /userdata?dir=workflows and /userdata/workflows%2F<name>
 (one UI-format fixture; GET and POST, 409 without overwrite), POST /prompt
 (records the graph, 400 with node_errors for an unknown class), /queue,
@@ -34,6 +34,7 @@ class FakeComfy:
     def __init__(self, *, pending_polls: int = 1):
         self.object_info = fixture("object_info.json")
         self.model_files = fixture("models.json")
+        self.model_sizes: dict = {}  # file name -> bytes for /experiment/models/<folder>; default 1 MB + name length
         self.workflows = {UI_NAME: fixture("ui_workflow.json"), "Second saved.json": fixture("ui_workflow.json")}
         self.prompts: list = []
         self.history: dict = {}
@@ -132,6 +133,12 @@ class FakeComfy:
                                                        "python_version": "3.12.10 (main)", "pytorch_version": "2.14.0+cu130"},
                                             "devices": [{"name": "cuda:0 Fake GPU", "type": "cuda", "index": 0,
                                                          "vram_total": 24 * 2**30, "vram_free": 22 * 2**30}]})
+                if path.startswith("/experiment/models/"):
+                    folder = path[len("/experiment/models/"):]
+                    if folder not in fake.model_files:
+                        return self._send(404, {"error": "no folder"})
+                    return self._send(200, [{"name": n, "pathIndex": 0, "size": fake.model_sizes.get(n, 1_000_000 + len(n))}
+                                            for n in fake.model_files[folder]])
                 if path == "/models":
                     return self._send(200, list(fake.model_files))
                 if path.startswith("/models/"):
