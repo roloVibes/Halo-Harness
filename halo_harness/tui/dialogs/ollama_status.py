@@ -10,6 +10,7 @@ off the UI thread via `app.run_worker`, never blocking the TUI.
 
 from __future__ import annotations
 
+from halo_harness.tui.worker_guard import guarded_worker
 from textual._context import NoActiveAppError
 from textual.binding import Binding
 from textual.containers import Vertical
@@ -64,7 +65,7 @@ class OllamaStatus(ModalScreen):
     def action_refresh(self) -> None:
         if self._refresh is None:
             return
-        self.app.run_worker(self._refresh_worker, thread=True, name="ollama-refresh", group="ollama-refresh")
+        guarded_worker(self.app, self._refresh_worker, thread=True, name="ollama-refresh", group="ollama-refresh")
 
     def _deliver(self, fn, *args) -> None:
         """Hand a thread worker's result to the UI thread. A dialog dismissed

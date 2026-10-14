@@ -14,6 +14,7 @@ stage order.
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -249,18 +250,43 @@ def layouts_dir(state_dir: Path) -> Path:
     return Path(state_dir) / "studio" / "layouts"
 
 
-def read_layout(state_dir: Path, name: str) -> dict:
-    p = layouts_dir(state_dir) / f"{name}.json"
+def layout_file_name(name: str) -> str:
+    """The file a layout lives in. An Org layout is named `pc:<company id>`,
+    and a colon in a file name makes an NTFS alternate data stream on
+    Windows, so `pc:<id>` is stored as `_pc-<id>.json`. The leading
+    underscore keeps it apart from every lineup layout (a valid layout name
+    starts with a letter or digit, so `pc-<id>` stays a lineup's own file)."""
+    return f"_{name.replace(':', '-')}.json" if ":" in name else f"{name}.json"
+
+
+def _read_json(p: Path):
     try:
-        return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+        return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else None
     except (OSError, ValueError):
-        return {}
+        return None
+
+
+def read_layout(state_dir: Path, name: str) -> dict:
+    d = layouts_dir(state_dir)
+    got = _read_json(d / layout_file_name(name))
+    if got is None and ":" in name and os.name != "nt":
+        # one-time fallback: a layout written as `pc:<id>.json` before the
+        # rename moves to the new file the first time it is read
+        old = d / f"{name}.json"
+        got = _read_json(old)
+        if isinstance(got, dict):
+            try:
+                write_layout(state_dir, name, got)
+                old.unlink()
+            except OSError:
+                pass
+    return got if isinstance(got, dict) else {}
 
 
 def write_layout(state_dir: Path, name: str, positions: dict) -> None:
     d = layouts_dir(state_dir)
     d.mkdir(parents=True, exist_ok=True)
-    (d / f"{name}.json").write_text(json.dumps(positions, indent=1), encoding="utf-8")
+    (d / layout_file_name(name)).write_text(json.dumps(positions, indent=1), encoding="utf-8")
 
 
 def _newest_session(state_dir: Path):

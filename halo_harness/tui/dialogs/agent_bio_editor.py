@@ -25,6 +25,7 @@ outside the form survive a round trip untouched".
 
 from __future__ import annotations
 
+from halo_harness.tui.worker_guard import guarded_worker
 from typing import Optional
 
 from textual.binding import Binding
@@ -662,7 +663,7 @@ class AgentBioEditor(ModalScreen):
             except Exception:
                 pass
         try:
-            self.run_worker(_work, thread=True, name="bio-try-it", group="bio-try-it")
+            guarded_worker(self, _work, thread=True, name="bio-try-it", group="bio-try-it")
         except Exception:
             pass
 

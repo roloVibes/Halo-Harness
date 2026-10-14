@@ -46,7 +46,8 @@ and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
   to** lines from the org section (dashed) and **pipeline** stage order
   (dotted). Pan by dragging, zoom with the wheel, `Shift`-drag to marquee-
   select, `A` lays the graph out again, `F` fits it. Positions are remembered
-  per lineup under `~/.halo/studio/layouts/`.
+  per lineup under `~/.halo/studio/layouts/` (an Org company's layout is
+  `_pc-<company id>.json` there, a name every file system accepts).
 - **The inspector (right):** *Assignment* (agent, role, alias, instances,
   `use_for`, a per-assignment model override), *Agent* (the bio behind the
   card: every section as typed fields, with the "about N turns at this
