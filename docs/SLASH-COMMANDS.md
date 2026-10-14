@@ -795,6 +795,14 @@ transcript viewer of the highlighted agent; Ctrl+T again, or Esc,
 closes it. Print mode has no panel, so it keeps the original plain-text
 background-jobs listing. See `docs/SUBAGENTS.md`.
 
+### `/orchestra [run]`
+Halo 3.0.3.0: the latest Orchestra run of this folder's repo (or the run
+named): its workflow steps, one row per worker lane (state, pieces sent
+back, cost, holder, title) and the last run log lines. In the TUI it is a
+panel like `/tasks` that refreshes when the run log grows (`r` refreshes,
+Esc closes); elsewhere the same text prints. Runs start with `halo
+orchestra new` and `halo orchestra run`. See `docs/ORCHESTRA.md`.
+
 ### `/rewind [step-id]` `[TUI-only]`
 Restores the working tree (every file a Write/Edit/NotebookEdit touched,
 shadow-copied step by step, plus every file a Bash command created or

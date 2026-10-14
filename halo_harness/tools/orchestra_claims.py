@@ -39,6 +39,26 @@ def _setup(ctx: ToolContext):
     return run_dir, holder_for(ctx.session_dir), ClaimLog(run_dir)
 
 
+def _snapshot(run_dir, holder: str, key: str, ctx: ToolContext) -> None:
+    """A worker lane keeps the unit's written text (the run's record-equals-disk check)."""
+    try:
+        from halo_harness.orchestra.workers import record_written
+        env = ctx.env if isinstance(ctx.env, dict) else {}
+        lane = env.get("HALO_ORCHESTRA_LANE") or os.environ.get("HALO_ORCHESTRA_LANE")
+        record_written(run_dir, holder, key, ctx.cwd, int(lane) if str(lane or "").isdigit() else None)
+    except (OSError, ValueError):
+        pass
+
+
+def _edited_since_release(log, key: str) -> bool:
+    """A `writing` line for `key` since its last release: an edit made under
+    this lane's earlier holder, carried over when the claim moved (a worker
+    run again after a failure re-claims and finds the unit already written)."""
+    ops = [e.get("op") for e in log.entries() if e.get("key") == key]
+    last_release = max((i for i, op in enumerate(ops) if op in ("release", "expire")), default=-1)
+    return "writing" in ops[last_release + 1:] and ops[-1] != "written"
+
+
 def _key_arg(input) -> Optional[str]:
     key = input.get("key") if isinstance(input, dict) else None
     return key.strip() if isinstance(key, str) and key.strip() else None
@@ -109,8 +129,11 @@ class OrchestraReleaseTool(Tool):
             return setup
         _, holder, log = setup
         current = log.active().get(key)
-        if current is not None and current.holder == holder and current.state == "writing":
+        if current is not None and current.holder == holder and (
+                current.state == "writing" or _edited_since_release(log, key)):
             log.mark_written(holder, key)
+        if current is not None and current.holder == holder:
+            _snapshot(setup[0], holder, key, ctx)
         result = log.release(holder, key)
         if not result.ok:
             return ToolResult(f"Not released: {result.text}. OrchestraClaims shows what you hold.", is_error=True)
