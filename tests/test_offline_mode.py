@@ -552,6 +552,12 @@ _ALLOWED_RAW_NETWORK_CALLERS = {
         "as mcp/oauth.py just above (the user's own server, not the model-provider/update/catalog "
         "surface), and the user explicitly asked for this one diagnostic run (`halo doctor --mcp deep`/ "
         "`D` in /mcp); not wired to the offline gate this round either",
+    "halo_harness/media/comfy_client.py":
+        "3.0.4.0 Media: the ComfyUI client talks to the user's OWN render server (loopback or a LAN "
+        "address such as the GPU box next door, registered by `halo media init --url`), the same "
+        "category as mcp/oauth.py and mcp/doctor_probe.py above -- never the model-provider/update/"
+        "catalog surface; it builds one opener with an empty ProxyHandler for a local host so an "
+        "HTTP(S)_PROXY meant for the internet never swallows a LAN render; not wired to the offline gate",
 }
 
 _RAW_NETWORK_RE = re.compile(
