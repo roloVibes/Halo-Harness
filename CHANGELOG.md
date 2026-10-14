@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.0.2.0] - unreleased
+## [3.0.2.0] - 2026-10-13
 
 ### The 3.0.1.0 review fix pass: 160 findings closed
 
