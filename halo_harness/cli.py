@@ -274,7 +274,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo", add_help=True,
         description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
-        epilog="Commands: init, studio, design, media, orchestra, teams, agents, roles, paperclip, models, mcp, proxy, "
+        epilog="Commands: init, studio, design, media, flow, orchestra, teams, agents, roles, paperclip, models, mcp, proxy, "
                "config, doctor, update, stats, review, preflight, subscriptions, audit, improve, export, "
                "completion (run `halo <command> --help`; `halo init` sets up a fresh box in one go). "
                "The GUI: `halo studio --mode roles|org|design` -- lineups and agent bios as a graph, "
@@ -525,6 +525,10 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.0.1.0: Halo Design -- projects, turns, systems, exports, the handoff.
         from halo_harness.design.cli import cmd_design
         return cmd_design(argv[1:])
+    if argv and argv[0] == "flow":
+        # 3.0.4.0: flows -- brief -> roles -> org -> ComfyUI render -> confirm -> post -> metrics.
+        from halo_harness.flows.cli import cmd_flow
+        return cmd_flow(argv[1:])
     if argv and argv[0] == "media":
         # 3.0.4.0: ComfyUI as the eighth craft app (init, doctor, serve, inspect, models, workflows).
         from halo_harness.media.cli import cmd_media

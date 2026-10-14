@@ -180,6 +180,19 @@ back to its shipped form, overwriting your local copy.
 - **`company`** -- `CEO` -> `VP Engineering`/`VP Marketing`/`VP Research`
   -> one manager each -> two workers each (13 positions, sensible
   built-in roles, empty `instructions` slots for you to fill in).
+- **`marketing`** (Halo 3.0.4.0, shipped as `halo_harness/templates/orgs/
+  marketing.json`, the org the `social-post` flow uses -- see
+  [FLOWS.md](FLOWS.md)) -- `Strategist` (role `planner`, the root: plans
+  the campaign from the goal and the platforms) -> `Researcher` (role
+  `researcher`, `WebFetch`/`WebSearch`), `Copywriter` (one post text per
+  platform), `Art Director` (`tools: ["mcp__comfyui__*", "Read"]`,
+  `requires_approval: true`, returns ONE image prompt as its final text),
+  `Publisher` (`Bash(postiz:*)`, dry-run only unless told the post is
+  live) and `Analyst` (reads the metrics). `budget_usd` 3.00 for the org,
+  0.20-0.80 per position. In a flow the Art Director's approval gate is a
+  flow gate (`halo flow answer`, or `--yes`); the gate stays live at every
+  hop of the tree, so a position two levels down asks the same way the
+  root does.
 
 ## Templates and installing
 
@@ -194,7 +207,7 @@ name for the first time.
 
 A template's source is either:
 
-- **shipped** -- the three built-ins above, each already carrying its
+- **shipped** -- the four built-ins above, each already carrying its
   own one-line README (its `description` field, the SAME one `/org
   list`/`halo org list` show for an installed org, and the wizard's
   Organizations step's own tree preview already renders); or

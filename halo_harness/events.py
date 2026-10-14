@@ -98,6 +98,11 @@ EVENT_KINDS = frozenset({
     # with the run log's own entry as data: {ts, elapsed_s, lane, kind,
     # text, data, run}. A UI with no handler for them simply ignores them.
     "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
+    # Halo 3.0.4.0 (flows): a flow run's step states, step results, human
+    # gates, dry-run posts, metrics and report, published by flows/state.py
+    # with the run log's own entry as data: {ts, elapsed_s, step, kind,
+    # text, data, run}.
+    "flow_state", "flow_step", "flow_gate", "flow_post", "flow_metric", "flow_report",
 })
 
 COMMAND_KINDS = frozenset({
