@@ -5,6 +5,8 @@ import "./styles/base.css";
 import "./styles/motion.css";
 import "./styles/shell.css";
 import "./styles/workspace.css";
+import "./styles/orchestra.css";
+import "./styles/orchestra-file.css";
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

@@ -1,0 +1,160 @@
+/* The Orchestra view (3.0.3.0 R4): goal, workflow graph, lanes, run grid.
+   Colours are the tokens only: the 10-step lane ramp below mixes the
+   accent, accent-2, ok, text and muted tokens (never amber or red, which
+   mean "needs you" and "failed"). Motion follows lib/motion's vocabulary:
+   working flows, waiting pulses amber, done is green and still. */
+
+[data-lc="0"] { --lane: var(--accent); }
+[data-lc="1"] { --lane: var(--accent-2); }
+[data-lc="2"] { --lane: var(--ok); }
+[data-lc="3"] { --lane: color-mix(in srgb, var(--accent) 50%, var(--accent-2)); }
+[data-lc="4"] { --lane: color-mix(in srgb, var(--accent) 50%, var(--ok)); }
+[data-lc="5"] { --lane: color-mix(in srgb, var(--accent-2) 50%, var(--ok)); }
+[data-lc="6"] { --lane: color-mix(in srgb, var(--accent) 65%, var(--text)); }
+[data-lc="7"] { --lane: color-mix(in srgb, var(--accent-2) 65%, var(--text)); }
+[data-lc="8"] { --lane: color-mix(in srgb, var(--ok) 60%, var(--text)); }
+[data-lc="9"] { --lane: color-mix(in srgb, var(--accent-2) 55%, var(--muted)); }
+
+.metric[data-tone="ok"] .metric-value { color: var(--ok); }
+.metric[data-tone="accent"] .metric-value { color: var(--accent); }
+.metric[data-tone="warn"] .metric-value { color: var(--warn); }
+.metric[data-tone="bad"] .metric-value { color: var(--bad); }
+.og-wait { padding: 8px 2px; font-size: 13px; }
+.og-link { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; font: inherit; text-decoration: underline; }
+.og-settings { display: grid; gap: 10px; }
+
+/* -- the run state badge ------------------------------------------------------- */
+.og-badge {
+  display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 99px; font-size: 10.5px; letter-spacing: .14em;
+  border: 1px solid var(--line-strong); color: var(--muted); overflow: hidden;
+}
+.og-badge[data-state="running"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.og-badge[data-state="finished"] { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.og-badge[data-state="stopped"] { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+.og-badge[data-state="interrupted"] { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+
+/* -- goal ------------------------------------------------------------------------ */
+.og-goal .glance-row { justify-content: space-between; align-items: flex-start; }
+.og-goal-numbers { gap: 18px; }
+.og-goal-numbers .metric-value { font-size: 26px; }
+.og-goal-card { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+.og-goal-field { display: grid; gap: 1px; }
+.og-goal-label { font-size: 9.5px; letter-spacing: .14em; color: var(--accent); }
+.og-goal-text { font-size: 13px; line-height: 1.35; }
+.og-goal-detail { display: grid; gap: 18px; }
+.og-form { display: grid; gap: 10px; }
+.og-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.og-text { resize: vertical; min-height: 38px; font: inherit; }
+.og-problems { margin: 0; padding: 8px 12px 8px 26px; border: 1px solid var(--bad); border-radius: var(--radius-sm); background: var(--bad-soft); font-size: 12.5px; }
+.og-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.og-runs ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.og-run {
+  width: 100%; display: grid; grid-template-columns: 10px auto 1fr; grid-template-rows: auto auto; gap: 2px 8px; align-items: center;
+  padding: 7px 9px; text-align: left; color: var(--text); background: transparent; border: 1px solid var(--line); border-radius: var(--radius-sm); cursor: pointer;
+}
+.og-run:hover { background: var(--accent-soft); }
+.og-run[aria-current="true"] { border-color: var(--accent); }
+.og-run > .muted { grid-column: 2 / span 2; font-size: 11px; }
+.og-run-id { font-size: 11.5px; }
+.og-run-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.og-run-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.og-run-dot[data-state="running"] { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.og-run-dot[data-state="finished"] { background: var(--ok); }
+.og-run-dot[data-state="stopped"] { background: var(--bad); }
+.og-run-dot[data-state="interrupted"] { background: var(--warn); }
+.og-run-dot::after { display: none; }
+
+/* -- workflow graph (SVG) ---------------------------------------------------------- */
+.og-graph-glance { height: 100%; grid-template-rows: auto minmax(0, 1fr); gap: 4px; }
+.og-graph-glance .metric-value { font-size: 24px; }
+.og-graph { display: block; width: 100%; height: 100%; min-height: 110px; }
+.og-graph-detail { display: grid; gap: 10px; }
+.og-graph-detail .og-graph { max-height: 360px; }
+.og-edge { fill: none; stroke: var(--line-strong); stroke-width: 1.2; transition: stroke var(--t) var(--ease); }
+.og-edge[data-lit] { stroke: var(--accent); }
+.og-arrow { fill: var(--line-strong); }
+.og-loop { fill: none; stroke: var(--faint); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.og-loop[data-active] { stroke: var(--warn); animation: og-dash 1.2s linear infinite reverse; }
+.og-loop-label { fill: var(--muted); font: 10px var(--mono); }
+.og-label { fill: var(--text); font: 11px var(--mono); pointer-events: none; }
+.og-node .og-shape { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1.3; transition: fill var(--t) var(--ease), stroke var(--t) var(--ease); }
+.og-node[data-state="pending"] { opacity: .45; }
+.og-node[data-state="skipped"] { opacity: .18; }
+.og-worker .og-shape { fill: color-mix(in srgb, var(--lane) 14%, var(--surface)); stroke: color-mix(in srgb, var(--lane) 60%, var(--line)); }
+.og-node[data-state="done"] .og-shape { stroke: var(--ok); }
+.og-node:not(.og-worker)[data-state="done"] .og-shape { fill: color-mix(in srgb, var(--ok) 12%, var(--surface)); }
+.og-node[data-state="running"] .og-shape, .og-node[data-motion="working"] .og-shape {
+  stroke: var(--accent); stroke-width: 2; stroke-dasharray: 9 5; animation: og-dash .9s linear infinite;
+}
+.og-node[data-motion="waiting"] .og-shape { stroke: var(--warn); animation: og-glow-warn 1.2s ease-in-out infinite; }
+.og-node[data-state="failed"] .og-shape, .og-node[data-motion="error"] .og-shape { stroke: var(--bad); fill: var(--bad-soft); }
+.og-gate .og-shape { fill: var(--surface-2); }
+.og-gate[data-lit] .og-shape { fill: color-mix(in srgb, var(--accent) 28%, var(--surface)); stroke: var(--accent); stroke-width: 2; }
+.og-gate[data-state="done"] .og-shape { fill: color-mix(in srgb, var(--ok) 30%, var(--surface)); stroke: var(--ok); }
+.og-gate[data-state="failed"] .og-shape { fill: var(--bad-soft); stroke: var(--bad); }
+.og-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 12px; font-size: 11.5px; }
+.og-steps li { display: flex; gap: 6px; align-items: center; }
+.og-step-state { margin-left: auto; color: var(--muted); }
+.og-steps li[data-state="done"] .og-step-state { color: var(--ok); }
+.og-steps li[data-state="running"] .og-step-state { color: var(--accent); }
+.og-steps li[data-state="failed"] .og-step-state { color: var(--bad); }
+.og-step-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+.og-step-dot[data-motion="working"] { background: var(--accent); }
+.og-step-dot[data-motion="done"] { background: var(--ok); }
+.og-step-dot[data-motion="error"] { background: var(--bad); }
+.og-step-dot::after { display: none; }
+
+/* -- lanes (timeline) ---------------------------------------------------------- */
+.og-lanes { display: grid; gap: 2px; }
+.og-axis { display: flex; justify-content: space-between; margin: 0 98px 0 166px; font-size: 10px; }
+.og-lane {
+  display: grid; grid-template-columns: 150px minmax(0, 1fr) 90px; gap: 8px; align-items: center; padding: 4px 8px;
+  border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; transition: background var(--t) var(--ease);
+}
+.og-lane:hover { background: var(--accent-soft); }
+.og-lane[data-focus] { border-color: var(--lane); background: color-mix(in srgb, var(--lane) 9%, transparent); }
+.og-lane-head { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.og-lane-n {
+  flex: none; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 5px; font-size: 11px;
+  color: var(--accent-ink); background: var(--lane);
+}
+.og-lane-title { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.og-lane-state { font-size: 11px; text-align: right; color: var(--muted); padding: 2px 4px; border-radius: 4px; }
+.og-lane-state[data-state="writing"], .og-lane-state[data-state="in_review"] { color: var(--accent); }
+.og-lane-state[data-state="merged"] { color: var(--ok); }
+.og-lane-state[data-state="waiting"] { color: var(--warn); }
+.og-lane-state[data-state="failed"] { color: var(--bad); }
+.og-returned { color: var(--warn); }
+.og-trace { position: relative; height: 40px; }
+.og-trace-line { position: absolute; top: 19px; height: 3px; border-radius: 2px; background: var(--lane); opacity: .75; }
+.og-trace-line::after { display: none; }
+.og-trace-line[data-motion="working"] {
+  opacity: 1; background: linear-gradient(90deg, var(--lane) 0 40%, var(--accent) 50%, var(--lane) 60% 100%);
+  background-size: 250% 100%; animation: og-flow 1.4s linear infinite;
+}
+.og-trace-line[data-motion="waiting"] { background: var(--warn); }
+.og-trace-line[data-motion="error"] { background: var(--bad); }
+.og-trace-node {
+  position: absolute; top: 20.5px; width: 9px; height: 9px; border-radius: 50%; transform: translate(-50%, -50%);
+  background: var(--bg); border: 2px solid var(--lane); z-index: 1;
+}
+.og-trace-node[data-state="merged"] { background: var(--ok); border-color: var(--ok); }
+.og-trace-node.og-diamond { border-radius: 1px; transform: translate(-50%, -50%) rotate(45deg); border-color: var(--warn); background: var(--warn-soft); }
+.og-trace-node:hover { z-index: 3; box-shadow: 0 0 0 3px var(--accent-soft); }
+.og-trace-tag {
+  position: absolute; left: 50%; transform: translateX(-50%); font-size: 9.5px; color: var(--muted); white-space: nowrap; pointer-events: none;
+}
+.og-trace-tag { top: -18px; opacity: 0; transition: opacity var(--t) var(--ease); }
+.og-trace-node:hover .og-trace-tag, .og-lane[data-focus] .og-trace-node:nth-child(odd) .og-trace-tag { opacity: 1; }
+.og-lane[data-focus] .og-trace-node:nth-child(even) .og-trace-tag { opacity: 1; top: 9px; }
+.og-trace-node:hover { z-index: 4; }
+.og-lane-when { display: block; font-size: 10px; color: var(--faint); }
+.og-trace-node.og-diamond .og-trace-tag { transform: translateX(-50%) rotate(-45deg); }
+.og-strips { display: flex; gap: 3px; }
+.og-strip { flex: 1; height: 18px; border-radius: 3px; background: color-mix(in srgb, var(--lane) 28%, var(--surface)); }
+.og-strip[data-state="merged"] { background: var(--lane); }
+.og-strip[data-state=""] { opacity: .35; }
+
+@keyframes og-dash { to { stroke-dashoffset: -28; } }
+@keyframes og-flow { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@keyframes og-glow-warn { 0%, 100% { stroke-opacity: .5; } 50% { stroke-opacity: 1; } }

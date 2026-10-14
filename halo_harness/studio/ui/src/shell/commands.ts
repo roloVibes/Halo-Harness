@@ -1,9 +1,10 @@
-// The palette's commands and its fuzzy matcher. Groups: Go to, View, Layout,
-// Open. Each command may show a key (the same hint the menus show).
+// The palette's commands and its fuzzy matcher. Groups: Go to, Orchestra,
+// View, Layout, Open. Each command may show a key (the same hint the menus show).
 import { cycleTheme, goSection, setTheme, studio, toast, toggleRail } from "../lib/store";
 import { focusPanel, patchPanel, resetLayout } from "../lib/workspace/persist";
 import { SECTIONS, sectionDef } from "../routes";
 import { token } from "../lib/api";
+import { orchestraCommands } from "../routes/orchestra/commands";
 
 export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; run: () => void };
 
@@ -46,6 +47,7 @@ export function commands(): Command[] {
       },
     });
   }
+  out.push(...orchestraCommands());
   out.push({
     id: "open-legacy",
     group: "Open",

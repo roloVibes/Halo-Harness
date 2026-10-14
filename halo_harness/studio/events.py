@@ -8,13 +8,11 @@ that sends `subscribe` and then reads `next_event`. Each frame becomes
 browser's bounded queue (512 frames, the oldest dropped first). Attaching and
 detaching a session publish a synthesized `sessions` frame with the public
 fields of every attached session (never its endpoint or token). A pump that
-errors detaches and is not retried for `RETRY_S`. Nothing here runs on an
-HTTP request thread except `serve_sse`, which only reads its own queue.
-
-`serve_sse(handler)` is `GET /api/events?t=<token>&sessions=all|<sid>`: an
-EventSource cannot send headers, so the launch token comes in the query and
-is compared with `hmac.compare_digest`; the loopback and Host checks and the
-Origin check are the same as every other API call.
+errors detaches and is not retried for `RETRY_S`. `publish_local` adds a
+frame made in this process (the Orchestra runner: `orchestra:<run id>`).
+`serve_sse(handler)` is `GET /api/events?t=<token>&sessions=all|<sid>`: the
+token comes in the query (an EventSource cannot send headers), compared with
+`hmac.compare_digest`; loopback, Host and Origin checks as every API call.
 """
 
 from __future__ import annotations
@@ -34,7 +32,8 @@ CALL_TIMEOUT_S = 1.0
 DEFAULT_KINDS = ("user_message", "message_start", "message_end", "text_chunk", "tool_use_start", "tool_result",
                  "tool_progress", "permission_request", "question", "plan_review", "approval_request", "todos",
                  "status", "error", "turn_done", "subagent_start", "subagent_end", "subagent_queued",
-                 "subagent_progress", "notification", "phase", "compaction", "governor", "remote_attached")
+                 "subagent_progress", "notification", "phase", "compaction", "governor", "remote_attached",
+                 "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report")
 PUBLIC_FIELDS = ("session_id", "title", "mode", "kind", "cwd", "started", "pid")
 
 
@@ -104,6 +103,11 @@ class EventBridge:
         for q in clients:
             if q.wants(frame):
                 q.put(frame)
+
+    def publish_local(self, frame: dict) -> None:
+        """A frame from this process, not a session's socket: completed to the usual shape."""
+        self.publish({"session_id": None, "event": "message", "data": None, "turn": None, "agent_id": None,
+                      "ts": time.time(), **frame})
 
     # -- sessions ---------------------------------------------------------------
     def start(self) -> "EventBridge":

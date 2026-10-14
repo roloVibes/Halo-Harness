@@ -33,8 +33,8 @@ and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 
 `halo studio` opens a React shell with four sections in the top bar:
 **Orchestra | Roles | Org | Design** (`Alt+1`..`Alt+4`, or `?mode=` in the
-URL). Orchestra is the live run board (this release shows its placeholder,
-the live feed and the attached sessions); Roles, Org and Design are the
+URL). Orchestra is the live run console (see [Orchestra](#orchestra-the-run-console)
+below); Roles, Org and Design are the
 classic pages described below, framed inside the shell from `/legacy/`, so
 everything in them works as before. `halo studio --legacy` opens the classic
 page on its own.
@@ -102,7 +102,51 @@ under `event: <kind>`, a `sessions` frame lists the attached sessions (title,
 mode, kind, cwd, started, pid; never an endpoint or token) whenever one
 attaches or detaches, and `: ping` keeps the stream open every 15 s. Each
 browser gets its own queue of 512 frames (the oldest dropped first). The
-shell's status bar, the Orchestra feed panel and the rail read it.
+shell's status bar, the Orchestra panels and the rail read it. Studio's own
+Orchestra runner publishes its run log here too (`orchestra_*` frames).
+
+## Orchestra: the run console
+
+`Alt+1` (or `?mode=orchestra`) is the console for [Orchestra](ORCHESTRA.md)
+runs in the git repo that holds Studio's folder (`halo studio` started
+there, or `--cwd`). It opens on the newest run. Its eight panels sit on the
+same movable workspace as everything else. Each panel has a **Glance** face
+(what it is, one live indicator, one or two big numbers), an **Expand** face
+(the details) and the **gear**, which opens the panel's options in the
+Inspector.
+
+![Orchestra: a finished five-lane run over basket.py](media/studio-orchestra.png)
+
+| Panel | Glance | Expand | Motion |
+|---|---|---|---|
+| **Goal** | WHAT YOU WANT / DONE WHEN / STOP WHEN as a card, the workers, the cost, the run state badge | the goal form (workers, return cap, test, files, lineup, lead and worker roles, model) with **Run** and **Dry run**; the runs of this repo, click one to open it | the badge follows the run: flowing while it runs, a green sweep when it finishes, red when it stops, amber when it was interrupted |
+| **Workflow** | steps finished, the running step, the graph | the graph and the step list | the designed graph laid out in SVG: goal, lead, split, one node per lane, merge, test, the gate diamond, done; pending steps are faint, the running step's outline flows, the diamond lights when the gate acts, a failed step is red, and the gate's return arrow turns amber once a piece has been sent back |
+| **Run grid** | the counters (joined, writing, in review, waiting, merged) and one tile per lane, 5 to 50 | larger tiles with each lane's title | a tile that is writing flows, a waiting one pulses amber, a merged one turns green; click a tile to focus that lane in Lanes and Live file |
+| **Lanes** | joined, writing, merged, one strip per lane | the timeline: one trace per worker on the run's clock from "joined" to "merged", a node at each state change, a diamond where the gate sent the piece back; hover a node for its time and text | the running lane's trace flows, a waiting lane pulses amber |
+| **Live file** | units being written, units merged, a minimap of the bands | the goal file in mono with each lane's claimed unit as a band in its lane colour, labelled claimed, writing, written or merged, holding the lane's current text (its worktree copy); a picker when the goal has several files | a band being written shimmers; a claimed band is hatched |
+| **Report** | checks passing, cost, one pip per check | the checks with ticks and crosses, the finished branch and sha, the tests, the cost and time; **Copy** puts the report text (as `halo orchestra report` prints it) on the clipboard; a dry run shows the lead's jobs here | one green sweep when the report lands |
+| **Log** | line count, the last lines | the run log with each line's elapsed time, a lane filter, kind filters and **follow** | new lines slide in |
+| **Claims** | live claims, writing, the lead | each live claim with its holder, state and expiry, with **Release** and **Steal** (the lead takes the unit) | a claim being written flows; one that expires within a minute pulses amber |
+
+The lanes take their colours from a ten-step ramp mixed from the theme's
+accent, accent-2, ok and text tokens. Amber and red are never used for a
+lane, because they mean "needs you" and "failed". Settings: Lanes shows
+times as elapsed (`+12.5s`) or clock (`14:02:09`); Live file picks the file
+and can fold every unclaimed line; Log keeps its filters; Workflow can
+label the worker lanes; Goal switches the open run. These options are kept
+in your browser (`halo.studio.orchestra.opts`).
+
+The panels update from the live feed. A run started here publishes every
+state, claim, merge, gate and report line as an `orchestra_*` event (the
+session id is `orchestra:<run id>`). A line for the open run refreshes the
+panels within a quarter second; a claim or merge refetches the file view.
+When the feed is not connected and a run is live, the panels poll every
+5 s instead. Palette commands (`Ctrl`/`Cmd`+`K`): **Orchestra: new run**,
+**stop run**, **open run <id>** and **focus lane N**.
+
+One run goes at a time. **Run** is disabled while a run is live, and the
+glance's **stop** asks the runner to stop at its next step. Routes:
+[ORCHESTRA.md, "In Studio"](ORCHESTRA.md#in-studio).
 
 ## What you see (Roles)
 
