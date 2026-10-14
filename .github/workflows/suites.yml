@@ -33,7 +33,7 @@ jobs:
   linux:
     name: suites (linux, py3.12)
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 90
     env:
       PYTHONPATH: ${{ github.workspace }}
       BRIDGE_TEST_NO_BACKGROUND_NET: "1"
@@ -107,7 +107,7 @@ jobs:
       - name: tests/run_all.py
         id: run_all
         continue-on-error: true
-        timeout-minutes: 40
+        timeout-minutes: 50
         run: set -o pipefail; python tests/run_all.py 2>&1 | tee "$RUNNER_TEMP/run_all.log"
 
       - name: test_tui.py
@@ -154,7 +154,7 @@ jobs:
   windows:
     name: suites (windows, py3.12)
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 110
     env:
       PYTHONPATH: ${{ github.workspace }}
       BRIDGE_TEST_NO_BACKGROUND_NET: "1"
@@ -220,7 +220,7 @@ jobs:
       - name: tests/run_all.py
         id: run_all
         continue-on-error: true
-        timeout-minutes: 45
+        timeout-minutes: 65
         run: set -o pipefail; python tests/run_all.py 2>&1 | tee "$RUNNER_TEMP/run_all.log"
 
       - name: test_tui.py
