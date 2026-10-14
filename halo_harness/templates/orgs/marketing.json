@@ -23,7 +23,7 @@
       "budget_usd": 0.4,
       "tools": ["Read"],
       "reports": [],
-      "instructions": "Write the post text for each platform you were given, sized and toned for that platform (hashtags where they fit). Reply with one block per platform, headed by the platform name."
+      "instructions": "Write the post text for each platform you were given, sized and toned for that platform (hashtags where they fit). Reply with ONE fenced json block and nothing after it: {\"youtube\": {\"title\": \"...\", \"text\": \"...\"}, \"instagram\": {\"text\": \"...\"}, \"x\": {\"text\": \"...\"}, \"tiktok\": {\"text\": \"...\"}} with one key per platform you were given (a YouTube entry has a title, under 100 characters)."
     },
     {
       "title": "Art Director",

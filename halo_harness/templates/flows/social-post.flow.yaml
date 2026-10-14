@@ -1,8 +1,9 @@
 # Halo 3.0.4.0 -- the social-post flow: a brief goes through a planner and a
 # researcher, the marketing org plans the campaign (its Art Director's image
 # prompt is held for approval), ComfyUI renders the hero image into the
-# design project, a person confirms it, the posts are written as a dry run
-# and the metrics step is a stub until Postiz is wired in. See docs/FLOWS.md.
+# design project, a person confirms it, and the posts are written as a dry
+# run (set `live: true` on the publish step to post through the Postiz CLI);
+# the metrics step samples live posts' analytics. See docs/FLOWS.md.
 # `halo flow new social-post --project <slug>` copies this file to
 # ~/.halo/flows/social-post.flow.yaml; `halo flow run social-post` runs it.
 name: social-post
@@ -36,12 +37,12 @@ steps:
   - id: publish
     kind: post
     uses: postiz
-    live: false
+    live: false                       # true posts through the postiz CLI (halo postiz doctor)
     inputs: {text: "$.marketing.positions.Copywriter.text", media: "$.approve.accepted", platforms: "$.intake.platforms"}
   - id: measure
     kind: metrics
     uses: postiz
-    every: 6h
-    days: 7
+    every: 6h                         # halo flow run --watch samples this often
+    days: 7                           # ... for this many days after the first post
   - id: done
     kind: done
