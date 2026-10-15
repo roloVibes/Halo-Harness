@@ -3011,6 +3011,8 @@ halo fleet record <sid> [--agent <aid>] [--out PATH] [--json]
 halo fleet digest [--since 2h|45m|1d|<unix seconds>|<ISO time>] [--json]
 halo fleet capabilities [name] [--refresh] [--tools] [--json]
 halo fleet who "<query>" [--json]
+halo fleet mission new "<goal>" [--prefer a,b] [--budget N] [--constraints "..."] [--test CMD] [--no-repo] [--json]
+halo fleet mission plan|edit|approve|run|status|stop|report|open <id> ... [--json]
 ```
 
 ### `halo fleet` (the live table)
@@ -3124,6 +3126,52 @@ capabilities [name]` the spec sheet.
 halo fleet capabilities kali@lab --tools
 halo fleet who gridcraft
 halo fleet who "a 4090 for video"
+```
+
+### `halo fleet mission`
+
+Halo 3.0.6.0 round R7. One goal across every harness: the hub's lead splits
+it into parts by what each harness can do, each part runs on its harness
+(the `run_task` fleet command, under that harness's `fleet.allow_control`),
+repo parts merge one at a time, and a report says who did what and what it
+cost. The folder, the plan contract, claims and the shared folder:
+[MISSIONS.md](MISSIONS.md).
+
+```sh
+halo fleet mission new "<goal>" [--prefer a,b] [--budget N] [--constraints "..."] [--test CMD] [--no-repo] [--json]
+halo fleet mission plan <id> [--again] [--json]
+halo fleet mission edit <id> <part> (--harness NAME | --drop) [--json]
+halo fleet mission approve <id> [--json]
+halo fleet mission run <id> [--no-follow] [--json]
+halo fleet mission status [id] [--json]
+halo fleet mission stop <id> [--reason TEXT] [--json]
+halo fleet mission report <id> [--json]
+halo fleet mission open <id> [--json]
+```
+
+`new` drafts the mission and plans it, then prints the plan table: each
+part's harness (`(pinned)` when only it has what the part needs), its
+state, why, its claims and what it waits for. `--prefer` names harnesses that
+break a tie (default `fleet.mission.prefer`), `--budget` the mission's dollars,
+`--constraints` what every part must respect, `--test` a command run on a
+judged merge, `--no-repo` no repo parts even inside a git repo (the repo is
+the folder you run it in). `plan` prints the plan (`--again`: the lead plans
+it anew); `edit` gives a part to another harness (`--harness`) or drops it
+(`--drop`), checked again in code; `approve` approves; `run` approves a
+planned mission, runs it and follows it with a live table of the parts by
+harness until it ends (exit 0 when done, 1 when it failed or stopped;
+`--no-follow` returns at once). `status` lists the missions, or one
+mission's parts by harness with state and cost; `stop` stops every running
+part (`--reason` goes in the report); `report` prints `report.md`; `open`
+prints the mission folder. `--json` prints the route's answer with `ok` and
+`source`. They use the running Studio, else the hub this machine serves,
+else this harness alone (then `run` follows in this process, which keeps the
+mission running). `/mission [id]` in the TUI prints the status.
+
+```sh
+halo fleet mission new "Scan the lab subnet and build the findings workbook" --budget 2
+halo fleet mission edit m-20261015-3fa2 3 --drop
+halo fleet mission run m-20261015-3fa2
 ```
 
 ## `halo proxy`

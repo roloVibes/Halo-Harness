@@ -190,6 +190,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         route = self._route()
         if route == "local/command":
             return self._local_command()
+        if route in ("mission_files", "local/mission"):  # 3.0.6.0 R7: fleet/hub_mission.py
+            from halo_harness.fleet.hub_mission import serve
+            return serve(self, route)
         if route not in ("join", "announce", "frames", "reply", "leave"):
             return self._json(404, {"error": "this port serves only the Halo fleet protocol (/fleet/v1)"})
         try:

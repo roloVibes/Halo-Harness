@@ -11,6 +11,7 @@ serves only these routes (docs/FLEET.md has the full shapes):
     POST /fleet/v1/reply        {v, link, cid, state: asked|done|refused|error, result?, error?}
     GET  /fleet/v1/ping         -> {v, hub, you: {online, sessions, version_mismatch}}
     POST /fleet/v1/leave        {v}
+    POST /fleet/v1/mission_files {v, op: list|get|put, mission, path?, data_b64?}   3.0.6.0 R7 (fleet/mission_files.py)
     GET  /fleet/v1/local/state  loopback peer + the hub's own admin token only: the merged view
     POST /fleet/v1/local/command  the same: {harness, session_id, cmd, fields} (the terminal table)
 
@@ -46,7 +47,8 @@ H_ADMIN = "X-Halo-Fleet-Admin"
 READ_CMDS = ("status", "agents", "doctor", "capabilities")  # R4 `doctor`: fleet/health.py; 3.0.6.0 R6 `capabilities`
 FULL_CMDS = ("agent_tail", "agent_follow", "tail")  # share: full only
 ACTING_CMDS = ("agent_steer", "agent_stop", "pause", "resume", "shutdown", "steer", "interrupt")
-FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note")  # note: a person's message (R4)
+TASK_CMDS = ("run_task",)  # 3.0.6.0 R7: a mission part, gated by fleet.allow_control like steer (fleet/mission_worker.py)
+FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note") + TASK_CMDS  # note: a person's message (R4)
 
 TEXT_KINDS = frozenset({"text_chunk", "text_delta", "thinking_delta", "thinking_chunk"})
 FULL_KINDS = TEXT_KINDS | {"agent_event"}  # a followed agent's entries carry its text

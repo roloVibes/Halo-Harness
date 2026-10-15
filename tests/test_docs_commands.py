@@ -106,6 +106,8 @@ def _gather_real_flags() -> "dict[str, set]":
     for sub in ("serve", "pair", "join", "leave", "status", "members", "kick", "record", "digest",  # record, digest: R4
                 "capabilities", "who"):  # 3.0.6.0 R6
         out[f"halo fleet {sub}"] = _flags_in(_capture(cmd_fleet, [sub, "--help"]))
+    for sub in ("new", "plan", "edit", "approve", "run", "status", "stop", "report", "open"):  # 3.0.6.0 R7
+        out[f"halo fleet mission {sub}"] = _flags_in(_capture(cmd_fleet, ["mission", sub, "--help"]))
     return out
 
 

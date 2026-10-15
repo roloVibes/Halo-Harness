@@ -233,7 +233,7 @@ class HubRelay(threading.Thread):
         threading.Thread(target=self._run_command, args=(act, doc), daemon=True, name="halo-fleet-cmd").start()
 
     def _run_command(self, act, doc: dict) -> None:
-        out = control.run(act.handle, doc, control.policy(self.entry),
+        out = control.run(act.handle, doc, {**control.policy(self.entry), "hub_entry": self.entry},  # R7: run_task
                           interim=lambda: self._reply(doc, {"state": "asked"}))
         self._reply(doc, out)
 

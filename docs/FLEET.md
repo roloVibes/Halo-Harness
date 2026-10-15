@@ -11,7 +11,8 @@ the Fleet rail in every section, the hop keys, Live Roles: see
 [In Studio](#in-studio) below); **R4** is the panels behind it (attention, caps,
 conflicts, health, hand-offs, flight recordings, the replay and the digest: see
 [The panels](#the-panels-r4)). Halo 3.0.6.0 adds **R6**, what every harness
-can do and who can do something ([Capabilities](#capabilities-3060-r6)).
+can do and who can do something ([Capabilities](#capabilities-3060-r6)), and **R7**,
+missions: one goal split into parts across every harness ([Missions](#missions-3060-r7)).
 
 ## What a session exposes (R1)
 
@@ -494,6 +495,21 @@ integrations, tags); `halo fleet who "<query>" [--json]` the ranking. Both read
 Studio when it runs, else the hub this machine serves, else this harness
 alone ([COMMANDS.md](COMMANDS.md#halo-fleet-capabilities)).
 
+## Missions (3.0.6.0 R7)
+
+A mission is one goal done by the whole fleet: the hub's lead splits it into
+parts with the capability catalog in its prompt, each part is pinned to the
+harness that has what it needs (or flagged unassignable), parts claim the
+files they edit and two that would overlap run one after the other, each
+part runs on its harness as the `run_task` fleet command (under that
+harness's `fleet.allow_control`, like a steer) in a `mission-worker` session
+whose edits outside its claims are refused, the mission folder is shared
+over the signed protocol (`mission_files`) or a real mount
+(`fleet.shared_dir`), and the repo parts merge one at a time with a judge.
+`halo fleet mission new "<goal>"`, `GET /api/fleet/missions`, `/mission`.
+The whole story, the folder, the plan contract and a worked example:
+[MISSIONS.md](MISSIONS.md).
+
 ## The terminal: `halo fleet` and `/fleet`
 
 `halo fleet` alone is a live table (refreshed every 2 s) of every harness,
@@ -526,3 +542,7 @@ digest (both R4, from this harness's own files); `halo fleet capabilities
 | `fleet.attention.signal` | `true` | new attention rows go to the paired phone when the Signal bridge runs; `false` keeps them in Studio |
 | `fleet.tags` | `[]` | 3.0.6.0 R6: your own words for this harness; first on its chips, double weight in `who` |
 | `fleet.capabilities.hide` | `[]` | MCP servers, tools (`tool` or `server/tool`), skills or craft apps its capability catalog never lists |
+| `fleet.shared_dir` | unset | 3.0.6.0 R7: a folder every machine sees; missions live there and nothing is mirrored ([MISSIONS.md](MISSIONS.md)) |
+| `fleet.mission.prefer` | `[]` | harness names, in order, that break a tie when several can take a part |
+| `fleet.mission.max_parallel` | harnesses | how many mission parts run at once (default: the number of harnesses) |
+| `fleet.mission.max_file_mb` | `25` | the largest file a mission folder takes over the fleet protocol |

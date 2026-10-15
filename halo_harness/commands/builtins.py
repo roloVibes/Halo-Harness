@@ -255,6 +255,13 @@ def _cmd_fleet(args: str, facade: HeadlessFacade) -> str:
     return f"Fleet ({where.get(source, source)}):\n" + render(rows(view))
 
 
+def _cmd_mission(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.0.6.0 R7: `/mission [id]` -- the fleet's missions, or one mission's
+    parts by harness (`halo fleet mission status`)."""
+    from halo_harness.fleet.cli_mission import slash_text
+    return slash_text(args)
+
+
 def _cmd_private(args: str, facade: HeadlessFacade) -> str:
     """Halo 3.0.5.0 (Fleet): `/private [on|off]` -- a private session closes
     its control socket and leaves the registry, so Studio, `halo remote` and
@@ -1995,6 +2002,8 @@ _BUILTIN_SPECS = {
                 "[on|off]", _cmd_private),
     "fleet": ("core", "The fleet: every harness, session and agent this machine sees (a live table in the TUI)",
               "[text]", _cmd_fleet),
+    "mission": ("core", "Fleet missions: one goal across every harness (status; `halo fleet mission` for the rest)",
+                "[id]", _cmd_mission),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,
                    _cmd_escalation),
     "init": ("prompt", "Analyze the codebase and write/update CLAUDE.md", None, _cmd_init),

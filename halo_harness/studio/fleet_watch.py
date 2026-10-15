@@ -122,7 +122,7 @@ class Watcher:
             capped = {(h, s) for h, s, _d in self.cap_paused}
             rows = attention.build(view, asks=self.asks, flows=io.flows(self.home), orchestra=io.orchestra(self.server),
                                    commands=io.commands(self.server), reached=self.reached, conflicts=self.conflicts,
-                                   seen=self.seen, acks=self.acks | set(self.answered), now=now)
+                                   seen=self.seen, acks=self.acks | set(self.answered), now=now, home=self.home)
             rows = [r for r in rows if not (r["kind"] == "paused" and (r["harness"], r["session_id"]) in capped)]
             ids = {r["id"] for r in rows}
             self.seen = {k: v for k, v in self.seen.items() if k in ids}
