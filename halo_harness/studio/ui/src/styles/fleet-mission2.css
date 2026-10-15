@@ -1,0 +1,88 @@
+/* Fleet missions, part two (3.0.6.0 R8): the Running face (parts live,
+   cost per harness, the merge queue), the report's lists, the file viewer,
+   the compact face, the plan drawn over the map (a lane per harness box,
+   part nodes dashed while planned and solid once they run, depends_on
+   edges, amber where claims overlap, red where nobody can run a part), the
+   map toolbar's chip and the rail's mission chip. Tokens only. */
+
+/* -- the Running face ----------------------------------------------------------------- */
+.fmi-run { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 10px; align-content: start; }
+.fmi-run > .fmi-actions { grid-column: 1 / -1; }
+.fmi-lives { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; align-content: start; }
+.fmi-live { display: grid; grid-template-columns: 8px 18px minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.fmi-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.fmi-live-main { min-width: 0; font-size: 12px; }
+.fmi-live-now { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fmi-live[data-motion="working"] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.fmi-live[data-motion="working"] .fmi-live-dot { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.fmi-live[data-motion="working"] .fmi-live-now { color: var(--accent); }
+.fmi-live[data-motion="waiting"] { border-color: var(--warn); }
+.fmi-live[data-motion="waiting"] .fmi-live-dot { background: var(--warn); }
+.fmi-live[data-motion="waiting"] .fmi-live-now { color: var(--warn); }
+.fmi-live[data-motion="done"] .fmi-live-dot { background: var(--ok); }
+.fmi-live[data-motion="error"] { border-color: var(--bad); }
+.fmi-live[data-motion="error"] .fmi-live-dot { background: var(--bad); }
+.fmi-live[data-motion="idle"] { opacity: .7; }
+@media (prefers-reduced-motion: no-preference) {
+  .fmi-live[data-motion="waiting"] .fmi-live-dot { animation: fp-pulse 1.2s ease-in-out infinite; }
+  .fmi-live[data-motion="working"] .fmi-live-dot { animation: fp-pulse 1.6s ease-in-out infinite; }
+}
+.fmi-run-side { display: grid; gap: 10px; align-content: start; }
+.fmi-hcosts { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px; }
+.fmi-hcost { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 3px 8px; border-left: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.fmi-hcost b { color: var(--accent); }
+.fmi-merge { margin: 4px 0 0; padding-left: 18px; font-size: 11.5px; display: grid; gap: 3px; }
+.fmi-merge li[data-merged] { color: var(--ok); }
+
+/* -- the report ----------------------------------------------------------------------- */
+.fmi-report-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fmi-htable td:last-child { color: var(--accent); }
+.fmi-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 11.5px; }
+.fmi-files li { display: flex; align-items: center; gap: 8px; }
+.fmi-file-text { max-height: 60vh; overflow: auto; margin: 0; padding: 8px 10px; font-size: 11.5px; white-space: pre-wrap; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+
+/* -- the compact face ------------------------------------------------------------------- */
+.fmi-glance { display: grid; gap: 6px; align-content: start; }
+.fmi-glance-goal { text-align: left; font-size: 13px; }
+
+/* -- the plan on the map -------------------------------------------------------------- */
+.fmi-lane rect { fill: color-mix(in srgb, var(--accent-2) 5%, transparent); stroke: color-mix(in srgb, var(--accent-2) 30%, transparent); stroke-dasharray: 3 4; }
+.fmi-lane text { font: 9.5px var(--mono); letter-spacing: .08em; fill: var(--accent-2); }
+.fmi-node { cursor: pointer; outline: none; touch-action: none; }
+.fmi-node[data-editable] { cursor: grab; }
+.fmi-node[data-drag] { cursor: grabbing; }
+.fmi-node[data-drag] .fmi-node-shape { filter: drop-shadow(0 0 10px var(--accent)); stroke: var(--accent); }
+.fmi-node[data-drag="pending"] { opacity: .8; }
+.fmi-node-shape { fill: color-mix(in srgb, var(--accent-2) 8%, var(--surface)); stroke: var(--accent-2); stroke-width: 1.4; stroke-dasharray: 6 4; transition: stroke var(--t) var(--ease); }
+.fmi-node:hover .fmi-node-shape, .fmi-node:focus-visible .fmi-node-shape { stroke: var(--accent); }
+.fmi-node[data-selected] .fmi-node-shape { stroke-width: 2.2; fill: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.fmi-node-dot { fill: var(--accent-2); }
+.fmi-node-id { font: 700 12px var(--mono); fill: var(--accent-2); }
+.fmi-node-title { font: 600 12px var(--sans); fill: var(--text); }
+.fmi-node-sub, .fmi-node-kind { font: 10px var(--mono); fill: var(--muted); }
+.fmi-node-cost { font: 10.5px var(--mono); fill: var(--text); }
+.fmi-node[data-state="running"] .fmi-node-shape { stroke: var(--accent); stroke-dasharray: none; stroke-width: 1.8; filter: drop-shadow(0 0 5px var(--accent)); }
+.fmi-node[data-state="running"] .fmi-node-dot { fill: var(--accent); }
+.fmi-node[data-state="running"] .fmi-node-sub { fill: var(--accent); }
+.fmi-node[data-state="asked"] .fmi-node-shape { stroke: var(--warn); stroke-dasharray: none; }
+.fmi-node[data-state="asked"] .fmi-node-dot, .fmi-node[data-state="asked"] .fmi-node-sub { fill: var(--warn); }
+.fmi-node[data-state="done"] .fmi-node-shape, .fmi-node[data-state="merged"] .fmi-node-shape { stroke: var(--ok); stroke-dasharray: none; }
+.fmi-node[data-state="done"] .fmi-node-dot, .fmi-node[data-state="merged"] .fmi-node-dot { fill: var(--ok); }
+.fmi-node[data-state="failed"] .fmi-node-shape { stroke: var(--bad); stroke-dasharray: none; fill: var(--bad-soft); }
+.fmi-node[data-state="stopped"], .fmi-node[data-state="skipped"] { opacity: .65; }
+@media (prefers-reduced-motion: no-preference) {
+  .fmi-node[data-state="asked"] .fmi-node-shape { animation: og-glow-warn 1.2s ease-in-out infinite; }
+  .fmi-node[data-state="running"] .fmi-node-shape { animation: fm-breathe 2.4s ease-in-out infinite; }
+}
+.fmi-chip-bad rect { fill: var(--bad-soft); stroke: var(--bad); }
+.fmi-chip-bad text { font: 9.5px var(--mono); fill: var(--bad); }
+.fmi-edge path { fill: none; stroke: var(--accent-2); stroke-width: 1.5; }
+.fmi-arrow { fill: var(--accent-2); }
+.fmi-edge[data-kind="sequenced"] path { stroke: var(--warn); stroke-dasharray: 5 4; }
+.fmi-arrow-seq { fill: var(--warn); }
+.fmi-seq-chip rect { fill: var(--warn-soft); stroke: var(--warn); }
+.fmi-seq-chip text { font: 9.5px var(--mono); fill: var(--warn); }
+.fmi-mapchip { font-size: 10.5px; color: var(--accent-2); border: 1px solid color-mix(in srgb, var(--accent-2) 45%, transparent); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+
+/* -- the rail: a mission part's session ------------------------------------------------- */
+.fr .fr-mission { color: var(--accent-2); border-color: var(--accent-2); }

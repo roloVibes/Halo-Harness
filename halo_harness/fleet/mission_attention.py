@@ -50,6 +50,17 @@ def rows(home, local: dict, seen: dict, now: float) -> list:
     return out
 
 
+_ASK = re.compile(r"mission (m-\d{8}-[0-9a-f]{4}) part (\d{1,3})")
+
+
+def ask_target(ask) -> "tuple[str, dict]":
+    """A mission_ask row's detail (the card's text) and the mission / part it names (3.0.6.0 R8)."""
+    data = (ask or {}).get("data") if isinstance((ask or {}).get("data"), dict) else {}
+    text = str((data.get("input") if isinstance(data.get("input"), dict) else {}).get("question") or "")
+    m = _ASK.search(text)
+    return text[:240], ({"mission": m.group(1), "part": m.group(2)} if m else {})
+
+
 def edit_from_text(text: str) -> dict:
     """`part 2 to kali` -> {part: 2, harness: kali}; `drop 3` -> {part: 3, drop: True}; {} when it is neither."""
     m = _DROP.match(text or "")

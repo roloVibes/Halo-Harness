@@ -9,6 +9,7 @@ environment:
     python -m tests.helpers.studio_fleet roles   # Live Roles: the glow, the Live tab's text and tool rows, J, the pin
     python -m tests.helpers.studio_fleet panels  # R4: attention, timeline, digest, replay, conflict (studio_fleet_panels.py)
     python -m tests.helpers.studio_fleet caps    # 3.0.6.0 R6: the Capabilities panel and Who can... (studio_fleet_caps.py)
+    python -m tests.helpers.studio_fleet mission # 3.0.6.0 R8: a mission planned, dragged, run, stopped (studio_fleet_mission.py)
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -169,6 +170,9 @@ def main(argv: list) -> int:
             if argv[:1] == ["caps"]:
                 from tests.helpers.studio_fleet_caps import caps
                 got = caps(c, rig)
+            elif argv[:1] == ["mission"]:
+                from tests.helpers.studio_fleet_mission import mission
+                got = mission(c, rig)
             elif argv[:1] == ["panels"]:
                 from tests.helpers.studio_fleet_panels import panels
                 got = panels(c, rig)

@@ -5,7 +5,9 @@
 // agent panel shows it). A session that waits on you keeps its inline
 // answer (shell/Sessions.tsx), for this harness and for a member. R4: the
 // need-you count is the attention queue's (a click opens Attention), and the
-// "While you were away" card shows here after ten minutes away.
+// "While you were away" card shows here after ten minutes away. 3.0.6.0 R8:
+// a mission part's session (`mission-worker`) carries a `mission` chip; its
+// `mission` link opens the Mission panel on that mission and part.
 import { useEffect, useState } from "react";
 import { Empty } from "../../lib/ui";
 import { goSection, studio, useStore, type SessionInfo } from "../../lib/store";
@@ -13,6 +15,7 @@ import { Answer } from "../../shell/Sessions";
 import { select } from "./actions";
 import { DigestCard } from "./Digest";
 import { showFleetPanel } from "./extras";
+import { openMission } from "./mload";
 import { useAttnCount } from "./pstore";
 import { agentMotion, enterWorkspace, keyOf, sessionMotion, sessionTitle, showsStart, treeOf, useCounts, useFleet } from "./store";
 import { load, startFleet } from "./sync";
@@ -40,8 +43,14 @@ function Session({ h, s }: { h: Harness; s: SessionRow }) {
         <button className="rail-item fr-row" data-kind="session" data-id={s.session_id} data-testid="fleet-rail-node" onClick={() => open(mainKey)} title={`${sessionTitle(s)} · ${s.cwd || ""}`}>
           <span className="fr-dot" data-status={s.status || "unknown"} data-motion={sessionMotion(s)} aria-hidden="true" />
           <span className="rail-item-text">{sessionTitle(s)}</span>
+          {s.mission && <span className="badge fr-mission" data-testid="fleet-rail-mission" title={`mission ${s.mission} part ${s.part}`}>mission</span>}
           <span className="badge" data-status={s.status || "unknown"}>{s.status || "?"}</span>
         </button>
+        {s.mission && (
+          <button className="og-link mono fr-answer" onClick={() => openMission(String(s.mission), String(s.part || ""))} title={`open mission ${s.mission} in the Mission panel`} data-testid="fleet-rail-mission-open">
+            part {String(s.part || "?")}
+          </button>
+        )}
         {waiting && (
           <button className="og-link mono fr-answer" onClick={() => setAnswer(!answer)} aria-expanded={answer}>
             answer

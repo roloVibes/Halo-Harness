@@ -6,7 +6,7 @@ past session PAST_SID). Run through tests/helpers/studio_fleet.py:
 
     python -m tests.helpers.studio_fleet panels
 
-* the eight panels (R6: Capabilities), each with its about line; the attention queue and its
+* the nine panels (R6: Capabilities, R8: Mission), each with its about line; the attention queue and its
   count in the status bar and the rail; A on the approval row answers it on
   the member (and the row leaves the queue);
 * the timeline draws one lane per live agent, hover says who, a click on a
@@ -28,7 +28,7 @@ import time
 from tests.helpers.studio_fleet import DETAIL, DOC, FRAME, card, frame_click
 
 PANELS = ("fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-map", "fleet-activity", "fleet-agent",
-          "fleet-capabilities")  # 3.0.6.0 R6
+          "fleet-capabilities", "fleet-mission")  # 3.0.6.0 R6, R8
 ROW = "document.querySelector('[data-testid=\"fleet-attn-row\"][data-kind=\"{}\"]')"
 LIVE = ("queued", "running", "waiting", "paused")
 

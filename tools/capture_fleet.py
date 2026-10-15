@@ -18,6 +18,10 @@ question, its reviewer done): two harnesses, five agents in three states.
     docs/media/studio-fleet-capabilities.png  (3.0.6.0 R6) Capabilities: "gridcraft" in Who can... ranks
                                       the member first and picks it (its card open, its map box lit), both
                                       spec cards (the rig seeds both catalogs: studio_fleet_member.seed_caps)
+    docs/media/studio-fleet-mission.png  (3.0.6.0 R8) a planned mission (tests/helpers/studio_fleet_mseed.py:
+                                      three parts, one pinned to each harness by capability, part 3 after
+                                      part 1 because their claims overlap) drawn on the map, its table in
+                                      the Mission panel, part 3 picked, its approval row in Attention
 
 1500 x 900 CSS px at scale 2. With --dom the Fleet section, its Start view
 (?view=start) and the Roles section are read and their data-testid values
@@ -33,7 +37,7 @@ from pathlib import Path
 FLEET_IDS = ("section-tab", "fleet-map", "fleet-agent", "fleet-rail", "fleet-node", "fleet-start", "fleet-box", "fleet-session",
              "fleet-rail-node", "fleet-pip", "fleet-pair", "fleet-settings", "status-fleet",
              "fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity",
-             "fleet-capabilities")
+             "fleet-capabilities", "fleet-mission")
 FRAME = "document.querySelector('.section-view[data-section=\"roles\"] iframe.legacy-frame')"
 DOC = f"{FRAME}.contentDocument"
 
@@ -139,6 +143,28 @@ def shoot_caps(c, rig, png: Path) -> int:
     return size
 
 
+def shoot_mission(c, rig, png: Path) -> int:
+    """R8: the plan on the map and in the Mission panel's table (no model: the seeded fake lead)."""
+    from tests.helpers.studio_fleet_mseed import MissionFakes, plan_by_api
+    from tests.helpers.studio_fleet_panels import seen
+    MissionFakes(rig)
+    mid = plan_by_api(rig)["mission"]["id"]
+    open_fleet(c, rig)
+    row = f"document.querySelector('[data-testid=\"fleet-mission-row\"][data-id=\"{mid}\"] [data-testid=\"fleet-mission-open\"]')"
+    c.wait(f"!!{row}", 20)
+    seen(c, row)
+    c.click_on(row)
+    part = "document.querySelector('[data-testid=\"fleet-part\"][data-part=\"3\"]')"
+    c.wait("document.querySelectorAll('[data-testid=\"fleet-part\"]').length === 3", 20)
+    c.click_on(part)
+    c.wait("!!document.querySelector('[data-testid=\"fleet-mission-part-row\"][aria-selected=\"true\"]')", 10)
+    c.wait("!!document.querySelector('[data-testid=\"fleet-attn-row\"][data-kind=\"mission_plan\"]')", 20)
+    c.js("document.querySelector('[data-testid=\"fleet-mission-detail\"]').scrollTop = 0; 1")
+    c.wait("!document.querySelector('.toast')", 10)
+    time.sleep(1.5)
+    return c.shot(png)
+
+
 def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
     open_fleet(c, rig)
     c.click_on(node("implementer"))
@@ -161,9 +187,11 @@ def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
     d = shoot_panels(c, rig, panels_png)
     caps_png = fleet_png.with_name("studio-fleet-capabilities.png")
     e = shoot_caps(c, rig, caps_png)
-    for path, size in ((fleet_png, a), (roles_png, b), (panels_png, d), (caps_png, e)):
+    mission_png = fleet_png.with_name("studio-fleet-mission.png")
+    m = shoot_mission(c, rig, mission_png)  # last: the planned mission stays in the rig
+    for path, size in ((fleet_png, a), (roles_png, b), (panels_png, d), (caps_png, e), (mission_png, m)):
         print(f"{'wrote' if size > 10_000 else 'FAILED'} {path} ({size} bytes)")
-    return min(a, b, d, e) > 10_000
+    return min(a, b, d, e, m) > 10_000
 
 
 def capture(out: str, as_dom: bool, find_chrome) -> int:

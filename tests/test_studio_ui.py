@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
 from tests.helpers.studio_ui_fleet import register as register_fleet
+from tests.helpers.studio_ui_mission import register as register_mission
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -239,6 +240,7 @@ def test_roles_canvas_draws_groups(ctx: Ctx):
 
 
 register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/helpers/studio_ui_fleet.py
+register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, tests/helpers/studio_ui_mission.py
 
 
 if __name__ == "__main__":

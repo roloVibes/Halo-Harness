@@ -20,6 +20,7 @@ const ORDER = ["a", "r", "s", "o"];
 const KIND: Record<string, string> = {
   permission: "permission", question: "question", plan: "plan", approval: "approval", fleet_ask: "fleet ask", waiting: "waiting",
   paused: "paused", flow_gate: "flow gate", orchestra_gate: "orchestra gate", control_ask: "command", cap: "spend cap", conflict: "conflict",
+  mission_plan: "mission plan", mission_claim: "mission claim", mission_ask: "mission part", // 3.0.6.0 R8
 };
 
 /** A key on a row: R with a text first opens the reply box. */
@@ -38,7 +39,7 @@ function Reply({ row }: { row: AttnRow }) {
   return (
     <div className="fat-reply">
       <input ref={box} className="input" value={text} onChange={(e) => setText(e.target.value)} data-testid="fleet-attn-text"
-             placeholder={row.kind === "permission" ? "why not (optional); Enter denies" : `${row.keys.r}: type it, Enter sends`}
+             placeholder={row.kind === "permission" ? "why not (optional); Enter denies" : row.kind === "mission_plan" ? 'e.g. "part 2 to kali" or "drop 3"; Enter sends' : `${row.keys.r}: type it, Enter sends`}
              onKeyDown={(e) => {
                if (e.key === "Enter") (e.preventDefault(), send());
                else if (e.key === "Escape") (e.preventDefault(), e.stopPropagation(), panels.update(() => ({ replyFor: "" })));

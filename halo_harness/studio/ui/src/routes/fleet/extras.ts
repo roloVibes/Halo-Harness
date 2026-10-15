@@ -11,6 +11,7 @@ import { kick, select } from "./actions";
 import { enterWorkspace, fleet, findAgent, findSession, parseKey, sessionTitle } from "./store";
 import { load } from "./sync";
 import { loadAttention, loadConflicts, loadCosts } from "./pload";
+import { loadMissions, openMission, refresh as refreshMission } from "./mload";
 import { closeDialog, openDialog, panels, type AttnRow, type CapKey, type HandoffOut, type OpenTarget } from "./pstore";
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
@@ -35,6 +36,7 @@ export function openTarget(t: OpenTarget): void {
     goSection(t.section as SectionId);
     return;
   }
+  if (t.panel === "fleet-mission" && t.mission) return openMission(t.mission, String(t.part || "")); // 3.0.6.0 R8
   const aid = t.a ? t.a.split("|")[2] : t.agent_id || "main";
   if (t.a) select(t.a);
   else if (t.harness && t.session_id) select(`${t.harness}|${t.session_id}|${aid}`);
@@ -50,6 +52,7 @@ export async function answerRow(row: AttnRow, key: string, text = ""): Promise<b
     window.setTimeout(() => (void loadAttention(), void load()), 400);
     if (row.kind === "cap") window.setTimeout(() => void loadCosts(), 600);
     if (row.kind === "conflict") window.setTimeout(() => void loadConflicts(), 600);
+    if (row.kind.startsWith("mission")) window.setTimeout(() => (void loadMissions(), void refreshMission()), 500);
     return true;
   } catch (e) {
     toast(msg(e), "error", 5000);

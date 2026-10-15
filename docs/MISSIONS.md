@@ -10,7 +10,8 @@ parts that would touch the same file run one after the other.
 
 Round R7 is the backend (this page): the mission folder, the planner, the
 shared workspace over the fleet protocol, dispatch, the run, merge and report,
-the routes and the command line. Studio's Missions panel is round R8.
+the routes and the command line. Round R8 is the Mission panel in Studio
+([In Studio](#in-studio)).
 
 ## What a mission is
 
@@ -195,6 +196,24 @@ approve | run | status | stop | report | open` take `--json`
 ([COMMANDS.md](COMMANDS.md#halo-fleet-mission)); `/mission` in the TUI prints
 the status. They use the running Studio, else the hub this machine serves,
 else this harness alone.
+
+## In Studio
+
+Fleet's **Mission** panel (`M` in Fleet, or the palette's **Fleet: new
+mission**) is the same flow on one screen: type the goal, pick the harnesses
+to prefer and a budget, **Plan it**. The plan is drawn over the Fleet map,
+each part a node in its harness's box (a lock where it was pinned by
+capability, an amber edge and a **claims** chip where two parts were
+sequenced, a red chip where nobody can run it), and as a table under the map.
+Drag a part to another harness to move it (a harness that lacks what it
+needs refuses with the reason), then **Approve** and **Run**: parts waiting
+on a member's owner pulse amber, running ones show the line their agent is
+on, and **Stop** asks for a reason. The report lists who did what, the cost
+per harness and per part, and opens the artifacts. The plan, a part refused
+an edit and a hub's run_task card are rows in Attention. See
+[STUDIO.md](STUDIO.md#how-this-works-missions).
+
+![Fleet Mission in Studio: the plan on the map and its table](media/studio-fleet-mission.png)
 
 ## Config keys
 

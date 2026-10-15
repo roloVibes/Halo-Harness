@@ -93,9 +93,13 @@ def session_rows(view: dict, asks: dict, seen: dict, now: float) -> list:
                     if kind == "question" and rid.startswith(ASK_PREFIX):
                         if h.get("local"):
                             task = rid.startswith(ASK_PREFIX + "mission-")  # R7: a run_task card
+                            detail, extra = "", {}
+                            if task:  # R8: the card's text, and the mission / part it names (O opens it)
+                                from halo_harness.fleet.mission_attention import ask_target
+                                detail, extra = ask_target(asks.get((str(h.get("id")), str(s.get("session_id")), rid)))
                             out.append(_row("mission_ask" if task else "fleet_ask", rid, h, s, "main",
                                             "A hub asks to run a mission part here" if task else
-                                            "A hub asks to run a command here", "", seen, now, request_id=rid))
+                                            "A hub asks to run a command here", detail, seen, now, request_id=rid, **extra))
                         continue  # a member's own fleet card is its owner's to answer
                     ask = asks.get((str(h.get("id")), str(s.get("session_id")), rid)) or {}
                     what, detail = _what(kind, ask)

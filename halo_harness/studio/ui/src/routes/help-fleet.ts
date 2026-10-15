@@ -34,7 +34,7 @@ export const FLEET_HELP: Record<string, Help> = {
   "fleet-attention": {
     about: "Every decision that waits on you, across the fleet, oldest first, one key each.",
     help: lines(
-      "Cards (permission, question, plan, approval), gates, paused agents, spend caps and file conflicts all land here.",
+      "Cards (permission, question, plan, approval), gates, paused agents, spend caps, file conflicts and missions (a plan to approve, a refused edit, a hub asking to run a part here) all land here.",
       "A accepts or allows, R denies or redoes with your text, S stops, O opens the panel it belongs to.",
       "J / K (or the arrows) move between rows while this panel has the focus.",
       "The count shows in the status bar and the rail in every section.",
@@ -66,6 +66,16 @@ export const FLEET_HELP: Record<string, Help> = {
       "Pause holds it at its next step; Stop asks first (K here does the same).",
       "Take over gives it your brief; Hand to... passes it to another harness; Record saves it as one HTML file; Replay plays its session on the Roles canvas.",
       "F follows, Space pins a mini stream; with no agent picked, the last sessions here can be replayed.",
+    ),
+  },
+  "fleet-mission": {
+    about: "One goal for the whole fleet: the hub's lead splits it into parts by what each harness can do; you approve, it runs, the report says who did what.",
+    help: lines(
+      "Type the goal, constraints, the harnesses to prefer (click in order) and a budget; Plan it asks the hub's lead for the parts.",
+      "The plan draws on the map: a node per part in its harness box, a lock where only that harness has what it needs, amber where two parts wait on each other's files.",
+      "Drag a part's node to another harness to move it (it snaps back with the reason when that harness lacks a need); Drop takes it out; Plan again asks anew.",
+      "Approve, then Run (Run approves first): asked parts wait on that member's owner, running ones show their agent's line; Stop asks for a reason.",
+      "The report: who did what on which harness, cost per harness and per part, decisions, refused edits, the merge, the artifacts to open.",
     ),
   },
   "fleet-capabilities": {

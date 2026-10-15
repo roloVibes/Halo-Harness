@@ -506,7 +506,8 @@ harness's `fleet.allow_control`, like a steer) in a `mission-worker` session
 whose edits outside its claims are refused, the mission folder is shared
 over the signed protocol (`mission_files`) or a real mount
 (`fleet.shared_dir`), and the repo parts merge one at a time with a judge.
-`halo fleet mission new "<goal>"`, `GET /api/fleet/missions`, `/mission`.
+`halo fleet mission new "<goal>"`, `GET /api/fleet/missions`, `/mission`;
+in Studio, Fleet's Mission panel plans, draws, approves, runs and reports it (3.0.6.0 R8).
 The whole story, the folder, the plan contract and a worked example:
 [MISSIONS.md](MISSIONS.md).
 

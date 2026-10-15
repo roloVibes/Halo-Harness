@@ -302,14 +302,19 @@ stop, take over or hand off any one agent.
    hardware, models, craft apps, MCP servers and their tools, skills, tags.
    Who can... ranks the fleet for what you need (gridcraft, a 4090, make a
    video) and picks the best one on the map.
-7. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
+7. **Give the fleet one goal**: Mission (`M`): type the goal and Plan it;
+   the hub's lead splits it into parts and gives each to the harness that
+   can do it. The plan draws on the map, drag a part to another harness to
+   move it, then Approve and Run; the report says who did what and what it
+   cost per harness.
+8. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
    or 60 minutes, tool calls as ticks) over the merged live log. Costs
    ticks today's spend and holds the caps; Health is a doctor summary per
    harness.
-8. **Record and replay**: Record saves a session or one agent as a single
+9. **Record and replay**: Record saves a session or one agent as a single
    HTML file that plays anywhere. Replay plays a finished session on the
    Roles canvas: the cards light up in the order they worked.
-9. **Come back**: after ten minutes away, While you were away sums up what
+10. **Come back**: after ten minutes away, While you were away sums up what
    happened: sessions, cost, decisions and who made them, files, errors,
    hand-offs.
 
@@ -321,6 +326,8 @@ session's agents as a tree. Activity: a timeline lane per live agent and
 the merged live log. Agent: the selected agent: what it thinks, what it
 runs, what it hands back; steer it, take it over, hand it on, record it.
 Capabilities (3.0.6.0): what every harness can do, and who can do what.
+Mission (3.0.6.0): one goal for the whole fleet, planned, approved, run and
+reported.
 
 ## The live feed
 
@@ -542,11 +549,12 @@ the members of this machine's hub, each with **kick**; and "open the
 workspace anyway". The panels come up by themselves the moment a session
 registers or a member joins (`?view=start` / `?view=workspace` force one).
 
-Eight panels on a 24-column grid (seven from 3.0.5.0 R4, Capabilities from
-3.0.6.0 R6): People, Costs and Health along the top on their compact faces;
-under them Attention on the left, Map with Activity under it in the middle,
-Capabilities on the right on its compact face (the Who can... box) with
-Agent under it. Every panel has its one-line
+Nine panels on a 24-column grid (seven from 3.0.5.0 R4, Capabilities from
+3.0.6.0 R6, Mission from 3.0.6.0 R8): People, Costs and Health along the
+top on their compact faces; under them Attention with Activity under it on
+the left, Map with Mission under it in the middle (a mission's plan is drawn
+on the map, so its table sits right under the drawing), Capabilities on the
+right on its compact face (the Who can... box) with Agent under it. Every panel has its one-line
 about in its title bar and `?` for how to use it.
 
 ![Fleet's eight panels: People, Costs and Health on top, Attention with the member's two cards, a conflict edge on the map, the timeline and the live log, Capabilities over the researcher in Agent, While you were away in the rail](media/studio-fleet-panels.png)
@@ -560,6 +568,7 @@ about in its title bar and `?` for how to use it.
 | **Activity** (`fleet-activity`) | The **timeline**: one lane per live agent over the last 5, 15 or 60 minutes, a bar per state (cyan working, amber waiting or paused, green done, red failed), each tool call a tick; hover for who and since when, a click selects that agent. Under it the merged **live log** of every harness, session and agent (state changes, tool calls, the text they write, the cards they open, errors, harnesses joining and leaving), with filters by harness, session, agent and kind, and Follow. Compact face: agents live and the newest line. |
 | **Map** (`fleet-map`) | One labelled box per harness (this one first; the group-box look of the Roles and Org canvases), a card per session (title, kind chip, project and branch, cost, status dot) and its agents as a tree under it (name and role, what it does now, the model pill, the tool's icon while a tool runs, a cost ticker that counts up, `...`), an edge from each parent to its children. **By project** regroups the cards into one box per repo, the harness colour on each card. Compact face: harnesses, agents live, need you. |
 | **Capabilities** (`fleet-capabilities`) | 3.0.6.0 R6. The **Who can...** box on top (see below), then one spec card per harness: its chips (the owner's tags, the GPU, the OS, craft apps), the hardware (CPU, cores, RAM, GPUs and VRAM, free disk), the models it is best with and its local ones, its craft apps and ComfyUI models, every MCP server with its tool count (click one for its tools and what each does), skills, command-line tools, tags, the catalog's age and **Refresh**. The map's harness boxes carry the same chips; People has a **specs** link per harness. Compact face (the default, so Agent keeps its height): the Who can... box and its best three, else each harness's chips; Expand for the spec cards. |
+| **Mission** (`fleet-mission`) | 3.0.6.0 R8. One goal for the whole fleet. **Start**: "What should the fleet do?", constraints, **prefer** (a chip per harness, clicked in the order you prefer them: the planner breaks ties with it), a budget, **Plan it**; under it every mission (goal, state, parts by state, harnesses, cost, **Open**), or five lines on how it works. **Plan**: a row per part (its number, title and kind, the harness with the reason on hover and a lock when it was pinned by capability, needs, claims, what it waits for, the estimate, **Drop**), the notes, the merge order, **Plan again**, **Approve**, **Run** (approves first) and what still stops an approval. **Running**: each part live (asked: waiting on that member's owner; running: the line its agent is on; then done / failed / stopped / skipped) with **Open the part's agent**, the cost per harness ticking, the merge queue, **Stop the mission...** (asks for a reason). **Report**: who did what on which harness, cost per harness and per part, decisions, refused edits, failures, the merge, the artifacts and hand-backs with **Open**. Compact face: the running mission's goal and its parts by state, else "no mission". |
 | **Agent** (`fleet-agent`) | The selected agent: harness, session, role, model, cost, elapsed, state; **What it was asked**; its three streams, tabbed or side by side (Settings): **Thinking** (what it writes and reasons, the newest text typing out character by character; steers, notes, the cards it opened), **Working** (one row per tool call with its arguments, the file it touches, its result, and for Edit / Write the diff as it grows), **Output** (its hand-back, else the text after its last tool call); **Pause** / **Resume**, **Stop** (asks first), **Follow**, **Pin**; **Take over**, **Hand to...**, **Record**, **Replay** (this harness); the **Steer** box. With no agent picked, the last sessions on this harness with **replay** and **record**. Compact face: the agent, its state and cost, what it does now and its last words. |
 
 **Motion** (the shell's vocabulary): a working agent's outline flows (a
@@ -686,6 +695,48 @@ session's main agent is selected. The palette has **Fleet: who can...** and
 
 ![Fleet Capabilities: "gridcraft" in Who can... ranks kali@lab first and picks it on the map; both spec cards with their chips](media/studio-fleet-capabilities.png)
 
+### How this works: Missions
+
+One goal, every harness, nobody stepping on anyone ([MISSIONS.md](MISSIONS.md)):
+
+1. **Goal**: type it in the Mission panel (`M`, or the palette's **Fleet:
+   new mission**) and press **Plan it** (`POST /api/fleet/missions`). The
+   hub's lead splits it into parts with every harness's capability catalog
+   in front of it; a part that needs what only one harness has is pinned
+   there (a lock, the reason on hover), a tie goes to your **prefer** order
+   then the least busy harness, and a part nobody can run gets a red
+   **unassignable** chip.
+2. **The plan on the map**: each part is a node in its harness box's lane,
+   dashed while planned; an edge for each part it waits for, amber with a
+   **claims** chip where two repo parts claim the same files and so run one
+   after the other. The table under the map is the same plan.
+3. **Edit by hand**: drag a part's node into another harness box to move it
+   there (`POST .../parts/<n> {harness}`, checked in code: a harness that
+   lacks what the part needs answers 422, the toast says why and the node
+   snaps back); **Drop** takes a part out; **Plan again** asks the lead anew.
+   Attention has the plan as a row too: `A` approves and runs, `R` edits
+   with a text ("part 2 to kali", "drop 3"), `S` drops the mission.
+4. **Approve, Run**: Run approves first. Parts start by their dependencies:
+   a part on this harness runs here, a part on a member goes to it as the
+   `run_task` command. Under `fleet.allow_control: ask` that member's owner
+   gets a card ("hub asks to run mission ... part 1 here: ... (claims:
+   ...)"), and the node and its row pulse amber, "waiting on <harness>'s
+   owner"; on the member's own Studio the card is a **mission part** row in
+   Attention (`A` allow, `R` deny, `O` opens the Mission panel on that
+   mission). A running part is solid, its row shows the line its agent is
+   on, and its `mission-worker` session shows on the map and in the rail
+   with a **mission** chip.
+5. **Report**: when the last part is over (or you **Stop** it, with a
+   reason) the panel turns to the report: who did what on which harness, the
+   cost per harness and per part, the decisions, the edits refused outside a
+   part's claims, the merge, and the artifacts to open.
+
+The status bar's FLEET cell counts the missions running; the palette has
+**Fleet: new mission**, **approve mission**, **stop mission** and **mission
+report**.
+
+![Fleet Mission: a planned mission drawn on the map, one part pinned to each harness, part 3 after part 1 because their claims overlap; its table in the Mission panel](media/studio-fleet-mission.png)
+
 ### How this works: While you were away
 
 When the tab comes back after more than ten minutes (or Studio opens after
@@ -711,6 +762,7 @@ shows it on demand.
 | `K` | inside the Agent panel | stop the agent (asks first; on the map and the canvases `K` is previous) |
 | `A` / `R` / `S` / `O` | inside the Attention panel | answer the selected row: accept, deny or redo (with a text), stop, open |
 | `J` / `K`, arrows | inside the Attention panel | the next / previous row |
+| `M` | Fleet | the Mission panel: one goal for the whole fleet (3.0.6.0) |
 | `Esc` | Roles / Org during a replay | close the replay, back to what runs now |
 
 **The mini stream** (picture in picture) shows the pinned agent's state, cost,
@@ -722,11 +774,13 @@ It hides while the Agent panel already shows that agent.
 (harness > session > agent, a status dot each, the live and need-you counts)
 opens Fleet on the node you click, and a session that waits on you keeps its
 inline answer there (for a member too); its need-you count opens Attention,
-and "While you were away" shows above it. The palette's **Fleet** group: pair a
+and "While you were away" shows above it; a mission part's session carries a
+**mission** chip and its **part** link opens the Mission panel on it. The palette's **Fleet** group: pair a
 harness, kick a member, group the map by project, follow / steer / pause /
 stop the selected agent, take it over, hand it to..., record it, replay its
 session, answer next (Attention, the oldest row), while you were away,
-who can... and the specs of each harness (3.0.6.0),
+who can... and the specs of each harness (3.0.6.0), new mission, approve
+mission, stop mission, mission report (3.0.6.0),
 follow any live agent by name, pause all, resume all, open the session in
 Orchestra or Flow.
 
@@ -1141,7 +1195,14 @@ routes `fleet_hub_api.py` (R2), `fleet_pair_api.py` and `fleet_api.py`
 (`get_history`). 3.0.6.0 R6 adds `Capabilities.tsx` + `Who.tsx` + `caps.ts` +
 `MapChips.tsx`, `styles/fleet-caps.css` and `fleet_capabilities_api.py`
 (tests: `tests/test_fleet_capabilities*.py`, the `caps` Chrome scenario in
-`tests/helpers/studio_fleet_caps.py`). Tests: `tests/test_fleet_studio_routes.py` and the Fleet
+`tests/helpers/studio_fleet_caps.py`). 3.0.6.0 R8 adds the Mission panel:
+`Mission.tsx` + `MissionStart.tsx` + `MissionPlan.tsx` + `MissionRun.tsx` +
+`MissionReport.tsx` + `MissionDialogs.tsx`, the map overlay `MapMission.tsx`,
+the store `mstore.ts`, the loader `mload.ts`, the palette `mcommands.ts`,
+`styles/fleet-mission.css` + `fleet-mission2.css` over R7's
+`fleet_mission_api.py` (the `mission` Chrome scenario in
+`tests/helpers/studio_fleet_mission.py`, its fakes in
+`tests/helpers/studio_fleet_mseed.py`). Tests: `tests/test_fleet_studio_routes.py` and the Fleet
 tests in `tests/test_studio_ui.py` (`tests/helpers/studio_fleet.py` over
 `tests/helpers/studio_fleet_rig.py`); captures `tools/capture_studio.py
 --mode fleet` (tools/capture_fleet.py).

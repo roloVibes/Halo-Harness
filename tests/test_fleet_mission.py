@@ -188,6 +188,12 @@ def test_a_mission_card_is_a_mission_ask_row_and_edits_read_from_text(ctx: Ctx):
     ask = next(r for r in rows if r["kind"] == "mission_ask")
     ctx.check("mission_ask: allow / deny / open", set(ask["keys"]) == {"a", "r", "o"} and ("mission_ask", "a") in ANSWER
               and ANSWER[("mission_ask", "r")] == {"answer": "deny"})
+    card = {"data": {"id": "fleet-ask:mission-0123abcd", "input": {"question": "hub-a asks to run mission m-20261015-3fa2 part 2 here: Chart it (claims: artifacts/2/**)"}}}
+    ask = next(r for r in attention.build(view, asks={(B_ID, "s1", "fleet-ask:mission-0123abcd"): card}, now=1000.0) if r["kind"] == "mission_ask")
+    from halo_harness.studio.fleet_answer import open_target
+    ctx.check(f"R8: the card's text is the detail, O opens the Mission panel on it, got {ask['detail']!r} / {open_target(ask)}",
+              ask["detail"].startswith("hub-a asks to run mission m-20261015-3fa2 part 2")
+              and open_target(ask) == {"section": "fleet", "panel": "fleet-mission", "mission": "m-20261015-3fa2", "part": "2"})
     ctx.check("mission_plan's edit needs text; mission_claim is set aside", ("mission_plan", "r") in NEEDS_TEXT
               and "mission_claim" in SET_ASIDE)
     ctx.check("edits from the row's text", edit_from_text("part 2 to kali@box") == {"part": "2", "harness": "kali@box"}
