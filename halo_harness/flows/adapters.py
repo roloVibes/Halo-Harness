@@ -91,8 +91,10 @@ def org_for_run(org_name: str, budget_usd: Optional[float]) -> dict:
     return org
 
 
-def run_org_on(session, org_name: str, org: dict, goal: str, on_event: Callable, approval_sink: Callable) -> dict:
-    """Run `org` from `session` (its caller) on a worker thread; see the module docstring."""
+def run_org_on(session, org_name: str, org: dict, goal: str, on_event: Callable, approval_sink: Callable,
+               tee: Optional[Callable] = None) -> dict:
+    """Run `org` from `session` (its caller) on a worker thread; see the module docstring.
+    `tee(Event)` (3.0.5.0): the flow session's control-socket feed, when it has one."""
     from halo_harness.agent.subagent import run_org_call
     from halo_harness.orgs import root_position
     session._subagent_live_asks = True
@@ -100,6 +102,11 @@ def run_org_on(session, org_name: str, org: dict, goal: str, on_event: Callable,
     positions: dict = {}
 
     def sink(ev) -> None:
+        if tee is not None:
+            try:
+                tee(ev)
+            except Exception:
+                pass
         kind, data = getattr(ev, "kind", ""), getattr(ev, "data", {}) or {}
         if kind == "tool_use_ready" and data.get("name") in ("Agent", "Task") and isinstance(data.get("input"), dict):
             names[data.get("id")] = str(data["input"].get("subagent_type") or "")
@@ -146,9 +153,16 @@ def real_run_org(org_name: str, goal: str, budget_usd: Optional[float], on_event
     build = headless.build_session(cwd=cwd, bare=True, print_mode=True, model_ref_raw=model, roles_flag=roles_flag,
                                    permission_mode="auto")
     session = build.session
+    from halo_harness.remote import runtime  # 3.0.5.0: a flow run is a session Studio can list and steer
+    fleet = runtime.start_for_session(session, cwd, kind="flow")
+    from halo_harness.agent import agent_hooks
+    agent_hooks.turn_started(session, goal)  # the org run is the flow session's one "turn"
     try:
-        return run_org_on(session, org_name, org, goal, on_event, approval_sink)
+        return run_org_on(session, org_name, org, goal, on_event, approval_sink,
+                          tee=fleet.handle.hub.publish if fleet is not None else None)
     finally:
+        agent_hooks.turn_ended(session)
+        runtime.stop_one(fleet)
         for close in (lambda: session._fire_session_end("other"), session.job_registry.kill_all,
                       getattr(build.mcp_manager, "close_all", lambda: None)):
             try:

@@ -37,8 +37,11 @@ The 2.0.10 review lists where each of these is still incomplete.
 
 ## Remote control (2.0.9) in five lines
 
-1. Off by default (`remote.enabled`); a session socket is a Unix socket
-   (mode 0600, directory 0700) or Windows loopback TCP plus a random token.
+1. Since 3.0.5.0 every session opens its control socket (`fleet.enabled`;
+   `--private` or `/private on` for one that should not); it is a Unix
+   socket (mode 0600, directory 0700) or Windows loopback TCP plus a random
+   token, never a network address. The phone bridge is off by default
+   (`remote.enabled`).
 2. The Signal bridge answers nobody it has not paired: contact request,
    approval on the computer, a one-time six-digit code, pinned on the ACI.
 3. Every command after pairing ends `#<counter>:<mac>` (HMAC, rising
@@ -48,6 +51,21 @@ The 2.0.10 review lists where each of these is still incomplete.
    the keyboard. Unpair a lost phone with `halo remote signal unpair`.
 5. Full threat model, layer by layer: [docs/REMOTE.md](docs/REMOTE.md).
 
+## The fleet hub (3.0.5.0) in four lines
+
+1. Nothing listens on the LAN until you start a hub (`halo fleet serve` or
+   `halo studio --fleet`); it serves only the fleet protocol, never Studio's
+   loopback API, and offline mode refuses it.
+2. A harness joins only with a one-time six-word code; the pair key comes
+   from a code-authenticated key exchange, every request and every command
+   is HMAC-signed (time window, nonce, sequence), and TLS is pinned to the
+   hub's fingerprint when `cryptography` is installed (else HMAC-only).
+3. A joined harness sends only its `fleet.share` level and applies a hub's
+   commands only per `fleet.allow_control` (default `ask`: a card for you);
+   a hub never gets a tool permission or learns a rule.
+4. `halo fleet kick` revokes a member's key; `halo fleet leave` forgets a
+   hub. Details: [docs/FLEET.md](docs/FLEET.md).
+
 ## Where keys live and who can read them
 
 | What | Where | Readable by |
@@ -55,6 +73,7 @@ The 2.0.10 review lists where each of these is still incomplete.
 | Provider keys | `~/.config/halo/env` (0600, dir 0700) | your account, root |
 | Signal signing secrets, signal-cli keys, registration PIN | `~/.halo/remote/` (0700; files 0600) | your account, root |
 | MCP OAuth tokens | `~/.halo/mcp/oauth/*.json` (0700 / 0600) | your account, root |
+| Fleet pair keys | `~/.halo/fleet/keys/` (joiner), `~/.halo/fleet/hub/members.json` (hub), both 0600 | your account, root |
 | Settings, prompt history | `~/.halo/config.json`, `history.jsonl` (0600) | your account, root |
 | Session transcripts, edit snapshots, logs | `~/.halo/sessions/`, `bridge.log` | currently follow your umask (often group/world readable); tightening is tracked in the review |
 

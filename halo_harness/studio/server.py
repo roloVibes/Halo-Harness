@@ -46,12 +46,17 @@ class _Server(http.server.ThreadingHTTPServer):
     def __init__(self, addr, handler, *, token: str, cwd: Path, state_dir: Path):
         self.token, self.cwd, self.state_dir = token, cwd, state_dir
         self.events = None  # studio.events.EventBridge, made by the first /api/events
+        self.fleet_hub = None  # 3.0.5.0 R2: fleet.hub.HubServer (`halo studio --fleet`, studio/fleet_hub_api.py)
         self.events_lock = threading.Lock()
         super().__init__(addr, handler)
 
     def server_close(self):
+        if getattr(self, "fleet_watch", None) is not None:  # 3.0.5.0 R4: studio/fleet_watch.py
+            self.fleet_watch.stop()
         if self.events is not None:
             self.events.close()
+        if self.fleet_hub is not None:  # the fleet hub ends with Studio
+            self.fleet_hub.stop()
         super().server_close()
 
     def server_bind(self):
@@ -152,6 +157,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             status, obj = dispatch(req)
         except Exception as e:  # a handler bug must never take the server down
             status, obj = 500, {"error": f"{type(e).__name__}: {e}"}
+        from halo_harness.studio.raw_body import RawBody  # 3.0.5.0 R4: a recording's HTML, not JSON
+        if isinstance(obj, RawBody):
+            return self._send(status, obj.body, obj.ctype, obj.headers)
         self._json(status, obj)
 
     def _static(self) -> None:
@@ -227,7 +235,7 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
     return server
 
 
-STUDIO_MODES = ("roles", "org", "design", "orchestra", "flow")  # 3.0.4.0: the shell's sections too
+STUDIO_MODES = ("roles", "org", "design", "orchestra", "flow", "fleet")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet
 
 
 def url_for(server: _Server, mode: Optional[str] = None, legacy: bool = False) -> str:
@@ -263,12 +271,13 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 def cmd_studio(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: Roles (lineups and agent bios as a graph), Org (the company in Paperclip) and Design (artboards on your own apps).")
-    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, org, design, orchestra or flow (default: the mode you used last)")
+    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, org, design, orchestra, flow or fleet (default: the mode you used last)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
     parser.add_argument("--legacy", action="store_true", help="open the plain page (/legacy/) instead of the shell")
     parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
+    parser.add_argument("--fleet", action="store_true", help="also run the fleet hub in this process: other harnesses join it with `halo fleet join` (docs/FLEET.md)")
     args = parser.parse_args(argv)
     from halo_harness.providers.config import default_state_dir
     state_dir = Path(default_state_dir())
@@ -294,6 +303,9 @@ def cmd_studio(argv: list) -> int:
         print(f"halo studio: cannot bind 127.0.0.1:{args.port or 'auto'}: {e}", file=sys.stderr)
         return 1
     url = url_for(server, args.mode, legacy=args.legacy)
+    if args.fleet:  # 3.0.5.0 R2: the fleet hub inside Studio's process
+        from halo_harness.studio.fleet_hub_api import start_for_flag
+        print(start_for_flag(server, state_dir))
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
         from halo_harness.privateio import write_private_atomic

@@ -535,7 +535,19 @@ _ALLOWED_RAW_NETWORK_CALLERS = {
     "halo_harness/studio/launch.py":
         "3.0.2.0: a loopback probe (socket.create_connection to 127.0.0.1:<port>) that asks whether the "
         "Studio this machine already runs still answers, so `halo studio` and the wizard reuse it instead "
-        "of starting another; never a remote host, nothing the offline gate covers",
+        "of starting another, plus (3.0.5.0 R2) `api_call`, one request on that Studio's own loopback API "
+        "with its stored token (`halo fleet` reads GET /api/fleet through it); never a remote host, "
+        "nothing the offline gate covers",
+    "halo_harness/fleet/hub.py":
+        "3.0.5.0 R2: the fleet hub LISTENER (a LAN port other harnesses join) is not a client call, but "
+        "this file also holds `running_call`, the loopback request (127.0.0.1, the hub's own admin token) "
+        "that `halo fleet status | members` and the terminal table use to read a hub running in another "
+        "process; gated on the offline switch: `HubServer.start` refuses under network.offline / --offline",
+    "halo_harness/fleet/relay.py":
+        "3.0.5.0 R2: the joined harness's client toward the hub it paired with (`halo fleet join`, the "
+        "relay thread, leave, status): a LAN peer the owner named, HMAC-signed, TLS pinned to the hub's "
+        "fingerprint; not the model-provider surface, so not through open_upstream, but gated on the "
+        "offline switch itself: every call raises before a socket opens while network.offline is on",
     "halo_harness/providers/http.py":
         "the choke point itself -- open_upstream/urlopen_tls/default_tls_context are DEFINED here using "
         "these primitives; _check_offline_allowed runs inside both before either is ever used",

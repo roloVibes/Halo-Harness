@@ -4,7 +4,8 @@
    emits onSelect / onMove / onDrop / onOpen and never touches the API.
    3.0.4.0 R6b: window.haloGroups (groups.js) draws the labelled group boxes
    behind the cards, lays the groups out in rows (`A`), and gets a card
-   dropped into another box (onDropIn). */
+   dropped into another box (onDropIn). 3.0.5.0 R3: after every render
+   window.haloLive (live.js) lights the cards whose agents work right now. */
 (function () {
   "use strict";
   const W = 236, H = 112, SNAP = 8;
@@ -110,6 +111,7 @@
         g.addEventListener("dblclick", (ev) => { ev.stopPropagation(); this.onOpen(n.id); });
         g.addEventListener("keydown", (ev) => { if (ev.key === "Enter") this.onOpen(n.id); });
       }
+      if (window.haloLive) window.haloLive.decorate(this);  // Live Roles: the glow, the badge, the spawn lines
       this._apply();
     }
     _minimap() {

@@ -262,6 +262,13 @@ template**.
 grouped lines as `halo agents` (project / user / shipped, kind and model per
 line, ending with the `halo agents show <name>` hint).
 
+**Halo 3.0.5.0 (Fleet)**: `/agents live` lists THIS session's running
+agents instead: the main agent and every sub-agent at every depth (and
+background Bash jobs), indented under their parents, with state, cost so
+far, model and what each one is doing (the tool in flight, or its task).
+It is the same tree Studio and `halo remote agents <session>` show; see
+[SUBAGENTS.md](SUBAGENTS.md).
+
 **Halo 2.0.5 round 2**: bare `/agents` instead opens an interactive
 list-with-actions screen over the bios (New, New from..., Edit,
 Duplicate, Delete, Import from `.claude/agents/*.md`, one result line
@@ -562,6 +569,30 @@ the transcript, and are what print mode answers. While a phone is attached to
 this session the status bar shows a `⇄ remote` chip. See
 [REMOTE.md](REMOTE.md).
 
+### `/private [on|off]`
+Halo 3.0.5.0 (Fleet). `/private on` makes this session private: it closes
+its control socket and leaves `~/.halo/run/sessions.json`, so Studio,
+`halo remote` and the fleet no longer see it, and the status bar shows a
+`private` chip. `/private off` opens the socket again and lists the
+session. Bare `/private` prints the state and the control-socket line.
+`halo --private` starts a session private, and `fleet.private: true` in
+`~/.halo/config.json` makes every session start private. A `halo -p` run
+started private stays private. See [FLEET.md](FLEET.md).
+
+### `/fleet [text]`
+Halo 3.0.5.0 (Fleet). Bare `/fleet` opens the fleet table as a dialog: one
+row per agent of every harness this machine sees (harness, session, agent
+indented under its parent, state, what it is doing, cost), refreshed every
+2 s. It reads Studio's `GET /api/fleet` when Studio runs (every member of
+its hub included), else the hub this machine serves, else this harness
+alone. Keys: Up/Down select, `s` steer that agent (type the note, Enter),
+`k` stop it (press `k` twice: the first press asks), `p` pause or resume
+it, `r` refresh, Esc or `q` close. A command for another harness goes
+through the hub and is applied only as that harness's owner allows
+(`fleet.allow_control`). `/fleet text` prints the same table in the
+transcript, and is what print mode answers. The terminal twin is
+`halo fleet`. See [FLEET.md](FLEET.md).
+
 ### `/offline [on|off]`
 Halo 2.0.3 round 5e. Bare `/offline` reports whether offline mode is on and
 where that reading came from (`--offline`/`HALO_OFFLINE` for this one
@@ -665,10 +696,10 @@ one onto a normal theme clears it. In the TUI, Tab completes theme names
 (the game themes first). See the Themes section of the
 [handbook](HANDBOOK.md).
 
-### `/studio` `[roles|org|design|orchestra|flow] [url]`
+### `/studio` `[roles|org|design|orchestra|flow|fleet] [url]`
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, in the mode
-you name (`roles`, `org`, `design`; 3.0.4.0: `orchestra` and `flow` too) or
-the one you used last. Bare `/roles`,
+you name (`roles`, `org`, `design`; 3.0.4.0: `orchestra` and `flow` too;
+3.0.5.0: `fleet`, every harness and agent live) or the one you used last. Bare `/roles`,
 `/org` and `/design` are the short forms. Roles is your lineups and agent bios as an editable
 graph in the browser -- served from this session (it closes with it).
 `/studio url` prints the URL without opening a browser; over SSH, forward

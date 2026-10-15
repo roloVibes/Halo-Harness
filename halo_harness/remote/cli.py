@@ -1,6 +1,7 @@
 """halo_harness.remote.cli -- `halo remote ...` (Halo 2.0.9).
 
     halo remote sessions               live halo sessions that opened a control socket
+    halo remote agents|steer|stop ...  one session's agent tree (3.0.5.0, cli_fleet.py)
     halo remote signal <verb> [...]    the Signal bridge: setup, register, link, run,
                                        pair, peers, unpair, reverify, status, off, on
 
@@ -15,9 +16,15 @@ import time
 
 SIGNAL_VERBS = ("setup", "register", "link", "run", "pair", "peers", "unpair", "reverify", "status", "off", "on")
 USAGE = """usage: halo remote sessions
+       halo remote agents <session> [--json]
+       halo remote steer <session> --agent <id> [--redirect] <text> [--json]
+       halo remote stop <session> --agent <id> [--reason <text>] [--json]
        halo remote signal <verb> [--json] [...]
 
   sessions   list the live halo sessions that opened a control socket
+  agents     one session's agents: the main agent and every sub-agent, with state and cost
+  steer      a note one agent reads before its next model call (--redirect replaces its task)
+  stop       stop one agent and its subtree at the next tool boundary
   signal     control halo from Signal; verbs:
     setup      choose dedicated number or linked device; find or download signal-cli
     register   register the dedicated number (captcha, SMS code, registration lock)
@@ -47,7 +54,8 @@ def cmd_sessions() -> int:
     from halo_harness.remote import registry
     rows = registry.list_live()
     if not rows:
-        print("No live sessions with a control socket (set remote.enabled to true and start halo).")
+        print("No live sessions with a control socket (start halo; fleet.enabled is on unless you turned it off, "
+              "and a --private session never lists itself).")
         return 0
     print(f"{'SESSION':<10} {'PID':>7} {'KIND':<6} {'MODE':<12} {'AGE':>5}  CWD  ->  ENDPOINT   TITLE")
     for r in rows:
@@ -81,5 +89,8 @@ def cmd_remote(argv: list) -> int:
         return cmd_sessions()
     if argv and argv[0] == "signal":
         return cmd_signal(argv[1:])
+    if argv and argv[0] in ("agents", "steer", "stop"):
+        from halo_harness.remote import cli_fleet
+        return getattr(cli_fleet, "cmd_" + argv[0])(argv[1:])
     print(USAGE, file=sys.stderr)
     return 2

@@ -136,6 +136,8 @@ async def handle_slash(app, name: str, args: str) -> None:
         # Halo 2.0.9 round 4: bare /remote opens the Signal remote-control
         # dialog; /remote status|pair|off print text (see tui/slash_remote.py).
         "remote": _handle_remote,
+        # Halo 3.0.5.0 R2: bare /fleet opens the fleet table dialog (tui/slash_fleet.py).
+        "fleet": _handle_fleet,
         # Halo 2.0.10: /review -- parallel dimension reviewers on a worker
         # thread, finding cards in the transcript (see tui/slash_review.py).
         "review": _handle_review,
@@ -1367,6 +1369,11 @@ async def _handle_review(app, args: str) -> None:
 async def _handle_remote(app, args: str) -> None:
     from halo_harness.tui.slash_remote import handle_remote
     await handle_remote(app, args)
+
+
+async def _handle_fleet(app, args: str) -> None:
+    from halo_harness.tui.slash_fleet import handle_fleet
+    await handle_fleet(app, args)
 
 
 async def _handle_ollama(app, args: str) -> None:

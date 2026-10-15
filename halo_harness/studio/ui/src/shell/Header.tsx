@@ -1,4 +1,4 @@
-// The top bar: brand, the five section tabs (a tab "works" while its section
+// The top bar: brand, the six section tabs (a tab "works" while its section
 // has fresh activity), the ? that opens "How this works" for the section, the
 // command palette button and the theme menu.
 import { useEffect, useRef, useState } from "react";
@@ -11,7 +11,8 @@ function useSectionTabs(current: SectionId): TabItem[] {
   const activity = useStore(studio, (s) => s.activity);
   const orchestraBusy = useRecent(activity.orchestra, 3000);
   const flowBusy = useRecent(activity.flow, 3000);
-  const busy: Record<SectionId, boolean> = { orchestra: orchestraBusy, roles: false, org: false, design: false, flow: flowBusy };
+  const fleetBusy = useRecent(activity.fleet, 3000);
+  const busy: Record<SectionId, boolean> = { orchestra: orchestraBusy, roles: false, org: false, design: false, flow: flowBusy, fleet: fleetBusy };
   return SECTIONS.map((s) => ({
     id: s.id,
     label: s.title,

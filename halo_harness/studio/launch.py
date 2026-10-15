@@ -113,6 +113,31 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
     return found.get("url", "")
 
 
+def api_call(state_dir: Path, method: str, path: str, body: Optional[dict] = None,
+             timeout: float = 5.0) -> "Optional[tuple]":
+    """3.0.5.0 R2: one call on the running Studio's loopback API with its stored token (`halo fleet`
+    reads `GET /api/fleet` and sends commands through it): `(status, body)`, or None when none answers."""
+    import http.client
+    info = read_info(state_dir)
+    if not info:
+        return None
+    conn = http.client.HTTPConnection("127.0.0.1", info["port"], timeout=timeout)
+    try:
+        conn.request(method, "/api/" + path.lstrip("/"), body=json.dumps(body).encode("utf-8") if body is not None else None,
+                     headers={"Authorization": "Bearer " + str(info.get("token") or ""), "Content-Type": "application/json"})
+        resp = conn.getresponse()
+        status, data = resp.status, resp.read()
+    except (OSError, http.client.HTTPException):
+        return None
+    finally:
+        conn.close()
+    try:
+        obj = json.loads(data.decode("utf-8") or "{}")
+    except ValueError:
+        obj = {}
+    return status, obj if isinstance(obj, (dict, list)) else {}
+
+
 def _clear_info(state_dir: Path) -> None:
     try:
         studio_info_path(Path(state_dir)).unlink()

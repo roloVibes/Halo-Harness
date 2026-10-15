@@ -17,7 +17,10 @@ import tempfile
 import time
 import urllib.request
 
-KEYS = {"?": ("Slash", 191, 8), "Escape": ("Escape", 27, 0), "o": ("KeyO", 79, 0), "r": ("KeyR", 82, 0), "a": ("KeyA", 65, 0)}
+KEYS = {"?": ("Slash", 191, 8), "Escape": ("Escape", 27, 0), "o": ("KeyO", 79, 0), "r": ("KeyR", 82, 0), "a": ("KeyA", 65, 0),
+        # 3.0.5.0 R3: the Fleet hop keys
+        "j": ("KeyJ", 74, 0), "k": ("KeyK", 75, 0), "f": ("KeyF", 70, 0), "p": ("KeyP", 80, 0), " ": ("Space", 32, 0),
+        "Enter": ("Enter", 13, 0)}
 
 
 class Chrome:
@@ -174,6 +177,18 @@ class Chrome:
         text = key if len(key) == 1 else ""
         self.call("Input.dispatchKeyEvent", type="keyDown", key=key, code=code, text=text, windowsVirtualKeyCode=vk, modifiers=mods)
         self.call("Input.dispatchKeyEvent", type="keyUp", key=key, code=code, windowsVirtualKeyCode=vk, modifiers=mods)
+
+    def type_text(self, text: str) -> None:
+        """Text into the focused field, as typing it would put it there."""
+        self.call("Input.insertText", text=text)
+
+    def shot(self, path, width: int = 1500, height: int = 900, scale: float = 2) -> int:
+        """A PNG of the page at `width` x `height` CSS px and `scale` device pixels per px; returns its size."""
+        self.call("Emulation.setDeviceMetricsOverride", width=width, height=height, deviceScaleFactor=scale, mobile=False)
+        data = base64.b64decode(self.call("Page.captureScreenshot", format="png", captureBeyondViewport=False)["data"])
+        with open(path, "wb") as f:
+            f.write(data)
+        return len(data)
 
     def close(self) -> None:
         try:  # a clean exit closes the page's connections (no reset on the server's side)

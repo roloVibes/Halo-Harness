@@ -1869,7 +1869,8 @@ def run_print_mode(
         )
         slash_names = [f"/{c.name}" for c in registry.all()]
 
-        # Halo 2.0.9 round 2: with config `remote.enabled`, this run opens a
+        # Halo 2.0.9 round 2 / 3.0.5.0: unless `fleet.enabled` is false or the
+        # run is private (`--private`), this run opens a
         # control socket too (`halo remote sessions` lists it); the turn
         # stream is teed into the socket's event feed. None when off.
         from halo_harness.remote import runtime as _remote_rt

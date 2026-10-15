@@ -2,7 +2,7 @@
 // to the shell with postMessage, same origin only: `{type: "legacy-status",
 // mode, text}` is the page's status line, shown in the shell's status bar
 // (the page hides its own); `{type: "legacy-section", to}` is the page's
-// R / O / D (or Alt+1..5) key, which switches the shell's section instead of
+// R / O / D (or Alt+1..6) key, which switches the shell's section instead of
 // the frame.
 import { useEffect } from "react";
 import { goSection, SECTION_IDS, studio, type SectionId } from "../lib/store";

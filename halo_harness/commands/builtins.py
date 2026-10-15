@@ -162,7 +162,8 @@ _STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
                        "org": "Org: the company in Paperclip",
                        "design": "Design: artboards on your own apps",
                        "orchestra": "Orchestra: runs of your agents, live",
-                       "flow": "Flow: a brief to renders, posts and metrics"}
+                       "flow": "Flow: a brief to renders, posts and metrics",
+                       "fleet": "Fleet: every harness, every agent, live"}
 
 
 def _cmd_studio(args: str, facade: HeadlessFacade) -> str:
@@ -225,6 +226,43 @@ def _cmd_remote(args: str, facade: HeadlessFacade) -> str:
     for bare `/remote`; print mode answers with the status text."""
     from halo_harness.remote.dialog_model import text_command
     return text_command(args)
+
+
+def _agents_live(session) -> str:
+    """Halo 3.0.5.0 (Fleet): `/agents live` -- this session's live agent tree
+    (agent/agent_registry.py): every agent with its state, cost so far, model
+    and what it is doing, the same rows the control socket's `agents` returns."""
+    if session is None:
+        return "No live session: `/agents live` lists the agents of a running session."
+    from halo_harness.agent.agent_hooks import format_tree
+    from halo_harness.agent.agent_registry import tree_for
+    rows = tree_for(session).public_rows()
+    head = f"Live agents ({len(rows)}): id, name, state, cost, model, what it is doing"
+    return "\n".join([head, *("  " + line for line in format_tree(rows))])
+
+
+def _cmd_fleet(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.0.5.0 R2: `/fleet` -- every harness, session and agent this machine
+    sees (Studio's fleet view, this machine's hub, or this harness alone), the
+    same table as `halo fleet --once`; the TUI opens it as a live dialog."""
+    from halo_harness.fleet.table import render, rows, snapshot
+    view, source = snapshot()
+    where = {"studio": "Studio's fleet view", "hub": "this machine's hub", "local": "this harness only"}
+    return f"Fleet ({where.get(source, source)}):\n" + render(rows(view))
+
+
+def _cmd_private(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.0.5.0 (Fleet): `/private [on|off]` -- a private session closes
+    its control socket and leaves the registry, so Studio, `halo remote` and
+    the fleet never see it; `off` opens it again. Bare: the current state."""
+    from halo_harness.remote import runtime
+    word = (args or "").strip().lower()
+    if word in ("on", "off"):
+        return runtime.set_private(word == "on")
+    if word:
+        return "Usage: /private [on|off]"
+    state = "on" if runtime.private() else "off"
+    return f"Private: {state}.\n{runtime.status_line()}"
 
 
 def _cmd_escalation(args: str, facade: HeadlessFacade) -> str:
@@ -831,6 +869,8 @@ def _cmd_agents(args: str, facade: HeadlessFacade) -> str:
     armed right now (any owning session) and each schedule's next fire
     time, the same lines `halo agents schedule list` prints."""
     session = getattr(facade, "session", None)
+    if (args or "").strip().split(None, 1)[:1] == ["live"]:
+        return _agents_live(session)
     if (args or "").strip().split(None, 1)[:1] == ["schedule"]:
         from halo_harness.agents_schedule import list_schedules, schedule_status_lines
         state_dir = getattr(session, "state_dir", None) if session is not None else None
@@ -1918,7 +1958,8 @@ _BUILTIN_SPECS = {
     "status": ("core", "Show session status", None, _cmd_status),
     "config": ("core", "Show or set a config value", "[key=value]", _cmd_config),
     "skills": ("core", "List discovered skills", None, _cmd_skills),
-    "agents": ("core", "List available sub-agents and agent bios", None, _cmd_agents),
+    "agents": ("core", "List available sub-agents and agent bios; `live`: this session's running agents",
+               "[live|schedule]", _cmd_agents),
     "teams": ("core", "Show the active lineup; apply, preview or diff lineups", "[apply|preview <name>|diff <a> <b>]", _cmd_teams),
     "roles": ("core", "Open Studio's Roles GUI (bare, in the TUI); the role table, roles on/off, role templates",
               "[gui|table|on|off|templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
@@ -1942,10 +1983,14 @@ _BUILTIN_SPECS = {
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
     "level": ("core", "Toggle the game themes' level band above the prompt", "[on|off]", _cmd_level),
-    "studio": ("core", "Open Halo Studio, the browser GUI: Roles | Org | Design", "[roles|org|design|orchestra|flow] [url]", _cmd_studio),
+    "studio": ("core", "Open Halo Studio, the browser GUI: Roles | Org | Design", "[roles|org|design|orchestra|flow|fleet] [url]", _cmd_studio),
     "design": ("core", "Open Studio's Design GUI: artboards on your own apps (the `halo design` family)", "[url]", _cmd_design),
     "remote": ("core", "Remote control: control socket, Signal bridge state, paired phones, pairing, kill switch",
                "[status|pair [N]|off]", _cmd_remote),
+    "private": ("core", "Private session: no control socket, no registry entry (Studio and the fleet never see it)",
+                "[on|off]", _cmd_private),
+    "fleet": ("core", "The fleet: every harness, session and agent this machine sees (a live table in the TUI)",
+              "[text]", _cmd_fleet),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,
                    _cmd_escalation),
     "init": ("prompt", "Analyze the codebase and write/update CLAUDE.md", None, _cmd_init),

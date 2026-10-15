@@ -1,4 +1,4 @@
-// Global keys: Alt+1..5 switch sections, Ctrl/Cmd+K toggles the palette,
+// Global keys: Alt+1..6 switch sections, Ctrl/Cmd+K toggles the palette,
 // `?` (Shift+/) opens "How this works" for the section (a focused panel
 // takes `?` first for its own help), Esc closes the palette, then the
 // Inspector. A key a panel, a menu or a dialog already handled (its default
@@ -20,7 +20,7 @@ export function useGlobalKeys(): void {
         studio.update((s) => ({ paletteOpen: !s.paletteOpen }));
         return;
       }
-      if (e.altKey && !mod && !e.shiftKey && /^Digit[1-5]$/.test(e.code)) {
+      if (e.altKey && !mod && !e.shiftKey && /^Digit[1-6]$/.test(e.code)) {
         e.preventDefault();
         goSection(SECTIONS[Number(e.code.slice(5)) - 1].id);
         return;
@@ -35,8 +35,9 @@ export function useGlobalKeys(): void {
       }
       if (e.key === "Escape") {
         const s = studio.get();
-        if (s.paletteOpen) studio.update(() => ({ paletteOpen: false }));
-        else if (s.inspector) studio.update(() => ({ inspector: null }));
+        // what Esc closed is taken: the Fleet hop keys (Esc unpins the mini stream) leave it alone
+        if (s.paletteOpen) (e.preventDefault(), studio.update(() => ({ paletteOpen: false })));
+        else if (s.inspector) (e.preventDefault(), studio.update(() => ({ inspector: null })));
       }
     };
     window.addEventListener("keydown", onKey);

@@ -11,6 +11,10 @@ import "./styles/flow.css";
 import "./styles/flow-start.css";
 import "./styles/media.css";
 import "./styles/help.css";
+import "./styles/fleet.css";
+import "./styles/fleet-agent.css";
+import "./styles/fleet-panels.css";
+import "./styles/fleet-panels2.css";
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

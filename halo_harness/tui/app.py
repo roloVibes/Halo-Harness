@@ -580,10 +580,12 @@ class BridgeApp(App):
         starter = getattr(self.controller, "start", None)
         if callable(starter):
             starter()
-            # Halo 2.0.9 round 2: config `remote.enabled` opens the session's
-            # control socket (closed again by Controller.quit()).
+            # Halo 2.0.9 round 2 / 3.0.5.0: the session's control socket opens
+            # unless `fleet.enabled` is false or it is private (closed again by
+            # Controller.quit()); a `shutdown` from Studio ends the app here.
             try:
                 from halo_harness.remote.runtime import start_for_controller
+                self.controller.on_fleet_shutdown = lambda _text: self.call_from_thread(self._begin_quit)
                 start_for_controller(self.controller)
             except Exception:
                 pass
@@ -604,7 +606,8 @@ class BridgeApp(App):
         self.set_interval(1.0, lambda: self._tick_spinner())
         self.set_interval(5.0, self._refresh_cwd_branch)
         # Halo 2.0.9 round 4: bridge notices (changed safety number, rate
-        # limit, captcha) become notifications; only when remote.enabled.
+        # limit, captcha) become notifications; only when remote.enabled
+        # (the Signal bridge's switch).
         from halo_harness.tui.slash_remote import start_notice_poll
         start_notice_poll(self)
         if self.console_guard is not None and getattr(self.console_guard, "active", False):

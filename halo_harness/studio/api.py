@@ -269,7 +269,8 @@ ROUTES[len(ROUTES):] = _MODELS_ROUTES
 
 _PREFIXES = (("flow", "halo_harness.studio.flow_api", "dispatch_flow"),
              ("media", "halo_harness.studio.media_api", "dispatch_media"),
-             ("sessions", "halo_harness.studio.sessions_api", "dispatch_sessions"))
+             ("sessions", "halo_harness.studio.sessions_api", "dispatch_sessions"),
+             ("fleet", "halo_harness.studio.fleet_hub_api", "dispatch_fleet"))  # 3.0.5.0 R2: the hub's view
 
 
 def dispatch(req: Request):

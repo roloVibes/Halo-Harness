@@ -3,8 +3,9 @@
 `[OK]` / `[WARN]` / `[MISSING]` vocabulary (so `halo doctor --json` gets the
 same `{id, status, message, fix}` records as every other check).
 
-Quiet by default: with `remote.enabled` false and no signal.json there is one
-line. Otherwise: the control sockets, the Signal bridge, signal-cli (present,
+Quiet by default: with `remote.enabled` (the Signal bridge's switch) false and
+no signal.json there is one line, naming both switches (`fleet.enabled` opens
+the control sockets). Otherwise: the Signal bridge, signal-cli (present,
 the 0.14.9 pin, warn at 90 days from its release), the JRE when the JVM build
 is used, permissions under `~/.halo/remote/`, and -- when a proxy is
 configured -- the seven `*.signal.org` hosts to allow.
@@ -55,9 +56,11 @@ def _control_line() -> tuple:
     from halo_harness.remote import runtime
     count = _live_count()
     plural = "" if count == 1 else "s"
-    if not runtime.enabled():
-        return False, f"{OK} Remote control: off (remote.enabled is false) -- {count} live session{plural} in the registry"
-    return True, f"{OK} Remote control: on (remote.enabled) -- {count} live session{plural} in the registry"
+    sockets = "on (fleet.enabled)" if runtime.fleet_enabled() else "off (fleet.enabled is false)"
+    on = runtime.remote_enabled()
+    bridge = "on (remote.enabled)" if on else "off (remote.enabled is false)"
+    return on, (f"{OK} Remote control: control sockets {sockets}, Signal bridge {bridge} -- "
+                f"{count} live session{plural} in the registry")
 
 
 def _signal_cli_line(cfg: dict) -> tuple:
