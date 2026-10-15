@@ -92,7 +92,7 @@ def test_review_command_shows_tasks_rows_then_finding_cards(ctx: Ctx):
             items = [rm.finding_json(severity="high", short="subtracts instead of adds", category="logic-error"),
                      rm.finding_json(file="util.py", line=2, severity="low", category="crash", short="empty list crash",
                                      summary="xs[0] on an empty list", scenario="first([]) raises IndexError")]
-            rev = rm.Router(lambda p: rm.fenced(items) if _dim(p) == "correctness" else "```json\n[]\n```", delay=1.6)
+            rev = rm.Router(lambda p: rm.fenced(items) if _dim(p) == "correctness" else "```json\n[]\n```", delay=3.0)
             jud = rm.Router(lambda p: _verdict("CONFIRMED", "traced") if "subtracts" in p
                             else _verdict("PLAUSIBLE", "depends on callers"))
             rm.register(reviewer=rev, judge=jud)
@@ -110,14 +110,17 @@ def test_review_command_shows_tasks_rows_then_finding_cards(ctx: Ctx):
                 await pilot.press("enter")
                 opened = await _wait(app, pilot, lambda: isinstance(app.screen, TasksPanel))
                 ctx.check("/tasks panel opened mid-review", opened)
-                rows = []
-                seen = await _wait(app, pilot, lambda: bool(
-                    [t for t in _tasks_texts(app) if "review-correctness" in t]) and bool(
-                    [t for t in _tasks_texts(app) if "review-tests" in t]), tries=60)
+                # one wait for "both rows listed AND one still in flight": on a loaded CI runner the
+                # reviewers can finish between two separate waits, so the check is on one snapshot
+                def _live_rows():
+                    rows = _tasks_texts(app)
+                    both = any("review-correctness" in t for t in rows) and any("review-tests" in t for t in rows)
+                    running = any(("running" in t or "thinking" in t or "waiting" in t)
+                                  for t in rows if "review-" in t)
+                    return both and running
+                seen = await _wait(app, pilot, _live_rows, tries=100)
                 rows = _tasks_texts(app)
-                ctx.check(f"both reviewer rows are listed, got {rows}", seen)
-                ctx.check("a running row says so", any("running" in t or "thinking" in t or "waiting" in t
-                                                       for t in rows if "review-" in t))
+                ctx.check(f"both reviewer rows are listed, one still running, got {rows}", seen)
                 await pilot.press("escape")
                 await pilot.pause(0.2)
 
