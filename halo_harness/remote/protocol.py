@@ -64,8 +64,10 @@ def _note(handle, req: dict, conn) -> dict:
     phone attached or detached. A connection that closes takes its peers
     with it, so a crashed bridge never leaves the chip lit."""
     name = _str(req, "name")
+    if name == "fleet.message":
+        return _message(handle, req)
     if name != "remote.attached":
-        raise HandleError(f"unknown note {name!r} (expected remote.attached)")
+        raise HandleError(f"unknown note {name!r} (expected remote.attached or fleet.message)")
     peer = _str(req, "peer").strip()[:16]
     if not peer:
         raise HandleError("note remote.attached needs a peer")
@@ -74,6 +76,25 @@ def _note(handle, req: dict, conn) -> dict:
     if noted is not None:
         (noted.add if attached else noted.discard)(peer)
     return {"attached": handle.set_remote_peer(peer, attached)}
+
+
+def _message(handle, req: dict) -> dict:
+    """`{"cmd": "note", "name": "fleet.message", "text", "by"}` (3.0.5.0 R4, Fleet's People panel): a line
+    the session's owner reads in the transcript and the TUI; the model never sees it."""
+    text = " ".join(_str(req, "text").split())[:500]
+    if not text:
+        raise HandleError("a fleet.message note needs text")
+    by = " ".join(_str(req, "by").split())[:64] or "someone"
+    line = f"message from {by}: {text}"
+    log = getattr(handle.session, "log", None)
+    if log is not None:
+        try:
+            log.append_meta(fleet_note=line)
+        except Exception:
+            pass
+    from halo_harness.remote.agent_control import _announce
+    _announce(handle, line)
+    return {"delivered": True, "by": by}
 
 
 def run_cmd(handle, req: dict, conn) -> Any:

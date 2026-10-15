@@ -42,10 +42,10 @@ PING_S = 10.0
 H_MEMBER, H_TS, H_NONCE, H_SIG = "X-Halo-Fleet-Member", "X-Halo-Fleet-Ts", "X-Halo-Fleet-Nonce", "X-Halo-Fleet-Sig"
 H_ADMIN = "X-Halo-Fleet-Admin"
 
-READ_CMDS = ("status", "agents")
+READ_CMDS = ("status", "agents", "doctor")  # 3.0.5.0 R4: `doctor` is fleet/health.py's read-only subset
 FULL_CMDS = ("agent_tail", "agent_follow", "tail")  # share: full only
 ACTING_CMDS = ("agent_steer", "agent_stop", "pause", "resume", "shutdown", "steer", "interrupt")
-FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer",)
+FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note")  # note: a person's message (R4)
 
 TEXT_KINDS = frozenset({"text_chunk", "text_delta", "thinking_delta", "thinking_chunk"})
 FULL_KINDS = TEXT_KINDS | {"agent_event"}  # a followed agent's entries carry its text

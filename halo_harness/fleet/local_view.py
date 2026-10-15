@@ -44,6 +44,7 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
     live = data.get("agents")
     row.update(status=_state(status), busy=bool(data.get("busy")), pending=data.get("pending"),
                model=data.get("model"), cost_usd=data.get("cost_usd"),
+               remote_attached=data.get("remote_attached") if isinstance(data.get("remote_attached"), int) else 0,
                agents_live=live if isinstance(live, int) and not isinstance(live, bool) else 0,
                agents=[a for a in (agents or []) if isinstance(a, dict)])
     return row

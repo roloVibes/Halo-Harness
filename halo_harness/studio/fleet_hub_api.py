@@ -5,7 +5,7 @@
                                      first, `local: true`), its sessions and agent trees, and `hub`
     GET  fleet/commands/<cid>        one command's state: sent | asked | done | refused | error
     POST fleet/hub {action: start | stop, port?, bind?, name?, tls?}   the hub inside Studio's process
-    POST fleet/<harness>/<sid>/command {cmd: steer | interrupt | shutdown | pause | resume | answer, text?,
+    POST fleet/<harness>/<sid>/command {cmd: steer | interrupt | shutdown | pause | resume | answer | note, text?,
                                         reason?, agent_id?, wait_s?, ...answer fields}
     POST fleet/<harness>/<sid>/agents/<aid>/command {cmd: steer | stop | pause | resume | follow | tail,
                                                      text?, mode?, reason?, on?, n?, wait_s?}
@@ -29,7 +29,7 @@ import re
 
 from halo_harness.studio.sessions_api import ANSWER_FIELDS
 
-SESSION_CMDS = ("steer", "interrupt", "shutdown", "pause", "resume", "answer")
+SESSION_CMDS = ("steer", "interrupt", "shutdown", "pause", "resume", "answer", "note")
 AGENT_CMDS = {"steer": "agent_steer", "stop": "agent_stop", "pause": "pause", "resume": "resume",
               "follow": "agent_follow", "tail": "agent_tail"}
 
@@ -156,10 +156,10 @@ def post_session_command(req):
         return 422, {"error": f"cmd is one of {', '.join(SESSION_CMDS)}, got {cmd!r}", "problems": []}
     if cmd == "answer":
         fields = {k: body[k] for k in ANSWER_FIELDS if k in body}
-    elif cmd == "steer":
+    elif cmd in ("steer", "note"):
         fields = {"text": str(body.get("text") or "").strip()}
         if not fields["text"]:
-            return 422, {"error": "a steer needs text", "problems": []}
+            return 422, {"error": f"a {cmd} needs text", "problems": []}
     else:
         fields = {k: str(body[k]) for k in ("reason", "agent_id") if body.get(k)}
     return _send(req, hid, sid, cmd, fields)
