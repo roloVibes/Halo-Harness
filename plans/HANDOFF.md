@@ -4,9 +4,18 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-15 ~08:25 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-15 ~09:45 CDT (authoritative, read this first)
 
-**3.0.6.0 "FLEET MISSIONS" IS CODE-COMPLETE ON MASTER, RELEASE IN PROGRESS.**
+**3.0.6.0 "FLEET MISSIONS" IS RELEASED** (tag v3.0.6.0 on master, GitHub release
+published, local install `halo 3.0.6.0`), cut on CI run 38709613548 read as
+`conclusion == success` for sha 0540500 (green on the first run). The local
+three-suite gate's only failures were a reused test home (the gate script now
+makes a fresh `BRIDGE_TEST_HOME` per suite); every module passes fresh. No
+worktrees remain; the `fleet/R6..R8` branches are merged and may be deleted.
+The owner's LIVE CHECK (below) is still to do, for 3.0.5.0 and 3.0.6.0 at
+once. The round history follows.
+
+**3.0.6.0 "FLEET MISSIONS" WAS CODE-COMPLETE ON MASTER 2026-10-15 ~08:25 CDT.**
 The owner's ask (2026-10-14 ~21:00: see what every halo can do, its MCPs and
 specs; a group mission that knows which halo is best for each part; a
 combined task across halos without stepping on each other; a shared folder
