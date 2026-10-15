@@ -4,6 +4,50 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-14 ~21:45 CDT (authoritative, read this first)
+
+**3.0.5.0 "FLEET" IS CODE-COMPLETE ON MASTER, RELEASE IN PROGRESS.** Every
+round landed: R1 agent control (dbf1a13), R2 hub/pairing/join/relay
+(7ece693), R3 the Studio Fleet section + Live Roles + hop keys (a82c607),
+R4a the panels backend (782738e: the fleet watcher, attention queue + answer
+route, caps, health, conflicts, hand-offs, recordings, replay, digest,
+`halo fleet record|digest`, docs/FLEET.md "The panels"), R4b the panels UI
+(33ee699: People/Costs/Health/Attention/Map/Activity/Agent, the conflict
+edge, Take over / Hand to / Record / Replay, the canvas replay scrub, the
+"While you were away" card, 6 new Chrome scenarios, studio-fleet-panels.png).
+Merged as 3ef546f; CHANGELOG `## [3.0.5.0] - unreleased` holds R1-R4.
+Branch `fleet/R4-panels` and worktree `<home>/hh-fleet/R4-panels` can go
+after the tag. Release steps left: local three-suite gate (test_bridge,
+tests/run_all, test_tui), CI `conclusion == success` for the exact sha,
+`python scripts/release.py 3.0.5.0`, refresh the install (`uv pip install
+--python <tool venv python> --reinstall-package halo-harness <clone>`),
+`halo --version` = 3.0.5.0, memory. Then the owner's LIVE CHECK: this host
+`halo studio --fleet` + `halo fleet pair`, the Kali VM `halo update` then
+`halo fleet join <host>:7430 --code "..."`, an Orchestra run on one and a
+flow on the other in one Fleet map, a steer from Studio reaching a worker
+on the VM.
+
+**NEXT: 3.0.6.0 "Fleet Missions"** (owner's ask 2026-10-14 ~21:00; plan
+`~/.claude/plans/fleet-missions-3060.md`): R6 Capabilities (every harness
+announces its MCP servers + tools, skills, roles, models, craft apps,
+hardware, CLIs, tags; `GET /api/fleet/capabilities`, `/who?q=`, `halo fleet
+capabilities|who`, a Studio Capabilities panel + chips), R7 Missions backend
+(one goal split by the hub's lead over the capability catalog into parts
+pinned to harnesses with reasons and exclusive claims; the mission folder
+served over the signed fleet protocol or a real `fleet.shared_dir`; gated
+`run_task` dispatch to `mission-worker` sessions; Orchestra merge + judge;
+`halo fleet mission ...`), R8 the Missions Studio panel (DAG over the map,
+drag to reassign) + docs + release. The former 3.0.6.0 list (tiers, Roles/
+Org/Design ports, legacy removal) slides to 3.0.7.0; Team to 3.0.8.0.
+Known small: `health` for the local harness probes providers (skipped under
+`BRIDGE_TEST_NO_BACKGROUND_NET`); Hand to... "Open" copies a markdown path
+(no open-file route); Costs cap save, Health Refresh, Kick confirm, hand_to
+POST and the Activity filters are not driven in Chrome (API tests cover the
+backend); `server.py` is 340 lines and `remote/bridge.py` 320 (over the cap
+before this release).
+
+--- previous snapshot below ---
+
 ## WHERE THINGS STAND -- 2026-10-14 ~19:00 CDT (authoritative, read this first)
 
 **3.0.4.0 IS RELEASED AND INSTALLED** (see the previous snapshot below).
