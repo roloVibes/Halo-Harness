@@ -106,32 +106,38 @@ def test_item27_child_feed_never_closes_parent_cards(ctx: Ctx):
 
 @test
 def test_item28_child_status_never_rekeys_the_registry(ctx: Ctx):
-    from halo_harness.remote import registry, runtime
+    from halo_harness.remote import fleet_frames, registry, runtime
     calls: list = []
-    saved = (runtime._active, registry.register, registry.unregister, registry.update)
+    saved = (list(runtime._actives), registry.register, registry.unregister, registry.update,
+             fleet_frames.fleet_frame)
     registry.register = lambda e: calls.append(("register", e["session_id"]))
     registry.unregister = lambda sid: calls.append(("unregister", sid))
     registry.update = lambda sid, **f: calls.append(("update", sid, f)) or True
-    handle = SimpleNamespace(cwd="/w", kind="tui", title=lambda: "t")
-    runtime._active = SimpleNamespace(handle=handle, server=SimpleNamespace(endpoint="unix:/x", token=None),
-                                      session_id="parent-sid", mode="default")
+    fleet_frames.fleet_frame = lambda *a, **k: None
+    handle = SimpleNamespace(cwd="/w", kind="tui", title=lambda: "t", hub=SimpleNamespace(meta={}))
+    # 3.0.5.0 Fleet R1: one process may hold several sessions, so `_active` became the `_actives`
+    # list and the tap is bound per Active
+    act = runtime.Active(handle, SimpleNamespace(endpoint="unix:/x", token=None), "parent-sid",
+                         mode="default", entry={"session_id": "parent-sid", "mode": "default"})
+    runtime._actives[:] = [act]
     try:
         child = SimpleNamespace(kind="status", agent_id="ab12cd34",
                                 data={"session_id": "agent-ab12cd34", "permission_mode": "plan"})
-        runtime._watch_status(child)
-        ctx.check("a sub-agent's status touches nothing", calls == [] and runtime._active.session_id == "parent-sid"
-                  and runtime._active.mode == "default")
+        runtime._watch_status(act, child)
+        ctx.check("a sub-agent's status touches nothing", calls == [] and act.session_id == "parent-sid"
+                  and act.mode == "default")
         untagged = SimpleNamespace(kind="status", agent_id=None, data={"session_id": "agent-ab12cd34"})
-        runtime._watch_status(untagged)
+        runtime._watch_status(act, untagged)
         ctx.check("an agent-<id> session id is never adopted either", calls == [])
-        runtime._watch_status(SimpleNamespace(kind="status", agent_id=None,
-                                              data={"session_id": "parent-sid", "permission_mode": "plan"}))
+        runtime._watch_status(act, SimpleNamespace(kind="status", agent_id=None,
+                                                   data={"session_id": "parent-sid", "permission_mode": "plan"}))
         ctx.check("the parent's own mode change still lands", calls == [("update", "parent-sid", {"mode": "plan"})])
-        runtime._watch_status(SimpleNamespace(kind="status", agent_id=None, data={"session_id": "forked-sid"}))
+        runtime._watch_status(act, SimpleNamespace(kind="status", agent_id=None, data={"session_id": "forked-sid"}))
         ctx.check("the parent's own /clear still re-keys",
                   calls[1:] == [("unregister", "parent-sid"), ("register", "forked-sid")])
     finally:
-        runtime._active, registry.register, registry.unregister, registry.update = saved
+        runtime._actives[:] = saved[0]
+        registry.register, registry.unregister, registry.update, fleet_frames.fleet_frame = saved[1:]
 
 
 # ---- item 29 -------------------------------------------------------------------

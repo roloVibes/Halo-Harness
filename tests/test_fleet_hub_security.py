@@ -105,7 +105,8 @@ def test_kick_disconnects_b(ctx: Ctx):
         rig.join()
         _controller, act = rig.session()
         wait_for(lambda: rig.member_session(act.session_id))
-        ctx.check("B is connected first", wait_for(lambda: getattr(rig.relay(), "state", None) == "connected", 5))
+        # 15 s, not 5: under the full suite's load the relay's first connect has taken over 6 s
+        ctx.check("B is connected first", wait_for(lambda: getattr(rig.relay(), "state", None) == "connected", 15))
         hits = rig.hub.pairing.find("bob@member")
         ctx.check("the member is found by name", len(hits) == 1)
         rig.hub.pairing.remove(hits[0]["id"], kicked=True)
