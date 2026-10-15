@@ -7,7 +7,8 @@
 // LIT_MS when an agent spawns or messages another (D13). R4: two agents of
 // different sessions editing one file (GET fleet/conflicts) are joined by an
 // amber dashed warning edge; its attention row's O opens the map on them.
-import { useMemo, useState } from "react";
+// 3.0.6.0 R8: the open mission's plan is drawn over it (MapMission.tsx).
+import { useMemo, useRef, useState } from "react";
 import { useRecent, type MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
@@ -15,6 +16,7 @@ import { short } from "../orchestra/format";
 import { toggleByProject } from "./actions";
 import { layout } from "./layout";
 import { BoxChips, chipsWidth, useBoxChips } from "./MapChips";
+import { MissionChip, MissionLayer, useMissionSlots } from "./MapMission";
 import { AgentNode, NodeMenu, SessionCard, type MenuAt } from "./MapNode";
 import { useAttnCount, usePanels } from "./pstore";
 import { NONE, useCounts, useFleet } from "./store";
@@ -70,11 +72,13 @@ export function FleetMap() {
   const edges = useFleet((s) => s.edges || NONE);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const { chips, focus } = useBoxChips(); // 3.0.6.0 R6: capability chips; the harness Who picked
-  const geo = useMemo(() => layout(harnesses, byProject), [harnesses, byProject]);
+  const slots = useMissionSlots(byProject); // 3.0.6.0 R8: the open mission's parts
+  const svg = useRef<SVGSVGElement>(null);
+  const geo = useMemo(() => layout(harnesses, byProject, slots), [harnesses, byProject, slots]);
   const pos = useMemo(() => new Map(geo.nodes.map((n) => [n.ref.key, n])), [geo]);
   return (
     <>
-    <svg className="fm-svg" viewBox={`0 0 ${geo.width} ${geo.height}`} width={geo.width} height={geo.height} role="img" aria-label="Fleet map" data-testid="fleet-map-svg">
+    <svg ref={svg} className="fm-svg" viewBox={`0 0 ${geo.width} ${geo.height}`} width={geo.width} height={geo.height} role="img" aria-label="Fleet map" data-testid="fleet-map-svg">
       {geo.boxes.map((b) => {
         const bc = b.key.startsWith("h:") ? chips.get(b.key.slice(2)) || [] : [];
         const cw = chipsWidth(bc);
@@ -87,7 +91,7 @@ export function FleetMap() {
           <text className="fm-box-label" x={b.x + 28} y={b.y + 21}>{b.label}</text>
           <text className="fm-box-sub" x={b.x + b.w - 14 - cw} y={b.y + 21} textAnchor="end">{short(b.sub, Math.max(0, Math.floor((b.w - 44 - cw - b.label.length * 9) / 6.4)))}</text>
           {bc.length > 0 && <BoxChips chips={bc} right={b.x + b.w - 10} cy={b.y + 17} />}
-          {b.empty && <text className="fm-sub" x={b.x + 16} y={b.y + 62}>no session here right now</text>}
+          {b.empty && <text className="fm-sub" x={b.x + 16} y={b.y + 62 + b.lane}>{b.key === "h:" ? "" : "no session here right now"}</text>}
         </g>
         );
       })}
@@ -98,6 +102,7 @@ export function FleetMap() {
       {geo.nodes.map((n) => <AgentNode key={n.ref.key} n={n} onMenu={setMenu} />)}
       <LitEdges edges={edges} pos={pos} />
       <ConflictEdges pos={pos} />
+      <MissionLayer geo={geo} svg={svg} />
     </svg>
     {menu && <NodeMenu at={menu} onClose={() => setMenu(null)} />}
     </>
@@ -118,6 +123,7 @@ function Toolbar() {
         {c.harnesses} harness{c.harnesses === 1 ? "" : "es"} · {c.sessions} session{c.sessions === 1 ? "" : "s"} · {c.live} of {c.agents} agents live
         {attn > 0 && <b className="fm-attn"> · {attn} need{attn === 1 ? "s" : ""} you</b>}
       </span>
+      <MissionChip byProject={byProject} />
     </div>
   );
 }

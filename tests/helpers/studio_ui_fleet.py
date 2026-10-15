@@ -109,7 +109,7 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"the section, got {f}", f.get("section-tab") == 6 and f.get("fleet-map") == 1 and f.get("fleet-agent") == 1
                   and f.get("fleet-rail") == 1 and f.get("fleet-node") == 5 and f.get("fleet-box") == 2 and f.get("fleet-start") == 0
                   and all(f.get(k) == 1 for k in ("fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity",
-                                                   "fleet-capabilities")))
+                                                   "fleet-capabilities", "fleet-mission")))
         ctx.check(f"the Start view, got {s}", s.get("fleet-start") == 1 and s.get("fleet-pair") == 1 and s.get("fleet-settings") == 1
                   and s.get("fleet-map") == 0 and s.get("fleet-rail") == 1)
         ctx.check(f"Live Roles, got {ro}", ro.get("live-card") == 3 and ro.get("live-tab") == 1 and ro.get("section-tab") == 6)
@@ -125,8 +125,8 @@ def register(test, json_of, chrome) -> None:
             raise SkipTest("no Chrome found (the Fleet test needs headless Chrome)")
         r, got = json_of("-m", "tests.helpers.studio_fleet", "panels")
         ctx.check(f"the run finished, got {r.stdout[-300:]!r} {r.stderr[-600:]!r}", r.returncode == 0 and not got.get("errors"))
-        ctx.check(f"eight panels (R6: Capabilities), each with its about line, got {got.get('panels')} / {got.get('abouts')}",
-                  got.get("panels") == [1] * 8 and got.get("abouts") == 8)
+        ctx.check(f"nine panels (R6: Capabilities, R8: Mission), each with its about line, got {got.get('panels')} / {got.get('abouts')}",
+                  got.get("panels") == [1] * 9 and got.get("abouts") == 9)
         ctx.check(f"the queue holds the member's two cards, got {got.get('attn_kinds')}", sorted(got.get("attn_kinds") or []) == ["approval", "question"])
         ctx.check(f"the count in the status bar and the rail, got {got.get('status_attn')!r} / {got.get('rail_attn')!r}",
                   "2 need you" in str(got.get("status_attn")) and "2 NEED YOU" in str(got.get("rail_attn")))
@@ -241,7 +241,7 @@ def register(test, json_of, chrome) -> None:
     @test
     def test_readme_capture_exists(ctx: Ctx):
         for name in ("studio-roles.png", "studio-fleet.png", "studio-roles-live.png", "studio-fleet-panels.png",
-                     "studio-fleet-capabilities.png"):
+                     "studio-fleet-capabilities.png", "studio-fleet-mission.png"):
             png = REPO / "docs" / "media" / name
             ctx.check(f"docs/media/{name} exists", png.is_file())
             if png.is_file():

@@ -73,7 +73,7 @@ def open_target(row: dict) -> dict:
         return {"section": "orchestra", "run": t.get("run")}
     if kind == "cap":
         return {"section": "fleet", "panel": "fleet-costs", "scope": t.get("scope"), "key": t.get("key")}
-    if kind.startswith("mission_") and kind != "mission_ask":
+    if kind.startswith("mission_") and (kind != "mission_ask" or t.get("mission")):  # R8: a run_task card names its mission
         from halo_harness.fleet.mission_attention import open_target as mission_target
         return mission_target(row)
     if kind == "conflict":

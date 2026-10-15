@@ -90,11 +90,13 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Open an agent", "Click it (or J / K): Agent shows what it thinks as it types, each tool call with its result and diff, and what it hands back. Steer it with a nudge or a new task."],
       ["Pause, stop, hand off", "Pause holds it at its next step, Stop asks first. Take over gives it your brief; Hand to... passes it to another harness (a Paperclip issue with Org mode on, a hand-off note without) and stops it."],
       ["Know who can do what", "Capabilities has a spec card per harness: hardware, models, craft apps, MCP servers and their tools, skills, tags. Who can... ranks the fleet for what you need (gridcraft, a 4090, make a video) and picks the best one on the map."],
+      ["Give the fleet one goal", "Mission (M): type the goal and Plan it; the hub's lead splits it into parts and gives each to the harness that can do it. The plan draws on the map, drag a part to another harness to move it, then Approve and Run; the report says who did what and what it cost per harness."],
       ["Watch the whole fleet", "Activity draws a lane per live agent (5, 15 or 60 minutes, tool calls as ticks) over the merged live log. Costs ticks today's spend and holds the caps; Health is a doctor summary per harness."],
       ["Record and replay", "Record saves a session or one agent as a single HTML file that plays anywhere. Replay plays a finished session on the Roles canvas: the cards light up in the order they worked."],
       ["Come back", "After ten minutes away, While you were away sums up what happened: sessions, cost, decisions and who made them, files, errors, hand-offs."],
     ],
     keys: [["Alt+6", "Fleet"], ...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
+      ["M", "the Mission panel: one goal for the whole fleet"],
       ["A / R / S / O", "in Attention: accept, deny or redo (with a text), stop, open"], ["J / K", "in Attention: the next / previous row"], ...PANEL_KEYS],
   },
 };

@@ -314,6 +314,16 @@ See [docs/FLOWS.md](docs/FLOWS.md) and [docs/COMFYUI.md](docs/COMFYUI.md).
 
 <a href="docs/media/studio-flow.png"><img alt="Studio's Flow section: a run waiting at its confirm gate over a ComfyUI render" src="docs/media/studio-flow.png" width="100%"></a>
 
+### Fleet: one goal for every harness
+
+Press `Alt+6` and every Halo harness you run or joined is live on one map, and a
+**mission** gives the whole fleet one goal: the hub's lead splits it into parts by what
+each harness can do, the plan is drawn on the map where you drag a part to another
+harness, then you approve and run it and the report says who did what and what it cost
+per harness. See [docs/FLEET.md](docs/FLEET.md) and [docs/MISSIONS.md](docs/MISSIONS.md).
+
+<a href="docs/media/studio-fleet-mission.png"><img alt="Studio's Fleet section: a mission planned across two harnesses, drawn on the map with its table under it" src="docs/media/studio-fleet-mission.png" width="100%"></a>
+
 ## The levels
 
 Five game themes, each a full skin: a palette, themed borders and input frames, and a

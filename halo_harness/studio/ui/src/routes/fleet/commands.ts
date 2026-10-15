@@ -4,6 +4,7 @@
 // in Orchestra or Flow when it is one. R4: answer next (Attention, the oldest
 // row), record, take over, hand to, replay the selected session, the digest.
 // R6: who can... (the Capabilities panel's search) and the specs of each harness.
+// R8: new mission, approve mission, stop mission, mission report.
 import { goSection } from "../../lib/store";
 import { askStop, everySession, kick, openAgentPanel, select, toggleByProject, toggleFollow, togglePause } from "./actions";
 import { allAgents, enterWorkspace, fleet, findAgent, isLive, sessionTitle } from "./store";
@@ -14,6 +15,7 @@ import { openReplay } from "./replay";
 import { startFleet } from "./sync";
 import { askWho } from "./Capabilities";
 import { caps, focusHarness } from "./caps";
+import { missionCommands } from "./mcommands";
 
 export type FleetCommand = { id: string; group: string; label: string; hint?: string; kbd?: string; run: () => void };
 
@@ -39,6 +41,7 @@ export function fleetCommands(): FleetCommand[] {
     { id: "fleet-digest", group: g, label: "Fleet: while you were away", hint: "what happened since you last looked", run: () => void checkAway(true) },
     { id: "fleet-who", group: g, label: "Fleet: who can...", hint: "rank the fleet for a tool, an app, a skill, a model or a GPU", run: inFleet(() => (showFleetPanel("fleet-capabilities"), askWho())) },
   ];
+  out.push(...missionCommands(g, inFleet));
   for (const r of caps.get().rows || [])
     out.push({ id: "fleet-specs-" + r.harness, group: g, label: `Fleet: specs of ${r.name}`, hint: r.summary || "its spec card", run: inFleet(() => focusHarness(r.harness, "fleet-capabilities")) });
   const sel = s.selected ? findAgent(s, s.selected) : null;

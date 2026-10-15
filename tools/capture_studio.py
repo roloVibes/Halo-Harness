@@ -23,7 +23,8 @@ and the Roles section with its groups (studio-roles.png). 3.0.5.0 R3:
 (studio-fleet.png) and the Roles canvas glowing with its Live tab open
 (studio-roles-live.png), R4 also the panels with a conflict on the map and
 the digest in the rail (studio-fleet-panels.png), 3.0.6.0 R6 the Capabilities panel
-with Who can... gridcraft (studio-fleet-capabilities.png); --dom counts their test ids.
+with Who can... gridcraft (studio-fleet-capabilities.png), 3.0.6.0 R8 a planned mission
+(studio-fleet-mission.png); --dom counts their test ids.
 """
 
 from __future__ import annotations

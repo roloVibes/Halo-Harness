@@ -44,6 +44,9 @@ export type SessionRow = {
   cost_usd?: number | null;
   agents_live?: number | null;
   agents?: AgentRow[];
+  /** 3.0.6.0: a `mission-worker` session's mission id and part number. */
+  mission?: string | null;
+  part?: string | number | null;
 };
 
 export type Harness = {

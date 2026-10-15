@@ -21,6 +21,7 @@ import { useGlobalKeys } from "./shell/keys";
 import { useLegacyMessages } from "./shell/legacy";
 import { FleetDialogs } from "./routes/fleet/Dialogs";
 import { PanelDialogs } from "./routes/fleet/PanelDialogs";
+import { MissionDialogs } from "./routes/fleet/MissionDialogs";
 import { useFleetFrames } from "./routes/fleet/frames";
 import { useHopKeys } from "./routes/fleet/hop";
 import { FleetPip } from "./routes/fleet/Pip";
@@ -63,6 +64,7 @@ export function App() {
       <SectionHelp />
       <FleetDialogs />
       <PanelDialogs />
+      <MissionDialogs />
       <Toasts />
     </div>
   );

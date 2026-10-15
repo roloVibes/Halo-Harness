@@ -1,0 +1,86 @@
+/* Fleet Mission panel (3.0.6.0 R8): the Start face (goal box, prefer chips,
+   the missions list, how this works), the head with its tabs, the plan
+   table, the running parts, cost per harness, the merge queue, the report
+   and the file viewer. State colours follow the motion vocabulary: cyan
+   works, amber waits on you, green done, red failed. Tokens only. */
+
+.fmi { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; overflow: auto; padding-right: 2px; }
+.fmi .spacer { flex: 1; }
+.fmi-small { font-size: 11px; }
+.fmi-hint { font-size: 11.5px; }
+
+/* -- the Start face ------------------------------------------------------------------ */
+.fmi-start { display: grid; gap: 10px; align-content: start; }
+.fmi-form { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface) 70%, transparent); position: relative; }
+.fmi-form::before, .fmi-form::after { content: ""; position: absolute; width: 10px; height: 10px; border: 1px solid var(--accent); opacity: var(--bracket-alpha, .6); pointer-events: none; }
+.fmi-form::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.fmi-form::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+.fmi-field { display: grid; gap: 4px; min-width: 0; }
+.fmi-form-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.fmi-grow { flex: 1 1 220px; }
+.fmi-budget { flex: 0 0 96px; }
+.fmi-goal-box { resize: vertical; min-height: 44px; font: 13px var(--sans); }
+.fmi-goal-box:focus { border-color: var(--accent); box-shadow: var(--glow-strong); }
+.fmi-prefer { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fmi-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px dashed var(--line-strong); border-radius: 999px; background: transparent; color: var(--muted); padding: 2px 10px; font-size: 11.5px; cursor: pointer; transition: color var(--t) var(--ease), border-color var(--t) var(--ease); }
+.fmi-chip:hover { color: var(--accent); border-color: var(--accent); }
+.fmi-chip[aria-pressed="true"] { border-style: solid; border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.fmi-order { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 10px; }
+.fmi-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fmi-actions .spacer { flex: 1; }
+.fmi-problems { margin: 0; }
+.fmi-list-wrap { display: grid; gap: 6px; }
+.fmi-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fmi-row { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 8px; background: color-mix(in srgb, var(--bg) 60%, transparent); }
+.fmi-row:hover { border-color: var(--line-strong); }
+.fmi-row-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fmi-row-sub { font-size: 10.5px; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.fmi-goal { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.fmi-how { margin: 0; }
+
+/* -- states: one chip vocabulary ------------------------------------------------------ */
+.fmi-state, .fmi-pstate { font-size: 10px; text-transform: lowercase; }
+.fmi-pstate { padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); white-space: nowrap; }
+.fmi-pstates { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.fmi-state[data-state="running"], .fmi-state[data-state="merging"], .fmi-pstate[data-state="running"] { color: var(--accent); border-color: var(--accent); }
+.fmi-state[data-state="planned"], .fmi-pstate[data-state="asked"], .fmi-state[data-state="approved"] { color: var(--warn); border-color: var(--warn); }
+.fmi-state[data-state="done"], .fmi-pstate[data-state="done"], .fmi-pstate[data-state="merged"] { color: var(--ok); border-color: var(--ok); }
+.fmi-state[data-state="failed"], .fmi-pstate[data-state="failed"] { color: var(--bad); border-color: var(--bad); }
+.fmi-state[data-state="stopped"], .fmi-pstate[data-state="stopped"], .fmi-pstate[data-state="skipped"] { color: var(--faint); }
+.fmi-bad { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+
+/* -- the head: back, goal, tabs -------------------------------------------------------- */
+.fmi-head { display: grid; gap: 3px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.fmi-head-top { display: flex; align-items: center; gap: 8px; }
+.fmi-head-top .spacer { flex: 1; }
+.fmi-back { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+.fmi-head-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fmi-head-sub { font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fmi-tabs button { padding: 2px 10px; font-size: 11.5px; min-height: 0; }
+.fmi-body { min-height: 0; }
+.fmi-nothere { display: grid; gap: 8px; justify-items: start; font-size: 12.5px; }
+
+/* -- the plan table ---------------------------------------------------------------------- */
+.fmi-plan, .fmi-report { display: grid; gap: 8px; align-content: start; }
+.fmi-plan-head { font-size: 11px; }
+.fmi-drag-hint { color: var(--accent); }
+.fmi-table-wrap { overflow-x: auto; }
+.fmi-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.fmi-table th { text-align: left; font: 10px var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 3px 6px; border-bottom: 1px solid var(--line-strong); }
+.fmi-table td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
+.fmi-table td.fmi-ptitle { white-space: normal; min-width: 170px; }
+.fmi-prow { cursor: pointer; transition: background var(--t) var(--ease); }
+.fmi-prow:hover td { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.fmi-prow[aria-selected="true"] td { background: var(--accent-soft); }
+.fmi-prow[aria-selected="true"] td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+.fmi-pid { color: var(--accent); font-weight: 700; }
+.fmi-ptitle b { font-weight: 600; }
+.fmi-harness { display: inline-flex; align-items: center; gap: 4px; cursor: help; border-bottom: 1px dotted var(--line-strong); }
+.fmi-lock rect { fill: color-mix(in srgb, var(--accent-2) 30%, transparent); stroke: var(--accent-2); stroke-width: 1; }
+.fmi-lock path { fill: none; stroke: var(--accent-2); stroke-width: 1.3; }
+.fmi-dep { font-size: 10px; margin-right: 3px; }
+.fmi-dep[data-seq] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 60%, transparent); background: var(--warn-soft); }
+.fmi-notes { margin: 0; padding-left: 16px; font-size: 11.5px; display: grid; gap: 2px; }
+.fmi-seq-note { color: var(--warn); }
+.fmi-blocked { padding: 6px 10px; border: 1px solid var(--warn); border-radius: var(--radius-sm); background: var(--warn-soft); font-size: 12px; }
+.fmi-blocked ul { margin: 4px 0; padding-left: 16px; }
