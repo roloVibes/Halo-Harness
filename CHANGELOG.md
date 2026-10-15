@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.0.5.0] - unreleased
+## [3.0.5.0] - 2026-10-15
 
 Fleet: every connected harness, every session and every agent at every depth, live in Studio: watch what an agent thinks, runs and writes, steer, pause or stop that one agent, on your machine or a paired teammate's. The Roles canvas lights up while its agents work. Rolo's brief, 2026-10-14.
 
