@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.0.6.0] - unreleased
+## [3.0.6.0] - 2026-10-15
 
 Fleet Missions: every connected harness says what it can do (its MCP servers and tools, skills, models, craft apps, hardware, tags), "Who can..." finds the right one, and one goal is split across the fleet by capability, each part with its own claims so nobody steps on anyone, run on the harness that has the tool, merged and reported on the hub. Rolo's ask, 2026-10-14 evening.
 
