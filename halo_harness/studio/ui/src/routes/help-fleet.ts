@@ -68,4 +68,14 @@ export const FLEET_HELP: Record<string, Help> = {
       "F follows, Space pins a mini stream; with no agent picked, the last sessions here can be replayed.",
     ),
   },
+  "fleet-capabilities": {
+    about: "What every harness can do: hardware, models, craft apps, MCP servers and tools, skills, tags; and who can do what.",
+    help: lines(
+      "Expand for one spec card per harness; open an MCP server to see its tools.",
+      "Who can... (on the compact face too) ranks the fleet for what you type: an exact name first, then a word of a name, then a word of a description; a tag counts double.",
+      "Click a result to pick that harness: its card opens and its box lights on the map.",
+      "Each harness gathers its own catalog in code and sends a new one when it changes; Refresh asks again now.",
+      "Your own words go in fleet.tags; fleet.capabilities.hide keeps a server, tool or skill off the list.",
+    ),
+  },
 };

@@ -108,7 +108,8 @@ def register(test, json_of, chrome) -> None:
         f, s, ro = got.get("fleet", {}), got.get("start", {}), got.get("roles", {})
         ctx.check(f"the section, got {f}", f.get("section-tab") == 6 and f.get("fleet-map") == 1 and f.get("fleet-agent") == 1
                   and f.get("fleet-rail") == 1 and f.get("fleet-node") == 5 and f.get("fleet-box") == 2 and f.get("fleet-start") == 0
-                  and all(f.get(k) == 1 for k in ("fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity")))
+                  and all(f.get(k) == 1 for k in ("fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity",
+                                                   "fleet-capabilities")))
         ctx.check(f"the Start view, got {s}", s.get("fleet-start") == 1 and s.get("fleet-pair") == 1 and s.get("fleet-settings") == 1
                   and s.get("fleet-map") == 0 and s.get("fleet-rail") == 1)
         ctx.check(f"Live Roles, got {ro}", ro.get("live-card") == 3 and ro.get("live-tab") == 1 and ro.get("section-tab") == 6)
@@ -124,8 +125,8 @@ def register(test, json_of, chrome) -> None:
             raise SkipTest("no Chrome found (the Fleet test needs headless Chrome)")
         r, got = json_of("-m", "tests.helpers.studio_fleet", "panels")
         ctx.check(f"the run finished, got {r.stdout[-300:]!r} {r.stderr[-600:]!r}", r.returncode == 0 and not got.get("errors"))
-        ctx.check(f"seven panels, each with its about line, got {got.get('panels')} / {got.get('abouts')}",
-                  got.get("panels") == [1] * 7 and got.get("abouts") == 7)
+        ctx.check(f"eight panels (R6: Capabilities), each with its about line, got {got.get('panels')} / {got.get('abouts')}",
+                  got.get("panels") == [1] * 8 and got.get("abouts") == 8)
         ctx.check(f"the queue holds the member's two cards, got {got.get('attn_kinds')}", sorted(got.get("attn_kinds") or []) == ["approval", "question"])
         ctx.check(f"the count in the status bar and the rail, got {got.get('status_attn')!r} / {got.get('rail_attn')!r}",
                   "2 need you" in str(got.get("status_attn")) and "2 NEED YOU" in str(got.get("rail_attn")))
@@ -213,8 +214,34 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"Message reaches the member as a note, got {got.get('note')!r}", got.get("note") == "lunch in ten")
 
     @test
+    def test_fleet_capabilities_and_who_in_headless_chrome(ctx: Ctx):
+        """3.0.6.0 R6: the Capabilities panel lists both harnesses with their MCP servers (the member's
+        gridcraft opens to its two tools), the map's boxes carry their chips, "gridcraft" in Who can...
+        ranks the member first and a click picks it (card, map box, its main agent); People's specs
+        link focuses this harness's card; the hub asked the member for its catalog once."""
+        if not chrome():
+            raise SkipTest("no Chrome found (the Fleet test needs headless Chrome)")
+        r, got = json_of("-m", "tests.helpers.studio_fleet", "caps")
+        ctx.check(f"the run finished, got {r.stderr[-300:]!r}", r.returncode == 0)
+        ctx.check(f"two spec cards with their servers, got {got.get('cards')} / {got.get('member_servers')} / {got.get('local_servers')}",
+                  got.get("cards") == ["rolo@studio", "kali@lab"] and got.get("member_servers") == ["gridcraft"]
+                  and "designcraft" in (got.get("local_servers") or []) and "What every harness can do" in str(got.get("about")))
+        ctx.check(f"gridcraft opens to its tools, got {got.get('member_tools')!r}", got.get("member_tools") == "write_range,insert_chart")
+        chips = got.get("box_chips") or {}
+        ctx.check(f"capability chips on both boxes, got {chips}", chips.get("rolo@studio", [])[:2] == ["studio", "gpu"]
+                  and chips.get("kali@lab", [])[:2] == ["linux", "data"])
+        ctx.check(f"who gridcraft ranks the member first, got {got.get('who')} / {got.get('who_why')!r}",
+                  (got.get("who") or [None])[0] == "kali@lab" and "gridcraft" in str(got.get("who_why")))
+        ctx.check(f"a click picks it: card, box, its main agent, got {got.get('picked_card')} / {got.get('picked_box')} / {got.get('selected')}",
+                  got.get("picked_card") == "focused" and got.get("picked_box") == "kali@lab" and str(got.get("selected")).endswith("|main")
+                  and str(got.get("selected")).startswith("c0ffee"))
+        ctx.check(f"the hub asked once; specs focuses this card, got {got.get('caps_asks')} / {got.get('specs_focus')}",
+                  got.get("caps_asks") == 1 and got.get("specs_focus") == "focused")
+
+    @test
     def test_readme_capture_exists(ctx: Ctx):
-        for name in ("studio-roles.png", "studio-fleet.png", "studio-roles-live.png", "studio-fleet-panels.png"):
+        for name in ("studio-roles.png", "studio-fleet.png", "studio-roles-live.png", "studio-fleet-panels.png",
+                     "studio-fleet-capabilities.png"):
             png = REPO / "docs" / "media" / name
             ctx.check(f"docs/media/{name} exists", png.is_file())
             if png.is_file():

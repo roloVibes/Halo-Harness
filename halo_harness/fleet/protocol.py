@@ -4,7 +4,8 @@ Every message is one JSON document (UTF-8) carrying `"v": 1`. The hub port
 serves only these routes (docs/FLEET.md has the full shapes):
 
     POST /fleet/v1/join         {v, harness, share, allow_control, a, ts, nonce, mac}   the code authenticates it
-    POST /fleet/v1/announce     {v, link, harness, share, allow_control, allow_answers, sessions: [...]}
+    POST /fleet/v1/announce     {v, link, harness, share, allow_control, allow_answers, sessions: [...],
+                                 capabilities_summary?, capabilities_hash?}   (3.0.6.0 R6)
     POST /fleet/v1/frames       {v, link, frames: [frame, ...]}
     GET  /fleet/v1/stream?link= SSE to the member: `hello`, `command`, `kicked`; `: ping` every PING_S
     POST /fleet/v1/reply        {v, link, cid, state: asked|done|refused|error, result?, error?}
@@ -42,7 +43,7 @@ PING_S = 10.0
 H_MEMBER, H_TS, H_NONCE, H_SIG = "X-Halo-Fleet-Member", "X-Halo-Fleet-Ts", "X-Halo-Fleet-Nonce", "X-Halo-Fleet-Sig"
 H_ADMIN = "X-Halo-Fleet-Admin"
 
-READ_CMDS = ("status", "agents", "doctor")  # 3.0.5.0 R4: `doctor` is fleet/health.py's read-only subset
+READ_CMDS = ("status", "agents", "doctor", "capabilities")  # R4 `doctor`: fleet/health.py; 3.0.6.0 R6 `capabilities`
 FULL_CMDS = ("agent_tail", "agent_follow", "tail")  # share: full only
 ACTING_CMDS = ("agent_steer", "agent_stop", "pause", "resume", "shutdown", "steer", "interrupt")
 FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note")  # note: a person's message (R4)

@@ -1173,6 +1173,13 @@ def cmd_mcp(argv: list) -> int:
         return 0
 
     sub, rest = argv[0], argv[1:]
+    if sub in ("add", "add-json", "remove", "add-from-claude-desktop"):  # 3.0.6.0 R6: the fleet catalog follows
+        rc = {"add": _cmd_add, "add-json": _cmd_add_json, "remove": _cmd_remove,
+              "add-from-claude-desktop": _cmd_add_from_claude_desktop}[sub](rest)
+        if rc == 0:
+            from halo_harness.fleet.capabilities import invalidate
+            invalidate()
+        return rc
     if sub == "list":
         return _cmd_list(rest)
     if sub == "get":

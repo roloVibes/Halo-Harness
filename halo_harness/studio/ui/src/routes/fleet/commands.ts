@@ -3,6 +3,7 @@
 // live agent by name, pause all, resume all, and open the selected session
 // in Orchestra or Flow when it is one. R4: answer next (Attention, the oldest
 // row), record, take over, hand to, replay the selected session, the digest.
+// R6: who can... (the Capabilities panel's search) and the specs of each harness.
 import { goSection } from "../../lib/store";
 import { askStop, everySession, kick, openAgentPanel, select, toggleByProject, toggleFollow, togglePause } from "./actions";
 import { allAgents, enterWorkspace, fleet, findAgent, isLive, sessionTitle } from "./store";
@@ -11,6 +12,8 @@ import { askHandoff, record, showFleetPanel } from "./extras";
 import { panels } from "./pstore";
 import { openReplay } from "./replay";
 import { startFleet } from "./sync";
+import { askWho } from "./Capabilities";
+import { caps, focusHarness } from "./caps";
 
 export type FleetCommand = { id: string; group: string; label: string; hint?: string; kbd?: string; run: () => void };
 
@@ -34,7 +37,10 @@ export function fleetCommands(): FleetCommand[] {
     { id: "fleet-resume-all", group: g, label: "Fleet: resume all", hint: "every paused session carries on", run: () => void everySession("resume") },
     { id: "fleet-answer-next", group: g, label: "Fleet: answer next", hint: `${panels.get().attention.length} waiting · Attention, the oldest row`, run: inFleet(() => (panels.update((p) => ({ attnSel: p.attention[0]?.id || "" })), showFleetPanel("fleet-attention"))) },
     { id: "fleet-digest", group: g, label: "Fleet: while you were away", hint: "what happened since you last looked", run: () => void checkAway(true) },
+    { id: "fleet-who", group: g, label: "Fleet: who can...", hint: "rank the fleet for a tool, an app, a skill, a model or a GPU", run: inFleet(() => (showFleetPanel("fleet-capabilities"), askWho())) },
   ];
+  for (const r of caps.get().rows || [])
+    out.push({ id: "fleet-specs-" + r.harness, group: g, label: `Fleet: specs of ${r.name}`, hint: r.summary || "its spec card", run: inFleet(() => focusHarness(r.harness, "fleet-capabilities")) });
   const sel = s.selected ? findAgent(s, s.selected) : null;
   if (sel) {
     const name = sel.a.name || sel.a.agent_id;

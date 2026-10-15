@@ -10,11 +10,14 @@ question, its reviewer done): two harnesses, five agents in three states.
                                       implementer pinned (its mini stream floats over the map)
     docs/media/studio-roles-live.png  the Roles canvas glowing on the cards whose agents work, the
                                       implementer's Live tab open
-    docs/media/studio-fleet-panels.png  (R4) the seven panels: People, Costs and Health compact on
+    docs/media/studio-fleet-panels.png  (R4) the panels (eight since R6): People, Costs and Health compact on
                                       top, Attention with the member's two cards, the map with a
                                       conflict edge (both harnesses editing shop/basket.py), Activity's
                                       timeline and log, the researcher in Agent, and "While you were
                                       away" in the rail
+    docs/media/studio-fleet-capabilities.png  (3.0.6.0 R6) Capabilities: "gridcraft" in Who can... ranks
+                                      the member first and picks it (its card open, its map box lit), both
+                                      spec cards (the rig seeds both catalogs: studio_fleet_member.seed_caps)
 
 1500 x 900 CSS px at scale 2. With --dom the Fleet section, its Start view
 (?view=start) and the Roles section are read and their data-testid values
@@ -29,7 +32,8 @@ from pathlib import Path
 
 FLEET_IDS = ("section-tab", "fleet-map", "fleet-agent", "fleet-rail", "fleet-node", "fleet-start", "fleet-box", "fleet-session",
              "fleet-rail-node", "fleet-pip", "fleet-pair", "fleet-settings", "status-fleet",
-             "fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity")
+             "fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity",
+             "fleet-capabilities")
 FRAME = "document.querySelector('.section-view[data-section=\"roles\"] iframe.legacy-frame')"
 DOC = f"{FRAME}.contentDocument"
 
@@ -111,6 +115,30 @@ def shoot_panels(c, rig, png: Path) -> int:
     return c.shot(png)
 
 
+def shoot_caps(c, rig, png: Path) -> int:
+    """R6: Capabilities expanded (a layout saved for the picture, removed after), Who can... gridcraft,
+    the member picked (its card focused, its map box lit), its gridcraft server open."""
+    from tests.helpers.studio_fleet_member import MEMBER
+    open_fleet(c, rig)
+    c.js("localStorage.setItem('halo.studio.layout.fleet', JSON.stringify({v: 2, panels: {"
+         "'fleet-capabilities': {x: 16, y: 14, w: 8, h: 60, face: 'detail'}, 'fleet-agent': {x: 16, y: 74, w: 8, h: 32}}})); 1")
+    c.js("location.reload(); 1")  # the same URL: navigating would keep the page
+    time.sleep(1.0)
+    c.wait("document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 5", 30)
+    c.wait("document.querySelectorAll('[data-testid=\"fleet-caps-card\"] .fcap-facts').length === 2", 30)
+    c.click_on("document.querySelector('[data-testid=\"fleet-who-input\"]')")
+    c.type_text("gridcraft")
+    c.wait("document.querySelectorAll('[data-testid=\"fleet-who-result\"]').length", 15)
+    c.click_on("document.querySelector('[data-testid=\"fleet-who-result\"]')")
+    c.js(f"document.querySelector('[data-testid=\"fleet-caps-card\"][data-id=\"{MEMBER}\"] [data-testid=\"fleet-caps-server\"]').open = true")
+    c.wait("!!document.querySelector('[data-testid=\"fleet-box\"][data-who]')", 10)
+    c.wait("!document.querySelector('.toast')", 10)
+    time.sleep(1.5)
+    size = c.shot(png)
+    c.js("localStorage.removeItem('halo.studio.layout.fleet'); 1")
+    return size
+
+
 def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
     open_fleet(c, rig)
     c.click_on(node("implementer"))
@@ -131,9 +159,11 @@ def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
     b = c.shot(roles_png)
     panels_png = fleet_png.with_name("studio-fleet-panels.png")
     d = shoot_panels(c, rig, panels_png)
-    for path, size in ((fleet_png, a), (roles_png, b), (panels_png, d)):
+    caps_png = fleet_png.with_name("studio-fleet-capabilities.png")
+    e = shoot_caps(c, rig, caps_png)
+    for path, size in ((fleet_png, a), (roles_png, b), (panels_png, d), (caps_png, e)):
         print(f"{'wrote' if size > 10_000 else 'FAILED'} {path} ({size} bytes)")
-    return a > 10_000 and b > 10_000 and d > 10_000
+    return min(a, b, d, e) > 10_000
 
 
 def capture(out: str, as_dom: bool, find_chrome) -> int:

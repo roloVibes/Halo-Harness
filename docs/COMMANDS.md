@@ -3009,6 +3009,8 @@ halo fleet members [--json]
 halo fleet kick <name> [--json]
 halo fleet record <sid> [--agent <aid>] [--out PATH] [--json]
 halo fleet digest [--since 2h|45m|1d|<unix seconds>|<ISO time>] [--json]
+halo fleet capabilities [name] [--refresh] [--tools] [--json]
+halo fleet who "<query>" [--json]
 ```
 
 ### `halo fleet` (the live table)
@@ -3091,6 +3093,37 @@ from its own transcripts; members and decisions come from the hub's journal
 ```sh
 halo fleet record 82eb586a --agent 5848a1cc
 halo fleet digest --since 8h
+```
+
+### `halo fleet capabilities`
+
+Halo 3.0.6.0 round R6. What each harness can do, as a spec sheet: the
+hardware (CPU, cores, RAM, GPU and VRAM, free disk), the models it is best
+with and its local ones, its craft apps and ComfyUI models, every MCP server
+with its tool count, its skills, command-line tools with their versions,
+projects, providers, roles, integrations and tags, with the catalog's age and
+hash. `name` picks one harness (its name or id; `local` is this one).
+`--tools` lists every MCP tool with its description; `--refresh` gathers this
+harness's catalog again (or, through Studio, asks the named member now);
+`--json` prints `{ok, source, harnesses: [...]}`, each row with its whole
+`catalog`. It reads Studio's `GET /api/fleet/capabilities` when Studio runs,
+else the hub this machine serves, else this harness alone (`source`: studio,
+hub, local). What a catalog holds and what never leaves the machine:
+[FLEET.md](FLEET.md#capabilities-3060-r6).
+
+### `halo fleet who`
+
+Round R6. Which harness can do something, ranked in code: an exact name beats
+a word of a name, which beats a word of a description, and a tag counts
+double; each harness lists its best matches and why. Exit 1 when nothing
+matches (or the query has no word); `--json` prints `{ok, source, q, words,
+results}`. `/fleet who <query>` in the TUI prints the same, and `/fleet
+capabilities [name]` the spec sheet.
+
+```sh
+halo fleet capabilities kali@lab --tools
+halo fleet who gridcraft
+halo fleet who "a 4090 for video"
 ```
 
 ## `halo proxy`

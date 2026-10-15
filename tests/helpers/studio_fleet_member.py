@@ -5,7 +5,10 @@ that finished) and how its link answers the hub's commands (the R1 wire
 shapes: agent_tail's entries, agent_follow, agent_steer, agent_stop, pause,
 resume). R4: the session also has an approval card open, the member lets the
 hub answer cards (`allow_answers: True`), `ask_frames` are the two cards'
-frames, and `status` / `doctor` / `answer` / `note` get answers too."""
+frames, and `status` / `doctor` / `answer` / `note` get answers too. 3.0.6.0 R6:
+`capabilities` answers its catalog (gridcraft; tests/helpers/fleet_caps_seed.py)
+and `seed_caps` gives the hub's own harness one and re-announces the member
+with its catalog's summary and hash, so the hub asks for it once."""
 from __future__ import annotations
 
 import time
@@ -53,6 +56,21 @@ def announce_body(rec: dict) -> dict:
             "allow_control": "all", "allow_answers": True, "sessions": [session_row(rec)]}
 
 
+def catalog() -> dict:
+    from halo_harness.fleet.capabilities import digest
+    from tests.helpers.fleet_caps_seed import member_catalog
+    cat = {**member_catalog({"id": MEMBER, "name": "kali@lab", "host": "kali", "os": "linux", "version": "3.0.6.0"}), "at": T0 + 230}
+    return {**cat, "hash": digest(cat)}
+
+
+def seed_caps(hub, home, rec: dict) -> None:
+    from halo_harness.fleet.capabilities import summary
+    from tests.helpers.fleet_caps_seed import hub_catalog, seed
+    seed(home, hub_catalog(hub.state.identity))
+    cat = catalog()
+    hub.state.announce(MEMBER, {**announce_body(rec), "capabilities_summary": summary(cat), "capabilities_hash": cat["hash"]})
+
+
 def ask_frames() -> list:
     """The member's two open cards as the frames its relay sends (what the attention rows say)."""
     q = {"id": "q-basket-1", "name": "AskUserQuestion", "input": {"question": "Flag the zero-quantity guard as a blocker?",
@@ -84,6 +102,8 @@ def answer(doc: dict) -> dict:
         return {"delivered": True, "by": doc.get("by")}
     if cmd == "status":
         return {"model": MAIN["model"], "busy": True}
+    if cmd == "capabilities":
+        return catalog()
     if cmd == "doctor":
         return {"version": "3.0.5.0", "python": "3.12.3", "os": "linux", "sockets": 1, "status": "ok",
                 "providers": [{"name": "OpenRouter", "configured": True, "reachable": True, "note": ""}],

@@ -2,7 +2,8 @@
 3.0.5.0 "Fleet" round R2; started by relay_runtime.py).
 
 `HubRelay(entry, actives)` announces the sessions `actives()` returns (rows
-with their agent trees, scrubbed for the share level), forwards each one's
+with their agent trees, scrubbed for the share level; 3.0.6.0 R6: plus the
+capability catalog's summary and hash, fleet/capabilities.py), forwards each one's
 feed through protocol.scrub_frame, reads the hub's signed command stream
 (protocol.verify_down: a doc that is not the hub's, out of order or stale is
 ignored; a command id is run once) and runs each command on its own worker
@@ -20,7 +21,7 @@ import threading
 import time
 from typing import Callable, Optional
 
-from halo_harness.fleet import control, identity, protocol, store
+from halo_harness.fleet import capabilities, control, identity, protocol, store
 from halo_harness.fleet.relay import HubError, HubLink
 
 ANNOUNCE_S = 10.0
@@ -152,7 +153,7 @@ class HubRelay(threading.Thread):
         rows = [self._row(a, pol["share"]) for a in self.actives()]
         reply = self.link.request("POST", protocol.PREFIX + "/announce", protocol.doc(
             link=self.link_id, harness=identity.harness(), share=pol["share"], allow_control=pol["allow_control"],
-            allow_answers=pol["allow_answers"], sessions=rows))
+            allow_answers=pol["allow_answers"], sessions=rows, **capabilities.announce_fields(on_change=self.poke)))
         self.member_name = reply.get("member_name") or self.member_name
         self._policy = pol
 

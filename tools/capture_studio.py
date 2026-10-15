@@ -21,8 +21,9 @@ and the Roles section with its groups (studio-roles.png). 3.0.5.0 R3:
 `--mode fleet` (tools/capture_fleet.py) seeds two harnesses with five agents
 (tests/helpers/studio_fleet_rig.py) and renders the Fleet section
 (studio-fleet.png) and the Roles canvas glowing with its Live tab open
-(studio-roles-live.png), R4 also the seven panels with a conflict on the map and
-the digest in the rail (studio-fleet-panels.png); --dom counts their test ids.
+(studio-roles-live.png), R4 also the panels with a conflict on the map and
+the digest in the rail (studio-fleet-panels.png), 3.0.6.0 R6 the Capabilities panel
+with Who can... gridcraft (studio-fleet-capabilities.png); --dom counts their test ids.
 """
 
 from __future__ import annotations
