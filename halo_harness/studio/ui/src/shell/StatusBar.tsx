@@ -8,6 +8,7 @@ import { studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
 import { FeedDot } from "../routes/orchestra/FeedPanels";
 import { sectionDef } from "../routes";
+import { useCounts } from "../routes/fleet/store";
 
 const FEED_TEXT = { off: "feed off", connecting: "connecting", open: "live", retrying: "reconnecting", down: "feed down" } as const;
 
@@ -17,6 +18,7 @@ export function StatusBar() {
   const custom = useStore(layoutStore(section), (s) => s.custom);
   const legacy = useStore(studio, (s) => s.legacy[s.section]);
   const title = sectionDef(section).title;
+  const fleet = useCounts();
   return (
     <HudStrip label="Status">
       <HudCell title="The live feed from every running halo session (/api/events)">
@@ -27,6 +29,12 @@ export function StatusBar() {
       </HudCell>
       <HudCell label="SESSIONS">
         <span className="mono">{feed.sessions.length}</span>
+      </HudCell>
+      <HudCell label="FLEET" title="Agents at work in every connected harness, and how many wait on you">
+        <span className="mono" data-testid="status-fleet">
+          {fleet.live} live
+          {fleet.attention > 0 && <b className="fr-attn"> · {fleet.attention} need{fleet.attention === 1 ? "s" : ""} you</b>}
+        </span>
       </HudCell>
       <HudCell label="EVENTS">
         <span className="mono">
@@ -48,7 +56,7 @@ export function StatusBar() {
       </HudCell>
       <HudCell>
         <span className="hud-keys">
-          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+5" /> sections <Kbd keys="Esc" /> close
+          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+6" /> sections <Kbd keys="Esc" /> close
         </span>
       </HudCell>
     </HudStrip>

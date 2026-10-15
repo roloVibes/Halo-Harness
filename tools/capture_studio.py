@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|shell|orchestra|flow|media]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|shell|orchestra|flow|media|fleet]
 
 3.0.3.0: roles/org/design --dom render the classic page at /legacy/ (what the
 shell frames); since 3.0.4.0 docs round `--mode org|design` screenshots go
@@ -17,7 +17,11 @@ waiting at its confirm gate over a FakeComfy and render the Flow section
 (docs/media/studio-flow.png, studio-media.png); --dom counts its test ids.
 R6b: `--mode orchestra` lives in tools/capture_orchestra.py and also
 renders the Start view over a repo with no run (studio-orchestra-start.png)
-and the Roles section with its groups (studio-roles.png).
+and the Roles section with its groups (studio-roles.png). 3.0.5.0 R3:
+`--mode fleet` (tools/capture_fleet.py) seeds two harnesses with five agents
+(tests/helpers/studio_fleet_rig.py) and renders the Fleet section
+(studio-fleet.png) and the Roles canvas glowing with its Live tab open
+(studio-roles-live.png); --dom counts their test ids.
 """
 
 from __future__ import annotations
@@ -92,7 +96,7 @@ def main(argv: list) -> int:
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--org", action="store_true", help="Org mode over a fake Paperclip seeded with the halo-dev-cycle company")
-    parser.add_argument("--mode", choices=["roles", "org", "design", "shell", "orchestra", "flow", "media"], default="roles", help="org: the halo-dev-cycle company over a fake Paperclip; design: a seeded Launch page project (tools/design_demo.py); both framed by the shell")
+    parser.add_argument("--mode", choices=["roles", "org", "design", "shell", "orchestra", "flow", "media", "fleet"], default="roles", help="org: the halo-dev-cycle company over a fake Paperclip; design: a seeded Launch page project (tools/design_demo.py); both framed by the shell")
     args = parser.parse_args(argv)
     args.org = args.org or args.mode == "org"
     design = args.mode == "design"
@@ -104,6 +108,14 @@ def main(argv: list) -> int:
             args.out = args.out[:-4] + f"-{args.mode}.png"
         try:
             return capture(args.mode, args.out, args.dom, chrome, url_for)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
+    if args.mode == "fleet":  # two harnesses, five agents: the map, the agent panel, Live Roles (tools/capture_fleet.py)
+        from capture_fleet import capture as capture_fleet
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-fleet.png"
+        try:
+            return capture_fleet(args.out, args.dom, find_chrome)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "orchestra":  # the run console, the Start view and Roles with its groups (tools/capture_orchestra.py)

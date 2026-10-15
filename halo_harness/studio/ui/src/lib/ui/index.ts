@@ -10,5 +10,5 @@ export { Skeleton } from "./Skeleton";
 export { ErrorState } from "./ErrorState";
 export { Surface } from "./Surface";
 export { HudStrip, HudCell } from "./HudStrip";
-export { Icon } from "./Icon";
+export { Icon, toolIcon } from "./Icon";
 export { Panel } from "../workspace/Panel";

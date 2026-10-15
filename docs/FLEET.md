@@ -6,8 +6,9 @@ wrote, and the controls to steer, pause or stop any of them. **R1** is what
 one session exposes; **R2** (this page's second half) is the hub and the
 join: one machine runs a hub, others join it with a six-word code, and each
 joined harness shares what it chooses and accepts control only as its owner
-allows. Studio's Fleet section (the map, the agent inspector, Live Roles) and
-the fleet panels come in rounds R3 and R4.
+allows. **R3** is Studio's Fleet section (the map, the agent inspector,
+the Fleet rail in every section, the hop keys, Live Roles: see
+[In Studio](#in-studio) below); the further fleet panels come in R4.
 
 ## What a session exposes (R1)
 
@@ -186,6 +187,52 @@ Each halo process with sessions runs one relay thread per joined hub.
 - The live feed: member frames carry `harness: <id>` with their
   `session_id` unchanged; `fleet` frames say join, leave, online, offline,
   sessions and command; the `sessions` frame carries this harness's id.
+
+## In Studio
+
+`halo studio --mode fleet` (or `Alt+6`, `/studio fleet`) opens the **Fleet**
+section; the full guide is [STUDIO.md](STUDIO.md#fleet-every-harness-every-agent).
+
+- **The map.** One box per harness (this one first), a card per session, its
+  agents as a tree under it with their state, what each one does now, its
+  model and cost; **By project** puts everyone on the same repo in one box.
+  The outlines move with the state: flowing while an agent works, amber while
+  it waits on you, one green sweep when it finishes, a red flash when it
+  fails; the edge from a parent lights for a few seconds when it spawns a
+  child.
+- **The agent inspector.** Click an agent: its header, what it was asked,
+  and three streams, **Thinking** (its text as it types it), **Working** (one
+  row per tool call with its result and the diff it writes) and **Output**
+  (its hand-back); **Steer** (a nudge before its next step, or a redirect),
+  Pause / Resume, Stop (asks first), Follow, Pin. Studio follows the agent
+  you open (`agent_follow`) and reads its backlog once (`agent_tail`, through
+  the hub for a member); every command goes to
+  `POST /api/fleet/<harness>/<sid>/agents/<aid>/command`, so a member's
+  `fleet.allow_control` applies exactly as it does for the CLI.
+- **The Fleet rail** in every section: the same tree in short, with the live
+  and need-you counts; a session that waits on you keeps its inline answer.
+- **Hop around.** `J` / `K` the next / previous live agent (also on the Roles
+  and Org canvases and the Orchestra lanes), `F` follow, `Space` pin a mini
+  stream that stays on screen in every section, `Esc` unpin, `P` pause or
+  resume, `K` inside the Agent panel stop (asks first).
+- **Live Roles.** On the Roles and Org canvases the cards whose agents work
+  glow in their band colour, by what each agent does right now (typing, a
+  tool call, waiting on you, done, failed), with a count badge and a cost
+  ticker; the Inspector's **Live** tab shows that agent's streams with Steer,
+  Pause and Stop, or, when nobody runs the card, its last runs.
+- **The Start view.** With only this harness and nothing running: what Fleet
+  is, a pair code with its QR and the `halo fleet join` line, the share and
+  control settings, the hubs this harness joined and this hub's members.
+
+The routes R3 adds (the same loopback + token guard as every Studio route):
+
+| Route | What |
+|---|---|
+| `POST /api/fleet/pair {ttl?}` | a one-time code for this machine's hub: `{code, expires, ttl, url, fingerprint, hub_running, join, qr, matrix}` (`matrix` is the QR as rows of 0/1) |
+| `GET /api/fleet/settings` | `{name, share, allow_control, levels, hubs, members, hub}` (never a key) |
+| `POST /api/fleet/settings {share?, allow_control?}` | writes `fleet.share` / `fleet.allow_control`; a bad value is a 422, a config.json that does not parse a 409 and is left alone |
+| `POST /api/fleet/kick {harness}` | removes a member from this hub (its pair key with it) |
+| `GET /api/fleet/history?role=&bio=&n=` | the last runs under a role or bio on this harness (from each sub-agent's `<sid>/subagents/agent-<id>.meta.json`, which records its role and lineup since 3.0.5.0, with the task and the cost from its transcript; `role=main` lists the sessions) |
 
 ## The terminal: `halo fleet` and `/fleet`
 

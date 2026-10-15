@@ -9,6 +9,7 @@
                                         reason?, agent_id?, wait_s?, ...answer fields}
     POST fleet/<harness>/<sid>/agents/<aid>/command {cmd: steer | stop | pause | resume | follow | tail,
                                                      text?, mode?, reason?, on?, n?, wait_s?}
+    fleet/pair, fleet/settings, fleet/kick, fleet/history   the Fleet section's own (studio/fleet_pair_api.py, R3)
 
 A command for this harness takes the direct path (studio/sessions_api.py,
 studio/fleet_api.py); one for a member goes through the hub to that
@@ -195,6 +196,8 @@ ROUTES = [("GET", r"^fleet$", get_fleet),
           ("POST", r"^fleet/hub$", post_hub),
           ("POST", rf"^fleet/(?P<hid>{_ID})/(?P<sid>{_ID})/command$", post_session_command),
           ("POST", rf"^fleet/(?P<hid>{_ID})/(?P<sid>{_ID})/agents/(?P<aid>{_ID})/command$", post_agent_command)]
+from halo_harness.studio.fleet_pair_api import ROUTES as _PAIR_ROUTES  # noqa: E402  (3.0.5.0 R3: pair, settings, kick, history)
+ROUTES[len(ROUTES):] = _PAIR_ROUTES
 
 
 def dispatch_fleet(req):

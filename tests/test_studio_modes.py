@@ -72,29 +72,36 @@ def test_url_for_puts_the_mode_in_the_query_ahead_of_the_token(ctx: Ctx):
 
 
 @test
-def test_the_shell_has_five_sections_and_opens_flow_and_orchestra_by_mode(ctx: Ctx):
-    """3.0.4.0 R6: Flow is the fifth section (Alt+5); `halo studio --mode
-    flow|orchestra` (and `/studio flow`) put it in the query, and the shell
-    reads every section from `?mode=`."""
+def test_the_shell_has_six_sections_and_opens_flow_orchestra_and_fleet_by_mode(ctx: Ctx):
+    """3.0.4.0 R6: Flow is the fifth section (Alt+5); 3.0.5.0 R3: Fleet the
+    sixth (Alt+6). `halo studio --mode flow|orchestra|fleet` (and `/studio
+    flow`, `/studio fleet`) put it in the query, and the shell reads every
+    section from `?mode=`."""
     from halo_harness.providers.config import default_state_dir
     state = Path(default_state_dir())
     srv = studio_server.start_server(port=0, cwd=state.parent / "proj", state_dir=state)
     try:
-        for mode in ("flow", "orchestra"):
+        for mode in ("flow", "orchestra", "fleet"):
             url = studio_server.url_for(srv, mode)
             ctx.check(f"--mode {mode} carries ?mode={mode} before #t=, got {url!r}", f"/?mode={mode}#t=" in url)
     finally:
         srv.server_close()
     ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src"
     routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
-    ctx.check("five sections, Flow on Alt+5", routes.count('kbd: "Alt+') == 5 and 'id: "flow", title: "Flow", kbd: "Alt+5"' in routes)
+    ctx.check("six sections, Flow on Alt+5, Fleet on Alt+6", routes.count('kbd: "Alt+') == 6 and 'id: "flow", title: "Flow", kbd: "Alt+5"' in routes
+              and 'id: "fleet", title: "Fleet", kbd: "Alt+6"' in routes)
     store = (ui / "lib" / "store.ts").read_text(encoding="utf-8")
-    ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|org|design|flow)" in store)
-    ctx.check("Alt+1..5 switch sections", "Digit[1-5]" in (ui / "shell" / "keys.ts").read_text(encoding="utf-8"))
+    ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|org|design|flow|fleet)" in store)
+    ctx.check("Alt+1..6 switch sections", "Digit[1-6]" in (ui / "shell" / "keys.ts").read_text(encoding="utf-8"))
+    embed = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "embed.js").read_text(encoding="utf-8")
+    ctx.check("the framed page hands Alt+1..6 to the shell", "Digit[1-6]" in embed and '"fleet"' in embed)
     facade = _facade()
     with _NoBrowser():
         out = _cmd_studio("flow url", facade)
     ctx.check(f"/studio flow url names Flow and its URL, got {out!r}", "Flow:" in out and "?mode=flow#t=" in out)
+    with _NoBrowser():
+        out = _cmd_studio("fleet url", facade)
+    ctx.check(f"/studio fleet url names Fleet and its URL, got {out!r}", "Fleet:" in out and "?mode=fleet#t=" in out)
 
 
 @test

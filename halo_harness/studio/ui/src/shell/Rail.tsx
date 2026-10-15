@@ -1,13 +1,14 @@
 // The left rail: this section's panels (click to bring one back and focus
 // it; an optional one is added), the section's own block (Flow: the runs and
-// the flows), the live sessions with their status and answer, and the
-// layout actions.
+// the flows), the Fleet tree (every harness, session and agent with its
+// status, and the answer for a session that waits on you), and the layout
+// actions.
 import { Button, Icon, Kbd } from "../lib/ui";
 import { studio, toast, useStore } from "../lib/store";
 import { layoutStore, resetLayout } from "../lib/workspace/persist";
 import { sectionDef } from "../routes";
 import { revealPanel } from "./commands";
-import { Sessions } from "./Sessions";
+import { FleetRail } from "../routes/fleet/FleetRail";
 
 export function Rail() {
   const section = useStore(studio, (s) => s.section);
@@ -45,7 +46,7 @@ export function Rail() {
         })}
       </nav>
 
-      <Sessions />
+      <FleetRail />
 
       <section className="rail-group rail-foot" aria-label="Layout">
         <div className="rail-label mono">LAYOUT · {ls.custom ? "YOURS" : "DEFAULT"}</div>

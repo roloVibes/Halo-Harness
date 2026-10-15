@@ -696,10 +696,10 @@ one onto a normal theme clears it. In the TUI, Tab completes theme names
 (the game themes first). See the Themes section of the
 [handbook](HANDBOOK.md).
 
-### `/studio` `[roles|org|design|orchestra|flow] [url]`
+### `/studio` `[roles|org|design|orchestra|flow|fleet] [url]`
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, in the mode
-you name (`roles`, `org`, `design`; 3.0.4.0: `orchestra` and `flow` too) or
-the one you used last. Bare `/roles`,
+you name (`roles`, `org`, `design`; 3.0.4.0: `orchestra` and `flow` too;
+3.0.5.0: `fleet`, every harness and agent live) or the one you used last. Bare `/roles`,
 `/org` and `/design` are the short forms. Roles is your lineups and agent bios as an editable
 graph in the browser -- served from this session (it closes with it).
 `/studio url` prints the URL without opening a browser; over SSH, forward

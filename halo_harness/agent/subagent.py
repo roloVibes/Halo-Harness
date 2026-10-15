@@ -934,6 +934,8 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
         "agent_id": agent_id, "type": spec.name, "description": spec.description,
         "model": model_ref.raw, "parent_tool_use_id": parent_tool_use_id,
         "started": time.time(), "status": "running", "session_id": child_log.session_id,
+        # 3.0.5.0 R3: Live Roles' history (studio/fleet_api.py) lists past runs by role
+        "role": _effective_role_name, "lineup": getattr(team_control, "name", None),
     })
     return child, meta_path
 

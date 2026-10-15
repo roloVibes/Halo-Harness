@@ -1,0 +1,63 @@
+/* The Fleet agent panel (fleet-agent, 3.0.5.0 R3): the header, what it was
+   asked, the Thinking / Working / Output streams (the newest text types out
+   with a caret), the tool rows with their growing diffs, the controls and
+   the Steer box. Tokens only. */
+
+.fa { height: 100%; min-height: 0; display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto auto; gap: 8px; }
+.fa-head { display: grid; gap: 3px; }
+.fa-head-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fa-name { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fa-cost { font-size: 13px; color: var(--text); }
+.fa-meta { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fa-task { font-size: 12.5px; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 4px 10px; background: var(--bg-2); }
+.fa-task summary { cursor: pointer; color: var(--muted); font-size: 11.5px; }
+.fa-task p { margin: 6px 0 4px; white-space: pre-wrap; max-height: 120px; overflow: auto; }
+.fa-tabs { justify-self: start; }
+.fa-tabs button { padding: 4px 12px; font-size: 12px; }
+.fa-count { font-size: 10px; opacity: .7; margin-left: 2px; }
+.fa-stream { min-height: 0; overflow: auto; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--bg) 60%, transparent); }
+.fa-stream[data-columns] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.fa-col { display: grid; gap: 6px; min-width: 0; }
+.fa-list { display: grid; gap: 6px; }
+.fa-empty { margin: 4px 0; font-size: 12.5px; }
+.fa-row { display: grid; gap: 2px; font-size: 13px; line-height: 1.45; animation: fade var(--t) var(--ease); }
+.fa-row .fa-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.fa-row[data-kind="thinking"] .fa-text { color: var(--muted); font-style: italic; }
+.fa-who { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.fa-user { padding: 6px 9px; border-left: 2px solid var(--line-strong); background: var(--bg-2); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.fa-user[data-you] { border-left-color: var(--accent); background: var(--accent-soft); }
+.fa-user[data-you] .fa-who { color: var(--accent); }
+.fa-note { font-size: 12px; color: var(--muted); }
+.fa-note[data-kind="ask"] .fa-who, .fa-note[data-kind="ask"] { color: var(--warn); }
+.fa-note[data-kind="error"] .fa-who, .fa-note[data-kind="error"] { color: var(--bad); }
+.fa-typed { white-space: pre-wrap; }
+.fa-caret { display: inline-block; width: 7px; height: 14px; margin-left: 1px; vertical-align: -2px; background: var(--accent); animation: fa-blink 1s steps(1) infinite; }
+@keyframes fa-blink { 50% { opacity: 0; } }
+
+.fa-tool { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; padding: 4px 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.fa-tool-head { grid-column: 1; display: flex; align-items: center; gap: 7px; min-width: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; padding: 2px 0; }
+.fa-tool-head .icon { color: var(--accent); }
+.fa-tool-label { flex: 1; min-width: 0; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fa-file { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
+.fa-tool-state { flex: none; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.fa-tool[data-state="running"] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.fa-tool[data-state="running"] .fa-tool-state { color: var(--accent); }
+.fa-tool[data-state="error"] { border-color: var(--bad); }
+.fa-tool[data-state="error"] .fa-tool-state { color: var(--bad); }
+.fa-tool[data-state="ok"] .fa-tool-state { color: var(--ok); }
+.fa-when { grid-column: 2; grid-row: 1; align-self: center; font-size: 10px; color: var(--faint); }
+.fa-diff, .fa-result { grid-column: 1 / -1; margin: 2px 0 0; padding: 6px 8px; font-size: 11px; line-height: 1.4; border-radius: 4px; background: var(--bg-2); max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fa-add { color: var(--ok); }
+.fa-del { color: var(--bad); }
+.fa-output { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; }
+
+.fa-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fa-keys { font-size: 11px; }
+.fa-steer { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.fa-steer-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fa-steer-head .rail-label { padding: 0; }
+.fa-mode button { padding: 3px 10px; font-size: 11.5px; }
+.fa-steer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.fa-steer-text { resize: vertical; min-height: 44px; font: inherit; font-size: 13px; }
+.fa-steer[data-disabled] { opacity: .6; }
+.fa-glance-text { font-size: 12.5px; color: var(--muted); max-height: 5.5em; overflow: hidden; }
