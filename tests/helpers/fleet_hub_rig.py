@@ -40,9 +40,14 @@ class HubRig:
         self.home_a = Path(self.root_a) / ".halo"
         self.home_a.mkdir(parents=True)
         (self.home_a / "config.json").write_text(json.dumps({"fleet": {"name": "alice@hub"}}), encoding="utf-8")
-        from halo_harness.fleet import relay_hub
+        from halo_harness.fleet import relay_hub, relay_runtime
         self._knobs = (relay_hub.ANNOUNCE_S,)
         relay_hub.ANNOUNCE_S = 0.5
+        # a session an earlier module leaked keeps the 5 s watcher alive, and that watcher re-creates
+        # relays for hubs that are gone: start from nothing
+        relay_runtime.stop_all()
+        with relay_runtime._lock:
+            relay_runtime._sessions[:] = []
         self.set_b(**{"fleet.name": "bob@member"})
         from halo_harness.studio.events import EventBridge
         from halo_harness.studio.fleet_hub_api import start_hub
@@ -94,9 +99,11 @@ class HubRig:
         return c, runtime.start_for_controller(c)
 
     def relay(self):
+        """B's relay to THIS rig's hub (never a stale relay another test's leaked session kept alive)."""
         from halo_harness.fleet import relay_runtime
         rs = relay_runtime.relays()
-        return rs[0] if rs else None
+        mine = [r for r in rs if r.entry.get("hub_id") == self.a_id]
+        return mine[0] if mine else (rs[0] if rs else None)
 
     def poke(self) -> None:
         from halo_harness.fleet import relay_runtime
