@@ -10,11 +10,13 @@
     halo fleet kick <name> [--json]
     halo fleet record <sid> [--agent <aid>] [--out PATH] [--json]
     halo fleet digest [--since 2h|45m|1d|<unix seconds>|<ISO time>] [--json]
+    halo fleet capabilities [name] [--refresh] [--tools] [--json]
+    halo fleet who "<query>" [--json]
 
 `serve` starts the hub inside a running Studio (through its loopback API)
 or else in the foreground (Ctrl+C stops it); `pair` makes a one-time code
 for the hub this machine runs. join / leave / status / members / kick live
-in cli_more.py; record / digest (3.0.5.0 R4) in cli_panels.py. Exit codes: 0 done, 1 could not (the reason on stderr), 2 usage.
+in cli_more.py; record / digest (3.0.5.0 R4) in cli_panels.py; capabilities / who (3.0.6.0 R6) in cli_caps.py. Exit codes: 0 done, 1 could not (the reason on stderr), 2 usage.
 """
 
 from __future__ import annotations
@@ -27,8 +29,9 @@ from urllib.parse import quote
 from halo_harness.fleet import identity
 from halo_harness.remote import cli_common as C
 
-VERBS = ("serve", "pair", "join", "leave", "status", "members", "kick", "record", "digest")
+VERBS = ("serve", "pair", "join", "leave", "status", "members", "kick", "record", "digest", "capabilities", "who")
 PANEL_VERBS = ("record", "digest")  # 3.0.5.0 R4: fleet/cli_panels.py
+CAPS_VERBS = ("capabilities", "who")  # 3.0.6.0 R6: fleet/cli_caps.py
 USAGE = """usage: halo fleet [--once] [--json]
        halo fleet serve [--port N] [--bind ADDR] [--name NAME] [--no-tls] [--json]
        halo fleet pair [--ttl 10m] [--ascii] [--json]
@@ -40,6 +43,8 @@ USAGE = """usage: halo fleet [--once] [--json]
        halo fleet kick <name> [--json]
        halo fleet record <sid> [--agent <aid>] [--out PATH] [--json]
        halo fleet digest [--since 2h|45m|1d|<unix seconds>|<ISO time>] [--json]
+       halo fleet capabilities [name] [--refresh] [--tools] [--json]
+       halo fleet who "<query>" [--json]
 
   (none)    the live table of every harness, session and agent (s steer, k stop, p pause/resume, q quit)
   serve     run the hub other harnesses join (inside Studio when it runs, else here until Ctrl+C)
@@ -50,7 +55,9 @@ USAGE = """usage: halo fleet [--once] [--json]
   members   the harnesses paired with this machine's hub
   kick      remove a member from this machine's hub (its key stops working)
   record    a session (or one agent) as a self-contained HTML flight recording (~/.halo/recordings)
-  digest    what happened since then, per harness: sessions, cost, decisions, files, errors, hand-offs"""
+  digest    what happened since then, per harness: sessions, cost, decisions, files, errors, hand-offs
+  capabilities  what each harness can do: hardware, models, craft apps, MCP servers and tools, skills, tags
+  who       which harness can do something, ranked: who has gridcraft, a 4090, nmap ..."""
 
 
 def parse_ttl(text: str) -> float:
@@ -168,6 +175,9 @@ def cmd_fleet(argv: list) -> int:
         return cmd_serve(rest)
     if verb == "pair":
         return cmd_pair(rest)
+    if verb in CAPS_VERBS:
+        from halo_harness.fleet import cli_caps
+        return getattr(cli_caps, "cmd_" + verb)(rest)
     if verb in PANEL_VERBS:
         from halo_harness.fleet import cli_panels
         return getattr(cli_panels, "cmd_" + verb)(rest)

@@ -6,6 +6,8 @@ hands it here with the session's handle and that hub's policy:
 
     status, agents                      answered (rows scrubbed for the share level)
     doctor                              answered: the read-only health subset (fleet/health.py, 3.0.5.0 R4)
+    capabilities {refresh?}             answered: this harness's capability catalog from its cache, gathered
+                                        afresh when older than an hour or on refresh (fleet/capabilities.py, 3.0.6.0 R6)
     agent_tail, agent_follow, tail      answered when this hub's share is `full`
     agent_steer, agent_stop, pause,     fleet.allow_control `none`: refused, with the reason the hub shows;
     resume, shutdown, steer, interrupt  `ask` (the default): a card in the owner's TUI, "<name> on <hub>
@@ -110,7 +112,10 @@ def ask_owner(handle, text: str, cid: str, interim: Optional[Callable] = None,
         waiters.pop(rid, None)
 
 
-def _read(handle, cmd: str, share: str) -> dict:
+def _read(handle, cmd: str, share: str, fields: Optional[dict] = None) -> dict:
+    if cmd == "capabilities":  # 3.0.6.0 R6: read-only; the cache, refreshed when stale or asked
+        from halo_harness.fleet import capabilities
+        return capabilities.current(refresh_now=(fields or {}).get("refresh") is True)
     if cmd == "doctor":  # 3.0.5.0 R4: read-only, nothing written (fleet/health.py)
         from halo_harness.fleet.health import cached, subset
         return cached("doctor", subset)[0]
@@ -163,7 +168,7 @@ def run(handle, msg: dict, pol: dict, interim: Optional[Callable] = None) -> dic
         if cmd not in protocol.FLEET_CMDS:
             raise Refused(f"{cmd!r} is not a fleet command")
         if cmd in protocol.READ_CMDS:
-            return {"state": "done", "result": _read(handle, cmd, pol["share"])}
+            return {"state": "done", "result": _read(handle, cmd, pol["share"], fields)}
         if cmd in protocol.FULL_CMDS:
             if pol["share"] != "full":
                 raise Refused(f"this harness shares `{pol['share']}` with {hub}; {cmd} needs share full")

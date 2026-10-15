@@ -8,6 +8,7 @@ environment:
     python -m tests.helpers.studio_fleet map     # boxes, nodes, the rail, select + tail, J/K, steer, stop
     python -m tests.helpers.studio_fleet roles   # Live Roles: the glow, the Live tab's text and tool rows, J, the pin
     python -m tests.helpers.studio_fleet panels  # R4: attention, timeline, digest, replay, conflict (studio_fleet_panels.py)
+    python -m tests.helpers.studio_fleet caps    # 3.0.6.0 R6: the Capabilities panel and Who can... (studio_fleet_caps.py)
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -75,6 +76,7 @@ def fleet_map(c, rig) -> dict:
     out["after_j"] = c.wait(f"{DETAIL}?.dataset.key !== '{key_b}' && {DETAIL}.dataset.key", 10)
     c.key("k")
     out["after_k"] = c.wait(f"{DETAIL}?.dataset.key === '{key_b}' && 'researcher'", 10)
+    c.js("document.querySelector('[data-testid=\"fleet-steer-send\"]').scrollIntoView({block: 'center'}); 1")  # R6: Agent sits under Capabilities
     c.click_on("document.querySelector('[data-testid=\"fleet-steer\"]')")
     c.type_text(STEER_SEEN)
     c.click_on("document.querySelector('[data-testid=\"fleet-steer-send\"]')")
@@ -164,7 +166,10 @@ def main(argv: list) -> int:
     with StudioFleetRig() as rig:
         c = Chrome(exe)
         try:
-            if argv[:1] == ["panels"]:
+            if argv[:1] == ["caps"]:
+                from tests.helpers.studio_fleet_caps import caps
+                got = caps(c, rig)
+            elif argv[:1] == ["panels"]:
                 from tests.helpers.studio_fleet_panels import panels
                 got = panels(c, rig)
             else:

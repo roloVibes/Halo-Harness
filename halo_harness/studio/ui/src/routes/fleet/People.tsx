@@ -4,12 +4,14 @@
 // (the project and its top session), live / idle / away (from when the hub
 // last heard from it), what it has spent today; Message sends its owner a
 // note in that session (never the model), Kick (this machine's hub only,
-// asks first) makes it pair again. Compact face: who is online.
+// asks first) makes it pair again; specs opens its card in Capabilities
+// (3.0.6.0 R6). Compact face: who is online.
 import { Button, Empty, Icon } from "../../lib/ui";
 import type { MotionState } from "../../lib/motion";
 import { Metric } from "../orchestra/bits";
 import { cost, short } from "../orchestra/format";
 import { projectLabel } from "./layout";
+import { focusHarness, useCaps } from "./caps";
 import { openDialog } from "./pstore";
 import { sessionTitle, useFleet, useNow } from "./store";
 import type { Harness } from "./types";
@@ -38,6 +40,7 @@ function Person({ h, now, hubHere }: { h: Harness; now: number; hubHere: boolean
   const top = topSession(h);
   const name = h.name || h.id.slice(0, 8);
   const seen = h.last_seen && !h.local ? `${Math.max(0, Math.round(now / 1000 - h.last_seen))}s ago` : "";
+  const capChips = useCaps((s) => s.rows?.find((r) => r.harness === h.id)?.chips);
   return (
     <li className="fpe-row" data-testid="fleet-person" data-id={h.id} data-presence={p}>
       <div className="fpe-top">
@@ -56,6 +59,9 @@ function Person({ h, now, hubHere }: { h: Harness; now: number; hubHere: boolean
         )}
         {!h.local && <span className="og-chip mono" title="what it shares with this hub">shares {h.share || "?"}</span>}
         {!h.local && <span className="og-chip mono" title="what you may do there">control {h.allow_control || "?"}</span>}
+        {(capChips || []).map((c) => <span key={c} className="og-chip mono fcap-chip">{c}</span>)}
+        <button className="fpe-specs mono" data-testid="fleet-person-specs" title="what it can do: its spec card in Capabilities"
+                onClick={() => focusHarness(h.id, "fleet-capabilities")}>specs</button>
       </div>
       <div className="fpe-on muted">
         {top ? <>on <b>{short(projectLabel(top), 40)}</b> · {short(sessionTitle(top), 48)}{(h.sessions || []).length > 1 ? ` · +${h.sessions.length - 1} more` : ""}</> : "no session right now"}

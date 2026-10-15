@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from halo_harness.fleet import protocol
+from halo_harness.fleet.hub_capabilities import HubCaps
 from halo_harness.fleet.hub_commands import Commands
 from halo_harness.fleet.hub_links import LINK_TTL_S, STREAM_GRACE_S, Link, Member
 from halo_harness.fleet.identity import CONTROL_LEVELS, SHARE_LEVELS
@@ -54,6 +55,7 @@ class HubState:
         self.sinks: list = []
         self.lock = threading.RLock()
         self.commands = Commands(self)
+        self.caps = HubCaps(self)  # 3.0.6.0 R6: every harness's capability catalog
         self.serving: dict = {}
         self._mtime: Optional[float] = None
         self.reload(force=True, quiet=True)
@@ -143,6 +145,7 @@ class HubState:
             self._member_frame(m, "sessions", sessions=m.sessions())
         if (m.record.get("name"), m.record.get("version")) != (m.harness.get("name"), m.harness.get("version")):
             self.pairing.update_member(hid, name=m.harness.get("name"), version=m.harness.get("version"))
+        self.caps.seen(m, body)
         return {"ok": True, "member_name": m.name, "hub": self.hub_public()}
 
     def frames(self, hid: str, body: dict) -> Optional[int]:

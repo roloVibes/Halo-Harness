@@ -11,6 +11,7 @@
 import { api, ApiError } from "../../lib/api";
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { studio, toast } from "../../lib/store";
+import { startCaps } from "./caps";
 import { startPanels } from "./pload";
 import { append, rawEntry } from "./streams";
 import { fleet, keyOf, localId, type FleetState } from "./store";
@@ -100,6 +101,7 @@ function onSessions(f: FeedFrame): void {
   const d = (f.data || {}) as { action?: string; sessions?: SessionRow[]; state?: string; error?: string; cmd?: string };
   const s = fleet.get();
   if (d.action === "attention") return; // the watcher's count (session_id null): the panels' store reads it (pload.ts)
+  if (d.action === "capabilities") return; // 3.0.6.0 R6: a catalog changed; caps.ts refetches the catalogs
   if (d.action === "sessions" && Array.isArray(d.sessions) && f.harness && s.harnesses.some((h) => h.id === f.harness)) {
     fleet.update((st) => ({ harnesses: st.harnesses.map((h) => (h.id === f.harness ? { ...h, sessions: d.sessions! } : h)), lastFrame: Date.now() }));
     return;
@@ -163,4 +165,5 @@ export function startFleet(): void {
   }, POLL_MS);
   void load();
   startPanels();
+  startCaps();
 }

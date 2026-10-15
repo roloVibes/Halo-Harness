@@ -64,6 +64,7 @@ class Member:
         self.online = False
         self.last_seen: Optional[float] = None
         self._costs: dict = {}  # (day, session id) -> cost so far today
+        self.caps: dict = {}  # 3.0.6.0 R6: {hash, summary} from its last announce
 
     @property
     def id(self) -> str:
@@ -121,4 +122,5 @@ class Member:
                 "allow_control": self.allow_control, "allow_answers": self.allow_answers, "online": self.online,
                 "last_seen": self.last_seen, "cost_today": self.cost_today(), "local": False,
                 "version_mismatch": bool(h.get("version")) and h.get("version") != hub_version,
-                "paired_at": self.record.get("paired_at"), "sessions": self.sessions()}
+                "paired_at": self.record.get("paired_at"), "capabilities_hash": self.caps.get("hash"),
+                "capabilities_summary": self.caps.get("summary"), "sessions": self.sessions()}

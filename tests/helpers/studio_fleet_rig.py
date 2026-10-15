@@ -37,7 +37,7 @@ from pathlib import Path
 from tests.helpers.fleet_rig import text_step, tool_step, wait_for  # noqa: F401  (re-exported)
 from tests.helpers.mock_openai import SCENARIOS, MockUpstream, ScriptedTurns
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials
-from tests.helpers.studio_fleet_member import MEMBER, MEMBER_SID, announce_body, answer, ask_frames
+from tests.helpers.studio_fleet_member import MEMBER, MEMBER_SID, announce_body, answer, ask_frames, seed_caps
 from tests.helpers.studio_fleet_parts import PAST_SID, held, make_session, quiet_health, recorded, said_then_tool, seed_past, spawn  # noqa: F401
 
 ensure_default_provider_credentials()
@@ -143,6 +143,7 @@ class StudioFleetRig:
                 self.member_cmds.append(doc)
                 self.hub.state.commands.reply(MEMBER, {"cid": doc["cid"], "state": "done", "result": answer(doc)})
         threading.Thread(target=respond, daemon=True, name="rig-member").start()
+        seed_caps(self.hub, self.state, rec)  # 3.0.6.0 R6: both catalogs; the hub asks the member for its own
 
     # ---- this harness's session ---------------------------------------------------
     def _session(self) -> None:

@@ -1,0 +1,64 @@
+/* Fleet Capabilities (3.0.6.0 R6): the "Who can..." box and its ranked
+   results, one spec card per harness (MCP servers open to their tools), the
+   capability chips on the map's harness boxes and in People, and the box Who
+   picked (cyan glow). Amber marks what is unknown. Tokens only. */
+
+/* -- the panel ------------------------------------------------------------------------ */
+.fcap { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; height: 100%; min-height: 0; }
+.fcap-list { list-style: none; margin: 0; padding: 0 2px 2px 0; display: grid; gap: 8px; overflow: auto; min-height: 0; align-content: start; }
+.fcap-card { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 10px; background: color-mix(in srgb, var(--surface) 70%, transparent); transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease); }
+.fcap-card[data-focus] { border-color: var(--accent); box-shadow: var(--glow-strong); }
+.fcap-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.fcap-head .spacer { flex: 1; }
+.fcap-chip { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.fcap-facts { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 3px 10px; margin: 8px 0 0; font-size: 12px; }
+.fcap-facts dt { color: var(--muted); font: 10.5px var(--mono); text-transform: uppercase; letter-spacing: .04em; padding-top: 2px; }
+.fcap-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.fcap-note { font-size: 11.5px; margin: 6px 0 0; }
+.fcap-mcp { display: grid; gap: 2px; }
+.fcap-server summary { cursor: pointer; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 1px 0; }
+.fcap-server summary:hover .mono { color: var(--accent); }
+.fcap-server .og-chip[data-none] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.fcap-server .fcap-note { margin: 0; font-size: 11px; }
+.fcap-tools { list-style: none; margin: 2px 0 6px 14px; padding: 0 0 0 8px; border-left: 1px solid var(--line); display: grid; gap: 2px; font-size: 11.5px; }
+.fcap-tools b { font-weight: 600; color: var(--text); }
+
+/* -- Who can... ----------------------------------------------------------------------- */
+.fwho { display: grid; gap: 6px; }
+.fwho-box { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--bg-2); color: var(--muted); }
+.fwho-box:focus-within { border-color: var(--accent); box-shadow: var(--glow-strong); color: var(--accent); }
+.fwho-box input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: 13px var(--sans); }
+.fwho-samples { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 11.5px; }
+.fwho-sample { border: 1px dashed var(--line-strong); border-radius: 999px; background: transparent; color: var(--muted); padding: 1px 8px; font-size: 11px; cursor: pointer; }
+.fwho-sample:hover { color: var(--accent); border-color: var(--accent); }
+.fwho-none { margin: 2px 0; font-size: 12px; }
+.fwho-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow: auto; }
+.fwho-row { width: 100%; text-align: left; display: grid; grid-template-columns: 20px minmax(0, auto) minmax(40px, 1fr) auto; gap: 4px 8px; align-items: center; padding: 5px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--bg) 60%, transparent); color: var(--text); cursor: pointer; font: inherit; }
+.fwho-row:hover, .fwho-row[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.fwho-rank { color: var(--accent); font-size: 12px; }
+.fwho-name { font-size: 12.5px; }
+.fwho-meter { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.fwho-meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 0 6px var(--accent); }
+.fwho-score { font-size: 11px; color: var(--muted); }
+.fwho-why { grid-column: 2 / -1; list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; font-size: 11px; }
+.fwho-why .og-chip { font-size: 9.5px; padding: 0 5px; }
+.fwho-why .og-chip[data-kind="tag"] { color: var(--warn); }
+
+/* -- People: the specs link ------------------------------------------------------------- */
+.fpe-specs { border: 0; background: transparent; color: var(--accent); font-size: 11px; cursor: pointer; padding: 0 4px; text-decoration: underline dotted; }
+.fpe-specs:hover { text-shadow: 0 0 6px var(--accent); }
+
+/* -- the map: chips on a harness box, the box Who picked -------------------------------- */
+.fm-chip rect { fill: color-mix(in srgb, var(--accent) 12%, var(--bg)); stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: 1; }
+.fm-chip text { font: 10px var(--mono); fill: var(--accent); }
+.fm-box[data-who] .fm-box-shape { stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 8px var(--accent)); }
+@media (prefers-reduced-motion: no-preference) {
+  .fm-box[data-who] .fm-box-shape { animation: fcap-pick 1.6s var(--ease) 2; }
+}
+@keyframes fcap-pick { 50% { stroke-opacity: .45; } }
+
+/* -- the compact face: the Who box and its best three, one line each ------------------- */
+.fcap-glance { display: grid; gap: 6px; align-content: start; }
+.fwho[data-compact] .fwho-list { max-height: none; }
+.fwho[data-compact] .fwho-row { padding: 3px 8px; }
+.fwho-why[data-compact] li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

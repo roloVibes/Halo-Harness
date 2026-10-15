@@ -298,14 +298,18 @@ stop, take over or hand off any one agent.
    first. Take over gives it your brief; Hand to... passes it to another
    harness (a Paperclip issue with Org mode on, a hand-off note without)
    and stops it.
-6. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
+6. **Know who can do what**: Capabilities has a spec card per harness:
+   hardware, models, craft apps, MCP servers and their tools, skills, tags.
+   Who can... ranks the fleet for what you need (gridcraft, a 4090, make a
+   video) and picks the best one on the map.
+7. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
    or 60 minutes, tool calls as ticks) over the merged live log. Costs
    ticks today's spend and holds the caps; Health is a doctor summary per
    harness.
-7. **Record and replay**: Record saves a session or one agent as a single
+8. **Record and replay**: Record saves a session or one agent as a single
    HTML file that plays anywhere. Replay plays a finished session on the
    Roles canvas: the cards light up in the order they worked.
-8. **Come back**: after ten minutes away, While you were away sums up what
+9. **Come back**: after ten minutes away, While you were away sums up what
    happened: sessions, cost, decisions and who made them, files, errors,
    hand-offs.
 
@@ -316,6 +320,7 @@ one key each. Map: every harness as a box, its sessions as cards, each
 session's agents as a tree. Activity: a timeline lane per live agent and
 the merged live log. Agent: the selected agent: what it thinks, what it
 runs, what it hands back; steer it, take it over, hand it on, record it.
+Capabilities (3.0.6.0): what every harness can do, and who can do what.
 
 ## The live feed
 
@@ -537,12 +542,14 @@ the members of this machine's hub, each with **kick**; and "open the
 workspace anyway". The panels come up by themselves the moment a session
 registers or a member joins (`?view=start` / `?view=workspace` force one).
 
-Seven panels (3.0.5.0 R4), on a 24-column grid: People, Costs and Health
-along the top on their compact faces; under them Attention on the left,
-Map with Activity under it in the middle, Agent on the right. Every panel
-has its one-line about in its title bar and `?` for how to use it.
+Eight panels on a 24-column grid (seven from 3.0.5.0 R4, Capabilities from
+3.0.6.0 R6): People, Costs and Health along the top on their compact faces;
+under them Attention on the left, Map with Activity under it in the middle,
+Capabilities on the right on its compact face (the Who can... box) with
+Agent under it. Every panel has its one-line
+about in its title bar and `?` for how to use it.
 
-![Fleet's seven panels: People, Costs and Health on top, Attention with the member's two cards, a conflict edge on the map, the timeline and the live log, the researcher in Agent, While you were away in the rail](media/studio-fleet-panels.png)
+![Fleet's eight panels: People, Costs and Health on top, Attention with the member's two cards, a conflict edge on the map, the timeline and the live log, Capabilities over the researcher in Agent, While you were away in the rail](media/studio-fleet-panels.png)
 
 | Panel | What it shows |
 |---|---|
@@ -552,6 +559,7 @@ has its one-line about in its title bar and `?` for how to use it.
 | **Attention** (`fleet-attention`) | Every decision that waits on you, across the fleet, oldest first: who (harness, session, agent), what, for how long, and its one-key answers. Compact face: the count and the oldest row. |
 | **Activity** (`fleet-activity`) | The **timeline**: one lane per live agent over the last 5, 15 or 60 minutes, a bar per state (cyan working, amber waiting or paused, green done, red failed), each tool call a tick; hover for who and since when, a click selects that agent. Under it the merged **live log** of every harness, session and agent (state changes, tool calls, the text they write, the cards they open, errors, harnesses joining and leaving), with filters by harness, session, agent and kind, and Follow. Compact face: agents live and the newest line. |
 | **Map** (`fleet-map`) | One labelled box per harness (this one first; the group-box look of the Roles and Org canvases), a card per session (title, kind chip, project and branch, cost, status dot) and its agents as a tree under it (name and role, what it does now, the model pill, the tool's icon while a tool runs, a cost ticker that counts up, `...`), an edge from each parent to its children. **By project** regroups the cards into one box per repo, the harness colour on each card. Compact face: harnesses, agents live, need you. |
+| **Capabilities** (`fleet-capabilities`) | 3.0.6.0 R6. The **Who can...** box on top (see below), then one spec card per harness: its chips (the owner's tags, the GPU, the OS, craft apps), the hardware (CPU, cores, RAM, GPUs and VRAM, free disk), the models it is best with and its local ones, its craft apps and ComfyUI models, every MCP server with its tool count (click one for its tools and what each does), skills, command-line tools, tags, the catalog's age and **Refresh**. The map's harness boxes carry the same chips; People has a **specs** link per harness. Compact face (the default, so Agent keeps its height): the Who can... box and its best three, else each harness's chips; Expand for the spec cards. |
 | **Agent** (`fleet-agent`) | The selected agent: harness, session, role, model, cost, elapsed, state; **What it was asked**; its three streams, tabbed or side by side (Settings): **Thinking** (what it writes and reasons, the newest text typing out character by character; steers, notes, the cards it opened), **Working** (one row per tool call with its arguments, the file it touches, its result, and for Edit / Write the diff as it grows), **Output** (its hand-back, else the text after its last tool call); **Pause** / **Resume**, **Stop** (asks first), **Follow**, **Pin**; **Take over**, **Hand to...**, **Record**, **Replay** (this harness); the **Steer** box. With no agent picked, the last sessions on this harness with **replay** and **record**. Compact face: the agent, its state and cost, what it does now and its last words. |
 
 **Motion** (the shell's vocabulary): a working agent's outline flows (a
@@ -657,6 +665,27 @@ clock, the cost so far, who works at that moment, and `x` (or `Esc`) to
 go back to what runs now; live updates wait while it plays. The shell
 reads `GET /api/fleet/replay` and posts it into the framed page.
 
+### How this works: Who can do what
+
+Every harness gathers its own capability catalog in code: its MCP servers
+and their tools (from their tool caches; a server that does not answer in
+time is listed without tools and fills in on the next gather), skills,
+models, craft apps, ComfyUI, hardware, command-line tools, projects and the
+tags its owner set (`fleet.tags`). Names only: no full path, server command
+or key ever leaves the machine, and `fleet.capabilities.hide` keeps a
+server, tool or skill off it. A member's announce carries a one-line summary
+and the catalog's hash; the hub asks for the whole catalog once per hash and
+a `fleet` frame with action `capabilities` refreshes the panel
+(`GET /api/fleet/capabilities`). **Who can...** ranks the fleet for what you
+type, in code: an exact name beats a word of a name, which beats a word of a
+description, and a tag counts double; each result shows what matched and
+why (`GET /api/fleet/who?q=`, `halo fleet who`). Click a result and that
+harness is picked: its card opens, its box on the map lights up, its
+session's main agent is selected. The palette has **Fleet: who can...** and
+**Fleet: specs of** each harness. See [FLEET.md](FLEET.md#capabilities-3060-r6).
+
+![Fleet Capabilities: "gridcraft" in Who can... ranks kali@lab first and picks it on the map; both spec cards with their chips](media/studio-fleet-capabilities.png)
+
 ### How this works: While you were away
 
 When the tab comes back after more than ten minutes (or Studio opens after
@@ -697,6 +726,7 @@ and "While you were away" shows above it. The palette's **Fleet** group: pair a
 harness, kick a member, group the map by project, follow / steer / pause /
 stop the selected agent, take it over, hand it to..., record it, replay its
 session, answer next (Attention, the oldest row), while you were away,
+who can... and the specs of each harness (3.0.6.0),
 follow any live agent by name, pause all, resume all, open the session in
 Orchestra or Flow.
 
@@ -1108,7 +1138,10 @@ its embedded mode `embed.js` (+ `embed.css`). Fleet (3.0.5.0) is
 `styles/fleet.css` and `fleet-agent.css`, the help `routes/help-fleet.ts`;
 Live Roles is `static/legacy/live.js` + `live-tab.js` + `live.css`; the
 routes `fleet_hub_api.py` (R2), `fleet_pair_api.py` and `fleet_api.py`
-(`get_history`). Tests: `tests/test_fleet_studio_routes.py` and the Fleet
+(`get_history`). 3.0.6.0 R6 adds `Capabilities.tsx` + `Who.tsx` + `caps.ts` +
+`MapChips.tsx`, `styles/fleet-caps.css` and `fleet_capabilities_api.py`
+(tests: `tests/test_fleet_capabilities*.py`, the `caps` Chrome scenario in
+`tests/helpers/studio_fleet_caps.py`). Tests: `tests/test_fleet_studio_routes.py` and the Fleet
 tests in `tests/test_studio_ui.py` (`tests/helpers/studio_fleet.py` over
 `tests/helpers/studio_fleet_rig.py`); captures `tools/capture_studio.py
 --mode fleet` (tools/capture_fleet.py).

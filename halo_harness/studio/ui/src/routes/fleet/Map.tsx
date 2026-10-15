@@ -14,6 +14,7 @@ import { Metric } from "../orchestra/bits";
 import { short } from "../orchestra/format";
 import { toggleByProject } from "./actions";
 import { layout } from "./layout";
+import { BoxChips, chipsWidth, useBoxChips } from "./MapChips";
 import { AgentNode, NodeMenu, SessionCard, type MenuAt } from "./MapNode";
 import { useAttnCount, usePanels } from "./pstore";
 import { NONE, useCounts, useFleet } from "./store";
@@ -68,21 +69,28 @@ export function FleetMap() {
   const selected = useFleet((s) => s.selected);
   const edges = useFleet((s) => s.edges || NONE);
   const [menu, setMenu] = useState<MenuAt | null>(null);
+  const { chips, focus } = useBoxChips(); // 3.0.6.0 R6: capability chips; the harness Who picked
   const geo = useMemo(() => layout(harnesses, byProject), [harnesses, byProject]);
   const pos = useMemo(() => new Map(geo.nodes.map((n) => [n.ref.key, n])), [geo]);
   return (
     <>
     <svg className="fm-svg" viewBox={`0 0 ${geo.width} ${geo.height}`} width={geo.width} height={geo.height} role="img" aria-label="Fleet map" data-testid="fleet-map-svg">
-      {geo.boxes.map((b) => (
-        <g key={b.key} className="fm-box" data-testid="fleet-box" data-key={b.key} data-online={b.online || undefined} data-local={b.local || undefined} data-hc={b.hc || undefined}>
+      {geo.boxes.map((b) => {
+        const bc = b.key.startsWith("h:") ? chips.get(b.key.slice(2)) || [] : [];
+        const cw = chipsWidth(bc);
+        return (
+        <g key={b.key} className="fm-box" data-testid="fleet-box" data-key={b.key} data-online={b.online || undefined} data-local={b.local || undefined} data-hc={b.hc || undefined}
+           data-who={(b.key === "h:" + focus && !!focus) || undefined}>
           <rect className="fm-box-shape" x={b.x} y={b.y} width={b.w} height={b.h} rx={16} />
           <rect className="fm-box-head" x={b.x} y={b.y} width={b.w} height={34} rx={14} />
           <circle className="fm-box-dot" cx={b.x + 16} cy={b.y + 17} r={4} />
           <text className="fm-box-label" x={b.x + 28} y={b.y + 21}>{b.label}</text>
-          <text className="fm-box-sub" x={b.x + b.w - 14} y={b.y + 21} textAnchor="end">{short(b.sub, Math.max(0, Math.floor((b.w - 44 - b.label.length * 9) / 6.4)))}</text>
+          <text className="fm-box-sub" x={b.x + b.w - 14 - cw} y={b.y + 21} textAnchor="end">{short(b.sub, Math.max(0, Math.floor((b.w - 44 - cw - b.label.length * 9) / 6.4)))}</text>
+          {bc.length > 0 && <BoxChips chips={bc} right={b.x + b.w - 10} cy={b.y + 17} />}
           {b.empty && <text className="fm-sub" x={b.x + 16} y={b.y + 62}>no session here right now</text>}
         </g>
-      ))}
+        );
+      })}
       {geo.edges.map((e) => (
         <path key={e.to} className="fm-edge" data-on={e.to === selected || e.from === selected || undefined} d={e.d} />
       ))}

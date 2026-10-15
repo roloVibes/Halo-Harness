@@ -14,6 +14,8 @@
                                      the panels (studio/fleet_panels_api.py, R4)
     fleet/<h>/<sid>/agents/<aid>/handoff, fleet/<h>/<sid>/recording, fleet/recordings/<name>, fleet/replay
                                      hand-offs, flight recordings, canvas replay (studio/fleet_extras_api.py, R4)
+    fleet/capabilities, fleet/who    what every harness can do and who can do something (studio/fleet_capabilities_api.py,
+                                     3.0.6.0 R6)
 
 A command for this harness takes the direct path (studio/sessions_api.py,
 studio/fleet_api.py); one for a member goes through the hub to that
@@ -214,6 +216,8 @@ ROUTES[len(ROUTES):] = _PAIR_ROUTES
 from halo_harness.studio.fleet_panels_api import ROUTES as _PANEL_ROUTES  # noqa: E402  (R4: the panels)
 from halo_harness.studio.fleet_extras_api import ROUTES as _EXTRA_ROUTES  # noqa: E402  (R4: hand-offs, recordings, replay)
 ROUTES[len(ROUTES):] = _PANEL_ROUTES + _EXTRA_ROUTES
+from halo_harness.studio.fleet_capabilities_api import ROUTES as _CAPS_ROUTES  # noqa: E402  (3.0.6.0 R6: capabilities, who)
+ROUTES[len(ROUTES):] = _CAPS_ROUTES
 
 
 def dispatch_fleet(req):

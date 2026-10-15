@@ -78,6 +78,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         route = self._route()
         if route == "local/state":
             return self._local_state()
+        if route == "local/capabilities":  # 3.0.6.0 R6: every harness's catalog, for this machine's Studio and CLI
+            return self._local_capabilities()
         if route not in ("stream", "ping"):
             return self._json(404, {"error": "this port serves only the Halo fleet protocol (/fleet/v1)"})
         hid = self._signed(b"")
@@ -97,6 +99,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _local_state(self):
         return self._json(200, self.hub.state.view()) if self._admin() else None
+
+    def _local_capabilities(self):
+        if not self._admin():
+            return None
+        q = parse_qs(urlsplit(self.path).query)
+        hid, refresh = (q.get("harness") or [""])[-1], (q.get("refresh") or [""])[-1] in ("1", "true")
+        if hid and refresh:
+            status, got = self.hub.state.caps.fetch_now(hid)
+            if status != 200:
+                return self._json(status, got)
+        return self._json(200, {"harnesses": self.hub.state.caps.entries()})
 
     def _local_command(self):
         """`{harness, session_id, cmd, fields, wait_s}` from this machine's `halo fleet` table."""

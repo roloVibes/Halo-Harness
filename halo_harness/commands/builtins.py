@@ -245,6 +245,10 @@ def _cmd_fleet(args: str, facade: HeadlessFacade) -> str:
     """Halo 3.0.5.0 R2: `/fleet` -- every harness, session and agent this machine
     sees (Studio's fleet view, this machine's hub, or this harness alone), the
     same table as `halo fleet --once`; the TUI opens it as a live dialog."""
+    from halo_harness.fleet.cli_caps import slash_text  # 3.0.6.0 R6: /fleet who <query>, /fleet capabilities [name]
+    text = slash_text(args)
+    if text is not None:
+        return text
     from halo_harness.fleet.table import render, rows, snapshot
     view, source = snapshot()
     where = {"studio": "Studio's fleet view", "hub": "this machine's hub", "local": "this harness only"}

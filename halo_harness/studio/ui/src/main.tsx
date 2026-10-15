@@ -15,6 +15,7 @@ import "./styles/fleet.css";
 import "./styles/fleet-agent.css";
 import "./styles/fleet-panels.css";
 import "./styles/fleet-panels2.css";
+import "./styles/fleet-caps.css";
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

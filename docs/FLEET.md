@@ -10,7 +10,8 @@ allows. **R3** is Studio's Fleet section (the map, the agent inspector,
 the Fleet rail in every section, the hop keys, Live Roles: see
 [In Studio](#in-studio) below); **R4** is the panels behind it (attention, caps,
 conflicts, health, hand-offs, flight recordings, the replay and the digest: see
-[The panels](#the-panels-r4)).
+[The panels](#the-panels-r4)). Halo 3.0.6.0 adds **R6**, what every harness
+can do and who can do something ([Capabilities](#capabilities-3060-r6)).
 
 ## What a session exposes (R1)
 
@@ -148,7 +149,9 @@ The control sockets, their tokens and endpoints; the pair keys (the
 joiner's in `~/.halo/fleet/keys/`, 0600; the hub's in `members.json`, 0600);
 private sessions; full local paths; permission rules and config; transcripts
 on disk (a hub reads an agent's tail only under `full`, through the
-session); and, under `status`, every word an agent writes.
+session); and, under `status`, every word an agent writes. A capability
+catalog (3.0.6.0 R6) carries names, never a path, a server command or a key
+([Capabilities](#what-never-leaves-the-machine)).
 
 ### Files
 
@@ -385,6 +388,112 @@ own transcripts; members, decisions and hand-offs from the journal.
 `GET /api/fleet/digest?since=` and `halo fleet digest [--since 2h]`
 ([COMMANDS.md](COMMANDS.md#halo-fleet-digest)).
 
+## Capabilities (3.0.6.0 R6)
+
+Every harness says what it can do, so you (and, from 3.0.6.0 R7, a fleet
+mission) can see which one is best for a part of the job: which MCP servers
+and tools it has, its skills, models, craft apps, GPU, command-line tools and
+the tags its owner gave it. Everything is computed in code on each harness;
+no model is called to build or rank it.
+
+### What a catalog holds
+
+`fleet/capabilities.py` gathers one catalog per harness:
+
+```
+{harness: {id, name, host, os, version}, at, hash, tags: [..],
+ mcp: [{name, transport, tools: [{name, desc}] | null, note?}],
+ skills: [name], roles: [{role, bio, lineup}], providers: [{name, id, ok}],
+ models: [{id, provider, best_for: [visual|audio|video|image|design], local?}],
+ craft_apps: [name], media: {comfyui, models: [{name, kind}]},
+ hardware: {os, distro, release, cpu, cores, ram_gb, gpu: [{name, vram_gb}], disk_free_gb},
+ clis: {git, gh, python, uv, node, npm, docker, ffmpeg, rg, claude, codex, ollama, go, cargo,
+        java, kubectl, terraform, nmap: version | "installed" | null},
+ projects: [{name, repo, branch}], integrations: {paperclip, postiz, signal}}
+```
+
+- **MCP tools** come from each server's tool cache (`~/.halo/mcp/tools-cache/`,
+  the files lazy MCP start writes). A server with no cache is connected once
+  and its cache written; each probe has its own thread and the gather waits
+  at most 8 s for all of them, so a server that does not answer is listed
+  with `tools: null` and a note, and its list arrives with the next gather.
+  claude.ai connectors are listed from their discovery cache.
+- **Models** are the catalog's best few per job (`halo models --best-for`)
+  and every local model; **roles** are the active lineup and your own.
+- **Craft apps** are the registered ArtCraft servers (and ComfyUI); **media**
+  is ComfyUI's last model scan.
+- **Projects** are the repos of the live sessions, the working directory and
+  recent history: a folder name, the repo name and the branch.
+- The **hash** covers everything but the time and the free disk, so it moves
+  only when what the harness can do moves.
+
+The catalog is cached at `~/.halo/fleet/capabilities.json` and gathered
+afresh when it is older than an hour, after `halo mcp add` / `remove`, and
+on `halo fleet capabilities --refresh` (or Studio's Refresh).
+
+### What never leaves the machine
+
+No full local path: projects are folder names and repo names, and every
+string in the catalog has its absolute paths cut to their last component
+before it is cached or sent. No server command, argument, URL, header or
+environment value: an MCP server is its name, its transport and its tools.
+No key: a provider is its name and whether it is enabled here.
+
+`fleet.capabilities.hide` (a list of names) keeps things off the catalog:
+an MCP server (and its tools), one tool (`write_range` or
+`gridcraft/write_range`), a skill or a craft app. `fleet.tags` (a list) are
+your own words for this harness (`gpu`, `studio`, `night-shift`); they show
+first on its chips and count double when someone asks who can do something.
+
+```sh
+halo config set fleet.tags '["gpu", "studio"]'
+halo config set fleet.capabilities.hide '["private-notes", "gridcraft/delete_sheet"]'
+```
+
+### How it reaches the hub
+
+A joined harness's announce carries `capabilities_summary` (one line: counts
+and tags) and `capabilities_hash`. When the hash is one the hub has no
+catalog for, the hub asks for the whole catalog once, with the read-only
+`capabilities` fleet command (`READ_CMDS`, answered at any share level from
+the cache), through one of that harness's live sessions; a failed ask is
+retried after a minute, never on every announce. A catalog that arrives with
+a new hash raises a `fleet` frame `{action: "capabilities", harness, name,
+hash}`. The hub's own harness is in the list too, from its own cache.
+
+### Who can do this?
+
+`halo fleet who "<query>"`, `/fleet who <query>` and Studio's "Who can..."
+box rank every harness for what you typed. The query is cut into words (case
+and filler words such as "who", "can", "make" ignored); each item of each
+catalog (an MCP server or tool, a skill, a tag, a model, a craft app, a CLI,
+the GPU, CPU, OS or RAM) scores:
+
+| Match | Points |
+|---|---|
+| its whole name is the query, or one query word | 10 |
+| a query word is a word of its name | 4 per word |
+| a query word is in its description | 1 per word |
+| the item is a tag | double |
+
+A harness's score is the sum of its five best items; each result lists them
+with why they matched. `who gridcraft` puts the harness that has gridcraft
+first; `who 4090` the one with that GPU.
+
+### Routes and the command line
+
+| Route | Answer |
+|---|---|
+| `GET /api/fleet/capabilities[?harness=<id\|name\|local>&refresh=1]` | `{harnesses: [{harness, name, local, online, hash, summary, chips, at, received, catalog, note?}], at, stale_s}`; `refresh=1` gathers this harness again or asks the named member now |
+| `GET /api/fleet/who?q=<words>` | `{q, words, results: [{harness, name, local, score, matched, matches: [{kind, name, why, score}]}]}`; 422 with no word |
+
+`halo fleet capabilities [name] [--refresh] [--tools] [--json]` prints a spec
+sheet per harness (hardware, models, craft apps, MCP servers with tool counts,
+every tool with `--tools`, skills, CLIs, projects, providers, roles,
+integrations, tags); `halo fleet who "<query>" [--json]` the ranking. Both read
+Studio when it runs, else the hub this machine serves, else this harness
+alone ([COMMANDS.md](COMMANDS.md#halo-fleet-capabilities)).
+
 ## The terminal: `halo fleet` and `/fleet`
 
 `halo fleet` alone is a live table (refreshed every 2 s) of every harness,
@@ -395,7 +504,9 @@ y/N), `p` pause or resume, `r` refresh, `q` quit; `--once` prints it once,
 read Studio's `GET /api/fleet` when Studio runs, else the hub this machine
 serves, else the local registry and sockets. `halo fleet record <sid>`
 writes a flight recording and `halo fleet digest [--since]` prints the
-digest (both R4, from this harness's own files). Every flag is in
+digest (both R4, from this harness's own files); `halo fleet capabilities
+[name]` prints each harness's spec sheet and `halo fleet who "<query>"` (and
+`/fleet who <query>` in the TUI) ranks the fleet for it (R6). Every flag is in
 [COMMANDS.md](COMMANDS.md#halo-fleet).
 
 ## Config keys
@@ -413,3 +524,5 @@ digest (both R4, from this harness's own files). Every flag is in
 | `fleet.caps.per_project_usd_per_day` | unset | the same for every session on one repo, any harness |
 | `fleet.caps.fleet_usd_per_day` | unset | the same for every session the hub sees |
 | `fleet.attention.signal` | `true` | new attention rows go to the paired phone when the Signal bridge runs; `false` keeps them in Studio |
+| `fleet.tags` | `[]` | 3.0.6.0 R6: your own words for this harness; first on its chips, double weight in `who` |
+| `fleet.capabilities.hide` | `[]` | MCP servers, tools (`tool` or `server/tool`), skills or craft apps its capability catalog never lists |
