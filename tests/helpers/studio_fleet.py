@@ -7,6 +7,7 @@ environment:
 
     python -m tests.helpers.studio_fleet map     # boxes, nodes, the rail, select + tail, J/K, steer, stop
     python -m tests.helpers.studio_fleet roles   # Live Roles: the glow, the Live tab's text and tool rows, J, the pin
+    python -m tests.helpers.studio_fleet panels  # R4: attention, timeline, digest, replay, conflict (studio_fleet_panels.py)
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -163,7 +164,11 @@ def main(argv: list) -> int:
     with StudioFleetRig() as rig:
         c = Chrome(exe)
         try:
-            got = fleet_map(c, rig) if argv[:1] == ["map"] else roles(c, rig)
+            if argv[:1] == ["panels"]:
+                from tests.helpers.studio_fleet_panels import panels
+                got = panels(c, rig)
+            else:
+                got = fleet_map(c, rig) if argv[:1] == ["map"] else roles(c, rig)
             print(json.dumps(got))
             return 0
         finally:

@@ -103,3 +103,13 @@ def seed_past(state: Path, proj: Path, t0: "float | None" = None) -> Path:
         {"type": "assistant", "ts": t0 + 530, "content": [{"type": "text", "text": "One finding: round after the discount."}]},
         {"type": "usage", "ts": t0 + 530, "usage": {}, "cost_usd": 0.005}])
     return main
+
+
+def quiet_health():
+    """(R4b) Studio's health panel reads every harness's providers: in the rig they answer from here, no network.
+    Returns the undo."""
+    from halo_harness.fleet import health
+    saved = health._provider
+    health._provider = lambda name, label, probe: {"name": label, "configured": True, "reachable": True if probe else None, "note": ""}
+    health.forget()
+    return lambda: (setattr(health, "_provider", saved), health.forget())

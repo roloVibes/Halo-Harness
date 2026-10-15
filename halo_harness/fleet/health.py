@@ -102,6 +102,9 @@ def status_of(h: dict) -> str:
 
 def subset(probe: bool = True) -> dict:
     from halo_harness import __version__
+    from halo_harness.config.paths import background_net_disabled
+    if background_net_disabled():
+        probe = False  # a test never reaches a real provider host from a health read
     got: dict = {}
     threads = [threading.Thread(target=lambda n=n, lb=lb: got.__setitem__(n, _provider(n, lb, probe)), daemon=True,
                                 name="halo-fleet-health") for n, lb in PROVIDERS]

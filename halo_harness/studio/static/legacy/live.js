@@ -14,7 +14,8 @@
    between the agents of one card), with the Live tab open F follows, Space
    pins its mini stream, P pauses; Esc unpins. The page never calls the
    fleet routes: it asks the shell (fleet-watch, fleet-command,
-   fleet-history, fleet-pin) and the shell proxies them. */
+   fleet-history, fleet-pin) and the shell proxies them. R4: while a canvas
+   replay runs (replay.js) the shell's fleet-live messages wait aside. */
 (function () {
   "use strict";
   if (!/[?&]embedded=1\b/.test(location.search)) return;
@@ -172,6 +173,7 @@
     if (e.origin !== location.origin || e.source !== window.parent || !e.data || typeof e.data !== "object") return;
     const d = e.data;
     if (d.type === "fleet-live") {
+      if (live.replaying) { live.held = d; return; }  // a replay runs (replay.js): what runs now waits until it closes
       live.ready = true; live.agents = Array.isArray(d.agents) ? d.agents : []; live.pinned = d.pinned || "";
       live.decorate(app.canvas); ensureTab();
       if (live.tabOpen) window.haloLiveTab.refresh();

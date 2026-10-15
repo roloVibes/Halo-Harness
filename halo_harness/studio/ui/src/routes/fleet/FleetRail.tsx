@@ -3,13 +3,18 @@
 // agent, each with its status dot; the live and the need-you counts at the
 // top. Click a node: the Fleet section opens on it (the map selects it, the
 // agent panel shows it). A session that waits on you keeps its inline
-// answer (shell/Sessions.tsx), for this harness and for a member.
+// answer (shell/Sessions.tsx), for this harness and for a member. R4: the
+// need-you count is the attention queue's (a click opens Attention), and the
+// "While you were away" card shows here after ten minutes away.
 import { useEffect, useState } from "react";
 import { Empty } from "../../lib/ui";
-import { goSection, type SessionInfo } from "../../lib/store";
+import { goSection, studio, useStore, type SessionInfo } from "../../lib/store";
 import { Answer } from "../../shell/Sessions";
 import { select } from "./actions";
-import { agentMotion, enterWorkspace, keyOf, sessionMotion, sessionTitle, treeOf, useCounts, useFleet } from "./store";
+import { DigestCard } from "./Digest";
+import { showFleetPanel } from "./extras";
+import { useAttnCount } from "./pstore";
+import { agentMotion, enterWorkspace, keyOf, sessionMotion, sessionTitle, showsStart, treeOf, useCounts, useFleet } from "./store";
 import { load, startFleet } from "./sync";
 import type { Harness, SessionRow } from "./types";
 
@@ -65,11 +70,20 @@ export function FleetRail() {
   const harnesses = useFleet((s) => s.harnesses);
   const loaded = useFleet((s) => s.loaded);
   const c = useCounts();
+  const attn = useAttnCount(c.attention);
+  const section = useStore(studio, (s) => s.section);
+  const start = useFleet(showsStart);
+  const onStart = section === "fleet" && start; // the Start view shows the card itself
   return (
     <section className="rail-group fr" aria-label="Fleet" data-testid="fleet-rail">
+      {!onStart && <DigestCard where="rail" />}
       <div className="rail-label mono">
         FLEET · {c.live} LIVE
-        {c.attention > 0 && <b className="fr-attn"> · {c.attention} NEED{c.attention === 1 ? "S" : ""} YOU</b>}
+        {attn > 0 && (
+          <button className="fr-attn fr-attn-btn" onClick={() => showFleetPanel("fleet-attention")} title="Open Attention: every decision that waits on you" data-testid="fleet-rail-attention">
+            {" "}· {attn} NEED{attn === 1 ? "S" : ""} YOU
+          </button>
+        )}
       </div>
       {harnesses.map((h) => (
         <div key={h.id} className="fr-harness">

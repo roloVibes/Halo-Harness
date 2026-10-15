@@ -10,6 +10,11 @@ question, its reviewer done): two harnesses, five agents in three states.
                                       implementer pinned (its mini stream floats over the map)
     docs/media/studio-roles-live.png  the Roles canvas glowing on the cards whose agents work, the
                                       implementer's Live tab open
+    docs/media/studio-fleet-panels.png  (R4) the seven panels: People, Costs and Health compact on
+                                      top, Attention with the member's two cards, the map with a
+                                      conflict edge (both harnesses editing shop/basket.py), Activity's
+                                      timeline and log, the researcher in Agent, and "While you were
+                                      away" in the rail
 
 1500 x 900 CSS px at scale 2. With --dom the Fleet section, its Start view
 (?view=start) and the Roles section are read and their data-testid values
@@ -23,7 +28,8 @@ import time
 from pathlib import Path
 
 FLEET_IDS = ("section-tab", "fleet-map", "fleet-agent", "fleet-rail", "fleet-node", "fleet-start", "fleet-box", "fleet-session",
-             "fleet-rail-node", "fleet-pip", "fleet-pair", "fleet-settings", "status-fleet")
+             "fleet-rail-node", "fleet-pip", "fleet-pair", "fleet-settings", "status-fleet",
+             "fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity")
 FRAME = "document.querySelector('.section-view[data-section=\"roles\"] iframe.legacy-frame')"
 DOC = f"{FRAME}.contentDocument"
 
@@ -79,6 +85,32 @@ def dom(c, rig) -> dict:
     return {"fleet": fleet, "start": start, "roles": roles}
 
 
+def conflict(rig) -> None:
+    """Both harnesses edit shop/basket.py: the implementer here (a feed frame), the member's reviewer (its relay)."""
+    from halo_harness.fleet.identity import harness
+    from tests.helpers.studio_fleet_member import REVIEWER
+    from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID
+    a = rig.agent("Implement")
+    rig.server.events.publish({"session_id": rig.act.session_id, "harness": harness()["id"], "event": "agent_state", "agent_id": a["agent_id"],
+                               "ts": time.time(), "data": {**a, "current": f"Edit: {rig.proj / 'basket.py'}"}})
+    rig.hub.state.frames(MEMBER, {"link": "rig-link", "frames": [{"session_id": MEMBER_SID, "event": "agent_state", "agent_id": REVIEWER["agent_id"],
+                                                                 "ts": time.time(), "data": {**REVIEWER, "state": "running", "current": "Edit: /home/kali/shop/basket.py"}}]})
+
+
+def shoot_panels(c, rig, png: Path) -> int:
+    open_fleet(c, rig)
+    c.js("localStorage.setItem('halo.fleet.lastSeen', String(Date.now() - 3 * 3600 * 1000)); window.dispatchEvent(new Event('focus')); 1")
+    c.wait("!!document.querySelector('[data-testid=\"fleet-digest\"]')", 15)
+    c.wait("document.querySelectorAll('[data-testid=\"fleet-attn-row\"]').length >= 2", 20)
+    conflict(rig)
+    c.wait("!!document.querySelector('[data-testid=\"fleet-conflict-edge\"]')", 30)
+    c.click_on(node("researcher"))
+    c.wait("[...document.querySelectorAll('[data-testid=\"fleet-text\"]')].some((e) => e.textContent.includes('tax rule'))", 15)
+    c.wait("!document.querySelector('.toast')", 10)
+    time.sleep(1.5)
+    return c.shot(png)
+
+
 def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
     open_fleet(c, rig)
     c.click_on(node("implementer"))
@@ -97,9 +129,11 @@ def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
     c.wait(f"[...{DOC}.querySelectorAll('[data-testid=\"live-text\"]')].some((e) => e.textContent.includes('discount'))", 15)
     time.sleep(1.2)
     b = c.shot(roles_png)
-    for path, size in ((fleet_png, a), (roles_png, b)):
+    panels_png = fleet_png.with_name("studio-fleet-panels.png")
+    d = shoot_panels(c, rig, panels_png)
+    for path, size in ((fleet_png, a), (roles_png, b), (panels_png, d)):
         print(f"{'wrote' if size > 10_000 else 'FAILED'} {path} ({size} bytes)")
-    return a > 10_000 and b > 10_000
+    return a > 10_000 and b > 10_000 and d > 10_000
 
 
 def capture(out: str, as_dom: bool, find_chrome) -> int:

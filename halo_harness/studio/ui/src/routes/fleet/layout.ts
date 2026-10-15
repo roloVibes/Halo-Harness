@@ -2,7 +2,9 @@
 // per harness (this harness first), or per repo with "By project"; inside, a
 // card per session and its agents under it as a tree (each child indented
 // under its parent, an elbow edge from the parent). Boxes flow in rows of at
-// most MAX_COLS. Pure: Map.tsx draws what this returns.
+// most MAX_COLS. Pure: Map.tsx draws what this returns. By project, a card
+// is taller: its third line holds the git chips (dirty / ahead / behind,
+// the worktree) from GET fleet/conflicts' rooms.
 import { keyOf, treeOf } from "./store";
 import type { AgentKey, AgentRef, Harness, SessionRow } from "./types";
 
@@ -10,6 +12,7 @@ const BOX_W = 340;
 const PAD = 14;
 const HEAD = 44;
 const CARD_H = 52;
+const CARD_H_ROOM = 68;
 const NODE_H = 40;
 const GAP = 6;
 const INDENT = 18;
@@ -65,14 +68,14 @@ function groups(harnesses: Harness[], byProject: boolean): Group[] {
   return [...out.values()];
 }
 
-function place(g: Group, harnesses: Harness[], ox: number, oy: number, geo: Geometry): number {
+function place(g: Group, harnesses: Harness[], ox: number, oy: number, geo: Geometry, cardH: number): number {
   let y = HEAD;
   const inner = BOX_W - 2 * PAD;
   for (const { h, s } of g.rows) {
     const hc = hcOf(harnesses, h.id);
-    const card: Card = { x: ox + PAD, y: oy + y, w: inner, h: CARD_H, harness: h, session: s, hc };
+    const card: Card = { x: ox + PAD, y: oy + y, w: inner, h: cardH, harness: h, session: s, hc };
     geo.cards.push(card);
-    y += CARD_H + GAP;
+    y += cardH + GAP;
     const pos = new Map<string, NodeBox>();
     for (const { a, depth } of treeOf(s.agents || [])) {
       const key = keyOf(h.id, s.session_id, a.agent_id);
@@ -82,7 +85,7 @@ function place(g: Group, harnesses: Harness[], ox: number, oy: number, geo: Geom
       pos.set(a.agent_id, n);
       const parent = a.parent ? pos.get(a.parent) : undefined;
       const x0 = parent ? parent.x + 9 : card.x + 9;
-      const y0 = parent ? parent.y + NODE_H : card.y + CARD_H;
+      const y0 = parent ? parent.y + NODE_H : card.y + cardH;
       geo.edges.push({ from: parent ? parent.ref.key : null, to: key, d: `M${x0} ${y0} V${n.y + NODE_H / 2} H${n.x}` });
       y += NODE_H + GAP;
     }
@@ -101,7 +104,7 @@ export function layout(harnesses: Harness[], byProject: boolean): Geometry {
     let rowH = 0;
     gs.slice(i, i + cols).forEach((g, j) => {
       const x = MARGIN + j * (BOX_W + BOX_GAP);
-      const h = place(g, harnesses, x, rowY, geo);
+      const h = place(g, harnesses, x, rowY, geo, byProject ? CARD_H_ROOM : CARD_H);
       geo.boxes.push({ x, y: rowY, w: BOX_W, h, key: g.key, label: g.label, sub: g.sub, online: g.online, local: g.local, hc: g.hc, empty: !g.rows.length });
       rowH = Math.max(rowH, h);
     });

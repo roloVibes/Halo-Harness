@@ -4,11 +4,13 @@
 // invite another harness, the share / control settings as radio rows, the
 // hubs and members it knows, and "open the workspace anyway". FleetView
 // decides between it and the panels (map + agent) the moment a session
-// registers or a member joins.
+// registers or a member joins. R4: the "While you were away" card on top
+// when you come back after ten minutes (Digest.tsx).
 import { useEffect } from "react";
 import { Surface } from "../../lib/ui";
 import { Workspace } from "../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../lib/workspace/types";
+import { DigestCard } from "./Digest";
 import { FleetSettings, PairCard } from "./Pair";
 import { setView, showsStart, useFleet } from "./store";
 import { startFleet } from "./sync";
@@ -31,6 +33,7 @@ export function StartView() {
           <h1 className="fl-start-title">Your fleet</h1>
           <p className="muted">Nothing runs here yet. This is what you will see, and how to bring another machine in.</p>
         </header>
+        <DigestCard where="start" />
         <div className="fl-start-grid">
           <Surface className="fl-start-form" motion="idle">
             <ol className="fl-explain">

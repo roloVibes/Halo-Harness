@@ -1,17 +1,10 @@
-"""tests.test_studio_ui -- the Studio page boots in a real browser (Halo
-2.1.0 round B3): headless Chrome loads the page over a seeded scratch home,
-the lineup draws its node cards, and docs/media/studio-roles.png (the README's
-capture) exists and is a PNG. 3.0.3.0: the classic page is the one at
-/legacy/, and the React shell at / is checked by its data-testid counts. Skipped when no Chrome is found, like the
-front-page PNG step. 3.0.4.0 R6b (Studio clarity): the Orchestra Start view
-then the grid, a click focuses a panel and `?` opens its help, the framed
-classic page has no second header, and the Roles canvas draws its groups --
-the last three through real clicks and keys (tests/helpers/studio_clarity.py
-over the DevTools protocol). 3.0.5.0 R3 (Fleet, the sixth section): the map
-draws two harness boxes and five agents, click selects and the inspector
-shows the tail, a steer reaches the right agent, stop asks then stops, J / K
-hop, the rail matches GET /api/fleet, and the Roles canvas glows with its
-Live tab streaming (tests/helpers/studio_fleet.py over a real session).
+"""tests.test_studio_ui -- Studio in a real browser (headless Chrome; skipped without one).
+2.1.0 B3: the classic page (/legacy/ since 3.0.3.0) draws the lineup's cards; the React shell
+at / by its data-testid counts. 3.0.4.0 R6b (tests/helpers/studio_clarity.py): the Orchestra
+Start view then the grid, a click focuses a panel and `?` opens its help, the framed page has
+no second header, the Roles canvas draws its groups. 3.0.5.0 Fleet (tests/helpers/studio_ui_fleet.py,
+registered here): R3's map, steer, stop, hop keys, rail and Live Roles; R4's panels (attention,
+timeline, conflict, digest, replay) and the README captures (PNGs).
 """
 
 from __future__ import annotations
@@ -25,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
+from tests.helpers.studio_ui_fleet import register as register_fleet
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -244,108 +238,7 @@ def test_roles_canvas_draws_groups(ctx: Ctx):
               (got.get("models_notice") or 0) >= 1)
 
 
-@test
-def test_fleet_map_select_steer_stop_in_headless_chrome(ctx: Ctx):
-    """3.0.5.0 R3: over this harness's real session (a lead, an implementer
-    and a researcher mid-work) and a member harness (a waiting lead, a done
-    reviewer) the Fleet map draws two harness boxes and five agents in three
-    states; a click selects the researcher and the inspector shows its tail
-    (its text and its tool row); a steer typed in the Steer box is echoed as
-    "you" and reaches the researcher's next model call, not the implementer's;
-    Stop asks first (the agent still runs) and then stops it; a steer to the
-    member's agent goes through the hub to that member; when the member's
-    lead spawns a verifier, its node appears live with its tool icon and the
-    edge from its parent lights (D13)."""
-    if not _chrome():
-        raise SkipTest("no Chrome found (the Fleet test needs headless Chrome)")
-    r, got = _json_of("-m", "tests.helpers.studio_fleet", "map")
-    ctx.check(f"the run finished, got {r.stdout[-300:]!r} {r.stderr[-600:]!r}", r.returncode == 0)
-    ctx.check(f"two harness boxes, five agents, got {got.get('boxes')} / {got.get('nodes')} {got.get('labels')}",
-              got.get("boxes") == 2 and got.get("nodes") == 5 and got.get("labels") == ["rolo@studio", "kali@lab"])
-    ctx.check(f"three states (running, waiting, done), got {got.get('states')}", set(got.get("states") or []) == {"running", "waiting", "done"})
-    ctx.check(f"the map, the agent panel and the rail, got {got.get('panels')}", got.get("panels") == [1, 1, 1])
-    ctx.check(f"click selects; the inspector shows the tail and the tool row, got {got.get('tail_text')!r} / {got.get('tool_label')!r}",
-              got.get("selected") == "researcher" and "pricing notes" in str(got.get("tail_text")) and got.get("tool_rows") == 1
-              and str(got.get("tool_label")).startswith("Bash: git grep"))
-    ctx.check(f"the steer is echoed as you and acknowledged, got {got.get('echo')!r}",
-              str(got.get("echo")).startswith("you") and "focus on the discount rules" in str(got.get("echo")) and got.get("steer_ack") == "steered"
-              and got.get("steer_cleared") is True)
-    ctx.check("the steer reached the researcher's next model call and not the implementer's",
-              got.get("steer_reached_b") is True and got.get("steer_not_a") is True)
-    ctx.check(f"Stop asks first, the agent still running, got {got.get('asked')!r} / {got.get('state_while_asked')}",
-              got.get("asked") == "Stop implementer?" and got.get("state_while_asked") == "running")
-    ctx.check(f"then it stops, in the session and on the map, got {got.get('stopped')} / {got.get('node_stopped')}",
-              got.get("stop_ack") == "stopping" and got.get("stopped") == "stopped" and got.get("node_stopped") == "stopped")
-    ctx.check(f"a member's agent: its tail and a steer through the hub, got {got.get('member_steer')!r}",
-              got.get("member_steer") == "answer the second question first" and "Two questions" in str(got.get("member_tail")))
-    ctx.check(f"D13: a spawn shows the new node and lights its edge, got {got.get('spawned')} / {got.get('spawn_tool')}",
-              (got.get("spawned") or 0) >= 1 and got.get("spawn_tool") == "Bash")
-
-
-@test
-def test_fleet_hop_keys_and_the_rail(ctx: Ctx):
-    """3.0.5.0 R3: J hops from the selected live agent to the next live one
-    (across harnesses), K back; the rail's tree (harness > session > agent)
-    is GET /api/fleet's, in its order."""
-    if not _chrome():
-        raise SkipTest("no Chrome found (the Fleet test needs headless Chrome)")
-    r, got = _json_of("-m", "tests.helpers.studio_fleet", "map")
-    ctx.check(f"the run finished, got {r.stderr[-300:]!r}", r.returncode == 0)
-    ctx.check(f"J moves to another agent, K comes back, got {got.get('after_j')} / {got.get('after_k')}",
-              bool(got.get("after_j")) and got.get("after_k") == "researcher")
-    ctx.check(f"the rail tree is GET /api/fleet's, got {got.get('rail')} vs {got.get('api_tree')}",
-              got.get("rail") and got.get("rail") == got.get("api_tree") and len(got.get("rail")) == 9)
-
-
-@test
-def test_live_roles_glow_and_live_tab_in_headless_chrome(ctx: Ctx):
-    """3.0.5.0 R3 (E): the Roles canvas glows on the cards whose agents work
-    (implementer and researcher typing, the main card waiting with x2: this
-    harness's lead and the member's); a click opens the Live tab by itself,
-    streaming the agent's text and its tool rows; J hops to the next working
-    card with its stream; Space pins its mini stream over the shell, Esc
-    unpins."""
-    if not _chrome():
-        raise SkipTest("no Chrome found (the Live Roles test needs headless Chrome)")
-    r, got = _json_of("-m", "tests.helpers.studio_fleet", "roles")
-    ctx.check(f"the run finished, got {r.stdout[-300:]!r} {r.stderr[-600:]!r}", r.returncode == 0)
-    ctx.check(f"the working cards glow, got {got.get('live_cards')}",
-              set(got.get("live_cards") or []) == {"orchestrator=waiting", "implementer=typing", "researcher=typing"})
-    ctx.check(f"the main card counts both leads, got {got.get('main_badge')!r}", "\u00d72" in str(got.get("main_badge")))
-    ctx.check(f"the Live tab opens by itself and streams text, got {got.get('clicked')} / {got.get('live_text')!r}",
-              got.get("live_tab") == "on" and "Reading the basket" in str(got.get("live_text")))
-    ctx.check(f"and its tool rows, got {got.get('live_tool')!r}", got.get("live_tools") == 1 and str(got.get("live_tool")).startswith("Bash: git log"))
-    ctx.check(f"J hops to the researcher's card and stream, got {got.get('hop_card')} / {got.get('hop_tools')!r}",
-              got.get("hop_card") == "researcher" and got.get("hop") != got.get("watched") and str(got.get("hop_tools")).startswith("Bash: git grep"))
-    ctx.check(f"Space pins the mini stream, Esc unpins it, got {got.get('pinned')!r} / {got.get('unpinned')}",
-              got.get("pinned") == "researcher" and got.get("unpinned") is True)
-
-
-@test
-def test_fleet_capture_dom_counts(ctx: Ctx):
-    """3.0.5.0 R3: tools/capture_studio.py --mode fleet --dom: the section
-    (six tabs, the map, the agent panel, the rail, five nodes, two boxes), its
-    Start view (?view=start: the pair card and the settings, no map) and Live
-    Roles (three glowing cards, the Live tab)."""
-    if not _chrome():
-        raise SkipTest("no Chrome found (the capture needs headless Chrome)")
-    r, got = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "fleet", "--dom")
-    ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
-    f, s, ro = got.get("fleet", {}), got.get("start", {}), got.get("roles", {})
-    ctx.check(f"the section, got {f}", f.get("section-tab") == 6 and f.get("fleet-map") == 1 and f.get("fleet-agent") == 1
-              and f.get("fleet-rail") == 1 and f.get("fleet-node") == 5 and f.get("fleet-box") == 2 and f.get("fleet-start") == 0)
-    ctx.check(f"the Start view, got {s}", s.get("fleet-start") == 1 and s.get("fleet-pair") == 1 and s.get("fleet-settings") == 1
-              and s.get("fleet-map") == 0 and s.get("fleet-rail") == 1)
-    ctx.check(f"Live Roles, got {ro}", ro.get("live-card") == 3 and ro.get("live-tab") == 1 and ro.get("section-tab") == 6)
-
-
-@test
-def test_readme_capture_exists(ctx: Ctx):
-    for name in ("studio-roles.png", "studio-fleet.png", "studio-roles-live.png"):
-        png = REPO / "docs" / "media" / name
-        ctx.check(f"docs/media/{name} exists", png.is_file())
-        if png.is_file():
-            ctx.check(f"{name} is a PNG under 1 MB", png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n" and png.stat().st_size < 1024 * 1024)
+register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/helpers/studio_ui_fleet.py
 
 
 if __name__ == "__main__":

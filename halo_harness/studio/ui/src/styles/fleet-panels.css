@@ -1,0 +1,96 @@
+/* The Fleet panels added in 3.0.5.0 R4 (part 1): Attention (the one queue
+   of every decision that waits on you, its one-key answers and the reply
+   box), People (one row per harness, its presence dot and chips), Health (a
+   doctor summary per harness) and Costs (the spend ticker, the per harness /
+   project / session rows, the caps editor, a cap reached). Tokens only;
+   amber is what waits on you, cyan what works, green what is fine. */
+
+/* -- Attention --------------------------------------------------------------------- */
+.fat { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; height: 100%; min-height: 0; }
+.fat-head { font-size: 11px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.fat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; align-content: start; overflow: auto; min-height: 0; }
+.fat-row { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; animation: fade var(--t) var(--ease); }
+.fat-row[aria-selected="true"] { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 8%, var(--surface)); box-shadow: 0 0 0 1px var(--warn), 0 0 14px color-mix(in srgb, var(--warn) 25%, transparent); }
+.fat-row[data-kind="conflict"], .fat-row[data-kind="cap"] { border-left-color: var(--bad); }
+.fat-row[data-kind="paused"], .fat-row[data-kind="waiting"] { border-left-color: var(--accent-2); }
+.fat-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fat-kind { cursor: default; color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); flex: none; }
+.fat-who { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fat-age { font-size: 10.5px; color: var(--warn); flex: none; }
+.fat-what { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.fat-detail { font-size: 12px; overflow-wrap: anywhere; }
+.fat-keys { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.fat-key { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 3px; font-size: 11.5px; border-radius: 99px; border: 1px solid var(--line-strong); background: var(--bg-2); color: var(--text); cursor: pointer; }
+.fat-key:hover, .fat-key:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+.fat-key[data-key="a"] { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); }
+.fat-key[data-key="s"] { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.fat-phone { font-size: 10.5px; }
+.fat-reply { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+
+/* -- People ------------------------------------------------------------------------- */
+.fpe { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; align-content: start; }
+.fpe-row { display: grid; gap: 5px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.fpe-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fpe-name { font-size: 13.5px; white-space: nowrap; }
+.fpe-host { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fpe-cost { font-size: 12px; }
+.fpe-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--faint); }
+.fpe-dot[data-presence="live"] { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: fp-pulse 1.6s ease-in-out infinite; }
+@keyframes fp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+.fpe-dot[data-presence="idle"] { background: var(--ok); }
+.fpe-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.fpe-chips .og-chip { cursor: default; }
+.fpe-chips .og-chip[data-presence="live"] { color: var(--accent); border-color: var(--accent); }
+.fpe-chips .og-chip[data-presence="away"] { color: var(--faint); }
+.fpe-chips .og-chip[data-mismatch] { color: var(--warn); border-color: var(--warn); }
+.fpe-on { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fpe-on b { color: var(--text); font-weight: 600; }
+.fpe-actions { display: flex; gap: 6px; }
+
+/* -- Health ------------------------------------------------------------------------- */
+.fhe { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; height: 100%; min-height: 0; }
+.fhe-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.fhe-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; align-content: start; overflow: auto; }
+.fhe-row { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.fhe-row[data-status="bad"] { border-color: var(--bad); }
+.fhe-row[data-status="warn"] { border-color: color-mix(in srgb, var(--warn) 60%, var(--line)); }
+.fhe-top { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.fhe-top .mono { font-size: 10.5px; }
+.fhe-top .og-chip { cursor: default; }
+.fhe-top .og-chip[data-status="ok"] { color: var(--ok); border-color: var(--ok); }
+.fhe-top .og-chip[data-status="warn"] { color: var(--warn); border-color: var(--warn); }
+.fhe-top .og-chip[data-status="bad"] { color: var(--bad); border-color: var(--bad); }
+.fhe-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+.fhe-dot[data-status="ok"] { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.fhe-dot[data-status="warn"] { background: var(--warn); }
+.fhe-dot[data-status="bad"] { background: var(--bad); }
+.fhe-facts { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 2px 10px; margin: 0; font-size: 11.5px; }
+.fhe-facts dt { color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-size: 10px; align-self: center; }
+.fhe-facts dd { margin: 0; overflow-wrap: anywhere; }
+.fhe-note { margin: 0; font-size: 11.5px; }
+
+/* -- Costs -------------------------------------------------------------------------- */
+.fco { display: grid; gap: 12px; align-content: start; }
+.fco-top { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+.fco-ticker { font-size: 28px; font-weight: 700; color: var(--accent); text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent); letter-spacing: .02em; }
+.glance .fco-ticker { font-size: inherit; text-shadow: none; }
+.fco-bal { font-size: 11px; text-align: right; }
+.fco-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.fco-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px dashed var(--line); font-size: 12.5px; }
+.fco-row span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fco-row .mono { font-size: 11px; }
+.fco-row b { font-weight: 600; }
+.fco-caps { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+.fco-cap { display: grid; grid-template-columns: minmax(0, 1fr) auto 110px; gap: 6px; align-items: center; font-size: 12.5px; }
+.fco-usd { color: var(--muted); }
+.fco-cap .input { height: 28px; padding: 2px 8px; }
+.fco-cap-actions { display: flex; gap: 6px; }
+.fco-reached { display: grid; gap: 6px; }
+.fco-hit { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--bad); border-radius: var(--radius-sm); background: var(--bad-soft); font-size: 12.5px; }
+.fco-hit .icon { color: var(--bad); flex: none; }
+.fco-hit[data-lifted] { border-color: var(--line-strong); background: var(--bg-2); }
+.fco-hit[data-lifted] .icon { color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fpe-dot, .fat-row { animation: none !important; }
+}
