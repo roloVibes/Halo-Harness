@@ -4,6 +4,70 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-15 ~08:25 CDT (authoritative, read this first)
+
+**3.0.6.0 "FLEET MISSIONS" IS CODE-COMPLETE ON MASTER, RELEASE IN PROGRESS.**
+The owner's ask (2026-10-14 ~21:00: see what every halo can do, its MCPs and
+specs; a group mission that knows which halo is best for each part; a
+combined task across halos without stepping on each other; a shared folder
+for it) shipped as three rounds, each one Opus worker in a worktree under
+`<home>/hh-missions/`, briefs and hand-backs in `<home>/hh-missions/briefs/`
+(outside the tree), plan `~/.claude/plans/fleet-missions-3060.md`:
+- **R6 Capabilities** (95edde6, `fleet/R6-capabilities`): `fleet/capabilities*.py`
+  gathers the catalog in code (MCP servers + tools from the tool caches, skills,
+  roles, providers, models with best-for, craft apps, ComfyUI, hardware with
+  GPU/VRAM, CLIs, projects, integrations, `fleet.tags`; `fleet.capabilities.hide`),
+  cached at `~/.halo/fleet/capabilities.json`; the announce carries summary +
+  hash and the hub asks once per hash (`hub_capabilities.HubCaps`); read-only
+  `capabilities` fleet command; `GET /api/fleet/capabilities`, `/who?q=`
+  (`capabilities_who.py` scoring); `halo fleet capabilities|who`, `/fleet who`;
+  Studio Capabilities panel + Who box, chips on the map and People.
+- **R7 Missions backend** (5de7375, `fleet/R7-missions`): `fleet/mission*.py`
+  (store under `~/.halo/fleet/missions/<id>/` or `fleet.shared_dir`; planner =
+  Orchestra's lead split fed the catalog, rules in code: pin by unique
+  capability, prefer, load, unassignable, claim overlap -> depends_on; signed
+  `mission_files list|get|put` on the hub port; `run_task` fleet command gated
+  by `fleet.allow_control` -> a `mission-worker` session with `MissionClaimGuard`
+  on the owner's own engine; DAG runner, bundle fetch, `--no-ff` merges into
+  `mission/<id>/merged` with Orchestra's judge, report; attention rows
+  `mission_plan|mission_claim|mission_ask`; routes `/api/fleet/missions...`;
+  `halo fleet mission new|plan|edit|approve|run|status|stop|report|open`,
+  `/mission`; docs/MISSIONS.md). Also fixed an R6 race (a cached catalog was
+  asked for before the member's stream opened).
+- **R8 Missions in Studio** (fef09fb, `fleet/R8-missions-studio`): the Mission
+  panel (start/list, plan with the DAG drawn over the map and drag-to-reassign,
+  running, report), mission rows in Attention, rail chip, status-bar count,
+  palette + `M`, layout = Mission under the Map and Activity under Attention,
+  README "Fleet: one goal for every harness", `studio-fleet-mission.png`,
+  4 Chrome scenarios (test_studio_ui 24).
+Merged into master; CHANGELOG `## [3.0.6.0] - unreleased` holds R6-R8.
+Release steps left: local three-suite gate, CI `conclusion == success` for the
+exact sha, `python scripts/release.py 3.0.6.0 --no-install`, then
+`uv pip install --python <uv tools halo-harness venv python> --reinstall-package
+halo-harness <clone>`, `halo --version`, handoff, memory. Worktree
+`hh-missions/R8-missions-studio` can go after the tag; the `fleet/R6..R8`
+branches are merged.
+
+**Left open by the rounds (for the owner's live check, then follow-ups):**
+no real model has run a mission yet (lead, judge and worker sessions are
+faked in every test: `mission_worker_session.build` is exercised only to its
+interface); part budgets are shown but not enforced; a running mission does
+not auto-resume after a hub restart (`run` picks it up); a sequenced repo
+part starts from the mission base, not the earlier part's head; the member's
+catalog is learned only while one of its sessions is live.
+
+**THE OWNER'S LIVE CHECK (3.0.5.0 + 3.0.6.0, never done yet):** this host
+`halo studio --fleet` + `halo fleet pair`; Kali VM `halo update` then
+`halo fleet join <host>:7430 --code "..."`; both in one Fleet map; `halo
+fleet who nmap` names the VM and `who gridcraft` names this host; a mission
+"<something needing GridCraft here and nmap there>" plans with the parts
+pinned, the VM owner sees the run_task card, the report lands.
+
+**AFTER THAT: 3.0.7.0** = the former 3.0.6.0 list (tiers, the Roles/Org/Design
+ports into the shell, legacy UI removal); Team to 3.0.8.0.
+
+--- previous snapshot below ---
+
 ## WHERE THINGS STAND -- 2026-10-15 ~04:10 CDT (authoritative, read this first)
 
 **3.0.5.0 "FLEET" IS RELEASED** (tag v3.0.5.0 at 2b0a9f7 on master, GitHub

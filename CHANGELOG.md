@@ -8,6 +8,37 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.0.6.0] - unreleased
+
+Fleet Missions: every connected harness says what it can do (its MCP servers and tools, skills, models, craft apps, hardware, tags), "Who can..." finds the right one, and one goal is split across the fleet by capability, each part with its own claims so nobody steps on anyone, run on the harness that has the tool, merged and reported on the hub. Rolo's ask, 2026-10-14 evening.
+
+### R6: Capabilities
+
+- Fleet capabilities: every harness gathers, in code, what it can do (MCP servers and their tools, skills, models it is best with and its local ones, craft apps, ComfyUI models, hardware with GPU and VRAM, command-line tools, projects, roles, integrations, tags), cached at `~/.halo/fleet/capabilities.json` and refreshed hourly, on `halo mcp add/remove` and on demand; a slow MCP server never holds it up.
+- Names only leave the machine: no full path, server command or key; `fleet.capabilities.hide` keeps a server, tool or skill off the catalog and `fleet.tags` adds your own words.
+- A joined harness announces a one-line summary and its catalog's hash; the hub asks for the whole catalog once per hash (the new read-only `capabilities` fleet command) (`GET /api/fleet/capabilities`).
+- "Who can...": `halo fleet who "<query>"`, `/fleet who` and Studio rank the fleet for a tool, app, skill, model, CLI or GPU, with what matched and why (`GET /api/fleet/who`).
+- `halo fleet capabilities [name] [--tools]` prints each harness's spec sheet.
+- Studio Fleet has a Capabilities panel: the Who can... box, a spec card per harness with MCP servers opening to their tools, and Refresh; capability chips on the map's harness boxes and in People, a specs link, palette "Fleet: who can..." and "Fleet: specs of ...".
+
+### R7: Missions
+
+- Fleet missions: `halo fleet mission new "<goal>"` (or `POST /api/fleet/missions`) has the hub's lead split one goal into parts with every harness's capability catalog in front of it; a part that needs what only one harness has is pinned there with the reason, a tie goes to `fleet.mission.prefer` then the least busy harness, and a part that needs something nobody has is flagged unassignable.
+- Parts never step on each other: each part claims the files it edits, two parts whose claims overlap run one after the other, and on the harness that runs it an edit outside its claims is refused (also for its sub-agents) and raised to the owner; inside its claims the owner's own permission rules decide as always.
+- A part reaches a member as the `run_task` fleet command under its `fleet.allow_control` (ask: "hub asks to run mission m-... part 1 here: ... (claims: ...)"), runs as a `mission-worker` session you can see, pause and stop like any agent, and the mission folder is shared over the signed fleet protocol or a real mount (`fleet.shared_dir`).
+- Parts run by their dependencies, repo parts merge one at a time into `mission/<id>/merged` with Orchestra's judge, and `report.md` says who did what on which harness, the cost per harness and per part, the decisions and what failed.
+- `halo fleet mission plan | edit | approve | run | status | stop | report | open` (`--json`), `/mission`, routes `GET/POST /api/fleet/missions...`, attention rows for a plan to approve, a mission card and a refused edit; docs/MISSIONS.md.
+- Fixed: a member that already had a capability catalog cached was asked for it before its command stream opened, so the hub waited a minute for it.
+
+### R8: Missions in Studio
+
+- Studio Fleet has a Mission panel: type one goal for the whole fleet, pick the harnesses to prefer and a budget, and Plan it; every mission is listed with its state, parts by state, harnesses and cost.
+- The plan is drawn on the Fleet map: each part a node in its harness's box (a lock where only that harness has what it needs, an amber edge where two parts wait on each other's files, a red chip where nobody can run it), and as a table under the map.
+- Drag a part to another harness on the map to move it; a harness that lacks what the part needs refuses with the reason and the part snaps back. Drop, Plan again, Approve and Run are a click away.
+- While it runs: parts waiting on a member's owner pulse amber, running parts show the line their agent is on, the cost per harness ticks and the merge queue fills; Stop asks for a reason; the report shows who did what on which harness, the cost per harness and per part, and opens the artifacts.
+- Mission rows in Attention (approve and run, edit, drop; a refused edit; a hub asking to run a part here, which now names its mission so O opens it), a mission chip on a part's session in the rail, the running missions in the status bar, palette "Fleet: new mission / approve mission / stop mission / mission report", and `M` in Fleet.
+- Fleet's default layout: Mission under the map, Activity under Attention.
+
 ## [3.0.5.0] - 2026-10-15
 
 Fleet: every connected harness, every session and every agent at every depth, live in Studio: watch what an agent thinks, runs and writes, steer, pause or stop that one agent, on your machine or a paired teammate's. The Roles canvas lights up while its agents work. Rolo's brief, 2026-10-14.
