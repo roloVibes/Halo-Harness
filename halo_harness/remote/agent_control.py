@@ -23,16 +23,12 @@ card or skips a gate.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from halo_harness.agent import agent_registry
-from halo_harness.agent.agent_transcript import entries_from_nodes, first_line, one_line, tail
+from halo_harness.agent.agent_transcript import first_line, one_line
 from halo_harness.remote.base import HandleError
 
 AGENT_CMDS = ("agents", "agent_tail", "agent_steer", "agent_stop", "pause", "resume", "shutdown", "agent_follow")
 STEER_MODES = ("nudge", "redirect")
-TAIL_DEFAULT = 100
-TAIL_MAX = 500
 EXTERNAL = "that agent runs in an external process; stop and respawn"
 FINISHED = ("done", "failed", "stopped")
 
@@ -114,24 +110,6 @@ def _live_child(tree, aid: str):
     if state in FINISHED:
         raise HandleError(f"agent {aid} has finished ({state}); its parent is where to steer next")
     return tree.session_of(aid)
-
-
-def cmd_tail(handle, tree, req: dict) -> dict:
-    aid = _resolve(handle, tree, req)
-    n = req.get("n", TAIL_DEFAULT)
-    n = max(1, min(n if isinstance(n, int) and not isinstance(n, bool) else TAIL_DEFAULT, TAIL_MAX))
-    kinds = [k for k in req.get("kinds") if isinstance(k, str)] if isinstance(req.get("kinds"), list) else None
-    if aid.startswith("job:"):
-        row = next(r for r in tree.public_rows() if r["agent_id"] == aid)
-        return {"agent_id": aid, "events": tail([{"kind": "tool_call", "id": aid, "name": "Bash", "ts": row["since"],
-                                                  "label": f"Bash: {row.get('task')}", "input": {"command": row["task"]}}],
-                                                n, kinds)}
-    session = _session(handle, tree, aid)
-    from halo_harness.agent.subagent import _agent_log_nodes
-    path = (tree.row(aid) or {}).get("transcript")
-    nodes = session.log.nodes() if session is not None else (_agent_log_nodes(Path(path)) if path else [])
-    final = aid != tree.root_id and tree.state_of(aid) in FINISHED
-    return {"agent_id": aid, "events": tail(entries_from_nodes(nodes, final=final), n, kinds)}
 
 
 def cmd_steer(handle, tree, req: dict) -> dict:
@@ -239,7 +217,8 @@ def run(handle, req: dict) -> dict:
     tree = _tree(handle)
     if cmd == "agents":
         return {"agents": tree.public_rows()}
-    if cmd == "agent_tail":
+    if cmd == "agent_tail":  # remote/agent_tail.py (3.0.5.0 R4: split out to keep this file small)
+        from halo_harness.remote.agent_tail import cmd_tail
         return cmd_tail(handle, tree, req)
     if cmd == "agent_steer":
         return cmd_steer(handle, tree, req)

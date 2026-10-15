@@ -10,6 +10,10 @@
     POST fleet/<harness>/<sid>/agents/<aid>/command {cmd: steer | stop | pause | resume | follow | tail,
                                                      text?, mode?, reason?, on?, n?, wait_s?}
     fleet/pair, fleet/settings, fleet/kick, fleet/history   the Fleet section's own (studio/fleet_pair_api.py, R3)
+    fleet/attention[/answer], fleet/costs, fleet/caps, fleet/health, fleet/conflicts, fleet/digest
+                                     the panels (studio/fleet_panels_api.py, R4)
+    fleet/<h>/<sid>/agents/<aid>/handoff, fleet/<h>/<sid>/recording, fleet/recordings/<name>, fleet/replay
+                                     hand-offs, flight recordings, canvas replay (studio/fleet_extras_api.py, R4)
 
 A command for this harness takes the direct path (studio/sessions_api.py,
 studio/fleet_api.py); one for a member goes through the hub to that
@@ -47,6 +51,9 @@ def attach(server, hub) -> None:
         if bridge is not None:
             bridge.publish(frame)
     hub.state.sinks.append(sink)
+    if hasattr(server, "state_dir"):  # 3.0.5.0 R4: the attention queue, caps and journal run while the hub does
+        from halo_harness.studio.fleet_watch import watcher_for
+        watcher_for(server, hub.home)
 
 
 def start_hub(server, *, home, port=None, bind="0.0.0.0", name=None, tls_on=None, local_view=None):
@@ -73,17 +80,23 @@ def _info(hub) -> dict:
             "tls": bool(hub.fingerprint), "fingerprint": hub.fingerprint}
 
 
-def get_fleet(req):
-    hub = _hub(req)
+def view_for(server, state_dir) -> dict:
+    """The fleet as Studio sees it (3.0.5.0 R4: shared by `GET fleet`, the panels and the watcher): its own
+    hub's merged view, else a `halo fleet serve` running here, else this harness alone."""
+    hub = getattr(server, "fleet_hub", None)
     if hub is not None:
-        return 200, hub.state.view()
+        return hub.state.view()
     from halo_harness.fleet.hub import running_view
-    other = running_view(req.state_dir)
+    other = running_view(state_dir)
     if other:
-        return 200, other
+        return other
     from halo_harness.fleet.local_view import snapshot
-    return 200, {"harnesses": [snapshot()], "hub": {"serving": False, "name": None, "members": 0, "online": 0,
-                                                     "pair_code_active": False}}
+    return {"harnesses": [snapshot()], "hub": {"serving": False, "name": None, "members": 0, "online": 0,
+                                               "pair_code_active": False}}
+
+
+def get_fleet(req):
+    return 200, view_for(req.server, req.state_dir)
 
 
 def get_command(req):
@@ -198,6 +211,9 @@ ROUTES = [("GET", r"^fleet$", get_fleet),
           ("POST", rf"^fleet/(?P<hid>{_ID})/(?P<sid>{_ID})/agents/(?P<aid>{_ID})/command$", post_agent_command)]
 from halo_harness.studio.fleet_pair_api import ROUTES as _PAIR_ROUTES  # noqa: E402  (3.0.5.0 R3: pair, settings, kick, history)
 ROUTES[len(ROUTES):] = _PAIR_ROUTES
+from halo_harness.studio.fleet_panels_api import ROUTES as _PANEL_ROUTES  # noqa: E402  (R4: the panels)
+from halo_harness.studio.fleet_extras_api import ROUTES as _EXTRA_ROUTES  # noqa: E402  (R4: hand-offs, recordings, replay)
+ROUTES[len(ROUTES):] = _PANEL_ROUTES + _EXTRA_ROUTES
 
 
 def dispatch_fleet(req):

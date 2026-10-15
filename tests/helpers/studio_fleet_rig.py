@@ -15,7 +15,9 @@ shipped lineups, halo-dev-cycle active) with:
   (members.json + an announce), its link answering the hub's commands in a
   thread (tail, follow, steer, stop, pause, resume are recorded): one session
   on the same repo with its main agent waiting on a question and a reviewer
-  that finished.
+  that finished (R4: and an approval card it lets the hub answer);
+* (R4) a finished past session of this harness, `PAST_SID`, with a reviewer
+  sub-agent, in the state directory (studio_fleet_parts.seed_past).
 
 Five agents in three states (running, waiting, done) across two harness
 boxes. Every touched variable is restored and the home removed on close.
@@ -33,42 +35,14 @@ import time
 from pathlib import Path
 
 from tests.helpers.fleet_rig import text_step, tool_step, wait_for  # noqa: F401  (re-exported)
-from tests.helpers.mock_openai import SCENARIOS, MockUpstream, ScriptedTurns, _finish
+from tests.helpers.mock_openai import SCENARIOS, MockUpstream, ScriptedTurns
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials
-from tests.helpers.studio_fleet_member import MEMBER, MEMBER_SID, announce_body, answer
+from tests.helpers.studio_fleet_member import MEMBER, MEMBER_SID, announce_body, answer, ask_frames
+from tests.helpers.studio_fleet_parts import PAST_SID, held, make_session, recorded, said_then_tool, seed_past, spawn  # noqa: F401
 
 ensure_default_provider_credentials()
 _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_TEST_NO_BACKGROUND_NET", "HALO_FLEET_PRIVATE", "HALO_FLEET_PARENT")
 STEER_SEEN = "focus on the discount rules"
-
-
-def said_then_tool(text: str, *calls) -> list:
-    """One assistant message: a line of text, then tool calls."""
-    tcs = [{"index": i, "id": cid, "type": "function", "function": {"name": n, "arguments": json.dumps(a)}} for i, (n, a, cid) in enumerate(calls)]
-    return [{"choices": [{"index": 0, "delta": {"role": "assistant"}}]},
-            {"choices": [{"index": 0, "delta": {"content": text}}]},
-            {"choices": [{"index": 0, "delta": {"tool_calls": tcs}}]},
-            {"choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}]}]
-
-
-def held(gate: threading.Event, chunks: list, seen: "list | None" = None):
-    def step(handler, body):
-        if seen is not None:
-            seen.append(body)
-        gate.wait(600)
-        _finish(handler, chunks)
-    return step
-
-
-def recorded(chunks: list, seen: list):
-    def step(handler, body):
-        seen.append(body)
-        _finish(handler, chunks)
-    return step
-
-
-def spawn(kind: str, prompt: str, model: str, cid: str) -> tuple:
-    return ("Agent", {"description": prompt.split(":")[0], "prompt": prompt, "subagent_type": kind, "model": model}, cid)
 
 
 def _git(cwd: Path, *args: str) -> None:
@@ -108,6 +82,7 @@ class StudioFleetRig:
                      ("config", "commit.gpgsign", "false"), ("remote", "add", "origin", "git@github.com:acme/shop.git"),
                      ("add", "-A"), ("commit", "-q", "-m", "basket")):
             _git(self.proj, *args)
+        self.past = seed_past(self.state, self.proj)
         self.mock = MockUpstream().start()
         self.closers.append(self.mock.stop)
         self._studio()
@@ -152,6 +127,7 @@ class StudioFleetRig:
         self.hub.pairing.add_member(rec, os.urandom(32))
         self.hub.state.reload(force=True)
         self.hub.state.announce(MEMBER, announce_body(rec))
+        self.hub.state.frames(MEMBER, {"link": "rig-link", "frames": ask_frames()})  # R4: what its two cards ask
         link = self.hub.state.members[MEMBER].link("rig-link")
         link.streams = 1  # its SSE stream counts as open: the hub sends it commands
 
@@ -197,20 +173,7 @@ class StudioFleetRig:
         return f"or:mock/{name}"
 
     def _make_session(self, model: str):
-        from halo_harness.agent.assemble import SessionContext
-        from halo_harness.agent.loop import Session
-        from halo_harness.config.agents_md import AgentSpec
-        from halo_harness.model import ModelProfile, parse_model_ref
-        from halo_harness.permissions import PermissionEngine
-        from halo_harness.providers.stream import ProviderCreds
-        specs = {n: AgentSpec(name=n, description=d, tools=None, disallowed_tools=[], body=f"You are the {n}.")
-                 for n, d in (("implementer", "writes the change"), ("researcher", "reads and reports"), ("general-purpose", "general"))}
-        return Session(cwd=self.proj, model_ref=parse_model_ref(model), model_profile=ModelProfile(),
-                       creds=ProviderCreds(base_url=self.mock.base_url, api_key="k"),
-                       state_dir=Path(tempfile.mkdtemp(prefix="fleet-state-", dir=self.root)), model_label=model,
-                       session_context=SessionContext(cwd=self.proj, model_label=model, bare=True),
-                       openrouter_base_url=self.mock.base_url, max_turns=10,
-                       permission_engine=PermissionEngine(mode="auto", cwd=self.proj), agents=specs, routes={})
+        return make_session(self.root, self.proj, self.mock, model)
 
     def agents(self) -> list:
         """This harness's agent tree, over the session's own socket."""

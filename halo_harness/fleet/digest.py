@@ -152,8 +152,11 @@ def compute(home, since: float, *, now: Optional[float] = None, local_id: Option
         elif b["local"]:
             continue  # this harness's sessions, cost, files and errors come from its own transcripts
         elif k in ("session_start", "session_end"):
-            b["started" if k == "session_start" else "ended"].append({"session_id": r.get("session_id"),
-                                                                     "title": r.get("title") or "", "ts": r.get("ts")})
+            # the watcher journals every session it finds when it starts: one row per session, by its own start
+            st = r.get("started") if k == "session_start" and isinstance(r.get("started"), (int, float)) else r.get("ts")
+            lst = b["started" if k == "session_start" else "ended"]
+            if float(st or 0) >= since and all(x["session_id"] != r.get("session_id") for x in lst):
+                lst.append({"session_id": r.get("session_id"), "title": r.get("title") or "", "ts": st})
         elif k == "file":
             b["_files"].setdefault(str(r.get("file")), r.get("ts"))
         elif k == "error":

@@ -8,7 +8,9 @@ join: one machine runs a hub, others join it with a six-word code, and each
 joined harness shares what it chooses and accepts control only as its owner
 allows. **R3** is Studio's Fleet section (the map, the agent inspector,
 the Fleet rail in every section, the hop keys, Live Roles: see
-[In Studio](#in-studio) below); the further fleet panels come in R4.
+[In Studio](#in-studio) below); **R4** is the panels behind it (attention, caps,
+conflicts, health, hand-offs, flight recordings, the replay and the digest: see
+[The panels](#the-panels-r4)).
 
 ## What a session exposes (R1)
 
@@ -234,6 +236,155 @@ The routes R3 adds (the same loopback + token guard as every Studio route):
 | `POST /api/fleet/kick {harness}` | removes a member from this hub (its pair key with it) |
 | `GET /api/fleet/history?role=&bio=&n=` | the last runs under a role or bio on this harness (from each sub-agent's `<sid>/subagents/agent-<id>.meta.json`, which records its role and lineup since 3.0.5.0, with the task and the cost from its transcript; `role=main` lists the sessions) |
 
+## The panels (R4)
+
+Round R4 adds the panels that watch the whole fleet at once: **People**,
+**Attention**, **Activity** (the merged log and a timeline strip),
+**Costs**, **Health**, project rooms with conflict warnings on the map,
+hand-offs, flight recordings, the canvas replay and the digest. The Studio
+side is in [STUDIO.md](STUDIO.md#fleet-every-harness-every-agent); this
+section is what runs behind it. Everything here is computed in code from
+what the hub already sees; nothing calls a model.
+
+While Studio runs the hub (or the first time a panel asks), a **fleet
+watcher** looks at the fleet every 3 s. It keeps the open cards' details
+(from the sessions' `permission_request`, `question`, `plan_review` and
+`approval_request` frames), who edits which file (from each agent's `current`
+step, `Edit: <path>`), applies the caps, builds the attention queue, sends its
+count as a `fleet` frame (`action: attention, count`) and writes the hub's
+journal, `~/.halo/fleet/journal.jsonl` (0600; past 4 MB it rolls to
+`journal.1.jsonl`): sessions that start and end, member cost snapshots, files
+touched, errors, decisions and who made them, hand-offs, caps, rows set aside.
+
+| Route | What |
+|---|---|
+| `POST /api/fleet/<harness>/<sid>/command {cmd: note, text}` | People's **Message**: a line the owner reads in that session's transcript and TUI, never the model (`fleet.message`); a member applies it unless its `fleet.allow_control` is `none` |
+| `GET /api/fleet/attention` | `{rows, count, at}`: the attention queue, oldest first |
+| `POST /api/fleet/attention/answer {id, key, text?}` | one key on one row (below): `{ok, id, kind, key, answer, result}` plus `open`, `set_aside`, `lifted` / `resumed` where they apply |
+| `GET /api/fleet/costs` | `{fleet, harnesses, projects, sessions, caps, keys, reached, lifted, balances}` |
+| `GET /api/fleet/caps`, `POST /api/fleet/caps {<key>: dollars}` | the caps; `0` or `null` clears one; a negative or non-number is a 422 |
+| `GET /api/fleet/health[?refresh=1]` | `{harnesses: [...], cache_s}`: each harness's health, cached 60 s |
+| `GET /api/fleet/conflicts` | `{conflicts, rooms, touches}` |
+| `GET /api/fleet/digest?since=` | the digest (`2h`, `45m`, `1d`, unix seconds or milliseconds, an ISO time; default `1d`) |
+| `POST /api/fleet/<harness>/<sid>/agents/<aid>/handoff {mode, brief?, to?}` | Take over or Hand to (below) |
+| `POST /api/fleet/<harness>/<sid>/recording[?agent=]` | writes a flight recording: `{ok, path, name, url, bytes, agents, states}` |
+| `GET /api/fleet/recordings/<name>` | that recording's HTML (`text/html`, as an attachment, its own CSP) |
+| `GET /api/fleet/replay?session=<sid>[&harness=]` | `{harness, session_id, title, started, ended, cost_usd, agents, states, costs}` |
+
+### Attention
+
+One queue of every decision a person has to make, on any harness: a
+session's open **permission**, **question**, **plan** and **approval** cards;
+a hub asking to run a command here (**fleet_ask**); an agent **waiting** with
+no card of its own listed; an agent (or a session) **paused** until someone
+resumes it; a Flow run at its gate (**flow_gate**); an Orchestra run its gate
+stopped, with the report's stop reason (**orchestra_gate**); a command this
+hub sent that waits on a member's owner (**control_ask**, from the hub's open
+commands); a spend **cap** reached; two agents editing one file
+(**conflict**). Each row has who (harness, session, agent), what, a detail,
+since when, the keys that kind takes and where to open it:
+
+| Key | Does |
+|---|---|
+| `a` | allow once (permission), approve (plan), accept (approval, flow gate), allow (fleet ask), resume (paused), lift for today (cap), set aside (orchestra gate, control ask, conflict) |
+| `r` | deny with a reason (permission), answer (question), send back with feedback (plan), edit with an instruction (approval), redo with an instruction (flow gate) |
+| `s` | answer the card negatively, then stop the agent (an approval's own `stop`; a flow run's stop) |
+| `o` | nothing is sent: the answer says which section and panel to open |
+
+An answer goes through the route that already handles it:
+`/api/fleet/<harness>/<sid>/command {cmd: answer}` for a card (a member
+answers only under `fleet.allow_control: all` and `fleet.allow_answers:
+true`, scope once), `/api/fleet/<harness>/<sid>/agents/<aid>/command` for a
+stop or a resume, `/api/flow/runs/<id>/answer` for a flow gate. Each decision
+is journaled with `by` (`fleet.name`), so the digest says who decided what.
+
+When the Signal bridge is enabled (`remote.enabled`), running and paired, a
+new row also goes to the phone as the card the bridge already sends,
+prefixed with the harness name (see [REMOTE.md](REMOTE.md#the-signal-bridge));
+`fleet.attention.signal: false` keeps the queue in Studio only.
+
+### Caps
+
+`fleet.caps.per_harness_usd_per_day`, `fleet.caps.per_project_usd_per_day`
+and `fleet.caps.fleet_usd_per_day` (dollars; unset or `0` is no cap) are
+read on the hub. Today's spend is every session started today, at the cost
+its control socket reports (the same rule as a harness's `cost_today`). When
+a cap is reached, the hub pauses the live sessions in its scope (the `pause`
+command with reason `cap`: every agent holds at its next tool boundary, so
+nothing new is spawned) and raises a `cap` row; `a` on it resumes them and
+holds that cap off for the rest of the day. `GET /api/fleet/costs` adds the
+balances the balances workers last fetched (`halo balances`), read-only.
+
+### Conflicts
+
+Project rooms: in the map's **By project** grouping each card shows its
+branch, dirty / ahead / behind (against its upstream) and its worktree. The
+hub keeps which file each agent edits (from `Edit:` / `Write:` steps, a path
+made relative to its repo, so `~/shop/basket.py` on one machine and
+`C:\src\shop\basket.py` on another are the same `shop/basket.py`) for 15 minutes, plus
+the Orchestra claims of this machine's runs and the ones members' Orchestra
+workers announce. Two agents of different sessions (on any harnesses) on one
+file of one repo are a conflict: a warning edge on the map and a `conflict`
+row ("<a> and <b> are both editing <file>"). Two agents of the same session
+never are.
+
+### Health
+
+Per harness: the Halo and Python versions, the OS, each provider configured
+or not (credentials only, never a key) and, when configured, reachable (a
+connect-phase probe, no request sent), free disk, the live control sockets
+and whether Studio runs; `status` is `ok`, `warn` or `bad`. A member answers
+the fleet protocol's read-only `doctor` command (with `status`, through one
+of its live sessions; it answers even under `fleet.allow_control: none`).
+Each harness's answer is cached 60 s; `?refresh=1` asks again. Nothing is
+written.
+
+### Hand-offs
+
+On an agent: **Take over** (`mode: take_over, brief`) is a redirect steer
+with your brief, recorded as a hand-off (`handoff: take_over`) in the agent's
+transcript and as "taken over" in its parent's. **Hand to...** (`mode:
+hand_to, to: <harness id or name>`) turns the agent's task, its last
+hand-back and the files it touched into one brief: with Org mode on, a
+Paperclip issue in the linked company assigned to the company agent that
+stands for that harness (its metadata `halo_harness`, or its name); with Org
+mode off, `<repo>/.halo/handoffs/<id>.md` (the state directory's
+`handoffs/` when the repo is not on this machine). Then the agent is stopped.
+A hand-off never widens a permission: the steer is a note the agent reads,
+the issue runs under the assignee's own permission engine, the file is text.
+
+### Recordings
+
+A flight recording is one self-contained HTML file: inline CSS and JS, the
+session as a JSON block (with `<`, `>` and `/` escaped, so nothing an agent
+wrote becomes markup or a link), no network at all. It shows the session,
+its harness, start, length and cost; Play / Pause with a speed; a scrub bar;
+one lane per agent with bars by state and a tick per tool call; the cost
+curve; and the selected agent's Thinking, Working and Output as they were at
+the cursor (Space plays, Left / Right step, 1 2 3 pick the stream). Studio
+writes it with `POST /api/fleet/<harness>/<sid>/recording[?agent=]` (a
+member's session from its agents' tails through the hub, which needs its
+share `full`; this harness's from its transcripts, finished sessions too) to
+`~/.halo/recordings/<sid>[-<aid>].html`; `halo fleet record <sid>` does the
+same in the terminal ([COMMANDS.md](COMMANDS.md#halo-fleet-record)).
+
+### Replay
+
+`GET /api/fleet/replay?session=<sid>` is a finished session's `agent_state`
+history: each agent (with its role, bio and lineup, which the Roles canvas
+matches cards on) and every change of what it did (`typing`, `tool` with the
+tool's name, `waiting`, `done`, `failed`) in time order, plus the cost
+curve. The Roles canvas plays it back on its cards.
+
+### Digest
+
+"While you were away", computed in code: per harness, the sessions started
+and ended, the cost, the decisions answered and by whom, the files touched,
+the errors and the hand-offs since a moment. This harness is read from its
+own transcripts; members, decisions and hand-offs from the journal.
+`GET /api/fleet/digest?since=` and `halo fleet digest [--since 2h]`
+([COMMANDS.md](COMMANDS.md#halo-fleet-digest)).
+
 ## The terminal: `halo fleet` and `/fleet`
 
 `halo fleet` alone is a live table (refreshed every 2 s) of every harness,
@@ -242,7 +393,9 @@ state, what it is doing, cost. Up/Down select, `s` steer, `k` stop (asks
 y/N), `p` pause or resume, `r` refresh, `q` quit; `--once` prints it once,
 `--json` the view. `/fleet` in the TUI is the same table as a dialog. Both
 read Studio's `GET /api/fleet` when Studio runs, else the hub this machine
-serves, else the local registry and sockets. Every flag is in
+serves, else the local registry and sockets. `halo fleet record <sid>`
+writes a flight recording and `halo fleet digest [--since]` prints the
+digest (both R4, from this harness's own files). Every flag is in
 [COMMANDS.md](COMMANDS.md#halo-fleet).
 
 ## Config keys
@@ -256,3 +409,7 @@ serves, else the local registry and sockets. Every flag is in
 | `fleet.allow_control` | `ask` | what a hub may do here: `none`, `ask`, `all` |
 | `fleet.allow_answers` | `false` | with `all`, a hub may also answer cards (once only) |
 | `fleet.hub.port` | `7430` | the hub's LAN port |
+| `fleet.caps.per_harness_usd_per_day` | unset | R4, on the hub: a harness's spend today that pauses its sessions (`0` or unset: no cap) |
+| `fleet.caps.per_project_usd_per_day` | unset | the same for every session on one repo, any harness |
+| `fleet.caps.fleet_usd_per_day` | unset | the same for every session the hub sees |
+| `fleet.attention.signal` | `true` | new attention rows go to the paired phone when the Signal bridge runs; `false` keeps them in Studio |

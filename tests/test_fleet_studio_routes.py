@@ -143,7 +143,7 @@ def test_history_lists_past_runs_by_role_or_bio(ctx: Ctx):
 
 @test
 def test_the_rig_two_harnesses_five_agents_a_member_tail_and_the_meta_role(ctx: Ctx):
-    from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID, StudioFleetRig
+    from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID, PAST_SID, StudioFleetRig
     with StudioFleetRig() as rig:
         status, view = rig.api("GET", "fleet")
         hs = view.get("harnesses") or []
@@ -155,7 +155,7 @@ def test_the_rig_two_harnesses_five_agents_a_member_tail_and_the_meta_role(ctx: 
         status, got = rig.api("POST", f"fleet/{MEMBER}/{MEMBER_SID}/agents/r7e1v2w3/command", {"cmd": "tail", "n": 20})
         ctx.check(f"a member's tail through the hub, got {status}",
                   status == 200 and [e["kind"] for e in got["result"]["events"]] == ["user", "tool_call", "tool_result", "handback"])
-        metas = [json.loads(p.read_text(encoding="utf-8")) for p in rig.state.glob("sessions/*/*/subagents/agent-*.meta.json")]
+        metas = [json.loads(p.read_text(encoding="utf-8")) for p in rig.state.glob("sessions/*/*/subagents/agent-*.meta.json") if PAST_SID not in str(p)]  # R4 seeds a past one
         ctx.check(f"each sub-agent's meta carries its role and lineup, got {[sorted(m) for m in metas]}",
                   len(metas) == 2 and all("role" in m and "lineup" in m for m in metas))
         status, got = rig.api("GET", "fleet/history?bio=implementer")
