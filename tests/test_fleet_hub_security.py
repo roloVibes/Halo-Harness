@@ -99,14 +99,16 @@ def test_replayed_stale_unsigned_and_forged_requests_are_refused(ctx: Ctx):
 
 @test
 def test_kick_disconnects_b(ctx: Ctx):
-    from halo_harness.fleet import store
+    from halo_harness.fleet import relay_runtime, store
     from halo_harness.fleet.cli_more import _ping
     with HubRig() as rig:
         rig.join()
         _controller, act = rig.session()
         wait_for(lambda: rig.member_session(act.session_id))
-        # 15 s, not 5: under the full suite's load the relay's first connect has taken over 6 s
-        ctx.check("B is connected first", wait_for(lambda: getattr(rig.relay(), "state", None) == "connected", 15))
+        connected = wait_for(lambda: getattr(rig.relay(), "state", None) == "connected", 15)
+        r = rig.relay()
+        ctx.check(f"B is connected first (relay {getattr(r, 'state', None)!r}, error {getattr(r, 'error', '')!r}, "
+                  f"{len(relay_runtime.relays())} relay(s))", connected)
         hits = rig.hub.pairing.find("bob@member")
         ctx.check("the member is found by name", len(hits) == 1)
         rig.hub.pairing.remove(hits[0]["id"], kicked=True)
