@@ -8,11 +8,13 @@
     halo fleet status [--json]
     halo fleet members [--json]
     halo fleet kick <name> [--json]
+    halo fleet record <sid> [--agent <aid>] [--out PATH] [--json]
+    halo fleet digest [--since 2h|45m|1d|<unix seconds>|<ISO time>] [--json]
 
 `serve` starts the hub inside a running Studio (through its loopback API)
 or else in the foreground (Ctrl+C stops it); `pair` makes a one-time code
 for the hub this machine runs. join / leave / status / members / kick live
-in cli_more.py. Exit codes: 0 done, 1 could not (the reason on stderr), 2 usage.
+in cli_more.py; record / digest (3.0.5.0 R4) in cli_panels.py. Exit codes: 0 done, 1 could not (the reason on stderr), 2 usage.
 """
 
 from __future__ import annotations
@@ -25,7 +27,8 @@ from urllib.parse import quote
 from halo_harness.fleet import identity
 from halo_harness.remote import cli_common as C
 
-VERBS = ("serve", "pair", "join", "leave", "status", "members", "kick")
+VERBS = ("serve", "pair", "join", "leave", "status", "members", "kick", "record", "digest")
+PANEL_VERBS = ("record", "digest")  # 3.0.5.0 R4: fleet/cli_panels.py
 USAGE = """usage: halo fleet [--once] [--json]
        halo fleet serve [--port N] [--bind ADDR] [--name NAME] [--no-tls] [--json]
        halo fleet pair [--ttl 10m] [--ascii] [--json]
@@ -35,6 +38,8 @@ USAGE = """usage: halo fleet [--once] [--json]
        halo fleet status [--json]
        halo fleet members [--json]
        halo fleet kick <name> [--json]
+       halo fleet record <sid> [--agent <aid>] [--out PATH] [--json]
+       halo fleet digest [--since 2h|45m|1d|<unix seconds>|<ISO time>] [--json]
 
   (none)    the live table of every harness, session and agent (s steer, k stop, p pause/resume, q quit)
   serve     run the hub other harnesses join (inside Studio when it runs, else here until Ctrl+C)
@@ -43,7 +48,9 @@ USAGE = """usage: halo fleet [--once] [--json]
   leave     leave one hub (or every hub)
   status    this harness's hubs, whether each answers, and the hub this machine serves
   members   the harnesses paired with this machine's hub
-  kick      remove a member from this machine's hub (its key stops working)"""
+  kick      remove a member from this machine's hub (its key stops working)
+  record    a session (or one agent) as a self-contained HTML flight recording (~/.halo/recordings)
+  digest    what happened since then, per harness: sessions, cost, decisions, files, errors, hand-offs"""
 
 
 def parse_ttl(text: str) -> float:
@@ -161,6 +168,9 @@ def cmd_fleet(argv: list) -> int:
         return cmd_serve(rest)
     if verb == "pair":
         return cmd_pair(rest)
+    if verb in PANEL_VERBS:
+        from halo_harness.fleet import cli_panels
+        return getattr(cli_panels, "cmd_" + verb)(rest)
     if verb in VERBS:
         from halo_harness.fleet import cli_more
         return getattr(cli_more, "cmd_" + verb)(rest)

@@ -9,7 +9,8 @@ a share level too low), `error` (502), `asked` (202: the owner's card is
 open; the outcome arrives later) or nothing yet (504). Every final outcome
 is also published as a `fleet` frame `{action: command, command_id, cmd,
 state, error?}` and kept for PENDING_KEEP_S (`get`, Studio's
-`GET /api/fleet/commands/<id>`).
+`GET /api/fleet/commands/<id>`). `open()` lists the ones still `asked`
+(3.0.5.0 R4: the attention queue's `control_ask` rows).
 """
 
 from __future__ import annotations
@@ -108,3 +109,10 @@ class Commands:
         with self._lock:
             p = self._pending.get(cid)
         return p.public() if p is not None else None
+
+    def open(self) -> list:
+        """The commands in state `asked` (a member's owner has the card open): the Fleet
+        attention queue's `control_ask` rows (3.0.5.0 R4)."""
+        with self._lock:
+            self._prune()
+            return [p.public() for p in self._pending.values() if p.state == "asked"]

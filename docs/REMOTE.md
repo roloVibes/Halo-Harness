@@ -210,6 +210,19 @@ cannot be decrypted under `--trust-new-identities never`, which is what makes
 the contact-request pairing below possible. The bridge answers nobody it has
 not paired.
 
+The bridge also carries the fleet's attention queue (3.0.5.0 round R4). When
+`remote.enabled` is on, the bridge is running and at least one phone is
+paired, Studio's fleet watcher writes each NEW attention row (a permission,
+question, plan or approval card of any harness's session, a fleet ask, a
+waiting agent, a flow gate, a spend cap, a conflict) as one small file in
+`~/.halo/remote/fleet-push/` (0600), and the bridge sends it about once a
+second to every paired phone as the same card it sends for its own session,
+prefixed with the harness name (`[kali@lab] Permission needed: Bash ...`).
+A card older than ten minutes is dropped unsent, and a local session a phone
+is already attached to is skipped (the bridge sent that card itself).
+Answer it in Studio (Fleet, Attention); `fleet.attention.signal: false`
+turns the push off. With the bridge off or unpaired nothing is written.
+
 ### Threat model
 
 The bridge lets a phone do what the keyboard does, so it is built in six

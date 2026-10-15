@@ -103,7 +103,7 @@ def _gather_real_flags() -> "dict[str, set]":
     from halo_harness.fleet.cli import cmd_fleet
     from halo_harness.fleet.table import cmd_table
     out["halo fleet"] = _flags_in(_capture(cmd_table, ["--help"]))
-    for sub in ("serve", "pair", "join", "leave", "status", "members", "kick"):
+    for sub in ("serve", "pair", "join", "leave", "status", "members", "kick", "record", "digest"):  # record, digest: R4
         out[f"halo fleet {sub}"] = _flags_in(_capture(cmd_fleet, [sub, "--help"]))
     return out
 

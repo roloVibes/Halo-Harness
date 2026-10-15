@@ -3007,6 +3007,8 @@ halo fleet leave [hub] [--json]
 halo fleet status [--json]
 halo fleet members [--json]
 halo fleet kick <name> [--json]
+halo fleet record <sid> [--agent <aid>] [--out PATH] [--json]
+halo fleet digest [--since 2h|45m|1d|<unix seconds>|<ISO time>] [--json]
 ```
 
 ### `halo fleet` (the live table)
@@ -3061,6 +3063,34 @@ halo fleet pair --ttl 15m
 halo fleet join hub-machine:7430 --code "acorn badge cobalt dancer ember frost"
 halo fleet status
 halo fleet kick bob@laptop
+```
+
+### `halo fleet record`
+
+Round R4. Writes a session of this harness as a flight recording: one
+self-contained HTML file (inline CSS and JS, the session as a JSON block, no
+network at all) with a lane per agent (bars by state, a tick per tool call),
+the cost curve, a scrub bar with Play / Pause and a speed, and each agent's
+Thinking, Working and Output as they were at the cursor. It reads the
+session's transcripts on disk (`~/.halo/sessions`), so a finished session
+records as well as a live one; a unique prefix of the session id is enough.
+`--agent <aid>` keeps that agent and its sub-agents; `--out PATH` writes
+there instead of `~/.halo/recordings/<sid>[-<aid>].html`. A member's session
+is recorded from Studio's Fleet section (`POST /api/fleet/<harness>/<sid>/recording`).
+
+### `halo fleet digest`
+
+Round R4. What happened since `--since` (`2h`, `45m`, `1d`, unix seconds or
+an ISO time; default `1d`), per harness, computed in code: sessions started
+and ended, the cost, the decisions answered from Studio and who answered
+them, the files touched, the errors and the hand-offs. This harness is read
+from its own transcripts; members and decisions come from the hub's journal
+(`~/.halo/fleet/journal.jsonl`, written while Studio's Fleet watcher runs).
+`--json` prints the same object as `GET /api/fleet/digest`.
+
+```sh
+halo fleet record 82eb586a --agent 5848a1cc
+halo fleet digest --since 8h
 ```
 
 ## `halo proxy`

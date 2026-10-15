@@ -51,6 +51,8 @@ class _Server(http.server.ThreadingHTTPServer):
         super().__init__(addr, handler)
 
     def server_close(self):
+        if getattr(self, "fleet_watch", None) is not None:  # 3.0.5.0 R4: studio/fleet_watch.py
+            self.fleet_watch.stop()
         if self.events is not None:
             self.events.close()
         if self.fleet_hub is not None:  # the fleet hub ends with Studio
@@ -155,6 +157,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             status, obj = dispatch(req)
         except Exception as e:  # a handler bug must never take the server down
             status, obj = 500, {"error": f"{type(e).__name__}: {e}"}
+        from halo_harness.studio.raw_body import RawBody  # 3.0.5.0 R4: a recording's HTML, not JSON
+        if isinstance(obj, RawBody):
+            return self._send(status, obj.body, obj.ctype, obj.headers)
         self._json(status, obj)
 
     def _static(self) -> None:

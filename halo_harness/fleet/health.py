@@ -67,9 +67,14 @@ def _disk() -> dict:
 
 
 def _sockets() -> int:
+    """Live control sockets in the registry, read without `list_live` (which prunes the file)."""
     try:
-        from halo_harness.remote.registry import list_live
-        return sum(1 for e in list_live() if isinstance(e, dict) and not e.get("private"))
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.remote import registry
+        path = bridge_home() / "run" / registry.FILENAME
+        if not path.is_file():
+            return 0
+        return sum(1 for e in registry._load(path) if isinstance(e, dict) and not e.get("private") and registry._entry_alive(e))
     except Exception:
         return 0
 
