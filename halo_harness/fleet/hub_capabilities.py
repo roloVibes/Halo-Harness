@@ -24,6 +24,7 @@ from halo_harness.fleet import capabilities as caps
 
 RETRY_S = 60.0
 FETCH_WAIT_S = 30.0
+STREAM_WAIT_S = 8.0
 MAX_TOOLS = 4000
 
 
@@ -75,6 +76,9 @@ class HubCaps:
             with self._lock:
                 self.asked[hid] = (h, "failed", time.time())
             return 409, {"error": f"{m.name if m else hid} has no live session to ask"}
+        end = time.time() + STREAM_WAIT_S  # R7: the first announce comes before the member's stream opens
+        while m is not None and time.time() < end and not any(lk.streams for lk in list(m.links.values())):
+            time.sleep(0.1)
         with self._lock:
             self.fetches.append((hid, h))
         status, body = self.state.commands.send(hid, sids[0], "capabilities", {"refresh": True} if refresh else {},

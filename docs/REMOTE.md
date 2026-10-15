@@ -222,6 +222,8 @@ A card older than ten minutes is dropped unsent, and a local session a phone
 is already attached to is skipped (the bridge sent that card itself).
 Answer it in Studio (Fleet, Attention); `fleet.attention.signal: false`
 turns the push off. With the bridge off or unpaired nothing is written.
+A fleet mission's rows (3.0.6.0: a plan waiting for approval, a hub asking to run a
+mission part here, an edit refused outside a part's claims) reach the phone the same way ([MISSIONS.md](MISSIONS.md)).
 
 ### Threat model
 

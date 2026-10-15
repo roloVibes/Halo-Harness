@@ -17,6 +17,9 @@ hands it here with the session's handle and that hub's policy:
                                         `once` (a hub never learns a rule), never the fleet card itself
     note                                a person's message (`fleet.message`), shown to the owner without
                                         asking unless allow_control is `none`; the model never sees it
+    run_task                            3.0.6.0 R7: run one part of a mission here (fleet/mission_worker.py), under
+                                        allow_control like steer: `ask` cards "<hub> asks to run mission <m> part
+                                        <n> here: <title> (claims: ...)", `none` refuses, `all` starts it
 
 Applied commands run through remote/agent_control.py with `by` = the person
 at the hub and `via` = "hub <name>", so the session's transcript records
@@ -80,6 +83,9 @@ def _label(handle, fields: dict) -> str:
 
 
 def describe(handle, cmd: str, fields: dict, by: str, hub: str) -> str:
+    if cmd == "run_task":
+        from halo_harness.fleet.mission_worker import describe as describe_task
+        return describe_task(fields, hub)
     what = " ".join(" ".join(str(fields.get(k) or "").split()) for k in ("text", "reason")).strip()
     target = "the main agent" if cmd in ("steer", "interrupt") else _label(handle, fields)
     if cmd == "shutdown":
@@ -185,11 +191,15 @@ def run(handle, msg: dict, pol: dict, interim: Optional[Callable] = None) -> dic
             if getattr(handle, "controller", None) is None:
                 raise Refused(f"{me}'s {getattr(handle, 'kind', 'print')} session has no one to ask, so a hub's "
                               f"{cmd} is denied under fleet.allow_control: ask (all applies it)")
-            said = ask_owner(handle, describe(handle, cmd, fields, by, hub), str(msg.get("cid") or "x"), interim)
+            cid = ("mission-" if cmd == "run_task" else "") + str(msg.get("cid") or "x")  # R7: a mission_ask row
+            said = ask_owner(handle, describe(handle, cmd, fields, by, hub), cid, interim)
             if said != "allow":
                 raise Refused(f"no answer from {me}'s owner in {int(ASK_TIMEOUT_S)} s; denied" if said == "timeout"
                               else f"{me}'s owner denied the {cmd} from {by}")
             handle._note(f"allowed {cmd} from {by} on {hub}")
+        if cmd == "run_task":
+            from halo_harness.fleet.mission_worker import accept
+            return {"state": "done", "result": accept(handle, fields, by=by, hub=hub, entry=pol.get("hub_entry"))}
         return {"state": "done", "result": _act(handle, cmd, fields, by, via)}
     except Refused as e:
         _record(handle, cmd=cmd, by=by, via=via, refused=str(e))

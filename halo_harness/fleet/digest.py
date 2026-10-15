@@ -110,7 +110,7 @@ def local(home, since: float, live_ids=(), now: Optional[float] = None) -> dict:
 
 def _bucket(hid, name, is_local) -> dict:
     return {"id": hid, "name": name, "local": is_local, "started": [], "ended": [], "cost_usd": 0.0, "_files": {},
-            "errors": [], "handoffs": [], "decisions": []}
+            "errors": [], "handoffs": [], "decisions": [], "missions": []}
 
 
 def _member_cost(rows: list, since: float) -> float:
@@ -149,6 +149,8 @@ def compute(home, since: float, *, now: Optional[float] = None, local_id: Option
             b["decisions"].append({k2: r.get(k2) for k2 in ("what", "answer", "by", "session_id", "row_kind", "ts")})
         elif k == "handoff":
             b["handoffs"].append({k2: r.get(k2) for k2 in ("action", "to", "issue", "path", "by", "agent", "ts")})
+        elif str(k).startswith("mission_"):  # 3.0.6.0 R7: fleet missions (journaled by the hub)
+            b["missions"].append({k2: r.get(k2) for k2 in ("kind", "mission", "part", "state", "on", "cost_usd", "reason", "by", "ts")})
         elif b["local"]:
             continue  # this harness's sessions, cost, files and errors come from its own transcripts
         elif k in ("session_start", "session_end"):
@@ -166,11 +168,11 @@ def compute(home, since: float, *, now: Optional[float] = None, local_id: Option
             b["cost_usd"] = _member_cost([r for r in rows if r.get("harness") == hid], since)
         b["cost_usd"] = round(b["cost_usd"], 6)
         b["files"] = sorted(b.pop("_files"))[:200]
-        for k in ("started", "ended", "errors", "handoffs", "decisions"):
+        for k in ("started", "ended", "errors", "handoffs", "decisions", "missions"):
             b[k] = b[k][-LIST_CAP:]
-        b["quiet"] = not any(b[k] for k in ("started", "ended", "files", "errors", "handoffs", "decisions")) and not b["cost_usd"]
+        b["quiet"] = not any(b[k] for k in ("started", "ended", "files", "errors", "handoffs", "decisions", "missions")) and not b["cost_usd"]
     hs = sorted(buckets.values(), key=lambda b: (not b["local"], str(b["name"]).lower()))
-    totals = {k: sum(len(b[k]) for b in hs) for k in ("started", "ended", "files", "errors", "handoffs", "decisions")}
+    totals = {k: sum(len(b[k]) for b in hs) for k in ("started", "ended", "files", "errors", "handoffs", "decisions", "missions")}
     totals["cost_usd"] = round(sum(b["cost_usd"] for b in hs), 6)
     return {"since": since, "until": now, "harnesses": hs, "totals": totals}
 
@@ -192,6 +194,8 @@ def text(d: dict) -> str:
             lines.append(f"  decided  {x.get('what')}: {x.get('answer')} (by {x.get('by')})")
         for x in b["handoffs"][-5:]:
             lines.append(f"  hand-off {x.get('action')} {x.get('to') or ''} (by {x.get('by')})".rstrip())
+        for x in [m for m in b["missions"] if m.get("kind") in ("mission_run", "mission_end")][-5:]:
+            lines.append(f"  mission  {x.get('mission')} {x.get('state') or 'running'}" + (f": {x['reason']}" if x.get("reason") else ""))
         for x in b["errors"][-5:]:
             lines.append(f"  error    {x.get('text')}")
         if b["files"]:

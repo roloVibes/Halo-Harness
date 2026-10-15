@@ -13,6 +13,9 @@ calls `act`; the decision is journaled there with `by`.
     flow_gate       a accept | r redo (text: the instruction) | s stop   (flow/runs/<id>/answer)
     orchestra_gate, control_ask, conflict   a set aside (journal kind `ack`, hidden from then on)
     cap             a lift for today: resume what the cap paused
+    mission_plan    a approve and run | r edit (text: "part 2 to kali" / "drop 3") | s drop the mission  (R7)
+    mission_ask     a allow | r deny                   the `fleet-ask:mission-` card of a hub's run_task here
+    mission_claim   a set aside
     every kind      o open: answered with where to open it, nothing is sent
 
 Cards go through `fleet/<harness>/<sid>/command {cmd: answer, ...}` (this
@@ -37,9 +40,11 @@ ANSWER = {
     ("approval", "s"): {"action": "stop"},
     ("fleet_ask", "a"): {"answer": "allow"},
     ("fleet_ask", "r"): {"answer": "deny"},
+    ("mission_ask", "a"): {"answer": "allow"},
+    ("mission_ask", "r"): {"answer": "deny"},
 }
-NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("flow_gate", "r")}
-SET_ASIDE = ("orchestra_gate", "control_ask", "conflict")
+NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("flow_gate", "r"), ("mission_plan", "r")}
+SET_ASIDE = ("orchestra_gate", "control_ask", "conflict", "mission_claim")
 FLOW = {"a": "accept", "r": "redo", "s": "stop"}
 
 
@@ -68,6 +73,9 @@ def open_target(row: dict) -> dict:
         return {"section": "orchestra", "run": t.get("run")}
     if kind == "cap":
         return {"section": "fleet", "panel": "fleet-costs", "scope": t.get("scope"), "key": t.get("key")}
+    if kind.startswith("mission_") and kind != "mission_ask":
+        from halo_harness.fleet.mission_attention import open_target as mission_target
+        return mission_target(row)
     if kind == "conflict":
         return {"section": "fleet", "panel": "fleet-map", "file": t.get("file"), "a": t.get("a"), "b": t.get("b")}
     return {"section": "fleet", "panel": "fleet-agent", "harness": row.get("harness"), "session_id": row.get("session_id"),
@@ -77,7 +85,7 @@ def open_target(row: dict) -> dict:
 def _card(req, row: dict, key: str, text: str):
     kind = row["kind"]
     fields = dict(ANSWER[(kind, key)])
-    fields.update(kind="question" if kind == "fleet_ask" else kind, request_id=(row.get("target") or {}).get("request_id"))
+    fields.update(kind="question" if kind in ("fleet_ask", "mission_ask") else kind, request_id=(row.get("target") or {}).get("request_id"))
     if (kind, key) == ("permission", "r") and text:
         fields["message"] = text
     elif (kind, key) == ("question", "r"):
@@ -95,6 +103,9 @@ def act(req, watcher, row: dict, key: str, text: str):
     label = row["keys"][key]
     if key == "o":
         return 200, {"open": open_target(row)}, label
+    if kind == "mission_plan":  # 3.0.6.0 R7
+        from halo_harness.fleet.mission_attention import answer
+        return answer(req, row, key, text)
     if kind in SET_ASIDE:
         watcher.acks.add(row["id"])
         from halo_harness.fleet import journal

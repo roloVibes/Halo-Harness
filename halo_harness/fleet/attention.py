@@ -12,6 +12,8 @@ serves them (`GET /api/fleet/attention`) and routes the answers.
     control_ask    a command this hub sent waits on a member's owner
     cap            a spend cap reached: its sessions are paused
     conflict       two agents of different sessions edit the same file
+    mission_plan | mission_claim | mission_ask   a fleet mission waits for approval, a part was refused an edit
+                   outside its claims, a hub asks to run a part here (3.0.6.0 R7, fleet/mission_attention.py)
 
 Each row: {id, kind, harness, harness_name, local, session_id, session, agent_id, agent, what, detail,
 since, keys: {a|r|s|o: label}, text_for: "r" | None, target: {...}}. `keys` holds only the answers
@@ -40,8 +42,11 @@ KEYS = {
     "control_ask": {"a": "set aside", **OPEN},
     "cap": {"a": "lift for today", "o": "open Costs"},
     "conflict": {"a": "set aside", "o": "open the map"},
+    "mission_plan": {"a": "approve and run", "r": "edit", "s": "drop", "o": "open the mission"},  # 3.0.6.0 R7
+    "mission_claim": {"a": "set aside", "o": "open the mission"},
+    "mission_ask": {"a": "allow", "r": "deny", **OPEN},
 }
-TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "flow_gate": "r"}
+TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "flow_gate": "r", "mission_plan": "r"}
 CARD_KINDS = ("permission", "question", "plan", "approval")
 
 
@@ -87,8 +92,10 @@ def session_rows(view: dict, asks: dict, seen: dict, now: float) -> list:
                     rid = str(rid)
                     if kind == "question" and rid.startswith(ASK_PREFIX):
                         if h.get("local"):
-                            out.append(_row("fleet_ask", rid, h, s, "main", "A hub asks to run a command here",
-                                            "", seen, now, request_id=rid))
+                            task = rid.startswith(ASK_PREFIX + "mission-")  # R7: a run_task card
+                            out.append(_row("mission_ask" if task else "fleet_ask", rid, h, s, "main",
+                                            "A hub asks to run a mission part here" if task else
+                                            "A hub asks to run a command here", "", seen, now, request_id=rid))
                         continue  # a member's own fleet card is its owner's to answer
                     ask = asks.get((str(h.get("id")), str(s.get("session_id")), rid)) or {}
                     what, detail = _what(kind, ask)
@@ -155,7 +162,7 @@ def conflict_rows(conflicts: list, view: dict, seen: dict, now: float) -> list:
 
 
 def build(view: dict, *, asks: Optional[dict] = None, flows=(), orchestra=(), commands=(), reached=(), conflicts=(),
-          seen: Optional[dict] = None, acks=(), now: Optional[float] = None) -> list:
+          seen: Optional[dict] = None, acks=(), now: Optional[float] = None, home=None) -> list:
     """Every row, newest decision last within each harness, set-aside rows left out."""
     now = now or time.time()
     seen = seen if seen is not None else {}
@@ -163,5 +170,8 @@ def build(view: dict, *, asks: Optional[dict] = None, flows=(), orchestra=(), co
     rows = (session_rows(view, asks or {}, seen, now) + flow_rows(list(flows), local, seen, now)
             + orchestra_rows(list(orchestra), local, seen, now) + command_rows(list(commands), view, seen, now)
             + cap_rows(list(reached), local, seen, now) + conflict_rows(list(conflicts), view, seen, now))
+    if home is not None:  # 3.0.6.0 R7: the missions' rows
+        from halo_harness.fleet.mission_attention import rows as mission_rows
+        rows += mission_rows(home, local, seen, now)
     gone = set(acks)
     return sorted([r for r in rows if r["id"] not in gone], key=lambda r: r["since"])

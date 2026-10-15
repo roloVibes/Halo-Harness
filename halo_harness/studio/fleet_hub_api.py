@@ -16,6 +16,7 @@
                                      hand-offs, flight recordings, canvas replay (studio/fleet_extras_api.py, R4)
     fleet/capabilities, fleet/who    what every harness can do and who can do something (studio/fleet_capabilities_api.py,
                                      3.0.6.0 R6)
+    fleet/missions[/<id>[/...]]      fleet missions (studio/fleet_mission_api.py, 3.0.6.0 R7)
 
 A command for this harness takes the direct path (studio/sessions_api.py,
 studio/fleet_api.py); one for a member goes through the hub to that
@@ -218,6 +219,8 @@ from halo_harness.studio.fleet_extras_api import ROUTES as _EXTRA_ROUTES  # noqa
 ROUTES[len(ROUTES):] = _PANEL_ROUTES + _EXTRA_ROUTES
 from halo_harness.studio.fleet_capabilities_api import ROUTES as _CAPS_ROUTES  # noqa: E402  (3.0.6.0 R6: capabilities, who)
 ROUTES[len(ROUTES):] = _CAPS_ROUTES
+from halo_harness.studio.fleet_mission_api import ROUTES as _MISSION_ROUTES  # noqa: E402  (3.0.6.0 R7: missions)
+ROUTES[len(ROUTES):] = _MISSION_ROUTES
 
 
 def dispatch_fleet(req):

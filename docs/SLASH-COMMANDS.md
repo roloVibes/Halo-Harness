@@ -579,6 +579,12 @@ session. Bare `/private` prints the state and the control-socket line.
 `~/.halo/config.json` makes every session start private. A `halo -p` run
 started private stays private. See [FLEET.md](FLEET.md).
 
+### `/mission [id]`
+Halo 3.0.6.0 (Fleet Missions). The fleet's missions (id, state, parts, cost,
+harnesses, goal), or one mission's parts by harness with their state and
+cost: the same as `halo fleet mission status [id]`. Making, planning, running
+and stopping a mission is `halo fleet mission ...` (see [MISSIONS.md](MISSIONS.md)).
+
 ### `/fleet [text]`
 Halo 3.0.5.0 (Fleet). Bare `/fleet` opens the fleet table as a dialog: one
 row per agent of every harness this machine sees (harness, session, agent
