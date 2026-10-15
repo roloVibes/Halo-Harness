@@ -7,7 +7,8 @@
    Pause / Resume, Stop (asks first), Follow, Pin, and the Steer box (a
    nudge or a redirect, echoed in the stream as "you"). With nobody on the
    card, its track record: the last runs under that role (GET
-   fleet/history through the shell). */
+   fleet/history through the shell), each with a "replay" button (R4: the
+   shell plays that session back on the canvas, replay.js). */
 (function () {
   "use strict";
   const live = window.haloLive; if (!live) return;
@@ -86,7 +87,8 @@
     const pc = node.kind === "org" && window.orgMode ? window.orgMode.agentById(node.id) : null;
     const r = await live.ask({ type: "fleet-history", role: node.role || "", bio: pc ? (pc.metadata || {}).halo_agent || "" : node.agent || "" });
     const runs = (r && r.runs) || [];
-    box.querySelector(".hint").outerHTML = runs.length ? `<ul class="live-runs">${runs.map((x) => `<li><span class="mono">${esc(ago(x.finished || x.started))} ago</span> <b>${esc(x.bio || x.role || "")}</b> <span class="badge ${x.is_error ? "bad" : ""}">${esc(x.is_error ? "failed" : x.status || "")}</span> <span class="mono">${esc(cost(x.cost_usd))}</span><div class="hint">${esc(x.task || "")}</div></li>`).join("")}</ul>` : `<p class="hint">${r && r.ok === false ? esc(r.error || "") : "No run under this role on this harness yet."}</p>`;
+    box.querySelector(".hint").outerHTML = runs.length ? `<ul class="live-runs">${runs.map((x) => `<li><span class="mono">${esc(ago(x.finished || x.started))} ago</span> <b>${esc(x.bio || x.role || "")}</b> <span class="badge ${x.is_error ? "bad" : ""}">${esc(x.is_error ? "failed" : x.status || "")}</span> <span class="mono">${esc(cost(x.cost_usd))}</span>${x.session_id ? ` <button class="btn ghost live-replay" data-session="${esc(x.session_id)}" data-testid="live-replay" title="Play this session back on the canvas: the cards light up in the order they worked">replay</button>` : ""}<div class="hint">${esc(x.task || "")}</div></li>`).join("")}</ul>` : `<p class="hint">${r && r.ok === false ? esc(r.error || "") : "No run under this role on this harness yet."}</p>`;
+    box.addEventListener("click", (ev) => { const b = ev.target.closest(".live-replay"); if (b) live.post({ type: "fleet-replay-open", session: b.dataset.session, harness: "local" }); });
   }
   T.render = (body) => {
     const keep = body.querySelector('[data-testid="live-steer"]'), text = keep ? keep.value : "", focused = keep && document.activeElement === keep;

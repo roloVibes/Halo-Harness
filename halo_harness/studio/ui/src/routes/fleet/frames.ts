@@ -5,12 +5,14 @@
 // `{type: "fleet-stream", key, entries}` for the agent a frame's Live tab
 // shows. The frame asks: `fleet-ready`, `fleet-watch {key}`, `fleet-command
 // {id, key, cmd, text?, mode?}`, `fleet-history {id, role, bio}`, `fleet-pin
-// {key}`; answers come back as `fleet-result {id, ok, ...}`. The frame never
+// {key}`, `fleet-replay-open {session, harness}` (replay.ts); answers come
+// back as `fleet-result {id, ok, ...}`. The frame never
 // calls the fleet routes itself: the shell proxies every one.
 import { useEffect } from "react";
 import { api, ApiError } from "../../lib/api";
 import { short } from "../orchestra/format";
 import { agentCommand, pin, select, steer } from "./actions";
+import { openReplay } from "./replay";
 import { allAgents, fleet, isLive, sessionTitle, toolOf, type FleetState } from "./store";
 import { startFleet } from "./sync";
 import type { AgentRef } from "./types";
@@ -50,7 +52,7 @@ export function liveRows(s: FleetState): LiveRow[] {
     }));
 }
 
-type Ask = { type?: string; id?: number; key?: string; cmd?: string; text?: string; mode?: string; role?: string; bio?: string };
+type Ask = { type?: string; id?: number; key?: string; cmd?: string; text?: string; mode?: string; role?: string; bio?: string; session?: string; harness?: string };
 
 async function answer(d: Ask): Promise<Record<string, unknown>> {
   const key = String(d.key || "");
@@ -121,6 +123,7 @@ export function useFleetFrames(): void {
         if (d.key) select(d.key);
         pushStreams();
       } else if (d.type === "fleet-pin") pin(String(d.key || ""));
+      else if (d.type === "fleet-replay-open") void openReplay(String(d.session || ""), String(d.harness || "local"), w);
       else if (d.type === "fleet-command" || d.type === "fleet-history") send(w, { type: "fleet-result", id: d.id, ...(await answer(d)) });
     };
     window.addEventListener("message", onMsg);

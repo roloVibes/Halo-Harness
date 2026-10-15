@@ -1,17 +1,26 @@
 // Fleet (Alt+6): every connected harness, its sessions and every agent in
 // them, live. Before anything is here the section is the Start view
-// (Start.tsx); then two panels on the movable workspace: Map (fleet-map) and
-// Agent (fleet-agent, the inspector for the selected agent with its three
-// streams and the Steer box). One store (store.ts) fed by GET fleet and the
-// feed (sync.ts); the rail's Fleet tree (FleetRail.tsx), the hop keys
-// (hop.ts), the mini stream (Pip.tsx) and Live Roles (frames.ts) work from
-// every section.
+// (Start.tsx); then seven panels on the movable workspace. Along the top,
+// on their compact faces: People (fleet-people, who is in the fleet), Costs
+// (fleet-costs, spend and caps) and Health (fleet-health, a doctor summary
+// per harness). Under them: Attention (fleet-attention, every decision that
+// waits on you, one key each), Map (fleet-map), Activity (fleet-activity,
+// the timeline strip and the merged live log) and Agent (fleet-agent, the
+// selected agent's streams, Steer, hand-offs, Record). Two stores: the map's
+// (store.ts, fed by sync.ts) and the panels' (pstore.ts, fed by pload.ts);
+// the rail's Fleet tree, the hop keys, the mini stream, Live Roles and the
+// canvas replay work from every section.
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { HELP } from "../help";
+import { ActivityDetail, ActivityGlance, useActivityMotion } from "./Activity";
 import { AgentDetail, AgentGlance, AgentSettings, useAgentMotion } from "./Agent";
+import { AttentionDetail, AttentionGlance, useAttentionMotion } from "./Attention";
+import { CostsDetail, CostsGlance, useCostsMotion } from "./Costs";
+import { HealthDetail, HealthGlance, useHealthMotion } from "./Health";
 import { MapDetail, MapGlance, useMapMotion } from "./Map";
+import { PeopleDetail, PeopleGlance, usePeopleMotion } from "./People";
 import { startFleet } from "./sync";
 
 function started(hook: () => MotionState): () => MotionState {
@@ -21,9 +30,14 @@ function started(hook: () => MotionState): () => MotionState {
   };
 }
 
-const panel = (id: string, rest: Omit<PanelSpec, "id" | "face" | "testid">): PanelSpec => ({ id, face: "detail", testid: id, ...HELP[id], ...rest });
+const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec => ({ id, testid: id, ...HELP[id], ...rest });
 
 export const fleetPanels: PanelSpec[] = [
-  panel("fleet-map", { title: "Map", x: 0, y: 0, w: 14, h: 0, minW: 8, minH: 24, glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
-  panel("fleet-agent", { title: "Agent", x: 14, y: 0, w: 10, h: 0, minW: 6, minH: 32, glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
+  panel("fleet-people", { title: "People", x: 0, y: 0, w: 8, h: 14, minW: 5, minH: 10, face: "glance", glance: PeopleGlance, detail: PeopleDetail, useMotion: started(usePeopleMotion) }),
+  panel("fleet-costs", { title: "Costs", x: 8, y: 0, w: 8, h: 14, minW: 5, minH: 10, face: "glance", glance: CostsGlance, detail: CostsDetail, useMotion: started(useCostsMotion) }),
+  panel("fleet-health", { title: "Health", x: 16, y: 0, w: 8, h: 14, minW: 5, minH: 10, face: "glance", glance: HealthGlance, detail: HealthDetail, useMotion: started(useHealthMotion) }),
+  panel("fleet-attention", { title: "Attention", x: 0, y: 14, w: 6, h: 0, minW: 4, minH: 16, face: "detail", glance: AttentionGlance, detail: AttentionDetail, useMotion: started(useAttentionMotion) }),
+  panel("fleet-map", { title: "Map", x: 6, y: 14, w: 11, h: 48, minW: 8, minH: 24, face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
+  panel("fleet-activity", { title: "Activity", x: 6, y: 62, w: 11, h: 0, minW: 6, minH: 16, face: "detail", glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),
+  panel("fleet-agent", { title: "Agent", x: 17, y: 14, w: 7, h: 0, minW: 5, minH: 32, face: "detail", glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
 ];

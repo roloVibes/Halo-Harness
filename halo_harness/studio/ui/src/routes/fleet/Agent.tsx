@@ -4,11 +4,14 @@
 // Resume, Stop (asks first), Follow (the stream scrolls with it), Pin (the
 // mini stream) and the Steer box. Opening an agent loads its backlog
 // (`agent_tail`) and follows it (`agent_follow`), so the rest is pushed.
+// R4: Take over, Hand to..., Record and Replay under the controls; with no
+// agent picked, this harness's last sessions to replay (AgentHistory.tsx).
 import { useEffect, useRef, type ReactNode } from "react";
 import { Button, Empty, Icon, Kbd } from "../../lib/ui";
 import type { MotionState } from "../../lib/motion";
 import { cost, elapsed, short } from "../orchestra/format";
 import { askStop, pin, toggleFollow, togglePause } from "./actions";
+import { AgentExtras, RecentSessions } from "./AgentHistory";
 import { nowText } from "./MapNode";
 import { Steer } from "./Steer";
 import { EMPTY, outputOf, thinkingOf, workingOf } from "./streams";
@@ -79,7 +82,12 @@ export function AgentDetail() {
     if (el && follow) el.scrollTop = el.scrollHeight;
   }, [st.tick, follow, tab, ref?.key]);
   if (!ref)
-    return <Empty title="Pick an agent" body="Click an agent on the map (or press J / K to hop between the live ones): what it thinks, does and writes shows here, and you can steer it." testid="fleet-agent-empty" />;
+    return (
+      <div className="fa-none">
+        <Empty title="Pick an agent" body="Click an agent on the map (or press J / K to hop between the live ones): what it thinks, does and writes shows here, and you can steer it." testid="fleet-agent-empty" />
+        <RecentSessions />
+      </div>
+    );
   const { a, key, h } = ref;
   const live = isLive(a);
   const done = FINISHED.includes(String(a.state));
@@ -130,6 +138,7 @@ export function AgentDetail() {
         <span className="spacer" />
         <span className="fa-keys muted"><Kbd keys="J" /> <Kbd keys="K" /> hop</span>
       </div>
+      <AgentExtras r={ref} done={done} noControl={noControl} />
       <Steer key={key} k={key} disabled={done || noControl} why={why} />
     </div>
   );

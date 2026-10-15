@@ -4,7 +4,9 @@
 // regroups the cards into one box per repo with the harness colour on each.
 // Click selects (fleet-agent and an open Inspector follow), double-click
 // opens fleet-agent expanded, `...` is the node's menu. An edge lights for
-// LIT_MS when an agent spawns or messages another (D13).
+// LIT_MS when an agent spawns or messages another (D13). R4: two agents of
+// different sessions editing one file (GET fleet/conflicts) are joined by an
+// amber dashed warning edge; its attention row's O opens the map on them.
 import { useMemo, useState } from "react";
 import { useRecent, type MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
@@ -13,6 +15,7 @@ import { short } from "../orchestra/format";
 import { toggleByProject } from "./actions";
 import { layout } from "./layout";
 import { AgentNode, NodeMenu, SessionCard, type MenuAt } from "./MapNode";
+import { useAttnCount, usePanels } from "./pstore";
 import { NONE, useCounts, useFleet } from "./store";
 import type { LitEdge } from "./types";
 
@@ -31,6 +34,29 @@ function LitEdges({ edges, pos }: { edges: LitEdge[]; pos: Map<string, { x: numb
         const x1 = a.x + a.w - 6, y1 = a.y + a.h / 2, x2 = b.x + b.w - 6, y2 = b.y + b.h / 2;
         const bend = Math.max(28, Math.abs(y2 - y1) / 3);
         return <path key={`${e.from}>${e.to}@${e.ts}`} className="fm-edge fm-edge-lit" data-kind={e.kind} data-testid="fleet-lit-edge" d={`M${x1} ${y1} C${x1 + bend} ${y1} ${x2 + bend} ${y2} ${x2} ${y2}`} />;
+      })}
+    </g>
+  );
+}
+
+type Pos = Map<string, { x: number; y: number; w: number; h: number }>;
+
+function ConflictEdges({ pos }: { pos: Pos }) {
+  const list = usePanels((s) => s.conflicts?.conflicts) || NONE;
+  return (
+    <g className="fm-conflicts">
+      {list.map((c) => {
+        const a = pos.get(c.a.key), b = pos.get(c.b.key);
+        if (!a || !b) return null;
+        const left = a.x <= b.x ? a : b, right = left === a ? b : a;
+        const x1 = left.x + left.w, y1 = left.y + left.h / 2, x2 = right.x === left.x ? right.x + right.w : right.x, y2 = right.y + right.h / 2;
+        const bend = right.x === left.x ? 46 : Math.max(24, (x2 - x1) / 2);
+        const d = right.x === left.x ? `M${x1} ${y1} C${x1 + bend} ${y1} ${x2 + bend} ${y2} ${x2} ${y2}` : `M${x1} ${y1} C${x1 + bend} ${y1} ${x2 - bend} ${y2} ${x2} ${y2}`;
+        return (
+          <path key={c.id} className="fm-edge fm-edge-conflict" d={d} data-testid="fleet-conflict-edge" data-file={c.file}>
+            <title>{`${c.a.name} (${c.a.harness_name}) and ${c.b.name} (${c.b.harness_name}) are both editing ${c.repo}/${c.file}`}</title>
+          </path>
+        );
       })}
     </g>
   );
@@ -60,9 +86,10 @@ export function FleetMap() {
       {geo.edges.map((e) => (
         <path key={e.to} className="fm-edge" data-on={e.to === selected || e.from === selected || undefined} d={e.d} />
       ))}
-      {geo.cards.map((c) => <SessionCard key={c.harness.id + c.session.session_id} c={c} onMenu={setMenu} />)}
+      {geo.cards.map((c) => <SessionCard key={c.harness.id + c.session.session_id} c={c} onMenu={setMenu} byProject={byProject} />)}
       {geo.nodes.map((n) => <AgentNode key={n.ref.key} n={n} onMenu={setMenu} />)}
       <LitEdges edges={edges} pos={pos} />
+      <ConflictEdges pos={pos} />
     </svg>
     {menu && <NodeMenu at={menu} onClose={() => setMenu(null)} />}
     </>
@@ -72,6 +99,7 @@ export function FleetMap() {
 function Toolbar() {
   const byProject = useFleet((s) => s.byProject);
   const c = useCounts();
+  const attn = useAttnCount(c.attention);
   return (
     <div className="fm-bar">
       <div className="segmented" role="group" aria-label="Group the map">
@@ -80,7 +108,7 @@ function Toolbar() {
       </div>
       <span className="mono muted fm-counts">
         {c.harnesses} harness{c.harnesses === 1 ? "" : "es"} · {c.sessions} session{c.sessions === 1 ? "" : "s"} · {c.live} of {c.agents} agents live
-        {c.attention > 0 && <b className="fm-attn"> · {c.attention} need{c.attention === 1 ? "s" : ""} you</b>}
+        {attn > 0 && <b className="fm-attn"> · {attn} need{attn === 1 ? "s" : ""} you</b>}
       </span>
     </div>
   );

@@ -38,7 +38,7 @@ from tests.helpers.fleet_rig import text_step, tool_step, wait_for  # noqa: F401
 from tests.helpers.mock_openai import SCENARIOS, MockUpstream, ScriptedTurns
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials
 from tests.helpers.studio_fleet_member import MEMBER, MEMBER_SID, announce_body, answer, ask_frames
-from tests.helpers.studio_fleet_parts import PAST_SID, held, make_session, recorded, said_then_tool, seed_past, spawn  # noqa: F401
+from tests.helpers.studio_fleet_parts import PAST_SID, held, make_session, quiet_health, recorded, said_then_tool, seed_past, spawn  # noqa: F401
 
 ensure_default_provider_credentials()
 _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_TEST_NO_BACKGROUND_NET", "HALO_FLEET_PRIVATE", "HALO_FLEET_PARENT")
@@ -83,6 +83,7 @@ class StudioFleetRig:
                      ("add", "-A"), ("commit", "-q", "-m", "basket")):
             _git(self.proj, *args)
         self.past = seed_past(self.state, self.proj)
+        self.closers.append(quiet_health())  # R4b: the Health panel's provider probes answer here
         self.mock = MockUpstream().start()
         self.closers.append(self.mock.stop)
         self._studio()
