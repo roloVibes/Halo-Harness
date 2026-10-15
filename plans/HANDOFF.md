@@ -4,6 +4,75 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-14 ~19:00 CDT (authoritative, read this first)
+
+**3.0.4.0 IS RELEASED AND INSTALLED** (see the previous snapshot below).
+**3.0.5.0 "FLEET" IS IN FLIGHT, PAUSED FOR A MACHINE RESTART.** The owner's
+plan is `~/.claude/plans/fleet-view-3050.md` (approved 2026-10-14 ~16:30:
+"all of it and your suggestions"). Every brief, every round hand-back and
+the CHANGELOG fragments are in `<home>/hh-fleet/briefs/` (OUTSIDE the repo
+on purpose: the privacy scan rejects real home paths anywhere under the
+tree, tracked or not; never copy them in).
+
+Rounds (one Opus worker each, worktree per round off the previous round's
+branch, I verify by rerunning the suites and looking at the pictures, then
+commit; every branch is pushed to origin):
+- **R1 agent control -- DONE** `fleet/R1-agent-control` dbf1a13: sockets on
+  by default (`fleet.enabled`; `remote.enabled` only gates Signal), harness
+  identity + project in the registry, the per-session agent tree, commands
+  `agents` / `agent_tail` / `agent_steer` (nudge|redirect) / `agent_stop` /
+  `pause` / `resume` / `shutdown` / `agent_follow`, frames `agent_state` /
+  `agent_event` / `fleet`, Studio agent routes, `--private`.
+- **R2 hub and join -- DONE** `fleet/R2-hub-join` 7ece693: `halo_harness/
+  fleet/` (hub on a LAN port, HMAC-signed, TLS optional, six-word pairing
+  with a code-authenticated DH exchange, relay with share status|events|
+  full and control none|ask|all), `GET /api/fleet`, proxied command routes,
+  `halo fleet` live table, `/fleet`.
+- **R3 Studio Fleet + Live Roles -- DONE** `fleet/R3-studio-fleet` a82c607:
+  the Fleet section (Alt+6: map, agent inspector with Thinking/Working/
+  Output + Steer, the Fleet rail everywhere, Start view with pair code),
+  hop keys J/K/F/Space/P + the mini stream, Live Roles (cards glow, the
+  Live tab). Pictures docs/media/studio-fleet.png, studio-roles-live.png.
+- **R4 panels + the owner's extras -- IN PROGRESS, INTERRUPTED** worktree
+  `<home>/hh-fleet/R4-panels`, branch `fleet/R4-panels`, brief
+  `hh-fleet/briefs/fleet-R4-panels-brief.md` (people, attention queue +
+  Signal push, activity timeline, costs + caps, health, conflict warnings,
+  hand-offs, flight recordings, canvas replay, digest; code only, no model
+  calls). The worker had written the backend modules `halo_harness/fleet/
+  attention.py, caps.py, conflicts.py, digest.py, handoff.py, health.py,
+  history.py, journal.py, push.py, recording.py, recording_page.py` and
+  edited control/local_view/protocol/relay_hub, remote agent_control/
+  bridge/fleet_identity/protocol, studio fleet_hub_api/sessions_api when
+  the restart came; NO UI panels, tests, docs or dist yet unless the
+  worker's final hand-back (if it arrived) says otherwise -- its hand-back,
+  when present, is `hh-fleet/briefs/fleet-R4-handback.md`. The worktree
+  state is committed as a WIP commit on the branch ("WIP fleet R4"); a
+  resuming worker should `git log -1`, read the brief + hand-backs, verify
+  each module against the brief, then finish items 1-12.
+- **R5 release -- NOT STARTED**: merge `fleet/R4-panels` into master,
+  insert `hh-fleet/briefs/CHANGELOG-3.0.5.0-draft.md` (R1-R3 bullets; add
+  R4's) above the 3.0.4.0 section, gates (`python test_bridge.py`,
+  `python tests/run_all.py`, root `python test_tui.py` then `git checkout --
+  docs/harness/tui-snapshots`), push, CI `conclusion == success` for the
+  exact sha (Windows run_all budget is 65 min), `python scripts/release.py
+  3.0.5.0 --no-install`, `uv pip install --python <uv tool venv python>
+  --reinstall-package halo-harness <clone>`, `halo --version`, this file,
+  memory. Then the LIVE CHECK the owner must do: this host runs `halo studio
+  --fleet` (expect the Windows firewall prompt), the Kali VM runs `halo
+  update` then `halo fleet join <host>:7430 --code "<six words>"`, a session
+  on each, both visible in one Fleet map, a steer from Studio reaching a
+  worker on the VM.
+
+Rules learned this cycle: briefs and hand-backs live outside the tree
+(privacy scan); never run two headless Chromes at once (one-shot
+`--dump-dom` returns empty); a closed loopback port takes ~2 s to refuse on
+Windows; patch CRLF files EOL-aware; `git worktree remove` can hit
+"Permission denied" right after a test run (retry, then `rm -rf` the stray
+dir); the status cron jobs are session-only (re-create per session: every
+15 min, every 30 min from 4 to 10 AM).
+
+--- previous snapshot below ---
+
 ## WHERE THINGS STAND -- 2026-10-14 ~15:30 CDT (authoritative, read this first)
 
 **3.0.4.0 "Media and Flow" IS RELEASED** (tag v3.0.4.0 at 3c3a3fc on master, GitHub
