@@ -3,7 +3,7 @@
 
     GET  sessions                 [{session_id, title, cwd, mode, kind, started, pid, harness, project, parent,
                                     status, busy, pending, model, agents, status_age_s}]
-    POST sessions/<sid>/command {cmd: answer|interrupt|steer|submit|shutdown|pause|resume, kind?, request_id?,
+    POST sessions/<sid>/command {cmd: answer|interrupt|steer|submit|shutdown|pause|resume|note, kind?, request_id?,
                                  action?, instruction?, text?, reason?, agent_id?, ...}
                                   -> {ok, result}; 404 for a session not in the registry, 502 with the socket's error
     sessions/<sid>/agents...      the agent tree, one agent's tail and its commands (studio/fleet_api.py, 3.0.5.0)
@@ -31,7 +31,7 @@ STATUS_TIMEOUT_S = 1.0
 STATUS_WAIT_S = 1.5
 STATUS_TTL_S = 2.0
 COMMAND_TIMEOUT_S = 5.0
-COMMANDS = ("answer", "interrupt", "steer", "submit", "shutdown", "pause", "resume")
+COMMANDS = ("answer", "interrupt", "steer", "submit", "shutdown", "pause", "resume", "note")  # note: 3.0.5.0 R4
 FLEET_COMMANDS = ("shutdown", "pause", "resume")  # 3.0.5.0: sent with by = fleet.name, via = Studio
 ANSWER_FIELDS = ("kind", "request_id", "action", "instruction", "scope", "message", "rule", "answer", "approved",
                  "feedback", "mode_after")
@@ -132,6 +132,9 @@ def post_command(req):
         fields = {k: req.body[k] for k in ANSWER_FIELDS if k in req.body}
     elif cmd in ("steer", "submit"):
         fields = {"text": str(req.body.get("text") or "")}
+    elif cmd == "note":  # 3.0.5.0 R4: Fleet's Message, a line the owner reads (remote/protocol.py `_message`)
+        from halo_harness.studio.fleet_api import caller
+        fields = {"name": "fleet.message", "text": str(req.body.get("text") or ""), "by": caller()["by"]}
     client = None
     try:
         client = _client(entry, COMMAND_TIMEOUT_S)

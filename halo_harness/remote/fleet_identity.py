@@ -7,6 +7,9 @@ works on, and the fleet's config switches (Halo 3.0.5.0 "Fleet" round R1).
 * `project(cwd)` -> `{root, repo, branch, dirty}`: git-aware (the repo root,
   the origin's name or else the folder's, the branch, whether tracked files
   changed), the cwd with None fields outside a repo; cached PROJECT_TTL_S.
+  3.0.5.0 R4 adds `ahead` / `behind` (commits against its upstream, None
+  without one), `worktree` (the checkout's folder) and `linked` (a git
+  worktree other than the main checkout).
 * `session_kind(default)` -> `orchestra-worker` (HALO_ORCHESTRA_RUN set),
   `paperclip` (a Paperclip heartbeat's PAPERCLIP_AGENT_ID set) or `default`.
 * `parent_from_env()` / `parent_env(sid)`: the spawning session's id rides
@@ -157,8 +160,15 @@ def _git_project(cwd: str) -> dict:
     url = _git(root, "config", "--get", "remote.origin.url") or ""
     repo = re.sub(r"\.git$", "", re.split(r"[/:]", url.rstrip("/"))[-1]) if url else ""
     status = _git(root, "status", "--porcelain", "--untracked-files=no")
-    return {"root": root, "repo": repo or Path(root).name, "branch": _git(root, "rev-parse", "--abbrev-ref", "HEAD"),
-            "dirty": None if status is None else bool(status)}
+    out = {"root": root, "repo": repo or Path(root).name, "branch": _git(root, "rev-parse", "--abbrev-ref", "HEAD"),
+           "dirty": None if status is None else bool(status)}
+    # 3.0.5.0 R4 (project rooms): commits ahead of / behind its upstream, and which worktree this is
+    counts = (_git(root, "rev-list", "--left-right", "--count", "@{upstream}...HEAD") or "").split()
+    behind, ahead = (int(counts[0]), int(counts[1])) if len(counts) == 2 and all(c.isdigit() for c in counts) else (None, None)
+    gd, cd = _git(root, "rev-parse", "--git-dir"), _git(root, "rev-parse", "--git-common-dir")
+    linked = bool(gd and cd and (Path(root) / gd).resolve() != (Path(root) / cd).resolve())
+    out.update(ahead=ahead, behind=behind, worktree=Path(root).name, linked=linked)
+    return out
 
 
 def project(cwd, *, refresh: bool = False) -> dict:

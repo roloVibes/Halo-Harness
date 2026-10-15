@@ -5,6 +5,7 @@ relay_runtime.py verifies the hub's signature on each `command` doc and
 hands it here with the session's handle and that hub's policy:
 
     status, agents                      answered (rows scrubbed for the share level)
+    doctor                              answered: the read-only health subset (fleet/health.py, 3.0.5.0 R4)
     agent_tail, agent_follow, tail      answered when this hub's share is `full`
     agent_steer, agent_stop, pause,     fleet.allow_control `none`: refused, with the reason the hub shows;
     resume, shutdown, steer, interrupt  `ask` (the default): a card in the owner's TUI, "<name> on <hub>
@@ -12,6 +13,8 @@ hands it here with the session's handle and that hub's policy:
                                         ASK_TIMEOUT_S, or a print-mode session: denied); `all`: applied
     answer                              only with allow_control `all` AND fleet.allow_answers true, scope
                                         `once` (a hub never learns a rule), never the fleet card itself
+    note                                a person's message (`fleet.message`), shown to the owner without
+                                        asking unless allow_control is `none`; the model never sees it
 
 Applied commands run through remote/agent_control.py with `by` = the person
 at the hub and `via` = "hub <name>", so the session's transcript records
@@ -108,6 +111,9 @@ def ask_owner(handle, text: str, cid: str, interim: Optional[Callable] = None,
 
 
 def _read(handle, cmd: str, share: str) -> dict:
+    if cmd == "doctor":  # 3.0.5.0 R4: read-only, nothing written (fleet/health.py)
+        from halo_harness.fleet.health import cached, subset
+        return cached("doctor", subset)[0]
     if cmd == "agents":
         rows = _agent_cmd(handle, "agents").get("agents") or []
         return {"agents": [protocol.scrub_agent(r, share) for r in rows]}
@@ -130,8 +136,8 @@ def _act(handle, cmd: str, fields: dict, by: str, via: str) -> dict:
         return handle.interrupt()
     if cmd == "steer":
         cmd, fields = "agent_steer", {"agent_id": "main", "text": fields.get("text"), "mode": "nudge"}
-    keep = {"agent_steer": ("agent_id", "text", "mode"), "agent_stop": ("agent_id", "reason"),
-            "pause": ("agent_id",), "resume": ("agent_id",), "shutdown": ("reason",)}[cmd]
+    keep = {"agent_steer": ("agent_id", "text", "mode", "handoff"), "agent_stop": ("agent_id", "reason"),
+            "pause": ("agent_id", "reason"), "resume": ("agent_id",), "shutdown": ("reason",)}[cmd]
     return _agent_cmd(handle, cmd, by=by, via=via, **{k: fields[k] for k in keep if fields.get(k) is not None})
 
 
@@ -167,6 +173,9 @@ def run(handle, msg: dict, pol: dict, interim: Optional[Callable] = None) -> dic
         level, me = pol["allow_control"], identity.fleet_name()
         if level == "none":
             raise Refused(f"control from a hub is off on {me} (fleet.allow_control: none)")
+        if cmd == "note":  # 3.0.5.0 R4: a message from Fleet's People panel: the owner reads it, nothing runs
+            from halo_harness.remote.protocol import _message
+            return {"state": "done", "result": _message(handle, {"text": fields.get("text"), "by": by})}
         if level == "ask":
             if getattr(handle, "controller", None) is None:
                 raise Refused(f"{me}'s {getattr(handle, 'kind', 'print')} session has no one to ask, so a hub's "

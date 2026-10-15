@@ -3,9 +3,10 @@ commands (Halo 3.0.5.0 "Fleet" round R1). Wire shapes:
 
     agents                                 -> {agents: [row, ...]}       the session's live agent tree
     agent_tail   {agent_id, n=100, kinds?} -> {agent_id, events: [...]}  that agent's last n entries
-    agent_steer  {agent_id, text, mode?}   -> {agent_id, mode, delivered}  mode nudge (default) | redirect
+    agent_steer  {agent_id, text, mode?, handoff?} -> {agent_id, mode, delivered}  nudge (default) | redirect;
+                                           handoff: a Take over (a redirect recorded as a hand-off, 3.0.5.0 R4)
     agent_stop   {agent_id, reason?}       -> {agent_id, stopping: [...]}  the main agent: the turn interrupt
-    pause        {agent_id?}               -> {paused}                   omitted: the whole session
+    pause        {agent_id?, reason?}      -> {paused}                   omitted: the whole session
     resume       {agent_id?}               -> {resumed, was_paused}
     shutdown     {reason?}                 -> {shutdown: true}           the session ends after the current tool call
     agent_follow {agent_id, on=true}       -> {agent_id, following}      agent_event frames for it while on
@@ -142,12 +143,17 @@ def cmd_steer(handle, tree, req: dict) -> dict:
         raise HandleError(f"steer mode must be one of {', '.join(STEER_MODES)}, got {mode!r}")
     by, via = _caller(req)
     aid = _resolve(handle, tree, req)
-    head = f"[steer from {by} via {via}] "
+    handoff = {"handoff": "take_over"} if req.get("handoff") else {}  # 3.0.5.0 R4: Fleet's Take over
+    if handoff:
+        mode = "redirect"
+    head = f"[{'hand-off' if handoff else 'steer'} from {by} via {via}] "
     note = head + (text if mode == "nudge" else "Redirect: the rest of your current task is replaced. "
                    f"Your task is now: {text}")
     if aid == tree.root_id:
         result = handle.submit(note)
-        _record(handle, tree, aid, "agent_steer", by, via, mode=mode, text=one_line(text, 400))
+        _record(handle, tree, aid, "agent_steer", by, via, mode=mode, text=one_line(text, 400), **handoff)
+        if handoff:
+            _announce(handle, f"the main agent taken over from {via} by {by}: {one_line(text, 80)}")
         return {"agent_id": aid, "mode": mode, "delivered": "steer" if result.get("steered") else "turn", **result}
     session = _live_child(tree, aid)
     provider = getattr(getattr(session, "model_ref", None), "provider", None)
@@ -164,8 +170,9 @@ def cmd_steer(handle, tree, req: dict) -> dict:
         delivered = "inbox"
     if mode == "redirect":
         tree.update(aid, task=first_line(text))
-    _record(handle, tree, aid, "agent_steer", by, via, mode=mode, text=one_line(text, 400))
-    _parent_line(handle, tree, aid, f"{_label(tree, aid)} steered from {via} by {by}: {one_line(text, 80)}")
+    _record(handle, tree, aid, "agent_steer", by, via, mode=mode, text=one_line(text, 400), **handoff)
+    verb = "taken over" if handoff else "steered"
+    _parent_line(handle, tree, aid, f"{_label(tree, aid)} {verb} from {via} by {by}: {one_line(text, 80)}")
     return {"agent_id": aid, "mode": mode, "delivered": delivered}
 
 
@@ -208,11 +215,13 @@ def cmd_pause(handle, tree, req: dict, on: bool) -> dict:
         _announce(handle, f"{_label(tree, aid) if aid else 'the session'} resumed from {via} by {by}")
         return {"resumed": aid or "session", "was_paused": had}
     fresh = tree.controls.pause(aid, by, via)
-    _record(handle, tree, target, "pause", by, via, scope="agent" if aid else "session")
+    reason = " ".join(_str(req, "reason").split())[:120]  # 3.0.5.0 R4: "cap" when a spend cap paused it
+    _record(handle, tree, target, "pause", by, via, scope="agent" if aid else "session", **({"reason": reason} if reason else {}))
+    why = f": {reason}" if reason else ""
     if fresh and aid and aid != tree.root_id:
-        _parent_line(handle, tree, aid, f"{_label(tree, aid)} paused from {via} by {by}")
+        _parent_line(handle, tree, aid, f"{_label(tree, aid)} paused from {via} by {by}{why}")
     elif fresh:
-        _announce(handle, f"the session paused from {via} by {by} (each agent holds at its next tool boundary)")
+        _announce(handle, f"the session paused from {via} by {by}{why} (each agent holds at its next tool boundary)")
     return {"paused": aid or "session"}
 
 

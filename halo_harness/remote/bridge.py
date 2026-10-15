@@ -102,6 +102,11 @@ class Bridge:
             if item is not None:
                 self.handle(item)
             self.pairing.service(self.transport)
+            now = self.clock.monotonic()
+            if now - getattr(self, "_pushed_at", -1e9) >= 1.0:  # 3.0.5.0 R4: the fleet's attention cards (fleet/push.py)
+                self._pushed_at = now
+                from halo_harness.fleet.push import drain
+                drain(self)
         except Exception as e:  # one bad item must never end the daemon; it leaves an audit line
             try:
                 self.audit.record("-", 0, type(e).__name__, "error", "handler_exception")

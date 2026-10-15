@@ -168,7 +168,11 @@ class HubRelay(threading.Thread):
             agents = tree_for(act.handle.session).public_rows()
         except Exception:
             agents = []
-        return protocol.scrub_session(session_row(act.entry, status, [protocol.scrub_agent(a, share) for a in agents]))
+        row = protocol.scrub_session(session_row(act.entry, status, [protocol.scrub_agent(a, share) for a in agents]))
+        if row.get("kind") == "orchestra-worker":  # 3.0.5.0 R4: its run's claims, for the hub's conflict warnings
+            from halo_harness.fleet.conflicts import own_claims
+            row["claims"] = own_claims()
+        return row
 
     # ---- feeds ----------------------------------------------------------------------
     def _sync_subs(self) -> None:
