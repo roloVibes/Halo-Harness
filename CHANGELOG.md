@@ -8,6 +8,149 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.0.5.0] - unreleased
+
+Fleet: every connected harness, every session and every agent at every depth, live in Studio: watch what an agent thinks, runs and writes, steer, pause or stop that one agent, on your machine or a paired teammate's. The Roles canvas lights up while its agents work. Rolo's brief, 2026-10-14.
+
+### Fleet R1: every agent at every depth is addressable
+
+- Every session opens its loopback control socket by default (`fleet.enabled`,
+  default true); `remote.enabled` is now only the Signal bridge's switch and
+  `halo remote signal run` needs it. `halo --private`, `/private on|off` and
+  `fleet.private` keep a session out of the registry (a `private` chip in the
+  status bar).
+- Registry entries carry `harness` (a stable id in `~/.halo/fleet-id`,
+  `fleet.name` defaulting to user@host, host, version, os), `project` (repo,
+  branch, dirty, from git), `kind` (tui, print, paperclip, orchestra-worker,
+  flow) and `parent`; old entries still load.
+- A live agent tree per session: main, every sub-agent at every depth and
+  every background Bash job, each with its state (queued, running, waiting,
+  paused, done, failed, stopped), the tool in flight, its last text, turns and
+  cost.
+- New control commands `agents`, `agent_tail`, `agent_steer` (nudge keeps it
+  going, redirect replaces the rest of its task), `agent_stop`, `pause`,
+  `resume`, `shutdown` and `agent_follow`. The loop checks them at tool and
+  model boundaries; each is recorded with its origin in the agent's
+  transcript and the parent gets one line. A steer never widens a permission,
+  answers a card or skips a gate.
+- Feed frames `agent_state`, `agent_event` (for followed agents) and `fleet`;
+  every frame carries `session_id` and `harness`.
+- Studio: `GET /api/sessions/<sid>/agents`, `.../agents/<aid>/tail`,
+  `POST .../agents/<aid>/command`, session `shutdown`/`pause`/`resume`, and an
+  agent count in the Sessions rail.
+- `halo remote agents | steer --agent | stop --agent` and `/agents live`.
+
+### Fleet R2: a hub, a six-word pairing, and what a joined harness shares
+
+- `halo fleet serve` and `halo studio --fleet` run a hub on its own LAN port
+  (`fleet.hub.port`, 7430) that serves only the fleet protocol: HMAC-signed
+  requests with a timestamp and nonce replay window, signed and numbered
+  commands down, TLS with a pinned self-signed certificate when
+  `cryptography` is installed (`halo-harness[fleet]`), HMAC-only otherwise.
+  Offline mode refuses it.
+- `halo fleet pair [--ttl]` makes a one-time six-word code with a QR and the
+  hub's fingerprint; `halo fleet join <host:port> --code "..."` pairs through
+  a key exchange the code authenticates (`--share`, `--allow-control`,
+  `--fingerprint`); `halo fleet leave | status | members | kick`.
+- A joined harness announces every session with its agent tree and forwards
+  its feed per `fleet.share`: `status`, `events` (default) or `full`. Full
+  local paths never leave the machine; a hub that is down never slows a
+  session.
+- Control from a hub is gated by `fleet.allow_control`: `ask` (default) shows
+  an allow/deny card in the owner's TUI (print-mode sessions deny), `none`
+  refuses with the reason, `all` applies; every command is recorded with its
+  `by` and `via`. Cards are answerable from a hub only with `all` plus
+  `fleet.allow_answers`, once; a hub never gets a tool permission.
+- Studio: `GET /api/fleet` (every harness, session and agent tree, with
+  version chips), `POST /api/fleet/<harness>/<sid>/command` and
+  `.../agents/<aid>/command`, `GET /api/fleet/commands/<id>`,
+  `POST /api/fleet/hub`; member frames arrive on the feed with `harness`,
+  plus `fleet` frames for join, leave, online, offline, sessions and command.
+- `halo fleet` is a live terminal table (`s` steer, `k` stop, `p` pause,
+  `--once`, `--json`); `/fleet` opens the same table in the TUI.
+
+### Fleet R3: the Fleet section, the agent inspector, Live Roles and the hop keys
+
+- Studio **Fleet** (Alt+6, `halo studio --mode fleet`, `/studio fleet`):
+  every harness as a box, its sessions as cards, each session's agents as a
+  live tree (**By project** groups everyone on a repo); click an agent to
+  watch what it thinks, runs and writes (Thinking / Working / Output), and
+  steer (nudge or redirect), pause, stop or follow that one agent. A spawn or
+  a message lights the edge between two agents for a moment.
+- The rail's **Fleet tree** in every section (harness > session > agent,
+  live and need-you counts, inline answers for local and member sessions)
+  replaces the list of live sessions.
+- **Hop keys** everywhere: `J`/`K` next/previous live agent (Fleet, Roles,
+  Org, Orchestra lanes), `F` follow, `Space` pins a **mini stream** that
+  floats over any section, `Esc` unpins, `P` pause; `K` in the agent panel
+  stops with a confirm.
+- **Live Roles:** the Roles and Org cards glow in their band colour by what
+  their agents do (typing, tool calls, waiting, done, failed), with a count
+  badge and a cost ticker; the Inspector's **Live** tab streams the agent
+  with Steer / Pause / Stop / Follow, or shows the card's last runs.
+- Fleet **Start view:** the pair code with its QR and the join line,
+  share/control settings, joined hubs and members (kick).
+- Routes `POST /api/fleet/pair`, `GET|POST /api/fleet/settings`,
+  `POST /api/fleet/kick`, `GET /api/fleet/history`; sub-agent meta files
+  record role and lineup.
+
+### Fleet R4: the panels, the attention queue, caps, conflicts, hand-offs, recordings, replay and the digest
+
+- **Attention**, one queue for the whole fleet: every decision anyone has to
+  make (permission, question, plan and approval cards, fleet asks, waiting
+  and paused agents, flow and Orchestra gates, commands waiting on a
+  member's owner, spend caps, file conflicts) in one list with one-key
+  answers (`a` accept, `r` redo/deny with a text, `s` stop, `o` open the
+  panel it belongs to), each answer routed through the handler that already
+  owns it and journaled with who made it (`GET /api/fleet/attention`,
+  `POST /api/fleet/attention/answer`); the count sits in the status bar of
+  every section and in the Fleet rail. New rows reach the paired phone as
+  the Signal bridge's own cards, prefixed with the harness name, when the
+  bridge is enabled, running and paired (`fleet.attention.signal`).
+- **People**: one row per harness (host, version with a mismatch chip and
+  the `halo update` hint, share and control levels, project and top session,
+  live / idle / away, cost today), Kick and Message (a `note` the session's
+  owner reads, never the model).
+- **Activity** with a timeline strip: the merged live log (filter by harness,
+  session, agent, kind; follow) and one lane per live agent over the last
+  5 / 15 / 60 minutes, bars by state, tool calls as ticks, click to select.
+- **Costs and caps**: spend ticker (fleet, per harness, per project, today,
+  this session) and `fleet.caps.*` per harness, per project and for the
+  whole fleet: reaching one pauses the sessions in its scope (`pause` with
+  reason `cap`) and raises an attention row; lifting it resumes them
+  (`GET|POST /api/fleet/caps`, `GET /api/fleet/costs`).
+- **Health** per harness, cached 60 s: providers reachable, Studio version,
+  disk, control sockets; a member answers the new read-only `doctor` fleet
+  command (`GET /api/fleet/health`).
+- **Project rooms and conflict warnings**: in By project every card shows
+  dirty / ahead / behind and its worktree; two agents of different sessions,
+  on any harnesses, editing one file of one repo (or holding one Orchestra
+  claim) get a warning edge on the map, card chips and an attention row
+  (`GET /api/fleet/conflicts`).
+- **Hand-offs**: Take over an agent with a new brief (recorded as a hand-off
+  in both transcripts) or Hand it to another harness (a Paperclip issue with
+  Org mode on, `<repo>/.halo/handoffs/<id>.md` with it off), then it stops
+  (`POST /api/fleet/<harness>/<sid>/agents/<aid>/handoff`).
+- **Flight recordings**: Record on an agent or a session renders one
+  self-contained HTML replay with no network (three streams, scrubbable
+  timeline, tool rows, cost curve) into `~/.halo/recordings/`
+  (`POST .../recording`, `GET /api/fleet/recordings/<name>`,
+  `halo fleet record <sid> [--agent]`).
+- **Canvas replay**: a scrub bar on the Roles canvas replays a finished
+  session, the cards lighting up in the order they worked (play / pause /
+  speed), from the Live tab's history (`GET /api/fleet/replay`).
+- **"While you were away"**: a digest computed in code per harness
+  (sessions, cost, decisions and who made them, files, errors, hand-offs)
+  shown on the Fleet Start view and the rail when the tab comes back after
+  ten minutes (`GET /api/fleet/digest`, `halo fleet digest [--since]`).
+- Studio keeps one fleet watcher per server (3 s tick, started by the hub
+  or the first panels route) that journals session starts and ends, member
+  costs, files, errors, caps, decisions and hand-offs to
+  `~/.halo/fleet/journal.jsonl`.
+- docs/FLEET.md "The panels", docs/STUDIO.md Fleet section with its
+  "How this works", docs/CONFIG.md (`fleet.caps.*`, `fleet.attention.signal`),
+  docs/COMMANDS.md (`halo fleet record|digest`).
+
 ## [3.0.4.0] - 2026-10-14
 
 ### Media: ComfyUI is the eighth craft app, and media models have their own inventory
