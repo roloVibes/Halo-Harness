@@ -1,7 +1,9 @@
 // The Studio shell: header with the section tabs, the rail, the section's
 // workspace (each visited section stays mounted, so a framed page keeps its
 // state), the Inspector, the status bar, the palette, the toasts and the
-// "How this works" overlay (also each section's first-visit welcome).
+// "How this works" overlay (also each section's first-visit welcome); from
+// 3.0.5.0 the Fleet pieces that work in every section: the hop keys, Live
+// Roles' bridge to the framed pages, the mini stream and the Fleet dialogs.
 import { useEffect } from "react";
 import { studio, useStore, welcomeIfNew } from "./lib/store";
 import { Workspace } from "./lib/workspace/Workspace";
@@ -16,6 +18,10 @@ import { SectionHelp } from "./shell/SectionHelp";
 import { startFeed } from "./shell/feed";
 import { useGlobalKeys } from "./shell/keys";
 import { useLegacyMessages } from "./shell/legacy";
+import { FleetDialogs } from "./routes/fleet/Dialogs";
+import { useFleetFrames } from "./routes/fleet/frames";
+import { useHopKeys } from "./routes/fleet/hop";
+import { FleetPip } from "./routes/fleet/Pip";
 
 export function App() {
   const section = useStore(studio, (s) => s.section);
@@ -24,7 +30,9 @@ export function App() {
   const railOpen = useStore(studio, (s) => s.railOpen);
   const inspecting = useStore(studio, (s) => s.inspector !== null);
   useGlobalKeys();
+  useHopKeys();
   useLegacyMessages();
+  useFleetFrames();
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
@@ -46,10 +54,12 @@ export function App() {
           </div>
         ))}
       </main>
+      <FleetPip />
       <Inspector />
       <StatusBar />
       <Palette />
       <SectionHelp />
+      <FleetDialogs />
       <Toasts />
     </div>
   );

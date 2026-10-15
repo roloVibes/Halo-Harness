@@ -1,5 +1,6 @@
 // Wires the live feed (lib/events) into the shell's store: connection state,
-// the attached sessions, an event counter, per-section activity, and the
+// the attached sessions, an event counter, per-section activity (agent_* and
+// fleet frames count for Fleet), and the
 // last 100 frames for the Orchestra feed panel. `?feed=off` keeps it shut
 // (headless captures).
 import { connectEvents, onEvent, onFeedState, type FeedFrame } from "../lib/events";
@@ -19,7 +20,7 @@ export function startFeed(): void {
   onEvent("*", (f) => {
     if (f.event === "sessions") return;
     const now = Date.now();
-    const section = /^(flow_|media_)/.test(f.event) ? "flow" : "orchestra";
+    const section = /^(flow_|media_)/.test(f.event) ? "flow" : /^(agent_|fleet$)/.test(f.event) ? "fleet" : "orchestra";
     studio.update((s) => ({
       feed: { ...s.feed, events: s.feed.events + 1, lastKind: f.event, lastTs: now },
       activity: { ...s.activity, [section]: now },

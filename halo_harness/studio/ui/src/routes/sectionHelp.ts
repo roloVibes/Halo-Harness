@@ -13,6 +13,13 @@ const PANEL_KEYS: [string, string][] = [
   ["Esc", "close the palette, a menu, the help or the Inspector"],
 ];
 
+const HOP_KEYS: [string, string][] = [
+  ["J / K", "hop to the next / previous live agent"],
+  ["F", "follow it: its stream scrolls with it"],
+  ["Space", "pin its stream: a mini stream stays on screen in every section"],
+  ["Esc", "unpin the mini stream"],
+];
+
 export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
   orchestra: {
     what: "Several agents write to the same files at once and nothing is lost: a lead splits your goal into lanes, one worker per lane writes its part in its own git worktree, and a gate checks the result before it lands.",
@@ -23,7 +30,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["The gate checks DONE WHEN", "The parts merge one at a time, your test runs, and a part that fails goes back to its worker (up to the return cap)."],
       ["Read the report", "Every check with a tick or a cross, the finished branch and its sha, the tests, the cost and the time."],
     ],
-    keys: [["Alt+1", "Orchestra"], ...PANEL_KEYS],
+    keys: [["Alt+1", "Orchestra"], ["J / K", "focus the next / previous lane at work"], ["F", "the Log follows the newest line"], ...PANEL_KEYS],
   },
   roles: {
     what: "A lineup says which agent, on which model, plays each role in your sessions. Studio shows it as cards you can arrange and edit; the files are ~/.halo/teams/<name>.yaml and ~/.halo/agents/<name>.yaml.",
@@ -34,8 +41,9 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Add an agent", "Drag a bio from the left list onto the canvas, or straight into a box."],
       ["Edit", "Select a card: the right side has Assignment, Agent (the bio), Lineup and YAML."],
       ["Validate, Save, Apply", "Validate runs the CLI's checks, Save writes the YAML to your scope, Apply makes it the lineup new sessions use."],
+      ["Watch it work", "While a session runs, the cards whose agents work glow in their band colour; click one and its Live tab shows exactly what it types, with Steer, Pause and Stop."],
     ],
-    keys: [["Alt+2", "Roles"], ["A", "lay the canvas out (click the canvas first)"], ["F", "fit it to the view"], ["Mod+S", "save the lineup"], ["Del", "remove the selected card"], ...PANEL_KEYS],
+    keys: [["Alt+2", "Roles"], ["A", "lay the canvas out (click the canvas first)"], ["F", "fit it to the view (with the Live tab open: follow)"], ["J / K", "the next / previous card whose agent works: its Live tab opens"], ["Mod+S", "save the lineup"], ["Del", "remove the selected card"], ...PANEL_KEYS],
   },
   org: {
     what: "Your company of agents in Paperclip: an org chart with goals, issues, heartbeats and budgets. Halo's lineups become its agents.",
@@ -46,7 +54,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Change who reports to whom", "Drop a card into another box, or onto a card; Studio asks first, then updates Paperclip."],
       ["Work with an agent", "Select a card: Agent (budget, wake, pause), Issues, its Paperclip page, and Company (sync a lineup into the company)."],
     ],
-    keys: [["Alt+3", "Org"], ["A", "lay the canvas out (click the canvas first)"], ["F", "fit it to the view"], ...PANEL_KEYS],
+    keys: [["Alt+3", "Org"], ["A", "lay the canvas out (click the canvas first)"], ["F", "fit it to the view"], ["J / K", "the next / previous working agent: its Live tab opens"], ...PANEL_KEYS],
   },
   design: {
     what: "Prototypes, pages, decks and logos made by your own apps. A project is a folder of artboards under ~/.halo/design/<slug>/, and every turn saves a new version.",
@@ -72,5 +80,17 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Read the report", "Report sums it up; New run in the rail goes back to the Start view."],
     ],
     keys: [["Alt+5", "Flow"], ...PANEL_KEYS],
+  },
+  fleet: {
+    what: "Every Halo harness you run or joined, its sessions and every agent in them, live: what each one thinks, runs and writes, and the controls to steer, pause or stop any one of them, not only the main agent.",
+    steps: [
+      ["See every harness", "This harness is the first box. Another machine joins with a pair code: Make a pair code on the Start view (or the palette), then halo fleet join on the other machine."],
+      ["Read the map", "Each session is a card, its agents a tree under it: a flowing outline works, amber waits on you, green just finished, red failed. By project puts everyone on one repo in one box."],
+      ["Open an agent", "Click it (or J / K): Agent shows what it thinks as it types, each tool call with its result and diff, and what it hands back."],
+      ["Steer it", "Type in Steer: a nudge it reads before its next step, or redirect for a new task. Only that agent hears it, and it shows in its stream as you."],
+      ["Pause, stop, shut down", "Pause holds it at its next step, Stop asks first, a session's ... shuts the whole session down. A member's owner may be asked before anything runs there."],
+      ["Hop around", "J / K hop, F follows, Space pins a mini stream that stays on screen in every section. On Roles and Org the working cards glow; their Live tab is the same stream."],
+    ],
+    keys: [["Alt+6", "Fleet"], ...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"], ...PANEL_KEYS],
   },
 };

@@ -5,7 +5,7 @@ import { Kbd, Surface } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { commands, fuzzy, type Command } from "./commands";
 
-const GROUP_ORDER = ["Go to", "Help", "Orchestra", "Flow", "Media", "View", "Layout", "Open"];
+const GROUP_ORDER = ["Go to", "Help", "Orchestra", "Flow", "Fleet", "Media", "View", "Layout", "Open"];
 
 export function Palette() {
   const open = useStore(studio, (s) => s.paletteOpen);
