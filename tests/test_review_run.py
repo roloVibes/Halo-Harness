@@ -60,7 +60,9 @@ def test_dimensions_run_in_parallel_under_the_gate(ctx: Ctx):
                   sorted(_dim(p) for p in rev.prompts) == sorted(
                       ["correctness", "security", "performance", "tests", "docs-consistency"]))
         ctx.check(f"the gate held at 2 while reviewers overlapped, peak={rev.peak}", rev.peak == 2)
-        ctx.check(f"parallel, not serial (5 x 0.35 s serial = 1.75 s), took {took:.2f}", took < 1.6)
+        # `peak == 2` above is the proof of overlap; the clock is only a sanity cap (a loaded CI
+        # runner has taken 1.73 s for the three parallel batches that take 1.05 s on an idle one)
+        ctx.check(f"finished within twice the serial time (5 x 0.35 s = 1.75 s), took {took:.2f}", took < 3.5)
         ctx.check("no findings, no judge calls", result.findings == [] and not result.dismissed)
         ctx.check("each reviewer prompt carries the diff", all("-    return a + b" in p for p in rev.prompts))
         from halo_harness.agent.subagent import list_agent_task_rows
