@@ -4,9 +4,22 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-14 ~21:45 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-15 ~04:10 CDT (authoritative, read this first)
 
-**3.0.5.0 "FLEET" IS CODE-COMPLETE ON MASTER, RELEASE IN PROGRESS.** Every
+**3.0.5.0 "FLEET" IS RELEASED** (tag v3.0.5.0 at 2b0a9f7 on master, GitHub
+release published, local install `halo 3.0.5.0`), cut on CI run 38688763766
+read as `conclusion == success` for sha 0af8fde. Between the merge and the
+tag, four test-only fixes: `test_review3_d1` item28 follows R1's `_actives`
+list; the HubRig reads B's relay to ITS hub and starts `relay_runtime` from
+nothing (a leaked session's watcher re-created a relay for a dead hub and the
+kick test read that one: full suite only, Windows); `test_review_run`'s
+parallel check trusts the gate's peak with the clock as a sanity cap;
+`test_review_tui` reads "both rows listed, one running" from one snapshot
+(mock reviewers 3 s). Worktree `hh-fleet/R4-panels` removed; the `fleet/*`
+branches are merged and may be deleted. The owner's LIVE CHECK is still to
+do (below). Pre-release history of the round follows.
+
+**3.0.5.0 "FLEET" WAS CODE-COMPLETE ON MASTER 2026-10-14 ~21:45 CDT.** Every
 round landed: R1 agent control (dbf1a13), R2 hub/pairing/join/relay
 (7ece693), R3 the Studio Fleet section + Live Roles + hop keys (a82c607),
 R4a the panels backend (782738e: the fleet watcher, attention queue + answer
