@@ -99,6 +99,12 @@ def _gather_real_flags() -> "dict[str, set]":
     from halo_harness.media.cli import cmd_media
     for sub in ("init", "doctor", "inspect", "models", "workflows"):
         out[f"halo media {sub}"] = _flags_in(_capture(cmd_media, [sub, "--help"]))
+    # 3.0.5.0 round R2: `halo fleet` (the hub, pairing, join and the live table)
+    from halo_harness.fleet.cli import cmd_fleet
+    from halo_harness.fleet.table import cmd_table
+    out["halo fleet"] = _flags_in(_capture(cmd_table, ["--help"]))
+    for sub in ("serve", "pair", "join", "leave", "status", "members", "kick", "record", "digest"):  # record, digest: R4
+        out[f"halo fleet {sub}"] = _flags_in(_capture(cmd_fleet, [sub, "--help"]))
     return out
 
 
@@ -106,7 +112,7 @@ def _gather_real_flags() -> "dict[str, set]":
 def test_every_subcommand_is_documented(ctx: Ctx):
     text = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
     for name in ("init", "doctor", "update", "models", "mcp", "config", "stats", "export", "improve", "proxy",
-                 "work-matrix", "ollama", "review", "media"):
+                 "work-matrix", "ollama", "review", "media", "fleet"):
         label = f"halo {name}"
         ctx.check(f"COMMANDS.md documents {label!r} (as a heading)",
                   re.search(rf"^#{{1,3}}\s+.*`?{re.escape(label)}`?", text, re.MULTILINE) is not None)

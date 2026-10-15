@@ -10,6 +10,7 @@ is a second source of truth.
 ```sh
 halo studio                 # starts a local server, opens the browser in the mode you used last
 halo studio --mode roles    # straight into Roles (lineups and bios), --mode org, --mode design
+halo studio --mode fleet    # 3.0.5.0: every harness and agent, live (also orchestra, flow)
 halo studio --no-open       # prints the URL only (SSH, a headless box)
 halo studio --port 8765     # a fixed port instead of a free one
 halo studio --stop          # stop the Studio running in the background
@@ -24,17 +25,18 @@ buttons start it detached, so it outlives `halo init`; `halo studio --stop`
 ends it. `halo_harness/studio/launch.py` is the small module behind both.
 
 Inside the TUI, `/roles`, `/org` and `/design` open Studio straight into that
-mode from the live session; `/studio [roles|org|design|orchestra|flow]` is the long form and
+mode from the live session; `/studio [roles|org|design|orchestra|flow|fleet]` is the long form and
 `/studio url` prints the URL without opening a browser. A model running in a
 Halo session knows this too: the system prompt names Studio, its three modes
 and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 
 ## The shell (3.0.3.0)
 
-`halo studio` opens a React shell with five sections in the top bar:
-**Orchestra | Roles | Org | Design | Flow** (`Alt+1`..`Alt+5`, or `?mode=` in
-the URL; Flow since 3.0.4.0). Orchestra is the live run console (see [Orchestra](#orchestra-the-run-console)
-below), Flow the workflow console (see [Flow](#flow-the-workflow-console));
+`halo studio` opens a React shell with six sections in the top bar:
+**Orchestra | Roles | Org | Design | Flow | Fleet** (`Alt+1`..`Alt+6`, or `?mode=` in
+the URL; Flow since 3.0.4.0, Fleet since 3.0.5.0). Orchestra is the live run console (see [Orchestra](#orchestra-the-run-console)
+below), Flow the workflow console (see [Flow](#flow-the-workflow-console)),
+Fleet every harness and every agent, live (see [Fleet](#fleet-every-harness-every-agent));
 Roles, Org and Design are the
 classic pages described below, framed inside the shell from `/legacy/`, so
 everything in them works as before. `halo studio --legacy` opens the classic
@@ -84,14 +86,18 @@ page on its own.
   shut, as on the classic page).
 - **The rail** (left) has the section's own block (Orchestra and Flow: **New
   run** and the runs), lists the section's panels (click one to bring it back
-  and focus it), the live sessions with their status (and an inline answer
-  for one that waits on you, 3.0.4.0), and the layout actions.
+  and focus it), the **Fleet tree** (3.0.5.0; it replaced the plain list of
+  live sessions): every harness, its sessions and their agents with a status
+  dot each, the live and need-you counts on top, a click opens Fleet on that
+  node, and a session that waits on you keeps its inline answer; then the
+  layout actions.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
   grouped results (Go to, View, Layout, Open), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
 - **The status bar** shows the live feed (a dot that is green when
   connected, amber while connecting or reconnecting, red when unreachable,
-  and ticks once per event), the session and event counts, the framed
+  and ticks once per event), the session count, the fleet (agents at work
+  and how many wait on you), the event count, the framed
   classic page's status line (Roles, Org, Design) and the section's layout
   state. `Esc` closes the palette, a menu or a help card, then the Inspector.
 
@@ -178,9 +184,15 @@ are `~/.halo/teams/<name>.yaml` and `~/.halo/agents/<name>.yaml`.
    Lineup and YAML.
 6. **Validate, Save, Apply**: Validate runs the CLI's checks, Save writes the
    YAML to your scope, Apply makes it the lineup new sessions use.
+7. **Watch it work** (3.0.5.0): while a session runs, the cards whose agents
+   work glow in their band colour; click one and its **Live** tab shows
+   exactly what it types, with Steer, Pause and Stop
+   ([Live Roles](#live-roles-the-lineup-lights-up)).
 
 **Panels.** Roles: your lineup as cards, boxed by role: who plays each part,
-on which model.
+on which model. Keys: `J` / `K` the next / previous card whose agent works
+(its Live tab opens); with the Live tab open `F` follows, `Space` pins its
+mini stream, `P` pauses; `Esc` unpins.
 
 ![Roles in the shell: one header, the lineup boxed by role](media/studio-roles.png)
 
@@ -257,6 +269,53 @@ out and their metrics come back, all in one design project.
 **Panels.** Intake, Workflow, Renders, Step, Posts, Metrics, Log, Report and
 the four Media panels; what each shows is in the [Flow](#flow-the-workflow-console)
 table below.
+
+### Fleet
+
+**What it is.** Every Halo harness you run or joined, its sessions and every
+agent in them, live: what each one thinks, runs and writes, every decision
+that waits on you, what it all costs, and the controls to steer, pause,
+stop, take over or hand off any one agent.
+
+**How to use it.**
+
+1. **See every harness**: this harness is the first box. Another machine
+   joins with a pair code: Make a pair code on the Start view (or the
+   palette), then `halo fleet join` on the other machine. People lists them
+   all.
+2. **Answer what waits on you**: Attention is one queue of every card,
+   gate, paused agent, spend cap and file conflict on every harness. `A`
+   accepts, `R` denies or redoes with your text, `S` stops, `O` opens where
+   it belongs.
+3. **Read the map**: each session is a card, its agents a tree under it: a
+   flowing outline works, amber waits on you, green just finished, red
+   failed. By project shows each repo's dirty / ahead / behind; an amber
+   dashed edge joins two agents editing one file.
+4. **Open an agent**: click it (or `J` / `K`): Agent shows what it thinks as
+   it types, each tool call with its result and diff, and what it hands
+   back. Steer it with a nudge or a new task.
+5. **Pause, stop, hand off**: Pause holds it at its next step, Stop asks
+   first. Take over gives it your brief; Hand to... passes it to another
+   harness (a Paperclip issue with Org mode on, a hand-off note without)
+   and stops it.
+6. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
+   or 60 minutes, tool calls as ticks) over the merged live log. Costs
+   ticks today's spend and holds the caps; Health is a doctor summary per
+   harness.
+7. **Record and replay**: Record saves a session or one agent as a single
+   HTML file that plays anywhere. Replay plays a finished session on the
+   Roles canvas: the cards light up in the order they worked.
+8. **Come back**: after ten minutes away, While you were away sums up what
+   happened: sessions, cost, decisions and who made them, files, errors,
+   hand-offs.
+
+**Panels.** People: who is in the fleet, what each shares, what it is on,
+live or away. Costs: what the fleet spends today, and the caps. Health: a
+doctor summary per harness. Attention: every decision that waits on you,
+one key each. Map: every harness as a box, its sessions as cards, each
+session's agents as a tree. Activity: a timeline lane per live agent and
+the merged live log. Agent: the selected agent: what it thinks, what it
+runs, what it hands back; steer it, take it over, hand it on, record it.
 
 ## The live feed
 
@@ -453,6 +512,235 @@ render over an existing artboard becomes that artboard's next version.
 `media/status` refreshes in the background every 15 s and never holds a
 request for more than 2 s. An artboard's `url` is a `/design-files/` path.
 A `.mp4` is served as `video/mp4` with no sandbox directive.
+
+## Fleet: every harness, every agent
+
+`Alt+6` (or `?mode=fleet`, `halo studio --mode fleet`, `/studio fleet`) is
+every Halo harness you run or joined, live: this machine's sessions (each
+opens its control socket by default, [FLEET.md](FLEET.md)) and every harness
+joined to this machine's hub, each session with its agents at every depth.
+Watch what any agent thinks, runs and writes, and steer, pause or stop that
+one agent, not only the main one.
+
+![Fleet: two harnesses and five agents; the researcher's streams open, the implementer pinned as a mini stream](media/studio-fleet.png)
+
+**The Start view.** While only this harness is here and nothing runs on it,
+the section is one Start view instead of an empty map: what Fleet is in five
+lines; "Start a session in a terminal, it appears here"; **Make a pair code**
+(a one-time six-word code, the `halo fleet join <url> --code "..."` line for
+the other machine and its QR, which carries the hub's address and
+fingerprint; **Start the hub here** when none runs: it listens on the LAN
+port, so Windows asks once about its firewall); the share and control
+settings as radio rows (`fleet.share`: status | events | full;
+`fleet.allow_control`: none | ask | all); the hubs this harness joined and
+the members of this machine's hub, each with **kick**; and "open the
+workspace anyway". The panels come up by themselves the moment a session
+registers or a member joins (`?view=start` / `?view=workspace` force one).
+
+Seven panels (3.0.5.0 R4), on a 24-column grid: People, Costs and Health
+along the top on their compact faces; under them Attention on the left,
+Map with Activity under it in the middle, Agent on the right. Every panel
+has its one-line about in its title bar and `?` for how to use it.
+
+![Fleet's seven panels: People, Costs and Health on top, Attention with the member's two cards, a conflict edge on the map, the timeline and the live log, the researcher in Agent, While you were away in the rail](media/studio-fleet-panels.png)
+
+| Panel | What it shows |
+|---|---|
+| **People** (`fleet-people`) | One row per harness: name, host and OS, the Halo version (a chip with "halo update" when it differs from this one), what it shares and what it lets you do there, the project and top session it is on, **live** (an agent of it works now) / **idle** / **away** (the hub has not heard from it for two minutes), spend today. **Message** sends its owner a note in that session (the `note` command; the model never reads it); **Kick** (this machine's hub only) asks first. Compact face: how many are online and their names. |
+| **Costs** (`fleet-costs`) | Today's spend (sessions started today, local day) as a ticker for the whole fleet, then per harness, per project and per session; the provider balances the balances workers last read, when there are any; the **spend caps** editor (per harness, per project, the whole fleet, dollars per day; empty is no cap) and every cap reached, with **Lift for today**. Compact face: the fleet's spend and the caps reached. |
+| **Health** (`fleet-health`) | A doctor summary per harness: all good / check it / needs you, the providers set up and whether they answer, the Halo, Studio and Python versions, free disk, how many sessions have their control socket open, and how old the reading is; **Refresh** asks again now. Compact face: healthy and to check. |
+| **Attention** (`fleet-attention`) | Every decision that waits on you, across the fleet, oldest first: who (harness, session, agent), what, for how long, and its one-key answers. Compact face: the count and the oldest row. |
+| **Activity** (`fleet-activity`) | The **timeline**: one lane per live agent over the last 5, 15 or 60 minutes, a bar per state (cyan working, amber waiting or paused, green done, red failed), each tool call a tick; hover for who and since when, a click selects that agent. Under it the merged **live log** of every harness, session and agent (state changes, tool calls, the text they write, the cards they open, errors, harnesses joining and leaving), with filters by harness, session, agent and kind, and Follow. Compact face: agents live and the newest line. |
+| **Map** (`fleet-map`) | One labelled box per harness (this one first; the group-box look of the Roles and Org canvases), a card per session (title, kind chip, project and branch, cost, status dot) and its agents as a tree under it (name and role, what it does now, the model pill, the tool's icon while a tool runs, a cost ticker that counts up, `...`), an edge from each parent to its children. **By project** regroups the cards into one box per repo, the harness colour on each card. Compact face: harnesses, agents live, need you. |
+| **Agent** (`fleet-agent`) | The selected agent: harness, session, role, model, cost, elapsed, state; **What it was asked**; its three streams, tabbed or side by side (Settings): **Thinking** (what it writes and reasons, the newest text typing out character by character; steers, notes, the cards it opened), **Working** (one row per tool call with its arguments, the file it touches, its result, and for Edit / Write the diff as it grows), **Output** (its hand-back, else the text after its last tool call); **Pause** / **Resume**, **Stop** (asks first), **Follow**, **Pin**; **Take over**, **Hand to...**, **Record**, **Replay** (this harness); the **Steer** box. With no agent picked, the last sessions on this harness with **replay** and **record**. Compact face: the agent, its state and cost, what it does now and its last words. |
+
+**Motion** (the shell's vocabulary): a working agent's outline flows (a
+dashed light running round it), one that waits on you or is paused pulses
+amber, one that just finished gets one green sweep, a failed one flashes red
+and keeps a red edge, a queued or stopped one breathes slowly. When an agent
+spawns another (or sends it a message), the edge between them lights for
+three seconds.
+
+**Click, double-click, `...`.** A click selects (the Agent panel and an open
+Inspector follow, the agent is followed so its stream is pushed, its backlog
+is read once); a double-click opens Agent expanded and focused; `...` on an
+agent is **Steer**, **Pause** / **Resume**, **Pin**, **Stop...**, **Take over...**,
+**Hand to...**, **Record this agent**, and on a session card **Record the
+session** and **Shut the session down...**; **Open in Orchestra** /
+**Open in Flow** when the session is an Orchestra worker or a flow run.
+
+**Steer.** Type in the Steer box and press Enter (or Send): **nudge** is a
+note the agent reads before its next model call, **redirect** gives it a new
+task. Only that agent hears it, its stream shows your words marked "you",
+and its transcript records who sent it. A steer never widens a permission or
+answers a card. To a member's agent it goes through the hub: that harness's
+`fleet.allow_control` decides (`ask` opens an allow / deny card for its
+owner, and Studio says it is waiting), `none` takes no commands, `all` runs it.
+
+**Stop, Pause, Shutdown.** Pause holds the agent at its next tool or model
+call (Resume releases it). Stop asks first, then the agent stops at its next
+step with its own sub-agents, and the agent that spawned it gets the stopped
+hand-back and carries on. Shutdown ends the whole session after its current
+tool call. The palette also has **Fleet: pause all** and **resume all**.
+
+### How this works: Attention
+
+One queue holds every decision a human has to make on any harness:
+permission, question, plan and approval cards, a fleet command a member's
+owner has to allow, an agent that waits or is paused, a Flow gate, an
+Orchestra gate, a spend cap reached, two agents on one file. Each row
+answers with one key, through the route that already handles that kind
+(`GET /api/fleet/attention`, `POST /api/fleet/attention/answer`): **A**
+accepts, allows or resumes, **R** denies, redoes or answers with the text
+you type (a deny reason is optional), **S** stops the agent, **O** opens the
+panel the row belongs to (the agent in Agent, Costs, the map, Flow,
+Orchestra) and sends nothing. Click a row (or move with `J` / `K` or the
+arrows while the panel has the focus), then press the key; every decision
+is journaled with who made it. The count is live in the status bar and the
+rail in every section (a `fleet` frame with action `attention` each time it
+changes); a click on the rail's count opens Attention. With the phone
+bridge enabled and paired, new rows go to the phone too ([FLEET.md](FLEET.md)).
+
+### How this works: Costs and caps
+
+Costs reads `GET /api/fleet/costs` every ten seconds while it shows. A cap
+is `fleet.caps.per_harness_usd_per_day`, `per_project_usd_per_day` or
+`fleet_usd_per_day` (`POST /api/fleet/caps`, saved in the hub's
+config.json). When today's spend reaches one, the sessions in its scope
+pause at their next step and an attention row says so; **Lift for today**
+(in Costs or the row's `A`) resumes them and holds that cap off until
+tomorrow.
+
+### How this works: Conflicts and project rooms
+
+The hub watches what each agent is editing (its current Edit / Write, and
+the Orchestra claims). When two agents of different sessions, on any
+harnesses, edit the same file of the same repo, the map joins them with an
+amber dashed edge (hover it for who and which file), both session cards
+carry a `!` chip with the file, and an attention row names both; its `O`
+opens the map. **By project** groups the cards by repo and shows each
+card's git chips: clean or dirty, ahead / behind, the worktree
+(`GET /api/fleet/conflicts`, polled with the queue).
+
+### How this works: Hand-offs
+
+On an agent (the Agent panel, the map's `...`, the palette): **Take over**
+asks for your brief; the agent reads it before its next step in place of
+its task, and both transcripts record the hand-off and who made it.
+**Hand to...** asks which harness picks the work up (and a note for them):
+with Org mode on, Paperclip gets an issue for that harness's company agent
+with the task, the last hand-back and the files it touched; with it off,
+the same goes into a markdown hand-off note in the repo (`.halo/handoffs/`).
+Then the agent stops. The dialog shows the issue id (Open goes to Org) or
+the note's path (Open copies it). `POST /api/fleet/<harness>/<sid>/agents/<aid>/handoff`.
+
+### How this works: Recordings
+
+**Record** on the Agent panel (one agent) or a session card's `...` (the
+whole session) writes one self-contained HTML file: the three streams, a
+timeline you can scrub, every tool call, the cost curve; no network, so
+it opens in any browser and can be sent to anyone. The dialog's
+**Download** fetches it with Studio's token and saves it
+(`POST /api/fleet/<harness>/<sid>/recording[?agent=]`, then
+`GET /api/fleet/recordings/<name>`; `halo fleet record` in a terminal).
+
+### How this works: Replay
+
+A finished session plays back on the **Roles** canvas: the cards light up
+in the order the agents worked (glowing while they run, amber while they
+wait, a green sweep when they finish). Start it from a card's Live tab
+history (the **replay** button on a run), the Agent panel (**Replay**, or
+the last sessions when no agent is picked) or the palette. A scrub bar
+along the bottom of the canvas has play / pause, the speed (1x to 960x;
+it starts at a speed that plays the session in about forty seconds), the
+clock, the cost so far, who works at that moment, and `x` (or `Esc`) to
+go back to what runs now; live updates wait while it plays. The shell
+reads `GET /api/fleet/replay` and posts it into the framed page.
+
+### How this works: While you were away
+
+When the tab comes back after more than ten minutes (or Studio opens after
+that long), a card sums up what happened since you last looked, computed
+in code per harness: sessions started and ended, cost, decisions made and
+by whom, files touched, errors, hand-offs (`GET /api/fleet/digest?since=`;
+`halo fleet digest` in a terminal). It shows on the Fleet Start view, else
+in the rail. When you last looked is the browser's
+`halo.fleet.lastSeen`, refreshed every minute while the tab shows;
+**Dismiss** sets it to now. The palette's **Fleet: while you were away**
+shows it on demand.
+
+### Keys: hop around
+
+| Key | Where | What |
+|---|---|---|
+| `Alt+6` | everywhere | Fleet |
+| `J` / `K` | Fleet map, Roles and Org canvases, Orchestra lanes | the next / previous live agent (Orchestra: the next lane at work) |
+| `F` | Fleet; Roles / Org with the Live tab open; Orchestra | follow: the stream scrolls with the agent (Orchestra: the Log follows) |
+| `Space` | Fleet; Roles / Org with the Live tab open | pin the stream: a **mini stream** floats over whatever you look at, in every section |
+| `Esc` | everywhere | unpin the mini stream (once the palette, a menu or the Inspector is closed) |
+| `P` | Fleet; Roles / Org with the Live tab open | pause or resume the agent |
+| `K` | inside the Agent panel | stop the agent (asks first; on the map and the canvases `K` is previous) |
+| `A` / `R` / `S` / `O` | inside the Attention panel | answer the selected row: accept, deny or redo (with a text), stop, open |
+| `J` / `K`, arrows | inside the Attention panel | the next / previous row |
+| `Esc` | Roles / Org during a replay | close the replay, back to what runs now |
+
+**The mini stream** (picture in picture) shows the pinned agent's state, cost,
+what it does now and the newest lines of its stream, typing as they arrive;
+drag it by its bar, its arrow opens the agent in Fleet, `x` or `Esc` unpins.
+It hides while the Agent panel already shows that agent.
+
+**The rail and the palette.** The Fleet tree in every section's rail
+(harness > session > agent, a status dot each, the live and need-you counts)
+opens Fleet on the node you click, and a session that waits on you keeps its
+inline answer there (for a member too); its need-you count opens Attention,
+and "While you were away" shows above it. The palette's **Fleet** group: pair a
+harness, kick a member, group the map by project, follow / steer / pause /
+stop the selected agent, take it over, hand it to..., record it, replay its
+session, answer next (Attention, the oldest row), while you were away,
+follow any live agent by name, pause all, resume all, open the session in
+Orchestra or Flow.
+
+### Live Roles: the lineup lights up
+
+On the **Roles** and **Org** canvases the cards whose agents work right now
+glow. Every live agent (any harness, any session) is matched to the card it
+runs under: on Roles its alias, else its bio, else its role (a session's
+main agent on the Main card); on Org the position's title or name, or its
+Halo bio. The glow is in the card's band colour and follows what the agent
+does: **typing** a steady flow along the top, a **tool call** one pulse per
+call and the tool on the card's badge (✎ Edit, ›_ Bash, ▤ Read, ◉ Agent ...),
+**waiting on you** the amber pulse and the gate's diamond, **done** one sweep
+then still, **failed** one flash. A badge counts the agents when several
+share a card (`×2`) and ticks their cost. A spawn lights the line from the
+parent's card for a few seconds.
+
+![Roles: the implementer and the researcher at work, the main card waiting with two leads, the implementer's Live tab](media/studio-roles-live.png)
+
+Select a card with a live agent and the Inspector opens its **Live** tab:
+a chip per agent when several run on the card, then the agent's header,
+what it was asked, its Thinking / Working / Output streams (the text typing
+as it arrives, one row per tool call with its result), Pause / Resume, Stop
+(asks first), Follow, Pin, and the Steer box. A card nobody runs right now
+shows its track record instead: the last runs under that role or bio on this
+harness (`GET /api/fleet/history`, from the sessions' transcripts: when,
+which bio, the outcome, the cost, the task). The framed page never calls
+the fleet routes itself: it asks the shell over `postMessage` (same origin
+only) and the shell proxies every stream and command.
+
+**Where it reads and writes.** `GET /api/fleet` once, then the live feed
+keyed by harness, session and agent (`agent_state` rows in place,
+`agent_event` entries of a followed agent, the raw `text_chunk` /
+`tool_use_start` / `tool_result` frames, a member's `fleet` frames with
+action `sessions`); polling every 4 s only while the feed is down. Commands:
+`POST /api/fleet/<harness>/<sid>/agents/<aid>/command` (`local` for this
+harness) and `.../<sid>/command` for a session; a backlog is `GET
+/api/sessions/<sid>/agents/<aid>/tail` here, the `tail` command through the
+hub for a member. The Start view uses `POST /api/fleet/pair`, `GET` / `POST
+/api/fleet/settings`, `POST /api/fleet/kick` and `POST /api/fleet/hub`. The
+R4 panels read `GET /api/fleet/attention`, `costs`, `caps`, `health`,
+`conflicts`, `digest`, `replay` and `history`, and post to
+`attention/answer`, `caps`, `.../handoff`, `.../recording` and a session's
+`command` (`note`); [FLEET.md](FLEET.md) has every shape.
 
 ## What you see (Roles)
 
@@ -721,6 +1009,31 @@ in the Lineup tab; a save that fails leaves the file untouched.
   socket's own error text (for example "no pending approval request"). It
   sits behind the same bearer-token guard as every other route, so only the
   page `halo studio` opened can use it.
+- **The agent routes (3.0.5.0 Fleet, `studio/fleet_api.py`).** The session
+  rows also carry `harness`, `project`, `parent` and `agents` (how many
+  sub-agents are working right now; the rail shows it), and a private
+  session is never listed. `GET /api/sessions/<sid>/agents` is the
+  session's agent tree, `GET /api/sessions/<sid>/agents/<aid>/tail?n=&kinds=`
+  one agent's last entries, `POST /api/sessions/<sid>/agents/<aid>/command
+  {cmd: steer|stop|pause|resume|follow, text?, mode?, reason?, on?}` acts
+  on one agent, and `POST /api/sessions/<sid>/command` also takes `shutdown`
+  (`reason`), `pause` and `resume` (optional `agent_id`). Studio sends `by`
+  = `fleet.name` and `via` = `Studio`. The live feed passes `agent_state`,
+  `agent_event` and `fleet` frames with each frame's `harness`. Shapes and
+  rules: [REMOTE.md](REMOTE.md#agent-level-commands-3050-fleet),
+  [SUBAGENTS.md](SUBAGENTS.md), [FLEET.md](FLEET.md).
+- **The fleet routes (3.0.5.0 R2, `studio/fleet_hub_api.py`).** `halo studio
+  --fleet` (or `halo fleet serve` while Studio runs) starts the fleet hub
+  inside Studio's process, on its own LAN port that serves only the fleet
+  protocol; this API stays on loopback. `GET /api/fleet` is every harness
+  (this one first, then each member of the hub) with its sessions and agent
+  trees; `POST /api/fleet/<harness>/<sid>/command` and `POST
+  /api/fleet/<harness>/<sid>/agents/<aid>/command` act on this harness
+  directly and on a member through the hub, as that member's owner allows
+  (200, 202 `asked`, 403 refused with the reason); `GET
+  /api/fleet/commands/<id>` and `POST /api/fleet/hub {action: start|stop}`.
+  Member frames reach the live feed with their `harness`. See
+  [FLEET.md](FLEET.md#studio-get-apifleet-and-the-commands).
 - No CDN, no fonts fetched, no analytics: the page is a handful of static
   files served from the package, under a strict content-security policy.
   The shell (`static/dist/`) gets `default-src 'self'; connect-src 'self'`
@@ -756,10 +1069,13 @@ in your own browser.
 | `?` | the tour |
 
 These keys belong to the classic page (in the shell: once you clicked into
-it). The shell's own keys: `Alt+1`..`Alt+5` sections, `Ctrl`/`Cmd`+`K` the
+it). The shell's own keys: `Alt+1`..`Alt+6` sections, `Ctrl`/`Cmd`+`K` the
 palette, `?` the focused panel's help (again, or away from a panel: How this
 works), `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel,
-`Esc` closes.
+`Esc` closes. The hop keys (3.0.5.0, [Fleet](#keys-hop-around)): `J` / `K`
+the next / previous live agent (Fleet map, Roles and Org cards, Orchestra
+lanes), `F` follow, `Space` pin the mini stream, `Esc` unpin, `P` pause or
+resume, `K` in the Agent panel stop (asks first).
 
 ## Files
 
@@ -784,4 +1100,15 @@ panels are `ui/src/routes/flow/` and `ui/src/routes/media/`; the Orchestra
 Start view `ui/src/routes/orchestra/Start.tsx`; the help copy
 `ui/src/routes/sectionHelp.ts`, `help.ts` and `help-orchestra.ts`. The
 classic page's group boxes are `static/legacy/groups.js` (+ `groups.css`),
-its embedded mode `embed.js` (+ `embed.css`).
+its embedded mode `embed.js` (+ `embed.css`). Fleet (3.0.5.0) is
+`ui/src/routes/fleet/` (the store and the feed: `store.ts`, `sync.ts`,
+`streams.ts`; the panels `Map.tsx` + `MapNode.tsx` + `layout.ts`,
+`Agent.tsx` + `StreamViews.tsx` + `Steer.tsx`; `FleetRail.tsx`, `Start.tsx` +
+`Pair.tsx`, `Pip.tsx`, `hop.ts`, `frames.ts`, `commands.ts`, `Dialogs.tsx`),
+`styles/fleet.css` and `fleet-agent.css`, the help `routes/help-fleet.ts`;
+Live Roles is `static/legacy/live.js` + `live-tab.js` + `live.css`; the
+routes `fleet_hub_api.py` (R2), `fleet_pair_api.py` and `fleet_api.py`
+(`get_history`). Tests: `tests/test_fleet_studio_routes.py` and the Fleet
+tests in `tests/test_studio_ui.py` (`tests/helpers/studio_fleet.py` over
+`tests/helpers/studio_fleet_rig.py`); captures `tools/capture_studio.py
+--mode fleet` (tools/capture_fleet.py).

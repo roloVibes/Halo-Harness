@@ -5,8 +5,8 @@
    the scope, the actions; embed.css), the status line goes to the shell's
    status bar ({type: "legacy-status", mode, text} by postMessage) instead of
    this page's footer, the theme follows the shell's (halo.studio.theme), and
-   R / O / D (and Alt+1..5) switch the shell's section rather than this
-   frame. Opened on its own (/legacy/), nothing here runs: the full header
+   R / O / D (and Alt+1..6) switch the shell's section rather than this
+   frame. 3.0.5.0: live.js (Live Roles) runs only here, framed, too. Opened on its own (/legacy/), nothing here runs: the full header
    stays. */
 (function () {
   "use strict";
@@ -14,7 +14,7 @@
   const $ = (id) => document.getElementById(id);
   const root = document.documentElement;
   const own = (location.search.match(/[?&]mode=(roles|org|design)\b/) || [])[1] || "roles";
-  const SECTIONS = ["orchestra", "roles", "org", "design", "flow"];
+  const SECTIONS = ["orchestra", "roles", "org", "design", "flow", "fleet"];
   const post = (msg) => { try { if (window.parent !== window) window.parent.postMessage(msg, location.origin); } catch (e) {} };
   root.dataset.embedded = "1";
 
@@ -58,7 +58,7 @@
   window.addEventListener("keydown", (ev) => {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "")) return;
     let to = "";
-    if (ev.altKey && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && /^Digit[1-5]$/.test(ev.code)) to = SECTIONS[Number(ev.code.slice(5)) - 1];
+    if (ev.altKey && !ev.ctrlKey && !ev.metaKey && !ev.shiftKey && /^Digit[1-6]$/.test(ev.code)) to = SECTIONS[Number(ev.code.slice(5)) - 1];
     else if (!ev.altKey && !ev.ctrlKey && !ev.metaKey && ["r", "o", "d"].includes(ev.key)) to = { r: "roles", o: "org", d: "design" }[ev.key];
     if (!to) return;
     ev.preventDefault(); ev.stopImmediatePropagation();

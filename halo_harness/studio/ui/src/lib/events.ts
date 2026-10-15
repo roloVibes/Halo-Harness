@@ -7,6 +7,8 @@ import { onTokenChange, token } from "./api";
 
 export type FeedFrame = {
   session_id: string | null;
+  /** The harness the frame came from (3.0.5.0 Fleet: the session's `fleet-id`). */
+  harness?: string | null;
   event: string;
   data: Record<string, unknown> | null;
   turn: number | null;
@@ -16,7 +18,8 @@ export type FeedFrame = {
 export type FeedState = "off" | "connecting" | "open" | "retrying" | "down";
 type Handler = (frame: FeedFrame) => void;
 
-// Every kind the server forwards (studio/events.py DEFAULT_KINDS) plus the synthesized `sessions`.
+// Every kind the server forwards (studio/feed_kinds.py DEFAULT_KINDS) plus the synthesized `sessions`.
+// 3.0.5.0 Fleet: agent_state (an agent-tree row changed), agent_event (a followed agent's entry), fleet.
 export const KNOWN_KINDS = [
   "sessions", "user_message", "message_start", "message_end", "text_chunk", "tool_use_start", "tool_result",
   "tool_progress", "permission_request", "question", "plan_review", "approval_request", "todos", "status",
@@ -24,6 +27,7 @@ export const KNOWN_KINDS = [
   "notification", "phase", "compaction", "governor", "remote_attached",
   "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
   "flow_state", "flow_step", "flow_gate", "flow_post", "flow_metric", "flow_report", "media_render",
+  "agent_state", "agent_event", "fleet",
 ];
 
 const handlers = new Map<string, Set<Handler>>();

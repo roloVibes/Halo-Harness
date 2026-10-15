@@ -2,12 +2,17 @@
 // connecting or reconnecting, red unreachable; it ticks once per event), the
 // session and event counts, the framed classic page's own status line (Roles,
 // Org, Design: the lineup's problems, the company, the project), the section
-// and its layout, and the keys.
+// and its layout, and the keys. The FLEET cell counts the agents at work and
+// the decisions waiting in the Fleet attention queue, in every section.
 import { HudCell, HudStrip, Kbd } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
 import { FeedDot } from "../routes/orchestra/FeedPanels";
 import { sectionDef } from "../routes";
+import { useAttnCount } from "../routes/fleet/pstore";
+import { useCounts } from "../routes/fleet/store";
+import { startFleet } from "../routes/fleet/sync";
+import { useEffect } from "react";
 
 const FEED_TEXT = { off: "feed off", connecting: "connecting", open: "live", retrying: "reconnecting", down: "feed down" } as const;
 
@@ -17,6 +22,9 @@ export function StatusBar() {
   const custom = useStore(layoutStore(section), (s) => s.custom);
   const legacy = useStore(studio, (s) => s.legacy[s.section]);
   const title = sectionDef(section).title;
+  useEffect(() => startFleet(), []); // the fleet counts in every section, rail open or not
+  const fleet = useCounts();
+  const attn = useAttnCount(fleet.attention);
   return (
     <HudStrip label="Status">
       <HudCell title="The live feed from every running halo session (/api/events)">
@@ -27,6 +35,12 @@ export function StatusBar() {
       </HudCell>
       <HudCell label="SESSIONS">
         <span className="mono">{feed.sessions.length}</span>
+      </HudCell>
+      <HudCell label="FLEET" title="Agents at work in every connected harness, and how many decisions wait on you (Fleet: Attention)">
+        <span className="mono" data-testid="status-fleet">
+          {fleet.live} live
+          {attn > 0 && <b className="fr-attn" data-testid="status-attention"> · {attn} need{attn === 1 ? "s" : ""} you</b>}
+        </span>
       </HudCell>
       <HudCell label="EVENTS">
         <span className="mono">
@@ -48,7 +62,7 @@ export function StatusBar() {
       </HudCell>
       <HudCell>
         <span className="hud-keys">
-          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+5" /> sections <Kbd keys="Esc" /> close
+          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+6" /> sections <Kbd keys="Esc" /> close
         </span>
       </HudCell>
     </HudStrip>

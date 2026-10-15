@@ -63,6 +63,8 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from halo_harness import events
+from halo_harness.agent import agent_hooks as _agent_tree
+from halo_harness.agent.agent_inbox import handback as _fleet_handback, was_stopped as _fleet_stopped
 
 log = logging.getLogger("bridge")
 from halo_harness.config.agents_md import AgentSpec, resolve_agent_model
@@ -925,10 +927,15 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
                                         # finding 10: the SAME semaphore object, never a fresh one -- see
                                         # AgentRuntime.concurrency_semaphore's own docstring.
                                         concurrency_semaphore=runtime.concurrency_semaphore)
+    # Halo 3.0.5.0 (Fleet): the child joins the session's live agent tree.
+    _agent_tree.register_child(parent, child, agent_id=agent_id, spec=spec, model=model_ref.raw,
+                               role=_effective_role_name, background=background, team_control=team_control)
     _write_meta(meta_path, {
         "agent_id": agent_id, "type": spec.name, "description": spec.description,
         "model": model_ref.raw, "parent_tool_use_id": parent_tool_use_id,
         "started": time.time(), "status": "running", "session_id": child_log.session_id,
+        # 3.0.5.0 R3: Live Roles' history (studio/fleet_api.py) lists past runs by role
+        "role": _effective_role_name, "lineup": getattr(team_control, "name", None),
     })
     return child, meta_path
 
@@ -1087,8 +1094,8 @@ def _final_text_from_log(child) -> str:
                      if isinstance(b, dict) and b.get("type") == "text"]
             text = "".join(parts).strip()
             if text:
-                return text
-    return "(the sub-agent finished without producing a final text answer)"
+                return _fleet_handback(child, text)  # 3.0.5.0: "stopped by ..." for a child stopped from Studio
+    return _fleet_handback(child, "(the sub-agent finished without producing a final text answer)")
 
 
 def _one_line_preview(text: str, *, limit: int = 140) -> str:
@@ -1582,6 +1589,8 @@ def _run_agent_fanout(*, runtime: AgentRuntime, spec: AgentSpec, tool_id: str, t
                                                         "parent_tool_use_id": tool_id, "task_id": new_task_id})
         queued_ev.agent_id = agent_id
         _emit(queued_ev)
+        _agent_tree.register_queued(parent, agent_id, name=spec.dock_label or spec.name, task=job["prompt"],
+                                    role=job["role"] or spec.role)
         prepared.append((agent_id, new_task_id, job))
 
     results: list = [None] * n
@@ -2429,7 +2438,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # the old path.
     acceptance_failed = None
     had_acceptance = False
-    if not is_error:
+    if not is_error and not _fleet_stopped(child):  # 3.0.5.0: a stopped child is not sent back for a retry
         acc_ok, acc_note = _check_return_acceptance(spec, role_name, team_control, child, text)
         had_acceptance = acc_note is not None
         if not acc_ok:

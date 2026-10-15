@@ -25,6 +25,7 @@ test, TESTS = new_registry()
 def _enable(value=True) -> None:
     from halo_harness.theme import set_config_value
     set_config_value("remote.signal.enabled", value)
+    set_config_value("remote.enabled", True)  # 3.0.5.0: the Signal bridge's own switch (sockets: fleet.enabled)
 
 
 @test
@@ -37,6 +38,11 @@ def test_run_status_off_on_with_a_real_bridge_loop(ctx: Ctx):
         env.write_signal_json(account="+15555550123")
         rc, out, _ = run(["run"])
         ctx.check("run while remote.signal.enabled is false does not start (exit 0)", rc == 0 and "is false" in out)
+        from halo_harness.theme import set_config_value
+        set_config_value("remote.signal.enabled", True)
+        rc, out, _ = run(["run"])
+        ctx.check("3.0.5.0: run while remote.enabled is false does not start either (exit 0)",
+                  rc == 0 and "remote.enabled is false, so the Signal bridge is not started" in out)
         _enable()
         tr = StubTransport()
         saved, cli_run.make_transport = cli_run.make_transport, lambda cfg: tr

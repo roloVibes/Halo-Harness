@@ -47,18 +47,24 @@ def cmd_run(argv: list) -> int:
     if not signal_enabled():
         print("remote.signal.enabled is false, so the bridge is not started. Turn it on with `halo remote signal on`.")
         return 0
+    from halo_harness.remote import runtime
+    if not runtime.remote_enabled():
+        # 3.0.5.0: sessions open their control sockets by default now (fleet.enabled); the phone
+        # reaching them stays its own opt-in, so the bridge starts only with remote.enabled.
+        print("remote.enabled is false, so the Signal bridge is not started. Turn it on with "
+              "`halo config set remote.enabled true`.")
+        return 0
     live = BS.read()
     if live["running"]:
         return C.fail(a.json, "already_running", f"A bridge is already running (pid {live['pid']}). "
                       "`halo remote signal off` stops it.")
-    from halo_harness.remote import runtime
     BS.clear_stop()
     config = {**bridge_settings(), "identity_model": cfg.get("identity_model"), "own_aci": cfg.get("own_aci")}
     pulse, stop = BS.BridgeState(), threading.Event()
     if not a.json:
         tail = str(cfg["account"])[-4:]
         print(f"Halo remote control: bridge running for the account ending {tail}. Ctrl+C or `halo remote signal off` stops it."
-              + ("" if runtime.enabled() else "\nNote: remote.enabled is false, so no session opens a control socket to attach to."))
+              + ("" if runtime.fleet_enabled() else "\nNote: fleet.enabled is false, so no session opens a control socket to attach to."))
     from halo_harness.remote.bridge import run_bridge
     try:
         run_bridge(config, make_transport(cfg), stop=stop, pulse=pulse)

@@ -8,16 +8,20 @@ an `events.EVENT_KINDS` name or `text_chunk` (coalesced `text_delta`s).
 
 `CMDS` is the exact command set. Each maps onto one `SessionHandle` method
 (remote/handle.py); nothing here touches a Controller or Session directly.
+The agent-level commands (`agents`, `agent_tail`, `agent_steer`,
+`agent_stop`, `pause`, `resume`, `shutdown`, `agent_follow`; Halo 3.0.5.0
+Fleet) live in remote/agent_control.py; old clients see the same wire.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from halo_harness.remote.agent_control import AGENT_CMDS
 from halo_harness.remote.base import HandleError
 
 CMDS = ("status", "submit", "steer", "interrupt", "answer", "model", "effort", "mode", "slash", "tail",
-        "subscribe", "unsubscribe", "ping", "note")
+        "subscribe", "unsubscribe", "ping", "note") + AGENT_CMDS
 ANSWER_KINDS = ("permission", "question", "plan", "approval")
 TAIL_DEFAULT = 20
 TAIL_MAX = 200
@@ -60,8 +64,10 @@ def _note(handle, req: dict, conn) -> dict:
     phone attached or detached. A connection that closes takes its peers
     with it, so a crashed bridge never leaves the chip lit."""
     name = _str(req, "name")
+    if name == "fleet.message":
+        return _message(handle, req)
     if name != "remote.attached":
-        raise HandleError(f"unknown note {name!r} (expected remote.attached)")
+        raise HandleError(f"unknown note {name!r} (expected remote.attached or fleet.message)")
     peer = _str(req, "peer").strip()[:16]
     if not peer:
         raise HandleError("note remote.attached needs a peer")
@@ -70,6 +76,25 @@ def _note(handle, req: dict, conn) -> dict:
     if noted is not None:
         (noted.add if attached else noted.discard)(peer)
     return {"attached": handle.set_remote_peer(peer, attached)}
+
+
+def _message(handle, req: dict) -> dict:
+    """`{"cmd": "note", "name": "fleet.message", "text", "by"}` (3.0.5.0 R4, Fleet's People panel): a line
+    the session's owner reads in the transcript and the TUI; the model never sees it."""
+    text = " ".join(_str(req, "text").split())[:500]
+    if not text:
+        raise HandleError("a fleet.message note needs text")
+    by = " ".join(_str(req, "by").split())[:64] or "someone"
+    line = f"message from {by}: {text}"
+    log = getattr(handle.session, "log", None)
+    if log is not None:
+        try:
+            log.append_meta(fleet_note=line)
+        except Exception:
+            pass
+    from halo_harness.remote.agent_control import _announce
+    _announce(handle, line)
+    return {"delivered": True, "by": by}
 
 
 def run_cmd(handle, req: dict, conn) -> Any:
@@ -110,6 +135,9 @@ def run_cmd(handle, req: dict, conn) -> Any:
     if cmd == "unsubscribe":
         conn.stop_feed()
         return {"subscribed": False}
+    if cmd in AGENT_CMDS:
+        from halo_harness.remote import agent_control
+        return agent_control.run(handle, req)
     raise HandleError(f"unknown cmd {cmd!r} (expected one of {', '.join(CMDS)})")
 
 

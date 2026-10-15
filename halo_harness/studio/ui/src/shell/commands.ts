@@ -1,5 +1,5 @@
 // The palette's commands and its fuzzy matcher. Groups: Go to, Help,
-// Orchestra, Flow, Media, View, Layout, Open. Each command may show a key (the
+// Orchestra, Flow, Fleet, Media, View, Layout, Open. Each command may show a key (the
 // same hint the menus show).
 import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
 import { layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
@@ -8,6 +8,7 @@ import { SECTIONS, sectionDef, type SectionDef } from "../routes";
 import { token } from "../lib/api";
 import { flowCommands, mediaCommands } from "../routes/flow/commands";
 import { orchestraCommands } from "../routes/orchestra/commands";
+import { fleetCommands } from "../routes/fleet/commands";
 
 export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; run: () => void };
 
@@ -68,7 +69,7 @@ export function commands(): Command[] {
       run: () => revealPanel(cur, p),
     });
   }
-  out.push(...orchestraCommands(), ...flowCommands(), ...mediaCommands());
+  out.push(...orchestraCommands(), ...flowCommands(), ...fleetCommands(), ...mediaCommands());
   out.push({
     id: "open-legacy",
     group: "Open",

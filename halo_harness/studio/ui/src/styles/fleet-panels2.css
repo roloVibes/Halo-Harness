@@ -1,0 +1,96 @@
+/* The Fleet panels added in 3.0.5.0 R4 (part 2): Activity (the timeline
+   strip: one lane per live agent, a bar per state, ticks for tool calls,
+   the hover tip; the filters and the merged live log), the map's conflict
+   edge and chips and the By project git chips, the agent panel's extras and
+   history, the R4 dialogs, and the "While you were away" card. Tokens only. */
+
+/* -- Activity: the timeline strip ---------------------------------------------------- */
+.fac { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; height: 100%; min-height: 0; }
+.ftl { display: grid; gap: 4px; }
+.ftl-bar { display: flex; align-items: center; gap: 8px; }
+.ftl-bar .rail-label { padding: 0; }
+.ftl-bar .segmented button { padding: 2px 10px; font-size: 11px; }
+.ftl-wrap { position: relative; border: 1px solid var(--line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--bg) 60%, transparent); padding: 4px 6px 2px; }
+.ftl-svg { display: block; overflow: visible; }
+.ftl-grid line { stroke: var(--grid-line); stroke-width: 1; }
+.ftl-grid text { font: 9.5px var(--mono); fill: var(--faint); }
+.ftl-none { font: 11px var(--mono); fill: var(--muted); }
+.ftl-lane { cursor: pointer; }
+.ftl-hit { fill: transparent; }
+.ftl-lane:hover .ftl-hit, .ftl-lane[data-selected] .ftl-hit { fill: var(--accent-soft); }
+.ftl-name { font: 600 10.5px var(--sans); fill: var(--text); }
+.ftl-lane[data-selected] .ftl-name { fill: var(--accent); }
+.ftl-seg { fill: var(--faint); opacity: .85; }
+.ftl-seg[data-state="running"] { fill: var(--accent); filter: drop-shadow(0 0 3px var(--accent)); }
+.ftl-seg[data-state="waiting"], .ftl-seg[data-state="paused"] { fill: var(--warn); }
+.ftl-seg[data-state="done"] { fill: var(--ok); opacity: .6; }
+.ftl-seg[data-state="failed"], .ftl-seg[data-state="stopped"] { fill: var(--bad); opacity: .75; }
+.ftl-tick { stroke: var(--text); stroke-width: 1.2; opacity: .8; }
+.ftl-tip { position: absolute; z-index: 5; pointer-events: none; white-space: pre; font-size: 10.5px; padding: 4px 8px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--line-strong); box-shadow: var(--glow); }
+
+/* -- Activity: the filters and the live log ------------------------------------------- */
+.fac-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.fac-filters .btn { height: 26px; }
+.fac-pick { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+.fac-pick select { max-width: 118px; height: 26px; font-size: 11.5px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--bg-2); color: var(--text); }
+.fac-log { min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 4px 6px; background: color-mix(in srgb, var(--bg) 60%, transparent); }
+.fac-none { margin: 6px; font-size: 12px; }
+.fac-line { display: grid; grid-template-columns: 58px 40px minmax(80px, 150px) minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 2px 4px; font-size: 12px; border-radius: 4px; cursor: pointer; animation: fade var(--t) var(--ease); }
+.fac-line:hover { background: var(--accent-soft); }
+.fac-ts { font-size: 10.5px; color: var(--faint); }
+.fac-kind { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.fac-line[data-kind="tool"] .fac-kind { color: var(--accent); }
+.fac-line[data-kind="ask"] .fac-kind, .fac-line[data-kind="ask"] .fac-text { color: var(--warn); }
+.fac-line[data-kind="error"] .fac-kind, .fac-line[data-kind="error"] .fac-text { color: var(--bad); }
+.fac-line[data-kind="fleet"] .fac-kind { color: var(--accent-2); }
+.fac-line[data-kind="text"] .fac-text { color: var(--muted); }
+.fac-who { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fac-text { overflow-wrap: anywhere; }
+
+/* -- the map: conflicts and project rooms --------------------------------------------- */
+.fm-edge-conflict { stroke: var(--warn); stroke-width: 2.2; stroke-dasharray: 5 4; filter: drop-shadow(0 0 4px var(--warn)); animation: og-dash 1.2s linear infinite; pointer-events: stroke; }
+.fm-clash rect { fill: var(--warn-soft); stroke: var(--warn); }
+.fm-clash text { font: 700 9.5px var(--mono); fill: var(--warn); }
+.fm-git .fm-chip rect { fill: var(--bg-2); stroke: var(--line); }
+.fm-git .fm-chip[data-git="dirty"][data-on] rect { stroke: var(--warn); }
+.fm-git .fm-chip[data-git="dirty"][data-on] text { fill: var(--warn); }
+.fm-git .fm-chip[data-git="ahead"] text { fill: var(--accent); }
+.fm-git .fm-chip[data-git="behind"] text { fill: var(--accent-2); }
+
+/* -- the agent panel: a column, the extras row, the history ---------------------------- */
+.fa { display: flex; flex-direction: column; }
+.fa > * { flex: none; }
+.fa > .fa-stream { flex: 1 1 0; min-height: 90px; }
+.fa-extras { display: flex; flex-wrap: wrap; gap: 4px; }
+.fa-extras .btn { font-size: 11.5px; }
+.fa-none { display: grid; gap: 12px; align-content: start; }
+.fa-history { display: grid; gap: 4px; }
+.fa-history ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fa-history li { display: flex; align-items: baseline; gap: 8px; font-size: 12px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.fa-history li .mono { font-size: 10.5px; flex: none; }
+.fa-history-task { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* -- the R4 dialogs --------------------------------------------------------------------- */
+.fd-text { width: 100%; resize: vertical; min-height: 72px; font: inherit; font-size: 13px; }
+.fd-field { display: grid; gap: 4px; margin-top: 10px; }
+.fd-field .rail-label { padding: 0; }
+[data-testid="fleet-handed"] code, [data-testid="fleet-recording"] .mono { overflow-wrap: anywhere; }
+
+/* -- "While you were away" ---------------------------------------------------------------- */
+.fdg { display: grid; gap: 8px; padding: 10px 12px; margin: 0 0 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: var(--radius-sm); box-shadow: var(--glow); animation: rise var(--t-slow) var(--ease); }
+.fdg[data-where="rail"] { margin: 0 6px 8px; padding: 8px 10px; }
+.fdg-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.fdg-head .rail-label { padding: 0; color: var(--accent); }
+.fdg-quiet { margin: 0; font-size: 12px; }
+.fdg-totals { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--muted); }
+.fdg-totals b { color: var(--text); font-size: 13px; }
+.fdg-bad, .fdg-bad b { color: var(--bad); }
+.fdg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.fdg-list li { display: grid; gap: 1px; }
+.fdg[data-where="start"] { max-width: 760px; }
+.fr-attn-btn { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; }
+.fr-attn-btn:hover { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-edge-conflict, .fac-line, .fdg { animation: none !important; }
+}

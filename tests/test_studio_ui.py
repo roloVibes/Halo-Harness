@@ -1,13 +1,10 @@
-"""tests.test_studio_ui -- the Studio page boots in a real browser (Halo
-2.1.0 round B3): headless Chrome loads the page over a seeded scratch home,
-the lineup draws its node cards, and docs/media/studio-roles.png (the README's
-capture) exists and is a PNG. 3.0.3.0: the classic page is the one at
-/legacy/, and the React shell at / is checked by its data-testid counts. Skipped when no Chrome is found, like the
-front-page PNG step. 3.0.4.0 R6b (Studio clarity): the Orchestra Start view
-then the grid, a click focuses a panel and `?` opens its help, the framed
-classic page has no second header, and the Roles canvas draws its groups --
-the last three through real clicks and keys (tests/helpers/studio_clarity.py
-over the DevTools protocol).
+"""tests.test_studio_ui -- Studio in a real browser (headless Chrome; skipped without one).
+2.1.0 B3: the classic page (/legacy/ since 3.0.3.0) draws the lineup's cards; the React shell
+at / by its data-testid counts. 3.0.4.0 R6b (tests/helpers/studio_clarity.py): the Orchestra
+Start view then the grid, a click focuses a panel and `?` opens its help, the framed page has
+no second header, the Roles canvas draws its groups. 3.0.5.0 Fleet (tests/helpers/studio_ui_fleet.py,
+registered here): R3's map, steer, stop, hop keys, rail and Live Roles; R4's panels (attention,
+timeline, conflict, digest, replay) and the README captures (PNGs).
 """
 
 from __future__ import annotations
@@ -21,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
+from tests.helpers.studio_ui_fleet import register as register_fleet
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -85,8 +83,8 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
     # R6b: a folder with no Orchestra run opens on the Start view, not on empty panels
-    ctx.check(f"Orchestra: five section tabs and the Start view, got {orch}", orch == {"section-tab": 5, "orchestra-root": 0, "start-view": 1, "legacy-frame": 0})
-    ctx.check(f"Roles: five section tabs and the framed classic page, got {roles}", roles == {"section-tab": 5, "orchestra-root": 0, "start-view": 0, "legacy-frame": 1})
+    ctx.check(f"Orchestra: six section tabs and the Start view, got {orch}", orch == {"section-tab": 6, "orchestra-root": 0, "start-view": 1, "legacy-frame": 0})
+    ctx.check(f"Roles: six section tabs and the framed classic page, got {roles}", roles == {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "legacy-frame": 1})
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
@@ -103,7 +101,7 @@ def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx)
     ctx.check(f"five lanes and five tiles, got {info}", info.get("lane") == 5 and info.get("grid-tile") == 5)
     ctx.check(f"a band per claimed unit, got {info}", info.get("claim-region", 0) >= 5)
     ctx.check(f"every report check, got {info}", info.get("report-check") == 8)
-    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 5 and info.get("orchestra-root") == 1)
+    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 6 and info.get("orchestra-root") == 1)
 
 
 @test
@@ -131,8 +129,8 @@ def test_flow_section_draws_a_run_in_headless_chrome(ctx: Ctx):
     panels = ("flow-intake", "flow-graph", "flow-step", "flow-renders", "flow-posts", "flow-metrics", "flow-log", "flow-report",
               "media-status", "media-models", "media-workflows", "media-render")
     for name, got in (("waiting", wait), ("finished", done)):
-        ctx.check(f"{name}: five section tabs and every Flow and Media panel once, got {got}",
-                  got.get("section-tab") == 5 and all(got.get(p) == 1 for p in panels))
+        ctx.check(f"{name}: six section tabs and every Flow and Media panel once, got {got}",
+                  got.get("section-tab") == 6 and all(got.get(p) == 1 for p in panels))
         ctx.check(f"{name}: the confirm step is the gate diamond, got {got.get('gate-diamond')}", got.get("gate-diamond") == 1)
         ctx.check(f"{name}: the render inline and both runs in the rail, got {got}", got.get("flow-artboard") == 1 and got.get("flow-rail-run") == 2)
     ctx.check(f"waiting: the gate card is open, nothing answered yet, got {wait}", wait.get("gate-card") == 1 and wait.get("gate-answered") == 0)
@@ -240,12 +238,7 @@ def test_roles_canvas_draws_groups(ctx: Ctx):
               (got.get("models_notice") or 0) >= 1)
 
 
-@test
-def test_readme_capture_exists(ctx: Ctx):
-    png = REPO / "docs" / "media" / "studio-roles.png"
-    ctx.check("docs/media/studio-roles.png exists", png.is_file())
-    if png.is_file():
-        ctx.check("it is a PNG under 1 MB", png.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n" and png.stat().st_size < 1024 * 1024)
+register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/helpers/studio_ui_fleet.py
 
 
 if __name__ == "__main__":

@@ -4,38 +4,28 @@
 `remote/registry.py`) every `poll_s` seconds and attaches one daemon thread
 per live session: a `remote.client.ControlClient` (1 s timeout on every call)
 that sends `subscribe` and then reads `next_event`. Each frame becomes
-`{session_id, event, data, turn, agent_id, ts}` and is copied into every
+`{session_id, harness, event, data, turn, agent_id, ts}` (kinds: feed_kinds.py) and is copied into every
 browser's bounded queue (512 frames, the oldest dropped first). Attaching and
-detaching a session publish a synthesized `sessions` frame with the public
-fields of every attached session (never its endpoint or token). A pump that
+detaching a session publish a `sessions` frame (`harness`: this harness's id, 3.0.5.0 R2)
+with the public fields of every attached session (never an endpoint or token). A pump that
 errors detaches and is not retried for `RETRY_S`. `publish_local` adds a
 frame made in this process (the Orchestra runner: `orchestra:<run id>`).
-`serve_sse(handler)` is `GET /api/events?t=<token>&sessions=all|<sid>`: the
-token comes in the query (an EventSource cannot send headers), compared with
-`hmac.compare_digest`; loopback, Host and Origin checks as every API call.
+`serve_sse(handler)` (studio/events_sse.py) is `GET /api/events?t=<token>&sessions=all|<sid>`.
+`taps` (3.0.5.0 R4) see every published frame, browsers or not (the fleet watcher).
 """
 
 from __future__ import annotations
 
 import collections
-import hmac
-import json
 import threading
 import time
 from typing import Optional
-from urllib.parse import parse_qs, urlsplit
+
+from halo_harness.studio.feed_kinds import DEFAULT_KINDS, PUBLIC_FIELDS, local_harness_id  # noqa: F401  (re-exported)
 
 QUEUE_MAX = 512
-PING_S = 15.0
 RETRY_S = 10.0
 CALL_TIMEOUT_S = 1.0
-DEFAULT_KINDS = ("user_message", "message_start", "message_end", "text_chunk", "tool_use_start", "tool_result",
-                 "tool_progress", "permission_request", "question", "plan_review", "approval_request", "todos",
-                 "status", "error", "turn_done", "subagent_start", "subagent_end", "subagent_queued",
-                 "subagent_progress", "notification", "phase", "compaction", "governor", "remote_attached",
-                 "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
-                 "flow_state", "flow_step", "flow_gate", "flow_post", "flow_metric", "flow_report", "media_render")
-PUBLIC_FIELDS = ("session_id", "title", "mode", "kind", "cwd", "started", "pid")
 
 
 class BrowserQueue:
@@ -71,9 +61,9 @@ class BrowserQueue:
 
 
 class EventBridge:
-    def __init__(self, *, poll_s: float = 2.0, kinds=DEFAULT_KINDS, list_live=None):
-        self.poll_s = poll_s
-        self.kinds = list(kinds) if kinds else None
+    def __init__(self, *, poll_s: float = 2.0, kinds=DEFAULT_KINDS, list_live=None, harness_id=None):
+        self.poll_s, self.kinds = poll_s, (list(kinds) if kinds else None)
+        self.harness_id = harness_id  # the `sessions` frame's harness (None: this home's fleet-id)
         self._list_live = list_live
         self._lock = threading.Lock()
         self._clients: "list[BrowserQueue]" = []
@@ -82,6 +72,7 @@ class EventBridge:
         self._cooldown: "dict[str, float]" = {}
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        self.taps: list = []  # 3.0.5.0 R4: callables that see every frame (the fleet watcher); each must not block
 
     # -- browsers ---------------------------------------------------------------
     def subscribe(self, sessions: str = "all") -> BrowserQueue:
@@ -99,6 +90,11 @@ class EventBridge:
                 self._clients.remove(q)
 
     def publish(self, frame: dict) -> None:
+        for tap in list(self.taps):
+            try:
+                tap(frame)
+            except Exception:
+                pass
         with self._lock:
             clients = list(self._clients)
         for q in clients:
@@ -178,8 +174,9 @@ class EventBridge:
             while not stop.is_set() and not self._stop.is_set():
                 ev = client.next_event(CALL_TIMEOUT_S)
                 if ev is not None:
-                    self.publish({"session_id": sid, "event": ev.get("event"), "data": ev.get("data"),
-                                  "turn": ev.get("turn"), "agent_id": ev.get("agent_id"), "ts": ev.get("ts") or time.time()})
+                    self.publish({"session_id": sid, "harness": ev.get("harness"), "event": ev.get("event"),
+                                  "data": ev.get("data"), "turn": ev.get("turn"), "agent_id": ev.get("agent_id"),
+                                  "ts": ev.get("ts") or time.time()})
         except Exception:  # a dead or closed socket: detach (and cool down, below)
             pass
         finally:
@@ -196,59 +193,21 @@ class EventBridge:
     def _sessions_frame(self, **extra) -> dict:
         rows = sorted(list(self._attached.values()), key=lambda r: (r.get("started") or 0, r.get("session_id") or ""))
         return {"session_id": None, "event": "sessions", "data": {"sessions": rows, **extra},
-                "turn": None, "agent_id": None, "ts": time.time()}
+                "turn": None, "agent_id": None, "ts": time.time(), "harness": self.harness_id or local_harness_id()}
 
 
 def bridge_for(server) -> EventBridge:
-    """The server's one bridge, made on the first EventSource."""
+    """The server's one bridge, made on the first EventSource (or the fleet watcher's first tick); the
+    server's `event_taps` (3.0.5.0 R4: studio/fleet_watch.py) are attached to it."""
     with server.events_lock:
         if server.events is None:
             server.events = EventBridge()
+        for tap in getattr(server, "event_taps", None) or []:
+            if tap not in server.events.taps:
+                server.events.taps.append(tap)
         return server.events
 
 
-def _frame_bytes(frame: dict) -> bytes:
-    kind = str(frame.get("event") or "message").replace("\n", " ").replace("\r", " ")
-    data = json.dumps(frame, ensure_ascii=False, default=str)
-    return f"event: {kind}\ndata: {data}\n\n".encode("utf-8", "replace")
+from halo_harness.studio.events_sse import _frame_bytes, serve_sse  # noqa: E402,F401  (the SSE route, re-exported)
 
 
-def serve_sse(handler) -> None:
-    """`GET /api/events`: stream the live feed to one EventSource."""
-    if not handler._local_only():
-        return
-    origin = handler.headers.get("Origin")
-    if origin and origin not in handler._own_origin():
-        handler._json(403, {"error": "foreign origin"})
-        return
-    query = {k: v[-1] for k, v in parse_qs(urlsplit(handler.path).query).items()}
-    presented = query.get("t", "")
-    if not presented or not hmac.compare_digest(presented, handler.server.token):
-        handler._json(403, {"error": "missing or wrong studio token in ?t="})
-        return
-    bridge = bridge_for(handler.server)
-    q = bridge.subscribe(query.get("sessions") or "all")
-    handler.close_connection = True
-    try:
-        handler.send_response(200)
-        for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"),
-                     ("X-Accel-Buffering", "no"), ("X-Content-Type-Options", "nosniff"), ("Connection", "close")):
-            handler.send_header(k, v)
-        handler.end_headers()
-        handler.wfile.write(b"retry: 3000\n\n")
-        handler.wfile.flush()
-        next_ping = time.monotonic() + PING_S
-        while not q.closed and not bridge.closed:
-            frame = q.get(max(0.05, min(1.0, next_ping - time.monotonic())))
-            if frame is not None:
-                handler.wfile.write(_frame_bytes(frame))
-            elif time.monotonic() >= next_ping:
-                handler.wfile.write(b": ping\n\n")
-            else:
-                continue
-            handler.wfile.flush()
-            next_ping = time.monotonic() + PING_S
-    except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
-        pass
-    finally:
-        bridge.unsubscribe(q)

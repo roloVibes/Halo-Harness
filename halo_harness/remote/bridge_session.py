@@ -129,7 +129,7 @@ def ensure_attached(b, rt) -> bool:
         return True
     rows = live_sessions(b)
     if not rows:
-        b.say(rt.aci, "No live halo session. Start halo with `remote.enabled` set to true, then /sessions.")
+        b.say(rt.aci, "No live halo session. Start halo (not --private), then /sessions.")
         return False
     err = attach(b, rt, rows[0])
     if err:
