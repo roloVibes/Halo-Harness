@@ -8,6 +8,12 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [Unreleased]
+
+- Fleet capabilities: the cached catalog is re-read after every save -- on Windows, `halo mcp add/remove` right after a refresh could read back the old catalog (same mtime tick) and never mark it stale.
+- `halo fleet status` waits up to 10 s (was 3 s) for the hub this machine serves, so a loaded box still reports its member count.
+- Tests: the bio-editor help-line test polls for the focused field's line instead of one fixed pause (the Windows CI runner missed it).
+
 ## [3.0.6.0] - 2026-10-15
 
 Fleet Missions: every connected harness says what it can do (its MCP servers and tools, skills, models, craft apps, hardware, tags), "Who can..." finds the right one, and one goal is split across the fleet by capability, each part with its own claims so nobody steps on anyone, run on the harness that has the tool, merged and reported on the hub. Rolo's ask, 2026-10-14 evening.
