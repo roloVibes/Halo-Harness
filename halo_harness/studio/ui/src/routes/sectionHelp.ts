@@ -103,4 +103,16 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["M", "the Mission panel: one goal for the whole fleet"],
       ["A / R / S / O", "in Attention: accept, deny or redo (with a text), stop, open"], ["J / K", "in Attention: the next / previous row"], ...PANEL_KEYS],
   },
+  team: {
+    what: "Your project's team file as one board: who works on it (members, each a part of a lineup, here or on a fleet harness), where their work lands (blocks: a file, a folder or a git tree, each with its claim ledger) and in which order (stages: an agent turn, an Orchestra run or a flow).",
+    steps: [
+      ["The team file", "<repo>/.halo/team.yaml (else ~/.halo/teams/<project>.team.yaml): the brief every agent reads first, the members, the blocks and the stages. The Start view's Make my first team writes it from the template; Validate checks it and runs the lineup preflight."],
+      ["The blocks", "Each block keeps a ledger: who holds which part (a section, a file) and one change line per write. While a stage runs its members write only inside its write blocks; a part another member holds comes back naming the holder."],
+      ["The stages", "Each stage reads and writes blocks and starts on a trigger: manual (Run), stage_done:<stage> (the edges down the right) or block_change:<block> (after a quiet settle window)."],
+      ["Run", "Run next (or Run on a stage in the Inspector) starts it: its box pulses cyan, its members' columns show who is at work, the blocks it writes count their holders and the feed fills."],
+      ["The gate", "A stage with a required gate stops at amber: the Inspector's gate card (and a Fleet Attention row) has its summary and the acceptance. Accept, Redo with an instruction, or Stop the run."],
+      ["The next stage", "Accept marks it done: the stage_done edges light and the stages waiting on it start; a block that changes and settles starts its block_change stage. Stop ends the run; every stage not done is skipped."],
+    ],
+    keys: [["Alt+7", "Team"], ["Enter", "on a selected stage or block: select it (Tab moves between them)"], ["Mod+K", "Team: run next stage, Team: validate, Team: stop, Team: open file"], ...PANEL_KEYS],
+  },
 };

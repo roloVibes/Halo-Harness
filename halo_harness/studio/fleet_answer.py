@@ -16,6 +16,7 @@ calls `act`; the decision is journaled there with `by`.
     mission_plan    a approve and run | r edit (text: "part 2 to kali" / "drop 3") | s drop the mission  (R7)
     mission_ask     a allow | r deny                   the `fleet-ask:mission-` card of a hub's run_task here
     mission_claim   a set aside
+    team_gate       a accept | r redo (text: the instruction) | s stop the run   (team/answer, 3.0.8.0 R2)
     every kind      o open: answered with where to open it, nothing is sent
 
 Cards go through `fleet/<harness>/<sid>/command {cmd: answer, ...}` (this
@@ -43,7 +44,7 @@ ANSWER = {
     ("mission_ask", "a"): {"answer": "allow"},
     ("mission_ask", "r"): {"answer": "deny"},
 }
-NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("flow_gate", "r"), ("mission_plan", "r")}
+NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("flow_gate", "r"), ("mission_plan", "r"), ("team_gate", "r")}
 SET_ASIDE = ("orchestra_gate", "control_ask", "conflict", "mission_claim")
 FLOW = {"a": "accept", "r": "redo", "s": "stop"}
 
@@ -71,6 +72,9 @@ def open_target(row: dict) -> dict:
         return {"section": "flow", "run": t.get("run"), "step": t.get("step")}
     if kind == "orchestra_gate":
         return {"section": "orchestra", "run": t.get("run")}
+    if kind == "team_gate":  # 3.0.8.0 R2
+        from halo_harness.fleet.team_attention import open_target as team_target
+        return team_target(row)
     if kind == "cap":
         return {"section": "fleet", "panel": "fleet-costs", "scope": t.get("scope"), "key": t.get("key")}
     if kind.startswith("mission_") and (kind != "mission_ask" or t.get("mission")):  # R8: a run_task card names its mission
@@ -106,6 +110,9 @@ def act(req, watcher, row: dict, key: str, text: str):
     if kind == "mission_plan":  # 3.0.6.0 R7
         from halo_harness.fleet.mission_attention import answer
         return answer(req, row, key, text)
+    if kind == "team_gate":  # 3.0.8.0 R2: the gate card's own route
+        from halo_harness.fleet.team_attention import answer as team_answer
+        return team_answer(req, row, key, text)
     if kind in SET_ASIDE:
         watcher.acks.add(row["id"])
         from halo_harness.fleet import journal

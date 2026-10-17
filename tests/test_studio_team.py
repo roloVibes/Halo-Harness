@@ -166,6 +166,53 @@ def test_run_refuses_on_a_problem_and_on_the_preflight(ctx: Ctx):
         team_api.RUNNER = saved
 
 
+@test
+def test_init_route_and_the_team_gate_attention_row(ctx: Ctx):
+    """3.0.8.0 R2: `POST team/init` writes the template and a brief through `halo team init`'s code (409 once
+    a file exists); a stage at its gate is a `team_gate` row of the Fleet attention queue: `o` points at the
+    Team section on that stage, `r` needs a text, `a` accepts through `POST team/answer`."""
+    from halo_harness.studio import team_api, team_live
+    from halo_harness.team.spec import template_text
+    fakes = R.Fakes()
+    saved = team_api.RUNNER
+    team_api.RUNNER = fakes.seams
+    try:
+        with _Studio() as s:
+            proj = s.state.parent / "proj"
+            proj.mkdir(parents=True, exist_ok=True)
+            status, out, _ = s.call("POST", "/api/team/init", {})
+            ctx.check(f"init writes the file and the brief, got {status} {out}", status == 200 and out["ok"]
+                      and (proj / ".halo" / "team.yaml").read_text(encoding="utf-8") == template_text()
+                      and (proj / "docs" / "BRIEF.md").is_file() and len(out["written"]) == 2)
+            ctx.check("GET team finds it", s.call("GET", "/api/team")[1]["found"] is True)
+            status, out, _ = s.call("POST", "/api/team/init", {})
+            ctx.check(f"a second init is a 409 naming the file, got {status} {out}", status == 409 and "team.yaml" in out["path"])
+        with _Studio() as s:
+            root, _state = R.repo(at=s.state.parent / "proj")
+            ctx.check("no gate, no team row", not [r for r in s.call("GET", "/api/fleet/attention")[1]["rows"] if r["kind"] == "team_gate"])
+            s.call("POST", "/api/team/run", {"stage": "draft"})
+            ctx.check("draft gated", _until(lambda: s.call("GET", "/api/team/board")[1]["board"]["stages"][0]["state"] == "gated"))
+            rows = []
+            ctx.check("the team_gate row lands", _until(lambda: rows.extend(r for r in s.call("GET", "/api/fleet/attention")[1]["rows"]
+                                                                            if r["kind"] == "team_gate") or bool(rows)))
+            row = rows[0] if rows else {"id": "", "keys": {}, "what": "", "target": {}}
+            ctx.check(f"its what, keys and target, got {row}", "stage draft waits at its gate" in row["what"]
+                      and row["keys"] == {"a": "accept", "r": "redo", "s": "stop", "o": "open Team"} and row["text_for"] == "r"
+                      and row["target"]["stage"] == "draft")
+            status, got, _ = s.call("POST", "/api/fleet/attention/answer", {"id": row["id"], "key": "o"})
+            ctx.check(f"o opens the Team section on draft, got {got}", status == 200
+                      and got["open"] == {"section": "team", "panel": "team-inspector", "run": row["target"]["run"], "stage": "draft"})
+            ctx.check("r without a text answers 422 (redo takes the instruction)", s.call("POST", "/api/fleet/attention/answer", {"id": row["id"], "key": "r"})[0] == 422)
+            status, got, _ = s.call("POST", "/api/fleet/attention/answer", {"id": row["id"], "key": "a"})
+            ctx.check(f"a accepts the gate, got {status} {got}", status == 200)
+            ctx.check("review and post run after it", _until(lambda: [r["state"] for r in s.call(
+                "GET", "/api/team/board")[1]["board"]["stages"]] == ["done", "done", "pending", "done"]))
+            s.call("POST", "/api/team/stop", {})
+            ctx.check("the runner ends", team_live.wait(root, 8.0))
+    finally:
+        team_api.RUNNER = saved
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

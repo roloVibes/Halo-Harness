@@ -94,7 +94,16 @@ def board_path(run_dir) -> Path:
 
 
 def read_board(run_dir) -> dict:
-    data = jsonl.read_json(board_path(run_dir), {}) or {}
+    """board.json; a read that lands while a write replaces it (Windows: the replace holds the file for a
+    moment) tries again a few times instead of answering an empty board (3.0.8.0 R2)."""
+    path = board_path(run_dir)
+    for attempt in range(6):
+        data = jsonl.read_json(path, None)
+        if isinstance(data, dict) and data:
+            return data
+        if not path.exists():
+            break
+        time.sleep(0.02 * (attempt + 1))
     return data if isinstance(data, dict) else {}
 
 

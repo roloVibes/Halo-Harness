@@ -4,7 +4,8 @@
 // and the flows) and a view drawn instead of the bare Workspace (Orchestra
 // and Flow: the Start view until a run is open; Fleet: until something runs;
 // 3.0.7.0 R3 Org: until a company is linked, Design: until a project exists;
-// R2 Roles: until you have a lineup of your own). Every section is React now
+// R2 Roles: until you have a lineup of your own; 3.0.8.0 R2 Team: until the
+// team file loads clean). Every section is React now
 // (the framed classic page is gone). The Workspace does the rest
 // (drag, resize, collapse, pop out, persistence). Each section's "How this
 // works" copy is routes/sectionHelp.ts.
@@ -32,6 +33,9 @@ import { setView as enterOrg } from "./org/store";
 import { rolesPanels } from "./roles/Roles";
 import { RolesView } from "./roles/Start";
 import { setView as enterRoles } from "./roles/store";
+import { teamPanels } from "./team/Team";
+import { TeamView } from "./team/Start";
+import { setView as enterTeam } from "./team/store";
 
 export type SectionDef = {
   id: SectionId;
@@ -54,6 +58,7 @@ export const SECTIONS: SectionDef[] = [
   { id: "design", title: "Design", kbd: "Alt+4", blurb: "Prototypes, pages and decks", panels: [...designPanels, ...mediaPanels(0, "optional")], view: DesignView },
   { id: "flow", title: "Flow", kbd: "Alt+5", blurb: "A brief to renders, posts and metrics", panels: flowPanels, rail: FlowRail, view: FlowView, enter: enterWorkspace },
   { id: "fleet", title: "Fleet", kbd: "Alt+6", blurb: "Every harness, every agent, live", panels: fleetPanels, view: FleetView, enter: enterFleet },
+  { id: "team", title: "Team", kbd: "Alt+7", blurb: "People, blocks and stages on one board", panels: teamPanels, view: TeamView, enter: () => enterTeam("workspace") },
 ];
 
 export function sectionDef(id: SectionId): SectionDef {

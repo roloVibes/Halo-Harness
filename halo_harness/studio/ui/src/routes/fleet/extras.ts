@@ -13,6 +13,7 @@ import { load } from "./sync";
 import { loadAttention, loadConflicts, loadCosts } from "./pload";
 import { loadMissions, openMission, refresh as refreshMission } from "./mload";
 import { closeDialog, openDialog, panels, type AttnRow, type CapKey, type HandoffOut, type OpenTarget } from "./pstore";
+import { openTeamStage } from "../team/actions";
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 const hidPath = (hid: string) => (fleet.get().harnesses.find((h) => h.id === hid)?.local ? "local" : encodeURIComponent(hid));
@@ -32,6 +33,7 @@ export function showFleetPanel(id: string): void {
 
 /** Where an `o` answer points: a section, and in Fleet the panel and the agent. */
 export function openTarget(t: OpenTarget): void {
+  if (t.section === "team") return openTeamStage(t.stage); // 3.0.8.0 R2: a team_gate row, its stage selected
   if (t.section !== "fleet") {
     goSection(t.section as SectionId);
     return;

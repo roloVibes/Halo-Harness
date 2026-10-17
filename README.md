@@ -220,9 +220,9 @@ every secret-shaped value stripped. `--copy` puts it on the clipboard.
 ## Halo Studio
 
 Halo has a GUI. `halo studio` starts a loopback-only server with a per-launch token,
-opens your browser, and shows one window with five sections and one header:
-**Orchestra** (`Alt+1`), **Roles** (`Alt+2`), **Org** (`Alt+3`), **Design** (`Alt+4`) and
-**Flow** (`Alt+5`). Each section opens on a Start view that says what it is for, and its
+opens your browser, and shows one window with seven sections and one header:
+**Orchestra** (`Alt+1`), **Roles** (`Alt+2`), **Org** (`Alt+3`), **Design** (`Alt+4`),
+**Flow** (`Alt+5`), **Fleet** (`Alt+6`) and **Team** (`Alt+7`). Each section opens on a Start view that says what it is for, and its
 panels sit in labelled group boxes you can move and resize. In the TUI, `/roles`, `/org`
 and `/design` open it straight into that section; `Ctrl`/`Cmd`+`K` opens the command
 palette and `?` opens "How this works". Nothing leaves your machine: no account, no CDN,
@@ -323,6 +323,14 @@ harness, then you approve and run it and the report says who did what and what i
 per harness. See [docs/FLEET.md](docs/FLEET.md) and [docs/MISSIONS.md](docs/MISSIONS.md).
 
 <a href="docs/media/studio-fleet-mission.png"><img alt="Studio's Fleet section: a mission planned across two harnesses, drawn on the map with its table under it" src="docs/media/studio-fleet-mission.png" width="100%"></a>
+
+### Team: people, blocks and stages
+
+Press `Alt+7` and the project's team file is one board: members as columns, stages as boxes
+that pulse while they run and turn amber at a gate you accept, redo or stop, and the blocks
+underneath with who holds which part and what changed. See [docs/TEAM.md](docs/TEAM.md).
+
+<a href="docs/media/studio-team.png"><img alt="Studio's Team section: draft done, review waiting at its gate with the gate card open, the notes block held by a hand edit, the change feed under the board" src="docs/media/studio-team.png" width="100%"></a>
 
 ## The levels
 

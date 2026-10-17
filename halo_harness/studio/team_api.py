@@ -15,11 +15,11 @@ that holds Studio's folder (`req.cwd`), docs/TEAM.md.
     GET  team/blocks                    {blocks: [<block status>]}
     GET  team/blocks/<id>/changes?since=N  {block, changes, next}
     GET  team/events?since=N&run=       {run, events, next}
+    POST team/init                      {ok, written, path}; 409 when a file exists (R2, team_init_api.py)
 
-Board, gate, claim and change events go out on `/api/events` as `team`
-frames (studio/team_live.py). `RUNNER()` returns the runner's seams as
-keywords (`spawn`, `orchestra`, `flow`, `dispatch`, `accept`); None = the
-real ones (team/run.py); tests set it to the fakes.
+Board, gate, claim and change events go out on `/api/events` as `team` frames (studio/team_live.py).
+`RUNNER()` returns the runner's seams as keywords (`spawn`, `orchestra`, `flow`, `dispatch`,
+`accept`); None = the real ones (team/run.py); tests set it to the fakes.
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ from pathlib import Path
 from halo_harness.team import blocks as B
 from halo_harness.team import board as BD
 from halo_harness.team import spec as S
+from halo_harness.studio.team_init_api import post_init
 from halo_harness.studio import team_live as live
 
 RUNNER = None
@@ -235,8 +236,7 @@ ROUTES = [
     ("GET", r"^team$", get_team), ("POST", r"^team/validate$", post_validate), ("GET", r"^team/board$", get_board),
     ("POST", r"^team/run$", post_run), ("POST", r"^team/answer$", post_answer), ("POST", r"^team/stop$", post_stop),
     ("GET", r"^team/blocks$", get_blocks), ("GET", r"^team/blocks/(?P<block>[A-Za-z0-9_-]+)/changes$", get_changes),
-    ("GET", r"^team/events$", get_events),
-]
+    ("GET", r"^team/events$", get_events), ("POST", r"^team/init$", post_init)]
 
 
 def dispatch_team(req):

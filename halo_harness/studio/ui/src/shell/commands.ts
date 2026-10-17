@@ -1,5 +1,5 @@
 // The palette's commands and its fuzzy matcher. Groups: Go to, Help,
-// Orchestra, Roles, Org, Design, Flow, Fleet, Media, View, Layout. Each command may show a key (the
+// Orchestra, Roles, Org, Design, Flow, Fleet, Team, Media, View, Layout. Each command may show a key (the
 // same hint the menus show).
 import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
 import { layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
@@ -11,6 +11,7 @@ import { fleetCommands } from "../routes/fleet/commands";
 import { orgCommands } from "../routes/org/commands";
 import { designCommands } from "../routes/design/commands";
 import { rolesCommands } from "../routes/roles/commands";
+import { teamCommands } from "../routes/team/commands";
 
 export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; run: () => void };
 
@@ -71,7 +72,7 @@ export function commands(): Command[] {
       run: () => revealPanel(cur, p),
     });
   }
-  out.push(...orchestraCommands(), ...rolesCommands(), ...orgCommands(), ...designCommands(), ...flowCommands(), ...fleetCommands(), ...mediaCommands());
+  out.push(...orchestraCommands(), ...rolesCommands(), ...orgCommands(), ...designCommands(), ...flowCommands(), ...fleetCommands(), ...teamCommands(), ...mediaCommands());
   return out;
 }
 

@@ -89,19 +89,27 @@ def _run_dir(team, ref):
     return run_dir, None
 
 
+def init_files(root) -> list:
+    """Write `<root>/.halo/team.yaml` from the template and a starter `docs/BRIEF.md` (kept when it is
+    there); the paths written. `halo team init` and Studio's `POST team/init` (3.0.8.0 R2) both call it."""
+    path = S.repo_team_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(S.template_text(), encoding="utf-8")
+    made = [str(path)]
+    brief = Path(root) / "docs" / "BRIEF.md"
+    if not brief.exists():
+        brief.parent.mkdir(parents=True, exist_ok=True)
+        brief.write_text("# Brief\n\nWhat this team makes, for whom, and what done looks like.\n", encoding="utf-8")
+        made.append(str(brief))
+    return made
+
+
 def cmd_init(args) -> int:
     root = S.team_root()
     path = S.repo_team_path(root)
     if path.exists() and not args.force:
         return _err(f"{path} exists (--force overwrites it)")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(S.template_text(), encoding="utf-8")
-    made = [str(path)]
-    brief = root / "docs" / "BRIEF.md"
-    if not brief.exists():
-        brief.parent.mkdir(parents=True, exist_ok=True)
-        brief.write_text("# Brief\n\nWhat this team makes, for whom, and what done looks like.\n", encoding="utf-8")
-        made.append(str(brief))
+    made = init_files(root)
     _out(args, {"ok": True, "written": made}, "wrote " + ", ".join(made) + "\nnext: halo team validate")
     return 0
 

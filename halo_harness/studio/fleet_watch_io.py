@@ -68,6 +68,15 @@ def flows(home) -> list:
         return []
 
 
+def teams(server) -> list:
+    """The open gates of the team run of Studio's repo (3.0.8.0 R2, fleet/team_attention.py)."""
+    try:
+        from halo_harness.fleet.team_attention import gated
+        return gated(getattr(server, "cwd", None), getattr(server, "state_dir", None))
+    except Exception:
+        return []
+
+
 def orchestra(server) -> list:
     """This repo's Orchestra runs the gate stopped, each with its report's `stop_reason`."""
     try:
