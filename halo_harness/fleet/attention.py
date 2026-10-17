@@ -14,6 +14,7 @@ serves them (`GET /api/fleet/attention`) and routes the answers.
     conflict       two agents of different sessions edit the same file
     mission_plan | mission_claim | mission_ask   a fleet mission waits for approval, a part was refused an edit
                    outside its claims, a hub asks to run a part here (3.0.6.0 R7, fleet/mission_attention.py)
+    team_gate      a stage of this repo's team run waits at its gate (3.0.8.0 R2, fleet/team_attention.py)
 
 Each row: {id, kind, harness, harness_name, local, session_id, session, agent_id, agent, what, detail,
 since, keys: {a|r|s|o: label}, text_for: "r" | None, target: {...}}. `keys` holds only the answers
@@ -45,8 +46,10 @@ KEYS = {
     "mission_plan": {"a": "approve and run", "r": "edit", "s": "drop", "o": "open the mission"},  # 3.0.6.0 R7
     "mission_claim": {"a": "set aside", "o": "open the mission"},
     "mission_ask": {"a": "allow", "r": "deny", **OPEN},
+    "team_gate": {"a": "accept", "r": "redo", "s": "stop", "o": "open Team"},  # 3.0.8.0 R2
 }
-TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "flow_gate": "r", "mission_plan": "r"}
+TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "flow_gate": "r", "mission_plan": "r",
+            "team_gate": "r"}
 CARD_KINDS = ("permission", "question", "plan", "approval")
 
 
@@ -166,7 +169,7 @@ def conflict_rows(conflicts: list, view: dict, seen: dict, now: float) -> list:
 
 
 def build(view: dict, *, asks: Optional[dict] = None, flows=(), orchestra=(), commands=(), reached=(), conflicts=(),
-          seen: Optional[dict] = None, acks=(), now: Optional[float] = None, home=None) -> list:
+          seen: Optional[dict] = None, acks=(), now: Optional[float] = None, home=None, teams=()) -> list:
     """Every row, newest decision last within each harness, set-aside rows left out."""
     now = now or time.time()
     seen = seen if seen is not None else {}
@@ -177,5 +180,8 @@ def build(view: dict, *, asks: Optional[dict] = None, flows=(), orchestra=(), co
     if home is not None:  # 3.0.6.0 R7: the missions' rows
         from halo_harness.fleet.mission_attention import rows as mission_rows
         rows += mission_rows(home, local, seen, now)
+    if teams:  # 3.0.8.0 R2: the team gates of Studio's repo (fleet/team_attention.py gated)
+        from halo_harness.fleet.team_attention import rows as team_rows
+        rows += team_rows(list(teams), local, seen, now)
     gone = set(acks)
     return sorted([r for r in rows if r["id"] not in gone], key=lambda r: r["since"])

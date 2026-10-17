@@ -5,7 +5,8 @@
 // the company, the project), the section
 // and its layout, and the keys. The FLEET cell counts the agents at work and
 // the decisions waiting in the Fleet attention queue, in every section;
-// 3.0.6.0 R8: and the fleet missions running now.
+// 3.0.6.0 R8: and the fleet missions running now. 3.0.8.0 R2: the TEAM cell
+// counts the stages of the repo's team run that run now (with a team file).
 import { HudCell, HudStrip, Kbd } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
@@ -15,6 +16,8 @@ import { useAttnCount } from "../routes/fleet/pstore";
 import { useRunningMissions } from "../routes/fleet/Mission";
 import { useCounts } from "../routes/fleet/store";
 import { startFleet } from "../routes/fleet/sync";
+import { gatedRows, runningCount, useTeam } from "../routes/team/store";
+import { startTeam } from "../routes/team/sync";
 import { useEffect } from "react";
 
 const FEED_TEXT = { off: "feed off", connecting: "connecting", open: "live", retrying: "reconnecting", down: "feed down" } as const;
@@ -26,9 +29,13 @@ export function StatusBar() {
   const line = useStore(studio, (s) => s.status[s.section]);
   const title = sectionDef(section).title;
   useEffect(() => startFleet(), []); // the fleet counts in every section, rail open or not
+  useEffect(() => startTeam(), []); // the team's running stages, in every section
   const fleet = useCounts();
   const attn = useAttnCount(fleet.attention);
   const running = useRunningMissions();
+  const hasTeam = useTeam((s) => !!s.info?.team);
+  const teamRunning = useTeam(runningCount);
+  const teamGated = useTeam((s) => gatedRows(s).length);
   return (
     <HudStrip label="Status">
       <HudCell title="The live feed from every running halo session (/api/events)">
@@ -47,6 +54,14 @@ export function StatusBar() {
           {attn > 0 && <b className="fr-attn" data-testid="status-attention"> · {attn} need{attn === 1 ? "s" : ""} you</b>}
         </span>
       </HudCell>
+      {hasTeam && (
+        <HudCell label="TEAM" title="The stages of this repo's team run that run now, and the ones at a gate (the Team section)">
+          <span className="mono" data-testid="status-team" data-running={teamRunning}>
+            {teamRunning} running
+            {teamGated > 0 && <b className="fr-attn"> · {teamGated} at a gate</b>}
+          </span>
+        </HudCell>
+      )}
       <HudCell label="EVENTS">
         <span className="mono">
           {feed.events}
@@ -67,7 +82,7 @@ export function StatusBar() {
       </HudCell>
       <HudCell>
         <span className="hud-keys">
-          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+6" /> sections <Kbd keys="Esc" /> close
+          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+7" /> sections <Kbd keys="Esc" /> close
         </span>
       </HudCell>
     </HudStrip>

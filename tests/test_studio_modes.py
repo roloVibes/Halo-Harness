@@ -1,15 +1,8 @@
-"""tests.test_studio_modes -- Halo 3.0.2.0: the GUI is one command away from
-every door. `halo studio --mode roles|org|design` and `url_for(server, mode)`
-put the mode in the query ahead of the token fragment; `/studio roles|org|
-design`, `/design`, `/roles gui` and `/org gui` open Studio in that mode
-(`url` keeps the browser shut); `/roles table` is the text table; the
-top-level help names studio/design/teams/agents and the GUI; the system
-prompt tells every model what Halo Studio is and how to open it; 3.0.7.0 R3:
-`--mode org|design` open the React sections (their DOM, through
-tools/capture_studio.py --dom); R2: so does `--mode roles` -- every section is
-React and the classic page (static/legacy) is gone.
-
-Run: python -m tests.test_studio_modes
+"""tests.test_studio_modes -- Halo 3.0.2.0: `halo studio --mode <section>` and `url_for(server, mode)`
+put the mode in the query ahead of the token; `/studio <section>`, `/design`, `/roles gui`, `/org gui`
+open Studio there (`url` keeps the browser shut); `/roles table` is the text table; the help and the
+system prompt name Studio; 3.0.7.0: org, design and roles are React sections (their DOM through
+tools/capture_studio.py --dom); 3.0.8.0 R2: Team, the seventh. Run: python -m tests.test_studio_modes
 """
 
 from __future__ import annotations
@@ -36,9 +29,7 @@ from halo_harness.studio import server as studio_server  # noqa: E402
 test, TESTS = new_registry()
 
 
-class _NoBrowser:
-    """Record webbrowser.open calls instead of opening anything."""
-
+class _NoBrowser:  # records webbrowser.open calls instead of opening anything
     def __init__(self):
         self.calls = []
 
@@ -74,27 +65,26 @@ def test_url_for_puts_the_mode_in_the_query_ahead_of_the_token(ctx: Ctx):
 
 
 @test
-def test_the_shell_has_six_sections_and_opens_flow_orchestra_and_fleet_by_mode(ctx: Ctx):
-    """3.0.4.0 R6: Flow is the fifth section (Alt+5); 3.0.5.0 R3: Fleet the
-    sixth (Alt+6). `halo studio --mode flow|orchestra|fleet` (and `/studio
-    flow`, `/studio fleet`) put it in the query, and the shell reads every
-    section from `?mode=`."""
+def test_the_shell_has_seven_sections_and_opens_flow_orchestra_fleet_and_team_by_mode(ctx: Ctx):
+    """3.0.4.0 R6: Flow is the fifth section (Alt+5); 3.0.5.0 R3: Fleet the sixth (Alt+6); 3.0.8.0 R2:
+    Team the seventh (Alt+7). `halo studio --mode flow|orchestra|fleet|team` (and `/studio flow`,
+    `/studio team`) put it in the query, and the shell reads every section from `?mode=`."""
     from halo_harness.providers.config import default_state_dir
     state = Path(default_state_dir())
     srv = studio_server.start_server(port=0, cwd=state.parent / "proj", state_dir=state)
     try:
-        for mode in ("flow", "orchestra", "fleet"):
+        for mode in ("flow", "orchestra", "fleet", "team"):
             url = studio_server.url_for(srv, mode)
             ctx.check(f"--mode {mode} carries ?mode={mode} before #t=, got {url!r}", f"/?mode={mode}#t=" in url)
     finally:
         srv.server_close()
     ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src"
     routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
-    ctx.check("six sections, Flow on Alt+5, Fleet on Alt+6", routes.count('kbd: "Alt+') == 6 and 'id: "flow", title: "Flow", kbd: "Alt+5"' in routes
-              and 'id: "fleet", title: "Fleet", kbd: "Alt+6"' in routes)
+    ctx.check("seven sections, Flow on Alt+5, Fleet on Alt+6, Team on Alt+7", routes.count('kbd: "Alt+') == 7 and 'id: "flow", title: "Flow", kbd: "Alt+5"' in routes
+              and 'id: "fleet", title: "Fleet", kbd: "Alt+6"' in routes and 'id: "team", title: "Team", kbd: "Alt+7"' in routes)
     store = (ui / "lib" / "store.ts").read_text(encoding="utf-8")
-    ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|org|design|flow|fleet)" in store)
-    ctx.check("Alt+1..6 switch sections", "Digit[1-6]" in (ui / "shell" / "keys.ts").read_text(encoding="utf-8"))
+    ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|org|design|flow|fleet|team)" in store)
+    ctx.check("Alt+1..7 switch sections", "Digit[1-7]" in (ui / "shell" / "keys.ts").read_text(encoding="utf-8"))
     ctx.check("no classic page ships beside the shell (3.0.7.0 R2)", not (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy").exists())
     facade = _facade()
     with _NoBrowser():
@@ -103,6 +93,9 @@ def test_the_shell_has_six_sections_and_opens_flow_orchestra_and_fleet_by_mode(c
     with _NoBrowser():
         out = _cmd_studio("fleet url", facade)
     ctx.check(f"/studio fleet url names Fleet and its URL, got {out!r}", "Fleet:" in out and "?mode=fleet#t=" in out)
+    with _NoBrowser():
+        out = _cmd_studio("team url", facade)
+    ctx.check(f"/studio team url names Team and its URL, got {out!r}", "Team:" in out and "?mode=team#t=" in out)
 
 
 @test
@@ -170,11 +163,18 @@ def test_system_prompt_tells_the_model_about_studio(ctx: Ctx):
     ctx.check("names the slash commands", "`/roles`, `/org` or `/design`" in text)
 
 
+def _need_chrome() -> None:
+    sys.path.insert(0, str(REPO_DIR / "tools"))
+    from capture_screens import find_chrome
+    import os
+    from tests.helpers.runner import SkipTest
+    if not find_chrome(os.environ.get("HALO_CHROME", "")):
+        raise SkipTest("no Chrome found (the DOM checks need headless Chrome)")
+
+
 def _dom(mode: str) -> dict:
     """tools/capture_studio.py --mode <mode> --dom in a scrubbed environment: the Start view's and the section's test-id counts."""
-    import json
-    import os
-    import subprocess
+    import json, os, subprocess  # noqa: E401
     env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
     env.update(PYTHONPATH=str(REPO_DIR), BRIDGE_TEST_NO_BACKGROUND_NET="1")
     r = subprocess.run([sys.executable, str(REPO_DIR / "tools" / "capture_studio.py"), "--mode", mode, "--dom"], capture_output=True,
@@ -187,19 +187,13 @@ def _dom(mode: str) -> dict:
 
 @test
 def test_org_and_design_open_as_react_sections(ctx: Ctx):
-    """3.0.7.0 R3: `--mode org|design` open React sections, no framed classic page:
-    Org's Start view without Paperclip, then the chart over FakePaperclip; Design's
-    Start view without a project, then the thread and the artboards of a seeded one."""
-    sys.path.insert(0, str(REPO_DIR / "tools"))
-    from capture_screens import find_chrome
-    import os
-    from tests.helpers.runner import SkipTest
-    if not find_chrome(os.environ.get("HALO_CHROME", "")):
-        raise SkipTest("no Chrome found (the DOM checks need headless Chrome)")
+    """3.0.7.0 R3: `--mode org|design`, no framed classic page: Org's Start view without Paperclip, then the chart
+    over FakePaperclip; Design's Start view without a project, then the thread and the artboards of a seeded one."""
+    _need_chrome()
     org = _dom("org")
     start, chart = org.get("start", {}), org.get("org", {})
-    ctx.check(f"Org without Paperclip: six tabs, the Start view, no frame, got {start or org}",
-              start.get("section-tab") == 6 and start.get("org-start") == 1 and start.get("legacy-frame") == 0 and start.get("org-card") == 0)
+    ctx.check(f"Org without Paperclip: seven tabs, the Start view, no frame, got {start or org}",
+              start.get("section-tab") == 7 and start.get("org-start") == 1 and start.get("legacy-frame") == 0 and start.get("org-card") == 0)
     ctx.check(f"Org over FakePaperclip: the canvas, seven cards in two boxes, four panels, got {chart}",
               chart.get("org-canvas") == 1 and chart.get("org-card") == 7 and chart.get("org-group") == 2 and chart.get("panel-about") == 4
               and chart.get("org-start") == 0 and chart.get("legacy-frame") == 0)
@@ -219,27 +213,34 @@ def test_org_and_design_open_as_react_sections(ctx: Ctx):
 
 @test
 def test_roles_opens_as_a_react_section(ctx: Ctx):
-    """3.0.7.0 R2: `--mode roles` opens the React Roles section: with only the shipped lineups
-    (none active) one Start view and no panels; over a seeded lineup with two declared tiers and
-    a card whose model the catalog lacks, the canvas with its eight cards in three tier boxes, the
-    Problems panel's row, and, a bio clicked, the bio form with the model picker table."""
-    sys.path.insert(0, str(REPO_DIR / "tools"))
-    from capture_screens import find_chrome
-    import os
-    from tests.helpers.runner import SkipTest
-    if not find_chrome(os.environ.get("HALO_CHROME", "")):
-        raise SkipTest("no Chrome found (the DOM checks need headless Chrome)")
+    """3.0.7.0 R2: `--mode roles`: with only the shipped lineups (none active) one Start view and no panels; over a
+    seeded lineup with two declared tiers and a card whose model the catalog lacks, the canvas with its eight cards
+    in three tier boxes, the Problems panel's row, and, a bio clicked, the bio form with the model picker table."""
+    _need_chrome()
     got = _dom("roles")
     start, roles = got.get("start", {}), got.get("roles", {})
     ctx.check(f"the Start view, no canvas and no frame, got {start or got}",
-              start.get("section-tab") == 6 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0 and start.get("panel-about") == 0
-              and start.get("legacy-frame") == 0)
+              start.get("section-tab") == 7 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0
+              and start.get("panel-about") == 0 and start.get("legacy-frame") == 0)
     ctx.check(f"the canvas, eight cards, three tier boxes, the edges, got {roles}",
               roles.get("roles-canvas") == 1 and roles.get("roles-card") == 8 and roles.get("roles-tier") == 3 and (roles.get("roles-edge") or 0) >= 7
               and roles.get("roles-start") == 0 and roles.get("legacy-frame") == 0)
     ctx.check(f"six panels with their about lines, the problem row, got {roles}", roles.get("panel-about") == 6 and (roles.get("roles-problem") or 0) >= 1)
     ctx.check(f"the bio form, the model table (one row per catalog model) and its Test button, got {roles}",
               roles.get("bio-form") == 1 and roles.get("model-row") == 7 and (roles.get("model-test") or 0) >= 1)
+
+
+@test
+def test_team_opens_as_a_react_section(ctx: Ctx):
+    """3.0.8.0 R2: `--mode team`: no team file, the Start view with Make my first team, no board; over team_rig's
+    team three member columns, four stage boxes, three block nodes, eight edges, three panels with their about lines."""
+    _need_chrome()
+    got = _dom("team")
+    start, team = got.get("start", {}), got.get("team", {})
+    ctx.check(f"the Start view, no board, got {start or got}", start.get("section-tab") == 7 and start.get("team-start") == 1
+              and start.get("team-start-init") == 1 and start.get("team-board") == 0 and start.get("team-stage") == 0)
+    ctx.check(f"the board, got {team}", team.get("team-member") == 3 and team.get("team-stage") == 4 and team.get("team-block") == 3
+              and team.get("team-edge") == 8 and team.get("panel-about") == 3 and team.get("team-start") == 0 and team.get("legacy-frame") == 0)
 
 
 if __name__ == "__main__":

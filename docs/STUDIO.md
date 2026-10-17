@@ -11,6 +11,7 @@ is a second source of truth.
 halo studio                 # starts a local server, opens the browser in the mode you used last
 halo studio --mode roles    # straight into Roles (lineups and bios), --mode org, --mode design
 halo studio --mode fleet    # 3.0.5.0: every harness and agent, live (also orchestra, flow)
+halo studio --mode team     # 3.0.8.0: the project's team on one board
 halo studio --no-open       # prints the URL only (SSH, a headless box)
 halo studio --port 8765     # a fixed port instead of a free one
 halo studio --stop          # stop the Studio running in the background
@@ -24,18 +25,19 @@ buttons start it detached, so it outlives `halo init`; `halo studio --stop`
 ends it. `halo_harness/studio/launch.py` is the small module behind both.
 
 Inside the TUI, `/roles`, `/org` and `/design` open Studio straight into that
-mode from the live session; `/studio [roles|org|design|orchestra|flow|fleet]` is the long form and
+mode from the live session; `/studio [roles|org|design|orchestra|flow|fleet|team]` is the long form and
 `/studio url` prints the URL without opening a browser. A model running in a
 Halo session knows this too: the system prompt names Studio, its three modes
 and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 
 ## The shell (3.0.3.0)
 
-`halo studio` opens a React shell with six sections in the top bar:
-**Orchestra | Roles | Org | Design | Flow | Fleet** (`Alt+1`..`Alt+6`, or `?mode=` in
-the URL; Flow since 3.0.4.0, Fleet since 3.0.5.0). Orchestra is the live run console (see [Orchestra](#orchestra-the-run-console)
+`halo studio` opens a React shell with seven sections in the top bar:
+**Orchestra | Roles | Org | Design | Flow | Fleet | Team** (`Alt+1`..`Alt+7`, or `?mode=` in
+the URL; Flow since 3.0.4.0, Fleet since 3.0.5.0, Team since 3.0.8.0). Orchestra is the live run console (see [Orchestra](#orchestra-the-run-console)
 below), Flow the workflow console (see [Flow](#flow-the-workflow-console)),
-Fleet every harness and every agent, live (see [Fleet](#fleet-every-harness-every-agent));
+Fleet every harness and every agent, live (see [Fleet](#fleet-every-harness-every-agent)),
+Team the project's team file as one board (see [Team](#team-people-blocks-and-stages-on-one-board));
 Roles, Org and Design are React sections since 3.0.7.0 (see
 [What you see (Roles)](#what-you-see-roles),
 [Org mode](#org-mode-the-company-in-paperclip) and
@@ -87,13 +89,14 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   node, and a session that waits on you keeps its inline answer; then the
   layout actions.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
-  grouped results (Go to, Help, Orchestra, Roles, Org, Design, Flow, Fleet, Media,
+  grouped results (Go to, Help, Orchestra, Roles, Org, Design, Flow, Fleet, Team, Media,
   View, Layout), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
 - **The status bar** shows the live feed (a dot that is green when
   connected, amber while connecting or reconnecting, red when unreachable,
   and ticks once per event), the session count, the fleet (agents at work
-  and how many wait on you), the event count, the section's own status
+  and how many wait on you), the team (3.0.8.0: its stages running now, when
+  the repo has a team file), the event count, the section's own status
   line (Roles: the open lineup, its cards and problems, saved or not; Org's company and
   Design's project) and the section's layout
   state. `Esc` closes the palette, a menu or a help card, then the Inspector.
@@ -377,6 +380,20 @@ runs, what it hands back; steer it, take it over, hand it on, record it.
 Capabilities (3.0.6.0): what every harness can do, and who can do what.
 Mission (3.0.6.0): one goal for the whole fleet, planned, approved, run and
 reported.
+
+### Team
+
+**What it is.** Your project's team file as one board: who works on it
+(members, each a part of a lineup, here or on a fleet harness), where their
+work lands (blocks: a file, a folder or a git tree, each with its claim
+ledger) and in which order (stages: an agent turn, an Orchestra run or a
+flow). The steps are those of
+[How this works: Team](#how-this-works-team) below.
+
+**Panels.** Board: the team as one board, members as columns, stages as
+boxes, blocks underneath. Inspector: the selected stage (its row, Run, the
+gate card), block (holders, changes) or member. Change feed: every move of
+the run, newest last.
 
 ## The live feed
 
@@ -804,6 +821,7 @@ shows it on demand.
 | Key | Where | What |
 |---|---|---|
 | `Alt+6` | everywhere | Fleet |
+| `Alt+7` | everywhere | Team (3.0.8.0) |
 | `J` / `K` | Fleet map, the Roles canvas, Orchestra lanes | the next / previous live agent (Orchestra: the next lane at work) |
 | `F` | Fleet; Roles with the Live tab open; Orchestra | follow: the stream scrolls with the agent (Orchestra: the Log follows) |
 | `Space` | Fleet; Roles with a card's agent watched | pin the stream: a **mini stream** floats over whatever you look at, in every section |
@@ -877,6 +895,95 @@ R4 panels read `GET /api/fleet/attention`, `costs`, `caps`, `health`,
 `conflicts`, `digest`, `replay` and `history`, and post to
 `attention/answer`, `caps`, `.../handoff`, `.../recording` and a session's
 `command` (`note`); [FLEET.md](FLEET.md) has every shape.
+
+## Team: people, blocks and stages on one board
+
+`Alt+7` (or `?mode=team`, `halo studio --mode team`, `/studio team`) is the
+project's team file ([TEAM.md](TEAM.md)) as one board, live: who works on
+the repo that holds Studio's folder, where their work lands, in which order,
+and every gate that waits on you. Nothing in it calls a model by itself: Run
+starts a stage the way `halo team run` does, on a runner thread of Studio's
+own (with the block watchers armed), and every move comes back as a `team`
+frame on the live feed.
+
+![Team: launch mid-run, draft done, review held at its gate with the gate card open, the notes block held by a hand edit (amber), the change feed under the board](media/studio-team.png)
+
+**The Start view.** While the repo has no team file the section is one Start
+view instead of three empty panels: what a team is in three sentences (next
+to a lineup, an Orchestra run, a flow and a mission), the six steps below,
+and one button, **Make my first team** (`POST /api/team/init`: the shipped
+template in `<repo>/.halo/team.yaml` and a starter `docs/BRIEF.md`, the same
+code as `halo team init`; a 409 when a file exists). A file that does not
+load, or has problems, shows the **Problems** list there instead, with
+**Validate**. "open the board anyway" (or `?view=workspace`) goes straight to
+the panels.
+
+Three panels: the Board at 0,0 (18 columns, 78 rows: a small team's whole
+board without scrolling; it scales down to 75% before it scrolls), the
+Inspector the whole right-hand column (its gate card and change list are
+long), the Change feed under the board. Each has its about line and `?`.
+
+| Panel | What it shows |
+|---|---|
+| **Board** (`team-board`) | The **run bar**: the team, the run id, its state (not started, open, done, stopped), its cost, the runner dot (live: Studio drives the run now), **Run next** (`POST team/run` with no stage: the first pending manual stage), **Stop** (asks for a reason on a card) and **Validate** (the file's problems and every member's lineup preflight in a dialog). Under it the board: one labelled column per **member** (`team-member`: name, lineup and role, a harness chip when it runs on a fleet member, a live chip per stage it works in right now); one box per **stage** (`team-stage`) in the columns of its members (an Orchestra or flow stage spans the team), coloured by state: pending grey, ready a cyan outline, running a cyan pulse, gated amber with its gate diamond filled, done green, failed red, skipped dim; each box has its kind, the line that matters (waiting, error, summary or trigger), its members and lead, its cost; the **blocks** (`team-block`) in the band underneath as document, folder or git nodes with their path, claims mode, last change and a claim badge (how many hold a part; amber while someone writes). **Edges** (`team-edge`): `stage_done:` triggers down the right-hand gutter (lit once the stage they wait on is done), reads dashed and writes solid between a stage and its blocks (lit while the stage runs), `block_change:` triggers dotted amber from a block to its stage. A click selects a member, a stage or a block and the Inspector opens on it. Compact face: members, stages, running, at a gate. |
+| **Inspector** (`team-inspector`) | Three faces by the selection. **Stage**: its board row (state, kind, members, lead, gate, trigger with its settle window, reads, writes, cost, time), its summary, error and `waiting` (a delegated member: asked or running on its harness), **Run** (`POST team/run {stage}`: a problem in the file or a blocking preflight finding is listed right there, the preflight with **Run anyway** = `force`), and while it waits at its gate the **gate card**: the gate's text, the stage's summary, the acceptance's ok and note, **Accept**, **Redo** with your instruction, **Stop** (`POST team/answer`). **Block**: path, kind, claims mode, the ledger, every holder with its key, state and expiry, and its change lines newest first (`GET team/blocks/<id>/changes`, **More** pages back with `next`). **Member**: lineup (a link that opens Roles on that lineup), role, harness and the stages it is in. With nothing selected the stage at a gate shows first. Compact face: the selection and how many stages wait at a gate. |
+| **Change feed** (`team-feed`) | Every line of the run's `events.jsonl`, newest last: the time since the run started, the kind, the stage, the text. A chip row hides or shows **state**, **trigger**, **gate**, **claim** and **change** lines (report and note lines always show); a click on a line selects its stage; at the bottom it follows the live run. Compact face: the line count and the last line. |
+
+**Live.** The section reads `GET /api/team` once, then `GET team/board`,
+`GET team/blocks` and `GET team/events?since=0`. Each `team` frame (`action`
+stage, gate, claim or change) moves its stage's box at once (a stage frame
+carries the board row) and opens the gate card (a gate frame carries
+gate.json), and asks for the catch-up 150 ms later (the board, the blocks'
+holders and the new event lines from `next`), so a line is never counted
+twice. While the live feed is down and a run is open it polls every 2.5 s.
+
+**Attention and the status bar.** A stage held at a required gate is a
+**team gate** row in Fleet's Attention queue (`kind: team_gate`,
+fleet/team_attention.py): `A` accepts, `R` redoes with your text, `S` stops
+the run, `O` opens the Team section on that stage with its gate card. The
+status bar's **TEAM** cell (with a team file) counts the stages running now
+and the ones at a gate, in every section.
+
+### How this works: Team
+
+1. **The team file**: `<repo>/.halo/team.yaml` (else
+   `~/.halo/teams/<project>.team.yaml`): the brief every agent reads first,
+   the members, the blocks and the stages. Make my first team writes it from
+   the template; Validate checks it and runs the lineup preflight.
+2. **The blocks**: each keeps a ledger: who holds which part (a section, a
+   file) and one change line per write. While a stage runs its members write
+   only inside its write blocks; a part another member holds comes back
+   naming the holder.
+3. **The stages**: each reads and writes blocks and starts on a trigger:
+   manual (Run), `stage_done:<stage>` (the edges down the right) or
+   `block_change:<block>` (after a quiet settle window).
+4. **Run**: Run next (or Run on a stage in the Inspector) starts it: its box
+   pulses cyan, its members' columns show who is at work, the blocks it
+   writes count their holders and the feed fills.
+5. **The gate**: a stage with a required gate stops at amber; the
+   Inspector's gate card (and a Fleet Attention row) has its summary and the
+   acceptance. Accept, Redo with an instruction, or Stop the run.
+6. **The next stage**: Accept marks it done: the `stage_done` edges light
+   and the stages waiting on it start; a block that changes and settles
+   starts its `block_change` stage. Stop ends the run; every stage not done
+   is skipped.
+
+**Keys.** `Alt+7` opens Team; `Tab` moves between the stage and block boxes
+and `Enter` selects one; `?` and the panel keys work as everywhere.
+**Palette** (`Ctrl`/`Cmd`+`K`): **Team: run next stage**, **Team:
+validate**, **Team: stop** (asks for a reason), **Team: open file** (the
+team file's path in a dialog with **Copy**), and **Team: open stage
+<id>** for every stage.
+
+**Files.** `ui/src/routes/team/` (`Team.tsx` the panels, `Start.tsx` the
+Start view, `store.ts` + `sync.ts` the store and its feed, `actions.ts`,
+`layout.ts` the board's geometry, `Board.tsx` + `BoardParts.tsx` +
+`RunBar.tsx`, `Inspector.tsx` + `InspectorStage.tsx` + `InspectorBlock.tsx`,
+`Feed.tsx`, `Dialogs.tsx`, `commands.ts`), `routes/help-team.ts`,
+`styles/team.css` + `team-panels.css`; the routes are
+`studio/team_api.py` and `team_init_api.py`, the runner thread
+`team_live.py`, the Attention rows `fleet/team_attention.py`. Pictures:
+`python tools/capture_studio.py --mode team` (tools/capture_team.py).
 
 ## What you see (Roles)
 
@@ -1227,7 +1334,7 @@ in your own browser.
 
 ## Shortcuts
 
-The shell's keys: `Alt+1`..`Alt+6` sections, `Ctrl`/`Cmd`+`K` the palette,
+The shell's keys: `Alt+1`..`Alt+7` sections, `Ctrl`/`Cmd`+`K` the palette,
 `?` the focused panel's help (again, or away from a panel: How this works),
 `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel, `Esc`
 closes. Roles (3.0.7.0 R2): on the canvas `A` lays out, `F` fits, `+` / `-`

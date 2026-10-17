@@ -1,0 +1,115 @@
+/* Team section (3.0.8.0 R2): the board (member columns, stage boxes, block
+   nodes, the trigger / read / write edges), the run bar, the Inspector's
+   faces and gate card, the change feed and the Start view's problems. Stage
+   colours follow the motion vocabulary: pending grey, ready a cyan outline,
+   running a cyan pulse, gated amber, done green, failed red, skipped dim.
+   Tokens only; under prefers-reduced-motion nothing pulses. */
+
+.tm { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 6px; }
+.tm-scroll { flex: 1; min-height: 0; overflow: auto; border-radius: var(--radius-sm); }
+.tm-svg { display: block; font-family: var(--sans); }
+.tm-svg [role="button"] { cursor: pointer; outline: none; }
+.tm-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 10.5px; align-items: center; }
+.tm-key { display: inline-block; width: 18px; height: 0; vertical-align: middle; border-top: 2px solid var(--line-strong); margin-right: 3px; }
+.tm-key-done { border-top-color: var(--accent); }
+.tm-key-reads { border-top-style: dashed; }
+.tm-key-change { border-top-style: dotted; border-top-color: var(--warn); }
+
+/* -- the run bar ---------------------------------------------------------------------- */
+.tm-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 6px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.tm-bar .spacer, .tm-face-head .spacer, .tm-filters .spacer { flex: 1; }
+.tm-bar-name { font-size: 13px; }
+.tm-bar-run { color: var(--muted); font-size: 11px; }
+.tm-run-state { font-size: 10px; text-transform: lowercase; }
+.tm-run-state[data-state="open"], .tm-run-state[data-state="running"], .tm-run-state[data-state="ready"] { color: var(--accent); border-color: var(--accent); }
+.tm-run-state[data-state="gated"] { color: var(--warn); border-color: var(--warn); }
+.tm-run-state[data-state="done"] { color: var(--ok); border-color: var(--ok); }
+.tm-run-state[data-state="failed"] { color: var(--bad); border-color: var(--bad); }
+.tm-run-state[data-state="stopped"], .tm-run-state[data-state="skipped"] { color: var(--faint); }
+.tm-runner { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.tm-runner-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.tm-runner[data-live] { color: var(--accent); }
+.tm-runner[data-live] .tm-runner-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: tm-blink 1.6s var(--ease) infinite; }
+
+/* -- the board: band, member columns -------------------------------------------------- */
+.tm-band rect { fill: color-mix(in srgb, var(--bg-2) 70%, transparent); stroke: var(--line); stroke-dasharray: 4 4; }
+.tm-band text { fill: var(--muted); font: 10px var(--mono); letter-spacing: .08em; }
+.tm-col-shape { fill: color-mix(in srgb, var(--surface) 55%, transparent); stroke: var(--line); }
+.tm-col-head { fill: color-mix(in srgb, var(--accent) 6%, var(--surface)); stroke: var(--line); }
+.tm-col[data-selected] .tm-col-shape, .tm-col[data-selected] .tm-col-head { stroke: var(--accent); }
+.tm-col[data-live] .tm-col-head { stroke: color-mix(in srgb, var(--accent) 60%, transparent); }
+.tm-col-name { fill: var(--text); font-size: 13.5px; font-weight: 650; }
+.tm-col-sub { fill: var(--muted); font: 10.5px var(--mono); }
+.tm-harness rect { fill: color-mix(in srgb, var(--accent-2) 18%, transparent); stroke: var(--accent-2); }
+.tm-harness text { fill: var(--accent-2); font: 10px var(--mono); }
+.tm-agent-chip rect { fill: var(--accent-soft); stroke: var(--accent); }
+.tm-agent-chip circle { fill: var(--accent); animation: tm-blink 1.2s var(--ease) infinite; }
+.tm-agent-chip text { fill: var(--accent); font: 9.5px var(--mono); }
+
+/* -- stage boxes ---------------------------------------------------------------------- */
+.tm-stage-shape { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.2; transition: stroke var(--t) var(--ease), fill var(--t) var(--ease); }
+.tm-stage-pulse { fill: none; stroke: none; pointer-events: none; }
+.tm-stage-dot { fill: var(--faint); }
+.tm-stage-id { fill: var(--text); font-size: 13px; font-weight: 650; }
+.tm-stage-kind { fill: var(--muted); font: 10px var(--mono); text-transform: uppercase; letter-spacing: .05em; }
+.tm-stage-state { fill: var(--muted); font: 10.5px var(--mono); }
+.tm-stage-line { fill: var(--muted); font-size: 11px; }
+.tm-stage-who { fill: var(--faint); font: 10px var(--mono); }
+.tm-stage-cost { fill: var(--muted); font: 10px var(--mono); }
+.tm-stage:hover .tm-stage-shape { stroke: var(--accent); }
+.tm-stage:focus-visible .tm-stage-shape { stroke: var(--accent); stroke-width: 2; }
+.tm-stage[data-selected] .tm-stage-shape { stroke-width: 2.2; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent)); }
+.tm-stage[data-state="pending"] .tm-stage-shape { stroke: var(--line-strong); }
+.tm-stage[data-state="ready"] .tm-stage-shape { stroke: var(--accent); }
+.tm-stage[data-state="ready"] .tm-stage-dot, .tm-stage[data-state="running"] .tm-stage-dot { fill: var(--accent); }
+.tm-stage[data-state="ready"] .tm-stage-state, .tm-stage[data-state="running"] .tm-stage-state { fill: var(--accent); }
+.tm-stage[data-state="running"] .tm-stage-shape { stroke: var(--accent); fill: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.tm-stage[data-state="running"] .tm-stage-pulse { stroke: var(--accent); stroke-width: 2; animation: tm-pulse 1.4s var(--ease) infinite; }
+.tm-stage[data-state="gated"] .tm-stage-shape { stroke: var(--warn); fill: color-mix(in srgb, var(--warn) 10%, var(--surface)); }
+.tm-stage[data-state="gated"] .tm-stage-pulse { stroke: var(--warn); stroke-width: 2; animation: tm-pulse 1.2s var(--ease) infinite; }
+.tm-stage[data-state="gated"] .tm-stage-dot { fill: var(--warn); }
+.tm-stage[data-state="gated"] .tm-stage-state { fill: var(--warn); }
+.tm-stage[data-state="done"] .tm-stage-shape { stroke: var(--ok); fill: color-mix(in srgb, var(--ok) 8%, var(--surface)); }
+.tm-stage[data-state="done"] .tm-stage-dot { fill: var(--ok); }
+.tm-stage[data-state="done"] .tm-stage-state { fill: var(--ok); }
+.tm-stage[data-state="failed"] .tm-stage-shape { stroke: var(--bad); fill: color-mix(in srgb, var(--bad) 9%, var(--surface)); }
+.tm-stage[data-state="failed"] .tm-stage-dot { fill: var(--bad); }
+.tm-stage[data-state="failed"] .tm-stage-state, .tm-stage[data-state="failed"] .tm-stage-line { fill: var(--bad); }
+.tm-stage[data-state="skipped"] { opacity: .45; }
+.tm-stage[data-state="skipped"] .tm-stage-shape { stroke-dasharray: 5 4; }
+.tm-gate path { fill: color-mix(in srgb, var(--warn) 16%, transparent); stroke: var(--warn); stroke-width: 1.2; }
+.tm-gate[data-on] path { fill: var(--warn); }
+
+/* -- block nodes ---------------------------------------------------------------------- */
+.tm-block-shape { fill: var(--bg-2); stroke: var(--line-strong); }
+.tm-block:hover .tm-block-shape, .tm-block[data-selected] .tm-block-shape { stroke: var(--accent); }
+.tm-block[data-selected] .tm-block-shape { stroke-width: 2; }
+.tm-block[data-claim="writing"] .tm-block-shape { stroke: var(--warn); }
+.tm-glyph, .tm-glyph circle { fill: none; stroke: var(--accent-2); stroke-width: 1.3; }
+.tm-block-id { fill: var(--text); font-size: 12.5px; font-weight: 650; }
+.tm-block-path { fill: var(--muted); font: 10px var(--mono); }
+.tm-block-last { fill: var(--faint); font: 9.5px var(--mono); }
+.tm-badge rect { fill: var(--surface-2); stroke: var(--line-strong); }
+.tm-badge text { fill: var(--muted); font: 10.5px var(--mono); font-weight: 700; }
+.tm-badge[data-claim="held"] rect { stroke: var(--accent); fill: var(--accent-soft); }
+.tm-badge[data-claim="held"] text { fill: var(--accent); }
+.tm-badge[data-claim="writing"] rect { stroke: var(--warn); fill: var(--warn); animation: tm-blink 1.2s var(--ease) infinite; }
+.tm-badge[data-claim="writing"] text { fill: var(--accent-ink); }
+
+/* -- edges ---------------------------------------------------------------------------- */
+.tm-edge { fill: none; stroke: var(--line-strong); stroke-width: 1.4; transition: stroke var(--t) var(--ease); }
+.tm-edge[data-kind="reads"] { stroke-dasharray: 5 4; }
+.tm-edge[data-kind="change"] { stroke: color-mix(in srgb, var(--warn) 55%, transparent); stroke-dasharray: 2 4; }
+.tm-edge[data-kind="done"] { stroke: color-mix(in srgb, var(--accent) 40%, transparent); }
+.tm-edge[data-lit] { stroke: var(--accent); stroke-width: 2; }
+.tm-edge[data-kind="change"][data-lit] { stroke: var(--warn); }
+.tm-edge[data-kind="done"][data-lit] { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 60%, transparent)); }
+.tm-arrow { fill: var(--accent); }
+.tm-arrow-change { fill: var(--warn); }
+.tm-arrow-dim { fill: var(--line-strong); }
+
+@keyframes tm-pulse { 0%, 100% { stroke-opacity: .95; } 50% { stroke-opacity: .15; } }
+@keyframes tm-blink { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) {
+  .tm-stage-pulse, .tm-agent-chip circle, .tm-badge rect, .tm-runner-dot { animation: none !important; }
+}

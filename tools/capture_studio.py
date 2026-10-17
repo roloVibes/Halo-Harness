@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|shell|orchestra|flow|media|fleet]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|shell|orchestra|flow|media|fleet|team]
 
 3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
 React Roles section: a seeded lineup with two tiers and a live card
@@ -27,7 +27,9 @@ renders the Start view over a repo with no run (studio-orchestra-start.png). 3.0
 (studio-roles-live.png, the React canvas since 3.0.7.0 R2), R4 also the panels with a conflict on the map and
 the digest in the rail (studio-fleet-panels.png), 3.0.6.0 R6 the Capabilities panel
 with Who can... gridcraft (studio-fleet-capabilities.png), 3.0.6.0 R8 a planned mission
-(studio-fleet-mission.png); --dom counts their test ids.
+(studio-fleet-mission.png); --dom counts their test ids. 3.0.8.0 R2: `--mode team`
+(tools/capture_team.py) seeds team_rig's team mid-run and renders the Team section
+(studio-team.png); --dom counts its Start view and the seeded board.
 """
 
 from __future__ import annotations
@@ -101,7 +103,7 @@ def main(argv: list) -> int:
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--org", action="store_true", help="the Org section over a fake Paperclip seeded with the halo-dev-cycle company (= --mode org)")
-    parser.add_argument("--mode", choices=["roles", "org", "design", "shell", "orchestra", "flow", "media", "fleet"], default="roles", help="org: the halo-dev-cycle company over a fake Paperclip; design: a seeded Launch page project (tools/design_demo.py); both React sections (tools/capture_org_design.py)")
+    parser.add_argument("--mode", choices=["roles", "org", "design", "shell", "orchestra", "flow", "media", "fleet", "team"], default="roles", help="org: the halo-dev-cycle company over a fake Paperclip; design: a seeded Launch page project (tools/design_demo.py); both React sections (tools/capture_org_design.py)")
     args = parser.parse_args(argv)
     if args.org:  # the old flag: the Org section
         args.mode = "org"
@@ -121,6 +123,14 @@ def main(argv: list) -> int:
             args.out = args.out[:-4] + "-fleet.png"
         try:
             return capture_fleet(args.out, args.dom, find_chrome)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
+    if args.mode == "team":  # 3.0.8.0 R2: the Team section over team_rig's team (tools/capture_team.py)
+        from capture_team import capture as capture_team
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-team.png"
+        try:
+            return capture_team(args.out, args.dom, find_chrome)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode in ("org", "design"):  # 3.0.7.0 R3: the React sections over FakePaperclip / a seeded project (tools/capture_org_design.py)

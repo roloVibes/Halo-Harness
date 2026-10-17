@@ -3,7 +3,8 @@
 / by its data-testid counts. 3.0.4.0 R6b (tests/helpers/studio_clarity.py): the Orchestra
 Start view then the grid, a click focuses a panel and `?` opens its help; no section nests a
 second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (studio_ui_fleet.py),
-3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Org and Design sections (studio_ui_org_design.py).
+3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Org and Design sections (studio_ui_org_design.py),
+3.0.8.0 R2 the Team tab (studio_ui_team.py); the shell has seven section tabs since 3.0.8.0.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from tests.helpers.studio_ui_fleet import register as register_fleet
 from tests.helpers.studio_ui_mission import register as register_mission
 from tests.helpers.studio_ui_org_design import register as register_org_design
 from tests.helpers.studio_ui_roles import register as register_roles
+from tests.helpers.studio_ui_team import register as register_team
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -82,9 +84,9 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
     # R6b: a folder with no Orchestra run opens on the Start view, not on empty panels
-    ctx.check(f"Orchestra: six section tabs and the Start view, got {orch}", orch.get("section-tab") == 6 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
-    ctx.check(f"Roles: six section tabs and its canvas, no frame, got {roles}",
-              roles == {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
+    ctx.check(f"Orchestra: seven section tabs and the Start view, got {orch}", orch.get("section-tab") == 7 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
+    ctx.check(f"Roles: seven section tabs and its canvas, no frame, got {roles}",
+              roles == {"section-tab": 7, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
@@ -101,7 +103,7 @@ def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx)
     ctx.check(f"five lanes and five tiles, got {info}", info.get("lane") == 5 and info.get("grid-tile") == 5)
     ctx.check(f"a band per claimed unit, got {info}", info.get("claim-region", 0) >= 5)
     ctx.check(f"every report check, got {info}", info.get("report-check") == 8)
-    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 6 and info.get("orchestra-root") == 1)
+    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 7 and info.get("orchestra-root") == 1)
 
 
 @test
@@ -129,8 +131,8 @@ def test_flow_section_draws_a_run_in_headless_chrome(ctx: Ctx):
     panels = ("flow-intake", "flow-graph", "flow-step", "flow-renders", "flow-posts", "flow-metrics", "flow-log", "flow-report",
               "media-status", "media-models", "media-workflows", "media-render")
     for name, got in (("waiting", wait), ("finished", done)):
-        ctx.check(f"{name}: six section tabs and every Flow and Media panel once, got {got}",
-                  got.get("section-tab") == 6 and all(got.get(p) == 1 for p in panels))
+        ctx.check(f"{name}: seven section tabs and every Flow and Media panel once, got {got}",
+                  got.get("section-tab") == 7 and all(got.get(p) == 1 for p in panels))
         ctx.check(f"{name}: the confirm step is the gate diamond, got {got.get('gate-diamond')}", got.get("gate-diamond") == 1)
         ctx.check(f"{name}: the render inline and both runs in the rail, got {got}", got.get("flow-artboard") == 1 and got.get("flow-rail-run") == 2)
     ctx.check(f"waiting: the gate card is open, nothing answered yet, got {wait}", wait.get("gate-card") == 1 and wait.get("gate-answered") == 0)
@@ -203,7 +205,7 @@ def test_roles_header_is_not_nested(ctx: Ctx):
     r, dom = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
     roles = dom.get("roles", {})
     ctx.check(f"the Roles section: its canvas and cards, no frame, got {roles}",
-              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 6)
+              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 7)
 
 
 @test
@@ -222,6 +224,7 @@ register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/h
 register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, tests/helpers/studio_ui_mission.py
 register_org_design(test, _json_of, _chrome)  # 3.0.7.0 R3: Org and Design in React, tests/helpers/studio_ui_org_design.py
 register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
+register_team(test, _json_of, _chrome)  # 3.0.8.0 R2: the Team tab, tests/helpers/studio_ui_team.py
 
 
 if __name__ == "__main__":

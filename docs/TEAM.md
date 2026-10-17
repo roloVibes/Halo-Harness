@@ -196,8 +196,25 @@ the preflight. Full flag list: [COMMANDS.md](COMMANDS.md#halo-team).
 `halo_harness/studio/team_api.py`: `GET team`, `POST team/validate`,
 `GET team/board`, `POST team/run {stage, force}`, `POST team/answer {stage,
 action, text}`, `POST team/stop`, `GET team/blocks`,
-`GET team/blocks/<id>/changes?since=`, `GET team/events?since=`. Studio
-runs the run on a thread of its own (with the block watchers armed) and
-sends every stage, gate, claim and change line on `/api/events` as a `team`
-frame `{action: stage|gate|change|claim, run, kind, stage, text, ts, data,
-row?}`.
+`GET team/blocks/<id>/changes?since=`, `GET team/events?since=`, and
+`POST team/init` (3.0.8.0 R2: what `halo team init` writes; 409 when a file
+exists). Studio runs the run on a thread of its own (with the block watchers
+armed) and sends every stage, gate, claim and change line on `/api/events`
+as a `team` frame `{action: stage|gate|change|claim, run, kind, stage, text,
+ts, data, row?}`.
+
+## In Studio
+
+`halo studio --mode team` (or `Alt+7`, `/studio team`) opens the **Team**
+section: with no team file a Start view whose **Make my first team** writes
+the template; then the **Board** (members as columns, stages as boxes in
+their members' columns, blocks in a band underneath with a claim badge,
+the `stage_done:` / reads / writes / `block_change:` edges, the run bar with
+Run next, Stop and Validate), the **Inspector** (a stage's row, Run and its
+gate card with Accept, Redo and Stop; a block's holders and changes; a
+member's lineup, opening in Roles) and the **Change feed** (the run's event
+lines with kind chips). A stage at its gate is also a `team_gate` row in
+Fleet's Attention queue (`A` accept, `R` redo, `S` stop, `O` open). Details:
+[STUDIO.md](STUDIO.md#team-people-blocks-and-stages-on-one-board).
+
+![Team in Studio: draft done, review at its gate, notes held by a hand edit](media/studio-team.png)
