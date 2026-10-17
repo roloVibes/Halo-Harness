@@ -21,7 +21,7 @@ from tests.test_review3_c import _Studio  # noqa: E402  (scopes the state dir th
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-STATIC = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "static" / "legacy"
+ORG_UI = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "org"  # 3.0.7.0 R2: React
 
 
 @test
@@ -135,8 +135,8 @@ def test_item38_install_finishes_on_the_success_line(ctx: Ctx):
         time.sleep(0.2)
         P.subprocess.Popen, P._client, shutil.which = real
         P._INSTALL.update(running=False, log=[], code=None)
-    org = (STATIC / "org.js").read_text(encoding="utf-8")
-    ctx.check("the page also stops polling at code 0", "r.running && r.code !== 0" in org)
+    org = (ORG_UI / "actions.ts").read_text(encoding="utf-8")
+    ctx.check("the Org section also stops polling once the install has ended", "if (r.running) installTimer = window.setTimeout" in org)
 
 
 if __name__ == "__main__":

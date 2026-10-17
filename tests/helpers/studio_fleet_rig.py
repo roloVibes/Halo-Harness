@@ -105,10 +105,6 @@ class StudioFleetRig:
         from halo_harness.studio.server import url_for
         return url_for(self.server, mode).replace("#t=", f"&tour=off{extra}#t=")
 
-    def legacy_url(self) -> str:
-        from halo_harness.studio.server import url_for
-        return url_for(self.server, "roles", legacy=True)
-
     def api(self, method: str, path: str, body=None):
         import http.client
         conn = http.client.HTTPConnection("127.0.0.1", self.server.server_address[1], timeout=30)

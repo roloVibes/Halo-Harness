@@ -1,11 +1,12 @@
 // The Studio shell: header with the section tabs, the rail, the section's
-// workspace (each visited section stays mounted, so a framed page keeps its
-// state), the Inspector, the status bar, the palette, the toasts and the
+// workspace (each visited section stays mounted, so it keeps its state), the
+// Inspector, the status bar, the palette, the toasts and the
 // "How this works" overlay (also each section's first-visit welcome); from
 // 3.0.5.0 the Fleet pieces that work in every section: the hop keys, Live
-// Roles' bridge to the framed pages (and the canvas replay), the mini
-// stream and the Fleet dialogs (R4: take over, hand to, message, kick, a recording);
-// 3.0.7.0 R3: the Org and Design dialogs.
+// Roles (3.0.7.0 R2: the live agents into the Roles store for its React
+// canvas), the mini stream and the Fleet dialogs (R4: take over, hand to,
+// message, kick, a recording); 3.0.7.0 R3: the Org and Design dialogs; R2:
+// the Roles dialogs.
 import { useEffect } from "react";
 import { studio, useStore, welcomeIfNew } from "./lib/store";
 import { Workspace } from "./lib/workspace/Workspace";
@@ -19,15 +20,15 @@ import { Palette } from "./shell/Palette";
 import { SectionHelp } from "./shell/SectionHelp";
 import { startFeed } from "./shell/feed";
 import { useGlobalKeys } from "./shell/keys";
-import { useLegacyMessages } from "./shell/legacy";
 import { FleetDialogs } from "./routes/fleet/Dialogs";
 import { PanelDialogs } from "./routes/fleet/PanelDialogs";
 import { MissionDialogs } from "./routes/fleet/MissionDialogs";
-import { useFleetFrames } from "./routes/fleet/frames";
+import { useRolesLive } from "./routes/fleet/frames";
 import { useHopKeys } from "./routes/fleet/hop";
 import { FleetPip } from "./routes/fleet/Pip";
 import { OrgDialogs } from "./routes/org/Dialogs";
 import { DesignDialogs } from "./routes/design/Dialogs";
+import { RolesDialogs } from "./routes/roles/Dialogs";
 
 export function App() {
   const section = useStore(studio, (s) => s.section);
@@ -37,8 +38,7 @@ export function App() {
   const inspecting = useStore(studio, (s) => s.inspector !== null);
   useGlobalKeys();
   useHopKeys();
-  useLegacyMessages();
-  useFleetFrames();
+  useRolesLive();
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
@@ -70,6 +70,7 @@ export function App() {
       <MissionDialogs />
       <OrgDialogs />
       <DesignDialogs />
+      <RolesDialogs />
       <Toasts />
     </div>
   );

@@ -1,6 +1,6 @@
-// What each Orchestra panel and the classic Roles canvas panel is (`about`,
-// one line) and how to use it (`help`, a few short lines); Org and Design are
-// React sections since 3.0.7.0 R3 (help-org-design.ts). routes/help.ts merges
+// What each Orchestra panel is (`about`, one line) and how to use it
+// (`help`, a few short lines); Org and Design (help-org-design.ts, 3.0.7.0 R3)
+// and Roles (help-roles.ts, R2) have their own files. routes/help.ts merges
 // them into HELP beside Flow's and Media's.
 
 export type Help = { about: string; help: string };
@@ -74,18 +74,6 @@ export const ORCHESTRA_HELP: Record<string, Help> = {
       "Each claim names its holder, its state and when it expires.",
       "Release frees the part; Steal gives it to the lead.",
       "A claim about to expire pulses amber.",
-    ),
-  },
-};
-
-export const CANVAS_HELP: Record<string, Help> = {
-  "roles-canvas": {
-    about: "Your lineup as cards, boxed by role: who plays each part, on which model.",
-    help: lines(
-      "Pick a lineup in the toolbar; drag an agent from the left list onto the canvas to add it.",
-      "Drop a card into another box to change its role, onto a card to make it report there.",
-      "Select a card to edit it on the right; Save writes the YAML, Apply makes it active.",
-      "A lays the canvas out, F fits it, Groups shows or hides the boxes.",
     ),
   },
 };

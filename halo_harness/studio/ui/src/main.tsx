@@ -21,6 +21,8 @@ import "./styles/fleet-mission2.css";
 import "./styles/org.css";
 import "./styles/design.css";
 import "./styles/design-thread.css";
+import "./styles/roles.css";
+import "./styles/roles-panels.css";
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

@@ -31,7 +31,6 @@ ensure_scoped_state_dir_once()
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-LEGACY = REPO / "halo_harness" / "studio" / "static" / "legacy"
 
 
 class _Studio:
@@ -163,16 +162,15 @@ def test_the_rig_two_harnesses_five_agents_a_member_tail_and_the_meta_role(ctx: 
 
 
 @test
-def test_live_roles_files_are_wired_and_small(ctx: Ctx):
-    page = (LEGACY / "index.html").read_text(encoding="utf-8")
-    ctx.check("index.html loads live.css, live.js and live-tab.js after embed.js",
-              'href="live.css"' in page and page.index('src="embed.js"') < page.index('src="live.js"') < page.index('src="live-tab.js"'))
-    ctx.check("the canvas decorates after every render", "window.haloLive.decorate(this)" in (LEGACY / "canvas.js").read_text(encoding="utf-8"))
-    live = (LEGACY / "live.js").read_text(encoding="utf-8")
-    ctx.check("live.js runs only framed and asks the shell, never the fleet routes",
-              "embedded=1" in live and "fleet-ready" in live and "api/fleet" not in live and "api.post" not in live)
-    long = [f"{p.name}={n}" for p in LEGACY.iterdir() if p.suffix in (".js", ".css", ".html") and (n := len(p.read_text(encoding="utf-8").splitlines())) > 250]
-    ctx.check(f"every static/legacy file is at most 250 lines, over: {long}", not long)
+def test_live_roles_is_wired_into_the_react_canvas(ctx: Ctx):
+    """3.0.7.0 R2: Live Roles drives the React Roles canvas through the store: no framed page,
+    no postMessage, and the canvas never calls the fleet routes itself."""
+    ui = REPO / "halo_harness" / "studio" / "ui" / "src"
+    frames = (ui / "routes" / "fleet" / "frames.ts").read_text(encoding="utf-8")
+    ctx.check("frames.ts writes the live rows into the Roles store", "roles.update(() => ({ live: rows }))" in frames and "postMessage" not in frames)
+    live = (ui / "routes" / "roles" / "live.ts").read_text(encoding="utf-8")
+    ctx.check("the canvas matches agents to cards and hops across them", "export function matchNode" in live and "export function hopCard" in live and "api/fleet" not in live)
+    ctx.check("no static/legacy left", not (REPO / "halo_harness" / "studio" / "static" / "legacy").exists())
 
 
 if __name__ == "__main__":

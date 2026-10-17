@@ -121,7 +121,7 @@ def test_cli_reaches_studio(ctx: Ctx):
     from halo_harness.completion_cli import SUBCOMMANDS
     ctx.check("studio is a completion word", "studio" in SUBCOMMANDS)
     text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
-    ctx.check("the static page ships as package data", "studio/static/dist/*" in text and "studio/static/legacy/*" in text)
+    ctx.check("the shell's build ships as package data, the classic page no more", "studio/static/dist/*" in text and "studio/static/legacy" not in text)
 
 
 @test
@@ -143,12 +143,11 @@ def test_reports_to_connects_a_box_to_another_box(ctx: Ctx):
     kinds2 = {(e["from"], e["to"]): e["kind"] for e in g2["edges"]}
     ctx.check("reporting to the main box keeps the delegation edge from main", kinds2.get((ids["boss"], ids["tester"])) == "delegation" and kinds2.get((ids["tester"], ids["boss"])) == "reports")
     from pathlib import Path as _P
-    REPO_DIR = _P(__file__).resolve().parent.parent
-    js = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "app.js").read_text(encoding="utf-8")
-    ins = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "inspector.js").read_text(encoding="utf-8")
-    ctx.check("the page connects by drop and by a Reports-to field", "app.setReportsTo" in js and "rolesDropOn" in js and "Reports to (which box" in ins)
-    canvas = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "canvas.js").read_text(encoding="utf-8")
-    ctx.check("the lock says what it is and what to do", "🔒 shipped" in canvas and "press Duplicate" in canvas and "onLock" in js)
+    roles = _P(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "roles"
+    canvas, assign, parts = ((roles / f).read_text(encoding="utf-8") for f in ("Canvas.tsx", "Assignment.tsx", "CanvasParts.tsx"))
+    ctx.check("3.0.7.0 R2: the React canvas connects by a drop onto a card and by a Reports-to field",
+              "setReportsTo(n.index, keyOf(target))" in canvas and 'label="Reports to"' in assign)
+    ctx.check("a shipped bio's badge says what it is and what to do", "Duplicate it in the Bios panel" in parts)
 
 
 @test
@@ -175,7 +174,7 @@ def test_graph_emits_tiers(ctx: Ctx):
 def test_layout_shapes_old_and_new(ctx: Ctx):
     """3.0.7.0 R1: a layout is {nodes: {id: {x,y}}, tiers: {name: {collapsed}}};
     the old flat {id: {x,y}} reads as {nodes: <it>, tiers: {}}; the API view
-    keeps the flat positions too, for the legacy page."""
+    keeps the flat positions too, for a reader of the old flat file."""
     import tempfile
     from halo_harness.studio import model as M
     state = Path(tempfile.mkdtemp(prefix="studio-layout-")) / ".halo"
@@ -198,8 +197,9 @@ def test_layout_shapes_old_and_new(ctx: Ctx):
     ctx.check(f"the API view has nodes, tiers and the flat positions, got {view}",
               view == {"main#0": {"x": 9, "y": 9}, "nodes": {"main#0": {"x": 9, "y": 9}}, "tiers": {"top": {"collapsed": True}}})
     ctx.check("an empty layout's API view is {}", M.legacy_layout_view(M.read_layout(state, "none")) == {})
-    js = (REPO / "halo_harness" / "studio" / "static" / "legacy").joinpath("org.js").read_text(encoding="utf-8")
-    ctx.check("the legacy Org page reads the flat map (why the view keeps it)", "Object.keys(layout).length" in js)
+    ui = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes"
+    ctx.check("3.0.7.0 R2: the React readers take `nodes` and the flat map alike",
+              all('"nodes" in' in (ui / d / "sync.ts").read_text(encoding="utf-8") or "r.nodes" in (ui / d / "sync.ts").read_text(encoding="utf-8") for d in ("org", "roles")))
 
 
 if __name__ == "__main__":

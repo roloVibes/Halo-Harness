@@ -215,7 +215,19 @@ def lineup_summary(name: str, *, cwd=None, state_dir=None, active: str = "") -> 
     entries = [e for e in (raw.get("agents") or []) if isinstance(e, dict)]
     return {"name": name, "scope": raw.get("_source", ""), "description": str(raw.get("description") or ""),
             "about": str(raw.get("about") or ""), "active": name == active, "agents": len(entries),
-            "roles": sorted({str(e.get("as") or e.get("role") or "") for e in entries} - {""})}
+            "roles": sorted({str(e.get("as") or e.get("role") or "") for e in entries} - {""}),
+            "shipped_copy": _is_shipped_copy(name, raw)}
+
+
+def _is_shipped_copy(name: str, raw: dict) -> bool:
+    """3.0.7.0 R2: a user-scope file that is still the byte-identical copy
+    `ensure_builtin_team_templates` made of a shipped lineup (Studio's Roles
+    Start view counts those as shipped, not as a lineup of your own)."""
+    shipped = T.bundled_team_templates_dir() / f"{name}.yaml"
+    try:
+        return bool(raw.get("_path")) and shipped.is_file() and Path(raw["_path"]).read_bytes() == shipped.read_bytes()
+    except OSError:
+        return False
 
 
 def lineup_payload(name: str, *, cwd=None, state_dir=None, active: str = "") -> Optional[dict]:

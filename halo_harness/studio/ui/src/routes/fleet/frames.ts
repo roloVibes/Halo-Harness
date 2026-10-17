@@ -1,18 +1,14 @@
-// Live Roles: the shell <-> the framed Roles and Org pages (static/legacy/
-// live.js), postMessage on this origin only. The shell posts
-// `{type: "fleet-live", agents}` -- every live agent (and one that just
-// finished) with what it is doing right now -- on every change, and
-// `{type: "fleet-stream", key, entries}` for the agent a frame's Live tab
-// shows. The frame asks: `fleet-ready`, `fleet-watch {key}`, `fleet-command
-// {id, key, cmd, text?, mode?}`, `fleet-history {id, role, bio}`, `fleet-pin
-// {key}`, `fleet-replay-open {session, harness}` (replay.ts); answers come
-// back as `fleet-result {id, ok, ...}`. The frame never
-// calls the fleet routes itself: the shell proxies every one.
+// Live Roles: what the shell knows about every live agent, put into the
+// Roles store for the React canvas (3.0.7.0 R2: no framed page, nothing
+// posted to a frame any more; routes/roles/live.ts matches each agent to its card).
+// `liveRows` is every live agent (and one that just finished) with what it is
+// doing right now; `useRolesLive` writes it into the store 120 ms after a
+// fleet change and once a second (a done sweep or a typing glow ages out).
+// While a canvas replay plays (routes/roles/Replay.tsx) the replay's agents
+// stand in for these; the live rows keep arriving underneath.
 import { useEffect } from "react";
-import { api, ApiError } from "../../lib/api";
 import { short } from "../orchestra/format";
-import { agentCommand, pin, select, steer } from "./actions";
-import { openReplay } from "./replay";
+import { roles } from "../roles/store";
 import { allAgents, fleet, isLive, sessionTitle, toolOf, type FleetState } from "./store";
 import { startFleet } from "./sync";
 import type { AgentRef } from "./types";
@@ -52,86 +48,28 @@ export function liveRows(s: FleetState): LiveRow[] {
     }));
 }
 
-type Ask = { type?: string; id?: number; key?: string; cmd?: string; text?: string; mode?: string; role?: string; bio?: string; session?: string; harness?: string };
-
-async function answer(d: Ask): Promise<Record<string, unknown>> {
-  const key = String(d.key || "");
-  if (d.type === "fleet-history") {
-    try {
-      const r = await api.get<{ runs: unknown[] }>("fleet/history", { role: d.role || "", bio: d.bio || "", n: 12 });
-      return { ok: true, runs: r.runs };
-    } catch (e) {
-      return { ok: false, error: e instanceof ApiError ? e.message : String(e) };
-    }
-  }
-  if (d.cmd === "steer") return { ok: await steer(key, String(d.text || ""), d.mode === "redirect" ? "redirect" : "nudge") };
-  if (["pause", "resume", "stop"].includes(String(d.cmd))) {
-    const r = await agentCommand(key, String(d.cmd), d.cmd === "stop" ? { reason: "stopped from Studio (Roles)" } : {});
-    return { ok: r.ok, asked: r.asked, error: r.error };
-  }
-  return { ok: false, error: `unknown command ${d.cmd}` };
-}
-
-export function useFleetFrames(): void {
+export function useRolesLive(): void {
   useEffect(() => {
     let last = "";
     let timer = 0;
-    const watching = new Map<Window, string>();
-    const sent = new Map<Window, number>();
-    const frames = () =>
-      Array.from(document.querySelectorAll<HTMLIFrameElement>("iframe.legacy-frame"))
-        .map((f) => f.contentWindow)
-        .filter((w): w is Window => !!w);
-    const send = (w: Window, msg: unknown) => {
-      try {
-        w.postMessage(msg, location.origin);
-      } catch {
-        /* a frame mid-navigation */
-      }
-    };
-    const pushLive = () => {
-      const msg = { type: "fleet-live", agents: liveRows(fleet.get()), pinned: fleet.get().pinned };
-      const json = JSON.stringify(msg);
+    startFleet();
+    const push = () => {
+      const rows = liveRows(fleet.get());
+      const json = JSON.stringify(rows);
       if (json === last) return;
       last = json;
-      frames().forEach((w) => send(w, msg));
-    };
-    const pushStreams = () => {
-      for (const [w, key] of watching) {
-        const st = fleet.get().streams[key];
-        if (!key || sent.get(w) === (st?.tick ?? -1)) continue;
-        sent.set(w, st?.tick ?? -1);
-        send(w, { type: "fleet-stream", key, entries: (st?.entries || []).slice(-120), loading: !!st?.loading, error: st?.error || "" });
-      }
+      roles.update(() => ({ live: rows }));
     };
     const unsub = fleet.subscribe(() => {
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => (pushLive(), pushStreams()), 120);
+      timer = window.setTimeout(push, 120);
     });
-    const tick = window.setInterval(() => pushLive(), 1000); // a done sweep or a typing glow ages out
-    const onMsg = async (e: MessageEvent) => {
-      if (e.origin !== location.origin || !e.data || typeof e.data !== "object") return;
-      const w = e.source as Window | null;
-      const d = e.data as Ask;
-      if (!w || !String(d.type || "").startsWith("fleet-") || !frames().includes(w)) return;
-      if (d.type === "fleet-ready") {
-        startFleet();
-        send(w, { type: "fleet-live", agents: liveRows(fleet.get()), pinned: fleet.get().pinned });
-      } else if (d.type === "fleet-watch") {
-        watching.set(w, String(d.key || ""));
-        sent.delete(w);
-        if (d.key) select(d.key);
-        pushStreams();
-      } else if (d.type === "fleet-pin") pin(String(d.key || ""));
-      else if (d.type === "fleet-replay-open") void openReplay(String(d.session || ""), String(d.harness || "local"), w);
-      else if (d.type === "fleet-command" || d.type === "fleet-history") send(w, { type: "fleet-result", id: d.id, ...(await answer(d)) });
-    };
-    window.addEventListener("message", onMsg);
+    const tick = window.setInterval(push, 1000);
+    push();
     return () => {
       unsub();
       window.clearInterval(tick);
       window.clearTimeout(timer);
-      window.removeEventListener("message", onMsg);
     };
   }, []);
 }

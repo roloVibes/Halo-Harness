@@ -34,7 +34,7 @@ function readLocal(key: string): string {
 
 function line(): void {
   const text = statusLine(design.get());
-  studio.update((s) => (s.legacy.design === text ? {} : { legacy: { ...s.legacy, design: text } }));
+  studio.update((s) => (s.status.design === text ? {} : { status: { ...s.status, design: text } }));
 }
 
 export async function loadProjects(): Promise<ProjectRow[]> {

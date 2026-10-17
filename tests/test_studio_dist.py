@@ -1,11 +1,11 @@
 """tests.test_studio_dist -- Halo 3.0.3.0 round R3: the React shell's committed
 build. static/dist holds index.html + studio.js + studio.css (stable names,
 no remote URL anywhere); `GET /` serves it under a CSP without
-'unsafe-inline'; the classic page lives at /legacy/ with every relative asset
-resolving and keeps its own CSP; a checkout without a build falls back to
-the classic page at `/`; the UI sources stay under 250 lines a file; the
-package.json has no runtime dependency beyond react/react-dom and pins exact
-versions; the wheel's package-data names dist and legacy.
+'unsafe-inline'; 3.0.7.0 R2: the classic page (/legacy/) is gone, and a
+checkout without a build answers `/` with one line saying how to build the
+UI; the UI sources stay under 250 lines a file; the package.json has no
+runtime dependency beyond react/react-dom and pins exact versions; the
+wheel's package-data names dist (and no longer legacy).
 
 CI's studio-ui job runs this after `npm run build` and the drift check.
 Run: python tests/test_studio_dist.py
@@ -35,7 +35,6 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 test, TESTS = new_registry()
 STUDIO = REPO / "halo_harness" / "studio"
 DIST = STUDIO / "static" / "dist"
-LEGACY = STUDIO / "static" / "legacy"
 UI = STUDIO / "ui"
 
 
@@ -76,7 +75,7 @@ def test_dist_exists_with_stable_names_and_no_remote_url(ctx: Ctx):
 
 
 @test
-def test_root_serves_the_shell_and_legacy_serves_the_classic_page(ctx: Ctx):
+def test_root_serves_the_shell_and_nothing_else(ctx: Ctx):
     with _Studio() as s:
         status, body, headers = s.get("/")
         csp = headers.get("Content-Security-Policy", "")
@@ -86,40 +85,33 @@ def test_root_serves_the_shell_and_legacy_serves_the_classic_page(ctx: Ctx):
         ctx.check("GET /index.html is the same page", s.get("/index.html")[1] == body)
         st, js, h = s.get("/studio.js")
         ctx.check("studio.js is served as JavaScript", st == 200 and "javascript" in h.get("Content-Type", "") and len(js) > 1000)
-        st, page, h = s.get("/legacy/index.html")
-        ctx.check("GET /legacy/index.html is the classic page", st == 200 and b'data-mode="org"' in page and b"app.js" in page)
-        ctx.check("the classic page keeps its inline-style allowance", "style-src 'self' 'unsafe-inline'" in h.get("Content-Security-Policy", ""))
-        ctx.check("GET /legacy/ is the classic page too", s.get("/legacy/")[1] == page)
-        refs = re.findall(r'(?:src|href)="([^"#:]+)"', page.decode("utf-8"))
-        bad = [r for r in refs if s.get("/legacy/" + r)[0] != 200]
-        ctx.check(f"every relative asset of the classic page resolves under /legacy/ ({len(refs)} refs), bad: {bad}", refs and not bad)
-        ctx.check("a path out of legacy is a 404", s.get("/legacy/../server.py")[0] == 404 and s.get("/legacy/%2e%2e/server.py")[0] == 404)
+        ctx.check("3.0.7.0 R2: /legacy/ is gone", s.get("/legacy/index.html")[0] == 404 and s.get("/legacy/")[0] == 404)
+        ctx.check("a path out of dist is a 404", s.get("/../server.py")[0] == 404 and s.get("/%2e%2e/server.py")[0] == 404)
         ctx.check("an unknown file is a 404", s.get("/nope.js")[0] == 404)
 
 
 @test
-def test_without_a_build_root_falls_back_to_the_classic_page(ctx: Ctx):
+def test_without_a_build_root_says_how_to_build_it(ctx: Ctx):
     from halo_harness.studio import server
     saved = server.DIST
     server.DIST = Path(tempfile.mkdtemp(prefix="no-dist-")) / "dist"
     try:
         with _Studio() as s:
             status, body, headers = s.get("/")
-            ctx.check("GET / serves the classic page", status == 200 and b'data-mode="org"' in body)
-            ctx.check("its relative assets resolve at the root", s.get("/studio.css")[0] == 200 and s.get("/app.js")[0] == 200)
-            ctx.check("with the classic CSP", "unsafe-inline" in headers.get("Content-Security-Policy", ""))
+            ctx.check("GET / is one line saying how to build the UI", status == 200 and b"npm run build" in body and b"<script" not in body)
+            ctx.check("with the shell's strict CSP", "unsafe-inline" not in headers.get("Content-Security-Policy", ""))
+            ctx.check("anything else is a 404", s.get("/studio.js")[0] == 404 and s.get("/app.js")[0] == 404)
     finally:
         server.DIST = saved
 
 
 @test
-def test_url_for_shell_and_legacy(ctx: Ctx):
+def test_url_for_the_shell(ctx: Ctx):
     from halo_harness.studio import server
     from halo_harness.studio.launch import url_from_info
     with _Studio() as s:
         ctx.check("the shell URL is / with the token fragment", server.url_for(s.srv, "org").endswith(f"/?mode=org#t={s.srv.token}"))
-        ctx.check("--legacy opens /legacy/index.html", f"/legacy/index.html?mode=design#t={s.srv.token}" in server.url_for(s.srv, "design", legacy=True))
-    ctx.check("a reused Studio honours --legacy too", url_from_info({"port": 4, "token": "x"}, "roles", True) == "http://127.0.0.1:4/legacy/index.html?mode=roles#t=x")
+    ctx.check("a reused Studio's URL", url_from_info({"port": 4, "token": "x"}, "roles") == "http://127.0.0.1:4/?mode=roles#t=x")
     import io
     from contextlib import redirect_stderr, redirect_stdout
     buf = io.StringIO()
@@ -128,7 +120,7 @@ def test_url_for_shell_and_legacy(ctx: Ctx):
             server.cmd_studio(["--help"])
         except SystemExit:
             pass
-    ctx.check("`halo studio --help` lists --legacy", "--legacy" in buf.getvalue())
+    ctx.check("3.0.7.0 R2: `halo studio --help` has no --legacy any more", "--mode" in buf.getvalue() and "--legacy" not in buf.getvalue())
 
 
 @test
@@ -151,10 +143,10 @@ def test_ui_sources_stay_small_and_dependencies_minimal(ctx: Ctx):
 
 
 @test
-def test_wheel_package_data_names_dist_and_legacy(ctx: Ctx):
+def test_wheel_package_data_names_dist_only(ctx: Ctx):
     text = (REPO / "pyproject.toml").read_text(encoding="utf-8")
     ctx.check("package-data has studio/static/dist/*", '"studio/static/dist/*"' in text)
-    ctx.check("package-data has studio/static/legacy/*", '"studio/static/legacy/*"' in text)
+    ctx.check("package-data no longer names studio/static/legacy", "studio/static/legacy" not in text)
 
 
 if __name__ == "__main__":
