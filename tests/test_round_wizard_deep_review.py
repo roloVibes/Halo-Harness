@@ -67,6 +67,20 @@ def _static_text(widget) -> str:
     return str(content)
 
 
+async def _hint_when(pilot, editor, needle: str, tries: int = 20) -> str:
+    """The bio editor's identity-hint line once it carries `needle` (its focus
+    poll runs every 0.25 s; one fixed pause missed it on a loaded CI runner),
+    else its last text after `tries` polls."""
+    from halo_harness.tui.dialogs.agent_bio_editor import _IDENTITY_HINT_ID
+    hint = ""
+    for _ in range(tries):
+        await pilot.pause(0.25)
+        hint = _static_text(editor.query_one(f"#{_IDENTITY_HINT_ID}"))
+        if needle in hint:
+            break
+    return hint
+
+
 # ---- the roles CLI face -----------------------------------------------------------
 
 
@@ -170,7 +184,6 @@ def test_bio_editor_opens_with_a_sentence_and_per_field_help(ctx: Ctx):
     async def body():
         with _Env():
             from textual.app import App
-            from halo_harness.tui.dialogs.agent_bio_editor import _IDENTITY_HINT_ID
 
             editor = AgentBioEditor("smoke-agent", {}, [], is_new=True)
 
@@ -179,11 +192,10 @@ def test_bio_editor_opens_with_a_sentence_and_per_field_help(ctx: Ctx):
                     self.push_screen(editor)
 
             async with _Host().run_test(size=(120, 40)) as pilot:
-                await pilot.pause(0.6)  # the focus poll runs every 0.25s
-                hint = _static_text(editor.query_one(f"#{_IDENTITY_HINT_ID}"))
                 # On open the NAME field is focused (is_new) -- its plain
-                # line is already showing; the what-a-bio-is sentence is
-                # the idle/unmapped fallback of the SAME line.
+                # line shows once the focus poll has run; the what-a-bio-is
+                # sentence is the idle/unmapped fallback of the SAME line.
+                hint = await _hint_when(pilot, editor, "how /agent and lineups call this bio")
                 ctx.check(f"the focused name field's plain line shows, got {hint!r}",
                           "how /agent and lineups call this bio" in hint)
                 # Focus the preferred-model field -> its plain line shows.
@@ -191,8 +203,7 @@ def test_bio_editor_opens_with_a_sentence_and_per_field_help(ctx: Ctx):
                     editor.query_one("#bio-pref").focus()
                 except Exception:
                     pass
-                await pilot.pause(0.6)
-                hint2 = _static_text(editor.query_one(f"#{_IDENTITY_HINT_ID}"))
+                hint2 = await _hint_when(pilot, editor, "the model this agent runs on, when it runs")
                 ctx.check(f"the focused model field's plain line shows, got {hint2!r}",
                           "the model this agent runs on, when it runs" in hint2)
                 # Focus the tools-allow field -> THAT plain line shows.
@@ -200,8 +211,7 @@ def test_bio_editor_opens_with_a_sentence_and_per_field_help(ctx: Ctx):
                     editor.query_one("#bio-tools-allow").focus()
                 except Exception:
                     pass
-                await pilot.pause(0.6)
-                hint3 = _static_text(editor.query_one(f"#{_IDENTITY_HINT_ID}"))
+                hint3 = await _hint_when(pilot, editor, "the ONLY tools this agent may call")
                 ctx.check(f"the focused allow-list field's plain line shows, got {hint3!r}",
                           "the ONLY tools this agent may call" in hint3)
 

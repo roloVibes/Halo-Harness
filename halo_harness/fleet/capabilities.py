@@ -175,6 +175,7 @@ def save(cat: dict, home=None) -> None:
     path = cache_path(home)
     path.parent.mkdir(parents=True, exist_ok=True)
     write_private_atomic(path, json.dumps(cat, indent=1, ensure_ascii=False))
+    _loaded.pop(str(path), None)  # a rewrite inside one mtime tick (Windows) must not read back the old catalog
 
 
 def stale(cat: Optional[dict], now: Optional[float] = None) -> bool:

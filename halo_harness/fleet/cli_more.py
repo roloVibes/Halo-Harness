@@ -123,7 +123,7 @@ def cmd_status(argv: list) -> int:
              "allow_control": identity.allow_control(e), **_ping(e)} for e in store.hubs()]
     info, view = H.read_info(), None
     if info:
-        view = H.running_view()
+        view = H.running_view(timeout=10.0)  # a loaded machine answers its own hub late; 3 s dropped the members count
     serving = {"url": info.get("url"), "name": info.get("name"), "tls": info.get("tls"),
                **((view or {}).get("hub") or {})} if info else None
     out = {"harness": identity.harness(), "offline": identity.offline(), "allow_answers": identity.allow_answers(),
