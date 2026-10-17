@@ -12,6 +12,7 @@ version.
 
 - Fleet capabilities: the cached catalog is re-read after every save -- on Windows, `halo mcp add/remove` right after a refresh could read back the old catalog (same mtime tick) and never mark it stale.
 - `halo fleet status` waits up to 10 s (was 3 s) for the hub this machine serves, so a loaded box still reports its member count.
+- Hub commands: a command sent in the moment between a session's announce and its stream attaching (or while its relay re-attaches) waits up to 3 s for the stream instead of answering 409 "not connected right now".
 - Tests: the bio-editor help-line test polls for the focused field's line instead of one fixed pause (the Windows CI runner missed it).
 
 ## [3.0.6.0] - 2026-10-15
