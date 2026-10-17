@@ -4,7 +4,8 @@
 // "How this works" overlay (also each section's first-visit welcome); from
 // 3.0.5.0 the Fleet pieces that work in every section: the hop keys, Live
 // Roles' bridge to the framed pages (and the canvas replay), the mini
-// stream and the Fleet dialogs (R4: take over, hand to, message, kick, a recording).
+// stream and the Fleet dialogs (R4: take over, hand to, message, kick, a recording);
+// 3.0.7.0 R3: the Org and Design dialogs.
 import { useEffect } from "react";
 import { studio, useStore, welcomeIfNew } from "./lib/store";
 import { Workspace } from "./lib/workspace/Workspace";
@@ -25,6 +26,8 @@ import { MissionDialogs } from "./routes/fleet/MissionDialogs";
 import { useFleetFrames } from "./routes/fleet/frames";
 import { useHopKeys } from "./routes/fleet/hop";
 import { FleetPip } from "./routes/fleet/Pip";
+import { OrgDialogs } from "./routes/org/Dialogs";
+import { DesignDialogs } from "./routes/design/Dialogs";
 
 export function App() {
   const section = useStore(studio, (s) => s.section);
@@ -65,6 +68,8 @@ export function App() {
       <FleetDialogs />
       <PanelDialogs />
       <MissionDialogs />
+      <OrgDialogs />
+      <DesignDialogs />
       <Toasts />
     </div>
   );

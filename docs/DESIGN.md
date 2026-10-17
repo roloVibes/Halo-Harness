@@ -2,7 +2,7 @@
 
 Halo 3.0.1.0. Designs, prototypes, pages, decks, logos, photo work, motion and
 video, made by a model you choose, on the creative apps already on your machine.
-It is the third mode of Halo Studio (`Roles | Org | Design`) and a command family
+It is the Design section of Halo Studio (`Alt+4`) and a command family
 (`halo design`). Nothing leaves your machine except the model calls you already
 make with Halo.
 
@@ -40,7 +40,7 @@ artboard. A `craft:<tool>:<param>` target is queued for the next turn.
 
 ## A design turn
 
-`halo design run <slug> "<prompt>"` (or the Chat panel in Studio) is one headless
+`halo design run <slug> "<prompt>"` (or the Thread panel in Studio) is one headless
 Halo turn (`halo -p`) in the project folder, on the project's model, with the file
 tools and every registered craft app allowed as tools, and the Design skill
 appended to the system prompt. The skill carries the artboard contract above, the
@@ -117,13 +117,13 @@ picker in Studio). `halo models --best-for design` ranks the catalog for the job
 
 ## Refining
 
-- **Chat**: the next prompt. The model sees the artboards it already made.
+- **Thread**: the next prompt. The model sees the artboards it already made.
 - **Comments**: `halo design comment <slug> <artboard> "text" --at 40,12`, or click
-  a spot on a frame in Studio. "Send comments" turns the open pins into the next
+  a spot on a frame on Studio's classic page. "Send comments" turns the open pins into the next
   prompt and resolves them when the turn succeeds.
-- **Knobs**: the sliders from `controls.json`, live, no model call. Ask for knobs
+- **Knobs**: the sliders from `controls.json` (Studio's classic page), live, no model call. Ask for knobs
   in a turn ("add knobs for spacing and the accent colour").
-- **Direct text edits**: "Edit text" on an HTML artboard in Studio makes the frame
+- **Direct text edits**: "Edit text" on an HTML artboard on Studio's classic page makes the frame
   editable; Ctrl+S saves it as a new version.
 - **Versions**: `halo design show` lists them; `halo design restore <slug> <artboard> <n>`
   brings one back; Studio has a slider per artboard.
@@ -158,7 +158,7 @@ halo --cwd ~/.halo/design/launch-page/exports/<stamp>-handoff "continue from HAN
 
 - **Directions**: `halo design run <slug> "<prompt>" --variants 3 --base hero` makes
   hero-a, hero-b, hero-c in one turn, clearly different in layout, type and colour,
-  all keeping the design system. Studio's **3 directions** button (or `V`) does the
+  all keeping the design system. The classic page's **3 directions** button (or `V`) does the
   same and tiles the new artboards side by side.
 - **Critique**: `halo design critique <slug> <artboard>` runs a read-only turn (Read
   and Glob, no MCP servers, six turns) on the project's model or `--model`. It
@@ -166,21 +166,23 @@ halo --cwd ~/.halo/design/launch-page/exports/<stamp>-handoff "continue from HAN
   and each note becomes a comment pin marked `critique` with its severity.
 - **Contrast**: WCAG ratios for every text-like colour token on every background-like
   token, read from the artboard's `:root` (the design system fills gaps). No model
-  call; Studio's Knobs tab shows the table and refreshes it after a knob moves.
-- **Assets**: files in the project's `assets/` folder. Studio lists them, takes drops
-  from the desktop (15 MB each) and puts `Use assets/<name>` in the prompt; a drop on
-  a frame says `Place assets/<name> on <artboard>`.
+  call; Studio's **Contrast** button on an artboard shows the table.
+- **Assets**: files in the project's `assets/` folder. Studio's Assets panel lists them,
+  takes drops from the desktop (15 MB each), puts `Use assets/<name>` in the prompt and
+  downloads each one.
 - **Run view**: each history line records tool calls and seconds beside the cost;
-  `halo design show` prints the last five and Studio's History shows
-  "12 tool calls · 48 s · $0.03".
+  `halo design show` prints the last five and Studio's Thread shows
+  "12 tool calls · 48 s · $0.03" under each turn, with the model's reply.
 
 ## Studio's Design mode
 
-Press `D` in Studio, type `/design` in the TUI, or run `halo studio --mode design`
-(the page honours `?mode=design`). The rail lists projects, artboards and
-the design system; the canvas shows artboards as frames (HTML in a sandboxed frame
-that cannot reach Studio's API, renders as images), with device frames, comment
-pins and a version slider; the panel is Chat, Comments, Knobs, System and Export.
+Press `Alt+4` in Studio, type `/design` in the TUI, or run `halo studio --mode design`.
+Since 3.0.7.0 it is a React section: Projects, Assets, Artboards (frames: HTML in a
+sandboxed frame that cannot reach Studio's API, renders as images; comment pins, a
+version slider with Restore, Critique, Contrast, Rename, Delete, Download; Export and
+Handoff) and the Thread (the turns as markdown, streamed over the live feed, with
+Cancel turn). The knobs, direct text edits, new pins, the design system and the
+directions stay on the classic page (`halo studio --legacy --mode design`) for now.
 See [STUDIO.md](STUDIO.md).
 
 ## The command family

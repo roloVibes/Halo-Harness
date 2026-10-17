@@ -18,6 +18,9 @@ import "./styles/fleet-panels2.css";
 import "./styles/fleet-caps.css";
 import "./styles/fleet-mission.css";
 import "./styles/fleet-mission2.css";
+import "./styles/org.css";
+import "./styles/design.css";
+import "./styles/design-thread.css";
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

@@ -2,7 +2,9 @@
 round D5) over the in-process server and a recording fake runner: variants in
 `run` and the CLI, the critique turn (Read,Glob only, no MCP servers, pins as
 comments), the contrast route, assets (upload, list, sanitised names, the cap),
-the history line's tool calls and seconds, and the page's new files.
+the history line's tool calls and seconds; 3.0.7.0 R3: artboard rename and
+delete, the `design:<slug>` layout (the classic page's file checks went with
+its port to React).
 """
 
 from __future__ import annotations
@@ -188,21 +190,54 @@ def test_history_logs_tool_calls_and_seconds(ctx: Ctx):
 
 
 @test
-def test_page_files_shortcuts_and_the_design_tour(ctx: Ctx):
-    static = REPO / "halo_harness" / "studio" / "static" / "legacy"
-    page = (static / "index.html").read_text(encoding="utf-8")
-    ctx.check("the new scripts are loaded", "design-more.js" in page and "design-assets.js" in page)
-    for name in ("design-more.js", "design-assets.js", "design.js", "design-panel.js", "design-panel2.js", "palette.js", "design.css"):
-        text = (static / name).read_text(encoding="utf-8")
-        ctx.check(f"{name} is under 250 lines and fetches nothing from a CDN", len(text.splitlines()) <= 250 and "//cdn" not in text and "https://" not in text.replace("https://github.com/roloVibes", ""))
-    more = (static / "design-more.js").read_text(encoding="utf-8")
-    keys = re.findall(r'^\s*\["(\w)", "', more, re.M) + re.findall(r'\], \["(\w)", "', more)
-    ctx.check(f"every Design command has a one-letter shortcut and none is R, O, D, A or F-clashing: {keys}", len(set(keys)) == len(keys) >= 11 and not {"r", "o", "d", "a"} & set(keys))
-    ctx.check("every command shows its key in the palette and Enter in the box runs", "key.length === 1 ? key.toUpperCase() : key" in more and '"Enter", "Run a turn' in more)
-    ctx.check("shortcuts are inactive while typing", "INPUT|TEXTAREA|SELECT" in more and "isContentEditable" in more)
-    pal = (static / "palette.js").read_text(encoding="utf-8")
-    block = pal[pal.index("const DESIGN_STEPS"):pal.index("const inDesign")]
-    ctx.check("the Design tour has five steps and the Roles tour is kept", block.count('\n    ["') == 5 and "ROLES_STEPS" in pal and "inDesign(app) ? DESIGN_STEPS : ROLES_STEPS" in pal)
+def test_artboard_rename_and_delete(ctx: Ctx):
+    """3.0.7.0 R3: the Artboards panel's Rename and Delete."""
+    import threading
+    import time
+    from tests.test_studio_design import _fake_runner
+    with _Studio() as s:
+        slug = s.seeded("Boards")
+        status, r = s.call("POST", f"/api/design/{slug}/artboard/hero/rename", {"name": "  Landing   hero "})
+        ctx.check(f"rename answers the id and the tidied title, got {status} {r}", status == 200 and r == {"id": "hero", "title": "Landing hero"})
+        a = s.call("GET", f"/api/design/{slug}")[1]["artboards"][0]
+        ctx.check("the title changed, the id and the versions stayed", a["title"] == "Landing hero" and a["id"] == "hero" and a["latest"] == 1)
+        ctx.check("a blank name is a 422", s.call("POST", f"/api/design/{slug}/artboard/hero/rename", {"name": "  "})[0] == 422)
+        ctx.check("an unknown artboard is a 404", s.call("POST", f"/api/design/{slug}/artboard/nope/rename", {"name": "x"})[0] == 404)
+        ctx.check("GET on the rename route is a 405", s.call("GET", f"/api/design/{slug}/artboard/hero/rename")[0] == 405)
+        s.call("POST", f"/api/design/{slug}/comment", {"artboard": "hero", "text": "tighter", "x": 10, "y": 10})
+        gate = threading.Event()
+        s.api.RUNNER = _fake_runner(gate)
+        s.call("POST", f"/api/design/{slug}/run", {"prompt": "busy"})
+        status, r = s.call("DELETE", f"/api/design/{slug}/artboard/hero")
+        ctx.check(f"delete while a turn runs is a 409, got {status}", status == 409 and "turn is running" in r["error"])
+        gate.set()
+        for _ in range(100):
+            if s.call("GET", f"/api/design/{slug}")[1]["live_turn"] is None:
+                break
+            time.sleep(0.05)
+        status, r = s.call("DELETE", f"/api/design/{slug}/artboard/hero")
+        d = s.call("GET", f"/api/design/{slug}")[1]
+        ctx.check(f"delete removes it and resolves its open pin, got {status} {r}", status == 200 and r == {"deleted": "hero", "resolved": 1}
+                  and d["artboards"] == [] and all(c["resolved"] for c in d["comments"]))
+        ctx.check("its folder and versions are gone", not (s.state / "design" / slug / "artboards" / "hero").exists())
+        ctx.check("deleting it again is a 404", s.call("DELETE", f"/api/design/{slug}/artboard/hero")[0] == 404)
+
+
+@test
+def test_design_layout_is_saved_on_the_server(ctx: Ctx):
+    """3.0.7.0 R3: the Artboards panel's places live in `layout/design:<slug>` (the file name has no colon)."""
+    with _Studio() as s:
+        slug = s.seeded("Places")
+        where = {"hero": {"x": 40, "y": 60}}
+        status, _ = s.call("PUT", f"/api/layout/design:{slug}", {"positions": where, "nodes": where})
+        ctx.check("PUT layout/design:<slug> is accepted", status == 200)
+        ctx.check("GET reads it back", s.call("GET", f"/api/layout/design:{slug}")[1] == where)
+        ctx.check("the encoded name (what the page sends) works too", s.call("GET", f"/api/layout/design%3A{slug}")[1] == where)
+        files = sorted(f.name for f in (s.state / "studio" / "layouts").iterdir())
+        ctx.check(f"the file is _design-<slug>.json, got {files}", f"_design-{slug}.json" in files and not any(":" in f for f in files))
+        ctx.check("another prefix is a 422", s.call("PUT", "/api/layout/nope:x", {"positions": {}})[0] == 422)
+        ctx.check("a bad slug is a 422", s.call("GET", "/api/layout/design:..x")[0] == 422)
+        ctx.check("pc:<id> still works", s.call("PUT", "/api/layout/pc:abc-1", {"positions": where})[0] == 200)
 
 
 if __name__ == "__main__":

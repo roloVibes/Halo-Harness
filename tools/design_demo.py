@@ -2,7 +2,8 @@
 (Halo 3.0.1.0 round D3): "Launch page" with an HTML hero artboard that reads
 --space and --accent from :root and ships two knobs, a VectorCraft-style logo
 artboard whose render.svg is drawn by hand, two open comments, a small design
-system and two history lines. `seed(state_dir)` returns the project.
+system and two history lines (3.0.7.0 R3: with the model's reply text, the
+thread the Design section draws). `seed(state_dir)` returns the project.
 """
 
 from __future__ import annotations
@@ -49,6 +50,23 @@ SYSTEM = {"name": "Pulse", "tokens": {
     "components": [{"name": "Button"}, {"name": "Nav"}, {"name": "Hero"}], "sources": ["by hand"]}
 
 
+TEXT_1 = """## Made two artboards
+
+- **hero**: the landing page hero, a nav, the headline, two buttons and a screenshot area.
+- **logo-mark**: a pulse line in a rounded square, drawn in VectorCraft.
+
+Look at the headline weight first; the accent is `--accent` on `:root`."""
+
+TEXT_2 = """Changed **hero** (v2):
+
+1. The headline is 46 px now.
+2. Two knobs: *Spacing* (`--space`) and *Accent colour* (`--accent`).
+
+```css
+:root { --space: 32px; --accent: #7c5cff; }
+```"""
+
+
 def seed(state_dir: Path):
     from halo_harness.design.store import Project
     p = Project.create("Launch page", model="or:anthropic/claude-sonnet-4.5", state_dir=Path(state_dir))
@@ -59,10 +77,12 @@ def seed(state_dir: Path):
     (logo / "render.svg").write_text(LOGO, encoding="utf-8")
     (logo / "source.json").write_text(json.dumps({"app": "vectorcraft", "kind": "vector", "title": "Logo mark", "document": "logo.vcraft"}), encoding="utf-8")
     first = p.snapshot(note="first hero")
-    p.log_turn({"prompt": "A landing page hero for Pulse, a code-review walkthrough tool, with a vector logo mark.", "model": p.meta()["model"], "cost": 0.0412, "code": 0, "versions": first})
+    p.log_turn({"prompt": "A landing page hero for Pulse, a code-review walkthrough tool, with a vector logo mark.", "model": p.meta()["model"], "cost": 0.0412, "code": 0, "versions": first,
+                "text": TEXT_1, "tool_calls": 6, "elapsed": 41.2})
     (hero / "index.html").write_text(HERO, encoding="utf-8")
     second = p.snapshot(note="bigger headline")
-    p.log_turn({"prompt": "Bigger headline, and add knobs for spacing and the accent colour.", "model": p.meta()["model"], "cost": 0.0187, "code": 0, "versions": second})
+    p.log_turn({"prompt": "Bigger headline, and add knobs for spacing and the accent colour.", "model": p.meta()["model"], "cost": 0.0187, "code": 0, "versions": second,
+                "text": TEXT_2, "tool_calls": 3, "elapsed": 18.7})
     p.save_system(SYSTEM)
     p.add_comment("hero", "Make the screenshot area feel less empty: add a faint grid.", x=78, y=52, version=2)
     p.add_comment("hero", "Nav links look too close to the logo.", x=40, y=7, version=2)

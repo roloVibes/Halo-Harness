@@ -1,0 +1,46 @@
+/* The Design thread (3.0.7.0 R3): the turns as a thread of messages (you on
+   the right in amber's quiet tint, the model on the left with a cyan edge),
+   the tool chips of a running turn, the working dots and the Send box; and
+   the safe markdown it renders (lib/markdown.tsx). Tokens only. */
+
+.dt { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; }
+.dt-head { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dt-list { overflow: auto; min-height: 0; display: grid; gap: 14px; align-content: start; padding-right: 4px; }
+.dt-turn { display: grid; gap: 6px; animation: rise var(--t-slow) var(--ease); }
+.dt-msg { display: grid; gap: 4px; padding: 8px 11px; border-radius: var(--radius); font-size: 13px; max-width: 94%; min-width: 0; }
+.dt-msg[data-who="you"] { justify-self: end; background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); }
+.dt-msg[data-who="model"] { justify-self: start; background: var(--surface-2); border: 1px solid var(--line); border-left: 2px solid var(--accent); }
+.dt-turn[data-failed] .dt-msg[data-who="model"] { border-left-color: var(--bad); }
+.dt-turn[data-live] .dt-msg[data-who="model"] { box-shadow: 0 0 18px var(--accent-soft); }
+.dt-who { font-size: 9.5px; letter-spacing: .1em; color: var(--muted); }
+.dt-msg[data-who="you"] .dt-who { color: var(--warn); text-align: right; }
+.dt-meta { font-size: 10.5px; padding-top: 2px; border-top: 1px solid var(--line); }
+.dt-tool { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--bg-2); min-width: 0; }
+.dt-tool b { color: var(--accent); font-weight: 600; }
+.dt-tool span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-working { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.dt-dots { display: inline-flex; gap: 3px; }
+.dt-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: fp-pulse 1.2s var(--ease) infinite; }
+.dt-dots i:nth-child(2) { animation-delay: .2s; }
+.dt-dots i:nth-child(3) { animation-delay: .4s; }
+.dt-send { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.dt-input { resize: vertical; min-height: 58px; font: inherit; font-size: 13px; }
+.dt-send-row { display: flex; align-items: center; gap: 8px; }
+.dt-try { display: grid; gap: 6px; }
+.dt-try p { margin: 0; font-size: 12.5px; }
+.dt-sugg { text-align: left; padding: 8px 10px; font: inherit; font-size: 12.5px; color: var(--text); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); cursor: pointer; }
+.dt-sugg:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+/* -- the safe markdown -------------------------------------------------------------- */
+.md { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
+.md-p { margin: 0; }
+.md-h { font-weight: 700; margin-top: 2px; }
+.md-h1 { font-size: 15px; }
+.md-h2 { font-size: 14px; }
+.md-h3, .md-h4 { font-size: 13px; color: var(--accent); letter-spacing: .02em; }
+.md-list { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.md-pre { margin: 0; padding: 8px 10px; font: 11.5px/1.45 var(--mono); border-radius: var(--radius-sm); background: var(--bg); border: 1px solid var(--line); overflow: auto; white-space: pre; }
+.md-code { font: 11.5px var(--mono); padding: 0 4px; border-radius: 4px; background: var(--bg-2); border: 1px solid var(--line); }
+.md-quote { margin: 0; padding: 2px 10px; border-left: 2px solid var(--line-strong); color: var(--muted); }
+.md-link { color: var(--accent); }
+.md-img { font-style: italic; }

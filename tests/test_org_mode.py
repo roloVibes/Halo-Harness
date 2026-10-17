@@ -109,11 +109,10 @@ def test_studio_status_carries_the_switch_and_mode_flips_it(ctx: Ctx):
         ctx.check("status now says enabled", st.get("enabled") is True)
         s.call("POST", "/api/pc/mode", {"enabled": False})
         ctx.check("and off again", org_mode_enabled() is False)
-    js = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "org.js").read_text(encoding="utf-8")
-    ctx.check("the header has the switch and the off state explains", 'id="org-mode-switch"' in js and "Org mode is off" in js and "org.offState" in js)
-    css = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "studio.css").read_text(encoding="utf-8")
-    ctx.check("the Org header hides outside Org mode (the owner saw it over Roles)",
-              'body:not([data-mode="org"]) #org-badges { display: none; }' in css and '$("org-badges").innerHTML = ""' in js)
+    ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src" / "routes" / "org"
+    company = (ui / "Company.tsx").read_text(encoding="utf-8")
+    ctx.check("the Company panel has the switch (3.0.7.0 R3, React)", 'data-testid="org-mode-switch"' in company and "setOrgMode(!st.enabled)" in company)
+    ctx.check("the chart says when Org mode is off and offers to turn it on", "Org mode is off" in (ui / "Canvas.tsx").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

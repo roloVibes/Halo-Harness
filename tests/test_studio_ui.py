@@ -2,9 +2,8 @@
 2.1.0 B3: the classic page (/legacy/ since 3.0.3.0) draws the lineup's cards; the React shell
 at / by its data-testid counts. 3.0.4.0 R6b (tests/helpers/studio_clarity.py): the Orchestra
 Start view then the grid, a click focuses a panel and `?` opens its help, the framed page has
-no second header, the Roles canvas draws its groups. 3.0.5.0 Fleet (tests/helpers/studio_ui_fleet.py,
-registered here): R3's map, steer, stop, hop keys, rail and Live Roles; R4's panels (attention,
-timeline, conflict, digest, replay) and the README captures (PNGs).
+no second header, the Roles canvas draws its groups. Registered here: 3.0.5.0 Fleet (studio_ui_fleet.py),
+3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Org and Design sections (studio_ui_org_design.py).
 """
 
 from __future__ import annotations
@@ -20,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
 from tests.helpers.studio_ui_fleet import register as register_fleet
 from tests.helpers.studio_ui_mission import register as register_mission
+from tests.helpers.studio_ui_org_design import register as register_org_design
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -241,6 +241,7 @@ def test_roles_canvas_draws_groups(ctx: Ctx):
 
 register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/helpers/studio_ui_fleet.py
 register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, tests/helpers/studio_ui_mission.py
+register_org_design(test, _json_of, _chrome)  # 3.0.7.0 R3: Org and Design in React, tests/helpers/studio_ui_org_design.py
 
 
 if __name__ == "__main__":
