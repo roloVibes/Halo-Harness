@@ -56,6 +56,12 @@ class Commands:
         link = member.link_for(sid)
         if link is None:
             return 404, {"error": f"{member.name} has no live session {sid!r}"}
+        # A session is announced (POST) a moment before its stream (long GET) attaches, and a relay that is
+        # re-attaching has none for a beat: give the stream a bounded grace before saying "not connected".
+        end = time.monotonic() + max(0.0, min(float(wait_s), 3.0))
+        while (not link.streams or member.key is None) and time.monotonic() < end:
+            time.sleep(0.05)
+            link = member.link_for(sid) or link
         if not link.streams or member.key is None:
             return 409, {"error": f"{member.name} is not connected right now"}
         cid = secrets.token_hex(8)
