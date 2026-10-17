@@ -8,6 +8,24 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.0.8.0] - unreleased
+
+Team: a project's people, blocks and stages on one board. A team file names the brief every agent reads first, the members (instances of lineup aliases, here or on a fleet member), the blocks they work in (a file, a folder or a git tree, each with its own claims ledger) and the stages that move the work (an agent turn, an Orchestra run or a flow, triggered by hand, by a stage finishing or by a block changing, held by a gate). `halo team` runs it; Studio's seventh section draws it live. Rolo's order, 2026-10-17: "complete all the different version numbers".
+
+### R1: the team engine
+
+- Teams: `halo team` runs a project's team file (`<repo>/.halo/team.yaml`, else `~/.halo/teams/<project>.team.yaml`): a brief every agent reads first, members (instances of lineup aliases, here or on a fleet member), blocks (a file, a folder or a git tree) and workflow stages (an agent turn, an Orchestra run or a flow) with reads, writes, a trigger (manual, `stage_done:<stage>`, `block_change:<block>` after a settle window), a lead, a gate and an acceptance. `halo team init|validate|run|status|board|answer|stop|log|blocks`, each with `--json`; the lineup preflight runs for every member first (`--force` runs anyway). See docs/TEAM.md.
+- Blocks keep a ledger (`.halo-block/`: claims, one line per write, the holders); while a stage runs, a member's writes stay inside the stage's write blocks and its own claims, and a write to a part another member holds comes back naming the block and the holder.
+- A required gate holds a stage until `halo team answer <stage> accept|redo|stop` (redo runs it again with the text); a member with `harness: <fleet member>` runs on that harness through the fleet's `run_task` (asked, running, refused show on the board).
+- Studio: `/api/team/...` (the team, validate, the board, run, answer, stop, the blocks and their changes, the events) and `team` frames on the live feed, for the Team tab.
+- Known this release: the members of one agent stage run one after another; Orchestra and flow stages run on this machine only; a delegated member has not yet been exercised against a real fleet member.
+
+### R2: the Team tab
+
+- Studio: **Team** is the seventh section (`Alt+7`, `halo studio --mode team`, `/studio team`): the project's team file as one board -- members as columns, stages as boxes coloured by state in their members' columns, blocks in a band underneath with a claim badge (amber while someone writes) and the last change, and the `stage_done` / reads / writes / `block_change` edges; a run bar with Run next, Stop (asks for a reason) and Validate; the Inspector for a stage (Run, problems inline, Run anyway past the preflight, the gate card with Accept, Redo and Stop), a block (holders, change lines) or a member (its lineup opens in Roles); the change feed with kind chips. Live from the `team` frames. With no team file a Start view whose **Make my first team** writes the template (`POST /api/team/init`). See docs/STUDIO.md.
+- Fleet: a team stage held at its gate is a **team gate** row in the Attention queue (`A` accept, `R` redo, `S` stop, `O` opens the Team section on it); the status bar's TEAM cell counts the stages running and at a gate.
+- `halo team init` and Studio share one `init_files`; a board read that lands while board.json is replaced (Windows) reads again instead of answering an empty board.
+
 ## [3.0.7.0] - 2026-10-17
 
 Tiers and the ports: a lineup stacks its members in tiers and the harness enforces who may spawn whom; every run starts with a preflight that names what would make members come back empty; Roles, Org and Design are React sections of the Studio shell and the classic page is gone. Rolo's order, 2026-10-17: "complete all the different version numbers". The Home section from the earlier plan is not built: the Fleet panels already show live sessions, cost today and health.
