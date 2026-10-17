@@ -136,11 +136,11 @@ def apply_lineup(req: Request):
     return 200, {"ok": True, "notes": list(notes), "active_team": _active_team()}
 
 
-_LAYOUT_NAME = re.compile(r"^(pc:)?[A-Za-z0-9][A-Za-z0-9_.-]*$")
+_LAYOUT_NAME = re.compile(r"^((pc|design):)?[A-Za-z0-9][A-Za-z0-9_.-]*$")  # 3.0.7.0 R3: design:<slug> too
 
 
 def _layout_name_problem(name: str):
-    return None if _LAYOUT_NAME.match(name) else _problems([f"{name!r} is not a valid layout name (a lineup name, or pc:<company id>)"])
+    return None if _LAYOUT_NAME.match(name) else _problems([f"{name!r} is not a valid layout name (a lineup name, pc:<company id> or design:<project slug>)"])
 
 
 def get_layout(req: Request):

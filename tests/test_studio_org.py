@@ -93,10 +93,11 @@ def test_status_proxy_sync_pull_and_link(ctx: Ctx):
 
 @test
 def test_org_capture_tool_flags(ctx: Ctx):
-    text = (Path(__file__).resolve().parent.parent / "tools" / "capture_studio.py").read_text(encoding="utf-8")
+    tools = Path(__file__).resolve().parent.parent / "tools"
+    text = (tools / "capture_studio.py").read_text(encoding="utf-8") + (tools / "capture_org_design.py").read_text(encoding="utf-8")
     ctx.check("the capture tool has an --org mode over the fake Paperclip", "--org" in text and "FakePaperclip" in text)
-    page = (Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "static" / "legacy" / "index.html").read_text(encoding="utf-8")
-    ctx.check("the page carries the Roles | Org toggle and org.js", 'data-mode="org"' in page and "org.js" in page)
+    routes = (Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "index.tsx").read_text(encoding="utf-8")
+    ctx.check("Org is a React section (3.0.7.0 R3), not the framed page", "panels: orgPanels, view: OrgView" in routes)
 
 
 if __name__ == "__main__":

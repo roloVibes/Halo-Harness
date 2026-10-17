@@ -4,7 +4,8 @@
 > `halo paperclip sync <lineup>` turn a lineup into a company with titles,
 > reporting lines, budgets, issues and heartbeats -- see
 > [PAPERCLIP.md](PAPERCLIP.md). **Org mode is off by default** (`halo
-> paperclip on|off`, `/org on|off`, the wizard, Studio's header); while it is
+> paperclip on|off`, `/org on|off`, the wizard, the switch in Studio's Org
+> section, a React section since 3.0.7.0); while it is
 > off nothing runs on a Paperclip heartbeat. Everything below is Halo's older
 > built-in org runner (`~/.halo/orgs/*.json`, `/org list|run`, `halo org`,
 > the wizard's second switch), kept working for existing configs and no

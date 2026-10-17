@@ -1,4 +1,5 @@
-// The framed classic pages (Roles, Org, Design at /legacy/?embedded=1) talk
+// The framed classic page (Roles at /legacy/?embedded=1; Org and Design are
+// React sections since 3.0.7.0 R3) talks
 // to the shell with postMessage, same origin only: `{type: "legacy-status",
 // mode, text}` is the page's status line, shown in the shell's status bar
 // (the page hides its own); `{type: "legacy-section", to}` is the page's
@@ -7,7 +8,7 @@
 import { useEffect } from "react";
 import { goSection, SECTION_IDS, studio, type SectionId } from "../lib/store";
 
-const MODES: SectionId[] = ["roles", "org", "design"];
+const MODES: SectionId[] = ["roles"];
 
 export function useLegacyMessages(): void {
   useEffect(() => {

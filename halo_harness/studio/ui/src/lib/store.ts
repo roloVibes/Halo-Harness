@@ -81,7 +81,7 @@ export type StudioState = {
   railOpen: boolean;
   inspector: PanelRef | null;
   help: HelpRef | null;
-  /** The framed classic pages' status lines (postMessage legacy-status), per section. */
+  /** A section's own status line: the framed Roles page's (postMessage legacy-status); Org's and Design's from their stores. */
   legacy: Partial<Record<SectionId, string>>;
   feed: { status: FeedStatus; events: number; lastKind: string; lastTs: number; sessions: SessionInfo[] };
   activity: Partial<Record<SectionId, number>>;

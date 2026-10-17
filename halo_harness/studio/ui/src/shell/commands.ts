@@ -1,5 +1,5 @@
 // The palette's commands and its fuzzy matcher. Groups: Go to, Help,
-// Orchestra, Flow, Fleet, Media, View, Layout, Open. Each command may show a key (the
+// Orchestra, Org, Design, Flow, Fleet, Media, View, Layout, Open. Each command may show a key (the
 // same hint the menus show).
 import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
 import { layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
@@ -9,6 +9,8 @@ import { token } from "../lib/api";
 import { flowCommands, mediaCommands } from "../routes/flow/commands";
 import { orchestraCommands } from "../routes/orchestra/commands";
 import { fleetCommands } from "../routes/fleet/commands";
+import { orgCommands } from "../routes/org/commands";
+import { designCommands } from "../routes/design/commands";
 
 export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; run: () => void };
 
@@ -69,11 +71,11 @@ export function commands(): Command[] {
       run: () => revealPanel(cur, p),
     });
   }
-  out.push(...orchestraCommands(), ...flowCommands(), ...fleetCommands(), ...mediaCommands());
+  out.push(...orchestraCommands(), ...orgCommands(), ...designCommands(), ...flowCommands(), ...fleetCommands(), ...mediaCommands());
   out.push({
     id: "open-legacy",
     group: "Open",
-    label: "Open the classic page in a new tab",
+    label: "Open the classic page (Roles, Org, Design) in a new tab",
     hint: "/legacy/",
     run: () => window.open(`legacy/index.html#t=${token()}`, "_blank", "noopener"),
   });

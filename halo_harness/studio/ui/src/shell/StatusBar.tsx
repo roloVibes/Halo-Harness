@@ -1,7 +1,8 @@
 // The status bar (a HudStrip): the live feed dot (green connected, amber
 // connecting or reconnecting, red unreachable; it ticks once per event), the
-// session and event counts, the framed classic page's own status line (Roles,
-// Org, Design: the lineup's problems, the company, the project), the section
+// session and event counts, the section's own status line (the framed Roles
+// page's: the lineup's problems; 3.0.7.0 R3 Org and Design set theirs from
+// their stores: the company, the project), the section
 // and its layout, and the keys. The FLEET cell counts the agents at work and
 // the decisions waiting in the Fleet attention queue, in every section;
 // 3.0.6.0 R8: and the fleet missions running now.

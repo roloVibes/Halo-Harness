@@ -4,8 +4,9 @@ put the mode in the query ahead of the token fragment; `/studio roles|org|
 design`, `/design`, `/roles gui` and `/org gui` open Studio in that mode
 (`url` keeps the browser shut); `/roles table` is the text table; the
 top-level help names studio/design/teams/agents and the GUI; the system
-prompt tells every model what Halo Studio is and how to open it; the page
-honours `?mode=roles` over a saved mode.
+prompt tells every model what Halo Studio is and how to open it; 3.0.7.0 R3:
+`--mode org|design` open the React sections (their DOM, through
+tools/capture_studio.py --dom), only Roles is still the framed classic page.
 
 Run: python -m tests.test_studio_modes
 """
@@ -169,11 +170,51 @@ def test_system_prompt_tells_the_model_about_studio(ctx: Ctx):
     ctx.check("names the slash commands", "`/roles`, `/org` or `/design`" in text)
 
 
+def _dom(mode: str) -> dict:
+    """tools/capture_studio.py --mode <mode> --dom in a scrubbed environment: the Start view's and the section's test-id counts."""
+    import json
+    import os
+    import subprocess
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
+    env.update(PYTHONPATH=str(REPO_DIR), BRIDGE_TEST_NO_BACKGROUND_NET="1")
+    r = subprocess.run([sys.executable, str(REPO_DIR / "tools" / "capture_studio.py"), "--mode", mode, "--dom"], capture_output=True,
+                       encoding="utf-8", errors="replace", timeout=300, env=env, cwd=str(REPO_DIR))
+    try:
+        return json.loads(r.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return {"error": (r.stdout + r.stderr)[-400:]}
+
+
 @test
-def test_page_honours_mode_query_over_the_saved_mode(ctx: Ctx):
-    js = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "app.js").read_text(encoding="utf-8")
-    ctx.check("app.js reads ?mode=roles|org|design", "mode=(roles|org|design)" in js)
-    ctx.check("the asked mode beats the saved one", "const mode = asked || saved;" in js)
+def test_org_and_design_open_as_react_sections(ctx: Ctx):
+    """3.0.7.0 R3: `--mode org|design` open React sections, no framed classic page:
+    Org's Start view without Paperclip, then the chart over FakePaperclip; Design's
+    Start view without a project, then the thread and the artboards of a seeded one."""
+    sys.path.insert(0, str(REPO_DIR / "tools"))
+    from capture_screens import find_chrome
+    import os
+    from tests.helpers.runner import SkipTest
+    if not find_chrome(os.environ.get("HALO_CHROME", "")):
+        raise SkipTest("no Chrome found (the DOM checks need headless Chrome)")
+    org = _dom("org")
+    start, chart = org.get("start", {}), org.get("org", {})
+    ctx.check(f"Org without Paperclip: six tabs, the Start view, no frame, got {start or org}",
+              start.get("section-tab") == 6 and start.get("org-start") == 1 and start.get("legacy-frame") == 0 and start.get("org-card") == 0)
+    ctx.check(f"Org over FakePaperclip: the canvas, seven cards in two boxes, four panels, got {chart}",
+              chart.get("org-canvas") == 1 and chart.get("org-card") == 7 and chart.get("org-group") == 2 and chart.get("panel-about") == 4
+              and chart.get("org-start") == 0 and chart.get("legacy-frame") == 0)
+    design = _dom("design")
+    start, seeded = design.get("start", {}), design.get("design", {})
+    ctx.check(f"Design without a project: the Start view, no frame, got {start or design}",
+              start.get("design-start") == 1 and start.get("legacy-frame") == 0 and start.get("design-artboard") == 0)
+    ctx.check(f"Design over a seeded project: the thread with two turns, two artboards, two pins, got {seeded}",
+              seeded.get("design-thread") == 1 and seeded.get("design-turn") == 2 and seeded.get("design-artboard") == 2
+              and seeded.get("design-pin") == 2 and seeded.get("design-start") == 0 and seeded.get("legacy-frame") == 0)
+    ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src"
+    routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
+    ctx.check("only Roles is still framed", routes.count("legacyPanels(") == 1 and 'legacyPanels("roles", "Roles")' in routes
+              and "panels: orgPanels, view: OrgView" in routes and "...designPanels" in routes)
+    ctx.check("the legacy bridge listens for Roles only", 'const MODES: SectionId[] = ["roles"];' in (ui / "shell" / "legacy.ts").read_text(encoding="utf-8"))
 
 
 @test
