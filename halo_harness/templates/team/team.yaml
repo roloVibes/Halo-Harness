@@ -1,0 +1,41 @@
+# A Halo team (docs/TEAM.md): who works, where the work lands, in which order.
+# `halo team validate` checks this file; `halo team run draft` starts the first stage.
+name: launch
+brief: docs/BRIEF.md            # the one file every agent reads first
+members:
+  - name: writer                 # an instance name, used by stages below
+    lineup: local-first          # a lineup (`halo teams` lists them)
+    role: main                   # the alias inside that lineup
+    harness: null                # null = here; a fleet member's name = delegated to it
+blocks:
+  - id: copy
+    kind: folder                 # file | folder | git
+    path: content/
+    claims: section              # section | file | none (what a claim locks)
+  - id: site
+    kind: git
+    path: .
+    claims: file
+workflow:
+  stages:
+    - id: draft
+      kind: agent                # agent | orchestra | flow
+      members: [writer]          # member names, lineup aliases or a tier name
+      reads: [brief]             # block ids (brief is always readable)
+      writes: [copy]
+      trigger: manual            # manual | block_change:<block> | stage_done:<stage>
+      lead: writer               # who merges and decides (default: the first member)
+      gate: required             # required | optional | none (a human answer before the next stage)
+      acceptance: {prompt: "", expect: "non-empty"}
+      prompt: "Draft the launch copy the brief asks for, one markdown file per page under content/."
+    - id: build
+      kind: orchestra
+      goal: {what: "Build the site pages from the copy in content/", done_when: "every page renders", workers: 3}
+      reads: [copy]
+      writes: [site]
+      trigger: stage_done:draft
+    - id: post
+      kind: flow
+      flow: social-post
+      reads: [copy]
+      trigger: stage_done:build

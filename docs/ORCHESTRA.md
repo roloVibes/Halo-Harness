@@ -5,6 +5,8 @@ nothing is lost. The idea comes from Kem Tossoun's reel "5 agents write to
 the same file at the same time and nothing is lost" (Glitch Cat Club); this
 page is Halo's version of it.
 
+**In a team (Halo 3.0.8.0):** a team stage of `kind: orchestra` starts an Orchestra run with the stage's goal (the files of its write blocks when the goal names none); see [TEAM.md](TEAM.md).
+
 The rule behind it: **code decides wherever it can, a model judges only
 when it must.** Code owns the claims, the merge order, the tests and the
 gate. A model writes the functions, and when two pieces conflict at merge
