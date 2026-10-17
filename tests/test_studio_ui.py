@@ -1,8 +1,8 @@
 """tests.test_studio_ui -- Studio in a real browser (headless Chrome; skipped without one).
-2.1.0 B3: the classic page (/legacy/ since 3.0.3.0) draws the lineup's cards; the React shell
-at / by its data-testid counts. 3.0.4.0 R6b (tests/helpers/studio_clarity.py): the Orchestra
-Start view then the grid, a click focuses a panel and `?` opens its help, the framed page has
-no second header, the Roles canvas draws its groups. Registered here: 3.0.5.0 Fleet (studio_ui_fleet.py),
+3.0.7.0 R2: the React Roles section draws the lineup's cards in their tier boxes; the shell at
+/ by its data-testid counts. 3.0.4.0 R6b (tests/helpers/studio_clarity.py): the Orchestra
+Start view then the grid, a click focuses a panel and `?` opens its help; no section nests a
+second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (studio_ui_fleet.py),
 3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Org and Design sections (studio_ui_org_design.py).
 """
 
@@ -20,6 +20,7 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 from tests.helpers.studio_ui_fleet import register as register_fleet
 from tests.helpers.studio_ui_mission import register as register_mission
 from tests.helpers.studio_ui_org_design import register as register_org_design
+from tests.helpers.studio_ui_roles import register as register_roles
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -52,25 +53,22 @@ def _json_of(*args: str) -> "tuple[subprocess.CompletedProcess, dict]":
 
 @test
 def test_page_boots_and_draws_nodes_in_headless_chrome(ctx: Ctx):
+    """3.0.7.0 R2: tools/capture_studio.py --dom (Roles, React): the Start view with only the shipped
+    lineups, then the seeded lineup's eight cards in three tier boxes."""
     if not _chrome():
         raise SkipTest("no Chrome found (the page smoke needs headless Chrome)")
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
-    env["PYTHONPATH"] = str(REPO)
-    env["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
-    r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_studio.py"), "--dom"], capture_output=True, text=True, timeout=240, env=env, cwd=str(REPO))
+    r, info = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "roles", "--dom")
     ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
-    try:
-        info = json.loads(r.stdout.strip().splitlines()[-1])
-    except (ValueError, IndexError):
-        info = {}
-    ctx.check(f"the page drew the halo-dev-cycle cards, got {info}", info.get("nodes", 0) >= 7 and "Halo Studio" in info.get("title", ""))
+    start, roles = info.get("start", {}), info.get("roles", {})
+    ctx.check(f"the Start view first, got {start}", start.get("roles-start") == 1 and start.get("roles-card") == 0)
+    ctx.check(f"then the cards in their tier boxes, got {roles}", roles.get("roles-card") == 8 and roles.get("roles-tier") == 3 and roles.get("roles-canvas") == 1)
 
 
 @test
 def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
     """3.0.3.0: the React shell at / draws the section tabs (five since
-    3.0.4.0: Flow is Alt+5); Orchestra shows its console, Roles frames the
-    classic page at /legacy/."""
+    3.0.4.0: Flow is Alt+5); Orchestra shows its console, Roles (3.0.7.0 R2)
+    its React canvas, no frame."""
     if not _chrome():
         raise SkipTest("no Chrome found (the shell smoke needs headless Chrome)")
     env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
@@ -84,8 +82,9 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
     # R6b: a folder with no Orchestra run opens on the Start view, not on empty panels
-    ctx.check(f"Orchestra: six section tabs and the Start view, got {orch}", orch == {"section-tab": 6, "orchestra-root": 0, "start-view": 1, "legacy-frame": 0})
-    ctx.check(f"Roles: six section tabs and the framed classic page, got {roles}", roles == {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "legacy-frame": 1})
+    ctx.check(f"Orchestra: six section tabs and the Start view, got {orch}", orch.get("section-tab") == 6 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
+    ctx.check(f"Roles: six section tabs and its canvas, no frame, got {roles}",
+              roles == {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
@@ -196,52 +195,33 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
 
 
 @test
-def test_legacy_embedded_hides_header(ctx: Ctx):
-    """R6b: framed in the shell (embedded=1) the classic page has no logo, no
-    Roles / Org / Design buttons and no footer, a toolbar at most 48 px tall;
-    its status line shows in the shell's status bar; O inside the frame
-    switches the SHELL to Org; opened on its own it keeps its full header."""
+def test_roles_header_is_not_nested(ctx: Ctx):
+    """3.0.7.0 R2: Roles is a React section: no framed page, so no second header, its status line
+    straight from its store in the shell's status bar."""
     if not _chrome():
-        raise SkipTest("no Chrome found (the embedded-page test needs headless Chrome)")
+        raise SkipTest("no Chrome found (the Roles test needs headless Chrome)")
     r, dom = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
     roles = dom.get("roles", {})
-    ctx.check(f"the embedded page's DOM: the toolbar, no logo, no mode buttons, got {roles}",
-              roles.get("legacy-toolbar") == 1 and roles.get("embedded") == 1 and roles.get("brand") == 0 and roles.get("mode-buttons") == 0)
-    r, got = _json_of("-m", "tests.helpers.studio_clarity", "legacy")
-    ctx.check(f"the click run finished, got {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0)
-    ctx.check(f"in the shell: toolbar, no logo, no mode buttons, no footer, got {got}",
-              got.get("toolbar") is True and got.get("brand") is False and got.get("mode_buttons") == 0 and got.get("footer_shown") is False)
-    ctx.check(f"one slim line, got {got.get('toolbar_height')}", 0 < (got.get("toolbar_height") or 0) <= 48)
-    ctx.check(f"the page's status line is in the shell's status bar, got {got.get('status')!r}", "valid" in str(got.get("status")))
-    ctx.check(f"O in the frame switches the shell's section, got {got.get('section_after_o')}", got.get("section_after_o") == "Org")
-    ctx.check(f"on its own: the full header and the footer, got {got}",
-              got.get("standalone_brand") is True and got.get("standalone_modes") == 3 and got.get("standalone_footer") is True)
+    ctx.check(f"the Roles section: its canvas and cards, no frame, got {roles}",
+              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 6)
 
 
 @test
-def test_roles_canvas_draws_groups(ctx: Ctx):
-    """R6b: the Roles canvas draws one labelled box per role of the lineup
-    (halo-dev-cycle: Main, Workers, Researchers, Reviewers, Custom roles)
-    with every card inside one; a card dropped into another box takes its
-    role; the toolbar's Groups button hides and shows them."""
+def test_roles_canvas_draws_tier_boxes(ctx: Ctx):
+    """3.0.7.0 R2: the Roles canvas draws one labelled box per tier (the seeded lineup: top, leads
+    and the implicit rest) with every card inside the box of its tier."""
     if not _chrome():
-        raise SkipTest("no Chrome found (the groups test needs headless Chrome)")
-    r, got = _json_of("-m", "tests.helpers.studio_clarity", "legacy")
+        raise SkipTest("no Chrome found (the Roles test needs headless Chrome)")
+    r, got = _json_of("-m", "tests.helpers.studio_roles", "roles")
     ctx.check(f"the click run finished, got {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0)
-    ctx.check(f"five boxes, got {got.get('groups')} {got.get('labels')}",
-              got.get("groups") == 5 and set(got.get("labels") or []) == {"Main", "Workers", "Researchers", "Reviewers", "Custom roles"})
-    ctx.check("every card sits inside a box", got.get("cards_in_boxes") is True)
-    ctx.check(f"verify dropped into Reviewers became a reviewer, got {got.get('joined')} / {got.get('reviewers')}",
-              got.get("joined") == "reviewer" and got.get("reviewers") == 2)
-    ctx.check(f"Groups hides them and shows them again, got {got.get('groups_off')} / {got.get('groups_on')}",
-              got.get("groups_off") == "off" and (got.get("groups_on") or 0) >= 5)
-    ctx.check(f"an empty catalog shows the model notice with a Refresh button, got {got.get('models_notice')}",
-              (got.get("models_notice") or 0) >= 1)
+    ctx.check(f"eight cards in three tier boxes, got {got.get('cards')} {got.get('tiers')}", got.get("cards") == 8 and got.get("tiers") == ["top", "leads", "rest"])
+    ctx.check("every card sits inside the box of its tier", got.get("cards_in_tiers") is True)
 
 
 register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/helpers/studio_ui_fleet.py
 register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, tests/helpers/studio_ui_mission.py
 register_org_design(test, _json_of, _chrome)  # 3.0.7.0 R3: Org and Design in React, tests/helpers/studio_ui_org_design.py
+register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
 
 
 if __name__ == "__main__":

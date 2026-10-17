@@ -76,7 +76,6 @@ export default defineConfig({
     proxy: {
       "/api": toStudio(),
       "/design-files": toStudio(),
-      "/legacy": toStudio(),
     },
   },
 });

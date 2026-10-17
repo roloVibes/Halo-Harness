@@ -4,8 +4,10 @@ open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
 errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|shell|orchestra|flow|media|fleet]
 
-3.0.3.0: roles --dom renders the classic page at /legacy/ (what the shell
-frames); 3.0.7.0 R3: `--mode org|design` (tools/capture_org_design.py) render
+3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
+React Roles section: a seeded lineup with two tiers and a live card
+(docs/media/studio-roles.png), with --dom its Start view and the seeded
+lineup with a bio open, counted by data-testid; 3.0.7.0 R3: `--mode org|design` (tools/capture_org_design.py) render
 the React Org and Design sections over a fake Paperclip and a seeded design
 project (docs/media/studio-org.png, studio-design.png; with --dom the Start
 views and the sections, counted by data-testid); `--mode shell` renders the React shell at / (Orchestra and
@@ -18,12 +20,11 @@ counts the run console's data-testid values. 3.0.4.0 R6: `--mode flow` and
 waiting at its confirm gate over a FakeComfy and render the Flow section
 (docs/media/studio-flow.png, studio-media.png); --dom counts its test ids.
 R6b: `--mode orchestra` lives in tools/capture_orchestra.py and also
-renders the Start view over a repo with no run (studio-orchestra-start.png)
-and the Roles section with its groups (studio-roles.png). 3.0.5.0 R3:
+renders the Start view over a repo with no run (studio-orchestra-start.png). 3.0.5.0 R3:
 `--mode fleet` (tools/capture_fleet.py) seeds two harnesses with five agents
 (tests/helpers/studio_fleet_rig.py) and renders the Fleet section
 (studio-fleet.png) and the Roles canvas glowing with its Live tab open
-(studio-roles-live.png), R4 also the panels with a conflict on the map and
+(studio-roles-live.png, the React canvas since 3.0.7.0 R2), R4 also the panels with a conflict on the map and
 the digest in the rail (studio-fleet-panels.png), 3.0.6.0 R6 the Capabilities panel
 with Who can... gridcraft (studio-fleet-capabilities.png), 3.0.6.0 R8 a planned mission
 (studio-fleet-mission.png); --dom counts their test ids.
@@ -68,19 +69,18 @@ def seeded_home() -> Path:
     return state
 
 
-def serve(state: Path, shell: bool = False, proj: "Path | None" = None):
+def serve(state: Path, shell: bool = True, proj: "Path | None" = None):
+    """Studio over `state`; the URL opens the shell on Orchestra with the feed off (`shell` is kept for the callers)."""
     from halo_harness.studio.server import start_server, url_for
     proj = proj or state.parent / "project"  # an empty project dir: nothing resolves to project scope
     proj.mkdir(exist_ok=True)
     srv = start_server(port=0, cwd=proj, state_dir=state)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    if shell:
-        return srv, url_for(srv).replace("/#t=", "/?mode=orchestra&feed=off#t=")  # an open EventSource stalls --virtual-time-budget
-    return srv, url_for(srv, legacy=True).replace("/index.html#t=", "/index.html?tour=off#t=")
+    return srv, url_for(srv).replace("/#t=", "/?mode=orchestra&feed=off#t=")  # an open EventSource stalls --virtual-time-budget
 
 
 def shell_counts(dom: str) -> dict:
-    return {k: dom.count(f'data-testid="{k}"') for k in ("section-tab", "orchestra-root", "start-view", "legacy-frame")}
+    return {k: dom.count(f'data-testid="{k}"') for k in ("section-tab", "orchestra-root", "start-view", "roles-canvas", "roles-start", "legacy-frame")}
 
 
 def chrome(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | None":
@@ -131,7 +131,15 @@ def main(argv: list) -> int:
             return capture_org_design(args.mode, args.out, args.dom, chrome, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode == "orchestra":  # the run console, the Start view and Roles with its groups (tools/capture_orchestra.py)
+    if args.mode == "roles":  # 3.0.7.0 R2: the React Roles section (tools/capture_roles.py)
+        from capture_roles import capture as capture_roles
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-roles.png"
+        try:
+            return capture_roles(args.out, args.dom, serve, state)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
+    if args.mode == "orchestra":  # the run console and its Start view (tools/capture_orchestra.py)
         from capture_orchestra import capture as capture_orchestra
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-orchestra.png"
@@ -139,26 +147,17 @@ def main(argv: list) -> int:
             return capture_orchestra(args.out, args.dom, chrome, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    shell = args.mode == "shell"
-    if shell and args.out.endswith("studio.png"):
+    if args.out.endswith("studio.png"):  # --mode shell
         args.out = args.out[:-4] + "-shell.png"
-    srv, url = serve(state, shell)
+    srv, url = serve(state)
     try:
-        if args.dom and shell:  # the shell twice: Orchestra (its Start view: no run here) and Roles (the framed classic page)
+        if args.dom:  # the shell twice: Orchestra (its Start view: no run here) and Roles (the canvas of the active lineup)
             a, b = chrome(["--dump-dom", url]), chrome(["--dump-dom", url.replace("mode=orchestra", "mode=roles")])
             if a is None or b is None:
                 print("no Chrome found")
                 return 2
             print(json.dumps({"orchestra": shell_counts(a.stdout), "roles": shell_counts(b.stdout),
                               "title": a.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in a.stdout else ""}))
-            return 0
-        if args.dom:
-            r = chrome(["--dump-dom", url])
-            if r is None:
-                print("no Chrome found")
-                return 2
-            print(json.dumps({"nodes": r.stdout.count('class="node'), "groups": r.stdout.count('data-testid="canvas-group"'),
-                              "title": r.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in r.stdout else ""}))
             return 0
         out = Path(args.out).resolve()
         r = chrome(["--virtual-time-budget=20000", f"--screenshot={out}", "--window-size=1500,900", "--force-device-scale-factor=2", url])

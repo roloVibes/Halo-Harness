@@ -55,15 +55,21 @@ def lineup_problems(team_or_lineup_name: "Optional[str]" = None, *, cwd=None, st
 
 
 def _lineup_problems(name, *, cwd, state_dir) -> "list[dict]":
-    from halo_harness.agents_doctor import missing_model_provider
-    from halo_harness.agents_yaml import resolve_agent_bio
-    from halo_harness.teams_tiers import tier_warnings, validate_tiers
     lineup, template = _resolve(name, cwd=cwd, state_dir=state_dir)
     if lineup is None:
         return []
     if template is None:
         return [_finding("lineup-missing", "blocks", f"lineup `{lineup}` does not resolve (no such file, or its "
                          f"`extends` chain is broken)", "`halo teams` lists the lineups; name one that exists")]
+    return template_problems(template, cwd=cwd, state_dir=state_dir)
+
+
+def template_problems(template: dict, *, cwd=None, state_dir=None) -> "list[dict]":
+    """The findings for an already-resolved lineup mapping (3.0.7.0 R2:
+    Studio's Problems panel runs this on the unsaved edit too)."""
+    from halo_harness.agents_doctor import missing_model_provider
+    from halo_harness.agents_yaml import resolve_agent_bio
+    from halo_harness.teams_tiers import tier_warnings, validate_tiers
     out: "list[dict]" = []
     catalogs: dict = {}
     bios: "dict[str, Optional[dict]]" = {}

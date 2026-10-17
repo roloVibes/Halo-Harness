@@ -48,7 +48,6 @@
 
 .panel-body { flex: 1; min-height: 0; overflow: auto; padding: 14px; animation: fade var(--t) var(--ease); }
 .panel-body[data-overflow] { box-shadow: inset 0 -16px 14px -14px var(--accent-soft); }  /* more below: scroll the panel or make it taller */
-.panel-body.face-detail:has(> .legacy-frame) { padding: 0; overflow: hidden; }
 
 /* resize handles: edges 6 px, corners 12 px */
 .rz { position: absolute; z-index: 3; touch-action: none; }

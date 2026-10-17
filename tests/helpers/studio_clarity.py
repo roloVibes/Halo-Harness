@@ -4,7 +4,6 @@ DevTools protocol (tests/helpers/cdp.py). tests/test_studio_ui.py runs it as
 a subprocess with a scrubbed environment, like tools/capture_studio.py:
 
     python -m tests.helpers.studio_clarity panel    # Orchestra: click to focus, ?, the ... menu, the Inspector, the section help
-    python -m tests.helpers.studio_clarity legacy   # Roles: one header, the status line, the groups, a drop into a box
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -17,9 +16,6 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
-
-FRAME = "document.querySelector('iframe.legacy-frame')"
-DOC = f"{FRAME}.contentDocument"
 
 
 def panel(c, url: str) -> dict:
@@ -65,50 +61,8 @@ def panel(c, url: str) -> dict:
     return out
 
 
-def legacy(c, url: str, legacy_url: str) -> dict:
-    out = {}
-    c.go(url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off"))
-    out["groups"] = c.wait(f"{DOC}?.querySelectorAll('[data-testid=\"canvas-group\"]').length >= 4 && {DOC}.querySelectorAll('[data-testid=\"canvas-group\"]').length")
-    out["labels"] = c.js(f"[...{DOC}.querySelectorAll('.group-label')].map((t) => t.textContent)")
-    out["toolbar"] = c.js(f"!!{DOC}.querySelector('#top[data-testid=\"legacy-toolbar\"]')")
-    out["brand"] = c.js(f"!!{DOC}.querySelector('#top .brand')")
-    out["mode_buttons"] = c.js(f"{DOC}.querySelectorAll('#top [data-mode]').length")
-    out["footer_shown"] = c.js(f"getComputedStyle({DOC}.getElementById('status')).display !== 'none'")
-    out["toolbar_height"] = c.js(f"{DOC}.getElementById('top').getBoundingClientRect().height")
-    out["status"] = c.wait("document.querySelector('[data-testid=\"legacy-status\"]')?.textContent", 10)
-    # every card sits inside a box (screen rects, the frame's own coordinates)
-    out["cards_in_boxes"] = c.js(f"""(() => {{ const d = {DOC}; const boxes = [...d.querySelectorAll('.group-box')].map((b) => b.getBoundingClientRect());
-      return [...d.querySelectorAll('.node')].every((n) => {{ const r = n.querySelector('.card').getBoundingClientRect();
-        return boxes.some((b) => r.left >= b.left - 1 && r.right <= b.right + 1 && r.top >= b.top - 1 && r.bottom <= b.bottom + 1); }}); }})()""")
-    fx, fy, _w, _h = c.rect(FRAME)
-    # drop the verify card (a custom role) into the Reviewers box: it becomes a reviewer
-    card = c.rect(f"{DOC}.querySelector('.node[data-id=\"verify#3\"] .card')")
-    box = c.rect(f"{DOC}.querySelector('.group[data-key=\"r:reviewer\"] .group-box')")
-    c.drag(fx + card[0] + card[2] / 2, fy + card[1] + 12, fx + box[0] + 8, fy + box[1] + 12)
-    out["joined"] = c.wait(f"(({FRAME}.contentWindow.app.current.raw.agents.find((a) => a.as === 'verify') || {{}}).role === 'reviewer') && 'reviewer'", 10)
-    out["reviewers"] = c.wait(f"{DOC}.querySelector('.group[data-key=\"r:reviewer\"] .group-count')?.textContent === '2' && 2", 10)
-    # the catalog is empty on a bare home: every model dropdown says so and offers Refresh (3.0.4.0)
-    c.js(f"{FRAME}.contentWindow.app.canvas.select(['verify#3'])")
-    out["models_notice"] = c.wait(f"{DOC}.querySelectorAll('[data-testid=\"models-empty\"] button').length", 10)
-    btn = c.rect(f"{DOC}.getElementById('btn-groups')")
-    c.click(fx + btn[0] + btn[2] / 2, fy + btn[1] + btn[3] / 2)
-    out["groups_off"] = c.wait(f"{DOC}.querySelectorAll('[data-testid=\"canvas-group\"]').length === 0 && 'off'", 5)
-    c.click(fx + btn[0] + btn[2] / 2, fy + btn[1] + btn[3] / 2)
-    out["groups_on"] = c.wait(f"{DOC}.querySelectorAll('[data-testid=\"canvas-group\"]').length", 5)
-    c.key("o")  # the focus is in the frame (the toolbar button): O switches the SHELL to Org, not the frame
-    out["section_after_o"] = c.wait("document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"] .tab-label')?.textContent === 'Org' && 'Org'", 10)
-    c.js(f"{FRAME}.contentWindow.app.dirty = false")  # the role change is unsaved: no "leave the page?" prompt
-    c.go(legacy_url)  # the classic page on its own keeps its full header and footer
-    c.wait("!!document.querySelector('.node')", 15)
-    out["standalone_brand"] = c.js("!!document.querySelector('#top .brand')")
-    out["standalone_modes"] = c.js("document.querySelectorAll('#top [data-mode]').length")
-    out["standalone_footer"] = c.js("getComputedStyle(document.getElementById('status')).display !== 'none'")
-    return out
-
-
 def main(argv: list) -> int:
     from capture_studio import find_chrome, seeded_home, serve
-    from halo_harness.studio.server import url_for
     from tests.helpers.cdp import Chrome
     exe = find_chrome()
     if not exe:
@@ -122,10 +76,7 @@ def main(argv: list) -> int:
     srv, url = serve(state, True, repo)
     c = Chrome(exe)
     try:
-        if argv[:1] == ["panel"]:
-            got = panel(c, url)
-        else:
-            got = legacy(c, url, url_for(srv, "roles", legacy=True).replace("?mode=roles", "?mode=roles&tour=off"))
+        got = panel(c, url)  # 3.0.7.0 R2: the Roles checks are tests/helpers/studio_roles.py
         print(json.dumps(got))
         return 0
     finally:

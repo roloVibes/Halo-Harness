@@ -1,8 +1,8 @@
 // The status bar (a HudStrip): the live feed dot (green connected, amber
 // connecting or reconnecting, red unreachable; it ticks once per event), the
-// session and event counts, the section's own status line (the framed Roles
-// page's: the lineup's problems; 3.0.7.0 R3 Org and Design set theirs from
-// their stores: the company, the project), the section
+// session and event counts, the section's own status line (3.0.7.0: Roles,
+// Org and Design set theirs from their stores: the lineup and its problems,
+// the company, the project), the section
 // and its layout, and the keys. The FLEET cell counts the agents at work and
 // the decisions waiting in the Fleet attention queue, in every section;
 // 3.0.6.0 R8: and the fleet missions running now.
@@ -23,7 +23,7 @@ export function StatusBar() {
   const feed = useStore(studio, (s) => s.feed);
   const section = useStore(studio, (s) => s.section);
   const custom = useStore(layoutStore(section), (s) => s.custom);
-  const legacy = useStore(studio, (s) => s.legacy[s.section]);
+  const line = useStore(studio, (s) => s.status[s.section]);
   const title = sectionDef(section).title;
   useEffect(() => startFleet(), []); // the fleet counts in every section, rail open or not
   const fleet = useCounts();
@@ -53,14 +53,14 @@ export function StatusBar() {
           {feed.lastKind ? ` · ${feed.lastKind}` : ""}
         </span>
       </HudCell>
-      {legacy && (
-        <HudCell label={title.toUpperCase()} grow title={legacy}>
-          <span className="mono legacy-status" data-testid="legacy-status">
-            {legacy}
+      {line && (
+        <HudCell label={title.toUpperCase()} grow title={line}>
+          <span className="mono section-status" data-testid="section-status">
+            {line}
           </span>
         </HudCell>
       )}
-      <HudCell label="VIEW" grow={!legacy}>
+      <HudCell label="VIEW" grow={!line}>
         <span className="mono">
           {title.toLowerCase()} · layout {custom ? "yours" : "default"}
         </span>

@@ -9,7 +9,7 @@
 // with `PUT layout/pc:<id>` 500 ms after the last drag.
 import { api, ApiError } from "../../lib/api";
 import { changed, reuse, same } from "../../lib/diff";
-import { studio } from "../../lib/store";
+import { setSectionStatus, studio } from "../../lib/store";
 import { linkedId, org, statusLine } from "./store";
 import type { Agent, Company, Goal, Issue, PcStatus, Pos, Project } from "./types";
 
@@ -87,7 +87,7 @@ export async function poll(): Promise<void> {
   } finally {
     inflight = false;
     const line = statusLine(org.get());
-    studio.update((s) => (s.legacy.org === line ? {} : { legacy: { ...s.legacy, org: line } }));
+    setSectionStatus("org", line);
   }
 }
 
