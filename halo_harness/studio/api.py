@@ -68,7 +68,7 @@ def get_lineup(req: Request):
     data = M.lineup_payload(req.params["name"], cwd=req.cwd, state_dir=req.state_dir, active=_active_team())
     if data is None:
         return 404, {"error": f"no lineup named {req.params['name']!r}"}
-    data["layout"] = M.read_layout(req.state_dir, req.params["name"])
+    data["layout"] = M.legacy_layout_view(M.read_layout(req.state_dir, req.params["name"]))
     return 200, data
 
 
@@ -144,7 +144,7 @@ def _layout_name_problem(name: str):
 
 
 def get_layout(req: Request):
-    return _layout_name_problem(req.params["name"]) or (200, M.read_layout(req.state_dir, req.params["name"]))
+    return _layout_name_problem(req.params["name"]) or (200, M.legacy_layout_view(M.read_layout(req.state_dir, req.params["name"])))
 
 
 def put_layout(req: Request):
@@ -152,9 +152,14 @@ def put_layout(req: Request):
     if bad:
         return bad
     positions = req.body.get("positions")
+    if positions is None and isinstance(req.body.get("nodes"), dict):  # 3.0.7.0 R1: the new {nodes, tiers} shape
+        positions = req.body.get("nodes")
     if not isinstance(positions, dict):
         return _problems(["positions must be a mapping of node id -> {x, y}"])
-    M.write_layout(req.state_dir, req.params["name"], positions)
+    tiers = req.body.get("tiers")
+    if tiers is not None and not isinstance(tiers, dict):
+        return _problems(["tiers must be a mapping of tier name -> {collapsed: true|false}"])
+    M.write_layout(req.state_dir, req.params["name"], positions, tiers=tiers)
     return 200, {"ok": True}
 
 
@@ -243,12 +248,9 @@ def get_session(req: Request):
 
 
 def get_tools(req: Request):
-    try:
-        from halo_harness.tools.registry import builtin_tool_names  # optional helper
-        names = list(builtin_tool_names())
-    except Exception:
-        names = ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Agent", "WebFetch", "WebSearch", "TodoWrite", "NotebookEdit"]
-    return 200, names
+    """The real registry's names (`tools.registry.known_tool_names`)."""
+    from halo_harness.tools.registry import known_tool_names
+    return 200, known_tool_names()
 
 
 ROUTES: list = [

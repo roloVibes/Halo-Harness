@@ -2087,11 +2087,24 @@ def cmd_doctor(argv: list) -> int:
         dead_ids = check_dead_model_ids(cwd=doctor_cwd)
         if dead_ids:
             problems = problems + dead_ids
+        # 3.0.7.0 R1: the run-start preflight's list for the active lineup --
+        # the same findings `halo orchestra run` / `halo flow run` / a mission
+        # run stop on (lineup_preflight.py; the dead-id walk is shared).
+        from halo_harness.lineup_preflight import lineup_problems
+        from halo_harness.teams_runtime import active_team_name
+        lineup_name = active_team_name()
+        preflight = lineup_problems(lineup_name, cwd=doctor_cwd) if lineup_name else []
+        problems = problems + [f"lineup {lineup_name}: {p['text']} (fix: {p['fix']})" for p in preflight
+                               if p["severity"] == "blocks"]
         if args.json:
-            print(json.dumps({"problems": problems, "dead_model_ids": dead_ids}, indent=2))
+            print(json.dumps({"problems": problems, "dead_model_ids": dead_ids, "lineup": lineup_name,
+                              "preflight": preflight}, indent=2))
         else:
             for p in problems:
                 print(f"  {p}")
+            for p in preflight:
+                if p["severity"] == "warns":
+                    print(f"  warning: lineup {lineup_name}: {p['text']} (fix: {p['fix']})")
             n = len(problems)
             print(f"RESULT: {'clean --' if not n else f'{n} problem(s);'} the roles lineup "
                   f"{'looks healthy.' if not n else 'needs attention.'}")

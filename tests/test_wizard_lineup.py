@@ -372,6 +372,58 @@ def test_lineup_editor_editing_an_installed_template(ctx: Ctx):
 
 
 @test
+def test_lineup_editor_t_key_probes_the_focused_assignment(ctx: Ctx):
+    """3.0.7.0 R1 ("Test this model"): `t` on the assignments list runs the
+    one-token probe (model_probe, stubbed here) on a worker and shows the
+    line in the cost footer; `t` typed into a field stays a letter; the
+    tiers section takes a YAML list."""
+    from halo_harness import model_probe
+    from halo_harness.agents_yaml import save_agent_bio
+    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+    from textual.widgets import Input, OptionList, TextArea
+
+    async def body():
+        with _Env() as e:
+            save_agent_bio("probe-bio", {"description": "p", "models": {"preference": "or:vendor/strong-model"}},
+                           state_dir=e.state_dir)
+            calls = []
+            saved = model_probe.probe_model
+            model_probe.probe_model = lambda ref, **kw: calls.append(ref) or {
+                "ok": True, "latency_ms": 42, "error": "", "cost_line": "", "ref": ref, "reply": "ok"}
+            try:
+                template = {"agents": [{"agent": "probe-bio", "role": "main"}]}
+                app = _host_screen(LineupEditor("probe-lineup", template, FIXTURE_MODELS, state_dir=e.state_dir))
+                async with app.run_test(size=(140, 55)) as pilot:
+                    await pilot.pause(0.1)
+                    editor = app.screen
+                    editor.query_one("#lineup-assignments", OptionList).focus()
+                    await pilot.press("t")
+                    for _ in range(40):
+                        await pilot.pause(0.05)
+                        if "ok in" in _static_text(editor.query_one("#lineup-cost-footer")):
+                            break
+                    footer = _static_text(editor.query_one("#lineup-cost-footer"))
+                    ctx.check(f"the probe ran on the assignment's model, got {calls}", calls == ["or:vendor/strong-model"])
+                    ctx.check(f"the line lands in the footer, got {footer!r}",
+                              "test: or:vendor/strong-model: ok in 42 ms ('ok')" in footer)
+                    field = editor.query_one("#lineup-field-as", Input)
+                    field.focus()
+                    await pilot.press("t")
+                    await pilot.pause(0.1)
+                    ctx.check(f"t in a field types the letter, got {field.value!r} {calls}", field.value == "t" and len(calls) == 1)
+                    editor.query_one("#lineup-section-tiers", TextArea).text = "- name: top\n  members: [main]\n"
+                    await pilot.pause(0.05)
+                    ctx.check("the tiers section takes a YAML list", editor._section_error("tiers") is None
+                              and editor._section_dict("tiers") == [{"name": "top", "members": ["main"]}])
+                    editor.query_one("#lineup-section-tiers", TextArea).text = "name: top\n"
+                    await pilot.pause(0.05)
+                    ctx.check("a mapping there names the list shape", "must be a YAML list" in (editor._section_error("tiers") or ""))
+            finally:
+                model_probe.probe_model = saved
+    asyncio.run(body())
+
+
+@test
 def test_team_step_lineup_pane_applies_on_next_and_migrates_a_legacy_table(ctx: Ctx):
     """Halo 2.0.5 round 2c (rule 11): the "Agents" step and "Roles and
     lineup" step merged into one "Team" step -- its Lineups pane (left)

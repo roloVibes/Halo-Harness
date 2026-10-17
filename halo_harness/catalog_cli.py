@@ -298,6 +298,9 @@ def _cmd_models_capabilities(args) -> int:
 
 
 def cmd_models(argv) -> int:
+    if argv and argv[0] == "test":  # 3.0.7.0 R1: `halo models test <ref>`, the one-token probe
+        from halo_harness.model_probe import cmd_models_test
+        return cmd_models_test(list(argv[1:]))
     parser = argparse.ArgumentParser(prog="halo models", add_help=True)
     parser.add_argument("--refresh", action="store_true", help="Re-probe OpenRouter/Databricks instead of using the cache")
     parser.add_argument("--cc", action="store_true",

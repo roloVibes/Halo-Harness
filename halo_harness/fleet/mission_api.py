@@ -160,8 +160,16 @@ def approve(ctx: Ctx, mid: str) -> "tuple[int, dict]":
         return _err(e)
 
 
-def run(ctx: Ctx, mid: str) -> "tuple[int, dict]":
-    """Approve (when planned), then run; a running mission's runner is picked up again."""
+def run(ctx: Ctx, mid: str, force: bool = False) -> "tuple[int, dict]":
+    """Approve (when planned), then run; a running mission's runner is picked up again.
+    3.0.7.0 R1: first the run-start preflight over this harness's active
+    lineup -- a 422 `{error, problems, preflight}` listing every blocking
+    problem with its fix, unless `force`."""
+    if not force:
+        from halo_harness.lineup_preflight import blocking, lineup_problems, refusal_body
+        problems = lineup_problems(None, cwd=ctx.cwd, state_dir=ctx.home)
+        if blocking(problems):
+            return 422, refusal_body(problems, what=f"mission {mid}")
     try:
         doc = S.need(ctx.home, mid)
         if doc["state"] == "planned":
@@ -242,7 +250,7 @@ def admin(home, hub, body: dict) -> "tuple[int, dict]":
     op, mid = str(body.get("op") or ""), str(body.get("id") or "")
     table = {"list": lambda: list_missions(ctx), "new": lambda: create(ctx, body), "get": lambda: get(ctx, mid),
              "plan": lambda: replan(ctx, mid), "edit": lambda: edit_part(ctx, mid, str(body.get("part") or ""), body),
-             "approve": lambda: approve(ctx, mid), "run": lambda: run(ctx, mid),
+             "approve": lambda: approve(ctx, mid), "run": lambda: run(ctx, mid, force=bool(body.get("force"))),
              "stop": lambda: stop(ctx, mid, str(body.get("reason") or "")), "report": lambda: report(ctx, mid),
              "files": lambda: files(ctx, mid, str(body.get("path") or ""))}
     fn = table.get(op)

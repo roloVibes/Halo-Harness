@@ -104,7 +104,9 @@ def test_session_reader_over_a_synthetic_session(ctx: Ctx):
               [a["agent_id"] for a in s["agents"]] == ["a1", "a2"] and s["agents"][0]["depth"] == 0 and s["agents"][1]["depth"] == 1
               and s["agents"][0]["cost_usd"] == 0.25)
     ctx.check("per-role cost is summed", s["roles"] == {"main": 0.5, "reviewer": 0.25})
-    ctx.check("layouts round-trip", (M.write_layout(state, "x", {"a": {"x": 1, "y": 2}}) or M.read_layout(state, "x")) == {"a": {"x": 1, "y": 2}})
+    ctx.check("layouts round-trip (3.0.7.0: the {nodes, tiers} shape)",
+              (M.write_layout(state, "x", {"a": {"x": 1, "y": 2}}) or M.read_layout(state, "x"))
+              == {"nodes": {"a": {"x": 1, "y": 2}}, "tiers": {}})
     import shutil
     shutil.rmtree(sess, ignore_errors=True)  # leave no "running" session behind for the next module
 
@@ -147,6 +149,57 @@ def test_reports_to_connects_a_box_to_another_box(ctx: Ctx):
     ctx.check("the page connects by drop and by a Reports-to field", "app.setReportsTo" in js and "rolesDropOn" in js and "Reports to (which box" in ins)
     canvas = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "canvas.js").read_text(encoding="utf-8")
     ctx.check("the lock says what it is and what to do", "🔒 shipped" in canvas and "press Duplicate" in canvas and "onLock" in js)
+
+
+@test
+def test_graph_emits_tiers(ctx: Ctx):
+    """3.0.7.0 R1: graph["tiers"] -- the declared tiers plus the implicit
+    last tier; one implicit tier `all` when none are declared."""
+    from halo_harness.studio.model import graph_for
+    agents = [{"agent": "orchestrator", "role": "main"}, {"agent": "implementer", "role": "subagent", "as": "worker"},
+              {"agent": "verifier", "role": "reviewer"}]
+    g = graph_for({"agents": agents}, catalog={})
+    ctx.check(f"no tiers: one implicit tier 'all' holding every card, got {g['tiers']}", g["tiers"] == [
+        {"name": "all", "members": ["main", "worker", "reviewer"], "max_parallel": None, "index": 0, "implicit": True,
+         "node_ids": ["main#0", "worker#1", "reviewer#2"]}])
+    g = graph_for({"agents": agents, "tiers": [{"name": "top", "members": ["main"]},
+                                               {"name": "workers", "members": ["worker"], "max_parallel": 3}]},
+                  catalog={})
+    ctx.check(f"declared tiers then the implicit 'rest', got {g['tiers']}",
+              [(t["name"], t["members"], t["max_parallel"], t["index"], t["implicit"], t["node_ids"]) for t in g["tiers"]]
+              == [("top", ["main"], None, 0, False, ["main#0"]), ("workers", ["worker"], 3, 1, False, ["worker#1"]),
+                  ("rest", ["reviewer"], None, 2, True, ["reviewer#2"])])
+
+
+@test
+def test_layout_shapes_old_and_new(ctx: Ctx):
+    """3.0.7.0 R1: a layout is {nodes: {id: {x,y}}, tiers: {name: {collapsed}}};
+    the old flat {id: {x,y}} reads as {nodes: <it>, tiers: {}}; the API view
+    keeps the flat positions too, for the legacy page."""
+    import tempfile
+    from halo_harness.studio import model as M
+    state = Path(tempfile.mkdtemp(prefix="studio-layout-")) / ".halo"
+    d = M.layouts_dir(state)
+    d.mkdir(parents=True)
+    (d / "old.json").write_text(json.dumps({"main#0": {"x": 5, "y": 6}}), encoding="utf-8")
+    ctx.check("the old flat file reads as the new shape",
+              M.read_layout(state, "old") == {"nodes": {"main#0": {"x": 5, "y": 6}}, "tiers": {}})
+    ctx.check("a missing layout is the empty new shape", M.read_layout(state, "none") == {"nodes": {}, "tiers": {}})
+    M.write_layout(state, "new", {"main#0": {"x": 1, "y": 2}}, tiers={"top": {"collapsed": True}})
+    on_disk = json.loads((d / "new.json").read_text(encoding="utf-8"))
+    ctx.check(f"write_layout writes the new shape, got {on_disk}",
+              on_disk == {"nodes": {"main#0": {"x": 1, "y": 2}}, "tiers": {"top": {"collapsed": True}}})
+    M.write_layout(state, "new", {"main#0": {"x": 9, "y": 9}})
+    ctx.check("a positions-only save keeps the saved tier state", M.read_layout(state, "new") ==
+              {"nodes": {"main#0": {"x": 9, "y": 9}}, "tiers": {"top": {"collapsed": True}}})
+    M.write_layout(state, "new", M.read_layout(state, "new"))
+    ctx.check("a whole layout round-trips", M.read_layout(state, "new")["tiers"] == {"top": {"collapsed": True}})
+    view = M.legacy_layout_view(M.read_layout(state, "new"))
+    ctx.check(f"the API view has nodes, tiers and the flat positions, got {view}",
+              view == {"main#0": {"x": 9, "y": 9}, "nodes": {"main#0": {"x": 9, "y": 9}}, "tiers": {"top": {"collapsed": True}}})
+    ctx.check("an empty layout's API view is {}", M.legacy_layout_view(M.read_layout(state, "none")) == {})
+    js = (REPO / "halo_harness" / "studio" / "static" / "legacy").joinpath("org.js").read_text(encoding="utf-8")
+    ctx.check("the legacy Org page reads the flat map (why the view keeps it)", "Object.keys(layout).length" in js)
 
 
 if __name__ == "__main__":

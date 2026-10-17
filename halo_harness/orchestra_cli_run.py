@@ -1,14 +1,18 @@
 """halo_harness.orchestra_cli_run -- the run half of `halo orchestra`.
 
-    halo orchestra run [RUN] [--model REF] [--dry-run]   split, workers, merge, tests, gate, report
+    halo orchestra run [RUN] [--model REF] [--dry-run] [--force]   split, workers, merge, tests, gate, report
     halo orchestra lanes [RUN]                           every lane: state, holder, returns, cost
     halo orchestra report [RUN]                          the run's report and its checks
     halo orchestra stop [RUN] [--reason TEXT]            ask a running run to stop between steps
 
 `run` prints one line per step as it happens (the run log's lines), then
 the report. `--dry-run` asks the lead for the split only and prints the
-jobs; nothing is claimed, no worktree is made. Exit codes: 0 finished,
-1 stopped or not found, 2 a bad request.
+jobs; nothing is claimed, no worktree is made. Before either, the run-start
+preflight (lineup_preflight.py) checks the run's lineup (the goal's
+`lineup`, else the active team) and lists every problem that would make
+members come back empty, with its fix, then stops; `--force` runs anyway.
+Exit codes: 0 finished, 1 stopped or not found, 2 a bad request or a
+preflight stop.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ def add_parsers(sub) -> None:
     r.add_argument("run", nargs="?", default=None, help="run id, id prefix or folder (default: latest)")
     r.add_argument("--model", default=None, metavar="REF", help="the model every part uses (default: the roles)")
     r.add_argument("--dry-run", dest="dry_run", action="store_true", help="split only: print the jobs")
+    r.add_argument("--force", action="store_true", help="run even when the lineup preflight finds problems")
     for name, helptext in (("lanes", "every lane: state, holder, returns, cost"),
                            ("report", "the run's report and its checks"),
                            ("stop", "ask a running run to stop between steps")):
@@ -53,6 +58,12 @@ def cmd_run(args, repo: Path) -> int:
     except ValueError as e:
         print(f"halo orchestra run: {e}", file=sys.stderr)
         return 2
+    if not getattr(args, "force", False):
+        from halo_harness.lineup_preflight import blocking, lineup_problems, refusal_text
+        problems = lineup_problems(goal.lineup or None, cwd=repo)
+        if blocking(problems):
+            print(refusal_text(problems, what=f"run {run_dir.name}"), file=sys.stderr)
+            return 2
     from halo_harness.orchestra import adapters
     if args.dry_run:
         return _dry_run(run_dir, goal, adapters.model_call(args.model, goal.lead, cwd=run_dir))

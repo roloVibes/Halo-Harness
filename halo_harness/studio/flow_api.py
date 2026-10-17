@@ -4,7 +4,8 @@ Studio route; the runs are `<state>/flows/runs/` (docs/FLOWS.md).
 
     GET  flow/templates                  [{name, source: template|user|project, steps: [{id, kind}], form, budget_usd}]
     GET  flow/runs                       [{run, name, status, created, cost_usd, project, live, waiting_step?}]
-    POST flow/runs {template|name, intake, model?, set?, yes?, start?}  -> 201 {run, started}
+    POST flow/runs {template|name, intake, model?, set?, yes?, start?, force?}  -> 201 {run, started}
+                                         (422 {error, problems, preflight: true} when the lineup preflight blocks)
     GET  flow/runs/<id>                  {flow, steps, gate, report, posts, metrics_tail, artboards, events, live, project}
     GET  flow/runs/<id>/events?since=N   {events, next}
     POST flow/runs/<id>/assets {name, data_base64}   -> 201 {name, size, kind, path, rel, project, intake}
@@ -82,6 +83,11 @@ def post_run(req):
     lines = fspec.validate_flow(spec, cwd=req.cwd, state_dir=req.state_dir)
     if fspec.errors(lines):
         return _bad(lines)
+    if not body.get("force"):  # 3.0.7.0 R1: the run-start preflight over the flow's lineups
+        from halo_harness.lineup_preflight import blocking, flow_problems, refusal_body
+        problems = flow_problems(spec, cwd=req.cwd, state_dir=req.state_dir)
+        if blocking(problems):
+            return 422, refusal_body(problems, what=f"flow {spec.get('name') or name}")
     start = body.get("start", True) is not False
     if start and _busy():
         return _busy()

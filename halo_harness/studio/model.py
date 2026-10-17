@@ -31,8 +31,10 @@ def clean(data: dict) -> dict:
     return {k: v for k, v in (data or {}).items() if not str(k).startswith("_")}
 
 
-def to_yaml(data: dict) -> str:
-    return yaml.safe_dump(clean(data), sort_keys=False, allow_unicode=True, width=100)
+def to_yaml(data) -> str:
+    # 3.0.7.0 R1: a section body may be a list (`tiers`), dumped as it is
+    body = data if isinstance(data, list) else clean(data)
+    return yaml.safe_dump(body, sort_keys=False, allow_unicode=True, width=100)
 
 
 def from_yaml(text: str) -> dict:
@@ -195,7 +197,15 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
         if prev and nid and prev != nid:
             edges.append({"from": prev, "to": nid, "kind": "pipeline", "label": f"then {st.get('name') or ''}".strip()})
         prev = nid or prev
-    return {"nodes": nodes, "edges": edges}
+    # 3.0.7.0 R1: the lineup's tiers (declared, plus the implicit last tier;
+    # one implicit tier `all` when none are declared) -- `members` are the
+    # assignment aliases, `node_ids` the cards that sit in each tier.
+    from halo_harness.teams_tiers import effective_tiers
+    by_key = {}
+    for n in nodes:
+        by_key.setdefault(n["alias"] or n["role"], []).append(n["id"])
+    tiers = [{**t, "node_ids": [i for m in t["members"] for i in by_key.get(m, [])]} for t in effective_tiers(raw)]
+    return {"nodes": nodes, "edges": edges, "tiers": tiers}
 
 
 def lineup_summary(name: str, *, cwd=None, state_dir=None, active: str = "") -> Optional[dict]:
@@ -280,13 +290,48 @@ def read_layout(state_dir: Path, name: str) -> dict:
                 old.unlink()
             except OSError:
                 pass
-    return got if isinstance(got, dict) else {}
+    return normalize_layout(got)
 
 
-def write_layout(state_dir: Path, name: str, positions: dict) -> None:
+def normalize_layout(got) -> dict:
+    """3.0.7.0 R1: a layout is `{nodes: {id: {x, y}}, tiers: {name:
+    {collapsed: bool}}}`. The old flat shape `{id: {x, y}}` (every layout
+    written before 3.0.7.0) reads as `{nodes: <it>, tiers: {}}`."""
+    if not isinstance(got, dict):
+        return {"nodes": {}, "tiers": {}}
+    if isinstance(got.get("nodes"), dict) and all(isinstance(v, dict) for v in got["nodes"].values()) \
+            and ("tiers" in got or set(got) == {"nodes"}):
+        tiers = got.get("tiers") if isinstance(got.get("tiers"), dict) else {}
+        return {"nodes": dict(got["nodes"]),
+                "tiers": {str(k): {"collapsed": bool((v or {}).get("collapsed"))} for k, v in tiers.items()
+                          if isinstance(v, dict) or v is None}}
+    return {"nodes": {k: v for k, v in got.items() if isinstance(v, dict)}, "tiers": {}}
+
+
+def legacy_layout_view(layout: dict) -> dict:
+    """What `GET layout/<name>` answers: the new shape's `nodes` and `tiers`
+    plus every node position at the top level too, because the legacy page
+    (`app.js` setGraph, `org.js` draw) reads the flat `{id: {x, y}}` map.
+    An empty layout answers `{}` (both readers treat that as "no layout")."""
+    layout = normalize_layout(layout)
+    if not layout["nodes"] and not layout["tiers"]:
+        return {}
+    return {**layout["nodes"], "nodes": layout["nodes"], "tiers": layout["tiers"]}
+
+
+def write_layout(state_dir: Path, name: str, positions: dict, tiers: Optional[dict] = None) -> None:
+    """Writes the new shape. `positions` is either the flat `{id: {x, y}}`
+    map or a whole `{nodes, tiers}` layout; `tiers` (when given) replaces
+    the tier state, else the saved tier state is kept."""
+    layout = normalize_layout(positions)
+    if tiers is not None:
+        layout["tiers"] = normalize_layout({"nodes": {}, "tiers": tiers})["tiers"]
+    elif not layout["tiers"]:
+        d0 = layouts_dir(state_dir) / layout_file_name(name)
+        layout["tiers"] = normalize_layout(_read_json(d0))["tiers"] if d0.is_file() else {}
     d = layouts_dir(state_dir)
     d.mkdir(parents=True, exist_ok=True)
-    (d / layout_file_name(name)).write_text(json.dumps(positions, indent=1), encoding="utf-8")
+    (d / layout_file_name(name)).write_text(json.dumps(layout, indent=1), encoding="utf-8")
 
 
 def _newest_session(state_dir: Path):

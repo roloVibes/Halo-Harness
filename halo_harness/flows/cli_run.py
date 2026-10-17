@@ -3,7 +3,8 @@
 `run` validates the flow, makes a run folder (`new_run`) from the intake
 flags and walks it with the real adapters, printing one line per finished
 step (every event with --watch), the gate prompt when a human gate opens,
-and the report at the end. Exit 0 when the run finished, 1 when it stopped.
+and the report at the end. Exit 0 when the run finished, 1 when it stopped,
+2 when the flow or its lineups' preflight has problems (`--force` runs anyway).
 With --watch and live posts, it then keeps sampling their metrics on the
 metrics step's `every` (flows/watch.py).
 """
@@ -106,6 +107,7 @@ def cmd_run(rest: list) -> int:
     p.add_argument("--project", default=None)
     p.add_argument("--set", action="append", metavar="STEP.KEY=VALUE", help="override a step's set value")
     p.add_argument("--resume", action="store_true", help="continue this flow's last unfinished run instead")
+    p.add_argument("--force", action="store_true", help="run even when the lineup preflight finds problems")
     _add_common(p)
     a = p.parse_args(rest)
     if a.resume:
@@ -133,6 +135,12 @@ def cmd_run(rest: list) -> int:
     if fspec.errors(lines):
         print(f"halo flow run: {path} has problems; nothing ran", file=sys.stderr)
         return 2
+    if not a.force:  # 3.0.7.0 R1: the run-start preflight over the flow's lineups
+        from halo_harness.lineup_preflight import blocking, flow_problems, refusal_text
+        problems = flow_problems(spec, cwd=os.getcwd())
+        if blocking(problems):
+            print(refusal_text(problems, what=f"flow {spec.get('name') or a.name}"), file=sys.stderr)
+            return 2
     run_dir = state.new_run(spec, intake, source=str(path), overrides=overrides)
     print(f"run {run_dir.name}: flow {spec.get('name')} from {path}")
     return drive(run_dir, a)

@@ -1489,6 +1489,21 @@ sourced from whatever this command last cached (`difflib`-style, cutoff
 0.5) -- keeping the cache fresh with `halo models --refresh` makes
 that suggestion useful.
 
+### `halo models test <ref>` (Halo 3.0.7.0)
+
+```sh
+halo models test <ref> [--json] [--timeout S]   one-token probe: ok and the latency, or the error; exit 1 on failure
+```
+
+Sends "Reply with the single word ok" to `<ref>` through the same one-shot
+print-mode call a bio's "Try it" uses (`halo -p ... --model <ref>
+--max-turns 1`), waits up to 20 s, and prints one line: `<ref>: ok in 812 ms
+('ok') -- ~$0.0011 estimated ...` or `<ref>: failed after 20000 ms: no reply
+within 20 s -- ...` (the cost part is the smoke estimate from the catalog's
+prices). `--json` prints `{ok, latency_ms, error, cost_line, ref, reply}`,
+the same body Studio's `POST /api/models/test {ref}` answers. The TUI lineup
+editor's `t` key runs it on the focused assignment's model.
+
 ## `halo mcp`
 
 Inspect and edit MCP server configuration -- reads/writes the exact same
@@ -2751,7 +2766,7 @@ halo flow new <template> [--name N] [--project SLUG] [--force]   copy a shipped 
 halo flow templates                                             the shipped templates (social-post)
 halo flow validate <name>                                       check a flow file; exit 1 on a problem (warnings do not count)
 halo flow run <name> [--brief T] [--input K=V]... [--asset PATH]... [--project SLUG]
-                     [--set STEP.KEY=V]... [--model M] [--yes] [--watch] [--resume]
+                     [--set STEP.KEY=V]... [--model M] [--yes] [--watch] [--resume] [--force]
 halo flow resume <run> [--yes] [--watch] [--model M]            continue a stopped or killed run at its first unfinished step
 halo flow status [run]                                          every run, or one run's steps, costs and open gate
 halo flow stop <run> [--reason T]                               stop between steps, or at an open gate
@@ -2777,6 +2792,12 @@ metrics on the metrics step's `every` after the run. `--model REF` pins every ro
 `set` value. RUN is a run id, a unique prefix, a folder or `last`. See
 [FLOWS.md](FLOWS.md).
 
+Halo 3.0.7.0: before `run` makes the run folder, the run-start preflight
+checks every lineup the flow's `roles` steps use (a model id its catalog
+does not know, a missing bio, a bio whose `tools.allow` is empty, a `tiers`
+problem), prints each problem with its fix and exits 2. `--force` runs
+anyway.
+
 ## `halo postiz`
 
 ```sh
@@ -2796,7 +2817,7 @@ halo orchestra status [RUN] [--repo DIR]           the goal, the workflow's step
 halo orchestra claims [RUN] [--repo DIR]           every live claim: key, holder, state, expiry
 halo orchestra log [RUN] [--since N] [--repo DIR]  the timed run log
 halo orchestra runs [--repo DIR]                   every run of this repo, oldest first
-halo orchestra run [RUN] [--model REF] [--dry-run] [--repo DIR]   split, workers, merge, tests, gate, report
+halo orchestra run [RUN] [--model REF] [--dry-run] [--force] [--repo DIR]   split, workers, merge, tests, gate, report
 halo orchestra lanes [RUN] [--repo DIR]            every worker lane: state, pieces sent back, cost, holder
 halo orchestra report [RUN] [--repo DIR]           the run's report and its checks
 halo orchestra stop [RUN] [--reason T] [--repo DIR]  ask a running run to stop at its next step
@@ -2822,6 +2843,13 @@ prints as it happens, then the report; exit 0 finished, 1 stopped.
 `--dry-run` prints the lead's split only. `--model REF` sets the model for
 every part (default: each role's model). `/orchestra` shows the same run in
 the TUI.
+
+Halo 3.0.7.0: before the split (and before `--dry-run`), the run-start
+preflight checks the run's lineup (the goal's `lineup`, else the active
+team): a model id its provider's catalog does not know, an assignment
+naming a missing bio, a bio whose `tools.allow` is an empty list, a `tiers`
+problem. It prints every problem with its fix and exits 2; `--force` runs
+anyway. `halo doctor --roles` prints the same list for the active lineup.
 
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 
@@ -3142,7 +3170,7 @@ halo fleet mission new "<goal>" [--prefer a,b] [--budget N] [--constraints "..."
 halo fleet mission plan <id> [--again] [--json]
 halo fleet mission edit <id> <part> (--harness NAME | --drop) [--json]
 halo fleet mission approve <id> [--json]
-halo fleet mission run <id> [--no-follow] [--json]
+halo fleet mission run <id> [--no-follow] [--force] [--json]
 halo fleet mission status [id] [--json]
 halo fleet mission stop <id> [--reason TEXT] [--json]
 halo fleet mission report <id> [--json]
@@ -3160,7 +3188,9 @@ it anew); `edit` gives a part to another harness (`--harness`) or drops it
 (`--drop`), checked again in code; `approve` approves; `run` approves a
 planned mission, runs it and follows it with a live table of the parts by
 harness until it ends (exit 0 when done, 1 when it failed or stopped;
-`--no-follow` returns at once). `status` lists the missions, or one
+`--no-follow` returns at once; the run-start preflight checks this harness's
+active lineup first and lists each problem with its fix, `--force` runs
+anyway). `status` lists the missions, or one
 mission's parts by harness with state and cost; `stop` stops every running
 part (`--reason` goes in the report); `report` prints `report.md`; `open`
 prints the mission folder. `--json` prints the route's answer with `ok` and

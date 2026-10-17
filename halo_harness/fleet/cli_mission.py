@@ -6,7 +6,7 @@
     halo fleet mission plan <id> [--again] [--json]      the plan table with reasons (--again: the lead plans anew)
     halo fleet mission edit <id> <part> (--harness NAME | --drop) [--json]
     halo fleet mission approve <id> [--json]
-    halo fleet mission run <id> [--no-follow] [--json]   approve + run + a live table of the parts by harness
+    halo fleet mission run <id> [--no-follow] [--force] [--json]   approve + run + a live table of the parts by harness
     halo fleet mission status [id] [--json]
     halo fleet mission stop <id> [--reason TEXT] [--json]
     halo fleet mission report <id> [--json]
@@ -177,10 +177,12 @@ def cmd_open(argv: list) -> int:
 
 def cmd_run(argv: list) -> int:
     a, rc = _one("run", "Approve (when planned) and run a mission, then follow it.", argv,
-                 lambda p: p.add_argument("--no-follow", action="store_true", help="start it and return"))
+                 lambda p: (p.add_argument("--no-follow", action="store_true", help="start it and return"),
+                            p.add_argument("--force", action="store_true",
+                                           help="run even when the lineup preflight finds problems")))
     if a is None:
         return rc
-    status, body, source = call("run", id=a.id)
+    status, body, source = call("run", id=a.id, **({"force": True} if a.force else {}))
     if status >= 300 or a.json or (a.no_follow and source != "local"):
         return _done(a, status, body, source, _status_text)
     last = ""

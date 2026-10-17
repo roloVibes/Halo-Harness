@@ -24,6 +24,14 @@ def check_expectation(response: str, expect: "Optional[str]") -> bool:
     return expect.lower() in text.lower()
 
 
+def print_mode_argv(model_ref: str, prompt: str) -> "list[str]":
+    """`halo -p <prompt> --model <ref> --max-turns 1` -- the one-shot
+    print-mode command every smoke call, acceptance run and model probe
+    (`model_probe.probe_model`) spawns."""
+    import sys
+    return [sys.executable, "-m", "halo_harness", "-p", prompt, "--model", model_ref, "--max-turns", "1"]
+
+
 def _default_call(model_ref: str, prompt: str, *, timeout: float = 60.0) -> str:
     """The REAL path -- `halo -p <prompt> --model <ref> --max-turns 1` as
     a subprocess, reusing the already-proven print-mode entry point
@@ -32,11 +40,8 @@ def _default_call(model_ref: str, prompt: str, *, timeout: float = 60.0) -> str:
     empty output, which `check_expectation` already treats as a failure
     on its own (no separate error path needed here)."""
     import subprocess
-    import sys
     try:
-        proc = subprocess.run(
-            [sys.executable, "-m", "halo_harness", "-p", prompt, "--model", model_ref, "--max-turns", "1"],
-            capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(print_mode_argv(model_ref, prompt), capture_output=True, text=True, timeout=timeout)
         return (proc.stdout or "").strip()
     except Exception:
         return ""
@@ -214,6 +219,27 @@ def _catalog_model_ids(provider: str, *, state_dir=None) -> "set[str] | None":
     return None
 
 
+def missing_model_provider(pref, *, catalogs: dict, state_dir=None) -> "Optional[str]":
+    """The provider prefix (`or`/`dbx`/`ol`) when `pref`'s id is not in that
+    provider's catalog; None when it is, when the ref names no catalogued
+    provider, or when the catalog cannot be read or is empty (never a false
+    dead id). `catalogs` caches one read per provider across calls -- the
+    one dead-id walk `check_dead_model_ids` and the run-start preflight
+    (`lineup_preflight.lineup_problems`) share."""
+    if not isinstance(pref, str) or ":" not in pref:
+        return None
+    provider = pref.split(":", 1)[0]
+    if provider not in ("or", "dbx", "ol"):
+        return None
+    if provider not in catalogs:
+        catalogs[provider] = _catalog_model_ids(provider, state_dir=state_dir)
+    known = catalogs[provider]
+    if not known:
+        return None
+    bare = pref.split(":", 1)[1].split("@")[0]
+    return provider if bare not in known else None
+
+
 def check_dead_model_ids(*, cwd=None, state_dir=None) -> "list[str]":
     """2.0.7 dead-model-id detection (rolo's live 2.0.6 finding: the role
     table's `or:deepseek/deepseek-v4-pro-0813` was 404ing SILENTLY --
@@ -235,18 +261,8 @@ def check_dead_model_ids(*, cwd=None, state_dir=None) -> "list[str]":
     catalogs: "dict[str, set | None]" = {}
     for role in sorted(table):
         pref = _pref_for(role)
-        if not isinstance(pref, str) or ":" not in pref:
-            continue
-        provider = pref.split(":", 1)[0]
-        if provider not in ("or", "dbx", "ol"):
-            continue
-        if provider not in catalogs:
-            catalogs[provider] = _catalog_model_ids(provider, state_dir=state_dir)
-        known = catalogs[provider]
-        if known is None:
-            continue
-        bare = pref.split(":", 1)[1].split("@")[0]
-        if bare not in known:
+        provider = missing_model_provider(pref, catalogs=catalogs, state_dir=state_dir)
+        if provider is not None:
             problems.append(
                 f"{role}'s model id {pref!r} is not in the {provider} catalog -- requests for it 404 "
                 f"silently (sub-agents come back empty). Pick a live id from the model picker, or "

@@ -90,6 +90,9 @@ def _cmd_validate(rest: list) -> int:
                 print(f"{name}: {p}")
         else:
             print(f"{name}: ok")
+        from halo_harness.teams_tiers import tier_warnings
+        for w in tier_warnings(raw):
+            print(f"{name}: {w}")
     return 1 if any_problem else 0
 
 

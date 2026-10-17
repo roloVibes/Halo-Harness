@@ -648,7 +648,12 @@ field -- round-trips through the same `yaml.safe_load` every other
 section of this codebase already uses). A read-only roles-table
 projection (`teams_yaml.resolve_role_table`, the SAME function `/roles`'s
 Auto tab already calls) sits under the grid -- the lineup is the one
-place a role actually gets edited.
+place a role actually gets edited. Halo 3.0.7.0 adds `tiers`, the one
+section whose body is a YAML list (`- {name, members, max_parallel}`; see
+[ROLES.md](ROLES.md#tiers-halo-3070)), and the `t` key on the assignments
+list: it sends the one-token probe (`halo models test`) to the focused
+assignment's model on a worker and shows ok and the latency, or the error,
+under the cost lines.
 
 At the bottom, the free-text **"How the pieces work together"** field
 saves as the template's own `about:` (an identity field like

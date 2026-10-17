@@ -35,7 +35,10 @@ from halo_harness.agents_yaml import _read_yaml_file, _write_yaml_file  # noqa: 
 _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 TOP_SECTIONS = ("delegation", "routing", "budget", "escalation", "context", "permissions", "org", "pipeline",
-                "acceptance")
+                "acceptance", "tiers")
+# Halo 3.0.7.0 R1: the one top section whose body is a YAML LIST, not a
+# mapping (`tiers: [{name, members, max_parallel}]`, teams_tiers.py).
+LIST_SECTIONS = ("tiers",)
 DELEGATION_MODES = ("manual", "by-skill", "round-robin")
 HANDOFF_SHAPES = ("summary", "full", "structured")
 GATE_KINDS = ("required", "optional")
@@ -60,6 +63,7 @@ SECTION_ENFORCEMENT = {
     "org": ("enforced", "reports_to addresses each member's hand-back; reporting drives the one-line reports"),
     "pipeline": ("enforced", "stages run in order; a required gate must pass its acceptance before the next stage starts"),
     "acceptance": ("checked by doctor", "halo doctor --agents/--teams runs each acceptance prompt and checks the reply"),
+    "tiers": ("enforced", "a member spawns only into the next tier down; max_parallel caps each tier's live members"),
 }
 
 
@@ -417,6 +421,18 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
         elif resolve_team_template(extends.strip(), cwd=cwd, state_dir=state_dir) is None \
                 and load_team_template_raw(extends.strip(), cwd=cwd, state_dir=state_dir) is None:
             problems.append(f'"extends" names a team template that does not exist: {extends!r}')
+    # Halo 3.0.7.0 R1: `tiers` -- unique names, known aliases, main alone in
+    # tier 0, one tier per alias, a positive max_parallel. Aliases left out
+    # of every tier are a "warning:" line (teams_tiers.tier_warnings), never
+    # a problem here.
+    # A child that `extends` and keeps its parent's lineup checks its tiers
+    # against the parent's assignments.
+    from halo_harness.teams_tiers import validate_tiers
+    tier_agents = agents
+    if not tier_agents and isinstance(extends, str) and extends.strip() and data.get("tiers"):
+        parent = resolve_team_template(extends.strip(), cwd=cwd, state_dir=state_dir)
+        tier_agents = _expand_roles_shorthand(dict(parent)).get("agents") or [] if parent else []
+    problems.extend(validate_tiers(data.get("tiers"), tier_agents))
     # Halo 2.0.5 round 4: the lanes rule over a template's RESOLVED role
     # table (the same one `apply_team_template` would write) -- a verifier
     # role resolving to a weaker tier than coder is one plain line, same
