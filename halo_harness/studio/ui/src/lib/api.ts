@@ -1,6 +1,6 @@
 // Studio's API client. The per-launch token arrives in the URL fragment
-// (`#t=...`); it is kept in sessionStorage under the same key the legacy page
-// uses, removed from the address bar, and sent as a bearer header. Errors are
+// (`#t=...`); it is kept in sessionStorage (`halo-studio-token`), removed
+// from the address bar, and sent as a bearer header. Errors are
 // typed: an ApiError carries the HTTP status and the server's `problems`.
 
 const KEY = "halo-studio-token";

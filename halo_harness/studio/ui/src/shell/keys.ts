@@ -2,8 +2,7 @@
 // `?` (Shift+/) opens "How this works" for the section (a focused panel
 // takes `?` first for its own help), Esc closes the palette, then the
 // Inspector. A key a panel, a menu or a dialog already handled (its default
-// prevented) stops there. (Keys typed inside a framed legacy page stay with
-// that page.)
+// prevented) stops there.
 import { useEffect } from "react";
 import { closeHelp, goSection, openHelp, studio } from "../lib/store";
 import { SECTIONS } from "../routes";

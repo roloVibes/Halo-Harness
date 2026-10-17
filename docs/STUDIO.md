@@ -14,7 +14,6 @@ halo studio --mode fleet    # 3.0.5.0: every harness and agent, live (also orche
 halo studio --no-open       # prints the URL only (SSH, a headless box)
 halo studio --port 8765     # a fixed port instead of a free one
 halo studio --stop          # stop the Studio running in the background
-halo studio --legacy        # the classic page (/legacy/) instead of the shell
 ```
 
 One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json`
@@ -37,22 +36,16 @@ and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 the URL; Flow since 3.0.4.0, Fleet since 3.0.5.0). Orchestra is the live run console (see [Orchestra](#orchestra-the-run-console)
 below), Flow the workflow console (see [Flow](#flow-the-workflow-console)),
 Fleet every harness and every agent, live (see [Fleet](#fleet-every-harness-every-agent));
-Org and Design are React sections since 3.0.7.0 (see
+Roles, Org and Design are React sections since 3.0.7.0 (see
+[What you see (Roles)](#what-you-see-roles),
 [Org mode](#org-mode-the-company-in-paperclip) and
-[Design mode](#design-mode-prototypes-pages-and-decks-on-your-own-apps));
-Roles is the classic page described below, framed inside the shell from
-`/legacy/`, so everything in it works as before. `halo studio --legacy`
-opens the classic page (Roles, Org and Design) on its own.
+[Design mode](#design-mode-prototypes-pages-and-decks-on-your-own-apps)).
+The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
+3.0.7.0 R2: every section is part of the shell.
 
-- **One header (3.0.4.0).** The framed classic page opens with
-  `?embedded=1`: its own logo and Roles / Org / Design buttons are gone (the
-  shell's tabs do that), and what is left of its header is a slim one-line
-  toolbar (the lineup, company or project, the scope, Validate / Save /
-  Apply, Groups, Run view). Its status line ("valid", the active lineup, the
-  company, the project) shows in the shell's status bar instead of a second
-  footer (the page sends it with `postMessage`, same origin only), its theme
-  follows the shell's, and `R` / `O` / `D` inside it switch the shell's
-  section. `/legacy/` opened on its own keeps its full header.
+- **One header.** Every section is drawn by the shell itself: one top bar,
+  one status bar, no page framed inside another (3.0.7.0 R2 removed the last
+  framed page, Roles).
 - **A movable workspace.** Every section is a set of panels on a 24-column
   grid (8 px rows). **Click anywhere on a panel to work in it**: a ring
   marks the panel you are on, and an open Inspector follows it. Drag a
@@ -85,7 +78,7 @@ opens the classic page (Roles, Org and Design) on its own.
   [How each section works](#how-each-section-works)). The first time a
   section shows in a browser the same card comes up as its welcome, with
   **Got it** (`halo.studio.seen.<section>`; `?tour=off` in the URL keeps it
-  shut, as on the classic page).
+  shut).
 - **The rail** (left) has the section's own block (Orchestra and Flow: **New
   run** and the runs), lists the section's panels (click one to bring it back
   and focus it), the **Fleet tree** (3.0.5.0; it replaced the plain list of
@@ -94,13 +87,15 @@ opens the classic page (Roles, Org and Design) on its own.
   node, and a session that waits on you keeps its inline answer; then the
   layout actions.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
-  grouped results (Go to, View, Layout, Open), keyboard first: arrows,
+  grouped results (Go to, Help, Orchestra, Roles, Org, Design, Flow, Fleet, Media,
+  View, Layout), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
 - **The status bar** shows the live feed (a dot that is green when
   connected, amber while connecting or reconnecting, red when unreachable,
   and ticks once per event), the session count, the fleet (agents at work
   and how many wait on you), the event count, the section's own status
-  line (the framed Roles page's; Org's company and Design's project) and the section's layout
+  line (Roles: the open lineup, its cards and problems, saved or not; Org's company and
+  Design's project) and the section's layout
   state. `Esc` closes the palette, a menu or a help card, then the Inspector.
 
 **Visual language.** The dark theme ("holo", the default) is a near-black
@@ -134,7 +129,8 @@ and `waiting`, which describe an ongoing state.
 
 The same copy as Studio's **How this works** card (`ui/src/routes/sectionHelp.ts`
 for the steps, `routes/help.ts`, `routes/help-orchestra.ts` and
-`routes/help-org-design.ts` for the panels' about lines and help).
+`routes/help-org-design.ts` and `routes/help-roles.ts` for the panels' about
+lines and help).
 
 ### Orchestra
 
@@ -167,36 +163,56 @@ when. Log: every claim, merge, gate decision and note, with its time.
 
 ### Roles
 
-**What it is.** A lineup says which agent, on which model, plays each role in
-your sessions. Studio shows it as cards you can arrange and edit; the files
-are `~/.halo/teams/<name>.yaml` and `~/.halo/agents/<name>.yaml`.
+**What it is.** A lineup says which agent, on which model, plays each part in
+your sessions, and in which tier it sits. Studio shows it as cards in tier
+boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
+`~/.halo/agents/<name>.yaml`.
 
 **How to use it.**
 
-1. **Pick a lineup** in the toolbar, or start from a shipped one. Each card
-   is one assignment: an agent bio in a role, with the model that resolves
-   for it.
-2. **Read the boxes**: cards sit in boxes by role (Main, Workers, Reviewers,
-   Researchers ...). **Groups** in the toolbar hides or shows them.
-3. **Move and connect**: drop a card into another box to change its role, or
-   onto another card to make it report there.
-4. **Add an agent**: drag a bio from the left list onto the canvas, or
-   straight into a box.
-5. **Edit**: select a card; the right side has Assignment, Agent (the bio),
-   Lineup and YAML.
-6. **Validate, Save, Apply**: Validate runs the CLI's checks, Save writes the
-   YAML to your scope, Apply makes it the lineup new sessions use.
-7. **Watch it work** (3.0.5.0): while a session runs, the cards whose agents
-   work glow in their band colour; click one and its **Live** tab shows
-   exactly what it types, with Steer, Pause and Stop
-   ([Live Roles](#live-roles-the-lineup-lights-up)).
+1. **Pick a lineup**: Lineups lists yours and the shipped ones (the active
+   one is marked); New makes your own copy. Each card on the canvas is one
+   slot: an agent bio in a role, with the model that resolves for it, its
+   price and its context.
+2. **Give each card its bio**: Bios, click one to edit it -- its model from
+   the table (sort by price or context, search, best for), **Test this
+   model**, its tools, limits and output. Drag a bio onto the canvas to add
+   a card.
+3. **Stack the tiers**: each box is a tier; a member spawns only into the
+   next tier down, and main sits alone in tier 0. Drag a card into another
+   box to move it (the lineup saves); a box's label strip collapses it.
+4. **Fine-tune the sections**: the Inspector's Assignment edits the selected
+   card's slot; Lineup has delegation, routing, budget, escalation, context,
+   permissions, org, pipeline, acceptance and tiers, each as a form with a
+   YAML toggle.
+5. **Fix what Problems lists**: every edit is checked at once; blocks stop a
+   save or a run start (a model id its catalog does not know, a bio with no
+   tool), warns are worth a look. Click one to select its card.
+6. **Save, then Apply**: Save writes the YAML to your scope (a shipped
+   lineup becomes your copy); Apply makes it the lineup new sessions use.
+   `Ctrl+Z` undoes any edit.
+7. **Watch it work**: while a session runs, the cards whose agents work
+   glow; click one and the Live tab shows exactly what it types, with
+   Steer, Pause and Stop ([Live Roles](#live-roles-the-lineup-lights-up)). A
+   finished session's replay plays back on the canvas.
 
-**Panels.** Roles: your lineup as cards, boxed by role: who plays each part,
-on which model. Keys: `J` / `K` the next / previous card whose agent works
-(its Live tab opens); with the Live tab open `F` follows, `Space` pins its
-mini stream, `P` pauses; `Esc` unpins.
+**Panels.** Lineups: your lineups and the shipped ones; the active one is
+marked. Canvas: the open lineup as cards, one box per tier: who plays each
+part, on which model. Inspector: the selected card's slot, every section of
+the lineup, and what runs on the card now. Problems: what is wrong with the
+lineup as you edit it, each with its fix. Bios: the agent bios: who each
+card is, on which model, with which tools. Models: the model catalog the
+pickers read, per provider, and why it is empty when it is.
 
-![Roles in the shell: one header, the lineup boxed by role](media/studio-roles.png)
+**Keys.** `Alt+2` Roles; on the canvas (click it first) `A` lays out, `F`
+fits, `+` / `-` zoom, the arrows nudge the selected card (`Shift`: further),
+`Del` removes it (asks first); `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a
+lineup edit, `Ctrl`/`Cmd`+`S` saves; `J` / `K` the next / previous card
+whose agent works (its Live tab opens), `Space` pins that agent's mini
+stream, with the Live tab open `F` follows and `P` pauses; `Esc` unpins (or
+closes a replay).
+
+![Roles: the lineup in two declared tiers and the implicit last one, the implementer at work](media/studio-roles.png)
 
 ### Org
 
@@ -705,7 +721,8 @@ along the bottom of the canvas has play / pause, the speed (1x to 960x;
 it starts at a speed that plays the session in about forty seconds), the
 clock, the cost so far, who works at that moment, and `x` (or `Esc`) to
 go back to what runs now; live updates wait while it plays. The shell
-reads `GET /api/fleet/replay` and posts it into the framed page.
+reads `GET /api/fleet/replay` into the Roles store (3.0.7.0 R2) and the
+React canvas plays it.
 
 ### How this works: Who can do what
 
@@ -787,16 +804,16 @@ shows it on demand.
 | Key | Where | What |
 |---|---|---|
 | `Alt+6` | everywhere | Fleet |
-| `J` / `K` | Fleet map, Roles and Org canvases, Orchestra lanes | the next / previous live agent (Orchestra: the next lane at work) |
-| `F` | Fleet; Roles / Org with the Live tab open; Orchestra | follow: the stream scrolls with the agent (Orchestra: the Log follows) |
-| `Space` | Fleet; Roles / Org with the Live tab open | pin the stream: a **mini stream** floats over whatever you look at, in every section |
+| `J` / `K` | Fleet map, the Roles canvas, Orchestra lanes | the next / previous live agent (Orchestra: the next lane at work) |
+| `F` | Fleet; Roles with the Live tab open; Orchestra | follow: the stream scrolls with the agent (Orchestra: the Log follows) |
+| `Space` | Fleet; Roles with a card's agent watched | pin the stream: a **mini stream** floats over whatever you look at, in every section |
 | `Esc` | everywhere | unpin the mini stream (once the palette, a menu or the Inspector is closed) |
-| `P` | Fleet; Roles / Org with the Live tab open | pause or resume the agent |
+| `P` | Fleet; Roles with the Live tab open | pause or resume the agent |
 | `K` | inside the Agent panel | stop the agent (asks first; on the map and the canvases `K` is previous) |
 | `A` / `R` / `S` / `O` | inside the Attention panel | answer the selected row: accept, deny or redo (with a text), stop, open |
 | `J` / `K`, arrows | inside the Attention panel | the next / previous row |
 | `M` | Fleet | the Mission panel: one goal for the whole fleet (3.0.6.0) |
-| `Esc` | Roles / Org during a replay | close the replay, back to what runs now |
+| `Esc` | Roles during a replay | close the replay, back to what runs now |
 
 **The mini stream** (picture in picture) shows the pinned agent's state, cost,
 what it does now and the newest lines of its stream, typing as they arrive;
@@ -819,17 +836,18 @@ Orchestra or Flow.
 
 ### Live Roles: the lineup lights up
 
-On the **Roles** and **Org** canvases the cards whose agents work right now
-glow. Every live agent (any harness, any session) is matched to the card it
-runs under: on Roles its alias, else its bio, else its role (a session's
-main agent on the Main card); on Org the position's title or name, or its
-Halo bio. The glow is in the card's band colour and follows what the agent
+On the **Roles** canvas the cards whose agents work right now glow (3.0.7.0
+R2: the React canvas; the React Org chart shows each agent's Paperclip
+status instead). Every live agent (any harness, any session) is matched to
+the card it runs under: the lineup must be the open one, then its alias,
+else its bio, else a role only one card has (a session's main agent on the
+main card). The glow is in the card's band colour and follows what the agent
 does: **typing** a steady flow along the top, a **tool call** one pulse per
 call and the tool on the card's badge (✎ Edit, ›_ Bash, ▤ Read, ◉ Agent ...),
 **waiting on you** the amber pulse and the gate's diamond, **done** one sweep
 then still, **failed** one flash. A badge counts the agents when several
-share a card (`×2`) and ticks their cost. A spawn lights the line from the
-parent's card for a few seconds.
+share a card (`×2`) and ticks their cost. The edge into a card whose agent
+runs flows while it runs.
 
 ![Roles: the implementer and the researcher at work, the main card waiting with two leads, the implementer's Live tab](media/studio-roles-live.png)
 
@@ -840,9 +858,10 @@ as it arrives, one row per tool call with its result), Pause / Resume, Stop
 (asks first), Follow, Pin, and the Steer box. A card nobody runs right now
 shows its track record instead: the last runs under that role or bio on this
 harness (`GET /api/fleet/history`, from the sessions' transcripts: when,
-which bio, the outcome, the cost, the task). The framed page never calls
-the fleet routes itself: it asks the shell over `postMessage` (same origin
-only) and the shell proxies every stream and command.
+which bio, the outcome, the cost, the task), each with **replay**. The
+canvas reads the live agents from the Fleet store (`routes/fleet/frames.ts`
+writes them into the Roles store) and the Live tab uses the Fleet
+section's own streams, Steer box and commands.
 
 **Where it reads and writes.** `GET /api/fleet` once, then the live feed
 keyed by harness, session and agent (`agent_state` rows in place,
@@ -861,60 +880,71 @@ R4 panels read `GET /api/fleet/attention`, `costs`, `caps`, `health`,
 
 ## What you see (Roles)
 
-- **The lock on a card** (`🔒 shipped`) is a badge, not a switch: the agent
-  bio behind that slot ships with Halo and is read-only. Click it (or open
-  the Agent tab) and press **Duplicate** to get an editable copy in your
-  scope, which then shadows the shipped one. A card without the lock is
-  yours already.
-- **The rail (left):** every lineup you can reach (shipped, user, project; the
-  active one marked), and every agent bio. Drag a bio onto the canvas to add
-  an assignment to the open lineup.
-- **The group boxes (3.0.4.0):** behind the cards, one labelled rounded box
-  per role in the lineup (Main, Workers, Researchers, Reviewers, Judges,
-  Custom roles ...; "Agents" for a card without one), tinted with that role's
-  band colour, the label and the count on a strip at its top. Drag the strip
-  to move the whole group; drop a card into another box and it takes that
-  role (Main stays one card); drop a bio from the rail into a box and it is
-  added in that role. `A` lays the groups out in rows (Main on top); a layout
-  saved before the boxes existed is laid out once when the boxes would
-  overlap. **Groups** in the toolbar hides them (`localStorage`
-  `halo-studio-groups`); without them `A` is the layered layout again.
-  Positions are kept in the same layout files as before.
-- **The model dropdowns (3.0.4.0):** every model field (the bio form's
-  preferred / fallback / escalation model, an assignment's override) is a
-  dropdown over the whole catalog, grouped by route and vendor with price,
-  context and capability chips, behind a filter box; "Type a ref..." takes
-  a model the catalog lacks. Under it a line says how many models the
-  catalog holds with a **refresh** link. When it holds none the line becomes
-  a notice that says why, per provider (not set up, detected but not
-  enabled, enabled but nothing cached yet) and a **Refresh models** button
-  that pulls every enabled provider's catalog in place and redraws every
-  dropdown on the page (`GET /api/models/status`, `POST /api/models/refresh`).
-  The catalog is the same one `halo models` prints: a provider lists its
-  models once it is enabled (`halo providers enable <name>` with its key in
-  the environment, or the wizard's keys step).
-- **The canvas:** one card per assignment -- the agent name, its role and
-  alias, the model that resolves for it with price and context from the
-  catalog, its tool count, a scope badge and a status dot (green valid, amber
-  a warning, red a problem; hover reads the text). Edges are **delegation**
-  from `main` (labelled with the routing keys that reach a member), **reports
-  to** lines from the org section (dashed) and **pipeline** stage order
-  (dotted). Pan by dragging, zoom with the wheel, `Shift`-drag to marquee-
-  select, `A` lays the graph out again, `F` fits it. Positions are remembered
-  per lineup under `~/.halo/studio/layouts/` (an Org company's layout is
-  `_pc-<company id>.json` there, a name every file system accepts).
-- **The inspector (right):** *Assignment* (agent, role, alias, instances,
-  `use_for`, a per-assignment model override), *Agent* (the bio behind the
-  card: every section as typed fields, with the "about N turns at this
-  price" hint next to the budget), *Lineup* (description, about, and each
-  top section -- delegation, routing, budget, escalation, context,
-  permissions, org, pipeline, acceptance -- as a YAML body with its
-  enforcement badge), *YAML* (the whole file as it will be written; edits go
-  both ways).
-- **The command palette:** `Ctrl`/`Cmd`+`K` lists every action and every
-  lineup and bio; `?` replays the tour.
-- **Run view:** overlays the newest session's sub-agents on the cards (which
-  node is running, cost so far) and a timeline strip of them. Read-only.
+Roles (`Alt+2`, 3.0.7.0 R2) is six panels; until you have a lineup of your
+own (only the shipped ones, none active) it is one **Start view** instead:
+what a lineup is, the steps, and **Make my first lineup** (a copy of a
+shipped one, opened on the canvas); "open the panels anyway" (or
+`?view=workspace`) goes straight to the panels.
+
+| Panel | What it holds |
+|---|---|
+| **Lineups** (`roles-lineups`) | every lineup (shipped, user, project; the active one marked, the open one highlighted); **New** and **Duplicate** ask for a name on a card, **Delete** asks first (a shipped lineup stays), **Apply** asks first, showing the role table it writes; **user / project** says where New, Save and Delete write |
+| **Canvas** (`roles-graph`, the drawn canvas `roles-canvas`) | the open lineup: one card per assignment, in one labelled column box per tier; the edges; the toolbar (scope, unsaved, Undo, Redo, Save, Apply, Lay out, Fit, zoom); the replay bar along its bottom |
+| **Inspector** (`roles-inspector`) | **Assignment** (the selected card's bio, role, alias, instances, the words that route a task to it, reports-to, a model override, what resolves for it; Edit bio, Duplicate, Remove; with no card: the lineup's description, about and extends), **Lineup** (every top section as a small form with a **YAML** toggle and its enforcement badge), **Live** (the agents on the card now, or its last runs) |
+| **Problems** (`roles-problems`) | everything wrong with the lineup as it stands in the editor, saved or not, in **Blocks** and **Warns**, each with its fix; a click selects its card |
+| **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): description, kind, extends, the preferred model in the **model picker table**, fallback, effort, thinking, the tools it may and may not call (from the real registry, `GET /api/tools`), limits and output; **Save bio**, New, Duplicate, Delete |
+| **Models** (`roles-models`) | the catalog: its row count, each provider (enabled, key, models cached), why it is empty when it is, **Refresh** (`POST /api/models/refresh`), and **Test a model** by any ref |
+
+- **A card** shows the agent, its role and alias, a **scope badge**
+  (shipped, user, project: a shipped bio is read-only, Duplicate it in Bios
+  for your copy), the **instances stack** (a slot with `instances: 3` is
+  three stacked cards and `×3`), the **model pill** with the price in / out
+  per 1M tokens and the context from the catalog, the **gym score** when
+  `halo gym` measured that model on this machine (`GET /api/gym`), and a
+  **warnings badge** with the count of its problems (hover reads them). Its
+  band is its role's colour (main amber, workers cyan, researchers violet,
+  reviewers green, judges red).
+- **The tier boxes.** One labelled column box per tier from the lineup's
+  `tiers:` (tier 0 on the left, holding the main agent alone; the implicit
+  last tier dashed; a lineup without tiers is one box, `all`). The strip
+  says `Tier N · name`, the count, `max_parallel` and whether it is
+  implicit; a click on it collapses the box to its strip (the cards hide)
+  or expands it. Drag a card into another box: the alias moves to that
+  tier's `members` and the lineup saves at once (`PUT /api/lineup/<name>`;
+  a shipped lineup saves as your copy). The main agent cannot leave tier 0
+  and nothing else may join it: that drop snaps back with a toast naming
+  the rule. Positions and each box's collapsed state go to `PUT
+  /api/layout/<name>` (`{nodes, tiers}`) 500 ms after the last move; a
+  layout saved before the boxes existed is laid out once.
+- **The edges**: **delegation** from main (cyan; its routing words show
+  while one of its cards is selected), **reports to** from the org section
+  (violet, dashed) and **pipeline** stage order (amber, dotted, `then
+  <stage>`).
+- **The model picker table** (in the bio form): every catalog row with its
+  price in / out, context, **best for** (`capabilities.score`: visual,
+  audio, video, image, design; `GET /api/models/best-for`) and gym score;
+  sort by name, price or context, search across all of it; a click picks
+  the row; a ref the catalog lacks can be typed below. **Test this model**
+  (`POST /api/models/test {ref}`) sends one short request and shows `ok in
+  N ms`, or the error, right under it, never a dialog.
+- **Problems** come from `POST /api/validate` 250 ms after every edit (and
+  from `GET /api/lineup/<name>` on open): `findings` merges the validator's
+  lines (blocks: Save answers 422 for these), the run-start preflight on
+  the edited mapping (a model id its catalog does not know, a dead fallback,
+  a bio with `tools.allow: []`, aliases in no tier), three tiers or more
+  without the `delegation.max_depth` to reach the bottom one, and each
+  card's own warnings (`studio/roles_findings.py`).
+- **Undo and redo.** Every edit (a field, a drop, a removed card, a YAML
+  apply) joins a history of 50; `Ctrl+Z` undoes, `Ctrl+Shift+Z` (or
+  `Ctrl+Y`) redoes; inside a text box the box keeps its own undo. A save
+  that answers 422 lists the validator's lines in the Inspector and keeps
+  your edit.
+- **The palette's Roles group**: Roles: new lineup, Roles: apply lineup,
+  Roles: new bio, Roles: test model (the open bio's model, or the selected
+  card's), Roles: save lineup, Roles: undo / redo, and every lineup and bio
+  by name.
+- **No browser dialogs**: names, confirmations (delete, apply, remove a card,
+  leave unsaved edits) and results are cards and toasts inside Studio.
 
 ## Org mode: the company in Paperclip
 
@@ -1091,11 +1121,12 @@ role, else its agent):
 
 - **Drag a card onto another card.** The dragged member now reports to
   the card you dropped it on, and its edge moves there; drop it on the
-  starting box to hang it off main again. (Dropped into a group box
-  instead, away from any card, it joins that box: in Roles it takes the
-  box's role, in Org it reports to the box's manager.)
-- **The Reports-to field** in the Assignment tab: pick any other box, or
-  blank for the starting box.
+  starting box to hang it off main again. (Dropped into another **tier
+  box** instead, away from any card, it moves to that tier: 3.0.7.0 R2,
+  see [What you see (Roles)](#what-you-see-roles); in Org, a box is a
+  manager's team and the drop asks to change who it reports to.)
+- **The Reports-to field** in the Inspector's Assignment tab: pick any other
+  card, or "the main card" for the starting box.
 
 The canvas redraws the tree as you connect (a member that reports to
 another member no longer gets the main -> member delegation edge), Save
@@ -1105,17 +1136,17 @@ completion report (docs/AGENTS.md, "org").
 
 ## Validate, save, apply
 
-**Validate** runs `teams_yaml.validate_team_template` (the CLI's own checks)
-and redraws the graph. **Save** validates, then writes the YAML to your user
-scope (or the project, with the scope toggle in the top bar). A shipped
+Every edit is validated as you make it (`teams_yaml.validate_team_template`,
+the CLI's own checks, plus the preflight: the Problems panel). **Save** validates, then writes the YAML to your user
+scope (or the project, with the user / project toggle in Lineups). A shipped
 lineup or bio is never edited in place: saving it writes a copy under the
 same name into your scope, which then shadows the shipped one -- exactly
 what the wizard's Duplicate does. **Apply** shows the role table it will
 write and, on confirm, does what `halo teams use <name>` does: `roles.*`
 and `team:` in `~/.halo/config.json`, with custom roles switched on.
 
-Errors are the validator's own lines, shown under the field they name and
-in the Lineup tab; a save that fails leaves the file untouched.
+Errors are the validator's own lines, listed in the Inspector and in
+Problems; a save that fails leaves the file untouched.
 
 ## Security model
 
@@ -1176,8 +1207,8 @@ in the Lineup tab; a save that fails leaves the file untouched.
 - No CDN, no fonts fetched, no analytics: the page is a handful of static
   files served from the package, under a strict content-security policy.
   The shell (`static/dist/`) gets `default-src 'self'; connect-src 'self'`
-  with no inline styles or scripts; the classic page (`static/legacy/`)
-  keeps its `style-src 'unsafe-inline'`. The built bundle contains no
+  with no inline styles or scripts (a checkout without a build answers `/`
+  with one line saying how to build the UI). The built bundle contains no
   `http://` or `https://` URL at all (a CI test checks).
 - Writes go only to `~/.halo` (and a project's `.halo/` when you choose that
   scope); shipped files under the package are never written or deleted.
@@ -1196,33 +1227,25 @@ in your own browser.
 
 ## Shortcuts
 
-| Key | Action |
-|---|---|
-| `Ctrl`/`Cmd`+`K` | command palette |
-| `Ctrl`/`Cmd`+`S` | save |
-| `Ctrl`/`Cmd`+`Enter` | validate |
-| `Ctrl`/`Cmd`+`N` | new lineup |
-| `A` / `F` | auto-layout / fit |
-| `Del` | remove the selected assignment |
-| `[` / `]` | hide the rail / the inspector |
-| `?` | the tour |
-
-These keys belong to the classic page (in the shell: once you clicked into
-it). The shell's own keys: `Alt+1`..`Alt+6` sections, `Ctrl`/`Cmd`+`K` the
-palette, `?` the focused panel's help (again, or away from a panel: How this
-works), `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel,
-`Esc` closes. The hop keys (3.0.5.0, [Fleet](#keys-hop-around)): `J` / `K`
-the next / previous live agent (Fleet map, Roles cards, Orchestra
-lanes), `F` follow, `Space` pin the mini stream, `Esc` unpin, `P` pause or
-resume, `K` in the Agent panel stop (asks first).
+The shell's keys: `Alt+1`..`Alt+6` sections, `Ctrl`/`Cmd`+`K` the palette,
+`?` the focused panel's help (again, or away from a panel: How this works),
+`Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel, `Esc`
+closes. Roles (3.0.7.0 R2): on the canvas `A` lays out, `F` fits, `+` / `-`
+zoom, the arrows nudge the selected card, `Del` removes it (asks first);
+`Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a lineup edit, `Ctrl`/`Cmd`+`S`
+saves. The hop keys (3.0.5.0, [Fleet](#keys-hop-around)): `J` / `K` the
+next / previous live agent (Fleet map, Roles cards, Orchestra lanes), `F`
+follow, `Space` pin the mini stream, `Esc` unpin, `P` pause or resume, `K`
+in the Agent panel stop (asks first).
 
 ## Files
 
 `halo_harness/studio/server.py` (the server, the guard, the command),
 `events.py` (the live feed: the registry watcher and `/api/events`),
 `ui/` (the React shell's sources; see docs/DEVELOPMENT.md "Studio UI"),
-`static/dist/` (its committed build), `static/legacy/` (the classic page),
-`api.py` (the routes), `flow_api.py` / `flow_model.py` / `flow_runs.py` (the Flow
+`static/dist/` (its committed build; the only page since 3.0.7.0 R2),
+`api.py` (the routes), `roles_api.py` (`GET gym`, `GET models/best-for`), `roles_findings.py`
+(the Problems panel's findings), `models_api.py` (the catalog status, Refresh, the probe), `flow_api.py` / `flow_model.py` / `flow_runs.py` (the Flow
 routes and the one live flow run), `media_api.py` / `media_render.py` (the ComfyUI
 routes and a render's background thread), `sessions_api.py` (the live sessions and
 their commands), `design_api.py` / `design_api_io.py` / `design_api_more.py` / `design_api_turns.py` / `design_files.py` (Design mode), `paperclip_api.py` (Org mode), `model.py` (the graph, the catalog rows, the session
@@ -1230,7 +1253,7 @@ reader). Tests: `tests/test_studio_api.py`,
 `tests/test_studio_model.py`, `tests/test_studio_dist.py` (the build and
 its routes), `tests/test_studio_live.py` (the live feed),
 `tests/test_studio_flow_api.py` and `tests/test_studio_media_sessions.py` (the 3.0.4.0 routes),
-`tests/test_studio_ui.py` (headless Chrome over both pages; the Flow section
+`tests/test_studio_ui.py` (headless Chrome over the shell; the Flow section
 through `tools/capture_studio.py --mode flow --dom`, the Orchestra Start
 view and grid through `--mode orchestra --dom` (tools/capture_orchestra.py),
 and clicks and keys through `tests/helpers/studio_clarity.py` over the
@@ -1248,15 +1271,26 @@ feed, `actions.ts`, `Projects.tsx`, `Thread.tsx` + `ThreadParts.tsx`,
 `Dialogs.tsx`, `commands.ts`), the safe markdown `ui/src/lib/markdown.tsx`,
 `styles/org.css`, `design.css` and `design-thread.css`; tests
 `tests/test_studio_design_live.py` and the Chrome checks in
-`tests/helpers/studio_org_design.py`. The
-classic page's group boxes are `static/legacy/groups.js` (+ `groups.css`),
-its embedded mode `embed.js` (+ `embed.css`). Fleet (3.0.5.0) is
+`tests/helpers/studio_org_design.py`. Roles (3.0.7.0 R2) is
+`ui/src/routes/roles/` (the store `store.ts`, `sync.ts`, the edits and the
+undo history `actions.ts`, `bioActions.ts`, the canvas `Canvas.tsx` +
+`CanvasParts.tsx` + `CanvasBar.tsx` + `layout.ts`, Live Roles `live.ts` +
+`LiveTab.tsx`, `Replay.tsx`, the Inspector `Inspector.tsx` + `Assignment.tsx`
++ `LineupTab.tsx` + `SectionForm.tsx` + `sections.ts` + `controls.tsx`,
+`Problems.tsx`, `Lineups.tsx`, `Bios.tsx` + `BioForm.tsx` +
+`ModelPicker.tsx`, `Models.tsx`, `Start.tsx`, `Dialogs.tsx`, `keys.ts`,
+`commands.ts`), `styles/roles.css` and `roles-panels.css`, the help
+`routes/help-roles.ts`; tests: the DOM counts in `tests/test_studio_modes.py`
+(`tools/capture_studio.py --mode roles --dom`, tools/capture_roles.py) and the
+Chrome clicks in `tests/helpers/studio_roles.py`. Fleet (3.0.5.0) is
 `ui/src/routes/fleet/` (the store and the feed: `store.ts`, `sync.ts`,
 `streams.ts`; the panels `Map.tsx` + `MapNode.tsx` + `layout.ts`,
 `Agent.tsx` + `StreamViews.tsx` + `Steer.tsx`; `FleetRail.tsx`, `Start.tsx` +
 `Pair.tsx`, `Pip.tsx`, `hop.ts`, `frames.ts`, `commands.ts`, `Dialogs.tsx`),
 `styles/fleet.css` and `fleet-agent.css`, the help `routes/help-fleet.ts`;
-Live Roles is `static/legacy/live.js` + `live-tab.js` + `live.css`; the
+Live Roles is `frames.ts` (the live rows into the Roles store), `hop.ts`
+and `replay.ts` with the Roles section's `live.ts`, `LiveTab.tsx` and
+`Replay.tsx`; the
 routes `fleet_hub_api.py` (R2), `fleet_pair_api.py` and `fleet_api.py`
 (`get_history`). 3.0.6.0 R6 adds `Capabilities.tsx` + `Who.tsx` + `caps.ts` +
 `MapChips.tsx`, `styles/fleet-caps.css` and `fleet_capabilities_api.py`

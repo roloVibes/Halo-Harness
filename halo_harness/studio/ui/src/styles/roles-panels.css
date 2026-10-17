@@ -1,0 +1,118 @@
+/* The Roles panels around the canvas (3.0.7.0 R2): Lineups and Bios lists,
+   the Inspector's tabs and section forms (rows, members, the YAML toggle),
+   Problems grouped by severity, the bio form with the model picker table and
+   "Test this model", Models, the Live tab and the Start view. Tokens only. */
+
+/* -- lists: Lineups, Bios -------------------------------------------------------------- */
+.rlu, .rbs, .rmo { display: grid; gap: 8px; align-content: start; font-size: 13px; }
+.rlu-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rlu-list, .rbs-list, .rp-list, .rmo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.rbs-list { max-height: 210px; overflow: auto; padding-right: 2px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.ow-row.rlu-row, .ow-row.rbs-row { width: 100%; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name badges" "desc desc"; }
+.rlu-name { grid-area: name; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rlu-badges { grid-area: badges; display: flex; gap: 4px; align-items: center; }
+.rlu-badges .rc-scope { margin-left: 0; }
+.rlu-desc { grid-area: desc; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rlu-active { color: var(--accent); border-color: var(--accent); }
+.rlu-row[data-active] { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.rbs-row[draggable="true"] { cursor: grab; }
+
+/* -- the Inspector ------------------------------------------------------------------------ */
+.ri { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
+.ri-body { overflow: auto; min-height: 0; padding-right: 2px; }
+.re-form, .re-assign, .re-lineup, .rb-form { display: grid; gap: 8px; font-size: 13px; align-content: start; }
+.re-field { margin: 0; }
+.re-field .input { width: 100%; box-sizing: border-box; }
+.re-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.re-assign-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.re-assign-head b { font-size: 15px; }
+.re-assign-head .rc-scope { margin-left: auto; }
+.re-resolved { display: grid; gap: 4px; margin: 4px 0; font-size: 11.5px; }
+.re-resolved div { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px; }
+.re-resolved dt { color: var(--muted); }
+.re-resolved dd { margin: 0; overflow-wrap: anywhere; }
+.re-card-problems { margin: 0; padding-left: 18px; color: var(--warn); font-size: 12px; }
+.re-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.re-tip { font-size: 11.5px; margin: 0; }
+.re-save-problems { padding: 8px 10px; border: 1px solid var(--bad); border-radius: var(--radius-sm); background: var(--bad-soft); font-size: 12.5px; }
+.re-save-problems ul { margin: 4px 0 0; padding-left: 18px; }
+.re-block { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+.re-block[data-open] { border-color: var(--line-strong); }
+.re-block-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; }
+.re-block-title { flex: 1; text-align: left; border: 0; background: none; color: var(--text); font: 600 12.5px var(--sans); cursor: pointer; padding: 4px 0; }
+.re-block[data-set] .re-block-title { color: var(--accent); }
+.re-unset { font-weight: 400; font-size: 11px; }
+.re-yaml-toggle { border: 1px solid var(--line-strong); border-radius: 99px; background: none; color: var(--muted); font-size: 10.5px; padding: 1px 8px; cursor: pointer; }
+.re-yaml-toggle[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.re-about { margin: 0 10px 6px; font-size: 11.5px; }
+.re-block > .re-form, .re-block > .re-yaml { padding: 0 10px 10px; }
+.re-yaml { display: grid; gap: 6px; }
+.re-yaml-text { width: 100%; box-sizing: border-box; font-size: 12px; resize: vertical; }
+.re-yaml-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.re-rows { display: grid; gap: 4px; }
+.re-row { display: grid; gap: 4px; align-items: center; }
+.re-row .field { margin: 0; }
+.re-row-head { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.re-key { font-size: 12px; }
+.re-members { display: flex; flex-wrap: wrap; gap: 4px; }
+.re-member { padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line-strong); background: none; color: var(--muted); font-size: 11px; cursor: pointer; }
+.re-member[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.re-diff { margin: 8px 0 0; padding: 8px 10px; font-size: 11.5px; color: var(--ok); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); white-space: pre-wrap; }
+
+/* -- Problems --------------------------------------------------------------------------- */
+.rp { display: grid; gap: 10px; align-content: start; }
+.rp-group { display: grid; gap: 4px; }
+.rp-group[data-sev="blocks"] .rail-label { color: var(--bad); }
+.rp-group[data-sev="warns"] .rail-label { color: var(--warn); }
+.rp-row { width: 100%; display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 2px 8px; text-align: left; padding: 6px 8px; border: 1px solid transparent;
+  border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; }
+.rp-row:disabled { cursor: default; }
+.rp-row:not(:disabled):hover { background: var(--accent-soft); border-color: var(--line-strong); }
+.rp-dot { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--warn); }
+.rp-row[data-sev="blocks"] .rp-dot { background: var(--bad); box-shadow: 0 0 6px var(--bad); }
+.rp-text { overflow-wrap: anywhere; }
+.rp-fix { grid-column: 2; font-size: 11.5px; }
+
+/* -- the bio form and the model picker --------------------------------------------------------- */
+.rb-sec { padding: 6px 0 0; border-top: 1px solid var(--line); }
+.rb-tools { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.rb-tool { display: inline-flex; align-items: center; gap: 4px; }
+.rb-x { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 2px; }
+.rb-x:hover { color: var(--bad); }
+.rb-add { width: auto; font-size: 12px; }
+.rb-actions { position: sticky; bottom: 0; padding: 8px 0; background: var(--surface); }
+.rm { display: grid; gap: 6px; }
+.rm-bar { display: flex; gap: 6px; align-items: center; }
+.rm-bar .input { flex: 1; min-width: 0; }
+.rm-table { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+.rm-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px 52px 110px 38px; gap: 6px; align-items: center; width: 100%; padding: 4px 8px; border: 0;
+  border-bottom: 1px solid var(--line); background: none; color: var(--text); font: inherit; font-size: 11.5px; text-align: left; cursor: pointer; }
+.rm-row:hover { background: var(--accent-soft); }
+.rm-row[aria-selected="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.rm-head { position: sticky; top: 0; z-index: 1; cursor: default; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; background: var(--surface-2); }
+.rm-ref { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-best { display: flex; gap: 3px; overflow: hidden; }
+.rm-best .og-chip { font-size: 9.5px; padding: 0 5px; }
+.rm-more { margin: 6px 8px; font-size: 11.5px; }
+.rm-typed { display: flex; gap: 6px; }
+.rm-typed .input { flex: 1; min-width: 0; }
+.rm-current { font-size: 11.5px; color: var(--muted); }
+.rm-current b { color: var(--text); }
+.rm-warn { color: var(--warn); }
+.rm-test { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rm-test-result { font-size: 11.5px; color: var(--bad); }
+.rm-test-result[data-ok] { color: var(--ok); }
+.rmo-why { margin: 0; padding: 8px 10px; border: 1px solid var(--warn); border-radius: var(--radius-sm); background: var(--warn-soft); font-size: 12px; }
+
+/* -- the Live tab ---------------------------------------------------------------------------- */
+.rl, .rl-agent { display: grid; gap: 8px; align-content: start; font-size: 13px; }
+.rl-head { display: flex; align-items: center; gap: 8px; }
+.rl-head b { font-size: 14px; }
+.rl-meta { font-size: 11px; overflow-wrap: anywhere; }
+.rl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.rl-chip { cursor: pointer; }
+.rl-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.rl-stream { max-height: 300px; overflow: auto; }
+.rl-history ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
+.rl-history .og-chip[data-bad] { color: var(--bad); border-color: var(--bad); }
+.rl-task { font-size: 11.5px; }
