@@ -73,7 +73,14 @@ fleet who nmap` names the VM and `who gridcraft` names this host; a mission
 pinned, the VM owner sees the run_task card, the report lands.
 
 **AFTER THAT: 3.0.7.0** = the former 3.0.6.0 list (tiers, the Roles/Org/Design
-ports into the shell, legacy UI removal); Team to 3.0.8.0.
+ports into the shell, legacy UI removal) **plus two small OpenFlow ports in
+the Roles port (a "Test this model" button; a run-start preflight)**; Team to
+3.0.8.0; **3.0.9.0 "Hand-offs and the graph"** = the three medium OpenFlow
+ports (hand-off artifacts with per-lane context, the editable validated graph
+between plan and run, the post-run coach) -- ROADMAP.md's last section
+(ADDED 2026-10-17) has the specs. 2026-10-16/17: six CI timing races fixed
+(cf4890b, f87e209, 22ec617); master green on both platforms at run
+39002767286.
 
 --- previous snapshot below ---
 
