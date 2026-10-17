@@ -37,10 +37,12 @@ and the command, so "open the GUI for roles" runs `halo studio --mode roles`.
 the URL; Flow since 3.0.4.0, Fleet since 3.0.5.0). Orchestra is the live run console (see [Orchestra](#orchestra-the-run-console)
 below), Flow the workflow console (see [Flow](#flow-the-workflow-console)),
 Fleet every harness and every agent, live (see [Fleet](#fleet-every-harness-every-agent));
-Roles, Org and Design are the
-classic pages described below, framed inside the shell from `/legacy/`, so
-everything in them works as before. `halo studio --legacy` opens the classic
-page on its own.
+Org and Design are React sections since 3.0.7.0 (see
+[Org mode](#org-mode-the-company-in-paperclip) and
+[Design mode](#design-mode-prototypes-pages-and-decks-on-your-own-apps));
+Roles is the classic page described below, framed inside the shell from
+`/legacy/`, so everything in it works as before. `halo studio --legacy`
+opens the classic page (Roles, Org and Design) on its own.
 
 - **One header (3.0.4.0).** The framed classic page opens with
   `?embedded=1`: its own logo and Roles / Org / Design buttons are gone (the
@@ -97,8 +99,8 @@ page on its own.
 - **The status bar** shows the live feed (a dot that is green when
   connected, amber while connecting or reconnecting, red when unreachable,
   and ticks once per event), the session count, the fleet (agents at work
-  and how many wait on you), the event count, the framed
-  classic page's status line (Roles, Org, Design) and the section's layout
+  and how many wait on you), the event count, the section's own status
+  line (the framed Roles page's; Org's company and Design's project) and the section's layout
   state. `Esc` closes the palette, a menu or a help card, then the Inspector.
 
 **Visual language.** The dark theme ("holo", the default) is a near-black
@@ -131,8 +133,8 @@ and `waiting`, which describe an ongoing state.
 ## How each section works
 
 The same copy as Studio's **How this works** card (`ui/src/routes/sectionHelp.ts`
-for the steps, `routes/help.ts` and `routes/help-orchestra.ts` for the panels'
-about lines and help).
+for the steps, `routes/help.ts`, `routes/help-orchestra.ts` and
+`routes/help-org-design.ts` for the panels' about lines and help).
 
 ### Orchestra
 
@@ -199,50 +201,73 @@ mini stream, `P` pauses; `Esc` unpins.
 ### Org
 
 **What it is.** Your company of agents in Paperclip: an org chart with goals,
-issues, heartbeats and budgets. Halo's lineups become its agents.
+issues, heartbeats and budgets. Halo's lineups become its agents, and Studio
+shows the company live.
 
 **How to use it.**
 
-1. **Turn Org mode on**: the toolbar's Org mode button (or `/org on`, `halo
-   paperclip on`). Off is the default: nothing runs on a heartbeat.
-2. **Get Paperclip running**: without it the canvas offers Install Paperclip
-   (Node 24 or newer); once it runs, pick the company in the toolbar.
-3. **Read the boxes**: each card is an agent (title, role, adapter, status,
-   spend against its budget). A box holds one manager's reports ("<manager>'s
-   team", or the agent's `metadata.team`); the top box is **Leadership**.
-4. **Change who reports to whom**: drop a card into another box, or onto a
-   card; Studio asks first, then updates Paperclip.
-5. **Work with an agent**: select a card for Agent (budget, wake, pause),
-   Issues, its Paperclip page, and Company (sync a lineup into the company).
+1. **Get Paperclip running**: the Start view's **Install Paperclip** runs
+   `npx paperclipai onboard` (Node 24 or newer); an installed one starts with
+   `npx paperclipai run`.
+2. **Link a company**: **Link a company** picks the one Studio shows (or make
+   one from a lineup); Company says what is installed, running and linked.
+3. **Turn Org mode on**: Company's switch (or `/org on`, `halo paperclip on`).
+   Off is the default: no agent runs on a heartbeat.
+4. **Read the boxes**: Org chart: each card is an agent (role, adapter,
+   status, spend against its budget); a box holds one manager's reports
+   ("<manager>'s team", or the agent's `metadata.team`), the top box is
+   **Leadership**.
+5. **Change who reports to whom**: drop a card into another box or onto a
+   card; Studio asks first, then updates Paperclip. Drag a box's label strip
+   to move the team.
+6. **Work with an agent**: double-click a card: the Inspector edits its
+   title, role, manager and budget, and Wakes, Pauses or Terminates it.
+7. **Follow the work**: Issues, goals, projects lists them live (every 3 s
+   while Org shows); New issue assigns one and Paperclip wakes that agent.
 
-**Panels.** Org: your company in Paperclip: agents as cards, boxed by who
-they report to.
+**Panels.** Company: Paperclip here: installed, running, which company, and
+Org mode. Org chart: your company as cards, one box per team: who reports to
+whom. Issues, goals, projects: the company's issues, goals and projects, live
+from Paperclip. Inspector: the agent, issue, goal or project you clicked, and
+what you can do with it.
+
+**Keys.** `Alt+3` Org; on the chart (click it first) `A` lays it out, `F`
+fits it, `+` / `-` zoom; `Mod+K`: Org: sync, Org: pull, Org: link company.
 
 ### Design
 
-**What it is.** Prototypes, pages, decks and logos made by your own apps. A
-project is a folder of artboards under `~/.halo/design/<slug>/`, and every
-turn saves a new version.
+**What it is.** Prototypes, pages, decks and logos made by your own apps and
+models. A project is a folder of artboards under `~/.halo/design/<slug>/`, and
+every turn saves a new version.
 
 **How to use it.**
 
-1. **Open a project**: make one in the left rail (`N`) or pick one.
-2. **Say what to design**: type it in the Chat tab and press Enter: one turn,
-   its cost shown as it streams.
-3. **Look and compare**: each artboard is a card; drag it by its title,
-   switch the device size, slide back through its versions.
-4. **Comment**: `C` pins a comment on a frame; Send comments turns the pins
-   into one turn. `K` asks a second model to critique.
-5. **Tune without a model**: Knobs move spacing, colours and sizes; the
-   Contrast table checks text against its background.
+1. **Make or open a project**: the Start view names the first one; then
+   Projects lists them all, and New project makes another.
+2. **Say what to design**: write it in Thread and press Enter: the reply
+   streams in as the turn works; **Cancel turn** stops it.
+3. **Look and compare**: Artboards: drag a card by its title (the places are
+   saved with the project), slide back through its versions, Restore one.
+4. **Ask for notes**: Critique has a second model pin notes on an artboard;
+   Contrast checks its text against its background; Send comments turns the
+   pins into a turn.
+5. **Tidy up**: Rename or Delete an artboard, or Download its file.
 6. **Hand it off**: Export writes a folder, HTML, PNG, SVG or PDF; Handoff
-   bundles it for a Halo or Claude Code session.
-7. **Render pictures**: the palette's Media commands pop the ComfyUI panels
-   over the canvas.
+   bundles it for the next Halo or Claude Code session.
+7. **Use your own files**: Assets: add or drop logos and photos; click one to
+   put its path in the message.
+8. **Render pictures**: the palette's Media commands add the ComfyUI panels
+   to the section.
 
-**Panels.** Design: prototypes, pages and decks your apps make, one card per
-artboard; and from the palette, Media status, Media models, Workflows and
-Render (see [Media](#media)).
+**Panels.** Projects: your design projects: pick one, or make a new one.
+Assets: files a turn can use. Artboards: every artboard of the project, with
+its versions. Thread: the project's turns: what you asked and what the model
+did. From the palette: Media status, Media models, Workflows and Render (see
+[Media](#media)).
+
+**Keys.** `Alt+4` Design; `Enter` in the message box sends (`Shift+Enter`: a
+new line); `Mod+K`: Design: send, Design: cancel turn, Design: export, Design:
+new project.
 
 ### Flow
 
@@ -885,95 +910,109 @@ R4 panels read `GET /api/fleet/attention`, `costs`, `caps`, `health`,
 
 ## Org mode: the company in Paperclip
 
-**Off by default.** The header's **Org mode: off/on** button is the switch
-(`paperclip.enabled`; also `halo paperclip on|off` and `/org on|off`). While
-it is off the canvas explains who orchestrates what (your session in Roles,
-Paperclip's heartbeats in Org) and nothing runs on a heartbeat; on, the
-company's Halo agents resume. See [PAPERCLIP.md](PAPERCLIP.md).
+Org (`Alt+3`, `halo studio --mode org`, `/org`) is a React section of the
+shell since 3.0.7.0: four panels on the workspace grid, or one **Start view**
+while there is no company to show (Paperclip not installed or not running, or
+no company linked): what Org mode is, the steps, where Paperclip stands, and
+the two buttons **Install Paperclip** (the install log streams under it; Node
+24+ required) and **Link a company** (with no company in Paperclip yet:
+**Make a company from a lineup**). "open the panels anyway" skips it.
 
-The **Roles | Org** toggle in the top bar (`R` / `O`) swaps the canvas to
-your company in [Paperclip](PAPERCLIP.md). Agents are cards (title, role,
-adapter, status, spend against budget), reporting lines are the edges, and
-dragging a card onto another makes it report there (a confirm, then a
-`PATCH` of the agent's `reportsTo`). The cards sit in labelled boxes (3.0.4.0),
-one per manager's reports ("CEO's team", or the agent's `metadata.team`),
-the top level in **Leadership**; dropping a card into a box makes it report
-to that box's manager (into Leadership: to nobody), after the same confirm.
-The rail lists the agents and the
-company's goals and projects; the inspector has **Agent** (title, role,
-reports-to, budget; Wake, Pause / Resume, Terminate; the adapter it runs),
-**Issues** (the agent's issues, or all of them; create one, which wakes
-its assignee), **Paperclip** (the agent's own Paperclip page embedded, with
-"open" for a full tab) and **Company** (stats, **Sync lineup -> company**,
-**Pull reporting lines -> lineup**, "Open Paperclip").
+| Panel | What it is |
+|---|---|
+| **Company** (`org-company`) | Installed, running (version, URL, deployment mode), linked company, budget; the **Org mode** switch; Install, Link, Sync a lineup into the company (or into a new one), Pull the reporting lines back into a lineup, each with its one line; "open Paperclip" |
+| **Org chart** (`org-chart`) | The agents as cards (title, role, adapter, status, spend against budget) in labelled group boxes, one per manager's reports ("CEO's team", or the agent's `metadata.team`), the top level in **Leadership**; the reports-to lines between them |
+| **Issues, goals, projects** (`org-work`) | One tab each, live from Paperclip; with an agent selected, "only <agent>" narrows the issues; New issue (assigned or not: Paperclip wakes an assigned agent) |
+| **Inspector** (`org-inspector`) | What you clicked: an agent (title, role, reports-to, monthly budget with Save; Wake, Pause / Resume, Terminate (asks first); the adapter, its command and cwd, the Halo bio and lineup), an issue (status and assignee changed in place), a goal or a project; each with a link to its Paperclip page |
+
+**Off by default.** Company's switch is `paperclip.enabled` (also `halo
+paperclip on|off` and `/org on|off`); while it is off the chart says so and
+offers to turn it on, and nothing runs on a heartbeat. See
+[PAPERCLIP.md](PAPERCLIP.md).
+
+**The chart.** Drag a card to move it: the places are saved on the server
+(`PUT /api/layout/pc:<company id>`, 500 ms after the last move), so they
+follow you to any browser. Drop a card into another box (into Leadership: it
+reports to nobody), or onto a card, and Studio asks first, then `PATCH`es
+the agent's `reportsTo`; Cancel puts the card back. A move that would make a
+loop is refused in the dialog. Drag a box by its label strip to move the
+whole team. Click a card to select it, double-click to open the Inspector on
+it. Click the chart, then `A` lays it out by level, `F` fits it, `+` / `-`
+zoom.
+
+**Live, without flicker.** One poller reads `pc/status` and the company's
+agents, issues, goals and projects every 3 s while Org is on screen (the tab
+visible); it keeps every unchanged row, so only what changed redraws (the
+classic page redrew everything every 8 s). The status bar's ORG cell says
+the company, its agents and its open issues.
 
 Studio talks to Paperclip through its own server (`/api/pc/...`), which adds
 the board token from `~/.halo/paperclip.json` server-side; the page never
-holds it. When Paperclip is not installed the Org canvas explains it and
-offers **Install Paperclip** with the install log streamed into the page
-(Node 24+ required); when it is installed but not running it says how to
-start it.
+holds it. The palette's Org group: **Org: sync**, **Org: pull**, **Org: link
+company**, Org mode on / off, read Paperclip again, and every agent by name.
 
 ![The Org section: the halo-dev-cycle lineup as a Paperclip company](media/studio-org.png)
 
 ## Design mode: prototypes, pages and decks on your own apps
 
-The third button in the top bar, `Roles | Org | Design` (keys `R` / `O` / `D`,
-or `?mode=design`; the choice is remembered). It is the page for `halo design`
-projects under `~/.halo/design/<slug>/`.
+Design (`Alt+4`, `halo studio --mode design`, `/design`) is a React section of
+the shell since 3.0.7.0, over `halo design` projects under
+`~/.halo/design/<slug>/`. With no project yet it is one **Start view**: what
+Design mode is, the steps, and one button: name the first project and
+**Create project** (a project made elsewhere shows up within 4 s).
 
 ![Design mode: the Launch page project](media/studio-design.png)
 
-**What you see.** The left rail lists projects (with a New project form that
-opens its model picker on the design ranking, capability chips included), the
-open project's artboards (id, kind, app, latest version) and its design system
-(token groups with counts, plus a "Sync from..." box that takes a folder path
-or a URL). The canvas is a dot-grid of frame cards: title row (title, kind,
-app, `v<n>`), the frame itself (a sandboxed iframe for an HTML artboard, an
-image for a `render.png` / `render.svg`, a link card for a PDF or MP4), a
-device select (phone 390, tablet 820, desktop 1280 wide; the frame scales to
-fit the card) and a version slider. Drag a card by its title row; positions
-are kept in your browser per project. Pan with space-drag, the middle button
-or a drag on the empty background; zoom with `Ctrl`+wheel; `F` fits.
+| Panel | What it is |
+|---|---|
+| **Projects** (`design-projects`) | Every project with its artboards and model; click one to open it; **New project** (a dialog: a name and, if you like, its model) |
+| **Assets** (`design-assets`) | The project's `assets/`: **Add files...** or drop files on the panel (uploaded as base64, 15 MB each); click a row to put its path in the message; **Download** saves it through `/design-files/<slug>/_assets/<name>` |
+| **Artboards** (`design-artboards`) | The artboards as cards on a canvas: the frame (a prototype in `<iframe sandbox="allow-scripts">`, a render as an image, a video, else a link), its open comment pins, the version slider with **Restore**, then **Critique**, **Contrast**, **Rename**, **Delete** (asks first) and **Download**; the toolbar has zoom, Fit, **Export...** and **Handoff** |
+| **Thread** (`design-thread`) | The project's turns as one thread: what you asked, the model's reply as markdown, cost, tool calls, seconds and the versions it made; the running turn streams at the bottom with a chip per tool call; the **Send** box (`Enter` sends, `Shift+Enter` a new line) and, while a turn runs, **Cancel turn**; **Send comments (N)** when pins are open |
 
-**The panel** replaces the inspector tabs: Chat, Comments, Knobs, System,
-Export.
+**Turns over the live feed.** Every step of a turn is a `design_turn` frame
+on `/api/events` (`session_id: "design:<slug>"`, data `{slug, turn, state:
+started|event|done, n, event, result}`; a tool call's input is cut to one
+line). While the feed is not open the page polls `turn/<id>?since=N` every
+500 ms instead (the classic page's way); both fill the same slots, so nothing
+shows twice. One turn runs per project at a time. **Cancel turn** is `POST
+design/<slug>/turn/<id>/cancel`: the turn's child is killed, the turn ends
+with code 130 and `cancelled: true`, and what it wrote so far is kept as
+versions. The history keeps each turn's reply text (8000 characters).
 
-- **Chat**: the prompt box (`Enter` sends, `Shift+Enter` adds a line), a model
-  override and a budget, the turn's events as they stream (assistant text,
-  compact tool cards, the result with its cost), the project's running cost and
-  the history. One turn runs per project at a time; the page polls the turn
-  every 500 ms.
-- **Comments**: press `C` (the Comment tool) and click a frame to pin a note
-  (the position is kept as a percentage of the frame). Open pins are grouped by
-  artboard with Resolve; **Send comments** turns every open pin into one prompt
-  ("Address these comments: ...") and runs a turn, then resolves them when it
-  succeeds.
-- **Knobs**: the artboard's `controls.json` as sliders, colour inputs and
-  selects. A `css:--name` knob rewrites that variable in the page's `:root`
-  block in place, with no model call, and makes a new version; a `craft:` knob
-  is saved and applied by the next turn. Ask for knobs in a turn: "add knobs for
-  spacing and the accent colour".
-- **System**: the design system's tokens by group, editable, saved with Save
-  tokens; sources and components below.
-- **Export**: folder, HTML, PNG, SVG or PDF (optionally for one artboard) with
-  the returned lines, and **Handoff bundle**, which shows the bundle's path
-  with a Copy button.
+**A safe markdown subset.** The thread renders headings, paragraphs, lists,
+block quotes, code blocks, inline code, bold, italic and links (only
+`http(s)` and `mailto`, opened with `rel="noopener noreferrer"`). Nothing is
+parsed as HTML and no image is fetched: an image shows as its alt text.
 
-**Direct text edits.** "Edit text" on an HTML card reloads the frame with
-`?edit=1`: the page becomes editable, and `Ctrl+S` or leaving the text posts
-the page back to Studio, which saves it as a new version ("direct edit"). The
-helper script is wrapped in `<!--halo-edit-->` markers and never reaches the
-saved file.
+**Artboards.** Drag a card by its title; the places are saved on the server
+(`PUT /api/layout/design:<slug>`, stored as `_design-<slug>.json`, 500 ms after
+the last move). **Rename** is `POST design/<slug>/artboard/<id>/rename
+{name}` (the title changes; the id, files and versions stay); **Delete** is
+`DELETE design/<slug>/artboard/<id>` (its folder and versions go, its open
+pins are resolved; refused while a turn runs). **Critique** starts a
+read-only turn (Read and Glob, no MCP servers) whose notes land as pins with a
+`critique` badge (`POST design/<slug>/critique {artboard, model?}`);
+**Contrast** opens the text-on-background table with ratio and AA / AAA
+verdicts (`GET design/<slug>/artboard/<id>/contrast`). **Export...** asks for
+folder, HTML, PNG, SVG or PDF and one artboard or all, then shows what it
+wrote; **Handoff** shows the bundle's path and the command that continues
+from it.
 
 **Versions.** Every turn, knob move, direct edit and restore is a version.
-The slider under a card swaps the frame to `v<n>/...`; at an older version,
-**Restore this version** makes it the newest one.
+The slider swaps the frame to `v<n>/...`; at an older version **Restore**
+makes it the newest one.
+
+**On the classic page.** The knobs, direct text edits, pinning a new comment
+on a frame, the design system's tokens and Sync, and "3 directions" stay on
+the classic page (`halo studio --legacy --mode design`, or the palette's
+"Open the classic page") until they move into the React section.
 
 **The raw file route and its sandbox.** Artboard files are served at
-`GET /design-files/<slug>/<artboard>/<file>` (and `.../v<n>/<file>`), loopback
-only and confined to that artboard's folder (`..` is a 404). They carry their
-own `Content-Security-Policy: default-src 'self' 'unsafe-inline' data: blob:`
+`GET /design-files/<slug>/<artboard>/<file>` (and `.../v<n>/<file>`), the
+project's assets at `/design-files/<slug>/_assets/<name>`, loopback only and
+confined to that folder (`..` is a 404). They carry their own
+`Content-Security-Policy: default-src 'self' 'unsafe-inline' data: blob:`
 and `nosniff`, not Studio's, because a prototype has inline CSS and JS. HTML
 and SVG responses add `; sandbox allow-scripts` to that policy, so the
 document gets an opaque origin even when it is framed without a sandbox
@@ -982,50 +1021,12 @@ The page embeds them as `<iframe sandbox="allow-scripts">` without
 `allow-same-origin`, so a prototype runs but cannot reach Studio's API or its
 token. An artboard folder that is a symlink is never served.
 
-**Plus more.**
-
-- **Explore directions**: the **3 directions** button beside Run turn (or `V`)
-  wraps the prompt as "Make 3 directions of: ..." with artboards named
-  `<name>-a`, `-b`, `-c` (the name box beside the button, the selected artboard
-  by default). It is one turn; afterwards the canvas tiles the new artboards
-  side by side and selects the first. `POST design/<slug>/run` takes
-  `{"variants": N, "base": "<id>"}`, and the CLI takes `--variants N --base ID`.
-- **Critique**: **Critique <artboard>** (or `K`) starts a read-only turn (Read
-  and Glob, no MCP servers) where a second model, the project's or the one picked,
-  reviews the artboard. Its notes land as comment pins with a `critique` badge and
-  a `[high]` / `[medium]` / `[low]` prefix; Send comments includes them.
-  `POST design/<slug>/critique {artboard, model?}`.
-- **Contrast**: the Knobs tab ends with a table of text-on-background pairs with
-  ratio and AA / AAA verdicts (failing pairs first, red / amber / green dots),
-  refreshed after every knob move. `GET design/<slug>/artboard/<id>/contrast`.
-- **Assets**: the rail's Assets list (name, size, thumbnail) with a drop zone.
-  Drop files from the desktop onto the rail or the canvas to upload them; the
-  Chat box gets "Use assets/<name> ...". An image dropped on a frame card adds
-  "Place assets/<name> on <artboard>". Click an asset to insert its path.
-  `GET` / `POST design/<slug>/assets`, 15 MB at most.
-- **Run view**: History shows "12 tool calls · 48 s · $0.03" per turn.
+The palette's Design group: **Design: new project**, **Design: send** (the
+message box's text; with an empty box it moves the focus there), **Design:
+cancel turn** (while one runs), **Design: export**, **Design: handoff
+bundle**, **Design: send comments**, and every project by name.
 
 ![The Design section: a hero prototype and a logo mark as artboards](media/studio-design.png)
-
-| Key | Action (Design mode) |
-|---|---|
-| `D` / `R` / `O` | switch mode |
-| `N` | new project |
-| `Enter` in the Chat box | run the turn |
-| `C` | toggle the comment tool (`Esc` returns to select) |
-| `V` | explore 3 directions of the Chat prompt |
-| `K` | critique the selected artboard |
-| `X` | check contrast (opens Knobs) |
-| `S` | send comments |
-| `Y` | sync the design system |
-| `U` | add assets |
-| `E` / `H` | export folder / handoff bundle |
-| `F` | fit the canvas |
-| `Ctrl`+wheel, space-drag | zoom, pan |
-| `Ctrl`/`Cmd`+`K` | the palette lists every Design command with its key |
-
-Shortcuts are inactive while you type in a box. The tour (`?`) shows five Design
-steps when the page is in Design mode.
 
 ## Connecting boxes (3.0.2.0)
 
@@ -1157,7 +1158,7 @@ it). The shell's own keys: `Alt+1`..`Alt+6` sections, `Ctrl`/`Cmd`+`K` the
 palette, `?` the focused panel's help (again, or away from a panel: How this
 works), `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel,
 `Esc` closes. The hop keys (3.0.5.0, [Fleet](#keys-hop-around)): `J` / `K`
-the next / previous live agent (Fleet map, Roles and Org cards, Orchestra
+the next / previous live agent (Fleet map, Roles cards, Orchestra
 lanes), `F` follow, `Space` pin the mini stream, `Esc` unpin, `P` pause or
 resume, `K` in the Agent panel stop (asks first).
 
@@ -1170,7 +1171,7 @@ resume, `K` in the Agent panel stop (asks first).
 `api.py` (the routes), `flow_api.py` / `flow_model.py` / `flow_runs.py` (the Flow
 routes and the one live flow run), `media_api.py` / `media_render.py` (the ComfyUI
 routes and a render's background thread), `sessions_api.py` (the live sessions and
-their commands), `design_api.py` / `design_api_io.py` / `design_api_turns.py` / `design_files.py` (Design mode), `model.py` (the graph, the catalog rows, the session
+their commands), `design_api.py` / `design_api_io.py` / `design_api_more.py` / `design_api_turns.py` / `design_files.py` (Design mode), `paperclip_api.py` (Org mode), `model.py` (the graph, the catalog rows, the session
 reader). Tests: `tests/test_studio_api.py`,
 `tests/test_studio_model.py`, `tests/test_studio_dist.py` (the build and
 its routes), `tests/test_studio_live.py` (the live feed),
@@ -1182,7 +1183,18 @@ and clicks and keys through `tests/helpers/studio_clarity.py` over the
 DevTools protocol, `tests/helpers/cdp.py`). The Flow and Media
 panels are `ui/src/routes/flow/` and `ui/src/routes/media/`; the Orchestra
 Start view `ui/src/routes/orchestra/Start.tsx`; the help copy
-`ui/src/routes/sectionHelp.ts`, `help.ts` and `help-orchestra.ts`. The
+`ui/src/routes/sectionHelp.ts`, `help.ts`, `help-orchestra.ts` and
+`help-org-design.ts`. Org and Design (3.0.7.0 R3) are `ui/src/routes/org/`
+(the store `store.ts`, the diffed poller `sync.ts`, `actions.ts`, the chart
+`Canvas.tsx` + `CanvasParts.tsx` + `layout.ts`, `Company.tsx`, `Work.tsx`,
+`Inspector.tsx`, `Start.tsx`, `Dialogs.tsx`, `commands.ts`) and
+`ui/src/routes/design/` (`store.ts`, `sync.ts`: the turns over the live
+feed, `actions.ts`, `Projects.tsx`, `Thread.tsx` + `ThreadParts.tsx`,
+`Artboards.tsx` + `ArtboardCard.tsx`, `Assets.tsx`, `Start.tsx`,
+`Dialogs.tsx`, `commands.ts`), the safe markdown `ui/src/lib/markdown.tsx`,
+`styles/org.css`, `design.css` and `design-thread.css`; tests
+`tests/test_studio_design_live.py` and the Chrome checks in
+`tests/helpers/studio_org_design.py`. The
 classic page's group boxes are `static/legacy/groups.js` (+ `groups.css`),
 its embedded mode `embed.js` (+ `embed.css`). Fleet (3.0.5.0) is
 `ui/src/routes/fleet/` (the store and the feed: `store.ts`, `sync.ts`,

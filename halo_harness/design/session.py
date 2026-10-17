@@ -98,15 +98,16 @@ def _stdin_prompt(prompt: str) -> str:
     return raw[:MAX_PROMPT_BYTES].decode("utf-8", "ignore")
 
 
-def _call_runner(runner: Callable, cmd: list, cwd: str, env: dict, handle: Callable, stdin_text: str) -> int:
-    """A test runner gets the stdin text as `stdin=` when it takes it."""
+def _call_runner(runner: Callable, cmd: list, cwd: str, env: dict, handle: Callable, stdin_text: str, cancel=None) -> int:
+    """A test runner gets the stdin text as `stdin=` (and the cancel event as `cancel=`) when it takes them."""
     import inspect
     try:
-        params = inspect.signature(runner).parameters.values()
-        takes = any(p.name == "stdin" or p.kind is inspect.Parameter.VAR_KEYWORD for p in params)
+        params = list(inspect.signature(runner).parameters.values())
     except (TypeError, ValueError):
-        takes = False
-    return runner(cmd, cwd, env, handle, stdin=stdin_text) if takes else runner(cmd, cwd, env, handle)
+        params = []
+    takes = lambda name: any(p.name == name or p.kind is inspect.Parameter.VAR_KEYWORD for p in params)  # noqa: E731
+    kw = {**({"stdin": stdin_text} if takes("stdin") else {}), **({"cancel": cancel} if cancel is not None and takes("cancel") else {})}
+    return runner(cmd, cwd, env, handle, **kw)
 
 
 def _feed_stdin(proc, text: str) -> None:
@@ -132,11 +133,17 @@ def _temp(prefix: str, suffix: str, text: str) -> Path:
     return Path(name)
 
 
-def _pump(proc, handle: Callable[[str], None], timeout: float) -> int:
+def _killed(proc, code: int) -> int:
+    proc.kill()
+    proc.wait()
+    return code
+
+
+def _pump(proc, handle: Callable[[str], None], timeout: float, cancel=None) -> int:
     """Feed the child's stdout lines to `handle` on THIS thread while a
     helper thread does the blocking reads, so the deadline holds even when
     the child hangs with its stdout open. Past the deadline the child is
-    killed and the code is 124."""
+    killed and the code is 124; a set `cancel` event kills it with 130."""
     lines: "queue.Queue" = queue.Queue()
 
     def read() -> None:
@@ -150,13 +157,13 @@ def _pump(proc, handle: Callable[[str], None], timeout: float) -> int:
     threading.Thread(target=read, daemon=True).start()
     deadline = time.monotonic() + timeout
     while True:
+        if cancel is not None and cancel.is_set():
+            return _killed(proc, 130)
         try:
-            line = lines.get(timeout=max(0.0, min(0.5, deadline - time.monotonic())))
+            line = lines.get(timeout=max(0.0, min(0.25, deadline - time.monotonic())))
         except queue.Empty:
             if time.monotonic() >= deadline:
-                proc.kill()
-                proc.wait()
-                return 124
+                return _killed(proc, 124)
             continue
         if line is None:
             break
@@ -164,20 +171,18 @@ def _pump(proc, handle: Callable[[str], None], timeout: float) -> int:
     try:
         return proc.wait(timeout=max(1.0, deadline - time.monotonic()))
     except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait()
-        return 124
+        return _killed(proc, 124)
 
 
 def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Optional[Callable[[dict], None]] = None,
              max_budget_usd: Optional[float] = None, max_turns: int = 40, registered=None, entries: Optional[dict] = None,
              env: Optional[dict] = None, runner: Optional[Callable] = None, timeout: int = 1800,
-             tools_override: Optional[str] = None) -> dict:
+             tools_override: Optional[str] = None, cancel=None) -> dict:
     """Run one design turn. `runner(cmd, cwd, env, on_line)` can replace the
     subprocess (tests). The craft apps are the turn's ONLY MCP servers (a
     strict --mcp-config written for the run); `--tools` keeps the core
-    built-ins; `tools_override` (a critique's "Read,Glob") replaces the tool list.
-    Returns {code, cost, text, versions, events}."""
+    built-ins; `tools_override` (a critique's "Read,Glob") replaces the tool list;
+    a set `cancel` event (threading.Event) stops the turn with code 130. Returns {code, cost, text, versions, events}."""
     from halo_harness.design.crafts_probe import craft_server_entries
     if entries is None:
         entries = craft_server_entries(cwd=project.path)
@@ -222,22 +227,23 @@ def run_turn(project: Project, prompt: str, *, model: str = "", on_event: Option
 
     try:
         if runner is not None:
-            code = _call_runner(runner, cmd, str(project.path), child_env, handle, stdin_text)
+            code = _call_runner(runner, cmd, str(project.path), child_env, handle, stdin_text, cancel)
         else:
             proc = subprocess.Popen(cmd, cwd=str(project.path), env=child_env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, encoding="utf-8", errors="replace")
             _feed_stdin(proc, stdin_text)
-            code = _pump(proc, handle, timeout)
+            code = _pump(proc, handle, timeout, cancel)
     finally:
         for p in (skill_path, mcp_path):
             try:
                 p.unlink()
             except OSError:
                 pass
-    versions = project.snapshot(note=prompt[:80])
-    project.log_turn({"prompt": prompt, "model": model, "cost": cost, "code": code, "versions": versions,
-                      "elapsed": round(time.monotonic() - started, 1), "tool_calls": tool_calls})
+    versions, text = project.snapshot(note=prompt[:80]), "\n".join(texts)
+    project.log_turn({"prompt": prompt, "model": model, "cost": cost, "code": code, "versions": versions, "text": text[:8000],
+                      "elapsed": round(time.monotonic() - started, 1), "tool_calls": tool_calls,
+                      **({"cancelled": True} if cancel is not None and cancel.is_set() else {})})
     done = {"type": "halo_design", "code": code, "cost": cost, "versions": versions}
     if on_event:
         on_event(done)
-    return {"code": code, "cost": cost, "text": "\n".join(texts), "versions": versions, "events": events}
+    return {"code": code, "cost": cost, "text": text, "versions": versions, "events": events}

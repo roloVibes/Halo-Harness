@@ -1,9 +1,11 @@
 // What each panel is (`about`, one line) and how to use it (`help`, a few
 // short lines), spread into the PanelSpecs: Flow and Media here, Orchestra
-// and the classic canvases in help-orchestra.ts, Fleet in help-fleet.ts. The title bar shows
+// and the classic Roles canvas in help-orchestra.ts, Fleet in help-fleet.ts,
+// Org and Design in help-org-design.ts (3.0.7.0 R3). The title bar shows
 // `about`; the ? popover, the Inspector and the section help show both.
 import { FLEET_HELP } from "./help-fleet";
 import { CANVAS_HELP, ORCHESTRA_HELP, type Help } from "./help-orchestra";
+import { DESIGN_HELP, ORG_HELP } from "./help-org-design";
 
 const lines = (...l: string[]) => l.join("\n");
 
@@ -11,6 +13,8 @@ export const HELP: Record<string, Help> = {
   ...ORCHESTRA_HELP,
   ...CANVAS_HELP,
   ...FLEET_HELP,
+  ...ORG_HELP,
+  ...DESIGN_HELP,
   "flow-intake": {
     about: "Start a run: the brief, the platforms, the budget and the project.",
     help: lines(

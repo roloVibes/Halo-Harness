@@ -4,9 +4,11 @@ open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
 errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|shell|orchestra|flow|media|fleet]
 
-3.0.3.0: roles/org/design --dom render the classic page at /legacy/ (what the
-shell frames); since 3.0.4.0 docs round `--mode org|design` screenshots go
-through the shell (Alt+3 / Alt+4, the page embedded); `--mode shell` renders the React shell at / (Orchestra and
+3.0.3.0: roles --dom renders the classic page at /legacy/ (what the shell
+frames); 3.0.7.0 R3: `--mode org|design` (tools/capture_org_design.py) render
+the React Org and Design sections over a fake Paperclip and a seeded design
+project (docs/media/studio-org.png, studio-design.png; with --dom the Start
+views and the sections, counted by data-testid); `--mode shell` renders the React shell at / (Orchestra and
 Roles) and, with --dom, counts its data-testid values. R4: `--mode
 orchestra` seeds a finished Orchestra run (the R2 fixture: basket.py, five
 lanes, one judged conflict, the report) in a temp git repo, opens the shell's
@@ -98,11 +100,11 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--org", action="store_true", help="Org mode over a fake Paperclip seeded with the halo-dev-cycle company")
-    parser.add_argument("--mode", choices=["roles", "org", "design", "shell", "orchestra", "flow", "media", "fleet"], default="roles", help="org: the halo-dev-cycle company over a fake Paperclip; design: a seeded Launch page project (tools/design_demo.py); both framed by the shell")
+    parser.add_argument("--org", action="store_true", help="the Org section over a fake Paperclip seeded with the halo-dev-cycle company (= --mode org)")
+    parser.add_argument("--mode", choices=["roles", "org", "design", "shell", "orchestra", "flow", "media", "fleet"], default="roles", help="org: the halo-dev-cycle company over a fake Paperclip; design: a seeded Launch page project (tools/design_demo.py); both React sections (tools/capture_org_design.py)")
     args = parser.parse_args(argv)
-    args.org = args.org or args.mode == "org"
-    design = args.mode == "design"
+    if args.org:  # the old flag: the Org section
+        args.mode = "org"
     state = seeded_home()
     if args.mode in ("flow", "media"):  # the Flow section over seeded runs (tools/capture_flow.py)
         from capture_flow import capture
@@ -121,6 +123,14 @@ def main(argv: list) -> int:
             return capture_fleet(args.out, args.dom, find_chrome)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
+    if args.mode in ("org", "design"):  # 3.0.7.0 R3: the React sections over FakePaperclip / a seeded project (tools/capture_org_design.py)
+        from capture_org_design import capture as capture_org_design
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + f"-{args.mode}.png"
+        try:
+            return capture_org_design(args.mode, args.out, args.dom, chrome, serve, state)
+        finally:
+            shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "orchestra":  # the run console, the Start view and Roles with its groups (tools/capture_orchestra.py)
         from capture_orchestra import capture as capture_orchestra
         if args.out.endswith("studio.png"):
@@ -129,33 +139,10 @@ def main(argv: list) -> int:
             return capture_orchestra(args.out, args.dom, chrome, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    fake = None
-    if design:
-        from design_demo import seed
-        proj = seed(state)
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-design.png"
-    if args.org:
-        from halo_harness.paperclip.client import Paperclip, save_config
-        from halo_harness.paperclip.sync import sync_lineup
-        from tests.helpers.fake_paperclip import FakePaperclip
-        fake = FakePaperclip(company_name="Halo Harness")
-        from halo_harness.theme import set_config_value
-        set_config_value("paperclip.enabled", True)  # Org mode is off by default; the picture shows it on
-        save_config({"base_url": fake.base_url, "company_id": fake.company["id"]}, state)
-        sync_lineup(Paperclip(fake.base_url), fake.company["id"], "halo-dev-cycle", cwd=state.parent / "project", state_dir=state, out=open(os.devnull, "w"))
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-org.png"
-    shell = args.mode == "shell" or (args.mode in ("org", "design") and not args.dom)  # --dom counts the classic page itself
+    shell = args.mode == "shell"
     if shell and args.out.endswith("studio.png"):
         args.out = args.out[:-4] + "-shell.png"
     srv, url = serve(state, shell)
-    if shell and args.mode in ("org", "design"):  # the shell frames the page in embedded mode
-        url = url.replace("mode=orchestra", f"mode={args.mode}").replace("feed=off", "feed=off&tour=off")
-    elif args.org:
-        url = url.replace("?tour=off", "?tour=off&mode=org")
-    elif design:
-        url = url.replace("?tour=off", "?tour=off&mode=design")
     try:
         if args.dom and shell:  # the shell twice: Orchestra (its Start view: no run here) and Roles (the framed classic page)
             a, b = chrome(["--dump-dom", url]), chrome(["--dump-dom", url.replace("mode=orchestra", "mode=roles")])
@@ -170,8 +157,8 @@ def main(argv: list) -> int:
             if r is None:
                 print("no Chrome found")
                 return 2
-            print(json.dumps({"cards": r.stdout.count('class="d-card'), "frames": r.stdout.count("<iframe"), "pins": r.stdout.count('class="d-pin"'), "tabs": r.stdout.count("data-tab=") if design else 0,
-                              "nodes": r.stdout.count('class="node'), "groups": r.stdout.count('data-testid="canvas-group"'), "title": r.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in r.stdout else ""}))
+            print(json.dumps({"nodes": r.stdout.count('class="node'), "groups": r.stdout.count('data-testid="canvas-group"'),
+                              "title": r.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in r.stdout else ""}))
             return 0
         out = Path(args.out).resolve()
         r = chrome(["--virtual-time-budget=20000", f"--screenshot={out}", "--window-size=1500,900", "--force-device-scale-factor=2", url])
@@ -184,8 +171,6 @@ def main(argv: list) -> int:
     finally:
         srv.shutdown()
         srv.server_close()
-        if fake is not None:
-            fake.close()
         shutil.rmtree(state.parent, ignore_errors=True)
 
 

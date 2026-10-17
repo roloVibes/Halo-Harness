@@ -1,9 +1,10 @@
 """halo_harness.studio.design_api -- Studio's Design mode backend (Halo
 3.0.1.0 round D3): `/api/design/...` over `halo_harness.design` (projects,
 artboards, turns, comments, knobs, direct text edits, versions, the design
-system, exports, the handoff). Same loopback / origin / token guard as every
-Studio route. `RUNNER` replaces the turn's subprocess (tests set it);
-`REGISTERED` pins the craft apps a turn may use (None = the user's config).
+system, exports, the handoff; 3.0.7.0 R3: artboard rename / delete, cancel a
+turn, every turn on the live feed as `design_turn` frames). Same loopback /
+origin / token guard as every Studio route. `RUNNER` replaces the turn's
+subprocess (tests set it); `REGISTERED` pins the craft apps a turn may use (None = the user's config).
 """
 
 from __future__ import annotations
@@ -65,10 +66,19 @@ def run(req):
         budget = float(req.body["budget"]) if req.body.get("budget") not in (None, "") else None
     except (TypeError, ValueError):
         return _bad("budget is a number of US dollars")
-    turn = turns.start(p, prompt, model=str(req.body.get("model") or ""), budget=budget, runner=RUNNER, registered=REGISTERED)
+    turn = turns.start(p, prompt, model=str(req.body.get("model") or ""), budget=budget, runner=RUNNER, registered=REGISTERED,
+                       publish=feed_of(req))
     if turn is None:
         return 409, {"error": "this project already has a turn running: wait for it to finish", "turn": turns.live_turn(p.slug)}
     return 200, {"turn": turn["id"]}
+
+
+def feed_of(req):
+    """The live feed's publish for this server (None without one: the poll still works)."""
+    if getattr(req, "server", None) is None:
+        return None
+    from halo_harness.studio.events import bridge_for
+    return bridge_for(req.server).publish_local
 
 
 def get_turn(req):
@@ -160,6 +170,8 @@ ROUTES = [
     ("POST", _S + r"/critique$", more.critique), ("GET", _S + r"/artboard/(?P<aid>[^/]+)/contrast$", more.contrast),
     ("GET", _S + r"/assets$", more.assets_list), ("POST", _S + r"/assets$", more.assets_post),
     ("POST", _S + r"/sync$", sync), ("POST", _S + r"/export$", export), ("POST", _S + r"/handoff$", handoff),
+    ("POST", _S + r"/artboard/(?P<aid>[^/]+)/rename$", more.artboard_rename), ("DELETE", _S + r"/artboard/(?P<aid>[^/]+)$", more.artboard_delete),
+    ("POST", _S + r"/turn/(?P<tid>[^/]+)/cancel$", more.turn_cancel),
 ]
 
 
