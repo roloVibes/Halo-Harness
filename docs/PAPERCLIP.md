@@ -10,9 +10,9 @@ back on the issue it worked.
 
 Three surfaces, one source of truth (Paperclip's database):
 
-- **Studio's Org mode** (`halo studio`, the Roles | Org toggle, `O`): the
-  org chart on the canvas, agents editable, issues, the embedded Paperclip
-  pages. See [STUDIO.md](STUDIO.md).
+- **Studio's Org section** (`halo studio --mode org`, `Alt+3`; React since
+  3.0.7.0): the org chart in its team boxes, agents editable, issues, goals
+  and projects live, a link to each one's Paperclip page. See [STUDIO.md](STUDIO.md).
 - **`halo paperclip`** on the command line (below).
 - **Paperclip's own UI** at `http://127.0.0.1:3100` for everything else it
   does (goals, approvals, costs, routines, connections).
@@ -32,14 +32,13 @@ Two different things can orchestrate models on a machine running Halo:
 `paperclip.enabled` in `~/.halo/config.json` is the switch, **off** on a
 fresh install. While it is off, `halo paperclip-run` answers every heartbeat
 with an idle exit (so a synced company cannot run anything behind your
-back), Studio's Org canvas shows the explanation above with a "Turn Org mode
-on" button, and `halo paperclip status` starts with `Org mode: off`. Turning
+back), Studio's Org chart says Org mode is off with a "Turn it on" button, and `halo paperclip status` starts with `Org mode: off`. Turning
 it on resumes the linked company's Halo agents; turning it off pauses them
 (best effort: the switch holds even when Paperclip is not running).
 
 Four doors flip the same key: `halo paperclip on|off`, `/org on|off` in the
 TUI, the wizard's Organizations step (`halo init --step orgs`), and the
-**Org mode** button in Studio's header.
+**Org mode** switch in Studio's Company panel.
 
 ## Install
 
@@ -49,8 +48,8 @@ Paperclip needs Node.js 24 or newer. Then either:
 halo paperclip install          # runs: npx paperclipai@latest onboard --yes
 ```
 
-or Studio's Org mode, which offers the same install with its log in the
-page when Paperclip is absent. Onboarding creates `~/.paperclip/` with an
+or Studio's Org section, whose Start view offers the same install with its
+log in the page when Paperclip is absent. Onboarding creates `~/.paperclip/` with an
 embedded PostgreSQL (port 54329), starts the server on `127.0.0.1:3100`
 (loopback only, no login needed in this `local_trusted` mode) and keeps it
 in the foreground; `npx paperclipai service install` registers it as a

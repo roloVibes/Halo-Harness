@@ -1,6 +1,7 @@
-// What each Orchestra panel and each classic canvas panel (Roles, Org,
-// Design) is (`about`, one line) and how to use it (`help`, a few short
-// lines). routes/help.ts merges them into HELP beside Flow's and Media's.
+// What each Orchestra panel and the classic Roles canvas panel is (`about`,
+// one line) and how to use it (`help`, a few short lines); Org and Design are
+// React sections since 3.0.7.0 R3 (help-org-design.ts). routes/help.ts merges
+// them into HELP beside Flow's and Media's.
 
 export type Help = { about: string; help: string };
 
@@ -85,24 +86,6 @@ export const CANVAS_HELP: Record<string, Help> = {
       "Drop a card into another box to change its role, onto a card to make it report there.",
       "Select a card to edit it on the right; Save writes the YAML, Apply makes it active.",
       "A lays the canvas out, F fits it, Groups shows or hides the boxes.",
-    ),
-  },
-  "org-canvas": {
-    about: "Your company in Paperclip: agents as cards, boxed by who they report to.",
-    help: lines(
-      "Org mode: on in the toolbar turns the company's heartbeats on.",
-      "Each box holds one manager's reports; the top box is Leadership.",
-      "Drop a card into a box (or onto a card) to change who it reports to.",
-      "Select a card for its budget, issues and Paperclip page on the right.",
-    ),
-  },
-  "design-canvas": {
-    about: "Prototypes, pages and decks your apps make, one card per artboard.",
-    help: lines(
-      "Make or open a project on the left, then say what to design in Chat.",
-      "Every turn saves a version; the slider under a card goes back.",
-      "C pins a comment on a frame; Send comments turns the pins into a turn.",
-      "Knobs move spacing and colours without a model call; Export hands it off.",
     ),
   },
 };

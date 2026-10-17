@@ -8,7 +8,9 @@ the prototype runs but cannot reach Studio's API or token; the server adds a
 `sandbox allow-scripts` CSP directive to every HTML and SVG response too, so
 the same holds when a document is framed without the attribute or opened on
 its own. The path is confined to design_root/<slug>/artboards/<artboard>/
-(an artboard folder that is a symlink is not served).
+(an artboard folder that is a symlink is not served). 3.0.7.0 R3:
+`/design-files/<slug>/_assets/<name>` is a file of the project's assets/
+folder (the Assets panel's Download; `_assets` is never an artboard id).
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ SANDBOXED = "text/html", "image/svg+xml"  # the types that can carry script
 MEDIA_TYPES = {".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".png": "image/png",
                ".webp": "image/webp", ".wav": "audio/wav", ".mp3": "audio/mpeg", ".flac": "audio/flac"}
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+ASSETS = "_assets"
 
 EDIT_SCRIPT = """<!--halo-edit--><script id="halo-edit-script">(function(){
 document.body.contentEditable="true";document.body.style.outline="none";
@@ -43,10 +46,11 @@ def resolve(state_dir, url_path: str) -> Optional[Path]:
     """The file under one artboard folder that `url_path` names, or None."""
     rel = unquote(url_path)[len(PREFIX):]
     parts = rel.split("/")
-    if len(parts) < 3 or not all(_NAME.match(p) for p in parts):
+    assets = len(parts) == 3 and parts[1] == ASSETS
+    if len(parts) < 3 or not all(_NAME.match(p) for i, p in enumerate(parts) if not (assets and i == 1)):
         return None
     root = design_root(state_dir).resolve()
-    folder = root / parts[0] / "artboards" / parts[1]
+    folder = root / parts[0] / "assets" if assets else root / parts[0] / "artboards" / parts[1]
     if folder.is_symlink():
         return None
     base = folder.resolve()

@@ -3,7 +3,7 @@ round D3) over the in-process server and a fake turn runner: projects, a live
 turn polled to its end, comments, knobs applied in place, direct text edits,
 versions, the design system, exports, the handoff, the raw artboard file
 route and its sandbox headers, the token guard, one turn at a time; plus the
-`design.controls` unit checks and the page's files.
+`design.controls` unit checks and the Design section in headless Chrome.
 """
 
 from __future__ import annotations
@@ -255,18 +255,6 @@ def test_apply_css_control_unit(ctx: Ctx):
 
 
 @test
-def test_page_files_and_the_mode_button(ctx: Ctx):
-    static = REPO / "halo_harness" / "studio" / "static" / "legacy"
-    page = (static / "index.html").read_text(encoding="utf-8")
-    ctx.check("the toggle has a Design button and the scripts are loaded", 'data-mode="design"' in page and "design.js" in page and "design-panel.js" in page and "design.css" in page)
-    for name in ("design.js", "design-canvas.js", "design-panel.js", "design-panel2.js", "design.css"):
-        text = (static / name).read_text(encoding="utf-8")
-        ctx.check(f"{name} is under 250 lines and fetches nothing from a CDN", len(text.splitlines()) <= 250 and "//cdn" not in text and "https://" not in text)
-    ctx.check("the iframes are sandboxed without allow-same-origin", 'sandbox="allow-scripts"' in (static / "design-canvas.js").read_text(encoding="utf-8")
-              and "allow-same-origin" not in (static / "design-canvas.js").read_text(encoding="utf-8"))
-
-
-@test
 def test_design_page_boots_in_headless_chrome(ctx: Ctx):
     import os
     import subprocess
@@ -283,8 +271,9 @@ def test_design_page_boots_in_headless_chrome(ctx: Ctx):
         info = json.loads(r.stdout.strip().splitlines()[-1])
     except (ValueError, IndexError):
         info = {}
-    ctx.check(f"the Design page drew two artboard cards, a frame, two pins and five tabs, got {info} {r.stderr[-200:]!r}",
-              info.get("cards") == 2 and info.get("frames", 0) >= 1 and info.get("pins") == 2 and info.get("tabs") == 5)
+    got = info.get("design", {})
+    ctx.check(f"the Design section drew two artboard cards, a sandboxed frame, two pins and the thread of two turns, got {got} {r.stderr[-200:]!r}",
+              got.get("design-artboard") == 2 and got.get("iframes", 0) >= 1 and got.get("design-pin") == 2 and got.get("design-turn") == 2)
 
 
 if __name__ == "__main__":

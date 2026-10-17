@@ -1,7 +1,8 @@
 """tests.helpers.fake_paperclip -- a stdlib stand-in for a Paperclip server
 (Halo 2.2.0): the routes Halo's client, adapter and sync touch, with the
 response shapes observed on a real instance (2026-10-11). In-memory, one
-company, run in a daemon thread; `requests` records every call."""
+company, run in a daemon thread; `requests` records every call. 3.0.7.0 R3:
+goals and projects (GET companies/<id>/goals|projects) for the Org section."""
 
 from __future__ import annotations
 
@@ -18,6 +19,8 @@ class FakePaperclip:
         self.agents: dict = {}
         self.issues: dict = {}
         self.comments: list = []
+        self.goals: list = []
+        self.projects: list = []
         self.requests: list = []
         self.require_token = require_token
         self._srv = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
@@ -42,6 +45,16 @@ class FakePaperclip:
              "executionRunId": None, "checkoutRunId": None, "priority": 3, "createdAt": f"2026-10-11T00:00:{n:02d}Z", **fields}
         self.issues[i["id"]] = i
         return i
+
+    def add_goal(self, title: str, status: str = "active") -> dict:
+        g = {"id": str(uuid.uuid4()), "companyId": self.company["id"], "title": title, "status": status, "level": "company"}
+        self.goals.append(g)
+        return g
+
+    def add_project(self, name: str, status: str = "in_progress") -> dict:
+        pr = {"id": str(uuid.uuid4()), "companyId": self.company["id"], "name": name, "status": status}
+        self.projects.append(pr)
+        return pr
 
     def org(self) -> list:
         def node(a):
@@ -89,6 +102,10 @@ class FakePaperclip:
                     return self._send(200, list(fake.agents.values()))
                 if path == f"/api/companies/{cid}/agents" and method == "POST":
                     return self._send(201, fake.add_agent(body.get("name", "agent"), **{k: v for k, v in body.items() if k != "name"}))
+                if path == f"/api/companies/{cid}/goals" and method == "GET":
+                    return self._send(200, fake.goals)
+                if path == f"/api/companies/{cid}/projects" and method == "GET":
+                    return self._send(200, fake.projects)
                 if path == f"/api/companies/{cid}/org":
                     return self._send(200, fake.org())
                 if path == f"/api/companies/{cid}/issues" and method == "GET":

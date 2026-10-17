@@ -3,7 +3,8 @@ every session for, and the registry fields its `sessions` frame shows
 (studio/events.py). Halo 3.0.5.0 (Fleet) adds `agent_state` (a row of a
 session's agent tree changed), `agent_event` (an entry of a followed agent)
 and `fleet` (a session joined, changed or left the registry), and the
-`harness`, `project` and `parent` fields. ui/src/lib/events.ts KNOWN_KINDS
+`harness`, `project` and `parent` fields; 3.0.7.0 R3 `design_turn` (a Design
+turn's steps, published by Studio itself). ui/src/lib/events.ts KNOWN_KINDS
 mirrors DEFAULT_KINDS."""
 
 DEFAULT_KINDS = ("user_message", "message_start", "message_end", "text_chunk", "tool_use_start", "tool_result",
@@ -12,7 +13,7 @@ DEFAULT_KINDS = ("user_message", "message_start", "message_end", "text_chunk", "
                  "subagent_progress", "notification", "phase", "compaction", "governor", "remote_attached",
                  "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
                  "flow_state", "flow_step", "flow_gate", "flow_post", "flow_metric", "flow_report", "media_render",
-                 "agent_state", "agent_event", "fleet")
+                 "agent_state", "agent_event", "fleet", "design_turn")
 PUBLIC_FIELDS = ("session_id", "title", "mode", "kind", "cwd", "started", "pid", "harness", "project", "parent")
 
 
