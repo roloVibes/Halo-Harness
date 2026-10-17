@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.0.7.0] - unreleased
+## [3.0.7.0] - 2026-10-17
 
 Tiers and the ports: a lineup stacks its members in tiers and the harness enforces who may spawn whom; every run starts with a preflight that names what would make members come back empty; Roles, Org and Design are React sections of the Studio shell and the classic page is gone. Rolo's order, 2026-10-17: "complete all the different version numbers". The Home section from the earlier plan is not built: the Fleet panels already show live sessions, cost today and health.
 
