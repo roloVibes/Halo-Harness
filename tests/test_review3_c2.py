@@ -26,7 +26,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
-STATIC = REPO / "halo_harness" / "studio" / "static" / "legacy"
+DESIGN_UI = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "design"  # 3.0.7.0 R2: the React Design section
 IFRAME = '<iframe src="/design-files/probe/hero/index.html"></iframe>'
 
 
@@ -50,11 +50,13 @@ def test_item7_file_derived_values_are_numbers_and_escaped(ctx: Ctx):
         ctx.check("markup in tool_calls / elapsed / cost is dropped", h1["tool_calls"] is None and h1["elapsed"] is None and h1["cost"] is None)
         ctx.check("real numbers are kept", (h2["tool_calls"], h2["elapsed"], h2["cost"]) == (3, 1.5, 0.02))
         ctx.check("no iframe markup reaches the project payload", "<iframe" not in json.dumps({"c": data["comments"], "h": data["history"]}))
-    panel = (STATIC / "design-panel.js").read_text(encoding="utf-8")
-    canvas = (STATIC / "design-canvas.js").read_text(encoding="utf-8")
-    ctx.check("the history row escapes tool_calls", "${esc(x.tool_calls)}" in panel and "${x.tool_calls}" not in panel)
-    ctx.check("the comment row escapes the version", '${esc(c.version || "?")}' in panel and '${c.version' not in panel)
-    ctx.check("the pin position goes through Number()", "left:${esc(Number(c.x) || 0)}%;top:${esc(Number(c.y) || 0)}%" in canvas and "${c.x}" not in canvas and "${c.y}" not in canvas)
+    # 3.0.7.0 R2: the classic page's string-built rows are gone; the React Design section renders every
+    # file-derived value as JSX text (escaped by React) and never writes HTML from data
+    src = {p.name: p.read_text(encoding="utf-8") for p in DESIGN_UI.glob("*.ts*")}
+    ctx.check("the Design section has its sources", len(src) >= 10)
+    ctx.check(f"no Design source writes HTML from data, got {[n for n, t in src.items() if 'dangerouslySetInnerHTML' in t or '.innerHTML' in t]}",
+              not any("dangerouslySetInnerHTML" in t or ".innerHTML" in t for t in src.values()))
+    ctx.check("the pins are drawn as React elements", any('data-testid="design-pin"' in t for t in src.values()))
 
 
 @test

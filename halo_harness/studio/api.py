@@ -68,6 +68,8 @@ def get_lineup(req: Request):
     data = M.lineup_payload(req.params["name"], cwd=req.cwd, state_dir=req.state_dir, active=_active_team())
     if data is None:
         return 404, {"error": f"no lineup named {req.params['name']!r}"}
+    from .roles_findings import findings_for  # 3.0.7.0 R2: the Problems panel's list on open
+    data["findings"] = findings_for(data["raw"], problems=data["problems"], graph=data["graph"], cwd=req.cwd, state_dir=req.state_dir)
     data["layout"] = M.legacy_layout_view(M.read_layout(req.state_dir, req.params["name"]))
     return 200, data
 
@@ -231,7 +233,10 @@ def post_validate(req: Request):
     if req.body.get("kind") == "bio":
         return 200, {"problems": A.validate_agent_bio(raw, name=name or None, cwd=req.cwd, state_dir=req.state_dir)}
     problems = T.validate_team_template(raw, name=name or None, cwd=req.cwd, state_dir=req.state_dir)
-    return 200, {"problems": problems, "graph": M.graph_for(raw, cwd=req.cwd, state_dir=req.state_dir)}
+    from .roles_findings import findings_for, resolve_raw  # 3.0.7.0 R2: the Problems panel's list
+    graph = M.graph_for(resolve_raw(raw, cwd=req.cwd, state_dir=req.state_dir), cwd=req.cwd, state_dir=req.state_dir)
+    return 200, {"problems": problems, "graph": graph,
+                 "findings": findings_for(raw, problems=problems, graph=graph, cwd=req.cwd, state_dir=req.state_dir)}
 
 
 def post_yaml(req: Request):
@@ -267,6 +272,8 @@ ROUTES: list = [
 
 from .models_api import ROUTES as _MODELS_ROUTES  # noqa: E402  (3.0.4.0: models/status, models/refresh)
 ROUTES[len(ROUTES):] = _MODELS_ROUTES
+from .roles_api import ROUTES as _ROLES_ROUTES  # noqa: E402  (3.0.7.0 R2: gym, models/best-for)
+ROUTES[len(ROUTES):] = _ROLES_ROUTES
 
 
 _PREFIXES = (("flow", "halo_harness.studio.flow_api", "dispatch_flow"),

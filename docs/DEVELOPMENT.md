@@ -205,8 +205,9 @@ dependencies; every version is pinned exactly in `package.json` and
 `package-lock.json`). Its built bundle is **committed** under
 `halo_harness/studio/static/dist/` (`index.html`, `studio.js`,
 `studio.css`), so `uv tool install` and `pip install` need no node at all.
-The classic plain-JS page lives in `static/legacy/` and the shell frames it
-for Roles, Org and Design.
+Every section is React (3.0.7.0 R2 removed the classic plain-JS page,
+`static/legacy/`); a checkout with no build answers `/` with one line
+saying how to build it.
 
 ```sh
 cd halo_harness/studio/ui
@@ -216,7 +217,7 @@ HALO_STUDIO_PORT=8765 npm run dev        # http://127.0.0.1:5173/#t=<token from 
 npm run build                            # typecheck, then write ../static/dist
 ```
 
-`npm run dev` proxies `/api`, `/design-files` and `/legacy` to that Studio
+`npm run dev` proxies `/api` and `/design-files` to that Studio
 and drops the `Origin` header, so Studio's guard accepts the dev page; the
 token is the `#t=` value `halo studio` printed. **Every UI change commits
 the rebuilt `static/dist` with it.** The build is deterministic (same

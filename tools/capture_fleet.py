@@ -9,7 +9,7 @@ question, its reviewer done): two harnesses, five agents in three states.
     docs/media/studio-fleet.png       the map and the agent panel: the researcher's streams open, the
                                       implementer pinned (its mini stream floats over the map)
     docs/media/studio-roles-live.png  the Roles canvas glowing on the cards whose agents work, the
-                                      implementer's Live tab open
+                                      implementer's Live tab open (3.0.7.0 R2: the React canvas)
     docs/media/studio-fleet-panels.png  (R4) the panels (eight since R6): People, Costs and Health compact on
                                       top, Attention with the member's two cards, the map with a
                                       conflict edge (both harnesses editing shop/basket.py), Activity's
@@ -38,8 +38,7 @@ FLEET_IDS = ("section-tab", "fleet-map", "fleet-agent", "fleet-rail", "fleet-nod
              "fleet-rail-node", "fleet-pip", "fleet-pair", "fleet-settings", "status-fleet",
              "fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity",
              "fleet-capabilities", "fleet-mission")
-FRAME = "document.querySelector('.section-view[data-section=\"roles\"] iframe.legacy-frame')"
-DOC = f"{FRAME}.contentDocument"
+LIVE_CARDS = "document.querySelectorAll('[data-testid=\"roles-card\"][data-live]')"  # 3.0.7.0 R2: the React Roles canvas
 
 
 def counts(c) -> dict:
@@ -51,22 +50,7 @@ def node(name: str) -> str:
 
 
 def card(name: str) -> str:
-    return f"[...{DOC}.querySelectorAll('.node')].find((n) => n.querySelector('.agent')?.textContent === '{name}')"
-
-
-def frame_click(c, expr: str) -> None:
-    """Click an element of the framed page once it stops moving (the canvas lays its groups out and fits after it loads)."""
-    import time
-    fx, fy, _w, _h = c.rect(FRAME)
-    last, end = None, time.time() + 5
-    while time.time() < end:
-        r = [round(v) for v in c.rect(expr)]
-        if r == last:
-            break
-        last = r
-        time.sleep(0.25)
-    x, y, w, h = c.rect(expr)
-    c.click(fx + x + w / 2, fy + y + min(h / 2, 30))
+    return f"[...document.querySelectorAll('[data-testid=\"roles-card\"]')].find((n) => n.dataset.agent === '{name}')"
 
 
 def open_fleet(c, rig) -> None:
@@ -76,9 +60,8 @@ def open_fleet(c, rig) -> None:
 
 def open_roles(c, rig) -> None:
     c.go(rig.url("roles"))
-    c.wait(f"{DOC}?.querySelectorAll('[data-testid=\"live-card\"]').length >= 3", 30)
-    c.js(f"(() => {{ const w = {FRAME}.contentWindow; w.document.body.classList.add('rail-hidden'); setTimeout(() => w.app.canvas.fit(), 50); return 1; }})()")
-    time.sleep(0.6)
+    c.wait(f"{LIVE_CARDS}.length >= 3", 30)
+    time.sleep(1.0)  # the canvas fits itself after its first draw
 
 
 def dom(c, rig) -> dict:
@@ -88,8 +71,8 @@ def dom(c, rig) -> dict:
     c.wait("!!document.querySelector('[data-testid=\"fleet-start\"]') && !!document.querySelector('[data-testid=\"fleet-settings\"]')", 20)
     start = counts(c)
     open_roles(c, rig)
-    roles = {"live-card": c.js(f"{DOC}.querySelectorAll('[data-testid=\"live-card\"]').length"),
-             "live-tab": c.js(f"{DOC}.querySelectorAll('[data-testid=\"live-tab\"]').length"), "section-tab": counts(c)["section-tab"]}
+    roles = {"live-card": c.js(f"{LIVE_CARDS}.length"), "live-tab": c.js("document.querySelectorAll('[data-testid=\"roles-live-tab\"]').length"),
+             "section-tab": counts(c)["section-tab"], "legacy-frame": c.js("document.querySelectorAll('iframe.legacy-frame').length")}
     return {"fleet": fleet, "start": start, "roles": roles}
 
 
@@ -179,8 +162,8 @@ def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
     time.sleep(1.2)
     a = c.shot(fleet_png)
     open_roles(c, rig)
-    frame_click(c, f"{card('implementer')}.querySelector('.card')")
-    c.wait(f"[...{DOC}.querySelectorAll('[data-testid=\"live-text\"]')].some((e) => e.textContent.includes('discount'))", 15)
+    c.click_on(card("implementer"), 0.5, 0.25)
+    c.wait("[...document.querySelectorAll('[data-testid=\"roles-live\"] [data-testid=\"fleet-text\"]')].some((e) => e.textContent.includes('discount'))", 15)
     time.sleep(1.2)
     b = c.shot(roles_png)
     panels_png = fleet_png.with_name("studio-fleet-panels.png")

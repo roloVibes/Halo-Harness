@@ -1,6 +1,6 @@
 // Hop around, the same habit everywhere: J / K the next / previous live
-// agent (the Fleet map; the Roles and Org canvases, where the framed page
-// does the hop; the Orchestra lanes), F follow (the stream scrolls with it;
+// agent (the Fleet map; the Roles canvas, 3.0.7.0 R2: in React, its Live tab
+// open on the agent; the Orchestra lanes), F follow (the stream scrolls with it;
 // Orchestra: the Log follows), Space pins the current stream (its mini
 // stream stays on screen), Esc unpins, P pauses or resumes. Inside the agent
 // panel K is Stop, with a confirm, so a stray K on the map never stops
@@ -10,6 +10,8 @@
 import { useEffect } from "react";
 import { studio } from "../../lib/store";
 import { focusLane, orch, setOpt } from "../orchestra/store";
+import { hopCard } from "../roles/live";
+import { roles } from "../roles/store";
 import { askStop, hop, pin, toggleFollow, togglePause } from "./actions";
 import { showFleetPanel } from "./extras";
 import { fleet } from "./store";
@@ -26,12 +28,6 @@ function hopLane(dir: 1 | -1): void {
   if (!list.length) return;
   const i = list.indexOf(orch.get().focusLane ?? -1);
   focusLane(list[i < 0 ? (dir > 0 ? 0 : list.length - 1) : (i + dir + list.length) % list.length]);
-}
-
-/** J / K on a framed canvas: the page itself hops across its cards (static/legacy/live.js). */
-function frameHop(section: string, dir: 1 | -1): void {
-  const frame = document.querySelector<HTMLIFrameElement>(`.section-view[data-section="${section}"] iframe.legacy-frame`);
-  frame?.contentWindow?.postMessage({ type: "fleet-hop", dir }, location.origin);
 }
 
 export function useHopKeys(): void {
@@ -57,8 +53,15 @@ export function useHopKeys(): void {
         else if (key === "f") (e.preventDefault(), setOpt("follow", !orch.get().opts.follow));
         return;
       }
-      if (s.section === "roles" || s.section === "org") {
-        if (dir) (e.preventDefault(), frameHop(s.section, dir));
+      if (s.section === "roles") {
+        const watched = roles.get().watched;
+        const real = watched && !watched.startsWith("replay|") ? watched : "";
+        if (dir) hopCard(dir);
+        else if (key === " " && real && !t?.closest?.(PRESSABLE)) pin(f.pinned === real ? "" : real);
+        else if (key === "p" && real && roles.get().tab === "live") void togglePause(real);
+        else if (key === "f" && real && roles.get().tab === "live") toggleFollow();
+        else return;
+        e.preventDefault();
         return;
       }
       if (s.section !== "fleet" || f.confirm) return;

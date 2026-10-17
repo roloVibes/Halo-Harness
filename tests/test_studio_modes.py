@@ -6,7 +6,8 @@ design`, `/design`, `/roles gui` and `/org gui` open Studio in that mode
 top-level help names studio/design/teams/agents and the GUI; the system
 prompt tells every model what Halo Studio is and how to open it; 3.0.7.0 R3:
 `--mode org|design` open the React sections (their DOM, through
-tools/capture_studio.py --dom), only Roles is still the framed classic page.
+tools/capture_studio.py --dom); R2: so does `--mode roles` -- every section is
+React and the classic page (static/legacy) is gone.
 
 Run: python -m tests.test_studio_modes
 """
@@ -94,8 +95,7 @@ def test_the_shell_has_six_sections_and_opens_flow_orchestra_and_fleet_by_mode(c
     store = (ui / "lib" / "store.ts").read_text(encoding="utf-8")
     ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|org|design|flow|fleet)" in store)
     ctx.check("Alt+1..6 switch sections", "Digit[1-6]" in (ui / "shell" / "keys.ts").read_text(encoding="utf-8"))
-    embed = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "embed.js").read_text(encoding="utf-8")
-    ctx.check("the framed page hands Alt+1..6 to the shell", "Digit[1-6]" in embed and '"fleet"' in embed)
+    ctx.check("no classic page ships beside the shell (3.0.7.0 R2)", not (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy").exists())
     facade = _facade()
     with _NoBrowser():
         out = _cmd_studio("flow url", facade)
@@ -212,20 +212,34 @@ def test_org_and_design_open_as_react_sections(ctx: Ctx):
               and seeded.get("design-pin") == 2 and seeded.get("design-start") == 0 and seeded.get("legacy-frame") == 0)
     ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src"
     routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
-    ctx.check("only Roles is still framed", routes.count("legacyPanels(") == 1 and 'legacyPanels("roles", "Roles")' in routes
+    ctx.check("no section is framed any more (3.0.7.0 R2)", "legacyPanels" not in routes and "panels: rolesPanels, view: RolesView" in routes
               and "panels: orgPanels, view: OrgView" in routes and "...designPanels" in routes)
-    ctx.check("the legacy bridge listens for Roles only", 'const MODES: SectionId[] = ["roles"];' in (ui / "shell" / "legacy.ts").read_text(encoding="utf-8"))
+    ctx.check("the legacy bridge is gone", not (ui / "shell" / "legacy.ts").exists() and not (ui / "routes" / "legacy").exists())
 
 
 @test
-def test_model_picker_is_a_grouped_dropdown_of_the_whole_catalog(ctx: Ctx):
-    js = (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy" / "inspector.js").read_text(encoding="utf-8")
-    picker = js.split("function modelPicker(", 1)[1].split("function chips(", 1)[0]
-    ctx.check("the picker is a <select> with <optgroup>s", "<select" in picker and "<optgroup" in picker)
-    ctx.check("no row cap (the old popup showed the first 60 rows only)", "slice(0, 60)" not in js)
-    ctx.check("a filter box narrows the list", 'class="mono filter"' in picker)
-    ctx.check("a hand-typed ref is still possible", "Type a ref..." in picker)
-    ctx.check("groups are route and vendor", 'route === "or" && rest.includes("/")' in js)
+def test_roles_opens_as_a_react_section(ctx: Ctx):
+    """3.0.7.0 R2: `--mode roles` opens the React Roles section: with only the shipped lineups
+    (none active) one Start view and no panels; over a seeded lineup with two declared tiers and
+    a card whose model the catalog lacks, the canvas with its eight cards in three tier boxes, the
+    Problems panel's row, and, a bio clicked, the bio form with the model picker table."""
+    sys.path.insert(0, str(REPO_DIR / "tools"))
+    from capture_screens import find_chrome
+    import os
+    from tests.helpers.runner import SkipTest
+    if not find_chrome(os.environ.get("HALO_CHROME", "")):
+        raise SkipTest("no Chrome found (the DOM checks need headless Chrome)")
+    got = _dom("roles")
+    start, roles = got.get("start", {}), got.get("roles", {})
+    ctx.check(f"the Start view, no canvas and no frame, got {start or got}",
+              start.get("section-tab") == 6 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0 and start.get("panel-about") == 0
+              and start.get("legacy-frame") == 0)
+    ctx.check(f"the canvas, eight cards, three tier boxes, the edges, got {roles}",
+              roles.get("roles-canvas") == 1 and roles.get("roles-card") == 8 and roles.get("roles-tier") == 3 and (roles.get("roles-edge") or 0) >= 7
+              and roles.get("roles-start") == 0 and roles.get("legacy-frame") == 0)
+    ctx.check(f"six panels with their about lines, the problem row, got {roles}", roles.get("panel-about") == 6 and (roles.get("roles-problem") or 0) >= 1)
+    ctx.check(f"the bio form, the model table (one row per catalog model) and its Test button, got {roles}",
+              roles.get("bio-form") == 1 and roles.get("model-row") == 7 and (roles.get("model-test") or 0) >= 1)
 
 
 if __name__ == "__main__":

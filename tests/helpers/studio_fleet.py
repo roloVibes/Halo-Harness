@@ -6,7 +6,7 @@ two). tests/test_studio_ui.py runs it as a subprocess with a scrubbed
 environment:
 
     python -m tests.helpers.studio_fleet map     # boxes, nodes, the rail, select + tail, J/K, steer, stop
-    python -m tests.helpers.studio_fleet roles   # Live Roles: the glow, the Live tab's text and tool rows, J, the pin
+    python -m tests.helpers.studio_fleet roles   # Live Roles on the React canvas: the glow, the Live tab's text and tool rows, J, the pin
     python -m tests.helpers.studio_fleet panels  # R4: attention, timeline, digest, replay, conflict (studio_fleet_panels.py)
     python -m tests.helpers.studio_fleet caps    # 3.0.6.0 R6: the Capabilities panel and Who can... (studio_fleet_caps.py)
     python -m tests.helpers.studio_fleet mission # 3.0.6.0 R8: a mission planned, dragged, run, stopped (studio_fleet_mission.py)
@@ -22,8 +22,6 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
-FRAME = "document.querySelector('.section-view[data-section=\"roles\"] iframe.legacy-frame')"
-DOC = f"{FRAME}.contentDocument"
 DETAIL = "document.querySelector('[data-testid=\"fleet-agent-detail\"]')"
 
 
@@ -113,10 +111,17 @@ def fleet_map(c, rig) -> dict:
     return out
 
 
-def frame_click(c, expr: str) -> None:
-    """Click an element of the framed page once it stops moving (the canvas lays its groups out and fits after it loads)."""
+CANVAS = "document.querySelector('[data-testid=\"roles-canvas\"]')"
+
+
+def card(name: str) -> str:
+    """The React Roles canvas's card for agent bio `name` (3.0.7.0 R2: no framed page)."""
+    return f"[...document.querySelectorAll('[data-testid=\"roles-card\"]')].find((n) => n.dataset.agent === '{name}')"
+
+
+def card_click(c, expr: str) -> None:
+    """Click a card once the canvas stopped moving (it fits itself after its first draw)."""
     import time
-    fx, fy, _w, _h = c.rect(FRAME)
     last, end = None, time.time() + 5
     while time.time() < end:
         r = [round(v) for v in c.rect(expr)]
@@ -124,31 +129,31 @@ def frame_click(c, expr: str) -> None:
             break
         last = r
         time.sleep(0.25)
-    x, y, w, h = c.rect(expr)
-    c.click(fx + x + w / 2, fy + y + min(h / 2, 30))
+    c.click_on(expr, 0.5, 0.25)
 
 
-def card(name: str) -> str:
-    return f"[...{DOC}.querySelectorAll('.node')].find((n) => n.querySelector('.agent')?.textContent === '{name}')"
+SELECTED = "document.querySelector('[data-testid=\"roles-card\"][data-selected]')?.dataset.agent"
+LIVE_AGENT = "document.querySelector('[data-testid=\"roles-live-agent\"]')?.dataset.key"
+LIVE_CARDS = "document.querySelectorAll('[data-testid=\"roles-card\"][data-live]')"
 
 
 def roles(c, rig) -> dict:
     out = {}
     c.go(rig.url("roles"))
-    out["live_cards"] = c.wait(f"{DOC}?.querySelectorAll('[data-testid=\"live-card\"]').length >= 3 && [...{DOC}.querySelectorAll('[data-testid=\"live-card\"]')].map((g) => g.querySelector('.agent').textContent + '=' + g.dataset.live)", 30)
-    out["main_badge"] = c.js(f"{card('orchestrator')}?.querySelector('.live-badge')?.textContent")
-    frame_click(c, f"{card('implementer')}.querySelector('.card')")
-    out["clicked"] = c.wait(f"{FRAME}.contentWindow.app.canvas.node({FRAME}.contentWindow.haloLive.card)?.agent", 10)
-    out["live_tab"] = c.wait(f"{DOC}.querySelector('[data-testid=\"live-tab\"]')?.classList.contains('on') && 'on'", 10)
-    out["live_text"] = c.wait(f"[...{DOC}.querySelectorAll('[data-testid=\"live-text\"]')].map((e) => e.textContent).find((t) => t.includes('basket'))", 15)
-    frame_click(c, f"{DOC}.querySelector('[data-sub=\"working\"]')")
-    out["live_tools"] = c.wait(f"{DOC}.querySelectorAll('[data-testid=\"live-tool-row\"]').length", 10)
-    out["live_tool"] = c.js(f"{DOC}.querySelector('.live-tool-label')?.textContent")
-    out["watched"] = c.js(f"{FRAME}.contentWindow.haloLive.watched")
+    out["live_cards"] = c.wait(f"{LIVE_CARDS}.length >= 3 && [...{LIVE_CARDS}].map((g) => g.dataset.agent + '=' + g.dataset.live)", 30)
+    out["main_badge"] = c.js(f"{card('orchestrator')}?.querySelector('[data-testid=\"roles-live-badge\"]')?.textContent")
+    card_click(c, card("implementer"))
+    out["clicked"] = c.wait(SELECTED, 10)
+    out["live_tab"] = c.wait("document.querySelector('[data-testid=\"roles-live-tab\"]')?.getAttribute('aria-selected') === 'true' && 'on'", 10)
+    out["live_text"] = c.wait("[...document.querySelectorAll('[data-testid=\"roles-live\"] [data-testid=\"fleet-text\"]')].map((e) => e.textContent).find((t) => t.includes('basket'))", 15)
+    c.click_on("document.querySelector('[data-testid=\"roles-live-working\"]')")
+    out["live_tools"] = c.wait("document.querySelectorAll('[data-testid=\"roles-live\"] [data-testid=\"fleet-tool-row\"]').length", 10)
+    out["live_tool"] = c.js("document.querySelector('[data-testid=\"roles-live\"] .fa-tool-label')?.textContent")
+    out["watched"] = c.js(LIVE_AGENT)
     c.key("j")
-    out["hop"] = c.wait(f"{FRAME}.contentWindow.haloLive.watched !== '{out['watched']}' && {FRAME}.contentWindow.haloLive.watched", 10)
-    out["hop_card"] = c.js(f"{FRAME}.contentWindow.app.canvas.node({FRAME}.contentWindow.haloLive.card)?.agent")
-    out["hop_tools"] = c.wait(f"[...{DOC}.querySelectorAll('.live-tool-label')].map((e) => e.textContent).find((t) => t.startsWith('Bash: git grep'))", 15)
+    out["hop"] = c.wait(f"{LIVE_AGENT} !== '{out['watched']}' && {LIVE_AGENT}", 10)
+    out["hop_card"] = c.js(SELECTED)
+    out["hop_tools"] = c.wait("[...document.querySelectorAll('[data-testid=\"roles-live\"] .fa-tool-label')].map((e) => e.textContent).find((t) => t.startsWith('Bash: git grep'))", 15)
     c.key(" ")
     out["pinned"] = c.wait("document.querySelector('[data-testid=\"fleet-pip\"] .pip-name')?.textContent", 10)
     c.key("Escape")

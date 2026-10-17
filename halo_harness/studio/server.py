@@ -30,12 +30,13 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
 
 STATIC = Path(__file__).resolve().parent / "static"
-DIST = STATIC / "dist"      # 3.0.3.0: the React shell's committed build (halo_harness/studio/ui)
-LEGACY = STATIC / "legacy"  # the plain-JS page, served under /legacy/ and framed by the shell
+DIST = STATIC / "dist"      # 3.0.3.0: the React shell's committed build (halo_harness/studio/ui); 3.0.7.0 R2: the only page
 SHELL_CSP = ("default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; "
              "frame-src 'self' http://127.0.0.1:* http://localhost:*")
-LEGACY_CSP = ("default-src 'self'; connect-src 'self'; img-src 'self' data: http://127.0.0.1:* http://localhost:*; "
-              "style-src 'self' 'unsafe-inline'; frame-src http://127.0.0.1:* http://localhost:*")
+# 3.0.7.0 R2: the classic page (static/legacy) is gone; a checkout without a build gets this one line at `/`
+NO_BUILD = (b"<!doctype html><meta charset=\"utf-8\"><title>Halo Studio</title>"
+            b"<p>Build the Studio UI first: <code>cd halo_harness/studio/ui &amp;&amp; npm ci &amp;&amp; npm run build</code> "
+            b"(docs/DEVELOPMENT.md).</p>")
 LOOPBACK = ("127.0.0.1", "::1", "::ffff:127.0.0.1")
 
 
@@ -163,31 +164,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self._json(status, obj)
 
     def _static(self) -> None:
-        """`/legacy/<file>` from static/legacy; anything else from static/dist
-        (the shell), falling back to static/legacy so a checkout without a
-        build still opens the plain page at `/`."""
+        """Everything from static/dist (the shell). 3.0.7.0 R2: there is no
+        classic page any more; a checkout without a build answers `/` with
+        one line saying how to build the UI."""
         if not self._local_only():
             return
         rel = unquote(urlsplit(self.path).path).lstrip("/") or "index.html"
-        if rel == "legacy" or rel == "legacy/":
-            rel = "legacy/index.html"
-        if rel.startswith("legacy/"):
-            roots, rel = [LEGACY], rel[len("legacy/"):]
-        else:
-            roots = [DIST, LEGACY] if (DIST / "index.html").is_file() else [LEGACY]
-        target = None
-        for root in roots:
-            cand = (root / rel).resolve()
-            if root.resolve() in cand.parents and cand.is_file():
-                target, base = cand, root
-                break
-        if target is None:
+        if not (DIST / "index.html").is_file():
+            if rel == "index.html":
+                self._send(200, NO_BUILD, "text/html; charset=utf-8", {"Content-Security-Policy": SHELL_CSP})
+            else:
+                self._json(404, {"error": "not found: the Studio UI is not built (docs/DEVELOPMENT.md)"})
+            return
+        cand = (DIST / rel).resolve()
+        if DIST.resolve() not in cand.parents or not cand.is_file():
             self._json(404, {"error": "not found"})
             return
-        ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+        ctype = mimetypes.guess_type(str(cand))[0] or "application/octet-stream"
         if ctype.startswith("text/") or ctype in ("application/javascript", "application/json"):
             ctype += "; charset=utf-8"
-        self._send(200, target.read_bytes(), ctype, {"Content-Security-Policy": SHELL_CSP if base == DIST else LEGACY_CSP})
+        self._send(200, cand.read_bytes(), ctype, {"Content-Security-Policy": SHELL_CSP})
 
     def _design_file(self) -> None:
         """3.0.1.0 D3: a design artboard's raw file for the page's sandboxed iframes (its own CSP, loopback only)."""
@@ -238,14 +234,13 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
 STUDIO_MODES = ("roles", "org", "design", "orchestra", "flow", "fleet")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet
 
 
-def url_for(server: _Server, mode: Optional[str] = None, legacy: bool = False) -> str:
+def url_for(server: _Server, mode: Optional[str] = None) -> str:
     """The page URL with the per-launch token. `mode` (3.0.2.0: roles |
-    org | design) lands in the query so the page opens straight into it,
-    ahead of the saved mode; the token stays in the fragment. `legacy`
-    (3.0.3.0) opens the plain page at /legacy/ instead of the shell."""
+    org | design; then every section of the shell) lands in the query so the
+    page opens straight into it, ahead of the saved mode; the token stays in
+    the fragment."""
     query = f"?mode={mode}" if mode in STUDIO_MODES else ""
-    path = "legacy/index.html" if legacy else ""
-    return f"http://127.0.0.1:{server.server_address[1]}/{path}{query}#t={server.token}"
+    return f"http://127.0.0.1:{server.server_address[1]}/{query}#t={server.token}"
 
 
 _BACKGROUND: dict = {}
@@ -275,7 +270,6 @@ def cmd_studio(argv: list) -> int:
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
-    parser.add_argument("--legacy", action="store_true", help="open the plain page (/legacy/) instead of the shell")
     parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
     parser.add_argument("--fleet", action="store_true", help="also run the fleet hub in this process: other harnesses join it with `halo fleet join` (docs/FLEET.md)")
     args = parser.parse_args(argv)
@@ -287,7 +281,7 @@ def cmd_studio(argv: list) -> int:
         ok, note = stop(state_dir)
         print(f"halo studio: {note}")
         return 0 if ok else 1
-    running = existing_url(state_dir, args.mode, legacy=args.legacy)
+    running = existing_url(state_dir, args.mode)
     if running and not args.port:  # 3.0.2.0: one Studio per machine -- reuse it
         print(f"Halo Studio is already running at {running}")
         print("halo studio --stop stops it.")
@@ -302,7 +296,7 @@ def cmd_studio(argv: list) -> int:
     except OSError as e:
         print(f"halo studio: cannot bind 127.0.0.1:{args.port or 'auto'}: {e}", file=sys.stderr)
         return 1
-    url = url_for(server, args.mode, legacy=args.legacy)
+    url = url_for(server, args.mode)
     if args.fleet:  # 3.0.5.0 R2: the fleet hub inside Studio's process
         from halo_harness.studio.fleet_hub_api import start_for_flag
         print(start_for_flag(server, state_dir))

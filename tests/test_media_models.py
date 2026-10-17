@@ -203,8 +203,8 @@ def test_studio_get_models_media(ctx: Ctx):
     status, body = design_api.dispatch_design(SimpleNamespace(method="GET", path="design/models", query={}, state_dir=state, body={}))
     ctx.check("get_models without media is still the design ranking (a list)", status == 200 and isinstance(body, list))
     ctx.check("the design ranking carries no comfy: ref", not any(str(r.get("ref", "")).startswith("comfy:") for r in body))
-    js = (Path(design_api.__file__).parent / "static" / "legacy" / "design.js").read_text(encoding="utf-8")
-    ctx.check("the chooser has the Media models (ComfyUI) group and the comfy_model hint", "Media models (ComfyUI)" in js and "comfy_model" in js)
+    # 3.0.7.0 R2: the classic page's model chooser (its "Media models (ComfyUI)" group) went with static/legacy;
+    # the routes above are what the React section reads.
 
 
 @test

@@ -3,8 +3,9 @@
 // block the rail shows above its panels (Orchestra: the runs; Flow: the runs
 // and the flows) and a view drawn instead of the bare Workspace (Orchestra
 // and Flow: the Start view until a run is open; Fleet: until something runs;
-// 3.0.7.0 R3 Org: until a company is linked, Design: until a project exists).
-// Roles alone is still the framed classic page. The Workspace does the rest
+// 3.0.7.0 R3 Org: until a company is linked, Design: until a project exists;
+// R2 Roles: until you have a lineup of your own). Every section is React now
+// (the framed classic page is gone). The Workspace does the rest
 // (drag, resize, collapse, pop out, persistence). Each section's "How this
 // works" copy is routes/sectionHelp.ts.
 // Design also carries the Media panels as optional ones the palette adds.
@@ -20,7 +21,6 @@ import { FleetView } from "./fleet/Start";
 import { enterWorkspace as enterFleet } from "./fleet/store";
 import { designPanels } from "./design/Design";
 import { DesignView } from "./design/Start";
-import { legacyPanels } from "./legacy/LegacyFrame";
 import { mediaPanels } from "./media/MediaPanels";
 import { orchestraPanels } from "./orchestra/Orchestra";
 import { OrchestraRail } from "./orchestra/OrchRail";
@@ -29,6 +29,9 @@ import { enterWorkspace as enterOrchestra } from "./orchestra/store";
 import { orgPanels } from "./org/Org";
 import { OrgView } from "./org/Start";
 import { setView as enterOrg } from "./org/store";
+import { rolesPanels } from "./roles/Roles";
+import { RolesView } from "./roles/Start";
+import { setView as enterRoles } from "./roles/store";
 
 export type SectionDef = {
   id: SectionId;
@@ -46,7 +49,7 @@ export type SectionDef = {
 
 export const SECTIONS: SectionDef[] = [
   { id: "orchestra", title: "Orchestra", kbd: "Alt+1", blurb: "Runs of your agents, live", panels: orchestraPanels, rail: OrchestraRail, view: OrchestraView, enter: enterOrchestra },
-  { id: "roles", title: "Roles", kbd: "Alt+2", blurb: "Lineups and agent bios", panels: legacyPanels("roles", "Roles") },
+  { id: "roles", title: "Roles", kbd: "Alt+2", blurb: "Lineups and agent bios", panels: rolesPanels, view: RolesView, enter: () => enterRoles("workspace") },
   { id: "org", title: "Org", kbd: "Alt+3", blurb: "Your company in Paperclip", panels: orgPanels, view: OrgView, enter: () => enterOrg("workspace") },
   { id: "design", title: "Design", kbd: "Alt+4", blurb: "Prototypes, pages and decks", panels: [...designPanels, ...mediaPanels(0, "optional")], view: DesignView },
   { id: "flow", title: "Flow", kbd: "Alt+5", blurb: "A brief to renders, posts and metrics", panels: flowPanels, rail: FlowRail, view: FlowView, enter: enterWorkspace },

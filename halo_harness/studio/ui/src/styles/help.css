@@ -29,7 +29,7 @@
 .inspector-help { margin: 0; padding: 8px 10px 8px 26px; display: grid; gap: 3px; font-size: 12.5px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
 
 /* -- status bar: the framed page's own status line ------------------------------ */
-.legacy-status { overflow: hidden; text-overflow: ellipsis; }
+.section-status { overflow: hidden; text-overflow: ellipsis; }
 
 /* -- Orchestra: the Start view and the goal form --------------------------------- */
 .og-start .fl-start-form { padding: 20px; }

@@ -77,8 +77,9 @@ def test_guard_token_origin_and_static(ctx: Ctx):
         ctx.check("the page is served", status == 200 and b"<title>Halo Studio</title>" in body)
         ctx.check("the page carries a content-security policy and nosniff",
                   "default-src 'self'" in headers.get("Content-Security-Policy", "") and headers.get("X-Content-Type-Options") == "nosniff")
-        ctx.check("every static file the page names is served",
-                  all(s.call("GET", "/legacy/" + f, raw=True)[0] == 200 for f in ("studio.css", "api.js", "canvas.js", "inspector.js", "bio-form.js", "palette.js", "app.js")))
+        ctx.check("every file the page names is served (3.0.7.0 R2: the shell's build only)",
+                  all(s.call("GET", "/" + f, raw=True)[0] == 200 for f in ("studio.css", "studio.js")))
+        ctx.check("the classic page is gone", s.call("GET", "/legacy/index.html", raw=True)[0] == 404 and s.call("GET", "/app.js", raw=True)[0] == 404)
         ctx.check("a path outside static is refused", s.call("GET", "/../server.py", raw=True)[0] == 404)
         ctx.check("no token is a 401", s.call("GET", "/api/state", token="")[0] == 401)
         ctx.check("a wrong token is a 401", s.call("GET", "/api/state", token="nope")[0] == 401)
@@ -184,8 +185,10 @@ def test_models_status_and_refresh(ctx: Ctx):
         status, r, _ = s.call("POST", "/api/models/refresh?no_probe=1", {})
         ctx.check("models/refresh answers the row count and one line per attempt",
                   status == 200 and isinstance(r["rows"], int) and isinstance(r["attempts"], list))
-        html = s.call("GET", "/legacy/index.html", raw=True)[1].decode("utf-8", "replace")
-        ctx.check("the legacy page loads the model notice script before the inspector", html.find("model-notice.js") < html.find("inspector.js") > 0)
+        status, gym, _ = s.call("GET", "/api/gym")
+        ctx.check("3.0.7.0 R2: GET gym answers the gym's scores (none on a bare home)", status == 200 and gym == {"scores": {}})
+        status, best, _ = s.call("GET", "/api/models/best-for")
+        ctx.check("3.0.7.0 R2: GET models/best-for answers a ref -> kinds mapping", status == 200 and isinstance(best, dict))
 
 
 if __name__ == "__main__":

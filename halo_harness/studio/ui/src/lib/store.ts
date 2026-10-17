@@ -81,8 +81,8 @@ export type StudioState = {
   railOpen: boolean;
   inspector: PanelRef | null;
   help: HelpRef | null;
-  /** A section's own status line: the framed Roles page's (postMessage legacy-status); Org's and Design's from their stores. */
-  legacy: Partial<Record<SectionId, string>>;
+  /** A section's own status line (3.0.7.0 R2: Roles, Org and Design each set theirs from their store). */
+  status: Partial<Record<SectionId, string>>;
   feed: { status: FeedStatus; events: number; lastKind: string; lastTs: number; sessions: SessionInfo[] };
   activity: Partial<Record<SectionId, number>>;
   toasts: ToastItem[];
@@ -129,7 +129,7 @@ export const studio = createStore<StudioState>({
   railOpen: readLocal("halo.studio.rail") !== "closed",
   inspector: null,
   help: null,
-  legacy: {},
+  status: {},
   feed: { status: "off", events: 0, lastKind: "", lastTs: 0, sessions: [] },
   activity: {},
   toasts: [],
@@ -184,6 +184,11 @@ export function toast(text: string, tone: ToastItem["tone"] = "info", ms = 3200)
   const id = ++toastSeq;
   studio.update((s) => ({ toasts: [...s.toasts.slice(-3), { id, text, tone }] }));
   window.setTimeout(() => studio.update((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), ms);
+}
+
+/** A section's line in the status bar (setSectionStatus("roles", "...")). */
+export function setSectionStatus(section: SectionId, text: string): void {
+  studio.update((s) => (s.status[section] === text ? {} : { status: { ...s.status, [section]: text } }));
 }
 
 export function markActivity(section: SectionId): void {

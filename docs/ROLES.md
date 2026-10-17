@@ -45,7 +45,12 @@ and `roles.enabled`):
    tree with prices before you apply it.
 2. **The command line** -- `halo teams use <name>` points the active
    lineup at one; `halo roles on|off` flips the switch.
-3. **Studio** -- coming in 2.1.0.
+3. **Studio** -- `halo studio --mode roles` (or `/roles` in a session):
+   the Roles section (3.0.7.0 R2) shows the lineup as cards in tier boxes;
+   New, Duplicate, Delete and Apply a lineup, edit a card's slot and every
+   section, drag a card into another tier, edit bios with the model picker
+   table and **Test this model**, and read every problem with its fix as you
+   edit. See [STUDIO.md](STUDIO.md#what-you-see-roles).
 
 Everything below is the field-by-field reference; nothing in it changed.
 
@@ -537,6 +542,15 @@ alone) is outside the tiers and is not counted. Studio's graph carries the
 tiers (`graph.tiers`: name, members, max_parallel, index, implicit and the
 card ids in each), and a lineup's saved layout keeps each tier's collapsed
 state beside the card positions.
+
+**In Studio** (3.0.7.0 R2): each tier is a labelled column box on the Roles
+canvas (tier 0 on the left, the implicit last tier dashed); its strip
+collapses or expands it. Drag a card into another box and the alias moves to
+that tier's `members` and the lineup saves (`PUT /api/lineup/<name>`); the
+main agent stays in tier 0 and nothing else may join it (the drop snaps back
+with the rule). The Inspector's Lineup tab edits `tiers` as rows (name,
+members, max at once) or as YAML, and the Problems panel lists the tier
+lines above plus "three tiers need `delegation.max_depth: 2`".
 
 ## Lanes and fallbacks (Halo 2.0.5 round 4)
 

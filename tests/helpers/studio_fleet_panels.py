@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import time
 
-from tests.helpers.studio_fleet import DETAIL, DOC, FRAME, card, frame_click
+from tests.helpers.studio_fleet import CANVAS, DETAIL, LIVE_CARDS, card, card_click
 
 PANELS = ("fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-map", "fleet-activity", "fleet-agent",
           "fleet-capabilities", "fleet-mission")  # 3.0.6.0 R6, R8
@@ -86,25 +86,27 @@ def digest(c, out: dict) -> None:
 
 
 def replay(c, rig, out: dict) -> None:
+    """3.0.7.0 R2: the replay bar under the React Roles canvas."""
+    bar = "document.querySelector('[data-testid=\"replay-bar\"]')"
     c.go(rig.url("roles"))
-    c.wait(f"{DOC}?.querySelectorAll('[data-testid=\"live-card\"]').length >= 3", 30)
-    frame_click(c, f"{card('reviewer')}.querySelector('.card')")
-    frame_click(c, f"{DOC}.querySelector('[data-testid=\"live-tab\"]')")
-    out["history_replay"] = c.wait(f"{DOC}.querySelectorAll('[data-testid=\"live-replay\"]').length", 15)
-    frame_click(c, f"{DOC}.querySelector('[data-testid=\"live-replay\"]')")
-    bar = f"{DOC}.querySelector('[data-testid=\"replay-bar\"]')"
+    c.wait(f"{LIVE_CARDS}.length >= 3", 30)
+    card_click(c, card("reviewer"))
+    c.click_on("document.querySelector('[data-testid=\"roles-live-tab\"]')")
+    out["history_replay"] = c.wait("document.querySelectorAll('[data-testid=\"roles-history-replay\"]').length", 15)
+    c.click_on("document.querySelector('[data-testid=\"roles-history-replay\"]')")
     out["bar"] = c.wait(f"{bar}?.querySelector('.replay-title')?.textContent", 15)
     lit = "(() => { const g = " + card("reviewer") + "; return g ? (g.dataset.live || 'none') : 'no card'; })()"
 
     def scrub(v: int) -> dict:
-        c.js(f"(() => {{ const r = {bar}.querySelector('[data-testid=\"replay-scrub\"]'); r.value = '{v}'; r.dispatchEvent(new Event('input', {{bubbles: true}})); return 1; }})()")
+        c.js(f"""(() => {{ const r = {bar}.querySelector('[data-testid="replay-scrub"]');
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(r, '{v}');
+          r.dispatchEvent(new Event('input', {{bubbles: true}})); return 1; }})()""")
         time.sleep(0.4)
-        return {"t": c.js(f"{bar}.dataset.t"), "lit": c.js(f"{bar}.dataset.lit"), "reviewer": c.js(lit),
-                "playing": c.js(f"{FRAME}.contentWindow.haloReplay.playing"), "rt": c.js(f"Math.round({FRAME}.contentWindow.haloReplay.t - {FRAME}.contentWindow.haloReplay.t0)")}
+        return {"t": c.js(f"{bar}.dataset.t"), "lit": c.js(f"{bar}.dataset.lit"), "reviewer": c.js(lit), "playing": c.js(f"{bar}.dataset.playing === 'true'")}
     out["early"], out["mid"], out["end"] = scrub(20), scrub(500), scrub(1000)
-    out["ignores_live"] = c.js(f"{FRAME}.contentWindow.haloLive.replaying === true")
-    frame_click(c, f"{DOC}.querySelector('[data-testid=\"replay-close\"]')")
-    out["closed"] = c.wait(f"!{bar} && {DOC}.querySelectorAll('[data-testid=\"live-card\"]').length >= 3 && 'live again'", 15)
+    out["ignores_live"] = c.js(f"{CANVAS}.dataset.replaying === 'true' && !{card('implementer')}.dataset.live")
+    c.click_on("document.querySelector('[data-testid=\"replay-close\"]')")
+    out["closed"] = c.wait(f"!{bar} && {LIVE_CARDS}.length >= 3 && 'live again'", 15)
 
 
 def conflict(c, rig, out: dict) -> None:

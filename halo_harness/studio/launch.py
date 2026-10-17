@@ -50,19 +50,18 @@ def port_answers(port: int, timeout: float = 0.3) -> bool:
         return False
 
 
-def url_from_info(info: dict, mode: Optional[str] = None, legacy: bool = False) -> str:
+def url_from_info(info: dict, mode: Optional[str] = None) -> str:
     query = f"?mode={mode}" if mode in STUDIO_MODES else ""
     token = info.get("token") or ""
-    path = "legacy/index.html" if legacy else ""
-    return f"http://127.0.0.1:{info['port']}/{path}{query}" + (f"#t={token}" if token else "")
+    return f"http://127.0.0.1:{info['port']}/{query}" + (f"#t={token}" if token else "")
 
 
-def existing_url(state_dir: Path, mode: Optional[str] = None, legacy: bool = False) -> str:
-    """The running instance's URL (with `mode` in the query; `legacy`: the plain page), or ''."""
+def existing_url(state_dir: Path, mode: Optional[str] = None) -> str:
+    """The running instance's URL (with `mode` in the query), or ''."""
     info = read_info(state_dir)
     if not info or not port_answers(info["port"]):
         return ""
-    return url_from_info(info, mode, legacy)
+    return url_from_info(info, mode)
 
 
 def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_browser: bool = True,
