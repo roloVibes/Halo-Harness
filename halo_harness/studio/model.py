@@ -225,7 +225,12 @@ def _is_shipped_copy(name: str, raw: dict) -> bool:
     Start view counts those as shipped, not as a lineup of your own)."""
     shipped = T.bundled_team_templates_dir() / f"{name}.yaml"
     try:
-        return bool(raw.get("_path")) and shipped.is_file() and Path(raw["_path"]).read_bytes() == shipped.read_bytes()
+        if not raw.get("_path") or not shipped.is_file():
+            return False
+        # the copy is written in text mode, so on Windows a shipped file checked out with LF comes back CRLF:
+        # compare the lines, not the line endings
+        same = Path(raw["_path"]).read_bytes().replace(b"\r\n", b"\n") == shipped.read_bytes().replace(b"\r\n", b"\n")
+        return same
     except OSError:
         return False
 
