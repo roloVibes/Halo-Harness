@@ -153,6 +153,13 @@ refused outside a part's claims and what failed. The hub journals
 `mission_claim` and `mission_end`; the digest lists them. A planned mission
 raises a `mission_plan` attention row: approve and run, edit, or drop.
 
+**Preflight** (Halo 3.0.7.0). `run` first checks this harness's active
+lineup with the run-start preflight: a model id its provider's catalog does not know (requests for it 404 and the member comes back empty), an assignment or org position naming a bio that does not exist, a bio whose `tools.allow` is an empty list (it may call no tool), and a `tiers` problem ([ROLES.md](ROLES.md#tiers-halo-3070)). A blocking
+problem answers 422 `{error, problems, preflight: true}` (the error lists each
+problem with its fix) and the mission stays as it was; `{"force": true}` on
+`POST /api/fleet/missions/<id>/run` (or `halo fleet mission run <id>
+--force`) runs anyway.
+
 ## A worked example
 
 The Windows host has GridCraft and the RTX 4090; the Kali box has nmap.

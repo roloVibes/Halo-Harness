@@ -101,6 +101,17 @@ def default_tools() -> list:
     return tools
 
 
+def known_tool_names() -> "list[str]":
+    """The harness's tool names: every `default_tools()` name plus Agent and
+    WebSearch, sorted, each once (3.0.7.0 R1: moved here from the bio
+    editor; Studio's `GET /api/tools` and the bio editor's allow/deny
+    fields both read it). Never raises: [] when the registry cannot load."""
+    try:
+        return sorted({t.name for t in default_tools()} | {"Agent", "WebSearch"})
+    except Exception:
+        return []
+
+
 class ToolRegistry:
     def __init__(self, tools: Optional[list] = None):
         self._tools: dict = {t.name: t for t in (tools if tools is not None else default_tools())}

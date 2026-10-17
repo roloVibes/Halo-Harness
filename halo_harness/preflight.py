@@ -32,6 +32,9 @@ from typing import Optional
 
 from halo_harness.config.paths import bridge_home
 from halo_harness.tools.base import Tool, ToolResult
+# Halo 3.0.7.0 R1: the run-start lineup preflight lives in lineup_preflight.py
+# (this module is the lane-canary preflight); both spellings import it.
+from halo_harness.lineup_preflight import lineup_problems  # noqa: F401,E402
 
 
 # ---- the canary census (measured lane health, on disk) ------------------------

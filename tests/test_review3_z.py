@@ -160,11 +160,11 @@ def test_z5_org_layouts_use_a_file_name_without_a_colon(ctx: Ctx):
     M.write_layout(state, "pc:abc-123", {"n1": {"x": 1, "y": 2}})
     files = sorted(p.name for p in M.layouts_dir(state).iterdir())
     ctx.check(f"stored as _pc-abc-123.json, got {files}", files == ["_pc-abc-123.json"])
-    ctx.check("it reads back", M.read_layout(state, "pc:abc-123") == {"n1": {"x": 1, "y": 2}})
+    ctx.check("it reads back", M.read_layout(state, "pc:abc-123") == {"nodes": {"n1": {"x": 1, "y": 2}}, "tiers": {}})
     M.write_layout(state, "pc-abc-123", {"lineup": {"x": 9, "y": 9}})
     ctx.check("a lineup named pc-abc-123 keeps its own file",
-              M.read_layout(state, "pc-abc-123") == {"lineup": {"x": 9, "y": 9}}
-              and M.read_layout(state, "pc:abc-123") == {"n1": {"x": 1, "y": 2}})
+              M.read_layout(state, "pc-abc-123") == {"nodes": {"lineup": {"x": 9, "y": 9}}, "tiers": {}}
+              and M.read_layout(state, "pc:abc-123") == {"nodes": {"n1": {"x": 1, "y": 2}}, "tiers": {}})
     ctx.check("a lineup layout keeps its plain name", M.layout_file_name("main") == "main.json")
 
 
@@ -173,16 +173,16 @@ def test_z5_an_old_colon_layout_is_read_once_and_moved_on_posix(ctx: Ctx):
     from halo_harness.studio import model as M
     if os.name == "nt":
         ctx.check("the old spelling is never consulted on Windows (it was an NTFS stream)",
-                  M.read_layout(Path(tempfile.mkdtemp(prefix="z5w-")), "pc:old") == {})
+                  M.read_layout(Path(tempfile.mkdtemp(prefix="z5w-")), "pc:old") == {"nodes": {}, "tiers": {}})
         return
     state = Path(tempfile.mkdtemp(prefix="z5p-"))
     d = M.layouts_dir(state)
     d.mkdir(parents=True)
     (d / "pc:old.json").write_text(json.dumps({"a": {"x": 3, "y": 4}}), encoding="utf-8")
-    ctx.check("the old spelling is read", M.read_layout(state, "pc:old") == {"a": {"x": 3, "y": 4}})
+    ctx.check("the old spelling is read", M.read_layout(state, "pc:old") == {"nodes": {"a": {"x": 3, "y": 4}}, "tiers": {}})
     names = sorted(p.name for p in d.iterdir())
     ctx.check(f"and moved to the new one, got {names}", names == ["_pc-old.json"])
-    ctx.check("it still reads after the move", M.read_layout(state, "pc:old") == {"a": {"x": 3, "y": 4}})
+    ctx.check("it still reads after the move", M.read_layout(state, "pc:old") == {"nodes": {"a": {"x": 3, "y": 4}}, "tiers": {}})
 
 
 @test

@@ -8,6 +8,9 @@ enabled provider's catalog (and probes logins when a provider is detected
 but has no rows yet), then returns the new row count. Nothing here writes
 anything but the providers' own cache files, exactly as `halo models
 --refresh` and the wizard's keys step already do.
+
+3.0.7.0 R1: `POST models/test {ref}` sends the one-token probe
+(model_probe.py) and answers `{ok, latency_ms, error, cost_line, ref, reply}`.
 """
 from __future__ import annotations
 
@@ -98,7 +101,18 @@ def post_models_refresh(req: Request):
     return 200, {"rows": len(rows), "attempts": lines, "reason": _reason(rows, providers)}
 
 
+def post_models_test(req: Request):
+    """3.0.7.0 R1 ("Test this model"): `{ref}` -> `{ok, latency_ms, error,
+    cost_line, ref, reply}`, a one-token round trip (model_probe.py, 20 s)."""
+    ref = str((req.body or {}).get("ref") or "").strip()
+    if not ref:
+        return 422, {"error": 'say which model: {"ref": "or:vendor/model"}', "problems": ["ref is required"]}
+    from halo_harness.model_probe import probe_model
+    return 200, probe_model(ref, state_dir=req.state_dir)
+
+
 ROUTES: list = [
     ("GET", r"^models/status$", get_models_status),
     ("POST", r"^models/refresh$", post_models_refresh),
+    ("POST", r"^models/test$", post_models_test),
 ]

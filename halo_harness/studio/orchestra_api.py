@@ -4,7 +4,8 @@ token guard as every Studio route; the runs are those of the git repo that
 holds Studio's folder (`req.cwd`).
 
     GET  orchestra/runs                    [{run_id, created, state, workers, goal_what, cost_usd}]
-    POST orchestra/run                     {what, done_when, stop_when, workers, ..., model?, dry_run?} -> 201 {run_id}
+    POST orchestra/run                     {what, done_when, stop_when, workers, ..., model?, dry_run?, force?} -> 201 {run_id}
+                                           (422 {error, problems, preflight: true} when the lineup preflight blocks)
     GET  orchestra/<run>                   {run, goal, workflow, split, lanes, claims, merge, report, events_count, live}
     GET  orchestra/<run>/events?since=N    {events, next}
     GET  orchestra/<run>/file?path=<rel>   {path, base, regions}
@@ -64,6 +65,11 @@ def post_run(req):
     missing = [f for f in data.get("files") or [] if not (repo / norm_file(f)).is_file()]
     if missing:
         return _bad([f"{f} is not a file in {repo}" for f in missing])
+    if not body.get("force"):  # 3.0.7.0 R1: the run-start preflight (lineup_preflight.py)
+        from halo_harness.lineup_preflight import blocking, lineup_problems, refusal_body
+        problems = lineup_problems(str(data.get("lineup") or "") or None, cwd=repo, state_dir=req.state_dir)
+        if blocking(problems):
+            return 422, refusal_body(problems, what="the Orchestra run")
     busy = live.live_id()
     if busy:
         return 409, {"error": f"run {busy} is still running: stop it or wait for its report", "run_id": busy}

@@ -12,7 +12,8 @@ else for this harness alone.
     POST fleet/missions/<id>/plan              plans again (the lead): the same shape
     POST fleet/missions/<id>/parts/<n> {harness?, drop?: true}   reassign or drop one part, checked in code
     POST fleet/missions/<id>/approve           planned -> approved (409 with the problems: an unassignable part)
-    POST fleet/missions/<id>/run               approves when planned, then runs
+    POST fleet/missions/<id>/run {force?}      approves when planned, then runs (422 {error, problems,
+                                               preflight: true} when the lineup preflight blocks)
     POST fleet/missions/<id>/stop {reason?}    stops every running part; the mission ends `stopped`
     GET  fleet/missions/<id>/report            {report, markdown, final}
     GET  fleet/missions/<id>/files[?path=]     the folder's files, or one text file {path, size, text, truncated}
@@ -55,6 +56,8 @@ def _do(req, op: str, **fields):
         return A.stop(ctx, mid, str(fields.get("reason") or ""))
     if op == "files":
         return A.files(ctx, mid, str(fields.get("path") or ""))
+    if op == "run":
+        return A.run(ctx, mid, force=bool(fields.get("force")))
     return {"get": A.get, "plan": A.replan, "approve": A.approve, "run": A.run, "report": A.report}[op](ctx, mid)
 
 
@@ -90,7 +93,8 @@ def post_approve(req):
 
 
 def post_run(req):
-    return _do(req, "run", id=req.params["mid"])
+    force = {"force": True} if _body(req).get("force") else {}  # 3.0.7.0 R1: past the lineup preflight
+    return _do(req, "run", id=req.params["mid"], **force)
 
 
 def post_stop(req):

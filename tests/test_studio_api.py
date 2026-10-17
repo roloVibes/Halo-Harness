@@ -114,7 +114,15 @@ def test_read_routes(ctx: Ctx):
         ctx.check("a bio payload carries raw, resolved, yaml and no problems", status == 200 and b["raw"]["name"] == "reviewer" and b["problems"] == [])
         ctx.check("models answers a list (empty on a bare home)", s.call("GET", "/api/models")[0] == 200)
         ctx.check("session answers running as a bool and an agents list", isinstance(s.call("GET", "/api/session")[1]["running"], bool) and isinstance(s.call("GET", "/api/session")[1]["agents"], list))
-        ctx.check("tools answers names", "Bash" in s.call("GET", "/api/tools")[1])
+        from halo_harness.tools.registry import known_tool_names
+        ctx.check("tools answers exactly the registry's names (3.0.7.0)", s.call("GET", "/api/tools")[1] == known_tool_names()
+                  and "Bash" in known_tool_names() and "WebSearch" in known_tool_names())
+        api_src = (Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "api.py").read_text(encoding="utf-8")
+        get_tools_src = api_src[api_src.index("def get_tools"):api_src.index("ROUTES: list")]
+        ctx.check("no hardcoded tool names remain in get_tools", '"Read"' not in get_tools_src and '"Bash"' not in get_tools_src
+                  and "builtin_tool_names" not in api_src)
+        from halo_harness.tui.dialogs.agent_bio_editor import known_tool_names as bio_names
+        ctx.check("the bio editor reads the same list", bio_names() == known_tool_names())
 
 
 @test
@@ -138,7 +146,15 @@ def test_write_routes(ctx: Ctx):
         status, v, _ = s.call("POST", "/api/validate", {"kind": "lineup", "raw": raw})
         ctx.check("validate returns problems and a graph without writing", status == 200 and v["problems"] == [] and v["graph"]["nodes"])
         s.call("PUT", "/api/layout/studio-t", {"positions": {"main#0": {"x": 10, "y": 20}}})
-        ctx.check("a layout persists", s.call("GET", "/api/layout/studio-t")[1] == {"main#0": {"x": 10, "y": 20}})
+        ctx.check("a layout persists: the flat positions for the legacy page, plus nodes and tiers (3.0.7.0)",
+                  s.call("GET", "/api/layout/studio-t")[1] == {"main#0": {"x": 10, "y": 20}, "nodes": {"main#0": {"x": 10, "y": 20}},
+                                                              "tiers": {}})
+        s.call("PUT", "/api/layout/studio-t", {"nodes": {"main#0": {"x": 1, "y": 2}}, "tiers": {"all": {"collapsed": True}}})
+        ctx.check("a {nodes, tiers} save keeps the tier state", s.call("GET", "/api/layout/studio-t")[1]["tiers"] == {"all": {"collapsed": True}})
+        ctx.check("a bad tiers value is a 422", s.call("PUT", "/api/layout/studio-t", {"positions": {}, "tiers": [1]})[0] == 422)
+        ctx.check("the lineup payload carries graph tiers and the layout view",
+                  s.call("GET", "/api/lineup/studio-t")[1]["graph"]["tiers"][0]["name"] == "all"
+                  and s.call("GET", "/api/lineup/studio-t")[1]["layout"]["nodes"] == {"main#0": {"x": 1, "y": 2}})
         status, ap, _ = s.call("POST", "/api/lineup/studio-t/apply")
         ctx.check("apply writes team and roles like halo teams use",
                   status == 200 and ap["active_team"] == "studio-t" and get_config_value("team", "") == "studio-t"

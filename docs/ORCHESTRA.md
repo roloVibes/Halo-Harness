@@ -156,7 +156,7 @@ halo orchestra status [RUN]          the goal, the steps, live claims, the last 
 halo orchestra claims [RUN]          every live claim: key, holder, state, expiry
 halo orchestra log [RUN] [--since N] the timed run log
 halo orchestra runs                  every run of this repo, oldest first
-halo orchestra run [RUN] [--model REF] [--dry-run]
+halo orchestra run [RUN] [--model REF] [--dry-run] [--force]
                                      the pipeline: split, workers, merge, tests, gate, report
 halo orchestra lanes [RUN]           every lane: state, pieces sent back, cost, holder, keys
 halo orchestra report [RUN]          the report and its checks
@@ -175,6 +175,17 @@ prints the jobs; nothing is claimed and no worktree is made. `--model REF`
 is the model every part uses; without it each part takes its role's model
 from the role table (`halo roles`): the goal's `lead` for the split and the
 judge, the goal's `worker` for the workers, else the default model.
+
+**Preflight** (Halo 3.0.7.0). Before the split, and before a `--dry-run`, the
+run-start preflight (`lineup_preflight.py`) checks the lineup the run uses
+(the goal's `lineup`, else the active team) for what would make the lanes
+come back empty: a model id its provider's catalog does not know (requests for it 404 and the member comes back empty), an assignment or org position naming a bio that does not exist, a bio whose `tools.allow` is an empty list (it may call no tool), and a `tiers` problem ([ROLES.md](ROLES.md#tiers-halo-3070)). Each
+blocking problem prints with its fix and the run stops before anything is
+claimed (exit 2); `--force` runs anyway. Studio's `POST /api/orchestra/run`
+answers 422 `{error, problems, preflight: true}` (each problem `{id,
+severity: "blocks"|"warns", text, fix}`) and runs with `{"force": true}`.
+A lineup with only `warns` findings (a dead fallback, aliases in no tier)
+runs. `halo doctor --roles` lists the same findings for the active lineup.
 
 `/orchestra [RUN]` in the TUI opens a panel like `/tasks`: the run's steps,
 one row per lane (state, pieces sent back, cost, holder, title) and the last

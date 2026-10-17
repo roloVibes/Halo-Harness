@@ -101,14 +101,12 @@ _IDENTITY_HINT_ID = "bio-identity-hint"
 
 
 def known_tool_names() -> "list[str]":
-    """Best-effort, local-only -- "" the harness's real tool names (the
-    brief's own "allow and deny from the harness's tool names"). Never
-    raises: an unresolvable registry just means the allow/deny fields fall
-    back to free text with no live-catalog note, same leniency a typed-but-
-    unenumerated model ref already gets elsewhere in this codebase."""
+    """The harness's real tool names (the allow/deny fields' catalog) --
+    `tools.registry.known_tool_names`, the one list Studio's `GET
+    /api/tools` answers too. Never raises."""
     try:
-        from halo_harness.tools.registry import default_tools
-        return sorted({t.name for t in default_tools()}) + ["Agent", "WebSearch"]
+        from halo_harness.tools.registry import known_tool_names as _names
+        return _names()
     except Exception:
         return []
 

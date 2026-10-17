@@ -485,6 +485,59 @@ Price is not repeated here (that needs a parent model to fall back to,
 which this standalone command has no live session to borrow -- see
 `/roles` above for that).
 
+## Tiers (Halo 3.0.7.0)
+
+A lineup can stack its members in tiers: an ordered list under `tiers:`,
+each entry a name, the aliases it holds and an optional `max_parallel`.
+
+```yaml
+agents:
+  - {agent: orchestrator, role: main}
+  - {agent: researcher, role: planner}
+  - {agent: reviewer, role: reviewer}
+  - {agent: implementer, role: subagent, as: worker, instances: 3}
+tiers:
+  - {name: lead, members: [main]}
+  - {name: leads, members: [planner, reviewer], max_parallel: 2}
+  - {name: workers, members: [worker], max_parallel: 3}
+delegation:
+  max_depth: 2      # a three-tier stack is two spawn levels deep
+```
+
+**The rule:** a member spawns only into the next tier down. `main` (tier 0)
+spawns `planner` or `reviewer`; a lead spawns `worker`; a worker spawns no
+lineup member (it does its work itself). A member is named by its alias:
+the assignment's `as`, else its `role`.
+
+**What the validator checks** (`halo teams validate`, the lineup editor's
+Save, Studio's Problems): tier names are unique; every member is an alias in
+the lineup; the main agent sits alone in tier 0; an alias sits in at most
+one tier; `max_parallel` is a positive whole number.
+
+**The implicit tiers.** An alias no tier names joins an implicit last tier
+called `rest`, and a `warning:` line says so (it does not block a save). A
+lineup with no `tiers:` has one implicit tier, `all`, holding everyone, and
+spawning follows the other sections only: nothing changes for a lineup
+written before 3.0.7.0. `extends` merges `tiers` like any other section: a
+child that never mentions it inherits the parent's list; a child's own list
+replaces it.
+
+**At run time** the check sits right after routing, before the pipeline
+gate, and comes back to the spawning model as one line:
+
+```
+`main` (tier 0 `lead`) may spawn only into the next tier down (tier 1 `leads`); `worker` is in tier 2
+tier `leads` already runs 2 of 2: wait or raise max_parallel
+```
+
+`max_parallel` counts the tier's live members across the whole session
+tree; a member's slot frees the moment its call ends. A sub-agent spawned
+with no lineup alias (a plain `general-purpose` call the routing leaves
+alone) is outside the tiers and is not counted. Studio's graph carries the
+tiers (`graph.tiers`: name, members, max_parallel, index, implicit and the
+card ids in each), and a lineup's saved layout keeps each tier's collapsed
+state beside the card positions.
+
 ## Lanes and fallbacks (Halo 2.0.5 round 4)
 
 Roles interact with the Governor's routing layer in two ways:

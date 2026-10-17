@@ -126,6 +126,14 @@ is ignored. For an org gate the id is `<run>:<step>:<position>` and `redo`
 re-runs that position with the instruction. `--yes` accepts every gate, and
 `halo flow stop` answers an open gate with stop.
 
+**Preflight** (Halo 3.0.7.0). Before `halo flow run` makes the run folder,
+the run-start preflight checks every lineup the flow's `roles` steps use:
+a model id its provider's catalog does not know (requests for it 404 and the member comes back empty), an assignment or org position naming a bio that does not exist, a bio whose `tools.allow` is an empty list (it may call no tool), and a `tiers` problem ([ROLES.md](ROLES.md#tiers-halo-3070)). Each blocking
+problem prints with its fix, prefixed with its lineup, and nothing runs (exit
+2); `--force` runs anyway. Studio's `POST /api/flow/runs` answers 422
+`{error, problems, preflight: true}` and runs with `{"force": true}`.
+Findings that only warn (a dead fallback, aliases in no tier) do not stop it.
+
 ## The run folder
 
 `~/.halo/flows/runs/<YYYYMMDD-HHMMSS-xxxx>/`:

@@ -8,7 +8,7 @@ pieces work together"). Shared by the wizard's "Roles and lineup" step
 `halo teams new|edit --form` (deliverable 4). A NEW module (hard
 constraint: `init_wizard.py` gains only the registration/tab lines).
 
-The nine `TOP_SECTIONS` beyond the assignments grid are each edited as ONE
+The ten `TOP_SECTIONS` beyond the assignments grid are each edited as ONE
 YAML-mapping-body `TextArea` inside a `Collapsible` (its own one-line
 meaning as the collapsible's title) rather than a bespoke typed widget per
 field -- the brief's own field list only demands individually-typed
@@ -29,7 +29,7 @@ from textual.widgets import Button, Collapsible, Input, Static, Switch, TextArea
 from textual.widgets.option_list import Option
 from textual.widgets import OptionList
 
-from halo_harness.teams_yaml import TOP_SECTIONS
+from halo_harness.teams_yaml import LIST_SECTIONS, TOP_SECTIONS
 from halo_harness.tui.dialogs.autocomplete import AutocompleteDropdown, AutocompleteInput, apply_pick, \
     refresh_dropdown
 
@@ -43,6 +43,7 @@ SECTION_MEANING = {
     "org": "a tree of positions (titles, reporting lines) built from this SAME lineup.",
     "pipeline": "an ordered list of stages (implement -> review -> ...); order shown, gates not enforced yet.",
     "acceptance": "one smoke prompt `halo doctor --teams` runs through this lineup.",
+    "tiers": "a YAML list of {name, members, max_parallel}: main alone in tier 0; each tier spawns only the next.",
 }
 
 
@@ -179,6 +180,9 @@ class LineupEditor(ModalScreen):
         Binding("ctrl+d", "delete_assignment", "Delete assignment", show=True, priority=True),
         Binding("ctrl+p", "pick_agent_or_model", "Pick agent/model", show=True, priority=True),
         Binding("ctrl+g", "draft_about", "Draft the about text", show=True, priority=True),
+        # 3.0.7.0 R1: "Test this model" on the focused assignment (the list
+        # owns the key; a text field types the letter as usual).
+        Binding("t", "test_model", "Test model", show=True),
     ]
     DEFAULT_CSS = """
     LineupEditor { align: center middle; }
@@ -208,6 +212,7 @@ class LineupEditor(ModalScreen):
         self._current_index: "Optional[int]" = None
         self._about_drafted_signature: "Optional[str]" = None
         self._pending_pick_field: "Optional[str]" = None
+        self._probe_line: str = ""
 
     def _agents(self) -> "list[dict]":
         return [e for e in self.template.get("agents") or [] if isinstance(e, dict)]
@@ -307,7 +312,7 @@ class LineupEditor(ModalScreen):
         except Exception:
             pass
 
-    # -- the 9 TOP_SECTIONS, each a YAML-mapping-body TextArea --------------
+    # -- the 10 TOP_SECTIONS, each a YAML body TextArea (tiers: a list) -----
     def _set_section_text(self, section: str, value) -> None:
         import yaml
         text = "" if not value else yaml.safe_dump(value, sort_keys=False, default_flow_style=False,
@@ -316,6 +321,10 @@ class LineupEditor(ModalScreen):
             self.query_one(f"#lineup-section-{section}", TextArea).text = text
         except Exception:
             pass
+
+    @staticmethod
+    def _section_shape_ok(section: str, parsed) -> bool:
+        return isinstance(parsed, list) if section in LIST_SECTIONS else isinstance(parsed, dict)
 
     def _section_dict(self, section: str) -> "Optional[dict]":
         import yaml
@@ -329,7 +338,7 @@ class LineupEditor(ModalScreen):
             parsed = yaml.safe_load(text)
         except yaml.YAMLError:
             return self.template.get(section)  # kept as-was; action_save's own validate_team_template still runs
-        return parsed if isinstance(parsed, dict) else self.template.get(section)
+        return parsed if self._section_shape_ok(section, parsed) else self.template.get(section)
 
     def _section_error(self, section: str) -> "Optional[str]":
         """Why this section's text cannot be saved (invalid YAML, or YAML
@@ -349,7 +358,9 @@ class LineupEditor(ModalScreen):
             mark = getattr(exc, "problem_mark", None)
             where = f" (line {mark.line + 1})" if mark is not None else ""
             return f"{section}: invalid YAML{where}"
-        if parsed is not None and not isinstance(parsed, dict):
+        if parsed is not None and not self._section_shape_ok(section, parsed):
+            if section in LIST_SECTIONS:
+                return f"{section}: must be a YAML list (- name: ... lines)"
             return f"{section}: must be a YAML mapping (key: value lines)"
         return None
 
@@ -392,6 +403,8 @@ class LineupEditor(ModalScreen):
                     lines.append(f"{label}: {format_price_per_m(pin)} in / {format_price_per_m(pout)} out")
                     continue
             lines.append(f"{label}: {ref or '(unset)'} -- free/unknown price")
+        if self._probe_line:
+            lines.append(f"test: {self._probe_line}")
         try:
             self.query_one("#lineup-cost-footer", Static).update(
                 "\n".join(lines) or "(no rows yet -- Ctrl+N adds the first)")
@@ -697,6 +710,44 @@ class LineupEditor(ModalScreen):
                 pass
         try:
             guarded_worker(self, _work, thread=True, name="lineup-smoke", group="lineup-smoke")
+        except Exception:
+            pass
+
+    def _assignment_model_ref(self, index: "Optional[int]") -> str:
+        agents = self._agents()
+        if index is None or not (0 <= index < len(agents)):
+            return ""
+        e = agents[index]
+        override = e.get("models") if isinstance(e.get("models"), dict) else {}
+        own = self._bio_models(e.get("agent"))
+        return str(override.get("preference") or own.get("preference") or own.get("fallback") or "").strip()
+
+    def action_test_model(self) -> None:
+        """3.0.7.0 R1 ("Test this model"): the one-token probe
+        (model_probe.py) on the focused assignment's model, on a guarded
+        worker; the line lands in the cost footer."""
+        index = self._highlighted_index()
+        ref = self._assignment_model_ref(index)
+        if not ref:
+            self._probe_line = "this assignment resolves no model yet -- pick a bio with a preference first"
+            self._refresh_cost_footer()
+            return
+        self._probe_line = f"{ref}: probing (one token, up to 20 s)..."
+        self._refresh_cost_footer()
+
+        def _work() -> None:
+            from halo_harness.model_probe import probe_line, probe_model
+            line = probe_line(probe_model(ref, state_dir=self.state_dir))
+
+            def _show() -> None:
+                self._probe_line = line
+                self._refresh_cost_footer()
+            try:
+                self.app.call_from_thread(_show)
+            except Exception:
+                pass
+        try:
+            guarded_worker(self, _work, thread=True, name="lineup-probe", group="lineup-probe")
         except Exception:
             pass
 

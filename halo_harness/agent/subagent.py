@@ -2055,6 +2055,15 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                     return [], ToolResult(role_error, is_error=True)
             role_override = team_target
             role_name = team_target
+        # Halo 3.0.7.0 R1 "tiers": a member spawns only into the next tier
+        # down, and the target tier's `max_parallel` counts its live members
+        # across the whole tree -- one line naming the rule, same shape as
+        # the gate stop below. The top session is the main agent; a child
+        # is the alias it was resolved under. No `tiers` = every spawn passes.
+        tier_caller = team_control.main_alias() if runtime.depth == 0 else getattr(parent, "role_name", None)
+        tier_stop = team_control.spawn_refusal(tier_caller, role_name)
+        if tier_stop is not None:
+            return [], ToolResult(tier_stop, is_error=True)
         team_stage = team_control.stage_for(team_kind, team_target)
         gate_stop = team_control.gate_block(team_stage)
         if gate_stop is not None:
@@ -2147,6 +2156,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # quit) needs to find it here even if the child's very first turn
     # never completes normally.
     runtime.live_children[agent_id] = child
+    if team_control is not None:
+        team_control.tier_claim(agent_id, role_name)  # 3.0.7.0 R1: counts against its tier's max_parallel
     new_task_id = uuid.uuid4().hex[:12]
     with runtime.lock:
         runtime.tasks[new_task_id] = {"child_session_id": child.log.session_id, "spec_name": spec.name,
@@ -2399,6 +2410,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                 # whole halo process quits.
                 child.close_cc()
                 runtime.live_children.pop(agent_id, None)
+                if team_control is not None:
+                    team_control.tier_release(agent_id)
                 with runtime.lock:
                     entry = runtime.tasks.get(new_task_id)
                     if entry is not None:
@@ -2423,6 +2436,8 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
         # keep it alive past this point.
         child.close_cc()
         runtime.live_children.pop(agent_id, None)
+        if team_control is not None:
+            team_control.tier_release(agent_id)
     text = _final_text_from_log(child)
     # H9 whole-tree review finding 26: `text` alone can't tell the parent
     # whether the child actually finished normally -- a provider failure/

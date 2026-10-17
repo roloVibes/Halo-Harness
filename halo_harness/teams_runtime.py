@@ -22,6 +22,8 @@ holds while it runs under a team (`team:` in config.json or `--team`):
 - `pipeline`: stages in order; a `required` gate must pass its stage's
   acceptance before the next stage starts, an `optional` one records and
   continues (`agents_doctor.check_expectation` is the checker).
+- `tiers` (Halo 3.0.7.0 R1): a member spawns only into the next tier down,
+  and a tier's `max_parallel` caps its live members (`teams_tiers.py`).
 """
 
 from __future__ import annotations
@@ -71,6 +73,7 @@ class TeamControl:
     stage_results: dict = field(default_factory=dict)  # stage name -> {"passed": bool, "note": str}
     budget_stopped: Optional[str] = None
     escalated: bool = False
+    tier_live: dict = field(default_factory=dict)      # agent_id -> tier index of a live lineup member
 
     # ---- sections (read-only views of the resolved template) --------------
     @property
@@ -134,6 +137,64 @@ class TeamControl:
             return None
         from halo_harness.agents_yaml import resolve_agent_bio
         return resolve_agent_bio(entry.get("agent"))
+
+    # ---- tiers (Halo 3.0.7.0 R1, teams_tiers.py) ------------------------------
+    @property
+    def tiers(self) -> list:
+        """The effective tiers: declared ones plus the implicit last tier,
+        or the one implicit tier `all` when the lineup declares none."""
+        from halo_harness.teams_tiers import effective_tiers
+        return effective_tiers(self.template)
+
+    @property
+    def tiers_declared(self) -> bool:
+        from halo_harness.teams_tiers import declared
+        return declared(self.template)
+
+    def main_alias(self) -> Optional[str]:
+        from halo_harness.teams_tiers import main_key
+        return main_key(self.template.get("agents"))
+
+    def tier_of(self, alias: Optional[str]) -> Optional[int]:
+        from halo_harness.teams_tiers import tier_index
+        return tier_index(self.tiers, alias)
+
+    def tier_gate(self, caller_alias: Optional[str], target_alias: Optional[str]) -> Optional[str]:
+        """None = `caller_alias` may spawn `target_alias`; else the line
+        naming the rule (a member spawns only into the next tier down). No
+        declared tiers = None always."""
+        if not self.tiers_declared:
+            return None
+        from halo_harness.teams_tiers import gate_line
+        return gate_line(self.tiers, caller_alias, target_alias)
+
+    def spawn_refusal(self, caller_alias: Optional[str], target_alias: Optional[str]) -> Optional[str]:
+        """`tier_gate`, then the target tier's `max_parallel` counted against
+        its live members across the whole session tree (`tier_claim` /
+        `tier_release` keep the count)."""
+        line = self.tier_gate(caller_alias, target_alias)
+        if line is not None or not self.tiers_declared:
+            return line
+        index = self.tier_of(target_alias)
+        if index is None:
+            return None
+        from halo_harness.teams_tiers import parallel_line
+        with self.lock:
+            live = sum(1 for i in self.tier_live.values() if i == index)
+        return parallel_line(self.tiers[index], live)
+
+    def tier_claim(self, agent_id: str, alias: Optional[str]) -> None:
+        """A lineup member's child starts: it counts against its tier."""
+        if not self.tiers_declared:
+            return
+        index = self.tier_of(alias)
+        if index is not None:
+            with self.lock:
+                self.tier_live[agent_id] = index
+
+    def tier_release(self, agent_id: str) -> None:
+        with self.lock:
+            self.tier_live.pop(agent_id, None)
 
     # ---- budget ------------------------------------------------------------
     @property
