@@ -117,6 +117,11 @@ class HubRig:
         m = self.member() or {}
         return next((s for s in m.get("sessions") or [] if s.get("session_id") == sid), None)
 
+    def member_session_online(self, sid: str):
+        """The session row once the member is online too: a session is announced a beat before its stream attaches
+        (and a re-attaching relay reads offline for one tick), so `online` is what `members`/commands look at."""
+        return self.member_session(sid) if (self.member() or {}).get("online") else None
+
     def drain(self) -> list:
         while True:
             f = self.feed.get(0.05)

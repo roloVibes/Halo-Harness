@@ -47,7 +47,7 @@ def test_pair_join_members_status_kick_leave_from_the_command_line(ctx: Ctx):
         ctx.check(f"the same code again is refused (exit 1, the reason on stderr), got {rc}", rc == 1
                   and "not accepted" in err)
         _controller, act = rig.session()
-        wait_for(lambda: rig.member_session(act.session_id))
+        wait_for(lambda: rig.member_session_online(act.session_id))
         rc, out, err = cli(rig.root_a, "members", "--json")
         rows = _json(out).get("members") or []
         ctx.check(f"`halo fleet members` lists B, online, and never a key, got {rows}", rc == 0 and len(rows) == 1

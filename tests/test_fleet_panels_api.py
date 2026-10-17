@@ -112,6 +112,8 @@ def test_the_queue_over_the_rig_and_answers_reach_their_handlers(ctx: Ctx):
         rig.hub.state.commands._pending[p.cid] = p
         rig.hub.state.frames(MEMBER, {"link": "rig-link", "frames": [{"session_id": MEMBER_SID, "event": "agent_state", "agent_id": REVIEWER["agent_id"],
                                                                      "data": {**REVIEWER, "state": "paused"}, "ts": time.time()}]})
+        from halo_harness.studio.fleet_watch import watcher_for
+        watcher_for(rig.server, rig.state).tick()  # the GET serves a snapshot up to 1 s old; build it after the seed
         status, got = rig.api("GET", "fleet/attention")
         rows = got.get("rows") or []
         ctx.check(f"member cards, a paused agent, the flow gate, the orchestra gate and the asked command, got {_kinds(rows)}",
