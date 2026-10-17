@@ -1315,3 +1315,62 @@ turn; Esc does that); second press within 3 s opens a Quit Halo? card
 that never quits by itself; `quit_on_double_ctrl_c: false` makes the
 second press copy again. Brief: `plans/briefs/2.0.7-fixpass/round-7c-ctrl-c.md`;
 runs right after round 7b, before round 8.
+
+## ADDED 2026-10-17 (rolo: "Add all of those suggestions"): four OpenFlow ports -- two into 3.0.7.0, three as 3.0.9.0 "Hand-offs and the graph"
+
+rolo asked (2026-10-17 morning) whether anything in OpenFlow is worth
+adding. Two MIT projects carry the name: philbotar/OpenFlow (a Rust/Tauri
+agent harness: a workflow graph of agent nodes with hand-offs, parallel
+dependency layers, per-node models, a post-run review) and
+SeeRay11/OpenFlow (a canvas on the opencode engine: role cards wired into
+a pipeline, a per-node model test, a pre-flight that refuses missing
+agents). Neither has anything Halo lacks at the engine level (parallel
+lanes with claims, human gates, flow files in the repo, auto/ask with every
+decision journaled, steer and take-over, mixed providers, MCP reconnect
+are all in). Four ideas are worth porting; one is deliberately NOT taken.
+
+**Into 3.0.7.0, as part of the Roles port (small, wiring on what exists):**
+
+- **"Test this model" button** in the bio editor and the lineup editor:
+  one click sends a one-token probe to the lane's model ref and shows
+  ok / the error, the same probe `halo doctor roles` runs. Also on the
+  Team step of the wizard.
+- **Run-start preflight**: `halo orchestra run`, `halo flow run` and a
+  mission start refuse a lineup with a dead model id, a missing bio or a
+  tool allow-list that names no tool, naming each problem and the fix,
+  instead of letting sub-agents come back empty (the 404-silently case the
+  doctor check already finds after the fact). `--force` runs anyway.
+
+**3.0.9.0 "Hand-offs and the graph"** (after Team 3.0.8.0; medium rounds,
+one Opus worker each, in this order):
+
+- **R1 Hand-off artifacts with per-lane context control.** Each Orchestra
+  lane and each Mission part declares what it hands downstream (files,
+  a summary, a named artifact) and each downstream lane declares what it
+  may see (upstream output, the goal only, a named artifact). The
+  sequenced Mission part then starts from the earlier part's head, not the
+  mission base (the open 3.0.6.0 item). Shown in the run console and the
+  mission panel as an edge label.
+- **R2 The editable, validated graph between plan and run.** Orchestra
+  plans lanes from the goal today and runs them; the Studio step in
+  between: the planned lanes on a canvas (the Roles canvas look), drag to
+  reorder or re-parent, set each lane's bio and model, add or drop a lane;
+  Run refuses cycles, broken edges, a lane with no bio and the preflight
+  problems above. The same canvas opens a saved flow. "Draft with AI"
+  is the existing planner; this round only makes its output editable.
+- **R3 The post-run coach.** After a run (Orchestra, flow, mission) an
+  advisory card: which bio's prompt to tighten and why (from the pieces
+  sent back), which lane should have had a cheaper or stronger model
+  (cost and return-cap evidence from report.json and events.jsonl), which
+  tool allow-list blocked work (denied calls), which lanes waited on each
+  other. Advisory only: it writes nothing; "apply" opens the bio editor
+  with the suggestion filled in. `halo orchestra coach [RUN]` prints the
+  same.
+
+**Not taken:** SeeRay11's import of another CLI's stored keys from its
+`auth.json`. That is the subscription terms risk decided on 2026-10-09;
+Halo's consent gate exists to avoid exactly that.
+
+Sources: github.com/philbotar/OpenFlow, github.com/SeeRay11/OpenFlow
+(both read 2026-10-17). Session: the CI flake-fix session that left
+master green at 22ec617.
