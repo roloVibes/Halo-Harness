@@ -29,15 +29,17 @@
 .da-title b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .da-title .og-chip { cursor: default; }
 .da-title .og-chip[data-app] { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-.da-frame { position: relative; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--line); background: var(--bg); min-height: 60px; }
-.da-scaler { overflow: hidden; position: relative; }
+.da-frame { position: relative; margin-inline: auto; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--bg); min-height: 60px; box-sizing: content-box; }
+.da-scaler { overflow: hidden; position: relative; border-radius: inherit; }
 .da-scaler iframe { border: 0; transform-origin: 0 0; background: var(--surface); pointer-events: none; }
 .da-card[data-selected] .da-scaler iframe { pointer-events: auto; }
 .da-img { display: block; width: 100%; height: auto; max-height: 240px; object-fit: contain; }
 .da-link { display: grid; gap: 4px; padding: 18px; color: var(--accent); text-decoration: none; font-size: 13px; }
 .da-nofile { padding: 24px; text-align: center; font-size: 12px; }
 .da-pin { position: absolute; transform: translate(-50%, -50%); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
-  font: 700 10.5px var(--mono); color: var(--accent-ink); background: var(--warn); box-shadow: 0 0 0 2px var(--surface), 0 0 10px var(--warn); cursor: help; }
+  font: 700 10.5px var(--mono); color: var(--accent-ink); background: var(--warn); box-shadow: 0 0 0 2px var(--surface), 0 0 10px var(--warn); cursor: pointer;
+  border: 0; padding: 0; z-index: 2; }
+.da-pin[aria-expanded="true"] { outline: 2px solid var(--accent); outline-offset: 2px; }
 .da-pin[data-crit] { background: var(--accent-2); box-shadow: 0 0 0 2px var(--surface), 0 0 10px var(--accent-2); }
 .da-foot { display: grid; gap: 6px; font-size: 11.5px; }
 .da-versions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; }
@@ -71,3 +73,50 @@
 .dd-dot[data-tone="warn"] { background: var(--warn); }
 .dd-dot[data-tone="bad"] { background: var(--bad); }
 .ds-go { margin-top: 14px; }
+
+/* -- 3.0.7.0 R3b: the comment layer, pins' popovers, the comment box, the text editor -- */
+.da-device { width: auto; padding: 3px 8px; font-size: 12px; }
+.da-overlay { position: absolute; inset: 0; z-index: 1; cursor: crosshair; border-radius: inherit; background: color-mix(in srgb, var(--accent) 6%, transparent);
+  outline: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -3px; }
+.da-scroll[data-tool="comment"] .da-frame { border-color: var(--accent); }
+.da-pop { position: absolute; z-index: 4; width: 240px; display: grid; gap: 6px; padding: 8px; margin: 12px 0 0 8px; font-size: 12px;
+  border-radius: var(--radius-sm); background: var(--surface-glass); border: 1px solid var(--accent); box-shadow: var(--glow-strong); backdrop-filter: blur(var(--blur)); }
+.da-pop textarea { resize: vertical; min-height: 0; font-size: 12.5px; }
+.da-pop-row { display: flex; align-items: center; gap: 4px; justify-content: flex-end; font-size: 10.5px; }
+.da-pop-head { display: flex; align-items: center; gap: 6px; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; }
+.da-pop-head .icon-btn { width: 20px; height: 20px; font-size: 11px; }
+.da-pop-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+.da-edit { width: auto; max-width: 340px; margin: -6px 0 0 -6px; }
+
+/* -- the knobs (the Artboards panel's settings) ------------------------------------------- */
+.dk { display: grid; gap: 10px; }
+.dk-ver { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11.5px; }
+.dk-ver .og-chip { color: var(--accent); border-color: var(--accent); }
+.dk-row { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+.dk-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12.5px; }
+.dk-value { color: var(--accent); font-size: 11.5px; }
+.dk-row input[type="range"] { accent-color: var(--accent); width: 100%; }
+.dk-row input[type="color"] { width: 48px; height: 26px; padding: 0; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: none; cursor: pointer; }
+.dk-target { font-size: 10.5px; }
+
+/* -- the design system panel ----------------------------------------------------------- */
+.dsy { display: grid; gap: 10px; align-content: start; }
+.dsy-sync { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.dsy-sync .input { font-size: 12px; padding: 4px 8px; }
+.dsy-empty { margin: 0; font-size: 12.5px; }
+.dsy-group { display: grid; gap: 3px; }
+.dsy-head { display: flex; justify-content: space-between; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent);
+  padding-bottom: 3px; border-bottom: 1px solid var(--line); }
+.dsy-token { display: grid; grid-template-columns: 14px minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: 6px; font-size: 11.5px; }
+.dsy-token code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.dsy-token .input { padding: 2px 6px; font-size: 11.5px; }
+.dsy-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line-strong); }
+.dsy-swatch[data-none] { border-style: dashed; background: none; }
+.dsy-save { display: flex; align-items: center; gap: 6px; font-size: 11.5px; }
+.dsy-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.dsy-chips .og-chip { cursor: default; }
+.dsy-src { font-size: 11px; overflow-wrap: anywhere; }
+
+/* -- 3 directions, in the Thread's send row ---------------------------------------------- */
+.dt-dirs { display: inline-flex; align-items: center; gap: 4px; }
+.dt-dirs .input { width: 92px; padding: 3px 6px; font-size: 11.5px; }

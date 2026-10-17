@@ -245,29 +245,37 @@ every turn saves a new version.
 1. **Make or open a project**: the Start view names the first one; then
    Projects lists them all, and New project makes another.
 2. **Say what to design**: write it in Thread and press Enter: the reply
-   streams in as the turn works; **Cancel turn** stops it.
+   streams in as the turn works; **Cancel turn** stops it. **3 directions**
+   sends it as three different artboards side by side.
 3. **Look and compare**: Artboards: drag a card by its title (the places are
-   saved with the project), slide back through its versions, Restore one.
-4. **Ask for notes**: Critique has a second model pin notes on an artboard;
-   Contrast checks its text against its background; Send comments turns the
-   pins into a turn.
-5. **Tidy up**: Rename or Delete an artboard, or Download its file.
-6. **Hand it off**: Export writes a folder, HTML, PNG, SVG or PDF; Handoff
+   saved with the project), slide back through its versions, Restore one;
+   the device select draws prototypes at phone, tablet or desktop size.
+4. **Change it by hand**: double-click a text in a prototype to edit it in
+   place; a card's **Knobs** move its spacing and colours; the Design system
+   panel edits the tokens or syncs them from a codebase or a web page.
+5. **Ask for notes**: pick **Comment** and click a frame to pin a comment;
+   Critique has a second model pin notes on an artboard; Contrast checks its
+   text against its background; Send comments turns the pins into a turn.
+6. **Tidy up**: Rename or Delete an artboard, or Download its file.
+7. **Hand it off**: Export writes a folder, HTML, PNG, SVG or PDF; Handoff
    bundles it for the next Halo or Claude Code session.
-7. **Use your own files**: Assets: add or drop logos and photos; click one to
+8. **Use your own files**: Assets: add or drop logos and photos; click one to
    put its path in the message.
-8. **Render pictures**: the palette's Media commands add the ComfyUI panels
+9. **Render pictures**: the palette's Media commands add the ComfyUI panels
    to the section.
 
 **Panels.** Projects: your design projects: pick one, or make a new one.
-Assets: files a turn can use. Artboards: every artboard of the project, with
-its versions. Thread: the project's turns: what you asked and what the model
-did. From the palette: Media status, Media models, Workflows and Render (see
+Design system: the tokens every turn designs with. Assets: files a turn can
+use. Artboards: every artboard of the project, with its versions, pins and
+knobs. Thread: the project's turns: what you asked and what the model did.
+From the palette: Media status, Media models, Workflows and Render (see
 [Media](#media)).
 
 **Keys.** `Alt+4` Design; `Enter` in the message box sends (`Shift+Enter`: a
-new line); `Mod+K`: Design: send, Design: cancel turn, Design: export, Design:
-new project.
+new line); in the text editor and the comment box `Enter` saves and `Esc`
+cancels; `Esc` puts the Comment tool down; `Mod+K`: Design: send, Design: 3
+directions, Design: pin a comment, Design: cancel turn, Design: export,
+Design: new project.
 
 ### Flow
 
@@ -966,9 +974,10 @@ Design mode is, the steps, and one button: name the first project and
 | Panel | What it is |
 |---|---|
 | **Projects** (`design-projects`) | Every project with its artboards and model; click one to open it; **New project** (a dialog: a name and, if you like, its model) |
+| **Design system** (`design-system`, 3.0.7.0 R3b) | The project's token sheet (`system.json`): the tokens by group (colours, type, spacing, radii), a colour with its swatch, each value editable with **Save tokens**; the components and the sources; **Sync** from a folder path or a web page |
 | **Assets** (`design-assets`) | The project's `assets/`: **Add files...** or drop files on the panel (uploaded as base64, 15 MB each); click a row to put its path in the message; **Download** saves it through `/design-files/<slug>/_assets/<name>` |
-| **Artboards** (`design-artboards`) | The artboards as cards on a canvas: the frame (a prototype in `<iframe sandbox="allow-scripts">`, a render as an image, a video, else a link), its open comment pins, the version slider with **Restore**, then **Critique**, **Contrast**, **Rename**, **Delete** (asks first) and **Download**; the toolbar has zoom, Fit, **Export...** and **Handoff** |
-| **Thread** (`design-thread`) | The project's turns as one thread: what you asked, the model's reply as markdown, cost, tool calls, seconds and the versions it made; the running turn streams at the bottom with a chip per tool call; the **Send** box (`Enter` sends, `Shift+Enter` a new line) and, while a turn runs, **Cancel turn**; **Send comments (N)** when pins are open |
+| **Artboards** (`design-artboards`) | The artboards as cards on a canvas: the frame (a prototype in `<iframe sandbox="allow-scripts">`, a render as an image, a video, else a link), its open comment pins (click one: its text and **Resolve**), the version slider with **Restore**, then **Knobs (N)**, **Critique**, **Contrast**, **Rename**, **Delete** (asks first) and **Download**; double-click a prototype's text to edit it; the toolbar has **Select / Comment**, the device select, zoom, Fit, **Export...** and **Handoff**; its settings face (the title bar's ... menu, Settings) holds the device and the knobs |
+| **Thread** (`design-thread`) | The project's turns as one thread: what you asked, the model's reply as markdown, cost, tool calls, seconds and the versions it made; the running turn streams at the bottom with a chip per tool call; the **Send** box (`Enter` sends, `Shift+Enter` a new line) and **3 directions** beside it, while a turn runs **Cancel turn**; **Send comments (N)** when pins are open |
 
 **Turns over the live feed.** Every step of a turn is a `design_turn` frame
 on `/api/events` (`session_id: "design:<slug>"`, data `{slug, turn, state:
@@ -1003,10 +1012,53 @@ from it.
 The slider swaps the frame to `v<n>/...`; at an older version **Restore**
 makes it the newest one.
 
-**On the classic page.** The knobs, direct text edits, pinning a new comment
-on a frame, the design system's tokens and Sync, and "3 directions" stay on
-the classic page (`halo studio --legacy --mode design`, or the palette's
-"Open the classic page") until they move into the React section.
+**Knobs.** An artboard's `controls.json` knobs are sliders, colour pickers
+and selects in the Artboards panel's settings face (a card's **Knobs (N)**
+opens it on that artboard; a select there picks another). A change is posted
+150 ms after the last move (`POST design/<slug>/control {artboard, name,
+value}`): a `css:` knob rewrites the variable in the page at once and is
+saved as a version (the chip says `made v3`, the frame reloads), any other
+knob is kept for the next turn (`saved for the next turn`).
+
+**Direct text edits.** A prototype's current version is framed with
+`?edit=pick`: a small picker in the sandboxed frame posts `halo-design-pick`
+to Studio on a double-click (the text, its element path from `<body>`, the
+text node, its box). Studio opens its own inline editor on the card at that
+text; **Enter** or Save reads the page's source, changes that one text node
+(found by its path, else by its text when that is unique) and posts the page
+to `POST design/<slug>/text-edit {artboard, html}`, saved as a new version
+with the note `direct edit`; **Esc** or Cancel drops it. A text the page's
+own script draws is not in its source: Studio says so, and a turn changes it.
+A card's frame takes the pointer once the card is selected (click its
+title).
+
+**Comments.** Pick **Comment** in the toolbar and click a frame: a small
+comment box opens at that point; **Enter** pins it (`POST design/<slug>/comment
+{artboard, text, x, y}`, x and y in percent of the frame, on the newest
+version). Pins are numbered per artboard; click one for its text and
+**Resolve** (`POST design/<slug>/comments/resolve {ids}`). **Esc** or Select
+puts the tool down. **Send comments (N)** in the Thread turns the open pins
+into one turn and resolves them when it succeeds.
+
+**The design system.** The Design system panel lists the token sheet; edit a
+value and **Save tokens** (`PUT design/<slug>/system`, the whole sheet with
+its components and sources kept). **Sync** reads tokens from a codebase
+folder or a web page (`POST design/<slug>/sync {source}`) and merges them;
+a dialog says how many tokens there are, by group, and where they came from.
+
+**3 directions.** The Thread's **3 directions** sends the message box's text
+through the same turn path as Send, with `variants: 3` and `base` (the box
+beside it, the selected artboard's id by default) in the `run` body; the
+server writes the prompt ("Make 3 directions of: ... named <base>-a,
+<base>-b, <base>-c"), so it is not a prefix the page adds. When the turn ends
+the new artboards are laid out in one row under the others (their places
+saved like a drag) and the first is selected.
+
+**Device size.** The Artboards toolbar's device select draws every prototype
+at **Phone 390** (390 x 844), **Tablet 820** (820 x 1100) or **Desktop 1280**
+(1280 x 800, the default), scaled to the card. The same select is in the
+panel's settings face, and the choice is kept as the panel's setting in the
+browser (`halo.studio.design.panel.design-artboards`).
 
 **The raw file route and its sandbox.** Artboard files are served at
 `GET /design-files/<slug>/<artboard>/<file>` (and `.../v<n>/<file>`), the
@@ -1023,8 +1075,10 @@ token. An artboard folder that is a symlink is never served.
 
 The palette's Design group: **Design: new project**, **Design: send** (the
 message box's text; with an empty box it moves the focus there), **Design:
-cancel turn** (while one runs), **Design: export**, **Design: handoff
-bundle**, **Design: send comments**, and every project by name.
+cancel turn** (while one runs), **Design: 3 directions**, **Design: pin a
+comment** (the Comment tool), **Design: preview at Phone 390 / Tablet 820 /
+Desktop 1280**, **Design: export**, **Design: handoff bundle**, **Design:
+send comments**, and every project by name.
 
 ![The Design section: a hero prototype and a logo mark as artboards](media/studio-design.png)
 

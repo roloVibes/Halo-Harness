@@ -1,6 +1,7 @@
 // The shapes the Design section reads (3.0.7.0 R3): Studio's
 // `/api/design/...` (studio/design_api*.py) and the `design_turn` frames of
-// the live feed (studio/design_api_turns.py).
+// the live feed (studio/design_api_turns.py). 3.0.7.0 R3b: knobs, the design
+// system, a text picked in a prototype, the place of a new comment.
 
 export type ProjectRow = { slug: string; name: string; created?: string; model?: string; artboards: number };
 
@@ -15,8 +16,20 @@ export type Artboard = {
   versions: number[];
   latest: number;
   render: string;
-  controls: unknown[];
+  controls: Knob[];
 };
+
+/** One knob of an artboard's controls.json: a css: target applies at once, any other waits for the next turn. */
+export type Knob = { name: string; kind?: string; target?: string; value?: unknown; min?: number; max?: number; step?: number; unit?: string; options?: unknown[] };
+
+/** The design system (system.json): tokens by group, components, where it was synced from. */
+export type SystemSheet = { name?: string; tokens?: Record<string, Record<string, string>>; components?: (string | { name?: string })[]; sources?: string[] };
+
+/** A double-click on a text in a prototype (the frame's picker, studio/design_api_edit.py): where it sits and its box in the frame. */
+export type TextPick = { aid: string; path: number[]; node: number; text: string; tag: string; x: number; y: number; w: number; h: number };
+
+/** Where a new comment goes: percentages of the artboard's frame. */
+export type PinAt = { aid: string; x: number; y: number };
 
 export type Comment = { id: string; artboard: string; version: number; x: number; y: number; path?: string; text: string; resolved?: boolean; source?: string };
 
@@ -42,7 +55,7 @@ export type Detail = {
   meta: { name: string; model?: string; created?: string };
   artboards: Artboard[];
   comments: Comment[];
-  system: { tokens?: Record<string, Record<string, string>> } | Record<string, unknown>;
+  system: SystemSheet;
   history: HistoryRow[];
   live_turn: string | null;
 };
@@ -77,6 +90,7 @@ export type DesignDialog =
   | { kind: "exported"; as: string; lines: string[] }
   | { kind: "handoff"; path: string }
   | { kind: "contrast"; aid: string; data: Contrast | null; error?: string }
+  | { kind: "synced"; source: string; tokens: number; groups: [string, number][]; sources: string[] }
   | null;
 
 export const EXPORTS: [string, string][] = [["folder", "Folder (a shareable site)"], ["html", "HTML"], ["png", "PNG"], ["svg", "SVG"], ["pdf", "PDF"]];

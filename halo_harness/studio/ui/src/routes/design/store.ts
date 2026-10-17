@@ -2,9 +2,26 @@
 // artboards, comments, history), the turn that runs now (its events from the
 // live feed, or the poll when the feed is down), the message being written,
 // the artboard card positions (the server's `layout/design:<slug>`), the
-// version each card shows, the assets and the one open dialog.
-import { createStore, useStore } from "../../lib/store";
-import type { Artboard, Asset, DesignDialog, Detail, HistoryRow, LiveTurn, Pos, ProjectRow } from "./types";
+// version each card shows, the assets and the one open dialog. 3.0.7.0 R3b:
+// the preview device (the Artboards panel's own setting, remembered under
+// PANEL_KEY), the canvas tool (select, or comment: a click pins a comment),
+// the comment being written and the pin opened, the text being edited, and
+// the version chip a knob change made.
+import { createStore, useStore, writeLocal } from "../../lib/store";
+import { isDevice, type Device } from "./layout";
+import type { Artboard, Asset, DesignDialog, Detail, HistoryRow, LiveTurn, PinAt, Pos, ProjectRow, TextPick } from "./types";
+
+/** The Artboards panel's settings (its Inspector face): {device}. */
+export const PANEL_KEY = "halo.studio.design.panel.design-artboards";
+
+function savedDevice(): Device {
+  try {
+    const d = JSON.parse(localStorage.getItem(PANEL_KEY) || "{}").device;
+    return isDevice(d) ? d : "desktop";
+  } catch {
+    return "desktop";
+  }
+}
 
 export type DesignState = {
   started: boolean;
@@ -27,6 +44,14 @@ export type DesignState = {
   busy: string;
   /** Bumped to move the keyboard focus into the message box. */
   focusSend: number;
+  device: Device;
+  tool: "select" | "comment";
+  pinAt: PinAt | null;
+  /** The comment whose pin is open (its text and Resolve). */
+  pinOpen: string;
+  editing: TextPick | null;
+  /** What the last knob change made, per artboard: "v3", or "next turn". */
+  knobNote: Record<string, string>;
 };
 
 export const design = createStore<DesignState>({
@@ -47,7 +72,20 @@ export const design = createStore<DesignState>({
   dialog: null,
   busy: "",
   focusSend: 0,
+  device: savedDevice(),
+  tool: "select",
+  pinAt: null,
+  pinOpen: "",
+  editing: null,
+  knobNote: {},
 });
+
+export function setDevice(device: Device): void {
+  design.update(() => ({ device }));
+  writeLocal(PANEL_KEY, JSON.stringify({ device }));
+}
+
+export const setTool = (tool: DesignState["tool"]) => design.update(() => ({ tool, pinAt: null, pinOpen: "", editing: null }));
 
 export function useDesign<S>(select: (s: DesignState) => S): S {
   return useStore(design, select);

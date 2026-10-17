@@ -11,6 +11,8 @@ its own. The path is confined to design_root/<slug>/artboards/<artboard>/
 (an artboard folder that is a symlink is not served). 3.0.7.0 R3:
 `/design-files/<slug>/_assets/<name>` is a file of the project's assets/
 folder (the Assets panel's Download; `_assets` is never an artboard id).
+3.0.7.0 R3b: `?edit=pick` on the current index.html carries the double-click
+picker of the React Design section (studio/design_api_edit.py).
 """
 
 from __future__ import annotations
@@ -73,10 +75,10 @@ def read(state_dir, url_path: str, query: dict):
     ctype = MEDIA_TYPES.get(target.suffix.lower()) or mimetypes.guess_type(str(target))[0] or "application/octet-stream"
     if target.suffix.lower() in (".html", ".htm"):
         ctype = "text/html; charset=utf-8"
-        if query.get("edit") == "1" and target.parent.parent.name == "artboards":  # the current version only
-            text = data.decode("utf-8", "replace")
-            i = text.lower().rfind("</body>")
-            data = (text[:i] + EDIT_SCRIPT + text[i:] if i >= 0 else text + EDIT_SCRIPT).encode("utf-8")
+        if query.get("edit") in ("1", "pick") and target.parent.parent.name == "artboards":  # the current version only
+            from halo_harness.studio.design_api_edit import PICK_SCRIPT, inject
+            # 1: the classic page's contenteditable body; pick (3.0.7.0 R3b): a double-click posts the text to Studio's editor
+            data = inject(data.decode("utf-8", "replace"), EDIT_SCRIPT if query.get("edit") == "1" else PICK_SCRIPT).encode("utf-8")
     elif ctype.startswith("text/") or ctype in ("application/javascript", "application/json", "image/svg+xml"):
         ctype += "; charset=utf-8"
     return 200, data, ctype

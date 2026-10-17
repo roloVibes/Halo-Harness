@@ -231,8 +231,10 @@ def test_design_layout_is_saved_on_the_server(ctx: Ctx):
         where = {"hero": {"x": 40, "y": 60}}
         status, _ = s.call("PUT", f"/api/layout/design:{slug}", {"positions": where, "nodes": where})
         ctx.check("PUT layout/design:<slug> is accepted", status == 200)
-        ctx.check("GET reads it back", s.call("GET", f"/api/layout/design:{slug}")[1] == where)
-        ctx.check("the encoded name (what the page sends) works too", s.call("GET", f"/api/layout/design%3A{slug}")[1] == where)
+        # 3.0.7.0 R1's GET answers the flat map plus {nodes, tiers}; the Artboards panel reads `nodes`
+        got = s.call("GET", f"/api/layout/design:{slug}")[1]
+        ctx.check(f"GET reads it back, got {got}", got.get("nodes") == where and got.get("hero") == where["hero"])
+        ctx.check("the encoded name (what the page sends) works too", s.call("GET", f"/api/layout/design%3A{slug}")[1].get("nodes") == where)
         files = sorted(f.name for f in (s.state / "studio" / "layouts").iterdir())
         ctx.check(f"the file is _design-<slug>.json, got {files}", f"_design-{slug}.json" in files and not any(":" in f for f in files))
         ctx.check("another prefix is a 422", s.call("PUT", "/api/layout/nope:x", {"positions": {}})[0] == 422)
