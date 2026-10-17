@@ -1501,6 +1501,11 @@ class Session:
             if os.environ.get("HALO_ORCHESTRA_RUN"):
                 from halo_harness.orchestra.guard import install_from_env
                 install_from_env(self.permission_engine, self.log.dir / self.log.session_id)
+            # Halo 3.0.8.0: inside a team stage ($HALO_TEAM_SCOPE) writes stay in
+            # the stage's blocks and its member's claims (team/guard.py).
+            if os.environ.get("HALO_TEAM_SCOPE"):
+                from halo_harness.team.guard import install_from_env as install_team_guard
+                install_team_guard(self.permission_engine, self.log.dir / self.log.session_id)
         existing_nodes = self.log.nodes()
         if not existing_nodes:
             # finding 4: when a SessionCatalog exists, `.names` (not

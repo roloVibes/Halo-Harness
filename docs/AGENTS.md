@@ -684,3 +684,5 @@ left to the Governor round (2.0.5 round 4) -- same "compose the piece,
 enforce it later" boundary every other lineup section in this file
 already draws; this round's own job was building and proving the
 assembly itself.
+
+**Teams (Halo 3.0.8.0):** `halo team` (no s) reads a different file, a project's members, blocks and stages, each member an instance of one of these lineups' aliases; see [TEAM.md](TEAM.md).

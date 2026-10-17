@@ -9,6 +9,8 @@ mode open). Posting and metrics go through the Postiz CLI; every post is a
 dry run until you set `live: true` on the flow's post step (see "Posting with
 Postiz" below).
 
+**In a team (Halo 3.0.8.0):** a team stage of `kind: flow` runs the named flow with the stage's `inputs` as its intake; see [TEAM.md](TEAM.md).
+
 ```sh
 halo media init --url http://<comfy-host>:8188      # once: the ComfyUI server
 halo flow new social-post --project demo-post       # ~/.halo/flows/social-post.flow.yaml
