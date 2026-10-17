@@ -8,7 +8,32 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [Unreleased]
+## [3.0.7.0] - unreleased
+
+Tiers and the ports: a lineup stacks its members in tiers and the harness enforces who may spawn whom; every run starts with a preflight that names what would make members come back empty; Roles, Org and Design are React sections of the Studio shell and the classic page is gone. Rolo's order, 2026-10-17: "complete all the different version numbers". The Home section from the earlier plan is not built: the Fleet panels already show live sessions, cost today and health.
+
+### R1: Tiers, the preflight, the model probe
+
+- Lineups: `tiers:` stacks members (`[{name, members, max_parallel}]`); a member spawns only into the next tier down, the main agent sits alone in tier 0, and a tier's `max_parallel` caps its live members across the session tree. Aliases left out join an implicit last tier `rest` (a warning line); a lineup without `tiers` behaves as before. `halo teams validate`, the lineup editor and Studio check it; Studio's graph carries `tiers` and a layout keeps each tier's collapsed state (`{nodes, tiers}`; the old flat layout files still read). A three-tier stack needs `delegation.max_depth: 2`.
+- Run-start preflight: `halo orchestra run`, `halo flow run`, a mission run and their Studio routes list every lineup problem that would make members come back empty (a model id not in its catalog, a missing bio, a bio whose `tools.allow` is empty, a tiers problem), each with its fix, and stop; `--force` / `{"force": true}` runs anyway. `halo doctor --roles` lists the same findings for the active lineup. An empty Databricks catalog counts as unverifiable, no longer as "every dbx role dead".
+- `halo models test <ref>`: a one-token probe that prints ok and the latency or the error (exit 1 on failure); Studio's `POST /api/models/test` and the lineup editor's `t` key run the same probe.
+- Studio: `GET /api/tools` lists the real tool registry.
+
+### R2: Roles in React, the classic page gone
+
+- Studio: Roles (Alt+2) is a React section. Lineups (New, Duplicate, Delete, Apply, each asking on a card), the canvas (agent cards with their scope, instances, model, price in / out, context, gym score and warnings, in one labelled box per tier; drag a card into another tier and the lineup saves, the main agent stays in tier 0; collapse a tier; drop onto a card to report to it), the Inspector (the card's slot; every lineup section as a small form with a YAML toggle; Live), Problems (every edit checked at once: the validator, a model id its catalog does not know, a bio with no tool, aliases in no tier, a tier stack too deep for `delegation.max_depth`, each with its fix), Bios (the bio form with a model picker table: sort by price or context, search, best for, gym score; **Test this model** shows ok and the latency inline) and Models (the catalog per provider, Refresh). Undo / redo every edit (Ctrl+Z / Ctrl+Shift+Z). A Start view shows until you have a lineup of your own.
+- Studio: Live Roles, J / K hop and the session replay run on the React Roles canvas (no framed page, no postMessage).
+- Studio: the classic page is gone (`static/legacy/`, `/legacy/`, `halo studio --legacy`); a checkout without a UI build answers `/` with how to build it.
+- API: `GET /api/gym` (the gym's scores per catalog ref), `GET /api/models/best-for` (what each model is good for); `POST /api/validate` and `GET /api/lineup/<name>` carry `findings` (`{id, severity, text, fix, node}`); `GET /api/lineups` rows carry `shipped_copy` (an untouched copy of a shipped lineup is matched by its lines, not its line endings).
+
+### R3 and R3b: Org and Design in React
+
+- Studio: Org (Alt+3) is a React section. Company (Paperclip installed / running / linked, the Org mode switch, Install, Link, Sync, Pull), the Org chart (team boxes, reports-to lines, drag to move with positions saved on the server, drop into a box or onto a card to change a manager after a confirm), Issues / goals / projects, and an Inspector with Wake / Pause / Resume / Terminate. A Start view shows when Paperclip is not running or no company is linked. One diffed 3 s poller redraws only what changed.
+- Studio: Design (Alt+4) is a React section. Projects, Assets (upload, download), Artboards (versions, Restore, Critique, Contrast, Rename, Delete, Download, Export, Handoff, positions saved on the server as `layout/design:<slug>`) and the Thread: turns as safe markdown, streamed over the live feed (`design_turn` frames), with **Cancel turn**. A Start view shows when there is no project.
+- Studio Design: the classic page's last features are in the React section. Knobs live in the Artboards panel's settings: a card's **Knobs** button opens them, and a `css:` knob is saved as a new version at once. Double-click a text in a prototype to edit it in place: Enter saves a version, Esc cancels. The **Comment** tool pins a comment where you click, and a pin opens its text with **Resolve**. The new **Design system** panel lists the tokens by group, with swatches, edits them (**Save tokens**) and syncs them from a folder or a web page with a result dialog. **3 directions** beside Send makes three artboards laid out in one row. A device select draws prototypes at phone, tablet or desktop size and is kept as the panel's setting.
+- API: `POST design/<slug>/artboard/<id>/rename`, `DELETE design/<slug>/artboard/<id>`, `POST design/<slug>/turn/<id>/cancel` (the turn ends with code 130, `cancelled`), `/design-files/<slug>/_assets/<name>` and `?edit=pick` (the double-click picker behind in-place text edits); layouts accept `design:<slug>`; a design turn's history keeps the model's reply text.
+
+### Fixes after 3.0.6.0
 
 - Fleet capabilities: the cached catalog is re-read after every save -- on Windows, `halo mcp add/remove` right after a refresh could read back the old catalog (same mtime tick) and never mark it stale.
 - `halo fleet status` waits up to 10 s (was 3 s) for the hub this machine serves, so a loaded box still reports its member count.
