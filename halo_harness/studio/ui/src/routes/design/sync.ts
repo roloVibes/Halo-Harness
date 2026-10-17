@@ -89,7 +89,7 @@ export async function loadAssets(): Promise<void> {
 export async function openProject(slug: string): Promise<void> {
   writeLocal(LAST, slug);
   window.clearTimeout(pollTimer);
-  design.update(() => ({ slug, data: null, loading: true, turn: null, view: {}, bust: {}, sel: "", assets: [], positions: {}, posFor: "" }));
+  design.update(() => ({ slug, data: null, loading: true, turn: null, view: {}, bust: {}, sel: "", assets: [], positions: {}, posFor: "", pinAt: null, pinOpen: "", editing: null, knobNote: {} }));
   await reload();
   design.update(() => ({ loading: false }));
   try {

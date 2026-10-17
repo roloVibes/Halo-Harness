@@ -6,6 +6,7 @@ scrubbed environment, like tools/capture_studio.py:
 
     python -m tests.helpers.studio_org_design org      # Start view without Paperclip, then the chart over FakePaperclip
     python -m tests.helpers.studio_org_design design   # a seeded project's thread and artboards, a turn sent and cancelled
+    python -m tests.helpers.studio_org_design design-rest   # R3b: knobs, text edit, pins, system, 3 directions, device
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
 No model is called: Design's turns run through design_api.RUNNER."""
@@ -136,11 +137,16 @@ def main(argv: list) -> int:
         return 2
     state = seeded_home()
     mode = argv[0] if argv else "org"
+    section = "design" if mode.startswith("design") else mode
     srv, url = serve(state, True)
-    url = url.replace("mode=orchestra", f"mode={mode}").replace("feed=off", "tour=off" if mode == "design" else "feed=off&tour=off")
+    url = url.replace("mode=orchestra", f"mode={section}").replace("feed=off", "tour=off" if section == "design" else "feed=off&tour=off")
     c = Chrome(exe)
     try:
-        got = org(c, url, state) if mode == "org" else design(c, url, state)
+        if mode == "design-rest":
+            from tests.helpers.studio_design_rest import design_rest
+            got = design_rest(c, url, state)
+        else:
+            got = org(c, url, state) if mode == "org" else design(c, url, state)
         print(json.dumps(got))
         return 0
     finally:

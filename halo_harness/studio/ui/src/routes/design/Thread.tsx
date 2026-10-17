@@ -4,11 +4,15 @@
 // streams, and the Send box: Enter sends, Shift+Enter is a new line; while a
 // turn runs the box offers Cancel turn. Send comments turns the open pins
 // into one turn. The thread follows the newest line unless you scrolled up.
-import { useEffect, useLayoutEffect, useRef } from "react";
+// 3.0.7.0 R3b: "3 directions" sends the box's text the same way with
+// `variants: 3`; the directions are named after the box beside it (the
+// selected artboard's id by default) and land as artboards in one row.
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Button, Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { cancelTurn, send, sendComments } from "./actions";
+import { baseOf, directions } from "./more";
 import { design, live, money, spent, useDesign } from "./store";
 import { HistoryTurn, LiveTurnView } from "./ThreadParts";
 
@@ -24,6 +28,8 @@ function SendBox() {
   const busy = useDesign((s) => s.busy);
   const focus = useDesign((s) => s.focusSend);
   const pins = useDesign((s) => (s.data?.comments || []).filter((c) => !c.resolved).length);
+  const sel = useDesign((s) => s.sel);
+  const [base, setBase] = useState("");
   const box = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (focus) box.current?.focus();
@@ -44,6 +50,13 @@ function SendBox() {
       <div className="dt-send-row">
         {pins > 0 && <Button size="sm" variant="ghost" disabled={running} onClick={() => void sendComments()}>Send comments ({pins})</Button>}
         <span className="spacer" />
+        {!running && (
+          <span className="dt-dirs">
+            <input className="input mono" value={base} maxLength={24} onChange={(e) => setBase(e.target.value)} placeholder={sel || "direction"}
+                   aria-label="Name the directions after" title={`The directions become ${baseOf(base || sel)}-a, -b and -c`} data-testid="design-directions-base" />
+            <Button size="sm" disabled={!draft.trim() || busy === "send"} onClick={() => void directions(base)} title="Three clearly different directions of this message, each its own artboard" data-testid="design-directions">3 directions</Button>
+          </span>
+        )}
         {running ? (
           <Button size="sm" variant="danger" disabled={busy === "cancel"} onClick={() => void cancelTurn()} data-testid="design-cancel">Cancel turn</Button>
         ) : (

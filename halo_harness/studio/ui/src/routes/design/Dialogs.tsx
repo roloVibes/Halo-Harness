@@ -1,7 +1,8 @@
 // The Design dialogs (3.0.7.0 R3, one at a time: store `dialog`): New
 // project, Rename an artboard, Delete one (asks first), Export (what and
 // which artboard) and what it wrote, the Handoff bundle's path and the
-// command that continues from it, and an artboard's contrast table.
+// command that continues from it, and an artboard's contrast table; R3b:
+// what a design-system Sync found.
 import { useState } from "react";
 import { Button, Dialog } from "../../lib/ui";
 import { toast } from "../../lib/store";
@@ -104,6 +105,22 @@ function Contrast({ d }: { d: Extract<DesignDialog, { kind: "contrast" }> }) {
   );
 }
 
+function Synced({ d }: { d: Extract<DesignDialog, { kind: "synced" }> }) {
+  return (
+    <Dialog open onClose={closeDialog} title={`Design system: ${d.tokens} token${d.tokens === 1 ? "" : "s"}`} kicker="DESIGN · SYNC" testid="design-sync-dialog"
+            footer={<Button variant="primary" onClick={closeDialog}>Done</Button>}>
+      <p>Read from <code className="mono">{d.source}</code> and merged into the project's system.json; the next turn designs with it.</p>
+      {d.groups.length ? (
+        <table className="dd-contrast mono">
+          <thead><tr><th>group</th><th>tokens</th></tr></thead>
+          <tbody>{d.groups.map(([g, n]) => <tr key={g}><td>{g}</td><td>{n}</td></tr>)}</tbody>
+        </table>
+      ) : <p className="muted">No tokens were found there.</p>}
+      {d.sources.length > 0 && <pre className="dd-lines mono">{d.sources.join("\n")}</pre>}
+    </Dialog>
+  );
+}
+
 export function DesignDialogs() {
   const d = useDesign((s) => s.dialog);
   if (!d) return null;
@@ -112,6 +129,7 @@ export function DesignDialogs() {
   if (d.kind === "delete") return <Delete aid={d.aid} />;
   if (d.kind === "export") return <Export />;
   if (d.kind === "contrast") return <Contrast d={d} />;
+  if (d.kind === "synced") return <Synced d={d} />;
   if (d.kind === "exported")
     return (
       <Dialog open onClose={closeDialog} title={`Exported: ${d.as}`} kicker="DESIGN · EXPORT" testid="design-exported" footer={<Button variant="primary" onClick={closeDialog}>Done</Button>}>

@@ -118,13 +118,19 @@ picker in Studio). `halo models --best-for design` ranks the catalog for the job
 ## Refining
 
 - **Thread**: the next prompt. The model sees the artboards it already made.
-- **Comments**: `halo design comment <slug> <artboard> "text" --at 40,12`, or click
-  a spot on a frame on Studio's classic page. "Send comments" turns the open pins into the next
-  prompt and resolves them when the turn succeeds.
-- **Knobs**: the sliders from `controls.json` (Studio's classic page), live, no model call. Ask for knobs
+- **Comments**: `halo design comment <slug> <artboard> "text" --at 40,12`, or in Studio
+  pick **Comment** on the Artboards toolbar and click a spot on a frame: a comment box opens
+  there and Enter pins it. Click a pin for its text and Resolve. "Send comments" turns the
+  open pins into the next prompt and resolves them when the turn succeeds.
+- **Knobs**: the sliders, colour pickers and selects from `controls.json`, in the Artboards
+  panel's settings (a card's **Knobs** button opens them), live, no model call: a `css:` knob
+  is applied at once and saved as a version, any other waits for the next turn. Ask for knobs
   in a turn ("add knobs for spacing and the accent colour").
-- **Direct text edits**: "Edit text" on an HTML artboard on Studio's classic page makes the frame
-  editable; Ctrl+S saves it as a new version.
+- **Direct text edits**: double-click a text in an HTML artboard in Studio (select the card
+  first): an editor opens on it; Enter saves the page as a new version, Esc cancels. A text
+  the page's own script draws is changed with a turn instead.
+- **Device size**: Studio draws prototypes at phone (390 x 844), tablet (820 x 1100) or
+  desktop (1280 x 800) size; the select is on the Artboards toolbar and in its settings.
 - **Versions**: `halo design show` lists them; `halo design restore <slug> <artboard> <n>`
   brings one back; Studio has a slider per artboard.
 
@@ -140,6 +146,9 @@ picker in Studio). `halo models --best-for design` ranks the catalog for the job
 - images and documents dropped into `assets/` are read by the model in a turn.
 
 Syncing again merges. Nothing is guessed: a token not in a source is not written.
+In Studio the **Design system** panel lists the tokens by group (a colour with its swatch),
+edits a value (**Save tokens**) and has **Sync** for a folder path or a web page, with a
+dialog that says what it found.
 
 ## Exports and the handoff
 
@@ -158,8 +167,9 @@ halo --cwd ~/.halo/design/launch-page/exports/<stamp>-handoff "continue from HAN
 
 - **Directions**: `halo design run <slug> "<prompt>" --variants 3 --base hero` makes
   hero-a, hero-b, hero-c in one turn, clearly different in layout, type and colour,
-  all keeping the design system. The classic page's **3 directions** button (or `V`) does the
-  same and tiles the new artboards side by side.
+  all keeping the design system. The **3 directions** button beside Send in Studio's Thread
+  does the same (the `run` body's `variants` and `base`; the box beside it names them, the
+  selected artboard by default) and lays the new artboards out in one row.
 - **Critique**: `halo design critique <slug> <artboard>` runs a read-only turn (Read
   and Glob, no MCP servers, six turns) on the project's model or `--model`. It
   judges hierarchy, spacing, type scale, contrast, token use, copy and accessibility,
@@ -177,12 +187,12 @@ halo --cwd ~/.halo/design/launch-page/exports/<stamp>-handoff "continue from HAN
 ## Studio's Design mode
 
 Press `Alt+4` in Studio, type `/design` in the TUI, or run `halo studio --mode design`.
-Since 3.0.7.0 it is a React section: Projects, Assets, Artboards (frames: HTML in a
-sandboxed frame that cannot reach Studio's API, renders as images; comment pins, a
-version slider with Restore, Critique, Contrast, Rename, Delete, Download; Export and
-Handoff) and the Thread (the turns as markdown, streamed over the live feed, with
-Cancel turn). The knobs, direct text edits, new pins, the design system and the
-directions stay on the classic page (`halo studio --legacy --mode design`) for now.
+Since 3.0.7.0 it is a React section: Projects, the Design system (tokens, Save tokens,
+Sync), Assets, Artboards (frames: HTML in a sandboxed frame that cannot reach Studio's
+API, at phone, tablet or desktop size; renders as images; double-click a text to edit it;
+the Comment tool and numbered pins with Resolve; a version slider with Restore, Knobs,
+Critique, Contrast, Rename, Delete, Download; Export and Handoff) and the Thread (the
+turns as markdown, streamed over the live feed, with Cancel turn and 3 directions).
 See [STUDIO.md](STUDIO.md).
 
 ## The command family
