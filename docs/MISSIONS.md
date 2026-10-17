@@ -8,6 +8,8 @@ harnesses at the same time, merges what they made and writes a report. Parts
 never step on each other: each one may edit only what it claims, and two
 parts that would touch the same file run one after the other.
 
+**Teams (Halo 3.0.8.0):** a team member with `harness: <fleet member>` sends its stage's task the way a part goes out (`run_task`, as a one-part mission in the hub's store); see [TEAM.md](TEAM.md#delegating-a-member-to-the-fleet).
+
 Round R7 is the backend (this page): the mission folder, the planner, the
 shared workspace over the fleet protocol, dispatch, the run, merge and report,
 the routes and the command line. Round R8 is the Mission panel in Studio

@@ -1,0 +1,100 @@
+"""halo_harness.team.adapters -- the real seams behind team/run.py.
+
+* `spawn_member` -- a fresh `halo -p` in the repo, under the member's lineup
+  (`--team <lineup>`) as its alias's bio (`--agent <bio>`), permission mode
+  auto, with the stage's `$HALO_TEAM_SCOPE`; the JSON result's text, cost and
+  session id come back (orchestra/adapters.py's worker call, one member).
+* `run_orchestra` -- a new Orchestra run in the repo with the stage's goal,
+  run to its report through orchestra/adapters.py's real adapters.
+* `run_flow` -- a new flow run of the named flow with the stage's inputs as
+  its intake, through flows/adapters.py; its human gates answer through
+  `halo flow answer` as always.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+from typing import Optional
+
+MEMBER_TIMEOUT_S = 3600
+
+
+def member_bio(member: dict, *, cwd=None, state_dir=None) -> Optional[str]:
+    """The bio the member's alias names in its lineup, or None."""
+    from halo_harness.teams_yaml import resolve_team_template
+    try:
+        lineup = resolve_team_template(member.get("lineup") or "", cwd=cwd, state_dir=state_dir) or {}
+    except Exception:
+        return None
+    for entry in lineup.get("agents") or []:
+        if isinstance(entry, dict) and (entry.get("as") or entry.get("role")) == member.get("role"):
+            return entry.get("agent")
+    return None
+
+
+def member_argv(member: dict, prompt: str, bio: Optional[str]) -> list:
+    argv = [sys.executable, "-m", "halo_harness", "-p", prompt, "--output-format", "json",
+            "--permission-mode", "auto"]
+    if member.get("lineup"):
+        argv += ["--team", member["lineup"]]
+    if bio:
+        argv += ["--agent", bio]
+    return argv
+
+
+def spawn_member(member: dict, prompt: str, *, cwd, env: dict, stage: str, run_dir, runner=subprocess.run,
+                 timeout_s: int = MEMBER_TIMEOUT_S) -> dict:
+    from halo_harness.orchestra.adapters import _last_json, fleet_parent_env
+    env = {**env, **fleet_parent_env()}
+    argv = member_argv(member, prompt, member_bio(member, cwd=cwd))
+    try:
+        proc = runner(argv, cwd=str(cwd), env=env, capture_output=True, text=True, encoding="utf-8",
+                      errors="replace", timeout=timeout_s, stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": f"`{member['name']}` ran past {timeout_s}s"}
+    except OSError as e:
+        return {"ok": False, "error": f"could not start `{member['name']}`: {e}"}
+    obj = _last_json(proc.stdout or "")
+    if obj is None:
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-3:]
+        return {"ok": False, "error": f"`{member['name']}` exited {proc.returncode} without a result: {' | '.join(tail)}"}
+    return {"ok": not obj.get("is_error"), "text": str(obj.get("result") or ""),
+            "cost_usd": float(obj.get("total_cost_usd") or 0.0), "session_id": obj.get("session_id"),
+            "error": "" if not obj.get("is_error") else str(obj.get("result") or "member error")[:500]}
+
+
+def run_orchestra(goal: dict, *, root, stage: str, run_dir, model: Optional[str] = None) -> dict:
+    from halo_harness.orchestra import adapters
+    from halo_harness.orchestra.goal import Goal, new_run
+    from halo_harness.orchestra.run import run
+    g = Goal.from_dict(goal)
+    orch_dir = new_run(Path(root), g)
+    from halo_harness.team.board import log
+    log(run_dir, "note", f"{stage}: Orchestra run {orch_dir.name} started", stage=stage, orchestra_run=orch_dir.name)
+    report = run(orch_dir, **adapters.real_adapters(orch_dir, g, model))
+    ok = report.get("status") == "finished"
+    return {"ok": ok, "run_id": orch_dir.name, "cost_usd": float(report.get("cost_usd") or 0.0),
+            "text": f"Orchestra run {orch_dir.name} {report.get('status')}"
+                    + (f": {report.get('stop_reason')}" if report.get("stop_reason") else ""),
+            "error": "" if ok else str(report.get("stop_reason") or report.get("status") or "stopped")}
+
+
+def run_flow(name: str, *, intake: dict, cwd, stage: str, run_dir, model: Optional[str] = None) -> dict:
+    from halo_harness.flows import spec as fspec, state
+    from halo_harness.flows.adapters import Adapters
+    from halo_harness.flows.run import run
+    path = fspec.find_flow(name, cwd=cwd)
+    if path is None:
+        return {"ok": False, "error": f"no flow {name!r}"}
+    spec = fspec.load_flow(path)
+    flow_dir = state.new_run(spec, intake, source=str(path))
+    from halo_harness.team.board import log
+    log(run_dir, "note", f"{stage}: flow run {flow_dir.name} started (answer its gates with halo flow answer)",
+        stage=stage, flow_run=flow_dir.name)
+    report = run(flow_dir, adapters=Adapters(model=model, auto_accept=False, cwd=str(cwd)))
+    ok = report.get("status") == "finished"
+    return {"ok": ok, "run_id": flow_dir.name, "cost_usd": float(report.get("cost_usd") or 0.0),
+            "text": f"flow run {flow_dir.name} {report.get('status')}",
+            "error": "" if ok else str(report.get("stop_reason") or report.get("status") or "stopped")}

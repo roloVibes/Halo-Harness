@@ -111,7 +111,8 @@ def list_team_templates(*, cwd=None, state_dir=None, include_templates: bool = T
         dirs = [d for d in dirs if d[1] != "template"]
     for d, _source in dirs:
         try:
-            names.update(p.stem for p in d.glob("*.yaml") if p.is_file())
+            # 3.0.8.0: `<project>.team.yaml` beside the lineups is a team file (halo_harness/team/), not a lineup.
+            names.update(p.stem for p in d.glob("*.yaml") if p.is_file() and not p.name.endswith(".team.yaml"))
         except OSError:
             pass
     return sorted(names)
