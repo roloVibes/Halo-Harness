@@ -80,14 +80,20 @@ def make_run_root() -> Path:
     developer's scratch dir), else a temp dir. Made with `tempfile.mkdtemp`,
     so run_all's `[cleanup]` step removes whatever is left of it."""
     outer = os.environ.get("BRIDGE_TEST_HOME")
-    parent = outer if outer and os.path.isdir(outer) else None
-    return Path(tempfile.mkdtemp(prefix="run-all-modules-", dir=parent))
+    parent = outer if outer and os.path.isdir(outer) and len(outer) <= 40 else None
+    # Short on purpose: a Unix socket path under a module's home must stay under Linux's 108-byte AF_UNIX
+    # limit (the CI runner's long test-home root + "run-all-modules-" + a long module name blew it).
+    return Path(tempfile.mkdtemp(prefix="hra-", dir=parent))
 
 
 def module_home_name(mod_name: str) -> str:
-    """`tests.test_x` -> `test_x` (a plain directory name)."""
-    name = mod_name.split(".")[-1]
-    return re.sub(r"[^A-Za-z0-9_.-]", "_", name) or "module"
+    """`tests.test_x` -> `test_x` (a plain directory name); a name past 24 characters is cut and tagged with
+    four hex characters of its hash so the home stays short (the AF_UNIX limit above) and unique."""
+    name = re.sub(r"[^A-Za-z0-9_.-]", "_", mod_name.split(".")[-1]) or "module"
+    if len(name) <= 24:
+        return name
+    import hashlib
+    return f"{name[:19]}-{hashlib.sha1(name.encode('utf-8')).hexdigest()[:4]}"
 
 
 def enter_module(run_root: Path, mod_name: str) -> Path:
