@@ -195,6 +195,8 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
     ctx.check(f"Settings opens the Inspector on Lanes, then it follows the click to Report, got {got.get('inspector')} / {got.get('inspector_follows')}",
               got.get("inspector") == "Lanes" and got.get("inspector_follows") == "Report")
     ctx.check("the Compact toggle", got.get("compact") == "glance")
+    ctx.check(f"the ? beside the tabs is a menu: How this works and the Glossary (3.1.1.0 R1), got {got.get('help_menu')}",
+              got.get("help_menu") == ["section-help-item", "glossary-item"])
     ctx.check(f"How Orchestra works: steps and every panel, got {got}",
               got.get("section_title") == "How Orchestra works" and got.get("section_steps") == 8 and got.get("section_panels") == 8)  # 3.0.9.0 R3: + Coach
     ctx.check("closed and remembered as seen", got.get("section_closed") is True and got.get("seen") == "1")

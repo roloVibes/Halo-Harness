@@ -1,10 +1,43 @@
 # Halo Harness handbook
 
-The long-form guide. The front-page [README](../README.md) covers install,
-quick start and what makes Halo intuitive; this document keeps the full
+The long-form guide. It opens with the ten-minute start; the front-page
+[README](../README.md) covers install, quick start and what makes Halo
+intuitive; this document keeps the full
 detail for configuration, config reuse, providers, permissions, steering,
 hooks, skills, commands, MCP, browser, sessions, print mode, telemetry,
 troubleshooting, security posture, tests and proxy mode.
+
+## The ten-minute start: `halo start`
+
+```sh
+halo init       # a provider, a default model; its last step offers the ten-minute start
+halo start      # seven screens, Enter to go on, q to stop (--yes runs straight through)
+```
+
+`halo start` walks one real piece of work through the pieces Halo is made of,
+one screen per step, each with one sentence of why and the command it runs:
+
+1. **The lineup** -- the shipped `halo-dev-cycle` copied into your scope as
+   `my-halo-dev-cycle`, its cards shown as a table with their tiers (your
+   active lineup stays what it was).
+2. **The sample repo** -- `~/.halo/start/<date>/basket/`: `basket.py` with five
+   functions to write and `test_basket.py`, a git repo with one commit.
+3. **The goal** -- an Orchestra run, "Write the five functions of basket.py",
+   with `plan: review`, so it pauses after the lead's split.
+4. **The plan** -- the lead's lanes as a table; Enter approves it, `s` opens
+   it on Studio's plan canvas and waits for your decision there.
+5. **The run** -- the lanes table as each worker claims, writes and merges its
+   function, until the gate runs the tests.
+6. **The report and the coach** -- every check with a tick or a cross, then
+   the coach's cards (Apply opens the bio in Studio).
+7. **Where to go next** -- Roles, Team and Fleet, each with its command.
+
+It runs on the model you configured (with none, it says so and points at
+`halo init`). The same start runs in the TUI (`/start`, a panel) and in
+Studio (the **Start here** card a fresh home opens on). Any word on the way
+-- lineup, lane, claim, gate, hand-off -- is one `halo explain <word>` away
+([GLOSSARY.md](GLOSSARY.md)); the full reference is
+[COMMANDS.md](COMMANDS.md) (`halo start`).
 
 ## A 10-minute walkthrough
 

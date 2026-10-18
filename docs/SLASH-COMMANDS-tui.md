@@ -224,6 +224,27 @@ naming `cc:`/Databricks/OpenRouter/`--chrome`/MCP is shown only once that
 provider or feature is actually enabled/present). Identical output in
 `-p` and the TUI.
 
+### `/start`
+Halo 3.1.1.0: the ten-minute start in a panel over the session (the TUI runs
+it; it does not open a terminal pane): a lineup copied into your scope, the
+sample repo, one Orchestra goal with a reviewed plan, the run, the report
+and the coach -- the seven steps one under another with their state, and the
+newest step's why, command and lines below them. The panel runs straight
+through like `halo start --yes` (the lead's plan is approved as it comes);
+for one screen per step, or to change the plan on Studio's plan canvas
+first, run `halo start` in a terminal. Esc stops a running start at its next
+check (a waiting plan is rejected, a running Orchestra run asked to stop);
+Esc again closes the panel. Outside the TUI `/start` says how to run it. See
+`docs/COMMANDS.md` (`halo start`).
+
+### `/explain [thing]`
+Halo 3.1.1.0: what a Halo word means -- its one paragraph from
+`docs/GLOSSARY.md` in a card over the session (Esc or Enter closes it), the
+same text `halo explain <thing>` prints and Studio's Glossary lists. The
+match is loose (`/explain lineups`, `/explain handoff`, `/explain orch`); an
+unknown word lists the closest ones, and bare `/explain` lists every word.
+Outside the TUI it prints the paragraph.
+
 ## Custom commands and skills
 
 Discovered from the same directories Claude Code uses, in the same

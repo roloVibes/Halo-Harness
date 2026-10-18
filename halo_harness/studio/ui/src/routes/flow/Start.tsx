@@ -14,6 +14,7 @@ import { FlowGraphView } from "./FlowGraph";
 import { IntakeForm } from "./IntakeForm";
 import { NONE, runMotion, setView, showsStart, useFlow } from "./store";
 import { openRun, startFlow } from "./sync";
+import { NextStep } from "../NextStep";
 
 const STEPS: [string, string, string][] = [
   ["Brief", "intake", "You write what you want; files you drop become assets of the project."],
@@ -88,6 +89,7 @@ export function StartView() {
             </button>
           </aside>
         </div>
+        <NextStep from="flow" />
       </div>
     </div>
   );

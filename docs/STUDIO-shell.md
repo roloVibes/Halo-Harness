@@ -101,3 +101,56 @@ Under `prefers-reduced-motion` none of it moves; each state keeps its colour
 cue. A section tab "works" while that section has fresh activity, toasts
 sweep green or flash red once, and nothing loops except `idle`, `working`
 and `waiting`, which describe an ongoing state.
+
+## The first ten minutes (3.1.1.0)
+
+**Start here.** On a fresh home -- no lineup of your own (only the shipped
+lineups or their untouched copies, none active) and no run (no Orchestra run
+in Studio's repo, no `halo start` sample under `~/.halo/start/`) -- Studio
+opens on a **Start here** card instead of the section's welcome. **Run the
+ten-minute start** runs `halo start --yes` as a background job in Studio's
+process (`POST /api/start`): the same seven steps as in a terminal (a lineup
+copied into your scope as `my-halo-dev-cycle`, the sample repo, one
+Orchestra goal with `plan: review`, the plan approved, the lanes, the report
+and the coach, where to go next), each listed with its state while the
+running one shows its command and its last lines; the outcome names the
+lineup, the run and its repo, with buttons into Roles, Team and Fleet.
+Closing the card keeps the start running (the palette's **Start: the
+ten-minute start** brings it back; **Stop the start** ends it). **Just look
+around** dismisses the card for this home (`~/.halo/start/dismissed.json`,
+every browser) and the section's welcome comes up instead. It runs on the
+model you configured; with none, the card says so and points at `halo init`.
+`?tour=off` keeps it shut, like the welcome.
+
+The steps arrive as `start` frames on the live feed (`/api/events`; Studio
+also polls `GET /api/start` while the card is open):
+
+```json
+{"session_id": "start:<job id>", "event": "start",
+ "data": {"job": "<job id>", "step": 4, "total": 7, "key": "plan", "title": "The plan",
+          "why": "...", "command": "halo orchestra plan --repo ...", "state": "running", "lines": ["..."]}}
+```
+
+`state` is `running`, `done`, `failed` or `stopped`; one last frame has
+`key: "summary"`, `state: "finished"` and `summary: {ok, stopped_at, reason,
+lineup, repo, run, report, coach}`. Routes: `GET /api/start` (`{fresh,
+dismissed, show, own_lineups, active_team, runs, starts, job, plan}`), `POST
+/api/start` (202, 409 while one runs, 422 with `reason: "no_provider"`),
+`POST /api/start/dismiss`, `POST /api/start/stop`.
+
+**One story.** Every section's Start view ends on a **Next** footer that
+names the next section and why, in this order: Roles -> Orchestra -> Flow ->
+Team -> Org -> Design -> Fleet (Fleet's points back to Roles); the button
+opens it.
+
+**The Glossary.** The **?** beside the section tabs is a menu: **How
+<section> works** (also `?`) and **Glossary**, a dialog listing every word
+Halo uses (lineup, bio, role, tier, team, member, block, stage, lane, part,
+flow, step, mission, gate, claim, hand-off, plan, coach, orchestra run,
+fleet, hub, harness, capability), each expandable to its one paragraph. Each
+section's How this works card has a **WORDS** row: the glossary words that
+section uses, each opening the Glossary on that word. The text is served by
+`GET /api/glossary` (`{words: [{word, text}], source}`) from
+[GLOSSARY.md](GLOSSARY.md), the same paragraphs `halo explain` prints; the
+bundle carries no copy. The palette has **Help: glossary** too.
+

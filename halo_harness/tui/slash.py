@@ -95,6 +95,8 @@ async def handle_slash(app, name: str, args: str) -> None:
         "tasks": _handle_tasks,
         # Halo 3.0.3.0: the latest Orchestra run's lanes, refreshed from its run log.
         "orchestra": _handle_orchestra,
+        # Halo 3.1.1.0 R1: /start runs the ten-minute start in a panel; /explain shows a glossary card.
+        "start": _handle_start, "explain": _handle_explain,
         # Halo 2.0.2 round 6: /update -- the check (git/network) runs on a
         # worker, never the UI thread; the dialog's own Enter is what
         # actually requests the quit-update-relaunch handoff (see
@@ -1338,6 +1340,18 @@ async def _handle_orchestra(app, args: str) -> None:
     """`/orchestra [run]`: the panel over the run (the latest of this folder's repo)."""
     from halo_harness.tui.dialogs.orchestra import OrchestraPanel, run_finder
     app.push_screen(OrchestraPanel(run_finder(app.cwd, (args or "").strip() or None)))
+
+
+async def _handle_start(app, _args: str) -> None:
+    """`/start`: the ten-minute start in a panel (tui/dialogs/start_panel.py)."""
+    from halo_harness.tui.dialogs.start_panel import StartPanel
+    app.push_screen(StartPanel())
+
+
+async def _handle_explain(app, args: str) -> None:
+    """`/explain <thing>`: the glossary paragraph in a card (tui/dialogs/explain_card.py)."""
+    from halo_harness.tui.dialogs.explain_card import ExplainCard
+    app.push_screen(ExplainCard((args or "").strip()))
 
 
 def _ollama_analyses(args: str) -> list:
