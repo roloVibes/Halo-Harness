@@ -2,7 +2,8 @@
 (Halo 3.0.4.0 round R5). Same loopback / origin / token guard as every
 Studio route; the runs are `<state>/flows/runs/` (docs/FLOWS.md).
 
-    GET  flow/templates                  [{name, source: template|user|project, steps: [{id, kind}], form, budget_usd}]
+    GET  flow/templates                  [{name, source: template|user|project, steps: [{id, kind, uses, deps, layer, gate}], form, budget_usd}]
+    PUT  flow/templates/<name> {yaml} | {order}       the flow file, validated (flow_api_edit.py, 3.0.9.0 R2)
     GET  flow/runs                       [{run, name, status, created, cost_usd, project, live, waiting_step?}]
     POST flow/runs {template|name, intake, model?, set?, yes?, start?, force?}  -> 201 {run, started}
                                          (422 {error, problems, preflight: true} when the lineup preflight blocks)
@@ -26,6 +27,7 @@ from halo_harness.flows import gates, spec as fspec, state
 from halo_harness.orchestra import jsonl
 from halo_harness.studio import flow_model as FM
 from halo_harness.studio import flow_runs as live
+from halo_harness.studio.flow_api_edit import ROUTES as EDIT_ROUTES
 from halo_harness.studio.flow_api_io import bad as _bad, intake_of, overrides_of, post_assets as _post_assets
 
 RUNNER = None
@@ -198,7 +200,7 @@ ROUTES = [
     ("POST", _RUN + "/stop$", post_stop), ("POST", _RUN + "/resume$", post_resume),
     ("POST", _RUN + "/answer$", post_answer), ("GET", _RUN + "/report$", get_report),
     ("GET", _RUN + "/posts$", get_posts), ("GET", _RUN + "/metrics$", get_metrics),
-]
+] + EDIT_ROUTES  # 3.0.9.0 R2: PUT flow/templates/<name> (flow_api_edit.py)
 
 
 def dispatch_flow(req):

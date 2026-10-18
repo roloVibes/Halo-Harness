@@ -29,6 +29,7 @@ from typing import Optional
 
 from halo_harness.orchestra import gitops, jsonl
 from halo_harness.orchestra.goal import repo_root_of
+from halo_harness.orchestra.index import overlaps
 from halo_harness.orchestra.lanes import unit_text
 
 TAIL_LINES = 40
@@ -171,11 +172,16 @@ def record_equals_disk(run_dir, lanes: list, ref: Optional[str] = None) -> tuple
     repo = repo_root_of(run_dir)
     ref = ref or gitops.finished_branch(run_dir.name)
     judged = _judged_files(run_dir)
+    later = _later_claims(lanes)
     rows, ok, cache = [], True, {}
     for lane in lanes:
         written = lane.written
         for key in lane.job.claims:
             rel = key.split("#", 1)[0]
+            if any(overlaps(key, k) for k in later.get(lane.n, ())):  # a later lane rewrote it: its text is the record
+                rows.append({"lane": lane.n, "key": key, "equal": True, "judge": False, "snapshot": key in written,
+                             "superseded": True})
+                continue
             if rel not in cache:
                 cache[rel] = gitops.show(repo, ref, rel)
             content = cache[rel]
@@ -188,6 +194,15 @@ def record_equals_disk(run_dir, lanes: list, ref: Optional[str] = None) -> tuple
             rows.append({"lane": lane.n, "key": key, "equal": equal, "judge": judge and not equal,
                          "snapshot": snap is not None})
     return ok, rows
+
+
+def _later_claims(lanes: list) -> dict:
+    """`{lane: keys claimed by a lane that starts after it}` (3.0.9.0 R2: a reviewed plan may
+    give two sequenced lanes the same unit; the later lane starts from the earlier one's head)."""
+    from halo_harness.orchestra.handoff_spec import reach
+    deps = {lane.job.id: list(lane.job.upstreams) for lane in lanes}
+    return {lane.n: [k for o in lanes if o is not lane and lane.job.id in reach(deps, o.job.id) for k in o.job.claims]
+            for lane in lanes}
 
 
 def unit_names(lane) -> list:

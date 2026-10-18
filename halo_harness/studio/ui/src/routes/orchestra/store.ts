@@ -131,6 +131,7 @@ export function runMotion(state: RunState | undefined, doneAt: number): MotionSt
     case "stopped":
       return "error";
     case "interrupted":
+    case "planned":
       return "waiting";
     case undefined:
       return "none";

@@ -7,7 +7,8 @@ export type FlowStatus = "pending" | "running" | "waiting" | "finished" | "stopp
 export type TemplateRow = {
   name: string;
   source: "template" | "user" | "project" | string;
-  steps: { id: string; kind: string }[];
+  // 3.0.9.0 R2 (flows/graph.py): uses, the steps it reads, its layer, whether it is the gate
+  steps: { id: string; kind: string; uses?: string; deps?: string[]; layer?: number; gate?: boolean }[];
   form: Record<string, unknown>;
   budget_usd?: number | null;
   version?: number | null;

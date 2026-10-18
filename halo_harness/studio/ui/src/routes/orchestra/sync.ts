@@ -140,12 +140,14 @@ export type RunForm = {
   lead: string;
   worker: string;
   model: string;
+  /** 3.0.9.0 R2: the run pauses after the split until the plan is approved (the plan canvas). */
+  review?: boolean;
 };
 
 export async function startRun(form: RunForm, dryRun: boolean): Promise<string[]> {
   try {
-    const { model, ...goal } = form;
-    const r = await api.post<{ run_id: string }>("orchestra/run", { ...goal, ...(model ? { model } : {}), dry_run: dryRun });
+    const { model, review, ...goal } = form;
+    const r = await api.post<{ run_id: string }>("orchestra/run", { ...goal, ...(model ? { model } : {}), ...(review ? { review: true } : {}), dry_run: dryRun });
     toast(`${dryRun ? "Dry run" : "Run"} ${r.run_id} started`, "info");
     await loadRuns();
     await openRun(r.run_id);

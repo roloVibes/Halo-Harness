@@ -10,6 +10,7 @@ import { Workspace } from "../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { attachMedia, useMedia } from "../media/store";
 import { clock, cost } from "../orchestra/format";
+import { FlowGraphView } from "./FlowGraph";
 import { IntakeForm } from "./IntakeForm";
 import { NONE, runMotion, setView, showsStart, useFlow } from "./store";
 import { openRun, startFlow } from "./sync";
@@ -99,8 +100,10 @@ export function FlowView({ section, specs }: { section: string; specs: PanelSpec
   useEffect(() => startFlow(), []);
   useEffect(() => attachMedia(), []);
   const start = useFlow(showsStart);
+  const graph = useFlow((s) => s.graph);
   const down = useMedia((s) => s.status?.reachable === false);
   const shown = useMemo(() => (down ? specs.filter((p) => !MEDIA_MORE.includes(p.id)) : specs), [down, specs]);
+  if (graph) return <FlowGraphView name={graph} />; // 3.0.9.0 R2: "Show as graph"
   if (start) return <StartView />;
   return <Workspace section={section} specs={shown} />;
 }

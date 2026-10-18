@@ -70,6 +70,9 @@ def plan_and_drag(c, rig, out: dict) -> str:
     out["edges"] = sorted(c.js("[...document.querySelectorAll('[data-testid=\"fleet-mission-edge\"]')].map((e) => e.dataset.kind + ':' + e.dataset.from + '>' + e.dataset.to)"))
     out["seq_chips"] = c.js("document.querySelectorAll('[data-testid=\"fleet-mission-seq-chip\"]').length")
     out["locks"] = c.js("document.querySelectorAll('[data-testid=\"fleet-part-lock\"]').length")
+    out["edge_labels"] = c.js("[...document.querySelectorAll('[data-testid=\"part-edge-label\"]')].map((e) => e.dataset.from + '>' + e.dataset.to + ':' + e.querySelector('text').textContent)")
+    out["part_bases"] = c.js("Object.fromEntries([...document.querySelectorAll('[data-testid=\"fleet-part\"]')].map((n) => [n.dataset.part, n.querySelector('[data-testid=\"part-base\"]')?.textContent || '']))")
+    out["mission_base"] = (rig.api("GET", f"fleet/missions/{mid}")[1]["mission"].get("repo") or {}).get("base") or ""
     out["planned_dashed"] = c.js(f"getComputedStyle({NODE.format('1')}.querySelector('.fmi-node-shape')).strokeDasharray")
     out["table_rows"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-mission-part-row\"]').length", 10)
     out["plan_row"] = c.wait(f"{ROW.format('mission_plan')}?.querySelector('.fat-what')?.textContent", 20)

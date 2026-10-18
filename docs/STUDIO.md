@@ -150,13 +150,26 @@ in its own git worktree, and a gate checks the result before it lands.
    claimed or written.
 3. **The lead splits it into lanes**. Each lane claims a part of the files;
    one worker per lane builds its part in its own git worktree.
-4. **The gate checks DONE WHEN**. The parts merge one at a time, your test
+4. **How this works: the plan** (3.0.9.0). With **Review the plan before it
+   runs** on, the lead's lanes open on the plan canvas before any worker
+   starts: one box per layer, drag a lane into another box to change what it
+   runs after, click it to edit its title, claims, bio, model and hand-offs.
+   Every edit is checked; **Approve and run** starts the lanes, **Reject**
+   stops the run with your reason
+   ([ORCHESTRA.md](ORCHESTRA.md#review-the-plan)).
+5. **Hand-offs**: a lane can wait for another (after) and take its summary,
+   its units or a file it saved (needs); it then starts from that lane's
+   finished head, and a lane that takes nothing sees only the goal. Lanes
+   draws each edge with what it carries and every lane's base
+   ([ORCHESTRA.md](ORCHESTRA.md#hand-offs)).
+6. **The gate checks DONE WHEN**. The parts merge one at a time, your test
    runs, and a part that fails goes back to its worker (up to the return cap).
-5. **Read the report**: every check with a tick or a cross, the finished
+7. **Read the report**: every check with a tick or a cross, the finished
    branch and its sha, the tests, the cost and the time.
 
 **Panels.** Goal: what you want, how it is checked and when to give up; then
-Run. Workflow: the run's plan: goal, lead, split, one node per lane, merge,
+Run. Plan (only while a run waits for review): the lead's lanes in their
+layers, to edit before Approve and run. Workflow: the run's plan: goal, lead, split, one node per lane, merge,
 test, gate. Run grid: one tile per lane: writing, in review, waiting or
 merged. Live file: the shared file, each lane's claimed part a band in its
 colour. Lanes: each worker's timeline on the run's clock, from joined to
@@ -318,6 +331,10 @@ out and their metrics come back, all in one design project.
 6. **Read the report**: Report sums it up; New run in the rail goes back to
    the Start view.
 
+**As a graph.** Show it as a graph on the intake form draws the flow's steps
+in their dependency layers; drag two independent steps to swap their order
+in the flow file.
+
 **Panels.** Intake, Workflow, Renders, Step, Posts, Metrics, Log, Report and
 the four Media panels; what each shows is in the [Flow](#flow-the-workflow-console)
 table below.
@@ -359,14 +376,19 @@ stop, take over or hand off any one agent.
    can do it. The plan draws on the map, drag a part to another harness to
    move it, then Approve and Run; the report says who did what and what it
    cost per harness.
-8. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
+8. **Hand-offs**: a part that depends on another reads that part's outputs
+   and hand-back (`take: all` for everything it left), and a repo part
+   starts from the earlier part's finished branch. The map labels each edge
+   with what it carries and each repo part with its base
+   ([MISSIONS.md](MISSIONS.md#hand-offs)).
+9. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
    or 60 minutes, tool calls as ticks) over the merged live log. Costs
    ticks today's spend and holds the caps; Health is a doctor summary per
    harness.
-9. **Record and replay**: Record saves a session or one agent as a single
+10. **Record and replay**: Record saves a session or one agent as a single
    HTML file that plays anywhere. Replay plays a finished session on the
    Roles canvas: the cards light up in the order they worked.
-10. **Come back**: after ten minutes away, While you were away sums up what
+11. **Come back**: after ten minutes away, While you were away sums up what
    happened: sessions, cost, decisions and who made them, files, errors,
    hand-offs.
 
@@ -424,7 +446,9 @@ past runs to open. Starting or opening a run brings up the panels; **open the
 workspace anyway** does too. **New run** (the rail, or the palette's
 **Orchestra: new run**) returns to the Start view. An Orchestra goal has no
 dollar budget: its budget is how many workers and how many times the gate may
-send a part back.
+send a part back. **Review the plan before it runs** (beside Run; on the Goal
+panel under the disclosure) sends `review: true`: the run stops after the
+lead's split and the plan canvas below takes the console's place.
 
 ![Orchestra before a run: the Start view](media/studio-orchestra-start.png)
 
@@ -442,7 +466,7 @@ the repo (click one to open it).
 | **Goal** | WHAT YOU WANT / DONE WHEN / STOP WHEN as a card, the workers, the cost, the run state badge | the open run in one line (state, cost, **stop** while it runs, **new run**) over its goal form (as on the Start view) with **Run** and **Dry run** | the badge follows the run: flowing while it runs, a green sweep when it finishes, red when it stops, amber when it was interrupted |
 | **Workflow** | steps finished, the running step, the graph | the graph and the step list | the designed graph laid out in SVG: goal, lead, split, one node per lane, merge, test, the gate diamond, done; pending steps are faint, the running step's outline flows, the diamond lights when the gate acts, a failed step is red, and the gate's return arrow turns amber once a piece has been sent back |
 | **Run grid** | the counters (joined, writing, in review, waiting, merged) and one tile per lane, 5 to 50 | larger tiles with each lane's title | a tile that is writing flows, a waiting one pulses amber, a merged one turns green; click a tile to focus that lane in Lanes and Live file |
-| **Lanes** | joined, writing, merged, one strip per lane | the timeline: one trace per worker on the run's clock from "joined" to "merged", a node at each state change, a diamond where the gate sent the piece back; hover a node for its time and text | the running lane's trace flows, a waiting lane pulses amber |
+| **Lanes** | joined, writing, merged, one strip per lane | the timeline: one trace per worker on the run's clock from "joined" to "merged", a node at each state change, a diamond where the gate sent the piece back; hover a node for its time and text; 3.0.9.0: an arc from a lane to each lane that starts after it, a chip on the later lane naming what it takes (`summary`, `all`, an artifact, or `after`) and a "base: <sha7>" line on every lane | the running lane's trace flows, a waiting lane pulses amber |
 | **Live file** | units being written, units merged, a minimap of the bands | the goal file in mono with each lane's claimed unit as a band in its lane colour, labelled claimed, writing, written or merged, holding the lane's current text (its worktree copy); a picker when the goal has several files | a band being written shimmers; a claimed band is hatched |
 | **Report** | checks passing, cost, one pip per check | the checks with ticks and crosses, the finished branch and sha, the tests, the cost and time; **Copy** puts the report text (as `halo orchestra report` prints it) on the clipboard; a dry run shows the lead's jobs here | one green sweep when the report lands |
 | **Log** | line count, the last lines | the run log with each line's elapsed time, a lane filter, kind filters and **follow** | new lines slide in |
@@ -463,6 +487,35 @@ panels within a quarter second; a claim or merge refetches the file view.
 When the feed is not connected and a run is live, the panels poll every
 5 s instead. Palette commands (`Ctrl`/`Cmd`+`K`): **Orchestra: new run**
 (the Start view), **stop run**, **open run <id>** and **focus lane N**.
+
+### The plan canvas (3.0.9.0)
+
+While the open run is `planned` (its goal has `plan: review`) one panel,
+**Plan** (`orchestra-plan`), takes the console's place. Its toolbar names
+the run, how many lanes there are and how many the lead planned, and has
+**Add lane**, **Undo** / **Redo** (`Ctrl+Z` / `Ctrl+Shift+Z` on the canvas),
+**Reject** and **Approve and run**. The canvas (`plan-canvas`) draws the
+lanes as cards (`plan-lane`) in one labelled box per layer (`plan-layer`):
+the first runs at once, each next box runs after the lanes it names, and an
+empty box at the end opens a new layer. An `after` edge (`plan-edge`) joins
+a lane to each lane it waits for, with a chip naming what it takes
+(`summary`, `all`, an artifact) or `after`. Drag a card into another box:
+the first box clears what it runs after (and what it takes), box *k* makes
+it run after every lane of box *k-1*. Click a card: the inspector edits its
+title, its claims (chips; add one from the goal's units, which names the
+lane that already claims it), what it runs after, what it takes (needs:
+from a lane, `summary`, `all` or one of that lane's gives), what it hands on
+(gives: a name, a kind, paths), its bio (the Roles bios) and its model (the
+Roles model picker with **Test this model**), and **Drop lane**. Every edit
+is one undo step and is sent as the draft (`PUT orchestra/<run>/plan`); the
+answer's problems show under the canvas (`plan-problem`, click one to select
+its card) and on each card they name (a red outline and the text). **Approve
+and run** (`plan-approve`) stays disabled while a problem remains and its
+tooltip names them; it sends the plan and the console comes back as the run
+goes on. **Reject** opens a card that asks for the reason; the run stops with
+it.
+
+![Orchestra: the plan canvas of a run waiting for review](media/studio-orchestra-plan.png)
 
 One run goes at a time. **Run** is disabled while a run is live, and
 **stop** (the Goal panel's run line, or its compact face) asks the runner to
@@ -490,6 +543,16 @@ dropped on the form make the run without starting it, upload each file
 into the project's `assets/`, then resume it. Starting or opening a run
 brings up the panels; **open the workspace anyway** does too. **New run**
 (the rail, or the palette's **Flow: new run**) returns to the Start view.
+
+**As a graph (3.0.9.0).** **Show <flow> as a graph** under the flow picker
+(or `?graph=<name>`) draws the picked flow on the plan canvas instead of the
+section (`flow-graph`): its steps as cards (`flow-step`) in dependency
+layers, one labelled box per layer, from their `$.<step>` refs; the confirm
+step is marked as the gate. It is read-only except the order of
+independent steps: drag a card onto another one in the same box and the flow
+file is rewritten in that order (`PUT flow/templates/<name> {order}`; a
+shipped template is copied to your `~/.halo/flows/` first). **Back to the
+flow** returns ([FLOWS.md](FLOWS.md#as-a-graph)).
 
 **The panels.** Every Flow and Media panel opens on its full face (the
 compact face is the summary a strip keeps); its one-line `about` shows in
@@ -776,7 +839,10 @@ One goal, every harness, nobody stepping on anyone ([MISSIONS.md](MISSIONS.md)):
 2. **The plan on the map**: each part is a node in its harness box's lane,
    dashed while planned; an edge for each part it waits for, amber with a
    **claims** chip where two repo parts claim the same files and so run one
-   after the other. The table under the map is the same plan.
+   after the other, and on every other edge a chip naming what it hands on
+   (the outputs' names, `all` or `hand-back`); a repo part shows its base
+   (the mission's base, or "base: 1's head" when it starts from an earlier
+   part's work). The table under the map is the same plan.
 3. **Edit by hand**: drag a part's node into another harness box to move it
    there (`POST .../parts/<n> {harness}`, checked in code: a harness that
    lacks what the part needs answers 422, the toast says why and the node

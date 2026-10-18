@@ -53,7 +53,7 @@ agents), plus what only one harness has. The lead answers with JSON:
 ```json
 {"parts": [{"id": "1", "title": "Scan the lab subnet", "brief": "...", "kind": "files",
             "harness": "kali@lab", "reason": "it has nmap", "needs": ["nmap"], "depends_on": [],
-            "claims": [], "outputs": ["scan.xml"], "est_cost_usd": 0.2}],
+            "claims": [], "outputs": ["scan.xml"], "take": "outputs", "est_cost_usd": 0.2}],
  "merge_order": ["3", "2"]}
 ```
 
@@ -87,7 +87,8 @@ Claims are paths or globs relative to the repo (`src/report/**`,
 `docs/index.md`). Code computes whether two claims can name one file (`*`, `?`
 and `**` included; a plain path also covers what is under it). Two repo parts
 whose claims overlap get a `depends_on` so the later one in the merge order
-waits for the earlier, and the plan's notes say why.
+waits for the earlier, and the plan's notes say why; the later one then
+starts from the earlier one's head ([Hand-offs](#hand-offs)).
 
 On the harness that runs it, the part's claims join the session's permission
 engine as a guard (the same hook Orchestra's claim guard uses). An Edit,
@@ -102,8 +103,8 @@ conflict detector still watches every agent's edits across the fleet.
 
 **Without a mount** the hub serves the mission folder over the signed fleet
 protocol (`POST /fleet/v1/mission_files {op: list | get | put}`). A member
-mirrors `MISSION.md`, its own brief, `inputs/` and the outputs of the parts it
-depends on into its own `~/.halo/fleet/missions/<id>/` before its part runs,
+mirrors `MISSION.md`, its own brief, `inputs/` and the outputs and hand-backs
+of the parts it depends on ([Hand-offs](#hand-offs)) into its own `~/.halo/fleet/missions/<id>/` before its part runs,
 and pushes its `artifacts/<n>/`, the hand-back, the result and, for a repo
 part, a git bundle of its branch afterwards. A member reaches only a mission
 it has a part in, reads only those files and writes only its own part's;
@@ -134,6 +135,45 @@ Studio, `halo fleet` and the hub's agent tree, and pause, resume and stop
 reach it like any agent. A repo part needs a checkout of its repo on that
 machine (a live session's project); it runs in a worktree on branch
 `mission/<id>/<part>`.
+
+## Hand-offs
+
+Halo 3.0.9.0 (`fleet/mission_handoff.py`). A part's **`outputs` are its
+hand-off vocabulary**: what it leaves for the parts that depend on it.
+
+```json
+{"id": "2", "title": "Build the findings workbook", "kind": "files", "depends_on": ["1"],
+ "outputs": ["artifacts/2/findings.xlsx"], "take": "outputs"}
+```
+
+- **What a dependent part reads.** From each part it depends on, exactly
+  that part's `outputs` and its `parts/<d>/handback.md`; with `"take":
+  "all"` the dependency's whole `artifacts/<d>/**` instead. That is what
+  `mission_files` lists and serves to a member (anything else of the
+  dependency is a 403), what a member mirrors before its part runs, and
+  what the part's prompt lists ("Hand-offs from part(s) 1 in the mission
+  folder: parts/1/handback.md, artifacts/1/scan.xml."). `take` defaults to
+  `outputs`; the lead may set it, and the plan keeps it.
+- **The base rule.** A repo part with `depends_on` (declared by the lead or
+  added by the claims sequencing) starts from its repo dependencies'
+  finished work, not the mission's base: one dependency that changed files
+  = its branch head; two or more = their merge, which the hub makes on
+  `mission/<id>/<n>-base` (a conflict goes to a fresh judge as the
+  mission's merge does: its answer applied by code, the mission's tests
+  after it; a judge's answer that does not fit, or failing tests, fail the
+  part with the reason). A dependency that ran on a member comes from its
+  `parts/<d>/branch.bundle`; a part that runs on a member gets its start as
+  `parts/<n>/base.bundle` and fetches it before making its worktree. A part
+  with no repo dependency starts from the mission's base, as before.
+- **Where it shows.** The part's state, its `result.json` and the report
+  carry `base`; report.md's **Who did what** table has a Base column
+  (`` `1a2b3c4` (after 1, 2) ``). The map labels each `depends_on` edge with
+  what it carries (the outputs' names, `all`, or `hand-back`) and each repo
+  part with its base.
+
+Because the later part starts from the earlier one's head, two sequenced
+parts that touch one file no longer conflict at the merge: the later part's
+version is the one merged.
 
 ## The run, the merge, the cost and the report
 
@@ -213,7 +253,8 @@ mission**) is the same flow on one screen: type the goal, pick the harnesses
 to prefer and a budget, **Plan it**. The plan is drawn over the Fleet map,
 each part a node in its harness's box (a lock where it was pinned by
 capability, an amber edge and a **claims** chip where two parts were
-sequenced, a red chip where nobody can run it), and as a table under the map.
+sequenced, a chip naming what every other edge hands on, each repo part's
+base, a red chip where nobody can run it), and as a table under the map.
 Drag a part to another harness to move it (a harness that lacks what it
 needs refuses with the reason), then **Approve** and **Run**: parts waiting
 on a member's owner pulse amber, running ones show the line their agent is

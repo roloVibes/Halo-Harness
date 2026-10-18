@@ -4,7 +4,7 @@
 Start view then the grid, a click focuses a panel and `?` opens its help; no section nests a
 second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (studio_ui_fleet.py),
 3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Org and Design sections (studio_ui_org_design.py),
-3.0.8.0 R2 the Team tab (studio_ui_team.py); the shell has seven section tabs since 3.0.8.0.
+3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py); seven section tabs since 3.0.8.0.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 from tests.helpers.studio_ui_fleet import register as register_fleet
 from tests.helpers.studio_ui_mission import register as register_mission
 from tests.helpers.studio_ui_org_design import register as register_org_design
+from tests.helpers.studio_ui_plan import register as register_plan
 from tests.helpers.studio_ui_roles import register as register_roles
 from tests.helpers.studio_ui_team import register as register_team
 
@@ -94,7 +95,8 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
 def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx):
     """3.0.3.0 R4: over a seeded finished run (the R2 fixture: five lanes, one
     judged conflict, eight checks) the Orchestra section draws the graph with
-    its gate, five lanes, five claimed bands, every check and five tiles."""
+    its gate, five lanes, five claimed bands, every check and five tiles; 3.0.9.0:
+    lane 2 takes lane 1's summary, so one lane-edge, and a base line on every lane."""
     if not _chrome():
         raise SkipTest("no Chrome found (the Orchestra smoke needs headless Chrome)")
     r, info = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
@@ -103,6 +105,7 @@ def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx)
     ctx.check(f"five lanes and five tiles, got {info}", info.get("lane") == 5 and info.get("grid-tile") == 5)
     ctx.check(f"a band per claimed unit, got {info}", info.get("claim-region", 0) >= 5)
     ctx.check(f"every report check, got {info}", info.get("report-check") == 8)
+    ctx.check(f"3.0.9.0: lane 2's hand-off edge and every lane's base, got {info}", info.get("lane-edge") == 1 and info.get("lane-base") == 5)
     ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 7 and info.get("orchestra-root") == 1)
 
 
@@ -192,7 +195,7 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
               got.get("inspector") == "Lanes" and got.get("inspector_follows") == "Report")
     ctx.check("the Compact toggle", got.get("compact") == "glance")
     ctx.check(f"How Orchestra works: steps and every panel, got {got}",
-              got.get("section_title") == "How Orchestra works" and got.get("section_steps") == 5 and got.get("section_panels") == 8)
+              got.get("section_title") == "How Orchestra works" and got.get("section_steps") == 7 and got.get("section_panels") == 8)
     ctx.check("closed and remembered as seen", got.get("section_closed") is True and got.get("seen") == "1")
 
 
@@ -225,6 +228,7 @@ register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, test
 register_org_design(test, _json_of, _chrome)  # 3.0.7.0 R3: Org and Design in React, tests/helpers/studio_ui_org_design.py
 register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
 register_team(test, _json_of, _chrome)  # 3.0.8.0 R2: the Team tab, tests/helpers/studio_ui_team.py
+register_plan(test, _json_of, _chrome)  # 3.0.9.0 R2: the plan canvas and the Flow graph, tests/helpers/studio_ui_plan.py
 
 
 if __name__ == "__main__":
