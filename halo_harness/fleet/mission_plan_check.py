@@ -6,7 +6,9 @@ renumbered "1".."N" (the lead's own ids are mapped, `depends_on` and
 `merge_order` with them); every part needs a title and a brief; claims are
 repo-relative; a part is `kind: repo` (it edits the mission's repo on its own
 branch) or `kind: files` (it works in `artifacts/<n>/` of the mission folder,
-which is then its claim). `sequence(parts, order)` makes two repo parts whose
+which is then its claim); `take` (3.0.9.0) is `outputs` (the default: from each
+dependency it reads that part's outputs and hand-back) or `all` (the
+dependency's whole artifacts folder). `sequence(parts, order)` makes two repo parts whose
 claims overlap run one after the other (the later waits for the earlier) and
 says why; `cycles(parts)` finds a dependency loop. `ready(plan)` lists what
 stops an approval (an unassignable part, a part with no harness).
@@ -72,7 +74,7 @@ def normalize(data, has_repo: bool) -> "tuple[list, list, list]":
         parts.append({"id": n, "title": title, "brief": brief, "kind": kind, "harness": str(p.get("harness") or ""),
                       "reason": " ".join(str(p.get("reason") or "").split())[:300], "needs": _strs(p.get("needs")),
                       "depends_on": deps, "claims": claims, "outputs": outputs, "est_cost_usd": _cost(p.get("est_cost_usd")),
-                      "sequenced": []})
+                      "sequenced": [], "take": "all" if str(p.get("take") or "").strip().lower() == "all" else "outputs"})
     order = [ids[str(x)] for x in data.get("merge_order") or [] if str(x) in ids] if isinstance(data.get("merge_order"), list) else []
     problems += cycles(parts)
     return parts, merge_order(parts, order), problems

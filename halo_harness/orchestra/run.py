@@ -30,6 +30,7 @@ from halo_harness.orchestra import events as run_events
 from halo_harness.orchestra import gitops, jsonl
 from halo_harness.orchestra import workflow as wf
 from halo_harness.orchestra.gate import quality_gate
+from halo_harness.orchestra.handoff_run import stuck
 from halo_harness.orchestra.goal import load_goal, repo_root_of, run_meta, set_lead_holder
 from halo_harness.orchestra.index import index_file
 from halo_harness.orchestra.lanes import load_lane
@@ -83,6 +84,23 @@ class Flow:
             jsonl.write_json(self.path, wf.loop_back(self.graph(), lane))
             run_events.log(self.run_dir, "gate", f"lane {lane} sent back to its worker", lane=lane,
                            step=wf.worker_id(lane), state="pending")
+            self.pump()
+
+    def layer(self, jobs: list) -> None:
+        """3.0.9.0: lanes with upstreams hang off them (workflow.designed_graph's `after`); once."""
+        from halo_harness.orchestra.handoff_spec import edge_label
+        lane_of = {job.id: job.worker for job in jobs}
+        after = {job.worker: [lane_of[u] for u in job.upstreams if u in lane_of] for job in jobs if job.upstreams}
+        with self.lock:
+            graph = self.graph()
+            if not after or any(e.get("kind") == "after" for e in graph.get("edges") or []):
+                return
+            labels = {(lane_of[u], job.worker): edge_label(job.handoff, u) for job in jobs for u in job.upstreams
+                      if u in lane_of}
+            jsonl.write_json(self.path, wf.with_layers(graph, after, labels))
+            run_events.log(self.run_dir, "state", "lanes in layers: " + "; ".join(
+                f"lane {n} after {', '.join(f'lane {u}' for u in ups)}" for n, ups in sorted(after.items())),
+                step="split", layers=wf.designed_graph(int(graph.get("workers") or 1), after).get("layers"))
             self.pump()
 
     def running(self) -> list:
@@ -166,18 +184,23 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
         for n in range(len(jobs) + 1, goal.workers + 1):
             flow.set(wf.worker_id(n), "skipped")
         _check_stop(run_dir)
+        flow.layer(jobs)
         for job in jobs:
             lane = load_lane(run_dir, job.worker)
-            if lane is None or lane.state not in ("written", "in_review", "merged"):
+            if (lane is None or lane.state not in ("written", "in_review", "merged")) and not job.upstreams:
                 flow.set(wf.worker_id(job.worker), "running")
         lanes = start_workers(run_dir, goal, jobs, spawn=spawn, base=base, clock=clock,
                               on_lane=lambda lane: flow.set(wf.worker_id(lane.n),
-                                                            "failed" if lane.state == "failed" else "done"))
+                                                            "failed" if lane.state == "failed" else "done"),
+                              on_start=lambda lane: flow.set(wf.worker_id(lane.n), "running"))
+        waiting = stuck(lanes)
         for lane in lanes:
-            flow.set(wf.worker_id(lane.n), "failed" if lane.state == "failed" else "done")
+            if lane.state != "waiting":
+                flow.set(wf.worker_id(lane.n), "failed" if lane.state == "failed" else "done")
         failed = [lane for lane in lanes if lane.state == "failed"]
-        if failed:
-            raise StopRun("; ".join(f"lane {l.n}: {l.data().get('error') or 'failed'}" for l in failed))
+        if failed or waiting:
+            raise StopRun("; ".join([f"lane {l.n}: {l.data().get('error') or 'failed'}" for l in failed]
+                                    + [f"lane {l.n} waits: {why}" for l, why in waiting]))
         while True:
             _check_stop(run_dir)
             flow.set("merge", "running")

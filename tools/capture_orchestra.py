@@ -1,7 +1,7 @@
 """tools/capture_orchestra.py -- the Orchestra and Roles captures for
 tools/capture_studio.py --mode orchestra (Halo 3.0.4.0 round R6b): the run
 console over the seeded finished run (the R2 fixture: basket.py, five lanes,
-one judged conflict, the report) in a temp git repo
+one judged conflict, the report; 3.0.9.0: lane 2 takes lane 1's summary) in a temp git repo
 (docs/media/studio-orchestra.png), the Start view over a second repo with no
 run (studio-orchestra-start.png). With --dom each is dumped and its
 data-testid values counted, plus the Roles section (3.0.7.0 R2: React, its
@@ -16,7 +16,7 @@ from pathlib import Path
 
 ORCH_IDS = ("orchestra-root", "orchestra-graph", "gate", "lane", "claim-region", "report-check", "grid-tile", "section-tab",
             "start-view", "panel-about", "panel-help", "section-help", "orchestra-goal-form", "orchestra-rail-run",
-            "orchestra-open-workspace", "roles-canvas", "roles-card", "roles-tier", "legacy-frame")
+            "orchestra-open-workspace", "roles-canvas", "roles-card", "roles-tier", "legacy-frame", "lane-edge", "lane-base")
 WINDOW = "--window-size=1500,900"
 
 
@@ -36,7 +36,7 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
     """Seed, serve, render; the exit code capture_studio.py returns."""
     from tests.helpers import orchestra_fixtures as F
     from tests.helpers.orchestra_studio_rig import cleanup, finished_run
-    repo, _run_dir = finished_run()
+    repo, _run_dir = finished_run(chain=True)  # 3.0.9.0: lane 2 takes lane 1's summary (one lane-edge)
     empty = F.make_repo("orch-empty-")  # a git repo without a run: the Start view
     srv, url = serve(state, True, repo)  # /?mode=orchestra&feed=off#t=
     srv2, url2 = serve(state, True, empty)

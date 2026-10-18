@@ -110,8 +110,13 @@ class WorkerRun(threading.Thread):
         root.mkdir(parents=True, exist_ok=True)
         if not (root / ".gitignore").exists():
             (root / ".gitignore").write_text("# Mission worktrees: never committed.\n*\n", encoding="utf-8")
-        have = self.f["base"] and gitops.git(["cat-file", "-e", f"{self.f['base']}^{{commit}}"], self.checkout).returncode == 0
-        self.base = self.f["base"] if have else gitops.head(self.checkout)
+        def have() -> bool:
+            return bool(self.f["base"]) and gitops.git(["cat-file", "-e", f"{self.f['base']}^{{commit}}"],
+                                                       self.checkout).returncode == 0
+        if self.f["base"] and not have():  # 3.0.9.0: a sequenced part's start comes as parts/<n>/base.bundle
+            from halo_harness.fleet.mission_handoff import fetch_base
+            fetch_base(self.checkout, self.folder, mid, n)
+        self.base = self.f["base"] if have() else gitops.head(self.checkout)
         self.cwd = gitops.worktree_add(self.checkout, root / mid / n, self.f["branch"], self.base)
 
     def _prompt(self) -> str:
@@ -121,7 +126,18 @@ class WorkerRun(threading.Thread):
         where = (f"Your folder is a git worktree of {self.f['repo']} on branch {self.f['branch']}."
                  if self.f["kind"] == "repo" else f"Your folder is the mission folder; your outputs go in artifacts/{n}/.")
         budget = f"\nKeep this part under ${self.f['budget_usd']:.2f}." if self.f.get("budget_usd") else ""
-        return f"{brief}\n\n{where}{budget}\n\n---\n\nMISSION.md (the whole mission, for context):\n\n{mission}"
+        return f"{brief}\n\n{where}{budget}{self.handoff_line()}\n\n---\n\nMISSION.md (the whole mission, for context):\n\n{mission}"
+
+    def handoff_line(self) -> str:
+        """3.0.9.0: what the parts before this one left for it, and where a repo part starts."""
+        if not self.f.get("depends_on"):
+            return ""
+        got = [x for x in self.f.get("handoffs") or [] if "*" in x or (self.folder / x).is_file()]
+        line = (f"\nHand-offs from part(s) {', '.join(self.f['depends_on'])} in the mission folder"
+                + (f" ({self.folder})" if self.f["kind"] == "repo" else "") + ": " + (", ".join(got) or "nothing yet") + ".")
+        if self.f["kind"] == "repo" and self.base:
+            line += f" Your worktree starts from {self.base[:12]}."
+        return line
 
     def _work(self) -> dict:
         from halo_harness.fleet import mission_worker

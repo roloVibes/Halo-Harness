@@ -17,8 +17,8 @@ committed. Lane states, each logged with its time:
                             waiting (a piece sent back) -> writing ...
                             failed
 
-`<run>/lanes/<n>.json` (lanes.py) holds the lane: state, holder, cost_usd,
-started, ended, pieces_returned, the `written` snapshots, its history.
+`<run>/lanes/<n>.json` (lanes.py) holds the lane (state, holder, cost, the
+`written` snapshots, history; 3.0.9.0: hand-offs, base, gave: handoff.py).
 """
 
 from __future__ import annotations
@@ -54,6 +54,9 @@ def worker_prompt(goal, lane: Lane, retry_text: str = "") -> str:
     if goal.test:
         text += f"The run's test command is `{goal.test}` (other workers' units may still be unwritten).\n"
     text += "If STOP WHEN applies to your job, end your reply with one line: STOP: <the reason>.\n"
+    extra = [t for t in (getattr(lane, "handoff_text", ""), getattr(lane, "gives_text", "")) if t]
+    if extra:  # 3.0.9.0: only a lane that declares hand-offs (orchestra/handoff.py)
+        text += "\n" + "\n\n".join(extra) + "\n"
     if retry_text:
         text += f"\nYour piece came back from the merge. Fix it:\n{retry_text}\n"
     return text
@@ -148,6 +151,9 @@ def run_lane(run_dir, goal, lane: Lane, spawn: Callable, *, clock: Callable = ti
              retry_text: str = "") -> Lane:
     """One worker pass on one lane: writing -> spawn -> finish -> written
     (or failed, with the error or the worker's STOP reason)."""
+    from halo_harness.orchestra import handoff  # 3.0.9.0: the lane's hand-offs in, its gives asked for
+    lane.handoff_text = handoff.deliver(run_dir, lane)
+    lane.gives_text = handoff.gives_text(run_dir, lane)
     lane.prompt = worker_prompt(goal, lane, retry_text)
     lane.retry_text = retry_text
     lane.set_state("writing", "worker writing" + (" (piece sent back)" if retry_text else ""), clock=clock)
@@ -173,6 +179,7 @@ def run_lane(run_dir, goal, lane: Lane, spawn: Callable, *, clock: Callable = ti
         lane.update(error=str(e), ended=clock())
         lane.set_state("failed", f"could not commit the worker's piece: {e}", clock=clock)
         return lane
+    handoff.record_gave(run_dir, lane, fields["text"])
     lane.update(ended=clock())
     lane.set_state("written", "worker finished; piece committed", clock=clock)
     return lane
@@ -188,29 +195,41 @@ def prepare_lane(run_dir, job, base: str, *, clock: Callable = time.time) -> Lan
         lane = Lane.create(run_dir, job, branch=gitops.worker_branch(run_id, job.worker),
                            worktree=run_dir / "wt" / f"worker-{job.worker}", started=clock())
     gitops.worktree_add(repo_root_of(run_dir), lane.worktree, lane.branch, base)
+    if not lane.data().get("base"):
+        lane.update(base=base)
     if lane.state in ("", "pending"):
         lane.set_state("joined", f"worktree {lane.worktree.name} on {lane.branch}", clock=clock)
     return lane
 
 
+def run_with_retry(run_dir, goal, lane: Lane, spawn: Callable, *, clock: Callable = time.time) -> None:
+    """run_lane; a worker's own error (a dropped connection, a crash) gets
+    one more run in the same worktree."""
+    run_lane(run_dir, goal, lane, spawn, clock=clock)
+    error = str(lane.data().get("error") or "")
+    if lane.state == "failed" and not error.startswith("STOP:"):
+        run_lane(run_dir, goal, lane, spawn, clock=clock,
+                 retry_text=f"Your previous run in this worktree ended with an error: {error[:300]}\n"
+                            "Check what is already written, then finish the job.")
+
+
 def start_workers(run_dir, goal, jobs: list, *, spawn: Callable, base: str = "HEAD",
-                  clock: Callable = time.time, on_lane: Optional[Callable] = None) -> list:
-    """Every job's lane; the lanes not yet written run their worker, in
-    parallel. Already written (or merged) lanes are left as they are."""
+                  clock: Callable = time.time, on_lane: Optional[Callable] = None,
+                  on_start: Optional[Callable] = None) -> list:
+    """Every job's lane; the lanes not yet written run their worker, in parallel (written or merged
+    ones are left as they are). 3.0.9.0: lanes with upstreams wait for them (handoff_run.py)."""
     from halo_harness.orchestra.goal import repo_root_of
     if base == "HEAD":
         base = gitops.head(repo_root_of(run_dir))
+    if any(job.upstreams for job in jobs):
+        from halo_harness.orchestra.handoff_run import start_layered
+        return start_layered(run_dir, goal, jobs, spawn=spawn, base=base, clock=clock, on_lane=on_lane,
+                             on_start=on_start)
     lanes = [prepare_lane(run_dir, job, base, clock=clock) for job in jobs]
     todo = [lane for lane in lanes if lane.state in ("joined", "writing", "waiting", "failed")]
 
     def _one(lane: Lane) -> None:
-        run_lane(run_dir, goal, lane, spawn, clock=clock)
-        error = str(lane.data().get("error") or "")
-        if lane.state == "failed" and not error.startswith("STOP:"):
-            # a worker's own error (a dropped connection, a crash) gets one more run in the same worktree
-            run_lane(run_dir, goal, lane, spawn, clock=clock,
-                     retry_text=f"Your previous run in this worktree ended with an error: {error[:300]}\n"
-                                "Check what is already written, then finish the job.")
+        run_with_retry(run_dir, goal, lane, spawn, clock=clock)
         if on_lane is not None:
             on_lane(lane)
 

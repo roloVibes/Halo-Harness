@@ -148,3 +148,27 @@ class FakeJudge:
         text = self.answers[min(len(self.calls), len(self.answers)) - 1]
         return {"text": text, "session_id": f"judge-session-{len(self.calls)}", "messages_before": 0,
                 "cost_usd": 0.0005}
+
+
+class Recorder:
+    """Wraps the fixture's FakeWorker: keeps each lane's prompt, its
+    worktree's HEAD and its .halo/handoff files when it starts; saves
+    artifacts and sets the reply per lane."""
+
+    def __init__(self, inner, texts=None, artifacts=None):
+        self.inner, self.texts, self.artifacts, self.seen = inner, dict(texts or {}), dict(artifacts or {}), {}
+
+    def __call__(self, lane):
+        from halo_harness.orchestra.handoff import artifacts_dir
+        hand = lane.worktree / ".halo" / "handoff"
+        self.seen[lane.n] = {"prompt": lane.prompt, "head": git(lane.worktree, "rev-parse", "HEAD").strip(),
+                             "files": sorted(p.relative_to(lane.worktree).as_posix() for p in hand.rglob("*")
+                                             if p.is_file() and p.name != ".gitignore") if hand.is_dir() else []}
+        for name, text in (self.artifacts.get(lane.n) or {}).items():
+            target = artifacts_dir(lane.run_dir, lane.n) / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text, encoding="utf-8")
+        out = self.inner(lane)
+        if lane.n in self.texts:
+            out["text"] = self.texts[lane.n]
+        return out

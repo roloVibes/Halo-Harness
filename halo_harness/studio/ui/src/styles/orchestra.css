@@ -158,3 +158,17 @@
 @keyframes og-dash { to { stroke-dashoffset: -28; } }
 @keyframes og-flow { from { background-position: 100% 0; } to { background-position: 0 0; } }
 @keyframes og-glow-warn { 0%, 100% { stroke-opacity: .5; } 50% { stroke-opacity: 1; } }
+
+/* -- hand-offs on the lanes (3.0.9.0): arcs in the gutter, a chip per upstream, the base -- */
+.og-lanes { position: relative; }
+.og-lanes[data-edges] { padding-left: 28px; }
+.og-lane-arcs { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.og-lane-arc { fill: none; stroke: var(--lane); stroke-width: 1.5; opacity: .85; }
+.og-lane-name { display: grid; min-width: 0; gap: 1px; }
+.og-lane-chips { display: flex; flex-wrap: wrap; gap: 3px; }
+.og-lane-chip {
+  font-size: 9.5px; line-height: 14px; padding: 0 6px; border-radius: 999px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--lane); border: 1px solid color-mix(in srgb, var(--lane) 55%, transparent); background: color-mix(in srgb, var(--lane) 10%, transparent);
+}
+.og-lane-base { display: block; font-size: 9.5px; color: var(--faint); }
+.og-edge-after { stroke: var(--accent-2); stroke-dasharray: 3 3; fill: none; }

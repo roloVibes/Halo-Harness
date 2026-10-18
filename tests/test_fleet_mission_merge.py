@@ -4,9 +4,11 @@ sessions are fakes; git is real).
 
 1. This harness alone: two repo parts whose claims overlap run in sequence
    (the later waits), each on `mission/<id>/<part>` in its own worktree;
-   they merge into `mission/<id>/merged` in the plan's merge_order, the
-   conflict on the file both touched goes to the (fake) judge and its answer
-   is applied by code; the files part's output is in artifacts/.
+   they merge into `mission/<id>/merged` in the plan's merge_order; since
+   3.0.9.0 the later part starts from the earlier part's head, so the file
+   both touched does not conflict (the judge is not asked: the two-dependency
+   conflict is in tests/test_fleet_mission_handoffs.py); the files part's
+   output is in artifacts/.
 2. `stop` stops a part running on this harness.
 3. Over two homes (tests/helpers/fleet_hub_rig.py): the member's repo part
    comes back as a git bundle through mission_files and merges.
@@ -53,7 +55,7 @@ def _answer(parts: list, order: list) -> str:
 
 
 @test
-def test_repo_parts_run_in_sequence_and_merge_in_order_with_the_judge(ctx: Ctx):
+def test_repo_parts_run_in_sequence_each_from_the_earlier_head_and_merge_in_order(ctx: Ctx):
     from halo_harness.config.paths import bridge_home
     from halo_harness.fleet import mission_api as A
     from halo_harness.fleet import mission_store as S
@@ -96,11 +98,15 @@ def test_repo_parts_run_in_sequence_and_merge_in_order_with_the_judge(ctx: Ctx):
     ctx.check(f"merged one at a time in merge_order (3 then 2), got {merges}",
               [m.split("merge part ")[1].split(" ")[0] for m in merges] == ["3", "2"])
     final = show(repo, merged, "docs/report/links.md") or ""
-    ctx.check(f"the conflict went to the judge and both lines are kept, got {final!r}", judge.calls == [("docs/report/links.md", 1)]
-              and "from the link part" in final and "from the page" in final)
+    head3 = git(repo, "rev-parse", f"mission/{mid}/3").strip()
+    ctx.check(f"3.0.9.0: part 2 started from part 3's head, got {doc['parts']['2'].get('base')} vs {head3}",
+              doc["parts"]["2"]["base"] == head3 and doc["parts"]["3"]["base"] == base
+              and git(repo, "merge-base", "--is-ancestor", head3, f"mission/{mid}/2") == "")
+    ctx.check(f"so the file both touched did not conflict: part 2's text, no judge, got {final!r}",
+              judge.calls == [] and final == "links\nfrom the page\n")
     m = doc["merge"]
-    ctx.check("merge recorded: order, merged, the judged conflict", m["order"] == ["3", "2"] and m["merged"] == ["3", "2"]
-              and m["conflicts"][0]["judge_session"] == "judge-1" and m["finished"] == git(repo, "rev-parse", merged).strip())
+    ctx.check("merge recorded: order, merged, no conflict", m["order"] == ["3", "2"] and m["merged"] == ["3", "2"]
+              and m["conflicts"] == [] and m["finished"] == git(repo, "rev-parse", merged).strip())
     ctx.check("each part ran on its own branch", all(git(repo, "rev-parse", "--verify", f"mission/{mid}/{n}").strip() for n in ("2", "3")))
     ctx.check("the files part's output is in artifacts/", (S.folder(home, mid) / "artifacts" / "1" / "book.xlsx").is_file()
               and not m["missing_outputs"])

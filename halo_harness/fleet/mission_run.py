@@ -138,8 +138,12 @@ class Runner(threading.Thread):
                      and all((doc["parts"].get(d) or {}).get("state") == "done" for d in p.get("depends_on") or [])]
             for pid in ready[:max(0, maxp - live)]:
                 self.started_order.append(pid)
-                S.log(self.home, self.mid, "dispatch", part=pid, harness=by_id[pid].get("harness"))
-                doc = self._part(pid, self.dispatch.start(doc, by_id[pid], plan))
+                base, why = self._base(doc, plan, by_id[pid])
+                if why:
+                    doc = self._part(pid, {"state": "failed", "error": why, "ended": time.time()})
+                    continue
+                S.log(self.home, self.mid, "dispatch", part=pid, harness=by_id[pid].get("harness"), base=base)
+                doc = self._part(pid, {**self.dispatch.start(doc, by_id[pid], plan, base=base), "base": base})
             states = [ps.get("state") for ps in doc["parts"].values()]
             if not any(s in M.PART_LIVE for s in states) and not ready:
                 break
@@ -150,6 +154,17 @@ class Runner(threading.Thread):
         if failed or any(ps.get("state") != "done" for ps in doc["parts"].values()):
             return self._end("failed", "; ".join(failed) or "not every part finished")
         self._merge(doc, plan)
+
+    def _base(self, doc: dict, plan: dict, part: dict) -> tuple:
+        """3.0.9.0: where a repo part starts (mission_handoff.start_base); a member gets it as a bundle."""
+        from halo_harness.fleet import mission_handoff as H
+        try:
+            base, why = H.start_base(self.home, doc, plan, part, self.judge)
+        except Exception as e:  # a git failure fails the part with the reason
+            return None, f"could not prepare part {part['id']}'s start: {type(e).__name__}: {e}"[:500]
+        if base and not why and str(part.get("harness")) != self.dispatch.local_id():
+            H.base_bundle(self.home, doc, part, base)
+        return base, why
 
     def _merge(self, doc: dict, plan: dict) -> None:
         from halo_harness.fleet.mission_merge import merge

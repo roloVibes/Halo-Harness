@@ -23,6 +23,7 @@ from typing import Optional
 
 from halo_harness.fleet import mission_store as S
 from halo_harness.fleet import mission_worker
+from halo_harness.fleet.mission_handoff import dep_paths
 
 WAIT_S = 4.0
 OFFLINE_FAIL_S = 180.0
@@ -73,7 +74,7 @@ class Dispatch:
 
     # ---- one part ---------------------------------------------------------------------------
     @staticmethod
-    def fields(doc: dict, part: dict, plan: Optional[dict] = None) -> dict:
+    def fields(doc: dict, part: dict, plan: Optional[dict] = None, base: Optional[str] = None) -> dict:
         parts = list((plan or {}).get("parts") or [])
         total = sum(float(p.get("est_cost_usd") or 0) for p in parts)
         est = float(part.get("est_cost_usd") or 0)
@@ -82,14 +83,15 @@ class Dispatch:
         return {"mission": doc["id"], "part": part["id"], "title": part.get("title"), "brief": part.get("brief"),
                 "kind": part.get("kind") or "files", "claims": list(part.get("claims") or []),
                 "outputs": list(part.get("outputs") or []), "depends_on": list(part.get("depends_on") or []),
-                "repo": repo.get("name") if part.get("kind") == "repo" else None, "base": repo.get("base"),
+                "repo": repo.get("name") if part.get("kind") == "repo" else None, "base": base or repo.get("base"),
+                "take": part.get("take") or "outputs", "handoffs": dep_paths(plan or {}, part),
                 "branch": f"mission/{doc['id']}/{part['id']}", "budget_usd": round(budget, 4) if budget else None,
                 "mirror": {"mode": "shared" if doc.get("shared") else "hub"}}
 
-    def start(self, doc: dict, part: dict, plan: Optional[dict] = None) -> dict:
-        """The part state fields after starting it."""
+    def start(self, doc: dict, part: dict, plan: Optional[dict] = None, base: Optional[str] = None) -> dict:
+        """The part state fields after starting it (`base`: where a repo part starts, mission_handoff.py)."""
         hid, now = str(part.get("harness") or ""), time.time()
-        f = self.fields(doc, part, plan)
+        f = self.fields(doc, part, plan, base)
         if hid == self.local_id():
             root = S.local(self.home, doc["id"]).get("repo_root")
             try:
@@ -128,6 +130,7 @@ class Dispatch:
                     "cost_usd": float(res.get("cost_usd") or 0.0), "error": res.get("error"), "ended": res.get("ended") or now,
                     "session_id": res.get("session_id") or ps.get("session_id"), "files": list(res.get("files") or [])[:500],
                     "branch": res.get("branch"), "head": res.get("head"), "bundle": bool(res.get("bundle")),
+                    "base": res.get("base") or ps.get("base"),
                     "refused_list": [r for r in res.get("refused") or [] if isinstance(r, dict)][:50]}
         if ps.get("state") == "asked" and self.hub is not None and ps.get("command_id"):
             c = self.hub.state.commands.get(ps["command_id"]) or {}

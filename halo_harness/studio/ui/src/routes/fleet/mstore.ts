@@ -25,6 +25,7 @@ export type PlanPart = {
   pinned: boolean;
   unassignable: string | null;
   sequenced?: { after: string; because: string }[];
+  take?: "outputs" | "all"; // 3.0.9.0: what it reads of its dependencies (fleet/mission_handoff.py)
 };
 
 export type Plan = {
@@ -53,6 +54,7 @@ export type PartRun = {
   branch?: string | null;
   files?: string[];
   refused?: number;
+  base?: string | null; // 3.0.9.0: the commit a repo part started from
 };
 
 export type Conflict = { part: string; file: string; hunks: number; applied: boolean; tests_ok: boolean | null; cost_usd: number };
