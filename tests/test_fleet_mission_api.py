@@ -141,6 +141,23 @@ def test_the_cli_verbs_print_and_json_round_trips(ctx: Ctx):
         ctx.check(f"/mission is the status, got {text!r}", mid in text and "stopped" in text)
 
 
+
+@test
+def test_the_coach_route(ctx: Ctx):
+    """3.0.9.0 R3: GET fleet/missions/<id>/coach -> the coach's card for a mission folder of this harness
+    (a part asked longer than the median part, a refused edit, a judged conflict); 404 for an unknown one."""
+    from tests.helpers.coach_seed import mission_folder
+    from tests.test_studio_api import _Studio
+    with _Studio() as s:
+        folder = mission_folder(s.state)
+        status, data, _ = s.call("GET", f"/api/fleet/missions/{folder.name}/coach")
+        ids = [x["id"] for x in data.get("suggestions") or []]
+        ctx.check(f"200, the mission's cards, got {status} {ids}", status == 200 and data["kind"] == "mission"
+                  and {"coordination-2-asked", "tools-3-README.md", "structure-3-after-1"} <= set(ids))
+        ctx.check("kept in the mission folder", (folder / "coach.json").is_file())
+        ctx.check("an unknown mission is a 404", s.call("GET", "/api/fleet/missions/m-20261017-ffff/coach")[0] == 404)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -35,6 +35,7 @@ from halo_harness.orchestra.claims import ClaimLog
 from halo_harness.orchestra.goal import run_meta
 from halo_harness.orchestra.lanes import Lane, lane_by_holder, load_lane
 from halo_harness.orchestra.split import placeholder
+from halo_harness.orchestra.worker_result import record_denied, result_fields as _result_fields
 
 LANE_ENV = "HALO_ORCHESTRA_LANE"
 _COMMIT_LOCK = threading.Lock()
@@ -60,14 +61,6 @@ def worker_prompt(goal, lane: Lane, retry_text: str = "") -> str:
     if retry_text:
         text += f"\nYour piece came back from the merge. Fix it:\n{retry_text}\n"
     return text
-
-
-def _result_fields(result) -> dict:
-    if isinstance(result, dict):
-        return {"text": str(result.get("text") or ""), "cost_usd": float(result.get("cost_usd") or 0.0),
-                "session_id": result.get("session_id"), "ok": result.get("ok", True) is not False,
-                "error": str(result.get("error") or "")}
-    return {"text": str(result or ""), "cost_usd": 0.0, "session_id": None, "ok": True, "error": ""}
 
 
 def stop_line(text: str) -> Optional[str]:
@@ -167,6 +160,7 @@ def run_lane(run_dir, goal, lane: Lane, spawn: Callable, *, clock: Callable = ti
         sessions.append(fields["session_id"])
     lane.update(cost_usd=round(float(data.get("cost_usd") or 0.0) + fields["cost_usd"], 6),
                 session_ids=sessions, reply=fields["text"][-2000:], error="")
+    record_denied(run_dir, lane, data, fields)  # 3.0.9.0 R3: the coach's evidence
     stop = stop_line(fields["text"])
     if not fields["ok"] or stop:
         reason = f"STOP: {stop}" if stop else (fields["error"] or "the worker did not finish")

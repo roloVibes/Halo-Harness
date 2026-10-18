@@ -2775,6 +2775,7 @@ halo flow answer <run> <step> accept|redo "<text>"|stop         answer a waiting
 halo flow runs                                                  every run, oldest first
 halo flow posts <run>                                           the run's posts: dry run or live, post id, schedule, text
 halo flow metrics <run> [--days N]                              sample the run's live posts' analytics once; print and total them
+halo flow coach [run] [--json]                                  3.0.9.0: the post-run coach's card (read only)
 ```
 
 Halo 3.0.4.0: flows. A flow file walks an input through steps: `intake` (the
@@ -2825,6 +2826,7 @@ halo orchestra run [RUN] --review [--repo DIR]     3.0.9.0: pause after the spli
 halo orchestra plan [RUN] [--repo DIR]             the plan of a review run as a table, its problems
 halo orchestra approve [RUN] [--file F] [--repo DIR]  check the plan (F, else Studio's draft, else the split); the run takes it
 halo orchestra reject [RUN] --reason T [--repo DIR]  the waiting run stops with the reason
+halo orchestra coach [RUN] [--json] [--repo DIR]   3.0.9.0: the post-run coach's card (read only)
 ```
 
 Halo 3.0.3.0: the Orchestra, several agents editing the same files without
@@ -2867,6 +2869,7 @@ halo team answer <stage> accept|redo|stop [--text T] [--run ID] [--json]
 halo team stop [--reason R] [--run ID] [--json]       end the run; every stage not done is skipped
 halo team log [--since N] [--run ID] [--json]         the run's events
 halo team blocks [block] [--json]                     each block's live claims and its last changes
+halo team coach [run] [--json]                        3.0.9.0: the post-run coach's card for a done or stopped run (read only)
 ```
 
 Halo 3.0.8.0: a team is `<repo>/.halo/team.yaml` (else
@@ -3223,6 +3226,7 @@ halo fleet mission status [id] [--json]
 halo fleet mission stop <id> [--reason TEXT] [--json]
 halo fleet mission report <id> [--json]
 halo fleet mission open <id> [--json]
+halo fleet mission coach <id> [--json]
 ```
 
 `new` drafts the mission and plans it, then prints the plan table: each
@@ -3241,7 +3245,8 @@ active lineup first and lists each problem with its fix, `--force` runs
 anyway). `status` lists the missions, or one
 mission's parts by harness with state and cost; `stop` stops every running
 part (`--reason` goes in the report); `report` prints `report.md`; `open`
-prints the mission folder. `--json` prints the route's answer with `ok` and
+prints the mission folder; `coach` (3.0.9.0) prints the post-run coach's card
+for a mission in this harness's missions folder. `--json` prints the route's answer with `ok` and
 `source`. They use the running Studio, else the hub this machine serves,
 else this harness alone (then `run` follows in this process, which keeps the
 mission running). `/mission [id]` in the TUI prints the status.

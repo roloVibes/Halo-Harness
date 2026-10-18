@@ -125,9 +125,11 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir,
         if obj is None:
             tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-3:]
             return {"ok": False, "error": f"the worker exited {proc.returncode} without a result: {' | '.join(tail)}"}
-        return {"ok": not obj.get("is_error"), "text": str(obj.get("result") or ""),
-                "cost_usd": float(obj.get("total_cost_usd") or 0.0), "session_id": obj.get("session_id"),
-                "error": "" if not obj.get("is_error") else str(obj.get("result") or "worker error")[:500]}
+        out = {"ok": not obj.get("is_error"), "text": str(obj.get("result") or ""),
+               "cost_usd": float(obj.get("total_cost_usd") or 0.0), "session_id": obj.get("session_id"),
+               "error": "" if not obj.get("is_error") else str(obj.get("result") or "worker error")[:500]}
+        extra = (("model", str(obj.get("model") or "")), ("denied", list(obj.get("permission_denials") or [])))
+        return dict(out, **{k: v for k, v in extra if v})  # 3.0.9.0 R3: the coach's evidence, when the result has it
     return spawn
 
 

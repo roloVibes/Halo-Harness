@@ -1,10 +1,13 @@
 // Report: the run's checks with ticks and crosses, the finished branch and
 // its sha, the tests, the cost; one green sweep (done) when the report
-// lands; Copy puts the report text on the clipboard.
+// lands; Copy puts the report text on the clipboard. 3.0.9.0 R3: a finished
+// (or stopped) run's report has a second tab, Coach (Coach.tsx).
+import { useState } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Button } from "../../lib/ui";
 import { toast } from "../../lib/store";
 import { Metric, NoRun } from "./bits";
+import { CoachTab, ReportTabs, type ReportTab } from "./Coach";
 import { CHECK_LABEL, cost, elapsed, reportText, sha } from "./format";
 import { runMotion, useOrch } from "./store";
 import type { Check, Report as ReportT } from "./types";
@@ -64,7 +67,17 @@ function Pending() {
 
 export function ReportDetail() {
   const r = useOrch((s) => s.data?.report);
+  const [tab, setTab] = useState<ReportTab>("report");
   if (!r) return <Pending />;
+  return (
+    <div className="og-report-tabs">
+      <ReportTabs value={tab} onChange={setTab} />
+      {tab === "coach" ? <CoachTab /> : <ReportBody r={r} />}
+    </div>
+  );
+}
+
+function ReportBody({ r }: { r: ReportT }) {
   const passed = r.checks.filter((c) => c.ok === true).length;
   const judged = r.checks.filter((c) => c.ok !== null).length;
   return (

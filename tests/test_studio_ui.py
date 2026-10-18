@@ -4,7 +4,8 @@
 Start view then the grid, a click focuses a panel and `?` opens its help; no section nests a
 second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (studio_ui_fleet.py),
 3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Org and Design sections (studio_ui_org_design.py),
-3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py); seven section tabs since 3.0.8.0.
+3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py), R3 the coach
+(studio_ui_coach.py); seven section tabs since 3.0.8.0.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
 from tests.helpers.studio_ui_fleet import register as register_fleet
+from tests.helpers.studio_ui_coach import register as register_coach
 from tests.helpers.studio_ui_mission import register as register_mission
 from tests.helpers.studio_ui_org_design import register as register_org_design
 from tests.helpers.studio_ui_plan import register as register_plan
@@ -195,7 +197,7 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
               got.get("inspector") == "Lanes" and got.get("inspector_follows") == "Report")
     ctx.check("the Compact toggle", got.get("compact") == "glance")
     ctx.check(f"How Orchestra works: steps and every panel, got {got}",
-              got.get("section_title") == "How Orchestra works" and got.get("section_steps") == 7 and got.get("section_panels") == 8)
+              got.get("section_title") == "How Orchestra works" and got.get("section_steps") == 8 and got.get("section_panels") == 8)  # 3.0.9.0 R3: + Coach
     ctx.check("closed and remembered as seen", got.get("section_closed") is True and got.get("seen") == "1")
 
 
@@ -229,6 +231,7 @@ register_org_design(test, _json_of, _chrome)  # 3.0.7.0 R3: Org and Design in Re
 register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
 register_team(test, _json_of, _chrome)  # 3.0.8.0 R2: the Team tab, tests/helpers/studio_ui_team.py
 register_plan(test, _json_of, _chrome)  # 3.0.9.0 R2: the plan canvas and the Flow graph, tests/helpers/studio_ui_plan.py
+register_coach(test, _json_of, _chrome)  # 3.0.9.0 R3: the post-run coach, tests/helpers/studio_ui_coach.py
 
 
 if __name__ == "__main__":
