@@ -79,11 +79,11 @@ def make_run_root() -> Path:
     own `BRIDGE_TEST_HOME` when one is set (CI's fresh test home, a
     developer's scratch dir), else a temp dir. Made with `tempfile.mkdtemp`,
     so run_all's `[cleanup]` step removes whatever is left of it."""
-    outer = os.environ.get("BRIDGE_TEST_HOME")
-    parent = outer if outer and os.path.isdir(outer) and len(outer) <= 40 else None
-    # Short on purpose: a Unix socket path under a module's home must stay under Linux's 108-byte AF_UNIX
-    # limit (the CI runner's long test-home root + "run-all-modules-" + a long module name blew it).
-    return Path(tempfile.mkdtemp(prefix="hra-", dir=parent))
+    # Always the system temp dir (/tmp on Linux, the runner's TEMP on Windows), never under the caller's
+    # BRIDGE_TEST_HOME: a Unix socket path under a module's home must stay under Linux's 108-byte AF_UNIX
+    # limit, and the CI test-home root alone is 39 characters (two red runs: "AF_UNIX path too long").
+    # run_all's [cleanup] removes whatever is left of it (it tracks every mkdtemp).
+    return Path(tempfile.mkdtemp(prefix="hra-"))
 
 
 def module_home_name(mod_name: str) -> str:
