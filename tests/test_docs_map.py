@@ -29,17 +29,7 @@ DOCS = REPO / "docs"
 MAP = DOCS / "README.md"
 TASKS = ("## I want to set up", "## I want to run agents", "## I want to use Studio", "## I want to run a fleet",
          "## I want to develop Halo")
-SPLIT = ("MODELS.md", "STUDIO.md", "SLASH-COMMANDS.md", "ARCHITECTURE.md")
-# Another round (3.1.1.0 R1) owns these two openings in this release; the map
-# already carries their lines, which go under their titles when the rounds
-# merge (then this table empties).
-PENDING_OPENINGS = {
-    "HANDBOOK.md": "Read this when you want the long-form guide: configuration, providers, permissions, steering, hooks, skills, MCP, sessions and themes.",
-    "COMMANDS.md": "Read this when you want every `halo` subcommand and flag, with examples.",
-}
-# A link in a file another round owns this release; it reaches the entry page
-# until it is pointed at SLASH-COMMANDS-session.md#model-ref at the merge.
-PENDING_ANCHORS = {("docs/COMMANDS.md", "SLASH-COMMANDS.md#model-ref")}
+SPLIT = ("MODELS.md", "STUDIO.md", "SLASH-COMMANDS.md", "ARCHITECTURE.md", "COMMANDS.md")  # 3.1.1.0 R3: COMMANDS.md too
 _MAP_LINE = re.compile(r"^\s*- \[([^\]]+)\]\(([^)]+)\) \([^\n]*?\): (read this when .+)$")
 _LINK = re.compile(r"\]\(([^)\s]*?\.md)?#([^)\s]+)\)")
 
@@ -68,7 +58,7 @@ def test_the_map_lists_every_doc_under_a_task(ctx: Ctx):
     missing = [d for d in _docs() if d not in listed]
     ctx.check(f"every doc is in docs/README.md; missing: {missing}", not missing)
     for rel, sentence in listed.items():
-        own = PENDING_OPENINGS.get(rel) or _opening(rel)
+        own = _opening(rel)
         ctx.check(f"the map's line for {rel} is the doc's own: {sentence!r} vs {own!r}",
                   own.startswith("Read this when") and sentence == "r" + own[1:])
     tasks_of = {}
@@ -85,10 +75,10 @@ def test_the_map_lists_every_doc_under_a_task(ctx: Ctx):
 
 @test
 def test_every_doc_opens_with_read_this_when(ctx: Ctx):
-    bad = [d for d in _docs() + ["README.md"] if d not in PENDING_OPENINGS and not _opening(d).startswith("Read this when")]
+    bad = [d for d in _docs() + ["README.md"] if not _opening(d).startswith("Read this when")]
     ctx.check(f"every doc opens with 'Read this when ...' under its title; not: {bad}", not bad)
-    one_line = [d for d in _docs() if d not in PENDING_OPENINGS
-                and (DOCS / d).read_text(encoding="utf-8").split("\n")[3].strip()]
+    one_line = [d for d in _docs()
+                if (DOCS / d).read_text(encoding="utf-8").split("\n")[3].strip()]
     ctx.check(f"the line is one line (a blank line follows it); not: {one_line}", not one_line)
 
 
@@ -122,7 +112,7 @@ def test_every_anchor_link_names_a_heading_of_its_file(ctx: Ctx):
                 continue
             if target not in cache:
                 cache[target] = {a for _i, a in anchors(target.read_text(encoding="utf-8").split("\n"))}
-            if m.group(2) not in cache[target] and (rel, f"{m.group(1) or ''}#{m.group(2)}") not in PENDING_ANCHORS:
+            if m.group(2) not in cache[target]:
                 broken.append(f"{rel}:{text.count(chr(10), 0, m.start()) + 1}: {m.group(1) or ''}#{m.group(2)}")
     ctx.check("every anchor link names a heading of its file:\n  " + "\n  ".join(broken), not broken)
 

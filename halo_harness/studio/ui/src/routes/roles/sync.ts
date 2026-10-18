@@ -140,7 +140,7 @@ export function startRoles(): void {
     await loadLists();
     const s = roles.get();
     const first = s.info?.active_team && s.lineups.some((l) => l.name === s.info!.active_team) ? s.info.active_team : "";
-    if (first && !s.name) await openLineup(first);
+    if (first && !s.name && !s.editing) await openLineup(first); // 3.1.1.0 R3: an edit target opens instead
   })();
   void loadModels();
   let last = "";

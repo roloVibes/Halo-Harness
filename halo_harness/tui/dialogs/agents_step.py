@@ -1,12 +1,8 @@
 """halo_harness.tui.dialogs.agents_step -- Halo 2.0.5 round 2 (wizard: agent
-bios and lineups), deliverable 4's own `/agents`/`halo agents --form`
-list+actions screen (`AgentsListScreen`), built on the SAME pure
-`bio_rows()` helper and the SAME `AgentBioEditor` form (`agent_bio_editor.
-py`) the wizard's own Team step (`tui/dialogs/team_step.py`, Halo 2.0.5
-round 2c) now also reuses for its right-hand "Agents" pane -- never
-disagreeing on what a row shows or how a save lands, same "duplicate the
-chrome, share the behaviour" split `init_wizard.py`'s own `ProvidersStep`
-docstring already explains for `InitTabsApp`.
+bios and lineups), deliverable 4's own `/agents` list+actions screen
+(`AgentsListScreen`, also the wizard Team step's Ctrl+A), built on the pure
+`bio_rows()` helper; a highlighted bio opens in the read-only `AgentBioView`
+(`agent_bio_editor.py`) or in Studio's bio form.
 
 Round 2c (`plans/briefs/2.0.5/round-2c-wizard-ux.md`, rule 11): the wizard's
 OWN `AgentsStep` step class that used to live here is GONE -- the Agents
@@ -19,20 +15,25 @@ footer promises everywhere this mixin is used (`TeamStep`'s own Agents
 pane, and this module's `AgentsListScreen`) -- round 2b's buttons-only
 New/Duplicate/Delete stay exactly as they were, just no longer the only
 path.
+
+3.1.1.0 R3: Studio is the one editor of bios. Enter (or View) opens the
+read-only `AgentBioView`; Edit in Studio (`e`) opens Studio's bio form on the
+highlighted bio (`halo studio --edit bio:<name>`, tui/studio_open.py); New and
+New from... write a starter bio (New from...: one that `extends` the
+highlighted bio) and open Studio on it. Duplicate, Delete and Import stay here.
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
-from textual.app import App
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, OptionList, Static
 from textual.widgets.option_list import Option
 
-from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
 
 
 def bio_rows(*, cwd=None, state_dir=None) -> "list[dict]":
@@ -61,9 +62,8 @@ def _row_label(r: dict) -> str:
 
 def _cache_only_model_rows() -> "list[dict]":
     """`providers.model_enumeration.build_model_rows` against the already-
-    cached catalog files -- no network, synchronous, fast (the same read
-    `run_agents_list_standalone`/`run_lineup_editor_standalone` already do
-    up front); `[]` on any failure, never raises."""
+    cached catalog files -- no network, synchronous, fast; `[]` on any
+    failure, never raises."""
     from halo_harness.config.paths import bridge_home
     from halo_harness.providers.model_enumeration import build_model_rows
     try:
@@ -123,6 +123,7 @@ AGENTS_LIST_BINDINGS = (
     Binding("ctrl+n", "agents_new", "New", show=False, priority=True),
     Binding("ctrl+d", "agents_duplicate", "Duplicate", show=False, priority=True),
     Binding("delete", "agents_delete", "Delete", show=False, priority=True),
+    Binding("e", "agents_edit", "Edit in Studio", show=True),
 )
 
 
@@ -130,7 +131,7 @@ class _AgentsListMixin:
     """The list + action buttons + hint, and every action handler --
     shared verbatim by `team_step.TeamStep` (its own right-hand "Agents"
     pane) and `AgentsListScreen` (a standalone `ModalScreen`, `/agents`
-    and `--form`). Confirmed live (Textual dispatches `on_<event>` at
+    and the wizard). Confirmed live (Textual dispatches `on_<event>` at
     EVERY class in the MRO that defines one, not just the most-derived)
     that this mixin's own `on_button_pressed` coexists safely with
     whatever the CONCRETE class's OTHER base already handles (`TeamStep`'s
@@ -141,7 +142,10 @@ class _AgentsListMixin:
     `BINDINGS` list declared right here."""
 
     def action_agents_new(self) -> None:
-        self._open_editor_for_new()
+        self._new_in_studio()
+
+    def action_agents_edit(self) -> None:
+        self._edit_in_studio()
 
     def action_agents_duplicate(self) -> None:
         self._duplicate_highlighted()
@@ -164,17 +168,18 @@ class _AgentsListMixin:
         option_list = OptionList(*[Option(_row_label(r), id=r["name"]) for r in self._rows], id="agents-list")
         return [
             option_list,
-            Horizontal(Button("New", id="agents-new", variant="primary"),
+            Horizontal(Button("New", id="agents-new"),
                        Button("New from...", id="agents-new-from"),
-                       Button("Edit", id="agents-edit"),
+                       Button("View", id="agents-view"),
+                       Button("Edit in Studio", id="agents-edit", variant="primary"),
                        Button("Duplicate", id="agents-duplicate"),
                        Button("Delete", id="agents-delete"),
                        Button("Import", id="agents-import"),
                        classes="wizard-extra-buttons"),
             # Rule 9: the uniform footer caption -- "choose" here means
-            # Enter opens the highlighted bio (rule 2); no Ctrl+S of its
-            # own (a save happens inside the bio editor this opens).
-            Static(footer_hint(new=True, delete=True, save=False), classes="bio-hint"),
+            # Enter shows the highlighted bio (rule 2); no Ctrl+S of its
+            # own (Studio saves; e opens it there).
+            Static(footer_hint(new=True, delete=True, save=False) + "  e: edit in Studio.", classes="bio-hint"),
             Static("", id="agents-hint"),
         ]
 
@@ -205,11 +210,13 @@ class _AgentsListMixin:
     def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id or ""
         if bid == "agents-new":
-            self._open_editor_for_new()
+            self._new_in_studio()
         elif bid == "agents-new-from":
-            self._open_editor_for_new(extends_from=self._highlighted_name())
+            self._new_in_studio(extends_from=self._highlighted_name())
+        elif bid == "agents-view":
+            self._open_view()
         elif bid == "agents-edit":
-            self._open_editor_for_existing()
+            self._edit_in_studio()
         elif bid == "agents-duplicate":
             self._duplicate_highlighted()
         elif bid == "agents-delete":
@@ -224,41 +231,34 @@ class _AgentsListMixin:
         ONLY path. Lives on the mixin (was `AgentsListScreen`-only) so
         every host of `_AgentsListMixin` -- `AgentsListScreen` and the
         wizard's own Team step (`team_step.TeamStep`'s Agents pane) --
-        gets the exact same behaviour as `/agents`/`--form`."""
+        gets the exact same behaviour as `/agents`."""
         if event.option_list.id == "agents-list":
-            self._open_editor_for_existing()
+            self._open_view()
 
-    def _after_bio_saved(self, saved: "Optional[str]") -> None:
-        """Rule 8: "Save shows a one-line toast" -- the bio editor itself
-        dismisses the instant Save succeeds, so the toast lands here, on
-        the list screen the user actually returns to."""
+    def _new_in_studio(self, *, extends_from: "Optional[str]" = None) -> None:
+        from halo_harness.tui import studio_open
+        name, problems = studio_open.new_bio(cwd=self._cwd(), state_dir=self._state_dir(), extends=extends_from)
+        if not name:
+            self._hint("; ".join(problems))
+            return
         self._refresh_list()
-        if saved:
-            from halo_harness.tui.dialogs.wizard_ux import toast
-            try:
-                toast(self.query_one("#agents-hint", Static), f"Saved {saved!r}.")
-            except Exception:
-                pass
+        studio_open.open_target(self, f"bio:{name}", cwd=self._cwd(), state_dir=self._state_dir(), on_line=self._hint)
 
-    def _open_editor_for_new(self, *, extends_from: "Optional[str]" = None) -> None:
-        import uuid
-        default_name = f"{extends_from}-copy" if extends_from else f"agent-{uuid.uuid4().hex[:6]}"
-        raw = {"extends": extends_from} if extends_from else {}
-        self.app.push_screen(
-            AgentBioEditor(default_name, raw, self._models_for_picker(), cwd=self._cwd(),
-                            state_dir=self._state_dir(), is_new=True, extends_from=extends_from),
-            self._after_bio_saved)
-
-    def _open_editor_for_existing(self) -> None:
+    def _open_view(self) -> None:
         name = self._highlighted_name()
         if name is None:
             self._hint("Highlight a bio first.")
             return
-        from halo_harness.agents_yaml import load_agent_bio_raw
-        raw = load_agent_bio_raw(name, cwd=self._cwd(), state_dir=self._state_dir()) or {}
-        self.app.push_screen(
-            AgentBioEditor(name, raw, self._models_for_picker(), cwd=self._cwd(), state_dir=self._state_dir()),
-            self._after_bio_saved)
+        self.app.push_screen(AgentBioView(name, None, self._models_for_picker(), cwd=self._cwd(),
+                                          state_dir=self._state_dir()), lambda _r: self._refresh_list())
+
+    def _edit_in_studio(self) -> None:
+        name = self._highlighted_name()
+        if name is None:
+            self._hint("Highlight a bio first.")
+            return
+        from halo_harness.tui import studio_open
+        studio_open.open_target(self, f"bio:{name}", cwd=self._cwd(), state_dir=self._state_dir(), on_line=self._hint)
 
     def _duplicate_highlighted(self) -> None:
         name = self._highlighted_name()
@@ -295,10 +295,9 @@ class _AgentsListMixin:
 
 
 class AgentsListScreen(_AgentsListMixin, ModalScreen):
-    """Deliverable 4: `/agents new|edit|duplicate|delete` and `halo agents
-    new|edit --form` open THIS standalone screen -- the SAME `_AgentsList
-    Mixin` body/actions `team_step.TeamStep`'s own Agents pane uses, in
-    its own Esc-to-close modal (no wizard Back/Skip/Next chrome)."""
+    """Deliverable 4: bare `/agents` and the wizard Team step's Ctrl+A open
+    THIS screen -- the `_AgentsListMixin` body/actions in its own
+    Esc-to-close modal (no wizard Back/Skip/Next chrome)."""
 
     BINDINGS = [Binding("escape", "cancel", "Close", show=False), *AGENTS_LIST_BINDINGS]
     DEFAULT_CSS = """
@@ -328,8 +327,8 @@ class AgentsListScreen(_AgentsListMixin, ModalScreen):
     def compose(self):
         with Vertical():
             yield Static("Agent bios", classes="dialog-title")
-            yield Static("Enter/Edit: open  |  New/New from.../Duplicate/Delete/Import  |  Esc: close",
-                         classes="dialog-subtitle")
+            yield Static("Enter/View: show  |  e: edit in Studio  |  New/New from.../Duplicate/Delete/Import  |  "
+                         "Esc: close", classes="dialog-subtitle")
             for w in self._agents_list_widgets():
                 yield w
 
@@ -349,25 +348,3 @@ class AgentsListScreen(_AgentsListMixin, ModalScreen):
 # "agents-import", or Enter on a highlighted row, works identically to
 # the wizard step.
 
-
-def run_agents_list_standalone(*, cwd=None, state_dir=None) -> None:
-    """Deliverable 4: `halo agents new|edit <name> --form` with NO <name>
-    at all (or a dedicated `halo agents --form` someday) opens this list
-    standalone, same reasoning as `agent_bio_editor.run_agent_bio_editor_
-    standalone`."""
-    from halo_harness.config.paths import bridge_home
-    from halo_harness.providers.model_enumeration import build_model_rows
-    sd = state_dir if state_dir is not None else bridge_home()
-    try:
-        models = build_model_rows(sd)
-    except Exception:
-        models = []
-
-    class _AgentsListApp(App):
-        TITLE = "halo agents"
-
-        def on_mount(self) -> None:
-            self.push_screen(AgentsListScreen(cwd=cwd, state_dir=state_dir, models=models),
-                              lambda _r: self.exit())
-
-    _AgentsListApp().run()

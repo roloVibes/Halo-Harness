@@ -4,8 +4,10 @@ Read this when you change or add a wizard screen: the ten rules every screen fol
 
 Halo 2.0.5 round 2c (`plans/ROADMAP.md` "ADDED 2026-10-06 ~10:05": "the
 wizard stops being clunky"). Ten rules, followed by every wizard screen --
-`halo init`, `halo setup`, `/setup`, `/agents`, `/teams`, and every editor
-(`AgentBioEditor`, `LineupEditor`, `OrgEditor`, `RolesEditor`) they open.
+`halo init`, `halo setup`, `/setup`, `/agents`, `/teams`, every editor
+(`OrgEditor`, `RolesEditor`) and every view (`AgentBioView`, `LineupView`)
+they open. 3.1.1.0: bios and lineups are edited in Studio; the terminal shows
+them read-only and `e` opens Studio on them (see "The Team step" below).
 Verified against `halo_harness/tui/dialogs/init_wizard.py`, `wizard_ux.py`,
 `step_rail.py`, `autocomplete.py`, `setup_mode.py`, and `team_step.py`.
 
@@ -46,8 +48,9 @@ Everything below is the field-by-field reference; nothing in it changed.
 1. **Highlight is selection** for a one-of choice (default model,
    permission mode, theme, a lineup): the highlighted row IS the chosen
    one, marked with a check (`✓`); Next moves on -- no confirm button.
-2. **Enter does the obvious thing** on a highlighted row: open/edit a bio
-   or a lineup, pick a picker row, use the highlighted lineup. Space
+2. **Enter does the obvious thing** on a highlighted row: show a bio or a
+   lineup (`e` there opens Studio on it), pick a picker row, use the
+   highlighted lineup. Space
    toggles an on/off row. Buttons stay for the mouse, but are never the
    only path.
 3. **Autocomplete inside a model field**: typing filters the enumerated
@@ -133,13 +136,18 @@ includes it). Top to bottom:
   sub-agents it spawns on its own, and still asks you questions when it
   needs to." `tui/dialogs/team_preview.py` (`preview_lines`, `cost_hint`)
   builds the same text for the command line.
-- **Buttons**: **Use this lineup** (apply now) and **Open Studio (Roles)**,
-  which starts Halo Studio in the background, opens your browser on the
-  Roles canvas and prints the URL; it keeps running after setup until
-  `halo studio --stop`. Editing lineups and bios happens there (3.0.2.0:
-  the terminal editors were "too bunched up" and overlapped their labels
-  on some terminals; they stay reachable from the keyboard: Enter on a row
-  or Ctrl+E customize, Ctrl+N new lineup, Ctrl+A agents).
+- **Buttons**: **Use this lineup** (apply now), **Edit in Studio**
+  (3.1.1.0; also Ctrl+E) and **Open Studio (Roles)**. Edit in Studio opens
+  Studio on the highlighted lineup's inspector (`halo studio --edit
+  lineup:<name>`): a Studio already running for this home switches its open
+  page to it, else one starts in the background and opens your browser; the
+  line under the buttons says which, with the URL (over SSH that URL is the
+  way in). Open Studio (Roles) opens the Roles canvas the same way. Studio
+  keeps running after setup until `halo studio --stop`. Editing lineups and
+  bios happens there; the terminal shows them: Enter on a row opens the
+  read-only lineup view (its `e` opens Studio too, `t` tests a row's
+  model), Ctrl+N writes a new lineup and opens it in Studio, Ctrl+A lists
+  the bios (Enter shows one, `e` edits it in Studio).
 
 A plain Next applies whichever row is highlighted (rule 1) and always
 writes `roles.enabled` explicitly: off for the first row, on for any
@@ -159,10 +167,11 @@ team`) -- all four land on the exact same screen.
 
 | Site | Field | Suggests |
 |---|---|---|
-| Agent bio editor | Preferred / fallback model | The SAME bio-aware, narrowed candidate list Ctrl+P's picker would open (`agent_bio_editor.filter_models_for_bio_with_reason`) |
 | Organization editor | "Role or model" | Every enumerated model ref |
-| Lineup editor | "Agent or model" | Every reachable agent BIO NAME (this field always names a bio; Ctrl+P's Models source still auto-creates one via `agents_yaml.ensure_bio_for_model`) |
 | Role template editor (`/roles edit`) | A quick filter above the role list | Every enumerated model ref, assigned to the role currently highlighted below it |
+
+(3.1.1.0: a bio's and a lineup's model fields are Studio's -- its model
+picker table on the bio form, a model choice on a lineup card.)
 
 Typing narrows the dropdown (prefix matches first, then substring, same
 ranking `model_picker.autocomplete_suggestions` already used for the org
@@ -188,8 +197,8 @@ implemented per screen.
 - `docs/HANDBOOK.md`'s 10-minute walkthrough for the step-by-step flow in
   prose.
 - `docs/COMMANDS.md`'s `halo init`/`halo setup` sections for every flag.
-- `docs/AGENTS.md`'s own wizard section for the bio form and the lineup
-  editor's own fields.
+- `docs/AGENTS.md`'s "Editing bios and lineups" section for Studio's bio form
+  and lineup inspector, field by field, and the terminal's views.
 - `docs/ROLES.md` for `roles.enabled`, the `standard` lineup, and the
   role-table resolution chain the Team step's "off" state relies on.
 - `docs/ORGS.md` for the Organizations step itself (unchanged by this

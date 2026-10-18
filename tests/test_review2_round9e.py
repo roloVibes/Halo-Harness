@@ -6,6 +6,7 @@ the Textual-pilot TUI findings, second half:
   * f71  a card arriving while the next one was being handed to the dock was
         shown over, and orphaned by, the hand-off
   * f74  invalid YAML in a lineup-editor section was silently kept as-was
+        (3.1.1.0 R3: pinned on Studio's routes, the editor of lineups now)
   * f75  the auto-title first-turn counter was not reset by /clear
 
 The first half (68, 72, 73) is tests/test_review2_round9b.py.
@@ -170,27 +171,23 @@ def test_f70_ctrl_s_with_the_effort_prompt_open_commits_the_pick(ctx: Ctx):
 
 @test
 def test_f74_invalid_yaml_in_a_section_blocks_save_and_names_the_section(ctx: Ctx):
-    from textual.widgets import Static, TextArea
+    """3.1.1.0 R3: lineups are edited in Studio; its YAML toggle goes through `POST /api/yaml` and the
+    save through `PUT /api/lineup/<name>`: invalid YAML and a section that is not a mapping are both
+    refused with the reason, and nothing is written."""
+    from halo_harness.studio.api import Request, dispatch
 
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+    with _Env() as e:
+        state = e.dir / ".halo"
+        state.mkdir(parents=True, exist_ok=True)
 
-    async def body():
-        with _Env():
-            editor = LineupEditor("r9-lineup", {"agents": []}, MODELS, is_new=True)
-            app = _host(editor)
-            async with app.run_test(size=(140, 55)) as pilot:
-                await pilot.pause(0.2)
-                area = editor.query_one("#lineup-section-budget", TextArea)
-                for bad, needle in (("max_budget_usd: [20\n", "invalid YAML"), ("- a\n- b\n", "mapping")):
-                    area.text = bad
-                    await pilot.pause(0.05)
-                    editor.action_save()
-                    await pilot.pause(0.05)
-                    hint = _static_text(editor.query_one("#lineup-hint", Static))
-                    ctx.check(f"{bad!r}: not saved, hint names budget and {needle!r}, got {hint!r}",
-                              hint.startswith("Not saved") and "budget" in hint and needle in hint)
-                    ctx.check("the editor stays open", app.screen is editor)
-    asyncio.run(body())
+        def call(method, path, body):
+            return dispatch(Request(method=method, path=path, query={}, body=body, cwd=e.dir, state_dir=state))
+        status, body = call("POST", "yaml", {"yaml": "budget:\n  max_budget_usd: [20\n"})
+        ctx.check(f"invalid YAML: 422 naming YAML, got {status} {body}", status == 422 and "YAML" in body.get("error", ""))
+        status, body = call("PUT", "lineup/r9-lineup", {"raw": {"agents": [], "budget": ["a", "b"]}})
+        ctx.check(f"a list where budget's mapping goes: 422 naming budget, got {status} {body}",
+                  status == 422 and any("budget" in p for p in body.get("problems", [])))
+        ctx.check("nothing was saved", not (state / "teams" / "r9-lineup.yaml").exists())
 
 
 # ---- f75 ------------------------------------------------------------------------------

@@ -147,9 +147,10 @@ class OrgEditor(ModalScreen):
         self.query_one("#org-tree-list", OptionList).focus()
         # Bug sweep (2.0.5 round 2b, found driving Orgs in the same pilot
         # flow as the bio/lineup editors): ctrl+p here collided with
-        # Textual's own App-level command-palette priority binding for
-        # the exact same reason `agent_bio_editor.AgentBioEditor.on_mount`
-        # documents -- same fix, borrowed for this dialog's own lifetime.
+        # Textual's own App-level command-palette priority binding: the App
+        # ALWAYS claims ctrl+p, so a Screen's own priority Binding on it
+        # never runs -- borrow `app.action_command_palette` for this
+        # dialog's own lifetime instead.
         self._restore_command_palette = self.app.action_command_palette
         self.app.action_command_palette = self.action_pick_model
 
@@ -322,12 +323,16 @@ class OrgEditor(ModalScreen):
                     position.pop("agent", None)
 
     def _open_new_bio_for_position(self) -> None:
-        from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
-        import uuid
-        new_name = f"new-bio-{uuid.uuid4().hex[:8]}"
-        self.app.push_screen(
-            AgentBioEditor(new_name, {}, self.models, is_new=True),
-            lambda saved: self._model_picked(self._bio_pick_result(saved)) if saved else None)
+        """"New bio...": a starter bio, picked for this position now, and Studio's bio form on it (3.1.1.0 R3:
+        Studio is the one editor of bios)."""
+        from halo_harness.tui import studio_open
+        start = next((m.get("ref") for m in self.models if isinstance(m, dict) and m.get("ref")), "")
+        new_name, problems = studio_open.new_bio(preference=start or "")
+        if not new_name:
+            self.app.notify("; ".join(problems), title="New bio", severity="error")
+            return
+        self._model_picked(self._bio_pick_result(new_name))
+        studio_open.open_target(self, f"bio:{new_name}")
 
     @staticmethod
     def _bio_pick_result(bio_name: str) -> "dict | None":

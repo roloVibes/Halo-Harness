@@ -1861,6 +1861,17 @@ def _cmd_start(args: str, facade: HeadlessFacade) -> str:
             "through, --json prints a summary). In the TUI, /start runs it in a panel.")
 
 
+def _cmd_edit(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.1.1.0 R3: Studio is the one editor of bios and lineups. The TUI's
+    /edit opens Studio on the target; here it says the command that does."""
+    from halo_harness.studio.edit_target import resolve
+    target, why = resolve(args, cwd=facade.cwd)
+    if target is None:
+        return f"/edit: {why}"
+    return (f"Studio edits {target.text}: run `halo studio --edit {target.text}` (it opens the Studio already "
+            f"running for this home, or starts one; --no-open prints the URL). In the TUI, /edit opens it for you.")
+
+
 def _cmd_explain(args: str, facade: HeadlessFacade) -> str:
     """Halo 3.1.1.0 R1: the glossary paragraph for `args` (the TUI shows it in a card)."""
     from halo_harness.explain_cli import explain_text, list_text
@@ -2061,6 +2072,8 @@ _BUILTIN_SPECS = {
               None, _cmd_start),
     "explain": ("core", "What a Halo word means: one paragraph from the glossary (no word: list them)", "[thing]",
                 _cmd_explain),
+    "edit": ("core", "Edit a bio, a lineup or the Team in Studio (the TUI opens it in your browser)",
+             "<bio:name|lineup:name|team>", _cmd_edit),
     "rewind": ("ui", "Restore the working tree to a recorded step", "[step-id]", _cmd_rewind),
     "undo": ("ui", "Rewind one recorded step back", None, _cmd_undo),
     "redo": ("ui", "Rewind one recorded step forward", None, _cmd_redo),

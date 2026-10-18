@@ -107,7 +107,7 @@ shipped one, opened on the canvas); "open the panels anyway" (or
 | **Canvas** (`roles-graph`, the drawn canvas `roles-canvas`) | the open lineup: one card per assignment, in one labelled column box per tier; the edges; the toolbar (scope, unsaved, Undo, Redo, Save, Apply, Lay out, Fit, zoom); the replay bar along its bottom |
 | **Inspector** (`roles-inspector`) | **Assignment** (the selected card's bio, role, alias, instances, the words that route a task to it, reports-to, a model override, what resolves for it; Edit bio, Duplicate, Remove; with no card: the lineup's description, about and extends), **Lineup** (every top section as a small form with a **YAML** toggle and its enforcement badge), **Live** (the agents on the card now, or its last runs) |
 | **Problems** (`roles-problems`) | everything wrong with the lineup as it stands in the editor, saved or not, in **Blocks** and **Warns**, each with its fix; a click selects its card; **Config** lists what `halo doctor --config` finds in the files behind the lineup |
-| **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): description, kind, extends, the preferred model in the **model picker table**, fallback, effort, thinking, the tools it may and may not call (from the real registry, `GET /api/tools`), limits and output; **Save bio**, New, Duplicate, Delete |
+| **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): description, kind, tags, extends; models (the preferred model in the **model picker table**, fallback, effort up to xhigh and max, thinking, the context budget); tools (allow and deny from the real registry, `GET /api/tools`, MCP servers, permission mode, the rules); context (files, skills, the memory namespace, prompt notes); limits; output; environment (own worktree, offline); acceptance; the schedule (cron or every, its prompt and model) and the triggers (file change, event, message); a **YAML** toggle for the whole bio (hooks and any key without a field); **Save bio** (with **Save to project scope**), New, Duplicate, Delete |
 | **Models** (`roles-models`) | the catalog: its row count, each provider (enabled, key, models cached), why it is empty when it is, **Refresh** (`POST /api/models/refresh`), and **Test a model** by any ref |
 
 - **A card** shows the agent, its role and alias, a **scope badge**
@@ -135,6 +135,15 @@ shipped one, opened on the canvas); "open the panels anyway" (or
   while one of its cards is selected), **reports to** from the org section
   (violet, dashed) and **pipeline** stage order (amber, dotted, `then
   <stage>`).
+- **One editor (3.1.1.0).** Studio is where bios and lineups are edited:
+  every field the terminal's read-only bio and lineup views show is in the
+  bio form and the Inspector (the field-by-field table is in
+  [AGENTS.md](AGENTS.md#editing-bios-and-lineups-studio-is-the-editor-halo-3110)),
+  and each carries the same one plain line the terminal shows, from
+  `GET /api/field-help` (`halo_harness/field_help.py`; the bundle carries no
+  copy). `halo studio --edit bio:<name>` / `lineup:<name>` opens this section
+  on that bio's form or that lineup's Lineup tab (see
+  [STUDIO-shell.md](STUDIO-shell.md#opening-studio-on-a-bio-a-lineup-or-the-team-halo-studio---edit)).
 - **The model picker table** (in the bio form): every catalog row with its
   price in / out, context, **best for** (`capabilities.score`: visual,
   audio, video, image, design; `GET /api/models/best-for`) and gym score;

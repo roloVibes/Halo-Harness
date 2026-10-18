@@ -7,6 +7,7 @@
 // canvas), the mini stream and the Fleet dialogs (R4: take over, hand to,
 // message, kick, a recording); 3.0.7.0 R3: the Org and Design dialogs; R2:
 // the Roles dialogs. 3.1.1.0 R1: the Glossary and "Start here" (a fresh home's offer of the ten-minute start).
+// 3.1.1.0 R3: `?edit=` and the `focus` frame open a bio, a lineup or the Team (shell/edit.ts).
 import { useEffect } from "react";
 import { studio, useStore, welcomeIfNew } from "./lib/store";
 import { Workspace } from "./lib/workspace/Workspace";
@@ -21,6 +22,7 @@ import { SectionHelp } from "./shell/SectionHelp";
 import { Glossary } from "./shell/Glossary";
 import { StartHere } from "./shell/StartHere";
 import { startFeed } from "./shell/feed";
+import { installEdit } from "./shell/edit";
 import { useGlobalKeys } from "./shell/keys";
 import { FleetDialogs } from "./routes/fleet/Dialogs";
 import { PanelDialogs } from "./routes/fleet/PanelDialogs";
@@ -45,6 +47,7 @@ export function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
   useEffect(() => startFeed(), []);
+  useEffect(() => installEdit(), []);
   useEffect(() => {
     const def = SECTIONS.find((s) => s.id === section);
     document.title = def ? `${def.title} - Halo Studio` : "Halo Studio";

@@ -334,12 +334,18 @@ class RolesEditor(ModalScreen):
         effort_input.focus()
 
     def _open_new_bio_for(self, role_name: str) -> None:
-        from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
-        import uuid
-        new_name = f"new-bio-{uuid.uuid4().hex[:8]}"
-        self.app.push_screen(
-            AgentBioEditor(new_name, {}, self.models, is_new=True),
-            lambda saved: self._model_picked(role_name, self._bio_pick_result(saved)) if saved else None)
+        """"New bio...": a starter bio, picked for this role now, and Studio's bio form on it (3.1.1.0 R3:
+        Studio is the one editor of bios)."""
+        from halo_harness.roles import role_value_parts
+        from halo_harness.tui import studio_open
+        current, _effort = role_value_parts(self.roles.get(role_name))
+        start = current or next((m.get("ref") for m in self.models if isinstance(m, dict) and m.get("ref")), "")
+        new_name, problems = studio_open.new_bio(preference=start or "")
+        if not new_name:
+            self.app.notify("; ".join(problems), title="New bio", severity="error")
+            return
+        self._model_picked(role_name, self._bio_pick_result(new_name))
+        studio_open.open_target(self, f"bio:{new_name}")
 
     @staticmethod
     def _bio_pick_result(bio_name: str) -> "dict | None":

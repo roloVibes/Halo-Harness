@@ -1,6 +1,6 @@
 # Studio: the shell
 
-Read this when you find your way around Studio's header, sections, panels and Start views.
+Read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -101,6 +101,34 @@ Under `prefers-reduced-motion` none of it moves; each state keeps its colour
 cue. A section tab "works" while that section has fresh activity, toasts
 sweep green or flash red once, and nothing loops except `idle`, `working`
 and `waiting`, which describe an ongoing state.
+
+## Opening Studio on a bio, a lineup or the Team (`halo studio --edit`)
+
+3.1.1.0: Studio is the one editor of bios and lineups; the terminal shows
+them and opens Studio on the one to change. An **edit target** is
+`bio:<name>`, `lineup:<name>` or `team`, and it rides in the page URL:
+
+```
+http://127.0.0.1:<port>/?mode=roles&edit=bio:coder#t=<token>
+http://127.0.0.1:<port>/?mode=roles&edit=lineup:halo-dev-cycle#t=<token>
+http://127.0.0.1:<port>/?mode=team&edit=team#t=<token>
+```
+
+A page opened on `?edit=` goes straight to it (`shell/edit.ts`): `bio:` opens
+Roles with the Bios panel on that bio's form, `lineup:` opens that lineup
+with the Inspector on its Lineup tab, `team` the Team section. Start here and
+the first-visit welcome stay shut on such a page.
+
+`halo studio --edit <target>` (and `halo agents edit`, `halo teams edit`,
+the TUI's `/edit`, `e` in the terminal's bio and lineup views, the wizard's
+**Edit in Studio**) finds the Studio running for this home
+(`~/.halo/studio.json`) and sends `POST /api/focus {edit}`. Studio puts a
+`focus` frame on its live feed, every open page opens the target the same
+way, and the answer says how many pages took it (`{edit, mode, pages}`); no
+new tab opens. With no page open the browser opens the URL; with no browser
+the URL is printed. With no Studio running, one starts in the background
+with `--edit` and opens the browser on the target. `--no-open` only prints
+the URL (over SSH: forward the port and open it on your machine).
 
 ## The first ten minutes (3.1.1.0)
 

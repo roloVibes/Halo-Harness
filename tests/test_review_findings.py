@@ -71,7 +71,7 @@ def test_code_review_team_template_maps_the_three_roles(ctx: Ctx):
     import tempfile
     os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="rv-team-home-")
     from halo_harness.teams_yaml import list_team_templates, resolve_team_template, validate_team_template
-    from halo_harness.tui.dialogs.lineup_editor import team_rows
+    from halo_harness.tui.dialogs.teams_list import team_rows
     template = resolve_team_template("code-review")
     ctx.check("the template ships", template is not None and "code-review" in list_team_templates())
     ctx.check(f"it validates, got {validate_team_template(template, name='code-review')}",
