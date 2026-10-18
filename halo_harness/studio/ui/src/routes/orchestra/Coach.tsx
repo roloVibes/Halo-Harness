@@ -12,7 +12,7 @@ export type ReportTab = "report" | "coach";
 
 export function CoachTab() {
   const runId = useOrch((s) => s.runId);
-  return runId ? <CoachCards kind="orchestra" run={runId} onApply={applySuggestion} /> : null;
+  return runId ? <CoachCards kind="orchestra" run={runId} onEdit={applySuggestion} /> : null;
 }
 
 /** The two faces of a finished run's report; the coach tab names how many cards it has once read. */

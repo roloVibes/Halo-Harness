@@ -82,7 +82,7 @@ def drive(run_dir, args) -> int:
     except KeyboardInterrupt:
         print(f"\ninterrupted; continue with: halo flow resume {run_dir.name}", file=sys.stderr)
         return 130
-    print(format_report(report))
+    print(format_report(report, run_dir))
     if args.watch and report.get("status") == "finished":
         from halo_harness.flows.watch import watch_metrics
         try:

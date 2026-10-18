@@ -183,27 +183,42 @@ def test_a_flow_a_mission_and_a_team_run(ctx: Ctx):
         m = h.coach(S.mission_folder(h.state))
         mb = _by(m)
         ctx.check(f"mission: asked, refused, conflict, drop, missing outputs, got {sorted(mb)}", m["kind"] == "mission" and {
-            "coordination-2-asked", "tools-3-README.md", "structure-3-after-1", "structure-4-drop", "prompt-missing-outputs"} <= set(mb))
+            "coordination-2-asked", "tools-3-claim-README.md", "structure-3-after-1", "structure-4-drop",
+            "prompt-missing-outputs"} == set(mb))
+        ctx.check(f"a mission names depends_on and no Apply, got {mb['structure-3-after-1']['text']!r}",
+                  "`depends_on: 1`" in mb["structure-3-after-1"]["text"] and all(s["apply"] is None for s in mb.values()))
         ctx.check("asked 200s against a 55s median", "200s" in mb["coordination-2-asked"]["text"]
                   and "median part took 55s" in mb["coordination-2-asked"]["why"][1])
         t = h.coach(S.team_run(h.root))
         tb = _by(t)
-        ctx.check(f"team: gated twice, a refused write, got {sorted(tb)}", t["kind"] == "team" and "coordination-copy-gated" in tb
-                  and "tools-ship-editor-site/index.html" in tb)
-        ctx.check("the redo answer is in the why", "redo: shorter" in tb["coordination-copy-gated"]["why"])
+        ctx.check(f"team: gated twice, a refused write, got {sorted(tb)}", t["kind"] == "team" and set(tb) == {
+            "coordination-copy-loops", "tools-ship-claim-site/index.html"})
+        ctx.check("the redo answer is in the why", "redo: shorter" in tb["coordination-copy-loops"]["why"])
+        ctx.check("the member who could not write is named", "member editor (stage ship)"
+                  in tb["tools-ship-claim-site/index.html"]["text"])
 
 
 @test
 def test_the_rules_live_once_over_the_unit_model(ctx: Ctx):
-    """3.1.2.0 R1: the five rules are in coach_rules.py (over the unit model,
-    docs/WORK.md); coach_orchestra_rules.py is the thin loader that calls
-    them, and each kind's seeded run still goes through them."""
-    from halo_harness.orchestra import coach_orchestra_rules as loader
+    """3.1.2.0 R1 moved the Orchestra rules into coach_rules.py; 3.1.3.0 R1
+    folded the flow, mission and team rules in: every kind's loader calls
+    coach_rules's functions and defines no rule of its own, and each kind's
+    seeded run still goes through them."""
+    import inspect
+    from halo_harness.orchestra import coach_flow_rules, coach_mission_rules, coach_orchestra_rules, coach_team_rules
     from halo_harness.orchestra import coach_rules as R
     from tests.helpers import coach_seed as S
-    for name in ("prompt_rules", "model_rules", "tools_rules", "structure_rules", "coordination_rules"):
-        ctx.check(f"coach_rules.{name} is the shared rule", callable(getattr(R, name)))
-        ctx.check(f"the loader uses coach_rules.{name}", getattr(loader, name) is getattr(R, name))
+    uses = {coach_orchestra_rules: ("prompt_rules", "model_rules", "tools_rules", "structure_rules", "coordination_rules",
+                                    "wait_pairs", "conflict_pairs"),
+            coach_flow_rules: ("prompt_rules", "coordination_rules"),
+            coach_mission_rules: ("coordination_rules", "tools_rules", "structure_rules", "outputs_rules", "conflict_pairs"),
+            coach_team_rules: ("coordination_rules", "tools_rules")}
+    for loader, names in uses.items():
+        short = loader.__name__.rsplit(".", 1)[1]
+        for name in names:
+            ctx.check(f"{short} uses coach_rules.{name}", getattr(loader, name) is getattr(R, name))
+        src = inspect.getsource(loader)
+        ctx.check(f"{short} builds no suggestion itself", "suggestion(" not in src and "import suggestion" not in src)
     with Home() as h:
         orch = h.coach(S.orchestra_run(h.root, [
             S.lane(1, bio="coach-strong", pieces_returned=2, history=S.returned(2), state="merged",

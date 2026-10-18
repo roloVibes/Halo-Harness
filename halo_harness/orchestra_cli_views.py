@@ -126,7 +126,7 @@ def cmd_report(args, repo: Path) -> int:
     if report is None:
         print(f"run {run_dir.name}: no report yet (halo orchestra run {run_dir.name})")
         return 1
-    print(format_report(report))
+    print(format_report(report, run_dir))
     return 0
 
 

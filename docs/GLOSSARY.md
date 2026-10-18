@@ -77,7 +77,7 @@ The plan is the lead's split of a goal into jobs, one per lane, each with a titl
 
 ## coach
 
-The coach reads a finished run's files (an Orchestra run, a flow, a mission or a team run) and suggests what to change next time: a bio's prompt, model or tools, a lane's `after`, a gate that looped. Each card shows its evidence; Apply opens the bio, the lineup or the plan with the change filled in, and nothing changes until you save it there. `halo orchestra coach` prints the cards.
+The coach reads a finished run's files (an Orchestra run, a flow, a mission or a team run) and suggests what to change next time: a bio's prompt, model or tools, a lane's `after`, a gate that looped. Each card shows its evidence; Ask the model has the run's lead explain it in one paragraph, Apply writes the change after one confirm (the file and its diff first) and Undo puts the file back. `halo coach` prints the cards.
 
 ## orchestra run
 

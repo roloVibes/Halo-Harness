@@ -168,7 +168,7 @@ def test_the_four_cli_verbs_print_the_card(ctx: Ctx):
         os.chdir(h.root)
         try:
             rc, out, err = _cli(cmd_team, ["coach"])
-            ctx.check(f"team: the card, got {rc} {out[:200]!r} {err!r}", rc == 0 and "coach: team run" in out and "gated 2 times" in out)
+            ctx.check(f"team: the card, got {rc} {out[:200]!r} {err!r}", rc == 0 and "coach: team run" in out and "looped 2 times" in out)
             ctx.check("team coach --help", _cli(cmd_team, ["coach", "--help"])[0] == 0)
         finally:
             os.chdir(here)

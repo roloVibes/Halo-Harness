@@ -117,16 +117,20 @@ this list against the tree.
   before the merge), `orchestra/forecast.py` (3.1.2.0 R2: the plan's cost forecast)
 - the shared files: `orchestra/claims.py`, `orchestra/guard.py`,
   `orchestra/events.py`, `orchestra/jsonl.py`, `orchestra/view.py`
-- the coach: `orchestra/coach.py` (the card, the cache), the rules once over
-  the unit model (`orchestra/coach_rules.py`), one thin evidence loader per
-  run kind (`orchestra/coach_orchestra_rules.py`, `orchestra/coach_flow_rules.py`,
-  `orchestra/coach_mission_rules.py`, `orchestra/coach_team_rules.py`),
-  `orchestra/coach_lane_facts.py` (an Orchestra run's lanes as facts),
-  `orchestra/coach_prices.py` (the model catalog and its prices)
+- the coach: `orchestra/coach.py` (the card, the cache, the overlay), the
+  rules once for every run kind (`orchestra/coach_rules.py`), one thin
+  evidence loader per run kind (`orchestra/coach_orchestra_rules.py`,
+  `orchestra/coach_flow_rules.py`, `orchestra/coach_mission_rules.py`,
+  `orchestra/coach_team_rules.py`), `orchestra/coach_lane_facts.py` (an
+  Orchestra run's lanes as facts), `orchestra/coach_prices.py` (the model
+  catalog and its prices); 3.1.3.0 the loop: `orchestra/coach_ask.py` (the
+  lead's paragraph per card), `orchestra/coach_apply.py` (Apply through the
+  editors' writers, the confirm card), `orchestra/coach_record.py` (the
+  applied record, Undo, the summary line, the runs the coach read)
 - the CLI: `orchestra_cli.py` (the parser, the dispatch, `new`),
   `orchestra_cli_views.py` (status, claims, log, runs, lanes, report),
   `orchestra_cli_run.py` (run, stop), `orchestra_cli_plan.py` (plan, approve,
-  reject), `coach_cli.py` (the coach verbs)
+  reject), `coach_cli.py` (`halo coach` and the coach verbs)
 
 **The unit of work** (`halo_harness/work/`, Halo 3.1.2.0 R1, docs/WORK.md):
 the shared model a lane, a mission part, a team stage and a flow step all

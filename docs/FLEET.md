@@ -386,8 +386,10 @@ curve. The Roles canvas plays it back on its cards.
 
 "While you were away", computed in code: per harness, the sessions started
 and ended, the cost, the decisions answered and by whom, the files touched,
-the errors and the hand-offs since a moment. This harness is read from its
-own transcripts; members, decisions and hand-offs from the journal.
+the errors and the hand-offs since a moment, and (3.1.3.0) one coach line per
+run the post-run coach read ("coach    orchestra <run>: N suggestions, M
+applied, top: ..."). This harness is read from its own transcripts and its
+`~/.halo/coach/runs.json`; members, decisions and hand-offs from the journal.
 `GET /api/fleet/digest?since=` and `halo fleet digest [--since 2h]`
 ([COMMANDS-fleet.md](COMMANDS-fleet.md#halo-fleet-digest)).
 

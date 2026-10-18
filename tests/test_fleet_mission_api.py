@@ -153,7 +153,7 @@ def test_the_coach_route(ctx: Ctx):
         status, data, _ = s.call("GET", f"/api/fleet/missions/{folder.name}/coach")
         ids = [x["id"] for x in data.get("suggestions") or []]
         ctx.check(f"200, the mission's cards, got {status} {ids}", status == 200 and data["kind"] == "mission"
-                  and {"coordination-2-asked", "tools-3-README.md", "structure-3-after-1"} <= set(ids))
+                  and {"coordination-2-asked", "tools-3-claim-README.md", "structure-3-after-1"} <= set(ids))
         ctx.check("kept in the mission folder", (folder / "coach.json").is_file())
         ctx.check("an unknown mission is a 404", s.call("GET", "/api/fleet/missions/m-20261017-ffff/coach")[0] == 404)
 

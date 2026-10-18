@@ -26,12 +26,14 @@ def register(test, json_of, chrome) -> None:
         got = run(ctx)
         ctx.check(f"three cards, got {got.get('cards')} {got.get('kinds')}", got.get("cards") == 3
                   and got.get("kinds") == ["model", "structure", "tools"] and got.get("why") == 3 and got.get("applies") == 3)
+        ctx.check(f"3.1.3.0: Ask, Apply and Edit on each card, and the help line, got {got.get('asks')} {got.get('edits')}",
+                  got.get("asks") == 3 and got.get("edits") == 3 and "writes after you confirm" in str(got.get("help")))
         ctx.check(f"the model card's why, got {got.get('model_why')!r}", "hit the return cap (2)" in str(got.get("model_why"))
                   and "finished first try" in str(got.get("model_why")))
 
     @test
     def test_coach_apply_opens_the_bio_form_with_the_model_filled_in(ctx: Ctx):
-        """3.0.9.0 R3: Apply on the model card opens Roles on bio coach-cheap's form with or:vendor/strong
+        """3.0.9.0 R3 (Edit since 3.1.3.0): Edit on the model card opens Roles on bio coach-cheap's form with or:vendor/strong
         picked, the coach's note naming models.preference and the field marked; the bio on disk is unchanged."""
         got = run(ctx)
         ctx.check(f"the bio form, got {got.get('bio_form')} in {got.get('section')}", got.get("bio_form") == "coach-cheap"
@@ -44,7 +46,7 @@ def register(test, json_of, chrome) -> None:
     @test
     def test_coach_dismiss_survives_a_reload_and_a_plan_apply_is_staged(ctx: Ctx):
         """3.0.9.0 R3: Dismiss hides the tools card and it stays hidden after a reload (localStorage, "Show
-        dismissed (1)"); Apply on the structure card opens the plan editor with job-5 after job-4 staged, no
+        dismissed (1)"); Edit on the structure card opens the plan editor with job-5 after job-4 staged, no
         Approve or Reject, nothing sent; Back returns to the console."""
         got = run(ctx)
         ctx.check(f"dismissed, got {got.get('after_dismiss')} / {got.get('after_reload')} / {got.get('stored')}",
@@ -55,6 +57,23 @@ def register(test, json_of, chrome) -> None:
                   and got.get("staged_buttons") == {"plan-approve": 0, "plan-reject": 0, "plan-copy": 1, "plan-back": 1})
         ctx.check(f"nothing sent, the console back, got {got.get('draft_written')} / {got.get('console_back')}",
                   got.get("draft_written") is False and got.get("console_back") == "back")
+
+    @test
+    def test_coach_apply_confirms_writes_and_undoes_in_headless_chrome(ctx: Ctx):
+        """3.1.3.0 R1: Apply on the model card shows the confirm card (bio coach-cheap's file, the diff to
+        or:vendor/strong) and writes nothing; Apply there writes the bio (APPLIED, "1 applied"); Undo puts
+        it back (UNDONE); Ask the model shows the lead's paragraph, kept in the run's coach.ask.json."""
+        got = run(ctx)
+        ctx.check(f"the confirm card, got {got.get('confirm_file')!r} {got.get('confirm_diff')!r}",
+                  str(got.get("confirm_file")).endswith("coach-cheap.yaml") and "+  preference: or:vendor/strong"
+                  in str(got.get("confirm_diff")) and got.get("before_confirm") == "or:vendor/cheap")
+        ctx.check(f"written, got {got.get('applied_chip')} {got.get('after_apply')} {got.get('summary')!r}",
+                  got.get("applied_chip") == "APPLIED" and got.get("after_apply") == "or:vendor/strong"
+                  and "1 applied" in str(got.get("summary")))
+        ctx.check(f"undone, got {got.get('undone_chip')} {got.get('after_undo')}", got.get("undone_chip") == "UNDONE"
+                  and got.get("after_undo") == "or:vendor/cheap")
+        ctx.check(f"the lead's paragraph, got {got.get('paragraph')!r}", str(got.get("paragraph")).startswith("The fake lead on")
+                  and got.get("ask_kept") is True)
 
     @test
     def test_mission_coach_face_lists_its_cards_in_headless_chrome(ctx: Ctx):

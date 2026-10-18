@@ -1,4 +1,5 @@
-// What a coach card's Apply does (3.0.9.0 R3), for every report face: it
+// What a coach card's Edit does (3.0.9.0 R3 Apply; 3.1.3.0 R1 renamed it Edit, Apply now writes after a confirm,
+// lib/coach/actions.ts), for every report face: it
 // opens the editor that owns the field with the change filled in and marked,
 // and saves nothing. A bio target opens Roles on that bio's form (the field
 // set in the draft, the bio's note naming it; Save bio keeps it); a lineup

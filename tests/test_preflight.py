@@ -98,7 +98,7 @@ def test_orchestra_cli_refuses_and_force_runs(ctx: Ctx):
         seen = []
         run_mod.run = lambda run_dir, **kw: seen.append(run_dir) or {"status": "finished"}
         adapters.real_adapters = lambda run_dir, goal, model: {}
-        report.format_report = lambda rep: "REPORT"
+        report.format_report = lambda rep, run_dir=None: "REPORT"
         try:
             with contextlib.redirect_stdout(io.StringIO()):
                 rc = CR.cmd_run(argparse.Namespace(run=None, model=None, dry_run=False, force=True), repo)
