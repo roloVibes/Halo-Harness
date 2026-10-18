@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.0.9.0] - unreleased
+## [3.0.9.0] - 2026-10-17
 
 Hand-offs and the graph: a lane can start after another and take what it left, a sequenced mission part starts from the earlier part's head, the lead's plan can be reviewed and edited on a canvas before it runs, a saved flow draws as a graph, and after any run a coach reads the run's own files and says what to change, with Apply into the bio, the lineup or the plan. The three OpenFlow ports from the 2026-10-17 roadmap entry. Rolo's order, 2026-10-17: "complete all the different version numbers".
 

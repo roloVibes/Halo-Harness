@@ -47,4 +47,4 @@ digest) round out this round; hardware/host analysis, roles, Hugging Face,
 and docs/release prep are later rounds of the same brief.
 """
 
-__version__ = "3.0.8.0"
+__version__ = "3.0.9.0"
