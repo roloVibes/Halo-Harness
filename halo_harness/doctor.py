@@ -1989,6 +1989,11 @@ def cmd_doctor(argv: list) -> int:
     # 'main', judge in the same family as coder (self-preference bias),
     # dead gateway endpoints. Fast (one reachability probe per distinct
     # gateway, no model calls).
+    # 3.1.1.0 R2: every file `halo config where` lists, against the schema
+    # set and the validators (doctor_config.py).
+    parser.add_argument("--config", action="store_true",
+                         help="Check every file `halo config where` lists: unknown keys (with the closest known "
+                              "key), wrong types, missing bios and lineups, a key two files set differently")
     parser.add_argument("--roles", action="store_true",
                          help="Check the roles lineup's hygiene headlessly: a missing 'main', "
                              "judge/coder family bias, unreachable gateways")
@@ -2034,6 +2039,9 @@ def cmd_doctor(argv: list) -> int:
     migration_note = ensure_providers_migrated()
     if migration_note and not args.json:
         print(migration_note)
+    if args.config:
+        from halo_harness.doctor_config import cmd_doctor_config
+        return cmd_doctor_config(cwd=doctor_cwd, settings_flag=settings_flag, as_json=args.json)
     if args.agents:
         from halo_harness.agents_doctor import check_active_team, run_all_acceptance
         from halo_harness.agents_yaml import list_agent_bios, load_agent_bio_raw, validate_agent_bio

@@ -7544,6 +7544,43 @@ def test_bare_effort_card_selection_persists_like_the_plain_text_path(ctx: Ctx):
     asyncio.run(body())
 
 
+@test
+def test_slash_config_where_prints_the_files_table(ctx: Ctx):
+    """3.1.1.0 R2: `/config where` typed in the prompt lands the same table
+    `halo config where` prints in the transcript (the command runs through
+    the controller's slash path; FakeController's own `run_slash` is a stub,
+    so this one hands `config` to the real builtin over a seeded home)."""
+    from types import SimpleNamespace
+    from halo_harness.commands.builtins import _cmd_config
+    from halo_harness.config_where import render, where_rows
+    from tests.helpers.config_seed import ConfigHome, seed
+
+    with ConfigHome() as h:
+        seed(h)
+
+        def _run_slash(name: str, args: str = "") -> str:
+            return _cmd_config(args, SimpleNamespace(cwd=h.repo)) if name == "config" else ""
+
+        async def body():
+            fake = FakeController()
+            fake.run_slash = _run_slash
+            app = await _mounted(fake, cwd=str(h.repo))
+            async with app.run_test(size=(140, 40)) as pilot:
+                await pilot.click("#prompt-input")
+                await _type(pilot, "/config where")
+                await pilot.press("enter")
+                for _ in range(60):
+                    await _drain_a_few(app, pilot, n=2)
+                    if any("halo config where" in t for t in app.transcript.plain_log):
+                        break
+                note = next((t for t in app.transcript.plain_log if "halo config where" in t), "")
+                ctx.check(f"/config where printed the table, got {note[:120]!r}",
+                          note == render(where_rows(h.repo), cwd=h.repo))
+                ctx.check("the table has the lineup folders and the precedence lines",
+                          "Lineup folders" in note and "loses to" in note)
+        asyncio.run(body())
+
+
 # ============================================================================
 # SVG snapshots (Part A/B): the phase-line states and the rotating tips
 # placeholder, alongside the existing main/permission/question/model-picker

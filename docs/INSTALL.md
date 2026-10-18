@@ -1,5 +1,7 @@
 # Install
 
+Read this when you install, upgrade or update Halo.
+
 One install, one command, then `halo` works from any directory -- the same
 way `claude` does once it's on PATH. This page is the short version;
 [docs/harness/INSTALL.md](harness/INSTALL.md) is the exhaustive one (PEP

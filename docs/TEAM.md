@@ -1,5 +1,7 @@
 # Teams: people, blocks and stages (Halo 3.0.8.0)
 
+Read this when you set up a team file: who works on a repo, where their work lands and in which order.
+
 A **team** is one file that says who works on a project, where their work
 lands and in which order: the brief every agent reads first, the members,
 the blocks (a file, a folder or a git tree, each with its own claim
@@ -226,6 +228,6 @@ gate card with Accept, Redo and Stop; a block's holders and changes; a
 member's lineup, opening in Roles) and the **Change feed** (the run's event
 lines with kind chips). A stage at its gate is also a `team_gate` row in
 Fleet's Attention queue (`A` accept, `R` redo, `S` stop, `O` open). Details:
-[STUDIO.md](STUDIO.md#team-people-blocks-and-stages-on-one-board).
+[STUDIO-team-roles-org.md](STUDIO-team-roles-org.md#team-people-blocks-and-stages-on-one-board).
 
 ![Team in Studio: draft done, review at its gate, notes held by a hand edit](media/studio-team.png)

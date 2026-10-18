@@ -1,5 +1,7 @@
 # Fleet
 
+Read this when you connect several harnesses into one fleet and watch or steer them from one place.
+
 Halo 3.0.5.0 "Fleet" puts every harness, every session and every agent in
 one live picture: what each one is doing, what it is thinking, what it
 wrote, and the controls to steer, pause or stop any of them. **R1** is what
@@ -197,7 +199,7 @@ Each halo process with sessions runs one relay thread per joined hub.
 ## In Studio
 
 `halo studio --mode fleet` (or `Alt+6`, `/studio fleet`) opens the **Fleet**
-section; the full guide is [STUDIO.md](STUDIO.md#fleet-every-harness-every-agent).
+section; the full guide is [STUDIO-fleet.md](STUDIO-fleet.md#fleet-every-harness-every-agent).
 
 - **The map.** One box per harness (this one first), a card per session, its
   agents as a tree under it with their state, what each one does now, its
@@ -246,7 +248,7 @@ Round R4 adds the panels that watch the whole fleet at once: **People**,
 **Attention**, **Activity** (the merged log and a timeline strip),
 **Costs**, **Health**, project rooms with conflict warnings on the map,
 hand-offs, flight recordings, the canvas replay and the digest. The Studio
-side is in [STUDIO.md](STUDIO.md#fleet-every-harness-every-agent); this
+side is in [STUDIO-fleet.md](STUDIO-fleet.md#fleet-every-harness-every-agent); this
 section is what runs behind it. Everything here is computed in code from
 what the hub already sees; nothing calls a model.
 

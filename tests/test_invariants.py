@@ -665,7 +665,8 @@ def test_invariant_j_no_module_is_named_by_its_line_count(ctx: Ctx):
     bad = [p.relative_to(REPO_DIR).as_posix() for p in sorted(pkg.rglob("*.py"))
            if re.search(r"(_more|2|_rest)\.py$|_extra", p.name)]
     ctx.check(f"no module named by line count: {bad}", not bad)
-    doc = (REPO_DIR / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R2: the module map is a part of ARCHITECTURE.md
+    doc = doc_text("ARCHITECTURE.md")
     section = doc[doc.find("## Module map"):] if "## Module map" in doc else ""
     named = set(re.findall(_MAP_NAME, section))
     actual = {f"{d}/{p.name}" for d in _MAP_PACKAGES for p in (pkg / d).glob("*.py") if p.name != "__init__.py"}

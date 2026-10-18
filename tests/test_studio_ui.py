@@ -222,6 +222,8 @@ def test_roles_canvas_draws_tier_boxes(ctx: Ctx):
     ctx.check(f"the click run finished, got {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0)
     ctx.check(f"eight cards in three tier boxes, got {got.get('cards')} {got.get('tiers')}", got.get("cards") == 8 and got.get("tiers") == ["top", "leads", "rest"])
     ctx.check("every card sits inside the box of its tier", got.get("cards_in_tiers") is True)
+    ctx.check(f"3.1.1.0 R2: the Problems panel's Config group lists the lineup's unknown key, got {got.get('config_problem')!r}",
+              "unknown key 'notes'" in str(got.get("config_problem") or ""))
 
 
 register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/helpers/studio_ui_fleet.py

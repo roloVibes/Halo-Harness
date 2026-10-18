@@ -1,5 +1,7 @@
 # ComfyUI in Halo
 
+Read this when you want Halo to render images or video with ComfyUI on your own GPU.
+
 [ComfyUI](https://github.com/comfyanonymous/ComfyUI) runs diffusion models on
 your own GPU: still images (Qwen Image), image-to-video clips (Wan 2.2),
 upscales (SeedVR2), speech (TTS Audio Suite) and anything else a workflow

@@ -1,0 +1,93 @@
+# The docs map
+
+Read this when you do not know which doc to open: every doc, by what you want to do, with one line on when to read it.
+
+Each doc opens with the same "Read this when" line it has here. The longest docs are split by task: the
+original file is a short entry page and its parts are listed under it. New to Halo? Start with
+[INSTALL.md](INSTALL.md), then the [HANDBOOK.md](HANDBOOK.md).
+
+## I want to set up
+
+Install Halo, connect your models and providers, and fix what goes wrong.
+
+- [INSTALL.md](INSTALL.md) (Install): read this when you install, upgrade or update Halo.
+- [MAC.md](MAC.md) (Mac quick-start (Apple Silicon)): read this when you check Halo with local models on an Apple Silicon Mac.
+- [LOCAL-MODELS.md](LOCAL-MODELS.md) (Local and cloud models): read this when you set up Ollama, Hugging Face, the OpenAI API or Codex end to end.
+- [DATABRICKS.md](DATABRICKS.md) (Databricks): read this when you run Halo against Databricks model serving, at work or with a team preset.
+- [MODELS.md](MODELS.md) (Models): read this when you need the exact behaviour of a model route: how a model name resolves, what each provider sends, the catalogs and the prices.
+  - [MODELS-references.md](MODELS-references.md) (Models: references, picks and provider enablement): read this when you type a model name or prefix (`or:`, `dbx:`, `cc:`, `cx:`, `ol:`, `hf:` ...), choose a model for a job, or turn a provider on or off.
+  - [MODELS-ollama.md](MODELS-ollama.md) (Models: Ollama hosts, requests and the catalog): read this when you point Halo at an Ollama host and want to know what it sends, how context is sized and how the host is checked.
+  - [MODELS-ollama-tuning.md](MODELS-ollama-tuning.md) (Models: Ollama fit, calibration and the gym): read this when a local model does not fit, calls tools badly, or you want `halo gym` scores and role defaults for your GPU.
+  - [MODELS-huggingface.md](MODELS-huggingface.md) (Models: Hugging Face): read this when you use the Hugging Face router, a dedicated endpoint, or a local llama-server, LM Studio or MLX server (`hf:`).
+  - [MODELS-openai-codex.md](MODELS-openai-codex.md) (Models: the OpenAI API and the Codex subscription): read this when you use `oai:` with an OpenAI key or `cx:` with a ChatGPT subscription through Codex.
+  - [MODELS-experiential.md](MODELS-experiential.md) (Models: Experiential Labs): read this when you route models through the Experiential Labs gateway (`xp:`).
+  - [MODELS-families.md](MODELS-families.md) (Models: families, Qwen and reasoning effort): read this when a model family behaves differently (DeepSeek, Kimi, GLM, Qwen) or you set the reasoning effort.
+  - [MODELS-catalog.md](MODELS-catalog.md) (Models: the catalog, prices and the picker): read this when you refresh the model list, read a price or DBU cost, use the `/model` picker, or go offline.
+- [CONFIG.md](CONFIG.md) (Configuration): read this when you want to know which file sets what: every config file, key and environment variable Halo reads.
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) (Troubleshooting): read this when something looks wrong: each symptom, the doctor line that names it, and the fix.
+
+## I want to run agents
+
+Work in the TUI and on the command line, and give agents bios, lineups, roles and jobs.
+
+- [HANDBOOK.md](HANDBOOK.md) (Halo Harness handbook): read this when you want the long-form guide: configuration, providers, permissions, steering, hooks, skills, MCP, sessions and themes.
+- [COMMANDS.md](COMMANDS.md) (Commands): read this when you want every `halo` subcommand and flag, with examples.
+- [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
+  - [SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md) (Slash commands: sessions, models and context): read this when you manage the session, its model, memory, permissions or config from the prompt (`/clear`, `/model`, `/recall`, `/config` ...).
+  - [SLASH-COMMANDS-agents.md](SLASH-COMMANDS-agents.md) (Slash commands: agents, lineups, roles and review): read this when you work with bios, lineups, roles, organizations or `/review` from the prompt.
+  - [SLASH-COMMANDS-providers.md](SLASH-COMMANDS-providers.md) (Slash commands: providers, fleet and upkeep): read this when you set up providers, subscriptions, rate limits, remote control or the fleet, or run `/doctor`, `/update` and `/bugreport`.
+  - [SLASH-COMMANDS-tui.md](SLASH-COMMANDS-tui.md) (Slash commands: themes, Studio and the TUI): read this when you change themes, open Studio, copy, rewind or tune the TUI, or add your own commands, skills and images.
+  - [SLASH-COMMANDS-keys.md](SLASH-COMMANDS-keys.md) (Slash commands: prefixes, keys and cards): read this when you want the `@path` and `!cmd` prefixes, a key binding, or the keys a card answers to.
+- [AGENTS.md](AGENTS.md) (Agent bios and team templates): read this when you write or edit an agent bio or a lineup, field by field.
+- [ROLES.md](ROLES.md) (Roles): read this when you point different kinds of work at different models with roles.
+- [ORGS.md](ORGS.md) (Organizations): read this when you turn a lineup into an organization with titles and reporting lines.
+- [PAPERCLIP.md](PAPERCLIP.md) (Paperclip: your lineups as a company of agents): read this when you run your lineups as a company of agents in Paperclip.
+- [ORCHESTRA.md](ORCHESTRA.md) (The Orchestra): read this when several agents should write the same files at once: the Orchestra and its plan, lanes and judge.
+- [TEAM.md](TEAM.md) (Teams: people, blocks and stages (Halo 3.0.8.0)): read this when you set up a team file: who works on a repo, where their work lands and in which order.
+- [FLOWS.md](FLOWS.md) (Flows): read this when you build or run a flow: an input through agents, an org, a render and a post.
+- [COMFYUI.md](COMFYUI.md) (ComfyUI in Halo): read this when you want Halo to render images or video with ComfyUI on your own GPU.
+- [SUBAGENTS.md](SUBAGENTS.md) (Sub-agent visibility and scale): read this when you watch or limit sub-agents: the tasks panel, concurrency and depth.
+- [REVIEW.md](REVIEW.md) (Code review: `/review` and `halo review`): read this when you review code with `/review` or `halo review`.
+- [GOVERNOR.md](GOVERNOR.md) (The Governor): read this when requests to one gateway slow down, fail over or queue: the shared rate limiter.
+
+## I want to use Studio
+
+The browser view of your lineups, runs, flows, designs, fleet and team.
+
+- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser view of your lineups, runs, flows, fleet and team.
+  - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views.
+  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Orchestra, Roles, Org, Design, Flow, Fleet, Team) and the live feed.
+  - [STUDIO-orchestra-flow.md](STUDIO-orchestra-flow.md) (Studio: the Orchestra and Flow consoles): read this when you run an Orchestra goal or a flow from Studio: the plan canvas, the coach, the media renders and their routes.
+  - [STUDIO-fleet.md](STUDIO-fleet.md) (Studio: Fleet): read this when you watch or steer every harness and agent from Studio's Fleet section.
+  - [STUDIO-team-roles-org.md](STUDIO-team-roles-org.md) (Studio: Team, Roles and Org): read this when you edit a team board, a lineup on the Roles canvas, or the Paperclip company in Org.
+  - [STUDIO-design.md](STUDIO-design.md) (Studio: Design mode): read this when you make prototypes, pages or decks with Studio's Design section on your own creative apps.
+  - [STUDIO-security.md](STUDIO-security.md) (Studio: saving, security, SSH and shortcuts): read this when you save and apply from Studio, run it over SSH, check what it lets a page do, or want every shortcut.
+- [DESIGN.md](DESIGN.md) (Halo Design): read this when you make designs, pages, decks or logos with Halo Design on your own apps.
+
+## I want to run a fleet
+
+Several harnesses, one picture, one goal; and control from another process or your phone.
+
+- [FLEET.md](FLEET.md) (Fleet): read this when you connect several harnesses into one fleet and watch or steer them from one place.
+- [MISSIONS.md](MISSIONS.md) (Fleet missions): read this when you give one goal to the whole fleet and want to follow its parts.
+- [REMOTE.md](REMOTE.md) (Remote control): read this when you control a running session from another process or from your phone over Signal.
+
+## I want to develop Halo
+
+How Halo is built, tested and released, and the record of how it got here.
+
+- [DEVELOPMENT.md](DEVELOPMENT.md) (Development): read this when you work on Halo itself: the repo layout, the test suites and the release flow.
+- [CONTRIBUTING.md](CONTRIBUTING.md) (Contributing): read this when you send a change to Halo: the house rules and which suite to run.
+- [ARCHITECTURE.md](ARCHITECTURE.md) (Architecture): read this when you want how Halo works inside: the session loop and every subsystem around it.
+  - [ARCHITECTURE-session.md](ARCHITECTURE-session.md) (Architecture: the session loop): read this when you change how a request is built: the session log, pruning, providers, reasoning replay, the tool catalog and the repair layer.
+  - [ARCHITECTURE-permissions.md](ARCHITECTURE-permissions.md) (Architecture: permissions, hooks and MCP): read this when you change permission rules and modes, the hooks protocol, or how MCP servers start and cache.
+  - [ARCHITECTURE-runtime.md](ARCHITECTURE-runtime.md) (Architecture: steering, compaction, sub-agents and telemetry): read this when you change steering and interrupts, compaction, sub-agents and plan mode, the subscription route, or telemetry.
+  - [ARCHITECTURE-tui.md](ARCHITECTURE-tui.md) (Architecture: the TUI event model): read this when you change how the TUI turns session events into widgets.
+  - [ARCHITECTURE-modules.md](ARCHITECTURE-modules.md) (Architecture: the module map): read this when you look for the module behind a Studio, fleet, Orchestra or team feature.
+- [WIZARD.md](WIZARD.md) (The wizard interaction model): read this when you change or add a wizard screen: the ten rules every screen follows.
+- [MEDIA.md](MEDIA.md) (The front-page media): read this when you regenerate the front-page pictures and animations.
+- [PRIVACY.md](PRIVACY.md) (Privacy and the public repo): read this when you check what Halo keeps out of the repo, or audit a checkout before you publish it.
+- [harness/README.md](harness/README.md) (`docs/harness/` -- the build history): read this when you look for the research notes, briefs and reviews behind a Halo release.
+- [design-review-2026-09-23.md](design-review-2026-09-23.md) (Design review notes — 2026-09-23 (Opus 5.5 advisor pass on the foundation plan)): read this when you want the history of the first design review (2026-09-23); it is a record, not a guide.
+- [m4-6-brief.md](m4-6-brief.md) (Milestones 4–6 brief (Databricks live route, Claude passthrough, overflow/compaction, reasoning log, probe)): read this when you want the history of milestones 4 to 6 of the original proxy; it is a record, not a guide.
+- [review-findings-m4-6.md](review-findings-m4-6.md) (Review findings — M4–M6 integration (Opus 5.5 advisor pass, 2026-09-23)): read this when you want the history of the milestone 4 to 6 review; it is a record, not a guide.
