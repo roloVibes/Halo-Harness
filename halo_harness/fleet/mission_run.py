@@ -59,9 +59,8 @@ class Runner(threading.Thread):
         frame(self.publish, self.dispatch.local_id(), {"id": self.mid, "state": state, **extra})
 
     def _part(self, pid: str, fields: dict) -> dict:
-        def apply(doc: dict) -> None:
-            doc["parts"].setdefault(pid, {}).update(fields)
-        doc = S.update(self.home, self.mid, apply)
+        from halo_harness.work.adapters.part import update_state  # 3.1.2.0 R1: the part's state through its unit adapter
+        doc = update_state(S.folder(self.home, self.mid), pid, fields)
         st = doc["parts"][pid]
         S.log(self.home, self.mid, "part", part=pid, state=st.get("state"), error=st.get("error"))
         hub = doc.get("hub") or {}

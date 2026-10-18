@@ -279,7 +279,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo", add_help=True,
         description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
-        epilog="Commands: init, start, explain, studio, design, media, flow, orchestra, team, teams, agents, roles, paperclip, models, mcp, proxy, "
+        epilog="Commands: init, start, explain, studio, design, media, flow, orchestra, work, team, teams, agents, roles, paperclip, models, mcp, proxy, "
                "config, doctor, update, stats, review, preflight, subscriptions, audit, improve, export, "
                "completion (run `halo <command> --help`; `halo init` sets up a fresh box in one go). "
                "The GUI: `halo studio --mode roles|org|design` -- lineups and agent bios as a graph, "
@@ -481,6 +481,10 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "work-matrix":
         from halo_harness.work_matrix import cmd_work_matrix
         return cmd_work_matrix(argv[1:])
+    if argv and argv[0] == "work":
+        # 3.1.2.0 R1: the units of any run as one table (lanes, parts, stages, steps; docs/WORK.md).
+        from halo_harness.work_cli import cmd_work
+        return cmd_work(argv[1:])
     if argv and argv[0] == "init":
         from halo_harness.init_cli import cmd_init
         return cmd_init(argv[1:])

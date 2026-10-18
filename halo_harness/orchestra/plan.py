@@ -106,7 +106,7 @@ def normalize(jobs: list) -> list:
     ids = {str(j.get("id")): f"job-{i}" for i, j in enumerate(jobs, 1)}
     out = []
     for i, raw in enumerate(jobs, 1):
-        job = {k: v for k, v in raw.items() if k in ("title", "claims", "handoff", "after", "bio", "model")}
+        job = {k: v for k, v in raw.items() if k in ("title", "claims", "handoff", "after", "bio", "model", "est_tokens")}
         job.update(id=f"job-{i}", worker=i, order=i, title=str(job.get("title") or "").strip(),
                    claims=[str(c) for c in job.get("claims") or []])
         job["after"] = [ids.get(str(a), str(a)) for a in job.get("after") or []]

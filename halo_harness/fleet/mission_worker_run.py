@@ -49,6 +49,8 @@ class WorkerRun(threading.Thread):
         self.result: Optional[dict] = None
         self.base: Optional[str] = None
         self.guard = None
+        self.run_id: Optional[str] = None  # 3.1.2.0 R2: an orchestra | flow part's run (mission_stage_run.py)
+        self.report = False
 
     # ---- placing -------------------------------------------------------------------------------
     def place(self) -> None:
@@ -66,6 +68,9 @@ class WorkerRun(threading.Thread):
             self.folder = self.home / "fleet" / "missions" / mid
         if self.f["kind"] == "repo" and self.checkout is None:
             self.checkout = self._find_repo(str(self.f["repo"]))
+        if self.f["kind"] in ("orchestra", "flow"):
+            from halo_harness.fleet.mission_stage_run import place
+            place(self)
 
     def _find_repo(self, name: str) -> Path:
         from halo_harness.remote import fleet_identity as FI
@@ -103,6 +108,9 @@ class WorkerRun(threading.Thread):
             from halo_harness.fleet.mission_files import HubFiles
             self.files = HubFiles(self.entry)
             self.files.pull(mid, self.folder)
+        if self.f["kind"] in ("orchestra", "flow"):  # the run makes its own worktrees
+            self.cwd = self.checkout or self.folder
+            return
         if self.f["kind"] != "repo":
             self.cwd = self.folder
             return
@@ -141,6 +149,9 @@ class WorkerRun(threading.Thread):
 
     def _work(self) -> dict:
         from halo_harness.fleet import mission_worker
+        if self.f["kind"] in ("orchestra", "flow"):  # 3.1.2.0 R2: the run's own sessions do the work
+            from halo_harness.fleet.mission_stage_run import run
+            return run(self)
         from halo_harness.fleet.mission_guard import MissionClaimGuard, install
         from halo_harness.fleet.mission_worker_session import close_row, open_row
         session, run_fn, close = mission_worker.builder()(self.cwd, self.home)
@@ -205,13 +216,16 @@ class WorkerRun(threading.Thread):
                        "harness": harness(self.home)["id"], "files": files[:500], "branch": self.f["branch"] if head else None,
                        "head": head, "base": self.base, "bundle": bundle, "ended": time.time(),
                        "refused": list(getattr(self.guard, "refused", []))[:50]}
+        if self.run_id:
+            self.result.update(run_id=self.run_id, run_kind=self.f["kind"])
         if self.folder is not None:
             S.write_text(self.folder, f"parts/{n}/handback.md", f"# Part {n} hand-back ({state})\n\n{text}\n")
             S.write_text(self.folder, f"parts/{n}/result.json", json.dumps(self.result, indent=2))
         if self.files is not None:
             rels = [f"artifacts/{n}/{x}" if not x.startswith("artifacts/") else x for x in
                     ([] if self.f["kind"] == "repo" else files)]
-            rels += [f"parts/{n}/branch.bundle"] * bool(bundle) + [f"parts/{n}/handback.md", f"parts/{n}/result.json"]
+            rels += [f"parts/{n}/branch.bundle"] * bool(bundle) + [f"parts/{n}/report.json"] * bool(self.report)
+            rels += [f"parts/{n}/handback.md", f"parts/{n}/result.json"]
             try:
                 self.files.push(mid, self.folder, rels, cap=M.max_file_bytes(self.home))
             finally:

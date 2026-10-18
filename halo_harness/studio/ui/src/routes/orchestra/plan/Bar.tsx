@@ -5,9 +5,12 @@
 // it every problem (data-testid plan-problem: click one to select its card)
 // and the lineup's preflight findings. 3.0.9.0 R3: a coach edit staged on a
 // run that already ran shows STAGED with Copy the plan and Back to the run.
+// 3.1.2.0 R2: the header shows the forecast's total against the goal's
+// budget_usd (data-testid plan-forecast), red when over.
 import { useState } from "react";
 import { Button } from "../../../lib/ui";
 import { addLane, approve, redo, reject, undo } from "./actions";
+import { totalText } from "./forecast";
 import { copyPlan, unstage } from "./stage";
 import { plan, selectLane, usePlan } from "./store";
 
@@ -21,6 +24,8 @@ export function PlanBar() {
   const canUndo = usePlan((s) => s.past.length > 0);
   const canRedo = usePlan((s) => s.future.length > 0);
   const staged = usePlan((s) => s.staged);
+  const total = usePlan((s) => s.forecast?.total || null);
+  const heuristic = usePlan((s) => s.forecast?.heuristic || "");
   const blocked = problems.length > 0 || saving;
   const why = problems.length
     ? `Fix ${problems.length} problem${problems.length === 1 ? "" : "s"} first: ${problems.map((p) => p.text).join(" · ")}`
@@ -32,6 +37,12 @@ export function PlanBar() {
       <span className="mono muted rc-bar-count">{n} lane{n === 1 ? "" : "s"} · the lead planned {lead}</span>
       {saving && <span className="rc-dirty mono" data-testid="plan-saving">checking</span>}
       {staged && <span className="mono muted pc-staged" data-testid="plan-staged" title={staged}>from the coach: {staged}</span>}
+      {total && (
+        <span className="mono pc-forecast" data-testid="plan-forecast" data-over={total.over || undefined}
+              title={`The plan's cost forecast: each lane's tokens (the lead's estimate, else ${heuristic || "the heuristic"}) at its model's catalog price. Approve still runs a plan over its budget.`}>
+          {totalText(total)}
+        </span>
+      )}
       <span className="spacer" />
       <Button size="sm" onClick={addLane} data-testid="plan-add">Add lane</Button>
       <Button size="sm" variant="ghost" disabled={!canUndo} onClick={undo} title="Undo the last edit (Ctrl+Z)" data-testid="plan-undo">Undo</Button>

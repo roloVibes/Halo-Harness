@@ -13,6 +13,8 @@ Postiz" below).
 
 **In a team (Halo 3.0.8.0):** a team stage of `kind: flow` runs the named flow with the stage's `inputs` as its intake; see [TEAM.md](TEAM.md).
 
+**One unit of work (Halo 3.1.2.0):** a flow step is a *unit* of work, the same thing an Orchestra lane, a mission part and a team stage are; `halo work <run>` prints a flow's steps as that shared table. See [WORK.md](WORK.md).
+
 ```sh
 halo media init --url http://<comfy-host>:8188      # once: the ComfyUI server
 halo flow new social-post --project demo-post       # ~/.halo/flows/social-post.flow.yaml

@@ -88,9 +88,14 @@ def create(home, doc: dict) -> Path:
 
 def load(home, mid: str) -> Optional[dict]:
     try:
-        path = folder(home, mid) / DOC
+        return load_at(folder(home, mid), mid)
     except M.MissionError:
         return None
+
+
+def load_at(base, mid: Optional[str] = None) -> Optional[dict]:
+    """mission.json of the mission folder `base` (its id checked against `mid`, else the folder's name)."""
+    path, mid = Path(base) / DOC, mid or Path(base).name
     for _ in range(20):  # on Windows a reader can meet the file mid-replace: try again for a moment
         data = jsonl.read_json(path, None)
         if isinstance(data, dict) and data.get("id") == mid:
@@ -110,11 +115,20 @@ def need(home, mid: str) -> dict:
 
 def update(home, mid: str, fn: Callable[[dict], object]) -> dict:
     """Read-modify-write `mission.json` under its lock; `fn(doc)` changes the doc in place."""
-    path = folder(home, mid) / DOC
+    return update_at(folder(home, mid), fn, mid)
+
+
+def update_at(base, fn: Callable[[dict], object], mid: Optional[str] = None, *, stamp: bool = True) -> dict:
+    """`update` on the mission folder `base` (3.1.2.0 R1: work/adapters/part.py writes a part's state
+    through it); `stamp=False` keeps `updated` as it is (a part written back unchanged)."""
+    path, mid = Path(base) / DOC, mid or Path(base).name
     with jsonl.locked(path):
-        doc = need(home, mid)
+        doc = load_at(base, mid)
+        if doc is None:
+            raise M.MissionError(f"no mission {mid!r} here", 404)
         fn(doc)
-        doc["updated"] = time.time()
+        if stamp:
+            doc["updated"] = time.time()
         jsonl.write_json(path, doc)
     return doc
 

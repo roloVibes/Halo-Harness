@@ -3,11 +3,18 @@
 (tests/helpers/studio_plan.py `runner`: the lead's split chains job-2 on
 job-1, the workers wait for `hold`), with one review run already started
 and waiting for its plan. For the plan canvas's Chrome run and its capture
-(tools/capture_orchestra.py). No model is ever called."""
+(tools/capture_orchestra.py). 3.1.2.0 R2: the goal has a tiny `budget_usd`,
+the Studio's catalog prices `or:vendor/mid` and the draft gives every lane
+that model, so the canvas shows a priced cost chip per lane and the header's
+total over the budget. No model is ever called."""
 from __future__ import annotations
 
+import json
 import threading
 import time
+
+PRICED = "or:vendor/mid"
+MODELS = {"vendor/mid": {"price_in_per_m": 1.0, "pricing": {"prompt": "0.000001", "completion": "0.000004"}}}
 
 
 class PlanRig:
@@ -26,13 +33,18 @@ class PlanRig:
         self.run_id = ""
         if self.start:
             goal = {"what": "Write the five functions of basket.py", "done_when": "the tests pass", "stop_when": "two returns",
-                    "workers": 5, "files": ["basket.py"], "review": True, "test": f"{F.PY} -m unittest -q test_basket"}
+                    "workers": 5, "files": ["basket.py"], "review": True, "test": f"{F.PY} -m unittest -q test_basket",
+                    "budget_usd": 0.0001}
             st, ok = self.studio.post("orchestra/run", goal)
             assert st == 201, ok
             self.run_id = ok["run_id"]
             end = time.monotonic() + 30
             while time.monotonic() < end and self.studio.get(f"orchestra/{self.run_id}")[1]["run"]["state"] != "planned":
                 time.sleep(0.1)
+            (self.studio.state / "models.json").write_text(json.dumps(MODELS), encoding="utf-8")
+            jobs = [dict(j, model=PRICED) for j in self.plan_jobs()]
+            st, _ok = self.studio.call("PUT", f"orchestra/{self.run_id}/plan", {"jobs": jobs})
+            assert st == 200, _ok
         return self
 
     def __exit__(self, *a):

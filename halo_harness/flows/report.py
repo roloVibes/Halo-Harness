@@ -64,7 +64,13 @@ def build_report(run_dir, *, status: str, stop_reason: str = "", clock: Callable
             "cost_usd": round(cost, 6), "budget_usd": flow.get("budget_usd"), "steps": rows, "artboards": arts,
             "accepted": accepted, "posts": posts,
             "metrics": {"notes": len(notes), "samples": len(samples), "posts": n_posts, "totals": totals,
-                        "summary": format_totals(totals, n_posts) or (notes[-1].get("text") if notes else "")}}
+                        "summary": format_totals(totals, n_posts) or (notes[-1].get("text") if notes else "")},
+            "units": _unit_rows(run_dir)}  # 3.1.2.0 R1: one UnitRow per step (docs/WORK.md)
+
+
+def _unit_rows(run_dir) -> list:
+    from halo_harness.work.report import rows
+    return rows(run_dir, "step")
 
 
 def write_report(run_dir, *, status: str, stop_reason: str = "", clock: Callable = time.time) -> dict:

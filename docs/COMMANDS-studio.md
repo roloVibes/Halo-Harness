@@ -195,7 +195,8 @@ halo orchestra lanes [RUN] [--repo DIR]            every worker lane: state, pie
 halo orchestra report [RUN] [--repo DIR]           the run's report and its checks
 halo orchestra stop [RUN] [--reason T] [--repo DIR]  ask a running run to stop at its next step
 halo orchestra run [RUN] --review [--repo DIR]     3.0.9.0: pause after the split until the plan is approved
-halo orchestra plan [RUN] [--repo DIR]             the plan of a review run as a table, its problems
+halo orchestra plan [RUN] [--repo DIR]             the plan of a review run as a table (3.1.2.0: a Cost column and the
+                                                   forecast's total against the goal's budget_usd), its problems
 halo orchestra approve [RUN] [--file F] [--repo DIR]  check the plan (F, else Studio's draft, else the split); the run takes it
 halo orchestra reject [RUN] --reason T [--repo DIR]  the waiting run stops with the reason
 halo orchestra coach [RUN] [--json] [--repo DIR]   3.0.9.0: the post-run coach's card (read only)
@@ -229,13 +230,28 @@ naming a missing bio, a bio whose `tools.allow` is an empty list, a `tiers`
 problem. It prints every problem with its fix and exits 2; `--force` runs
 anyway. `halo doctor --roles` prints the same list for the active lineup.
 
+## `halo work`
+
+```
+halo work [RUN] [--json]     the units of any run of any kind, as one table
+```
+
+Halo 3.1.2.0: an Orchestra lane, a fleet mission's part, a team stage and a
+flow step are all a *unit* of work (one model underneath, see
+[WORK.md](WORK.md)). `halo work` prints the units of any run -- an Orchestra
+run, a mission, a team run or a flow run -- as one table: the kind, the
+unit, its state, its cost, its attempts, its gate and its base. `RUN` is a
+run folder, a run id or an id prefix; with no `RUN`, the latest run of this
+repo. `--json` prints the rows. Read only; no model is called.
+
 ## `halo team`
 
 ```sh
 halo team init [--force] [--json]                     write .halo/team.yaml from the template (and a starter docs/BRIEF.md)
 halo team validate [--json]                           every problem in the team file, one line each
 halo team run [stage] [--force] [--new] [--run ID] [--watch] [--json]   start a stage and drive the run
-halo team status [--run ID] [--json]                  the run's state, what waits on an answer, the cost
+halo team status [--run ID] [--json]                  the run's state, what waits on an answer; 3.1.2.0: spent, the
+                                                      forecast of the stages still to run, the budget, the held stages
 halo team board [--run ID] [--json]                   every stage: kind, state, members, trigger, gate, cost, summary
 halo team answer <stage> accept|redo|stop [--text T] [--run ID] [--json]
 halo team stop [--reason R] [--run ID] [--json]       end the run; every stage not done is skipped

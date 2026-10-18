@@ -193,6 +193,31 @@ def test_a_flow_a_mission_and_a_team_run(ctx: Ctx):
         ctx.check("the redo answer is in the why", "redo: shorter" in tb["coordination-copy-gated"]["why"])
 
 
+@test
+def test_the_rules_live_once_over_the_unit_model(ctx: Ctx):
+    """3.1.2.0 R1: the five rules are in coach_rules.py (over the unit model,
+    docs/WORK.md); coach_orchestra_rules.py is the thin loader that calls
+    them, and each kind's seeded run still goes through them."""
+    from halo_harness.orchestra import coach_orchestra_rules as loader
+    from halo_harness.orchestra import coach_rules as R
+    from tests.helpers import coach_seed as S
+    for name in ("prompt_rules", "model_rules", "tools_rules", "structure_rules", "coordination_rules"):
+        ctx.check(f"coach_rules.{name} is the shared rule", callable(getattr(R, name)))
+        ctx.check(f"the loader uses coach_rules.{name}", getattr(loader, name) is getattr(R, name))
+    with Home() as h:
+        orch = h.coach(S.orchestra_run(h.root, [
+            S.lane(1, bio="coach-strong", pieces_returned=2, history=S.returned(2), state="merged",
+                   model="or:vendor/strong")]))
+        ctx.check("the orchestra kind fires the shared prompt rule", any(s["kind"] == "prompt" for s in orch["suggestions"]))
+        for maker, kind in ((S.flow_run(h.state), "flow"), (S.mission_folder(h.state), "mission"),
+                            (S.team_run(h.root), "team")):
+            res = h.coach(maker)
+            ctx.check(f"{kind}: a seeded run yields suggestions of the shared shape",
+                      res["kind"] == kind and res["suggestions"]
+                      and all(set(s) == {"id", "kind", "severity", "lane_or_part", "bio", "text", "why", "apply"}
+                              for s in res["suggestions"]))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

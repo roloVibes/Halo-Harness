@@ -1732,6 +1732,12 @@ async def _handle_recall(app, args: str) -> None:
             "(set embeddings.model first, e.g. nomic-embed-text on your Ollama host)",
             kind="command")
         return
+    if query == "--fleet" or query.startswith("--fleet "):  # 3.1.2.0 R3: every online harness's own index
+        from halo_harness.recall_fleet import fleet_text
+        rest = query[len("--fleet"):]
+        app.run_worker(lambda: app.call_from_thread(app.transcript.add_note, fleet_text(rest), kind="command"),
+                       thread=True, name="recall", group="recall")
+        return
     session = getattr(app.controller, "session", None)
     state_dir = getattr(session, "state_dir", None)
     app.run_worker(lambda: _recall_worker(app, query, state_dir), thread=True,

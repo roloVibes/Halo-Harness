@@ -48,9 +48,9 @@ export function openTarget(t: OpenTarget): void {
 export async function answerRow(row: AttnRow, key: string, text = ""): Promise<boolean> {
   try {
     const r = await api.post<{ ok?: boolean; answer?: string; open?: OpenTarget; set_aside?: boolean; lifted?: boolean }>("fleet/attention/answer", { id: row.id, key, ...(text ? { text } : {}) });
-    if (key === "o" && r.open) openTarget(r.open);
+    if (r.open) openTarget(r.open); // `o`, or 3.1.2.0 R2's team_budget Raise (it opens the team file)
     else toast(`${row.what}: ${r.answer || row.keys[key] || key}`, "done");
-    panels.update((s) => ({ replyFor: "", attention: key === "o" ? s.attention : s.attention.filter((x) => x.id !== row.id) }));
+    panels.update((s) => ({ replyFor: "", attention: r.open ? s.attention : s.attention.filter((x) => x.id !== row.id) }));
     window.setTimeout(() => (void loadAttention(), void load()), 400);
     if (row.kind === "cap") window.setTimeout(() => void loadCosts(), 600);
     if (row.kind === "conflict") window.setTimeout(() => void loadConflicts(), 600);

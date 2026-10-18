@@ -48,7 +48,8 @@ this list against the tree.
 - Media: `studio/media_api.py`, `studio/media_render.py`
 - Orchestra: `studio/orchestra_api.py`, `studio/orchestra_plan_api.py`,
   `studio/orchestra_model.py`, `studio/orchestra_live.py`
-- Team: `studio/team_api.py`, `studio/team_init_api.py`, `studio/team_live.py`
+- Team: `studio/team_api.py`, `studio/team_init_api.py`, `studio/team_live.py`,
+  `studio/team_budget_api.py` (3.1.2.0 R2: the answer to a stage held at its budget line)
 - Fleet: `studio/fleet_api.py` (agent commands on a live session),
   `studio/fleet_hub_api.py` (the fleet routes and their dispatch),
   `studio/fleet_pair_api.py` (pair, settings, kick, history),
@@ -60,6 +61,10 @@ this list against the tree.
   watcher), `studio/fleet_watch_sources.py` (what it reads),
   `studio/fleet_feed.py` (its tap on the live feed), `studio/fleet_send.py`
   (a session command, this harness's or a member's)
+- the one unit view (3.1.2.0): `studio/work_api.py`
+  (`GET /api/work/<kind>/<run>`, the units of any run; docs/WORK.md)
+- recall (3.1.2.0 R3): `studio/recall_api.py` (`GET /api/recall?q=&fleet=1`
+  for the recall box, `GET /api/fleet/recall?q=` the hub's merged view)
 
 **Fleet** (`halo_harness/fleet/`):
 
@@ -92,7 +97,13 @@ this list against the tree.
   `fleet/mission_worker_run.py`, `fleet/mission_worker_session.py`,
   `fleet/mission_guard.py`, `fleet/mission_files.py`,
   `fleet/mission_handoff.py`, `fleet/mission_merge.py`,
-  `fleet/mission_report.py`, `fleet/mission_attention.py`
+  `fleet/mission_report.py`, `fleet/mission_attention.py`,
+  `fleet/mission_stage_run.py` (3.1.2.0 R2: a part of kind orchestra | flow, a delegated team stage's run)
+- recall across the fleet (3.1.2.0 R3): `fleet/hub_recall.py` (the hub fans a
+  recall query out and merges the hits), and the scripted two-machine check
+  `fleet/live_check.py` with its `--fake` seams `fleet/live_check_fakes.py`
+  (`tools/live_fleet_check.py` is the CLI; `halo_harness/recall_fleet.py` and
+  `halo_harness/recall_cli.py` are the member's side and `halo recall`)
 
 **Orchestra** (`halo_harness/orchestra/`, its CLI beside the package):
 
@@ -102,10 +113,12 @@ this list against the tree.
   `orchestra/handoff_spec.py`, `orchestra/handoff.py`, `orchestra/handoff_run.py`,
   `orchestra/merge.py`, `orchestra/hunks.py`, `orchestra/gate.py`,
   `orchestra/report.py`, `orchestra/run.py`, `orchestra/adapters.py`,
-  `orchestra/gitops.py`
+  `orchestra/gitops.py`, `orchestra/stale.py` (3.1.2.0 R2: a downstream lane re-based
+  before the merge), `orchestra/forecast.py` (3.1.2.0 R2: the plan's cost forecast)
 - the shared files: `orchestra/claims.py`, `orchestra/guard.py`,
   `orchestra/events.py`, `orchestra/jsonl.py`, `orchestra/view.py`
-- the coach: `orchestra/coach.py` (the card, the cache), one rules module per
+- the coach: `orchestra/coach.py` (the card, the cache), the rules once over
+  the unit model (`orchestra/coach_rules.py`), one thin evidence loader per
   run kind (`orchestra/coach_orchestra_rules.py`, `orchestra/coach_flow_rules.py`,
   `orchestra/coach_mission_rules.py`, `orchestra/coach_team_rules.py`),
   `orchestra/coach_lane_facts.py` (an Orchestra run's lanes as facts),
@@ -115,13 +128,27 @@ this list against the tree.
   `orchestra_cli_run.py` (run, stop), `orchestra_cli_plan.py` (plan, approve,
   reject), `coach_cli.py` (the coach verbs)
 
+**The unit of work** (`halo_harness/work/`, Halo 3.1.2.0 R1, docs/WORK.md):
+the shared model a lane, a mission part, a team stage and a flow step all
+are -- `work/unit.py` (the `Unit`), `work/states.py` (the one state machine
+and the four alias tables), `work/claims.py`, `work/handoff.py`,
+`work/gate.py`, `work/ledger.py` (the `LedgerLine`), `work/report.py` (the
+`UnitRow`), `work/store.py` (`UnitStore`), and one adapter per kind
+(`work/adapters/lane.py`, `work/adapters/part.py`, `work/adapters/stage.py`,
+`work/adapters/step.py`), the only place that knows each engine's files;
+`work/forecast.py` (3.1.2.0 R2: a unit's forecast line, its price and the
+total against a budget).
+`halo_harness/work_cli.py` is `halo work` (the units of any run as a table).
+
 **Team** (`halo_harness/team/`): `team/spec.py` (the team file),
 `team/validate.py` and `team/validate_stages.py` (`validate_team`),
 `team/resolve.py` (tiers, block files and a stage's goal, shared by the
 runner and the validator), `team/blocks.py`, `team/board.py`,
 `team/stages.py`, `team/triggers.py`, `team/run.py`, `team/run_stage.py`,
-`team/guard.py`, `team/delegate.py`, `team/adapters.py`, `team/cli.py`,
-`team/cli_run.py`.
+`team/parallel.py` (3.1.2.0 R2: a stage's members at once), `team/remote_stage.py`
+(3.1.2.0 R2: an orchestra or flow stage on a fleet member), `team/budget.py`
+(3.1.2.0 R2: the budget line), `team/guard.py`, `team/delegate.py`,
+`team/adapters.py`, `team/cli.py`, `team/cli_run.py`.
 
 - The first ten minutes (3.1.1.0): `studio/start_api.py` (Start here: `/api/start`),
   `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),

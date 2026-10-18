@@ -3,10 +3,12 @@
 // empty "a new layer" box at the end), a lane card (its id and worker, the
 // title, the claims as chips, bio and model, the first problem in red), and
 // the `after` edges with R1's label chip (summary / all / an artifact's
-// name, else "after"). Cards and boxes are memoised.
+// name, else "after"). Cards and boxes are memoised. 3.1.2.0 R2: a card shows
+// its lane's cost forecast as a chip in its header (data-testid plan-cost).
 import { memo, type PointerEvent } from "react";
 import { CARD_H, CARD_W, edgePath, type Box, type Pos } from "./layout";
-import type { PlanJob, PlanProblem } from "./types";
+import { costText, costTitle } from "./forecast";
+import type { ForecastLine, PlanJob, PlanProblem } from "./types";
 
 type BoxProps = { k: number; b: Box; label: string; count: number; empty: boolean; hot: boolean };
 
@@ -30,10 +32,11 @@ type CardProps = {
   problems: PlanProblem[];
   selected: boolean;
   dragging: boolean;
+  cost?: ForecastLine;
   onDown: (ev: PointerEvent<HTMLElement>, id: string) => void;
 };
 
-export const LaneCard = memo(function LaneCard({ job, n, p, layer, problems, selected, dragging, onDown }: CardProps) {
+export const LaneCard = memo(function LaneCard({ job, n, p, layer, problems, selected, dragging, cost, onDown }: CardProps) {
   const claims = job.claims || [];
   return (
     <article className="rc-card pc-card" style={{ left: p.x, top: p.y, width: CARD_W, height: CARD_H }} data-testid="plan-lane" data-id={job.id}
@@ -43,6 +46,11 @@ export const LaneCard = memo(function LaneCard({ job, n, p, layer, problems, sel
       <span className="rc-band" aria-hidden="true" />
       <header className="rc-head">
         <b className="mono pc-id">{job.id}</b>
+        {cost && (
+          <span className="og-chip mono pc-cost" data-testid="plan-cost" data-priced={cost.priced || undefined} data-source={cost.source} title={costTitle(cost)}>
+            {costText(cost)}
+          </span>
+        )}
         <span className="rc-scope mono">lane {n}</span>
       </header>
       <div className="pc-title">{job.title || <span className="muted">(no title yet)</span>}</div>

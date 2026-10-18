@@ -18,6 +18,7 @@
     fleet/capabilities, fleet/who    what every harness can do and who can do something (studio/fleet_capabilities_api.py,
                                      3.0.6.0 R6)
     fleet/missions[/<id>[/...]]      fleet missions (studio/fleet_mission_api.py, 3.0.6.0 R7)
+    fleet/recall?q=                  the hub's merged recall across the fleet (studio/recall_api.py, 3.1.2.0 R3)
 
 A command for this harness takes the direct path (studio/sessions_api.py,
 studio/fleet_api.py); one for a member goes through the hub to that
@@ -223,6 +224,8 @@ from halo_harness.studio.fleet_capabilities_api import ROUTES as _CAPS_ROUTES  #
 ROUTES[len(ROUTES):] = _CAPS_ROUTES
 from halo_harness.studio.fleet_mission_api import ROUTES as _MISSION_ROUTES  # noqa: E402  (3.0.6.0 R7: missions)
 ROUTES[len(ROUTES):] = _MISSION_ROUTES
+from halo_harness.studio.recall_api import ROUTES as _RECALL_ROUTES  # noqa: E402  (3.1.2.0 R3: recall across the fleet)
+ROUTES[len(ROUTES):] = _RECALL_ROUTES
 
 
 def dispatch_fleet(req):

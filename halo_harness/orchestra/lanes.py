@@ -22,7 +22,9 @@ tool calls the worker's permission engine denied `[{tool_name, reason}]`.
 
 Every change is a read-modify-write under the file's lock, so the runner and
 a worker's own OrchestraRelease (which stores a `written` snapshot) never
-lose each other's fields.
+lose each other's fields. 3.1.2.0 R1: the file's shape and every read and
+write of it live in work/adapters/lane.py (a lane is a unit of work,
+docs/WORK.md); `Lane` is the engine's handle on it.
 """
 
 from __future__ import annotations
@@ -31,10 +33,9 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from halo_harness.orchestra import events as run_events
 from halo_harness.orchestra import jsonl
-
-LANE_STATES = ("joined", "writing", "written", "in_review", "waiting", "merged", "failed")
+from halo_harness.work.adapters import lane as adapter
+from halo_harness.work.adapters.lane import LANE_STATES  # noqa: F401  (joined .. failed, the lane's words)
 
 
 def lanes_dir(run_dir) -> Path:
@@ -42,7 +43,7 @@ def lanes_dir(run_dir) -> Path:
 
 
 def lane_path(run_dir, n: int) -> Path:
-    return lanes_dir(run_dir) / f"{int(n)}.json"
+    return adapter.lane_path(run_dir, n)
 
 
 class Lane:
@@ -67,48 +68,25 @@ class Lane:
     @classmethod
     def create(cls, run_dir, job, *, branch: str, worktree, started: float) -> "Lane":
         lane = cls(run_dir, job.worker, job, branch, worktree)
-        jsonl.write_json(lane.path, {
-            "lane": lane.n, "job": job.id, "title": job.title, "claims": list(job.claims), "order": job.order,
-            "state": "", "holder": "", "branch": branch, "worktree": str(lane.worktree), "head": "",
-            "cost_usd": 0.0, "started": started, "ended": None, "pieces_returned": 0, "session_ids": [],
-            "written": {}, "error": "", "reply": "", "history": [],
-            "handoff": dict(getattr(job, "handoff", None) or {}), "after": list(getattr(job, "upstreams", []) or []),
-            "base": "", "gave": [], "bio": str(getattr(job, "bio", "") or ""), "model": str(getattr(job, "model", "") or ""),
-            "denied": []})
+        adapter.write_record(lane.path, adapter.new_record(job, n=lane.n, branch=branch, worktree=lane.worktree,
+                                                           started=started))
         return lane
 
     def data(self) -> dict:
-        data = jsonl.read_json(self.path, {})
-        return data if isinstance(data, dict) else {}
+        return adapter.read(self.path)
 
     def update(self, **fields) -> dict:
-        with jsonl.locked(self.path):
-            data = self.data()
-            data.update(fields)
-            jsonl.write_json(self.path, data)
-        return data
+        return adapter.update(self.path, **fields)
 
     def store_written(self, key: str, text: str) -> None:
-        with jsonl.locked(self.path):
-            data = self.data()
-            written = dict(data.get("written") or {})
-            written[key] = text
-            data["written"] = written
-            jsonl.write_json(self.path, data)
+        adapter.store_written(self.path, key, text)
 
     def set_state(self, state: str, text: str = "", *, clock: Callable = time.time) -> None:
-        if state not in LANE_STATES:
-            raise ValueError(f"lane state must be one of {', '.join(LANE_STATES)}, got {state!r}")
-        ts = clock()
-        with jsonl.locked(self.path):
-            data = self.data()
-            history = list(data.get("history") or [])
-            history.append({"state": state, "ts": round(ts, 3), "elapsed_s": jsonl.elapsed(self.run_dir, ts),
-                            "text": text})
-            data.update(state=state, history=history)
-            jsonl.write_json(self.path, data)
-        run_events.log(self.run_dir, "state", f"lane {self.n} {state}" + (f": {text}" if text else ""),
-                       lane=self.n, step=f"worker-{self.n}", lane_state=state)
+        adapter.set_state(self.run_dir, self.n, state, text, clock=clock)
+
+    def unit(self):
+        """This lane as a unit of work (work/unit.py)."""
+        return adapter.to_unit(self.data(), self.run_dir.name)
 
     # ---- read-only views ---------------------------------------------------
     @property

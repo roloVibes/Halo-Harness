@@ -88,6 +88,17 @@ tooltip names them; it sends the plan and the console comes back as the run
 goes on. **Reject** opens a card that asks for the reason; the run stops with
 it.
 
+The cost forecast (3.1.2.0, [ORCHESTRA.md](ORCHESTRA.md#the-forecast)): each
+card carries its lane's cost chip in its header (`plan-cost`: the low-high
+band, `? $` dashed when its model has no catalog price; its tooltip names
+the tokens and whether the lead estimated them), and the toolbar the total
+against the goal's `budget_usd` (`plan-forecast`: "forecast $0.03-$0.10 of
+$0.50"), red with "over budget" when its high end passes the budget. Every
+edit's `PUT` answers the new forecast. **Approve and run** over the budget
+still runs, with a toast that says so. In the run console a lane whose
+upstream the gate sent back shows a STALE badge (`lane-stale`) until it is
+re-based, then the re-base line (`lane-rebase`).
+
 ![Orchestra: the plan canvas of a run waiting for review](media/studio-orchestra-plan.png)
 
 ### The Coach tab (3.0.9.0)

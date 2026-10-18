@@ -12,7 +12,10 @@ stage <stage>: <member>", part 1 on that harness), so it also shows in
 
     send(member, task) -> (status, body)   200 running | 202 asked | 403 refused |
                                            404 no such member | 409 offline | 503 no hub
-    poll(handle) -> None | {ok, state, text, cost_usd, error}   (parts/1/result.json + handback.md)
+    send_run(harness, task) -> (status, body)  3.1.2.0 R2: an orchestra or flow stage on that member
+                                           (team/remote_stage.py): a part of kind orchestra | flow
+    poll(handle) -> None | {ok, state, text, cost_usd, error, run_id?, report?}
+                                           (parts/1/result.json, handback.md, report.json)
     stop(handle, reason) -> bool           agent_stop on the part's session
 """
 
@@ -45,7 +48,17 @@ class FleetDelegate:
         return rows[0].get("session_id") if rows else None
 
     def send(self, member: dict, task: dict) -> "tuple[int, dict]":
-        name = str(member.get("harness") or "")
+        part = {"kind": "files", "title": task.get("title"), "brief": task.get("brief"), "claims": [], "outputs": []}
+        return self._dispatch(str(member.get("harness") or ""), part, task, member.get("name"), None)
+
+    def send_run(self, harness: str, task: dict) -> "tuple[int, dict]":
+        """An orchestra or flow stage on `harness`: the part carries the run (fleet/mission_stage_run.py)."""
+        run = {"goal": task.get("goal")} if task.get("kind") == "orchestra" else             {"flow": task.get("flow"), "inputs": task.get("inputs") or {}}
+        part = {"kind": task.get("kind"), "title": task.get("title"), "brief": task.get("brief"), "claims": [],
+                "outputs": [], "run": run}
+        return self._dispatch(str(harness or ""), part, task, task.get("kind"), {"name": task.get("repo"), "base": None})
+
+    def _dispatch(self, name: str, part: dict, task: dict, who, repo) -> "tuple[int, dict]":
         view = self._view()
         if view is None:
             return 503, {"error": "no fleet hub runs on this machine: start `halo studio --fleet` or "
@@ -60,12 +73,12 @@ class FleetDelegate:
             return 409, {"error": f"{name} has no live session to run the stage in"}
         from halo_harness.fleet.identity import fleet_name
         mid = M.new_id()
-        part = {"id": "1", "harness": h.get("id"), "harness_name": h.get("name"), "kind": "files",
-                "title": task.get("title"), "brief": task.get("brief"), "claims": [], "outputs": [],
-                "depends_on": []}
-        doc = M.new_doc(mid=mid, goal=f"team {task.get('team')} stage {task.get('stage')}: {member.get('name')}",
+        part = dict(part, id="1", harness=h.get("id"), harness_name=h.get("name"), depends_on=[])
+        doc = M.new_doc(mid=mid, goal=f"team {task.get('team')} stage {task.get('stage')}: {who}",
                         by=fleet_name(self.home))
         doc["parts"] = {"1": M.new_part_state(part)}
+        if repo:
+            doc["repo"] = repo
         S.create(self.home, doc)
         from halo_harness.orchestra import jsonl
         jsonl.write_json(S.folder(self.home, mid) / "plan.json", {"parts": [part]})
@@ -95,8 +108,15 @@ class FleetDelegate:
             return None
         text = S.read_text(base, f"parts/{handle['part']}/handback.md") or ""
         ok = res.get("state") == "done"
-        return {"ok": ok, "state": "done" if ok else "failed", "text": text, "cost_usd": float(res.get("cost_usd") or 0.0),
-                "error": "" if ok else str(res.get("error") or res.get("state")), "session_id": res.get("session_id")}
+        out = {"ok": ok, "state": "done" if ok else "failed", "text": text, "cost_usd": float(res.get("cost_usd") or 0.0),
+               "error": "" if ok else str(res.get("error") or res.get("state")), "session_id": res.get("session_id")}
+        if res.get("run_id"):  # 3.1.2.0 R2: an orchestra or flow stage's run, and its report
+            report = S.read_text(base, f"parts/{handle['part']}/report.json")
+            try:
+                out.update(run_id=res["run_id"], report=json.loads(report) if report else None)
+            except ValueError:
+                out.update(run_id=res["run_id"], report=None)
+        return out
 
     def stop(self, handle: dict, reason: str) -> bool:
         got = self._call("local/command", {"harness": handle.get("harness_id"), "session_id": handle.get("session_id"),
