@@ -40,7 +40,12 @@ tokens / 3 directions / device select); `halo team init` then `halo team run`
 with a gate answered, the Team tab live; an orchestra run with `--review`
 edited on the plan canvas and approved; a lane with `after` + `needs`
 starting from its upstream's head; `halo orchestra coach` and the Coach tab.
-No version is queued after that: the next plan comes from what he finds.
+**QUEUED 2026-10-18 ~08:30 (rolo: "Love it do all that!"): 3.1.0.0 "Suite and
+repo health" -> 3.1.1.0 "The first ten minutes" -> 3.1.2.0 "One run model" ->
+3.1.3.0 "The coach loop"**, specs in ROADMAP.md's last section (ADDED
+2026-10-18), briefs under `~/hh-310/`, `~/hh-311/`, `~/hh-312/`, `~/hh-313/`,
+same cycle as 3.0.7.0-3.0.9.0. The owner's live check of 3.0.5.0-3.0.9.0 runs
+alongside; his findings go into 3.1.3.0 R2.
 
 ## WHERE THINGS STOOD -- 2026-10-15 ~09:45 CDT (previous snapshot)
 

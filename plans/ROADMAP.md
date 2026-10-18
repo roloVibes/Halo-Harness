@@ -1374,3 +1374,103 @@ Halo's consent gate exists to avoid exactly that.
 Sources: github.com/philbotar/OpenFlow, github.com/SeeRay11/OpenFlow
 (both read 2026-10-17). Session: the CI flake-fix session that left
 master green at 22ec617.
+
+## ADDED 2026-10-18 (rolo: "Love it do all that!"): 3.1.0.0 through 3.1.3.0 -- the assessment after the 3.0.9.0 run, as four versions
+
+rolo asked what could be better, "from ease of use to capabilities", and
+said do all of it. The assessment (same morning) named three first: the
+first-run experience, too many nouns for one idea (lane / part / stage /
+step are one unit of work implemented four times), and the suite's cost
+(an hour per CI pass, one shared state dir across 500 modules, Chrome
+drivers each scoping by hand; nine of the last ten red runs were test
+infrastructure). Then ease of use (discovery, two editors, config in six
+places), capabilities (serial scheduling, an advisory-only coach,
+delegation unverified on a second machine, per-machine memory, reactive
+cost control) and engineering (files split by line count, line endings,
+the Windows runner on every push). Ordered so each version makes the next
+cheaper. Same cycle as 3.0.7.0-3.0.9.0: one Opus worker per round in a
+worktree, briefs outside the tree, suites, push, CI watched to its
+conclusion, release gated on the exact sha, install refresh.
+
+**3.1.0.0 "Suite and repo health"** (engineering first: it pays on every push after)
+
+- R1 Test isolation and CI tiers: `tests/run_all.py` gives every module its
+  own scoped state dir (a fresh `BRIDGE_TEST_HOME` per module, the real-home
+  guards kept, the per-process "scoped once" helper made per-module); one
+  Chrome driver base (`tests/helpers/chrome_driver.py`) that scopes the home,
+  finds Chrome, runs one headless instance at a time and caches one run per
+  argv, with every existing driver moved onto it; the suite split into a
+  fast tier (no Chrome, no TUI pilots) and a full tier; the workflow runs
+  Linux on every push and Windows on tags, nightly and `workflow_dispatch`;
+  a release still needs BOTH platforms green on the exact sha
+  (`release.py` dispatches the Windows run for the sha and waits for it,
+  so the gate rule holds without a Windows run per push); `docs/CONTRIBUTING.md`
+  and `plans/CYCLE.md` say so.
+- R2 File hygiene and line endings: `.gitattributes` `* text=auto eol=lf`
+  (binaries marked) and one normalise commit; files named by line count
+  (`*_more.py`, `*2.py`, `*_io.py` where the split is arbitrary, `design_panel2.js`
+  is gone already) re-split by responsibility with the 250-line cap kept;
+  `scripts/release.py` and the tests that pin file names updated; nothing
+  else in flight while this round runs.
+
+**3.1.1.0 "The first ten minutes"** (ease of use)
+
+- R1 The guided first run: `halo start` (also the wizard's last step and
+  Studio's "Start here" overlay on a fresh home): copies a lineup, makes a
+  sample repo, runs one orchestra goal with `plan: review`, opens the plan
+  canvas, approves, shows the report and the coach, each step one screen
+  with one sentence of why; `halo explain <thing>` (lineup, bio, tier,
+  team, stage, block, lane, part, flow, mission, gate, hand-off, coach)
+  prints the one-paragraph definition the docs and Studio's glossary share
+  (`docs/GLOSSARY.md`, `/glossary`, the `?` menu); the Start views link to
+  the next section in the story.
+- R2 Config and discovery: `halo config where` lists every file in effect
+  for this repo and home (config.json, `.halo/`, the active lineup, team,
+  flows, env files) with what each sets; `halo doctor --config` checks all
+  of them against one schema set and reports conflicts; `docs/README.md`
+  becomes the map (one line per doc, by task), the four longest docs are
+  split by task, and every doc opens with "read this when".
+- R3 One editor: Studio is the editor of record for bios and lineups; the
+  TUI's bio and lineup editors become read-only views with `e` opening
+  Studio on that item (`halo studio --edit bio:<name>` / `lineup:<name>`),
+  the wizard's Team step opens the same; field parity (every field the TUI
+  showed exists in Studio's forms); the TUI keeps `/agents` and `/teams`
+  listings and the Try it probe.
+
+**3.1.2.0 "One run model"** (capabilities, the big one)
+
+- R1 The unit of work: `halo_harness/work/` holds the shared model a lane,
+  a mission part, a team stage and a flow step all are: id, kind, claims,
+  reads / writes (hand-offs), state machine, gate, acceptance, cost, the
+  ledger line and the report row; the four engines keep their front doors
+  and adapt onto it (no behaviour change, every existing test green); one
+  ledger format and one report shape, the coach rules written once over
+  the shared shape (the four kinds' rules folded into it).
+- R2 Scheduling: members of a team stage run in parallel under the tier's
+  `max_parallel`; orchestra and flow stages may run on a fleet member
+  (`harness:`) through the same path a delegated agent stage uses; a
+  downstream lane whose upstream the gate sent back is marked stale and
+  re-based (or re-run) before the merge, never merged stale; a cost
+  forecast on the plan canvas and in `halo orchestra plan` (catalog prices
+  x the lead's token estimate per lane, the run's budget shown against it)
+  and a budget line in a team file that stops a stage before it starts.
+- R3 Delegation verified and shared memory: the live two-machine check of
+  a delegated team stage and a mission part is scripted
+  (`tools/live_fleet_check.py`, the owner runs it with his Kali VM) and its
+  findings fixed; the recall index is shared across the fleet through the
+  hub (`halo recall --fleet`, a member answers a recall query from its own
+  index, results merged by score), so a box does not re-learn what another
+  already knows.
+
+**3.1.3.0 "The coach loop"** (capabilities)
+
+- R1 The coach asks a model: `coach --model` (and the Coach tab's "Ask the
+  model" per card) adds one paragraph per card from the run's own lineup
+  lead, with the evidence as its context; Apply writes the change after one
+  confirm card (bio, lineup or plan), with Undo; a coach summary line lands
+  in the run report and in the Fleet digest.
+- R2 Studio polish from the first-run work: whatever the guided run exposed
+  (the owner's notes from his live check come first), then the release.
+
+Not taken: moving the Windows suite off the release gate entirely (the
+owner's rule stands: both platforms green on the exact sha before a tag).
