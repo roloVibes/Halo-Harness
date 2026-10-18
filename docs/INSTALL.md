@@ -182,8 +182,8 @@ install --upgrade <spec>` (pip), `git pull` then the same reinstall
 checkout left on a detached tag by the installer uses `git fetch --tags --force
 origin && git checkout --detach <tag>` in place of `git pull`. Every reinstall
 keeps the dependency versions pinned to `requirements.lock` (`--constraints`).
-On the stable channel a plain `halo update` moves a `git+URL@vX.Y.Z` install
-to the newest tag.
+On the stable channel a plain `halo update` moves a `git+https` install pinned
+at a tag to the newest tag.
 
 **Windows note:** close other `halo` sessions first -- the install can't
 be replaced while any of them still has it open. `/update` inside the
