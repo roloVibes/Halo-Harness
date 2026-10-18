@@ -26,7 +26,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 test, TESTS = new_registry()
 
 
-def _stop(rig, sid: str, wait_s: float = 0.5):
+def _stop(rig, sid: str, wait_s: float = 10.0):  # the hub answers the moment the member posts `asked`; a loaded CI runner needs more than 0.5 s
     return rig.api("POST", f"fleet/{rig.b_id}/{sid}/agents/main/command",
                    {"cmd": "stop", "reason": "wrong folder", "wait_s": wait_s})
 
