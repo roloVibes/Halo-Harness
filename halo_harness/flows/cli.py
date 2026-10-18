@@ -13,6 +13,7 @@
     halo flow runs                                                  every run, newest last
     halo flow posts <run>                                           the run's posts (dry run or live, text, ids)
     halo flow metrics <run> [--days N]                              sample the run's live posts' analytics once
+    halo flow coach [run] [--json]                                  the post-run coach's card (read only)
 """
 
 from __future__ import annotations
@@ -171,7 +172,8 @@ COMMANDS = {"new": cmd_new, "validate": cmd_validate, "runs": cmd_runs, "status"
 def cmd_flow(argv: list) -> int:
     from halo_harness.flows.cli_posts import cmd_metrics, cmd_posts
     from halo_harness.flows.cli_run import cmd_resume, cmd_run
-    commands = dict(COMMANDS, run=cmd_run, resume=cmd_resume, posts=cmd_posts, metrics=cmd_metrics)
+    from halo_harness.coach_cli import cmd_flow_coach
+    commands = dict(COMMANDS, run=cmd_run, resume=cmd_resume, posts=cmd_posts, metrics=cmd_metrics, coach=cmd_flow_coach)
     if not argv or argv[0] in ("-h", "--help", "help"):
         print(__doc__.split("\n\n", 1)[1].rstrip())
         return 0

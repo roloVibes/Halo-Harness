@@ -265,6 +265,21 @@ an edit and a hub's run_task card are rows in Attention. See
 
 ![Fleet Mission in Studio: the plan on the map and its table](media/studio-fleet-mission.png)
 
+## The coach
+
+Once a mission ends, `halo fleet mission coach <id> [--json]` and the Mission
+panel's **Coach** face in Studio (`GET fleet/missions/<id>/coach`, kept in the
+mission folder's `coach.json`) read the folder (report.json, log.jsonl) and
+suggest what to change in the next plan: a part that sat `asked` (waiting for
+its harness owner) longer than the mission's median part took
+(coordination), an edit refused outside a part's claims (tools), a merge
+conflict a judge resolved between two parts (structure: give the later part
+`depends_on` the earlier one), a repo part that changed no file (structure:
+drop or fold it), and outputs the plan named that nobody wrote (prompt). A
+mission's plan is the lead's, so these cards carry no Apply: put the change
+in the next mission's constraints, or Plan it again. The rules are in
+[ORCHESTRA.md](ORCHESTRA.md#the-coach).
+
 ## Config keys
 
 | Key | Default | Meaning |

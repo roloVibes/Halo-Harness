@@ -4,20 +4,23 @@
 // effort and thinking; the tools it may or may not call (from the real
 // registry, `GET tools`); its limits and its output. Save writes it to your
 // scope (a shipped bio becomes your copy); a 422 lists the validator's lines.
+// 3.0.9.0 R3: Context's prompt notes (appended to the bio's prompt), and a
+// coach card's Apply: its note on top and the field it filled in marked.
 import { useMemo } from "react";
 import { Button } from "../../lib/ui";
 import { editBio, saveBio, setKey, sub } from "./bioActions";
 import { ListIn, NumberIn, Pick, TextIn } from "./controls";
+import { CoachNote } from "./CoachNote";
 import { ModelPicker } from "./ModelPicker";
 import { openDialog, scopeLabel, shipped, useRoles } from "./store";
 import type { Raw } from "./types";
 
 const KINDS = ["main", "subagent", "researcher", "judge", "reviewer", "custom", "media"];
 
-function Tools({ label, list, onChange, known, testid }: { label: string; list: string[]; onChange: (v: string[]) => void; known: string[]; testid: string }) {
+function Tools({ label, list, onChange, known, testid, changed }: { label: string; list: string[]; onChange: (v: string[]) => void; known: string[]; testid: string; changed?: boolean }) {
   const rest = known.filter((t) => !list.includes(t));
   return (
-    <div className="field re-field">
+    <div className={"field re-field" + (changed ? " cc-changed" : "")} data-coach-changed={changed || undefined}>
       <span className="field-label mono">{label}</span>
       <div className="rb-tools" data-testid={testid}>
         {list.map((t) => (
@@ -44,12 +47,15 @@ export function BioForm() {
   const busy = useRoles((s) => s.busy === "bio");
   const catalog = useRoles((s) => s.models);
   const refs = useMemo(() => catalog.map((m) => m.ref), [catalog]);
+  const hint = useRoles((s) => (s.coachHint && s.coachHint.bio === s.bio ? s.coachHint : null));
+  const mark = (field: string) => hint?.field === field;
   if (!name) return <p className="muted">Pick a bio above, or drag one onto the canvas to add it to the lineup.</p>;
   if (!d || !data) return problems.length ? <p className="og-problems">{problems[0]}</p> : <div className="og-wait mono muted">reading {name}...</div>;
   const models = (d.models || {}) as Raw;
   const tl = (d.tools || {}) as Raw;
   const limits = (d.limits || {}) as Raw;
   const out = (d.output || {}) as Raw;
+  const ctx = (d.context || {}) as Raw;
   const at = (section: string, key: string) => (v: unknown) => editBio((r) => setKey(sub(r, section), key, v));
   const top = (key: string) => (v: unknown) => editBio((r) => setKey(r, key, v));
   const arr = (v: unknown) => (Array.isArray(v) ? (v as string[]) : []);
@@ -59,11 +65,12 @@ export function BioForm() {
         <b>{name}</b>
         <span className="rc-scope mono" data-scope={data.scope}>{shipped(data.scope) ? "shipped: saving makes your copy" : scopeLabel(data.scope)}</span>
       </header>
+      {hint && <CoachNote field={hint.field} value={hint.value} run={hint.run} />}
       <TextIn label="Description" value={String(d.description ?? "")} onCommit={top("description")} />
       <Pick label="Kind" value={String(d.kind ?? "subagent")} options={KINDS} onChange={top("kind")} />
       <TextIn label="Extends" placeholder="inherit every section from another bio" value={String(d.extends ?? "")} onCommit={top("extends")} />
       <div className="rail-label mono rb-sec">MODELS</div>
-      <div className="field re-field">
+      <div className={"field re-field" + (mark("models.preference") ? " cc-changed" : "")} data-coach-changed={mark("models.preference") || undefined}>
         <span className="field-label mono">Preferred model</span>
         <ModelPicker value={String(models.preference ?? "")} onPick={at("models", "preference")} />
       </div>
@@ -71,10 +78,14 @@ export function BioForm() {
       <Pick label="Effort" value={String(models.effort ?? "")} options={["", "low", "medium", "high", "max"]} onChange={at("models", "effort")} />
       <Pick label="Thinking" value={String(models.thinking ?? "")} options={["", "native", "off"]} onChange={at("models", "thinking")} />
       <div className="rail-label mono rb-sec">TOOLS</div>
-      <Tools label="Allow" list={arr(tl.allow)} onChange={at("tools", "allow")} known={tools} testid="bio-tools-allow" />
-      <Tools label="Deny" list={arr(tl.deny)} onChange={at("tools", "deny")} known={tools} testid="bio-tools-deny" />
+      <Tools label="Allow" list={arr(tl.allow)} onChange={at("tools", "allow")} known={tools} testid="bio-tools-allow" changed={mark("tools.allow")} />
+      <Tools label="Deny" list={arr(tl.deny)} onChange={at("tools", "deny")} known={tools} testid="bio-tools-deny" changed={mark("tools.deny")} />
       <Pick label="Permission mode" value={String(tl.permission_mode ?? "")} options={["", "auto", "manual", "plan"]} onChange={at("tools", "permission_mode")} />
       <ListIn label="MCP servers" value={arr(tl.mcp_servers)} onCommit={at("tools", "mcp_servers")} />
+      <div className="rail-label mono rb-sec">CONTEXT</div>
+      <div className={mark("context.prompt_notes") ? "cc-changed" : undefined} data-coach-changed={mark("context.prompt_notes") || undefined}>
+        <TextIn label="Prompt notes" area placeholder="lines added after the bio's prompt" value={String(ctx.prompt_notes ?? "")} onCommit={at("context", "prompt_notes")} testid="bio-prompt-notes" />
+      </div>
       <div className="rail-label mono rb-sec">LIMITS</div>
       <NumberIn label="Max iterations" value={limits.max_iterations as number | undefined} onCommit={at("limits", "max_iterations")} />
       <TextIn label="Timeout" placeholder="20m, 2h, 90s" value={String(limits.timeout ?? "")} onCommit={at("limits", "timeout")} />

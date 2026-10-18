@@ -8,7 +8,9 @@ data-testid values counted, plus the Roles section (3.0.7.0 R2: React, its
 canvas; tools/capture_roles.py takes its picture) and the shell without
 `tour=off` (the first-visit welcome). 3.0.9.0 R2: a review run waiting for
 its plan (tests/helpers/studio_plan_rig.py: lane 2 takes lane 1's summary)
-draws the plan canvas (docs/media/studio-orchestra-plan.png; --dom: "plan").
+draws the plan canvas (docs/media/studio-orchestra-plan.png; --dom: "plan"). 3.0.9.0 R3: the
+finished run with three coach findings (tests/helpers/studio_coach_rig.py), its Report panel
+floated wide on the Coach tab (docs/media/studio-orchestra-coach.png, through the DevTools protocol).
 """
 
 from __future__ import annotations
@@ -52,6 +54,37 @@ def plan_capture(out: "Path | None", chrome) -> "dict | int":
         return 0 if good else 1
 
 
+COACH_LAYOUT = {"v": 2, "panels": {"report": {"x": 14, "y": 64, "w": 5, "h": 30, "collapsed": False, "floating": True,
+                                             "fx": 330, "fy": 36, "fw": 760, "fh": 780, "face": "detail", "z": 60}}}
+
+
+def coach_capture(out: Path) -> int:
+    """The Coach tab of a finished run's report, its panel floated wide, as a picture at `out`."""
+    from capture_studio import find_chrome
+    exe = find_chrome()
+    if not exe:
+        return 2
+    from tests.helpers.cdp import Chrome
+    from tests.helpers.studio_coach_rig import CoachRig
+    c = Chrome(exe)
+    try:
+        with CoachRig() as rig:
+            c.go(rig.url())
+            c.js(f"localStorage.setItem('halo.studio.layout.orchestra', {json.dumps(json.dumps(COACH_LAYOUT))}); 1")
+            c.go("about:blank")
+            c.go(rig.url())
+            c.wait("!!document.querySelector('[data-testid=\"report-tab-coach\"]')", 30)
+            c.click_on("document.querySelector('[data-testid=\"report-tab-coach\"]')")
+            c.wait("document.querySelectorAll('[data-testid=\"coach-card\"]').length === 3", 20)
+            size = c.shot(out)
+            c.go("about:blank")
+    finally:
+        c.close()
+    good = out.is_file() and size > 10_000
+    print(f"{'wrote' if good else 'FAILED'} {out} ({size} bytes)")
+    return 0 if good else 1
+
+
 def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
     """Seed, serve, render; the exit code capture_studio.py returns."""
     from tests.helpers import orchestra_fixtures as F
@@ -86,6 +119,7 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
             ok = ok and good
             print(f"{'wrote' if good else 'FAILED'} {target} ({target.stat().st_size if target.is_file() else 0} bytes)")
         ok = plan_capture(grid_png.with_name(grid_png.stem + "-plan.png"), chrome) == 0 and ok
+        ok = coach_capture(grid_png.with_name(grid_png.stem + "-coach.png")) == 0 and ok  # 3.0.9.0 R3
         return 0 if ok else 1
     finally:
         for s in (srv, srv2):

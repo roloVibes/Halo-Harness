@@ -200,6 +200,29 @@ def test_post_run_streams_state_frames_and_holds_one_run(ctx: Ctx):
         R.cleanup(repo)
 
 
+
+@test
+def test_the_coach_route_reads_the_run_and_keeps_its_card(ctx: Ctx):
+    """3.0.9.0 R3: GET orchestra/<run>/coach -> the coach's result (orchestra/coach.py), computed once and kept in
+    <run>/coach.json; the R2 run's judged conflict (lane 5 with lane 4) is a structure card."""
+    repo, run_dir = R.finished_run()
+    try:
+        with R.Studio(repo) as s:
+            st, data = s.get(f"orchestra/{run_dir.name}/coach")
+            ctx.check(f"200 and the shape, got {st} {sorted(data)}", st == 200 and data["kind"] == "orchestra"
+                      and data["run"] == run_dir.name and data["cached"] is False and data["model"] is False)
+            ids = [x["id"] for x in data["suggestions"]]
+            ctx.check(f"the judged conflict, got {ids}", "structure-5-after-4" in ids)
+            ctx.check("kept in coach.json", (run_dir / "coach.json").is_file())
+            st, again = s.get(f"orchestra/{run_dir.name}/coach")
+            ctx.check("the second read is the kept card", st == 200 and again["cached"] is True
+                      and again["suggestions"] == data["suggestions"])
+            ctx.check("an unknown run is a 404", s.get("orchestra/nope/coach")[0] == 404)
+            ctx.check("POST is a 405", s.post(f"orchestra/{run_dir.name}/coach", {})[0] == 405)
+    finally:
+        R.cleanup(repo)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

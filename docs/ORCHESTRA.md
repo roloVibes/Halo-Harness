@@ -169,10 +169,11 @@ halo orchestra run [RUN] --review    pause after the split until the plan is app
 halo orchestra plan [RUN]            the plan of a review run, its problems
 halo orchestra approve [RUN] [--file F]  check the plan and let the waiting run take it
 halo orchestra reject [RUN] --reason T   the waiting run stops with the reason
+halo orchestra coach [RUN] [--json]      the post-run coach's card (read only)
 ```
 
 `--review`, `plan`, `approve` and `reject` are the reviewed plan: see
-[Review the plan](#review-the-plan).
+[Review the plan](#review-the-plan). `coach` is [the coach](#the-coach).
 
 `new` asks for WHAT YOU WANT, DONE WHEN and STOP WHEN on a terminal when
 they are not given as flags. RUN is a run id, a unique prefix of one, or a
@@ -279,7 +280,8 @@ Lane states: `joined` (worktree ready) -> `writing` (the worker runs) ->
 `written` (piece committed) -> `in_review` (being merged) -> `merged`;
 `waiting` (a piece sent back, or, 3.0.9.0, a lane waiting for its upstreams),
 `failed` (the worker failed or stopped). The hand-off fields (`handoff`,
-`after`, `base`, `gave`) are under [Hand-offs](#hand-offs).
+`after`, `base`, `gave`) are under [Hand-offs](#hand-offs). 3.0.9.0 R3 adds `bio`, `model` and `denied`
+(see [The coach](#the-coach)).
 
 ### `merge.json`
 
@@ -479,6 +481,79 @@ report.json: `run_id`, `status` (`finished` or `stopped`), `stop_reason`,
 | `tests_pass_finished_branch` | the test command passes on the finished branch |
 | `goal_done_when` | the DONE WHEN text, echoed (`ok` is null) |
 
+## The coach
+
+After a run ends, the coach reads the run folder and suggests what to change
+next time: a bio's prompt, a lane's model, a bio's tools, the plan's
+structure, or how the run was coordinated. It reads files only
+(report.json, events.jsonl, lanes/<n>.json, merge.json, split.json, the bios
+and the model catalog on disk) and calls no model (the result carries
+`model: false`). `halo orchestra coach [RUN] [--json]` prints the card;
+Studio's Report panel shows it on its Coach tab.
+
+```json
+{"run": "<run-id>", "kind": "orchestra",
+ "suggestions": [{"id": "model-2-stronger", "kind": "model", "severity": "high",
+                  "lane_or_part": 2, "bio": "coach-cheap",
+                  "text": "give bio `coach-cheap` the model lane 1 used: or:vendor/strong",
+                  "why": ["lane 2 on or:vendor/cheap ($0.10/M in): hit the return cap (2)",
+                          "lane 1 on or:vendor/strong ($2.00/M in): finished first try"],
+                  "apply": {"target": "bio", "name": "coach-cheap", "field": "models.preference",
+                            "value": "or:vendor/strong"}}],
+ "evidence": {"status": "finished", "return_cap": 2, "gate_loops": 1, "conflicts": 1,
+              "lanes": [{"lane": 2, "bio": "coach-cheap", "model": "or:vendor/cheap", "pieces_returned": 2, "...": "..."}]}}
+```
+
+`kind` is `prompt`, `model`, `tools`, `structure` or `coordination`;
+`severity` is `high`, `medium` or `low` (the card sorts by it); `why` is the
+evidence, one line each. `apply` is null, or the change the card names:
+`target` `bio` (a field of that bio: `models.preference`, `tools.allow`,
+`tools.deny`, `context.prompt_notes`), `lineup` (`roles.<role>`: the model of
+the lineup's role the lane ran as, when it had no bio of its own) or `plan`
+(`job-<n>.after`, or `job-<n>.drop: true`, in that run's plan).
+
+The rules and their evidence:
+
+| Kind | Finding | Evidence | Apply |
+|---|---|---|---|
+| prompt | a lane whose piece came back two or more times for the same reason | the lane's history: "the gate sent the piece back" (the tests failed on the finished branch) or "piece sent back" (the merge's resolution failed the tests) | the bio's `context.prompt_notes`: one line for that reason |
+| prompt | a lane that wrote no unit and whose reply repeats the goal's WHAT YOU WANT | its `written` (empty) and its `reply` | the bio's `context.prompt_notes` |
+| model | a lane at the return cap, or sent back by the gate, on a cheap model (under $0.50/M input, or local), while a sibling on a dearer model finished first try | both lanes' models with their catalog prices, the cap | the bio's `models.preference` = the sibling's model (no bio: the lineup's worker role) |
+| model | a lane that finished first try on a top-tier model ($3/M input and up) at a high cost (at least $0.05 and twice the run's median lane) with a small diff (40 lines or fewer) | its cost against the median, the lines it wrote, the best-for kinds | a cheaper catalog model under the top tier whose best-for kinds cover the lane's model's |
+| tools | a tool call the worker's permission engine denied | lanes/<n>.json `denied`, from the worker's `permission_denials` | `tools.deny` without the tool when the bio denies it, `tools.allow` with it when the bio has an allow list; null otherwise (a permission rule denied it) |
+| tools | a claim refused because another lane held the unit | the `claim` event with `op: refused` | null |
+| structure | a lane that spent half its time or more waiting on another lane's claims | the refused claims and the time to the lane's next claim of that key | the plan's `job-<n>.after` plus the other lane's job |
+| structure | a merge conflict a judge resolved between two lanes | merge.json `conflicts` and the merge order: the last lane merged before it that claims a unit of that file | the plan's `job-<n>.after` |
+| structure | a lane that wrote no unit | its `written` and its state | the plan's `job-<n>.drop` |
+| coordination | the quality gate failed more than twice | the `gate` events "tests fail on ..." with the lanes sent back | null |
+
+Since 3.0.9.0 R3 the run records what these rules read: a lane file keeps the
+`bio` and `model` it ran with (the job's, else the model the worker's result
+names) and `denied` (`[{tool_name, reason}]`, each also a `note` line with
+`denied: true` in events.jsonl); a refused `OrchestraClaim` is a `claim` line
+with `op: refused`, the holder, the key, `by` (who holds it) and the lane
+(`lane_n`, from `HALO_ORCHESTRA_LANE`). A bio's `context.prompt_notes` is
+added after its `context.system_prompt` wherever the bio's prompt is composed
+(`teams_yaml.member_system_context_addition`).
+
+**What Apply does and does not do.** The coach never writes a bio, a lineup
+or a plan. Studio's Apply opens the editor that owns the field with the value
+filled in: a bio target opens Roles on that bio's form, the field set in the
+draft and marked, with a note naming it ("Save bio keeps it"; "Undo the
+change" reads the bio again); a lineup target opens the lineup with that
+role's model changed in the draft and the Inspector on its Lineup tab; a
+plan target opens the plan editor on the run's plan with the edit staged as
+one undo step (STAGED: the run already ran, so nothing is sent; Copy the
+plan puts the jobs on the clipboard for `halo orchestra approve --file` on a
+run started with `--review`). The CLI prints what Apply would fill in.
+
+Studio reads it through `GET orchestra/<run>/coach`, computed once and kept
+in `<run>/coach.json`; it is computed again when a run file it reads
+(report.json, events.jsonl, merge.json, split.json, plan.json or a lane
+file) is newer. The same coach reads a flow run, a mission and a team run:
+[FLOWS.md](FLOWS.md#the-coach), [MISSIONS.md](MISSIONS.md#the-coach),
+[TEAM.md](TEAM.md#the-coach).
+
 ## The adapters
 
 `orchestra/adapters.py` wires `run()` to real models:
@@ -517,6 +592,7 @@ behind the same loopback, origin and token guard as every Studio route.
 | `PUT orchestra/<run>/plan {jobs}` | checks the jobs, keeps them as `plan.draft.json`, answers `{ok, problems, jobs}`; never approves (409 once decided) |
 | `POST orchestra/<run>/approve {jobs?}` | checks the body's jobs (else the draft, else the split) and writes `plan.json` approved: `{ok, run_id, jobs, resumed}`; 422 `{error, problems}` with a problem; 409 when decided, when the goal is `plan: auto` or the run is not waiting |
 | `POST orchestra/<run>/reject {reason}` | writes `plan.json` rejected: `{ok, reason, resumed}`; 422 without a reason |
+| `GET orchestra/<run>/coach` | 3.0.9.0 R3: the coach's result `{run, kind, suggestions, evidence, model, computed, source_mtime, cached}`, kept in `<run>/coach.json` ([The coach](#the-coach)); 404 for an unknown run |
 
 `<run>` is a run id or a unique prefix of one. The file view is composed by
 code (`studio/orchestra_model.py`):
@@ -586,4 +662,5 @@ checks. The finished branch is left for you to review and merge.
 | `gate` | `run_tests(run_dir, goal, cwd)`, `record_equals_disk(run_dir, lanes, ref)`, `quality_gate(run_dir, goal, lanes, cwd)` |
 | `report` | `write_report(run_dir, *, goal, lanes, gate, status, stop_reason)`, `format_report(report)`, `load_report` |
 | `plan`, `plan_check` | `await_plan(run_dir, flow, jobs, *, check_stop)`, `approve(run_dir, jobs, by=)`, `reject(run_dir, reason, by=)`, `apply`, `normalize`, `current_jobs`, `read_decision`, `write_draft`, `is_planned`, `waiting_alive`; `plan_problems(jobs, unit_keys=, cwd=, state_dir=)`, `validate_plan` (re-exported by `workflow`) |
+| `coach`, `coach_rules`, `coach_facts`, `coach_more` | `coach(run_dir, *, catalog=None, cwd=None, state_dir=None)`, `cached(run_dir)`, `format_card(result)`, `run_kind`, `source_mtime`; `orchestra(run_dir, ...)` and its rules; `lane_facts`, `catalog(state_dir)`, `price_of`, `best_for`; `flow`, `mission`, `team` |
 | `run`, `adapters` | `run(run_dir, *, model_calls, spawn, judge, clock, on_event)`, `request_stop`; `model_call`, `spawn_worker`, `fresh_judge`, `real_adapters` |

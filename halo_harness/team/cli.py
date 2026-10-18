@@ -10,6 +10,7 @@
     halo team stop [--reason R] [--run ID] [--json]
     halo team log [--since N] [--run ID] [--json]        the run's events
     halo team blocks [block] [--json]                    each block's claims and its last changes
+    halo team coach [run] [--json]                       the post-run coach's card (read only)
 
 `run` checks the file (exit 2 on a problem) and runs the lineup preflight
 for every member that works here (exit 2 on a blocking finding; `--force`
@@ -30,7 +31,7 @@ from pathlib import Path
 from halo_harness.team import board as BD
 from halo_harness.team import spec as S
 
-VERBS = ("init", "validate", "run", "status", "board", "answer", "stop", "log", "blocks")
+VERBS = ("init", "validate", "run", "status", "board", "answer", "stop", "log", "blocks", "coach")
 USAGE = __doc__.split("\n\n")[1]
 
 
@@ -143,6 +144,9 @@ def cmd_team(argv) -> int:
     if verb not in VERBS:
         print(f"halo team: unknown verb {verb!r}\nusage:\n{USAGE}", file=sys.stderr)
         return 2
+    if verb == "coach":  # 3.0.9.0 R3 (coach_cli.py)
+        from halo_harness.coach_cli import cmd_team_coach
+        return cmd_team_coach(argv[1:])
     try:
         args = _parser(verb).parse_args(argv[1:])
     except SystemExit as e:

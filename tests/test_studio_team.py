@@ -213,6 +213,22 @@ def test_init_route_and_the_team_gate_attention_row(ctx: Ctx):
         team_api.RUNNER = saved
 
 
+
+@test
+def test_the_coach_route(ctx: Ctx):
+    """3.0.9.0 R3: GET team/coach?run= -> the coach's card for a team run (the latest when run is empty);
+    404 when the repo has no team run."""
+    from tests.helpers.coach_seed import team_run
+    with _Studio() as s:
+        ctx.check("no team run yet: 404", s.call("GET", "/api/team/coach")[0] == 404)
+        run_dir = team_run(s.state.parent / "proj")
+        for path in ("/api/team/coach", f"/api/team/coach?run={run_dir.name}"):
+            status, data, _ = s.call("GET", path)
+            ids = [x["id"] for x in data.get("suggestions") or []]
+            ctx.check(f"{path}: the team's cards, got {status} {ids}", status == 200 and data["kind"] == "team"
+                      and data["run"] == run_dir.name and "coordination-copy-gated" in ids)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

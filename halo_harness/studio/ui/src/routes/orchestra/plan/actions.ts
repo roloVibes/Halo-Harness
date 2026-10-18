@@ -19,7 +19,7 @@ const clone = (jobs: PlanJob[]): PlanJob[] => JSON.parse(JSON.stringify(jobs));
 const path = (what = "plan") => `orchestra/${encodeURIComponent(plan.get().runId)}/${what}`;
 
 export async function loadPlan(runId: string): Promise<void> {
-  plan.update(() => ({ runId, loaded: false, error: "", past: [], future: [], rejecting: false }));
+  plan.update((s) => ({ runId, loaded: false, error: "", past: [], future: [], rejecting: false, staged: s.runId === runId ? s.staged : "" }));
   try {
     const p = await api.get<PlanPayload>(`orchestra/${encodeURIComponent(runId)}/plan`);
     if (plan.get().runId !== runId) return;
@@ -50,6 +50,7 @@ export async function savePlan(): Promise<void> {
 }
 
 function saveSoon(): void {
+  if (plan.get().staged) return; // 3.0.9.0 R3: a staged coach edit is shown, never sent
   plan.update(() => ({ saving: true }));
   window.clearTimeout(timer);
   timer = window.setTimeout(() => void savePlan(), 250);

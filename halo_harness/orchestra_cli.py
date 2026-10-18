@@ -9,6 +9,7 @@
     halo orchestra run [RUN] [--model REF] [--dry-run]   the pipeline (orchestra_cli_run.py)
     halo orchestra lanes|report|stop [RUN]
     halo orchestra run --review | plan | approve | reject [RUN]   the reviewed plan (orchestra_cli_plan.py, 3.0.9.0)
+    halo orchestra coach [RUN] [--json]  the post-run coach's card (coach_cli.py, 3.0.9.0)
 
 RUN is a run id (or a unique prefix of one) or a run folder; the latest run
 when omitted. `new` prompts for WHAT YOU WANT / DONE WHEN / STOP WHEN when
@@ -53,6 +54,8 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("runs", help="every run of this repo")
     from halo_harness.orchestra_cli_run import add_parsers
     add_parsers(sub)
+    from halo_harness.coach_cli import add_orchestra_parser
+    add_orchestra_parser(sub)
     for s in sub.choices.values():
         s.add_argument("--repo", default=None, help="the repo root (default: the current folder)")
     return p
@@ -65,9 +68,10 @@ def cmd_orchestra(argv) -> int:
         parser.print_help()
         return 0
     repo = Path(args.repo or ".").resolve()
+    from halo_harness.coach_cli import cmd_orchestra_coach
     from halo_harness.orchestra_cli_run import HANDLERS
-    handler = dict({"new": _new, "status": _status, "claims": _claims, "log": _log, "runs": _runs},
-                   **HANDLERS)[args.cmd]
+    handler = dict({"new": _new, "status": _status, "claims": _claims, "log": _log, "runs": _runs,
+                    "coach": cmd_orchestra_coach}, **HANDLERS)[args.cmd]
     return handler(args, repo)
 
 

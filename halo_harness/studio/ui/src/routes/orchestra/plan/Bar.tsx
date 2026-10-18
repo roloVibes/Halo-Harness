@@ -3,10 +3,12 @@
 // Add lane, Undo / Redo, Reject (a card asks for the reason), and Approve and
 // run, which stays disabled while a problem remains and names them. Under
 // it every problem (data-testid plan-problem: click one to select its card)
-// and the lineup's preflight findings.
+// and the lineup's preflight findings. 3.0.9.0 R3: a coach edit staged on a
+// run that already ran shows STAGED with Copy the plan and Back to the run.
 import { useState } from "react";
 import { Button } from "../../../lib/ui";
 import { addLane, approve, redo, reject, undo } from "./actions";
+import { copyPlan, unstage } from "./stage";
 import { plan, selectLane, usePlan } from "./store";
 
 export function PlanBar() {
@@ -18,6 +20,7 @@ export function PlanBar() {
   const busy = usePlan((s) => s.busy);
   const canUndo = usePlan((s) => s.past.length > 0);
   const canRedo = usePlan((s) => s.future.length > 0);
+  const staged = usePlan((s) => s.staged);
   const blocked = problems.length > 0 || saving;
   const why = problems.length
     ? `Fix ${problems.length} problem${problems.length === 1 ? "" : "s"} first: ${problems.map((p) => p.text).join(" · ")}`
@@ -25,18 +28,24 @@ export function PlanBar() {
   return (
     <div className="rc-bar pc-bar">
       <b className="rc-bar-name mono">run {runId}</b>
-      <span className="og-badge mono" data-state="planned">PLANNED</span>
+      <span className="og-badge mono" data-state="planned">{staged ? "STAGED" : "PLANNED"}</span>
       <span className="mono muted rc-bar-count">{n} lane{n === 1 ? "" : "s"} · the lead planned {lead}</span>
       {saving && <span className="rc-dirty mono" data-testid="plan-saving">checking</span>}
+      {staged && <span className="mono muted pc-staged" data-testid="plan-staged" title={staged}>from the coach: {staged}</span>}
       <span className="spacer" />
       <Button size="sm" onClick={addLane} data-testid="plan-add">Add lane</Button>
       <Button size="sm" variant="ghost" disabled={!canUndo} onClick={undo} title="Undo the last edit (Ctrl+Z)" data-testid="plan-undo">Undo</Button>
       <Button size="sm" variant="ghost" disabled={!canRedo} onClick={redo} title="Redo (Ctrl+Shift+Z)" data-testid="plan-redo">Redo</Button>
+      {staged ? (<>
+        <Button size="sm" onClick={copyPlan} data-testid="plan-copy" title="The jobs as JSON, for halo orchestra approve --file on a reviewed run">Copy the plan</Button>
+        <Button size="sm" variant="primary" onClick={unstage} data-testid="plan-back">Back to the run</Button>
+      </>) : (<>
       <Button size="sm" variant="danger" disabled={!!busy} onClick={() => plan.update((s) => ({ rejecting: !s.rejecting }))} data-testid="plan-reject">Reject</Button>
       <Button size="sm" variant="primary" disabled={blocked || !!busy} onClick={() => void approve()} title={why} data-testid="plan-approve"
               data-blocked={problems.length || undefined}>
         {busy === "approve" ? "Approving..." : "Approve and run"}
       </Button>
+      </>)}
     </div>
   );
 }
