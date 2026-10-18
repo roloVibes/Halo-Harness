@@ -1,3 +1,15 @@
+* text=auto eol=lf
+*.png -text
+*.jpg -text
+*.gif -text
+*.ico -text
+*.woff -text
+*.woff2 -text
+*.ttf -text
+*.pdf -text
+*.zip -text
+*.bundle -text
+*.pyc -text
 bin/halo text eol=lf
 bin/rolo-claude text eol=lf
 bin/claude-bridge text eol=lf

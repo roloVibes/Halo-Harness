@@ -120,7 +120,7 @@ def act(req, watcher, row: dict, key: str, text: str):
                        session_id=row.get("session_id"), row=row["id"])
         return 200, {"set_aside": True}, label
     if kind == "cap":
-        from halo_harness.studio.fleet_watch_io import by
+        from halo_harness.studio.fleet_watch_sources import by
         return 200, {"lifted": True, "resumed": watcher.lift(t.get("scope"), t.get("key"), by(req.state_dir))}, label
     if kind == "flow_gate":
         from halo_harness.studio.flow_api import post_answer

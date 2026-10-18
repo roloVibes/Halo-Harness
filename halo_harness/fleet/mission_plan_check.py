@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from halo_harness.fleet.mission_plan_rules import bad_claim, norm_claim, overlap
+from halo_harness.fleet.mission_claims import bad_claim, norm_claim, overlap
 
 MAX_PARTS = 20
 

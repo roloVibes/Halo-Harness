@@ -1,5 +1,6 @@
-"""halo_harness.studio.design_api_turns -- live design turns for Studio's
-Design mode (Halo 3.0.1.0 round D3). One turn per project at a time: it runs
+"""halo_harness.studio.design_turns -- live design turns for Studio's
+Design mode (Halo 3.0.1.0 round D3; 3.1.0.0 R2 renamed it from
+design_api_turns.py). One turn per project at a time: it runs
 `design.session.run_turn` in a thread and appends every streamed event to the
 turn's list. 3.0.7.0 R3: every step is also a `design_turn` frame on the live
 feed (`session_id: "design:<slug>"`, data `{slug, turn, state: started|event|

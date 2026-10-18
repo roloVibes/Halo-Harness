@@ -26,7 +26,8 @@ import threading
 import time
 
 from halo_harness.fleet import caps, journal
-from halo_harness.studio import fleet_watch_io as io
+from halo_harness.studio import fleet_watch_sources as sources
+from halo_harness.studio import fleet_send as send
 
 MEMBER_WAIT_S = 8.0
 
@@ -61,7 +62,7 @@ def post_answer(req):
         w.done(rid)
         journal.append(w.home, "decision", harness=row.get("harness"), harness_name=row.get("harness_name"),
                        session_id=row.get("session_id"), agent_id=row.get("agent_id"), row_kind=row["kind"],
-                       what=row.get("what"), answer=label + (f": {text[:200]}" if text else ""), by=io.by(req.state_dir))
+                       what=row.get("what"), answer=label + (f": {text[:200]}" if text else ""), by=sources.by(req.state_dir))
     extra = {k: got[k] for k in ("open", "set_aside", "lifted", "resumed") if isinstance(got, dict) and k in got}
     return status, {**out, **extra, "result": got}
 
@@ -130,7 +131,7 @@ def _member_health(req, h: dict, refresh: bool) -> dict:
     def fetch() -> dict:
         got = {}
         for cmd in ("status", "doctor"):
-            status, body = io.member_cmd(req.server, req.state_dir, str(h["id"]), sids[0], cmd, {}, MEMBER_WAIT_S)
+            status, body = send.member_cmd(req.server, req.state_dir, str(h["id"]), sids[0], cmd, {}, MEMBER_WAIT_S)
             got[cmd] = (body or {}).get("result") if status == 200 else None
         out = health.member_subset(got["status"], got["doctor"])
         if got["doctor"] is None:
@@ -143,7 +144,7 @@ def _member_health(req, h: dict, refresh: bool) -> dict:
 def get_health(req):
     from halo_harness.fleet import health
     refresh = str(req.query.get("refresh") or "") in ("1", "true", "yes")
-    view = io.view(req.server, req.state_dir)
+    view = sources.view(req.server, req.state_dir)
     rows: list = [None] * len(view.get("harnesses") or [])
 
     def one(i: int, h: dict) -> None:

@@ -113,7 +113,8 @@ def test_the_plan_pins_parts_by_capability_with_reasons(ctx: Ctx):
 
 @test
 def test_rules_overlap_has_and_prefer(ctx: Ctx):
-    from halo_harness.fleet.mission_plan_rules import assign, covers, has, overlap
+    from halo_harness.fleet.mission_assign import assign, has
+    from halo_harness.fleet.mission_claims import covers, overlap
     for a, b, want in (("src/a.py", "src/a.py", True), ("src", "src/a.py", True), ("src/**", "src/x/y.py", True),
                        ("src/*.py", "src/a.py", True), ("src/*.py", "src/x/a.py", False), ("docs/**", "src/**", False),
                        ("**/test_*.py", "tests/test_a.py", True), ("a/*.md", "a/*.txt", False), ("lib/a*", "lib/ab*", True)):

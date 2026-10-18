@@ -2,7 +2,7 @@
 3.0.9.0 round R3; halo_harness/orchestra/coach.py): an Orchestra run written
 file by file (goal.json, run.json, lanes/<n>.json, events.jsonl, merge.json,
 report.json), a flow run, a mission folder and a team run, plus a model
-catalog (rows as coach_facts.catalog returns them) and the bios the rules
+catalog (rows as coach_prices.catalog returns them) and the bios the rules
 name. No run engine, no model call.
 """
 from __future__ import annotations

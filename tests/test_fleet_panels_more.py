@@ -150,7 +150,7 @@ def test_the_phone_push_only_when_enabled_running_and_paired(ctx: Ctx):
     import os
     from halo_harness.config.paths import bridge_home
     from halo_harness.fleet import push
-    from halo_harness.studio.fleet_watch_io import push_ready
+    from halo_harness.studio.fleet_watch_sources import push_ready
     from halo_harness.theme import set_config_value
     home = bridge_home()
     row = {"id": "permission:M:s2:p9", "kind": "permission", "harness": "M", "harness_name": "kali@lab", "session_id": "s2",

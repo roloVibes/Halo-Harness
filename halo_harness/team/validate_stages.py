@@ -1,6 +1,7 @@
-"""halo_harness.team.spec_stages -- the stage half of `validate_team`
-(team/spec_check.py): kinds, members, lead, reads/writes, gates, triggers,
-the trigger graph's cycles, an orchestra stage's goal and a flow stage's flow.
+"""halo_harness.team.validate_stages -- the stage half of `validate_team`
+(team/validate.py; 3.1.0.0 R2 renamed it from spec_stages.py): kinds,
+members, lead, reads/writes, gates, triggers, the trigger graph's cycles, an
+orchestra stage's goal and a flow stage's flow.
 
 The trigger graph has an edge S -> T when T starts on `stage_done:S`, or on
 `block_change:B` while S writes B. A cycle there would start its stages
@@ -19,7 +20,7 @@ _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 
 def _known_entry(team, entry, cwd, state_dir, cache) -> bool:
-    from halo_harness.team.spec_check import tier_members
+    from halo_harness.team.resolve import tier_members
     return bool(S.member_by_name(team, entry) or any(m["role"] == entry for m in team["members"])
                 or tier_members(team, entry, cwd=cwd, state_dir=state_dir, cache=cache))
 
@@ -49,7 +50,7 @@ def _trigger(stage, earlier: list, blocks: set, ids: list) -> list:
 
 def _goal(team, stage, root) -> list:
     from halo_harness.orchestra.goal import validate_goal
-    from halo_harness.team.spec_check import goal_for_stage
+    from halo_harness.team.resolve import goal_for_stage
     sid = stage["id"]
     if not isinstance(stage.get("goal"), dict) or not stage["goal"]:
         return [f"stage `{sid}`: an orchestra stage needs a goal {{what, done_when, workers}}"]

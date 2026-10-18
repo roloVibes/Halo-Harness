@@ -57,7 +57,7 @@ def check(fields: dict) -> dict:
     if kind not in ("repo", "files"):
         raise TaskError(f"kind is repo or files, got {kind!r}")
     claims = _strs(f.get("claims"))
-    from halo_harness.fleet.mission_plan_rules import bad_claim
+    from halo_harness.fleet.mission_claims import bad_claim
     bad = next((bad_claim(c) for c in claims if bad_claim(c)), None)
     if bad:
         raise TaskError(bad)

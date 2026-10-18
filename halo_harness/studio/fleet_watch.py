@@ -30,7 +30,9 @@ import time
 from pathlib import Path
 
 from halo_harness.fleet import attention, caps, conflicts, journal
-from halo_harness.studio import fleet_watch_io as io
+from halo_harness.studio import fleet_watch_sources as sources
+from halo_harness.studio import fleet_feed as feed
+from halo_harness.studio import fleet_send as send
 
 TICK_S = 3.0
 ASK_KINDS = {"permission_request": "permission", "question": "question", "plan_review": "plan",
@@ -41,7 +43,7 @@ _make_lock = threading.Lock()
 class Watcher:
     def __init__(self, server, home) -> None:
         self.server, self.home = server, Path(home)
-        self.local_id = io.local_id(server)
+        self.local_id = sources.local_id(server)
         self.touches = conflicts.Touches()
         self.asks: dict = {}           # (harness, session, request id) -> {kind, data, agent_id, ts}
         self.seen: dict = {}           # attention row id -> first seen
@@ -72,7 +74,7 @@ class Watcher:
 
     # ---- life ---------------------------------------------------------------------
     def start(self) -> "Watcher":
-        io.attach_tap(self.server, self.tap)
+        feed.attach_tap(self.server, self.tap)
         with self.lock:
             if self._thread is None:
                 self._thread = threading.Thread(target=self._run, name="halo-fleet-watch", daemon=True)
@@ -81,7 +83,7 @@ class Watcher:
 
     def stop(self) -> None:
         self._stop.set()
-        io.detach_tap(self.server, self.tap)
+        feed.detach_tap(self.server, self.tap)
 
     def _run(self) -> None:
         while not self._stop.wait(TICK_S):  # the first tick waits too: a route asks for one when it needs it
@@ -110,20 +112,20 @@ class Watcher:
     def tick(self) -> list:
         with self.lock:
             now = time.time()
-            view = io.view(self.server, self.home)
+            view = sources.view(self.server, self.home)
             self.view = view
             self._drain(view, now)
             self._track_sessions(view, now)
             for hid, sid, aid, f in conflicts.note_view(self.touches, view):
                 self._file(hid, sid, aid, f)
-            self.conflicts = conflicts.find(view, self.touches, io.claims(view, self.local_id), now)
+            self.conflicts = conflicts.find(view, self.touches, sources.claims(view, self.local_id), now)
             self.reached = self._caps(view, now)
             self.answered = {k: t for k, t in self.answered.items() if now - t < 12.0}
             capped = {(h, s) for h, s, _d in self.cap_paused}
-            rows = attention.build(view, asks=self.asks, flows=io.flows(self.home), orchestra=io.orchestra(self.server),
-                                   commands=io.commands(self.server), reached=self.reached, conflicts=self.conflicts,
+            rows = attention.build(view, asks=self.asks, flows=sources.flows(self.home), orchestra=sources.orchestra(self.server),
+                                   commands=sources.commands(self.server), reached=self.reached, conflicts=self.conflicts,
                                    seen=self.seen, acks=self.acks | set(self.answered), now=now, home=self.home,
-                                   teams=io.teams(self.server))  # 3.0.8.0 R2: team gates
+                                   teams=sources.teams(self.server))  # 3.0.8.0 R2: team gates
             rows = [r for r in rows if not (r["kind"] == "paused" and (r["harness"], r["session_id"]) in capped)]
             ids = {r["id"] for r in rows}
             self.seen = {k: v for k, v in self.seen.items() if k in ids}
@@ -131,7 +133,7 @@ class Watcher:
             self._push(rows)
             if len(rows) != self._count:
                 self._count = len(rows)
-                io.publish(self.server, {"event": "fleet", "harness": self.local_id,
+                feed.publish(self.server, {"event": "fleet", "harness": self.local_id,
                                          "data": {"action": "attention", "count": len(rows)}})
             self._first = False
             self._last = time.monotonic()
@@ -207,7 +209,7 @@ class Watcher:
             for hid, sid in r["sessions"]:
                 if (hid, sid, day) not in self.cap_paused:
                     self.cap_paused.add((hid, sid, day))
-                    io.session_cmd(self.server, self.home, hid, sid, "pause", {"reason": "cap"}, wait_s=0.0)
+                    send.session_cmd(self.server, self.home, hid, sid, "pause", {"reason": "cap"}, wait_s=0.0)
         return active
 
     def lift(self, scope: str, key: str, by: str) -> list:
@@ -222,7 +224,7 @@ class Watcher:
             for hid, sid in targets:
                 if (hid, sid, day) in self.cap_paused:
                     self.cap_paused.discard((hid, sid, day))
-                    io.session_cmd(self.server, self.home, hid, sid, "resume", {}, wait_s=0.0)
+                    send.session_cmd(self.server, self.home, hid, sid, "resume", {}, wait_s=0.0)
                     resumed.append([hid, sid])
             journal.append(self.home, "cap_ack", harness=self.local_id, scope=scope, key=key, day=day, by=by)
             return resumed
@@ -231,7 +233,7 @@ class Watcher:
     def _push(self, rows: list) -> None:
         new = [r for r in rows if r["id"] not in self.pushed]
         self.pushed = {r["id"] for r in rows}
-        if not new or self._first or not io.push_ready(self.home):
+        if not new or self._first or not sources.push_ready(self.home):
             return
         from halo_harness.fleet import push
         push.spool(self.home, new, self.asks)

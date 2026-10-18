@@ -100,7 +100,7 @@ def test_replayed_stale_unsigned_and_forged_requests_are_refused(ctx: Ctx):
 @test
 def test_kick_disconnects_b(ctx: Ctx):
     from halo_harness.fleet import relay_runtime, store
-    from halo_harness.fleet.cli_more import _ping
+    from halo_harness.fleet.cli_join import _ping
     with HubRig() as rig:
         rig.join()
         _controller, act = rig.session()
