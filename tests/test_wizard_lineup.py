@@ -5,6 +5,8 @@ the `about:` context-builder fold-in. Hermetic: no network, no real model.
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import os
 import sys

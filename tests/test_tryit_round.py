@@ -11,6 +11,8 @@ whole request pipeline are exercised exactly as a real turn.
 
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import json
 import os
 import sys

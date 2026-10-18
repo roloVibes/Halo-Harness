@@ -14,6 +14,8 @@ pure function of clocks the tests pin directly).
 
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import sys
 import time
 from pathlib import Path

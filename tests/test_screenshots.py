@@ -11,6 +11,8 @@ alters a scene fails here until the committed SVGs are re-rendered.
 
 from __future__ import annotations
 
+TIER = "full"  # the TUI capture renders (pilot scenes): the full tier
+
 import re
 import subprocess
 import sys

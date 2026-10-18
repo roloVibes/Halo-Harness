@@ -7,6 +7,15 @@ checkout's own git tree, never on the installed harness.
 Run:
     python scripts/release.py <version> [--date YYYY-MM-DD]
                                [--remote user@host ...] [--identity key] [--no-install] [--dry-run]
+                               [--skip-windows]
+
+Step 0 (3.1.0.0 R1, scripts/release_gate.py): before anything is written,
+the latest Linux suites run for HEAD's sha must have concluded success, and
+the Windows suites are dispatched for that sha (`gh workflow run suites.yml
+-f sha=<sha>`) and waited for (up to 90 min); both must conclude success.
+`--skip-windows` accepts an existing green Windows run for the sha instead
+of dispatching one. The read-only clean-tree check runs just before it, so a
+dirty tree stops in a second, not after a Windows run.
 
     python scripts/release.py 2.0.4 --dry-run   # prints every step, runs nothing
 
@@ -42,6 +51,19 @@ _DIRTY_PATHS = ("halo_harness", "tests", "docs")
 # below substitutes the SAME new version into both halves in one pass.
 _README_BADGE_RE = re.compile(
     r'(<img alt="version )([^"]+)(" src="https://img\.shields\.io/badge/version-)([^-"]+)(-)')
+
+
+def _gate_module():
+    """scripts/release_gate.py, loaded by path (this script is itself loaded by path in its tests)."""
+    import importlib.util
+    name = "halo_release_gate"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parent / "release_gate.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
 
 
 class ReleaseError(Exception):
@@ -309,12 +331,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-github-release", action="store_true",
                    help="skip publishing a GitHub release for the tag")
     p.add_argument("--dry-run", action="store_true", help="print every step; run and write nothing")
+    p.add_argument("--skip-windows", action="store_true",
+                   help="step 0: accept an existing green Windows suites run for the sha instead of dispatching one")
     return p
 
 
 def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
          run_fn: "Optional[Callable]" = None, pids_fn: "Optional[Callable]" = None,
-         gh_path_fn: "Optional[Callable]" = None, token_fn: "Optional[Callable]" = None) -> int:
+         gh_path_fn: "Optional[Callable]" = None, token_fn: "Optional[Callable]" = None,
+         gate_fn: "Optional[Callable]" = None) -> int:
     """`run_fn`/`pids_fn`/`gh_path_fn`/`token_fn` are test seams (default:
     real `subprocess.run` / `halo_harness.update.other_halo_pids` /
     `shutil.which("gh")` / `git_credential_token`) for every command that
@@ -323,7 +348,10 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
     never monkeypatch `subprocess.run` globally to test this script, pass
     these instead. The read-only `git status` dirty check always runs
     for real (local, hermetic, safe even in a test against a scratch
-    repo); only the mutating/network-reaching calls go through `run_fn`."""
+    repo); only the mutating/network-reaching calls go through `run_fn`.
+    Step 0's `gh` calls go through `run_fn` too (`gate_fn` replaces the
+    whole gate: `gate_fn(sha, repo_dir=, run_fn=, skip_windows=)` returns
+    the accepted-run lines or raises release_gate.GateError)."""
     if run_fn is None:
         run_fn = subprocess.run
     if pids_fn is None:
@@ -332,6 +360,8 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
     version = args.version
     date_str = args.date or date.today().isoformat()
     steps: "list[str]" = []
+    gate = _gate_module()
+    gate_lines: "list[str]" = []
 
     def step(description: str) -> None:
         steps.append(description)
@@ -342,6 +372,15 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
             raise ReleaseError("refusing: the tree is dirty under halo_harness/, tests/, or docs/: "
                                 + ", ".join(dirty))
         step("tree is clean under halo_harness/, tests/, docs/")
+
+        # Step 0 (3.1.0.0 R1): both platforms green on the exact sha, the
+        # Windows run dispatched for it here -- before anything is written.
+        sha = gate.head_sha(repo_dir)
+        if args.dry_run:
+            gate_lines.append(gate.describe(sha, args.skip_windows))
+        else:
+            gate_lines.extend((gate_fn or gate.ci_gate)(sha, repo_dir=repo_dir, run_fn=run_fn,
+                                                        skip_windows=args.skip_windows))
 
         current_version = read_version(repo_dir)
         if current_version == version:
@@ -439,10 +478,15 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
     except ReleaseError as e:
         print(f"release.py: {e}", file=sys.stderr)
         return 1
+    except gate.GateError as e:
+        print(f"release.py: step 0 (CI gate): {e}", file=sys.stderr)
+        return 1
 
     label = f"Halo Harness {version} ({date_str})" + (" [DRY RUN -- nothing executed]" if args.dry_run else "")
     print("-" * min(72, max(len(label), 40)))
     print(label)
+    for s in gate_lines:
+        print(f"  0. {s}")
     for i, s in enumerate(steps, 1):
         print(f"  {i}. {s}")
     print("-" * min(72, max(len(label), 40)))

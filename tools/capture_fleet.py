@@ -179,14 +179,14 @@ def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
 
 def capture(out: str, as_dom: bool, find_chrome) -> int:
     """Seed, serve, render; the exit code capture_studio.py returns."""
-    from tests.helpers.cdp import Chrome
+    from tests.helpers.chrome_driver import open_chrome
     from tests.helpers.studio_fleet_rig import StudioFleetRig
     exe = find_chrome()
     if not exe:
         print("no Chrome found")
         return 2
     with StudioFleetRig() as rig:
-        c = Chrome(exe)
+        c = open_chrome(exe=exe)  # the driver base: one headless Chrome at a time
         try:
             if as_dom:
                 print(json.dumps(dom(c, rig)))

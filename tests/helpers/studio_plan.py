@@ -25,11 +25,14 @@ import json
 import sys
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
+
+from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 TID = "document.querySelector('[data-testid=\"{}\"]')"
 N = "document.querySelectorAll('[data-testid=\"{}\"]').length"
@@ -143,35 +146,22 @@ def flow_graph(c, url: str, out: dict) -> None:
     out["flow_back"] = c.wait(f"{N.format('flow-step')} === 0 && !!{TID.format('flow-intake-form')} && 'back'", 10)
 
 
-def main() -> int:
-    from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
-    ensure_scoped_state_dir_once()  # tests/test_studio_ui.py scrubs BRIDGE_*: without this the Studio server's fleet
-    # identity and run folder land in the real ~/.halo (the suite's real-state-dir guard fails on a runner without one)
-    from capture_studio import find_chrome
-    exe = find_chrome()
-    if not exe:
-        print(json.dumps({"error": "no Chrome found"}))
-        return 2
-    from tests.helpers.cdp import Chrome
-    from tests.helpers.studio_plan_rig import PlanRig
-    out: dict = {}
-    c = Chrome(exe)
-    try:
+class PlanDriver(Driver):
+    """The plan canvas and the Flow graph over tests/helpers/studio_plan_rig.py."""
+
+    @contextmanager
+    def session(self, c):
+        from tests.helpers.studio_plan_rig import PlanRig
         with PlanRig() as rig:
             url = rig.url()
-            steps = ((lanes_and_layers, (c, url, out)), (drag_into_layer, (c, rig, out)), (overlap_problem, (c, out)),
-                     (approve_runs, (c, rig, out)), (reject_stops, (c, rig, url, out)), (flow_graph, (c, url, out)))
-            for fn, args in steps:
-                try:
-                    fn(*args)
-                except Exception as e:  # what it saw so far still prints; the test names the step
-                    out["failed"] = f"{fn.__name__}: {type(e).__name__}: {e}"[:400]
-                    break
-            c.go("about:blank")
-    finally:
-        c.close()
-    print(json.dumps(out))
-    return 0
+            yield ((lanes_and_layers, (c, url, self.out)), (drag_into_layer, (c, rig, self.out)), (overlap_problem, (c, self.out)),
+                   (approve_runs, (c, rig, self.out)), (reject_stops, (c, rig, url, self.out)), (flow_graph, (c, url, self.out)))
+
+
+def main() -> int:
+    # tests/test_studio_ui.py scrubs BRIDGE_*: the base scopes the home first, or the Studio server's fleet
+    # identity and run folder land in the real ~/.halo (the suite's real-state-dir guard fails on a runner without one)
+    return PlanDriver().main()
 
 
 if __name__ == "__main__":

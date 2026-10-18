@@ -4,7 +4,16 @@ and prints one combined RESULT line. Exit code 0 iff every test in every
 module passed.
 
 Run:
-    python tests/run_all.py ; echo exit=$?
+    python tests/run_all.py ; echo exit=$?          # every module (fast + full)
+    python tests/run_all.py --fast                   # the fast tier: no Chrome, no TUI pilots
+    python tests/run_all.py --tier full              # only the modules marked TIER = "full"
+
+3.1.0.0 R1: every module runs with its OWN fresh `BRIDGE_TEST_HOME` (a
+subdirectory of the run's scratch root, named after the module, removed
+after it) and the state-dir caches reset between modules
+(tests/helpers/run_all_support.py). A module that needs Chrome or a TUI
+pilot says `TIER = "full"` near the top of its file; the tier is read with
+a regex over the file head, never by importing the module.
 """
 from __future__ import annotations
 
@@ -23,6 +32,7 @@ if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 
 from tests.helpers.runner import Ctx, cleanup_tracked_temp_dirs, install_temp_dir_tracking, run_all
+from tests.helpers import run_all_support as support
 
 
 def discover_test_modules() -> list:
@@ -30,6 +40,13 @@ def discover_test_modules() -> list:
     for path in sorted(TESTS_DIR.glob("test_*.py")):
         names.append(f"tests.{path.stem}")
     return names
+
+
+def select_modules(names: list, tier: "str | None") -> list:
+    """`names` narrowed to `tier` (None = all), by each file's TIER line."""
+    if tier is None:
+        return list(names)
+    return [n for n in names if support.module_tier(TESTS_DIR / f"{n.split('.')[-1]}.py") == tier]
 
 
 # H15 Part D2.1: every env var name a test module's own `_Env` helper is
@@ -217,7 +234,25 @@ def _real_sessions_snapshot() -> "set[str]":
     return paths
 
 
-def main() -> int:
+_MAIN_DEPTH = 0  # >1 while a test of this file calls main() from inside a module run_all itself is running
+
+
+def main(argv: "list | None" = None) -> int:
+    """`argv`: `--fast` / `--tier fast|full` (None or [] = every module)."""
+    global _MAIN_DEPTH
+    try:
+        tier = support.parse_tier_args(list(argv or []))
+    except ValueError as e:
+        print(f"run_all.py: {e}", file=sys.stderr)
+        return 2
+    _MAIN_DEPTH += 1
+    try:
+        return _main(tier)
+    finally:
+        _MAIN_DEPTH -= 1
+
+
+def _main(tier: "str | None") -> int:
     # Line-buffered output even when redirected to a file: a run that is
     # killed mid-way must leave its last real line on disk, not a stale
     # module header from a block buffer (that misled a Kali investigation).
@@ -242,7 +277,9 @@ def main() -> int:
     _ensure_whole_run_test_seams()
     real_state_before = _real_state_dir_snapshot()
     real_sessions_before = _real_sessions_snapshot()
-    module_names = discover_test_modules()
+    module_names = select_modules(discover_test_modules(), tier)
+    print(f"[tier] {support.tier_label(tier)}: {len(module_names)} module(s)")
+    run_root = support.make_run_root()
     total_passed = total_failed = total_skipped = 0
     any_module_import_failed = False
 
@@ -252,54 +289,81 @@ def main() -> int:
         # in EVERY exit path below (import error, no TESTS registry, or a
         # normal run) -- see _restore_guarded_env's own docstring.
         env_before_module = _snapshot_guarded_env()
+        # 3.1.0.0 R1: the module's own fresh home, set before its import;
+        # removed (and the state-dir caches reset) in the finally below.
+        module_home = support.enter_module(run_root, mod_name)
+        totals: dict = {}
         try:
-            module = importlib.import_module(mod_name)
-        except SystemExit as e:
-            # 2.0.6 round 13: SystemExit is a BaseException, not an
-            # Exception -- a module-level argparse parser.error() (or a
-            # stray sys.exit() at import time) used to escape this
-            # handler and kill the WHOLE suite run. Same treatment as any
-            # other import failure now; KeyboardInterrupt still escapes
-            # (a deliberate Ctrl+C must abort).
-            print(f"[IMPORT ERROR] {mod_name} tried to exit the process (SystemExit({e.code})):")
-            traceback.print_exc(limit=4)
-            any_module_import_failed = True
-            total_failed += 1
+            _run_one_module(mod_name, env_before_module, totals)
+        finally:
+            support.leave_module(module_home)
             _restore_guarded_env(env_before_module)
-            continue
-        except Exception:
-            print(f"[IMPORT ERROR] {mod_name} could not be imported:")
-            traceback.print_exc()
-            any_module_import_failed = True
-            total_failed += 1
-            _restore_guarded_env(env_before_module)
-            continue
+        total_passed += totals.get("passed", 0)
+        total_failed += totals.get("failed", 0)
+        total_skipped += totals.get("skipped", 0)
+        any_module_import_failed = any_module_import_failed or totals.get("import_failed", False)
 
-        tests = getattr(module, "TESTS", None)
-        if tests is None:
-            print(f"[SKIP MODULE] {mod_name} has no TESTS registry (not a runner-based test file)")
-            _restore_guarded_env(env_before_module)
-            continue
+    _print_summary_head(tier, total_passed, total_failed, total_skipped, len(module_names))
+    return _finish(real_state_before, real_sessions_before, total_failed, any_module_import_failed)
 
-        ctx = Ctx()
-        results, passed, failed, skipped = run_all(tests, ctx)
-        for name, status, detail, dt in results:
-            line = f"  [{status}] {name} ({dt:.2f}s)"
-            if detail and status != "PASS":
-                line += f": {detail}"
-            print(line)
-        total_passed += passed
-        total_failed += failed
-        total_skipped += skipped
-        _restore_guarded_env(env_before_module)
 
-    total = total_passed + total_failed + total_skipped
+def _print_summary_head(tier, passed: int, failed: int, skipped: int, n_modules: int) -> None:
+    total = passed + failed + skipped
     print("-" * 74)
-    print(f"RESULT: {total} tests across {len(module_names)} modules -- "
-          f"{total_passed} passed, {total_failed} failed, {total_skipped} skipped")
+    print(f"RESULT: {total} tests across {n_modules} modules -- "
+          f"{passed} passed, {failed} failed, {skipped} skipped")
+    print(f"[tier] ran: {support.tier_label(tier)}")
 
-    removed = cleanup_tracked_temp_dirs()
-    print(f"[cleanup] removed {removed} tracked temp dir(s)")
+
+def _run_one_module(mod_name: str, env_before_module: dict, totals: dict) -> None:
+    """Import `mod_name` and run its TESTS; the counts land in `totals`
+    (`passed`/`failed`/`skipped`/`import_failed`). main() restores the
+    guarded env and removes the module's home afterwards, on every path."""
+    try:
+        module = importlib.import_module(mod_name)
+    except SystemExit as e:
+        # 2.0.6 round 13: SystemExit is a BaseException, not an
+        # Exception -- a module-level argparse parser.error() (or a
+        # stray sys.exit() at import time) used to escape this
+        # handler and kill the WHOLE suite run. Same treatment as any
+        # other import failure now; KeyboardInterrupt still escapes
+        # (a deliberate Ctrl+C must abort).
+        print(f"[IMPORT ERROR] {mod_name} tried to exit the process (SystemExit({e.code})):")
+        traceback.print_exc(limit=4)
+        totals.update(import_failed=True, failed=1)
+        return
+    except Exception:
+        print(f"[IMPORT ERROR] {mod_name} could not be imported:")
+        traceback.print_exc()
+        totals.update(import_failed=True, failed=1)
+        return
+
+    tests = getattr(module, "TESTS", None)
+    if tests is None:
+        print(f"[SKIP MODULE] {mod_name} has no TESTS registry (not a runner-based test file)")
+        return
+
+    ctx = Ctx()
+    results, passed, failed, skipped = run_all(tests, ctx)
+    for name, status, detail, dt in results:
+        line = f"  [{status}] {name} ({dt:.2f}s)"
+        if detail and status != "PASS":
+            line += f": {detail}"
+        print(line)
+    totals.update(passed=passed, failed=failed, skipped=skipped)
+
+
+def _finish(real_state_before: dict, real_sessions_before: "set[str]", total_failed: int,
+            any_module_import_failed: bool) -> int:
+    """The `[cleanup]` step and the two real-home guards; the exit code. A
+    nested main() (a test of this file, inside an outer run) leaves the
+    sweep to the outer run: the tracked dirs include the outer run's own
+    module homes."""
+    if _MAIN_DEPTH > 1:
+        print("[cleanup] nested run: the outer run's [cleanup] removes its temp dirs")
+    else:
+        removed = cleanup_tracked_temp_dirs()
+        print(f"[cleanup] removed {removed} tracked temp dir(s)")
 
     real_sessions_leaked = sorted(_real_sessions_snapshot() - real_sessions_before)
     if real_sessions_leaked:
@@ -332,4 +396,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

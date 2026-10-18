@@ -10,8 +10,9 @@ second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (st
 
 from __future__ import annotations
 
+TIER = "full"  # headless Chrome: the full tier
+
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -32,9 +33,14 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def _chrome() -> "str | None":
-    sys.path.insert(0, str(REPO / "tools"))
-    from capture_screens import find_chrome
-    return find_chrome(os.environ.get("HALO_CHROME", ""))
+    from tests.helpers.chrome_driver import find_chrome  # 3.1.0.0 R1: the driver base (HALO_CHROME first)
+    return find_chrome()
+
+
+def _env() -> dict:
+    """BRIDGE_* and the provider variables scrubbed (the driver scopes its own scratch home), HALO_CHROME kept."""
+    from tests.helpers.chrome_driver import driver_env
+    return driver_env(REPO)
 
 
 _RUNS: dict = {}
@@ -44,10 +50,7 @@ def _json_of(*args: str) -> "tuple[subprocess.CompletedProcess, dict]":
     """Run a tool or helper with a scrubbed environment (its own scratch home), once per argument list;
     the last stdout line is its JSON."""
     if args not in _RUNS:
-        env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
-        env["PYTHONPATH"] = str(REPO)
-        env["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
-        r = subprocess.run([sys.executable, *args], capture_output=True, encoding="utf-8", errors="replace", timeout=300, env=env, cwd=str(REPO))
+        r = subprocess.run([sys.executable, *args], capture_output=True, encoding="utf-8", errors="replace", timeout=300, env=_env(), cwd=str(REPO))
         try:
             info = json.loads(r.stdout.strip().splitlines()[-1])
         except (ValueError, IndexError):
@@ -76,10 +79,8 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
     its React canvas, no frame."""
     if not _chrome():
         raise SkipTest("no Chrome found (the shell smoke needs headless Chrome)")
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
-    env["PYTHONPATH"] = str(REPO)
-    env["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
-    r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_studio.py"), "--mode", "shell", "--dom"], capture_output=True, text=True, timeout=240, env=env, cwd=str(REPO))
+    env = _env()
+    r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_studio.py"), "--mode", "shell", "--dom"], capture_output=True, encoding="utf-8", errors="replace", timeout=240, env=env, cwd=str(REPO))
     ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
     try:
         info = json.loads(r.stdout.strip().splitlines()[-1])
@@ -122,9 +123,7 @@ def test_flow_section_draws_a_run_in_headless_chrome(ctx: Ctx):
     does not answer the Media group is one status card with the fix."""
     if not _chrome():
         raise SkipTest("no Chrome found (the Flow smoke needs headless Chrome)")
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
-    env["PYTHONPATH"] = str(REPO)
-    env["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
+    env = _env()
     r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_studio.py"), "--mode", "flow", "--dom"], capture_output=True,
                        encoding="utf-8", errors="replace", timeout=300, env=env, cwd=str(REPO))
     ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)

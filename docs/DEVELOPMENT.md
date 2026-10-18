@@ -52,6 +52,17 @@ the *real* `~/.halo/sessions` directory before and after the run and
 fails loudly if anything leaked there (a test that built a real `Session`
 without scoping `BRIDGE_TEST_HOME` away from your actual machine state).
 
+Since 3.1.0.0 every module gets its own fresh `BRIDGE_TEST_HOME` (a
+subdirectory of the run's scratch root named after the module, removed
+after it), and the state-dir caches are reset between modules
+(`tests/helpers/run_all_support.py`). The suite has two tiers:
+`python tests/run_all.py --fast` skips the modules marked `TIER = "full"`
+(the ones that need headless Chrome or a Textual pilot), `--tier full`
+runs only those, no flag runs everything. `docs/CONTRIBUTING.md` says which
+to run when, and how a headless Chrome driver is built on
+`tests/helpers/chrome_driver.py` (one Chrome at a time, the home scoped
+first).
+
 Every milestone in this project's history was required to stay green on
 **Windows, WSL Ubuntu, and the Kali VM** -- Kali is the primary target
 platform, Windows is the build host. Cross-checking from a Windows

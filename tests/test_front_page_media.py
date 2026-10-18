@@ -9,6 +9,8 @@ Chrome builds differ -- only their existence and size).
 
 from __future__ import annotations
 
+TIER = "full"  # the TUI capture renders (pilot scenes): the full tier
+
 import json
 import os
 import re

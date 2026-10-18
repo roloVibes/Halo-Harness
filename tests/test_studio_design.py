@@ -8,6 +8,8 @@ route and its sandbox headers, the token guard, one turn at a time; plus the
 
 from __future__ import annotations
 
+TIER = "full"  # headless Chrome: the full tier
+
 import json
 import sys
 import threading
@@ -256,17 +258,13 @@ def test_apply_css_control_unit(ctx: Ctx):
 
 @test
 def test_design_page_boots_in_headless_chrome(ctx: Ctx):
-    import os
     import subprocess
+    from tests.helpers.chrome_driver import driver_env, find_chrome  # 3.1.0.0 R1: the driver base
     from tests.helpers.runner import SkipTest
-    sys.path.insert(0, str(REPO / "tools"))
-    from capture_screens import find_chrome
-    if not find_chrome(os.environ.get("HALO_CHROME", "")):
+    if not find_chrome():
         raise SkipTest("no Chrome found (the page smoke needs headless Chrome)")
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
-    env["PYTHONPATH"] = str(REPO)
-    env["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
-    r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_studio.py"), "--mode", "design", "--dom"], capture_output=True, text=True, timeout=240, env=env, cwd=str(REPO))
+    r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_studio.py"), "--mode", "design", "--dom"], capture_output=True,
+                       encoding="utf-8", errors="replace", timeout=240, env=driver_env(REPO), cwd=str(REPO))
     try:
         info = json.loads(r.stdout.strip().splitlines()[-1])
     except (ValueError, IndexError):

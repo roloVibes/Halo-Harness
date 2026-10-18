@@ -84,12 +84,12 @@ def shoot(c, png: Path) -> int:
 
 
 def capture(out: str, as_dom: bool, find_chrome) -> int:
-    from tests.helpers.cdp import Chrome
+    from tests.helpers.chrome_driver import open_chrome
     exe = find_chrome()
     if not exe:
         print("no Chrome found")
         return 2
-    c = Chrome(exe, width=1440, height=900)
+    c = open_chrome(1440, 900, exe=exe)  # the driver base: one headless Chrome at a time
     try:
         if as_dom:
             print(json.dumps(dom(c)))

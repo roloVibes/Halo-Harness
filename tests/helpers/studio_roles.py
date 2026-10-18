@@ -16,6 +16,7 @@ import json
 import shutil
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import yaml
@@ -23,6 +24,8 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
+
+from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 Q = "document.querySelectorAll"
 PROBE = {"ok": True, "latency_ms": 42, "error": "", "cost_line": "stub", "reply": "ok"}
@@ -114,27 +117,28 @@ def roles(c, url: str, state: Path) -> dict:
     return out
 
 
+class RolesDriver(Driver):
+    """`roles`: the Roles section over capture_studio's seeded home, the model probe stubbed."""
+
+    no_chrome = {"skip": "no Chrome found"}
+
+    @contextmanager
+    def session(self, c):
+        from capture_studio import seeded_home, serve
+        import halo_harness.model_probe as probe
+        probe.probe_model = lambda ref, **_kw: {**PROBE, "ref": ref}
+        state = seeded_home()
+        srv, url = serve(state, True)
+        try:
+            yield ((roles, (c, url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off"), state)),)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+            shutil.rmtree(state.parent, ignore_errors=True)
+
+
 def main(argv: list) -> int:
-    from capture_studio import find_chrome, seeded_home, serve
-    from tests.helpers.cdp import Chrome
-    exe = find_chrome()
-    if not exe:
-        print(json.dumps({"skip": "no Chrome found"}))
-        return 2
-    import halo_harness.model_probe as probe
-    probe.probe_model = lambda ref, **_kw: {**PROBE, "ref": ref}
-    state = seeded_home()
-    srv, url = serve(state, True)
-    c = Chrome(exe)
-    try:
-        got = roles(c, url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off"), state)
-        print(json.dumps(got))
-        return 0
-    finally:
-        c.close()
-        srv.shutdown()
-        srv.server_close()
-        shutil.rmtree(state.parent, ignore_errors=True)
+    return RolesDriver(argv).main()
 
 
 if __name__ == "__main__":

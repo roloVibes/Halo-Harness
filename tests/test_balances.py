@@ -4,6 +4,8 @@ persist core), `halo balances` (CLI), `/balances` (headless), and the
 status bar's generic per-provider chip (`tui/widgets/statusbar.py`'s
 `set_provider_balance`/`_active_balance`).
 """
+
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
 import io
 import json
 import os

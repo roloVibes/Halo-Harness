@@ -24,16 +24,31 @@ KEYS = {"?": ("Slash", 191, 8), "Escape": ("Escape", 27, 0), "o": ("KeyO", 79, 0
 
 
 class Chrome:
-    def __init__(self, exe: str, width: int = 1500, height: int = 900):
-        self.profile = tempfile.mkdtemp(prefix="halo-cdp-")
-        self.proc = subprocess.Popen([exe, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
-                                      "--no-default-browser-check", f"--user-data-dir={self.profile}", "--remote-debugging-port=0",
-                                      f"--window-size={width},{height}", "about:blank"],
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    """One headless Chrome over the DevTools protocol. 3.1.0.0 R1: it holds the
+    suite's headless Chrome lock (tests/helpers/chrome_lock.py) from its start
+    to `close()`, so only one runs at a time across threads and processes;
+    drivers open it through tests/helpers/chrome_driver.py."""
+
+    def __init__(self, exe: str, width: int = 1500, height: int = 900, lock_path=None):
+        from tests.helpers.chrome_lock import lock_for
+        self._lock = lock_for(lock_path)
+        self._lock.acquire()
+        self._locked = True
+        self.proc = None
+        self.sock = None
+        try:
+            self.profile = tempfile.mkdtemp(prefix="halo-cdp-")
+        except Exception:
+            self._release()
+            raise
         self.buf = b""
         self.seq = 0
         self.down = False
         try:
+            self.proc = subprocess.Popen([exe, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
+                                          "--no-default-browser-check", f"--user-data-dir={self.profile}", "--remote-debugging-port=0",
+                                          f"--window-size={width},{height}", "about:blank"],
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             port = self._port()
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             targets = json.loads(opener.open(f"http://127.0.0.1:{port}/json/list", timeout=10).read())
@@ -190,22 +205,32 @@ class Chrome:
             f.write(data)
         return len(data)
 
+    def _release(self) -> None:
+        if getattr(self, "_locked", False):
+            self._locked = False
+            self._lock.release()
+
     def close(self) -> None:
-        try:  # a clean exit closes the page's connections (no reset on the server's side)
-            self.go("about:blank")
-            self.call("Browser.close")
-        except Exception:
-            pass
         try:
-            self.sock.close()
-        except Exception:
-            pass
-        try:
-            self.proc.wait(timeout=10)
-        except Exception:
-            self.proc.terminate()
-            try:
-                self.proc.wait(timeout=10)
-            except Exception:
-                pass
-        shutil.rmtree(self.profile, ignore_errors=True)
+            if self.sock is not None:
+                try:  # a clean exit closes the page's connections (no reset on the server's side)
+                    self.go("about:blank")
+                    self.call("Browser.close")
+                except Exception:
+                    pass
+                try:
+                    self.sock.close()
+                except Exception:
+                    pass
+            if self.proc is not None:
+                try:
+                    self.proc.wait(timeout=10)
+                except Exception:
+                    self.proc.terminate()
+                    try:
+                        self.proc.wait(timeout=10)
+                    except Exception:
+                        pass
+            shutil.rmtree(self.profile, ignore_errors=True)
+        finally:
+            self._release()

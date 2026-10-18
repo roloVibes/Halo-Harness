@@ -7,6 +7,8 @@ phones (and forgets a connection's phones when it closes), queues a
 three game skins."""
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import contextlib
 import os

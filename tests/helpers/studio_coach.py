@@ -20,14 +20,16 @@ tests/test_studio_ui.py runs it as a subprocess with a scrubbed environment
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
-import json
 import sys
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
+
+from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 TID = "document.querySelector('[data-testid=\"{}\"]')"
 N = "document.querySelectorAll('[data-testid=\"{}\"]').length"
@@ -105,35 +107,21 @@ def mission_coach(c, rig, out: dict) -> None:
     out["mission_kinds"] = c.js(KINDS)
 
 
-def main() -> int:
-    from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
-    ensure_scoped_state_dir_once()  # a scratch home: the coach reads the role table of this process's home
-    from capture_studio import find_chrome
-    exe = find_chrome()
-    if not exe:
-        print(json.dumps({"error": "no Chrome found"}))
-        return 2
-    from tests.helpers.cdp import Chrome
-    from tests.helpers.studio_coach_rig import CoachRig
-    out: dict = {}
-    c = Chrome(exe)
-    try:
+class CoachDriver(Driver):
+    """The coach over tests/helpers/studio_coach_rig.py; the base scoped the home first (the coach reads the role
+    table of this process's home)."""
+
+    @contextmanager
+    def session(self, c):
+        from tests.helpers.studio_coach_rig import CoachRig
         with CoachRig() as rig:
             url = rig.url()
-            steps = ((three_cards, (c, url, out)), (apply_model, (c, rig, out)), (dismiss_survives, (c, url, out)),
-                     (apply_plan, (c, rig, url, out)),
-                     (mission_coach, (c, rig, out)))
-            for fn, args in steps:
-                try:
-                    fn(*args)
-                except Exception as e:  # what it saw so far still prints; the test names the step
-                    out["failed"] = f"{fn.__name__}: {type(e).__name__}: {e}"[:400]
-                    break
-            c.go("about:blank")
-    finally:
-        c.close()
-    print(json.dumps(out))
-    return 0
+            yield ((three_cards, (c, url, self.out)), (apply_model, (c, rig, self.out)), (dismiss_survives, (c, url, self.out)),
+                   (apply_plan, (c, rig, url, self.out)), (mission_coach, (c, rig, self.out)))
+
+
+def main() -> int:
+    return CoachDriver().main()
 
 
 if __name__ == "__main__":

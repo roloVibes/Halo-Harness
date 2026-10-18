@@ -50,8 +50,9 @@ sys.path.insert(0, str(REPO / "tools"))
 
 
 def find_chrome() -> "str | None":
-    from capture_screens import find_chrome as _find
-    return _find(os.environ.get("HALO_CHROME", ""))
+    """3.1.0.0 R1: the driver base's (tests/helpers/chrome_driver.py): HALO_CHROME first."""
+    from tests.helpers.chrome_driver import find_chrome as _find
+    return _find()
 
 
 def seeded_home() -> Path:
@@ -86,16 +87,9 @@ def shell_counts(dom: str) -> dict:
 
 
 def chrome(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | None":
-    exe = find_chrome()
-    if not exe:
-        return None
-    profile = tempfile.mkdtemp(prefix="halo-chrome-")
-    cmd = [exe, "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--user-data-dir={profile}",
-           "--virtual-time-budget=6000", *args]
-    try:
-        return subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout)
-    finally:
-        shutil.rmtree(profile, ignore_errors=True)
+    """One `--dump-dom` / `--screenshot` run under the one-Chrome-at-a-time lock (chrome_driver.one_shot)."""
+    from tests.helpers.chrome_driver import one_shot
+    return one_shot(args, timeout=timeout)
 
 
 def main(argv: list) -> int:
@@ -107,6 +101,16 @@ def main(argv: list) -> int:
     args = parser.parse_args(argv)
     if args.org:  # the old flag: the Org section
         args.mode = "org"
+    from tests.helpers.chrome_driver import scope_home
+    made = scope_home()  # first thing (3.1.0.0 R1): nothing below reads the real home; seeded_home re-scopes it
+    try:
+        return _render(args)
+    finally:
+        if made is not None:
+            shutil.rmtree(made, ignore_errors=True)
+
+
+def _render(args) -> int:
     state = seeded_home()
     if args.mode in ("flow", "media"):  # the Flow section over seeded runs (tools/capture_flow.py)
         from capture_flow import capture

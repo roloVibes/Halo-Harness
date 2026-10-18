@@ -17,11 +17,14 @@ import shutil
 import sys
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
+
+from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 Q = "document.querySelectorAll"
 
@@ -128,32 +131,33 @@ def design(c, url: str, state: Path) -> dict:
     return out
 
 
+class OrgDesignDriver(Driver):
+    """`org`, `design`, `design-rest` over capture_studio's seeded home (no model call: design_api.RUNNER)."""
+
+    no_chrome = {"skip": "no Chrome found"}
+
+    @contextmanager
+    def session(self, c):
+        from capture_studio import seeded_home, serve
+        state = seeded_home()
+        mode = self.argv[0] if self.argv else "org"
+        section = "design" if mode.startswith("design") else mode
+        srv, url = serve(state, True)
+        url = url.replace("mode=orchestra", f"mode={section}").replace("feed=off", "tour=off" if section == "design" else "feed=off&tour=off")
+        try:
+            if mode == "design-rest":
+                from tests.helpers.studio_design_rest import design_rest
+                yield ((design_rest, (c, url, state)),)
+            else:
+                yield ((org if mode == "org" else design, (c, url, state)),)
+        finally:
+            srv.shutdown()
+            srv.server_close()
+            shutil.rmtree(state.parent, ignore_errors=True)
+
+
 def main(argv: list) -> int:
-    from capture_studio import find_chrome, seeded_home, serve
-    from tests.helpers.cdp import Chrome
-    exe = find_chrome()
-    if not exe:
-        print(json.dumps({"skip": "no Chrome found"}))
-        return 2
-    state = seeded_home()
-    mode = argv[0] if argv else "org"
-    section = "design" if mode.startswith("design") else mode
-    srv, url = serve(state, True)
-    url = url.replace("mode=orchestra", f"mode={section}").replace("feed=off", "tour=off" if section == "design" else "feed=off&tour=off")
-    c = Chrome(exe)
-    try:
-        if mode == "design-rest":
-            from tests.helpers.studio_design_rest import design_rest
-            got = design_rest(c, url, state)
-        else:
-            got = org(c, url, state) if mode == "org" else design(c, url, state)
-        print(json.dumps(got))
-        return 0
-    finally:
-        c.close()
-        srv.shutdown()
-        srv.server_close()
-        shutil.rmtree(state.parent, ignore_errors=True)
+    return OrgDesignDriver(argv).main()
 
 
 if __name__ == "__main__":

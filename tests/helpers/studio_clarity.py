@@ -8,14 +8,16 @@ a subprocess with a scrubbed environment, like tools/capture_studio.py:
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
-import json
 import shutil
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
+
+from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 
 def panel(c, url: str) -> dict:
@@ -61,32 +63,33 @@ def panel(c, url: str) -> dict:
     return out
 
 
+class ClarityDriver(Driver):
+    """`panel`: the Orchestra panel checks over a finished run, Studio over capture_studio's seeded home."""
+
+    no_chrome = {"skip": "no Chrome found"}
+
+    @contextmanager
+    def session(self, c):
+        from capture_studio import seeded_home, serve
+        state = seeded_home()
+        repo = None
+        if self.argv[:1] == ["panel"]:
+            from tests.helpers.orchestra_studio_rig import finished_run
+            repo, _run = finished_run()
+        srv, url = serve(state, True, repo)
+        try:
+            yield ((panel, (c, url)),)  # 3.0.7.0 R2: the Roles checks are tests/helpers/studio_roles.py
+        finally:
+            srv.shutdown()
+            srv.server_close()
+            if repo is not None:
+                from tests.helpers.orchestra_studio_rig import cleanup
+                cleanup(repo)
+            shutil.rmtree(state.parent, ignore_errors=True)
+
+
 def main(argv: list) -> int:
-    from capture_studio import find_chrome, seeded_home, serve
-    from tests.helpers.cdp import Chrome
-    exe = find_chrome()
-    if not exe:
-        print(json.dumps({"skip": "no Chrome found"}))
-        return 2
-    state = seeded_home()
-    repo = None
-    if argv[:1] == ["panel"]:
-        from tests.helpers.orchestra_studio_rig import finished_run
-        repo, _run = finished_run()
-    srv, url = serve(state, True, repo)
-    c = Chrome(exe)
-    try:
-        got = panel(c, url)  # 3.0.7.0 R2: the Roles checks are tests/helpers/studio_roles.py
-        print(json.dumps(got))
-        return 0
-    finally:
-        c.close()
-        srv.shutdown()
-        srv.server_close()
-        if repo is not None:
-            from tests.helpers.orchestra_studio_rig import cleanup
-            cleanup(repo)
-        shutil.rmtree(state.parent, ignore_errors=True)
+    return ClarityDriver(argv).main()
 
 
 if __name__ == "__main__":

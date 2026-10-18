@@ -98,13 +98,11 @@ def shoot(c, png: Path) -> int:
 
 
 def capture(out: str, as_dom: bool, serve, state: Path) -> int:
-    from capture_studio import find_chrome
-    from tests.helpers.cdp import Chrome
-    exe = find_chrome()
-    if not exe:
+    from tests.helpers.chrome_driver import open_chrome
+    c = open_chrome()  # the driver base: HALO_CHROME first, one headless Chrome at a time
+    if c is None:
         print("no Chrome found")
         return 2
-    c = Chrome(exe)
     srv = None
     try:
         if as_dom:

@@ -37,12 +37,8 @@ CAPTURES = REPO / "tools" / "captures.json"
 DEFAULT_OUT = REPO / "docs" / "media"
 CHROME_ENV = os.environ.get("HALO_CHROME", "")  # read before scripts/screenshots.py scrubs HALO_*
 
-_CHROME_CANDIDATES = (
-    "C:/Program Files/Google/Chrome/Application/chrome.exe",
-    "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-)
-_CHROME_NAMES = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome")
+if str(REPO) not in sys.path:  # the Chrome driver base lives in tests/helpers (3.1.0.0 R1)
+    sys.path.insert(0, str(REPO))
 
 
 def load_captures() -> dict:
@@ -50,17 +46,9 @@ def load_captures() -> dict:
 
 
 def find_chrome(explicit: str = "") -> "str | None":
-    for cand in (explicit, CHROME_ENV):
-        if cand and Path(cand).exists():
-            return cand
-    for cand in _CHROME_CANDIDATES:
-        if Path(cand).exists():
-            return cand
-    for name in _CHROME_NAMES:
-        found = shutil.which(name)
-        if found:
-            return found
-    return None
+    """tests/helpers/chrome_driver.find_chrome, with the HALO_CHROME read at import as a fallback."""
+    from tests.helpers.chrome_driver import find_chrome as _find
+    return _find(explicit or CHROME_ENV)
 
 
 def write_text(path: Path, text: str) -> None:
@@ -109,16 +97,18 @@ def assemble_animation(frames: "list[str]", seconds: "list[float]") -> str:
 
 def render_png(chrome: str, svg_path: Path, png_path: Path, scale: int) -> bool:
     width, height = viewbox(svg_path.read_text(encoding="utf-8"))
-    profile = tempfile.mkdtemp(prefix="halo-chrome-")
-    cmd = [chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--user-data-dir={profile}",
-           f"--screenshot={png_path}", f"--window-size={int(width + 0.999)},{int(height + 0.999)}",
-           f"--force-device-scale-factor={scale}", svg_path.resolve().as_uri()]
-    try:
-        subprocess.run(cmd, capture_output=True, timeout=90)
-    except (OSError, subprocess.SubprocessError):
-        return False
-    finally:
-        shutil.rmtree(profile, ignore_errors=True)
+    from tests.helpers.chrome_lock import chrome_lock
+    with chrome_lock():  # one headless Chrome at a time (3.1.0.0 R1)
+        profile = tempfile.mkdtemp(prefix="halo-chrome-")
+        cmd = [chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--user-data-dir={profile}",
+               f"--screenshot={png_path}", f"--window-size={int(width + 0.999)},{int(height + 0.999)}",
+               f"--force-device-scale-factor={scale}", svg_path.resolve().as_uri()]
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=90)
+        except (OSError, subprocess.SubprocessError):
+            return False
+        finally:
+            shutil.rmtree(profile, ignore_errors=True)
     return png_path.exists() and png_path.stat().st_size > 1000
 
 
