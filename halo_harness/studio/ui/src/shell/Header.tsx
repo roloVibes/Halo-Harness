@@ -1,9 +1,11 @@
 // The top bar: brand, the seven section tabs (a tab "works" while its section
-// has fresh activity), the ? that opens "How this works" for the section, the
-// command palette button and the theme menu.
+// has fresh activity), the ? menu ("How this works" for the section and,
+// from 3.1.1.0 R1, the Glossary), the command palette button and the theme
+// menu.
 import { useEffect, useRef, useState } from "react";
 import { Button, Icon, Kbd, Tabs, type TabItem } from "../lib/ui";
 import { goSection, openHelp, setTheme, studio, toggleRail, useStore, type SectionId, type ThemeChoice } from "../lib/store";
+import { openGlossary } from "../lib/glossary";
 import { useRecent } from "../lib/motion";
 import { SECTIONS, sectionDef } from "../routes";
 
@@ -30,8 +32,8 @@ const THEMES: { id: ThemeChoice; label: string; icon: string }[] = [
   { id: "auto", label: "Follow the system", icon: "auto" },
 ];
 
-function ThemeMenu() {
-  const theme = useStore(studio, (s) => s.theme);
+/** A menu's open state: closes on Esc and on a press outside its box. */
+function useMenu() {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -46,6 +48,45 @@ function ThemeMenu() {
       window.removeEventListener("keydown", off);
     };
   }, [open]);
+  return { open, setOpen, box };
+}
+
+function HelpMenu({ section }: { section: SectionId }) {
+  const { open, setOpen, box } = useMenu();
+  const title = sectionDef(section).title;
+  return (
+    <div className="menu-wrap section-help-wrap" ref={box}>
+      <button
+        className="icon-btn icon-btn-lg section-help-btn"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        title={`Help: how ${title} works, the glossary (?)`}
+        aria-label="Help"
+        data-testid="section-help-btn"
+      >
+        <Icon name="help" />
+      </button>
+      {open && (
+        <div className="menu menu-left glass" role="menu" aria-label="Help" data-testid="help-menu">
+          <button role="menuitem" className="menu-item" data-testid="section-help-item" onClick={() => (setOpen(false), openHelp(section))}>
+            <Icon name="help" />
+            <span>How {title} works</span>
+            <Kbd keys="?" />
+          </button>
+          <button role="menuitem" className="menu-item" data-testid="glossary-item" onClick={() => (setOpen(false), openGlossary())}>
+            <Icon name="file" />
+            <span>Glossary</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ThemeMenu() {
+  const theme = useStore(studio, (s) => s.theme);
+  const { open, setOpen, box } = useMenu();
   const cur = THEMES.find((t) => t.id === theme) ?? THEMES[0];
   return (
     <div className="menu-wrap" ref={box}>
@@ -89,15 +130,7 @@ export function Header() {
         <span className="brand-sub mono">STUDIO</span>
       </div>
       <Tabs label="Sections" items={tabs} value={section} onChange={(id) => goSection(id as SectionId)} />
-      <button
-        className="icon-btn icon-btn-lg section-help-btn"
-        onClick={() => openHelp(section)}
-        title={`How ${sectionDef(section).title} works (?)`}
-        aria-label={`How ${sectionDef(section).title} works`}
-        data-testid="section-help-btn"
-      >
-        <Icon name="help" />
-      </button>
+      <HelpMenu section={section} />
       <div className="spacer" />
       <Button variant="ghost" className="palette-btn" onClick={() => studio.update(() => ({ paletteOpen: true }))} icon={<Icon name="search" />}>
         <span className="palette-btn-text">Command</span>

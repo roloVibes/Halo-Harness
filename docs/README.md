@@ -33,6 +33,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 - [HANDBOOK.md](HANDBOOK.md) (Halo Harness handbook): read this when you want the long-form guide: configuration, providers, permissions, steering, hooks, skills, MCP, sessions and themes.
 - [COMMANDS.md](COMMANDS.md) (Commands): read this when you want every `halo` subcommand and flag, with examples.
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
+- [GLOSSARY.md](GLOSSARY.md) (Glossary): read this when a word in Halo is new to you.
   - [SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md) (Slash commands: sessions, models and context): read this when you manage the session, its model, memory, permissions or config from the prompt (`/clear`, `/model`, `/recall`, `/config` ...).
   - [SLASH-COMMANDS-agents.md](SLASH-COMMANDS-agents.md) (Slash commands: agents, lineups, roles and review): read this when you work with bios, lineups, roles, organizations or `/review` from the prompt.
   - [SLASH-COMMANDS-providers.md](SLASH-COMMANDS-providers.md) (Slash commands: providers, fleet and upkeep): read this when you set up providers, subscriptions, rate limits, remote control or the fleet, or run `/doctor`, `/update` and `/bugreport`.

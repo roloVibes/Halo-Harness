@@ -116,3 +116,8 @@ runner and the validator), `team/blocks.py`, `team/board.py`,
 `team/stages.py`, `team/triggers.py`, `team/run.py`, `team/run_stage.py`,
 `team/guard.py`, `team/delegate.py`, `team/adapters.py`, `team/cli.py`,
 `team/cli_run.py`.
+
+- The first ten minutes (3.1.1.0): `studio/start_api.py` (Start here: `/api/start`),
+  `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),
+  `studio/glossary_api.py` (`GET /api/glossary`, docs/GLOSSARY.md); the guided run
+  itself is `halo_harness/start/` (engine, steps, the sample repo, the fake model calls)

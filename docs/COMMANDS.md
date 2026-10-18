@@ -2902,6 +2902,72 @@ halo team answer draft redo --text "shorter, and name the price"
 halo team answer draft accept
 ```
 
+## `halo start` (Halo 3.1.1.0)
+
+```sh
+halo start                          # the ten-minute start, one screen per step
+halo start --yes                    # straight through: no Enter between steps, the plan approved
+halo start --json                   # only the summary as JSON at the end (asks nothing)
+halo start --lineup balanced        # copy another shipped lineup (default halo-dev-cycle)
+halo start --repo ~/src/mine --file basket.py   # run in a git repo of your own
+```
+
+The guided first run: seven screens, each with one sentence of why and the
+command it runs. Enter runs the step, `q` stops the start there.
+
+1. **The lineup**: copies the shipped lineup (`--lineup`, default
+   `halo-dev-cycle`) into your scope as `my-<name>` and shows its cards as a
+   table with their tiers. Your active lineup stays what it was
+   (`halo teams use my-<name>` makes the copy the one sessions use).
+2. **The sample repo**: writes `~/.halo/start/<yyyy-mm-dd>/basket/`
+   (`basket-2`, ... on a second start the same day): the Orchestra sample
+   `basket.py` (five functions to write) and `test_basket.py`, `git init`
+   and one commit. `--repo DIR` uses your own git repo instead; it must
+   hold every `--file` (default `basket.py`).
+3. **The goal**: `halo orchestra new` + `halo orchestra run --review` with
+   the fixed goal "Write the five functions of basket.py" (the run pauses
+   after the lead's split). The lineup preflight runs first.
+4. **The plan**: the lead's plan as `halo orchestra plan` prints it, two
+   sentences on layers and hand-offs, then Enter approves it, `s` opens it
+   on Studio's plan canvas (`halo studio --mode orchestra` in the sample
+   repo) and waits for the decision made there, `q` rejects it and stops.
+5. **The run**: the lanes table (`halo orchestra lanes`), drawn again as
+   lanes change, until the run ends.
+6. **The report and the coach**: the report's checks (`halo orchestra
+   report`) and the coach's cards (`halo orchestra coach`); Apply opens the
+   bio in Studio.
+7. **Where to go next**: Roles (`halo studio --mode roles`), Team (`halo team
+   init`) and Fleet (`halo fleet pair`), each with its command.
+
+Options: `--lineup NAME`, `--repo DIR`, `--file F` (repeatable, with
+`--repo`), `--model REF` (the model every part uses; default your roles),
+`--yes`, `--json`, `--no-studio` (step 4 does not offer the plan canvas).
+
+It runs on the model you configured. With no provider configured it says
+so and offers `halo init` (which sets one up; `halo setup` is the team and
+orgs screens for later), exit 2. `HALO_START_FAKE=1` swaps every model call
+for a fake lead, fake workers and a fake judge (`halo_harness/start/fake.py`),
+so the whole path runs in a few seconds with no model: the tests use it.
+`halo init`'s last step asks "Run the ten-minute start now?" (default No,
+and No in a non-interactive run); `/start` in the TUI and Studio's Start
+here overlay run the same start. Exit codes: 0 every step done, 1 a step
+failed or the start was stopped, 2 usage or no provider.
+
+## `halo explain`
+
+```sh
+halo explain                 # every word, with its first sentence
+halo explain lineup          # the word's paragraph
+halo explain hand-offs       # fuzzy: plurals, hyphens, spaces, a prefix (orch), a near spelling
+halo explain --json tier     # {query, word, text, closest}
+```
+
+One paragraph per word Halo uses (lineup, bio, role, tier, team, member,
+block, stage, lane, part, flow, step, mission, gate, claim, hand-off, plan,
+coach, orchestra run, fleet, hub, harness, capability), from
+[GLOSSARY.md](GLOSSARY.md): the same text `/explain` shows in the TUI and
+Studio's Glossary lists. An unknown word names the closest ones, exit 1.
+
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 
 ```sh

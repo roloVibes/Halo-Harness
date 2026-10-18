@@ -6,7 +6,7 @@
 // Roles (3.0.7.0 R2: the live agents into the Roles store for its React
 // canvas), the mini stream and the Fleet dialogs (R4: take over, hand to,
 // message, kick, a recording); 3.0.7.0 R3: the Org and Design dialogs; R2:
-// the Roles dialogs.
+// the Roles dialogs. 3.1.1.0 R1: the Glossary and "Start here" (a fresh home's offer of the ten-minute start).
 import { useEffect } from "react";
 import { studio, useStore, welcomeIfNew } from "./lib/store";
 import { Workspace } from "./lib/workspace/Workspace";
@@ -18,6 +18,8 @@ import { Inspector } from "./shell/Inspector";
 import { StatusBar } from "./shell/StatusBar";
 import { Palette } from "./shell/Palette";
 import { SectionHelp } from "./shell/SectionHelp";
+import { Glossary } from "./shell/Glossary";
+import { StartHere } from "./shell/StartHere";
 import { startFeed } from "./shell/feed";
 import { useGlobalKeys } from "./shell/keys";
 import { FleetDialogs } from "./routes/fleet/Dialogs";
@@ -65,6 +67,8 @@ export function App() {
       <StatusBar />
       <Palette />
       <SectionHelp />
+      <Glossary />
+      <StartHere />
       <FleetDialogs />
       <PanelDialogs />
       <MissionDialogs />

@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|shell|orchestra|flow|media|fleet|team]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|shell|orchestra|flow|media|fleet|team|start]
 
 3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
 React Roles section: a seeded lineup with two tiers and a live card
@@ -97,7 +97,7 @@ def main(argv: list) -> int:
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--org", action="store_true", help="the Org section over a fake Paperclip seeded with the halo-dev-cycle company (= --mode org)")
-    parser.add_argument("--mode", choices=["roles", "org", "design", "shell", "orchestra", "flow", "media", "fleet", "team"], default="roles", help="org: the halo-dev-cycle company over a fake Paperclip; design: a seeded Launch page project (tools/design_demo.py); both React sections (tools/capture_org_design.py)")
+    parser.add_argument("--mode", choices=["roles", "org", "design", "shell", "orchestra", "flow", "media", "fleet", "team", "start"], default="roles", help="org: the halo-dev-cycle company over a fake Paperclip; design: a seeded Launch page project (tools/design_demo.py); both React sections (tools/capture_org_design.py)")
     args = parser.parse_args(argv)
     if args.org:  # the old flag: the Org section
         args.mode = "org"
@@ -111,6 +111,11 @@ def main(argv: list) -> int:
 
 
 def _render(args) -> int:
+    if args.mode == "start":  # 3.1.1.0 R1: a fresh home's "Start here" overlay (tools/capture_start.py)
+        from capture_start import capture as capture_start
+        if args.out.endswith("studio.png"):
+            args.out = args.out[:-4] + "-start.png"
+        return capture_start(args.out, args.dom, chrome, serve)
     state = seeded_home()
     if args.mode in ("flow", "media"):  # the Flow section over seeded runs (tools/capture_flow.py)
         from capture_flow import capture

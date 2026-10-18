@@ -21,7 +21,8 @@ type Handler = (frame: FeedFrame) => void;
 // Every kind the server forwards (studio/feed_kinds.py DEFAULT_KINDS) plus the synthesized `sessions`.
 // 3.0.5.0 Fleet: agent_state (an agent-tree row changed), agent_event (a followed agent's entry), fleet.
 // 3.0.7.0 R3: design_turn (a Design turn's steps). 3.0.8.0 R2: team (a team run's stage, gate, claim and change
-// lines, published by Studio itself: studio/team_live.py).
+// lines, published by Studio itself: studio/team_live.py). 3.1.1.0 R1: start (the ten-minute start's steps,
+// studio/start_job.py).
 export const KNOWN_KINDS = [
   "sessions", "user_message", "message_start", "message_end", "text_chunk", "tool_use_start", "tool_result",
   "tool_progress", "permission_request", "question", "plan_review", "approval_request", "todos", "status",
@@ -29,7 +30,7 @@ export const KNOWN_KINDS = [
   "notification", "phase", "compaction", "governor", "remote_attached",
   "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
   "flow_state", "flow_step", "flow_gate", "flow_post", "flow_metric", "flow_report", "media_render",
-  "agent_state", "agent_event", "fleet", "design_turn", "team",
+  "agent_state", "agent_event", "fleet", "design_turn", "team", "start",
 ];
 
 const handlers = new Map<string, Set<Handler>>();

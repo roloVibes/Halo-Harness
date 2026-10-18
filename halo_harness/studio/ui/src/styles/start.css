@@ -1,0 +1,58 @@
+/* The first ten minutes (3.1.1.0 R1): the "Start here" overlay and the
+   ten-minute start's steps, the Glossary dialog, the WORDS row of each
+   section's help, the ? menu, and the "Next" footer of every Start view.
+   Tokens only. */
+
+/* -- Start here ---------------------------------------------------------------- */
+.dialog.start-here { width: min(760px, calc(100vw - 32px)); }
+.start-here .dialog-body { max-height: calc(100vh - 220px); overflow: auto; }
+.start-here .dialog-foot { justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; }
+.sh-offer { display: grid; gap: 10px; font-size: 14px; max-width: 64ch; }
+.sh-offer p { margin: 0; }
+.sh-run { display: grid; gap: 14px; }
+.sh-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sh-step { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 13px; }
+.sh-step-n {
+  display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 10.5px;
+  color: var(--muted); border: 1px solid var(--line); background: var(--bg-2);
+}
+.sh-step[data-state="running"] .sh-step-n, .sh-step[data-state="ready"] .sh-step-n { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); animation: sh-pulse 1.6s var(--ease) infinite; }
+.sh-step[data-state="done"] .sh-step-n { color: var(--ok); border-color: var(--ok); }
+.sh-step[data-state="failed"] .sh-step-n { color: var(--bad); border-color: var(--bad); }
+.sh-step[data-state="stopped"] .sh-step-n { color: var(--warn); border-color: var(--warn); }
+.sh-step-body { display: grid; gap: 3px; min-width: 0; }
+.sh-step-cmd { font-size: 11.5px; color: var(--accent); overflow-wrap: anywhere; }
+.sh-step-lines {
+  margin: 4px 0 0; padding: 8px 10px; font-size: 11px; line-height: 1.45; max-height: 190px; overflow: auto;
+  white-space: pre; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2);
+}
+.sh-done { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13px; }
+.sh-done p { margin: 0; }
+.sh-done code { overflow-wrap: anywhere; }
+
+/* -- the Glossary ---------------------------------------------------------------- */
+.dialog.glossary { width: min(720px, calc(100vw - 32px)); }
+.glossary .dialog-body { max-height: calc(100vh - 220px); overflow: auto; }
+.glossary .dialog-foot { justify-content: space-between; align-items: center; gap: 12px; }
+.glossary-note { font-size: 12px; }
+.glossary-list { display: grid; gap: 4px; }
+.glossary-item { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+.glossary-item[open] { border-color: var(--line-strong); }
+.glossary-term { padding: 7px 10px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.glossary-text { margin: 0; padding: 0 12px 10px; font-size: 13px; color: var(--muted); max-width: 76ch; }
+
+/* -- each section's help: the WORDS row; the ? menu ------------------------------- */
+.section-help-terms { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.section-help-terms .rail-label { margin-right: 4px; }
+.section-help-term { font-size: 11.5px; }
+.section-help-term:hover { color: var(--accent); border-color: var(--accent); }
+.menu.menu-left { right: auto; left: 0; }
+.section-help-wrap .menu-item .kbd-group { margin-left: auto; }
+
+/* -- the Start views' "Next" footer ------------------------------------------------ */
+.start-next { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); }
+.start-next-label { font-size: 11px; color: var(--accent); letter-spacing: .08em; }
+.start-next-btn { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; font-size: 13px; color: inherit; }
+.start-next-btn:hover b { color: var(--accent); }
+@keyframes sh-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .sh-step-n { animation: none !important; } }

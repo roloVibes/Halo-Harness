@@ -279,7 +279,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo", add_help=True,
         description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
-        epilog="Commands: init, studio, design, media, flow, orchestra, team, teams, agents, roles, paperclip, models, mcp, proxy, "
+        epilog="Commands: init, start, explain, studio, design, media, flow, orchestra, team, teams, agents, roles, paperclip, models, mcp, proxy, "
                "config, doctor, update, stats, review, preflight, subscriptions, audit, improve, export, "
                "completion (run `halo <command> --help`; `halo init` sets up a fresh box in one go). "
                "The GUI: `halo studio --mode roles|org|design` -- lineups and agent bios as a graph, "
@@ -580,6 +580,14 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "setup":
         from halo_harness.setup_cli import cmd_setup
         return cmd_setup(argv[1:])
+    if argv and argv[0] == "start":
+        # 3.1.1.0 R1: the ten-minute guided first run (halo_harness/start/).
+        from halo_harness.start_cli import cmd_start
+        return cmd_start(argv[1:])
+    if argv and argv[0] == "explain":
+        # 3.1.1.0 R1: one paragraph per word Halo uses (docs/GLOSSARY.md).
+        from halo_harness.explain_cli import cmd_explain
+        return cmd_explain(argv[1:])
     if argv and argv[0] == "remote":
         from halo_harness.remote.cli import cmd_remote
         return cmd_remote(argv[1:])
