@@ -144,6 +144,9 @@ def flow_graph(c, url: str, out: dict) -> None:
 
 
 def main() -> int:
+    from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
+    ensure_scoped_state_dir_once()  # tests/test_studio_ui.py scrubs BRIDGE_*: without this the Studio server's fleet
+    # identity and run folder land in the real ~/.halo (the suite's real-state-dir guard fails on a runner without one)
     from capture_studio import find_chrome
     exe = find_chrome()
     if not exe:
