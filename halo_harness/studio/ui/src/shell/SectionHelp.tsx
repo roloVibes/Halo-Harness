@@ -2,9 +2,11 @@
 // the section's panels with their one-line `about`, and the keys. Opened from
 // the ? beside the section tabs, the palette (Help: how <section> works) and
 // `?`; the first time a section shows in this browser the same card comes up
-// as its welcome, with Got it (halo.studio.seen.<section>).
+// as its welcome, with Got it (halo.studio.seen.<section>). 3.1.1.0 R1: the
+// WORDS row links each glossary word the section uses into the Glossary.
 import { Button, Dialog, Kbd } from "../lib/ui";
 import { closeHelp, studio, useStore } from "../lib/store";
+import { openGlossary } from "../lib/glossary";
 import { sectionDef } from "../routes";
 import { SECTION_HELP } from "../routes/sectionHelp";
 
@@ -47,6 +49,23 @@ export function SectionHelp() {
             </li>
           ))}
         </ol>
+        <div className="section-help-terms" aria-label="Words">
+          <span className="rail-label mono">WORDS</span>
+          {copy.terms.map((w) => (
+            <button
+              key={w}
+              className="og-chip section-help-term"
+              data-testid="help-term"
+              title={`What "${w}" means (the Glossary)`}
+              onClick={() => {
+                closeHelp();
+                openGlossary(w);
+              }}
+            >
+              {w}
+            </button>
+          ))}
+        </div>
         <div className="section-help-cols">
           <section aria-label="Panels">
             <div className="rail-label mono">PANELS</div>

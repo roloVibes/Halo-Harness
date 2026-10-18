@@ -142,6 +142,11 @@ class WizardState:
     # "the Summary says what it chose").
     offer_quick_full: bool = False
     quick_setup: bool = False
+    # Halo 3.1.1.0 R1: the standalone `halo init` Summary offers "Run the
+    # ten-minute start now" (default off); Finish with it on sets
+    # `run_start`, and init_cli runs `halo start` once the app has exited.
+    offer_start: bool = False
+    run_start: bool = False
 
     # Halo 2.0.4 round 4 (deliverable 1): the merged model list from ONE
     # live, off-thread enumeration run right after the Providers step's
@@ -1624,6 +1629,10 @@ class SummaryStep(StepScreen):
         widgets.append(Static("Running checks…", id="wiz-summary-text"))
         # Rule 10: "Change" jumps back into each step -- every key this
         # run actually used (never "summary" itself, nothing to jump to).
+        if self.state.offer_start:  # 3.1.1.0 R1: the last step offers the ten-minute start (default No)
+            from textual.widgets import Checkbox
+            widgets.append(Checkbox("Run the ten-minute start now (halo start: a lineup, a sample repo, one "
+                                    "Orchestra run)", value=False, id="wiz-summary-start"))
         change_rows = [(k, STEP_TITLES.get(k, k)) for k in self.state.step_keys if k != "summary"]
         if change_rows:
             widgets.append(Static("Change:", classes="dialog-subtitle"))
@@ -1633,6 +1642,14 @@ class SummaryStep(StepScreen):
 
     def on_mount(self) -> None:
         guarded_worker(self, self._run_checks_worker, thread=True, name="wiz-summary-checks")
+
+    def commit(self) -> None:
+        if self.state.offer_start:
+            from textual.widgets import Checkbox
+            try:
+                self.state.run_start = bool(self.query_one("#wiz-summary-start", Checkbox).value)
+            except Exception:
+                self.state.run_start = False
 
     def on_option_list_option_selected(self, event) -> None:
         if event.option_list.id == "wiz-summary-change-list" and event.option_id:
@@ -1761,7 +1778,7 @@ def run_init_wizard(*, cwd, team: Optional[str] = None, no_live: bool = False,
                          # `start_step`) means the owner already knows
                          # exactly where they want to land, so the gate
                          # would just be in the way.
-                         offer_quick_full=(start_step is None))
+                         offer_quick_full=(start_step is None), offer_start=True)
     app = InitWizardApp(state)
     app.run()
     return app

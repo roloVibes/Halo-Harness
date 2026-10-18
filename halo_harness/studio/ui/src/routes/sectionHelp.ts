@@ -1,10 +1,12 @@
 // "How this works" for each section: what it is, five to eight numbered
-// steps and the keys. The overlay (shell/SectionHelp.tsx) adds the section's
-// panels with their `about` lines; the first-visit welcome shows the same.
-// docs/STUDIO.md "How each section works" mirrors this copy.
+// steps, the keys and (3.1.1.0 R1) the glossary words it uses, each a link
+// into the Glossary (docs/GLOSSARY.md; tests/test_glossary.py checks every
+// word here has a paragraph). The overlay (shell/SectionHelp.tsx) adds the
+// section's panels with their `about` lines; the first-visit welcome shows
+// the same. docs/STUDIO.md "How each section works" mirrors this copy.
 import type { SectionId } from "../lib/store";
 
-export type SectionHelpCopy = { what: string; steps: [string, string][]; keys: [string, string][] };
+export type SectionHelpCopy = { what: string; steps: [string, string][]; keys: [string, string][]; terms: string[] };
 
 const PANEL_KEYS: [string, string][] = [
   ["?", "help for the focused panel; press it again (or away from a panel) for this page"],
@@ -22,6 +24,7 @@ const HOP_KEYS: [string, string][] = [
 
 export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
   orchestra: {
+    terms: ["orchestra run", "lane", "claim", "plan", "hand-off", "gate", "coach", "lineup"],
     what: "Several agents write to the same files at once and nothing is lost: a lead splits your goal into lanes, one worker per lane writes its part in its own git worktree, and a gate checks the result before it lands.",
     steps: [
       ["Write the goal", "WHAT YOU WANT, how Halo knows it is done (DONE WHEN) and when to give up (STOP WHEN), plus the files the workers share and the test the gate runs."],
@@ -36,6 +39,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
     keys: [["Alt+1", "Orchestra"], ["J / K", "focus the next / previous lane at work"], ["F", "the Log follows the newest line"], ...PANEL_KEYS],
   },
   roles: {
+    terms: ["lineup", "bio", "role", "tier"],
     what: "A lineup says which agent, on which model, plays each part in your sessions, and in which tier it sits. Studio shows it as cards in tier boxes you can arrange and edit; the files are ~/.halo/teams/<name>.yaml and ~/.halo/agents/<name>.yaml.",
     steps: [
       ["Pick a lineup", "Lineups lists yours and the shipped ones (the active one is marked); New makes your own copy. Each card on the canvas is one slot: an agent bio in a role, with the model that resolves for it, its price and its context."],
@@ -50,6 +54,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Ctrl+Z / Ctrl+Shift+Z", "undo / redo a lineup edit"], ["Mod+S", "save the lineup"], ["J / K", "the next / previous card whose agent works: its Live tab opens"], ["Space", "pin that agent's mini stream"], ...PANEL_KEYS],
   },
   org: {
+    terms: ["lineup", "bio", "role"],
     what: "Your company of agents in Paperclip: an org chart with goals, issues, heartbeats and budgets. Halo's lineups become its agents, and Studio shows the company live.",
     steps: [
       ["Get Paperclip running", "The Start view's Install Paperclip runs npx paperclipai onboard (Node 24 or newer); an installed one starts with npx paperclipai run."],
@@ -63,6 +68,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
     keys: [["Alt+3", "Org"], ["A", "lay the chart out (click it first)"], ["F", "fit it to the panel"], ["+ / -", "zoom"], ["Mod+K", "Org: sync, Org: pull, Org: link company"], ...PANEL_KEYS],
   },
   design: {
+    terms: ["harness", "capability"],
     what: "Prototypes, pages, decks and logos made by your own apps and models. A project is a folder of artboards under ~/.halo/design/<slug>/, and every turn saves a new version.",
     steps: [
       ["Make or open a project", "The Start view names the first one; then Projects lists them all, and New project makes another."],
@@ -77,6 +83,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
     keys: [["Alt+4", "Design"], ["Enter", "send the message (Shift+Enter: a new line)"], ["Mod+K", "Design: send, Design: cancel turn, Design: export, Design: new project"], ...PANEL_KEYS],
   },
   flow: {
+    terms: ["flow", "step", "gate", "role", "coach"],
     what: "A brief goes through your roles and a marketing org, ComfyUI renders the Art Director's prompt, you confirm the picture, then the posts go out and their metrics come back, all in one design project.",
     steps: [
       ["Write a brief", "On the Start view: the brief, the platforms, the budget and the design project; drop assets if you have them."],
@@ -89,6 +96,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
     keys: [["Alt+5", "Flow"], ...PANEL_KEYS],
   },
   fleet: {
+    terms: ["fleet", "hub", "harness", "capability", "mission", "part", "hand-off", "claim"],
     what: "Every Halo harness you run or joined, its sessions and every agent in them, live: what each one thinks, runs and writes, every decision that waits on you, what it all costs, and the controls to steer, pause, stop, take over or hand off any one agent.",
     steps: [
       ["See every harness", "This harness is the first box. Another machine joins with a pair code: Make a pair code on the Start view (or the palette), then halo fleet join on the other machine. People lists them all."],
@@ -108,6 +116,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["A / R / S / O", "in Attention: accept, deny or redo (with a text), stop, open"], ["J / K", "in Attention: the next / previous row"], ...PANEL_KEYS],
   },
   team: {
+    terms: ["team", "member", "block", "stage", "claim", "gate", "lineup", "harness"],
     what: "Your project's team file as one board: who works on it (members, each a part of a lineup, here or on a fleet harness), where their work lands (blocks: a file, a folder or a git tree, each with its claim ledger) and in which order (stages: an agent turn, an Orchestra run or a flow).",
     steps: [
       ["The team file", "<repo>/.halo/team.yaml (else ~/.halo/teams/<project>.team.yaml): the brief every agent reads first, the members, the blocks and the stages. The Start view's Make my first team writes it from the template; Validate checks it and runs the lineup preflight."],

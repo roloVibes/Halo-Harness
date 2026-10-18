@@ -53,6 +53,9 @@ def panel(c, url: str) -> dict:
     c.click_on("document.querySelector('[data-panel=\"report\"] [data-testid=\"panel-compact\"]')")
     out["compact"] = c.wait("document.querySelector('[data-panel=\"report\"] .panel').dataset.face === 'glance' && 'glance'", 5)
     c.click_on("document.querySelector('[data-testid=\"section-help-btn\"]')")
+    c.wait("!!document.querySelector('[data-testid=\"help-menu\"]')", 5)  # 3.1.1.0 R1: the ? menu
+    out["help_menu"] = c.js("[...document.querySelectorAll('[data-testid=\"help-menu\"] [role=menuitem]')].map((b) => b.dataset.testid)")
+    c.click_on("document.querySelector('[data-testid=\"section-help-item\"]')")
     c.wait("!!document.querySelector('[data-testid=\"section-help\"]')", 5)
     out["section_title"] = c.js("document.querySelector('[data-testid=\"section-help\"] .dialog-title').textContent")
     out["section_steps"] = c.js("document.querySelectorAll('[data-testid=\"section-help\"] .section-help-steps li').length")

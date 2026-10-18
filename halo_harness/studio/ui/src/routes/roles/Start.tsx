@@ -12,6 +12,7 @@ import { SECTION_HELP } from "../sectionHelp";
 import { openDialog, setView, showsStart, useRoles } from "./store";
 import { startRoles } from "./sync";
 import { useRolesKeys } from "./keys";
+import { NextStep } from "../NextStep";
 
 export function StartView() {
   const copy = SECTION_HELP.roles;
@@ -51,6 +52,7 @@ export function StartView() {
             <button className="og-link mono" onClick={() => setView("workspace")} data-testid="roles-open-workspace">open the panels anyway</button>
           </aside>
         </div>
+        <NextStep from="roles" />
       </div>
     </div>
   );

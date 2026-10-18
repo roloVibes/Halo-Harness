@@ -13,6 +13,7 @@ import { installPaperclip } from "./actions";
 import { InstallLog } from "./Company";
 import { openDialog, setView, showsStart, useOrg } from "./store";
 import { poll, startOrg } from "./sync";
+import { NextStep } from "../NextStep";
 
 function Where() {
   const st = useOrg((s) => s.status);
@@ -74,6 +75,7 @@ export function StartView() {
             </button>
           </aside>
         </div>
+        <NextStep from="org" />
       </div>
     </div>
   );

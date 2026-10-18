@@ -1066,7 +1066,11 @@ def _run_init_wizard_flow(args, console: Console, cwd: Path) -> "Optional[int]":
         return None
     for w in app.state.team_warnings:
         console.print(f"   [WARN] {w}")
-    return 0 if (args.no_live or app.state.pong_ok) else 1
+    rc = 0 if (args.no_live or app.state.pong_ok) else 1
+    if rc == 0 and getattr(app.state, "run_start", False):  # 3.1.1.0 R1: the Summary's "Run the ten-minute start now"
+        from halo_harness.start_cli import cmd_start
+        return cmd_start([])
+    return rc
 
 
 def _run_init_tabs(args, console: Console, cwd: Path) -> "Optional[tuple]":
@@ -1243,4 +1247,22 @@ def cmd_init(argv: list) -> int:
 
     if not args.no_live and not pong_ok:
         return 1
-    return 0
+    return _step_offer_start(args, console)
+
+
+# ---------------------------------------------------------------------------
+# Last step (Halo 3.1.1.0 R1): offer the ten-minute start
+# ---------------------------------------------------------------------------
+
+START_QUESTION = "Run the ten-minute start now? (halo start: a lineup, a sample repo, one Orchestra run)"
+
+
+def _step_offer_start(args, console: Console) -> int:
+    """The wizard's last step: `halo start` right away, default No (and No
+    in a non-interactive run). Returns init's exit code (0; the start's own
+    code when it ran)."""
+    if not _confirm(args, console, START_QUESTION, default=False):
+        console.print("   The ten-minute start is there any time: halo start (or /start in the TUI).")
+        return 0
+    from halo_harness.start_cli import cmd_start
+    return cmd_start([])

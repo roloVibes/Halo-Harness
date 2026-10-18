@@ -51,10 +51,12 @@ Halo reads your <code>~/.claude</code> setup in place, so nothing is configured 
 
 ## Install
 
+Install, then `halo start`:
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.0.9.0/scripts/install-halo.sh | bash
 halo init        # the wizard: provider, model, permission mode, theme, lineup
-halo             # the full-screen TUI, from any directory
+halo start       # the ten-minute start: a lineup, a sample repo, one Orchestra run, its report and coach
 ```
 
 Windows:
@@ -74,10 +76,16 @@ Windows): it asks first, shows what uv changed, and `--no-modify-path` (`-NoModi
 or `/update` inside the TUI. Offline work boxes, PEP 668 and reproducible installs are
 covered in [docs/INSTALL.md](docs/INSTALL.md).
 
-**Your first minute.** `halo init` asks for a provider key, a default model and a
-permission mode, then `halo` opens the session. Type a request, watch the phase line
-count up, and steer by typing while the model works. `halo doctor` explains anything
-that is not right and ends each warning with its fix.
+**Your first ten minutes.** `halo init` asks for a provider key, a default model and a
+permission mode (its last step offers the ten-minute start). `halo start` then walks one
+real piece of work, one screen per step: it copies a shipped lineup into one of yours,
+writes a small sample repo, gives your agents one Orchestra goal, shows the lead's plan
+for you to approve (or change on Studio's plan canvas), runs the lanes, and ends on the
+report, the coach and where to go next. `halo explain <word>` says what any word means
+([docs/GLOSSARY.md](docs/GLOSSARY.md)). Then `halo` opens the full-screen TUI from any
+directory: type a request, watch the phase line count up, and steer by typing while the
+model works. `halo doctor` explains anything that is not right and ends each warning with
+its fix.
 
 ## What Halo is
 
@@ -452,6 +460,7 @@ tool, so check each tool's own docs.
 |---|---|
 | [docs/INSTALL.md](docs/INSTALL.md) | One-page install, upgrade and update guide |
 | [docs/HANDBOOK.md](docs/HANDBOOK.md) | The long-form guide: configuration, providers, permissions, steering, hooks, skills, MCP, sessions, themes, telemetry |
+| [docs/GLOSSARY.md](docs/GLOSSARY.md) | Every word Halo uses, one paragraph each (`halo explain <word>`) |
 | [docs/COMMANDS.md](docs/COMMANDS.md) | Every CLI command and flag |
 | [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Every slash command in the TUI |
 | [docs/CONFIG.md](docs/CONFIG.md) | Config keys, paths and environment variables |

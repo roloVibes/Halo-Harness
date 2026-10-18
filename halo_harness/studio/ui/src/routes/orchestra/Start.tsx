@@ -16,6 +16,7 @@ import { planPanels } from "./plan/PlanPanel";
 import { usePlan } from "./plan/store";
 import { loadingFirst, setView, showsStart, useOrch } from "./store";
 import { startOrchestra } from "./sync";
+import { NextStep } from "../NextStep";
 
 export function StartView() {
   const copy = SECTION_HELP.orchestra;
@@ -53,6 +54,7 @@ export function StartView() {
             </button>
           </aside>
         </div>
+        <NextStep from="orchestra" />
       </div>
     </div>
   );
