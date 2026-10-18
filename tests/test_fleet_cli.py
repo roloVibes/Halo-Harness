@@ -50,8 +50,13 @@ def test_pair_join_members_status_kick_leave_from_the_command_line(ctx: Ctx):
                   and "not accepted" in err)
         _controller, act = rig.session()
         wait_for(lambda: rig.member_session_online(act.session_id))
-        rc, out, err = cli(rig.root_a, "members", "--json")
-        rows = _json(out).get("members") or []
+        rows = []
+        for _ in range(4):  # a loaded Windows runner can read B offline for one hub tick while its relay re-attaches
+            rc, out, err = cli(rig.root_a, "members", "--json")
+            rows = _json(out).get("members") or []
+            if rc == 0 and rows and rows[0].get("online") is True:
+                break
+            time.sleep(2)
         ctx.check(f"`halo fleet members` lists B, online, and never a key, got {rows}", rc == 0 and len(rows) == 1
                   and rows[0]["name"] == "bob@member" and rows[0]["online"] is True and "key_hex" not in rows[0])
         rc, out, err = cli(rig.root_b, "status", "--json")
