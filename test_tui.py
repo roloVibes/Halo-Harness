@@ -4546,10 +4546,16 @@ def test_h9b_f11_two_parallel_children_get_separate_streams_and_never_touch_main
                         break
                 # The parent's own trailing message_end/turn_done events may
                 # still be queued right behind the text delta that just made
-                # "parent-final-answer" visible -- a few more drains let
-                # them actually apply before the status_bar/turn_done_count
-                # assertions below read a still-mid-flight state.
-                await _drain_a_few(app, pilot, n=10, pause=0.05)
+                # "parent-final-answer" visible -- keep draining until the
+                # status bar has settled idle and the parent's turn_done has
+                # fired (up to ~6 s: a loaded CI runner needs more than the
+                # fixed ten drains this used to do), then assert.
+                for _ in range(120):
+                    await app._drain()
+                    await pilot.pause(0.05)
+                    if app.status_bar.phase == "idle" and app._turn_done_count >= 1:
+                        break
+                await _drain_a_few(app, pilot, n=3, pause=0.05)
 
                 texts = [w.raw_text for w in app.transcript.children if isinstance(w, AssistantText)]
                 child_a_widgets = [t for t in texts if "childA-answer" in t]
