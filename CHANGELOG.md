@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.0.8.0] - unreleased
+## [3.0.8.0] - 2026-10-17
 
 Team: a project's people, blocks and stages on one board. A team file names the brief every agent reads first, the members (instances of lineup aliases, here or on a fleet member), the blocks they work in (a file, a folder or a git tree, each with its own claims ledger) and the stages that move the work (an agent turn, an Orchestra run or a flow, triggered by hand, by a stage finishing or by a block changing, held by a gate). `halo team` runs it; Studio's seventh section draws it live. Rolo's order, 2026-10-17: "complete all the different version numbers".
 
