@@ -9,7 +9,7 @@ import { Button, Field, Icon } from "../../lib/ui";
 import { cost } from "../orchestra/format";
 import { loadModels, startRun, type IntakeForm as Form, type RunMode } from "./actions";
 import { FlowBadge } from "./bits";
-import { flow, NONE, platformChoices, platformsOf, stepCount, useFlow } from "./store";
+import { flow, NONE, platformChoices, platformsOf, showGraph, stepCount, useFlow } from "./store";
 
 const EXAMPLE = "e.g. A 20-second teaser for this week's drum cover: moody stage light, warm amber, ends on the channel name.";
 
@@ -127,6 +127,10 @@ export function IntakeForm({ runLine }: { runLine?: boolean }) {
           )}
         </Field>
       </div>
+      <button type="button" className="og-link mono fl-graph-link" onClick={() => showGraph(form.template)} data-testid="flow-show-graph"
+              title="The flow's steps as cards in their dependency layers; drag independent steps to reorder them">
+        Show {form.template} as a graph
+      </button>
       <Field label="BRIEF">
         {(id) => <textarea id={id} className="input og-text" rows={runLine ? 2 : 4} placeholder={EXAMPLE} value={form.brief} onChange={(e) => set("brief")(e.target.value)} />}
       </Field>

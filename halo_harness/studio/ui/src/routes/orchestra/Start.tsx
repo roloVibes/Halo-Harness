@@ -3,7 +3,8 @@
 // does in five numbered steps (the section help's copy), and the past runs
 // to open (the Flow Start view's pattern). OrchestraView decides between it
 // and the panel workspace, which comes up once a run starts or is opened,
-// or with "open the workspace anyway".
+// or with "open the workspace anyway". 3.0.9.0 R2: while the open run is
+// `planned` the plan panel (plan/PlanPanel.tsx) takes the console's place.
 import { useEffect } from "react";
 import { Surface } from "../../lib/ui";
 import { Workspace } from "../../lib/workspace/Workspace";
@@ -11,6 +12,7 @@ import type { PanelSpec } from "../../lib/workspace/types";
 import { SECTION_HELP } from "../sectionHelp";
 import { GoalForm } from "./GoalForm";
 import { PastRuns } from "./OrchRail";
+import { planPanels } from "./plan/PlanPanel";
 import { loadingFirst, setView, showsStart, useOrch } from "./store";
 import { startOrchestra } from "./sync";
 
@@ -60,6 +62,7 @@ export function OrchestraView({ section, specs }: { section: string; specs: Pane
   useEffect(() => startOrchestra(), []);
   const start = useOrch(showsStart);
   const waiting = useOrch(loadingFirst);
+  const planned = useOrch((s) => s.data?.run.state === "planned");
   if (start) return <StartView />;
   if (waiting)
     return (
@@ -67,5 +70,6 @@ export function OrchestraView({ section, specs }: { section: string; specs: Pane
         <div className="og-wait mono muted">reading the runs of this repo...</div>
       </div>
     );
+  if (planned) return <Workspace section="orchestra-plan" specs={planPanels} />; // 3.0.9.0 R2: the plan canvas
   return <Workspace section={section} specs={specs} />;
 }

@@ -27,6 +27,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Write the goal", "WHAT YOU WANT, how Halo knows it is done (DONE WHEN) and when to give up (STOP WHEN), plus the files the workers share and the test the gate runs."],
       ["Press Run", "Dry run asks the lead for the split only: nothing is claimed or written."],
       ["The lead splits it into lanes", "Each lane claims a part of the files; one worker per lane builds its part in its own git worktree."],
+      ["How this works: the plan", "With Review the plan before it runs on, the lead's lanes open on the plan canvas first: one box per layer, drag a lane into another box to change what it runs after, click it to edit its title, claims, bio, model and hand-offs. Every edit is checked; Approve and run starts the lanes, Reject stops the run with your reason."],
       ["Hand-offs", "A lane can wait for another (after) and take its summary, its units or a file it saved (needs); it then starts from that lane's finished head, and a lane that takes nothing sees only the goal. Lanes draws each edge with what it carries and every lane's base."],
       ["The gate checks DONE WHEN", "The parts merge one at a time, your test runs, and a part that fails goes back to its worker (up to the return cap)."],
       ["Read the report", "Every check with a tick or a cross, the finished branch and its sha, the tests, the cost and the time."],

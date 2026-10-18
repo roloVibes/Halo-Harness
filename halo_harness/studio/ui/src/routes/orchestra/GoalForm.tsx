@@ -11,7 +11,7 @@ import { cost } from "./format";
 import { orch, setView, useOrch } from "./store";
 import { startRun, stopRun, type RunForm } from "./sync";
 
-const EMPTY: RunForm = { what: "", done_when: "", stop_when: "", workers: 5, return_cap: 2, test: "", files: [], lineup: "", lead: "main", worker: "subagent", model: "" };
+const EMPTY: RunForm = { what: "", done_when: "", stop_when: "", workers: 5, return_cap: 2, test: "", files: [], lineup: "", lead: "main", worker: "subagent", model: "", review: false };
 
 const EXAMPLE = {
   what: "e.g. Add input checks to every public function in basket.py, with a clear error for each bad value.",
@@ -23,7 +23,7 @@ const EXAMPLE = {
 
 function fromGoal(): RunForm {
   const g = orch.get().data?.goal;
-  return g ? { ...EMPTY, ...g, files: [...(g.files || [])], model: "" } : { ...EMPTY };
+  return g ? { ...EMPTY, ...g, files: [...(g.files || [])], model: "", review: g.plan === "review" } : { ...EMPTY };
 }
 
 type Setter<K extends keyof RunForm> = (v: RunForm[K]) => void;
@@ -94,6 +94,13 @@ export function GoalForm({ start }: { start?: boolean }) {
     setBusy(false);
   };
   const why = live ? `Run ${live} is live: stop it or wait for its report` : "";
+  // 3.0.9.0 R2: the switch sits by Run on the Start view, under the disclosure on the Goal panel (it keeps its size)
+  const review = (
+    <label className="og-switch mono" title="The lead's split opens on the plan canvas: edit the lanes, then Approve and run (or Reject)">
+      <input type="checkbox" checked={!!form.review} onChange={(e) => set("review")(e.target.checked)} data-testid="orchestra-review" />
+      Review the plan before it runs
+    </label>
+  );
   return (
     <form className={"og-form og-goal-form" + (start ? " og-goal-start" : "")} onSubmit={(e) => (e.preventDefault(), void go(false))} data-testid="orchestra-goal-form">
       {!start && <RunLine />}
@@ -121,6 +128,7 @@ export function GoalForm({ start }: { start?: boolean }) {
           <Line label="WORKER ROLE" value={form.worker} set={set("worker")} />
           <Line label="MODEL" value={form.model} set={set("model")} mono example="the lineup's" />
         </div>
+        {!start && review}
       </details>
       {problems.length > 0 && (
         <ul className="og-problems" role="alert">
@@ -136,6 +144,7 @@ export function GoalForm({ start }: { start?: boolean }) {
         <Button onClick={() => void go(true)} disabled={busy || !!why} title={why || "Ask the lead for the split only: nothing is claimed"}>
           Dry run
         </Button>
+        {start && review}
         <button type="button" className="icon-btn" onClick={() => setForm({ ...EMPTY })} disabled={busy} title="Clear the form" aria-label="Clear the form">
           <Icon name="reset" />
         </button>

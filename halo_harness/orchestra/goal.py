@@ -6,7 +6,9 @@ gate may send a piece back (`return_cap`), the test command (`test`) and its
 timeout (`test_timeout_s`, default 600), the
 files the workers share (`files`, relative to the repo root), and who plays
 the parts (`lineup`, `lead`, `worker`), and optionally the lanes' hand-offs
-(`handoffs`: `{job id: {gives, needs, after}}`, orchestra/handoff_spec.py).
+(`handoffs`: `{job id: {gives, needs, after}}`, orchestra/handoff_spec.py),
+and whether the run pauses for the plan's review (`plan`: `auto` | `review`,
+3.0.9.0 R2, orchestra/plan.py).
 
 A run lives in `<repo>/.halo/orchestra/<run-id>/` (`run-id` =
 `YYYYMMDD-HHMMSS-<4 hex>`, so names sort by time):
@@ -48,6 +50,7 @@ class Goal:
     lead: str = "main"
     worker: str = "subagent"
     handoffs: dict = field(default_factory=dict)  # 3.0.9.0: {job id: {gives, needs, after}} (handoff_spec.py)
+    plan: str = "auto"  # 3.0.9.0 R2: "review" pauses after the split for the edited plan (orchestra/plan.py)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -82,6 +85,9 @@ def validate_goal(data) -> list:
     timeout = data.get("test_timeout_s", 600)
     if isinstance(timeout, bool) or not isinstance(timeout, int) or timeout < 1:
         problems.append(f'"test_timeout_s" must be a whole number of seconds, 1 or more, got {timeout!r}')
+    if data.get("plan", "auto") not in ("auto", "review"):
+        problems.append('"plan" is auto (run the split as the lead wrote it) or review (wait for the edited plan), '
+                        f'got {data.get("plan")!r}')
     for key in ("test", "lineup", "lead", "worker"):
         value = data.get(key, "")
         if value is not None and not isinstance(value, str):

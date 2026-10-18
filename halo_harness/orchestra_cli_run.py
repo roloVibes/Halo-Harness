@@ -4,6 +4,7 @@
     halo orchestra lanes [RUN]                           every lane: state, holder, returns, cost
     halo orchestra report [RUN]                          the run's report and its checks
     halo orchestra stop [RUN] [--reason TEXT]            ask a running run to stop between steps
+    halo orchestra run [RUN] --review | plan | approve | reject   the reviewed plan (orchestra_cli_plan.py)
 
 `run` prints one line per step as it happens (the run log's lines), then
 the report. `--dry-run` asks the lead for the split only and prints the
@@ -30,6 +31,7 @@ def add_parsers(sub) -> None:
     r.add_argument("--model", default=None, metavar="REF", help="the model every part uses (default: the roles)")
     r.add_argument("--dry-run", dest="dry_run", action="store_true", help="split only: print the jobs")
     r.add_argument("--force", action="store_true", help="run even when the lineup preflight finds problems")
+    r.add_argument("--review", action="store_true", help="pause after the split until the plan is approved")
     for name, helptext in (("lanes", "every lane: state, holder, returns, cost"),
                            ("report", "the run's report and its checks"),
                            ("stop", "ask a running run to stop between steps")):
@@ -37,6 +39,8 @@ def add_parsers(sub) -> None:
         s.add_argument("run", nargs="?", default=None, help="run id, id prefix or folder (default: latest)")
         if name == "stop":
             s.add_argument("--reason", default="stopped by the user", help="the reason the report shows")
+    from halo_harness.orchestra_cli_plan import add_parsers as add_plan_parsers
+    add_plan_parsers(sub)
 
 
 def _open(args, repo: Path):
@@ -54,6 +58,9 @@ def cmd_run(args, repo: Path) -> int:
     if run_dir is None:
         return 1
     try:
+        if getattr(args, "review", False):
+            from halo_harness.orchestra_cli_plan import set_review
+            set_review(run_dir)
         goal = G.load_goal(run_dir / "goal.json")
     except ValueError as e:
         print(f"halo orchestra run: {e}", file=sys.stderr)
@@ -143,4 +150,9 @@ def cmd_stop(args, repo: Path) -> int:
     return 0
 
 
-HANDLERS = {"run": cmd_run, "lanes": cmd_lanes, "report": cmd_report, "stop": cmd_stop}
+def _plan_handlers() -> dict:
+    from halo_harness.orchestra_cli_plan import HANDLERS as plan
+    return plan
+
+
+HANDLERS = {"run": cmd_run, "lanes": cmd_lanes, "report": cmd_report, "stop": cmd_stop, **_plan_handlers()}

@@ -11,7 +11,9 @@ after other lanes (orchestra/handoff_spec.py) hangs off them by an `after`
 edge (`{"from": "worker-1", "to": "worker-2", "kind": "after", "label":
 "summary"}`) instead of off the split, and every worker step carries its
 `layer` (0 = the parallel layer); with nothing declared the graph is the
-one above, with no `layer` field. Everything here is plain,
+one above, with no `layer` field. 3.0.9.0 R2: a review run (`plan: review`)
+holds its split step `planned` until the edited plan is approved;
+`validate_plan(jobs)` (orchestra/plan_check.py) checks that plan. Everything here is plain,
 JSON-serialisable data (Studio draws it); every helper returns a NEW graph
 and never mutates its argument.
 """
@@ -23,7 +25,7 @@ from dataclasses import asdict, dataclass
 from typing import Optional
 
 KINDS = ("goal", "lead", "split", "worker", "merge", "test", "gate", "done")
-STATES = ("pending", "running", "done", "failed", "skipped")
+STATES = ("pending", "running", "done", "failed", "skipped", "planned")  # planned: 3.0.9.0 R2, the split waits for review
 EDGE_KINDS = ("flow", "loop", "after")
 MAX_WORKERS = 50
 
@@ -188,3 +190,6 @@ def validate_graph(graph) -> list:
         elif e.get("kind") not in EDGE_KINDS:
             problems.append(f"edge {e['from']}->{e['to']} has an unknown kind {e.get('kind')!r}")
     return problems
+
+
+from halo_harness.orchestra.plan_check import plan_problems, validate_plan  # noqa: E402,F401  (3.0.9.0 R2)

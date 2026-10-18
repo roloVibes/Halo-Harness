@@ -3,7 +3,8 @@
 * `model_call(model, role, cwd)` -> `call(prompt)`: the lead's one-shot
   call. A brand-new bare halo session (headless.build_session, no tools, one
   turn), the same in-process path `halo init`'s live check uses.
-* `spawn_worker(model, role, ...)` -> `spawn(lane)`: one worker. A fresh
+* `spawn_worker(model, role, ...)` -> `spawn(lane)`: one worker (3.0.9.0 R2:
+  `--agent <bio>` / `--model <ref>` from the lane's job when a reviewed plan set them). A fresh
   `halo -p` child process in the lane's worktree, with HALO_ORCHESTRA_RUN
   and HALO_ORCHESTRA_LANE in its environment, so the claim guard and the
   Orchestra tools are live in it and its holder is its own session. (The
@@ -94,10 +95,10 @@ def fresh_judge(model: Optional[str], role: str = "main", cwd=None) -> Callable:
     return judge
 
 
-def worker_argv(prompt: str, model: Optional[str]) -> list:
+def worker_argv(prompt: str, model: Optional[str], agent: Optional[str] = None) -> list:
     argv = [sys.executable, "-m", "halo_harness", "-p", prompt, "--output-format", "json",
             "--permission-mode", "auto"]
-    return argv + (["--model", model] if model else [])
+    return argv + (["--agent", agent] if agent else []) + (["--model", model] if model else [])
 
 
 def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir,
@@ -111,7 +112,9 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir,
         env.setdefault("PYTHONIOENCODING", "utf-8")
         env.update(fleet_parent_env())
         try:
-            proc = runner(worker_argv(lane.prompt, ref), cwd=str(lane.worktree), env=env, capture_output=True,
+            job = lane.job  # 3.0.9.0 R2: a reviewed plan may give the lane its own bio and model
+            argv = worker_argv(lane.prompt, getattr(job, "model", "") or ref, getattr(job, "bio", "") or None)
+            proc = runner(argv, cwd=str(lane.worktree), env=env, capture_output=True,
                           text=True, encoding="utf-8", errors="replace", timeout=timeout_s,
                           stdin=subprocess.DEVNULL)
         except subprocess.TimeoutExpired:

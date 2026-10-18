@@ -8,6 +8,7 @@
     halo orchestra runs                  every run of this repo, oldest first
     halo orchestra run [RUN] [--model REF] [--dry-run]   the pipeline (orchestra_cli_run.py)
     halo orchestra lanes|report|stop [RUN]
+    halo orchestra run --review | plan | approve | reject [RUN]   the reviewed plan (orchestra_cli_plan.py, 3.0.9.0)
 
 RUN is a run id (or a unique prefix of one) or a run folder; the latest run
 when omitted. `new` prompts for WHAT YOU WANT / DONE WHEN / STOP WHEN when
