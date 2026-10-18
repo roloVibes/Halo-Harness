@@ -2,7 +2,8 @@
 // a node in its harness box's lane (dashed while planned, solid once it
 // runs, the motion vocabulary's colours: amber asked, cyan running, green
 // done, red failed), an edge for each depends_on, amber with a chip where
-// two parts were put one after the other because their claims overlap, a
+// two parts were put one after the other because their claims overlap (any
+// other edge a chip naming what it hands on, 3.0.9.0), a repo part's base, a
 // red chip on a part nobody can run, a lock on one pinned by capability.
 // Drag a part's node into another harness box to move it there (the route
 // checks it in code; a 422 snaps it back with the reason in a toast). A
@@ -80,6 +81,7 @@ function PartNode({ b, p, v, geo, svg }: { b: PartBox; p: PlanPart; v: View; geo
   const line = st === "asked" ? `waiting on ${run?.harness_name || p.harness_name || "its"} owner`
     : live ? String(live.agent.current || live.agent.last_text || "working") : p.unassignable ? p.unassignable : p.reason || p.brief;
   const chipW = p.unassignable ? 84 : 0;
+  const base = partBase(v, p);
   return (
     <g className="fmi-node" data-testid="fleet-part" data-part={p.id} data-harness={p.harness || ""} data-state={st} data-motion={partMotion(st)}
        data-pinned={p.pinned || undefined} data-selected={sel || undefined} data-drag={o ? (held ? "pending" : "moving") : undefined} data-editable={editable || undefined}
@@ -90,7 +92,8 @@ function PartNode({ b, p, v, geo, svg }: { b: PartBox; p: PlanPart; v: View; geo
       <circle className="fmi-node-dot" cx={12} cy={14} r={4} />
       <text className="fmi-node-id" x={22} y={18}>{p.id}</text>
       <text className="fmi-node-title" x={36} y={18}>{fit(p.title, b.w - 120 - chipW)}</text>
-      <text className="fmi-node-sub" x={22} y={33}>{fit(line, b.w - 80)}</text>
+      <text className="fmi-node-sub" x={22} y={33}>{fit(line, b.w - 80 - (base ? 84 : 0))}</text>
+      {base && <text className="fmi-node-base" data-testid="part-base" x={b.w - 66} y={33} textAnchor="end">{base}</text>}
       {p.pinned && <Lock x={b.w - 84 - chipW} y={6} title={`pinned: ${p.reason}`} />}
       {p.unassignable && (
         <g className="fmi-chip-bad" data-testid="fleet-part-unassignable" transform={`translate(${b.w - 86} 6)`}>
@@ -129,11 +132,42 @@ function Edges({ v, pos }: { v: View; pos: Map<string, PartBox> }) {
               <text x={24} y={11.5} textAnchor="middle">claims</text>
             </g>
           )}
+          {!seq && <EdgeLabel v={v} part={p} dep={d} x={mx} y={my} />}
         </g>,
       );
     }
   }
   return <g className="fmi-edges">{out}</g>;
+}
+
+/** 3.0.9.0: what a depends_on edge carries: `all`, the dependency's outputs, or its hand-back. */
+export function handoffLabel(v: View, part: PlanPart, dep: string): string {
+  if (part.take === "all") return "all";
+  const d = v.plan?.parts.find((x) => x.id === dep);
+  const names = (d?.outputs || []).map((o) => o.split("/").pop() || o);
+  return names.length ? names.join(", ") : "hand-back";
+}
+
+function EdgeLabel({ v, part, dep, x, y }: { v: View; part: PlanPart; dep: string; x: number; y: number }) {
+  const label = short(handoffLabel(v, part, dep), 22);
+  const w = 14 + label.length * 6;
+  return (
+    <g className="fmi-hand-chip" data-testid="part-edge-label" data-from={dep} data-to={part.id} transform={`translate(${x - w / 2} ${y - 8})`}>
+      <title>{`part ${part.id} reads ${label} from part ${dep}${part.kind === "repo" ? " and starts from its finished branch when it changed the repo" : ""}`}</title>
+      <rect width={w} height={16} rx={8} />
+      <text x={w / 2} y={11.5} textAnchor="middle">{label}</text>
+    </g>
+  );
+}
+
+/** 3.0.9.0: where a repo part starts: its run's base, its repo dependencies' head, or the mission's base. */
+export function partBase(v: View, p: PlanPart): string {
+  if (p.kind !== "repo") return "";
+  const run = v.mission.parts?.[p.id];
+  if (run?.base) return `base ${run.base.slice(0, 7)}`;
+  const deps = p.depends_on.filter((d) => v.plan?.parts.find((x) => x.id === d)?.kind === "repo");
+  if (deps.length) return `base: ${deps.join("+")}'s head`;
+  return v.mission.repo?.base ? `base ${v.mission.repo.base.slice(0, 7)}` : "";
 }
 
 /** The overlay itself (inside the map's SVG, over the boxes, under nothing). */

@@ -15,13 +15,22 @@ import urllib.request
 from pathlib import Path
 
 
-def finished_run(repo=None):
-    """`(repo, run_dir)`: the five-lane run with one conflict, finished."""
+def chained_answer() -> str:
+    """3.0.9.0: the five one-function jobs, lane 2 taking lane 1's summary (it starts from lane 1's head)."""
+    import json
+    from tests.helpers import orchestra_fixtures as F
+    data = json.loads(F.split_answer([[f] for f in F.FUNCS]))
+    data["jobs"][1]["handoff"] = {"needs": [{"from": "job-1", "take": "summary"}]}
+    return json.dumps(data)
+
+
+def finished_run(repo=None, chain: bool = False):
+    """`(repo, run_dir)`: the five-lane run with one conflict, finished (`chain`: lane 2 after lane 1)."""
     from halo_harness.orchestra.run import run
     from tests.helpers import orchestra_fixtures as F
     repo = repo or F.make_repo("orch-studio-")
     run_dir = F.make_run(repo)
-    report = run(run_dir, model_calls=F.FakeLead(F.split_answer([[f] for f in F.FUNCS])),
+    report = run(run_dir, model_calls=F.FakeLead(chained_answer() if chain else F.split_answer([[f] for f in F.FUNCS])),
                  spawn=F.FakeWorker(F.CONFLICT_SOLUTIONS, F.CONFLICT_IMPORTS), judge=F.FakeJudge(F.COMBINED_IMPORT))
     assert report["status"] == "finished", report.get("stop_reason")
     return repo, run_dir

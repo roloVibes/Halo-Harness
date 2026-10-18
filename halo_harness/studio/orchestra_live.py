@@ -73,7 +73,7 @@ def dry_split(run_dir: Path, goal, call: Callable) -> dict:
         if isinstance(data, dict) and data.get("stop"):
             out["stop"] = str(data["stop"])
         else:
-            out["problems"] = validate_jobs(data, [u.key for u in units], goal.workers)
+            out["problems"] = validate_jobs(data, [u.key for u in units], goal.workers, getattr(goal, "handoffs", None))
             if not out["problems"]:
                 out["jobs"] = [{"id": f"job-{i}", "worker": i, "title": j["title"], "claims": list(j["claims"])}
                                for i, j in enumerate(data["jobs"], 1)]

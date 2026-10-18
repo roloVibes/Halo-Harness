@@ -4,6 +4,7 @@
 A member receives the fleet command
 
     run_task {mission, part, title, brief, kind: repo | files, claims: [...], outputs: [...], depends_on: [...],
+              take?, handoffs?: [mission-folder paths it reads from its dependencies],
               repo?, base?, branch, cwd?, budget_usd?, mirror: {mode: hub | shared}}
 
 through fleet/control.py, gated by `fleet.allow_control` like a steer: `ask`
@@ -64,6 +65,7 @@ def check(fields: dict) -> dict:
     out = {"mission": mid, "part": part, "title": " ".join(str(f.get("title") or "").split())[:160],
            "brief": str(f.get("brief") or "")[:20000], "kind": kind, "claims": claims, "outputs": _strs(f.get("outputs")),
            "depends_on": _strs(f.get("depends_on")), "repo": str(f.get("repo") or "")[:120] or None,
+           "take": "all" if str(f.get("take") or "") == "all" else "outputs", "handoffs": _strs(f.get("handoffs")),
            "base": base if _SHA.match(base) else None, "branch": f"mission/{mid}/{part}",
            "cwd": Path(str(f.get("cwd") or "")).name or None, "budget_usd": None,
            "mirror": {"mode": str((f.get("mirror") if isinstance(f.get("mirror"), dict) else {}).get("mode") or "hub")}}

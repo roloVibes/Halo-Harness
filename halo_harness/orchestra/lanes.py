@@ -6,7 +6,16 @@
      "started": 1760300000.1, "ended": 1760300042.7, "pieces_returned": 0,
      "session_ids": ["..."], "written": {"basket.py#remove_item": "def remove_item(...):\\n..."},
      "error": "", "reply": "...",
-     "history": [{"state": "joined", "ts": ..., "elapsed_s": ..., "text": "..."}, ...]}
+     "history": [{"state": "joined", "ts": ..., "elapsed_s": ..., "text": "..."}, ...],
+     "handoff": {"gives": [...], "needs": [...]}, "after": ["job-1"], "base": "<sha>",
+     "gave": [{"name": "summary", "kind": "summary", "path": "lanes/2/summary.md", "bytes": 812}, ...]}
+
+3.0.9.0 (orchestra/handoff.py): `handoff` is the job's declaration, `after`
+every job it starts after (its `after` plus each `needs.from`), `base` the
+commit its worktree started from, `gave` what it produced when written (the
+summary = its final reply, one `files` row per written key, an artifact =
+a file it saved under `<run>/lanes/<n>/artifacts/`; paths are relative to
+the run folder, a files row's path is the key).
 
 Every change is a read-modify-write under the file's lock, so the runner and
 a worker's own OrchestraRelease (which stores a `written` snapshot) never
@@ -45,6 +54,8 @@ class Lane:
         self.worktree = Path(worktree)
         self.prompt = ""
         self.retry_text = ""
+        self.handoff_text = ""  # 3.0.9.0: the prompt's "Hand-offs" section (orchestra/handoff.py)
+        self.gives_text = ""
 
     @property
     def path(self) -> Path:
@@ -57,7 +68,9 @@ class Lane:
             "lane": lane.n, "job": job.id, "title": job.title, "claims": list(job.claims), "order": job.order,
             "state": "", "holder": "", "branch": branch, "worktree": str(lane.worktree), "head": "",
             "cost_usd": 0.0, "started": started, "ended": None, "pieces_returned": 0, "session_ids": [],
-            "written": {}, "error": "", "reply": "", "history": []})
+            "written": {}, "error": "", "reply": "", "history": [],
+            "handoff": dict(getattr(job, "handoff", None) or {}), "after": list(getattr(job, "upstreams", []) or []),
+            "base": "", "gave": []})
         return lane
 
     def data(self) -> dict:
@@ -124,7 +137,9 @@ def load_lane(run_dir, n) -> Optional[Lane]:
     if not isinstance(data, dict):
         return None
     job = Job(id=str(data.get("job") or f"job-{n}"), title=str(data.get("title") or ""),
-              claims=list(data.get("claims") or []), worker=int(n), order=int(data.get("order") or n))
+              claims=list(data.get("claims") or []), worker=int(n), order=int(data.get("order") or n),
+              handoff=dict(data.get("handoff") or {}) if isinstance(data.get("handoff"), dict) else {},
+              after=[str(a) for a in data.get("after") or []] if isinstance(data.get("after"), list) else [])
     return Lane(run_dir, int(n), job, str(data.get("branch") or ""), data.get("worktree") or "")
 
 

@@ -150,9 +150,14 @@ in its own git worktree, and a gate checks the result before it lands.
    claimed or written.
 3. **The lead splits it into lanes**. Each lane claims a part of the files;
    one worker per lane builds its part in its own git worktree.
-4. **The gate checks DONE WHEN**. The parts merge one at a time, your test
+4. **Hand-offs**: a lane can wait for another (after) and take its summary,
+   its units or a file it saved (needs); it then starts from that lane's
+   finished head, and a lane that takes nothing sees only the goal. Lanes
+   draws each edge with what it carries and every lane's base
+   ([ORCHESTRA.md](ORCHESTRA.md#hand-offs)).
+5. **The gate checks DONE WHEN**. The parts merge one at a time, your test
    runs, and a part that fails goes back to its worker (up to the return cap).
-5. **Read the report**: every check with a tick or a cross, the finished
+6. **Read the report**: every check with a tick or a cross, the finished
    branch and its sha, the tests, the cost and the time.
 
 **Panels.** Goal: what you want, how it is checked and when to give up; then
@@ -359,14 +364,19 @@ stop, take over or hand off any one agent.
    can do it. The plan draws on the map, drag a part to another harness to
    move it, then Approve and Run; the report says who did what and what it
    cost per harness.
-8. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
+8. **Hand-offs**: a part that depends on another reads that part's outputs
+   and hand-back (`take: all` for everything it left), and a repo part
+   starts from the earlier part's finished branch. The map labels each edge
+   with what it carries and each repo part with its base
+   ([MISSIONS.md](MISSIONS.md#hand-offs)).
+9. **Watch the whole fleet**: Activity draws a lane per live agent (5, 15
    or 60 minutes, tool calls as ticks) over the merged live log. Costs
    ticks today's spend and holds the caps; Health is a doctor summary per
    harness.
-9. **Record and replay**: Record saves a session or one agent as a single
+10. **Record and replay**: Record saves a session or one agent as a single
    HTML file that plays anywhere. Replay plays a finished session on the
    Roles canvas: the cards light up in the order they worked.
-10. **Come back**: after ten minutes away, While you were away sums up what
+11. **Come back**: after ten minutes away, While you were away sums up what
    happened: sessions, cost, decisions and who made them, files, errors,
    hand-offs.
 
@@ -442,7 +452,7 @@ the repo (click one to open it).
 | **Goal** | WHAT YOU WANT / DONE WHEN / STOP WHEN as a card, the workers, the cost, the run state badge | the open run in one line (state, cost, **stop** while it runs, **new run**) over its goal form (as on the Start view) with **Run** and **Dry run** | the badge follows the run: flowing while it runs, a green sweep when it finishes, red when it stops, amber when it was interrupted |
 | **Workflow** | steps finished, the running step, the graph | the graph and the step list | the designed graph laid out in SVG: goal, lead, split, one node per lane, merge, test, the gate diamond, done; pending steps are faint, the running step's outline flows, the diamond lights when the gate acts, a failed step is red, and the gate's return arrow turns amber once a piece has been sent back |
 | **Run grid** | the counters (joined, writing, in review, waiting, merged) and one tile per lane, 5 to 50 | larger tiles with each lane's title | a tile that is writing flows, a waiting one pulses amber, a merged one turns green; click a tile to focus that lane in Lanes and Live file |
-| **Lanes** | joined, writing, merged, one strip per lane | the timeline: one trace per worker on the run's clock from "joined" to "merged", a node at each state change, a diamond where the gate sent the piece back; hover a node for its time and text | the running lane's trace flows, a waiting lane pulses amber |
+| **Lanes** | joined, writing, merged, one strip per lane | the timeline: one trace per worker on the run's clock from "joined" to "merged", a node at each state change, a diamond where the gate sent the piece back; hover a node for its time and text; 3.0.9.0: an arc from a lane to each lane that starts after it, a chip on the later lane naming what it takes (`summary`, `all`, an artifact, or `after`) and a "base: <sha7>" line on every lane | the running lane's trace flows, a waiting lane pulses amber |
 | **Live file** | units being written, units merged, a minimap of the bands | the goal file in mono with each lane's claimed unit as a band in its lane colour, labelled claimed, writing, written or merged, holding the lane's current text (its worktree copy); a picker when the goal has several files | a band being written shimmers; a claimed band is hatched |
 | **Report** | checks passing, cost, one pip per check | the checks with ticks and crosses, the finished branch and sha, the tests, the cost and time; **Copy** puts the report text (as `halo orchestra report` prints it) on the clipboard; a dry run shows the lead's jobs here | one green sweep when the report lands |
 | **Log** | line count, the last lines | the run log with each line's elapsed time, a lane filter, kind filters and **follow** | new lines slide in |
@@ -776,7 +786,10 @@ One goal, every harness, nobody stepping on anyone ([MISSIONS.md](MISSIONS.md)):
 2. **The plan on the map**: each part is a node in its harness box's lane,
    dashed while planned; an edge for each part it waits for, amber with a
    **claims** chip where two repo parts claim the same files and so run one
-   after the other. The table under the map is the same plan.
+   after the other, and on every other edge a chip naming what it hands on
+   (the outputs' names, `all` or `hand-back`); a repo part shows its base
+   (the mission's base, or "base: 1's head" when it starts from an earlier
+   part's work). The table under the map is the same plan.
 3. **Edit by hand**: drag a part's node into another harness box to move it
    there (`POST .../parts/<n> {harness}`, checked in code: a harness that
    lacks what the part needs answers 422, the toast says why and the node

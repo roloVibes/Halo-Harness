@@ -2,9 +2,10 @@
 // orchestra_api.py), which are the run folder's own files (docs/ORCHESTRA.md).
 
 export type StepState = "pending" | "running" | "done" | "failed" | "skipped";
-export type Step = { id: string; kind: string; lane: number | null; state: StepState; label: string };
-export type Edge = { from: string; to: string; kind: "flow" | "loop" };
-export type Workflow = { workers: number; steps: Step[]; edges: Edge[] };
+export type Step = { id: string; kind: string; lane: number | null; state: StepState; label: string; layer?: number };
+// 3.0.9.0: an `after` edge joins two worker steps (a lane that starts after another); `label` says what it carries.
+export type Edge = { from: string; to: string; kind: "flow" | "loop" | "after"; label?: string };
+export type Workflow = { workers: number; steps: Step[]; edges: Edge[]; layers?: number[][] };
 
 export type Goal = {
   what: string;
@@ -18,6 +19,7 @@ export type Goal = {
   lineup: string;
   lead: string;
   worker: string;
+  handoffs?: Record<string, unknown>;
 };
 
 export type LaneState = "joined" | "writing" | "written" | "in_review" | "waiting" | "merged" | "failed" | "";
@@ -39,7 +41,17 @@ export type Lane = {
   written: Record<string, string>;
   error: string;
   history: LaneStep[];
+  // 3.0.9.0 (orchestra/handoff.py): what it declares, the jobs it starts after, where it started, what it gave
+  handoff?: Handoff;
+  after?: string[];
+  base?: string;
+  gave?: Gave[];
 };
+
+export type Give = { name: string; kind: "files" | "summary" | "artifact"; paths?: string[] };
+export type Need = { from: string; take: string };
+export type Handoff = { gives?: Give[]; needs?: Need[] };
+export type Gave = { name: string; kind: string; path: string; bytes: number };
 
 export type Claim = { key: string; holder: string; state: string; ts: number; ttl_s: number; note: string; expires: number };
 

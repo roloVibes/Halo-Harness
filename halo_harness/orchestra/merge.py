@@ -57,9 +57,39 @@ def load_merge(run_dir) -> dict:
 
 
 def merge_order(run_dir, lanes: list, base: str) -> list:
-    """Lane numbers in merge order: the split's order, then the smaller diff."""
+    """Lane numbers in merge order: the hand-off layer (3.0.9.0), then the
+    split's order, then the smaller diff. Undeclared lanes are all layer 0."""
+    from halo_harness.orchestra.handoff_spec import layers
     repo = repo_root_of(run_dir)
-    return [lane.n for lane in sorted(lanes, key=lambda l: (l.job.order, gitops.shortstat(repo, base, l.branch), l.n))]
+    layer = layers({lane.job.id: lane.job.upstreams for lane in lanes})
+    return [lane.n for lane in sorted(lanes, key=lambda l: (layer.get(l.job.id, 0), l.job.order,
+                                                            gitops.shortstat(repo, base, l.branch), l.n))]
+
+
+def merge_heads(run_dir, lane_n: int, heads: list) -> "tuple[Optional[str], str]":
+    """The start of lane `lane_n` with two or more upstreams (3.0.9.0): a
+    scratch branch `orchestra/<run>-base-<n>` at `heads[0]` in
+    `<run>/wt/base-<n>`, each other head merged `--no-ff`. `(sha, "")`, or
+    `(None, reason)` on a conflict (the merge is undone; no judge is asked:
+    the lane waits with the reason)."""
+    run_dir = Path(run_dir)
+    repo = repo_root_of(run_dir)
+    path = run_dir / "wt" / f"base-{int(lane_n)}"
+    branch = f"{gitops.finished_branch(run_dir.name)}-base-{int(lane_n)}"
+    gitops.worktree_remove(repo, path)
+    gitops.check(["branch", "-f", branch, heads[0]], repo)
+    gitops.worktree_add(repo, path, branch, heads[0])
+    try:
+        for sha in heads[1:]:
+            got = gitops.merge_no_ff(path, sha, f"orchestra: the start of lane {lane_n} (merge {sha[:12]})")
+            if got.returncode != 0:
+                files = gitops.conflicted_files(path)
+                gitops.merge_abort(path)
+                why = f"conflict in {', '.join(files)}" if files else ((got.stderr or got.stdout or "").strip().splitlines() or ["no output"])[-1]
+                return None, f"its upstreams' heads do not merge ({why})"
+        return gitops.head(path), ""
+    finally:
+        gitops.worktree_remove(repo, path)
 
 
 def _judge_answer(answer) -> dict:

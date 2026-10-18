@@ -3,12 +3,15 @@
 // written, in review, merged) with its time, a diamond where the gate sent
 // the piece back; the running lane's trace flows (working), a waiting lane
 // pulses amber. Hover a node for its time and text; click a lane to focus
-// it (its node times show).
+// it (its node times show). 3.0.9.0: a lane that starts after another is
+// joined to it by an arc with a chip naming what it takes, and every lane
+// shows its base (LaneEdges.tsx).
 import { useEffect, useRef } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Metric, NoRun } from "./bits";
 import { elapsed, when } from "./format";
 import { counters, focusLane, LANE_LABEL, laneColor, laneMotion, liveNow, setOpt, useOrch } from "./store";
+import { BaseLine, EdgeArcs, EdgeChips, laneEdges } from "./LaneEdges";
 import type { Lane } from "./types";
 
 function span(lanes: Lane[], created: number, now: number): [number, number] {
@@ -56,8 +59,10 @@ export function LanesDetail() {
   if (!data.lanes.length)
     return <div className="og-wait muted">No lanes yet: the lead is splitting the goal into jobs ({data.goal.workers} worker{data.goal.workers === 1 ? "" : "s"}).</div>;
   const [t0, t1] = span(data.lanes, data.run.created, liveNow(data));
+  const edges = laneEdges(data.lanes);
   return (
-    <div className="og-lanes" ref={box}>
+    <div className="og-lanes" ref={box} data-edges={edges.length || undefined}>
+      <EdgeArcs edges={edges} box={box} lanes={data.lanes} />
       <div className="og-axis mono muted">
         <span>{elapsed(0)}</span>
         <span>{elapsed((t1 - t0) / 2)}</span>
@@ -75,8 +80,11 @@ export function LanesDetail() {
         >
           <div className="og-lane-head">
             <span className="og-lane-n mono">{l.lane}</span>
-            <span className="og-lane-title" title={l.claims.join(", ")}>
-              {l.title || l.claims.join(", ")}
+            <span className="og-lane-name">
+              <span className="og-lane-title" title={l.claims.join(", ")}>
+                {l.title || l.claims.join(", ")}
+              </span>
+              <EdgeChips lane={l} edges={edges} />
             </span>
           </div>
           <Trace lane={l} t0={t0} t1={t1} live={data.live} />
@@ -84,6 +92,7 @@ export function LanesDetail() {
             {LANE_LABEL[l.state] || l.state}
             {l.pieces_returned > 0 && <span className="og-returned"> ↺{l.pieces_returned}</span>}
             {l.history.length > 0 && <span className="og-lane-when">{when(mode, l.history[l.history.length - 1].elapsed_s, l.history[l.history.length - 1].ts)}</span>}
+            <BaseLine lane={l} />
           </div>
         </div>
       ))}

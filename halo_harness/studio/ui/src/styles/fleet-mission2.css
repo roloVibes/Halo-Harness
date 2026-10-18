@@ -86,3 +86,8 @@
 
 /* -- the rail: a mission part's session ------------------------------------------------- */
 .fr .fr-mission { color: var(--accent-2); border-color: var(--accent-2); }
+
+/* -- hand-offs (3.0.9.0): what a depends_on edge carries, where a repo part starts -- */
+.fmi-hand-chip rect { fill: var(--surface-2); stroke: var(--accent-2); }
+.fmi-hand-chip text { font: 9.5px var(--mono); fill: var(--accent-2); }
+.fmi-node-base { font: 9.5px var(--mono); fill: var(--faint); }

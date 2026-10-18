@@ -5,7 +5,8 @@ A goal says WHAT YOU WANT (`what`), DONE WHEN (`done_when`) and STOP WHEN
 gate may send a piece back (`return_cap`), the test command (`test`) and its
 timeout (`test_timeout_s`, default 600), the
 files the workers share (`files`, relative to the repo root), and who plays
-the parts (`lineup`, `lead`, `worker`).
+the parts (`lineup`, `lead`, `worker`), and optionally the lanes' hand-offs
+(`handoffs`: `{job id: {gives, needs, after}}`, orchestra/handoff_spec.py).
 
 A run lives in `<repo>/.halo/orchestra/<run-id>/` (`run-id` =
 `YYYYMMDD-HHMMSS-<4 hex>`, so names sort by time):
@@ -46,6 +47,7 @@ class Goal:
     lineup: str = ""
     lead: str = "main"
     worker: str = "subagent"
+    handoffs: dict = field(default_factory=dict)  # 3.0.9.0: {job id: {gives, needs, after}} (handoff_spec.py)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -56,6 +58,7 @@ class Goal:
         known = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
         goal = cls(**known)
         goal.files = list(goal.files) if isinstance(goal.files, (list, tuple)) else goal.files
+        goal.handoffs = dict(goal.handoffs) if isinstance(goal.handoffs, dict) else {}
         return goal
 
 
@@ -92,6 +95,13 @@ def validate_goal(data) -> list:
                 problems.append(f'files[{i}] must be a non-empty path')
             elif _outside(f):
                 problems.append(f'files[{i}] ({f!r}) must be relative to the repo root, inside it')
+    handoffs = data.get("handoffs", {})
+    if handoffs is not None and not isinstance(handoffs, dict):
+        problems.append('"handoffs" must map a job id (job-1, job-2, ...) to {gives, needs, after}')
+    else:
+        from halo_harness.orchestra.handoff_spec import shape_problems
+        for jid, decl in (handoffs or {}).items():
+            problems += shape_problems(decl, f"handoffs[{jid}]")
     unknown = sorted(k for k in data if k not in Goal.__dataclass_fields__)
     if unknown:
         problems.append("unknown field(s): " + ", ".join(unknown))

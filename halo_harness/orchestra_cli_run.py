@@ -90,7 +90,7 @@ def _dry_run(run_dir: Path, goal, call) -> int:
     if isinstance(data, dict) and data.get("stop"):
         print(f"the lead would stop the run: {data['stop']}")
         return 1
-    problems = validate_jobs(data, [u.key for u in units], goal.workers)
+    problems = validate_jobs(data, [u.key for u in units], goal.workers, getattr(goal, "handoffs", None))
     if problems:
         print("the lead's split does not pass the check:")
         for p in problems:
