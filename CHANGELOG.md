@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.1.0.0] - unreleased
+## [3.1.0.0] - 2026-10-18
 
 Suite and repo health: the test suite that gated nine red runs in two days is isolated per module, split into a fast and a full tier, and driven by one Chrome base; Windows CI moves off the per-push gate without leaving the release gate; line endings are settled once and the last modules named by line count are named for what they do. The first of the four versions from the 2026-10-18 assessment ("Love it do all that!").
 
