@@ -8,6 +8,8 @@ Hierarchical OpenRouter pick (vendor, then model) is NOT covered here --
 see the hand-back's WHAT YOU FOUND for why that part of deliverable 1 is
 left PARTIAL this round.
 """
+
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
 import asyncio
 import os
 import sys

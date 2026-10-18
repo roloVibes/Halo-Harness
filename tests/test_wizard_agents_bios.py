@@ -7,6 +7,8 @@ directly (never enumerates), and every test scopes `BRIDGE_TEST_HOME`/
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import os
 import sys

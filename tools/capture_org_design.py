@@ -98,13 +98,11 @@ def capture(mode: str, out: str, dom: bool, chrome, serve, state: Path) -> int:
 def shoot(mode: str, out: str, url: str, lead: str) -> int:
     """The picture through the DevTools protocol: Org selects the lead (the Inspector shows it)."""
     import time
-    from capture_studio import find_chrome
-    from tests.helpers.cdp import Chrome
-    exe = find_chrome()
-    if not exe:
+    from tests.helpers.chrome_driver import open_chrome
+    c = open_chrome()  # the driver base: HALO_CHROME first, one headless Chrome at a time
+    if c is None:
         print("no Chrome found: nothing rendered")
         return 2
-    c = Chrome(exe)
     try:
         c.go(url)
         if mode == "org":

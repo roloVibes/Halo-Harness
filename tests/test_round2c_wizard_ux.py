@@ -10,6 +10,8 @@ md`, and passes a FIXTURE model catalog directly rather than enumerating.
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import os
 import sys

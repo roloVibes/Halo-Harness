@@ -3,6 +3,8 @@ the `/remote status|pair|off` text forms, bare `/remote` opening the dialog, and
 Same scratch-home pilot setup as tests/test_remote_dialog.py."""
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import contextlib
 import os

@@ -83,8 +83,27 @@ def _scratch_repo(version: str = "9.9.9", *, unreleased: bool = True, dirty_extr
     return repo
 
 
-def _fake_run(calls: list):
+_GREEN_GH = []
+
+
+def _green_gh():
+    """One shared all-green fake gh: a test that builds `_fake_run(calls)` per command still sees its own dispatch."""
+    if not _GREEN_GH:
+        from tests.helpers.fake_gh import FakeGh
+        _GREEN_GH.append(FakeGh())
+    return _GREEN_GH[0]
+
+
+def _fake_run(calls: list, gh=None):
+    """3.1.0.0 R1: step 0's `gh run` / `gh workflow` calls go to a fake gh
+    (tests/helpers/fake_gh.py; both platforms green by default) and are not
+    recorded in `calls`, so the release-publishing assertions below see only
+    the release's own commands."""
+    fake_gh = gh if gh is not None else _green_gh()
+
     def _run(cmd, **kwargs):
+        if len(cmd) >= 2 and cmd[0] == "gh" and cmd[1] in ("run", "workflow"):
+            return fake_gh(cmd, **kwargs)
         calls.append(cmd)
         # 2.0.6 round 8: build_release_artifact's `git archive -o <path>`
         # is the one command whose SIDE EFFECT the release flow needs --
@@ -439,6 +458,73 @@ def test_no_github_release_flag_skips_detection_entirely(ctx: Ctx):
                        gh_path_fn=_boom)
     ctx.check(f"exits 0, got {rc}", rc == 0)
     ctx.check("no gh/curl call was ever made", not any(c[0] in ("gh", "curl") for c in calls if c))
+
+
+# ---- 3.1.0.0 R1: step 0, both platforms green on the exact sha (scripts/release_gate.py) ----
+def _main_out(argv, repo, gh):
+    import contextlib
+    import io
+    calls: list = []
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = release.main(argv, repo_dir=repo, run_fn=_fake_run(calls, gh), pids_fn=lambda: [])
+    return rc, out.getvalue(), err.getvalue(), calls
+
+
+def _head(repo) -> str:
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(repo), capture_output=True, text=True, check=True).stdout.strip()
+
+
+@test
+def test_step_0_dry_run_prints_the_gate_and_calls_no_gh(ctx: Ctx):
+    from tests.helpers.fake_gh import FakeGh
+    repo, gh = _scratch_repo("9.9.9"), FakeGh()
+    rc, out, err, _calls = _main_out(["9.9.9", "--dry-run"], repo, gh)
+    ctx.check(f"exits 0 and prints step 0 for HEAD's sha, got {rc} {out}",
+              rc == 0 and f"0. CI gate for {_head(repo)[:12]}" in out and "dispatch the Windows suites" in out)
+    ctx.check(f"no gh call in a dry run, got {gh.calls}", gh.calls == [])
+
+
+@test
+def test_step_0_dispatches_windows_and_releases_when_both_are_green(ctx: Ctx):
+    from tests.helpers.fake_gh import FakeGh
+    repo, gh = _scratch_repo("9.9.9"), FakeGh()
+    rc, out, err, calls = _main_out(["9.9.9", "--no-github-release", "--no-install"], repo, gh)
+    sha = _head(repo)
+    ctx.check(f"exits 0, got {rc} {err}", rc == 0)
+    ctx.check(f"dispatched suites.yml for the exact sha, got {gh.gh_calls()}",
+              ["gh", "workflow", "run", "suites.yml", "-f", f"sha={sha}"] in gh.gh_calls())
+    ctx.check(f"the summary names both accepted runs, got {out}",
+              "0. Linux run 101 concluded success" in out and "0. Windows run 202 concluded success" in out)
+    ctx.check("then the release commit ran", any(c[:2] == ["git", "commit"] for c in calls))
+
+
+@test
+def test_step_0_refuses_a_red_linux_or_windows_run_before_anything_is_written(ctx: Ctx):
+    from tests.helpers.fake_gh import FakeGh
+    for gh, why in ((FakeGh(linux="failure"), "Linux"), (FakeGh(linux=None), "no Linux run"),
+                    (FakeGh(windows="failure"), "Windows")):
+        repo = _scratch_repo("9.9.9")
+        rc, out, err, calls = _main_out(["9.9.9", "--no-github-release", "--no-install"], repo, gh)
+        ctx.check(f"{why}: exits 1 with a step 0 reason, got {rc} {err!r}", rc == 1 and "step 0 (CI gate)" in err)
+        ctx.check(f"{why}: no commit, tag or push", not any(c and c[0] == "git" for c in calls))
+        ctx.check(f"{why}: the version file is untouched",
+                  '"9.9.8"' in (repo / "halo_harness" / "__init__.py").read_text(encoding="utf-8"))
+
+
+@test
+def test_step_0_skip_windows_accepts_an_existing_green_run_and_names_it(ctx: Ctx):
+    from tests.helpers.fake_gh import FakeGh
+    repo = _scratch_repo("9.9.9")
+    gh = FakeGh(existing_windows="success")
+    gh.sha = _head(repo)
+    rc, out, err, _calls = _main_out(["9.9.9", "--skip-windows", "--no-github-release", "--no-install"], repo, gh)
+    ctx.check(f"exits 0, got {rc} {err}", rc == 0)
+    ctx.check("nothing dispatched", not gh.dispatched)
+    ctx.check(f"it prints the run ids it accepted, got {out}", "Linux run 101" in out and "Windows run 202" in out and "--skip-windows" in out)
+    gh = FakeGh()  # no Windows run for the sha at all
+    rc, out, err, _calls = _main_out(["9.9.9", "--skip-windows", "--no-github-release", "--no-install"], _scratch_repo("9.9.9"), gh)
+    ctx.check(f"--skip-windows with nothing to accept refuses, got {rc} {err!r}", rc == 1 and "--skip-windows" in err)
 
 
 if __name__ == "__main__":

@@ -23,15 +23,17 @@ as a subprocess with a scrubbed environment (tests/helpers/studio_ui_team.py):
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
-import json
 import sys
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
+
+from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 STAGE = "document.querySelector('[data-testid=\"team-stage\"][data-stage=\"{}\"]')"
 BLOCK = "document.querySelector('[data-testid=\"team-block\"][data-block=\"{}\"]')"
@@ -117,30 +119,19 @@ def stop(c, rig, out: dict) -> None:
     out["stop_reason"] = board.get("board", {}).get("stop_reason")
 
 
-def main() -> int:
-    from capture_studio import find_chrome
-    exe = find_chrome()
-    if not exe:
-        print(json.dumps({"error": "no Chrome found"}))
-        return 2
-    from tests.helpers.cdp import Chrome
-    from tests.helpers.studio_team_rig import StudioTeamRig
-    out: dict = {}
-    c = Chrome(exe)
-    try:
+class TeamDriver(Driver):
+    """The Team tab over tests/helpers/studio_team_rig.py (the rig scopes its own home)."""
+
+    @contextmanager
+    def session(self, c):
+        from tests.helpers.studio_team_rig import StudioTeamRig
         with StudioTeamRig() as rig:
             rig.fakes.hold = {("writer", "draft"): threading.Event(), ("writer", "review"): threading.Event()}
-            for step in (board_and_gate, attention, accept_and_review, block_change, stop):
-                try:
-                    step(c, rig, out)
-                except Exception as e:  # what it saw so far still prints; the test names the step
-                    out["failed"] = f"{step.__name__}: {type(e).__name__}: {e}"[:400]
-                    break
-            c.go("about:blank")
-    finally:
-        c.close()
-    print(json.dumps(out))
-    return 0
+            yield tuple((step, (c, rig, self.out)) for step in (board_and_gate, attention, accept_and_review, block_change, stop))
+
+
+def main() -> int:
+    return TeamDriver().main()
 
 
 if __name__ == "__main__":

@@ -9,6 +9,8 @@ Run: python -m tests.test_review3_t3
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import json
 import re

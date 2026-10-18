@@ -6,6 +6,8 @@ badge, failure scenario folded), and the cards fold/unfold and copy.
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import json
 import os

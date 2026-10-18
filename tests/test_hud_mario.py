@@ -9,6 +9,8 @@ three games in tests/test_theme_toggles.py and is NOT repeated here beyond
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import contextlib
 import os

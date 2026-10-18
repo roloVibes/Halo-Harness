@@ -12,6 +12,8 @@ wizard_lineup.py`).
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import io
 import os

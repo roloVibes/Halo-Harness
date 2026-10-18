@@ -10,6 +10,8 @@ the plain-Python halves of round 9 are test_review2_round9.py, 9c and 9d.
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import base64
 import os

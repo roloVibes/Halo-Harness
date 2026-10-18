@@ -16,11 +16,14 @@ from __future__ import annotations
 
 import json
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
+
+from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 DETAIL = "document.querySelector('[data-testid=\"fleet-agent-detail\"]')"
 
@@ -161,32 +164,29 @@ def roles(c, rig) -> dict:
     return out
 
 
-def main(argv: list) -> int:
-    from capture_studio import find_chrome
-    from tests.helpers.cdp import Chrome
-    from tests.helpers.studio_fleet_rig import StudioFleetRig
-    exe = find_chrome()
-    if not exe:
-        print(json.dumps({"skip": "no Chrome found"}))
-        return 2
-    with StudioFleetRig() as rig:
-        c = Chrome(exe)
-        try:
-            if argv[:1] == ["caps"]:
-                from tests.helpers.studio_fleet_caps import caps
-                got = caps(c, rig)
-            elif argv[:1] == ["mission"]:
-                from tests.helpers.studio_fleet_mission import mission
-                got = mission(c, rig)
-            elif argv[:1] == ["panels"]:
-                from tests.helpers.studio_fleet_panels import panels
-                got = panels(c, rig)
+class FleetDriver(Driver):
+    """`map`, `roles`, `panels`, `caps`, `mission` over tests/helpers/studio_fleet_rig.py (it scopes its own home)."""
+
+    no_chrome = {"skip": "no Chrome found"}
+
+    @contextmanager
+    def session(self, c):
+        from tests.helpers.studio_fleet_rig import StudioFleetRig
+        which = self.argv[:1]
+        with StudioFleetRig() as rig:
+            if which == ["caps"]:
+                from tests.helpers.studio_fleet_caps import caps as step
+            elif which == ["mission"]:
+                from tests.helpers.studio_fleet_mission import mission as step
+            elif which == ["panels"]:
+                from tests.helpers.studio_fleet_panels import panels as step
             else:
-                got = fleet_map(c, rig) if argv[:1] == ["map"] else roles(c, rig)
-            print(json.dumps(got))
-            return 0
-        finally:
-            c.close()
+                step = fleet_map if which == ["map"] else roles
+            yield ((step, (c, rig)),)
+
+
+def main(argv: list) -> int:
+    return FleetDriver(argv).main()
 
 
 if __name__ == "__main__":

@@ -5,6 +5,8 @@ tests/test_theme_toggles.py, whose scoped-home helper is reused here.
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import sys
 from pathlib import Path

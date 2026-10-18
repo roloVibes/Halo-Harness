@@ -11,6 +11,8 @@ being sent to any endpoint but /credits.
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import os
 import sys
 import tempfile

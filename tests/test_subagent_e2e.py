@@ -194,7 +194,6 @@ def test_parent_abort_reaches_a_running_childs_in_flight_stream(ctx: Ctx):
                 done.set()
 
         t = threading.Thread(target=_drive, daemon=True)
-        t0 = time.monotonic()
         t.start()
 
         # Wait until the CHILD's own request has actually reached the mock
@@ -209,9 +208,15 @@ def test_parent_abort_reaches_a_running_childs_in_flight_stream(ctx: Ctx):
                   len(mock.requests) >= 2)
         time.sleep(0.3)
 
+        # 3.1.0.0 R1: measured from the Esc, not from the turn's start -- late in a
+        # whole tests/run_all.py run the children's start-up alone took ~3 s on
+        # the Windows build host (the baseline too), which tripped this check with no
+        # bug present. The bug's signature is the ~6 s an un-aborted child runs on
+        # AFTER the Esc, and that is what this keeps pinning.
+        t_abort = time.monotonic()
         session.abort.set()
         done.wait(timeout=10)
-        dt = time.monotonic() - t0
+        dt = time.monotonic() - t_abort
         t.join(timeout=1)
 
         ctx.check(f"no exception propagated out of turn(), got {errors}", errors == [])
@@ -274,7 +279,6 @@ def test_h5c_f07_five_agents_esc_after_four_started_all_end_interrupted(ctx: Ctx
                 done.set()
 
         t = threading.Thread(target=_drive, daemon=True)
-        t0 = time.monotonic()
         t.start()
 
         # Wait until 4 children's own requests have reached the mock (1
@@ -288,9 +292,15 @@ def test_h5c_f07_five_agents_esc_after_four_started_all_end_interrupted(ctx: Ctx
                   len(mock.requests) == 5)
         time.sleep(0.3)
 
+        # 3.1.0.0 R1: measured from the Esc, not from the turn's start -- late in a
+        # whole tests/run_all.py run the children's start-up alone took ~3 s on
+        # the Windows build host (the baseline too), which tripped this check with no
+        # bug present. The bug's signature is the ~6 s an un-aborted child runs on
+        # AFTER the Esc, and that is what this keeps pinning.
+        t_abort = time.monotonic()
         session.abort.set()
         done.wait(timeout=10)
-        dt = time.monotonic() - t0
+        dt = time.monotonic() - t_abort
         t.join(timeout=1)
 
         ctx.check(f"no exception propagated out of turn(), got {errors}", errors == [])

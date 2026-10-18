@@ -7,6 +7,8 @@ NEVER started: a guard makes any SignalTransport.start() fail the test.
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import contextlib
 import os

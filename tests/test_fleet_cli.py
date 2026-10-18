@@ -7,6 +7,8 @@ FleetTable dialog's keys (steer, stop asks first, pause).
 """
 from __future__ import annotations
 
+TIER = "full"  # a TUI pilot (Textual run_test): the full tier
+
 import asyncio
 import json
 import subprocess

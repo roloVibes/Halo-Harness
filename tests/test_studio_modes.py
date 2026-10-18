@@ -7,6 +7,8 @@ tools/capture_studio.py --dom); 3.0.8.0 R2: Team, the seventh. Run: python -m te
 
 from __future__ import annotations
 
+TIER = "full"  # headless Chrome: the full tier
+
 import io
 import sys
 from contextlib import redirect_stdout

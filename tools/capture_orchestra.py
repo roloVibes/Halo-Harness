@@ -60,13 +60,11 @@ COACH_LAYOUT = {"v": 2, "panels": {"report": {"x": 14, "y": 64, "w": 5, "h": 30,
 
 def coach_capture(out: Path) -> int:
     """The Coach tab of a finished run's report, its panel floated wide, as a picture at `out`."""
-    from capture_studio import find_chrome
-    exe = find_chrome()
-    if not exe:
-        return 2
-    from tests.helpers.cdp import Chrome
+    from tests.helpers.chrome_driver import open_chrome
     from tests.helpers.studio_coach_rig import CoachRig
-    c = Chrome(exe)
+    c = open_chrome()  # the driver base: HALO_CHROME first, one headless Chrome at a time
+    if c is None:
+        return 2
     try:
         with CoachRig() as rig:
             c.go(rig.url())

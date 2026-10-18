@@ -17,8 +17,9 @@ owner's machine-specific scripts and keys, which are described, not stored.
    at a time on the tree (a Sonnet-class agent given the brief path and
    `plans/WORKER-RULES.md`), and one COMMIT per round by the orchestrator
    after verification. Docs-only or research rounds may run in parallel.
-3. After the last round: three-platform suites (CI runs Linux and Windows
-   on every push; the owner's Linux VM runs them for the tag), one live
+3. After the last round: three-platform suites (CI runs Linux on every
+   push and Windows on tags, nightly and dispatch; the owner's Linux VM
+   runs them for the tag), one live
    check on real hardware and real keys, then `python scripts/release.py
    <version> [--remote user@host --identity <key>]` (changelog date,
    release commit, annotated tag, push, install refresh; the remote step
@@ -48,7 +49,11 @@ owner's machine-specific scripts and keys, which are described, not stored.
 3. **Watch.** Judge progress by the working tree (changed-file count and
    newest file times), never by transcript size. One resume message after
    15 quiet minutes, a respawn with the same brief after 10 more. Workers
-   run only the modules they touched plus `python test_bridge.py`.
+   run only the modules they touched plus `python test_bridge.py`, then
+   `python tests/run_all.py --fast` (no Chrome, no TUI pilots); a round
+   that changes Chrome drivers, Studio pages or TUI screens adds
+   `--tier full`; a round that changes the suite itself runs the whole
+   `tests/run_all.py`.
 4. **Hand-back.** Read the RESULT LINES. Partial items get a decision now
    (do it, defer to a named version in
    `plans/2.0.3-release-notes-for-fix-pass.md`-style notes, or drop it with
@@ -61,9 +66,10 @@ owner's machine-specific scripts and keys, which are described, not stored.
    unless shared TUI infrastructure changed. Revert
    `docs/harness/tui-snapshots/` after any TUI run.
 6. **Commit** with a message that names the brief items and the pinning
-   tests; push. CI runs the three suites on Linux and Windows; commits that
+   tests; push. CI runs the three suites on Linux per push; commits that
    touch only `plans/` do not trigger it. A push cancels the previous
-   in-progress run, so hold pushes while a verdict is wanted.
+   in-progress run of the same event, so hold pushes while a verdict is
+   wanted. Windows runs on the tag, nightly and when dispatched.
 7. **Live check** for anything that talks to a real provider or real
    hardware: print mode, a scratch state dir, keys only in the environment
    (read from the owner's key file with a pattern match, never echoed), the
@@ -75,10 +81,23 @@ owner's machine-specific scripts and keys, which are described, not stored.
 
 ## Reading CI
 
+- Which run is which (3.1.0.0): a push to master or a pull request runs
+  the Linux job (and studio-ui); the Windows job runs on a `v*` tag, nightly
+  at 09:00 UTC (master's head) and on `workflow_dispatch` with an input
+  `sha` (the run is titled "suites windows leg for <sha>"; dispatch it with
+  `gh workflow run suites.yml -f sha=<sha>`). A job that does not apply to
+  the event shows as skipped, not failed. The job summary names the
+  platform, the tier and the sha.
 - Results: `GET https://api.github.com/repos/<org>/<repo>/actions/runs?per_page=5`
   and `/actions/runs/<id>/jobs` (public, no token). Each suite step uses
   `continue-on-error`, so the job's own "Fail the job if any suite failed"
-  step is the verdict.
+  step is the verdict. Read the run's and the job's `conclusion` value for
+  the exact sha, never a watch command's exit code.
+- The release gate is unchanged in substance: BOTH platforms green on the
+  exact sha. `scripts/release.py` step 0 checks the Linux push run, then
+  dispatches the Windows run for the sha and waits for its conclusion (up
+  to 90 min); `--skip-windows` accepts a green Windows run already there
+  (it prints the run ids it accepted).
 - Logs need a token: `git credential fill` on the owner's machine yields
   the stored GitHub credential; use it only in an Authorization header for
   `/actions/jobs/<id>/logs`, never print it. Then
@@ -121,8 +140,9 @@ clone, `git fetch --force --tags`. The owner runs the filter-repo step
 ## Budget discipline
 
 The owner pays per token. Fewer, larger rounds; workers run only touched
-modules; CI is the Linux and Windows verification (no per-round VM module
-runs once CI is green); live checks once per round at most, suites on the
+modules and the fast tier; CI is the verification: Linux on every push,
+Windows on the tag, nightly and the release's own dispatch (no Windows hour
+per push; no per-round VM module runs once CI is green); live checks once per round at most, suites on the
 VM only for the tag; status posts only when asked; watchdogs only while a
 worker is quiet. Keep notes like this one current so a cold session can
 resume from `plans/HANDOFF.md`, `plans/STATUS.md` and the newest brief.

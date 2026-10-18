@@ -89,6 +89,28 @@ def ensure_default_provider_credentials() -> None:
     os.environ.setdefault("HALO_GOVERNOR", "0")
 
 
+# Halo 3.1.0.0 R1: tests/run_all.py gives every module its own home and
+# says which module runs (`begin_module`); `ensure_scoped_state_dir_once`
+# re-scopes once per module under run_all and stays "once" for a module run
+# alone (no run_all: `_RUN_ALL_MODULE` stays None).
+_RUN_ALL_MODULE: "tuple[str, str] | None" = None  # (module name, its home) while run_all runs it
+_SCOPED_FOR: "str | None" = None  # the module the last re-scope was for
+_OUTER: list = []  # a run_all.main() called from inside a module (a test of run_all) nests
+
+
+def begin_module(name: str, home) -> None:
+    """tests/run_all.py: `name` runs next, with `home` as its BRIDGE_TEST_HOME."""
+    global _RUN_ALL_MODULE, _SCOPED_FOR
+    _OUTER.append((_RUN_ALL_MODULE, _SCOPED_FOR))
+    _RUN_ALL_MODULE = (str(name), str(home))
+
+
+def end_module() -> None:
+    """The module finished: back to whatever ran before it (nothing, or the outer module)."""
+    global _RUN_ALL_MODULE, _SCOPED_FOR
+    _RUN_ALL_MODULE, _SCOPED_FOR = _OUTER.pop() if _OUTER else (None, None)
+
+
 def ensure_scoped_state_dir_once() -> None:
     """`is_enabled()`'s `providers` block (`enablement._providers_block`)
     reads `~/.halo/config.json` via plain `bridge_home()` -- NOT
@@ -97,7 +119,23 @@ def ensure_scoped_state_dir_once() -> None:
     the REAL machine's own config.json for that check. A no-op once either
     var is already set (a file that scopes its own state dir per-test, or
     an earlier-imported module's own module-level default) -- never
-    clobbers a more specific scoping scheme already in place."""
+    clobbers a more specific scoping scheme already in place.
+
+    3.1.0.0 R1, per-module: under tests/run_all.py the FIRST call after
+    run_all moved on to a new module points `BRIDGE_TEST_HOME` at that
+    module's own home when the variable is unset or still names ANOTHER
+    module's home under the run's scratch root (a home the module or a test
+    chose itself, or a module's own `BRIDGE_STATE_DIR`, is kept); later
+    calls in the same module are the plain "once" no-op above."""
+    global _SCOPED_FOR
+    if _RUN_ALL_MODULE is not None and _SCOPED_FOR != _RUN_ALL_MODULE[0]:
+        _SCOPED_FOR = _RUN_ALL_MODULE[0]
+        home = _RUN_ALL_MODULE[1]
+        cur = os.environ.get("BRIDGE_TEST_HOME")
+        stale = cur is None or (cur != home and Path(cur).parent == Path(home).parent)
+        if "BRIDGE_STATE_DIR" not in os.environ and stale:
+            os.environ["BRIDGE_TEST_HOME"] = home
+        return
     if "BRIDGE_TEST_HOME" in os.environ or "BRIDGE_STATE_DIR" in os.environ:
         return
     os.environ["BRIDGE_TEST_HOME"] = str(Path(tempfile.mkdtemp(prefix="halo-scratch-")))
