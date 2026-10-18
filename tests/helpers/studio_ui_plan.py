@@ -21,12 +21,17 @@ def register(test, json_of, chrome) -> None:
     @test
     def test_orchestra_plan_canvas_draws_the_planned_lanes_in_headless_chrome(ctx: Ctx):
         """3.0.9.0 R2: a review run opens on the plan canvas instead of the console: five lanes in
-        two layer boxes (lane 2 takes lane 1's summary), one edge with its `summary` chip."""
+        two layer boxes (lane 2 takes lane 1's summary), one edge with its `summary` chip. 3.1.2.0 R2:
+        each card's cost chip and the header's forecast total, red over the goal's budget_usd."""
         got = run(ctx)
         ctx.check(f"the canvas, got {got.get('canvas')}", got.get("canvas") == {"orchestra-plan": 1, "plan-canvas": 1, "plan-lane": 5,
                                                                              "plan-edge": 1, "plan-approve": 1, "orchestra-root": 0})
         ctx.check(f"two layers, the chip, lane 2 below, got {got.get('layers')} / {got.get('edge_label')} / {got.get('lane2_layer')}",
                   got.get("layers") == "2" and got.get("edge_label") == "summary" and got.get("lane2_layer") == "1")
+        ctx.check(f"3.1.2.0 R2: a priced cost chip per lane, the total over the budget in the header, got "
+                  f"{got.get('cost_chips')} / {got.get('cost_chip')!r} / {got.get('forecast')!r} / {got.get('forecast_over')!r}",
+                  got.get("cost_chips") == 5 and str(got.get("cost_chip") or "").startswith("$")
+                  and "of $0.0001 · over budget" in str(got.get("forecast")) and got.get("forecast_over") == "true")
 
     @test
     def test_orchestra_plan_drag_sets_after_and_a_problem_holds_approve(ctx: Ctx):

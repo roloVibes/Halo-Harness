@@ -30,7 +30,7 @@ test, TESTS = new_registry()
 
 REPO = Path(__file__).resolve().parent.parent
 BRIEF = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "flow", "step", "mission",
-         "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability")
+         "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit")
 
 
 def _explain(*argv):
@@ -86,7 +86,7 @@ def test_halo_explain_prints_the_paragraph(ctx: Ctx):
         ctx.check(f"`halo explain {word}`: the word, then its paragraph, got {rc} {out[:120]!r}",
                   rc == 0 and out.startswith(word + "\n\n") and flat.endswith(words[word]))
     rc, out, _ = _explain()
-    ctx.check(f"no word lists all 23, got {rc} {out[:80]!r}", rc == 0 and out.startswith("23 words")
+    ctx.check(f"no word lists all 24, got {rc} {out[:80]!r}", rc == 0 and out.startswith("24 words")
               and all(f"  {w} " in out for w in BRIEF))
     rc, _, err = _explain("xyzzy")
     ctx.check(f"an unknown word: exit 1, said so, got {rc} {err!r}", rc == 1 and "no word 'xyzzy'" in err)
@@ -120,7 +120,7 @@ def test_api_route_and_the_tui(ctx: Ctx):
     from halo_harness.config.paths import bridge_home
     req = Request(method="GET", path="glossary", query={}, body={}, cwd=REPO, state_dir=Path(bridge_home()))
     status, body = dispatch(req)
-    ctx.check(f"GET /api/glossary: 200 and 23 words in file order, got {status}", status == 200
+    ctx.check(f"GET /api/glossary: 200 and 24 words in file order, got {status}", status == 200
               and [w["word"] for w in body["words"]] == list(BRIEF) and body["words"][0]["text"] == G.load()["lineup"])
     status, _ = dispatch(Request(method="POST", path="glossary", query={}, body={}, cwd=REPO, state_dir=Path(bridge_home())))
     ctx.check(f"POST is a 405, got {status}", status == 405)

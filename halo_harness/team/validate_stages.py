@@ -73,6 +73,17 @@ def _flow(stage, cwd, state_dir) -> list:
     return []
 
 
+def _r2(stage: dict, raw_team: dict) -> list:
+    """3.1.2.0 R2: a stage's budget_usd (team/budget.py) and an orchestra / flow stage's `harness`
+    (team/remote_stage.py; an agent stage delegates through its members' `harness`)."""
+    from halo_harness.team.validate import _budget
+    sid, out = stage["id"], _budget(f"stage `{stage['id']}`: budget_usd", stage.get("budget_usd"))
+    h = stage.get("harness")
+    if h is not None and not _ID.match(str(h).replace("@", "-").replace(".", "-")):
+        out.append(f"stage `{sid}`: harness {h!r} names a fleet member (`halo fleet who` lists them)")
+    return out
+
+
 def edges(team: dict) -> "dict[str, set]":
     """`{stage: {stages it starts}}` -- the trigger graph."""
     writers: "dict[str, set]" = {}
@@ -153,10 +164,13 @@ def check_stages(team: dict, root: Path, *, cwd=None, state_dir=None, cache=None
         if acc is not None and not (isinstance(acc.get("expect", ""), str) and isinstance(acc.get("prompt", ""), str)):
             out.append(f"stage `{sid}`: acceptance is {{prompt, expect}} with text values")
         out += _trigger(s, earlier, blocks, ids)
+        out += _r2(s, team)
         if s["kind"] == "orchestra":
             out += _goal(team, s, root)
-        if s["kind"] == "flow":
+        if s["kind"] == "flow" and not s.get("harness"):
             out += _flow(s, cwd, state_dir)
+        elif s["kind"] == "flow" and not s.get("flow"):  # a flow run on a member: the flow is the member's
+            out.append(f"stage `{sid}`: a flow stage names its flow (`halo flow templates` lists them)")
         earlier.append(sid)
     cycle = find_cycle(edges(team))
     if cycle:

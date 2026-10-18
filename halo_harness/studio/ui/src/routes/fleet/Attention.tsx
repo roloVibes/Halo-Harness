@@ -22,6 +22,7 @@ const KIND: Record<string, string> = {
   paused: "paused", flow_gate: "flow gate", orchestra_gate: "orchestra gate", control_ask: "command", cap: "spend cap", conflict: "conflict",
   mission_plan: "mission plan", mission_claim: "mission claim", mission_ask: "mission part", // 3.0.6.0 R8
   team_gate: "team gate", // 3.0.8.0 R2
+  team_budget: "team budget", // 3.1.2.0 R2: a stage held at its budget line
 };
 
 /** A key on a row: R with a text first opens the reply box. */

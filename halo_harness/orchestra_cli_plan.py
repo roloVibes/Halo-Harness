@@ -2,13 +2,15 @@
 orchestra` (Halo 3.0.9.0 round R2; orchestra/plan.py).
 
     halo orchestra run [RUN] --review             the run pauses after the split until the plan is approved
-    halo orchestra plan [RUN]                     the plan as a table, its problems and the decision
+    halo orchestra plan [RUN]                     the plan as a table (with each lane's forecast Cost and the total
+                                                  against the goal's budget_usd), its problems and the decision
     halo orchestra approve [RUN] [--file F]       check the plan (F, else Studio's draft, else the split) and run it
     halo orchestra reject [RUN] --reason TEXT     the run stops with that reason
 
 `approve` writes `<run>/plan.json` only when the plan passes every check
 (plan_check.py) and prints each problem otherwise (exit 2). `--file` takes
-a JSON file holding `{"jobs": [...]}` or the list itself. The waiting run
+a JSON file holding `{"jobs": [...]}` or the list itself; a forecast over
+the goal's budget_usd prints a warning and approves all the same. The waiting run
 (`halo orchestra run --review` in another terminal, or Studio) picks the
 decision up within a second. Exit codes: 0 done, 1 not found or nothing to
 decide, 2 a bad plan or request.
@@ -50,15 +52,19 @@ def _needs(job: dict) -> str:
     return ", ".join(f"{n.get('from')}:{n.get('take')}" for n in needs if isinstance(n, dict))
 
 
-def print_plan(run_dir: Path, jobs: list, problems: list) -> None:
-    print(f"{'job':<8} {'after':<14} {'bio':<12} {'model':<22} {'title'}")
+def print_plan(run_dir: Path, jobs: list, problems: list, forecast: "dict | None" = None) -> None:
+    from halo_harness.work.forecast import cell, words
+    costs = {x.get("job"): cell(x) for x in (forecast or {}).get("lanes") or []}
+    print(f"{'job':<8} {'after':<14} {'bio':<12} {'model':<22} {'cost':<16} {'title'}")
     for job in jobs:
         after = ", ".join(str(a) for a in job.get("after") or [])
         print(f"{_cell(job.get('id'), 8)} {_cell(after, 14)} {_cell(job.get('bio'), 12)} {_cell(job.get('model'), 22)} "
-              f"{job.get('title') or ''}")
+              f"{_cell(costs.get(job.get('id')), 16)} {job.get('title') or ''}")
         print(f"{'':<8} claims: {', '.join(str(c) for c in job.get('claims') or []) or '(none)'}")
         if _needs(job):
             print(f"{'':<8} needs:  {_needs(job)}")
+    if forecast and forecast.get("total"):
+        print(f"cost: {words(forecast['total'])}")
     if problems:
         print(f"{len(problems)} problem(s):")
         for p in problems:
@@ -80,7 +86,8 @@ def cmd_plan(args, repo: Path) -> int:
         ("waits for review" if P.is_planned(run_dir) else "not waiting for review")
     source = "Studio's draft" if P.read_draft(run_dir) is not None else "the split"
     print(f"run {run_dir.name}: the plan ({len(jobs)} job(s), from {source}) {state}")
-    print_plan(run_dir, jobs, P.check(run_dir, jobs))
+    from halo_harness.orchestra.forecast import write_quietly
+    print_plan(run_dir, jobs, P.check(run_dir, jobs), write_quietly(run_dir, jobs))
     return 0
 
 
@@ -114,6 +121,10 @@ def cmd_approve(args, repo: Path) -> int:
         for p in problems:
             print(f"  - {p['text']}", file=sys.stderr)
         return 2
+    from halo_harness.orchestra.forecast import warning, write_quietly
+    over = warning(write_quietly(run_dir, jobs) or {})
+    if over:
+        print(f"halo orchestra approve: warning: {over}", file=sys.stderr)
     print(f"run {run_dir.name}: plan approved ({len(jobs)} job(s)); the waiting run takes it"
           + ("" if P.is_planned(run_dir) else f" (start it again with halo orchestra run {run_dir.name})"))
     return 0

@@ -104,8 +104,7 @@ def normalize(doc: dict) -> dict:
     for m in _list(doc.get("members")):
         m = m if isinstance(m, dict) else {"name": m}
         members.append({"name": str(m.get("name") or ""), "lineup": str(m.get("lineup") or ""),
-                        "role": str(m.get("role") or "main"),
-                        "harness": (str(m["harness"]) if m.get("harness") not in (None, "", "here", "local") else None)})
+                        "role": str(m.get("role") or "main"), "harness": _harness(m.get("harness"))})
     blocks = []
     for b in _list(doc.get("blocks")):
         b = b if isinstance(b, dict) else {"id": b}
@@ -128,9 +127,15 @@ def normalize(doc: dict) -> dict:
                        "settle_s": settle, "goal": s.get("goal") if kind == "orchestra" else None,
                        "flow": str(s.get("flow") or "") if kind == "flow" else None,
                        "inputs": s.get("inputs") if isinstance(s.get("inputs"), dict) else {},
-                       "prompt": str(s.get("prompt") or "")})
+                       "prompt": str(s.get("prompt") or ""), "budget_usd": s.get("budget_usd"),
+                       "harness": _harness(s.get("harness")) if kind in ("orchestra", "flow") else None})
     return {"name": str(doc.get("name") or ""), "brief": str(doc.get("brief") or ""), "members": members,
-            "blocks": blocks, "workflow": {"stages": stages}}
+            "blocks": blocks, "workflow": {"stages": stages}, "budget_usd": doc.get("budget_usd")}
+
+
+def _harness(raw) -> Optional[str]:
+    """A fleet member's name, or None for this harness (`here`, `local` or nothing)."""
+    return str(raw) if raw not in (None, "", "here", "local") else None
 
 
 def load_file(path) -> dict:

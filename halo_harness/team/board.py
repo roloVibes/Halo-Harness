@@ -25,8 +25,10 @@ from typing import Callable, Optional
 
 from halo_harness.orchestra import jsonl
 from halo_harness.team import RUNS_DIR
+from halo_harness.work.states import words
+from halo_harness.work.unit import move_word
 
-STATES = ("pending", "ready", "running", "gated", "done", "failed", "skipped")
+STATES = words("stage")  # pending ready running gated done failed skipped (work/states.py, 3.1.2.0 R1)
 EVENT_KINDS = ("state", "claim", "change", "gate", "trigger", "report", "note")
 RUN_STATES = ("open", "done", "stopped")
 BEAT_S = 15.0
@@ -43,10 +45,9 @@ def new_run_id(now: Optional[float] = None) -> str:
 
 
 def stage_row(stage: dict, members: list, lead: str, harness: Optional[str]) -> dict:
-    return {"id": stage["id"], "kind": stage["kind"], "state": "pending", "trigger": stage["trigger"],
-            "members": list(members), "lead": lead, "gate": stage["gate"], "harness": harness,
-            "started": None, "ended": None, "cost_usd": 0.0, "summary": "", "error": "", "round": 0,
-            "waiting": "", "gate_answer": None}
+    """A new board row; its shape is the stage adapter's (work/adapters/stage.py, 3.1.2.0 R1)."""
+    from halo_harness.work.adapters.stage import new_row
+    return new_row(stage, members, lead, harness)
 
 
 def new_run(root, team: dict, rows: list) -> Path:
@@ -146,6 +147,7 @@ def set_stage(run_dir, sid: str, state: Optional[str] = None, text: str = "", **
         if r is None:
             return
         if state is not None and r.get("state") != state:
+            move_word("stage", sid, r.get("state"), state, board.get("run") or "")  # 3.1.2.0 R2: through Unit.move
             moved["from"] = r.get("state")
             r["state"] = state
         r.update(fields)
@@ -208,3 +210,9 @@ def stop_requested(run_dir) -> Optional[str]:
 
 def cost(board: dict) -> float:
     return round(sum(float(r.get("cost_usd") or 0.0) for r in board.get("stages") or []), 6)
+
+
+def unit_rows(run_dir) -> list:
+    """Each stage as the shared report row (work/report.py; 3.1.2.0 R1, docs/WORK.md)."""
+    from halo_harness.work.report import rows
+    return rows(run_dir, "stage")

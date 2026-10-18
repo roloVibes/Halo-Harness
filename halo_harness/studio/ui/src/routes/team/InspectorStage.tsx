@@ -79,6 +79,8 @@ export function StageFace({ id }: { id: string }) {
     ["writes", spec.writes.join(", ") || "-"],
     ["cost", usd(row?.cost_usd)],
   ];
+  if (row?.members_state) kv.push(["members now", Object.entries(row.members_state).map(([m, st]) => `${m} ${st}`).join(" · ")]);
+  if (row?.remote) kv.push(["runs on", `${row.remote.harness}${row.remote.run ? `, ${row.remote.kind} run ${row.remote.run}` : ""} (${row.remote.part_state})`]);
   if (row?.started) kv.push(["took", row.ended ? elapsed(row.ended - row.started) : `running ${elapsed(Date.now() / 1000 - row.started)}`]);
   if (row?.started && started) kv.push(["started at", "+" + elapsed(row.started - started)]);
   return (

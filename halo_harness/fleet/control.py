@@ -8,6 +8,8 @@ hands it here with the session's handle and that hub's policy:
     doctor                              answered: the read-only health subset (fleet/health.py, 3.0.5.0 R4)
     capabilities {refresh?}             answered: this harness's capability catalog from its cache, gathered
                                         afresh when older than an hour or on refresh (fleet/capabilities.py, 3.0.6.0 R6)
+    recall {query, k}                   answered from this harness's own index (recall_fleet.py, 3.1.2.0 R3): the
+                                        hits only, never the index; refused under fleet.recall.share: false
     agent_tail, agent_follow, tail      answered when this hub's share is `full`
     agent_steer, agent_stop, pause,     fleet.allow_control `none`: refused, with the reason the hub shows;
     resume, shutdown, steer, interrupt  `ask` (the default): a card in the owner's TUI, "<name> on <hub>
@@ -175,6 +177,12 @@ def run(handle, msg: dict, pol: dict, interim: Optional[Callable] = None) -> dic
             raise Refused(f"{cmd!r} is not a fleet command")
         if cmd in protocol.READ_CMDS:
             return {"state": "done", "result": _read(handle, cmd, pol["share"], fields)}
+        if cmd in protocol.RECALL_CMDS:  # 3.1.2.0 R3: this box's own index answers; only the hits leave it
+            from halo_harness import recall_fleet
+            try:
+                return {"state": "done", "result": recall_fleet.answer(fields, by=by, hub=hub)}
+            except recall_fleet.Shut as e:
+                raise Refused(str(e)) from None
         if cmd in protocol.FULL_CMDS:
             if pol["share"] != "full":
                 raise Refused(f"this harness shares `{pol['share']}` with {hub}; {cmd} needs share full")

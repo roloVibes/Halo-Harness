@@ -12,6 +12,10 @@ parts that would touch the same file run one after the other.
 
 **Teams (Halo 3.0.8.0):** a team member with `harness: <fleet member>` sends its stage's task the way a part goes out (`run_task`, as a one-part mission in the hub's store); see [TEAM.md](TEAM.md#delegating-a-member-to-the-fleet).
 
+**Team stages on a member (Halo 3.1.2.0):** a team's orchestra or flow stage with `harness: <member>` goes as a one-part mission whose part is `kind: orchestra | flow` (its `run` the goal, or the flow and its inputs); the member runs it locally and hands back `result.json`, the run's `report.json` and its line; see [TEAM.md](TEAM.md#delegating-a-member-to-the-fleet).
+
+**One unit of work (Halo 3.1.2.0):** a mission part is a *unit* of work, the same thing an Orchestra lane, a team stage and a flow step are; `halo work <mission id>` prints its parts as that shared table. See [WORK.md](WORK.md).
+
 Round R7 is the backend (this page): the mission folder, the planner, the
 shared workspace over the fleet protocol, dispatch, the run, merge and report,
 the routes and the command line. Round R8 is the Mission panel in Studio
@@ -281,6 +285,10 @@ drop or fold it), and outputs the plan named that nobody wrote (prompt). A
 mission's plan is the lead's, so these cards carry no Apply: put the change
 in the next mission's constraints, or Plan it again. The rules are in
 [ORCHESTRA.md](ORCHESTRA.md#the-coach).
+
+A mission part delegated to a member is exercised end to end against a real
+second machine by the scripted two-machine check ([FLEET.md](FLEET.md) "The
+two-machine check", `tools/live_fleet_check.py`, 3.1.2.0 R3).
 
 ## Config keys
 

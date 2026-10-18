@@ -27,8 +27,9 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from halo_harness.orchestra import jsonl
+from halo_harness.work.states import words
 
-STEP_STATES = ("pending", "running", "waiting", "done", "failed", "skipped")
+STEP_STATES = words("step")  # pending running waiting done failed skipped: a step's words (work/states.py, 3.1.2.0 R1)
 EVENT_KINDS = ("state", "step", "gate", "post", "metric", "report", "note")
 FEED_KINDS = {k: f"flow_{k}" for k in EVENT_KINDS if k != "note"}
 
@@ -186,6 +187,8 @@ class Flow:
             row = next((s for s in data.get("steps") or [] if s.get("id") == step_id), None)
             if row is None or row.get("state") == state:
                 return
+            from halo_harness.work.unit import move_word  # 3.1.2.0 R2: the step's move through Unit.move
+            move_word("step", step_id, row.get("state"), state, self.run_dir.name)
             row["state"] = state
             jsonl.write_json(self.path, data)
             self.log("state", f"{step_id} {state}" + (f": {text}" if text else ""), step=step_id, state=state)

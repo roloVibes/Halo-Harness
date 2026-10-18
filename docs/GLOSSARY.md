@@ -98,3 +98,7 @@ A harness is one running Halo install on one machine with its own home (`~/.halo
 ## capability
 
 A capability is something a harness can do, as its spec card lists it: its hardware (GPU, memory), the models it reaches, its craft apps, its MCP servers and their tools, its skills and its tags. A mission gives each part to a harness whose capabilities fit it, and `halo fleet who "<query>"` ranks the fleet for what you need.
+
+## unit
+
+A unit of work is what a lane, a mission part, a team stage and a flow step all are underneath (`halo work`, docs/WORK.md): one piece of work with an owner, its claims, its hand-offs, one state machine, a gate, an acceptance and a cost. The four engines keep their own words on top; the shared model gives them one ledger line, one report row and one coach.

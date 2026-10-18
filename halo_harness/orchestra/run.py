@@ -5,19 +5,18 @@
          -> test -> gate (a failed piece loops back to its worker, up to
             return_cap times) -> done: the finished branch and report.json
 
-`run(run_dir, *, model_calls, spawn, judge, clock)`: `model_calls` is the
-lead's one-shot call (split), `spawn(lane)` runs a worker, `judge(hunks,
-goal, file)` is the fresh judge. The real ones are in adapters.py; tests
-pass fakes. Every transition advances `workflow.json` and logs a `state`
-line; `on_event(entry)` sees every new events.jsonl line as it lands. A goal
-with `plan: review` holds the split `planned` for the reviewed plan (plan.py).
+`run(run_dir, *, model_calls, spawn, judge, clock)`: `model_calls` is the lead's one-shot call
+(split), `spawn(lane)` runs a worker, `judge(hunks, goal, file)` is the fresh judge (the real
+ones: adapters.py; tests pass fakes). Every transition advances `workflow.json` and logs a
+`state` line; `on_event(entry)` sees each new events.jsonl line. `plan: review` holds the split
+`planned` for the reviewed plan (plan.py).
 
-Resumable: a re-run reads split.json, lanes/*.json and merge.json and picks
-up at the first unfinished step (a written lane is not run again, a merged
-lane is not merged again). STOP WHEN goes to the lead (it may answer
-`{"stop": reason}`) and to every worker (`STOP: reason`); the gate stops at
-the return cap; `halo orchestra stop` writes `<run>/stop.json`, which the
-runner honours between steps. A stopped run still writes its report.
+Resumable: a re-run reads split.json, lanes/*.json and merge.json and picks up at the first
+unfinished step (a written lane is not run again, a merged lane is not merged again). STOP WHEN
+goes to the lead (`{"stop": reason}`) and every worker (`STOP: reason`); the gate stops at the
+return cap; `halo orchestra stop` writes `<run>/stop.json`, honoured between steps; a stopped run
+still writes its report. 3.1.2.0 R2: the plan's forecast goes beside split.json (forecast.py); a
+lane that started from a piece the gate sent back is re-based before the merge (stale.py).
 """
 
 from __future__ import annotations
@@ -28,9 +27,9 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from halo_harness.orchestra import events as run_events
-from halo_harness.orchestra import gitops, jsonl
+from halo_harness.orchestra import forecast, gitops, jsonl
 from halo_harness.orchestra import workflow as wf
-from halo_harness.orchestra.gate import quality_gate
+from halo_harness.orchestra.gate import quality_gate, send_back
 from halo_harness.orchestra.handoff_run import stuck
 from halo_harness.orchestra.goal import load_goal, repo_root_of, run_meta, set_lead_holder
 from halo_harness.orchestra.index import index_file
@@ -39,6 +38,7 @@ from halo_harness.orchestra.merge import merge_lanes
 from halo_harness.orchestra.plan import await_plan
 from halo_harness.orchestra.report import load_report, write_report
 from halo_harness.orchestra.split import Job, StopRun, load_split, split_goal
+from halo_harness.orchestra.stale import StaleLanes
 from halo_harness.orchestra.workers import run_lane, start_workers
 
 LEAD_HOLDER = "orchestra/lead"
@@ -159,11 +159,13 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
         run_events.log(run_dir, "state", f"resume: picking up at {resume_at}", step=resume_at)
     repo = repo_root_of(run_dir)
     lanes, gate = [], None
+    stale = StaleLanes(run_dir, goal, lambda: lanes, flow, clock)
 
     def respawn(lane, text: str) -> None:
         flow.set(wf.worker_id(lane.n), "running", "piece sent back")
         run_lane(run_dir, goal, lane, spawn, clock=clock, retry_text=text)
         flow.set(wf.worker_id(lane.n), "failed" if lane.state == "failed" else "done")
+        stale.rewritten(lane, respawn)
 
     def respawn_in_merge(lane, text: str) -> None:
         respawn(lane, text)
@@ -185,6 +187,7 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
         if goal.plan == "review":  # 3.0.9.0 R2: the split waits for the reviewed plan (orchestra/plan.py)
             jobs = await_plan(run_dir, flow, jobs, check_stop=lambda: _check_stop(run_dir), poll_s=plan_poll_s)
         flow.set("split", "done", f"{len(jobs)} job(s)")
+        forecast.write_quietly(run_dir, [job.to_dict() for job in jobs])
         for n in range(len(jobs) + 1, goal.workers + 1):
             flow.set(wf.worker_id(n), "skipped")
         _check_stop(run_dir)
@@ -209,7 +212,7 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
             _check_stop(run_dir)
             flow.set("merge", "running")
             result = merge_lanes(run_dir, goal, lanes, judge=judge, base=base, respawn=respawn_in_merge,
-                                 on_return=lambda lane: flow.loop_back(lane.n),
+                                 on_return=lambda lane: (flow.loop_back(lane.n), stale.sent_back(lane)),
                                  on_merged=lambda lane: flow.pump(), clock=clock)
             flow.set("merge", "done", f"{len(result.merged)} branch(es) merged")
             _check_stop(run_dir)
@@ -227,10 +230,9 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
                 raise StopRun(gate.stop_reason)
             for n in gate.back:
                 lane = next(l for l in lanes if l.n == n)
-                lane.update(pieces_returned=lane.pieces_returned + 1)
-                lane.set_state("waiting", f"the gate sent the piece back ({lane.pieces_returned}/{goal.return_cap})",
-                               clock=clock)
+                send_back(lane, lambda k: f"the gate sent the piece back ({k}/{goal.return_cap})", clock=clock)
                 flow.loop_back(n)
+                stale.sent_back(lane)
                 respawn(lane, f"The tests fail on the finished branch {result.branch}:\n{gate.tests.tail}")
                 if lane.state == "failed":
                     raise StopRun(f"lane {n}'s worker failed after the gate sent its piece back")

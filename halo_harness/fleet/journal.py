@@ -20,6 +20,7 @@ with kind one of:
     mission_planned {mission, parts, by}, mission_approved {mission, by}, mission_run {mission, by},
     mission_part {mission, part, state, cost_usd?, error?}, mission_claim {mission, part, file, tool},
     mission_end {mission, state, cost_usd, reason, parts}      a fleet mission (3.0.6.0 R7, fleet/mission_run.py)
+    recall_asked {query, k, by, hub, hits, hidden?}   a hub asked this harness's index (3.1.2.0 R3, recall_fleet.py)
 """
 
 from __future__ import annotations
@@ -32,7 +33,8 @@ from typing import Optional
 
 MAX_BYTES = 4_000_000
 KINDS = ("session_start", "session_end", "cost", "file", "error", "decision", "handoff", "cap_pause", "cap_ack", "ack",
-         "mission_planned", "mission_approved", "mission_run", "mission_part", "mission_claim", "mission_end")  # R7
+         "mission_planned", "mission_approved", "mission_run", "mission_part", "mission_claim", "mission_end",  # R7
+         "recall_asked")  # 3.1.2.0 R3
 _lock = threading.Lock()
 
 

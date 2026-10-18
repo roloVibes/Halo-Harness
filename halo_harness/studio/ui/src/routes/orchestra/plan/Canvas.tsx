@@ -3,11 +3,13 @@
 // label chips. Drag a card into another box: box 1 clears what it runs after,
 // box k makes it run after the lanes of box k-1, the empty last box opens a
 // new layer. A click selects a card for the inspector. Click the canvas,
-// then Ctrl+Z / Ctrl+Shift+Z undo and redo.
+// then Ctrl+Z / Ctrl+Shift+Z undo and redo. 3.1.2.0 R2: each card carries
+// its lane's cost chip (the forecast in the plan store).
 import { useCallback, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { layerMap, moveToLayer, redo, undo } from "./actions";
 import { boxAt, layout } from "./layout";
 import { Edges, LaneCard, LayerBox, type PlanEdge } from "./Parts";
+import { byJob } from "./forecast";
 import { edgeLabel, NO_JOBS, plan, problemsOf, selectLane, upstreams, usePlan } from "./store";
 
 type Drag = { id: string; dx: number; dy: number; hot: number | null };
@@ -16,6 +18,8 @@ export function PlanCanvas() {
   const jobs = usePlan((s) => s.jobs || NO_JOBS);
   const problems = usePlan((s) => s.problems);
   const sel = usePlan((s) => s.sel);
+  const forecast = usePlan((s) => s.forecast);
+  const costs = useMemo(() => byJob(forecast), [forecast]);
   const [drag, setDrag] = useState<Drag | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const layer = useMemo(() => layerMap(jobs), [jobs]);
@@ -87,7 +91,7 @@ export function PlanCanvas() {
         <Edges edges={edges} pos={pos} w={laid.w} h={laid.h} sel={sel} />
         {jobs.map((j) => (
           <LaneCard key={j.id} job={j} n={index.get(j.id) || 0} p={pos[j.id] || { x: 0, y: 0 }} layer={layer[j.id] || 0} problems={problemsOf(problems, j.id)}
-                    selected={j.id === sel} dragging={drag?.id === j.id} onDown={onDown} />
+                    selected={j.id === sel} dragging={drag?.id === j.id} cost={costs[j.id]} onDown={onDown} />
         ))}
       </div>
     </div>

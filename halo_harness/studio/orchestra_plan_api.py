@@ -3,14 +3,17 @@ routes (Halo 3.0.9.0 round R2; orchestra/plan.py), beside
 studio/orchestra_api.py's:
 
     GET  orchestra/<run>/plan      {run_id, state, planned, mode, source, jobs, lead_jobs, problems,
-                                    preflight, units, decision}
-    PUT  orchestra/<run>/plan {jobs}     validate, keep the draft (plan.draft.json) -> {ok, problems}; never approves
+                                    preflight, units, decision, forecast}
+    PUT  orchestra/<run>/plan {jobs}     validate, keep the draft (plan.draft.json) -> {ok, problems, forecast}
     POST orchestra/<run>/approve {jobs?} validate (the body's jobs, else the draft, else the split) and write
-                                         plan.json approved -> {ok, run_id, jobs}; 422 {error, problems}
+                                         plan.json approved -> {ok, run_id, jobs, warning}; 422 {error, problems}
+    GET  orchestra/<run>/forecast  the plan's cost forecast (3.1.2.0 R2, orchestra/forecast.py; forecast.json)
     POST orchestra/<run>/reject {reason} plan.json rejected -> {ok, reason}; 422 without a reason
 
 `problems` rows are `{jobs, field, text}` (plan_check.py); `preflight` is
-the run's lineup findings (lineup_preflight.py). Approve and reject answer
+the run's lineup findings (lineup_preflight.py); `forecast` is `{lanes,
+total, heuristic}` for the jobs shown, and Approve's `warning` names a
+forecast over the goal's budget_usd (it approves all the same). Approve and reject answer
 409 once the plan is decided or when the run is not waiting for review.
 When no runner waits for the run (Studio restarted while it waited: no live
 thread and a stale `plan.wait.json`), they start one (orchestra_api.RUNNER,
@@ -49,7 +52,23 @@ def get_plan(req):
                  "source": "draft" if P.read_draft(run_dir) is not None else "split", "jobs": jobs,
                  "lead_jobs": P.lead_jobs(run_dir), "problems": P.check(run_dir, jobs, state_dir=req.state_dir) if jobs else [],
                  "preflight": _lineup_findings(run_dir, req.state_dir), "units": P.unit_keys(run_dir) or [],
-                 "decision": P.read_decision(run_dir)}
+                 "decision": P.read_decision(run_dir), "forecast": _forecast(run_dir, jobs, req)}
+
+
+def _forecast(run_dir, jobs, req) -> dict:
+    """The jobs' forecast (forecast.json written as it stands)."""
+    from halo_harness.orchestra import forecast
+    try:
+        return forecast.write(run_dir, jobs, state_dir=req.state_dir)
+    except Exception as e:  # the plan still opens without one
+        return {"lanes": [], "total": None, "error": f"{type(e).__name__}: {e}"}
+
+
+def get_forecast(req):
+    run_dir, err = _run(req)
+    if err:
+        return err
+    return 200, _forecast(run_dir, P.current_jobs(run_dir), req)
 
 
 def _jobs_of(req):
@@ -71,7 +90,7 @@ def put_plan(req):
         return 409, {"error": "the plan is already decided", "decision": P.read_decision(run_dir)}
     P.write_draft(run_dir, jobs)
     problems = P.check(run_dir, jobs, state_dir=req.state_dir)
-    return 200, {"ok": not problems, "problems": problems, "jobs": jobs}
+    return 200, {"ok": not problems, "problems": problems, "jobs": jobs, "forecast": _forecast(run_dir, jobs, req)}
 
 
 def _decidable(run_dir):
@@ -114,8 +133,10 @@ def post_approve(req):
     problems = P.approve(run_dir, jobs, by="studio", state_dir=req.state_dir)
     if problems:
         return 422, {"error": f"the plan has {len(problems)} problem(s): " + problems[0]["text"], "problems": problems}
+    from halo_harness.orchestra.forecast import warning
     resumed = _resume(req, run_dir)
-    return 200, {"ok": True, "run_id": run_dir.name, "jobs": P.read_decision(run_dir)["jobs"], "resumed": resumed}
+    return 200, {"ok": True, "run_id": run_dir.name, "jobs": P.read_decision(run_dir)["jobs"], "resumed": resumed,
+                 "warning": warning(_forecast(run_dir, jobs, req))}
 
 
 def post_reject(req):
@@ -136,4 +157,5 @@ _RUN = r"(?P<run>[A-Za-z0-9_-]+)"
 ROUTES = [
     ("GET", rf"^orchestra/{_RUN}/plan$", get_plan), ("PUT", rf"^orchestra/{_RUN}/plan$", put_plan),
     ("POST", rf"^orchestra/{_RUN}/approve$", post_approve), ("POST", rf"^orchestra/{_RUN}/reject$", post_reject),
+    ("GET", rf"^orchestra/{_RUN}/forecast$", get_forecast),
 ]

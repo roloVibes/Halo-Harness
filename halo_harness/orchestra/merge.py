@@ -12,7 +12,8 @@ text by code and runs the tests. Tests that pass (or, mid-sequence, fail no
 test that was not already failing) keep the merge. Otherwise the merge is
 undone and the piece goes back to its worker (`pieces_returned += 1`, lane
 `waiting`, `respawn(lane, text)`), unless the lane is at `return_cap`: then
-the run stops with the reason.
+the run stops with the reason. A lane still marked `stale` (its upstream was
+sent back and it is not re-based yet, orchestra/stale.py) is never merged.
 
 `<run>/merge.json`:
 
@@ -32,7 +33,7 @@ from typing import Callable, Optional
 
 from halo_harness.orchestra import events as run_events
 from halo_harness.orchestra import gitops, jsonl
-from halo_harness.orchestra.gate import run_tests
+from halo_harness.orchestra.gate import run_tests, send_back
 from halo_harness.orchestra.goal import repo_root_of
 from halo_harness.orchestra.hunks import apply_resolution, extract_hunks, parse_resolution
 from halo_harness.orchestra.split import StopRun
@@ -177,6 +178,8 @@ def merge_lanes(run_dir, goal, lanes: list, *, judge: Callable, base: str,
     save()
     for n in order:
         lane = by_n[n]
+        if lane.data().get("stale"):  # 3.1.2.0 R2 (orchestra/stale.py): never merged stale
+            raise StopRun(f"lane {n} is stale ({lane.data()['stale'].get('reason')}): it is re-based before it merges")
         if lane.state == "merged" and n in state["merged"] and gitops.is_ancestor(cwd, lane.branch, "HEAD"):
             continue
         attempt = 0
@@ -205,8 +208,7 @@ def merge_lanes(run_dir, goal, lanes: list, *, judge: Callable, base: str,
                 lane.set_state("failed", "merge failed at the return cap", clock=clock)
                 raise StopRun(f"lane {n}'s piece failed the tests after the merge and reached the return cap "
                               f"({goal.return_cap}): {tail.splitlines()[-1] if tail else 'no output'}")
-            lane.update(pieces_returned=lane.pieces_returned + 1)
-            lane.set_state("waiting", f"piece sent back ({lane.pieces_returned}/{goal.return_cap})", clock=clock)
+            send_back(lane, lambda k: f"piece sent back ({k}/{goal.return_cap})", clock=clock)
             if on_return is not None:
                 on_return(lane)
             respawn(lane, f"Merging your branch into {branch} conflicted and the resolution failed the tests:\n"

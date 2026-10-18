@@ -1,7 +1,6 @@
-"""halo_harness.studio.team_api -- `/api/team/...`, Studio's Team backend
-(Halo 3.0.8.0 round R1; round R2 draws the Team tab on it). Same loopback /
-origin / token guard as every Studio route; the team is the one of the repo
-that holds Studio's folder (`req.cwd`), docs/TEAM.md.
+"""halo_harness.studio.team_api -- `/api/team/...`, Studio's Team backend (Halo 3.0.8.0 R1; R2 draws the
+Team tab on it). Same loopback / origin / token guard as every Studio route; the team is the one of the
+repo that holds Studio's folder (`req.cwd`), docs/TEAM.md.
 
     GET  team                           {found, path, source, root, team, problems, preflight, run, live}
     POST team/validate {yaml?}          {ok, problems, preflight, team}  (the file, or the YAML text given)
@@ -16,10 +15,10 @@ that holds Studio's folder (`req.cwd`), docs/TEAM.md.
     GET  team/blocks/<id>/changes?since=N  {block, changes, next}
     GET  team/events?since=N&run=       {run, events, next}
     POST team/init                      {ok, written, path}; 409 when a file exists (R2, team_init_api.py)
+    POST team/budget {stage, action: skip|stop, run?}  a stage held at its budget line (3.1.2.0 R2)
 
-Board, gate, claim and change events go out on `/api/events` as `team` frames (studio/team_live.py).
-`RUNNER()` returns the runner's seams as keywords (`spawn`, `orchestra`, `flow`, `dispatch`,
-`accept`); None = the real ones (team/run.py); tests set it to the fakes.
+Board, gate, claim and change events go out on `/api/events` as `team` frames (studio/team_live.py). `RUNNER()`
+returns the runner's seams as keywords (spawn, orchestra, flow, dispatch, accept); None = the real ones.
 """
 
 from __future__ import annotations
@@ -30,6 +29,7 @@ from pathlib import Path
 from halo_harness.team import blocks as B
 from halo_harness.team import board as BD
 from halo_harness.team import spec as S
+from halo_harness.studio.team_budget_api import post_budget
 from halo_harness.studio.team_init_api import post_init
 from halo_harness.studio import team_live as live
 
@@ -122,8 +122,8 @@ def get_board(req):
             return 404, {"error": f"no team run {req.query['run']!r}"}
         board = {"run": None, "team": team["name"], "state": "none", "stages": rows_for(team, state_dir=req.state_dir)}
         return 200, {"run": None, "board": board, "status": None, "live": False}
-    return 200, {"run": run_dir.name, "board": BD.read_board(run_dir), "status": status_of(run_dir),
-                 "live": live.live_run(team["root"]) == run_dir.name}
+    return 200, {"run": run_dir.name, "status": status_of(run_dir, team), "live": live.live_run(team["root"]) == run_dir.name,
+                 "board": dict(BD.read_board(run_dir), units=BD.unit_rows(run_dir))}  # 3.1.2.0 R1: UnitRows beside the stages
 
 
 def post_run(req):
@@ -236,7 +236,7 @@ ROUTES = [
     ("GET", r"^team$", get_team), ("POST", r"^team/validate$", post_validate), ("GET", r"^team/board$", get_board),
     ("POST", r"^team/run$", post_run), ("POST", r"^team/answer$", post_answer), ("POST", r"^team/stop$", post_stop),
     ("GET", r"^team/blocks$", get_blocks), ("GET", r"^team/blocks/(?P<block>[A-Za-z0-9_-]+)/changes$", get_changes),
-    ("GET", r"^team/events$", get_events), ("POST", r"^team/init$", post_init)]
+    ("GET", r"^team/events$", get_events), ("POST", r"^team/init$", post_init), ("POST", r"^team/budget$", post_budget)]
 
 
 def dispatch_team(req):

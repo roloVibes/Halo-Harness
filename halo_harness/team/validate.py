@@ -97,6 +97,13 @@ def _check_blocks(team, root: Path) -> list:
     return out
 
 
+def _budget(what: str, value) -> list:
+    """3.1.2.0 R2 (team/budget.py): a budget line is a number of dollars, 0 or more."""
+    if value is None or (isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0):
+        return []
+    return [f"{what} is a number of dollars, 0 or more, got {value!r}"]
+
+
 def _in_git(path: Path) -> bool:
     from halo_harness.worktree import repo_root
     try:
@@ -121,6 +128,7 @@ def validate_team(doc, *, cwd=None, state_dir=None, preflight: bool = True) -> "
         out.append(f"brief {team['brief']!r} must be a file inside the repo")
     elif not (root / team["brief"]).is_file():
         out.append(f"brief {team['brief']} does not exist yet: write it (halo team init makes a starter)")
+    out += _budget("the team's budget_usd", team.get("budget_usd"))
     out += _check_members(team, cwd, state_dir, cache)
     out += _check_blocks(team, root)
     out += check_stages(team, root, cwd=cwd, state_dir=state_dir, cache=cache)

@@ -5,7 +5,8 @@
 // pulses amber. Hover a node for its time and text; click a lane to focus
 // it (its node times show). 3.0.9.0: a lane that starts after another is
 // joined to it by an arc with a chip naming what it takes, and every lane
-// shows its base (LaneEdges.tsx).
+// shows its base (LaneEdges.tsx). 3.1.2.0 R2: a lane whose upstream the gate
+// sent back shows STALE until it is re-based, then the re-base line.
 import { useEffect, useRef } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Metric, NoRun } from "./bits";
@@ -91,6 +92,13 @@ export function LanesDetail() {
           <div className="og-lane-state mono" data-state={l.state} data-motion={laneMotion(l.state)}>
             {LANE_LABEL[l.state] || l.state}
             {l.pieces_returned > 0 && <span className="og-returned"> ↺{l.pieces_returned}</span>}
+            {l.stale && <span className="og-chip mono og-stale" data-testid="lane-stale" title={l.stale.reason}>STALE</span>}
+            {l.rebased && !l.stale && (
+              <span className="og-rebase mono" data-testid="lane-rebase" data-conflict={l.rebased.conflict?.length || undefined}
+                    title={l.rebased.conflict?.length ? `the re-base conflicted in ${l.rebased.conflict.join(", ")}: its worker resolved it` : "re-based"}>
+                re-based onto {l.rebased.onto.map((o) => `lane ${o.lane} ${o.head.slice(0, 7)}`).join(", ")}
+              </span>
+            )}
             {l.history.length > 0 && <span className="og-lane-when">{when(mode, l.history[l.history.length - 1].elapsed_s, l.history[l.history.length - 1].ts)}</span>}
             <BaseLine lane={l} />
           </div>

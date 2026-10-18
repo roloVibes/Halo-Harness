@@ -68,6 +68,10 @@ export type StageRow = {
   round: number;
   waiting: string;
   gate_answer: GateAnswer | null;
+  // 3.1.2.0 R2: each member's state (machine words), a stage run on a fleet member, a budget hold
+  members_state?: Record<string, string>;
+  remote?: { harness: string; kind: string; mission: string | null; part_state: string; run: string | null } | null;
+  budget?: { scope: string; spent: number; forecast: number; budget: number; text: string } | null;
 };
 export type Board = {
   run: string | null;

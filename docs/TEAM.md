@@ -23,6 +23,8 @@ hand a member's work to another harness the way a mission part goes out,
 and the blocks and the board tie it together: what each stage reads and
 writes, who holds which part of a block, and what waits on whom.
 
+**One unit of work (Halo 3.1.2.0):** a team stage is a *unit* of work, the same thing an Orchestra lane, a mission part and a flow step are, with one state machine, one ledger line, one report row and one coach; `halo work` prints a run's stages as that shared table. See [WORK.md](WORK.md).
+
 ## The file
 
 `<repo>/.halo/team.yaml`, else `~/.halo/teams/<project>.team.yaml` (`<project>`
@@ -32,6 +34,7 @@ repo file from the shipped template and a starter `docs/BRIEF.md`.
 ```yaml
 name: launch
 brief: docs/BRIEF.md            # the one file every agent reads first
+budget_usd: 2.0                 # 3.1.2.0: what the whole run may cost (see Budgets)
 members:
   - name: writer                 # an instance name
     lineup: local-first          # a lineup (halo teams lists them)
@@ -62,6 +65,8 @@ workflow:
     - id: build
       kind: orchestra
       goal: {what: "...", done_when: "...", workers: 3}
+      harness: null              # 3.1.2.0: a fleet member's name runs this orchestra (or flow) stage there
+      budget_usd: 1.0            # 3.1.2.0: what this stage may cost, every round of it
       writes: [site]
       trigger: stage_done:draft
     - id: post
@@ -119,7 +124,8 @@ holders and the last changes.
 
 A run lives in `<repo>/.halo/team/<run-id>/`: `board.json` (each stage's
 state pending, ready, running, gated, done, failed or skipped, its members,
-lead, started, ended, cost, summary, error, round and gate answer),
+lead, started, ended, cost, summary, error, round and gate answer; 3.1.2.0:
+`members_state`, `remote` and `budget`, below),
 `events.jsonl` (kinds state, claim, change, gate, trigger, report, note)
 and `stages/<id>/` (refs.json with the agent session ids, the Orchestra run
 id or the flow run id; handback.md; result.json; gate.json and answer.json;
@@ -133,8 +139,14 @@ one scope file per member).
   further change restarts it, and when the block has been quiet that long
   the stage fires, once per window.
 
-An **agent** stage runs every member that is not the lead (in the order
-listed), then the lead with their hand-backs to merge. Each gets one prompt:
+An **agent** stage runs every member that is not the lead at the same time
+(3.1.2.0, `team/parallel.py`: a thread pool bounded by the tightest
+`max_parallel` of their lineup tiers; no tiers, all at once, at most 8),
+then the lead with their hand-backs to merge. The row's `members_state`
+(`{name: ready | running | waiting | done | failed | skipped}`) carries each
+member's state and every move is a `state` line, so Studio's board draws a
+dot per member. A member that fails does not stop the others: once they
+end the stage fails, naming it, and the lead does not run. Each gets one prompt:
 the brief, each block it reads (its path, `state.json` and the last ten
 change lines), the blocks it writes, the stage's `prompt` and, on a redo,
 the redo's text. Locally a member is `halo -p --team <lineup> --agent <bio>`
@@ -165,6 +177,41 @@ with the member's reason). Each delegated member is a one-part mission in
 the hub's store (it also shows in `halo fleet mission status`); its
 hand-back comes back into that mission folder and the stage goes on. A
 member's harness writes its files there under its own permission engine.
+
+An **orchestra** or **flow** stage with `harness: <member>` (3.1.2.0,
+`team/remote_stage.py`) goes the same way: a one-part mission whose part is
+`kind: orchestra` (its `run` the stage's goal) or `kind: flow` (the flow's
+name and inputs). The member runs `orchestra.run` in its checkout of the
+repo (or `flows.run`) and hands back `result.json`, the run's `report.json`
+(it lands in `stages/<id>/report.json`) and its one line. The row's
+`remote` is `{harness, kind, mission, part_state, run}`: asked (the owner's
+card is open; the stage's unit is `waiting`), running, then done or failed
+with the remote run id; the board shows the harness chip and that id. A
+refused dispatch fails the stage with the reason. The finished branch of a
+remote Orchestra run stays in the member's checkout, named in its report.
+
+A delegated agent stage (with its gate answered on the hub) and a delegated
+flow stage are exercised against a real second machine by the scripted
+two-machine check ([FLEET.md](FLEET.md) "The two-machine check",
+`tools/live_fleet_check.py`, 3.1.2.0 R3).
+
+## Budgets
+
+Halo 3.1.2.0 (`team/budget.py`). `budget_usd` on the team file caps the
+whole run, on a stage that stage (every round of it). Before a stage starts
+its forecast is added to what was spent: the run's cost so far against the
+team's line, the stage's own cost so far against its line. The forecast:
+an agent stage, one turn per member at the member's model's catalog price
+(60k in, 6k out tokens; $0.10 for a model the catalog does not price); an
+orchestra stage, the Orchestra forecast of its goal
+([ORCHESTRA.md](ORCHESTRA.md#the-forecast)); a flow stage, its steps'
+`budget_usd`. Over a line the stage does not start: its row goes back to
+`pending` with `waiting: "budget: ..."` (and `stages/<id>/budget.json`), and
+Fleet's Attention queue shows a `team_budget` row: **Raise** opens the team
+file (edit `budget_usd`, run the stage again: the file is read each time),
+**Skip** skips the stage (`POST team/budget {stage, action: skip}`),
+**Stop** stops the run. `halo team status` shows what was spent, the
+forecast of the stages still to run and the budget.
 
 ## The CLI
 

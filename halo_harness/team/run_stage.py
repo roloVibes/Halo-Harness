@@ -1,13 +1,21 @@
 """halo_harness.team.run_stage -- running one stage of a team run.
 
-* `agent`: every member that is not the lead runs first (in the order
-  listed), then the lead with their hand-backs to merge. A member with
-  `harness: <fleet member>` goes out through DISPATCH and the stage waits for
-  its result (`waiting` on the board says on what); the others run here
-  through SPAWN, each with `$HALO_TEAM_SCOPE` pointing at its scope file so
-  team/guard.py keeps its writes in the stage's blocks.
+* `agent`: every member that is not the lead runs at the same time
+  (team/parallel.py: a thread pool bounded by the tightest `max_parallel` of
+  their tiers), then the lead with their hand-backs to merge. A member with
+  `harness: <fleet member>` goes out through DISPATCH and holds its slot
+  until its result lands (`waiting` on the board says on what); the others
+  run here through SPAWN, each with `$HALO_TEAM_SCOPE` pointing at its scope
+  file so team/guard.py keeps its writes in the stage's blocks. The row's
+  `members_state` carries each member's state. A failed member fails the
+  stage once the others end (the lead does not run).
 * `orchestra`: ORCHESTRA with the stage's goal (team/resolve.goal_for_stage).
 * `flow`: FLOW on the named flow, the stage's `inputs` as its intake.
+* an orchestra or flow stage with `harness: <fleet member>` runs on that
+  member (team/remote_stage.py, 3.1.2.0 R2).
+
+Before a stage starts, its budget is checked (team/budget.py, 3.1.2.0 R2):
+over the team's or the stage's `budget_usd`, it does not start.
 
 `finish()` writes result.json, handback.md and refs.json, releases the
 stage's claims, runs the acceptance and then: a failed result -> failed; a
@@ -24,6 +32,7 @@ from typing import Optional
 
 from halo_harness.team import blocks as B
 from halo_harness.team import board as BD
+from halo_harness.team import parallel as P
 from halo_harness.team import spec as S
 from halo_harness.team import stages as ST
 from halo_harness.team.guard import write_scope
@@ -44,21 +53,30 @@ def run_queued(runner) -> None:
 
 
 def start(runner, sid: str, redo: str = "") -> None:
+    from halo_harness.team.budget import hold_if_over
     stage = runner.stage(sid)
+    if hold_if_over(runner, sid):
+        return None  # over a budget: the row says why, the Attention row offers raise / skip / stop
     row = runner.row(sid)
     rnd = int(row.get("round") or 0) + 1
     ST.close_gate(runner.run_dir, sid)
+    members = row.get("members") or S.stage_members(runner.team, stage)
+    lead = row.get("lead") or S.stage_lead(runner.team, stage, members)
+    workers = [m for m in members if m != lead]
+    extra = {"members_state": P.initial(workers, lead)} if stage["kind"] == "agent" else {}
     BD.set_stage(runner.run_dir, sid, "running", f"round {rnd}" + (f" (redo: {redo})" if redo else ""), round=rnd,
-                 started=round(time.time(), 3), ended=None, error="", waiting="", gate_answer=None)
+                 started=round(time.time(), 3), ended=None, error="", waiting="", gate_answer=None, **extra)
     try:
+        if stage["kind"] in ("orchestra", "flow") and stage.get("harness"):
+            from halo_harness.team.remote_stage import send
+            return send(runner, sid, stage, redo)
         if stage["kind"] == "orchestra":
             return finish(runner, sid, _orchestra(runner, stage))
         if stage["kind"] == "flow":
             return finish(runner, sid, _flow(runner, stage))
-        members = row.get("members") or S.stage_members(runner.team, stage)
-        lead = row.get("lead") or S.stage_lead(runner.team, stage, members)
-        order = [m for m in members if m != lead] + ([lead] if lead else [])
-        runner.live[sid] = {"order": order, "lead": lead, "results": {}, "handles": {}, "redo": redo}
+        cap = P.limit(runner.team, workers or [lead], cwd=runner.cwd or runner.root, state_dir=runner.state_dir)
+        runner.live[sid] = {"order": workers + ([lead] if lead else []), "lead": lead, "workers": workers,
+                            "results": {}, "handles": {}, "redo": redo, "cap": cap}
         return step(runner, sid)
     except Exception as e:  # a seam that raises fails its stage, never the runner
         runner.live.pop(sid, None)
@@ -94,32 +112,47 @@ def _task(runner, stage: dict, member: dict, prompt: str) -> dict:
             "brief": prompt, "writes": list(stage.get("writes") or [])}
 
 
+def _launch(runner, sid: str, name: str):
+    """The call that runs member `name` here, or None once it went out through DISPATCH."""
+    live, stage = runner.live[sid], runner.stage(sid)
+    member = S.member_by_name(runner.team, name) or {"name": name, "lineup": "", "role": "main", "harness": None}
+    lead = name == live["lead"] and bool(live["workers"])
+    others = {m: live["results"][m]["text"] for m in live["workers"] if m in live["results"]} if lead else None
+    prompt = ST.stage_prompt(runner.team, stage, member, lead=live["lead"], handbacks=others or None, redo=live["redo"])
+    if member.get("harness"):
+        _send(runner, sid, member, prompt)
+        return None
+    env = _member_env(runner, stage, name)
+    return lambda: runner.spawn(member, prompt, cwd=runner.root, env=env, stage=sid, run_dir=runner.run_dir)
+
+
 def step(runner, sid: str) -> None:
-    """Start whatever member can start now; finish the stage when the lead's result is in."""
+    """Start every member that can start now (at once, under the cap); the lead once they are all in; finish
+    the stage when the lead's result is in (or a member failed and the others ended)."""
     live = runner.live.get(sid)
     if live is None:
         return None
-    stage = runner.stage(sid)
-    for name in live["order"]:
-        if name in live["results"] or name in live["handles"]:
-            if name in live["handles"]:
-                return None  # a delegated member is still out: the stage waits on it
-            continue
-        if name == live["lead"] and any(m not in live["results"] for m in live["order"] if m != name):
-            return None
-        member = S.member_by_name(runner.team, name) or {"name": name, "lineup": "", "role": "main", "harness": None}
-        others = {m: r["text"] for m, r in live["results"].items()} if name == live["lead"] else None
-        prompt = ST.stage_prompt(runner.team, stage, member, lead=live["lead"], handbacks=others or None,
-                                 redo=live["redo"])
-        if member.get("harness"):
-            _send(runner, sid, member, prompt)
-            continue
-        live["results"][name] = _result(runner.spawn(member, prompt, cwd=runner.root, env=_member_env(runner, stage, name),
-                                                     stage=sid, run_dir=runner.run_dir), "the member came back empty")
+    if live.get("remote"):
+        from halo_harness.team.remote_stage import step as remote_step
+        return remote_step(runner, sid)
+    def launch(name):
+        return _launch(runner, sid, name)
+
+    def result_of(raw):
+        return _result(raw, "the member came back empty")
+    P.run_members(runner, sid, live["workers"], launch, result_of)
+    if any(m not in live["results"] for m in live["workers"]):
+        return None  # a delegated member is still out (or waits for its slot): the stage waits on it
+    failed = [m for m in live["workers"] if not live["results"][m].get("ok")]
     lead = live["lead"]
-    if lead in live["results"] and not live["handles"]:
-        runner.live.pop(sid, None)
-        finish(runner, sid, _merge(live))
+    if lead and not failed and lead not in live["results"]:
+        P.run_members(runner, sid, [lead], launch, result_of)
+    if lead and not failed and lead not in live["results"]:
+        return None  # a delegated lead is still out
+    if failed and lead and lead not in live["results"]:
+        P.mark(runner, sid, lead, "skipped", "a member failed")
+    runner.live.pop(sid, None)
+    finish(runner, sid, _merge(live))
     return None
 
 
@@ -130,6 +163,7 @@ def _send(runner, sid: str, member: dict, prompt: str) -> None:
     if status in (200, 202):
         live["handles"][member["name"]] = dict(body.get("handle") or body, member=member["name"], harness=member["harness"])
         what = "running on" if status == 200 else "asked; the owner's card is open on"
+        P.mark(runner, sid, member["name"], "running" if status == 200 else "waiting")
         BD.set_stage(runner.run_dir, sid, waiting=f"{member['name']}: {what} {member['harness']}")
         BD.log(runner.run_dir, "note", f"{sid}: {member['name']} {what} {member['harness']}", stage=sid,
                status=status, harness=member["harness"])
@@ -138,6 +172,7 @@ def _send(runner, sid: str, member: dict, prompt: str) -> None:
     word = "refused" if status == 403 else "could not take the task"
     live["results"][member["name"]] = {"ok": False, "text": "", "cost_usd": 0.0,
                                        "error": f"{member['harness']} {word}: {reason}", "state": "failed"}
+    P.mark(runner, sid, member["name"], "failed", word)
 
 
 def poll_live(runner) -> None:
@@ -147,11 +182,19 @@ def poll_live(runner) -> None:
             if not got:
                 continue
             if got.get("state") in ("asked", "running") and "ok" not in got:
+                if live.get("remote"):
+                    from halo_harness.team.remote_stage import waiting
+                    waiting(runner, sid, handle, got["state"])
+                    continue
                 what = "running on" if got["state"] == "running" else "asked; the owner's card is open on"
+                P.mark(runner, sid, name, "running" if got["state"] == "running" else "waiting")
                 BD.set_stage(runner.run_dir, sid, waiting=f"{name}: {what} {handle.get('harness')}")
                 continue
             live["handles"].pop(name, None)
-            live["results"][name] = _result(got, "the delegated member came back empty")
+            live["results"][name] = dict(_result(got, "the delegated member came back empty"),
+                                         **{k: got[k] for k in ("report",) if k in got})
+            if not live.get("remote"):
+                P.mark(runner, sid, name, "done" if live["results"][name]["ok"] else "failed")
             BD.set_stage(runner.run_dir, sid, waiting="")
         if sid in runner.live:
             step(runner, sid)
