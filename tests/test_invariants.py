@@ -40,6 +40,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R3: COMMANDS.md is split into parts
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 from halo_harness.agent.log import SessionLog
 from halo_harness.agent.invariants import (
@@ -608,7 +609,8 @@ def test_invariant_h_the_previous_project_name_is_off_the_front_pages(ctx: Ctx):
     forms. The compatibility code, its tests, the CHANGELOG and plans/
     history keep it (invariant scope is exactly FRONT_PAGES above)."""
     problems = []
-    for rel in FRONT_PAGES:
+    from tests.helpers.doc_parts import doc_parts
+    for rel in FRONT_PAGES + tuple("docs/" + part for part in doc_parts("COMMANDS.md")):
         path = REPO_DIR / rel
         if not path.exists():
             problems.append(f"{rel}: front page listed in FRONT_PAGES does not exist")
@@ -635,7 +637,7 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
     for label in ("halo replay", "halo teams", "halo gym"):
         if f'"{label}"' not in coverage:
             problems.append(f"the docs-coverage table does not gather {label!r}")
-    doc = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
+    doc = doc_text("COMMANDS.md")
     for probe in ("halo replay", "--bundle", "--candidates", "--no-verify", "--roles"):
         if probe not in doc:
             problems.append(f"COMMANDS.md does not mention {probe!r}")

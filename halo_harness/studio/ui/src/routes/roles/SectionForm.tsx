@@ -3,7 +3,9 @@
 // Problems panel re-validates). Rows edit org positions, pipeline stages and
 // tiers; a mapping edits routing; members are toggles of the lineup's
 // aliases. The YAML toggle (YamlBox) edits the raw section instead.
+// 3.1.1.0 R3: each field's help line is field_help.py's (lib/fieldHelp.ts).
 import { useMemo, useState } from "react";
+import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
 import { edit } from "./actions";
 import { Check, ListIn, NumberIn, Pick, Row, TextIn } from "./controls";
@@ -60,11 +62,11 @@ function Cell({ col, value, onChange, targets }: { col: Col; value: unknown; onC
   return <TextIn value={String(value ?? "")} onCommit={onChange} />;
 }
 
-function Rows({ def, f, value, targets }: { def: SectionDef; f: Extract<FieldDef, { kind: "rows" }>; value: unknown; targets: string[] }) {
+function Rows({ def, f, value, targets, hint }: { def: SectionDef; f: Extract<FieldDef, { kind: "rows" }>; value: unknown; targets: string[]; hint?: string }) {
   const rows = (Array.isArray(value) ? value : []) as Rec[];
   const put = (next: Rec[]) => change(def, f.path, next);
   return (
-    <Row label={f.label} hint={f.hint}>
+    <Row label={f.label} hint={hint}>
       <div className="re-rows" data-testid={`roles-rows-${def.name}`}>
         <div className="re-row re-row-head mono" style={{ gridTemplateColumns: `${f.cols.map((c) => (c.width ? c.width + "px" : "minmax(0,1fr)")).join(" ")} 28px` }}>
           {f.cols.map((c) => <span key={c.key}>{c.label}</span>)}
@@ -89,12 +91,12 @@ function Rows({ def, f, value, targets }: { def: SectionDef; f: Extract<FieldDef
   );
 }
 
-function MapRows({ def, f, value, targets }: { def: SectionDef; f: Extract<FieldDef, { kind: "map" }>; value: unknown; targets: string[] }) {
+function MapRows({ def, f, value, targets, hint }: { def: SectionDef; f: Extract<FieldDef, { kind: "map" }>; value: unknown; targets: string[]; hint?: string }) {
   const map = (value && typeof value === "object" && !Array.isArray(value) ? value : {}) as Record<string, string>;
   const [key, setKey] = useState("");
   const put = (next: Record<string, string>) => change(def, f.path, next);
   return (
-    <Row label={f.label} hint={f.hint}>
+    <Row label={f.label} hint={hint}>
       <div className="re-rows">
         {Object.entries(map).map(([k, v]) => (
           <div key={k} className="re-row" style={{ gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr) 28px" }}>
@@ -116,28 +118,30 @@ export function SectionForm({ def }: { def: SectionDef }) {
   const body = useRoles((s) => (s.raw as Raw | null)?.[def.name]);
   const models = useRoles((s) => s.models);
   const targets = useTargets();
+  const help = useHelpGroup("lineup_fields");
   return (
     <div className="re-form" data-testid={`roles-section-${def.name}`}>
       {def.fields.map((f) => {
         const v = getPath(body, f.path);
+        const hint = help[f.path ? `${def.name}.${f.path}` : def.name] || undefined;
         const set = (x: unknown) => change(def, f.path, x);
         switch (f.kind) {
-          case "rows": return <Rows key={f.path} def={def} f={f} value={v} targets={targets} />;
-          case "map": return <MapRows key={f.path} def={def} f={f} value={v} targets={targets} />;
-          case "bool": return <Check key={f.path} label={f.label} value={!!v} onChange={(x) => set(x || undefined)} />;
-          case "number": return <NumberIn key={f.path} label={f.label} hint={f.hint} value={typeof v === "number" ? v : undefined} onCommit={set} />;
-          case "list": return <ListIn key={f.path} label={f.label} hint={f.hint} placeholder={f.placeholder} value={Array.isArray(v) ? (v as string[]) : []} onCommit={set} />;
-          case "select": return <Pick key={f.path} label={f.label} hint={f.hint} value={String(v ?? "")} options={f.options} onChange={(x) => set(x || undefined)} />;
-          case "model": return <Pick key={f.path} label={f.label} hint="a model ref from the catalog" value={String(v ?? "")} options={["", ...models.map((m) => m.ref)]} onChange={(x) => set(x || undefined)} />;
+          case "rows": return <Rows key={f.path} def={def} f={f} value={v} targets={targets} hint={hint} />;
+          case "map": return <MapRows key={f.path} def={def} f={f} value={v} targets={targets} hint={hint} />;
+          case "bool": return <Row key={f.path} hint={hint}><Check label={f.label} value={!!v} onChange={(x) => set(x || undefined)} /></Row>;
+          case "number": return <NumberIn key={f.path} label={f.label} hint={hint} value={typeof v === "number" ? v : undefined} onCommit={set} />;
+          case "list": return <ListIn key={f.path} label={f.label} hint={hint} placeholder={f.placeholder} value={Array.isArray(v) ? (v as string[]) : []} onCommit={set} />;
+          case "select": return <Pick key={f.path} label={f.label} hint={hint} value={String(v ?? "")} options={f.options} onChange={(x) => set(x || undefined)} />;
+          case "model": return <Pick key={f.path} label={f.label} hint={hint || "a model ref from the catalog"} value={String(v ?? "")} options={["", ...models.map((m) => m.ref)]} onChange={(x) => set(x || undefined)} />;
           case "checks": {
             const on = Array.isArray(v) ? (v as string[]) : [];
             return (
-              <Row key={f.path} label={f.label} hint={f.hint}>
+              <Row key={f.path} label={f.label} hint={hint}>
                 <span className="re-members">{f.options.map((o) => <Check key={o} label={o} value={on.includes(o)} onChange={(x) => set(x ? [...on, o] : on.filter((y) => y !== o))} />)}</span>
               </Row>
             );
           }
-          default: return <TextIn key={f.path} label={f.label} hint={f.hint} placeholder={f.placeholder} value={String(v ?? "")} onCommit={set} />;
+          default: return <TextIn key={f.path} label={f.label} hint={hint} placeholder={f.placeholder} value={String(v ?? "")} onCommit={set} />;
         }
       })}
     </div>

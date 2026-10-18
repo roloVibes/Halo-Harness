@@ -4,12 +4,16 @@
 // pipeline, acceptance, tiers), each with its enforcement badge, its small
 // form (SectionForm) and a YAML toggle that edits the raw section body
 // (`POST yaml` both ways). A save that answers 422 lists the validator's
-// lines above the sections.
+// lines above the sections. 3.1.1.0 R3: Studio is the one editor of lineups
+// (`halo studio --edit lineup:<name>` opens this tab); each section's line
+// and the header's field lines are field_help.py's; Save to project scope.
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { useFieldHelp, useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
 import { edit } from "./actions";
 import { TextIn } from "./controls";
+import { ScopeCheck } from "./BioForm";
 import { SectionForm } from "./SectionForm";
 import { SECTIONS, type SectionDef } from "./sections";
 import { useRoles } from "./store";
@@ -62,6 +66,7 @@ function Block({ def }: { def: SectionDef }) {
   const enf = useRoles((s) => s.current?.enforcement?.[def.name]);
   const [open, setOpen] = useState(def.name === "tiers");
   const [yaml, setYaml] = useState(false);
+  const about = useFieldHelp("lineup_sections", def.name);
   return (
     <section className="re-block" data-open={open || undefined} data-set={set || undefined}>
       <header className="re-block-head">
@@ -75,7 +80,7 @@ function Block({ def }: { def: SectionDef }) {
                   title="Edit this section as YAML">YAML</button>
         )}
       </header>
-      {open && <p className="muted re-about">{def.about}</p>}
+      {open && about && <p className="muted re-about" data-testid={`roles-about-${def.name}`}>{about}</p>}
       {open && (yaml ? <YamlBox def={def} /> : <SectionForm def={def} />)}
     </section>
   );
@@ -83,13 +88,15 @@ function Block({ def }: { def: SectionDef }) {
 
 export function LineupHeader() {
   const raw = useRoles((s) => s.raw);
+  const h = useHelpGroup("assignment");
   if (!raw) return null;
   const put = (key: string) => (v: string) => edit((r) => (v ? (r[key] = v) : delete r[key]));
   return (
     <div className="re-form">
-      <TextIn label="Description" value={String(raw.description ?? "")} onCommit={put("description")} testid="roles-description" />
-      <TextIn label="How the pieces work together" area hint="members read it as 'How this team works'" value={String(raw.about ?? "")} onCommit={put("about")} />
-      <TextIn label="Extends" placeholder="another lineup to inherit sections from" value={String(raw.extends ?? "")} onCommit={put("extends")} />
+      <TextIn label="Description" hint={h.description} value={String(raw.description ?? "")} onCommit={put("description")} testid="roles-description" />
+      <TextIn label="How the pieces work together" area hint={h.about} value={String(raw.about ?? "")} onCommit={put("about")} testid="roles-about" />
+      <TextIn label="Extends" hint={h.extends} placeholder="another lineup to inherit sections from" value={String(raw.extends ?? "")} onCommit={put("extends")} />
+      <ScopeCheck what="teams" />
     </div>
   );
 }
@@ -109,7 +116,7 @@ export function LineupTab() {
   const name = useRoles((s) => s.name);
   if (!name) return <p className="muted">Open a lineup in Lineups first.</p>;
   return (
-    <div className="re-lineup" data-testid="roles-lineup-tab">
+    <div className="re-lineup" data-testid="roles-lineup-tab" data-lineup={name}>
       <SaveProblems />
       <LineupHeader />
       {SECTIONS.map((d) => <Block key={d.name} def={d} />)}

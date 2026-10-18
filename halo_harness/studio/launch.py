@@ -50,31 +50,44 @@ def port_answers(port: int, timeout: float = 0.3) -> bool:
         return False
 
 
-def url_from_info(info: dict, mode: Optional[str] = None) -> str:
-    query = f"?mode={mode}" if mode in STUDIO_MODES else ""
+def _query(mode: Optional[str], edit: Optional[str]) -> str:
+    """`?mode=<mode>`, or with an edit target (3.1.1.0 R3, studio/edit_target.py) `?mode=roles&edit=bio:<name>`."""
+    if edit:
+        from halo_harness.studio.edit_target import parse
+        target, _why = parse(edit)
+        if target is not None:
+            return target.query()
+    return f"?mode={mode}" if mode in STUDIO_MODES else ""
+
+
+def url_from_info(info: dict, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
+    query = _query(mode, edit)
     token = info.get("token") or ""
     return f"http://127.0.0.1:{info['port']}/{query}" + (f"#t={token}" if token else "")
 
 
-def existing_url(state_dir: Path, mode: Optional[str] = None) -> str:
-    """The running instance's URL (with `mode` in the query), or ''."""
+def existing_url(state_dir: Path, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
+    """The running instance's URL (with `mode`, or the edit target, in the query), or ''."""
     info = read_info(state_dir)
     if not info or not port_answers(info["port"]):
         return ""
-    return url_from_info(info, mode)
+    return url_from_info(info, mode, edit)
 
 
 def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_browser: bool = True,
-                    timeout: float = 15.0) -> str:
-    """Reuse the running Studio, else spawn `halo studio --mode <mode>` as
-    a detached process and return the URL it prints ('' on timeout)."""
-    url = existing_url(state_dir, mode)
+                    timeout: float = 15.0, edit: Optional[str] = None) -> str:
+    """Reuse the running Studio, else spawn `halo studio --mode <mode>` (or
+    `--edit <target>`, 3.1.1.0 R3) as a detached process and return the URL
+    it prints ('' on timeout)."""
+    url = existing_url(state_dir, mode, edit)
     if url:
         if open_browser:
             _open(url)
         return url
     argv = [sys.executable, "-u", "-m", "halo_harness", "studio", "--cwd", str(cwd)]
-    if mode in STUDIO_MODES:
+    if edit:
+        argv += ["--edit", edit]
+    elif mode in STUDIO_MODES:
         argv += ["--mode", mode]
     if not open_browser:
         argv.append("--no-open")
@@ -102,7 +115,7 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
     threading.Thread(target=_read, daemon=True).start()
     deadline = time.time() + timeout
     while time.time() < deadline:  # studio.json appears as soon as the server binds; stdout is the fallback
-        url = found.get("url") or existing_url(state_dir, mode)
+        url = found.get("url") or existing_url(state_dir, mode, edit)
         if url:
             threading.Thread(target=lambda: proc.stdout and proc.stdout.read(), daemon=True).start()  # keep the pipe drained
             return url
@@ -191,9 +204,10 @@ def stop(state_dir: Path) -> "tuple[bool, str]":
     return True, f"stopped Studio (pid {pid}, port {info.get('port')})"
 
 
-def _open(url: str) -> None:
+def _open(url: str) -> bool:
+    """True when a browser took the URL."""
     try:
         import webbrowser
-        webbrowser.open(url)
+        return bool(webbrowser.open(url))
     except Exception:
-        pass
+        return False

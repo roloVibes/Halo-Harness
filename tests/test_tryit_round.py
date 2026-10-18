@@ -66,14 +66,14 @@ def test_the_cost_line_is_honest_in_all_three_shapes(ctx: Ctx):
 
 
 @test
-def test_the_bio_editor_try_it_shows_cost_before_the_call(ctx: Ctx):
-    """Pilot: press Try it on the bio editor with a PREFILLED (but
+def test_the_bio_view_try_it_shows_cost_before_the_call(ctx: Ctx):
+    """Pilot: press Try it on the bio view (3.1.1.0 R3: read-only; Studio edits) with a PREFILLED (but
     catalog-priced) preference and a stubbed smoke runner -- the hint must
     carry the COST LINE before the worker's verdict replaces it, and the
     stub records that the call ran AFTER the cost was already shown."""
     import asyncio
     from types import SimpleNamespace
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
 
     home = Path(tempfile.mkdtemp(prefix="tryit-ed-"))
     saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
@@ -113,7 +113,7 @@ def test_the_bio_editor_try_it_shows_cost_before_the_call(ctx: Ctx):
 
             class _Host(App):
                 def on_mount(self):
-                    holder["screen"] = AgentBioEditor("try-bio", bio, [], cwd=app_cwd,
+                    holder["screen"] = AgentBioView("try-bio", bio, [], cwd=app_cwd,
                                                       state_dir=home / ".halo")
                     self.push_screen(holder["screen"])
             app = _Host()
@@ -147,11 +147,11 @@ def test_the_bio_editor_try_it_shows_cost_before_the_call(ctx: Ctx):
 
 @test
 def test_the_lineup_smoke_button_costs_every_distinct_model(ctx: Ctx):
-    """Pilot: the lineup editor's Smoke run button prints one cost line
+    """Pilot: the lineup view's Smoke run button prints one cost line
     per DISTINCT model the lineup resolves to (stubbed runner again --
     the pin is the cost-first contract and the dedup), then the results."""
     import asyncio
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+    from halo_harness.tui.dialogs.lineup_editor import LineupView
 
     home = Path(tempfile.mkdtemp(prefix="tryit-lu-"))
     saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
@@ -192,7 +192,7 @@ def test_the_lineup_smoke_button_costs_every_distinct_model(ctx: Ctx):
 
             class _Host(App):
                 def on_mount(self):
-                    holder["screen"] = LineupEditor("smoke-team", template, [], cwd=app_cwd,
+                    holder["screen"] = LineupView("smoke-team", template, [], cwd=app_cwd,
                                                     state_dir=home / ".halo")
                     self.push_screen(holder["screen"])
             app = _Host()
@@ -204,7 +204,7 @@ def test_the_lineup_smoke_button_costs_every_distinct_model(ctx: Ctx):
                 for _ in range(20):
                     await pilot.pause(0.05)
                 from textual.widgets import Static
-                note = str(editor.query_one("#lineup-warnings", Static).render())
+                note = str(editor.query_one("#lineup-hint", Static).render())
                 ctx.check(f"one cost line per DISTINCT model (bio-c shares bio-a's), got {cost_refs}",
                           cost_refs == ["or:vendor/a", "or:vendor/b"])
                 ctx.check(f"the note shows both costs, got {note[:150]!r}",

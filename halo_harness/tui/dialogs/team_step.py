@@ -7,18 +7,21 @@ Top to bottom: a plain-words header; a **Custom roles** switch (off = one
 model for everything, the default); the lineup list (the first row is
 always "One model for everything", then every reachable lineup with a
 scope badge, the active one marked) beside a live preview of the
-highlighted row (`team_preview.preview_lines`); two buttons, **Use this
-lineup** and **Open Studio (Roles)**; and the usual Back/Skip/Next chrome.
+highlighted row (`team_preview.preview_lines`); three buttons, **Use this
+lineup**, **Edit in Studio** (3.1.1.0 R3: Studio on the highlighted lineup,
+`halo studio --edit lineup:<name>`) and **Open Studio (Roles)**; and the
+usual Back/Skip/Next chrome.
 The switch and the list are two views of one choice: switching on
 highlights the first lineup (or the active one), switching off highlights
 the first row, highlighting a lineup turns the switch on. A plain Next
 applies whichever row is highlighted (`docs/WIZARD.md` rule 1) and always
 writes `roles.enabled` explicitly.
 
-Editing lives in Studio (the browser) now; the terminal editors stay
-reachable for scripts and tests (Enter on a row, Ctrl+E, Ctrl+N, Ctrl+A)
-but are no longer buttons. `init_wizard` is imported only inside method
-bodies (circular-import split)."""
+Editing lives in Studio (the browser): Enter on a row shows the lineup
+read-only (`LineupView`; `e` there opens Studio too), Ctrl+E is Edit in
+Studio, Ctrl+N writes a new lineup and opens it in Studio, Ctrl+A lists the
+bios. `init_wizard` is imported only inside method bodies (circular-import
+split)."""
 
 from __future__ import annotations
 
@@ -44,7 +47,7 @@ class TeamStep(StepRailMixin, TeamActionsMixin, Screen):
     BINDINGS = [Binding("escape", "ask_quit", "Quit setup", show=False, priority=True),
                 *STEP_RAIL_BINDINGS,
                 Binding("ctrl+n", "new_lineup", "New lineup", show=False, priority=True),
-                Binding("ctrl+e", "customize", "Customize", show=False, priority=True),
+                Binding("ctrl+e", "customize", "Edit in Studio", show=False, priority=True),
                 Binding("ctrl+a", "agents", "Agents", show=False, priority=True)]
     DEFAULT_CSS = """
     TeamStep { align: center middle; }
@@ -95,6 +98,7 @@ class TeamStep(StepRailMixin, TeamActionsMixin, Screen):
                     yield Static("", id="wiz-team-preview")
                 with Horizontal(classes="wizard-extra-buttons"):
                     yield Button("Use this lineup", id="wiz-team-use", variant="primary")
+                    yield Button("Edit in Studio", id="wiz-team-edit")
                     yield Button("Open Studio (Roles)", id="wiz-team-studio")
                 yield Static("Studio edits lineups and agents in your browser and keeps running after setup "
                               "(halo studio --stop). Next uses the highlighted row.", classes="bio-hint")
@@ -197,7 +201,9 @@ class TeamStep(StepRailMixin, TeamActionsMixin, Screen):
 
     def on_option_list_option_selected(self, event) -> None:
         if event.option_list.id == "wiz-team-lineups-list":
-            self.action_customize()
+            name = self._highlighted_lineup_name()
+            if name is not None:
+                self._open_view(name)
 
     def action_agents(self) -> None:
         self._open_agents()
@@ -230,6 +236,8 @@ class TeamStep(StepRailMixin, TeamActionsMixin, Screen):
             self.commit()
             self._refresh_lineups()
             self._hint("Applied.")
+        elif bid == "wiz-team-edit":
+            self.action_customize()
         elif bid == "wiz-team-studio":
             self.action_open_studio()
 

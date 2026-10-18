@@ -122,8 +122,8 @@ def test_read_routes(ctx: Ctx):
         get_tools_src = api_src[api_src.index("def get_tools"):api_src.index("ROUTES: list")]
         ctx.check("no hardcoded tool names remain in get_tools", '"Read"' not in get_tools_src and '"Bash"' not in get_tools_src
                   and "builtin_tool_names" not in api_src)
-        from halo_harness.tui.dialogs.agent_bio_editor import known_tool_names as bio_names
-        ctx.check("the bio editor reads the same list", bio_names() == known_tool_names())
+        from halo_harness import field_help  # 3.1.1.0 R3: the bio form's help lines, one source
+        ctx.check("field-help answers field_help.py's lines", s.call("GET", "/api/field-help")[1] == field_help.as_json())
 
 
 @test

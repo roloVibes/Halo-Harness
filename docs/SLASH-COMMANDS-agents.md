@@ -6,7 +6,7 @@ Part of [Slash commands, keys, and prompt prefixes](SLASH-COMMANDS.md), which li
 
 ## Built-in commands: agents, lineups, roles and review
 
-### `/agents [new <name>|edit <name>|duplicate <name> [new-name]|delete <name>]`
+### `/agents [new <name>|edit <name>|view <name>|duplicate <name> [new-name]|delete <name>]`
 Bare `/agents` (or `/agents list`) lists every discovered sub-agent
 definition (built-ins plus `.claude/agents`/`~/.claude/agents`/
 `--agents`/managed/plugin), pulled from the live session's own agent
@@ -27,18 +27,20 @@ far, model and what each one is doing (the tool in flight, or its task).
 It is the same tree Studio and `halo remote agents <session>` show; see
 [SUBAGENTS.md](SUBAGENTS.md).
 
-**Halo 2.0.5 round 2**: bare `/agents` instead opens an interactive
-list-with-actions screen over the bios (New, New from..., Edit,
-Duplicate, Delete, Import from `.claude/agents/*.md`, one result line
-each); `new`/`edit <name>` open the bio form directly (identity, models
-with the enumerated/Agents-source picker, tools, context, limits,
-output, environment, acceptance -- see [AGENTS.md](AGENTS.md)'s wizard
-section); `duplicate <name> [new-name]` copies a bio (a shipped one
-lands in user scope, shadowing it); `delete <name>` removes a project/
-user-scope bio. Every other subcommand (`show`/`validate`/`export`/
-`import`) stays the plain-text form documented above. `halo agents
-new|edit <name> --form` opens the SAME form from the CLI -- see
-[COMMANDS.md](COMMANDS.md#halo-agents).
+**Halo 2.0.5 round 2, 3.1.1.0**: bare `/agents` instead opens an interactive
+list-with-actions screen over the bios (New, New from..., View, Edit in
+Studio, Duplicate, Delete, Import from `.claude/agents/*.md`, one result line
+each). Studio is the one editor of bios: `/agents edit <name>` opens Studio's
+bio form on it (the Studio page already open switches to it, else Studio
+starts and opens your browser; the transcript line says which, with the
+URL); `/agents new <name>` writes the starter bio, then opens it in Studio;
+`/agents view <name>` shows the bio read-only in the terminal (every field
+with its help line, the file as YAML; `e` opens Studio on it, `t` tries it,
+cost first). `duplicate <name> [new-name]` copies a bio (a shipped one lands
+in user scope, shadowing it); `delete <name>` removes a project/user-scope
+bio. Every other subcommand (`show`/`validate`/`export`/`import`) stays the
+plain-text form documented above. From the CLI: `halo agents edit <name>` --
+see [COMMANDS-agents.md](COMMANDS-agents.md#halo-agents).
 
 **Halo 2.0.5 round 5**: `/agents schedule` prints what schedule/trigger
 set is armed right now (any owning session) and each schedule's next
@@ -47,7 +49,7 @@ fire time -- the same lines `halo agents schedule list` prints. A bio's
 is alive and disarm when it closes; see [AGENTS.md](AGENTS.md)'s
 `hooks`/`schedule`/`triggers` section.
 
-### `/teams [apply <name>|preview <name>|diff <a> <b>|list|new <name>|edit <name>|activate <name>]`
+### `/teams [apply <name>|preview <name>|diff <a> <b>|list|new <name>|edit <name>|view <name>|activate <name>]`
 **Halo 2.1.0**: bare `/teams` prints the same overview as `halo teams` (the
 active lineup, its tree, one line per other lineup); `/teams apply <name>`
 (or `use`) applies a lineup exactly like `halo teams apply` (writes
@@ -59,17 +61,30 @@ Bare `/teams` lists every installed **team template** ("lineup" --
 `halo_harness/teams_yaml.py`, `~/.halo/teams/<name>.yaml`), marking the
 active one (`team` in config.json, `halo teams use <name>`).
 
-**Halo 2.0.5 round 2**: bare `/teams` instead opens an interactive list
-screen (list, New, Edit, Activate); `new`/`edit <name>` open the lineup
-editor directly (the assignments grid, the collapsed advanced sections,
-the `about:` "how the pieces work together" text -- see
-[AGENTS.md](AGENTS.md)'s wizard section); `activate <name>` validates
-and sets the active `team:` without opening the editor. Every other
-subcommand (`show`/`validate`/`use`/`export`/`import`) stays the plain-
-text form documented above -- `halo teams show <name>` (CLI) prints the
-full resolved role table and the `about:` text when the lineup has one.
-`halo teams new|edit <name> --form` opens the SAME editor from the CLI
--- see [COMMANDS.md](COMMANDS.md#halo-teams).
+**Halo 2.0.5 round 2, 3.1.1.0**: `/teams list` opens an interactive list
+screen (View, Edit in Studio, New, Activate). Studio is the one editor of
+lineups: `/teams edit <name>` opens the lineup in Studio's inspector (Lineup
+tab), `/teams new <name>` writes the starter lineup and opens it there, and
+`/teams view <name>` shows it read-only in the terminal (the resolved
+assignments, warnings, costs, every section's YAML, the `about:` text; `e`
+opens Studio, `t` tests the highlighted row's model, Smoke run runs every
+member's acceptance prompt, cost first). `activate <name>` validates and sets
+the active `team:`. Every other subcommand (`show`/`validate`/`use`/`export`/
+`import`) stays the plain-text form documented above -- `halo teams show
+<name>` (CLI) prints the full resolved role table and the `about:` text when
+the lineup has one. From the CLI: `halo teams edit <name>` -- see
+[COMMANDS-agents.md](COMMANDS-agents.md#halo-teams).
+
+### `/edit <bio:name|lineup:name|team>`
+Halo 3.1.1.0: opens Studio on the thing to edit -- `bio:<name>` (the bio
+form), `lineup:<name>` (the lineup's inspector), `team` (the Team section),
+or a bare name (the bio of that name, else the lineup of that name) -- the
+same as `halo studio --edit`. A Studio already running for this home switches
+its open page to it; otherwise one starts in the background and opens your
+browser. The transcript gets one line: what opened, and the URL (when no
+browser can be opened, the URL is the way in). An unknown name says so and
+opens nothing. In print mode `/edit` prints the `halo studio --edit` command
+to run.
 
 **Halo 2.0.5 round 5**: `/teams show <name>` prints the same resolved
 view as the CLI, plus the per-section ENFORCEMENT state (enforced / not

@@ -372,7 +372,7 @@ writes it with `POST /api/fleet/<harness>/<sid>/recording[?agent=]` (a
 member's session from its agents' tails through the hub, which needs its
 share `full`; this harness's from its transcripts, finished sessions too) to
 `~/.halo/recordings/<sid>[-<aid>].html`; `halo fleet record <sid>` does the
-same in the terminal ([COMMANDS.md](COMMANDS.md#halo-fleet-record)).
+same in the terminal ([COMMANDS-fleet.md](COMMANDS-fleet.md#halo-fleet-record)).
 
 ### Replay
 
@@ -389,7 +389,7 @@ and ended, the cost, the decisions answered and by whom, the files touched,
 the errors and the hand-offs since a moment. This harness is read from its
 own transcripts; members, decisions and hand-offs from the journal.
 `GET /api/fleet/digest?since=` and `halo fleet digest [--since 2h]`
-([COMMANDS.md](COMMANDS.md#halo-fleet-digest)).
+([COMMANDS-fleet.md](COMMANDS-fleet.md#halo-fleet-digest)).
 
 ## Capabilities (3.0.6.0 R6)
 
@@ -495,7 +495,7 @@ sheet per harness (hardware, models, craft apps, MCP servers with tool counts,
 every tool with `--tools`, skills, CLIs, projects, providers, roles,
 integrations, tags); `halo fleet who "<query>" [--json]` the ranking. Both read
 Studio when it runs, else the hub this machine serves, else this harness
-alone ([COMMANDS.md](COMMANDS.md#halo-fleet-capabilities)).
+alone ([COMMANDS-fleet.md](COMMANDS-fleet.md#halo-fleet-capabilities)).
 
 ## Missions (3.0.6.0 R7)
 
@@ -526,7 +526,7 @@ writes a flight recording and `halo fleet digest [--since]` prints the
 digest (both R4, from this harness's own files); `halo fleet capabilities
 [name]` prints each harness's spec sheet and `halo fleet who "<query>"` (and
 `/fleet who <query>` in the TUI) ranks the fleet for it (R6). Every flag is in
-[COMMANDS.md](COMMANDS.md#halo-fleet).
+[COMMANDS-fleet.md](COMMANDS-fleet.md#halo-fleet).
 
 ## Config keys
 

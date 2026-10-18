@@ -379,8 +379,8 @@ halo agents                                bios grouped by project / user / ship
 halo agents list                           every reachable bio name
 halo agents show <name>                    resolved identity + every section (`halo agents <name>` too)
 halo agents validate [name]                shape-check one bio, or every one (exit 1 on a problem)
-halo agents new <name> [--from BIO] [--project]
-halo agents edit <name>                     $VISUAL/$EDITOR on the raw YAML
+halo agents new <name> [--from BIO] [--project] [--studio]   a starter bio (--studio: then Studio on it)
+halo agents edit <name> [--no-open] [--yaml]  Studio's bio form on it (--yaml: $VISUAL/$EDITOR on the file)
 halo agents export <name> [file] [--claude-md]     plain YAML, or .claude/agents/<name>.md frontmatter
 halo agents import <file> | --claude-md <name>     a YAML file, or a discovered .claude/agents/*.md
 
@@ -392,7 +392,8 @@ halo teams apply <name> [--one-model]       use a lineup: writes roles.* and tea
                                             (`standard` / --one-model turns roles off); `use` is the same
 halo teams diff <a> <b>                     role-by-role comparison (-, +, ~; "No difference" when equal)
 halo teams validate [name]                  shape-and-reference-check (exit 1 on a problem)
-halo teams new <name> [--from TEMPLATE] [--project]
+halo teams new <name> [--from TEMPLATE] [--project] [--studio]
+halo teams edit <name> [--no-open] [--yaml]  Studio's lineup inspector on it (--yaml: $EDITOR)
 halo teams export <name> [file]
 halo teams import <file>
 ```
@@ -413,15 +414,9 @@ role (`roles.auto_fill_options()`) -- picking one and applying it (`ctrl
 unchanged when hand-editing a BIO's own `models.preference` (`halo
 agents edit <name>`, or a future dedicated bio-models picker).
 
-**Known, deliberate scope limit this round**: the role/org editors
-(`RolesEditor`/`OrgEditor`) still assign a bare MODEL ref per role/
-position, same as before this round -- they do not yet have a
-dedicated "assign an agent bio, with autocomplete over bio names, add/
-remove/duplicate an `agents:` entry" grid of their own. Building and
-editing a team template's own `agents:` list happens through the CLI
-(`halo teams new/edit` -- hand-editing the YAML is the point) or the
-Auto tab's whole-template apply; a richer in-editor assignment grid is
-left as explicit follow-up work, not silently dropped.
+A lineup's `agents:` list (add, remove, duplicate a card, pick its bio) is
+edited on Studio's Roles canvas and in its Inspector (see "Editing bios and
+lineups" below); the terminal shows it (`/teams list`, `/teams view`).
 
 ## `halo doctor --agents`
 
@@ -479,95 +474,105 @@ discover_agents` (the SAME precedence-aware loader the live agent
 runtime calls), so an imported bio is guaranteed to match what a real
 `Agent(subagent_type=name)` call would actually see.
 
-## The wizard: the Agents step and the two editor forms (Halo 2.0.5 round 2)
+## Editing bios and lineups: Studio is the editor (Halo 3.1.1.0)
 
-Halo 2.0.5 round 2c merged the wizard STEP described here into the
-"Team" step (see "Halo 2.0.5 round 2c: the Team step" below) -- the bio
-form/`AgentsListScreen`/lineup editor THEMSELVES are unchanged; only the
-step class that used to list bios on its own is gone, folded into
-`team_step.TeamStep`'s right-hand pane (Halo 2.1.0 B1: now its **Agents...**
-button, which opens `AgentsListScreen`). The round-2 text below (bio
-fields, "New from...", the two model-picker sources) stays accurate for
-the form itself; read "the Agents step" as "the Team step's Agents... screen".
+Studio is the one editor of bios and lineups. The terminal shows them and
+opens Studio on the one you want to change; it never edits a field itself.
 
-Three NEW modules, never grown into `tui/dialogs/init_wizard.py` itself
-(the house size convention; that file only gained the registration/pane
-lines): `tui/dialogs/agent_bio_editor.py` (`AgentBioEditor`, the bio
-form), `tui/dialogs/agents_step.py` (`_AgentsListMixin` -- the list +
-actions `team_step.TeamStep`'s own Agents pane mixes in -- and
-`AgentsListScreen`, the standalone counterpart `/agents`/`halo agents
---form` open), `tui/dialogs/lineup_editor.py` (`LineupEditor` and
-`TeamsListScreen`, the same split for lineups). ONE form module each --
-the wizard, `/agents`/`/teams`, and `halo agents|teams new|edit --form`
-all push the SAME screen class, so a save behaves identically everywhere
-it's reached from.
+| From | What it opens |
+|---|---|
+| `halo studio --edit bio:<name>` | Roles, the Bios panel on that bio's form |
+| `halo studio --edit lineup:<name>` | Roles, that lineup open, the Inspector on its Lineup tab |
+| `halo studio --edit team` | the Team section |
+| `halo agents edit <bio>`, `halo teams edit <lineup>` | the same, for that bio or lineup (a name that does not exist yet gets a starter file first) |
+| `halo agents new <bio> --studio`, `halo teams new <lineup> --studio` | the starter file, then Studio on it |
+| `/edit bio:<name>`, `/edit lineup:<name>`, `/edit team`, `/edit <name>` | the same from the TUI (a bare name: the bio of that name, else the lineup) |
+| `/agents edit <bio>`, `/teams edit <lineup>`, `/agents new`, `/teams new` | the same from the TUI |
+| `e` in the terminal's bio view, lineup view and lists | the bio or lineup on screen |
+| the wizard's Team step: **Edit in Studio** (Ctrl+E) | the highlighted lineup |
 
-**The Agents list** (round 2c: the right-hand pane of the wizard's
-"Team" step, `"team"` in `init_wizard.ALL_STEP_KEYS`; round 2's own
-standalone `"agents"` step key is kept only as a `--step`/`step_keys`
-alias that still lands on the SAME Team step -- see `docs/WIZARD.md`)
-lists every reachable bio (`agents_step.bio_rows`: name, scope --
-project/user/template --, description, preferred model) with New, New
-from..., Edit, Duplicate (a shipped bio copied into user scope under the
-SAME name, so it shadows the read-only original -- never edited in
-place), Delete, and Import (every `.claude/agents/*.md`
-`config/agents_md.discover_agents` finds that isn't already a bio name,
-converted in one action, one result line each).
+When a Studio already runs for this home (`~/.halo/studio.json`), it is
+reused: every Studio page that is open switches to the bio or lineup, and no
+new tab opens. With no page open the browser opens the URL; when no browser
+can be opened, or with `--no-open`, the URL is printed (and over SSH that is
+the way in: forward the port as `halo studio` says). The URL carries the
+target, `http://127.0.0.1:<port>/?mode=roles&edit=bio:coder#t=<token>`; see
+[STUDIO-shell.md](STUDIO-shell.md#opening-studio-on-a-bio-a-lineup-or-the-team-halo-studio---edit).
 
-**The bio form** is ONE screen over `agents_yaml.BIO_SECTIONS` --
-identity (name, description, tags, kind, extends -- never inherited, see
-`resolve_agent_bio`'s own rule) plus a field per section: `models`
-(preference/fallback open the SAME `ModelPicker` the roles/org/lineup
-pickers use, narrowed by the bio's own needs -- tool-capable rows only
-when `tools.allow` is non-empty, local rows only when `environment.
-offline` is on, enough context for `models.context_budget`'s own share
--- `ctrl+e` shows every row regardless; `ctrl+g` **Suggest** fills both
-from `roles.auto_fill_options()`, falling back to the cheapest row in
-the picker's own catalog when every preset/gym/team option comes up
-empty, e.g. a bare machine right after install), effort, thinking,
-context_budget; `tools` (allow/deny against the harness's real tool
-names, mcp_servers, permission_mode, and `rules` -- one settings.json-
-grammar line each, rendered as a plain sentence beside it, e.g. "Bash
-may not run git push", a parse error shown in place of a bad line);
-`context` (files, skills, a memory namespace); `limits` (max_iterations,
-`timeout` taking the house duration words -- `20m`/`2h`/`90s`/`1d` --
-with the parsed figure shown beside it, `max_budget_usd` with "about N
-turn(s) at this model's price" against the picked model's own enumerated
-price, concurrency); `output` (handoff, report_to); `environment`
-(worktree, offline); `acceptance` (prompt, expect). A right-hand pane
-shows the YAML that would be written, live, as you type; every problem
-`agents_yaml.validate_agent_bio` (plus the name check) finds appears
-there AND beside the field it names, not only on Save -- a bad Save
-keeps the form open. Save writes user scope by default, project scope on
-a toggle.
+On a box with no browser at all, `halo agents edit <bio> --yaml` and
+`halo teams edit <lineup> --yaml` open `$VISUAL`/`$EDITOR` on the YAML file
+and validate it when the editor exits.
 
-Round 2b fixes: both panes are a fixed-height `VerticalScroll` (never
-sized to content) and every field/button is `compact` (Textual's own
-no-border, one-row widget style), so the name/description/kind/model
-fields are all visible on open at 80x24, not just after scrolling; the
-preferred/fallback field and its own "Pick..." button now share one row
-instead of stacking. The owner's report ("you can't pick from the
-available models") traced to Ctrl+P itself: Textual's own App ALWAYS
-claims `ctrl+p` as a priority binding for its command palette, which a
-Screen's own binding on the same key can never win against -- the
-picker's `self.models` was fine all along; the KEYSTROKE never reached
-`action_pick_preference` at all. Fixed by borrowing `app.action_command_
-palette` for as long as this screen (and the lineup/org editors, which
-had the identical collision on their own `ctrl+p`) is on top, restored
-the instant it closes -- the visible "Pick..." buttons were never
-affected by this, only the chord.
+### What the terminal shows
 
-**New from...** (and the picker's own "New bio..." -- any role-slot pick
-can create a bio inline, see below) opens the form with `extends:` set:
-every field whose key the raw file does NOT already define shows
-INHERITED (greyed, disabled, the resolved parent value as its
-placeholder) behind its own per-field override `Switch` -- flipping one
-on makes that ONE key the child's own; only the fields actually flipped
-on get written to the child's file ("an agent file carries only
-overrides"), matching `resolve_agent_bio`'s own key-by-key merge
-EXACTLY (never a coarser per-section toggle). A bio with no `extends` at
-all shows no toggles -- every field is simply its own, same as before
-this round.
+`/agents` (and the wizard's Team step, Ctrl+A) lists every bio with **New**,
+**New from...**, **View**, **Edit in Studio** (`e`), **Duplicate**, **Delete**
+and **Import**. Enter or View opens the read-only **bio view**
+(`tui/dialogs/agent_bio_editor.py`, `AgentBioView`; `/agents view <name>`
+too): the identity, then every field of every section with its one plain line
+(`halo_harness/field_help.py`), a value the bio inherits through `extends`
+marked `(inherited)`, the `tools.rules` lines as plain sentences, the timeout
+in plain units, "about N turns" beside the budget, the triggers, and on the
+right the whole file as YAML. `e` opens Studio on it; `t` (or **Try it**)
+prints the cost line first, then runs the bio's smoke call (its acceptance
+prompt) on a worker; Esc closes it. New writes a starter bio (`agent-<hex>`);
+New from... writes a child that only `extends` the highlighted bio
+(`<name>-child`); both then open Studio on it. Duplicate copies a shipped bio
+into user scope under the same name; Import converts every
+`.claude/agents/*.md` that is not a bio yet.
+
+`/teams list` lists every lineup with **View**, **Edit in Studio** (`e`),
+**New** and **Activate**. View (Enter; `/teams view <name>`; Enter on a
+lineup in the wizard's Team step) opens the read-only **lineup view**
+(`tui/dialogs/lineup_editor.py`, `LineupView`): one resolved line per
+assignment (agent, preferred model, fallback, price, context, tools, a gym
+score), the warnings that need no Governor (a missing bio, no model for a
+slot, a fallback on the preference's own gateway, a duplicate alias, not
+exactly one `role: main`), what each row costs, the role table the lineup
+resolves to, the highlighted assignment's fields, every top section's YAML
+under its one-line meaning, and the `about:` text (drafted from the lineup,
+and marked so, when it has none). `e` opens Studio on it; `t` sends the
+one-token probe (`halo models test`) to the highlighted row's model and shows
+ok and the latency, or the error, under the costs; **Smoke run (cost first)**
+prints every distinct model's cost line, then runs each member's acceptance
+prompt.
+
+"New bio..." in a model picker's Agents source (the roles editor, the org
+editor) writes a starter bio on the slot's model, picks it for the slot and
+opens Studio's bio form on it.
+
+### Every terminal field has its Studio control
+
+Studio's bio form (Roles -> Bios) and the lineup inspector (Roles ->
+Inspector: Assignment and Lineup tabs) hold every field the terminal shows,
+and each field carries the same help line: Studio reads them from
+`GET /api/field-help`, served from `halo_harness/field_help.py`. Each form
+keeps its YAML toggle (a lineup section's raw body; the whole bio, for
+`hooks` and any key with no field); **Save to project scope** writes the
+repo's `.halo/agents/` or `.halo/teams/` instead of `~/.halo`.
+
+| Bio field | Studio's bio form |
+|---|---|
+| `description`, `kind`, `tags`, `extends` | Description, Kind (a choice), Tags (comma separated), Extends |
+| `models.preference` | Preferred model: the model picker table and "Test this model" |
+| `models.fallback`, `effort`, `thinking` | Fallback, Effort (low ... xhigh, max), Thinking (choices) |
+| `models.context_budget` | Context budget (0-1) |
+| `tools.allow`, `tools.deny` | Allow, Deny: chips from the real tool registry (`GET /api/tools`) |
+| `tools.mcp_servers`, `permission_mode`, `rules` | MCP servers, Permission mode, Rules (one per line) |
+| `context.files`, `skills`, `memory`, `prompt_notes` | Files, Skills, Memory namespace, Prompt notes |
+| `limits.max_iterations`, `timeout`, `max_budget_usd`, `concurrency` | Max iterations, Timeout, Max budget (USD), Concurrency |
+| `output.handoff`, `report_to` | Hand-back, Report to |
+| `environment.worktree`, `offline` | Own git worktree, Offline (checks) |
+| `acceptance.prompt`, `expect` | Prompt, Expect |
+| `schedule.cron`, `every`, `prompt`, `model` | Cron, Every, Prompt, Model |
+| `triggers` | one row per trigger: on (file_change, event, message), its paths / event / role, a prompt |
+| `hooks`, any other key | the YAML toggle |
+
+| Lineup field | Studio's lineup inspector |
+|---|---|
+| an assignment's `role`, `agent`, `as`, `instances`, `use_for`, `models.preference` | Assignment tab: Role, Agent bio, Alias, Instances, Use for, Model override (and Reports to) |
+| `description`, `about`, `extends` | the Lineup tab's header (also the Assignment tab with no card selected) |
+| `delegation`, `routing`, `budget`, `escalation`, `context`, `permissions`, `org`, `pipeline`, `acceptance`, `tiers` | the Lineup tab: one block per section, its fields as a form, its YAML toggle |
 
 ## Halo 2.0.5 round 2c: the Team step (rebuilt in 2.1.0 round B1)
 
@@ -579,20 +584,20 @@ on" switch and the two panes are gone) and put it back into Quick setup:
 - a plain-words header, then the **lineup list** -- the first row is always
   **"One model for everything"** (applies the shipped `standard` lineup and
   turns roles off), then every reachable lineup from
-  `lineup_editor.team_rows`, the active one marked with a check;
+  `teams_list.team_rows`, the active one marked with a check;
 - a **live preview** of the highlighted row (`tui/dialogs/team_preview.py`:
   the `role -> agent -> model` tree with price and context, the lineup's
   `about:` text, `lineup_warnings`, one cost line), beside the list from 100
   columns up and below it otherwise;
-- buttons **Use this lineup** and **Open Studio (Roles)** (3.0.2.0: the
-  Customize / New lineup / Agents buttons are gone; editing happens in
-  Studio, and the terminal editors stay on Enter, Ctrl+E, Ctrl+N and
-  Ctrl+A). A **Custom roles** switch above the list mirrors the highlighted
+- buttons **Use this lineup**, **Edit in Studio** (3.1.1.0: Studio's
+  inspector on the highlighted lineup, also Ctrl+E) and **Open Studio
+  (Roles)**; Ctrl+N writes a new lineup and opens it in Studio, Ctrl+A lists
+  the bios. A **Custom roles** switch above the list mirrors the highlighted
   row: off is the first row, on is a lineup.
 
 A plain Next applies whichever row is highlighted (`TeamStep.commit`) and
 writes `roles.enabled` explicitly (off for the first row, on for a lineup);
-Enter on a row opens its editor (`docs/WIZARD.md` rules 1 and 2).
+Enter on a row shows it read-only (`LineupView`; `docs/WIZARD.md` rules 1 and 2).
 
 `STEP_FACTORIES["team"]` is the real registration; `STEP_FACTORIES
 ["agents"]`/`["roles"]` are plain aliases of the SAME factory (never a
@@ -623,57 +628,20 @@ never a bare model -- picking "Models" there auto-creates, or reuses, a
 tiny bio pinning just that model via `agents_yaml.ensure_bio_for_model`,
 the same `model-<slug>` shape `teams_yaml.migrate_legacy_role_table`'s
 own per-model bios already use). "New bio..." sits at the top of the
-Agents source and opens the SAME bio form; saving it is treated exactly
-like picking that freshly-created bio, with no second pick step needed.
-`allow_agent_source=False` (the bio form's own preference/fallback
-fields) hides the source switch entirely -- a bio's own model must
-resolve to a real model, never another bio.
+Agents source: it writes a starter bio on the slot's model, picks it for
+the slot (no second pick step) and opens Studio's bio form on it (3.1.1.0).
+`allow_agent_source=False` hides the source switch entirely -- a bio's own
+model must resolve to a real model, never another bio.
 
-## The lineup editor (Halo 2.0.5 round 2)
+## The `about:` text and a member's context
 
-`LineupEditor` replaces the Roles step's legacy-template-only editing
-with a Lineup pane shown first (the legacy role-table pane moves to its
-own "Legacy roles" pane, reachable by its own toggle button -- never
-removed, since a config with no lineup at all still needs it). The
-assignments grid (`ctrl+n` add, `ctrl+d` delete, `ctrl+p` pick agent-or-
-model for the highlighted row) shows the RESOLVED TRUTH per row
-(`lineup_editor.resolved_assignment_line`: agent, preferred model,
-fallback, price, context, tools count, a gym score when one exists) and
-inline warnings needing no Governor (`lineup_editor.lineup_warnings`): a
-bio that doesn't exist, no reachable model for the slot, a fallback on
-the SAME gateway prefix as the preference (can't help if that gateway is
-down), a duplicate `as` alias, or not-exactly-one `role: main`. Every
-OTHER `teams_yaml.TOP_SECTIONS` -- `delegation`/`routing`/`budget`/
-`escalation`/`context`/`permissions`/`org`/`pipeline`/`acceptance` -- is
-a `Collapsible`, its own one-line meaning as the title, editing that
-section as ONE YAML-mapping-body `TextArea` (never a bespoke widget per
-field -- round-trips through the same `yaml.safe_load` every other
-section of this codebase already uses). A read-only roles-table
-projection (`teams_yaml.resolve_role_table`, the SAME function `/roles`'s
-Auto tab already calls) sits under the grid -- the lineup is the one
-place a role actually gets edited. Halo 3.0.7.0 adds `tiers`, the one
-section whose body is a YAML list (`- {name, members, max_parallel}`; see
-[ROLES.md](ROLES.md#tiers-halo-3070)), and the `t` key on the assignments
-list: it sends the one-token probe (`halo models test`) to the focused
-assignment's model on a worker and shows ok and the latency, or the error,
-under the cost lines.
-
-At the bottom, the free-text **"How the pieces work together"** field
-saves as the template's own `about:` (an identity field like
-`description` -- inherited whole by a child that never sets its own,
-never merged key-by-key). `ctrl+g` **Draft** fills it from `lineup_
-editor.draft_about_text` (one sentence per assignment plus the
-delegation/pipeline sections, in the house's own plain voice) -- never
-leaves it blank; a "stale" marker appears once the lineup's own
-assignments/delegation/pipeline change after the last draft (or edit),
-until redrafted or edited again. Save validates through `teams_yaml`'s
-own validator, writes `teams/<name>.yaml` (user scope by default,
-project on a toggle), and offers to make it the active `team:`
-(`_ActivateLineupConfirm`) -- "Use this lineup" in the wizard's own
-Lineup pane does both in one step via the new `teams_yaml.apply_team_
-template` (writes `roles.*` AND `team:`, the lineup counterpart of
-`roles.apply_role_template`). `halo teams show`/`/teams show` print the
-`about:` text when the lineup has one.
+The free-text **"How the pieces work together"** field (Studio's lineup
+header) saves as the template's own `about:` (an identity field like
+`description` -- inherited whole by a child that never sets its own, never
+merged key-by-key). `halo teams show`/`/teams show` print the `about:` text
+when the lineup has one; the terminal's lineup view drafts one from the
+lineup (`lineup_view_text.draft_about_text`: one sentence per assignment plus
+the delegation and pipeline sections) when it has none.
 
 **The active team's `about:` reaches a member's system context** through
 `teams_yaml.member_system_context_addition(agent_name, team_name=None,

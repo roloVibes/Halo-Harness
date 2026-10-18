@@ -135,6 +135,8 @@ async def handle_slash(app, name: str, args: str) -> None:
         # validate/use/export/import) stays on the generic headless-text
         # fallback below, same split `_handle_roles`/`_handle_org` use.
         "agents": _handle_agents, "teams": _handle_teams,
+        # Halo 3.1.1.0 R3: /edit bio:<name> | lineup:<name> | team opens Studio on it.
+        "edit": _handle_edit,
         # Halo 2.0.9 round 4: bare /remote opens the Signal remote-control
         # dialog; /remote status|pair|off print text (see tui/slash_remote.py).
         "remote": _handle_remote,
@@ -2354,23 +2356,71 @@ async def _handle_images(app, _args: str) -> None:
 
 
 # ============================================================================
-# Halo 2.0.5 round 2 (deliverable 4): /agents and /teams -- new/edit (and
-# duplicate/delete/activate) open the SAME form modules the wizard's
-# Agents step/lineup editor use; every OTHER subcommand (show/validate/
-# use/export/import, or the bare list for /teams) stays on the generic
-# headless-text fallback -- same split `_handle_roles`/`_handle_org` use.
+# Halo 2.0.5 round 2 (deliverable 4): /agents and /teams. 3.1.1.0 R3: Studio
+# is the one editor of bios and lineups -- `edit` opens Studio on it (or the
+# Studio page already open), `new` writes a starter file and opens Studio on
+# it, `view` shows it read-only in the terminal (`e` there opens Studio too);
+# duplicate/delete/activate stay here; every OTHER subcommand (show/validate/
+# use/export/import, or the bare overview for /teams) stays on the generic
+# headless-text fallback. `/edit <thing>` opens any of them in Studio.
 # ============================================================================
+
+def _studio_line(app):
+    """What tui/studio_open.py says (opened the browser, or the URL) lands in the transcript."""
+    def _say(line: str) -> None:
+        try:
+            app.call_later(app.transcript.add_note, line, kind="command")
+        except Exception:
+            app.notify(line, title="Studio")
+    return _say
+
+
+def _edit_in_studio(app, target: str) -> None:
+    from halo_harness.tui import studio_open
+    studio_open.open_target(app, target, cwd=app.cwd, on_line=_studio_line(app))
+
+
+async def _handle_edit(app, args: str) -> None:
+    """`/edit bio:<name> | lineup:<name> | team` (or a bare bio or lineup name): Studio on it."""
+    if not (args or "").strip():
+        await app.transcript.add_note("Usage: /edit bio:<name> | lineup:<name> | team (or a bio or lineup name)",
+                                      kind="command")
+        return
+    _edit_in_studio(app, args.strip())
+
+
+def _new_then_studio(app, kind: str, name: str) -> None:
+    """`/agents new <name>` / `/teams new <name>`: the starter file (unless it exists), then Studio on it."""
+    from halo_harness.tui import studio_open
+    if kind == "bio":
+        from halo_harness.agents_yaml import find_agent_bio_path
+        exists = find_agent_bio_path(name, cwd=app.cwd) is not None
+        made, problems = ("", []) if exists else studio_open.new_bio(cwd=app.cwd, name=name)
+    else:
+        from halo_harness.teams_yaml import find_team_template_path
+        exists = find_team_template_path(name, cwd=app.cwd) is not None
+        made, problems = ("", []) if exists else studio_open.new_lineup(cwd=app.cwd, name=name)
+    if problems:
+        app.notify("; ".join(problems), title=f"/{'agents' if kind == 'bio' else 'teams'} new", severity="error")
+        return
+    _edit_in_studio(app, f"{kind}:{name}")
+
 
 async def _handle_agents(app, args: str) -> None:
     parts = (args or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else ""
     rest = parts[1].strip() if len(parts) > 1 else ""
-    if sub in ("new", "edit"):
+    if sub in ("new", "edit", "view"):
         if not rest:
             await app.transcript.add_note(f"Usage: /agents {sub} <name>", kind="command")
             return
-        app.run_worker(lambda: _agents_form_worker(app, sub, rest), thread=True, name="agents-form",
-                        group="agents-form")
+        if sub == "view":
+            app.run_worker(lambda: _agents_view_worker(app, rest), thread=True, name="agents-view",
+                           group="agents-view")
+        elif sub == "edit":
+            _edit_in_studio(app, f"bio:{rest}")
+        else:
+            _new_then_studio(app, "bio", rest)
         return
     if sub == "duplicate":
         bits = rest.split(None, 1)
@@ -2401,19 +2451,18 @@ async def _handle_agents(app, args: str) -> None:
     app.run_worker(lambda: _agents_list_worker(app), thread=True, name="agents-list", group="agents-list")
 
 
-def _agents_form_worker(app, sub: str, name: str) -> None:
-    from halo_harness.agents_yaml import load_agent_bio_raw
+def _agents_view_worker(app, name: str) -> None:
     models = app.controller.list_models()
-    raw = {} if sub == "new" else (load_agent_bio_raw(name, cwd=app.cwd) or {})
-    app.call_from_thread(_open_agent_bio_form, app, name, raw, models, sub == "new")
+    app.call_from_thread(_open_agent_bio_view, app, name, models)
 
 
-def _open_agent_bio_form(app, name: str, raw: dict, models: list, is_new: bool) -> None:
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
-
-    def _after(saved) -> None:
-        app.notify(f"Saved agent bio {saved!r}." if saved else "Cancelled.", title="/agents")
-    app.push_screen(AgentBioEditor(name, raw, models, cwd=app.cwd, is_new=is_new), _after)
+def _open_agent_bio_view(app, name: str, models: list) -> None:
+    from halo_harness.agents_yaml import find_agent_bio_path
+    if find_agent_bio_path(name, cwd=app.cwd) is None:
+        app.notify(f"No agent bio named {name!r}.", title="/agents view", severity="error")
+        return
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
+    app.push_screen(AgentBioView(name, None, models, cwd=app.cwd))
 
 
 def _agents_list_worker(app) -> None:
@@ -2430,12 +2479,17 @@ async def _handle_teams(app, args: str) -> None:
     parts = (args or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else ""
     rest = parts[1].strip() if len(parts) > 1 else ""
-    if sub in ("new", "edit"):
+    if sub in ("new", "edit", "view"):
         if not rest:
             await app.transcript.add_note(f"Usage: /teams {sub} <name>", kind="command")
             return
-        app.run_worker(lambda: _teams_form_worker(app, sub, rest), thread=True, name="teams-form",
-                        group="teams-form")
+        if sub == "view":
+            app.run_worker(lambda: _teams_view_worker(app, rest), thread=True, name="teams-view",
+                           group="teams-view")
+        elif sub == "edit":
+            _edit_in_studio(app, f"lineup:{rest}")
+        else:
+            _new_then_studio(app, "lineup", rest)
         return
     if sub == "activate":
         if not rest:
@@ -2465,19 +2519,18 @@ async def _handle_teams(app, args: str) -> None:
     app.run_worker(lambda: _teams_list_worker(app), thread=True, name="teams-list", group="teams-list")
 
 
-def _teams_form_worker(app, sub: str, name: str) -> None:
-    from halo_harness.teams_yaml import load_team_template_raw
+def _teams_view_worker(app, name: str) -> None:
     models = app.controller.list_models()
-    template = {} if sub == "new" else (load_team_template_raw(name, cwd=app.cwd) or {})
-    app.call_from_thread(_open_lineup_form, app, name, template, models, sub == "new")
+    app.call_from_thread(_open_lineup_view, app, name, models)
 
 
-def _open_lineup_form(app, name: str, template: dict, models: list, is_new: bool) -> None:
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
-
-    def _after(saved) -> None:
-        app.notify(f"Saved team template {saved!r}." if saved else "Cancelled.", title="/teams")
-    app.push_screen(LineupEditor(name, template, models, cwd=app.cwd, is_new=is_new), _after)
+def _open_lineup_view(app, name: str, models: list) -> None:
+    from halo_harness.teams_yaml import find_team_template_path
+    if find_team_template_path(name, cwd=app.cwd) is None:
+        app.notify(f"No lineup named {name!r}.", title="/teams view", severity="error")
+        return
+    from halo_harness.tui.dialogs.lineup_editor import LineupView
+    app.push_screen(LineupView(name, None, models, cwd=app.cwd))
 
 
 def _teams_list_worker(app) -> None:
@@ -2486,7 +2539,7 @@ def _teams_list_worker(app) -> None:
 
 
 def _open_teams_list(app, models: list) -> None:
-    from halo_harness.tui.dialogs.lineup_editor import TeamsListScreen
+    from halo_harness.tui.dialogs.teams_list import TeamsListScreen
     app.push_screen(TeamsListScreen(cwd=app.cwd, models=models))
 
 
