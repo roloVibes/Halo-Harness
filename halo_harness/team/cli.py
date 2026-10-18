@@ -116,7 +116,7 @@ def cmd_init(args) -> int:
 
 
 def cmd_validate(args) -> int:
-    from halo_harness.team.spec_check import preflight_findings
+    from halo_harness.team.validate import preflight_findings
     team, code = _team()
     if team is None:
         return code

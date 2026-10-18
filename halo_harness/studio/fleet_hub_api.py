@@ -13,7 +13,8 @@
     fleet/attention[/answer], fleet/costs, fleet/caps, fleet/health, fleet/conflicts, fleet/digest
                                      the panels (studio/fleet_panels_api.py, R4)
     fleet/<h>/<sid>/agents/<aid>/handoff, fleet/<h>/<sid>/recording, fleet/recordings/<name>, fleet/replay
-                                     hand-offs, flight recordings, canvas replay (studio/fleet_extras_api.py, R4)
+                                     hand-offs, flight recordings, canvas replay (studio/fleet_handoff_api.py,
+                                     studio/fleet_recording_api.py, R4)
     fleet/capabilities, fleet/who    what every harness can do and who can do something (studio/fleet_capabilities_api.py,
                                      3.0.6.0 R6)
     fleet/missions[/<id>[/...]]      fleet missions (studio/fleet_mission_api.py, 3.0.6.0 R7)
@@ -215,8 +216,9 @@ ROUTES = [("GET", r"^fleet$", get_fleet),
 from halo_harness.studio.fleet_pair_api import ROUTES as _PAIR_ROUTES  # noqa: E402  (3.0.5.0 R3: pair, settings, kick, history)
 ROUTES[len(ROUTES):] = _PAIR_ROUTES
 from halo_harness.studio.fleet_panels_api import ROUTES as _PANEL_ROUTES  # noqa: E402  (R4: the panels)
-from halo_harness.studio.fleet_extras_api import ROUTES as _EXTRA_ROUTES  # noqa: E402  (R4: hand-offs, recordings, replay)
-ROUTES[len(ROUTES):] = _PANEL_ROUTES + _EXTRA_ROUTES
+from halo_harness.studio.fleet_handoff_api import ROUTES as _HANDOFF_ROUTES  # noqa: E402  (R4: hand-offs)
+from halo_harness.studio.fleet_recording_api import ROUTES as _RECORDING_ROUTES  # noqa: E402  (R4: recordings, replay)
+ROUTES[len(ROUTES):] = _PANEL_ROUTES + _HANDOFF_ROUTES + _RECORDING_ROUTES
 from halo_harness.studio.fleet_capabilities_api import ROUTES as _CAPS_ROUTES  # noqa: E402  (3.0.6.0 R6: capabilities, who)
 ROUTES[len(ROUTES):] = _CAPS_ROUTES
 from halo_harness.studio.fleet_mission_api import ROUTES as _MISSION_ROUTES  # noqa: E402  (3.0.6.0 R7: missions)

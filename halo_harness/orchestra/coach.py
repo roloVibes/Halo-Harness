@@ -10,8 +10,10 @@ suggestions, one per finding:
 
 `kind` of the run is read from the folder: an Orchestra run (goal.json), a
 flow run (flow.json), a mission (mission.json) or a team run (board.json).
-The rules live in coach_rules.py (Orchestra) and coach_more.py (flow,
-mission, team); docs/ORCHESTRA.md "The coach" lists them with their
+The rules live in one module per run kind, `coach_<kind>_rules.py`
+(coach_orchestra_rules.py, coach_flow_rules.py, coach_mission_rules.py,
+coach_team_rules.py; the Orchestra rules read coach_lane_facts.py and
+coach_prices.py); docs/ORCHESTRA.md "The coach" lists them with their
 evidence. `apply` names a change; nothing here writes it. Studio's Apply
 opens the editor that owns the field with the value filled in (the bio
 form, the Lineup tab, the plan editor) and the user saves there.
@@ -64,11 +66,8 @@ def coach(run_dir, *, catalog: Optional[list] = None, cwd=None, state_dir=None) 
     kind = run_kind(run_dir)
     if kind is None:
         raise ValueError(f"{run_dir} is not an Orchestra, flow, mission or team run folder")
-    if kind == "orchestra":
-        from halo_harness.orchestra.coach_rules import orchestra as rules
-    else:
-        from halo_harness.orchestra import coach_more
-        rules = getattr(coach_more, kind)
+    import importlib
+    rules = getattr(importlib.import_module(f"halo_harness.orchestra.coach_{kind}_rules"), kind)
     found, evidence = rules(run_dir, catalog=catalog, cwd=cwd, state_dir=state_dir)
     seen, out = set(), []
     for s in found:

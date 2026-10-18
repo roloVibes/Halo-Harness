@@ -87,7 +87,7 @@ class _Paperclip:
 @test
 def test_hand_to_writes_the_markdown_or_the_paperclip_issue_then_stops(ctx: Ctx):
     from halo_harness.paperclip.client import save_config
-    from halo_harness.studio import fleet_extras_api
+    from halo_harness.studio import fleet_handoff_api
     from halo_harness.theme import set_config_value
     from tests.helpers.studio_fleet_rig import MEMBER, StudioFleetRig
     with StudioFleetRig() as rig:
@@ -104,12 +104,12 @@ def test_hand_to_writes_the_markdown_or_the_paperclip_issue_then_stops(ctx: Ctx)
         set_config_value("paperclip.enabled", True)
         save_config({"company_id": "co-1"}, rig.state)
         pc = _Paperclip()
-        fleet_extras_api.PAPERCLIP = lambda state: pc
+        fleet_handoff_api.PAPERCLIP = lambda state: pc
         try:
             b = rig.agent("Research")["agent_id"]
             status, got = rig.api("POST", f"fleet/local/{rig.act.session_id}/agents/{b}/handoff", {"mode": "hand_to", "to": MEMBER})
         finally:
-            fleet_extras_api.PAPERCLIP = None
+            fleet_handoff_api.PAPERCLIP = None
             set_config_value("paperclip.enabled", False)
         company, payload = pc.issues[0] if pc.issues else (None, {})
         ctx.check(f"Org mode on: one issue in the linked company, assigned to kali@lab's agent, got {status} {got.get('issue')}",

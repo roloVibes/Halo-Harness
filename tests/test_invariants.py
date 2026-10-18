@@ -649,6 +649,31 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
     ctx.check("round-surface parity: " + "; ".join(problems), not problems)
 
 
+_MAP_PACKAGES = ("studio", "fleet", "orchestra", "team")
+_MAP_NAME = r"`((?:studio|fleet|orchestra|team)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py|coach_cli\.py)`"
+
+
+@test
+def test_invariant_j_no_module_is_named_by_its_line_count(ctx: Ctx):
+    """3.1.0.0 R2: a module is named for its one responsibility, never for
+    being the overflow of another (`*_more.py`, `*2.py`, `*_extra*.py`,
+    `*_rest.py`); and docs/ARCHITECTURE.md's "Module map" lists exactly the
+    modules of studio/, fleet/, orchestra/ and team/ (plus the Orchestra CLI
+    beside them), so a rename or a split updates it."""
+    import re
+    pkg = REPO_DIR / "halo_harness"
+    bad = [p.relative_to(REPO_DIR).as_posix() for p in sorted(pkg.rglob("*.py"))
+           if re.search(r"(_more|2|_rest)\.py$|_extra", p.name)]
+    ctx.check(f"no module named by line count: {bad}", not bad)
+    doc = (REPO_DIR / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    section = doc[doc.find("## Module map"):] if "## Module map" in doc else ""
+    named = set(re.findall(_MAP_NAME, section))
+    actual = {f"{d}/{p.name}" for d in _MAP_PACKAGES for p in (pkg / d).glob("*.py") if p.name != "__init__.py"}
+    actual |= {p.name for p in pkg.glob("orchestra_cli*.py")} | {"coach_cli.py"}
+    ctx.check(f"ARCHITECTURE.md's module map misses {sorted(actual - named)} and names {sorted(named - actual)} "
+              "that are not in the tree", section and named == actual)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

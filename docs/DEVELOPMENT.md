@@ -24,7 +24,14 @@ halo_harness/            the package
   tui/                     the Textual app, widgets, dialogs, dispatch
   improve/                 /improve: evidence clustering, drafting, apply
   ccbridge/                the cc: subprocess's own MCP tool bridge (child side)
+  studio/                  `halo studio`: the server, the JSON routes (one
+                           `*_api.py` per area), the React shell in ui/
+  fleet/                   the hub, the relay, the panels, missions
+  orchestra/               the Orchestra run pipeline and the post-run coach
+  team/                    the team file, its validation, the runner
   *_cli.py                 each `halo <subcommand>`'s own module
+                           (orchestra_cli.py + orchestra_cli_views.py /
+                           _run.py / _plan.py for `halo orchestra`)
 bridge.py                 the original claude-bridge proxy (kept as `halo proxy`)
 tests/                    the harness's own suite (tests/run_all.py)
 test_bridge.py            the proxy's own black-box suite
@@ -289,6 +296,25 @@ renders the Flow captures over seeded runs.
   convention** -- there's no file-length limit on the code itself (see
   `agent/loop.py`, over 4000 lines, because splitting the session loop
   across files would scatter one coherent state machine).
+- **A module is named for its one responsibility.** When a file grows, cut
+  it where its responsibilities part and name each piece for what it does
+  (`design_artboards_api.py`, `coach_mission_rules.py`, `fleet_send.py`),
+  never `*_more.py`, `*2.py`, `*_extra*.py` or `*_rest.py`
+  (`tests/test_invariants.py` fails on those). `docs/ARCHITECTURE.md`'s
+  "Module map" lists every module of studio/, fleet/, orchestra/ and team/
+  and the same test checks it against the tree: a rename or a split
+  updates it. 3.1.0.0 R2 re-cut the last ones: `design_api_more.py`,
+  `design_api_io.py`, `design_api_turns.py`, `flow_api_io.py`,
+  `fleet_watch_io.py`, `fleet_extras_api.py`, `fleet/cli_more.py`,
+  `fleet/mission_plan_rules.py`, `orchestra/coach_more.py`,
+  `coach_rules.py`, `coach_facts.py`, `team/spec_check.py`,
+  `team/spec_stages.py`, and `orchestra_cli*.py` split by verb kind.
+- **Line endings are LF in the repo.** `.gitattributes` starts with
+  `* text=auto eol=lf` (binaries `-text`, `bin/*.cmd` CRLF), so every
+  checkout is LF whatever `core.autocrlf` says. A comparison of a text file's
+  bytes folds CRLF to LF on both sides first (a copy written in text mode on
+  Windows is CRLF); `tests/test_line_endings.py` checks the rule, the index
+  and those comparisons.
 - **`tests/run_all.py`'s own hygiene guards are load-bearing**: a new test
   that constructs a real `Session`/`SessionLog` must set `BRIDGE_TEST_HOME`
   (or otherwise scope itself away from your actual `~/.halo`) --

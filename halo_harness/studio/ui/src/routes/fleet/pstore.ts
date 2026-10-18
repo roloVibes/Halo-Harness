@@ -1,7 +1,8 @@
 // The Fleet panels' store (3.0.5.0 R4): what the five panels added in R4
 // read, beside the map's store (store.ts). The shapes are the R4 routes'
-// (studio/fleet_panels_api.py, studio/fleet_extras_api.py): the attention
-// queue, costs and caps, health, conflicts and project rooms, the digest.
+// (studio/fleet_panels_api.py, studio/fleet_handoff_api.py,
+// studio/fleet_recording_api.py): the attention queue, costs and caps,
+// health, conflicts and project rooms, the digest.
 // The activity log and the timeline lanes are kept here from the feed
 // (pload.ts); `dialog` is the one Fleet dialog open (PanelDialogs.tsx).
 import { createStore, useStore } from "../../lib/store";

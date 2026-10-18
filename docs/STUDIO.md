@@ -1456,10 +1456,10 @@ in the Agent panel stop (asks first).
 `ui/` (the React shell's sources; see docs/DEVELOPMENT.md "Studio UI"),
 `static/dist/` (its committed build; the only page since 3.0.7.0 R2),
 `api.py` (the routes), `roles_api.py` (`GET gym`, `GET models/best-for`), `roles_findings.py`
-(the Problems panel's findings), `models_api.py` (the catalog status, Refresh, the probe), `flow_api.py` / `flow_model.py` / `flow_runs.py` (the Flow
-routes and the one live flow run), `media_api.py` / `media_render.py` (the ComfyUI
+(the Problems panel's findings), `models_api.py` (the catalog status, Refresh, the probe), `flow_api.py` / `flow_request.py` / `flow_assets_api.py` / `flow_model.py` / `flow_runs.py` (the Flow
+routes, their body parsing, the assets upload and the one live flow run), `media_api.py` / `media_render.py` (the ComfyUI
 routes and a render's background thread), `sessions_api.py` (the live sessions and
-their commands), `design_api.py` / `design_api_io.py` / `design_api_more.py` / `design_api_turns.py` / `design_files.py` (Design mode), `paperclip_api.py` (Org mode), `model.py` (the graph, the catalog rows, the session
+their commands), `design_api.py` (the routes) with `design_artboards_api.py` / `design_assets_api.py` / `design_critique_api.py` / `design_system_api.py` / `design_export_api.py` / `design_request.py` / `design_turns.py` / `design_api_edit.py` / `design_files.py` (Design mode), `paperclip_api.py` (Org mode), `model.py` (the graph, the catalog rows, the session
 reader). Tests: `tests/test_studio_api.py`,
 `tests/test_studio_model.py`, `tests/test_studio_dist.py` (the build and
 its routes), `tests/test_studio_live.py` (the live feed),
@@ -1503,7 +1503,9 @@ Live Roles is `frames.ts` (the live rows into the Roles store), `hop.ts`
 and `replay.ts` with the Roles section's `live.ts`, `LiveTab.tsx` and
 `Replay.tsx`; the
 routes `fleet_hub_api.py` (R2), `fleet_pair_api.py` and `fleet_api.py`
-(`get_history`). 3.0.6.0 R6 adds `Capabilities.tsx` + `Who.tsx` + `caps.ts` +
+(`get_history`), R4's `fleet_panels_api.py`, `fleet_handoff_api.py` and `fleet_recording_api.py`
+over the watcher `fleet_watch.py` (what it reads: `fleet_watch_sources.py`; its feed tap:
+`fleet_feed.py`; a session command: `fleet_send.py`). 3.0.6.0 R6 adds `Capabilities.tsx` + `Who.tsx` + `caps.ts` +
 `MapChips.tsx`, `styles/fleet-caps.css` and `fleet_capabilities_api.py`
 (tests: `tests/test_fleet_capabilities*.py`, the `caps` Chrome scenario in
 `tests/helpers/studio_fleet_caps.py`). 3.0.6.0 R8 adds the Mission panel:

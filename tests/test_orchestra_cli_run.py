@@ -1,5 +1,5 @@
 """tests.test_orchestra_cli_run -- Halo 3.0.3.0 round R2: `halo orchestra run
-[--dry-run] | lanes | report | stop` (orchestra_cli_run.py) over a prepared
+[--dry-run] | lanes | report | stop` (orchestra_cli_run.py, orchestra_cli_views.py) over a prepared
 run folder, the real adapters with their process/session seams faked
 (adapters.py: the worker's argv, cwd and environment; the judge/lead
 wiring), the worker joining its lane at session start (guard.py), the

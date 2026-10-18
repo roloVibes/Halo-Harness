@@ -1,8 +1,9 @@
-"""halo_harness.studio.fleet_watch_io -- what the fleet watcher and the Fleet
-panel routes read and send (Halo 3.0.5.0 "Fleet" round R4): the view, the
-local harness id, the flow and Orchestra gates, the hub's open commands, the
-claims, the feed tap, and a session command sent the way the Fleet routes
-send it (this harness: its control socket; a member: through the hub).
+"""halo_harness.studio.fleet_watch_sources -- what the fleet watcher and the
+Fleet panel routes read (Halo 3.0.5.0 "Fleet" round R4; 3.1.0.0 R2 renamed
+it from fleet_watch_io.py and moved the feed tap to fleet_feed.py and the
+session commands to fleet_send.py): the view, the local harness id and the
+fleet name, the flow, team and Orchestra gates, the hub's open commands,
+the claims and whether attention pushes are ready.
 """
 
 from __future__ import annotations
@@ -33,29 +34,6 @@ def view(server, home) -> dict:
 def by(home=None) -> str:
     from halo_harness.fleet.identity import fleet_name
     return fleet_name(Path(home) if home is not None else None)
-
-
-# ---- the feed ----------------------------------------------------------------------
-def attach_tap(server, tap) -> None:
-    taps = getattr(server, "event_taps", None)
-    if taps is None:
-        taps = server.event_taps = []
-    if tap not in taps:
-        taps.append(tap)
-    from halo_harness.studio.events import bridge_for
-    bridge_for(server).start()  # the local sessions' frames reach the tap with no browser open
-
-
-def detach_tap(server, tap) -> None:
-    for holder in (getattr(server, "event_taps", None), getattr(getattr(server, "events", None), "taps", None)):
-        if holder is not None and tap in holder:
-            holder.remove(tap)
-
-
-def publish(server, frame: dict) -> None:
-    bridge = getattr(server, "events", None)
-    if bridge is not None:
-        bridge.publish_local(frame)
 
 
 # ---- the sources ------------------------------------------------------------------------
@@ -130,23 +108,3 @@ def push_ready(home) -> bool:
         return push.ready(home)
     except Exception:
         return False
-
-
-# ---- commands ------------------------------------------------------------------------------
-def session_cmd(server, home, hid: str, sid: str, cmd: str, fields: dict, wait_s: float = 5.0):
-    """`(status, body)` of one session command, this harness's or a member's."""
-    if is_local(server, hid):
-        from halo_harness.studio import fleet_api
-        status, result = fleet_api.forward(sid, cmd, {**fleet_api.caller(), **fields})
-        return (200, {"ok": True, "result": result}) if status == 200 else (status, result)
-    return member_cmd(server, home, hid, sid, cmd, fields, wait_s)
-
-
-def member_cmd(server, home, hid: str, sid: str, cmd: str, fields: dict, wait_s: float = 5.0):
-    hub = getattr(server, "fleet_hub", None)
-    if hub is None:
-        from halo_harness.fleet.hub import running_call
-        got = running_call(home, "POST", "local/command", {"harness": hid, "session_id": sid, "cmd": cmd,
-                                                           "fields": fields, "wait_s": wait_s}, timeout=wait_s + 5.0)
-        return got if got else (409, {"error": "no fleet hub runs here (`halo studio --fleet`, or `halo fleet serve`)"})
-    return hub.state.commands.send(hid, sid, cmd, fields, by=by(hub.home), wait_s=wait_s)

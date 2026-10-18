@@ -70,7 +70,7 @@ def _seams() -> dict:
 
 
 def _findings(team, req) -> list:
-    from halo_harness.team.spec_check import preflight_findings
+    from halo_harness.team.validate import preflight_findings
     return preflight_findings(team, cwd=team["root"], state_dir=req.state_dir)
 
 

@@ -30,9 +30,9 @@ from __future__ import annotations
 def _ctx(req):
     from halo_harness.fleet.identity import fleet_name
     from halo_harness.fleet.mission_api import Ctx
-    from halo_harness.studio import fleet_watch_io as io
+    from halo_harness.studio import fleet_feed as feed
     hub = getattr(req.server, "fleet_hub", None)
-    publish = None if hub is not None else (lambda f: io.publish(req.server, f))
+    publish = None if hub is not None else (lambda f: feed.publish(req.server, f))
     return Ctx(req.state_dir, hub, publish=publish, by=fleet_name(req.state_dir), cwd=req.cwd)
 
 
