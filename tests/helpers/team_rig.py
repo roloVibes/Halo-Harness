@@ -106,6 +106,13 @@ class Fakes:
             return 403, {"error": "the owner said no"}
         return self.dispatch_status, {"handle": {"mission": "m-20260101-0001", "part": "1"}}
 
+    def send_run(self, harness, task):
+        """3.1.2.0 R2: an orchestra or flow stage on a fleet member (team/remote_stage.py)."""
+        self.calls.append(("send_run", harness, task["stage"], task))
+        if self.dispatch_status == 403:
+            return 403, {"error": "the owner said no"}
+        return self.dispatch_status, {"handle": {"mission": "m-20260101-0002", "part": "1"}}
+
     def poll(self, handle):
         return self.polls.pop(0) if self.polls else None
 

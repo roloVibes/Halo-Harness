@@ -1,7 +1,9 @@
 // The Team board's parts (3.0.8.0 R2): a member's column (its labelled box:
 // name, lineup and role, the harness chip, the live chips of the stages it
 // works in right now), a stage's box (state colour, kind, members, lead, the
-// gate diamond, the line that matters: waiting, error, summary or trigger),
+// gate diamond, the line that matters: waiting, error, summary or trigger;
+// 3.1.2.0 R2: a dot per member in its state, and for a stage run on a fleet
+// member the harness chip with its remote run id),
 // a block's node (a document, folder or git glyph, the claims mode, the claim
 // badge: holders, amber while someone writes, and its last change) and an
 // edge. A click selects; the Inspector follows the selection.
@@ -57,6 +59,8 @@ export function StageNode({ b, row, sel, onClick }: { b: StageBox; row: StageRow
   const members = row?.members?.length ? row.members : s.members;
   const lead = row?.lead || s.lead;
   const line = row?.waiting || row?.error || row?.summary || (s.trigger === "manual" ? "starts when you press Run" : `starts on ${s.trigger}`);
+  const dots = Object.entries(row?.members_state || {}); // 3.1.2.0 R2: the members run at once, each with its state
+  const remote = row?.remote || null;
   const who = members.length ? `${members.join(", ")}${lead && members.length > 1 ? ` · lead ${lead}` : ""}` : s.kind === "orchestra" ? "the Orchestra's lead and workers" : s.kind === "flow" ? `flow ${s.flow || ""}` : "";
   return (
     <g className="tm-stage" data-testid="team-stage" data-stage={s.id} data-state={state} data-motion={stageMotion(state)} data-selected={sel || undefined}
@@ -68,11 +72,22 @@ export function StageNode({ b, row, sel, onClick }: { b: StageBox; row: StageRow
       <circle className="tm-stage-dot" cx={14} cy={16} r={4.5} />
       <text className="tm-stage-id" x={25} y={20}>{fit(s.id, b.w - 120)}</text>
       <text className="tm-stage-kind" x={b.w - (s.gate !== "none" ? 30 : 12)} y={19} textAnchor="end">{KIND[s.kind] || s.kind}</text>
+      {(remote || (row?.harness && s.kind !== "agent")) && (
+        <text className="tm-stage-remote" data-testid="team-stage-remote" data-harness={remote?.harness || row?.harness || ""}
+              data-run={remote?.run || undefined} x={b.w - (s.gate !== "none" ? 30 : 12)} y={51} textAnchor="end">
+          <title>{`runs on ${remote?.harness || row?.harness}${remote?.run ? `: its ${remote.kind} run ${remote.run}` : ""}${remote?.part_state ? ` (${remote.part_state})` : ""}`}</title>
+          {fit(`on ${remote?.harness || row?.harness}${remote?.run ? ` · ${remote.run}` : ""}`, 150)}
+        </text>
+      )}
+      {dots.map(([m, st], i) => (
+        <circle key={m} className="tm-member-dot" data-testid="team-member-dot" data-member={m} data-state={st}
+                cx={b.w - 16 - i * 11} cy={33} r={3.6}><title>{`${m}: ${st}`}</title></circle>
+      ))}
       {s.gate !== "none" && <Diamond x={b.w - 24} y={8} on={state === "gated"} />}
       <text className="tm-stage-state" x={25} y={36}>{state}{row?.round && row.round > 1 ? ` · round ${row.round}` : ""}</text>
-      <text className="tm-stage-line" x={86} y={36}>{fit(line, b.w - 98)}</text>
-      <text className="tm-stage-who" x={25} y={51}>{fit(who, b.w - 90)}</text>
-      {!!row?.cost_usd && <text className="tm-stage-cost" x={b.w - 12} y={51} textAnchor="end">{usd(row.cost_usd)}</text>}
+      <text className="tm-stage-line" x={86} y={36}>{fit(line, b.w - 98 - dots.length * 11)}</text>
+      <text className="tm-stage-who" x={25} y={51}>{fit(who, b.w - (remote ? 190 : 90))}</text>
+      {!!row?.cost_usd && !remote && <text className="tm-stage-cost" x={b.w - 12} y={51} textAnchor="end">{usd(row.cost_usd)}</text>}
     </g>
   );
 }

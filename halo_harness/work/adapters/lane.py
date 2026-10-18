@@ -14,7 +14,8 @@ claims = the job's keys (mode `unit`); needs = `handoff.needs`; gives =
 `gave`; after, base; attempts = `pieces_returned`; gate = the merge and
 quality gate (`required`, round = the pieces sent back); refs = sessions,
 branch, worktree, head, holder; extra = job, order, written, reply,
-history, handoff, bio, model, denied.
+history, handoff, bio, model, denied, and (3.1.2.0 R2, orchestra/stale.py)
+stale and rebased.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from halo_harness.work.ledger import line
 
 KIND = "lane"
 LANE_STATES = tuple(w for w in ST.words(KIND) if w)
-_EXTRA = ("job", "order", "written", "reply", "history", "handoff", "bio", "model", "denied")
+_EXTRA = ("job", "order", "written", "reply", "history", "handoff", "bio", "model", "denied", "stale", "rebased")
 
 
 def lane_path(run_dir, n) -> Path:
@@ -76,7 +77,8 @@ def store_written(path, key: str, text: str) -> None:
 
 
 def set_state(run_dir, n: int, state: str, text: str = "", *, clock: Callable = time.time) -> None:
-    """Move lane `n` to the engine word `state`: one history row and one `state` line in the run log."""
+    """Move lane `n` to the engine word `state`: one history row and one `state` line in the run log.
+    The move goes through `Unit.move` (3.1.2.0 R2): an edge the machine does not have raises IllegalMove."""
     from halo_harness.orchestra import events as run_events
     if state not in LANE_STATES:
         raise ValueError(f"lane state must be one of {', '.join(LANE_STATES)}, got {state!r}")
@@ -84,6 +86,7 @@ def set_state(run_dir, n: int, state: str, text: str = "", *, clock: Callable = 
     ts = clock()
     with jsonl.locked(path):
         data = read(path)
+        U.move_word(KIND, n, str(data.get("state") or ""), state, Path(run_dir).name)
         history = list(data.get("history") or [])
         history.append({"state": state, "ts": round(ts, 3), "elapsed_s": jsonl.elapsed(run_dir, ts), "text": text})
         data.update(state=state, history=history)

@@ -12,11 +12,24 @@ flow's human gate). `merged` is the terminal state of a unit whose work
 was merged into the run's result. A finished unit may be re-opened
 (a redo, a piece the gate sent back): `done -> ready | running | waiting`.
 
+R2 enforces the edges: every engine write of a unit's state goes through
+`Unit.move` (work/unit.py), which raises `IllegalMove` for a move that is
+not in `EDGES`. Moving a unit to the state it is in is no edge: it is the
+engine saying the state again with a new line (a lane `waiting` with a new
+reason), and it is always allowed. The edges R2 added because an engine
+needs them (each named in docs/WORK.md):
+
+    failed  -> ready | running   a failed stage runs again when asked; a lane's worker that
+                                 fell over gets its one more run, a resumed lane or flow step runs again
+    skipped -> ready             a skipped stage (the run's budget held it) is asked to run again
+    merged  -> waiting           the gate sends a merged piece back (the tests fail on the finished
+                                 branch), and a downstream lane of it goes stale
+    waiting -> done              a mission part's result lands while the hub still shows it asked
+
 The engines keep their words on disk: `ALIASES[kind]` maps an engine word
 to the machine's word, `NATIVE[kind]` maps back. Every engine word
 round-trips (`native(kind, unify(kind, w)) == w`); a machine word an
 engine never uses maps to the engine word nearest to it (`NATIVE`).
-R1 checks the words; R2's scheduler is what walks the edges (`can`).
 """
 
 from __future__ import annotations
@@ -28,11 +41,16 @@ EDGES = {
     "pending": ("ready", "running", "waiting", "failed", "skipped", "stopped"),
     "ready": ("pending", "running", "waiting", "failed", "skipped", "stopped"),
     "running": ("waiting", "gated", "done", "failed", "skipped", "stopped"),
-    "waiting": ("pending", "ready", "running", "gated", "failed", "skipped", "stopped"),
+    "waiting": ("pending", "ready", "running", "gated", "done", "failed", "skipped", "stopped"),
     "gated": ("ready", "running", "waiting", "done", "failed", "skipped", "stopped", "merged"),
     "done": ("ready", "running", "waiting", "gated", "merged"),
-    "failed": (), "skipped": (), "stopped": (), "merged": (),
+    "failed": ("ready", "running"),
+    "skipped": ("ready",),
+    "stopped": (),
+    "merged": ("waiting",),
 }
+# the edges R2 added to R1's machine, each because an engine needs it (the docstring says which)
+ADDED = (("failed", "ready"), ("failed", "running"), ("skipped", "ready"), ("merged", "waiting"), ("waiting", "done"))
 KINDS = ("lane", "part", "stage", "step")
 
 # engine word -> machine word, per kind (the words on disk stay the engine's)
@@ -57,6 +75,15 @@ NATIVE = {
     "step": {"pending": "pending", "ready": "pending", "running": "running", "waiting": "waiting", "gated": "waiting",
              "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "failed", "merged": "done"},
 }
+
+
+class IllegalMove(ValueError):
+    """A move the machine has no edge for: `str(e)` names the unit, from and to."""
+
+    def __init__(self, label: str, a: str, b: str):
+        self.label, self.a, self.b = label, a, b
+        allowed = ", ".join(EDGES.get(a, ())) or "nothing: it is over"
+        super().__init__(f"{label} cannot move from {a} to {b} (from {a} it moves to {allowed})")
 
 
 def words(kind: str) -> tuple:
@@ -98,6 +125,21 @@ def check_word(kind: str, word, label: str = "") -> str:
 def can(a: str, b: str) -> bool:
     """True when the machine has the edge `a -> b`."""
     return b in EDGES.get(a, ())
+
+
+def allowed(a: str, b: str) -> bool:
+    """A move the machine takes: an edge, or the state said again (`a == b`)."""
+    return a == b or can(a, b)
+
+
+def check_move(label: str, a: str, b: str) -> str:
+    """`b` when `a -> b` is allowed, else IllegalMove naming `label`, from and to."""
+    for s in (a, b):
+        if s not in STATES:
+            raise ValueError(f"state must be one of {', '.join(STATES)}, got {s!r}")
+    if not allowed(a, b):
+        raise IllegalMove(label, a, b)
+    return b
 
 
 def is_over(state: str) -> bool:

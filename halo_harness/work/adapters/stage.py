@@ -9,7 +9,8 @@ writes (mode `block`); needs = the blocks it reads (`take: block`); gives
 = the blocks it writes (`kind: block`); after = a `stage_done:<stage>`
 trigger; gate = the stage's `gate:` and its open gate's round; attempts =
 the round; refs = the stage's refs.json; extra = kind, trigger, members,
-lead, harness, summary, gate_answer.
+lead, harness, summary, gate_answer and (3.1.2.0 R2) members_state, remote,
+budget. A stage run on a fleet member whose part is `asked` is `waiting`.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from halo_harness.work import unit as U
 from halo_harness.work.ledger import line
 
 KIND = "stage"
-_EXTRA = ("kind", "trigger", "members", "lead", "harness", "summary", "gate_answer")
+_EXTRA = ("kind", "trigger", "members", "lead", "harness", "summary", "gate_answer", "members_state", "remote", "budget")
 
 
 def new_row(stage: dict, members: list, lead: str, harness) -> dict:
@@ -61,7 +62,7 @@ def to_unit(row: dict, run_dir, run_id: str = "", team: dict = None) -> U.Unit:
     sid = str(row.get("id"))
     reads, writes = _reads_writes(team, sid)
     gate = ST.read_gate(run_dir, sid) or {}
-    return U.Unit.from_native(
+    u = U.Unit.from_native(
         KIND, sid, str(row.get("state") or "pending"), title=sid, run_id=run_id, owner=str(row.get("lead") or ""),
         claims=U.claims(writes, "block"), needs=[H.need(b, "block") for b in reads],
         gives=[H.give(b, "block", b) for b in writes], after=_after(row.get("trigger")), base=None,
@@ -72,6 +73,10 @@ def to_unit(row: dict, run_dir, run_id: str = "", team: dict = None) -> U.Unit:
         attempts=int(row.get("round") or 0), error=str(row.get("error") or ""),
         refs=BD.read_stage_file(run_dir, sid, "refs.json", {}) or {},
         extra={k: row.get(k) for k in _EXTRA if k in row}, source=dict(row))
+    remote = row.get("remote") if isinstance(row.get("remote"), dict) else {}
+    if u.state == "running" and remote.get("part_state") == "asked":  # 3.1.2.0 R2: a member's owner has the card
+        u.state = "waiting"
+    return u
 
 
 def units(run_dir) -> list:

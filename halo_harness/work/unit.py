@@ -84,14 +84,21 @@ class Unit:
         """A unit whose state is the engine word `native_word` (mapped through the kind's alias table)."""
         return cls(kind=kind, id=str(uid), state=ST.unify(kind, native_word), native=str(native_word or ""), **fields)
 
+    @property
+    def label(self) -> str:
+        return f"{self.kind} {self.id}" + (f" of run {self.run_id}" if self.run_id else "")
+
     def move(self, state: str) -> "Unit":
-        """Set the machine state (and the engine word it is written as)."""
+        """Move to machine state `state` (and the engine word it is written as); IllegalMove (a ValueError
+        naming the unit, from and to) for a move the machine has no edge for (3.1.2.0 R2)."""
+        ST.check_move(self.label, self.state, state)
         self.native = ST.native(self.kind, state)
         self.state = state
         return self
 
     def move_native(self, word: str) -> "Unit":
-        self.state = ST.unify(self.kind, word)
+        """`move` by the engine's own word; the word itself is kept (two engine words may share a state)."""
+        self.move(ST.unify(self.kind, word))
         self.native = str(word or "")
         return self
 
@@ -108,3 +115,11 @@ class Unit:
 def from_dict(data: dict) -> Unit:
     keys = set(Unit.__dataclass_fields__) - {"source"}
     return Unit(**{k: v for k, v in data.items() if k in keys})
+
+
+def move_word(kind: str, uid, was, word, run_id: str = "") -> Unit:
+    """An engine's state write, through `Unit.move` (3.1.2.0 R2): the unit `uid` in engine word `was`
+    moved to engine word `word`. Every engine setter calls this before it writes the word, so a move
+    the machine has no edge for raises IllegalMove and nothing is written."""
+    start = was if was else ("" if kind == "lane" else "pending")
+    return Unit.from_native(kind, uid, start, run_id=run_id).move_native(word)

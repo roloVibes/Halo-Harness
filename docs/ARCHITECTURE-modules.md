@@ -48,7 +48,8 @@ this list against the tree.
 - Media: `studio/media_api.py`, `studio/media_render.py`
 - Orchestra: `studio/orchestra_api.py`, `studio/orchestra_plan_api.py`,
   `studio/orchestra_model.py`, `studio/orchestra_live.py`
-- Team: `studio/team_api.py`, `studio/team_init_api.py`, `studio/team_live.py`
+- Team: `studio/team_api.py`, `studio/team_init_api.py`, `studio/team_live.py`,
+  `studio/team_budget_api.py` (3.1.2.0 R2: the answer to a stage held at its budget line)
 - Fleet: `studio/fleet_api.py` (agent commands on a live session),
   `studio/fleet_hub_api.py` (the fleet routes and their dispatch),
   `studio/fleet_pair_api.py` (pair, settings, kick, history),
@@ -94,7 +95,8 @@ this list against the tree.
   `fleet/mission_worker_run.py`, `fleet/mission_worker_session.py`,
   `fleet/mission_guard.py`, `fleet/mission_files.py`,
   `fleet/mission_handoff.py`, `fleet/mission_merge.py`,
-  `fleet/mission_report.py`, `fleet/mission_attention.py`
+  `fleet/mission_report.py`, `fleet/mission_attention.py`,
+  `fleet/mission_stage_run.py` (3.1.2.0 R2: a part of kind orchestra | flow, a delegated team stage's run)
 
 **Orchestra** (`halo_harness/orchestra/`, its CLI beside the package):
 
@@ -104,7 +106,8 @@ this list against the tree.
   `orchestra/handoff_spec.py`, `orchestra/handoff.py`, `orchestra/handoff_run.py`,
   `orchestra/merge.py`, `orchestra/hunks.py`, `orchestra/gate.py`,
   `orchestra/report.py`, `orchestra/run.py`, `orchestra/adapters.py`,
-  `orchestra/gitops.py`
+  `orchestra/gitops.py`, `orchestra/stale.py` (3.1.2.0 R2: a downstream lane re-based
+  before the merge), `orchestra/forecast.py` (3.1.2.0 R2: the plan's cost forecast)
 - the shared files: `orchestra/claims.py`, `orchestra/guard.py`,
   `orchestra/events.py`, `orchestra/jsonl.py`, `orchestra/view.py`
 - the coach: `orchestra/coach.py` (the card, the cache), the rules once over
@@ -125,7 +128,9 @@ and the four alias tables), `work/claims.py`, `work/handoff.py`,
 `work/gate.py`, `work/ledger.py` (the `LedgerLine`), `work/report.py` (the
 `UnitRow`), `work/store.py` (`UnitStore`), and one adapter per kind
 (`work/adapters/lane.py`, `work/adapters/part.py`, `work/adapters/stage.py`,
-`work/adapters/step.py`), the only place that knows each engine's files.
+`work/adapters/step.py`), the only place that knows each engine's files;
+`work/forecast.py` (3.1.2.0 R2: a unit's forecast line, its price and the
+total against a budget).
 `halo_harness/work_cli.py` is `halo work` (the units of any run as a table).
 
 **Team** (`halo_harness/team/`): `team/spec.py` (the team file),
@@ -133,8 +138,10 @@ and the four alias tables), `work/claims.py`, `work/handoff.py`,
 `team/resolve.py` (tiers, block files and a stage's goal, shared by the
 runner and the validator), `team/blocks.py`, `team/board.py`,
 `team/stages.py`, `team/triggers.py`, `team/run.py`, `team/run_stage.py`,
-`team/guard.py`, `team/delegate.py`, `team/adapters.py`, `team/cli.py`,
-`team/cli_run.py`.
+`team/parallel.py` (3.1.2.0 R2: a stage's members at once), `team/remote_stage.py`
+(3.1.2.0 R2: an orchestra or flow stage on a fleet member), `team/budget.py`
+(3.1.2.0 R2: the budget line), `team/guard.py`, `team/delegate.py`,
+`team/adapters.py`, `team/cli.py`, `team/cli_run.py`.
 
 - The first ten minutes (3.1.1.0): `studio/start_api.py` (Start here: `/api/start`),
   `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),

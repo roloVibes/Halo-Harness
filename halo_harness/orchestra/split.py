@@ -6,11 +6,10 @@ The lead answers ONE model call (`call_model(prompt) -> str`, or
     {"jobs": [{"title": "...", "claims": ["basket.py#add_item", ...]}, ...]}
 
 or `{"stop": "<reason>"}` when STOP WHEN already applies. Code checks the
-answer: every claim key exists in the index of the goal's files, no key (or
-an overlapping key) is in two jobs, every job has a title and at least one
-key, and there are at most `goal.workers` jobs (fewer is fine). A failed
-check retries the call once with the problems listed; a second failure
-stops the run with the reason.
+answer: every claim key exists in the index of the goal's files, no key (or an overlapping key)
+is in two jobs, every job has a title and at least one key, and there are at most
+`goal.workers` jobs (fewer is fine). A failed check retries the call once with the problems
+listed; a second failure stops the run with the reason.
 
 The result is `<run>/split.json`:
 
@@ -18,13 +17,11 @@ The result is `<run>/split.json`:
      "jobs": [{"id": "job-1", "title", "claims", "worker": 1, "order": 1}]}
 
 A job may also carry `handoff` and `after` (3.0.9.0, orchestra/handoff_spec.py:
-what it hands on, what it takes, which jobs it starts after); goal.json's
-`handoffs:` pre-declares the same per job id and wins over the lead's. A job
-that declares nothing is written exactly as above.
-
-and one `claim` per key under the placeholder holder `lane:<n>` (a long
-TTL), which the lane's worker takes over when it joins
-(`ClaimLog.reassign`, called by the lead's code in workers.join_lane).
+what it hands on, what it takes, which jobs it starts after; goal.json's
+`handoffs:` pre-declares them and wins) and `est_tokens` (3.1.2.0 R2, the
+lead's token estimate the forecast prices). A bare job is written as above,
+and one `claim` per key under the placeholder holder `lane:<n>` (a long TTL), which the lane's
+worker takes over when it joins (`ClaimLog.reassign`, the lead's code in workers.join_lane).
 """
 
 from __future__ import annotations
@@ -38,6 +35,7 @@ from typing import Callable, Optional
 from halo_harness.orchestra import events as run_events
 from halo_harness.orchestra import jsonl
 from halo_harness.orchestra.claims import ClaimLog
+from halo_harness.orchestra.forecast import est_dict
 from halo_harness.orchestra.index import overlaps
 
 PLACEHOLDER_TTL_S = 7 * 24 * 3600
@@ -58,11 +56,12 @@ class Job:
     after: list = field(default_factory=list)     # job ids this job starts after
     bio: str = ""                                 # 3.0.9.0 R2 (a reviewed plan): the worker's bio and model
     model: str = ""
+    est_tokens: dict = field(default_factory=dict)  # 3.1.2.0 R2: the lead's {in, out} (orchestra/forecast.py)
 
     def to_dict(self) -> dict:
-        """The job; `handoff`, `after`, `bio`, `model` only when set (an undeclared job is today's shape)."""
+        """The job; `handoff`, `after`, `bio`, `model`, `est_tokens` only when set (else today's shape)."""
         data = asdict(self)
-        for key in ("handoff", "after", "bio", "model"):
+        for key in ("handoff", "after", "bio", "model", "est_tokens"):
             if not data[key]:
                 data.pop(key)
         return data
@@ -79,7 +78,8 @@ class Job:
                    order=int(data.get("order") or data.get("worker") or 0),
                    handoff=dict(data.get("handoff") or {}) if isinstance(data.get("handoff"), dict) else {},
                    after=[str(a) for a in data.get("after") or []] if isinstance(data.get("after"), list) else [],
-                   bio=str(data.get("bio") or ""), model=str(data.get("model") or ""))
+                   bio=str(data.get("bio") or ""), model=str(data.get("model") or ""), est_tokens=est_dict(data.get("est_tokens")))
+
 
 
 def placeholder(lane: int) -> str:
@@ -101,7 +101,8 @@ def split_prompt(goal, units: list, problems: Optional[list] = None) -> str:
         '"after": ["job-1"] (jobs are job-1, job-2, ... in your order) and it starts from that job\'s finished '
         'branch. A job may also add "handoff": {"gives": [{"name": "notes", "kind": "files|summary|artifact"}], '
         '"needs": [{"from": "job-1", "take": "all|summary|<a name job-1 gives>"}]} to pass a summary, its units or '
-        "a saved file to a later job, which sees nothing else from other jobs."
+        "a saved file to a later job, which sees nothing else from other jobs. Give each job "
+        '"est_tokens": {"in": <input tokens>, "out": <output tokens>}, your estimate of what its worker will use.'
     )
     if problems:
         text += "\n\nYour previous answer had these problems; fix every one:\n" + "\n".join(
@@ -224,7 +225,7 @@ def split_goal(run_dir, goal, units: list, *, call_model: Callable, base: str = 
         order = order if isinstance(order, int) and not isinstance(order, bool) else i
         handoff, after = declared[i - 1]
         jobs.append(Job(id=f"job-{i}", title=str(raw["title"]).strip(), claims=list(raw["claims"]),
-                        worker=i, order=order, handoff=handoff, after=after))
+                        worker=i, order=order, handoff=handoff, after=after, est_tokens=est_dict(raw.get("est_tokens"))))
     jsonl.write_json(run_dir / "split.json", {"base": base, "lead_cost_usd": round(cost, 6), "lead_sessions": sessions,
                                              "jobs": [j.to_dict() for j in jobs]})
     log = ClaimLog(run_dir)

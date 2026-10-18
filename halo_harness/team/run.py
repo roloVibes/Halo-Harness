@@ -31,6 +31,7 @@ from halo_harness.team import board as BD
 from halo_harness.team import spec as S
 from halo_harness.team import stages as ST
 from halo_harness.team.triggers import BlockWatch
+from halo_harness.work.unit import move_word
 
 SPAWN: Optional[Callable] = None
 ORCHESTRA: Optional[Callable] = None
@@ -47,7 +48,8 @@ def rows_for(team: dict, *, cwd=None, state_dir=None) -> list:
         members = S.stage_members(team, s, cwd=cwd, state_dir=state_dir)
         lead = S.stage_lead(team, s, members)
         m = S.member_by_name(team, lead)
-        rows.append(BD.stage_row(s, members, lead, m.get("harness") if m and s["kind"] == "agent" else None))
+        harness = (m.get("harness") if m else None) if s["kind"] == "agent" else s.get("harness")  # 3.1.2.0 R2
+        rows.append(BD.stage_row(s, members, lead, harness))
     return rows
 
 
@@ -152,6 +154,7 @@ class TeamRunner:
             board["state"], board["stop_reason"] = "stopped", reason
             for r in board.get("stages") or []:
                 if r.get("state") in ("pending", "ready", "running", "gated"):
+                    move_word("stage", r["id"], r["state"], "skipped", board.get("run") or "")  # through Unit.move
                     r["state"], r["waiting"] = "skipped", ""
         BD.update_board(self.run_dir, apply)
         for s in self.team["workflow"]["stages"]:

@@ -36,9 +36,13 @@ def new_state(part: dict) -> dict:
 
 
 def update_state(run_dir, pid: str, fields: dict) -> dict:
-    """The engine's part move (fleet/mission_run.py): `fields` merged into the part's state, the doc stamped."""
+    """The engine's part move (fleet/mission_run.py): `fields` merged into the part's state, the doc stamped;
+    a new `state` goes through `Unit.move` (3.1.2.0 R2: IllegalMove for an edge the machine does not have)."""
     def apply(doc: dict) -> None:
-        doc["parts"].setdefault(pid, {}).update(fields)
+        st = doc["parts"].setdefault(pid, {})
+        if "state" in fields:
+            U.move_word(KIND, pid, st.get("state") or "pending", fields["state"], str(doc.get("id") or ""))
+        st.update(fields)
     return S.update_at(run_dir, apply)
 
 
@@ -116,7 +120,9 @@ def write(run_dir, u: U.Unit) -> None:
 
 def set_native(run_dir, uid, word: str, text: str = "") -> None:
     def apply(doc: dict) -> None:
-        doc.setdefault("parts", {}).setdefault(str(uid), {})["state"] = word
+        st = doc.setdefault("parts", {}).setdefault(str(uid), {})
+        U.move_word(KIND, uid, st.get("state") or "pending", word, str(doc.get("id") or ""))
+        st["state"] = word
     S.update_at(run_dir, apply)
     log_path = Path(run_dir) / "log.jsonl"
     with jsonl.locked(log_path):
