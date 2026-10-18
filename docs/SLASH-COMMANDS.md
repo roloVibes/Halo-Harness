@@ -426,6 +426,27 @@ restart needed. `halo setup [roles|orgs]` is the CLI equivalent (prints
 the current roles table/orgs list with no TTY instead of blocking). See
 `docs/ROLES.md`/`docs/ORGS.md`.
 
+### `/start`
+Halo 3.1.1.0: the ten-minute start in a panel over the session (the TUI runs
+it; it does not open a terminal pane): a lineup copied into your scope, the
+sample repo, one Orchestra goal with a reviewed plan, the run, the report
+and the coach -- the seven steps one under another with their state, and the
+newest step's why, command and lines below them. The panel runs straight
+through like `halo start --yes` (the lead's plan is approved as it comes);
+for one screen per step, or to change the plan on Studio's plan canvas
+first, run `halo start` in a terminal. Esc stops a running start at its next
+check (a waiting plan is rejected, a running Orchestra run asked to stop);
+Esc again closes the panel. Outside the TUI `/start` says how to run it. See
+`docs/COMMANDS.md` (`halo start`).
+
+### `/explain [thing]`
+Halo 3.1.1.0: what a Halo word means -- its one paragraph from
+`docs/GLOSSARY.md` in a card over the session (Esc or Enter closes it), the
+same text `halo explain <thing>` prints and Studio's Glossary lists. The
+match is loose (`/explain lineups`, `/explain handoff`, `/explain orch`); an
+unknown word lists the closest ones, and bare `/explain` lists every word.
+Outside the TUI it prints the paragraph.
+
 ### `/providers [list|enable <name>|disable <name>|setup <name>]`
 H15 item 21 (rule replaced by the H15 part 2 addendum): the provider-
 enablement table -- status, reachable, cached model count -- for

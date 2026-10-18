@@ -823,6 +823,10 @@ this list against the tree.
 - Orchestra: `studio/orchestra_api.py`, `studio/orchestra_plan_api.py`,
   `studio/orchestra_model.py`, `studio/orchestra_live.py`
 - Team: `studio/team_api.py`, `studio/team_init_api.py`, `studio/team_live.py`
+- The first ten minutes (3.1.1.0): `studio/start_api.py` (Start here: `/api/start`),
+  `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),
+  `studio/glossary_api.py` (`GET /api/glossary`, docs/GLOSSARY.md); the guided run
+  itself is `halo_harness/start/` (engine, steps, the sample repo, the fake model calls)
 - Fleet: `studio/fleet_api.py` (agent commands on a live session),
   `studio/fleet_hub_api.py` (the fleet routes and their dispatch),
   `studio/fleet_pair_api.py` (pair, settings, kick, history),

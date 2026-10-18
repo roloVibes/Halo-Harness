@@ -280,7 +280,9 @@ _PREFIXES = (("flow", "halo_harness.studio.flow_api", "dispatch_flow"),
              ("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("sessions", "halo_harness.studio.sessions_api", "dispatch_sessions"),
              ("fleet", "halo_harness.studio.fleet_hub_api", "dispatch_fleet"),  # 3.0.5.0 R2: the hub's view
-             ("team", "halo_harness.studio.team_api", "dispatch_team"))  # 3.0.8.0 R1: the Team (docs/TEAM.md)
+             ("team", "halo_harness.studio.team_api", "dispatch_team"),  # 3.0.8.0 R1: the Team (docs/TEAM.md)
+             ("start", "halo_harness.studio.start_api", "dispatch_start"),  # 3.1.1.0 R1: "Start here", the guided run
+             ("glossary", "halo_harness.studio.glossary_api", "dispatch_glossary"))  # 3.1.1.0 R1: docs/GLOSSARY.md
 
 
 def dispatch(req: Request):

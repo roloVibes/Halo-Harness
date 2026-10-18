@@ -14,6 +14,7 @@ import { initTeam, validate } from "./actions";
 import { TeamDialogs } from "./Dialogs";
 import { setView, showsStart, useTeam } from "./store";
 import { startTeam } from "./sync";
+import { NextStep } from "../NextStep";
 
 export const WHAT: string[] = [
   "A team is one file that says who works on this project, where their work lands and in which order: the brief every agent reads first, the members, the blocks (a file, a folder or a git tree) and the stages.",
@@ -90,6 +91,7 @@ export function StartView() {
             <button className="og-link mono" onClick={() => setView("workspace")} data-testid="team-open-workspace">open the board anyway</button>
           </aside>
         </div>
+        <NextStep from="team" />
       </div>
     </div>
   );

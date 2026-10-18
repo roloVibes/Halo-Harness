@@ -2,6 +2,8 @@
 // Orchestra, Roles, Org, Design, Flow, Fleet, Team, Media, View, Layout. Each command may show a key (the
 // same hint the menus show).
 import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
+import { openGlossary } from "../lib/glossary";
+import { openStart } from "../lib/start";
 import { layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
 import type { PanelSpec } from "../lib/workspace/types";
 import { SECTIONS, sectionDef, type SectionDef } from "../routes";
@@ -47,6 +49,8 @@ export function commands(): Command[] {
     });
   }
   out.push(
+    { id: "help-glossary", group: "Help", label: "Help: glossary", hint: "every word Halo uses, one paragraph each", run: () => openGlossary() },
+    { id: "help-start", group: "Help", label: "Start: the ten-minute start", hint: "a lineup, a sample repo, one Orchestra run", run: openStart },
     { id: "theme-toggle", group: "View", label: "Toggle theme", hint: "dark, light, auto", run: cycleTheme },
     { id: "theme-dark", group: "View", label: "Theme: dark (holo)", run: () => setTheme("dark") },
     { id: "theme-light", group: "View", label: "Theme: light", run: () => setTheme("light") },

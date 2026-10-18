@@ -43,6 +43,8 @@ SUBCOMMANDS = (
     "fleet",
     # Halo 3.0.8.0 round R1: `halo team` (members, blocks, stages, the board).
     "team",
+    # Halo 3.1.1.0 round R1: `halo start` (the guided first run) and `halo explain` (the glossary).
+    "start", "explain",
 )
 
 # Halo 2.0.9 round 4: the words that follow `halo remote` / `halo remote

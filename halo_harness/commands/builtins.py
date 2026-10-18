@@ -1851,6 +1851,19 @@ def _cmd_orchestra(args: str, facade: HeadlessFacade) -> str:
     return panel_text(run_finder(cwd, (args or "").strip() or None)())
 
 
+def _cmd_start(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.1.1.0 R1: the TUI runs the start in a panel (tui/slash.py); here it says how to run it."""
+    return ("The ten-minute start runs in a terminal: halo start (one screen per step; --yes runs straight "
+            "through, --json prints a summary). In the TUI, /start runs it in a panel.")
+
+
+def _cmd_explain(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.1.1.0 R1: the glossary paragraph for `args` (the TUI shows it in a card)."""
+    from halo_harness.explain_cli import explain_text, list_text
+    thing = (args or "").strip()
+    return explain_text(thing)[1] if thing else list_text()
+
+
 def _cmd_tasks(args: str, facade: HeadlessFacade) -> str:
     """H8 scope A: lists every background Bash job this session has
     started (via `run_in_background` or a timed-out foreground command
@@ -2040,6 +2053,10 @@ _BUILTIN_SPECS = {
     "tasks": ("core", "List background Bash jobs started this session", None, _cmd_tasks),
     "orchestra": ("core", "Show the latest Orchestra run: its steps, worker lanes and run log", "[run]",
                   _cmd_orchestra),
+    "start": ("core", "The ten-minute start: a lineup, a sample repo, one Orchestra goal, its plan, the run and the coach",
+              None, _cmd_start),
+    "explain": ("core", "What a Halo word means: one paragraph from the glossary (no word: list them)", "[thing]",
+                _cmd_explain),
     "rewind": ("ui", "Restore the working tree to a recorded step", "[step-id]", _cmd_rewind),
     "undo": ("ui", "Rewind one recorded step back", None, _cmd_undo),
     "redo": ("ui", "Rewind one recorded step forward", None, _cmd_redo),

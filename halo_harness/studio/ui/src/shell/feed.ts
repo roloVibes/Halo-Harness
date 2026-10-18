@@ -18,7 +18,7 @@ export function startFeed(): void {
     studio.update((s) => ({ feed: { ...s.feed, sessions: rows } }));
   });
   onEvent("*", (f) => {
-    if (f.event === "sessions") return;
+    if (f.event === "sessions" || f.event === "start") return; // the start's steps show in its own dialog
     const now = Date.now();
     const section = /^(flow_|media_)/.test(f.event) ? "flow" : /^(agent_|fleet$)/.test(f.event) ? "fleet" : f.event === "design_turn" ? "design" : "orchestra";
     studio.update((s) => ({

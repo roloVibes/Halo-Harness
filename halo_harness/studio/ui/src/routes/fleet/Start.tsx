@@ -14,6 +14,7 @@ import { DigestCard } from "./Digest";
 import { FleetSettings, PairCard } from "./Pair";
 import { setView, showsStart, useFleet } from "./store";
 import { startFleet } from "./sync";
+import { NextStep } from "../NextStep";
 
 const WHAT: string[] = [
   "Every Halo session on this machine shows up here by itself, its agents as a live tree.",
@@ -61,6 +62,7 @@ export function StartView() {
             </button>
           </aside>
         </div>
+        <NextStep from="fleet" />
       </div>
     </div>
   );

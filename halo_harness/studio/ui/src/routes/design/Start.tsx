@@ -11,6 +11,7 @@ import { newProject } from "./actions";
 import { showsStart, useDesign } from "./store";
 import { loadProjects, openProject, startDesign } from "./sync";
 import { studio } from "../../lib/store";
+import { NextStep } from "../NextStep";
 
 export function StartView() {
   const copy = SECTION_HELP.design;
@@ -60,6 +61,7 @@ export function StartView() {
             </ol>
           </aside>
         </div>
+        <NextStep from="design" />
       </div>
     </div>
   );
