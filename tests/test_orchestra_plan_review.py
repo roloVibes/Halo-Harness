@@ -34,6 +34,24 @@ test, TESTS = new_registry()
 KEYS = [f"basket.py#{f}" for f in ("add_item", "remove_item", "subtotal", "apply_discount", "total")]
 
 
+def _seed_or_catalog(*ids: str) -> None:
+    """Add `ids` to the scoped home's `or` catalog (models.json), keeping what is there: the lineup preflight
+    behind `approve` treats an id missing from a PRESENT catalog as dead, and under tests/run_all.py another
+    module's catalog shares this process's state dir."""
+    from halo_harness.providers.config import default_state_dir
+    path = Path(default_state_dir()) / "models.json"
+    try:
+        rows = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    except ValueError:
+        rows = {}
+    if not isinstance(rows, dict):
+        rows = {}
+    for mid in ids:
+        rows.setdefault(mid, {"price_in_per_m": 1.0, "price_out_per_m": 2.0})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(rows), encoding="utf-8")
+
+
 def _read(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -108,6 +126,7 @@ def test_review_waits_then_the_approved_plan_runs(ctx: Ctx):
                   and "basket.py#apply_discount, basket.py#total" in text and "no problems" in text)
         jobs = P.current_jobs(run_dir)
         jobs[3] = dict(jobs[3], claims=["basket.py#apply_discount"], bio="coder", model="or:vendor/cheap")
+        _seed_or_catalog("vendor/cheap")  # under run_all another module's catalog is in the shared home: keep the id live
         jobs.append({"id": "new-1", "title": "write total", "claims": ["basket.py#total"], "after": [jobs[3]["id"]],
                      "handoff": {"needs": [{"from": jobs[3]["id"], "take": "summary"}]}})
         plan_file = run_dir.parent / "edited.json"
