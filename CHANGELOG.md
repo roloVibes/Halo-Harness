@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.1.1.0] - unreleased
+## [3.1.1.0] - 2026-10-18
 
 The first ten minutes: a stranger goes from install to a coached run with `halo start`, every word Halo uses has one paragraph behind `halo explain`, the Start views tell one story, one command lists every config file in effect and one check validates them all, the docs have a map and the long ones are split by task, and Studio is the one editor while the terminal shows and opens. The second of the four versions from the 2026-10-18 assessment.
 
