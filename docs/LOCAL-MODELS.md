@@ -1,5 +1,7 @@
 # Local and cloud models
 
+Read this when you set up Ollama, Hugging Face, the OpenAI API or Codex end to end.
+
 Halo 2.0.3 adds four new ways to point Halo at a model: Ollama (on this
 machine, on another machine on your network, or Ollama's own hosted
 cloud), Hugging Face (its router, a dedicated endpoint, or a server you

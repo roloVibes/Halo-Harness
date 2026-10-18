@@ -274,6 +274,8 @@ from .models_api import ROUTES as _MODELS_ROUTES  # noqa: E402  (3.0.4.0: models
 ROUTES[len(ROUTES):] = _MODELS_ROUTES
 from .roles_api import ROUTES as _ROLES_ROUTES  # noqa: E402  (3.0.7.0 R2: gym, models/best-for)
 ROUTES[len(ROUTES):] = _ROLES_ROUTES
+from .doctor_config_api import ROUTES as _DOCTOR_CONFIG_ROUTES  # noqa: E402  (3.1.1.0 R2: doctor/config)
+ROUTES[len(ROUTES):] = _DOCTOR_CONFIG_ROUTES
 
 
 _PREFIXES = (("flow", "halo_harness.studio.flow_api", "dispatch_flow"),

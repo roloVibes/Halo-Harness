@@ -6,7 +6,8 @@ list) -- never Claude Code's `settings.json`, which this project only ever
 reads. `halo config` / `config list` prints every key; `config get
 <key>` prints one value; `config set <key> <value>` persists one (the value
 is parsed as JSON when possible, e.g. `true`/`123`/`"a string"`, so a caller
-can set non-string values too, else stored as the raw string given).
+can set non-string values too, else stored as the raw string given);
+`config where [--json]` lists every file in effect here (config_where.py).
 """
 
 from __future__ import annotations
@@ -105,8 +106,11 @@ def cmd_config(argv: list) -> int:
     if not argv or argv[0] == "list":
         return _print_all()
     if argv[0] in ("-h", "--help"):
-        print("Usage: halo config [list|get <key>|set <key> <value>]")
+        print("Usage: halo config [list|get <key>|set <key> <value>|where [--json] [--cwd DIR]]")
         return 0
+    if argv[0] == "where":
+        from halo_harness.config_where import cmd_config_where
+        return cmd_config_where(argv[1:])
     if argv[0] == "get":
         return _cmd_get(argv[1:])
     if argv[0] == "set":

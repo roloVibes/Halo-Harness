@@ -119,7 +119,7 @@ use Claude Code's own grammar, in the same files.
 > Both routes are **off until you accept** a one-time notice: `halo subscriptions
 > accept`, or `/subscriptions` in the TUI. The notice, the exact behaviour and the
 > consent record are described in
-> [docs/MODELS.md](docs/MODELS.md#subscription-routes-consent-halo-207-round-7b).
+> [docs/MODELS-references.md](docs/MODELS-references.md#subscription-routes-consent-halo-207-round-7b).
 
 ## What it feels like
 
@@ -233,7 +233,7 @@ no fonts fetched, no analytics.
 The pictures below are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`), the same way the TUI pictures are made. See
 [docs/STUDIO.md](docs/STUDIO.md) for every panel and shortcut, and the
-[Over SSH](docs/STUDIO.md#over-ssh) recipe when Halo runs on a box you reach remotely.
+[Over SSH](docs/STUDIO-security.md#over-ssh) recipe when Halo runs on a box you reach remotely.
 
 ### Orchestra: agents writing the same files
 
@@ -447,6 +447,9 @@ tool, so check each tool's own docs.
 | **CI and release script** | Every push runs the three suites on Linux and Windows; `scripts/release.py` versions, tags, pushes and refreshes both installs. |
 
 ## Documentation
+
+[docs/README.md](docs/README.md) is the map: every doc, grouped by what you want to do, with one
+line on when to read it. The longest docs are split by task; their entry pages below link the parts.
 
 | Document | What it covers |
 |---|---|

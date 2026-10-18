@@ -1,5 +1,7 @@
 # Mac quick-start (Apple Silicon)
 
+Read this when you check Halo with local models on an Apple Silicon Mac.
+
 Halo 2.0.3 round 5f. This is the script rolo follows on his own Apple
 Silicon Mac to confirm the Ollama-on-a-Mac work (round 5b part 1) and the
 experimental `hf:mlx/<org>/<repo>` route (round 5f) actually work there --

@@ -1,5 +1,7 @@
 # Flows
 
+Read this when you build or run a flow: an input through agents, an org, a render and a post.
+
 Halo 3.0.4.0. A flow takes an input, runs it through agents in roles, hands
 the result to an org (the marketing org researches and plans), passes the
 org's image prompt to ComfyUI, shows you the render, and on your yes writes
@@ -237,7 +239,7 @@ meant for Linux and macOS hosts.
 ## In Studio
 
 `halo studio` serves the runs under `/api/flow/`. The full table is in
-[STUDIO.md, "Flow and Media routes"](STUDIO.md#flow-and-media-routes-3040).
+[STUDIO.md, "Flow and Media routes"](STUDIO-orchestra-flow.md#flow-and-media-routes-3040).
 
     GET  flow/templates                  the shipped, user and project flows: steps and the intake form
     PUT  flow/templates/<name> {order} | {yaml}   the flow file in a new step order, checked (see As a graph)

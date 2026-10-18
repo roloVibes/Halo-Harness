@@ -1,5 +1,7 @@
 # Contributing
 
+Read this when you send a change to Halo: the house rules and which suite to run.
+
 ## Running the suites
 
 Halo Harness has three test suites, run from the repo root with

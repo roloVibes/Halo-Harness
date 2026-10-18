@@ -1,5 +1,7 @@
 # Halo Design
 
+Read this when you make designs, pages, decks or logos with Halo Design on your own apps.
+
 Halo 3.0.1.0. Designs, prototypes, pages, decks, logos, photo work, motion and
 video, made by a model you choose, on the creative apps already on your machine.
 It is the Design section of Halo Studio (`Alt+4`) and a command family

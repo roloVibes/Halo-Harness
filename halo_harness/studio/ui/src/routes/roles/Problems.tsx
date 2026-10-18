@@ -3,9 +3,12 @@
 // every edit -- in two blocks: Blocks (Save answers 422 for these, or a run
 // start stops on them: a model id its catalog does not know, a bio with no
 // tool) and Warns. Each row says how to fix it; a click selects its card.
+// 3.1.1.0 R2: a third block, Config, lists what `halo doctor --config` finds
+// in the files behind this lineup (ConfigProblems.tsx).
 import { Empty } from "../../lib/ui";
 import { focusPanel } from "../../lib/workspace/persist";
 import { Metric } from "../orchestra/bits";
+import { ConfigGroup, useConfigFindings } from "./ConfigProblems";
 import { setTab, roles, useRoles } from "./store";
 import type { Finding } from "./types";
 
@@ -40,14 +43,16 @@ function Group({ title, rows, sev }: { title: string; rows: Finding[]; sev: stri
 export function ProblemsDetail() {
   const findings = useRoles((s) => s.findings);
   const name = useRoles((s) => s.name);
+  const config = useConfigFindings();
   if (!name) return <Empty title="No lineup open" body="Open one in Lineups: its problems show here as you edit it." />;
   const blocks = findings.filter((f) => f.severity === "blocks");
   const warns = findings.filter((f) => f.severity !== "blocks");
-  if (!findings.length) return <Empty title="No problems" body="The lineup validates, every model is in its catalog and every bio has its tools." testid="roles-problems-none" />;
+  if (!findings.length && !config.length) return <Empty title="No problems" body="The lineup validates, every model is in its catalog, every bio has its tools and its files pass halo doctor --config." testid="roles-problems-none" />;
   return (
     <div className="rp" data-testid="roles-problems-list">
       <Group title="BLOCKS" rows={blocks} sev="blocks" />
       <Group title="WARNS" rows={warns} sev="warns" />
+      <ConfigGroup rows={config} />
     </div>
   );
 }
@@ -55,11 +60,13 @@ export function ProblemsDetail() {
 export function ProblemsGlance() {
   const blocks = useRoles((s) => s.findings.filter((f) => f.severity === "blocks").length);
   const warns = useRoles((s) => s.findings.filter((f) => f.severity !== "blocks").length);
+  const config = useConfigFindings().length;
   return (
     <div className="glance">
       <div className="glance-numbers">
         <Metric value={blocks} label="blocks" tone={blocks ? "bad" : "ok"} />
         <Metric value={warns} label="warns" tone={warns ? "warn" : undefined} />
+        {config > 0 && <Metric value={config} label="config" tone="warn" />}
       </div>
       <div className="glance-hint">Expand to see each one with its fix.</div>
     </div>

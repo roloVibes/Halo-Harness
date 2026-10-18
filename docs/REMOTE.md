@@ -1,5 +1,7 @@
 # Remote control
 
+Read this when you control a running session from another process or from your phone over Signal.
+
 Halo 2.0.9 adds remote control of a running session. This page covers the
 per-session **control socket**, the **sessions registry**, and the **Signal
 bridge** that sits on top of them (pairing a phone, relaying prompts and

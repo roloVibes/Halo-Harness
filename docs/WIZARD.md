@@ -1,5 +1,7 @@
 # The wizard interaction model
 
+Read this when you change or add a wizard screen: the ten rules every screen follows.
+
 Halo 2.0.5 round 2c (`plans/ROADMAP.md` "ADDED 2026-10-06 ~10:05": "the
 wizard stops being clunky"). Ten rules, followed by every wizard screen --
 `halo init`, `halo setup`, `/setup`, `/agents`, `/teams`, and every editor

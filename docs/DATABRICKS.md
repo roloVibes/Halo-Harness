@@ -1,5 +1,7 @@
 # Databricks
 
+Read this when you run Halo against Databricks model serving, at work or with a team preset.
+
 Zero-setup reuse of a Claude-Code-configured work box, workspace discovery
 (never a vendored endpoint list), how a model reference resolves to a real
 URL, team onboarding, and troubleshooting by HTTP status. Verified against

@@ -406,7 +406,8 @@ def test_round6_update_docs_are_in_place(ctx: Ctx):
     commands = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
     ctx.check("COMMANDS.md has a ## `halo update` heading", "## `halo update`" in commands)
 
-    slash = (REPO_DIR / "docs" / "SLASH-COMMANDS.md").read_text(encoding="utf-8")
+    from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R2: SLASH-COMMANDS.md is split into parts
+    slash = doc_text("SLASH-COMMANDS.md")
     ctx.check("SLASH-COMMANDS.md has a ### `/update` heading", "### `/update`" in slash)
 
     changelog = (REPO_DIR / "CHANGELOG.md").read_text(encoding="utf-8")

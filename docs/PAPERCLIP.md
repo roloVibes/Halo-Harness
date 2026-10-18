@@ -1,5 +1,7 @@
 # Paperclip: your lineups as a company of agents
 
+Read this when you run your lineups as a company of agents in Paperclip.
+
 Halo 2.2.0 hands organizations to [Paperclip](https://github.com/paperclipai/paperclip),
 the open-source control plane for a company of agents: an org chart with
 titles and reporting lines, goals, projects, issues, heartbeats, budgets and

@@ -1,5 +1,7 @@
 # The Governor
 
+Read this when requests to one gateway slow down, fail over or queue: the shared rate limiter.
+
 One shared, adaptive rate limiter per gateway **host**, visible to every
 halo process on the machine. Two models served by one gateway share one
 limit, because the gateway enforces it per machine, not per model. The

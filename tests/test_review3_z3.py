@@ -43,7 +43,8 @@ def test_z8_scene_band_docstring_states_scene_rows(ctx: Ctx):
     ctx.check("the docstring names scene.ROWS", "`scene.ROWS`" in doc)
     ctx.check(f"with its value ({word})", f"`scene.ROWS` ({word})" in doc)
     ctx.check("and no stale row count", "six rows" not in doc and "(six)" not in doc)
-    slash = (REPO_DIR / "docs" / "SLASH-COMMANDS.md").read_text(encoding="utf-8")
+    from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R2: SLASH-COMMANDS.md is split into parts
+    slash = doc_text("SLASH-COMMANDS.md")
     ctx.check("SLASH-COMMANDS no longer calls the band three rows", "three-row scene" not in slash
               and f"{word}-row scene" in slash)
 

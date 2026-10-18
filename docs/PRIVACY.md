@@ -1,5 +1,7 @@
 # Privacy and the public repo
 
+Read this when you check what Halo keeps out of the repo, or audit a checkout before you publish it.
+
 Halo Harness is developed in the open. This page describes what the
 harness itself never writes into the repo, and how to check a checkout
 for anything that shouldn't be there before it's shared or pushed.

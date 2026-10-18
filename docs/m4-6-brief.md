@@ -1,5 +1,7 @@
 # Milestones 4–6 brief (Databricks live route, Claude passthrough, overflow/compaction, reasoning log, probe)
 
+Read this when you want the history of milestones 4 to 6 of the original proxy; it is a record, not a guide.
+
 Repo: `~\Documents\vibes\appDev\claude-bridge\` — `bridge.py` (foundation M0–3 done by Worker A2),
 `test_bridge.py` (46 black-box tests, keep green), `docs/design-review-2026-09-23.md` (items 6, 7, 12, 13 are yours).
 Home box has NO Databricks access; everything Databricks is verified hermetically here (mock upstream) and live

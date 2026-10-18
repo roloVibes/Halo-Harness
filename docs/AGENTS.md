@@ -1,5 +1,7 @@
 # Agent bios and team templates
 
+Read this when you write or edit an agent bio or a lineup, field by field.
+
 Halo 2.0.4 round 4 (owner: "each role should have a yaml file that can be
 editable too"), two layers, approved 2026-10-05/06:
 

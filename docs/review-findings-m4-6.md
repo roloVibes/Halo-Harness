@@ -1,5 +1,7 @@
 # Review findings — M4–M6 integration (Opus 5.5 advisor pass, 2026-09-23)
 
+Read this when you want the history of the milestone 4 to 6 review; it is a record, not a guide.
+
 Bounded review of the M4–M6 diff against `docs/m4-6-brief.md` + `docs/design-review-2026-09-23.md`.
 Findings marked *(confirmed)* were reproduced by importing `bridge.py` and calling the functions.
 Line numbers refer to the 17:42 snapshot of `bridge.py` and drift after later edits — locate by
