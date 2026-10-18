@@ -1,0 +1,77 @@
+/* The post-run coach (3.0.9.0 R3): the cards (lib/coach/CoachCards.tsx) on the
+   Orchestra, flow, mission and team report faces, the bio form's coach note
+   and the field it filled in, the plan editor's STAGED line. Tokens only. */
+
+.og-report-tabs { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.og-report-tabs > .tabs { flex: none; }
+
+.cc { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; }
+.cc-head { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.cc-group { display: flex; flex-direction: column; gap: 8px; }
+
+.cc-card {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color var(--t) var(--ease);
+}
+.cc-card[data-severity="high"] { border-left-color: var(--bad); }
+.cc-card[data-severity="medium"] { border-left-color: var(--warn); }
+.cc-card[data-severity="low"] { border-left-color: var(--accent); }
+.cc-card:hover { border-color: var(--line-strong); }
+
+.cc-card-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cc-sev { text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; }
+.cc-sev[data-severity="high"] { color: var(--bad); background: var(--bad-soft); }
+.cc-sev[data-severity="medium"] { color: var(--warn); background: var(--warn-soft); }
+.cc-sev[data-severity="low"] { color: var(--accent); background: var(--accent-soft); }
+.cc-where { font-size: 11px; }
+.cc-bio { font-size: 10px; color: var(--accent-2); }
+
+.cc-text { margin: 0; color: var(--text); line-height: 1.4; }
+.cc-why {
+  margin: 0;
+  padding: 6px 8px 6px 22px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.cc-why li { overflow-wrap: anywhere; }
+.cc-actions { display: flex; align-items: center; gap: 6px; }
+.cc-hint { font-size: 11px; }
+
+/* the bio form after Apply */
+.cc-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.cc-note-actions { display: flex; gap: 6px; }
+.cc-changed {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 1px var(--accent), var(--glow-strong);
+  background: var(--accent-soft);
+  padding: 4px;
+}
+
+/* the plan editor with a coach edit staged */
+.pc-staged { max-width: 40ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); }
+
+.fmi-coach { display: flex; flex-direction: column; min-height: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-card { transition: none; }
+}

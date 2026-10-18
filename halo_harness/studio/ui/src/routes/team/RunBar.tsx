@@ -2,7 +2,8 @@
 // cost, the runner dot (live: Studio drives the run now; none: nothing
 // drives it), Run next (`POST team/run` with no stage: the first pending
 // manual stage), Stop (asks for a reason on a card) and Validate (the file's
-// problems and the lineup preflight, in a dialog).
+// problems and the lineup preflight, in a dialog). 3.0.9.0 R3: Coach, once the
+// run is done or stopped (the post-run coach's cards, in a dialog).
 import { Button } from "../../lib/ui";
 import { runStage, validate } from "./actions";
 import { openDialog, runOpen, usd, useTeam } from "./store";
@@ -30,6 +31,8 @@ export function RunBar() {
       <span className="spacer" />
       <Button size="sm" variant="primary" disabled={busy === "run"} onClick={() => void runStage(null)} title="Start the next pending manual stage" data-testid="team-run-next">Run next</Button>
       <Button size="sm" variant="danger" disabled={!open || busy === "stop"} onClick={() => openDialog({ kind: "stop" })} title={open ? "End the run: every stage not done is skipped (asks for a reason)" : "No open run"} data-testid="team-stop">Stop</Button>
+      <Button size="sm" variant="ghost" disabled={!run || (state !== "done" && state !== "stopped")} onClick={() => run && openDialog({ kind: "coach", run })}
+              title={run && (state === "done" || state === "stopped") ? "What the run's files suggest changing" : "The coach reads a run once it is done or stopped"} data-testid="team-coach">Coach</Button>
       <Button size="sm" variant="ghost" disabled={busy === "validate"} onClick={() => void validate()} title="Check the file and run the lineup preflight for every member" data-testid="team-validate">Validate</Button>
     </div>
   );

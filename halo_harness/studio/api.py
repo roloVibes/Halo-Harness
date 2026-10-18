@@ -285,6 +285,10 @@ _PREFIXES = (("flow", "halo_harness.studio.flow_api", "dispatch_flow"),
 
 def dispatch(req: Request):
     """Route `req` (path without the /api/ prefix) to its handler."""
+    from halo_harness.studio.coach_api import dispatch_coach  # 3.0.9.0 R3: the post-run coach's four routes
+    coached = dispatch_coach(req)
+    if coached is not None:
+        return coached
     if req.path == "pc" or req.path.startswith("pc/"):  # 2.2.0: Org mode (Paperclip) routes
         from halo_harness.studio.paperclip_api import dispatch_pc
         return dispatch_pc(req)

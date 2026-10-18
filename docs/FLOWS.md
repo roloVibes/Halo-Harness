@@ -287,6 +287,18 @@ first, so Halo's own file never changes; a user or project flow is written
 in place. `GET flow/templates` gives every step its `uses`, `deps`, `layer`
 and `gate`.
 
+## The coach
+
+After a flow run ends, `halo flow coach [run] [--json]` and the Report
+panel's **Coach** tab in Studio (`GET flow/runs/<id>/coach`, kept in the run's
+`coach.json`) read its files and suggest what to change: a confirm gate that
+looped more than twice (coordination, with each redo instruction as
+evidence), a render step drawn again two or more times (prompt: tighten that
+step's prompt, the redo instructions are the why lines), and a run stopped by
+its budget (coordination, with the cost of each step). No model is called and
+nothing is written but the cache. The rules and the result's shape are in
+[ORCHESTRA.md](ORCHESTRA.md#the-coach).
+
 ## For the next rounds
 
 Studio draws the run from `flow.json` and `events.jsonl` (or the `flow_*`

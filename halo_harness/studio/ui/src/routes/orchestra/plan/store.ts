@@ -24,6 +24,8 @@ export type PlanState = {
   /** The Reject card is open (it asks for the reason). */
   rejecting: boolean;
   decision: PlanDecision | null;
+  /** 3.0.9.0 R3: a coach card's change staged on a run that already ran (the text of the card); no PUT. */
+  staged: string;
 };
 
 export const plan = createStore<PlanState>({
@@ -42,6 +44,7 @@ export const plan = createStore<PlanState>({
   busy: "",
   rejecting: false,
   decision: null,
+  staged: "",
 });
 
 export function usePlan<S>(select: (s: PlanState) => S): S {

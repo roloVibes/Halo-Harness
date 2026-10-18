@@ -203,6 +203,17 @@ armed) and sends every stage, gate, claim and change line on `/api/events`
 as a `team` frame `{action: stage|gate|change|claim, run, kind, stage, text,
 ts, data, row?}`.
 
+## The coach
+
+`halo team coach [run] [--json]` and the run bar's **Coach** button in Studio
+(once the run is done or stopped; `GET team/coach?run=`, kept in the run
+ledger's `coach.json`) read the run ledger (board.json, events.jsonl) and
+suggest what to change: a stage gated two or more times (coordination: put
+what the redo asked for in the stage's brief or its acceptance; the redo
+answers are the evidence) and a write the team guard denied because another
+member held the block (tools). No model is called. The rules are in
+[ORCHESTRA.md](ORCHESTRA.md#the-coach).
+
 ## In Studio
 
 `halo studio --mode team` (or `Alt+7`, `/studio team`) opens the **Team**

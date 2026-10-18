@@ -121,7 +121,7 @@ export type Report = {
 export type FileRow = { path: string; size: number; mtime: number };
 export type FileText = { path: string; size: number; text: string; truncated: boolean };
 
-export type Face = "auto" | "start" | "plan" | "run" | "report";
+export type Face = "auto" | "start" | "plan" | "run" | "report" | "coach"; // coach: 3.0.9.0 R3
 /** A part node held on the map: where it was let go (SVG units) while its reassign is in flight. */
 export type Drag = { part: string; dx: number; dy: number; pending: boolean };
 

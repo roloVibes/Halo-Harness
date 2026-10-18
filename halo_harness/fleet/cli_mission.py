@@ -11,6 +11,7 @@
     halo fleet mission stop <id> [--reason TEXT] [--json]
     halo fleet mission report <id> [--json]
     halo fleet mission open <id> [--json]                the mission folder
+    halo fleet mission coach <id> [--json]               the post-run coach's card (read only, this harness's folder)
 
 Every verb goes to the running Studio (`/api/fleet/missions...`), else to a
 `halo fleet serve` on this machine (its loopback `local/mission` route), else
@@ -29,7 +30,7 @@ import time
 from halo_harness.fleet import identity
 from halo_harness.remote import cli_common as C
 
-VERBS = ("new", "plan", "edit", "approve", "run", "status", "stop", "report", "open")
+VERBS = ("new", "plan", "edit", "approve", "run", "status", "stop", "report", "open", "coach")
 USAGE = __doc__.split("\n\n")[1]
 ROUTES = {"list": ("GET", "fleet/missions"), "new": ("POST", "fleet/missions"), "get": ("GET", "fleet/missions/{id}"),
           "plan": ("POST", "fleet/missions/{id}/plan"), "edit": ("POST", "fleet/missions/{id}/parts/{part}"),
@@ -208,6 +209,9 @@ def cmd_mission(argv: list) -> int:
     if not argv or argv[0] in ("-h", "--help"):
         print(USAGE)
         return 0 if argv else 2
+    if argv[0] == "coach":  # 3.0.9.0 R3 (coach_cli.py)
+        from halo_harness.coach_cli import cmd_mission_coach
+        return cmd_mission_coach(argv[1:])
     if argv[0] in VERBS:
         return globals()["cmd_" + argv[0]](argv[1:])
     print(USAGE, file=sys.stderr)

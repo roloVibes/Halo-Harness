@@ -16,12 +16,13 @@ import { PlanBar, PlanProblems, RejectCard } from "./Bar";
 import { PlanCanvas } from "./Canvas";
 import { PlanInspector } from "./Inspector";
 import { layerMap, loadPlan } from "./actions";
-import { usePlan } from "./store";
+import { plan, usePlan } from "./store";
 
 function usePlanLoad(): void {
   const runId = useOrch((s) => s.runId);
   useEffect(() => {
-    if (runId) void loadPlan(runId);
+    const p = plan.get();
+    if (runId && !(p.staged && p.runId === runId)) void loadPlan(runId); // 3.0.9.0 R3: a staged coach edit is kept
   }, [runId]);
   useEffect(() => {
     const r = roles.get();

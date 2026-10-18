@@ -16,6 +16,9 @@ commit its worktree started from, `gave` what it produced when written (the
 summary = its final reply, one `files` row per written key, an artifact =
 a file it saved under `<run>/lanes/<n>/artifacts/`; paths are relative to
 the run folder, a files row's path is the key).
+3.0.9.0 R3 (the coach, orchestra/coach.py): `bio` and `model` the lane ran
+with (the job's, else the model the worker's result names), `denied` the
+tool calls the worker's permission engine denied `[{tool_name, reason}]`.
 
 Every change is a read-modify-write under the file's lock, so the runner and
 a worker's own OrchestraRelease (which stores a `written` snapshot) never
@@ -70,7 +73,8 @@ class Lane:
             "cost_usd": 0.0, "started": started, "ended": None, "pieces_returned": 0, "session_ids": [],
             "written": {}, "error": "", "reply": "", "history": [],
             "handoff": dict(getattr(job, "handoff", None) or {}), "after": list(getattr(job, "upstreams", []) or []),
-            "base": "", "gave": []})
+            "base": "", "gave": [], "bio": str(getattr(job, "bio", "") or ""), "model": str(getattr(job, "model", "") or ""),
+            "denied": []})
         return lane
 
     def data(self) -> dict:

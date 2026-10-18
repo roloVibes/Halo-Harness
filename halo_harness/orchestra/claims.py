@@ -159,6 +159,14 @@ class ClaimLog:
         except OSError:
             pass
 
+    def _refused(self, holder: str, key: str, other: Claim) -> None:
+        """3.0.9.0 R3: a refused claim is one `claim` line (op `refused`), so the coach sees who waited on whom."""
+        import os
+        lane = os.environ.get("HALO_ORCHESTRA_LANE") or ""
+        self._event(f"{holder} could not claim {key}: {other.key} is held by {other.holder}", op="refused",
+                    holder=holder, key=key, by=other.holder, other=other.key,
+                    **({"lane_n": int(lane)} if lane.isdigit() else {}))
+
     def claim(self, holder: str, key: str, ttl_s: int = DEFAULT_TTL_S, note: str = "") -> Result:
         """Take `key` for `ttl_s` seconds, or a Refusal naming the holder of an
         overlapping live claim and when it expires. Re-claiming your own key renews it."""
@@ -167,6 +175,7 @@ class ClaimLog:
             others = self.conflicts(holder, key, now)
             if others:
                 c = min(others, key=lambda c: c.expires)
+                self._refused(holder, key, c)
                 return Refusal(key, f"`{key}` overlaps `{c.key}`, held by {c.holder} until "
                                     f"{clock_text(c.expires)} ({c.state}): wait for the release, claim "
                                     f"another unit, or ask the lead", c.holder, c.key, c.expires)

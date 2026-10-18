@@ -143,13 +143,13 @@ export async function openFile(rel: string): Promise<void> {
 }
 
 export const closeFile = () => missions.update(() => ({ file: null }));
-export const setFace = (face: "start" | "plan" | "run" | "report") => {
+export const setFace = (face: "start" | "plan" | "run" | "report" | "coach") => {
   missions.update(() => ({ face }));
   if (face === "report") void loadReport();
 };
 
 /** The face the panel shows now. */
-export function shownFace(s = missions.get()): "start" | "plan" | "run" | "report" {
+export function shownFace(s = missions.get()): "start" | "plan" | "run" | "report" | "coach" {
   if (!s.open) return "start";
   if (s.face !== "auto" && s.face !== "start") return s.face;
   return faceFor(s.view?.mission.state);
