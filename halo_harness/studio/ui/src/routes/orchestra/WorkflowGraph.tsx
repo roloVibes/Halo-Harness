@@ -2,7 +2,8 @@
 // goal -> lead -> split -> one node per worker lane (stacked) -> merge ->
 // test -> gate (a diamond) -> done, and the gate's return arrow back to the
 // workers. Pending steps are faint, the running step flows (working), a lit
-// diamond is a gate that acted, red is failed.
+// diamond is a gate that acted, red is failed. 3.0.9.0: a lane that starts
+// after another hangs off it (a dashed arc left of the lanes), not off split.
 import { useId } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Metric, NoRun } from "./bits";
@@ -53,6 +54,9 @@ export function Graph({ compact }: { compact?: boolean }) {
   const lit = (id: string) => (by(id)?.state === "done" ? "true" : undefined);
   const wx = COL.worker;
   const gateMotion = stepMotion(gate?.state || "pending");
+  const after = wf.edges.filter((e) => e.kind === "after"); // 3.0.9.0: a lane that starts after another
+  const fromSplit = (id: string) => !after.some((e) => e.to === id);
+  const rowY = (id: string) => top + workers.findIndex((w) => w.id === id) * rowH + rowH / 2;
   return (
     <svg className="og-graph" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Workflow graph" data-testid="orchestra-graph">
       <defs>
@@ -69,7 +73,7 @@ export function Graph({ compact }: { compact?: boolean }) {
         const ex = COL.merge - NODE_W / 2;
         return (
           <g key={w.id} className="og-fan" data-state={w.state}>
-            <path className="og-edge" data-lit={lit("split")} d={`M${sx} ${mid} C${sx + 40} ${mid} ${wx - 95} ${y} ${wx - 56} ${y}`} />
+            {fromSplit(w.id) && <path className="og-edge" data-lit={lit("split")} d={`M${sx} ${mid} C${sx + 40} ${mid} ${wx - 95} ${y} ${wx - 56} ${y}`} />}
             <path className="og-edge" data-lit={w.state === "done" ? "true" : undefined} d={`M${wx + 56} ${y} C${wx + 95} ${y} ${ex - 40} ${mid} ${ex} ${mid}`} />
           </g>
         );
@@ -89,6 +93,14 @@ export function Graph({ compact }: { compact?: boolean }) {
               </text>
             )}
           </g>
+        );
+      })}
+      {after.map((e) => {
+        const y1 = rowY(e.from), y2 = rowY(e.to), x = wx - 56, bend = x - 14 - 3 * Math.abs(y2 - y1) / Math.max(rowH, 1);
+        return (
+          <path key={`${e.from}>${e.to}`} className="og-edge og-edge-after" d={`M${x} ${y1} C${bend} ${y1} ${bend} ${y2} ${x} ${y2}`} markerEnd={`url(#${marker})`}>
+            <title>{`${e.to.replace("worker-", "lane ")} starts after ${e.from.replace("worker-", "lane ")}: ${e.label || "after"}`}</title>
+          </path>
         );
       })}
       {[...tail, gate].slice(0, -1).map((s, i, arr) => {

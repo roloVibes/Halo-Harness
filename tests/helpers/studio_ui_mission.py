@@ -33,6 +33,11 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"one depends_on edge, one sequenced edge with its chip, two locks, got {got.get('edges')} / {got.get('seq_chips')} / {got.get('locks')}",
                   got.get("edges") == ["depends:2>3", "sequenced:1>3"] and got.get("seq_chips") == 1 and got.get("locks") == 2)
         ctx.check(f"dashed while planned, got {got.get('planned_dashed')!r}", str(got.get("planned_dashed")) not in ("", "none"))
+        bases, mb = got.get("part_bases") or {}, str(got.get("mission_base") or "")
+        ctx.check(f"3.0.9.0: the depends_on edge's chip names what it hands on, got {got.get('edge_labels')}",
+                  got.get("edge_labels") == ["2>3:cover.png"])
+        ctx.check(f"3.0.9.0: each repo part shows its base, got {bases} (mission base {mb[:7]!r})",
+                  len(mb) >= 7 and bases.get("1") == f"base {mb[:7]}" and bases.get("2") == "" and bases.get("3") == "base: 1's head")
         ctx.check(f"the table and the attention row, got {got.get('table_rows')} / {got.get('plan_row')!r}",
                   got.get("table_rows") == 3 and "waits for your approval" in str(got.get("plan_row")))
 

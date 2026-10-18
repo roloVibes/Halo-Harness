@@ -38,7 +38,8 @@ def test_templates_runs_and_the_run_payload(ctx: Ctx):
         status, rows = s.get("flow/templates")
         social = next((r for r in rows if r["name"] == "social-post"), None) if status == 200 else None
         ctx.check(f"templates lists the shipped social-post, got {status} {rows}", social is not None
-                  and social["source"] == "template" and social["steps"][0] == {"id": "intake", "kind": "intake"}
+                  and social["source"] == "template"
+                  and social["steps"][0] == {"id": "intake", "kind": "intake", "uses": "", "deps": [], "layer": 0, "gate": False}
                   and social["form"]["brief"] == "text" and "x" in social["form"]["platforms"])
         done = s.finished_run()
         waiting, _t, _box = s.waiting_run()

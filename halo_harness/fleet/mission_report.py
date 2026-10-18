@@ -8,7 +8,7 @@ journals the end (`fleet/journal.py` kind `mission_end`).
     {mission, goal, state, stop_reason, created, ended, duration_s,
      cost: {total_usd, plan_usd, parts_usd, est_usd, budget_usd, over_budget},
      parts: [{id, title, kind, harness, harness_name, state, cost_usd, est_cost_usd, started, ended, duration_s,
-              files, error, reason, pinned, merged}],
+              files, error, reason, pinned, merged, base, depends_on, take}],
      harnesses: [{harness, name, parts: [ids], cost_usd, done, failed}],
      decisions: [{ts, what, by}], files: [paths], refused: [{part, file, tool, harness, ts}],
      failed: [{part, state, error}], merge: {...} | null, artifacts: [paths], missing_outputs: [paths]}
@@ -39,7 +39,8 @@ def build(home, doc: dict, plan: dict) -> dict:
                "cost_usd": round(float(st.get("cost_usd") or 0.0), 6), "est_cost_usd": float(p.get("est_cost_usd") or 0.0),
                "started": st.get("started"), "ended": st.get("ended"), "duration_s": _dur(st.get("started"), st.get("ended")),
                "files": list(st.get("files") or []), "error": st.get("error"), "reason": p.get("reason"),
-               "pinned": bool(p.get("pinned")), "merged": p["id"] in merged}
+               "pinned": bool(p.get("pinned")), "merged": p["id"] in merged, "base": st.get("base"),
+               "depends_on": list(p.get("depends_on") or []), "take": p.get("take") or "outputs"}
         parts.append(row)
         h = harnesses.setdefault(str(row["harness"]), {"harness": row["harness"], "name": row["harness_name"], "parts": [],
                                                         "cost_usd": 0.0, "done": 0, "failed": 0})
@@ -68,6 +69,13 @@ def build(home, doc: dict, plan: dict) -> dict:
             "missing_outputs": list((doc.get("merge") or {}).get("missing_outputs") or [])}
 
 
+def base_cell(p: dict) -> str:
+    """3.0.9.0: where a repo part started (its dependencies' head, or the mission's base)."""
+    if not p.get("base"):
+        return "-"
+    return f"`{str(p['base'])[:7]}`" + (f" (after {', '.join(p['depends_on'])})" if p.get("depends_on") else "")
+
+
 def markdown(r: dict) -> str:
     when = time.strftime("%Y-%m-%d %H:%M", time.localtime(r.get("ended") or time.time()))
     c = r["cost"]
@@ -76,11 +84,11 @@ def markdown(r: dict) -> str:
              f"estimated ${c['est_usd']:.2f}" + (f", budget ${float(c['budget_usd']):.2f}" if c.get("budget_usd") else "") + ")."]
     if r.get("stop_reason"):
         lines += ["", f"**Why it ended:** {r['stop_reason']}"]
-    lines += ["", "## Who did what", "", "| Part | Harness | State | Cost $ | Time | Title |", "|---|---|---|---|---|---|"]
+    lines += ["", "## Who did what", "", "| Part | Harness | State | Cost $ | Time | Base | Title |", "|---|---|---|---|---|---|---|"]
     for p in r["parts"]:
         t = f"{p['duration_s']:.0f}s" if p.get("duration_s") is not None else "-"
         lines.append(f"| {p['id']}{' (merged)' if p['merged'] else ''} | {p.get('harness_name') or p.get('harness')} | "
-                     f"{p['state']} | {p['cost_usd']:.4f} | {t} | {str(p.get('title') or '').replace('|', '/')} |")
+                     f"{p['state']} | {p['cost_usd']:.4f} | {t} | {base_cell(p)} | {str(p.get('title') or '').replace('|', '/')} |")
     lines += ["", "## Cost per harness", ""] + [f"- {h['name']}: ${h['cost_usd']:.4f} (parts {', '.join(h['parts'])}; "
                                                  f"{h['done']} done, {h['failed']} not)" for h in r["harnesses"]]
     if r["decisions"]:

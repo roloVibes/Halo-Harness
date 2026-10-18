@@ -94,10 +94,12 @@ def prompt(doc: dict, entries: list, load: dict, problems: Optional[list] = None
         + "Rules: name in `needs` the capabilities a part cannot do without (an MCP server or tool, a craft app, "
         "a CLI such as nmap, a skill, `gpu`, an OS); two parts never claim the same file (parts that must touch "
         "one file run one after the other through depends_on); keep parts independent so they run at the same "
-        "time; a part that uses another's output depends on it. Answer with JSON only:\n"
+        "time; a part that uses another's output depends on it, reads that part's outputs (or everything it "
+        'left, with "take": "all") and, for a repo part, starts from its finished branch. Answer with JSON only:\n'
         '{"parts": [{"id": "1", "title": "one line", "brief": "what to do, in full", "kind": "repo|files", '
         '"harness": "<name>", "reason": "why this harness", "needs": ["gridcraft"], "depends_on": [], '
-        '"claims": ["src/report/**"], "outputs": ["report.xlsx"], "est_cost_usd": 0.2}], "merge_order": ["1"]}'
+        '"claims": ["src/report/**"], "outputs": ["report.xlsx"], "take": "outputs", "est_cost_usd": 0.2}], '
+        '"merge_order": ["1"]}'
     )
     if problems:
         text += "\n\nYour previous answer had these problems; fix every one:\n" + "\n".join(f"- {p}" for p in problems)

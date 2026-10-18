@@ -12,6 +12,10 @@ holds Studio's folder (`req.cwd`).
     POST orchestra/<run>/stop              {ok}
     POST orchestra/<run>/release {key}     the live claim on key lets go
     POST orchestra/<run>/steal {key}       the run's lead takes key
+    GET|PUT orchestra/<run>/plan, POST orchestra/<run>/approve|reject   the reviewed plan (orchestra_plan_api.py)
+
+3.0.9.0 R2: `POST run` takes `review: true` (the goal's `plan: review`: the
+run pauses after the split until the plan is approved).
 
 `POST run` starts the runner on a daemon thread (orchestra_live.py) and
 answers at once; a second POST while a run is live is a 409 naming it.
@@ -27,6 +31,7 @@ from halo_harness.orchestra import events as run_events
 from halo_harness.orchestra.goal import Goal, new_run, norm_file, validate_goal
 from halo_harness.studio import orchestra_live as live
 from halo_harness.studio import orchestra_model as OM
+from halo_harness.studio.orchestra_plan_api import ROUTES as PLAN_ROUTES
 
 RUNNER = None
 RUN_FIELDS = tuple(Goal.__dataclass_fields__)
@@ -53,6 +58,8 @@ def list_runs(req):
 def post_run(req):
     body = req.body
     data = {k: body[k] for k in RUN_FIELDS if k in body}
+    if body.get("review"):
+        data["plan"] = "review"
     if isinstance(data.get("files"), str):
         data["files"] = [f.strip() for f in data["files"].split(",") if f.strip()]
     problems = validate_goal(data)
@@ -184,7 +191,7 @@ ROUTES = [
     ("GET", rf"^orchestra/{_RUN}$", get_run), ("GET", rf"^orchestra/{_RUN}/events$", get_events),
     ("GET", rf"^orchestra/{_RUN}/file$", get_file), ("POST", rf"^orchestra/{_RUN}/stop$", post_stop),
     ("POST", rf"^orchestra/{_RUN}/release$", post_release), ("POST", rf"^orchestra/{_RUN}/steal$", post_steal),
-]
+] + PLAN_ROUTES
 
 
 def dispatch_orchestra(req):

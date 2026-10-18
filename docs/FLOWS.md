@@ -240,6 +240,7 @@ meant for Linux and macOS hosts.
 [STUDIO.md, "Flow and Media routes"](STUDIO.md#flow-and-media-routes-3040).
 
     GET  flow/templates                  the shipped, user and project flows: steps and the intake form
+    PUT  flow/templates/<name> {order} | {yaml}   the flow file in a new step order, checked (see As a graph)
     GET  flow/runs                       the runs, newest first (waiting_step when a gate is open)
     POST flow/runs {template, intake, model?, set?, yes?, start?}   201 {run}; 409 while another run is live
     GET  flow/runs/<id>                  flow.json, steps/<n>.json, the open gate, report, posts, metrics, artboards
@@ -257,6 +258,34 @@ flow answer`, so a gate opened by a CLI run can be answered from Studio
 too, and the other way round. To start a run with uploaded files, post
 `start: false`, upload each file to `assets`, then post `resume`. The
 intake step then finds the files in the project's `assets/` folder.
+
+## As a graph
+
+Halo 3.0.9.0. Studio's Flow intake has **Show <flow> as a graph** (or
+`?mode=flow&graph=<name>`): the flow's steps as cards (`flow-step`) in
+dependency layers, one labelled box per layer. A step sits one layer below
+the deepest step it reads: the `$.<step>` refs in its `inputs` and `set`,
+plus what a step needs without a ref (a `confirm` step confirms the render
+before it, a `metrics` step samples the post before it, `done` comes after
+every other step). The confirm step is marked as the gate. The shipped
+social-post flow is a chain: eight steps, eight layers.
+
+The graph is read-only, except the order of independent steps: two steps in
+one box do not read each other, so dragging one onto the other rewrites the
+flow file with that order:
+
+    PUT flow/templates/<name> {order: [step ids]}   the same file, its steps in this order
+    PUT flow/templates/<name> {yaml: "..."}         the whole file
+
+Both are checked by `flows.spec.validate_flow`: a problem the edit brings in
+(a step that would read a later one, YAML that does not parse, a renamed
+flow) is a 422 and nothing is written; problems the file already had (an
+org this home does not have) do not block an order change. The order change
+moves each step's lines as they are, comments kept (`flows/graph.py`
+`reorder`). A shipped template is copied to `~/.halo/flows/<name>.flow.yaml`
+first, so Halo's own file never changes; a user or project flow is written
+in place. `GET flow/templates` gives every step its `uses`, `deps`, `layer`
+and `gate`.
 
 ## For the next rounds
 

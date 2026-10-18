@@ -99,6 +99,32 @@ def test_file_view_bands(ctx: Ctx):
 
 
 @test
+def test_the_run_payload_carries_the_hand_off_fields(ctx: Ctx):
+    """3.0.9.0 R1: lane 2 takes lane 1's summary: GET orchestra/<run> has every lane's handoff,
+    after, base and gave, and the workflow's after edge with its label and the layers."""
+    repo, run_dir = R.finished_run(chain=True)
+    try:
+        with R.Studio(repo) as s:
+            st, data = s.get(f"orchestra/{run_dir.name}")
+            lanes = {l["lane"]: l for l in data["lanes"]}
+            ctx.check(f"every lane has the four fields, got {sorted(lanes[1])}",
+                      st == 200 and all({"handoff", "after", "base", "gave"} <= set(l) for l in lanes.values()))
+            ctx.check(f"lane 2 starts after lane 1, from its head, got {lanes[2]['after']} {lanes[2]['base'][:12]}",
+                      lanes[2]["after"] == ["job-1"] and lanes[2]["handoff"] == {"needs": [{"from": "job-1", "take": "summary"}]}
+                      and lanes[2]["base"] == lanes[1]["head"] and lanes[3]["base"] == data["split"]["base"])
+            ctx.check(f"lane 1 gave its summary and its unit, got {lanes[1]['gave']}",
+                      [(g["kind"], g["path"]) for g in lanes[1]["gave"]] == [("summary", "lanes/1/summary.md"), ("files", "basket.py#add_item")])
+            edges = [e for e in data["workflow"]["edges"] if e["kind"] == "after"]
+            ctx.check(f"the after edge and the layers, got {edges} {data['workflow'].get('layers')}",
+                      edges == [{"from": "worker-1", "to": "worker-2", "kind": "after", "label": "summary"}]
+                      and data["workflow"]["layers"] == [[1, 3, 4, 5], [2]])
+            ctx.check("still five merged lanes and the judged conflict", [l["state"] for l in data["lanes"]] == ["merged"] * 5
+                      and data["merge"]["conflicts"][0]["lane"] == 5 and data["merge"]["order"] == [1, 3, 4, 5, 2])
+    finally:
+        R.cleanup(repo)
+
+
+@test
 def test_stop_release_and_steal(ctx: Ctx):
     from halo_harness.orchestra.claims import ClaimLog
     repo, run_dir = R.finished_run()

@@ -11,8 +11,9 @@ path?, data_b64?}`:
 
 A member reaches only a mission it has a part in (403 otherwise). It reads
 `MISSION.md`, `claims.json`, `inputs/**`, its own `parts/<n>/**` and
-`artifacts/<n>/**`, and the hand-backs and artifacts of the parts its parts
-depend on; it writes only its own `parts/<n>/handback.md | result.json |
+`artifacts/<n>/**`, and of the parts its parts depend on their hand-backs
+and their `outputs` (3.0.9.0; their whole `artifacts/<d>/**` for a part with
+`take: all`, fleet/mission_handoff.py); it writes only its own `parts/<n>/handback.md | result.json |
 branch.bundle` and `artifacts/<n>/**`. Every path goes through
 mission_store.confine: relative, no `..`, no symlink followed.
 
@@ -39,15 +40,18 @@ TIMEOUT_S = 120.0
 
 
 def _parts_of(doc: dict, plan: dict, hid: str) -> "tuple[list, list]":
+    """`(mine, dep_paths)`: this harness's parts, and what they read of their dependencies
+    (3.0.9.0, mission_handoff.dep_paths: each dependency's outputs and hand-back, or all of it with take: all)."""
+    from halo_harness.fleet.mission_handoff import dep_paths
     mine = [pid for pid, p in (doc.get("parts") or {}).items() if str(p.get("harness")) == str(hid)]
-    deps = sorted({d for p in (plan or {}).get("parts") or [] if p.get("id") in mine for d in p.get("depends_on") or []})
-    return mine, deps
+    paths = sorted({x for p in (plan or {}).get("parts") or [] if p.get("id") in mine for x in dep_paths(plan, p)})
+    return mine, paths
 
 
 def readable(rel: str, mine: list, deps: list) -> bool:
+    """`deps` are the dependency paths (and globs) of _parts_of."""
     pats = ["MISSION.md", "claims.json", "inputs/**"]
-    pats += [f"parts/{n}/**" for n in mine] + [f"artifacts/{n}/**" for n in mine]
-    pats += [f"parts/{d}/handback.md" for d in deps] + [f"artifacts/{d}/**" for d in deps]
+    pats += [f"parts/{n}/**" for n in mine] + [f"artifacts/{n}/**" for n in mine] + list(deps)
     return any(fnmatch.fnmatchcase(rel, p) for p in pats)
 
 

@@ -163,26 +163,7 @@ def test_system_prompt_tells_the_model_about_studio(ctx: Ctx):
     ctx.check("names the slash commands", "`/roles`, `/org` or `/design`" in text)
 
 
-def _need_chrome() -> None:
-    sys.path.insert(0, str(REPO_DIR / "tools"))
-    from capture_screens import find_chrome
-    import os
-    from tests.helpers.runner import SkipTest
-    if not find_chrome(os.environ.get("HALO_CHROME", "")):
-        raise SkipTest("no Chrome found (the DOM checks need headless Chrome)")
-
-
-def _dom(mode: str) -> dict:
-    """tools/capture_studio.py --mode <mode> --dom in a scrubbed environment: the Start view's and the section's test-id counts."""
-    import json, os, subprocess  # noqa: E401
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("HALO_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "BRIDGE_"))}
-    env.update(PYTHONPATH=str(REPO_DIR), BRIDGE_TEST_NO_BACKGROUND_NET="1")
-    r = subprocess.run([sys.executable, str(REPO_DIR / "tools" / "capture_studio.py"), "--mode", mode, "--dom"], capture_output=True,
-                       encoding="utf-8", errors="replace", timeout=300, env=env, cwd=str(REPO_DIR))
-    try:
-        return json.loads(r.stdout.strip().splitlines()[-1])
-    except (ValueError, IndexError):
-        return {"error": (r.stdout + r.stderr)[-400:]}
+from tests.helpers.studio_modes_dom import dom as _dom, need_chrome as _need_chrome  # noqa: E402
 
 
 @test
@@ -241,6 +222,22 @@ def test_team_opens_as_a_react_section(ctx: Ctx):
               and start.get("team-start-init") == 1 and start.get("team-board") == 0 and start.get("team-stage") == 0)
     ctx.check(f"the board, got {team}", team.get("team-member") == 3 and team.get("team-stage") == 4 and team.get("team-block") == 3
               and team.get("team-edge") == 8 and team.get("panel-about") == 3 and team.get("team-start") == 0 and team.get("legacy-frame") == 0)
+
+
+@test
+def test_orchestra_opens_a_planned_run_on_the_plan_canvas(ctx: Ctx):
+    """3.0.9.0 R2: `--mode orchestra` over a seeded review run waiting for its plan: the plan panel instead
+    of the console, five lanes in two layer boxes plus the empty "a new layer" box, one edge, the inspector,
+    Approve and run; the Start view's form has the "Review the plan before it runs" switch."""
+    _need_chrome()
+    got = _dom("orchestra")
+    plan, start = got.get("plan") or {}, got.get("start") or {}
+    ctx.check(f"the plan panel, not the console, got {plan or got}", plan.get("orchestra-plan") == 1 and plan.get("orchestra-root") == 0
+              and plan.get("panel-about") == 1 and plan.get("section-tab") == 7)
+    ctx.check(f"five lanes, three boxes, one edge, the inspector and Approve, no problem, got {plan}",
+              plan.get("plan-canvas") == 1 and plan.get("plan-lane") == 5 and plan.get("plan-layer") == 3 and plan.get("plan-edge") == 1
+              and plan.get("plan-inspector") == 1 and plan.get("plan-approve") == 1 and plan.get("plan-problem") == 0)
+    ctx.check(f"the review switch on the Start view, got {start.get('orchestra-review')}", start.get("orchestra-review") == 1)
 
 
 if __name__ == "__main__":

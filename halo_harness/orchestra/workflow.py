@@ -6,7 +6,14 @@ designed in code before anything runs.
 
 One worker step per lane (lane = 1..N); the merge takes the workers' pieces
 one at a time; the gate either finishes the run or sends a failed piece back
-to its worker along that worker's `loop` edge. Everything here is plain,
+to its worker along that worker's `loop` edge. 3.0.9.0: a lane that runs
+after other lanes (orchestra/handoff_spec.py) hangs off them by an `after`
+edge (`{"from": "worker-1", "to": "worker-2", "kind": "after", "label":
+"summary"}`) instead of off the split, and every worker step carries its
+`layer` (0 = the parallel layer); with nothing declared the graph is the
+one above, with no `layer` field. 3.0.9.0 R2: a review run (`plan: review`)
+holds its split step `planned` until the edited plan is approved;
+`validate_plan(jobs)` (orchestra/plan_check.py) checks that plan. Everything here is plain,
 JSON-serialisable data (Studio draws it); every helper returns a NEW graph
 and never mutates its argument.
 """
@@ -18,8 +25,8 @@ from dataclasses import asdict, dataclass
 from typing import Optional
 
 KINDS = ("goal", "lead", "split", "worker", "merge", "test", "gate", "done")
-STATES = ("pending", "running", "done", "failed", "skipped")
-EDGE_KINDS = ("flow", "loop")
+STATES = ("pending", "running", "done", "failed", "skipped", "planned")  # planned: 3.0.9.0 R2, the split waits for review
+EDGE_KINDS = ("flow", "loop", "after")
 MAX_WORKERS = 50
 
 _LABELS = {
@@ -52,22 +59,54 @@ def worker_id(lane: int) -> str:
     return f"worker-{int(lane)}"
 
 
-def designed_graph(workers: int) -> dict:
+def designed_graph(workers: int, after: Optional[dict] = None, labels: Optional[dict] = None) -> dict:
     """The fixed graph for `workers` lanes (1..50):
     `{"workers": N, "steps": [Step dicts], "edges": [{"from","to","kind"}]}`.
+    `after` = `{lane: [upstream lanes]}` puts a lane in the layer below its
+    upstreams (`labels[(upstream, lane)]` names what the edge carries); the
+    graph then has `layers` = `[[lanes of layer 0], [layer 1], ...]`.
     Raises ValueError for a worker count outside 1..50."""
     if isinstance(workers, bool) or not isinstance(workers, int) or not 1 <= workers <= MAX_WORKERS:
         raise ValueError(f"workers must be a whole number from 1 to {MAX_WORKERS}, got {workers!r}")
+    ups = {int(k): [int(u) for u in v if 1 <= int(u) <= workers and int(u) != int(k)] for k, v in (after or {}).items()}
+    ups = {k: v for k, v in ups.items() if v and 1 <= k <= workers}
     steps = [Step(k, k, label=_LABELS[k]) for k in ("goal", "lead", "split")]
     steps += [Step(worker_id(i), "worker", lane=i, label=f"worker {i}") for i in range(1, workers + 1)]
     steps += [Step(k, k, label=_LABELS[k]) for k in ("merge", "test", "gate", "done")]
     edges = [_edge("goal", "lead"), _edge("lead", "split")]
     for i in range(1, workers + 1):
-        edges.append(_edge("split", worker_id(i)))
+        if i in ups:
+            edges += [dict(_edge(worker_id(u), worker_id(i), "after"), label=str((labels or {}).get((u, i)) or "after"))
+                      for u in ups[i]]
+        else:
+            edges.append(_edge("split", worker_id(i)))
         edges.append(_edge(worker_id(i), "merge"))
     edges += [_edge("merge", "test"), _edge("test", "gate"), _edge("gate", "done")]
     edges += [_edge("gate", worker_id(i), "loop") for i in range(1, workers + 1)]
-    return {"workers": workers, "steps": [s.to_dict() for s in steps], "edges": edges}
+    graph = {"workers": workers, "steps": [s.to_dict() for s in steps], "edges": edges}
+    if ups:
+        layer = lane_layers(workers, ups)
+        for s in graph["steps"]:
+            if s["kind"] == "worker":
+                s["layer"] = layer[s["lane"]]
+        graph["layers"] = [[n for n in range(1, workers + 1) if layer[n] == d] for d in range(max(layer.values()) + 1)]
+    return graph
+
+
+def with_layers(graph: dict, after: dict, labels: Optional[dict] = None) -> dict:
+    """`graph` redesigned with `after` (designed_graph), every step's state kept."""
+    new = designed_graph(int(graph.get("workers") or 1), after, labels)
+    states = {s.get("id"): s.get("state") for s in graph.get("steps") or []}
+    for s in new["steps"]:
+        s["state"] = states.get(s["id"]) or s["state"]
+    return new
+
+
+def lane_layers(workers: int, ups: dict) -> dict:
+    """`{lane: layer}` for lanes 1..workers given `{lane: [upstream lanes]}`."""
+    from halo_harness.orchestra.handoff_spec import layers
+    deps = {str(n): [str(u) for u in ups.get(n, [])] for n in range(1, workers + 1)}
+    return {int(k): v for k, v in layers(deps).items()}
 
 
 def _edge(src: str, dst: str, kind: str = "flow") -> dict:
@@ -108,8 +147,8 @@ def loop_back(graph: dict, lane: int) -> dict:
 
 
 def predecessors(graph: dict, step_id: str) -> list:
-    """Ids with a `flow` edge into `step_id` (loop edges are not prerequisites)."""
-    return [e["from"] for e in graph.get("edges") or [] if e.get("to") == step_id and e.get("kind") == "flow"]
+    """Ids with a `flow` or `after` edge into `step_id` (loop edges are not prerequisites)."""
+    return [e["from"] for e in graph.get("edges") or [] if e.get("to") == step_id and e.get("kind") in ("flow", "after")]
 
 
 def ready(graph: dict) -> list:
@@ -151,3 +190,6 @@ def validate_graph(graph) -> list:
         elif e.get("kind") not in EDGE_KINDS:
             problems.append(f"edge {e['from']}->{e['to']} has an unknown kind {e.get('kind')!r}")
     return problems
+
+
+from halo_harness.orchestra.plan_check import plan_problems, validate_plan  # noqa: E402,F401  (3.0.9.0 R2)

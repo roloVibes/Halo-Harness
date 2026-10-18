@@ -65,6 +65,7 @@ never committed and never merged.
 | `lineup` | "" | the lineup (team template) that plays the parts |
 | `lead` | `main` | the lead orchestrator's role (the lineup's main, the boss) |
 | `worker` | `subagent` | how a worker runs |
+| `handoffs` | {} | 3.0.9.0: per job id, `{gives, needs, after}`: what a lane hands on, what it takes and which lanes it starts after (see [Hand-offs](#hand-offs)) |
 
 A worked example ships in
 `halo_harness/templates/orchestra/goal.example.json`: the reel's
@@ -79,7 +80,8 @@ Every step starts `pending` and moves through `running` to `done`,
 `failed` or `skipped`. `workflow.advance(graph, step_id, state)` returns a
 new graph; `loop_back(graph, lane)` re-opens one worker and every step
 behind it; `ready(graph)` lists the pending steps whose flow predecessors
-are all finished.
+are all finished. A lane that starts after another (3.0.9.0) hangs off it by
+an `after` edge instead of off the split ([Hand-offs](#hand-offs)).
 
 ## Claims
 
@@ -163,7 +165,14 @@ halo orchestra run [RUN] [--model REF] [--dry-run] [--force]
 halo orchestra lanes [RUN]           every lane: state, pieces sent back, cost, holder, keys
 halo orchestra report [RUN]          the report and its checks
 halo orchestra stop [RUN] [--reason T]  ask a running run to stop at its next step
+halo orchestra run [RUN] --review    pause after the split until the plan is approved
+halo orchestra plan [RUN]            the plan of a review run, its problems
+halo orchestra approve [RUN] [--file F]  check the plan and let the waiting run take it
+halo orchestra reject [RUN] --reason T   the waiting run stops with the reason
 ```
+
+`--review`, `plan`, `approve` and `reject` are the reviewed plan: see
+[Review the plan](#review-the-plan).
 
 `new` asks for WHAT YOU WANT, DONE WHEN and STOP WHEN on a terminal when
 they are not given as flags. RUN is a run id, a unique prefix of one, or a
@@ -268,7 +277,9 @@ it between steps. A stopped run still writes its report, with the reason.
 
 Lane states: `joined` (worktree ready) -> `writing` (the worker runs) ->
 `written` (piece committed) -> `in_review` (being merged) -> `merged`;
-`waiting` (a piece sent back), `failed` (the worker failed or stopped).
+`waiting` (a piece sent back, or, 3.0.9.0, a lane waiting for its upstreams),
+`failed` (the worker failed or stopped). The hand-off fields (`handoff`,
+`after`, `base`, `gave`) are under [Hand-offs](#hand-offs).
 
 ### `merge.json`
 
@@ -282,6 +293,172 @@ Lane states: `joined` (worktree ready) -> `writing` (the worker runs) ->
                 "resolution": "the judge's text", "applied_by": "code", "applied": true,
                 "tests_ok": true, "tests_tail": "...", "cost_usd": 0.0004, "ts": 0, "elapsed_s": 0}]}
 ```
+
+## Hand-offs
+
+Halo 3.0.9.0. By default every lane runs at once from the split's base and
+sees only the goal and its own job. A lane may instead **wait for another
+lane** and **take what that lane left**: its summary, the units it wrote, or
+a file it saved. The lead declares this in its job answer; `goal.json` may
+pre-declare it per job id under `handoffs:` (the goal's declaration wins
+field by field).
+
+```yaml
+# the lead's answer (JSON in practice), one job:
+- title: write remove_item
+  claims: [basket.py#remove_item]
+  after: [job-3]                     # start after job-3, without taking anything from it
+  handoff:
+    gives:                           # what this job hands on
+      - {name: notes, kind: artifact, paths: [notes.md]}
+      - {name: summary, kind: summary}
+      - {name: units, kind: files, paths: [basket.py]}
+    needs:                           # what it takes, and from whom
+      - {from: job-1, take: summary}   # all | summary | the name of something job-1 gives
+      - {from: job-1, take: notes}
+
+# goal.json
+handoffs:
+  job-2: {needs: [{from: job-1, take: all}], after: []}
+```
+
+**The rules, checked in code** (`orchestra/handoff_spec.py`; a failed check
+retries the lead once with the problems, as every split check does):
+`from` and `after` name real jobs (`job-<n>`, its position `<n>`, or the
+lead's own `id` for it), never the job itself; the upstreams (`after` plus
+every `needs.from`) form no cycle; `take` is `all`, `summary`, or the name
+of one of the upstream job's `gives`. Every lane gives its summary and its
+written units whether it declares them or not, so `all` and `summary`
+always name something. A `gives` entry has a `name`, a `kind` (`files`,
+`summary` or `artifact`) and optional `paths`.
+
+**Layers.** A job with upstreams sits one layer below its deepest upstream.
+`workflow.json` then hangs it off its upstreams by an `after` edge
+(`{"from": "worker-1", "to": "worker-2", "kind": "after", "label":
+"summary + notes"}`) instead of off the split, every worker step carries
+its `layer`, and the graph has `layers: [[1, 3], [2]]`; `ready` honours the
+`after` edges. The merge keeps the layer order, then the split's order
+inside a layer. With nothing declared the graph, the order and every file
+are exactly as before.
+
+**The base rule** (`orchestra/handoff.py`, `handoff_run.py`). A lane with
+upstreams is `waiting` ("waits for job-1 (hand-off)") until every upstream
+lane is written. Then its worktree starts from the upstream's finished
+`head`; with two or more upstreams, from the merge of their heads
+(`merge.merge_heads`, on the scratch branch `orchestra/<run>-base-<n>`; a
+head that already contains another is not merged again). Heads that
+conflict leave the lane `waiting` with the reason, and the run stops
+naming it. An upstream that failed leaves it waiting too. A lane without
+upstreams starts from the split's base.
+
+**What a lane sees.** A lane with `needs` gets a **Hand-offs** section in
+its prompt:
+
+```
+Hand-offs (what earlier jobs left for you; nothing else from other jobs reaches you):
+- From job-1 (lane 1: write add_item), take summary:
+  its summary:
+    <lane 1's final reply>
+- From job-1 (lane 1: write add_item), take notes:
+  its artifact notes: .halo/handoff/job-1/notes.md in your folder
+```
+
+`take: summary` is the upstream's final reply; `take: all` is the reply,
+the list of its written keys (already in the lane's files, since it starts
+from that head) and its artifacts; `take: <name>` is just that give.
+Artifacts are copied into the lane's worktree under `.halo/handoff/<job>/`,
+which is git-ignored and never committed. A lane that declares `gives` is
+told where to save each artifact (`<run>/lanes/<n>/artifacts/`, outside its
+worktree) and that its final reply is the summary later jobs read. **A lane
+with no `needs` sees nothing from other lanes**: the goal and its own job
+only, as before, even when it starts after another lane.
+
+**The lane's record.** `lanes/<n>.json` gains:
+
+```json
+{"handoff": {"needs": [{"from": "job-1", "take": "summary"}, {"from": "job-1", "take": "notes"}]},
+ "after": ["job-1"],
+ "base": "<the commit its worktree started from>",
+ "gave": [{"name": "summary", "kind": "summary", "path": "lanes/2/summary.md", "bytes": 812},
+          {"name": "files", "kind": "files", "path": "basket.py#remove_item", "bytes": 164},
+          {"name": "notes", "kind": "artifact", "path": "lanes/2/artifacts/notes.md", "bytes": 230}]}
+```
+
+`handoff` is the job's declaration (refs made job ids), `after` every job
+it starts after (its `after` plus each `needs.from`), `base` where its
+worktree started, `gave` what it produced, filled when the lane is
+written: the summary (`lanes/<n>/summary.md`, its final reply), one `files`
+row per written key (the path is the key), one `artifact` row per file it
+saved under `lanes/<n>/artifacts/`. Paths are relative to the run folder.
+An undeclared lane gives `summary`, `files` and any artifact it saved; a
+declared artifact that is missing is a `note` in the run log. split.json's
+jobs carry `handoff` and `after` only when declared.
+
+## Review the plan
+
+Halo 3.0.9.0. A goal with `plan: review` (the default is `plan: auto`, a run
+that goes straight from the split to the workers) stops after the lead's
+split: `split.json` is written, the workflow's split step turns `planned`
+(the run's state is `planned`), no lane starts, and the run waits for your
+decision in `<run>/plan.json`:
+
+```json
+{"approved": true, "jobs": [{"id": "job-1", "title": "write add_item", "claims": ["basket.py#add_item"],
+                             "bio": "coder", "model": "or:vendor/model"},
+                            {"id": "job-2", "title": "write remove_item", "claims": ["basket.py#remove_item"],
+                             "after": ["job-1"], "handoff": {"needs": [{"from": "job-1", "take": "summary"}]}}],
+ "ts": 1760700000.0, "by": "cli"}
+{"approved": false, "reason": "one lane per file instead", "ts": 1760700000.0, "by": "studio"}
+```
+
+The jobs are split.json's shape plus the [hand-off](#hand-offs) fields
+(`after`, `handoff`) and, new, the worker's own `bio` and `model` (the
+worker runs `halo -p --agent <bio> --model <model>`; empty = the goal's
+worker role, as before). A rejected plan stops the run with "the plan was
+rejected: <reason>" in its report; nothing ran.
+
+```sh
+halo orchestra run [RUN] --review           the goal's plan becomes review, then the run starts and waits
+halo orchestra plan [RUN]                   the plan as a table (job, after, bio, model, title, claims, needs), its problems
+halo orchestra approve [RUN] [--file F]     check the plan (F: {"jobs": [...]} or the list; else Studio's draft, else the split)
+halo orchestra reject [RUN] --reason TEXT   the run stops with that reason
+```
+
+`approve` writes `plan.json` only when the plan passes every check, and
+prints every problem otherwise (exit 2; the run keeps waiting). What is
+checked (`workflow.validate_plan(jobs)`, orchestra/plan_check.py):
+
+- at least one and at most 50 jobs; every job has a unique id and a title;
+- every job claims at least one unit, and every claim is a key of the
+  goal's files;
+- `after` and `needs.from` name real jobs, never the job itself, and the
+  upstreams make no cycle;
+- a `take` names something the upstream gives: `all`, `summary` or one of
+  its `gives`;
+- no two jobs claim the same or an overlapping key unless an `after` (or a
+  need) puts one after the other;
+- each job's bio and model pass the lineup preflight: the bio exists, its
+  `tools.allow` is not an empty list, the model (the job's own, else the
+  bio's preference) is in its provider's catalog.
+
+On approval code renumbers the jobs `job-1..N` in their order (rewriting
+`after` and `needs.from`), keeps the lead's own split as
+`split.lead.json`, rewrites split.json's jobs (`"plan": "approved"`), moves
+the placeholder claims to the new lanes (in layer order: of two sequenced
+jobs on one key the earlier one holds it; the later one claims it when it
+starts), and gives workflow.json a step per lane when the plan has more
+lanes than the goal's `workers`. Two sequenced lanes may write the same
+unit: the later lane starts from the earlier one's head, and the gate's
+record check takes the later lane's text as the record. A `plan.json`
+written by hand that fails the check is moved to `plan.bad.json` with its
+problems, and the run keeps waiting. While it waits the runner touches
+`<run>/plan.wait.json` every two seconds; Studio uses it to know whether a
+runner (Studio's own or `halo orchestra run --review` in a terminal) will
+take the decision.
+
+Studio draws the plan as a canvas you edit (see [In Studio](#in-studio) and
+[STUDIO.md](STUDIO.md#the-plan-canvas-3090)); its draft lives in
+`<run>/plan.draft.json` until you approve it.
 
 ## The report
 
@@ -328,14 +505,18 @@ behind the same loopback, origin and token guard as every Studio route.
 
 | Route | Answer |
 |---|---|
-| `GET orchestra/runs` | `[{run_id, created, state, workers, goal_what, cost_usd}]`, newest first; `state` is `running`, `finished`, `stopped`, `dry run`, `new` or `interrupted` |
-| `POST orchestra/run` | body `{what, done_when, stop_when, workers, return_cap, test, files, lineup, lead, worker, model?, dry_run?}` -> `201 {run_id}`; an invalid goal is a 422 with `validate_goal`'s lines, a file that is not in the repo is a 422, and a second run while one is live is a 409 naming it |
+| `GET orchestra/runs` | `[{run_id, created, state, workers, goal_what, cost_usd}]`, newest first; `state` is `running`, `planned` (3.0.9.0: waiting for the reviewed plan), `finished`, `stopped`, `dry run`, `new` or `interrupted` |
+| `POST orchestra/run` | body `{what, done_when, stop_when, workers, return_cap, test, files, lineup, lead, worker, model?, dry_run?, review?}` (`review: true` = the goal's `plan: review`) -> `201 {run_id}`; an invalid goal is a 422 with `validate_goal`'s lines, a file that is not in the repo is a 422, and a second run while one is live is a 409 naming it |
 | `GET orchestra/<run>` | `{run, goal, workflow, split, lanes, claims (live), merge, report, dry_run, events_count, live}` |
 | `GET orchestra/<run>/events?since=N` | `{events, next}`: the run log from line N |
 | `GET orchestra/<run>/file?path=<rel>` | the one-file view: `{path, base_ref, base: [lines], regions: [{key, lane, holder, state, lane_state, start_line, end_line, text}]}` |
 | `POST orchestra/<run>/stop` | `{ok}`: writes stop.json, as `halo orchestra stop` does |
 | `POST orchestra/<run>/release {key}` | the live claim on `key` lets go (422 when nobody holds it, 403 when `holder` is given and is not the holder) |
 | `POST orchestra/<run>/steal {key}` | the run's lead takes `key` (403 when `by` is given and is not the lead) |
+| `GET orchestra/<run>/plan` | 3.0.9.0: `{run_id, state, planned, mode, source: draft or split, jobs, lead_jobs, problems: [{jobs, field, text}], preflight: [the lineup's findings], units: [every key of the goal's files], decision}` |
+| `PUT orchestra/<run>/plan {jobs}` | checks the jobs, keeps them as `plan.draft.json`, answers `{ok, problems, jobs}`; never approves (409 once decided) |
+| `POST orchestra/<run>/approve {jobs?}` | checks the body's jobs (else the draft, else the split) and writes `plan.json` approved: `{ok, run_id, jobs, resumed}`; 422 `{error, problems}` with a problem; 409 when decided, when the goal is `plan: auto` or the run is not waiting |
+| `POST orchestra/<run>/reject {reason}` | writes `plan.json` rejected: `{ok, reason, resumed}`; 422 without a reason |
 
 `<run>` is a run id or a unique prefix of one. The file view is composed by
 code (`studio/orchestra_model.py`):
@@ -359,7 +540,10 @@ as `orchestra_<kind>`, with `session_id: "orchestra:<run-id>"` and the line
 plus `run` as data. Lines a worker's child process writes reach the
 browser the same way as the runner's own. `orchestra_api.RUNNER(run_dir,
 goal, model)` replaces the adapters; the tests set it to the fake lead,
-workers and judge (`tests/test_studio_orchestra_api.py`).
+workers and judge (`tests/test_studio_orchestra_api.py`). Approve and reject
+start a runner the same way when none waits for the run (Studio was
+restarted while it waited, and `plan.wait.json` is stale), so the run takes
+the decision at once.
 
 ## Walkthrough: the reel's basket.py
 
@@ -389,7 +573,7 @@ checks. The finished branch is left for you to review and merge.
 
 | Module | Functions |
 |---|---|
-| `workflow` | `designed_graph(workers)`, `advance(graph, step_id, state)`, `loop_back(graph, lane)`, `ready(graph)`, `step`, `steps_of_kind`, `summary`, `validate_graph` |
+| `workflow` | `designed_graph(workers, after=None, labels=None)`, `with_layers(graph, after, labels)`, `advance(graph, step_id, state)`, `loop_back(graph, lane)`, `ready(graph)`, `step`, `steps_of_kind`, `summary`, `validate_graph` |
 | `goal` | `Goal`, `validate_goal`, `load_goal`, `save_goal`, `new_run(repo_root, goal, lead_holder=None)`, `list_runs`, `latest_run`, `resolve_run`, `run_meta`, `set_lead_holder`, `repo_root_of` |
 | `index` | `index_file(path, root=None)`, `index_text(text, rel)`, `unit_for_line`, `units_for_lines`, `overlaps`, `covers`, `split_key` |
 | `claims` | `ClaimLog(run_dir, clock=time.time)`: `active`, `claim`, `mark_writing`, `mark_written`, `release`, `steal`, `reassign`, `expire_stale`, `held_by`, `conflicts`, `is_lead`; `holder_for(session_dir)` |
@@ -398,6 +582,8 @@ checks. The finished branch is left for you to review and merge.
 | `split` | `split_goal(run_dir, goal, units, *, call_model, base)`, `validate_jobs`, `parse_answer`, `split_prompt`, `load_split`, `StopRun` |
 | `workers`, `lanes` | `start_workers(run_dir, goal, jobs, *, spawn)`, `run_lane`, `join_lane`, `record_written`, `finish_lane`; `Lane`, `load_lane`, `list_lanes`, `lane_rows`, `unit_text` |
 | `merge`, `hunks` | `merge_lanes(run_dir, goal, lanes, *, judge, base, respawn)`, `merge_order`; `extract_hunks`, `judge_prompt`, `parse_resolution`, `apply_resolution` |
+| `handoff_spec`, `handoff`, `handoff_run` | `shape_problems`, `clean`, `resolve`, `upstream_ids`, `layers`, `edge_label`; `start_base(run_dir, lane, split_base)`, `deliver(run_dir, lane)`, `gives_text`, `record_gave(run_dir, lane, reply)`, `artifacts_dir`; `start_layered(...)`, `stuck(lanes)`; `merge.merge_heads(run_dir, lane_n, heads)` |
 | `gate` | `run_tests(run_dir, goal, cwd)`, `record_equals_disk(run_dir, lanes, ref)`, `quality_gate(run_dir, goal, lanes, cwd)` |
 | `report` | `write_report(run_dir, *, goal, lanes, gate, status, stop_reason)`, `format_report(report)`, `load_report` |
+| `plan`, `plan_check` | `await_plan(run_dir, flow, jobs, *, check_stop)`, `approve(run_dir, jobs, by=)`, `reject(run_dir, reason, by=)`, `apply`, `normalize`, `current_jobs`, `read_decision`, `write_draft`, `is_planned`, `waiting_alive`; `plan_problems(jobs, unit_keys=, cwd=, state_dir=)`, `validate_plan` (re-exported by `workflow`) |
 | `run`, `adapters` | `run(run_dir, *, model_calls, spawn, judge, clock, on_event)`, `request_stop`; `model_call`, `spawn_worker`, `fresh_judge`, `real_adapters` |

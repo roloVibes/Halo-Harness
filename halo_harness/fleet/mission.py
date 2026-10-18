@@ -92,7 +92,7 @@ def new_doc(*, mid: str, goal: str, constraints: str = "", prefer=None, budget_u
 def new_part_state(part: dict) -> dict:
     return {"state": "pending", "harness": part.get("harness"), "harness_name": part.get("harness_name"),
             "session_id": None, "command_id": None, "started": None, "ended": None, "cost_usd": 0.0, "error": None,
-            "branch": None, "files": [], "refused": 0}
+            "branch": None, "files": [], "refused": 0, "base": None}
 
 
 def decide(doc: dict, what: str, by: str = "") -> None:

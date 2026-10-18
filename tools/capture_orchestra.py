@@ -1,12 +1,14 @@
 """tools/capture_orchestra.py -- the Orchestra and Roles captures for
 tools/capture_studio.py --mode orchestra (Halo 3.0.4.0 round R6b): the run
 console over the seeded finished run (the R2 fixture: basket.py, five lanes,
-one judged conflict, the report) in a temp git repo
+one judged conflict, the report; 3.0.9.0: lane 2 takes lane 1's summary) in a temp git repo
 (docs/media/studio-orchestra.png), the Start view over a second repo with no
 run (studio-orchestra-start.png). With --dom each is dumped and its
 data-testid values counted, plus the Roles section (3.0.7.0 R2: React, its
 canvas; tools/capture_roles.py takes its picture) and the shell without
-`tour=off` (the first-visit welcome).
+`tour=off` (the first-visit welcome). 3.0.9.0 R2: a review run waiting for
+its plan (tests/helpers/studio_plan_rig.py: lane 2 takes lane 1's summary)
+draws the plan canvas (docs/media/studio-orchestra-plan.png; --dom: "plan").
 """
 
 from __future__ import annotations
@@ -16,7 +18,9 @@ from pathlib import Path
 
 ORCH_IDS = ("orchestra-root", "orchestra-graph", "gate", "lane", "claim-region", "report-check", "grid-tile", "section-tab",
             "start-view", "panel-about", "panel-help", "section-help", "orchestra-goal-form", "orchestra-rail-run",
-            "orchestra-open-workspace", "roles-canvas", "roles-card", "roles-tier", "legacy-frame")
+            "orchestra-open-workspace", "roles-canvas", "roles-card", "roles-tier", "legacy-frame", "lane-edge", "lane-base",
+            "orchestra-plan", "plan-canvas", "plan-lane", "plan-layer", "plan-edge", "plan-problem", "plan-approve",
+            "plan-inspector", "orchestra-review")
 WINDOW = "--window-size=1500,900"
 
 
@@ -32,11 +36,27 @@ def goal_overflow(dom: str) -> bool:
     return "data-overflow" in goal
 
 
+def plan_capture(out: "Path | None", chrome) -> "dict | int":
+    """The planned run's canvas: its counts (`out` None) or its picture at `out`."""
+    from tests.helpers.studio_plan_rig import PlanRig
+    with PlanRig() as rig:
+        url = rig.url().replace("#t=", "&feed=off#t=")
+        if out is None:
+            r = chrome(["--dump-dom", WINDOW, url])
+            return counts(r.stdout) if r is not None else 2
+        r = chrome([f"--screenshot={out}", WINDOW, "--force-device-scale-factor=2", url])
+        if r is None:
+            return 2
+        good = out.is_file() and out.stat().st_size > 10_000
+        print(f"{'wrote' if good else 'FAILED'} {out} ({out.stat().st_size if out.is_file() else 0} bytes)")
+        return 0 if good else 1
+
+
 def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
     """Seed, serve, render; the exit code capture_studio.py returns."""
     from tests.helpers import orchestra_fixtures as F
     from tests.helpers.orchestra_studio_rig import cleanup, finished_run
-    repo, _run_dir = finished_run()
+    repo, _run_dir = finished_run(chain=True)  # 3.0.9.0: lane 2 takes lane 1's summary (one lane-edge)
     empty = F.make_repo("orch-empty-")  # a git repo without a run: the Start view
     srv, url = serve(state, True, repo)  # /?mode=orchestra&feed=off#t=
     srv2, url2 = serve(state, True, empty)
@@ -50,8 +70,9 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
                 print("no Chrome found")
                 return 2
             a, b, c, e = (r.stdout for r in got)
+            plan = plan_capture(None, chrome)
             print(json.dumps({**counts(a), "goal-overflow": goal_overflow(a), "start": counts(b),
-                              "roles": counts(c), "welcome": counts(e)}))
+                              "roles": counts(c), "welcome": counts(e), "plan": plan}))
             return 0
         grid_png = Path(out).resolve()
         start_png = grid_png.with_name(grid_png.stem + "-start.png")
@@ -64,6 +85,7 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
             good = target.is_file() and target.stat().st_size > 10_000
             ok = ok and good
             print(f"{'wrote' if good else 'FAILED'} {target} ({target.stat().st_size if target.is_file() else 0} bytes)")
+        ok = plan_capture(grid_png.with_name(grid_png.stem + "-plan.png"), chrome) == 0 and ok
         return 0 if ok else 1
     finally:
         for s in (srv, srv2):

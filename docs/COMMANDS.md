@@ -2821,6 +2821,10 @@ halo orchestra run [RUN] [--model REF] [--dry-run] [--force] [--repo DIR]   spli
 halo orchestra lanes [RUN] [--repo DIR]            every worker lane: state, pieces sent back, cost, holder
 halo orchestra report [RUN] [--repo DIR]           the run's report and its checks
 halo orchestra stop [RUN] [--reason T] [--repo DIR]  ask a running run to stop at its next step
+halo orchestra run [RUN] --review [--repo DIR]     3.0.9.0: pause after the split until the plan is approved
+halo orchestra plan [RUN] [--repo DIR]             the plan of a review run as a table, its problems
+halo orchestra approve [RUN] [--file F] [--repo DIR]  check the plan (F, else Studio's draft, else the split); the run takes it
+halo orchestra reject [RUN] --reason T [--repo DIR]  the waiting run stops with the reason
 ```
 
 Halo 3.0.3.0: the Orchestra, several agents editing the same files without
