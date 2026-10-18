@@ -297,6 +297,17 @@ canvas reads the live agents from the Fleet store (`routes/fleet/frames.ts`
 writes them into the Roles store) and the Live tab uses the Fleet
 section's own streams, Steer box and commands.
 
+**Recall across the fleet (3.1.2.0 R3).** The recall box's **Fleet** switch
+asks `GET /api/recall?q=&fleet=1`: the hub Studio runs (`--fleet`), else a
+`halo fleet serve` on this machine, else the first hub this harness joined,
+fans the query out to every online member, each answering from its own
+index, and the box shows the hits merged by score, each labelled with its
+harness, with a line for every harness that did not answer. `GET
+/api/fleet/recall?q=` is the hub's merged view on its own. The index never
+leaves a box; a member keeps out with `fleet.recall.share: false` and hides
+kinds with `fleet.recall.hide` ([FLEET.md](FLEET.md) "Recall across the
+fleet").
+
 **Where it reads and writes.** `GET /api/fleet` once, then the live feed
 keyed by harness, session and agent (`agent_state` rows in place,
 `agent_event` entries of a followed agent, the raw `text_chunk` /

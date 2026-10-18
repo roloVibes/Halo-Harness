@@ -220,50 +220,7 @@ def rank_memory_topics(query: str, *, state_dir=None) -> Optional[list]:
     return [h["id"] for h in hits if h.get("kind") == "memory"]
 
 
-def _format(hits: list) -> str:
-    if not hits:
-        return "no matches (is the embedding model pulled? index built?)"
-    lines = []
-    for h in hits:
-        icon = "memo" if h["kind"] == "memory" else "sess"
-        lines.append(f"  {h['score']:+.3f} [{icon}] {h['title']}  ({h['id']})")
-    return "\n".join(lines)
-
-
 def cmd_recall(argv: list) -> int:
-    """`halo recall <query> [--k N] [--no-refresh] [--build-only]`."""
-    args = list(argv)
-    k, refresh, build_only = 8, True, False
-    rest = []
-    while args:
-        a = args.pop(0)
-        if a == "--k" and args:
-            try:
-                k = max(1, int(args.pop(0)))
-            except ValueError:
-                pass
-        elif a == "--no-refresh":
-            refresh = False
-        elif a == "--build-only":
-            build_only = True
-        else:
-            rest.append(a)
-    query = " ".join(rest).strip()
-
-    from halo_harness.providers.embeddings import embeddings_enabled
-    if not embeddings_enabled():
-        print("recall: embeddings are not configured -- set embeddings.model in "
-              "~/.halo/config.json (e.g. \"nomic-embed-text\", pulled on the default "
-              "Ollama host) and retry")
-        return 2
-    if build_only:
-        report = build_index(force=True)
-        print(f"recall: index rebuilt -- {report['total']} entries "
-              f"({report['embedded']} re-embedded, {report['pruned']} pruned)")
-        return 0
-    if not query:
-        print("usage: halo recall <query> [--k N] [--no-refresh] [--build-only]", file=sys.stderr)
-        return 2
-    hits = search(query, k=k, refresh=refresh)
-    print(_format(hits))
-    return 0 if hits else 1
+    """`halo recall <query> [--k N] [--no-refresh] [--build-only] [--fleet] [--json]` (halo_harness/recall_cli.py)."""
+    from halo_harness.recall_cli import cmd_recall as run
+    return run(argv)

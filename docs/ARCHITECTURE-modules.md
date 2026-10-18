@@ -63,6 +63,8 @@ this list against the tree.
   (a session command, this harness's or a member's)
 - the one unit view (3.1.2.0): `studio/work_api.py`
   (`GET /api/work/<kind>/<run>`, the units of any run; docs/WORK.md)
+- recall (3.1.2.0 R3): `studio/recall_api.py` (`GET /api/recall?q=&fleet=1`
+  for the recall box, `GET /api/fleet/recall?q=` the hub's merged view)
 
 **Fleet** (`halo_harness/fleet/`):
 
@@ -97,6 +99,11 @@ this list against the tree.
   `fleet/mission_handoff.py`, `fleet/mission_merge.py`,
   `fleet/mission_report.py`, `fleet/mission_attention.py`,
   `fleet/mission_stage_run.py` (3.1.2.0 R2: a part of kind orchestra | flow, a delegated team stage's run)
+- recall across the fleet (3.1.2.0 R3): `fleet/hub_recall.py` (the hub fans a
+  recall query out and merges the hits), and the scripted two-machine check
+  `fleet/live_check.py` with its `--fake` seams `fleet/live_check_fakes.py`
+  (`tools/live_fleet_check.py` is the CLI; `halo_harness/recall_fleet.py` and
+  `halo_harness/recall_cli.py` are the member's side and `halo recall`)
 
 **Orchestra** (`halo_harness/orchestra/`, its CLI beside the package):
 

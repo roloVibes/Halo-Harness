@@ -66,7 +66,7 @@ def test_the_units_key_equals_the_legacy_rows(ctx: Ctx):
                   u["title"] == lane["title"] and u["native"] == lane["state"]
                   and abs(u["cost_usd"] - lane["cost_usd"]) < 1e-9 and u["attempts"] == lane["pieces_returned"])
         ctx.check(f"lane {lane['lane']}: the row is the shared shape",
-                  u["kind"] == "lane" and set(u) == {"unit", "kind", "title", "owner", "state", "native", "cost_usd",
+                  u["kind"] == "lane" and set(u) == {"unit", "kind", "title", "owner", "harness", "state", "native", "cost_usd",
                                                      "attempts", "gate", "base", "gave", "error"})
 
 

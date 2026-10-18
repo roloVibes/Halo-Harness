@@ -286,6 +286,10 @@ mission's plan is the lead's, so these cards carry no Apply: put the change
 in the next mission's constraints, or Plan it again. The rules are in
 [ORCHESTRA.md](ORCHESTRA.md#the-coach).
 
+A mission part delegated to a member is exercised end to end against a real
+second machine by the scripted two-machine check ([FLEET.md](FLEET.md) "The
+two-machine check", `tools/live_fleet_check.py`, 3.1.2.0 R3).
+
 ## Config keys
 
 | Key | Default | Meaning |

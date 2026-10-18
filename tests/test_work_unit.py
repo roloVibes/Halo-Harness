@@ -7,7 +7,10 @@ adapters, docs/WORK.md).
    a native word for each kind;
 2. a lane, a part, a stage and a step read from each engine's own seeded
    fixture file as a `Unit`, and written back, are byte-identical;
-3. `UnitStore` reads the units of a run of each kind and its unit rows.
+3. `UnitStore` reads the units of a run of each kind and its unit rows;
+4. (3.1.2.0 R3) a delegated unit's `refs.harness`: a mission part's harness,
+   a team stage's member (its row or its remote run), in the report row,
+   `halo work`'s table and `GET work/...`; a local unit reads "here".
 Run: python -m tests.test_work_unit
 """
 from __future__ import annotations
@@ -131,6 +134,60 @@ def test_halo_work_and_the_route(ctx: Ctx):
               dispatch_work(Request("POST", f"work/orchestra/{run_dir.name}", {}, {}, repo, repo))[0] == 405
               and dispatch_work(Request("GET", "work/orchestra/nope", {}, {}, repo, repo))[0] == 404
               and dispatch_work(Request("GET", "roles", {}, {}, repo, repo)) is None)
+
+
+@test
+def test_a_delegated_units_harness_is_in_the_row_the_table_and_the_route(ctx: Ctx):
+    import io
+    import tempfile
+    from contextlib import redirect_stdout
+    from halo_harness.studio.api import Request
+    from halo_harness.studio.work_api import dispatch_work
+    from halo_harness.team import board as BD
+    from halo_harness.work.report import table
+    from halo_harness.work.store import UnitStore
+    from tests.helpers.coach_seed import mission_folder, team_run
+    root = Path(tempfile.mkdtemp(prefix="work-harness-"))
+    mission_dir = mission_folder(root)
+    mrows = {r["unit"]: r for r in UnitStore(mission_dir).rows()}
+    ctx.check(f"a part names the harness it ran on, got {[(k, r['harness']) for k, r in mrows.items()]}",
+              mrows["2"]["harness"] == "kali" and mrows["1"]["harness"] == "hub"
+              and UnitStore(mission_dir).need("2").refs["harness"] == "h-kali")
+    team_dir = team_run(root)
+    board_before = (Path(team_dir) / "board.json").read_bytes()
+
+    def delegate(board):
+        BD.row(board, "copy")["harness"] = "kali"
+        BD.row(board, "ship")["remote"] = {"harness": "box-2", "kind": "flow", "mission": "m1", "part_state": "done",
+                                           "run": "r1"}
+    BD.update_board(team_dir, delegate)
+    store = UnitStore(team_dir)
+    trows = {r["unit"]: r for r in store.rows()}
+    ctx.check(f"a stage names its member (the row, else the remote run), got {[(k, r['harness']) for k, r in trows.items()]}",
+              trows["copy"]["harness"] == "kali" and trows["ship"]["harness"] == "box-2")
+    refs_file = Path(team_dir) / "stages" / "copy" / "refs.json"
+    had = refs_file.read_bytes() if refs_file.exists() else None
+    store.write(store.unit("copy"))
+    ctx.check("the derived harness is not written into refs.json",
+              (refs_file.read_bytes() if refs_file.exists() else None) == had)
+    text = table(list(trows.values()) + [dict(mrows["1"], harness=None)])
+    ctx.check(f"halo work's table has a harness column, a local unit reads here: {text!r}",
+              "harness" in text.splitlines()[0] and "kali" in text and "box-2" in text and " here " in text)
+    from halo_harness.work_cli import cmd_work
+    out = io.StringIO()
+    with redirect_stdout(out):
+        rc = cmd_work([str(team_dir), "--json"], repo=root)
+    import json
+    units = {u["unit"]: u for u in json.loads(out.getvalue())["units"]}
+    ctx.check("halo work --json carries it", rc == 0 and units["copy"]["harness"] == "kali")
+    status, body = dispatch_work(Request("GET", f"work/mission/{Path(mission_dir).name}", {}, {}, root,
+                                         Path(mission_dir).parent.parent.parent))
+    got = {u["unit"]: u["harness"] for u in body.get("units") or []}
+    ctx.check(f"GET work/mission/<id> carries it, got {status} {got}", status == 200 and got.get("2") == "kali")
+    status, body = dispatch_work(Request("GET", f"work/team/{Path(team_dir).name}", {}, {}, root, root))
+    got = {u["unit"]: u["harness"] for u in body.get("units") or []}
+    ctx.check(f"GET work/team/<run> carries it, got {status} {got}", status == 200 and got == {"copy": "kali", "ship": "box-2"})
+    ctx.check("the seeded board was read, then delegated", board_before != (Path(team_dir) / "board.json").read_bytes())
 
 
 if __name__ == "__main__":

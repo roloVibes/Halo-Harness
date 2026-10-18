@@ -177,7 +177,10 @@ shows the top 8 with scores. Needs `embeddings.model` set in
 host; `embeddings.base_url`/`api_key` for an OpenAI-compatible server).
 The index (`~/.halo/index/embeddings.jsonl`) refreshes incrementally
 before each search; the CLI twin is `halo recall <query>`
-(`docs/COMMANDS.md`).
+(`docs/COMMANDS.md`). `/recall --fleet <query>` (3.1.2.0 R3) asks the hub
+this machine runs or joined to fan the query out to every online member,
+each answering from its own index; the hits are merged by score and shown
+with their harness ([FLEET.md](FLEET.md) "Recall across the fleet").
 
 ### `/ask <question>` (2.0.7 round 0e)
 The concierge secretary: `roles.concierge` (e.g.

@@ -11,6 +11,9 @@ trigger; gate = the stage's `gate:` and its open gate's round; attempts =
 the round; refs = the stage's refs.json; extra = kind, trigger, members,
 lead, harness, summary, gate_answer and (3.1.2.0 R2) members_state, remote,
 budget. A stage run on a fleet member whose part is `asked` is `waiting`.
+3.1.2.0 R3: refs.harness is the member a delegated stage ran on (its
+orchestra / flow run's `remote.harness`, else the row's `harness`), kept out
+of refs.json unless the engine wrote it there.
 """
 
 from __future__ import annotations
@@ -57,6 +60,18 @@ def _after(trigger) -> list:
     return [target] if kind == "stage_done" and target else []
 
 
+def _row_harness(row: dict) -> str:
+    remote = row.get("remote") if isinstance(row.get("remote"), dict) else {}
+    return str(remote.get("harness") or row.get("harness") or "")
+
+
+def _refs(run_dir, sid: str, row: dict) -> dict:
+    refs = dict(BD.read_stage_file(run_dir, sid, "refs.json", {}) or {})
+    if not refs.get("harness") and _row_harness(row):
+        refs["harness"] = _row_harness(row)
+    return refs
+
+
 def to_unit(row: dict, run_dir, run_id: str = "", team: dict = None) -> U.Unit:
     team = team if team is not None else _spec(run_dir)
     sid = str(row.get("id"))
@@ -71,7 +86,7 @@ def to_unit(row: dict, run_dir, run_id: str = "", team: dict = None) -> U.Unit:
         acceptance=(gate.get("acceptance") if isinstance(gate.get("acceptance"), dict) else None),
         cost_usd=float(row.get("cost_usd") or 0.0), started=row.get("started"), ended=row.get("ended"),
         attempts=int(row.get("round") or 0), error=str(row.get("error") or ""),
-        refs=BD.read_stage_file(run_dir, sid, "refs.json", {}) or {},
+        refs=_refs(run_dir, sid, row),
         extra={k: row.get(k) for k in _EXTRA if k in row}, source=dict(row))
     remote = row.get("remote") if isinstance(row.get("remote"), dict) else {}
     if u.state == "running" and remote.get("part_state") == "asked":  # 3.1.2.0 R2: a member's owner has the card
@@ -90,8 +105,11 @@ def unit(run_dir, uid):
 
 
 def write(run_dir, u: U.Unit) -> None:
-    refs = u.refs or {}
-    if refs:
+    refs = dict(u.refs or {})
+    disk = BD.read_stage_file(run_dir, u.id, "refs.json", {}) or {}
+    if "harness" not in disk and refs.get("harness") == _row_harness(u.source or {}):
+        refs.pop("harness", None)  # derived from the row (3.1.2.0 R3), not the engine's refs.json
+    if refs and refs != disk:
         BD.write_stage_file(run_dir, u.id, "refs.json", refs)
     fields = {"cost_usd": u.cost_usd, "started": u.started, "ended": u.ended, "round": int(u.attempts),
               "error": u.error, "gate_answer": (u.extra or {}).get("gate_answer")}

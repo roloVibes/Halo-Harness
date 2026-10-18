@@ -138,10 +138,16 @@ Every engine log line reads as a `LedgerLine` (`work/ledger.py`):
 and every unit has one report row, a `UnitRow` (`work/report.py`):
 
 ```json
-{"unit": "2", "kind": "lane", "title": "...", "owner": "...", "state": "<machine>", "native": "<engine>",
- "cost_usd": 0.0031, "attempts": 0, "gate": "required|optional|none", "base": "<sha>" | null,
+{"unit": "2", "kind": "lane", "title": "...", "owner": "...", "harness": "<name>" | null, "state": "<machine>",
+ "native": "<engine>", "cost_usd": 0.0031, "attempts": 0, "gate": "required|optional|none", "base": "<sha>" | null,
  "gave": [{"name", "kind", "path"}], "error": ""}
 ```
+
+`harness` (3.1.2.0 R3) is the fleet harness a delegated unit ran on -- a
+mission part's harness, a team stage whose lead member is on a member or
+whose orchestra / flow run is delegated (`refs.harness`); `null`/absent and
+`halo work`'s table reads `here` for a unit that ran on this machine, so a
+report of a delegated run reads where each unit ran.
 
 Each engine's report keeps its own rows and now carries the unit rows
 beside them under a new `units` key (report.json for an Orchestra run, a
