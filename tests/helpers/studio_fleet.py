@@ -99,7 +99,7 @@ def fleet_map(c, rig) -> dict:
     out["stop_ack"] = c.wait("document.querySelector('.toasts')?.textContent.includes('stopping') && 'stopping'", 15)
     rig.release("a")
     out["stopped"] = wait_for(lambda: rig.agent("Implement").get("state") == "stopped" and "stopped", 30)
-    out["node_stopped"] = c.wait(f"{node('implementer')}?.dataset.state === 'stopped' && 'stopped'", 20)
+    out["node_stopped"] = c.wait(f"{node('implementer')}?.dataset.state === 'stopped' && 'stopped'", 60)  # a loaded runner took > 20 s
     c.click_on(f"[...document.querySelectorAll('[data-testid=\"fleet-rail-node\"]')].find((n) => n.dataset.kind === 'agent' && n.dataset.id === 'main' && n.closest('.fr-harness').querySelector('.fr-h').dataset.id === '{rig.member_id}')")
     c.wait(f"{DETAIL}?.dataset.key?.startsWith('{rig.member_id}')", 10)
     c.click_on("document.querySelector('[data-testid=\"fleet-steer\"]')")
