@@ -8,6 +8,22 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.1.0.0] - unreleased
+
+Suite and repo health: the test suite that gated nine red runs in two days is isolated per module, split into a fast and a full tier, and driven by one Chrome base; Windows CI moves off the per-push gate without leaving the release gate; line endings are settled once and the last modules named by line count are named for what they do. The first of the four versions from the 2026-10-18 assessment ("Love it do all that!").
+
+### R1: suite isolation and CI tiers
+
+- **Every test module runs in its own home.** `tests/run_all.py` gives each module a fresh `BRIDGE_TEST_HOME` (a short name under a short scratch root, removed after it) and resets the state-dir caches between modules, so no module sees another's catalog, config or sessions; `ensure_scoped_state_dir_once` re-scopes once per module; the real-home guards are unchanged.
+- **Two tiers.** `python tests/run_all.py --fast` skips the modules marked `TIER = "full"` (headless Chrome, TUI pilots); `--tier full` runs only those; no flag runs everything.
+- **One Chrome driver base.** `tests/helpers/chrome_driver.py`: every Studio driver and capture tool scopes the home first, finds Chrome through `HALO_CHROME` first, and only one headless Chrome runs at a time (a file lock across threads and processes); a failed step is named in the driver's JSON line.
+- **Windows off the per-push gate.** CI runs Linux on every push and pull request and Windows on tags, nightly and `workflow_dispatch` (with a `sha`); `scripts/release.py` step 0 dispatches the Windows run for the sha it releases and goes on only when the Linux and Windows runs for that exact sha both concluded success (`--skip-windows` accepts an existing green Windows run).
+
+### R2: repo health
+
+- **LF everywhere.** `.gitattributes` starts with `* text=auto eol=lf` (images, fonts, archives and `.pyc` are binary, `bin/*.cmd` stay CRLF), so every checkout is LF whatever `core.autocrlf` says; `scripts/release.py` writes LF on Windows too (a CRLF `checksums.txt` failed `sha256sum -c`); `tests/test_line_endings.py` checks the rule, the index and that no byte comparison of a text file skips folding CRLF.
+- **Modules named for what they do.** The last modules named by line count are re-cut by responsibility: Studio's Design routes (`design_artboards_api`, `design_assets_api`, `design_critique_api`, `design_system_api`, `design_export_api`, `design_request`, `design_turns`), Flow (`flow_request`, `flow_assets_api`), Fleet (`fleet_watch_sources`, `fleet_feed`, `fleet_send`, `fleet_handoff_api`, `fleet_recording_api`; `fleet/cli_join`, `fleet/cli_members`; `fleet/mission_assign`, `fleet/mission_claims`), the coach (one `coach_<kind>_rules` per run kind, `coach_lane_facts`, `coach_prices`), the team validator (`team/validate`, `team/validate_stages`, `team/resolve`) and `halo orchestra` (`orchestra_cli_views` beside `orchestra_cli_run`). No command, route or output changed. `docs/ARCHITECTURE.md` has a module map of Studio, fleet, Orchestra and team that the suite checks against the tree, and no module may be named `*_more.py`, `*2.py`, `*_extra*.py` or `*_rest.py` any more.
+
 ## [3.0.9.0] - 2026-10-17
 
 Hand-offs and the graph: a lane can start after another and take what it left, a sequenced mission part starts from the earlier part's head, the lead's plan can be reviewed and edited on a canvas before it runs, a saved flow draws as a graph, and after any run a coach reads the run's own files and says what to change, with Apply into the bio, the lineup or the plan. The three OpenFlow ports from the 2026-10-17 roadmap entry. Rolo's order, 2026-10-17: "complete all the different version numbers".
