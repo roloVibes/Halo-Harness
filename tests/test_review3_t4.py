@@ -97,35 +97,20 @@ def test_item145_bang_command_keeps_image_chips_and_drops_their_labels(ctx: Ctx)
 
 
 @test
-def test_item148_lineup_editor_reports_bad_instances_and_keeps_an_empty_role(ctx: Ctx):
-    from textual.widgets import Input
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
-
-    async def body():
-        app = _host()
-        async with app.run_test(size=(140, 50)) as pilot:
-            template = {"agents": [{"role": "main", "agent": "a"}, {"role": "reviewer", "agent": "b", "instances": 2}]}
-            ed = LineupEditor("t", template, [])
-            app.push_screen(ed)
-            await pilot.pause(0.3)
-            ed._load_assignment(1)
-            field = ed.query_one("#lineup-field-instances", Input)
-            field.focus()
-            field.value = "two"
-            await pilot.press("enter")
-            await pilot.pause(0.1)
-            hint = _text(ed.query_one("#lineup-hint"))
-            ctx.check(f"the hint says why, got {hint!r}", "whole number" in hint)
-            ctx.check("the old count is kept, the field keeps what was typed",
-                      template["agents"][1]["instances"] == 2 and field.value == "two")
-            ctx.check("focus stays on Instances", app.focused is field)
-            field.value = "3"
-            ed.query_one("#lineup-field-role", Input).value = ""
-            ok = ed._commit_current_assignment()
-            ctx.check(f"a fixed count commits and the role is stored as typed, got {template['agents'][1]}",
-                      ok and template["agents"][1]["instances"] == 3 and template["agents"][1]["role"] == "")
-            ctx.check("the hint clears", "whole number" not in _text(ed.query_one("#lineup-hint")))
-    asyncio.run(body())
+def test_item148_lineup_save_reports_bad_instances_and_an_empty_role(ctx: Ctx):
+    """3.1.1.0 R3: lineups are edited in Studio; its save (`PUT /api/lineup/<name>`) names a bad
+    Instances count and an empty Role instead of dropping either, and writes nothing."""
+    from halo_harness.studio.api import Request, dispatch
+    state = Path(tempfile.mkdtemp(prefix="t4-148-")) / ".halo"
+    state.mkdir(parents=True)
+    raw = {"agents": [{"role": "main", "agent": "coder"}, {"role": "", "agent": "reviewer", "instances": "two"}]}
+    status, body = dispatch(Request(method="PUT", path="lineup/t", query={}, body={"raw": raw}, cwd=state.parent,
+                                    state_dir=state))
+    problems = body.get("problems") or []
+    ctx.check(f"422 naming the count and the role, got {status} {problems}", status == 422
+              and any('"instances" must be a positive integer' in p for p in problems)
+              and any('"role" is required' in p for p in problems))
+    ctx.check("nothing was written", not (state / "teams" / "t.yaml").exists())
 
 
 @test

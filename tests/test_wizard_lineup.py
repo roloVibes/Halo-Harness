@@ -1,7 +1,12 @@
 """tests.test_wizard_lineup -- Halo 2.0.5 round 2 (wizard: agent bios and
 lineups): deliverable 2 (the roles editor's Models/Agents picker source)
-and deliverable 3 (the lineup editor, `tui/dialogs/lineup_editor.py`) plus
-the `about:` context-builder fold-in. Hermetic: no network, no real model.
+and deliverable 3 (the lineup editor) plus the `about:` context-builder
+fold-in. 3.1.1.0 R3: Studio is the one editor of lineups -- the lineups are
+made and saved through Studio's routes (the ones its Lineups panel and
+inspector call; the inspector in a browser: tests/test_studio_edit_route.py)
+and the terminal shows them in the read-only view (`tui/dialogs/
+lineup_editor.py`: `e` opens Studio, `t` probes a model). Hermetic: no
+network, no real model, no Studio started.
 """
 from __future__ import annotations
 
@@ -57,7 +62,7 @@ def _static_text(widget) -> str:
 
 @test
 def test_draft_about_text_is_never_blank(ctx: Ctx):
-    from halo_harness.tui.dialogs.lineup_editor import draft_about_text
+    from halo_harness.tui.dialogs.lineup_view_text import draft_about_text
     empty = draft_about_text({"agents": []})
     ctx.check(f"an empty lineup still gets a sentence, got {empty!r}", bool(empty.strip()))
     full = draft_about_text({"agents": [{"agent": "coder", "role": "main", "as": "boss"}],
@@ -70,7 +75,7 @@ def test_draft_about_text_is_never_blank(ctx: Ctx):
 
 @test
 def test_lineup_warnings_catch_missing_bio_duplicate_alias_and_main_count(ctx: Ctx):
-    from halo_harness.tui.dialogs.lineup_editor import lineup_warnings
+    from halo_harness.tui.dialogs.lineup_view_text import lineup_warnings
     with _Env():
         warnings = lineup_warnings([
             {"agent": "no-such-bio", "role": "main", "as": "a"},
@@ -85,7 +90,7 @@ def test_lineup_warnings_catch_missing_bio_duplicate_alias_and_main_count(ctx: C
 @test
 def test_lineup_warnings_flag_a_same_gateway_fallback(ctx: Ctx):
     from halo_harness.agents_yaml import save_agent_bio
-    from halo_harness.tui.dialogs.lineup_editor import lineup_warnings
+    from halo_harness.tui.dialogs.lineup_view_text import lineup_warnings
     with _Env() as e:
         save_agent_bio("same-gateway-bio", {"description": "x",
                                              "models": {"preference": "or:vendor/a", "fallback": "or:vendor/b"}},
@@ -168,19 +173,26 @@ def test_apply_team_template_writes_roles_and_active_team(ctx: Ctx):
 def test_roles_editor_agents_source_pick_and_new_bio_round_trip(ctx: Ctx):
     """Tests section: "The roles editor: switch to the Agents source,
     pick a bio, see the model and agent: recorded; 'New bio...' round
-    trip"."""
+    trip". 3.1.1.0 R3: "New bio..." writes a starter bio on the role's
+    model, records it for the role and opens Studio's bio form on it
+    (`tui.studio_open.OPENER` records the target; no Studio starts)."""
     from textual.app import App
     from textual.screen import Screen
-    from textual.widgets import Input, OptionList
+    from textual.widgets import OptionList
 
     from halo_harness.agents_yaml import save_agent_bio
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+    from halo_harness.tui import studio_open
     from halo_harness.tui.dialogs.model_picker import ModelPicker
     from halo_harness.tui.dialogs.roles_editor import RolesEditor
 
     class HostApp(App):
         def on_mount(self):
             self.push_screen(Screen())
+
+    opened = []
+    saved_opener = studio_open.OPENER
+    studio_open.OPENER = lambda target, **_kw: opened.append(target.text) or {"url": "u", "how": "focused", "pages": 1,
+                                                                              "target": target.text}
 
     async def body():
         with _Env():
@@ -216,7 +228,7 @@ def test_roles_editor_agents_source_pick_and_new_bio_round_trip(ctx: Ctx):
                 ctx.check(f"the row text shows the agent, got {editor._row_text('orchestrator')!r}",
                           "agent:pilot-researcher" in editor._row_text("orchestrator"))
 
-                # "New bio..." round trip.
+                # "New bio..." round trip: the starter bio, recorded, and Studio on it.
                 editor.query_one("#roles-list", OptionList).highlighted = 0
                 await pilot.press("enter")
                 await pilot.pause(0.1)
@@ -227,16 +239,21 @@ def test_roles_editor_agents_source_pick_and_new_bio_round_trip(ctx: Ctx):
                 rows2.highlighted = 0  # "New bio..."
                 await pilot.press("enter")
                 await pilot.pause(0.2)
-                ctx.check("New bio... opened the bio editor", isinstance(app.screen, AgentBioEditor))
-                app.screen.query_one("#bio-pref", Input).value = "or:vendor/strong-model"
-                app.screen.action_save()
-                await pilot.pause(0.2)
+                ctx.check(f"back on the roles editor, no form in the terminal, got {type(app.screen).__name__}",
+                          app.screen is editor)
                 await pilot.press("enter")  # blank effort
-                await pilot.pause(0.1)
+                for _ in range(20):
+                    await pilot.pause(0.05)
+                    if opened:
+                        break
                 new_recorded = editor.roles.get("orchestrator")
-                ctx.check(f"the fresh bio is now recorded, got {new_recorded}",
-                          new_recorded["agent"].startswith("new-bio-"))
-    asyncio.run(body())
+                ctx.check(f"the fresh bio is now recorded on the role's model, got {new_recorded}",
+                          new_recorded["agent"].startswith("agent-") and new_recorded["model"] == "or:vendor/strong-model")
+                ctx.check(f"and Studio opened on it, got {opened}", opened == [f"bio:{new_recorded['agent']}"])
+    try:
+        asyncio.run(body())
+    finally:
+        studio_open.OPENER = saved_opener
 
 
 def _host_screen(screen):
@@ -252,137 +269,116 @@ def _host_screen(screen):
     return _Host()
 
 
+def _studio(e, method: str, path: str, body: "dict | None" = None) -> "tuple[int, dict]":
+    """One of Studio's routes, the ones its Lineups panel and inspector use."""
+    from halo_harness.studio.api import Request, dispatch
+    return dispatch(Request(method=method, path=path, query={}, body=body or {}, cwd=e.cwd, state_dir=e.state_dir))
+
+
 @test
-def test_lineup_editor_new_lineup_model_and_bio_roles_about_budget_save_activate(ctx: Ctx):
+def test_lineup_through_studio_routes_then_the_view(ctx: Ctx):
     """Tests section: "new lineup with one role by model and one by bio,
     the about text, one advanced section (budget), save, teams_yaml loads
     it clean, halo teams show prints the about text, the activation
-    prompt sets team:"."""
-    from textual.widgets import Button, Input, TextArea
+    sets team:". 3.1.1.0 R3: made and saved through Studio's routes (New,
+    Save, Apply), then shown in the terminal's read-only lineup view."""
+    from halo_harness.agents_yaml import ensure_bio_for_model, save_agent_bio
+    from halo_harness.tui.dialogs.lineup_editor import LineupView
 
-    from halo_harness.agents_yaml import save_agent_bio
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor, _ActivateLineupConfirm
+    with _Env() as e:
+        save_agent_bio("lineup-worker", {"description": "a worker bio", "models": {"preference": "or:vendor/strong-model"}})
+        pinned = ensure_bio_for_model("or:vendor/strong-model")  # Studio's model picker on a card does the same
+        status, made = _studio(e, "POST", "lineup", {"name": "pilot-lineup"})
+        ctx.check(f"New makes the lineup, got {status}", status == 201)
+        raw = dict(made["raw"], about="The boss splits the work; the worker writes it.", budget={"max_budget_usd": 20},
+                   agents=[{"role": "main", "as": "boss", "agent": pinned},
+                           {"role": "subagent", "as": "worker", "agent": "lineup-worker"}])
+        status, saved = _studio(e, "PUT", "lineup/pilot-lineup", {"raw": raw})
+        ctx.check(f"Save validates and writes it, got {status} {saved.get('problems')}", status == 200)
+        status, applied = _studio(e, "POST", "lineup/pilot-lineup/apply")
+        ctx.check(f"Apply makes it the active team, got {status} {applied.get('active_team')}",
+                  status == 200 and applied.get("active_team") == "pilot-lineup")
 
-    async def body():
-        with _Env():
-            save_agent_bio("lineup-worker", {"description": "a worker bio",
-                                              "models": {"preference": "or:vendor/strong-model"}})
-            app = _host_screen(LineupEditor("pilot-lineup", {"agents": []}, FIXTURE_MODELS, is_new=True))
+        from halo_harness.teams_yaml import load_team_template_raw, resolve_role_table, resolve_team_template, \
+            validate_team_template
+        ctx.check("teams_yaml loads it clean", validate_team_template(load_team_template_raw("pilot-lineup")) == [])
+        resolved = resolve_team_template("pilot-lineup")
+        table, notes = resolve_role_table(resolved)
+        ctx.check(f"both roles resolve to the strong model, got {table}, notes {notes}",
+                  table.get("boss") == "or:vendor/strong-model" and table.get("worker") == "or:vendor/strong-model" and not notes)
+        ctx.check(f"budget round-tripped, got {resolved.get('budget')}", resolved["budget"]["max_budget_usd"] == 20)
+        import io
+        from contextlib import redirect_stdout
+        from halo_harness.teams_cli import cmd_teams
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            cmd_teams(["show", "pilot-lineup"])
+        ctx.check("halo teams show prints the about text", "The boss splits the work" in buf.getvalue())
+
+        async def body():
+            app = _host_screen(LineupView("pilot-lineup", None, FIXTURE_MODELS))
             async with app.run_test(size=(140, 55)) as pilot:
-                await pilot.pause(0.1)
-                editor = app.screen
-                editor.action_add_assignment()
-                await pilot.pause(0.05)
-                editor.query_one("#lineup-field-role", Input).value = "main"
-                editor.query_one("#lineup-field-as", Input).value = "boss"
-                editor._agent_or_model_picked("or:vendor/strong-model")  # pick by MODEL
-                await pilot.pause(0.05)
-
-                editor.action_add_assignment()
-                await pilot.pause(0.05)
-                editor.query_one("#lineup-field-role", Input).value = "subagent"
-                editor.query_one("#lineup-field-as", Input).value = "worker"
-                editor._agent_or_model_picked({"agent": "lineup-worker"})  # pick by BIO
-                await pilot.pause(0.05)
-                editor._commit_current_assignment()
-                editor._refresh_assignments()
-
-                warnings = _static_text(editor.query_one("#lineup-warnings"))
-                ctx.check(f"no warnings once both rows resolve, got {warnings!r}", warnings == "")
-
-                editor.query_one("#lineup-section-budget", TextArea).text = "max_budget_usd: 20\n"
-                await pilot.pause(0.05)
-                editor.action_draft_about()
-                await pilot.pause(0.05)
-                about_text = editor.query_one("#lineup-about", TextArea).text
-                ctx.check(f"about was drafted, never blank, got {about_text!r}", bool(about_text.strip()))
-                ctx.check("no stale marker right after drafting",
-                          _static_text(editor.query_one("#lineup-about-stale")) == "")
-                editor.action_add_assignment()
-                await pilot.pause(0.05)
-                ctx.check("a further change marks the about stale",
-                          "stale" in _static_text(editor.query_one("#lineup-about-stale")))
-                editor.action_delete_assignment()
-                await pilot.pause(0.05)
-
-                editor.query_one("#lineup-save", Button).press()
                 await pilot.pause(0.2)
-                ctx.check("save offers to activate", isinstance(app.screen, _ActivateLineupConfirm))
-                app.screen.query_one("#confirm-yes", Button).press()
-                await pilot.pause(0.2)
-
-                from halo_harness.teams_yaml import load_team_template_raw, resolve_role_table, \
-                    resolve_team_template, validate_team_template
-                raw = load_team_template_raw("pilot-lineup")
-                ctx.check(f"teams_yaml loads it clean, got {validate_team_template(raw)}",
-                          validate_team_template(raw) == [])
-                resolved = resolve_team_template("pilot-lineup")
-                table, notes = resolve_role_table(resolved)
-                ctx.check(f"both roles resolve to the strong model, got {table}, notes {notes}",
-                          table.get("boss") == "or:vendor/strong-model"
-                          and table.get("worker") == "or:vendor/strong-model" and not notes)
-                ctx.check(f"budget round-tripped, got {resolved.get('budget')}",
-                          resolved["budget"]["max_budget_usd"] == 20)
-
-                from halo_harness.theme import get_config_value
-                ctx.check(f"the activation prompt set team:, got {get_config_value('team', default=None)!r}",
-                          get_config_value("team", default=None) == "pilot-lineup")
-
-                import io
-                from contextlib import redirect_stdout
-                from halo_harness.teams_cli import cmd_teams
-                buf = io.StringIO()
-                with redirect_stdout(buf):
-                    cmd_teams(["show", "pilot-lineup"])
-                printed = buf.getvalue()
-                ctx.check(f"halo teams show prints the about text, got {printed!r}", about_text.strip() in printed)
-    asyncio.run(body())
+                view = app.screen
+                ctx.check(f"no warnings once both rows resolve, got {_static_text(view.query_one('#lineup-warnings'))!r}",
+                          _static_text(view.query_one("#lineup-warnings")) == "")
+                ctx.check("the budget section shows as its YAML", _static_text(view.query_one("#lineup-section-budget")) == "max_budget_usd: 20")
+                ctx.check("the about text shows", _static_text(view.query_one("#lineup-about")).startswith("The boss splits"))
+        asyncio.run(body())
 
 
 @test
-def test_lineup_editor_editing_an_installed_template(ctx: Ctx):
-    """Tests section: "editing an installed template"."""
-    from halo_harness.teams_yaml import ensure_builtin_team_templates, list_team_templates, \
-        load_team_template_raw
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
-    from textual.widgets import Button, Input
+def test_lineup_installed_template_saved_in_studio_and_e_in_the_view(ctx: Ctx):
+    """Tests section: "editing an installed template" -- Studio saves the installed copy (the
+    terminal's `e` opens it there); the view shows the edit."""
+    from halo_harness.teams_yaml import ensure_builtin_team_templates, list_team_templates, load_team_template_raw
+    from halo_harness.tui import studio_open
+    from halo_harness.tui.dialogs.lineup_editor import LineupView
 
-    async def body():
-        with _Env() as e:
-            ensure_builtin_team_templates(state_dir=e.state_dir)
-            installed = list_team_templates(state_dir=e.state_dir, include_templates=False)
-            ctx.check(f"a shipped template was copied in to edit, got {installed}", installed)
-            name = installed[0]
-            template = load_team_template_raw(name, state_dir=e.state_dir)
-            app = _host_screen(LineupEditor(name, template, FIXTURE_MODELS, state_dir=e.state_dir))
+    with _Env() as e:
+        ensure_builtin_team_templates(state_dir=e.state_dir)
+        installed = list_team_templates(state_dir=e.state_dir, include_templates=False)
+        ctx.check(f"a shipped template was copied in to edit, got {installed}", installed)
+        name = installed[0]
+        raw = load_team_template_raw(name, state_dir=e.state_dir)
+        raw["about"] = "Edited by the pilot."
+        status, _saved = _studio(e, "PUT", f"lineup/{name}", {"raw": {k: v for k, v in raw.items() if not k.startswith("_")}})
+        ctx.check(f"the installed copy saves, got {status}", status == 200)
+        ctx.check("the edit round-tripped", load_team_template_raw(name, state_dir=e.state_dir)["about"] == "Edited by the pilot.")
+        opened = []
+        saved_opener = studio_open.OPENER
+        studio_open.OPENER = lambda target, **_kw: opened.append(target.text) or {"url": "u", "how": "focused", "pages": 1,
+                                                                                  "target": target.text}
+
+        async def body():
+            app = _host_screen(LineupView(name, None, FIXTURE_MODELS, state_dir=e.state_dir))
             async with app.run_test(size=(140, 55)) as pilot:
-                await pilot.pause(0.1)
-                editor = app.screen
-                ctx.check("opened with its own existing assignments", len(editor._agents()) >= 1)
-                from textual.widgets import TextArea
-                editor.query_one("#lineup-about", TextArea).text = "Edited by the pilot."
-                editor.query_one("#lineup-save", Button).press()
                 await pilot.pause(0.2)
-                from halo_harness.tui.dialogs.lineup_editor import _ActivateLineupConfirm
-                if isinstance(app.screen, _ActivateLineupConfirm):
-                    app.screen.query_one("#confirm-no", Button).press()
-                    await pilot.pause(0.2)
-                reread = load_team_template_raw(name, state_dir=e.state_dir)
-                ctx.check(f"the edit round-tripped, got {reread.get('about')!r}",
-                          reread["about"] == "Edited by the pilot.")
-    asyncio.run(body())
+                view = app.screen
+                ctx.check("opened with its own existing assignments", len(view._agents()) >= 1)
+                ctx.check("the view shows the edit", _static_text(view.query_one("#lineup-about")) == "Edited by the pilot.")
+                await pilot.press("e")
+                for _ in range(20):
+                    await pilot.pause(0.05)
+                    if opened:
+                        break
+                ctx.check(f"e opens Studio on the lineup, got {opened}", opened == [f"lineup:{name}"])
+        try:
+            asyncio.run(body())
+        finally:
+            studio_open.OPENER = saved_opener
 
 
 @test
-def test_lineup_editor_t_key_probes_the_focused_assignment(ctx: Ctx):
-    """3.0.7.0 R1 ("Test this model"): `t` on the assignments list runs the
-    one-token probe (model_probe, stubbed here) on a worker and shows the
-    line in the cost footer; `t` typed into a field stays a letter; the
-    tiers section takes a YAML list."""
+def test_lineup_view_t_key_probes_the_highlighted_assignment(ctx: Ctx):
+    """3.0.7.0 R1 ("Test this model"): `t` in the lineup view runs the
+    one-token probe (model_probe, stubbed here) on the highlighted row's
+    model on a worker and shows the line in the cost footer; the tiers
+    section shows as its YAML list."""
     from halo_harness import model_probe
     from halo_harness.agents_yaml import save_agent_bio
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
-    from textual.widgets import Input, OptionList, TextArea
+    from halo_harness.tui.dialogs.lineup_editor import LineupView
+    from textual.widgets import OptionList
 
     async def body():
         with _Env() as e:
@@ -393,33 +389,24 @@ def test_lineup_editor_t_key_probes_the_focused_assignment(ctx: Ctx):
             model_probe.probe_model = lambda ref, **kw: calls.append(ref) or {
                 "ok": True, "latency_ms": 42, "error": "", "cost_line": "", "ref": ref, "reply": "ok"}
             try:
-                template = {"agents": [{"agent": "probe-bio", "role": "main"}]}
-                app = _host_screen(LineupEditor("probe-lineup", template, FIXTURE_MODELS, state_dir=e.state_dir))
+                template = {"agents": [{"agent": "probe-bio", "role": "main"}],
+                            "tiers": [{"name": "top", "members": ["main"]}]}
+                app = _host_screen(LineupView("probe-lineup", template, FIXTURE_MODELS, state_dir=e.state_dir))
                 async with app.run_test(size=(140, 55)) as pilot:
                     await pilot.pause(0.1)
-                    editor = app.screen
-                    editor.query_one("#lineup-assignments", OptionList).focus()
+                    view = app.screen
+                    view.query_one("#lineup-assignments", OptionList).focus()
                     await pilot.press("t")
                     for _ in range(40):
                         await pilot.pause(0.05)
-                        if "ok in" in _static_text(editor.query_one("#lineup-cost-footer")):
+                        if "ok in" in _static_text(view.query_one("#lineup-cost-footer")):
                             break
-                    footer = _static_text(editor.query_one("#lineup-cost-footer"))
+                    footer = _static_text(view.query_one("#lineup-cost-footer"))
                     ctx.check(f"the probe ran on the assignment's model, got {calls}", calls == ["or:vendor/strong-model"])
                     ctx.check(f"the line lands in the footer, got {footer!r}",
                               "test: or:vendor/strong-model: ok in 42 ms ('ok')" in footer)
-                    field = editor.query_one("#lineup-field-as", Input)
-                    field.focus()
-                    await pilot.press("t")
-                    await pilot.pause(0.1)
-                    ctx.check(f"t in a field types the letter, got {field.value!r} {calls}", field.value == "t" and len(calls) == 1)
-                    editor.query_one("#lineup-section-tiers", TextArea).text = "- name: top\n  members: [main]\n"
-                    await pilot.pause(0.05)
-                    ctx.check("the tiers section takes a YAML list", editor._section_error("tiers") is None
-                              and editor._section_dict("tiers") == [{"name": "top", "members": ["main"]}])
-                    editor.query_one("#lineup-section-tiers", TextArea).text = "name: top\n"
-                    await pilot.pause(0.05)
-                    ctx.check("a mapping there names the list shape", "must be a YAML list" in (editor._section_error("tiers") or ""))
+                    ctx.check("the tiers section shows as its YAML list",
+                              _static_text(view.query_one("#lineup-section-tiers")) == "- name: top\n  members:\n  - main")
             finally:
                 model_probe.probe_model = saved
     asyncio.run(body())

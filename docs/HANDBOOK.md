@@ -1,5 +1,7 @@
 # Halo Harness handbook
 
+Read this when you want the long-form guide: configuration, providers, permissions, steering, hooks, skills, MCP, sessions and themes.
+
 The long-form guide. It opens with the ten-minute start; the front-page
 [README](../README.md) covers install, quick start and what makes Halo
 intuitive; this document keeps the full
@@ -76,8 +78,9 @@ halo                         # full-screen TUI
    (e.g. `--step team`, `--step agents`/`--step roles` kept as aliases)
    jumps straight to any one step, skipping the Quick/Full choice.
    Reach Team/Organizations again later with `/setup team`/`/setup orgs`
-   or `halo setup team`/`halo setup orgs`, or the Agents/lineup forms any
-   time with `/agents`/`/teams` or `halo agents|teams new|edit --form` --
+   or `halo setup team`/`halo setup orgs`, or the bios and lineups any
+   time with `/agents`/`/teams` (they show bios and lineups; Studio edits them:
+   `halo agents|teams edit <name>`, `/edit <thing>`, `e` in a view) --
    see `docs/WIZARD.md` for the full ten-rule interaction model and chord
    table, `docs/COMMANDS.md`'s `init`/`setup`/`agents`/`teams` sections,
    and `docs/AGENTS.md`'s own wizard section for exactly what each step

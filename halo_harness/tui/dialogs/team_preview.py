@@ -6,7 +6,7 @@ Pure functions, no Textual import at module level, no markup in any
 string -- every caller decides how to colour it. A lineup preview is one
 tree, `role -> agent -> model`, with the model's price and context window
 when the cached catalog knows them, the lineup's own `about:` text, the
-`lineup_editor.lineup_warnings` lines and ONE cost line. The cost line
+`lineup_view_text.lineup_warnings` lines and ONE cost line. The cost line
 never reads as free by accident: a model with no known price is named
 ("price unknown for <model>"), never left blank."""
 
@@ -148,7 +148,7 @@ def preview_lines(name: str, *, cwd=None, state_dir=None, width: int = 80, defau
     lines.extend(_tree_lines(template, table, rows, cwd, state_dir))
     lines.extend(f"note: {n}" for n in notes)
     try:
-        from halo_harness.tui.dialogs.lineup_editor import lineup_warnings
+        from halo_harness.tui.dialogs.lineup_view_text import lineup_warnings
         lines.extend(f"warning: {w}" for w in lineup_warnings(template.get("agents") or [], cwd=cwd,
                                                               state_dir=state_dir))
     except Exception:

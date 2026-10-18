@@ -58,6 +58,8 @@ export type RolesState = {
   replay: Replay | null;
   history: { card: string; runs: HistoryRun[] | null; error: string };
   coachHint: CoachHint;
+  /** 3.1.1.0 R3: an edit target being opened (shell/edit.ts); the active lineup does not open over it. */
+  editing: string;
 };
 
 export const HISTORY_MAX = 50;
@@ -105,6 +107,7 @@ export const roles = createStore<RolesState>({
   replay: null,
   history: { card: "", runs: null, error: "" },
   coachHint: null,
+  editing: "",
 });
 
 export function useRoles<S>(pick: (s: RolesState) => S): S {

@@ -1,20 +1,19 @@
 """tests.test_agents_teams_forms -- Halo 2.0.5 round 2 (wizard: agent
-bios and lineups), deliverable 4: "the same forms outside the wizard" --
-`/agents`/`/teams` (list, new, edit, duplicate, delete, activate) in a
-running session, and `halo agents|teams new|edit --form` from the CLI --
-plus `halo init --step agents` (deliverable 1). Hermetic: no network, no
-real model, no real terminal app (`run_agent_bio_editor_standalone`/
-`run_lineup_editor_standalone`/`run_agents_list_standalone`/`run_teams_
-list_standalone` are monkeypatched where a test only needs to confirm the
-CLI dispatches to them correctly, not re-exercise the form itself -- that
-is already covered by `tests/test_wizard_agents_bios.py`/`tests/test_
-wizard_lineup.py`).
+bios and lineups), deliverable 4: `/agents`/`/teams` (list, new, edit,
+view, duplicate, delete, activate) in a running session, `/edit`, and
+`halo agents|teams new|edit` from the CLI -- plus `halo init --step agents`
+(deliverable 1). 3.1.1.0 R3: Studio is the one editor of bios and lineups:
+`edit` (and `new --studio`, `/agents new`) open Studio on the thing, `view`
+shows it read-only in the terminal. Hermetic: no network, no real model,
+no Studio started (`studio_edit_cli.open_in_studio` and
+`tui.studio_open.OPENER` record what would open).
 """
 from __future__ import annotations
 
 TIER = "full"  # a TUI pilot (Textual run_test): the full tier
 
 import asyncio
+import contextlib
 import io
 import os
 import sys
@@ -69,68 +68,57 @@ def _capture(fn, argv) -> "tuple[int, str]":
 
 
 # ---------------------------------------------------------------------------
-# CLI: `--form` dispatches to the TUI runner instead of $EDITOR/a starter
-# file -- the runner itself is monkeypatched (never a real terminal app).
+# CLI: `edit` and `new --studio` open Studio (3.1.1.0 R3) -- the opener is
+# monkeypatched (no Studio, no browser).
 # ---------------------------------------------------------------------------
 
-@test
-def test_agents_cli_new_form_dispatches_to_the_standalone_editor(ctx: Ctx):
-    import halo_harness.agents_cli as agents_cli_mod
-    import halo_harness.tui.dialogs.agent_bio_editor as editor_mod
-    calls = []
-    old = editor_mod.run_agent_bio_editor_standalone
-
-    def fake_runner(name, **kwargs):
-        calls.append((name, kwargs))
-        return name
-    editor_mod.run_agent_bio_editor_standalone = fake_runner
+@contextlib.contextmanager
+def _studio_calls():
+    """`studio_edit_cli.open_in_studio` recorded instead of reaching a Studio (3.1.1.0 R3)."""
+    import halo_harness.studio_edit_cli as mod
+    calls, old = [], mod.open_in_studio
+    mod.open_in_studio = lambda kind, name, **kw: calls.append((kind, name, kw.get("no_open"))) or 0
     try:
-        with _Env():
-            rc, out = _capture(agents_cli_mod.cmd_agents, ["new", "pilot-bio", "--form", "--from", "coder"])
-            ctx.check(f"exit 0, got {rc}, output {out!r}", rc == 0)
-            ctx.check(f"the standalone runner was called with is_new/from_template, got {calls}",
-                      calls and calls[0][0] == "pilot-bio" and calls[0][1].get("is_new") is True
-                      and calls[0][1].get("from_template") == "coder")
-            ctx.check(f"a success line was printed, got {out!r}", "pilot-bio" in out)
+        yield calls
     finally:
-        editor_mod.run_agent_bio_editor_standalone = old
+        mod.open_in_studio = old
 
 
 @test
-def test_agents_cli_edit_form_cancel_is_reported(ctx: Ctx):
+def test_agents_cli_new_studio_opens_the_new_bio_in_studio(ctx: Ctx):
+    """3.1.1.0 R3: `halo agents new <name> --studio` writes the starter bio, then opens Studio on it."""
     import halo_harness.agents_cli as agents_cli_mod
-    import halo_harness.tui.dialogs.agent_bio_editor as editor_mod
-    old = editor_mod.run_agent_bio_editor_standalone
-    editor_mod.run_agent_bio_editor_standalone = lambda name, **kw: None  # simulates Cancel
-    try:
-        with _Env():
-            rc, out = _capture(agents_cli_mod.cmd_agents, ["edit", "some-bio", "--form"])
-            ctx.check(f"a cancelled form is a non-zero exit, got {rc}, output {out!r}", rc == 1)
-    finally:
-        editor_mod.run_agent_bio_editor_standalone = old
+    with _Env() as e, _studio_calls() as calls:
+        rc, out = _capture(agents_cli_mod.cmd_agents, ["new", "pilot-bio", "--studio", "--from", "coder"])
+        ctx.check(f"exit 0, got {rc}, output {out!r}", rc == 0 and "Created agent 'pilot-bio' from 'coder'" in out)
+        ctx.check(f"Studio opened on it, got {calls}", calls == [("bio", "pilot-bio", False)])
+        ctx.check("the starter file is the shipped bio's copy", (e.state_dir / "agents" / "pilot-bio.yaml").is_file())
+        rc, out = _capture(agents_cli_mod.cmd_agents, ["new", "other-bio", "--form"])
+        ctx.check(f"--form is gone (the TUI form is), got {rc}", rc == 2)
 
 
 @test
-def test_teams_cli_new_and_edit_form_dispatch(ctx: Ctx):
+def test_agents_cli_edit_opens_studio_on_the_bio(ctx: Ctx):
+    """3.1.1.0 R3: `halo agents edit <name>` opens Studio on it (a missing bio gets a starter file first);
+    `--no-open` is passed through."""
+    import halo_harness.agents_cli as agents_cli_mod
+    with _Env() as e, _studio_calls() as calls:
+        rc, out = _capture(agents_cli_mod.cmd_agents, ["edit", "some-bio", "--no-open"])
+        ctx.check(f"exit 0, got {rc}, output {out!r}", rc == 0 and "Created agent 'some-bio'" in out)
+        ctx.check(f"Studio, --no-open passed through, got {calls}", calls == [("bio", "some-bio", True)])
+        ctx.check("the starter file exists", (e.state_dir / "agents" / "some-bio.yaml").is_file())
+
+
+@test
+def test_teams_cli_new_and_edit_open_studio_on_the_lineup(ctx: Ctx):
     import halo_harness.teams_cli as teams_cli_mod
-    import halo_harness.tui.dialogs.lineup_editor as lineup_mod
-    new_calls, edit_calls = [], []
-    old = lineup_mod.run_lineup_editor_standalone
-
-    def fake_runner(name, **kwargs):
-        (new_calls if kwargs.get("is_new") else edit_calls).append((name, kwargs))
-        return name
-    lineup_mod.run_lineup_editor_standalone = fake_runner
-    try:
-        with _Env():
-            rc, out = _capture(teams_cli_mod.cmd_teams, ["new", "pilot-lineup", "--form"])
-            ctx.check(f"new --form exit 0, got {rc}", rc == 0)
-            ctx.check(f"new dispatched with is_new=True, got {new_calls}", new_calls)
-            rc2, out2 = _capture(teams_cli_mod.cmd_teams, ["edit", "pilot-lineup", "--form"])
-            ctx.check(f"edit --form exit 0, got {rc2}", rc2 == 0)
-            ctx.check(f"edit dispatched with is_new=False, got {edit_calls}", edit_calls)
-    finally:
-        lineup_mod.run_lineup_editor_standalone = old
+    with _Env(), _studio_calls() as calls:
+        rc, out = _capture(teams_cli_mod.cmd_teams, ["new", "pilot-lineup", "--studio"])
+        ctx.check(f"new --studio exit 0, got {rc} {out!r}", rc == 0 and "Created lineup 'pilot-lineup'" in out)
+        rc2, out2 = _capture(teams_cli_mod.cmd_teams, ["edit", "pilot-lineup"])
+        ctx.check(f"edit exit 0, got {rc2} {out2!r}", rc2 == 0)
+        ctx.check(f"both opened Studio on the lineup, got {calls}",
+                  calls == [("lineup", "pilot-lineup", False), ("lineup", "pilot-lineup", False)])
 
 
 @test
@@ -189,20 +177,59 @@ def _build_slash_host_app(cwd: Path):
     return _HostApp()
 
 
+class _Opened:
+    """`tui.studio_open.OPENER` for a test (3.1.1.0 R3): records each target, answers as a focused Studio."""
+
+    def __enter__(self):
+        from halo_harness.tui import studio_open
+        self.mod, self.old, self.targets = studio_open, studio_open.OPENER, []
+        studio_open.OPENER = lambda target, **_kw: self.targets.append(target.text) or {
+            "url": f"http://127.0.0.1:1/{target.query()}#t=x", "how": "focused", "pages": 1, "target": target.text}
+        return self
+
+    def __exit__(self, *exc):
+        self.mod.OPENER = self.old
+
+
 @test
-def test_slash_agents_new_and_edit_open_the_bio_editor(ctx: Ctx):
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+def test_slash_agents_new_edit_view_and_slash_edit(ctx: Ctx):
+    """3.1.1.0 R3: `/agents new <name>` writes the starter bio and opens Studio on it, `/agents edit`
+    opens Studio, `/agents view` shows the bio read-only; `/edit` takes a target or a bare name."""
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
     from halo_harness.tui.slash import handle_slash
 
     async def body():
-        with _Env() as e:
+        with _Env() as e, _Opened() as opened:
             app = _build_slash_host_app(e.cwd)
             async with app.run_test(size=(120, 45)) as pilot:
                 await pilot.pause(0.05)
                 await handle_slash(app, "agents", "new slash-pilot-bio")
-                found = await _poll_until(pilot, lambda: isinstance(app.screen, AgentBioEditor))
-                ctx.check(f"/agents new opened the bio editor, got {type(app.screen).__name__}", found)
-                ctx.check("opened in is_new mode", app.screen.is_new is True)
+                await _poll_until(pilot, lambda: opened.targets)
+                ctx.check(f"/agents new opened Studio on the new bio, got {opened.targets}", opened.targets == ["bio:slash-pilot-bio"])
+                from halo_harness.agents_yaml import find_agent_bio_path
+                ctx.check("and wrote its starter file", find_agent_bio_path("slash-pilot-bio", cwd=e.cwd) is not None)
+                await _poll_until(pilot, lambda: any("Opened bio:slash-pilot-bio" in n for n, _k in app.transcript.notes))
+                ctx.check(f"the transcript says what opened, got {app.transcript.notes!r}",
+                          any("Opened bio:slash-pilot-bio" in n for n, _k in app.transcript.notes))
+                await handle_slash(app, "agents", "edit coder")
+                await _poll_until(pilot, lambda: len(opened.targets) == 2)
+                ctx.check(f"/agents edit opens Studio on it, got {opened.targets}", opened.targets[-1] == "bio:coder")
+                await handle_slash(app, "edit", "lineup:balanced")
+                await _poll_until(pilot, lambda: len(opened.targets) == 3)
+                ctx.check(f"/edit lineup:<name>, got {opened.targets}", opened.targets[-1] == "lineup:balanced")
+                await handle_slash(app, "edit", "reviewer")
+                await _poll_until(pilot, lambda: len(opened.targets) == 4)
+                ctx.check(f"/edit <bare bio name>, got {opened.targets}", opened.targets[-1] == "bio:reviewer")
+                await handle_slash(app, "edit", "team")
+                await _poll_until(pilot, lambda: len(opened.targets) == 5)
+                ctx.check(f"/edit team, got {opened.targets}", opened.targets[-1] == "team")
+                await handle_slash(app, "edit", "no-such-thing")
+                await _poll_until(pilot, lambda: any("no bio or lineup named" in n for n, _k in app.transcript.notes))
+                ctx.check("an unknown name says so and opens nothing", len(opened.targets) == 5
+                          and any("no bio or lineup named 'no-such-thing'" in n for n, _k in app.transcript.notes))
+                await handle_slash(app, "agents", "view coder")
+                found = await _poll_until(pilot, lambda: isinstance(app.screen, AgentBioView))
+                ctx.check(f"/agents view shows the bio read-only, got {type(app.screen).__name__}", found)
     asyncio.run(body())
 
 
@@ -250,19 +277,26 @@ def test_slash_agents_duplicate_and_delete(ctx: Ctx):
 
 
 @test
-def test_slash_teams_new_edit_and_activate(ctx: Ctx):
+def test_slash_teams_new_edit_view_and_activate(ctx: Ctx):
     from halo_harness.theme import get_config_value
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+    from halo_harness.tui.dialogs.lineup_editor import LineupView
     from halo_harness.tui.slash import handle_slash
 
     async def body():
-        with _Env() as e:
+        with _Env() as e, _Opened() as opened:
             app = _build_slash_host_app(e.cwd)
             async with app.run_test(size=(120, 45)) as pilot:
                 await pilot.pause(0.05)
                 await handle_slash(app, "teams", "new slash-pilot-lineup")
-                found = await _poll_until(pilot, lambda: isinstance(app.screen, LineupEditor))
-                ctx.check(f"/teams new opened the lineup editor, got {type(app.screen).__name__}", found)
+                await _poll_until(pilot, lambda: opened.targets)
+                ctx.check(f"/teams new opened Studio on the new lineup, got {opened.targets}",
+                          opened.targets == ["lineup:slash-pilot-lineup"])
+                await handle_slash(app, "teams", "edit slash-pilot-lineup")
+                await _poll_until(pilot, lambda: len(opened.targets) == 2)
+                ctx.check(f"/teams edit opens Studio on it, got {opened.targets}", opened.targets[-1] == "lineup:slash-pilot-lineup")
+                await handle_slash(app, "teams", "view slash-pilot-lineup")
+                found = await _poll_until(pilot, lambda: isinstance(app.screen, LineupView))
+                ctx.check(f"/teams view shows it read-only, got {type(app.screen).__name__}", found)
                 await pilot.press("escape")
                 await pilot.pause(0.1)
 
@@ -279,7 +313,7 @@ def test_slash_teams_new_edit_and_activate(ctx: Ctx):
 def test_slash_teams_bare_prints_overview_and_apply_preview_work(ctx: Ctx):
     from halo_harness.roles import roles_mode_enabled
     from halo_harness.theme import get_config_value
-    from halo_harness.tui.dialogs.lineup_editor import TeamsListScreen
+    from halo_harness.tui.dialogs.teams_list import TeamsListScreen
     from halo_harness.tui.slash import handle_slash
 
     async def body():
@@ -307,7 +341,7 @@ def test_slash_teams_bare_prints_overview_and_apply_preview_work(ctx: Ctx):
 
 @test
 def test_slash_teams_bare_opens_the_list_screen(ctx: Ctx):
-    from halo_harness.tui.dialogs.lineup_editor import TeamsListScreen
+    from halo_harness.tui.dialogs.teams_list import TeamsListScreen
     from halo_harness.tui.slash import handle_slash
 
     async def body():

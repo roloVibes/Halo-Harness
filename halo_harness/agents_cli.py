@@ -76,25 +76,18 @@ def _cmd_new(rest: list) -> int:
     parser.add_argument("name")
     parser.add_argument("--from", dest="from_template", default=None, metavar="BIO")
     parser.add_argument("--project", action="store_true", help="write to .halo/agents/ instead of ~/.halo/agents/")
-    # Halo 2.0.5 round 2 (deliverable 4): opens the SAME form module the
-    # wizard's Agents step and `/agents new` use, instead of writing a
-    # starter file directly.
-    parser.add_argument("--form", action="store_true", help="open the TUI form instead of writing a starter file")
+    # Halo 3.1.1.0 R3: Studio is the one editor of bios -- --studio writes
+    # the starter file, then opens Studio's bio form on it.
+    parser.add_argument("--studio", action="store_true", help="then open the new bio in Studio's bio form")
     args = parser.parse_args(rest)
-    if args.form:
-        from halo_harness.tui.dialogs.agent_bio_editor import run_agent_bio_editor_standalone
-        saved = run_agent_bio_editor_standalone(args.name, project=args.project, is_new=True,
-                                                 from_template=args.from_template)
-        if not saved:
-            print("halo agents new: cancelled.", file=sys.stderr)
-            return 1
-        print(f"Created agent {saved!r}.")
-        return 0
     ok, problems = new_agent_bio_from_template(args.name, args.from_template, project=args.project)
     if not ok:
         print(f"halo agents new: {'; '.join(problems)}", file=sys.stderr)
         return 1
     print(f"Created agent {args.name!r}" + (f" from {args.from_template!r}" if args.from_template else "") + ".")
+    if args.studio:
+        from halo_harness.studio_edit_cli import open_in_studio
+        return open_in_studio("bio", args.name, no_open=False, prog="halo agents new")
     return 0
 
 
@@ -114,22 +107,24 @@ def _run_editor(editor: str, path, *, label: str) -> int:
 
 def _cmd_edit(rest: list) -> int:
     from halo_harness.agents_yaml import load_agent_bio_raw, save_agent_bio, user_agents_dir, validate_agent_bio
-    parser = argparse.ArgumentParser(prog="halo agents edit", add_help=True)
+    from halo_harness.studio_edit_cli import add_studio_flags, open_in_studio
+    parser = argparse.ArgumentParser(prog="halo agents edit", add_help=True,
+                                     description="Open the bio in Studio's bio form (Studio is the editor of bios).")
     parser.add_argument("name")
-    # Halo 2.0.5 round 2 (deliverable 4): "halo agents new|edit --form".
-    parser.add_argument("--form", action="store_true", help="open the TUI form instead of $EDITOR")
+    add_studio_flags(parser, "bio")  # 3.1.1.0 R3: --no-open prints the URL; --yaml opens $EDITOR
     args = parser.parse_args(rest)
-    if args.form:
-        from halo_harness.tui.dialogs.agent_bio_editor import run_agent_bio_editor_standalone
-        saved = run_agent_bio_editor_standalone(args.name)
-        if not saved:
-            print("halo agents edit: cancelled.", file=sys.stderr)
-            return 1
-        print(f"Saved agent {saved!r}.")
-        return 0
+    if not args.yaml:
+        if load_agent_bio_raw(args.name) is None:
+            ok, problems = save_agent_bio(args.name, {"description": ""})
+            if not ok:
+                print(f"halo agents edit: {'; '.join(problems)}", file=sys.stderr)
+                return 1
+            print(f"Created agent {args.name!r}.")
+        return open_in_studio("bio", args.name, no_open=args.no_open, prog="halo agents edit")
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
     if not editor:
-        print("halo agents edit: set $EDITOR (or $VISUAL) to your text editor, or add --form", file=sys.stderr)
+        print("halo agents edit: --yaml needs $EDITOR (or $VISUAL) set to your text editor; without --yaml the "
+              "bio opens in Studio", file=sys.stderr)
         return 1
     if load_agent_bio_raw(args.name) is None:
         save_agent_bio(args.name, {"description": ""})
@@ -280,8 +275,8 @@ def cmd_agents(argv: list) -> int:
         print("usage: halo agents                                 list agents by where they live\n"
               "       halo agents show <name>                     (or just `halo agents <name>`)\n"
               "       halo agents list|validate [name]\n"
-              "       halo agents new <name> [--from AGENT] [--project] [--form]\n"
-              "       halo agents edit <name> [--form]\n"
+              "       halo agents new <name> [--from AGENT] [--project] [--studio]\n"
+              "       halo agents edit <name> [--no-open] [--yaml]\n"
               "       halo agents export <name> [file] [--claude-md]|import <file> [--claude-md]\n"
               "       halo agents schedule list|run <name>|pause <name>|resume <name>|rm <name>\n"
               "GUI:   halo studio --mode roles                    bios and lineups as an editable graph (Halo Studio; /roles in the TUI)",

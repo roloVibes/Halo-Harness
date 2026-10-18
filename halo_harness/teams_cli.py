@@ -102,56 +102,52 @@ def _cmd_new(rest: list) -> int:
     parser.add_argument("name")
     parser.add_argument("--from", dest="from_template", default=None, metavar="TEMPLATE")
     parser.add_argument("--project", action="store_true", help="write to .halo/teams/ instead of ~/.halo/teams/")
-    # Halo 2.0.5 round 2 (deliverable 4): the SAME form module the
-    # wizard's lineup editor and `/teams new` use.
-    parser.add_argument("--form", action="store_true", help="open the TUI form instead of writing a starter file")
+    # Halo 3.1.1.0 R3: Studio is the one editor of lineups -- --studio
+    # writes the starter file, then opens the lineup in Studio's inspector.
+    parser.add_argument("--studio", action="store_true", help="then open the new lineup in Studio's inspector")
     args = parser.parse_args(rest)
-    if args.form:
-        from halo_harness.tui.dialogs.lineup_editor import run_lineup_editor_standalone
-        saved = run_lineup_editor_standalone(args.name, project=args.project, is_new=True,
-                                              from_template=args.from_template)
-        if not saved:
-            print("halo teams new: cancelled.", file=sys.stderr)
-            return 1
-        print(f"Created lineup {saved!r}.")
-        return 0
     ok, problems = new_team_template_from_template(args.name, args.from_template, project=args.project)
     if not ok:
         print(f"halo teams new: {'; '.join(problems)}", file=sys.stderr)
         return 1
     print(f"Created lineup {args.name!r}" + (f" from {args.from_template!r}" if args.from_template else "")
           + ".")
+    if args.studio:
+        from halo_harness.studio_edit_cli import open_in_studio
+        return open_in_studio("lineup", args.name, no_open=False, prog="halo teams new")
     return 0
 
 
 def _cmd_edit(rest: list) -> int:
-    """Halo 2.0.5 round 2 (deliverable 4): `halo teams edit <name>
-    [--form]` -- this command did not exist before this round (the
-    starter-writing `new` plus hand-editing the YAML file directly was
-    the only path); added here symmetrically with `agents_cli.py`'s own
-    `edit` (same `$EDITOR`-or-`--form` split, same "create an empty one
-    first if it doesn't exist yet" convenience)."""
+    """Halo 2.0.5 round 2 (deliverable 4): `halo teams edit <name>`,
+    symmetric with `agents_cli.py`'s own `edit` ("create an empty one
+    first if it doesn't exist yet"). 3.1.1.0 R3: it opens the lineup in
+    Studio (the editor of lineups); `--no-open` prints the URL, `--yaml`
+    opens `$EDITOR` on the file instead."""
     from halo_harness.teams_yaml import load_team_template_raw, save_team_template, user_teams_dir, \
         validate_team_template
-    parser = argparse.ArgumentParser(prog="halo teams edit", add_help=True)
+    from halo_harness.studio_edit_cli import add_studio_flags, open_in_studio
+    parser = argparse.ArgumentParser(prog="halo teams edit", add_help=True,
+                                     description="Open the lineup in Studio's inspector (Studio is the editor of lineups).")
     parser.add_argument("name")
-    parser.add_argument("--form", action="store_true", help="open the TUI form instead of $EDITOR")
+    add_studio_flags(parser, "lineup")
     args = parser.parse_args(rest)
-    if args.form:
-        from halo_harness.tui.dialogs.lineup_editor import run_lineup_editor_standalone
-        saved = run_lineup_editor_standalone(args.name, is_new=False)
-        if not saved:
-            print("halo teams edit: cancelled.", file=sys.stderr)
-            return 1
-        print(f"Saved lineup {saved!r}.")
-        return 0
+    if not args.yaml:
+        if load_team_template_raw(args.name) is None:
+            ok, problems = save_team_template(args.name, {"description": ""})
+            if not ok:
+                print(f"halo teams edit: {'; '.join(problems)}", file=sys.stderr)
+                return 1
+            print(f"Created lineup {args.name!r}.")
+        return open_in_studio("lineup", args.name, no_open=args.no_open, prog="halo teams edit")
     import os
     import shlex
     import shutil
     import subprocess
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
     if not editor:
-        print("halo teams edit: set $EDITOR (or $VISUAL) to your text editor, or add --form", file=sys.stderr)
+        print("halo teams edit: --yaml needs $EDITOR (or $VISUAL) set to your text editor; without --yaml the "
+              "lineup opens in Studio", file=sys.stderr)
         return 1
     if load_team_template_raw(args.name) is None:
         save_team_template(args.name, {"description": ""})
@@ -368,8 +364,8 @@ def cmd_teams(argv: list) -> int:
               "       halo teams preview <name>                   the lineup as a tree\n"
               "       halo teams apply <name> [--one-model]       use a lineup (`use` does the same)\n"
               "       halo teams diff <a> <b>                     compare two lineups role by role\n"
-              "       halo teams new <name> [--from TEMPLATE] [--project] [--form]\n"
-              "       halo teams edit <name> [--form]\n"
+              "       halo teams new <name> [--from TEMPLATE] [--project] [--studio]\n"
+              "       halo teams edit <name> [--no-open] [--yaml]\n"
               "       halo teams export <name> [file]|import <file>\n"
               "GUI:   halo studio --mode roles                    lineups and bios as an editable graph (Halo Studio; /roles in the TUI)",
               file=sys.stderr)

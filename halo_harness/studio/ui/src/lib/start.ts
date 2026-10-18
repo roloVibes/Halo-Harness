@@ -37,7 +37,8 @@ type StartState = {
 
 export const start = createStore<StartState>({ open: false, view: "offer", plan: [], steps: {}, summary: null, running: false, error: "", busy: false });
 
-const QUIET = typeof location !== "undefined" && /[?&](tour|start)=off\b/.test(location.search);
+// 3.1.1.0 R3: a page opened on an edit (`?edit=`, `halo studio --edit`) goes straight to it, no overlay.
+const QUIET = typeof location !== "undefined" && /[?&]((tour|start)=off\b|edit=)/.test(location.search);
 let fed = false;
 let timer = 0;
 

@@ -10137,14 +10137,22 @@ def test_init_wizard_team_step_open_migrates_the_legacy_role_table_once(ctx: Ctx
 
 
 @test
-def test_init_wizard_enter_on_a_lineup_opens_the_editor_and_returns_to_the_step(ctx: Ctx):
+def test_init_wizard_enter_on_a_lineup_opens_the_view_and_returns_to_the_step(ctx: Ctx):
     """Brief Tests section: "Edit roles... opens the editor and returns
     to the step" -- round 2c: the wizard's own "Edit roles..." button
     (the old Legacy pane) is gone; the Team step's rule-2 equivalent is
-    Enter on a highlighted lineup opening `LineupEditor`."""
+    Enter on a highlighted lineup. 3.1.1.0 R3: that opens the read-only
+    `LineupView` (Studio is the editor: its `e`, or the step's Edit in
+    Studio)."""
+    from halo_harness.tui import studio_open
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+    from halo_harness.tui.dialogs.lineup_editor import LineupView
     from textual.widgets import OptionList
+
+    opened = []
+    saved_opener = studio_open.OPENER
+    studio_open.OPENER = lambda target, **_kw: opened.append(target.text) or {
+        "url": "http://127.0.0.1:1/" + target.query() + "#t=x", "how": "focused", "pages": 1, "target": target.text}
 
     async def body():
         old, _home = _scoped_state_dir_env("wizard-editroles-")
@@ -10160,14 +10168,25 @@ def test_init_wizard_enter_on_a_lineup_opens_the_editor_and_returns_to_the_step(
                 await pilot.pause(0.05)
                 await pilot.press("enter")
                 await pilot.pause(0.3)
-                ctx.check(f"the lineup editor opened, got {type(app.screen).__name__}",
-                          isinstance(app.screen, LineupEditor))
+                ctx.check(f"the lineup view opened, got {type(app.screen).__name__}",
+                          isinstance(app.screen, LineupView))
+                view = app.screen
+                await pilot.press("e")
+                for _ in range(40):
+                    await pilot.pause(0.05)
+                    if opened:
+                        break
+                ctx.check(f"e opens Studio on that lineup, got {opened}", opened == [f"lineup:{view.lineup_name}"])
+                ctx.check("and the view says so", "Opened lineup:" in str(view.query_one("#lineup-hint").render()))
                 await pilot.press("escape")
                 await pilot.pause(0.2)
                 ctx.check("back on the SAME Team step instance", app.screen is team_screen)
         finally:
             _restore_state_dir_env(old)
-    asyncio.run(body())
+    try:
+        asyncio.run(body())
+    finally:
+        studio_open.OPENER = saved_opener
 
 
 @test
@@ -10328,9 +10347,10 @@ def test_init_wizard_providers_next_enumerates_then_team_and_orgs_share_the_cach
     """Deliverable 1: Next on the Providers step runs ONE live
     enumeration (one progress line per provider, via `_EnumeratingScreen`)
     before advancing; the result is cached on `WizardState` and reused by
-    BOTH the Team step and the Orgs step. Deliverable 2: an editor the
-    Team step opens (`LineupEditor`, via a new lineup's own agent/model
-    picker) shows the SAME merged, grouped, real catalog, narrowed by
+    BOTH the Team step and the Orgs step. Deliverable 2: the lineup the
+    Team step shows (`LineupView`, Enter on a row; 3.1.1.0 R3: read-only,
+    Studio edits it) gets the SAME cached rows, and the org editor's
+    model picker shows the SAME merged, grouped, real catalog, narrowed by
     typing (the picker's own existing filter -- now actually fed real
     rows instead of an empty list). Round 2c: the wizard's OWN "Roles and
     lineup" step (and its "Edit roles..." button into `RolesEditor`) is
@@ -10339,7 +10359,7 @@ def test_init_wizard_providers_next_enumerates_then_team_and_orgs_share_the_cach
     "the SAME cached rows reach an editor the wizard opens" claim moves
     to the lineup editor, the Team step's own equivalent."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, _EnumeratingScreen
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+    from halo_harness.tui.dialogs.lineup_editor import LineupView
     from halo_harness.tui.dialogs.model_picker import ModelPicker
     from halo_harness.tui.dialogs.org_editor import OrgEditor
     from textual.widgets import Button, Input, OptionList
@@ -10389,34 +10409,14 @@ def test_init_wizard_providers_next_enumerates_then_team_and_orgs_share_the_cach
                           and any("Ollama" in ln for ln in state.enumeration_lines))
 
                 team_screen = app.screen
-                team_screen.action_new_lineup()
-                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, LineupEditor))
-                editor = app.screen
-                ctx.check("the lineup editor opened with the SAME cached rows",
-                          any(m.get("ref") == "or:deepseek/deepseek-v4.1-flash" for m in editor.models))
-
-                editor.action_add_assignment()
-                await pilot.pause(0.05)
-                await pilot.press("ctrl+p")
-                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, ModelPicker))
-                picker = app.screen
-                option_texts = [str(o.prompt) for o in picker.query_one("#model-list", OptionList).options]
-                # OpenRouter rows are deliberately UNGROUPED (round 3's own
-                # "the OpenRouter group stays flat" call) -- the real,
-                # enumerated row itself is the thing this bug report is
-                # actually about, not a group header.
-                ctx.check(f"the real, enumerated row is a selectable option, got {option_texts}",
-                          any("deepseek/deepseek-v4.1-flash" in t for t in option_texts))
-                await _type(pilot, "deepseek-v4.1")
-                await pilot.pause(0.1)
-                ctx.check(f"typing narrowed to the one real match, got {[m['ref'] for m in picker._filtered]}",
-                          [m["ref"] for m in picker._filtered] == ["or:deepseek/deepseek-v4.1-flash"])
+                lineups_list = team_screen.query_one("#wiz-team-lineups-list", OptionList)
+                lineups_list.highlighted = 1
+                lineups_list.focus()
                 await pilot.press("enter")
-                await _wait_for_wizard(pilot, lambda: app.screen is editor)
-                ctx.check(f"the assignment picked up a bio pinning the enumerated ref, got "
-                          f"{editor.query_one('#lineup-field-agent', Input).value!r}",
-                          bool(editor.query_one("#lineup-field-agent", Input).value))
-                await pilot.press("escape")  # cancel -- this pilot only needs the picker fed from the SAME cache
+                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, LineupView))
+                ctx.check("the lineup view opened with the SAME cached rows",
+                          any(m.get("ref") == "or:deepseek/deepseek-v4.1-flash" for m in app.screen.models))
+                await pilot.press("escape")
                 await _wait_for_wizard(pilot, lambda: app.screen is team_screen)
 
                 team_screen.query_one("#wiz-skip").press()
@@ -10428,6 +10428,19 @@ def test_init_wizard_providers_next_enumerates_then_team_and_orgs_share_the_cach
                 ctx.check("the org editor ALSO opened with the SAME cached rows (deliverable 1: "
                           "reused by the org step too)",
                           any(m.get("ref") == "or:deepseek/deepseek-v4.1-flash" for m in app.screen.models))
+                await pilot.press("ctrl+p")
+                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, ModelPicker))
+                picker = app.screen
+                option_texts = [str(o.prompt) for o in picker.query_one("#model-list", OptionList).options]
+                # OpenRouter rows are deliberately UNGROUPED (round 3's own
+                # "the OpenRouter group stays flat" call).
+                ctx.check(f"the real, enumerated row is a selectable option, got {option_texts}",
+                          any("deepseek/deepseek-v4.1-flash" in t for t in option_texts))
+                await _type(pilot, "deepseek-v4.1")
+                await pilot.pause(0.1)
+                ctx.check(f"typing narrowed to the one real match, got {[m['ref'] for m in picker._filtered]}",
+                          [m["ref"] for m in picker._filtered] == ["or:deepseek/deepseek-v4.1-flash"])
+                await pilot.press("escape")
         finally:
             mock.stop()
             _rw_env_restore(old_provider_env)

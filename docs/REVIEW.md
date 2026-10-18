@@ -18,7 +18,7 @@ halo review --fix                   # then fix every CONFIRMED finding in the wo
 ```
 
 In the TUI the same thing is `/review [target] [--level L] [--dimensions a,b]
-[--fix] [--no-verify]`. See [COMMANDS.md](COMMANDS.md#halo-review) and
+[--fix] [--no-verify]`. See [COMMANDS-agents.md](COMMANDS-agents.md#halo-review) and
 [SLASH-COMMANDS.md](SLASH-COMMANDS.md).
 
 ## Targets

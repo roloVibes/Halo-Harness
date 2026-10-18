@@ -27,6 +27,7 @@ from tests.helpers.provider_env_defaults import ensure_default_provider_credenti
 ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
 
+from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R3: COMMANDS.md is split into parts
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -120,7 +121,7 @@ def test_z10_a_git_or_checkout_install_has_no_artifact(ctx: Ctx):
     r = A.check_installed_artifact(direct_url={"url": "file:///x", "dir_info": {}}, version="3", fetch_json=never,
                                    fetch_text=never)
     ctx.check("a checkout install: no-artifact", r["status"] == "no-artifact")
-    docs = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
+    docs = doc_text("COMMANDS.md")
     ctx.check("COMMANDS.md says a git+https install keeps no archive",
               re.search(r"`git\+https://\.\.\.` install and a checkout install keep no archive", docs) is not None)
 

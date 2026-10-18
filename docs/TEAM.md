@@ -191,7 +191,7 @@ run, drives the run on from there; `stop` does the same for a stop (a stop
 lands once the member that is running returns; a delegated member gets
 `agent_stop`). Exit
 codes: 0 done, 1 could not (the reason on stderr), 2 usage, a problem or
-the preflight. Full flag list: [COMMANDS.md](COMMANDS.md#halo-team).
+the preflight. Full flag list: [COMMANDS-studio.md](COMMANDS-studio.md#halo-team).
 
 ## Studio
 
