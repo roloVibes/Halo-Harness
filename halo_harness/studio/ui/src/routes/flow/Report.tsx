@@ -1,10 +1,15 @@
 // flow-report: the run's report.json -- the status, the cost against the
 // budget, the steps table, the artboards, the posts and the metrics summary;
 // Copy puts the text `halo flow report` prints on the clipboard. Before the
-// report lands it shows the live cost against the budget.
+// report lands it shows the live cost against the budget. 3.0.9.0 R3: once
+// the report lands, a Coach tab (lib/coach) beside it.
+import { useState } from "react";
+import { CoachCards } from "../../lib/coach/CoachCards";
 import type { MotionState } from "../../lib/motion";
 import { toast } from "../../lib/store";
 import { Button } from "../../lib/ui";
+import { ReportTabs, type ReportTab } from "../orchestra/Coach";
+import { applySuggestion } from "../orchestra/coachApply";
 import { cost, elapsed } from "../orchestra/format";
 import { CostBar, FlowBadge, Metric, NoFlow } from "./bits";
 import { runMotion, stepCount, useFlow } from "./store";
@@ -82,7 +87,17 @@ export function ReportGlance() {
 
 export function ReportDetail() {
   const r = useFlow((s) => s.data?.report);
+  const [tab, setTab] = useState<ReportTab>("report");
   if (!r) return <Pending />;
+  return (
+    <div className="og-report-tabs">
+      <ReportTabs value={tab} onChange={setTab} />
+      {tab === "coach" ? <CoachCards kind="flow" run={r.run} onApply={applySuggestion} /> : <ReportBody r={r} />}
+    </div>
+  );
+}
+
+function ReportBody({ r }: { r: Report }) {
   return (
     <div className="og-report fl-report">
       <div className="og-report-head">

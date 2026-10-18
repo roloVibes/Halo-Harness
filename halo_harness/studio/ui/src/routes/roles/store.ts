@@ -13,6 +13,8 @@ import type {
 
 export type InspectorTab = "assignment" | "lineup" | "live";
 export type LiveSub = "thinking" | "working" | "output";
+/** 3.0.9.0 R3: what a coach card's Apply filled in (the bio form marks the field; nothing is saved yet). */
+export type CoachHint = { bio: string; field: string; value: unknown; run: string; text: string } | null;
 
 export type RolesState = {
   started: boolean;
@@ -55,6 +57,7 @@ export type RolesState = {
   liveSub: LiveSub;
   replay: Replay | null;
   history: { card: string; runs: HistoryRun[] | null; error: string };
+  coachHint: CoachHint;
 };
 
 export const HISTORY_MAX = 50;
@@ -101,6 +104,7 @@ export const roles = createStore<RolesState>({
   liveSub: "thinking",
   replay: null,
   history: { card: "", runs: null, error: "" },
+  coachHint: null,
 });
 
 export function useRoles<S>(pick: (s: RolesState) => S): S {

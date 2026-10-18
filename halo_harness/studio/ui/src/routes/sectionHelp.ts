@@ -31,6 +31,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Hand-offs", "A lane can wait for another (after) and take its summary, its units or a file it saved (needs); it then starts from that lane's finished head, and a lane that takes nothing sees only the goal. Lanes draws each edge with what it carries and every lane's base."],
       ["The gate checks DONE WHEN", "The parts merge one at a time, your test runs, and a part that fails goes back to its worker (up to the return cap)."],
       ["Read the report", "Every check with a tick or a cross, the finished branch and its sha, the tests, the cost and the time."],
+      ["How this works: Coach", "The report's Coach tab reads the run's files and suggests what to change: a bio's prompt, model or tools, a lane's after, a gate that looped. Each card shows its evidence; Apply opens the bio, the lineup or the plan with the change filled in, and you save it there. Dismiss hides a card for that run."],
     ],
     keys: [["Alt+1", "Orchestra"], ["J / K", "focus the next / previous lane at work"], ["F", "the Log follows the newest line"], ...PANEL_KEYS],
   },

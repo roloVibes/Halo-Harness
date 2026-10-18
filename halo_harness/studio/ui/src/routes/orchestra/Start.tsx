@@ -13,6 +13,7 @@ import { SECTION_HELP } from "../sectionHelp";
 import { GoalForm } from "./GoalForm";
 import { PastRuns } from "./OrchRail";
 import { planPanels } from "./plan/PlanPanel";
+import { usePlan } from "./plan/store";
 import { loadingFirst, setView, showsStart, useOrch } from "./store";
 import { startOrchestra } from "./sync";
 
@@ -63,6 +64,8 @@ export function OrchestraView({ section, specs }: { section: string; specs: Pane
   const start = useOrch(showsStart);
   const waiting = useOrch(loadingFirst);
   const planned = useOrch((s) => s.data?.run.state === "planned");
+  const runId = useOrch((s) => s.runId);
+  const staged = usePlan((s) => !!s.staged && s.runId === runId); // 3.0.9.0 R3: a coach edit staged
   if (start) return <StartView />;
   if (waiting)
     return (
@@ -70,6 +73,6 @@ export function OrchestraView({ section, specs }: { section: string; specs: Pane
         <div className="og-wait mono muted">reading the runs of this repo...</div>
       </div>
     );
-  if (planned) return <Workspace section="orchestra-plan" specs={planPanels} />; // 3.0.9.0 R2: the plan canvas
+  if (planned || staged) return <Workspace section="orchestra-plan" specs={planPanels} />; // 3.0.9.0 R2: the plan canvas
   return <Workspace section={section} specs={specs} />;
 }

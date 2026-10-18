@@ -146,6 +146,7 @@ context:
   obsidian: [{path: "vibes/*.md"}]          # Obsidian notes by path/glob/tag
   skills: []
   system_prompt: "You are careful and terse."   # inline, or system_prompt_file: <path>
+  prompt_notes: "Run the tests before you release a unit."   # 3.0.9.0: added after the prompt (the coach's Apply fills it)
   memory: {enabled: false}          # on/off (+ optionally `namespace`/a directory)
 
 limits:

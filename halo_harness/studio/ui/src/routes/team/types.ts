@@ -136,4 +136,5 @@ export type TeamDialog =
   | { kind: "stop" }
   | { kind: "validate"; ok: boolean; problems: string[]; preflight: Finding[] }
   | { kind: "file" }
+  | { kind: "coach"; run: string } // 3.0.9.0 R3: the post-run coach
   | null;

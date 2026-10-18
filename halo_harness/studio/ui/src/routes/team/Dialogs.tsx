@@ -1,9 +1,12 @@
 // The Team section's dialogs (3.0.8.0 R2): Stop asks for a reason on a card
 // (`POST team/stop`); Validate shows the file's problems and every lineup
 // preflight finding with its fix; "Team: open file" shows where the team
-// file is (repo or user scope), with Copy.
+// file is (repo or user scope), with Copy. 3.0.9.0 R3: Coach shows the run's
+// coach cards (lib/coach).
 import { useState } from "react";
+import { CoachCards } from "../../lib/coach/CoachCards";
 import { Button, Dialog } from "../../lib/ui";
+import { applySuggestion } from "../orchestra/coachApply";
 import { copyText, stopRun } from "./actions";
 import { closeDialog, useTeam } from "./store";
 import type { Finding } from "./types";
@@ -76,5 +79,12 @@ export function TeamDialogs() {
   if (!d) return null;
   if (d.kind === "stop") return <StopDialog />;
   if (d.kind === "validate") return <ValidateDialog ok={d.ok} problems={d.problems} preflight={d.preflight} />;
+  if (d.kind === "coach")
+    return (
+      <Dialog open onClose={closeDialog} title="The coach" kicker={`TEAM · RUN ${d.run}`} testid="team-coach-dialog"
+              footer={<Button variant="ghost" onClick={closeDialog}>Close</Button>}>
+        <CoachCards kind="team" run={d.run} onApply={applySuggestion} />
+      </Dialog>
+    );
   return <FileDialog />;
 }

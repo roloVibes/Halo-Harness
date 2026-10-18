@@ -784,6 +784,9 @@ def member_system_context_addition(agent_name: str, *, team_name: "Optional[str]
                 parts.append(path.read_text(encoding="utf-8"))
             except OSError:
                 pass
+        notes = context.get("prompt_notes")  # 3.0.9.0 R3: the coach's "tighten the prompt" lines, after the prompt
+        if isinstance(notes, str) and notes.strip():
+            parts.append(notes.strip())
     if team_name is None:
         from halo_harness.theme import get_config_value
         team_name = get_config_value("team", default=None)

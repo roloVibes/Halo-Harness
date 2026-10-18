@@ -174,6 +174,22 @@ def test_assets_into_a_held_run_then_resume_and_stop(ctx: Ctx):
         ctx.check("wait_for helper sanity", wait_for(lambda: True, 0.1))
 
 
+
+@test
+def test_the_coach_route(ctx: Ctx):
+    """3.0.9.0 R3: GET flow/runs/<id>/coach -> the coach's card for a flow run (a gate that looped, a render
+    drawn again), kept in the run's coach.json; 404 for an unknown run."""
+    from tests.helpers.coach_seed import flow_run
+    with FlowStudio() as s:
+        run_dir = flow_run(s.state)
+        st, data = s.get(f"flow/runs/{run_dir.name}/coach")
+        ids = [x["id"] for x in data.get("suggestions") or []]
+        ctx.check(f"200, the flow's cards, got {st} {ids}", st == 200 and data["kind"] == "flow"
+                  and {"coordination-approve-loops", "prompt-render-redo"} <= set(ids))
+        ctx.check("kept in coach.json", (run_dir / "coach.json").is_file())
+        ctx.check("an unknown run is a 404", s.get("flow/runs/nope/coach")[0] == 404)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
