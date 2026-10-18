@@ -95,11 +95,11 @@ def accept_and_review(c, rig, out: dict) -> None:
 
 
 def block_change(c, rig, out: dict) -> None:
+    t0 = time.time()  # the settle window runs from the edit, not from when the UI showed it
     out["touch"] = rig.touch("notes", "NOTES.md", "# Notes\n\nlaunch on Tuesday\n")
     out["notes_amber"] = c.wait(f"{BLOCK.format('notes')}?.dataset.claim === 'writing' && "
                                 f"{BLOCK.format('notes')}.querySelector('[data-testid=\"team-block-badge\"]').dataset.claim", 15)
     out["notes_change"] = event_line(c, "change", "NOTES.md")
-    t0 = time.time()
     out["build_fired"] = c.wait(f"['running', 'done'].includes({STAGE.format('build')}?.dataset.state) && {STAGE.format('build')}.dataset.state", 30)
     out["build_after_s"] = round(time.time() - t0, 1)
     out["build_trigger"] = event_line(c, "trigger", "build")
