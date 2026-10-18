@@ -1,5 +1,7 @@
 # The front-page media
 
+Read this when you regenerate the front-page pictures and animations.
+
 (Generated media -- images and video from local diffusion models through
 ComfyUI -- is a different thing: see [COMFYUI.md](COMFYUI.md).)
 

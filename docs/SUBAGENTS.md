@@ -1,5 +1,7 @@
 # Sub-agent visibility and scale
 
+Read this when you watch or limit sub-agents: the tasks panel, concurrency and depth.
+
 Halo 2.0.2 round 3 (brief C): the tasks panel (`/tasks`, Ctrl+T), the
 `agents.max_concurrent`/`agents.max_depth` config knobs, the Agent tool's
 `count`/`batch` parameters, and the shared task board (`TaskCreate`/

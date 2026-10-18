@@ -1,5 +1,7 @@
 # Fleet missions
 
+Read this when you give one goal to the whole fleet and want to follow its parts.
+
 Halo 3.0.6.0 "Fleet Missions". A mission is one goal done by the whole fleet:
 the hub's lead splits it into parts, gives each part to the harness best placed
 for it (by what each harness can do, see
@@ -261,7 +263,7 @@ on a member's owner pulse amber, running ones show the line their agent is
 on, and **Stop** asks for a reason. The report lists who did what, the cost
 per harness and per part, and opens the artifacts. The plan, a part refused
 an edit and a hub's run_task card are rows in Attention. See
-[STUDIO.md](STUDIO.md#how-this-works-missions).
+[STUDIO-fleet.md](STUDIO-fleet.md#how-this-works-missions).
 
 ![Fleet Mission in Studio: the plan on the map and its table](media/studio-fleet-mission.png)
 

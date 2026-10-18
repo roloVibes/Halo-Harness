@@ -1,5 +1,7 @@
 # Organizations
 
+Read this when you turn a lineup into an organization with titles and reporting lines.
+
 > **Halo 2.2.0: organizations run in Paperclip.** Studio's Org mode and
 > `halo paperclip sync <lineup>` turn a lineup into a company with titles,
 > reporting lines, budgets, issues and heartbeats -- see

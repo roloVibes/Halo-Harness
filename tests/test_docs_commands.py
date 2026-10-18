@@ -25,6 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R2: a split doc reads with its parts
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 REPO_DIR = Path(__file__).resolve().parent.parent
@@ -77,6 +78,7 @@ def _gather_real_flags() -> "dict[str, set]":
     out["halo mcp remove"] = _flags_in(_capture(mcp_cli._cmd_remove, ["--help"]))
     out["halo models"] = _flags_in(_capture(catalog_cli.cmd_models, ["--help"]))
     out["halo config"] = _flags_in(_capture(cmd_config, ["--help"]))
+    out["halo config where"] = _flags_in(_capture(cmd_config, ["where", "--help"]))  # 3.1.1.0 R2
     out["halo doctor"] = _flags_in(_capture(doctor_mod.cmd_doctor, ["--help"]))
     out["halo update"] = _flags_in(_capture(update_cli.cmd_update, ["--help"]))
     out["halo stats"] = _flags_in(_capture(stats_cli.cmd_stats, ["--help"]))
@@ -117,7 +119,7 @@ def _gather_real_flags() -> "dict[str, set]":
 
 @test
 def test_every_subcommand_is_documented(ctx: Ctx):
-    text = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
+    text = doc_text("COMMANDS.md")
     for name in ("init", "doctor", "update", "models", "mcp", "config", "stats", "export", "improve", "proxy",
                  "work-matrix", "ollama", "review", "media", "fleet", "team"):
         label = f"halo {name}"
@@ -127,7 +129,7 @@ def test_every_subcommand_is_documented(ctx: Ctx):
 
 @test
 def test_every_real_flag_is_documented_somewhere(ctx: Ctx):
-    text = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
+    text = doc_text("COMMANDS.md")
     real = _gather_real_flags()
     missing: "list[str]" = []
     for command, flags in real.items():
@@ -150,7 +152,7 @@ def test_no_documented_flag_is_fictional(ctx: Ctx):
     accepted at all. Prose elsewhere in the doc (worked examples, running
     text) is intentionally not scanned here -- only headings are load-
     bearing "this flag exists" claims."""
-    text = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
+    text = doc_text("COMMANDS.md")
     real_all: "set[str]" = set()
     for flags in _gather_real_flags().values():
         real_all |= flags
@@ -174,7 +176,7 @@ def test_not_yet_flags_are_listed_honestly(ctx: Ctx):
     test's OWN sanity checks moved with them rather than asserting on an
     empty set forever."""
     from halo_harness.cli import _NOT_APPLICABLE_FLAGS, _NOT_YET_FLAGS
-    text = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8").lower()
+    text = doc_text("COMMANDS.md").lower()
     ctx.check("cli._NOT_YET_FLAGS is empty by design after W4a", _NOT_YET_FLAGS == [])
     not_applicable_names = {flags[-1] for flags, _kw, _label, _reason in _NOT_APPLICABLE_FLAGS}
     for sample in ("--ide", "--teleport", "--safe-mode"):

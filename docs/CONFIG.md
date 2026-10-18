@@ -1,11 +1,20 @@
 # Configuration
 
+Read this when you want to know which file sets what: every config file, key and environment variable Halo reads.
+
 Exactly which files this harness reads (Claude Code's own config, unchanged)
 and which it owns (its own small state under `~/.halo/`), how they're
 merged, every environment variable, and precisely what is never written.
 Permissions/hooks *behavior* (as opposed to where their config lives) is
 covered in [ARCHITECTURE.md](ARCHITECTURE.md); Databricks credential
 discovery specifically is covered in [DATABRICKS.md](DATABRICKS.md).
+
+## Which file sets what, here: `halo config where`
+
+`halo config where` prints every file below that is in effect for the folder
+you run it in, what each one sets and which file wins when two set the same
+key; `halo doctor --config` checks all of them against Halo's schemas and
+validators. See [COMMANDS.md](COMMANDS.md)'s last section.
 
 ## Claude Code files -- read only, never written (except where noted)
 

@@ -1,5 +1,7 @@
 # Troubleshooting
 
+Read this when something looks wrong: each symptom, the doctor line that names it, and the fix.
+
 Symptom -> the `doctor` line that names it -> the fix. Run
 `halo doctor` (or `doctor --work` at a Databricks box) first for
 almost everything below -- every `[WARN]`/`[MISSING]` line already ends
@@ -390,7 +392,7 @@ something to say. Two things make this worse at higher effort:
   this route)` -- and `/status`/`/context` list it under "this route
   changed" whenever a shown value differs from what's sent; run `/effort
   low` for the fastest setting. See
-  [MODELS.md](MODELS.md#databricks-glm-201-glm-briefmd) for the full clamp
+  [MODELS-families.md](MODELS-families.md#databricks-glm-201-glm-briefmd) for the full clamp
   table (OpenRouter GLM keeps the seven real Z.ai levels, unaffected).
 - **A steer sent during the silent phase now cuts in immediately** (2.0.1,
   `steer.restart_when_silent` in `~/.halo/config.json`, default on): when
