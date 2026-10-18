@@ -60,6 +60,8 @@ this list against the tree.
   watcher), `studio/fleet_watch_sources.py` (what it reads),
   `studio/fleet_feed.py` (its tap on the live feed), `studio/fleet_send.py`
   (a session command, this harness's or a member's)
+- the one unit view (3.1.2.0): `studio/work_api.py`
+  (`GET /api/work/<kind>/<run>`, the units of any run; docs/WORK.md)
 
 **Fleet** (`halo_harness/fleet/`):
 
@@ -105,7 +107,8 @@ this list against the tree.
   `orchestra/gitops.py`
 - the shared files: `orchestra/claims.py`, `orchestra/guard.py`,
   `orchestra/events.py`, `orchestra/jsonl.py`, `orchestra/view.py`
-- the coach: `orchestra/coach.py` (the card, the cache), one rules module per
+- the coach: `orchestra/coach.py` (the card, the cache), the rules once over
+  the unit model (`orchestra/coach_rules.py`), one thin evidence loader per
   run kind (`orchestra/coach_orchestra_rules.py`, `orchestra/coach_flow_rules.py`,
   `orchestra/coach_mission_rules.py`, `orchestra/coach_team_rules.py`),
   `orchestra/coach_lane_facts.py` (an Orchestra run's lanes as facts),
@@ -114,6 +117,16 @@ this list against the tree.
   `orchestra_cli_views.py` (status, claims, log, runs, lanes, report),
   `orchestra_cli_run.py` (run, stop), `orchestra_cli_plan.py` (plan, approve,
   reject), `coach_cli.py` (the coach verbs)
+
+**The unit of work** (`halo_harness/work/`, Halo 3.1.2.0 R1, docs/WORK.md):
+the shared model a lane, a mission part, a team stage and a flow step all
+are -- `work/unit.py` (the `Unit`), `work/states.py` (the one state machine
+and the four alias tables), `work/claims.py`, `work/handoff.py`,
+`work/gate.py`, `work/ledger.py` (the `LedgerLine`), `work/report.py` (the
+`UnitRow`), `work/store.py` (`UnitStore`), and one adapter per kind
+(`work/adapters/lane.py`, `work/adapters/part.py`, `work/adapters/stage.py`,
+`work/adapters/step.py`), the only place that knows each engine's files.
+`halo_harness/work_cli.py` is `halo work` (the units of any run as a table).
 
 **Team** (`halo_harness/team/`): `team/spec.py` (the team file),
 `team/validate.py` and `team/validate_stages.py` (`validate_team`),

@@ -12,6 +12,8 @@ parts that would touch the same file run one after the other.
 
 **Teams (Halo 3.0.8.0):** a team member with `harness: <fleet member>` sends its stage's task the way a part goes out (`run_task`, as a one-part mission in the hub's store); see [TEAM.md](TEAM.md#delegating-a-member-to-the-fleet).
 
+**One unit of work (Halo 3.1.2.0):** a mission part is a *unit* of work, the same thing an Orchestra lane, a team stage and a flow step are; `halo work <mission id>` prints its parts as that shared table. See [WORK.md](WORK.md).
+
 Round R7 is the backend (this page): the mission folder, the planner, the
 shared workspace over the fleet protocol, dispatch, the run, merge and report,
 the routes and the command line. Round R8 is the Mission panel in Studio

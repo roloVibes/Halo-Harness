@@ -12,10 +12,12 @@
   branch decide. Failing tests send back every lane whose unit names
   appear in the output (at most `return_cap` times each); a lane at its
   cap, or a failure that names no lane, stops the run with the reason.
+* `send_back(lane, text_of)`: the loop, through work/gate.py (3.1.2.0 R1).
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
 import re
 import signal
@@ -31,9 +33,9 @@ from halo_harness.orchestra import gitops, jsonl
 from halo_harness.orchestra.goal import repo_root_of
 from halo_harness.orchestra.index import overlaps
 from halo_harness.orchestra.lanes import unit_text
+from halo_harness.work import gate as work_gate
 
-TAIL_LINES = 40
-_STRIP_PREFIXES = ("HALO_ORCHESTRA_",)
+TAIL_LINES, _STRIP_PREFIXES = 40, ("HALO_ORCHESTRA_",)
 
 
 @dataclass
@@ -88,10 +90,8 @@ def _kill_tree(proc: subprocess.Popen) -> None:
             os.killpg(proc.pid, signal.SIGKILL)
     except (OSError, subprocess.SubprocessError):
         pass
-    try:
+    with contextlib.suppress(OSError):
         proc.kill()
-    except OSError:
-        pass
 
 
 def passed_count(output: str) -> Optional[int]:
@@ -203,6 +203,10 @@ def _later_claims(lanes: list) -> dict:
     deps = {lane.job.id: list(lane.job.upstreams) for lane in lanes}
     return {lane.n: [k for o in lanes if o is not lane and lane.job.id in reach(deps, o.job.id) for k in o.job.claims]
             for lane in lanes}
+
+
+def send_back(lane, text_of, *, clock=time.time) -> int:
+    return work_gate.send_back("lane", lane.run_dir, lane.n, text_of, clock=clock)
 
 
 def unit_names(lane) -> list:

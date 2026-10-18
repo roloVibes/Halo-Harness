@@ -134,9 +134,16 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
         "lanes": [{"lane": lane.n, "title": lane.job.title, "state": lane.state,
                    "pieces_returned": lane.pieces_returned, "cost_usd": round(lane.cost_usd, 6)} for lane in lanes],
         "checks": build_checks(run_dir, goal, lanes, merge, gate),
+        "units": _unit_rows(run_dir),  # 3.1.2.0 R1: one UnitRow per lane (docs/WORK.md), beside `lanes`
     }
     jsonl.write_json(report_path(run_dir), report)
     return report
+
+
+def _unit_rows(run_dir) -> list:
+    """The run's lanes as the shared report rows (work/report.py); [] if it cannot be read."""
+    from halo_harness.work.report import rows
+    return rows(run_dir, "lane")
 
 
 def format_report(report: dict) -> str:

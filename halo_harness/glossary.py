@@ -23,7 +23,7 @@ from typing import Optional
 
 TERMS = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "flow", "step",
          "mission", "gate", "claim", "hand-off", "plan", "coach", "orchestra run", "fleet", "hub", "harness",
-         "capability")
+         "capability", "unit")
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 DOCS_FILE = PACKAGE_DIR.parent / "docs" / "GLOSSARY.md"

@@ -32,7 +32,7 @@ from typing import Callable, Optional
 
 from halo_harness.orchestra import events as run_events
 from halo_harness.orchestra import gitops, jsonl
-from halo_harness.orchestra.gate import run_tests
+from halo_harness.orchestra.gate import run_tests, send_back
 from halo_harness.orchestra.goal import repo_root_of
 from halo_harness.orchestra.hunks import apply_resolution, extract_hunks, parse_resolution
 from halo_harness.orchestra.split import StopRun
@@ -205,8 +205,7 @@ def merge_lanes(run_dir, goal, lanes: list, *, judge: Callable, base: str,
                 lane.set_state("failed", "merge failed at the return cap", clock=clock)
                 raise StopRun(f"lane {n}'s piece failed the tests after the merge and reached the return cap "
                               f"({goal.return_cap}): {tail.splitlines()[-1] if tail else 'no output'}")
-            lane.update(pieces_returned=lane.pieces_returned + 1)
-            lane.set_state("waiting", f"piece sent back ({lane.pieces_returned}/{goal.return_cap})", clock=clock)
+            send_back(lane, lambda k: f"piece sent back ({k}/{goal.return_cap})", clock=clock)
             if on_return is not None:
                 on_return(lane)
             respawn(lane, f"Merging your branch into {branch} conflicted and the resolution failed the tests:\n"

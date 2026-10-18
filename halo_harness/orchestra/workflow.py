@@ -24,8 +24,11 @@ import copy
 from dataclasses import asdict, dataclass
 from typing import Optional
 
+from halo_harness.work.states import STATES as UNIT_STATES
+
 KINDS = ("goal", "lead", "split", "worker", "merge", "test", "gate", "done")
-STATES = ("pending", "running", "done", "failed", "skipped", "planned")  # planned: 3.0.9.0 R2, the split waits for review
+# a step's words: the unit machine's (work/states.py, 3.1.2.0 R1) plus planned (3.0.9.0 R2, the split waits for review)
+STATES = tuple(s for s in UNIT_STATES if s in ("pending", "running", "done", "failed", "skipped")) + ("planned",)
 EDGE_KINDS = ("flow", "loop", "after")
 MAX_WORKERS = 50
 

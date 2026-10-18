@@ -9,6 +9,8 @@ page is Halo's version of it.
 
 **In a team (Halo 3.0.8.0):** a team stage of `kind: orchestra` starts an Orchestra run with the stage's goal (the files of its write blocks when the goal names none); see [TEAM.md](TEAM.md).
 
+**One unit of work (Halo 3.1.2.0):** a lane is a *unit* of work -- the same thing a mission part, a team stage and a flow step are, with one state machine, one ledger line, one report row and one coach. `halo work` prints the lanes of a run as that shared table; see [WORK.md](WORK.md).
+
 The rule behind it: **code decides wherever it can, a model judges only
 when it must.** Code owns the claims, the merge order, the tests and the
 gate. A model writes the functions, and when two pieces conflict at merge
