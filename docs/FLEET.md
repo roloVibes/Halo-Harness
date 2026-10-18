@@ -513,6 +513,54 @@ in Studio, Fleet's Mission panel plans, draws, approves, runs and reports it (3.
 The whole story, the folder, the plan contract and a worked example:
 [MISSIONS.md](MISSIONS.md).
 
+## Recall across the fleet (3.1.2.0 R3)
+
+The recall index is per machine: each box's `halo recall` searches its own
+auto-memory and session logs. `halo recall --fleet <query>` (and `/recall
+--fleet <query>` in the TUI and `halo -p`) asks the hub this machine runs,
+or the first hub it joined, which sends the read-only `recall` fleet command
+`{query, k}` to every online member at once. Each member answers **from its
+own index** -- the index never leaves the box, only the hits: `{score,
+title, kind, excerpt (<= 300 chars), harness}`. The hub merges them by score
+with this machine's own hits and the CLI prints one table (score, harness,
+title, excerpt), with a line for every harness that did not answer and why.
+A member logs each ask in its own journal (`recall_asked`: what was asked,
+by whom, how many hits). `GET /api/recall?q=&fleet=1` (Studio's recall box
+with its Fleet switch) and `GET /api/fleet/recall?q=` (the hub's merged
+view) are the routes. Two config keys on a member:
+
+- `fleet.recall.share` (default `true`): `false` keeps the box out -- it
+  answers no recall and the merged view shows it as `not_shared`.
+- `fleet.recall.hide` (default `[]`): memory kinds never answered, the same
+  shape as `fleet.capabilities.hide` -- `session`, `memory`, or a memory
+  topic's own `type` (`user`, `feedback`, `project`, `reference`).
+
+## The two-machine check (3.1.2.0 R3)
+
+`tools/live_fleet_check.py` runs the whole delegation path against a real
+second machine with **one command on each box**. On this host:
+
+    python tools/live_fleet_check.py hub [--fake] [--json] [--keep]
+
+starts Studio with the fleet hub, prints a pairing code and the exact join
+line, waits for the other box, then drives four steps and prints PASS / FAIL
+with an evidence line for each: **who** (`fleet who nmap` names the member,
+`who gridcraft` this host), **mission** (a one-part files mission pinned to
+the member writes one file and its hand-back lands here), **team** (a team
+with a delegated agent stage whose gate is answered here and a delegated
+flow stage that runs on the member), **recall** (`recall --fleet` with a
+query only the member's index answers). On the other box, with the code the
+hub printed:
+
+    python tools/live_fleet_check.py member <host>:<port> --code "acorn ..." [--fake]
+
+joins the hub and stays live while the hub drives. PASS looks like four
+`[PASS]` lines and `OK: 4/4 step(s) passed`; the script exits non-zero if
+any step failed. `--json` writes `live-fleet-check.json` (one object per
+step: `name`, `ok`, `evidence`, `seconds`) to paste back. `--fake` runs it
+with no model call on either box (give it on both); the real configured
+model otherwise. `--keep` leaves the hub up after the check.
+
 ## The terminal: `halo fleet` and `/fleet`
 
 `halo fleet` alone is a live table (refreshed every 2 s) of every harness,
@@ -545,6 +593,8 @@ digest (both R4, from this harness's own files); `halo fleet capabilities
 | `fleet.attention.signal` | `true` | new attention rows go to the paired phone when the Signal bridge runs; `false` keeps them in Studio |
 | `fleet.tags` | `[]` | 3.0.6.0 R6: your own words for this harness; first on its chips, double weight in `who` |
 | `fleet.capabilities.hide` | `[]` | MCP servers, tools (`tool` or `server/tool`), skills or craft apps its capability catalog never lists |
+| `fleet.recall.share` | `true` | 3.1.2.0 R3: `false` keeps this box out of recall across the fleet (it answers none) |
+| `fleet.recall.hide` | `[]` | 3.1.2.0 R3: memory kinds its recall never answers (`session`, `memory`, or a topic's `type`) |
 | `fleet.shared_dir` | unset | 3.0.6.0 R7: a folder every machine sees; missions live there and nothing is mirrored ([MISSIONS.md](MISSIONS.md)) |
 | `fleet.mission.prefer` | `[]` | harness names, in order, that break a tie when several can take a part |
 | `fleet.mission.max_parallel` | harnesses | how many mission parts run at once (default: the number of harnesses) |

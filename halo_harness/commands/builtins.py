@@ -740,6 +740,9 @@ def _cmd_recall(args: str, facade: HeadlessFacade) -> str:
     thread-worker handler."""
     from halo_harness.recall import search
     query = (args or "").strip()
+    if query == "--fleet" or query.startswith("--fleet "):  # 3.1.2.0 R3: every online harness's own index
+        from halo_harness.recall_fleet import fleet_text
+        return fleet_text(query[len("--fleet"):])
     if not query:
         return ("/recall <query> -- semantic search over memory topics and past sessions "
                 "(set embeddings.model first, e.g. nomic-embed-text on your Ollama host)")
@@ -2063,8 +2066,8 @@ _BUILTIN_SPECS = {
     # scope): semantic search over memory + sessions.
     "ask": ("core", "Ask the concierge (roles.concierge) a quick question without waking the main model",
             "<question>", _cmd_ask),
-    "recall": ("core", "Semantic search over memory topics and past sessions (local embeddings)",
-               "<query>", _cmd_recall),
+    "recall": ("core", "Semantic search over memory topics and past sessions (local embeddings; --fleet: every harness)",
+               "[--fleet] <query>", _cmd_recall),
     "tasks": ("core", "List background Bash jobs started this session", None, _cmd_tasks),
     "orchestra": ("core", "Show the latest Orchestra run: its steps, worker lanes and run log", "[run]",
                   _cmd_orchestra),

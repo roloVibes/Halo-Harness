@@ -12,6 +12,8 @@ serves only these routes (docs/FLEET.md has the full shapes):
     GET  /fleet/v1/ping         -> {v, hub, you: {online, sessions, version_mismatch}}
     POST /fleet/v1/leave        {v}
     POST /fleet/v1/mission_files {v, op: list|get|put, mission, path?, data_b64?}   3.0.6.0 R7 (fleet/mission_files.py)
+    POST /fleet/v1/recall       {v, query, k}   3.1.2.0 R3: a member's recall across the fleet (fleet/hub_recall.py)
+    POST /fleet/v1/local/recall the same from this machine (admin token): `halo recall --fleet`
     GET  /fleet/v1/local/state  loopback peer + the hub's own admin token only: the merged view
     POST /fleet/v1/local/command  the same: {harness, session_id, cmd, fields} (the terminal table)
 
@@ -48,7 +50,8 @@ READ_CMDS = ("status", "agents", "doctor", "capabilities")  # R4 `doctor`: fleet
 FULL_CMDS = ("agent_tail", "agent_follow", "tail")  # share: full only
 ACTING_CMDS = ("agent_steer", "agent_stop", "pause", "resume", "shutdown", "steer", "interrupt")
 TASK_CMDS = ("run_task",)  # 3.0.6.0 R7: a mission part, gated by fleet.allow_control like steer (fleet/mission_worker.py)
-FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note") + TASK_CMDS  # note: a person's message (R4)
+RECALL_CMDS = ("recall",)  # 3.1.2.0 R3: {query, k}, answered from the member's own index unless fleet.recall.share: false
+FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note") + TASK_CMDS + RECALL_CMDS  # note: a person's message (R4)
 
 TEXT_KINDS = frozenset({"text_chunk", "text_delta", "thinking_delta", "thinking_chunk"})
 FULL_KINDS = TEXT_KINDS | {"agent_event"}  # a followed agent's entries carry its text

@@ -12,7 +12,12 @@ one machine (work/states.py), a gate, an acceptance, a cost and refs.
      "gate": {"mode": "required|optional|none", "id", "round", "answer": {"action", "text", "ts"} | null},
      "acceptance": {"prompt", "expect", "ok", "note"} | null,
      "cost_usd": 0.0, "started": ts | null, "ended": ts | null, "attempts": 0, "error": "",
-     "refs": {"sessions", "run", "worktree", "branch", "head", ...}, "extra": {what only one kind has}}
+     "refs": {"sessions", "run", "worktree", "branch", "head", "harness", ...}, "extra": {what only one kind has}}
+
+`refs.harness` (3.1.2.0 R3) is the fleet harness a delegated unit ran on: a
+mission part's harness, a team stage whose lead member or whose orchestra /
+flow run is on a fleet member; absent or empty = this harness. `harness`
+(the property) reads it, as a name when the engine kept one.
 
 `Unit.source` keeps the engine record it was read from (not part of
 `to_dict`): the adapter writes the unit back onto that record, key order
@@ -101,6 +106,13 @@ class Unit:
         self.move(ST.unify(self.kind, word))
         self.native = str(word or "")
         return self
+
+    @property
+    def harness(self) -> str:
+        """Where the unit ran (3.1.2.0 R3): the delegated harness's name (else its id), "" = this harness."""
+        refs, extra = self.refs or {}, self.extra or {}
+        hid = str(refs.get("harness") or "")
+        return str(refs.get("harness_name") or extra.get("harness_name") or hid) if hid else ""
 
     @property
     def over(self) -> bool:

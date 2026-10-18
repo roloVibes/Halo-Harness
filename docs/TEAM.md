@@ -190,6 +190,11 @@ with the remote run id; the board shows the harness chip and that id. A
 refused dispatch fails the stage with the reason. The finished branch of a
 remote Orchestra run stays in the member's checkout, named in its report.
 
+A delegated agent stage (with its gate answered on the hub) and a delegated
+flow stage are exercised against a real second machine by the scripted
+two-machine check ([FLEET.md](FLEET.md) "The two-machine check",
+`tools/live_fleet_check.py`, 3.1.2.0 R3).
+
 ## Budgets
 
 Halo 3.1.2.0 (`team/budget.py`). `budget_usd` on the team file caps the

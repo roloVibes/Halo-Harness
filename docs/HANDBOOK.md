@@ -820,6 +820,17 @@ keeping a verbatim recent tail; `count_tokens` is used for the trigger
 instead of an estimate wherever the route actually supports it (Databricks/
 Anthropic passthrough), falling back to an estimate otherwise.
 
+**Recall over memory and past sessions.** `halo recall <query>` (and
+`/recall` in the TUI) is semantic search over this machine's auto-memory
+topics and session logs on a local embedding model (`docs/COMMANDS.md`).
+`halo recall --fleet <query>` (and `/recall --fleet`, Studio's recall box
+with its Fleet switch, 3.1.2.0 R3) asks the hub this machine runs or joined
+to fan the query out to every online harness, each answering from its own
+index; the hits are merged by score and shown with their harness, so a box
+can draw on what another already learned without re-learning it. A member
+keeps out with `fleet.recall.share: false` ([FLEET.md](FLEET.md) "Recall
+across the fleet").
+
 ## Print mode
 
 ```sh
