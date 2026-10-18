@@ -694,6 +694,8 @@ def test_scripted_provider_loop_sets_up_two_then_done_then_cross_provider_pick(c
             return "done"
 
     def _fake_confirm(args, console, question, *, default):
+        if question == init_cli.START_QUESTION:  # 3.1.1.0: the last step's offer never eats a scripted "set up another?" answer
+            return False
         try:
             return next(confirm_calls)
         except StopIteration:
