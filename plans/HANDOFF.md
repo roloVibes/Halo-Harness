@@ -4,7 +4,45 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-15 ~09:45 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-18 ~07:00 CDT (authoritative, read this first)
+
+**3.0.7.0, 3.0.8.0 AND 3.0.9.0 ARE RELEASED** (tags v3.0.7.0 at 6476890,
+v3.0.8.0 at 7e48e81, v3.0.9.0 at 557a36b; GitHub releases published; local
+install `halo 3.0.9.0`), built in one autonomous run on the owner's order of
+2026-10-17 ("complete all the different version numbers and will test
+tomorrow"). Each version was cut on a suites run read as `conclusion ==
+success` for its exact sha (39072756781 / 39083703944 / 39094673177).
+- 3.0.7.0 "Tiers and the ports": tiers in a lineup with spawn-time
+  enforcement, the run-start preflight, `halo models test`, the real tool
+  registry, Roles / Org / Design as React sections (every classic-page
+  feature ported), `static/legacy/` deleted. Rounds R1, R3, R3b, R2 in
+  `~/hh-307/briefs/`. Home section skipped (Fleet covers it).
+- 3.0.8.0 "Team": the team file, block ledgers with claims, stages with
+  triggers and gates, `halo team`, the Team tab (seventh section).
+  `~/hh-308/briefs/`.
+- 3.0.9.0 "Hand-offs and the graph": lane hand-offs, sequenced mission
+  parts from the earlier part's head, `plan: review` with the plan canvas,
+  flows as a graph, the post-run coach. `~/hh-309/briefs/`.
+Nine CI causes were fixed on the way (the memory note "halo-windows-ci-flakes"
+lists them; the two new ones: tests/run_all.py shares ONE state dir across
+modules, so a test naming a model id must seed it into the catalog; every
+Chrome driver run by test_studio_ui must call `ensure_scoped_state_dir_once()`
+first or the real `~/.halo` guard fails). No worktrees remain; the `v307/*`,
+`v308/*`, `v309/*` branches are merged and may be deleted.
+
+**THE OWNER'S LIVE CHECK (2026-10-18) now covers 3.0.5.0 through 3.0.9.0:**
+the Fleet + Missions list below, plus: a lineup with `tiers:` and a spawn
+that is refused one tier too far; `halo models test <ref>`; `halo orchestra
+run` refused by the preflight on a dead model id and run with `--force`;
+Studio's seven sections with no framed page (Roles tier boxes and the Test
+this model button, Org chart, Design knobs / text edit / comment pins /
+tokens / 3 directions / device select); `halo team init` then `halo team run`
+with a gate answered, the Team tab live; an orchestra run with `--review`
+edited on the plan canvas and approved; a lane with `after` + `needs`
+starting from its upstream's head; `halo orchestra coach` and the Coach tab.
+No version is queued after that: the next plan comes from what he finds.
+
+## WHERE THINGS STOOD -- 2026-10-15 ~09:45 CDT (previous snapshot)
 
 **3.0.6.0 "FLEET MISSIONS" IS RELEASED** (tag v3.0.6.0 on master, GitHub release
 published, local install `halo 3.0.6.0`), cut on CI run 38709613548 read as
