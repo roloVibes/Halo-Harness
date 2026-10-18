@@ -92,7 +92,7 @@ export function ReportDetail() {
   return (
     <div className="og-report-tabs">
       <ReportTabs value={tab} onChange={setTab} />
-      {tab === "coach" ? <CoachCards kind="flow" run={r.run} onApply={applySuggestion} /> : <ReportBody r={r} />}
+      {tab === "coach" ? <CoachCards kind="flow" run={r.run} onEdit={applySuggestion} /> : <ReportBody r={r} />}
     </div>
   );
 }

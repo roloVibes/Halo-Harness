@@ -1,11 +1,16 @@
 // The coach's cards (3.0.9.0 R3), shared by the Orchestra, flow, mission and
 // team report faces: the suggestions grouped by kind, each with its severity
 // chip, the lane or part it is about, the text, the evidence ("why") in mono,
-// Apply when the suggestion names a change (the face says what Apply opens)
 // and Dismiss (hidden for this run in this browser; "Show dismissed" brings
-// them back). Read only: Apply opens an editor, the user saves there.
+// them back). 3.1.3.0 R1 closes the loop on each card: "Ask the model" (the
+// run's lead explains the card in one paragraph, kept with the run), Apply
+// (the confirm card -- the file and the diff -- then the write; ConfirmCard),
+// the Applied / Undone chip with Undo, and Edit (the face's editor opened
+// with the change filled in, nothing saved: the 3.0.9.0 Apply).
 import { useEffect, useState } from "react";
 import { Button, Empty } from "../ui";
+import { askModel, cardKey, previewApply, undoApply } from "./actions";
+import { ConfirmCard } from "./ConfirmCard";
 import { dismiss, keyOf, loadCoach, restoreAll, useCoach } from "./store";
 import { KIND_LABEL, KIND_ORDER, type CoachRunKind, type Suggestion } from "./types";
 
@@ -13,7 +18,7 @@ const NONE: string[] = [];
 
 export type ApplyFn = (s: Suggestion, run: string) => void;
 
-function applyTitle(s: Suggestion): string {
+function editTitle(s: Suggestion): string {
   const a = s.apply;
   if (!a) return "";
   const value = Array.isArray(a.value) ? a.value.join(", ") : String(a.value);
@@ -22,25 +27,62 @@ function applyTitle(s: Suggestion): string {
   return `Opens the plan editor on this run with ${a.field} = ${value} staged`;
 }
 
-function Card({ s, run, kind, onApply }: { s: Suggestion; run: string; kind: CoachRunKind; onApply?: ApplyFn }) {
+function Lead({ s, busy, onAsk }: { s: Suggestion; busy: string; onAsk: (refresh: boolean) => void }) {
+  if (busy === "ask") return <div className="cc-lead mono muted" data-testid="coach-asking">asking the run's lead...</div>;
+  if (s.paragraph)
+    return (
+      <div className="cc-lead" data-testid="coach-paragraph">
+        <span className="glance-kicker mono">THE LEAD</span>
+        <p>{s.paragraph}</p>
+        <Button size="sm" variant="ghost" onClick={() => onAsk(true)} title="Ask the lead again (a new model call)"
+                data-testid="coach-ask-again">Ask again</Button>
+      </div>
+    );
+  return s.paragraph_error ? <div className="cc-lead-error mono" data-testid="coach-paragraph-error">the lead could not answer: {s.paragraph_error}</div> : null;
+}
+
+function Card({ s, run, kind, onEdit }: { s: Suggestion; run: string; kind: CoachRunKind; onEdit?: ApplyFn }) {
+  const busy = useCoach((st) => st.busy[cardKey(kind, run, s.id)] || "");
+  const confirm = useCoach((st) => st.confirm[cardKey(kind, run, s.id)]);
   const where = s.lane_or_part === null || s.lane_or_part === "" ? "" : kind === "mission" ? `part ${s.lane_or_part}`
     : kind === "orchestra" ? `lane ${s.lane_or_part}` : `${kind === "team" ? "stage" : "step"} ${s.lane_or_part}`;
+  const applied = s.applied?.state === "applied";
   return (
-    <article className="cc-card" data-testid="coach-card" data-id={s.id} data-kind={s.kind} data-severity={s.severity}>
+    <article className="cc-card" data-testid="coach-card" data-id={s.id} data-kind={s.kind} data-severity={s.severity}
+             data-applied={s.applied?.state || ""}>
       <header className="cc-card-head">
         <span className="og-chip mono cc-sev" data-severity={s.severity}>{s.severity}</span>
         {where && <span className="mono muted cc-where">{where}</span>}
         {s.bio && <span className="og-chip mono cc-bio" title="the bio this lane ran as">{s.bio}</span>}
+        <span className="spacer" />
+        {s.applied && (
+          <span className="og-chip mono cc-state" data-state={s.applied.state} data-testid="coach-applied"
+                title={`${s.applied.apply_id}: ${s.applied.file}`}>{applied ? "APPLIED" : "UNDONE"}</span>
+        )}
       </header>
       <p className="cc-text">{s.text}</p>
       <ul className="cc-why mono" data-testid="coach-why" aria-label="Why">
         {s.why.map((w, i) => <li key={i}>{w}</li>)}
       </ul>
+      <Lead s={s} busy={busy} onAsk={(refresh) => void askModel(kind, run, s.id, refresh)} />
+      {confirm && <ConfirmCard kind={kind} run={run} p={confirm} busy={busy} />}
       <div className="cc-actions">
-        {s.apply && onApply && (
-          <Button size="sm" variant="primary" onClick={() => onApply(s, run)} title={applyTitle(s)} data-testid="coach-apply">Apply</Button>
+        {!s.paragraph && busy !== "ask" && (
+          <Button size="sm" variant="ghost" onClick={() => void askModel(kind, run, s.id)} data-testid="coach-ask"
+                  title="The run's lead explains this card in one paragraph (one model call; kept with the run)">Ask the model</Button>
         )}
-        {s.apply && !onApply && <span className="muted cc-hint">change: {s.apply.field}</span>}
+        {s.apply && !applied && !confirm && (
+          <Button size="sm" variant="primary" disabled={busy === "preview"} onClick={() => void previewApply(kind, run, s.id)}
+                  title="Shows the file and the change first; nothing is written until you confirm" data-testid="coach-apply">Apply</Button>
+        )}
+        {applied && s.applied && (
+          <Button size="sm" variant="default" disabled={busy === "undo"} onClick={() => void undoApply(kind, run, s.id, s.applied!.apply_id)}
+                  title="Puts the file back as it was before Apply (if nothing changed it since)" data-testid="coach-undo">Undo</Button>
+        )}
+        {s.apply && onEdit && (
+          <Button size="sm" variant="ghost" onClick={() => onEdit(s, run)} title={editTitle(s)} data-testid="coach-edit">Edit</Button>
+        )}
+        {!s.apply && <span className="muted cc-hint">nothing to write: change it by hand</span>}
         <span className="spacer" />
         <Button size="sm" variant="ghost" onClick={() => dismiss(kind, run, s.id)} title="Hide this card for this run" data-testid="coach-dismiss">Dismiss</Button>
       </div>
@@ -48,7 +90,7 @@ function Card({ s, run, kind, onApply }: { s: Suggestion; run: string; kind: Coa
   );
 }
 
-export function CoachCards({ kind, run, onApply }: { kind: CoachRunKind; run: string; onApply?: ApplyFn }) {
+export function CoachCards({ kind, run, onEdit }: { kind: CoachRunKind; run: string; onEdit?: ApplyFn }) {
   useEffect(() => void loadCoach(kind, run), [kind, run]);
   const entry = useCoach((s) => s.runs[keyOf(kind, run)]);
   const hidden = useCoach((s) => s.dismissed[keyOf(kind, run)] || NONE);
@@ -58,10 +100,11 @@ export function CoachCards({ kind, run, onApply }: { kind: CoachRunKind; run: st
   const all = entry.result.suggestions;
   const shown = showAll ? all : all.filter((s) => !hidden.includes(s.id));
   const nHidden = all.length - all.filter((s) => !hidden.includes(s.id)).length;
+  const nApplied = all.filter((s) => s.applied?.state === "applied").length;
   return (
     <div className="cc" data-testid="coach" data-run={run} data-kind={kind}>
       <div className="cc-head mono muted">
-        <span>{all.length ? `${all.length} suggestion${all.length === 1 ? "" : "s"} from the run's files` : "nothing to suggest"}</span>
+        <span data-testid="coach-summary">{all.length ? `${all.length} suggestion${all.length === 1 ? "" : "s"} from the run's files, ${nApplied} applied` : "nothing to suggest"}</span>
         <span className="spacer" />
         {nHidden > 0 && (
           <Button size="sm" variant="ghost" onClick={() => setShowAll((v) => !v)} data-testid="coach-show-dismissed">
@@ -70,6 +113,12 @@ export function CoachCards({ kind, run, onApply }: { kind: CoachRunKind; run: st
         )}
         {showAll && nHidden > 0 && <Button size="sm" variant="ghost" onClick={() => restoreAll(kind, run)}>Restore all</Button>}
       </div>
+      {all.length > 0 && (
+        <p className="cc-help muted" data-testid="coach-help">
+          Ask the model: the run's lead explains a card. Apply: shows the file and the diff, writes after you confirm.
+          Undo: puts the file back. Edit: opens the editor with the change filled in, nothing saved.
+        </p>
+      )}
       {!all.length && <Empty title="Nothing to coach" body="The run's files show no lane sent back twice, no denied tool, no long wait and no gate that looped." testid="coach-empty" />}
       {KIND_ORDER.map((k) => {
         const rows = shown.filter((s) => s.kind === k);
@@ -77,7 +126,7 @@ export function CoachCards({ kind, run, onApply }: { kind: CoachRunKind; run: st
         return (
           <section key={k} className="cc-group" data-kind={k}>
             <div className="rail-label mono">{KIND_LABEL[k]} · {rows.length}</div>
-            {rows.map((s) => <Card key={s.id} s={s} run={run} kind={kind} onApply={onApply} />)}
+            {rows.map((s) => <Card key={s.id} s={s} run={run} kind={kind} onEdit={onEdit} />)}
           </section>
         );
       })}

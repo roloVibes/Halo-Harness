@@ -217,7 +217,12 @@ def report(ctx: Ctx, mid: str) -> "tuple[int, dict]":
         doc = S.need(ctx.home, mid)
         plan = P.load_plan(ctx.home, mid) or {}
         rep = mission_report.build(ctx.home, doc, plan)
-        return 200, {"report": rep, "markdown": mission_report.markdown(rep), "final": doc["state"] in M.FINAL}
+        text = mission_report.markdown(rep)
+        if doc["state"] in M.FINAL:  # 3.1.3.0 R1: the coach's summary line
+            from halo_harness.orchestra.coach_record import summary
+            rep["coach"] = summary(S.folder(ctx.home, mid), ctx.home)
+            text += f"\n{rep['coach']}\n" if rep["coach"] else ""
+        return 200, {"report": rep, "markdown": text, "final": doc["state"] in M.FINAL}
     except M.MissionError as e:
         return _err(e)
 

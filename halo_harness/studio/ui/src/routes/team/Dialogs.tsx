@@ -83,7 +83,7 @@ export function TeamDialogs() {
     return (
       <Dialog open onClose={closeDialog} title="The coach" kicker={`TEAM · RUN ${d.run}`} testid="team-coach-dialog"
               footer={<Button variant="ghost" onClick={closeDialog}>Close</Button>}>
-        <CoachCards kind="team" run={d.run} onApply={applySuggestion} />
+        <CoachCards kind="team" run={d.run} onEdit={applySuggestion} />
       </Dialog>
     );
   return <FileDialog />;

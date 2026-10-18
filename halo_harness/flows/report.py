@@ -79,7 +79,7 @@ def write_report(run_dir, *, status: str, stop_reason: str = "", clock: Callable
     return report
 
 
-def format_report(report: dict) -> str:
+def format_report(report: dict, run_dir=None) -> str:
     lines = [f"flow {report.get('name')} run {report.get('run')}: {report.get('status')}"
              + (f" -- {report['stop_reason']}" if report.get("stop_reason") else "")]
     for s in report.get("steps") or []:
@@ -99,4 +99,6 @@ def format_report(report: dict) -> str:
     budget = report.get("budget_usd")
     lines.append(f"  total ${float(report.get('cost_usd') or 0):.4f}" + (f" of ${float(budget):.2f}" if budget is not None else "")
                  + f" in {float(report.get('elapsed_s') or 0):.1f}s; project {report.get('project_path') or report.get('project')}")
-    return "\n".join(lines)
+    from halo_harness.orchestra.report import coach_line  # 3.1.3.0 R1: the coach's summary line
+    coach = coach_line(run_dir)
+    return "\n".join(lines[:-1] + [f"  {coach}"] * bool(coach) + lines[-1:])  # the total line stays last

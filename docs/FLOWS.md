@@ -299,8 +299,11 @@ panel's **Coach** tab in Studio (`GET flow/runs/<id>/coach`, kept in the run's
 looped more than twice (coordination, with each redo instruction as
 evidence), a render step drawn again two or more times (prompt: tighten that
 step's prompt, the redo instructions are the why lines), and a run stopped by
-its budget (coordination, with the cost of each step). No model is called and
-nothing is written but the cache. The rules and the result's shape are in
+its budget (coordination, with the cost of each step). The cards come from the
+files alone; 3.1.3.0: **Ask the model** (`--model`) has the run's lead
+explain a card, and the coach line ends `halo flow report`. The rules (one
+set for every run kind since 3.1.3.0: `coordination-<step>-loops`,
+`prompt-<step>-redo`, `coordination-budget`) and the result's shape are in
 [ORCHESTRA.md](ORCHESTRA.md#the-coach).
 
 ## For the next rounds

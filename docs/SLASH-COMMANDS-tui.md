@@ -245,6 +245,17 @@ match is loose (`/explain lineups`, `/explain handoff`, `/explain orch`); an
 unknown word lists the closest ones, and bare `/explain` lists every word.
 Outside the TUI it prints the paragraph.
 
+### `/coach [run] [--model] [--apply ID [--yes]] [--undo [ID]]`
+Halo 3.1.3.0: the post-run coach's card for a run of any kind (this
+folder's latest run when no run is named), the same text `halo coach`
+prints: each suggestion with its id, its why lines, what Apply writes, its
+applied / undone state and the lead's paragraph once asked. `--model` asks
+the run's lead for one paragraph per card (kept with the run; `--refresh`
+asks again). `/coach --apply ID` shows the confirm card (the file and the
+before -> after diff) and writes nothing; `/coach --apply ID --yes` writes
+it. `/coach --undo [ID]` puts the file of the last apply (or that apply)
+back when nothing changed it since. See `docs/ORCHESTRA.md` ("The coach").
+
 ## Custom commands and skills
 
 Discovered from the same directories Claude Code uses, in the same

@@ -283,7 +283,10 @@ conflict a judge resolved between two parts (structure: give the later part
 `depends_on` the earlier one), a repo part that changed no file (structure:
 drop or fold it), and outputs the plan named that nobody wrote (prompt). A
 mission's plan is the lead's, so these cards carry no Apply: put the change
-in the next mission's constraints, or Plan it again. The rules are in
+in the next mission's constraints, or Plan it again. 3.1.3.0: **Ask the
+model** (`--model`) has the lead explain a card, the ended mission's report
+ends with the coach line, and the ids are the shared rules' (a refused edit
+is `tools-<part>-claim-<file>`). The rules are in
 [ORCHESTRA.md](ORCHESTRA.md#the-coach).
 
 A mission part delegated to a member is exercised end to end against a real

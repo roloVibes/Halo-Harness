@@ -260,7 +260,11 @@ ledger's `coach.json`) read the run ledger (board.json, events.jsonl) and
 suggest what to change: a stage gated two or more times (coordination: put
 what the redo asked for in the stage's brief or its acceptance; the redo
 answers are the evidence) and a write the team guard denied because another
-member held the block (tools). No model is called. The rules are in
+member held the block (tools). The cards come from the ledger alone;
+3.1.3.0: **Ask the model** (`--model`) has the lead explain a card, `halo
+team status` of a done or stopped run ends with the coach line, and the ids
+are the shared rules' (`coordination-<stage>-loops`,
+`tools-<stage>-claim-<key>`). The rules are in
 [ORCHESTRA.md](ORCHESTRA.md#the-coach).
 
 ## In Studio
