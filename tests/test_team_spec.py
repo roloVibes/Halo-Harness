@@ -1,5 +1,5 @@
 """tests.test_team_spec -- Halo 3.0.8.0 round R1: the team file
-(halo_harness/team/spec.py, spec_check.py, spec_stages.py): where it is found
+(halo_harness/team/spec.py, validate.py, validate_stages.py, resolve.py): where it is found
 (the repo's `.halo/team.yaml` wins over `~/.halo/teams/<project>.team.yaml`),
 the normalised shape with its defaults, the shipped template validating
 clean, each problem's exact line, members by name / alias / tier, the
@@ -131,7 +131,7 @@ def test_each_problem_has_its_line(ctx: Ctx):
 @test
 def test_a_cycle_through_two_blocks_and_the_graph(ctx: Ctx):
     from halo_harness.team import spec as S
-    from halo_harness.team.spec_stages import edges, find_cycle
+    from halo_harness.team.validate_stages import edges, find_cycle
     root, state = R.repo()
     doc = _doc(workflow={"stages": [
         {"id": "a", "writes": ["copy"], "trigger": "block_change:site"},
@@ -174,7 +174,7 @@ def test_members_by_name_alias_and_tier(ctx: Ctx):
 @test
 def test_the_preflight_lines_per_member(ctx: Ctx):
     from halo_harness.team import spec as S
-    from halo_harness.team.spec_check import preflight_findings
+    from halo_harness.team.validate import preflight_findings
     from tests.helpers.preflight_seed import Home
     with Home() as h:
         root, _state = R.repo()

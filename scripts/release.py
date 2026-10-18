@@ -101,7 +101,7 @@ def write_version(version: str, repo_dir: Path = REPO_DIR) -> bool:
         raise ReleaseError(f'could not find __version__ = "..." in {init_path}')
     if new_text == text:
         return False
-    init_path.write_text(new_text, encoding="utf-8")
+    init_path.write_text(new_text, encoding="utf-8", newline="\n")
     return True
 
 
@@ -123,7 +123,7 @@ def write_install_tag_urls(version: str, repo_dir: Path = REPO_DIR) -> "list[str
         text = path.read_text(encoding="utf-8")
         new_text, n = _INSTALL_TAG_RE.subn(rf"\g<1>v{version}\g<2>", text)
         if n and new_text != text:
-            path.write_text(new_text, encoding="utf-8")
+            path.write_text(new_text, encoding="utf-8", newline="\n")
             changed.append(rel)
     return changed
 
@@ -144,7 +144,7 @@ def write_readme_badge_version(version: str, repo_dir: Path = REPO_DIR) -> bool:
         raise ReleaseError(f"could not find the version badge markup in {readme_path}")
     if new_text == text:
         return False
-    readme_path.write_text(new_text, encoding="utf-8")
+    readme_path.write_text(new_text, encoding="utf-8", newline="\n")
     return True
 
 
@@ -172,7 +172,7 @@ def set_changelog_date(version: str, date_str: str, repo_dir: Path = REPO_DIR) -
     new = f"## [{version}] - {date_str}"
     if old not in text:
         raise ReleaseError(f'CHANGELOG.md has no "{old}" section -- add it before releasing')
-    changelog_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+    changelog_path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
 
 
 def commit_message_body(section_body: str, max_bullets: int = 5) -> str:
@@ -241,7 +241,7 @@ def build_release_artifact(version: str, *, repo_dir: Path = REPO_DIR,
             "-o", str(artifact), tag], check=True)
     digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
     checksums = out_dir / "checksums.txt"
-    checksums.write_text(f"{digest}  {artifact.name}\n", encoding="utf-8")
+    checksums.write_text(f"{digest}  {artifact.name}\n", encoding="utf-8", newline="\n")
     return artifact, checksums
 
 

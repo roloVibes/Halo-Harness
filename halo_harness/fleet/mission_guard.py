@@ -7,7 +7,7 @@ sub-agent it starts (`inherited`). For Write, Edit, MultiEdit and
 NotebookEdit it finds the file's path relative to the part's folder (its
 worktree for a repo part, the mission folder for a files part):
 
-* inside one of the part's claims (mission_plan_rules.covers) -> the base
+* inside one of the part's claims (mission_claims.covers) -> the base
   decision stands untouched: the owner's own rules decide, a claim never
   allows anything by itself;
 * anywhere else -> deny, with a one-line reason, and `on_refused(rel, tool,
@@ -25,7 +25,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from halo_harness.fleet.mission_plan_rules import covers
+from halo_harness.fleet.mission_claims import covers
 
 GUARDED_TOOLS = ("Write", "Edit", "MultiEdit", "NotebookEdit")
 REPEAT_S = 30.0

@@ -5,6 +5,12 @@ system, exports, the handoff; 3.0.7.0 R3: artboard rename / delete, cancel a
 turn, every turn on the live feed as `design_turn` frames). Same loopback /
 origin / token guard as every Studio route. `RUNNER` replaces the turn's
 subprocess (tests set it); `REGISTERED` pins the craft apps a turn may use (None = the user's config).
+
+The routes of one artboard are design_artboards_api.py, the assets folder
+design_assets_api.py, variants and the critique design_critique_api.py, the
+design system design_system_api.py, exports and the handoff
+design_export_api.py; the shared lookups are design_request.py and the live
+turns design_turns.py.
 """
 
 from __future__ import annotations
@@ -13,9 +19,13 @@ import re
 
 from halo_harness.design import controls as C
 from halo_harness.design.store import Project
-from halo_harness.studio import design_api_more as more
-from halo_harness.studio import design_api_turns as turns
-from halo_harness.studio.design_api_io import _artboard, _bad, _project, clean_comments, clean_history, export, handoff, put_system, restore, sync, versions
+from halo_harness.studio import design_artboards_api as artboards
+from halo_harness.studio import design_assets_api as assets
+from halo_harness.studio import design_critique_api as critiques
+from halo_harness.studio import design_turns as turns
+from halo_harness.studio.design_export_api import export, handoff
+from halo_harness.studio.design_request import _artboard, _bad, _project, clean_comments, clean_history
+from halo_harness.studio.design_system_api import put_system, sync
 
 RUNNER = None
 REGISTERED = None
@@ -59,7 +69,7 @@ def run(req):
     prompt = str(req.body.get("prompt") or "").strip()
     if not prompt:
         return _bad("write what to design first")
-    prompt, err = more.variants_of(prompt, req.body)
+    prompt, err = critiques.variants_of(prompt, req.body)
     if err:
         return err
     try:
@@ -84,6 +94,11 @@ def feed_of(req):
 def get_turn(req):
     r = turns.poll(req.params["slug"], req.params["tid"], int(req.query.get("since") or 0))
     return (200, r) if r else (404, {"error": "no such turn"})
+
+
+def turn_cancel(req):
+    """POST turn/<tid>/cancel: stop the running turn."""
+    return turns.cancel(req.params["slug"], req.params["tid"])
 
 
 def comment(req):
@@ -166,12 +181,14 @@ ROUTES = [
     ("GET", _S + r"$", get_project), ("POST", _S + r"/run$", run), ("GET", _S + r"/turn/(?P<tid>[^/]+)$", get_turn),
     ("POST", _S + r"/comment$", comment), ("POST", _S + r"/comments/resolve$", resolve), ("POST", _S + r"/control$", control),
     ("POST", _S + r"/text-edit$", text_edit), ("PUT", _S + r"/system$", put_system),
-    ("GET", _S + r"/artboard/(?P<aid>[^/]+)/versions$", versions), ("POST", _S + r"/artboard/(?P<aid>[^/]+)/restore$", restore),
-    ("POST", _S + r"/critique$", more.critique), ("GET", _S + r"/artboard/(?P<aid>[^/]+)/contrast$", more.contrast),
-    ("GET", _S + r"/assets$", more.assets_list), ("POST", _S + r"/assets$", more.assets_post),
+    ("GET", _S + r"/artboard/(?P<aid>[^/]+)/versions$", artboards.versions),
+    ("POST", _S + r"/artboard/(?P<aid>[^/]+)/restore$", artboards.restore),
+    ("POST", _S + r"/critique$", critiques.critique), ("GET", _S + r"/artboard/(?P<aid>[^/]+)/contrast$", artboards.contrast),
+    ("GET", _S + r"/assets$", assets.assets_list), ("POST", _S + r"/assets$", assets.assets_post),
     ("POST", _S + r"/sync$", sync), ("POST", _S + r"/export$", export), ("POST", _S + r"/handoff$", handoff),
-    ("POST", _S + r"/artboard/(?P<aid>[^/]+)/rename$", more.artboard_rename), ("DELETE", _S + r"/artboard/(?P<aid>[^/]+)$", more.artboard_delete),
-    ("POST", _S + r"/turn/(?P<tid>[^/]+)/cancel$", more.turn_cancel),
+    ("POST", _S + r"/artboard/(?P<aid>[^/]+)/rename$", artboards.artboard_rename),
+    ("DELETE", _S + r"/artboard/(?P<aid>[^/]+)$", artboards.artboard_delete),
+    ("POST", _S + r"/turn/(?P<tid>[^/]+)/cancel$", turn_cancel),
 ]
 
 

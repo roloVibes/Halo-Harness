@@ -6,7 +6,7 @@
   its result (`waiting` on the board says on what); the others run here
   through SPAWN, each with `$HALO_TEAM_SCOPE` pointing at its scope file so
   team/guard.py keeps its writes in the stage's blocks.
-* `orchestra`: ORCHESTRA with the stage's goal (team/spec_check.goal_for_stage).
+* `orchestra`: ORCHESTRA with the stage's goal (team/resolve.goal_for_stage).
 * `flow`: FLOW on the named flow, the stage's `inputs` as its intake.
 
 `finish()` writes result.json, handback.md and refs.json, releases the
@@ -66,7 +66,7 @@ def start(runner, sid: str, redo: str = "") -> None:
 
 
 def _orchestra(runner, stage: dict) -> dict:
-    from halo_harness.team.spec_check import goal_for_stage
+    from halo_harness.team.resolve import goal_for_stage
     out = _result(runner.orchestra(goal_for_stage(runner.team, stage, runner.root), root=runner.root,
                                    stage=stage["id"], run_dir=runner.run_dir), "the orchestra run ended without a report")
     out["refs"] = {"orchestra_run": out.get("run_id")}
