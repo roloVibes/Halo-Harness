@@ -122,8 +122,8 @@ def get_board(req):
             return 404, {"error": f"no team run {req.query['run']!r}"}
         board = {"run": None, "team": team["name"], "state": "none", "stages": rows_for(team, state_dir=req.state_dir)}
         return 200, {"run": None, "board": board, "status": None, "live": False}
-    return 200, {"run": run_dir.name, "board": BD.read_board(run_dir), "status": status_of(run_dir),
-                 "live": live.live_run(team["root"]) == run_dir.name}
+    return 200, {"run": run_dir.name, "status": status_of(run_dir), "live": live.live_run(team["root"]) == run_dir.name,
+                 "board": dict(BD.read_board(run_dir), units=BD.unit_rows(run_dir))}  # 3.1.2.0 R1: UnitRows beside the stages
 
 
 def post_run(req):

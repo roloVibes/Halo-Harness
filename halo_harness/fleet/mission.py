@@ -31,6 +31,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from halo_harness.work.states import words
+
 STATES = ("drafted", "planned", "approved", "running", "merging", "done", "failed", "stopped")
 FINAL = ("done", "failed", "stopped")
 EDGES = {"drafted": ("planned", "failed", "stopped"),
@@ -39,7 +41,7 @@ EDGES = {"drafted": ("planned", "failed", "stopped"),
          "running": ("merging", "failed", "stopped"),
          "merging": ("done", "failed", "stopped"),
          "done": (), "failed": (), "stopped": ()}
-PART_STATES = ("pending", "asked", "running", "done", "failed", "stopped", "skipped", "merged")
+PART_STATES = words("part")  # pending asked running done failed stopped skipped merged (work/states.py, 3.1.2.0 R1)
 PART_LIVE = ("asked", "running")
 PART_OVER = ("done", "failed", "stopped", "skipped", "merged")
 ID_RE = re.compile(r"^m-\d{8}-[0-9a-f]{4}$")
@@ -90,9 +92,9 @@ def new_doc(*, mid: str, goal: str, constraints: str = "", prefer=None, budget_u
 
 
 def new_part_state(part: dict) -> dict:
-    return {"state": "pending", "harness": part.get("harness"), "harness_name": part.get("harness_name"),
-            "session_id": None, "command_id": None, "started": None, "ended": None, "cost_usd": 0.0, "error": None,
-            "branch": None, "files": [], "refused": 0, "base": None}
+    """A part's first state; its shape is the part adapter's (work/adapters/part.py, 3.1.2.0 R1)."""
+    from halo_harness.work.adapters.part import new_state
+    return new_state(part)
 
 
 def decide(doc: dict, what: str, by: str = "") -> None:

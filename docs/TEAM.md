@@ -23,6 +23,8 @@ hand a member's work to another harness the way a mission part goes out,
 and the blocks and the board tie it together: what each stage reads and
 writes, who holds which part of a block, and what waits on whom.
 
+**One unit of work (Halo 3.1.2.0):** a team stage is a *unit* of work, the same thing an Orchestra lane, a mission part and a flow step are, with one state machine, one ledger line, one report row and one coach; `halo work` prints a run's stages as that shared table. See [WORK.md](WORK.md).
+
 ## The file
 
 `<repo>/.halo/team.yaml`, else `~/.halo/teams/<project>.team.yaml` (`<project>`

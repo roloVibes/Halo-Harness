@@ -30,7 +30,7 @@ from typing import Callable, Optional
 from halo_harness.orchestra import events as run_events
 from halo_harness.orchestra import gitops, jsonl
 from halo_harness.orchestra import workflow as wf
-from halo_harness.orchestra.gate import quality_gate
+from halo_harness.orchestra.gate import quality_gate, send_back
 from halo_harness.orchestra.handoff_run import stuck
 from halo_harness.orchestra.goal import load_goal, repo_root_of, run_meta, set_lead_holder
 from halo_harness.orchestra.index import index_file
@@ -227,9 +227,7 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
                 raise StopRun(gate.stop_reason)
             for n in gate.back:
                 lane = next(l for l in lanes if l.n == n)
-                lane.update(pieces_returned=lane.pieces_returned + 1)
-                lane.set_state("waiting", f"the gate sent the piece back ({lane.pieces_returned}/{goal.return_cap})",
-                               clock=clock)
+                send_back(lane, lambda k: f"the gate sent the piece back ({k}/{goal.return_cap})", clock=clock)
                 flow.loop_back(n)
                 respawn(lane, f"The tests fail on the finished branch {result.branch}:\n{gate.tests.tail}")
                 if lane.state == "failed":

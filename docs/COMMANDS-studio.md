@@ -229,6 +229,20 @@ naming a missing bio, a bio whose `tools.allow` is an empty list, a `tiers`
 problem. It prints every problem with its fix and exits 2; `--force` runs
 anyway. `halo doctor --roles` prints the same list for the active lineup.
 
+## `halo work`
+
+```
+halo work [RUN] [--json]     the units of any run of any kind, as one table
+```
+
+Halo 3.1.2.0: an Orchestra lane, a fleet mission's part, a team stage and a
+flow step are all a *unit* of work (one model underneath, see
+[WORK.md](WORK.md)). `halo work` prints the units of any run -- an Orchestra
+run, a mission, a team run or a flow run -- as one table: the kind, the
+unit, its state, its cost, its attempts, its gate and its base. `RUN` is a
+run folder, a run id or an id prefix; with no `RUN`, the latest run of this
+repo. `--json` prints the rows. Read only; no model is called.
+
 ## `halo team`
 
 ```sh

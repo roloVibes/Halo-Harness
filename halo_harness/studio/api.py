@@ -295,6 +295,10 @@ def dispatch(req: Request):
     coached = dispatch_coach(req)
     if coached is not None:
         return coached
+    from halo_harness.studio.work_api import dispatch_work  # 3.1.2.0 R1: the shared unit view (docs/WORK.md)
+    worked = dispatch_work(req)
+    if worked is not None:
+        return worked
     if req.path == "pc" or req.path.startswith("pc/"):  # 2.2.0: Org mode (Paperclip) routes
         from halo_harness.studio.paperclip_api import dispatch_pc
         return dispatch_pc(req)

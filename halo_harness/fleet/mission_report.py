@@ -66,7 +66,13 @@ def build(home, doc: dict, plan: dict) -> dict:
             "refused": refused, "failed": [{"part": r["id"], "state": r["state"], "error": r["error"]} for r in parts
                                            if r["state"] in ("failed", "stopped", "skipped")],
             "merge": doc.get("merge"), "artifacts": [f["path"] for f in S.files(folder, "artifacts")],
-            "missing_outputs": list((doc.get("merge") or {}).get("missing_outputs") or [])}
+            "missing_outputs": list((doc.get("merge") or {}).get("missing_outputs") or []),
+            "units": _unit_rows(folder)}  # 3.1.2.0 R1: one UnitRow per part (docs/WORK.md), beside `parts`
+
+
+def _unit_rows(folder) -> list:
+    from halo_harness.work.report import rows
+    return rows(folder, "part")
 
 
 def base_cell(p: dict) -> str:

@@ -25,6 +25,7 @@ from halo_harness.flows import steps_agents, steps_media, steps_postiz
 from halo_harness.flows.report import write_report
 from halo_harness.flows.spec import step_index
 from halo_harness.flows.state import Flow, StopFlow, read_flow, read_step, stop_path, stop_requested, write_step
+from halo_harness.work.adapters import step as step_unit
 
 HANDLERS = {"intake": steps_agents.intake, "roles": steps_agents.roles, "org": steps_agents.org,
             "render": steps_media.render, "confirm": steps_media.confirm, "post": steps_postiz.post,
@@ -162,12 +163,7 @@ class Runner:
                     continue
                 self.check_stop(step)
                 old = read_step(self.run_dir, i + 1)
-                record = {"id": sid, "kind": step.get("kind"), "started": round(self.clock(), 3), "finished": None,
-                          "cost_usd": float(old.get("cost_usd") or 0.0) if old else 0.0, "output": None,
-                          "error": None, "rounds": int(old.get("rounds") or 0) if old else 0}
-                for keep in ("instructions",):
-                    if old.get(keep):
-                        record[keep] = old[keep]
+                record = step_unit.new_record(sid, step.get("kind"), round(self.clock(), 3), old)  # 3.1.2.0 R1
                 self.total += record["cost_usd"]  # what a killed attempt of this step already spent
                 self.flow.set(sid, "running")
                 write_step(self.run_dir, i + 1, record)
