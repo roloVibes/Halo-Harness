@@ -9,7 +9,7 @@ itself. `load_team(cwd, state_dir)` answers the normalised team (every
 default filled in, plus `path`, `source` and `root`) or None when there is
 no team file; a file that is not YAML or not a mapping raises ValueError
 with a plain message. `validate_team(doc, *, cwd, state_dir)` lists every
-problem as one sentence (team/spec_check.py). `halo team init` writes the
+problem as one sentence (team/validate.py). `halo team init` writes the
 repo file from `templates/team/team.yaml`.
 """
 
@@ -171,7 +171,7 @@ def stage_members(team: dict, stage: dict, *, cwd=None, state_dir=None) -> "list
     """The member names a stage runs: each entry a member name, else every
     member whose `role` is that alias, else every member whose role sits in
     the lineup tier of that name. An agent stage with none listed runs the first member."""
-    from halo_harness.team.spec_check import tier_members
+    from halo_harness.team.resolve import tier_members
     out: "list[str]" = []
     for entry in stage.get("members") or []:
         if member_by_name(team, entry):
@@ -190,7 +190,7 @@ def stage_lead(team: dict, stage: dict, members: "list[str]") -> str:
 
 
 def validate_team(doc, *, cwd=None, state_dir=None, preflight: bool = True) -> "list[str]":
-    from halo_harness.team.spec_check import validate_team as _validate
+    from halo_harness.team.validate import validate_team as _validate
     return _validate(doc, cwd=cwd, state_dir=state_dir, preflight=preflight)
 
 

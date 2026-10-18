@@ -1,6 +1,6 @@
 // The shapes the Design section reads (3.0.7.0 R3): Studio's
-// `/api/design/...` (studio/design_api*.py) and the `design_turn` frames of
-// the live feed (studio/design_api_turns.py). 3.0.7.0 R3b: knobs, the design
+// `/api/design/...` (studio/design_api.py, design_*_api.py) and the `design_turn` frames of
+// the live feed (studio/design_turns.py). 3.0.7.0 R3b: knobs, the design
 // system, a text picked in a prototype, the place of a new comment.
 
 export type ProjectRow = { slug: string; name: string; created?: string; model?: string; artboards: number };

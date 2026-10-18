@@ -1,5 +1,5 @@
 """tests.test_orchestra_coach -- Halo 3.0.9.0 round R3: the post-run coach
-(orchestra/coach.py, coach_rules.py, coach_facts.py, coach_more.py) over
+(orchestra/coach.py and its coach_*_rules.py, coach_lane_facts.py, coach_prices.py) over
 seeded run folders (tests/helpers/coach_seed.py: report.json, events.jsonl,
 lanes/<n>.json written by hand), one per rule:
 

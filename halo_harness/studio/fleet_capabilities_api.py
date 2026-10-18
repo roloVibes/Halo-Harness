@@ -28,7 +28,8 @@ from urllib.parse import quote
 from halo_harness.fleet import capabilities as caps
 from halo_harness.fleet import capabilities_who as who
 from halo_harness.fleet.hub_capabilities import entry, local_catalog
-from halo_harness.studio import fleet_watch_io as io
+from halo_harness.studio import fleet_watch_sources as sources
+from halo_harness.studio import fleet_feed as feed
 
 
 def _frame(server, home, hid: str, cat: dict) -> None:
@@ -36,14 +37,14 @@ def _frame(server, home, hid: str, cat: dict) -> None:
     if hub is not None:
         hub.state.caps.publish(hid, cat)
         return
-    io.publish(server, {"event": "fleet", "harness": hid, "data": {
+    feed.publish(server, {"event": "fleet", "harness": hid, "data": {
         "action": "capabilities", "harness": hid, "name": (cat.get("harness") or {}).get("name"), "hash": cat.get("hash")}})
 
 
 def _refresh_local(req) -> None:
     cat, changed = caps.refresh(req.state_dir)
     if changed:
-        _frame(req.server, req.state_dir, io.local_id(req.server), cat)
+        _frame(req.server, req.state_dir, sources.local_id(req.server), cat)
 
 
 def _entries(req, refresh_member: str = "") -> "tuple[int, object]":
@@ -54,7 +55,7 @@ def _entries(req, refresh_member: str = "") -> "tuple[int, object]":
             status, got = hub.state.caps.fetch_now(refresh_member)
             if status != 200:
                 return status, got
-        return 200, hub.state.caps.entries(io.view(req.server, req.state_dir))
+        return 200, hub.state.caps.entries(sources.view(req.server, req.state_dir))
     from halo_harness.fleet.hub import running_call
     route = "local/capabilities" + (f"?harness={quote(refresh_member)}&refresh=1" if refresh_member else "")
     got = running_call(req.state_dir, "GET", route, timeout=40.0 if refresh_member else 8.0)
@@ -62,8 +63,8 @@ def _entries(req, refresh_member: str = "") -> "tuple[int, object]":
         return 200, got[1].get("harnesses") or []
     if got and refresh_member:
         return got
-    lid = io.local_id(req.server)
-    view = io.view(req.server, req.state_dir)
+    lid = sources.local_id(req.server)
+    view = sources.view(req.server, req.state_dir)
     rows = []
     for h in view.get("harnesses") or []:
         if h.get("local"):

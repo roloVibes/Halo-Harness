@@ -6,7 +6,7 @@
     halo orchestra claims [RUN]          every live claim: key, holder, state, expiry
     halo orchestra log [RUN] [--since N] the timed run log
     halo orchestra runs                  every run of this repo, oldest first
-    halo orchestra run [RUN] [--model REF] [--dry-run]   the pipeline (orchestra_cli_run.py)
+    halo orchestra run [RUN] [--model REF] [--dry-run]   the pipeline (orchestra_cli_run.py, with stop)
     halo orchestra lanes|report|stop [RUN]
     halo orchestra run --review | plan | approve | reject [RUN]   the reviewed plan (orchestra_cli_plan.py, 3.0.9.0)
     halo orchestra coach [RUN] [--json]  the post-run coach's card (coach_cli.py, 3.0.9.0)
@@ -14,6 +14,11 @@
 RUN is a run id (or a unique prefix of one) or a run folder; the latest run
 when omitted. `new` prompts for WHAT YOU WANT / DONE WHEN / STOP WHEN when
 they are not given and a terminal is attached. See docs/ORCHESTRA.md.
+
+This module is the parser (every subcommand), the dispatch, `new` and
+`_open` (RUN to a run folder); 3.1.0.0 R2 moved the read-only views
+(status, claims, log, runs, lanes, report) to orchestra_cli_views.py, and
+orchestra_cli_run.py keeps run and stop.
 """
 
 from __future__ import annotations
@@ -22,11 +27,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from halo_harness.orchestra import events as run_events
 from halo_harness.orchestra import goal as G
 from halo_harness.orchestra import jsonl
-from halo_harness.orchestra.claims import ClaimLog, clock_text
-from halo_harness.orchestra.workflow import summary
 
 _PROMPTS = (("what", "WHAT YOU WANT"), ("done_when", "DONE WHEN"), ("stop_when", "STOP WHEN"))
 
@@ -52,8 +54,21 @@ def _parser() -> argparse.ArgumentParser:
         if name == "log":
             s.add_argument("--since", type=int, default=0, help="skip the first N entries")
     sub.add_parser("runs", help="every run of this repo")
-    from halo_harness.orchestra_cli_run import add_parsers
-    add_parsers(sub)
+    r = sub.add_parser("run", help="run the pipeline: split, workers, merge, tests, gate, report")
+    r.add_argument("run", nargs="?", default=None, help="run id, id prefix or folder (default: latest)")
+    r.add_argument("--model", default=None, metavar="REF", help="the model every part uses (default: the roles)")
+    r.add_argument("--dry-run", dest="dry_run", action="store_true", help="split only: print the jobs")
+    r.add_argument("--force", action="store_true", help="run even when the lineup preflight finds problems")
+    r.add_argument("--review", action="store_true", help="pause after the split until the plan is approved")
+    for name, helptext in (("lanes", "every lane: state, holder, returns, cost"),
+                           ("report", "the run's report and its checks"),
+                           ("stop", "ask a running run to stop between steps")):
+        s = sub.add_parser(name, help=helptext)
+        s.add_argument("run", nargs="?", default=None, help="run id, id prefix or folder (default: latest)")
+        if name == "stop":
+            s.add_argument("--reason", default="stopped by the user", help="the reason the report shows")
+    from halo_harness.orchestra_cli_plan import add_parsers as add_plan_parsers
+    add_plan_parsers(sub)
     from halo_harness.coach_cli import add_orchestra_parser
     add_orchestra_parser(sub)
     for s in sub.choices.values():
@@ -69,9 +84,10 @@ def cmd_orchestra(argv) -> int:
         return 0
     repo = Path(args.repo or ".").resolve()
     from halo_harness.coach_cli import cmd_orchestra_coach
-    from halo_harness.orchestra_cli_run import HANDLERS
-    handler = dict({"new": _new, "status": _status, "claims": _claims, "log": _log, "runs": _runs,
-                    "coach": cmd_orchestra_coach}, **HANDLERS)[args.cmd]
+    from halo_harness.orchestra_cli_plan import HANDLERS as plan
+    from halo_harness.orchestra_cli_run import HANDLERS as running
+    from halo_harness.orchestra_cli_views import HANDLERS as views
+    handler = dict({"new": _new, "coach": cmd_orchestra_coach}, **views, **running, **plan)[args.cmd]
     return handler(args, repo)
 
 
@@ -119,74 +135,3 @@ def _open(args, repo: Path):
         what = f"no run named {args.run!r}" if args.run else "no runs in this repo"
         print(f"halo orchestra: {what} (runs: {names}); start one with halo orchestra new", file=sys.stderr)
     return run_dir
-
-
-def _status(args, repo: Path) -> int:
-    run_dir = _open(args, repo)
-    if run_dir is None:
-        return 1
-    try:
-        goal = G.load_goal(run_dir / "goal.json")
-    except ValueError as e:
-        print(f"halo orchestra status: {e}", file=sys.stderr)
-        return 1
-    print(f"run {run_dir.name}  ({run_dir})")
-    print(f"  WHAT YOU WANT  {goal.what}")
-    print(f"  DONE WHEN      {goal.done_when}")
-    print(f"  STOP WHEN      {goal.stop_when}")
-    print(f"  {goal.workers} worker(s), return cap {goal.return_cap}, test {goal.test or '(none)'}, "
-          f"lead {goal.lead}, worker {goal.worker}" + (f", lineup {goal.lineup}" if goal.lineup else ""))
-    print(f"  files: {', '.join(goal.files) or '(none)'}")
-    graph = jsonl.read_json(run_dir / "workflow.json", {}) or {}
-    counts = summary(graph)
-    print("  steps: " + (", ".join(f"{v} {k}" for k, v in sorted(counts.items())) or "(no workflow.json)"))
-    running = [s["id"] for s in graph.get("steps") or [] if s.get("state") == "running"]
-    if running:
-        print("  running: " + ", ".join(running))
-    active = ClaimLog(run_dir).active()
-    print(f"  live claims: {len(active)}")
-    tail = run_events.read(run_dir)[-5:]
-    if tail:
-        print("  last events:")
-        for e in tail:
-            print("    " + run_events.format_line(e))
-    return 0
-
-
-def _claims(args, repo: Path) -> int:
-    run_dir = _open(args, repo)
-    if run_dir is None:
-        return 1
-    active = ClaimLog(run_dir).active()
-    if not active:
-        print(f"run {run_dir.name}: no live claims")
-        return 0
-    print(f"run {run_dir.name}: {len(active)} live claim(s)")
-    for c in sorted(active.values(), key=lambda c: c.key):
-        print(f"  {c.key:<40} {c.holder:<30} {c.state:<8} until {clock_text(c.expires)}")
-    return 0
-
-
-def _log(args, repo: Path) -> int:
-    run_dir = _open(args, repo)
-    if run_dir is None:
-        return 1
-    entries = run_events.read(run_dir, since=args.since)
-    if not entries:
-        print(f"run {run_dir.name}: no events" + (f" after entry {args.since}" if args.since else ""))
-        return 0
-    for e in entries:
-        print(run_events.format_line(e))
-    return 0
-
-
-def _runs(args, repo: Path) -> int:
-    runs = G.list_runs(repo)
-    if not runs:
-        print("no runs in this repo yet: halo orchestra new")
-        return 0
-    for run_dir in runs:
-        data = jsonl.read_json(run_dir / "goal.json", {}) or {}
-        what = str(data.get("what") or "")
-        print(f"{run_dir.name}  {int(data.get('workers') or 0):>2} worker(s)  {what[:60]}")
-    return 0

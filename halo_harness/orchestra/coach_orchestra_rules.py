@@ -1,6 +1,7 @@
-"""halo_harness.orchestra.coach_rules -- the coach's rules for an Orchestra run
-(orchestra/coach.py; the facts come from coach_facts.py). Each rule names
-its evidence in `why`:
+"""halo_harness.orchestra.coach_orchestra_rules -- the coach's rules for an
+Orchestra run (orchestra/coach.py; the lane facts come from
+coach_lane_facts.py, the prices from coach_prices.py; 3.1.0.0 R2 renamed it
+from coach_rules.py). Each rule names its evidence in `why`:
 
 * prompt: a lane whose piece came back two or more times for the same
   reason (the gate's failing tests, or a merge whose resolution failed the
@@ -28,8 +29,9 @@ from statistics import median
 
 from halo_harness.orchestra import jsonl
 from halo_harness.orchestra.coach import apply_to, suggestion
-from halo_harness.orchestra.coach_facts import CHEAP_PRICE, TOP_PRICE, best_for, catalog as load_catalog, \
-    lane_facts, price_of, price_words
+from halo_harness.orchestra.coach_lane_facts import lane_facts
+from halo_harness.orchestra.coach_prices import CHEAP_PRICE, TOP_PRICE, best_for, catalog as load_catalog, price_of, \
+    price_words
 
 COST_FLOOR = 0.05     # $: under it a lane is never "high cost"
 SMALL_DIFF = 40       # lines written: a small diff

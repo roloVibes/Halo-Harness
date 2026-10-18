@@ -61,7 +61,7 @@ def _waiting_line(run_dir, board: dict) -> str:
 def cmd_run(args) -> int:
     from halo_harness.lineup_preflight import blocking, refusal_text
     from halo_harness.team.run import open_run
-    from halo_harness.team.spec_check import preflight_findings
+    from halo_harness.team.validate import preflight_findings
     team, code = _team()
     if team is None:
         return code

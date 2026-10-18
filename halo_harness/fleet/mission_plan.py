@@ -4,7 +4,7 @@ model call (`call_model(prompt)` -> str | (str, cost) | {text, cost_usd,
 session_id}), through the same provider path as Orchestra's lead
 (orchestra/adapters.model_call); tests pass a fake. The prompt carries the
 fleet's capability catalog, one compact block per harness, and what only
-one harness has (mission_plan_rules.unique_lines). The answer:
+one harness has (mission_assign.unique_lines). The answer:
 
     {"parts": [{"id", "title", "brief", "harness", "reason", "needs": [capability names],
                 "depends_on": [ids], "claims": [repo-relative paths or globs], "outputs": [files],
@@ -13,7 +13,7 @@ one harness has (mission_plan_rules.unique_lines). The answer:
 
 Code checks it (mission_plan_check.normalize; a failed check retries once
 with the problems listed), then assigns harnesses by the rules
-(mission_plan_rules.assign: pinned, prefer, load, unassignable) and
+(mission_assign.assign: pinned, prefer, load, unassignable) and
 sequences overlapping claims. `plan.json` keeps the result; MISSION.md and
 every `parts/<n>/brief.md` are written from it. `edit` (reassign or drop a
 part) re-validates in code only.
@@ -28,7 +28,7 @@ from halo_harness.fleet import mission as M
 from halo_harness.fleet import mission_store as S
 from halo_harness.fleet.mission_doc import brief_md, mission_md
 from halo_harness.fleet.mission_plan_check import merge_order, normalize, sequence
-from halo_harness.fleet.mission_plan_rules import able, assign, norm_need, unique_lines
+from halo_harness.fleet.mission_assign import able, assign, norm_need, unique_lines
 from halo_harness.orchestra import jsonl
 from halo_harness.orchestra.split import _call, parse_answer
 

@@ -1,8 +1,8 @@
-"""halo_harness.orchestra_cli_run -- the run half of `halo orchestra`.
+"""halo_harness.orchestra_cli_run -- `halo orchestra run | stop`: driving a
+run (Halo 3.0.3.0 round R2; 3.1.0.0 R2 moved lanes and report to
+orchestra_cli_views.py and the parsers to orchestra_cli.py).
 
     halo orchestra run [RUN] [--model REF] [--dry-run] [--force]   split, workers, merge, tests, gate, report
-    halo orchestra lanes [RUN]                           every lane: state, holder, returns, cost
-    halo orchestra report [RUN]                          the run's report and its checks
     halo orchestra stop [RUN] [--reason TEXT]            ask a running run to stop between steps
     halo orchestra run [RUN] --review | plan | approve | reject   the reviewed plan (orchestra_cli_plan.py)
 
@@ -23,24 +23,6 @@ from pathlib import Path
 
 from halo_harness.orchestra import events as run_events
 from halo_harness.orchestra import goal as G
-
-
-def add_parsers(sub) -> None:
-    r = sub.add_parser("run", help="run the pipeline: split, workers, merge, tests, gate, report")
-    r.add_argument("run", nargs="?", default=None, help="run id, id prefix or folder (default: latest)")
-    r.add_argument("--model", default=None, metavar="REF", help="the model every part uses (default: the roles)")
-    r.add_argument("--dry-run", dest="dry_run", action="store_true", help="split only: print the jobs")
-    r.add_argument("--force", action="store_true", help="run even when the lineup preflight finds problems")
-    r.add_argument("--review", action="store_true", help="pause after the split until the plan is approved")
-    for name, helptext in (("lanes", "every lane: state, holder, returns, cost"),
-                           ("report", "the run's report and its checks"),
-                           ("stop", "ask a running run to stop between steps")):
-        s = sub.add_parser(name, help=helptext)
-        s.add_argument("run", nargs="?", default=None, help="run id, id prefix or folder (default: latest)")
-        if name == "stop":
-            s.add_argument("--reason", default="stopped by the user", help="the reason the report shows")
-    from halo_harness.orchestra_cli_plan import add_parsers as add_plan_parsers
-    add_plan_parsers(sub)
 
 
 def _open(args, repo: Path):
@@ -110,36 +92,6 @@ def _dry_run(run_dir: Path, goal, call) -> int:
     return 0
 
 
-def cmd_lanes(args, repo: Path) -> int:
-    from halo_harness.orchestra.lanes import lane_rows
-    run_dir = _open(args, repo)
-    if run_dir is None:
-        return 1
-    rows = lane_rows(run_dir)
-    if not rows:
-        print(f"run {run_dir.name}: no lanes yet (halo orchestra run {run_dir.name})")
-        return 0
-    print(f"run {run_dir.name}: {len(rows)} lane(s)")
-    for row in rows:
-        print(f"  lane {row.get('lane'):<3} {row.get('state') or '-':<9} returned {row.get('pieces_returned', 0)}  "
-              f"${float(row.get('cost_usd') or 0):.4f}  {row.get('holder') or '-':<28} {row.get('title') or ''}")
-        print(f"           {', '.join(row.get('claims') or [])}")
-    return 0
-
-
-def cmd_report(args, repo: Path) -> int:
-    from halo_harness.orchestra.report import format_report, load_report
-    run_dir = _open(args, repo)
-    if run_dir is None:
-        return 1
-    report = load_report(run_dir)
-    if report is None:
-        print(f"run {run_dir.name}: no report yet (halo orchestra run {run_dir.name})")
-        return 1
-    print(format_report(report))
-    return 0
-
-
 def cmd_stop(args, repo: Path) -> int:
     from halo_harness.orchestra.run import request_stop
     run_dir = _open(args, repo)
@@ -150,9 +102,4 @@ def cmd_stop(args, repo: Path) -> int:
     return 0
 
 
-def _plan_handlers() -> dict:
-    from halo_harness.orchestra_cli_plan import HANDLERS as plan
-    return plan
-
-
-HANDLERS = {"run": cmd_run, "lanes": cmd_lanes, "report": cmd_report, "stop": cmd_stop, **_plan_handlers()}
+HANDLERS = {"run": cmd_run, "stop": cmd_stop}

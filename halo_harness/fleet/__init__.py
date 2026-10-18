@@ -26,5 +26,6 @@ permission; the loopback Studio API is unchanged.
     control.py        commands from a hub, gated by fleet.allow_control
     local_view.py     this harness's own sessions and agent trees
     table.py          `halo fleet` and `/fleet` rows; table_live.py the live terminal table
-    cli.py            `halo fleet serve | pair`; cli_more.py join | leave | status | members | kick
+    cli.py            `halo fleet serve | pair`; cli_join.py join | leave | status;
+                      cli_members.py members | kick
 """

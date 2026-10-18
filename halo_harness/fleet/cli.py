@@ -16,8 +16,8 @@
 
 `serve` starts the hub inside a running Studio (through its loopback API)
 or else in the foreground (Ctrl+C stops it); `pair` makes a one-time code
-for the hub this machine runs. join / leave / status / members / kick live
-in cli_more.py; record / digest (3.0.5.0 R4) in cli_panels.py; capabilities / who (3.0.6.0 R6) in cli_caps.py. Exit codes: 0 done, 1 could not (the reason on stderr), 2 usage.
+for the hub this machine runs. join / leave / status live in cli_join.py,
+members / kick in cli_members.py; record / digest (3.0.5.0 R4) in cli_panels.py; capabilities / who (3.0.6.0 R6) in cli_caps.py. Exit codes: 0 done, 1 could not (the reason on stderr), 2 usage.
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ from halo_harness.remote import cli_common as C
 VERBS = ("serve", "pair", "join", "leave", "status", "members", "kick", "record", "digest", "capabilities", "who", "mission")
 PANEL_VERBS = ("record", "digest")  # 3.0.5.0 R4: fleet/cli_panels.py
 CAPS_VERBS = ("capabilities", "who")  # 3.0.6.0 R6: fleet/cli_caps.py
+MEMBER_VERBS = ("members", "kick")  # fleet/cli_members.py; join / leave / status: fleet/cli_join.py
 USAGE = """usage: halo fleet [--once] [--json]
        halo fleet serve [--port N] [--bind ADDR] [--name NAME] [--no-tls] [--json]
        halo fleet pair [--ttl 10m] [--ascii] [--json]
@@ -188,8 +189,11 @@ def cmd_fleet(argv: list) -> int:
     if verb in PANEL_VERBS:
         from halo_harness.fleet import cli_panels
         return getattr(cli_panels, "cmd_" + verb)(rest)
+    if verb in MEMBER_VERBS:
+        from halo_harness.fleet import cli_members
+        return getattr(cli_members, "cmd_" + verb)(rest)
     if verb in VERBS:
-        from halo_harness.fleet import cli_more
-        return getattr(cli_more, "cmd_" + verb)(rest)
+        from halo_harness.fleet import cli_join
+        return getattr(cli_join, "cmd_" + verb)(rest)
     print(USAGE, file=sys.stderr)
     return 2
