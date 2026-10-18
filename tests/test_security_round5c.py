@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R3: COMMANDS.md is split into parts
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
 
 test, TESTS = new_registry()
@@ -120,7 +121,8 @@ def test_f26_script_text_pins_the_bootstrap_and_the_readme_uses_a_tag(ctx: Ctx):
               and re.search(r"Halo-Harness/v\d+\.\d+\.\d+[^/]*/scripts/install-halo\.ps1", readme)
               and "master/scripts/install-halo" not in readme)
     ctx.check("f26 --ref is documented in README, INSTALL.md and COMMANDS.md",
-              all("--ref" in (REPO / f).read_text(encoding="utf-8") for f in ("README.md", "docs/INSTALL.md", "docs/COMMANDS.md")))
+              all("--ref" in (REPO / f).read_text(encoding="utf-8") for f in ("README.md", "docs/INSTALL.md"))
+              and "--ref" in doc_text("COMMANDS.md"))
 
 
 @test

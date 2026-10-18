@@ -89,6 +89,11 @@ class EventBridge:
             if q in self._clients:
                 self._clients.remove(q)
 
+    def listeners(self) -> int:
+        """How many browsers (EventSources) are open right now (3.1.1.0 R3: `halo studio --edit` focuses one)."""
+        with self._lock:
+            return sum(1 for q in self._clients if not q.closed)
+
     def publish(self, frame: dict) -> None:
         for tap in list(self.taps):
             try:

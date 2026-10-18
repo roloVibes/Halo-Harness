@@ -239,69 +239,73 @@ def test_halo_teams_show_standard_explains_it_in_one_sentence(ctx: Ctx):
 
 
 # ---------------------------------------------------------------------------
-# Deliverable 3: bio editor layout, at 80x24 AND 120x40.
+# Deliverable 3: the bio's layout, at 80x24 AND 120x40. 3.1.1.0 R3: the
+# terminal shows a bio read-only (`AgentBioView`; Studio's bio form edits it).
 # ---------------------------------------------------------------------------
 
+def _visible(widget, pane) -> bool:
+    r, pr = widget.region, pane.region
+    return r.height > 0 and r.y >= pr.y and r.y + r.height <= pr.y + pr.height
+
+
 @test
-def test_bio_editor_name_description_kind_and_model_fields_visible_on_open(ctx: Ctx):
+def test_bio_view_description_kind_and_model_visible_on_open(ctx: Ctx):
     """"the first rows (name, description, kind, the model fields) are
     visible on open at 80x24" -- and still at 120x40."""
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
     from textual.app import App
 
     async def body(w, h):
         with _Env():
-            app_holder = {}
+            raw = {"description": "A bio to look at.", "kind": "subagent", "models": {"preference": "or:vendor/strong-model"}}
 
             class _Host(App):
                 def on_mount(self):
-                    app_holder["screen"] = AgentBioEditor("new-bio", {}, FIXTURE_MODELS, is_new=True)
-                    self.push_screen(app_holder["screen"])
+                    self.push_screen(AgentBioView("view-bio", raw, FIXTURE_MODELS))
             app = _Host()
             async with app.run_test(size=(w, h)) as pilot:
                 await pilot.pause(0.15)
-                editor = app.screen
-                pane = editor.query_one("#bio-form-pane")
-                for wid in ("#bio-name", "#bio-description", "#bio-kind", "#bio-pref"):
-                    w_ = editor.query_one(wid)
-                    r, pr = w_.region, pane.region
-                    visible = r.y >= pr.y and r.y + r.height <= pr.y + pr.height
-                    ctx.check(f"{wid} is visible on open at {w}x{h} (no scroll needed), "
-                              f"got widget={r} pane={pr}", visible)
+                view = app.screen
+                pane = view.query_one("#bio-form-pane")
+                for wid in ("#bio-view-identity-description", "#bio-view-identity-kind", "#bio-view-models-preferred-model"):
+                    ctx.check(f"{wid} is visible on open at {w}x{h} (no scroll needed), got "
+                              f"widget={view.query_one(wid).region} pane={pane.region}", _visible(view.query_one(wid), pane))
     for size in SIZES:
         run(body(*size))
 
 
 @test
-def test_bio_editor_every_field_focusable_and_visible_when_focused(ctx: Ctx):
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+def test_bio_view_has_every_field_and_its_buttons_visible_when_focused(ctx: Ctx):
+    """Every field of the bio is a row of the view, and Tab reaches its three buttons (Edit in
+    Studio, Try it, Close), each scrolled into view when focused."""
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
+    from halo_harness.tui.dialogs.bio_view_text import FIELDS
     from textual.app import App
+    from textual.widgets import Button
 
     async def body(w, h):
         with _Env():
-            app_holder = {}
-
             class _Host(App):
                 def on_mount(self):
-                    app_holder["screen"] = AgentBioEditor("new-bio", {}, FIXTURE_MODELS, is_new=True)
-                    self.push_screen(app_holder["screen"])
+                    self.push_screen(AgentBioView("view-bio", {"description": "x"}, FIXTURE_MODELS))
             app = _Host()
             async with app.run_test(size=(w, h)) as pilot:
                 await pilot.pause(0.15)
-                pane = app.screen.query_one("#bio-form-pane")
-                checked = 0
-                for _ in range(26):
-                    fw = app.focused
-                    fid = getattr(fw, "id", None) or ""
-                    if fid.startswith("bio-"):
-                        checked += 1
-                        r, pr = fw.region, pane.region
-                        visible = r.y >= pr.y and r.y + r.height <= pr.y + pr.height
-                        ctx.check(f"{fid} is visible when focused at {w}x{h}, got widget={r} pane={pr}", visible)
+                view = app.screen
+                texts = [_static_text(s) for s in view.query(".bio-field-value")]
+                missing = [label for (_s, _k, label) in FIELDS if not any(x.startswith(f"{label}: ") for x in texts)]
+                ctx.check(f"every field has its row at {w}x{h}; missing: {missing}", not missing)
+                pane = view.query_one("#bio-form-pane")
+                seen = set()
+                for _ in range(8):
                     await pilot.press("tab")
                     await pilot.pause(0.08)
-                ctx.check(f"at least a dozen bio- fields were actually tabbed through at {w}x{h}, got {checked}",
-                          checked >= 12)
+                    fw = app.focused
+                    if isinstance(fw, Button):
+                        seen.add(fw.id)
+                        ctx.check(f"{fw.id} is visible when focused at {w}x{h}", _visible(fw, pane))
+                ctx.check(f"Tab reaches the three buttons at {w}x{h}, got {sorted(seen)}",
+                          seen == {"bio-edit-studio", "bio-try", "bio-close"})
     for size in SIZES:
         run(body(*size))
 
@@ -336,75 +340,75 @@ async def _wizard_to_agents_step(pilot, app, state):
 
 
 @test
-def test_ctrl_p_opens_the_picker_with_fixture_rows_and_the_filter_completes(ctx: Ctx):
-    """The coordinator's own primary repro: open the Agents step from a
-    wizard run where the Providers step has produced an enumeration,
-    open New bio, press Ctrl+P, and the picker screen is on top with the
-    fixture rows visible and the filter input completing -- at both
-    sizes. ROOT CAUSE (see agent_bio_editor.AgentBioEditor.on_mount's own
-    comment): Textual's App always claims ctrl+p for its command
-    palette ahead of any Screen's own binding on the same key."""
+def test_wizard_flow_bio_view_and_e_opens_studio(ctx: Ctx):
+    """The coordinator's own primary repro, 3.1.1.0 R3 shape: through the REAL wizard
+    flow (the Providers step's own enumeration reaches the Team step), the
+    Agents list opens a bio read-only on Enter, `e` there opens Studio on it
+    (`tui.studio_open.OPENER` records it) and Esc comes back -- at both sizes.
+    Picking a model happens in Studio's bio form now (its model picker)."""
+    from halo_harness.tui import studio_open
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from halo_harness.tui.dialogs.model_picker import ModelPicker
-    from textual.widgets import Button, Input, OptionList
+    from textual.widgets import OptionList
 
     async def body(w, h):
         with _Env():
-            state = WizardState(cwd=REPO_DIR,
-                                 step_keys=("providers", "local_models", "default_model", "permission_mode",
-                                            "theme", "agents"),
-                                 no_live=True)
-            app = InitWizardApp(state)
-            async with app.run_test(size=(w, h)) as pilot:
-                await pilot.pause(0.1)
-                await _wizard_to_agents_step(pilot, app, state)
-                ctx.check(f"the Providers step's own enumeration reached the Agents step at {w}x{h}, "
-                          f"got enumeration_done={state.enumeration_done}", state.enumeration_done)
-                app.screen._open_agents()  # 3.0.2.0: the Agents editor is Ctrl+A now (Studio has the button)
-                await pilot.pause(0.3)
-                app.screen.query_one("#agents-new", Button).press()
-                await pilot.pause(0.2)
-                editor = app.screen
-                ctx.check(f"New opened the bio editor at {w}x{h}, got {type(editor).__name__}",
-                          type(editor).__name__ == "AgentBioEditor")
-                await pilot.press("ctrl+p")
-                await pilot.pause(0.2)
-                picker = app.screen
-                ctx.check(f"Ctrl+P opens the model picker (not the command palette) at {w}x{h}, "
-                          f"got {type(picker).__name__}", isinstance(picker, ModelPicker))
-                rows = picker.query_one("#model-list", OptionList)
-                ctx.check(f"the fixture rows are there at {w}x{h}, got option_count={rows.option_count}",
-                          rows.option_count >= len(FIXTURE_MODELS))
-                picker.query_one("#model-filter", Input).value = "cheap"
-                await pilot.pause(0.1)
-                ctx.check(f"typing narrows to the matching fixture row at {w}x{h}, got {picker._filtered}",
-                          len(picker._filtered) == 1 and picker._filtered[0]["ref"] == "or:vendor/cheap-model")
-                picker.action_cancel()
-                await pilot.pause(0.1)
-                ctx.check(f"Esc returns to the bio editor at {w}x{h}, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "AgentBioEditor")
+            opened = []
+            saved = studio_open.OPENER
+            studio_open.OPENER = lambda target, **_kw: opened.append(target.text) or {
+                "url": "u", "how": "focused", "pages": 1, "target": target.text}
+            try:
+                state = WizardState(cwd=REPO_DIR,
+                                     step_keys=("providers", "local_models", "default_model", "permission_mode",
+                                                "theme", "agents"),
+                                     no_live=True)
+                app = InitWizardApp(state)
+                async with app.run_test(size=(w, h)) as pilot:
+                    await pilot.pause(0.1)
+                    await _wizard_to_agents_step(pilot, app, state)
+                    ctx.check(f"the Providers step's own enumeration reached the Team step at {w}x{h}, "
+                              f"got enumeration_done={state.enumeration_done}", state.enumeration_done)
+                    app.screen._open_agents()  # 3.0.2.0: the Agents list is Ctrl+A
+                    await pilot.pause(0.3)
+                    rows = app.screen.query_one("#agents-list", OptionList)
+                    rows.highlighted = 0
+                    rows.focus()
+                    first = str(rows.get_option_at_index(0).id)
+                    await pilot.press("enter")
+                    await pilot.pause(0.2)
+                    ctx.check(f"Enter shows the bio read-only at {w}x{h}, got {type(app.screen).__name__}",
+                              isinstance(app.screen, AgentBioView))
+                    await pilot.press("e")
+                    for _ in range(20):
+                        await pilot.pause(0.05)
+                        if opened:
+                            break
+                    ctx.check(f"e opens Studio on it at {w}x{h}, got {opened}", opened == [f"bio:{first}"])
+                    await pilot.press("escape")
+                    await pilot.pause(0.15)
+                    ctx.check(f"Esc returns to the list at {w}x{h}, got {type(app.screen).__name__}",
+                              type(app.screen).__name__ == "AgentsListScreen")
+            finally:
+                studio_open.OPENER = saved
     for size in SIZES:
         run(body(*size))
 
 
 @test
-def test_lineup_and_org_editors_have_the_same_ctrl_p_fix(ctx: Ctx):
-    """The identical collision existed on `LineupEditor`/`OrgEditor`'s
-    own `ctrl+p` (found driving Orgs in the same sweep, deliverable 5) --
-    same fix, pinned here so a future change can't silently reopen it."""
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+def test_org_editor_has_the_ctrl_p_fix(ctx: Ctx):
+    """The ctrl+p collision on `OrgEditor` (found driving Orgs in the same sweep,
+    deliverable 5) -- the fix pinned so a future change can't silently reopen
+    it. (3.1.1.0 R3: the lineup is shown read-only in the terminal; Studio's
+    inspector picks its models.)"""
     from halo_harness.tui.dialogs.model_picker import ModelPicker
     from halo_harness.tui.dialogs.org_editor import OrgEditor
     from textual.app import App
 
     async def body(screen_factory, label):
         with _Env():
-            app_holder = {}
-
             class _Host(App):
                 def on_mount(self):
-                    app_holder["screen"] = screen_factory()
-                    self.push_screen(app_holder["screen"])
+                    self.push_screen(screen_factory())
             app = _Host()
             async with app.run_test(size=(120, 40)) as pilot:
                 await pilot.pause(0.15)
@@ -412,43 +416,32 @@ def test_lineup_and_org_editors_have_the_same_ctrl_p_fix(ctx: Ctx):
                 await pilot.pause(0.15)
                 ctx.check(f"{label}: Ctrl+P opens the model picker, got {type(app.screen).__name__}",
                           isinstance(app.screen, ModelPicker))
-    run(body(lambda: LineupEditor("pilot", {"agents": []}, FIXTURE_MODELS, is_new=True), "LineupEditor"))
     run(body(lambda: OrgEditor("pilot", {"positions": [{"title": "Boss"}]}, FIXTURE_MODELS), "OrgEditor"))
 
 
 @test
-def test_empty_filter_never_yields_an_empty_picker_silently(ctx: Ctx):
-    """"the bio-needs filter never yields an empty list silently: when
-    it would, show all rows with one line saying why"."""
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+def test_a_prefiltered_picker_never_shows_an_empty_list_silently(ctx: Ctx):
+    """"a pre-filtered picker never yields an empty list silently": opened with
+    every row (`all_models`) and one line saying why (`initial_hint`), it shows
+    that line, and ctrl+e flips to every row."""
     from halo_harness.tui.dialogs.model_picker import ModelPicker
     from textual.app import App
-    from textual.widgets import Input, OptionList
+    from textual.widgets import OptionList
 
     async def body():
         with _Env():
-            app_holder = {}
-            # A bio that needs tool support -- NO_TOOLS_MODELS has zero
-            # rows that declare it, so the plain filter would be empty.
-            raw = {"tools": {"allow": ["Bash"]}}
-
             class _Host(App):
                 def on_mount(self):
-                    app_holder["screen"] = AgentBioEditor("needs-tools", raw, NO_TOOLS_MODELS)
-                    self.push_screen(app_holder["screen"])
+                    self.push_screen(ModelPicker(list(NO_TOOLS_MODELS), all_models=list(NO_TOOLS_MODELS),
+                                                 allow_agent_source=False,
+                                                 initial_hint="Showing every model -- no model in the catalog declares tool support."))
             app = _Host()
             async with app.run_test(size=(120, 40)) as pilot:
                 await pilot.pause(0.15)
-                await pilot.press("ctrl+p")
-                await pilot.pause(0.15)
                 picker = app.screen
-                ctx.check(f"the picker opened despite the filter matching nothing, got {type(picker).__name__}",
-                          isinstance(picker, ModelPicker))
                 rows = picker.query_one("#model-list", OptionList)
-                selectable = [rows.get_option_at_index(i) for i in range(rows.option_count)
-                              if rows.get_option_at_index(i).id]
-                ctx.check(f"every row is shown instead of none, got {len(selectable)} selectable "
-                          f"of option_count={rows.option_count}", len(selectable) == len(NO_TOOLS_MODELS))
+                selectable = [rows.get_option_at_index(i) for i in range(rows.option_count) if rows.get_option_at_index(i).id]
+                ctx.check(f"every row is shown, got {len(selectable)}", len(selectable) == len(NO_TOOLS_MODELS))
                 hint = _static_text(picker.query_one("#model-hint"))
                 ctx.check(f"one line explains why, got {hint!r}", "Showing every model" in hint and "--" in hint)
     run(body())
@@ -567,12 +560,12 @@ def test_team_step_checkmark_marks_the_active_lineup_not_the_highlight(ctx: Ctx)
 
 
 @test
-def test_agents_step_enter_opens_the_highlighted_bio_no_button_needed(ctx: Ctx):
+def test_agents_step_enter_shows_the_highlighted_bio_no_button_needed(ctx: Ctx):
     """Owner's "clunky wizard" follow-up, rule (a): "Enter on a
     highlighted list row does the obvious thing ... the buttons stay but
-    are never the only path" -- the wizard's own Agents step, not just
-    the standalone `/agents` screen (which already had this)."""
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+    are never the only path" -- Enter shows the bio (3.1.1.0 R3: read-only;
+    Edit in Studio is the edit)."""
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from textual.widgets import OptionList
 
@@ -592,21 +585,19 @@ def test_agents_step_enter_opens_the_highlighted_bio_no_button_needed(ctx: Ctx):
                 await pilot.pause(0.05)
                 await pilot.press("enter")
                 await pilot.pause(0.2)
-                ctx.check(f"Enter alone opened the bio editor (no button press), got "
-                          f"{type(app.screen).__name__}", isinstance(app.screen, AgentBioEditor))
+                ctx.check(f"Enter alone opened the bio (no button press), got "
+                          f"{type(app.screen).__name__}", isinstance(app.screen, AgentBioView))
     run(body())
 
 
 @test
-def test_agents_step_and_bio_editor_focus_on_open_is_never_a_button(ctx: Ctx):
+def test_agents_step_and_bio_view_focus_on_open_is_never_a_button(ctx: Ctx):
     """Rule (b): "when a screen opens, focus lands on the list or the
-    first field, never on a button". 2.0.5 release gate: the fixed
-    pauses raced a loaded CI runner twice (2aadbee + 5d9dcb1: focus
-    still on the VerticalScroll container a beat after the editor
-    pushed) -- both waits are bounded polls now, same as the H9b
-    lesson: poll the condition, never sleep a guessed constant."""
+    first field, never on a button" -- the Team step, the Agents list and
+    the bio view (bounded polls, the H9b lesson)."""
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from textual.widgets import Button, Input, OptionList
+    from textual.widgets import Button, OptionList
 
     async def body():
         with _Env():
@@ -635,11 +626,13 @@ def test_agents_step_and_bio_editor_focus_on_open_is_never_a_button(ctx: Ctx):
                 ctx.check(f"the Team step focuses a list, never a button, got {type(app.focused).__name__}",
                           isinstance(app.focused, OptionList) and not isinstance(app.focused, Button))
                 app.screen._open_agents()
-                await _wait_until(lambda: type(app.screen).__name__ == "AgentsListScreen")
-                app.screen.query_one("#agents-new", Button).press()
-                await _wait_until(lambda: isinstance(app.focused, Input))
-                ctx.check(f"the bio editor focuses a field, got {type(app.focused).__name__}",
-                          isinstance(app.focused, Input))
+                await _wait_until(lambda: type(app.screen).__name__ == "AgentsListScreen" and isinstance(app.focused, OptionList))
+                ctx.check(f"the Agents list focuses its list, got {type(app.focused).__name__}", isinstance(app.focused, OptionList))
+                await pilot.press("enter")
+                await _wait_until(lambda: isinstance(app.screen, AgentBioView))
+                await pilot.pause(0.1)
+                ctx.check(f"the bio view never opens on a button, got {type(app.focused).__name__}",
+                          isinstance(app.screen, AgentBioView) and not isinstance(app.focused, Button))
     run(body())
 
 

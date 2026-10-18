@@ -234,12 +234,14 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
 STUDIO_MODES = ("roles", "org", "design", "orchestra", "flow", "fleet", "team")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team
 
 
-def url_for(server: _Server, mode: Optional[str] = None) -> str:
+def url_for(server: _Server, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
     """The page URL with the per-launch token. `mode` (3.0.2.0: roles |
     org | design; then every section of the shell) lands in the query so the
     page opens straight into it, ahead of the saved mode; the token stays in
-    the fragment."""
-    query = f"?mode={mode}" if mode in STUDIO_MODES else ""
+    the fragment. `edit` (3.1.1.0 R3, studio/edit_target.py: bio:<name>,
+    lineup:<name>, team) adds `&edit=` and picks the mode."""
+    from halo_harness.studio.launch import _query
+    query = _query(mode, edit)
     return f"http://127.0.0.1:{server.server_address[1]}/{query}#t={server.token}"
 
 
@@ -272,7 +274,16 @@ def cmd_studio(argv: list) -> int:
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
     parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
     parser.add_argument("--fleet", action="store_true", help="also run the fleet hub in this process: other harnesses join it with `halo fleet join` (docs/FLEET.md)")
+    parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (its form), lineup:<name> (its inspector) or team; a Studio already running for this home opens it in its open page")
     args = parser.parse_args(argv)
+    edit = None
+    if args.edit:  # 3.1.1.0 R3: Studio is the editor of bios and lineups
+        from halo_harness.studio.edit_target import parse
+        edit, why = parse(args.edit)
+        if edit is None:
+            print(f"halo studio: --edit: {why}", file=sys.stderr)
+            return 2
+        args.mode = edit.mode
     from halo_harness.providers.config import default_state_dir
     state_dir = Path(default_state_dir())
     cwd = Path(args.cwd).resolve() if args.cwd else Path.cwd()
@@ -281,6 +292,10 @@ def cmd_studio(argv: list) -> int:
         ok, note = stop(state_dir)
         print(f"halo studio: {note}")
         return 0 if ok else 1
+    if edit is not None and not args.port and existing_url(state_dir, args.mode):
+        from halo_harness.studio.edit_open import describe, open_edit
+        print(describe(open_edit(edit, cwd=cwd, state_dir=state_dir, open_browser=not args.no_open)))
+        return 0
     running = existing_url(state_dir, args.mode)
     if running and not args.port:  # 3.0.2.0: one Studio per machine -- reuse it
         print(f"Halo Studio is already running at {running}")
@@ -296,7 +311,7 @@ def cmd_studio(argv: list) -> int:
     except OSError as e:
         print(f"halo studio: cannot bind 127.0.0.1:{args.port or 'auto'}: {e}", file=sys.stderr)
         return 1
-    url = url_for(server, args.mode)
+    url = url_for(server, args.mode, edit.text if edit is not None else None)
     if args.fleet:  # 3.0.5.0 R2: the fleet hub inside Studio's process
         from halo_harness.studio.fleet_hub_api import start_for_flag
         print(start_for_flag(server, state_dir))

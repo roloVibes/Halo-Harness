@@ -4,7 +4,9 @@
 // resolves for it (model, fallback, price, context, tier), its own problems,
 // and Edit bio (the Bios panel opens on it), Duplicate and Remove (asks
 // first). With no card selected: the lineup's description and about.
+// 3.1.1.0 R3: each field's help line is field_help.py's (lib/fieldHelp.ts).
 import { focusPanel, patchPanel } from "../../lib/workspace/persist";
+import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
 import { edit, setReportsTo } from "./actions";
 import { openBio } from "./bioActions";
@@ -35,6 +37,7 @@ export function Assignment() {
   const tier = useRoles((s) => s.graph?.tiers.find((t) => t.node_ids.includes(s.sel)));
   const model = useRoles((s) => (n ? modelRow(s, n.model) : undefined));
   const models = useRoles((s) => s.models);
+  const h = useHelpGroup("assignment");
   if (!raw) return <p className="muted">Open a lineup in Lineups first.</p>;
   if (!sel || !n) {
     return (
@@ -64,16 +67,16 @@ export function Assignment() {
         <b>{n.agent}</b>
         <span className="mono muted">{title}{tier ? ` · tier ${tier.index} (${tier.name})` : ""}</span>
       </header>
-      <Pick label="Agent bio" value={String(entry.agent || "")} options={bios.map((b) => b.name)} onChange={(v) => set("agent", v)} testid="roles-assign-agent" />
-      <Pick label="Role" value={String(entry.role || "subagent")} options={ROLE_NAMES} onChange={(v) => set("role", v)} hint="main runs the session; the others are the slots sub-agents fill" />
-      <TextIn label="Alias (as)" value={String(entry.as || "")} placeholder="worker, review, boss" onCommit={(v) => set("as", v.trim())} hint="routing, tiers and reports-to name this" testid="roles-assign-alias" />
-      <NumberIn label="Instances" value={typeof entry.instances === "number" ? entry.instances : undefined} onCommit={(v) => set("instances", v && v > 1 ? Math.round(v) : undefined)} />
-      <ListIn label="Use for (words in a task that route here)" value={Array.isArray(entry.use_for) ? entry.use_for : []} onCommit={(v) => set("use_for", v)} />
+      <Pick label="Agent bio" value={String(entry.agent || "")} options={bios.map((b) => b.name)} onChange={(v) => set("agent", v)} hint={h.agent} testid="roles-assign-agent" />
+      <Pick label="Role" value={String(entry.role || "subagent")} options={ROLE_NAMES} onChange={(v) => set("role", v)} hint={h.role} testid="roles-assign-role" />
+      <TextIn label="Alias (as)" value={String(entry.as || "")} placeholder="worker, review, boss" onCommit={(v) => set("as", v.trim())} hint={h.as} testid="roles-assign-alias" />
+      <NumberIn label="Instances" hint={h.instances} testid="roles-assign-instances" value={typeof entry.instances === "number" ? entry.instances : undefined} onCommit={(v) => set("instances", v && v > 1 ? Math.round(v) : undefined)} />
+      <ListIn label="Use for" hint={h.use_for} testid="roles-assign-use-for" value={Array.isArray(entry.use_for) ? entry.use_for : []} onCommit={(v) => set("use_for", v)} />
       {entry.role !== "main" && (
         <Pick label="Reports to" value={reportsOf(raw, title)} options={["", ...others.filter((t) => t !== (main?.as || main?.role))]}
               labels={{ "": "the main card (the starting box)" }} onChange={(v) => setReportsTo(n.index, v)} hint="you can also drop the card onto another card" />
       )}
-      <Pick label="Model override (blank: the bio's own)" value={String(over.preference || "")} options={["", ...models.map((m) => m.ref)]}
+      <Pick label="Model override" hint={h.models} value={String(over.preference || "")} options={["", ...models.map((m) => m.ref)]}
             onChange={(v) => set("models", v ? { ...over, preference: v } : Object.keys(over).filter((k) => k !== "preference").length ? Object.fromEntries(Object.entries(over).filter(([k]) => k !== "preference")) : undefined)} />
       <dl className="re-resolved mono">
         <div><dt>model</dt><dd>{n.model || "none resolves"}</dd></div>

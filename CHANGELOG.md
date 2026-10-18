@@ -4642,7 +4642,7 @@ claim with tests, rather than changing that discovery behavior itself.
    recommendation, not a precondition.
 7. **GLM on Databricks: the "pause" was a silent effort mismatch, not a
    hang** (W2a, provider/loop/telemetry side -- see
-   [MODELS.md](docs/MODELS.md#databricks-glm-201-glm-briefmd) and
+   [MODELS-families.md](docs/MODELS-families.md#databricks-glm-201-glm-briefmd) and
    [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#glm-seems-to-pause-201)):
    - **The default is sent, not omitted**: an omitted `reasoning_effort`
      on this route means `max`, so a call with no effort configured sends

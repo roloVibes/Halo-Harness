@@ -250,8 +250,8 @@ class ModelPicker(ModalScreen):
         Binding("f5", "refresh_all", "Refresh all", show=True, priority=True),
         # Halo 2.0.5 round 2 (deliverable 2): "the pick list ... gains a
         # source switch (Models / Agents, one key)"; fold-in: "a one-chord
-        # toggle to show every row" (bypasses `filter_models_for_bio`'s own
-        # narrowing when THIS picker was opened pre-filtered). Both chords,
+        # toggle to show every row" (bypasses the caller's own narrowing
+        # when THIS picker was opened pre-filtered). Both chords,
         # never bare letters, same reasoning as every other picker key.
         Binding("ctrl+a", "toggle_source", "Agents/Models source", show=True, priority=True),
         Binding("ctrl+e", "toggle_show_all", "Show every row", show=True, priority=True),
@@ -269,8 +269,7 @@ class ModelPicker(ModalScreen):
         super().__init__()
         # Halo 2.0.5 round 2b (deliverable 4): "the bio-needs filter never
         # yields an empty list silently ... show all rows with one line
-        # saying why" -- the caller's own one-line reason (`agent_bio_
-        # editor.filter_models_for_bio_with_reason`), shown ahead of the
+        # saying why" -- the caller's own one-line reason, shown ahead of the
         # per-provider dim hints `_hint_text` already renders. "" (every
         # OTHER caller) changes nothing.
         self.initial_hint = initial_hint
@@ -296,7 +295,7 @@ class ModelPicker(ModalScreen):
         self._sort_index = 0
         # Halo 2.0.5 round 2 (deliverable 1 fold-in "a picker that knows
         # the bio"): `models` MAY already be narrowed by the caller
-        # (`agent_bio_editor.filter_models_for_bio`) -- `all_models` is the
+        # -- `all_models` is the
         # SAME caller's own unfiltered list, shown instead once `ctrl+e`
         # toggles "show every row"; `None` (every OTHER caller -- roles/org/
         # lineup, never pre-filtered) means there is nothing to toggle TO.
@@ -361,8 +360,8 @@ class ModelPicker(ModalScreen):
 
     def _effective_models(self) -> list:
         """Fold-in "a one-chord toggle to show every row": the picker's
-        OWN pre-filtered `self.models` (e.g. `agent_bio_editor.filter_
-        models_for_bio`'s narrowed list) until `ctrl+e` flips `self.
+        OWN pre-filtered `self.models` (a caller's narrowed list) until
+        `ctrl+e` flips `self.
         _show_all`, then the caller's unfiltered `self.all_models`
         (unchanged, `self.models`, when no caller ever supplied one)."""
         if self._show_all and self._all_models is not None:

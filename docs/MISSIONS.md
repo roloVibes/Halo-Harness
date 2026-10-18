@@ -244,7 +244,7 @@ parts, their cost per harness and the files.
 Every change is a `fleet` frame `{action: "mission", id, state, part?,
 part_state?}` on Studio's live feed. `halo fleet mission new | plan | edit |
 approve | run | status | stop | report | open` take `--json`
-([COMMANDS.md](COMMANDS.md#halo-fleet-mission)); `/mission` in the TUI prints
+([COMMANDS-fleet.md](COMMANDS-fleet.md#halo-fleet-mission)); `/mission` in the TUI prints
 the status. They use the running Studio, else the hub this machine serves,
 else this harness alone.
 

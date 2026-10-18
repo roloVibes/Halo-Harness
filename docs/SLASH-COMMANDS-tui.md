@@ -1,6 +1,6 @@
 # Slash commands: themes, Studio and the TUI
 
-Read this when you change themes, open Studio, copy, rewind or tune the TUI, or add your own commands, skills and images.
+Read this when you change themes, open Studio, copy, rewind or tune the TUI, run the ten-minute start, look up a word, or add your own commands, skills and images.
 
 Part of [Slash commands, keys, and prompt prefixes](SLASH-COMMANDS.md), which lists every part.
 

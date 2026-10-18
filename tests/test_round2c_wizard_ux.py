@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R3: COMMANDS.md is split into parts
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 REPO_DIR = Path(__file__).resolve().parent.parent
@@ -71,6 +72,31 @@ def run(coro) -> None:
 # Deliverable 1: docs/WIZARD.md exists, names the ten rules, and is linked.
 # ---------------------------------------------------------------------------
 
+class _Opened:
+    """`tui.studio_open.OPENER` for a test (3.1.1.0 R3): records each target, answers as a focused Studio."""
+
+    def __enter__(self):
+        from halo_harness.tui import studio_open
+        self.mod, self.old, self.targets = studio_open, studio_open.OPENER, []
+        studio_open.OPENER = lambda target, **_kw: self.targets.append(target.text) or {
+            "url": f"http://127.0.0.1:1/{target.query()}#t=x", "how": "focused", "pages": 1, "target": target.text}
+        return self
+
+    def __exit__(self, *exc):
+        self.mod.OPENER = self.old
+
+
+async def _until(pilot, cond, tries: int = 40):
+    for _ in range(tries):
+        await pilot.pause(0.05)
+        try:
+            if cond():
+                return True
+        except Exception:
+            pass
+    return False
+
+
 @test
 def test_wizard_doc_exists_names_ten_rules_and_is_linked(ctx: Ctx):
     doc = (REPO_DIR / "docs" / "WIZARD.md").read_text(encoding="utf-8")
@@ -79,7 +105,7 @@ def test_wizard_doc_exists_names_ten_rules_and_is_linked(ctx: Ctx):
         ctx.check(f"rule {n} is numbered in the doc", f"{n}. **" in doc)
     handbook = (REPO_DIR / "docs" / "HANDBOOK.md").read_text(encoding="utf-8")
     ctx.check("linked from HANDBOOK.md", "WIZARD.md" in handbook)
-    commands = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
+    commands = doc_text("COMMANDS.md")
     ctx.check("linked from COMMANDS.md", "WIZARD.md" in commands)
 
 
@@ -301,12 +327,14 @@ def test_team_step_preview_follows_the_highlight_and_stacks_when_narrow(ctx: Ctx
 
 
 @test
-def test_team_step_enter_edits_and_agents_button_opens_the_bios(ctx: Ctx):
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+def test_team_step_enter_shows_and_agents_button_opens_the_bios(ctx: Ctx):
+    """Enter on a lineup shows it (3.1.1.0 R3: read-only; Edit in Studio edits), Ctrl+A lists the
+    bios, Enter on a bio shows it."""
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
     from halo_harness.tui.dialogs.agents_step import AgentsListScreen
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
-    from textual.widgets import Button, OptionList
+    from halo_harness.tui.dialogs.lineup_editor import LineupView
+    from textual.widgets import OptionList
 
     async def body():
         with _Env():
@@ -322,9 +350,9 @@ def test_team_step_enter_edits_and_agents_button_opens_the_bios(ctx: Ctx):
                 await pilot.pause(0.05)
                 await pilot.press("enter")
                 await pilot.pause(0.3)
-                ctx.check(f"Enter on a lineup opens the editor, got {type(app.screen).__name__}",
-                          isinstance(app.screen, LineupEditor))
-                app.screen.action_cancel()
+                ctx.check(f"Enter on a lineup shows it, got {type(app.screen).__name__}",
+                          isinstance(app.screen, LineupView))
+                app.screen.action_close()
                 await pilot.pause(0.1)
                 step._open_agents()
                 await pilot.pause(0.3)
@@ -336,8 +364,8 @@ def test_team_step_enter_edits_and_agents_button_opens_the_bios(ctx: Ctx):
                 await pilot.pause(0.05)
                 await pilot.press("enter")
                 await pilot.pause(0.3)
-                ctx.check(f"Enter on a bio opens the editor, got {type(app.screen).__name__}",
-                          isinstance(app.screen, AgentBioEditor))
+                ctx.check(f"Enter on a bio shows it, got {type(app.screen).__name__}",
+                          isinstance(app.screen, AgentBioView))
     run(body())
 
 
@@ -367,13 +395,14 @@ def test_team_step_active_lineup_checkmark(ctx: Ctx):
 
 
 @test
-def test_team_step_ctrl_n_and_ctrl_e_open_the_lineup_editor(ctx: Ctx):
+def test_team_step_ctrl_n_and_ctrl_e_open_studio(ctx: Ctx):
+    """3.1.1.0 R3: Ctrl+N writes a new lineup and opens Studio on it; Ctrl+E and the Edit in Studio
+    button open Studio on the highlighted lineup; the One model row has nothing to edit."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
-    from textual.widgets import OptionList
+    from textual.widgets import Button, OptionList
 
     async def body():
-        with _Env():
+        with _Env(), _Opened() as opened:
             state = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
@@ -383,17 +412,26 @@ def test_team_step_ctrl_n_and_ctrl_e_open_the_lineup_editor(ctx: Ctx):
                 lst.focus()
                 await pilot.pause(0.05)
                 await pilot.press("ctrl+n")
-                await pilot.pause(0.3)
-                ctx.check(f"Ctrl+N opens a NEW lineup, got {type(app.screen).__name__}",
-                          isinstance(app.screen, LineupEditor))
-                app.screen.action_cancel()
-                await pilot.pause(0.1)
-                lst.highlighted = 1
+                await _until(pilot, lambda: opened.targets)
+                ctx.check(f"Ctrl+N opens Studio on a NEW lineup, got {opened.targets}",
+                          len(opened.targets) == 1 and opened.targets[0].startswith("lineup:lineup-"))
+                from halo_harness.teams_yaml import find_team_template_path
+                ctx.check("the new lineup is on disk", find_team_template_path(opened.targets[0].split(":", 1)[1]) is not None)
+                names = [str(lst.get_option_at_index(i).id) for i in range(lst.option_count)]
+                lst.highlighted = names.index("balanced")
                 await pilot.pause(0.05)
                 await pilot.press("ctrl+e")
-                await pilot.pause(0.3)
-                ctx.check(f"Ctrl+E customizes the highlighted lineup, got {type(app.screen).__name__}",
-                          isinstance(app.screen, LineupEditor))
+                await _until(pilot, lambda: len(opened.targets) == 2)
+                ctx.check(f"Ctrl+E opens Studio on the highlighted lineup, got {opened.targets}", opened.targets[-1] == "lineup:balanced")
+                step.query_one("#wiz-team-edit", Button).press()
+                await _until(pilot, lambda: len(opened.targets) == 3)
+                ctx.check(f"so does the Edit in Studio button, got {opened.targets}", opened.targets[-1] == "lineup:balanced")
+                ctx.check("the step says what happened", "Opened lineup:balanced" in _static_text(step.query_one("#wiz-team-lineup-hint")))
+                lst.highlighted = 0
+                await pilot.pause(0.05)
+                await pilot.press("ctrl+e")
+                await pilot.pause(0.2)
+                ctx.check("One model for everything has nothing to open", len(opened.targets) == 3)
     run(body())
 
 
@@ -476,44 +514,10 @@ def test_roles_off_still_resolves_a_subagent_to_the_default_model(ctx: Ctx):
 
 
 # ---------------------------------------------------------------------------
-# Deliverable 3 (rule 3): autocomplete filters and picks, all four field
-# sites -- bio editor, org editor, lineup grid, roles editor quick filter.
+# Deliverable 3 (rule 3): autocomplete filters and picks -- the org editor and
+# the roles editor quick filter (3.1.1.0 R3: the bio and lineup fields are
+# Studio's now; the terminal shows bios and lineups read-only).
 # ---------------------------------------------------------------------------
-
-@test
-def test_autocomplete_bio_editor_preference_field(ctx: Ctx):
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
-    from textual.app import App
-    from textual.widgets import Input
-
-    async def body():
-        with _Env():
-            app_holder = {}
-
-            class _Host(App):
-                def on_mount(self):
-                    app_holder["screen"] = AgentBioEditor("new-bio", {}, FIXTURE_MODELS, is_new=True)
-                    self.push_screen(app_holder["screen"])
-            app = _Host()
-            async with app.run_test(size=(130, 50)) as pilot:
-                await pilot.pause(0.15)
-                field = app.screen.query_one("#bio-pref", Input)
-                field.focus()
-                for ch in "cheap":
-                    await pilot.press(ch)
-                await pilot.pause(0.1)
-                dropdown = app.screen.query_one("#bio-pref-ac")
-                ctx.check(f"typing opens the dropdown with the matching row, got display={dropdown.styles.display} "
-                          f"count={dropdown.option_count}",
-                          dropdown.styles.display == "block" and dropdown.option_count == 1)
-                await pilot.press("enter")
-                await pilot.pause(0.1)
-                ctx.check(f"Enter picks it into the field, got {field.value!r}",
-                          field.value == "or:vendor/cheap-model")
-                ctx.check(f"Enter also closed the dropdown, got {dropdown.styles.display!r}",
-                          dropdown.styles.display == "none")
-    run(body())
-
 
 @test
 def test_autocomplete_org_editor_role_field(ctx: Ctx):
@@ -550,43 +554,6 @@ def test_autocomplete_org_editor_role_field(ctx: Ctx):
                 await pilot.pause(0.1)
                 ctx.check(f"a SECOND Escape (dropdown already closed) now cancels the editor, got "
                           f"{type(app.screen).__name__}", not isinstance(app.screen, OrgEditor))
-    run(body())
-
-
-@test
-def test_autocomplete_lineup_grid_agent_field(ctx: Ctx):
-    from halo_harness.agents_yaml import save_agent_bio
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
-    from textual.app import App
-    from textual.widgets import Input
-
-    async def body():
-        with _Env() as e:
-            save_agent_bio("solo-coder", {"description": "d", "models": {"preference": "or:vendor/strong-model"}},
-                            state_dir=e.state_dir)
-            app_holder = {}
-
-            class _Host(App):
-                def on_mount(self):
-                    app_holder["screen"] = LineupEditor("pilot", {"agents": [{"role": "subagent"}]},
-                                                         FIXTURE_MODELS, state_dir=e.state_dir, is_new=True)
-                    self.push_screen(app_holder["screen"])
-            app = _Host()
-            async with app.run_test(size=(130, 50)) as pilot:
-                await pilot.pause(0.15)
-                field = app.screen.query_one("#lineup-field-agent", Input)
-                field.focus()
-                for ch in "solo-cod":  # a PREFIX, not the full name -- picked via the dropdown below
-                    await pilot.press(ch)
-                await pilot.pause(0.1)
-                dropdown = app.screen.query_one("#lineup-field-agent-ac")
-                ctx.check(f"lineup agent field suggests the BIO NAME, got count={dropdown.option_count}, "
-                          f"got id={dropdown.get_option_at_index(0).id if dropdown.option_count else None}",
-                          dropdown.option_count == 1 and str(dropdown.get_option_at_index(0).id) == "solo-coder")
-                await pilot.press("enter")
-                await pilot.pause(0.1)
-                ctx.check(f"Enter picks the bio name into the field, got {field.value!r}",
-                          field.value == "solo-coder")
     run(body())
 
 
@@ -631,65 +598,51 @@ def test_autocomplete_roles_editor_quick_filter(ctx: Ctx):
 # ---------------------------------------------------------------------------
 
 @test
-def test_save_toast_on_returning_to_the_agents_list(ctx: Ctx):
+def test_new_bio_note_on_the_agents_list(ctx: Ctx):
+    """3.1.1.0 R3: New in the Agents list writes a starter bio and opens Studio on it; the list's
+    hint line says so in one line."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from textual.widgets import Input, OptionList
+    from textual.widgets import OptionList
 
     async def body():
-        with _Env():
+        with _Env(), _Opened() as opened:
             state = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
             state.enumerated_models, state.enumeration_done = FIXTURE_MODELS, True
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.15)
-                step = app.screen
-                step._open_agents()
+                app.screen._open_agents()
                 await pilot.pause(0.3)
                 app.screen.query_one("#agents-list", OptionList).focus()
                 await pilot.press("ctrl+n")
-                await pilot.pause(0.3)
-                editor = app.screen
-                editor.query_one("#bio-description", Input).value = "a pilot bio"
-                await pilot.pause(0.05)
-                editor.action_save()
-                await pilot.pause(0.2)
-                ctx.check(f"back on the Agents list after save, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "AgentsListScreen")
-                hint = app.screen.query_one("#agents-hint")
-                ctx.check(f"a one-line toast names what was saved, got {_static_text(hint)!r}",
-                          "Saved" in _static_text(hint))
+                await _until(pilot, lambda: opened.targets and "Opened" in _static_text(app.screen.query_one("#agents-hint")))
+                ctx.check(f"still on the Agents list, got {type(app.screen).__name__}", type(app.screen).__name__ == "AgentsListScreen")
+                hint = _static_text(app.screen.query_one("#agents-hint"))
+                ctx.check(f"a one-line note names what opened, got {hint!r}", opened.targets and opened.targets[0] in hint)
     run(body())
 
 
 @test
-def test_escape_cancel_never_writes_a_partial_bio(ctx: Ctx):
-    """Rule 8: "Escape is always Back and never destructive" -- typing
-    into a NEW bio's fields then Escaping away never creates the file at
-    all (nothing was ever saved to lose)."""
+def test_escape_closes_the_bio_view_and_writes_nothing(ctx: Ctx):
+    """Rule 8: "Escape is always Back and never destructive" -- the bio view closes on Escape and
+    writes nothing (it has nothing to write)."""
     from halo_harness.agents_yaml import list_agent_bios
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor
+    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
     from textual.app import App
-    from textual.widgets import Input
 
     async def body():
         with _Env() as e:
-            app_holder = {}
-
             class _Host(App):
                 def on_mount(self):
-                    app_holder["screen"] = AgentBioEditor("escape-pilot", {}, FIXTURE_MODELS, is_new=True)
-                    self.push_screen(app_holder["screen"])
+                    self.push_screen(AgentBioView("coder", None, FIXTURE_MODELS))
             app = _Host()
             async with app.run_test(size=(130, 50)) as pilot:
                 await pilot.pause(0.15)
-                app.screen.query_one("#bio-description", Input).value = "never saved"
-                await pilot.pause(0.05)
                 await pilot.press("escape")
                 await pilot.pause(0.1)
-                ctx.check(f"the screen closed (cancelled), got {app.screen}", not isinstance(app.screen,
-                          AgentBioEditor))
-                ctx.check(f"no file was ever written for the never-saved bio, got {list_agent_bios(state_dir=e.state_dir)}",
-                          "escape-pilot" not in list_agent_bios(state_dir=e.state_dir))
+                ctx.check(f"the view closed, got {app.screen}", not isinstance(app.screen, AgentBioView))
+            ctx.check("no bio file was written", not (e.state_dir / "agents").exists() or not list((e.state_dir / "agents").glob("*.yaml")))
+            ctx.check("coder still resolves to the shipped bio", "coder" in list_agent_bios(state_dir=e.state_dir))
     run(body())
 
 

@@ -118,6 +118,8 @@ def _gather_real_flags() -> "dict[str, set]":
     out["halo start"] = _flags_in(_capture(cmd_start, ["--help"]))
     from halo_harness.explain_cli import cmd_explain
     out["halo explain"] = _flags_in(_capture(cmd_explain, ["--help"]))
+    from halo_harness.studio.server import cmd_studio  # 3.1.1.0 R3: --edit (Studio is the editor)
+    out["halo studio"] = _flags_in(_capture(cmd_studio, ["--help"]))
     return out
 
 

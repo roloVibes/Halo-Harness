@@ -11,6 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R3: COMMANDS.md is split into parts
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 REPO_DIR = Path(__file__).resolve().parent.parent
@@ -403,10 +404,9 @@ def test_round6_update_docs_are_in_place(ctx: Ctx):
     ctx.check("HANDBOOK.md documents halo update and /update",
               "halo update" in handbook and "/update" in handbook)
 
-    commands = (REPO_DIR / "docs" / "COMMANDS.md").read_text(encoding="utf-8")
+    commands = doc_text("COMMANDS.md")
     ctx.check("COMMANDS.md has a ## `halo update` heading", "## `halo update`" in commands)
 
-    from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R2: SLASH-COMMANDS.md is split into parts
     slash = doc_text("SLASH-COMMANDS.md")
     ctx.check("SLASH-COMMANDS.md has a ### `/update` heading", "### `/update`" in slash)
 

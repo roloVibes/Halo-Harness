@@ -26,6 +26,12 @@ this list against the tree.
   `studio/coach_api.py`; the live sessions: `studio/sessions_api.py`; the
   config checks behind Roles' Problems panel: `studio/doctor_config_api.py`
   (`GET /api/doctor/config`, the rows of `halo doctor --config`)
+- one editor (3.1.1.0): `studio/edit_target.py` (what `halo studio --edit`
+  names: bio, lineup, team, and its URL), `studio/edit_open.py` (open Studio
+  on it, or focus the Studio already running), `studio/focus_api.py`
+  (`POST /api/focus`, the `focus` frame), `studio/field_help_api.py`
+  (`GET /api/field-help`, `halo_harness/field_help.py`'s lines for the bio
+  form and the lineup inspector)
 - Design: `studio/design_api.py` (the routes, a turn, comments, knobs, the
   direct edit), `studio/design_artboards_api.py` (one artboard: versions,
   restore, contrast, rename, delete), `studio/design_assets_api.py` (the

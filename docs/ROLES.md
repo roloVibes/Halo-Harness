@@ -56,7 +56,19 @@ and `roles.enabled`):
    table and **Test this model**, and read every problem with its fix as you
    edit. See [STUDIO-team-roles-org.md](STUDIO-team-roles-org.md#what-you-see-roles).
 
-Everything below is the field-by-field reference; nothing in it changed.
+**Editing a lineup or a bio happens in Studio (3.1.1.0).** The terminal shows
+them read-only and opens Studio on the one you want to change: `halo teams
+edit <lineup>` / `halo agents edit <bio>` (`--no-open` prints the URL,
+`--yaml` opens `$EDITOR` on the file instead, for a box with no browser),
+`halo studio --edit lineup:<name>` / `bio:<name>` / `team`, `/edit <thing>`
+in the TUI, `e` in the terminal's lineup and bio views (`/teams view`,
+`/agents view`, Enter in `/teams list` and `/agents`), and **Edit in Studio**
+(Ctrl+E) in the wizard's Team step. A Studio already running for this home is
+reused: its open page switches to the lineup or bio. The field-by-field
+mapping (every field the terminal shows and its Studio control) is in
+[AGENTS.md](AGENTS.md#editing-bios-and-lineups-studio-is-the-editor-halo-3110).
+
+Everything below is the field-by-field reference.
 
 ## Roles on/off is one switch (Halo 2.0.5 round 2b)
 
@@ -197,8 +209,8 @@ assignments to a role table the same way.
 
 ### Two sources for a role slot (Halo 2.0.5 round 2)
 
-The SAME `ModelPicker` the round-1 form (and the org editor, and the new
-lineup editor) opens now carries a source switch, `ctrl+a`, in its own
+The SAME `ModelPicker` the round-1 form (and the org editor) opens now
+carries a source switch, `ctrl+a`, in its own
 footer: **Models** (the enumerated list above, unchanged) or **Agents**
 (every reachable agent bio, with its description, preferred model, and
 a tools-count summary -- the same text filter and autocomplete). Picking
@@ -209,11 +221,11 @@ name>}` instead of a bare model string (`roles._normalize_role_value`
 carries the `agent` key through a save/reload round trip the same way
 it already does `escalation`) -- `role_value_parts` still reads just
 `model`/`effort` from it, so every EXISTING caller of that function is
-completely unaffected. "New bio..." sits at the top of the Agents source
-and opens the bio form (`tui/dialogs/agent_bio_editor.py`); saving it is
-treated exactly like picking that freshly-created bio. See
-[AGENTS.md](AGENTS.md)'s own wizard section for the bio form itself and
-the SAME switch on an org position and a lineup assignment.
+completely unaffected. "New bio..." sits at the top of the Agents source:
+it writes a starter bio on the role's model, picks it for the role, and
+opens Studio's bio form on it (3.1.1.0: Studio is the editor of bios). See
+[AGENTS.md](AGENTS.md) for the bio form's fields and the SAME switch on an
+org position.
 
 ## The ten roles
 
@@ -518,8 +530,8 @@ spawns `planner` or `reviewer`; a lead spawns `worker`; a worker spawns no
 lineup member (it does its work itself). A member is named by its alias:
 the assignment's `as`, else its `role`.
 
-**What the validator checks** (`halo teams validate`, the lineup editor's
-Save, Studio's Problems): tier names are unique; every member is an alias in
+**What the validator checks** (`halo teams validate`, Studio's Save and its
+Problems panel): tier names are unique; every member is an alias in
 the lineup; the main agent sits alone in tier 0; an alias sits in at most
 one tier; `max_parallel` is a positive whole number.
 

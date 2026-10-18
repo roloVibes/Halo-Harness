@@ -69,20 +69,6 @@ def _static_text(widget) -> str:
     return str(content)
 
 
-async def _hint_when(pilot, editor, needle: str, tries: int = 20) -> str:
-    """The bio editor's identity-hint line once it carries `needle` (its focus
-    poll runs every 0.25 s; one fixed pause missed it on a loaded CI runner),
-    else its last text after `tries` polls."""
-    from halo_harness.tui.dialogs.agent_bio_editor import _IDENTITY_HINT_ID
-    hint = ""
-    for _ in range(tries):
-        await pilot.pause(0.25)
-        hint = _static_text(editor.query_one(f"#{_IDENTITY_HINT_ID}"))
-        if needle in hint:
-            break
-    return hint
-
-
 # ---- the roles CLI face -----------------------------------------------------------
 
 
@@ -133,8 +119,8 @@ def test_team_step_header_list_and_preview_at_every_width(ctx: Ctx):
 
 
 @test
-def test_lineup_editor_opens_with_help_and_a_cost_footer(ctx: Ctx):
-    from halo_harness.tui.dialogs.lineup_editor import LineupEditor
+def test_lineup_view_opens_with_help_and_a_cost_footer(ctx: Ctx):
+    from halo_harness.tui.dialogs.lineup_editor import LineupView
 
     models = [
         {"ref": "or:paid/model-a", "price_in_per_m": 0.60, "price_out_per_m": 2.40},
@@ -149,7 +135,7 @@ def test_lineup_editor_opens_with_help_and_a_cost_footer(ctx: Ctx):
                 {"role": "worker", "model": "or:paid/model-a"},
                 {"role": "researcher", "model": "ol:local/free"},
             ]}
-            editor = LineupEditor("smoke", template, models)
+            editor = LineupView("smoke", template, models)
 
             class _Host(App):
                 def on_mount(self):
@@ -168,54 +154,40 @@ def test_lineup_editor_opens_with_help_and_a_cost_footer(ctx: Ctx):
     _run(body())
 
 
-# ---- the bio editor ---------------------------------------------------------------------
+# ---- the bio view (3.1.1.0 R3: read-only; Studio edits) -------------------------------
 
 
 @test
-def test_bio_editor_opens_with_a_sentence_and_per_field_help(ctx: Ctx):
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioEditor, FIELD_HELP, FIELDS
+def test_bio_view_opens_with_a_sentence_and_per_field_help(ctx: Ctx):
+    from halo_harness import field_help
+    from halo_harness.tui.dialogs.agent_bio_editor import WHAT_SENTENCE, AgentBioView
+    from halo_harness.tui.dialogs.bio_view_text import FIELDS
 
-    covered = {(s, k) for (s, k, *_rest) in FIELDS}
-    missing = [key for key in FIELD_HELP if key not in covered]
-    ctx.check(f"every FIELD_HELP entry matches a real field, bogus: {missing}", not missing)
-    key_fields = [("models", "preference"), ("tools", "allow"), ("limits", "max_budget_usd"),
-                  ("output", "handoff")]
-    for key in key_fields:
-        ctx.check(f"the {key[1]} field has its one plain line", key in FIELD_HELP)
+    missing = [f"{s}.{k}" for (s, k, _label) in FIELDS if not field_help.bio_line(s, k)]
+    ctx.check(f"every field the view shows has its one plain line, missing: {missing}", not missing)
+    for key in ("models.preference", "tools.allow", "limits.max_budget_usd", "output.handoff"):
+        ctx.check(f"the {key} field has its one plain line", field_help.BIO.get(key))
 
     async def body():
         with _Env():
             from textual.app import App
+            from textual.widgets import Input
 
-            editor = AgentBioEditor("smoke-agent", {}, [], is_new=True)
+            raw = {"description": "smoke", "models": {"preference": "or:paid/model-a"}, "tools": {"allow": ["Read"]}}
+            editor = AgentBioView("smoke-agent", raw, [])
 
             class _Host(App):
                 def on_mount(self):
                     self.push_screen(editor)
 
             async with _Host().run_test(size=(120, 40)) as pilot:
-                # On open the NAME field is focused (is_new) -- its plain
-                # line shows once the focus poll has run; the what-a-bio-is
-                # sentence is the idle/unmapped fallback of the SAME line.
-                hint = await _hint_when(pilot, editor, "how /agent and lineups call this bio")
-                ctx.check(f"the focused name field's plain line shows, got {hint!r}",
-                          "how /agent and lineups call this bio" in hint)
-                # Focus the preferred-model field -> its plain line shows.
-                try:
-                    editor.query_one("#bio-pref").focus()
-                except Exception:
-                    pass
-                hint2 = await _hint_when(pilot, editor, "the model this agent runs on, when it runs")
-                ctx.check(f"the focused model field's plain line shows, got {hint2!r}",
-                          "the model this agent runs on, when it runs" in hint2)
-                # Focus the tools-allow field -> THAT plain line shows.
-                try:
-                    editor.query_one("#bio-tools-allow").focus()
-                except Exception:
-                    pass
-                hint3 = await _hint_when(pilot, editor, "the ONLY tools this agent may call")
-                ctx.check(f"the focused allow-list field's plain line shows, got {hint3!r}",
-                          "the ONLY tools this agent may call" in hint3)
+                await pilot.pause(0.3)
+                ctx.check("the what-a-bio-is sentence shows", _static_text(editor.query_one("#bio-identity-hint")) == WHAT_SENTENCE)
+                texts = [_static_text(s) for s in editor.query("Static")]
+                for key in ("models.preference", "tools.allow"):
+                    ctx.check(f"the {key} line shows under its field", any(field_help.BIO[key] in x for x in texts))
+                ctx.check("the preferred model shows as text", "Preferred model: or:paid/model-a" in texts)
+                ctx.check("a read-only view: no inputs at all", not editor.query(Input))
 
     _run(body())
 

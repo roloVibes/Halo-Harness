@@ -284,7 +284,9 @@ _PREFIXES = (("flow", "halo_harness.studio.flow_api", "dispatch_flow"),
              ("fleet", "halo_harness.studio.fleet_hub_api", "dispatch_fleet"),  # 3.0.5.0 R2: the hub's view
              ("team", "halo_harness.studio.team_api", "dispatch_team"),  # 3.0.8.0 R1: the Team (docs/TEAM.md)
              ("start", "halo_harness.studio.start_api", "dispatch_start"),  # 3.1.1.0 R1: "Start here", the guided run
-             ("glossary", "halo_harness.studio.glossary_api", "dispatch_glossary"))  # 3.1.1.0 R1: docs/GLOSSARY.md
+             ("glossary", "halo_harness.studio.glossary_api", "dispatch_glossary"),  # 3.1.1.0 R1: docs/GLOSSARY.md
+             ("field-help", "halo_harness.studio.field_help_api", "dispatch_field_help"),  # 3.1.1.0 R3: field_help.py
+             ("focus", "halo_harness.studio.focus_api", "dispatch_focus"))  # 3.1.1.0 R3: `halo studio --edit` on a running one
 
 
 def dispatch(req: Request):

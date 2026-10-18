@@ -137,8 +137,8 @@ export const studio = createStore<StudioState>({
 
 // -- "How this works": the overlay and the first-visit welcome ------------------
 export const SEEN_PREFIX = "halo.studio.seen.";
-/** `?tour=off` (captures, tests) keeps the first-visit welcome shut, as on the classic page. */
-const NO_WELCOME = typeof location !== "undefined" && /[?&]tour=off\b/.test(location.search);
+/** `?tour=off` (captures, tests) keeps the first-visit welcome shut, as on the classic page; so does `?edit=` (3.1.1.0 R3). */
+const NO_WELCOME = typeof location !== "undefined" && /[?&](tour=off\b|edit=)/.test(location.search);
 
 export function openHelp(section: SectionId, welcome = false): void {
   studio.update(() => ({ help: { section, welcome }, paletteOpen: false }));
