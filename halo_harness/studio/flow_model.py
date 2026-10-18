@@ -27,7 +27,8 @@ def _template_row(name: str, source: str, path: Path) -> dict:
     except ValueError as e:
         return dict(row, error=str(e))
     steps = [s for s in data.get("steps") or [] if isinstance(s, dict)]
-    row["steps"] = [{"id": s.get("id"), "kind": s.get("kind")} for s in steps]
+    from halo_harness.flows.graph import graph_rows  # 3.0.9.0 R2: + uses, deps, layer, gate (the Flow graph)
+    row["steps"] = graph_rows(data)
     intake = next((s for s in steps if s.get("kind") == "intake"), None)
     row["form"] = dict(intake.get("form") or {}) if intake and isinstance(intake.get("form"), dict) else {}
     row["name"] = str(data.get("name") or name)
@@ -37,7 +38,7 @@ def _template_row(name: str, source: str, path: Path) -> dict:
 
 
 def template_rows(cwd, state_dir) -> list:
-    """`[{name, source: template|user|project, steps: [{id, kind}], form, budget_usd, version, path}]`."""
+    """`[{name, source: template|user|project, steps: [{id, kind, uses, deps, layer, gate}], form, budget_usd, version, path}]`."""
     rows = [_template_row(n, "template", fspec.template_path(n)) for n in fspec.template_names()]
     d = fspec.flows_dir(state_dir)
     rows += [_template_row(n, "user", d / f"{n}{fspec.SUFFIX}") for n in fspec.list_flows(state_dir=state_dir)]

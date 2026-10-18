@@ -37,6 +37,8 @@ export type FlowState = {
   pick: string;
   /** "start": the Start view; "workspace": the panels; "auto": the panels once a run is open. */
   view: FlowView;
+  /** 3.0.9.0 R2: the flow drawn as a graph instead of the section ("Show as graph", ?graph=<name>). */
+  graph: string;
   opts: FlowOptions;
 };
 
@@ -77,8 +79,14 @@ export const flow = createStore<FlowState>({
   started: false,
   pick: "",
   view: (/[?&]view=(start|workspace)/.exec(location.search)?.[1] as FlowView) || "auto",
+  graph: /[?&]graph=([\w.-]+)/.exec(location.search)?.[1] || "",
   opts: readOpts(),
 });
+
+/** Show a saved flow as a graph (FlowGraph.tsx), or "" for the section again. */
+export function showGraph(name: string): void {
+  flow.update(() => ({ graph: name }));
+}
 
 /** A stable empty list for selectors. */
 export const NONE: never[] = [];

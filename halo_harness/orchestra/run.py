@@ -9,7 +9,8 @@
 lead's one-shot call (split), `spawn(lane)` runs a worker, `judge(hunks,
 goal, file)` is the fresh judge. The real ones are in adapters.py; tests
 pass fakes. Every transition advances `workflow.json` and logs a `state`
-line; `on_event(entry)` sees every new events.jsonl line as it lands.
+line; `on_event(entry)` sees every new events.jsonl line as it lands. A goal
+with `plan: review` holds the split `planned` for the reviewed plan (plan.py).
 
 Resumable: a re-run reads split.json, lanes/*.json and merge.json and picks
 up at the first unfinished step (a written lane is not run again, a merged
@@ -35,6 +36,7 @@ from halo_harness.orchestra.goal import load_goal, repo_root_of, run_meta, set_l
 from halo_harness.orchestra.index import index_file
 from halo_harness.orchestra.lanes import load_lane
 from halo_harness.orchestra.merge import merge_lanes
+from halo_harness.orchestra.plan import await_plan
 from halo_harness.orchestra.report import load_report, write_report
 from halo_harness.orchestra.split import Job, StopRun, load_split, split_goal
 from halo_harness.orchestra.workers import run_lane, start_workers
@@ -139,7 +141,7 @@ def _check_stop(run_dir) -> None:
 
 
 def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
-        clock: Callable = time.time, on_event: Optional[Callable] = None) -> dict:
+        clock: Callable = time.time, on_event: Optional[Callable] = None, plan_poll_s: float = 0.5) -> dict:
     run_dir = Path(run_dir)
     goal = load_goal(run_dir / "goal.json")
     done = load_report(run_dir)
@@ -180,6 +182,8 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
         jobs = [Job.from_dict(j) for j in split["jobs"]]
         base = split.get("base") or gitops.head(repo)
         flow.set("lead", "done")
+        if goal.plan == "review":  # 3.0.9.0 R2: the split waits for the reviewed plan (orchestra/plan.py)
+            jobs = await_plan(run_dir, flow, jobs, check_stop=lambda: _check_stop(run_dir), poll_s=plan_poll_s)
         flow.set("split", "done", f"{len(jobs)} job(s)")
         for n in range(len(jobs) + 1, goal.workers + 1):
             flow.set(wf.worker_id(n), "skipped")

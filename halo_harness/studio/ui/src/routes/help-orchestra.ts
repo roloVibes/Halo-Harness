@@ -68,6 +68,16 @@ export const ORCHESTRA_HELP: Record<string, Help> = {
       "Settings switches between elapsed time and the clock.",
     ),
   },
+  "orchestra-plan": {
+    about: "The lead's plan before it runs: the lanes in their layers; edit them, then Approve and run.",
+    help: lines(
+      "Each box is a layer: the first runs at once, the next after the lanes before it.",
+      "Drag a card into another box to change what it runs after; an edge shows what it takes.",
+      "Click a card: its title, claims, bio, model, what it takes and hands on.",
+      "Every edit is checked: a problem outlines its card in red and holds Approve and run.",
+      "Reject asks for a reason and stops the run; Ctrl+Z undoes any edit.",
+    ),
+  },
   claims: {
     about: "Who holds which part of the files right now, and until when.",
     help: lines(

@@ -19,7 +19,7 @@ const HANDLES: Gesture[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 const INTERACTIVE = "input, textarea, select, button, a, iframe, [contenteditable], [tabindex]";
 const TYPING = "input, textarea, select, [contenteditable]";
 const noMotion = (): MotionState => "none";
-const titleOf = (section: string) => section.charAt(0).toUpperCase() + section.slice(1);
+const titleOf = (section: string) => section.charAt(0).toUpperCase() + section.split("-")[0].slice(1); // orchestra-plan: Orchestra
 
 function Handle({ id, g }: { id: string; g: Gesture }) {
   const down = useGesture(id, g);

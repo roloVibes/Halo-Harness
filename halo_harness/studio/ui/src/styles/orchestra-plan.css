@@ -1,0 +1,70 @@
+/* The plan editor (3.0.9.0 R2) and the Flow graph: layer boxes in the Roles
+   canvas's group-box look (roles.css .rc-tier), lane cards with their lane
+   colour band, the `after` edges with their label chips, a red outline and
+   the text on a card with a problem, the inspector column, the reject card.
+   Tokens only (styles/tokens.css). */
+
+.panel-body.face-detail:has(> .pc) { padding: 10px; overflow: hidden; }
+.pc { height: 100%; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 8px; min-height: 0; }
+.pc-bar .spacer, .pc-insp-head .spacer, .fg-bar .spacer { flex: 1; }
+.og-badge[data-state="planned"] { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.pc-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 10px; min-height: 0; }
+.pc-scroll { position: relative; height: 100%; min-height: 220px; }
+.pc-empty { display: grid; place-items: center; }
+.pc-side { min-height: 0; overflow: auto; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-glass); }
+.pc-none { margin: 4px 0; }
+
+/* -- layer boxes ------------------------------------------------------------------ */
+.pc-layer { --g: var(--accent-2); }
+.pc-layer[data-index="0"] { --g: var(--accent); }
+.pc-layer[data-empty] { --g: var(--faint); border-style: dashed; }
+.pc-layer[data-empty][data-hot] { --g: var(--accent); }
+.pc-layer-head { cursor: default; }
+.pc-layer-head .rc-tier-count { white-space: nowrap; }
+.pc-layer-head .rc-tier-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* -- lane cards ------------------------------------------------------------------- */
+.pc-card { --band: var(--lane, var(--accent)); grid-template-rows: auto auto auto 1fr; }
+.pc-card[data-problem] { border-color: var(--bad); box-shadow: 0 0 0 1px var(--bad), 0 0 18px var(--bad-soft); }
+.pc-id { font-size: 12px; }
+.pc-title { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-claims { display: flex; gap: 4px; flex-wrap: nowrap; overflow: hidden; }
+.pc-claims .og-chip { font-size: 10.5px; padding: 0 6px; }
+.pc-card-problem { position: absolute; left: 14px; right: 8px; bottom: 6px; font-size: 10.5px; line-height: 1.25; color: var(--bad);
+  background: color-mix(in srgb, var(--bad-soft) 80%, var(--surface-2)); border-radius: 4px; padding: 1px 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-card[data-problem] .rc-meta { visibility: hidden; }
+
+/* -- edges ------------------------------------------------------------------------- */
+.pc-edge { stroke: color-mix(in srgb, var(--accent) 60%, transparent); stroke-width: 1.6; }
+.pc-edge[data-on] { stroke: var(--accent); stroke-width: 2.4; }
+.pc-arrow { fill: var(--accent); }
+.pc-edge-chip { position: absolute; transform: translate(-50%, -50%); font-size: 10.5px; pointer-events: none; z-index: 2;
+  color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--surface); }
+
+/* -- inspector ----------------------------------------------------------------------- */
+.pc-inspector { display: grid; gap: 8px; font-size: 12.5px; }
+.pc-insp-head { display: flex; align-items: center; gap: 8px; }
+.pc-rows { display: grid; gap: 6px; }
+.pc-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pc-row .input { min-width: 0; flex: 1; }
+.pc-add { max-width: 100%; }
+
+/* -- problems, reject ------------------------------------------------------------------ */
+.pc-problems { display: grid; gap: 6px; max-height: 120px; overflow: auto; }
+.pc-problems .og-link { text-align: left; color: var(--text); }
+.pc-preflight { margin: 0; padding-left: 18px; font-size: 12px; color: var(--muted); }
+.pc-preflight li[data-severity="blocks"] { color: var(--warn); }
+.pc-ok { margin: 0; color: var(--ok); font-size: 12px; }
+.pc-reject { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--bad); border-radius: var(--radius-sm); background: var(--bad-soft); }
+.og-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.og-switch input { accent-color: var(--accent); }
+
+/* -- the Flow graph (routes/flow/FlowGraph.tsx) ----------------------------------------- */
+.fg { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; padding: 14px 16px; box-sizing: border-box; }
+.fg-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fg-title { font-size: 15px; }
+.fg-card[data-gate] { --band: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+.fg-gate { color: var(--warn); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; }
+.fg-card[data-hot] { border-color: var(--accent); box-shadow: var(--glow-strong); }
+.fg-note { margin: 0; font-size: 12px; }

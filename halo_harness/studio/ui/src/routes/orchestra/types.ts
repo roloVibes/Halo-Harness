@@ -1,7 +1,7 @@
 // The Orchestra view's data: the JSON shapes of /api/orchestra/... (studio/
 // orchestra_api.py), which are the run folder's own files (docs/ORCHESTRA.md).
 
-export type StepState = "pending" | "running" | "done" | "failed" | "skipped";
+export type StepState = "pending" | "running" | "done" | "failed" | "skipped" | "planned";
 export type Step = { id: string; kind: string; lane: number | null; state: StepState; label: string; layer?: number };
 // 3.0.9.0: an `after` edge joins two worker steps (a lane that starts after another); `label` says what it carries.
 export type Edge = { from: string; to: string; kind: "flow" | "loop" | "after"; label?: string };
@@ -20,6 +20,7 @@ export type Goal = {
   lead: string;
   worker: string;
   handoffs?: Record<string, unknown>;
+  plan?: "auto" | "review";
 };
 
 export type LaneState = "joined" | "writing" | "written" | "in_review" | "waiting" | "merged" | "failed" | "";
@@ -85,7 +86,8 @@ export type Conflict = { lane: number; file: string; attempt: number; judge_sess
 export type Merge = { branch: string; base: string; order: number[]; merged: number[]; finished: string | null; conflicts: Conflict[] };
 export type DryRun = { jobs: { id: string; worker: number; title: string; claims: string[] }[]; problems: string[]; stop: string };
 
-export type RunState = "running" | "finished" | "stopped" | "dry run" | "new" | "interrupted";
+// 3.0.9.0 R2: planned = the split waits for the reviewed plan (the plan canvas takes the console's place)
+export type RunState = "running" | "planned" | "finished" | "stopped" | "dry run" | "new" | "interrupted";
 export type RunRow = { run_id: string; created: number; state: RunState; workers: number; goal_what: string; cost_usd: number };
 
 export type RunPayload = {

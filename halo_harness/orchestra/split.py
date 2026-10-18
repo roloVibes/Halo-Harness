@@ -56,11 +56,13 @@ class Job:
     order: int = 0
     handoff: dict = field(default_factory=dict)   # 3.0.9.0: {gives: [...], needs: [...]} (handoff_spec.py)
     after: list = field(default_factory=list)     # job ids this job starts after
+    bio: str = ""                                 # 3.0.9.0 R2 (a reviewed plan): the worker's bio and model
+    model: str = ""
 
     def to_dict(self) -> dict:
-        """The job; `handoff` and `after` only when declared (an undeclared job is today's shape)."""
+        """The job; `handoff`, `after`, `bio`, `model` only when set (an undeclared job is today's shape)."""
         data = asdict(self)
-        for key in ("handoff", "after"):
+        for key in ("handoff", "after", "bio", "model"):
             if not data[key]:
                 data.pop(key)
         return data
@@ -76,7 +78,8 @@ class Job:
                    claims=list(data.get("claims") or []), worker=int(data.get("worker") or 0),
                    order=int(data.get("order") or data.get("worker") or 0),
                    handoff=dict(data.get("handoff") or {}) if isinstance(data.get("handoff"), dict) else {},
-                   after=[str(a) for a in data.get("after") or []] if isinstance(data.get("after"), list) else [])
+                   after=[str(a) for a in data.get("after") or []] if isinstance(data.get("after"), list) else [],
+                   bio=str(data.get("bio") or ""), model=str(data.get("model") or ""))
 
 
 def placeholder(lane: int) -> str:

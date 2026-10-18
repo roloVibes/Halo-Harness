@@ -7,6 +7,7 @@ import "./styles/shell.css";
 import "./styles/workspace.css";
 import "./styles/orchestra.css";
 import "./styles/orchestra-file.css";
+import "./styles/orchestra-plan.css";
 import "./styles/flow.css";
 import "./styles/flow-start.css";
 import "./styles/media.css";

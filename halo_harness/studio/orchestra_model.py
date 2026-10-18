@@ -63,14 +63,18 @@ def run_cost(run_dir, report: Optional[dict] = None, lanes: Optional[list] = Non
 
 
 def run_state(run_dir, live: bool, report: Optional[dict] = None) -> str:
-    """running | finished | stopped | dry run | new | interrupted."""
+    """running | planned | finished | stopped | dry run | new | interrupted (3.0.9.0 R2: planned =
+    the split waits for the reviewed plan, live or not)."""
+    graph = jsonl.read_json(Path(run_dir) / "workflow.json", {}) or {}
+    planned = any(s.get("id") == "split" and s.get("state") == "planned" for s in graph.get("steps") or [])
     if live:
-        return "running"
+        return "planned" if planned else "running"
     if report:
         return str(report.get("status") or "finished")
+    if planned:
+        return "planned"
     if (Path(run_dir) / "dry_run.json").is_file():
         return "dry run"
-    graph = jsonl.read_json(Path(run_dir) / "workflow.json", {}) or {}
     started = any(s.get("state") != "pending" for s in graph.get("steps") or [] if s.get("kind") != "goal")
     return "interrupted" if started else "new"
 
