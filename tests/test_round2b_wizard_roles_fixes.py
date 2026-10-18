@@ -248,6 +248,19 @@ def _visible(widget, pane) -> bool:
     return r.height > 0 and r.y >= pr.y and r.y + r.height <= pr.y + pr.height
 
 
+async def _visible_soon(pilot, widget, pane, timeout: float = 6.0) -> bool:
+    """Focus scrolls a widget into view through an animation; the loaded Windows runner needs
+    seconds for it, so poll instead of reading the region once after a fixed pause."""
+    import time
+    end = time.monotonic() + timeout
+    while True:
+        if _visible(widget, pane):
+            return True
+        if time.monotonic() >= end:
+            return False
+        await pilot.pause(0.1)
+
+
 @test
 def test_bio_view_description_kind_and_model_visible_on_open(ctx: Ctx):
     """"the first rows (name, description, kind, the model fields) are
@@ -303,7 +316,7 @@ def test_bio_view_has_every_field_and_its_buttons_visible_when_focused(ctx: Ctx)
                     fw = app.focused
                     if isinstance(fw, Button):
                         seen.add(fw.id)
-                        ctx.check(f"{fw.id} is visible when focused at {w}x{h}", _visible(fw, pane))
+                        ctx.check(f"{fw.id} is visible when focused at {w}x{h}", await _visible_soon(pilot, fw, pane))
                 ctx.check(f"Tab reaches the three buttons at {w}x{h}, got {sorted(seen)}",
                           seen == {"bio-edit-studio", "bio-try", "bio-close"})
     for size in SIZES:
