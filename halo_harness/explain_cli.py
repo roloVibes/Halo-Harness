@@ -30,7 +30,8 @@ def explain_text(thing: str) -> "tuple[bool, str]":
     if word is None:
         hint = f" Closest: {', '.join(close)}." if close else ""
         return False, f"halo explain: no word {thing!r} in the glossary.{hint} halo explain lists them all."
-    body = textwrap.fill(words[word], width=_width())
+    # never break inside a word: "hand-off" split at a line end read as "hand- off" on the Windows runner
+    body = textwrap.fill(words[word], width=_width(), break_on_hyphens=False, break_long_words=False)
     return True, f"{word}\n\n{body}"
 
 
