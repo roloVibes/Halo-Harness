@@ -6,7 +6,7 @@ through the driver base, tests/helpers/studio_start.py; skipped without one).
    Studio's process): the seven steps done in the panel, the `start` frames
    on the live feed, the outcome; a reload shows no overlay (the home has a
    lineup of its own and a start now)
-2. the ? menu's Glossary lists the 23 words; a section help's word link
+2. the ? menu's Glossary lists every glossary word; a section help's word link
    opens the Glossary on that word; the Start view's Next footer goes to
    the next section of the story (Roles -> Orchestra)
 Run: python -m tests.test_studio_start
@@ -63,8 +63,9 @@ def test_glossary_word_links_and_the_next_footer(ctx: Ctx):
     r, got = _driver("glossary")
     ctx.check(f"the driver ran, got {r.returncode} {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0 and "failed" not in got)
     ctx.check(f"?tour=off keeps Start here shut, got {got.get('overlay_quiet')}", got.get("overlay_quiet") == 0)
-    ctx.check(f"the ? menu's Glossary: 23 words, lineup first, got {got.get('words')} {got.get('first')}",
-              got.get("words") == 23 and got.get("first") == "lineup")
+    from halo_harness.glossary import TERMS
+    ctx.check(f"the ? menu's Glossary: {len(TERMS)} words, lineup first, got {got.get('words')} {got.get('first')}",
+              got.get("words") == len(TERMS) and got.get("first") == "lineup")
     ctx.check(f"How Roles works names its words, got {got.get('terms')}", got.get("terms") == ["lineup", "bio", "role", "tier"])
     ctx.check(f"a word link opens the Glossary on it and closes the help, got {got.get('opened_on')}",
               got.get("opened_on") == "tier" and got.get("help_closed") is True)
