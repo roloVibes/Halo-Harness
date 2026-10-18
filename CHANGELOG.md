@@ -8,6 +8,33 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.1.2.0] - unreleased
+
+One run model: a lane, a mission part, a team stage and a flow step are one unit of work on one ten-state machine, with one ledger line and one report row, and `halo work` prints any run of any kind as one table. The machine is enforced; a team stage's members run at the same time; an orchestra or flow stage can run on a fleet member; a stale downstream lane is never merged stale; a plan is priced before it runs and a team has a budget line; recall reaches across the fleet; and the two-machine check is one command on each box. The third of the four versions from the 2026-10-18 assessment.
+
+### R1: one unit of work
+
+- **`halo_harness/work/`, the unit model.** A `Unit` (kind lane | part | stage | step, id, title, run, owner, claims, needs / gives / after / base, state, gate, acceptance, cost, started / ended, attempts, error, refs, extra) is what every engine's piece of work reads as, on ONE ten-state machine (`pending`, `ready`, `running`, `waiting`, `gated`, `done`, `failed`, `merged`, `skipped`, `stopped`) with a per-kind alias table so each engine keeps its own words. The adapters (`work/adapters/{lane,part,stage,step}.py`) are the only place that knows `lanes/<n>.json` from `parts/<n>/result.json`; the files on disk keep their shapes, byte for byte.
+- **One ledger line, one report row.** Every engine's `events.jsonl` / `log.jsonl` / `changes.jsonl` line maps onto a `LedgerLine` (`{ts, kind: state | claim | gate | change | handoff | note, unit, run, by, key, text, native, data}`); orchestra, mission and flow `report.json` gain a `units` key beside their old rows (nothing removed); a team's board serves `board.units`.
+- **`halo work [RUN] [--json]` and `GET /api/work/<kind>/<run>`** print any run of any kind as one table: unit, kind, state, owner, gate, cost, harness.
+- **Coach rules on one module.** The five Orchestra coach rules moved onto the shared `orchestra/coach_rules.py`; the flow, mission and team rules follow in 3.1.3.0 (the coach round), since folding them changes pinned suggestion ids.
+- `docs/WORK.md` (the model, the state machine with the four alias tables, the ledger line, the report row, `halo work`, the route); a pointer paragraph in ORCHESTRA, MISSIONS, TEAM and FLOWS; "unit" in the glossary.
+
+### R2: scheduling on the unit model
+
+- **The state machine is enforced.** Every lane, mission part, team stage and flow step state write goes through `Unit.move`; a move the machine has no edge for raises with the unit, from and to, and nothing is written. Five edges the engines need were added (docs/WORK.md lists them).
+- **Team stage members run at the same time**, bounded by the tightest `max_parallel` of their lineup tiers (no tiers: all at once, at most 8); the lead merges after them. The board row's `members_state` and Studio's board show each member's state; one failing member fails the stage after the others end.
+- **Orchestra and flow stages on a fleet member.** `harness: <member>` on a team's orchestra or flow stage sends the run to that member as a one-part mission; it runs there and hands back its report (`stages/<id>/report.json`); the board shows the harness and the remote run id.
+- **A stale downstream lane is never merged stale.** When the gate sends a lane back, every lane that started from its head is marked stale and waits; once the upstream is written again it is re-based (and its tests run) or sent back to its own worker on a conflict. The run console shows the STALE badge and the re-base line.
+- **The cost forecast.** A plan's lanes are priced before they run (the lead's `est_tokens`, else a stated heuristic, at the model catalog's prices) against the goal's new `budget_usd`: `forecast.json`, `GET orchestra/<run>/forecast`, a Cost column in `halo orchestra plan`, cost chips and a red over-budget total on the plan canvas; Approve warns over the budget.
+- **A team budget line.** `budget_usd` on a team file and on a stage: a stage whose forecast would pass either is not started; the board says why and the Attention queue offers Raise / Skip / Stop. `halo team status` shows spent, forecast and budget.
+
+### R3: the two-machine check, recall across the fleet
+
+- **The scripted two-machine check.** `python tools/live_fleet_check.py hub` on one box and `python tools/live_fleet_check.py member <host>:<port> --code "..."` on the other run the whole delegation path end to end: `fleet who`, a mission part on the member, a team with a delegated agent stage (its gate answered on the hub) and a delegated flow stage, and recall across the fleet. Each step prints PASS / FAIL with its evidence, then a summary, an exit code and a `--json` report; `--fake` needs no model (run it from a repo checkout); `--keep` leaves the hub up. docs/FLEET.md "The two-machine check".
+- **Recall across the fleet.** `halo recall --fleet <query>` (and `/recall --fleet`) asks the hub to fan the query out to every online member; each answers from its own index, only the hits leave the box, and they are merged by score, each labelled with its harness. `fleet.recall.share: false` keeps a box out; `fleet.recall.hide` lists memory kinds it never answers; each answer is a line in the member's journal. Routes `GET /api/recall?q=&fleet=1` and `GET /api/fleet/recall?q=` (Studio's recall box, and its Fleet switch, come with 3.1.3.0).
+- **A delegated unit's harness.** A unit's report row and `halo work` show the fleet harness a mission part or a delegated team stage ran on (`refs.harness`); a local unit reads "here".
+
 ## [3.1.1.0] - 2026-10-18
 
 The first ten minutes: a stranger goes from install to a coached run with `halo start`, every word Halo uses has one paragraph behind `halo explain`, the Start views tell one story, one command lists every config file in effect and one check validates them all, the docs have a map and the long ones are split by task, and Studio is the one editor while the terminal shows and opens. The second of the four versions from the 2026-10-18 assessment.
