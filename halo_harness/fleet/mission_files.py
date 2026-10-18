@@ -14,7 +14,7 @@ A member reaches only a mission it has a part in (403 otherwise). It reads
 `artifacts/<n>/**`, and of the parts its parts depend on their hand-backs
 and their `outputs` (3.0.9.0; their whole `artifacts/<d>/**` for a part with
 `take: all`, fleet/mission_handoff.py); it writes only its own `parts/<n>/handback.md | result.json |
-branch.bundle` and `artifacts/<n>/**`. Every path goes through
+branch.bundle | report.json` (3.1.2.0 R2: a delegated team stage's run report) and `artifacts/<n>/**`. Every path goes through
 mission_store.confine: relative, no `..`, no symlink followed.
 
 `HubFiles(entry)` is the member's side: `pull(mission, part, dest)` before a
@@ -35,7 +35,7 @@ from halo_harness.fleet import mission as M
 from halo_harness.fleet import mission_store as S
 from halo_harness.fleet import protocol
 
-PART_FILES = ("handback.md", "result.json", "branch.bundle")
+PART_FILES = ("handback.md", "result.json", "branch.bundle", "report.json")
 TIMEOUT_S = 120.0
 
 

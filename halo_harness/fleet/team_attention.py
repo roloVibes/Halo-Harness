@@ -4,11 +4,14 @@ builds the queue, studio/fleet_answer.py routes the keys).
 
     team_gate   a stage of this repo's team run waits at a required gate:
                 a accept | r redo (text: the instruction) | s stop the run | o open the Team section on it
+    team_budget a stage was not started: over the team's or its own budget_usd (3.1.2.0 R2, team/budget.py):
+                a raise (opens the team file: edit budget_usd, then run it again) | r skip it | s stop the run
 
 `gated(cwd, state_dir)` reads the team of Studio's folder (docs/TEAM.md) and
-its latest run: one entry per stage whose gate is open. `rows(...)` makes
-them attention rows; `answer(...)` goes through `POST team/answer`, the
-route the Team tab's gate card uses.
+its latest run: one entry per stage whose gate is open, and (`kind: budget`)
+per stage held at a budget line. `rows(...)` makes them attention rows;
+`answer(...)` goes through `POST team/answer` (a gate, the Team tab's gate
+card's route) or `POST team/budget` (a hold).
 """
 
 from __future__ import annotations
@@ -49,7 +52,9 @@ def gated(cwd, state_dir) -> list:
         return []
     if team is None:
         return []
-    out = []
+    from halo_harness.team.budget import held
+    out = [{"kind": "budget", "team": team["name"], "run": run_dir.name, "stage": h.get("stage"), "root": team["root"],
+            "text": h.get("text") or "", "ts": h.get("ts")} for h in held(run_dir)]
     for r in BD.read_board(run_dir).get("stages") or []:
         if r.get("state") != "gated":
             continue
@@ -65,6 +70,12 @@ def rows(gates: list, local: dict, seen: dict, now: float) -> list:
     from halo_harness.remote.bridge_cards import one_line
     out = []
     for g in gates:
+        if g.get("kind") == "budget":
+            out.append(_row("team_budget", f"{g['run']}:{g['stage']}:{g.get('ts')}", local, None, "",
+                            f"Team {g['team']}: stage {g['stage']} is held at its budget line",
+                            one_line(g.get("text") or "raise the budget, skip the stage or stop the run", 240),
+                            seen, now, run=g["run"], stage=g["stage"]))
+            continue
         acc = g.get("acceptance") if isinstance(g.get("acceptance"), dict) else None
         note = f" (acceptance {'ok' if acc.get('ok') else 'failed'}: {acc.get('note')})" if acc and acc.get("note") else ""
         out.append(_row("team_gate", f"{g['run']}:{g['stage']}:{g.get('round')}", local, None, "",
@@ -75,10 +86,17 @@ def rows(gates: list, local: dict, seen: dict, now: float) -> list:
 
 
 def answer(req, row: dict, key: str, text: str):
-    """`(status, body, label)` for a team_gate row: the gate card's own route."""
+    """`(status, body, label)` for a team_gate row (the gate card's own route) or a team_budget row."""
     from halo_harness.studio.fleet_answer import _sub
     from halo_harness.studio.team_api import post_answer
     t, label = row.get("target") or {}, row["keys"][key]
+    if row.get("kind") == "team_budget":
+        if key == "a":  # the budget lives in the team file: Raise opens it
+            return 200, {"open": dict(open_target(row), panel="team-file")}, label
+        from halo_harness.studio.team_budget_api import post_budget
+        status, got = post_budget(_sub(req, "team/budget", {"stage": t.get("stage"), "run": t.get("run"),
+                                                            "action": "skip" if key == "r" else "stop"}, {}))
+        return status, got, label
     body = {"stage": t.get("stage"), "run": t.get("run"), "action": ACTION[key], "text": text if key == "r" else ""}
     status, got = post_answer(_sub(req, "team/answer", body, {}))
     return status, got, label

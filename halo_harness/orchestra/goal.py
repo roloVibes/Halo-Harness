@@ -8,7 +8,8 @@ files the workers share (`files`, relative to the repo root), and who plays
 the parts (`lineup`, `lead`, `worker`), and optionally the lanes' hand-offs
 (`handoffs`: `{job id: {gives, needs, after}}`, orchestra/handoff_spec.py),
 and whether the run pauses for the plan's review (`plan`: `auto` | `review`,
-3.0.9.0 R2, orchestra/plan.py).
+3.0.9.0 R2, orchestra/plan.py), and what the run may cost (`budget_usd`,
+3.1.2.0 R2: the plan's forecast is shown against it, orchestra/forecast.py).
 
 A run lives in `<repo>/.halo/orchestra/<run-id>/` (`run-id` =
 `YYYYMMDD-HHMMSS-<4 hex>`, so names sort by time):
@@ -51,9 +52,14 @@ class Goal:
     worker: str = "subagent"
     handoffs: dict = field(default_factory=dict)  # 3.0.9.0: {job id: {gives, needs, after}} (handoff_spec.py)
     plan: str = "auto"  # 3.0.9.0 R2: "review" pauses after the split for the edited plan (orchestra/plan.py)
+    budget_usd: Optional[float] = None  # 3.1.2.0 R2: the forecast's budget (orchestra/forecast.py)
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        """The goal; `budget_usd` only when set (a goal without one is written as before)."""
+        data = asdict(self)
+        if data.get("budget_usd") is None:
+            data.pop("budget_usd", None)
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "Goal":
@@ -88,6 +94,9 @@ def validate_goal(data) -> list:
     if data.get("plan", "auto") not in ("auto", "review"):
         problems.append('"plan" is auto (run the split as the lead wrote it) or review (wait for the edited plan), '
                         f'got {data.get("plan")!r}')
+    budget = data.get("budget_usd")
+    if budget is not None and (isinstance(budget, bool) or not isinstance(budget, (int, float)) or budget < 0):
+        problems.append(f'"budget_usd" is a number of dollars, 0 or more, got {budget!r}')
     for key in ("test", "lineup", "lead", "worker"):
         value = data.get(key, "")
         if value is not None and not isinstance(value, str):

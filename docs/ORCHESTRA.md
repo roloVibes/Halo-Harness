@@ -70,6 +70,7 @@ never committed and never merged.
 | `lead` | `main` | the lead orchestrator's role (the lineup's main, the boss) |
 | `worker` | `subagent` | how a worker runs |
 | `handoffs` | {} | 3.0.9.0: per job id, `{gives, needs, after}`: what a lane hands on, what it takes and which lanes it starts after (see [Hand-offs](#hand-offs)) |
+| `budget_usd` | none | 3.1.2.0: what the run may cost; the plan's [forecast](#the-forecast) is shown against it (Approve warns over it, it does not refuse) |
 
 A worked example ships in
 `halo_harness/templates/orchestra/goal.example.json`: the reel's
@@ -425,7 +426,8 @@ rejected: <reason>" in its report; nothing ran.
 
 ```sh
 halo orchestra run [RUN] --review           the goal's plan becomes review, then the run starts and waits
-halo orchestra plan [RUN]                   the plan as a table (job, after, bio, model, title, claims, needs), its problems
+halo orchestra plan [RUN]                   the plan as a table (job, after, bio, model, cost, title, claims, needs), the
+                                            forecast's total against the goal's budget_usd, its problems
 halo orchestra approve [RUN] [--file F]     check the plan (F: {"jobs": [...]} or the list; else Studio's draft, else the split)
 halo orchestra reject [RUN] --reason TEXT   the run stops with that reason
 ```
@@ -465,6 +467,67 @@ take the decision.
 Studio draws the plan as a canvas you edit (see [In Studio](#in-studio) and
 [STUDIO-orchestra-flow.md](STUDIO-orchestra-flow.md#the-plan-canvas-3090)); its draft lives in
 `<run>/plan.draft.json` until you approve it.
+
+## The forecast
+
+Halo 3.1.2.0. Before a lane runs, what will it cost? `orchestra/forecast.py`
+answers it for any plan (the lead's split, Studio's draft or an approved
+plan.json): one line per lane and a total against the goal's `budget_usd`,
+written as `<run>/forecast.json` beside split.json (after the split, and on
+every look at the plan):
+
+```json
+{"lanes": [{"lane": 1, "job": "job-1", "model": "or:vendor/mid", "tokens_in": 30000, "tokens_out": 5000,
+            "usd": 0.05, "usd_low": 0.04, "usd_high": 0.075, "source": "lead", "priced": true}],
+ "total": {"usd": 0.05, "usd_low": 0.04, "usd_high": 0.075, "budget_usd": 0.5, "over": false, "unpriced": 0, "units": 1}}
+```
+
+The tokens are the lead's own estimate when it gives one: the split prompt
+asks for `"est_tokens": {"in": n, "out": n}` on each job in one sentence (a
+bare number counts 80% in, 20% out). Without one the heuristic is
+`tokens_in = 6000 + the goal's text / 4 + 3 x the claimed files' bytes / 4`
+and `tokens_out = 800 + 3 x the claimed units' bytes / 4` (4 characters to
+a token: the worker's prompt and tool schemas, the files it reads a few
+times, each unit rewritten about three times). The price is the model
+catalog's (the coach's `coach_prices.catalog`: in and out per million
+tokens; no out price = 4 x the in price; Ollama and Hugging Face models
+cost 0; a model the catalog does not list leaves the lane unpriced). The
+lane's model is the job's `model`, else its bio's preference, else the goal's
+worker role's. The band says how sure it is: a lead's estimate x0.8 to
+x1.5, the heuristic x0.5 to x2. The total is `over` when its high end
+passes `budget_usd`. `halo orchestra plan` prints a Cost column and the
+total line; `GET orchestra/<run>/forecast` serves it (and the plan payload
+and each `PUT` carry it); Studio's plan canvas shows each lane's cost chip
+and the total in its header, red when over. **Approve** warns when the
+forecast is over the budget and approves all the same.
+
+## Stale lanes
+
+Halo 3.1.2.0 (the 3.0.9.0 open item). A lane that starts after another
+starts from that lane's head. When the gate sends the upstream's piece back
+(the tests fail on the finished branch, or its merge failed the tests), the
+downstream's start is out of date, and it is never merged that way
+(`orchestra/stale.py`):
+
+1. Every lane whose `base` holds the upstream's head is marked `stale` in
+   its lane file (`{"upstreams": [3], "jobs": ["job-3"], "reason": "upstream
+   job-3 was sent back"}`) and moves to `waiting` with that reason ("lane 5
+   is stale: upstream job-3 was sent back"); its worker step goes back to
+   pending.
+2. Once the upstream is written again, the lane is re-based: the
+   upstream's branch is merged into its worktree and the goal's tests run
+   there (no worse than at the upstream's new head). Clean, the lane is
+   written again with `rebased: {onto: [{lane, job, head}], head, tests_ok}`
+   ("lane 5 re-based onto lane 3's new head <sha>; tests no worse") and the
+   merge takes it. A conflict (the markers stay in the files) or worse tests
+   send the piece back to the lane's own worker with the retry text, as a
+   returned piece (`return_cap` counts it); its next pass is the re-base.
+3. `merge_lanes` refuses a lane whose `stale` flag is still set (the run
+   stops with "lane 5 is stale (...): it is re-based before it merges").
+
+A run where no lane starts after another never marks anything. The run
+console shows a STALE badge on the lane while it waits and the re-base line
+after it.
 
 ## The report
 

@@ -4,7 +4,7 @@
 // whether a request is out. actions.ts changes it; the canvas, the inspector
 // and the bar read slices with usePlan(selector).
 import { createStore, useStore } from "../../../lib/store";
-import type { PlanDecision, PlanFinding, PlanJob, PlanProblem } from "./types";
+import type { Forecast, PlanDecision, PlanFinding, PlanJob, PlanProblem } from "./types";
 
 export type PlanState = {
   runId: string;
@@ -26,6 +26,8 @@ export type PlanState = {
   decision: PlanDecision | null;
   /** 3.0.9.0 R3: a coach card's change staged on a run that already ran (the text of the card); no PUT. */
   staged: string;
+  /** 3.1.2.0 R2: the jobs' cost forecast, as the last GET / PUT answered it. */
+  forecast: Forecast | null;
 };
 
 export const plan = createStore<PlanState>({
@@ -45,6 +47,7 @@ export const plan = createStore<PlanState>({
   rejecting: false,
   decision: null,
   staged: "",
+  forecast: null,
 });
 
 export function usePlan<S>(select: (s: PlanState) => S): S {

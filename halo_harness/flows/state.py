@@ -187,6 +187,8 @@ class Flow:
             row = next((s for s in data.get("steps") or [] if s.get("id") == step_id), None)
             if row is None or row.get("state") == state:
                 return
+            from halo_harness.work.unit import move_word  # 3.1.2.0 R2: the step's move through Unit.move
+            move_word("step", step_id, row.get("state"), state, self.run_dir.name)
             row["state"] = state
             jsonl.write_json(self.path, data)
             self.log("state", f"{step_id} {state}" + (f": {text}" if text else ""), step=step_id, state=state)

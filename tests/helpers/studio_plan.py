@@ -7,7 +7,9 @@ it as a subprocess with a scrubbed environment (tests/helpers/studio_ui_plan.py)
     python -m tests.helpers.studio_plan
 
 * a review run (lane 2 takes lane 1's summary) opens on the plan canvas:
-  five lanes in two layer boxes, one edge;
+  five lanes in two layer boxes, one edge; 3.1.2.0 R2: each card carries
+  its priced cost chip and the header the forecast's total, red over the
+  goal's budget;
 * dragging lane 3 into the second box sets its `after` and draws its edges;
 * a claim of lane 5's added to lane 4 (both in the first box) shows a
   problem on both cards and disables Approve and run; Undo clears it;
@@ -74,6 +76,10 @@ def lanes_and_layers(c, url: str, out: dict) -> None:
     out["layers"] = c.js(f"{TID.format('plan-canvas')}.dataset.layers")
     out["edge_label"] = c.js(f"{TID.format('plan-edge-label')}.textContent")
     out["lane2_layer"] = c.js(f"{LANE.format('job-2')}.dataset.layer")
+    out["cost_chips"] = c.js("[...document.querySelectorAll('[data-testid=\"plan-cost\"][data-priced]')].length")
+    out["cost_chip"] = c.js(f"{LANE.format('job-1')}.querySelector('[data-testid=\"plan-cost\"]')?.textContent")
+    out["forecast"] = c.js(f"{TID.format('plan-forecast')}?.textContent")
+    out["forecast_over"] = c.js(f"{TID.format('plan-forecast')}?.dataset.over")
 
 
 def drag_into_layer(c, rig, out: dict) -> None:

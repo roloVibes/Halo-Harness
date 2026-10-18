@@ -51,10 +51,15 @@ def _loop(runner, tail, until: str) -> dict:
 
 
 def _waiting_line(run_dir, board: dict) -> str:
+    from halo_harness.team.budget import held
     from halo_harness.team.stages import read_gate
     gated = [r["id"] for r in board.get("stages") or [] if read_gate(run_dir, r["id"])]
     if gated:
         return f"waiting at {', '.join(gated)}: halo team answer {gated[0]} accept|redo|stop"
+    holds = held(run_dir)  # 3.1.2.0 R2 (team/budget.py)
+    if holds:
+        return (f"held at {holds[0]['stage']}: {holds[0]['text']}; raise budget_usd in the team file and run "
+                f"halo team run {holds[0]['stage']} again, or skip it in Studio's Attention queue")
     return f"run {board.get('run')} {board.get('state')}"
 
 
@@ -103,7 +108,8 @@ def cmd_run(args) -> int:
     return 1 if row and row.get("state") == "failed" else 0
 
 
-def status_of(run_dir) -> dict:
+def status_of(run_dir, team=None) -> dict:
+    """The run's state; with `team`, its budget line too (3.1.2.0 R2: spent, forecast, budget, holds)."""
     from halo_harness.team.stages import read_gate
     board = BD.read_board(run_dir)
     rows = board.get("stages") or []
@@ -113,7 +119,15 @@ def status_of(run_dir) -> dict:
     return {"run": board.get("run"), "team": board.get("team"), "state": board.get("state"),
             "stop_reason": board.get("stop_reason") or "", "runner_live": BD.runner_live(board),
             "stages": by, "waiting": [r["id"] for r in rows if read_gate(run_dir, r["id"])],
-            "cost_usd": BD.cost(board)}
+            "cost_usd": BD.cost(board), **({"budget": _budget(team, run_dir)} if team else {})}
+
+
+def _budget(team, run_dir) -> dict:
+    from halo_harness.team.budget import summary
+    try:
+        return summary(team, run_dir, cwd=team["root"])
+    except Exception as e:  # the status still prints without its budget line
+        return {"error": f"{type(e).__name__}: {e}"}
 
 
 def cmd_status(args) -> int:
@@ -123,9 +137,14 @@ def cmd_status(args) -> int:
     run_dir, code = _run_dir(team, args.run)
     if run_dir is None:
         return code
-    st = status_of(run_dir)
+    from halo_harness.work.forecast import money
+    st = status_of(run_dir, team)
+    b = st.get("budget") or {}
     lines = [f"team {st['team']}, run {st['run']}: {st['state']}" + (f" ({st['stop_reason']})" if st["stop_reason"] else "")
-             + (", runner live" if st["runner_live"] else ""), f"  cost ${st['cost_usd']:.4f}"]
+             + (", runner live" if st["runner_live"] else ""),
+             f"  spent ${st['cost_usd']:.4f} · forecast {money(b.get('forecast'))} for the stages still to run · "
+             + (f"budget {money(b['budget_usd'])}" if b.get("budget_usd") is not None else "no budget set")]
+    lines += [f"  held: {h['stage']} ({h['text']})" for h in b.get("holds") or []]
     lines += [f"  {state}: {', '.join(ids)}" for state, ids in st["stages"].items()]
     if st["waiting"]:
         lines.append(f"  waiting: halo team answer {st['waiting'][0]} accept|redo|stop")

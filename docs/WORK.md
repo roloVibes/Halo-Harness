@@ -66,6 +66,66 @@ the engine's own word). Every engine word round-trips.
 (A dash is a machine state that kind never writes; it still maps to the
 nearest engine word when a unit is set to it.)
 
+## The state machine is enforced
+
+Halo 3.1.2.0 R2. Every engine write of a unit's state goes through
+`Unit.move(state)` (`work/unit.py`; an engine setter calls
+`move_word(kind, id, was, word)` with its own words): a lane's
+`lanes/<n>.json` (work/adapters/lane.py), a mission part's `mission.json`
+(work/adapters/part.py), a team stage's board row (team/board.py
+`set_stage`, and the run's stop) and a flow step's `flow.json`
+(flows/state.py `Flow.set`). A move the machine has no edge for raises
+`IllegalMove` (a `ValueError`) naming the unit, from and to, and nothing is
+written:
+
+    lane 2 of run 20261018-120000-ab12 cannot move from merged to ready (from merged it moves to waiting)
+
+Moving a unit to the state it is in is no edge: it is the engine saying the
+state again with a new line (a lane `waiting` with a new reason), always
+allowed. The edges (`work/states.py` `EDGES`):
+
+| from | to |
+|---|---|
+| pending | ready, running, waiting, failed, skipped, stopped |
+| ready | pending, running, waiting, failed, skipped, stopped |
+| running | waiting, gated, done, failed, skipped, stopped |
+| waiting | pending, ready, running, gated, **done**, failed, skipped, stopped |
+| gated | ready, running, waiting, done, failed, skipped, stopped, merged |
+| done | ready, running, waiting, gated, merged |
+| failed | **ready, running** |
+| skipped | **ready** |
+| stopped | (none: it is over) |
+| merged | **waiting** |
+
+The edges in bold are the ones R2 added, each because an engine needs it
+(`states.ADDED`):
+
+- `failed -> ready`: a failed team stage runs again when asked (`halo team
+  run <stage>`, a trigger);
+- `failed -> running`: a lane whose worker fell over gets its one more run
+  in the same worktree, and a resumed run's failed lane or flow step runs again;
+- `skipped -> ready`: a stage skipped at its budget line is asked to run again;
+- `merged -> waiting`: the gate sends a merged piece back (the tests fail on
+  the finished branch), and a downstream lane of it goes stale;
+- `waiting -> done`: a mission part's result lands while the hub still
+  shows it `asked` (the member ran it before the hub saw the card answered).
+
+A team member's own state (the stage row's `members_state`, team/parallel.py)
+walks the same edges. `tests/test_work_states.py` replays each engine's real
+fixture history (an Orchestra run with a hand-off, a team run through its
+gate, a local mission, a flow run with a redo) through `Unit.move`.
+
+## Scheduling on the unit model
+
+R2 schedules on this model: the members of a team stage run in parallel
+under their tiers' `max_parallel` ([TEAM.md](TEAM.md#stages-triggers-and-gates)),
+an orchestra or flow stage may run on a fleet member
+([TEAM.md](TEAM.md#delegating-a-member-to-the-fleet)), a downstream lane
+whose upstream the gate sent back is re-based before the merge
+([ORCHESTRA.md](ORCHESTRA.md#stale-lanes)), a plan carries a cost forecast
+([ORCHESTRA.md](ORCHESTRA.md#the-forecast); the shapes are
+`work/forecast.py`'s) and a team file a budget line ([TEAM.md](TEAM.md#budgets)).
+
 ## The ledger line and the report row
 
 Every engine log line reads as a `LedgerLine` (`work/ledger.py`):
@@ -100,9 +160,8 @@ run of this repo (an Orchestra run, else a flow run, team run or mission).
 
 ## What is not shared yet
 
-R1 is the model, the ledger, the report row and the read views; the four
-engines still run their own schedulers and the Studio panels keep their own
-routes. R2 ("Scheduling") is the one scheduler over this model: parallel
-stages under a tier's `max_parallel`, a lane or stage run on a fleet
-member, a stale downstream re-based before the merge, and a cost forecast
-on the plan. See [ROADMAP](../plans/ROADMAP.md) 3.1.2.0 R2.
+The four engines still run their own loops over the shared model (R2 put
+the parallel members, the delegated runs, the re-base and the forecasts into
+them), and the Studio panels keep their own routes. R3 checks delegation on
+two real machines and shares the recall index across the fleet. See
+[ROADMAP](../plans/ROADMAP.md) 3.1.2.0 R3.

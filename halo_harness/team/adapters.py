@@ -66,22 +66,38 @@ def spawn_member(member: dict, prompt: str, *, cwd, env: dict, stage: str, run_d
 
 
 def run_orchestra(goal: dict, *, root, stage: str, run_dir, model: Optional[str] = None) -> dict:
+    from halo_harness.team.board import log
+    return orchestra_run(goal, root, model=model, on_start=lambda rid: log(
+        run_dir, "note", f"{stage}: Orchestra run {rid} started", stage=stage, orchestra_run=rid))
+
+
+def orchestra_run(goal: dict, root, *, model: Optional[str] = None, on_start=None) -> dict:
+    """A new Orchestra run of `goal` in `root`, run to its report (a team stage here, or one a fleet
+    member runs for a delegated stage: fleet/mission_stage_run.py, 3.1.2.0 R2)."""
     from halo_harness.orchestra import adapters
     from halo_harness.orchestra.goal import Goal, new_run
     from halo_harness.orchestra.run import run
     g = Goal.from_dict(goal)
     orch_dir = new_run(Path(root), g)
-    from halo_harness.team.board import log
-    log(run_dir, "note", f"{stage}: Orchestra run {orch_dir.name} started", stage=stage, orchestra_run=orch_dir.name)
+    if on_start is not None:
+        on_start(orch_dir.name)
     report = run(orch_dir, **adapters.real_adapters(orch_dir, g, model))
     ok = report.get("status") == "finished"
-    return {"ok": ok, "run_id": orch_dir.name, "cost_usd": float(report.get("cost_usd") or 0.0),
+    return {"ok": ok, "run_id": orch_dir.name, "cost_usd": float(report.get("cost_usd") or 0.0), "report": report,
             "text": f"Orchestra run {orch_dir.name} {report.get('status')}"
                     + (f": {report.get('stop_reason')}" if report.get("stop_reason") else ""),
             "error": "" if ok else str(report.get("stop_reason") or report.get("status") or "stopped")}
 
 
 def run_flow(name: str, *, intake: dict, cwd, stage: str, run_dir, model: Optional[str] = None) -> dict:
+    from halo_harness.team.board import log
+    return flow_run(name, intake, cwd, model=model, on_start=lambda rid: log(
+        run_dir, "note", f"{stage}: flow run {rid} started (answer its gates with halo flow answer)",
+        stage=stage, flow_run=rid))
+
+
+def flow_run(name: str, intake: dict, cwd, *, model: Optional[str] = None, on_start=None) -> dict:
+    """A new run of flow `name` with `intake`, run to its report (here, or on a fleet member)."""
     from halo_harness.flows import spec as fspec, state
     from halo_harness.flows.adapters import Adapters
     from halo_harness.flows.run import run
@@ -90,11 +106,10 @@ def run_flow(name: str, *, intake: dict, cwd, stage: str, run_dir, model: Option
         return {"ok": False, "error": f"no flow {name!r}"}
     spec = fspec.load_flow(path)
     flow_dir = state.new_run(spec, intake, source=str(path))
-    from halo_harness.team.board import log
-    log(run_dir, "note", f"{stage}: flow run {flow_dir.name} started (answer its gates with halo flow answer)",
-        stage=stage, flow_run=flow_dir.name)
+    if on_start is not None:
+        on_start(flow_dir.name)
     report = run(flow_dir, adapters=Adapters(model=model, auto_accept=False, cwd=str(cwd)))
     ok = report.get("status") == "finished"
-    return {"ok": ok, "run_id": flow_dir.name, "cost_usd": float(report.get("cost_usd") or 0.0),
+    return {"ok": ok, "run_id": flow_dir.name, "cost_usd": float(report.get("cost_usd") or 0.0), "report": report,
             "text": f"flow run {flow_dir.name} {report.get('status')}",
             "error": "" if ok else str(report.get("stop_reason") or report.get("status") or "stopped")}

@@ -3,14 +3,14 @@
 // 250 ms after the last one, whose answer is the problems), undo / redo, add
 // and drop a lane, move a lane into another layer box (its `after` is
 // rewritten), approve (POST approve; the console returns once the run moves
-// on) and reject with a reason.
+// on; a forecast over the budget comes back as a warning) and reject with a reason.
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
 import { orch } from "../store";
 import { refresh } from "../sync";
 import { layersOf } from "./layout";
 import { plan, upstreams } from "./store";
-import type { PlanJob, PlanPayload, PlanProblem } from "./types";
+import type { Forecast, PlanJob, PlanPayload, PlanProblem } from "./types";
 
 const UNDO_MAX = 100;
 let timer = 0;
@@ -30,6 +30,7 @@ export async function loadPlan(runId: string): Promise<void> {
       preflight: p.preflight,
       units: p.units,
       decision: p.decision,
+      forecast: p.forecast || null,
       loaded: true,
       sel: p.jobs.some((j) => j.id === s.sel) ? s.sel : p.jobs[0]?.id || "",
     }));
@@ -42,8 +43,9 @@ export async function savePlan(): Promise<void> {
   const { runId, jobs } = plan.get();
   if (!runId) return;
   try {
-    const r = await api.put<{ ok: boolean; problems: PlanProblem[] }>(path(), { jobs });
-    if (plan.get().runId === runId && plan.get().jobs === jobs) plan.update(() => ({ problems: r.problems, saving: false }));
+    const r = await api.put<{ ok: boolean; problems: PlanProblem[]; forecast?: Forecast }>(path(), { jobs });
+    if (plan.get().runId === runId && plan.get().jobs === jobs)
+      plan.update((s) => ({ problems: r.problems, saving: false, forecast: r.forecast || s.forecast }));
   } catch (e) {
     plan.update(() => ({ saving: false, error: e instanceof ApiError ? e.message : String(e) }));
   }
@@ -135,8 +137,9 @@ export async function approve(): Promise<void> {
   window.clearTimeout(timer);
   plan.update(() => ({ busy: "approve" }));
   try {
-    await api.post(path("approve"), { jobs: plan.get().jobs });
+    const r = await api.post<{ warning?: string }>(path("approve"), { jobs: plan.get().jobs });
     toast(`Plan approved: run ${plan.get().runId} goes on`, "done");
+    if (r?.warning) toast(`Over budget: ${r.warning}`, "info", 6000); // 3.1.2.0 R2: Approve warns, it does not refuse
     await decided();
   } catch (e) {
     if (e instanceof ApiError && e.status === 422) {

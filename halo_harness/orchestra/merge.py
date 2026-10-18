@@ -12,7 +12,8 @@ text by code and runs the tests. Tests that pass (or, mid-sequence, fail no
 test that was not already failing) keep the merge. Otherwise the merge is
 undone and the piece goes back to its worker (`pieces_returned += 1`, lane
 `waiting`, `respawn(lane, text)`), unless the lane is at `return_cap`: then
-the run stops with the reason.
+the run stops with the reason. A lane still marked `stale` (its upstream was
+sent back and it is not re-based yet, orchestra/stale.py) is never merged.
 
 `<run>/merge.json`:
 
@@ -177,6 +178,8 @@ def merge_lanes(run_dir, goal, lanes: list, *, judge: Callable, base: str,
     save()
     for n in order:
         lane = by_n[n]
+        if lane.data().get("stale"):  # 3.1.2.0 R2 (orchestra/stale.py): never merged stale
+            raise StopRun(f"lane {n} is stale ({lane.data()['stale'].get('reason')}): it is re-based before it merges")
         if lane.state == "merged" and n in state["merged"] and gitops.is_ancestor(cwd, lane.branch, "HEAD"):
             continue
         attempt = 0

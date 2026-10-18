@@ -113,3 +113,11 @@
 @media (prefers-reduced-motion: reduce) {
   .tm-stage-pulse, .tm-agent-chip circle, .tm-badge rect, .tm-runner-dot { animation: none !important; }
 }
+
+/* 3.1.2.0 R2: a member's dot in its state; a stage run on a fleet member */
+.tm-member-dot { fill: var(--faint); stroke: none; }
+.tm-member-dot[data-state="running"] { fill: var(--accent); }
+.tm-member-dot[data-state="waiting"] { fill: var(--warn); }
+.tm-member-dot[data-state="done"] { fill: var(--ok); }
+.tm-member-dot[data-state="failed"] { fill: var(--bad); }
+.tm-stage-remote { fill: var(--accent-2); font: 10px var(--mono); }

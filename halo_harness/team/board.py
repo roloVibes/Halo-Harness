@@ -26,6 +26,7 @@ from typing import Callable, Optional
 from halo_harness.orchestra import jsonl
 from halo_harness.team import RUNS_DIR
 from halo_harness.work.states import words
+from halo_harness.work.unit import move_word
 
 STATES = words("stage")  # pending ready running gated done failed skipped (work/states.py, 3.1.2.0 R1)
 EVENT_KINDS = ("state", "claim", "change", "gate", "trigger", "report", "note")
@@ -146,6 +147,7 @@ def set_stage(run_dir, sid: str, state: Optional[str] = None, text: str = "", **
         if r is None:
             return
         if state is not None and r.get("state") != state:
+            move_word("stage", sid, r.get("state"), state, board.get("run") or "")  # 3.1.2.0 R2: through Unit.move
             moved["from"] = r.get("state")
             r["state"] = state
         r.update(fields)

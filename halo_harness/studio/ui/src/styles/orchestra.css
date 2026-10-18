@@ -172,3 +172,8 @@
 }
 .og-lane-base { display: block; font-size: 9.5px; color: var(--faint); }
 .og-edge-after { stroke: var(--accent-2); stroke-dasharray: 3 3; fill: none; }
+
+/* 3.1.2.0 R2 (orchestra/stale.py): a stale lane's badge and its re-base line */
+.og-stale { margin-left: 6px; font-size: 10px; padding: 0 5px; color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.og-rebase { margin-left: 6px; font-size: 10.5px; color: var(--accent-2); }
+.og-rebase[data-conflict] { color: var(--warn); }
