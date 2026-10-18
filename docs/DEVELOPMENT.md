@@ -1,5 +1,7 @@
 # Development
 
+Read this when you work on Halo itself: the repo layout, the test suites and the release flow.
+
 Repo layout, how to run the three test suites on Windows/WSL/Kali, the
 briefs/review/acceptance workflow this project's own history follows, how
 to extend the harness in the four most common ways, and the coding rules
@@ -260,6 +262,20 @@ run is open); a PanelSpec may carry `about` (one line) and `help` (a few
 lines) and is `collapsed` (a strip) or `optional` (added by the palette)
 in the default arrangement. `tools/capture_studio.py --mode flow|media`
 renders the Flow captures over seeded runs.
+
+## Docs: the map and the split docs
+
+[docs/README.md](README.md) is the map: every doc, under the task it serves,
+with the same "Read this when ..." line the doc opens with
+(`tests/test_docs_map.py` holds the two together). A new doc gets that
+line under its title and one line in the map. A doc that grows past a few
+hundred lines is split by task with `python tools/split_doc.py PLAN.json`
+(the plan names each part's file, title, "Read this when" line and the line
+it starts at): the original file stays as the short entry page with a
+"## The parts" table, every part is at most 400 lines, and every
+`DOC.md#anchor` link in README.md and docs/ follows its heading into the
+part. A test that reads a split doc reads `tests/helpers/doc_parts.py`'s
+`doc_text("DOC.md")` (the entry page and every part).
 
 ## Coding rules
 

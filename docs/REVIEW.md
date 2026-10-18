@@ -1,5 +1,7 @@
 # Code review: `/review` and `halo review`
 
+Read this when you review code with `/review` or `halo review`.
+
 Halo 2.0.10. A review runs parallel reviewers (one read-only sub-agent per
 dimension), has a judge check every finding against the code, and gives
 you a ranked list. It is modelled on Claude Code's `/code-review`. A review

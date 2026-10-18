@@ -1,5 +1,7 @@
 # Design review notes — 2026-09-23 (Opus 5.5 advisor pass on the foundation plan)
 
+Read this when you want the history of the first design review (2026-09-23); it is a record, not a guide.
+
 These notes correct and extend the plan in `~/.claude/plans/we-created-an-mcp-lively-valiant.md`.
 **Where they conflict with the plan, these notes win.** Items marked *(verified in the installed
 Claude Code 2.1.280 binary)* were checked on the home box.

@@ -1,5 +1,7 @@
 # The Orchestra
 
+Read this when several agents should write the same files at once: the Orchestra and its plan, lanes and judge.
+
 Halo 3.0.3.0. Several agents write to the same files at the same time and
 nothing is lost. The idea comes from Kem Tossoun's reel "5 agents write to
 the same file at the same time and nothing is lost" (Glitch Cat Club); this
@@ -459,7 +461,7 @@ runner (Studio's own or `halo orchestra run --review` in a terminal) will
 take the decision.
 
 Studio draws the plan as a canvas you edit (see [In Studio](#in-studio) and
-[STUDIO.md](STUDIO.md#the-plan-canvas-3090)); its draft lives in
+[STUDIO-orchestra-flow.md](STUDIO-orchestra-flow.md#the-plan-canvas-3090)); its draft lives in
 `<run>/plan.draft.json` until you approve it.
 
 ## The report
@@ -574,7 +576,7 @@ file) is newer. The same coach reads a flow run, a mission and a team run:
 ## In Studio
 
 `halo studio`, started in the repo, opens the Orchestra section: the run
-console described in [STUDIO.md](STUDIO.md#orchestra-the-run-console). Its
+console described in [STUDIO-orchestra-flow.md](STUDIO-orchestra-flow.md#orchestra-the-run-console). Its
 backend is `studio/orchestra_api.py`. The routes sit under `/api/orchestra/`
 behind the same loopback, origin and token guard as every Studio route.
 

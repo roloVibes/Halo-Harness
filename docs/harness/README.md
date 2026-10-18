@@ -1,5 +1,7 @@
 # `docs/harness/` -- the build history
 
+Read this when you look for the research notes, briefs and reviews behind a Halo release.
+
 This directory is this project's own **development record**, not
 end-user documentation -- for how to use halo, start at the
 repo-root [README.md](../../README.md) and [docs/](..). Everything here was

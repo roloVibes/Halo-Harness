@@ -60,6 +60,8 @@ def roles(c, url: str, state: Path) -> dict:
     out: dict = {}
     seed_catalog(state)
     seed_tiers(state, dead=True)
+    lineup = state / "teams" / "studio-tiers.yaml"  # 3.1.1.0 R2: a key nothing reads, for the Config group
+    lineup.write_text(lineup.read_text(encoding="utf-8") + "notes: the Config group lists this key\n", encoding="utf-8")
     c.go(url)
     out["cards"] = c.wait(f"{tid('roles-card')}.length >= 8 && {tid('roles-card')}.length", 30)
     out["tiers"] = c.js(f"[...{tid('roles-tier')}].map((t) => t.dataset.tier)")
@@ -72,6 +74,7 @@ def roles(c, url: str, state: Path) -> dict:
         const b = document.querySelector(`[data-testid="roles-tier"][data-tier="${{t.name}}"]`).getBoundingClientRect();
         return r.left >= b.left - 1 && r.right <= b.right + 1 && r.top >= b.top - 1 && r.bottom <= b.bottom + 1; }})); }})()""")
     out["problem"] = c.wait(f"[...{tid('roles-problem')}].map((p) => p.textContent).find((t) => t.includes('or:vendor/gone'))", 15)
+    out["config_problem"] = c.wait(f"[...{tid('roles-problem-config')}].map((p) => p.textContent).find((t) => t.includes(\"'notes'\"))", 15)
     # a card dragged into another tier box: the lineup saves with it there, and it moves into that box
     x, y, w, h = c.rect(card("implementer"))
     bx, by, bw, bh = c.rect(tier("rest"))

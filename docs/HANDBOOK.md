@@ -240,7 +240,7 @@ a third-party harness" -- the facts, both providers' terms, and the
 account-responsibility sentence -- and type `I accept` exactly to turn the
 routes on, once per machine. `halo subscriptions status` prints the
 current state; `halo subscriptions revoke` (or `/subscriptions revoke`)
-turns them back off. See [MODELS.md](MODELS.md#subscription-routes-consent-halo-207-round-7b)
+turns them back off. See [MODELS-references.md](MODELS-references.md#subscription-routes-consent-halo-207-round-7b)
 for the full text and every surface this gate reaches.
 
 ### Claude models with your subscription (`cc:`)

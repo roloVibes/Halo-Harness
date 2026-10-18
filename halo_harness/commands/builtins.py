@@ -847,6 +847,10 @@ def _cmd_status(args: str, facade: HeadlessFacade) -> str:
 
 
 def _cmd_config(args: str, facade: HeadlessFacade) -> str:
+    if args.strip() == "where":  # 3.1.1.0 R2: the same table `halo config where` prints
+        from halo_harness.config_where import render, where_rows
+        cwd = getattr(facade, "cwd", None) or Path.cwd()
+        return render(where_rows(cwd), cwd=cwd)
     if args.strip():
         return "halo: /config is read-only in headless mode; edit ~/.claude/settings.json or pass --settings."
     theme = facade.theme or "?"
@@ -1968,7 +1972,7 @@ _BUILTIN_SPECS = {
     "plan": ("ui", "Review the current plan", None, _cmd_plan),
     "resume": ("ui", "Resume a previous session", "[session-id]", _cmd_resume),
     "status": ("core", "Show session status", None, _cmd_status),
-    "config": ("core", "Show or set a config value", "[key=value]", _cmd_config),
+    "config": ("core", "Show or set a config value; /config where lists every file in effect", "[key=value|where]", _cmd_config),
     "skills": ("core", "List discovered skills", None, _cmd_skills),
     "agents": ("core", "List available sub-agents and agent bios; `live`: this session's running agents",
                "[live|schedule]", _cmd_agents),

@@ -11,6 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R2: the entry page and its parts
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 REPO_DIR = Path(__file__).resolve().parent.parent
@@ -23,7 +24,7 @@ _HEADING_RE = re.compile(r"^#{1,4}\s+.*$", re.MULTILINE)
 def test_every_builtin_command_has_a_section(ctx: Ctx):
     from halo_harness.commands.builtins import _BUILTIN_SPECS
 
-    text = (REPO_DIR / "docs" / "SLASH-COMMANDS.md").read_text(encoding="utf-8")
+    text = doc_text("SLASH-COMMANDS.md")
     ctx.check("_BUILTIN_SPECS is non-empty (sanity)", _BUILTIN_SPECS)
     missing = []
     for name in sorted(_BUILTIN_SPECS):
@@ -45,7 +46,7 @@ def test_no_heading_documents_a_fictional_builtin(ctx: Ctx):
     skills, MCP prompts -- covered in prose, not their own heading here)."""
     from halo_harness.commands.builtins import _BUILTIN_SPECS
 
-    text = (REPO_DIR / "docs" / "SLASH-COMMANDS.md").read_text(encoding="utf-8")
+    text = doc_text("SLASH-COMMANDS.md")
     known = set(_BUILTIN_SPECS) | {"quit"}  # /quit: a real TUI alias for /exit, see tui/slash.py
     bogus = []
     for heading in _HEADING_RE.findall(text):
@@ -63,7 +64,7 @@ def test_keybindings_defaults_are_represented(ctx: Ctx):
     documented."""
     from halo_harness.tui.keys import DEFAULT_KEYBINDINGS
 
-    text = (REPO_DIR / "docs" / "SLASH-COMMANDS.md").read_text(encoding="utf-8").lower()
+    text = doc_text("SLASH-COMMANDS.md").lower()
     # Display aliases the doc prose uses for the same physical key/chord
     # step (a docs-readability choice, not a code behavior difference):
     # "escape" is always written "Esc", and the two child-navigation chords

@@ -3321,3 +3321,51 @@ re-derived on this page.
 | `130` | `Ctrl+C` during a `-p` turn |
 | `129` | `SIGHUP` (a closed terminal/dropped SSH connection) during any run |
 | `143` | `SIGTERM` |
+
+## `halo config where` and `halo doctor --config` (3.1.1.0)
+
+```sh
+halo config where              # every file in effect for this folder and home, one table
+halo config where --json       # the same rows as JSON
+halo config where --cwd DIR    # as if run from DIR
+halo doctor --config           # check every one of those files
+halo doctor --config --json    # the findings as JSON
+```
+
+`halo config where` lists, in groups, every file that sets something here:
+`~/.halo/config.json` (and `routes.json`; a repo `.halo/config.json` is
+listed as not read, because Halo reads only the home one), the env file
+`~/.config/halo/env` and a repo `.env` (variable **names** only, never a
+value; Halo does not read `.env`), Claude Code's `settings.json` layers
+(managed, `--settings`, local, project, user), the MCP server files
+(`managed-mcp.json`, `~/.claude.json` and its entry for this folder,
+`.mcp.json`), the active lineup and each lineup it `extends`, the lineup and
+bio folders (repo `.halo/`, `~/.halo/`, shipped), the team file (`.halo/team.yaml`,
+`~/.halo/teams/<project>.team.yaml`), the Databricks preset (`team.json`)
+and the flows (`.halo/flow.yaml`, `~/.halo/flows/`, shipped). Each row: the
+file, its scope (`home`, `repo`, `env`, `shipped`), whether it exists, what
+it sets (its top-level keys, or the names of the lineups, bios, flows,
+servers or variables it holds) and its rank (1 = the file the resolver
+reads first). When two files set the same key, `wins` and `loses to` say
+which one decides, as the resolvers decide it (the lineup, bio and flow
+finders, the settings merge, the MCP resolver, the start-model and theme
+order, the env file's "the environment wins" rule). `/config where` in the
+TUI prints the same table.
+
+`halo doctor --config` checks every file that table lists: against one
+schema set (`halo_harness/schemas/`: config.json, a lineup, a bio, a team
+file, a flow) for unknown keys (with the closest known key) and wrong
+types, and against the existing validators for meaning: a lineup or team
+naming a bio or lineup that does not exist, a flow naming a lineup that
+does not resolve, `team:` in config.json naming a lineup that is not there.
+It also reports a key two files set to different values, with the file that
+wins. Shipped templates are not re-checked. Exit 0 when nothing is found,
+1 otherwise. Studio's Roles section shows the findings about the open
+lineup in its Problems panel, under **Config** (`GET /api/doctor/config?lineup=<name>`).
+
+```
+halo doctor --config
+  [WARN] ~/.halo/config.json: unknown key 'modle' (closest known key: 'model'); nothing reads it -> fix: rename it to model
+  [ERROR] ~/.halo/teams/mine.yaml: agents[0]: no such agent bio: 'ghost-bio' -> fix: halo agents new <name>, or name a bio halo agents lists
+RESULT: 2 finding(s) in 9 file(s) checked (1 error(s), 1 warning(s)).
+```

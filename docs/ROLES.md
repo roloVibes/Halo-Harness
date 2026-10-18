@@ -1,5 +1,7 @@
 # Roles
 
+Read this when you point different kinds of work at different models with roles.
+
 Halo 2.0.2 ("roles v2", W7 round 1), carrying forward V2c (H15): a small
 vocabulary that lets a team point different kinds of work at different
 models -- cheap for exploration, strong for planning/review -- without
@@ -52,7 +54,7 @@ and `roles.enabled`):
    New, Duplicate, Delete and Apply a lineup, edit a card's slot and every
    section, drag a card into another tier, edit bios with the model picker
    table and **Test this model**, and read every problem with its fix as you
-   edit. See [STUDIO.md](STUDIO.md#what-you-see-roles).
+   edit. See [STUDIO-team-roles-org.md](STUDIO-team-roles-org.md#what-you-see-roles).
 
 Everything below is the field-by-field reference; nothing in it changed.
 
