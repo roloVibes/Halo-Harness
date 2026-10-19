@@ -4,8 +4,10 @@
 // its defaults follow the window size. `resetLayout` removes the key. A v1
 // arrangement (3.0.3.0, when panels opened on their Glance face) keeps its
 // places and sizes but not its faces, so every panel opens on its full face.
+// A strip that opens (3.1.4.0 R1: a section may start panels as strips)
+// pushes the grid panels it now covers down; nothing else moves.
 import { createStore, writeLocal, type Store } from "../store";
-import { arrange, defaultPanel } from "./grid";
+import { arrange, defaultPanel, pushDown } from "./grid";
 import { ROW, type Layout, type PanelLayout, type PanelSpec } from "./types";
 
 export const LAYOUT_PREFIX = "halo.studio.layout.";
@@ -58,7 +60,9 @@ export function setLayout(section: string, layout: Layout, save = true): void {
 export function patchPanel(section: string, id: string, patch: Partial<PanelLayout>, save = true): void {
   const cur = layoutStore(section).get().layout;
   if (!cur || !cur[id]) return;
-  setLayout(section, { ...cur, [id]: { ...cur[id], ...patch } }, save);
+  const next = { ...cur, [id]: { ...cur[id], ...patch } };
+  const opened = cur[id].collapsed && !next[id].collapsed && !next[id].floating;
+  setLayout(section, opened ? pushDown(next, id) : next, save);
 }
 
 /** Forget the user's arrangement: the Workspace redraws the defaults. */

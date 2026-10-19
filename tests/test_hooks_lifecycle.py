@@ -349,18 +349,44 @@ def test_h5b_f14_command_hook_timeout_kills_the_whole_process_group(ctx: Ctx):
     the WHOLE process group, not just the direct child -- a background
     subshell that keeps writing well past the hook's own timeout used to
     survive (the pre-fix `subprocess.run(..., timeout=...)` only ever
-    killed the direct child it started)."""
+    killed the direct child it started).
+
+    3.1.4.0 R1 (the v3.1.3.0 tag run failed here on Windows, then passed on
+    re-run): the bound is measured from the hook's OWN start (the moment its
+    process exists, so a slow runner's shell spawn is not counted) and allows
+    3x the timeout for the kill. The grandchild writes for 30 s and the shell
+    `wait`s for it, so "it waited for the command" (30 s) and "the grandchild
+    survived" both stay far outside the bound on a 5-10x slower runner, and a
+    regression of either still fails. (The old foreground `sleep 5` is an
+    exec'd Git Bash child a Windows tree kill misses: it held the pipes, so
+    every run also sat out run_command_hook's 2 s join cap.)"""
     tmp = tempfile.mkdtemp(prefix="hooks-pg-")
     marker = str(Path(tmp) / "marker.txt")
-    command = f'(i=0; while [ $i -lt 20 ]; do echo x >> "{marker}"; sleep 0.2; i=$((i+1)); done) & sleep 5'
-    hookdef = H.HookDef(type="command", command=command, timeout_s=0.5)
+    command = f'(i=0; while [ $i -lt 150 ]; do echo x >> "{marker}"; sleep 0.2; i=$((i+1)); done) & wait'
+    timeout_s = 2.0
+    hookdef = H.HookDef(type="command", command=command, timeout_s=timeout_s)
+    started: list = []
+    real_popen = H.subprocess.Popen
+
+    def popen(*a, **kw):  # the hook's own start: its process exists (the kill's taskkill comes later)
+        proc = real_popen(*a, **kw)
+        started.append(time.monotonic())
+        return proc
+
     t0 = time.monotonic()
-    result = H.run_command_hook(hookdef, {}, cwd=tmp, env=dict(os.environ))
-    elapsed = time.monotonic() - t0
-    ctx.check(f"returns promptly after the timeout, got {elapsed:.2f}s", elapsed < 3.0)
+    H.subprocess.Popen = popen
+    try:
+        result = H.run_command_hook(hookdef, {}, cwd=tmp, env=dict(os.environ))
+    finally:
+        H.subprocess.Popen = real_popen
+    done = time.monotonic()
+    since_start = done - (started[0] if started else t0)
+    ctx.check(f"returns within 3x the {timeout_s:.0f}s timeout of the hook's own start, got {since_start:.2f}s "
+              f"({done - t0:.2f}s with the spawn); waiting for the command would be 30s", since_start < 3 * timeout_s)
     ctx.check(f"reports the timeout, got {result.stderr!r}", "timed out" in result.stderr)
+    ctx.check("the background grandchild had started before the timeout (its marker exists)", Path(marker).exists())
     size_at_return = Path(marker).stat().st_size if Path(marker).exists() else 0
-    time.sleep(1.0)  # give a SURVIVING grandchild time to keep writing, if it escaped the kill
+    time.sleep(2.0)  # a SURVIVING grandchild writes every 0.2 s for 30 s: even a slow runner adds a line in 2 s
     size_after_wait = Path(marker).stat().st_size if Path(marker).exists() else 0
     ctx.check(f"the background grandchild was ALSO killed (marker stopped growing), "
               f"got {size_at_return} then {size_after_wait} bytes", size_after_wait == size_at_return)

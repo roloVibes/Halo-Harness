@@ -86,15 +86,21 @@ class _Opened:
         self.mod.OPENER = self.old
 
 
-async def _until(pilot, cond, tries: int = 40):
-    for _ in range(tries):
+async def _until(pilot, cond, timeout: float = 15.0) -> bool:
+    """Poll `cond` until it holds or `timeout` seconds pass (3.1.4.0 R1: a deadline, not a count of
+    0.05 s pauses, so a 5-10x slower Windows runner still gets there; a condition that never holds
+    still returns False and the check after it fails)."""
+    import time
+    deadline = time.monotonic() + timeout
+    while True:
         await pilot.pause(0.05)
         try:
             if cond():
                 return True
         except Exception:
             pass
-    return False
+        if time.monotonic() >= deadline:
+            return False
 
 
 @test
@@ -397,7 +403,10 @@ def test_team_step_active_lineup_checkmark(ctx: Ctx):
 @test
 def test_team_step_ctrl_n_and_ctrl_e_open_studio(ctx: Ctx):
     """3.1.1.0 R3: Ctrl+N writes a new lineup and opens Studio on it; Ctrl+E and the Edit in Studio
-    button open Studio on the highlighted lineup; the One model row has nothing to edit."""
+    button open Studio on the highlighted lineup; the One model row has nothing to edit.
+    3.1.4.0 R1 (the v3.1.3.0 tag run failed here on Windows, then passed on re-run): every wait is a
+    poll to a deadline (the step mounted, the list focused, the row highlighted, Studio opened), no
+    fixed pause before a key."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from textual.widgets import Button, OptionList
 
@@ -406,20 +415,22 @@ def test_team_step_ctrl_n_and_ctrl_e_open_studio(ctx: Ctx):
             state = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(130, 50)) as pilot:
-                await pilot.pause(0.15)
+                mounted = await _until(pilot, lambda: len(app.screen.query("#wiz-team-lineups-list")) > 0)
+                ctx.check("the Team step is up", mounted)
                 step = app.screen
                 lst = step.query_one("#wiz-team-lineups-list", OptionList)
                 lst.focus()
-                await pilot.pause(0.05)
+                await _until(pilot, lambda: lst.has_focus)
                 await pilot.press("ctrl+n")
                 await _until(pilot, lambda: opened.targets)
                 ctx.check(f"Ctrl+N opens Studio on a NEW lineup, got {opened.targets}",
                           len(opened.targets) == 1 and opened.targets[0].startswith("lineup:lineup-"))
                 from halo_harness.teams_yaml import find_team_template_path
                 ctx.check("the new lineup is on disk", find_team_template_path(opened.targets[0].split(":", 1)[1]) is not None)
+                await _until(pilot, lambda: "balanced" in [str(lst.get_option_at_index(i).id) for i in range(lst.option_count)])
                 names = [str(lst.get_option_at_index(i).id) for i in range(lst.option_count)]
                 lst.highlighted = names.index("balanced")
-                await pilot.pause(0.05)
+                await _until(pilot, lambda: lst.highlighted == names.index("balanced") and lst.has_focus)
                 await pilot.press("ctrl+e")
                 await _until(pilot, lambda: len(opened.targets) == 2)
                 ctx.check(f"Ctrl+E opens Studio on the highlighted lineup, got {opened.targets}", opened.targets[-1] == "lineup:balanced")
@@ -427,11 +438,15 @@ def test_team_step_ctrl_n_and_ctrl_e_open_studio(ctx: Ctx):
                 await _until(pilot, lambda: len(opened.targets) == 3)
                 ctx.check(f"so does the Edit in Studio button, got {opened.targets}", opened.targets[-1] == "lineup:balanced")
                 ctx.check("the step says what happened", "Opened lineup:balanced" in _static_text(step.query_one("#wiz-team-lineup-hint")))
+                lst.focus()
                 lst.highlighted = 0
-                await pilot.pause(0.05)
+                await _until(pilot, lambda: lst.highlighted == 0 and lst.has_focus)
                 await pilot.press("ctrl+e")
-                await pilot.pause(0.2)
-                ctx.check("One model for everything has nothing to open", len(opened.targets) == 3)
+                hint = step.query_one("#wiz-team-lineup-hint")
+                # the key has been handled once the app is idle again; a fourth open would have come with it
+                await pilot.pause()
+                await _until(pilot, lambda: len(opened.targets) > 3, timeout=0.5)
+                ctx.check(f"One model for everything has nothing to open, got {opened.targets} / {_static_text(hint)!r}", len(opened.targets) == 3)
     run(body())
 
 

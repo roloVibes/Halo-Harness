@@ -37,6 +37,13 @@
 .fmi-row-sub { font-size: 10.5px; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .fmi-goal { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
 .fmi-how { margin: 0; }
+/* 3.1.4.0 R1: once a goal is typed or a mission exists the five lines fold into one "How this works" line */
+.fmi-how-fold summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: var(--muted); letter-spacing: .04em; list-style: none; }
+.fmi-how-fold summary::-webkit-details-marker { display: none; }
+.fmi-how-fold summary::before { content: "+"; display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1px solid var(--line-strong); border-radius: 4px; color: var(--accent); font-size: 12px; line-height: 1; }
+.fmi-how-fold summary:hover, .fmi-how-fold[open] summary { color: var(--accent); }
+.fmi-how-fold[open] summary::before { content: "-"; border-color: var(--accent); box-shadow: var(--glow); }
+.fmi-how-fold .fmi-how { margin-top: 8px; }
 
 /* -- states: one chip vocabulary ------------------------------------------------------ */
 .fmi-state, .fmi-pstate { font-size: 10px; text-transform: lowercase; }
