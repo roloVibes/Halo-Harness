@@ -6,8 +6,12 @@
 // studio --edit`, `halo agents edit`, the TUI's `e` and `/edit`), and a
 // `focus` frame on the live feed when a second `halo studio --edit` finds this
 // Studio running (studio/focus_api.py): every open page opens the target.
+// 3.1.4.0 R2: a frame with no edit target but a `mode` opens that section --
+// Session on its `session` (`/studio`, `halo studio --session`); the URL's
+// `?mode=session&session=` is read by routes/session/store.ts itself.
 import { onEvent } from "../lib/events";
-import { goSection, studio } from "../lib/store";
+import { goSection, SECTION_IDS, studio, type SectionId } from "../lib/store";
+import { openSession } from "../routes/session/store";
 import { start } from "../lib/start";
 import { focusPanel, layoutStore, patchPanel } from "../lib/workspace/persist";
 import { openBio } from "../routes/roles/bioActions";
@@ -76,9 +80,13 @@ export function installEdit(): void {
   const asked = parseEdit(new URLSearchParams(location.search).get("edit"));
   if (asked) void applyEdit(asked);
   onEvent("focus", (f) => {
-    const target = parseEdit(String((f.data || {}).edit || ""));
-    if (!target) return;
-    void applyEdit(target);
+    const d = (f.data || {}) as { edit?: string; mode?: string; session?: string };
+    const target = parseEdit(String(d.edit || ""));
+    const mode = String(d.mode || "") as SectionId;
+    if (target) void applyEdit(target);
+    else if (mode === "session") openSession({ session: String(d.session || "") });
+    else if (SECTION_IDS.includes(mode)) goSection(mode);
+    else return;
     try {
       window.focus();
     } catch {

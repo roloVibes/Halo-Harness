@@ -7,7 +7,10 @@
 // box. With nobody on the card: its track record, the last runs under its
 // role (`GET fleet/history`), each with "replay" (the canvas plays that
 // session back, Replay.tsx). Keys: J / K hop, Space pins, P pauses, F follows.
+// 3.1.4.0 R2: while the agent is live on this harness its header has Watch
+// in Session (the Session dashboard on its session, the agent selected).
 import { useEffect, useRef } from "react";
+import { useLocalAgent, WatchInSession } from "../session/Watch";
 import { api } from "../../lib/api";
 import { Button, Icon } from "../../lib/ui";
 import { cost, short } from "../orchestra/format";
@@ -72,6 +75,7 @@ function Watched({ a }: { a: LiveAgent }) {
   const replay = a.key.startsWith("replay|");
   const off = replay || a.control === "none" || !isLiveAgent(a);
   const live = isLiveAgent(a);
+  const here = useLocalAgent(replay ? "" : a.key);
   const subs: [LiveSub, string][] = [["thinking", "Thinking"], ["working", "Working"], ["output", "Output"]];
   return (
     <div className="rl-agent" data-key={a.key} data-testid="roles-live-agent">
@@ -79,6 +83,7 @@ function Watched({ a }: { a: LiveAgent }) {
         <b>{a.name}</b>
         {a.role && a.role !== a.name && <span className="og-chip mono">{a.role}</span>}
         <span className="spacer" />
+        {live && here && <WatchInSession agent={a.key} testid="roles-watch-session" />}
         <span className="og-badge mono" data-live={a.activity}>{a.state.toUpperCase()}</span>
       </header>
       <div className="mono muted rl-meta">

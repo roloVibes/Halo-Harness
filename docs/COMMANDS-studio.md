@@ -13,9 +13,26 @@ while one runs reuses it (prints the URL, opens the browser) unless
 
 
 ```sh
-halo studio [--mode roles|org|design|orchestra|flow|fleet|team] [--port N] [--no-open] [--cwd DIR] [--fleet]
+halo studio [--mode roles|org|design|orchestra|flow|fleet|team|session] [--port N] [--no-open] [--cwd DIR] [--fleet]
 halo studio --edit bio:<name> | lineup:<name> | team [--no-open]
+halo studio --session [<id>] [--no-open]
 ```
+
+### `--session`
+
+3.1.4.0: `--session [<id>]` opens the **Session** section (`Alt+8`, this
+session, live: the Fleet map, activity, attention and agent panels scoped to
+this harness, and the session's Cost) on the session `<id>` names (a prefix
+of a live session's id will do). Without `<id>` it is the newest live
+session on this harness; with none live, Session opens on its Start view and
+the command says so. The session rides in the URL as
+`?mode=session&session=<id>`. Like `--edit`, a Studio already running for
+this home is reused: every open page switches to Session on that session
+(`POST /api/focus {mode, session}`); with no page open the browser opens the
+URL, with no browser the URL is printed, and with none running one starts
+(`halo studio --session <id>` in the background). `--no-open` only prints the
+URL; `--edit` with `--session` is exit 2. The TUI's bare `/studio` runs the
+same thing on the session you are in.
 
 ### `--edit`
 

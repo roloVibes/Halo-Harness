@@ -6,6 +6,8 @@
 // the model under a disclosure. Run and Dry run post it (POST orchestra/run).
 import { useEffect, useState } from "react";
 import { Button, Field, Icon } from "../../lib/ui";
+import { useFleet } from "../fleet/store";
+import { runSession, WatchInSession } from "../session/Watch";
 import { StateBadge } from "./bits";
 import { cost } from "./format";
 import { orch, setView, useOrch } from "./store";
@@ -57,9 +59,12 @@ function Num({ label, value, set, min, max, title }: { label: string; value: num
   );
 }
 
-/** The open run in one line: its state and cost (the id on hover), stop while it runs, and a way to a blank goal. */
+/** The open run in one line: its state and cost (the id on hover), stop while it runs, Watch in Session
+ *  while its session is live on this harness (3.1.4.0 R2), and a way to a blank goal. */
 function RunLine() {
   const data = useOrch((s) => s.data);
+  const holders = data ? [data.run.lead_holder || "", ...data.lanes.map((l) => l.holder)].join(",") : "";
+  const watch = useFleet((s) => (data?.live ? runSession(s, data.run.run_id, holders.split(",")) : ""));
   if (!data) return null;
   return (
     <div className="fl-runline og-runline" title={`run ${data.run.run_id}: ${data.goal.what}`}>
@@ -70,6 +75,7 @@ function RunLine() {
           stop
         </button>
       )}
+      {watch && <WatchInSession session={watch} testid="orchestra-watch-session" />}
       <button type="button" className="og-link mono" onClick={() => setView("start")} title="The Start view: a blank goal">
         new run
       </button>

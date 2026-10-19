@@ -7,6 +7,7 @@
 // open the panel it belongs to. J / K (or the arrows) move between rows
 // while the panel has the focus. Answers go through the route that already
 // handles each kind (studio/fleet_answer.py); the count is live from the feed.
+// 3.1.4.0 R2: under a scope (scope.ts, the Session section) the rows of that harness.
 import { useEffect, useRef, useState } from "react";
 import { Button, Empty, Kbd } from "../../lib/ui";
 import type { MotionState } from "../../lib/motion";
@@ -14,7 +15,8 @@ import { Metric } from "../orchestra/bits";
 import { short } from "../orchestra/format";
 import { answerRow } from "./extras";
 import { age, panels, usePanels, type AttnRow } from "./pstore";
-import { useNow } from "./store";
+import { rowIn, useScopedAttention } from "./scope";
+import { fleet, useNow } from "./store";
 
 const ORDER = ["a", "r", "s", "o"];
 const KIND: Record<string, string> = {
@@ -85,8 +87,8 @@ function useAttentionKeys(): void {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
-      if (!t?.closest?.('[data-panel="fleet-attention"]') || t.closest("input, textarea, select")) return;
-      const s = panels.get();
+      if (!t?.closest?.('[data-panel="fleet-attention"], [data-panel="session-attention"]') || t.closest("input, textarea, select")) return;
+      const s = { ...panels.get(), attention: panels.get().attention.filter(rowIn(fleet.get().scope)) };
       const i = s.attention.findIndex((r) => r.id === s.attnSel);
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       if (k === "j" || k === "ArrowDown" || k === "k" || k === "ArrowUp") {
@@ -105,7 +107,7 @@ function useAttentionKeys(): void {
 }
 
 export function AttentionDetail() {
-  const rows = usePanels((s) => s.attention);
+  const { rows } = useScopedAttention();
   const sel = usePanels((s) => s.attnSel);
   const loaded = usePanels((s) => s.attnLoaded);
   const error = usePanels((s) => s.attnError);
@@ -114,7 +116,7 @@ export function AttentionDetail() {
   if (!loaded) return <div className="og-wait mono muted">reading what waits on you...</div>;
   if (error && !rows.length) return <Empty title="Studio could not read the queue" body={error} />;
   if (!rows.length)
-    return <Empty title="Nothing waits on you" body="A card, a gate, a paused agent, a spend cap or two agents on one file shows here the moment it needs you, from every harness." testid="fleet-attn-empty" />;
+    return <Empty title="Nothing waits on you" body={`A card, a gate, a paused agent, a spend cap or two agents on one file shows here the moment it needs you, from ${fleet.get().scope.harness ? "this harness" : "every harness"}.`} testid="fleet-attn-empty" />;
   return (
     <div className="fat" data-testid="fleet-attention-list">
       <div className="fat-head mono muted">
@@ -128,8 +130,8 @@ export function AttentionDetail() {
 }
 
 export function AttentionGlance() {
-  const count = usePanels((s) => s.attnCount ?? s.attention.length);
-  const first = usePanels((s) => s.attention[0]);
+  const { rows, count } = useScopedAttention();
+  const first = rows[0];
   return (
     <div className="glance">
       <div className="glance-numbers">
@@ -141,6 +143,6 @@ export function AttentionGlance() {
 }
 
 export function useAttentionMotion(): MotionState {
-  const count = usePanels((s) => s.attnCount ?? s.attention.length);
+  const { count } = useScopedAttention();
   return count ? "waiting" : "idle";
 }

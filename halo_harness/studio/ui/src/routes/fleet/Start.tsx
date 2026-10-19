@@ -5,8 +5,9 @@
 // hubs and members it knows, and "open the workspace anyway". FleetView
 // decides between it and the panels (map + agent) the moment a session
 // registers or a member joins. R4: the "While you were away" card on top
-// when you come back after ten minutes (Digest.tsx).
-import { useEffect } from "react";
+// when you come back after ten minutes (Digest.tsx). 3.1.4.0 R2: Explain,
+// TryIt and OpenAnyway are the pieces the Session Start view reuses.
+import { useEffect, type ReactNode } from "react";
 import { Surface } from "../../lib/ui";
 import { Workspace } from "../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../lib/workspace/types";
@@ -24,6 +25,38 @@ const WHAT: string[] = [
   "Pause, resume or stop one agent, or shut a session down; every command names who sent it.",
 ];
 
+/** A Start view's numbered lines. */
+export function Explain({ lines }: { lines: string[] }) {
+  return (
+    <ol className="fl-explain">
+      {lines.map((line, i) => (
+        <li key={line}>
+          <span className="fl-explain-n mono">{i + 1}</span>
+          <span>{line}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** "Start a session in a terminal, it appears here." and how. */
+export function TryIt({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="fs-try">
+      <b>{title}</b>
+      <span className="muted">{children}</span>
+    </div>
+  );
+}
+
+export function OpenAnyway({ onOpen, testid }: { onOpen: () => void; testid: string }) {
+  return (
+    <button className="og-link mono" onClick={onOpen} data-testid={testid}>
+      open the workspace anyway
+    </button>
+  );
+}
+
 export function StartView() {
   const error = useFleet((s) => s.error);
   return (
@@ -37,29 +70,17 @@ export function StartView() {
         <DigestCard where="start" />
         <div className="fl-start-grid">
           <Surface className="fl-start-form" motion="idle">
-            <ol className="fl-explain">
-              {WHAT.map((line, i) => (
-                <li key={line}>
-                  <span className="fl-explain-n mono">{i + 1}</span>
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ol>
-            <div className="fs-try">
-              <b>Start a session in a terminal, it appears here.</b>
-              <span className="muted">
-                Run <code>halo</code> (or <code>halo -p "..."</code>, an Orchestra run, a flow) anywhere on this machine: its card and its agents show on the map within a second.
-                <code>halo --private</code> keeps one out.
-              </span>
-            </div>
+            <Explain lines={WHAT} />
+            <TryIt title="Start a session in a terminal, it appears here.">
+              Run <code>halo</code> (or <code>halo -p "..."</code>, an Orchestra run, a flow) anywhere on this machine: its card and its agents show on the map within a second.
+              <code>halo --private</code> keeps one out.
+            </TryIt>
             <PairCard />
           </Surface>
           <aside className="fl-start-side">
             <FleetSettings />
             {error && <p className="og-problems">Studio could not read the fleet: {error}</p>}
-            <button className="og-link mono" onClick={() => setView("workspace")} data-testid="fleet-open-workspace">
-              open the workspace anyway
-            </button>
+            <OpenAnyway onOpen={() => setView("workspace")} testid="fleet-open-workspace" />
           </aside>
         </div>
         <NextStep from="fleet" />

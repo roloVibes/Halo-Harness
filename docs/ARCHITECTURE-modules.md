@@ -32,6 +32,10 @@ this list against the tree.
   (`POST /api/focus`, the `focus` frame), `studio/field_help_api.py`
   (`GET /api/field-help`, `halo_harness/field_help.py`'s lines for the bio
   form and the lineup inspector)
+- the Session dashboard (3.1.4.0): `studio/session_open.py` (a section
+  target: Session on a session or any section, for `/studio` and `halo studio
+  --session`; this harness's live sessions; the served page's
+  `data-live-session` mark)
 - Design: `studio/design_api.py` (the routes, a turn, comments, knobs, the
   direct edit), `studio/design_artboards_api.py` (one artboard: versions,
   restore, contrast, rename, delete), `studio/design_assets_api.py` (the

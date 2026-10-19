@@ -119,7 +119,7 @@ in your own browser.
 
 ## Shortcuts
 
-The shell's keys: `Alt+1`..`Alt+7` sections, `Ctrl`/`Cmd`+`K` the palette,
+The shell's keys: `Alt+1`..`Alt+8` sections (`Alt+8`: Session, 3.1.4.0), `Ctrl`/`Cmd`+`K` the palette,
 `?` the focused panel's help (again, or away from a panel: How this works),
 `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel, `Esc`
 closes. Roles (3.0.7.0 R2): on the canvas `A` lays out, `F` fits, `+` / `-`

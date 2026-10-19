@@ -51,7 +51,11 @@ def port_answers(port: int, timeout: float = 0.3) -> bool:
 
 
 def _query(mode: Optional[str], edit: Optional[str]) -> str:
-    """`?mode=<mode>`, or with an edit target (3.1.1.0 R3, studio/edit_target.py) `?mode=roles&edit=bio:<name>`."""
+    """`?mode=<mode>`, or with an edit target (3.1.1.0 R3, studio/edit_target.py) `?mode=roles&edit=bio:<name>`;
+    for Session (3.1.4.0 R2, studio/session_open.py) `edit` is the session: `?mode=session&session=<sid>`."""
+    if mode == "session" and edit:
+        from halo_harness.studio.session_open import SectionTarget
+        return SectionTarget("session", edit).query()
     if edit:
         from halo_harness.studio.edit_target import parse
         target, _why = parse(edit)
@@ -85,7 +89,9 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
             _open(url)
         return url
     argv = [sys.executable, "-u", "-m", "halo_harness", "studio", "--cwd", str(cwd)]
-    if edit:
+    if mode == "session":  # 3.1.4.0 R2: `edit` is the session to watch ('' = the newest live one)
+        argv += ["--session"] + ([edit] if edit else [])
+    elif edit:
         argv += ["--edit", edit]
     elif mode in STUDIO_MODES:
         argv += ["--mode", mode]

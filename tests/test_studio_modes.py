@@ -67,26 +67,28 @@ def test_url_for_puts_the_mode_in_the_query_ahead_of_the_token(ctx: Ctx):
 
 
 @test
-def test_the_shell_has_seven_sections_and_opens_flow_orchestra_fleet_and_team_by_mode(ctx: Ctx):
+def test_the_shell_has_eight_sections_and_opens_flow_orchestra_fleet_team_and_session_by_mode(ctx: Ctx):
     """3.0.4.0 R6: Flow is the fifth section (Alt+5); 3.0.5.0 R3: Fleet the sixth (Alt+6); 3.0.8.0 R2:
-    Team the seventh (Alt+7). `halo studio --mode flow|orchestra|fleet|team` (and `/studio flow`,
-    `/studio team`) put it in the query, and the shell reads every section from `?mode=`."""
+    Team the seventh (Alt+7); 3.1.4.0 R2: Session the eighth (Alt+8). `halo studio --mode
+    flow|orchestra|fleet|team|session` (and `/studio flow`, `/studio team`) put it in the query, and
+    the shell reads every section from `?mode=`."""
     from halo_harness.providers.config import default_state_dir
     state = Path(default_state_dir())
     srv = studio_server.start_server(port=0, cwd=state.parent / "proj", state_dir=state)
     try:
-        for mode in ("flow", "orchestra", "fleet", "team"):
+        for mode in ("flow", "orchestra", "fleet", "team", "session"):
             url = studio_server.url_for(srv, mode)
             ctx.check(f"--mode {mode} carries ?mode={mode} before #t=, got {url!r}", f"/?mode={mode}#t=" in url)
     finally:
         srv.server_close()
     ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src"
     routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
-    ctx.check("seven sections, Flow on Alt+5, Fleet on Alt+6, Team on Alt+7", routes.count('kbd: "Alt+') == 7 and 'id: "flow", title: "Flow", kbd: "Alt+5"' in routes
-              and 'id: "fleet", title: "Fleet", kbd: "Alt+6"' in routes and 'id: "team", title: "Team", kbd: "Alt+7"' in routes)
+    ctx.check("eight sections, Flow on Alt+5, Fleet on Alt+6, Team on Alt+7, Session on Alt+8 (3.1.4.0)", routes.count('kbd: "Alt+') == 8
+              and 'id: "flow", title: "Flow", kbd: "Alt+5"' in routes and 'id: "fleet", title: "Fleet", kbd: "Alt+6"' in routes
+              and 'id: "team", title: "Team", kbd: "Alt+7"' in routes and 'id: "session", title: "Session", kbd: "Alt+8"' in routes)
     store = (ui / "lib" / "store.ts").read_text(encoding="utf-8")
-    ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|org|design|flow|fleet|team)" in store)
-    ctx.check("Alt+1..7 switch sections", "Digit[1-7]" in (ui / "shell" / "keys.ts").read_text(encoding="utf-8"))
+    ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|org|design|flow|fleet|team|session)" in store)
+    ctx.check("Alt+1..8 switch sections", "Digit[1-8]" in (ui / "shell" / "keys.ts").read_text(encoding="utf-8"))
     ctx.check("no classic page ships beside the shell (3.0.7.0 R2)", not (REPO_DIR / "halo_harness" / "studio" / "static" / "legacy").exists())
     facade = _facade()
     with _NoBrowser():
@@ -175,8 +177,8 @@ def test_org_and_design_open_as_react_sections(ctx: Ctx):
     _need_chrome()
     org = _dom("org")
     start, chart = org.get("start", {}), org.get("org", {})
-    ctx.check(f"Org without Paperclip: seven tabs, the Start view, no frame, got {start or org}",
-              start.get("section-tab") == 7 and start.get("org-start") == 1 and start.get("legacy-frame") == 0 and start.get("org-card") == 0)
+    ctx.check(f"Org without Paperclip: eight tabs, the Start view, no frame, got {start or org}",
+              start.get("section-tab") == 8 and start.get("org-start") == 1 and start.get("legacy-frame") == 0 and start.get("org-card") == 0)
     ctx.check(f"Org over FakePaperclip: the canvas, seven cards in two boxes, four panels, got {chart}",
               chart.get("org-canvas") == 1 and chart.get("org-card") == 7 and chart.get("org-group") == 2 and chart.get("panel-about") == 4
               and chart.get("org-start") == 0 and chart.get("legacy-frame") == 0)
@@ -203,7 +205,7 @@ def test_roles_opens_as_a_react_section(ctx: Ctx):
     got = _dom("roles")
     start, roles = got.get("start", {}), got.get("roles", {})
     ctx.check(f"the Start view, no canvas and no frame, got {start or got}",
-              start.get("section-tab") == 7 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0
+              start.get("section-tab") == 8 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0
               and start.get("panel-about") == 0 and start.get("legacy-frame") == 0)
     ctx.check(f"the canvas, eight cards, three tier boxes, the edges, got {roles}",
               roles.get("roles-canvas") == 1 and roles.get("roles-card") == 8 and roles.get("roles-tier") == 3 and (roles.get("roles-edge") or 0) >= 7
@@ -220,7 +222,7 @@ def test_team_opens_as_a_react_section(ctx: Ctx):
     _need_chrome()
     got = _dom("team")
     start, team = got.get("start", {}), got.get("team", {})
-    ctx.check(f"the Start view, no board, got {start or got}", start.get("section-tab") == 7 and start.get("team-start") == 1
+    ctx.check(f"the Start view, no board, got {start or got}", start.get("section-tab") == 8 and start.get("team-start") == 1
               and start.get("team-start-init") == 1 and start.get("team-board") == 0 and start.get("team-stage") == 0)
     ctx.check(f"the board, got {team}", team.get("team-member") == 3 and team.get("team-stage") == 4 and team.get("team-block") == 3
               and team.get("team-edge") == 8 and team.get("panel-about") == 3 and team.get("team-start") == 0 and team.get("legacy-frame") == 0)
@@ -235,7 +237,7 @@ def test_orchestra_opens_a_planned_run_on_the_plan_canvas(ctx: Ctx):
     got = _dom("orchestra")
     plan, start = got.get("plan") or {}, got.get("start") or {}
     ctx.check(f"the plan panel, not the console, got {plan or got}", plan.get("orchestra-plan") == 1 and plan.get("orchestra-root") == 0
-              and plan.get("panel-about") == 1 and plan.get("section-tab") == 7)
+              and plan.get("panel-about") == 1 and plan.get("section-tab") == 8)
     ctx.check(f"five lanes, three boxes, one edge, the inspector and Approve, no problem, got {plan}",
               plan.get("plan-canvas") == 1 and plan.get("plan-lane") == 5 and plan.get("plan-layer") == 3 and plan.get("plan-edge") == 1
               and plan.get("plan-inspector") == 1 and plan.get("plan-approve") == 1 and plan.get("plan-problem") == 0)
@@ -251,12 +253,12 @@ def test_start_here_on_a_fresh_home_and_gone_after_dismiss(ctx: Ctx):
     got = _dom("start")
     first, gone, lineup = got.get("fresh") or {}, got.get("dismissed") or {}, got.get("lineup") or {}
     ctx.check(f"the home reads as fresh, got {got.get('status') or got}", (got.get("status") or {}).get("show") is True)
-    ctx.check(f"fresh: the overlay, Run and Just look around, no welcome card, seven tabs, got {first}",
+    ctx.check(f"fresh: the overlay, Run and Just look around, no welcome card, eight tabs, got {first}",
               first.get("start-here") == 1 and first.get("start-here-run") == 1 and first.get("start-here-dismiss") == 1
-              and first.get("section-help") == 0 and first.get("section-tab") == 7 and first.get("start-step") == 0)
+              and first.get("section-help") == 0 and first.get("section-tab") == 8 and first.get("start-step") == 0)
     ctx.check(f"the Roles Start view under it, with its Next footer, got {first}", first.get("roles-start") == 1 and first.get("start-next") == 1)
     ctx.check(f"after dismiss: no overlay, the welcome instead, got {gone}", gone.get("start-here") == 0 and gone.get("section-help") == 1)
-    ctx.check(f"a lineup active: no overlay, got {lineup}", lineup.get("start-here") == 0 and lineup.get("section-tab") == 7)
+    ctx.check(f"a lineup active: no overlay, got {lineup}", lineup.get("start-here") == 0 and lineup.get("section-tab") == 8)
 
 
 if __name__ == "__main__":
