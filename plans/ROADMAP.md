@@ -1549,3 +1549,18 @@ removal, not Alt+8 (the keys are positional).
   once, a team stage of kind `flow` fails validation naming 3.1.4.0.
   Hotkeys: Orchestra 1, Roles 2, Design 3, Fleet 4, Team 5, Session 6.
   Runs in parallel with R1 and R2; merged last.
+
+## ADDED 2026-10-19 ~16:55 (rolo, live check of 3.1.3.0: "The roles and other agent studio gui sections needs the drop downs of model selections there or to be much clearer"): 3.1.4.0 R4 "The model is where you look"
+
+- R4 The model is where you look: one compact model select (the catalog
+  grouped by provider, the resolved model named beside it, "more..." opens
+  the full picker table, Test runs the one-token probe, an empty catalog
+  says why and offers Refresh) wherever an agent is configured. Roles: the
+  Inspector shows it above its tabs for the selected card ("runs on:
+  <model>"; it writes the slot's override; a link changes the bio's own
+  model), the canvas card's model pill is a click that focuses it, the bio
+  form puts MODELS first with the picker table folded. Orchestra: the goal
+  form shows it without opening the disclosure. Design: the new-project
+  dialog and the Projects panel use it. Team: a stage shows the model it
+  resolves to with a way to change it. Runs in parallel with R3; merged
+  after it.
