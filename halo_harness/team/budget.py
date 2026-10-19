@@ -16,8 +16,7 @@ A stage's forecast (its high end is what is checked): an agent stage, each
 member that runs at the member's model's catalog price for one stage turn
 of TURN_IN input and TURN_OUT output tokens (a member whose model the
 catalog does not price counts a fixed TURN_USD); an orchestra stage, the
-Orchestra forecast of its goal (orchestra/forecast.for_goal); a flow stage,
-its steps' `budget_usd` (else the flow's own `budget_usd`, else 0).
+Orchestra forecast of its goal (orchestra/forecast.for_goal).
 
 Over a line, the stage is not started: its row goes back to `pending` with
 `waiting: "budget: ..."` and `budget: {scope, spent, forecast, budget,
@@ -72,18 +71,6 @@ def _member_model(member: dict, cwd, state_dir) -> str:
     return _bio_model(member_bio(member, cwd=cwd, state_dir=state_dir) or "", cwd, state_dir)
 
 
-def _flow_budget(stage: dict, cwd, state_dir) -> float:
-    from halo_harness.flows import spec as fspec
-    try:
-        path = fspec.find_flow(stage.get("flow") or "", cwd=cwd, state_dir=state_dir)
-        flow = fspec.load_flow(path) if path else {}
-    except ValueError:
-        flow = {}
-    steps = [float(s["budget_usd"]) for s in flow.get("steps") or [] if isinstance(s.get("budget_usd"), (int, float))]
-    own = flow.get("budget_usd")
-    return sum(steps) if steps else (float(own) if isinstance(own, (int, float)) else 0.0)
-
-
 def stage_forecast(team: dict, stage: dict, members: list, *, root, cwd=None, state_dir=None) -> dict:
     """`{usd, usd_low, usd_high, lines, how}` for one round of `stage`."""
     rows = _rows(state_dir)
@@ -93,8 +80,6 @@ def stage_forecast(team: dict, stage: dict, members: list, *, root, cwd=None, st
         from halo_harness.team.resolve import goal_for_stage
         got = for_goal(goal_for_stage(team, stage, root), root, rows=rows, state_dir=state_dir)
         lines, how = got["lanes"], "the Orchestra forecast of its goal"
-    elif kind == "flow":
-        lines, how = [F.fixed(stage["id"], _flow_budget(stage, cwd or root, state_dir))], "its flow's step budgets"
     else:
         lines = []
         for name in members:

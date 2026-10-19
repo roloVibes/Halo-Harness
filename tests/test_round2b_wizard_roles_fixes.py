@@ -408,31 +408,6 @@ def test_wizard_flow_bio_view_and_e_opens_studio(ctx: Ctx):
 
 
 @test
-def test_org_editor_has_the_ctrl_p_fix(ctx: Ctx):
-    """The ctrl+p collision on `OrgEditor` (found driving Orgs in the same sweep,
-    deliverable 5) -- the fix pinned so a future change can't silently reopen
-    it. (3.1.1.0 R3: the lineup is shown read-only in the terminal; Studio's
-    inspector picks its models.)"""
-    from halo_harness.tui.dialogs.model_picker import ModelPicker
-    from halo_harness.tui.dialogs.org_editor import OrgEditor
-    from textual.app import App
-
-    async def body(screen_factory, label):
-        with _Env():
-            class _Host(App):
-                def on_mount(self):
-                    self.push_screen(screen_factory())
-            app = _Host()
-            async with app.run_test(size=(120, 40)) as pilot:
-                await pilot.pause(0.15)
-                await pilot.press("ctrl+p")
-                await pilot.pause(0.15)
-                ctx.check(f"{label}: Ctrl+P opens the model picker, got {type(app.screen).__name__}",
-                          isinstance(app.screen, ModelPicker))
-    run(body(lambda: OrgEditor("pilot", {"positions": [{"title": "Boss"}]}, FIXTURE_MODELS), "OrgEditor"))
-
-
-@test
 def test_a_prefiltered_picker_never_shows_an_empty_list_silently(ctx: Ctx):
     """"a pre-filtered picker never yields an empty list silently": opened with
     every row (`all_models`) and one line saying why (`initial_hint`), it shows
@@ -650,20 +625,20 @@ def test_agents_step_and_bio_view_focus_on_open_is_never_a_button(ctx: Ctx):
 
 
 @test
-def test_sweep_team_toggle_orgs_summary_handoff(ctx: Ctx):
+def test_sweep_team_toggle_summary_handoff(ctx: Ctx):
     """Deliverable 5: "Drive the whole flow in pilots ... Agents -> Roles
-    and lineup (toggle on/off ...) -> Orgs -> Summary. Fix everything
+    and lineup (toggle on/off ...) -> Summary. Fix everything
     that breaks or misleads." Round 2c merged Agents and Roles-and-
     lineup into the ONE "Team" step this now drives (`step_keys` has a
     single "team" entry, not two); this one proves the STEP HANDOFF
-    after `TeamStep`'s own switch/panes still reaches Orgs and Summary
-    cleanly, at 80x24."""
+    after `TeamStep`'s own switch/panes still reaches Summary
+    cleanly, at 80x24 (3.1.4.0: the Orgs step is gone)."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from textual.widgets import Switch
 
     async def body():
         with _Env():
-            state = WizardState(cwd=REPO_DIR, step_keys=("team", "orgs", "summary"), no_live=True)
+            state = WizardState(cwd=REPO_DIR, step_keys=("team", "summary"), no_live=True)
             state.enumerated_models, state.enumeration_done = FIXTURE_MODELS, True
             app = InitWizardApp(state)
             async with app.run_test(size=(80, 24)) as pilot:
@@ -673,11 +648,7 @@ def test_sweep_team_toggle_orgs_summary_handoff(ctx: Ctx):
                 # toggle off then back on, then Next (Skip-equivalent: no
                 # lineup/template highlighted -- "off" must still commit
                 # cleanly and move on, never raise).
-                app.screen.action_do_next()  # Team -> Orgs (the first row applies "standard", roles off)
-                await pilot.pause(0.2)
-                ctx.check(f"lands on Organizations, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "OrgsStep")
-                app.screen.action_do_next()  # Orgs -> Summary
+                app.screen.action_do_next()  # Team -> Summary (the first row applies "standard", roles off)
                 await pilot.pause(0.2)
                 ctx.check(f"lands on Summary with no crash, got {type(app.screen).__name__}",
                           type(app.screen).__name__ == "SummaryStep")

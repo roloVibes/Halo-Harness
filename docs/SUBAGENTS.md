@@ -6,8 +6,7 @@ Halo 2.0.2 round 3 (brief C): the tasks panel (`/tasks`, Ctrl+T), the
 `agents.max_concurrent`/`agents.max_depth` config knobs, the Agent tool's
 `count`/`batch` parameters, and the shared task board (`TaskCreate`/
 `TaskUpdate`/`TaskList`). Builds on [ROLES.md](ROLES.md) (per-role model/
-effort) and [ORGS.md](ORGS.md) (trees of positions run as sub-agents) --
-an org run's own tree shows up in this same panel. Verified against
+effort). Verified against
 `halo_harness/agent/subagent.py`, `halo_harness/tui/dialogs/tasks.py`,
 `halo_harness/tools/task_board.py`, `halo_harness/tools/agent.py`, and
 `halo_harness/tui/widgets/statusbar.py`.
@@ -18,8 +17,8 @@ an org run's own tree shows up in this same panel. Verified against
 switches between them):
 
 - **Agents** -- every running, queued, background and finished sub-agent
-  (and background Bash job) of this session: position/role, model,
-  status, elapsed time, tool-call count and cost so far. An org run's
+  (and background Bash job) of this session: role, model,
+  status, elapsed time, tool-call count and cost so far. A sub-agent's
   own descendants are indented under their parent. A finished agent
   stays listed for the rest of the session, with its final status
   (`done`/`error`) and result.
@@ -59,8 +58,8 @@ convention as every other optional segment.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `agents.max_concurrent` | 4 | how many sub-agents one call/turn may run at once; any positive integer. An org's own `max_concurrent` overrides this for every position in that org. |
-| `agents.max_depth` | 1 | how many levels of delegation are allowed; 1-3. An org's own tree shape overrides this (unclamped -- `company`'s own CEO -> VP -> manager -> worker chain needs 4). |
+| `agents.max_concurrent` | 4 | how many sub-agents one call/turn may run at once; any positive integer. A lineup's `delegation.max_parallel` overrides this for every member under that team. |
+| `agents.max_depth` | 1 | how many levels of delegation are allowed; 1-3. A lineup's `delegation.max_depth` overrides this (unclamped). |
 
 `halo config set agents.max_concurrent 8` / `halo config set
 agents.max_depth 2` (or `/config agents.max_concurrent=8`). Beyond the
@@ -70,12 +69,12 @@ it as `queued` immediately (a `subagent_queued` event fires for every
 job up front, in spawn order, before the pool has even looked at any of
 them) and it **starts as a slot frees**, in the order it was spawned.
 
-The cap is **session-wide** (or org-wide for an org run), not per-call:
+The cap is **session-wide**, not per-call:
 two separate `count`/`batch` calls in the same turn, or a nested
 delegation chain, share the SAME counter, so they can never multiply
 past the configured limit between them. The counter is also
 **resizable** -- the limit is re-read from `agents.max_concurrent` (or
-the org's own override) at every single spawn, not fixed once when the
+the lineup's own override) at every single spawn, not fixed once when the
 session started, so a config change made mid-session (`/config`, or
 `/setup`) applies starting with the very next spawn rather than only
 the next session. A parent that is itself waiting on its own children
@@ -113,7 +112,7 @@ several agents in one call this way, and that `/tasks` shows them.
 `TaskCreate`/`TaskUpdate`/`TaskList` -- a small JSON-backed TODO list at
 `~/.halo/sessions/<session-id>/tasks.json`, shared by every sub-agent of
 the SAME session (however deeply nested) through the exact same file,
-so an organization's root can hand out work and its workers can claim
+so a lead can hand out work and its sub-agents can claim
 and report on it:
 
 | Field | Meaning |
@@ -124,11 +123,11 @@ and report on it:
 | `owner` | free text (the claiming agent's own name/title -- nothing tracks "who am I" automatically; the caller supplies it) |
 | `notes` | free text, settable at any time |
 | `result` | a free-text pointer to the outcome (a file path, a one-line summary, ...) |
-| `kind` | Halo 2.0.2 round 7: `"task"` (default) or `"goal"` -- an org run's own goal (see [ORGS.md](ORGS.md)) |
+| `kind` | Halo 2.0.2 round 7: `"task"` (default) or `"goal"` -- a run's own goal |
 | `parent` | Halo 2.0.2 round 7: another task's own id this one works toward, optional |
 
 `TaskCreate(title, notes?, parent?)` adds an `open` task (Round 7:
-`parent` links it under another task, typically an org run's own goal,
+`parent` links it under another task, typically a run's own goal,
 so `/tasks`' board tab can show goal -> tasks -> results instead of a
 flat list). `TaskUpdate(id, status?, owner?, notes?, result?)` updates
 one -- claiming (`status: "claimed"`) **requires `owner`** and is
@@ -153,7 +152,7 @@ has the wire; [FLEET.md](FLEET.md) the bigger picture). Verified against
 `agent_inbox.py`, `agent_transcript.py` and `halo_harness/remote/agent_control.py`.
 
 **The tree.** Each session keeps a live tree of its agents: the main agent is
-the root (`main`); every Agent/Task call, count/batch job, org position, team
+the root (`main`); every Agent/Task call, count/batch job, team
 member and background sub-agent registers under the agent that spawned it the
 moment it is built (a queued fan-out job as soon as it is minted), and the
 session's background Bash jobs are leaves under main (`job:<id>`). A row has

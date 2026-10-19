@@ -7,7 +7,7 @@
                      media: {comfyui, models: [{name, kind}]},
                      hardware: {os, distro, release, cpu, cores, ram_gb, gpu: [{name, vram_gb}], disk_free_gb},
                      clis: {name: version | "installed" | null}, projects: [{name, repo, branch}],
-                     integrations: {paperclip, postiz, signal}}
+                     integrations: {signal}}
 
 Full local paths never leave the machine: projects are basenames and repo
 names, and every string in the catalog is scrubbed of absolute paths (a path

@@ -2,23 +2,20 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|org|design|shell|orchestra|flow|media|fleet|team|start]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|design|shell|orchestra|fleet|team|start]
 
 3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
 React Roles section: a seeded lineup with two tiers and a live card
 (docs/media/studio-roles.png), with --dom its Start view and the seeded
-lineup with a bio open, counted by data-testid; 3.0.7.0 R3: `--mode org|design` (tools/capture_org_design.py) render
-the React Org and Design sections over a fake Paperclip and a seeded design
-project (docs/media/studio-org.png, studio-design.png; with --dom the Start
-views and the sections, counted by data-testid); `--mode shell` renders the React shell at / (Orchestra and
+lineup with a bio open, counted by data-testid; 3.0.7.0 R3: `--mode design` (tools/capture_design.py) renders
+the React Design section over a seeded design
+project (docs/media/studio-design.png; with --dom the Start
+view and the section, counted by data-testid); `--mode shell` renders the React shell at / (Orchestra and
 Roles) and, with --dom, counts its data-testid values. R4: `--mode
 orchestra` seeds a finished Orchestra run (the R2 fixture: basket.py, five
 lanes, one judged conflict, the report) in a temp git repo, opens the shell's
 Orchestra section over it (docs/media/studio-orchestra.png) and, with --dom,
-counts the run console's data-testid values. 3.0.4.0 R6: `--mode flow` and
-`--mode media` (tools/capture_flow.py) seed a finished flow run and one
-waiting at its confirm gate over a FakeComfy and render the Flow section
-(docs/media/studio-flow.png, studio-media.png); --dom counts its test ids.
+counts the run console's data-testid values.
 R6b: `--mode orchestra` lives in tools/capture_orchestra.py and also
 renders the Start view over a repo with no run (studio-orchestra-start.png). 3.0.5.0 R3:
 `--mode fleet` (tools/capture_fleet.py) seeds two harnesses with five agents
@@ -96,11 +93,8 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--org", action="store_true", help="the Org section over a fake Paperclip seeded with the halo-dev-cycle company (= --mode org)")
-    parser.add_argument("--mode", choices=["roles", "org", "design", "shell", "orchestra", "flow", "media", "fleet", "team", "start"], default="roles", help="org: the halo-dev-cycle company over a fake Paperclip; design: a seeded Launch page project (tools/design_demo.py); both React sections (tools/capture_org_design.py)")
+    parser.add_argument("--mode", choices=["roles", "design", "shell", "orchestra", "fleet", "team", "start"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), the React section (tools/capture_design.py)")
     args = parser.parse_args(argv)
-    if args.org:  # the old flag: the Org section
-        args.mode = "org"
     from tests.helpers.chrome_driver import scope_home
     made = scope_home()  # first thing (3.1.0.0 R1): nothing below reads the real home; seeded_home re-scopes it
     try:
@@ -117,15 +111,6 @@ def _render(args) -> int:
             args.out = args.out[:-4] + "-start.png"
         return capture_start(args.out, args.dom, chrome, serve)
     state = seeded_home()
-    if args.mode in ("flow", "media"):  # the Flow section over seeded runs (tools/capture_flow.py)
-        from capture_flow import capture
-        from halo_harness.studio.server import url_for
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + f"-{args.mode}.png"
-        try:
-            return capture(args.mode, args.out, args.dom, chrome, url_for)
-        finally:
-            shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "fleet":  # two harnesses, five agents: the map, the agent panel, Live Roles (tools/capture_fleet.py)
         from capture_fleet import capture as capture_fleet
         if args.out.endswith("studio.png"):
@@ -142,12 +127,12 @@ def _render(args) -> int:
             return capture_team(args.out, args.dom, find_chrome)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode in ("org", "design"):  # 3.0.7.0 R3: the React sections over FakePaperclip / a seeded project (tools/capture_org_design.py)
-        from capture_org_design import capture as capture_org_design
+    if args.mode == "design":  # 3.0.7.0 R3: the React section over a seeded project (tools/capture_design.py)
+        from capture_design import capture as capture_design
         if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + f"-{args.mode}.png"
+            args.out = args.out[:-4] + "-design.png"
         try:
-            return capture_org_design(args.mode, args.out, args.dom, chrome, serve, state)
+            return capture_design(args.out, args.dom, chrome, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "roles":  # 3.0.7.0 R2: the React Roles section (tools/capture_roles.py)

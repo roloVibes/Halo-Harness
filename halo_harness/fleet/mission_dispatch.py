@@ -27,7 +27,7 @@ from halo_harness.fleet.mission_handoff import dep_paths
 
 WAIT_S = 4.0
 OFFLINE_FAIL_S = 180.0
-SKIP_KINDS = ("mission-worker", "orchestra-worker", "flow")
+SKIP_KINDS = ("mission-worker", "orchestra-worker")
 
 
 class Dispatch:
@@ -80,11 +80,11 @@ class Dispatch:
         est = float(part.get("est_cost_usd") or 0)
         budget = (float(doc["budget_usd"]) * est / total) if doc.get("budget_usd") and total > 0 else (est or None)
         repo = doc.get("repo") or {}
-        run = {"run": part.get("run")} if part.get("kind") in ("orchestra", "flow") else {}  # 3.1.2.0 R2: a team stage's run
+        run = {"run": part.get("run")} if part.get("kind") == "orchestra" else {}  # 3.1.2.0 R2: a team stage's run
         return {"mission": doc["id"], "part": part["id"], "title": part.get("title"), "brief": part.get("brief"), **run,
                 "kind": part.get("kind") or "files", "claims": list(part.get("claims") or []),
                 "outputs": list(part.get("outputs") or []), "depends_on": list(part.get("depends_on") or []),
-                "repo": repo.get("name") if part.get("kind") in ("repo", "orchestra", "flow") else None,
+                "repo": repo.get("name") if part.get("kind") in ("repo", "orchestra") else None,
                 "base": base or repo.get("base"),
                 "take": part.get("take") or "outputs", "handoffs": dep_paths(plan or {}, part),
                 "branch": f"mission/{doc['id']}/{part['id']}", "budget_usd": round(budget, 4) if budget else None,

@@ -3,10 +3,10 @@
 
 A member receives the fleet command
 
-    run_task {mission, part, title, brief, kind: repo | files | orchestra | flow, claims: [...], outputs: [...], depends_on: [...],
+    run_task {mission, part, title, brief, kind: repo | files | orchestra, claims: [...], outputs: [...], depends_on: [...],
               take?, handoffs?: [mission-folder paths it reads from its dependencies],
               repo?, base?, branch, cwd?, budget_usd?, mirror: {mode: hub | shared},
-              run?: {goal} | {flow, inputs}}     (3.1.2.0 R2: a delegated team stage, mission_stage_run.py)
+              run?: {goal}}                      (3.1.2.0 R2: a delegated team stage, mission_stage_run.py)
 
 through fleet/control.py, gated by `fleet.allow_control` like a steer: `ask`
 shows its owner the card from `describe` ("<hub> asks to run mission <m>
@@ -55,8 +55,8 @@ def check(fields: dict) -> dict:
     if not _PART.match(part):
         raise TaskError(f"{part!r} is not a part number")
     kind = str(f.get("kind") or "files")
-    if kind not in ("repo", "files", "orchestra", "flow"):
-        raise TaskError(f"kind is repo, files, orchestra or flow, got {kind!r}")
+    if kind not in ("repo", "files", "orchestra"):
+        raise TaskError(f"kind is repo, files or orchestra, got {kind!r}")
     claims = _strs(f.get("claims"))
     from halo_harness.fleet.mission_claims import bad_claim
     bad = next((bad_claim(c) for c in claims if bad_claim(c)), None)
@@ -76,7 +76,7 @@ def check(fields: dict) -> dict:
         raise TaskError("budget_usd is a number of dollars") from None
     if kind in ("repo", "orchestra") and not out["repo"]:
         raise TaskError(f"a{'n' if kind == 'orchestra' else ''} {kind} part names its repo")
-    if kind in ("orchestra", "flow"):
+    if kind == "orchestra":
         from halo_harness.fleet.mission_stage_run import check_run
         out["run"] = check_run(kind, f.get("run"))
     if out["mirror"]["mode"] not in ("hub", "shared", "local"):
@@ -89,7 +89,7 @@ def describe(fields: dict, hub: str) -> str:
     claims = [str(c) for c in f.get("claims") or []] if isinstance(f.get("claims"), list) else []
     shown = ", ".join(claims[:6]) + (f" +{len(claims) - 6} more" if len(claims) > 6 else "") if claims else "nothing"
     title = " ".join(str(f.get("title") or "").split())[:200]
-    if f.get("kind") in ("orchestra", "flow"):
+    if f.get("kind") == "orchestra":
         from halo_harness.fleet.mission_stage_run import what
         return f"{hub} asks to run mission {f.get('mission')} part {f.get('part')} here: {title} ({what(f)})"
     return f"{hub} asks to run mission {f.get('mission')} part {f.get('part')} here: {title} (claims: {shown})"

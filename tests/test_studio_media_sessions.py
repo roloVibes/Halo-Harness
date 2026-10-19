@@ -26,7 +26,7 @@ from tests.helpers.provider_env_defaults import ensure_default_provider_credenti
 ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
 
-from tests.helpers.flow_studio_rig import FlowStudio, Reader, wait_for  # noqa: E402
+from tests.helpers.media_studio_rig import MediaStudio, Reader, wait_for  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -35,7 +35,7 @@ test, TESTS = new_registry()
 @test
 def test_media_status_models_workflows_inputs(ctx: Ctx):
     from halo_harness.studio import media_api
-    with FlowStudio() as s:
+    with MediaStudio() as s:
         status, st = s.get("media/status")
         ctx.check(f"status: reachable, version, the GPU, got {status} {st}", status == 200 and st["reachable"] is True
                   and st["version"] == "0.37.0" and st["gpus"][0]["name"] == "cuda:0 Fake GPU"
@@ -79,7 +79,7 @@ def test_media_status_models_workflows_inputs(ctx: Ctx):
 @test
 def test_media_render_lands_an_artboard_and_streams_frames(ctx: Ctx):
     from halo_harness.design.store import Project
-    with FlowStudio() as s:
+    with MediaStudio() as s:
         p = Project.create("media render test", state_dir=s.state)
         rd = Reader(f"{s.base}/api/events?t={s.srv.token}&sessions=all")
         try:
@@ -126,7 +126,7 @@ def _register(rig):
 @test
 def test_sessions_list_and_the_answer_command(ctx: Ctx):
     from tests.helpers.remote_rig import Rig
-    with Rig() as rig, FlowStudio() as s:
+    with Rig() as rig, MediaStudio() as s:
         sid = _register(rig)
         status, rows = s.get("sessions")
         row = next((r for r in rows if r["session_id"] == sid), None) if status == 200 else None

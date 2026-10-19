@@ -28,7 +28,7 @@ prints a key or token.
 **Halo 2.0.2 round 7**: on a real terminal, every interactive step above
 (Providers, Default model, Permission mode) plus three more -- **Theme**
 (the six built-in themes, a live preview of the transcript/status bar in
-each), **Roles** and **Organizations** (see below), and **Linux fixes**
+each), **Roles** (see below), and **Linux fixes**
 (skipped automatically when nothing needs fixing) -- run inside ONE
 Textual app, `Step N of M: <name>` in the header and `Back` / `Skip` /
 `Next` (`Finish` on the last step) in the footer; nothing exits to the
@@ -60,7 +60,7 @@ round-2/2b **Agents** step and **"Roles and lineup"** step merge into ONE
 Agents side by side, each with Enter/Ctrl+N/Ctrl+D/Del). `--step team`
 reaches it; `--step agents`/`--step roles` stay as working aliases, same
 as `halo setup team`/`halo setup roles` and `/setup team`/`/setup roles`.
-A model-ref field in the org editor and the role-template editor's own
+The role-template editor's own
 quick filter now also autocompletes under the field as you type (Ctrl+P
 still opens the full picker).
 
@@ -250,8 +250,8 @@ Options: `--lineup NAME`, `--repo DIR`, `--file F` (repeatable, with
 `--yes`, `--json`, `--no-studio` (step 4 does not offer the plan canvas).
 
 It runs on the model you configured. With no provider configured it says
-so and offers `halo init` (which sets one up; `halo setup` is the team and
-orgs screens for later), exit 2. `HALO_START_FAKE=1` swaps every model call
+so and offers `halo init` (which sets one up; `halo setup` is the team
+screen for later), exit 2. `HALO_START_FAKE=1` swaps every model call
 for a fake lead, fake workers and a fake judge (`halo_harness/start/fake.py`),
 so the whole path runs in a few seconds with no model: the tests use it.
 `halo init`'s last step asks "Run the ten-minute start now?" (default No,
@@ -269,7 +269,7 @@ halo explain --json tier     # {query, word, text, closest}
 ```
 
 One paragraph per word Halo uses (lineup, bio, role, tier, team, member,
-block, stage, lane, part, flow, step, mission, gate, claim, hand-off, plan,
+block, stage, lane, part, step, mission, gate, claim, hand-off, plan,
 coach, orchestra run, fleet, hub, harness, capability), from
 [GLOSSARY.md](GLOSSARY.md): the same text `/explain` shows in the TUI and
 Studio's Glossary lists. An unknown word names the closest ones, exit 1.
@@ -277,19 +277,18 @@ Studio's Glossary lists. An unknown word names the closest ones, exit 1.
 ## `halo setup` / `/setup` (Halo 2.0.2 round 7)
 
 ```sh
-halo setup            # the init wizard's Team step, then Organizations, then a short summary
+halo setup            # the init wizard's Team step, then a short summary
 halo setup team        # just the Team setup screen (Halo 2.0.5 round 2c; `halo setup roles` stays as an alias)
-halo setup orgs        # just the Organizations setup screen
 ```
 
-The SAME two setup screens `halo init`'s own wizard shows (Team,
-Organizations -- see [WIZARD.md](WIZARD.md)/[ORGS.md](ORGS.md)), reachable
+The SAME Team setup screen `halo init`'s own wizard shows (see
+[WIZARD.md](WIZARD.md)), reachable
 again later without re-running the whole provider flow -- "a setup
 screen should pop up to set those features up in addition to doing it
 within halo." On a real terminal this opens the wizard screen(s); with no
-TTY it prints the current roles table / orgs list instead of blocking,
-and exits 0. `/setup`, `/setup team` (`/setup roles` stays as an alias),
-`/setup orgs` do the same thing inside a running session (`tui/slash.py`'s
+TTY it prints the current roles table instead of blocking,
+and exits 0. `/setup` and `/setup team` (`/setup roles` stays as an alias)
+do the same thing inside a running session (`tui/slash.py`'s
 own handler pushes the screen onto the live app -- a modal stack over the
 session, not a separate program): saving a lineup or a role template
 there updates the LIVE session's own role table immediately, no restart

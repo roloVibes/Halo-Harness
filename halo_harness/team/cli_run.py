@@ -1,6 +1,6 @@
 """halo_harness.team.cli_run -- the run verbs of `halo team` (team/cli.py):
 run, status, board, answer, stop, log, blocks. The runner's seams are
-team/run.py's module-level SPAWN / ORCHESTRA / FLOW / DISPATCH."""
+team/run.py's module-level SPAWN / ORCHESTRA / DISPATCH."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 // roles-problems, Config group (3.1.1.0 R2): what `halo doctor --config` finds
 // in the files behind the open lineup -- its own file and the ones it extends,
-// config.json's `team:` naming it, a flow or team file naming it, the same
+// config.json's `team:` naming it, a team file naming it, the same
 // lineup in two folders with different contents. Read with
 // `GET doctor/config?lineup=<name>` when the lineup opens and after each save.
 import { useEffect, useState } from "react";

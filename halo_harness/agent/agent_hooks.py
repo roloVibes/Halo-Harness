@@ -70,8 +70,8 @@ def register_child(parent, child, *, agent_id: str, spec, model: Optional[str], 
         tree.controls.clear(agent_id)
         entry = (getattr(team_control, "aliases", None) or {}).get(role) if team_control is not None else None
         bio = (entry.get("agent") if isinstance(entry, dict) else None) or getattr(spec, "name", None)
-        member = team_control is not None or bool(getattr(spec, "dock_label", None))
-        tree.add(agent_id, session=child, parent=agent_key(parent), name=getattr(spec, "dock_label", None) or spec.name,
+        member = team_control is not None
+        tree.add(agent_id, session=child, parent=agent_key(parent), name=spec.name,
                  role=role, bio=bio, lineup=getattr(team_control, "name", None), model=model, state="queued",
                  kind="background" if background else ("member" if member else "subagent"), transcript=_log_path(child))
     except Exception:

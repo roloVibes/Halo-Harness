@@ -18,7 +18,7 @@ repo that holds Studio's folder (`req.cwd`), docs/TEAM.md.
     POST team/budget {stage, action: skip|stop, run?}  a stage held at its budget line (3.1.2.0 R2)
 
 Board, gate, claim and change events go out on `/api/events` as `team` frames (studio/team_live.py). `RUNNER()`
-returns the runner's seams as keywords (spawn, orchestra, flow, dispatch, accept); None = the real ones.
+returns the runner's seams as keywords (spawn, orchestra, dispatch, accept); None = the real ones.
 """
 
 from __future__ import annotations

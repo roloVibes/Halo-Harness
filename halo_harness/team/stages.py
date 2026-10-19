@@ -4,7 +4,7 @@ An agent stage's member gets one prompt: the brief (its path and text), each
 block it reads (path, the ledger's state.json, the last CHANGES_N lines of
 changes.jsonl), the blocks it writes (its claim scope), the stage's own
 `prompt`, the other members' hand-backs when it is the lead, and a redo's
-text. The gate is flows/gates.py's shape, kept in the stage folder:
+text. The gate is kept in the stage folder:
 
     stages/<id>/gate.json    {id: "<run>:<stage>:<round>", run, stage, round, text, summary,
                               acceptance: {ok, note} | null, actions: [accept, redo, stop], opened}
@@ -23,11 +23,11 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from halo_harness.flows.gates import ACTIONS, normalize_action
 from halo_harness.orchestra import jsonl
 from halo_harness.team import blocks as B
 from halo_harness.team import board as BD
 from halo_harness.team import spec as S
+from halo_harness.team.gate_actions import ACTIONS, normalize_action
 
 CHANGES_N = 10
 BRIEF_CAP = 20000

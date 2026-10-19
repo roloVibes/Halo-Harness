@@ -1,5 +1,5 @@
 """tests.test_orchestra_coach2 -- Halo 3.0.9.0 round R3: the coach's cache, its
-four CLI verbs and the evidence the engine now records for it:
+three CLI verbs and the evidence the engine now records for it:
 
 1. a real run (the R2 fixture, fake lead / workers / judge) whose lane 2
    worker's result names a model and a denied tool call: lanes/2.json keeps
@@ -9,7 +9,7 @@ four CLI verbs and the evidence the engine now records for it:
    result's `model` and `permission_denials` on;
 2. a bio's `context.prompt_notes` reach its prompt (after `system_prompt`);
 3. `coach.cached` keeps coach.json and computes again when a run file is newer;
-4. `halo orchestra coach`, `halo flow coach`, `halo fleet mission coach`,
+4. `halo orchestra coach`, `halo fleet mission coach`,
    `halo team coach` print the card (and `--json`); an unknown run exits 1.
 Run: python -m tests.test_orchestra_coach2
 """
@@ -141,9 +141,8 @@ def test_the_cache_and_its_refresh(ctx: Ctx):
 
 
 @test
-def test_the_four_cli_verbs_print_the_card(ctx: Ctx):
+def test_the_three_cli_verbs_print_the_card(ctx: Ctx):
     from halo_harness.fleet.cli import cmd_fleet
-    from halo_harness.flows.cli import cmd_flow
     from halo_harness.orchestra_cli import cmd_orchestra
     from halo_harness.team.cli import cmd_team
     from tests.helpers import coach_seed as S
@@ -156,9 +155,6 @@ def test_the_four_cli_verbs_print_the_card(ctx: Ctx):
         rc, out, _ = _cli(cmd_orchestra, ["coach", S.RUN, "--json", "--repo", str(h.root)])
         ctx.check("orchestra --json", rc == 0 and json.loads(out)["suggestions"][0]["id"] == "tools-1-WebFetch")
         ctx.check("an unknown run exits 1", _cli(cmd_orchestra, ["coach", "nope", "--repo", str(h.root)])[0] == 1)
-        flow = S.flow_run(h.state)
-        rc, out, _ = _cli(cmd_flow, ["coach", flow.name])
-        ctx.check(f"flow: the card, got {rc} {out[:200]!r}", rc == 0 and "coach: flow run" in out and "looped 3 times" in out)
         mission = S.mission_folder(h.state)
         rc, out, _ = _cli(cmd_fleet, ["mission", "coach", mission.name])
         ctx.check(f"mission: the card, got {rc} {out[:200]!r}", rc == 0 and "coach: mission run m-20261017-c0a1: 5 suggestions" in out)

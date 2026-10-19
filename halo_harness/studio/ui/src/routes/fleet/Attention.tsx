@@ -1,6 +1,6 @@
 // fleet-attention: ONE queue of every decision that waits on you, across
 // the fleet (permission, question, plan and approval cards, fleet asks,
-// waiting and paused agents, flow and Orchestra gates, commands a member's
+// waiting and paused agents, Orchestra gates, commands a member's
 // owner has to allow, spend caps, file conflicts), oldest first. Each row:
 // who (harness, session, agent), what, how long it has waited, and its
 // one-key answers: A accept / allow, R deny or redo with a text, S stop, O
@@ -21,7 +21,7 @@ import { fleet, useNow } from "./store";
 const ORDER = ["a", "r", "s", "o"];
 const KIND: Record<string, string> = {
   permission: "permission", question: "question", plan: "plan", approval: "approval", fleet_ask: "fleet ask", waiting: "waiting",
-  paused: "paused", flow_gate: "flow gate", orchestra_gate: "orchestra gate", control_ask: "command", cap: "spend cap", conflict: "conflict",
+  paused: "paused", orchestra_gate: "orchestra gate", control_ask: "command", cap: "spend cap", conflict: "conflict",
   mission_plan: "mission plan", mission_claim: "mission claim", mission_ask: "mission part", // 3.0.6.0 R8
   team_gate: "team gate", // 3.0.8.0 R2
   team_budget: "team budget", // 3.1.2.0 R2: a stage held at its budget line

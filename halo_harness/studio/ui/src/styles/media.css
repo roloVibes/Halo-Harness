@@ -10,6 +10,13 @@
 .md-state[data-ok="true"] { color: var(--ok); }
 .md-vram { display: grid; gap: 4px; }
 .md-vram-head { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); }
+.md-bar { position: relative; height: 6px; border-radius: 3px; background: var(--bg-2); border: 1px solid var(--line); overflow: hidden; }
+.md-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); box-shadow: 0 0 10px var(--accent-soft); transition: width var(--t-slow) var(--ease); }
+.md-bar-fill[data-tone="warn"] { background: var(--warn); }
+.md-bar-fill[data-tone="bad"] { background: var(--bad); }
+@media (prefers-reduced-motion: reduce) {
+  .md-bar-fill { transition: none !important; }
+}
 .md-error { font-size: 11px; color: var(--bad); padding: 4px 8px; border-left: 2px solid var(--bad); background: var(--bad-soft); border-radius: 0 4px 4px 0; overflow-wrap: anywhere; }
 .md-detail { display: grid; gap: 10px; align-content: start; }
 

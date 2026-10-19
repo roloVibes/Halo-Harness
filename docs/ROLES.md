@@ -54,7 +54,7 @@ and `roles.enabled`):
    New, Duplicate, Delete and Apply a lineup, edit a card's slot and every
    section, drag a card into another tier, edit bios with the model picker
    table and **Test this model**, and read every problem with its fix as you
-   edit. See [STUDIO-team-roles-org.md](STUDIO-team-roles-org.md#what-you-see-roles).
+   edit. See [STUDIO-team-roles.md](STUDIO-team-roles.md#what-you-see-roles).
 
 **Editing a lineup or a bio happens in Studio (3.1.1.0).** The terminal shows
 them read-only and opens Studio on the one you want to change: `halo teams
@@ -128,8 +128,7 @@ The round-1 form itself (`/roles edit <name>`, `tui/dialogs/roles_editor.
 py`) shows three shipped **presets** -- written as
 ordinary templates (below) into `~/.halo/roles/` the first time this
 screen runs, computed from whatever is actually configured right then,
-and never overwritten after that (same "copy on first use" rule as
-[ORGS.md](ORGS.md)'s own built-ins):
+and never overwritten after that ("copy on first use"):
 
 | Preset | What it sets |
 |---|---|
@@ -165,7 +164,7 @@ hanging the step. The merged, grouped list this produces
 (`halo_harness.providers.model_enumeration.build_model_rows` -- the exact
 same function `Controller.list_models()`/`/model` call, never a second
 copy of it) is cached for the rest of this wizard run and reused by the
-Team step, the Orgs step and the Summary step; leaving the Providers
+Team step and the Summary step; leaving the Providers
 step again (Back, then Next) re-enumerates.
 
 The round-1 form (`/roles edit <name>`) picks a model for a row through
@@ -176,12 +175,9 @@ own autocomplete field table); typing into its filter narrows the list
 as you type (prefix and
 substring, case-insensitive); typing something that matches nothing in
 the list still works on Enter, with a one-line note ("`'foo' is not in
-the enumerated list; kept as typed.`") rather than a refusal. The org
-editor's own free-text "Role or model" field shows the same live
-narrowing suggestions under the field as you type, and the same one-line
-note once the value is committed. Outside the wizard, `/roles edit`/
-`/org edit` already read the live session's own `Controller.
-list_models()` -- unaffected by any of this.
+the enumerated list; kept as typed.`") rather than a refusal. Outside
+the wizard, `/roles edit` already reads the live session's own
+`Controller.list_models()` -- unaffected by any of this.
 
 ### The Auto tab
 
@@ -209,7 +205,7 @@ assignments to a role table the same way.
 
 ### Two sources for a role slot (Halo 2.0.5 round 2)
 
-The SAME `ModelPicker` the round-1 form (and the org editor) opens now
+The SAME `ModelPicker` the round-1 form opens now
 carries a source switch, `ctrl+a`, in its own
 footer: **Models** (the enumerated list above, unchanged) or **Agents**
 (every reachable agent bio, with its description, preferred model, and
@@ -224,8 +220,7 @@ it already does `escalation`) -- `role_value_parts` still reads just
 completely unaffected. "New bio..." sits at the top of the Agents source:
 it writes a starter bio on the role's model, picks it for the role, and
 opens Studio's bio form on it (3.1.1.0: Studio is the editor of bios). See
-[AGENTS.md](AGENTS.md) for the bio form's fields and the SAME switch on an
-org position.
+[AGENTS.md](AGENTS.md) for the bio form's fields.
 
 ## The ten roles
 
@@ -399,8 +394,7 @@ list|save|load|new|edit|show|export|import` (`edit` opens `$EDITOR`/
 <file>` move a template as plain JSON -- `export` writes to `file` or
 stdout when omitted, `import` validates the same way any other template
 write is, listing every problem, and falls back to the file's own
-basename when the JSON has no `"name"` field; `halo org export`/`import`
-is the same pair for an organization, see [ORGS.md](ORGS.md)). Setting
+basename when the JSON has no `"name"` field). Setting
 `roles.editor: "external"` in config.json makes the TUI's own `/roles edit`
 use the SAME `$EDITOR` flow instead of opening the form.
 

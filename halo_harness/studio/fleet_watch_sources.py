@@ -2,7 +2,7 @@
 Fleet panel routes read (Halo 3.0.5.0 "Fleet" round R4; 3.1.0.0 R2 renamed
 it from fleet_watch_io.py and moved the feed tap to fleet_feed.py and the
 session commands to fleet_send.py): the view, the local harness id and the
-fleet name, the flow, team and Orchestra gates, the hub's open commands,
+fleet name, the team and Orchestra gates, the hub's open commands,
 the claims and whether attention pushes are ready.
 """
 
@@ -37,15 +37,6 @@ def by(home=None) -> str:
 
 
 # ---- the sources ------------------------------------------------------------------------
-def flows(home) -> list:
-    try:
-        from halo_harness.studio.flow_model import run_rows
-        from halo_harness.studio.flow_runs import live_id
-        return [r for r in run_rows(home, live_id()) if r.get("waiting_step")]
-    except Exception:
-        return []
-
-
 def teams(server) -> list:
     """The open gates of the team run of Studio's repo (3.0.8.0 R2, fleet/team_attention.py)."""
     try:

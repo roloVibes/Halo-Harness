@@ -1,5 +1,5 @@
 // The palette's commands and its fuzzy matcher. Groups: Go to, Help,
-// Orchestra, Roles, Org, Design, Flow, Fleet, Team, Media, View, Layout. Each command may show a key (the
+// Orchestra, Roles, Design, Fleet, Team, Media, View, Layout. Each command may show a key (the
 // same hint the menus show).
 import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
@@ -7,10 +7,9 @@ import { openStart } from "../lib/start";
 import { layoutStore, resetLayout, showPanel } from "../lib/workspace/persist";
 import type { PanelSpec } from "../lib/workspace/types";
 import { SECTIONS, sectionDef, type SectionDef } from "../routes";
-import { flowCommands, mediaCommands } from "../routes/flow/commands";
+import { mediaCommands } from "../routes/media/commands";
 import { orchestraCommands } from "../routes/orchestra/commands";
 import { fleetCommands } from "../routes/fleet/commands";
-import { orgCommands } from "../routes/org/commands";
 import { designCommands } from "../routes/design/commands";
 import { rolesCommands } from "../routes/roles/commands";
 import { teamCommands } from "../routes/team/commands";
@@ -76,7 +75,7 @@ export function commands(): Command[] {
       run: () => revealPanel(cur, p),
     });
   }
-  out.push(...orchestraCommands(), ...rolesCommands(), ...orgCommands(), ...designCommands(), ...flowCommands(), ...fleetCommands(), ...teamCommands(), ...mediaCommands());
+  out.push(...orchestraCommands(), ...rolesCommands(), ...designCommands(), ...fleetCommands(), ...teamCommands(), ...mediaCommands());
   return out;
 }
 

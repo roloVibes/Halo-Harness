@@ -37,7 +37,7 @@ A block is a place a team's work lands: a file, a folder or a git tree, each wit
 
 ## stage
 
-A stage is one step of a team's work: an agent turn, an Orchestra run or a flow, with the blocks it reads and writes, its members and its trigger (manual, `stage_done:<stage>` or `block_change:<block>`). A stage with a gate stops for your Accept, Redo or Stop before the stages after it start.
+A stage is one step of a team's work: an agent turn or an Orchestra run, with the blocks it reads and writes, its members and its trigger (manual, `stage_done:<stage>` or `block_change:<block>`). A stage with a gate stops for your Accept, Redo or Stop before the stages after it start.
 
 ## lane
 
@@ -47,13 +47,9 @@ A lane is one worker's share of an Orchestra run: one job of the plan, with its 
 
 A part is one piece of a fleet mission: a slice of the goal given to the harness whose capabilities fit it, with its claims, its outputs and its hand-back. The hub's lead splits a mission into parts, and before you approve you can drag a part to another harness on Studio's map.
 
-## flow
-
-A flow (`~/.halo/flows/<name>.flow.yaml`) is a fixed pipeline from a brief to a result: your roles plan and write, a marketing org makes the campaign, ComfyUI renders the image, you confirm it, then the posts go out and their metrics come back. `halo flow run <name>` starts one and Studio's Flow section follows it step by step.
-
 ## step
 
-A step is one box of a run's workflow, each with its state (pending, running, planned, done, failed or skipped): an Orchestra run's goal, lead, split, workers, merge, test, gate and done; the shipped flow's intake, plan, marketing, render, approve, publish, measure and done; and the seven screens of `halo start`.
+A step is one box of a run's workflow, each with its state (pending, running, planned, done, failed or skipped): an Orchestra run's goal, lead, split, workers, merge, test, gate and done; and the seven screens of `halo start`.
 
 ## mission
 
@@ -61,7 +57,7 @@ A mission is one goal for the whole fleet: the hub's lead splits it into parts a
 
 ## gate
 
-A gate is a check a run stops at before it goes on. An Orchestra run's gate runs your test on the merged branch and sends a failing piece back to its worker, up to the return cap; a team stage's or a flow's gate waits for you to Accept, Redo with an instruction, or Stop.
+A gate is a check a run stops at before it goes on. An Orchestra run's gate runs your test on the merged branch and sends a failing piece back to its worker, up to the return cap; a team stage's gate waits for you to Accept, Redo with an instruction, or Stop.
 
 ## claim
 
@@ -77,7 +73,7 @@ The plan is the lead's split of a goal into jobs, one per lane, each with a titl
 
 ## coach
 
-The coach reads a finished run's files (an Orchestra run, a flow, a mission or a team run) and suggests what to change next time: a bio's prompt, model or tools, a lane's `after`, a gate that looped. Each card shows its evidence; Ask the model has the run's lead explain it in one paragraph, Apply writes the change after one confirm (the file and its diff first) and Undo puts the file back. `halo coach` prints the cards.
+The coach reads a finished run's files (an Orchestra run, a mission or a team run) and suggests what to change next time: a bio's prompt, model or tools, a lane's `after`, a gate that looped. Each card shows its evidence; Ask the model has the run's lead explain it in one paragraph, Apply writes the change after one confirm (the file and its diff first) and Undo puts the file back. `halo coach` prints the cards.
 
 ## orchestra run
 
@@ -101,4 +97,4 @@ A capability is something a harness can do, as its spec card lists it: its hardw
 
 ## unit
 
-A unit of work is what a lane, a mission part, a team stage and a flow step all are underneath (`halo work`, docs/WORK.md): one piece of work with an owner, its claims, its hand-offs, one state machine, a gate, an acceptance and a cost. The four engines keep their own words on top; the shared model gives them one ledger line, one report row and one coach.
+A unit of work is what a lane, a mission part and a team stage all are underneath (`halo work`, docs/WORK.md): one piece of work with an owner, its claims, its hand-offs, one state machine, a gate, an acceptance and a cost. The three engines keep their own words on top; the shared model gives them one ledger line, one report row and one coach.

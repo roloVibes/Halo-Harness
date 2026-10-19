@@ -9,7 +9,7 @@ steps, and Back genuinely returns to the previous step's own widget state
 (Textual suspends, never destroys, a screen under a newer one).
 
 Steps, in order (`ALL_STEP_KEYS`): providers, local_models, default_model,
-permission_mode, theme, team, orgs, linux_fixes, summary --
+permission_mode, theme, team, linux_fixes, summary --
 `full_step_keys()` drops `linux_fixes` when there is nothing for it to
 offer (brief item 1). A
 SHORTER run (`halo setup`, `/setup roles`) uses a SUBSET of this same list
@@ -35,7 +35,7 @@ Hosting: `run_init_wizard()` builds a standalone `InitWizardApp` (same
 reason `init_tabs.py`'s `InitTabsApp`/`init_picker.py`'s pickers are
 standalone -- a bare CLI command has no host screen stack); `tui/slash.
 py`'s `/setup` instead pushes the first step straight onto the live
-`BridgeApp` (the SAME pattern `RolesEditor`/`OrgEditor` already use) --
+`BridgeApp` (the SAME pattern `RolesEditor` already uses) --
 every step screen is host-agnostic (it only ever calls `self.app.
 push_screen`/`pop_screen`, never anything App-subclass-specific), so the
 exact same classes work either way.
@@ -70,18 +70,17 @@ from halo_harness.tui.dialogs.wizard_ux import focus_first, mark_checked, one_se
 
 # Halo 2.0.5 round 2c (rule 11): "agents" and "roles" MERGE into one
 # "team" step -- STILL right after the keys step/enumeration (every
-# earlier step already is) and before "orgs" (which the lineup's own
-# `org:` section can feed, same as before). `full_step_keys()`'s only
+# earlier step already is). `full_step_keys()`'s only
 # other caller in test_tui.py resolves by KEY name, unaffected either
 # way; `_resolve_start_index` keeps "agents"/"roles" working as `--step`
 # aliases even though neither is in this tuple any more (see its own
 # alias map).
 ALL_STEP_KEYS = ("providers", "local_models", "default_model", "permission_mode", "theme", "team",
-                 "orgs", "linux_fixes", "summary")
+                 "linux_fixes", "summary")
 STEP_TITLES = {
     "providers": "Providers", "local_models": "Local models", "default_model": "Default model",
     "permission_mode": "Permission mode", "theme": "Theme",
-    "team": "Team", "orgs": "Organizations",
+    "team": "Team",
     "linux_fixes": "Linux fixes", "summary": "Summary",
     # Round 2c: "agents"/"roles" are no longer real keys in `ALL_STEP_
     # KEYS` (`_STEP_KEY_ALIASES` is `_resolve_start_index`'s OWN alias
@@ -129,7 +128,6 @@ class WizardState:
     final_model: str = ""
     permission_mode: str = ""
     theme_name: str = ""
-    default_org: str = ""
     pong_ok: bool = True
 
     # Halo 2.0.5 round 2c (deliverable 5, rule 5): `offer_quick_full` --
@@ -153,7 +151,7 @@ class WizardState:
     # own Next (`ProvidersStep._run_enumeration_then_advance`) -- the
     # SAME shape `Controller.list_models()` returns (`providers.
     # model_enumeration.build_model_rows`), cached here for the rest of
-    # THIS wizard run and reused by the roles step, the org step and the
+    # THIS wizard run and reused by the roles step and the
     # summary, so a standalone `halo init` (no live Controller/session of
     # its own at all) still has a real, grouped, gym-scored model list to
     # show -- fixing the owner's own report ("the available models are
@@ -824,7 +822,7 @@ class ProvidersStep(StepScreen):
     # every tab (saved via that tab's own Save press, or not) merged over
     # the saved config -- cached on `self.state` for the rest of this
     # wizard run (`WizardState.enumerated_models`'s own docstring) and
-    # reused by the Roles step, the Orgs step and the Summary step. Skip
+    # reused by the Roles step and the Summary step. Skip
     # (inherited `action_do_skip`, untouched) never enumerates.
     def action_do_next(self) -> None:
         if not self._commit_or_notify():
@@ -835,7 +833,7 @@ class ProvidersStep(StepScreen):
             # enumeration's own cache-only `build_model_rows` read still
             # runs (no network of its own, same contract `DefaultModelStep`
             # already follows regardless of `no_live`), just with no live
-            # refresh first, so the roles/org steps still see whatever is
+            # refresh first, so the roles step still sees whatever is
             # already cached on disk instead of staying permanently empty
             # under `--no-live`.
             from halo_harness.config.paths import bridge_home
@@ -1323,251 +1321,6 @@ STEP_FACTORIES["roles"] = TeamStep
 
 
 # ---------------------------------------------------------------------------
-# Step: Organizations -- brief item 3. `orgs.enabled` defaults False
-# (unlike roles): the switch starts OFF. "Next" and "Make this the
-# default org" are the SAME action, same reasoning as `TeamStep`'s own
-# Next/"apply the highlighted lineup" merge.
-# ---------------------------------------------------------------------------
-
-class OrgsStep(StepScreen):
-    DEFAULT_CSS = """
-    OrgsStep #wiz-orgs-list { height: 6; margin-top: 1; }
-    OrgsStep #wiz-orgs-preview { height: 8; margin-top: 1; border: round $primary-darken-1; padding: 1; }
-    OrgsStep .wizard-extra-buttons { height: 3; margin-top: 1; }
-    OrgsStep .wizard-extra-buttons Button { margin-right: 1; }
-    OrgsStep .wizard-switch-row { height: 3; margin-top: 1; }
-    """
-
-    def __init__(self, state: WizardState) -> None:
-        super().__init__(state)
-        self._orgs: "list[str]" = []
-
-    def body(self) -> list:
-        from textual.widgets import OptionList, Switch
-        from textual.widgets.option_list import Option
-        from halo_harness.orgs import list_orgs, orgs_mode_enabled
-        self._orgs = list_orgs()
-        enabled = orgs_mode_enabled()
-        option_list = OptionList(*[Option(n, id=n) for n in self._orgs], id="wiz-orgs-list")
-        on_body = Vertical(
-            Static("An organization is a tree of positions that runs as sub-agents -- most people start "
-                   "with solo or release-flow."),
-            option_list, Static(id="wiz-orgs-preview"),
-            Horizontal(Button("Make this the default org", id="wiz-orgs-default", variant="primary"),
-                       Button("Edit org...", id="wiz-orgs-edit"), classes="wizard-extra-buttons"),
-            id="wiz-orgs-on-body",
-        )
-        switch_row = Horizontal(Switch(value=enabled, id="wiz-orgs-switch"),
-                                 Static(" Organizations enabled", classes="wizard-switch-label"),
-                                 classes="wizard-switch-row")
-        from halo_harness.theme import get_config_value
-        default_name = get_config_value("orgs.default", default=None)
-        current = ("off (no organization runs)" if not enabled else default_name or "on, no default yet")
-        # 2.2.0: organizations run in Paperclip (Studio's Org mode); the switch
-        # below is Halo's older built-in org runner, kept for existing configs.
-        from halo_harness.paperclip.mode import EXPLAINER, org_mode_enabled
-        pointer = Static(EXPLAINER + " The second switch is Halo's older built-in org runner, kept for existing setups.",
-                         id="wiz-orgs-pointer")
-        mode_row = Horizontal(Switch(value=org_mode_enabled(), id="wiz-org-mode-switch"),
-                              Static(" Org mode: Paperclip wakes the company's agents (off by default)", classes="wizard-switch-label"),
-                              classes="wizard-switch-row")
-        studio_row = Horizontal(Button("Open Studio (Org)", id="wiz-orgs-studio"), classes="wizard-extra-buttons")
-        return [Static(one_sentence("Organizations", current, hint="Enter to change, or Make this the default."),
-                        classes="dialog-title"), pointer, mode_row, studio_row,
-                Static("", id="wiz-orgs-studio-url"), switch_row, on_body]
-
-    def action_open_studio(self) -> None:
-        """3.0.2.0: the company is edited in Studio's Org mode (the browser)."""
-        from halo_harness.studio.launch import launch_detached
-        from halo_harness.providers.config import default_state_dir
-
-        from halo_harness.tui.dialogs.wizard_ux import studio_work
-
-        def _done(url: str) -> None:
-            # Review 3 item 79: a line that stays (over SSH the URL is the only way in).
-            try:
-                self.query_one("#wiz-orgs-studio-url", Static).update(
-                    f"Studio: {url}  (halo studio --stop ends it)" if url
-                    else "Studio did not start -- run `halo studio --mode org` in a shell.")
-            except Exception:
-                pass
-        work = studio_work(lambda: launch_detached("org", cwd=Path(self.state.cwd), state_dir=Path(default_state_dir())))
-        self.run_worker(lambda: self.app.call_from_thread(_done, work()), thread=True, name="wiz-orgs-studio",
-                        exit_on_error=False)
-
-    def on_mount(self) -> None:
-        self._sync_visibility()
-        try:
-            option_list = self.query_one("#wiz-orgs-list")
-        except Exception:
-            return
-        if option_list.option_count:
-            option_list.action_first()
-            opt = option_list.get_option_at_index(option_list.highlighted or 0)
-            if opt.id:
-                self._update_preview(str(opt.id))
-        self._mark_default()
-        focus_first(self, ["#wiz-orgs-list"])
-
-    def _mark_default(self) -> None:
-        from halo_harness.theme import get_config_value
-        try:
-            option_list = self.query_one("#wiz-orgs-list")
-        except Exception:
-            return
-        mark_checked(option_list, get_config_value("orgs.default", default=None))
-
-    def _sync_visibility(self) -> None:
-        try:
-            on_body, switch = self.query_one("#wiz-orgs-on-body"), self.query_one("#wiz-orgs-switch")
-        except Exception:
-            return
-        on_body.styles.display = "block" if switch.value else "none"
-
-    def on_switch_changed(self, event) -> None:
-        if event.switch.id == "wiz-orgs-switch":
-            self._sync_visibility()
-
-    def on_option_list_option_highlighted(self, event) -> None:
-        if event.option_list.id == "wiz-orgs-list" and event.option_id:
-            self._update_preview(str(event.option_id))
-
-    def _highlighted_org_name(self) -> Optional[str]:
-        try:
-            option_list = self.query_one("#wiz-orgs-list")
-        except Exception:
-            return None
-        if option_list.highlighted is None:
-            return None
-        opt = option_list.get_option_at_index(option_list.highlighted)
-        return str(opt.id) if opt.id else None
-
-    def _update_preview(self, name: str) -> None:
-        from halo_harness.orgs import describe, load_org
-        try:
-            preview = self.query_one("#wiz-orgs-preview", Static)
-        except Exception:
-            return
-        org = load_org(name)
-        preview.update(describe(org) if org else "(no such organization)")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        # See `ProvidersStep.on_button_pressed`'s own comment -- this must
-        # never re-handle wiz-back/skip/next.
-        bid = event.button.id or ""
-        if bid == "wiz-orgs-default":
-            # Same reasoning as `TeamStep`'s own "apply the highlighted
-            # lineup" -- choosing a default org IS the opt-in, even if
-            # the switch (off by default here) was never touched.
-            try:
-                self.query_one("#wiz-orgs-switch").value = True
-            except Exception:
-                pass
-            self.action_do_next()
-        elif bid == "wiz-orgs-edit":
-            self._open_editor()
-        elif bid == "wiz-orgs-studio":
-            self.action_open_studio()
-
-    def _controller_models(self) -> list:
-        """See `team_step.TeamStep._models_for_picker`'s own docstring --
-        same "this wizard run's own enumeration cache wins once it exists,
-        else fall back to a live Controller" rule, for the org editor."""
-        if self.state.enumeration_done:
-            return self.state.enumerated_models
-        list_models = getattr(getattr(self.app, "controller", None), "list_models", None)
-        try:
-            return list_models() if callable(list_models) else []
-        except Exception:
-            return []
-
-    def _open_editor(self) -> None:
-        name = self._highlighted_org_name() or "custom"
-        guarded_worker(self, lambda: self._editor_worker(name), thread=True, name="wiz-orgs-editor")
-
-    def _editor_worker(self, name: str) -> None:
-        from halo_harness.orgs import load_org
-        from halo_harness.tui.edit_guard import refusal_text, unloadable_path
-        broken = unloadable_path("org", name)
-        if broken is not None:  # review 3 item 149
-            self.app.call_from_thread(self.app.notify, refusal_text("org", name, broken), severity="error")
-            return
-        org = load_org(name) or {"name": name, "description": "", "positions": [
-            {"title": "Orchestrator", "role": "orchestrator", "reports": [], "instructions": ""}]}
-        self.app.call_from_thread(self._open_editor_screen, name, org, self._controller_models())
-
-    def _open_editor_screen(self, name: str, org: dict, models: list) -> None:
-        from halo_harness.tui.dialogs.org_editor import OrgEditor
-        self.app.push_screen(OrgEditor(name, org, models), lambda _saved: self._refresh_orgs())
-
-    def _refresh_orgs(self) -> None:
-        from textual.widgets.option_list import Option
-        from halo_harness.orgs import list_orgs
-        try:
-            option_list = self.query_one("#wiz-orgs-list")
-        except Exception:
-            return
-        previous = self._highlighted_org_name()
-        self._orgs = list_orgs()
-        option_list.clear_options()
-        for n in self._orgs:
-            option_list.add_option(Option(n, id=n))
-        if self._orgs:
-            idx = self._orgs.index(previous) if previous in self._orgs else 0
-            option_list.highlighted = idx
-            self._update_preview(self._orgs[idx])
-        self._mark_default()
-
-    def commit(self) -> None:
-        from halo_harness.theme import set_config_value
-        from halo_harness.orgs import set_default_org
-        enabled = False
-        try:
-            enabled = bool(self.query_one("#wiz-orgs-switch").value)
-        except Exception:
-            pass
-        try:  # 3.0.2.0: the Org mode (Paperclip) switch, written explicitly either way
-            from halo_harness.paperclip.mode import org_mode_enabled
-            wanted = bool(self.query_one("#wiz-org-mode-switch").value)
-            changed = wanted != org_mode_enabled()
-            set_config_value("paperclip.enabled", wanted)
-            if changed:  # pausing/resuming the agents is network: off the event loop
-                self.app.run_worker(lambda: self._sync_org_agents(wanted), thread=True, exit_on_error=False,
-                                    name="wiz-org-mode")
-        except Exception:
-            pass
-        set_config_value("orgs.enabled", enabled)
-        if not enabled:
-            return
-        name = self._highlighted_org_name()
-        if not name:
-            return
-        ok, _problems = set_default_org(name)
-        if ok:
-            self.state.default_org = name
-
-
-    def _sync_org_agents(self, wanted: bool) -> None:
-        """Review 3 item 147: the switch is already written; this pauses or
-        resumes the linked company's Halo agents with short timeouts and
-        reports why nothing changed, if nothing did."""
-        try:
-            from halo_harness.paperclip.mode import sync_agents
-            note = sync_agents(wanted, timeout=8.0).get("note")
-        except Exception as e:
-            note = f"{type(e).__name__}: {e}"
-        if note:
-            try:
-                self.app.call_from_thread(self.app.notify, f"Org mode {'on' if wanted else 'off'}: {note}",
-                                          title="Paperclip")
-            except Exception:
-                pass
-
-
-STEP_FACTORIES["orgs"] = OrgsStep
-
-
-# ---------------------------------------------------------------------------
 # Step: Linux fixes -- only ever reachable when `linux_fixes_needed()`
 # put it in `step_keys` at all (see `full_step_keys`); Next applies
 # whichever of the two fixes still applies (same default `_confirm(...,
@@ -1763,7 +1516,7 @@ def run_init_wizard(*, cwd, team: Optional[str] = None, no_live: bool = False,
                      start_step=None) -> InitWizardApp:
     """Runs the whole interactive `halo init` as a standalone full-screen
     app. `start_step` (brief item 3: used by `halo setup`'s own "roles,
-    then orgs, then summary" path, and pinned directly by its own test --
+    then summary" path, and pinned directly by its own test --
     "start_step=5 opens on roles") starts partway through this SAME full
     step list rather than at step 1, as either the 1-based step number
     or the step's own key; `halo setup`/`/setup` themselves use the
@@ -1785,7 +1538,7 @@ def run_init_wizard(*, cwd, team: Optional[str] = None, no_live: bool = False,
 
 
 def build_truncated_state(cwd, *, step_keys, on_finish: "Callable[[object], None]") -> WizardState:
-    """`/setup`/`/setup roles`/`/setup orgs` (pushed onto a LIVE
+    """`/setup`/`/setup roles` (pushed onto a LIVE
     `BridgeApp`, never a standalone app of its own -- `tui/slash.py`'s
     `_handle_setup`) and `halo setup`'s own interactive path (`setup_cli.
     py`, which DOES build a standalone `InitWizardApp` around this same

@@ -1,4 +1,4 @@
-"""tests.helpers.studio_plan -- the Orchestra plan canvas and the Flow graph
+"""tests.helpers.studio_plan -- the Orchestra plan canvas
 (Halo 3.0.9.0 round R2) in headless Chrome over the DevTools protocol
 (tests/helpers/cdp.py), over a Studio server on a temp git repo with the R2
 fakes as `orchestra_api.RUNNER` (no model call). tests/test_studio_ui.py runs
@@ -16,9 +16,7 @@ it as a subprocess with a scrubbed environment (tests/helpers/studio_ui_plan.py)
 * Approve and run: the run turns running (the fake workers are held) and the
   console comes back; released, it finishes;
 * a second run from the Start view's form with "Review the plan before it
-  runs" on: Reject asks for a reason on a card and the run stops with it;
-* the Flow section's "Show as graph" draws the social-post template's eight
-  steps in their layers, the confirm step marked as the gate.
+  runs" on: Reject asks for a reason on a card and the run stops with it.
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -141,19 +139,8 @@ def reject_stops(c, rig, url: str, out: dict) -> None:
     out["stop_reason"] = rig.last_report().get("stop_reason")
 
 
-def flow_graph(c, url: str, out: dict) -> None:
-    c.go(url.replace("mode=orchestra", "mode=flow").replace("#t=", "&view=start#t="))
-    c.wait(f"!!{TID.format('flow-show-graph')}", 20)
-    click(c, TID.format("flow-show-graph"))
-    c.wait(f"{N.format('flow-step')} === 8", 20)
-    out["flow"] = {k: c.js(N.format(k)) for k in ("flow-graph", "flow-step", "flow-graph-layer", "flow-graph-edge")}
-    out["flow_gate"] = c.js("[...document.querySelectorAll('[data-testid=\"flow-step\"][data-gate]')].map((e) => e.dataset.id)")
-    click(c, TID.format("flow-graph-back"))
-    out["flow_back"] = c.wait(f"{N.format('flow-step')} === 0 && !!{TID.format('flow-intake-form')} && 'back'", 10)
-
-
 class PlanDriver(Driver):
-    """The plan canvas and the Flow graph over tests/helpers/studio_plan_rig.py."""
+    """The plan canvas over tests/helpers/studio_plan_rig.py."""
 
     @contextmanager
     def session(self, c):
@@ -161,7 +148,7 @@ class PlanDriver(Driver):
         with PlanRig() as rig:
             url = rig.url()
             yield ((lanes_and_layers, (c, url, self.out)), (drag_into_layer, (c, rig, self.out)), (overlap_problem, (c, self.out)),
-                   (approve_runs, (c, rig, self.out)), (reject_stops, (c, rig, url, self.out)), (flow_graph, (c, url, self.out)))
+                   (approve_runs, (c, rig, self.out)), (reject_stops, (c, rig, url, self.out)))
 
 
 def main() -> int:

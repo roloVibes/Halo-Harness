@@ -46,9 +46,9 @@ def test_find_load_and_the_normalised_shape(ctx: Ctx):
               and team["members"][0]["harness"] is None)
     draft = S.stage_by_id(team, "draft")
     ctx.check(f"a stage's keys and defaults, got {sorted(draft)}", set(draft) == {
-        "id", "kind", "members", "reads", "writes", "trigger", "lead", "gate", "acceptance", "settle_s", "goal", "flow",
-        "inputs", "prompt", "budget_usd", "harness"} and draft["settle_s"] == 20 and draft["goal"] is None
-        and draft["flow"] is None and draft["budget_usd"] is None and draft["harness"] is None)  # 3.1.2.0 R2: budget, harness
+        "id", "kind", "members", "reads", "writes", "trigger", "lead", "gate", "acceptance", "settle_s", "goal",
+        "prompt", "budget_usd", "harness"} and draft["settle_s"] == 20 and draft["goal"] is None
+        and draft["budget_usd"] is None and draft["harness"] is None)  # 3.1.2.0 R2: budget, harness; 3.1.4.0: no flow, inputs
     ctx.check("the lead defaults to the first member", S.stage_lead(team, draft, S.stage_members(team, draft)) == "writer")
     bare = S.normalize({"blocks": [{"id": "a", "kind": "git", "path": "."}, {"id": "b", "path": "x/"}],
                         "workflow": {"stages": [{"id": "s"}]}, "members": [{"name": "m", "lineup": "l", "harness": "here"}]})
@@ -120,7 +120,8 @@ def test_each_problem_has_its_line(ctx: Ctx):
             "stage `c`: trigger `stage_done:c` names the stage itself", "stage `d`: trigger is manual, block_change",
             "stage `e`: trigger `block_change:nope` names no declared block",
             "stage `o`: an orchestra stage needs a goal", "stage `o2`: goal: \"workers\" must be a whole number",
-            "stage `fl`: no flow `no-such-flow`", "stage `k`: kind is agent, orchestra or flow",
+            "stage `fl`: kind `flow` was removed in 3.1.4.0; make it an agent or orchestra stage, or delete it",
+            "stage `k`: kind is agent or orchestra",
             "triggers loop: `a` -> `a`"]
     for w in want:
         ctx.check(f"a line starts with {w!r}", any(line.startswith(w) for line in lines), )

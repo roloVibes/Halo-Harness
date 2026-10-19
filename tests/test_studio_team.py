@@ -64,7 +64,7 @@ def test_read_routes(ctx: Ctx):
         ctx.check("broken YAML is a problem line", status == 200 and v["ok"] is False and "not valid YAML" in v["problems"][0])
         status, b, _ = s.call("GET", "/api/team/board")
         ctx.check(f"no run: the stages, all pending, got {b['board']['state']}", status == 200 and b["run"] is None
-                  and [r["state"] for r in b["board"]["stages"]] == ["pending"] * 4 and b["board"]["stages"][2]["kind"] == "orchestra")
+                  and [r["state"] for r in b["board"]["stages"]] == ["pending"] * 3 and b["board"]["stages"][2]["kind"] == "orchestra")
         ctx.check("an unknown run is a 404", s.call("GET", "/api/team/board?run=19990101")[0] == 404)
         status, bl, _ = s.call("GET", "/api/team/blocks")
         ctx.check("every block's status", status == 200 and [x["id"] for x in bl["blocks"]] == ["copy", "site", "notes"])
@@ -118,8 +118,8 @@ def test_run_frames_answer_and_stop(ctx: Ctx):
                 ctx.check("a bad answer is a 422", s.call("POST", "/api/team/answer", {"stage": "draft", "action": "maybe"})[0] == 422)
                 status, a, _ = s.call("POST", "/api/team/answer", {"stage": "draft", "action": "accept"})
                 ctx.check(f"answer accept, got {a}", status == 200 and a["ok"] and a["driven"] is False)
-                ctx.check("review and post run after the accept", _until(lambda: [r["state"] for r in s.call(
-                    "GET", "/api/team/board")[1]["board"]["stages"]] == ["done", "done", "pending", "done"]))
+                ctx.check("review runs after the accept", _until(lambda: [r["state"] for r in s.call(
+                    "GET", "/api/team/board")[1]["board"]["stages"]] == ["done", "done", "pending"]))
                 ctx.check("a second run without a stage while live is a 409", s.call("POST", "/api/team/run", {})[0] == 409)
                 status, st, _ = s.call("POST", "/api/team/stop", {"reason": "enough"})
                 ctx.check("stop", status == 200 and st["ok"])
@@ -205,8 +205,8 @@ def test_init_route_and_the_team_gate_attention_row(ctx: Ctx):
             ctx.check("r without a text answers 422 (redo takes the instruction)", s.call("POST", "/api/fleet/attention/answer", {"id": row["id"], "key": "r"})[0] == 422)
             status, got, _ = s.call("POST", "/api/fleet/attention/answer", {"id": row["id"], "key": "a"})
             ctx.check(f"a accepts the gate, got {status} {got}", status == 200)
-            ctx.check("review and post run after it", _until(lambda: [r["state"] for r in s.call(
-                "GET", "/api/team/board")[1]["board"]["stages"]] == ["done", "done", "pending", "done"]))
+            ctx.check("review runs after it", _until(lambda: [r["state"] for r in s.call(
+                "GET", "/api/team/board")[1]["board"]["stages"]] == ["done", "done", "pending"]))
             s.call("POST", "/api/team/stop", {})
             ctx.check("the runner ends", team_live.wait(root, 8.0))
     finally:

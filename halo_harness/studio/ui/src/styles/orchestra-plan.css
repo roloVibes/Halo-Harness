@@ -1,4 +1,4 @@
-/* The plan editor (3.0.9.0 R2) and the Flow graph: layer boxes in the Roles
+/* The plan editor (3.0.9.0 R2): layer boxes in the Roles
    canvas's group-box look (roles.css .rc-tier), lane cards with their lane
    colour band, the `after` edges with their label chips, a red outline and
    the text on a card with a problem, the inspector column, the reject card.
@@ -60,18 +60,23 @@
 .og-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); cursor: pointer; }
 .og-switch input { accent-color: var(--accent); }
 
-/* -- the Flow graph (routes/flow/FlowGraph.tsx) ----------------------------------------- */
-.fg { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; padding: 14px 16px; box-sizing: border-box; }
-.fg-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.fg-title { font-size: 15px; }
-.fg-card[data-gate] { --band: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
-.fg-gate { color: var(--warn); font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; }
-.fg-card[data-hot] { border-color: var(--accent); box-shadow: var(--glow-strong); }
-.fg-note { margin: 0; font-size: 12px; }
-
 /* -- the cost forecast (3.1.2.0 R2): a lane's chip, the header's total vs the budget, red when over -- */
 .pc-cost { font-size: 10.5px; padding: 0 6px; margin-left: auto; color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 50%, transparent); }
 .pc-cost:not([data-priced]) { color: var(--muted); border-style: dashed; }
 .pc-card .rc-head .pc-cost + .rc-scope { margin-left: 6px; }
 .pc-forecast { font-size: 11.5px; padding: 1px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); white-space: nowrap; }
 .pc-forecast[data-over] { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+
+/* -- run, node and step states the Orchestra graph, the rail, Fleet's agents, Media renders and
+   the Roles live badges share (moved from flow.css in 3.1.4.0; kept after the plan rules) -- */
+.og-badge[data-state="waiting"] { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.og-badge[data-state="failed"] { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+.og-badge[data-state="pending"] { color: var(--muted); }
+.og-badge[data-state="done"] { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.og-node[data-picked] .og-shape { stroke-width: 2.2; filter: drop-shadow(0 0 5px var(--accent-soft)); }
+.og-node[data-state="waiting"] .og-shape { stroke: var(--warn); stroke-width: 2; animation: og-glow-warn 1.2s ease-in-out infinite; }
+.og-steps li { cursor: pointer; border-radius: 4px; padding: 1px 4px; }
+.og-steps li[aria-current="true"] { background: var(--accent-soft); }
+.og-steps li[data-state="waiting"] .og-step-state { color: var(--warn); }
+.og-step-dot[data-motion="waiting"] { background: var(--warn); }
+.og-run-dot[data-state="waiting"] { background: var(--warn); box-shadow: 0 0 8px var(--warn); }

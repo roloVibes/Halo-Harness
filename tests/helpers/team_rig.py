@@ -32,7 +32,6 @@ workflow:
        trigger: "stage_done:draft"}
     - {id: build, kind: orchestra, goal: {what: "Build the site", done_when: "it renders", workers: 2},
        writes: [site], trigger: "block_change:notes", settle_s: 5}
-    - {id: post, kind: flow, flow: social-post, reads: [copy], trigger: "stage_done:review"}
 """
 
 
@@ -95,10 +94,6 @@ class Fakes:
         self.calls.append(("orchestra", stage, goal))
         return {"ok": True, "text": "orchestra finished", "cost_usd": 0.02, "run_id": "20260101-000000-abcd"}
 
-    def flow(self, name, *, intake, cwd, stage, run_dir):
-        self.calls.append(("flow", stage, name, intake))
-        return {"ok": True, "text": "flow finished", "cost_usd": 0.03, "run_id": "20260101-000000-ef01"}
-
     # DISPATCH
     def send(self, member, task):
         self.calls.append(("send", member["name"], task["stage"]))
@@ -107,7 +102,7 @@ class Fakes:
         return self.dispatch_status, {"handle": {"mission": "m-20260101-0001", "part": "1"}}
 
     def send_run(self, harness, task):
-        """3.1.2.0 R2: an orchestra or flow stage on a fleet member (team/remote_stage.py)."""
+        """3.1.2.0 R2: an orchestra stage on a fleet member (team/remote_stage.py)."""
         self.calls.append(("send_run", harness, task["stage"], task))
         if self.dispatch_status == 403:
             return 403, {"error": "the owner said no"}
@@ -121,4 +116,4 @@ class Fakes:
         return True
 
     def seams(self) -> dict:
-        return {"spawn": self.spawn, "orchestra": self.orchestra, "flow": self.flow, "dispatch": self}
+        return {"spawn": self.spawn, "orchestra": self.orchestra, "dispatch": self}

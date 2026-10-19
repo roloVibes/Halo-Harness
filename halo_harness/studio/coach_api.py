@@ -3,7 +3,6 @@
 these paths here before the section dispatchers:
 
     GET orchestra/<run>/coach        an Orchestra run of Studio's repo
-    GET flow/runs/<id>/coach         a flow run
     GET fleet/missions/<id>/coach    a mission in this harness's missions folder
     GET team/coach?run=              a team run of Studio's repo (the latest when run is empty)
 
@@ -29,18 +28,13 @@ from pathlib import Path
 
 _RUN = r"[A-Za-z0-9_-]+"
 _VERB = r"(?:/(?P<verb>ask|apply|undo))?$"
-PATTERNS = (("orchestra", rf"^orchestra/(?P<run>{_RUN})/coach{_VERB}"), ("flow", rf"^flow/runs/(?P<run>{_RUN})/coach{_VERB}"),
+PATTERNS = (("orchestra", rf"^orchestra/(?P<run>{_RUN})/coach{_VERB}"),
             ("mission", rf"^fleet/missions/(?P<run>m-\d{{8}}-[0-9a-f]{{4}})/coach{_VERB}"), ("team", rf"^team/coach{_VERB}"))
 
 
 def _orchestra_dir(req, ref):
     from halo_harness.studio import orchestra_model as OM
     return OM.find_run(OM.repo_of(req.cwd), ref)
-
-
-def _flow_dir(req, ref):
-    from halo_harness.studio import flow_model as FM
-    return FM.run_dir_of(req.state_dir, ref)
 
 
 def _mission_dir(req, ref):
@@ -55,8 +49,8 @@ def _team_dir(req, ref):
     return BD.find_run(team_root(req.cwd), ref or None)
 
 
-FINDERS = {"orchestra": _orchestra_dir, "flow": _flow_dir, "mission": _mission_dir, "team": _team_dir}
-WHAT = {"orchestra": "Orchestra run", "flow": "flow run", "mission": "mission", "team": "team run"}
+FINDERS = {"orchestra": _orchestra_dir, "mission": _mission_dir, "team": _team_dir}
+WHAT = {"orchestra": "Orchestra run", "mission": "mission", "team": "team run"}
 
 
 def match(path: str):

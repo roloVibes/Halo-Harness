@@ -10,8 +10,8 @@ works on, and the fleet's config switches (Halo 3.0.5.0 "Fleet" round R1).
   3.0.5.0 R4 adds `ahead` / `behind` (commits against its upstream, None
   without one), `worktree` (the checkout's folder) and `linked` (a git
   worktree other than the main checkout).
-* `session_kind(default)` -> `orchestra-worker` (HALO_ORCHESTRA_RUN set),
-  `paperclip` (a Paperclip heartbeat's PAPERCLIP_AGENT_ID set) or `default`.
+* `session_kind(default)` -> `orchestra-worker` (HALO_ORCHESTRA_RUN set)
+  or `default`.
 * `parent_from_env()` / `parent_env(sid)`: the spawning session's id rides
   HALO_FLEET_PARENT into a child process.
 * `fleet_enabled()` (`fleet.enabled`, default true: every session opens its
@@ -187,8 +187,6 @@ def project(cwd, *, refresh: bool = False) -> dict:
 def session_kind(default: str) -> str:
     if os.environ.get("HALO_ORCHESTRA_RUN"):
         return "orchestra-worker"
-    if os.environ.get("PAPERCLIP_AGENT_ID"):
-        return "paperclip"
     return default
 
 

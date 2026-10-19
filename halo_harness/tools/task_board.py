@@ -3,7 +3,7 @@ round 3, brief C item 3): `TaskCreate`/`TaskUpdate`/`TaskList`, a tiny
 JSON-backed TODO list at `<top_session_dir>/tasks.json` that EVERY
 sub-agent of the same session reads and writes through -- unlike
 `TodoWriteTool` (one model's own private, whole-list-replacing todos),
-this is shared: an org's root creates entries, its workers claim and
+this is shared: a lead creates entries, its sub-agents claim and
 report on them. Fields per task: id, title, status
 (open|claimed|done|blocked), owner (a free-text agent/position name the
 caller supplies -- nothing here tracks "who am I" on its own), notes,
@@ -126,10 +126,8 @@ def _format_task(t: dict) -> str:
 
 def create_task(session_dir: Path, *, title: str, notes: Optional[str] = None,
                  parent: Optional[str] = None, kind: str = "task") -> str:
-    """The real work behind `TaskCreateTool.run()`, also called directly
-    by `agent/subagent.py::run_org_call` (Halo 2.0.2 round 7, brief 3b,
-    "goals") to record an org run's own goal as the board's root task,
-    before any position ever runs. `kind` ("task" or "goal") and `parent`
+    """The real work behind `TaskCreateTool.run()` (Halo 2.0.2 round 7,
+    brief 3b, "goals"). `kind` ("task" or "goal") and `parent`
     (another task's id) are the same two additions that let the board
     show goal -> tasks -> results instead of a flat, unrelated list --
     a plain `TaskCreate` call with neither is unchanged from before this
@@ -144,8 +142,7 @@ def create_task(session_dir: Path, *, title: str, notes: Optional[str] = None,
             # empty board and overwrite it -- the corrupt file is kept,
             # under its own name, for forensics/manual recovery, and this
             # call starts a fresh board with just the new task (never
-            # raises: `create_task` has no error return of its own, and
-            # `run_org_call`'s "never raises" contract calls this too).
+            # raises: `create_task` has no error return of its own).
             path = _board_path(session_dir)
             try:
                 path.rename(path.with_name(f"{path.name}.corrupt-{int(time.time())}"))
@@ -161,7 +158,7 @@ class TaskCreateTool(Tool):
     name = "TaskCreate"
     description = (
         "Add a task to this session's SHARED task board (distinct from TodoWrite's own private list) -- "
-        "visible to every sub-agent of this session, so an organization's workers can see what needs doing. "
+        "visible to every sub-agent of this session, so its workers can see what needs doing. "
         "Returns the new task's id. Use TaskList to see the board and TaskUpdate to claim/update a task."
     )
     input_schema = {

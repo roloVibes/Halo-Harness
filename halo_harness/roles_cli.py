@@ -29,9 +29,9 @@ import sys
 #: show no note (their bio/lineup position is the authority).
 ROLE_WHEN_IT_FIRES = {
     "main": "the session's own conversation model.",
-    "orchestrator": "a team/org position that delegates instead of doing the work itself.",
-    "boss": "a team/org position that briefs and verifies other roles' work.",
-    "worker": "a team/org position that implements (the one role most lineups run hot).",
+    "orchestrator": "a lineup position that delegates instead of doing the work itself.",
+    "boss": "a lineup position that briefs and verifies other roles' work.",
+    "worker": "a lineup position that implements (the one role most lineups run hot).",
     "coder": "any sub-agent whose bio or position asks for the coder role.",
     "implementer": "implementation sub-agents (the halo-dev-cycle's build role).",
     "reviewer": "review sub-agents (dimension reviewers, release review passes).",
@@ -191,7 +191,7 @@ def _cmd_import(rest: list) -> int:
 
 
 def _run_editor(editor: str, path, *, label: str) -> int:
-    """2.0.2 review finding 36: same fix as `org_cli.py`'s own `_run_
+    """2.0.2 review finding 36: same fix as the other editors' own `_run_
     editor` (not shared across the two CLI modules -- small and
     self-contained enough that duplicating it costs less than a new
     cross-module dependency). `subprocess.call([editor, str(path)])`

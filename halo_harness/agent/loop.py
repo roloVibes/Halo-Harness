@@ -1473,16 +1473,11 @@ class Session:
         # carries no request_id to key on either -- see resolve_plan).
         self._plan_waiters: dict = {}
         self._pending_plan_id: Optional[str] = None
-        # Halo 2.0.2 round D (brief item 2, "approval gates"): a request_
-        # id-keyed dict + threading.Event, same shape as `_permission_
-        # waiters`/`_question_waiters` (several may be pending at once --
-        # an org with `max_concurrent` > 1 can gate more than one position
-        # in parallel, unlike plan mode's own single-flight assumption).
-        # `agent/subagent.py`'s `_build_child_session` shares this SAME
-        # dict onto every descendant, exactly like those two already are,
-        # so a deeply-nested org position's own gate reaches the TOP
-        # session's `resolve_approval` (the UI's `Controller.answer_
-        # approval`) with no extra plumbing.
+        # Halo 2.0.2 round D: a request_id-keyed dict + threading.Event,
+        # same shape as `_permission_waiters`/`_question_waiters`, for an
+        # `approval_request` card (a team escalation asks one) that the
+        # UI's `Controller.answer_approval` answers through
+        # `resolve_approval`.
         self._approval_waiters: dict = {}
 
         self.log = session_log or SessionLog(cwd)
@@ -7274,7 +7269,7 @@ class Session:
             human's words reach the running work instead of queueing
             behind the whole batch."""
             nonlocal end_turn
-            from halo_harness.agent.subagent import effective_max_concurrent, run_agent_call, run_org_call
+            from halo_harness.agent.subagent import effective_max_concurrent, run_agent_call
             from halo_harness.tools.base import ToolResult
 
             # 0c: nothing for the cut event to do while the batch runs
@@ -7303,19 +7298,12 @@ class Session:
                     if self.abort.is_set():
                         it["result"] = ToolResult("Sub-agent not started: interrupted by the user.", is_error=True)
                         return
-                    # Halo 2.0.2 round 2 (brief B): `org=` in the tool_use's
-                    # own input picks the org-running path instead of a
-                    # single sub-agent -- same split as tools/agent.py's
-                    # direct-dispatch fallback.
-                    _input = it["input"] if isinstance(it["input"], dict) else {}
-                    _dispatch = run_org_call if _input.get("org") else run_agent_call
-
                     def _grab_child(child) -> None:
                         # 0c: keep the child Session handle on the item so
                         # the finally below can hand unapplied steers back.
                         it["child"] = child
 
-                    _, tr = _dispatch(
+                    _, tr = run_agent_call(
                         runtime=self.agent_runtime, tool_id=it["tool_id"], tool_input=it["input"],
                         tool_name=it["name"], on_event=q.put, on_child=_grab_child,
                     )

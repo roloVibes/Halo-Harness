@@ -20,8 +20,8 @@ missions: one goal split into parts across every harness ([Missions](#missions-3
 
 - **A control socket, on by default.** `fleet.enabled` (default `true`)
   opens each session's loopback control socket and lists it in
-  `~/.halo/run/sessions.json`: the TUI, `halo -p` (and `--bg`), Paperclip
-  heartbeats, Orchestra workers and a flow's org run. It listens on loopback
+  `~/.halo/run/sessions.json`: the TUI, `halo -p` (and `--bg`), Orchestra
+  workers and mission workers. It listens on loopback
   only (see [REMOTE.md](REMOTE.md)). `remote.enabled` is only the Signal
   phone bridge's switch.
 - **A private switch.** `halo --private`, `/private on` or `fleet.private:
@@ -198,7 +198,7 @@ Each halo process with sessions runs one relay thread per joined hub.
 
 ## In Studio
 
-`halo studio --mode fleet` (or `Alt+6`, `/studio fleet`) opens the **Fleet**
+`halo studio --mode fleet` (or `Alt+4`, `/studio fleet`) opens the **Fleet**
 section; the full guide is [STUDIO-fleet.md](STUDIO-fleet.md#fleet-every-harness-every-agent).
 
 - **The map.** One box per harness (this one first), a card per session, its
@@ -220,10 +220,10 @@ section; the full guide is [STUDIO-fleet.md](STUDIO-fleet.md#fleet-every-harness
 - **The Fleet rail** in every section: the same tree in short, with the live
   and need-you counts; a session that waits on you keeps its inline answer.
 - **Hop around.** `J` / `K` the next / previous live agent (also on the Roles
-  and Org canvases and the Orchestra lanes), `F` follow, `Space` pin a mini
+  canvas and the Orchestra lanes), `F` follow, `Space` pin a mini
   stream that stays on screen in every section, `Esc` unpin, `P` pause or
   resume, `K` inside the Agent panel stop (asks first).
-- **Live Roles.** On the Roles and Org canvases the cards whose agents work
+- **Live Roles.** On the Roles canvas the cards whose agents work
   glow in their band colour, by what each agent does right now (typing, a
   tool call, waiting on you, done, failed), with a count badge and a cost
   ticker; the Inspector's **Live** tab shows that agent's streams with Steer,
@@ -283,7 +283,7 @@ One queue of every decision a person has to make, on any harness: a
 session's open **permission**, **question**, **plan** and **approval** cards;
 a hub asking to run a command here (**fleet_ask**); an agent **waiting** with
 no card of its own listed; an agent (or a session) **paused** until someone
-resumes it; a Flow run at its gate (**flow_gate**); an Orchestra run its gate
+resumes it; an Orchestra run its gate
 stopped, with the report's stop reason (**orchestra_gate**); a command this
 hub sent that waits on a member's owner (**control_ask**, from the hub's open
 commands); a spend **cap** reached; two agents editing one file
@@ -292,16 +292,16 @@ since when, the keys that kind takes and where to open it:
 
 | Key | Does |
 |---|---|
-| `a` | allow once (permission), approve (plan), accept (approval, flow gate), allow (fleet ask), resume (paused), lift for today (cap), set aside (orchestra gate, control ask, conflict) |
-| `r` | deny with a reason (permission), answer (question), send back with feedback (plan), edit with an instruction (approval), redo with an instruction (flow gate) |
-| `s` | answer the card negatively, then stop the agent (an approval's own `stop`; a flow run's stop) |
+| `a` | allow once (permission), approve (plan), accept (approval), allow (fleet ask), resume (paused), lift for today (cap), set aside (orchestra gate, control ask, conflict) |
+| `r` | deny with a reason (permission), answer (question), send back with feedback (plan), edit with an instruction (approval) |
+| `s` | answer the card negatively, then stop the agent (an approval's own `stop`) |
 | `o` | nothing is sent: the answer says which section and panel to open |
 
 An answer goes through the route that already handles it:
 `/api/fleet/<harness>/<sid>/command {cmd: answer}` for a card (a member
 answers only under `fleet.allow_control: all` and `fleet.allow_answers:
 true`, scope once), `/api/fleet/<harness>/<sid>/agents/<aid>/command` for a
-stop or a resume, `/api/flow/runs/<id>/answer` for a flow gate. Each decision
+stop or a resume. Each decision
 is journaled with `by` (`fleet.name`), so the digest says who decided what.
 
 When the Signal bridge is enabled (`remote.enabled`), running and paired, a
@@ -351,13 +351,11 @@ On an agent: **Take over** (`mode: take_over, brief`) is a redirect steer
 with your brief, recorded as a hand-off (`handoff: take_over`) in the agent's
 transcript and as "taken over" in its parent's. **Hand to...** (`mode:
 hand_to, to: <harness id or name>`) turns the agent's task, its last
-hand-back and the files it touched into one brief: with Org mode on, a
-Paperclip issue in the linked company assigned to the company agent that
-stands for that harness (its metadata `halo_harness`, or its name); with Org
-mode off, `<repo>/.halo/handoffs/<id>.md` (the state directory's
+hand-back and the files it touched into one brief,
+`<repo>/.halo/handoffs/<id>.md` (the state directory's
 `handoffs/` when the repo is not on this machine). Then the agent is stopped.
 A hand-off never widens a permission: the steer is a note the agent reads,
-the issue runs under the assignee's own permission engine, the file is text.
+the file is text.
 
 ### Recordings
 
@@ -414,7 +412,7 @@ no model is called to build or rank it.
  hardware: {os, distro, release, cpu, cores, ram_gb, gpu: [{name, vram_gb}], disk_free_gb},
  clis: {git, gh, python, uv, node, npm, docker, ffmpeg, rg, claude, codex, ollama, go, cargo,
         java, kubectl, terraform, nmap: version | "installed" | null},
- projects: [{name, repo, branch}], integrations: {paperclip, postiz, signal}}
+ projects: [{name, repo, branch}], integrations: {signal}}
 ```
 
 - **MCP tools** come from each server's tool cache (`~/.halo/mcp/tools-cache/`,
@@ -549,8 +547,7 @@ line, waits for the other box, then drives four steps and prints PASS / FAIL
 with an evidence line for each: **who** (`fleet who nmap` names the member,
 `who gridcraft` this host), **mission** (a one-part files mission pinned to
 the member writes one file and its hand-back lands here), **team** (a team
-with a delegated agent stage whose gate is answered here and a delegated
-flow stage that runs on the member), **recall** (`recall --fleet` with a
+with a delegated agent stage whose gate is answered here), **recall** (`recall --fleet` with a
 query only the member's index answers). On the other box, with the code the
 hub printed:
 

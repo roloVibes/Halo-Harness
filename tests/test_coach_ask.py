@@ -134,8 +134,8 @@ def test_the_lead_is_the_run_s_lineup_lead(ctx: Ctx):
         run = S.orchestra_run(h.root, [S.lane(1, bio="coach-deny", denied=DENIED)], goal={"lineup": "coach-line"})
         ctx.check(f"the lead role's bio model, got {lead_of(run, 'orchestra', state_dir=h.state)}",
                   lead_of(run, "orchestra", state_dir=h.state) == ("main", "or:vendor/strong"))
-        flow = S.flow_run(h.state)
-        ctx.check("a flow asks the main role", lead_of(flow, "flow", state_dir=h.state)[0] == "main")
+        team = S.team_run(h.root)
+        ctx.check("a team run asks the main role", lead_of(team, "team", state_dir=h.state)[0] == "main")
         from halo_harness.orchestra.coach import cached
         result = cached(run, catalog=S.CATALOG, state_dir=h.state)
         with Seam(lambda p: {"text": "ok", "ok": True}) as seam:

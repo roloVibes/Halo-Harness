@@ -5,8 +5,8 @@ against tests/helpers/fleet_hub_rig.py's two harnesses with `--fake`.
 Home A is the hub box, home B is the member (joined, `fleet.allow_control:
 all`, its catalog on the hub). `live_check_fakes.install(member_home=B)` gives
 both sides their fakes, so no model is called: the mission part writes its
-file and hands back, the delegated agent and flow stages return canned
-reports, and only the member's index answers the recall query. Every step
+file and hands back, the delegated agent stage returns a canned
+report, and only the member's index answers the recall query. Every step
 PASSes; a member that refuses the task makes the mission step FAIL and the
 run exit code 1; `--json` writes the report in its documented shape.
 
@@ -74,8 +74,8 @@ def test_every_step_passes_over_the_two_home_rig(ctx: Ctx):
         mission = next(s for s in report["steps"] if s["name"] == "mission")
         ctx.check(f"the mission hand-back carries the nmap line: {mission['evidence']}", "Nmap version" in mission["evidence"])
         team = next(s for s in report["steps"] if s["name"] == "team")
-        ctx.check(f"the team step ran both delegated stages on the member: {team['evidence']}",
-                  "gate was accepted here" in team["evidence"] and "flow stage ran on bob@member" in team["evidence"])
+        ctx.check(f"the team step ran the delegated stage on the member: {team['evidence']}",
+                  "agent stage ran on bob@member and its gate was accepted here" in team["evidence"])
         recall = next(s for s in report["steps"] if s["name"] == "recall")
         ctx.check(f"recall came only from the member, this host answered 0: {recall['evidence']}",
                   "bob@member" in recall["evidence"] and "own index answered 0" in recall["evidence"])

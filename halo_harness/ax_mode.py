@@ -95,8 +95,7 @@ def _review_plan(controller, data: dict) -> None:
 
 
 def _ask_approval(controller, data: dict) -> None:
-    """`approval_request` (a position with `requires_approval`, or a team
-    escalation card): the same accept / edit / stop choice the TUI's
+    """`approval_request` (a team escalation card): the same accept / edit / stop choice the TUI's
     ApprovalCard offers, read from stdin one line at a time. EOF or an
     unrecognized line is "stop"."""
     request_id = data.get("id")

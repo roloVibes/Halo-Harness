@@ -6,18 +6,17 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## The shell (3.0.3.0)
 
-`halo studio` opens a React shell with eight sections in the top bar:
-**Orchestra | Roles | Org | Design | Flow | Fleet | Team | Session** (`Alt+1`..`Alt+8`, or `?mode=` in
-the URL; Flow since 3.0.4.0, Fleet since 3.0.5.0, Team since 3.0.8.0, Session since 3.1.4.0). Session is
-this session, live: the Fleet panels scoped to this harness (see
+`halo studio` opens a React shell with six sections in the top bar:
+**Orchestra | Roles | Design | Fleet | Team | Session** (`Alt+1`..`Alt+6`, or `?mode=` in
+the URL; Fleet since 3.0.5.0, Team since 3.0.8.0, Session since 3.1.4.0; Org and Flow are
+gone since 3.1.4.0). Session is this session, live: the Fleet panels scoped to this harness (see
 [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
-session of this harness is live. Orchestra is the live run console (see [Orchestra](STUDIO-orchestra-flow.md#orchestra-the-run-console)
-below), Flow the workflow console (see [Flow](STUDIO-orchestra-flow.md#flow-the-workflow-console)),
+session of this harness is live. Orchestra is the live run console (see [Orchestra](STUDIO-orchestra.md#orchestra-the-run-console)
+below),
 Fleet every harness and every agent, live (see [Fleet](STUDIO-fleet.md#fleet-every-harness-every-agent)),
-Team the project's team file as one board (see [Team](STUDIO-team-roles-org.md#team-people-blocks-and-stages-on-one-board));
-Roles, Org and Design are React sections since 3.0.7.0 (see
-[What you see (Roles)](STUDIO-team-roles-org.md#what-you-see-roles),
-[Org mode](STUDIO-team-roles-org.md#org-mode-the-company-in-paperclip) and
+Team the project's team file as one board (see [Team](STUDIO-team-roles.md#team-people-blocks-and-stages-on-one-board));
+Roles and Design are React sections since 3.0.7.0 (see
+[What you see (Roles)](STUDIO-team-roles.md#what-you-see-roles) and
 [Design mode](STUDIO-design.md#design-mode-prototypes-pages-and-decks-on-your-own-apps)).
 The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
 3.0.7.0 R2: every section is part of the shell.
@@ -60,7 +59,7 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   section shows in a browser the same card comes up as its welcome, with
   **Got it** (`halo.studio.seen.<section>`; `?tour=off` in the URL keeps it
   shut).
-- **The rail** (left) has the section's own block (Orchestra and Flow: **New
+- **The rail** (left) has the section's own block (Orchestra: **New
   run** and the runs), lists the section's panels (click one to bring it back
   and focus it), the **Fleet tree** (3.0.5.0; it replaced the plain list of
   live sessions): every harness, its sessions and their agents with a status
@@ -68,7 +67,7 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   node, and a session that waits on you keeps its inline answer; then the
   layout actions.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
-  grouped results (Go to, Help, Orchestra, Roles, Org, Design, Flow, Fleet, Team, Media,
+  grouped results (Go to, Help, Orchestra, Roles, Design, Fleet, Team, Media,
   View, Layout), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
 - **The status bar** shows the live feed (a dot that is green when
@@ -76,7 +75,7 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   and ticks once per event), the session count, the fleet (agents at work
   and how many wait on you), the team (3.0.8.0: its stages running now, when
   the repo has a team file), the event count, the section's own status
-  line (Roles: the open lineup, its cards and problems, saved or not; Org's company and
+  line (Roles: the open lineup, its cards and problems, saved or not;
   Design's project) and the section's layout
   state. `Esc` closes the palette, a menu or a help card, then the Inspector.
 
@@ -172,14 +171,14 @@ dismissed, show, own_lineups, active_team, runs, starts, job, plan}`), `POST
 `POST /api/start/dismiss`, `POST /api/start/stop`.
 
 **One story.** Every section's Start view ends on a **Next** footer that
-names the next section and why, in this order: Roles -> Orchestra -> Flow ->
-Team -> Org -> Design -> Fleet (Fleet's points back to Roles); the button
+names the next section and why, in this order: Roles -> Orchestra ->
+Team -> Design -> Fleet (Fleet's points back to Roles); the button
 opens it.
 
 **The Glossary.** The **?** beside the section tabs is a menu: **How
 <section> works** (also `?`) and **Glossary**, a dialog listing every word
 Halo uses (lineup, bio, role, tier, team, member, block, stage, lane, part,
-flow, step, mission, gate, claim, hand-off, plan, coach, orchestra run,
+step, mission, gate, claim, hand-off, plan, coach, orchestra run,
 fleet, hub, harness, capability), each expandable to its one paragraph. Each
 section's How this works card has a **WORDS** row: the glossary words that
 section uses, each opening the Glossary on that word. The text is served by

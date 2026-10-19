@@ -72,7 +72,7 @@ export function StartView() {
           <Surface className="fl-start-form" motion="idle">
             <Explain lines={WHAT} />
             <TryIt title="Start a session in a terminal, it appears here.">
-              Run <code>halo</code> (or <code>halo -p "..."</code>, an Orchestra run, a flow) anywhere on this machine: its card and its agents show on the map within a second.
+              Run <code>halo</code> (or <code>halo -p "..."</code>, an Orchestra run) anywhere on this machine: its card and its agents show on the map within a second.
               <code>halo --private</code> keeps one out.
             </TryIt>
             <PairCard />

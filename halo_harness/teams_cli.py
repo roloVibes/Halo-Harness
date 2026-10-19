@@ -25,7 +25,7 @@ def _cmd_list(rest: list) -> int:
 
 
 def _cmd_show(rest: list) -> int:
-    from halo_harness.teams_yaml import resolve_org, resolve_role_table, resolve_team_template
+    from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
     parser = argparse.ArgumentParser(prog="halo teams show", add_help=True)
     parser.add_argument("name")
     args = parser.parse_args(rest)
@@ -52,11 +52,6 @@ def _cmd_show(rest: list) -> int:
         print(f"    {k}: {v if isinstance(v, str) else v.get('model')}")
     for n in notes:
         print(f"    (note) {n}")
-    org, org_notes = resolve_org(template)
-    if org is not None:
-        print(f"  org: {len(org['positions'])} position(s)")
-        for n in org_notes:
-            print(f"    (note) {n}")
     # Halo 2.0.5 round 5: the per-section enforcement state -- every
     # section this template sets prints ENFORCED (with the one behaviour
     # line naming what the live loop actually does) or its doctor marker,
@@ -91,7 +86,8 @@ def _cmd_validate(rest: list) -> int:
         else:
             print(f"{name}: ok")
         from halo_harness.teams_tiers import tier_warnings
-        for w in tier_warnings(raw):
+        from halo_harness.teams_yaml import removed_section_warnings
+        for w in tier_warnings(raw) + removed_section_warnings(raw):
             print(f"{name}: {w}")
     return 1 if any_problem else 0
 

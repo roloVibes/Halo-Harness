@@ -178,7 +178,7 @@ def test_required_gate_blocks_next_stage_optional_records_and_continues(ctx: Ctx
 
 
 @test
-def test_handoff_shapes_and_org_reports(ctx: Ctx):
+def test_handoff_shapes_and_the_report_line(ctx: Ctx):
     with _Env() as e:
         control = _control(e)
         control.template.setdefault("delegation", {}).pop("handoff", None)
@@ -193,15 +193,15 @@ def test_handoff_shapes_and_org_reports(ctx: Ctx):
         from halo_harness.teams_yaml import save_team_template
         _fixture(e)
         save_team_template("org-team", {
-            "description": "with an org",
+            "description": "a leftover org section (3.1.4.0: ignored)",
             "agents": [{"agent": "worker-bio", "role": "main"},
                        {"agent": "worker-bio", "role": "subagent", "as": "worker"}],
-            "org": {"positions": [{"title": "worker", "agent": "worker-bio", "reports_to": "main"}]},
+            "org": {"positions": [{"title": "worker", "agent": "worker-bio", "reports_to": "boss"}]},
         }, state_dir=e.state_dir)
         from halo_harness.teams_runtime import load_team_control
         control = load_team_control("org-team", cwd=e.cwd, state_dir=e.state_dir)
         line = control.record_report("worker", "worker finished ($0.0100)")
-        ctx.check(f"the report is addressed to reports_to, got {line!r}",
+        ctx.check(f"every report goes to main, a leftover reports_to changes nothing, got {line!r}",
                   line.startswith("[team org-team] worker -> main:"))
 
 

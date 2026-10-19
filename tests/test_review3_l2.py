@@ -3,7 +3,6 @@
 
   * item 46   read-only MCP tools (and Grep) were cut at a flat 30 s in the
               read-only pool, ignoring their own timeout
-  * item 120  Agent(org=...) under a team ignored delegation.max_parallel
   * item 121  the compactionModel override billed at the main model's price
   * item 122  the --max-turns wrap-up vanished when it overflowed
 """
@@ -87,46 +86,6 @@ def test_item46_a_read_only_mcp_call_waits_out_its_own_timeout(ctx: Ctx):
     ctx.check("Grep waits out ripgrep's own limit",
               reg.pool_wait_s("Grep", {}, reg.ToolRegistry().get("Grep")) > reg.READ_ONLY_CALL_TIMEOUT_S)
     ctx.check("Read keeps the 30 s floor", reg.pool_wait_s("Read", {}, reg.ToolRegistry().get("Read")) == 30.0)
-
-
-# ---- item 120 -----------------------------------------------------------------
-
-@test
-def test_item120_an_org_run_under_a_team_keeps_the_team_cap(ctx: Ctx):
-    from halo_harness.agent import subagent
-    from halo_harness.agent.subagent import _org_cap_under_team, effective_max_concurrent
-    from halo_harness.theme import set_config_value
-    from tests.test_teams_runtime import _Env, _fixture, _make_team_session
-    team_rt = SimpleNamespace(team_control=object(), max_concurrent=2)
-    ctx.check("an org with no cap of its own takes the team's", _org_cap_under_team(None, team_rt) == 2)
-    ctx.check("a larger org cap is lowered to the team's", _org_cap_under_team(8, team_rt) == 2)
-    ctx.check("a smaller org cap stays", _org_cap_under_team(1, team_rt) == 1)
-    ctx.check("without a team the org's own value stands",
-              _org_cap_under_team(8, SimpleNamespace(team_control=None, max_concurrent=3)) == 8)
-
-    org = {"name": "pair", "positions": [
-        {"title": "Lead", "role": "orchestrator", "reports": ["Helper"], "instructions": "lead"},
-        {"title": "Helper", "role": "coder", "reports": [], "instructions": "help"}]}
-    captured = {}
-    real = subagent.run_agent_call
-    mock = MockUpstream().start()
-    try:
-        with _Env() as e:
-            _fixture(e)
-            set_config_value("team", "fixture-team")
-            session = _make_team_session(e, mock, "team-main", None)
-            subagent.run_agent_call = lambda **kw: captured.update(kw) or ([], None)
-            subagent.run_org_call(runtime=session.agent_runtime, tool_id="o1", tool_name="Agent",
-                                  tool_input={"org": "pair", "prompt": "go"}, org_override=org)
-            org_rt = captured.get("runtime")
-            ctx.check(f"the org runtime is capped at the team's max_parallel, got "
-                      f"{effective_max_concurrent(org_rt) if org_rt else None}",
-                      org_rt is not None and effective_max_concurrent(org_rt) == 2)
-            ctx.check(f"and so is its gate, got {getattr(org_rt.concurrency_semaphore, 'limit', None)}",
-                      org_rt is not None and org_rt.concurrency_semaphore.limit == 2)
-    finally:
-        subagent.run_agent_call = real
-        mock.stop()
 
 
 # ---- item 121 -----------------------------------------------------------------

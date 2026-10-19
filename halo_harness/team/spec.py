@@ -21,7 +21,8 @@ from typing import Optional
 
 BLOCK_KINDS = ("file", "folder", "git")
 CLAIM_MODES = ("section", "file", "none")
-STAGE_KINDS = ("agent", "orchestra", "flow")
+STAGE_KINDS = ("agent", "orchestra")
+REMOVED_STAGE_KINDS = {"flow": "3.1.4.0"}  # a kind that is gone: validation names the release
 GATES = ("required", "optional", "none")
 TRIGGER_KINDS = ("manual", "block_change", "stage_done")
 BRIEF_ID = "brief"
@@ -125,10 +126,8 @@ def normalize(doc: dict) -> dict:
                        "gate": str(s.get("gate") or "none"),
                        "acceptance": s.get("acceptance") if isinstance(s.get("acceptance"), dict) else None,
                        "settle_s": settle, "goal": s.get("goal") if kind == "orchestra" else None,
-                       "flow": str(s.get("flow") or "") if kind == "flow" else None,
-                       "inputs": s.get("inputs") if isinstance(s.get("inputs"), dict) else {},
                        "prompt": str(s.get("prompt") or ""), "budget_usd": s.get("budget_usd"),
-                       "harness": _harness(s.get("harness")) if kind in ("orchestra", "flow") else None})
+                       "harness": _harness(s.get("harness")) if kind == "orchestra" else None})
     return {"name": str(doc.get("name") or ""), "brief": str(doc.get("brief") or ""), "members": members,
             "blocks": blocks, "workflow": {"stages": stages}, "budget_usd": doc.get("budget_usd")}
 

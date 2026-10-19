@@ -92,7 +92,7 @@ def _cmd_new(rest: list) -> int:
 
 
 def _run_editor(editor: str, path, *, label: str) -> int:
-    """Same fix `roles_cli.py`/`org_cli.py`'s own `_run_editor` already
+    """Same fix `roles_cli.py`'s own `_run_editor` already
     apply -- `shlex.split` + resolve argv[0] through PATH, never a bare
     `subprocess.call([editor, path])` (crashes on `EDITOR="code --wait"`
     or an unresolved Windows shim)."""

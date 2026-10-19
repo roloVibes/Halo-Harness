@@ -1,6 +1,6 @@
 // The Inspector's Lineup tab (3.0.7.0 R2): the lineup's description, how the
 // pieces work together and what it extends, then one block per top section
-// (delegation, routing, budget, escalation, context, permissions, org,
+// (delegation, routing, budget, escalation, context, permissions,
 // pipeline, acceptance, tiers), each with its enforcement badge, its small
 // form (SectionForm) and a YAML toggle that edits the raw section body
 // (`POST yaml` both ways). A save that answers 422 lists the validator's

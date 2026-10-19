@@ -1,6 +1,6 @@
-# Commands: roles, orgs, review, bios and lineups
+# Commands: roles, review, bios and lineups
 
-Read this when you manage roles, organizations, reviews, bios and lineups from the command line.
+Read this when you manage roles, reviews, bios and lineups from the command line.
 
 Part of [Commands](COMMANDS.md), which lists every part.
 
@@ -55,64 +55,6 @@ command; that form, and the init wizard's own Roles step, both gain a
 overwritten). See [ROLES.md](ROLES.md) for the full picture: the role
 table itself, per-role effort, custom role names, `/role`/`/roles` in the
 TUI and print mode, the presets, and the `roles.enabled` mode switch.
-
-## `halo org`
-
-```sh
-halo org list
-halo org show <name>
-halo org new <name> [--description TEXT]
-halo org install <name> [--force]
-halo org edit <name>
-halo org run [<name>] "<goal>" [--model REF] [--yes]
-halo org export <name> [file]
-halo org import <file>
-halo org resume <session-id> [--cwd DIR] [--model REF] [--yes]
-```
-
-Halo 2.0.2 round 2: manages `~/.halo/orgs/<name>.json` organizations -- a
-tree of positions (`halo org new` starts a one-position "Orchestrator"
-root); `show` prints the text tree; `edit` opens `$EDITOR`/`$VISUAL` on
-the raw JSON file (creating a starter first if it doesn't exist already),
-re-validating on save; `run` executes the org's root position on
-`<goal>`, delegating through the same sub-agent machinery an
-`Agent(org=...)` tool call uses, and prints its final answer. `--model`
-on `run` is only a fallback for a position with neither its own `role`
-nor `model` set (every built-in template's own positions always set
-one). Round 7: `<name>` is optional on `run` -- a bare `halo org run
-"<goal>"` (one argument) uses `orgs.default` (set via the init wizard's
-own Organizations step, `/setup orgs`, or `halo setup orgs`); with no
-default set either, it refuses cleanly instead of guessing. The TUI's
-own `/org edit <name>` opens a form instead (`tui/dialogs/org_editor.py`,
-also gaining a round 7 "start from: solo / release-flow / company /
-<saved>" template picker); `/org load <name>` (TUI-only -- re-installs
-one of the three shipped built-ins, overwriting a local copy) has no CLI
-equivalent, since `edit`/`new` already cover the same ground from a
-script.
-
-Round D: `install <name>` copies a shipped built-in or a template saved
-under `~/.halo/org-templates/<name>.json` into `~/.halo/orgs/`, refusing
-to overwrite an existing file there without `--force`; `list`/`/org list`
-show each one's own one-line README (its `description` field). `export`/
-`import` move an org as plain JSON -- `export` writes to `file` or stdout
-when omitted; `import` validates the same way any other org write is
-(role names, reports, `budget_usd`), listing every problem it finds, and
-falls back to the file's own basename when the JSON has no "name" field.
-`resume` continues an interrupted run from a PAST session's own saved run
-record and shared task board (open and claimed tasks become the work
-list, done tasks are kept), with that run's own `max_concurrent`/
-`budget_usd` restored from the record even if the org definition has
-since been edited; `/org resume` (no argument) is the TUI/print-mode
-form, for the CURRENT session's own interrupted run. A position with
-`requires_approval: true` holds its just-finished result as a pending
-card in the dock (accept, edit the instruction and re-run, or stop)
-before its own parent continues; with no live dock at all (`run`/
-`resume` from a plain terminal), it prints the result and waits on
-stdin the same way; `--yes` on `run`/`resume`, or the session's own
-`dontAsk` permission mode, accepts every gate automatically instead of
-asking. See [ORGS.md](ORGS.md) for the full schema, the three built-ins,
-how a run flows through the tree, budgets, goals, approval gates,
-export/import and resume.
 
 ## `halo review`
 
@@ -275,8 +217,8 @@ shipped starters -- `local-first`/`balanced`/`quality`/`halo-dev-cycle`
 -- copied in on first use) -- a lineup ASSIGNS agent bios to roles/
 positions (`agents:`, or the `roles:` shorthand for one assignment per
 role), plus `delegation`/`routing`/`budget`/`escalation`/`context`/
-`permissions`/`org`/`pipeline`/`acceptance`. `show` prints the lineup,
-its resolved role table, any `org:`, and -- since Halo 2.0.5 round 5 --
+`permissions`/`pipeline`/`acceptance`. `show` prints the lineup,
+its resolved role table, and -- since Halo 2.0.5 round 5 --
 the per-section ENFORCEMENT state (enforced / not set / checked by
 doctor, with the one behaviour line each: a session running under the
 team executes these through `teams_runtime.py`, `--team <name>` for one

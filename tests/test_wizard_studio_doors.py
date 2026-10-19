@@ -1,7 +1,7 @@
 """tests.test_wizard_studio_doors -- Halo 3.0.2.0, after the owner's Kali
 review of the wizard: the Team step has a Custom roles switch and an Open
-Studio (Roles) button (the terminal editors are no longer buttons), the
-Orgs step has Open Studio (Org); `studio/launch.py` finds a running Studio
+Studio (Roles) button (the terminal editors are no longer buttons; the
+Orgs step is gone since 3.1.4.0); `studio/launch.py` finds a running Studio
 by its studio.json and `halo studio --stop` ends it; the game themes keep
 the plain status bar; the prompt and the Agent tool explain delegation
 with roles off.
@@ -71,21 +71,6 @@ def test_team_step_has_the_switch_and_the_studio_button(ctx: Ctx):
 
 
 @test
-def test_orgs_step_has_the_studio_button(ctx: Ctx):
-    from textual.widgets import Button
-    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-
-    async def body():
-        state = WizardState(cwd=REPO_DIR, step_keys=("orgs",), no_live=True)
-        app = InitWizardApp(state)
-        async with app.run_test(size=(110, 40)) as pilot:
-            await pilot.pause(0.2)
-            app.screen.query_one("#wiz-orgs-studio", Button)
-            ctx.check("the Orgs step offers Studio", True)
-    _run(body())
-
-
-@test
 def test_launch_finds_a_running_studio_and_stop_reports_none(ctx: Ctx):
     from halo_harness.providers.config import default_state_dir
     from halo_harness.studio.launch import existing_url, read_info
@@ -106,8 +91,8 @@ def test_launch_finds_a_running_studio_and_stop_reports_none(ctx: Ctx):
     port = srv.getsockname()[1]
     try:
         info.write_text(json.dumps({"pid": 1, "port": port, "token": "abc"}), encoding="utf-8")
-        url = existing_url(state, "org")
-        ctx.check(f"a live port gives the URL with the mode and token, got {url!r}", url == f"http://127.0.0.1:{port}/?mode=org#t=abc")
+        url = existing_url(state, "design")
+        ctx.check(f"a live port gives the URL with the mode and token, got {url!r}", url == f"http://127.0.0.1:{port}/?mode=design#t=abc")
         ctx.check("read_info reads it", read_info(state)["port"] == port)
     finally:
         srv.close()

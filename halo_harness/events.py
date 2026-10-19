@@ -81,11 +81,9 @@ EVENT_KINDS = frozenset({
     # as a transcript note; print mode ignores it (the companion
     # `notification` toast was always its own print surface).
     "status_notice",
-    # Halo 2.0.2 round D (brief item 2, "approval gates"): a `requires_
-    # approval: true` org position's just-finished result, held for a
-    # human decision (accept/edit-and-rerun/stop) -- `agent/subagent.py`'s
-    # `_apply_approval_gate`/`_ask_approval_live`, rendered by the TUI's
-    # own `ApprovalCard` (tui/widgets/cards.py) through the SAME
+    # Halo 2.0.2 round D: a card held for a human decision (accept / edit
+    # / stop) -- a team escalation asks one (agent/loop.py), rendered by
+    # the TUI's own `ApprovalCard` (tui/widgets/cards.py) through the SAME
     # PendingDock queue a `permission_request`/`question`/`plan_review`
     # card already uses. data: {id, position, text, is_error}.
     "approval_request",
@@ -98,11 +96,6 @@ EVENT_KINDS = frozenset({
     # with the run log's own entry as data: {ts, elapsed_s, lane, kind,
     # text, data, run}. A UI with no handler for them simply ignores them.
     "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
-    # Halo 3.0.4.0 (flows): a flow run's step states, step results, human
-    # gates, dry-run posts, metrics and report, published by flows/state.py
-    # with the run log's own entry as data: {ts, elapsed_s, step, kind,
-    # text, data, run}.
-    "flow_state", "flow_step", "flow_gate", "flow_post", "flow_metric", "flow_report",
     # Halo 3.0.4.0 R5: a ComfyUI render started from Studio (`POST
     # /api/media/render`): {prompt_id, state: queued|progress|done|error,
     # text, project, artboard, workflow, artboards?, error?}.

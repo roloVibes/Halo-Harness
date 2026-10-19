@@ -1,12 +1,11 @@
 """tests.test_preflight -- Halo 3.0.7.0 round R1: the run-start preflight
-(lineup_preflight.lineup_problems / flow_problems): each finding over a
+(lineup_preflight.lineup_problems): each finding over a
 scratch lineup and a seeded catalog (dead model id, dead fallback, missing
 bio, empty tools.allow, a tier problem), no false dead id from an unread
-catalog, and the four entry points refusing with every blocking problem and
-its fix -- `halo orchestra run`, `POST /api/orchestra/run`, `halo flow run`,
-`POST /api/flow/runs`, a mission `run` -- while `--force` / `{"force": true}`
-goes past it (through the seams: orchestra_api.RUNNER, flow_api, the flow
-CLI's drive, mission_api). `halo doctor --roles` lists the same findings.
+catalog, and the entry points refusing with every blocking problem and
+its fix -- `halo orchestra run`, `POST /api/orchestra/run`, a mission
+`run` -- while `--force` / `{"force": true}` goes past it (through the
+seams: orchestra_api.RUNNER, mission_api). `halo doctor --roles` lists the same findings.
 No model is called.
 
 Run: python -m tests.test_preflight
@@ -139,35 +138,6 @@ def test_orchestra_api_refuses_422_and_force_starts(ctx: Ctx):
             orchestra_live.wait(30)
             orchestra_api.RUNNER = saved
             R.cleanup(repo)
-
-
-@test
-def test_flow_cli_and_api_refuse_and_force_passes(ctx: Ctx):
-    from halo_harness.flows import cli_run
-    from halo_harness.studio import flow_api
-    with Home() as h:
-        h.flow("pf-bad")
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
-            rc = cli_run.cmd_run(["pf-flow", "--brief", "x"])
-        ctx.check(f"halo flow run exits 2 with the refusal, got {rc} {err.getvalue()[-300:]!r}",
-                  rc == 2 and "preflight: 4 problem(s) stop flow pf-flow" in err.getvalue()
-                  and "lineup `pf-bad`: `ghost` names bio" in err.getvalue())
-        saved, driven = cli_run.drive, []
-        cli_run.drive = lambda run_dir, a: driven.append(run_dir) or 0
-        try:
-            with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
-                rc = cli_run.cmd_run(["pf-flow", "--brief", "x", "--force"])
-        finally:
-            cli_run.drive = saved
-        ctx.check(f"--force makes the run and drives it, got {rc}", rc == 0 and len(driven) == 1)
-        st, body = flow_api.post_run(_req("POST", "flow/runs", {"template": "pf-flow", "intake": {"brief": "x"},
-                                                                 "start": False}, h.cwd, h.state_dir))
-        ctx.check(f"POST flow/runs is a 422 with the preflight body, got {st} {str(body)[:200]}",
-                  st == 422 and body.get("preflight") is True and any(p["id"] == "pf-bad/dead-model:worker" for p in body["problems"]))
-        st, body = flow_api.post_run(_req("POST", "flow/runs", {"template": "pf-flow", "intake": {"brief": "x"},
-                                                                 "start": False, "force": True}, h.cwd, h.state_dir))
-        ctx.check(f"force: true makes the run, got {st} {body}", st == 201 and body.get("run") and body.get("started") is False)
 
 
 @test

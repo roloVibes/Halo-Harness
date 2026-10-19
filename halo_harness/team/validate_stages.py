@@ -1,7 +1,8 @@
 """halo_harness.team.validate_stages -- the stage half of `validate_team`
 (team/validate.py; 3.1.0.0 R2 renamed it from spec_stages.py): kinds,
-members, lead, reads/writes, gates, triggers, the trigger graph's cycles, an
-orchestra stage's goal and a flow stage's flow.
+members, lead, reads/writes, gates, triggers, the trigger graph's cycles and
+an orchestra stage's goal. A stage of a kind that is gone (`flow`, 3.1.4.0)
+is one line naming the release and the stage.
 
 The trigger graph has an edge S -> T when T starts on `stage_done:S`, or on
 `block_change:B` while S writes B. A cycle there would start its stages
@@ -58,23 +59,14 @@ def _goal(team, stage, root) -> list:
     return [f"stage `{sid}`: goal: {p}" for p in validate_goal(goal)]
 
 
-def _flow(stage, cwd, state_dir) -> list:
-    from halo_harness.flows import spec as fspec
-    sid, name = stage["id"], stage.get("flow") or ""
-    if not name:
-        return [f"stage `{sid}`: a flow stage names its flow (`halo flow templates` lists them)"]
-    path = fspec.find_flow(name, cwd=cwd, state_dir=state_dir)
-    if path is None:
-        return [f"stage `{sid}`: no flow `{name}` (`halo flow new {name}` makes one from a template)"]
-    try:
-        fspec.load_flow(path)
-    except ValueError as e:
-        return [f"stage `{sid}`: flow `{name}` does not load: {e}"]
-    return []
+def removed_kind_line(sid: str, kind: str) -> str:
+    """The one line for a stage whose kind is gone (Flow, 3.1.4.0)."""
+    return (f"stage `{sid}`: kind `{kind}` was removed in {S.REMOVED_STAGE_KINDS[kind]}; "
+            "make it an agent or orchestra stage, or delete it")
 
 
 def _r2(stage: dict, raw_team: dict) -> list:
-    """3.1.2.0 R2: a stage's budget_usd (team/budget.py) and an orchestra / flow stage's `harness`
+    """3.1.2.0 R2: a stage's budget_usd (team/budget.py) and an orchestra stage's `harness`
     (team/remote_stage.py; an agent stage delegates through its members' `harness`)."""
     from halo_harness.team.validate import _budget
     sid, out = stage["id"], _budget(f"stage `{stage['id']}`: budget_usd", stage.get("budget_usd"))
@@ -142,8 +134,10 @@ def check_stages(team: dict, root: Path, *, cwd=None, state_dir=None, cache=None
             out.append(f"workflow.stages[{i}]: id {sid!r} is letters, digits, - and _")
         elif sid in earlier:
             out.append(f"stage `{sid}` is declared twice")
-        if s["kind"] not in S.STAGE_KINDS:
-            out.append(f"stage `{sid}`: kind is agent, orchestra or flow, got {s['kind']!r}")
+        if s["kind"] in S.REMOVED_STAGE_KINDS:
+            out.append(removed_kind_line(sid, s["kind"]))
+        elif s["kind"] not in S.STAGE_KINDS:
+            out.append(f"stage `{sid}`: kind is agent or orchestra, got {s['kind']!r}")
         for entry in s["members"]:
             if not _known_entry(team, entry, cwd, state_dir, cache):
                 out.append(f"stage `{sid}`: `{entry}` is no member, alias or tier of this team")
@@ -167,10 +161,6 @@ def check_stages(team: dict, root: Path, *, cwd=None, state_dir=None, cache=None
         out += _r2(s, team)
         if s["kind"] == "orchestra":
             out += _goal(team, s, root)
-        if s["kind"] == "flow" and not s.get("harness"):
-            out += _flow(s, cwd, state_dir)
-        elif s["kind"] == "flow" and not s.get("flow"):  # a flow run on a member: the flow is the member's
-            out.append(f"stage `{sid}`: a flow stage names its flow (`halo flow templates` lists them)")
         earlier.append(sid)
     cycle = find_cycle(edges(team))
     if cycle:

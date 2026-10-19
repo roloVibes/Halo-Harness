@@ -18,7 +18,7 @@ holds while it runs under a team (`team:` in config.json or `--team`):
   `agent/loop.py`, which owns models -- this module only DECIDES).
 - `context`/`permissions`: files/skills/memory.namespace+writers and
   mode/rules/offline applied to every member on top of the bio's own.
-- `org`: `reports_to` addresses each member's one-line hand-back report.
+- reporting: each member's completion is a one-line hand-back report to main.
 - `pipeline`: stages in order; a `required` gate must pass its stage's
   acceptance before the next stage starts, an `optional` one records and
   continues (`agents_doctor.check_expectation` is the checker).
@@ -366,16 +366,8 @@ class TeamControl:
         return "\n".join(lines)
 
     def record_report(self, target: Optional[str], one_line: str) -> str:
-        """`org`: every member's completion is a one-line report addressed to
-        the position it reports to (a plain hand-back to the spawner when
-        the org names none)."""
-        reports_to = None
-        entry = self.assignment_for(target) or {}
-        for p in (self.template.get("org") or {}).get("positions") or []:
-            if isinstance(p, dict) and (p.get("agent") == entry.get("agent") or p.get("title") == target):
-                reports_to = p.get("reports_to")
-                break
-        line = f"[team {self.name}] {target or 'member'} -> {reports_to or 'main'}: {one_line}"
+        """Every member's completion is a one-line report addressed to main."""
+        line = f"[team {self.name}] {target or 'member'} -> main: {one_line}"
         with self.lock:
             self.reports.append(line)
         return line

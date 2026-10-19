@@ -71,14 +71,13 @@ halo                         # full-screen TUI
    **Agents** (list/create/edit/duplicate/delete agent bios, or import
    one from a `.claude/agents/*.md` file) side by side, Enter opens
    either kind's own editor, Ctrl+N/Ctrl+D/Del act on whichever pane is
-   focused); **Organizations** (a switch, default off, plus a default
-   org); **Linux fixes** (skipped when nothing needs it); **Summary**
+   focused); **Linux fixes** (skipped when nothing needs it); **Summary**
    (what was written, doctor, a live "pong", and a "Change" row that
    jumps back into any step this run used). `--step <key-or-number>`
    (e.g. `--step team`, `--step agents`/`--step roles` kept as aliases)
    jumps straight to any one step, skipping the Quick/Full choice.
-   Reach Team/Organizations again later with `/setup team`/`/setup orgs`
-   or `halo setup team`/`halo setup orgs`, or the bios and lineups any
+   Reach Team again later with `/setup team` or `halo setup team`, or the
+   bios and lineups any
    time with `/agents`/`/teams` (they show bios and lineups; Studio edits them:
    `halo agents|teams edit <name>`, `/edit <thing>`, `e` in a view) --
    see `docs/WIZARD.md` for the full ten-rule interaction model and chord
@@ -442,8 +441,6 @@ stays the general harness across all four routes above.
 ### Roles
 
 
-Lineup, organization tree and the tasks panel side by side: [roles and organizations](media/diagrams/roles-orgs.svg).
-
 Ten built-in roles (V2c, widened in Halo 2.0.2 --
 `orchestrator`/`planner`/`coder`/`reviewer`/`judge`/`researcher`/`tester`/
 `compaction`/`small`/`subagent_default`) let a team point different kinds of
@@ -475,44 +472,19 @@ init`, `/setup roles`, `halo setup roles`) offers three shipped presets
 (including the new `compaction`/`subagent_default` rungs) and the
 (documented, never automatic beyond one specific case) cost-aware defaults.
 
-### Organizations
-
-A tree of positions (each a role or a pinned model, plus effort,
-instructions and the titles it may itself delegate to) saved as
-`~/.halo/orgs/<name>.json`; three built-ins ship copied in on first use
-and are never overwritten once present -- `solo` (one orchestrator),
-`release-flow` (the brief -> implement -> test -> review -> fix -> retest
--> report loop this project is itself built with), and `company` (CEO ->
-VPs -> managers -> workers). `/org run <name> "<goal>"` (or
-`Agent(org=<name>, prompt=<goal>)`) spawns the root position as an
-ordinary sub-agent that delegates through the SAME Agent-tool machinery
-roles/custom agents already use, each position restricted to only the
-positions it itself may call; depth comes from the org's own tree shape,
-concurrency from `agents.max_concurrent` (config, default 4) unless the
-org sets its own. `/org list|show|new|edit|load` manage them; `halo org
-list|show|new|edit|run` is the CLI equivalent. A switch, `orgs.enabled`
-(default OFF, unlike roles), gates discoverability only (`/org`, the
-`/tasks` board tab, the Agent tool's own `org=` -- never whether a named
-org actually runs); the init wizard's Organizations step (`halo init`,
-`/setup orgs`, `halo setup orgs`) picks a default org (`orgs.default`,
-used by `halo org run "<goal>"` with no name) and offers budgets
-(`budget_usd` on the org/a position, enforced through the cost meter)
-and goals (the run's own goal becomes a root task on the shared board).
-See [docs/ORGS.md](../docs/ORGS.md).
-
 ### Sub-agent visibility and scale
 
 `/tasks` (or Ctrl+T) opens a panel listing every running, queued,
 background and finished sub-agent of this session, with a second tab for
 the shared task board; Enter opens a live transcript viewer of the
 highlighted one. `agents.max_concurrent` (config, default 4) and
-`agents.max_depth` (config, default 1, up to 3; an org's own tree shape
-overrides this, unclamped) govern how many sub-agents may run at once
+`agents.max_depth` (config, default 1, up to 3; a lineup's own
+`delegation.max_depth` overrides this, unclamped) govern how many sub-agents may run at once
 and how deep they may delegate; the Agent tool's `count`/`batch`
 parameters spawn several in one call (one combined result, in spawn
 order), queueing past the cap. The shared task board (`TaskCreate`/
 `TaskUpdate`/`TaskList` tools, `~/.halo/sessions/<id>/tasks.json`) lets
-an organization's workers claim and report on open work. See
+a lead's sub-agents claim and report on open work. See
 [docs/SUBAGENTS.md](../docs/SUBAGENTS.md).
 
 ## Permissions and auto mode

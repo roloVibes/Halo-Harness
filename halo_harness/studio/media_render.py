@@ -19,7 +19,8 @@ import threading
 import time
 from typing import Callable, Optional
 
-from halo_harness.flows.steps_media import RENDER_FILES
+RENDER_FILES = ("render.png", "render.mp4", "render.webp", "render.jpg", "render.jpeg", "render.gif", "render.webm",
+                "render.wav", "render.flac", "render.mp3")
 
 RENDERS: dict = {}
 _lock = threading.Lock()

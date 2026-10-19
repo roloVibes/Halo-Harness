@@ -1,10 +1,9 @@
-"""halo_harness.coach_cli -- `halo coach` and the four per-kind `coach` verbs
+"""halo_harness.coach_cli -- `halo coach` and the three per-kind `coach` verbs
 (Halo 3.0.9.0 round R3; 3.1.3.0 R1 closed the loop):
 
     halo coach [RUN] [--model [--refresh]] [--apply ID [--yes]] [--json] [--repo DIR]
     halo coach --undo [APPLY_ID]
     halo orchestra coach [RUN] ...          an Orchestra run (default: the latest of this repo)
-    halo flow coach [RUN] ...               a flow run (default: the last)
     halo fleet mission coach <id> ...       a mission of this harness (or the shared missions folder)
     halo team coach [RUN] ...               a team run of this repo (default: the latest)
 
@@ -156,18 +155,6 @@ def cmd_orchestra_coach(args, repo: Path) -> int:
               "halo orchestra coach: no runs in this repo", file=sys.stderr)
         return 1
     return run_card(run_dir, args)
-
-
-def cmd_flow_coach(argv: list) -> int:
-    from halo_harness.flows import state
-    a, rc = _parse("halo flow coach", argv, "run id or prefix (default: the last)")
-    if a is None:
-        return rc
-    run_dir = state.find_run(a.run or "last")
-    if run_dir is None:
-        print(f"halo flow coach: no run {a.run or 'last'!r} (halo flow runs lists them)", file=sys.stderr)
-        return 1
-    return run_card(run_dir, a)
 
 
 def cmd_mission_coach(argv: list) -> int:

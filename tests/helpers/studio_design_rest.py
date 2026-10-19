@@ -5,7 +5,7 @@ knobs in the Artboards panel's settings face, a direct text edit (Esc
 cancels, Enter saves a version), pinning a comment and resolving it, the
 design-system panel (edit a token, Sync a folder), "3 directions" (three
 artboards in one row) and the device select (kept across a reload). Run by
-`python -m tests.helpers.studio_org_design design-rest`; no model is called
+`python -m tests.helpers.studio_design design-rest`; no model is called
 (turns run through design_api.RUNNER)."""
 from __future__ import annotations
 

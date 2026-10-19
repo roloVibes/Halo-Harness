@@ -9,7 +9,7 @@ suggestions, one per finding:
      apply: {target: bio|lineup|plan, name, field, value} | null}
 
 `kind` of the run is read from the folder: an Orchestra run (goal.json), a
-flow run (flow.json), a mission (mission.json) or a team run (board.json).
+mission (mission.json) or a team run (board.json).
 The rules live once in coach_rules.py (3.1.3.0 R1); one thin loader per run
 kind, `coach_<kind>_rules.py`, turns that kind's files into the rules'
 facts (the Orchestra loader reads coach_lane_facts.py and coach_prices.py);
@@ -36,10 +36,10 @@ from halo_harness.orchestra import jsonl
 
 KINDS = ("prompt", "model", "tools", "structure", "coordination")
 SEVERITIES = ("high", "medium", "low")
-RUN_KINDS = ("orchestra", "flow", "mission", "team")
+RUN_KINDS = ("orchestra", "mission", "team")
 CACHE = "coach.json"
-_MARKERS = (("flow", "flow.json"), ("mission", "mission.json"), ("team", "board.json"), ("orchestra", "goal.json"))
-_SOURCES = ("report.json", "events.jsonl", "log.jsonl", "merge.json", "board.json", "mission.json", "flow.json",
+_MARKERS = (("mission", "mission.json"), ("team", "board.json"), ("orchestra", "goal.json"))
+_SOURCES = ("report.json", "events.jsonl", "log.jsonl", "merge.json", "board.json", "mission.json",
             "split.json", "plan.json")
 
 
@@ -68,7 +68,7 @@ def coach(run_dir, *, catalog: Optional[list] = None, cwd=None, state_dir=None) 
     run_dir = Path(run_dir)
     kind = run_kind(run_dir)
     if kind is None:
-        raise ValueError(f"{run_dir} is not an Orchestra, flow, mission or team run folder")
+        raise ValueError(f"{run_dir} is not an Orchestra, mission or team run folder")
     import importlib
     rules = getattr(importlib.import_module(f"halo_harness.orchestra.coach_{kind}_rules"), kind)
     found, evidence = rules(run_dir, catalog=catalog, cwd=cwd, state_dir=state_dir)
