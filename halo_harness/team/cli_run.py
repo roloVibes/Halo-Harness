@@ -148,6 +148,10 @@ def cmd_status(args) -> int:
     lines += [f"  {state}: {', '.join(ids)}" for state, ids in st["stages"].items()]
     if st["waiting"]:
         lines.append(f"  waiting: halo team answer {st['waiting'][0]} accept|redo|stop")
+    if st["state"] in ("done", "stopped"):  # 3.1.3.0 R1: the coach's summary line
+        from halo_harness.orchestra.coach_record import summary
+        st["coach"] = summary(run_dir)
+        lines += [f"  {st['coach']}"] * bool(st["coach"])
     _out(args, st, "\n".join(lines))
     return 0
 

@@ -5,7 +5,7 @@ answered them, the files touched, the errors, the hand-offs. No model reads
 or writes any of it.
 
     compute(home, since) -> {since, until, harnesses: [{id, name, local, started, ended, cost_usd, decisions,
-                                                        files, errors, handoffs, quiet}], totals: {...}}
+                                                        files, errors, handoffs, missions, coach, quiet}], totals: {...}}
     parse_since("2h" | "45m" | "1d" | <unix seconds> | "2026-10-14T09:00") -> unix seconds
 
 This harness is read from its transcripts on disk (`<home>/sessions/`: the
@@ -13,7 +13,9 @@ first and last line of each session, its usage lines, its Edit / Write
 calls, its error lines and failed sub-agents, its take-over records); the
 decisions answered from Studio, the hand-offs and every member harness come
 from the hub's journal (fleet/journal.py), which Studio's fleet watcher
-writes while it runs.
+writes while it runs. 3.1.3.0 R1: this harness's `coach` rows, one per run
+the post-run coach read since then (orchestra/coach_record.py's runs.json:
+the run, its kind, its suggestions, how many are applied, the top card).
 """
 
 from __future__ import annotations
@@ -110,7 +112,7 @@ def local(home, since: float, live_ids=(), now: Optional[float] = None) -> dict:
 
 def _bucket(hid, name, is_local) -> dict:
     return {"id": hid, "name": name, "local": is_local, "started": [], "ended": [], "cost_usd": 0.0, "_files": {},
-            "errors": [], "handoffs": [], "decisions": [], "missions": []}
+            "errors": [], "handoffs": [], "decisions": [], "missions": [], "coach": []}
 
 
 def _member_cost(rows: list, since: float) -> float:
@@ -137,6 +139,8 @@ def compute(home, since: float, *, now: Optional[float] = None, local_id: Option
         b = buckets[local_id] = _bucket(local_id, local_name, True)
         for k, v in local(home, since, live_ids, now).items():
             b[k] = v
+        from halo_harness.orchestra.coach_record import runs_since
+        b["coach"] = runs_since(since, home)
     for r in recent:
         hid = r.get("harness")
         if not hid:
@@ -168,9 +172,10 @@ def compute(home, since: float, *, now: Optional[float] = None, local_id: Option
             b["cost_usd"] = _member_cost([r for r in rows if r.get("harness") == hid], since)
         b["cost_usd"] = round(b["cost_usd"], 6)
         b["files"] = sorted(b.pop("_files"))[:200]
-        for k in ("started", "ended", "errors", "handoffs", "decisions", "missions"):
+        for k in ("started", "ended", "errors", "handoffs", "decisions", "missions", "coach"):
             b[k] = b[k][-LIST_CAP:]
-        b["quiet"] = not any(b[k] for k in ("started", "ended", "files", "errors", "handoffs", "decisions", "missions")) and not b["cost_usd"]
+        b["quiet"] = not any(b[k] for k in ("started", "ended", "files", "errors", "handoffs", "decisions", "missions",
+                                            "coach")) and not b["cost_usd"]
     hs = sorted(buckets.values(), key=lambda b: (not b["local"], str(b["name"]).lower()))
     totals = {k: sum(len(b[k]) for b in hs) for k in ("started", "ended", "files", "errors", "handoffs", "decisions", "missions")}
     totals["cost_usd"] = round(sum(b["cost_usd"] for b in hs), 6)
@@ -196,6 +201,10 @@ def text(d: dict) -> str:
             lines.append(f"  hand-off {x.get('action')} {x.get('to') or ''} (by {x.get('by')})".rstrip())
         for x in [m for m in b["missions"] if m.get("kind") in ("mission_run", "mission_end")][-5:]:
             lines.append(f"  mission  {x.get('mission')} {x.get('state') or 'running'}" + (f": {x['reason']}" if x.get("reason") else ""))
+        for x in b.get("coach", [])[-5:]:
+            from halo_harness.orchestra.coach_record import summary_line
+            lines.append(f"  coach    {x.get('kind')} {x.get('run')}: "
+                         + summary_line(int(x.get("n") or 0), int(x.get("applied") or 0), str(x.get("top") or ""))[7:])
         for x in b["errors"][-5:]:
             lines.append(f"  error    {x.get('text')}")
         if b["files"]:

@@ -147,7 +147,7 @@ halo flow answer <run> <step> accept|redo "<text>"|stop         answer a waiting
 halo flow runs                                                  every run, oldest first
 halo flow posts <run>                                           the run's posts: dry run or live, post id, schedule, text
 halo flow metrics <run> [--days N]                              sample the run's live posts' analytics once; print and total them
-halo flow coach [run] [--json]                                  3.0.9.0: the post-run coach's card (read only)
+halo flow coach [run] [--model] [--apply ID [--yes]] [--json]   3.0.9.0: the post-run coach's card (halo coach)
 ```
 
 Halo 3.0.4.0: flows. A flow file walks an input through steps: `intake` (the
@@ -199,7 +199,7 @@ halo orchestra plan [RUN] [--repo DIR]             the plan of a review run as a
                                                    forecast's total against the goal's budget_usd), its problems
 halo orchestra approve [RUN] [--file F] [--repo DIR]  check the plan (F, else Studio's draft, else the split); the run takes it
 halo orchestra reject [RUN] --reason T [--repo DIR]  the waiting run stops with the reason
-halo orchestra coach [RUN] [--json] [--repo DIR]   3.0.9.0: the post-run coach's card (read only)
+halo orchestra coach [RUN] [--model] [--apply ID [--yes]] [--json] [--repo DIR]   3.0.9.0: the coach's card (halo coach)
 ```
 
 Halo 3.0.3.0: the Orchestra, several agents editing the same files without
@@ -244,6 +244,44 @@ unit, its state, its cost, its attempts, its gate and its base. `RUN` is a
 run folder, a run id or an id prefix; with no `RUN`, the latest run of this
 repo. `--json` prints the rows. Read only; no model is called.
 
+## `halo coach`
+
+```
+halo coach [RUN] [--json] [--repo DIR]           the post-run coach's card for a run of any kind
+halo coach [RUN] --model [--refresh]             the run's lead explains each card in one paragraph
+halo coach [RUN] --apply ID [--yes] [--json]     write the change card ID names, after the confirm card and y/N
+halo coach --undo [APPLY_ID] [--json]            put back the file of an apply (default: the last one not undone)
+```
+
+Halo 3.1.3.0: the coach's loop in one command (see [ORCHESTRA.md, "The
+coach"](ORCHESTRA.md#the-coach)). `RUN` is a run folder, a run id or an id
+prefix of any kind (an Orchestra run, a flow run, a team run or a fleet
+mission); with no `RUN`, the latest run, as `halo work` finds it. The card
+lists each suggestion with its id, its why lines, what Apply writes, its
+**applied** / **undone** state and, once asked, the lead's paragraph.
+
+- `--model` asks the run's lead (its lineup's lead role and model) for one
+  paragraph per card, kept in `<run>/coach.ask.json`; a second `--model`
+  reads them back with no call, `--refresh` asks again. A model error is
+  one line on that card; the command still exits 0.
+- `--apply ID` prints the confirm card -- the file, whether Apply creates
+  it, the before -> after diff -- and asks `Apply this change? [y/N]`;
+  `--yes` skips the question. With `--json` and no `--yes` it prints
+  `{preview, applied: null}` and writes nothing. The change goes through the
+  writer Studio's editor uses (a bio, a lineup, the run's plan draft) and is
+  recorded in `~/.halo/coach/applied.jsonl`.
+- `--undo [APPLY_ID]` restores the file's text from before the apply when
+  the file still holds what the apply wrote; otherwise it exits 1 with the
+  reason and writes nothing.
+- `--json` prints the result; every suggestion carries `paragraph` (null
+  until asked), `paragraph_error` and `applied`.
+
+The four kind verbs (`halo orchestra coach`, `halo flow coach`, `halo fleet
+mission coach`, `halo team coach`) take the same `--model`, `--refresh`,
+`--apply`, `--yes` and `--json`. Exit codes: 0 done, 1 no such run, a change
+that cannot be made or a refused undo, 2 usage. `/coach` in the TUI runs the
+same command.
+
 ## `halo team`
 
 ```sh
@@ -257,7 +295,7 @@ halo team answer <stage> accept|redo|stop [--text T] [--run ID] [--json]
 halo team stop [--reason R] [--run ID] [--json]       end the run; every stage not done is skipped
 halo team log [--since N] [--run ID] [--json]         the run's events
 halo team blocks [block] [--json]                     each block's live claims and its last changes
-halo team coach [run] [--json]                        3.0.9.0: the post-run coach's card for a done or stopped run (read only)
+halo team coach [run] [--model] [--apply ID [--yes]] [--json]   3.0.9.0: the coach's card for a done or stopped run (halo coach)
 ```
 
 Halo 3.0.8.0: a team is `<repo>/.halo/team.yaml` (else

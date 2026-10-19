@@ -1,15 +1,22 @@
 // The coach's store (3.0.9.0 R3): one result per run (`<kind>:<run>`), read
 // once from the run kind's route and kept; the cards a viewer dismissed, per
 // run, in localStorage (`halo.coach.dismissed.<kind>.<run>`), so a dismissed
-// card stays hidden after a reload. Nothing here writes a run file.
+// card stays hidden after a reload. Nothing here writes a run file; the
+// loop's POSTs (ask, apply, undo: lib/coach/actions.ts) keep their busy word
+// per card in `busy` and the open confirm card per card in `confirm`.
 import { api, ApiError } from "../api";
 import { createStore, useStore } from "../store";
-import type { CoachResult, CoachRunKind } from "./types";
+import type { CoachPreview, CoachResult, CoachRunKind } from "./types";
 
 export type CoachEntry = { loading: boolean; error: string; result: CoachResult | null };
-export type CoachState = { runs: Record<string, CoachEntry>; dismissed: Record<string, string[]> };
+export type CoachState = {
+  runs: Record<string, CoachEntry>;
+  dismissed: Record<string, string[]>;
+  busy: Record<string, string>;
+  confirm: Record<string, CoachPreview>;
+};
 
-export const coach = createStore<CoachState>({ runs: {}, dismissed: {} });
+export const coach = createStore<CoachState>({ runs: {}, dismissed: {}, busy: {}, confirm: {} });
 
 export function useCoach<S>(select: (s: CoachState) => S): S {
   return useStore(coach, select);

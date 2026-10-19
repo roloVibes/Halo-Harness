@@ -1858,6 +1858,32 @@ def _cmd_orchestra(args: str, facade: HeadlessFacade) -> str:
     return panel_text(run_finder(cwd, (args or "").strip() or None)())
 
 
+def _cmd_coach(args: str, facade: HeadlessFacade) -> str:
+    """Halo 3.1.3.0 R1: the post-run coach's card for a run of any kind (`halo
+    coach` with the same flags: --model, --refresh, --apply ID --yes, --undo)."""
+    import contextlib
+    import io
+    import shlex
+    from halo_harness.coach_cli import cmd_coach
+    try:
+        argv = shlex.split(args or "")
+    except ValueError as e:
+        return f"/coach: {e}"
+    if "--apply" in argv and "--yes" not in argv:
+        argv.append("--preview")  # no y/N prompt here: the confirm card, then `/coach ... --apply ID --yes` writes it
+    out, err = io.StringIO(), io.StringIO()
+    session = getattr(facade, "session", None)
+    cwd = getattr(session, "cwd", None) or getattr(facade, "cwd", None)
+    if cwd and "--repo" not in argv and "--undo" not in argv:
+        argv += ["--repo", str(cwd)]
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            cmd_coach(argv)
+        except SystemExit:
+            pass
+    return (out.getvalue() + err.getvalue()).strip() or "/coach: nothing to show"
+
+
 def _cmd_start(args: str, facade: HeadlessFacade) -> str:
     """Halo 3.1.1.0 R1: the TUI runs the start in a panel (tui/slash.py); here it says how to run it."""
     return ("The ten-minute start runs in a terminal: halo start (one screen per step; --yes runs straight "
@@ -2071,6 +2097,8 @@ _BUILTIN_SPECS = {
     "tasks": ("core", "List background Bash jobs started this session", None, _cmd_tasks),
     "orchestra": ("core", "Show the latest Orchestra run: its steps, worker lanes and run log", "[run]",
                   _cmd_orchestra),
+    "coach": ("core", "The post-run coach's card for a run: --model asks the lead, --apply ID writes, --undo puts back",
+              "[run] [--model] [--apply ID] [--undo [ID]]", _cmd_coach),
     "start": ("core", "The ten-minute start: a lineup, a sample repo, one Orchestra goal, its plan, the run and the coach",
               None, _cmd_start),
     "explain": ("core", "What a Halo word means: one paragraph from the glossary (no word: list them)", "[thing]",

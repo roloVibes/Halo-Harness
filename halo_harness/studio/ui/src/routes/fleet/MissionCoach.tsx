@@ -11,7 +11,7 @@ export function MissionCoach() {
   const id = useMissions((s) => s.view?.mission.id || "");
   return id ? (
     <div className="fmi-coach" data-testid="fleet-mission-coach">
-      <CoachCards kind="mission" run={id} onApply={applySuggestion} />
+      <CoachCards kind="mission" run={id} onEdit={applySuggestion} />
     </div>
   ) : null;
 }
