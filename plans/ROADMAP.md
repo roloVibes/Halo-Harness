@@ -1525,3 +1525,27 @@ scoped to this harness and the session you are in.
 Not taken: duplicating the map and the log into Roles (two busy places, and
 design time blurred into run time; a working card links to Session instead);
 renumbering Alt+1..7 (Session takes Alt+8).
+
+## ADDED 2026-10-19 ~14:35 (rolo: "Actually. Remove orgs and Flow entirely. Too bloated"): 3.1.4.0 R3 "Org and Flow are gone"
+
+Supersedes the "Not taken" line above: Session takes Alt+6 after the
+removal, not Alt+8 (the keys are positional).
+
+- R3 Org and Flow are gone. Org in all three senses: Halo's own
+  organizations from 2.0.2 (`/org`, `halo org`, `Agent(org=)`, the org
+  budget tracker and its approval gates, the wizard's Orgs step, the org
+  templates); the Paperclip integration and the Org section; the lineup
+  `org:` section with `reports_to` and the Roles "reports" edges. Flow in
+  full: the Flow section and rail, `halo_harness/flows`, `halo flow`, `halo
+  postiz`, the flow coach rules, Team's stage kind `flow` and the template's
+  `post` stage, Mission's part kind `flow`, the Work unit kind `step`, the
+  `flow_*` feed kinds, the `flow_gate` attention rows, posts.json /
+  metrics.jsonl, Postiz. Media (ComfyUI renders, the Media panels and
+  palette commands) stays with Design. Shared pieces move instead of dying:
+  the team gate actions, the media render file list, the Media palette
+  commands, the Start-view styles, the media Studio test rig. Nothing under
+  a user's home is deleted: a leftover `orgs` / `paperclip` config section
+  is ignored with a doctor line, a leftover lineup `org:` section warns
+  once, a team stage of kind `flow` fails validation naming 3.1.4.0.
+  Hotkeys: Orchestra 1, Roles 2, Design 3, Fleet 4, Team 5, Session 6.
+  Runs in parallel with R1 and R2; merged last.
