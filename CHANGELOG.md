@@ -8,6 +8,17 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.1.3.0] - unreleased
+
+The coach loop: a coach card can be explained by the run's own lead and applied in one confirm, with a way back. The last of the four versions from the 2026-10-18 assessment.
+
+### R1: the coach asks a model, Apply writes, the rules live once
+
+- **The coach loop.** A coach card can now be explained by the run's own lead (`halo coach <run> --model`, `/coach --model`, Studio's **Ask the model**; one paragraph per card, kept in `<run>/coach.ask.json`, `--refresh` asks again) and applied in one confirm: **Apply** shows the file and the before -> after diff, then writes the bio field, lineup model or plan step through the same writer Studio's editors use (`halo coach <run> --apply ID`, y/N or `--yes`). Every apply is recorded in `~/.halo/coach/applied.jsonl`; **Undo** (`halo coach --undo [ID]`) puts the file back when nothing changed it since. The old Apply (open the editor, nothing saved) is now **Edit**.
+- **`halo coach [RUN]`** takes a run of any kind; the four kind verbs take the same flags.
+- **The coach line** "coach: N suggestions, M applied, top: ..." in the Orchestra, flow, mission and team reports and one coach row per run in `halo fleet digest`.
+- **The coach's rules live once** (`orchestra/coach_rules.py`) for every run kind; some flow, mission and team card ids and texts changed (`coordination-<stage>-loops`, `tools-<unit>-claim-<key>`).
+
 ## [3.1.2.0] - 2026-10-18
 
 One run model: a lane, a mission part, a team stage and a flow step are one unit of work on one ten-state machine, with one ledger line and one report row, and `halo work` prints any run of any kind as one table. The machine is enforced; a team stage's members run at the same time; an orchestra or flow stage can run on a fleet member; a stale downstream lane is never merged stale; a plan is priced before it runs and a team has a budget line; recall reaches across the fleet; and the two-machine check is one command on each box. The third of the four versions from the 2026-10-18 assessment.
