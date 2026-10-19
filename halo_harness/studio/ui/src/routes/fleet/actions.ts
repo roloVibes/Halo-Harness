@@ -48,6 +48,8 @@ export function select(key: AgentKey): void {
   if (!key) return;
   fleet.update(() => ({ selected: key }));
   watch(key);
+  // 3.1.4.0 R1: Agent starts as a strip on the right edge; picking an agent opens it there (the focus stays put)
+  if (layoutStore("fleet").get().layout?.["fleet-agent"]?.collapsed) patchPanel("fleet", "fleet-agent", { collapsed: false }, false);
 }
 
 /** Double-click / Enter on a node: the agent panel, expanded and focused. */

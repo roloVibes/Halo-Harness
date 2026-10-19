@@ -134,7 +134,9 @@ def ask_model(c, rig, url: str, out: dict) -> None:
 
 
 def mission_coach(c, rig, out: dict) -> None:
+    from tests.helpers.studio_fleet_panels import open_strip
     c.go(rig.url("fleet").replace("#t=", "&view=workspace#t="))
+    open_strip(c, "fleet-mission")  # 3.1.4.0 R1: Mission starts as a strip on the right edge
     row = f"document.querySelector('[data-testid=\"fleet-mission-row\"][data-id=\"{rig.mission}\"] [data-testid=\"fleet-mission-open\"]')"
     c.wait(f"!!{row}", 30)
     click(c, row)

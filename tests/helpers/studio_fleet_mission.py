@@ -54,8 +54,9 @@ def _drag(c, part: str, hid: str) -> None:
 
 def plan_and_drag(c, rig, out: dict) -> str:
     from tests.helpers.studio_fleet_mseed import GOAL
-    from tests.helpers.studio_fleet_panels import seen
+    from tests.helpers.studio_fleet_panels import open_strip, seen
     out["about"] = c.wait(f"{PANEL}?.querySelector('.panel-about')?.textContent", 30)
+    open_strip(c, "fleet-mission")  # 3.1.4.0 R1: a strip on the right edge by default
     out["how"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-mission-how\"] li').length", 20)
     seen(c, "document.querySelector('[data-testid=\"fleet-mission-goal\"]')")
     c.click_on("document.querySelector('[data-testid=\"fleet-mission-goal\"]')")

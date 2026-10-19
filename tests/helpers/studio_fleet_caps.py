@@ -22,10 +22,11 @@ CARD = "document.querySelector('[data-testid=\"fleet-caps-card\"][data-id=\"{}\"
 
 def caps(c, rig) -> dict:
     from tests.helpers.studio_fleet_member import MEMBER
-    from tests.helpers.studio_fleet_panels import seen
+    from tests.helpers.studio_fleet_panels import open_strip, seen
     out: dict = {}
     c.go(rig.url("fleet"))
     out["about"] = c.wait("document.querySelector('[data-testid=\"fleet-capabilities\"] .panel-about')?.textContent", 30)
+    open_strip(c, "fleet-capabilities")  # 3.1.4.0 R1: a strip on the right edge by default
     out["box_chips"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-box-chip\"]').length >= 6 && Object.fromEntries([...document.querySelectorAll('[data-testid=\"fleet-box\"]')]"
                               ".map((b) => [b.querySelector('.fm-box-label').textContent, [...b.querySelectorAll('[data-testid=\"fleet-box-chip\"] text')].map((t) => t.textContent)]))", 30)
     who = "document.querySelector('[data-testid=\"fleet-capabilities\"] [data-testid=\"fleet-who-input\"]')"
