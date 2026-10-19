@@ -228,11 +228,13 @@ every secret-shaped value stripped. `--copy` puts it on the clipboard.
 ## Halo Studio
 
 Halo has a GUI. `halo studio` starts a loopback-only server with a per-launch token,
-opens your browser, and shows one window with seven sections and one header:
+opens your browser, and shows one window with eight sections and one header:
 **Orchestra** (`Alt+1`), **Roles** (`Alt+2`), **Org** (`Alt+3`), **Design** (`Alt+4`),
-**Flow** (`Alt+5`), **Fleet** (`Alt+6`) and **Team** (`Alt+7`). Each section opens on a Start view that says what it is for, and its
-panels sit in labelled group boxes you can move and resize. In the TUI, `/roles`, `/org`
-and `/design` open it straight into that section; `Ctrl`/`Cmd`+`K` opens the command
+**Flow** (`Alt+5`), **Fleet** (`Alt+6`), **Team** (`Alt+7`) and **Session** (`Alt+8`: this
+session, live). Each section opens on a Start view that says what it is for, and its
+panels sit in labelled group boxes you can move and resize. In the TUI, `/studio` opens
+it on the session you are in, `/roles`, `/org`
+and `/design` straight into that section; `Ctrl`/`Cmd`+`K` opens the command
 palette and `?` opens "How this works". Nothing leaves your machine: no account, no CDN,
 no fonts fetched, no analytics.
 

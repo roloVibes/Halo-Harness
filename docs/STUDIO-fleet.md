@@ -13,6 +13,15 @@ joined to this machine's hub, each session with its agents at every depth.
 Watch what any agent thinks, runs and writes, and steer, pause or stop that
 one agent, not only the main one.
 
+**Session (3.1.4.0) is these panels scoped to this box.** `Alt+8` (`/studio`
+in a terminal, `halo studio --session`) shows the Map, Activity, Attention
+and Agent panels of this section, the same components, reading the Fleet
+stores through one scope (`{harness, session}`: this harness and the session
+you chose), plus a small Cost panel for that session; a click on one of this
+harness's nodes in the rail, or **Open in Session** in a node's `...` menu,
+goes there. Fleet keeps everything: every harness, its own panels, the whole
+queue and the whole log ([Session](STUDIO-sections.md#session)).
+
 ![Fleet: two harnesses and five agents; the researcher's streams open, the implementer pinned as a mini stream](media/studio-fleet.png)
 
 **The Start view.** While only this harness is here and nothing runs on it,
@@ -247,7 +256,8 @@ shows it on demand.
 |---|---|---|
 | `Alt+6` | everywhere | Fleet |
 | `Alt+7` | everywhere | Team (3.0.8.0) |
-| `J` / `K` | Fleet map, the Roles canvas, Orchestra lanes | the next / previous live agent (Orchestra: the next lane at work) |
+| `Alt+8` | everywhere | Session: this session, live (3.1.4.0) |
+| `J` / `K` | Fleet map, the Session map, the Roles canvas, Orchestra lanes | the next / previous live agent (Session: of this harness; Orchestra: the next lane at work) |
 | `F` | Fleet; Roles with the Live tab open; Orchestra | follow: the stream scrolls with the agent (Orchestra: the Log follows) |
 | `Space` | Fleet; Roles with a card's agent watched | pin the stream: a **mini stream** floats over whatever you look at, in every section |
 | `Esc` | everywhere | unpin the mini stream (once the palette, a menu or the Inspector is closed) |

@@ -82,7 +82,7 @@ export function StatusBar() {
       </HudCell>
       <HudCell>
         <span className="hud-keys">
-          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+7" /> sections <Kbd keys="Esc" /> close
+          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+8" /> sections <Kbd keys="Esc" /> close
         </span>
       </HudCell>
     </HudStrip>

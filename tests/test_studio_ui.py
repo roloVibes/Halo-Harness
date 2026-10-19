@@ -5,7 +5,8 @@ Start view then the grid, a click focuses a panel and `?` opens its help; no sec
 second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (studio_ui_fleet.py),
 3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Org and Design sections (studio_ui_org_design.py),
 3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py), R3 the coach
-(studio_ui_coach.py); seven section tabs since 3.0.8.0; 3.1.4.0 R1 the Fleet default layout (studio_ui_fleet_layout.py).
+(studio_ui_coach.py); seven section tabs since 3.0.8.0, eight since 3.1.4.0 (Session, Alt+8);
+3.1.4.0 R1 the Fleet default layout (studio_ui_fleet_layout.py).
 """
 
 from __future__ import annotations
@@ -89,9 +90,9 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
     # R6b: a folder with no Orchestra run opens on the Start view, not on empty panels
-    ctx.check(f"Orchestra: seven section tabs and the Start view, got {orch}", orch.get("section-tab") == 7 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
-    ctx.check(f"Roles: seven section tabs and its canvas, no frame, got {roles}",
-              roles == {"section-tab": 7, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
+    ctx.check(f"Orchestra: eight section tabs and the Start view, got {orch}", orch.get("section-tab") == 8 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
+    ctx.check(f"Roles: eight section tabs and its canvas, no frame, got {roles}",
+              roles == {"section-tab": 8, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
@@ -110,7 +111,7 @@ def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx)
     ctx.check(f"a band per claimed unit, got {info}", info.get("claim-region", 0) >= 5)
     ctx.check(f"every report check, got {info}", info.get("report-check") == 8)
     ctx.check(f"3.0.9.0: lane 2's hand-off edge and every lane's base, got {info}", info.get("lane-edge") == 1 and info.get("lane-base") == 5)
-    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 7 and info.get("orchestra-root") == 1)
+    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 8 and info.get("orchestra-root") == 1)
 
 
 @test
@@ -136,8 +137,8 @@ def test_flow_section_draws_a_run_in_headless_chrome(ctx: Ctx):
     panels = ("flow-intake", "flow-graph", "flow-step", "flow-renders", "flow-posts", "flow-metrics", "flow-log", "flow-report",
               "media-status", "media-models", "media-workflows", "media-render")
     for name, got in (("waiting", wait), ("finished", done)):
-        ctx.check(f"{name}: seven section tabs and every Flow and Media panel once, got {got}",
-                  got.get("section-tab") == 7 and all(got.get(p) == 1 for p in panels))
+        ctx.check(f"{name}: eight section tabs and every Flow and Media panel once, got {got}",
+                  got.get("section-tab") == 8 and all(got.get(p) == 1 for p in panels))
         ctx.check(f"{name}: the confirm step is the gate diamond, got {got.get('gate-diamond')}", got.get("gate-diamond") == 1)
         ctx.check(f"{name}: the render inline and both runs in the rail, got {got}", got.get("flow-artboard") == 1 and got.get("flow-rail-run") == 2)
     ctx.check(f"waiting: the gate card is open, nothing answered yet, got {wait}", wait.get("gate-card") == 1 and wait.get("gate-answered") == 0)
@@ -212,7 +213,7 @@ def test_roles_header_is_not_nested(ctx: Ctx):
     r, dom = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
     roles = dom.get("roles", {})
     ctx.check(f"the Roles section: its canvas and cards, no frame, got {roles}",
-              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 7)
+              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 8)
 
 
 @test

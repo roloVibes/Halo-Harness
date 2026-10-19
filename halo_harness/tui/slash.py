@@ -137,6 +137,9 @@ async def handle_slash(app, name: str, args: str) -> None:
         "agents": _handle_agents, "teams": _handle_teams,
         # Halo 3.1.1.0 R3: /edit bio:<name> | lineup:<name> | team opens Studio on it.
         "edit": _handle_edit,
+        # Halo 3.1.4.0 R2: bare /studio opens Studio on this session (the Session
+        # dashboard), /studio <section> on that section; `... url` prints the URL.
+        "studio": _handle_studio,
         # Halo 2.0.9 round 4: bare /remote opens the Signal remote-control
         # dialog; /remote status|pair|off print text (see tui/slash_remote.py).
         "remote": _handle_remote,
@@ -2393,6 +2396,19 @@ async def _handle_edit(app, args: str) -> None:
                                       kind="command")
         return
     _edit_in_studio(app, args.strip())
+
+
+async def _handle_studio(app, args: str) -> None:
+    """`/studio`: Studio on the session you are in (focused when a Studio page is open, else opened
+    or started; one line says which). `/studio <section>` opens that section; `/studio [<section>] url`
+    stays the builtin that prints the URL of the Studio this session serves."""
+    words = (args or "").split()
+    if len(words) > 1 or [w for w in words if w.lower() == "url"]:
+        app.run_worker(lambda: _run_slash_worker(app, "studio", args), thread=True, name="run-slash",
+                       group="run-slash", exit_on_error=False)
+        return
+    from halo_harness.tui import studio_open
+    studio_open.open_section(app, words[0] if words else "", cwd=app.cwd, on_line=_studio_line(app))
 
 
 def _new_then_studio(app, kind: str, name: str) -> None:

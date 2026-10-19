@@ -17,14 +17,23 @@ one onto a normal theme clears it. In the TUI, Tab completes theme names
 (the game themes first). See the Themes section of the
 [handbook](HANDBOOK.md).
 
-### `/studio` `[roles|org|design|orchestra|flow|fleet|team] [url]`
-Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, in the mode
-you name (`roles`, `org`, `design`; 3.0.4.0: `orchestra` and `flow` too;
-3.0.5.0: `fleet`, every harness and agent live; 3.0.8.0: `team`, the team's board) or the one you used last. Bare `/roles`,
-`/org` and `/design` are the short forms. Roles is your lineups and agent bios as an editable
-graph in the browser -- served from this session (it closes with it).
-`/studio url` prints the URL without opening a browser; over SSH, forward
-the port it names and open the same URL. See [STUDIO.md](STUDIO.md).
+### `/studio` `[session|roles|org|design|orchestra|flow|fleet|team] [url]`
+Halo 3.1.4.0: bare `/studio` (or `/studio session`) opens Studio on the
+session you are in: the **Session** dashboard (`Alt+8`; `?mode=session&session=<this
+session's id>`), its map, activity, attention, agent and cost. `/studio
+<section>` opens that section. Either way the Studio already running for this
+home is focused (every open page switches), else the browser opens it, else
+one is started, and one line says what happened: opened, focused, or here is
+the URL. The same as `halo studio --session` from a shell.
+
+Halo 2.1.0, modes in 3.0.2.0: the sections are `roles`, `org`, `design`;
+3.0.4.0: `orchestra` and `flow` too; 3.0.5.0: `fleet`, every harness and
+agent live; 3.0.8.0: `team`, the team's board; 3.1.4.0: `session`. Bare
+`/roles`, `/org` and `/design` are unchanged short forms. Roles is your
+lineups and agent bios as an editable graph in the browser.
+`/studio url` (or `/studio <section> url`) prints the URL of the Studio
+this session serves without opening a browser; over SSH, forward the port it
+names and open the same URL. See [STUDIO.md](STUDIO.md).
 
 ### `/design` `[url]`
 Halo 3.0.2.0: opens Halo Studio's **Design mode**: artboards (HTML prototypes
