@@ -13,7 +13,6 @@ All model work goes through seams, so tests use fakes:
 
     SPAWN(member, prompt, *, cwd, env, stage, run_dir) -> {ok, text, cost_usd, error, session_id}
     ORCHESTRA(goal, *, root, stage, run_dir)           -> {ok, text, cost_usd, error, run_id}
-    FLOW(name, *, intake, cwd, stage, run_dir)         -> {ok, text, cost_usd, error, run_id}
     DISPATCH.send(member, task) -> (status, body)       200 running | 202 asked | 403 refused | other failed
     DISPATCH.poll(handle) -> None | {state: asked|running} | {ok, state, text, cost_usd, error}
     ACCEPT(role, prompt) -> reply text                  (an acceptance with a prompt)
@@ -35,7 +34,6 @@ from halo_harness.work.unit import move_word
 
 SPAWN: Optional[Callable] = None
 ORCHESTRA: Optional[Callable] = None
-FLOW: Optional[Callable] = None
 DISPATCH = None
 ACCEPT: Optional[Callable] = None
 POLL_S = 0.5
@@ -66,13 +64,12 @@ def open_run(team: dict, *, run: Optional[str] = None, new: bool = False, cwd=No
 
 
 class TeamRunner:
-    def __init__(self, team: dict, run_dir, *, spawn=None, orchestra=None, flow=None, dispatch=None, accept=None,
+    def __init__(self, team: dict, run_dir, *, spawn=None, orchestra=None, dispatch=None, accept=None,
                  clock: Callable = time.time, watch: bool = False, cwd=None, state_dir=None):
         from halo_harness.team import adapters
         self.team, self.run_dir, self.root = team, Path(run_dir), Path(team["root"])
         self.spawn = spawn or SPAWN or adapters.spawn_member
         self.orchestra = orchestra or ORCHESTRA or adapters.run_orchestra
-        self.flow = flow or FLOW or adapters.run_flow
         self.dispatch = dispatch or DISPATCH
         self.accept = accept or ACCEPT
         self.clock, self.watching, self.cwd, self.state_dir = clock, watch, cwd, state_dir

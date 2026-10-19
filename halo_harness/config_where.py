@@ -4,7 +4,7 @@ every file that sets something for this repo and this home, in one table.
 Groups, in this order: Halo's config (`~/.halo/config.json`, `routes.json`),
 the env files (names only), Claude Code's `settings.json` layers, the MCP
 server files, the active lineup and the lineups it extends, the lineup and
-bio folders, the team file, the Databricks team preset, the flows. Inside a
+bio folders, the team file, the Databricks team preset. Inside a
 group the row with rank 1 is the one the resolver reads first; `wins` and
 `loses` say which file decides each key two files set (halo_harness/where/).
 
@@ -23,7 +23,7 @@ from typing import Optional
 GROUPS = (("config", "Halo's config"), ("env", "Env files (variable names only)"),
           ("settings", "settings.json (Claude Code's; Halo reads them)"), ("mcp", "MCP servers"),
           ("lineup", "Active lineup"), ("lineups", "Lineup folders"), ("bios", "Bio folders"),
-          ("team", "Team file"), ("team-preset", "Databricks team preset"), ("flows", "Flows"))
+          ("team", "Team file"), ("team-preset", "Databricks team preset"))
 
 
 def _active_lineup(state_dir: Path) -> str:

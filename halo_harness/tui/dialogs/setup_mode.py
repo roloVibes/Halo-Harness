@@ -46,7 +46,7 @@ class SetupModeStep(Screen):
             yield Static("halo init", classes="wizard-header")
             yield Static("Quick setup: a provider key, your default model, and which lineup of agents runs "
                           "your work. Full setup walks every step (Permissions, Theme, Team, "
-                          "Organizations, ...).", classes="dialog-title")
+                          "...).", classes="dialog-title")
             yield OptionList(Option("Quick setup", id="quick"), Option("Full setup", id="full"),
                               id="wiz-setup-mode-list")
             with Horizontal(classes="wizard-footer"):

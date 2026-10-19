@@ -10,12 +10,13 @@ is accepted as SUGAR for the common one-assignment-per-role case and
 expanded into the same `agents:` list on load -- a minimal template
 stays five lines.
 
-This module owns storage/validation/the two resolution functions that
-turn a template's assignments into shapes `roles.py`/`orgs.py` already
-understand (`resolve_role_table`/`resolve_org`) -- applying a team
-template never needs a parallel runtime of its own; it just fills the
-EXISTING role table / builds an EXISTING org dict, through the EXISTING
-editors and Auto tab. `delegation`/`routing`/`budget`/`escalation`/
+This module owns storage/validation/the resolution function that turns
+a template's assignments into the shape `roles.py` already understands
+(`resolve_role_table`) -- applying a team template never needs a
+parallel runtime of its own; it just fills the EXISTING role table,
+through the EXISTING editors and Auto tab. A section of a removed
+feature (`org:`, 3.1.4.0) still loads; it is ignored and named in one
+"warning:" line (`removed_section_warnings`), never a problem. `delegation`/`routing`/`budget`/`escalation`/
 `pipeline`/`permissions`/`context` are validated for shape here and
 ENFORCED by the live agent loop through `teams_runtime.py` (Halo 2.0.5
 round 5 -- the roadmap's own "Deferred to 2.0.5 with the Governor" call,
@@ -34,8 +35,11 @@ from halo_harness.agents_yaml import _read_yaml_file, _write_yaml_file  # noqa: 
 
 _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
-TOP_SECTIONS = ("delegation", "routing", "budget", "escalation", "context", "permissions", "org", "pipeline",
+TOP_SECTIONS = ("delegation", "routing", "budget", "escalation", "context", "permissions", "pipeline",
                 "acceptance", "tiers")
+# A lineup section of a feature that is gone: it loads, it is ignored, and
+# `removed_section_warnings` names it in one line (3.1.4.0: Org).
+REMOVED_SECTIONS = {"org": "3.1.4.0"}
 # Halo 3.0.7.0 R1: the one top section whose body is a YAML LIST, not a
 # mapping (`tiers: [{name, members, max_parallel}]`, teams_tiers.py).
 LIST_SECTIONS = ("tiers",)
@@ -60,11 +64,18 @@ SECTION_ENFORCEMENT = {
     "escalation": ("enforced", "triggers switch to the target model (ask: true shows the approval card first)"),
     "context": ("enforced", "files and skills load for every member; memory.namespace and writers govern the shared memory"),
     "permissions": ("enforced", "mode/rules/offline apply to every member on top of the bio's own"),
-    "org": ("enforced", "reports_to addresses each member's hand-back; reporting drives the one-line reports"),
     "pipeline": ("enforced", "stages run in order; a required gate must pass its acceptance before the next stage starts"),
     "acceptance": ("checked by doctor", "halo doctor --agents/--teams runs each acceptance prompt and checks the reply"),
     "tiers": ("enforced", "a member spawns only into the next tier down; max_parallel caps each tier's live members"),
 }
+
+
+def removed_section_warnings(data) -> "list[str]":
+    """One "warning:" line per section of a removed feature the file still has."""
+    if not isinstance(data, dict):
+        return []
+    return [f"warning: {section}: removed in {release}, ignored" for section, release in REMOVED_SECTIONS.items()
+            if section in data]
 
 
 def enforcement_lines(template: dict) -> "list[str]":
@@ -380,20 +391,6 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
             problems.append('"escalation.to" must be a model reference string')
         if escalation.get("ask") is not None and not isinstance(escalation.get("ask"), bool):
             problems.append('"escalation.ask" must be true or false')
-    org = data.get("org")
-    if org is not None and not isinstance(org, dict):
-        problems.append('"org" must be a mapping')
-    elif isinstance(org, dict):
-        positions = org.get("positions")
-        if positions is not None and not isinstance(positions, list):
-            problems.append('"org.positions" must be a list')
-        for i, p in enumerate(positions or []):
-            if not isinstance(p, dict) or not p.get("title"):
-                problems.append(f'org.positions[{i}]: "title" is required')
-                continue
-            agent_name = p.get("agent")
-            if agent_name and not _agent_exists(agent_name, cwd=cwd, state_dir=state_dir):
-                problems.append(f"org.positions[{i}]: no such agent bio: {agent_name!r}")
     pipeline = data.get("pipeline")
     if pipeline is not None and not isinstance(pipeline, dict):
         problems.append('"pipeline" must be a mapping')
@@ -509,48 +506,6 @@ def resolve_role_table(template: dict, *, cwd=None, state_dir=None) -> "tuple[di
             model_ref = mapped
         role_table[key] = {"model": model_ref, "effort": effort} if effort else model_ref
     return role_table, notes
-
-
-def resolve_org(template: dict, *, cwd=None, state_dir=None) -> "tuple[Optional[dict], list[str]]":
-    """`org.positions` -> an `orgs.py`-shaped org dict (`{"name",
-    "description", "positions": [{"title", "model", "reports",
-    "instructions"}, ...]}`) -- lets the EXISTING `OrgEditor`/`OrgsStep`
-    open and apply an org-shaped team template with no changes of their
-    own. `None` (not an error -- `[]` notes) when the template has no
-    `org:` section at all (a plain role-table template, the common
-    case). `delegates_to` maps onto `orgs.py`'s own `reports` field
-    (the children a position may delegate to); `reports_to` (the
-    parent) is accepted in the YAML for readability but not separately
-    stored here -- `orgs.py` already derives the tree's parent/child
-    shape purely from each position's own `reports` list."""
-    org_section = template.get("org")
-    if not isinstance(org_section, dict) or not org_section.get("positions"):
-        return None, []
-    from halo_harness.agents_yaml import resolve_agent_bio
-    positions_out: "list[dict]" = []
-    notes: "list[str]" = []
-    for p in org_section.get("positions") or []:
-        if not isinstance(p, dict) or not p.get("title"):
-            continue
-        title = p["title"]
-        agent_name = p.get("agent")
-        model_ref = None
-        if agent_name:
-            bio = resolve_agent_bio(agent_name, cwd=cwd, state_dir=state_dir)
-            if bio is not None:
-                bio_models = bio.get("models") or {}
-                if isinstance(bio_models, dict):
-                    model_ref = bio_models.get("preference") or bio_models.get("fallback")
-            if model_ref is None:
-                notes.append(f"{title}: agent {agent_name!r} has no resolvable model -- "
-                             f"position saved with no model of its own")
-        position = {"title": title, "reports": list(p.get("delegates_to") or []),
-                    "instructions": p.get("instructions") or ""}
-        if model_ref:
-            position["model"] = model_ref
-        positions_out.append(position)
-    return {"name": template.get("name") or "", "description": template.get("description") or "",
-            "positions": positions_out}, notes
 
 
 def save_team_template(name: str, data: dict, *, cwd=None, state_dir=None, project: bool = False) -> "tuple[bool, list[str]]":
@@ -690,8 +645,8 @@ def ensure_builtin_team_templates(*, state_dir=None) -> "list[str]":
 def _ensure_builtin_team_templates(*, state_dir=None) -> None:
     """Copies every shipped `templates/teams/*.yaml` into `user_teams_
     dir()` the first time its name is missing there -- never overwritten
-    after (same "copy on first use" rule `orgs.ensure_builtin_orgs`/
-    `roles.ensure_builtin_role_presets` already follow). A literal copy,
+    after (same "copy on first use" rule
+    `roles.ensure_builtin_role_presets` already follows). A literal copy,
     never computed -- unlike `roles.py`'s own three presets (no "cheapest
     configured model" probe makes sense for a STATIC shipped file); a
     user who wants a template's own model pins to reflect what's

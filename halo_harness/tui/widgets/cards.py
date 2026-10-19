@@ -637,9 +637,8 @@ class PlanCard(_AnswerCard, can_focus=True):
 
 
 class ApprovalCard(_AnswerCard, can_focus=True):
-    """Halo 2.0.2 round D (brief item 2, "approval gates"): a `requires_
-    approval: true` org position's just-finished result, held pending a
-    human decision -- `on_decide({"action": "accept"|"edit"|"stop",
+    """Halo 2.0.2 round D: an `approval_request` card (a team escalation
+    asks one), held pending a human decision -- `on_decide({"action": "accept"|"edit"|"stop",
     "instruction": str|None})` fires exactly once. `2`/`e` borrows
     PromptInput for the revision instruction first (mirrors
     `PermissionCard.action_choose_deny`'s own deny-feedback flow)."""

@@ -1,4 +1,4 @@
-// The coach's cards (3.0.9.0 R3), shared by the Orchestra, flow, mission and
+// The coach's cards (3.0.9.0 R3), shared by the Orchestra, mission and
 // team report faces: the suggestions grouped by kind, each with its severity
 // chip, the lane or part it is about, the text, the evidence ("why") in mono,
 // and Dismiss (hidden for this run in this browser; "Show dismissed" brings

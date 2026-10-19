@@ -2,7 +2,7 @@
 (halo_harness/team/cli.py, cli_run.py): init, validate, run, status, board,
 answer, stop, log and blocks, each with its exit code and `--json`, in a
 temp git repo with the runner's seams set to the fakes (team/run.py's
-SPAWN / ORCHESTRA / FLOW / DISPATCH). The preflight stops `run` (exit 2)
+SPAWN / ORCHESTRA / DISPATCH). The preflight stops `run` (exit 2)
 and `--force` goes past it. No model is called.
 
 Run: python -m tests.test_team_cli
@@ -46,15 +46,15 @@ class _In:
     def __enter__(self):
         from halo_harness.team import run as TR
         self._cwd = os.getcwd()
-        self._seams = (TR.SPAWN, TR.ORCHESTRA, TR.FLOW, TR.DISPATCH)
-        TR.SPAWN, TR.ORCHESTRA, TR.FLOW, TR.DISPATCH = self.fakes.spawn, self.fakes.orchestra, self.fakes.flow, self.fakes
+        self._seams = (TR.SPAWN, TR.ORCHESTRA, TR.DISPATCH)
+        TR.SPAWN, TR.ORCHESTRA, TR.DISPATCH = self.fakes.spawn, self.fakes.orchestra, self.fakes
         os.chdir(self.root)
         return self
 
     def __exit__(self, *a):
         from halo_harness.team import run as TR
         os.chdir(self._cwd)
-        TR.SPAWN, TR.ORCHESTRA, TR.FLOW, TR.DISPATCH = self._seams
+        TR.SPAWN, TR.ORCHESTRA, TR.DISPATCH = self._seams
 
 
 @test
@@ -105,16 +105,16 @@ def test_run_status_board_log_blocks_answer_stop(ctx: Ctx):
         code, out, _e = _call("status", "--json")
         st = json.loads(out)
         ctx.check(f"status --json, got {st}", code == 0 and st["state"] == "open" and st["waiting"] == ["draft"]
-                  and st["stages"] == {"gated": ["draft"], "pending": ["review", "build", "post"]}
+                  and st["stages"] == {"gated": ["draft"], "pending": ["review", "build"]}
                   and st["runner_live"] is False and abs(st["cost_usd"] - 0.01) < 1e-9)
         code, out, _e = _call("status")
         ctx.check("status text names what to answer", code == 0 and "halo team answer draft" in out)
         code, out, _e = _call("board", "--json")
         board = json.loads(out)
         ctx.check(f"board --json, got {sorted(board)}", code == 0 and [r["id"] for r in board["stages"]]
-                  == ["draft", "review", "build", "post"] and board["stages"][0]["state"] == "gated")
+                  == ["draft", "review", "build"] and board["stages"][0]["state"] == "gated")
         code, out, _e = _call("board")
-        ctx.check("board text has one row per stage", code == 0 and out.count("\n") >= 6 and "orchestra" in out)
+        ctx.check("board text has one row per stage", code == 0 and out.count("\n") >= 2 + 3 and "orchestra" in out)
         code, out, _e = _call("log", "--json")
         log = json.loads(out)
         ctx.check(f"log --json, got {log['next']}", code == 0 and log["next"] == len(log["events"]) > 3)
@@ -130,8 +130,8 @@ def test_run_status_board_log_blocks_answer_stop(ctx: Ctx):
         code, out, _e = _call("answer", "draft", "accept", "--json")
         data = json.loads(out)
         ctx.check(f"answer drives the run on, got {data['message']}", code == 0 and data["driven"] is True
-                  and [r["state"] for r in data["board"]["stages"]] == ["done", "done", "pending", "done"])
-        ctx.check("the fakes saw review and post", any(c[0] == "flow" for c in env.fakes.calls))
+                  and [r["state"] for r in data["board"]["stages"]] == ["done", "done", "pending"])
+        ctx.check("the fakes saw review", any(c[0] == "spawn" and c[2] == "review" for c in env.fakes.calls))
         ctx.check("run with no pending manual stage: exit 1", _call("run")[0] == 1)
         code, out, _e = _call("stop", "--reason", "enough", "--json")
         ctx.check(f"stop: exit 0, got {out}", code == 0 and json.loads(out)["reason"] == "enough")

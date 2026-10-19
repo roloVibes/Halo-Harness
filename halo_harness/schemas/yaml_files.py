@@ -1,15 +1,13 @@
 """halo_harness.schemas.yaml_files -- the shapes of the YAML files Halo reads:
 a lineup (`~/.halo/teams/<name>.yaml`), an agent bio (`~/.halo/agents/<name>.yaml`),
-a team file (`.halo/team.yaml`, `~/.halo/teams/<project>.team.yaml`) and a flow
-(`~/.halo/flows/<name>.flow.yaml`, `.halo/flow.yaml`).
+and a team file (`.halo/team.yaml`, `~/.halo/teams/<project>.team.yaml`).
 
 The key lists come from the loaders themselves (`teams_yaml.TOP_SECTIONS`,
 `agents_yaml.IDENTITY_FIELDS` / `BIO_SECTIONS`, the keys `team.spec.normalize`
 keeps), so a key a loader learns shows up here without a second edit. Each
 schema checks the top level strictly (a key there that nothing reads is
 reported) and the type of every section; what a value means is left to
-`validate_team_template`, `validate_agent_bio`, `validate_team` and
-`validate_flow`.
+`validate_team_template`, `validate_agent_bio` and `validate_team`.
 """
 
 from __future__ import annotations
@@ -46,8 +44,7 @@ def team() -> dict:
     stage = obj({"id": STRING, "kind": STRING, "members": {"type": ["array", "string"]},
                  "reads": {"type": ["array", "string"]}, "writes": {"type": ["array", "string"]},
                  "trigger": STRING, "lead": STRING, "gate": STRING, "acceptance": MAPPING,
-                 "settle_s": NUMBER, "goal": {"type": ["string", "object"]}, "flow": STRING,
-                 "inputs": MAPPING, "prompt": STRING})
+                 "settle_s": NUMBER, "goal": {"type": ["string", "object"]}, "prompt": STRING})
     return obj({"name": STRING, "brief": STRING,
                 "members": {"type": ["array", "string"], "items": {"type": ["object", "string"], **_inner(member)}},
                 "blocks": {"type": ["array", "string"], "items": {"type": ["object", "string"], **_inner(block)}},
@@ -58,10 +55,4 @@ def _inner(schema: dict) -> dict:
     return {"properties": schema["properties"], "additionalProperties": schema["additionalProperties"]}
 
 
-def flow() -> dict:
-    step = {"type": "object"}
-    return obj({"name": STRING, "description": STRING, "version": _VERSION, "project": STRING,
-                "budget_usd": NUMBER, "steps": {"type": "array", "items": step}})
-
-
-SCHEMAS = {"lineup": lineup, "bio": bio, "team": team, "flow": flow}
+SCHEMAS = {"lineup": lineup, "bio": bio, "team": team}

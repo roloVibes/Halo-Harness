@@ -3,7 +3,7 @@
 // chip). Stages are BOXES, one row each in the file's order (a stage_done
 // trigger always names an earlier stage, so the DAG reads top to bottom),
 // placed in the column of their lead and spanning the columns of all their
-// members; an Orchestra or flow stage (no members of its own) spans the whole
+// members; an Orchestra stage (no members of its own) spans the whole
 // team. Blocks sit in a band under the columns as document / folder / git
 // nodes. Edges: `stage_done:` triggers run down the right-hand gutter from
 // stage to stage (the DAG), reads (dashed) and writes (solid) join a stage's

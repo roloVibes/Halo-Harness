@@ -24,7 +24,7 @@ from typing import Optional
 SPOOL = "fleet-push"
 KEEP_S = 600.0
 MAX_FILES = 200
-PUSH_KINDS = ("permission", "question", "plan", "approval", "fleet_ask", "waiting", "flow_gate", "cap", "conflict")
+PUSH_KINDS = ("permission", "question", "plan", "approval", "fleet_ask", "waiting", "cap", "conflict")
 
 
 def _remote(home) -> Path:

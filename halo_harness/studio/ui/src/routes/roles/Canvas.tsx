@@ -1,21 +1,20 @@
 // roles-graph (3.0.7.0 R2; the drawn canvas inside it is data-testid roles-canvas):
-// the open lineup as cards in tier boxes (layout.ts), the delegation,
-// reports and pipeline edges between them. Drag a card to move it (saved
+// the open lineup as cards in tier boxes (layout.ts), the delegation
+// and pipeline edges between them. Drag a card to move it (saved
 // 500 ms after the last move); drop it into another tier box and the
 // lineup's tiers change and save (the main agent stays in tier 0: the card
-// snaps back with the rule); drop it onto a card and it reports to that
-// card. A tier's label strip collapses it. Drag a bio from the Bios panel
+// snaps back with the rule). A tier's label strip collapses it. Drag a bio from the Bios panel
 // onto the canvas to add it. Click the canvas, then A lays out, F fits, + and
 // - zoom, the arrows nudge the selected card, Delete removes it (asks first).
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { Empty } from "../../lib/ui";
-import { addCard, moveToTier, setReportsTo } from "./actions";
+import { addCard, moveToTier } from "./actions";
 import { Card, Edges, TierBox } from "./CanvasParts";
 import { CanvasBar } from "./CanvasBar";
-import { autoLayout, cardAt, columns, extent, hiddenCards, placeAll, tierAt, tierBox } from "./layout";
+import { autoLayout, columns, extent, hiddenCards, placeAll, tierAt, tierBox } from "./layout";
 import { cardActivity, selectCard, useByNode } from "./live";
 import { ReplayBar } from "./Replay";
-import { keyOf, nodeById, openDialog, roles, useRoles } from "./store";
+import { openDialog, roles, useRoles } from "./store";
 import { movePositions, setCollapsed } from "./sync";
 import type { Pos } from "./types";
 
@@ -80,10 +79,6 @@ export function CanvasDetail() {
       if (!s.graph) return;
       const all = placeAll(s.graph, s.positions);
       const p = world(u);
-      const onto = cardAt(s.graph, all, hiddenCards(s.graph, s.collapsed), p, id);
-      const n = nodeById(s, id);
-      const target = onto ? nodeById(s, onto) : undefined;
-      if (n && target && n.role !== "main") return setReportsTo(n.index, keyOf(target));
       const from = s.graph.tiers.find((t) => t.node_ids.includes(id));
       const to = tierAt(s.graph, all, s.collapsed, p, id);
       const next = { x: Math.max(0, all[id].x + last.dx), y: Math.max(0, all[id].y + last.dy) };

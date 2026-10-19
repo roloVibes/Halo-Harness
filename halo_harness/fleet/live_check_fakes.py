@@ -2,11 +2,11 @@
 two-machine check (Halo 3.1.2.0 R3; fleet/live_check.py drives it).
 
 With `--fake` the check needs no model on either box: a mission part writes
-its file and hands back without a turn, a delegated orchestra / flow stage
-returns a canned report, and a recall query the member answers returns one
+its file and hands back without a turn, a delegated orchestra stage (a
+team's, on a member with the repo checked out) returns a canned report, and a recall query the member answers returns one
 canned hit (only for the member's own home, so the hub's own index stays
 empty for that query -- the check proves the hit came from the member).
-`install()` sets the four seams and returns a `restore()` that puts back
+`install()` sets the three seams and returns a `restore()` that puts back
 whatever was there. On a real box only the member runs `--fake`.
 """
 
@@ -44,17 +44,13 @@ def _fake_build() -> Callable:
     return build
 
 
-def _fake_run(kind: str) -> Callable:
-    rid = time.strftime(f"%Y%m%d-%H%M%S-{kind[:2]}")
+def _fake_orchestra() -> Callable:
+    rid = time.strftime("%Y%m%d-%H%M%S-or")
 
     def orchestra(goal, root):
         return {"ok": True, "text": f"Orchestra run {rid} finished", "cost_usd": 0.0, "run_id": rid,
                 "report": {"status": "finished", "kind": "orchestra", "what": (goal or {}).get("what")}}
-
-    def flow(name, inputs, cwd):
-        return {"ok": True, "text": f"flow run {rid} finished", "cost_usd": 0.0, "run_id": rid,
-                "report": {"status": "finished", "flow": name}}
-    return orchestra if kind == "orchestra" else flow
+    return orchestra
 
 
 def _fake_search(member_home: Optional[Path]) -> Callable:
@@ -69,15 +65,15 @@ def _fake_search(member_home: Optional[Path]) -> Callable:
 
 
 def install(member_home: Optional[Path] = None) -> Callable:
-    """Set the four fake seams; returns restore()."""
+    """Set the three fake seams; returns restore()."""
     from halo_harness import recall_fleet as RF
     from halo_harness.fleet import mission_stage_run as MSR
     from halo_harness.fleet import mission_worker as MW
-    saved = (MW.BUILD, MSR.ORCHESTRA, MSR.FLOW, RF.SEARCH)
+    saved = (MW.BUILD, MSR.ORCHESTRA, RF.SEARCH)
     MW.BUILD = _fake_build()
-    MSR.ORCHESTRA, MSR.FLOW = _fake_run("orchestra"), _fake_run("flow")
+    MSR.ORCHESTRA = _fake_orchestra()
     RF.SEARCH = _fake_search(member_home)
 
     def restore() -> None:
-        MW.BUILD, MSR.ORCHESTRA, MSR.FLOW, RF.SEARCH = saved
+        MW.BUILD, MSR.ORCHESTRA, RF.SEARCH = saved
     return restore

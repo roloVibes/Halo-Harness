@@ -3,9 +3,9 @@
 / by its data-testid counts. 3.0.4.0 R6b (tests/helpers/studio_clarity.py): the Orchestra
 Start view then the grid, a click focuses a panel and `?` opens its help; no section nests a
 second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (studio_ui_fleet.py),
-3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Org and Design sections (studio_ui_org_design.py),
+3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Design section (studio_ui_design.py),
 3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py), R3 the coach
-(studio_ui_coach.py); seven section tabs since 3.0.8.0.
+(studio_ui_coach.py); five section tabs since 3.1.4.0 (Org and Flow are gone).
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 from tests.helpers.studio_ui_fleet import register as register_fleet
 from tests.helpers.studio_ui_coach import register as register_coach
 from tests.helpers.studio_ui_mission import register as register_mission
-from tests.helpers.studio_ui_org_design import register as register_org_design
+from tests.helpers.studio_ui_design import register as register_design
 from tests.helpers.studio_ui_plan import register as register_plan
 from tests.helpers.studio_ui_roles import register as register_roles
 from tests.helpers.studio_ui_team import register as register_team
@@ -75,8 +75,8 @@ def test_page_boots_and_draws_nodes_in_headless_chrome(ctx: Ctx):
 @test
 def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
     """3.0.3.0: the React shell at / draws the section tabs (five since
-    3.0.4.0: Flow is Alt+5); Orchestra shows its console, Roles (3.0.7.0 R2)
-    its React canvas, no frame."""
+    3.1.4.0: Orchestra, Roles, Design, Fleet, Team); Orchestra shows its
+    console, Roles (3.0.7.0 R2) its React canvas, no frame."""
     if not _chrome():
         raise SkipTest("no Chrome found (the shell smoke needs headless Chrome)")
     env = _env()
@@ -88,9 +88,9 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
     # R6b: a folder with no Orchestra run opens on the Start view, not on empty panels
-    ctx.check(f"Orchestra: seven section tabs and the Start view, got {orch}", orch.get("section-tab") == 7 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
-    ctx.check(f"Roles: seven section tabs and its canvas, no frame, got {roles}",
-              roles == {"section-tab": 7, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
+    ctx.check(f"Orchestra: five section tabs and the Start view, got {orch}", orch.get("section-tab") == 5 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
+    ctx.check(f"Roles: five section tabs and its canvas, no frame, got {roles}",
+              roles == {"section-tab": 5, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
@@ -109,46 +109,7 @@ def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx)
     ctx.check(f"a band per claimed unit, got {info}", info.get("claim-region", 0) >= 5)
     ctx.check(f"every report check, got {info}", info.get("report-check") == 8)
     ctx.check(f"3.0.9.0: lane 2's hand-off edge and every lane's base, got {info}", info.get("lane-edge") == 1 and info.get("lane-base") == 5)
-    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 7 and info.get("orchestra-root") == 1)
-
-
-@test
-def test_flow_section_draws_a_run_in_headless_chrome(ctx: Ctx):
-    """3.0.4.0 R6: over a finished social-post run and one parked at its
-    confirm gate (the R3 fakes, a FakeComfy) the Flow section draws its eight
-    panels, the gate diamond, the open gate's card with the render inline,
-    the accepted band and the dry-run posts of the finished run, the runs in
-    the rail, and the four Media panels as strips. Owner feedback (R6): the
-    Start view stands in for empty panels (`?view=start`), and while ComfyUI
-    does not answer the Media group is one status card with the fix."""
-    if not _chrome():
-        raise SkipTest("no Chrome found (the Flow smoke needs headless Chrome)")
-    env = _env()
-    r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_studio.py"), "--mode", "flow", "--dom"], capture_output=True,
-                       encoding="utf-8", errors="replace", timeout=300, env=env, cwd=str(REPO))
-    ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
-    try:
-        info = json.loads(r.stdout.strip().splitlines()[-1])
-    except (ValueError, IndexError):
-        info = {}
-    wait, done = info.get("waiting", {}), info.get("finished", {})
-    panels = ("flow-intake", "flow-graph", "flow-step", "flow-renders", "flow-posts", "flow-metrics", "flow-log", "flow-report",
-              "media-status", "media-models", "media-workflows", "media-render")
-    for name, got in (("waiting", wait), ("finished", done)):
-        ctx.check(f"{name}: seven section tabs and every Flow and Media panel once, got {got}",
-                  got.get("section-tab") == 7 and all(got.get(p) == 1 for p in panels))
-        ctx.check(f"{name}: the confirm step is the gate diamond, got {got.get('gate-diamond')}", got.get("gate-diamond") == 1)
-        ctx.check(f"{name}: the render inline and both runs in the rail, got {got}", got.get("flow-artboard") == 1 and got.get("flow-rail-run") == 2)
-    ctx.check(f"waiting: the gate card is open, nothing answered yet, got {wait}", wait.get("gate-card") == 1 and wait.get("gate-answered") == 0)
-    ctx.check(f"finished: the band says accepted, no card, two dry-run posts, got {done}",
-              done.get("gate-card") == 0 and done.get("gate-answered") == 1 and done.get("flow-post") == 2)
-    start, down = info.get("start", {}), info.get("down", {})
-    ctx.check(f"?view=start: one Start view with the intake form and the past runs, no empty panels, got {start}",
-              start.get("flow-start") == 1 and start.get("flow-intake-form") == 1 and start.get("flow-rail-run") == 2
-              and not any(start.get(p) for p in panels))
-    ctx.check(f"ComfyUI down: the status card with the fix, the other three Media panels gone, got {down}",
-              down.get("media-fix") == 1 and down.get("media-status") == 1
-              and not any(down.get(p) for p in ("media-models", "media-workflows", "media-render")))
+    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 5 and info.get("orchestra-root") == 1)
 
 
 @test
@@ -211,7 +172,7 @@ def test_roles_header_is_not_nested(ctx: Ctx):
     r, dom = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
     roles = dom.get("roles", {})
     ctx.check(f"the Roles section: its canvas and cards, no frame, got {roles}",
-              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 7)
+              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 5)
 
 
 @test
@@ -230,10 +191,10 @@ def test_roles_canvas_draws_tier_boxes(ctx: Ctx):
 
 register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/helpers/studio_ui_fleet.py
 register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, tests/helpers/studio_ui_mission.py
-register_org_design(test, _json_of, _chrome)  # 3.0.7.0 R3: Org and Design in React, tests/helpers/studio_ui_org_design.py
+register_design(test, _json_of, _chrome)  # 3.0.7.0 R3: Design in React, tests/helpers/studio_ui_design.py
 register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
 register_team(test, _json_of, _chrome)  # 3.0.8.0 R2: the Team tab, tests/helpers/studio_ui_team.py
-register_plan(test, _json_of, _chrome)  # 3.0.9.0 R2: the plan canvas and the Flow graph, tests/helpers/studio_ui_plan.py
+register_plan(test, _json_of, _chrome)  # 3.0.9.0 R2: the plan canvas, tests/helpers/studio_ui_plan.py
 register_coach(test, _json_of, _chrome)  # 3.0.9.0 R3: the post-run coach, tests/helpers/studio_ui_coach.py
 
 

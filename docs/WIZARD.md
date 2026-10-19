@@ -58,7 +58,7 @@ Everything below is the field-by-field reference; nothing in it changed.
    dropdown (never the screen underneath it). Ctrl+P still opens the full
    picker, with its price/context/speed columns.
 4. **A step rail** across the top of every step (Providers, Local models,
-   Default model, Permissions, Theme, Team, Orgs, Summary): the current
+   Default model, Permissions, Theme, Team, Summary): the current
    step highlighted, done steps ticked. Ctrl+Left/Ctrl+Right are Back/Next
    from anywhere.
 5. **Quick setup by default**: the first screen offers "Quick setup" (a
@@ -84,7 +84,7 @@ Everything below is the field-by-field reference; nothing in it changed.
 ## The step rail
 
 ```
-Providers  >  Local models  >  [Default model]  >  Permissions  >  Theme  >  Team  >  Organizations  >  Summary
+Providers  >  Local models  >  [Default model]  >  Permissions  >  Theme  >  Team  >  Summary
 ```
 
 Current step bold+reversed, done steps prefixed with `✓` and dimmed,
@@ -102,7 +102,7 @@ The very first screen of a genuine `halo init` (never a `--step .../
 | Choice | What runs | What it leaves |
 |---|---|---|
 | **Quick setup** (default, highlighted) | Providers -> Default model -> Team -> Summary | Whatever the Team step applied: the preselected "One model for everything" row leaves the shipped `standard` lineup with roles off (every role, including a spawned sub-agent, resolves to the default model -- see `docs/AGENTS.md`'s "the `default` model reference and the `standard` lineup"); picking a lineup turns roles on. |
-| **Full setup** | Every step: Providers, Local models, Default model, Permissions, Theme, Team, Organizations, Linux fixes (Linux only, only when needed), Summary | Whatever each step's own section of this doc/`docs/AGENTS.md`/`docs/ROLES.md`/`docs/ORGS.md` says it writes. |
+| **Full setup** | Every step: Providers, Local models, Default model, Permissions, Theme, Team, Linux fixes (Linux only, only when needed), Summary | Whatever each step's own section of this doc/`docs/AGENTS.md`/`docs/ROLES.md` says it writes. |
 
 Nothing is ever permanently closed off by picking Quick: `halo init --step
 team` (or `halo setup`/`/setup`) reaches Full setup's own steps any time
@@ -167,15 +167,13 @@ team`) -- all four land on the exact same screen.
 
 | Site | Field | Suggests |
 |---|---|---|
-| Organization editor | "Role or model" | Every enumerated model ref |
 | Role template editor (`/roles edit`) | A quick filter above the role list | Every enumerated model ref, assigned to the role currently highlighted below it |
 
 (3.1.1.0: a bio's and a lineup's model fields are Studio's -- its model
 picker table on the bio form, a model choice on a lineup card.)
 
 Typing narrows the dropdown (prefix matches first, then substring, same
-ranking `model_picker.autocomplete_suggestions` already used for the org
-editor's own plain-text hint); Enter picks the highlighted suggestion;
+ranking `model_picker.autocomplete_suggestions` uses); Enter picks the highlighted suggestion;
 Escape closes the dropdown without leaving the screen underneath it
 unless the dropdown was already closed, in which case Escape does
 whatever it always does there (rule 8).
@@ -201,5 +199,3 @@ implemented per screen.
   and lineup inspector, field by field, and the terminal's views.
 - `docs/ROLES.md` for `roles.enabled`, the `standard` lineup, and the
   role-table resolution chain the Team step's "off" state relies on.
-- `docs/ORGS.md` for the Organizations step itself (unchanged by this
-  round beyond gaining the rail/one-sentence header).

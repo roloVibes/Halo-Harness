@@ -20,14 +20,14 @@ import argparse
 
 # Mirrors cli.py::main's own `if argv and argv[0] == "<name>":` dispatch
 # table, plus the Halo 2.0.2 additions this round introduces. 2.0.2
-# review finding 37: `update`, `org` and `setup` were missing outright --
+# review finding 37: `update` and `setup` were missing outright --
 # `halo <Tab>` never offered them at all. Checked against cli.py::main's
 # own dispatch list by tests/test_completion_cli.py, so this can't drift
 # again unnoticed.
 SUBCOMMANDS = (
     "proxy", "models", "mcp", "config", "doctor", "update", "work-matrix", "init",
     "providers", "stats", "improve", "export", "bugreport", "timeline",
-    "worktree", "bg", "roles", "org", "setup", "completion", "studio", "paperclip", "design",
+    "worktree", "bg", "roles", "setup", "completion", "studio", "design",
     # Halo 2.0.3 round 5d: this round's own new top-level command.
     # "ollama"/"local" (rounds 2/5) were already missing here before this
     # round touched this file -- a separate, pre-existing gap, left as

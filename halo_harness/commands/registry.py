@@ -22,8 +22,7 @@ _BACKTICK_CMD_RE = re.compile(r"!`([^`]*)`")
 
 def _hidden_command_names() -> "set[str]":
     """Halo 2.0.2 round 7 (init wizard brief, "Modes"): `roles`/`role`
-    while `roles.enabled` is False, `org` while `orgs.enabled` is False --
-    hidden from `/help`, tab-completion and the generated-tip pool
+    while `roles.enabled` is False -- hidden from `/help`, tab-completion and the generated-tip pool
     (`tui/tips.py`), never from `resolve()` itself (typing the command
     directly still works -- this is a discoverability default, not a
     refusal; the harness never gates behaviour this way). Best-effort:
@@ -34,12 +33,6 @@ def _hidden_command_names() -> "set[str]":
         from halo_harness.roles import roles_mode_enabled
         if not roles_mode_enabled():
             hidden.update({"roles", "role"})
-    except Exception:
-        pass
-    try:
-        from halo_harness.orgs import orgs_mode_enabled
-        if not orgs_mode_enabled():
-            hidden.add("org")
     except Exception:
         pass
     return hidden
@@ -126,7 +119,7 @@ class Registry:
         """`[(invocation, description), ...]`, primary names only (not
         aliases), sorted alphabetically -- minus whatever `_hidden_
         command_names` excludes right now (Halo 2.0.2 round 7: `roles`/
-        `role`/`org` while their own mode switch is off)."""
+        `role` while its own mode switch is off)."""
         hidden = _hidden_command_names()
         return [(f"/{name}", self._commands[name].description) for name in sorted(self._commands) if name not in hidden]
 

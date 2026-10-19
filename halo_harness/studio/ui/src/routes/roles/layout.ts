@@ -86,15 +86,6 @@ export function tierAt(graph: Graph, pos: Record<string, Pos>, collapsed: Record
   return best;
 }
 
-/** The card under world point `p` (not `dragged`), for a drop that connects two cards. */
-export function cardAt(graph: Graph, pos: Record<string, Pos>, hidden: Set<string>, p: Pos, dragged: string): string {
-  for (const n of graph.nodes) {
-    const q = pos[n.id];
-    if (n.id !== dragged && q && !hidden.has(n.id) && inside({ x: q.x, y: q.y, w: CARD_W, h: CARD_H }, p)) return n.id;
-  }
-  return "";
-}
-
 /** The ids of the cards inside collapsed tier boxes. */
 export function hiddenCards(graph: Graph, collapsed: Record<string, boolean>): Set<string> {
   return new Set(graph.tiers.filter((t) => collapsed[t.name]).flatMap((t) => t.node_ids));

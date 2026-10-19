@@ -2,7 +2,7 @@
 (halo_harness/team/run.py, run_stage.py, stages.py, triggers.py) through the
 seam fakes in tests/helpers/team_rig.py: a manual stage stops at its
 required gate, accept fires the `stage_done` stage (two members, the lead
-merging the other's hand-back) and the flow after it, a block change fires
+merging the other's hand-back), a block change fires
 the orchestra stage once the settle window passes; redo runs the stage again
 with the text; stop ends the run; a delegated member's 202 waits, then runs,
 then lands; a 403 fails the stage with the reason; a refused write is logged
@@ -65,15 +65,14 @@ def test_gate_accept_stage_done_and_a_block_change_after_settle(ctx: Ctx):
     ctx.check("the answer is written", ok and not ST.write_answer(runner.run_dir, "nope", "accept")[0])
     runner.tick()
     st = _states(runner)
-    ctx.check(f"accept: draft done, review and post ran, build still waits on its block, got {st}",
-              st == {"draft": "done", "review": "done", "build": "pending", "post": "done"})
+    ctx.check(f"accept: draft done, review ran, build still waits on its block, got {st}",
+              st == {"draft": "done", "review": "done", "build": "pending"})
     order = [(c[1], c[2]) for c in fakes.calls if c[0] == "spawn"]
     ctx.check(f"review ran editor first, then the lead writer, got {order}",
               order == [("writer", "draft"), ("editor", "review"), ("writer", "review")])
     lead_prompt = [c[3] for c in fakes.calls if c[0] == "spawn" and c[1:3] == ("writer", "review")][0]
     ctx.check("the lead merges the editor's hand-back", "YOU LEAD THIS STAGE" in lead_prompt
               and "review draft by editor" in lead_prompt)
-    ctx.check("the flow ran with its name", any(c[0] == "flow" and c[2] == "social-post" for c in fakes.calls))
     ctx.check("handback.md holds both members", "## editor" in read_stage_file(runner.run_dir, "review", "handback.md"))
     refs = read_stage_file(runner.run_dir, "review", "refs.json")
     ctx.check(f"refs.json holds the session ids, got {refs}", refs == {"sessions": {"editor": "s-editor", "writer": "s-writer"}})
@@ -95,7 +94,7 @@ def test_gate_accept_stage_done_and_a_block_change_after_settle(ctx: Ctx):
     ctx.check("one fire per window", sum(1 for c in fakes.calls if c[0] == "orchestra") == 1)
     board = runner.board()
     ctx.check(f"every stage done: the run is done, cost summed, got {board['state']}",
-              board["state"] == "done" and abs(sum(r["cost_usd"] for r in board["stages"]) - 0.08) < 1e-9)
+              board["state"] == "done" and abs(sum(r["cost_usd"] for r in board["stages"]) - 0.05) < 1e-9)
     kinds = {e["kind"] for e in read_events(runner.run_dir)}
     ctx.check(f"the run log's kinds, got {sorted(kinds)}", {"state", "trigger", "gate", "report"} <= kinds)
     res = json.loads((runner.run_dir / "stages" / "build" / "result.json").read_text(encoding="utf-8"))
@@ -204,14 +203,14 @@ def test_failed_acceptance_raising_seams_and_adopt(ctx: Ctx):
     from halo_harness.team.board import set_stage
     from halo_harness.team.run import TeamRunner
     set_stage(runner.run_dir, "review", "running")
-    set_stage(runner.run_dir, "post", "ready")
+    set_stage(runner.run_dir, "build", "ready")
     fresh = TeamRunner(runner.team, runner.run_dir, **fakes.seams())
     fresh.adopt()
     ctx.check("adopt: a row left running fails with the reason, a ready row queues again",
               fresh.row("review")["state"] == "failed" and "runner that ran it ended" in fresh.row("review")["error"]
-              and fresh.queue == [("post", "")])
+              and fresh.queue == [("build", "")])
     fresh.loop(sleep=lambda s: None, max_ticks=5)
-    ctx.check("the loop runs the queued stage", fresh.row("post")["state"] == "done")
+    ctx.check("the loop runs the queued stage", fresh.row("build")["state"] == "done")
 
 
 @test

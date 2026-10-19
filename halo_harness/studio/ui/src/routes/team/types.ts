@@ -6,7 +6,7 @@
 export type Member = { name: string; lineup: string; role: string; harness: string | null };
 export type BlockKind = "file" | "folder" | "git";
 export type BlockSpec = { id: string; kind: BlockKind; path: string; claims: string };
-export type StageKind = "agent" | "orchestra" | "flow";
+export type StageKind = "agent" | "orchestra";
 export type StageSpec = {
   id: string;
   kind: StageKind;
@@ -19,8 +19,6 @@ export type StageSpec = {
   acceptance: Record<string, unknown> | null;
   settle_s: number;
   goal: Record<string, unknown> | null;
-  flow: string | null;
-  inputs: Record<string, unknown>;
   prompt: string;
 };
 export type TeamDoc = {

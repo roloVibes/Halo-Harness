@@ -14,7 +14,7 @@ import { claimState, stageMotion, usd } from "./store";
 import type { BlockStatus, Member, StageRow } from "./types";
 
 const fit = (text: string, px: number) => short(text, Math.max(4, Math.floor(px / 6.6)));
-const KIND: Record<string, string> = { agent: "agent", orchestra: "orchestra", flow: "flow" };
+const KIND: Record<string, string> = { agent: "agent", orchestra: "orchestra" };
 
 type Click = () => void;
 
@@ -61,7 +61,7 @@ export function StageNode({ b, row, sel, onClick }: { b: StageBox; row: StageRow
   const line = row?.waiting || row?.error || row?.summary || (s.trigger === "manual" ? "starts when you press Run" : `starts on ${s.trigger}`);
   const dots = Object.entries(row?.members_state || {}); // 3.1.2.0 R2: the members run at once, each with its state
   const remote = row?.remote || null;
-  const who = members.length ? `${members.join(", ")}${lead && members.length > 1 ? ` · lead ${lead}` : ""}` : s.kind === "orchestra" ? "the Orchestra's lead and workers" : s.kind === "flow" ? `flow ${s.flow || ""}` : "";
+  const who = members.length ? `${members.join(", ")}${lead && members.length > 1 ? ` · lead ${lead}` : ""}` : s.kind === "orchestra" ? "the Orchestra's lead and workers" : "";
   return (
     <g className="tm-stage" data-testid="team-stage" data-stage={s.id} data-state={state} data-motion={stageMotion(state)} data-selected={sel || undefined}
        transform={`translate(${b.x} ${b.y})`} onClick={onClick} role="button" tabIndex={0} aria-label={`stage ${s.id}, ${state}`}

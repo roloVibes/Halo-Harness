@@ -1782,8 +1782,6 @@ class BridgeApp(App):
             self._completion_items = [inv for inv, _desc in complete_slash(event.token, self.registry)]
         elif event.kind == "arg":
             self._completion_items = self._complete_role_command_arg(event.token)
-        elif event.kind == "orgarg":
-            self._completion_items = self._complete_org_command_arg(event.token)
         elif event.kind == "themearg":
             self._completion_items = self._complete_theme_command_arg(event.token)
         else:
@@ -1859,28 +1857,6 @@ class BridgeApp(App):
         from halo_harness.tui.completion import filter_items
         names = list(GAME_THEMES) + sorted(VALID_THEMES - set(GAME_THEMES))
         if token in names:
-            return []
-        return filter_items(names, token)
-
-    def _complete_org_command_arg(self, token: str) -> "list":
-        """Round B fix pass ("No Tab completion for org/position names in
-        `/org ...`", confirmed): ranks candidates for the org-NAME
-        argument of `/org show|edit|run|load <name> ...` -- every saved
-        organization's own name (`halo_harness.orgs.list_orgs`, the same
-        listing `/org`/`/org list` itself prints)."""
-        from halo_harness.orgs import list_orgs
-        from halo_harness.tui.completion import filter_items
-        try:
-            names = list_orgs(state_dir=getattr(self.controller, "state_dir", None))
-        except Exception:
-            names = []
-        if token in names:
-            # The typed name is ALREADY a complete, exact match -- no
-            # popup needed (and, for `show`/`edit`/`load`, where the name
-            # is the command's own LAST argument, this is also what lets
-            # a follow-up Enter submit normally instead of being read as
-            # "accept the highlighted completion", which `_accept_
-            # completion` never submits for a non-"slash" kind).
             return []
         return filter_items(names, token)
 
@@ -2637,13 +2613,13 @@ class BridgeApp(App):
         # 2.0.2 review finding 38 (discovered while fixing it): this is an
         # APP-level `priority=True` binding (see its own BINDINGS comment
         # above), which Textual checks BEFORE any screen's own priority
-        # bindings -- with a MODAL dialog open (OrgEditor, roles editor,
+        # bindings -- with a MODAL dialog open (the roles editor,
         # the MCP entry form, ...), this used to fire FIRST regardless,
         # either quitting the whole app (chat prompt empty) or editing
         # the chat prompt's OWN text (deleting a character there) while
         # the user was focused on a completely different widget in the
         # dialog -- either way, the dialog's own ctrl+d binding (e.g.
-        # OrgEditor's "delete position") never ran at all. `SkipAction`
+        # a form's own "delete row") never ran at all. `SkipAction`
         # tells Textual "this binding declines the key," which lets the
         # SAME key fall through to the next namespace in the chain (the
         # modal screen itself) instead of being swallowed here.

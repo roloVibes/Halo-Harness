@@ -34,11 +34,8 @@ BINARIES = ("*.png", "*.jpg", "*.gif", "*.ico", "*.woff", "*.woff2", "*.ttf", "*
 _BYTES_COMPARE = re.compile(r"read_bytes\(\)[^#\n]*?(==|!=)|(==|!=)[^#\n]*?read_bytes\(\)")
 _FOLD = 'replace(b"\\r\\n", b"\\n")'
 # (path under halo_harness/) -> why its bytes comparison is not a text-mode copy that could disagree on endings
-_BYTES_COMPARE_ALLOWED = {
-    "flows/steps_agents.py":
-        "_copy_asset compares an asset with a byte-for-byte copy (shutil.copy2) of itself; assets are mostly images, "
-        "and neither side is ever written in text mode",
-}
+# (3.1.4.0: the one entry, flows/steps_agents.py's asset copy, went with Flow)
+_BYTES_COMPARE_ALLOWED: dict = {}
 
 
 def _attr_lines() -> list:

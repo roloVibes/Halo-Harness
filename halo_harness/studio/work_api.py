@@ -3,9 +3,9 @@ R1, docs/WORK.md). studio/api.py dispatches `work/` here.
 
     GET work/<kind>/<run>    the units of one run as the shared rows (work/report.py)
 
-`<kind>` is `orchestra`, `mission`, `team` or `flow` (or a unit kind: lane,
-part, stage, step). `<run>` is a run id or a unique prefix, found the way
-each section's own routes find it (orchestra_model, flow_model, the team
+`<kind>` is `orchestra`, `mission` or `team` (or a unit kind: lane,
+part, stage). `<run>` is a run id or a unique prefix, found the way
+each section's own routes find it (orchestra_model, the team
 root, the missions folder). The answer is `{run, kind, units}`; 404 for an
 unknown run, 405 for another method. The Studio panels keep their own
 routes this round -- this one serves every kind through one shape.
@@ -16,18 +16,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-PATTERN = re.compile(r"^work/(?P<kind>orchestra|mission|team|flow|lane|part|stage|step)/(?P<run>[A-Za-z0-9_-]+)$")
-_UNIT_RUN = {"lane": "orchestra", "part": "mission", "stage": "team", "step": "flow"}
+PATTERN = re.compile(r"^work/(?P<kind>orchestra|mission|team|lane|part|stage)/(?P<run>[A-Za-z0-9_-]+)$")
+_UNIT_RUN = {"lane": "orchestra", "part": "mission", "stage": "team"}
 
 
 def _orchestra(req, ref):
     from halo_harness.studio import orchestra_model as OM
     return OM.find_run(OM.repo_of(req.cwd), ref)
-
-
-def _flow(req, ref):
-    from halo_harness.studio import flow_model as FM
-    return FM.run_dir_of(req.state_dir, ref)
 
 
 def _mission(req, ref):
@@ -42,8 +37,8 @@ def _team(req, ref):
     return BD.find_run(team_root(req.cwd), ref or None)
 
 
-FINDERS = {"orchestra": _orchestra, "flow": _flow, "mission": _mission, "team": _team}
-WHAT = {"orchestra": "Orchestra run", "flow": "flow run", "mission": "mission", "team": "team run"}
+FINDERS = {"orchestra": _orchestra, "mission": _mission, "team": _team}
+WHAT = {"orchestra": "Orchestra run", "mission": "mission", "team": "team run"}
 
 
 def dispatch_work(req):

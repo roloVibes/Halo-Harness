@@ -8,17 +8,17 @@ editable too"), two layers, approved 2026-10-05/06:
 1. **Agent bios** (`halo_harness/agents_yaml.py`) -- one YAML file per
    agent NAME, describing what that agent IS: its models, tools, context,
    limits, output shape, environment, and an acceptance check. A bio
-   never names a role or a position.
+   never names a role.
 2. **Team templates** ("lineups", `halo_harness/teams_yaml.py`) -- one
-   YAML file per template, ASSIGNING bios to roles/positions, with
+   YAML file per template, ASSIGNING bios to roles, with
    delegation/routing/budget/escalation/pipeline settings around them.
    The active one is `team` in `~/.halo/config.json` (`halo teams use
    <name>`).
 
 A team template is what the Roles step's **Auto** tab, `/roles`, and
 `/teams` show as a pickable, resolvable set of roles -- applying one just
-fills the EXISTING role table (`docs/ROLES.md`) or builds an EXISTING org
-dict (`docs/ORGS.md`) through two resolution functions, so every other
+fills the EXISTING role table (`docs/ROLES.md`) through one resolution
+function, so every other
 part of this harness keeps working completely unchanged. When a session
 actually RUNS under a team (`team:` in config.json or `--team <name>`),
 its other sections are enforced by `teams_runtime.py` (Halo 2.0.5 round 5)
@@ -99,7 +99,7 @@ precedence):
 The six shipped team templates (`balanced`, `code-review`,
 `halo-dev-cycle`, `local-first`, `quality`, `standard`) are copied into `~/.halo/teams/` the first time each is
 missing there (never overwritten after -- the same "copy on first use"
-rule `roles.py`'s own three presets and `orgs.py`'s own built-ins already
+rule `roles.py`'s own three presets already
 follow); the shipped bios are NOT auto-copied -- `extends:`/`--from`
 reach them directly in the templates directory, and `halo agents new
 <name> --from <bio>` makes an editable copy on request.
@@ -111,7 +111,7 @@ a section the child never mentions is inherited whole; identity fields
 (`description`/`version`/`tags`/`kind`) never inherit, only `extends`
 itself chains. For a team template, every top section
 (`delegation`/`routing`/`budget`/`escalation`/`context`/`permissions`/
-`org`/`pipeline`/`acceptance`) merges the same way; `agents:` (the
+`pipeline`/`acceptance`) merges the same way; `agents:` (the
 lineup itself) does NOT merge -- a child that defines its own
 `agents:`/`roles:` replaces the parent's lineup outright.
 
@@ -277,11 +277,6 @@ budget: {max_budget_usd: 20, max_total_turns: 400, max_wall_time: 3h, agents_may
 escalation: {triggers: [tool_failures, context_overflow], to: or:anthropic/claude-opus-5.5, ask: false, allow_fallbacks: true}
 context: {files: [CLAUDE.md], skills: [], memory: {namespace: my-team, writers: [boss]}}
 permissions: {mode: auto, rules: [], offline: false}
-org:
-  positions:
-    - {title: Boss, agent: orchestrator, delegates_to: [Worker]}
-    - {title: Worker, agent: implementer, reports_to: Boss}
-  reporting: {cadence: per-round, format: one-line}
 pipeline:
   stages:    # stages run in order; a required gate must pass first
     - {name: implement, role: subagent, gate: required, acceptance: {prompt: "...", expect: non-empty}}
@@ -293,7 +288,7 @@ What each section DOES at runtime:
 
 - **delegation** -- `max_depth` is the session's depth cap, `max_parallel`
   its in-flight spawn cap (the same gate `agents.max_concurrent` sizes,
-  per team; an `Agent(org=...)` run under the team is held to it too); `handoff` shapes what a member hands back (`summary` -- the
+  per team); `handoff` shapes what a member hands back (`summary` -- the
   final text, `full` -- plus the child's transcript path, `structured` --
   role/status/cost/result lines); `forward_text: true` prepends the
   parent's latest user text to the delegation prompt.
@@ -322,9 +317,11 @@ What each section DOES at runtime:
   trusted, a project-level template (`.halo/teams/`, including one reached
   through `extends:`) keeps its deny/ask rules but its `mode` and allow
   rules are ignored.
-- **org** -- `reports_to` addresses each member's one-line completion
-  report (delivered as a user-role notice on the root session's next
-  turn); `reporting` drives those one-liners.
+- **reporting** -- each member's completion is a one-line report to main
+  (delivered as a user-role notice on the root session's next turn). A
+  lineup that still has an `org:` section (removed in 3.1.4.0) loads with
+  one warning line, `org: removed in 3.1.4.0, ignored`; the section does
+  nothing.
 - **pipeline** -- stages run in order; a `required` gate must pass its
   stage's acceptance (the stage's own `acceptance`, else its bio's) before
   the next stage's calls run, an `optional` gate records and continues.
@@ -338,7 +335,7 @@ every `agent` names a bio that actually exists; exactly one `agents[]`
 entry has `role: main`; every `as` alias is unique; every `routing`
 value names a known role or alias.
 
-## Resolution -- how a template becomes a real role table or org
+## Resolution -- how a template becomes a real role table
 
 `teams_yaml.resolve_role_table(template)` walks `agents:` and, for each
 entry, resolves its bio and computes the effective model: **this
@@ -350,12 +347,6 @@ when it has one, else its bare `role` -- `roles.py`'s own role table,
 completely unchanged; `roles.auto_fill_options()` lists every installed
 team template alongside the three built-in presets and `halo gym
 propose`, so the Roles step's Auto tab and `/roles` show one.
-
-`teams_yaml.resolve_org(template)` does the same for an `org:` section,
-producing an `orgs.py`-shaped `{"positions": [{"title", "model",
-"reports", "instructions"}]}` dict -- `delegates_to` becomes `orgs.py`'s
-own `reports` field; the EXISTING `OrgEditor`/`OrgsStep` open and apply
-it with no changes of their own.
 
 An agent with no resolvable model anywhere is left OUT of the result
 (never a crash, never a placeholder), reported as a plain-English note.
@@ -386,7 +377,7 @@ halo agents import <file> | --claude-md <name>     a YAML file, or a discovered 
 
 halo teams                                 the active lineup, its tree, one line per other lineup
 halo teams list                            every reachable team template name
-halo teams show <name>                      the lineup, the resolved role table, any org
+halo teams show <name>                      the lineup, the resolved role table, its enforcement
 halo teams preview <name>                   the lineup as the wizard shows it: role -> agent -> model
 halo teams apply <name> [--one-model]       use a lineup: writes roles.* and team, turns roles on
                                             (`standard` / --one-model turns roles off); `use` is the same
@@ -537,8 +528,7 @@ ok and the latency, or the error, under the costs; **Smoke run (cost first)**
 prints every distinct model's cost line, then runs each member's acceptance
 prompt.
 
-"New bio..." in a model picker's Agents source (the roles editor, the org
-editor) writes a starter bio on the slot's model, picks it for the slot and
+"New bio..." in a model picker's Agents source (the roles editor) writes a starter bio on the slot's model, picks it for the slot and
 opens Studio's bio form on it.
 
 ### Every terminal field has its Studio control
@@ -570,9 +560,9 @@ repo's `.halo/agents/` or `.halo/teams/` instead of `~/.halo`.
 
 | Lineup field | Studio's lineup inspector |
 |---|---|
-| an assignment's `role`, `agent`, `as`, `instances`, `use_for`, `models.preference` | Assignment tab: Role, Agent bio, Alias, Instances, Use for, Model override (and Reports to) |
+| an assignment's `role`, `agent`, `as`, `instances`, `use_for`, `models.preference` | Assignment tab: Role, Agent bio, Alias, Instances, Use for, Model override |
 | `description`, `about`, `extends` | the Lineup tab's header (also the Assignment tab with no card selected) |
-| `delegation`, `routing`, `budget`, `escalation`, `context`, `permissions`, `org`, `pipeline`, `acceptance`, `tiers` | the Lineup tab: one block per section, its fields as a form, its YAML toggle |
+| `delegation`, `routing`, `budget`, `escalation`, `context`, `permissions`, `pipeline`, `acceptance`, `tiers` | the Lineup tab: one block per section, its fields as a form, its YAML toggle |
 
 ## Halo 2.0.5 round 2c: the Team step (rebuilt in 2.1.0 round B1)
 
@@ -611,7 +601,7 @@ on.
 
 ## Two sources for a role slot (Halo 2.0.5 round 2)
 
-Wherever a role is filled -- the roles table, an org position, a
+Wherever a role is filled -- the roles table or a
 lineup's own assignment -- the model picker (`tui/dialogs/model_picker.
 py::ModelPicker`) now carries a source switch, `ctrl+a`, shown in its
 own footer: **Models** (the enumerated list, exactly as before) or
@@ -621,8 +611,7 @@ model keeps today's behaviour exactly; picking a bio records the agent
 on the slot -- a legacy role-table entry becomes `{"model": <the bio's
 own resolved preference>, "agent": <bio name>}` (`roles._normalize_
 role_value` now carries `agent` through a save/reload round trip the
-same way it already does `escalation`), an org position gets a bare
-`agent` key beside its `model`, and a lineup assignment's `agent` field
+same way it already does `escalation`), and a lineup assignment's `agent` field
 IS the bio name directly (`teams_yaml`'s own schema always names a bio,
 never a bare model -- picking "Models" there auto-creates, or reuses, a
 tiny bio pinning just that model via `agents_yaml.ensure_bio_for_model`,

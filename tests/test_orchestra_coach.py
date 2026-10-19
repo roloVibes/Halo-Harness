@@ -171,15 +171,9 @@ def test_coordination_rule(ctx: Ctx):
 
 
 @test
-def test_a_flow_a_mission_and_a_team_run(ctx: Ctx):
+def test_a_mission_and_a_team_run(ctx: Ctx):
     from tests.helpers import coach_seed as S
     with Home() as h:
-        f = h.coach(S.flow_run(h.state))
-        fb = _by(f)
-        ctx.check(f"flow: the gate looped, the render was drawn again, got {sorted(fb)}", f["kind"] == "flow"
-                  and "coordination-approve-loops" in fb and "prompt-render-redo" in fb)
-        ctx.check("the redo instructions are the why", fb["prompt-render-redo"]["why"] == ["redo 1: make the sky darker",
-                                                                                          "redo 2: the logo is too small"])
         m = h.coach(S.mission_folder(h.state))
         mb = _by(m)
         ctx.check(f"mission: asked, refused, conflict, drop, missing outputs, got {sorted(mb)}", m["kind"] == "mission" and {
@@ -201,16 +195,15 @@ def test_a_flow_a_mission_and_a_team_run(ctx: Ctx):
 @test
 def test_the_rules_live_once_over_the_unit_model(ctx: Ctx):
     """3.1.2.0 R1 moved the Orchestra rules into coach_rules.py; 3.1.3.0 R1
-    folded the flow, mission and team rules in: every kind's loader calls
+    folded the mission and team rules in (3.1.4.0: the flow loader is gone): every kind's loader calls
     coach_rules's functions and defines no rule of its own, and each kind's
     seeded run still goes through them."""
     import inspect
-    from halo_harness.orchestra import coach_flow_rules, coach_mission_rules, coach_orchestra_rules, coach_team_rules
+    from halo_harness.orchestra import coach_mission_rules, coach_orchestra_rules, coach_team_rules
     from halo_harness.orchestra import coach_rules as R
     from tests.helpers import coach_seed as S
     uses = {coach_orchestra_rules: ("prompt_rules", "model_rules", "tools_rules", "structure_rules", "coordination_rules",
                                     "wait_pairs", "conflict_pairs"),
-            coach_flow_rules: ("prompt_rules", "coordination_rules"),
             coach_mission_rules: ("coordination_rules", "tools_rules", "structure_rules", "outputs_rules", "conflict_pairs"),
             coach_team_rules: ("coordination_rules", "tools_rules")}
     for loader, names in uses.items():
@@ -224,8 +217,7 @@ def test_the_rules_live_once_over_the_unit_model(ctx: Ctx):
             S.lane(1, bio="coach-strong", pieces_returned=2, history=S.returned(2), state="merged",
                    model="or:vendor/strong")]))
         ctx.check("the orchestra kind fires the shared prompt rule", any(s["kind"] == "prompt" for s in orch["suggestions"]))
-        for maker, kind in ((S.flow_run(h.state), "flow"), (S.mission_folder(h.state), "mission"),
-                            (S.team_run(h.root), "team")):
+        for maker, kind in ((S.mission_folder(h.state), "mission"), (S.team_run(h.root), "team")):
             res = h.coach(maker)
             ctx.check(f"{kind}: a seeded run yields suggestions of the shared shape",
                       res["kind"] == kind and res["suggestions"]

@@ -3,8 +3,8 @@
 
 `UnitStore(run_dir)` reads the folder's kind from its marker file (an
 Orchestra run's `goal.json`, a mission's `mission.json`, a team run's
-`board.json`, a flow run's `flow.json`) and goes through that kind's
-adapter (work/adapters/), so the same calls answer for all four:
+`board.json`) and goes through that kind's
+adapter (work/adapters/), so the same calls answer for all three:
 
     store.units()                   every unit, in the run's order
     store.unit(uid) / write(unit)   one unit; an unchanged unit writes its file back byte for byte
@@ -22,13 +22,13 @@ import importlib
 from pathlib import Path
 from typing import Optional
 
-RUN_KINDS = {"orchestra": "lane", "mission": "part", "team": "stage", "flow": "step"}
+RUN_KINDS = {"orchestra": "lane", "mission": "part", "team": "stage"}
 UNIT_RUNS = {v: k for k, v in RUN_KINDS.items()}
-_MARKERS = (("flow", "flow.json"), ("mission", "mission.json"), ("team", "board.json"), ("orchestra", "goal.json"))
+_MARKERS = (("mission", "mission.json"), ("team", "board.json"), ("orchestra", "goal.json"))
 
 
 def run_kind(run_dir) -> Optional[str]:
-    """orchestra | mission | team | flow, read from the folder's marker file; None for anything else."""
+    """orchestra | mission | team, read from the folder's marker file; None for anything else."""
     p = Path(run_dir)
     for kind, marker in _MARKERS:
         if (p / marker).is_file():
@@ -45,7 +45,7 @@ def kind_of(kind: str) -> str:
     """The unit kind for a unit kind or a run kind (`orchestra` -> `lane`)."""
     k = RUN_KINDS.get(kind, kind)
     if k not in UNIT_RUNS:
-        raise ValueError(f"a unit kind is one of lane, part, stage, step (or orchestra, mission, team, flow), got {kind!r}")
+        raise ValueError(f"a unit kind is one of lane, part, stage (or orchestra, mission, team), got {kind!r}")
     return k
 
 
@@ -58,7 +58,7 @@ class UnitStore:
         self.run_dir = Path(run_dir)
         k = kind or unit_kind(self.run_dir)
         if k is None:
-            raise ValueError(f"{self.run_dir} is not an Orchestra, mission, team or flow run folder")
+            raise ValueError(f"{self.run_dir} is not an Orchestra, mission or team run folder")
         self.kind = kind_of(k)
         self.adapter = adapter_for(self.kind)
 

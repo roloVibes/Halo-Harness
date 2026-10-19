@@ -1,6 +1,6 @@
 // One lineup section as a small form (3.0.7.0 R2), from its definition in
 // sections.ts: every change is one `edit` of the open lineup (undoable; the
-// Problems panel re-validates). Rows edit org positions, pipeline stages and
+// Problems panel re-validates). Rows edit pipeline stages and
 // tiers; a mapping edits routing; members are toggles of the lineup's
 // aliases. The YAML toggle (YamlBox) edits the raw section instead.
 // 3.1.1.0 R3: each field's help line is field_help.py's (lib/fieldHelp.ts).

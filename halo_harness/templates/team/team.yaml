@@ -19,7 +19,7 @@ blocks:
 workflow:
   stages:
     - id: draft
-      kind: agent                # agent | orchestra | flow
+      kind: agent                # agent | orchestra
       members: [writer]          # member names, lineup aliases or a tier name
       reads: [brief]             # block ids (brief is always readable)
       writes: [copy]
@@ -34,8 +34,3 @@ workflow:
       reads: [copy]
       writes: [site]
       trigger: stage_done:draft
-    - id: post
-      kind: flow
-      flow: social-post
-      reads: [copy]
-      trigger: stage_done:build

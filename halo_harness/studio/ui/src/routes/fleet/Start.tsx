@@ -48,7 +48,7 @@ export function StartView() {
             <div className="fs-try">
               <b>Start a session in a terminal, it appears here.</b>
               <span className="muted">
-                Run <code>halo</code> (or <code>halo -p "..."</code>, an Orchestra run, a flow) anywhere on this machine: its card and its agents show on the map within a second.
+                Run <code>halo</code> (or <code>halo -p "..."</code>, an Orchestra run) anywhere on this machine: its card and its agents show on the map within a second.
                 <code>halo --private</code> keeps one out.
               </span>
             </div>

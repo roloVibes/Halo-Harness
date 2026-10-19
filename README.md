@@ -17,7 +17,7 @@
 <p align="center">
 DeepSeek, GLM, Kimi, Qwen and Claude get the same tools, the same configuration and the same working habits as Claude Code.<br>
 Halo reads your <code>~/.claude</code> setup in place, so nothing is configured twice, and <code>/model</code> swaps the model mid-conversation.<br>
-<code>halo studio</code> is the browser GUI: your agents as a graph, your company in Paperclip, your designs on artboards.
+<code>halo studio</code> is the browser GUI: your agents as a graph, your runs live, your designs on artboards.
 </p>
 
 <p align="center">
@@ -104,10 +104,10 @@ It is built for three kinds of people:
 - **You run models yourself** (Ollama, a GPU box on the LAN, Hugging Face) and want a
   harness that treats a local model as a first-class route, with calibration and
   honest capability checks instead of guesswork.
-- **You put agents to work in teams**: a lineup assigns a model to each role, an
-  organization is a tree of those roles working one goal, and every role shows its
-  state, tools and cost while it runs.
-- **You want to see it, not just type it**: Halo Studio draws the lineups, the company
+- **You put agents to work in teams**: a lineup assigns a model to each role, a team
+  file puts those roles to work on one repo, and every role shows its state, tools and
+  cost while it runs.
+- **You want to see it, not just type it**: Halo Studio draws the lineups, the runs
   and the designs in your browser, on a canvas you edit with the mouse, served from a
   loopback-only server with no account and nothing fetched from a CDN.
 
@@ -181,15 +181,13 @@ zero).
 
 <a href="docs/media/model-picker.png"><img alt="The model picker with price, context and speed columns" src="docs/media/model-picker.png" width="100%"></a>
 
-### Roles and organizations
+### Roles and lineups
 
-A lineup assigns a model to each role; an organization is a tree of those roles working
-one goal. The flow that builds Halo itself ships as the `halo-dev-cycle` template. Each
-role is a sub-agent on its own model, visible in `/tasks` with its state, tools and cost.
+A lineup assigns a model to each role. The lineup that builds Halo itself ships as the
+`halo-dev-cycle` template. Each role is a sub-agent on its own model, visible in `/tasks`
+with its state, tools and cost.
 
-![A lineup, an organization tree and the tasks panel](docs/media/diagrams/roles-orgs.svg)
-
-<a href="docs/media/tasks-org-tree.png"><img alt="The /tasks panel with a running organization tree" src="docs/media/tasks-org-tree.png" width="100%"></a>
+<a href="docs/media/tasks-org-tree.png"><img alt="The /tasks panel with a running tree of sub-agents" src="docs/media/tasks-org-tree.png" width="100%"></a>
 
 ### Connectors: Claude Docs from a non-Claude model
 
@@ -228,15 +226,15 @@ every secret-shaped value stripped. `--copy` puts it on the clipboard.
 ## Halo Studio
 
 Halo has a GUI. `halo studio` starts a loopback-only server with a per-launch token,
-opens your browser, and shows one window with seven sections and one header:
-**Orchestra** (`Alt+1`), **Roles** (`Alt+2`), **Org** (`Alt+3`), **Design** (`Alt+4`),
-**Flow** (`Alt+5`), **Fleet** (`Alt+6`) and **Team** (`Alt+7`). Each section opens on a Start view that says what it is for, and its
-panels sit in labelled group boxes you can move and resize. In the TUI, `/roles`, `/org`
+opens your browser, and shows one window with five sections and one header:
+**Orchestra** (`Alt+1`), **Roles** (`Alt+2`), **Design** (`Alt+3`), **Fleet** (`Alt+4`)
+and **Team** (`Alt+5`). Each section opens on a Start view that says what it is for, and its
+panels sit in labelled group boxes you can move and resize. In the TUI, `/roles`
 and `/design` open it straight into that section; `Ctrl`/`Cmd`+`K` opens the command
 palette and `?` opens "How this works". Nothing leaves your machine: no account, no CDN,
 no fonts fetched, no analytics.
 
-<a href="docs/media/studio-modes.png"><img alt="Halo Studio's five sections side by side: Orchestra, Roles, Org, Design and Flow, under one header" src="docs/media/studio-modes.png" width="100%"></a>
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's five sections side by side: Orchestra, Roles, Design, Fleet and Team, under one header" src="docs/media/studio-modes.png" width="100%"></a>
 
 The pictures below are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`), the same way the TUI pictures are made. See
@@ -264,22 +262,9 @@ See [docs/STUDIO.md](docs/STUDIO.md).
 
 <a href="docs/media/studio-roles.png"><img alt="Studio's Roles section: the halo-dev-cycle lineup as a graph in group boxes, with the inspector" src="docs/media/studio-roles.png" width="100%"></a>
 
-### Org: your company, in Paperclip
-
-Press `Alt+3` and the section shows your company in
-[Paperclip](https://github.com/paperclipai/paperclip), the open-source control plane
-for agent teams: titles, reporting lines, budgets, issues and heartbeats. One command
-turns a lineup into a company (`halo paperclip sync halo-dev-cycle --new Halo`), each
-agent runs `halo paperclip-run` on its heartbeat on the model its bio names, and the
-reply lands on the issue. Org mode is off until you turn it on (the header button,
-`/org on`, `halo paperclip on`, or the wizard): until then only your own session
-orchestrates anything. See [docs/PAPERCLIP.md](docs/PAPERCLIP.md).
-
-<a href="docs/media/studio-org.png"><img alt="Studio's Org section: the halo-dev-cycle lineup as a Paperclip company, boxed by who reports to whom" src="docs/media/studio-org.png" width="100%"></a>
-
 ### Design: on your own apps
 
-Press `Alt+4` (or run `halo design`) and the canvas holds artboards: HTML
+Press `Alt+3` (or run `halo design`) and the canvas holds artboards: HTML
 prototypes in sandboxed frames, logos and pages rendered by the creative apps already on
 your machine. A design turn is a real Halo turn in the project folder with the seven
 ArtCraft apps (DesignCraft, VectorCraft, PhotoCraft, LightCraft, EffectCraft, FilmCraft,
@@ -311,20 +296,9 @@ open source, run headless on your machine, and nothing but the model call leaves
 
 <a href="docs/media/studio-design.png"><img alt="Studio's Design section: a hero prototype and a VectorCraft logo mark as artboards, knobs and comments in the panel" src="docs/media/studio-design.png" width="100%"></a>
 
-### Flow: from an input to a post
-
-Press `Alt+5`. A flow takes an input, runs it through agents in roles, hands the result to
-an org, passes the image prompt to [ComfyUI](docs/COMFYUI.md), shows you the render, and on
-your yes writes the posts and starts the metrics; every artifact lands in a design
-project. The section draws the run as a graph with its confirm gate, and the Media panels
-(status, models, workflows, render) show the ComfyUI server, its models and each render.
-See [docs/FLOWS.md](docs/FLOWS.md) and [docs/COMFYUI.md](docs/COMFYUI.md).
-
-<a href="docs/media/studio-flow.png"><img alt="Studio's Flow section: a run waiting at its confirm gate over a ComfyUI render" src="docs/media/studio-flow.png" width="100%"></a>
-
 ### Fleet: one goal for every harness
 
-Press `Alt+6` and every Halo harness you run or joined is live on one map, and a
+Press `Alt+4` and every Halo harness you run or joined is live on one map, and a
 **mission** gives the whole fleet one goal: the hub's lead splits it into parts by what
 each harness can do, the plan is drawn on the map where you drag a part to another
 harness, then you approve and run it and the report says who did what and what it cost
@@ -334,7 +308,7 @@ per harness. See [docs/FLEET.md](docs/FLEET.md) and [docs/MISSIONS.md](docs/MISS
 
 ### Team: people, blocks and stages
 
-Press `Alt+7` and the project's team file is one board: members as columns, stages as boxes
+Press `Alt+5` and the project's team file is one board: members as columns, stages as boxes
 that pulse while they run and turn amber at a gate you accept, redo or stop, and the blocks
 underneath with who holds which part and what changed. See [docs/TEAM.md](docs/TEAM.md).
 
@@ -438,14 +412,13 @@ tool, so check each tool's own docs.
 | **Your Claude Code setup, in place** | `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers and memory are read where they are. Nothing is configured twice. |
 | **Steering** | Type while a turn runs: the steer shows at once and reaches the work, a running command moves to the background instead of dying, sub-agents get your words forwarded into them. |
 | **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in the wizard, with `halo teams apply <lineup>`, or in Studio. |
-| **Halo Studio** | `halo studio`: the browser GUI with three modes on one canvas. Roles edits lineups and bios as a graph, Org shows the same team as a Paperclip company, Design works artboards with the craft apps. Loopback only, per-launch token, no CDN. |
-| **Paperclip** | `halo paperclip sync <lineup>` makes a company of agents that run Halo on their heartbeats; `halo paperclip-run` is the adapter. |
+| **Halo Studio** | `halo studio`: the browser GUI, five sections on one canvas. Roles edits lineups and bios as a graph, Orchestra and Team run them live, Fleet shows every harness, Design works artboards with the craft apps. Loopback only, per-launch token, no CDN. |
 | **Halo Design** | `halo design new|run|sync|export|handoff` and Studio's Design mode: a design project on disk, a turn with the craft apps as tools, knobs without a model call, `halo models --best-for design`. |
 | **Per-model tool-call repairs** | Fourteen model families' quirks are repaired on the fly: Kimi's `functions.{name}:{idx}` ids, GLM's always-on thinking, Qwen's system-message rules, DeepSeek's reasoning echoes. Gateway quirks are learned once per model and remembered (`halo rules`). |
 | **Measured, not guessed** | `/stats` per model and per tool, price/context/speed columns in the picker, per-role cost attribution, and `halo preflight` canaries each lane before a long run. |
 | **Filter-aware routing** | A provider content filter is not an answer: a filtered reply never persists as one, and the request reroutes to a fallback lane you choose. |
 | **Permissions without a nanny** | Auto mode allows everything except *your own* deny/ask rules. Rules use Claude Code's own grammar, in the same files. |
-| **The wizard** | `halo init`: provider, model, permission mode, theme, lineup, orgs. Every step explains itself and `halo doctor` ends each warning with its fix. |
+| **The wizard** | `halo init`: provider, model, permission mode, theme, lineup. Every step explains itself and `halo doctor` ends each warning with its fix. |
 | **MCP deep dive** | stdio/HTTP/SSE servers from every Claude Code scope, `D` diagnoses a failing server end to end, claude.ai connectors bridge through as tools. |
 | **Balances and picker columns** | Per-provider balances in the status bar (remaining first); free variants sit beside their paid rows in the picker. |
 | **Remote control from Signal** | Prompts, streamed replies, permission cards answered by number, pairing, signed commands, a kill switch. |
@@ -471,9 +444,8 @@ line on when to read it. The longest docs are split by task; their entry pages b
 | [docs/LOCAL-MODELS.md](docs/LOCAL-MODELS.md) | Ollama, Hugging Face, the OpenAI API and Codex, end to end |
 | [docs/DATABRICKS.md](docs/DATABRICKS.md) | Databricks endpoints, API types and the work matrix |
 | [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups: the 90-second version, then the field reference |
-| [docs/STUDIO.md](docs/STUDIO.md) | Halo Studio, the browser GUI: Roles, Org and Design modes, the security model, SSH, every shortcut |
+| [docs/STUDIO.md](docs/STUDIO.md) | Halo Studio, the browser GUI: its sections, the security model, SSH, every shortcut |
 | [docs/DESIGN.md](docs/DESIGN.md) | Halo Design: the project on disk, a design turn, the craft apps, knobs, systems, exports, the handoff |
-| [docs/PAPERCLIP.md](docs/PAPERCLIP.md) | Paperclip: your lineups as a company of agents |
 | [docs/ROLES.md](docs/ROLES.md) | Roles and the role table |
 | [docs/GOVERNOR.md](docs/GOVERNOR.md) | The Governor: shared per-host rate limiting, failover and lanes |
 | [docs/REVIEW.md](docs/REVIEW.md) | `/review` and `halo review` |

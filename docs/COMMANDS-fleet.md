@@ -18,7 +18,7 @@ reason on stderr), 2 usage. A bare `halo remote signal` prints the verb list.
 Lists the live sessions that opened a control socket (every session does
 unless config `fleet.enabled` is false or it is private; before 3.0.5.0 this
 was config `remote.enabled`): session id prefix, pid, kind (`tui`, `print`,
-`paperclip`, `orchestra-worker` or `flow`),
+`orchestra-worker` or `mission-worker`),
 permission mode, age, working directory, endpoint and title. Entries whose
 process is gone or whose endpoint refuses a connection are pruned first. It
 prints nothing secret (the Windows loopback token is never shown). With none

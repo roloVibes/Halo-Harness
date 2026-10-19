@@ -2096,7 +2096,7 @@ def cmd_doctor(argv: list) -> int:
         if dead_ids:
             problems = problems + dead_ids
         # 3.0.7.0 R1: the run-start preflight's list for the active lineup --
-        # the same findings `halo orchestra run` / `halo flow run` / a mission
+        # the same findings `halo orchestra run` / a mission
         # run stop on (lineup_preflight.py; the dead-id walk is shared).
         from halo_harness.lineup_preflight import lineup_problems
         from halo_harness.teams_runtime import active_team_name

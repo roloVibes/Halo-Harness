@@ -1,7 +1,7 @@
 // The Orchestra section before a run is open: one centered Start view
 // instead of eight empty panels -- the goal form with examples, what a run
 // does in five numbered steps (the section help's copy), and the past runs
-// to open (the Flow Start view's pattern). OrchestraView decides between it
+// to open (the shared Start view pattern). OrchestraView decides between it
 // and the panel workspace, which comes up once a run starts or is opened,
 // or with "open the workspace anyway". 3.0.9.0 R2: while the open run is
 // `planned` the plan panel (plan/PlanPanel.tsx) takes the console's place.

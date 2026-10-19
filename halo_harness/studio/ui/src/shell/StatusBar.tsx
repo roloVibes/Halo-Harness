@@ -1,8 +1,8 @@
 // The status bar (a HudStrip): the live feed dot (green connected, amber
 // connecting or reconnecting, red unreachable; it ticks once per event), the
-// session and event counts, the section's own status line (3.0.7.0: Roles,
-// Org and Design set theirs from their stores: the lineup and its problems,
-// the company, the project), the section
+// session and event counts, the section's own status line (3.0.7.0: Roles
+// and Design set theirs from their stores: the lineup and its problems,
+// the project), the section
 // and its layout, and the keys. The FLEET cell counts the agents at work and
 // the decisions waiting in the Fleet attention queue, in every section;
 // 3.0.6.0 R8: and the fleet missions running now. 3.0.8.0 R2: the TEAM cell
@@ -82,7 +82,7 @@ export function StatusBar() {
       </HudCell>
       <HudCell>
         <span className="hud-keys">
-          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+7" /> sections <Kbd keys="Esc" /> close
+          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+5" /> sections <Kbd keys="Esc" /> close
         </span>
       </HudCell>
     </HudStrip>

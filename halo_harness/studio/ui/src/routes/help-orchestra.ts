@@ -1,7 +1,7 @@
 // What each Orchestra panel is (`about`, one line) and how to use it
-// (`help`, a few short lines); Org and Design (help-org-design.ts, 3.0.7.0 R3)
+// (`help`, a few short lines); Design (help-design.ts, 3.0.7.0 R3)
 // and Roles (help-roles.ts, R2) have their own files. routes/help.ts merges
-// them into HELP beside Flow's and Media's.
+// them into HELP beside Media's.
 
 export type Help = { about: string; help: string };
 

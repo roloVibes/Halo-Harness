@@ -1,5 +1,5 @@
 """halo_harness.studio.team_live -- the team runner Studio drives (Halo 3.0.8.0
-R1), the shape of flow_runs.py / orchestra_live.py.
+R1), the shape of orchestra_live.py.
 
 `start(team, run_dir, stage=None, seams=None, publish=None)` runs a
 TeamRunner (with `watch`: block_change stages fire as their blocks change)

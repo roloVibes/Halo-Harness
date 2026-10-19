@@ -17,11 +17,11 @@ one onto a normal theme clears it. In the TUI, Tab completes theme names
 (the game themes first). See the Themes section of the
 [handbook](HANDBOOK.md).
 
-### `/studio` `[roles|org|design|orchestra|flow|fleet|team] [url]`
+### `/studio` `[roles|design|orchestra|fleet|team] [url]`
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, in the mode
-you name (`roles`, `org`, `design`; 3.0.4.0: `orchestra` and `flow` too;
+you name (`roles`, `design`; 3.0.4.0: `orchestra` too;
 3.0.5.0: `fleet`, every harness and agent live; 3.0.8.0: `team`, the team's board) or the one you used last. Bare `/roles`,
-`/org` and `/design` are the short forms. Roles is your lineups and agent bios as an editable
+and `/design` are the short forms. Roles is your lineups and agent bios as an editable
 graph in the browser -- served from this session (it closes with it).
 `/studio url` prints the URL without opening a browser; over SSH, forward
 the port it names and open the same URL. See [STUDIO.md](STUDIO.md).
@@ -142,7 +142,7 @@ H8 scope A: lists every background Bash job started this session
 with status and a truncated command line. Halo 2.0.2 round 3: in the
 TUI, `/tasks`/Ctrl+T instead opens a full-height panel -- every
 running, queued, background and finished sub-agent of this session
-(an org run's own descendants indented under their parent), plus the
+(a sub-agent's own descendants indented under their parent), plus the
 shared task board on a second tab (`Tab` switches); Enter opens a live
 transcript viewer of the highlighted agent; Ctrl+T again, or Esc,
 closes it. Print mode has no panel, so it keeps the original plain-text

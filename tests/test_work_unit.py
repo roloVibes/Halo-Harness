@@ -1,11 +1,11 @@
 """tests.test_work_unit -- Halo 3.1.2.0 R1: the one unit of work and its state
-machine (halo_harness/work/unit.py, states.py, store.py and the four
+machine (halo_harness/work/unit.py, states.py, store.py and the three
 adapters, docs/WORK.md).
 
 1. the state machine: every engine state word of every kind maps onto the
    machine and back (`native(unify(w)) == w`), and every machine state has
    a native word for each kind;
-2. a lane, a part, a stage and a step read from each engine's own seeded
+2. a lane, a part and a stage read from each engine's own seeded
    fixture file as a `Unit`, and written back, are byte-identical;
 3. `UnitStore` reads the units of a run of each kind and its unit rows;
 4. (3.1.2.0 R3) a delegated unit's `refs.harness`: a mission part's harness,
@@ -25,6 +25,14 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 ensure_scoped_state_dir_once()
 test, TESTS = new_registry()
+
+
+def _not_a_run(store_cls, folder) -> bool:
+    try:
+        store_cls(folder)
+    except ValueError:
+        return True
+    return False
 
 
 @test
@@ -70,19 +78,17 @@ def test_a_lane_round_trips_byte_identical(ctx: Ctx):
 
 
 @test
-def test_a_step_a_stage_and_a_part_read_as_units(ctx: Ctx):
-    from tests.helpers.coach_seed import flow_run, mission_folder, orchestra_run, team_run
+def test_a_stage_and_a_part_read_as_units(ctx: Ctx):
+    from tests.helpers.coach_seed import mission_folder, orchestra_run, team_run
     from tests.helpers import coach_seed as S
     import tempfile
     root = Path(tempfile.mkdtemp(prefix="work-kinds-"))
     from halo_harness.work.store import UnitStore
-    # a flow run (steps) and a team run (stages) seeded by coach_seed
-    flow_dir = flow_run(root)
-    fstore = UnitStore(flow_dir)
-    frows = fstore.rows()
-    ctx.check(f"flow: three step units, got {[r['unit'] for r in frows]}",
-              fstore.kind == "step" and [r["unit"] for r in frows] == ["intake", "render", "approve"]
-              and frows[1]["kind"] == "step")
+    # a team run (stages) seeded by coach_seed; 3.1.4.0: a flow run folder is no run kind any more
+    flows = root / "flows" / "runs" / "20261017-120500-f10a"
+    flows.mkdir(parents=True)
+    (flows / "flow.json").write_text("{}", encoding="utf-8")
+    ctx.check("a leftover flow run folder is no unit store", _not_a_run(UnitStore, flows))
     team_dir = team_run(root)
     tstore = UnitStore(team_dir)
     trows = tstore.rows()
@@ -158,7 +164,7 @@ def test_a_delegated_units_harness_is_in_the_row_the_table_and_the_route(ctx: Ct
 
     def delegate(board):
         BD.row(board, "copy")["harness"] = "kali"
-        BD.row(board, "ship")["remote"] = {"harness": "box-2", "kind": "flow", "mission": "m1", "part_state": "done",
+        BD.row(board, "ship")["remote"] = {"harness": "box-2", "kind": "orchestra", "mission": "m1", "part_state": "done",
                                            "run": "r1"}
     BD.update_board(team_dir, delegate)
     store = UnitStore(team_dir)

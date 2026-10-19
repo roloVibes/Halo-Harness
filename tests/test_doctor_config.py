@@ -1,6 +1,6 @@
 """tests.test_doctor_config -- `halo doctor --config` (Halo 3.1.1.0 R2): each
 finding from one seeded file (an unknown key with its closest known key, a
-wrong type, a lineup naming a bio that is not there, a team or flow naming a
+wrong type, a lineup naming a bio that is not there, a team naming a
 lineup that is not there, config.json's `team:` naming a missing lineup, a
 repo config.json nothing reads, two files giving one key different values
 and which wins, an env-file name the environment overrides); a clean home
@@ -54,8 +54,7 @@ def test_the_shipped_files_pass_their_schemas(ctx: Ctx):
     import yaml
     from halo_harness.schemas import check_file_shape
     root = Path(__file__).resolve().parent.parent / "halo_harness" / "templates"
-    for kind, pattern in (("lineup", "teams/*.yaml"), ("bio", "agents/*.yaml"), ("flow", "flows/*.flow.yaml"),
-                          ("team", "team/*.yaml")):
+    for kind, pattern in (("lineup", "teams/*.yaml"), ("bio", "agents/*.yaml"), ("team", "team/*.yaml")):
         files = sorted(root.glob(pattern))
         ctx.check(f"some shipped {kind} files", files)
         for path in files:
@@ -124,18 +123,15 @@ def test_lineup_and_bio_files(ctx: Ctx):
 
 
 @test
-def test_team_and_flow_naming_a_lineup_that_is_not_there(ctx: Ctx):
+def test_a_team_naming_a_lineup_that_is_not_there(ctx: Ctx):
     with ConfigHome() as h:
         h.write("BRIEF.md", "# b\n", base=h.repo)
         h.write(".halo/team.yaml", "name: t\nbrief: BRIEF.md\nmembers: [{name: a, lineup: nope, role: main}]\n"
                 "workflow: {stages: [{id: s, kind: agent, members: [a]}]}\nextra: 1\n", base=h.repo)
-        h.write(".halo/flows/p.flow.yaml", "name: p\nsteps: [{id: plan, kind: roles, uses: 'lineup:gone', roles: [x]}]\n")
         found = _findings(h)
         team = _one(found, "missing-lineup", "./.halo/team.yaml")
         ctx.check(f"a team member's lineup that is not there, got {team}", team and team["lineups"] == ["nope"])
         ctx.check("the team file's unknown key", _one(found, "unknown-key", "./.halo/team.yaml", "extra"))
-        flow = _one(found, "missing-lineup", "~/.halo/flows/p.flow.yaml")
-        ctx.check(f"a flow naming a lineup that does not resolve, got {flow}", flow and flow["lineups"] == ["gone"])
 
 
 @test

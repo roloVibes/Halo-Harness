@@ -1,8 +1,8 @@
 """halo_harness.remote.runtime -- open / close the control socket of every session in THIS process and
 keep its registry entry fresh (Halo 2.0.9 round 2; Fleet 3.0.5.0). `fleet.enabled` (default true): every
 session opens its loopback socket and lists itself in `~/.halo/run/sessions.json`: the TUI (`start_for_
-controller`), `halo -p` (`start_for_print`; Paperclip heartbeats and Orchestra workers are `-p` children) and
-a flow's org run (`start_for_session`). A private session (`--private`, `/private on`, `fleet.private`) opens
+controller`), `halo -p` (`start_for_print`; Orchestra workers are `-p` children) and
+a mission worker (`start_for_session`). A private session (`--private`, `/private on`, `fleet.private`) opens
 and registers nothing; `remote.enabled` is only the Signal bridge's switch. Each open and close also tells the
 fleet relay (fleet/relay_runtime.py, R2). Openers return None when off or on any failure (a socket problem never
 stops a launch); `stop_one`, `stop_for` and `stop` (all of them, also at exit) are idempotent."""
@@ -165,9 +165,9 @@ def start_for_print(session, cwd, **kw) -> "Optional[tuple]":
     return (handle, act) if act is not None else None
 
 
-def start_for_session(session, cwd, *, kind: str = "flow") -> Optional[Active]:
-    """A session that runs work with no turn loop of its own (a flow's org
-    run); its caller publishes events on `act.handle.hub` and calls `stop_one`."""
+def start_for_session(session, cwd, *, kind: str) -> Optional[Active]:
+    """A session that runs work with no turn loop of its own (a mission
+    worker); its caller publishes events on `act.handle.hub` and calls `stop_one`."""
     if not enabled():
         return None
     from halo_harness.remote.print_handle import PrintModeHandle

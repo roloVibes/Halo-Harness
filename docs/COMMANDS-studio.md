@@ -1,6 +1,6 @@
-# Commands: Studio, design, media, flows, Orchestra and teams
+# Commands: Studio, design, media, Orchestra and teams
 
-Read this when you open Studio or run designs, media, flows, an Orchestra goal or a team from the command line.
+Read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.
 
 Part of [Commands](COMMANDS.md), which lists every part.
 
@@ -13,7 +13,7 @@ while one runs reuses it (prints the URL, opens the browser) unless
 
 
 ```sh
-halo studio [--mode roles|org|design|orchestra|flow|fleet|team] [--port N] [--no-open] [--cwd DIR] [--fleet]
+halo studio [--mode roles|design|orchestra|fleet|team] [--port N] [--no-open] [--cwd DIR] [--fleet]
 halo studio --edit bio:<name> | lineup:<name> | team [--no-open]
 ```
 
@@ -40,43 +40,17 @@ lineup views run the same thing (see
 [FLEET.md](FLEET.md).
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
-into `--mode roles` (lineups and agent bios as an editable graph), `--mode org`
-(the company in Paperclip) or `--mode design` (artboards on your own apps),
-3.0.4.0: `--mode orchestra` (the run console) or `--mode flow` (the workflow
-console);
-without `--mode` it opens in the mode you used last. The TUI's `/roles`, `/org`
-and `/design` are the same three doors from a live session. It Starts a loopback-only server on a free port (or
+into `--mode roles` (lineups and agent bios as an editable graph) or
+`--mode design` (artboards on your own apps), 3.0.4.0: `--mode orchestra`
+(the run console);
+without `--mode` it opens in the mode you used last. The TUI's `/roles`
+and `/design` are the same doors from a live session. It Starts a loopback-only server on a free port (or
 `--port`), prints its URL (the URL carries a per-launch token: open exactly
 that) and opens the browser unless `--no-open`; `--cwd` is the project
 directory for project-scope files (default: the current directory). Ctrl+C
 stops it. Over SSH, forward the printed port and open the same URL. The
 TUI's `/studio` serves the same page from the running session. See
 [STUDIO.md](STUDIO.md).
-
-## `halo paperclip` and `halo paperclip-run`
-
-```sh
-halo paperclip status                     Org mode on/off, health, version, companies, the linked one
-halo paperclip on|off                     the Org mode switch (off by default): on resumes the company's
-                                          Halo agents, off pauses them and heartbeats answer idle
-halo paperclip install                    npx paperclipai@latest onboard --yes (Node 24+)
-halo paperclip open                       the Paperclip UI in the browser
-halo paperclip link [--url U] [--token T] [--company ID|NAME]
-halo paperclip sync <lineup> [--company ID|NAME | --new NAME] [--cwd DIR]
-halo paperclip pull <lineup> [--company ID|NAME] [--project]
-halo paperclip org [--company ID|NAME]
-halo paperclip-run                        the adapter entrypoint Paperclip spawns on a heartbeat
-```
-
-Halo 2.2.0: Paperclip owns organizations. `sync` turns a lineup into a
-company of agents (one `process` agent per assignment running `halo
-paperclip-run` in `--cwd`, reporting lines from the lineup's `org.positions`
-or everyone -> main, idempotent), `pull` writes the company's reporting lines
-back into the lineup, `org` prints the chart, `status` the instance and its
-companies, `install` runs Paperclip's own onboarding, `link` stores the URL,
-an optional board token and the default company in `~/.halo/paperclip.json`.
-`halo paperclip-run` is not for hands: Paperclip runs it with the heartbeat's
-`PAPERCLIP_*` environment. See [PAPERCLIP.md](PAPERCLIP.md).
 
 ## `halo design`
 
@@ -130,57 +104,6 @@ the server is unreachable or the smoke render fails; `--smoke` renders a
 900) and prints the output name and the elapsed time. The URL is `--url`,
 else `COMFY_URL`, else `comfy.url`, else `http://127.0.0.1:8188`. Every
 session then has the `mcp__comfyui__*` tools. See [COMFYUI.md](COMFYUI.md).
-
-## `halo flow`
-
-```sh
-halo flow new <template> [--name N] [--project SLUG] [--force]   copy a shipped template to ~/.halo/flows/<N>.flow.yaml
-halo flow templates                                             the shipped templates (social-post)
-halo flow validate <name>                                       check a flow file; exit 1 on a problem (warnings do not count)
-halo flow run <name> [--brief T] [--input K=V]... [--asset PATH]... [--project SLUG]
-                     [--set STEP.KEY=V]... [--model M] [--yes] [--watch] [--resume] [--force]
-halo flow resume <run> [--yes] [--watch] [--model M]            continue a stopped or killed run at its first unfinished step
-halo flow status [run]                                          every run, or one run's steps, costs and open gate
-halo flow stop <run> [--reason T]                               stop between steps, or at an open gate
-halo flow report <run> [--json]                                 the run's report
-halo flow answer <run> <step> accept|redo "<text>"|stop         answer a waiting gate (from any terminal)
-halo flow runs                                                  every run, oldest first
-halo flow posts <run>                                           the run's posts: dry run or live, post id, schedule, text
-halo flow metrics <run> [--days N]                              sample the run's live posts' analytics once; print and total them
-halo flow coach [run] [--model] [--apply ID [--yes]] [--json]   3.0.9.0: the post-run coach's card (halo coach)
-```
-
-Halo 3.0.4.0: flows. A flow file walks an input through steps: `intake` (the
-form; `--brief`, `--input`, `--asset` fill it), `roles` (one call per role of
-a lineup), `org` (an org run; an approval-gated position becomes a gate),
-`render` (a ComfyUI workflow into an artboard of the design project), `confirm`
-(a human gate over the render: accept, redo with an instruction, stop), `post`
-(dry run into the project's `posts.json`; `live: true` posts through the Postiz
-CLI), `metrics` (samples the live posts' analytics into `metrics.jsonl`) and
-`done`. `run` makes `~/.halo/flows/runs/<run-id>/`, prints one line per step,
-the gate prompt when one opens, then the report; exit 0 finished, 1 stopped.
-`--yes` accepts every gate. `--watch` also keeps sampling the live posts'
-metrics on the metrics step's `every` after the run. `--model REF` pins every role and org position
-(default: the lineup's models). `--set render.width=512` overrides a step's
-`set` value. RUN is a run id, a unique prefix, a folder or `last`. See
-[FLOWS.md](FLOWS.md).
-
-Halo 3.0.7.0: before `run` makes the run folder, the run-start preflight
-checks every lineup the flow's `roles` steps use (a model id its catalog
-does not know, a missing bio, a bio whose `tools.allow` is empty, a `tiers`
-problem), prints each problem with its fix and exits 2. `--force` runs
-anyway.
-
-## `halo postiz`
-
-```sh
-halo postiz doctor        the postiz CLI on PATH, the credentials (POSTIZ_API_KEY or ~/.postiz/credentials.json; never the key), the connected integrations and which of youtube, instagram, x, tiktok have one; exit 1 when the CLI or the credentials are missing
-```
-
-Halo 3.0.4.0: flows post and measure through the Postiz CLI (`npm i -g
-postiz`, then `postiz auth:login` or `POSTIZ_API_KEY` in the env file). Posts
-are dry runs until a flow's post step says `live: true`. See
-[FLOWS.md](FLOWS.md#posting-with-postiz).
 
 ## `halo orchestra`
 
@@ -236,10 +159,10 @@ anyway. `halo doctor --roles` prints the same list for the active lineup.
 halo work [RUN] [--json]     the units of any run of any kind, as one table
 ```
 
-Halo 3.1.2.0: an Orchestra lane, a fleet mission's part, a team stage and a
-flow step are all a *unit* of work (one model underneath, see
+Halo 3.1.2.0: an Orchestra lane, a fleet mission's part and a team stage
+are all a *unit* of work (one model underneath, see
 [WORK.md](WORK.md)). `halo work` prints the units of any run -- an Orchestra
-run, a mission, a team run or a flow run -- as one table: the kind, the
+run, a mission or a team run -- as one table: the kind, the
 unit, its state, its cost, its attempts, its gate and its base. `RUN` is a
 run folder, a run id or an id prefix; with no `RUN`, the latest run of this
 repo. `--json` prints the rows. Read only; no model is called.
@@ -255,7 +178,7 @@ halo coach --undo [APPLY_ID] [--json]            put back the file of an apply (
 
 Halo 3.1.3.0: the coach's loop in one command (see [ORCHESTRA.md, "The
 coach"](ORCHESTRA.md#the-coach)). `RUN` is a run folder, a run id or an id
-prefix of any kind (an Orchestra run, a flow run, a team run or a fleet
+prefix of any kind (an Orchestra run, a team run or a fleet
 mission); with no `RUN`, the latest run, as `halo work` finds it. The card
 lists each suggestion with its id, its why lines, what Apply writes, its
 **applied** / **undone** state and, once asked, the lead's paragraph.
@@ -276,7 +199,7 @@ lists each suggestion with its id, its why lines, what Apply writes, its
 - `--json` prints the result; every suggestion carries `paragraph` (null
   until asked), `paragraph_error` and `applied`.
 
-The four kind verbs (`halo orchestra coach`, `halo flow coach`, `halo fleet
+The three kind verbs (`halo orchestra coach`, `halo fleet
 mission coach`, `halo team coach`) take the same `--model`, `--refresh`,
 `--apply`, `--yes` and `--json`. Exit codes: 0 done, 1 no such run, a change
 that cannot be made or a refused undo, 2 usage. `/coach` in the TUI runs the
@@ -301,8 +224,8 @@ halo team coach [run] [--model] [--apply ID [--yes]] [--json]   3.0.9.0: the coa
 Halo 3.0.8.0: a team is `<repo>/.halo/team.yaml` (else
 `~/.halo/teams/<project>.team.yaml`): the brief, the members (instances of
 lineup aliases, here or on a fleet member), the blocks (a file, a folder or
-a git tree with a claim ledger) and the workflow's stages (an agent turn, an
-Orchestra run or a flow, each with what it reads and writes, what starts it
+a git tree with a claim ledger) and the workflow's stages (an agent turn or an
+Orchestra run, each with what it reads and writes, what starts it
 and its gate). See [TEAM.md](TEAM.md).
 
 `init` writes the shipped template (`--force` overwrites an existing file).
@@ -332,7 +255,7 @@ halo team answer draft accept
 
 Halo 2.0.2 round 3: a full-height panel listing every running, queued,
 background and finished sub-agent of this session (position/role, model,
-status, elapsed, tool count, cost, and an org run's place in the tree),
+status, elapsed, tool count, cost, and its place in the tree),
 plus a second tab for the shared task board (`TaskCreate`/`TaskUpdate`/
 `TaskList`). Enter opens a live transcript viewer of the highlighted
 agent's own log; `Tab` switches tabs; Ctrl+T or Esc closes it. The Agent

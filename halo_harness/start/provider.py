@@ -5,14 +5,14 @@
 resolve and it is enabled (`init_providers.configured_providers`), or when
 config.json names a default model (a local or LAN model counts); else
 `(False, the line that says so)`. `halo init` is what sets a provider up;
-`halo setup` is its team and orgs screens, for later.
+`halo setup` is its team screen, for later.
 """
 
 from __future__ import annotations
 
 NO_PROVIDER = ("No model provider is set up yet, so there is nothing for the agents to run on. "
                "halo init sets one up (a key, a login or a local model), then run halo start again; "
-               "halo setup is the team and orgs screens for later.")
+               "halo setup is the team screen for later.")
 
 
 def configured() -> "list[str]":
