@@ -222,6 +222,16 @@ model ...` all write). Nothing is baked in at save time: change the
 default model and the very next resolution of a bio that uses `default`
 picks it up, with no file to edit.
 
+Since Halo 3.1.4.0 EVERY shipped bio that names a model says `default`
+(`orchestrator`, `reviewer`, `implementer`, `researcher`, `verifier`,
+`release-manager`, `watchdog`, `media`) and carries no provider-pinned
+fallback: nothing shipped sends a role to a provider you did not set up.
+Before, the orchestrator pinned `or:anthropic/claude-fable-5.1`, so a
+lineup that put it in the boss slot silently routed the boss through
+OpenRouter on a Databricks or local session. Each of those bios keeps a
+comment saying which class of model suits the role; pin one there, or per
+slot in Studio's Roles Inspector, when you want it.
+
 The shipped bio `default-model` (`halo_harness/templates/agents/
 default-model.yaml`) pins `models.preference: default` and nothing else;
 the shipped lineup `standard` (`halo_harness/templates/teams/

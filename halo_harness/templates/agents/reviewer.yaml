@@ -9,8 +9,10 @@ tags: [review, quality]
 kind: reviewer
 
 models:
-  preference: or:anthropic/claude-opus-5.5
-  fallback: or:anthropic/claude-sonnet-5
+  # `default` = the session's own model (halo config set model ..., /model), so nothing
+  # shipped sends this role to a provider you did not set up; pin a ref here to send it
+  # elsewhere: a reviewing role suits an Opus-class model.
+  preference: default
   effort: high
   thinking: native
   context_budget: 0.85

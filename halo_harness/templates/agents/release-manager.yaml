@@ -9,8 +9,10 @@ tags: [release]
 kind: custom
 
 models:
-  preference: or:anthropic/claude-sonnet-5
-  fallback: or:anthropic/claude-haiku-4.5
+  # `default` = the session's own model (halo config set model ..., /model), so nothing
+  # shipped sends this role to a provider you did not set up; pin a ref here to send it
+  # elsewhere: a release role is fine on a small, cheap model.
+  preference: default
   effort: low
   thinking: off
   context_budget: 0.6
