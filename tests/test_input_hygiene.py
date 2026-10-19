@@ -9,6 +9,9 @@ of the prompt, and the prompt has a clear key.
   ordinary text with numbers stays.
 - The widget: typing a report's final `M` drops the fragment; a paste is
   kept as pasted; Ctrl+U empties the box; Esc empties it when no turn runs.
+- 3.1.3.0: a held report head waits for its tail across a quiet gap and is
+  dropped (never typed) when none comes; a lone Esc is still released; a
+  head left in a batch goes; window sizes settle before one Resize is sent.
 
 Run: python -m tests.test_input_hygiene
 """
@@ -30,7 +33,9 @@ ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
-from halo_harness.tui.win32_input import ALT_OR_CTRL, PendingInput, drop_orphan_tails, install, keep_key_record  # noqa: E402
+from halo_harness.tui.win32_input import (  # noqa: E402
+    ALT_OR_CTRL, HEAD_PATIENCE_S, SETTLE_S, PendingInput, SizeSettle, drop_orphan_tails, install, keep_key_record,
+)
 from halo_harness.tui.widgets.input_sanitize import looks_like_mouse_report, strip_mouse_reports  # noqa: E402
 
 test, TESTS = new_registry()
@@ -160,6 +165,53 @@ def test_prompt_strips_typed_fragments_and_clears_on_ctrl_u_and_esc(ctx: Ctx):
             await pilot.pause(0.1)
             ctx.check(f"a paste is kept exactly as pasted, got {pi.text!r}", pi.text == "plan [<35;1;2M the work")
     asyncio.run(body())
+
+
+@test
+def test_a_split_report_head_waits_for_its_tail_and_is_never_typed(ctx: Ctx):
+    from textual._xterm_parser import XTermParser
+    now = [100.0]
+    stage = PendingInput(clock=lambda: now[0])
+    parser = XTermParser()
+    out = []
+    first = stage.push("\x1b[<35;7")
+    ctx.check(f"the head is held, nothing fed, got {first!r}", first == "" and stage.held == "\x1b[<35;7")
+    now[0] += 0.03
+    ctx.check("a quiet console does not release a report head", stage.flush() == "" and stage.held == "\x1b[<35;7")
+    now[0] += 0.05
+    out.extend(parser.feed(stage.push("2;18M")))
+    names = [type(e).__name__ for e in out]
+    ctx.check(f"the tail 80 ms later completes one mouse move, got {names}", names == ["MouseMove"] and not stage.held)
+    stage.push("\x1b[<36;8")
+    now[0] += HEAD_PATIENCE_S + 0.1
+    ctx.check("a head whose tail never comes is dropped, not typed", stage.flush() == "" and stage.held == "")
+    stage.push("\x1b")
+    now[0] += 0.03
+    ctx.check("a lone Esc is still released on quiet", stage.flush() == "\x1b" and stage.held == "")
+    stage.push("\x1bO")
+    now[0] += 0.03
+    ctx.check("any other partial sequence is released as before", stage.flush() == "\x1bO")
+
+
+@test
+def test_a_head_left_without_its_tail_leaves_the_batch(ctx: Ctx):
+    report = "\x1b[<36;80;20M"
+    ctx.check("a head running into the next report goes", drop_orphan_tails("\x1b[<35;7" + report) == report)
+    ctx.check("a head ending a batch of text goes", drop_orphan_tails("abc\x1b[<35;7") == "abc")
+    ctx.check("typed text around whole reports stays", drop_orphan_tails("a" + report + "b") == "a" + report + "b")
+    ctx.check("an arrow key is not a head", drop_orphan_tails("\x1b[A") == "\x1b[A")
+
+
+@test
+def test_window_sizes_settle_before_textual_hears_one(ctx: Ctx):
+    settle = SizeSettle()
+    ctx.check("nothing pending at the start", settle.due(0.0) is None)
+    settle.push((100, 30), 0.0)
+    settle.push((101, 30), 0.02)
+    settle.push((102, 31), 0.04)
+    ctx.check("mid-drag nothing is released", settle.due(0.05) is None and settle.size == (102, 31))
+    ctx.check("the last size is released once the drag settles", settle.due(0.04 + SETTLE_S) == (102, 31))
+    ctx.check("and only once", settle.due(1.0) is None and settle.size is None)
 
 
 if __name__ == "__main__":

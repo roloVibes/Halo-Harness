@@ -1469,8 +1469,13 @@ conclusion, release gated on the exact sha, install refresh.
   lead, with the evidence as its context; Apply writes the change after one
   confirm card (bio, lineup or plan), with Undo; a coach summary line lands
   in the run report and in the Fleet digest.
-- R2 Studio polish from the first-run work: whatever the guided run exposed
-  (the owner's notes from his live check come first), then the release.
+- R2 The terminal keeps up (DONE 2026-10-19, from the owner's live use):
+  periodic repaints in place instead of a screen layout each
+  (`tui/widgets/inplace.py`), mouse-report heads held until their tail or
+  dropped (never typed) on Windows, size records settled before one Resize,
+  the level band at 24 rows and back at once after a resize; then the release.
+- Moved to 3.1.4.0: Studio polish from the first-run work, whatever the
+  guided run exposed (the owner's notes from his live check come first).
 
 Not taken: moving the Windows suite off the release gate entirely (the
 owner's rule stands: both platforms green on the exact sha before a tag).

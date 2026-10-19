@@ -17,6 +17,7 @@ from halo_harness.model_display import (
     format_status_cost, truncate_label_left,
 )
 from halo_harness.tui.theme import mode_glyph
+from halo_harness.tui.widgets.inplace import update_in_place
 
 # Halo 2.0.1 W2b (liveness-tips-brief Part A3): phase words that get the
 # rich "word elapsed · tokens"/"word elapsed" treatment -- distinct from
@@ -769,7 +770,7 @@ class StatusBar(Static):
             hud_text = render_hud(skin, build_fields(self, strings), width=self.size.width, face_state=state,
                                   frame=self.spinner_index, ascii_mode=ascii_mode, cue=cue)
             self._set_rows(len(hud_text.plain.splitlines()) or 1)
-            self.update(hud_text)
+            update_in_place(self, hud_text)  # 3.1.3.0: the HUD bar ticks in place too
             return
         accent = accent_for(self.theme_name)
         model_style = f"bold {accent}" if accent else "bold"
@@ -928,4 +929,4 @@ class StatusBar(Static):
             except Exception:
                 text.append(self.statusline_text)
             text.append(" ")
-        self.update(text)
+        update_in_place(self, text)

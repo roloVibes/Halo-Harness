@@ -2819,6 +2819,14 @@ class BridgeApp(App):
         except Exception:
             return None
 
+    def on_resize(self, event) -> None:
+        """3.1.3.0: a hidden level band gets no Resize of its own, so the
+        app tells it the terminal changed and it comes back at once when
+        the rows allow (it used to wait for its next idle tick)."""
+        band = self.scene_band
+        if band is not None:
+            band.app_resized(event.size)
+
     def apply_theme(self, name: str) -> None:
         self.theme_name = name
         self.theme_variant = _theme_variant(name)

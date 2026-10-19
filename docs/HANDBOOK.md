@@ -612,7 +612,7 @@ transcript.
 
 `/level` toggles it, `/level on|off` sets it, persisted as `theme_scene`
 in `~/.halo/config.json` (on by default). The band also yields on its
-own: it is hidden on a terminal under 32 rows or 60 columns, while a
+own: it is hidden on a terminal under 24 rows or 60 columns, while a
 pending card (a permission ask, a question, a plan review) is docked,
 and under any theme without a scene.
 
@@ -710,7 +710,12 @@ mid-report handed over the tail alone. Halo 3.0.2.0 puts a stage between
 the console and the parser that holds an incomplete trailing sequence
 until the rest arrives and drops a batch that is nothing but report tails;
 the box also strips any fragment that still lands the moment its final
-`M` arrives, and `Ctrl+U` clears it.
+`M` arrives, and `Ctrl+U` clears it. 3.1.3.0 closes the last gap: a
+quiet console used to release a held partial report after 30 ms (a loaded
+machine can split a report that far), and the parser typed it; a held
+report head now waits up to two seconds for its tail and is dropped,
+never typed. To send a report, run with `HALO_INPUT_TRACE=<file>` and
+move the mouse: the file holds every raw console batch.
 
 ## Hooks, skills, commands, MCP, browser
 

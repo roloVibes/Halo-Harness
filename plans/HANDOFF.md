@@ -4,7 +4,37 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
-## WHERE THINGS STAND -- 2026-10-18 ~07:00 CDT (authoritative, read this first)
+## WHERE THINGS STAND -- 2026-10-19 ~01:30 CDT (authoritative, read this first)
+
+**3.1.0.0, 3.1.1.0 AND 3.1.2.0 ARE RELEASED** (tags v3.1.0.0 at 2569af4,
+v3.1.1.0 at a61a82d, v3.1.2.0 at 4569fe3; each cut by `scripts/release.py`,
+whose step 0 reads the Linux suites run for the exact sha and dispatches the
+Windows suites for it; the Windows gate refused three times on the way and
+each refusal was a real test fix). **3.1.3.0 "The coach loop" is being
+released from this commit**: R1 (the coach asks the run's lead, Apply writes
+after one confirm with Undo, the rules live once; `~/hh-313/briefs/`) and R2
+"the terminal keeps up" from the owner's live use on 2026-10-19 (typing lagged
+and dropped behind in a long session, mouse-report fragments typed themselves
+into the prompt again on Windows, a resize lost the level band):
+- every periodic repaint (status bar, phase line, tool/agent cards, thinking
+  block, level band) repaints in place -- `tui/widgets/inplace.py` -- instead
+  of a full screen layout of every transcript widget (idle CPU at 50 turns
+  14% -> 0%, layouts per typed key 6 -> 1); the slash popup rebuilds once per
+  change;
+- `tui/win32_input.py`: a held report head waits up to 2 s for its tail and is
+  dropped, never typed (a quiet console released it after 30 ms before); size
+  records settle 60 ms before one Resize reaches Textual; `HALO_INPUT_TRACE`;
+- the level band needs 24 rows (was 32) and `BridgeApp.on_resize` brings a
+  hidden band back at once.
+Tests: `tests/test_tui_inplace.py`, `tests/helpers/layout_watch.py` (counts a
+widget's OWN layout requests, not Textual's, so slow runners cannot flake it),
+test_input_hygiene (+3), test_scene (+1). The Studio polish from the owner's
+live-check notes (the old R2) moves to **3.1.4.0**: the notes had not come.
+Lesson (the 2026-10-18 23:58 session died): never drive a TUI window with
+desktop keystrokes from the orchestrating session; measure with
+`BridgeApp.run_test` pilots and the layout watcher instead.
+
+## WHERE THINGS STAND -- 2026-10-18 ~07:00 CDT (previous snapshot)
 
 **3.0.7.0, 3.0.8.0 AND 3.0.9.0 ARE RELEASED** (tags v3.0.7.0 at 6476890,
 v3.0.8.0 at 7e48e81, v3.0.9.0 at 557a36b; GitHub releases published; local

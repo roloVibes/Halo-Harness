@@ -16,6 +16,13 @@ terminal is at least `MIN_ROWS` x `MIN_COLS`, and no pending card is
 docked (a card can take twelve rows; the band yields to it). The band is
 `scene.ROWS` (eight) terminal rows tall: `scene.HEIGHT` (sixteen) pixel rows
 through the half-blocks.
+
+3.1.3.0: `MIN_ROWS` is 24 (was 32: a half-height window lost the band),
+the app calls `app_resized` on every terminal resize so a hidden band comes
+back the moment there is room again instead of on its next idle tick (a
+hidden widget gets no Resize of its own), and each frame repaints in place
+(`widgets/inplace.py`): the band's height never changes, so no frame needs
+a screen layout.
 """
 
 from __future__ import annotations
@@ -26,11 +33,12 @@ from textual.widgets import Static
 
 from halo_harness.tui.scene import render_scene, scene_for
 from halo_harness.tui.scene_combat import Combat, simulate
+from halo_harness.tui.widgets.inplace import update_in_place
 
 LIVE_STEP_S = 0.125
 IDLE_STEP_S = 1.0
 CUE_SECONDS = 2.0
-MIN_ROWS = 32
+MIN_ROWS = 24
 MIN_COLS = 60
 _LIVE = frozenset({"thinking", "writing", "tool", "waiting", "running", "compacting"})
 
@@ -145,9 +153,10 @@ class SceneBand(Static):
 
     # -- visibility and drawing ------------------------------------------------
 
-    def _sync_visibility(self) -> None:
+    def _sync_visibility(self, size=None) -> None:
         app = self.app
-        size = getattr(app, "size", None)
+        if size is None:
+            size = getattr(app, "size", None)
         rows = getattr(size, "height", 0) or 0
         cols = getattr(size, "width", 0) or 0
         pending = None
@@ -170,6 +179,13 @@ class SceneBand(Static):
         self._sync_visibility()
         self._refresh_band()
 
+    def app_resized(self, size) -> None:
+        """The terminal changed size (the app's own Resize, 3.1.3.0): decide
+        visibility from the event's size now (the app records it only after
+        its handlers ran), so a band hidden for want of rows returns at once."""
+        self._sync_visibility(size)
+        self._refresh_band()
+
     def _refresh_band(self) -> None:
         if self.scene is None or not self.display:
             return
@@ -183,8 +199,9 @@ class SceneBand(Static):
         except Exception:
             bg = "#000000"
         width = self._width()
-        self.update(render_scene(self.scene, width, phase=self.phase_state(), frame=self.frame,
-                                 scroll=self.scroll, ascii_mode=bool(ascii_mode), cue=self._cue,
-                                 cue_frame=max(0, self.frame - self._cue_frame0), bg=bg,
-                                 combat=self.combat.snapshot() if self.combat is not None else None,
-                                 variant=self.variant))
+        frame = render_scene(self.scene, width, phase=self.phase_state(), frame=self.frame,
+                             scroll=self.scroll, ascii_mode=bool(ascii_mode), cue=self._cue,
+                             cue_frame=max(0, self.frame - self._cue_frame0), bg=bg,
+                             combat=self.combat.snapshot() if self.combat is not None else None,
+                             variant=self.variant)
+        update_in_place(self, frame)

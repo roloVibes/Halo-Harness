@@ -20,6 +20,7 @@ from textual.widgets import Markdown, Static
 
 from halo_harness.model_display import format_elapsed_seconds, format_live_token_count
 from halo_harness.tui.keys import FOLD_AFTER_WIDGETS
+from halo_harness.tui.widgets.inplace import update_in_place
 from halo_harness.tui.widgets.input_sanitize import SafeStatic, display_safe
 
 
@@ -433,7 +434,7 @@ class ThinkingBlock(SafeStatic):
         if text == self._last_rendered:
             return
         self._last_rendered = text
-        self.update(text)
+        update_in_place(self, text)
 
 
 class AssistantText(Markdown):
