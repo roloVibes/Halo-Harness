@@ -108,7 +108,7 @@ def shoot_caps(c, rig, png: Path) -> int:
     from tests.helpers.studio_fleet_member import MEMBER
     open_fleet(c, rig)
     c.js("localStorage.setItem('halo.studio.layout.fleet', JSON.stringify({v: 2, panels: {"
-         "'fleet-capabilities': {x: 16, y: 14, w: 8, h: 60, face: 'detail'}, 'fleet-agent': {x: 16, y: 74, w: 8, h: 32}}})); 1")
+         "'fleet-capabilities': {x: 18, y: 0, w: 6, h: 70, face: 'detail', collapsed: false}}})); 1")  # 3.1.4.0 R1: its strip's column, open
     c.js("location.reload(); 1")  # the same URL: navigating would keep the page
     time.sleep(1.0)
     c.wait("document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 5", 30)
@@ -129,16 +129,18 @@ def shoot_caps(c, rig, png: Path) -> int:
 def shoot_mission(c, rig, png: Path) -> int:
     """R8: the plan on the map and in the Mission panel's table (no model: the seeded fake lead)."""
     from tests.helpers.studio_fleet_mseed import MissionFakes, plan_by_api
-    from tests.helpers.studio_fleet_panels import seen
+    from tests.helpers.studio_fleet_panels import open_strip, seen
     MissionFakes(rig)
     mid = plan_by_api(rig)["mission"]["id"]
     open_fleet(c, rig)
+    open_strip(c, "fleet-mission")  # 3.1.4.0 R1: Mission starts as a strip on the right edge
     row = f"document.querySelector('[data-testid=\"fleet-mission-row\"][data-id=\"{mid}\"] [data-testid=\"fleet-mission-open\"]')"
     c.wait(f"!!{row}", 20)
     seen(c, row)
     c.click_on(row)
     part = "document.querySelector('[data-testid=\"fleet-part\"][data-part=\"3\"]')"
     c.wait("document.querySelectorAll('[data-testid=\"fleet-part\"]').length === 3", 20)
+    seen(c, part)  # the Mission strip opened below the fold: bring the map's part back into view
     c.click_on(part)
     c.wait("!!document.querySelector('[data-testid=\"fleet-mission-part-row\"][aria-selected=\"true\"]')", 10)
     c.wait("!!document.querySelector('[data-testid=\"fleet-attn-row\"][data-kind=\"mission_plan\"]')", 20)

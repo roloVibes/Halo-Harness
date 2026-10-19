@@ -38,6 +38,17 @@ def seen(c, expr: str) -> None:
     time.sleep(0.2)
 
 
+def open_strip(c, pid: str) -> None:
+    """3.1.4.0 R1: Health, Capabilities, Agent and Mission start as title strips down the right edge; the one
+    click that opens one is the chevron on its title bar ("Open the panel"). A panel already open stays as it is."""
+    btn = f"document.querySelector('.ws-cell[data-panel=\"{pid}\"] .panel-bar button[aria-label=\"Open\"]')"
+    c.wait(f"!!document.querySelector('.ws-cell[data-panel=\"{pid}\"]')", 30)
+    if c.js(f"!!{btn}"):
+        seen(c, btn)
+        c.click_on(btn)
+        c.wait(f"!!document.querySelector('.ws-cell[data-panel=\"{pid}\"] .panel-body:not([hidden])')", 10)
+
+
 def attention(c, rig, out: dict) -> None:
     from tests.helpers.studio_fleet_member import APPROVAL_ID
     from tests.helpers.studio_fleet_rig import wait_for

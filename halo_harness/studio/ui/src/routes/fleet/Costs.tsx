@@ -4,7 +4,7 @@
 // `POST fleet/caps`): a cap reached pauses the sessions in its scope and
 // raises an attention row, Lift for today resumes them; the provider
 // balances the balances workers last read, when there are any.
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, Empty, Icon } from "../../lib/ui";
 import type { MotionState } from "../../lib/motion";
 import { Metric } from "../orchestra/bits";
@@ -60,7 +60,9 @@ function Caps({ c }: { c: Costs }) {
 }
 
 function Reached({ c }: { c: Costs }) {
-  const rows = usePanels((s) => s.attention.filter((r) => r.kind === "cap"));
+  // 3.1.4.0 R1: select the list itself (a filtered copy is a new value on every read: React re-renders forever)
+  const attention = usePanels((s) => s.attention);
+  const rows = useMemo(() => attention.filter((r) => r.kind === "cap"), [attention]);
   if (!c.reached?.length) return null;
   return (
     <section className="fco-reached" data-testid="fleet-cap-reached">
