@@ -306,8 +306,9 @@ def test_media_agent_bio_loads_and_is_sane(ctx: Ctx):
     ctx.check("it allows Media and Read (the describe loop)",
               "Media" in (bio.get("tools", {}).get("allow") or [])
               and "Read" in (bio.get("tools", {}).get("allow") or []))
-    ctx.check("its preference is a vision-capable lane",
-              "flash" in (bio.get("models", {}).get("preference") or ""))
+    # 3.1.4.0: no shipped bio pins a provider; the eyes lane names its vision model in a comment
+    ctx.check("it runs on the session's model (preference: default)",
+              (bio.get("models", {}) or {}).get("preference") == "default")
 
 
 if __name__ == "__main__":
