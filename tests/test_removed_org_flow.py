@@ -51,6 +51,15 @@ def _imports(path: Path) -> "list[str]":
     return out
 
 
+def _present(path) -> bool:
+    """A file, or a folder with anything but a stale `__pycache__` in it (a dev checkout keeps those)."""
+    if path.is_file():
+        return True
+    if not path.is_dir():
+        return False
+    return any(c.name != "__pycache__" for c in path.iterdir())
+
+
 @test
 def test_no_module_imports_a_removed_package(ctx: Ctx):
     bad = []
@@ -60,7 +69,7 @@ def test_no_module_imports_a_removed_package(ctx: Ctx):
                 bad.append(f"{path.relative_to(REPO).as_posix()}: {name}")
     ctx.check(f"no import of a removed module, got {bad}", not bad)
     left = [p for p in ("flows", "paperclip", "orgs.py", "org_cli.py", "templates/flows", "templates/orgs",
-                        "studio/paperclip_api.py", "studio/flow_api.py", "tui/dialogs/org_editor.py") if (PKG / p).exists()]
+                        "studio/paperclip_api.py", "studio/flow_api.py", "tui/dialogs/org_editor.py") if _present(PKG / p)]
     ctx.check(f"the removed files are gone, left: {left}", not left)
 
 
