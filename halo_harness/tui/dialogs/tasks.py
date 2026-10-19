@@ -11,7 +11,7 @@ Both `list_agent_tasks`/`read_task_board` are plain zero-arg callables
 (never the Controller itself) so a test can hand this a `FakeController`
 -- or a bare lambda returning a canned list -- with no real Session/
 agent_runtime/sub-agent ever involved (see test_tui.py's own pilot tests,
-next to the roles/org editors').
+next to the roles editor's).
 """
 
 from __future__ import annotations
@@ -47,8 +47,8 @@ def _fmt_cost(cost) -> str:
 
 
 def agent_row_text(row: dict, *, phase_word: "Optional[str]" = None) -> str:
-    """One `/tasks` "Agents" tab line -- indented by `depth` (an org
-    run's own tree position), e.g. "  agent (Worker) · running 12s · 3
+    """One `/tasks` "Agents" tab line -- indented by `depth` (its own
+    tree position), e.g. "  agent (Worker) · running 12s · 3
     tools · $0.0012". `phase_word` (round 3): the W2b word (thinking/
     writing/tool/waiting) from this agent's own LIVE `SubAgentCard`, when
     `TasksPanel.refresh_rows` found one still mounted -- overrides the
@@ -65,8 +65,8 @@ def agent_row_text(row: dict, *, phase_word: "Optional[str]" = None) -> str:
 
 
 def board_row_text(row: dict) -> str:
-    # Halo 2.0.2 round 7 (brief 3b, "goals"): a goal task (an org run's own
-    # root task, `tools/task_board.create_task(..., kind="goal")`) is
+    # Halo 2.0.2 round 7 (brief 3b, "goals"): a goal task (a root task,
+    # `tools/task_board.create_task(..., kind="goal")`) is
     # tagged; a task some OTHER task's own child of (`parent` set, by
     # TaskCreate's own optional field) is indented one level, so the
     # board reads goal -> tasks -> results instead of a flat list -- a
@@ -234,7 +234,7 @@ class TasksPanel(ModalScreen):
     # bubbling the raw key up to the Screen) -- `on_option_list_option_
     # selected` below is the real "Enter on a row" handler, same
     # convention every other OptionList-based dialog in this package
-    # uses (roles_editor.py, org_editor.py, mcp_status.py, ...).
+    # uses (roles_editor.py, mcp_status.py, ...).
     BINDINGS = [
         Binding("escape,ctrl+t", "close_panel", "Close", show=False),
         Binding("tab", "next_tab", "Switch tab", show=False),
@@ -381,9 +381,9 @@ class TasksPanel(ModalScreen):
 
     def action_next_tab(self) -> None:
         # 2.0.2 review finding 26: the board tab used to stay hidden
-        # (Tab did nothing at all) while `orgs.enabled` was off --
+        # (Tab did nothing at all) behind a mode switch --
         # TaskCreate/TaskUpdate/TaskList are offered to the model in
-        # EVERY session regardless of that setting, so the board itself
+        # EVERY session, so the board itself
         # can be non-empty with no way to reach it from here. Tab now
         # always switches, the same way `/tasks`'s own board subcommand
         # always works.

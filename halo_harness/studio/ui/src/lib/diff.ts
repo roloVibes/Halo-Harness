@@ -1,4 +1,4 @@
-// Structural sharing for polled JSON (3.0.7.0 R3, the Org and Design
+// Structural sharing for polled JSON (3.0.7.0 R3, the Design
 // pollers): `same(prev, next)` keeps the previous value when the new one is
 // equal (so a store update with it is a no-op and nothing re-renders), and
 // `reuse(prev, next)` keeps every unchanged row of a list by its `id`, so a

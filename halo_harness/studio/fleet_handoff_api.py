@@ -4,17 +4,15 @@ from fleet_extras_api.py and moved the recordings and the replay to
 fleet_recording_api.py), appended to studio/fleet_hub_api.py's ROUTES; the
 same loopback + token guard.
 
-    POST fleet/<h>/<sid>/agents/<aid>/handoff {mode: take_over | hand_to, brief?, to?, assignee?}
+    POST fleet/<h>/<sid>/agents/<aid>/handoff {mode: take_over | hand_to, brief?, to?}
         take_over  a redirect steer with `brief`, recorded as a hand-off in the agent's transcript and its
                    parent's -> {ok, mode, result}
-        hand_to    the agent's task, last hand-back and files as one brief: a Paperclip issue assigned to `to`'s
-                   company agent when Org mode is on, else <repo>/.halo/handoffs/<id>.md (the state directory's
-                   handoffs/ when the repo is not on this machine); then the agent is stopped
-                   -> {ok, mode, to, title, issue? | path?, note, stopped: {status, result}}
+        hand_to    the agent's task, last hand-back and files as one brief in <repo>/.halo/handoffs/<id>.md
+                   (the state directory's handoffs/ when the repo is not on this machine); then the agent is
+                   stopped -> {ok, mode, to, title, path, note, stopped: {status, result}}
 
 A member's agent comes through the hub (`agent_tail` per agent, which needs
-its share `full`). Every hand-off is journaled (the digest). `PAPERCLIP` is
-the client factory (tests stub it). `_find` (the harness and session a
+its share `full`). Every hand-off is journaled (the digest). `_find` (the harness and session a
 route names) and `_tail` (an agent's transcript tail) are shared with
 fleet_recording_api.py.
 """
@@ -27,7 +25,6 @@ from halo_harness.fleet import journal
 from halo_harness.studio import fleet_watch_sources as sources
 from halo_harness.studio import fleet_send as send
 
-PAPERCLIP = None
 TAIL_N = 300
 
 
@@ -85,28 +82,14 @@ def post_handoff(req):
             files.append(f)
     title, md = handoff.brief(harness=h, session=s, agent=agent, handback=handoff.handback_of(entries, agent),
                               files=files, by=by, to=str(target.get("name")) + (f" ({text})" if text else ""))
-    from halo_harness.paperclip.mode import org_mode_enabled
     out = {"ok": True, "mode": mode, "to": target.get("name"), "title": title, "note": ""}
-    if org_mode_enabled():
-        from halo_harness.paperclip.client import PaperclipError
-        try:
-            got = handoff.to_issue(req.state_dir, title, md, target, assignee=body.get("assignee") or None,
-                                   client=PAPERCLIP(req.state_dir) if PAPERCLIP else None)
-        except ValueError as e:
-            return 409, {"error": str(e)}
-        except (PaperclipError, OSError) as e:
-            return 502, {"error": f"Paperclip: {e}"}
-        out.update(issue=got["issue"], assignee=got["assignee"], assignee_name=got.get("assignee_name"), note=got["note"])
-    else:
-        proj = s.get("project") if isinstance(s.get("project"), dict) else {}
-        root = proj.get("root") if local and proj.get("root") and Path(str(proj["root"])).is_dir() else req.state_dir
-        out["path"] = str(handoff.to_file(root, handoff.handoff_id(aid), md))
+    proj = s.get("project") if isinstance(s.get("project"), dict) else {}
+    root = proj.get("root") if local and proj.get("root") and Path(str(proj["root"])).is_dir() else req.state_dir
+    out["path"] = str(handoff.to_file(root, handoff.handoff_id(aid), md))
     status, got = send.session_cmd(req.server, req.state_dir, str(h["id"]), sid, "agent_stop",
                                  {"agent_id": aid, "reason": f"handed to {target.get('name')}"})
     out["stopped"] = {"status": status, "result": got}
-    journal.append(req.state_dir, "handoff", action="hand_to", to=target.get("name"),
-                   issue=(out.get("issue") or {}).get("identifier") or (out.get("issue") or {}).get("id"),
-                   path=out.get("path"), **note)
+    journal.append(req.state_dir, "handoff", action="hand_to", to=target.get("name"), path=out.get("path"), **note)
     return 200, out
 
 

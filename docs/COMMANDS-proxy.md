@@ -88,23 +88,25 @@ value; Halo does not read `.env`), Claude Code's `settings.json` layers
 (`managed-mcp.json`, `~/.claude.json` and its entry for this folder,
 `.mcp.json`), the active lineup and each lineup it `extends`, the lineup and
 bio folders (repo `.halo/`, `~/.halo/`, shipped), the team file (`.halo/team.yaml`,
-`~/.halo/teams/<project>.team.yaml`), the Databricks preset (`team.json`)
-and the flows (`.halo/flow.yaml`, `~/.halo/flows/`, shipped). Each row: the
+`~/.halo/teams/<project>.team.yaml`) and the Databricks preset (`team.json`).
+Each row: the
 file, its scope (`home`, `repo`, `env`, `shipped`), whether it exists, what
-it sets (its top-level keys, or the names of the lineups, bios, flows,
+it sets (its top-level keys, or the names of the lineups, bios,
 servers or variables it holds) and its rank (1 = the file the resolver
 reads first). When two files set the same key, `wins` and `loses to` say
-which one decides, as the resolvers decide it (the lineup, bio and flow
+which one decides, as the resolvers decide it (the lineup and bio
 finders, the settings merge, the MCP resolver, the start-model and theme
 order, the env file's "the environment wins" rule). `/config where` in the
 TUI prints the same table.
 
 `halo doctor --config` checks every file that table lists: against one
 schema set (`halo_harness/schemas/`: config.json, a lineup, a bio, a team
-file, a flow) for unknown keys (with the closest known key) and wrong
+file) for unknown keys (with the closest known key) and wrong
 types, and against the existing validators for meaning: a lineup or team
-naming a bio or lineup that does not exist, a flow naming a lineup that
-does not resolve, `team:` in config.json naming a lineup that is not there.
+naming a bio or lineup that does not exist, `team:` in config.json naming a
+lineup that is not there. A section of a removed feature is one warning
+line: `orgs: removed in 3.1.4.0, the section is ignored` (and the same for
+`paperclip`) in config.json, `org: removed in 3.1.4.0, ignored` in a lineup.
 It also reports a key two files set to different values, with the file that
 wins. Shipped templates are not re-checked. Exit 0 when nothing is found,
 1 otherwise. Studio's Roles section shows the findings about the open

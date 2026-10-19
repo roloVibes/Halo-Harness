@@ -1,7 +1,7 @@
 """halo_harness.lineup_preflight -- Halo 3.0.7.0 round R1: the run-start
 preflight (the OpenFlow port in plans/ROADMAP.md, "Into 3.0.7.0").
 
-Before `halo orchestra run`, `halo flow run` (and their Studio routes) and a
+Before `halo orchestra run` (and its Studio route) and a
 mission run start, the lineup they run under is checked for what would make
 members come back empty: a model id its provider's catalog does not know
 (the silent-404 case `halo doctor --roles` finds after the fact), an
@@ -61,7 +61,11 @@ def _lineup_problems(name, *, cwd, state_dir) -> "list[dict]":
     if template is None:
         return [_finding("lineup-missing", "blocks", f"lineup `{lineup}` does not resolve (no such file, or its "
                          f"`extends` chain is broken)", "`halo teams` lists the lineups; name one that exists")]
-    return template_problems(template, cwd=cwd, state_dir=state_dir)
+    out = template_problems(template, cwd=cwd, state_dir=state_dir)
+    if not any(f["id"].startswith("removed:") for f in out):  # the resolved lineup drops it; the file may hold it
+        from halo_harness.teams_yaml import load_team_template_raw
+        out += _removed(load_team_template_raw(lineup, cwd=cwd, state_dir=state_dir) or {})
+    return out
 
 
 def template_problems(template: dict, *, cwd=None, state_dir=None) -> "list[dict]":
@@ -105,36 +109,19 @@ def template_problems(template: dict, *, cwd=None, state_dir=None) -> "list[dict
                                 f"`tools.allow: []`: it may call no tool",
                                 f"list the tools it calls under `tools.allow`, or remove the key to use the "
                                 f"defaults (`halo agents edit {bio_name}`)"))
-    org = template.get("org") if isinstance(template.get("org"), dict) else {}
-    for p in org.get("positions") or []:
-        if isinstance(p, dict) and p.get("agent") and resolve_agent_bio(str(p["agent"]), cwd=cwd,
-                                                                        state_dir=state_dir) is None:
-            title = p.get("title") or "?"
-            out.append(_finding(f"missing-bio:org:{title}", "blocks",
-                                f"org position `{title}` names bio `{p['agent']}`, which does not exist",
-                                f"create it (`halo agents new {p['agent']}`) or point the position at an existing bio"))
     for i, line in enumerate(validate_tiers(template.get("tiers"), template.get("agents") or [])):
         out.append(_finding(f"tiers:{i}", "blocks", line, "fix the `tiers` section (docs/ROLES.md, \"Tiers\")"))
     for line in tier_warnings(template):
         out.append(_finding("tiers:unplaced", "warns", line[len("warning: "):],
                             "add each alias to a tier, or leave it in the implicit last tier"))
-    return out
+    return out + _removed(template)
 
 
-def flow_problems(spec: dict, *, cwd=None, state_dir=None) -> "list[dict]":
-    """The preflight for a flow: every lineup its `roles` steps use."""
-    seen: "list[str]" = []
-    for step in (spec or {}).get("steps") or []:
-        if not isinstance(step, dict):
-            continue
-        uses = str(step.get("uses") or "")
-        if step.get("kind") == "roles" and uses.startswith("lineup:") and uses[7:] not in seen:
-            seen.append(uses[7:])
-    out: "list[dict]" = []
-    for name in seen:
-        for f in lineup_problems(name, cwd=cwd, state_dir=state_dir):
-            out.append({**f, "id": f"{name}/{f['id']}", "text": f"lineup `{name}`: {f['text']}"})
-    return out
+def _removed(data) -> "list[dict]":
+    """3.1.4.0: a section of a removed feature (`org:`) is one `warns` line, never a block."""
+    from halo_harness.teams_yaml import removed_section_warnings
+    return [_finding(f"removed:{line.split(':')[1].strip()}", "warns", line[len("warning: "):],
+                     "delete the section from the lineup file") for line in removed_section_warnings(data)]
 
 
 def blocking(problems: "list[dict]") -> "list[dict]":

@@ -74,9 +74,9 @@ def _content_text(content) -> str:
 def _tool_entry(block: dict, ts) -> dict:
     name, args = str(block.get("name") or "?"), block.get("input")
     if name in SPAWN_TOOLS and isinstance(args, dict):
-        task = args.get("prompt") or args.get("description") or args.get("org") or ""
-        return {"kind": "spawn", "id": block.get("id"), "name": str(args.get("subagent_type") or args.get("org")
-                                                                    or "general-purpose"), "task": first_line(task), "ts": ts}
+        task = args.get("prompt") or args.get("description") or ""
+        return {"kind": "spawn", "id": block.get("id"), "name": str(args.get("subagent_type") or "general-purpose"),
+                "task": first_line(task), "ts": ts}
     shown = args if len(json.dumps(args, default=str)) <= TEXT_CAP else one_line(args, TEXT_CAP)
     return {"kind": "tool_call", "id": block.get("id"), "name": name, "input": shown,
             "label": tool_label(name, args), "ts": ts}

@@ -3,7 +3,8 @@ and tools/capture_team.py look at (Halo 3.0.8.0 round R2). One scratch home
 (the shipped lineups, so every member's lineup resolves) with an in-process
 Studio whose folder is a git repo holding tests/helpers/team_rig.py's team
 (`TEAM_UI`: the rig's team, with the `notes` block claimed per file and a
-required gate on `post`, so the run stays open for Stop), and the team
+fourth stage, `post`, an agent stage with a required gate after `review`,
+so the run stays open for Stop; 3.1.4.0: it was a flow stage), and the team
 runner's seams set to `HeldFakes` (team_rig.Fakes; no model is ever called):
 a member's spawn can wait on an Event after its writes went through the real
 TeamClaimGuard, so a stage stays `running` and its claims stay `writing`
@@ -24,7 +25,7 @@ from pathlib import Path
 from tests.helpers import team_rig as R
 
 TEAM_UI = (R.TEAM.replace("{id: notes, kind: file, path: NOTES.md, claims: none}", "{id: notes, kind: file, path: NOTES.md, claims: file}")
-           .replace('reads: [copy], trigger: "stage_done:review"}', 'reads: [copy], trigger: "stage_done:review", gate: required}'))
+           + '    - {id: post, kind: agent, members: [writer], reads: [copy], trigger: "stage_done:review", gate: required}\n')
 _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_TEST_NO_BACKGROUND_NET")
 
 

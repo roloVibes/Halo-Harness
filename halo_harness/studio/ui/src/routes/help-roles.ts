@@ -19,7 +19,7 @@ export const ROLES_HELP: Record<string, Help> = {
     about: "The open lineup as cards, one box per tier: who plays each part, on which model.",
     help: lines(
       "Drag a card into another tier box to move it there (the lineup saves); main stays in tier 0.",
-      "Drop a card onto another card to make it report there; drag a bio from Bios onto the canvas to add it.",
+      "Drag a bio from Bios onto the canvas to add it.",
       "A tier's label strip collapses or expands it. While a session runs, the cards whose agents work glow.",
       "Click the canvas, then A lays out, F fits, + / - zoom, the arrows nudge the selected card, Delete removes it.",
       "Ctrl+Z undoes an edit, Ctrl+Shift+Z redoes it, Mod+S saves.",
@@ -28,8 +28,8 @@ export const ROLES_HELP: Record<string, Help> = {
   "roles-inspector": {
     about: "The selected card's slot, every section of the lineup, and what runs on the card now.",
     help: lines(
-      "Assignment: the bio, role, alias, instances, routing words, reports-to and a model override.",
-      "Lineup: delegation, routing, budget, escalation, context, permissions, org, pipeline, acceptance, tiers.",
+      "Assignment: the bio, role, alias, instances, routing words and a model override.",
+      "Lineup: delegation, routing, budget, escalation, context, permissions, pipeline, acceptance, tiers.",
       "Each section is a small form; YAML edits the raw section instead.",
       "Live: the streams of the agents on the card, Steer, Pause, Stop, Pin; or its last runs, with replay.",
     ),

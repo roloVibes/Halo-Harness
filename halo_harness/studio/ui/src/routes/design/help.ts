@@ -1,5 +1,5 @@
 // What the Design panels added in 3.0.7.0 R3b say about themselves (spread
-// over routes/help-org-design.ts's lines in Design.tsx): the design-system
+// over routes/help-design.ts's lines in Design.tsx): the design-system
 // panel, and Artboards and Thread with the knobs, the direct text edits,
 // pinning a comment, the device select and "3 directions".
 import type { Help } from "../help-orchestra";

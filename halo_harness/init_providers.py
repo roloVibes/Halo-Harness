@@ -31,7 +31,7 @@ PROVIDERS = ("databricks", "openrouter", "anthropic", "claude")
 # above and so never offers these two either -- a documented, deliberate
 # gap, not an oversight) is the only surface TAB_PROVIDERS drives;
 # `halo setup`/`/setup` never reach a providers step at all (`setup_cli.
-# py`'s own step list is `roles`/`orgs`/`summary` only), so neither is
+# py`'s own step list is `roles`/`summary` only), so neither is
 # affected by this tuple either way.
 TAB_PROVIDERS = PROVIDERS + ("ollama", "huggingface", "openai", "codex", "typesafe", "experiential",
                               "settings_sources")

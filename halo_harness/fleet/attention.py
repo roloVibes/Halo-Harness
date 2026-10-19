@@ -7,7 +7,6 @@ serves them (`GET /api/fleet/attention`) and routes the answers.
     fleet_ask      a hub asks this harness's owner to allow a command (a `fleet-ask:` question here)
     waiting        an agent waits with no card of its own session listed
     paused         an agent (or a whole session) paused, waiting on resume
-    flow_gate      a flow run waits at a gate (the render OK)
     orchestra_gate an Orchestra run the gate stopped (the return cap, or failing tests)
     control_ask    a command this hub sent waits on a member's owner
     cap            a spend cap reached: its sessions are paused
@@ -39,7 +38,6 @@ KEYS = {
     "fleet_ask": {"a": "allow", "r": "deny", **OPEN},
     "waiting": {"s": "stop", **OPEN},
     "paused": {"a": "resume", "s": "stop", **OPEN},
-    "flow_gate": {"a": "accept", "r": "redo", "s": "stop", "o": "open Flow"},
     "orchestra_gate": {"a": "set aside", "o": "open Orchestra"},
     "control_ask": {"a": "set aside", **OPEN},
     "cap": {"a": "lift for today", "o": "open Costs"},
@@ -50,7 +48,7 @@ KEYS = {
     "team_gate": {"a": "accept", "r": "redo", "s": "stop", "o": "open Team"},  # 3.0.8.0 R2
     "team_budget": {"a": "raise (edit the file)", "r": "skip", "s": "stop", "o": "open Team"},  # 3.1.2.0 R2
 }
-TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "flow_gate": "r", "mission_plan": "r",
+TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "mission_plan": "r",
             "team_gate": "r"}
 CARD_KINDS = ("permission", "question", "plan", "approval")
 
@@ -122,13 +120,6 @@ def session_rows(view: dict, asks: dict, seen: dict, now: float) -> list:
     return out
 
 
-def flow_rows(flows: list, local: dict, seen: dict, now: float) -> list:
-    return [_row("flow_gate", str(r.get("run")), local, None, "", f"Flow {r.get('name') or r.get('run')} waits at "
-                 f"{r.get('waiting_step')}", "confirm the render, redo it with an instruction, or stop the run",
-                 seen, now, run=r.get("run"), step=r.get("waiting_step"))
-            for r in flows if r.get("waiting_step")]
-
-
 def orchestra_rows(runs: list, local: dict, seen: dict, now: float, within_s: float = 86400.0) -> list:
     return [_row("orchestra_gate", str(r.get("run_id")), local, None, "", f"Orchestra run {r.get('run_id')} stopped at the gate",
                  one_line(r.get("stop_reason") or r.get("goal_what"), 240), seen, now, run=r.get("run_id"))
@@ -170,13 +161,13 @@ def conflict_rows(conflicts: list, view: dict, seen: dict, now: float) -> list:
     return out
 
 
-def build(view: dict, *, asks: Optional[dict] = None, flows=(), orchestra=(), commands=(), reached=(), conflicts=(),
+def build(view: dict, *, asks: Optional[dict] = None, orchestra=(), commands=(), reached=(), conflicts=(),
           seen: Optional[dict] = None, acks=(), now: Optional[float] = None, home=None, teams=()) -> list:
     """Every row, newest decision last within each harness, set-aside rows left out."""
     now = now or time.time()
     seen = seen if seen is not None else {}
     local = next((h for h in view.get("harnesses") or [] if h.get("local")), {"id": None, "name": "this harness", "local": True})
-    rows = (session_rows(view, asks or {}, seen, now) + flow_rows(list(flows), local, seen, now)
+    rows = (session_rows(view, asks or {}, seen, now)
             + orchestra_rows(list(orchestra), local, seen, now) + command_rows(list(commands), view, seen, now)
             + cap_rows(list(reached), local, seen, now) + conflict_rows(list(conflicts), view, seen, now))
     if home is not None:  # 3.0.6.0 R7: the missions' rows

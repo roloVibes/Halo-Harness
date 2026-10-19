@@ -4,7 +4,7 @@ two-machine check"). The hub box, after a member joins, drives:
 
     who       `fleet who nmap` names the member, `who gridcraft` this host
     mission   a one-part files mission pinned to the member writes one file and hands back here
-    team      a team with a delegated agent stage (gate answered here) and a delegated flow stage
+    team      a team with a delegated agent stage (its gate answered here)
     recall    `recall --fleet` with a query only the member's index answers
 
 Each step is a `Step` with a PASS / FAIL and one evidence line; `run_all`
@@ -95,8 +95,6 @@ workflow:
   stages:
     - {id: draft, kind: agent, members: [scout], reads: [brief], writes: [notes], trigger: manual,
        gate: required, acceptance: {expect: "non-empty"}}
-    - {id: post, kind: flow, harness: MEMBER, flow: social-post, inputs: {brief: "the launch", project: live-check},
-       trigger: "stage_done:draft"}
 """
 
 
@@ -126,14 +124,11 @@ def step_team(home, member: dict, timeout: float, cleanups: list, repo: Optional
     if not _wait(lambda: runner.row("draft").get("state") == "gated", timeout, drive=runner.tick):
         return False, f"the agent stage did not reach its gate (state {runner.row('draft').get('state')})"
     runner.apply_answer("draft", {"action": "accept", "text": ""})
-    done = _wait(lambda: runner.row("post").get("state") in ("done", "failed")
-                 and runner.row("draft").get("state") in ("done", "failed"), timeout, drive=runner.tick)
-    draft, post = runner.row("draft"), runner.row("post")
-    ok = bool(done) and draft.get("state") == "done" and post.get("state") == "done"
-    run_id = (post.get("remote") or {}).get("run")
-    return ok, (f"agent stage ran on {member.get('name')} and its gate was accepted here; flow stage ran on "
-                f"{member.get('name')} (run {run_id})" if ok
-                else f"draft {draft.get('state')} / post {post.get('state')} {post.get('error') or draft.get('error') or ''}")
+    done = _wait(lambda: runner.row("draft").get("state") in ("done", "failed"), timeout, drive=runner.tick)
+    draft = runner.row("draft")
+    ok = bool(done) and draft.get("state") == "done"
+    return ok, (f"agent stage ran on {member.get('name')} and its gate was accepted here" if ok
+                else f"draft {draft.get('state')} {draft.get('error') or ''}")
 
 
 def step_recall(hub, home, timeout: float) -> "tuple[bool, str]":

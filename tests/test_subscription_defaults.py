@@ -74,7 +74,7 @@ def test_catalog_and_resolved_bios_carry_no_subscription_route_while_off(ctx: Ct
 
 @test
 def test_studio_model_list_and_lineup_graph_carry_none(ctx: Ctx):
-    from tests.test_studio_org import _Studio
+    from tests.test_studio_design import _Studio
     with _Studio() as s:
         status, body = s.call("GET", "/api/models")
         rows = body if isinstance(body, list) else (body.get("rows") or body.get("models") or [])

@@ -1,10 +1,10 @@
 """halo_harness.orchestra.coach_rules -- the coach's rules, once, for every run
 kind (Halo 3.1.2.0 R1 moved the Orchestra rules here; 3.1.3.0 R1 folded the
-flow, mission and team rules in). Each rule reads unit facts -- one dict per
-unit of work (docs/WORK.md: a lane, a part, a stage, a step) -- and yields
+mission and team rules in). Each rule reads unit facts -- one dict per
+unit of work (docs/WORK.md: a lane, a part, a stage) -- and yields
 suggestions of the one shared shape (orchestra/coach.py `suggestion`).
 
-A fact carries `unit` (its id), `noun` (lane|part|stage|step), `title`,
+A fact carries `unit` (its id), `noun` (lane|part|stage), `title`,
 `bio`, `state`, and what its kind has: `returned` {class: times} (and
 `return_why` {class: lines}), `denied`, `refused` [{key, held, who?, why?}],
 `written` (units written, None when the kind does not count them),
@@ -26,8 +26,7 @@ from halo_harness.orchestra.coach_prices import CHEAP_PRICE, TOP_PRICE, best_for
 COST_FLOOR = 0.05     # $: under it a unit is never "high cost"
 SMALL_DIFF = 40       # lines written: a small diff
 WAIT_SHARE = 0.5      # of the unit's time spent waiting on one other unit
-CLASS_TEXT = {"gate": "the tests failed on the finished branch", "merge": "the merge's resolution failed the tests",
-              "redo": "it was drawn again"}
+CLASS_TEXT = {"gate": "the tests failed on the finished branch", "merge": "the merge's resolution failed the tests"}
 NOTES = {"gate": "Before you release a unit, run the goal's test command in your worktree and fix every failure "
                  "that names your unit.",
          "merge": "Change only the lines of your claimed unit and keep the code around it as it is, so your "
@@ -221,7 +220,7 @@ def structure_rules(units: list, pairs: dict, run: str, *, dep: str = "after", n
     return out
 
 
-def coordination_rules(loops: list, units=(), mid=None, budget: str = "", budget_why=()) -> list:
+def coordination_rules(loops: list, units=(), mid=None) -> list:
     """`loops`: [{unit|None, noun, n, limit, why}] (unit None: the run's quality gate)."""
     out = []
     for lp in loops:
@@ -243,8 +242,4 @@ def coordination_rules(loops: list, units=(), mid=None, budget: str = "", budget
                                   f"it: pin it to a harness that runs {f['noun']}s without asking, or answer sooner",
                                   [f"{_at(f)}: asked for {secs:.0f}s", f"the median {f['noun']} took {mid:.0f}s"],
                                   lane_or_part=f["unit"]))
-    if budget:
-        out.append(suggestion("coordination-budget", "coordination", "medium",
-                              "the run stopped at its budget: raise budget_usd or give the dear step a cheaper model",
-                              [budget] + list(budget_why)))
     return out

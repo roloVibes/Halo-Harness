@@ -3,7 +3,7 @@ enforced (halo_harness/work/states.py, work/unit.py `Unit.move`): every
 legal edge moves, three illegal ones raise IllegalMove naming the unit,
 from and to (and an engine setter that meets one writes nothing), and each
 engine's real fixture history -- an Orchestra run with a hand-off, a team
-run through its gate, a local mission and a flow run with a redo -- replays
+run through its gate and a local mission -- replays
 through `Unit.move` from its first word to its last. No model is called.
 
 Run: python -m tests.test_work_states
@@ -76,7 +76,7 @@ def test_three_illegal_moves_raise_naming_the_unit_from_and_to(ctx: Ctx):
               and texts[1] == "stage draft cannot move from stopped to running (from stopped it moves to nothing: it is over)"
               and texts[2].startswith("part 3 cannot move from pending to merged"))
     ctx.check("IllegalMove is a ValueError, and the engine-word helper raises it too",
-              isinstance(IllegalMove("x", "a", "b"), ValueError) and _raises(lambda: move_word("step", "s", "done", "pending")))
+              isinstance(IllegalMove("x", "a", "b"), ValueError) and _raises(lambda: move_word("stage", "s", "done", "pending")))
     from tests.helpers import team_rig as R
     from halo_harness.team import board as BD
     from halo_harness.team import spec as S
@@ -116,7 +116,7 @@ def test_an_orchestra_runs_lanes_replay_through_move(ctx: Ctx):
 
 
 @test
-def test_a_team_run_and_a_flow_run_replay_through_move(ctx: Ctx):
+def test_a_team_run_replays_through_move(ctx: Ctx):
     from tests.helpers import team_rig as R
     from halo_harness.team import spec as S
     from halo_harness.team import stages as TS
@@ -140,22 +140,6 @@ def test_a_team_run_and_a_flow_run_replay_through_move(ctx: Ctx):
     bad = {sid: got for sid, words in per.items() if isinstance(got := _replay("stage", sid, words), str)}
     ctx.check(f"every stage's state lines replay, got {per} {bad}", not bad and per["draft"][:4] == ["ready", "running", "gated", "ready"]
               and per["draft"][-1] == "done" and per["review"][-1] == "done")
-    from halo_harness.flows.state import read_events as flow_events
-    from tests.helpers.fake_comfy import FakeComfy
-    from tests.helpers.fake_flow import Answers, FakeOrg, make_adapters, new_run, template_spec
-    from halo_harness.flows.run import run
-    with FakeComfy() as fake:
-        run_dir = new_run(template_spec(), project="flow-replay")
-        report = run(run_dir, adapters=make_adapters(fake.url, run_org=FakeOrg(gate=False),
-                                                     answers=Answers({"approve": [("redo", "warmer"), ("accept", "")]})))
-    steps: dict = {}
-    for e in flow_events(run_dir):
-        if e["kind"] == "state" and (e.get("data") or {}).get("state"):
-            steps.setdefault(e["step"], []).append(e["data"]["state"])
-    bad = {sid: got for sid, words in steps.items() if isinstance(got := _replay("step", sid, words), str)}
-    ctx.check(f"the flow finished and every step replays (a redo: done -> running), got {report['status']} {bad}",
-              report["status"] == "finished" and not bad and "waiting" in steps["approve"]
-              and steps["render"].count("running") == 2)
 
 
 @test

@@ -1,5 +1,5 @@
 """halo_harness.work.states -- the one state machine every unit of work
-follows (Halo 3.1.2.0 R1, docs/WORK.md), and the four alias tables that
+follows (Halo 3.1.2.0 R1, docs/WORK.md), and the three alias tables that
 map each engine's own state words onto it.
 
     pending -> ready -> running -> {gated -> ...} -> done | failed | skipped | stopped
@@ -7,8 +7,8 @@ map each engine's own state words onto it.
 
 `waiting` is a unit that cannot go on until something outside it happens
 (an upstream lane, a harness owner's card); `gated` is a unit whose result
-waits for an answer (the merge and quality gate, a team stage's gate, a
-flow's human gate). `merged` is the terminal state of a unit whose work
+waits for an answer (the merge and quality gate, a team stage's gate).
+`merged` is the terminal state of a unit whose work
 was merged into the run's result. A finished unit may be re-opened
 (a redo, a piece the gate sent back): `done -> ready | running | waiting`.
 
@@ -20,7 +20,7 @@ reason), and it is always allowed. The edges R2 added because an engine
 needs them (each named in docs/WORK.md):
 
     failed  -> ready | running   a failed stage runs again when asked; a lane's worker that
-                                 fell over gets its one more run, a resumed lane or flow step runs again
+                                 fell over gets its one more run, a resumed lane runs again
     skipped -> ready             a skipped stage (the run's budget held it) is asked to run again
     merged  -> waiting           the gate sends a merged piece back (the tests fail on the finished
                                  branch), and a downstream lane of it goes stale
@@ -51,7 +51,7 @@ EDGES = {
 }
 # the edges R2 added to R1's machine, each because an engine needs it (the docstring says which)
 ADDED = (("failed", "ready"), ("failed", "running"), ("skipped", "ready"), ("merged", "waiting"), ("waiting", "done"))
-KINDS = ("lane", "part", "stage", "step")
+KINDS = ("lane", "part", "stage")
 
 # engine word -> machine word, per kind (the words on disk stay the engine's)
 ALIASES = {
@@ -61,8 +61,6 @@ ALIASES = {
              "stopped": "stopped", "skipped": "skipped", "merged": "merged"},
     "stage": {"pending": "pending", "ready": "ready", "running": "running", "gated": "gated", "done": "done",
               "failed": "failed", "skipped": "skipped"},
-    "step": {"pending": "pending", "running": "running", "waiting": "gated", "done": "done", "failed": "failed",
-             "skipped": "skipped"},
 }
 # machine word -> engine word, per kind (the inverse of ALIASES, plus the nearest word for the rest)
 NATIVE = {
@@ -72,8 +70,6 @@ NATIVE = {
              "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "stopped", "merged": "merged"},
     "stage": {"pending": "pending", "ready": "ready", "running": "running", "waiting": "running", "gated": "gated",
               "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "skipped", "merged": "done"},
-    "step": {"pending": "pending", "ready": "pending", "running": "running", "waiting": "waiting", "gated": "waiting",
-             "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "failed", "merged": "done"},
 }
 
 

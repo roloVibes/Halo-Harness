@@ -61,7 +61,7 @@ def test_graph_edges_and_diagnostics(ctx: Ctx):
             {"agent": "missing-bio", "role": "custom", "as": "review"},
         ],
         "routing": {"implement": "worker", "fix": "worker", "review": "review"},
-        "org": {"positions": [{"title": "Boss", "agent": "orchestrator"}, {"title": "Worker", "agent": "implementer", "reports_to": "Boss"}]},
+        "org": {"positions": [{"title": "Boss", "agent": "orchestrator"}, {"title": "Worker", "agent": "implementer", "reports_to": "Boss"}]},  # removed in 3.1.4.0
         "pipeline": {"stages": [{"name": "implement", "role": "worker"}, {"name": "review", "role": "review"}]},
     }
     g = M.graph_for(raw, catalog={})
@@ -69,7 +69,7 @@ def test_graph_edges_and_diagnostics(ctx: Ctx):
     ctx.check("one node per assignment with stable ids", len(g["nodes"]) == 4 and g["nodes"][0]["id"] == "boss#0")
     ctx.check("delegation edges from main carry the routing keys that reach each member",
               any(e["kind"] == "delegation" and e["to"] == "worker#1" and e["label"] == "implement, fix" for e in g["edges"]))
-    ctx.check("an org reports_to becomes a reports edge", any(e["kind"] == "reports" and e["from"] == "worker#1" and e["to"] == "boss#0" for e in g["edges"]))
+    ctx.check("a leftover org reports_to draws nothing (3.1.4.0)", not any(e["kind"] == "reports" for e in g["edges"]))
     ctx.check("pipeline stages become ordered pipeline edges", any(e["kind"] == "pipeline" and e["from"] == "worker#1" and e["to"] == "review#2" for e in g["edges"]))
     ctx.check("a missing bio is a node problem", any("not found" in p for p in g["nodes"][3]["problems"]))
     ctx.check("a duplicate alias is a warning on the second node", any("twice" in w for w in g["nodes"][3]["warnings"]))
@@ -125,9 +125,10 @@ def test_cli_reaches_studio(ctx: Ctx):
 
 
 @test
-def test_reports_to_connects_a_box_to_another_box(ctx: Ctx):
-    """3.0.2.0: a member with org.positions[].reports_to hangs off that
-    member's card instead of main; titles resolve by alias, role or agent."""
+def test_every_card_hangs_off_main(ctx: Ctx):
+    """3.1.4.0: the lineup `org:` section is gone: a leftover
+    org.positions[].reports_to draws no edge and every non-main card hangs
+    off main by its delegation edge; the React canvas has no Reports-to."""
     from halo_harness.studio.model import graph_for
     raw = {"name": "t", "agents": [{"agent": "orchestrator", "role": "main", "as": "boss"},
                                    {"agent": "implementer", "role": "subagent", "as": "worker"},
@@ -136,17 +137,14 @@ def test_reports_to_connects_a_box_to_another_box(ctx: Ctx):
     g = graph_for(raw, catalog={})
     ids = {n["alias"]: n["id"] for n in g["nodes"]}
     kinds = {(e["from"], e["to"]): e["kind"] for e in g["edges"]}
-    ctx.check(f"worker still hangs off main, got {kinds}", kinds.get((ids["boss"], ids["worker"])) == "delegation")
-    ctx.check("tester hangs off worker (a reports edge), not main", kinds.get((ids["tester"], ids["worker"])) == "reports" and (ids["boss"], ids["tester"]) not in kinds)
-    raw["org"]["positions"][0]["reports_to"] = "boss"
-    g2 = graph_for(raw, catalog={})
-    kinds2 = {(e["from"], e["to"]): e["kind"] for e in g2["edges"]}
-    ctx.check("reporting to the main box keeps the delegation edge from main", kinds2.get((ids["boss"], ids["tester"])) == "delegation" and kinds2.get((ids["tester"], ids["boss"])) == "reports")
+    ctx.check(f"worker hangs off main, got {kinds}", kinds.get((ids["boss"], ids["worker"])) == "delegation")
+    ctx.check("tester hangs off main too, no reports edge", kinds.get((ids["boss"], ids["tester"])) == "delegation"
+              and "reports" not in kinds.values())
     from pathlib import Path as _P
     roles = _P(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "roles"
     canvas, assign, parts = ((roles / f).read_text(encoding="utf-8") for f in ("Canvas.tsx", "Assignment.tsx", "CanvasParts.tsx"))
-    ctx.check("3.0.7.0 R2: the React canvas connects by a drop onto a card and by a Reports-to field",
-              "setReportsTo(n.index, keyOf(target))" in canvas and 'label="Reports to"' in assign)
+    ctx.check("the React canvas has no drop-to-report and no Reports-to field",
+              "setReportsTo" not in canvas and 'label="Reports to"' not in assign and '"reports"' not in parts)
     ctx.check("a shipped bio's badge says what it is and what to do", "Duplicate it in the Bios panel" in parts)
 
 
@@ -199,7 +197,7 @@ def test_layout_shapes_old_and_new(ctx: Ctx):
     ctx.check("an empty layout's API view is {}", M.legacy_layout_view(M.read_layout(state, "none")) == {})
     ui = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes"
     ctx.check("3.0.7.0 R2: the React readers take `nodes` and the flat map alike",
-              all('"nodes" in' in (ui / d / "sync.ts").read_text(encoding="utf-8") or "r.nodes" in (ui / d / "sync.ts").read_text(encoding="utf-8") for d in ("org", "roles")))
+              all('"nodes" in' in (ui / d / "sync.ts").read_text(encoding="utf-8") or "r.nodes" in (ui / d / "sync.ts").read_text(encoding="utf-8") for d in ("roles",)))
 
 
 if __name__ == "__main__":

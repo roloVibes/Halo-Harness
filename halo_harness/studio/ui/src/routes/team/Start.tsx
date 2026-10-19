@@ -1,6 +1,6 @@
 // The Team section before there is a team to draw (3.0.8.0 R2): one Start
 // view instead of three empty panels -- what a team is in three sentences
-// (next to a lineup, an Orchestra run, a flow and a mission), the steps, and
+// (next to a lineup, an Orchestra run and a mission), the steps, and
 // one button: Make my first team (`POST team/init`: the shipped template in
 // <repo>/.halo/team.yaml and a starter brief). With a file that does not load
 // or has problems, the Problems list instead, with Validate. "open the board
@@ -18,7 +18,7 @@ import { NextStep } from "../NextStep";
 
 export const WHAT: string[] = [
   "A team is one file that says who works on this project, where their work lands and in which order: the brief every agent reads first, the members, the blocks (a file, a folder or a git tree) and the stages.",
-  "A lineup says who can play each part, an Orchestra run is several workers on one goal, a flow is a fixed pipeline with gates and a mission is one goal across the fleet; a team sits above them: its members play lineup parts and its stages are agent turns, Orchestra runs or flows.",
+  "A lineup says who can play each part, an Orchestra run is several workers on one goal and a mission is one goal across the fleet; a team sits above them: its members play lineup parts and its stages are agent turns or Orchestra runs.",
   "The board shows every stage as it runs, every block with who holds it and what changed, and every gate that waits on you.",
 ];
 

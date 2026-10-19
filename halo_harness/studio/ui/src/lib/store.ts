@@ -42,7 +42,7 @@ export function useStore<T extends object, S>(store: Store<T>, select: (s: T) =>
 
 // -- the shell's state -----------------------------------------------------------
 
-export type SectionId = "orchestra" | "roles" | "org" | "design" | "flow" | "fleet" | "team";
+export type SectionId = "orchestra" | "roles" | "design" | "fleet" | "team";
 export type ThemeChoice = "auto" | "dark" | "light";
 export type FeedStatus = "off" | "connecting" | "open" | "retrying" | "down";
 
@@ -81,14 +81,14 @@ export type StudioState = {
   railOpen: boolean;
   inspector: PanelRef | null;
   help: HelpRef | null;
-  /** A section's own status line (3.0.7.0 R2: Roles, Org and Design each set theirs from their store). */
+  /** A section's own status line (3.0.7.0 R2: Roles and Design each set theirs from their store). */
   status: Partial<Record<SectionId, string>>;
   feed: { status: FeedStatus; events: number; lastKind: string; lastTs: number; sessions: SessionInfo[] };
   activity: Partial<Record<SectionId, number>>;
   toasts: ToastItem[];
 };
 
-export const SECTION_IDS: SectionId[] = ["orchestra", "roles", "org", "design", "flow", "fleet", "team"];
+export const SECTION_IDS: SectionId[] = ["orchestra", "roles", "design", "fleet", "team"];
 
 function readLocal(key: string): string {
   try {
@@ -108,7 +108,7 @@ export function writeLocal(key: string, value: string | null): void {
 }
 
 function initialSection(): SectionId {
-  const asked = /[?&]mode=(orchestra|roles|org|design|flow|fleet|team)\b/.exec(location.search);
+  const asked = /[?&]mode=(orchestra|roles|design|fleet|team)\b/.exec(location.search);
   if (asked) return asked[1] as SectionId;
   const saved = readLocal("halo.studio.section") || readLocal("halo-studio-mode");
   return (SECTION_IDS as string[]).includes(saved) ? (saved as SectionId) : "roles";

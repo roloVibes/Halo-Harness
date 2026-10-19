@@ -11,7 +11,6 @@ Run: python -m tests.test_coach_summary
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -35,7 +34,6 @@ def _req(h, method, path, body=None, query=None):
 
 @test
 def test_the_reports_carry_the_coach_line(ctx: Ctx):
-    from halo_harness.flows.report import format_report as flow_report
     from halo_harness.orchestra import coach_apply as CA
     from halo_harness.orchestra.coach import cached
     from halo_harness.orchestra.coach_record import summary, summary_line
@@ -49,10 +47,6 @@ def test_the_reports_carry_the_coach_line(ctx: Ctx):
         ctx.check("no run folder: no coach line", "coach:" not in format_report(load_report(run)))
         CA.apply(cached(run, state_dir=h.state), "tools-1-WebFetch", run, state_dir=h.state)
         ctx.check(f"one applied, got {summary(run)!r}", summary(run).startswith("coach: 1 suggestion, 1 applied, top: "))
-        flow = S.flow_run(h.state)
-        ftext = flow_report(json.loads((flow / "report.json").read_text(encoding="utf-8")), flow)
-        ctx.check(f"the flow report's coach line above its total line, got {ftext.splitlines()[-2:]!r}",
-                  ftext.splitlines()[-2].startswith("  coach: 2 suggestions, 0 applied, top: ") and "  total $" in ftext.splitlines()[-1])
         ctx.check("a mission's line", summary(S.mission_folder(h.state)).startswith("coach: 5 suggestions, 0 applied"))
         ctx.check("the empty run's line names no top", summary_line(0, 0, "") == "coach: 0 suggestions, 0 applied")
 

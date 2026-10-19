@@ -9,7 +9,7 @@ page is Halo's version of it.
 
 **In a team (Halo 3.0.8.0):** a team stage of `kind: orchestra` starts an Orchestra run with the stage's goal (the files of its write blocks when the goal names none); see [TEAM.md](TEAM.md).
 
-**One unit of work (Halo 3.1.2.0):** a lane is a *unit* of work -- the same thing a mission part, a team stage and a flow step are, with one state machine, one ledger line, one report row and one coach. `halo work` prints the lanes of a run as that shared table; see [WORK.md](WORK.md).
+**One unit of work (Halo 3.1.2.0):** a lane is a *unit* of work -- the same thing a mission part and a team stage are, with one state machine, one ledger line, one report row and one coach. `halo work` prints the lanes of a run as that shared table; see [WORK.md](WORK.md).
 
 The rule behind it: **code decides wherever it can, a model judges only
 when it must.** Code owns the claims, the merge order, the tests and the
@@ -196,7 +196,7 @@ judge, the goal's `worker` for the workers, else the default model.
 **Preflight** (Halo 3.0.7.0). Before the split, and before a `--dry-run`, the
 run-start preflight (`lineup_preflight.py`) checks the lineup the run uses
 (the goal's `lineup`, else the active team) for what would make the lanes
-come back empty: a model id its provider's catalog does not know (requests for it 404 and the member comes back empty), an assignment or org position naming a bio that does not exist, a bio whose `tools.allow` is an empty list (it may call no tool), and a `tiers` problem ([ROLES.md](ROLES.md#tiers-halo-3070)). Each
+come back empty: a model id its provider's catalog does not know (requests for it 404 and the member comes back empty), an assignment naming a bio that does not exist, a bio whose `tools.allow` is an empty list (it may call no tool), and a `tiers` problem ([ROLES.md](ROLES.md#tiers-halo-3070)). Each
 blocking problem prints with its fix and the run stops before anything is
 claimed (exit 2); `--force` runs anyway. Studio's `POST /api/orchestra/run`
 answers 422 `{error, problems, preflight: true}` (each problem `{id,
@@ -465,7 +465,7 @@ runner (Studio's own or `halo orchestra run --review` in a terminal) will
 take the decision.
 
 Studio draws the plan as a canvas you edit (see [In Studio](#in-studio) and
-[STUDIO-orchestra-flow.md](STUDIO-orchestra-flow.md#the-plan-canvas-3090)); its draft lives in
+[STUDIO-orchestra.md](STUDIO-orchestra.md#the-plan-canvas-3090)); its draft lives in
 `<run>/plan.draft.json` until you approve it.
 
 ## The forecast
@@ -610,24 +610,24 @@ added after its `context.system_prompt` wherever the bio's prompt is composed
 **The rules live once.** Since 3.1.3.0 every run kind's rules are the same
 functions (`orchestra/coach_rules.py`); each kind keeps a thin loader
 (`coach_<kind>_rules.py`) that turns its files into unit facts (a lane, a
-part, a stage, a step) and calls them. So a flow, a mission and a team run
+part, a stage) and calls them. So a mission and a team run
 get the same ids and texts as an Orchestra run for the same finding: a
 refused write is `tools-<unit>-claim-<key>`, a gate past its limit
 `coordination-<unit>-loops` ("the gate at stage copy looped 2 times"), a
 judged conflict `structure-<unit>-after-<other>` (`depends_on` for a part),
 a unit that wrote nothing `structure-<unit>-drop`. Each kind's loader sets
-its gate's limit (the quality gate and a flow's confirm gate: more than two
+its gate's limit (the quality gate: more than two
 rounds; a team stage: more than one).
 
 ### Ask the model
 
-`halo coach <run> --model` (the four kind verbs take it too), `/coach
+`halo coach <run> --model` (the three kind verbs take it too), `/coach
 --model` and the card's **Ask the model** button ask the run's own lead for
 one paragraph per card: what the evidence shows, why the change would help
 the next run, what to watch after it. The lead is the goal's `lead` role
 with the model its lineup gives that role (the entry's `models.preference`,
 else its bio's), else the role table's model, else the default model; a
-flow, mission or team run asks the `main` role. The call is one turn of a
+mission or team run asks the `main` role. The call is one turn of a
 fresh bare session with no tools (`adapters.one_shot`, the normal provider
 layer), given the card, its why lines and the run's evidence. The paragraph
 is kept beside the cache in `<run>/coach.ask.json`
@@ -674,8 +674,7 @@ the value filled in and saves nothing.
 
 **The coach line.** The run reports carry the coach's summary, "coach: N
 suggestions, M applied, top: <the first card>": last in `halo orchestra
-report` and the report printed after `halo orchestra run`, above the total
-line in `halo flow report` (and after `halo flow run`), a mission's
+report` and the report printed after `halo orchestra run`, a mission's
 report (`report.coach`, the markdown's last line) and `halo team status` of a
 done or stopped run. The Fleet digest lists one coach row per run the coach
 read since `--since` (`~/.halo/coach/runs.json`).
@@ -683,9 +682,8 @@ read since `--since` (`~/.halo/coach/runs.json`).
 Studio reads it through `GET orchestra/<run>/coach`, computed once and kept
 in `<run>/coach.json`; it is computed again when a run file it reads
 (report.json, events.jsonl, merge.json, split.json, plan.json or a lane
-file) is newer. The same coach reads a flow run, a mission and a team run:
-[FLOWS.md](FLOWS.md#the-coach), [MISSIONS.md](MISSIONS.md#the-coach),
-[TEAM.md](TEAM.md#the-coach).
+file) is newer. The same coach reads a mission and a team run:
+[MISSIONS.md](MISSIONS.md#the-coach), [TEAM.md](TEAM.md#the-coach).
 
 ## The adapters
 
@@ -707,7 +705,7 @@ file) is newer. The same coach reads a flow run, a mission and a team run:
 ## In Studio
 
 `halo studio`, started in the repo, opens the Orchestra section: the run
-console described in [STUDIO-orchestra-flow.md](STUDIO-orchestra-flow.md#orchestra-the-run-console). Its
+console described in [STUDIO-orchestra.md](STUDIO-orchestra.md#orchestra-the-run-console). Its
 backend is `studio/orchestra_api.py`. The routes sit under `/api/orchestra/`
 behind the same loopback, origin and token guard as every Studio route.
 
@@ -728,7 +726,7 @@ behind the same loopback, origin and token guard as every Studio route.
 | `GET orchestra/<run>/coach` | 3.0.9.0 R3: the coach's result `{run, kind, suggestions, evidence, model, computed, source_mtime, cached}`, kept in `<run>/coach.json` ([The coach](#the-coach)); 404 for an unknown run |
 | `POST orchestra/<run>/coach/ask {id, refresh?}` | 3.1.3.0: the lead's paragraph for one card `{id, paragraph, error, model, role, cached}` ([Ask the model](#ask-the-model)) |
 | `POST orchestra/<run>/coach/apply {id, confirm?}` | 3.1.3.0: without `confirm` the confirm card `{preview: {id, target, name, field, value, file, exists, before, after, diff}, applied: null}`; with it the write, `applied` = the record row; 422 `{error}` when the change cannot be made ([Apply and Undo](#apply-and-undo)) |
-| `POST orchestra/<run>/coach/undo {apply_id}` | 3.1.3.0: `{ok, message, apply_id}`; 409 with the reason when the file changed. The flow, mission and team coach paths take the same three verbs |
+| `POST orchestra/<run>/coach/undo {apply_id}` | 3.1.3.0: `{ok, message, apply_id}`; 409 with the reason when the file changed. The mission and team coach paths take the same three verbs |
 
 `<run>` is a run id or a unique prefix of one. The file view is composed by
 code (`studio/orchestra_model.py`):
@@ -798,6 +796,6 @@ checks. The finished branch is left for you to review and merge.
 | `gate` | `run_tests(run_dir, goal, cwd)`, `record_equals_disk(run_dir, lanes, ref)`, `quality_gate(run_dir, goal, lanes, cwd)` |
 | `report` | `write_report(run_dir, *, goal, lanes, gate, status, stop_reason)`, `format_report(report)`, `load_report` |
 | `plan`, `plan_check` | `await_plan(run_dir, flow, jobs, *, check_stop)`, `approve(run_dir, jobs, by=)`, `reject(run_dir, reason, by=)`, `apply`, `normalize`, `current_jobs`, `read_decision`, `write_draft`, `is_planned`, `waiting_alive`; `plan_problems(jobs, unit_keys=, cwd=, state_dir=)`, `validate_plan` (re-exported by `workflow`) |
-| `coach`, `coach_rules`, `coach_orchestra_rules`, `coach_lane_facts`, `coach_prices`, `coach_flow_rules`, `coach_mission_rules`, `coach_team_rules` | `coach(run_dir, *, catalog=None, cwd=None, state_dir=None)`, `cached(run_dir)`, `overlay(result, run_dir)`, `format_card(result)`, `run_kind`, `source_mtime`; the rules once (`prompt_rules`, `outputs_rules`, `model_rules`, `tools_rules`, `wait_pairs`, `conflict_pairs`, `structure_rules`, `coordination_rules`); `orchestra(run_dir, ...)`; `lane_facts`; `catalog(state_dir)`, `price_of`, `best_for`, `price_words`; `flow`; `mission`; `team` (one thin loader per run kind, `coach_<kind>_rules.<kind>`) |
+| `coach`, `coach_rules`, `coach_orchestra_rules`, `coach_lane_facts`, `coach_prices`, `coach_mission_rules`, `coach_team_rules` | `coach(run_dir, *, catalog=None, cwd=None, state_dir=None)`, `cached(run_dir)`, `overlay(result, run_dir)`, `format_card(result)`, `run_kind`, `source_mtime`; the rules once (`prompt_rules`, `outputs_rules`, `model_rules`, `tools_rules`, `wait_pairs`, `conflict_pairs`, `structure_rules`, `coordination_rules`); `orchestra(run_dir, ...)`; `lane_facts`; `catalog(state_dir)`, `price_of`, `best_for`, `price_words`; `mission`; `team` (one thin loader per run kind, `coach_<kind>_rules.<kind>`) |
 | `coach_ask`, `coach_apply`, `coach_record` | 3.1.3.0: `ask(run_dir, result, id, *, refresh)`, `ask_all`, `lead_of`, `read_store`; `preview(result, id, run_dir)`, `apply(result, id, run_dir)`, `ApplyError`; `undo(apply_id)`, `applies`, `states(run_dir)`, `summary(run_dir)`, `summary_line`, `note_run`, `runs_since` |
 | `run`, `adapters` | `run(run_dir, *, model_calls, spawn, judge, clock, on_event)`, `request_stop`; `model_call`, `spawn_worker`, `fresh_judge`, `real_adapters` |

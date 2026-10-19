@@ -129,8 +129,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         if n <= 0:
             return {}
-        big = self.path.startswith(("/api/design/", "/api/flow/")) and urlsplit(self.path).path.endswith("/assets")
-        if n > (22_000_000 if big else 4_000_000):  # a design or flow asset is 15 MB base64
+        big = self.path.startswith("/api/design/") and urlsplit(self.path).path.endswith("/assets")
+        if n > (22_000_000 if big else 4_000_000):  # a design asset is 15 MB base64
             raise ValueError("body too large")
         data = json.loads(self.rfile.read(n).decode("utf-8") or "{}")
         return data if isinstance(data, dict) else {"value": data}
@@ -231,12 +231,12 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
     return server
 
 
-STUDIO_MODES = ("roles", "org", "design", "orchestra", "flow", "fleet", "team")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team
+STUDIO_MODES = ("roles", "design", "orchestra", "fleet", "team")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team
 
 
 def url_for(server: _Server, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
     """The page URL with the per-launch token. `mode` (3.0.2.0: roles |
-    org | design; then every section of the shell) lands in the query so the
+    design; then every section of the shell) lands in the query so the
     page opens straight into it, ahead of the saved mode; the token stays in
     the fragment. `edit` (3.1.1.0 R3, studio/edit_target.py: bio:<name>,
     lineup:<name>, team) adds `&edit=` and picks the mode."""
@@ -267,8 +267,8 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 
 def cmd_studio(argv: list) -> int:
-    parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: Roles (lineups and agent bios as a graph), Org (the company in Paperclip) and Design (artboards on your own apps).")
-    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, org, design, orchestra, flow, fleet or team (default: the mode you used last)")
+    parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: Roles (lineups and agent bios as a graph) and Design (artboards on your own apps).")
+    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, design, orchestra, fleet or team (default: the mode you used last)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")

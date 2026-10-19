@@ -9,7 +9,7 @@ import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
 import { agentsOf, clone, closeDialog, HISTORY_MAX, keyOf, nodeById, roles, shipped } from "./store";
 import { loadLists, msg, openLineup, saveLayout, validateSoon } from "./sync";
-import type { Entry, LineupPayload, Raw } from "./types";
+import type { LineupPayload, Raw } from "./types";
 
 export async function run<T>(busy: string, fn: () => Promise<T>, done?: (r: T) => string): Promise<T | null> {
   roles.update(() => ({ busy }));
@@ -134,32 +134,6 @@ export async function moveToTier(nodeId: string, tier: string): Promise<boolean>
   if (ok) toast(`${key} is in tier ${to.index} (${to.name}) now`, "done");
   else undo();
   return ok;
-}
-
-/** `org.positions[].reports_to` (3.0.2.0): the card hangs off another card; "" (or the main card) means off main again. */
-export function setReportsTo(index: number, target: string): void {
-  edit((raw) => {
-    const agents = agentsOf(raw) as Entry[];
-    const entry = agents[index];
-    if (!entry) return;
-    const title = entry.as || entry.role || entry.agent || "";
-    const org = (raw.org && typeof raw.org === "object" ? raw.org : {}) as { positions?: Raw[] };
-    const positions = Array.isArray(org.positions) ? org.positions : [];
-    const main = agents.find((e) => e.role === "main");
-    const toMain = !target || (!!main && target === (main.as || main.role));
-    let pos = positions.find((p) => p && p.title === title);
-    if (toMain) {
-      if (pos) delete pos.reports_to;
-      org.positions = positions.filter((p) => Object.keys(p).some((k) => k !== "title" && k !== "agent"));
-    } else {
-      if (!pos) positions.push((pos = { title, agent: entry.agent }));
-      pos.reports_to = target;
-      org.positions = positions;
-    }
-    if (!org.positions?.length) delete org.positions;
-    if (Object.keys(org).length) raw.org = org;
-    else delete raw.org;
-  });
 }
 
 export function removeCard(nodeId: string): void {

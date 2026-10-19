@@ -10,7 +10,7 @@ import { answerGate, runStage } from "./actions";
 import { elapsed, openGate, rowOf, specOf, usd, useTeam } from "./store";
 import type { Gate } from "./types";
 
-const KIND: Record<string, string> = { agent: "an agent turn", orchestra: "an Orchestra run", flow: "a flow" };
+const KIND: Record<string, string> = { agent: "an agent turn", orchestra: "an Orchestra run" };
 
 function GateCard({ g }: { g: Gate }) {
   const [text, setText] = useState("");

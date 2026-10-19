@@ -11,8 +11,6 @@ What each kind's gate is:
 * part: none (a mission's gate is its plan's approval, not a part's).
 * stage: `stages/<id>/gate.json` + `answer.json` (team/stages.py), mode
   the stage's `gate:`.
-* step: `steps/<n>.gate.json` + `<n>.answer.json` (flows/gates.py), a
-  `confirm` step's human gate (`required`).
 
 `read(kind, run_dir, uid)` is the unit's gate with the open gate's id and
 round; `answer(...)` writes the answer the engine's runner takes;

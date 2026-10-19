@@ -4,7 +4,7 @@
 The lead is the run's lineup lead: an Orchestra run's `lead` role (goal.json,
 default `main`) with the model its lineup gives that role (the entry's
 `models.preference`, else its bio's), else the role table's model for it,
-else the configured default; a flow, mission or team run asks the `main`
+else the configured default; a mission or team run asks the `main`
 role. The call is one turn of a brand-new bare session with no tools
 (orchestra/adapters.one_shot, the normal provider layer), given the card,
 its why lines and the run's evidence.

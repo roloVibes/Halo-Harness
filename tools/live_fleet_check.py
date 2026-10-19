@@ -12,7 +12,7 @@ each box:
 `hub` starts Studio with the fleet hub, prints the pairing code and the exact
 join command for the other box, waits for it to join, then drives the check
 (fleet/live_check.py): `fleet who`, a one-part mission on the member, a team
-with a delegated agent stage and a delegated flow stage, and `recall --fleet`.
+with a delegated agent stage, and `recall --fleet`.
 Each step prints PASS / FAIL with its evidence; the run ends with a summary
 and a non-zero exit code if any step failed; `--json` writes
 `live-fleet-check.json`. `--fake` runs it with no model call on either box

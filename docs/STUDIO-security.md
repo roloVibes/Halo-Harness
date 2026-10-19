@@ -4,28 +4,6 @@ Read this when you save and apply from Studio, run it over SSH, check what it le
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
-## Connecting boxes (3.0.2.0)
-
-Every member hangs off the starting box (the `main` assignment) until you
-connect it elsewhere. Two ways, both writing the lineup's own
-`org.positions[].reports_to` (a title is the assignment's alias, else its
-role, else its agent):
-
-- **Drag a card onto another card.** The dragged member now reports to
-  the card you dropped it on, and its edge moves there; drop it on the
-  starting box to hang it off main again. (Dropped into another **tier
-  box** instead, away from any card, it moves to that tier: 3.0.7.0 R2,
-  see [What you see (Roles)](STUDIO-team-roles-org.md#what-you-see-roles); in Org, a box is a
-  manager's team and the drop asks to change who it reports to.)
-- **The Reports-to field** in the Inspector's Assignment tab: pick any other
-  card, or "the main card" for the starting box.
-
-The canvas redraws the tree as you connect (a member that reports to
-another member no longer gets the main -> member delegation edge), Save
-writes it like any other change, and `halo teams show` prints the same
-org positions. Runtime: `reports_to` addresses the member's one-line
-completion report (docs/AGENTS.md, "org").
-
 ## Validate, save, apply
 
 Every edit is validated as you make it (`teams_yaml.validate_team_template`,
@@ -65,7 +43,7 @@ Problems; a save that fails leaves the file untouched.
   request_id?, action?, instruction?, text?}` forwards one control-protocol
   request ([REMOTE.md](REMOTE.md)) to that session over its socket, using
   the token from the registry. That lets Studio answer a permission,
-  question, plan or org approval card in a running TUI session, steer it,
+  question, plan or approval card in a running TUI session, steer it,
   send it a prompt or interrupt it. The answers: `{ok, result}`, 404 for a
   session not in the registry, 422 for another `cmd`, and 502 with the
   socket's own error text (for example "no pending approval request"). It
@@ -119,7 +97,7 @@ in your own browser.
 
 ## Shortcuts
 
-The shell's keys: `Alt+1`..`Alt+7` sections, `Ctrl`/`Cmd`+`K` the palette,
+The shell's keys: `Alt+1`..`Alt+5` sections, `Ctrl`/`Cmd`+`K` the palette,
 `?` the focused panel's help (again, or away from a panel: How this works),
 `Alt`+arrows / `Alt+Shift`+arrows move / resize the focused panel, `Esc`
 closes. Roles (3.0.7.0 R2): on the canvas `A` lays out, `F` fits, `+` / `-`
@@ -137,33 +115,28 @@ in the Agent panel stop (asks first).
 `ui/` (the React shell's sources; see docs/DEVELOPMENT.md "Studio UI"),
 `static/dist/` (its committed build; the only page since 3.0.7.0 R2),
 `api.py` (the routes), `roles_api.py` (`GET gym`, `GET models/best-for`), `roles_findings.py`
-(the Problems panel's findings), `doctor_config_api.py` (`GET doctor/config`, the panel's Config group), `models_api.py` (the catalog status, Refresh, the probe), `flow_api.py` / `flow_request.py` / `flow_assets_api.py` / `flow_model.py` / `flow_runs.py` (the Flow
-routes, their body parsing, the assets upload and the one live flow run), `media_api.py` / `media_render.py` (the ComfyUI
+(the Problems panel's findings), `doctor_config_api.py` (`GET doctor/config`, the panel's Config group), `models_api.py` (the catalog status, Refresh, the probe), `media_api.py` / `media_render.py` (the ComfyUI
 routes and a render's background thread), `sessions_api.py` (the live sessions and
-their commands), `design_api.py` (the routes) with `design_artboards_api.py` / `design_assets_api.py` / `design_critique_api.py` / `design_system_api.py` / `design_export_api.py` / `design_request.py` / `design_turns.py` / `design_api_edit.py` / `design_files.py` (Design mode), `paperclip_api.py` (Org mode), `model.py` (the graph, the catalog rows, the session
+their commands), `design_api.py` (the routes) with `design_artboards_api.py` / `design_assets_api.py` / `design_critique_api.py` / `design_system_api.py` / `design_export_api.py` / `design_request.py` / `design_turns.py` / `design_api_edit.py` / `design_files.py` (Design mode), `model.py` (the graph, the catalog rows, the session
 reader). Tests: `tests/test_studio_api.py`,
 `tests/test_studio_model.py`, `tests/test_studio_dist.py` (the build and
 its routes), `tests/test_studio_live.py` (the live feed),
-`tests/test_studio_flow_api.py` and `tests/test_studio_media_sessions.py` (the 3.0.4.0 routes),
-`tests/test_studio_ui.py` (headless Chrome over the shell; the Flow section
-through `tools/capture_studio.py --mode flow --dom`, the Orchestra Start
+`tests/test_studio_media_sessions.py` (the 3.0.4.0 Media and sessions routes),
+`tests/test_studio_ui.py` (headless Chrome over the shell; the Orchestra Start
 view and grid through `--mode orchestra --dom` (tools/capture_orchestra.py),
 and clicks and keys through `tests/helpers/studio_clarity.py` over the
-DevTools protocol, `tests/helpers/cdp.py`). The Flow and Media
-panels are `ui/src/routes/flow/` and `ui/src/routes/media/`; the Orchestra
+DevTools protocol, `tests/helpers/cdp.py`). The Media
+panels are `ui/src/routes/media/`; the Orchestra
 Start view `ui/src/routes/orchestra/Start.tsx`; the help copy
 `ui/src/routes/sectionHelp.ts`, `help.ts`, `help-orchestra.ts` and
-`help-org-design.ts`. Org and Design (3.0.7.0 R3) are `ui/src/routes/org/`
-(the store `store.ts`, the diffed poller `sync.ts`, `actions.ts`, the chart
-`Canvas.tsx` + `CanvasParts.tsx` + `layout.ts`, `Company.tsx`, `Work.tsx`,
-`Inspector.tsx`, `Start.tsx`, `Dialogs.tsx`, `commands.ts`) and
+`help-design.ts`. Design (3.0.7.0 R3) is
 `ui/src/routes/design/` (`store.ts`, `sync.ts`: the turns over the live
 feed, `actions.ts`, `Projects.tsx`, `Thread.tsx` + `ThreadParts.tsx`,
 `Artboards.tsx` + `ArtboardCard.tsx`, `Assets.tsx`, `Start.tsx`,
 `Dialogs.tsx`, `commands.ts`), the safe markdown `ui/src/lib/markdown.tsx`,
-`styles/org.css`, `design.css` and `design-thread.css`; tests
+`styles/shared.css`, `design.css` and `design-thread.css`; tests
 `tests/test_studio_design_live.py` and the Chrome checks in
-`tests/helpers/studio_org_design.py`. Roles (3.0.7.0 R2) is
+`tests/helpers/studio_design.py`. Roles (3.0.7.0 R2) is
 `ui/src/routes/roles/` (the store `store.ts`, `sync.ts`, the edits and the
 undo history `actions.ts`, `bioActions.ts`, the canvas `Canvas.tsx` +
 `CanvasParts.tsx` + `CanvasBar.tsx` + `layout.ts`, Live Roles `live.ts` +

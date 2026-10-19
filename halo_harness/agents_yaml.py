@@ -1,9 +1,9 @@
 """halo_harness.agents_yaml -- Halo 2.0.4 round 4 (deliverable 6, two-layer
 design approved 2026-10-05 ~22:45/later same night): an AGENT BIO is one
 YAML file per agent NAME, describing what that agent IS (models, tools,
-context, limits, output, environment, acceptance) -- never a role or an
-org position; a bio is a reusable building block a TEAM TEMPLATE
-(`teams_yaml.py`) assigns to a role/position. See `docs/AGENTS.md` for
+context, limits, output, environment, acceptance) -- never a role; a bio
+is a reusable building block a TEAM TEMPLATE (`teams_yaml.py`) assigns
+to a role. See `docs/AGENTS.md` for
 the full field reference and `plans/ROADMAP.md`'s "agent declaration
 files" section for the approved schema.
 
@@ -38,8 +38,8 @@ _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 # The eight BIO sections (roadmap wording) -- "identity" isn't its own
 # nested section, its fields (name/description/version/tags/kind/extends)
 # live at the TOP level, same as a role template's own "name"/
-# "description". No "org"/role section at all (two-layer refinement:
-# "No role or org position inside a bio").
+# "description". No role section at all (two-layer refinement:
+# "No role inside a bio").
 # Halo 2.0.5 round 5: `hooks`/`schedule`/`triggers` join the merge set --
 # the roadmap's own "Deferred to 2.0.5 with the Governor" deferral coming
 # due; a bio's hooks/schedule/triggers inherit through `extends:` exactly

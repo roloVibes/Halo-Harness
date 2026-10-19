@@ -184,7 +184,7 @@ def test_frontmatter_import_of_unknown_name_reports_a_problem(ctx: Ctx):
 
 # ---------------------------------------------------------------------------
 # teams_yaml.py: team templates ("lineups") -- shorthand expansion, round
-# trip, validation, resolution to a role table and to an org.
+# trip, validation, resolution to a role table.
 # ---------------------------------------------------------------------------
 
 def _save_two_bios(state_dir) -> None:
@@ -261,24 +261,6 @@ def test_resolve_role_table_notes_an_agent_with_no_model_anywhere(ctx: Ctx):
         role_table, notes = resolve_role_table({"agents": [{"agent": "bare", "role": "main"}]}, state_dir=e.state_dir)
         ctx.check(f"left out of the role table, got {role_table}", role_table == {})
         ctx.check(f"a plain-English note explains why, got {notes}", len(notes) == 1 and "bare" in notes[0])
-
-
-@test
-def test_resolve_org_builds_an_orgs_py_shaped_dict_from_positions(ctx: Ctx):
-    from halo_harness.teams_yaml import resolve_org
-    with _Env() as e:
-        _save_two_bios(e.state_dir)
-        template = {"name": "org-demo", "description": "an org lineup",
-                    "org": {"positions": [
-                        {"title": "Boss", "agent": "bio-a", "delegates_to": ["Worker"]},
-                        {"title": "Worker", "agent": "bio-b", "reports_to": "Boss"},
-                    ]}}
-        org, notes = resolve_org(template, state_dir=e.state_dir)
-        ctx.check(f"an orgs.py-shaped dict came back, got {org}", org is not None and len(org["positions"]) == 2)
-        boss = next(p for p in org["positions"] if p["title"] == "Boss")
-        ctx.check(f"delegates_to became orgs.py's own 'reports' field, got {boss}", boss["reports"] == ["Worker"])
-        ctx.check(f"the position's model resolved from its bio, got {boss}", boss.get("model") == "or:vendor/model-a")
-        ctx.check(f"no org section -> None, not an error, got {resolve_org({})}", resolve_org({})[0] is None)
 
 
 @test
@@ -598,7 +580,7 @@ def test_shipped_templates_still_validate_and_dev_cycle_gains_enforcement_lines(
         ctx.check(f"every enforced section names its behaviour, got {text}",
                   all(f"{s}: enforced" in text for s in
                       ("delegation", "routing", "budget", "escalation", "context", "permissions",
-                       "org", "pipeline")))
+                       "pipeline")) and "org:" not in text)
         ctx.check("acceptance carries the doctor marker", "acceptance: checked by doctor" in text)
 
 

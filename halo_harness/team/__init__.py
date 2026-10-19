@@ -4,7 +4,7 @@ A team file (`<repo>/.halo/team.yaml`, else `~/.halo/teams/<project>.team.yaml`)
 names the brief every agent reads first, the members (an instance of a
 lineup alias, here or on a fleet member), the blocks the work lands in
 (a file, a folder or a git tree, each with its own claim ledger) and the
-workflow's stages (an agent stage, an Orchestra run or a flow), each with
+workflow's stages (an agent stage or an Orchestra run), each with
 what it reads and writes, what starts it and whether a human answers its
 gate before the next one starts.
 
@@ -17,7 +17,7 @@ gate before the next one starts.
 * `stages`   -- one stage's prompt, its gate and its acceptance;
 * `triggers` -- manual, `block_change:<block>` (a settle window) and
   `stage_done:<stage>`;
-* `run`      -- the runner and its seams (SPAWN, ORCHESTRA, FLOW, DISPATCH);
+* `run`      -- the runner and its seams (SPAWN, ORCHESTRA, DISPATCH);
 * `cli`      -- `halo team ...`.
 
 See docs/TEAM.md.

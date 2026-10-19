@@ -45,7 +45,7 @@ export const FLEET_HELP: Record<string, Help> = {
     help: lines(
       "A flowing outline is an agent at work, amber waits on you, green just finished, red failed.",
       "Click an agent to see it in Agent; double-click opens Agent expanded.",
-      "The ... on a card or an agent: Steer, Pause, Stop, Take over, Hand to, Record, Shutdown, Open in Orchestra or Flow.",
+      "The ... on a card or an agent: Steer, Pause, Stop, Take over, Hand to, Record, Shutdown, Open in Orchestra.",
       "By project puts everyone on one repo in one box, with dirty / ahead / behind and the worktree on each card.",
       "An amber dashed edge joins two agents editing the same file; J / K hop between the live agents.",
     ),

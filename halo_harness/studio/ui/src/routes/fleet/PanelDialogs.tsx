@@ -1,12 +1,11 @@
 // The R4 Fleet dialogs (one at a time, pstore `dialog`): Take over (type the
 // new brief: the agent reads it before its next step, recorded as a
-// hand-off in both transcripts), Hand to... (pick a harness; with Org mode
-// on a Paperclip issue is made for it, else a markdown hand-off note is
-// written; then the agent stops) and what that made, Message a member's
+// hand-off in both transcripts), Hand to... (pick a harness; a markdown
+// hand-off note is written; then the agent stops) and what that made, Message a member's
 // owner, Kick a member (asks first), and a finished recording to download.
 import { useEffect, useRef, useState } from "react";
 import { Button, Dialog } from "../../lib/ui";
-import { goSection, toast } from "../../lib/store";
+import { toast } from "../../lib/store";
 import { download, handoff, kickConfirmed, sendNote } from "./extras";
 import { closeDialog, usePanels, type Dialog as D } from "./pstore";
 import { useFleet } from "./store";
@@ -56,7 +55,7 @@ function HandTo({ d }: { d: Extract<D, { kind: "hand_to" }> }) {
   return (
     <Dialog open onClose={closeDialog} title={`Hand ${d.label} to...`} kicker="FLEET · HAND-OFF" testid="fleet-handto"
             footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="primary" disabled={!to || busy} onClick={() => void go()} data-testid="fleet-handto-go">Hand it over</Button></>}>
-      <p className="muted">With Org mode on, Paperclip gets an issue for that harness with the agent's task, its last hand-back and the files it touched; with it off, the same goes into a hand-off note in the repo. Then this agent stops.</p>
+      <p className="muted">The agent's task, its last hand-back and the files it touched go into a hand-off note in the repo. Then this agent stops.</p>
       {choices.length < 2 && <p className="muted">Only this harness is in the fleet: pair another one to hand work across machines.</p>}
       <label className="fd-field">
         <span className="rail-label mono">TO</span>
@@ -74,13 +73,11 @@ function HandTo({ d }: { d: Extract<D, { kind: "hand_to" }> }) {
 
 function Handed({ d }: { d: Extract<D, { kind: "handed" }> }) {
   const o = d.out;
-  const issue = o.issue?.identifier || o.issue?.id;
   const copy = () => o.path && void navigator.clipboard?.writeText(o.path).then(() => toast("The path is on the clipboard", "done"), () => toast("Copy it by hand: the clipboard is off here", "info"));
   return (
     <Dialog open onClose={closeDialog} title={`${d.label} went to ${o.to || "?"}`} kicker="FLEET · HAND-OFF" testid="fleet-handed"
-            footer={<><Button onClick={closeDialog}>Done</Button>{issue ? <Button variant="primary" onClick={() => (closeDialog(), goSection("org"))} data-testid="fleet-handed-open">Open in Org</Button> : <Button variant="primary" onClick={copy} data-testid="fleet-handed-open">Open (copy the path)</Button>}</>}>
-      {issue ? <p>Paperclip issue <b className="mono" data-testid="fleet-handed-ref">{issue}</b>{o.issue?.title ? `: ${o.issue.title}` : ""}</p>
-             : <p>Hand-off note <code className="mono" data-testid="fleet-handed-ref">{o.path}</code></p>}
+            footer={<><Button onClick={closeDialog}>Done</Button><Button variant="primary" onClick={copy} data-testid="fleet-handed-open">Open (copy the path)</Button></>}>
+      <p>Hand-off note <code className="mono" data-testid="fleet-handed-ref">{o.path}</code></p>
       {o.note && <p className="muted">{o.note}</p>}
       <p className="muted">The agent was asked to stop; the agent that spawned it gets the hand-back.</p>
     </Dialog>

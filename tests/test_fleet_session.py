@@ -144,7 +144,7 @@ def test_registry_identity_project_kind_and_parent(ctx: Ctx):
         ctx.check("an Orchestra worker's kind", FI.session_kind("print") == "orchestra-worker")
         os.environ.pop("HALO_ORCHESTRA_RUN")
         os.environ["PAPERCLIP_AGENT_ID"] = "ag1"
-        ctx.check("a Paperclip heartbeat's kind", FI.session_kind("print") == "paperclip")
+        ctx.check("a leftover Paperclip variable changes nothing (3.1.4.0)", FI.session_kind("print") == "print")
         os.environ.pop("PAPERCLIP_AGENT_ID")
         ctx.check("otherwise the default", FI.session_kind("print") == "print")
         os.environ["HALO_FLEET_PARENT"] = "parentsession01"

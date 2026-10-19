@@ -125,7 +125,7 @@ Diffusion checkpoints, video models, upscalers, TTS voices and their LoRAs,
 VAEs and encoders are a different kind of asset from the models above, so
 they have their own inventory, keyed by what a model PRODUCES. They come from
 a ComfyUI server (see [COMFYUI.md](COMFYUI.md) "Inventory") and never appear in
-`/model`, the roles or the org tables: a `comfy:` ref is not an LLM.
+`/model` or the roles tables: a `comfy:` ref is not an LLM.
 
 ```sh
 halo models --media                   # image-gen, video-gen, upscale, tts + the supporting rows

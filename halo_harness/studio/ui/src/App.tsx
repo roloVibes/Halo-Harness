@@ -5,7 +5,7 @@
 // 3.0.5.0 the Fleet pieces that work in every section: the hop keys, Live
 // Roles (3.0.7.0 R2: the live agents into the Roles store for its React
 // canvas), the mini stream and the Fleet dialogs (R4: take over, hand to,
-// message, kick, a recording); 3.0.7.0 R3: the Org and Design dialogs; R2:
+// message, kick, a recording); 3.0.7.0 R3: the Design dialogs; R2:
 // the Roles dialogs. 3.1.1.0 R1: the Glossary and "Start here" (a fresh home's offer of the ten-minute start).
 // 3.1.1.0 R3: `?edit=` and the `focus` frame open a bio, a lineup or the Team (shell/edit.ts).
 import { useEffect } from "react";
@@ -30,7 +30,6 @@ import { MissionDialogs } from "./routes/fleet/MissionDialogs";
 import { useRolesLive } from "./routes/fleet/frames";
 import { useHopKeys } from "./routes/fleet/hop";
 import { FleetPip } from "./routes/fleet/Pip";
-import { OrgDialogs } from "./routes/org/Dialogs";
 import { DesignDialogs } from "./routes/design/Dialogs";
 import { RolesDialogs } from "./routes/roles/Dialogs";
 
@@ -75,7 +74,6 @@ export function App() {
       <FleetDialogs />
       <PanelDialogs />
       <MissionDialogs />
-      <OrgDialogs />
       <DesignDialogs />
       <RolesDialogs />
       <Toasts />

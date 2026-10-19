@@ -10,8 +10,7 @@
   `members_state` carries each member's state. A failed member fails the
   stage once the others end (the lead does not run).
 * `orchestra`: ORCHESTRA with the stage's goal (team/resolve.goal_for_stage).
-* `flow`: FLOW on the named flow, the stage's `inputs` as its intake.
-* an orchestra or flow stage with `harness: <fleet member>` runs on that
+* an orchestra stage with `harness: <fleet member>` runs on that
   member (team/remote_stage.py, 3.1.2.0 R2).
 
 Before a stage starts, its budget is checked (team/budget.py, 3.1.2.0 R2):
@@ -67,13 +66,11 @@ def start(runner, sid: str, redo: str = "") -> None:
     BD.set_stage(runner.run_dir, sid, "running", f"round {rnd}" + (f" (redo: {redo})" if redo else ""), round=rnd,
                  started=round(time.time(), 3), ended=None, error="", waiting="", gate_answer=None, **extra)
     try:
-        if stage["kind"] in ("orchestra", "flow") and stage.get("harness"):
+        if stage["kind"] == "orchestra" and stage.get("harness"):
             from halo_harness.team.remote_stage import send
             return send(runner, sid, stage, redo)
         if stage["kind"] == "orchestra":
             return finish(runner, sid, _orchestra(runner, stage))
-        if stage["kind"] == "flow":
-            return finish(runner, sid, _flow(runner, stage))
         cap = P.limit(runner.team, workers or [lead], cwd=runner.cwd or runner.root, state_dir=runner.state_dir)
         runner.live[sid] = {"order": workers + ([lead] if lead else []), "lead": lead, "workers": workers,
                             "results": {}, "handles": {}, "redo": redo, "cap": cap}
@@ -88,13 +85,6 @@ def _orchestra(runner, stage: dict) -> dict:
     out = _result(runner.orchestra(goal_for_stage(runner.team, stage, runner.root), root=runner.root,
                                    stage=stage["id"], run_dir=runner.run_dir), "the orchestra run ended without a report")
     out["refs"] = {"orchestra_run": out.get("run_id")}
-    return out
-
-
-def _flow(runner, stage: dict) -> dict:
-    out = _result(runner.flow(stage["flow"], intake=dict(stage.get("inputs") or {}), cwd=runner.root,
-                              stage=stage["id"], run_dir=runner.run_dir), "the flow run ended without a report")
-    out["refs"] = {"flow_run": out.get("run_id")}
     return out
 
 

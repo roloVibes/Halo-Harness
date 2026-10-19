@@ -10,7 +10,6 @@
   claims are fixed by its plan (claims.json), nothing is held live.
 * stage: keys are the blocks it writes (mode `block`); the live claims are
   its members' (`<member>@<stage>`) in each block's ledger (team/blocks.py).
-* step: no claims (mode `none`).
 
 `claim(kind, run_dir, uid, key, holder)` records one: a lane's key in the
 run's ClaimLog, a stage's `<block id>:<key>` in that block's ledger. It
@@ -78,6 +77,4 @@ def claim(kind: str, run_dir, uid, key: str, holder: str):
             raise ValueError(f"a stage's claim is `<block id>:<key>` of a block of its team, got {key!r}")
         B.ensure_ledger(team["root"], block)
         return B.claim_log(team["root"], block).claim(holder, inner, note=f"stage {uid}")
-    if k == "part":
-        raise ValueError("a part's claims are its plan's (claims.json): plan the mission again to change them")
-    raise ValueError("a flow step takes no claims")
+    raise ValueError("a part's claims are its plan's (claims.json): plan the mission again to change them")

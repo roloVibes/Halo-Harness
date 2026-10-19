@@ -49,7 +49,7 @@ class WorkerRun(threading.Thread):
         self.result: Optional[dict] = None
         self.base: Optional[str] = None
         self.guard = None
-        self.run_id: Optional[str] = None  # 3.1.2.0 R2: an orchestra | flow part's run (mission_stage_run.py)
+        self.run_id: Optional[str] = None  # 3.1.2.0 R2: an orchestra part's run (mission_stage_run.py)
         self.report = False
 
     # ---- placing -------------------------------------------------------------------------------
@@ -68,7 +68,7 @@ class WorkerRun(threading.Thread):
             self.folder = self.home / "fleet" / "missions" / mid
         if self.f["kind"] == "repo" and self.checkout is None:
             self.checkout = self._find_repo(str(self.f["repo"]))
-        if self.f["kind"] in ("orchestra", "flow"):
+        if self.f["kind"] == "orchestra":
             from halo_harness.fleet.mission_stage_run import place
             place(self)
 
@@ -108,7 +108,7 @@ class WorkerRun(threading.Thread):
             from halo_harness.fleet.mission_files import HubFiles
             self.files = HubFiles(self.entry)
             self.files.pull(mid, self.folder)
-        if self.f["kind"] in ("orchestra", "flow"):  # the run makes its own worktrees
+        if self.f["kind"] == "orchestra":  # the run makes its own worktrees
             self.cwd = self.checkout or self.folder
             return
         if self.f["kind"] != "repo":
@@ -149,7 +149,7 @@ class WorkerRun(threading.Thread):
 
     def _work(self) -> dict:
         from halo_harness.fleet import mission_worker
-        if self.f["kind"] in ("orchestra", "flow"):  # 3.1.2.0 R2: the run's own sessions do the work
+        if self.f["kind"] == "orchestra":  # 3.1.2.0 R2: the run's own sessions do the work
             from halo_harness.fleet.mission_stage_run import run
             return run(self)
         from halo_harness.fleet.mission_guard import MissionClaimGuard, install

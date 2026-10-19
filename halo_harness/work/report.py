@@ -1,12 +1,12 @@
 """halo_harness.work.report -- one report row for every kind of unit (Halo
 3.1.2.0 R1, docs/WORK.md).
 
-    {"unit": "2", "kind": "lane|part|stage|step", "title": "...", "owner": "...", "harness": "<name>" | null,
+    {"unit": "2", "kind": "lane|part|stage", "title": "...", "owner": "...", "harness": "<name>" | null,
      "state": "<machine word>", "native": "<the engine's word>", "cost_usd": 0.0031, "attempts": 0,
      "gate": "required|optional|none", "base": "<sha>" | null, "gave": [{"name", "kind", "path"}], "error": ""}
 
-Every engine's report keeps its own rows (report.json `lanes` / `parts` /
-`steps`, board.json `stages`) and carries these beside them under `units`
+Every engine's report keeps its own rows (report.json `lanes` / `parts`,
+board.json `stages`) and carries these beside them under `units`
 (`rows(run_dir, kind)`); `halo work` and `GET /api/work/<kind>/<run>` print
 and serve the same rows for any run.
 """
@@ -29,7 +29,7 @@ def row_of(unit) -> dict:
 
 
 def rows(run_dir, kind: Optional[str] = None) -> list:
-    """Every unit of the run as a report row (`kind`: lane|part|stage|step, else read from the folder)."""
+    """Every unit of the run as a report row (`kind`: lane|part|stage, else read from the folder)."""
     from halo_harness.work.store import UnitStore
     try:
         return UnitStore(run_dir, kind).rows()

@@ -115,40 +115,30 @@ def test_item148_lineup_save_reports_bad_instances_and_an_empty_role(ctx: Ctx):
 
 @test
 def test_item149_form_editors_refuse_an_unloadable_file(ctx: Ctx):
-    from halo_harness.orgs import orgs_dir
     from halo_harness.roles import role_templates_dir
     from halo_harness.tui import slash
-    from halo_harness.tui.dialogs.init_wizard import OrgsStep
 
     notes, opened = [], []
     fake = SimpleNamespace(notify=lambda text, **kw: notes.append(text),
                            call_from_thread=lambda fn, *a, **kw: fn(*a, **kw),
                            controller=SimpleNamespace(list_models=lambda: []))
-    real_roles, real_org = slash._open_roles_editor, slash._open_org_editor
+    real_roles = slash._open_roles_editor
     slash._open_roles_editor = lambda *a: opened.append("roles")
-    slash._open_org_editor = lambda *a: opened.append("org")
     role_file = role_templates_dir() / "mine.json"
-    org_file = orgs_dir() / "custom.json"
     try:
-        for path in (role_file, org_file):
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text('{"roles": {"main": "or:a/b", "revi', encoding="utf-8")
+        role_file.parent.mkdir(parents=True, exist_ok=True)
+        role_file.write_text('{"roles": {"main": "or:a/b", "revi', encoding="utf-8")
         slash._roles_edit_form_worker(fake, "mine")
-        slash._org_edit_form_worker(fake, "custom")
-        OrgsStep._editor_worker(SimpleNamespace(app=fake, _open_editor_screen=lambda *a: opened.append("wizard"),
-                                                _controller_models=lambda: []), "custom")
         ctx.check(f"no editor opened, got {opened}", opened == [])
-        ctx.check(f"three refusals naming the file, got {notes}", len(notes) == 3 and all("cannot be loaded" in n for n in notes))
-        ctx.check("both files are untouched", role_file.read_text(encoding="utf-8").endswith('"revi')
-                  and org_file.read_text(encoding="utf-8").endswith('"revi'))
+        ctx.check(f"one note naming the file, got {notes}", len(notes) == 1 and all("cannot be loaded" in n for n in notes))
+        ctx.check("the file is untouched", role_file.read_text(encoding="utf-8").endswith('"revi'))
         role_file.unlink()
         slash._roles_edit_form_worker(fake, "mine")
         ctx.check(f"a missing template still opens a fresh form, got {opened}", opened == ["roles"])
     finally:
-        slash._open_roles_editor, slash._open_org_editor = real_roles, real_org
-        for path in (role_file, org_file):
-            if path.exists():
-                path.unlink()
+        slash._open_roles_editor = real_roles
+        if role_file.exists():
+            role_file.unlink()
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 // Fleet tree (routes/fleet/FleetRail.tsx; 3.0.5.0 replaced the plain list of
 // live sessions with that tree). It posts `answer` to the session's command
 // route (`sessions/<sid>/command` here, `fleet/<harness>/<sid>/command` for a
-// member): an org approval card takes accept / an instruction / stop, a
+// member): an approval card takes accept / an instruction / stop, a
 // permission card allow / deny, a plan approve / send back. A question stays
 // in the terminal (it needs the typed answer).
 import { useState } from "react";

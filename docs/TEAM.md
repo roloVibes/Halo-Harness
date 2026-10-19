@@ -8,22 +8,20 @@ the blocks (a file, a folder or a git tree, each with its own claim
 ledger) and the workflow's stages. `halo team` runs it; Studio's Team routes
 (`/api/team/...`) show it live.
 
-## Where a team, a lineup, an Orchestra run, a flow and a mission sit
+## Where a team, a lineup, an Orchestra run and a mission sit
 
 A **lineup** ([ROLES.md](ROLES.md)) is who can play which part: aliases
 assigned to agent bios, with routing, budgets and tiers. An **Orchestra
 run** ([ORCHESTRA.md](ORCHESTRA.md)) is several workers editing the same
-files at once on one goal, merged and tested. A **flow**
-([FLOWS.md](FLOWS.md)) is a fixed pipeline of steps (intake, roles, org,
-render, confirm, post, metrics) with human gates. A **mission**
+files at once on one goal, merged and tested. A **mission**
 ([MISSIONS.md](MISSIONS.md)) is one goal split across the harnesses of a
 fleet. A **team** sits above them: its members are instances of lineup
-aliases, its stages are agent turns, Orchestra runs or flows, a stage can
+aliases, its stages are agent turns or Orchestra runs, a stage can
 hand a member's work to another harness the way a mission part goes out,
 and the blocks and the board tie it together: what each stage reads and
 writes, who holds which part of a block, and what waits on whom.
 
-**One unit of work (Halo 3.1.2.0):** a team stage is a *unit* of work, the same thing an Orchestra lane, a mission part and a flow step are, with one state machine, one ledger line, one report row and one coach; `halo work` prints a run's stages as that shared table. See [WORK.md](WORK.md).
+**One unit of work (Halo 3.1.2.0):** a team stage is a *unit* of work, the same thing an Orchestra lane and a mission part are, with one state machine, one ledger line, one report row and one coach; `halo work` prints a run's stages as that shared table. See [WORK.md](WORK.md).
 
 ## The file
 
@@ -52,7 +50,7 @@ blocks:
 workflow:
   stages:
     - id: draft
-      kind: agent                # agent | orchestra | flow
+      kind: agent                # agent | orchestra
       members: [writer]          # member names, lineup aliases or a tier name
       reads: [brief]             # block ids (brief is always readable)
       writes: [copy]
@@ -65,16 +63,10 @@ workflow:
     - id: build
       kind: orchestra
       goal: {what: "...", done_when: "...", workers: 3}
-      harness: null              # 3.1.2.0: a fleet member's name runs this orchestra (or flow) stage there
+      harness: null              # 3.1.2.0: a fleet member's name runs this orchestra stage there
       budget_usd: 1.0            # 3.1.2.0: what this stage may cost, every round of it
       writes: [site]
       trigger: stage_done:draft
-    - id: post
-      kind: flow
-      flow: social-post
-      inputs: {}                 # the flow's intake
-      reads: [copy]
-      trigger: stage_done:build
 ```
 
 Defaults: a block's `claims` is `section` (`file` for a git block), a
@@ -91,9 +83,12 @@ kind, members (a member name, an alias some member plays, or a tier of the
 members' lineups), lead, reads and writes (block ids), gate and trigger
 (`stage_done:` names an earlier stage, `block_change:` a declared block);
 no trigger loop (a stage whose writes, directly or through later stages,
-start it again); an orchestra stage's goal; a flow stage's flow loads; and
+start it again); an orchestra stage's goal; and
 the lineup preflight's blocking findings for every member that runs here
-(`preflight: member `writer` (lineup `x`): ... -- fix: ...`).
+(`preflight: member `writer` (lineup `x`): ... -- fix: ...`). A stage of
+kind `flow` (removed in 3.1.4.0) is one line: ``stage `post`: kind `flow`
+was removed in 3.1.4.0; make it an agent or orchestra stage, or delete
+it``.
 
 ## Blocks and claims
 
@@ -128,7 +123,7 @@ lead, started, ended, cost, summary, error, round and gate answer; 3.1.2.0:
 `members_state`, `remote` and `budget`, below),
 `events.jsonl` (kinds state, claim, change, gate, trigger, report, note)
 and `stages/<id>/` (refs.json with the agent session ids, the Orchestra run
-id or the flow run id; handback.md; result.json; gate.json and answer.json;
+id; handback.md; result.json; gate.json and answer.json;
 one scope file per member).
 
 * `manual` -- `halo team run <stage>` (or Studio's Run).
@@ -150,9 +145,7 @@ end the stage fails, naming it, and the lead does not run. Each gets one prompt:
 the brief, each block it reads (its path, `state.json` and the last ten
 change lines), the blocks it writes, the stage's `prompt` and, on a redo,
 the redo's text. Locally a member is `halo -p --team <lineup> --agent <bio>`
-in the repo. An **orchestra** stage starts an Orchestra run with the goal;
-a **flow** stage starts a run of the named flow with `inputs` as its
-intake (its own gates answer with `halo flow answer`).
+in the repo. An **orchestra** stage starts an Orchestra run with the goal.
 
 When a stage ends: a failed result fails it; a `required` gate holds it at
 `gated` with `stages/<id>/gate.json` (the acceptance's result shown with it)
@@ -178,11 +171,10 @@ the hub's store (it also shows in `halo fleet mission status`); its
 hand-back comes back into that mission folder and the stage goes on. A
 member's harness writes its files there under its own permission engine.
 
-An **orchestra** or **flow** stage with `harness: <member>` (3.1.2.0,
+An **orchestra** stage with `harness: <member>` (3.1.2.0,
 `team/remote_stage.py`) goes the same way: a one-part mission whose part is
-`kind: orchestra` (its `run` the stage's goal) or `kind: flow` (the flow's
-name and inputs). The member runs `orchestra.run` in its checkout of the
-repo (or `flows.run`) and hands back `result.json`, the run's `report.json`
+`kind: orchestra` (its `run` the stage's goal). The member runs
+`orchestra.run` in its checkout of the repo and hands back `result.json`, the run's `report.json`
 (it lands in `stages/<id>/report.json`) and its one line. The row's
 `remote` is `{harness, kind, mission, part_state, run}`: asked (the owner's
 card is open; the stage's unit is `waiting`), running, then done or failed
@@ -190,8 +182,8 @@ with the remote run id; the board shows the harness chip and that id. A
 refused dispatch fails the stage with the reason. The finished branch of a
 remote Orchestra run stays in the member's checkout, named in its report.
 
-A delegated agent stage (with its gate answered on the hub) and a delegated
-flow stage are exercised against a real second machine by the scripted
+A delegated agent stage (with its gate answered on the hub) is exercised
+against a real second machine by the scripted
 two-machine check ([FLEET.md](FLEET.md) "The two-machine check",
 `tools/live_fleet_check.py`, 3.1.2.0 R3).
 
@@ -204,8 +196,7 @@ team's line, the stage's own cost so far against its line. The forecast:
 an agent stage, one turn per member at the member's model's catalog price
 (60k in, 6k out tokens; $0.10 for a model the catalog does not price); an
 orchestra stage, the Orchestra forecast of its goal
-([ORCHESTRA.md](ORCHESTRA.md#the-forecast)); a flow stage, its steps'
-`budget_usd`. Over a line the stage does not start: its row goes back to
+([ORCHESTRA.md](ORCHESTRA.md#the-forecast)). Over a line the stage does not start: its row goes back to
 `pending` with `waiting: "budget: ..."` (and `stages/<id>/budget.json`), and
 Fleet's Attention queue shows a `team_budget` row: **Raise** opens the team
 file (edit `budget_usd`, run the stage again: the file is read each time),
@@ -269,7 +260,7 @@ are the shared rules' (`coordination-<stage>-loops`,
 
 ## In Studio
 
-`halo studio --mode team` (or `Alt+7`, `/studio team`) opens the **Team**
+`halo studio --mode team` (or `Alt+5`, `/studio team`) opens the **Team**
 section: with no team file a Start view whose **Make my first team** writes
 the template; then the **Board** (members as columns, stages as boxes in
 their members' columns, blocks in a band underneath with a claim badge,
@@ -279,6 +270,6 @@ gate card with Accept, Redo and Stop; a block's holders and changes; a
 member's lineup, opening in Roles) and the **Change feed** (the run's event
 lines with kind chips). A stage at its gate is also a `team_gate` row in
 Fleet's Attention queue (`A` accept, `R` redo, `S` stop, `O` open). Details:
-[STUDIO-team-roles-org.md](STUDIO-team-roles-org.md#team-people-blocks-and-stages-on-one-board).
+[STUDIO-team-roles.md](STUDIO-team-roles.md#team-people-blocks-and-stages-on-one-board).
 
 ![Team in Studio: draft done, review at its gate, notes held by a hand edit](media/studio-team.png)

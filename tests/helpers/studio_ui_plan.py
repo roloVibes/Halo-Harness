@@ -1,4 +1,4 @@
-"""tests.helpers.studio_ui_plan -- the Orchestra plan canvas and Flow graph
+"""tests.helpers.studio_ui_plan -- the Orchestra plan canvas
 checks of tests/test_studio_ui.py (Halo 3.0.9.0 round R2), kept here so that
 file stays small. One headless Chrome run (`python -m tests.helpers.studio_plan`,
 tests/helpers/studio_plan.py) over a Studio on a temp git repo with the R2
@@ -59,13 +59,3 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"rejected, got {got.get('review_on')} / {got.get('stopped')} / {got.get('stop_reason')!r}",
                   got.get("review_on") is True and got.get("stopped") == "stopped"
                   and got.get("stop_reason") == "the plan was rejected: one lane per file instead")
-
-    @test
-    def test_flow_show_as_graph_draws_the_social_post_steps(ctx: Ctx):
-        """3.0.9.0 R2: the Flow intake's Show as graph draws the social-post template's eight steps in
-        eight layers, the confirm step marked as the gate; Back returns to the form."""
-        got = run(ctx)
-        flow = got.get("flow") or {}
-        ctx.check(f"the graph, got {flow} / {got.get('flow_gate')}", flow.get("flow-graph") == 1 and flow.get("flow-step") == 8
-                  and flow.get("flow-graph-layer") == 8 and (flow.get("flow-graph-edge") or 0) >= 7 and got.get("flow_gate") == ["approve"])
-        ctx.check("Back returns to the intake form", got.get("flow_back") == "back")

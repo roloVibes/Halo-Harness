@@ -10,7 +10,6 @@ calls `act`; the decision is journaled there with `by`.
     fleet_ask       a allow | r deny                   the `fleet-ask:` question on this harness
     waiting         s stop the agent
     paused          a resume the agent (or the session) | s stop it
-    flow_gate       a accept | r redo (text: the instruction) | s stop   (flow/runs/<id>/answer)
     orchestra_gate, control_ask, conflict   a set aside (journal kind `ack`, hidden from then on)
     cap             a lift for today: resume what the cap paused
     mission_plan    a approve and run | r edit (text: "part 2 to kali" / "drop 3") | s drop the mission  (R7)
@@ -45,9 +44,8 @@ ANSWER = {
     ("mission_ask", "a"): {"answer": "allow"},
     ("mission_ask", "r"): {"answer": "deny"},
 }
-NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("flow_gate", "r"), ("mission_plan", "r"), ("team_gate", "r")}
+NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("mission_plan", "r"), ("team_gate", "r")}
 SET_ASIDE = ("orchestra_gate", "control_ask", "conflict", "mission_claim")
-FLOW = {"a": "accept", "r": "redo", "s": "stop"}
 
 
 def _sub(req, path: str, body: dict, params: dict):
@@ -69,8 +67,6 @@ def agent_command(req, hid: str, sid: str, aid: str, body: dict):
 
 def open_target(row: dict) -> dict:
     kind, t = row["kind"], row.get("target") or {}
-    if kind == "flow_gate":
-        return {"section": "flow", "run": t.get("run"), "step": t.get("step")}
     if kind == "orchestra_gate":
         return {"section": "orchestra", "run": t.get("run")}
     if kind in ("team_gate", "team_budget"):  # 3.0.8.0 R2, 3.1.2.0 R2
@@ -123,11 +119,6 @@ def act(req, watcher, row: dict, key: str, text: str):
     if kind == "cap":
         from halo_harness.studio.fleet_watch_sources import by
         return 200, {"lifted": True, "resumed": watcher.lift(t.get("scope"), t.get("key"), by(req.state_dir))}, label
-    if kind == "flow_gate":
-        from halo_harness.studio.flow_api import post_answer
-        body = {"step": t.get("step"), "action": FLOW[key], "instruction": text}
-        status, got = post_answer(_sub(req, f"flow/runs/{t.get('run')}/answer", body, {"run": str(t.get("run"))}))
-        return status, got, label
     hid, sid, aid = row["harness"], row["session_id"], row.get("agent_id") or "main"
     if (kind, key) in ANSWER:
         status, got = _card(req, row, key, text)

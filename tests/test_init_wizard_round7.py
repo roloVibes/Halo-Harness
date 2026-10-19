@@ -1,16 +1,11 @@
 """tests.test_init_wizard_round7 -- Halo 2.0.2 round 7 (init wizard brief):
-pure-logic pieces that don't need a Textual pilot -- `roles.py`/`orgs.py`'s
-own mode switches (`roles_mode_enabled`/`orgs_mode_enabled`), the three
-shipped role presets (`compute_builtin_role_presets`/`ensure_builtin_role_
-presets`), the org default (`default_org_name`/`set_default_org`), `/org
-run`'s "no name" argument split (`parse_run_args`), `validate_org`'s new
-`budget_usd` checks, and `orgs.OrgBudgetTracker`'s own threshold math
-(brief 3b). The Textual pilot tests (the wizard walking its steps, the
-roles/org editors' template pickers, `/setup`) live in test_tui.py, per
-house convention; the run_org_call/Agent-tool integration pieces (goal
-task creation, the budget tracker actually wired into a real dispatch)
-live in tests/test_init_wizard_round7_integration.py, split out to stay
-under the per-file size this package writes in.
+pure-logic pieces that don't need a Textual pilot -- `roles.py`'s own mode
+switch (`roles_mode_enabled`), the three shipped role presets
+(`compute_builtin_role_presets`/`ensure_builtin_role_presets`) and the
+wizard's step keys (3.1.4.0: the Organizations step is gone). The Textual
+pilot tests (the wizard walking its steps, the roles editor's template
+picker, `/setup`) live in test_tui.py, per house convention; the
+integration pieces live in tests/test_init_wizard_round7_integration.py.
 """
 from __future__ import annotations
 
@@ -54,21 +49,6 @@ def test_roles_mode_enabled_defaults_true_and_disables_the_table(ctx: Ctx):
                    f"got {resolve_role_table()}", resolve_role_table() == {})
         ctx.check("even the cost-aware databricks default is suppressed",
                   resolve_role_table(provider="databricks") == {})
-    finally:
-        _clear_state_dir_env()
-
-
-# ---- orgs_mode_enabled ------------------------------------------------------
-
-@test
-def test_orgs_mode_enabled_defaults_false(ctx: Ctx):
-    from halo_harness.orgs import orgs_mode_enabled
-    from halo_harness.theme import set_config_value
-    _fresh_state_dir("orgs-mode-")
-    try:
-        ctx.check("defaults off", orgs_mode_enabled() is False)
-        set_config_value("orgs.enabled", True)
-        ctx.check("flips on when configured", orgs_mode_enabled() is True)
     finally:
         _clear_state_dir_env()
 
@@ -132,163 +112,6 @@ def test_ensure_builtin_role_presets_never_overwrites(ctx: Ctx):
 
 # ---- default_org_name / set_default_org ------------------------------------
 
-@test
-def test_default_org_round_trip_and_unknown_name_refused(ctx: Ctx):
-    from halo_harness.orgs import default_org_name, ensure_builtin_orgs, set_default_org
-    state_dir = Path(tempfile.mkdtemp(prefix="orgs-default-"))
-    ensure_builtin_orgs(state_dir=state_dir)
-    ctx.check("unset by default", default_org_name(state_dir=state_dir) is None)
-    ok, problems = set_default_org("solo", state_dir=state_dir)
-    ctx.check(f"solo is a real org, got {problems}", ok)
-    ctx.check("default_org_name now reads it back", default_org_name(state_dir=state_dir) == "solo")
-    ok2, problems2 = set_default_org("not-a-real-org", state_dir=state_dir)
-    ctx.check(f"an unknown name is refused, got {problems2}", not ok2 and problems2)
-
-
-@test
-def test_default_org_name_ignores_a_stale_value(ctx: Ctx):
-    """A default pointing at an org that no longer validates (deleted,
-    or hand-edited into an invalid shape) must never be treated as real."""
-    from halo_harness.orgs import default_org_name, orgs_dir, set_default_org
-    state_dir = Path(tempfile.mkdtemp(prefix="orgs-default-stale-"))
-    from halo_harness.orgs import save_org
-    save_org("temp", {"name": "temp", "positions": [{"title": "X", "reports": []}]}, state_dir=state_dir)
-    set_default_org("temp", state_dir=state_dir)
-    (orgs_dir(state_dir) / "temp.json").unlink()
-    ctx.check("a deleted default org resolves to None, not a dangling name",
-              default_org_name(state_dir=state_dir) is None)
-
-
-# ---- parse_run_args: "/org run [<name>] \"<goal>\"" ------------------------
-
-@test
-def test_parse_run_args_quoted_goal_means_no_name(ctx: Ctx):
-    from halo_harness.orgs import parse_run_args
-    ctx.check("quoted-only -> (None, goal)", parse_run_args('"fix the thing"') == (None, "fix the thing"))
-    ctx.check("single-quoted too", parse_run_args("'fix the thing'") == (None, "fix the thing"))
-    # 2.0.2 review finding 39: the name+goal branch used to KEEP the
-    # quotes (unlike the quoted-only branch just above, which already
-    # strips them) -- the goal reached the model and the task board
-    # wrapped in literal quote characters.
-    ctx.check("name then goal -> quotes stripped from the goal too",
-              parse_run_args('release-flow "fix the thing"') == ("release-flow", "fix the thing"))
-    ctx.check("empty input -> (None, '')", parse_run_args("") == (None, ""))
-
-
-@test
-def test_parse_run_args_only_strips_a_real_matching_pair(ctx: Ctx):
-    """finding 39's fix must not eat a goal that merely CONTAINS a quote
-    character without wrapping the whole thing in a matching pair."""
-    from halo_harness.orgs import parse_run_args
-    ctx.check("unmatched apostrophe left alone",
-              parse_run_args("release-flow fix don't break it") == ("release-flow", "fix don't break it"))
-    ctx.check("no surrounding quotes at all, unchanged",
-              parse_run_args("release-flow fix the thing") == ("release-flow", "fix the thing"))
-    ctx.check("single-quoted goal after a name also stripped",
-              parse_run_args("release-flow 'fix the thing'") == ("release-flow", "fix the thing"))
-    ctx.check("bare name no goal -> goal is empty", parse_run_args("release-flow") == ("release-flow", ""))
-
-
-# ---- validate_org: budget_usd -----------------------------------------------
-
-@test
-def test_validate_org_rejects_negative_budgets(ctx: Ctx):
-    from halo_harness.orgs import validate_org
-    org = {"name": "b", "budget_usd": -1, "positions": [
-        {"title": "A", "budget_usd": -5, "reports": []}]}
-    problems = validate_org(org)
-    ctx.check(f"org-level negative budget flagged, got {problems}",
-              any('"budget_usd"' in p for p in problems))
-    ctx.check(f"position-level negative budget flagged, got {problems}",
-              any("A" in p and "budget_usd" in p for p in problems))
-    ok_org = {"name": "ok", "budget_usd": 5.0, "positions": [{"title": "A", "budget_usd": 1, "reports": []}]}
-    ctx.check(f"a valid non-negative budget passes clean, got {validate_org(ok_org)}", validate_org(ok_org) == [])
-
-
-# ---- OrgBudgetTracker: warning at 80%, hard stop at 100% -------------------
-
-@test
-def test_budget_tracker_org_level_warns_then_stops(ctx: Ctx):
-    from halo_harness.orgs import OrgBudgetTracker
-    tracker = OrgBudgetTracker(org_name="demo", org_budget_usd=1.0, baseline_usd=0.0)
-    ctx.check("no refusal before any spend", tracker.refusal_before_spawn("A", 0.0) is None)
-    note = tracker.record_spend("A", 0.85, 0.85)  # 85% of $1.00
-    ctx.check(f"warns at >=80%% but no stop yet, got {note!r}", note is not None and "80" not in note
-              and "has used" in note and not tracker.org_stopped)
-    refusal = tracker.refusal_before_spawn("B", 0.85)
-    ctx.check("still allowed below 100%", refusal is None)
-    note2 = tracker.record_spend("B", 0.20, 1.05)  # now over $1.00
-    ctx.check(f"reaching the org budget is reported, got {note2!r}", note2 is not None and "reached" in note2)
-    ctx.check("org_stopped flips True", tracker.org_stopped is True)
-    refusal2 = tracker.refusal_before_spawn("C", 1.05)
-    ctx.check(f"a further spawn is refused, got {refusal2!r}", refusal2 is not None and "budget" in refusal2)
-
-
-@test
-def test_budget_tracker_org_level_trips_despite_a_baseline_from_a_different_meter(ctx: Ctx):
-    """2.0.2 review finding 5 (major) pin: every REAL caller passes the
-    SPAWNING POSITION's own fresh CostMeter total (a brand new Session
-    per position, starting at 0), never the root session's meter the
-    baseline was captured from -- the review's own repro: budget $1.00,
-    baseline $3.00 (the root session had already spent $3 before this
-    org run started), then a position's own fresh total reaches $2.50.
-    Before the fix, `max(0, 2.50 - 3.00)` stayed 0 forever and the org
-    budget could never trip no matter how much was actually spent."""
-    from halo_harness.orgs import OrgBudgetTracker
-    tracker = OrgBudgetTracker(org_name="demo", org_budget_usd=1.0, baseline_usd=3.0)
-    ctx.check("no refusal before any spend", tracker.refusal_before_spawn("A", 2.50) is None)
-    note = tracker.record_spend("A", 2.50, 2.50)  # this position's OWN fresh total/delta: $2.50
-    ctx.check(f"org budget ($1.00) already exceeded by $2.50 of real spend, got {note!r}",
-              note is not None and "reached" in note and tracker.org_stopped is True)
-    refusal = tracker.refusal_before_spawn("B", 0.0)
-    ctx.check(f"a further spawn is refused, got {refusal!r}", refusal is not None and "budget" in refusal)
-
-
-@test
-def test_budget_tracker_record_spend_uses_the_callers_own_delta_not_a_shared_total(ctx: Ctx):
-    """2.0.2 review finding 5: `record_spend`'s 3rd argument
-    (`parent_total_usd`) is accepted but no longer trusted for the
-    org-wide check -- only `spent_usd` (the caller's OWN delta,
-    `child.cost_meter.total_usd` in real code) accumulates into `org_
-    spent_usd`. Two concurrent children's own true spend ($0.40 + $0.40 =
-    $0.80) must add up correctly even when the THIRD argument they each
-    happen to pass is a stale/shared/bogus number -- proving the fix no
-    longer double-counts (or under-counts) off of it."""
-    from halo_harness.orgs import OrgBudgetTracker
-    tracker = OrgBudgetTracker(org_name="demo", org_budget_usd=1.0, baseline_usd=0.0)
-    tracker.record_spend("A", 0.40, 999.0)   # a deliberately-wrong/stale 3rd arg
-    tracker.record_spend("B", 0.40, 999.0)   # same stale 3rd arg from a "concurrent" sibling
-    ctx.check(f"org_spent_usd is the real sum of deltas, got {tracker.org_spent_usd}", tracker.org_spent_usd == 0.80)
-    ctx.check("not yet stopped (under $1.00)", tracker.org_stopped is False)
-    tracker.record_spend("C", 0.25, 999.0)
-    ctx.check(f"now over budget, got org_spent_usd={tracker.org_spent_usd}", tracker.org_stopped is True)
-
-
-@test
-def test_budget_tracker_position_level_independent_of_org_level(ctx: Ctx):
-    from halo_harness.orgs import OrgBudgetTracker
-    tracker = OrgBudgetTracker(org_name="demo", org_budget_usd=None,
-                                position_budgets={"Researcher": 0.50}, baseline_usd=0.0)
-    tracker.record_spend("Researcher", 0.50, 0.50)  # exactly at the position's own budget
-    ctx.check("Researcher's own budget tripped", "Researcher" in tracker.stopped_positions)
-    refusal = tracker.refusal_before_spawn("Researcher", 0.50)
-    ctx.check(f"Researcher alone is refused, got {refusal!r}", refusal is not None)
-    other_ok = tracker.refusal_before_spawn("OtherPosition", 0.50)
-    ctx.check("a DIFFERENT position with no budget of its own is unaffected", other_ok is None)
-
-
-@test
-def test_build_budget_tracker_reads_org_and_position_budgets(ctx: Ctx):
-    from halo_harness.orgs import build_budget_tracker
-    org = {"name": "x", "budget_usd": 2.5, "positions": [
-        {"title": "A", "budget_usd": 1.0, "reports": ["B"]}, {"title": "B", "reports": []}]}
-    tracker = build_budget_tracker(org, baseline_usd=0.3)
-    ctx.check(f"org budget carried over, got {tracker.org_budget_usd}", tracker.org_budget_usd == 2.5)
-    ctx.check(f"baseline carried over, got {tracker.baseline_usd}", tracker.baseline_usd == 0.3)
-    ctx.check(f"only A has its own position budget, got {tracker.position_budgets}",
-              tracker.position_budgets == {"A": 1.0})
-
-
 # ---- init_wizard.py: pure (Textual-free) pieces ----------------------------
 
 @test
@@ -304,8 +127,10 @@ def test_resolve_start_index_accepts_ordinal_or_key(ctx: Ctx):
     # updated to match.
     ctx.check('start_step=6 (1-based ordinal) resolves to "team"',
               ALL_STEP_KEYS[_resolve_start_index(6, ALL_STEP_KEYS)] == "team")
-    ctx.check('start_step="orgs" (the key itself) resolves to "orgs"',
-              ALL_STEP_KEYS[_resolve_start_index("orgs", ALL_STEP_KEYS)] == "orgs")
+    ctx.check('start_step="summary" (the key itself) resolves to "summary"',
+              ALL_STEP_KEYS[_resolve_start_index("summary", ALL_STEP_KEYS)] == "summary")
+    ctx.check('start_step="orgs" (a removed step, 3.1.4.0) falls back to step 1',
+              "orgs" not in ALL_STEP_KEYS and _resolve_start_index("orgs", ALL_STEP_KEYS) == 0)
     # Round 2c: "agents"/"roles" (no longer real keys) still resolve, as
     # `--step` aliases, to wherever "team" now sits.
     ctx.check('start_step="agents" (alias) resolves to "team"',
@@ -318,18 +143,18 @@ def test_resolve_start_index_accepts_ordinal_or_key(ctx: Ctx):
 
 
 @test
-def test_linux_fixes_step_key_never_shifts_team_or_orgs(ctx: Ctx):
+def test_linux_fixes_step_key_never_shifts_team(ctx: Ctx):
     """Whether or not `linux_fixes` survives into `full_step_keys()`,
-    "team" and "orgs" must stay at the SAME 1-based ordinal (6 and 7,
-    after Halo 2.0.3 round 5c's "local_models" insertion right after
-    "providers" and Halo 2.0.5 round 2c's "agents"+"roles" merge into one
-    "team" step) -- `linux_fixes` sits AFTER both, never between them."""
+    "team" must stay at the SAME 1-based ordinal (6, after Halo 2.0.3
+    round 5c's "local_models" insertion right after "providers" and Halo
+    2.0.5 round 2c's "agents"+"roles" merge into one "team" step) --
+    `linux_fixes` sits AFTER it; 3.1.4.0: no "orgs" step any more."""
     from halo_harness.tui.dialogs.init_wizard import ALL_STEP_KEYS
     ctx.check(f"team is step 6, got {ALL_STEP_KEYS}", ALL_STEP_KEYS[5] == "team")
-    ctx.check(f"orgs is step 7, got {ALL_STEP_KEYS}", ALL_STEP_KEYS[6] == "orgs")
+    ctx.check(f"no orgs step, summary last, got {ALL_STEP_KEYS}", "orgs" not in ALL_STEP_KEYS and ALL_STEP_KEYS[-1] == "summary")
     without_linux_fixes = tuple(k for k in ALL_STEP_KEYS if k != "linux_fixes")
     ctx.check("still true with linux_fixes dropped", without_linux_fixes[5] == "team"
-              and without_linux_fixes[6] == "orgs")
+              and without_linux_fixes[6] == "summary")
 
 
 if __name__ == "__main__":

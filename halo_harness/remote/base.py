@@ -83,7 +83,7 @@ class _BaseHandle:
         threading.Thread(target=_wait_then_close, daemon=True, name="halo-fleet-shutdown").start()
 
     def _close_after_shutdown(self, text: str) -> None:
-        """Nothing to close for a bare handle (a flow's org session ends with its run)."""
+        """Nothing to close for a bare handle (a mission worker's session ends with its work)."""
 
     # ---- feed ------------------------------------------------------------
     def _observe(self, ev) -> None:

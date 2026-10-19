@@ -1,11 +1,11 @@
-"""halo_harness.team.remote_stage -- an orchestra or flow stage that runs on a
+"""halo_harness.team.remote_stage -- an orchestra stage that runs on a
 fleet member (Halo 3.1.2.0 R2; team/run_stage.py starts it, docs/TEAM.md).
 
-A stage `kind: orchestra` or `kind: flow` with `harness: <member>` goes to
+A stage `kind: orchestra` with `harness: <member>` goes to
 that member the way a delegated agent member does (team/delegate.py ->
 fleet/mission_dispatch.py): a one-part mission whose part carries the run
-(`{goal}` for an orchestra stage, `{flow, inputs}` for a flow stage). The
-member runs `orchestra.run` / `flows.run` locally (fleet/mission_stage_run.py)
+(`{goal}`). The
+member runs `orchestra.run` locally (fleet/mission_stage_run.py)
 and hands back `result.json`, its report and a hand-back line. The stage's
 row follows the part:
 
@@ -27,18 +27,15 @@ KEY = "@run"
 
 
 def task_of(runner, stage: dict, redo: str = "") -> dict:
-    """What the member runs: the stage's goal (with the team's defaults) or its flow and inputs."""
+    """What the member runs: the stage's goal (with the team's defaults)."""
     from halo_harness.team.resolve import goal_for_stage
     kind = stage["kind"]
     base = {"team": runner.team["name"], "run": runner.run_dir.name, "stage": stage["id"], "kind": kind,
             "title": f"team {runner.team['name']} stage {stage['id']} ({kind})", "repo": repo_name(runner.root)}
-    if kind == "orchestra":
-        goal = goal_for_stage(runner.team, stage, runner.root)
-        if redo:
-            goal = dict(goal, what=f"{goal.get('what') or ''}\n\nTHE LEAD ASKED FOR A REDO: {redo}".strip())
-        return dict(base, goal=goal, brief=f"Run the Orchestra goal of stage {stage['id']}: {goal.get('what')}")
-    return dict(base, flow=stage.get("flow"), inputs=dict(stage.get("inputs") or {}),
-                brief=f"Run flow {stage.get('flow')} for stage {stage['id']}")
+    goal = goal_for_stage(runner.team, stage, runner.root)
+    if redo:
+        goal = dict(goal, what=f"{goal.get('what') or ''}\n\nTHE LEAD ASKED FOR A REDO: {redo}".strip())
+    return dict(base, goal=goal, brief=f"Run the Orchestra goal of stage {stage['id']}: {goal.get('what')}")
 
 
 def repo_name(root) -> str:

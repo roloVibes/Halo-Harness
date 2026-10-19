@@ -1,9 +1,9 @@
 // The post-run coach's result (3.0.9.0 R3; halo_harness/orchestra/coach.py),
-// the same for every run kind: GET orchestra/<run>/coach, flow/runs/<id>/coach,
+// the same for every run kind: GET orchestra/<run>/coach,
 // fleet/missions/<id>/coach and team/coach?run=. 3.1.3.0 R1: each card's lead
 // paragraph and applied state, and the POST <route>/ask | apply | undo shapes.
 
-export type CoachRunKind = "orchestra" | "flow" | "mission" | "team";
+export type CoachRunKind = "orchestra" | "mission" | "team";
 export type CoachKind = "prompt" | "model" | "tools" | "structure" | "coordination";
 export type CoachSeverity = "high" | "medium" | "low";
 

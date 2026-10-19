@@ -7,8 +7,7 @@ live session from the files a session writes under ~/.halo/sessions.
 A lineup becomes a graph: one node per `agents:` entry (the assignment,
 the bio behind it, the model that resolves, price/context from the
 catalog, scope, problems), edges for delegation (main -> member, labelled
-with the routing keys that reach it), org `reports_to` lines and pipeline
-stage order.
+with the routing keys that reach it) and pipeline stage order.
 """
 
 from __future__ import annotations
@@ -108,7 +107,7 @@ def _node_id(entry: dict, i: int) -> str:
 def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = None) -> dict:
     catalog = _catalog_index(state_dir) if catalog is None else catalog
     entries = [e for e in (raw.get("agents") or []) if isinstance(e, dict)]
-    nodes, by_alias, by_role, by_agent = [], {}, {}, {}
+    nodes, by_alias, by_role = [], {}, {}
     for i, e in enumerate(entries):
         bio = A.resolve_agent_bio(str(e.get("agent") or ""), cwd=cwd, state_dir=state_dir) if e.get("agent") else None
         model, fallback = _effective_model(e, bio)
@@ -139,7 +138,6 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
         if node["alias"]:
             by_alias.setdefault(node["alias"], node["id"])
         by_role.setdefault(node["role"], node["id"])
-        by_agent.setdefault(node["agent"], node["id"])
     mains = [n for n in nodes if n["role"] == "main"]
     if len(mains) != 1:
         for n in nodes:
@@ -157,37 +155,10 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
         nid = by_alias.get(str(target)) or by_role.get(str(target))
         if nid:
             target_labels.setdefault(nid, []).append(str(key))
-    # 3.0.2.0 (the owner: "connect a new agent and role to something other
-    # than the starting box"): `org.positions[].reports_to` is the
-    # connection. A title names an assignment by alias, else by role, else
-    # by agent; a member that reports to another member hangs off THAT
-    # card instead of main, so the tree re-forms as you connect boxes.
-    org = raw.get("org") if isinstance(raw.get("org"), dict) else {}
-
-    positions = [p for p in (org.get("positions") or []) if isinstance(p, dict)]
-    titles: dict = {}
-    for p in positions:   # a position's title names its assignment by alias, role, or the position's own agent
-        t = str(p.get("title") or "")
-        nid = by_alias.get(t) or by_role.get(t) or by_agent.get(str(p.get("agent") or "")) or by_agent.get(t)
-        if t and nid:
-            titles[t] = nid
-
-    def _node_for_title(title) -> Optional[str]:
-        t = str(title or "")
-        return titles.get(t) or by_alias.get(t) or by_role.get(t) or by_agent.get(t)
-    parent_of: dict = {}
-    for p in positions:
-        if p.get("reports_to"):
-            child, parent = _node_for_title(p.get("title")), _node_for_title(p.get("reports_to"))
-            if child and parent and child != parent:
-                parent_of[child] = parent
-    main_id = mains[0]["id"] if mains else None
     if mains:
-        for n in nodes:   # a member that reports to another MEMBER hangs off that card, not main
-            if n is not mains[0] and parent_of.get(n["id"], main_id) == main_id:
+        for n in nodes:   # every member hangs off main by its delegation edge
+            if n is not mains[0]:
                 edges.append({"from": mains[0]["id"], "to": n["id"], "kind": "delegation", "label": ", ".join(target_labels.get(n["id"], []))})
-    for child, parent in parent_of.items():
-        edges.append({"from": child, "to": parent, "kind": "reports", "label": "reports to"})
     stages = ((raw.get("pipeline") or {}).get("stages") or []) if isinstance(raw.get("pipeline"), dict) else []
     prev = None
     for st in stages:

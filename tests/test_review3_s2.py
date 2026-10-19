@@ -108,18 +108,16 @@ def test_54_a_failed_team_save_restores_a_bio_force_overwrote(ctx: Ctx):
 
 @test
 def test_54_a_hand_edited_bio_never_crashes_a_lineup(ctx: Ctx):
-    from halo_harness.teams_yaml import member_system_context_addition, resolve_org, resolve_role_table
+    from halo_harness.teams_yaml import member_system_context_addition, resolve_role_table
     with scoped_home() as home:
         agents = home / ".halo" / "agents"
         agents.mkdir(parents=True)
         (agents / "odd.yaml").write_text("name: odd\nmodels: just-a-string\ncontext: also-a-string\n",
                                          encoding="utf-8")
-        template = {"name": "t", "agents": [{"agent": "odd", "role": "reviewer"}],
-                    "org": {"positions": [{"title": "Lead", "agent": "odd"}]}}
+        template = {"name": "t", "agents": [{"agent": "odd", "role": "reviewer"}]}
         table, notes = resolve_role_table(template)
         ctx.check(f"the role table resolves with a note, got {table} {notes}",
                   "reviewer" not in table and any("not a mapping" in n for n in notes))
-        resolve_org(template)
         ctx.check("member context is empty, not a crash", member_system_context_addition("odd") == "")
 
 

@@ -5,8 +5,8 @@
     events.jsonl    {ts, elapsed_s, kind, stage, text, data}; kinds state, claim,
                     change, gate, trigger, report, note
     stop.json       {reason, ts} (halo team stop; the runner honours it)
-    stages/<id>/    refs.json (agent session ids, the orchestra run id, the flow
-                    run id, a mission id), handback.md, result.json, gate.json,
+    stages/<id>/    refs.json (agent session ids, the orchestra run id, a
+                    mission id), handback.md, result.json, gate.json,
                     answer.json, scope.json (the write guard's scope)
 
 A stage row is `{id, kind, state, trigger, members, lead, gate, harness,

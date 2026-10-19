@@ -3,7 +3,7 @@ $EDITOR set (round4 brief item 1): command/args/env for a stdio server, or
 url/headers for an http/sse one, writing back to the SAME scope file
 `halo mcp add`/`add-json` already use (`mcp_cli._build_entry`/`_store_
 entry` -- no second writer for `.mcp.json`/`~/.claude.json`). Same form
-family as `roles_editor.py`/`org_editor.py`: plain `Input`/`TextArea`
+family as `roles_editor.py`: plain `Input`/`TextArea`
 fields, `ctrl+s` saves and dismisses `True`, `Escape` cancels (`False`),
 never touching the file on cancel.
 """

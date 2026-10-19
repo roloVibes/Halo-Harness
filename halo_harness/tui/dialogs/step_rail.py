@@ -1,7 +1,7 @@
 """halo_harness.tui.dialogs.step_rail -- Halo 2.0.5 round 2c, deliverable 4:
 rule 4 of `docs/WIZARD.md` -- a step rail across the top of every wizard
 step (Providers, Local models, Default model, Permissions, Theme, Team,
-Orgs, Summary): the current step highlighted, done steps ticked, Ctrl+Left/
+Summary): the current step highlighted, done steps ticked, Ctrl+Left/
 Ctrl+Right Back/Next from anywhere. A NEW module (hard constraint:
 `init_wizard.py` grows by registration lines only) -- `render_rail` takes
 the step keys/titles as plain arguments so this module never imports FROM
