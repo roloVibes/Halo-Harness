@@ -1,4 +1,4 @@
-// Session (Alt+8, 3.1.4.0 R2 "The session dashboard"): this session, live.
+// Session (Alt+6, 3.1.4.0 R2 "The session dashboard"): this session, live.
 // The Fleet panels scoped to this harness (routes/fleet/scope.ts; the
 // section sets the scope while it shows, store.ts), no copy of any of them:
 // Map (session-map: one card per session on this box and its agent tree, the

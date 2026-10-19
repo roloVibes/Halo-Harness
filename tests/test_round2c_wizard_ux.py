@@ -181,7 +181,7 @@ def test_rail_shows_current_step_and_ctrl_right_advances(ctx: Ctx):
 
     async def body():
         with _Env():
-            state = WizardState(cwd=REPO_DIR, step_keys=("permission_mode", "theme", "orgs"), no_live=True)
+            state = WizardState(cwd=REPO_DIR, step_keys=("permission_mode", "theme", "summary"), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(120, 40)) as pilot:
                 await pilot.pause(0.15)
@@ -197,8 +197,8 @@ def test_rail_shows_current_step_and_ctrl_right_advances(ctx: Ctx):
                           "Theme" in _static_text(rail2))
                 await pilot.press("ctrl+right")
                 await pilot.pause(0.2)
-                ctx.check(f"Ctrl+Right advances again to Organizations, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "OrgsStep")
+                ctx.check(f"Ctrl+Right advances again to Summary, got {type(app.screen).__name__}",
+                          type(app.screen).__name__ == "SummaryStep")
                 await pilot.press("ctrl+left")
                 await pilot.pause(0.2)
                 ctx.check(f"Ctrl+Left goes back to the SAME Theme instance, got {type(app.screen).__name__}",
@@ -270,7 +270,7 @@ def test_full_setup_walks_every_step(ctx: Ctx):
                     await pilot.pause(0.25)
                 ctx.check(f"every step was reached in order, got {seen}",
                           seen == ["ProvidersStep", "LocalModelsStep", "DefaultModelStep", "PermissionModeStep",
-                                   "ThemeStep", "TeamStep", "OrgsStep", "SummaryStep"])
+                                   "ThemeStep", "TeamStep", "SummaryStep"])
     run(body())
 
 
@@ -533,44 +533,6 @@ def test_roles_off_still_resolves_a_subagent_to_the_default_model(ctx: Ctx):
 # the roles editor quick filter (3.1.1.0 R3: the bio and lineup fields are
 # Studio's now; the terminal shows bios and lineups read-only).
 # ---------------------------------------------------------------------------
-
-@test
-def test_autocomplete_org_editor_role_field(ctx: Ctx):
-    from halo_harness.tui.dialogs.org_editor import OrgEditor
-    from textual.app import App
-    from textual.widgets import Input
-
-    async def body():
-        with _Env():
-            org = {"positions": [{"title": "Boss", "reports": []}]}
-            app_holder = {}
-
-            class _Host(App):
-                def on_mount(self):
-                    app_holder["screen"] = OrgEditor("demo", org, FIXTURE_MODELS)
-                    self.push_screen(app_holder["screen"])
-            app = _Host()
-            async with app.run_test(size=(120, 40)) as pilot:
-                await pilot.pause(0.15)
-                field = app.screen.query_one("#org-field-role", Input)
-                field.focus()
-                for ch in "strong":
-                    await pilot.press(ch)
-                await pilot.pause(0.1)
-                dropdown = app.screen.query_one("#org-field-role-ac")
-                ctx.check(f"org role field dropdown matches, got count={dropdown.option_count}",
-                          dropdown.option_count == 1)
-                await pilot.press("escape")
-                await pilot.pause(0.1)
-                ctx.check(f"Escape closes the dropdown without leaving the editor, got "
-                          f"{type(app.screen).__name__} display={dropdown.styles.display}",
-                          type(app.screen).__name__ == "OrgEditor" and dropdown.styles.display == "none")
-                await pilot.press("escape")
-                await pilot.pause(0.1)
-                ctx.check(f"a SECOND Escape (dropdown already closed) now cancels the editor, got "
-                          f"{type(app.screen).__name__}", not isinstance(app.screen, OrgEditor))
-    run(body())
-
 
 @test
 def test_autocomplete_roles_editor_quick_filter(ctx: Ctx):

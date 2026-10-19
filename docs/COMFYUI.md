@@ -6,8 +6,8 @@ Read this when you want Halo to render images or video with ComfyUI on your own 
 your own GPU: still images (Qwen Image), image-to-video clips (Wan 2.2),
 upscales (SeedVR2), speech (TTS Audio Suite) and anything else a workflow
 wires up. Halo treats it as the eighth craft app: one MCP server,
-`mcp__comfyui__*`, that every session, every Design turn and every org
-position can call, and `halo media` to set it up and check it.
+`mcp__comfyui__*`, that every session and every Design turn
+can call, and `halo media` to set it up and check it.
 
 The server can be another machine on your network. Halo talks to it only over
 HTTP: workflows go up with `POST /prompt`, results come back through

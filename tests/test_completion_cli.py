@@ -106,13 +106,16 @@ def test_zsh_script_contains_subcommands_roles_and_models(ctx: Ctx):
 
 
 @test
-def test_subcommands_includes_update_org_and_setup(ctx: Ctx):
-    """2.0.2 review finding 37 pin: `SUBCOMMANDS` was missing `update`,
-    `org` and `setup` outright (verified against cli.py::main's own
-    dispatch table) -- `halo <Tab>` never offered any of the three."""
+def test_subcommands_includes_update_and_setup(ctx: Ctx):
+    """2.0.2 review finding 37 pin: `SUBCOMMANDS` was missing `update`
+    and `setup` outright (verified against cli.py::main's own dispatch
+    table) -- `halo <Tab>` never offered them; 3.1.4.0: `org`, `paperclip`,
+    `flow` and `postiz` are gone."""
     from halo_harness.completion_cli import SUBCOMMANDS
-    for name in ("update", "org", "setup"):
+    for name in ("update", "setup"):
         ctx.check(f"{name!r} is in SUBCOMMANDS, got {SUBCOMMANDS}", name in SUBCOMMANDS)
+    for name in ("org", "paperclip", "flow", "postiz"):
+        ctx.check(f"{name!r} is not in SUBCOMMANDS", name not in SUBCOMMANDS)
 
 
 @test

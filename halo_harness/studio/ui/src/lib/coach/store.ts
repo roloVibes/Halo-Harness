@@ -28,7 +28,6 @@ const storageKey = (kind: CoachRunKind, run: string) => `halo.coach.dismissed.${
 export function routeOf(kind: CoachRunKind, run: string): string {
   const r = encodeURIComponent(run);
   if (kind === "orchestra") return `orchestra/${r}/coach`;
-  if (kind === "flow") return `flow/runs/${r}/coach`;
   if (kind === "mission") return `fleet/missions/${r}/coach`;
   return "team/coach";
 }

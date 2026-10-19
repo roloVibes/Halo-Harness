@@ -122,7 +122,7 @@ class Watcher:
             self.reached = self._caps(view, now)
             self.answered = {k: t for k, t in self.answered.items() if now - t < 12.0}
             capped = {(h, s) for h, s, _d in self.cap_paused}
-            rows = attention.build(view, asks=self.asks, flows=sources.flows(self.home), orchestra=sources.orchestra(self.server),
+            rows = attention.build(view, asks=self.asks, orchestra=sources.orchestra(self.server),
                                    commands=sources.commands(self.server), reached=self.reached, conflicts=self.conflicts,
                                    seen=self.seen, acks=self.acks | set(self.answered), now=now, home=self.home,
                                    teams=sources.teams(self.server))  # 3.0.8.0 R2: team gates

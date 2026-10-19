@@ -85,12 +85,6 @@ async def handle_slash(app, name: str, args: str) -> None:
         # subcommand (and /role, and the bare table) stays on the generic
         # headless-text fallback below.
         "roles": _handle_roles,
-        # Halo 2.0.2 round 2 (brief B): same split as /roles -- only
-        # `/org edit <name>` needs a real form; `/org run` (which can run
-        # a whole real sub-agent tree) also needs its OWN handler so it
-        # never blocks the UI thread, even though it stays on the plain
-        # headless-text fallback underneath.
-        "org": _handle_org,
         # Halo 2.0.2 round 3 (brief C item 1): same toggle Ctrl+T uses.
         "tasks": _handle_tasks,
         # Halo 3.0.3.0: the latest Orchestra run's lanes, refreshed from its run log.
@@ -102,9 +96,9 @@ async def handle_slash(app, name: str, args: str) -> None:
         # actually requests the quit-update-relaunch handoff (see
         # `_on_update_dialog_result`).
         "update": _handle_update,
-        # Halo 2.0.2 round 7: /setup [roles|orgs] -- the init wizard's own
-        # Roles/Organizations step(s), pushed onto THIS live app's screen
-        # stack (same pattern as /roles edit, /org edit).
+        # Halo 2.0.2 round 7: /setup [roles] -- the init wizard's own
+        # Roles step, pushed onto THIS live app's screen
+        # stack (same pattern as /roles edit).
         "setup": _handle_setup,
         # Halo 2.0.2 round C (macOS/VS Code terminal brief): `/editor` is
         # the keyboard-independent way to reach Ctrl+E's own action --
@@ -133,7 +127,7 @@ async def handle_slash(app, name: str, args: str) -> None:
         # new, edit, duplicate/delete, activate) open the SAME form
         # module the wizard uses -- every OTHER subcommand (show/
         # validate/use/export/import) stays on the generic headless-text
-        # fallback below, same split `_handle_roles`/`_handle_org` use.
+        # fallback below, same split `_handle_roles` uses.
         "agents": _handle_agents, "teams": _handle_teams,
         # Halo 3.1.1.0 R3: /edit bio:<name> | lineup:<name> | team opens Studio on it.
         "edit": _handle_edit,
@@ -378,186 +372,6 @@ def _open_roles_editor(app, name: str, template: dict, models: list) -> None:
             app.notify("Role template edit cancelled.", title="/roles edit")
 
     app.push_screen(RolesEditor(name, template["roles"], models, description=template.get("description", "")), _after)
-
-
-async def _handle_org(app, args: str) -> None:
-    """Halo 2.0.2 round 2 (brief B) / round 3 (brief C): `/org edit <name>`
-    opens a real form (`tui/dialogs/org_editor.py`); `/org run` and (round
-    D, brief item 4) `/org resume` each get their OWN live worker (round 3
-    -- see `_run_org_worker`'s own docstring for why: the old headless-text
-    fallback dumped a raw `<task_result>` XML block into the transcript as
-    a plain note, with no live progress and no status-bar refresh); every
-    other subcommand (`list`/`show`/`new`/`load`/`install`/`export`/
-    `import`, or the bare list) still goes through the SAME headless-text
-    fallback every other command uses (`commands/builtins.py::_cmd_org`,
-    off the UI thread)."""
-    parts = (args or "").strip().split(None, 1)
-    sub = parts[0].lower() if parts else ""
-    if not sub:  # 3.0.2.0: bare /org opens Halo Studio's Org mode (`/org list` is the text list)
-        args = sub = "gui"
-    if sub == "run":
-        from halo_harness.orgs import default_org_name, parse_run_args
-        rest = parts[1].strip() if len(parts) > 1 else ""
-        name, goal = parse_run_args(rest)
-        if not goal:
-            await app.transcript.add_note('Usage: /org run [<name>] "<goal>" (no name uses orgs.default, '
-                                           'see /setup orgs)', kind="command")
-            return
-        if name is None:
-            name = default_org_name()
-            if name is None:
-                await app.transcript.add_note(
-                    'No organization name given, and no default is set -- /org run <name> "<goal>", '
-                    'or set a default in /setup orgs.', kind="command")
-                return
-        app.run_worker(lambda: _run_org_worker(app, name, goal), thread=True, name="run-org", group="run-org")
-        return
-    if sub == "resume":
-        # Halo 2.0.2 round D (brief item 4): `/org resume` gets the SAME
-        # live-worker treatment `run` already does (real SubAgentCards,
-        # not a raw <task_result> dump) -- see `_run_org_resume_worker`.
-        app.run_worker(lambda: _run_org_resume_worker(app), thread=True, name="resume-org", group="resume-org")
-        return
-    if sub != "edit":
-        app.run_worker(lambda: _run_slash_worker(app, "org", args), thread=True, name="run-slash", group="run-slash", exit_on_error=False)
-        return
-    name = parts[1].strip() if len(parts) > 1 else ""
-    if not name:
-        await app.transcript.add_note("Usage: /org edit <name>", kind="command")
-        return
-    app.run_worker(lambda: _org_edit_form_worker(app, name), thread=True, name="org-edit-form",
-                    group="org-edit-form")
-
-
-def _strip_task_result(text: str) -> str:
-    """`agent.subagent._wrap_task_result`'s own `<task_result task_id=
-    "...">...</task_result>` wrapper, stripped for display -- a no-op
-    (returns `text` unchanged) when it isn't present at all (an error
-    ToolResult from `run_org_call` -- unknown org, validation failure --
-    never gets wrapped in the first place)."""
-    import re
-    m = re.match(r'^<task_result task_id="[^"]*">\n(.*)\n</task_result>$', text or "", re.DOTALL)
-    return m.group(1) if m else (text or "")
-
-
-def _run_org_worker(app, name: str, goal: str) -> None:
-    """Halo 2.0.2 round 3 (brief C): runs `name` for real, LIVE -- unlike
-    the old headless-text path (`commands/builtins.py::_cmd_org`'s own
-    "run" branch, still used by `halo org run` from a real CLI with no
-    TUI at all), this passes `app.controller.events.put` as `run_org_
-    call`'s `on_event`, so the root position (and everything it
-    delegates to) gets a real SubAgentCard with its own position title --
-    the SAME live dock rendering an ordinary `Agent(subagent_type=...)`
-    tool call already gets -- instead of the whole run happening silently
-    and then dumping a raw `<task_result>` block into the transcript as a
-    plain note once it's done."""
-    session = getattr(app.controller, "session", None)
-    if session is None or getattr(session, "agent_runtime", None) is None:
-        app.call_from_thread(app.transcript.add_note,
-                              "Organizations can only be run once a session is running.", kind="command")
-        return
-    from halo_harness.agent.subagent import run_org_call
-    # 2.0.2 review finding 4 (major): `run_org_call`'s own contract is
-    # "never raises", but this is a Textual thread worker, where Textual's
-    # default `exit_on_error=True` takes the WHOLE app down the one time
-    # that contract is violated by a bug anywhere in the call tree (an
-    # org position's own `model:`/`/role` is validated up front now --
-    # see `orgs.validate_org`/`run_agent_call`'s own guard -- but this is
-    # still the right belt-and-suspenders place to stop any OTHER bug
-    # from taking the TUI down with it).
-    try:
-        _events, result = run_org_call(
-            runtime=session.agent_runtime, tool_id=f"org-run-{name}", tool_name="Agent",
-            tool_input={"org": name, "prompt": goal, "description": f"Run org {name}"},
-            on_event=app.controller.events.put,
-        )
-        text = _strip_task_result(result.content)
-        is_error = result.is_error
-    except Exception as e:
-        text = f"Organization {name!r} failed to run: {type(e).__name__}: {e}"
-        is_error = True
-    app.call_from_thread(_finish_org_run, app, name, text, is_error)
-
-
-def _run_org_resume_worker(app) -> None:
-    """Halo 2.0.2 round D (brief item 4): `/org resume`'s own live
-    worker, same shape as `_run_org_worker` just above (and the same
-    belt-and-suspenders `try/except` around `resume_org_run`'s own
-    "never raises" contract) -- resumes THIS session's own interrupted
-    run from its saved record + shared task board, instead of a NAMED
-    one."""
-    session = getattr(app.controller, "session", None)
-    if session is None or getattr(session, "agent_runtime", None) is None:
-        app.call_from_thread(app.transcript.add_note,
-                              "Organizations can only be resumed once a session is running.", kind="command")
-        return
-    from halo_harness.agent.subagent import _read_org_run_record, resume_org_run
-    session_dir = session.log.dir / session.log.session_id
-    # Cosmetic only (`_finish_org_run`'s own note reads "org {name!r}
-    # finished") -- the real org name, when a record exists at all, reads
-    # nicer than a bare placeholder; `resume_org_run` itself re-reads the
-    # SAME record and reports clearly if it's missing/invalid either way.
-    record = _read_org_run_record(session_dir)
-    name = (record or {}).get("org") or "(resumed)"
-    try:
-        _events, result = resume_org_run(
-            runtime=session.agent_runtime, tool_id="org-resume", tool_name="Agent", session_dir=session_dir,
-            on_event=app.controller.events.put,
-        )
-        text = _strip_task_result(result.content)
-        is_error = result.is_error
-    except Exception as e:
-        text = f"Could not resume: {type(e).__name__}: {e}"
-        is_error = True
-    app.call_from_thread(_finish_org_run, app, name, text, is_error)
-
-
-async def _finish_org_run(app, name: str, text: str, is_error: bool) -> None:
-    # `call_from_thread`'s own `invoke()` awaits an async callable like
-    # this one -- a plain sync function here would silently create-but-
-    # never-await the `add_note` coroutine (Transcript.add_note is async)
-    # and the note would never actually appear.
-    await app.transcript.add_note(f"org {name!r} finished:\n{text}", kind=("error" if is_error else "command"))
-    # round 3 (brief C): the whole org tree already rolled its spend into
-    # THIS session's own cost_meter/log (agent/subagent.py's `_rollup_
-    # child_cost_into_parent`, called once per child, bubbling all the way
-    # up to the top session) -- nothing else ever asks the status bar to
-    # re-read it, since `/org run` happens entirely OUTSIDE the normal
-    # turn loop (a `status` event otherwise only fires from Session.
-    # status_event()/message_end). The SAME status_event() the Controller
-    # already uses after a mode/model change -- just queued here too.
-    session = getattr(app.controller, "session", None)
-    if session is not None and hasattr(session, "status_event"):
-        app.controller.events.put(session.status_event())
-
-
-def _org_edit_form_worker(app, name: str) -> None:
-    """A brand-new (not-yet-on-disk) org is only ever built IN MEMORY
-    here -- never written until the user actually saves inside the
-    editor -- so cancelling one that never existed before leaves nothing
-    on disk at all."""
-    from halo_harness.orgs import load_org
-    from halo_harness.tui.edit_guard import refusal_text, unloadable_path
-    broken = unloadable_path("org", name)
-    if broken is not None:  # review 3 item 149
-        app.call_from_thread(app.notify, refusal_text("org", name, broken), severity="error", title="/org edit")
-        return
-    org = load_org(name) or {"name": name, "description": "", "positions": [
-        {"title": "Orchestrator", "role": "orchestrator", "reports": [], "instructions": ""}]}
-    models = app.controller.list_models()
-    app.call_from_thread(_open_org_editor, app, name, org, models)
-
-
-def _open_org_editor(app, name: str, org: dict, models: list) -> None:
-    from halo_harness.tui.dialogs.org_editor import OrgEditor
-
-    def _after(saved) -> None:
-        if saved:
-            app.notify(f"Saved organization {name!r}.", title="/org edit")
-        else:
-            app.notify("Organization edit cancelled.", title="/org edit")
-
-    app.push_screen(OrgEditor(name, org, models), _after)
 
 
 def catalog_auto_refresh_worker(app) -> None:
@@ -2566,13 +2380,13 @@ def _open_teams_list(app, models: list) -> None:
 
 
 # ============================================================================
-# Halo 2.0.2 round 7: /setup [roles|orgs] -- pushes the init wizard's own
-# Roles/Organizations step(s) straight onto THIS live app's screen stack
+# Halo 2.0.2 round 7: /setup [roles] -- pushes the init wizard's own
+# Roles step straight onto THIS live app's screen stack
 # (the "modal screen stack over the session" the brief names), reusing
 # the EXACT SAME step classes `halo init`/`halo setup`'s own standalone
-# `InitWizardApp` uses. Bare /setup chains roles -> orgs -> a short
-# summary (the "set up roles and orgs later" path); /setup roles or
-# /setup orgs opens just that one step. Finishing (or quitting) pops
+# `InitWizardApp` uses. Bare /setup chains roles -> a short
+# summary (the "set up roles later" path); /setup roles opens just that
+# one step. Finishing (or quitting) pops
 # every screen THIS call pushed, landing back on the live session with
 # nothing else to do -- config.json changes are already live the next
 # time anything reads them, and the roles step pushes a freshly-applied
@@ -2589,12 +2403,10 @@ async def _handle_setup(app, args: str) -> None:
     # land in the same place.
     if sub in ("roles", "team"):
         step_keys = ("roles",)
-    elif sub == "orgs":
-        step_keys = ("orgs",)
     elif sub:
-        await app.transcript.add_note(f"Usage: /setup, /setup team, or /setup orgs (got {sub!r})", kind="command")
+        await app.transcript.add_note(f"Usage: /setup, /setup team, or /setup roles (got {sub!r})", kind="command")
         return
     else:
-        step_keys = ("roles", "orgs", "summary")
+        step_keys = ("roles", "summary")
     state = build_truncated_state(app.cwd, step_keys=step_keys, on_finish=lambda _app: None)
     app.push_screen(first_step_screen(state))

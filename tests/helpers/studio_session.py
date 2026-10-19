@@ -10,7 +10,7 @@ environment:
     python -m tests.helpers.studio_session dash    landing (live / nothing live), the five panels, the map of this
                                                    harness only, the working node lit and selected, Cost, Activity,
                                                    Attention, `&session=<id>`, J / K, Alt+6 (Fleet keeps both
-                                                   harnesses) and Alt+8; `/studio`'s opener focusing the open page
+                                                   harnesses) and Alt+6; `/studio`'s opener focusing the open page
     python -m tests.helpers.studio_session links   the rail click rule, the map menu's Open in Session, the Roles Live
                                                    tab's Watch in Session, the Orchestra run line's (studio_session_links.py)
 
@@ -144,7 +144,7 @@ def dash(c, rig) -> dict:
     out["fleet_boxes"] = c.js(f"[...{inside('fleet', 'fleet-box')}].map((b) => b.querySelector('.fm-box-label').textContent)")
     out["fleet_attn"] = c.wait(f"{inside('fleet', 'fleet-attn-row')}.length", 20)
     alt(c, 8)
-    out["alt8"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
+    out["alt6"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["back_boxes"] = c.js(f"{inside('session-map', 'fleet-box')}.length")
     return out
 

@@ -5,7 +5,7 @@
   * item 77  Back from a step the Summary jumped to returns the index too
   * item 79  the Studio URL stays on screen; a newer hint is never cleared early
   * item 146 re-picking a role's model keeps its escalation override
-  * item 147 Org mode's pause/resume runs off the event loop, with short timeouts
+  (item 147, Org mode's switch, went with Org in 3.1.4.0)
 
 Item 78 (picker speed) and item 162 (game status bar) are in _t3; 148/149 in _t4.
 
@@ -85,7 +85,7 @@ def test_item77_back_from_a_jumped_step_lands_on_the_summary_index(ctx: Ctx):
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, SummaryStep, WizardState, advance, go_back
 
     async def body():
-        state = WizardState(cwd=REPO_DIR, step_keys=("theme", "orgs", "summary"), no_live=True)
+        state = WizardState(cwd=REPO_DIR, step_keys=("theme", "team", "summary"), no_live=True)
         app = InitWizardApp(state)
         async with app.run_test(size=(110, 40)) as pilot:
             await pilot.pause(0.2)
@@ -94,7 +94,7 @@ def test_item77_back_from_a_jumped_step_lands_on_the_summary_index(ctx: Ctx):
             await pilot.pause(0.3)
             summary = app.screen
             ctx.check("on the Summary", isinstance(summary, SummaryStep) and state.index == 2)
-            for key in ("orgs", "theme"):
+            for key in ("team", "theme"):
                 summary._jump_to(key)
                 await pilot.pause(0.2)
                 go_back(app, state)
@@ -122,7 +122,7 @@ def test_item79_studio_url_stays_and_older_timers_never_clear_newer_text(ctx: Ct
         real = launch_mod.launch_detached
         launch_mod.launch_detached = slow_url
         try:
-            for key, selector in (("team", "#wiz-team-lineup-hint"), ("orgs", "#wiz-orgs-studio-url")):
+            for key, selector in (("team", "#wiz-team-lineup-hint"),):
                 app = InitWizardApp(WizardState(cwd=REPO_DIR, step_keys=(key,), no_live=True))
                 async with app.run_test(size=(110, 44)) as pilot:
                     await pilot.pause(0.2)
@@ -155,51 +155,6 @@ def test_item146_new_model_keeps_the_escalation_override(ctx: Ctx):
             ed._commit_pending("", ed.query_one("#roles-effort-input", Input))
             ctx.check(f"a role with nothing extra stays a bare string, got {ed.roles['plain']!r}",
                       ed.roles["plain"] == "or:z/w")
-    asyncio.run(body())
-
-
-@test
-def test_item147_org_mode_switch_never_blocks_the_wizard(ctx: Ctx):
-    from textual.widgets import Switch
-    from halo_harness.paperclip import mode as mode_mod
-    from halo_harness.paperclip.client import Paperclip
-    from halo_harness.theme import get_config_value, set_config_value
-    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-
-    seen = []
-    client = Paperclip("http://127.0.0.1:9", timeout=30.0)
-    client.health = lambda: seen.append(client.timeout) or {}
-    ctx.check("the health probe uses a short timeout", client.reachable() is False and seen == [3.0])
-    ctx.check("and the request timeout comes back", client.timeout == 30.0)
-    ctx.check("from_config takes a timeout", Paperclip.from_config(timeout=8.0).timeout == 8.0)
-
-    async def body():
-        real = mode_mod.sync_agents
-        calls = []
-
-        def slow_sync(enabled, **kw):
-            calls.append((enabled, kw.get("timeout")))
-            time.sleep(1.0)
-            return {"enabled": enabled, "agents": [], "note": "Paperclip is not running"}
-        mode_mod.sync_agents = slow_sync
-        set_config_value("paperclip.enabled", False)
-        try:
-            app = InitWizardApp(WizardState(cwd=REPO_DIR, step_keys=("orgs",), no_live=True))
-            async with app.run_test(size=(110, 44)) as pilot:
-                await pilot.pause(0.2)
-                app.screen.query_one("#wiz-org-mode-switch", Switch).value = True
-                t0 = time.perf_counter()
-                app.screen.commit()
-                spent = time.perf_counter() - t0
-                ctx.check(f"commit returns at once, took {spent:.2f}s", spent < 0.5)
-                ctx.check("the switch is written before commit returns", get_config_value("paperclip.enabled") is True)
-                await pilot.pause(1.5)
-                ctx.check(f"the courtesy ran off-thread with a short timeout, got {calls}", calls == [(True, 8.0)])
-                messages = [n.message for n in app._notifications]
-                ctx.check(f"its note is shown, got {messages}", any("not running" in m for m in messages))
-        finally:
-            mode_mod.sync_agents = real
-            set_config_value("paperclip.enabled", False)
     asyncio.run(body())
 
 

@@ -1,8 +1,8 @@
 /* Clarity (3.0.4.0 R6b): the "How this works" overlay and first-visit
    welcome, the ? beside the section tabs, the Inspector's about and help,
    the framed page's status line in the status bar, and the Orchestra Start
-   view and goal form (the Flow Start view's classes, flow-start.css, carry
-   the layout). Tokens only. */
+   view and goal form (the Start views' classes, start-view.css, carry the
+   layout). Tokens only. */
 
 /* -- "How this works" ---------------------------------------------------------- */
 .dialog.section-help { width: min(820px, calc(100vw - 32px)); }

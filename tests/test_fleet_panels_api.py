@@ -47,7 +47,7 @@ def test_attention_builds_one_queue_from_every_source(ctx: Ctx):
                                                                  {"agent_id": "w1", "name": "verifier", "state": "waiting"}]}]}]}
     asks = {("L", "s1", "p1"): {"kind": "permission", "agent_id": "main", "data": {"id": "p1", "name": "Bash", "input": {"command": "make clean"}}}}
     ref = {"key": "M|s2|w1", "harness": "M", "harness_name": "kali@lab", "session_id": "s2", "agent_id": "w1", "name": "verifier"}
-    rows = attention.build(view, asks=asks, flows=[{"run": "f1", "name": "launch", "waiting_step": "render"}],
+    rows = attention.build(view, asks=asks,
                            orchestra=[{"run_id": "o1", "state": "stopped", "created": NOW - 60, "stop_reason": "the return cap"},
                                       {"run_id": "o0", "state": "finished", "created": NOW - 60}],
                            commands=[{"command_id": "c5", "harness": "M", "session_id": "s2", "cmd": "agent_stop", "state": "asked"}],
@@ -55,7 +55,7 @@ def test_attention_builds_one_queue_from_every_source(ctx: Ctx):
                            conflicts=[{"repo": "shop", "file": "basket.py", "a": {**ref, "key": "L|s1|main", "harness": "L", "name": "main"}, "b": ref}],
                            now=NOW)
     ctx.check(f"every kind once, got {_kinds(rows)}", _kinds(rows) == sorted(
-        ["permission", "question", "plan", "approval", "fleet_ask", "waiting", "paused", "flow_gate", "orchestra_gate", "control_ask",
+        ["permission", "question", "plan", "approval", "fleet_ask", "waiting", "paused", "orchestra_gate", "control_ask",
          "cap", "conflict"]))
     perm = next(r for r in rows if r["kind"] == "permission")
     ctx.check(f"the permission row says what is asked, its keys and the card id, got {perm}",
@@ -81,22 +81,15 @@ def _wait(fn, timeout: float = 15.0):
     return None
 
 
-def _seed_gates(rig) -> "tuple[Path, Path]":
-    from halo_harness.flows import state
-    from halo_harness.flows.gates import gate_path
+def _seed_gates(rig) -> Path:
     from halo_harness.orchestra import jsonl
-    flow = state.runs_dir(rig.state) / state.new_run_id()
-    (flow / "steps").mkdir(parents=True)
-    jsonl.write_json(flow / "flow.json", {"name": "launch-post", "run": flow.name, "created": NOW, "status": "waiting",
-                                          "steps": [{"id": "render", "kind": "media", "state": "waiting"}]})
-    jsonl.write_json(gate_path(flow, 1), {"id": "g1", "step": "render", "round": 1, "actions": ["accept", "redo", "stop"]})
     orch = rig.proj / ".halo" / "orchestra" / "20261014-090000-ab12"
     orch.mkdir(parents=True)
     jsonl.write_json(orch / "goal.json", {"what": "split the basket module"})
     jsonl.write_json(orch / "run.json", {"created": NOW - 120})
     jsonl.write_json(orch / "report.json", {"run_id": orch.name, "status": "stopped", "cost_usd": 0.1,
                                             "stop_reason": "lane 2 reached the return cap (3) and the tests still fail"})
-    return flow, orch
+    return orch
 
 
 @test
@@ -106,7 +99,7 @@ def test_the_queue_over_the_rig_and_answers_reach_their_handlers(ctx: Ctx):
     from tests.helpers.studio_fleet_member import APPROVAL_ID, REVIEWER
     from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID, StudioFleetRig
     with StudioFleetRig() as rig:
-        flow, _orch = _seed_gates(rig)
+        _seed_gates(rig)
         p = Pending("c0mmand5", MEMBER, MEMBER_SID, "agent_stop")
         p.state = "asked"
         rig.hub.state.commands._pending[p.cid] = p
@@ -116,8 +109,8 @@ def test_the_queue_over_the_rig_and_answers_reach_their_handlers(ctx: Ctx):
         watcher_for(rig.server, rig.state).tick()  # the GET serves a snapshot up to 1 s old; build it after the seed
         status, got = rig.api("GET", "fleet/attention")
         rows = got.get("rows") or []
-        ctx.check(f"member cards, a paused agent, the flow gate, the orchestra gate and the asked command, got {_kinds(rows)}",
-                  status == 200 and {"question", "approval", "paused", "flow_gate", "orchestra_gate", "control_ask"} <= set(_kinds(rows))
+        ctx.check(f"member cards, a paused agent, the orchestra gate and the asked command, got {_kinds(rows)}",
+                  status == 200 and {"question", "approval", "paused", "orchestra_gate", "control_ask"} <= set(_kinds(rows))
                   and got["count"] == len(rows))
         ap = next(r for r in rows if r["kind"] == "approval")
         ctx.check(f"the approval row reads the member's card frame, got {ap['what']!r} {ap['detail']!r}",
@@ -139,11 +132,6 @@ def test_the_queue_over_the_rig_and_answers_reach_their_handlers(ctx: Ctx):
         status, res = rig.api("POST", "fleet/attention/answer", {"id": paused["id"], "key": "a"})
         ctx.check(f"`a` on the paused agent resumes it, got {status}", status == 200 and rig.member_cmds[-1]["cmd"] == "resume"
                   and rig.member_cmds[-1]["fields"].get("agent_id") == REVIEWER["agent_id"])
-        fg = next(r for r in rows if r["kind"] == "flow_gate")
-        status, res = rig.api("POST", "fleet/attention/answer", {"id": fg["id"], "key": "r", "text": "warmer colours"})
-        answer = json.loads((flow / "steps" / "1.answer.json").read_text(encoding="utf-8")) if (flow / "steps" / "1.answer.json").is_file() else {}
-        ctx.check(f"`r` on the flow gate is a redo with the instruction, got {status} {answer}",
-                  status == 200 and answer.get("action") == "redo" and answer.get("instruction") == "warmer colours")
         og = next(r for r in rows if r["kind"] == "orchestra_gate")
         ca = next(r for r in rows if r["kind"] == "control_ask")
         for r in (og, ca):
@@ -154,7 +142,7 @@ def test_the_queue_over_the_rig_and_answers_reach_their_handlers(ctx: Ctx):
         rows_j = journal.read(rig.state, NOW - 60)
         decisions = [r for r in rows_j if r["kind"] == "decision"]
         ctx.check(f"each decision is journaled with who answered, got {[(d['row_kind'], d['by']) for d in decisions]}",
-                  {d["row_kind"] for d in decisions} >= {"approval", "paused", "flow_gate", "orchestra_gate", "control_ask"}
+                  {d["row_kind"] for d in decisions} >= {"approval", "paused", "orchestra_gate", "control_ask"}
                   and all(d["by"] == "rolo@studio" for d in decisions) and any(r["kind"] == "ack" for r in rows_j))
         digest = rig.api("GET", "fleet/digest?since=10m")[1]
         member = next(h for h in digest["harnesses"] if h["id"] == MEMBER)

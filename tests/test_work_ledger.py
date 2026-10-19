@@ -2,10 +2,10 @@
 row (halo_harness/work/ledger.py, report.py, docs/WORK.md).
 
 1. every kind's real event file (an Orchestra run's events.jsonl, a mission's
-   log.jsonl, a team run's events.jsonl, a flow run's events.jsonl) reads as
+   log.jsonl, a team run's events.jsonl) reads as
    LedgerLines of the shared kinds (state|claim|gate|change|handoff|note);
 2. the `units` key each report now carries equals the engine's legacy rows
-   field by field (lane == report.lanes, step == report.steps, part ==
+   field by field (lane == report.lanes, part ==
    report.parts, stage == board.stages).
 Run: python -m tests.test_work_ledger
 """
@@ -27,7 +27,7 @@ test, TESTS = new_registry()
 @test
 def test_every_kind_s_log_reads_as_ledger_lines(ctx: Ctx):
     from halo_harness.work import ledger
-    from tests.helpers.coach_seed import flow_run, mission_folder, orchestra_run, team_run
+    from tests.helpers.coach_seed import mission_folder, orchestra_run, team_run
     from tests.helpers import coach_seed as S
     root = Path(tempfile.mkdtemp(prefix="work-ledger-"))
     run_dir = orchestra_run(root, [S.lane(1), S.lane(2)],
@@ -40,7 +40,7 @@ def test_every_kind_s_log_reads_as_ledger_lines(ctx: Ctx):
     claim = next(x for x in lines if x.kind == "claim")
     ctx.check(f"a claim line carries the unit, holder and key, got {claim.to_dict()}",
               claim.unit == "1" and claim.by == "s1/main" and claim.key == "basket.py#f1" and claim.native == "claim")
-    for kind, folder in (("step", flow_run(root)), ("part", mission_folder(root)), ("stage", team_run(root))):
+    for kind, folder in (("part", mission_folder(root)), ("stage", team_run(root))):
         got = ledger.read(folder, kind)
         ctx.check(f"{kind}: lines read, every kind allowed, got {sorted({x.kind for x in got})}",
                   all(x.kind in ledger.KINDS for x in got))

@@ -3,7 +3,7 @@ it read (Halo 3.1.3.0 R1). Both live in the state dir's `coach/` folder:
 
     ~/.halo/coach/applied.jsonl   one line per Apply and per Undo:
         {"op": "apply", "apply_id": "a-<10 hex>", "id": "<suggestion id>", "run": "<run id>",
-         "run_dir": "<folder>", "kind": "orchestra|flow|mission|team", "target": "bio|lineup|plan",
+         "run_dir": "<folder>", "kind": "orchestra|mission|team", "target": "bio|lineup|plan",
          "name", "field", "value", "file": "<path written>", "existed": true, "before": "<text>",
          "after": "<text>", "ts": 1760800000.0}
         {"op": "undo", "apply_id": "a-...", "file": "<path>", "ts": ...}

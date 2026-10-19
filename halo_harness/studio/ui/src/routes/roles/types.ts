@@ -37,7 +37,7 @@ export type GraphNode = {
   warnings: string[];
 };
 
-export type GraphEdge = { from: string; to: string; kind: "delegation" | "reports" | "pipeline"; label: string };
+export type GraphEdge = { from: string; to: string; kind: "delegation" | "pipeline"; label: string };
 export type Tier = { name: string; members: string[]; max_parallel: number | null; index: number; implicit: boolean; node_ids: string[] };
 export type Graph = { nodes: GraphNode[]; edges: GraphEdge[]; tiers: Tier[] };
 

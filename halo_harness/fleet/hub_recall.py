@@ -25,7 +25,7 @@ import time
 from typing import Optional
 
 WAIT_S = 8.0
-SKIP_KINDS = ("mission-worker", "orchestra-worker", "flow")
+SKIP_KINDS = ("mission-worker", "orchestra-worker")
 
 
 def _session(h: dict) -> Optional[str]:

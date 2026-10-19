@@ -1,6 +1,6 @@
 // The left rail: this section's panels (click to bring one back and focus
-// it; an optional one is added), the section's own block (Flow: the runs and
-// the flows), the Fleet tree (every harness, session and agent with its
+// it; an optional one is added), the section's own block (Orchestra: the
+// runs), the Fleet tree (every harness, session and agent with its
 // status, and the answer for a session that waits on you), and the layout
 // actions.
 import { Button, Icon, Kbd } from "../lib/ui";

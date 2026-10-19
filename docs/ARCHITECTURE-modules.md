@@ -22,7 +22,7 @@ this list against the tree.
 - the live feed: `studio/events.py` (the registry watcher), `studio/events_sse.py`
   (`GET /api/events`), `studio/feed_kinds.py` (the frame kinds it asks for)
 - Roles and models: `studio/roles_api.py`, `studio/roles_findings.py`,
-  `studio/models_api.py`; Org mode: `studio/paperclip_api.py`; the coach:
+  `studio/models_api.py`; the coach:
   `studio/coach_api.py`; the live sessions: `studio/sessions_api.py`; the
   config checks behind Roles' Problems panel: `studio/doctor_config_api.py`
   (`GET /api/doctor/config`, the rows of `halo doctor --config`)
@@ -45,10 +45,6 @@ this list against the tree.
   `studio/design_request.py` (the lookups every route shares),
   `studio/design_turns.py` (the live turns), `studio/design_api_edit.py` (the
   text picker script), `studio/design_files.py` (the raw artboard files)
-- Flow: `studio/flow_api.py` (the routes), `studio/flow_api_edit.py` (the flow
-  file's one write route), `studio/flow_request.py` (body parsing),
-  `studio/flow_assets_api.py` (the assets upload), `studio/flow_model.py`
-  (what the routes read), `studio/flow_runs.py` (the one live run)
 - Media: `studio/media_api.py`, `studio/media_render.py`
 - Orchestra: `studio/orchestra_api.py`, `studio/orchestra_plan_api.py`,
   `studio/orchestra_model.py`, `studio/orchestra_live.py`
@@ -102,7 +98,7 @@ this list against the tree.
   `fleet/mission_guard.py`, `fleet/mission_files.py`,
   `fleet/mission_handoff.py`, `fleet/mission_merge.py`,
   `fleet/mission_report.py`, `fleet/mission_attention.py`,
-  `fleet/mission_stage_run.py` (3.1.2.0 R2: a part of kind orchestra | flow, a delegated team stage's run)
+  `fleet/mission_stage_run.py` (3.1.2.0 R2: a part of kind orchestra, a delegated team stage's run)
 - recall across the fleet (3.1.2.0 R3): `fleet/hub_recall.py` (the hub fans a
   recall query out and merges the hits), and the scripted two-machine check
   `fleet/live_check.py` with its `--fake` seams `fleet/live_check_fakes.py`
@@ -124,7 +120,7 @@ this list against the tree.
 - the coach: `orchestra/coach.py` (the card, the cache, the overlay), the
   rules once for every run kind (`orchestra/coach_rules.py`), one thin
   evidence loader per run kind (`orchestra/coach_orchestra_rules.py`,
-  `orchestra/coach_flow_rules.py`, `orchestra/coach_mission_rules.py`,
+  `orchestra/coach_mission_rules.py`,
   `orchestra/coach_team_rules.py`), `orchestra/coach_lane_facts.py` (an
   Orchestra run's lanes as facts), `orchestra/coach_prices.py` (the model
   catalog and its prices); 3.1.3.0 the loop: `orchestra/coach_ask.py` (the
@@ -137,13 +133,13 @@ this list against the tree.
   reject), `coach_cli.py` (`halo coach` and the coach verbs)
 
 **The unit of work** (`halo_harness/work/`, Halo 3.1.2.0 R1, docs/WORK.md):
-the shared model a lane, a mission part, a team stage and a flow step all
+the shared model a lane, a mission part and a team stage all
 are -- `work/unit.py` (the `Unit`), `work/states.py` (the one state machine
-and the four alias tables), `work/claims.py`, `work/handoff.py`,
+and the three alias tables), `work/claims.py`, `work/handoff.py`,
 `work/gate.py`, `work/ledger.py` (the `LedgerLine`), `work/report.py` (the
 `UnitRow`), `work/store.py` (`UnitStore`), and one adapter per kind
-(`work/adapters/lane.py`, `work/adapters/part.py`, `work/adapters/stage.py`,
-`work/adapters/step.py`), the only place that knows each engine's files;
+(`work/adapters/lane.py`, `work/adapters/part.py`, `work/adapters/stage.py`),
+the only place that knows each engine's files;
 `work/forecast.py` (3.1.2.0 R2: a unit's forecast line, its price and the
 total against a budget).
 `halo_harness/work_cli.py` is `halo work` (the units of any run as a table).
@@ -152,9 +148,10 @@ total against a budget).
 `team/validate.py` and `team/validate_stages.py` (`validate_team`),
 `team/resolve.py` (tiers, block files and a stage's goal, shared by the
 runner and the validator), `team/blocks.py`, `team/board.py`,
-`team/stages.py`, `team/triggers.py`, `team/run.py`, `team/run_stage.py`,
+`team/stages.py`, `team/gate_actions.py` (accept / redo / stop and their
+short forms), `team/triggers.py`, `team/run.py`, `team/run_stage.py`,
 `team/parallel.py` (3.1.2.0 R2: a stage's members at once), `team/remote_stage.py`
-(3.1.2.0 R2: an orchestra or flow stage on a fleet member), `team/budget.py`
+(3.1.2.0 R2: an orchestra stage on a fleet member), `team/budget.py`
 (3.1.2.0 R2: the budget line), `team/guard.py`, `team/delegate.py`,
 `team/adapters.py`, `team/cli.py`, `team/cli_run.py`.
 

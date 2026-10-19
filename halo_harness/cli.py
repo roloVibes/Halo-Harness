@@ -279,11 +279,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo", add_help=True,
         description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
-        epilog="Commands: init, start, explain, studio, design, media, flow, orchestra, work, team, teams, agents, roles, paperclip, models, mcp, proxy, "
+        epilog="Commands: init, start, explain, studio, design, media, orchestra, work, team, teams, agents, roles, models, mcp, proxy, "
                "config, doctor, update, stats, review, preflight, subscriptions, audit, improve, export, "
                "completion (run `halo <command> --help`; `halo init` sets up a fresh box in one go). "
-               "The GUI: `halo studio --mode roles|org|design` -- lineups and agent bios as a graph, "
-               "the company in Paperclip, designs on artboards; in the TUI, /roles, /org and /design.",
+               "The GUI: `halo studio --mode roles|design` -- lineups and agent bios as a graph, "
+               "designs on artboards; in the TUI, /roles and /design.",
     )
     try:
         parser._positionals.title = "Arguments"
@@ -542,14 +542,6 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.0.1.0: Halo Design -- projects, turns, systems, exports, the handoff.
         from halo_harness.design.cli import cmd_design
         return cmd_design(argv[1:])
-    if argv and argv[0] == "flow":
-        # 3.0.4.0: flows -- brief -> roles -> org -> ComfyUI render -> confirm -> post -> metrics.
-        from halo_harness.flows.cli import cmd_flow
-        return cmd_flow(argv[1:])
-    if argv and argv[0] == "postiz":
-        # 3.0.4.0: the Postiz CLI check behind flow posting and metrics (doctor).
-        from halo_harness.flows.cli_posts import cmd_postiz
-        return cmd_postiz(argv[1:])
     if argv and argv[0] == "media":
         # 3.0.4.0: ComfyUI as the eighth craft app (init, doctor, serve, inspect, models, workflows).
         from halo_harness.media.cli import cmd_media
@@ -558,14 +550,6 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.0.3.0: the Orchestra -- goal, workflow, claims, the timed run log.
         from halo_harness.orchestra_cli import cmd_orchestra
         return cmd_orchestra(argv[1:])
-    if argv and argv[0] == "paperclip":
-        # 2.2.0: Paperclip (the company of agents): status, install, sync, org.
-        from halo_harness.paperclip.cli import cmd_paperclip
-        return cmd_paperclip(argv[1:])
-    if argv and argv[0] == "paperclip-run":
-        # 2.2.0: the command Paperclip's process adapter spawns on a heartbeat.
-        from halo_harness.paperclip.cli import cmd_paperclip_run
-        return cmd_paperclip_run(argv[1:])
     if argv and argv[0] == "studio":
         # 2.1.0 round B3: the local web GUI for lineups and agent bios.
         from halo_harness.studio import cmd_studio
@@ -582,9 +566,6 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "local":
         from halo_harness.local_cli import cmd_local
         return cmd_local(argv[1:])
-    if argv and argv[0] == "org":
-        from halo_harness.org_cli import cmd_org
-        return cmd_org(argv[1:])
     if argv and argv[0] == "setup":
         from halo_harness.setup_cli import cmd_setup
         return cmd_setup(argv[1:])

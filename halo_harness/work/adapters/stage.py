@@ -12,7 +12,7 @@ the round; refs = the stage's refs.json; extra = kind, trigger, members,
 lead, harness, summary, gate_answer and (3.1.2.0 R2) members_state, remote,
 budget. A stage run on a fleet member whose part is `asked` is `waiting`.
 3.1.2.0 R3: refs.harness is the member a delegated stage ran on (its
-orchestra / flow run's `remote.harness`, else the row's `harness`), kept out
+orchestra run's `remote.harness`, else the row's `harness`), kept out
 of refs.json unless the engine wrote it there.
 """
 

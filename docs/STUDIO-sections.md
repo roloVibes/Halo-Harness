@@ -1,6 +1,6 @@
 # Studio: how each section works
 
-Read this when you want the one-screen story of a section (Orchestra, Roles, Org, Design, Flow, Fleet, Team, Session) and the live feed.
+Read this when you want the one-screen story of a section (Orchestra, Roles, Design, Fleet, Team, Session) and the live feed.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -8,7 +8,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 The same copy as Studio's **How this works** card (`ui/src/routes/sectionHelp.ts`
 for the steps, `routes/help.ts`, `routes/help-orchestra.ts` and
-`routes/help-org-design.ts`, `routes/help-roles.ts` and `routes/help-session.ts`
+`routes/help-design.ts`, `routes/help-roles.ts` and `routes/help-session.ts`
 for the panels' about lines and help).
 
 ### Orchestra
@@ -81,7 +81,7 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
    box to move it (the lineup saves); a box's label strip collapses it.
 4. **Fine-tune the sections**: the Inspector's Assignment edits the selected
    card's slot; Lineup has delegation, routing, budget, escalation, context,
-   permissions, org, pipeline, acceptance and tiers, each as a form with a
+   permissions, pipeline, acceptance and tiers, each as a form with a
    YAML toggle.
 5. **Fix what Problems lists**: every edit is checked at once; blocks stop a
    save or a run start (a model id its catalog does not know, a bio with no
@@ -111,42 +111,6 @@ stream, with the Live tab open `F` follows and `P` pauses; `Esc` unpins (or
 closes a replay).
 
 ![Roles: the lineup in two declared tiers and the implicit last one, the implementer at work](media/studio-roles.png)
-
-### Org
-
-**What it is.** Your company of agents in Paperclip: an org chart with goals,
-issues, heartbeats and budgets. Halo's lineups become its agents, and Studio
-shows the company live.
-
-**How to use it.**
-
-1. **Get Paperclip running**: the Start view's **Install Paperclip** runs
-   `npx paperclipai onboard` (Node 24 or newer); an installed one starts with
-   `npx paperclipai run`.
-2. **Link a company**: **Link a company** picks the one Studio shows (or make
-   one from a lineup); Company says what is installed, running and linked.
-3. **Turn Org mode on**: Company's switch (or `/org on`, `halo paperclip on`).
-   Off is the default: no agent runs on a heartbeat.
-4. **Read the boxes**: Org chart: each card is an agent (role, adapter,
-   status, spend against its budget); a box holds one manager's reports
-   ("<manager>'s team", or the agent's `metadata.team`), the top box is
-   **Leadership**.
-5. **Change who reports to whom**: drop a card into another box or onto a
-   card; Studio asks first, then updates Paperclip. Drag a box's label strip
-   to move the team.
-6. **Work with an agent**: double-click a card: the Inspector edits its
-   title, role, manager and budget, and Wakes, Pauses or Terminates it.
-7. **Follow the work**: Issues, goals, projects lists them live (every 3 s
-   while Org shows); New issue assigns one and Paperclip wakes that agent.
-
-**Panels.** Company: Paperclip here: installed, running, which company, and
-Org mode. Org chart: your company as cards, one box per team: who reports to
-whom. Issues, goals, projects: the company's issues, goals and projects, live
-from Paperclip. Inspector: the agent, issue, goal or project you clicked, and
-what you can do with it.
-
-**Keys.** `Alt+3` Org; on the chart (click it first) `A` lays it out, `F`
-fits it, `+` / `-` zoom; `Mod+K`: Org: sync, Org: pull, Org: link company.
 
 ### Design
 
@@ -183,43 +147,13 @@ Design system: the tokens every turn designs with. Assets: files a turn can
 use. Artboards: every artboard of the project, with its versions, pins and
 knobs. Thread: the project's turns: what you asked and what the model did.
 From the palette: Media status, Media models, Workflows and Render (see
-[Media](STUDIO-orchestra-flow.md#media)).
+[Media](STUDIO-design.md#media-the-comfyui-panels)).
 
-**Keys.** `Alt+4` Design; `Enter` in the message box sends (`Shift+Enter`: a
+**Keys.** `Alt+3` Design; `Enter` in the message box sends (`Shift+Enter`: a
 new line); in the text editor and the comment box `Enter` saves and `Esc`
 cancels; `Esc` puts the Comment tool down; `Mod+K`: Design: send, Design: 3
 directions, Design: pin a comment, Design: cancel turn, Design: export,
 Design: new project.
-
-### Flow
-
-**What it is.** A brief goes through your roles and a marketing org, ComfyUI
-renders the Art Director's prompt, you confirm the picture, then the posts go
-out and their metrics come back, all in one design project.
-
-**How to use it.**
-
-1. **Write a brief** on the Start view: the brief, the platforms, the budget
-   and the design project; drop assets if you have them.
-2. **Press Run**: Run waits for your OK on the render, Run with --yes accepts
-   every gate, Dry run keeps the posts dry.
-3. **The roles and the org work**: a planner and a researcher plan it; a
-   strategist, a copywriter and an art director write the campaign and the
-   image prompt.
-4. **Confirm the render**: ComfyUI renders it; the run waits in Renders until
-   you Confirm, Redo with an instruction, or Stop.
-5. **Posts and metrics**: one post per platform through Postiz (dry runs
-   unless the flow says `live: true`); Metrics samples how they do.
-6. **Read the report**: Report sums it up; New run in the rail goes back to
-   the Start view.
-
-**As a graph.** Show it as a graph on the intake form draws the flow's steps
-in their dependency layers; drag two independent steps to swap their order
-in the flow file.
-
-**Panels.** Intake, Workflow, Renders, Step, Posts, Metrics, Log, Report and
-the four Media panels; what each shows is in the [Flow](STUDIO-orchestra-flow.md#flow-the-workflow-console)
-table below.
 
 ### Fleet
 
@@ -247,8 +181,7 @@ stop, take over or hand off any one agent.
    back. Steer it with a nudge or a new task.
 5. **Pause, stop, hand off**: Pause holds it at its next step, Stop asks
    first. Take over gives it your brief; Hand to... passes it to another
-   harness (a Paperclip issue with Org mode on, a hand-off note without)
-   and stops it.
+   harness (a hand-off note in its repo) and stops it.
 6. **Know who can do what**: Capabilities has a spec card per harness:
    hardware, models, craft apps, MCP servers and their tools, skills, tags.
    Who can... ranks the fleet for what you need (gridcraft, a 4090, make a
@@ -290,9 +223,9 @@ reported.
 **What it is.** Your project's team file as one board: who works on it
 (members, each a part of a lineup, here or on a fleet harness), where their
 work lands (blocks: a file, a folder or a git tree, each with its claim
-ledger) and in which order (stages: an agent turn, an Orchestra run or a
-flow). The steps are those of
-[How this works: Team](STUDIO-team-roles-org.md#how-this-works-team) below.
+ledger) and in which order (stages: an agent turn or an Orchestra run).
+The steps are those of
+[How this works: Team](STUDIO-team-roles.md#how-this-works-team).
 
 **Panels.** Board: the team as one board, members as columns, stages as
 boxes, blocks underneath. Inspector: the selected stage (its row, Run, the
@@ -301,7 +234,7 @@ the run, newest last.
 
 ### Session
 
-**What it is.** Your own session, live (3.1.4.0, `Alt+8`, "This session,
+**What it is.** Your own session, live (3.1.4.0, `Alt+6`, "This session,
 live"): Fleet's map, timeline, log, attention queue and agent inspector
 narrowed to this harness and the session you chose, and what that session
 costs. Five panels, nothing fleet-wide; Fleet keeps everything. It is the
@@ -311,7 +244,7 @@ one scope, `{harness, session}`, which the section sets while it shows.
 **How to use it.**
 
 1. **Open it**: `/studio` in a terminal session opens Studio here on that
-   session (`halo studio --session` from a shell); `Alt+8`, the palette,
+   session (`halo studio --session` from a shell); `Alt+6`, the palette,
    **Watch in Session** on the Roles Live tab or on a live Orchestra run's
    line, **Open in Session** in a map node's `...` menu and this harness's
    nodes in the rail land here too. With nothing saved for the browser,

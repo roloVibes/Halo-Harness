@@ -2,7 +2,7 @@
 // scope badge, the instances stack, the model pill with its price in / out
 // and context, a gym score when the gym measured it, a warnings badge, and
 // the live badge while an agent works under it), a tier box (its label strip
-// collapses and expands it), and the delegation / reports / pipeline edges
+// collapses and expands it), and the delegation / pipeline edges
 // the classic canvas drew (a delegation edge names its routing words while
 // one of its cards is selected). Cards and boxes are memoised.
 import { memo, type PointerEvent } from "react";
@@ -64,7 +64,7 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
       data-pulse={lead ? (lead.calls % 2 ? "b" : "a") : undefined}
       data-stack={stack > 1 ? stack : undefined}
       aria-label={`${n.agent}, ${n.role}${n.alias ? " as " + n.alias : ""}`}
-      title="Drag to move; drop into another tier box to move it there, onto a card to report to it. Arrows nudge it, Delete removes it."
+      title="Drag to move; drop into another tier box to move it there. Arrows nudge it, Delete removes it."
       onPointerDown={(ev) => onDown(ev, n.id)}
     >
       <span className="rc-band" aria-hidden="true" />
@@ -124,7 +124,7 @@ export function Edges({ edges, pos, hidden, w, h, sel, lit }: { edges: GraphEdge
   return (
     <svg className="rc-edges" width={w} height={h} aria-hidden="true">
       <defs>
-        {(["delegation", "reports", "pipeline"] as const).map((k) => (
+        {(["delegation", "pipeline"] as const).map((k) => (
           <marker key={k} id={`rc-arrow-${k}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" className={`rc-arrow rc-arrow-${k}`} />
           </marker>

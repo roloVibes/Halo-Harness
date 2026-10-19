@@ -1,7 +1,7 @@
 // The palette's Fleet group: pair a harness, kick a member, group the map
 // by project, follow / steer / pause / stop the selected agent, follow any
 // live agent by name, pause all, resume all, and open the selected session
-// in Orchestra or Flow when it is one. R4: answer next (Attention, the oldest
+// in Orchestra when it is one. R4: answer next (Attention, the oldest
 // row), record, take over, hand to, replay the selected session, the digest.
 // R6: who can... (the Capabilities panel's search) and the specs of each harness.
 // R8: new mission, approve mission, stop mission, mission report.
@@ -57,7 +57,6 @@ export function fleetCommands(): FleetCommand[] {
     );
     if (sel.h.local) out.push({ id: "fleet-replay", group: g, label: "Fleet: replay this session on the Roles canvas", hint: "the cards light up in the order they worked", run: () => void openReplay(sel.s.session_id, "local") });
     if (sel.s.kind === "orchestra-worker") out.push({ id: "fleet-orchestra", group: g, label: "Fleet: open this session in Orchestra", run: () => goSection("orchestra") });
-    if (sel.s.kind === "flow") out.push({ id: "fleet-flow", group: g, label: "Fleet: open this session in Flow", run: () => goSection("flow") });
   }
   for (const r of allAgents(s).filter((x) => isLive(x.a)).slice(0, 24))
     out.push({

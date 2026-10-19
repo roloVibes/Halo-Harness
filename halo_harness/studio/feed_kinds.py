@@ -12,7 +12,7 @@ DEFAULT_KINDS = ("user_message", "message_start", "message_end", "text_chunk", "
                  "status", "error", "turn_done", "subagent_start", "subagent_end", "subagent_queued",
                  "subagent_progress", "notification", "phase", "compaction", "governor", "remote_attached",
                  "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
-                 "flow_state", "flow_step", "flow_gate", "flow_post", "flow_metric", "flow_report", "media_render",
+                 "media_render",
                  "agent_state", "agent_event", "fleet", "design_turn")
 PUBLIC_FIELDS = ("session_id", "title", "mode", "kind", "cwd", "started", "pid", "harness", "project", "parent")
 

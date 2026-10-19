@@ -16,7 +16,7 @@ import { NextStep } from "../NextStep";
 export function StartView() {
   const copy = SECTION_HELP.design;
   useEffect(() => {
-    // a project made elsewhere (halo design new, a flow) shows up without a reload
+    // a project made elsewhere (halo design new, another session) shows up without a reload
     const id = window.setInterval(() => {
       if (document.hidden || studio.get().section !== "design") return;
       void loadProjects().then((rows) => rows[0] && openProject(rows[0].slug));

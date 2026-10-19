@@ -11,8 +11,8 @@ created; a git block sits in a git tree); stage kinds, members (a member, an
 alias or a tier), lead, reads/writes (block ids; `brief` is always
 readable), gates, triggers (`stage_done:` an earlier stage, `block_change:`
 a declared block) and no trigger cycle (a stage whose own writes, or a
-later stage's, start it again); an orchestra stage's goal; a flow stage's
-flow loads; and, with `preflight`, the lineup preflight's `blocks` findings
+later stage's, start it again); an orchestra stage's goal; and, with
+`preflight`, the lineup preflight's `blocks` findings
 for every member that runs here.
 """
 

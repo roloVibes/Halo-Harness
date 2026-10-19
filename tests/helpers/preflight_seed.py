@@ -1,8 +1,8 @@
 """tests.helpers.preflight_seed -- a scratch Halo home for the run-start
 preflight tests (tests/test_preflight.py): a seeded `or` catalog
 (models.json), bios with a live id, a dead id, a dead fallback and an empty
-tool allow-list, a bad lineup (`pf-bad`: every finding at once), a clean one
-(`pf-good`) and a flow whose roles step uses a lineup. No model is called.
+tool allow-list, a bad lineup (`pf-bad`: every finding at once) and a clean
+one (`pf-good`). No model is called.
 """
 from __future__ import annotations
 
@@ -52,16 +52,6 @@ class Home:
         for data in (BAD, GOOD):  # written directly: save_team_template refuses the missing bio
             (teams / f"{data['name']}.yaml").write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
         return self
-
-    def flow(self, lineup: str, name: str = "pf-flow") -> Path:
-        flows = self.state_dir / "flows"
-        flows.mkdir(parents=True, exist_ok=True)
-        path = flows / f"{name}.flow.yaml"
-        path.write_text(yaml.safe_dump({"name": name, "steps": [
-            {"id": "intake", "kind": "intake", "form": {"brief": "text"}},
-            {"id": "plan", "kind": "roles", "uses": f"lineup:{lineup}", "roles": ["main"]},
-            {"id": "done", "kind": "done"}]}, sort_keys=False), encoding="utf-8")
-        return path
 
     def use_team(self, name: str) -> None:
         from halo_harness.theme import set_config_value

@@ -4,9 +4,8 @@ round 8, the last three (findings 61, 62, 64):
   * f61  an agent file's `tools: Agent(X)` restriction never reached the
         sub-agent it describes
   * f62  agent export wrote snake_case keys the loader does not read
-  * f64  a worktree leaked when the model failed to resolve; a resumed org
-        got its full budget back; validate_org raised on non-string
-        `reports` entries
+  * f64  a worktree leaked when the model failed to resolve (3.1.4.0: the
+        org halves of f64 went with Org)
 """
 from __future__ import annotations
 
@@ -51,9 +50,6 @@ def test_f61_agent_file_tools_restriction_reaches_the_child(ctx: Ctx):
                   _child_restriction(restricted) == {"Explore", "Plan"})
         ctx.check("a bare Agent grant means no restriction",
                   _child_restriction(AgentSpec(name="bare", description="d", tools=["Read", "Agent"])) is None)
-        ctx.check("an org position's explicit (even empty) set still wins",
-                  _child_restriction(AgentSpec(name="org", description="d", tools=["Agent(Explore)"],
-                                                delegate_restriction=set())) == set())
     finally:
         mock.stop()
         _restore_home()
@@ -115,44 +111,6 @@ def test_f64_a_failed_model_resolve_does_not_leak_the_isolation_worktree(ctx: Ct
         branches = subprocess.run(["git", "branch", "--list", "halo-worktree-*"], cwd=str(fh["proj"]),
                                   capture_output=True, text=True).stdout.strip()
         ctx.check(f"no halo-worktree branch is left either, got {branches!r}", branches == "")
-    finally:
-        mock.stop()
-        _restore_home()
-
-
-@test
-def test_f64_validate_org_does_not_raise_on_non_string_reports(ctx: Ctx):
-    from halo_harness.orgs import validate_org
-    org = {"name": "x", "positions": [
-        {"title": "Boss", "role": "orchestrator", "reports": [1, ["a"], "Worker"]},
-        {"title": "Worker", "role": "coder", "reports": []}]}
-    try:
-        problems = validate_org(org)
-        ctx.check(f"a plain problem line instead of a crash, got {problems}",
-                  any("entries must be strings" in p for p in problems))
-    except Exception as e:  # pragma: no cover
-        ctx.check(f"validate_org raised {type(e).__name__}: {e}", False)
-
-
-@test
-def test_f64_a_resumed_org_starts_with_the_remaining_budget(ctx: Ctx):
-    from halo_harness.agent.subagent import _org_with_record_overrides, _read_org_run_record, run_org_call
-    org = {"name": "budgeted", "budget_usd": 1.0, "positions": [
-        {"title": "Boss", "role": "orchestrator", "reports": [], "instructions": "do it"}]}
-    resumed = _org_with_record_overrides(org, {"org_spent_usd": 1.0, "spent_by_position": {"Boss": 1.0}})
-    ctx.check("the record's spend rides on the resumed org", resumed.get("_resumed_spend", {}).get("org_spent_usd") == 1.0)
-    ctx.check("a record with no spend adds nothing", "_resumed_spend" not in _org_with_record_overrides(org, {}))
-    fh = build_fake_home()
-    mock = MockUpstream().start()
-    try:
-        session = _session(fh, mock)
-        _, result = run_org_call(runtime=session.agent_runtime, tool_id="o1", tool_name="Agent",
-                                 tool_input={"org": "budgeted", "prompt": "go"}, org_override=resumed)
-        ctx.check(f"the exhausted budget refuses the spawn up front, got {result.content[:100]!r}",
-                  result.is_error and "budget" in result.content.lower())
-        ctx.check("no model call was made", len(mock.requests) == 0)
-        rec = _read_org_run_record(session.log.dir / session.log.session_id) or {}
-        ctx.check(f"the new run record keeps the spend, got {rec.get('org_spent_usd')}", rec.get("org_spent_usd") == 1.0)
     finally:
         mock.stop()
         _restore_home()

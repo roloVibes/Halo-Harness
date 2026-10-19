@@ -106,13 +106,13 @@ def register(test, json_of, chrome) -> None:
         r, got = json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "fleet", "--dom")
         ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
         f, s, ro = got.get("fleet", {}), got.get("start", {}), got.get("roles", {})
-        ctx.check(f"the section, got {f}", f.get("section-tab") == 8 and f.get("fleet-map") == 1 and f.get("fleet-agent") == 1
+        ctx.check(f"the section, got {f}", f.get("section-tab") == 6 and f.get("fleet-map") == 1 and f.get("fleet-agent") == 1
                   and f.get("fleet-rail") == 1 and f.get("fleet-node") == 5 and f.get("fleet-box") == 2 and f.get("fleet-start") == 0
                   and all(f.get(k) == 1 for k in ("fleet-people", "fleet-costs", "fleet-health", "fleet-attention", "fleet-activity",
                                                    "fleet-capabilities", "fleet-mission")))
         ctx.check(f"the Start view, got {s}", s.get("fleet-start") == 1 and s.get("fleet-pair") == 1 and s.get("fleet-settings") == 1
                   and s.get("fleet-map") == 0 and s.get("fleet-rail") == 1)
-        ctx.check(f"Live Roles, got {ro}", ro.get("live-card") == 3 and ro.get("live-tab") == 1 and ro.get("section-tab") == 8)
+        ctx.check(f"Live Roles, got {ro}", ro.get("live-card") == 3 and ro.get("live-tab") == 1 and ro.get("section-tab") == 6)
 
 
     @test

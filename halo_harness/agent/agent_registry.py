@@ -2,7 +2,7 @@
 (Halo 3.0.5.0 "Fleet" round R1).
 
 The main agent is the root (`agent_id` "main"); every sub-agent at every
-depth (an Agent/Task call, a count/batch job, an org position or team member,
+depth (an Agent/Task call, a count/batch job, a team member,
 a background sub-agent) is a node under the agent that spawned it, and the
 session's background Bash jobs are leaves under main (`kind: job`, read from
 the job registry whenever the tree is listed). A row:

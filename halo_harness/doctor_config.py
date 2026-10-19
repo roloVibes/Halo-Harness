@@ -6,9 +6,11 @@ Reported: a file that does not parse; an unknown key (with the closest known
 key); a wrong type; a lineup naming a bio that does not exist and every other
 `validate_team_template` line; every `validate_agent_bio` line; a team file's
 `validate_team` lines (a member's lineup that is not there among them, run
-without the model-catalog preflight); a flow naming a lineup that does not
-resolve and every other `validate_flow` line; `team:` in config.json naming a
-lineup that is not there; a repo `.halo/config.json` (Halo reads only the
+without the model-catalog preflight); `team:` in config.json naming a
+lineup that is not there; a leftover section of a removed feature (in
+config.json `orgs`, `paperclip`: one line each, "removed in 3.1.4.0, the
+section is ignored"; in a lineup `org`: "org: removed in 3.1.4.0, ignored",
+a warning, never a block); a repo `.halo/config.json` (Halo reads only the
 home one); and the same key set in two files with different values, with
 the file that wins (doctor_config_conflicts.py). Shipped templates are not
 re-checked (the suite checks them).
@@ -73,7 +75,11 @@ def _config_json(row: dict, state_dir: Path, cwd: Path) -> list:
         return [finding("unreadable", "blocks", row, f"{row['file']} is not valid JSON: {e}", fix="fix or delete the file")]
     if path.name == "routes.json":
         return [] if isinstance(data, dict) else [finding("wrong-type", "blocks", row, "routes.json is a JSON object")]
-    out = _shape("config", data, row)
+    from halo_harness.schemas.config_json import REMOVED_SECTIONS, removed_line
+    out = [f for f in _shape("config", data, row) if f["key"] not in REMOVED_SECTIONS]
+    for section in sorted(REMOVED_SECTIONS):
+        if isinstance(data, dict) and section in data:
+            out.append(finding("removed-section", "warns", row, removed_line(section), key=section))
     team = data.get("team") if isinstance(data, dict) else None
     if isinstance(team, str) and team.strip():
         from halo_harness import teams_yaml as T
@@ -97,7 +103,13 @@ def _lineup_or_bio(kind: str, row: dict, cwd: Path, state_dir: Path) -> list:
         if problem:
             out.append(finding("unreadable", "blocks", frow, f"{frow['file']} {problem}", fix="fix the YAML", lineups=tags))
             continue
-        out += _shape(kind, data, frow, lineups=tags)
+        if kind == "lineup":  # 3.1.4.0: a removed section is its own one line, not an unknown key
+            from halo_harness.teams_yaml import REMOVED_SECTIONS, removed_section_warnings
+            out += [f for f in _shape(kind, data, frow, lineups=tags) if f["key"] not in REMOVED_SECTIONS]
+            out += [finding("removed-section", "warns", frow, line[len("warning: "):], key=line[len("warning: "):].split(":")[0],
+                            lineups=tags) for line in removed_section_warnings(data)]
+        else:
+            out += _shape(kind, data, frow, lineups=tags)
         validate = validate_team_template if kind == "lineup" else validate_agent_bio
         for line in validate(data if data is not None else {}, name=name, cwd=cwd, state_dir=state_dir):
             missing = "no such agent bio" in line or "agent bio that does not exist" in line
@@ -122,27 +134,6 @@ def _team(row: dict, cwd: Path, state_dir: Path) -> list:
         lineup = line.split("lineup `", 1)[1].split("`", 1)[0] if "does not exist" in line and "lineup `" in line else ""
         out.append(finding("missing-lineup" if lineup else "invalid", "blocks", row, line,
                            lineups=[lineup] if lineup else [], fix="halo teams lists the lineups" if lineup else ""))
-    return out
-
-
-def _flows(row: dict, cwd: Path, state_dir: Path) -> list:
-    from halo_harness.flows.spec import load_flow, validate_flow
-    out = []
-    for f in row["files"]:
-        path = Path(f)
-        frow = _file_row(row, path)
-        try:
-            data = load_flow(path)
-        except ValueError as e:
-            out.append(finding("unreadable", "blocks", frow, str(e), fix="fix the YAML"))
-            continue
-        out += _shape("flow", data, frow)
-        for line in validate_flow(data, cwd=cwd, state_dir=state_dir):
-            warn = str(line).startswith("warning: ")
-            lineup = line.split("lineup '", 1)[1].split("'", 1)[0] if "does not resolve" in line and "lineup '" in line else ""
-            out.append(finding("missing-lineup" if lineup else "invalid", "warns" if warn else "blocks", frow,
-                               str(line)[len("warning: "):] if warn else str(line), lineups=[lineup] if lineup else [],
-                               fix="name a lineup halo teams lists" if lineup else ""))
     return out
 
 
@@ -172,8 +163,6 @@ def config_findings(cwd=None, *, state_dir=None, settings_flag=None, rows=None) 
             out += _lineup_or_bio("lineup" if kind == "lineups" else "bio", row, cwd, state)
         elif kind == "team":
             out += _team(row, cwd, state)
-        elif kind == "flows" and editable:
-            out += _flows(row, cwd, state)
     return out + conflict_findings(rows, cwd=cwd)
 
 

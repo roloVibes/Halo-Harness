@@ -4,7 +4,7 @@
 One forecast line per unit, then a total against a budget:
 
     {"unit": "job-2", "model": "or:vendor/mid", "tokens_in": 21000, "tokens_out": 2400,
-     "usd": 0.0306, "usd_low": 0.0153, "usd_high": 0.0612, "source": "lead|heuristic|turn|budget|fixed", "priced": true}
+     "usd": 0.0306, "usd_low": 0.0153, "usd_high": 0.0612, "source": "lead|heuristic|turn|fixed", "priced": true}
     {"usd", "usd_low", "usd_high", "budget_usd": 0.5 | null, "over": false, "unpriced": 0, "units": 3}
 
 The price is the model catalog's (orchestra/coach_prices.py: the price per
@@ -14,8 +14,8 @@ a free or local model (Ollama, Hugging Face, a price of 0) costs 0; a model
 the catalog does not list leaves the line unpriced (`usd` null, `priced`
 false) and the total counts it in `unpriced`. The band around `usd` says how
 sure the estimate is (BAND): a lead's own token estimate x0.8 .. x1.5, a
-heuristic or a team member's priced turn x0.5 .. x2, a `budget` (a flow
-step's own budget) or a `fixed` amount (an unpriced member turn) x1. The
+heuristic or a team member's priced turn x0.5 .. x2, a `fixed` amount (an
+unpriced member turn) x1. The
 total is `over` when its high end passes the budget.
 """
 
@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-BAND = {"lead": (0.8, 1.5), "heuristic": (0.5, 2.0), "turn": (0.5, 2.0), "budget": (1.0, 1.0), "fixed": (1.0, 1.0)}
+BAND = {"lead": (0.8, 1.5), "heuristic": (0.5, 2.0), "turn": (0.5, 2.0), "fixed": (1.0, 1.0)}
 OUT_RATIO = 4.0
 FREE_PROVIDERS = ("ollama", "huggingface")
 
@@ -60,8 +60,8 @@ def line(unit: str, model: str, tokens_in: int, tokens_out: int, source: str, ro
     return out
 
 
-def fixed(unit: str, usd: float, source: str = "budget", model: str = "") -> dict:
-    """A line whose cost is known up front (a flow step's budget, a fixed per-turn estimate)."""
+def fixed(unit: str, usd: float, source: str = "fixed", model: str = "") -> dict:
+    """A line whose cost is known up front (a fixed per-turn estimate)."""
     low, high = BAND.get(source, (1.0, 1.0))
     return {"unit": str(unit), "model": model, "tokens_in": 0, "tokens_out": 0, "usd": round(usd, 6),
             "usd_low": round(usd * low, 6), "usd_high": round(usd * high, 6), "source": source, "priced": True}

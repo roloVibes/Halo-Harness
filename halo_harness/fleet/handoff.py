@@ -5,15 +5,12 @@
   (remote/agent_control.py `agent_steer` with `handoff`), recorded as a
   hand-off in the agent's transcript and its parent's.
 * **Hand to...**: the agent's task, its last hand-back and the files it
-  touched become one brief. With Org mode on (`paperclip.enabled`) it is a
-  Paperclip issue in the linked company, assigned to the chosen harness's
-  company agent (`pick_agent`); with Org mode off it is a Markdown file,
+  touched become one brief, a Markdown file,
   `<repo>/.halo/handoffs/<id>.md` (the state directory's `handoffs/` when the
   repo is not on this machine). Then the agent is stopped.
 
 A hand-off never widens a permission: the steer is a note the agent reads,
-the issue runs under the assignee's own permission engine, the file is only
-text. Nothing here calls a model.
+the file is only text. Nothing here calls a model.
 """
 
 from __future__ import annotations
@@ -59,39 +56,6 @@ def brief(*, harness: dict, session: dict, agent: dict, handback: str, files: li
     if proj.get("repo") or proj.get("branch"):
         lines += ["", f"Repo {proj.get('repo') or '?'}, branch {proj.get('branch') or '?'}."]
     return title, "\n".join(lines) + "\n"
-
-
-def pick_agent(agents: list, harness: dict) -> Optional[dict]:
-    """The company agent that stands for `harness`: metadata halo_harness / harness (its id or name),
-    else an agent whose name or title is the harness name (or its user part)."""
-    hid, name = str(harness.get("id") or ""), str(harness.get("name") or "").lower()
-    user = name.split("@")[0]
-    for a in agents or []:
-        meta = a.get("metadata") if isinstance(a.get("metadata"), dict) else {}
-        if str(meta.get("halo_harness") or meta.get("harness") or "").lower() in (hid.lower(), name) and (hid or name):
-            return a
-    for a in agents or []:
-        if any(str(a.get(k) or "").lower() in (name, user) for k in ("name", "title") if a.get(k)) and name:
-            return a
-    return None
-
-
-def to_issue(state_dir, title: str, body: str, harness: dict, assignee: Optional[str] = None, client=None) -> dict:
-    """A Paperclip issue in the linked company; `{issue, assignee, note}`."""
-    from halo_harness.paperclip.client import Paperclip, load_config
-    company = str(load_config(state_dir).get("company_id") or "")
-    if not company:
-        raise ValueError("Org mode is on but no company is linked (halo paperclip link --company ...)")
-    client = client or Paperclip.from_config(state_dir, timeout=10)
-    agent = None
-    if not assignee:
-        agent = pick_agent(client.agents(company), harness)
-        assignee = agent.get("id") if agent else None
-    payload = {"title": title, "description": body, "status": "todo", **({"assigneeAgentId": assignee} if assignee else {})}
-    issue = client.create_issue(company, payload) or {}
-    note = "" if assignee else f"no company agent stands for {harness.get('name')}: the issue is unassigned (assign it in Org)"
-    return {"issue": {k: issue.get(k) for k in ("id", "identifier", "title", "status", "assigneeAgentId")},
-            "assignee": assignee, "assignee_name": (agent or {}).get("name"), "note": note}
 
 
 def to_file(root, hid: str, markdown: str) -> Path:

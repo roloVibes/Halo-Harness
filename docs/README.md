@@ -41,25 +41,22 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-mcp.md](COMMANDS-mcp.md) (Commands: MCP servers and connectors): read this when you add, list, repair or log in to MCP servers and claude.ai connectors.
   - [COMMANDS-local.md](COMMANDS-local.md) (Commands: Ollama, the gym and local models): read this when you run local models: `halo ollama`, `halo gym`, `halo local`.
   - [COMMANDS-sessions.md](COMMANDS-sessions.md) (Commands: config, sessions, stats and reports): read this when you read or set config, replay or export a session, read stats, or file a bug report.
-  - [COMMANDS-agents.md](COMMANDS-agents.md) (Commands: roles, orgs, review, bios and lineups): read this when you manage roles, organizations, reviews, bios and lineups from the command line.
-  - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, flows, Orchestra and teams): read this when you open Studio or run designs, media, flows, an Orchestra goal or a team from the command line.
+  - [COMMANDS-agents.md](COMMANDS-agents.md) (Commands: roles, review, bios and lineups): read this when you manage roles, reviews, bios and lineups from the command line.
+  - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, Orchestra and teams): read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.
   - [COMMANDS-fleet.md](COMMANDS-fleet.md) (Commands: remote control and the fleet): read this when you control sessions remotely or run a fleet and its missions.
   - [COMMANDS-proxy.md](COMMANDS-proxy.md) (Commands: the proxy, exit codes and config checks): read this when you run the old proxy, read an exit code, or list and check the config files in effect.
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
   - [SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md) (Slash commands: sessions, models and context): read this when you manage the session, its model, memory, permissions or config from the prompt (`/clear`, `/model`, `/recall`, `/config` ...).
-  - [SLASH-COMMANDS-agents.md](SLASH-COMMANDS-agents.md) (Slash commands: agents, lineups, roles and review): read this when you work with bios, lineups, roles, organizations or `/review` from the prompt.
+  - [SLASH-COMMANDS-agents.md](SLASH-COMMANDS-agents.md) (Slash commands: agents, lineups, roles and review): read this when you work with bios, lineups, roles or `/review` from the prompt.
   - [SLASH-COMMANDS-providers.md](SLASH-COMMANDS-providers.md) (Slash commands: providers, fleet and upkeep): read this when you set up providers, subscriptions, rate limits, remote control or the fleet, or run `/doctor`, `/update` and `/bugreport`.
   - [SLASH-COMMANDS-tui.md](SLASH-COMMANDS-tui.md) (Slash commands: themes, Studio and the TUI): read this when you change themes, open Studio, copy, rewind or tune the TUI, run the ten-minute start, look up a word, or add your own commands, skills and images.
   - [SLASH-COMMANDS-keys.md](SLASH-COMMANDS-keys.md) (Slash commands: prefixes, keys and cards): read this when you want the `@path` and `!cmd` prefixes, a key binding, or the keys a card answers to.
 - [GLOSSARY.md](GLOSSARY.md) (Glossary): read this when a word in Halo is new to you.
 - [AGENTS.md](AGENTS.md) (Agent bios and team templates): read this when you write or edit an agent bio or a lineup, field by field.
 - [ROLES.md](ROLES.md) (Roles): read this when you point different kinds of work at different models with roles.
-- [ORGS.md](ORGS.md) (Organizations): read this when you turn a lineup into an organization with titles and reporting lines.
-- [PAPERCLIP.md](PAPERCLIP.md) (Paperclip: your lineups as a company of agents): read this when you run your lineups as a company of agents in Paperclip.
 - [ORCHESTRA.md](ORCHESTRA.md) (The Orchestra): read this when several agents should write the same files at once: the Orchestra and its plan, lanes and judge.
 - [TEAM.md](TEAM.md) (Teams: people, blocks and stages (Halo 3.0.8.0)): read this when you set up a team file: who works on a repo, where their work lands and in which order.
-- [FLOWS.md](FLOWS.md) (Flows): read this when you build or run a flow: an input through agents, an org, a render and a post.
-- [WORK.md](WORK.md) (One unit of work): read this when you want the one model under an Orchestra lane, a mission part, a team stage and a flow step.
+- [WORK.md](WORK.md) (One unit of work): read this when you want the one model under an Orchestra lane, a mission part and a team stage.
 - [COMFYUI.md](COMFYUI.md) (ComfyUI in Halo): read this when you want Halo to render images or video with ComfyUI on your own GPU.
 - [SUBAGENTS.md](SUBAGENTS.md) (Sub-agent visibility and scale): read this when you watch or limit sub-agents: the tasks panel, concurrency and depth.
 - [REVIEW.md](REVIEW.md) (Code review: `/review` and `halo review`): read this when you review code with `/review` or `halo review`.
@@ -67,14 +64,14 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 
 ## I want to use Studio
 
-The browser view of your lineups, runs, flows, designs, fleet and team.
+The browser view of your lineups, runs, designs, fleet and team.
 
-- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser view of your lineups, runs, flows, fleet and team.
+- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser view of your lineups, runs, designs, fleet and team.
   - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team.
-  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Orchestra, Roles, Org, Design, Flow, Fleet, Team, Session) and the live feed.
-  - [STUDIO-orchestra-flow.md](STUDIO-orchestra-flow.md) (Studio: the Orchestra and Flow consoles): read this when you run an Orchestra goal or a flow from Studio: the plan canvas, the coach, the media renders and their routes.
+  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Orchestra, Roles, Design, Fleet, Team, Session) and the live feed.
+  - [STUDIO-orchestra.md](STUDIO-orchestra.md) (Studio: the Orchestra console): read this when you run an Orchestra goal from Studio: the run console, the plan canvas and the coach.
   - [STUDIO-fleet.md](STUDIO-fleet.md) (Studio: Fleet): read this when you watch or steer every harness and agent from Studio's Fleet section.
-  - [STUDIO-team-roles-org.md](STUDIO-team-roles-org.md) (Studio: Team, Roles and Org): read this when you edit a team board, a lineup on the Roles canvas, or the Paperclip company in Org.
+  - [STUDIO-team-roles.md](STUDIO-team-roles.md) (Studio: Team and Roles): read this when you edit a team board or a lineup on the Roles canvas.
   - [STUDIO-design.md](STUDIO-design.md) (Studio: Design mode): read this when you make prototypes, pages or decks with Studio's Design section on your own creative apps.
   - [STUDIO-security.md](STUDIO-security.md) (Studio: saving, security, SSH and shortcuts): read this when you save and apply from Studio, run it over SSH, check what it lets a page do, or want every shortcut.
 - [DESIGN.md](DESIGN.md) (Halo Design): read this when you make designs, pages, decks or logos with Halo Design on your own apps.

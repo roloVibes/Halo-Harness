@@ -12,9 +12,9 @@ parts that would touch the same file run one after the other.
 
 **Teams (Halo 3.0.8.0):** a team member with `harness: <fleet member>` sends its stage's task the way a part goes out (`run_task`, as a one-part mission in the hub's store); see [TEAM.md](TEAM.md#delegating-a-member-to-the-fleet).
 
-**Team stages on a member (Halo 3.1.2.0):** a team's orchestra or flow stage with `harness: <member>` goes as a one-part mission whose part is `kind: orchestra | flow` (its `run` the goal, or the flow and its inputs); the member runs it locally and hands back `result.json`, the run's `report.json` and its line; see [TEAM.md](TEAM.md#delegating-a-member-to-the-fleet).
+**Team stages on a member (Halo 3.1.2.0):** a team's orchestra stage with `harness: <member>` goes as a one-part mission whose part is `kind: orchestra` (its `run` the goal); the member runs it locally and hands back `result.json`, the run's `report.json` and its line; see [TEAM.md](TEAM.md#delegating-a-member-to-the-fleet).
 
-**One unit of work (Halo 3.1.2.0):** a mission part is a *unit* of work, the same thing an Orchestra lane, a team stage and a flow step are; `halo work <mission id>` prints its parts as that shared table. See [WORK.md](WORK.md).
+**One unit of work (Halo 3.1.2.0):** a mission part is a *unit* of work, the same thing an Orchestra lane and a team stage are; `halo work <mission id>` prints its parts as that shared table. See [WORK.md](WORK.md).
 
 Round R7 is the backend (this page): the mission folder, the planner, the
 shared workspace over the fleet protocol, dispatch, the run, merge and report,
@@ -202,7 +202,7 @@ refused outside a part's claims and what failed. The hub journals
 raises a `mission_plan` attention row: approve and run, edit, or drop.
 
 **Preflight** (Halo 3.0.7.0). `run` first checks this harness's active
-lineup with the run-start preflight: a model id its provider's catalog does not know (requests for it 404 and the member comes back empty), an assignment or org position naming a bio that does not exist, a bio whose `tools.allow` is an empty list (it may call no tool), and a `tiers` problem ([ROLES.md](ROLES.md#tiers-halo-3070)). A blocking
+lineup with the run-start preflight: a model id its provider's catalog does not know (requests for it 404 and the member comes back empty), an assignment naming a bio that does not exist, a bio whose `tools.allow` is an empty list (it may call no tool), and a `tiers` problem ([ROLES.md](ROLES.md#tiers-halo-3070)). A blocking
 problem answers 422 `{error, problems, preflight: true}` (the error lists each
 problem with its fix) and the mission stays as it was; `{"force": true}` on
 `POST /api/fleet/missions/<id>/run` (or `halo fleet mission run <id>

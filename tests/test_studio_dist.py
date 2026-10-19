@@ -110,7 +110,7 @@ def test_url_for_the_shell(ctx: Ctx):
     from halo_harness.studio import server
     from halo_harness.studio.launch import url_from_info
     with _Studio() as s:
-        ctx.check("the shell URL is / with the token fragment", server.url_for(s.srv, "org").endswith(f"/?mode=org#t={s.srv.token}"))
+        ctx.check("the shell URL is / with the token fragment", server.url_for(s.srv, "design").endswith(f"/?mode=design#t={s.srv.token}"))
     ctx.check("a reused Studio's URL", url_from_info({"port": 4, "token": "x"}, "roles") == "http://127.0.0.1:4/?mode=roles#t=x")
     import io
     from contextlib import redirect_stderr, redirect_stdout

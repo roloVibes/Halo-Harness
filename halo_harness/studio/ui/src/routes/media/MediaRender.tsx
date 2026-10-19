@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { settle, type MotionState } from "../../lib/motion";
 import { Button, Field } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
-import { flow } from "../flow/store";
+import { design } from "../design/store";
 import { media, openInputs, render, useMedia, type InputNode, type RenderArt, type RenderState, type Workflow } from "./store";
 
 type Named = { key: string; value: unknown };
@@ -56,7 +56,7 @@ export function RenderDetail() {
   const nodes = useMedia((s) => s.inputs);
   const current = useMedia((s) => s.renders[s.current]);
   const [values, setValues] = useState<Record<string, string>>({});
-  const [project, setProject] = useState(() => flow.get().data?.project?.slug || "");
+  const [project, setProject] = useState(() => design.get().slug || "");
   const [artboard, setArtboard] = useState("render");
   const [problems, setProblems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);

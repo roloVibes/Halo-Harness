@@ -4,7 +4,7 @@ concurrent`/`effective_max_depth`, agent/subagent.py), the Agent tool's
 `count`/`batch` fan-out (combined-result shape, the concurrency queue
 capping how many run at once, `subagent_queued` events fired up front for
 every job) through a REAL `agent.loop.Session` against the mock upstream
--- same house pattern as test_subagent_e2e.py/test_orgs.py.
+-- same house pattern as test_subagent_e2e.py.
 """
 from __future__ import annotations
 
@@ -104,9 +104,9 @@ def test_effective_max_concurrent_reads_config_and_falls_back_on_bad_values(ctx:
         set_config_value("agents.max_concurrent", bad)
         ctx.check(f"bad value {bad!r} falls back to the default",
                   effective_max_concurrent(runtime) == MAX_CONCURRENT_AGENTS)
-    org_runtime = AgentRuntime(parent=object(), max_concurrent=11)
-    ctx.check("an org's own max_concurrent wins outright regardless of config",
-              effective_max_concurrent(org_runtime) == 11)
+    own_runtime = AgentRuntime(parent=object(), max_concurrent=11)
+    ctx.check("a runtime's own max_concurrent (a lineup's max_parallel) wins outright regardless of config",
+              effective_max_concurrent(own_runtime) == 11)
 
 
 @test
@@ -124,12 +124,12 @@ def test_effective_max_depth_default_clamp_and_org_override_unclamped(ctx: Ctx):
         set_config_value("agents.max_depth", bad)
         ctx.check(f"out-of-[1,3]/bad value {bad!r} falls back to MAX_DEPTH",
                   effective_max_depth(runtime) == MAX_DEPTH)
-    # brief: "NOT clamped to 3" for an org's own tree-derived override --
-    # the `company` built-in alone needs depth 4.
-    set_config_value("agents.max_depth", 1)  # config says 1; the org below must still win with 4
-    org_runtime = AgentRuntime(parent=object(), max_depth=4)
-    ctx.check("an org's own tree-derived max_depth is never clamped to the config range",
-              effective_max_depth(org_runtime) == 4)
+    # brief: "NOT clamped to 3" for a runtime's own override (a lineup's
+    # delegation.max_depth).
+    set_config_value("agents.max_depth", 1)  # config says 1; the runtime below must still win with 4
+    own_runtime = AgentRuntime(parent=object(), max_depth=4)
+    ctx.check("a runtime's own max_depth is never clamped to the config range",
+              effective_max_depth(own_runtime) == 4)
 
 
 @test
@@ -514,77 +514,18 @@ def test_subagent_queued_events_fire_for_every_job_up_front(ctx: Ctx):
         mock.stop()
 
 
-@test
-def test_fanout_and_resume_both_call_the_org_budget_tracker(ctx: Ctx):
-    """2.0.2 review finding 5 (major) pin -- the review's own "Tests to
-    add" list: "Org budget trips ... for fan-out jobs and on resume".
-    Neither path called `record_spend`/`refusal_before_spawn` AT ALL
-    before this fix -- an org position's own budget could never trip no
-    matter how many `count`/`batch` jobs or resumes it ran through.
-    Spies on the TRACKER's own methods (never real dollar amounts --
-    `or:mock/...` models report no real cost either way) so this proves
-    the WIRING, independent of `OrgBudgetTracker`'s own math (pinned
-    separately in tests/test_init_wizard_round7.py)."""
-    from halo_harness.agent.subagent import run_agent_call
-    from halo_harness.orgs import OrgBudgetTracker
-    calls = []
-    orig_record, orig_refusal = OrgBudgetTracker.record_spend, OrgBudgetTracker.refusal_before_spawn
-
-    def _spy_record(self, title, spent_usd, parent_total_usd):
-        calls.append(("record_spend", title))
-        return orig_record(self, title, spent_usd, parent_total_usd)
-
-    def _spy_refusal(self, title, parent_total_usd):
-        calls.append(("refusal_before_spawn", title))
-        return orig_refusal(self, title, parent_total_usd)
-    OrgBudgetTracker.record_spend = _spy_record
-    OrgBudgetTracker.refusal_before_spawn = _spy_refusal
-    mock = MockUpstream().start()
-    try:
-        SCENARIOS["scale-budget-child"] = ScriptedTurns([_text_step("done")] * 3)
-        session = _new_session(mock=mock, model="or:mock/scale-parent-budget", agents={"general-purpose": _gp_spec()})
-        session.agent_runtime.org_budget = OrgBudgetTracker(org_name="t", org_budget_usd=100.0)
-        events = _dispatch_one(session, {"description": "fan", "prompt": "go", "subagent_type": "general-purpose",
-                                          "count": 2, "model": "or:mock/scale-budget-child"})
-        results = [e for e in events if e.kind == "tool_result" and e.agent_id is None]
-        ctx.check(f"fan-out completed ok, got {[e.data for e in results]}",
-                  results and results[0].data.get("ok") is True)
-        # 1 top-level check (run_agent_call's own, before EVER dispatching
-        # to the fan-out pool at all) + 1 PER fan-out job (this fix) = 3.
-        ctx.check(f"refusal_before_spawn checked at the top AND once per fan-out job, got {calls}",
-                  len([c for c in calls if c == ("refusal_before_spawn", "general-purpose")]) == 3)
-        ctx.check(f"record_spend called once PER fan-out job, got {calls}",
-                  len([c for c in calls if c == ("record_spend", "general-purpose")]) == 2)
-
-        task_id = next(iter(session.agent_runtime.tasks))
-        calls.clear()
-        _e2, r2 = run_agent_call(runtime=session.agent_runtime, tool_id="call_resume", tool_name="Agent",
-                                  tool_input={"task_id": task_id, "prompt": "continue",
-                                              "model": "or:mock/scale-budget-child"})
-        ctx.check(f"resume ok, got {r2.content!r}", r2.is_error is False)
-        ctx.check(f"the resume ALSO checks the budget before spawning, got {calls}",
-                  ("refusal_before_spawn", "general-purpose") in calls)
-        ctx.check(f"the resume ALSO records its own spend, got {calls}",
-                  ("record_spend", "general-purpose") in calls)
-    finally:
-        OrgBudgetTracker.record_spend = orig_record
-        OrgBudgetTracker.refusal_before_spawn = orig_refusal
-        mock.stop()
-
-
 # ---- error shapes -----------------------------------------------------------
 
 @test
 def test_agent_call_with_an_unresolvable_model_is_a_clean_error_never_a_crash(ctx: Ctx):
     """2.0.2 review finding 4 (major) pin: `run_agent_call`'s own
-    docstring says "Never raises" -- an unresolvable model (a bad org
-    position `model:`, or a `/role` pointed at a bogus ref) raised
+    docstring says "Never raises" -- an unresolvable model (a bad bio
+    `model:`, or a `/role` pointed at a bogus ref) raised
     `InvalidModelError` straight out of `_build_child_session` instead.
     Called DIRECTLY here (never through `session._dispatch_tools`,
     which already has its OWN defense-in-depth try/except around a
-    batched Agent call) -- the same way the TUI's own `_run_org_worker`
-    (`tui/slash.py`) and `tools/skill.py`'s `context: fork`/`agent`
-    path both call straight into this function, with no outer net."""
+    batched Agent call) -- the same way `tools/skill.py`'s `context:
+    fork`/`agent` path calls straight into this function, with no outer net."""
     from halo_harness.agent.subagent import run_agent_call
     mock = MockUpstream().start()
     try:
@@ -710,9 +651,9 @@ def test_count_or_batch_combined_with_background_is_refused(ctx: Ctx):
 @test
 def test_agent_tool_description_lists_custom_roles_and_drops_the_depth_falsehood(ctx: Ctx):
     """2.0.2 review finding 33 pin: the tool description every model sees
-    (including an org position told to delegate) used to hardcode a
+    (including a member told to delegate) used to hardcode a
     fixed five-role list and the flat claim "Sub-agents cannot spawn
-    further sub-agents" -- false for any org position or `agents.
+    further sub-agents" -- false for any `agents.
     max_depth > 1` session. The role list must be LIVE (a custom role
     beyond the five built-ins shows up), and the false claim must be
     gone."""

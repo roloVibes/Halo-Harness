@@ -20,7 +20,7 @@ export function startFeed(): void {
   onEvent("*", (f) => {
     if (f.event === "sessions" || f.event === "start" || f.event === "focus") return; // start: its own dialog; focus: lib/edit.ts
     const now = Date.now();
-    const section = /^(flow_|media_)/.test(f.event) ? "flow" : /^(agent_|fleet$)/.test(f.event) ? "fleet" : f.event === "design_turn" ? "design" : "orchestra";
+    const section = /^media_/.test(f.event) || f.event === "design_turn" ? "design" : /^(agent_|fleet$)/.test(f.event) ? "fleet" : "orchestra";
     studio.update((s) => ({
       feed: { ...s.feed, events: s.feed.events + 1, lastKind: f.event, lastTs: now },
       activity: { ...s.activity, [section]: now },

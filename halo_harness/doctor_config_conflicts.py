@@ -58,10 +58,6 @@ def value_of(row: dict, key: str, cwd=None):
         return _parse_env_file(path).get(key, _MISSING)
     if kind in ("lineups", "bios"):
         return _yaml(path / f"{key}.yaml")
-    if kind == "flows":
-        if path.is_file():
-            return _yaml(path)
-        return _yaml(path / f"{key}.flow.yaml")
     if kind == "team":
         return _yaml(path)
     return _MISSING
@@ -132,7 +128,7 @@ def conflict_findings(rows: list, *, cwd=None) -> list:
                                    f"repo; {to} wins", key="team", fix=f"remove {row['file']}, or move it"))
                 continue
             tags = [key] if row["kind"] == "lineups" else []
-            what = {"lineups": "lineup", "bios": "bio", "flows": "flow", "mcp": "MCP server"}.get(row["kind"], "key")
+            what = {"lineups": "lineup", "bios": "bio", "mcp": "MCP server"}.get(row["kind"], "key")
             out.append(finding("conflict", "warns", row, f"{what} {key!r} is set in {row['file']} and in {to} with "
                                f"different values; {to} wins", key=key, lineups=tags,
                                fix=f"keep one: edit or remove it in {row['file']}"))

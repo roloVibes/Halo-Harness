@@ -4,11 +4,11 @@ and the one precedence pass every group shares.
 A row:
 
     {"kind":   "config" | "env" | "settings" | "mcp" | "lineup" | "lineups" |
-               "bios" | "team" | "team-preset" | "flows",
+               "bios" | "team" | "team-preset",
      "file":   "~/.halo/config.json"      (home as ~, this folder as ./, the package as <halo>/),
      "path":   absolute path, "scope": "home" | "repo" | "env" | "shipped",
      "exists": bool, "read": bool (False: Halo never reads this file),
-     "sets":   [top-level keys, or the lineup / bio / team / flow / server
+     "sets":   [top-level keys, or the lineup / bio / team / server
                / variable names the file holds -- never a value],
      "rank":   1 = the resolver looks here first in its group,
      "wins":   [keys this file sets that another file sets too, and this one wins],
@@ -19,7 +19,7 @@ A row:
 `settle(rows, winner_of)` fills `wins` / `loses`: for every key two or more
 rows set, `winner_of(key)` answers the winning path the way the group's own
 resolver finds it (`find_team_template_path`, `find_agent_bio_path`,
-`find_flow`, `find_team_file`, the settings merge, the MCP resolver), so the
+`find_team_file`, the settings merge, the MCP resolver), so the
 column is what the code does, not a table kept by hand.
 """
 

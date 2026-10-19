@@ -13,8 +13,6 @@ What each kind declares:
   its hand-back (gives), `base` (fleet/mission_handoff.py).
 * stage: the blocks it reads (needs, `take: block`) and writes (gives),
   `stage_done:<stage>` (after).
-* step: the `$.<step>` refs of its inputs (needs, `take: output`), its
-  `steps/<n>.json` output (gives), the steps it reads (after).
 
 `upstreams(unit)` is everything a unit waits for; `graph(units)` and
 `layers(units)` order a run's units by it (orchestra/handoff_spec.layers),

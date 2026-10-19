@@ -1,8 +1,8 @@
 """tests.test_review3_e2 -- 3.0.2.0 review fix pass, round E (session data),
-part 2: the config, role, org, bio/team and design-project writers.
+part 2: the config, role, bio/team and design-project writers.
 
   * review item 75  the game-theme toggle-off rewrote config.json 0644
-  * review item 80  role/org/bio/team writers truncated in place and raised
+  * review item 80  role/bio/team writers truncated in place and raised
   * review item 41  a torn design.json read was saved back over the project
 """
 from __future__ import annotations
@@ -92,19 +92,6 @@ def test_i80_role_template_save_is_atomic(ctx: Ctx):
     loaded = load_role_template("mine", state_dir=state)
     ctx.check(f"the second save is what is on disk, got {loaded!r}", (loaded or {}).get("description") == "second")
     ctx.check("no temp file left", _temp_leftovers(role_templates_dir(state)) == [])
-
-
-@test
-def test_i80_org_writers_into_a_blocked_dir_return_problems(ctx: Ctx):
-    from halo_harness.orgs import list_orgs, orgs_dir, reload_builtin_org, save_org
-    state = Path(tempfile.mkdtemp(prefix="r3e2-orgs-"))
-    orgs_dir(state).write_text("not a directory", encoding="utf-8")
-    ok, problems = save_org("pair", {"name": "pair", "positions": [{"title": "X", "reports": []}]}, state_dir=state)
-    ctx.check(f"save_org returns a problem, got {(ok, problems)}", ok is False and "cannot write" in problems[0])
-    ok, problems = reload_builtin_org("solo", state_dir=state)
-    ctx.check(f"reload_builtin_org returns a problem, got {(ok, problems)}",
-              ok is False and "cannot write" in problems[0])
-    ctx.check("list_orgs still answers (seeding the built-ins is best-effort)", list_orgs(state_dir=state) == [])
 
 
 @test

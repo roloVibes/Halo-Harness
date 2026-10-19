@@ -159,10 +159,8 @@ def _cmd_level(args: str, facade: HeadlessFacade) -> str:
 
 
 _STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
-                       "org": "Org: the company in Paperclip",
                        "design": "Design: artboards on your own apps",
                        "orchestra": "Orchestra: runs of your agents, live",
-                       "flow": "Flow: a brief to renders, posts and metrics",
                        "fleet": "Fleet: every harness, every agent, live",
                        "team": "Team: people, blocks and stages on one board",
                        "session": "Session: this session, live"}
@@ -171,9 +169,9 @@ _STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
 def _cmd_studio(args: str, facade: HeadlessFacade) -> str:
     """2.1.0 round B3: `/studio` opens Halo Studio in the browser, served
     from this process; `/studio url` prints the URL without opening a
-    browser (SSH: forward the port it names). 3.0.2.0: `/studio roles|org|
-    design` opens straight into that mode -- `/roles`, `/org` and `/design`
-    (bare, in the TUI) and `/roles gui`, `/org gui` land here too."""
+    browser (SSH: forward the port it names). 3.0.2.0: `/studio roles|
+    design` opens straight into that mode -- `/roles` and `/design`
+    (bare, in the TUI) and `/roles gui` land here too."""
     from pathlib import Path
     from halo_harness.providers.config import default_state_dir
     from halo_harness.studio.server import STUDIO_MODES, ensure_background
@@ -182,7 +180,7 @@ def _cmd_studio(args: str, facade: HeadlessFacade) -> str:
     open_browser = "url" not in [w.lower() for w in words]
     cwd = Path(getattr(facade, "cwd", None) or Path.cwd())
     url = ensure_background(cwd=cwd, state_dir=Path(default_state_dir()), open_browser=open_browser, mode=mode)
-    what = _STUDIO_MODE_LABELS.get(mode, "Roles | Org | Design")
+    what = _STUDIO_MODE_LABELS.get(mode, "Roles | Design")
     return (f"Halo Studio ({what}): {url}\n"
             "(served from this session; it closes with it. Over SSH: forward the port and open the same URL.)")
 
@@ -953,7 +951,7 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
         return "\n".join([*scrub_lines, "No lineups found."])
     active = get_config_value("team", default=None)
     # Halo 2.0.5 round 5: `/teams show <name>` -- the SAME resolved print
-    # `halo teams show` gives (assignments, role table, org, enforcement
+    # `halo teams show` gives (assignments, role table, enforcement
     # state per section); bare `/teams` keeps its list.
     parts = (args or "").strip().split(None, 1)
     verb = parts[0].lower() if parts else ""
@@ -963,7 +961,7 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
         from halo_harness.teams_cli_views import overview_lines
         return "\n".join([*scrub_lines, *overview_lines(cwd=facade.cwd)])
     if parts and parts[0].lower() == "show":
-        from halo_harness.teams_yaml import enforcement_lines, resolve_role_table, resolve_org
+        from halo_harness.teams_yaml import enforcement_lines, resolve_role_table
         name = parts[1].strip() if len(parts) > 1 else active
         if not name:
             return "Usage: /teams show <name> (no lineup is active yet)"
@@ -978,9 +976,6 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
         lines.append("  resolved role table:")
         for k, v in sorted(role_table.items()):
             lines.append(f"    {k}: {v if isinstance(v, str) else v.get('model')}")
-        org, _org_notes = resolve_org(template)
-        if org is not None:
-            lines.append(f"  org: {len(org['positions'])} position(s)")
         enforced = enforcement_lines(template)
         if enforced:
             lines.append("  enforcement (Halo 2.0.5: the live loop runs these):")
@@ -1177,199 +1172,18 @@ def _cmd_role(args: str, facade: HeadlessFacade) -> str:
     return _set_one_role(args.strip(), facade)
 
 
-def _cmd_org(args: str, facade: HeadlessFacade) -> str:
-    """Halo 2.0.2 round 2 (brief B), extended round D (brief items 1/3/4):
-    bare `/org` (and `/org list`) lists saved organizations, each with
-    its own one-line README (its `description`); `/org show <name>`
-    prints its text tree; `/org new <name>` creates a one-position
-    starter; `/org load <name>` re-installs a built-in's shipped
-    definition over a local copy (a plain file write -- unlike `/roles
-    edit`, this never needs the TUI); `/org install <name> [--force]`
-    copies a shipped or saved template into `~/.halo/orgs/`; `/org run
-    <name> "<goal>"` runs it for real against the LIVE session, through
-    the exact same `run_org_call` an `Agent(org=...)` tool call uses;
-    `/org export <name> [file]`/`/org import <file>` move an org as
-    plain JSON; `/org resume` continues THIS session's own interrupted
-    run from its saved record and shared task board. `/org edit <name>`
-    has no headless/print-mode form (the TUI form, `tui/dialogs/
-    org_editor.py`, intercepts it first); here it just names that, like
-    `/roles edit` does."""
-    session = getattr(facade, "session", None)
-    state_dir = getattr(session, "state_dir", None) if session is not None else None
-    parts = (args or "").strip().split(None, 1)
-    sub = parts[0].lower() if parts else ""
-    rest = parts[1].strip() if len(parts) > 1 else ""
-    if sub == "gui":  # 3.0.2.0: Studio's Org mode (what bare /org does in the TUI)
-        return _cmd_studio("org " + rest, facade)
-    if sub in ("on", "off"):  # 3.0.2.0: the Org mode switch (paperclip/mode.py)
-        from halo_harness.paperclip.mode import EXPLAINER, mode_line, set_org_mode
-        res = set_org_mode(sub == "on", state_dir=state_dir)
-        lines = [mode_line(res["enabled"])]
-        if res["agents"]:
-            lines.append(f"{'resumed' if res['enabled'] else 'paused'}: {', '.join(res['agents'])}")
-        if res["note"]:
-            lines.append(res["note"])
-        if not res["enabled"]:
-            lines.append(EXPLAINER)
-        return "\n".join(lines)
-
-    if sub in ("", "list"):
-        from halo_harness.orgs import list_orgs, load_org
-        names = list_orgs(state_dir=state_dir)
-        lines = ["Organizations (~/.halo/orgs/):"]
-        for n in names:
-            org = load_org(n, state_dir=state_dir)
-            desc = org.get("description") if org else None
-            lines.append(f"  {n}" + (f" -- {desc}" if desc else ""))
-        return "\n".join(lines)
-
-    if sub == "show":
-        if not rest:
-            return "Usage: /org show <name>"
-        from halo_harness.orgs import describe, load_org
-        org = load_org(rest, state_dir=state_dir)
-        if org is None:
-            return f"No such organization: {rest!r} (or it failed validation)"
-        return describe(org)
-
-    if sub == "new":
-        if not rest:
-            return "Usage: /org new <name>"
-        from halo_harness.orgs import save_org
-        ok, problems = save_org(rest, {"name": rest, "positions": [
-            {"title": "Orchestrator", "role": "orchestrator", "reports": [], "instructions": ""}]},
-            state_dir=state_dir)
-        return (f"Created organization {rest!r} with a single 'Orchestrator' root position." if ok
-                else "Could not create: " + "; ".join(problems))
-
-    if sub == "load":
-        if not rest:
-            return "Usage: /org load <name>"
-        from halo_harness.orgs import reload_builtin_org
-        ok, problems = reload_builtin_org(rest, state_dir=state_dir)
-        return f"Reloaded built-in organization {rest!r}." if ok else "Could not load: " + "; ".join(problems)
-
-    if sub == "install":
-        # Halo 2.0.2 round D (brief item 1): `--force` as a trailing token
-        # (`/org install <name> --force`) -- this facade path is plain
-        # text, not argparse, so it's parsed by hand the same way other
-        # `/org`/`/roles` subcommands here already split their own rest.
-        if not rest:
-            return "Usage: /org install <name> [--force]"
-        tokens = rest.split()
-        force = "--force" in tokens
-        name = next((t for t in tokens if t != "--force"), "")
-        if not name:
-            return "Usage: /org install <name> [--force]"
-        from halo_harness.orgs import install_org_template
-        ok, problems = install_org_template(name, force=force, state_dir=state_dir)
-        return (f"Installed organization template {name!r} to ~/.halo/orgs/{name}.json."
-                if ok else "Could not install: " + "; ".join(problems))
-
-    if sub == "export":
-        # Halo 2.0.2 round D (brief item 3): `/org export <name> [file]` --
-        # plain JSON; no file given returns it as the command's own text
-        # (headless.py prints that directly, same as every other "core"
-        # command's result) rather than silently writing somewhere unasked.
-        if not rest:
-            return "Usage: /org export <name> [file]"
-        import json
-        from halo_harness.orgs import load_org
-        name, _, file_arg = rest.partition(" ")
-        file_arg = file_arg.strip() or None
-        org = load_org(name, state_dir=state_dir)
-        if org is None:
-            return f"No such organization: {name!r} (or it failed validation)"
-        text = json.dumps(org, indent=2, sort_keys=True) + "\n"
-        if not file_arg:
-            return text
-        try:
-            Path(file_arg).write_text(text, encoding="utf-8")
-        except OSError as e:
-            return f"Could not write {file_arg}: {e}"
-        return f"Exported organization {name!r} to {file_arg}."
-
-    if sub == "import":
-        # Halo 2.0.2 round D (brief item 3): `/org import <file>` -- plain
-        # JSON, validated the same way any other org write is (`orgs.
-        # save_org` -> `validate_org`), with every problem listed.
-        if not rest:
-            return "Usage: /org import <file>"
-        import json
-        from halo_harness.orgs import save_org
-        path = Path(rest)
-        try:
-            raw = path.read_text(encoding="utf-8")
-        except OSError as e:
-            return f"Could not read {rest}: {e}"
-        try:
-            data = json.loads(raw)
-        except ValueError as e:
-            return f"{rest} is not valid JSON: {e}"
-        name = data.get("name") if isinstance(data, dict) else None
-        if not isinstance(name, str) or not name.strip():
-            name = path.stem
-        ok, problems = save_org(name, data, state_dir=state_dir)
-        return (f"Imported organization {name!r} from {rest}." if ok
-                else f"{rest} is not a valid organization: " + "; ".join(problems))
-
-    if sub == "edit":
-        return ("/org edit opens the organization editor form in the TUI only -- "
-                "use `halo org edit <name>` ($EDITOR) from the CLI instead.")
-
-    if sub == "run":
-        if not rest:
-            return 'Usage: /org run [<name>] "<goal>" (no name uses orgs.default, see /setup orgs)'
-        from halo_harness.orgs import default_org_name, parse_run_args
-        name, goal = parse_run_args(rest)
-        if not goal:
-            return 'Usage: /org run [<name>] "<goal>" (no name uses orgs.default, see /setup orgs)'
-        if name is None:
-            name = default_org_name(state_dir=state_dir)
-            if name is None:
-                return ('No organization name given, and no default is set -- /org run <name> "<goal>", '
-                         'or set a default in /setup orgs.')
-        if session is None or getattr(session, "agent_runtime", None) is None:
-            return "Organizations can only be run once a session is running."
-        from halo_harness.agent.subagent import run_org_call
-        _events, result = run_org_call(
-            runtime=session.agent_runtime, tool_id=f"org-run-{name}", tool_name="Agent",
-            tool_input={"org": name, "prompt": goal, "description": f"Run org {name}"},
-        )
-        return result.content
-
-    if sub == "resume":
-        # Halo 2.0.2 round D (brief item 4): `/org resume` (no argument --
-        # the headless/print-mode form has no "current session id" of its
-        # own to type, unlike `halo org resume <session-id>`) continues
-        # THIS session's own interrupted run, from its own saved record +
-        # shared task board.
-        if session is None or getattr(session, "agent_runtime", None) is None:
-            return "Organizations can only be resumed once a session is running."
-        from halo_harness.agent.subagent import resume_org_run
-        session_dir = session.log.dir / session.log.session_id
-        _events, result = resume_org_run(
-            runtime=session.agent_runtime, tool_id="org-resume", tool_name="Agent", session_dir=session_dir,
-        )
-        return result.content
-
-    return f"/org: unknown subcommand {sub!r} (known: list, show, new, load, install, edit, run, export, import, resume)"
-
-
 def _cmd_setup(args: str, facade: HeadlessFacade) -> str:
-    """Halo 2.0.2 round 7: `/setup [roles|orgs]` -- the guided setup
+    """Halo 2.0.2 round 7: `/setup [roles]` -- the guided setup
     SCREEN only exists in the TUI (`tui/slash.py::_handle_setup`
-    intercepts this first, same split as `/roles edit`/`/org edit`); this
+    intercepts this first, same split as `/roles edit`); this
     headless fallback (a bare `-p "/setup"`, or a custom command/skill
     that happens to invoke it) just names the real surfaces instead of
     half-implementing a form with no screen to draw it on."""
     sub = (args or "").strip().lower()
     if sub == "roles":
         return "/setup roles opens the roles setup screen in the TUI only -- use `halo setup roles` from the CLI."
-    if sub == "orgs":
-        return "/setup orgs opens the organizations setup screen in the TUI only -- use `halo setup orgs` from the CLI."
-    return ("/setup opens the roles and organizations setup screens in the TUI only -- "
-            "use `halo setup` from the CLI, or `/roles`/`/org` here.")
+    return ("/setup opens the roles setup screen in the TUI only -- "
+            "use `halo setup` from the CLI, or `/roles` here.")
 
 
 def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
@@ -2034,11 +1848,9 @@ _BUILTIN_SPECS = {
     "roles": ("core", "Open Studio's Roles GUI (bare, in the TUI); the role table, roles on/off, role templates",
               "[gui|table|on|off|templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),
-    "org": ("core", "Open Studio's Org GUI (bare, in the TUI); on|off is the Org mode switch; list/show/run Halo's own organizations",
-             "[gui|on|off|list|show|new|load|edit|run [<name>] \"<goal>\"]", _cmd_org),
     "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",
                "[target] [--level low|medium|high] [--dimensions a,b] [--fix] [--no-verify]", _cmd_review),
-    "setup": ("core", "Open the roles/organizations guided setup screens", "[roles|orgs]", _cmd_setup),
+    "setup": ("core", "Open the roles guided setup screen", "[roles]", _cmd_setup),
     "providers": ("core", "Show/enable/disable providers (dbx:/or:/ant:/cc:)", "[list|enable|disable <name>]",
                   _cmd_providers),
     "subscriptions": ("ui", "Review and accept/revoke the cc:/cx: subscription-routes notice",
@@ -2054,7 +1866,7 @@ _BUILTIN_SPECS = {
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
     "level": ("core", "Toggle the game themes' level band above the prompt", "[on|off]", _cmd_level),
     "studio": ("core", "Open Halo Studio, the browser GUI: in the TUI bare /studio watches this session (the Session dashboard)",
-               "[session|roles|org|design|orchestra|flow|fleet|team] [url]", _cmd_studio),
+               "[session|roles|design|orchestra|fleet|team] [url]", _cmd_studio),
     "design": ("core", "Open Studio's Design GUI: artboards on your own apps (the `halo design` family)", "[url]", _cmd_design),
     "remote": ("core", "Remote control: control socket, Signal bridge state, paired phones, pairing, kill switch",
                "[status|pair [N]|off]", _cmd_remote),

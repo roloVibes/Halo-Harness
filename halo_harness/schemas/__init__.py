@@ -1,5 +1,5 @@
 """halo_harness.schemas -- one schema set for the files `halo config where`
-lists: `config.json`, a lineup, an agent bio, a team file and a flow file.
+lists: `config.json`, a lineup, an agent bio and a team file.
 
     from halo_harness.schemas import schema_for, check_file_shape
     check_file_shape("lineup", data)   # -> [{"check", "key", "text", "closest"}, ...]
@@ -14,7 +14,7 @@ from halo_harness.schemas.check import check, closest_key
 from halo_harness.schemas.config_json import schema as config_json_schema
 from halo_harness.schemas.yaml_files import SCHEMAS as _YAML
 
-KINDS = ("config", "lineup", "bio", "team", "flow")
+KINDS = ("config", "lineup", "bio", "team")
 
 
 def schema_for(kind: str) -> dict:

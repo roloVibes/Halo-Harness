@@ -1,6 +1,6 @@
 /* The Roles canvas (3.0.7.0 R2): tier boxes in the classic group-box look,
    agent cards with a band in their role's colour, the instances stack, the
-   model pill, the warnings badge, the delegation / reports / pipeline edges,
+   model pill, the warnings badge, the delegation / pipeline edges,
    Live Roles' glow (typing: a flow along the top; a tool call: one pulse
    per call; waiting on you: an amber pulse; done: one sweep; failed: a
    flash) and the replay bar. Tokens only (styles/tokens.css). */
@@ -37,12 +37,10 @@
 .rc-edges { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
 .rc-edge { fill: none; stroke: var(--line-strong); stroke-width: 1.4; }
 .rc-edge[data-kind="delegation"] { stroke: color-mix(in srgb, var(--accent) 55%, transparent); }
-.rc-edge[data-kind="reports"] { stroke: color-mix(in srgb, var(--accent-2) 70%, transparent); stroke-dasharray: 5 4; }
 .rc-edge[data-kind="pipeline"] { stroke: color-mix(in srgb, var(--warn) 55%, transparent); stroke-dasharray: 2 5; }
 .rc-edge[data-on] { stroke-width: 2.2; filter: drop-shadow(0 0 3px var(--accent)); }
 .rc-edge[data-lit] { stroke: var(--accent); stroke-width: 2.4; stroke-dasharray: 8 6; animation: rc-flow .8s linear infinite; }
 .rc-arrow-delegation { fill: var(--accent); }
-.rc-arrow-reports { fill: var(--accent-2); }
 .rc-arrow-pipeline { fill: var(--warn); }
 .rc-edge-label { font: 10.5px var(--mono); fill: var(--muted); }
 @keyframes rc-flow { to { stroke-dashoffset: -28; } }

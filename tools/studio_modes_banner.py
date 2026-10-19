@@ -1,7 +1,7 @@
 """tools/studio_modes_banner.py -- the Studio five-tile banner for the README.
 
-Composes studio-orchestra.png, studio-roles.png, studio-org.png,
-studio-design.png and studio-flow.png (the headless-Chrome captures from
+Composes studio-orchestra.png, studio-roles.png, studio-design.png,
+studio-fleet.png and studio-team.png (the headless-Chrome captures from
 tools/capture_studio.py) into one wide banner, docs/media/studio-modes.png:
 five frames in a row on the Studio background with a section label over
 each and the key that switches to it (Alt+1 .. Alt+5). Pure Pillow, no fonts fetched: the label uses the default
@@ -26,9 +26,9 @@ OUT = MEDIA / "studio-modes.png"
 FRAMES = (
     ("studio-orchestra.png", "Orchestra", "Alt 1", "agents writing the same files"),
     ("studio-roles.png", "Roles", "Alt 2", "lineups and bios as a graph"),
-    ("studio-org.png", "Org", "Alt 3", "the company in Paperclip"),
-    ("studio-design.png", "Design", "Alt 4", "artboards on your own apps"),
-    ("studio-flow.png", "Flow", "Alt 5", "input to render to post"),
+    ("studio-design.png", "Design", "Alt 3", "artboards on your own apps"),
+    ("studio-fleet.png", "Fleet", "Alt 4", "every harness, every agent"),
+    ("studio-team.png", "Team", "Alt 5", "people, blocks and stages"),
 )
 FRAME_W = 640           # each capture is scaled to this width
 GAP = 28

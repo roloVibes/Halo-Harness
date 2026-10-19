@@ -87,24 +87,6 @@ def orchestra_run(root: Path, lanes: list, *, events=(), merge=None, goal=None, 
     return run_dir
 
 
-def flow_run(state_dir: Path, run: str = "20261017-120500-f10a") -> Path:
-    """A finished flow whose confirm gate looped three times and whose render was drawn again twice."""
-    run_dir = Path(state_dir) / "flows" / "runs" / run
-    steps = [{"id": "intake", "kind": "intake", "state": "done"}, {"id": "render", "kind": "render", "state": "done"},
-             {"id": "approve", "kind": "confirm", "state": "done"}]
-    write(run_dir / "flow.json", {"name": "social-post", "run": run, "created": 1000.0, "status": "finished", "steps": steps,
-                                  "cost_usd": 0.2})
-    write(run_dir / "steps" / "1.json", {"id": "intake", "kind": "intake", "rounds": 0, "cost_usd": 0.0})
-    write(run_dir / "steps" / "2.json", {"id": "render", "kind": "render", "rounds": 3, "cost_usd": 0.1,
-                                         "instructions": ["make the sky darker", "the logo is too small"]})
-    write(run_dir / "steps" / "3.json", {"id": "approve", "kind": "confirm", "rounds": 3, "cost_usd": 0.0})
-    lines(run_dir / "events.jsonl", [])
-    write(run_dir / "report.json", {"run": run, "name": "social-post", "status": "finished", "stop_reason": None,
-                                    "cost_usd": 0.2, "steps": [{"id": s["id"], "kind": s["kind"], "state": "done",
-                                                                "cost_usd": 0.1 if s["id"] == "render" else 0.0} for s in steps]})
-    return run_dir
-
-
 def mission_folder(home: Path, mid: str = "m-20261017-c0a1") -> Path:
     """An ended mission (mission.json, plan.json, report.json, log.jsonl): part 2 sat `asked` for 200 s (the
     median part took 55 s), part 3's edit was refused, part 3's merge conflicted with part 1 in docs/a.md,

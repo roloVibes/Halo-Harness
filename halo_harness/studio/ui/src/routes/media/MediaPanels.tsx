@@ -1,8 +1,8 @@
 // The Media panels (ComfyUI): Status (MediaStatus.tsx), Models (tabs image /
 // video / audio / upscale; the supporting files under a disclosure),
 // Workflows (starters and saved; click one for its inputs) and Render
-// (MediaRender.tsx). `mediaPanels()` is the group a section adds; every
-// panel opens on its full face.
+// (MediaRender.tsx). `mediaPanels()` is the group Design adds as optional
+// panels; every panel opens on its full face.
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
@@ -137,10 +137,9 @@ function attached(hook: () => MotionState): () => MotionState {
   };
 }
 
-/** The Media group: a row of panels at `y` (collapsed in Flow), or optional ones the palette adds (Design). */
-export function mediaPanels(y: number, mode: "collapsed" | "optional"): PanelSpec[] {
-  const extra = mode === "collapsed" ? { collapsed: true } : { optional: true };
-  const base = { y, w: 6, h: 40, minW: 4, minH: 12, face: "detail" as const, ...extra };
+/** The Media group: optional panels at `y` the palette adds (Design). */
+export function mediaPanels(y: number): PanelSpec[] {
+  const base = { y, w: 6, h: 40, minW: 4, minH: 12, face: "detail" as const, optional: true };
   const at = (id: string) => ({ ...base, ...HELP[id], id, testid: id });
   return [
     { ...at("media-status"), title: "Media status", x: 0, glance: StatusGlance, detail: StatusDetail, settings: StatusSettings, useMotion: attached(useStatusMotion) },

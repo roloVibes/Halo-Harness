@@ -22,8 +22,8 @@ socket and changes nothing about it.
 ## What the control socket is
 
 Every interactive `halo` session and every `halo -p` run (including `--bg`
-runs, which re-run the same invocation, Paperclip heartbeats and Orchestra
-workers), and a flow's org run, opens one local socket and lists itself in
+runs, which re-run the same invocation, and Orchestra
+workers), and a mission worker, opens one local socket and lists itself in
 the registry. A program that can
 reach that socket can do what the keyboard does: send a prompt (or steer the
 turn in flight), interrupt, switch mode / model / effort, run a slash
@@ -117,7 +117,7 @@ semantics are in [SUBAGENTS.md](SUBAGENTS.md#the-live-agent-tree-and-what-studio
 
 | `cmd` | Fields | Result |
 |---|---|---|
-| `agents` | | `{agents: [row, ...]}`: the session's live agent tree, parents before children. A row is `{agent_id, parent, name, role, bio, lineup, model, kind, task, since, state, turns, cost_usd, current, last_text, transcript}`; `kind` is `main`, `subagent`, `member` (an org position or team member), `background` or `job`; `state` is `queued`, `running`, `waiting`, `paused`, `done`, `failed` or `stopped`; `current` is the tool in flight with one line of its arguments, or `thinking` |
+| `agents` | | `{agents: [row, ...]}`: the session's live agent tree, parents before children. A row is `{agent_id, parent, name, role, bio, lineup, model, kind, task, since, state, turns, cost_usd, current, last_text, transcript}`; `kind` is `main`, `subagent`, `member` (a team member), `background` or `job`; `state` is `queued`, `running`, `waiting`, `paused`, `done`, `failed` or `stopped`; `current` is the tool in flight with one line of its arguments, or `thinking` |
 | `agent_tail` | `agent_id`, `n` (default 100, at most 500), optional `kinds` (a list) | `{agent_id, events: [entry, ...]}`: the last n entries of that agent's own transcript (for `main`, the session's). An entry is `{kind, ...}` with `kind` one of `user`, `text`, `thinking`, `tool_call`, `spawn`, `tool_result`, `handback`, `control`, `note`, `ask`, `error`, `done` |
 | `agent_steer` | `agent_id`, `text`, optional `mode` (`nudge`, the default, or `redirect`) | `{agent_id, mode, delivered}`: `inbox` (the agent reads it before its next model call), `external` (a `cc:` child took it through its own stdin), or for `main` `steer` / `turn` (today's `steer`). A `cx:` child with no live channel answers `ok: false` with `that agent runs in an external process; stop and respawn`; a finished agent answers `ok: false` |
 | `agent_stop` | `agent_id`, optional `reason` | `{agent_id, stopping: [ids]}`: that agent and its subtree end at their next tool boundary. `main` is the turn-level `interrupt` (`{agent_id, interrupted}`); a `job:` id kills the job (`{agent_id, stopped, message}`) |
@@ -172,8 +172,8 @@ socket:
 ]}
 ```
 
-Since 3.0.5.0: `kind` is `tui`, `print`, `paperclip`, `orchestra-worker` or
-`flow`; `harness.id` is a stable per-home id kept in `~/.halo/fleet-id` and
+Since 3.0.5.0: `kind` is `tui`, `print`, `orchestra-worker` or
+`mission-worker`; `harness.id` is a stable per-home id kept in `~/.halo/fleet-id` and
 `harness.name` is `fleet.name` (default `user@host`); `project` is read from
 git a moment after the session starts (None fields outside a repo);
 `parent` is the session that started this one (an Orchestra worker names
@@ -216,7 +216,7 @@ The bridge also carries the fleet's attention queue (3.0.5.0 round R4). When
 `remote.enabled` is on, the bridge is running and at least one phone is
 paired, Studio's fleet watcher writes each NEW attention row (a permission,
 question, plan or approval card of any harness's session, a fleet ask, a
-waiting agent, a flow gate, a spend cap, a conflict) as one small file in
+waiting agent, a spend cap, a conflict) as one small file in
 `~/.halo/remote/fleet-push/` (0600), and the bridge sends it about once a
 second to every paired phone as the same card it sends for its own session,
 prefixed with the harness name (`[kali@lab] Permission needed: Bash ...`).

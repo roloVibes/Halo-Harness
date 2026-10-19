@@ -835,9 +835,8 @@ def apply_role_template(name: str, state_dir=None) -> "tuple[bool, list[str]]":
 # Halo 2.0.2 round 7 (init wizard brief, item 2): three shipped PRESETS,
 # written as ordinary templates (above) into `role_templates_dir()` the
 # first time the roles setup screen runs, and never overwritten after
-# that -- the exact "copy on first use, never overwrite" idiom `orgs.py::
-# ensure_builtin_orgs` already uses for its own three built-ins. Unlike
-# `_BUILTIN_ORGS` (a fixed literal), these three are COMPUTED from
+# that -- the "copy on first use, never overwrite" idiom. Unlike a fixed
+# literal, these three are COMPUTED from
 # whatever is actually configured right now (there is no single "the
 # strongest/cheapest model" without asking the live catalogs), so they
 # are written once, at first-use time, not kept as a module constant.
@@ -983,8 +982,7 @@ def ensure_builtin_role_presets(*, default_model: Optional[str] = None, state_di
     """Writes each of `BUILTIN_ROLE_PRESET_NAMES` as an ordinary template
     the first time it's missing -- never overwrites one that already
     exists (even an empty/stale one from an earlier run with a different
-    provider configured), matching `orgs.ensure_builtin_orgs`'s own
-    "never overwritten once present" rule."""
+    provider configured): "never overwritten once present"."""
     presets = compute_builtin_role_presets(default_model=default_model, state_dir=state_dir)
     d = role_templates_dir(state_dir)
     d.mkdir(parents=True, exist_ok=True)

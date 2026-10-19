@@ -6,7 +6,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Design mode: prototypes, pages and decks on your own apps
 
-Design (`Alt+4`, `halo studio --mode design`, `/design`) is a React section of
+Design (`Alt+3`, `halo studio --mode design`, `/design`) is a React section of
 the shell since 3.0.7.0, over `halo design` projects under
 `~/.halo/design/<slug>/`. With no project yet it is one **Start view**: what
 Design mode is, the steps, and one button: name the first project and
@@ -124,3 +124,49 @@ Desktop 1280**, **Design: export**, **Design: handoff bundle**, **Design:
 send comments**, and every project by name.
 
 ![The Design section: a hero prototype and a logo mark as artboards](media/studio-design.png)
+
+## Media: the ComfyUI panels
+
+The palette (**Media: status**, **scan**, **models**, **quick render**)
+pops the ComfyUI panels out over the Design canvas (from another section it
+goes to Design first), and the Inspector's **Remove from Design** takes one
+away again.
+
+| Panel | What it shows |
+|---|---|
+| **Media status** | a dot that ticks green on every check (every 15 s while a Media panel is open), the ComfyUI version, the GPU's VRAM bar, the model count and the cache's age, **Scan** (reads the server's model folders and saved workflows into the cache) |
+| **Media models** | tabs image / video / audio / upscale; each row is a file with its family, precision and size (and a note: a 4-step LoRA, the high- or low-noise expert); encoders, LoRAs and VAEs of the same families sit under **supporting files** |
+| **Workflows** | Halo's starters and the workflows saved on the server; click one for the inputs a render can set (`*` marks a named input) |
+| **Render** | the workflow, its named inputs (prompt, negative, size, seed, steps) and every node input under a disclosure, the design project and the artboard; **Render** queues it (`202`), the `media_render` frames show its progress, and the result shows inline (it is also an artboard in Design; a render over an existing artboard is its next version) |
+
+While ComfyUI does not answer, the group is one card instead of four
+panels: where Studio looked, the error, and the fix (start ComfyUI, then
+`halo media init --url <its address>` or `COMFY_URL`, then **Check
+again**). The models tab is remembered in your browser
+(`halo.studio.media.tab`).
+
+## Media routes (3.0.4.0)
+
+The JSON routes behind the Media panels. Every one sits behind the
+same loopback, Host, Origin and bearer-token guard as the rest of `/api/`.
+Renders go to ComfyUI at `COMFY_URL`, the config's `comfy.url`, or
+`http://127.0.0.1:8188` ([COMFYUI.md](COMFYUI.md)).
+
+| Route | Answer |
+|---|---|
+| `GET media/status` | `{url, reachable, version, python, pytorch, gpus, registered, cache: {scanned, age_s, rows, workflows}, checked, age_s, checking}` |
+| `GET media/models?kind=image-gen\|video-gen\|audio-gen\|upscale\|all` | `{kind, rows, scanned, url}` from the cached inventory |
+| `POST media/scan` | `{rows, workflows, scanned, url}`: reads the server into the cache |
+| `GET media/workflows` | `{workflows: [{name, source: starter\|saved}], reachable, url}` (the cache's names when the server is down) |
+| `GET media/workflows/<name>/inputs?source=starter\|saved` | `{workflow, source, label, nodes}`: each node's settable inputs |
+| `POST media/render {workflow, set, project, artboard}` | `202 {prompt_id, project, artboard, workflow, source}`; the render goes on in the background |
+| `GET media/renders/<prompt id>` | the render's last state |
+
+A render publishes `media_render` frames
+(`session_id: "media:<prompt id>"`, data `{prompt_id, state:
+queued|progress|done|error, text, project, artboard, workflow, artboards?,
+error?}`) and saves each output as an artboard of the design project. A
+render over an existing artboard becomes that artboard's next version.
+`media/status` refreshes in the background every 15 s and never holds a
+request for more than 2 s. An artboard's `url` is a `/design-files/` path.
+A `.mp4` is served as `video/mp4` with no sandbox directive.

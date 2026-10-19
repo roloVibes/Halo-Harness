@@ -2,8 +2,8 @@
 flight recordings, the canvas replay and the `halo fleet record | digest`
 verbs, over the two-harness rig (tests/helpers/studio_fleet_rig.py) and real
 HTTP: Take over writes the hand-off in the agent's transcript and its
-parent's; Hand to writes `<repo>/.halo/handoffs/<id>.md` with Org mode off and
-a Paperclip issue (stubbed client) with it on, then stops the agent; a
+parent's; Hand to writes `<repo>/.halo/handoffs/<id>.md`, then stops the
+agent (3.1.4.0: a leftover `paperclip.enabled` changes nothing); a
 recording is one self-contained HTML with no external URL (the no-URL gate of
 tests/test_studio_dist.py) that the download route serves; the replay is the
 ordered states of a finished session. Companion of tests/test_fleet_panels_api.py.
@@ -72,22 +72,8 @@ def test_take_over_is_recorded_in_both_transcripts_and_reaches_a_member(ctx: Ctx
         ctx.check("both are journaled", [r["action"] for r in journal.read(rig.state, 0, kinds=("handoff",))] == ["take_over", "take_over"])
 
 
-class _Paperclip:
-    def __init__(self):
-        self.issues = []
-
-    def agents(self, company):
-        return [{"id": "ag-other", "name": "someone"}, {"id": "ag-kali", "name": "kali", "metadata": {"halo_harness": "kali@lab"}}]
-
-    def create_issue(self, company, payload):
-        self.issues.append((company, payload))
-        return {"id": "is-1", "identifier": "SHOP-7", "title": payload["title"], "status": "todo", "assigneeAgentId": payload.get("assigneeAgentId")}
-
-
 @test
-def test_hand_to_writes_the_markdown_or_the_paperclip_issue_then_stops(ctx: Ctx):
-    from halo_harness.paperclip.client import save_config
-    from halo_harness.studio import fleet_handoff_api
+def test_hand_to_writes_the_markdown_then_stops(ctx: Ctx):
     from halo_harness.theme import set_config_value
     from tests.helpers.studio_fleet_rig import MEMBER, StudioFleetRig
     with StudioFleetRig() as rig:
@@ -95,27 +81,20 @@ def test_hand_to_writes_the_markdown_or_the_paperclip_issue_then_stops(ctx: Ctx)
         status, got = rig.api("POST", f"fleet/local/{rig.act.session_id}/agents/{a}/handoff", {"mode": "hand_to", "to": "kali@lab"})
         path = Path(got.get("path") or "")
         md = path.read_text(encoding="utf-8") if path.is_file() else ""
-        ctx.check(f"Org mode off: <repo>/.halo/handoffs/<id>.md, got {status} {got.get('path')}",
+        ctx.check(f"<repo>/.halo/handoffs/<id>.md, got {status} {got.get('path')}",
                   status == 200 and path.parent == rig.proj / ".halo" / "handoffs" and path.suffix == ".md")
         ctx.check("the brief: the task, who to, the hand-back section, the files", "Implement: apply the discount" in md
                   and "Handed to **kali@lab** by rolo@studio" in md and "## Its last hand-back" in md and "## Files it touched" in md)
         ctx.check(f"then the agent is stopped, got {got.get('stopped')}", got["stopped"]["status"] == 200)
         ctx.check("hand to nobody is a 422", rig.api("POST", f"fleet/local/{rig.act.session_id}/agents/{a}/handoff", {"mode": "hand_to"})[0] == 422)
-        set_config_value("paperclip.enabled", True)
-        save_config({"company_id": "co-1"}, rig.state)
-        pc = _Paperclip()
-        fleet_handoff_api.PAPERCLIP = lambda state: pc
+        set_config_value("paperclip.enabled", True)  # 3.1.4.0: a leftover section of a removed feature
         try:
             b = rig.agent("Research")["agent_id"]
             status, got = rig.api("POST", f"fleet/local/{rig.act.session_id}/agents/{b}/handoff", {"mode": "hand_to", "to": MEMBER})
         finally:
-            fleet_handoff_api.PAPERCLIP = None
             set_config_value("paperclip.enabled", False)
-        company, payload = pc.issues[0] if pc.issues else (None, {})
-        ctx.check(f"Org mode on: one issue in the linked company, assigned to kali@lab's agent, got {status} {got.get('issue')}",
-                  status == 200 and company == "co-1" and payload.get("assigneeAgentId") == "ag-kali" and payload.get("status") == "todo"
-                  and got["issue"]["identifier"] == "SHOP-7" and "path" not in got)
-        ctx.check("the issue carries the brief", payload.get("title", "").startswith("Hand-off: Research") and "## The task" in payload.get("description", ""))
+        ctx.check(f"a leftover paperclip.enabled still writes the note, no issue, got {status} {got}",
+                  status == 200 and Path(got.get("path") or "").is_file() and "issue" not in got)
         ctx.check("and that agent is stopped too", got["stopped"]["status"] == 200)
 
 

@@ -9,7 +9,7 @@ read from what this harness already keeps on disk; no network, no model:
     craft_apps()     the craft-app MCP servers registered here (ArtCraft apps, ComfyUI)
     media()          ComfyUI and the media models its last scan found
     projects()       the repos this harness works in (basename, repo, branch; never a full path)
-    integrations()   Paperclip (Org mode), Postiz, the Signal bridge
+    integrations()   the Signal bridge
 
 Every section is wrapped by the caller: one that raises is listed empty.
 """
@@ -158,14 +158,7 @@ def projects(home: Path, cwd: Path) -> list:
 
 
 def integrations(home: Path) -> dict:
-    from halo_harness.fleet.identity import config_value
-    out = {"paperclip": bool(config_value("paperclip.enabled", False, home)), "postiz": False, "signal": False}
-    try:
-        from halo_harness.flows.postiz import PostizCli
-        cli = PostizCli(home=home.parent if home.name == ".halo" else None)
-        out["postiz"] = bool(cli.available() and cli.credentials())
-    except Exception:
-        pass
+    out = {"signal": False}
     try:
         from halo_harness.fleet.push import paired
         out["signal"] = bool(paired(home))

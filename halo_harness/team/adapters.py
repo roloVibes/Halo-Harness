@@ -6,9 +6,6 @@
   session id come back (orchestra/adapters.py's worker call, one member).
 * `run_orchestra` -- a new Orchestra run in the repo with the stage's goal,
   run to its report through orchestra/adapters.py's real adapters.
-* `run_flow` -- a new flow run of the named flow with the stage's inputs as
-  its intake, through flows/adapters.py; its human gates answer through
-  `halo flow answer` as always.
 """
 
 from __future__ import annotations
@@ -86,30 +83,4 @@ def orchestra_run(goal: dict, root, *, model: Optional[str] = None, on_start=Non
     return {"ok": ok, "run_id": orch_dir.name, "cost_usd": float(report.get("cost_usd") or 0.0), "report": report,
             "text": f"Orchestra run {orch_dir.name} {report.get('status')}"
                     + (f": {report.get('stop_reason')}" if report.get("stop_reason") else ""),
-            "error": "" if ok else str(report.get("stop_reason") or report.get("status") or "stopped")}
-
-
-def run_flow(name: str, *, intake: dict, cwd, stage: str, run_dir, model: Optional[str] = None) -> dict:
-    from halo_harness.team.board import log
-    return flow_run(name, intake, cwd, model=model, on_start=lambda rid: log(
-        run_dir, "note", f"{stage}: flow run {rid} started (answer its gates with halo flow answer)",
-        stage=stage, flow_run=rid))
-
-
-def flow_run(name: str, intake: dict, cwd, *, model: Optional[str] = None, on_start=None) -> dict:
-    """A new run of flow `name` with `intake`, run to its report (here, or on a fleet member)."""
-    from halo_harness.flows import spec as fspec, state
-    from halo_harness.flows.adapters import Adapters
-    from halo_harness.flows.run import run
-    path = fspec.find_flow(name, cwd=cwd)
-    if path is None:
-        return {"ok": False, "error": f"no flow {name!r}"}
-    spec = fspec.load_flow(path)
-    flow_dir = state.new_run(spec, intake, source=str(path))
-    if on_start is not None:
-        on_start(flow_dir.name)
-    report = run(flow_dir, adapters=Adapters(model=model, auto_accept=False, cwd=str(cwd)))
-    ok = report.get("status") == "finished"
-    return {"ok": ok, "run_id": flow_dir.name, "cost_usd": float(report.get("cost_usd") or 0.0), "report": report,
-            "text": f"flow run {flow_dir.name} {report.get('status')}",
             "error": "" if ok else str(report.get("stop_reason") or report.get("status") or "stopped")}

@@ -1,11 +1,11 @@
 """tests.test_team_delegate_runs -- Halo 3.1.2.0 round R2: a team's orchestra
-stage and flow stage with `harness: <member>` run on that fleet member
+stage with `harness: <member>` runs on that fleet member
 (team/remote_stage.py -> team/delegate.py -> the hub's `run_task` ->
 fleet/mission_stage_run.py on the member), over tests/helpers/fleet_hub_rig.py's
 two homes: home A runs the hub and the team, home B is the member (its fake
 session behind the real Controller, `fleet.allow_control: all`) with a
-checkout of the same repo. The member's ORCHESTRA / FLOW seams are fakes
-(no model). Each stage's row shows the harness chip and the remote run id,
+checkout of the same repo. The member's ORCHESTRA seam is a fake
+(no model). The stage's row shows the harness chip and the remote run id,
 its report lands in stages/<id>/report.json, its unit follows the part;
 a refused dispatch fails the stage with the reason.
 
@@ -39,7 +39,6 @@ workflow:
   stages:
     - {id: build, kind: orchestra, harness: MEMBER, goal: {what: "Build the site", done_when: "it renders", workers: 2},
        writes: [site], trigger: manual}
-    - {id: post, kind: flow, harness: MEMBER, flow: social-post, inputs: {brief: "the launch"}, trigger: "stage_done:build"}
 """
 
 
@@ -53,11 +52,6 @@ class Remote:
         self.calls.append(("orchestra", goal.get("what"), str(root)))
         return {"ok": True, "text": "Orchestra run 20261018-100000-aaaa finished", "cost_usd": 0.02,
                 "run_id": "20261018-100000-aaaa", "report": {"status": "finished", "cost_usd": 0.02, "lanes": 2}}
-
-    def flow(self, name, inputs, cwd):
-        self.calls.append(("flow", name, dict(inputs), str(cwd)))
-        return {"ok": True, "text": "flow run 20261018-100100-bbbb finished", "cost_usd": 0.03,
-                "run_id": "20261018-100100-bbbb", "report": {"status": "finished", "flow": name}}
 
 
 def _wait(fn, timeout: float = 60.0, step=None):
@@ -73,7 +67,7 @@ def _wait(fn, timeout: float = 60.0, step=None):
 
 
 @test
-def test_an_orchestra_and_a_flow_stage_run_on_the_member_and_a_refusal_fails(ctx: Ctx):
+def test_an_orchestra_stage_runs_on_the_member_and_a_refusal_fails(ctx: Ctx):
     from halo_harness.fleet import mission_stage_run as MSR
     from halo_harness.team import board as BD
     from halo_harness.team import spec as S
@@ -85,7 +79,7 @@ def test_an_orchestra_and_a_flow_stage_run_on_the_member_and_a_refusal_fails(ctx
     from tests.helpers.mission_seed import fleet
     from tests.helpers.orchestra_fixtures import git
     remote = Remote()
-    MSR.ORCHESTRA, MSR.FLOW = remote.orchestra, remote.flow
+    MSR.ORCHESTRA = remote.orchestra
     try:
         with HubRig() as rig:
             member_repo = Path(rig.root_b)
@@ -101,31 +95,28 @@ def test_an_orchestra_and_a_flow_stage_run_on_the_member_and_a_refusal_fails(ctx
             runner = TeamRunner(team, open_run(team, cwd=root, state_dir=state), cwd=root, state_dir=state,
                                 spawn=fakes.spawn, dispatch=FleetDelegate(home=rig.home_a))
             ctx.check("the board rows carry the member as the stage's harness",
-                      [r["harness"] for r in runner.board()["stages"]] == [rig.b_id, rig.b_id])
+                      [r["harness"] for r in runner.board()["stages"]] == [rig.b_id])
             runner.request("build")
-            done = _wait(lambda: runner.row("post").get("state") in ("done", "failed")
-                         and runner.row("build").get("state") in ("done", "failed"), 90, step=runner.tick)
-            build, post = runner.row("build"), runner.row("post")
-            ctx.check(f"both stages ran on the member and finished, got {build['state']} {build.get('error')!r} / "
-                      f"{post['state']} {post.get('error')!r}", done and build["state"] == "done" and post["state"] == "done")
-            ctx.check(f"the member ran the goal in its checkout and the flow with its inputs, got {remote.calls}",
-                      [c[0] for c in remote.calls] == ["orchestra", "flow"] and remote.calls[0][1] == "Build the site"
-                      and Path(remote.calls[0][2]).resolve() == member_repo.resolve()
-                      and remote.calls[1][1:3] == ("social-post", {"brief": "the launch"}))
+            done = _wait(lambda: runner.row("build").get("state") in ("done", "failed"), 90, step=runner.tick)
+            build = runner.row("build")
+            ctx.check(f"the stage ran on the member and finished, got {build['state']} {build.get('error')!r}",
+                      done and build["state"] == "done")
+            ctx.check(f"the member ran the goal in its checkout, got {remote.calls}",
+                      [c[0] for c in remote.calls] == ["orchestra"] and remote.calls[0][1] == "Build the site"
+                      and Path(remote.calls[0][2]).resolve() == member_repo.resolve())
             ctx.check(f"the rows carry the remote run ids, got {build.get('remote')}",
                       build["remote"]["run"] == "20261018-100000-aaaa" and build["remote"]["harness"] == rig.b_id
-                      and build["remote"]["part_state"] == "done" and post["remote"]["run"] == "20261018-100100-bbbb")
+                      and build["remote"]["part_state"] == "done")
             rep = BD.read_stage_file(runner.run_dir, "build", "report.json", None)
             refs = BD.read_stage_file(runner.run_dir, "build", "refs.json", None)
             ctx.check(f"the report and the refs landed in stages/build/, got {rep} {refs}",
                       rep == {"status": "finished", "cost_usd": 0.02, "lanes": 2}
-                      and refs["orchestra_run"] == "20261018-100000-aaaa" and refs["harness"] == rig.b_id
-                      and BD.read_stage_file(runner.run_dir, "post", "report.json", {}).get("flow") == "social-post")
+                      and refs["orchestra_run"] == "20261018-100000-aaaa" and refs["harness"] == rig.b_id)
             ctx.check("the hand-back is the run's line, the cost the member's",
                       "finished" in (BD.read_stage_file(runner.run_dir, "build", "handback.md", "") or "")
                       and abs(build["cost_usd"] - 0.02) < 1e-9)
             units = {u.id: u for u in UnitStore(runner.run_dir).units()}
-            ctx.check("the stage units are done", units["build"].state == "done" and units["post"].state == "done")
+            ctx.check("the stage unit is done", units["build"].state == "done")
             from halo_harness.fleet import store
             rig.set_b(**{"fleet.allow_control": "none"})
             store.mark(rig.a_id, allow_control="none")  # the joined hub's own level wins over the config's
@@ -140,7 +131,7 @@ def test_an_orchestra_and_a_flow_stage_run_on_the_member_and_a_refusal_fails(ctx
             ctx.check(f"a refused dispatch fails the stage with the reason, got {row['state']} {row.get('error')!r}",
                       row["state"] == "failed" and rig.b_id in row["error"] and "refused" in row["error"])
     finally:
-        MSR.ORCHESTRA = MSR.FLOW = None
+        MSR.ORCHESTRA = None
 
 
 @test

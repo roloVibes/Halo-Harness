@@ -1,0 +1,29 @@
+/* Shared lists and rows (first drawn for the Org section in 3.0.7.0 R3;
+   Org is gone in 3.1.4.0): the Design artboard and thread panels' padding,
+   the status rows of Roles > Models, the pick rows and lists of the Design
+   dialogs and the Roles Bios / Lineups panels, and the "where" block and
+   button row of the Roles and Team Start views and Start here. Tokens only. */
+
+.panel-body.face-detail:has(> .da), .panel-body.face-detail:has(> .dt) { padding: 10px; overflow: hidden; }
+
+/* -- status rows (Roles > Models) ------------------------------------------------------ */
+.oco { display: grid; gap: 12px; font-size: 13px; }
+.oco-row { display: grid; grid-template-columns: 10px 86px minmax(0, 1fr); align-items: center; gap: 8px; }
+.oco-row .rail-label { padding: 0; }
+.oco-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.oco-row[data-ok="true"] .oco-dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.oco-row[data-ok="false"] .oco-dot { background: var(--warn); }
+
+/* -- lists and pick rows (Design dialogs, Roles Bios and Lineups) ------------------------ */
+.ow { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
+.ow-list { display: grid; gap: 3px; }
+.ow-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "id title state" "id who who"; gap: 0 8px; align-items: center;
+  text-align: left; padding: 6px 8px; border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--text); cursor: pointer; font: inherit; font-size: 12.5px; }
+.ow-row:hover { background: var(--accent-soft); }
+.ow-row[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.od-pick { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 13px; }
+
+/* -- the Start views' "where" block and button row ------------------------------------- */
+.os-where { display: grid; gap: 12px; font-size: 13.5px; }
+.os-where p { margin: 0; }
+.os-buttons { display: flex; flex-wrap: wrap; gap: 8px; }

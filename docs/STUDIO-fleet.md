@@ -6,14 +6,14 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Fleet: every harness, every agent
 
-`Alt+6` (or `?mode=fleet`, `halo studio --mode fleet`, `/studio fleet`) is
+`Alt+4` (or `?mode=fleet`, `halo studio --mode fleet`, `/studio fleet`) is
 every Halo harness you run or joined, live: this machine's sessions (each
 opens its control socket by default, [FLEET.md](FLEET.md)) and every harness
 joined to this machine's hub, each session with its agents at every depth.
 Watch what any agent thinks, runs and writes, and steer, pause or stop that
 one agent, not only the main one.
 
-**Session (3.1.4.0) is these panels scoped to this box.** `Alt+8` (`/studio`
+**Session (3.1.4.0) is these panels scoped to this box.** `Alt+6` (`/studio`
 in a terminal, `halo studio --session`) shows the Map, Activity, Attention
 and Agent panels of this section, the same components, reading the Fleet
 stores through one scope (`{harness, session}`: this harness and the session
@@ -62,7 +62,7 @@ it.
 | **Health** (`fleet-health`) | A doctor summary per harness: all good / check it / needs you, the providers set up and whether they answer, the Halo, Studio and Python versions, free disk, how many sessions have their control socket open, and how old the reading is; **Refresh** asks again now. Compact face: healthy and to check. |
 | **Attention** (`fleet-attention`) | Every decision that waits on you, across the fleet, oldest first: who (harness, session, agent), what, for how long, and its one-key answers. Compact face: the count and the oldest row. |
 | **Activity** (`fleet-activity`) | The **timeline**: one lane per live agent over the last 5, 15 or 60 minutes, a bar per state (cyan working, amber waiting or paused, green done, red failed), each tool call a tick; hover for who and since when, a click selects that agent. Under it the merged **live log** of every harness, session and agent (state changes, tool calls, the text they write, the cards they open, errors, harnesses joining and leaving), with filters by harness, session, agent and kind, and Follow. A log line is one row (time, kind, who, then the text, which keeps at least 160 px and breaks between words; who shortens to its ellipsis first); when the log is narrower than 440 px, time, kind and who share the first row and the text takes the full width under them. The timeline draws at its real width, so the lane names keep their size in a narrow panel. Compact face: agents live and the newest line. |
-| **Map** (`fleet-map`) | One labelled box per harness (this one first; the group-box look of the Roles and Org canvases), a card per session (title, kind chip, project and branch, cost, status dot) and its agents as a tree under it (name and role, what it does now, the model pill, the tool's icon while a tool runs, a cost ticker that counts up, `...`), an edge from each parent to its children. **By project** regroups the cards into one box per repo, the harness colour on each card. Compact face: harnesses, agents live, need you. |
+| **Map** (`fleet-map`) | One labelled box per harness (this one first; the group-box look of the Roles canvas), a card per session (title, kind chip, project and branch, cost, status dot) and its agents as a tree under it (name and role, what it does now, the model pill, the tool's icon while a tool runs, a cost ticker that counts up, `...`), an edge from each parent to its children. **By project** regroups the cards into one box per repo, the harness colour on each card. Compact face: harnesses, agents live, need you. |
 | **Capabilities** (`fleet-capabilities`) | 3.0.6.0 R6. The **Who can...** box on top (see below), then one spec card per harness: its chips (the owner's tags, the GPU, the OS, craft apps), the hardware (CPU, cores, RAM, GPUs and VRAM, free disk), the models it is best with and its local ones, its craft apps and ComfyUI models, every MCP server with its tool count (click one for its tools and what each does), skills, command-line tools, tags, the catalog's age and **Refresh**. The map's harness boxes carry the same chips; People has a **specs** link per harness. Compact face (the face its strip opens on): the Who can... box and its best three, else each harness's chips; Expand for the spec cards. |
 | **Mission** (`fleet-mission`) | 3.0.6.0 R8. One goal for the whole fleet. **Start**: "What should the fleet do?", constraints, **prefer** (a chip per harness, clicked in the order you prefer them: the planner breaks ties with it), a budget, **Plan it**; under it every mission (goal, state, parts by state, harnesses, cost, **Open**). Five numbered lines on how a mission works show in full while there is no goal text and no mission yet; once you type a goal or a mission exists they fold into one **How this works** line, and a click on it opens them. **Plan**: a row per part (its number, title and kind, the harness with the reason on hover and a lock when it was pinned by capability, needs, claims, what it waits for, the estimate, **Drop**), the notes, the merge order, **Plan again**, **Approve**, **Run** (approves first) and what still stops an approval. **Running**: each part live (asked: waiting on that member's owner; running: the line its agent is on; then done / failed / stopped / skipped) with **Open the part's agent**, the cost per harness ticking, the merge queue, **Stop the mission...** (asks for a reason). **Report**: who did what on which harness, cost per harness and per part, decisions, refused edits, failures, the merge, the artifacts and hand-backs with **Open**. **Coach** (3.0.9.0, once the mission ended): the post-run coach's cards (a part asked long, a refused edit, a judged conflict, a part that changed nothing, missing outputs). Compact face: the running mission's goal and its parts by state, else "no mission". |
 | **Agent** (`fleet-agent`) | The selected agent: harness, session, role, model, cost, elapsed, state; **What it was asked**; its three streams, tabbed or side by side (Settings): **Thinking** (what it writes and reasons, the newest text typing out character by character; steers, notes, the cards it opened), **Working** (one row per tool call with its arguments, the file it touches, its result, and for Edit / Write the diff as it grows), **Output** (its hand-back, else the text after its last tool call); **Pause** / **Resume**, **Stop** (asks first), **Follow**, **Pin**; **Take over**, **Hand to...**, **Record**, **Replay** (this harness); the **Steer** box. With no agent picked, the last sessions on this harness with **replay** and **record**. Compact face: the agent, its state and cost, what it does now and its last words. |
@@ -80,8 +80,8 @@ its stream is pushed, its backlog is read once; the keyboard stays where it
 was); a double-click opens Agent expanded and focused; `...` on an
 agent is **Steer**, **Pause** / **Resume**, **Pin**, **Stop...**, **Take over...**,
 **Hand to...**, **Record this agent**, and on a session card **Record the
-session** and **Shut the session down...**; **Open in Orchestra** /
-**Open in Flow** when the session is an Orchestra worker or a flow run.
+session** and **Shut the session down...**; **Open in Orchestra** when the
+session is an Orchestra worker.
 
 **Steer.** Type in the Steer box and press Enter (or Send): **nudge** is a
 note the agent reads before its next model call, **redirect** gives it a new
@@ -101,13 +101,13 @@ tool call. The palette also has **Fleet: pause all** and **resume all**.
 
 One queue holds every decision a human has to make on any harness:
 permission, question, plan and approval cards, a fleet command a member's
-owner has to allow, an agent that waits or is paused, a Flow gate, an
+owner has to allow, an agent that waits or is paused, an
 Orchestra gate, a spend cap reached, two agents on one file. Each row
 answers with one key, through the route that already handles that kind
 (`GET /api/fleet/attention`, `POST /api/fleet/attention/answer`): **A**
 accepts, allows or resumes, **R** denies, redoes or answers with the text
 you type (a deny reason is optional), **S** stops the agent, **O** opens the
-panel the row belongs to (the agent in Agent, Costs, the map, Flow,
+panel the row belongs to (the agent in Agent, Costs, the map,
 Orchestra) and sends nothing. Click a row (or move with `J` / `K` or the
 arrows while the panel has the focus), then press the key; every decision
 is journaled with who made it. The count is live in the status bar and the
@@ -142,11 +142,9 @@ On an agent (the Agent panel, the map's `...`, the palette): **Take over**
 asks for your brief; the agent reads it before its next step in place of
 its task, and both transcripts record the hand-off and who made it.
 **Hand to...** asks which harness picks the work up (and a note for them):
-with Org mode on, Paperclip gets an issue for that harness's company agent
-with the task, the last hand-back and the files it touched; with it off,
-the same goes into a markdown hand-off note in the repo (`.halo/handoffs/`).
-Then the agent stops. The dialog shows the issue id (Open goes to Org) or
-the note's path (Open copies it). `POST /api/fleet/<harness>/<sid>/agents/<aid>/handoff`.
+the task, the last hand-back and the files it touched go into a markdown
+hand-off note in the repo (`.halo/handoffs/`).
+Then the agent stops. The dialog shows the note's path (Open copies it). `POST /api/fleet/<harness>/<sid>/agents/<aid>/handoff`.
 
 ### How this works: Recordings
 
@@ -254,9 +252,9 @@ shows it on demand.
 
 | Key | Where | What |
 |---|---|---|
-| `Alt+6` | everywhere | Fleet |
-| `Alt+7` | everywhere | Team (3.0.8.0) |
-| `Alt+8` | everywhere | Session: this session, live (3.1.4.0) |
+| `Alt+4` | everywhere | Fleet |
+| `Alt+5` | everywhere | Team (3.0.8.0) |
+| `Alt+6` | everywhere | Session: this session, live (3.1.4.0) |
 | `J` / `K` | Fleet map, the Session map, the Roles canvas, Orchestra lanes | the next / previous live agent (Session: of this harness; Orchestra: the next lane at work) |
 | `F` | Fleet; Roles with the Live tab open; Orchestra | follow: the stream scrolls with the agent (Orchestra: the Log follows) |
 | `Space` | Fleet; Roles with a card's agent watched | pin the stream: a **mini stream** floats over whatever you look at, in every section |
@@ -285,13 +283,12 @@ session, answer next (Attention, the oldest row), while you were away,
 who can... and the specs of each harness (3.0.6.0), new mission, approve
 mission, stop mission, mission report (3.0.6.0),
 follow any live agent by name, pause all, resume all, open the session in
-Orchestra or Flow.
+Orchestra.
 
 ### Live Roles: the lineup lights up
 
 On the **Roles** canvas the cards whose agents work right now glow (3.0.7.0
-R2: the React canvas; the React Org chart shows each agent's Paperclip
-status instead). Every live agent (any harness, any session) is matched to
+R2: the React canvas). Every live agent (any harness, any session) is matched to
 the card it runs under: the lineup must be the open one, then its alias,
 else its bio, else a role only one card has (a session's main agent on the
 main card). The glow is in the card's band colour and follows what the agent

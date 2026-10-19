@@ -1,4 +1,4 @@
-// Team (Alt+7, 3.0.8.0 R2): the project's team file as one board. Until the
+// Team (Alt+5, 3.0.8.0 R2): the project's team file as one board. Until the
 // team loads clean the section is the Start view (Start.tsx); then three
 // panels: the Board (team-board: the run bar, members as columns, stages as
 // boxes, blocks in the band underneath, the trigger, read and write edges),

@@ -3,7 +3,7 @@
 and on a stage): over the run's or the stage's budget a stage is not
 started (the row says why, budget.json, the Attention row with raise /
 skip / stop); a raised budget in the file counts at once; the stage
-forecast of an agent, an orchestra and a flow stage; `halo team status`
+forecast of an agent and an orchestra stage; `halo team status`
 shows spent / forecast / budget; the file's budgets are validated. Through
 tests/helpers/team_rig.py's fakes: no model is called.
 
@@ -147,8 +147,6 @@ def test_the_stage_forecasts_and_the_status_line(ctx: Ctx):
     orch = TB.stage_forecast(team, S.stage_by_id(team, "build"), [], root=root, state_dir=state)
     ctx.check(f"an orchestra stage: the Orchestra forecast of its goal, got {orch['how']} {len(orch['lines'])}",
               orch["how"] == "the Orchestra forecast of its goal" and len(orch["lines"]) == 2)
-    flow = TB.stage_forecast(team, S.stage_by_id(team, "post"), [], root=root, state_dir=state)
-    ctx.check(f"a flow stage: its steps' budgets, got {flow['usd']}", flow["how"] == "its flow's step budgets" and flow["usd"] > 0)
     TB.ROWS = []
     runner.request("draft")
     runner.tick()

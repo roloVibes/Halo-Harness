@@ -1599,34 +1599,6 @@ def test_role_command_effort_completion_reads_the_model_not_the_role_name(ctx: C
     asyncio.run(body())
 
 
-@test
-def test_org_command_arg_completion_tab_inserts_the_matching_org_name(ctx: Ctx):
-    """Round B fix pass ("No Tab completion for org/position names in
-    `/org ...`", confirmed): `/org show <name>` tab-completes the org
-    NAME argument against every saved organization."""
-    from halo_harness.orgs import ensure_builtin_orgs
-
-    async def body():
-        old, home = _scoped_state_dir_env("org-arg-completion-")
-        try:
-            ensure_builtin_orgs(state_dir=home / ".halo")
-            fake = FakeController()
-            app = await _mounted(fake)
-            async with app.run_test(size=(100, 40)) as pilot:
-                await pilot.click("#prompt-input")
-                await _type(pilot, "/org show comp")
-                await pilot.pause(0.1)
-                ctx.check(f"the popup is open for the org-name argument, got items={app._completion_items!r}",
-                          app.completion_popup.display and "company" in app._completion_items)
-                await pilot.press("tab")
-                await pilot.pause(0.1)
-                ctx.check(f"'company' inserted with no leading slash, got {app.prompt_input.text!r}",
-                          app.prompt_input.text == "/org show company ")
-        finally:
-            _restore_state_dir_env(old)
-    asyncio.run(body())
-
-
 def _scoped_state_dir_env(prefix: str) -> "tuple[dict, Path]":
     """Snapshot the two state-dir env vars, set both to a fresh scratch
     dir, and return `(old_values, scratch_home)` for the caller's own
@@ -1780,211 +1752,6 @@ def test_roles_edit_routes_to_external_editor_when_configured(ctx: Ctx):
                     ctx.check(f"routed to the external-editor path, got {calls}", calls == ["demo-profile"])
             finally:
                 slash_mod._edit_role_template_externally = orig
-        finally:
-            _restore_state_dir_env(old)
-    asyncio.run(body())
-
-
-@test
-def test_org_edit_opens_with_one_row_per_position(ctx: Ctx):
-    """Halo 2.0.2 round 2 (brief B): `/org edit company` opens the form
-    with one tree row per position, root first."""
-    from halo_harness.tui.dialogs.org_editor import OrgEditor
-
-    async def body():
-        old, _home = _scoped_state_dir_env("org-editor-open-")
-        try:
-            fake = FakeController()
-            app = await _mounted(fake)
-            async with app.run_test(size=(100, 40)) as pilot:
-                await pilot.click("#prompt-input")
-                await _type(pilot, "/org edit company")
-                await pilot.press("enter")
-                for _ in range(40):
-                    await app._drain()
-                    await pilot.pause(0.05)
-                    if isinstance(app.screen, OrgEditor):
-                        break
-                ctx.check(f"OrgEditor opened, got {type(app.screen).__name__}", isinstance(app.screen, OrgEditor))
-                option_ids = [str(o.id) for o in app.screen.query_one("#org-tree-list").options]
-                expected = {"CEO", "VP Engineering", "VP Marketing", "VP Research", "Engineering Manager",
-                            "Marketing Manager", "Research Manager", "Engineer 1", "Engineer 2",
-                            "Marketing Associate 1", "Marketing Associate 2", "Research Analyst 1",
-                            "Research Analyst 2"}
-                ctx.check(f"one row per company position, got {option_ids}", set(option_ids) == expected)
-                ctx.check(f"root (CEO) listed first, got {option_ids}", option_ids[0] == "CEO")
-        finally:
-            _restore_state_dir_env(old)
-    asyncio.run(body())
-
-
-@test
-def test_org_edit_pick_model_then_save_persists_and_reloads(ctx: Ctx):
-    """Picking a model for the highlighted position (via the SAME
-    ModelPicker `/model`/`/roles edit` use), then ctrl+s -- the org file
-    on disk reflects it, and re-loading it shows the change (brief's own
-    pilot: "opening /org edit company, changing a model, saving, and
-    reloading")."""
-    from textual.widgets import Input, OptionList
-    from halo_harness.orgs import load_org
-    from halo_harness.tui.dialogs.model_picker import ModelPicker
-    from halo_harness.tui.dialogs.org_editor import OrgEditor
-
-    async def body():
-        old, _home = _scoped_state_dir_env("org-editor-save-")
-        try:
-            fake = FakeController(model="or:vendor/pickable-org-model")
-            app = await _mounted(fake)
-            async with app.run_test(size=(100, 40)) as pilot:
-                await pilot.click("#prompt-input")
-                await _type(pilot, "/org edit company")
-                await pilot.press("enter")
-                for _ in range(40):
-                    await app._drain()
-                    await pilot.pause(0.05)
-                    if isinstance(app.screen, OrgEditor):
-                        break
-                editor = app.screen
-                editor.query_one("#org-tree-list", OptionList).highlighted = 0  # "CEO", the root
-                await pilot.press("enter")
-                await pilot.pause(0.1)
-                ctx.check(f"CEO's own fields loaded, got {editor._current_title!r}", editor._current_title == "CEO")
-                await pilot.press("ctrl+p")
-                await pilot.pause(0.1)
-                ctx.check(f"the nested ModelPicker opened, got {type(app.screen).__name__}",
-                          isinstance(app.screen, ModelPicker))
-                await pilot.press("enter")  # accepts the (only) filtered model
-                await pilot.pause(0.1)
-                ctx.check("back on the OrgEditor after picking", app.screen is editor)
-                role_field = editor.query_one("#org-field-role", Input).value
-                ctx.check(f"the role field now shows the picked model, got {role_field!r}",
-                          role_field == "or:vendor/pickable-org-model")
-                await pilot.press("ctrl+s")
-                await pilot.pause(0.1)
-                saved = load_org("company")
-                ceo = next(p for p in saved["positions"] if p["title"] == "CEO")
-                ctx.check(f"persisted to disk as a model (role cleared), got {ceo}",
-                          ceo.get("model") == "or:vendor/pickable-org-model" and "role" not in ceo)
-        finally:
-            _restore_state_dir_env(old)
-    asyncio.run(body())
-
-
-@test
-def test_org_edit_ctrl_d_deletes_position_even_with_a_field_focused(ctx: Ctx):
-    """2.0.2 review finding 38 pin (half 1): Textual's own Input/TextArea
-    bind ctrl+d to delete-right -- with no `priority=True`, a FOCUSED
-    field (the usual case; this screen is mostly fields) swallowed
-    ctrl+d before the screen's own `delete_position` binding ever saw
-    it, so the key did nothing at all while editing a position."""
-    from textual.widgets import Input, OptionList
-    from halo_harness.tui.dialogs.org_editor import OrgEditor
-
-    async def body():
-        old, _home = _scoped_state_dir_env("org-editor-ctrld-")
-        try:
-            fake = FakeController()
-            app = await _mounted(fake)
-            async with app.run_test(size=(100, 40)) as pilot:
-                await pilot.click("#prompt-input")
-                await _type(pilot, "/org edit company")
-                await pilot.press("enter")
-                for _ in range(40):
-                    await app._drain()
-                    await pilot.pause(0.05)
-                    if isinstance(app.screen, OrgEditor):
-                        break
-                editor = app.screen
-                option_list = editor.query_one("#org-tree-list", OptionList)
-                target_idx = next(i for i, o in enumerate(option_list.options) if o.id == "Engineer 1")
-                option_list.highlighted = target_idx
-                await pilot.press("enter")
-                await pilot.pause(0.1)
-                ctx.check(f"loaded the target position, got {editor._current_title!r}",
-                          editor._current_title == "Engineer 1")
-                role_field = editor.query_one("#org-field-role", Input)
-                role_field.focus()
-                await pilot.pause(0.05)
-                before = len(editor.org["positions"])
-                await pilot.press("ctrl+d")
-                await pilot.pause(0.1)
-                after = len(editor.org["positions"])
-                ctx.check(f"the position was actually deleted despite the field's own focus, "
-                          f"got before={before} after={after}", after == before - 1)
-                ctx.check("Engineer 1 is gone", not any(p.get("title") == "Engineer 1" for p in editor.org["positions"]))
-        finally:
-            _restore_state_dir_env(old)
-    asyncio.run(body())
-
-
-@test
-def test_org_edit_bare_model_alias_saved_as_model_not_role(ctx: Ctx):
-    """2.0.2 review finding 38 pin (half 2): `is_role_name_syntax` is a
-    pure SYNTAX check -- a bare model alias like "haiku" matches
-    [a-z][a-z0-9_]* too, so it used to be saved as position["role"],
-    and the org then failed validation with "unknown role"."""
-    from textual.widgets import Input, OptionList
-    from halo_harness.orgs import load_org
-    from halo_harness.tui.dialogs.org_editor import OrgEditor
-
-    async def body():
-        old, _home = _scoped_state_dir_env("org-editor-alias-")
-        try:
-            fake = FakeController()
-            app = await _mounted(fake)
-            async with app.run_test(size=(100, 40)) as pilot:
-                await pilot.click("#prompt-input")
-                await _type(pilot, "/org edit solo")
-                await pilot.press("enter")
-                for _ in range(40):
-                    await app._drain()
-                    await pilot.pause(0.05)
-                    if isinstance(app.screen, OrgEditor):
-                        break
-                editor = app.screen
-                editor.query_one("#org-tree-list", OptionList).highlighted = 0
-                await pilot.press("enter")
-                await pilot.pause(0.1)
-                role_field = editor.query_one("#org-field-role", Input)
-                role_field.value = ""
-                role_field.focus()
-                await _type(pilot, "haiku")
-                await pilot.press("ctrl+s")
-                await pilot.pause(0.1)
-                saved = load_org("solo")
-                root = saved["positions"][0]
-                ctx.check(f"saved as a model, never a role, got {root}",
-                          root.get("model") == "haiku" and "role" not in root)
-        finally:
-            _restore_state_dir_env(old)
-    asyncio.run(body())
-
-
-@test
-def test_org_edit_escape_cancels_without_saving(ctx: Ctx):
-    from halo_harness.orgs import load_org
-    from halo_harness.tui.dialogs.org_editor import OrgEditor
-
-    async def body():
-        old, _home = _scoped_state_dir_env("org-editor-cancel-")
-        try:
-            fake = FakeController()
-            app = await _mounted(fake)
-            async with app.run_test(size=(100, 40)) as pilot:
-                await pilot.click("#prompt-input")
-                await _type(pilot, "/org edit solo")
-                await pilot.press("enter")
-                for _ in range(40):
-                    await app._drain()
-                    await pilot.pause(0.05)
-                    if isinstance(app.screen, OrgEditor):
-                        break
-                before = load_org("solo")  # built-ins auto-seed on first use
-                await pilot.press("escape")
-                await pilot.pause(0.05)
-                ctx.check("the editor screen closed", not isinstance(app.screen, OrgEditor))
-                after = load_org("solo")
-                ctx.check(f"nothing was written to disk, got before={before} after={after}", after == before)
         finally:
             _restore_state_dir_env(old)
     asyncio.run(body())
@@ -9197,16 +8964,14 @@ def test_ctrl_t_toggles_the_panel_open_and_closed(ctx: Ctx):
 
 
 @test
-def test_tasks_panel_tab_switches_to_board_even_with_orgs_disabled(ctx: Ctx):
+def test_tasks_panel_tab_switches_to_board(ctx: Ctx):
     """2.0.2 review finding 26 pin: Tab used to do nothing at all while
-    `orgs.enabled` was off (the default) -- TaskCreate/TaskUpdate/
-    TaskList are offered to the model in every session regardless of
-    that setting, so the board tab must always be reachable."""
+    a setting was off -- TaskCreate/TaskUpdate/TaskList are offered to the
+    model in every session, so the board tab must always be reachable
+    (3.1.4.0: that setting, `orgs.enabled`, is gone with Org)."""
     from halo_harness.tui.dialogs.tasks import TasksPanel
-    from halo_harness.theme import set_config_value
 
     async def body():
-        set_config_value("orgs.enabled", False)
         fake = FakeController(agent_tasks=list(_FAKE_AGENT_ROWS))
         app = await _mounted(fake)
         async with app.run_test(size=(100, 40)) as pilot:
@@ -9220,7 +8985,7 @@ def test_tasks_panel_tab_switches_to_board_even_with_orgs_disabled(ctx: Ctx):
             ctx.check("opens on the agents tab", panel.tab == "agents")
             await pilot.press("tab")
             await pilot.pause(0.1)
-            ctx.check(f"Tab switches to the board tab even with orgs.enabled off, got {panel.tab!r}",
+            ctx.check(f"Tab switches to the board tab, got {panel.tab!r}",
                       panel.tab == "board")
     asyncio.run(body())
 
@@ -9920,7 +9685,7 @@ def test_init_wizard_walks_every_step_with_next_never_exiting(ctx: Ctx):
     async def body():
         old, _home = _scoped_state_dir_env("wizard-walk-")
         try:
-            step_keys = ("providers", "default_model", "permission_mode", "theme", "team", "orgs", "summary")
+            step_keys = ("providers", "default_model", "permission_mode", "theme", "team", "summary")
             state = WizardState(cwd=REPO_DIR, step_keys=step_keys, no_live=True)
             app = InitWizardApp(state)
             seen = []
@@ -9932,7 +9697,7 @@ def test_init_wizard_walks_every_step_with_next_never_exiting(ctx: Ctx):
                     await pilot.pause(0.25)
             ctx.check(f"walked every step in order with Next alone, got {seen}",
                       seen == ["ProvidersStep", "DefaultModelStep", "PermissionModeStep", "ThemeStep",
-                               "TeamStep", "OrgsStep", "SummaryStep"])
+                               "TeamStep", "SummaryStep"])
         finally:
             _restore_state_dir_env(old)
     asyncio.run(body())
@@ -9970,29 +9735,24 @@ def test_init_wizard_back_returns_to_the_previous_step_with_values_kept(ctx: Ctx
 
 
 @test
-def test_init_wizard_skip_on_roles_and_orgs_leaves_config_untouched(ctx: Ctx):
+def test_init_wizard_skip_on_team_leaves_config_untouched(ctx: Ctx):
     """Brief Tests section: "Skip on roles and orgs leaves config
-    untouched" -- round 2c: "roles" is now "team"."""
+    untouched" -- round 2c: "roles" is now "team"; 3.1.4.0: the Orgs step
+    is gone with Org."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
     from halo_harness.theme import get_config_value
 
     async def body():
         old, _home = _scoped_state_dir_env("wizard-skip-")
         try:
-            state = WizardState(cwd=REPO_DIR, step_keys=("team", "orgs"), no_live=True)
+            state = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
             app = InitWizardApp(state)
             async with app.run_test(size=(100, 45)) as pilot:
                 await pilot.pause(0.1)
-                app.screen.query_one("#wiz-skip").press()  # roles
-                await pilot.pause(0.2)
-                app.screen.query_one("#wiz-skip").press()  # orgs
+                app.screen.query_one("#wiz-skip").press()  # team
                 await pilot.pause(0.2)
                 ctx.check("roles.enabled never written",
                           get_config_value("roles.enabled", default="<unset>") == "<unset>")
-                ctx.check("orgs.enabled never written",
-                          get_config_value("orgs.enabled", default="<unset>") == "<unset>")
-                ctx.check("orgs.default never written",
-                          get_config_value("orgs.default", default="<unset>") == "<unset>")
         finally:
             _restore_state_dir_env(old)
     asyncio.run(body())
@@ -10190,35 +9950,6 @@ def test_init_wizard_enter_on_a_lineup_opens_the_view_and_returns_to_the_step(ct
 
 
 @test
-def test_init_wizard_choosing_default_org_writes_orgs_default(ctx: Ctx):
-    """Brief Tests section: "choosing a default org writes orgs.
-    default"."""
-    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from halo_harness.theme import get_config_value
-
-    async def body():
-        old, _home = _scoped_state_dir_env("wizard-defaultorg-")
-        try:
-            state = WizardState(cwd=REPO_DIR, step_keys=("orgs",), no_live=True)
-            app = InitWizardApp(state)
-            async with app.run_test(size=(100, 45)) as pilot:
-                await pilot.pause(0.1)
-                picker = app.screen.query_one("#wiz-orgs-list")
-                names = [str(picker.get_option_at_index(i).id) for i in range(picker.option_count)]
-                picker.highlighted = names.index("release-flow")
-                await pilot.pause(0.05)
-                app.screen.query_one("#wiz-orgs-default").press()
-                await pilot.pause(0.2)
-                ctx.check(f"orgs.default was written, got {get_config_value('orgs.default', default=None)!r}",
-                          get_config_value("orgs.default", default=None) == "release-flow")
-                ctx.check("orgs.enabled was also turned on (the switch defaulted on when clicked)",
-                          get_config_value("orgs.enabled", default=False) is True)
-        finally:
-            _restore_state_dir_env(old)
-    asyncio.run(body())
-
-
-@test
 def test_init_wizard_start_step_five_opens_on_roles(ctx: Ctx):
     """Brief Tests section: "start_step=5 opens on roles" -- Halo 2.0.3
     round 5c inserted a new "local_models" step right after "providers",
@@ -10290,7 +10021,7 @@ def test_init_wizard_local_models_step_add_folder_and_preferred_runtime_persist(
 # ============================================================================
 # Halo 2.0.4 round 4 (deliverables 1-4): the roles wizard's own live
 # enumeration right after the Providers step, the pick list + autocomplete
-# it feeds into the role/org editors (standalone AND outside the wizard),
+# it feeds into the role editor (standalone AND outside the wizard),
 # and the Auto tab. Owner report (2026-10-05): "the available models are
 # not listed when you select edit a role" -- traced to `RolesStep.
 # _controller_models` always reading `self.app.controller`, `None` on the
@@ -10343,16 +10074,14 @@ async def _wait_for_wizard(pilot, predicate, n: int = 100) -> None:
 
 
 @test
-def test_init_wizard_providers_next_enumerates_then_team_and_orgs_share_the_cache(ctx: Ctx):
+def test_init_wizard_providers_next_enumerates_then_team_shares_the_cache(ctx: Ctx):
     """Deliverable 1: Next on the Providers step runs ONE live
     enumeration (one progress line per provider, via `_EnumeratingScreen`)
     before advancing; the result is cached on `WizardState` and reused by
-    BOTH the Team step and the Orgs step. Deliverable 2: the lineup the
-    Team step shows (`LineupView`, Enter on a row; 3.1.1.0 R3: read-only,
-    Studio edits it) gets the SAME cached rows, and the org editor's
-    model picker shows the SAME merged, grouped, real catalog, narrowed by
-    typing (the picker's own existing filter -- now actually fed real
-    rows instead of an empty list). Round 2c: the wizard's OWN "Roles and
+    the Team step. Deliverable 2: the lineup the Team step shows
+    (`LineupView`, Enter on a row; 3.1.1.0 R3: read-only, Studio edits it)
+    gets the SAME cached rows (3.1.4.0: the Orgs step and its org editor's
+    model picker are gone with Org). Round 2c: the wizard's OWN "Roles and
     lineup" step (and its "Edit roles..." button into `RolesEditor`) is
     gone, folded into "Team" -- `RolesEditor` itself is only ever reached
     from OUTSIDE the wizard now (`/roles edit`), so this pilot's own
@@ -10360,9 +10089,7 @@ def test_init_wizard_providers_next_enumerates_then_team_and_orgs_share_the_cach
     to the lineup editor, the Team step's own equivalent."""
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, _EnumeratingScreen
     from halo_harness.tui.dialogs.lineup_editor import LineupView
-    from halo_harness.tui.dialogs.model_picker import ModelPicker
-    from halo_harness.tui.dialogs.org_editor import OrgEditor
-    from textual.widgets import Button, Input, OptionList
+    from textual.widgets import OptionList
     from tests.helpers.mock_get_endpoints import MockGetEndpoints
 
     async def body():
@@ -10384,7 +10111,7 @@ def test_init_wizard_providers_next_enumerates_then_team_and_orgs_share_the_cach
             os.environ["OPENROUTER_API_KEY"] = "sk-or-wizard-fake"
             os.environ["BRIDGE_OPENROUTER_BASE_URL"] = mock.base_url + "/api/v1"
 
-            state = WizardState(cwd=REPO_DIR, step_keys=("providers", "team", "orgs"), no_live=False)
+            state = WizardState(cwd=REPO_DIR, step_keys=("providers", "team"), no_live=False)
             app = InitWizardApp(state)
             async with app.run_test(size=(100, 45)) as pilot:
                 await pilot.pause(0.2)
@@ -10418,29 +10145,7 @@ def test_init_wizard_providers_next_enumerates_then_team_and_orgs_share_the_cach
                           any(m.get("ref") == "or:deepseek/deepseek-v4.1-flash" for m in app.screen.models))
                 await pilot.press("escape")
                 await _wait_for_wizard(pilot, lambda: app.screen is team_screen)
-
-                team_screen.query_one("#wiz-skip").press()
-                await _wait_for_wizard(pilot, lambda: type(app.screen).__name__ == "OrgsStep")
-                ctx.check(f"advanced to Orgs, got {type(app.screen).__name__}",
-                          type(app.screen).__name__ == "OrgsStep")
-                app.screen.query_one("#wiz-orgs-edit").press()
-                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, OrgEditor))
-                ctx.check("the org editor ALSO opened with the SAME cached rows (deliverable 1: "
-                          "reused by the org step too)",
-                          any(m.get("ref") == "or:deepseek/deepseek-v4.1-flash" for m in app.screen.models))
-                await pilot.press("ctrl+p")
-                await _wait_for_wizard(pilot, lambda: isinstance(app.screen, ModelPicker))
-                picker = app.screen
-                option_texts = [str(o.prompt) for o in picker.query_one("#model-list", OptionList).options]
-                # OpenRouter rows are deliberately UNGROUPED (round 3's own
-                # "the OpenRouter group stays flat" call).
-                ctx.check(f"the real, enumerated row is a selectable option, got {option_texts}",
-                          any("deepseek/deepseek-v4.1-flash" in t for t in option_texts))
-                await _type(pilot, "deepseek-v4.1")
-                await pilot.pause(0.1)
-                ctx.check(f"typing narrowed to the one real match, got {[m['ref'] for m in picker._filtered]}",
-                          [m["ref"] for m in picker._filtered] == ["or:deepseek/deepseek-v4.1-flash"])
-                await pilot.press("escape")
+                ctx.check("back on the Team step", app.screen is team_screen)
         finally:
             mock.stop()
             _rw_env_restore(old_provider_env)
@@ -10487,56 +10192,6 @@ def test_roles_editor_picking_a_typed_only_ref_shows_the_not_in_list_note(ctx: C
                           "not in the enumerated list; kept as typed" in hint)
                 ctx.check(f"the typed value is still stored, got {editor.roles.get('orchestrator')}",
                           editor.roles.get("orchestrator") == "totally-unenumerated-ref")
-        finally:
-            _restore_state_dir_env(old)
-    asyncio.run(body())
-
-
-@test
-def test_org_editor_role_field_autocompletes_and_notes_a_typed_only_ref(ctx: Ctx):
-    """Deliverable 3: the org editor's own free-text "Role or model"
-    field -- round 2c (rule 3) upgraded the live-suggestions line into a
-    REAL dropdown under the field (`tui/dialogs/autocomplete.py`, still
-    built on `autocomplete_suggestions`) -- and the same one-line note on
-    commit when the typed value matches nothing in the list."""
-    from halo_harness.tui.dialogs.org_editor import OrgEditor
-    from textual.widgets import Input, Static
-
-    models = [{"ref": "or:known/sonnet-ish", "provider": "openrouter", "group": "OpenRouter (or:)"},
-              {"ref": "or:known/other-model", "provider": "openrouter", "group": "OpenRouter (or:)"}]
-    org = {"name": "demo", "description": "", "positions": [
-        {"title": "Orchestrator", "role": "orchestrator", "reports": [], "instructions": ""}]}
-
-    async def body():
-        old, _home = _scoped_state_dir_env("org-editor-autocomplete-")
-        try:
-            fake = FakeController()
-            app = await _mounted(fake)
-            async with app.run_test(size=(110, 40)) as pilot:
-                app.push_screen(OrgEditor("demo", org, models))
-                await pilot.pause(0.1)
-                editor = app.screen
-                role_field = editor.query_one("#org-field-role", Input)
-                role_field.focus()
-                await _type(pilot, "sonnet")
-                await pilot.pause(0.1)
-                from textual.widgets import OptionList
-                dropdown = editor.query_one("#org-field-role-ac", OptionList)
-                suggested = [str(dropdown.get_option_at_index(i).id) for i in range(dropdown.option_count)]
-                ctx.check(f"the matching real ref is suggested in the dropdown, got {suggested!r}",
-                          "or:known/sonnet-ish" in suggested and dropdown.styles.display == "block")
-
-                for _ in range(len(role_field.value)):
-                    await pilot.press("backspace")
-                await _type(pilot, "nothing-like-it-at-all")
-                await pilot.pause(0.1)
-                # Committing the field (adding a new position, same as
-                # switching rows or saving) is what evaluates membership.
-                await pilot.press("ctrl+n")
-                await pilot.pause(0.1)
-                hint = _static_text(editor.query_one("#org-hint", Static))
-                ctx.check(f"the one-line note fires on commit, got {hint!r}",
-                          "not in the enumerated list; kept as typed" in hint)
         finally:
             _restore_state_dir_env(old)
     asyncio.run(body())

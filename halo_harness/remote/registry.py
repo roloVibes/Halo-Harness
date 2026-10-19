@@ -2,7 +2,7 @@
 live sessions that opened a control socket (Halo 2.0.9 round 2).
 
 Entries: `{session_id, cwd, pid, endpoint, token_env, started, title, mode}`
-plus `kind` (tui | print | paperclip | orchestra-worker | flow | mission-worker) and, since
+plus `kind` (tui | print | orchestra-worker | mission-worker) and, since
 3.0.5.0 (Fleet), `harness` (`{id, name, host, user, version, os}`),
 `project` (`{root, repo, branch, dirty}`) and `parent` (the session that
 spawned it, or None); an entry written before those keys existed still

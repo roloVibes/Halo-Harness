@@ -39,7 +39,7 @@ def hub_catalog(identity: dict) -> dict:
                          "ram_gb": 64, "gpu": [{"name": "NVIDIA GeForce RTX 4090", "vram_gb": 24}], "disk_free_gb": 410.6},
             "clis": {"git": "2.45.1", "node": "24.15.0", "python": "3.11.7", "docker": "29.2.0", "ffmpeg": "installed"},
             "projects": [{"name": "Halo-Harness", "repo": "Halo-Harness", "branch": "master"}],
-            "integrations": {"paperclip": False, "postiz": True, "signal": True}}
+            "integrations": {"signal": True}}
 
 
 def member_catalog(identity: dict) -> dict:
@@ -54,7 +54,7 @@ def member_catalog(identity: dict) -> dict:
                          "ram_gb": 16, "gpu": [], "disk_free_gb": 120.0},
             "clis": {"git": "2.47.0", "python": "3.12.8", "docker": None, "ffmpeg": None},
             "projects": [{"name": "ledger", "repo": "ledger", "branch": "main"}],
-            "integrations": {"paperclip": False, "postiz": False, "signal": False}}
+            "integrations": {"signal": False}}
 
 
 def seed(home, catalog: dict) -> dict:

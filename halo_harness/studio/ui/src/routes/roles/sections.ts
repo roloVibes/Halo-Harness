@@ -3,7 +3,7 @@
 // keys and choices teams_yaml.validate_team_template checks. A field is a
 // text, a number, a yes/no, a choice, a list (comma separated), a set of
 // checks, a mapping (routing: task kind -> role or alias) or rows of small
-// records (org positions, pipeline stages, tiers). Every section also has a
+// records (pipeline stages, tiers). Every section also has a
 // YAML toggle that edits its raw body. 3.1.1.0 R3: what a section and each of
 // its fields is for comes from halo_harness/field_help.py (GET /api/field-help,
 // lib/fieldHelp.ts: `lineup_sections[<section>]`, `lineup_fields[<section>.<path>]`),
@@ -55,10 +55,6 @@ export const SECTIONS: SectionDef[] = [
     { path: "rules.ask", label: "Ask", kind: "list" },
     { path: "rules.allow", label: "Allow", kind: "list" },
     { path: "offline", label: "Offline (no network tools)", kind: "bool" },
-  ] },
-  { name: "org", title: "Org", fields: [
-    { path: "positions", label: "Positions", kind: "rows", add: { title: "" }, cols: [
-      { key: "title", label: "title", kind: "target" }, { key: "agent", label: "bio", kind: "text" }, { key: "reports_to", label: "reports to", kind: "target" }] },
   ] },
   { name: "pipeline", title: "Pipeline", fields: [
     { path: "stages", label: "Stages", kind: "rows", add: { name: "", role: "main", gate: "required" }, cols: [

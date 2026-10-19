@@ -401,9 +401,6 @@ def test_invariant_a_no_safety_or_refusal_language(ctx: Ctx):
 # the feature's own target (the Linux PATH fix), gated behind confirmation
 # or its own override.
 _PATH_HOME_ALLOWED_CALLERS = {
-    "halo_harness/studio/paperclip_api.py":
-        "checks whether Paperclip's OWN data directory (~/.paperclip, an external application's files, "
-        "read-only) exists, to tell 'not installed' from 'installed but not running' in Studio's Org mode",
     "halo_harness/bugreport.py":
         "reads the Databricks CLI's OWN ~/.databrickscfg marker (an external tool's config) to report "
         "provider enablement; never written",

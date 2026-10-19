@@ -5,6 +5,11 @@ Every top-level key some part of Halo reads (`get_config_value` /
 holding a whole feature's settings (`fleet`, `remote`, `ollama`, ...) are
 checked as mappings; what sits inside them is read by that feature, which
 falls back to its default on a value it does not understand.
+
+`REMOVED_SECTIONS` are sections of a feature that is gone (Org and
+Paperclip, 3.1.4.0): a config.json that still has one loads as before and
+the section is ignored; `halo doctor --config` names it in one line
+(`removed_line`).
 """
 
 from __future__ import annotations
@@ -35,9 +40,15 @@ _SCALARS = {
 }
 
 _SECTIONS = ("agents", "clipboard", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
-             "governor", "huggingface", "improve", "local", "network", "ollama", "openai", "orgs", "paperclip",
+             "governor", "huggingface", "improve", "local", "network", "ollama", "openai",
              "providers", "remote", "roles", "routing", "settings", "steer", "subscription_routes", "update",
              "worktree")
+REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0"}
+
+
+def removed_line(section: str) -> str:
+    """The one doctor line for a leftover section of a removed feature."""
+    return f"{section}: removed in {REMOVED_SECTIONS[section]}, the section is ignored"
 
 
 def schema() -> dict:

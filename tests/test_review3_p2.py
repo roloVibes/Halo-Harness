@@ -1,6 +1,6 @@
 """tests.test_review3_p2 -- pins for the 3.0.2.0 review fix pass, round
-P-design-paperclip (review items 44, 114-118): `paperclip pull` writes where
-the lineup was loaded from; `design export --as folder` into an existing
+P-design-paperclip (review items 114-118; item 44, `paperclip pull`, went
+with Paperclip in 3.1.4.0): `design export --as folder` into an existing
 directory; the exported index page escapes what the model wrote;
 `capture_url` resolves stylesheet links properly; `scan_codebase` does not
 skip a root whose own path contains a skip-dir name; WCAG verdicts use the
@@ -8,7 +8,6 @@ unrounded ratio.
 """
 from __future__ import annotations
 
-import io
 import sys
 import tempfile
 from pathlib import Path
@@ -20,57 +19,9 @@ from tests.helpers.provider_env_defaults import ensure_default_provider_credenti
 ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
 
-from tests.helpers.fake_paperclip import FakePaperclip  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-
-
-# ---- 44 -----------------------------------------------------------------------
-
-def _lineup_members(fake, lineup):
-    fake.add_agent("boss", metadata={"halo_lineup": lineup, "halo_slot": "boss", "halo_agent": "implementer"})
-    boss = next(iter(fake.agents.values()))
-    fake.add_agent("worker", reportsTo=boss["id"], metadata={"halo_lineup": lineup, "halo_slot": "worker", "halo_agent": "implementer"})
-
-
-@test
-def test_i44_pull_writes_back_to_a_project_lineup(ctx: Ctx):
-    from halo_harness.paperclip.client import Paperclip
-    from halo_harness.paperclip.sync import pull_reporting_lines
-    from halo_harness.teams_yaml import load_team_template_raw, save_team_template
-    repo, state = Path(tempfile.mkdtemp(prefix="p44-repo-")), Path(tempfile.mkdtemp(prefix="p44-state-"))
-    base = {k: v for k, v in load_team_template_raw("halo-dev-cycle").items() if not k.startswith("_")}
-    ok, problems = save_team_template("team-x", base, cwd=repo, state_dir=state, project=True)
-    ctx.check(f"the project lineup was written {problems}", ok)
-    fake = FakePaperclip()
-    try:
-        _lineup_members(fake, "team-x")
-        out = io.StringIO()
-        pull_reporting_lines(Paperclip(fake.base_url), fake.company["id"], "team-x", cwd_halo=repo, state_dir=state, out=out)
-        raw = load_team_template_raw("team-x", cwd=repo, state_dir=state)
-        ctx.check("the project file now carries the positions", raw["_source"] == "project" and len((raw.get("org") or {}).get("positions") or []) == 2)
-        ctx.check("no user-scope shadow copy was made", not (state / "teams" / "team-x.yaml").exists())
-        ctx.check("the path written is printed", str(repo / ".halo" / "teams" / "team-x.yaml") in out.getvalue())
-    finally:
-        fake.close()
-
-
-@test
-def test_i44_pull_on_a_bundled_template_says_it_made_a_user_copy(ctx: Ctx):
-    from halo_harness.paperclip.client import Paperclip
-    from halo_harness.paperclip.sync import pull_reporting_lines
-    repo, state = Path(tempfile.mkdtemp(prefix="p44-repo-")), Path(tempfile.mkdtemp(prefix="p44-state-"))
-    fake = FakePaperclip()
-    try:
-        _lineup_members(fake, "halo-dev-cycle")
-        out = io.StringIO()
-        pull_reporting_lines(Paperclip(fake.base_url), fake.company["id"], "halo-dev-cycle", cwd_halo=repo, state_dir=state, out=out)
-        dest = state / "teams" / "halo-dev-cycle.yaml"
-        ctx.check("a user-scope copy was created", dest.is_file() and not (repo / ".halo").exists())
-        ctx.check(f"and the output says so, got {out.getvalue()!r}", "bundled template" in out.getvalue() and str(dest) in out.getvalue())
-    finally:
-        fake.close()
 
 
 # ---- 114, 115 ---------------------------------------------------------------------

@@ -278,8 +278,7 @@ from .doctor_config_api import ROUTES as _DOCTOR_CONFIG_ROUTES  # noqa: E402  (3
 ROUTES[len(ROUTES):] = _DOCTOR_CONFIG_ROUTES
 
 
-_PREFIXES = (("flow", "halo_harness.studio.flow_api", "dispatch_flow"),
-             ("media", "halo_harness.studio.media_api", "dispatch_media"),
+_PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("sessions", "halo_harness.studio.sessions_api", "dispatch_sessions"),
              ("fleet", "halo_harness.studio.fleet_hub_api", "dispatch_fleet"),  # 3.0.5.0 R2: the hub's view
              ("team", "halo_harness.studio.team_api", "dispatch_team"),  # 3.0.8.0 R1: the Team (docs/TEAM.md)
@@ -300,16 +299,13 @@ def dispatch(req: Request):
     worked = dispatch_work(req)
     if worked is not None:
         return worked
-    if req.path == "pc" or req.path.startswith("pc/"):  # 2.2.0: Org mode (Paperclip) routes
-        from halo_harness.studio.paperclip_api import dispatch_pc
-        return dispatch_pc(req)
     if req.path == "design" or req.path.startswith("design/"):  # 3.0.1.0: Design mode routes
         from halo_harness.studio.design_api import dispatch_design
         return dispatch_design(req)
     if req.path == "orchestra" or req.path.startswith("orchestra/"):  # 3.0.3.0: the Orchestra run console
         from halo_harness.studio.orchestra_api import dispatch_orchestra
         return dispatch_orchestra(req)
-    for prefix, module, fn in _PREFIXES:  # 3.0.4.0: flows, ComfyUI media, the live sessions
+    for prefix, module, fn in _PREFIXES:  # 3.0.4.0: ComfyUI media, the live sessions
         if req.path == prefix or req.path.startswith(prefix + "/"):
             import importlib
             return getattr(importlib.import_module(module), fn)(req)

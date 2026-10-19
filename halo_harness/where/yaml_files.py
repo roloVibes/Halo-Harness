@@ -1,9 +1,9 @@
 """halo_harness.where.yaml_files -- the YAML files for `halo config where`:
 the active lineup and every lineup it extends, the three lineup and bio
-folders (repo `.halo/`, `~/.halo/`, shipped), the team file, and the flows.
+folders (repo `.halo/`, `~/.halo/`, shipped) and the team file.
 
 Precedence comes from the loaders: a name in two folders goes to the file
-`find_team_template_path` / `find_agent_bio_path` / `find_flow` picks, the
+`find_team_template_path` / `find_agent_bio_path` picks, the
 team file to `find_team_file`, and a section the active lineup and its
 parent both set to `resolve_team_template`'s merge (the child's own value
 when the merge kept it whole, "merged" otherwise).
@@ -116,31 +116,6 @@ def team_file_rows(cwd: Path, state_dir: Path) -> list:
     return rows
 
 
-def flow_rows(cwd: Path, state_dir: Path) -> list:
-    from halo_harness.flows import spec as F
-    rows = []
-    project = Path(cwd) / ".halo" / "flow.yaml"
-    name = ""
-    if project.is_file():
-        try:
-            name = str(F.load_flow(project).get("name") or "")
-        except ValueError:
-            name = ""
-    rows.append(make("flows", project, "repo", cwd=cwd, sets=[name] if name else [], rank=1,
-                     note="this repo's flow" if project.is_file() else "no file here"))
-    names, files = _stems(F.flows_dir(state_dir), F.SUFFIX)
-    rows.append(make("flows", F.flows_dir(state_dir), "home", cwd=cwd, sets=names, rank=2, files=files,
-                     note=f"{len(names)} flow(s) (halo flow new)"))
-    shipped, shipped_files = _stems(F.TEMPLATES_DIR, F.SUFFIX)
-    rows.append(make("flows", F.TEMPLATES_DIR, "shipped", cwd=cwd, sets=shipped, rank=3, files=shipped_files,
-                     note="templates; halo flow new copies one"))
-
-    def winner(flow_name):
-        hit = F.find_flow(flow_name, cwd=cwd, state_dir=state_dir)
-        return str(hit) if hit else None
-    return settle(rows, winner, cwd=cwd)
-
-
 def yaml_rows(cwd: Path, state_dir: Path, active: str) -> list:
     return (active_lineup_rows(cwd, state_dir, active) + lineup_folder_rows(cwd, state_dir)
-            + bio_folder_rows(cwd, state_dir) + team_file_rows(cwd, state_dir) + flow_rows(cwd, state_dir))
+            + bio_folder_rows(cwd, state_dir) + team_file_rows(cwd, state_dir))

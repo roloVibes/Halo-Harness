@@ -32,7 +32,7 @@ def windows_host(identity: dict) -> dict:
             "hardware": {"os": "windows", "distro": "windows", "release": "11", "cpu": "AMD Ryzen 9", "cores": 24,
                          "ram_gb": 64, "gpu": [{"name": "NVIDIA GeForce RTX 4090", "vram_gb": 24}], "disk_free_gb": 400.0},
             "clis": {"git": "2.45.1", "python": "3.11.7", "nmap": None}, "projects": [],
-            "integrations": {"paperclip": False, "postiz": False, "signal": False}}
+            "integrations": {"signal": False}}
 
 
 def kali_box(identity: dict) -> dict:
@@ -42,7 +42,7 @@ def kali_box(identity: dict) -> dict:
             "hardware": {"os": "linux", "distro": "kali", "release": "2026.3", "cpu": "Intel Core i7", "cores": 8,
                          "ram_gb": 16, "gpu": [], "disk_free_gb": 80.0},
             "clis": {"git": "2.47.0", "python": "3.12.8", "nmap": "7.95"}, "projects": [{"name": "ledger", "repo": "ledger", "branch": "main"}],
-            "integrations": {"paperclip": False, "postiz": False, "signal": False}}
+            "integrations": {"signal": False}}
 
 
 def lead_answer(*, repo: bool = False, overlap: bool = True, nobody: bool = True) -> str:
