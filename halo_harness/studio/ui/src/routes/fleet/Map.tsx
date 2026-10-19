@@ -8,6 +8,8 @@
 // different sessions editing one file (GET fleet/conflicts) are joined by an
 // amber dashed warning edge; its attention row's O opens the map on them.
 // 3.0.6.0 R8: the open mission's plan is drawn over it (MapMission.tsx).
+// 3.1.4.0 R2: under a scope (scope.ts, the Session section) it draws only
+// that harness's box, By harness, with no mission over it.
 import { useMemo, useRef, useState } from "react";
 import { useRecent, type MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
@@ -19,7 +21,8 @@ import { BoxChips, chipsWidth, useBoxChips } from "./MapChips";
 import { MissionChip, MissionLayer, useMissionSlots } from "./MapMission";
 import { AgentNode, NodeMenu, SessionCard, type MenuAt } from "./MapNode";
 import { useAttnCount, usePanels } from "./pstore";
-import { NONE, useCounts, useFleet } from "./store";
+import { isScoped, useScope, useScopedAttention, useScopedCounts, useScopedHarnesses } from "./scope";
+import { NONE, useFleet } from "./store";
 import type { LitEdge } from "./types";
 
 const LIT_MS = 3000;
@@ -66,13 +69,14 @@ function ConflictEdges({ pos }: { pos: Pos }) {
 }
 
 export function FleetMap() {
-  const harnesses = useFleet((s) => s.harnesses);
-  const byProject = useFleet((s) => s.byProject);
+  const harnesses = useScopedHarnesses();
+  const scoped = isScoped(useScope());
+  const byProject = useFleet((s) => s.byProject) && !scoped;
   const selected = useFleet((s) => s.selected);
   const edges = useFleet((s) => s.edges || NONE);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const { chips, focus } = useBoxChips(); // 3.0.6.0 R6: capability chips; the harness Who picked
-  const slots = useMissionSlots(byProject); // 3.0.6.0 R8: the open mission's parts
+  const slots = useMissionSlots(byProject || scoped); // 3.0.6.0 R8: the open mission's parts (none under a scope)
   const svg = useRef<SVGSVGElement>(null);
   const geo = useMemo(() => layout(harnesses, byProject, slots), [harnesses, byProject, slots]);
   const pos = useMemo(() => new Map(geo.nodes.map((n) => [n.ref.key, n])), [geo]);
@@ -111,19 +115,24 @@ export function FleetMap() {
 
 function Toolbar() {
   const byProject = useFleet((s) => s.byProject);
-  const c = useCounts();
-  const attn = useAttnCount(c.attention);
+  const scoped = isScoped(useScope());
+  const c = useScopedCounts();
+  const every = useAttnCount(c.attention);
+  const mine = useScopedAttention().count;
+  const attn = scoped ? mine : every;
   return (
     <div className="fm-bar">
-      <div className="segmented" role="group" aria-label="Group the map">
-        <button className={byProject ? "" : "on"} aria-pressed={!byProject} onClick={() => byProject && toggleByProject()}>By harness</button>
-        <button className={byProject ? "on" : ""} aria-pressed={byProject} onClick={() => !byProject && toggleByProject()} data-testid="fleet-by-project">By project</button>
-      </div>
+      {!scoped && (
+        <div className="segmented" role="group" aria-label="Group the map">
+          <button className={byProject ? "" : "on"} aria-pressed={!byProject} onClick={() => byProject && toggleByProject()}>By harness</button>
+          <button className={byProject ? "on" : ""} aria-pressed={byProject} onClick={() => !byProject && toggleByProject()} data-testid="fleet-by-project">By project</button>
+        </div>
+      )}
       <span className="mono muted fm-counts">
-        {c.harnesses} harness{c.harnesses === 1 ? "" : "es"} · {c.sessions} session{c.sessions === 1 ? "" : "s"} · {c.live} of {c.agents} agents live
+        {scoped ? "this harness" : `${c.harnesses} harness${c.harnesses === 1 ? "" : "es"}`} · {c.sessions} session{c.sessions === 1 ? "" : "s"} · {c.live} of {c.agents} agents live
         {attn > 0 && <b className="fm-attn"> · {attn} need{attn === 1 ? "s" : ""} you</b>}
       </span>
-      <MissionChip byProject={byProject} />
+      {!scoped && <MissionChip byProject={byProject} />}
     </div>
   );
 }
@@ -145,7 +154,7 @@ export function MapDetail() {
 }
 
 export function MapGlance() {
-  const c = useCounts();
+  const c = useScopedCounts();
   return (
     <div className="glance">
       <div className="glance-numbers">
@@ -159,7 +168,7 @@ export function MapGlance() {
 }
 
 export function useMapMotion(): MotionState {
-  const c = useCounts();
+  const c = useScopedCounts();
   const error = useFleet((s) => !!s.error);
   if (error) return "error";
   if (c.attention) return "waiting";

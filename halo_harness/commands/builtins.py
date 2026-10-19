@@ -164,7 +164,8 @@ _STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
                        "orchestra": "Orchestra: runs of your agents, live",
                        "flow": "Flow: a brief to renders, posts and metrics",
                        "fleet": "Fleet: every harness, every agent, live",
-                       "team": "Team: people, blocks and stages on one board"}
+                       "team": "Team: people, blocks and stages on one board",
+                       "session": "Session: this session, live"}
 
 
 def _cmd_studio(args: str, facade: HeadlessFacade) -> str:
@@ -2052,7 +2053,8 @@ _BUILTIN_SPECS = {
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
     "level": ("core", "Toggle the game themes' level band above the prompt", "[on|off]", _cmd_level),
-    "studio": ("core", "Open Halo Studio, the browser GUI: Roles | Org | Design", "[roles|org|design|orchestra|flow|fleet|team] [url]", _cmd_studio),
+    "studio": ("core", "Open Halo Studio, the browser GUI: in the TUI bare /studio watches this session (the Session dashboard)",
+               "[session|roles|org|design|orchestra|flow|fleet|team] [url]", _cmd_studio),
     "design": ("core", "Open Studio's Design GUI: artboards on your own apps (the `halo design` family)", "[url]", _cmd_design),
     "remote": ("core", "Remote control: control socket, Signal bridge state, paired phones, pairing, kill switch",
                "[status|pair [N]|off]", _cmd_remote),

@@ -128,4 +128,16 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
     ],
     keys: [["Alt+7", "Team"], ["Enter", "on a selected stage or block: select it (Tab moves between them)"], ["Mod+K", "Team: run next stage, Team: validate, Team: stop, Team: open file"], ...PANEL_KEYS],
   },
+  session: {
+    terms: ["harness", "fleet", "hand-off", "gate"],
+    what: "Your own session, live: Fleet's map, timeline, log, attention queue and agent inspector narrowed to this harness and the session you chose, and what that session costs. Five panels, nothing fleet-wide; Fleet keeps everything.",
+    steps: [
+      ["Open it", "/studio in a terminal session opens Studio here on that session (halo studio --session from a shell); Alt+8, the palette, Watch in Session on the Roles Live tab or a live Orchestra run, Open in Session on a map node and this harness's nodes in the rail land here too."],
+      ["Read the map", "One card per session on this machine, its agents as a tree under it: the one at work has a flowing outline and its tool icon, amber waits on you, green just finished. Click an agent: its session becomes the chosen one."],
+      ["Watch and steer the agent", "Agent shows what it thinks as it types, each tool call with its result, and what it hands back. Steer it with a nudge or a new task; Pause, Stop (asks first), Follow, Pin its mini stream."],
+      ["Follow the session", "Activity draws a lane per live agent over the session's live log (its session pick shows every session here); Attention lists what waits on you, one key each; Cost ticks the spend, the tokens, the turns, the time and the model."],
+    ],
+    keys: [["Alt+8", "Session"], ...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
+      ["A / R / S / O", "in Attention: accept, deny or redo (with a text), stop, open"], ...PANEL_KEYS],
+  },
 };

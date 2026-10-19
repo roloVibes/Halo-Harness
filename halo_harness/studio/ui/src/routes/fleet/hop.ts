@@ -64,13 +64,13 @@ export function useHopKeys(): void {
         e.preventDefault();
         return;
       }
-      if (s.section !== "fleet" || f.confirm) return;
-      const inAgent = !!t?.closest?.('[data-panel="fleet-agent"]');
+      if ((s.section !== "fleet" && s.section !== "session") || f.confirm) return; // 3.1.4.0 R2: Session hops this harness's agents
+      const inAgent = !!t?.closest?.('[data-panel="fleet-agent"], [data-panel="session-agent"]');
       if (key === "j") hop(1);
       else if (key === "k") inAgent ? askStop() : hop(-1);
       else if (key === "f") toggleFollow();
       else if (key === "p") void togglePause();
-      else if (key === "m") showFleetPanel("fleet-mission");
+      else if (key === "m" && s.section === "fleet") showFleetPanel("fleet-mission");
       else if (key === " " && f.selected && !t?.closest?.(PRESSABLE)) pin(f.pinned === f.selected ? "" : f.selected);
       else return;
       e.preventDefault();

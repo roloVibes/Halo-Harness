@@ -42,7 +42,7 @@ export function useStore<T extends object, S>(store: Store<T>, select: (s: T) =>
 
 // -- the shell's state -----------------------------------------------------------
 
-export type SectionId = "orchestra" | "roles" | "org" | "design" | "flow" | "fleet" | "team";
+export type SectionId = "orchestra" | "roles" | "org" | "design" | "flow" | "fleet" | "team" | "session";
 export type ThemeChoice = "auto" | "dark" | "light";
 export type FeedStatus = "off" | "connecting" | "open" | "retrying" | "down";
 
@@ -88,7 +88,7 @@ export type StudioState = {
   toasts: ToastItem[];
 };
 
-export const SECTION_IDS: SectionId[] = ["orchestra", "roles", "org", "design", "flow", "fleet", "team"];
+export const SECTION_IDS: SectionId[] = ["orchestra", "roles", "org", "design", "flow", "fleet", "team", "session"];
 
 function readLocal(key: string): string {
   try {
@@ -107,11 +107,22 @@ export function writeLocal(key: string, value: string | null): void {
   }
 }
 
+/** 3.1.4.0 R2: the served page names this harness's newest live session (studio/session_open.py boot_html). */
+export function bootLiveSession(): string {
+  try {
+    return document.documentElement.dataset.liveSession || "";
+  } catch {
+    return "";
+  }
+}
+
+/** `?mode=` wins, then the section saved for this browser; nothing saved: Session while a session is live here, else Roles. */
 function initialSection(): SectionId {
-  const asked = /[?&]mode=(orchestra|roles|org|design|flow|fleet|team)\b/.exec(location.search);
+  const asked = /[?&]mode=(orchestra|roles|org|design|flow|fleet|team|session)\b/.exec(location.search);
   if (asked) return asked[1] as SectionId;
   const saved = readLocal("halo.studio.section") || readLocal("halo-studio-mode");
-  return (SECTION_IDS as string[]).includes(saved) ? (saved as SectionId) : "roles";
+  if ((SECTION_IDS as string[]).includes(saved)) return saved as SectionId;
+  return bootLiveSession() ? "session" : "roles";
 }
 
 function initialTheme(): ThemeChoice {

@@ -44,6 +44,12 @@ export type SessionRow = {
   cost_usd?: number | null;
   agents_live?: number | null;
   agents?: AgentRow[];
+  /** 3.1.4.0 R2 (fleet/local_view.py): the status's own figures, for Session's Cost panel. */
+  turns?: number | null;
+  tokens_in?: number | null;
+  tokens_out?: number | null;
+  context_tokens?: number | null;
+  context_limit?: number | null;
   /** 3.0.6.0: a `mission-worker` session's mission id and part number. */
   mission?: string | null;
   part?: string | number | null;

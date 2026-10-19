@@ -6,10 +6,13 @@
 // to..., Record, Shutdown and Record (a session), Open in Orchestra / Flow.
 // R4: a card in conflict carries a warning chip with the file; By project a
 // card's third line has its git chips (dirty, ahead / behind, worktree).
+// 3.1.4.0 R2: a node of this harness has Open in Session; under Session's
+// scope the chosen session's card is marked (data-chosen).
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { Icon, toolIcon } from "../../lib/ui";
-import { goSection } from "../../lib/store";
+import { goSection, studio } from "../../lib/store";
+import { openSession } from "../session/store";
 import { cost, short } from "../orchestra/format";
 import { askShutdown, askStop, openAgentPanel, pin, select, togglePause } from "./actions";
 import { askHandoff, record } from "./extras";
@@ -137,8 +140,10 @@ export function SessionCard({ c, onMenu, byProject }: { c: Card; onMenu: (m: Men
   const clash = usePanels((st) => st.conflicts?.conflicts.find((x) => [x.a, x.b].some((r) => r.harness === c.harness.id && r.session_id === s.session_id)));
   const main = keyOf(c.harness.id, s.session_id, (s.agents || []).find((a) => !a.parent)?.agent_id || "main");
   const sessionCost = useTicker(Number(s.cost_usd) || 0);
+  const chosen = useFleet((st) => !!st.scope.harness && st.scope.session === s.session_id);
   return (
     <g className="fm-card" data-testid="fleet-session" data-status={s.status || "unknown"} data-motion={sessionMotion(s)} data-hc={c.hc} transform={`translate(${c.x} ${c.y})`}
+       data-chosen={chosen || undefined} data-sid={s.session_id}
        role="button" aria-label={`session ${sessionTitle(s)}`} onClick={() => select(main)} onDoubleClick={() => openAgentPanel(main)}>
       <title>{`${sessionTitle(s)}\n${s.cwd || ""}\n${c.harness.name || ""} · ${s.kind || "session"} · ${s.status || ""}`}</title>
       <rect className="fm-card-shape" width={c.w} height={c.h} rx={9} />
@@ -195,6 +200,8 @@ export function NodeMenu({ at, onClose }: { at: MenuAt; onClose: () => void }) {
     ["record", at.session ? "Record the session" : "Record this agent", "file", () => void record(at.key, !at.session)],
   ];
   if (at.session) items.push(["shutdown", "Shut the session down...", "close", () => askShutdown(h, sid)]);
+  if (harnesses.find((x) => x.id === h)?.local && studio.get().section !== "session") // 3.1.4.0 R2
+    items.push(["session", "Open in Session", "grid", () => openSession(at.session ? { session: sid } : { key: at.key })]);
   if (s?.kind === "orchestra-worker") items.push(["orchestra", "Open in Orchestra", "grid", () => goSection("orchestra")]);
   if (s?.kind === "flow") items.push(["flow", "Open in Flow", "grid", () => goSection("flow")]);
   return createPortal(

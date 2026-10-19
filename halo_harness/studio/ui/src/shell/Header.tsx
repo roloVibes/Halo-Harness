@@ -1,4 +1,4 @@
-// The top bar: brand, the seven section tabs (a tab "works" while its section
+// The top bar: brand, the eight section tabs (a tab "works" while its section
 // has fresh activity), the ? menu ("How this works" for the section and,
 // from 3.1.1.0 R1, the Glossary), the command palette button and the theme
 // menu.
@@ -15,7 +15,7 @@ function useSectionTabs(current: SectionId): TabItem[] {
   const flowBusy = useRecent(activity.flow, 3000);
   const fleetBusy = useRecent(activity.fleet, 3000);
   const teamBusy = useRecent(activity.team, 3000);
-  const busy: Record<SectionId, boolean> = { orchestra: orchestraBusy, roles: false, org: false, design: false, flow: flowBusy, fleet: fleetBusy, team: teamBusy };
+  const busy: Record<SectionId, boolean> = { orchestra: orchestraBusy, roles: false, org: false, design: false, flow: flowBusy, fleet: fleetBusy, team: teamBusy, session: fleetBusy };
   return SECTIONS.map((s) => ({
     id: s.id,
     label: s.title,

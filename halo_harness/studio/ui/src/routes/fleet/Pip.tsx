@@ -2,7 +2,7 @@
 // a small floating panel over whatever you look at -- the Roles canvas, an
 // Orchestra run, another agent -- with its state, cost, what it does now and
 // the newest lines of its stream, typing as they arrive. It hides while the
-// Fleet agent panel already shows that agent; drag it by its bar, Open goes
+// Fleet (or Session) agent panel already shows that agent; drag it by its bar, Open goes
 // to it in Fleet, Esc (or x) unpins it.
 import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { Icon, toolIcon } from "../../lib/ui";
@@ -14,6 +14,7 @@ import { nowText } from "./MapNode";
 import { EMPTY } from "./streams";
 import { Typed } from "./StreamViews";
 import { agentMotion, enterWorkspace, findAgent, isLive, showsStart, useFleet, type FleetState } from "./store";
+import { useSessionStart } from "../session/store";
 
 const LINES = 8;
 
@@ -26,11 +27,14 @@ export function FleetPip() {
   const doneAt = useFleet((s) => s.doneAt[s.pinned] || 0);
   const section = useStore(studio, (s) => s.section);
   const panelShown = useStore(layoutStore("fleet"), (l) => !!l.layout?.["fleet-agent"] && !l.layout["fleet-agent"].collapsed);
+  const sessionShown = useStore(layoutStore("session"), (l) => !!l.layout?.["session-agent"] && !l.layout["session-agent"].collapsed); // 3.1.4.0 R2
+  const sessionStart = useSessionStart();
   const [off, setOff] = useState({ x: 0, y: 0 });
   const drag = useRef<{ sx: number; sy: number; x: number; y: number } | null>(null);
   const ref = useMemo(() => (pinned ? findAgent({ harnesses } as FleetState, pinned) : null), [pinned, harnesses]);
   if (!pinned || !ref) return null;
   if (section === "fleet" && !start && panelShown && selected === pinned) return null;
+  if (section === "session" && !sessionStart && sessionShown && selected === pinned) return null;
   const { a } = ref;
   const lines = st.entries.filter((e) => e.kind === "text" || e.kind === "thinking" || e.kind === "tool_call" || e.kind === "spawn" || e.kind === "user").slice(-LINES);
   const down = (e: PointerEvent<HTMLElement>) => {

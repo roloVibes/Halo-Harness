@@ -183,7 +183,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         ctype = mimetypes.guess_type(str(cand))[0] or "application/octet-stream"
         if ctype.startswith("text/") or ctype in ("application/javascript", "application/json"):
             ctype += "; charset=utf-8"
-        self._send(200, cand.read_bytes(), ctype, {"Content-Security-Policy": SHELL_CSP})
+        body = cand.read_bytes()
+        if cand.name == "index.html":  # 3.1.4.0 R2: the page learns this harness's newest live session first
+            from halo_harness.studio.session_open import boot_html
+            body = boot_html(body)
+        self._send(200, body, ctype, {"Content-Security-Policy": SHELL_CSP})
 
     def _design_file(self) -> None:
         """3.0.1.0 D3: a design artboard's raw file for the page's sandboxed iframes (its own CSP, loopback only)."""
@@ -231,7 +235,7 @@ def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None
     return server
 
 
-STUDIO_MODES = ("roles", "org", "design", "orchestra", "flow", "fleet", "team")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team
+STUDIO_MODES = ("roles", "org", "design", "orchestra", "flow", "fleet", "team", "session")  # 3.0.4.0: the shell's sections too; 3.0.5.0: Fleet; 3.0.8.0: Team; 3.1.4.0: Session
 
 
 def url_for(server: _Server, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
@@ -268,15 +272,19 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 def cmd_studio(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: Roles (lineups and agent bios as a graph), Org (the company in Paperclip) and Design (artboards on your own apps).")
-    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, org, design, orchestra, flow, fleet or team (default: the mode you used last)")
+    parser.add_argument("--mode", choices=STUDIO_MODES, default=None, help="open straight into roles, org, design, orchestra, flow, fleet, team or session (default: the mode you used last)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
     parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
     parser.add_argument("--fleet", action="store_true", help="also run the fleet hub in this process: other harnesses join it with `halo fleet join` (docs/FLEET.md)")
     parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (its form), lineup:<name> (its inspector) or team; a Studio already running for this home opens it in its open page")
+    parser.add_argument("--session", nargs="?", const="", default=None, metavar="ID", help="open the Session dashboard on this harness's session ID (a prefix will do; omitted: the newest live one): its map, activity, attention, agent and cost")
     args = parser.parse_args(argv)
     edit = None
+    if args.edit and args.session is not None:
+        print("halo studio: --edit and --session each open one thing: pick one", file=sys.stderr)
+        return 2
     if args.edit:  # 3.1.1.0 R3: Studio is the editor of bios and lineups
         from halo_harness.studio.edit_target import parse
         edit, why = parse(args.edit)
@@ -284,6 +292,12 @@ def cmd_studio(argv: list) -> int:
             print(f"halo studio: --edit: {why}", file=sys.stderr)
             return 2
         args.mode = edit.mode
+    if args.session is not None:  # 3.1.4.0 R2: the Session dashboard, on the session asked for or the newest live one
+        from halo_harness.studio.session_open import cli_target
+        edit, note = cli_target(args.session)
+        args.mode = "session"
+        if note:
+            print(f"halo studio: {note}")
     from halo_harness.providers.config import default_state_dir
     state_dir = Path(default_state_dir())
     cwd = Path(args.cwd).resolve() if args.cwd else Path.cwd()

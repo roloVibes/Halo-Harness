@@ -5,10 +5,11 @@
 // the direct path), session commands to `fleet/<harness>/<sid>/command`. A
 // member answers 200, 202 (its owner's card is open) or 403 (its owner said no, with the reason).
 import { api, ApiError } from "../../lib/api";
-import { toast } from "../../lib/store";
+import { studio, toast } from "../../lib/store";
 import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist";
+import { scopedAgents } from "./scope";
 import { append, follow, watch } from "./streams";
-import { allAgents, fleet, findAgent, findSession, isLive, parseKey, saveOpts, sessionTitle } from "./store";
+import { fleet, findAgent, findSession, isLive, parseKey, saveOpts, sessionTitle } from "./store";
 import type { AgentKey, Harness } from "./types";
 import { load } from "./sync";
 
@@ -50,12 +51,13 @@ export function select(key: AgentKey): void {
   watch(key);
 }
 
-/** Double-click / Enter on a node: the agent panel, expanded and focused. */
+/** Double-click / Enter on a node: the agent panel, expanded and focused (Session's own in Session, 3.1.4.0 R2). */
 export function openAgentPanel(key?: AgentKey): void {
   if (key) select(key);
-  if (layoutStore("fleet").get().layout) {
-    patchPanel("fleet", "fleet-agent", { collapsed: false, face: "detail" }, false);
-    focusPanel("fleet", "fleet-agent");
+  const sec = studio.get().section === "session" ? "session" : "fleet";
+  if (layoutStore(sec).get().layout) {
+    patchPanel(sec, `${sec}-agent`, { collapsed: false, face: "detail" }, false);
+    focusPanel(sec, `${sec}-agent`);
   }
 }
 
@@ -79,10 +81,10 @@ export function toggleByProject(): void {
   saveOpts();
 }
 
-/** J / K: the next (or previous) live agent; every agent when none is live. */
+/** J / K: the next (or previous) live agent in scope; every agent when none is live. */
 export function hop(dir: 1 | -1): void {
   const s = fleet.get();
-  const all = allAgents(s);
+  const all = scopedAgents(s);
   const live = all.filter((r) => isLive(r.a));
   const list = live.length ? live : all;
   if (!list.length) return;
