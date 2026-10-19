@@ -1564,3 +1564,58 @@ removal, not Alt+8 (the keys are positional).
   dialog and the Projects panel use it. Team: a stage shows the model it
   resolves to with a way to change it. Runs in parallel with R3; merged
   after it.
+
+## ADDED 2026-10-19 ~18:10 (rolo: "Add 1 and 2 from Google harness research"): 3.1.5.0 "The coach probes" -- tiers on the canvas, then two ideas from Google's Harness²
+
+Why: Google Cloud AI Research's Harness² (arXiv 2610.14224,
+github.com/google-research/harness2, Apache-2.0, 2026-10-09) improves the
+harness around a frozen model. Per task it proposes two candidate harnesses
+(an invariant one for planning / tool use / context / delegation, a domain
+one for procedure and constraints), runs each on the same task, contrasts
+trajectories and deliverables with a reference run and composes, citing
+what it saw; across tasks a reflection step keeps an improvement library
+(an adopted harness plus an EXPERIENCE file: when it applies, the lessons,
+the evidence) that later proposals draw on. Its eight harness components
+are Halo's bio, lineup, skills, memory and hooks; Halo's coach proposes and
+applies with Undo but never probes. The paper's ablations: no library -3,
+no split editors -3 to -4, no composition -2 points; naive self-refinement
+without a reference run and probes made coding worse. Also here: the tiers
+round the owner asked for on the Roles canvas the same day.
+
+**3.1.5.0 "The coach probes"** (capabilities)
+
+- R1 Tiers on the canvas (the owner, 2026-10-19: "how do I create custom
+  tiers ... a media tier ... trigger that whole tier ... much easier to add
+  in the canvas"): an Add tier button in the canvas bar (name it, an empty
+  box appears, drag cards in, rename inline); a tier `model` its members
+  inherit unless a bio overrides it (the 3.1.4.0 model select on the tier
+  box); a tier `trigger` (schedule, file_change, event, message) that starts
+  the tier's lead with its members available; the tier box's own menu
+  (rename, model, trigger, max_parallel, delete); a single tier lays its
+  members out under main as a tree with the routing-word labels clear of
+  each other (they overlapped and read as a chain).
+- R2 The coach probes (Harness², task level): `halo coach <run> --probe
+  [--k N]` and the Coach tab's Probe button. The run's lead drafts two
+  candidate overlays for the run's lineup and bios (invariant: planning,
+  tool use, context budget, delegation; domain: procedure, knowledge,
+  constraints for this goal); each candidate runs the same goal again in
+  its own worktree under the run's budget cap; the judge bio compares the
+  anonymized deliverables and trajectories with the reference run; the
+  coach composes (merge, adopt one, or keep) with a why line that cites
+  what it saw; Apply writes the composed overlay with Undo, as today. k
+  parallel candidates when asked; off by default; the cost shown before the
+  probe starts and in the report ("probe: k runs, $X, picked: ...").
+- R3 The improvement library (Harness², harnessing level): every Applied or
+  probe-adopted overlay lands in `~/.halo/coach/library/<entry>/` as the
+  overlay files plus EXPERIENCE.md (when it applies: the project, the goal's
+  words, the lineup; the lessons; the evidence: the contrast that supported
+  it). The next run starts from the base lineup; the coach cites matching
+  entries in its proposals ("three earlier runs like this adopted ...");
+  `halo coach library` lists, shows and forgets entries; the fleet shares
+  entries through the hub's recall (`halo recall --fleet`), so a box reuses
+  what another learned; then the release.
+
+Not taken: letting library entries inherit automatically (the paper keeps
+the base harness and reuses only through proposals, and so does Halo: Apply
+after one confirm, with Undo); an in-run editor that rewrites the harness
+mid-task (the probe runs are whole runs, judged at the end).
