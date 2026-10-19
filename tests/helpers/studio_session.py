@@ -9,7 +9,7 @@ environment:
 
     python -m tests.helpers.studio_session dash    landing (live / nothing live), the five panels, the map of this
                                                    harness only, the working node lit and selected, Cost, Activity,
-                                                   Attention, `&session=<id>`, J / K, Alt+6 (Fleet keeps both
+                                                   Attention, `&session=<id>`, J / K, Alt+4 (Fleet keeps both
                                                    harnesses) and Alt+6; `/studio`'s opener focusing the open page
     python -m tests.helpers.studio_session links   the rail click rule, the map menu's Open in Session, the Roles Live
                                                    tab's Watch in Session, the Orchestra run line's (studio_session_links.py)
@@ -138,12 +138,12 @@ def dash(c, rig) -> dict:
     out["deep_agent"] = c.wait(f"{AGENT}?.dataset.key?.includes('|{FAKE_SID}|') && {AGENT}.dataset.key", 30)
     out["deep_cost"] = c.wait(f"{COST}?.dataset.session === '{FAKE_SID}' && {COST}.dataset.session", 15)
     out["deep_card"] = c.js(f"[...{inside('session-map', 'fleet-session')}].find((n) => n.dataset.chosen)?.dataset.sid")
-    alt(c, 6)
-    out["alt6"] = c.wait(f"{TAB}.startsWith('Fleet') && {TAB}", 10)
+    alt(c, 4)
+    out["alt4"] = c.wait(f"{TAB}.startsWith('Fleet') && {TAB}", 10)
     c.wait(f"{inside('fleet', 'fleet-box')}.length === 2", 30)
     out["fleet_boxes"] = c.js(f"[...{inside('fleet', 'fleet-box')}].map((b) => b.querySelector('.fm-box-label').textContent)")
     out["fleet_attn"] = c.wait(f"{inside('fleet', 'fleet-attn-row')}.length", 20)
-    alt(c, 8)
+    alt(c, 6)
     out["alt6"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["back_boxes"] = c.js(f"{inside('session-map', 'fleet-box')}.length")
     return out

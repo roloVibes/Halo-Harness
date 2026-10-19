@@ -12,7 +12,7 @@ export const SESSION_HELP: Record<string, Help> = {
       "A flowing outline is an agent at work, amber waits on you, green just finished, red failed.",
       "Click an agent to see it in Agent (the session it is in becomes the chosen one); double-click opens Agent expanded.",
       "The ... on a card or an agent: Steer, Pause, Stop, Take over, Hand to, Record, Shutdown.",
-      "J / K hop between this harness's live agents; Fleet (Alt+6) still shows every harness.",
+      "J / K hop between this harness's live agents; Fleet (Alt+4) still shows every harness.",
     ),
   },
   "session-agent": {
