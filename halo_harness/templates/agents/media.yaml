@@ -19,8 +19,10 @@ models:
   # image descriptions at -- keep them aligned). "default" resolves to
   # the session's default model at run time; a blind default still
   # delivers metadata + frame paths, just no real description.
-  preference: or:z-ai/glm-5.3-flash
-  fallback: default
+  # `default` = the session's own model (halo config set model ..., /model), so nothing
+  # shipped sends this role to a provider you did not set up; pin a ref here to send it
+  # elsewhere: the eyes lane wants a vision-capable model (or:z-ai/glm-5.3-flash measures vision=True cheaply).
+  preference: default
   effort: low
   thinking: off
   context_budget: 0.9

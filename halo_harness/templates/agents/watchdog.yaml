@@ -10,8 +10,10 @@ tags: [monitoring]
 kind: custom
 
 models:
-  preference: or:anthropic/claude-haiku-4.5
-  fallback: ol:qwen3-coder:30b
+  # `default` = the session's own model (halo config set model ..., /model), so nothing
+  # shipped sends this role to a provider you did not set up; pin a ref here to send it
+  # elsewhere: a watchdog is fine on the smallest model you have.
+  preference: default
   effort: low
   thinking: off
   context_budget: 0.4
