@@ -32,12 +32,24 @@ and a batch that is nothing but orphaned report tails is dropped before
 the parser can type it. `install()` swaps Textual's monitor for a
 subclass whose `run` applies both; everything else in the loop is
 Textual's own code, kept line for line.
+
+3.1.3.0 (fragments again on 2026-10-19): a quiet console used to release a
+held PARTIAL report after 30 ms, and the parser types it -- on a loaded
+machine the halves of a report can be that far apart. Now only a lone ESC
+is released on quiet (a real Esc); a held report head (`ESC [ <` + digits)
+waits up to `HEAD_PATIENCE_S` for its tail, then is dropped, never typed,
+and a head left in a batch (its tail lost to a console-mode flip) goes the
+same way. `SizeSettle` lets a window drag settle for `SETTLE_S` before one
+Resize reaches Textual (a full screen layout per size record before).
+`HALO_INPUT_TRACE=<file>` appends every raw batch and what the parser got.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import sys
+import time
 
 ALT_OR_CTRL = 0x0001 | 0x0002 | 0x0004 | 0x0008   # RIGHT_ALT, LEFT_ALT, RIGHT_CTRL, LEFT_CTRL
 
@@ -58,15 +70,23 @@ _COMPLETE_REPORT = re.compile(r"\x1b\[<\d{1,3};\d{1,3};\d{1,3}[Mm]")
 # what is left of a batch of mouse reports once the complete ones are
 # taken out, when all of it is report tails: "[<35;72;18M", "8;17M", ";93;17M"
 _ORPHAN_TAILS = re.compile(r"^(?:\[?<?[\d;]*;\d{1,3}[Mm])+$")
+# a report head (`ESC [ <` + digits) that never got its tail: it ends the
+# batch or runs straight into the next escape. Nobody types `ESC [ <`.
+_STRAY_HEAD = re.compile(r"\x1b\[<[\d;]*(?=\x1b|\Z)")
+_REPORT_HEAD = re.compile(r"\x1b\[<[\d;]*\Z")
+HEAD_PATIENCE_S = 2.0   # how long a held report head waits for its tail
+SETTLE_S = 0.06         # a window drag is over when no size record came for this long
 
 
 def drop_orphan_tails(text: str) -> str:
     """A batch whose non-report remainder is nothing but report tails
     loses the tails; any batch carrying real typed text is untouched
     (typed characters arrive one per read, so a human never produces
-    a whole `7;18M` in one batch)."""
+    a whole `7;18M` in one batch). A report head without its tail
+    (3.1.3.0) goes whatever else is in the batch."""
     if not text:
         return text
+    text = _STRAY_HEAD.sub("", text)
     rest = _COMPLETE_REPORT.sub("", text)
     if rest and _ORPHAN_TAILS.match(rest):
         return "".join(_COMPLETE_REPORT.findall(text))
@@ -79,8 +99,10 @@ class PendingInput:
 
     MAX_HELD = 64
 
-    def __init__(self) -> None:
+    def __init__(self, clock=time.monotonic) -> None:
         self.held = ""
+        self.held_since = 0.0
+        self._clock = clock
 
     def push(self, text: str) -> str:
         """Prepend what was held, hold back an incomplete trailing
@@ -90,16 +112,57 @@ class PendingInput:
         m = _INCOMPLETE_TAIL.search(text)
         if m is not None and len(text) - m.start() <= self.MAX_HELD:
             self.held = text[m.start():]
+            self.held_since = self._clock()
             text = text[:m.start()]
         return drop_orphan_tails(text)
 
     def flush(self) -> str:
-        """The console went quiet: a held lone ESC was a real Esc key."""
+        """The console went quiet. A held lone ESC was a real Esc key and
+        is released; a held report head keeps waiting for its tail (the
+        other half of a split report can be tens of ms behind on a busy
+        machine) and is dropped, never typed, once `HEAD_PATIENCE_S` is up;
+        any other partial sequence is released as before."""
+        if not self.held:
+            return ""
+        if _REPORT_HEAD.match(self.held):
+            if self._clock() - self.held_since < HEAD_PATIENCE_S:
+                return ""
+            self.held = ""
+            return ""
         held, self.held = self.held, ""
         return held
 
 
+class SizeSettle:
+    """The last window size seen, released once no new size has come for
+    `SETTLE_S` (pure: the loop passes its own clock readings)."""
+
+    def __init__(self) -> None:
+        self.size = None
+        self._deadline = 0.0
+
+    def push(self, size, now: float) -> None:
+        self.size = size
+        self._deadline = now + SETTLE_S
+
+    def due(self, now: float):
+        """The settled size, once, or None while a drag is still moving."""
+        if self.size is not None and now >= self._deadline:
+            size, self.size = self.size, None
+            return size
+        return None
+
+
 _INSTALLED = False
+
+
+def _trace(path: str, raw: str, fed: str, held: str) -> None:
+    """One line per console batch: what came in, what the parser got, what is held."""
+    try:
+        with open(os.path.expanduser(path), "a", encoding="utf-8") as fh:
+            fh.write(f"{time.time():.3f} raw={raw!r} fed={fed!r} held={held!r}\n")
+    except Exception:
+        pass
 
 
 def install() -> bool:
@@ -138,10 +201,15 @@ def install() -> bool:
                 keys: list = []
                 append_key = keys.append
                 pending = PendingInput()
+                settle = SizeSettle()
+                trace_path = os.environ.get("HALO_INPUT_TRACE", "")
                 while not exit_requested():
                     for event in parser.tick():
                         self.process_event(event)
-                    if win32.wait_for_handles([hIn], 30 if pending.held else 100) is None:
+                    settled = settle.due(time.monotonic())
+                    if settled is not None:
+                        self.on_size_change(*settled)
+                    if win32.wait_for_handles([hIn], 30 if (pending.held or settle.size) else 100) is None:
                         held = pending.flush()
                         if held:
                             for event in parser.feed(held):
@@ -164,12 +232,15 @@ def install() -> bool:
                             size = input_record.Event.WindowBufferSizeEvent.dwSize
                             new_size = (size.X, size.Y)
                     if keys:
-                        text = pending.push("".join(keys).encode("utf-16", "surrogatepass").decode("utf-16"))
+                        raw = "".join(keys).encode("utf-16", "surrogatepass").decode("utf-16")
+                        text = pending.push(raw)
+                        if trace_path:
+                            _trace(trace_path, raw, text, pending.held)
                         if text:
                             for event in parser.feed(text):
                                 self.process_event(event)
                     if new_size is not None:
-                        self.on_size_change(*new_size)
+                        settle.push(new_size, time.monotonic())
             except Exception as error:  # the same catch Textual's own loop has
                 self.app.log.error("EVENT MONITOR ERROR", error)
 

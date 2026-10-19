@@ -19,6 +19,13 @@ The coach loop: a coach card can be explained by the run's own lead and applied 
 - **The coach line** "coach: N suggestions, M applied, top: ..." in the Orchestra, flow, mission and team reports and one coach row per run in `halo fleet digest`.
 - **The coach's rules live once** (`orchestra/coach_rules.py`) for every run kind; some flow, mission and team card ids and texts changed (`coordination-<stage>-loops`, `tools-<unit>-claim-<key>`).
 
+### R2: the terminal keeps up
+
+- **Typing keeps up with the typist.** Every status-bar tick, phase line, tool card, agent card, thinking block and level-band frame asked Textual for a full screen layout (every transcript widget, thousands in a long session: 100 ms at 50 turns, 400 ms at 150), once a second and more, and the keys typed meanwhile waited behind it. They now repaint in place (`tui/widgets/inplace.py`: a layout only when the widget's height can change). At 50 turns: idle CPU 14% -> 0%, screen layouts per typed key 6 -> 1, none for a slash command; the slash menu rebuilds once per change instead of once per entry.
+- **Mouse reports stay out of the prompt** (Windows). A report split across two console reads with a quiet gap between them was released to the parser after 30 ms, which typed its tail (`[<35;7`). A held report head now waits up to two seconds for its tail and is dropped, never typed; a head whose tail was lost to a console-mode flip goes with it. `HALO_INPUT_TRACE=<file>` appends every raw console batch for a report.
+- **Resizing settles first.** Windows size records settle for 60 ms before one Resize reaches Textual, so a window drag no longer re-lays out the whole transcript per size record, and the level band and status bar repaint in place after it (two layouts fewer per resize).
+- **The level band needs 24 rows** (was 32: a half-height window lost the game) and comes back the moment the terminal has room again instead of on its next idle tick.
+
 ## [3.1.2.0] - 2026-10-18
 
 One run model: a lane, a mission part, a team stage and a flow step are one unit of work on one ten-state machine, with one ledger line and one report row, and `halo work` prints any run of any kind as one table. The machine is enforced; a team stage's members run at the same time; an orchestra or flow stage can run on a fleet member; a stale downstream lane is never merged stale; a plan is priced before it runs and a team has a budget line; recall reaches across the fleet; and the two-machine check is one command on each box. The third of the four versions from the 2026-10-18 assessment.

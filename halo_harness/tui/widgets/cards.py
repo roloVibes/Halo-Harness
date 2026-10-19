@@ -20,6 +20,7 @@ from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.widgets import OptionList
 
+from halo_harness.tui.widgets.inplace import update_in_place
 from halo_harness.tui.widgets.input_sanitize import SafeStatic, display_safe
 
 STATUS_GLYPHS = {"running": "●", "ok": "✓", "error": "✗", "skipped": "⊘"}
@@ -225,7 +226,7 @@ class ToolCard(SafeStatic, can_focus=True):
         if text == self._last_rendered:
             return
         self._last_rendered = text
-        self.update(text)
+        update_in_place(self, text)
 
 
 def _summarize_call(name: str, input_data: dict) -> str:
@@ -300,7 +301,7 @@ class SubAgentCard(SafeStatic):
         if text == self._last_rendered:
             return
         self._last_rendered = text
-        self.update(text)
+        update_in_place(self, text)
 
 
 class _AnswerCard(SafeStatic):

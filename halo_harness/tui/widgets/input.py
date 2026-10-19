@@ -30,14 +30,23 @@ class CompletionPopup(OptionList):
         self.can_focus = False  # PromptInput keeps focus; app.py drives this list by index
 
     def show(self, items: "list[str]") -> None:
-        self.clear_options()
-        for item in items:
-            self.add_option(item)
-        self.display = bool(items)
+        # One rebuild per change, never one per option: each add_option was
+        # its own refresh, and a bare `/` lists every command (3.1.3.0).
+        items = list(items)
+        if items != getattr(self, "_shown", None):
+            self._shown = items
+            self.clear_options()
+            if items:
+                self.add_options(items)
+        if self.display != bool(items):
+            self.display = bool(items)
         if items:
             self.highlighted = 0
 
     def hide(self) -> None:
+        if not self.display and not getattr(self, "_shown", None):
+            return
+        self._shown = []
         self.display = False
         self.clear_options()
 

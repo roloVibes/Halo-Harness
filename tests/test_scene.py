@@ -3,7 +3,7 @@ game theme's scene renders at 60/80/120/200 columns in every phase and in
 ASCII mode, each row exactly the width asked for, deterministic in
 (frame, scroll), the hero on the ground, the mover only in its phases,
 the cue sprite beside the hero, variant colours applied; the band widget
-appears under a game theme at 120x40, yields below 30 rows, and `/level`
+appears under a game theme at 120x40, yields below 24 rows, and `/level`
 hides and restores it.
 """
 
@@ -143,10 +143,40 @@ def test_band_widget_shows_yields_and_toggles(ctx: Ctx):
             await handle_slash(app, "theme", "claude-dark")
             await pilot.pause(0.05)
             ctx.check("a non-game theme hides the band", band.display is False)
-        app, size = _app("doom", (120, 24))
+        app, size = _app("doom", (120, 22))
         async with app.run_test(size=size) as pilot:
             await pilot.pause(0.1)
-            ctx.check("at 120x24 the band yields the rows", app.scene_band.display is False)
+            ctx.check("at 120x22 the band yields the rows", app.scene_band.display is False)
+
+    asyncio.run(body())
+
+
+@test
+def test_band_returns_the_moment_the_rows_allow_and_repaints_in_place(ctx: Ctx):
+    """3.1.3.0: the app's own Resize brings a hidden band back (no idle tick
+    needed), 24 rows are enough, and a frame never asks for a screen layout."""
+    from tests.helpers.layout_watch import watch_own_layout_requests
+
+    async def body():
+        app, size = _app("doom", (120, 40))
+        async with app.run_test(size=size) as pilot:
+            await pilot.pause(0.1)
+            band = app.scene_band
+            band.pause()  # no idle tick may rescue it: the app's Resize has to
+            ctx.check("shown at 120x40", band.display is True)
+            await pilot.resize_terminal(120, 20)
+            await pilot.pause(0.1)
+            ctx.check("hidden at 20 rows", band.display is False)
+            await pilot.resize_terminal(120, 24)
+            await pilot.pause(0.15)
+            ctx.check("back at 24 rows, with the timer stopped", band.display is True)
+            lines = str(band.render()).split("\n")
+            ctx.check(f"the frame is eight rows at the new width, got {len(lines)}x{len(lines[0]) if lines else 0}",
+                      len(lines) == 8 and all(len(line) == 120 for line in lines))
+            with watch_own_layout_requests(band) as asked:
+                band._tick()
+                await pilot.pause(0.1)
+            ctx.check(f"a band frame makes no layout request of its own, got {asked}", not asked)
 
     asyncio.run(body())
 

@@ -596,8 +596,12 @@ a guess when there is truly no existing value yet.
   process that inherits it) hands over the tail alone. Fixed in 3.0.2.0
   (`tui/win32_input.py`: an incomplete trailing sequence is held until the
   rest arrives, a batch of orphaned tails is dropped); the prompt also
-  strips any fragment that still arrives, and `Ctrl+U` clears the box. If
-  it persists, say which terminal you run Halo in (Windows Terminal,
+  strips any fragment that still arrives, and `Ctrl+U` clears the box.
+  3.1.3.0: a held report head waits up to two seconds for its tail (a
+  quiet console used to release it after 30 ms, and the parser typed it)
+  and is dropped, never typed. If it persists, run with
+  `HALO_INPUT_TRACE=<file>`, move the mouse, and send the file along with
+  which terminal you run Halo in (Windows Terminal,
   conhost, VS Code, another app's terminal pane).
 - **`--file`/`--add-dir`/`--mcp-config`/`--betas` swallow the prompt that
   follows them** -- these flags are `nargs="+"` (they accept more than one

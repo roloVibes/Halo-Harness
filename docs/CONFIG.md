@@ -238,7 +238,7 @@ directly by the features that own them:
 | `theme` | auto-detected from terminal truecolor support | `/theme`, `/doom`, `/metroid`, `/mario`, `/beetlejuice`, `/alien`, `halo config set theme ...` (eleven names: `claude-dark`, `claude-light`, each with `-daltonized`/`-ansi`, and `doom`, `metroid`, `mario`, `beetlejuice`, `alien`) |
 | `theme_toggle_previous` | unset | written by `/doom`, `/metroid`, `/mario`, `/beetlejuice`, `/alien` and by `/theme <game>`: the theme to restore when the game theme is toggled off (`claude-dark` when missing); cleared when you leave the game themes |
 | `paperclip.enabled` | `false` | Org mode: whether Paperclip may wake the linked company's Halo agents on heartbeats. Off: `halo paperclip-run` answers idle, Studio's Org canvas shows the switch. Written by `halo paperclip on|off`, `/org on|off`, the wizard's Organizations step and Studio's header |
-| `theme_scene` | `true` | written by `/level [on|off]` (or `halo config set theme_scene false`): whether the game themes draw their level band above the prompt. The band also hides on its own on a terminal under 32 rows or 60 columns, while a pending card is docked, and under a theme without a scene |
+| `theme_scene` | `true` | written by `/level [on|off]` (or `halo config set theme_scene false`): whether the game themes draw their level band above the prompt. The band also hides on its own on a terminal under 24 rows or 60 columns, while a pending card is docked, and under a theme without a scene |
 | `theme_variant` | `crateria` (metroid), `bros` (mario) | written by `/metroid <area>`, `/mario <variant>`, `/theme <game> <variant>`, the wizard's Theme step and `halo config set theme_variant <value>`: the Metroid area palette (`crateria`, `brinstar`, `norfair`, `maridia`, `tourian`) or the Mario palette (`bros`, `world`). One key serves both games: a value that is not a variant of the active game theme falls back to that game's default |
 | `images` | `"inline"` | `--no-inline-images` overrides per-run |
 | `intro` | `true` | `--no-intro` overrides per-run; set `false` to turn off the launch intro for good |
@@ -343,6 +343,7 @@ good, with no `HALO_` twin, since the test suites depend on the exact name.
 | `HALO_CLAUDE_EXE` (legacy `BRIDGE_CLAUDE_EXE`) | override how the `claude` binary is launched (`cc:` route, `--chrome`) |
 | `HALO_DUMP=1` (legacy `BRIDGE_DUMP=1`) | dump raw request/response JSON for debugging (proxy mode) |
 | `HALO_CA_BUNDLE` (legacy `BRIDGE_CA_BUNDLE`) | a custom CA bundle path, tried after `NODE_EXTRA_CA_CERTS`/`REQUESTS_CA_BUNDLE` |
+| `HALO_INPUT_TRACE` | Windows only: a file to which the TUI appends every raw console input batch and what the parser was given (3.1.3.0), for diagnosing stray mouse-report text in the prompt from the terminal's own records |
 | `CLAUDE_CONFIG_DIR` | relocate `~/.claude` (and `~/.claude.json`, honoring a legacy `<dir>/.config.json`) |
 | `CLAUDE_CODE_SANDBOXED` | any non-empty value counts as "trusted" for the current directory |
 | `CLAUDE_CODE_GIT_BASH_PATH` | override Git Bash's location on Windows |
