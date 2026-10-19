@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.1.3.0] - unreleased
+## [3.1.3.0] - 2026-10-19
 
 The coach loop: a coach card can be explained by the run's own lead and applied in one confirm, with a way back. The last of the four versions from the 2026-10-18 assessment.
 
