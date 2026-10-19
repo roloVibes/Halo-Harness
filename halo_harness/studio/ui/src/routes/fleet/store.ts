@@ -3,7 +3,8 @@
 // stream per agent (streams.ts), what each agent is doing right now, the lit
 // spawn edges, and the view's own choices: the selected agent (the Inspector
 // and fleet-agent follow it), the pinned one (the picture-in-picture mini
-// stream), follow, By project. A key is `harness|session|agent`.
+// stream), follow, By project. A key is `harness|session|agent`. 3.1.4.0 R2:
+// `scope` narrows the panels to one harness and session (scope.ts; Session sets it).
 import { useEffect, useMemo, useState } from "react";
 import { createStore, useStore, writeLocal } from "../../lib/store";
 import { settle, type MotionState } from "../../lib/motion";
@@ -12,6 +13,8 @@ import { LIVE_STATES, type Activity, type AgentKey, type AgentRef, type AgentRow
 export type FleetUiView = "auto" | "start" | "workspace";
 export type StreamTab = "thinking" | "working" | "output";
 export type Confirm = { what: "stop" | "shutdown"; key: AgentKey; label: string } | null;
+/** 3.1.4.0 R2: what the map, the activity, the attention rows and the costs show (scope.ts); {} = the whole fleet. */
+export type Scope = { harness?: string; session?: string };
 
 export type FleetState = {
   harnesses: Harness[];
@@ -35,6 +38,7 @@ export type FleetState = {
   steerFocus: number;
   pairOpen: boolean;
   confirm: Confirm;
+  scope: Scope;
 };
 
 const OPTS = "halo.studio.fleet.opts";
@@ -69,6 +73,7 @@ export const fleet = createStore<FleetState>({
   steerFocus: 0,
   pairOpen: false,
   confirm: null,
+  scope: {},
   ...readOpts(),
 });
 

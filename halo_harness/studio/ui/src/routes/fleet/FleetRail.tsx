@@ -7,11 +7,14 @@
 // need-you count is the attention queue's (a click opens Attention), and the
 // "While you were away" card shows here after ten minutes away. 3.0.6.0 R8:
 // a mission part's session (`mission-worker`) carries a `mission` chip; its
-// `mission` link opens the Mission panel on that mission and part.
+// `mission` link opens the Mission panel on that mission and part. 3.1.4.0
+// R2: a node of THIS harness opens the Session section on it (the session
+// chosen, the agent selected); a member's node opens Fleet as before.
 import { useEffect, useState } from "react";
 import { Empty } from "../../lib/ui";
 import { goSection, studio, useStore, type SessionInfo } from "../../lib/store";
 import { Answer } from "../../shell/Sessions";
+import { openSession } from "../session/store";
 import { select } from "./actions";
 import { DigestCard } from "./Digest";
 import { showFleetPanel } from "./extras";
@@ -23,7 +26,9 @@ import type { Harness, SessionRow } from "./types";
 
 const MAX_AGENTS = 12;
 
-function open(key?: string): void {
+/** A click on a node: this harness's opens Session on it (a session row: that session), a member's opens Fleet. */
+function open(key?: string, local = false, session = ""): void {
+  if (local) return openSession(session ? { session } : key ? { key } : {});
   goSection("fleet");
   enterWorkspace();
   if (key) select(key);
@@ -40,7 +45,8 @@ function Session({ h, s }: { h: Harness; s: SessionRow }) {
   return (
     <div className="fr-session">
       <div className="fr-srow">
-        <button className="rail-item fr-row" data-kind="session" data-id={s.session_id} data-testid="fleet-rail-node" onClick={() => open(mainKey)} title={`${sessionTitle(s)} · ${s.cwd || ""}`}>
+        <button className="rail-item fr-row" data-kind="session" data-id={s.session_id} data-testid="fleet-rail-node" onClick={() => open(mainKey, !!h.local, s.session_id)}
+                title={`${sessionTitle(s)} · ${s.cwd || ""}${h.local ? " · opens it in Session" : ""}`}>
           <span className="fr-dot" data-status={s.status || "unknown"} data-motion={sessionMotion(s)} aria-hidden="true" />
           <span className="rail-item-text">{sessionTitle(s)}</span>
           {s.mission && <span className="badge fr-mission" data-testid="fleet-rail-mission" title={`mission ${s.mission} part ${s.part}`}>mission</span>}
@@ -62,7 +68,7 @@ function Session({ h, s }: { h: Harness; s: SessionRow }) {
         const key = keyOf(h.id, s.session_id, a.agent_id);
         return (
           <button key={key} className="rail-item fr-row fr-agent" style={{ paddingLeft: 20 + depth * 12 }} data-kind="agent" data-id={a.agent_id} data-testid="fleet-rail-node"
-                  aria-current={selected === key || undefined} onClick={() => open(key)} title={`${a.name || a.agent_id}: ${a.state}${a.current ? " · " + a.current : ""}`}>
+                  aria-current={selected === key || undefined} onClick={() => open(key, !!h.local)} title={`${a.name || a.agent_id}: ${a.state}${a.current ? " · " + a.current : ""}`}>
             <span className="fr-adot" data-state={a.state || "none"} data-motion={agentMotion(a, doneAt[key] || 0)} aria-hidden="true" />
             <span className="rail-item-text">{a.name || a.role || a.agent_id}</span>
             <span className="mono fr-state" data-state={a.state || "none"}>{a.state}</span>
@@ -96,7 +102,7 @@ export function FleetRail() {
       </div>
       {harnesses.map((h) => (
         <div key={h.id} className="fr-harness">
-          <button className="rail-item fr-row fr-h" data-kind="harness" data-id={h.id} data-testid="fleet-rail-node" onClick={() => open()} title={[h.name, h.host, h.version, h.local ? "this harness" : h.online ? "online" : "offline"].filter(Boolean).join(" · ")}>
+          <button className="rail-item fr-row fr-h" data-kind="harness" data-id={h.id} data-testid="fleet-rail-node" onClick={() => open(undefined, !!h.local)} title={[h.name, h.host, h.version, h.local ? "this harness" : h.online ? "online" : "offline"].filter(Boolean).join(" · ")}>
             <span className="fr-dot" data-status={h.local || h.online ? "online" : "offline"} aria-hidden="true" />
             <span className="rail-item-text">{h.name || h.id.slice(0, 8)}</span>
             {h.version_mismatch && <span className="badge fr-version" title="another Halo version: `halo update` on the older one">{h.version}</span>}

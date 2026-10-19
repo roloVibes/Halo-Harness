@@ -3,10 +3,12 @@
 // waiting / paused amber, done green, failed red, queued faint), each tool
 // call a tick; hover says who, what and when; a click selects that agent on
 // the map (and the Agent panel follows). Drawn in SVG from the lanes and
-// ticks the panels' store keeps (pload.ts).
+// ticks the panels' store keeps (pload.ts). 3.1.4.0 R2: the lanes of the
+// agents in scope only (scope.ts: Session's harness, or its chosen session).
 import { useMemo, useState, type MouseEvent } from "react";
 import { select } from "./actions";
 import { panels, usePanels, type Seg } from "./pstore";
+import { sessionsIn, useScope } from "./scope";
 import { allAgents, isLive, sessionTitle, useFleet, useNow } from "./store";
 
 const LANE = 18;
@@ -40,7 +42,8 @@ export function Timeline() {
   const span = usePanels((s) => s.span);
   const now = useNow(true, 1000);
   const [tip, setTip] = useState<Tip>(null);
-  const live = useMemo(() => allAgents({ harnesses } as never).filter((r) => isLive(r.a)), [harnesses]);
+  const scope = useScope();
+  const live = useMemo(() => allAgents({ harnesses: sessionsIn(harnesses, scope) } as never).filter((r) => isLive(r.a)), [harnesses, scope]);
   const from = now - span * 60_000;
   const x = (t: number) => LABEL_W + ((t - from) / (now - from)) * (W - LABEL_W - 4);
   const height = Math.max(1, live.length) * LANE + 18;

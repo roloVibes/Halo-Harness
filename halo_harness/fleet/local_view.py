@@ -10,7 +10,10 @@ waits at most WAIT_S, a slow session keeping its row without the extras).
 `session_row` is the row shape both this and the relay's announce use:
 
     {...registry public fields, status: waiting|busy|idle|unknown, busy, pending, model, cost_usd,
-     agents_live, agents: [agent row, ...]}
+     agents_live, agents: [agent row, ...], turns, tokens_in, tokens_out, context_tokens, context_limit}
+
+(3.1.4.0 R2: turns, the tokens and the context are the status's own, for
+Studio's Session Cost panel; None when the session has not said.)
 """
 
 from __future__ import annotations
@@ -46,8 +49,15 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
                model=data.get("model"), cost_usd=data.get("cost_usd"),
                remote_attached=data.get("remote_attached") if isinstance(data.get("remote_attached"), int) else 0,
                agents_live=live if isinstance(live, int) and not isinstance(live, bool) else 0,
-               agents=[a for a in (agents or []) if isinstance(a, dict)])
+               agents=[a for a in (agents or []) if isinstance(a, dict)],
+               turns=_num(data.get("turn")), tokens_in=_num(data.get("total_input_tokens")),
+               tokens_out=_num(data.get("total_output_tokens")), context_tokens=_num(data.get("context_tokens")),
+               context_limit=_num(data.get("context_limit")))
     return row
+
+
+def _num(v):
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
 
 def _probe(entry: dict, out: dict) -> None:

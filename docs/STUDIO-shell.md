@@ -6,9 +6,12 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## The shell (3.0.3.0)
 
-`halo studio` opens a React shell with seven sections in the top bar:
-**Orchestra | Roles | Org | Design | Flow | Fleet | Team** (`Alt+1`..`Alt+7`, or `?mode=` in
-the URL; Flow since 3.0.4.0, Fleet since 3.0.5.0, Team since 3.0.8.0). Orchestra is the live run console (see [Orchestra](STUDIO-orchestra-flow.md#orchestra-the-run-console)
+`halo studio` opens a React shell with eight sections in the top bar:
+**Orchestra | Roles | Org | Design | Flow | Fleet | Team | Session** (`Alt+1`..`Alt+8`, or `?mode=` in
+the URL; Flow since 3.0.4.0, Fleet since 3.0.5.0, Team since 3.0.8.0, Session since 3.1.4.0). Session is
+this session, live: the Fleet panels scoped to this harness (see
+[Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
+session of this harness is live. Orchestra is the live run console (see [Orchestra](STUDIO-orchestra-flow.md#orchestra-the-run-console)
 below), Flow the workflow console (see [Flow](STUDIO-orchestra-flow.md#flow-the-workflow-console)),
 Fleet every harness and every agent, live (see [Fleet](STUDIO-fleet.md#fleet-every-harness-every-agent)),
 Team the project's team file as one board (see [Team](STUDIO-team-roles-org.md#team-people-blocks-and-stages-on-one-board));

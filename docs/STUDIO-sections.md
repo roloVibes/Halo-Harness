@@ -1,6 +1,6 @@
 # Studio: how each section works
 
-Read this when you want the one-screen story of a section (Orchestra, Roles, Org, Design, Flow, Fleet, Team) and the live feed.
+Read this when you want the one-screen story of a section (Orchestra, Roles, Org, Design, Flow, Fleet, Team, Session) and the live feed.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -8,8 +8,8 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 The same copy as Studio's **How this works** card (`ui/src/routes/sectionHelp.ts`
 for the steps, `routes/help.ts`, `routes/help-orchestra.ts` and
-`routes/help-org-design.ts` and `routes/help-roles.ts` for the panels' about
-lines and help).
+`routes/help-org-design.ts`, `routes/help-roles.ts` and `routes/help-session.ts`
+for the panels' about lines and help).
 
 ### Orchestra
 
@@ -298,6 +298,51 @@ flow). The steps are those of
 boxes, blocks underneath. Inspector: the selected stage (its row, Run, the
 gate card), block (holders, changes) or member. Change feed: every move of
 the run, newest last.
+
+### Session
+
+**What it is.** Your own session, live (3.1.4.0, `Alt+8`, "This session,
+live"): Fleet's map, timeline, log, attention queue and agent inspector
+narrowed to this harness and the session you chose, and what that session
+costs. Five panels, nothing fleet-wide; Fleet keeps everything. It is the
+same Fleet panels (one implementation each) reading the Fleet stores through
+one scope, `{harness, session}`, which the section sets while it shows.
+
+**How to use it.**
+
+1. **Open it**: `/studio` in a terminal session opens Studio here on that
+   session (`halo studio --session` from a shell); `Alt+8`, the palette,
+   **Watch in Session** on the Roles Live tab or on a live Orchestra run's
+   line, **Open in Session** in a map node's `...` menu and this harness's
+   nodes in the rail land here too. With nothing saved for the browser,
+   Studio opens here while a session of this harness is live.
+2. **Read the map**: one card per session on this machine, its agents as a
+   tree under it: the one at work has a flowing outline and its tool icon,
+   amber waits on you, green just finished. Entering selects the newest
+   working agent; click another and its session becomes the chosen one (its
+   card is marked).
+3. **Watch and steer the agent**: Agent shows what it thinks as it types,
+   each tool call with its result, and what it hands back. Steer it with a
+   nudge or a new task; Pause, Stop (asks first), Follow, Pin its mini
+   stream; `J` / `K` hop between this harness's live agents.
+4. **Follow the session**: Activity draws a lane per live agent over the
+   session's live log (its session pick shows every session here);
+   Attention lists what waits on you in this harness's sessions, one key
+   each; Cost ticks the spend, the tokens in and out, the turns, the time
+   and the model.
+
+Until this harness has a live session the section is its Start view: three
+lines, "start a session in a terminal (`halo`), it appears here the moment
+it registers", and open the workspace anyway. `?mode=session&session=<id>`
+opens it with that session chosen.
+
+**Panels.** Map (`session-map`): your sessions on this machine as cards,
+each one's agents as a tree, the one at work lit. Agent (`session-agent`):
+the selected agent, its streams and controls. Activity (`session-activity`):
+the chosen session's timeline lanes and live log. Attention
+(`session-attention`): what waits on you in this harness's sessions. Cost
+(`session-cost`): the chosen session's spend, tokens in and out, turns,
+elapsed and model, and what each of its agents cost.
 
 ## The live feed
 

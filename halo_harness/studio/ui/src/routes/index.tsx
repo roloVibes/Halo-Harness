@@ -5,7 +5,8 @@
 // and Flow: the Start view until a run is open; Fleet: until something runs;
 // 3.0.7.0 R3 Org: until a company is linked, Design: until a project exists;
 // R2 Roles: until you have a lineup of your own; 3.0.8.0 R2 Team: until the
-// team file loads clean). Every section is React now
+// team file loads clean; 3.1.4.0 R2 Session: until this harness has a live
+// session -- its panels are Fleet's, scoped to this harness). Every section is React now
 // (the framed classic page is gone). The Workspace does the rest
 // (drag, resize, collapse, pop out, persistence). Each section's "How this
 // works" copy is routes/sectionHelp.ts.
@@ -33,6 +34,9 @@ import { setView as enterOrg } from "./org/store";
 import { rolesPanels } from "./roles/Roles";
 import { RolesView } from "./roles/Start";
 import { setView as enterRoles } from "./roles/store";
+import { sessionPanels } from "./session/Session";
+import { SessionView } from "./session/Start";
+import { enterSession } from "./session/store";
 import { teamPanels } from "./team/Team";
 import { TeamView } from "./team/Start";
 import { setView as enterTeam } from "./team/store";
@@ -59,6 +63,7 @@ export const SECTIONS: SectionDef[] = [
   { id: "flow", title: "Flow", kbd: "Alt+5", blurb: "A brief to renders, posts and metrics", panels: flowPanels, rail: FlowRail, view: FlowView, enter: enterWorkspace },
   { id: "fleet", title: "Fleet", kbd: "Alt+6", blurb: "Every harness, every agent, live", panels: fleetPanels, view: FleetView, enter: enterFleet },
   { id: "team", title: "Team", kbd: "Alt+7", blurb: "People, blocks and stages on one board", panels: teamPanels, view: TeamView, enter: () => enterTeam("workspace") },
+  { id: "session", title: "Session", kbd: "Alt+8", blurb: "This session, live", panels: sessionPanels, view: SessionView, enter: enterSession },
 ];
 
 export function sectionDef(id: SectionId): SectionDef {

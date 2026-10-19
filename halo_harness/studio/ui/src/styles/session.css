@@ -1,0 +1,36 @@
+/* The Session section (3.1.4.0 R2): its own pieces only. Its Map, Agent,
+   Activity and Attention panels are Fleet's and keep Fleet's styles
+   (fleet*.css); here the Cost panel, the chosen session's card on the map,
+   the Start view and the "Watch in Session" links. Holo console: glass,
+   cyan for what works, amber for what waits, mono for the figures. */
+
+/* -- the Start view ------------------------------------------------------------------- */
+.ss-start .fl-start-inner { width: min(760px, 100%); }
+.ss-start .ss-start-form { display: grid; gap: 16px; padding: 20px; justify-items: start; }
+.ss-start .ss-start-form .fl-explain { width: 100%; }
+
+/* -- the chosen session's card on the map (data-chosen, under Session's scope) ---------- */
+.fm-card[data-chosen] .fm-card-shape { stroke: var(--accent); stroke-width: 1.6; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 35%, transparent)); }
+.fm-card[data-chosen][data-motion="waiting"] .fm-card-shape { stroke: var(--warn); }
+
+/* -- session-cost ------------------------------------------------------------------------ */
+.sco { display: grid; gap: 10px; align-content: start; container-type: inline-size; }
+.sco-head { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sco-ticker { font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: .02em;
+  text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent); }
+.glance .sco-ticker { font-size: inherit; text-shadow: none; }
+.sco-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@container (min-width: 380px) { .sco-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.sco-fig { display: grid; gap: 2px; min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+.sco-label { font-size: 9.5px; letter-spacing: .08em; color: var(--muted); }
+.sco-value { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sco-agents { display: grid; gap: 2px; }
+.sco-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: baseline; padding: 3px 0; border-bottom: 1px dashed var(--line); font-size: 12.5px; }
+.sco-row span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sco-row .mono { font-size: 11px; }
+.sco-row[data-state="running"] .mono.muted { color: var(--accent); }
+.sco-row[data-state="waiting"] .mono.muted, .sco-row[data-state="paused"] .mono.muted { color: var(--warn); }
+
+/* -- "Watch in Session" (Roles' Live tab header, Orchestra's run line) -------------------- */
+.watch-session { color: var(--accent); white-space: nowrap; }
+.rl-head .watch-session { font-size: 11px; }

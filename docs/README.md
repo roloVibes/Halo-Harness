@@ -71,7 +71,7 @@ The browser view of your lineups, runs, flows, designs, fleet and team.
 
 - [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser view of your lineups, runs, flows, fleet and team.
   - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team.
-  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Orchestra, Roles, Org, Design, Flow, Fleet, Team) and the live feed.
+  - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Orchestra, Roles, Org, Design, Flow, Fleet, Team, Session) and the live feed.
   - [STUDIO-orchestra-flow.md](STUDIO-orchestra-flow.md) (Studio: the Orchestra and Flow consoles): read this when you run an Orchestra goal or a flow from Studio: the plan canvas, the coach, the media renders and their routes.
   - [STUDIO-fleet.md](STUDIO-fleet.md) (Studio: Fleet): read this when you watch or steer every harness and agent from Studio's Fleet section.
   - [STUDIO-team-roles-org.md](STUDIO-team-roles-org.md) (Studio: Team, Roles and Org): read this when you edit a team board, a lineup on the Roles canvas, or the Paperclip company in Org.

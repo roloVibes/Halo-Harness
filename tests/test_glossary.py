@@ -68,7 +68,7 @@ def test_every_word_studio_help_names_exists(ctx: Ctx):
     words = set(G.load())
     src = (REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "sectionHelp.ts").read_text(encoding="utf-8")
     blocks = re.findall(r"terms: \[([^\]]*)\]", src)
-    ctx.check(f"seven sections name their words, got {len(blocks)}", len(blocks) == 7)
+    ctx.check(f"eight sections name their words, got {len(blocks)}", len(blocks) == 8)
     named = [w for b in blocks for w in re.findall(r'"([^"]+)"', b)]
     missing = sorted({w for w in named if w not in words})
     ctx.check(f"every named word has a paragraph, missing: {missing}", named and not missing)
