@@ -3,7 +3,10 @@
 // to put them in order; the planner breaks ties with it), a budget, and Plan
 // it (`POST fleet/missions`: the hub's lead splits the goal by what every
 // harness can do). Under it every mission, newest first: goal, state, parts
-// by state, harnesses, cost, Open. With none yet, five lines on how it works.
+// by state, harnesses, cost, Open. With none yet, five lines on how it works;
+// 3.1.4.0 R1: they show in full only while there is no goal text and no
+// mission (no plan, no run), else they fold into one "How this works" line
+// that opens on click.
 import { useEffect, useRef, useState } from "react";
 import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
@@ -37,6 +40,24 @@ function Prefer({ value, onChange }: { value: string[]; onChange: (v: string[]) 
       })}
       {!names.length && <span className="muted">the harnesses show here once the fleet is read</span>}
     </div>
+  );
+}
+
+function HowList() {
+  return (
+    <ol className="fl-explain fmi-how" data-testid="fleet-mission-how">
+      {HOW.map((line, i) => <li key={line}><span className="fl-explain-n mono">{i + 1}</span><span>{line}</span></li>)}
+    </ol>
+  );
+}
+
+/** The five lines folded into one: a click on "How this works" opens them. */
+function HowFold() {
+  return (
+    <details className="fmi-how-fold" data-testid="fleet-mission-how-fold">
+      <summary className="mono" title="the five steps of a mission: goal, parts, plan, run, report">How this works</summary>
+      <HowList />
+    </details>
   );
 }
 
@@ -123,11 +144,13 @@ export function MissionStart() {
       <section className="fmi-list-wrap" aria-label="Missions">
         <div className="rail-label mono">MISSIONS{list?.length ? ` · ${list.length}` : ""}</div>
         {!list ? <div className="og-wait mono muted">{error || "reading the missions..."}</div>
-          : !list.length ? (
-            <ol className="fl-explain fmi-how" data-testid="fleet-mission-how">
-              {HOW.map((line, i) => <li key={line}><span className="fl-explain-n mono">{i + 1}</span><span>{line}</span></li>)}
-            </ol>
-          ) : <ul className="fmi-list" data-testid="fleet-mission-list">{list.map((m) => <Row key={m.id} m={m} />)}</ul>}
+          : !list.length && !goal.trim() ? <HowList />
+          : (
+            <>
+              <HowFold />
+              {list.length > 0 && <ul className="fmi-list" data-testid="fleet-mission-list">{list.map((m) => <Row key={m.id} m={m} />)}</ul>}
+            </>
+          )}
       </section>
     </div>
   );

@@ -3,16 +3,34 @@
 // waiting / paused amber, done green, failed red, queued faint), each tool
 // call a tick; hover says who, what and when; a click selects that agent on
 // the map (and the Agent panel follows). Drawn in SVG from the lanes and
-// ticks the panels' store keeps (pload.ts).
-import { useMemo, useState, type MouseEvent } from "react";
+// ticks the panels' store keeps (pload.ts). 3.1.4.0 R1: drawn at its real
+// width (one SVG unit per px), so the lane names keep their size and their
+// 116 px column in a narrow Activity panel instead of shrinking with it.
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from "react";
 import { select } from "./actions";
 import { panels, usePanels, type Seg } from "./pstore";
 import { allAgents, isLive, sessionTitle, useFleet, useNow } from "./store";
 
 const LANE = 18;
 const LABEL_W = 116;
-const W = 640;
+const MIN_W = 300;
 const SPANS = [5, 15, 60] as const;
+
+/** The strip's drawable width in px (its box minus the padding), followed as the panel resizes. */
+function useWidth(): [RefObject<HTMLDivElement | null>, number] {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(640);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setW(Math.max(MIN_W, Math.floor(el.clientWidth - 12)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w];
+}
 
 type Tip = { x: number; y: number; text: string } | null;
 
@@ -40,6 +58,7 @@ export function Timeline() {
   const span = usePanels((s) => s.span);
   const now = useNow(true, 1000);
   const [tip, setTip] = useState<Tip>(null);
+  const [wrap, W] = useWidth();
   const live = useMemo(() => allAgents({ harnesses } as never).filter((r) => isLive(r.a)), [harnesses]);
   const from = now - span * 60_000;
   const x = (t: number) => LABEL_W + ((t - from) / (now - from)) * (W - LABEL_W - 4);
@@ -61,8 +80,8 @@ export function Timeline() {
           ))}
         </div>
       </div>
-      <div className="ftl-wrap" onMouseLeave={() => setTip(null)}>
-        <svg className="ftl-svg" viewBox={`0 0 ${W} ${height}`} width="100%" height={height} role="img" aria-label="Agent timeline">
+      <div className="ftl-wrap" ref={wrap} onMouseLeave={() => setTip(null)}>
+        <svg className="ftl-svg" viewBox={`0 0 ${W} ${height}`} width={W} height={height} role="img" aria-label="Agent timeline">
           {[0, 0.25, 0.5, 0.75, 1].map((k) => {
             const t = from + k * (now - from);
             return (

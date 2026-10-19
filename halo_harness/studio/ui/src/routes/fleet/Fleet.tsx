@@ -1,17 +1,19 @@
 // Fleet (Alt+6): every connected harness, its sessions and every agent in
 // them, live. Before anything is here the section is the Start view
-// (Start.tsx); then eight panels on the movable workspace. Along the top,
-// on their compact faces: People (fleet-people, who is in the fleet), Costs
-// (fleet-costs, spend and caps) and Health (fleet-health, a doctor summary
-// per harness). Under them: Attention (fleet-attention, every decision that
-// waits on you, one key each), Map (fleet-map), Activity (fleet-activity,
-// the timeline strip and the merged live log) and Agent (fleet-agent, the
-// selected agent's streams, Steer, hand-offs, Record) and, beside the map
-// above Agent, Capabilities (fleet-capabilities, 3.0.6.0 R6: a spec card per
-// harness and the "Who can..." search). 3.0.6.0 R8: Mission (fleet-mission,
-// one goal for the whole fleet: plan, approve, run, report) sits under the
-// map, where Activity was, so the plan it draws on the map stays in view
-// right above its table; Activity moves under Attention. Two stores: the map's
+// (Start.tsx); then nine panels on the movable workspace. 3.1.4.0 R1 (the
+// owner's live check: "really busy"): five open, in three columns. On the
+// left People (fleet-people, who is in the fleet) and Costs (fleet-costs,
+// spend and caps) on their compact faces over Attention (fleet-attention,
+// every decision that waits on you, one key each); in the middle Map
+// (fleet-map) over Activity (fleet-activity, the timeline strip and the
+// merged live log, the full width of the map). Down the right edge four
+// title strips, one click away, each opening in that column: Health
+// (fleet-health, a doctor summary per harness), Capabilities
+// (fleet-capabilities, 3.0.6.0 R6: a spec card per harness and "Who
+// can..."), Agent (fleet-agent, the selected agent's streams, Steer,
+// hand-offs, Record; picking an agent opens it) and Mission (fleet-mission,
+// 3.0.6.0 R8: one goal for the whole fleet; M opens it). A layout saved
+// before keeps its places (halo.studio.layout.fleet). Two stores: the map's
 // (store.ts, fed by sync.ts) and the panels' (pstore.ts, fed by pload.ts);
 // the rail's Fleet tree, the hop keys, the mini stream, Live Roles and the
 // canvas replay work from every section.
@@ -39,16 +41,19 @@ function started(hook: () => MotionState): () => MotionState {
 
 const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec => ({ id, testid: id, ...HELP[id], ...rest });
 
+// 3.1.4.0 R1: columns 0-5 hold People and Costs (22 rows each: a two-line glance hint fits at 12 px) over
+// Attention; 6-17 the Map (44 rows, level with them) over Activity; 18-23 Health, Capabilities, Agent and
+// Mission as title strips (`collapsed`), each one click away and opening in that column, where it pushes only
+// the strips under it down (Agent, which a picked agent opens, sits above Mission, so it opens in view). The
+// list keeps its order: the rail, the palette and "How Fleet works" list the panels in it.
 export const fleetPanels: PanelSpec[] = [
-  panel("fleet-people", { title: "People", x: 0, y: 0, w: 8, h: 14, minW: 5, minH: 10, face: "glance", glance: PeopleGlance, detail: PeopleDetail, useMotion: started(usePeopleMotion) }),
-  panel("fleet-costs", { title: "Costs", x: 8, y: 0, w: 8, h: 14, minW: 5, minH: 10, face: "glance", glance: CostsGlance, detail: CostsDetail, useMotion: started(useCostsMotion) }),
-  panel("fleet-health", { title: "Health", x: 16, y: 0, w: 8, h: 14, minW: 5, minH: 10, face: "glance", glance: HealthGlance, detail: HealthDetail, useMotion: started(useHealthMotion) }),
-  panel("fleet-attention", { title: "Attention", x: 0, y: 14, w: 5, h: 40, minW: 4, minH: 16, face: "detail", glance: AttentionGlance, detail: AttentionDetail, useMotion: started(useAttentionMotion) }),
-  panel("fleet-map", { title: "Map", x: 5, y: 14, w: 11, h: 40, minW: 8, minH: 24, face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
-  panel("fleet-activity", { title: "Activity", x: 0, y: 54, w: 5, h: 0, minW: 4, minH: 16, face: "detail", glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),
-  // 3.0.6.0 R8: Mission under the map (the plan's table right under its drawing), Activity under Attention
-  panel("fleet-mission", { title: "Mission", x: 5, y: 54, w: 11, h: 0, minW: 6, minH: 18, face: "detail", glance: MissionGlance, detail: MissionDetail, useMotion: started(useMissionMotion) }),
-  // 3.0.6.0 R6: Capabilities at 16,14 on its compact face (the Who box), the agent panel stacked under it
-  panel("fleet-capabilities", { title: "Capabilities", x: 16, y: 14, w: 8, h: 18, minW: 5, minH: 12, face: "glance", glance: CapabilitiesGlance, detail: CapabilitiesDetail, useMotion: started(useCapabilitiesMotion) }),
-  panel("fleet-agent", { title: "Agent", x: 16, y: 32, w: 8, h: 0, minW: 5, minH: 32, face: "detail", glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
+  panel("fleet-people", { title: "People", x: 0, y: 0, w: 6, h: 22, minW: 5, minH: 10, face: "glance", glance: PeopleGlance, detail: PeopleDetail, useMotion: started(usePeopleMotion) }),
+  panel("fleet-costs", { title: "Costs", x: 0, y: 22, w: 6, h: 22, minW: 5, minH: 10, face: "glance", glance: CostsGlance, detail: CostsDetail, useMotion: started(useCostsMotion) }),
+  panel("fleet-health", { title: "Health", x: 18, y: 0, w: 6, h: 20, minW: 5, minH: 10, face: "glance", collapsed: true, glance: HealthGlance, detail: HealthDetail, useMotion: started(useHealthMotion) }),
+  panel("fleet-attention", { title: "Attention", x: 0, y: 44, w: 6, h: 0, minW: 4, minH: 16, face: "detail", glance: AttentionGlance, detail: AttentionDetail, useMotion: started(useAttentionMotion) }),
+  panel("fleet-map", { title: "Map", x: 6, y: 0, w: 12, h: 44, minW: 8, minH: 24, face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
+  panel("fleet-activity", { title: "Activity", x: 6, y: 44, w: 12, h: 0, minW: 4, minH: 16, face: "detail", glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),
+  panel("fleet-mission", { title: "Mission", x: 18, y: 15, w: 6, h: 0, minW: 6, minH: 18, face: "detail", collapsed: true, glance: MissionGlance, detail: MissionDetail, useMotion: started(useMissionMotion) }),
+  panel("fleet-capabilities", { title: "Capabilities", x: 18, y: 5, w: 6, h: 22, minW: 5, minH: 12, face: "glance", collapsed: true, glance: CapabilitiesGlance, detail: CapabilitiesDetail, useMotion: started(useCapabilitiesMotion) }),
+  panel("fleet-agent", { title: "Agent", x: 18, y: 10, w: 6, h: 0, minW: 5, minH: 32, face: "detail", collapsed: true, glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
 ];

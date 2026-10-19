@@ -30,7 +30,9 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   the panel's one-line **about** (what it is), ONE **Compact / Expand**
   toggle (on a collapsed strip: the chevron that opens it) and ONE **...**
   menu: **Float** over the grid (or dock it back),
-  **Collapse** to a one-line strip (or open it), **Reset this panel**,
+  **Collapse** to a one-line strip (or open it: a strip that opens pushes
+  the panels it now covers down; a section may start some panels as
+  strips, as Fleet does since 3.1.4.0), **Reset this panel**,
   **Settings** and **Help**. With a panel focused, `Alt`+arrows move it and
   `Alt+Shift`+arrows resize it. The arrangement is remembered per section in
   your browser (`localStorage` key `halo.studio.layout.<section>`, version 2:

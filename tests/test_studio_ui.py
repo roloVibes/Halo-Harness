@@ -5,7 +5,7 @@ Start view then the grid, a click focuses a panel and `?` opens its help; no sec
 second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (studio_ui_fleet.py),
 3.0.6.0 Missions (studio_ui_mission.py), 3.0.7.0 R3 the React Org and Design sections (studio_ui_org_design.py),
 3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py), R3 the coach
-(studio_ui_coach.py); seven section tabs since 3.0.8.0.
+(studio_ui_coach.py); seven section tabs since 3.0.8.0; 3.1.4.0 R1 the Fleet default layout (studio_ui_fleet_layout.py).
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
 from tests.helpers.studio_ui_fleet import register as register_fleet
+from tests.helpers.studio_ui_fleet_layout import register as register_fleet_layout
 from tests.helpers.studio_ui_coach import register as register_coach
 from tests.helpers.studio_ui_mission import register as register_mission
 from tests.helpers.studio_ui_org_design import register as register_org_design
@@ -229,6 +230,7 @@ def test_roles_canvas_draws_tier_boxes(ctx: Ctx):
 
 
 register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/helpers/studio_ui_fleet.py
+register_fleet_layout(test, _json_of, _chrome)  # 3.1.4.0 R1: the default layout, the log line, the folds: tests/helpers/studio_ui_fleet_layout.py
 register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, tests/helpers/studio_ui_mission.py
 register_org_design(test, _json_of, _chrome)  # 3.0.7.0 R3: Org and Design in React, tests/helpers/studio_ui_org_design.py
 register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
