@@ -174,8 +174,8 @@ def test_design_opens_as_a_react_section(ctx: Ctx):
     _need_chrome()
     design = _dom("design")
     start, seeded = design.get("start", {}), design.get("design", {})
-    ctx.check(f"Design without a project: five tabs, the Start view, no frame, got {start or design}",
-              start.get("section-tab") == 5 and start.get("design-start") == 1 and start.get("legacy-frame") == 0 and start.get("design-artboard") == 0)
+    ctx.check(f"Design without a project: six tabs, the Start view, no frame, got {start or design}",
+              start.get("section-tab") == 6 and start.get("design-start") == 1 and start.get("legacy-frame") == 0 and start.get("design-artboard") == 0)
     ctx.check(f"Design over a seeded project: the thread with two turns, two artboards, two pins, got {seeded}",
               seeded.get("design-thread") == 1 and seeded.get("design-turn") == 2 and seeded.get("design-artboard") == 2
               and seeded.get("design-pin") == 2 and seeded.get("design-start") == 0 and seeded.get("legacy-frame") == 0)

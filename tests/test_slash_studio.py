@@ -4,7 +4,7 @@
 studio/edit_open.py `open_edit`, and says in one line what happened: the
 Studio page already open took it (focused), the browser opened it, or here is
 the URL; `/studio <section>` opens that section; `/studio ... url` stays the
-builtin that prints the URL; `/roles`, `/org`, `/edit` keep their handlers.
+builtin that prints the URL; `/roles` and `/edit` keep their handlers.
 `this_session_id` is the control socket's id, else the session log's. The CLI
 twin `halo studio --session` is tests/test_studio_cli_session.py.
 Run: python -m tests.test_slash_studio
@@ -112,7 +112,7 @@ def test_studio_section_opens_that_section(ctx: Ctx):
     ctx.check(f"/studio fleet: mode=fleet, no session, got {t}", t is not None and t.mode == "fleet" and t.text == "")
     ctx.check(f"its line names Fleet, got {app.lines}", len(app.lines) == 1 and app.lines[0].startswith("Opened Fleet in the Studio page")
               and "?mode=fleet#t=" in app.lines[0])
-    for word in ("orchestra", "roles", "org", "design", "flow", "team"):
+    for word in ("orchestra", "roles", "design", "fleet", "team", "session"):
         app = _App()
         with _opener("focused") as targets:
             _slash(app, "studio", word)
@@ -155,8 +155,8 @@ def test_studio_is_in_the_completion_list_and_the_handlers_stay(ctx: Ctx):
               spec is not None and str(spec[2]).startswith("[session|") and "this session" in spec[1])
     src = Path(slash.__file__).read_text(encoding="utf-8")
     ctx.check("the TUI handles /studio itself", '"studio": _handle_studio' in src)
-    ctx.check("/roles, /org and /edit keep their handlers",
-              '"roles": _handle_roles' in src and '"org": _handle_org' in src and '"edit": _handle_edit' in src)
+    ctx.check("/roles and /edit keep their handlers",
+              '"roles": _handle_roles' in src and '"edit": _handle_edit' in src)
 
 
 if __name__ == "__main__":
