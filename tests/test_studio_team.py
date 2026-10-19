@@ -226,7 +226,7 @@ def test_the_coach_route(ctx: Ctx):
             status, data, _ = s.call("GET", path)
             ids = [x["id"] for x in data.get("suggestions") or []]
             ctx.check(f"{path}: the team's cards, got {status} {ids}", status == 200 and data["kind"] == "team"
-                      and data["run"] == run_dir.name and "coordination-copy-gated" in ids)
+                      and data["run"] == run_dir.name and "coordination-copy-loops" in ids)
 
 
 if __name__ == "__main__":

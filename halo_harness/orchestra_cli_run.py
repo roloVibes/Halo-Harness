@@ -60,7 +60,7 @@ def cmd_run(args, repo: Path) -> int:
     from halo_harness.orchestra.run import run
     print(f"run {run_dir.name}: {goal.workers} worker(s), test {goal.test or '(none)'}", flush=True)
     report = run(run_dir, **adapters.real_adapters(run_dir, goal, args.model), on_event=_print_event)
-    print(format_report(report))
+    print(format_report(report, run_dir))
     return 0 if report.get("status") == "finished" else 1
 
 

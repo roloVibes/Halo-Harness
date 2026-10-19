@@ -10,17 +10,20 @@ suggestions, one per finding:
 
 `kind` of the run is read from the folder: an Orchestra run (goal.json), a
 flow run (flow.json), a mission (mission.json) or a team run (board.json).
-The rules live in one module per run kind, `coach_<kind>_rules.py`
-(coach_orchestra_rules.py, coach_flow_rules.py, coach_mission_rules.py,
-coach_team_rules.py; the Orchestra rules read coach_lane_facts.py and
-coach_prices.py); docs/ORCHESTRA.md "The coach" lists them with their
-evidence. `apply` names a change; nothing here writes it. Studio's Apply
-opens the editor that owns the field with the value filled in (the bio
-form, the Lineup tab, the plan editor) and the user saves there.
+The rules live once in coach_rules.py (3.1.3.0 R1); one thin loader per run
+kind, `coach_<kind>_rules.py`, turns that kind's files into the rules'
+facts (the Orchestra loader reads coach_lane_facts.py and coach_prices.py);
+docs/ORCHESTRA.md "The coach" lists the rules with their evidence.
+
+3.1.3.0 R1 closes the loop: `overlay(result, run_dir)` adds to each
+suggestion its `paragraph` (the run's lead's explanation, coach_ask.py,
+null until asked) and its `applied` state ({state: applied|undone,
+apply_id, file, ts} | null, coach_record.py); Apply writes the change after
+one confirm (coach_apply.py) and Undo puts the file back.
 
 `cached(run_dir)` is the Studio routes' read: the result kept in
-`<run>/coach.json`, computed again when a run file it reads is newer.
-`format_card(result)` is the CLI's plain text.
+`<run>/coach.json`, computed again when a run file it reads is newer, with
+the overlay. `format_card(result)` is the CLI's plain text.
 """
 
 from __future__ import annotations
@@ -92,6 +95,18 @@ def source_mtime(run_dir) -> float:
     return best
 
 
+def overlay(result: dict, run_dir, state_dir=None) -> dict:
+    """The result with each suggestion's `paragraph` (and `paragraph_error`) and `applied` state."""
+    from halo_harness.orchestra.coach_ask import read_store
+    from halo_harness.orchestra.coach_record import note_run, states
+    asked, done = read_store(run_dir), states(run_dir, state_dir)
+    rows = [dict(s, paragraph=(asked.get(s["id"]) or {}).get("paragraph") or None,
+                 paragraph_error=(asked.get(s["id"]) or {}).get("error") or "", applied=done.get(s["id"]))
+            for s in result.get("suggestions") or []]
+    note_run(result, run_dir, state_dir)
+    return dict(result, suggestions=rows, model=any(s["paragraph"] for s in rows))
+
+
 def cached(run_dir, **kw) -> dict:
     """`coach(run_dir)` kept in `<run>/coach.json`; computed again when a run file is newer than it."""
     run_dir = Path(run_dir)
@@ -99,14 +114,14 @@ def cached(run_dir, **kw) -> dict:
     newest = source_mtime(run_dir)
     data = jsonl.read_json(path, None)
     if isinstance(data, dict) and float(data.get("source_mtime") or -1) >= newest and data.get("suggestions") is not None:
-        return dict(data, cached=True)
+        return overlay(dict(data, cached=True), run_dir, kw.get("state_dir"))
     result = coach(run_dir, **kw)
     result.update(computed=round(time.time(), 3), source_mtime=newest)
     try:
         jsonl.write_json(path, result)
     except OSError:
         pass
-    return dict(result, cached=False)
+    return overlay(dict(result, cached=False), run_dir, kw.get("state_dir"))
 
 
 def _apply_text(a: dict) -> str:
@@ -126,8 +141,15 @@ def format_card(result: dict) -> str:
     for s in rows:
         where = f" · {s['lane_or_part']}" if s.get("lane_or_part") not in (None, "") else ""
         lines += ["", f"[{s['severity']}] {s['kind']}{where}" + (f" (bio {s['bio']})" if s.get("bio") else ""),
-                  f"  {s['text']}", "  why:"]
+                  f"  {s['text']}", f"  id: {s['id']}", "  why:"]
         lines += [f"    - {w}" for w in s.get("why") or []]
         lines.append(f"  apply: {_apply_text(s['apply'])}" if s.get("apply") else "  apply: nothing to fill in; "
                      "change it by hand")
+        if s.get("applied"):
+            st = s["applied"]
+            lines.append(f"  {st['state']}: {st['apply_id']} ({st.get('file')})")
+        if s.get("paragraph"):
+            lines.append(f"  the lead: {s['paragraph']}")
+        elif s.get("paragraph_error"):
+            lines.append(f"  the lead could not answer: {s['paragraph_error']}")
     return "\n".join(lines)

@@ -143,7 +143,7 @@ def cmd_report(rest: list) -> int:
     if not isinstance(report, dict):
         print(f"run {run_dir.name} has no report yet ({state.read_flow(run_dir).get('status')}); halo flow status {run_dir.name}")
         return 1
-    print(json.dumps(report, indent=2) if as_json else format_report(report))
+    print(json.dumps(report, indent=2) if as_json else format_report(report, run_dir))
     return 0
 
 

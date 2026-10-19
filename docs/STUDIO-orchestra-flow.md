@@ -101,16 +101,38 @@ re-based, then the re-base line (`lane-rebase`).
 
 ![Orchestra: the plan canvas of a run waiting for review](media/studio-orchestra-plan.png)
 
-### The Coach tab (3.0.9.0)
+### The Coach tab (3.0.9.0; the loop since 3.1.3.0)
 
 Once a run has its report, the Report panel has two tabs: **Report** and
 **Coach** (`report-tab-coach`). Coach reads the run's files through `GET
-orchestra/<run>/coach` (no model call; kept in the run's `coach.json`) and
-shows the suggestions as cards (`coach-card`, with `data-kind` and
-`data-severity`) grouped by kind: TOOLS, MODEL, PROMPT, STRUCTURE,
-COORDINATION. Each card has its severity chip (high, medium, low), the lane
-and the bio it is about, the suggestion, and its evidence in mono
-(`coach-why`). **Apply** (`coach-apply`) is on the cards that name a change:
+orchestra/<run>/coach` (kept in the run's `coach.json`) and shows the
+suggestions as cards (`coach-card`, with `data-kind`, `data-severity` and
+`data-applied`) grouped by kind: TOOLS, MODEL, PROMPT, STRUCTURE,
+COORDINATION. The head line counts them and how many are applied
+(`coach-summary`); under it one help line names the buttons (`coach-help`).
+Each card has its severity chip (high, medium, low), the lane and the bio it
+is about, the suggestion, and its evidence in mono (`coach-why`), then:
+
+- **Ask the model** (`coach-ask`): the run's lead explains the card in one
+  paragraph (`POST orchestra/<run>/coach/ask`; one model call, kept in the
+  run's `coach.ask.json`). The paragraph shows under THE LEAD
+  (`coach-paragraph`) with **Ask again** (`coach-ask-again`, a new call); a
+  model error is one amber line on that card (`coach-paragraph-error`).
+- **Apply** (`coach-apply`, on the cards that name a change) first opens the
+  confirm card under the card (`coach-confirm`): the kind of change and its
+  value, the file Apply writes (`coach-confirm-file`; "new" when Apply
+  creates it) and the before -> after diff in mono (`coach-diff`: added
+  lines cyan, removed amber), with **Cancel** (`coach-confirm-cancel`,
+  nothing written) and **Apply** (`coach-confirm-apply`), which writes the
+  change through the same writer the bio form, the Lineup tab or the plan
+  editor uses (`POST .../coach/apply {id, confirm: true}`). The card then
+  shows **APPLIED** (`coach-applied`, its apply id and file in the tooltip).
+- **Undo** (`coach-undo`, on an applied card) puts the file back as it was
+  before Apply when nothing changed it since (`POST .../coach/undo`); the
+  chip reads **UNDONE**. A file changed after the apply is left as it is
+  and the toast names the reason.
+- **Edit** (`coach-edit`, the 3.0.9.0 Apply) opens the editor that owns the
+  field with the change filled in, and saves nothing:
 
 - a bio change opens Roles on that bio's form with the field filled in and
   marked, under a note naming it (`bio-coach-note`); nothing is saved until
@@ -128,7 +150,9 @@ and the bio it is about, the suggestion, and its evidence in mono
 (localStorage); **Show dismissed (n)** brings them back. A flow run's Report
 panel has the same Coach tab, a mission that ended has a **Coach** face
 beside Plan, Running and Report, and the Team run bar has **Coach** once
-the run is done or stopped (the cards in a dialog). The rules:
+the run is done or stopped (the cards in a dialog); each has the same Ask
+the model, Apply, Undo and Edit (routes: the kind's coach path plus `/ask`,
+`/apply`, `/undo`). The rules, the record file and the Undo rule:
 [ORCHESTRA.md, "The coach"](ORCHESTRA.md#the-coach).
 
 ![Orchestra: the Coach tab of a finished run, three cards with their evidence](media/studio-orchestra-coach.png)

@@ -240,8 +240,8 @@ command it runs. Enter runs the step, `q` stops the start there.
 5. **The run**: the lanes table (`halo orchestra lanes`), drawn again as
    lanes change, until the run ends.
 6. **The report and the coach**: the report's checks (`halo orchestra
-   report`) and the coach's cards (`halo orchestra coach`); Apply opens the
-   bio in Studio.
+   report`) and the coach's cards (`halo orchestra coach`); `halo coach
+   --apply ID` writes a card's change after a confirm, `--undo` puts it back.
 7. **Where to go next**: Roles (`halo studio --mode roles`), Team (`halo team
    init`) and Fleet (`halo fleet pair`), each with its command.
 

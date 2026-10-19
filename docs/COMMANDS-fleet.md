@@ -219,8 +219,10 @@ is recorded from Studio's Fleet section (`POST /api/fleet/<harness>/<sid>/record
 Round R4. What happened since `--since` (`2h`, `45m`, `1d`, unix seconds or
 an ISO time; default `1d`), per harness, computed in code: sessions started
 and ended, the cost, the decisions answered from Studio and who answered
-them, the files touched, the errors and the hand-offs. This harness is read
-from its own transcripts; members and decisions come from the hub's journal
+them, the files touched, the errors and the hand-offs, and (3.1.3.0) one
+coach line per run the post-run coach read ("coach    orchestra <run>: 3
+suggestions, 1 applied, top: ..."; `coach` rows in `--json`, from
+`~/.halo/coach/runs.json`). This harness is read from its own transcripts; members and decisions come from the hub's journal
 (`~/.halo/fleet/journal.jsonl`, written while Studio's Fleet watcher runs).
 `--json` prints the same object as `GET /api/fleet/digest`.
 
@@ -279,7 +281,7 @@ halo fleet mission status [id] [--json]
 halo fleet mission stop <id> [--reason TEXT] [--json]
 halo fleet mission report <id> [--json]
 halo fleet mission open <id> [--json]
-halo fleet mission coach <id> [--json]
+halo fleet mission coach <id> [--model] [--apply ID [--yes]] [--json]
 ```
 
 `new` drafts the mission and plans it, then prints the plan table: each
@@ -299,7 +301,8 @@ anyway). `status` lists the missions, or one
 mission's parts by harness with state and cost; `stop` stops every running
 part (`--reason` goes in the report); `report` prints `report.md`; `open`
 prints the mission folder; `coach` (3.0.9.0) prints the post-run coach's card
-for a mission in this harness's missions folder. `--json` prints the route's answer with `ok` and
+for a mission in this harness's missions folder (3.1.3.0: `--model` asks the
+lead for a paragraph per card, see `halo coach`). `--json` prints the route's answer with `ok` and
 `source`. They use the running Studio, else the hub this machine serves,
 else this harness alone (then `run` follows in this process, which keeps the
 mission running). `/mission [id]` in the TUI prints the status.

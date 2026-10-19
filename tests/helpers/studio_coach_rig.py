@@ -29,7 +29,9 @@ def _lane(run_dir: Path, n: int, **fields) -> None:
 
 class CoachRig:
     def __enter__(self):
+        import os
         from tests.helpers.coach_seed import mission_folder, seed_home
+        os.environ["HALO_COACH_FAKE"] = "1"  # 3.1.3.0 R1: Ask the model answers with the fake lead (no model)
         from tests.helpers.orchestra_studio_rig import Studio, finished_run
         self.repo, self.run_dir = finished_run()
         self.studio = Studio(self.repo).__enter__()

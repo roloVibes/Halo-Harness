@@ -146,8 +146,14 @@ def _unit_rows(run_dir) -> list:
     return rows(run_dir, "lane")
 
 
-def format_report(report: dict) -> str:
-    """The report as the CLI prints it."""
+def coach_line(run_dir) -> str:
+    """3.1.3.0 R1: "coach: N suggestions, M applied, top: <title>" (orchestra/coach_record.py), '' if unread."""
+    from halo_harness.orchestra.coach_record import summary
+    return summary(run_dir) if run_dir is not None else ""
+
+
+def format_report(report: dict, run_dir=None) -> str:
+    """The report as the CLI prints it; with `run_dir`, the coach's summary line last."""
     mark = {True: "PASS", False: "FAIL", None: "    "}
     lines = [f"run {report.get('run_id')}: {report.get('status')}"
              + (f" -- {report['stop_reason']}" if report.get("stop_reason") else "")]
@@ -161,4 +167,5 @@ def format_report(report: dict) -> str:
     lines.append("  checks:")
     for c in report.get("checks") or []:
         lines.append(f"    {mark.get(c.get('ok'), '????')}  {c['id']:<36} {c.get('detail') or ''}")
-    return "\n".join(lines)
+    coach = coach_line(run_dir)
+    return "\n".join(lines + [f"  {coach}"] * bool(coach))
