@@ -1479,3 +1479,49 @@ conclusion, release gated on the exact sha, install refresh.
 
 Not taken: moving the Windows suite off the release gate entirely (the
 owner's rule stands: both platforms green on the exact sha before a tag).
+
+## ADDED 2026-10-19 ~14:00 (rolo: "Yep dashboard is the way"): 3.1.4.0 "The session dashboard" -- Studio polish from the owner's live check, then one live view of your own session
+
+Why: the owner's live check of 3.1.3.0 (the Fleet view, default layout, one
+harness) found the Activity log wrapping one letter per line, the Fleet view
+"really busy", and this: Fleet shows far more of what agents and sub-tasks do
+than Roles does, and that visibility belongs to the user's own session ("OH!
+What about a gui dashboard instead that shows all that on what is going on in
+a users session?" ... "I love seeing what fleet does but have that for the
+session visualization"). Roles stays the lineup editor (its live rows already
+come from the Fleet store: one badge per card, one agent at a time in the
+Live tab); the map, the timeline, the log and the attention queue get a home
+scoped to this harness and the session you are in.
+
+**3.1.4.0 "The session dashboard"** (capabilities)
+
+- R1 Studio polish from the live check: (1) no Fleet panel wraps a line one
+  character per row at the default layout widths: the Activity log line puts
+  time, kind and who on one row and the text on a full-width row below when
+  the panel is narrow (a container query), the text column keeps a minimum
+  width and breaks at words; the same check on Attention rows, Map cards,
+  People and the glance faces; (2) a calmer default Fleet layout: People,
+  Costs, Attention, Map and Activity open, Mission, Health, Capabilities and
+  Agent one click away (the palette and the rail list them as before); the
+  Mission panel's five how-it-works paragraphs fold into "How this works"
+  once a goal or a plan exists; glance text at 12 px; (3) the two Windows
+  timing flakes of the v3.1.3.0 tag run get their margins
+  (`test_h5b_f14_command_hook_timeout_kills_the_whole_process_group`'s
+  elapsed bound, `test_team_step_ctrl_n_and_ctrl_e_open_studio`'s wait).
+- R2 The Session dashboard: a new Studio section **Session** (Alt+8, "This
+  session, live") made of the Fleet panels scoped to this harness: Map (one
+  card per session on this box, its agent tree, the working node lit),
+  Activity (the timeline lanes and the log of this harness, one session when
+  chosen), Attention (this harness's rows), Agent (the inspector) and Cost
+  (this session's spend, tokens, turns, elapsed, model). No copy of a Fleet
+  component: the Fleet stores take a scope (harness, session). Studio lands
+  on Session when `?mode=session` (with `&session=<id>` selecting one), or
+  when nothing is saved and this harness has a live session; `/studio` in
+  the terminal (and `halo studio --session <id>`) opens Studio on the
+  session you are in; a working card on the Roles canvas, a run in Orchestra
+  and a map node's menu link into it ("Watch in Session"). Fleet keeps
+  everything it has; then the release.
+
+Not taken: duplicating the map and the log into Roles (two busy places, and
+design time blurred into run time; a working card links to Session instead);
+renumbering Alt+1..7 (Session takes Alt+8).
