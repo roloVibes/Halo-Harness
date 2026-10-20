@@ -8,7 +8,9 @@ own JobRegistry, the status bar's background-jobs count, `halo bg` for the
 CLI form), always on the scheduler's own daemon thread -- never the UI
 thread. Storage is one JSON file per state dir (`agents-schedules.json`)
 so `/agents schedule` and `halo agents schedule list` (possibly a
-different process) see what is armed and the next fire time.
+different process) see what is armed and the next fire time. 3.1.6.0 R1: a
+lineup tier's own `trigger` arms the same way, as its lead's
+(`TeamScheduler.arm_tier`), and its job carries HALO_TIER_FIRED=<tier>.
 """
 
 from __future__ import annotations
@@ -188,12 +190,19 @@ def schedule_status_lines(entries: "list[dict]") -> "list[str]":
 FIRE_ENV = {"HALO_SCHEDULED_FIRE": "1"}
 
 
-def _fire_env(session) -> dict:
+def _fire_env(session, entry: "Optional[dict]" = None) -> dict:
     """A fired job is a whole harness process: it starts from this process's
     environment (HOME, PATH, proxies and the provider keys it needs to reach
     its model), takes the session's settings/`--environment` overlay (the
-    `tool_child_env` result a sub-agent's tools see) on top, then the marker."""
-    return {**os.environ, **(getattr(session, "tool_env", None) or {}), **FIRE_ENV}
+    `tool_child_env` result a sub-agent's tools see) on top, then the marker.
+    3.1.6.0 R1: a tier trigger's job also carries HALO_TIER_FIRED=<tier>
+    (its root is that tier's lead); any other job never does."""
+    from halo_harness.teams_tier_fields import FIRED_ENV
+    env = {**os.environ, **(getattr(session, "tool_env", None) or {}), **FIRE_ENV}
+    env.pop(FIRED_ENV, None)
+    if entry and entry.get("tier"):
+        env[FIRED_ENV] = str(entry["tier"])
+    return env
 
 
 def build_fire_argv(entry: dict) -> "list[str]":
@@ -230,7 +239,7 @@ def _default_fire(session, entry: dict) -> str:
         # POSIX quoting through cmd.exe mangles on Windows.
         import subprocess
         subprocess.Popen(build_fire_argv(entry), cwd=str(getattr(session, "cwd", ".")),
-                         env=_fire_env(session),
+                         env=_fire_env(session, entry),
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
         return f"fired {entry.get('name')} (detached; no live job registry)"
     try:
@@ -239,7 +248,7 @@ def _default_fire(session, entry: dict) -> str:
     except Exception:
         shell_path = "bash"
     record, err = registry.start_background(build_fire_command(entry), description=f"schedule {entry.get('name')}",
-                                            cwd=str(getattr(session, "cwd", ".")), env=_fire_env(session), shell_path=shell_path)
+                                            cwd=str(getattr(session, "cwd", ".")), env=_fire_env(session, entry), shell_path=shell_path)
     if err is not None:
         return f"could not fire {entry.get('name')}: {err}"
     return f"fired {entry.get('name')} as background job {record.job_id}"
@@ -305,6 +314,42 @@ class TeamScheduler:
                             self._file_mtimes[str(p)] = None
             notes.append(entry["id"])
         return notes
+
+    def arm_tier(self, tier: dict, lead: str, bio: "Optional[dict]", model: "Optional[str]" = None) -> "list[str]":
+        """3.1.6.0 R1: a tier's `trigger`, armed as if it were the trigger of
+        the tier's lead (its first member): the fired job is that lead's root
+        job (`--agent <lead bio> --team <team>`) with the TIER's prompt, and
+        it carries HALO_TIER_FIRED=<tier> (`_fire_env`), so the lead may
+        spawn its own tier's other members and the next tier down. `model`
+        is the lead's resolved model (the trigger's own `model` wins)."""
+        trigger = tier.get("trigger") if isinstance(tier.get("trigger"), dict) else {}
+        kind, prompt = trigger.get("on"), str(trigger.get("prompt") or "").strip()
+        if kind not in ("schedule", "file_change", "event", "message") or not prompt:
+            return []
+        name = str(tier.get("name"))
+        base = {"id": f"{self.team.name}:tier:{name}:{'schedule' if kind == 'schedule' else 'trigger'}",
+                "name": f"tier:{name}", "agent": (bio or {}).get("name") or lead, "tier": name, "prompt": prompt,
+                "model": trigger.get("model") or model, "team": self.team.name, "enabled": True,
+                "armed_at": self.clock(), "last_note": ""}
+        if kind == "schedule":
+            every = trigger.get("every")
+            entry = {**base, "kind": "schedule", "cron": trigger.get("cron"), "last_run": None,
+                     "every_s": None if every is None else _every_seconds(every)}
+            if not (entry["cron"] or entry["every_s"]):
+                return []
+            with self._lock:
+                self.entries.append(entry)
+            return [entry["id"]]
+        entry = {**base, "kind": "trigger", "on": kind, "fired": False,
+                 "on_value": trigger.get("paths") if kind == "file_change" else (trigger.get("name") or trigger.get("from"))}
+        with self._lock:
+            self.triggers.append(entry)
+            for p in (entry["on_value"] or []) if kind == "file_change" else []:
+                try:
+                    self._file_mtimes[str(p)] = Path(p).stat().st_mtime
+                except OSError:
+                    self._file_mtimes[str(p)] = None
+        return [entry["id"]]
 
     # ---- lifecycle ----------------------------------------------------------
     def start(self) -> None:
@@ -438,12 +483,13 @@ def run_once(name: str, *, state_dir=None, popen=None) -> str:
         argv += ["--team", str(entry["team"])]
     if entry.get("model"):
         argv += ["--model", str(entry["model"])]
-    run = start_background_run(argv, popen=popen or subprocess.Popen, env={**os.environ, **FIRE_ENV})
+    run = start_background_run(argv, popen=popen or subprocess.Popen, env=_fire_env(None, entry))
     return f"fired {name!r} as background run {run['id']} (log: {run['log_path']})"
 
 
 def arm_session(session, team_control, *, fire_fn=None) -> "Optional[TeamScheduler]":
-    """Arm every member bio's schedule/triggers for THIS session (called
+    """Arm every member bio's schedule/triggers, and each declared tier's
+    own trigger (3.1.6.0 R1), for THIS session (called
     once, on the session's first turn under a team). Also registers them
     in the shared store so `list`/`/agents schedule` see them. `fire_fn`
     is the same seam TeamScheduler's own constructor takes (tests)."""
@@ -457,6 +503,17 @@ def arm_session(session, team_control, *, fire_fn=None) -> "Optional[TeamSchedul
         if bio and bio.get("name") not in seen_bios:
             seen_bios.add(bio.get("name"))
             scheduler.arm_bio(bio, alias)
+    # 3.1.6.0 R1: each declared tier's own trigger, as its lead's (the
+    # tier's first member), on the lead's resolved model (a tier model too).
+    if team_control.tiers_declared:
+        from halo_harness.teams_yaml import member_model
+        for tier in team_control.tiers:
+            if tier.get("trigger") and tier["members"] and not tier["implicit"]:
+                lead = tier["members"][0]
+                model = member_model(team_control.template, team_control.assignment_for(lead) or {},
+                                     cwd=getattr(session, "cwd", None), state_dir=getattr(session, "state_dir", None))[0]
+                # a `default` that never became a real ref (no session model set) rides as no --model at all
+                scheduler.arm_tier(tier, lead, team_control.bio_for(lead), model if model and model != "default" else None)
     if scheduler.entries or scheduler.triggers:
         scheduler._persist()
         scheduler.start()

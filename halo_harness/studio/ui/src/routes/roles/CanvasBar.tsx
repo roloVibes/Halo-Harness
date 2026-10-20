@@ -1,11 +1,35 @@
 // The Roles canvas's toolbar (3.0.7.0 R2): the open lineup with its scope,
 // whether it is saved, Save (Mod+S), Undo / Redo (Ctrl+Z, Ctrl+Shift+Z),
-// Apply (asks first), Lay out (A), Fit (F) and the zoom.
+// Apply (asks first), Lay out (A), Fit (F) and the zoom. 3.1.6.0 R1: Add tier
+// opens a name field on the bar; Enter adds the tier (an empty box appears:
+// drag cards in), Escape closes it (tierActions.addTier).
+import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
 import { redo, save, undo } from "./actions";
-import { openDialog, scopeLabel, shipped, useRoles } from "./store";
+import { openDialog, roles, scopeLabel, shipped, useRoles } from "./store";
+import { addTier } from "./tierActions";
 
 type Props = { zoom: number; setZoom: (z: number) => void; fit: () => void; layout: () => void };
+
+function AddTierField() {
+  const ref = useRef<HTMLInputElement>(null);
+  const busy = useRoles((s) => s.busy === "save");
+  useEffect(() => ref.current?.focus({ preventScroll: true }), []);
+  const shut = () => roles.update(() => ({ tierAdd: false }));
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    if (e.key === "Enter") (e.preventDefault(), void addTier(ref.current?.value || ""));
+    else if (e.key === "Escape") (e.preventDefault(), shut());
+  };
+  return (
+    <span className="rc-bar-addtier">
+      <input ref={ref} className="input mono rc-bar-tiername" placeholder="tier name, Enter adds it" aria-label="The new tier's name" disabled={busy}
+             onKeyDown={onKey} onBlur={(e) => !e.currentTarget.value.trim() && shut()} data-testid="roles-tier-new-name" />
+      <Button size="sm" variant="ghost" onClick={shut} aria-label="Close the tier name field">×</Button>
+    </span>
+  );
+}
 
 export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
   const name = useRoles((s) => s.name);
@@ -17,6 +41,8 @@ export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
   const active = useRoles((s) => s.info?.active_team === s.name);
   const cards = useRoles((s) => s.graph?.nodes.length || 0);
   const tiers = useRoles((s) => s.graph?.tiers.length || 0);
+  const adding = useRoles((s) => s.tierAdd);
+  const h = useHelpGroup("lineup_fields");
   return (
     <div className="rc-bar">
       <b className="rc-bar-name">{name}</b>
@@ -24,6 +50,13 @@ export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
       {active && <span className="og-chip mono" data-testid="roles-active">active</span>}
       <span className="mono muted rc-bar-count">{cards} cards · {tiers} tier{tiers === 1 ? "" : "s"}</span>
       {dirty && <span className="rc-dirty mono" data-testid="roles-dirty">unsaved</span>}
+      {adding ? (
+        <AddTierField />
+      ) : (
+        <Button size="sm" variant="ghost" onClick={() => roles.update(() => ({ tierAdd: true }))} title={h["tiers.add"] || "A new tier box: name it, then drag cards in"} data-testid="roles-tier-add">
+          Add tier
+        </Button>
+      )}
       <span className="spacer" />
       <Button size="sm" variant="ghost" disabled={!canUndo} onClick={() => undo()} title="Undo the last edit (Ctrl+Z)" data-testid="roles-undo">Undo</Button>
       <Button size="sm" variant="ghost" disabled={!canRedo} onClick={() => redo()} title="Redo (Ctrl+Shift+Z)">Redo</Button>

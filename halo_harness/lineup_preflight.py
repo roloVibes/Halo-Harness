@@ -38,10 +38,11 @@ def _resolve(name: "Optional[str]", *, cwd, state_dir) -> "tuple[Optional[str], 
         return name, None
 
 
-def _models(entry: dict, bio: dict) -> "tuple[Optional[str], Optional[str]]":
-    over = entry.get("models") if isinstance(entry.get("models"), dict) else {}
-    own = bio.get("models") if isinstance(bio.get("models"), dict) else {}
-    return over.get("preference") or own.get("preference"), over.get("fallback") or own.get("fallback")
+def _models(template: dict, entry: dict, bio: dict, *, cwd=None, state_dir=None) -> "tuple[Optional[str], Optional[str]]":
+    """3.1.6.0 R1: the model and fallback in `teams_yaml.member_model`'s order (a tier's model included)."""
+    from halo_harness.teams_yaml import member_model
+    pref, fallback, source = member_model(template, entry, cwd=cwd, state_dir=state_dir, bio=bio)
+    return (pref or None) if source != "fallback" else None, fallback or None
 
 
 def lineup_problems(team_or_lineup_name: "Optional[str]" = None, *, cwd=None, state_dir=None) -> "list[dict]":
@@ -89,7 +90,7 @@ def template_problems(template: dict, *, cwd=None, state_dir=None) -> "list[dict
                                 f"`{alias}` names bio `{bio_name}`, which does not exist",
                                 f"create it (`halo agents new {bio_name}`) or point `{alias}` at an existing bio"))
             continue
-        pref, fallback = _models(entry, bio)
+        pref, fallback = _models(template, entry, bio, cwd=cwd, state_dir=state_dir)
         for ref, kind, severity in ((pref, "model", "blocks"), (fallback, "fallback", "warns")):
             provider = missing_model_provider(ref, catalogs=catalogs, state_dir=state_dir)
             if provider is not None:

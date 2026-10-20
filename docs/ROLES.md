@@ -531,10 +531,59 @@ spawns `planner` or `reviewer`; a lead spawns `worker`; a worker spawns no
 lineup member (it does its work itself). A member is named by its alias:
 the assignment's `as`, else its `role`.
 
-**What the validator checks** (`halo teams validate`, Studio's Save and its
-Problems panel): tier names are unique; every member is an alias in
-the lineup; the main agent sits alone in tier 0; an alias sits in at most
-one tier; `max_parallel` is a positive whole number.
+**What the validator checks** (`halo teams validate`, `halo doctor`,
+Studio's Save and its Problems panel): tier names are unique; every member
+is an alias in the lineup; the main agent sits alone in tier 0; an alias
+sits in at most one tier; `max_parallel` is a positive whole number; a
+tier's `model` is a model ref (or `default`) and its `trigger` has one of
+the four kinds, the field that kind needs and a prompt (each problem is one
+line, e.g. `tiers[1] 'media': "trigger.paths" must be a non-empty list of
+path strings`).
+
+**A tier's own model and trigger (Halo 3.1.6.0).** Two optional keys per
+tier:
+
+```yaml
+tiers:
+  - {name: top, members: [main]}
+  - name: media
+    members: [cutter, editor]
+    model: or:google/gemini-3-flash   # or `default`: the session's model
+    trigger: {on: file_change, paths: [assets/], prompt: "Cut the new clips into the reel"}
+  - name: nightly
+    members: [sweeper]
+    trigger: {on: schedule, cron: "0 2 * * *", prompt: "Sweep the logs"}
+```
+
+- `model` is what the tier's members run on, in this order (the same at the
+  role table, `halo teams show`, Studio's card pill, the preflight and the
+  coach -- `teams_yaml.member_model`): the card's own `models.preference`;
+  the bio's preference when the bio pins a real ref; **the tier's model**;
+  a bio whose preference is `default` (every shipped bio) runs on the
+  session's model; then the card's and the bio's fallbacks. So a tier model
+  moves every `default` bio in the tier, and a bio that names its own model
+  or a card override keeps it.
+- `trigger` is one entry in the shapes a bio's `schedule` / `triggers` use:
+  `on: schedule` with `cron` (5 fields) or `every` (`30m`, `1h30m`);
+  `on: file_change` with `paths`; `on: event` with `name` (a halo event
+  kind); `on: message` with `from` (a role or alias); always a `prompt`,
+  and an optional `model`. It arms with the bios' own on the root
+  session's first turn under the lineup, as the trigger of the tier's
+  **lead** (its first member), and fires the same background job a bio's
+  trigger does: `halo -p "<prompt>" --agent <lead's bio> --team <lineup>`
+  on the lead's resolved model, plus `HALO_TIER_FIRED=<tier>`.
+  `halo agents schedule list` names it `tier:<name>`.
+- **The trigger rule:** the root a tier's trigger started is that tier's
+  lead, not the main agent, so it may spawn its own tier's other members
+  and the next tier down; everyone it spawns follows the plain rule. The
+  line when it reaches past that:
+
+```
+`cutter` (lead of tier 1 `media`, started by its trigger) may spawn its own tier's other members and the next tier down (tier 2 `nightly`); `main` is in tier 0
+```
+
+`halo teams show` prints one line per tier: its members, `max_parallel`,
+its model and its trigger (`trigger every 30m -> 'Cut the new clips'`).
 
 **The implicit tiers.** An alias no tier names joins an implicit last tier
 called `rest`, and a `warning:` line says so (it does not block a save). A
@@ -567,7 +616,12 @@ that tier's `members` and the lineup saves (`PUT /api/lineup/<name>`); the
 main agent stays in tier 0 and nothing else may join it (the drop snaps back
 with the rule). The Inspector's Lineup tab edits `tiers` as rows (name,
 members, max at once) or as YAML, and the Problems panel lists the tier
-lines above plus "three tiers need `delegation.max_depth: 2`".
+lines above plus "three tiers need `delegation.max_depth: 2`". 3.1.6.0:
+**Add tier** on the canvas bar names a new, empty box (with no tiers
+declared yet it first puts main alone in tier 0); drag cards in;
+double-click a box's name to rename it; its `...` menu sets the model, the
+trigger and `max_parallel`, or deletes it (its cards fall to the implicit
+last tier; tier 0 stays) -- see [STUDIO-team-roles.md](STUDIO-team-roles.md).
 
 ## Lanes and fallbacks (Halo 2.0.5 round 4)
 

@@ -1,6 +1,6 @@
 // The palette's Roles group (3.0.7.0 R2): a new lineup, apply the open one,
-// a new bio, test the open bio's model (or the selected card's), save, undo,
-// redo, and open any lineup or bio by name.
+// a new bio, test the open bio's model (or the selected card's), add a tier
+// (3.1.6.0 R1), save, undo, redo, and open any lineup or bio by name.
 import { goSection, toast } from "../../lib/store";
 import { focusPanel } from "../../lib/workspace/persist";
 import { redo, save, undo } from "./actions";
@@ -43,6 +43,11 @@ export function rolesCommands(): RolesCommand[] {
         const bio = roles.get().bio || nodeById(roles.get(), roles.get().sel)?.agent;
         if (bio) showBio(bio);
       }) },
+    // 3.1.6.0 R1: the canvas bar's Add tier name field, opened from the palette
+    { id: "roles-add-tier", group: g, label: "Roles: add tier", hint: open ? `a new tier box on ${open}'s canvas: name it, then drag cards in` : "open a lineup first",
+      // the field opens once the canvas panel took the focus (a field that loses it while empty closes)
+      run: inRoles(() => (!open ? toast("Open a lineup first (Lineups)", "info") : (setView("workspace"), focusPanel("roles", "roles-graph"),
+        void window.setTimeout(() => roles.update(() => ({ tierAdd: true })), 120)))) },
     { id: "roles-save", group: g, label: "Roles: save lineup", kbd: "Mod+S", hint: open ? `write ${open} to your scope` : "open a lineup first", run: inRoles(() => void save()) },
     { id: "roles-undo", group: g, label: "Roles: undo", kbd: "Ctrl+Z", hint: `${s.past.length} edit${s.past.length === 1 ? "" : "s"} to undo`, run: inRoles(() => void undo()) },
     { id: "roles-redo", group: g, label: "Roles: redo", kbd: "Ctrl+Shift+Z", run: inRoles(() => void redo()) },

@@ -227,6 +227,8 @@ def test_field_help_is_served_from_one_source(ctx: Ctx):
                   and set(body) == {"identity", "bio", "lineup_sections", "lineup_fields", "assignment", "model_select"})
         ctx.check("3.1.4.0 R4: every label of the model select has its line",  # routes/shared/ModelSelect.tsx reads them
                   all(body["model_select"].get(k) for k in ("runs_on", "card", "main", "bio", "orchestra", "design", "team", "more", "test", "refresh")))
+        ctx.check("3.1.6.0 R1: every tier control on the canvas has its line",  # CanvasBar, TierBox, TierMenu read them
+                  all(body["lineup_fields"].get(f"tiers.{k}") for k in ("add", "rename", "menu", "model", "trigger", "max_parallel", "delete")))
         status, _ = launch.api_call(h.state, "POST", "field-help", {})
         ctx.check(f"POST is 405, got {status}", status == 405)
     from halo_harness.teams_yaml import TOP_SECTIONS
