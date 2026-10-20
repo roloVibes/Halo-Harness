@@ -63,7 +63,7 @@ def test_every_readme_png_comes_from_captures_json(ctx: Ctx):
         path = Path(ref)
         ctx.check(f"{ref} lives in docs/media/", path.parent.as_posix() == "docs/media")
         if path.stem in ("studio-orchestra", "studio-orchestra-start", "studio-orchestra-plan", "studio-orchestra-coach", "studio-roles", "studio-design", "studio-modes",
-                         "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team"):  # tools/capture_studio.py (and studio_modes_banner.py) render these, not the TUI pilots
+                         "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session"):  # tools/capture_studio.py (and studio_modes_banner.py) render these, not the TUI pilots
             continue
         ctx.check(f"{ref} matches a capture name in tools/captures.json", path.stem in names)
     for ref in sorted({i for i in _readme_images() if i.endswith(".anim.svg")}):
@@ -88,7 +88,7 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
     for png in MEDIA.glob("*.png"):
         if png.stem in ("social-preview", "studio-design", "studio-modes",
                         "studio-orchestra", "studio-orchestra-start", "studio-orchestra-plan", "studio-orchestra-coach", "studio-roles",
-                        "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team"):  # hero_svg.py --social, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py) and studio_modes_banner.py, not TUI captures
+                        "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session"):  # hero_svg.py --social, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py) and studio_modes_banner.py, not TUI captures
             continue
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
     ctx.check("the animated captures are the turn, the steer and the three levels (2.0.11 round A3)",

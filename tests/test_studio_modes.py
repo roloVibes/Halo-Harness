@@ -2,7 +2,7 @@
 put the mode in the query ahead of the token; `/studio <section>`, `/design`, `/roles gui`
 open Studio there (`url` keeps the browser shut); `/roles table` is the text table; the help and the
 system prompt name Studio; 3.0.7.0: design and roles are React sections (their DOM through
-tools/capture_studio.py --dom); 3.0.8.0 R2: Team; 3.1.4.0 R3: Org and Flow are gone, five sections.
+tools/capture_studio.py --dom); 3.0.8.0 R2: Team; 3.1.4.0 R3: Org and Flow are gone; R2: Session, six sections.
 Run: python -m tests.test_studio_modes
 """
 

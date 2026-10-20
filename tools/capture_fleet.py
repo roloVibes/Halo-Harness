@@ -150,6 +150,18 @@ def shoot_mission(c, rig, png: Path) -> int:
     return c.shot(png)
 
 
+def shoot_session(c, rig, png: Path) -> int:
+    """3.1.4.0 R2: the Session section (Alt+6): this harness's box only, the researcher's streams open."""
+    c.go(rig.url("session"))
+    c.wait("!!document.querySelector('[data-testid=\"session-map\"]') && document.querySelectorAll('[data-testid=\"fleet-node\"]').length >= 1", 30)
+    c.wait("document.querySelectorAll('[data-testid=\"fleet-box\"]').length === 1", 20)
+    c.click_on(node("researcher"))
+    c.wait("[...document.querySelectorAll('[data-testid=\"fleet-text\"]')].some((e) => e.textContent.includes('tax rule'))", 15)
+    c.wait("!document.querySelector('.toast')", 10)
+    time.sleep(1.2)
+    return c.shot(png)
+
+
 def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
     open_fleet(c, rig)
     c.click_on(node("implementer"))
@@ -172,11 +184,13 @@ def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
     d = shoot_panels(c, rig, panels_png)
     caps_png = fleet_png.with_name("studio-fleet-capabilities.png")
     e = shoot_caps(c, rig, caps_png)
+    session_png = fleet_png.with_name("studio-session.png")
+    s = shoot_session(c, rig, session_png)  # 3.1.4.0 R2: the sixth banner frame
     mission_png = fleet_png.with_name("studio-fleet-mission.png")
     m = shoot_mission(c, rig, mission_png)  # last: the planned mission stays in the rig
-    for path, size in ((fleet_png, a), (roles_png, b), (panels_png, d), (caps_png, e), (mission_png, m)):
+    for path, size in ((fleet_png, a), (roles_png, b), (panels_png, d), (caps_png, e), (session_png, s), (mission_png, m)):
         print(f"{'wrote' if size > 10_000 else 'FAILED'} {path} ({size} bytes)")
-    return min(a, b, d, e, m) > 10_000
+    return min(a, b, d, e, s, m) > 10_000
 
 
 def capture(out: str, as_dom: bool, find_chrome) -> int:

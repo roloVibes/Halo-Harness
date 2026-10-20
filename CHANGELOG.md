@@ -8,6 +8,46 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.1.4.0] - unreleased
+
+The session dashboard: Studio gets a Session section that shows your own session the way Fleet shows a fleet, the Fleet panels stop fighting narrow widths, Org and Flow leave the product, the model you pick is where you look and the catalog behind it resolves providers the way a session does. All four rounds came from the owner's live use on 2026-10-19.
+
+### R1: Studio polish from the live check
+
+- **The Fleet Activity log keeps a readable text column.** A line is time, kind, who and the text, which keeps at least 160 px and breaks between words; under 440 px the text takes the full width under the time, kind and who row (at the 3.1.3.0 default width it was drawn one letter per row). The timeline draws at its real width, so lane names keep their size in a narrow panel; Attention, Health and Capabilities break at words too.
+- **A calmer default Fleet layout.** Five panels open: People and Costs over Attention on the left, the Map over Activity in the middle; Health, Capabilities, Agent and Mission wait as title strips down the right edge, one click away. Picking an agent opens Agent, M opens Mission, Reset layout brings the default back, a layout you saved before is kept. A panel that opens from its strip moves the panels it covers down instead of drawing over them.
+- **The Mission panel's five how-it-works lines fold** into one "How this works" line once you type a goal or a mission exists; a click opens them. Every caption on a compact face is at least 12 px.
+- **Expand on Costs no longer stops Studio** (its cap rows re-rendered without end).
+- **Tests:** the hook-timeout test measures from the hook's own start and the wizard's Ctrl+N / Ctrl+E test polls to deadlines, so a slow Windows runner passes them; both still fail on a real regression.
+
+### R2: the session dashboard
+
+- **Session** is a Studio section (`Alt+6`, "This session, live", `halo studio --mode session`): the Fleet panels scoped to this harness. Map (one card per session on this machine, its agent tree, the working node lit; the newest working agent selected on enter), Agent (its streams, Steer, Pause / Resume, Stop, Follow, Pin), Activity (the timeline lanes and the live log of the chosen session, or of every session here), Attention (this harness's rows) and a new **Cost** panel: the chosen session's spend, tokens in and out, turns, elapsed, model and each agent's cost. No copy of a Fleet component: the Fleet stores take one scope `{harness, session}` that the section sets while it shows; Fleet keeps everything. Until this harness has a live session it is a Start view.
+- **Studio lands on Session** when nothing is saved for the browser and a session of this harness is live (the served page carries `data-live-session`); `?mode=session&session=<id>` opens it on that session.
+- **`/studio`** in the terminal opens Studio on the session you are in (the Studio page already open is focused, else the browser opens it, else one starts, and one line says which); `/studio <section>` opens that section. **`halo studio --session [<id>]`** is the CLI twin (the newest live session when `<id>` is left out; a prefix will do).
+- **Links into it:** this harness's nodes in the Fleet rail, **Open in Session** in a map node's `...` menu, **Watch in Session** on the Roles Live tab and on a live Orchestra run's line. The fleet's session rows carry `turns`, `tokens_in`, `tokens_out`, `context_tokens` and `context_limit`.
+
+### R3: Org and Flow are gone
+
+#### Removed
+
+- **Org and Paperclip.** `halo org`, `/org`, `halo paperclip`, `halo paperclip-run`, `halo setup orgs` and the wizard's Orgs step, the org editor, the org templates, the agent tool's `org` call with org budgets, approval gates and org-run resume, Studio's Org section, and the lineup `org:` section (positions, `reports_to`): in Roles every card now hangs off main.
+- **Flow.** `halo flow`, `halo postiz`, Postiz posts and metrics, the `social-post` flow, Studio's Flow section, the coach's flow rules, the team stage kind `flow`, the mission part kind `flow`, the work unit kind `step`, the `flow_*` feed kinds and Fleet's flow gate row. Media stays: the Media panels and `Media:` commands live in Design.
+- **Old files keep loading.** A `config.json` with `orgs` or `paperclip` loads and `halo doctor --config` says "orgs: removed in 3.1.4.0, the section is ignored" (and the same for paperclip). A lineup with `org:` loads with one warning, "org: removed in 3.1.4.0, ignored", in `halo teams validate`, the preflight and doctor; it never blocks a run. A team stage of kind `flow` fails validation with one line that names 3.1.4.0 and the stage. Nothing under your home is deleted.
+- **Studio has six sections, and three keys moved.** Orchestra `Alt+1`, Roles `Alt+2`, Design `Alt+3` (was `Alt+4`), Fleet `Alt+4` (was `Alt+6`), Team `Alt+5` (was `Alt+7`), Session `Alt+6`. `?mode=org`, `?mode=flow` and `halo studio --mode org|flow` are gone; a saved last section of Org or Flow opens Roles.
+
+### R4: the model is where you look
+
+- **One model select wherever an agent is configured.** Roles: the Inspector's MODEL strip ("runs on: <model>", the card's own model saved at once, "change the bio's model"), reached from the card's pill or Enter; the bio form opens on MODELS with the picker table under "more...". Also in Assignment's Model override, Orchestra's goal form (no longer under the disclosure; "the lineup's (<model>)"), and Design's New project dialog and Projects panel. A Team stage shows what it runs on and links to that card.
+- **Studio's model catalog resolves providers the way a session does** (the env file, the shell, the settings.json `env` chain): a Databricks or OpenRouter key that a session finds no longer reads "No provider is set up". The same bare-environment mistake is fixed in `halo models --capabilities`, the fleet capabilities and the coach's prices.
+- **Refresh asks every provider at once,** 6 s each, and gives one line each (ok and how many; no key, timed out, HTTP <status>, unreachable) and when it ran. The Models panel names every provider it looked at and why it lists nothing. Ollama hosts are asked too.
+- **The model select is never empty:** the refs your config, bios and lineups name, and (with OpenRouter set up but no live list) Halo's shipped list, both marked "not verified". Test says whether a ref answers.
+- **New routes:** `GET /api/models/resolve`, `GET /api/models/fallback`, `PUT /api/design/<slug>/model`.
+
+### Fixed
+
+- **Every shipped bio runs on the session's model.** The built-in `orchestrator` bio pinned `or:anthropic/claude-fable-5.1` (and seven other shipped bios pinned OpenRouter models), so a lineup slot using one of them silently routed through OpenRouter on a Databricks or local session. The eight bios now say `models.preference: default`, carry no provider-pinned fallback, and each keeps a comment naming the class of model that suits the role.
+
 ## [3.1.3.0] - 2026-10-19
 
 The coach loop: a coach card can be explained by the run's own lead and applied in one confirm, with a way back. The last of the four versions from the 2026-10-18 assessment.

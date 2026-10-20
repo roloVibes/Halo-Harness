@@ -132,6 +132,11 @@ class RolesModelDriver(Driver):
         from halo_harness.studio import models_refresh as MR
         probe.probe_model = lambda ref, **_kw: {**PROBE, "ref": ref}
         state = seeded_home()
+        from halo_harness.theme import set_config_value
+        # 3.1.4.0: every shipped bio says `default`, so the "in use" fallback (the refs the home itself
+        # names) needs refs of its own here: the session model and one role, both unverifiable fakes.
+        set_config_value("model", "or:demo/atlas-pro")
+        set_config_value("roles.coder", "or:demo/coder-9b")
         MR.BOX_S = 1.5  # this process serves Studio: Refresh boxes each provider at 1.5 s
         MR.jobs_for = stand_ins(state)
         srv, url = serve(state, True)
