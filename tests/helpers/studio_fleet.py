@@ -69,6 +69,19 @@ def expected_tree(view: dict) -> list:
     return out
 
 
+def select_node(c, name: str, key: str, tries: int = 3):
+    """Click the node until the Agent detail shows its key: the GitHub Windows runner lost the click in
+    two of four runs (the node can move between the rect read and the click, or be redrawn under the
+    pointer), so up to `tries` clicks, 10 s each, before it counts as a failure."""
+    for i in range(tries):
+        c.click_on(node(name))
+        try:
+            return c.wait(f"{DETAIL}?.dataset.key === '{key}' && '{name}'", 10)
+        except TimeoutError:
+            if i == tries - 1:
+                raise
+
+
 def fleet_map(c, rig) -> dict:
     from tests.helpers.studio_fleet_rig import STEER_SEEN, wait_for
     out = {}
@@ -83,8 +96,7 @@ def fleet_map(c, rig) -> dict:
     out["api_tree"] = expected_tree(rig.api("GET", "fleet")[1])
     key_a, key_b = rig.key("Implement"), rig.key("Research")
     wait_node(c, "researcher")
-    c.click_on(node("researcher"))
-    out["selected"] = c.wait(f"{DETAIL}?.dataset.key === '{key_b}' && 'researcher'", 30)
+    out["selected"] = select_node(c, "researcher", key_b)
     out["tail_text"] = c.wait("[...document.querySelectorAll('[data-testid=\"fleet-text\"]')].map((e) => e.textContent).find((t) => t.includes('pricing notes'))", 15)
     c.click_on("document.querySelector('[data-testid=\"fleet-tab-working\"]')")
     out["tool_rows"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-tool-row\"]').length", 10)
