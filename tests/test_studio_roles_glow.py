@@ -15,7 +15,9 @@ extra agents on the verifier and reviewer cards
    working); done turns it green and it fades out: ten seconds later the
    card has no glow;
 3. failed turns it red and it stays past those ten seconds, until the card
-   is clicked;
+   is clicked (the motion media is pinned to no-preference through CDP, so a
+   runner with animations off reads the same; under reduce a done card stays
+   green with no fade, the product rule);
 4. a one-tier lineup lays its members out as a fan under main (main centred
    over the first row), the tier box wears the HUD brackets;
 5. a lineup with no cards invites: "Drag a bio here, or New lineup", in
@@ -83,6 +85,15 @@ def test_done_fades_out_ten_seconds_after(ctx: Ctx):
               got.get("working") == ["working", "working"] and got.get("edge_working") and set(got["edge_working"]) == {"working"})
     ctx.check(f"done: green, fading, got {got.get('done')}", got.get("done") == ["done", "rc-done-fade"] and got.get("done_mid") == "done")
     ctx.check(f"ten seconds later the card has no glow, got {got.get('done_after')!r}", got.get("done_after") == "off")
+
+
+@test
+def test_under_reduced_motion_done_is_green_with_no_fade(ctx: Ctx):
+    r, got = _driver("glow")
+    _ran(ctx, r, got)
+    rd = got.get("reduced_done") or ["", "", False]
+    ctx.check(f"prefers-reduced-motion: reduce: the done card glows green, no fade animation, got {rd}",
+              rd[0] == "done" and rd[1] == "none" and rd[2] is True)
 
 
 @test
