@@ -143,6 +143,32 @@
 .rc-invite-line { margin: 0; font-size: 12.5px; }
 @media (prefers-reduced-motion: reduce) { .rc-card[data-live="done"], .rc-card[data-live="done"] .rc-live, .rc-legend { animation: none; } }
 
+/* -- 3.1.6.0 R1: a tier's own head (caret, name, count, `...`), its chip row, the drop hint, its menu, Add tier -- */
+.rc-tier-caret { flex: none; width: 16px; padding: 0; border: 0; background: none; color: inherit; font-size: 10px; cursor: pointer; }
+.rc-tier-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; }
+.rc-tier[data-implicit] .rc-tier-label { cursor: default; }
+.rc-tier-rename { flex: 1; min-width: 0; height: 22px; padding: 0 6px; font-size: 11.5px; }
+.rc-tier-count { flex: none; }
+.rc-tier-more { flex: none; height: 18px; padding: 0 6px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--g) 35%, transparent); background: none;
+  color: inherit; font-size: 11px; line-height: 1; cursor: pointer; }
+.rc-tier-more:hover, .rc-tier-more:focus-visible { background: color-mix(in srgb, var(--g) 22%, transparent); outline: none; }
+.rc-tier-chips { display: flex; gap: 6px; align-items: center; height: 22px; padding: 3px 12px 0; min-width: 0; }
+.rc-tier-model, .rc-tier-trigger { min-width: 0; max-width: 62%; height: 18px; padding: 0 8px; border-radius: 99px; font-size: 10.5px; line-height: 1; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; cursor: pointer; color: var(--text); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.rc-tier-trigger { color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.rc-tier-drop { margin: 10px 12px 0; padding: 12px 0; text-align: center; border: 1px dashed color-mix(in srgb, var(--g) 45%, transparent); border-radius: 10px;
+  color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.rc-tier[data-hot] .rc-tier-drop { color: var(--g); border-color: var(--g); }
+.rc-tier-menu { padding: 6px; }
+.rc-tier-menu .menu-item:disabled { opacity: .45; cursor: default; background: none; }
+.rc-tier-form { display: grid; gap: 6px; padding: 4px 6px 6px; }
+.rc-tier-form-head { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+.rc-tier-form-line { margin: 0; font-size: 11.5px; }
+.rc-tier-form-foot { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
+.rc-bar-addtier { display: inline-flex; align-items: center; gap: 2px; }
+.rc-bar-tiername { width: 190px; height: 26px; padding: 0 8px; font-size: 12px; }
+.rc-edge-label[data-dim] { opacity: .62; }
+
 /* -- the replay bar ---------------------------------------------------------------------- */
 .rc-replay { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--accent); border-radius: var(--radius-sm);
   background: var(--surface-glass); box-shadow: var(--glow-strong); }

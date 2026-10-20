@@ -49,7 +49,7 @@ def _lineup_model(lineup: str, role: str, cwd, state_dir) -> str:
         from halo_harness.orchestra.coach_lane_facts import _bio_model
         raw = T.load_team_template_raw(lineup, cwd=cwd, state_dir=state_dir) or {}
         e = next((e for e in raw.get("agents") or [] if isinstance(e, dict) and role in (e.get("as"), e.get("role"))), {})
-        return str((e.get("models") or {}).get("preference") or _bio_model(str(e.get("agent") or ""), cwd, state_dir))
+        return str(T.member_model(raw, e, cwd=cwd, state_dir=state_dir)[0] or _bio_model(str(e.get("agent") or ""), cwd, state_dir))
     except Exception:
         return ""
 

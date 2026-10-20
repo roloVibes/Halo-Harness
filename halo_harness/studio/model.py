@@ -85,11 +85,12 @@ def _catalog_index(state_dir=None) -> dict:
 
 # -- lineups ----------------------------------------------------------------------
 
-def _effective_model(entry: dict, bio: Optional[dict]) -> tuple[str, str]:
-    over = (entry.get("models") or {}) if isinstance(entry.get("models"), dict) else {}
-    bm = (bio or {}).get("models") if isinstance((bio or {}).get("models"), dict) else {}
-    pref = over.get("preference") or bm.get("preference") or bm.get("fallback") or ""
-    return str(pref or ""), str(over.get("fallback") or bm.get("fallback") or "")
+def _effective_model(raw: dict, entry: dict, bio: Optional[dict], *, cwd=None, state_dir=None) -> tuple[str, str, str]:
+    """3.1.6.0 R1: (model, fallback, source) in `teams_yaml.member_model`'s
+    order -- the card's own, a pinning bio, its tier's model, the session's
+    (a `default` bio), the fallbacks; `source` says which ("card", "bio",
+    "tier:<name>", "session", "fallback")."""
+    return T.member_model(raw, entry, cwd=cwd, state_dir=state_dir, bio=bio)
 
 
 def _removed_route_warnings(*refs) -> list:
@@ -111,7 +112,9 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
     nodes, by_alias, by_role = [], {}, {}
     for i, e in enumerate(entries):
         bio = A.resolve_agent_bio(str(e.get("agent") or ""), cwd=cwd, state_dir=state_dir) if e.get("agent") else None
-        model, fallback = _effective_model(e, bio)
+        model, fallback, source = _effective_model(raw, e, bio, cwd=cwd, state_dir=state_dir)
+        inherit, _fb, inherit_source = _effective_model(raw, {k: v for k, v in e.items() if k != "models"}, bio,
+                                                        cwd=cwd, state_dir=state_dir)
         cat = catalog.get(model) or {}
         problems = []
         if not e.get("agent"):
@@ -130,7 +133,8 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
             "alias": str(e.get("as") or ""), "instances": inst if good else 1,
             "use_for": list(e["use_for"]) if isinstance(e.get("use_for"), list) else [],
             "model": model, "fallback": fallback, "price": cat.get("price", ""), "context": cat.get("context", ""),
-            "bio_model": _effective_model({}, bio)[0],  # 3.1.4.0 R4: what the card runs on without its own model
+            # 3.1.4.0 R4: what the card runs on without its own model; 3.1.6.0 R1: where each comes from
+            "bio_model": inherit, "model_source": source, "inherit_source": inherit_source,
             "tools": (len(allow) if isinstance(allow, list) else 0) if bio else None,
             "scope": (bio or {}).get("_source", ""), "kind": (bio or {}).get("kind", ""),
             "description": (bio or {}).get("description", ""), "problems": problems, "warnings": _removed_route_warnings(model, fallback),

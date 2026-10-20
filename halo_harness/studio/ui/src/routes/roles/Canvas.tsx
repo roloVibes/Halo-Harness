@@ -8,10 +8,15 @@
 // - zoom, the arrows nudge the selected card, Delete removes it (asks first).
 // 3.1.5.0 R3: the glow's life and its legend (glow.ts, GlowLegend.tsx), a
 // tier box in its cards' state colour, and an empty canvas that invites
-// ("Drag a bio here, or New lineup", CanvasEmpty.tsx).
+// ("Drag a bio here, or New lineup", CanvasEmpty.tsx). 3.1.6.0 R1: Add tier
+// on the bar, a tier box's own head and menu (TierBox.tsx, TierMenu.tsx);
+// when the tiers change (one added or deleted) and the boxes then overlap,
+// the canvas lays itself out again in tier columns.
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { addCard, moveToTier } from "./actions";
-import { Card, Edges, TierBox } from "./CanvasParts";
+import { Card, Edges } from "./CanvasParts";
+import { TierBox } from "./TierBox";
+import { TierMenu } from "./TierMenu";
 import { focusModel } from "./modelActions";
 import { CanvasBar } from "./CanvasBar";
 import { CanvasInvite, NoLineup } from "./CanvasEmpty";
@@ -108,17 +113,22 @@ export function CanvasDetail() {
   };
   const layout = () => graph && movePositions(autoLayout(graph));
   const fitted = useRef("");
+  const shape = useRef("");
+  const tierShape = graph ? graph.tiers.map((t) => `${t.index}:${t.implicit ? "~" : ""}`).join(",") : "";
   useEffect(() => {
-    // the first time a lineup draws: a layout saved before the tier boxes is laid out again; then fit it
+    // the first time a lineup draws, and when its tiers change: boxes that overlap (a layout saved before the
+    // tier boxes, or a tier just added or deleted) are laid out again; the first draw then fits it
     const el = scroll.current;
-    if (!el || !graph || !name || fitted.current === name) return;
+    if (!el || !graph || !name || (fitted.current === name && shape.current === tierShape)) return;
+    const first = fitted.current !== name;
     fitted.current = name;
+    shape.current = tierShape;
     const xs = columns(graph);
     const boxes = graph.tiers.map((t, i) => tierBox(t, xs[i], placed, !!collapsed[t.name]));
     const overlap = boxes.some((a, i) => boxes.some((b, j) => j > i && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h));
     if (overlap) movePositions(autoLayout(graph));
-    if (ext.w > el.clientWidth || ext.h > el.clientHeight) setZoom(Math.max(0.3, Math.min(1, (el.clientWidth - 24) / ext.w, (el.clientHeight - 24) / ext.h)));
-  }, [name, graph, placed, collapsed, ext.w, ext.h]);
+    if (first && (ext.w > el.clientWidth || ext.h > el.clientHeight)) setZoom(Math.max(0.3, Math.min(1, (el.clientWidth - 24) / ext.w, (el.clientHeight - 24) / ext.h)));
+  }, [name, graph, placed, collapsed, ext.w, ext.h, tierShape]);
 
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -175,6 +185,7 @@ export function CanvasDetail() {
       </div>
       <ReplayBar />
       <GlowLegend />
+      <TierMenu />
     </div>
   );
 }

@@ -65,7 +65,8 @@ LINEUP_SECTIONS = {
     "permissions": "the lineup's own permission mode and rules, on top of each bio's own",
     "pipeline": "stages that run in order; a required gate must pass",
     "acceptance": "the one smoke prompt `halo doctor --teams` runs through this lineup",
-    "tiers": "stacks of members: main alone in tier 0; each tier spawns only into the next one down",
+    "tiers": "stacks of members: main alone in tier 0; each tier spawns only into the next one down; "
+             "a tier may name its own model and a trigger that starts it",
 }
 
 #: One line per lineup section field, `section.path` (`section` alone: a section edited as one value).
@@ -97,6 +98,15 @@ LINEUP_FIELDS = {
     "acceptance.prompt": "the smoke prompt",
     "acceptance.expect": "what a passing answer looks like (a substring, or non-empty)",
     "tiers": "tier 0 holds main alone; members left out join the last tier",
+    # 3.1.6.0 R1: the Roles canvas's tier controls (Add tier, the box head, the box menu)
+    "tiers.add": "a new tier box: name it, Enter adds it, then drag cards in (the first one also puts main alone in tier 0)",
+    "tiers.rename": "double-click the name to rename the tier; Enter keeps it, Escape drops it",
+    "tiers.menu": "this tier's own menu: rename, model, trigger, max parallel, delete",
+    "tiers.model": "what this tier's members run on, unless a card names its own model or its bio pins one",
+    "tiers.trigger": "starts this tier's lead (its first card) with the prompt, while a session on this lineup runs; "
+                     "the lead may spawn its own tier and the next",
+    "tiers.max_parallel": "how many of this tier's members may run at once (blank: no cap)",
+    "tiers.delete": "remove the tier; its cards fall to the last tier (tier 0 stays)",
 }
 
 #: One line per field of a lineup's assignment (a card on the Roles canvas).

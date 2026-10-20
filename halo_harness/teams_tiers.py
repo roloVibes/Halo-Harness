@@ -15,6 +15,12 @@ one tier run at once across the whole session tree. A lineup with no
 `tiers` has one implicit tier (`all`) holding everyone, and spawning
 follows the other sections only (nothing changes for existing lineups).
 
+3.1.6.0 R1: a tier may also name its own `model` (what its members run on
+unless a card or a pinned bio says otherwise) and one `trigger` that starts
+its lead; teams_tier_fields.py validates and prints both, and a root a tier
+trigger fired may spawn its own tier's other members and the next tier down
+(`fired_gate_line`).
+
 `teams_yaml.validate_team_template` calls `validate_tiers` for the
 blocking lines; `tier_warnings` gives the "warning:" lines; the runtime
 half (`TeamControl.tier_of/tier_gate/spawn_refusal`) and Studio's graph
@@ -97,6 +103,8 @@ def validate_tiers(tiers, agents) -> "list[str]":
         if "max_parallel" in tier and tier.get("max_parallel") is not None \
                 and not _positive_int(tier.get("max_parallel")):
             problems.append(f'tiers[{i}] {name!r}: "max_parallel" must be a positive integer')
+        from halo_harness.teams_tier_fields import tier_field_problems
+        problems.extend(tier_field_problems(f"tiers[{i}] {name!r}", tier))
     main = main_key(agents)
     first = tiers[0] if isinstance(tiers[0], dict) else {}
     first_members = first.get("members") if isinstance(first.get("members"), list) else []
@@ -133,13 +141,16 @@ def _rest_name(template) -> str:
 
 
 def effective_tiers(template) -> "list[dict]":
-    """`[{name, members, max_parallel, index, implicit}]` -- the declared
-    tiers in order, then the implicit last tier when an alias is left out;
-    with no `tiers`, the one implicit tier `all` holding everyone."""
+    """`[{name, members, max_parallel, model, trigger, index, implicit}]` --
+    the declared tiers in order, then the implicit last tier when an alias
+    is left out; with no `tiers`, the one implicit tier `all` holding
+    everyone. An implicit tier names no model and no trigger."""
+    from halo_harness.teams_tier_fields import model_of, trigger_of
     template = template if isinstance(template, dict) else {}
     keys = assignment_keys(template.get("agents"))
     if not declared(template):
-        return [{"name": IMPLICIT_ALL, "members": keys, "max_parallel": None, "index": 0, "implicit": True}]
+        return [{"name": IMPLICIT_ALL, "members": keys, "max_parallel": None, "model": None, "trigger": None,
+                 "index": 0, "implicit": True}]
     out: "list[dict]" = []
     seen: "set[str]" = set()
     for tier in template["tiers"]:
@@ -150,11 +161,12 @@ def effective_tiers(template) -> "list[dict]":
         seen.update(members)
         cap = tier.get("max_parallel")
         out.append({"name": str(tier.get("name") or f"tier-{len(out)}"), "members": members,
-                    "max_parallel": cap if _positive_int(cap) else None, "index": len(out), "implicit": False})
+                    "max_parallel": cap if _positive_int(cap) else None, "model": model_of(tier),
+                    "trigger": trigger_of(tier), "index": len(out), "implicit": False})
     left = [k for k in keys if k not in seen]
     if left:
-        out.append({"name": _rest_name(template), "members": left, "max_parallel": None, "index": len(out),
-                    "implicit": True})
+        out.append({"name": _rest_name(template), "members": left, "max_parallel": None, "model": None,
+                    "trigger": None, "index": len(out), "implicit": True})
     return out
 
 
@@ -183,6 +195,19 @@ def gate_line(tiers: "list[dict]", caller: "Optional[str]", target: "Optional[st
     below = tiers[n + 1]
     return (f"`{caller}` (tier {n} `{here['name']}`) may spawn only into the next tier down "
             f"(tier {n + 1} `{below['name']}`); `{target}` is in tier {m}")
+
+
+def fired_gate_line(tiers: "list[dict]", n: int, lead: str, target: "Optional[str]") -> "Optional[str]":
+    """3.1.6.0 R1: the root a tier's trigger started (its lead, tier `n`) may
+    spawn its own tier's other members and the next tier down; None when
+    `target` is one of those (or outside the lineup), else the line."""
+    m = tier_index(tiers, target)
+    if m is None or m == n + 1 or (m == n and target != lead):
+        return None
+    here = tiers[n]
+    below = f" and the next tier down (tier {n + 1} `{tiers[n + 1]['name']}`)" if n + 1 < len(tiers) else ""
+    return (f"`{lead}` (lead of tier {n} `{here['name']}`, started by its trigger) may spawn its own tier's "
+            f"other members{below}; `{target}` is in tier {m}")
 
 
 def parallel_line(tier: dict, live: int) -> "Optional[str]":

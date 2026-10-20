@@ -69,7 +69,14 @@ export type RolesState = {
   editing: string;
   /** 3.1.4.0 R4: a model select to move the focus to once it shows (the Inspector's strip, the bio form's MODELS). */
   modelFocus: "" | "strip" | "bio";
+  /** 3.1.6.0 R1: the canvas bar's Add tier name field is open; the tier whose name is being edited in its box head;
+   *  the tier box menu open (where, and which face: the items or one of its forms). */
+  tierAdd: boolean;
+  tierRename: string;
+  tierMenu: TierMenuAt | null;
 };
+
+export type TierMenuAt = { tier: string; x: number; y: number; face: "menu" | "model" | "trigger" | "max" };
 
 export const HISTORY_MAX = 50;
 export const NONE: never[] = [];
@@ -122,6 +129,9 @@ export const roles = createStore<RolesState>({
   coachHint: null,
   editing: "",
   modelFocus: "",
+  tierAdd: false,
+  tierRename: "",
+  tierMenu: null,
 });
 
 export function useRoles<S>(pick: (s: RolesState) => S): S {

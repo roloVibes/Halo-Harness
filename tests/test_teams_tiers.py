@@ -2,8 +2,8 @@
 (teams_tiers.py + teams_yaml.validate_team_template): a valid stack, each
 refusal with its exact line, the implicit last tier and its "warning:"
 line, the one implicit tier when none are declared, `extends` merging the
-section, and every shipped lineup still validating clean.
-
+section, every shipped lineup still validating clean; 3.1.6.0 R1: a tier's
+`model` and `trigger`, and the model order at the four readers.
 Run: python -m tests.test_teams_tiers
 """
 from __future__ import annotations
@@ -128,8 +128,8 @@ def test_unplaced_aliases_join_the_implicit_last_tier_with_a_warning(ctx: Ctx):
         template = {"agents": AGENTS, "tiers": tiers}
         eff = effective_tiers(template)
         ctx.check(f"worker and reviewer land in the implicit tier 'rest', got {eff}",
-                  eff[-1] == {"name": "rest", "members": ["worker", "reviewer"], "max_parallel": None, "index": 2,
-                              "implicit": True})
+                  eff[-1] == {"name": "rest", "members": ["worker", "reviewer"], "max_parallel": None, "model": None,
+                              "trigger": None, "index": 2, "implicit": True})
         ctx.check(f"one warning line names them, got {tier_warnings(template)}", tier_warnings(template) == [
             "warning: tiers: 'worker', 'reviewer' in no tier -- they join the implicit last tier 'rest'"])
         taken = {"agents": AGENTS, "tiers": [{"name": "top", "members": ["main"]}, {"name": "rest", "members": ["planner"]}]}
@@ -145,8 +145,8 @@ def test_no_tiers_is_one_implicit_tier(ctx: Ctx):
         ctx.check("an empty list validates", _validate(e, []) == [])
         eff = effective_tiers({"agents": AGENTS})
         ctx.check(f"one tier 'all' holding everyone, got {eff}", eff == [
-            {"name": "all", "members": ["main", "planner", "worker", "reviewer"], "max_parallel": None, "index": 0,
-             "implicit": True}])
+            {"name": "all", "members": ["main", "planner", "worker", "reviewer"], "max_parallel": None, "model": None,
+             "trigger": None, "index": 0, "implicit": True}])
         ctx.check("and no warning", tier_warnings({"agents": AGENTS}) == [])
 
 
@@ -176,6 +176,63 @@ def test_extends_merges_the_tiers_section(ctx: Ctx):
 
 
 @test
+def test_a_tier_model_and_trigger_validate_carry_and_print(ctx: Ctx):
+    """3.1.6.0 R1: `tiers[].model` and `tiers[].trigger` (the bio trigger shapes plus `on: schedule`)."""
+    from halo_harness.teams_tier_fields import tier_lines
+    from halo_harness.teams_tiers import effective_tiers
+    top, trig = {"name": "top", "members": ["main"]}, {"on": "schedule", "every": "30m", "prompt": "sweep"}
+    with _Env() as e:
+        good = [top, {"name": "w", "members": ["worker"], "model": "or:vendor/t", "trigger": trig}]
+        w, lines = effective_tiers({"agents": AGENTS, "tiers": good})[1], tier_lines({"agents": AGENTS, "tiers": good})
+        ctx.check(f"a model and a schedule trigger validate and ride along, got {_validate(e, good)} {w}",
+                  _validate(e, good) == [] and w["model"] == "or:vendor/t" and w["trigger"] == trig)
+        ctx.check(f"`halo teams show` prints them on the tier line, got {lines}",
+                  any("tier 1 w: worker" in ln and "model or:vendor/t" in ln and "trigger every 30m" in ln for ln in lines))
+        cases = [({"model": 5}, "tiers[1] 'w': \"model\" must be a model ref (e.g. or:vendor/model) or default"),
+                 ({"trigger": {"on": "cron"}}, "tiers[1] 'w': \"trigger.on\" must be one of schedule, file_change, event, message"),
+                 ({"trigger": {"on": "schedule", "prompt": "p"}}, "tiers[1] 'w': \"trigger\" needs exactly one of \"cron\" (5 fields) or \"every\" (e.g. 30m)"),
+                 ({"trigger": {"on": "file_change", "prompt": "p"}}, "tiers[1] 'w': \"trigger.paths\" must be a non-empty list of path strings"),
+                 ({"trigger": {"on": "event", "name": "turn_done"}}, "tiers[1] 'w': \"trigger.prompt\" is required (what the tier's lead starts on)")]
+        for extra, line in cases:
+            got = _validate(e, [top, {"name": "w", "members": ["worker"], **extra}])
+            ctx.check(f"{extra}: {line!r} in {got}", line in got)
+
+
+@test
+def test_the_model_order_bio_default_tier_pin_and_slot(ctx: Ctx):
+    """3.1.6.0 R1: card override -> a pinning bio -> the tier's model -> a `default` bio (the session) -> fallbacks,
+    the same at the four readers (role table, Studio's card pill, the preflight, the coach)."""
+    from halo_harness.agents_yaml import save_agent_bio, resolve_agent_bio
+    from halo_harness.lineup_preflight import _models
+    from halo_harness.orchestra.coach_ask import _lineup_model
+    from halo_harness.studio.model import graph_for
+    from halo_harness.teams_yaml import resolve_role_table, save_team_template
+    from halo_harness.theme import set_config_value
+    with _Env() as e:
+        set_config_value("model", "or:vendor/session")
+        for bio, ref in (("dflt-bio", "default"), ("pin-bio", "or:vendor/pinned")):
+            save_agent_bio(bio, {"description": bio, "models": {"preference": ref}}, state_dir=e.state_dir)
+        sub = {"agent": "dflt-bio", "role": "subagent"}
+        agents = [{"agent": "dflt-bio", "role": "main"}, {**sub, "as": "media"}, {**sub, "agent": "pin-bio", "as": "editor"},
+                  {**sub, "as": "cutter", "models": {"preference": "or:vendor/slot"}}]
+        tiers = [{"name": "top", "members": ["main"]}, {"name": "media", "members": ["media", "editor", "cutter"], "model": "or:vendor/tier"}]
+        template = {"agents": agents, "tiers": tiers}
+        ok, problems = save_team_template("order-team", template, state_dir=e.state_dir)
+        want = {"main": "or:vendor/session", "media": "or:vendor/tier", "editor": "or:vendor/pinned", "cutter": "or:vendor/slot"}
+        table, _n = resolve_role_table(template, cwd=e.cwd, state_dir=e.state_dir)
+        ctx.check(f"the lineup saves and the role table follows the order, got {problems} {table}", ok and table == want)
+        nodes = {n["alias"] or n["role"]: (n["model"], n["model_source"]) for n in graph_for(template, cwd=e.cwd, state_dir=e.state_dir, catalog={})["nodes"]}
+        ctx.check(f"Studio's card pill and where it came from, got {nodes}", nodes == {
+            "main": (want["main"], "session"), "media": (want["media"], "tier:media"), "editor": (want["editor"], "bio"), "cutter": (want["cutter"], "card")})
+        pre = {a.get("as") or a["role"]: _models(template, a, resolve_agent_bio(a["agent"], state_dir=e.state_dir), state_dir=e.state_dir)[0] for a in agents}
+        coach = {k: _lineup_model("order-team", k, e.cwd, e.state_dir) for k in want}
+        ctx.check(f"the preflight and the coach read the same, got {pre} {coach}", pre == want and coach == want)
+        template["tiers"][1]["model"] = "default"
+        table, _n = resolve_role_table(template, cwd=e.cwd, state_dir=e.state_dir)
+        ctx.check(f"a tier model of default is the session's, got {table.get('media')}", table.get("media") == "or:vendor/session")
+
+
+@test
 def test_every_shipped_lineup_still_validates_with_zero_problems(ctx: Ctx):
     from halo_harness.teams_tiers import tier_warnings
     from halo_harness.teams_yaml import list_bundled_team_templates, load_team_template_raw, validate_team_template
@@ -185,11 +242,9 @@ def test_every_shipped_lineup_still_validates_with_zero_problems(ctx: Ctx):
         for name in names:
             raw = load_team_template_raw(name, cwd=e.cwd, state_dir=e.state_dir)
             problems = validate_team_template(raw, name=name, cwd=e.cwd, state_dir=e.state_dir)
-            ctx.check(f"{name}: zero problems and no tier warning, got {problems}",
-                      problems == [] and tier_warnings(raw) == [])
+            ctx.check(f"{name}: zero problems and no tier warning, got {problems}", problems == [] and tier_warnings(raw) == [])
 
 
 if __name__ == "__main__":
-    ctx = Ctx()
-    results, passed, failed, skipped = run_all(TESTS, ctx)
+    results, passed, failed, skipped = run_all(TESTS, Ctx())
     sys.exit(print_results(results, passed, failed, skipped, label="teams tiers tests"))

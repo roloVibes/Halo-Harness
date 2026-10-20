@@ -1814,7 +1814,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
         # the gate stop below. The top session is the main agent; a child
         # is the alias it was resolved under. No `tiers` = every spawn passes.
         tier_caller = team_control.main_alias() if runtime.depth == 0 else getattr(parent, "role_name", None)
-        tier_stop = team_control.spawn_refusal(tier_caller, role_name)
+        tier_stop = team_control.spawn_refusal(tier_caller, role_name, root=runtime.depth == 0)
         if tier_stop is not None:
             return [], ToolResult(tier_stop, is_error=True)
         team_stage = team_control.stage_for(team_kind, team_target)

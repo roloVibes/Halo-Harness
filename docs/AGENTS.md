@@ -288,6 +288,10 @@ pipeline:
     - {name: implement, role: subagent, gate: required, acceptance: {prompt: "...", expect: non-empty}}
     - {name: review, role: reviewer, gate: optional}
 acceptance: {prompt: "...", expect: non-empty}   # one smoke prompt through the lineup, halo doctor --teams
+tiers:       # docs/ROLES.md "Tiers": a member spawns only into the next tier down
+  - {name: top, members: [boss]}
+  - {name: media, members: [worker], max_parallel: 2, model: or:google/gemini-3-flash,
+     trigger: {on: schedule, every: 30m, prompt: "Cut the new clips"}}
 ```
 
 What each section DOES at runtime:
@@ -331,6 +335,18 @@ What each section DOES at runtime:
 - **pipeline** -- stages run in order; a `required` gate must pass its
   stage's acceptance (the stage's own `acceptance`, else its bio's) before
   the next stage's calls run, an `optional` gate records and continues.
+- **tiers** -- `tiers[].name`, `tiers[].members` (aliases; main alone in
+  tier 0) and `tiers[].max_parallel` stack the members: a member spawns
+  only into the next tier down, `max_parallel` caps a tier's live members.
+  3.1.6.0: `tiers[].model` (a model ref, or `default` for the session's) is
+  what the tier's members run on unless the card names its own model or
+  its bio pins a real one (a `default` bio takes the tier's model);
+  `tiers[].trigger` (`{on: schedule|file_change|event|message, cron|every|
+  paths|name|from, prompt, model?}`, the bio trigger shapes) starts the
+  tier's lead (its first member) as a background job under the lineup with
+  `HALO_TIER_FIRED=<tier>`, and that lead may spawn its own tier's other
+  members and the next tier down. The full rule is in
+  [ROLES.md](ROLES.md#tiers-halo-3070).
 
 `halo teams show <name>` prints the enforcement state per section
 (enforced / not set / checked by doctor), so a reader never has to guess

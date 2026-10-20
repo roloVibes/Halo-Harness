@@ -316,6 +316,65 @@ def test_arm_session_persists_and_the_cli_lists_and_runs(ctx: Ctx):
         stop_session_scheduler(session)
 
 
+@test
+def test_a_tier_trigger_arms_as_its_lead_and_fires_with_the_tier_env(ctx: Ctx):
+    """3.1.6.0 R1: `tiers[].trigger` arms as the trigger of the tier's first member; the fired job is that
+    lead's root job (`--agent <lead bio> --team <team>`, the tier's prompt, the tier's model) plus
+    HALO_TIER_FIRED=<tier>, and under it the lead may spawn its own tier's other members and the next tier."""
+    from halo_harness.agents_schedule import _default_fire, _fire_env, arm_session, build_fire_argv
+    from halo_harness.agents_yaml import save_agent_bio
+    from halo_harness.teams_runtime import load_team_control
+    from halo_harness.teams_yaml import save_team_template
+    with _Env() as e:
+        save_agent_bio("plain-bio", {"description": "says default", "models": {"preference": "default"}}, state_dir=e.state_dir)
+        agents = [{"agent": "plain-bio", "role": "main"}, {"agent": "plain-bio", "role": "subagent", "as": "cutter"},
+                  {"agent": "plain-bio", "role": "reviewer", "as": "editor"}, {"agent": "plain-bio", "role": "custom", "as": "sweeper"}]
+        tiers = [{"name": "top", "members": ["main"]},
+                 {"name": "media", "members": ["cutter", "editor"], "model": "or:mock/media",
+                  "trigger": {"on": "event", "name": "turn_done", "prompt": "cut the new clips"}},
+                 {"name": "after", "members": ["sweeper"], "trigger": {"on": "schedule", "every": "30m", "prompt": "sweep"}}]
+        ok, problems = save_team_template("tier-fire", {"agents": agents, "tiers": tiers, "delegation": {"max_depth": 3}},
+                                          state_dir=e.state_dir)
+        ctx.check(f"the lineup saves, got {problems}", ok)
+        control = load_team_control("tier-fire", cwd=e.cwd, state_dir=e.state_dir)
+        fired = []
+        scheduler = arm_session(_Session(e), control, fire_fn=lambda s, entry: fired.append(dict(entry)) or "fired")
+        try:
+            ids = sorted(x["id"] for x in scheduler.entries + scheduler.triggers)
+            ctx.check(f"each tier trigger is armed, got {ids}", ids == ["tier-fire:tier:after:schedule", "tier-fire:tier:media:trigger"])
+            scheduler.observe_event("turn_done")
+            entry = fired[0] if fired else {}
+            ctx.check(f"the event fires the media tier's lead with the tier's prompt and model, got {entry}",
+                      entry.get("tier") == "media" and entry.get("agent") == "plain-bio" and entry.get("prompt") == "cut the new clips"
+                      and entry.get("model") == "or:mock/media")
+            argv = build_fire_argv(entry)
+            ctx.check(f"the same root job a bio trigger fires, got {argv}", argv[argv.index("--agent") + 1] == "plain-bio"
+                      and argv[argv.index("--team") + 1] == "tier-fire" and argv[argv.index("-p") + 1] == "cut the new clips")
+            ctx.check("its env names the tier; a bio's job never does", _fire_env(None, entry).get("HALO_TIER_FIRED") == "media"
+                      and "HALO_TIER_FIRED" not in _fire_env(None, {"agent": "plain-bio"}))
+            import subprocess as _sp
+            seen, real = {}, _sp.Popen
+            _sp.Popen = lambda args, **kw: seen.update(kw) or type("P", (), {"pid": 1})()
+            try:
+                _default_fire(_Session(e), entry)
+            finally:
+                _sp.Popen = real
+            ctx.check("the detached fire carries it too", (seen.get("env") or {}).get("HALO_TIER_FIRED") == "media")
+        finally:
+            scheduler.stop()
+        saved = os.environ.get("HALO_TIER_FIRED")
+        os.environ["HALO_TIER_FIRED"] = "media"
+        try:
+            ctx.check("fired: the lead (cutter) may spawn its own tier's editor and the next tier's sweeper",
+                      control.spawn_refusal("main", "editor", root=True) is None and control.spawn_refusal("main", "sweeper", root=True) is None)
+            ctx.check("but not itself, nor tier 0", "may spawn its own tier's other members" in (control.spawn_refusal("main", "cutter", root=True) or "")
+                      and control.spawn_refusal("main", "main", root=True) is not None)
+            ctx.check("a child below the root keeps the plain rule", control.spawn_refusal("editor", "cutter") is not None)
+        finally:
+            os.environ.pop("HALO_TIER_FIRED", None) if saved is None else os.environ.__setitem__("HALO_TIER_FIRED", saved)
+        ctx.check("not fired, the root is main: the next tier only", control.spawn_refusal("main", "sweeper", root=True) is not None)
+
+
 if __name__ == "__main__":
     results, passed, failed, skipped = run_all(TESTS, Ctx())
     sys.exit(print_results(results, passed, failed, skipped))
