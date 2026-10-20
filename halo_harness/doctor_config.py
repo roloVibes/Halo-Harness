@@ -10,7 +10,8 @@ without the model-catalog preflight); `team:` in config.json naming a
 lineup that is not there; a leftover section of a removed feature (in
 config.json `orgs`, `paperclip`: one line each, "removed in 3.1.4.0, the
 section is ignored"; in a lineup `org`: "org: removed in 3.1.4.0, ignored",
-a warning, never a block); a repo `.halo/config.json` (Halo reads only the
+a warning, never a block); a leftover game-theme key or a saved game theme
+(3.1.5.0, one warning line each); a repo `.halo/config.json` (Halo reads only the
 home one); and the same key set in two files with different values, with
 the file that wins (doctor_config_conflicts.py). Shipped templates are not
 re-checked (the suite checks them).
@@ -80,6 +81,7 @@ def _config_json(row: dict, state_dir: Path, cwd: Path) -> list:
     for section in sorted(REMOVED_SECTIONS):
         if isinstance(data, dict) and section in data:
             out.append(finding("removed-section", "warns", row, removed_line(section), key=section))
+    out = _removed_theme_findings(out, data, row)
     team = data.get("team") if isinstance(data, dict) else None
     if isinstance(team, str) and team.strip():
         from halo_harness import teams_yaml as T
@@ -87,6 +89,24 @@ def _config_json(row: dict, state_dir: Path, cwd: Path) -> list:
             known = ", ".join(T.list_team_templates(cwd=cwd, state_dir=state_dir)) or "none"
             out.append(finding("missing-lineup", "blocks", row, f"team: {team!r} names a lineup that is not there "
                                f"(known: {known})", key="team", fix="halo teams use <name>", lineups=[team.strip()]))
+    return out
+
+
+def _removed_theme_findings(found: list, data, row: dict) -> list:
+    """3.1.5.0: a leftover game-theme key is one "removed" line (not an
+    unknown key), and a saved game theme is one line naming the theme Halo
+    uses instead (not a bad value)."""
+    from halo_harness import theme as T
+    from halo_harness.schemas.config_json import REMOVED_KEYS, removed_key_line
+    if not isinstance(data, dict):
+        return found
+    game = data.get("theme") if data.get("theme") in T.REMOVED_THEMES else None
+    out = [f for f in found if f["key"] not in REMOVED_KEYS and not (game and f["key"] == "theme")]
+    out += [finding("removed-key", "warns", row, removed_key_line(key), key=key)
+            for key in sorted(REMOVED_KEYS) if key in data]
+    if game:
+        using = T.resolve_theme(persisted_theme=game)
+        out.append(finding("removed-theme", "warns", row, T.removed_theme_line(game, using), key="theme"))
     return out
 
 

@@ -157,7 +157,7 @@ def test_slash_config_where_prints_the_same_table(ctx: Ctx):
         out = _cmd_config("where", SimpleNamespace(cwd=h.repo))
         ctx.check("/config where prints the table halo config where prints", out == render(rows, cwd=h.repo))
         ctx.check("bare /config keeps its one-line summary",
-                  _cmd_config("", SimpleNamespace(theme="doom", permission_mode="auto", model_ref="m")).startswith("model=m"))
+                  _cmd_config("", SimpleNamespace(theme="claude-light", permission_mode="auto", model_ref="m")).startswith("model=m"))
 
 
 if __name__ == "__main__":

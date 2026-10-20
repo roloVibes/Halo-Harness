@@ -116,8 +116,8 @@ def test_a_leftover_orgs_or_paperclip_config_section_is_one_doctor_line_each(ctx
     from halo_harness.doctor_config import cmd_doctor_config, config_findings
     from halo_harness.theme import get_config_value
     with ConfigHome() as h:
-        h.config({"theme": "doom", "orgs": {"enabled": True, "default": "solo"}, "paperclip": {"enabled": True}})
-        ctx.check("config.json still loads", get_config_value("theme") == "doom")
+        h.config({"theme": "claude-light", "orgs": {"enabled": True, "default": "solo"}, "paperclip": {"enabled": True}})
+        ctx.check("config.json still loads", get_config_value("theme") == "claude-light")
         found = [f for f in config_findings(h.repo) if f["file"] == "~/.halo/config.json"]
         ctx.check(f"one warning per removed section, worded as the brief says, got {[f['text'] for f in found]}",
                   sorted(f["text"] for f in found) == CONFIG_LINES and all(f["severity"] == "warns" for f in found)

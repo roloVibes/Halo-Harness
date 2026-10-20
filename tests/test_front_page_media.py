@@ -75,7 +75,7 @@ def test_every_readme_png_comes_from_captures_json(ctx: Ctx):
 def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
     caps = _captures()["captures"]
     names = {c["name"] for c in caps}
-    ctx.check("captures.json lists the eleven brief scenes plus the auto-mode one", len(caps) >= 12)
+    ctx.check("captures.json lists the nine TUI scenes (the HUD and level captures went in 3.1.5.0)", len(caps) >= 9)
     for cap in caps:
         n = cap["name"]
         for suffix in (".svg", ".png") + ((".anim.svg",) if cap.get("anim") else ()):
@@ -91,9 +91,8 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
                         "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session"):  # hero_svg.py --social, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py) and studio_modes_banner.py, not TUI captures
             continue
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
-    ctx.check("the animated captures are the turn, the steer and the three levels (2.0.11 round A3)",
-              {c["name"] for c in caps if c.get("anim")}
-              == {"turn-phase-line", "steer-mid-turn", "level-mario", "level-metroid", "level-doom", "level-beetlejuice", "level-alien"})
+    ctx.check("the animated captures are the turn and the steer",
+              {c["name"] for c in caps if c.get("anim")} == {"turn-phase-line", "steer-mid-turn"})
 
 
 @test
@@ -169,7 +168,7 @@ def test_committed_capture_svgs_are_a_fresh_renders_output(ctx: Ctx):
     # the committed set (Windows); Linux renders differ in timing-driven
     # cells, so there only "every capture rendered, no error" is pinned
     # and a MISMATCH line is informational.
-    rendered = all(f"{name}:" in out for name in ("auto-mode", "turn-phase-line", "hud-doom", "steer-mid-turn"))
+    rendered = all(f"{name}:" in out for name in ("auto-mode", "turn-phase-line", "review-cards", "steer-mid-turn"))
     ctx.check(f"every capture re-rendered without an error:{out[-1200:]}",
               rendered and "Traceback" not in out and "ERROR" not in out)
     if sys.platform == "win32":

@@ -51,15 +51,15 @@ def test_f19_corrupt_config_refused(ctx: Ctx):
     try:
         raised = False
         try:
-            theme.set_config_value("theme", "doom")
+            theme.set_config_value("theme", "claude-light")
         except theme.CorruptConfigError:
             raised = True
         ctx.check("refused with CorruptConfigError", raised)
         ctx.check("file content untouched", "keep-me" in p.read_text(encoding="utf-8"))
         p.write_text('{"model": "keep-me"}', encoding="utf-8")
-        theme.set_config_value("theme", "doom")
+        theme.set_config_value("theme", "claude-light")
         data = json.loads(p.read_text(encoding="utf-8"))
-        ctx.check("valid file: new key written", data.get("theme") == "doom")
+        ctx.check("valid file: new key written", data.get("theme") == "claude-light")
         ctx.check("valid file: sibling preserved", data.get("model") == "keep-me")
     finally:
         theme._config_path = original

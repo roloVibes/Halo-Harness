@@ -8,14 +8,10 @@ Part of [Slash commands, keys, and prompt prefixes](SLASH-COMMANDS.md), which li
 
 ### `/theme [name]`
 No argument: shows the current theme. With a name (`claude-dark`,
-`claude-light`, either with a `-daltonized`/`-ansi` suffix, or one of the
-game themes `doom`, `metroid`, `mario`; `metroid` also takes an area and
-`mario` a palette, as in `/theme metroid norfair` and `/theme mario world`), persists it to
-`~/.halo/config.json` and (in the TUI) re-applies it live. Moving onto a game
-theme records the theme you were on as `theme_toggle_previous`; moving off
-one onto a normal theme clears it. In the TUI, Tab completes theme names
-(the game themes first). See the Themes section of the
-[handbook](HANDBOOK.md).
+`claude-light`, either with a `-daltonized`/`-ansi` suffix), persists it to
+`~/.halo/config.json` and (in the TUI) re-applies it live. In the TUI, Tab
+completes theme names. The game themes and their toggles were removed in
+3.1.5.0. See the Themes section of the [handbook](HANDBOOK.md).
 
 ### `/studio` `[session|roles|design|orchestra|fleet|team] [url]`
 Halo 3.1.4.0: bare `/studio` (or `/studio session`) opens Studio on the
@@ -41,63 +37,6 @@ in sandboxed frames, renders from the ArtCraft apps), chat, comment pins,
 knobs, versions, variants, critique, contrast, exports and the handoff. The
 same as `/studio design`; `/design url` prints the URL only. The command
 family on the shell is `halo design` ([DESIGN.md](DESIGN.md)).
-
-### `/level` `[on|off]`
-Halo 2.0.11: toggles the game themes' level band -- the eight-row scene
-above the prompt that every game theme draws (a hero, scrolling
-scenery, an enemy that crosses while the model thinks; see HANDBOOK
-"The level band"). Bare `/level` flips it, `on`/`off` sets it; persisted as
-`theme_scene` in `~/.halo/config.json`, applied at once in the TUI. The
-band hides on its own under 24 rows or 60 columns, while a pending card is
-docked, and under a theme without a scene.
-
-### `/doom`
-Toggle the DOOM theme (Halo 2.0.8): dark greys, blood reds and amber text,
-heavy borders, and the level band above the prompt; the status bar stays
-the plain one, tinted blood red (3.0.2.0 -- the three-row HUD rows are
-gone, so model and cost are always in view). Not active: remembers the current theme as
-`theme_toggle_previous` and applies DOOM. Active: restores the remembered
-theme (`claude-dark` when none) and clears it. `/doom`, `/metroid`, `/doom`
-returns to what was active before the first `/doom`. In `-p` the same toggle
-runs against `config.json`.
-
-### `/metroid [area]`
-Toggle the Metroid theme (Halo 2.0.8): dashed map-grid cards and dialogs,
-a visor-framed input line and the level band; the status bar stays the
-plain one, tinted suit orange (3.0.2.0). With no argument it is the same
-toggle as `/doom`. With an area (`crateria`, `brinstar`, `norfair`,
-`maridia` or `tourian`) it switches to that palette and applies the theme
-when it is not active, without toggling it off; the area persists as
-`theme_variant` in `~/.halo/config.json`, and bare `/metroid` leaves it
-alone. An unknown area is reported with the five valid names and changes
-nothing. In `-p` the same forms run against `config.json`.
-
-### `/mario [variant]`
-Toggle the Mario theme (Halo 2.0.8): brick-pattern cards and dialogs, a
-pipe-framed input line, the level band (with its 1-UP mushroom when a
-sub-agent finishes); the status bar stays the plain one, tinted coin gold
-(3.0.2.0). With no argument it is the same toggle as `/doom`. With a variant
-(`bros` or `world`) it switches to that palette and applies the theme when it
-is not active, without toggling it off; the variant persists as
-`theme_variant` in `~/.halo/config.json`, and bare `/mario` leaves it alone.
-An unknown variant is reported with the two valid names and changes nothing.
-In `-p` the same forms run against `config.json`.
-
-### `/beetlejuice [place]`
-Toggle the Beetlejuice theme (Halo 3.0.2.0): dusk purple, black-and-white
-stripe borders, a neon-green accent, and the level band above the prompt (a
-striped trickster, a sandworm, a bat). The same toggle rule as `/doom`. With
-a place (`house` or `saturn`) it switches to that palette and floor -- the
-haunted hillside, or the striped sand of the afterlife desert -- and applies
-the theme when it is not active; the place persists as `theme_variant`.
-
-### `/alien [deck]`
-Toggle the Alien theme (Halo 3.0.2.0): deep-space greys with CRT-green text,
-and the level band above the prompt (an officer with a flamethrower, the
-creature, a facehugger). The same toggle rule as `/doom`. With a deck
-(`nostromo` or `hive`) it switches to that palette and floor -- the ribbed
-corridor, or the resin of the hive -- and applies the theme when it is not
-active; the deck persists as `theme_variant`.
 
 ### `/exit`, `/quit` `[TUI-only for /quit]`
 `/exit` in `-p` is a no-op note (the call already ends after this turn).

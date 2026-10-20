@@ -64,7 +64,7 @@ halo                         # full-screen TUI
    tab is missing, add a local/LAN host or server where that applies,
    Save, repeat for another, any tab Skippable); **Default model** (a
    picker across everything just configured); **Permission mode** (`auto`
-   recommended); **Theme** (nine names: six built-ins plus the DOOM, Metroid and Mario game themes, a live preview and a one-line description for each game theme); **Team**
+   recommended); **Theme** (the six built-in themes, with a live preview); **Team**
    (Halo 2.0.5 round 2c: a "Custom roles: off / on" switch -- off shows
    one sentence and nothing else; on shows **Lineups** (pick, edit, or
    build a new lineup assigning bios or plain models to roles) and
@@ -532,101 +532,19 @@ flight.
 ## Themes
 
 `/theme <name>` (or `halo init`'s Theme step, `halo config set theme <name>`,
-`--theme`, `HALO_THEME`) picks one of eleven names: `claude-dark`,
-`claude-light` and their `-daltonized` and `-ansi` variants, plus the five
-game themes below. A game theme is its own look and has no `-ansi` or
-`-daltonized` sibling. The choice persists in `~/.halo/config.json` under
-`theme`.
+`--theme`, `HALO_THEME`) picks one of six names: `claude-dark`,
+`claude-light` and their `-daltonized` and `-ansi` variants. The choice
+persists in `~/.halo/config.json` under `theme`. With nothing chosen, Halo
+uses `claude-dark` on a truecolor terminal and `claude-dark-ansi` elsewhere.
+The status bar is the same single line under every theme.
 
-| Theme | Look |
-|---|---|
-| `doom` | Dark greys, blood reds, rust browns, muted greens and amber text. Heavy borders on cards, panels and dialogs; the status bar stays the plain one, tinted blood red (3.0.2.0). |
-| `metroid` | Visor blues and greys with a power-suit orange accent (the Crateria area; four more areas below). Light borders, dashed map-grid cards and dialogs, a visor-framed input line; the status bar stays the plain one, tinted suit orange (3.0.2.0). |
-| `mario` | Sky blue, brick red, pipe green and coin gold (the `bros` palette; `world` below). Brick-pattern cards and dialogs, a pipe-framed input line; the status bar stays the plain one, tinted coin gold (3.0.2.0). |
-| `beetlejuice` | Dusk purple, black-and-white stripe borders and a neon-green accent (3.0.2.0; `house` and `saturn` places). The plain status bar, tinted neon green. |
-| `alien` | Deep-space greys with CRT-green text and accent (3.0.2.0; `nostromo` and `hive` decks). The plain status bar, tinted green. |
-
-### The level band: `/level`
-
-Each game theme draws an eight-row level (sixteen pixels of sky to floor)
-directly above the prompt (`halo_harness/tui/scene.py` and `scene_doom.py`,
-`scene_metroid.py`, `scene_mario.py`, `scene_beetlejuice.py`,
-`scene_alien.py`; the widget is `tui/widgets/scene_band.py`). A 13-pixel
-hero stands on the ground; while the model writes the ground and the
-scenery scroll and the hero runs a six-frame stride; while it thinks an
-enemy crosses the band; an error and a needs-you state each have their own
-pose; a finished sub-agent or background job plays a short animation beside
-the hero for two seconds. The level fights back (`tui/scene_combat.py`):
-every hero attacks while the model writes (fireballs, the charge beam, the
-shotgun, conjured sparks, the flamethrower), each projectile that reaches
-an enemy counts one hit, four hits bring it down (its own death frames, or
-upside down and sinking into the ground) and a fresh one walks in a few
-seconds later; an enemy that reaches the hero kills them -- a pop up, a
-flip, a fall through the floor -- and they blink back in place, untouchable
-for a moment. The fight is deterministic, so captures repeat. Ambient particles (dust, embers, spores, steam,
-sparks), projectiles with gravity and lamps that breathe light are part of
-every scene (3.0.2.0, the third generation).
-
-| Theme | Hero | Enemy (phase) | Scenery | Pickups |
-|---|---|---|---|---|
-| `mario` | a plumber in a red cap | a winged turtle gliding by (writing) | warp pipes, brick rows with a question block, clouds | a 1-UP mushroom (sub-agent done), a coin (job done) |
-| `metroid` | a hunter in a power suit with an arm cannon | the round alien, red nuclei under a green dome, fangs below, drifting in (thinking and writing) and latching on (error); a spiny crawler (writing) | rock pillars, hatches, stalactites; the ground is the area's own: lava in Norfair, water in Maridia | an energy tank, a missile |
-| `doom` | a marine in green armour with a shotgun (it flashes while writing; he pumps it while thinking) | an imp stalking in (thinking), a husk shambling by (writing); the fireball lands on an error | steel pillars, barrels, panels, a sealed door, ceiling lamps, embers | the imp collapsing, a health bonus |
-| `beetlejuice` | a trickster in a striped suit (he conjures sparks while thinking) | a giant sandworm surfacing (writing), a bat (thinking); his head shrinks on an error | a moon, a crooked house, dead trees, tombstones, fog | a baby sandworm, a waiting-room ticket |
-| `alien` | an officer with a flamethrower (jets of flame while writing, a motion tracker while thinking) | the creature stalking the corridor (thinking and writing), a facehugger (writing); it latches on in an error | ribs, bulkheads, chains, blinking consoles, an airlock, eggs, steam | an acid splash, the ship's cat |
-
-All of it is original art drawn for Halo in the spirit of the 8-bit era;
-nothing is copied from any game. The band animates eight times a second
-while a turn is live and once a second otherwise, draws with half-block
-glyphs on a truecolor terminal and with plain characters otherwise, and
-paints its sky in the theme's background so it sits flush with the
-transcript.
-
-`/level` toggles it, `/level on|off` sets it, persisted as `theme_scene`
-in `~/.halo/config.json` (on by default). The band also yields on its
-own: it is hidden on a terminal under 24 rows or 60 columns, while a
-pending card (a permission ask, a question, a plan review) is docked,
-and under any theme without a scene.
-
-### The toggles: `/doom`, `/metroid`, `/mario`, `/beetlejuice`, `/alien`
-
-Each is a toggle with one rule for all five:
-
-- If that theme is not active, `/<name>` remembers the active theme as
-  `theme_toggle_previous` in `~/.halo/config.json`, applies the game theme
-  and persists it as `theme`.
-- If it is active, `/<name>` restores `theme_toggle_previous` (`claude-dark`
-  when none is stored) and clears the key.
-- Going straight from one game theme to another keeps the original
-  non-game theme as the previous one: `/doom`, `/metroid`, `/metroid` lands
-  back on whatever was active before `/doom`.
-- `/theme <name>` is the explicit form. Moving onto a game theme records the
-  previous theme the same way; moving off a game theme onto a normal one
-  clears it. The state survives a relaunch because it lives in `config.json`.
-
-### The status bar under the game themes
-
-Halo 3.0.2.0 (owner: "I don't like losing the bottom info"): the game
-themes no longer replace the status bar with their own panel rows (health,
-ammo, energy tanks, coins, a timer). The bar is the ordinary one-line
-status bar under every theme -- model, cost, context, mode, directory --
-with the model label tinted in the theme's accent, so you always see what
-you are running and what it costs. The theme's borders, the visor or pipe
-frame around the input line, and the level band above the prompt are what
-make it a game.
-
-Every level keeps the full plain status bar. Under `doom`, all five
-`metroid` areas, both `mario` looks, `beetlejuice` (house and saturn) and
-`alien` (nostromo and hive) the bar shows exactly the segments and values
-it shows under `claude-dark` -- model, context bar and percent, cost and
-provider balance, mode, effort, running agents, directory and branch,
-phase and elapsed time, needs-you, a pending permission, background jobs,
-remote, governor, offline and your `statusLine` text -- and only the colour
-changes. No setting, slash command or theme variant swaps it for panel
-boxes, and the level band draws only the scene: no score, lives, coin or
-ammo counters. `tui/hud.py` keeps the skin engine for its tests
-(`HudSkin.status_bar` defaults to `"plain"`; the panel rows are reachable
-only through a test hook).
+The game themes (DOOM, Metroid, Mario, Beetlejuice, Alien) with their level
+band, status-bar skins and toggles were removed in 3.1.5.0. A `config.json`
+that still names one falls back to the default theme, and Halo says so in one
+line at startup and in `halo doctor --config`, for example `theme: doom was a
+game theme, removed in 3.1.5.0; using claude-dark`. The keys they wrote
+(`theme_scene`, `theme_variant`, `theme_toggle_previous`) are ignored, one
+doctor line each.
 
 ## Remote control from Signal
 

@@ -141,23 +141,6 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
     return "\n".join(lines)
 
 
-def _cmd_level(args: str, facade: HeadlessFacade) -> str:
-    """2.0.11 round A3: `/level` toggles the game themes' level band (the
-    three-row scene above the prompt); `/level on|off` sets it. Persisted
-    as `theme_scene` in ~/.halo/config.json; the TUI redraws at once."""
-    from halo_harness.theme import get_config_value, set_config_value
-    requested = (args or "").strip().lower()
-    current = bool(get_config_value("theme_scene", True))
-    if requested in ("on", "off"):
-        value = requested == "on"
-    elif requested:
-        return "Usage: /level [on|off]"
-    else:
-        value = not current
-    set_config_value("theme_scene", value)
-    return f"Level band: {'on' if value else 'off'}" + ("" if value else " (run /level to bring it back)")
-
-
 _STUDIO_MODE_LABELS = {"roles": "Roles: lineups and agent bios as a graph",
                        "design": "Design: artboards on your own apps",
                        "orchestra": "Orchestra: runs of your agents, live",
@@ -1513,39 +1496,17 @@ def _cmd_add_dir(args: str, facade: HeadlessFacade) -> str:
 
 def _cmd_theme(args: str, facade: HeadlessFacade) -> str:
     from halo_harness import theme as theme_mod
-    from halo_harness import theme_toggle
-    name, variant, _extra = theme_toggle.parse_theme_args(args)
+    name = (args or "").strip()
     if not name:
         return f"Current theme: {facade.theme or theme_mod.DEFAULT_THEME}"
     if not theme_mod.is_valid_theme(name):
-        return f"halo: not a valid theme name: {name!r} (expected one of {sorted(theme_mod.VALID_THEMES)})"
+        return (f"halo: not a valid theme name: {name!r} (expected one of {sorted(theme_mod.VALID_THEMES)})"
+                + theme_mod.removed_theme_hint(name))
     try:
-        theme_toggle.select_theme(
-            name, facade.theme or theme_mod.load_persisted_theme() or theme_mod.DEFAULT_THEME, variant)
-    except ValueError as exc:
+        theme_mod.persist_theme(name)
+    except (ValueError, theme_mod.CorruptConfigError) as exc:
         return f"halo: {exc}"
-    return (f"Theme set to {name}, {theme_toggle.noun_of(name)} {variant}." if variant
-            else f"Theme set to {name}.")
-
-
-def _game_theme_cmd(game: str):
-    """Halo 2.0.8 theme pack: the headless `/doom`, `/metroid`, `/mario`
-    (same toggle contract as the TUI -- see halo_harness/theme_toggle.py).
-    A game with variants also takes one: `/metroid brinstar`."""
-    def run(args: str, facade: HeadlessFacade) -> str:
-        from halo_harness import theme as theme_mod
-        from halo_harness import theme_toggle
-        active = facade.theme or theme_mod.load_persisted_theme() or theme_mod.DEFAULT_THEME
-        variant = args.strip().lower()
-        if variant and theme_mod.variants_of(game):
-            try:
-                theme_toggle.set_game_variant(game, variant, active)
-            except ValueError as exc:
-                return f"halo: {exc}."
-            return theme_toggle.variant_message(game, variant) + "."
-        applied = theme_toggle.toggle_game_theme(game, active)
-        return theme_toggle.toggle_message(game, applied) + "."
-    return run
+    return f"Theme set to {name}."
 
 
 def _cmd_exit(args: str, facade: HeadlessFacade) -> str:
@@ -1864,7 +1825,6 @@ _BUILTIN_SPECS = {
                  _cmd_settings),
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
-    "level": ("core", "Toggle the game themes' level band above the prompt", "[on|off]", _cmd_level),
     "studio": ("core", "Open Halo Studio, the browser GUI: in the TUI bare /studio watches this session (the Session dashboard)",
                "[session|roles|design|orchestra|fleet|team] [url]", _cmd_studio),
     "design": ("core", "Open Studio's Design GUI: artboards on your own apps (the `halo design` family)", "[url]", _cmd_design),
@@ -1886,17 +1846,7 @@ _BUILTIN_SPECS = {
     "timeline": ("core", "Show the last turn's request/tool/timing timeline", "[N]", _cmd_timeline),
     "add-dir": ("core", "Add a working directory", "<directory>", _cmd_add_dir),
     "theme": ("core", "Show or set the color theme", "[theme]", _cmd_theme),
-    "doom": ("ui", "Toggle the DOOM theme: a marine in a tech base above the prompt",
-             None, _game_theme_cmd("doom")),
-    "metroid": ("ui", "Toggle the Metroid theme: a hunter in a cavern, five area palettes (/metroid <area>)",
-                "[area]", _game_theme_cmd("metroid")),
-    "mario": ("ui", "Toggle the Mario theme: a plumber on the overworld, two palettes (/mario <variant>)",
-              "[variant]", _game_theme_cmd("mario")),
-    "beetlejuice": ("ui", "Toggle the Beetlejuice theme: a striped trickster on a haunted hillside (/beetlejuice house|saturn)",
-                    "[place]", _game_theme_cmd("beetlejuice")),
-    "alien": ("ui", "Toggle the Alien theme: an officer with a flamethrower in a ribbed corridor (/alien nostromo|hive)",
-              "[deck]", _game_theme_cmd("alien")),
-    "exit": ("ui", "Exit halo", None, _cmd_exit),
+    "exit":("ui", "Exit halo", None, _cmd_exit),
     "copy": ("ui", "Copy the last reply, a code block, or the last tool output to the clipboard",
              "[code [N]|tool]", _cmd_copy),
     "rename": ("ui", "Rename this session", "<title>", _cmd_rename),

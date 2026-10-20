@@ -53,10 +53,6 @@ async def handle_slash(app, name: str, args: str) -> None:
         "xp": _handle_xp,
         "resume": _handle_resume, "permissions": _handle_permissions,
         "exit": _handle_exit, "quit": _handle_exit, "theme": _handle_theme,
-        # Halo 2.0.8 theme pack: the game-theme toggles (one contract for all
-        # three, see halo_harness/theme_toggle.py).
-        "level": _handle_level, "doom": _handle_doom, "metroid": _handle_metroid, "mario": _handle_mario,
-        "beetlejuice": _handle_beetlejuice, "alien": _handle_alien,
         # U5 scope C: sessions UX.
         "rename": _handle_rename, "fork": _handle_fork, "export": _handle_export,
         "stats": _handle_stats,
@@ -731,18 +727,6 @@ async def _handle_effort(app, args: str) -> None:
 # generic headless-text path.
 # ============================================================================
 
-async def _handle_level(app, args: str) -> None:
-    """2.0.11 round A3: persist through the builtin, then re-apply the
-    theme chrome so the band appears or disappears at once."""
-    from halo_harness.commands.builtins import _cmd_level
-    result = _cmd_level(args, getattr(app.controller, "facade", None))
-    if result:
-        await app.transcript.add_note(result, kind="command")
-    band = getattr(app, "scene_band", None)
-    if band is not None:
-        band.set_theme(app.theme_name, app.theme_variant)
-
-
 async def _handle_offline(app, args: str) -> None:
     args = args.strip()
     if not args:
@@ -1399,56 +1383,22 @@ async def _handle_exit(app, _args: str) -> None:
 
 async def _handle_theme(app, args: str) -> None:
     from halo_harness import theme as theme_mod
-    from halo_harness import theme_toggle
 
-    name, variant, _extra = theme_toggle.parse_theme_args(args)
+    name = (args or "").strip()
     if not name:
         app.notify(f"Current theme: {app.theme_name}", title="/theme")
         return
     if not theme_mod.is_valid_theme(name):
-        app.notify(f"Not a valid theme name: {name} (expected one of {sorted(theme_mod.VALID_THEMES)})",
-                   severity="error", title="/theme")
+        app.notify(f"Not a valid theme name: {name} (expected one of {sorted(theme_mod.VALID_THEMES)})"
+                   + theme_mod.removed_theme_hint(name), severity="error", title="/theme")
         return
     try:
-        theme_toggle.select_theme(name, app.theme_name, variant)
-    except ValueError as exc:
+        theme_mod.persist_theme(name)
+    except (ValueError, theme_mod.CorruptConfigError) as exc:
         app.notify(str(exc), severity="error", title="/theme")
         return
     app.apply_theme(name)
-    app.notify(f"Theme set to {name}" + (f", {theme_toggle.noun_of(name)} {variant}" if variant else ""),
-               title="/theme")
-
-
-def _game_theme_handler(game: str):
-    """Halo 2.0.8 theme pack: `/doom`, `/metroid`, `/mario` -- apply the game
-    theme remembering the active one; again restores it (the toggle contract
-    lives in halo_harness/theme_toggle.py, shared with the headless form).
-    A game with variants also takes one (`/metroid brinstar`): it persists
-    the variant and applies the theme without toggling it off."""
-    async def handler(app, args: str) -> None:
-        from halo_harness import theme as theme_mod
-        from halo_harness import theme_toggle
-        variant = args.strip().lower()
-        if variant and theme_mod.variants_of(game):
-            try:
-                applied = theme_toggle.set_game_variant(game, variant, app.theme_name)
-            except ValueError as exc:
-                app.notify(str(exc), severity="error", title=f"/{game}")
-                return
-            app.apply_theme(applied)
-            app.notify(theme_toggle.variant_message(game, variant), title=f"/{game}")
-            return
-        applied = theme_toggle.toggle_game_theme(game, app.theme_name)
-        app.apply_theme(applied)
-        app.notify(theme_toggle.toggle_message(game, applied), title=f"/{game}")
-    return handler
-
-
-_handle_doom = _game_theme_handler("doom")
-_handle_metroid = _game_theme_handler("metroid")
-_handle_mario = _game_theme_handler("mario")
-_handle_beetlejuice = _game_theme_handler("beetlejuice")  # 3.0.2.0
-_handle_alien = _game_theme_handler("alien")
+    app.notify(f"Theme set to {name}", title="/theme")
 
 
 # ============================================================================

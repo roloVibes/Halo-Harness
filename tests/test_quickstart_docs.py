@@ -67,7 +67,7 @@ def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
     # 2.0.11 round A4: the product-page shape.
     headings = ("## Install", "## What Halo is", "## Your subscription, your call", "## What it feels like",
-                "## The levels", "## How Halo compares", "## Features", "## Documentation", "## Tests",
+                "## How Halo compares", "## Features", "## Documentation", "## Tests",
                 "## Contributing and security", "## Licence")
     positions = []
     for heading in headings:

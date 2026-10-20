@@ -202,7 +202,7 @@ def test_tier_is_read_from_the_file_head_without_importing(ctx: Ctx):
 def test_the_repo_marks_its_chrome_and_pilot_modules_full(ctx: Ctx):
     from tests.helpers import run_all_support as S
     tests_dir = Path(__file__).resolve().parent
-    for name in ("test_studio_ui", "test_studio_modes", "test_wizard_lineup", "test_scene"):
+    for name in ("test_studio_ui", "test_studio_modes", "test_wizard_lineup", "test_tui_inplace"):  # 3.1.5.0: test_scene went with the game themes
         ctx.check(f"{name} is in the full tier", S.module_tier(tests_dir / f"{name}.py") == "full")
     for name in ("test_run_all_isolation", "test_orchestra_plan_review", "test_release_script"):
         ctx.check(f"{name} is in the fast tier", S.module_tier(tests_dir / f"{name}.py") == "fast")

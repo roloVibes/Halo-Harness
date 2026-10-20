@@ -1,7 +1,8 @@
 """tests.test_review3_e2 -- 3.0.2.0 review fix pass, round E (session data),
 part 2: the config, role, bio/team and design-project writers.
 
-  * review item 75  the game-theme toggle-off rewrote config.json 0644
+  * review item 75  the game-theme toggle-off rewrote config.json 0644 (the
+                    toggles went in 3.1.5.0; the `/theme` write keeps the pin)
   * review item 80  role/bio/team writers truncated in place and raised
   * review item 41  a torn design.json read was saved back over the project
 """
@@ -46,23 +47,20 @@ def _temp_leftovers(d: Path) -> list:
     return [p.name for p in d.iterdir() if ".tmp" in p.name]
 
 
-# ---- item 75: toggle-off keeps config.json private ----------------------------
+# ---- item 75: a theme write keeps config.json private ---------------------------
 
 @test
-def test_i75_game_theme_toggle_off_keeps_config_private_and_atomic(ctx: Ctx):
+def test_i75_theme_write_keeps_config_private_and_atomic(ctx: Ctx):
     from halo_harness import theme as theme_mod
-    from halo_harness.theme_toggle import PREVIOUS_KEY, toggle_game_theme
     with _StateDir() as state:
         cfg = state / "config.json"
-        cfg.write_text(json.dumps({"theme": "doom", PREVIOUS_KEY: "claude-dark", "ollama": {"token": "x"}}),
-                       encoding="utf-8")
+        cfg.write_text(json.dumps({"theme": "claude-light", "ollama": {"token": "x"}}), encoding="utf-8")
         if os.name != "nt":
             cfg.chmod(0o600)
-        restored = toggle_game_theme("doom", "doom")
+        theme_mod.persist_theme("claude-dark")
         data = json.loads(cfg.read_text(encoding="utf-8"))
-        ctx.check(f"the previous theme came back, got {restored!r}", restored == "claude-dark")
-        ctx.check("the remembered key is gone, other keys kept",
-                  PREVIOUS_KEY not in data and data.get("ollama") == {"token": "x"})
+        ctx.check(f"the theme was written, got {data.get('theme')!r}", data.get("theme") == "claude-dark")
+        ctx.check("other keys kept", data.get("ollama") == {"token": "x"})
         ctx.check(f"no temp file left, got {_temp_leftovers(state)}", _temp_leftovers(state) == [])
         if os.name != "nt":
             ctx.check(f"config.json stays 0600, got {oct(stat.S_IMODE(cfg.stat().st_mode))}",
