@@ -8,7 +8,10 @@
 // (`seedBacklog`), each live agent of this harness has its backlog read once
 // (`agent_tail`, streams.ts) and its last entries put in by time, before
 // anything it did live. The first look at the tree is silent: what was
-// already there is not news.
+// already there is not news. 3.1.5.0 R3 follow-up: it reads the tree only
+// while the Session section shows (a change that happened away lands when you
+// come back), so nothing of it runs for the Fleet page.
+import { studio } from "../../lib/store";
 import { allAgents, fleet, isLive, localId } from "../fleet/store";
 import { loadTail } from "../fleet/streams";
 import type { AgentKey } from "../fleet/types";
@@ -28,7 +31,7 @@ let seenStreams: unknown = null;
 
 function onTree(): void {
   const s = fleet.get();
-  if (!s.loaded) return;
+  if (!s.loaded || studio.get().section !== "session") return;
   if (s.harnesses === seenTree && s.streams === seenStreams) return; // a hover or a pin: nothing here changed
   seenTree = s.harnesses;
   seenStreams = s.streams;
@@ -112,6 +115,13 @@ export function startLiveTree(seed = false): void {
   if (!treeOn) {
     treeOn = true;
     fleet.subscribe(onTree);
+    let was = studio.get().section;
+    studio.subscribe(() => {
+      const now = studio.get().section;
+      if (now === was) return;
+      was = now;
+      if (now === "session") (seenTree = null), onTree();
+    });
     onTree();
   }
   if (seed && !seeding) {

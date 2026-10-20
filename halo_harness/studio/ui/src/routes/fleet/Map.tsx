@@ -86,6 +86,7 @@ export function FleetMap() {
   const scoped = isScoped(useScope());
   const byProject = useFleet((s) => s.byProject) && !scoped;
   const edges = useFleet((s) => s.edges || NONE);
+  const selected = useFleet((s) => (scoped ? "" : s.selected)); // Fleet's plain edges light with the selection; Session's TreeEdge reads its own
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const { chips, focus } = useBoxChips(); // 3.0.6.0 R6: capability chips; the harness Who picked
   const slots = useMissionSlots(byProject || scoped); // 3.0.6.0 R8: the open mission's parts (none under a scope)
@@ -112,7 +113,7 @@ export function FleetMap() {
   const pos = useMemo(() => new Map(geo.nodes.map((n) => [n.ref.key, n])), [geo]);
   return (
     <>
-    <svg ref={svg} className="fm-svg" data-tree={scoped || undefined} viewBox={`0 0 ${geo.width} ${geo.height}`} width={geo.width * scale} height={geo.height * scale} role="img" aria-label="Fleet map" data-testid="fleet-map-svg">
+    <svg ref={svg} className="fm-svg" data-tree={scoped || undefined} viewBox={`0 0 ${geo.width} ${geo.height}`} width={geo.width * scale} height={geo.height * scale} role="img" aria-label="Fleet map" data-testid="fleet-map-svg" data-nodes={geo.nodes.length}>
       {geo.boxes.map((b) => {
         const bc = b.key.startsWith("h:") ? chips.get(b.key.slice(2)) || [] : [];
         const cw = chipsWidth(bc);
@@ -130,7 +131,8 @@ export function FleetMap() {
         );
       })}
       {geo.edges.map((e) => (
-        <TreeEdge key={e.to} d={e.d} to={e.to} from={e.from} r={pos.get(e.to)?.ref} />
+        scoped ? <TreeEdge key={e.to} d={e.d} to={e.to} from={e.from} r={pos.get(e.to)?.ref} />
+          : <path key={e.to} className="fm-edge" data-on={e.to === selected || e.from === selected || undefined} d={e.d} />
       ))}
       {geo.cards.map((c) => <SessionCard key={c.harness.id + c.session.session_id} c={c} onMenu={setMenu} byProject={byProject} />)}
       {geo.nodes.map((n) => <AgentNode key={n.ref.key} n={n} onMenu={setMenu} />)}

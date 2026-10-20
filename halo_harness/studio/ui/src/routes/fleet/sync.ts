@@ -7,13 +7,15 @@
 // local `sessions` frame refresh the tree. Remote session lists arrive as
 // `fleet` frames with action `sessions`, never as `sessions` frames (R2).
 // Polling (POLL_MS) only while the feed is not open. Started once, by the
-// rail (every section shows it) or the first Fleet panel.
+// rail (every section shows it) or the first Fleet panel. 3.1.5.0 R3: a GET
+// answer never undoes a newer agent_state frame (fresh.ts).
 import { api, ApiError } from "../../lib/api";
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { studio, toast } from "../../lib/store";
 import { startCaps } from "./caps";
 import { startMissions } from "./mload";
 import { startPanels } from "./pload";
+import { keepFresh, noteFrame } from "./fresh";
 import { append, rawEntry } from "./streams";
 import { fleet, keyOf, localId, type FleetState } from "./store";
 import type { AgentRow, FleetView, Harness, SessionRow } from "./types";
@@ -45,10 +47,14 @@ function finished(prev: Harness[], next: Harness[]): Record<string, number> {
 }
 
 export async function load(): Promise<void> {
+  const asked = Date.now();
   try {
     const v = await api.get<FleetView>("fleet");
-    const harnesses = Array.isArray(v.harnesses) ? v.harnesses.map((h) => ({ ...h, sessions: h.sessions || [] })) : [];
-    fleet.update((s) => ({ harnesses, hub: v.hub || null, loaded: true, error: "", doneAt: { ...s.doneAt, ...finished(s.harnesses, harnesses) } }));
+    const got = Array.isArray(v.harnesses) ? v.harnesses.map((h) => ({ ...h, sessions: h.sessions || [] })) : [];
+    fleet.update((s) => {
+      const harnesses = keepFresh(s.harnesses, got, asked);
+      return { harnesses, hub: v.hub || null, loaded: true, error: "", doneAt: { ...s.doneAt, ...finished(s.harnesses, harnesses) } };
+    });
   } catch (e) {
     fleet.update(() => ({ loaded: true, error: e instanceof ApiError ? e.message : String(e) }));
   }
@@ -75,6 +81,7 @@ function onAgentState(f: FeedFrame): void {
   const sid = String(f.session_id || "");
   if (!row || !row.agent_id || !sid) return;
   const key = keyOf(h, sid, row.agent_id);
+  noteFrame(key);
   let isNew = false;
   let before = "";
   const harnesses = mapSession(s, h, sid, (ss) => {
