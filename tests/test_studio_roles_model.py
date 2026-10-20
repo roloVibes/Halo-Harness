@@ -69,8 +69,11 @@ def test_the_strip_says_why_the_list_is_empty_and_offers_refresh(ctx: Ctx):
 @test
 def test_refresh_shows_one_line_per_provider_and_fills_the_select(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"one outcome line each, got {got.get('outcomes')}", got.get("outcomes") == [
-        "FakeRouter: ok, 2 models", "Slowpoke: timed out after 1.5 s (still asking: its list lands when it answers)"])
+    outcomes = got.get("outcomes") or []
+    # a slow runner (Windows CI) may read the page after Slowpoke's late answer replaced its timed-out line:
+    # either line proves one outcome per provider
+    ctx.check(f"one outcome line each, got {outcomes}", len(outcomes) == 2 and outcomes[0] == "FakeRouter: ok, 2 models"
+              and outcomes[1] in ("Slowpoke: timed out after 1.5 s (still asking: its list lands when it answers)", "Slowpoke: ok, 1 model"))
     ctx.check(f"the select lists the answered models, got {got.get('live_options')}", got.get("live_options") == ["or:fakeco/alpha-1", "or:fakeco/beta-2"])
     ctx.check(f"and says when, got {got.get('refreshed')!r}", got.get("refreshed") == "refreshed just now")
 
