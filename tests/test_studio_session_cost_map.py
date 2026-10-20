@@ -14,7 +14,9 @@ session figures (tests/helpers/studio_live_rig.py):
 4. the tree fans out: main's five children sit in rows under it, side by
    side, each naming main as its parent, and no two labels touch;
 5. the state colours on node and edge: waiting amber, failed red (and it
-   stays), done green that fades back after ten seconds;
+   stays), done green that fades back after ten seconds (the motion media
+   pinned to no-preference through CDP, the same on every runner; under
+   reduce a done node is green with no fade, the product rule);
 6. (follow-up) a GET fleet answer never undoes a newer agent_state frame: a
    frame says stopped, GET still says running, the node stays stopped.
 Run: python -m tests.test_studio_session_cost_map
@@ -126,6 +128,15 @@ def test_state_colours_and_the_done_fade(ctx: Ctx):
     ctx.check(f"done: green that fades (the fade animation runs), got {d}", d[0] == "done" and d[1] == "fm-done-fade")
     ctx.check(f"ten seconds on, done has settled and failed has stayed, got {got.get('done_later')} {got.get('red_later')}",
               got.get("done_later") == "idle" and got.get("red_later") == "error")
+
+
+@test
+def test_under_reduced_motion_done_is_green_with_no_fade(ctx: Ctx):
+    r, got = _driver("costmap")
+    _ran(ctx, r, got)
+    rd = got.get("reduced_done") or ["", "", "", False]
+    ctx.check(f"prefers-reduced-motion: reduce: the done node is green, no fade animation, got {rd}",
+              rd[0] == "done" and rd[1] == "none" and rd[2] == "rgb(78, 240, 168)" and rd[3] is True)
 
 
 @test
