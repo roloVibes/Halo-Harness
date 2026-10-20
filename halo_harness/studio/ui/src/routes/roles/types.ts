@@ -130,6 +130,8 @@ export type LiveAgent = {
   tool: string;
   calls: number;
   control: string;
+  /** 3.1.5.0 R3: when it ended (ms), for the done glow's ten-second fade (glow.ts). */
+  endedAt?: number;
 };
 
 export type ReplayMeta = { harness: string; session_id: string; title: string; started: number; ended: number; cost_usd: number; agents: Raw[]; costs: { t: number; usd: number }[] };

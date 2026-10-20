@@ -6,12 +6,17 @@
 // snaps back with the rule). A tier's label strip collapses it. Drag a bio from the Bios panel
 // onto the canvas to add it. Click the canvas, then A lays out, F fits, + and
 // - zoom, the arrows nudge the selected card, Delete removes it (asks first).
+// 3.1.5.0 R3: the glow's life and its legend (glow.ts, GlowLegend.tsx), a
+// tier box in its cards' state colour, and an empty canvas that invites
+// ("Drag a bio here, or New lineup", CanvasEmpty.tsx).
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type PointerEvent } from "react";
-import { Empty } from "../../lib/ui";
 import { addCard, moveToTier } from "./actions";
 import { Card, Edges, TierBox } from "./CanvasParts";
 import { focusModel } from "./modelActions";
 import { CanvasBar } from "./CanvasBar";
+import { CanvasInvite, NoLineup } from "./CanvasEmpty";
+import { GlowLegend } from "./GlowLegend";
+import { glowOf, hideLegend, startGlow, type GlowState } from "./glow";
 import { autoLayout, columns, extent, hiddenCards, placeAll, tierAt, tierBox } from "./layout";
 import { cardActivity, selectCard, useByNode } from "./live";
 import { ReplayBar } from "./Replay";
@@ -33,6 +38,7 @@ export function CanvasDetail() {
   const loaded = useRoles((s) => s.loaded);
   const replaying = useRoles((s) => !!s.replay);
   const byNode = useByNode();
+  useEffect(() => startGlow(), []);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [zoom, setZoom] = useState(1);
   const scroll = useRef<HTMLDivElement>(null);
@@ -48,6 +54,8 @@ export function CanvasDetail() {
     return out;
   }, [findings]);
   const lit = useMemo(() => new Set(Object.keys(byNode).filter((id) => byNode[id].some((a) => a.state === "running"))), [byNode]);
+  const glows = useMemo(() => Object.fromEntries(Object.keys(byNode).map((id) => [id, glowOf(cardActivity(byNode[id]))])) as Record<string, GlowState | "">, [byNode]);
+  const tierGlow = (ids: string[]): GlowState | "" => (["failed", "waiting", "working", "done"] as GlowState[]).find((g) => ids.some((id) => glows[id] === g)) || "";
 
   const world = (ev: { clientX: number; clientY: number }): Pos => {
     const r = scroll.current!.getBoundingClientRect();
@@ -141,19 +149,19 @@ export function CanvasDetail() {
   };
 
   if (!loaded) return <div className="og-wait mono muted">reading the lineups...</div>;
-  if (!graph || !name) return <Empty title="No lineup open" body="Pick one in Lineups (or the palette: Roles: open lineup), or make one with New." testid="roles-canvas-empty" />;
+  if (!graph || !name) return <NoLineup />;
   return (
     <div className="rc" data-testid="roles-canvas" data-lineup={name} data-replaying={replaying || undefined}>
       <CanvasBar zoom={zoom} setZoom={setZoom} fit={fit} layout={layout} />
-      <div className="rc-scroll" ref={scroll} tabIndex={0} onKeyDown={onKey} onDragOver={onDragOver} onDrop={onDrop}
+      <div className="rc-scroll" ref={scroll} tabIndex={0} onKeyDown={onKey} onDragOver={onDragOver} onDrop={onDrop} onScroll={hideLegend}
            onPointerDown={(e) => e.target === e.currentTarget && roles.update(() => ({ sel: "" }))} aria-label="Roles canvas: the lineup's cards in their tier boxes">
         <div className="rc-world" style={{ width: ext.w * zoom, height: ext.h * zoom }}>
           <div className="rc-inner" style={{ width: ext.w, height: ext.h, transform: `scale(${zoom})` }}>
             {graph.tiers.map((t, i) => (
-              <TierBox key={t.name} t={t} b={tierBox(t, xs[i], pos, !!collapsed[t.name])} count={t.node_ids.length}
+              <TierBox key={t.name} t={t} b={tierBox(t, xs[i], pos, !!collapsed[t.name])} count={t.node_ids.length} state={tierGlow(t.node_ids)}
                        collapsed={!!collapsed[t.name]} hot={drag?.hot === t.name} onToggle={(n) => setCollapsed(n, !roles.get().collapsed[n])} />
             ))}
-            <Edges edges={graph.edges} pos={pos} hidden={hidden} w={ext.w} h={ext.h} sel={sel} lit={lit} />
+            <Edges edges={graph.edges} pos={pos} hidden={hidden} w={ext.w} h={ext.h} sel={sel} lit={lit} glows={glows} />
             {graph.nodes.filter((n) => !hidden.has(n.id)).map((n) => {
               const list = byNode[n.id] || [];
               return (
@@ -162,9 +170,11 @@ export function CanvasDetail() {
               );
             })}
           </div>
+          {!graph.nodes.length && <CanvasInvite />}
         </div>
       </div>
       <ReplayBar />
+      <GlowLegend />
     </div>
   );
 }

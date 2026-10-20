@@ -26,14 +26,15 @@
 
 /* the Inspector's strip, above its tabs (the Inspector's grid gains a row for it) */
 .ri:has(> .msel-strip) { grid-template-rows: auto auto minmax(0, 1fr); }
-.msel-strip { display: grid; gap: 4px; padding: 6px 8px; margin-bottom: 6px; border: 1px solid var(--line-strong);
+.msel-strip { position: relative; display: grid; gap: 6px; padding: 8px 10px; margin-bottom: 6px; border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm); background: var(--accent-soft); }
-.msel-strip-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
-.msel-runs { font-size: 12px; min-width: 0; overflow-wrap: anywhere; }
+.msel-strip-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; min-width: 0; line-height: 1.3; }
+.msel-strip-head .glance-kicker { line-height: 1.3; }
+.msel-runs { font-size: 12px; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .msel-runs b { color: var(--accent); font-weight: 600; }
-.msel-price { font-size: 11px; }
+.msel-price { font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .msel-strip .msel { margin: 0; }
-.msel-bio { margin-left: auto; font-size: 11.5px; white-space: nowrap; }
+.msel-bio { margin-left: auto; font-size: 11.5px; line-height: 1.3; white-space: nowrap; }
 
 /* the card's model pill is a button now (it focuses the strip's select) */
 button.rc-model { font-family: var(--mono); line-height: inherit; cursor: pointer; text-align: left; }

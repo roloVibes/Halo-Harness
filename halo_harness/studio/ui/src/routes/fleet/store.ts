@@ -39,6 +39,8 @@ export type FleetState = {
   pairOpen: boolean;
   confirm: Confirm;
   scope: Scope;
+  /** 3.1.5.0 R3: the agent whose line the pointer is on in Session's Live column (its map node lights). */
+  hover: AgentKey;
 };
 
 const OPTS = "halo.studio.fleet.opts";
@@ -74,6 +76,7 @@ export const fleet = createStore<FleetState>({
   pairOpen: false,
   confirm: null,
   scope: {},
+  hover: "",
   ...readOpts(),
 });
 
@@ -209,6 +212,9 @@ export function enterWorkspace(): void {
 }
 
 // -- state -> motion (lib/motion's vocabulary) --------------------------------------
+/** 3.1.5.0 R3: how long a finished agent stays green (it fades out over this) before it settles. */
+export const DONE_MS = 10_000;
+
 export function agentMotion(a: AgentRow | undefined, doneAt = 0): MotionState {
   switch (a?.state) {
     case "running":
@@ -219,7 +225,7 @@ export function agentMotion(a: AgentRow | undefined, doneAt = 0): MotionState {
     case "failed":
       return "error";
     case "done":
-      return settle(doneAt, 1800);
+      return settle(doneAt, DONE_MS);
     case "queued":
     case "stopped":
       return "idle";

@@ -8,6 +8,9 @@
 // plan open (By harness), each harness box keeps a lane under its head for
 // the parts placed on it (the same lane height in every box, so the parts
 // line up across boxes) and a "no harness" box holds the parts without one.
+// 3.1.5.0 R3: under Session's scope (`tree`) the one box is laid out as a
+// real tree, each agent's children fanned out under it (layoutTree.ts).
+import { treeLayout } from "./layoutTree";
 import { keyOf, treeOf } from "./store";
 import type { AgentKey, AgentRef, Harness, SessionRow } from "./types";
 
@@ -31,7 +34,7 @@ const EDGE_ROOM = 48; // right of the boxes: where an edge between two parts of 
 export type Rect = { x: number; y: number; w: number; h: number };
 export type Box = Rect & { key: string; label: string; sub: string; online: boolean; local: boolean; hc: string; empty: boolean; lane: number };
 export type Card = Rect & { harness: Harness; session: SessionRow; hc: string };
-export type NodeBox = Rect & { ref: AgentRef; hc: string };
+export type NodeBox = Rect & { ref: AgentRef; hc: string; tree?: boolean };
 export type Edge = { from: AgentKey | null; to: AgentKey; d: string };
 export type PartBox = Rect & { id: string; harness: string };
 export type Geometry = { width: number; height: number; boxes: Box[]; cards: Card[]; nodes: NodeBox[]; edges: Edge[]; parts: PartBox[] };
@@ -119,9 +122,10 @@ function withParts(gs: Group[], parts: PartSlot[] | undefined, byProject: boolea
   return Math.max(...gs.map((g) => g.parts.length), 1);
 }
 
-export function layout(harnesses: Harness[], byProject: boolean, parts?: PartSlot[]): Geometry {
+export function layout(harnesses: Harness[], byProject: boolean, parts?: PartSlot[], tree = false, perRow = 3): Geometry {
   const geo: Geometry = { width: 0, height: 0, boxes: [], cards: [], nodes: [], edges: [], parts: [] };
   const gs = groups(harnesses, byProject);
+  if (tree && harnesses.length === 1 && !byProject) return treeLayout(harnesses[0], gs[0].label, gs[0].sub, gs[0].hc, gs[0].local, perRow);
   const laneRows = withParts(gs, parts, byProject);
   const lane = laneRows ? LANE_HEAD + laneRows * (PART_H + GAP) - GAP + LANE_GAP : 0;
   const cols = Math.max(1, Math.min(MAX_COLS, gs.length));

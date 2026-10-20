@@ -17,10 +17,17 @@ one agent, not only the main one.
 in a terminal, `halo studio --session`) shows the Map, Activity, Attention
 and Agent panels of this section, the same components, reading the Fleet
 stores through one scope (`{harness, session}`: this harness and the session
-you chose), plus a small Cost panel for that session; a click on one of this
-harness's nodes in the rail, or **Open in Session** in a node's `...` menu,
-goes there. Fleet keeps everything: every harness, its own panels, the whole
-queue and the whole log ([Session](STUDIO-sections.md#session)).
+you chose), plus two panels of its own: Cost for that session and, since
+3.1.5.0, **Live**, the whole right side: one auto-scrolling column of every
+agent of this harness at once (what it types, each tool call and its result,
+what it hands back, what it asks you), each line tagged with its agent and
+lit with its state. Under the scope the map is drawn as a tree (each agent
+under the one that spawned it, its children fanned out, the tool running
+and its time on the node); Agent, Activity and Attention start as strips. A
+click on one of this harness's nodes in the rail, or **Open in Session** in
+a node's `...` menu, goes there. Fleet keeps everything: every harness, its
+own panels, the whole queue and the whole log
+([Session](STUDIO-sections.md#session)).
 
 ![Fleet: two harnesses and five agents; the researcher's streams open, the implementer pinned as a mini stream](media/studio-fleet.png)
 
@@ -261,7 +268,9 @@ shows it on demand.
 | `Esc` | everywhere | unpin the mini stream (once the palette, a menu or the Inspector is closed) |
 | `P` | Fleet; Roles with the Live tab open | pause or resume the agent |
 | `K` | inside the Agent panel | stop the agent (asks first; on the map and the canvases `K` is previous) |
-| `A` / `R` / `S` / `O` | inside the Attention panel | answer the selected row: accept, deny or redo (with a text), stop, open |
+| `A` / `R` / `S` / `O` | inside the Attention panel; an ask card in Session's Live column | answer the selected row (or that card): accept, deny or redo (with a text), stop, open |
+| click a tag / `Esc` | Session's Live column | show only that agent's lines, with the Steer box for it / everyone again (3.1.5.0) |
+| scroll up / **↓ N new** | Session's Live column | pause Follow / back to the newest line |
 | `J` / `K`, arrows | inside the Attention panel | the next / previous row |
 | `M` | Fleet | the Mission panel: one goal for the whole fleet (3.0.6.0) |
 | `Esc` | Roles during a replay | close the replay, back to what runs now |
@@ -291,13 +300,19 @@ On the **Roles** canvas the cards whose agents work right now glow (3.0.7.0
 R2: the React canvas). Every live agent (any harness, any session) is matched to
 the card it runs under: the lineup must be the open one, then its alias,
 else its bio, else a role only one card has (a session's main agent on the
-main card). The glow is in the card's band colour and follows what the agent
-does: **typing** a steady flow along the top, a **tool call** one pulse per
-call and the tool on the card's badge (✎ Edit, ›_ Bash, ▤ Read, ◉ Agent ...),
-**waiting on you** the amber pulse and the gate's diamond, **done** one sweep
-then still, **failed** one flash. A badge counts the agents when several
-share a card (`×2`) and ticks their cost. The edge into a card whose agent
-runs flows while it runs.
+main card). The glow is in the state's colour (3.1.5.0: one vocabulary with
+Session's map) and follows what the agent does: **working** cyan, from its
+first running state: a steady flow along the top while it types, a **tool
+call** one pulse per call and the tool on the card's badge (✎ Edit, ›_ Bash,
+▤ Read, ◉ Agent ...); **waiting on you** amber, three pulses then steady,
+the gate's diamond; **done** green, fading out over the ten seconds after it
+finished; **failed** red, staying until you click the card. A queued agent
+shows its badge with no glow. Hover the card's state glyph or its badge and
+the card explains its glow: the four states, their colours and when each
+comes and goes ([Roles](STUDIO-sections.md#roles)). A badge counts the agents
+when several share a card (`×2`) and ticks their cost. The edge into a card
+takes its colour, and flows while its agent runs; the tier box takes the
+strongest state of its cards.
 
 ![Roles: the implementer and the researcher at work, the main card waiting with two leads, the implementer's Live tab](media/studio-roles-live.png)
 

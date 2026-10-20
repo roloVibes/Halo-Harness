@@ -21,6 +21,9 @@ export type AgentRow = {
   cost_usd?: number | null;
   current?: string | null;
   last_text?: string | null;
+  /** 3.1.5.0 R3 (fleet/agent_tokens.py): its own tokens, from its transcript's usage lines. */
+  tokens_in?: number | null;
+  tokens_out?: number | null;
 };
 
 export type Pending = Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;

@@ -1,0 +1,79 @@
+/* Session's Live column (3.1.5.0 R3, routes/session/Live.tsx and
+   LiveRows.tsx): one glass column over the canvas grid, a line per thing an
+   agent did, tagged in the agent's own colour (the harness ramp read through
+   data-hc, fleet.css) with its state glyph lit (cyan works, amber waits, green
+   done, red failed). Tool calls are compact mono rows, outputs blocks, asks
+   amber cards. Motion: a new line rises once (180 ms); nothing loops. Tokens
+   only (styles/tokens.css). */
+
+.panel-body.face-detail:has(> .slv) { padding: 0; overflow: hidden; }
+.slv { position: relative; height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.slv-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface-glass); }
+.slv-counts { font-size: 11.5px; }
+.slv-pinned { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; cursor: pointer;
+  color: var(--accent); background: var(--accent-soft); border: 1px solid var(--line-strong); }
+.slv-scroll { overflow: auto; min-height: 0; padding: 6px 8px 10px; display: grid; align-content: start; gap: 2px; outline: none;
+  background-color: var(--bg-2);
+  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 24px 24px; }
+.slv-older { justify-self: center; font-size: 11px; margin: 2px 0 6px; }
+.slv-foot { border-top: 1px solid var(--line); padding: 8px 10px; background: var(--surface-glass); }
+.slv-foot .fa-steer { margin: 0; }
+.slv-hint { font-size: 11.5px; }
+
+/* -- one line ------------------------------------------------------------------------ */
+.slv-line { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 10px; align-items: start; padding: 4px 6px; border-radius: var(--radius-sm);
+  border-left: 2px solid color-mix(in srgb, var(--hc, var(--accent)) 50%, transparent); background: color-mix(in srgb, var(--surface) 55%, transparent);
+  animation: slv-rise 180ms var(--ease) 1; }
+.slv-line:hover { background: color-mix(in srgb, var(--hc, var(--accent)) 10%, var(--surface)); }
+@keyframes slv-rise { from { opacity: 0; transform: translateY(4px); } }
+
+.slv-tag { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 1px 6px; border: 1px solid transparent; border-radius: 4px; background: none;
+  color: var(--hc, var(--accent)); font-size: 11px; font-weight: 600; cursor: pointer; text-align: left; }
+.slv-tag:hover, .slv-tag:focus-visible { border-color: color-mix(in srgb, var(--hc, var(--accent)) 55%, transparent); outline: none; }
+.slv[data-pinned] .slv-tag { border-color: color-mix(in srgb, var(--hc, var(--accent)) 40%, transparent); }
+.slv-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slv-glyph { flex: none; width: 12px; text-align: center; color: var(--faint); font-size: 10px; }
+.slv-tag[data-state="running"] .slv-glyph { color: var(--accent); text-shadow: 0 0 6px var(--accent); }
+.slv-tag[data-state="waiting"] .slv-glyph, .slv-tag[data-state="paused"] .slv-glyph { color: var(--warn); text-shadow: 0 0 6px var(--warn); }
+.slv-tag[data-state="done"] .slv-glyph { color: var(--ok); }
+.slv-tag[data-state="failed"] .slv-glyph { color: var(--bad); }
+
+/* -- what a line says, by kind ------------------------------------------------------------ */
+.slv-text { font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+.slv-text[data-kind="thinking"] { color: var(--muted); font-style: italic; }
+.slv-text[data-typing]::after { content: "▍"; color: var(--accent); margin-left: 1px; }
+.slv-tool { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; font-size: 11.5px; }
+.slv-tool-name { color: var(--accent); font-weight: 700; }
+.slv-target { flex: 1 1 120px; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slv-elapsed { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.slv-tool[data-running] .slv-elapsed { color: var(--accent); }
+.slv-result { flex-basis: 100%; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slv-tool[data-error] .slv-result, .slv-tool[data-error] .slv-tool-name { color: var(--bad); }
+.slv-out { display: grid; gap: 4px; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); border-left: 3px solid var(--accent);
+  background: var(--surface-2); min-width: 0; }
+.slv-out[data-state="done"] { border-left-color: var(--ok); }
+.slv-out-head { font-size: 9.5px; letter-spacing: .1em; color: var(--muted); }
+.slv-out-text { font-size: 12.5px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 9.5em; overflow: hidden; }
+.slv-note { font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; }
+.slv-note[data-kind="spawn"] { color: var(--accent-2); }
+.slv-you { font-size: 12.5px; color: var(--accent); overflow-wrap: anywhere; }
+.slv-state { font-size: 11.5px; color: var(--muted); }
+.slv-state[data-state="waiting"], .slv-state[data-state="paused"] { color: var(--warn); }
+.slv-state[data-state="failed"] { color: var(--bad); }
+.slv-state[data-state="done"] { color: var(--ok); }
+
+/* -- an ask: an amber card the moment it arrives ------------------------------------------ */
+.slv-line[data-kind="ask"] { border-left-color: var(--warn); background: var(--warn-soft); }
+.slv-ask { display: grid; gap: 6px; padding: 6px 8px; border: 1px solid var(--warn); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warn) 8%, var(--surface)); box-shadow: 0 0 16px var(--warn-soft); }
+.slv-ask-what { font-size: 12.5px; color: var(--text); overflow-wrap: anywhere; }
+.slv-ask-keys { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.slv-ask[data-answered] { border-color: var(--line); box-shadow: none; opacity: .7; }
+
+/* -- "↓ N new" ------------------------------------------------------------------------------ */
+.slv-new { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 2; padding: 4px 12px; border-radius: 99px; cursor: pointer;
+  font-size: 11.5px; font-weight: 700; color: var(--accent-ink); background: var(--accent); border: 0; box-shadow: var(--glow-strong); }
+
+@media (prefers-reduced-motion: reduce) {
+  .slv-line { animation: none; }
+}

@@ -103,14 +103,15 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
   },
   session: {
     terms: ["harness", "fleet", "hand-off", "gate"],
-    what: "Your own session, live: Fleet's map, timeline, log, attention queue and agent inspector narrowed to this harness and the session you chose, and what that session costs. Five panels, nothing fleet-wide; Fleet keeps everything.",
+    what: "Your own session, live: the map of this harness's agents over what the chosen session costs on the left, and the whole right side one live column of every agent at work, as it happens. Fleet's panels narrowed to this harness and the session you chose, plus Live and Cost; Fleet keeps everything.",
     steps: [
       ["Open it", "/studio in a terminal session opens Studio here on that session (halo studio --session from a shell); Alt+6, the palette, Watch in Session on the Roles Live tab or a live Orchestra run, Open in Session on a map node and this harness's nodes in the rail land here too."],
-      ["Read the map", "One card per session on this machine, its agents as a tree under it: the one at work has a flowing outline and its tool icon, amber waits on you, green just finished. Click an agent: its session becomes the chosen one."],
-      ["Watch and steer the agent", "Agent shows what it thinks as it types, each tool call with its result, and what it hands back. Steer it with a nudge or a new task; Pause, Stop (asks first), Follow, Pin its mini stream."],
-      ["Follow the session", "Activity draws a lane per live agent over the session's live log (its session pick shows every session here); Attention lists what waits on you, one key each; Cost ticks the spend, the tokens, the turns, the time and the model."],
+      ["Watch everything at once", "Live, the right side: every agent's text, tool calls with their times and results, hand-backs and asks, in the order they happen, each line tagged with its agent and its state. Scroll up to pause, ↓ N new to come back; click a tag to follow one agent and steer it; hover a line to light its node."],
+      ["Read the map", "Each agent sits under the one that spawned it, its children fanned out, with its model, its cost and the tool it runs now (Bash 12s). Cyan works, amber waits on you, green just finished and fades, red failed and stays. Click an agent: its session becomes the chosen one."],
+      ["Read the cost", "The spend ticks up beside its sparkline; the context bar turns amber past 80 % and red past 95 %; per turn, the tokens, and each agent's share in one stacked bar."],
+      ["Open what you need", "Agent (its streams, Steer, Pause, Stop, Follow, Pin), Activity (the lanes and the full log) and Attention (one key each) wait as strips under Cost; Reset layout puts the arrangement back."],
     ],
     keys: [["Alt+6", "Session"], ...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
-      ["A / R / S / O", "in Attention: accept, deny or redo (with a text), stop, open"], ...PANEL_KEYS],
+      ["Esc", "in Live: show every agent again after a tag click"], ["A / R / S / O", "in Attention, or on the newest ask card in Live: accept, deny or redo (with a text), stop, open"], ...PANEL_KEYS],
   },
 };

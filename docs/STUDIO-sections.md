@@ -93,6 +93,24 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
    glow; click one and the Live tab shows exactly what it types, with
    Steer, Pause and Stop ([Live Roles](STUDIO-fleet.md#live-roles-the-lineup-lights-up)). A
    finished session's replay plays back on the canvas.
+8. **Read the glow**: hover a glowing card's state glyph or its live badge
+   and the card explains its glow (below). The tier box takes the strongest
+   state of its cards, and the edges into a card take that card's colour.
+
+**The glow, and when it comes and goes (3.1.5.0).**
+
+| State | Colour | What it looks like | When it goes |
+|---|---|---|---|
+| working | cyan | the card's band and border turn cyan, a light flows along its top while the agent types, one pulse per tool call; the badge names the tool | comes on with the agent's first running state (a queued agent shows its badge only) |
+| waiting | amber | an amber pulse three times, then a steady amber edge; the badge is a diamond | when you answer (a question, a permission, a plan, a pause) |
+| done | green | the card turns green and fades back to plain | over the ten seconds after it finished |
+| failed | red | the card turns red, the badge says failed | stays until you click the card |
+
+A lineup with one tier lays its members out as a fan under main; a lineup
+with no cards (or none open) shows "Drag a bio here, or New lineup" on the
+canvas.
+
+![Roles: the cards light up as their agents work, one waits, one finishes and fades, one fails](media/studio-roles-live.gif)
 
 **Panels.** Lineups: your lineups and the shipped ones; the active one is
 marked. Canvas: the open lineup as cards, one box per tier: who plays each
@@ -235,11 +253,16 @@ the run, newest last.
 ### Session
 
 **What it is.** Your own session, live (3.1.4.0, `Alt+6`, "This session,
-live"): Fleet's map, timeline, log, attention queue and agent inspector
-narrowed to this harness and the session you chose, and what that session
-costs. Five panels, nothing fleet-wide; Fleet keeps everything. It is the
-same Fleet panels (one implementation each) reading the Fleet stores through
-one scope, `{harness, session}`, which the section sets while it shows.
+live"; 3.1.5.0 made it the dashboard): on the left the map of this
+harness's agents over what the chosen session costs, and the whole right
+side one live column of everything every agent here does, as it happens.
+Fleet's map, timeline, log, attention queue and agent inspector, narrowed
+to this harness and the session you chose, plus two panels of its own,
+Live and Cost; Fleet keeps everything. The Fleet panels are the same
+components (one implementation each) reading the Fleet stores through one
+scope, `{harness, session}`, which the section sets while it shows.
+
+![Session: the map and the cost on the left, every agent's work scrolling on the right](media/studio-session.gif)
 
 **How to use it.**
 
@@ -249,33 +272,62 @@ one scope, `{harness, session}`, which the section sets while it shows.
    line, **Open in Session** in a map node's `...` menu and this harness's
    nodes in the rail land here too. With nothing saved for the browser,
    Studio opens here while a session of this harness is live.
-2. **Read the map**: one card per session on this machine, its agents as a
-   tree under it: the one at work has a flowing outline and its tool icon,
-   amber waits on you, green just finished. Entering selects the newest
-   working agent; click another and its session becomes the chosen one (its
-   card is marked).
-3. **Watch and steer the agent**: Agent shows what it thinks as it types,
-   each tool call with its result, and what it hands back. Steer it with a
-   nudge or a new task; Pause, Stop (asks first), Follow, Pin its mini
-   stream; `J` / `K` hop between this harness's live agents.
-4. **Follow the session**: Activity draws a lane per live agent over the
-   session's live log (its session pick shows every session here);
-   Attention lists what waits on you in this harness's sessions, one key
-   each; Cost ticks the spend, the tokens in and out, the turns, the time
-   and the model.
+2. **Watch everything at once (Live)**: every agent's text, each tool call
+   and its result, what it hands back and what it asks you land in one
+   column in the order they happen. Each line is tagged with its agent: its
+   own colour, its name and its state glyph (cyan works, amber waits, green
+   done, red failed). A tool call is one compact row: the tool, what it runs
+   on, its time ticking while it runs, then the first line of its result;
+   an output or a hand-back is a block; an ask is an amber card with its
+   `A` / `R` / `S` / `O` answers. Follow is on: scroll up and it pauses,
+   **↓ N new** brings you back. Click a tag and the column shows only that
+   agent, with the Steer box at the bottom; the tag again (or `Esc`) shows
+   everyone. Hover a line and that agent's node lights on the map. The
+   newest 500 lines stay in the column; the full log is in Activity.
+3. **Read the map as one picture**: one card per session on this machine,
+   its agents drawn as a tree under it, each agent under the one that
+   spawned it and its children fanned out side by side, sized to fit the
+   panel. A node shows its model, what it has cost and, while a tool runs,
+   its name and time (`Bash 12s`). Working is a cyan pulse on the node and
+   the edge into it, waiting amber, done green that fades over ten seconds,
+   failed red that stays. Entering selects the newest working agent; click
+   another and its session becomes the chosen one (its card is marked).
+4. **Read the cost**: the spend ticks up beside its sparkline (the spend
+   since the page opened); the context bar fills with what the model holds
+   (amber past 80 %, red past 95 %); the figures add the tokens in and out,
+   the turns and the cost per turn, the time and the model; the stacked bar
+   is each agent's share of the spend, its rows its own tokens in / out and
+   its cost.
+5. **Open what you need**: Agent (the inspector: its three streams, Steer,
+   Pause, Stop, Follow, Pin), Activity (a lane per live agent over the full
+   log) and Attention (what waits on you, one key each) wait as strips under
+   Cost; one click opens each, Reset layout puts the arrangement back, a
+   layout you made is kept. `J` / `K` hop between this harness's live agents.
 
 Until this harness has a live session the section is its Start view: three
 lines, "start a session in a terminal (`halo`), it appears here the moment
 it registers", and open the workspace anyway. `?mode=session&session=<id>`
 opens it with that session chosen.
 
-**Panels.** Map (`session-map`): your sessions on this machine as cards,
-each one's agents as a tree, the one at work lit. Agent (`session-agent`):
+| Panel | Face | x y w h (24 columns, 8 px rows) |
+|---|---|---|
+| Map (`session-map`) | detail | 0 0 10 46 |
+| Live (`session-live`) | detail | 10 0 14, the full height |
+| Cost (`session-cost`) | detail | 0 46 10, to the bottom less the strips |
+| Agent (`session-agent`) | strip | 0, under Cost, 10 |
+| Activity (`session-activity`) | strip | 0, under Agent, 10 |
+| Attention (`session-attention`) | strip | 0, under Activity, 10 |
+
+![Session's Live column up close: tags, tool rows with their times, an ask card](media/studio-session-live.png)
+
+**Panels.** Live (`session-live`): every agent here at once, what it types,
+runs, hands back and asks. Map (`session-map`): your sessions on this machine
+as cards, each one's agents as a tree. Cost (`session-cost`): the chosen
+session's spend and sparkline, the context bar, the tokens, turns and cost
+per turn, elapsed, the model, each agent's share. Agent (`session-agent`):
 the selected agent, its streams and controls. Activity (`session-activity`):
-the chosen session's timeline lanes and live log. Attention
-(`session-attention`): what waits on you in this harness's sessions. Cost
-(`session-cost`): the chosen session's spend, tokens in and out, turns,
-elapsed and model, and what each of its agents cost.
+the chosen session's timeline lanes and full live log. Attention
+(`session-attention`): what waits on you in this harness's sessions.
 
 ## The live feed
 

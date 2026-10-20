@@ -80,6 +80,30 @@
 @keyframes fm-flash { 0% { stroke-width: 3; } 100% { stroke-width: 1.1; } }
 .fm-menu { position: fixed; }
 
+/* 3.1.5.0 R3: the map as one picture (Session's tree, layoutTree.ts / MapTreeNode.tsx; holo.css's vocabulary) */
+.fm-brackets { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: square; filter: drop-shadow(0 0 4px var(--accent)); }
+.fm-node[data-motion="waiting"] .fm-brackets { stroke: var(--warn); filter: drop-shadow(0 0 4px var(--warn)); }
+.fm-node[data-motion="error"] .fm-brackets { stroke: var(--bad); filter: drop-shadow(0 0 4px var(--bad)); }
+.fm-node[data-hover] .fm-shape { stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 7px var(--accent)); }
+.fm-node[data-hover][data-motion="waiting"] .fm-shape { stroke: var(--warn); filter: drop-shadow(0 0 7px var(--warn)); }
+.fm-tool-text { font: 600 10.5px var(--mono); fill: var(--accent); }
+.fm-node[data-tree] .fm-pill text { fill: var(--text); }
+.fm-node[data-tree] .fm-pill rect { fill: var(--accent-soft); stroke: color-mix(in srgb, var(--accent) 30%, transparent); }
+.fm-svg[data-tree] .fm-node[data-motion="idle"] .fm-shape { animation: none; }
+.fm-svg[data-tree] .fm-node[data-motion="waiting"] .fm-shape { animation-iteration-count: 3; }
+.fm-node[data-motion="done"] .fm-shape { animation: fm-done-fade 10s var(--ease) 1 forwards; }
+.fm-edge[data-motion="working"] { stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 6 4; animation: og-dash .9s linear infinite; filter: drop-shadow(0 0 3px var(--accent)); }
+.fm-edge[data-motion="waiting"] { stroke: var(--warn); stroke-width: 1.6; filter: drop-shadow(0 0 3px var(--warn)); }
+.fm-edge[data-motion="done"] { stroke: var(--ok); animation: fm-edge-fade 10s var(--ease) 1 forwards; }
+.fm-edge[data-motion="error"] { stroke: var(--bad); stroke-width: 1.6; }
+.fm-edge[data-on] { stroke-width: 2; }
+.fm-svg[data-tree] .fm-node[data-motion="working"] .fm-shape { stroke-dasharray: none; animation: fm-work-pulse 1.2s ease-in-out infinite; }
+.fm-svg[data-tree] .fm-edge[data-motion="working"] { stroke-dasharray: none; animation: fm-edge-pulse 1.2s ease-in-out infinite; }
+@keyframes fm-work-pulse { 0%, 100% { filter: drop-shadow(0 0 1px var(--accent)); } 50% { filter: drop-shadow(0 0 7px var(--accent)); } }
+@keyframes fm-edge-pulse { 0%, 100% { stroke-opacity: .55; } 50% { stroke-opacity: 1; } }
+@keyframes fm-done-fade { 0% { stroke: var(--ok); stroke-width: 2.4; fill: var(--ok-soft); filter: drop-shadow(0 0 8px var(--ok)); } 100% { stroke: var(--line-strong); stroke-width: 1.1; fill: var(--surface); filter: none; } }
+@keyframes fm-edge-fade { 0% { stroke: var(--ok); stroke-width: 2; } 100% { stroke: var(--line-strong); stroke-width: 1.2; } }
+
 /* -- the rail's Fleet tree -------------------------------------------------------- */
 .fr { gap: 1px; }
 .fr .rail-item { padding: 4px 8px; font-size: 12.5px; }
@@ -145,5 +169,6 @@
 .pip-text[data-you] { color: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
-  .fm-node .fm-shape, .fm-card .fm-card-shape, .fm-edge-lit { animation: none !important; }
+  .fm-node .fm-shape, .fm-card .fm-card-shape, .fm-edge-lit, .fm-edge { animation: none !important; }
+  .fm-node[data-motion="done"] .fm-shape { stroke: var(--ok); }
 }
