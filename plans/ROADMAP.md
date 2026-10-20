@@ -1768,3 +1768,17 @@ Runs right after 3.1.6.0 ships (its worker starts at once, in parallel).
 
 Not taken: a second log panel open by default (one column, as the owner
 likes it); changing the Fleet view.
+
+- R2 Captures carry no real names (found by the Session-first round,
+  2026-10-20): the committed studio-orchestra.png and
+  studio-orchestra-coach.png show the build host's real `<user>@<host>`
+  harness name in the rail's Fleet tree and the start of a real home path
+  in the Goal panel's TEST COMMAND field, because tools/capture_orchestra.py
+  (and the capture tools that share its rig) read this machine's harness
+  identity and the seeded repo's absolute test command, and the privacy
+  check scans SVGs only. Every capture tool seeds a placeholder identity
+  (`you@studio`) and a repo-relative test command; every PNG and GIF is
+  re-captured; the capture rig refuses to run when the identity it would
+  draw is the real one; test_privacy_scan gains a check that the capture
+  tools never read the real identity (the tools' source, not OCR).
+
