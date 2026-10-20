@@ -64,7 +64,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 
 ## I want to use Studio
 
-The browser view of your lineups, runs, designs, fleet and team.
+The browser console: every agent of your session live, your lineups, runs, fleet, team and designs.
 
 - [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser view of your lineups, runs, designs, fleet and team.
   - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team.

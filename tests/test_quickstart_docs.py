@@ -65,16 +65,33 @@ def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
     stories above it. This pins the current section set and its order so
     the restructure itself is protected."""
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
-    # 2.0.11 round A4: the product-page shape.
-    headings = ("## Install", "## What Halo is", "## What it feels like",
+    # 2.0.11 round A4: the product-page shape; 3.1.5.0 R4: Studio leads, right
+    # after Install and a short What Halo is, its Session and Roles parts first.
+    headings = ("## Install", "## What Halo is", "## Halo Studio", "## What it feels like",
                 "## How Halo compares", "## Features", "## Documentation", "## Tests",
                 "## Contributing and security", "## Licence")
-    positions = []
-    for heading in headings:
-        ctx.check(f"{heading!r} is present", heading in text)
-        positions.append(text.index(heading) if heading in text else -1)
-    ctx.check(f"the sections appear in the brief's order, got {positions}",
-              positions == sorted(positions) and -1 not in positions)
+    found = re.findall(r"^## .+$", text, flags=re.M)
+    ctx.check(f"the ## sections are the brief's, in its order, got {found}", tuple(found) == headings)
+    studio = text.split("\n## Halo Studio\n", 1)[-1].split("\n## ", 1)[0]
+    parts = tuple(re.findall(r"^### .+$", studio, flags=re.M))
+    ctx.check(f"Studio's parts: Session and Roles first, Design last, got {parts}",
+              parts == ("### Session: the dashboard", "### Roles: see your agents", "### Six sections, one window",
+                        "### Fleet: every harness, one goal", "### Orchestra: agents writing the same files",
+                        "### Team: people, blocks and stages", "### Design: on your own apps"))
+    feels = text.split("\n## What it feels like\n", 1)[-1].split("\n## ", 1)[0]
+    ctx.check("What it feels like keeps its six short parts, in order",
+              tuple(re.findall(r"^### .+$", feels, flags=re.M)) == (
+                  "### Auto mode that never interrupts", "### One session across providers",
+                  "### Steering a running turn", "### Watching a model think", "### Roles and lineups",
+                  "### Connectors: Claude Docs from a non-Claude model"))
+    ctx.check("Session's GIF is the first image after the hero",
+              re.findall(r'src="(docs/media/[^"]+)"', text)[1] == "docs/media/studio-session.gif")
+    # the sections the owner took off the page (the features stay in the product)
+    for gone in ("The dock that cannot hide", "Code review with a judge", "Remote control from Signal",
+                 "One paste instead of screenshots", "Your subscription, your call", "The levels"):
+        ctx.check(f"{gone!r} is off the front page", gone not in text)
+    for word in ("Signal", "bugreport", "/review", "cc:", "cx:", "subscription"):
+        ctx.check(f"the front page no longer mentions {word!r}", word not in text)
 
 
 @test
