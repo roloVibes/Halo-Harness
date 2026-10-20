@@ -66,7 +66,9 @@ SECTION_ENFORCEMENT = {
     "permissions": ("enforced", "mode/rules/offline apply to every member on top of the bio's own"),
     "pipeline": ("enforced", "stages run in order; a required gate must pass its acceptance before the next stage starts"),
     "acceptance": ("checked by doctor", "halo doctor --agents/--teams runs each acceptance prompt and checks the reply"),
-    "tiers": ("enforced", "a member spawns only into the next tier down; max_parallel caps each tier's live members"),
+    "tiers": ("enforced", "a member spawns only into the next tier down; max_parallel caps each tier's live members; "
+                          "a tier's model is its members' unless a card or a pinned bio names one; a tier's trigger "
+                          "starts its lead, which may spawn its own tier and the next"),
 }
 
 
@@ -449,10 +451,12 @@ def resolve_role_table(template: dict, *, cwd=None, state_dir=None) -> "tuple[di
     """`agents:` -> a `roles.py`-shaped role table: `{role_or_alias:
     model_ref_or_{"model","effort"}}` -- the ONE function that lets the
     Auto tab/`/roles` fill real, usable roles from a team template with
-    NO changes to `roles.py` itself. Precedence per assignment: this
-    entry's own `models` override -> the resolved agent bio's own
-    `models` -> (nothing; a CLI-flag override, when one exists, is the
-    CALLER's job same as it already is for every other role source).
+    NO changes to `roles.py` itself. Precedence per assignment is
+    `member_model`'s (3.1.6.0 R1): this entry's own `models` override ->
+    a bio that pins a real ref -> its tier's `model` -> a `default` bio
+    (the session model) -> the fallbacks (a CLI-flag override, when one
+    exists, is the CALLER's job same as it already is for every other
+    role source).
     `key` is the entry's own `as` alias when it has one, else its bare
     `role` -- two entries that SHARE a role (refinement 3: "several
     entries may share a role") need an alias to both survive into one
@@ -478,9 +482,11 @@ def resolve_role_table(template: dict, *, cwd=None, state_dir=None) -> "tuple[di
         if not isinstance(bio_models, dict):   # review item 54: a hand-edited bio never crashes this
             notes.append(f"{key}: agent bio {agent_name!r} has a \"models\" value that is not a mapping -- ignored")
             bio_models = {}
-        override = entry.get("models") or {}
-        model_ref = override.get("preference") or bio_models.get("preference") \
-            or override.get("fallback") or bio_models.get("fallback")
+        override = entry.get("models") if isinstance(entry.get("models"), dict) else {}
+        # 3.1.6.0 R1: the one order (`member_model`): the card's own model,
+        # a bio that pins a real ref, the tier's model, a `default` bio (the
+        # session model), then the fallbacks.
+        model_ref = member_model(template, entry, cwd=cwd, state_dir=state_dir, bio=bio)[0]
         effort = override.get("effort") or bio_models.get("effort")
         if not model_ref:
             notes.append(f"{key}: agent {agent_name!r} has no models.preference/fallback of its own -- "
@@ -498,6 +504,94 @@ def resolve_role_table(template: dict, *, cwd=None, state_dir=None) -> "tuple[di
             continue
         role_table[key] = {"model": model_ref, "effort": effort} if effort else model_ref
     return role_table, notes
+
+
+_UNSET = object()
+
+
+def tier_model_for(template, alias) -> "Optional[str]":
+    """3.1.6.0 R1: the `model` of the declared tier that holds `alias` (a
+    model ref, or `default`); None when no declared tier holds it or that
+    tier names none (teams_tier_fields.model_of)."""
+    from halo_harness.teams_tier_fields import model_of
+    tiers = template.get("tiers") if isinstance(template, dict) else None
+    for tier in tiers if isinstance(tiers, list) else []:
+        if isinstance(tier, dict) and isinstance(tier.get("members"), list) and alias in tier["members"]:
+            return model_of(tier)
+    return None
+
+
+def _tier_name_for(template, alias) -> str:
+    tiers = template.get("tiers") if isinstance(template, dict) else None
+    for tier in tiers if isinstance(tiers, list) else []:
+        if isinstance(tier, dict) and isinstance(tier.get("members"), list) and alias in tier["members"]:
+            return str(tier.get("name") or "")
+    return ""
+
+
+def bio_pinned_model(agent, *, cwd=None, state_dir=None) -> "Optional[str]":
+    """The `models.preference` a bio's own file names -- or, when it names
+    none, the nearest `extends` parent's -- read BEFORE `default` becomes the
+    session model (`load_agent_bio_raw`); None when that is `default`, when
+    no file in the chain names one, or for a missing bio."""
+    from halo_harness.agents_yaml import DEFAULT_MODEL_REFERENCE, load_agent_bio_raw
+    seen: "list[str]" = []
+    name = agent.strip() if isinstance(agent, str) else ""
+    while name and name not in seen:
+        seen.append(name)
+        raw = load_agent_bio_raw(name, cwd=cwd, state_dir=state_dir)
+        if raw is None:
+            return None
+        models = raw.get("models") if isinstance(raw.get("models"), dict) else {}
+        pref = models.get("preference")
+        if pref:
+            return None if pref == DEFAULT_MODEL_REFERENCE else str(pref)
+        parent = raw.get("extends")
+        name = parent.strip() if isinstance(parent, str) else ""
+    return None
+
+
+def member_model(template, entry, *, cwd=None, state_dir=None, bio=_UNSET) -> "tuple[str, str, str]":
+    """3.1.6.0 R1: what one assignment runs on, as `(preference, fallback,
+    source)` -- the ONE order every reader uses (`resolve_role_table`, the
+    Studio card pill, the lineup preflight, the coach):
+
+    1. the card's own `models.preference` (source `card`);
+    2. its bio's preference when the bio pins a real ref (`bio`);
+    3. the model of the declared tier that holds it (`tier:<name>`; a tier
+       model of `default` is the session's model);
+    4. a bio preference of `default`: the session's model (`session`);
+    5. the card's fallback, then the bio's (`fallback`).
+
+    `("", "", "")` when nothing resolves. `bio` is the resolved bio when the
+    caller has it already (None: no bio)."""
+    if not isinstance(entry, dict):
+        return "", "", ""
+    from halo_harness.agents_yaml import DEFAULT_MODEL_REFERENCE, resolve_agent_bio
+    over = entry.get("models") if isinstance(entry.get("models"), dict) else {}
+    agent = entry.get("agent") if isinstance(entry.get("agent"), str) else ""
+    if bio is _UNSET:
+        bio = resolve_agent_bio(agent, cwd=cwd, state_dir=state_dir) if agent else None
+    bio_models = (bio or {}).get("models") if isinstance((bio or {}).get("models"), dict) else {}
+    fallback = str(over.get("fallback") or bio_models.get("fallback") or "")
+    if over.get("preference"):
+        return str(over["preference"]), fallback, "card"
+    pinned = bio_pinned_model(agent, cwd=cwd, state_dir=state_dir) if bio is not None else None
+    if pinned and bio_models.get("preference"):
+        return str(bio_models["preference"]), fallback, "bio"
+    key = entry.get("as") or entry.get("role")
+    tier_model = tier_model_for(template, key)
+    if tier_model:
+        if tier_model == DEFAULT_MODEL_REFERENCE:
+            from halo_harness.theme import get_config_value
+            session = get_config_value("model", default=None)
+            tier_model = session.strip() if isinstance(session, str) and session.strip() else tier_model
+        return tier_model, fallback, f"tier:{_tier_name_for(template, key)}"
+    if bio_models.get("preference"):
+        return str(bio_models["preference"]), fallback, "session"
+    if fallback:
+        return fallback, fallback, "fallback"
+    return "", "", ""
 
 
 def save_team_template(name: str, data: dict, *, cwd=None, state_dir=None, project: bool = False) -> "tuple[bool, list[str]]":

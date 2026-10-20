@@ -26,8 +26,11 @@ export type GraphNode = {
   instances: number;
   use_for: string[];
   model: string;
-  /** 3.1.4.0 R4: what the card runs on without its own model (its bio's). */
+  /** 3.1.4.0 R4: what the card runs on without its own model (its bio's, or 3.1.6.0 its tier's). */
   bio_model?: string;
+  /** 3.1.6.0 R1: where `model` / `bio_model` come from: "card", "bio", "tier:<name>", "session", "fallback". */
+  model_source?: string;
+  inherit_source?: string;
   fallback: string;
   price: string;
   context: string;
@@ -40,7 +43,19 @@ export type GraphNode = {
 };
 
 export type GraphEdge = { from: string; to: string; kind: "delegation" | "pipeline"; label: string };
-export type Tier = { name: string; members: string[]; max_parallel: number | null; index: number; implicit: boolean; node_ids: string[] };
+/** 3.1.6.0 R1: a tier's trigger, in a bio trigger's shapes plus `on: schedule` (teams_tier_fields.py). */
+export type TierTrigger = { on: "schedule" | "file_change" | "event" | "message"; every?: string; cron?: string; paths?: string[]; name?: string; from?: string; prompt?: string; model?: string };
+export type Tier = {
+  name: string;
+  members: string[];
+  max_parallel: number | null;
+  /** 3.1.6.0 R1: what its members run on unless a card or a pinned bio names a model; null: none. */
+  model?: string | null;
+  trigger?: TierTrigger | null;
+  index: number;
+  implicit: boolean;
+  node_ids: string[];
+};
 export type Graph = { nodes: GraphNode[]; edges: GraphEdge[]; tiers: Tier[] };
 
 export type Finding = { id: string; severity: "blocks" | "warns"; text: string; fix: string; node: string };

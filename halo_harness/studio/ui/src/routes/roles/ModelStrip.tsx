@@ -39,6 +39,8 @@ export function ModelStrip() {
   const entry = (agentsOf(raw)[card.index] || {}) as Raw;
   const own = String(((entry.models && typeof entry.models === "object" ? entry.models : {}) as Raw).preference || "");
   const bioModel = card.bio_model ?? bioRow?.model ?? "";
+  // 3.1.6.0 R1: without its own model the card runs on its tier's model when the tier names one and the bio does not pin one
+  const inheritLabel = card.inherit_source?.startsWith("tier:") ? `tier ${card.inherit_source.slice(5)}'s` : "the bio's own";
   return (
     <section className="msel-strip" data-testid="roles-model-strip" data-card={card.id} data-main={!n || undefined} aria-label="The model">
       <div className="msel-strip-head">
@@ -53,7 +55,7 @@ export function ModelStrip() {
         </button>
       </div>
       <ModelSelect label={n ? `${card.alias || card.role}'s own model` : "the main card's own model"} hint={n ? h.card : h.main} value={own}
-                   inherit={{ label: "the bio's own", model: bioModel }} onPick={(ref) => void setSlotModel(card.index, ref)}
+                   inherit={{ label: inheritLabel, model: bioModel }} onPick={(ref) => void setSlotModel(card.index, ref)}
                    testid="roles-model-select" focus={focus} onFocused={focusDone} busy={busy} compact bare />
     </section>
   );

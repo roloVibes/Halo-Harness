@@ -104,7 +104,7 @@ shipped one, opened on the canvas); "open the panels anyway" (or
 | Panel | What it holds |
 |---|---|
 | **Lineups** (`roles-lineups`) | every lineup (shipped, user, project; the active one marked, the open one highlighted); **New** and **Duplicate** ask for a name on a card, **Delete** asks first (a shipped lineup stays), **Apply** asks first, showing the role table it writes; **user / project** says where New, Save and Delete write |
-| **Canvas** (`roles-graph`, the drawn canvas `roles-canvas`) | the open lineup: one card per assignment, in one labelled column box per tier; the edges; the toolbar (scope, unsaved, Undo, Redo, Save, Apply, Lay out, Fit, zoom); the replay bar along its bottom |
+| **Canvas** (`roles-graph`, the drawn canvas `roles-canvas`) | the open lineup: one card per assignment, in one labelled column box per tier; the edges; the toolbar (scope, unsaved, Add tier, Undo, Redo, Save, Apply, Lay out, Fit, zoom); the replay bar along its bottom |
 | **Inspector** (`roles-inspector`) | **Assignment** (the selected card's bio, role, alias, instances, the words that route a task to it, a model override, what resolves for it; Edit bio, Duplicate, Remove; with no card: the lineup's description, about and extends), **Lineup** (every top section as a small form with a **YAML** toggle and its enforcement badge), **Live** (the agents on the card now, or its last runs) |
 | **Problems** (`roles-problems`) | everything wrong with the lineup as it stands in the editor, saved or not, in **Blocks** and **Warns**, each with its fix; a click selects its card; **Config** lists what `halo doctor --config` finds in the files behind the lineup |
 | **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): models first (3.1.4.0: the preferred model in the **model select**, the **model picker table** folded under **more...**, fallback, effort up to xhigh and max, thinking, the context budget); description, kind, tags, extends; tools (allow and deny from the real registry, `GET /api/tools`, MCP servers, permission mode, the rules); context (files, skills, the memory namespace, prompt notes); limits; output; environment (own worktree, offline); acceptance; the schedule (cron or every, its prompt and model) and the triggers (file change, event, message); a **YAML** toggle for the whole bio (hooks and any key without a field); **Save bio** (with **Save to project scope**), New, Duplicate, Delete |
@@ -131,9 +131,38 @@ shipped one, opened on the canvas); "open the panels anyway" (or
   the rule. Positions and each box's collapsed state go to `PUT
   /api/layout/<name>` (`{nodes, tiers}`) 500 ms after the last move; a
   layout saved before the boxes existed is laid out once.
-- **The edges**: **delegation** from main (cyan; its routing words show
-  while one of its cards is selected) and **pipeline** stage order (amber,
-  dotted, `then <stage>`).
+- **Tiers on the canvas (3.1.6.0).** **Add tier** on the toolbar opens a
+  name field; Enter adds the tier as a new, empty box after the last one
+  ("Drag cards here" in its brackets; with no tiers declared yet it first
+  puts the main card alone in tier 0, `top`), and the boxes lay themselves
+  out in columns again when they would overlap. Drag cards in; double-click
+  a box's name to rename it in place (Enter keeps it, Escape drops it). The
+  palette's **Roles: add tier** opens the same field. The box head's `...`
+  opens its own menu, in the Fleet map's vocabulary:
+
+  | Item | What it does |
+  |---|---|
+  | **Rename** | the name in the head becomes a field |
+  | **Model...** | the model select bound to `tiers[i].model`; its first option, "the session's", clears it |
+  | **Trigger...** | starts on (none, schedule, file_change, event, message), its one field (every or cron, paths, the event, from) and the prompt the tier's lead starts on; none clears it |
+  | **Max parallel...** | how many of the tier's members run at once (blank: no cap) |
+  | **Delete** | removes the tier; its cards fall to the implicit last tier (off for tier 0) |
+
+  Each is one edit and a save (Ctrl+Z undoes it). A tier that names a
+  model or a trigger shows a second head row: the **model pill** and the
+  **trigger chip** (`⚡ every 30m`, `⚡ on file src/`); a click on either
+  opens that form. A card in that tier whose bio says `default` runs on
+  the tier's model: its pill shows it and its title says where the model
+  comes from (this card's own, its bio's, its tier's, the session's); the
+  Inspector's MODEL strip names the tier as what the card inherits. The
+  rules (the model order, the trigger and what its lead may spawn) are in
+  [ROLES.md](ROLES.md#tiers-halo-3070).
+- **The edges**: **delegation** from main (cyan) and **pipeline** stage
+  order (amber, dotted, `then <stage>`). 3.1.6.0: each label sits along its
+  edge, offset by its place among the edges leaving the same card, so a
+  one-tier fan reads as a tree; the selected card's labels are placed
+  first and full strength, the others dimmed, and a label that would still
+  overlap another is left off: no two labels ever overlap.
 - **One editor (3.1.1.0).** Studio is where bios and lineups are edited:
   every field the terminal's read-only bio and lineup views show is in the
   bio form and the Inspector (the field-by-field table is in

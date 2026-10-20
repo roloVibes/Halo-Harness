@@ -161,8 +161,8 @@ def test_graph_emits_tiers(ctx: Ctx):
               {"agent": "verifier", "role": "reviewer"}]
     g = graph_for({"agents": agents}, catalog={})
     ctx.check(f"no tiers: one implicit tier 'all' holding every card, got {g['tiers']}", g["tiers"] == [
-        {"name": "all", "members": ["main", "worker", "reviewer"], "max_parallel": None, "index": 0, "implicit": True,
-         "node_ids": ["main#0", "worker#1", "reviewer#2"]}])
+        {"name": "all", "members": ["main", "worker", "reviewer"], "max_parallel": None, "model": None, "trigger": None,
+         "index": 0, "implicit": True, "node_ids": ["main#0", "worker#1", "reviewer#2"]}])
     g = graph_for({"agents": agents, "tiers": [{"name": "top", "members": ["main"]},
                                                {"name": "workers", "members": ["worker"], "max_parallel": 3}]},
                   catalog={})

@@ -129,6 +129,44 @@ def test_no_tiers_is_a_passthrough(ctx: Ctx):
                   c.tier_live == {} and c.spawn_refusal("main", "worker") is None)
 
 
+class _Fired:
+    """HALO_TIER_FIRED set for the block (3.1.6.0 R1: a tier trigger's job), restored after."""
+
+    def __init__(self, tier: str):
+        self.tier = tier
+
+    def __enter__(self):
+        self.saved = os.environ.get("HALO_TIER_FIRED")
+        os.environ["HALO_TIER_FIRED"] = self.tier
+
+    def __exit__(self, *exc):
+        os.environ.pop("HALO_TIER_FIRED", None) if self.saved is None else os.environ.__setitem__("HALO_TIER_FIRED", self.saved)
+
+
+@test
+def test_a_fired_tier_lead_spawns_its_own_tier_and_the_next(ctx: Ctx):
+    with _Env() as e:
+        c = _control(e)
+        with _Fired("leads"):
+            ctx.check("the root a leads trigger started is its lead: reviewer (own tier) and worker (next) pass",
+                      c.fired_tier() == 1 and c.tier_gate("main", "reviewer", root=True) is None
+                      and c.tier_gate("main", "worker", root=True) is None)
+            own = c.tier_gate("main", "planner", root=True)
+            ctx.check(f"the lead itself is the one line, got {own!r}", own ==
+                      "`planner` (lead of tier 1 `leads`, started by its trigger) may spawn its own tier's other members "
+                      "and the next tier down (tier 2 `workers`); `planner` is in tier 1")
+            ctx.check("tier 0 too", (c.tier_gate("main", "main", root=True) or "").endswith("`main` is in tier 0"))
+            ctx.check("a child below the root keeps the plain rule", c.tier_gate("planner", "reviewer") is not None)
+        with _Fired("workers"):
+            last = c.tier_gate("main", "planner", root=True)
+            ctx.check(f"a fired last tier names no next tier, got {last!r}", last ==
+                      "`worker` (lead of tier 2 `workers`, started by its trigger) may spawn its own tier's other members; "
+                      "`planner` is in tier 1")
+        with _Fired("ghost"):
+            ctx.check("an unknown tier name: the root is main again", c.fired_tier() is None
+                      and c.tier_gate("main", "worker", root=True).startswith("`main` (tier 0 `top`)"))
+
+
 # ---- spawn level: a real Session, a mocked upstream -------------------------------
 
 def _text(text: str):
@@ -180,6 +218,9 @@ def test_spawn_level_refusal_sits_after_routing(ctx: Ctx):
             r = _call(session, "c2", "worker")
             ctx.check(f"main -> worker is a clean error naming the rule, got {r.get('content', '')[:200]!r}",
                       r.get("ok") is False and "may spawn only into the next tier down" in r.get("content", ""))
+            with _Fired("leads"):  # 3.1.6.0 R1: the root a leads trigger started is planner: worker runs
+                r = _call(session, "c2f", "worker")
+            ctx.check(f"a fired leads root -> worker runs, got {r.get('content', '')[:120]!r}", "WORKER DONE" in r.get("content", ""))
             control.tier_claim("busy", "reviewer")
             r = _call(session, "c3", "planner")
             ctx.check(f"a full tier refuses with its count, got {r.get('content', '')[:200]!r}",
