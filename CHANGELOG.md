@@ -8,6 +8,67 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.1.6.0] - unreleased
+
+Focus: the coach learns to probe (after Google's Harness², arXiv 2610.14224: candidate set-ups run the same goal again, an anonymized judge compares the deliverables, what wins is offered as one card, and what gets applied lands in an improvement library the next proposals cite), a tier becomes something you make on the Roles canvas with a model and a trigger of its own, the front page gets a hero, and copying a draft out of the TUI on Linux works and says what it did. From the owner's "Add 1 and 2 from Google harness research" (2026-10-19) and his live notes from Kali (2026-10-20).
+
+### R1: tiers on the canvas
+
+#### Added
+
+- A lineup tier grows `model` and `trigger`. `tiers[].model` is a model ref (or `default`); `tiers[].trigger` is one trigger in the shapes a bio's `schedule` / `triggers` use (`on: schedule|file_change|event|message`, its one field, a required `prompt`, an optional `model`). `halo teams validate`, Studio's Save, the lineup preflight and `halo doctor` flag a bad one in one line (`tiers[1] 'media': "trigger.paths" must be a non-empty list of path strings`); `halo teams show` prints one line per tier with its model and trigger.
+- One model order, in `teams_yaml.member_model`, read by the role table, Studio's card pill, the lineup preflight and the coach alike: a card's override -> a bio that pins a real ref -> the tier's model -> a `default` bio (the session's model) -> the fallbacks. A card under a tier model shows the resolved model and its pill says "from tier <name>'s model".
+- A tier trigger starts the tier: it is armed as its lead's (the tier's first member) on the lead's resolved model; the fired job is the same `halo -p <prompt> --agent <lead> --team <team>` with `HALO_TIER_FIRED=<tier>`, and a fired lead may spawn its own tier's other members and the next tier (before, a fired root counted as main and could only spawn tier 1).
+- The Roles canvas: **Add tier** on the canvas bar (an inline name, Enter adds; also the palette's "Roles: add tier"); with no declared tiers yet, tier 0 becomes the main card alone and the new box appears empty with "Drag cards here"; double-click the name to rename; the tier box's own `...` menu (Rename, Model, Trigger, Max parallel, Delete -- members fall to the rest tier, tier 0 cannot go); the head shows the model pill and a trigger chip (`⚡ every 30m`, `⚡ on file src/`). Every change is a canvas edit (Ctrl+Z works).
+- Edge labels never overlap: each label is offset along its edge by its index among siblings, the selected card's and the pipeline's are placed first, a label that would still collide is dropped, and non-selected delegation labels are dimmed. A single tier keeps the fan under main; several tiers stay in columns.
+- Docs: ROLES.md "Tiers" (the two keys, the model order, the trigger rule), AGENTS.md lineup fields, STUDIO-team-roles.md (Add tier, the menu, the chips).
+
+### R2: the coach probes
+
+#### Added
+
+- The coach probes (after Google's Harness²): `halo coach <run> --probe [--k N] [--yes]`, `/coach --probe` and the Coach tab's **Probe** button run the goal again under two candidate overlays the run's lead drafts -- an *invariant* one (planning, tool use, context budget, delegation) and a *domain* one (procedure, knowledge, constraints) -- each as a probe run under the reference run (`<run>/probes/<cand>/`, the same base commit, never in a run list), capped at the run's cost x `coach.probe.budget_factor`; an anonymized judge (shuffled A/B/C labels, no set-up shown) compares the deliverables with the run's own; the coach adopts, merges or keeps, and offers the result as one card whose Apply writes every file under one Undo. The cost line shows before anything runs; off unless asked.
+- The run report's coach line and the Fleet digest gain "probe: N runs, $X, picked: invariant|domain|merged|kept".
+- New config: `coach.probe.k` (1), `coach.probe.budget_factor` (1.5). New route: `POST /api/orchestra/<run>/coach/probe`. Docs: ORCHESTRA.md "Probes", CONFIG.md, COMMANDS-studio.md, SLASH-COMMANDS-tui.md.
+
+### R3: the improvement library
+
+#### Added
+
+- The improvement library (after Google's Harness², the harnessing level): every coach Apply -- a card's change or a probe card's group -- leaves an entry in `~/.halo/coach/library/<e-yyyymmdd-xxxx>/` (entry.json, overlay.json, the written files, EXPERIENCE.md: when it applies, the lessons, the evidence, the files); Undo marks it undone. The coach cites up to three entries for a run of the same project (the same remote path, else the folder name) or whose EXPERIENCE.md recall ranks for the goal: "the library: N earlier runs like this adopted ...", `[lib e-...]` on a matching card, the Coach tab's line, `lib` chip and Library (n) fold with Forget, and "What earlier runs like this learned" in the probe's draft prompt. The next run still starts from the base lineup: entries come back only through proposals. `coach.library.cite` (true) turns it off.
+- `halo coach library` lists, shows, forgets and fetches entries; `/coach library` too (`forget` there needs `--yes`).
+- The fleet shares entries: recall indexes them as kind `coach_library` (`[lib]`; the Lessons as the fleet excerpt; `fleet.recall.hide: [coach_library]` hides them and refuses the fetch), the read-only fleet command `coach_library {entry}` (256 KB cap, journal `library_asked`), the hub's admin route `local/coach-library`, and `halo coach library fetch <harness> <entry>` writes the entry here under the same id with `from`, never over an existing one.
+- New route: `POST /api/coach/library/<entry>/forget`; every coach GET carries `library`, `library_line`, `library_hits`. Docs: ORCHESTRA.md "The library", CONFIG.md, COMMANDS-studio.md, COMMANDS-fleet.md, COMMANDS-health.md, FLEET.md, SLASH-COMMANDS-tui.md.
+
+### R4: a Studio hero
+
+#### Changed
+
+- The README's first image is `docs/media/hero.png`: the HALO wordmark over Studio's Session dashboard (the Map on the left, the Live column on the right) with one line, "The Claude Code-compatible harness for any model, with Studio: every agent, live."; `docs/media/social-preview.png` is the same picture at GitHub's 1280x640 (upload it under Settings -> General -> Social preview). Both come from the new `tools/hero_png.py` (Pillow only, deterministic, `--check`). The vector `hero.svg` keeps its art and takes the line and three chips.
+
+### R5: copying the draft on Linux
+
+#### Fixed
+
+- **`/copy draft` and `Ctrl+Shift+C` copy the chat box's unsent text** (the owner's note from Kali: "Copying the words in a session chat text not yet sent does not work"). Type `/copy draft` over the draft (or after Esc / Ctrl+U cleared the box) and it copies what the box held before the command, pastes expanded; a sent message is no longer a draft. `Ctrl+Shift+C` copies the whole box in one key wherever the terminal passes that key on (most Linux terminals keep it as their own copy key, so `/copy draft` is the path that works everywhere). A selection plus Ctrl+C, and Ctrl+C with nothing selected, behave as before.
+- **A copy never fails silently.** After every copy, Textual's own copy keys and the Ctrl+X cut included, the status line says what landed: "copied N characters via xclip" (or wl-copy, xsel, clip.exe, pbcopy). On Linux with no clipboard tool it reads "no clipboard tool: sudo apt install xclip (or wl-clipboard on Wayland); sent OSC 52, which <terminal> may ignore". Over SSH it says OSC 52 is the only path to your local clipboard, and a failing tool names its error. Whenever no tool landed, the text is also saved to `~/.halo/clipboard.txt` (0600, replaced by the next such copy) and the line names that file. Before this, a stock Kali desktop (no xclip, QTerminal ignoring OSC 52) showed "Copied" and an empty clipboard.
+- **`halo doctor`'s clipboard row on Linux** names the tool (or none, with the apt line), the X11 or Wayland session (`DISPLAY` / `WAYLAND_DISPLAY`) and the OSC 52 note, and ends with its own fix: `sudo apt install xclip`, `sudo apt install wl-clipboard` on a Wayland-only session, `tmux set -g set-clipboard on` inside tmux (it used to show the apt line there too), or the troubleshooting entry when no display session is up.
+- Clipboard tool detection prefers the tool whose display session is up (xclip on an X11 desktop even when wl-clipboard is also installed; before, wl-copy won by PATH order and every copy failed) and runs the PATH-resolved path.
+- The first mouse drag in the transcript or the chat box shows one hint: hold Shift while dragging for the terminal's own selection; Ctrl+C copies what is selected here.
+- Docs: a "Copy does nothing on Linux" section in TROUBLESHOOTING.md; `/copy draft`, the keys and the status lines in SLASH-COMMANDS-tui.md and SLASH-COMMANDS-keys.md; HANDBOOK.md's copy paragraph; COMMANDS-health.md's clipboard row.
+
+### R6: Session is the first tab
+
+#### Changed
+
+- Studio's sections run in the owner's order: Session (`Alt+1`), Team (`Alt+2`), Roles (`Alt+3`), Fleet (`Alt+4`), Design (`Alt+5`), Orchestra (`Alt+6`). Section ids, `/studio <section>`, `halo studio --mode|--fleet|--session` and `?mode=` links are unchanged; with nothing saved Studio still opens on Session while a session is live here and on Roles otherwise.
+- One list is the order (`ui/src/routes/index.tsx` SECTIONS): the tabs, `Alt+N`, the palette's groups (Roles, Design and Team no longer sort above Go to), the first key of each section's How this works and the status bar's key hint read it; the modes banner and every Studio capture show it (hero.png and social-preview.png re-rendered with them).
+- Every `Alt+N` line in README.md and docs/ follows the new order; `tests/test_studio_section_order.py` fails on any line a future reorder leaves behind.
+
+#### Fixed
+
+- Roles: a save whose answer lands after an undo or an edit made meanwhile no longer puts the saved mapping back (seen as the tiers Chrome checks failing on the slow Windows runner at Delete then Ctrl+Z).
+
 ## [3.1.5.0] - 2026-10-20
 
 Focus: two things leave the product (the Claude Code and Codex subscription routes, the game themes), Session and Roles get the polish the owner wants Studio known for (the whole right side of Session is one live column of every agent working), and the front page leads with Studio. From the owner's direction on 2026-10-20, right after 3.1.4.0.
