@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.1.5.0] - unreleased
+## [3.1.5.0] - 2026-10-20
 
 Focus: two things leave the product (the Claude Code and Codex subscription routes, the game themes), Session and Roles get the polish the owner wants Studio known for (the whole right side of Session is one live column of every agent working), and the front page leads with Studio. From the owner's direction on 2026-10-20, right after 3.1.4.0.
 

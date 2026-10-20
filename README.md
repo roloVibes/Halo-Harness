@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/roloVibes/Halo-Harness/releases"><img alt="version 3.1.4.0" src="https://img.shields.io/badge/version-3.1.4.0-5b4bd6"></a>
+  <a href="https://github.com/roloVibes/Halo-Harness/releases"><img alt="version 3.1.5.0" src="https://img.shields.io/badge/version-3.1.5.0-5b4bd6"></a>
   <a href="https://github.com/roloVibes/Halo-Harness/actions/workflows/suites.yml"><img alt="CI" src="https://github.com/roloVibes/Halo-Harness/actions/workflows/suites.yml/badge.svg"></a>
   <img alt="python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776ab">
   <img alt="Linux, macOS, Windows" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-2b2b2b">
@@ -55,7 +55,7 @@ Halo reads your <code>~/.claude</code> setup in place, so nothing is configured 
 Install, then `halo start`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.1.4.0/scripts/install-halo.sh | bash
+curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.1.5.0/scripts/install-halo.sh | bash
 halo init        # the wizard: provider, model, permission mode, theme, lineup
 halo start       # the ten-minute start: a lineup, a sample repo, one Orchestra run, its report and coach
 ```
@@ -63,7 +63,7 @@ halo start       # the ten-minute start: a lineup, a sample repo, one Orchestra 
 Windows:
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.1.4.0/scripts/install-halo.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.1.5.0/scripts/install-halo.ps1 | iex"
 ```
 
 The installer is fetched from a release tag, never a moving branch, and installs the
