@@ -4,6 +4,78 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-20 ~18:35 CDT (authoritative, read this first)
+
+**3.1.6.0 "The coach probes" IS RELEASED** (tag v3.1.6.0 at 04e5f67, cut by
+`scripts/release.py --skip-windows` on a green Linux run and a green
+dispatched Windows run for 28d837d; the local install is `halo-harness
+v3.1.6.0`). Six Opus worker rounds in parallel worktrees, ordered by the
+owner ("Add 1 and 2 from Google harness research", then his live notes from
+Kali the same morning; briefs, hand-backs and logs under `~/hh-316/briefs/`):
+- R1 tiers on the canvas: `tiers[].model` and `tiers[].trigger`
+  (`teams_tier_fields.py`), ONE model order in `teams_yaml.member_model`
+  (a card's override -> a bio that pins a real ref -> the tier's model -> a
+  `default` bio -> the fallbacks) read by the role table, Studio's pill, the
+  preflight and the coach; a tier trigger starts the tier (armed as its
+  lead's, `HALO_TIER_FIRED`, a fired lead may spawn its own tier and the
+  next); Add tier on the canvas bar, the tier box's menu (Rename, Model,
+  Trigger, Max parallel, Delete), labels that never overlap (`labels.ts`).
+- R2 the coach probes (Harness², task level): `halo coach <run> --probe`,
+  `/coach --probe`, the Probe button; two candidate overlays the lead
+  drafts (invariant / domain), probe runs under the reference run
+  (`<run>/probes/<cand>/`, a project-scope overlay in each lane worktree +
+  `--team`), a budget cap (`coach.probe.budget_factor`), an anonymized judge
+  (`coach_compare.py`), compose adopt / merge / keep, ONE card with a group
+  Undo. Modules: `orchestra/coach_probe*.py`, `probe_runs.py`,
+  `probe_overlay.py`, `coach_compare.py`, `coach_compose.py`,
+  `studio/coach_probe_job.py`.
+- R3 the improvement library (Harness², harnessing level): every Apply
+  leaves `~/.halo/coach/library/<entry>/` (entry.json, overlay.json, the
+  files, EXPERIENCE.md); the coach cites up to three matching entries
+  (`coach_citations.py`: same project by remote path, else recall >= 0.35),
+  the probe draft gets their Lessons, `halo coach library
+  list|show|forget|fetch`, recall kind `coach_library`, the fleet command
+  `coach_library` + hub route `local/coach-library`. Nothing is inherited.
+- R4 a Studio hero: `docs/media/hero.png` + `social-preview.png` from
+  `tools/hero_png.py` (upload the social preview by hand under Settings).
+- R5 copying the draft on Linux (the owner's Kali note): `/copy draft`,
+  `Ctrl+Shift+C`, every copy says what landed (`tui/copy_outcome.py`), the
+  no-tool line + `~/.halo/clipboard.txt` fallback, a doctor clipboard row
+  (`tui/clipboard_doctor.py`), tool detection prefers the live session's
+  tool, the Shift-drag hint. Stock Kali has no xclip and QTerminal ignores
+  OSC 52: `sudo apt install xclip` is the fix.
+- R6 Session is the first tab: Session Alt+1, Team 2, Roles 3, Fleet 4,
+  Design 5, Orchestra 6 (the owner's list; Orchestra kept last); the
+  registry `routes/index.tsx` SECTIONS is the one order (the palette's
+  group bug fixed on the way); `tests/test_studio_section_order.py` holds
+  every Alt+N doc line to it; all 19 Studio captures re-made.
+Also on master: the Roles save race (a save landing after an undo put the
+mapping back; `routes/roles/actions.ts` keeps a mapping that changed in
+flight) found by the Windows runner; the privacy allowlist for R3's fake
+`user:token@github.com` remote examples; the TUI SVG captures re-rendered
+(R5's copy tip moved the status row).
+
+**Next: 3.1.7.0 "Session: the insight and the steer"** (ROADMAP "ADDED
+2026-10-20 ~12:15"): R1's worker finished in `~/hh-317/R1-session-insight`
+(hand-back `~/hh-317/briefs/v317-R1-handback.md`: Fleet's TIME / KIND columns
+on every Live row, the timeline strip + agent and kind picks, the Steer box
+always at the foot, "steer" on every tag and node, a tool row opens its
+whole result) -- merge it onto the released master (its worktree is off
+137f083: the dist conflicts, rebuild; its session stills show the OLD tab
+order, so re-run `tools/capture_session_anim.py`, `tools/hero_png.py` and
+`--social` after the merge, then `--check`); R2 "captures carry no real
+names" (the committed Orchestra PNGs show the build host's harness name
+and a home path prefix; fix the capture tools, re-capture, add the check);
+then CHANGELOG, the gate, the release.
+
+Lessons this run: the dispatched Windows run is the only Windows signal
+(the push run skips it); a push cancels the in-progress push run on master
+but not a dispatched one; a Chrome Delete-then-Undo can race a save's
+answer on a slow runner (fixed in the product, and the test waits for the
+save to settle); re-render the TUI SVG captures on the merged tree before
+the gate when a TUI round changed the status row; `halo audit privacy`
+reads fake `user:token@host` examples as addresses (allowlist them).
+
 ## WHERE THINGS STAND -- 2026-10-20 ~07:15 CDT (authoritative, read this first)
 
 **3.1.5.0 "Focus" IS RELEASED** (tag v3.1.5.0 at a9870c0, cut by
