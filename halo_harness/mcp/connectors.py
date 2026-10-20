@@ -125,15 +125,15 @@ def parse_claude_mcp_list(output: str) -> "list[ConnectorInfo]":
 # ---- subprocess plumbing ----------------------------------------------------
 
 def _claude_subprocess_env() -> dict:
-    from halo_harness.providers.config import cc_child_env
-    return cc_child_env(dict(os.environ))
+    from halo_harness.mcp.claude_process import claude_child_env
+    return claude_child_env(dict(os.environ))
 
 
 def run_claude_mcp_list(*, timeout: float = DISCOVERY_TIMEOUT_S) -> "tuple[str, str]":
     """`(stdout, stderr)` -- never raises; a missing binary/timeout/OSError
     all degrade to `("", "<reason>")` so a caller can treat them uniformly
     as "found nothing, here's why"."""
-    from halo_harness.providers.cc_models import ClaudeCodeNotFoundError, resolve_claude_launch_argv
+    from halo_harness.mcp.claude_process import ClaudeCodeNotFoundError, resolve_claude_launch_argv
     try:
         argv = resolve_claude_launch_argv()
     except ClaudeCodeNotFoundError as e:
@@ -142,7 +142,7 @@ def run_claude_mcp_list(*, timeout: float = DISCOVERY_TIMEOUT_S) -> "tuple[str, 
         # encoding="utf-8" (never the Windows console's own codepage default,
         # which can't represent claude's own "✔"/"✗" status glyphs
         # -- verified live: cp1252 raises UnicodeEncodeError INSIDE the
-        # child's own `print`, same fix `agent/cc_process.ClaudeCodeProcess`
+        # child's own `print`, same fix `mcp/claude_process.ClaudeCodeProcess`
         # already applies to every other claude subprocess this harness spawns).
         proc = subprocess.run(argv + ["mcp", "list"], capture_output=True, text=True, encoding="utf-8",
                                errors="replace", timeout=timeout, env=_claude_subprocess_env())
@@ -178,9 +178,8 @@ def group_claude_ai_tool_names(tool_names) -> "dict[str, list[str]]":
 
 def _read_one_event_with_timeout(proc, timeout: float) -> Optional[dict]:
     """Bounds `ClaudeCodeProcess.read_event()` (a plain blocking
-    `readline()` + `json.loads`, no timeout of its own) the same way
-    `agent/cc_runtime.py`'s own reader thread bounds every blocking read
-    against this exact process class."""
+    `readline()` + `json.loads`, no timeout of its own) with a reader
+    thread joined for at most `timeout` seconds."""
     box: "list[Optional[dict]]" = [None]
 
     def _reader() -> None:
@@ -198,15 +197,14 @@ def _read_one_event_with_timeout(proc, timeout: float) -> Optional[dict]:
 def discover_connector_tool_names(*, timeout: float = DISCOVERY_TIMEOUT_S) -> "dict[str, list[str]]":
     """One headless `claude -p --output-format stream-json` start, reading
     only its `system/init` line for the `mcp__claude_ai_<name>__<tool>`
-    names it lists (the SAME init line `agent/cc_runtime.py` already
-    parses for the `cc:` route's own bridge) -- the process is killed right
-    after that line arrives, so no model turn is ever spent. Spawned via
-    `agent.cc_process.ClaudeCodeProcess` (the SAME class the `cc:` route's
-    own bridge uses) rather than a bare `subprocess.Popen`, so an early
+    names it lists -- the process is killed right after that line
+    arrives, so no model turn is ever spent. Spawned via
+    `mcp.claude_process.ClaudeCodeProcess` rather than a bare
+    `subprocess.Popen`, so an early
     kill reaches claude's whole process GROUP (POSIX) / process tree
     (Windows Job Object) -- never a lone orphaned child."""
-    from halo_harness.agent.cc_process import ClaudeCodeProcess
-    from halo_harness.providers.cc_models import ClaudeCodeNotFoundError, resolve_claude_launch_argv
+    from halo_harness.mcp.claude_process import ClaudeCodeProcess
+    from halo_harness.mcp.claude_process import ClaudeCodeNotFoundError, resolve_claude_launch_argv
     try:
         argv = resolve_claude_launch_argv()
     except ClaudeCodeNotFoundError:

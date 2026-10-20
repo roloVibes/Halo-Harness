@@ -1,8 +1,7 @@
 """tests.test_review3_s -- pins for the 3.0.1.0 review fix pass, round
-S-subagents-teams (part 1): review items 49, 50, 51.
+S-subagents-teams (part 1): review items 50, 51 (item 49 pinned the
+removed cc: route and went with it in 3.1.5.0).
 
-  * 49  a cc: turn under a Stop hook that keeps blocking drains every
-        continuation it sends, and no stdout reader outlives turn_done
   * 50  --resume <transcript.jsonl> with a file name that is not a valid
         session id imports under a stable valid id
   * 51  cron day-of-week ranges that end in 7 (Sunday) fire
@@ -15,13 +14,10 @@ from __future__ import annotations
 import contextlib
 import datetime
 import os
-import queue
 import sys
 import tempfile
-import threading
 import time
 from pathlib import Path
-from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -52,6 +48,7 @@ def scoped_home():
 
 @contextlib.contextmanager
 def patched(module, **attrs):
+    """Shared with test_review3_s2/_s3: set module attributes for a block."""
     saved = {k: getattr(module, k) for k in attrs}
     for k, v in attrs.items():
         setattr(module, k, v)
@@ -60,105 +57,6 @@ def patched(module, **attrs):
     finally:
         for k, v in saved.items():
             setattr(module, k, v)
-
-
-# ---- 49: Stop-hook continuation cap on the cc: route --------------------------
-
-
-class _FakeClaude:
-    """Stands in for ClaudeCodeProcess: every line sent is echoed (as
-    `--replay-user-messages` does) and answered by one `result`, after a
-    short delay so a reader left running past turn_done would show."""
-
-    def __init__(self, delay: float = 0.05):
-        self.q: "queue.Queue" = queue.Queue()
-        self.delay = delay
-        self.sent: list = []
-        self.results_read = 0
-
-    def _answer(self, text: str) -> None:
-        def go():
-            time.sleep(self.delay)
-            self.q.put({"type": "user", "isReplay": True,
-                        "message": {"content": [{"type": "text", "text": text}]}})
-            self.q.put({"type": "result", "subtype": "success"})
-        threading.Thread(target=go, daemon=True).start()
-
-    def send_user_line(self, text):
-        self.sent.append(text)
-        self._answer(text)
-
-    def send_user_blocks(self, blocks):
-        self.sent.append("<turn>")
-        self._answer("turn")
-
-    def read_event(self):
-        obj = self.q.get(timeout=10)
-        if obj.get("type") == "result":
-            self.results_read += 1
-        return obj
-
-    def interrupt(self):
-        pass
-
-    def wait(self, timeout=None):
-        return 0
-
-    def kill(self):
-        pass
-
-    def stderr_tail(self):
-        return ""
-
-
-class _Log:
-    def __init__(self):
-        self._nodes: list = []
-
-    def nodes(self):
-        return list(self._nodes)
-
-    def append_user(self, content, kind=None):
-        self._nodes.append({"type": "user", "content": content, "kind": kind})
-
-    def append_tool_result(self, **_kw):
-        pass
-
-
-@test
-def test_49_stop_hook_cap_never_sends_a_continuation_it_does_not_drain(ctx: Ctx):
-    from halo_harness.agent import cc_runtime
-    proc = _FakeClaude()
-    state = cc_runtime.CcState(process=proc, bridge=None, cc_session_id="s")
-    calls = []
-
-    def run_hook_stop(event, **_kw):
-        calls.append(event)
-        return SimpleNamespace(blocked=True, block_reason="keep going", system_messages=[])
-
-    hooks = SimpleNamespace(has_hooks=lambda ev: ev == "Stop", stop_block_count=9)
-    session = SimpleNamespace(abort=threading.Event(), log=_Log(), hook_runner=hooks,
-                              _run_hook_stop=run_hook_stop,
-                              _apply_pending_job_notices=lambda t: iter(()),
-                              _apply_pending_agent_notices=lambda t: iter(()))
-    with patched(cc_runtime, ensure_cc_state=lambda s: state, _events_for_stdout_obj=lambda *a: [],
-                 _confirm_session_id=lambda *a: None):
-        evs = list(cc_runtime.turn_body_cc(session, 7, "hi"))
-        at_done = proc.results_read
-        alive = [t.name for t in threading.enumerate() if t.name.startswith("cc-reader-7") and t.is_alive()]
-        time.sleep(proc.delay * 6)
-    cap = cc_runtime._MAX_STOP_CONTINUATIONS
-    continuations = [s for s in proc.sent if s == "keep going"]
-    ctx.check(f"the turn ends with turn_done, got {evs[-1].kind}", evs[-1].kind == "turn_done")
-    ctx.check(f"exactly the cap's continuations go out, got {len(continuations)}", len(continuations) == cap)
-    ctx.check(f"every sent line's result was read inside the turn ({at_done} of {len(proc.sent)})",
-              at_done == len(proc.sent))
-    ctx.check(f"nothing is read after turn_done, got {proc.results_read} vs {at_done}", proc.results_read == at_done)
-    ctx.check(f"no reader thread outlives the turn, got {alive}", not alive)
-    ctx.check("the cap is said in a notification",
-              any(e.kind == "notification" and "consecutive" in str(e.data) for e in evs))
-    ctx.check("the hook runner's own block count is reset", hooks.stop_block_count == 0)
-    ctx.check(f"the Stop hook ran once per reply, got {len(calls)}", len(calls) == cap + 1)
 
 
 # ---- 50: --resume with a transcript whose name is not a valid id --------------

@@ -306,7 +306,7 @@ zero setup beyond installing it: the same `ANTHROPIC_BASE_URL`/
 model to `dbx:<ANTHROPIC_MODEL>`, and maps bare `opus`/`sonnet`/`haiku`
 through `ANTHROPIC_DEFAULT_*_MODEL` (falling back to a pinned
 `databricks-claude-*` endpoint per tier when a specific var is unset) --
-instead of the `cc:`/`ant:` subscription route or the OpenRouter default
+instead of the `ant:` route or the OpenRouter default
 those bare names would otherwise resolve to everywhere else. `settings.json`'s
 top-level `effortLevel`/`modelSettings.<id>.effortLevel` set the session's
 default effort the same way.

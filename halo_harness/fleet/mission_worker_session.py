@@ -46,7 +46,7 @@ def build(cwd, home=None):
 
     def close() -> None:
         for fn in (lambda: session._fire_session_end("other"), session.job_registry.kill_all,
-                   getattr(b.mcp_manager, "close_all", lambda: None), getattr(session, "close_cc", lambda: None)):
+                   getattr(b.mcp_manager, "close_all", lambda: None), getattr(session, "close_runtimes", lambda: None)):
             try:
                 fn()
             except Exception:

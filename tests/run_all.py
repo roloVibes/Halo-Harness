@@ -136,7 +136,7 @@ def _ensure_whole_run_state_dir() -> None:
 def _ensure_whole_run_test_seams() -> None:
     """W6b section E: a module that never sets `BRIDGE_TEST_NO_BACKGROUND_
     NET`/`BRIDGE_TEST_CC_AUTH_STATUS` itself -- most don't; only the ones
-    that deliberately exercise the claude.ai/cc: auth path do, see
+    that deliberately exercise the claude.ai connectors' auth path do, see
     `tests/helpers/provider_env_defaults.ensure_default_provider_
     credentials` -- used to leave `claude_auth_status()` and claude.ai
     connector discovery free to spawn a REAL `claude auth status`/`claude

@@ -419,8 +419,6 @@ _PATH_HOME_ALLOWED_CALLERS = {
         "BRIDGE_TEST_HOME, since BRIDGE_TEST_HOME only relocates halo's OWN state, never what `~` expands "
         "to for a command being classified; routing it through config.paths.home() would make the "
         "permission check disagree with the shell it is modeling",
-    "halo_harness/providers/codex_settings.py":
-        "Codex CLI's OWN $CODEX_HOME default (an external tool's config, read-only) -- checks CODEX_HOME first",
     "halo_harness/providers/config.py":
         "this module's own home(): already BRIDGE_TEST_HOME-first, the identical pattern config.paths.home() "
         "defines, re-declared here to avoid a dependency cycle (providers/config.py cannot import config/paths.py)",

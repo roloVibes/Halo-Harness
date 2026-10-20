@@ -781,7 +781,7 @@ def build_anthropic_request_body(
     # verbatim and 400'd ("Input should be 'low', 'medium', 'high' or
     # 'max'") on the very first prompt. `profile.effort_values_supported`
     # is `ANTHROPIC_EFFORT_LEVELS` (no `xhigh`) for every anthropic-
-    # passthrough route (`resolve_profile`), so this reproduces on cc:/ant:/
+    # passthrough route (`resolve_profile`), so this reproduces on ant:/
     # any Databricks Claude foundation model alike.
     body.update(map_effort_anthropic(clamp_effort(effort, profile), route.upstream_model, max_tokens=max_tokens))
     if route.provider == "experiential":
@@ -790,7 +790,7 @@ def build_anthropic_request_body(
         # for a Claude slug routed through this Anthropic-shaped builder
         # instead -- the contract lists `/v1/messages` as one of the three
         # endpoints that honor it. Gated to `experiential` alone: a bare
-        # `ant:`/Databricks Claude passthrough/`cc:` body must never pick
+        # `ant:`/Databricks Claude passthrough body must never pick
         # up an unrecognized "provider" field this function has no other
         # reason to ever send on those routes.
         from halo_harness.providers.experiential import zdr_provider_constraint

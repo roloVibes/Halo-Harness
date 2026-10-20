@@ -181,7 +181,7 @@ def resolve_balance(key_info: Optional[OrKeyInfo], credits: Optional[OrCredits])
     return None
 
 
-# In-memory cache -- same cache/lock/TTL convention `providers/cc_models.py`'s
+# In-memory cache -- same cache/lock/TTL convention `mcp/claude_auth.py`'s
 # own claude-auth-status cache already uses.
 _BALANCE_CACHE_LOCK = threading.Lock()
 _balance_cache: "Optional[dict]" = None  # {"amount", "kind", "label", "fetched_at", "fetched_at_wall"}
@@ -291,7 +291,7 @@ def openrouter_balance_refresh_due_after_turn() -> bool:
 
 def reset_cached_openrouter_balance() -> None:
     """Test seam: clear the module-level cache between tests (mirrors
-    `cc_models.reset_cached_claude_auth_status`'s own convention) -- without
+    `claude_auth.reset_cached_claude_auth_status`'s own convention) -- without
     this, one test's cached balance would silently leak into the next one's
     (a plain module global, unaffected by env-var/BRIDGE_TEST_HOME scoping)."""
     global _balance_cache, _balance_last_attempt_at

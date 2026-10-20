@@ -9,17 +9,16 @@ read for one line instead of hanging on a real terminal prompt -- see
 `_prompt_secret`).
 
 1.0.1 hotfix 13: step 1 is now "select a provider to set up" (Databricks,
-OpenRouter, Anthropic API, or your Claude subscription), never a home/work/
-claude PRESET naming a bundle of choices the owner found confusing ("work is
+OpenRouter or the Anthropic API), never a home/work PRESET naming a bundle of choices the owner found confusing ("work is
 actually setting up databricks... the init should scroll thru all possible
 providers and the user go thru that path of setup") -- each provider runs
 its own credentials -> catalog/discovery -> default-model-pick -> live-pong
 path, and `init` offers to set up another when one finishes, looping until
 the user is done; when more than one provider ends up configured, one last
-cross-provider pick chooses the actual default. `--preset home|work|claude`
+cross-provider pick chooses the actual default. `--preset home|work`
 still parses, as a deprecated one-line-noticed alias for `--provider
-openrouter|databricks|claude` (`docs/COMMANDS.md`'s own examples keep
-working verbatim).
+openrouter|databricks` (`docs/COMMANDS.md`'s own examples keep working
+verbatim).
 
 Idempotent throughout: re-running shows the current state and changes
 nothing already correctly configured (must-do for the Kali VM, which
@@ -43,7 +42,7 @@ from rich.prompt import Confirm
 
 from halo_harness.init_providers import (
     PRESET_TO_PROVIDER, PROVIDER_DEFAULT_MODEL, PROVIDER_LABEL, PROVIDERS,
-    claude_login_available, configured_providers, detect_default_provider, model_entries_for_provider,
+    configured_providers, detect_default_provider, model_entries_for_provider,
     provider_status,
 )
 
@@ -383,11 +382,8 @@ def _step_credentials(provider: str, args, console: Console) -> list:
         path = _ensure_openrouter_key(args, console)
     elif provider == "databricks":
         path = _ensure_databricks_creds(args, console)
-    elif provider == "anthropic":
-        path = _ensure_anthropic_key(args, console)
     else:
-        console.print("   claude: nothing stored -- your existing `claude` login is used as-is.")
-        path = None
+        path = _ensure_anthropic_key(args, console)
     return [str(path)] if path else []
 
 
@@ -405,7 +401,7 @@ def _model_belongs_to_provider(model_ref_raw: str, provider: str) -> bool:
     every later launch -- targeted OpenRouter through a Databricks setup
     run, which the gate then refused outright (every later launch failed
     "invalid --model")."""
-    prefix = {"databricks": "dbx:", "openrouter": "or:", "anthropic": "ant:", "claude": "cc:"}.get(provider)
+    prefix = {"databricks": "dbx:", "openrouter": "or:", "anthropic": "ant:"}.get(provider)
     if prefix and model_ref_raw.startswith(prefix):
         return True
     if provider == "databricks":
@@ -961,12 +957,11 @@ def _build_parser() -> argparse.ArgumentParser:
                      "Linux setup fixes. Repeat for another provider, then pick the overall default.",
     )
     parser.add_argument("--provider", action="append", choices=list(PROVIDERS), default=None,
-                         metavar="{databricks,openrouter,anthropic,claude}",
+                         metavar="{databricks,openrouter,anthropic}",
                          help="set up this provider non-interactively (repeatable, first-listed first); "
                               "omit for the interactive provider picker")
-    parser.add_argument("--preset", choices=["home", "work", "claude"], default=None,
-                         help="deprecated alias for --provider: home=openrouter, work=databricks, "
-                              "claude=claude")
+    parser.add_argument("--preset", choices=["home", "work"], default=None,
+                         help="deprecated alias for --provider: home=openrouter, work=databricks")
     parser.add_argument("--model", default=None, metavar="REF", help="override the provider's own default model")
     parser.add_argument("--yes", action="store_true", help="accept every default without prompting")
     parser.add_argument("--no-live", action="store_true", help="skip the catalog refresh and the live pong")
@@ -989,14 +984,8 @@ def _run_provider_setup(provider: str, args, console: Console, cwd: Path,
     """Runs ONE provider's whole path: credentials -> checks/catalog
     refresh -> default-model pick -> live pong. Returns `(model_ref_raw,
     written_paths, doctor_lines, pong_ok)`, or `None` when the provider
-    flatly can't be set up right now (today: only `--provider claude`/
-    `--preset claude` with no actual claude.ai login -- a usage/config
-    error the old single-preset flow also rejected outright)."""
+    flatly can't be set up right now."""
     console.print(f"[bold]{PROVIDER_LABEL[provider].split(' -- ', 1)[0]}[/bold]")
-    if provider == "claude" and not claude_login_available():
-        console.print("[red]Claude subscription needs a claude.ai login -- run `claude` once to log in, "
-                       "or pick a different provider.[/red]")
-        return None
     written = _step_credentials(provider, args, console)
     # H15 item 21.1: enabled as soon as credentials/a login actually
     # resolve -- BEFORE the catalog refresh/model-pick/live-pong steps
@@ -1013,11 +1002,11 @@ def _run_provider_setup(provider: str, args, console: Console, cwd: Path,
     # 1.0.1 part 2 fixpass finding 15: `enable_if_was_explicitly_disabled`,
     # never a bare `enable()` -- auto-detection already covers the ordinary
     # case; writing a permanent override here would survive a LATER
-    # revocation (a claude.ai logout, a deleted key) that auto-detection
+    # revocation (a deleted key) that auto-detection
     # alone would otherwise have reflected immediately. Only an existing
     # explicit `enabled: false` (e.g. a previous `providers disable`) gets
     # flipped back to `true` by completing this provider's setup again.
-    if provider_status(provider) in ("configured", "logged in"):
+    if provider_status(provider) == "configured":
         from halo_harness.providers.enablement import enable_if_was_explicitly_disabled
         enable_if_was_explicitly_disabled(provider)
     model_ref_raw, model_path = _step_default_model(provider, args, console, write=write_model)
@@ -1182,23 +1171,6 @@ def cmd_init(argv: list) -> int:
         # see _run_init_wizard_flow's own docstring) -- fall through to
         # the sequential loop below, same "picker failed -> fallback"
         # shape every OTHER interactive picker in this file already uses.
-
-    # 2.0.1 launch-hang fix: `claude_login_available()` (read below by
-    # `_step_select_provider`/`detect_default_provider`, `_run_provider_
-    # setup`'s own "claude" branch, and `configured_providers()`) is now
-    # cache-only -- it never spawns `claude auth status` itself any more.
-    # Only the paths that reach HERE (never the tabs branch above, which
-    # already does its own live check off a worker thread -- see
-    # tui/dialogs/init_tabs.py's `_claude_state_worker`/`_save_claude_
-    # worker`) are a plain console flow with no first paint to protect, so
-    # one explicit, synchronous, best-effort live refresh right here keeps
-    # every one of those reads accurate, exactly like before this fix,
-    # instead of always seeing a cold cache.
-    from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
-    try:
-        refresh_cached_claude_auth_status()
-    except Exception:
-        pass
 
     if interactive_loop:
         while True:

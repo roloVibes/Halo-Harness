@@ -29,21 +29,10 @@ from __future__ import annotations
 
 import os
 
-# Machines without a real `claude` or `codex` on PATH (CI runners, the Linux
-# suite venvs) must still run every test that builds a cc:/cx: argv: those
-# resolve the launcher through HALO_CLAUDE_EXE / HALO_CODEX_EXE first, so
-# point them at the fakes beside this file when nothing else is set. A test
-# that wants "binary missing" semantics sets its own value, as before.
-import shutil as _shutil
-import sys as _sys
-from pathlib import Path as _Path
-_HELPERS = _Path(__file__).resolve().parent
 # (No HALO_CLAUDE_EXE default here: the Claude Code launcher tests in
 # test_bridge.py read that variable as a bare executable path, so a quoted
-# "python fake.py" value broke them on CI. The cc: modules that need the fake
-# set BRIDGE_CLAUDE_EXE themselves.)
-if not os.environ.get("HALO_CODEX_EXE") and not (_shutil.which("codex") or _shutil.which("codex.cmd")):
-    os.environ["HALO_CODEX_EXE"] = '"' + _sys.executable + '" "' + str(_HELPERS / "fake_codex.py") + '"'
+# "python fake.py" value broke them on CI. The connector modules that need
+# the fake claude set BRIDGE_CLAUDE_EXE themselves.)
 import shutil
 import tempfile
 import threading

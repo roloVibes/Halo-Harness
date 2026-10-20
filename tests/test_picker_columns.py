@@ -79,7 +79,7 @@ def test_format_picker_row_sentinels_never_blank(ctx: Ctx):
 def test_format_picker_row_is_the_same_layout_for_every_group_shape(ctx: Ctx):
     """"the same layout in every group" -- the row formatter never
     special-cases a provider; feeding it every group's own real-world
-    shape (OpenRouter, Databricks w/ dbu+detail, cc:, local, xp:) proves
+    shape (OpenRouter, Databricks w/ dbu+detail, ant:, local, xp:) proves
     none of those extra, provider-specific keys change the three-column
     contract."""
     from halo_harness.model_display import format_picker_row
@@ -88,8 +88,8 @@ def test_format_picker_row_is_the_same_layout_for_every_group_shape(ctx: Ctx):
          "provider": "openrouter"},
         {"ref": "dbx:databricks-glm-5-3", "context_tokens": 128000, "dbu": "$0.015/1k", "detail": "glm · mlflow",
          "provider": "databricks"},
-        {"ref": "cc:opus", "price_in_per_m": 4.0, "price_out_per_m": 20.0, "context_tokens": 1_000_000,
-         "detail": "-> claude-opus-5-5", "provider": "cc"},
+        {"ref": "ant:opus", "price_in_per_m": 4.0, "price_out_per_m": 20.0, "context_tokens": 1_000_000,
+         "detail": "-> claude-opus-5-5", "provider": "anthropic"},
         {"ref": "ol:qwen3:30b", "provider": "ollama", "group": "Ollama (default)"},
         {"ref": "xp:space-bunny-alpha", "price_in_per_m": 0, "price_out_per_m": 0, "context_tokens": 1_000_000,
          "speed_ttft_s": 0.9, "speed_tokens_per_second": 55, "provider": "experiential"},

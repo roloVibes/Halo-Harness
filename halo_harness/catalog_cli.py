@@ -27,10 +27,9 @@ from halo_harness.providers.models_dev import fetch_models_dev, models_dev_json_
 def _fmt_price(v) -> str:
     """USD per token -> "$X.XX/M" (per-million-token, the unit every
     provider's own pricing page uses); "?" for anything unparseable.
-    Kept (only) for `--cc`'s own table below, which predates `model_display`
+    Kept (only) for `--ant`'s own table below, which predates `model_display`
     and still wants "?" (not blank) for an unknown value in ITS OWN
-    columns -- `models --cc` is a separate, narrower table this hotfix
-    didn't touch."""
+    columns."""
     try:
         return f"${float(v) * 1_000_000:.2f}/M"
     except (TypeError, ValueError):
@@ -43,47 +42,11 @@ def near_miss_slug(requested: str, known_ids) -> "list[str]":
     return difflib.get_close_matches(requested, list(known_ids), n=5, cutoff=0.5)
 
 
-def _cmd_models_cc(state_dir, *, refresh: bool) -> int:
-    """H11 Part A: `halo models --cc` -- the nine subscription-model
-    alias names, their `cc:`/`ant:` targets, and (when a profile row is
-    known) context/output/pricing. Never touches the credentials file --
-    only `claude auth status` (login line) and, with --refresh, a handful
-    of cheap `-p --max-turns 1` pings (providers.cc_models.
-    refresh_cc_catalog)."""
-    from halo_harness.providers.cc_models import (
-        ANT_ALIASES, CC_ALIASES, claude_auth_status, profile_fields_for_cc_model, refresh_cc_catalog,
-    )
-    status = claude_auth_status()
-    if status is None:
-        print("Claude subscription: claude not found -- cc: models unavailable (install Claude Code)")
-    elif not status.logged_in:
-        print("Claude subscription: claude found but not logged in -- run `claude` once to log in")
-    else:
-        print(f"Claude subscription: logged in ({status.auth_method or 'claude.ai'}) -- cc: models available")
-
-    if refresh:
-        refresh_cc_catalog(state_dir=state_dir)
-        print("(refreshed cc-models.json from live -p pings)\n")
-
-    print(f"{'alias':<12} {'cc: target':<24} {'ant: target':<28} {'context':>10} {'out cap':>9} {'in/M':>9} {'out/M':>9}")
-    for name in CC_ALIASES:
-        cc_target = CC_ALIASES[name]
-        ant_target = ANT_ALIASES.get(name, "")
-        fields = profile_fields_for_cc_model(cc_target) or {}
-        ctx = fields.get("context_tokens", "?")
-        out_cap = fields.get("max_output_tokens", "?")
-        print(f"{name:<12} {cc_target:<24} {ant_target:<28} {str(ctx):>10} {str(out_cap):>9} "
-              f"{_fmt_price(fields.get('price_in')):>9} {_fmt_price(fields.get('price_out')):>9}")
-    return 0
-
-
 def _cmd_models_ant(state_dir, *, refresh: bool) -> int:
     """Halo 2.0.4 round 3 (deliverable 3): `halo models --ant` -- the
-    `ant:` (direct Anthropic API key) counterpart of `_cmd_models_cc`.
-    Unlike `--cc` (a probe over a static nine-name alias table, since
-    `claude` has no "list models" command of its own), `GET /v1/models`
-    IS a real enumeration -- this lists every id the configured key can
-    actually see (`providers.anthropic_catalog`'s own cache,
+    `ant:` (direct Anthropic API key) models. `GET /v1/models` IS a real
+    enumeration -- this lists every id the configured key can actually
+    see (`providers.anthropic_catalog`'s own cache,
     `ant-models.json`), not just the nine pinned aliases, so a model the
     account can reach but this harness never named (a new release, a
     preview) still shows up here the moment a refresh has run. The nine
@@ -97,7 +60,7 @@ def _cmd_models_ant(state_dir, *, refresh: bool) -> int:
     from halo_harness.providers.anthropic_catalog import (
         ant_models_age_seconds, load_ant_models_json, refresh_anthropic_catalog_if_stale,
     )
-    from halo_harness.providers.cc_models import ANT_ALIASES, alias_display_detail, profile_fields_for_cc_model
+    from halo_harness.providers.anthropic_aliases import ANT_ALIASES, alias_display_detail, profile_fields_for_ant_model
     from halo_harness.providers.config import resolve_anthropic
     ant = resolve_anthropic()
     if ant is None:
@@ -122,7 +85,7 @@ def _cmd_models_ant(state_dir, *, refresh: bool) -> int:
     seen_ids = set()
     for name, target in ANT_ALIASES.items():
         seen_ids.add(target)
-        fields = profile_fields_for_cc_model(target) or {}
+        fields = profile_fields_for_ant_model(target) or {}
         ctx = fields.get("context_tokens", "?")
         out_cap = fields.get("max_output_tokens", "?")
         print(f"{name:<12} {alias_display_detail(name):<30} {str(ctx):>10} {str(out_cap):>9} "
@@ -134,42 +97,6 @@ def _cmd_models_ant(state_dir, *, refresh: bool) -> int:
         for model_id in extra_ids:
             display_name = (live.get(model_id) or {}).get("display_name") or ""
             print(f"  {model_id}" + (f"  ({display_name})" if display_name else ""))
-    return 0
-
-
-def _cmd_models_cx(state_dir, *, refresh: bool) -> int:
-    """Round 5i part 2: `halo models --cx` -- the Codex counterpart of
-    `_cmd_models_cc`. Never touches `~/.codex/auth.json` -- only `codex
-    login status` (plain text) and, with --refresh, a handful of cheap
-    `codex exec --ephemeral` one-token pings (providers.codex_models.
-    refresh_cx_catalog)."""
-    from halo_harness.providers.codex_models import (
-        CODEX_ALIASES, codex_login_status, load_cx_models_cache, profile_fields_for_codex_model,
-        refresh_cx_catalog,
-    )
-    status = codex_login_status()
-    if status is None:
-        print("Codex subscription: codex not found -- cx: models unavailable (install Codex CLI)")
-    elif not status.logged_in:
-        print("Codex subscription: codex found but not logged in -- run `codex login` once to log in")
-    elif status.auth_method != "chatgpt":
-        print(f"Codex subscription: logged in via {status.auth_method or 'an unrecognized method'}, not "
-              f"ChatGPT -- cx: will not use this (that's the oai: route)")
-    else:
-        print("Codex subscription: logged in (ChatGPT) -- cx: models available")
-
-    if refresh:
-        refresh_cx_catalog(state_dir=state_dir)
-        print("(refreshed cx-models.json from live codex exec pings)\n")
-    refused = set(load_cx_models_cache(state_dir).get("refused") or [])
-
-    print(f"{'alias':<8} {'cx: target':<16} {'context':>10} {'out cap':>9} {'status':<10}")
-    for alias, model_id in CODEX_ALIASES.items():
-        fields = profile_fields_for_codex_model(alias) or {}
-        ctx = fields.get("context_tokens", "?")
-        out_cap = fields.get("max_output_tokens", "?")
-        tag = "refused" if alias in refused else "ok"
-        print(f"{alias:<8} {model_id:<16} {str(ctx):>10} {str(out_cap):>9} {tag:<10}")
     return 0
 
 
@@ -304,14 +231,6 @@ def cmd_models(argv) -> int:
         return cmd_models_test(list(argv[1:]))
     parser = argparse.ArgumentParser(prog="halo models", add_help=True)
     parser.add_argument("--refresh", action="store_true", help="Re-probe OpenRouter/Databricks instead of using the cache")
-    parser.add_argument("--cc", action="store_true",
-                         help="List the Claude subscription models (cc:/ant: aliases) instead of the "
-                              "OpenRouter/Databricks catalog; with --refresh, re-pings each alias to "
-                              "confirm its current canonical id")
-    parser.add_argument("--cx", action="store_true",
-                         help="List the Codex subscription models (cx: aliases) instead of the "
-                              "OpenRouter/Databricks catalog; with --refresh, re-pings each alias to "
-                              "confirm it is accepted (marks refused ids)")
     parser.add_argument("--ant", action="store_true",
                          help="List the real, reachable Anthropic API models (ant: aliases plus every "
                               "other id the key can see) instead of the OpenRouter/Databricks catalog; "
@@ -358,16 +277,11 @@ def cmd_models(argv) -> int:
         print(f"halo models: forgot learned parameter rules for {cleared} endpoint(s).")
 
     state_dir = bridge_home()
-    if args.cc:
-        return _cmd_models_cc(state_dir, refresh=args.refresh)
-    if args.cx:
-        return _cmd_models_cx(state_dir, refresh=args.refresh)
     if args.ant:
         return _cmd_models_ant(state_dir, refresh=args.refresh)
     # 1.0.1 hotfix 3: bare `halo models` (no --refresh) NEVER touches
     # the network, full stop -- not even "the first time the cache is
-    # empty" (the old behavior here, and still `--cc`'s own documented
-    # first-use exception, which this leaves alone). A DNS/VPN-down box
+    # empty" (the old behavior here). A DNS/VPN-down box
     # must be able to run this to see "nothing cached yet" instantly rather
     # than hanging on an unreachable host it never asked to probe.
     # H15 part 2 addendum 3.2b: `--refresh` refreshes every ENABLED

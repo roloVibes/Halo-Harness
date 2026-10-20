@@ -36,7 +36,7 @@ ROWS = [
     {"ref": "ol:mystery", "provider": "ollama", "context_tokens": 32_000, "price_in_per_m": 0, "price_out_per_m": 0},
     {"ref": "ol:local-eyes", "provider": "ollama", "context_tokens": 32_000, "price_in_per_m": 0, "price_out_per_m": 0,
      "modalities_in": ["text", "image"]},
-    {"ref": "cc:opus", "provider": "cc", "context_tokens": 1_000_000, "price_in_per_m": None, "modalities_in": ["text", "image"]},
+    {"ref": "ant:opus", "provider": "anthropic", "context_tokens": 1_000_000, "price_in_per_m": None, "modalities_in": ["text", "image"]},
     {"ref": "alias-row", "provider": "alias", "target": "or:v/see-all"},
     {"hint": "something"},
 ]

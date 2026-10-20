@@ -51,8 +51,7 @@ def probe_host_reachable(base_url: str, *, connect_timeout: Optional[int] = None
 def provider_base_url(name: str) -> Optional[str]:
     """The host this provider's reachability probe should test -- None for
     a provider with no connect-probe concept of its own (not configured,
-    TypeSafe, or the Claude subscription, which checks `claude auth
-    status` instead -- see `reachability_tag`)."""
+    or TypeSafe -- see `reachability_tag`)."""
     from halo_harness.providers.enablement import canonical
     name = canonical(name)
     if name == "databricks":
@@ -117,28 +116,19 @@ def provider_base_url(name: str) -> Optional[str]:
 def reachability_tag(name: str, *, detected: Optional[bool] = None, connect_timeout: Optional[int] = None) -> str:
     """item 21.5/A.3's three-state tag, as plain text: "reachable",
     "unreachable: <reason>", or "not set up" -- credentials are checked
-    FIRST (never probes a host with nothing configured for it). The Claude
-    subscription "probes" via `claude auth status` (already its own
-    bounded subprocess check -- see `providers.cc_models`) rather than a
-    bare TCP connect, since it has no separate network host of its own (it
-    rides the installed `claude` binary); TypeSafe stores a key only, for
-    a later feature, so it is never probed at all.
+    FIRST (never probes a host with nothing configured for it). TypeSafe
+    stores a key only, for a later feature, so it is never probed at all.
 
     `detected` (1.0.1 part 2 fixpass finding 1): a caller that already
     computed `credentials_present(canon, ...)` itself (`/providers`'s own
     `provider_rows()`) passes it straight through instead of this function
-    re-deriving it a second time (for `claude_subscription`, an extra
-    uncached `claude auth status` spawn). `connect_timeout` (W3b): forwarded
+    re-deriving it a second time. `connect_timeout` (W3b): forwarded
     to `probe_host_reachable` -- see its own docstring."""
     from halo_harness.providers.enablement import canonical, credentials_present
     canon = canonical(name)
     is_detected = credentials_present(canon) if detected is None else detected
     if not is_detected:
         return "not set up"
-    if canon == "claude_subscription":
-        return "reachable"  # credentials_present() already confirmed a real claude.ai login
-    if canon == "codex_subscription":
-        return "reachable"  # credentials_present() already confirmed a real ChatGPT login
     if canon == "typesafe":
         return "not probed (stores a key only, for a later feature)"
     base_url = provider_base_url(canon)

@@ -11,9 +11,9 @@ by the owner -- DBU billing is on the workspace side, part B item 5 --
 always "not offered"), and Anthropic (no balance endpoint for a plain API
 key; an Admin key's organisation usage/cost report when
 `ANTHROPIC_ADMIN_KEY` is configured, else "not offered", part B item 2).
-Every other provider (Hugging Face, OpenAI, Codex, Claude Code
-subscription, Ollama) has no balance concept at all here -- "not
-offered" uniformly, same as Databricks/a keyless Anthropic.
+Every other provider (Hugging Face, OpenAI, Ollama) has no balance
+concept at all here -- "not offered" uniformly, same as Databricks/a
+keyless Anthropic.
 
 Persisted to `<state_dir>/balances.json` so a FRESH process (the `halo
 balances` CLI, `halo doctor`) can show the last known reading instantly,

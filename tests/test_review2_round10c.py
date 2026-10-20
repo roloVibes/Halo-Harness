@@ -154,22 +154,6 @@ def test_f92_history_append_is_private_whole_lines_and_recovers_a_torn_line(ctx:
 # ---- sweep: findings 26 and 31 were still open after round 9 ----------------
 
 @test
-def test_f31_a_lone_surrogate_in_a_tool_result_does_not_kill_the_bridge_write(ctx: Ctx):
-    from halo_harness.ccbridge.server import ToolBridgeServer
-
-    class _Wire:
-        data = b""
-
-        def write(self, chunk):
-            self.data += chunk
-    wire = _Wire()
-    ToolBridgeServer._write(wire, {"id": 1, "result": {"text": "a\ud800b"}})
-    reply = json.loads(wire.data.decode("utf-8"))
-    ctx.check(f"the reply was written with a replacement character, got {reply}",
-              reply["result"]["text"] == "a�b")
-
-
-@test
 def test_f26_fired_jobs_carry_the_marker_and_do_not_arm_schedules(ctx: Ctx):
     from halo_harness import agents_schedule
     from halo_harness.agent.loop import Session

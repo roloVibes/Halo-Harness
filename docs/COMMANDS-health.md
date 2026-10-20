@@ -157,14 +157,14 @@ deep dive" section for the full per-step evidence and the corpus
 directory layout.
 
 Bare `halo doctor` checks: Python version, `~/.claude` layout, the env
-file, OpenRouter/Databricks/Claude-subscription configuration, `claude`/
+file, OpenRouter/Databricks/Experiential configuration, `claude`/
 `node`/`npx`/`rg`/Git Bash on PATH, the Chrome native-messaging host,
 plugin-provided MCP servers, the OS/WSL/Kali platform hint, `~/.local/bin` on
 PATH (Linux), tmux mouse mode (inside tmux), the three cached-catalog ages,
 session count + `/improve` config, clipboard backend, configured MCP servers
 (eager vs. lazy), the resolved default model, how many of the seven
 providers are enabled (`databricks`/`openrouter`/`anthropic`/
-`claude_subscription`/`typesafe`/`huggingface`/`openai` -- see "`halo
+`typesafe`/`huggingface`/`openai`/`experiential` -- see "`halo
 providers`" below), and the `halo` command itself on PATH. Exit 0 unless
 something is `[MISSING]` (a `[WARN]` alone, e.g. "no Databricks
 configured", never fails the command).

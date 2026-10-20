@@ -314,10 +314,8 @@ class AgentRuntime:
     # H11b finding 14: agent_id -> the live child `Session` object, for as
     # long as its own call might still be running -- `run_agent_call`/
     # `_resume_task`/`_bg_run` each register their child here and pop it
-    # in a `finally` that also calls `child.close_cc()`, so a `cc:` child's
-    # own claude subprocess/bridge/socket never outlives its ONE call.
-    # `agent/cc_runtime.py`'s own `close_cc()` ALSO walks this (belt-and-
-    # suspenders: quitting mid-call must not leave one running).
+    # in a `finally` that also calls `child.close_runtimes()`, so nothing a
+    # child keeps running beside its turns outlives its ONE call.
     live_children: dict = field(default_factory=dict)
     # H9 whole-tree review finding 10: ONE semaphore shared by reference
     # down the WHOLE tree from wherever it's first sized for real (`agent.
@@ -1649,7 +1647,7 @@ def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: s
                 child_events = _run_child_to_completion(child, job["prompt"], agent_id=agent_id,
                                                           parent_tool_use_id=tool_id, on_event=on_event)
         finally:
-            child.close_cc()
+            child.close_runtimes()
             runtime.live_children.pop(agent_id, None)
 
         text = _final_text_from_log(child)
@@ -1902,10 +1900,9 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # is empty at this point, so this is just 0.
     since_index = len(child.log.nodes())
     # H11b finding 14: registered before the child's own turn ever runs --
-    # `close_cc()` (this module's `_bg_run`/foreground `finally` below, and
-    # agent/cc_runtime.py's own `close_cc()` walking this on the PARENT's
-    # quit) needs to find it here even if the child's very first turn
-    # never completes normally.
+    # `close_runtimes()` (this module's `_bg_run`/foreground `finally` below)
+    # needs to find it here even if the child's very first turn never
+    # completes normally.
     runtime.live_children[agent_id] = child
     if team_control is not None:
         team_control.tier_claim(agent_id, role_name)  # 3.0.7.0 R1: counts against its tier's max_parallel
@@ -2130,11 +2127,10 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                     parent._pending_agent_notices.append(notice)
                 del child_events  # collected for parity/debuggability only; not forwarded (parent turn has ended)
             finally:
-                # H11b finding 14: this background child's own claude
-                # subprocess/bridge/socket (if it ever used cc:) is closed
-                # THE MOMENT this call ends, not left running until the
-                # whole halo process quits.
-                child.close_cc()
+                # H11b finding 14: whatever this background child keeps
+                # running beside its turns is closed THE MOMENT this call
+                # ends, not left running until the whole halo process quits.
+                child.close_runtimes()
                 runtime.live_children.pop(agent_id, None)
                 if team_control is not None:
                     team_control.tier_release(agent_id)
@@ -2155,12 +2151,12 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
             child_events = _run_child_to_completion(child, prompt, agent_id=agent_id, parent_tool_use_id=tool_id,
                                                      on_event=on_event)
     finally:
-        # H11b finding 14: a foreground child's own claude subprocess/
-        # bridge/socket (if it ever used cc:) is closed the moment its ONE
-        # call ends -- `_build_child_session` builds a brand new one on
+        # H11b finding 14: whatever a foreground child keeps running beside
+        # its turns is closed the moment its ONE call ends --
+        # `_build_child_session` builds a brand new one on
         # every Agent/task_id-resume call, so there is never a reason to
         # keep it alive past this point.
-        child.close_cc()
+        child.close_runtimes()
         runtime.live_children.pop(agent_id, None)
         if team_control is not None:
             team_control.tier_release(agent_id)
@@ -2400,7 +2396,7 @@ def _resume_task_claimed(runtime: AgentRuntime, task_id: str, tool_input: dict, 
             child_events = _run_child_to_completion(child, prompt, agent_id=agent_id, parent_tool_use_id=tool_id,
                                                      on_event=on_event)
     finally:
-        child.close_cc()
+        child.close_runtimes()
         runtime.live_children.pop(agent_id, None)
         # finding 10: reset the in-flight guard the same finally owns.
         with runtime.lock:

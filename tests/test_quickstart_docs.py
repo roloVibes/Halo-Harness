@@ -66,7 +66,7 @@ def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
     the restructure itself is protected."""
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
     # 2.0.11 round A4: the product-page shape.
-    headings = ("## Install", "## What Halo is", "## Your subscription, your call", "## What it feels like",
+    headings = ("## Install", "## What Halo is", "## What it feels like",
                 "## How Halo compares", "## Features", "## Documentation", "## Tests",
                 "## Contributing and security", "## Licence")
     positions = []

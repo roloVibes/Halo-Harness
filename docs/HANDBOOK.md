@@ -59,9 +59,9 @@ halo                         # full-screen TUI
    sub-agent halo spawns on its own, uses that one model. **Full setup**
    walks every step, Back/Skip/Next (Finish on the last step) in the
    footer, nothing exiting to the console in between: **Providers** (one
-   tab each for Databricks/OpenRouter/the Anthropic API/your Claude
-   subscription/Ollama/Hugging Face/TypeSafe -- paste the credential a
-   tab is missing, add a local/LAN host or server where that applies,
+   tab each for Databricks/OpenRouter/the Anthropic API/Ollama/Hugging
+   Face/the OpenAI API/TypeSafe -- paste the credential a tab is
+   missing, add a local/LAN host or server where that applies,
    Save, repeat for another, any tab Skippable); **Default model** (a
    picker across everything just configured); **Permission mode** (`auto`
    recommended); **Theme** (the six built-in themes, with a live preview); **Team**
@@ -89,8 +89,8 @@ halo                         # full-screen TUI
    and press `Enter`.
 3. **`/model`** opens a picker of every model this box can currently reach
    (OpenRouter's cache, Databricks' own discovered endpoints grouped by
-   family, and your subscription's nine names if logged in); pick one, or
-   type `/model or:deepseek/deepseek-v3.2` directly.
+   family, and the `ant:` Claude aliases once `ANTHROPIC_API_KEY` is
+   set); pick one, or type `/model or:deepseek/deepseek-v3.2` directly.
 4. **A tool call with a permission card**: ask for something that edits a
    file (`"add a .gitignore entry for *.log"`). In the default permission
    mode, an `Edit`/`Write` inside your working directory shows a
@@ -244,9 +244,8 @@ Model reference forms:
 | `dbx:databricks-<name>` | `dbx:databricks-kimi-k3` | Databricks, OpenAI-chat dialect |
 | `dbx:system.ai.<name>` | `dbx:system.ai.my_model` | Databricks, OpenAI-chat dialect |
 | any of the above with `claude` in the name | `dbx:databricks-claude-sonnet` | Databricks, raw Anthropic passthrough |
-| `cc:<name>` | `cc:opus`, `cc:sonnet` | Your Claude subscription, via the installed `claude` binary |
 | `ant:<name>` | `ant:opus`, `ant:claude-3-5-haiku` | `api.anthropic.com`, pay-as-you-go (`ANTHROPIC_API_KEY`) |
-| a bare subscription-model name, no prefix | `opus`, `sonnet`, `fable` | `cc:` if logged in and no key is set, else `ant:` if a key is set, else an error |
+| a bare Claude alias, no prefix | `opus`, `sonnet`, `fable` | `ant:` if `ANTHROPIC_API_KEY` is set, else an error |
 
 `--model`/`--small-model` pick the main/background-task model for the
 session; `halo models --refresh` pulls OpenRouter's `/api/v1/models`
@@ -259,97 +258,9 @@ own endpoint list is cached by the same probe. Per-family prompt notation
 call/thinking conventions per model family automatically.
 
 **Local and cloud models added in 2.0.3** -- Ollama (`ol:`), Hugging
-Face (`hf:`), the OpenAI API (`oai:`) and a Codex subscription (`cx:`) --
-aren't in the table above, which predates them; see
+Face (`hf:`) and the OpenAI API (`oai:`) -- aren't in the table above, which predates them; see
 [docs/LOCAL-MODELS.md](LOCAL-MODELS.md) for the end-to-end guide and
 [docs/MODELS.md](MODELS.md) for the exhaustive per-route reference.
-
-### Accepting the subscription-routes notice (`cc:`/`cx:`, 2.0.7 round 7b)
-
-`cc:`/`cx:` are off by default -- a fresh install, and an upgraded one
-that never saw this round before, both start at "not accepted", with no
-migration ever flipping it on. Run `halo subscriptions accept` (or
-`/subscriptions` in the TUI, or just type `/model cc:opus`/`/model
-cx:astra` and accept when the notice opens) to review "Your subscription,
-a third-party harness" -- the facts, both providers' terms, and the
-account-responsibility sentence -- and type `I accept` exactly to turn the
-routes on, once per machine. `halo subscriptions status` prints the
-current state; `halo subscriptions revoke` (or `/subscriptions revoke`)
-turns them back off. See [MODELS-references.md](MODELS-references.md#subscription-routes-consent-halo-207-round-7b)
-for the full text and every surface this gate reaches.
-
-### Claude models with your subscription (`cc:`)
-
-`cc:fable`, `cc:opus`, `cc:opus-5`, `cc:opus-5.0`, `cc:opus-4.8`,
-`cc:opus-4.6`, `cc:sonnet`, `cc:sonnet-5` and `cc:haiku` run on the Claude
-models included in your Claude subscription -- **not** the Anthropic API,
-and halo never touches your Claude Code login to get there.
-`ant:<same names>` reach the same models through `api.anthropic.com`
-pay-as-you-go instead (needs `ANTHROPIC_API_KEY`); a bare name with no
-prefix (`--model opus`) picks whichever of the two is actually available,
-preferring `cc:` when you're logged in and no key is set.
-
-**How it works**: halo never reads, copies or replays Claude Code's
-OAuth credentials (`~/.claude/.credentials.json` is never opened, not even
-to check it exists -- `claude auth status`'s own JSON answers that) and
-never sends them to `api.anthropic.com` itself. Instead it drives the
-`claude` binary you already have installed and logged in, headlessly, as
-the model: one `claude -p --input-format stream-json --output-format
-stream-json ...` subprocess per session, started the first time you use a
-`cc:` model and kept running across turns. halo's own tools (Read,
-Bash, MCP servers, everything) are handed to that subprocess through a
-small local bridge -- Claude Code sees them as one MCP server (`mcp__rolo__
-<Name>`) -- so every `cc:` tool call still goes through halo's OWN
-permissions, hooks, session log and telemetry, exactly like every other
-route. `doctor` shows "Claude subscription: logged in ... -- cc: models
-available" when this is usable; `halo models --cc` lists all nine
-names with their current targets and pricing.
-
-**v2 (2.0.5): the stream-json control channel.** A steer sent mid-turn now
-sends `control_request` `interrupt` first and waits for its own
-`control_response` before sending the steer text as the next message --
-Claude Code cuts the reply already in progress cleanly, the same shape
-every other route's own steer has, instead of queuing behind it; v1's
-"queued for Claude Code" wording is kept only as the fallback for an
-installed version old enough to lack the channel (detected once per
-process, from `system.init`'s own `capabilities` list). A `cc:`->`cc:`
-model change tries a live `set_model` control request first -- the SAME
-subprocess and conversation kept exactly as they were, no restart --
-before falling back to v1's close-and-`--resume` path on anything older
-or unsupported. `/compact` now forwards to Claude Code as a real
-slash command instead of being a no-op: Claude Code answers it locally
-(no model call needed when there isn't enough to summarize yet) and
-halo's transcript shows the same compacting/done/failed line a native
-route's own compaction shows, with Claude Code's own summary when it
-provides one -- halo's own log is never rewritten by this (there is
-nothing to splice: a `cc:` session's log is a complete, passive record,
-never replayed to the child the way `derive_request` replays one for
-every other route). `stats`/`/cost`/the status bar show a `cc:` turn as
-a **subscription turn**, counted and estimated SEPARATELY from real
-spend -- Claude Code's own cumulative-delta figure, explicitly labelled
-an estimate, never folded into `total_cost_usd` and never counted toward
-`--max-budget-usd`. See `docs/harness/CC-CONTROL-CHANNEL.md` for the
-live-verified wire shapes and exactly what's still unverified.
-
-**Still true in v2** (documented limitations that remain, with reasons):
-switching models INTO `cc:` mid-session (or resuming a process that idled
-on another route for a while) still hands the live/new subprocess the
-prior conversation as one capped plain-text summary rather than true
-native history -- doing otherwise would mean halo writing one of Claude
-Code's own session files, which the harness's own rules forbid (see the
-research doc's own section on this); `/clear`, `/fork`, and a `cc:`-away
-model change each still start (or branch, for `/fork`) a genuinely new
-Claude Code conversation. `set_permission_mode` is implemented and
-tested but never actually switches the child's live permission mode --
-this harness's `cc:` child always runs `bypassPermissions` by design
-(halo's own bridge is what gates every tool call), and using
-`set_permission_mode` to change that would re-enable exactly the gating
-the harness exists to keep out of the loop. Claude Code's own tool-call
-loop still drives `cc:`, so a sub-agent's ask gets a real, answerable
-card (live-forwarded from the child) the same way a native tool call's
-does -- but a bridged call still inherits the harness's own loop-breaker
-the same way, so an unusually repetitive bridged tool-call pattern can
-still be denied/end the call the same way it would on any other route.
 
 ### Databricks at work
 
@@ -849,26 +760,8 @@ improve.model or:deepseek/deepseek-v4-flash`.
 
 - No local server/open port in the harness itself for the OpenRouter/
   Databricks/`ant:` routes -- a direct in-process HTTP client, not a proxy
-  something else connects to. (`halo proxy` is one exception, see
-  below, security posture unchanged from `claude-bridge`'s; a `cc:` session
-  is the other -- see just below.)
-- **`cc:` never touches Claude Code's login.** `~/.claude/.credentials.json`
-  is never opened, not even to check it exists (`claude auth status`'s own
-  JSON is the only thing read, and its OAuth token itself is never
-  extracted or forwarded anywhere); that check runs with every
-  `ANTHROPIC_*`/`CLAUDE_CODE_*` variable stripped from its own environment,
-  so an API key or an outer Claude Code session's identity can never make
-  it misreport which login is active. The `claude` subprocess itself (and
-  the MCP child it spawns) gets the same stripped environment, so the
-  subscription login is always what a `cc:` turn actually uses -- doctor
-  and `cc:` refuse to say "available" unless that check's own `authMethod`
-  is `claude.ai`. The local tool bridge a `cc:` session opens (a Unix
-  socket, mode 0600, on POSIX; a TCP loopback socket + a random per-session
-  token on Windows, passed to the `claude` subprocess through its
-  environment, never its command line) only ever talks to the ONE `claude`
-  subprocess THIS session started, on this machine, for this session's
-  lifetime -- closed, along with any of its own sub-agent children's, when
-  the session restarts (`/clear`, `/fork`, a model switch) or ends.
+  something else connects to. (`halo proxy` is the one exception, see
+  below, security posture unchanged from `claude-bridge`'s.)
 - Credentials come from the environment, the settings chain, or
   `~/.databrickscfg`/`ucode-settings.json`; they're never written to the
   repo, a command line, or committed config. `halo --config`-style

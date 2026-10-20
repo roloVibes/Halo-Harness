@@ -296,9 +296,9 @@ def test_bare_tier_falls_back_to_pinned_claude_endpoint_when_default_unset(ctx: 
 
 
 @test
-def test_bare_alias_uses_cc_ant_when_no_databricks_work_env_active(ctx: Ctx):
-    """No ANTHROPIC_MODEL/ANTHROPIC_DEFAULT_*_MODEL at all -- the
-    cc:/ant: subscription route applies exactly as before this milestone."""
+def test_bare_alias_uses_ant_when_no_databricks_work_env_active(ctx: Ctx):
+    """No ANTHROPIC_MODEL/ANTHROPIC_DEFAULT_*_MODEL at all -- the ant:
+    route applies exactly as before this milestone."""
     from halo_harness.providers.config import databricks_work_env_active
     ctx.check("no work env -> False", databricks_work_env_active(env={}) is False)
     ctx.check("no work env (os.environ, nothing set here) -> resolve doesn't crash",

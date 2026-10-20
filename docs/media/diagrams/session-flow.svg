@@ -26,7 +26,7 @@
 <rect x="734" y="100" width="200" height="100" rx="10" fill="#2a2b3d" stroke="#fab387" stroke-width="1.6"/>
 <rect x="734" y="100" width="200" height="6" rx="3" fill="#fab387" opacity="0.9"/>
 <text x="834.0" y="129" font-size="15" fill="#fab387" text-anchor="middle" font-weight="700">Provider route</text>
-<text x="834.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">or: dbx: local: cc: cx: oai:</text>
+<text x="834.0" y="152" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">or: dbx: local: ant: oai:</text>
 <text x="834.0" y="169" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">tool-call repairs</text>
 <text x="834.0" y="186" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">rate limits, failover</text>
 <line x1="154" y1="140" x2="224" y2="140" stroke="#94e2d5" stroke-width="1.8" marker-end="url(#ah-teal)"/>

@@ -7,8 +7,7 @@ Part of [Commands](COMMANDS.md), which lists every part.
 ## `halo init`
 
 One command that sets up a fresh box: **select a provider to set up**
-(Databricks, OpenRouter, Anthropic API, or your Claude subscription --
-1.0.1 hotfix 13 replaced the old home/work/claude "preset" naming a bundle
+(Databricks, OpenRouter or the Anthropic API -- 1.0.1 hotfix 13 replaced the old home/work/claude "preset" naming a bundle
 of choices with a direct provider picker, since "work" was really just
 "Databricks" wearing a confusing label), configure its credentials, pick
 its default model, run `doctor`, refresh the model catalogs, send one live
@@ -97,17 +96,9 @@ illustrative model classes/quantizations that would fit with a 32k
 context -- an estimate, never a download from here. See
 [MODELS.md](MODELS.md)'s "The wizard detects before it asks" section.
 
-**Halo 2.0.3 round 5i**: the Providers step gains two more tabs -- "OpenAI
-API (key)" (paste `OPENAI_API_KEY`, Save) and "Codex subscription" (same
-"Check login" button as the Claude Code tab -- nothing is stored, it only
-confirms a ChatGPT login via `codex login status`) -- both Skippable, same
-pattern as every tab above. A separate step, "Settings sources", shows
-what was found in Claude Code's own settings/CLAUDE.md and in Codex's own
-`config.toml`/`AGENTS.md` chain and lets you pick which one wins when
-both set the same thing and nothing else already decides it
-(`settings.primary`) -- see [MODELS.md](MODELS.md)'s "Codex subscription
-(ChatGPT)" and "Codex settings and instructions" sections and
-[CONFIG.md](CONFIG.md)'s `settings.primary` row.
+**Halo 2.0.3 round 5i**: the Providers step gains an "OpenAI API (key)"
+tab (paste `OPENAI_API_KEY`, Save) -- Skippable, same pattern as every tab
+above; see [MODELS.md](MODELS.md)'s "OpenAI API" section.
 
 ```sh
 halo init --help
@@ -143,9 +134,9 @@ options:
 
 | Flag | Reads/writes | Default |
 |---|---|---|
-| `--provider {databricks,openrouter,anthropic,claude}` | repeatable; each runs its own credentials -> catalog/discovery -> default-model-pick -> live-pong path, in the order given, with no "set up another?" prompt between them | omitted -> the interactive provider picker (arrow keys on a real terminal, a numbered list otherwise), looping until you pick "Done" |
-| `--preset {home,work,claude}` | **deprecated**: a one-line-noticed alias for `--provider openrouter\|databricks\|claude` respectively -- kept so existing scripts/docs using it verbatim keep working | -- |
-| `--model REF` | writes `~/.halo/config.json`'s `model` key, skipping that provider's own model picker entirely | the provider's own default (`or:deepseek/deepseek-v4.1-flash` / `dbx:databricks-deepseek-v4-1-flash` / `ant:sonnet` / `cc:sonnet`) |
+| `--provider {databricks,openrouter,anthropic}` | repeatable; each runs its own credentials -> catalog/discovery -> default-model-pick -> live-pong path, in the order given, with no "set up another?" prompt between them | omitted -> the interactive provider picker (arrow keys on a real terminal, a numbered list otherwise), looping until you pick "Done" |
+| `--preset {home,work}` | **deprecated**: a one-line-noticed alias for `--provider openrouter\|databricks` respectively -- kept so existing scripts/docs using it verbatim keep working | -- |
+| `--model REF` | writes `~/.halo/config.json`'s `model` key, skipping that provider's own model picker entirely | the provider's own default (`or:deepseek/deepseek-v4.1-flash` / `dbx:databricks-deepseek-v4-1-flash` / `ant:sonnet`) |
 | `--yes` | -- | off (interactive prompts; also skips every provider's own model picker) |
 | `--no-live` | skips `models --refresh` and the live pong | off |
 | `--no-fixes` | skips the `rg`/PATH steps (Linux) | off |
@@ -161,11 +152,10 @@ Credentials go to the same env file every other part of the harness reads
 falling back to a pre-2.0.0 `~/.config/vibes-hacker/env` when that's all
 there is -- mode 0600 on POSIX).
 The interactive provider list shows each provider's own status tag
-(`configured`/`logged in`/`not set up`) and starts the cursor on whichever
+(`configured`/`not set up`) and starts the cursor on whichever
 one auto-detection would have picked (an existing `OPENROUTER_API_KEY` ->
 OpenRouter; else a Databricks host/`ucode-settings.json` -> Databricks; else
-an `ANTHROPIC_API_KEY` -> the Anthropic API; else a `claude.ai` login ->
-Claude subscription) -- detection only positions the cursor, it never
+an `ANTHROPIC_API_KEY` -> the Anthropic API) -- detection only positions the cursor, it never
 decides for you. Each provider's own default-model pick (arrow keys, type
 to filter, same `ctx`/`out`/price columns documented under
 [`/model`](SLASH-COMMANDS-session.md#model-ref)) is skipped by `--yes`/`--model`;

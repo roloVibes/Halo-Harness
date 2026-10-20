@@ -1,6 +1,6 @@
 # Architecture: steering, compaction, sub-agents and telemetry
 
-Read this when you change steering and interrupts, compaction, sub-agents and plan mode, the subscription route, or telemetry.
+Read this when you change steering and interrupts, compaction, sub-agents and plan mode, or telemetry.
 
 Part of [Architecture](ARCHITECTURE.md), which lists every part.
 
@@ -103,8 +103,7 @@ unit, never split; any `thinking` block in that tail is stripped, since a
 replayed signature is bound to the exact prefix that produced it, which
 compaction just changed). `/compact [instructions]` runs the identical
 mechanism synchronously; a session with no prior history to summarize is a
-plain no-op. **A `cc:` session's compaction is a real, documented no-op --
-Claude Code manages its own context window**, never a failure.
+plain no-op.
 
 ## Sub-agents and plan mode
 
@@ -173,66 +172,6 @@ planning, with optional free-text feedback borrowed from the prompt input).
 With no reviewer (`-p`), the plan is approved when the mode in force before
 plan mode was entered is `acceptEdits` or `bypassPermissions` (that mode comes
 back); otherwise the plan text is the turn's answer.
-
-## The subscription route and its bridge
-
-`cc:` is not a wire dialect at all -- there is no `CompletionRequest`, no
-`stream_completion`, no `ProviderProfile`. The **first** `cc:` turn in a
-session lazily starts one `claude` subprocess
-(`agent/cc_process.py::build_cc_argv`/`ClaudeCodeProcess`) and keeps it
-running, stdin held open, across every later turn on that route:
-
-```
-claude -p --model <id> --output-format stream-json --input-format stream-json \
-  --verbose --include-partial-messages --replay-user-messages --tools "" \
-  --strict-mcp-config --mcp-config <inline JSON, one server named "rolo"> \
-  --settings '{"disableAllHooks": true}' --permission-mode bypassPermissions \
-  [--resume <id> | --session-id <uuid4>] [--fork-session] \
-  [--append-system-prompt <capped ~3500 chars>] [--max-turns N] [--effort LEVEL]
-```
-
-The session id claude actually uses comes from a **logged `meta` node**
-(`cc_session_id`), read back on every later turn -- not derived
-deterministically from halo's own session id (a `uuid5` helper for
-that exists in the code but is unused dead code; the log is the real
-mechanism, consistent with "model-visible means logged" applying here too).
-A `--resume` that claude itself rejects (a stale/in-use conversation) falls
-back to a fresh `--session-id`, primed with a capped, rendered tail of the
-prior log as one `<conversation-so-far>` message rather than surfacing the
-error.
-
-**Every halo tool is exposed to that subprocess through a small local
-bridge** (`halo_harness/ccbridge/`), as one inline stdio MCP server named
-`"rolo"` -- Claude Code sees every bridged tool as `mcp__rolo__<Name>`. The
-transport is a Unix domain socket at `~/.halo/run/<session>.sock`
-(directory mode 0700, socket mode 0600 -- filesystem permissions are the
-whole authentication) on POSIX, or a TCP loopback socket plus a random
-per-session `secrets.token_hex(16)` token (compared with `hmac.compare_digest`)
-on Windows, where sockets have no filesystem-permission equivalent; either
-way the endpoint reaches the child **only** through its own environment
-variables, never its command line. A `tools/call` on that bridge routes
-straight into `Session._resolve_tool_call`/`_finalize_tool_result` -- the
-literal same methods every other route's tool dispatch uses -- so
-permission decisions, `PreToolUse`/`PermissionRequest`/`PostToolUse` hooks,
-the loop breaker, always-allow rules, and the session log all apply to a
-bridged call exactly as they would anywhere else. A second, dedicated bridge
-connection long-polls for `notifications/tools/list_changed` so a tool
-`ToolSearch` loads mid-session becomes visible to Claude Code without
-restarting it.
-
-A steer sent mid-turn is forwarded to the subprocess's stdin immediately
-(`--replay-user-messages` echoes each stdin line back once claude actually
-*consumes* it -- that echo, not send time, is what the harness logs as
-"applied"); a turn's own `result` event is only treated as the end of the
-turn once every sent-but-unconfirmed line has echoed back, so one `result`
-correctly covers either a steer folded into the reply already in progress or
-a queued follow-up turn. `total_cost_usd` on a `result` is cumulative for
-the whole `claude` process; only the **delta** since the previous turn is
-ever logged/metered, never the raw cumulative figure. Switching the active
-model into `cc:` mid-session (or back out of it) primes/drains the prior
-log as one capped plain-text message rather than true native history;
-`/clear` drops the logged `cc_session_id` (a fresh conversation); `/fork`
-passes `--fork-session` through.
 
 ## Telemetry and `/improve`
 

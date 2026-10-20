@@ -225,141 +225,6 @@ def _check_experiential() -> str:
     return f"{OK} Experiential Labs: key found, gateway reachable (balance endpoint did not answer)"
 
 
-def _check_claude_subscription() -> str:
-    """H11 Part B: `cc:` model availability -- reads ONLY `claude auth
-    status`'s own JSON (providers.cc_models.claude_auth_status), NEVER
-    `~/.claude/.credentials.json` (binding constraint, brief). Optional
-    (the harness's primary models are open-weight via Databricks/
-    OpenRouter): neither "not installed" nor "installed but not logged
-    in" ever fails doctor's overall `ok`. On the Kali VM `claude` lives
-    at `~/.local/bin` -- covered by `mcp_setup.find_claude_exe`'s own
-    PATH-then-~/.local/bin lookup, same as every other `claude` use here.
-
-    H11b finding 23: the version comes from `claude --version` (real
-    `claude auth status` JSON has no version key at all -- verified live:
-    analyticsDisabled, apiProvider, authMethod, configDirectory, email,
-    loggedIn, orgId, orgName, projectsDirectory, subscriptionType -- so
-    the old `status.version` bit never actually printed anything). A
-    timeout gets its own message instead of reading as "not installed".
-    Finding 2: WARNs (never OK) unless `authMethod == "claude.ai"` -- an
-    `api_key` authMethod (an ANTHROPIC_API_KEY visible to `claude auth
-    status`'s own -- now stripped -- environment) means cc: would NOT use
-    the subscription even though `loggedIn` is true.
-
-    2.0.1 launch-hang fix: calls `refresh_cached_claude_auth_status()`
-    (never bare `claude_auth_status()`) -- same live, synchronous spawn
-    `halo doctor` always did here (this check's own timing is unchanged),
-    but it also warms the SAME cache `_check_providers_enabled()` reads
-    later in this same run, so the two checks can never disagree, and it
-    picks up the gateway short-circuit (`is_claude_gateway_driven()`) for
-    free -- the owner's own work-VM repro hung on this exact doctor line
-    too, every time `halo doctor` ran, not just on TUI launch."""
-    from halo_harness.providers.cc_models import (
-        GATEWAY_AUTH_METHOD, SUBSCRIPTION_AUTH_METHODS, refresh_cached_claude_auth_status,
-    )
-    try:
-        status = refresh_cached_claude_auth_status()
-    except Exception as e:  # never let a doctor check crash the whole command
-        return _fix(f"{WARN} Claude subscription: could not check ({type(e).__name__}: {e})",
-                     cmd="halo doctor")
-    if status is None:
-        return _fix(f"{WARN} Claude subscription: claude not found (cc: models unavailable -- install Claude Code)",
-                     see="https://claude.com/claude-code")
-    if getattr(status, "timed_out", False):
-        return _fix(f"{WARN} Claude subscription: `claude auth status` timed out (try again -- cc: models "
-                     f"unavailable for now)", cmd="halo doctor")
-    if status.auth_method == GATEWAY_AUTH_METHOD:
-        return _fix(f"{WARN} Claude subscription: claude is configured for a gateway "
-                     f"(ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN/apiKeyHelper set) -- cc: will not use this "
-                     f"(that's the dbx:/ant: route); expected on a work box, nothing to fix", cmd="halo providers")
-    if not status.logged_in:
-        return _fix(f"{WARN} Claude subscription: claude found but not logged in (run `claude` once to log in "
-                     f"for cc: models)", cmd="claude")
-    version = _claude_version()
-    version_bit = f" via claude {version}" if version else ""
-    if status.auth_method not in SUBSCRIPTION_AUTH_METHODS:
-        via = status.auth_method or "an unrecognized method"
-        return _fix(f"{WARN} Claude subscription: logged in via {via}, not claude.ai{version_bit} -- cc: will "
-                     f"not use this (that's the ant: route); log in with `claude` and no ANTHROPIC_API_KEY set "
-                     f"for cc:", cmd="unset ANTHROPIC_API_KEY && claude")
-    # 2.0.1 W3a: doctor pins the tested Claude Code version range
-    # (providers/cc_tested.json) and WARNs (never fails `ok`) when the
-    # installed claude is NEWER than it -- an older install is never
-    # flagged here (a different, pre-existing kind of compatibility
-    # concern, out of this round's scope).
-    from halo_harness.providers.cc_models import load_cc_tested_range, version_outside_tested_range
-    tested = load_cc_tested_range()
-    if version_outside_tested_range(version, tested=tested):
-        return _fix(f"{WARN} Claude subscription: logged in (claude.ai){version_bit} -- cc: models available, "
-                     f"but this is newer than the tested range ({tested.get('min')}-{tested.get('max')}, "
-                     f"verified {tested.get('date')}) -- watch for behavior changes", cmd="halo doctor")
-    return f"{OK} Claude subscription: logged in (claude.ai){version_bit} -- cc: models available"
-
-
-def _check_codex_subscription() -> str:
-    """Round 5i part 2: `cx:` model availability -- the `codex_models`
-    counterpart of `_check_claude_subscription` just above, reading ONLY
-    `codex login status`'s plain-text answer (CODEX-RESEARCH.md section 1),
-    never `~/.codex/auth.json`. Optional (same reasoning as Claude): never
-    fails doctor's overall `ok` either way."""
-    from halo_harness.providers.codex_models import refresh_cached_codex_auth_status
-    try:
-        status = refresh_cached_codex_auth_status()
-    except Exception as e:
-        return _fix(f"{WARN} Codex subscription: could not check ({type(e).__name__}: {e})", cmd="halo doctor")
-    if status is None:
-        return _fix(f"{WARN} Codex subscription: codex not found (cx: models unavailable -- install Codex CLI)",
-                     see="https://developers.openai.com/codex")
-    if getattr(status, "timed_out", False):
-        return _fix(f"{WARN} Codex subscription: `codex login status` timed out (try again -- cx: models "
-                     f"unavailable for now)", cmd="halo doctor")
-    if not status.logged_in:
-        return _fix(f"{WARN} Codex subscription: codex found but not logged in (run `codex login` once for "
-                     f"cx: models)", cmd="codex login")
-    if status.auth_method != "chatgpt":
-        return _fix(f"{WARN} Codex subscription: logged in via {status.auth_method or 'an unrecognized method'}, "
-                     f"not ChatGPT -- cx: will not use this (an API-key login belongs on the oai: route instead); "
-                     f"run `codex login` and sign in with ChatGPT for cx:", cmd="codex login")
-    return f"{OK} Codex subscription: logged in (ChatGPT) -- cx: models available"
-
-
-def _check_subscription_consent() -> str:
-    """Halo 2.0.7 round 7b: the owner's consent gate -- "subscription
-    routes: off (not accepted)" or "... on (accepted <date>, v<version>)".
-    Never a WARN/fail on its own (an un-accepted machine is the normal,
-    off-by-default state, not a problem to fix) -- always OK, since "off"
-    is a correct, deliberate answer, not a misconfiguration."""
-    from halo_harness.subscription_consent import status_line
-    return f"{OK} {status_line()}"
-
-
-def _check_codex_settings() -> str:
-    """Round 5i part 2: the merged Claude-Code/Codex/Halo settings view's
-    own doctor line -- what was found in each place and which is primary,
-    never a pass/fail gate (there's nothing to fail: Halo reads, never
-    writes, either file). `halo doctor --json`/`/settings` share the same
-    `effective_settings`/`render_settings_text` this calls."""
-    from halo_harness.providers.settings_merge import effective_settings
-    try:
-        view = effective_settings(Path.cwd())
-    except Exception as e:
-        return _fix(f"{WARN} Settings sources: could not check ({type(e).__name__}: {e})", cmd="halo doctor")
-    return (f"{OK} Settings sources: primary={view.primary}; Claude Code instructions "
-            f"{view.claude_instructions_count} file(s); Codex config.toml "
-            f"{'found' if view.codex_config_found else 'not found'}, AGENTS.md chain "
-            f"{view.codex_agents_md_count} file(s) -- see `/settings` for the full merged view")
-
-
-def _claude_version() -> Optional[str]:
-    # 2.0.1 W3a: the real implementation moved to providers.cc_models
-    # (`installed_claude_version`) so `agent/cc_runtime.py`'s own one-shot
-    # "newer than the tested range" notice can call it too, without an
-    # import cycle through this module -- this name/location stays for
-    # every existing caller (and test double) of `doctor._claude_version`.
-    from halo_harness.providers.cc_models import installed_claude_version
-    return installed_claude_version()
-
-
 _CHROME_NATIVE_HOST_ID = "com.anthropic.claude_code_browser_extension"
 # POSIX native-messaging manifest search dirs (Chrome/Chromium/Edge/Brave,
 # per-user) -- [verified doc]: Windows registers a registry key instead
@@ -1186,10 +1051,10 @@ def _provider_configured(ref) -> "tuple[bool, str]":
     """`(is_configured, human_label)` for a `model.ModelRef`'s own
     provider -- shared by `_check_default_model` below; the SAME resolvers
     every other provider-specific check in this module already uses, so
-    this never disagrees with the `OpenRouter:`/`Databricks:`/`Claude
-    subscription:` lines just above it. Never raises -- same "degrade to a
-    clear line" contract as every other check (`_check_openrouter`/
-    `_check_databricks`/`_check_claude_subscription` each guard their own
+    this never disagrees with the `OpenRouter:`/`Databricks:` lines
+    just above it. Never raises -- same "degrade to a clear line" contract
+    as every other check (`_check_openrouter`/`_check_databricks` each
+    guard their own
     resolver call the same way; this one guards all of them at once since
     it calls whichever ONE actually applies to `ref.provider`)."""
     _load_env_file_best_effort()
@@ -1203,16 +1068,6 @@ def _provider_configured(ref) -> "tuple[bool, str]":
         if ref.provider == "anthropic":
             from halo_harness.providers.config import resolve_anthropic
             return resolve_anthropic() is not None, "ANTHROPIC_API_KEY"
-        if ref.provider == "cc":
-            from halo_harness.providers.cc_models import SUBSCRIPTION_AUTH_METHODS, claude_auth_status
-            status = claude_auth_status()
-            ok = bool(status and status.logged_in and status.auth_method in SUBSCRIPTION_AUTH_METHODS)
-            return ok, "Claude subscription"
-        if ref.provider == "codex":
-            from halo_harness.providers.codex_models import codex_login_status
-            status = codex_login_status()
-            ok = bool(status and status.logged_in and status.auth_method == "chatgpt")
-            return ok, "Codex subscription"
     except Exception as e:
         return False, f"could not check ({type(e).__name__}: {e})"
     return True, ref.provider
@@ -1847,10 +1702,6 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("openrouter", _check_openrouter()))
     entries.append(("databricks", _check_databricks()))
     entries.append(("experiential", _check_experiential()))
-    entries.append(("claude_subscription", _check_claude_subscription()))
-    entries.append(("codex_subscription", _check_codex_subscription()))
-    entries.append(("subscription_consent", _check_subscription_consent()))
-    entries.append(("codex_settings", _check_codex_settings()))
     entries.append(("chrome", _check_chrome()))
     entries.append(("playwright", _check_playwright()))
     entries.append(("ripgrep", _check_ripgrep()))

@@ -428,12 +428,7 @@ class ProvidersStep(StepScreen):
         self._team_cfg, self._team_cfg_pending = self._load_team_cfg_fast()
         self._state_cache: "dict[str, dict]" = {
             p: tab_credential_state(p, team_cfg=self._team_cfg) for p in TAB_PROVIDERS
-            if p not in ("claude", "codex")
         }
-        self._state_cache["claude"] = {"configured": False, "source": None, "masked": None,
-                                        "known_host": None, "fields": []}
-        self._state_cache["codex"] = {"configured": False, "source": None, "masked": None,
-                                        "known_host": None, "fields": []}
 
     def _load_team_cfg_fast(self):
         from halo_harness.team_config import load_team_config, team_config_path
@@ -473,28 +468,12 @@ class ProvidersStep(StepScreen):
             # (every field/button below renders immediately) either way.
             yield Static("detecting what's already on this machine…", id=f"wiz-{provider}-detect",
                         classes="tab-help")
-        status_text = "checking…" if provider in ("claude", "codex") else _pv_status_text(provider, state=state)
+        status_text = _pv_status_text(provider, state=state)
         yield Static(status_text, id=f"wiz-{provider}-status", classes="tab-status")
         for f in state["fields"]:
             prefill = state.get("known_host") or "" if f["name"] == "host" else ""
             yield Input(value=prefill, placeholder=f["label"], password=f["secret"],
                         id=f"wiz-{provider}-field-{f['name']}")
-        if provider == "claude":
-            yield Static("Uses your existing `claude` login as-is -- nothing is stored here.", classes="tab-help")
-        if provider == "codex":
-            yield Static("Uses your existing `codex` ChatGPT login as-is -- nothing is stored here; an "
-                         "API-key login belongs on the OpenAI API (key) tab instead.", classes="tab-help")
-        if provider in ("claude", "codex"):
-            # Halo 2.0.7 round 7b: the owner's consent gate for cc:/cx: --
-            # shown here (one status line + one key to open the real
-            # notice) since a login alone no longer offers the route.
-            from halo_harness.subscription_consent import status_line
-            yield Static(status_line(), id=f"wiz-{provider}-subs-status", classes="tab-help")
-            yield Button("Review subscription notice", id=f"wiz-{provider}-subs-notice")
-        if provider == "settings_sources":
-            yield Static("What halo found in Claude Code's and Codex's own settings/instruction files, "
-                         "merged into one view (`/settings`, `halo doctor`). Pick which one wins when they "
-                         "disagree and halo's own config doesn't already decide it.", classes="tab-help")
         if provider == "ollama":
             yield Static("Leave every field blank and Save to register the local daemon at its default "
                          "address; fill in a URL to add a LAN or cloud host instead. Running local servers "
@@ -505,8 +484,8 @@ class ProvidersStep(StepScreen):
                          "A local server on a default port (llama.cpp, vLLM, LM Studio, ...) is found "
                          "automatically by /local with none of this.", classes="tab-help")
         if provider == "openai":
-            yield Static("Paste OPENAI_API_KEY to use the real OpenAI API directly (oai: models) -- "
-                         "separate from a Codex subscription login.", classes="tab-help")
+            yield Static("Paste OPENAI_API_KEY to use the real OpenAI API directly (oai: models).",
+                         classes="tab-help")
         if provider == "typesafe":
             yield Static("Stores TYPESAFE_API_KEY only -- for a later feature, no routed models yet.",
                          classes="tab-help")
@@ -515,20 +494,17 @@ class ProvidersStep(StepScreen):
                          "Labs gateway (xp: models) -- its catalog, credits balance and model prices come "
                          "from this same key; the separate provisioning key is never asked for here.",
                          classes="tab-help")
-        label = "Check login" if provider in ("claude", "codex") else "Save"
-        yield Button(label, id=f"wiz-{provider}-save", variant="primary")
+        yield Button("Save", id=f"wiz-{provider}-save", variant="primary")
         reach = "reachability: skipped (--no-live)" if self.state.no_live else "reachability: checking…"
         yield Static(reach, id=f"wiz-{provider}-reach", classes="tab-reach")
 
     def on_mount(self) -> None:
         if self._team_cfg_pending:
             guarded_worker(self, self._team_cfg_worker, thread=True, name="wiz-init-team-config")
-        guarded_worker(self, self._claude_state_worker, thread=True, name="wiz-init-tab-claude-state")
-        guarded_worker(self, self._codex_state_worker, thread=True, name="wiz-init-tab-codex-state")
         if self.state.no_live:
             return
         for provider in TAB_PROVIDERS:
-            if provider not in ("claude", "codex") and self._state_cache[provider]["configured"]:
+            if self._state_cache[provider]["configured"]:
                 guarded_worker(self, lambda p=provider: self._probe_worker(p), thread=True, name=f"wiz-init-probe-{provider}")
         if "ollama" in TAB_PROVIDERS or "huggingface" in TAB_PROVIDERS:
             guarded_worker(self, self._detect_local_worker, thread=True, name="wiz-init-detect-local")
@@ -571,48 +547,6 @@ class ProvidersStep(StepScreen):
                 host_input.value = state["known_host"]
         except Exception:
             pass
-
-    def _claude_state_worker(self) -> None:
-        from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
-        refresh_cached_claude_auth_status()
-        state = tab_credential_state("claude", team_cfg=self._team_cfg)
-        from halo_harness.providers.reachability import reachability_tag
-        reach_text = f"reachability: {reachability_tag('claude', detected=state['configured'])}"
-        self.app.call_from_thread(self._apply_claude_state, state, reach_text)
-
-    def _apply_claude_state(self, state: dict, reach_text: str) -> None:
-        self._state_cache["claude"] = state
-        try:
-            self.query_one("#wiz-claude-status", Static).update(_pv_status_text("claude", state=state))
-        except Exception:
-            pass
-        if not self.state.no_live:
-            try:
-                self.query_one("#wiz-claude-reach", Static).update(reach_text)
-            except Exception:
-                pass
-
-    def _codex_state_worker(self) -> None:
-        """The `codex` tab's own counterpart of `_claude_state_worker` --
-        same reasoning, substituting `codex_models`."""
-        from halo_harness.providers.codex_models import refresh_cached_codex_auth_status
-        refresh_cached_codex_auth_status()
-        state = tab_credential_state("codex", team_cfg=self._team_cfg)
-        from halo_harness.providers.reachability import reachability_tag
-        reach_text = f"reachability: {reachability_tag('codex', detected=state['configured'])}"
-        self.app.call_from_thread(self._apply_codex_state, state, reach_text)
-
-    def _apply_codex_state(self, state: dict, reach_text: str) -> None:
-        self._state_cache["codex"] = state
-        try:
-            self.query_one("#wiz-codex-status", Static).update(_pv_status_text("codex", state=state))
-        except Exception:
-            pass
-        if not self.state.no_live:
-            try:
-                self.query_one("#wiz-codex-reach", Static).update(reach_text)
-            except Exception:
-                pass
 
     def action_prev_tab(self) -> None:
         tabs = self.query_one(TabbedContent)
@@ -668,34 +602,12 @@ class ProvidersStep(StepScreen):
         bid = event.button.id or ""
         if bid.endswith("-save"):
             self._save(bid[len("wiz-"):-len("-save")])
-        elif bid.endswith("-subs-notice"):
-            self._open_subscription_notice(bid[len("wiz-"):-len("-subs-notice")])
-
-    def _open_subscription_notice(self, provider: str) -> None:
-        from halo_harness.tui.dialogs.subscription_notice import SubscriptionNoticeScreen
-
-        def _after(accepted: bool) -> None:
-            if accepted:
-                from halo_harness.subscription_consent import record_acceptance, status_line
-                record_acceptance()
-                try:
-                    self.query_one(f"#wiz-{provider}-subs-status", Static).update(status_line())
-                except Exception:
-                    pass
-
-        self.app.push_screen(SubscriptionNoticeScreen(), _after)
 
     def _collect_values(self, provider: str) -> dict:
         state = self._state_cache[provider]
         return {f["name"]: self._field_value(provider, f["name"]) for f in state["fields"]}
 
     def _save(self, provider: str) -> None:
-        if provider == "claude":
-            guarded_worker(self, self._save_claude_worker, thread=True, name="wiz-save-claude")
-            return
-        if provider == "codex":
-            guarded_worker(self, self._save_codex_worker, thread=True, name="wiz-save-codex")
-            return
         from halo_harness.init_providers import save_tab_credentials
         values = self._collect_values(provider)
         ok, message = save_tab_credentials(provider, values, team_cfg=self._team_cfg)
@@ -724,76 +636,6 @@ class ProvidersStep(StepScreen):
         except Exception:
             pass
         guarded_worker(self, lambda: self._finish_tab_worker(provider), thread=True, name=f"wiz-finish-tab-{provider}")
-
-    def _save_claude_worker(self) -> None:
-        from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
-        from halo_harness.init_providers import save_tab_credentials, tab_credential_state
-        refresh_cached_claude_auth_status()
-        ok, message = save_tab_credentials("claude", {}, team_cfg=self._team_cfg)
-        state = tab_credential_state("claude", team_cfg=self._team_cfg) if ok else None
-        self.app.call_from_thread(self._apply_claude_save, ok, message, state)
-
-    def _apply_claude_save(self, ok: bool, message: str, state: Optional[dict]) -> None:
-        try:
-            status = self.query_one("#wiz-claude-status", Static)
-        except Exception:
-            return
-        if not ok:
-            status.update(f"not set up ({message})")
-            return
-        from halo_harness.providers.enablement import enable_if_was_explicitly_disabled
-        enable_if_was_explicitly_disabled("claude")
-        if "claude" not in self.state.configured_this_run:
-            self.state.configured_this_run.append("claude")
-        self._state_cache["claude"] = state
-        status.update(_pv_status_text("claude", state=state))
-        if self.state.no_live:
-            try:
-                self.query_one("#wiz-claude-reach", Static).update("reachability: skipped (--no-live)")
-            except Exception:
-                pass
-            return
-        try:
-            self.query_one("#wiz-claude-reach", Static).update("reachability: checking…")
-        except Exception:
-            pass
-        guarded_worker(self, lambda: self._finish_tab_worker("claude"), thread=True, name="wiz-finish-tab-claude")
-
-    def _save_codex_worker(self) -> None:
-        """The `codex` tab's own counterpart of `_save_claude_worker` --
-        same reasoning, substituting `codex_models`."""
-        from halo_harness.providers.codex_models import refresh_cached_codex_auth_status
-        from halo_harness.init_providers import save_tab_credentials, tab_credential_state
-        refresh_cached_codex_auth_status()
-        ok, message = save_tab_credentials("codex", {}, team_cfg=self._team_cfg)
-        state = tab_credential_state("codex", team_cfg=self._team_cfg) if ok else None
-        self.app.call_from_thread(self._apply_codex_save, ok, message, state)
-
-    def _apply_codex_save(self, ok: bool, message: str, state: Optional[dict]) -> None:
-        try:
-            status = self.query_one("#wiz-codex-status", Static)
-        except Exception:
-            return
-        if not ok:
-            status.update(f"not set up ({message})")
-            return
-        from halo_harness.providers.enablement import enable_if_was_explicitly_disabled
-        enable_if_was_explicitly_disabled("codex")
-        if "codex" not in self.state.configured_this_run:
-            self.state.configured_this_run.append("codex")
-        self._state_cache["codex"] = state
-        status.update(_pv_status_text("codex", state=state))
-        if self.state.no_live:
-            try:
-                self.query_one("#wiz-codex-reach", Static).update("reachability: skipped (--no-live)")
-            except Exception:
-                pass
-            return
-        try:
-            self.query_one("#wiz-codex-reach", Static).update("reachability: checking…")
-        except Exception:
-            pass
-        guarded_worker(self, lambda: self._finish_tab_worker("codex"), thread=True, name="wiz-finish-tab-codex")
 
     def _probe_worker(self, provider: str) -> None:
         from halo_harness.providers.reachability import reachability_tag
