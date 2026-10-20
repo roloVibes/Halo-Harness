@@ -1,7 +1,7 @@
 """halo_harness.remote.control_socket -- the per-session control socket
 (Halo 2.0.9 round 2). The server side of the wire in `remote/protocol.py`.
 
-Transport (copied from `ccbridge/server.py`):
+Transport:
 
 * POSIX: a Unix socket `~/.halo/run/<session_id>.ctl`, mode 0600, run dir
   0700 -- filesystem permissions are the auth.

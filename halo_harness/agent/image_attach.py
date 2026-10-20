@@ -5,9 +5,8 @@ this harness needs, plus the reverse direction.
 
   * a WIRE block: a real Anthropic-shaped `{"type": "image", "source":
     {"type": "base64", ...}}`, used immediately for the CURRENT turn's live
-    request (cc:/cx: consume this directly; every other dialect gets it
-    indirectly once `rehydrate_messages` below expands the log's own
-    path-only block back out).
+    request (every dialect gets it indirectly once `rehydrate_messages`
+    below expands the log's own path-only block back out).
   * a LOG block: the SAME image, minus the base64 bytes -- `image_path`
     (plus `media_type`/`width`/`height` for a caption/chip) is what
     actually reaches `~/.halo/sessions/.../<id>.jsonl`. `agent/loop.py`'s

@@ -1,7 +1,7 @@
 """tests.test_remote_registry -- Halo 2.0.9 round 2: `~/.halo/run/sessions.json`
 (atomic write, dead-pid sweep, connect-probe sweep, title and mode refresh,
-`halo remote sessions`), and that the `cc:` bridge's `*.sock` files are left
-alone.
+`halo remote sessions`), and that other files in the run dir (a stray
+`*.sock` an older Halo left, `local-servers.json`) are left alone.
 """
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ def test_dead_pid_and_dead_endpoint_are_swept(ctx: Ctx):
 
 
 @test
-def test_cc_bridge_sock_files_are_untouched(ctx: Ctx):
+def test_other_run_dir_files_are_untouched(ctx: Ctx):
     from halo_harness.remote import registry
     from halo_harness.remote.control_socket import run_dir
     with _Home():
@@ -128,7 +128,7 @@ def test_cc_bridge_sock_files_are_untouched(ctx: Ctx):
         registry.register(_entry("x", _Listener().endpoint))
         registry.list_live()
         registry.sweep_stale_ctl(d)
-        ctx.check("the cc: bridge's *.sock and local-servers.json survive the registry sweep",
+        ctx.check("a stray *.sock and local-servers.json survive the registry sweep",
                   cc.exists() and local.exists())
 
 

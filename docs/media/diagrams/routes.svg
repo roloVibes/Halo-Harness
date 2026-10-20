@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" width="960" height="470" role="img" aria-labelledby="t d" font-family="'Fira Code','DejaVu Sans Mono',Consolas,Menlo,monospace">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" width="960" height="400" role="img" aria-labelledby="t d" font-family="'Fira Code','DejaVu Sans Mono',Consolas,Menlo,monospace">
 <title id="t">Routes: one session across providers</title>
-<desc id="d">Six route prefixes (or, dbx, local, cc, cx, oai) all feed one Halo session that reads the user's existing Claude Code setup.</desc>
+<desc id="d">Five route prefixes (or, dbx, local, ant, oai) all feed one Halo session that reads the user's existing Claude Code setup.</desc>
 <defs><marker id="ah-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#89b4fa"/></marker><marker id="ah-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#a6e3a1"/></marker><marker id="ah-yellow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f9e2af"/></marker><marker id="ah-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f38ba8"/></marker><marker id="ah-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#94e2d5"/></marker><marker id="ah-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#fab387"/></marker><marker id="ah-mauve" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#cba6f7"/></marker><marker id="ah-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9399b2"/></marker></defs>
-<rect width="960" height="470" rx="16" fill="#1e1e2e"/>
+<rect width="960" height="400" rx="16" fill="#1e1e2e"/>
 <text x="24" y="38" font-size="22" fill="#cdd6f4" text-anchor="start" font-weight="700">One session, any route</text>
 <text x="24" y="60" font-size="12" fill="#9399b2" text-anchor="start" font-weight="400">/model swaps the lane; the history, tools and rules come with you</text>
 <rect x="24" y="92" width="330" height="42" rx="21.0" fill="#313244" stroke="#89b4fa" stroke-width="1.4"/>
@@ -18,17 +18,13 @@
 <text x="338" y="234.0" font-size="11" fill="#9399b2" text-anchor="end" font-weight="400">Ollama, HF, local servers</text>
 <line x1="354" y1="229" x2="430" y2="196" stroke="#a6e3a1" stroke-width="1.8" marker-end="url(#ah-green)"/>
 <rect x="24" y="266" width="330" height="42" rx="21.0" fill="#313244" stroke="#cba6f7" stroke-width="1.4"/>
-<text x="40" y="292.0" font-size="14" fill="#cba6f7" text-anchor="start" font-weight="700">cc:</text>
-<text x="338" y="292.0" font-size="11" fill="#9399b2" text-anchor="end" font-weight="400">your Claude Code subscription</text>
+<text x="40" y="292.0" font-size="14" fill="#cba6f7" text-anchor="start" font-weight="700">ant:</text>
+<text x="338" y="292.0" font-size="11" fill="#9399b2" text-anchor="end" font-weight="400">Anthropic API (key)</text>
 <line x1="354" y1="287" x2="430" y2="210" stroke="#cba6f7" stroke-width="1.8" marker-end="url(#ah-mauve)"/>
-<rect x="24" y="324" width="330" height="42" rx="21.0" fill="#313244" stroke="#94e2d5" stroke-width="1.4"/>
-<text x="40" y="350.0" font-size="14" fill="#94e2d5" text-anchor="start" font-weight="700">cx:</text>
-<text x="338" y="350.0" font-size="11" fill="#9399b2" text-anchor="end" font-weight="400">your Codex subscription</text>
-<line x1="354" y1="345" x2="430" y2="224" stroke="#94e2d5" stroke-width="1.8" marker-end="url(#ah-teal)"/>
-<rect x="24" y="382" width="330" height="42" rx="21.0" fill="#313244" stroke="#f9e2af" stroke-width="1.4"/>
-<text x="40" y="408.0" font-size="14" fill="#f9e2af" text-anchor="start" font-weight="700">oai:</text>
-<text x="338" y="408.0" font-size="11" fill="#9399b2" text-anchor="end" font-weight="400">OpenAI API</text>
-<line x1="354" y1="403" x2="430" y2="238" stroke="#f9e2af" stroke-width="1.8" marker-end="url(#ah-yellow)"/>
+<rect x="24" y="324" width="330" height="42" rx="21.0" fill="#313244" stroke="#f9e2af" stroke-width="1.4"/>
+<text x="40" y="350.0" font-size="14" fill="#f9e2af" text-anchor="start" font-weight="700">oai:</text>
+<text x="338" y="350.0" font-size="11" fill="#9399b2" text-anchor="end" font-weight="400">OpenAI API</text>
+<line x1="354" y1="345" x2="430" y2="224" stroke="#f9e2af" stroke-width="1.8" marker-end="url(#ah-yellow)"/>
 <rect x="430" y="150" width="250" height="160" rx="10" fill="#2a2b3d" stroke="#cba6f7" stroke-width="1.6"/>
 <rect x="430" y="150" width="250" height="6" rx="3" fill="#cba6f7" opacity="0.9"/>
 <text x="555.0" y="179" font-size="15" fill="#cba6f7" text-anchor="middle" font-weight="700">Halo session</text>
@@ -48,6 +44,4 @@
 <text x="835.0" y="240" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">MCP servers</text>
 <text x="835.0" y="257" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">memory</text>
 <text x="835.0" y="274" font-size="12" fill="#cdd6f4" text-anchor="middle" font-weight="400">nothing configured twice</text>
-<rect x="24" y="424" width="910" height="32" rx="10" fill="none" stroke="#9399b2" stroke-width="1.4" stroke-dasharray="3 5"/>
-<text x="479.0" y="448" font-size="12" fill="#9399b2" text-anchor="middle" font-weight="700">a subscription route (cc:, cx:) stays off until you accept a one-time notice</text>
 </svg>

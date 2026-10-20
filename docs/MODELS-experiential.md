@@ -97,7 +97,7 @@ own Experiential Labs dashboard.
 compatible shape) on every `xp:` call that goes through either request
 builder (the OpenAI-shaped chat/Responses dialect and the Anthropic-
 shaped `/v1/messages` dialect for a Claude slug alike) -- never on a bare
-`ant:`/Databricks-Claude-passthrough/`cc:` body, which has no business
+`ant:`/Databricks-Claude-passthrough body, which has no business
 carrying this field at all. Off by default, so an existing session's
 request body is byte-identical to before this key existed. The gateway
 answers `x-gateway-zdr: true` on a response actually served under the

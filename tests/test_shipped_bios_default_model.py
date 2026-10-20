@@ -33,7 +33,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 
-CLOUD = ("or:", "dbx:", "xp:", "cc:", "hf:", "anthropic/", "openrouter")
+CLOUD = ("or:", "dbx:", "xp:", "ant:", "hf:", "anthropic/", "openrouter")
 
 
 def _names_a_cloud(ref) -> bool:

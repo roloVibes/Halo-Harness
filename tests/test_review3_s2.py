@@ -1,11 +1,11 @@
 """tests.test_review3_s2 -- pins for the 3.0.1.0 review fix pass, round
-S-subagents-teams (part 2): review items 54, 123, 124, 125.
+S-subagents-teams (part 2): review items 54, 123, 125 (item 124 pinned the
+cc:/cx: scrub, removed in 3.1.5.0).
 
   * 54   a team bundle's bios are validated before anything is written, a
          bio named like a shipped one is reported as shadowing it, and a
          hand-edited bio with a non-mapping section never crashes a lineup
   * 123  a failed task_id resume leaves the original run's outcome alone
-  * 124  the cc:/cx: scrub touches only model-valued keys and keeps CRLF
   * 125  a role-table value no spawn can resolve runs on the session model
          (the same answer /roles gives) and assign_role refuses to write it
 """
@@ -150,47 +150,6 @@ def test_123_a_failed_resume_does_not_rewrite_the_original_meta(ctx: Ctx):
                   meta.get("is_error") is False and meta.get("finished") == 1.0)
         ctx.check(f"the failed attempt is recorded beside it, got {meta}",
                   "no such model" in str(meta.get("last_resume_error")) and meta.get("last_resume_at"))
-
-
-# ---- 124: the scrub rewrites model keys only, keeps line endings -------------
-
-
-@test
-def test_124_scrub_leaves_prose_urls_and_crlf_alone(ctx: Ctx):
-    from halo_harness.subscription_scrub import scrub_files, scrub_text
-    text = ("name: b\r\ndescription: Section cx:2; see https://wiki.cx:8443/x\r\n"
-            "models:\r\n  preference: cc:opus  # main\r\n  fallback:\r\n    - cx:gpt-5\r\n"
-            "context:\r\n  system_prompt: |\r\n    Never run cx:deploy.\r\n    model: cc:opus here\r\n"
-            "escalation: {to: cx:gpt-5}\r\n")
-    new, changes = scrub_text(text)
-    ctx.check(f"three model refs move, got {changes}", len(changes) == 3)
-    ctx.check("prose and the URL are untouched",
-              "Section cx:2; see https://wiki.cx:8443/x" in new and "Never run cx:deploy." in new
-              and "model: cc:opus here" in new)
-    ctx.check("model keys are rewritten", "preference: or:anthropic/claude-opus-5.5  # main" in new
-              and "- or:openai/gpt-5" in new and "{to: or:openai/gpt-5}" in new)
-    ctx.check("every line keeps its CRLF", new.count("\r\n") == text.count("\r\n") and "\n" not in new.replace("\r\n", ""))
-    ctx.check("a trailing full stop is never part of a ref",
-              scrub_text("model: cc:opus.\n")[0] == "model: or:anthropic/claude-opus-5.5.\n")
-    state = Path(tempfile.mkdtemp(prefix="r3s-scrub-"))
-    (state / "agents").mkdir()
-    path = state / "agents" / "crlf.yaml"
-    path.write_bytes(b"name: crlf\r\nmodels:\r\n  preference: cc:opus\r\n")
-    done = scrub_files(state_dir=state)
-    ctx.check(f"the file is rewritten in place with CRLF kept, got {path.read_bytes()!r}",
-              done and path.read_bytes() == b"name: crlf\r\nmodels:\r\n  preference: or:anthropic/claude-opus-5.5\r\n")
-
-
-@test
-def test_124_listing_lineups_reports_what_the_scrub_rewrote(ctx: Ctx):
-    from halo_harness.teams_yaml import ensure_builtin_team_templates
-    state = Path(tempfile.mkdtemp(prefix="r3s-list-"))
-    (state / "agents").mkdir()
-    (state / "agents" / "sub.yaml").write_text("name: sub\nmodels:\n  preference: cc:opus\n", encoding="utf-8")
-    lines = ensure_builtin_team_templates(state_dir=state)
-    ctx.check(f"one line names the rewritten file, got {lines}",
-              len(lines) == 1 and "sub.yaml" in lines[0] and "cc:opus" in lines[0])
-    ctx.check("a second listing in the same process says nothing", ensure_builtin_team_templates(state_dir=state) == [])
 
 
 # ---- 125: an unresolvable role-table value -----------------------------------

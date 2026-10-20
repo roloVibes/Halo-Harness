@@ -15,8 +15,8 @@ Written atomically (temp file + `os.replace` through
 `privateio.write_private_atomic`) under the `filelock.py` best-effort lock,
 so two halo processes registering at once keep both entries. `list_live`
 drops (and removes from the file) entries whose pid is gone or whose
-endpoint refuses a connect probe -- the same self-healing idea as the `cc:`
-bridge's stale `*.sock` sweep, which this module never touches.
+endpoint refuses a connect probe, so a crashed process never leaves a
+stale row behind.
 """
 
 from __future__ import annotations

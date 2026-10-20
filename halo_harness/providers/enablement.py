@@ -1,8 +1,7 @@
 """halo_harness.providers.enablement -- H15 item 21, REPLACED by the H15
 part 2 addendum (rolo, live use on his personal Mac, same day): detected
-credentials/a real claude.ai login now AUTO-enable a provider -- the
-"never run init, the harness already finds the available keys and
-subscription and uses those" case. The `"providers"` block in config.json
+credentials now AUTO-enable a provider -- the "never run init, the harness
+already finds the available keys and uses those" case. The `"providers"` block in config.json
 stores OVERRIDES only: an explicit `"enabled"` key (true OR false) always
 wins over auto-detection; a provider the block doesn't mention at all (or
 no block yet) falls through to `credentials_present` (the exact same
@@ -12,11 +11,7 @@ already compute).
 Exact per-provider detection rule (`credentials_present` below):
 OpenRouter/Anthropic API (key)/TypeSafe are auto-enabled once their key is
 found (env file, shell env, settings env chain); Databricks once a host
-AND token are found (same sources, plus `~/.databrickscfg`); Claude Code
-subscription (`cc:`) ONLY when `claude auth status` reports `loggedIn` with
-`authMethod` exactly `"claude.ai"` -- a `claude` driven by an API token or
-a custom base URL (a work box's own settings-driven login) never auto-
-enables it, loggedIn or not.
+AND token are found (same sources, plus `~/.databrickscfg`).
 
 Stored at `~/.halo/config.json`'s own `"providers"` key:
 `{"<name>": {"enabled": bool, ...non-secret settings}}` -- secrets stay in
@@ -39,39 +34,34 @@ from typing import Optional
 # joins this table while "ollama" still deliberately does not. Round 5i
 # part 1: "openai" joins the same way, for the same reason (the brief:
 # "same should be... in the model list with what models they can use").
-PROVIDER_NAMES = ("databricks", "openrouter", "anthropic", "claude_subscription", "codex_subscription",
-                   "typesafe", "huggingface", "openai", "experiential")
+PROVIDER_NAMES = ("databricks", "openrouter", "anthropic", "typesafe", "huggingface", "openai", "experiential")
 
 LABELS = {
     "databricks": "Databricks",
     "openrouter": "OpenRouter",
     "anthropic": "Anthropic API (key)",
-    "claude_subscription": "Claude Code subscription",
-    "codex_subscription": "Codex subscription (ChatGPT)",
     "typesafe": "TypeSafe",
     "huggingface": "Hugging Face",
     "openai": "OpenAI API (key)",
     "experiential": "Experiential Labs",
 }
 
-# item 21.6: the `dbx:`/`or:`/`ant:`/`cc:` prefix table -- also in
+# item 21.6: the `dbx:`/`or:`/`ant:`/... prefix table -- also in
 # docs/MODELS.md. TypeSafe has no routed models yet ("stores a key only,
 # for a later feature"), so it has no prefix of its own.
 PREFIXES = {
     "databricks": "dbx:", "openrouter": "or:", "anthropic": "ant:",
-    "claude_subscription": "cc:", "typesafe": None, "huggingface": "hf:",
-    "openai": "oai:", "codex_subscription": "cx:", "experiential": "xp:",
+    "typesafe": None, "huggingface": "hf:",
+    "openai": "oai:", "experiential": "xp:",
 }
 
-# A caller naturally has `ModelRef.provider` ("cc"), `init_providers.py`'s
-# own picker/tab key ("claude"), or a bare prefix word -- every function
+# A caller naturally has `ModelRef.provider`, `init_providers.py`'s own
+# picker/tab key, or a bare prefix word -- every function
 # below runs the name through this first so none of them have to agree on
 # one spelling.
 _ALIASES = {
-    "cc": "claude_subscription", "claude": "claude_subscription",
     "dbx": "databricks", "or": "openrouter", "ant": "anthropic",
     "hf": "huggingface", "oai": "openai",
-    "cx": "codex_subscription", "codex": "codex_subscription",
     "xp": "experiential",
 }
 
@@ -86,9 +76,8 @@ def label_for(name: str) -> str:
 
 def label_with_prefix(name: str) -> str:
     """Halo 2.0.4 round 3 (deliverable 6 / the old G5: "picker and
-    `/providers` group labels are `Claude Code subscription (cc:)`,
-    `Anthropic API key (ant:)`, `Databricks (dbx:)`, `OpenRouter (or:)`,
-    `OpenAI API key (oai:)` and the Codex label with its prefix; the
+    `/providers` group labels are `Anthropic API key (ant:)`,
+    `Databricks (dbx:)`, `OpenRouter (or:)`, `OpenAI API key (oai:)`; the
     prefix follows the label in parentheses everywhere a group is
     named") -- `label_for(name)` plus its own `PREFIXES` entry in
     parentheses, e.g. `"OpenRouter (or:)"`; the bare label (no trailing
@@ -124,8 +113,7 @@ def is_enabled(name: str, *, state_dir=None, detected: Optional[bool] = None) ->
     `detected` (1.0.1 part 2 fixpass finding 1): a caller that already
     computed `credentials_present(name, ...)` itself (most importantly
     `/providers`'s own `provider_rows()`, which otherwise re-derived it up
-    to 5-6 times per row -- for `claude_subscription` specifically, each an
-    UNCACHED `claude auth status` spawn) passes the result straight through
+    to 5-6 times per row) passes the result straight through
     here instead of this function silently re-deriving it a second time."""
     name = canonical(name)
     block = _providers_block(state_dir)
@@ -154,14 +142,7 @@ def enablement_display(name: str, *, state_dir=None, detected: Optional[bool] = 
     """`"auto (detected from <source>)"` / `"disabled by you"` / `"enabled
     by you"` / `"not set up"` -- the exact wording `/providers`/`halo
     providers` show per provider. `detected`: see `is_enabled`'s own
-    docstring.
-
-    2.0.1 gateway rule: a `claude_subscription` row that's `"not set up"`
-    gets one extra clause, `"(claude is configured for a gateway)"`,
-    whenever `cc_models.is_claude_gateway_driven()` says so -- the owner's
-    own work-VM case, where `claude` is deliberately wired to Databricks
-    and will NEVER report a real claude.ai login, so plain "not set up"
-    (indistinguishable from "just never logged in") would be misleading."""
+    docstring."""
     name = canonical(name)
     status = enablement_status(name, state_dir=state_dir, detected=detected)
     if status == "auto":
@@ -171,10 +152,6 @@ def enablement_display(name: str, *, state_dir=None, detected: Optional[bool] = 
     if status == "enabled_by_user":
         source = credentials_source(name, detected=detected)
         return f"enabled by you (detected from {source})" if source else "enabled by you"
-    if name == "claude_subscription":
-        from halo_harness.providers.cc_models import is_claude_gateway_driven
-        if is_claude_gateway_driven():
-            return "not set up (claude is configured for a gateway)"
     return "not set up"
 
 
@@ -209,7 +186,7 @@ def enable_if_was_explicitly_disabled(name: str) -> None:
     reasoning `ensure_providers_migrated`'s own docstring already gives for
     never writing one proactively). Writing one here unconditionally meant
     a provider stayed "enabled by you" forever afterward, surviving even a
-    LATER revocation (a claude.ai logout, a deleted key) that auto-
+    LATER revocation (a deleted key) that auto-
     detection alone would otherwise have reflected immediately. A no-op
     when there's no override at all, or an already-`true` one -- `enable()`
     itself (the explicit `halo providers enable <name>`/`/providers
@@ -231,13 +208,9 @@ def is_provider_disabled_message(name: str, *, state_dir=None) -> Optional[str]:
     (the overwhelming common case -- most boxes never run `providers
     disable`) ALWAYS resolves here, regardless of whether credentials are
     even present yet. This used to fall through to live auto-detection
-    (`credentials_present`, an uncached `claude auth status` spawn for
-    `claude_subscription`) and, for that one provider specifically, a
-    `_preflight_cc()` call for an even more specific message -- both
-    removed: "not configured"/"not logged in" are the TURN-time
-    preflight's own job now (`agent.cc_runtime._preflight_cc`, the
-    credential resolution in `headless.build_session`/`_resolve_creds`),
-    which already produce the precise message once a turn actually runs,
+    (`credentials_present`) -- removed: "not configured" is the TURN-time
+    job now (the credential resolution in
+    `headless.build_session`/`_resolve_creds`), which already produces the precise message once a turn actually runs,
     with no loss of detail -- just surfaced at the right time instead of
     speculatively, 1-3x per `/model` open, sub-agent spawn or `-p`
     startup, every one of them paying up to a 10s subprocess timeout for a
@@ -289,14 +262,6 @@ def credentials_present(name: str, env: Optional[dict] = None) -> bool:
     if name == "anthropic":
         from halo_harness.providers.config import resolve_anthropic
         return resolve_anthropic(env) is not None
-    if name == "claude_subscription":
-        from halo_harness.init_providers import claude_login_available
-        return claude_login_available()
-    if name == "codex_subscription":
-        # Round 5i part 2: same cache-only reasoning as claude_subscription
-        # just above -- never spawns `codex login status` itself.
-        from halo_harness.providers.codex_models import codex_login_available
-        return codex_login_available()
     if name == "huggingface":
         # 2.0.3 round 4 brief item 3: "HF_TOKEN present OR at least one
         # endpoint configured" -- either source alone is enough (a user who
@@ -373,10 +338,6 @@ def credentials_source(name: str, *, detected: Optional[bool] = None) -> Optiona
     if name == "databricks":
         from halo_harness.providers.config import resolve_databricks_source
         return resolve_databricks_source() or "env"
-    if name == "claude_subscription":
-        return "claude.ai login"
-    if name == "codex_subscription":
-        return "ChatGPT login"
     if name == "typesafe":
         return "env"
     return "env file / shell env"
@@ -390,6 +351,5 @@ def ensure_providers_migrated() -> Optional[str]:
     one-time migration used to have to write once -- there is nothing left
     to migrate, and writing an `"enabled": true` row for a detected
     provider would wrongly turn it into a permanent override that then
-    ignores a LATER change in detection (a revoked key, a logged-out
-    `claude`). Always returns None (nothing to print)."""
+    ignores a LATER change in detection (a revoked key). Always returns None (nothing to print)."""
     return None

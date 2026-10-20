@@ -152,7 +152,7 @@ def check_active_team(*, cwd=None, state_dir=None) -> "list[str]":
 def _model_family(ref: str) -> "str | None":
     """The rough model family of a ref -- the part after the route prefix,
     lowercased up to the first digit run (e.g. `or:z-ai/glm-5.3` ->
-    `glm`, `cc:sonnet` -> `sonnet`, `ol:qwen3-coder:30b@lan` -> `qwen`,
+    `glm`, `ant:sonnet` -> `sonnet`, `ol:qwen3-coder:30b@lan` -> `qwen`,
     `or:deepseek/deepseek-v4-pro` -> `deepseek`). Used ONLY for the
     self-preference-bias heuristic (judge in the same family as coder);
     a coarse bucket, never a claim about identity."""

@@ -59,7 +59,7 @@ def mark(phase: str) -> None:
 
 
 def reset() -> None:
-    """Test seam: clear state between tests (mirrors `cc_models.reset_
+    """Test seam: clear state between tests (mirrors `claude_auth.reset_
     cached_claude_auth_status`'s own convention)."""
     global _enabled, _t0
     _enabled = False

@@ -17,7 +17,7 @@ halo_harness/            the package
   headless.py             -p print mode / the shared session builder
   controller.py            the TUI's glue between BridgeApp and Session
   agent/                   the session loop, log, derive/prune, compaction,
-                           sub-agents, plan mode, the cc: bridge, jobs
+                           sub-agents, plan mode, jobs
   providers/               per-provider HTTP, compat profiles, model_table.json
   tools/                   built-in tools (Read/Write/Edit/Bash/...)
   mcp/                     the MCP client (stdio/http/sse), lazy start, cache
@@ -25,7 +25,6 @@ halo_harness/            the package
   commands/                slash-command registry, custom commands, skills
   tui/                     the Textual app, widgets, dialogs, dispatch
   improve/                 /improve: evidence clustering, drafting, apply
-  ccbridge/                the cc: subprocess's own MCP tool bridge (child side)
   studio/                  `halo studio`: the server, the JSON routes (one
                            `*_api.py` per area), the React shell in ui/
   fleet/                   the hub, the relay, the panels, missions
@@ -51,8 +50,8 @@ python test_bridge.py; echo exit=$?        # the claude-bridge proxy's own black
 ```
 
 All three use mock upstreams throughout (`tests/helpers/mock_openai.py`,
-`mock_anthropic.py`, `mock_databricks.py`, `fake_claude_cc.py` for the `cc:`
-route, `fake_mcp_server.py`) -- no live network call happens as part of a
+`mock_anthropic.py`, `mock_databricks.py`, `fake_claude_cc.py` for the
+claude.ai connectors bridge, `fake_mcp_server.py`) -- no live network call happens as part of a
 normal run. `tests/run_all.py` discovers every `tests/test_*.py` module
 automatically (`tests/helpers/runner.py`'s `new_registry()`/`@test`
 pattern -- see any existing `test_*.py` file for the shape a new one
@@ -288,10 +287,11 @@ part. A test that reads a split doc reads `tests/helpers/doc_parts.py`'s
   pays for (or crashes on) an import that assumes a binary/module that
   doesn't exist there.
 - **No secrets in a child process's environment**: any subprocess this
-  harness spawns (Bash, PowerShell, an MCP stdio server, a hook, the `cc:`
-  `claude` subprocess) gets `providers/config.py::tool_child_env()` (strips
-  the env-file's own keys plus the fixed provider-secret list) or, for the
-  `cc:` route specifically, `cc_child_env()` (additionally strips every
+  harness spawns (Bash, PowerShell, an MCP stdio server, a hook, the
+  connectors bridge's `claude` subprocess) gets `providers/config.py::
+  tool_child_env()` (strips the env-file's own keys plus the fixed
+  provider-secret list) or, for a `claude` child,
+  `mcp/claude_process.py::claude_child_env()` (additionally strips every
   `ANTHROPIC_*`/`CLAUDE_CODE_*`/`CLAUDE*` variable) -- never a raw
   `os.environ` passthrough.
 - **Never write a Claude Code file** outside the one documented exception

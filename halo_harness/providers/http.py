@@ -19,7 +19,6 @@ Databricks posts, call_anthropic_native) goes through
 `governed_upstream()`, which paces per gateway host, reports the outcome
 to the shared bucket, and owns the 429/overload retry ladder for
 governed routes (the agent loop's own ladder stops retrying those).
-`cc:`/`cx:` drive a CLI child, not HTTP: not governed.
 """
 
 from __future__ import annotations

@@ -164,38 +164,6 @@ entirely.
   servers) and `hooks/hooks.json` (hooks), with `${CLAUDE_PLUGIN_ROOT}`
   expanded to that plugin's own install directory.
 
-## Codex CLI files -- read only, never written
-
-Halo 2.0.3 round 5i part 2 (`providers/codex_settings.py`,
-`providers/settings_merge.py`). Read for `/settings`/`halo doctor`'s
-`codex_settings` line/the init wizard's "Settings sources" step only --
-never consulted when building a request for any OTHER route, and a
-`cx:` session's actual execution reads these files itself (Codex loads
-its own config/AGENTS.md the moment `codex exec` starts, same as Claude
-Code does for a `cc:` session), so there is nothing to feed it from here
-either.
-
-- **`config.toml`**: `$CODEX_HOME/config.toml` (`CODEX_HOME` defaults to
-  `~/.codex`), with `<project-root>/.codex/config.toml` layered over it
-  for a trusted project. Parsed by a small hand-rolled reader (this repo
-  ships no TOML dependency) that handles plain `key = value` scalars and
-  `[table]`/`[table.sub]` headers -- enough for the documented keys
-  (`model`, `model_provider`, `model_reasoning_effort`, `approval_policy`,
-  `sandbox_mode`, `mcp_servers.<name>`, `profiles.<name>`,
-  `shell_environment_policy`, `notify`, `history`), not a full TOML
-  implementation; an unparseable line is skipped, never raised.
-- **`AGENTS.md` chain**: `$CODEX_HOME/AGENTS.override.md` else
-  `$CODEX_HOME/AGENTS.md` (global, first non-empty wins), then the SAME
-  override-or-plain rule walked from the git repository root down to the
-  working directory, concatenated root-to-leaf, capped at
-  `project_doc_max_bytes` (32 KiB default). A DIFFERENT walk than Halo's
-  own CLAUDE.md/AGENTS.md loader (`config/claude_md.py`, a filesystem-root
-  walk with no git-root concept) -- kept as its own, separate reader since
-  the two rules genuinely differ; see `docs/MODELS.md`'s "Codex settings
-  and instructions" section.
-- **`.codex/config.toml`**: a project's own scoped config (MCP servers,
-  mainly), read the same way as the home one and layered over it.
-
 ## halo's own files
 
 None of these are read by Claude Code; nothing here is ever confused with
@@ -208,7 +176,7 @@ the files above.
 | `~/.halo/learned-rules.json` | per-endpoint learned facts, keyed `"<provider>:<model>"`: `tools_rejected` (24h TTL), `reasoning_effort_with_tools`, `ignored_params` (the `xp:` gateway's disclosed-ignored-parameters header), `mcp_fix`, and `params` (Halo 2.0.5: `{"<field>": {"action": "drop"\|"clamp", "value", "error", "date"}}`, one entry per request field a live 400/422 proved this endpoint rejects -- 30-day TTL; `halo rules`/`/rules` lists these, `halo rules --forget <endpoint>`/`halo models refresh --forget-rules` clear them; see `docs/COMMANDS.md`) |
 | `~/.halo/sessions/<project-slug>/<id>.jsonl` | one append-only session log per session (see `docs/ARCHITECTURE.md`) |
 | `~/.halo/sessions/<project-slug>/index.json` | per-session title/first-prompt/turns/cost, for `/resume`'s picker and `-r <text>` |
-| `~/.halo/models.json`, `dbx-endpoints.json`, `models-dev.json`, `cc-models.json` | cached model catalogs (`docs/MODELS.md`) |
+| `~/.halo/models.json`, `dbx-endpoints.json`, `models-dev.json`, `ant-models.json` | cached model catalogs (`docs/MODELS.md`) |
 | `~/.halo/ollama-capabilities.json` | the `ol:` capability probe's durable cache, keyed by model digest (`docs/MODELS.md`'s "Ollama" section) -- the `/api/tags`+`/api/show` catalog itself is cached in memory only, short TTL, never written to disk |
 | `~/.halo/stats-cache.json` | telemetry aggregation cache, keyed by (path, size, mtime) |
 | `~/.halo/mcp/tools-cache/<server>.json`, `~/.halo/mcp/<server>.log` | a lazy MCP server's cached tool list, and its stderr |
@@ -299,7 +267,6 @@ directly by the features that own them:
 | `huggingface.model_dirs` | unset (nothing scanned) | `/local add <path>`/`/local forget <path>` (persisted immediately), `halo init`'s "Local models" step, or hand-edited; a list of folder paths Halo scans recursively for `.gguf` files and safetensors/MLX model folders -- see `docs/MODELS.md`'s "Finding and using file-backed models" |
 | `huggingface.preferred_runtime` | unset (Halo picks the only valid runtime per file format: `llama-server` for `.gguf`, `mlx_lm` for safetensors/MLX on Apple Silicon) | `halo init`'s "Local models" step; `"llama-server"` or `"mlx_lm"` -- a `halo local serve --runtime` flag always wins over this; stored for a future round where the same file could genuinely be served more than one way |
 | `openai.dialect_overrides` | unset (the built-in table alone: `gpt-6-astra`/`gpt-6.1-sol` default to the Responses dialect, every other `oai:` id to chat completions) | `halo config set openai.dialect_overrides '{"gpt-5": "responses"}'`; a map of bare `oai:` model id to `"chat"`/`"responses"` -- always wins over the table, in either direction; see `docs/MODELS.md`'s "OpenAI API" section |
-| `settings.primary` | `"claude"` | `/settings primary claude\|codex`, `halo config set settings.primary codex`, or the init wizard's "Settings sources" step; which of Claude Code's or Codex's own setting wins the merged `/settings`/doctor view when BOTH are set and halo's own config and a live `cx:` session don't already decide it -- see `docs/MODELS.md`'s "Codex settings and instructions" section |
 | `experiential.dialect_overrides` | unset (every `xp:` slug uses chat completions by default; no static required-dialect table) | `halo config set experiential.dialect_overrides '{"some-slug": "responses"}'`; same shape as `openai.dialect_overrides`, always wins over the default either direction; see `docs/MODELS.md`'s "Experiential Labs" section |
 | `experiential.tool_search` | `false` | `halo config set experiential.tool_search true`; opts into the gateway's `openrouter:tool_search`/`defer_loading` wire convention for Halo's own already-deferred tools on `xp:` routes -- off by default until a live check confirms the shape |
 | `experiential.routing.allow_fallbacks` | unset (the gateway's own default, effectively `true`) | `halo config set experiential.routing.allow_fallbacks false`; sent as `gateway.routing.allow_fallbacks` on every `xp:` request once set |
@@ -307,7 +274,7 @@ directly by the features that own them:
 | `experiential.retry.max_attempts_per_route` | `1` (always sent -- Halo's own outer retry loop is the outer layer already) | `halo config set experiential.retry.max_attempts_per_route 2` |
 | `experiential.retry.max_total_attempts` | unset (the gateway's own default) | `halo config set experiential.retry.max_total_attempts 4` |
 | `experiential.retry.backoff` | unset (the gateway's own operator policy -- "omitting it keeps the existing policy" is a real, documented choice) | hand-edited; `{"type": "exponential", "base_delay_ms": ..., "max_delay_ms": ..., "multiplier": ...}` or `{"type": "none"}` |
-| `experiential.zdr` | `false` | `halo config set experiential.zdr true`; Halo 2.0.4 round 5 -- adds `"provider": {"zdr": true}` to every `xp:` request body (both the chat/Responses dialect and the Anthropic-shaped dialect for a Claude slug), demanding zero-data-retention routing for each one; never touches a bare `ant:`/Databricks-Claude-passthrough/`cc:` body; see `docs/MODELS.md`'s "Zero data retention" note under "Experiential Labs" |
+| `experiential.zdr` | `false` | `halo config set experiential.zdr true`; Halo 2.0.4 round 5 -- adds `"provider": {"zdr": true}` to every `xp:` request body (both the chat/Responses dialect and the Anthropic-shaped dialect for a Claude slug), demanding zero-data-retention routing for each one; never touches a bare `ant:`/Databricks-Claude-passthrough body; see `docs/MODELS.md`'s "Zero data retention" note under "Experiential Labs" |
 
 ## Every environment variable
 
@@ -336,7 +303,7 @@ good, with no `HALO_` twin, since the test suites depend on the exact name.
 | `HALO_ENV_FILE` (legacy `BRIDGE_ENV_FILE`) | path to the `KEY=value` env file (default `~/.config/halo/env`; the legacy `~/.config/vibes-hacker/env` fallback read was removed in 2.0.5 round 3 -- `halo init`'s one-time copy-forward is the migration) |
 | `BRIDGE_STATE_DIR` | this harness's own state directory (default `~/.halo`; a test-only-style seam that keeps its bare `BRIDGE_` name for good -- see the note above) |
 | `BRIDGE_TEST_HOME` | test/scratch seam: overrides `home()` everywhere (`~/.claude`, `~/.halo`, ...) -- never set this for real use |
-| `HALO_CLAUDE_EXE` (legacy `BRIDGE_CLAUDE_EXE`) | override how the `claude` binary is launched (`cc:` route, `--chrome`) |
+| `HALO_CLAUDE_EXE` (legacy `BRIDGE_CLAUDE_EXE`) | override how the `claude` binary is launched (the claude.ai connectors bridge, `--chrome`) |
 | `HALO_DUMP=1` (legacy `BRIDGE_DUMP=1`) | dump raw request/response JSON for debugging (proxy mode) |
 | `HALO_CA_BUNDLE` (legacy `BRIDGE_CA_BUNDLE`) | a custom CA bundle path, tried after `NODE_EXTRA_CA_CERTS`/`REQUESTS_CA_BUNDLE` |
 | `HALO_INPUT_TRACE` | Windows only: a file to which the TUI appends every raw console input batch and what the parser was given (3.1.3.0), for diagnosing stray mouse-report text in the prompt from the terminal's own records |
@@ -381,12 +348,11 @@ deprecated alias for `--provider openrouter|databricks|claude` respectively
 | `openrouter` | `or:deepseek/deepseek-v4.1-flash` | `OPENROUTER_API_KEY` |
 | `databricks` | `dbx:databricks-deepseek-v4-1-flash` | `DATABRICKS_HOST` + `DATABRICKS_TOKEN` (host often already known -- see `docs/DATABRICKS.md`) |
 | `anthropic` | `ant:sonnet` | `ANTHROPIC_API_KEY` |
-| `claude` | `cc:sonnet` | none -- uses your existing `claude` login as-is |
 
-Ollama, Hugging Face, OpenAI API (key), Codex subscription and
-Experiential Labs each get their own tab in `halo init`'s INTERACTIVE
+Ollama, Hugging Face, OpenAI API (key) and Experiential Labs each get
+their own tab in `halo init`'s INTERACTIVE
 Providers step (Halo 2.0.3 round 5 for Ollama/Hugging Face, round 5i for
-OpenAI/Codex, Halo 2.0.4 round 2 for Experiential Labs --
+OpenAI, Halo 2.0.4 round 2 for Experiential Labs --
 `init_providers.TAB_PROVIDERS`). `halo setup`/`/setup` never reach a
 Providers step at all (their own step list is `roles`/`summary`
 only -- see `docs/COMMANDS.md`'s `setup` section), so none of these tabs
@@ -394,14 +360,13 @@ appear there; only `halo init` itself shows them. None of these is a
 `halo init --provider`/`--preset` CLI-flag CHOICE, though, and that's
 deliberate: that flag drives the OLDER sequential, non-interactive
 picker, which has no sensible single hardcoded default model for any of
-them (unlike the four providers in the table above, which always have
+them (unlike the three providers in the table above, which always have
 one well-known catalog entry) -- the same reason that picker's own
 no-TTY/Textual-failure fallback never offers any of these tabs. Configure
 `HF_TOKEN`/`huggingface.endpoints`/`huggingface.local_servers`/
 `ollama.hosts`/`OPENAI_API_KEY`/`EXPLABS_API_KEY` directly instead on a
-non-interactive box, or run `codex login` directly for Codex (see
-`docs/MODELS.md`'s "Ollama"/"Hugging Face"/"OpenAI API"/"Codex
-subscription"/"Experiential Labs" sections). The
+non-interactive box (see `docs/MODELS.md`'s "Ollama"/"Hugging
+Face"/"OpenAI API"/"Experiential Labs" sections). The
 wizard's
 own "Local models" step (round 5c, right after the Providers step) is
 the SAME kind of interactive-only addition -- `huggingface.model_dirs`/
@@ -470,9 +435,7 @@ the same gate before it is ever followed.
 Covers update checks (including the update command's own `git ls-remote`
 fast path, never only its API fallback), catalog refreshes, the Hugging
 Face router, OpenRouter, Databricks, Anthropic, the WebFetch/WebSearch
-tools, every `cc:`/`cx:` turn and their one-shot small/judge/title calls
-(refused outright -- there is no local fallback for a cloud subscription
-route), `halo models --cx --refresh`'s codex pings, `--plugin-url`'s `git
+tools, `--plugin-url`'s `git
 clone`, and `hf:mlx`'s first-use model download. `halo update`'s apply
 step (the actual reinstall, not just `--check`) returns an error result
 instead of running `git pull`/`uv tool install`/`pip install --upgrade`.
@@ -554,8 +517,8 @@ breakdown; the status bar appends "· saved $x" to the cost segment. See
   `mcpServers` keys, precisely mirroring what `claude mcp add`/`remove`
   itself writes.
 - `~/.claude/.credentials.json` -- **never opened at all**, not even to
-  check it exists. The `cc:`/`ant:` subscription check reads only
-  `claude auth status`'s own JSON output.
+  check it exists. The claude.ai connectors bridge's login check reads
+  only `claude auth status`'s own JSON output.
 - A provider API key or Databricks token is never written into a session
   log, a cache file, or a `doctor`/`--config`/`stats` line -- `redact()`
   keeps the first four characters and elides the rest; `halo export

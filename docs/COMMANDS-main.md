@@ -51,7 +51,7 @@ models --refresh`) and something close matches:
 halo -p --model not-a-real-model-ref "hi"
 ```
 ```
-halo: invalid --model: no route: 'not-a-real-model-ref' (accepted forms are dbx:, or:, ant:, cc:, vendor/model, a bare databricks-*/system.ai.* name, a subscription-model alias, or a routes.json alias)
+halo: invalid --model: no route: 'not-a-real-model-ref' (accepted forms are dbx:, or:, ant:, oai:, xp:, ol:, hf:, vendor/model, a bare databricks-*/system.ai.* name, a Claude alias such as sonnet, or a routes.json alias)
 ```
 
 Exit codes across every route: `0` success, `1` the turn ran and ended in an

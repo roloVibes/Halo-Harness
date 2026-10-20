@@ -48,7 +48,7 @@ def test_model_family_buckets(ctx: Ctx):
         "or:z-ai/glm-5.3": "glm", "or:z-ai/glm-5.3-flash": "glm",
         "ol:qwen3-coder:30b@lan": "qwen", "or:qwen/qwen3.8-flash": "qwen",
         "or:deepseek/deepseek-v4-pro-0813": "deepseek", "or:deepseek/deepseek-v4-flash": "deepseek",
-        "cc:sonnet": "sonnet", "cc:opus": "opus",
+        "ant:sonnet": "sonnet", "ant:opus": "opus",
         "or:mock/model": "model", "dbx:databricks-claude-4-5": "databricks-claude",
     }
     for ref, want in cases.items():

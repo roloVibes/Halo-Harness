@@ -7,7 +7,8 @@ checked as mappings; what sits inside them is read by that feature, which
 falls back to its default on a value it does not understand.
 
 `REMOVED_SECTIONS` are sections of a feature that is gone (Org and
-Paperclip, 3.1.4.0): a config.json that still has one loads as before and
+Paperclip, 3.1.4.0; the cc:/cx: routes' `subscription_routes` and
+`settings`, 3.1.5.0): a config.json that still has one loads as before and
 the section is ignored; `halo doctor --config` names it in one line
 (`removed_line`).
 """
@@ -49,9 +50,10 @@ _SCALARS = {
 
 _SECTIONS = ("agents", "clipboard", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
              "governor", "huggingface", "improve", "local", "network", "ollama", "openai",
-             "providers", "remote", "roles", "routing", "settings", "steer", "subscription_routes", "update",
+             "providers", "remote", "roles", "routing", "steer", "update",
              "worktree")
-REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0"}
+REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0",
+                    "settings": "3.1.5.0", "subscription_routes": "3.1.5.0"}
 
 
 def removed_line(section: str) -> str:

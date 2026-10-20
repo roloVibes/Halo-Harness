@@ -72,7 +72,7 @@ def test_compute_session_stats_roles_and_units(ctx: Ctx):
          "agent_id": "a1", "role": "worker", "bio": "implementer", "ok": True},
         {"type": "usage", "usage": {"input_tokens": 100, "output_tokens": 50}, "cost_usd": 0.50,
          "agent_id": "a2", "role": "worker", "bio": "implementer", "ok": False},
-        # a cc:-route estimate under main: subscription lane, not real spend
+        # an estimate-marked node (written by sessions before 3.1.5.0): a call, never spend
         {"type": "usage", "usage": {"input_tokens": 1, "output_tokens": 1}, "cost_usd": 0.30,
          "estimate": True, "role": "main"},
     ]
@@ -80,11 +80,10 @@ def test_compute_session_stats_roles_and_units(ctx: Ctx):
     pr = stats.get("per_role") or {}
     ctx.check(f"both roles appear, got {sorted(pr)}", sorted(pr) == ["main", "worker"])
     main_r, worker_r = pr["main"], pr["worker"]
-    ctx.check(f"main: 3 calls (2 real + 1 subscription), got {main_r['calls']}", main_r["calls"] == 3)
+    ctx.check(f"main: 3 calls (2 real + 1 estimate), got {main_r['calls']}", main_r["calls"] == 3)
     ctx.check(f"main is never a task, got {main_r['tasks']}", main_r["tasks"] == 0)
     ctx.check(f"main real cost stays $0.02, got {main_r['cost_usd']}", abs(main_r["cost_usd"] - 0.02) < 1e-9)
-    ctx.check(f"main subscription estimate lands its own lane, got {main_r['subscription_cost_usd']}",
-              abs(main_r["subscription_cost_usd"] - 0.30) < 1e-9)
+    ctx.check(f"no subscription lane any more, got {sorted(main_r)}", "subscription_cost_usd" not in main_r)
     ctx.check(f"worker: 2 calls 2 tasks 1 accepted, got {worker_r}",
               (worker_r["calls"], worker_r["tasks"], worker_r["accepted"]) == (2, 2, 1))
     ctx.check(f"worker cost $1.00, got {worker_r['cost_usd']}", abs(worker_r["cost_usd"] - 1.0) < 1e-9)

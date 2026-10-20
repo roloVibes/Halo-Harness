@@ -227,9 +227,7 @@ def status(*, phase: str, model: Optional[str] = None, context_tokens: Optional[
             total_output_tokens: Optional[int] = None, effort: Optional[str] = None,
             ollama_tokens_per_second: object = _OLLAMA_THROUGHPUT_UNSET,
             ollama_prefill_seconds: Optional[float] = None,
-            ollama_offloaded: Optional[bool] = None, saved_usd: Optional[float] = None,
-            subscription_turns: Optional[int] = None,
-            subscription_cost_usd: Optional[float] = None) -> Event:
+            ollama_offloaded: Optional[bool] = None, saved_usd: Optional[float] = None) -> Event:
     """data: {phase, model, context_tokens, context_limit, cost_usd, turn,
     permission_mode, mcp: {connected, total}, session_id, total_input_tokens,
     total_output_tokens, effort, saved_usd[, ollama_tokens_per_second,
@@ -258,22 +256,12 @@ def status(*, phase: str, model: Optional[str] = None, context_tokens: Optional[
     mentions them at all, so the key is simply absent -- before this fix
     the three were always defaulted to None and included unconditionally,
     so every one of THOSE plain calls (every ordinary turn-start/turn-end
-    status) wiped the status bar's throughput segment back to blank.
-
-    `subscription_turns`/`subscription_cost_usd` (Halo 2.0.5 round 1,
-    brief item H6 "Cost line"): `CostMeter.subscription_turns`/
-    `subscription_cost_usd`'s running totals for a session that used a
-    `cc:` model -- a Claude Code subscription turn, Claude Code's own
-    ESTIMATE, never real per-token spend, so it is carried as its own
-    pair of fields rather than folded into `cost_usd` (which stays an
-    honest "real spend" figure, same "None means nothing to show yet,
-    never overwrites a real reading" contract `saved_usd` already has)."""
+    status) wiped the status bar's throughput segment back to blank."""
     payload = {
         "phase": phase, "model": model, "context_tokens": context_tokens, "context_limit": context_limit,
         "cost_usd": cost_usd, "turn": turn, "permission_mode": permission_mode, "session_id": session_id,
         "total_input_tokens": total_input_tokens, "total_output_tokens": total_output_tokens, "effort": effort,
-        "saved_usd": saved_usd, "subscription_turns": subscription_turns,
-        "subscription_cost_usd": subscription_cost_usd,
+        "saved_usd": saved_usd,
     }
     # The MCP count rides along ONLY when the producer knows it. The old
     # default of {"connected": 0, "total": 0} meant every idle status event
@@ -352,8 +340,7 @@ def status_notice(text: str, *, framed: Optional[str] = None, turn: int = 0) -> 
     `user_message` delivery, which impersonated the user: the model read a
     status blob interleaved with the owner's actual question and answered
     the status first. The TUI renders this as a transcript note (never a
-    user bubble); `cc:`/`cx:` turn runtimes collect `framed` as extra
-    context for their child binary; print mode ignores the event exactly
+    user bubble); print mode ignores the event exactly
     as it ignored the old one (the companion `notification` toast is the
     print-mode surface, unchanged)."""
     return Event("status_notice", {"text": text, "framed": framed if framed is not None else text}, turn=turn)
@@ -374,12 +361,9 @@ def compaction(*, phase: str, trigger: str = "auto", turn: int = 0, tokens_befor
     (also a human-readable `reason`, also no log node written) means
     compaction was deliberately NOT attempted at all (the back-to-back
     auto-compaction guard) -- distinct from "failed" so a UI never
-    renders a deliberate skip as an error. `summary` (Halo 2.0.5 round 1,
-    cc: route v2 brief item H3): a `phase="done"` compaction the CHILD
-    itself ran (`cc:`'s own `/compact`, Claude Code's own summarization,
-    never halo's) carries whatever short summary text the child's own
-    `compact_result` line provides -- None (never shown) for every
-    native-route compaction, which has no such field at all."""
+    renders a deliberate skip as an error. `summary`: an optional short
+    summary text for a `phase="done"` compaction -- None (never shown)
+    when the producer has none."""
     return Event("compaction", {
         "phase": phase, "trigger": trigger, "tokens_before": tokens_before,
         "tokens_after": tokens_after, "headings_missing": headings_missing or [], "reason": reason,

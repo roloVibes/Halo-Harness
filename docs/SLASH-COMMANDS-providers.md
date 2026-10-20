@@ -1,6 +1,6 @@
 # Slash commands: providers, fleet and upkeep
 
-Read this when you set up providers, subscriptions, rate limits, remote control or the fleet, or run `/doctor`, `/update` and `/bugreport`.
+Read this when you set up providers, rate limits, remote control or the fleet, or run `/doctor`, `/update` and `/bugreport`.
 
 Part of [Slash commands, keys, and prompt prefixes](SLASH-COMMANDS.md), which lists every part.
 
@@ -9,42 +9,23 @@ Part of [Slash commands, keys, and prompt prefixes](SLASH-COMMANDS.md), which li
 ### `/providers [list|enable <name>|disable <name>|setup <name>]`
 H15 item 21 (rule replaced by the H15 part 2 addendum): the provider-
 enablement table -- status, reachable, cached model count -- for
-`databricks`, `openrouter`, `anthropic`, `claude_subscription` (`cc:`),
-`codex_subscription` (`cx:`, round 5i part 2), `huggingface` (`hf:`),
-`openai` (`oai:`, round 5i part 1), and `typesafe` (stores
+`databricks`, `openrouter`, `anthropic`, `huggingface` (`hf:`),
+`openai` (`oai:`, round 5i part 1), `experiential` (`xp:`) and `typesafe` (stores
 `TYPESAFE_API_KEY` only, for a later feature; no routed models yet). Each
 row's status is `auto (detected from <source>)` once a
-real credential/login is found (no `init` step required), `disabled by
+real credential is found (no `init` step required), `disabled by
 you`/`enabled by you` once an explicit override exists, or `not set up`.
 Bare `/providers` (or `list`) prints the table, plus a trailing OpenRouter
 balance line once a background fetch has ever succeeded (see `/cost`);
 `enable <name>`/`disable <name>` write an explicit override (`true` forces
 a provider on with no credentials at all; `false` hides one auto-detection
-would otherwise have turned on) right here (`cc`/`ant`/`dbx`/`or` are
+would otherwise have turned on) right here (`ant`/`dbx`/`or` are
 accepted aliases for the canonical names); `setup <name>` needs the
 interactive picker `halo init`/`halo providers setup <name>`
 show from a real terminal, so headless just points at that command instead
 of half-implementing it. See `docs/MODELS.md`'s "Provider enablement"
 section for the full prefix/label table and the exact per-provider
 detection rule.
-
-### `/subscriptions [status|revoke]`
-
-Halo 2.0.7 round 7b: the consent gate for the `cc:`/`cx:` subscription
-routes. These two routes are OFF until accepted -- a fresh install and an
-upgraded install both start at "not accepted", and nothing migrates this
-on. Bare `/subscriptions` opens the notice screen ("Your subscription, a
-third-party harness": the facts, both providers' terms by title and URL,
-the account-responsibility sentence, and the acceptance rule -- type `I
-accept` exactly and Enter; Escape or anything else leaves the routes
-off); `/subscriptions status` prints the one-line state ("subscription
-routes: off (not accepted)" / "... on (accepted <date>, v<version>)");
-`/subscriptions revoke` turns the routes back off right here, same as
-`halo subscriptions revoke`. Typing `/model cc:<name>`/`/model cx:<name>`
-(or picking one in the picker) while the routes are off opens the SAME
-notice instead of a plain error; accepting there applies that model
-immediately. See `docs/MODELS.md`'s "Subscription-routes consent" section
-and `halo subscriptions` in `docs/COMMANDS.md` for the CLI form.
 
 ### `/gov [host]`
 
@@ -63,8 +44,7 @@ already read), Experiential Labs (`GET /credits`), Databricks (always
 "not offered" -- DBU billing is on the workspace side, explicitly
 excluded), and Anthropic (no endpoint for a plain key; the organisation
 cost report when `ANTHROPIC_ADMIN_KEY` is configured). Every other
-provider (Hugging Face, OpenAI, Codex, Claude Code subscription,
-TypeSafe) has no balance concept at all and reads "not offered." Bare
+provider (Hugging Face, OpenAI, TypeSafe) has no balance concept at all and reads "not offered." Bare
 `/balances` never touches the network -- it prints whatever
 `~/.halo/balances.json` already has cached, or "not fetched yet";
 `/balances refresh` does the one bounded round of fetches and persists
@@ -94,23 +74,6 @@ twin, same shared `providers.learned_params` module; `halo models
 --probe-all --learn` pre-learns these rules instead of waiting to
 discover them one real turn at a time.
 
-### `/settings [primary claude|codex]`
-Halo 2.0.3 round 5i part 2. Bare `/settings` prints the merged Claude
-Code / Codex / halo settings view (`providers.settings_merge.
-effective_settings`): one row per tracked setting (model, permission/
-approval mode, sandbox, reasoning effort) showing every source's own
-value and which one is effective, the Codex-only MCP servers found, and
-how many Claude Code instruction files / Codex `AGENTS.md` chain files
-were found. `/settings primary claude|codex` persists `settings.primary`
-(`~/.halo/config.json`) -- which of Claude Code's or Codex's own value
-wins when both are set and halo's own config and a live `cx:` session
-don't already decide it. Read-only otherwise: halo never writes to
-either Claude Code's or Codex's own files. `halo doctor`'s
-`codex_settings` line is the one-line summary of the same view; the init
-wizard's "Settings sources" step is the interactive equivalent. See
-`docs/MODELS.md`'s "Codex settings and instructions" section for the
-exact precedence rule.
-
 ### `/effort [level]`
 1.0.1 hotfix 19/20. Bare `/effort` shows the effective level, its source
 (`flag`/`settings`/`default`/`session`), and the accepted levels for the
@@ -126,7 +89,7 @@ either mode) sets it immediately, clamped to what the route accepts
 (`xhigh` on a route without it becomes `max`) -- effective from the next
 message, remembered for the rest of the session. `--effort`/settings
 `effortLevel` still set the STARTING value; every Anthropic-family route
-(`cc:`/`ant:`/a Databricks Claude foundation endpoint) defaults to `high`
+(`ant:`/a Databricks Claude foundation endpoint) defaults to `high`
 when nothing more specific was set anywhere. See
 [MODELS.md](MODELS.md)'s "Reasoning effort" section for the accepted-level
 table per route family.

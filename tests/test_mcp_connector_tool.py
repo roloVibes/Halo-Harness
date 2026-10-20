@@ -214,20 +214,20 @@ def test_missing_claude_is_a_clean_error_not_a_crash(ctx: Ctx):
     with _Env():
         os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="connector-tool-home-")
         os.environ["HALO_CLAUDE_EXE"] = '"/does/not/exist/claude"'
-        import halo_harness.providers.cc_models as cc_models
+        import halo_harness.mcp.claude_process as claude_process
 
         def _raise():
-            from halo_harness.providers.cc_models import ClaudeCodeNotFoundError
+            from halo_harness.mcp.claude_process import ClaudeCodeNotFoundError
             raise ClaudeCodeNotFoundError("claude executable not found")
-        old = cc_models.resolve_claude_launch_argv
-        cc_models.resolve_claude_launch_argv = _raise
+        old = claude_process.resolve_claude_launch_argv
+        claude_process.resolve_claude_launch_argv = _raise
         try:
             tool = ConnectorTool(_CLAUDE_DOCS)
             result = tool.run({"request": "x"}, ToolContext(cwd=REPO_DIR))
             ctx.check("is_error, never a crash", result.is_error is True)
             ctx.check("names the real reason", "claude executable not found" in result.content)
         finally:
-            cc_models.resolve_claude_launch_argv = old
+            claude_process.resolve_claude_launch_argv = old
 
 
 if __name__ == "__main__":

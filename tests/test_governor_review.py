@@ -183,11 +183,11 @@ def test_lanes_validator_one_line_per_problem(ctx: Ctx):
     ctx.check("equal tiers pass", validate_lanes({"coder": "or:a", "reviewer": "or:b", "judge": "or:c"}) == [])
     ctx.check("no coder configured -> no complaint",
               validate_lanes({"reviewer": "ol:tiny"}) == [])
-    ctx.check("a stronger verifier is fine", validate_lanes({"coder": "or:a", "judge": "cc:b"}) == [])
+    ctx.check("a stronger verifier is fine", validate_lanes({"coder": "ol:a", "judge": "ant:b"}) == [])
     from halo_harness.providers.gateway_routing import lane_ok, tier_for
     ctx.check("roles.lanes gates the weakest tier a role may use",
               lane_ok("researcher", "ol:tiny", {"researcher": 3}) is True
-              and lane_ok("researcher", "cc:big", {"researcher": 3}) is True
+              and lane_ok("researcher", "ant:big", {"researcher": 3}) is True
               and lane_ok("judge", "ol:tiny", {"judge": 1}) is False)
     ctx.check("no lane entry -> no restriction", lane_ok("judge", "ol:tiny", None) is True)
     ctx.check("a model table tier wins over the family default",

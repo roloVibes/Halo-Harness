@@ -34,7 +34,6 @@ from halo_harness.providers import governor
 #: score is the tie-breaker when one exists (read from the gym table by
 #: the caller, not here -- this table is only the FAMILY default).
 _TIER_FAMILY_DEFAULTS: Tuple[Tuple[Tuple[str, ...], int], ...] = (
-    (("cc:", "cx:"), 1),
     (("ant:", "dbx:", "or:"), 2),
     (("oai:", "xp:"), 2),
     (("hf:",), 2),
@@ -59,8 +58,6 @@ _PROVIDER_DEFAULT_HOSTS = {
     "ollama": "",
     "huggingface": "",
     "experiential": "",
-    "cc": "",
-    "codex": "",
 }
 
 

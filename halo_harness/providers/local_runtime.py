@@ -9,7 +9,7 @@ Never put on PATH, never bound beyond `127.0.0.1` (every other local
 server/probe in this codebase is loopback-first; the managed runtime
 follows the same default). `headless.py`/`controller.py` call
 `stop_all_managed_servers_except_kept` from the same `finally:`/`atexit`
-spots that already stop background Bash jobs and a `cc:` subprocess, so a
+spots that already stop background Bash jobs, so a
 served model never outlives the `halo` process that started it unless
 `keep: true` was set.
 """
@@ -645,7 +645,7 @@ def stop_all_managed_servers_except_kept(state_dir=None) -> None:
     """Stopped when Halo exits unless `keep: true` (brief item 3) --
     called from `headless.py`'s print-mode `finally:`+`atexit` and
     `controller.Controller.quit()`, the same two spots that already stop
-    background Bash jobs and a `cc:` subprocess. Idempotent and never
+    background Bash jobs. Idempotent and never
     raises -- safe to call more than once on the same exit.
 
     Review fix pass (finding 2): this used to stop EVERY non-kept entry,

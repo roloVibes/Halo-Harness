@@ -226,13 +226,11 @@ def test_list_models_openrouter_group_populated_after_catalog_refresh(ctx: Ctx):
 
 
 @test
-def test_list_models_openrouter_group_unchanged_after_switching_to_cc_opus(ctx: Ctx):
+def test_list_models_openrouter_group_unchanged_after_switching_to_ant_opus(ctx: Ctx):
     """The addendum's own named regression: switching the session's
-    current model to a DIFFERENT provider (cc:opus) must never make an
+    current model to a DIFFERENT provider (ant:opus) must never make an
     already-cached OpenRouter group disappear."""
-    import json as json_mod
     from halo_harness.controller import Controller
-    from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
     from halo_harness.providers.databricks import refresh_openrouter_catalog_if_stale
     from halo_harness.providers.enablement import enable
     mock = MockGetEndpoints({"/api/v1/models": (200, _OR_MODELS_BODY)}).start()
@@ -248,13 +246,12 @@ def test_list_models_openrouter_group_unchanged_after_switching_to_cc_opus(ctx: 
             before_refs = {m["ref"] for m in ctrl_before.list_models() if m.get("provider") == "openrouter"}
             ctx.check(f"populated before switching, got {before_refs}", len(before_refs) == 2)
 
-            os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json_mod.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-            refresh_cached_claude_auth_status()
-            enable("claude_subscription")
-            session_after = _FakeSession("cc:opus", "cc")
+            os.environ["ANTHROPIC_API_KEY"] = "sk-ant-fake"
+            enable("anthropic")
+            session_after = _FakeSession("ant:opus", "anthropic")
             ctrl_after = Controller(session=session_after, cwd=Path.cwd(), state_dir=env.state_dir, routes={})
             after_refs = {m["ref"] for m in ctrl_after.list_models() if m.get("provider") == "openrouter"}
-            ctx.check(f"OpenRouter group unchanged after switching to cc:opus, got {after_refs}",
+            ctx.check(f"OpenRouter group unchanged after switching to ant:opus, got {after_refs}",
                       after_refs == before_refs)
     finally:
         mock.stop()

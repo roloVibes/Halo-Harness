@@ -63,7 +63,7 @@ def ensure_default_provider_credentials() -> None:
     os.environ.setdefault("BRIDGE_TEST_DRAIN_TICK_WINDOW_S", "0.15")
     # W6b section E: a module that never sets `BRIDGE_TEST_CC_AUTH_STATUS`
     # itself (most don't -- only the ones that deliberately exercise the
-    # claude.ai/cc: auth path do) left `claude_auth_status()`/connector
+    # claude.ai connectors' auth path do) left `claude_auth_status()`/connector
     # discovery free to spawn a REAL `claude auth status` and `claude mcp
     # list` against whatever `claude` happens to be on PATH. Harmless when
     # nothing is installed (a fast ClaudeCodeNotFoundError), but on a box
@@ -74,12 +74,6 @@ def ensure_default_provider_credentials() -> None:
     # any other shape) by setting this var itself, before or after import,
     # is never overridden by this default.
     os.environ.setdefault("BRIDGE_TEST_CC_AUTH_STATUS", json.dumps({"loggedIn": False}))
-    # Round 5i part 2: the `cx:`/`codex_models` counterpart of the
-    # `BRIDGE_TEST_CC_AUTH_STATUS` default just above -- same reasoning,
-    # this build host has a real (not logged in) `codex` on PATH, so a
-    # module that never sets `BRIDGE_TEST_CODEX_LOGIN_STATUS` itself would
-    # otherwise spawn a real `codex login status` subprocess.
-    os.environ.setdefault("BRIDGE_TEST_CODEX_LOGIN_STATUS", "Not logged in")
     # Halo 2.0.5 round 4: the Governor is ON by default in real use; in the
     # suite it must be OFF unless a test deliberately turns it on -- the
     # mock upstream serves 429 storms by design, and one governed test's

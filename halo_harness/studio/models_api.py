@@ -75,8 +75,6 @@ def looked_at(rows: list, providers: list, record) -> list:
             line, ok = f"turned off by you (halo providers enable {name})", False
         elif p["credentials"]:
             line, ok = f"a key is here but the provider is off: halo providers enable {name}", False
-        elif name.endswith("_subscription"):
-            line, ok = "not logged in on this machine", False
         else:
             line, ok = "not configured: no key in the env file, the shell or settings.json", False
         out.append({"name": name, "label": label, "ok": ok, "line": line})

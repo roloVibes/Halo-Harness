@@ -21,13 +21,6 @@ from tests.helpers.mock_openai import MockUpstream, SCENARIOS, _finish
 
 test, TESTS = new_registry()
 
-# build_cx_argv resolves the real launcher; on a machine without codex (the
-# Linux suite venvs) point Halo at the fake so the argv test runs anywhere.
-import os as _os
-if not _os.environ.get("HALO_CODEX_EXE"):
-    _os.environ["HALO_CODEX_EXE"] = '"' + sys.executable + '" "' + str(
-        Path(__file__).resolve().parent / "helpers" / "fake_codex.py") + '"'
-
 
 def _new_session(fh, mock, *, model="or:mock/model", vision=False):
     """Same minimal in-process construction `tests/test_loop_retries.py`
@@ -150,17 +143,6 @@ def test_ollama_dialect_omits_images_key_for_a_text_only_message(ctx: Ctx):
                                       route=route, profile=profile, effort=None, host=host)
     user_msg = next(m for m in body["messages"] if m["role"] == "user")
     ctx.check(f"no images key at all, got {user_msg}", "images" not in user_msg)
-
-
-@test
-def test_cx_argv_carries_dash_i_with_the_saved_path(ctx: Ctx):
-    from halo_harness.agent.codex_process import build_cx_argv
-    argv = build_cx_argv(model="gpt-5-codex", prompt="look at this", resume_id=None,
-                          permission_mode="default", mcp_override_args=[],
-                          image_paths=["/tmp/clip-1.png", "/tmp/clip-2.jpg"])
-    ctx.check(f"-i for each path, got {argv}",
-              "-i" in argv and argv[argv.index("-i") + 1] == "/tmp/clip-1.png"
-              and argv.count("-i") == 2 and "/tmp/clip-2.jpg" in argv)
 
 
 # ---------------------------------------------------------------------------

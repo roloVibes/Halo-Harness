@@ -63,8 +63,7 @@ JSON at all").
 
 #### `--replay-user-messages`
 What: mirrors every stdin line back out (stream-json modes) once actually
-consumed -- what the `cc:` route's own steering-confirmation mechanism relies
-on internally; rarely needed directly.
+consumed; rarely needed directly.
 
 ### System prompt flags
 
@@ -144,7 +143,7 @@ on regardless.
 #### `--max-budget-usd MAX_BUDGET_USD`
 What: stops the session (mid-turn, at the next safe point) once cumulative
 cost meets or exceeds this many US dollars -- a route with no real per-token
-pricing (Databricks, a `cc:` subscription turn) never counts toward it.
+pricing (Databricks) never counts toward it.
 
 ### Browser flags
 

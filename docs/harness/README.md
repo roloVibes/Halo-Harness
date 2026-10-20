@@ -38,7 +38,7 @@ release (this project didn't use strict per-milestone semver until H10).
 | [U2-brief.md](U2-brief.md) | 0.3.0 | the full-screen Textual TUI |
 | [U5-brief.md](U5-brief.md) | 0.3.0 | session titles/rename/fork/export/stats; git-shadow `/rewind`; chords + the which-key overlay |
 | [H10-brief.md](H10-brief.md) | 0.3.1 | free telemetry from the existing session logs; the human-gated `/improve` |
-| [H11-brief.md](H11-brief.md) | 0.4.0 | the `cc:` route (your Claude subscription via the installed `claude` binary) and `ant:` aliases |
+| [H11-brief.md](H11-brief.md) | 0.4.0 | the `ant:` aliases, and a `cc:` route through the installed `claude` binary (removed in 3.1.5.0) |
 | [H12-brief.md](H12-brief.md) | 0.4.1 | `halo init`; the prescriptive `doctor`; the per-family Edit-tool context hint |
 | [H13-brief.md](H13-brief.md) | 0.5.0 | lazy MCP by default; inline terminal images; `/resume` search; the first live family-baseline pass |
 | [H14-brief.md](H14-brief.md) | 0.6.0 | Databricks work-config parity: the family x api_type routing table, `doctor --work` accuracy, team onboarding, the work matrix |

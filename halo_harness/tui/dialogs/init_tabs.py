@@ -1,7 +1,7 @@
 """halo_harness.tui.dialogs.init_tabs -- H15 Part A: `halo init`'s
 tabbed provider setup, one tab per `init_providers.TAB_PROVIDERS` entry
-(Databricks, OpenRouter, Anthropic API (key), Claude Code subscription,
-TypeSafe). A standalone Textual `App` (same reason `init_picker.py`'s own
+(Databricks, OpenRouter, Anthropic API (key), Ollama, Hugging Face, OpenAI
+API (key), TypeSafe, Experiential Labs). A standalone Textual `App` (same reason `init_picker.py`'s own
 pickers are standalone: a plain CLI command has no host `BridgeApp` screen
 stack to push onto) -- `init_cli.py` runs this synchronously via
 `run_init_tabs`, on a real terminal only; a piped/non-tty run never reaches
@@ -85,11 +85,10 @@ class InitTabsApp(App):
         self._team_flag = team
         self.team_warnings: "list[str]" = []
         # 1.0.1 part 2 fixpass finding 4: each tab's credential state is
-        # computed ONCE (synchronously here for the four purely-local
-        # providers, which never spawn/touch the network; in a worker for
-        # "claude", which shells out to `claude auth status`) and CACHED --
-        # a keystroke (`on_input_changed`) only ever reads this cache, it
-        # never re-derives the state itself. `team_cfg` is loaded eagerly
+        # computed ONCE (synchronously here -- every provider is purely
+        # local, never a spawn or the network) and CACHED -- a keystroke
+        # (`on_input_changed`) only ever reads this cache, it never
+        # re-derives the state itself. `team_cfg` is loaded eagerly
         # too, but ONLY from a local file (`team_config.team_config_path`
         # is pure/fast); a `--team https://...` URL is resolved in a worker
         # instead (see `_team_cfg_worker`) -- a real network fetch must
@@ -97,20 +96,7 @@ class InitTabsApp(App):
         self._team_cfg, self._team_cfg_pending = self._load_team_cfg_fast()
         self._state_cache: "dict[str, dict]" = {
             p: tab_credential_state(p, team_cfg=self._team_cfg) for p in TAB_PROVIDERS
-            if p not in ("claude", "codex")
         }
-        # A real placeholder (never an absent key) -- `_claude_state_worker`
-        # overwrites it once resolved; keeping the key present from the
-        # start means `_collect_values`/`on_input_changed` never have a
-        # reason to fall back to a fresh (spawning, UI-thread-blocking)
-        # `tab_credential_state("claude")` call of their own if "Check
-        # login" is somehow clicked before that worker finishes. Round 5i
-        # part 2: "codex" is the SAME shape -- `codex login status` is
-        # also a subprocess spawn, never computed inline here.
-        self._state_cache["claude"] = {"configured": False, "source": None, "masked": None,
-                                        "known_host": None, "fields": []}
-        self._state_cache["codex"] = {"configured": False, "source": None, "masked": None,
-                                        "known_host": None, "fields": []}
 
     def _load_team_cfg_fast(self) -> "tuple[Optional[dict], bool]":
         from halo_harness.team_config import load_team_config, team_config_path
@@ -134,12 +120,9 @@ class InitTabsApp(App):
                         yield from self._tab_widgets(provider)
 
     def _tab_widgets(self, provider: str) -> ComposeResult:
-        # finding 4: "claude" is the one provider whose state requires a
-        # `claude auth status` SPAWN (`claude_login_available()`) -- never
-        # computed here (compose() must return instantly); a placeholder
-        # until the on_mount worker below resolves it for real. The other
-        # four are purely local (env vars/settings files, no subprocess/
-        # network) and were already computed once in `__init__`.
+        # finding 4: every tab's state is purely local (env vars/settings
+        # files, no subprocess/network) and was already computed once in
+        # `__init__` -- compose() must return instantly.
         state = self._state_cache[provider]
         if provider in ("ollama", "huggingface"):
             # Round 5b part 2 (brief item 5): see `init_wizard.py`'s
@@ -147,22 +130,12 @@ class InitTabsApp(App):
             # is the lighter-weight twin of that wizard step.
             yield Static("detecting what's already on this machine…", id=f"{provider}-detect",
                         classes="tab-help")
-        status_text = "checking…" if provider in ("claude", "codex") else _status_text(provider, state=state)
+        status_text = _status_text(provider, state=state)
         yield Static(status_text, id=f"{provider}-status", classes="tab-status")
         for f in state["fields"]:
             prefill = state.get("known_host") or "" if f["name"] == "host" else ""
             yield Input(value=prefill, placeholder=f["label"], password=f["secret"],
                         id=f"{provider}-field-{f['name']}")
-        if provider == "claude":
-            yield Static("Uses your existing `claude` login as-is -- nothing is stored here.",
-                         classes="tab-help")
-        if provider == "codex":
-            yield Static("Uses your existing `codex` ChatGPT login as-is -- nothing is stored here; an "
-                         "API-key login belongs on the OpenAI API (key) tab instead.", classes="tab-help")
-        if provider == "settings_sources":
-            yield Static("What halo found in Claude Code's and Codex's own settings/instruction files, "
-                         "merged into one view (`/settings`, `halo doctor`). Pick which one wins when they "
-                         "disagree and halo's own config doesn't already decide it.", classes="tab-help")
         if provider == "ollama":
             yield Static("Leave every field blank and Save to register the local daemon at its default "
                          "address; fill in a URL to add a LAN or cloud host instead. Running local servers "
@@ -173,8 +146,8 @@ class InitTabsApp(App):
                          "A local server on a default port (llama.cpp, vLLM, LM Studio, ...) is found "
                          "automatically by /local with none of this.", classes="tab-help")
         if provider == "openai":
-            yield Static("Paste OPENAI_API_KEY to use the real OpenAI API directly (oai: models) -- "
-                         "separate from a Codex subscription login.", classes="tab-help")
+            yield Static("Paste OPENAI_API_KEY to use the real OpenAI API directly (oai: models).",
+                         classes="tab-help")
         if provider == "typesafe":
             yield Static("Stores TYPESAFE_API_KEY only -- for a later feature, no routed models yet.",
                          classes="tab-help")
@@ -183,8 +156,7 @@ class InitTabsApp(App):
                          "Labs gateway (xp: models) -- its catalog, credits balance and model prices come "
                          "from this same key; the separate provisioning key is never asked for here.",
                          classes="tab-help")
-        label = "Check login" if provider in ("claude", "codex") else "Save"
-        yield Button(label, id=f"{provider}-save", variant="primary")
+        yield Button("Save", id=f"{provider}-save", variant="primary")
         # finding 4: NEVER a real probe here (compose() must return
         # instantly) -- always "checking…" to start; on_mount's own workers
         # below resolve the real tag, or --no-live skips it outright.
@@ -194,13 +166,6 @@ class InitTabsApp(App):
     def on_mount(self) -> None:
         if self._team_cfg_pending:
             guarded_worker(self, self._team_cfg_worker, thread=True, name="init-team-config")
-        # finding 4: the "claude" tab's own (spawning) state, resolved once
-        # off the UI thread regardless of --no-live (a local subprocess
-        # check, not a network "live" probe/catalog fetch).
-        guarded_worker(self, self._claude_state_worker, thread=True, name="init-tab-claude-state")
-        # Round 5i part 2: the `codex` tab's own (spawning) state, same
-        # reasoning as the claude worker just above.
-        guarded_worker(self, self._codex_state_worker, thread=True, name="init-tab-codex-state")
         if self._no_live:
             return  # finding 6: --no-live skips every reachability probe/catalog fetch below
         # A.3: the bounded background probe runs right away for whatever's
@@ -209,7 +174,7 @@ class InitTabsApp(App):
         # set up" until Save. Read from the cache computed in __init__ --
         # never re-derives it (finding 4).
         for provider in TAB_PROVIDERS:
-            if provider not in ("claude", "codex") and self._state_cache[provider]["configured"]:
+            if self._state_cache[provider]["configured"]:
                 guarded_worker(self, lambda p=provider: self._probe_worker(p), thread=True, name=f"init-tab-probe-{provider}")
         if "ollama" in TAB_PROVIDERS or "huggingface" in TAB_PROVIDERS:
             guarded_worker(self, self._detect_local_worker, thread=True, name="init-detect-local")
@@ -253,60 +218,6 @@ class InitTabsApp(App):
         except Exception:
             pass
 
-    def _claude_state_worker(self) -> None:
-        # 2.0.1 launch-hang fix: `claude_login_available()` (what `tab_
-        # credential_state("claude", ...)` calls below) is now cache-only
-        # and never spawns anything itself -- this worker is the one place
-        # that's ALREADY correctly off the UI thread for exactly this
-        # reason (finding 4, see this module's own docstring), so it's the
-        # right place to do the one real, live spawn this tab needs to show
-        # an accurate "checking…" -> real-answer transition instead of
-        # reading a cold/stale cache.
-        from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
-        refresh_cached_claude_auth_status()
-        state = tab_credential_state("claude", team_cfg=self._team_cfg)
-        # `detected=state["configured"]` -- reuses the ALREADY-known answer
-        # (this same worker's own `claude_login_available()` call just
-        # above) instead of `reachability_tag` independently re-deriving it
-        # via a SECOND `claude auth status` spawn.
-        from halo_harness.providers.reachability import reachability_tag
-        reach_text = f"reachability: {reachability_tag('claude', detected=state['configured'])}"
-        self.call_from_thread(self._apply_claude_state, state, reach_text)
-
-    def _apply_claude_state(self, state: dict, reach_text: str) -> None:
-        self._state_cache["claude"] = state
-        try:
-            self.query_one("#claude-status", Static).update(_status_text("claude", state=state))
-        except Exception:
-            pass
-        if not self._no_live:
-            try:
-                self.query_one("#claude-reach", Static).update(reach_text)
-            except Exception:
-                pass
-
-    def _codex_state_worker(self) -> None:
-        """The `codex` tab's own counterpart of `_claude_state_worker` --
-        same reasoning, substituting `codex_models`."""
-        from halo_harness.providers.codex_models import refresh_cached_codex_auth_status
-        refresh_cached_codex_auth_status()
-        state = tab_credential_state("codex", team_cfg=self._team_cfg)
-        from halo_harness.providers.reachability import reachability_tag
-        reach_text = f"reachability: {reachability_tag('codex', detected=state['configured'])}"
-        self.call_from_thread(self._apply_codex_state, state, reach_text)
-
-    def _apply_codex_state(self, state: dict, reach_text: str) -> None:
-        self._state_cache["codex"] = state
-        try:
-            self.query_one("#codex-status", Static).update(_status_text("codex", state=state))
-        except Exception:
-            pass
-        if not self._no_live:
-            try:
-                self.query_one("#codex-reach", Static).update(reach_text)
-            except Exception:
-                pass
-
     # ---- navigation --------------------------------------------------
 
     def action_prev_tab(self) -> None:
@@ -335,8 +246,8 @@ class InitTabsApp(App):
             return
         provider = field_id.split("-field-", 1)[0]
         # finding 4: reads the CACHE -- a field only exists on a tab that
-        # was already computed synchronously in __init__ (never "claude",
-        # which has no fields at all), so this never re-derives/re-spawns.
+        # was already computed synchronously in __init__, so this never
+        # re-derives it.
         state = self._state_cache[provider]
         if state["configured"]:
             return  # already resolved elsewhere -- editing here only matters once Saved
@@ -371,21 +282,6 @@ class InitTabsApp(App):
         return {f["name"]: self._field_value(provider, f["name"]) for f in state["fields"]}
 
     def _save(self, provider: str) -> None:
-        if provider == "claude":
-            # M3 (1.0.1 final pass): "Check login" used to call
-            # save_tab_credentials()+tab_credential_state() right here, on
-            # the UI thread -- each spawns `claude auth status`, so a slow
-            # subprocess froze the whole app for its duration (twice over).
-            # Moved to a thread=True worker + call_from_thread, same pattern
-            # _claude_state_worker/_apply_claude_state already use for this
-            # tab's own on_mount check.
-            guarded_worker(self, self._save_claude_worker, thread=True, name="init-tab-save-claude")
-            return
-        if provider == "codex":
-            # Round 5i part 2: the `codex` tab's own counterpart -- same
-            # off-the-UI-thread reasoning as the claude branch just above.
-            guarded_worker(self, self._save_codex_worker, thread=True, name="init-tab-save-codex")
-            return
         from halo_harness.init_providers import save_tab_credentials
         values = self._collect_values(provider)
         ok, message = save_tab_credentials(provider, values, team_cfg=self._team_cfg)
@@ -414,7 +310,7 @@ class InitTabsApp(App):
         status.update(_status_text(provider, state=state))
         if self._no_live:
             # finding 6: --no-live skips the reachability probe AND the
-            # catalog fetch below -- "Check login"/"Save" still works and
+            # catalog fetch below -- "Save" still works and
             # enables the tab, it just never touches the network.
             try:
                 self.query_one(f"#{provider}-reach", Static).update("reachability: skipped (--no-live)")
@@ -426,87 +322,6 @@ class InitTabsApp(App):
         except Exception:
             pass
         guarded_worker(self, lambda: self._finish_tab_worker(provider), thread=True, name=f"init-tab-save-{provider}")
-
-    def _save_claude_worker(self) -> None:
-        """M3 (1.0.1 final pass): the "claude" tab's own "Check login"
-        button, off the UI thread -- `_collect_values("claude")` always
-        returns `{}` (this tab has no input fields at all), so there is
-        nothing to read off a widget here.
-
-        2.0.1 launch-hang fix: `claude_login_available()` (what both calls
-        below read, via `save_tab_credentials`/`tab_credential_state`) is
-        now cache-only -- this worker does the ONE live, explicit refresh
-        itself first (still off the UI thread, still exactly one spawn
-        total, same as before this fix), so "Check login" keeps doing what
-        its own label promises instead of silently reading a stale answer."""
-        from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
-        from halo_harness.init_providers import save_tab_credentials, tab_credential_state
-        refresh_cached_claude_auth_status()
-        ok, message = save_tab_credentials("claude", {}, team_cfg=self._team_cfg)
-        state = tab_credential_state("claude", team_cfg=self._team_cfg) if ok else None
-        self.call_from_thread(self._apply_claude_save, ok, message, state)
-
-    def _apply_claude_save(self, ok: bool, message: str, state: "Optional[dict]") -> None:
-        try:
-            status = self.query_one("#claude-status", Static)
-        except Exception:
-            return
-        if not ok:
-            status.update(f"not set up ({message})")
-            return
-        from halo_harness.providers.enablement import enable_if_was_explicitly_disabled
-        enable_if_was_explicitly_disabled("claude")
-        if "claude" not in self.configured_this_run:
-            self.configured_this_run.append("claude")
-        self._state_cache["claude"] = state
-        status.update(_status_text("claude", state=state))
-        if self._no_live:
-            try:
-                self.query_one("#claude-reach", Static).update("reachability: skipped (--no-live)")
-            except Exception:
-                pass
-            return
-        try:
-            self.query_one("#claude-reach", Static).update("reachability: checking…")
-        except Exception:
-            pass
-        guarded_worker(self, lambda: self._finish_tab_worker("claude"), thread=True, name="init-tab-save-claude-finish")
-
-    def _save_codex_worker(self) -> None:
-        """The `codex` tab's own counterpart of `_save_claude_worker` --
-        same reasoning, substituting `codex_models`."""
-        from halo_harness.providers.codex_models import refresh_cached_codex_auth_status
-        from halo_harness.init_providers import save_tab_credentials, tab_credential_state
-        refresh_cached_codex_auth_status()
-        ok, message = save_tab_credentials("codex", {}, team_cfg=self._team_cfg)
-        state = tab_credential_state("codex", team_cfg=self._team_cfg) if ok else None
-        self.call_from_thread(self._apply_codex_save, ok, message, state)
-
-    def _apply_codex_save(self, ok: bool, message: str, state: "Optional[dict]") -> None:
-        try:
-            status = self.query_one("#codex-status", Static)
-        except Exception:
-            return
-        if not ok:
-            status.update(f"not set up ({message})")
-            return
-        from halo_harness.providers.enablement import enable_if_was_explicitly_disabled
-        enable_if_was_explicitly_disabled("codex")
-        if "codex" not in self.configured_this_run:
-            self.configured_this_run.append("codex")
-        self._state_cache["codex"] = state
-        status.update(_status_text("codex", state=state))
-        if self._no_live:
-            try:
-                self.query_one("#codex-reach", Static).update("reachability: skipped (--no-live)")
-            except Exception:
-                pass
-            return
-        try:
-            self.query_one("#codex-reach", Static).update("reachability: checking…")
-        except Exception:
-            pass
-        guarded_worker(self, lambda: self._finish_tab_worker("codex"), thread=True, name="init-tab-save-codex-finish")
 
     def _probe_worker(self, provider: str) -> None:
         from halo_harness.providers.reachability import reachability_tag

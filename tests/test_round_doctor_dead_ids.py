@@ -62,7 +62,7 @@ def test_dead_model_ids_reported_and_live_ids_clean(ctx: Ctx):
         "coder": "or:z-ai/glm-5.3",            # live
         "reviewer": "or:deepseek/deepseek-v4-pro-0813",  # retired -- rolo's live case
         "researcher": "or:deepseek/deepseek-v4-flash",   # live
-        "small": "cc:claude-haiku",            # no catalog to check -> skipped
+        "small": "local:claude-haiku",         # no catalog to check -> skipped
     })
     home.set_models_json({"z-ai/glm-5.3": {}, "deepseek/deepseek-v4-flash": {}})
     problems = check_dead_model_ids(state_dir=home.halo)

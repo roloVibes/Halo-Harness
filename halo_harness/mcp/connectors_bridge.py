@@ -104,7 +104,7 @@ def prime_auth_cache_if_stale() -> None:
     already do; never raises -- the caller always still gets a usable (if
     possibly still-absent) cached answer either way."""
     try:
-        from halo_harness.providers.cc_models import cached_auth_status_is_stale, refresh_cached_claude_auth_status
+        from halo_harness.mcp.claude_auth import cached_auth_status_is_stale, refresh_cached_claude_auth_status
         if cached_auth_status_is_stale():
             refresh_cached_claude_auth_status()
     except Exception:
@@ -124,7 +124,7 @@ def _claude_ai_login_known_false() -> bool:
     safe to call anywhere, including every test) for display wording
     only. `discovery_eligible()` below is stricter on purpose -- see its
     own docstring."""
-    from halo_harness.providers.cc_models import SUBSCRIPTION_AUTH_METHODS, cached_claude_auth_status
+    from halo_harness.mcp.claude_auth import SUBSCRIPTION_AUTH_METHODS, cached_claude_auth_status
     status = cached_claude_auth_status()
     if status is None:
         return False
@@ -145,7 +145,7 @@ def discovery_eligible() -> bool:
     never gated by this function at all."""
     if not (bridge_enabled() and claude_binary_available()):
         return False
-    from halo_harness.init_providers import claude_login_available
+    from halo_harness.mcp.claude_auth import claude_login_available
     return claude_login_available()
 
 
@@ -157,7 +157,7 @@ def unavailable_reason() -> Optional[str]:
         return "claude.ai connectors: disabled (connectors.bridge=false in ~/.halo/config.json)."
     if not claude_binary_available():
         return "claude.ai connectors: `claude` is not installed, so halo cannot discover or bridge them."
-    from halo_harness.providers.cc_models import is_claude_gateway_driven
+    from halo_harness.mcp.claude_auth import is_claude_gateway_driven
     if is_claude_gateway_driven():
         return ("claude.ai connectors: the installed `claude` is wired to a gateway, not a claude.ai "
                 "subscription login -- nothing for the bridge to discover.")

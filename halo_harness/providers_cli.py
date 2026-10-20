@@ -23,7 +23,6 @@ _NON_SEQUENTIAL_SETUP = {
     "openai": "set OPENAI_API_KEY in the env file",
     "huggingface": "set HF_TOKEN in the env file",
     "experiential": "set EXPLABS_API_KEY in the env file",
-    "codex_subscription": "log in with `codex login`",
 }
 
 
@@ -34,9 +33,8 @@ def _model_count(name: str) -> "int | None":
         return None
     from halo_harness.config.paths import bridge_home
     from halo_harness.init_providers import model_entries_for_provider
-    picker_name = {"claude_subscription": "claude", "codex_subscription": "codex"}.get(name, name)
     try:
-        return len(model_entries_for_provider(picker_name, bridge_home()))
+        return len(model_entries_for_provider(name, bridge_home()))
     except Exception:
         return None
 
@@ -52,10 +50,8 @@ def provider_rows(*, cwd=None, settings_flag=None, env=None) -> "list[dict]":
 
     1.0.1 part 2 fixpass critical finding 1: `credentials_present(name,
     env=...)` is called EXACTLY ONCE per row now (`detected`), reused for
-    `enabled`/`status`/`credentials`/`credentials_source`/`reachable` --
-    before this fix the `claude_subscription` row alone re-derived it 5-6
-    times, each an UNCACHED `claude auth status` subprocess spawn (up to a
-    10s timeout apiece). `env` (finding 3) is `providers.config.
+    `enabled`/`status`/`credentials`/`credentials_source`/`reachable`.
+    `env` (finding 3) is `providers.config.
     listing_effective_env()`, computed once for the whole table, so a
     credential living only in a settings.json `env` block is seen here the
     same way a real session would resolve it.
@@ -109,11 +105,6 @@ def format_providers_table(rows: "list[dict]", *, openai_spend_line: "str | None
     for r in rows:
         models = str(r["model_count"]) if r["model_count"] is not None else "-"
         lines.append(f"{r['label']:<26} {r['status']:<40} {r['reachable']:<42} {models:>6}")
-    # Halo 2.0.7 round 7b: the owner's consent gate for cc:/cx: -- shown
-    # once, right after the table, same wording `halo doctor` uses.
-    from halo_harness.subscription_consent import status_line as _subscription_status_line
-    lines.append("")
-    lines.append(_subscription_status_line())
     # H15 part 2 addendum 4: the same balance figure the status bar/`/cost`
     # show, with the key label and reading time -- appended once, after the
     # table, when a fetch has ever succeeded (OpenRouter only, this round).
@@ -175,19 +166,6 @@ def cmd_providers(argv: list) -> int:
         print(migration_note)
 
     if not argv or argv[0] in ("list",):
-        # 2.0.1 launch-hang follow-up: `provider_rows()` reaches
-        # `claude_login_available()`, which is cache-only since the fix --
-        # and this subcommand is always a fresh process, so without priming
-        # the cache once here a real claude.ai login printed "not set up"
-        # (seen live on the Kali VM). Same staleness-gated refresh the
-        # headless `/providers` does; `refresh_cached_claude_auth_status()`
-        # itself never spawns anything when `claude` is gateway-driven.
-        try:
-            from halo_harness.providers.cc_models import cached_auth_status_is_stale, refresh_cached_claude_auth_status
-            if cached_auth_status_is_stale():
-                refresh_cached_claude_auth_status()
-        except Exception:
-            pass
         rows = provider_rows(cwd=cwd, settings_flag=settings_flag)
         xp_balance_line = None
         if any(r["name"] == "experiential" and r["enabled"] for r in rows):
@@ -240,12 +218,11 @@ def cmd_providers(argv: list) -> int:
                   file=sys.stderr)
             return 2
         from halo_harness.init_providers import PROVIDERS as _SEQUENTIAL
-        picker_name = {"claude_subscription": "claude"}.get(name, name)
         from halo_harness.init_cli import cmd_init
-        if picker_name in _SEQUENTIAL:
-            return cmd_init(["--provider", picker_name] + argv[2:])
-        # Finding 77: openai, huggingface, experiential and the codex
-        # subscription have no `--provider` flow (argparse rejected them).
+        if name in _SEQUENTIAL:
+            return cmd_init(["--provider", name] + argv[2:])
+        # Finding 77: openai, huggingface and experiential have no
+        # `--provider` flow (argparse rejected them).
         # On a terminal the init wizard has a tab for each; otherwise say
         # exactly what to set.
         if sys.stdin.isatty() and sys.stdout.isatty() and "--yes" not in argv[2:]:

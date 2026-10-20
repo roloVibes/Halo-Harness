@@ -83,7 +83,7 @@ class FakeSession:
     def _fire_session_end(self, reason: str) -> None:
         pass
 
-    def close_cc(self) -> None:
+    def close_runtimes(self) -> None:
         pass
 
     # ---- waiters ----------------------------------------------------------

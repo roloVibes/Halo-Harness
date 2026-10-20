@@ -160,15 +160,13 @@ def test_ensure_scoped_state_dir_once_rescopes_per_module(ctx: Ctx):
 def test_state_caches_are_reset_between_modules(ctx: Ctx):
     from tests.helpers import run_all_support as S
     import halo_harness.config.paths as paths
-    import halo_harness.subscription_scrub as scrub
     import halo_harness.providers.databricks as dbx
     paths._state_dir_memo["/scratch/earlier-module-home"] = Path("/scratch/earlier-module-home/.halo")
-    scrub._SCRUBBED.add(("", ""))
     dbx._DBX_ROUTE_CACHE["databricks-some-model"] = {"idx": 1}
     done = S.reset_state_caches()
-    ctx.check(f"the memo, the scrub keys and the route cache are empty, got {done}",
-              not paths._state_dir_memo and not scrub._SCRUBBED and not dbx._DBX_ROUTE_CACHE)
-    ctx.check("it names what it reset", {"halo_harness.config.paths._state_dir_memo", "halo_harness.subscription_scrub._SCRUBBED",
+    ctx.check(f"the memo and the route cache are empty, got {done}",
+              not paths._state_dir_memo and not dbx._DBX_ROUTE_CACHE)
+    ctx.check("it names what it reset", {"halo_harness.config.paths._state_dir_memo",
                                          "halo_harness.providers.databricks._DBX_ROUTE_CACHE"} <= set(done))
 
 

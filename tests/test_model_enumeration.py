@@ -22,7 +22,7 @@ test, TESTS = new_registry()
 _PROVIDER_ENV_VARS = ("OPENROUTER_API_KEY", "BRIDGE_OPENROUTER_BASE_URL", "ANTHROPIC_API_KEY",
                       "BRIDGE_ANTHROPIC_BASE_URL", "OPENAI_API_KEY", "BRIDGE_OPENAI_BASE_URL",
                       "DATABRICKS_HOST", "DATABRICKS_TOKEN", "HF_TOKEN", "EXPLABS_API_KEY",
-                      "BRIDGE_TEST_CC_AUTH_STATUS", "BRIDGE_TEST_CODEX_LOGIN_STATUS", "OLLAMA_HOST",
+                      "BRIDGE_TEST_CC_AUTH_STATUS", "OLLAMA_HOST",
                       "OLLAMA_API_KEY")
 
 _OR_MODELS_BODY = {"data": [
@@ -49,10 +49,6 @@ class _Env:
         for k in _PROVIDER_ENV_VARS:
             os.environ.pop(k, None)
         os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": False})
-        # Never let `_claude_probe`/`_codex_probe` spawn a REAL `claude`/
-        # `codex` subprocess on a build host that happens to have either
-        # one actually logged in -- both test seams return instantly.
-        os.environ["BRIDGE_TEST_CODEX_LOGIN_STATUS"] = "Not logged in"
         # `resolve_ollama_hosts` synthesizes a BARE default host (OLLAMA_
         # HOST, else 127.0.0.1:11434) whenever `ollama.hosts` config is
         # empty/absent -- on a real dev box with Ollama actually running
@@ -167,9 +163,9 @@ def test_enumerate_live_reports_cached_not_configured_and_not_reachable(ctx: Ctx
                       progress[oai_label] == "not reachable")
             ctx.check(f"Anthropic (never configured) reported not configured, got {progress[ant_label]!r}",
                       progress[ant_label] == "not configured")
-            ctx.check(f"local/claude/codex each got their own progress line too, got {sorted(progress)}",
-                      any("Ollama" in lbl for lbl in progress) and any("Claude" in lbl for lbl in progress)
-                      and any("Codex" in lbl for lbl in progress))
+            ctx.check(f"local got its own progress line, and no subscription line, got {sorted(progress)}",
+                      any("Ollama" in lbl for lbl in progress)
+                      and not [lbl for lbl in progress if "subscription" in lbl.lower()])
             ctx.check(f"the merged result still carries OpenRouter's real row, got "
                       f"{[m.get('ref') for m in rows]}", "or:deepseek/deepseek-v4.1-flash" in
                       [m.get("ref") for m in rows])

@@ -280,7 +280,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="halo", add_help=True,
         description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
         epilog="Commands: init, start, explain, studio, design, media, orchestra, work, team, teams, agents, roles, models, mcp, proxy, "
-               "config, doctor, update, stats, review, preflight, subscriptions, audit, improve, export, "
+               "config, doctor, update, stats, review, preflight, audit, improve, export, "
                "completion (run `halo <command> --help`; `halo init` sets up a fresh box in one go). "
                "The GUI: `halo studio --mode roles|design` -- lineups and agent bios as a graph, "
                "designs on artboards; in the TUI, /roles and /design.",
@@ -495,9 +495,6 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "providers":
         from halo_harness.providers_cli import cmd_providers
         return cmd_providers(argv[1:])
-    if argv and argv[0] == "subscriptions":
-        from halo_harness.subscriptions_cli import cmd_subscriptions
-        return cmd_subscriptions(argv[1:])
     if argv and argv[0] == "balances":
         from halo_harness.balances_cli import cmd_balances
         return cmd_balances(argv[1:])

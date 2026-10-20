@@ -81,7 +81,7 @@ class PrintModeHandle(_BaseHandle):
         return {"mode": mode}
 
     def set_model(self, ref: str) -> dict:
-        from halo_harness.controller import _NO_CREDENTIALS_NEEDED_PROVIDERS, _default_model_resolver, _not_configured_message
+        from halo_harness.controller import _default_model_resolver, _not_configured_message
         if not ref:
             raise HandleError("model ref required")
         if self.session.busy:
@@ -91,7 +91,7 @@ class PrintModeHandle(_BaseHandle):
                 ref, state_dir=self.state_dir, routes=self.routes, settings=self.settings)
         except Exception as e:
             raise HandleError(f"{e}")
-        if creds is None and mref.provider not in _NO_CREDENTIALS_NEEDED_PROVIDERS:
+        if creds is None:
             raise HandleError(_not_configured_message(mref))
         self.session.set_model(mref, profile, creds)
         self.hub.publish(self.session.status_event())

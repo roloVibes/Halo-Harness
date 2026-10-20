@@ -23,7 +23,6 @@ Halo reads your <code>~/.claude</code> setup in place, so nothing is configured 
 <p align="center">
   <a href="#install">Install</a> ·
   <a href="#what-halo-is">What Halo is</a> ·
-  <a href="#your-subscription-your-call">Subscriptions</a> ·
   <a href="#what-it-feels-like">What it feels like</a> ·
   <a href="#halo-studio">Studio</a> ·
   <a href="#how-halo-compares">Compare</a> ·
@@ -91,8 +90,8 @@ its fix.
 Halo is a standalone coding agent for the terminal. It runs the same loop Claude Code
 runs (a prompt, tool calls, permission rules, hooks, MCP servers, skills, sub-agents,
 sessions) against the model you choose, over the route you choose: OpenRouter,
-Databricks, the Anthropic API, the OpenAI API, Ollama, Hugging Face, any
-OpenAI-compatible server you host, or your own Claude Code or Codex subscription.
+Databricks, the Anthropic API, the OpenAI API, Ollama, Hugging Face, or any
+OpenAI-compatible server you host.
 
 It is built for three kinds of people:
 
@@ -113,20 +112,6 @@ It is built for three kinds of people:
 Auto mode allows everything except your own deny and ask rules and your hooks. There
 is no built-in safety classifier, no protected-path heuristic, no refusal layer. Rules
 use Claude Code's own grammar, in the same files.
-
-## Your subscription, your call
-
-> [!WARNING]
-> **You can run Halo on your Claude Code or Codex subscription, and that may violate the
-> provider's terms.** The `cc:` and `cx:` routes drive the official `claude` and `codex`
-> binaries in their documented headless modes under your own personal account, from a
-> third-party harness that is not the provider's product. The provider's terms govern
-> your account, and there have been public reports of accounts restricted for using
-> subscription tokens this way. Halo never reads either tool's stored credentials.
-> Both routes are **off until you accept** a one-time notice: `halo subscriptions
-> accept`, or `/subscriptions` in the TUI. The notice, the exact behaviour and the
-> consent record are described in
-> [docs/MODELS-references.md](docs/MODELS-references.md#subscription-routes-consent-halo-207-round-7b).
 
 ## What it feels like
 
@@ -171,12 +156,12 @@ the status bar counts what is waiting on you.
 
 ### One session across providers
 
-`or:` `dbx:` `local:` `cc:` `cx:` `oai:` `ant:` `ol:` `hf:` in one session, with `/model`
+`or:` `dbx:` `local:` `oai:` `ant:` `ol:` `hf:` in one session, with `/model`
 swapping the lane while the history, tools and rules come along. The picker shows price,
 context window and speed for every route (`?` when unknown, never a blank that reads as
 zero).
 
-![Nine route prefixes feeding one Halo session that reuses your Claude Code setup](docs/media/diagrams/routes.svg)
+![Five route prefixes feeding one Halo session that reuses your Claude Code setup](docs/media/diagrams/routes.svg)
 
 <a href="docs/media/model-picker.png"><img alt="The model picker with price, context and speed columns" src="docs/media/model-picker.png" width="100%"></a>
 
@@ -323,7 +308,7 @@ tool, so check each tool's own docs.
 | Point | Halo | Other harnesses (varies by tool) |
 |---|---|---|
 | Config reuse | Reads your Claude Code setup in place: `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers, memory | Commonly their own config files and instruction files |
-| Models | DeepSeek, GLM, Kimi, Qwen, Claude and more, over nine route kinds; `/model` swaps mid-conversation | Often one vendor's models, or one provider list per tool |
+| Models | DeepSeek, GLM, Kimi, Qwen, Claude and more, over seven route kinds; `/model` swaps mid-conversation | Often one vendor's models, or one provider list per tool |
 | Steering | Type during a turn; the steer shows at once and reaches the work, background commands survive, sub-agents get it | Commonly a queued message or an interrupt |
 | Liveness | A live phase line (seconds, token counts, `quiet`/`no data` counters) plus a status-bar word and timer | Commonly a spinner |
 | Permissions | Auto mode allows everything except your own deny/ask rules and hooks; asks dock above the prompt and queue | Commonly a built-in approval policy of the tool's own |
@@ -338,7 +323,7 @@ tool, so check each tool's own docs.
 
 | | |
 |---|---|
-| **Routes** | `or:` `dbx:` `ant:` `oai:` `ol:` `hf:` `local:` `cc:` `cx:` -- one session, any of them, and `/model` swaps the lane without losing context. |
+| **Routes** | `or:` `dbx:` `ant:` `oai:` `ol:` `hf:` `local:` -- one session, any of them, and `/model` swaps the lane without losing context. |
 | **Your Claude Code setup, in place** | `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers and memory are read where they are. Nothing is configured twice. |
 | **Steering** | Type while a turn runs: the steer shows at once and reaches the work, a running command moves to the background instead of dying, sub-agents get your words forwarded into them. |
 | **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in the wizard, with `halo teams apply <lineup>`, or in Studio. |
@@ -369,8 +354,8 @@ line on when to read it. The longest docs are split by task; their entry pages b
 | [docs/COMMANDS.md](docs/COMMANDS.md) | Every CLI command and flag |
 | [docs/SLASH-COMMANDS.md](docs/SLASH-COMMANDS.md) | Every slash command in the TUI |
 | [docs/CONFIG.md](docs/CONFIG.md) | Config keys, paths and environment variables |
-| [docs/MODELS.md](docs/MODELS.md) | Model families, effort levels, per-route rules and the subscription consent |
-| [docs/LOCAL-MODELS.md](docs/LOCAL-MODELS.md) | Ollama, Hugging Face, the OpenAI API and Codex, end to end |
+| [docs/MODELS.md](docs/MODELS.md) | Model families, effort levels and per-route rules |
+| [docs/LOCAL-MODELS.md](docs/LOCAL-MODELS.md) | Ollama, Hugging Face and the OpenAI API, end to end |
 | [docs/DATABRICKS.md](docs/DATABRICKS.md) | Databricks endpoints, API types and the work matrix |
 | [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups: the 90-second version, then the field reference |
 | [docs/STUDIO.md](docs/STUDIO.md) | Halo Studio, the browser GUI: its sections, the security model, SSH, every shortcut |
@@ -392,7 +377,7 @@ Three hermetic, exit-code-gated suites run on Windows, WSL and a Kali VM before 
 commit, and in CI on every push: `python test_bridge.py` (the proxy), `python
 tests/run_all.py` (the harness) and `python test_tui.py` (the TUI, through Textual's
 headless pilot). Mock servers stand in for every provider, a fake `claude` stands in for
-the subscription route, and guards fail the run if a test touches the real `~/.halo` or
+the claude.ai connectors bridge, and guards fail the run if a test touches the real `~/.halo` or
 `~/.claude`. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Contributing and security

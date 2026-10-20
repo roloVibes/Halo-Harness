@@ -154,7 +154,6 @@ def _call(module_name: str, fn_name: str) -> bool:
 # home that a later module's fresh home must not inherit.
 STATE_CACHES = (
     ("halo_harness.config.paths", "_state_dir_memo", "bridge_home()'s first resolution per home()"),
-    ("halo_harness.subscription_scrub", "_SCRUBBED", "scrub_once's (state_dir, cwd) keys; state_dir=None means the current home"),
     ("halo_harness.providers.databricks", "_DBX_ROUTE_CACHE", "routes-cache.json merged in memory from whichever state dir read it first"),
     ("halo_harness.fleet.identity", "_cache", "config.json per path, one-second TTL"),
     ("halo_harness.fleet.capabilities", "_loaded", "the capabilities catalog per path and mtime"),

@@ -2,7 +2,7 @@
 3.0.1.0 review fix pass left open), non-TUI items:
 
   * Z1  a design turn sends its prompt on stdin, never in argv
-  * Z2  /clear on a `cx:` session closes the codex bridge
+  * Z2  (pinned the cx: route, removed in 3.1.5.0)
   * Z3  gpg runs with the provider keys stripped
   * Z5  Org layouts persist under a file name NTFS accepts
   * Z6  the model-table ingest keeps every other section
@@ -95,30 +95,6 @@ def test_z1_the_stdin_prompt_is_capped_in_bytes_and_a_runner_can_take_it(ctx: Ct
     p = Project.create("Runner Stdin")
     S.run_turn(p, "a hero", registered=set(), entries={}, runner=runner)
     ctx.check("a runner that takes stdin= gets the prompt", seen["stdin"] == "a hero" and "a hero" not in seen["cmd"])
-
-
-@test
-def test_z2_clear_closes_a_live_cx_bridge(ctx: Ctx):
-    from halo_harness.agent.assemble import SessionContext
-    from halo_harness.agent.loop import Session
-    from halo_harness.model import ModelProfile, parse_model_ref
-    from halo_harness.permissions import PermissionEngine
-    proj = Path(tempfile.mkdtemp(prefix="z2-proj-"))
-    model = "or:test/model"
-    s = Session(cwd=proj, model_ref=parse_model_ref(model),
-                model_profile=ModelProfile(context_tokens=200_000, max_output_tokens=8192), creds=None,
-                state_dir=Path(tempfile.mkdtemp(prefix="z2-state-")), model_label=model,
-                session_context=SessionContext(cwd=proj, model_label=model), max_turns=4,
-                permission_engine=PermissionEngine(mode="auto", cwd=proj))
-    closed = []
-    s._cx_state = SimpleNamespace(bridge=SimpleNamespace(close=lambda: closed.append(True)), thread_id="old-thread")
-    old_id = s.log.session_id
-    s.clear()
-    ctx.check("the codex bridge was closed", closed == [True])
-    ctx.check("no cx state survives /clear", getattr(s, "_cx_state", None) is None)
-    ctx.check("a new session log", s.log.session_id != old_id)
-    s.clear()
-    ctx.check("a second /clear with no cx state is fine", closed == [True])
 
 
 @test

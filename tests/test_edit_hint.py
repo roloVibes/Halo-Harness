@@ -105,8 +105,8 @@ def test_headless_build_session_deepseek_edit_carries_the_line(ctx: Ctx):
 
 
 @test
-def test_headless_build_session_cc_and_ant_edit_has_no_line_and_wire_is_otherwise_identical(ctx: Ctx):
-    """A `cc:`/`ant:` session's Edit description carries no hint, and every
+def test_headless_build_session_ant_edit_has_no_line_and_wire_is_otherwise_identical(ctx: Ctx):
+    """An `ant:` session's Edit description carries no hint, and every
     OTHER tool definition on the wire (name-sorted, exactly what a real
     request would send) is byte-identical to a DeepSeek session's -- this
     feature touches ONLY the Edit tool's own description string."""
@@ -115,25 +115,19 @@ def test_headless_build_session_cc_and_ant_edit_has_no_line_and_wire_is_otherwis
     old_home = os.environ.get("BRIDGE_TEST_HOME")
     old_auth = os.environ.get("BRIDGE_TEST_CC_AUTH_STATUS")
     os.environ["BRIDGE_TEST_HOME"] = str(home)
-    os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-    # Halo 2.0.7 round 7b: this test is about the Edit-tool family hint
-    # (its own docstring above), not the subscription-routes consent gate
-    # -- accept once for this fresh home so cc:sonnet keeps resolving.
-    from halo_harness.subscription_consent import record_acceptance
-    record_acceptance()
+    os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": False})
     try:
         ds = headless.build_session(cwd=REPO_DIR, model_ref_raw="or:deepseek/deepseek-v4.1-flash",
                                      bare=True, print_mode=True)
         ant = headless.build_session(cwd=REPO_DIR, model_ref_raw="ant:sonnet", bare=True, print_mode=True)
-        cc = headless.build_session(cwd=REPO_DIR, model_ref_raw="cc:sonnet", bare=True, print_mode=True)
 
-        for label, build in (("ant:sonnet", ant), ("cc:sonnet", cc)):
+        for label, build in (("ant:sonnet", ant),):
             edit_def = next(t for t in build.tool_registry.definitions() if t["name"] == "Edit")
             ctx.check(f"{label}'s Edit carries no per-family hint, got tail={edit_def['description'][-120:]!r}",
                       "rather than guessing" not in edit_def["description"].lower())
 
         ds_defs = {t["name"]: t for t in ds.tool_registry.definitions()}
-        for label, build in (("ant:sonnet", ant), ("cc:sonnet", cc)):
+        for label, build in (("ant:sonnet", ant),):
             other_defs = {t["name"]: t for t in build.tool_registry.definitions()}
             diffs = [name for name in ds_defs if name != "Edit"
                      and json.dumps(ds_defs[name], sort_keys=True) != json.dumps(other_defs.get(name), sort_keys=True)]
@@ -215,14 +209,12 @@ def test_real_multiple_matches_error_not_reinforced_for_claude(ctx: Ctx):
     old_home = os.environ.get("BRIDGE_TEST_HOME")
     old_auth = os.environ.get("BRIDGE_TEST_CC_AUTH_STATUS")
     os.environ["BRIDGE_TEST_HOME"] = str(fh)
-    os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-    from halo_harness.subscription_consent import record_acceptance
-    record_acceptance()
+    os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": False})
     try:
         target = fh / "ambiguous.txt"
         target.write_text("line one\nmarker\nline two\nmarker\nline three\n", encoding="utf-8")
         session_ctx = SessionContext(cwd=fh, model_label="sonnet")
-        model_ref = parse_model_ref("cc:sonnet")
+        model_ref = parse_model_ref("ant:sonnet")
         session = Session(
             cwd=fh, model_ref=model_ref, model_profile=ModelProfile(),
             creds=ProviderCreds(base_url="http://x", api_key="k"),
@@ -237,7 +229,7 @@ def test_real_multiple_matches_error_not_reinforced_for_claude(ctx: Ctx):
         result_events = [e for e in events_seen if e.kind == "tool_result"]
         content = result_events[0].data.get("content") or ""
         ctx.check(f"the real ambiguous-match error fired, got {content!r}", "Found multiple matches" in content)
-        ctx.check(f"no family hint reinforcement for cc:sonnet, got {content!r}", "[hint:" not in content)
+        ctx.check(f"no family hint reinforcement for ant:sonnet, got {content!r}", "[hint:" not in content)
     finally:
         if old_home is not None:
             os.environ["BRIDGE_TEST_HOME"] = old_home

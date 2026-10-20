@@ -47,13 +47,6 @@ class _Env:
         os.environ["OPENROUTER_API_KEY"] = "sk-or-scratch"  # the "scratch or: session" the brief's test names
         self.home = d
         self.state_dir = d / ".halo"
-        # Halo 2.0.7 round 7b: this module is about creds-clearing/
-        # refusal mechanics around set_model (its own docstring above),
-        # not the subscription-routes consent gate -- pre-accept for this
-        # fresh scratch home so the existing cc:/cx: cases below keep
-        # resolving exactly as they did before that gate existed.
-        from halo_harness.subscription_consent import record_acceptance
-        record_acceptance()
         return self
 
     def __exit__(self, *exc):
@@ -122,16 +115,17 @@ def test_an_ordinary_configured_switch_is_unaffected(ctx: Ctx):
 
 
 @test
-def test_cc_and_cx_are_exempt_from_the_credentials_gate(ctx: Ctx):
-    """cc:/cx: are subprocess routes that need no API key at all --
-    `_resolve_creds` always returns None for them, which must never be
-    read as "not configured" the way a cloud/local ref's None is."""
+def test_a_removed_route_ref_gets_the_one_line_and_is_never_queued(ctx: Ctx):
+    """3.1.5.0 R1: `/model cc:...` / `/model cx:...` (routes removed in
+    3.1.5.0) surface the one removed-route line as the set_model error,
+    and nothing is queued."""
     with _Env() as env:
         for ref in ("cc:sonnet", "cx:astra"):
             ctrl = _controller(env.state_dir)
             err = ctrl.set_model(ref)
-            ctx.check(f"{ref}: no refusal despite creds=None, got {err!r}", err is None)
-            ctx.check(f"{ref}: the switch WAS queued", not ctrl.commands.empty())
+            ctx.check(f"{ref}: the removed-route line, got {err!r}",
+                      bool(err) and f"no route: {ref!r}" in err and "removed in 3.1.5.0" in err)
+            ctx.check(f"{ref}: the switch was never queued", ctrl.commands.empty())
 
 
 @test
@@ -175,8 +169,8 @@ def test_session_set_model_clears_creds_when_given_none(ctx: Ctx):
         stale = ProviderCreds(base_url="https://openrouter.ai/api/v1", api_key="stale-or-key")
         session = _new_session("or:mock/old", creds=stale)
         ctx.check("starts with the stale creds", session.creds is stale)
-        session.set_model(parse_model_ref("cx:astra"), ModelProfile(), None)
-        ctx.check(f"creds cleared to None (cx: needs none), got {session.creds!r}", session.creds is None)
+        session.set_model(parse_model_ref("ant:sonnet"), ModelProfile(), None)
+        ctx.check(f"creds cleared to None, got {session.creds!r}", session.creds is None)
 
 
 @test

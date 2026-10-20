@@ -56,9 +56,9 @@ filters, `Enter` confirms, `Esc` cancels, `Ctrl+O` opens a short list to set a
 ROLE for the highlighted model -- `roles.<name>`, the same table `/roles`
 reads, see `docs/ROLES.md`; works from this screen's default state, filter
 box included -- you never have to move focus off it first) grouped by
-provider/family with one header per group (OpenRouter, `Claude Code
-subscription` -- only shown when that subscription is actually usable, see
-below -- `Databricks (<family>)` per family, an `Ollama (<host>)` group
+provider/family with one header per group (OpenRouter, `Anthropic API
+(key)` -- only shown once `ANTHROPIC_API_KEY` is set --
+`Databricks (<family>)` per family, an `Ollama (<host>)` group
 per configured Ollama host, and an `hf:local/*`/`hf:mlx/*` group per
 registered local server or served model-dirs file -- fix pass C-2: the
 picker used to have no way to reach a local model by name at all).
@@ -67,8 +67,8 @@ max output, and USD/1M-token prices (`ctx=200k out=64k in=$1.00/M
 out=$5.00/M`, blank -- never `?` -- for anything not published, including
 every local row, which has no per-token price), plus,
 for a Databricks row, a `[<family> · <path>]` tag naming which gateway
-path it resolves to right now (see `docs/DATABRICKS.md`); a `cc:`/`ant:`
-row's own tag instead names the resolved model id (e.g. `cc:opus` shows
+path it resolves to right now (see `docs/DATABRICKS.md`); an `ant:`
+row's own tag instead names the resolved model id (e.g. `ant:opus` shows
 `[-> claude-opus-5-5 (latest Opus)]`, see `docs/MODELS.md`'s alias table).
 Databricks
 pricing/context data comes from models.dev (refreshed by `/models
@@ -78,10 +78,8 @@ form `docs/MODELS.md` documents, including a bare `databricks-*`/
 `system.ai.*` name or any name that matches a cached Databricks endpoint)
 given directly as `/model <ref>`, switches the session to it immediately,
 no picker -- mid-session model changes are logged as a fresh `meta` node.
-The `Claude Code subscription` group appears only when `claude auth status`
-reports an actual claude.ai login (not, e.g., a Databricks work box's own
-settings-driven login) -- otherwise a `cc:` row would just fail at request
-time with no warning from the picker.
+A `cc:`/`cx:` ref (routes removed in 3.1.5.0) shows the one removed-route
+line as the `/model` error instead.
 
 ### `/models [refresh]`
 Bare: renders the cached Databricks table INSTANTLY, without touching the
@@ -217,7 +215,7 @@ sessions for this directory. In the TUI, opens the session picker with a
 live fuzzy filter over title/first prompt/cwd/model, pre-filtered by any
 text typed after `/resume`. Picking a session (here or from Ctrl+P) switches
 the live session to it between turns: the transcript is replaced by the
-resumed conversation, and hooks, the `cc:` process and the cost meter follow
+resumed conversation, and hooks and the cost meter follow
 the new session. While a turn is running the pick is refused with a
 notification; wait for it or press Esc, then pick again.
 

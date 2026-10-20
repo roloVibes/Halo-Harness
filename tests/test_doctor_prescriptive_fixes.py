@@ -3,9 +3,9 @@
 `doctor --json`/`run_checks_structured` expose the same checks as records,
 and the new checks (`~/.local/bin` on PATH, tmux mouse mode, MCP servers,
 the default model in config.json). Isolated BRIDGE_TEST_HOME throughout;
-BRIDGE_TEST_CC_AUTH_STATUS defaults to "not logged in" so the Claude-
-subscription check (which every one of these runs touches) never spawns a
-real `claude auth status`.
+BRIDGE_TEST_CC_AUTH_STATUS defaults to "not logged in" so the connectors
+check (which every one of these runs touches) never spawns a real
+`claude auth status`.
 """
 from __future__ import annotations
 
@@ -392,58 +392,21 @@ def test_default_model_check_unset_configured_and_misconfigured(ctx: Ctx):
 
 
 # ---------------------------------------------------------------------------
-# 2.0.1 W3a: doctor pins the tested Claude Code version range
-# (providers/cc_tested.json) and WARNs when the installed claude is newer.
+# 3.1.5.0 R1: no subscription rows in doctor.
 # ---------------------------------------------------------------------------
 
 @test
-def test_claude_subscription_warns_when_installed_claude_is_newer_than_tested(ctx: Ctx):
+def test_doctor_has_no_subscription_rows(ctx: Ctx):
     import halo_harness.doctor as doctor_mod
-    from halo_harness.providers.cc_models import load_cc_tested_range
-
-    tested = load_cc_tested_range()
-    old_home = os.environ.get("BRIDGE_TEST_HOME")
-    old_auth = os.environ.get("BRIDGE_TEST_CC_AUTH_STATUS")
-    os.environ["BRIDGE_TEST_HOME"] = str(_fresh_home())
-    os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-    real_version = doctor_mod._claude_version
-    doctor_mod._claude_version = lambda: "99.0.0"  # newer than any real tested max
-    try:
-        line = doctor_mod._check_claude_subscription()
-        ctx.check(f"WARN (never OK) for a too-new install, got {line!r}", line.startswith(doctor_mod.WARN))
-        ctx.check(f"names 'newer than the tested range', got {line!r}", "newer than the tested range" in line)
-        ctx.check(f"names the tested max, got {line!r}", str(tested.get("max")) in line)
-    finally:
-        doctor_mod._claude_version = real_version
-        for var, old in (("BRIDGE_TEST_HOME", old_home), ("BRIDGE_TEST_CC_AUTH_STATUS", old_auth)):
-            if old is not None:
-                os.environ[var] = old
-            else:
-                os.environ.pop(var, None)
-
-
-@test
-def test_claude_subscription_ok_when_installed_claude_is_within_tested_range(ctx: Ctx):
-    import halo_harness.doctor as doctor_mod
-    from halo_harness.providers.cc_models import load_cc_tested_range
-
-    tested = load_cc_tested_range()
-    old_home = os.environ.get("BRIDGE_TEST_HOME")
-    old_auth = os.environ.get("BRIDGE_TEST_CC_AUTH_STATUS")
-    os.environ["BRIDGE_TEST_HOME"] = str(_fresh_home())
-    os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-    real_version = doctor_mod._claude_version
-    doctor_mod._claude_version = lambda: tested.get("max")
-    try:
-        line = doctor_mod._check_claude_subscription()
-        ctx.check(f"OK for a version exactly at the tested max, got {line!r}", line.startswith(doctor_mod.OK))
-    finally:
-        doctor_mod._claude_version = real_version
-        for var, old in (("BRIDGE_TEST_HOME", old_home), ("BRIDGE_TEST_CC_AUTH_STATUS", old_auth)):
-            if old is not None:
-                os.environ[var] = old
-            else:
-                os.environ.pop(var, None)
+    import re
+    from pathlib import Path as _P
+    src = _P(doctor_mod.__file__).read_text(encoding="utf-8")
+    ids = re.findall(r'entries\.append\(\("([a-z_]+)"', src)
+    gone = {"claude_subscription", "codex_subscription", "subscription_consent", "codex_settings"}
+    for name in ("_check_claude_subscription", "_check_codex_subscription", "_check_subscription_consent",
+                 "_check_codex_settings", "_claude_version"):
+        ctx.check(f"doctor.{name} is gone", not hasattr(doctor_mod, name))
+    ctx.check(f"no subscription entry id, got {ids}", not gone & set(ids))
 
 
 def _hermetic_child_env() -> dict:
