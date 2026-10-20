@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.fake_clip_env import LinuxClipEnv
-from tests.helpers.runner import Ctx, new_registry, print_results, run_all
+from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
 
 test, TESTS = new_registry()
 
@@ -97,6 +97,8 @@ def test_no_tool_on_path_saves_the_file_0600_and_overwrites_it(ctx: Ctx):
 def test_a_fake_xclip_on_path_lands_and_no_file_is_written(ctx: Ctx):
     from halo_harness.tui.copy_outcome import run_copy_fallback
     with LinuxClipEnv(tools=("xclip",), env={"DISPLAY": ":0"}) as clip:
+        if clip.probe_error:  # a host where the fake cannot run (the GitHub Windows runner) skips with the reason
+            raise SkipTest(f"the fake clipboard tool cannot run on this host: {clip.probe_error}")
         line, sev = run_copy_fallback("café — draft", osc52_sent=True)
         ctx.check(f"the fake xclip got the UTF-8 text, got {clip.sink('xclip')!r}", clip.sink("xclip") == "café — draft")
         ctx.check(f"copied N characters via xclip, got {line!r}", line == "copied 12 characters via xclip" and sev == "information")

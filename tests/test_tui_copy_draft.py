@@ -26,7 +26,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.fake_clip_env import LinuxClipEnv
-from tests.helpers.runner import Ctx, new_registry, print_results, run_all
+from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
+
+
+def _need_tool(clip: LinuxClipEnv) -> None:
+    """A host where the fake tool cannot run (the GitHub Windows runner) skips with the probe's reason."""
+    if clip.probe_error:
+        raise SkipTest(f"the fake clipboard tool cannot run on this host: {clip.probe_error}")
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 
@@ -70,6 +76,7 @@ def test_ctrl_shift_c_copies_the_whole_draft_through_the_tool(ctx: Ctx):
 
     async def body():
         with LinuxClipEnv(tools=("xclip",), env={"DISPLAY": ":0"}) as clip:
+            _need_tool(clip)
             _fake, app = _app()
             async with app.run_test(size=(100, 30)) as pilot:
                 await pilot.pause(0.2)
@@ -93,6 +100,7 @@ def test_ctrl_c_keeps_its_meaning_beside_the_draft_key(ctx: Ctx):
 
     async def body():
         with LinuxClipEnv(tools=("xclip",), env={"DISPLAY": ":0"}) as clip:
+            _need_tool(clip)
             _fake, app = _app()
             async with app.run_test(size=(100, 30)) as pilot:
                 await pilot.pause(0.2)
@@ -120,6 +128,7 @@ def test_copy_draft_command_copies_the_draft_it_was_typed_over(ctx: Ctx):
 
     async def body():
         with LinuxClipEnv(tools=("xclip",), env={"DISPLAY": ":0"}) as clip:
+            _need_tool(clip)
             _fake, app = _app(turns=[])
             async with app.run_test(size=(100, 30)) as pilot:
                 await pilot.pause(0.2)
@@ -145,6 +154,7 @@ def test_copy_draft_command_copies_the_draft_it_was_typed_over(ctx: Ctx):
 def test_a_sent_message_is_no_longer_a_draft(ctx: Ctx):
     async def body():
         with LinuxClipEnv(tools=("xclip",), env={"DISPLAY": ":0"}) as clip:
+            _need_tool(clip)
             fake, app = _app(turns=[])
             async with app.run_test(size=(100, 30)) as pilot:
                 await pilot.pause(0.2)
