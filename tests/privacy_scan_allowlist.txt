@@ -54,3 +54,7 @@ AIzaSyA1234567890abcdefghijklmnopqrstu
 Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
 # 2.0.7 fix pass round 6: the review round-2 URL-credential redaction fixture (fake password at a placeholder host, read as an email shape)
 s3cretpw@db.internal
+# 3.1.6.0 R3: the fake userinfo remotes the library docs and tests strip (coach_experience.remote_path), not addresses
+token@github.com
+secret@github.com
+tok-123@github.com
