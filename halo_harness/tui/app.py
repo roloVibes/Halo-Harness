@@ -34,6 +34,7 @@ from halo_harness import events as ev
 from halo_harness.tui import keys as tui_keys
 from halo_harness.tui import theme as tui_theme
 from halo_harness.tui.dispatch import apply_event
+from halo_harness.tui.draft_copy import COPY_DRAFT_KEYS, ShiftDragHint
 from halo_harness.tui.events import drain_queue
 from halo_harness.tui.keys import DOUBLE_CTRL_C_WINDOW_S, DRAIN_HZ, next_mode
 from halo_harness.tui.widgets.input import CompletionPopup, PromptInput
@@ -226,6 +227,10 @@ class BridgeApp(App):
         # this ONE action in that case, as a second, explicit guard (belt-
         # and-suspenders, same philosophy as the clipboard fallback).
         Binding("Y", "copy_turn", "Copy turn", show=False),
+        # 3.1.6.0 R5: Ctrl+Shift+C copies the whole chat-box draft (every
+        # spelling Textual reports for it, see draft_copy.COPY_DRAFT_KEYS);
+        # `/copy draft` is the same copy for terminals that keep the key.
+        Binding(COPY_DRAFT_KEYS, "copy_draft", "Copy draft", priority=True, show=False),
     ]
 
     def __init__(self, controller, *, registry=None, facade=None, tool_registry=None,
@@ -311,6 +316,8 @@ class BridgeApp(App):
         self._pending_markers: "dict" = {}
         self._borrowing_card = None
         self._ctrl_c_deadline: Optional[float] = None
+        # 3.1.6.0 R5: the one-per-session "hold Shift to select" hint.
+        self._shift_drag_hint = ShiftDragHint()
         # 2.0.7 round 7c: set by `tui/launch.py` on Windows consoles (a
         # `console_mode.Guard`); None everywhere else, including tests.
         self.console_guard = None
@@ -1180,6 +1187,9 @@ class BridgeApp(App):
         is_slash_command = stripped.startswith("/") and "\n" not in stripped
         # Review 3 item 145: a `!cmd` line keeps the pending image chips too.
         keeps_images = is_slash_command or (stripped.startswith("!") and "\n" not in stripped)
+        if stripped and not is_slash_command:
+            # 3.1.6.0 R5: sent, so no longer a draft for `/copy draft`.
+            self.prompt_input.draft_keeper.sent()
 
         if self._borrowing_card is not None:
             if is_slash_command:
@@ -2271,7 +2281,7 @@ class BridgeApp(App):
             return
         self.controller.interrupt()
 
-    def copy_to_clipboard(self, text: str, *, confirm: bool = False) -> None:
+    def copy_to_clipboard(self, text: str, *, confirm: bool = True) -> None:
         """W4c item 3: OSC 52 is only EMITTED when this terminal is known to
         relay it (`clipboard.osc52_trusted()` -- Windows Terminal yes, a
         plain `conhost` console host no). Overridden at the APP level
@@ -2289,45 +2299,27 @@ class BridgeApp(App):
         failure"): `confirm=True` (the explicit copy actions) asks the
         fallback worker to report WHICH mechanism actually landed -- the
         confirmation line names it, and a total failure (no OSC 52 trust +
-        no tool) becomes a visible warning naming the install hint."""
+        no tool) becomes a visible warning naming the install hint.
+
+        3.1.6.0 R5 (the owner on Kali: copying did nothing, silently):
+        `confirm` now defaults to True, so Textual's own copy paths report
+        too, and the line says exactly what landed -- "copied N characters
+        via xclip", or (no tool landed) why, with the text saved to
+        `<state>/clipboard.txt` -- see tui/copy_outcome.py."""
         from halo_harness.tui.clipboard import osc52_trusted
-        if self._driver is not None and osc52_trusted():
+        osc52_sent = self._driver is not None and osc52_trusted()
+        if osc52_sent:
             super().copy_to_clipboard(text)
         else:
             self._clipboard = text
-        self.run_worker(lambda: self._clipboard_fallback_worker(text, confirm=confirm),
+        self.run_worker(lambda: self._clipboard_fallback_worker(text, confirm=confirm, osc52_sent=osc52_sent),
                         thread=True, name="clipboard-fallback")
 
-    def _clipboard_fallback_worker(self, text: str, *, confirm: bool = False) -> None:
-        from halo_harness.tui.clipboard import copy_via_external_tool
-        ok = copy_via_external_tool(text)
-        if not confirm:
-            return
-        # 2.0.7 copy-out fix: the visible confirmation names the mechanism
-        # that actually landed -- OSC 52 (when trusted AND we emitted it)
-        # is the primary, the external tool is the verified floor.
-        from halo_harness.tui.clipboard import osc52_trusted, tmux_clipboard_mode
-        if ok:
-            self.call_from_thread(self.notify,
-                                  f"Copy verified via system clipboard ({len(text)} characters)",
-                                  timeout=3)
-            return
-        tmux_mode = tmux_clipboard_mode()
-        if tmux_mode is not None and tmux_mode not in ("on", "external"):
-            # The Kali-over-SSH case: OSC 52 through tmux was the only path
-            # to the user's real local clipboard, and tmux is dropping it.
-            self.call_from_thread(
-                self.notify,
-                "Copy FAILED -- tmux is dropping OSC 52 (set-clipboard is off). Fix once: "
-                "'tmux set -g set-clipboard on', then detach and re-attach.",
-                severity="error", timeout=8)
-            return
-        if not osc52_trusted():
-            self.call_from_thread(
-                self.notify,
-                "Copy FAILED -- no clipboard mechanism landed (OSC 52 untrusted here and no "
-                "clipboard tool found; install xclip/wl-copy/xsel, or run inside Windows Terminal)",
-                severity="error", timeout=6)
+    def _clipboard_fallback_worker(self, text: str, *, confirm: bool = True, osc52_sent: bool = True) -> None:
+        from halo_harness.tui.copy_outcome import run_copy_fallback, timeout_for
+        message, severity = run_copy_fallback(text, osc52_sent=osc52_sent)
+        if confirm:
+            self.call_from_thread(self.notify, message, severity=severity, timeout=timeout_for(severity))
 
     def perform_copy(self, text: "Optional[str]", *, label: str) -> bool:
         """W4c item 2: the ONE place every EXPLICIT copy action (`/copy`,
@@ -2434,6 +2426,19 @@ class BridgeApp(App):
     def action_copy_turn(self) -> None:
         if not self.perform_copy(self._current_turn_text(), label="this turn"):
             self.notify("Nothing to copy yet.", severity="warning", title="Y")
+
+    def action_copy_draft(self) -> None:
+        """3.1.6.0 R5: Ctrl+Shift+C -- the whole chat-box draft (tui/draft_copy.py)."""
+        from halo_harness.tui.draft_copy import copy_draft
+        copy_draft(self, source="key")
+
+    async def on_event(self, event) -> None:
+        """3.1.6.0 R5: every mouse event passes the one-time Shift-drag hint
+        (tui/draft_copy.py) on its way to Textual's own handling."""
+        hint = getattr(self, "_shift_drag_hint", None)
+        if hint is not None and not hint.shown:
+            hint.observe(self, event)
+        await super().on_event(event)
 
     def action_interrupt_or_quit(self) -> None:
         """2.0.7 round 7c (rolo: "I need Ctrl+C for copying"). The FIRST

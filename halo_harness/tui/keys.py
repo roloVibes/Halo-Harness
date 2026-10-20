@@ -86,6 +86,7 @@ STATIC_APP_BINDINGS = frozenset({
     "ctrl+c", "ctrl+d", "escape", "shift+tab", "ctrl+l", "ctrl+o", "ctrl+r",
     "f1", "ctrl+p", "ctrl+e", "ctrl+x", "ctrl+end", "end", "ctrl+q",
     "ctrl+a", "ctrl+v", "ctrl+alt+v", "shift+insert",
+    "ctrl+shift+c",  # 3.1.6.0 R5: copy the chat-box draft
 })
 
 # ============================================================================

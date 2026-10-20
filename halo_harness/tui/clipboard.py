@@ -40,17 +40,42 @@ _LINUX_CLIPBOARD_TOOLS = (
 
 _MACOS_COPY_ARGV = ["pbcopy"]
 
+# 3.1.6.0 R5: the display session each tool needs -- wl-copy talks to a
+# Wayland compositor, xclip/xsel to an X server. A tool whose session is up
+# is preferred over one that is merely on PATH (wl-copy on an X11 desktop
+# fails with "Failed to connect to a Wayland server").
+TOOL_SESSION_VAR = {"wl-copy": "WAYLAND_DISPLAY", "xclip": "DISPLAY", "xsel": "DISPLAY"}
+
+
+def _platform() -> str:
+    """`sys.platform`, behind one seam: every `platform=None` default in
+    this module (and tui/copy_outcome.py) reads it here, so a test can run
+    the Linux paths on any build host."""
+    return sys.platform
+
 
 def find_clipboard_tool() -> "Optional[tuple[str, list]]":
     """`(name, argv)` for the first of `wl-copy`/`xclip`/`xsel` found on
     PATH, or `None` if none are installed (headless server, minimal
     container, ...). Linux-only (see `copy_via_external_tool`'s own
     platform dispatch for win32/darwin, each of which has exactly one
-    well-known tool rather than a PATH search)."""
+    well-known tool rather than a PATH search).
+
+    3.1.6.0 R5: argv[0] is the path PATH resolved (what actually runs), and
+    a tool whose display session is up (`TOOL_SESSION_VAR`) wins over one
+    listed earlier whose session is not; with no session up at all the
+    PATH order stands."""
+    found = []
     for name, argv in _LINUX_CLIPBOARD_TOOLS:
-        if shutil.which(argv[0]):
+        path = shutil.which(argv[0])
+        if path:
+            found.append((name, [path, *argv[1:]]))
+    if not found:
+        return None
+    for name, argv in found:
+        if os.environ.get(TOOL_SESSION_VAR.get(name, "")):
             return name, argv
-    return None
+    return found[0]
 
 
 def _copy_windows_clipboard(text: str, *, timeout_s: float) -> bool:
@@ -118,7 +143,8 @@ def copy_via_external_tool(text: str, *, timeout_s: float = 3.0,
     "test seam for both [Windows] paths" -- that also lets a test on ANY
     host exercise the win32/darwin/linux dispatch deterministically rather
     than only whichever platform happens to be running the suite."""
-    plat = platform if platform is not None else sys.platform
+    plat = platform if platform is not None else _platform()
+    _LAST_COPY_ERROR["text"] = ""
     if plat == "win32":
         return _copy_windows_clipboard(text, timeout_s=timeout_s)
     if plat == "darwin":
@@ -155,7 +181,7 @@ def osc52_trusted(env: "Optional[dict]" = None, *, platform: "Optional[str]" = N
     never loses the copy outright. `env`/`platform` default to the real
     `os.environ`/`sys.platform` -- both are test seams."""
     environ = env if env is not None else os.environ
-    plat = platform if platform is not None else sys.platform
+    plat = platform if platform is not None else _platform()
     if plat == "win32":
         return bool(environ.get("WT_SESSION"))
     mode = tmux_clipboard_mode(environ)
@@ -199,7 +225,7 @@ def active_clipboard_backend_name(env: "Optional[dict]" = None, *,
     3: "a one-time doctor line names which backend is active") and
     anything else that wants the same answer without duplicating the
     platform logic above."""
-    plat = platform if platform is not None else sys.platform
+    plat = platform if platform is not None else _platform()
     trusted = osc52_trusted(env, platform=plat)
     if plat == "win32":
         if trusted:
@@ -252,7 +278,7 @@ def read_via_external_tool(*, timeout_s: float = 3.0, platform: "Optional[str]" 
     distinguish "empty" from "no tool" any more precisely than that.
     `platform` (default `sys.platform`) is the same test seam
     `copy_via_external_tool` already has, for the same reason."""
-    plat = platform if platform is not None else sys.platform
+    plat = platform if platform is not None else _platform()
     if plat == "win32":
         argv = _WINDOWS_PASTE_ARGV
     elif plat == "darwin":
@@ -313,7 +339,7 @@ def clipboard_doctor_line(env: "Optional[dict]" = None, *, platform: "Optional[s
     which mechanism a copy actually rides (OSC 52 when trusted, plus the
     external tool as the verified floor), and whether the read direction
     (Ctrl+V / bare /paste) has a tool behind it too."""
-    plat = platform if platform is not None else sys.platform
+    plat = platform if platform is not None else _platform()
     name = active_clipboard_backend_name(env, platform=plat)
     if plat == "win32":
         return (f"[OK] Clipboard backend: win32 -- {name} "
@@ -323,19 +349,10 @@ def clipboard_doctor_line(env: "Optional[dict]" = None, *, platform: "Optional[s
         return (f"[OK] Clipboard backend: darwin -- {name} "
                 f"(write: OSC 52 when trusted + pbcopy floor; read: pbpaste; "
                 f"selection copies narrow to the dragged range)")
-    read_tool = find_clipboard_tool()
-    tmux_mode = tmux_clipboard_mode(env)
-    if tmux_mode is not None and tmux_mode not in ("on", "external"):
-        return (f"[WARN] Clipboard backend: {name} -- tmux is intercepting OSC 52 with "
-                f"set-clipboard={tmux_mode}, so copies DIE here (over SSH that was the only path to "
-                f"your real clipboard). Fix: 'tmux set -g set-clipboard on', then detach/attach.")
-    if read_tool is not None:
-        return (f"[OK] Clipboard backend: {name} "
-                f"(write: OSC 52 when trusted + {read_tool[0]} floor; read: {read_tool[0]}; "
-                f"selection copies narrow to the dragged range)")
-    return (f"[WARN] Clipboard backend: {name} (Ctrl+C on a selection still works on terminals that "
-            "relay OSC 52, but there's no backup if the terminal/multiplexer doesn't -- "
-            "and the READ direction has nothing: install xclip/wl-copy/xsel)")
+    # 3.1.6.0 R5: the Linux row (tool, display session, OSC 52 note, the
+    # fix) lives in tui/clipboard_doctor.py; doctor.py appends its fix.
+    from halo_harness.tui.clipboard_doctor import linux_clipboard_parts
+    return linux_clipboard_parts(env)[0]
 
 
 # ============================================================================

@@ -178,6 +178,23 @@ present, else `pip install --user -e .`. Either one needs re-running after
 every `git pull` -- an editable/tool install does not auto-refresh the
 installed console script on its own.
 
+**The clipboard row on Linux (3.1.6.0).** "Clipboard backend" names the
+tool a copy pipes into (`xclip`, `wl-copy` or `xsel`, preferring the one
+whose display session is up), whether an X11 or Wayland session is up
+(`DISPLAY` / `WAYLAND_DISPLAY`), and the OSC 52 note (every copy also sends
+OSC 52, which QTerminal, xfce4-terminal and GNOME Terminal ignore by
+default). With no tool it is a WARN ending `-> fix: sudo apt install xclip`
+(`sudo apt install wl-clipboard` on a Wayland-only session) and says each
+copy is also saved to `~/.halo/clipboard.txt`; a tool without its session
+(e.g. over SSH) points at "Copy does nothing on Linux" in
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md); tmux with `set-clipboard` off
+ends `-> fix: tmux set -g set-clipboard on`. For example:
+
+```
+[OK] Clipboard backend: xclip, X11 session up (DISPLAY=:0) -- write: OSC 52 when trusted + xclip floor; read: xclip; selection copies narrow to the dragged range; OSC 52 is sent too, which your terminal may ignore (QTerminal, xfce4-terminal and GNOME Terminal do by default)
+[WARN] Clipboard backend: no clipboard tool (xclip/wl-copy/xsel) on PATH, X11 session up (DISPLAY=:0) -- copies ride OSC 52 only, which your terminal may ignore (QTerminal, xfce4-terminal and GNOME Terminal do by default); each copy that no tool lands is also saved to ~/.halo/clipboard.txt; Ctrl+V has no tool to read with -> fix: sudo apt install xclip
+```
+
 ```sh
 BRIDGE_TEST_HOME=/tmp/demo-home halo doctor
 ```

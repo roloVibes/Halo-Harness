@@ -1735,8 +1735,11 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     # a fresh WSL install) gets the fix suffix HERE rather than inside
     # tui/clipboard.py itself, since `_fix`/the WARN/MISSING vocabulary is
     # this module's own convention, not that one's.
-    from halo_harness.tui.clipboard import clipboard_doctor_line
-    entries.append(("clipboard", _fix(clipboard_doctor_line(), cmd="sudo apt install xclip")))
+    # 3.1.6.0 R5: the row names its own fix (the apt line, the tmux
+    # setting, or the troubleshooting entry when no display session is up).
+    from halo_harness.tui.clipboard_doctor import clipboard_doctor_parts
+    clip_line, clip_fix, clip_see = clipboard_doctor_parts()
+    entries.append(("clipboard", _fix(clip_line, cmd=clip_fix, see=clip_see)))
     entries.append(("mcp_servers", _check_mcp_servers(cwd)))
     entries.append(("test_leftovers", _check_test_leftovers()))
     entries.append(("mcp_connectors", _check_mcp_connectors()))

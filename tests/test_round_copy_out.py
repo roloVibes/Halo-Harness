@@ -9,8 +9,8 @@ The contract:
   * a WHOLE-widget selection keeps the stored-source path (cleaned,
     chrome-stripped) unchanged;
   * every EXPLICIT copy (perform_copy) confirms with the mechanism that
-    actually landed -- "Copy verified via system clipboard (N
-    characters)" from the external-tool floor, or a visible failure
+    actually landed -- "copied N characters via <tool>" from the
+    external-tool floor (3.1.6.0 R5 wording), or a visible failure
     warning naming the install hint when nothing landed;
   * the read direction strips ONE leading BOM;
   * doctor's clipboard line states the full path verdict.
@@ -120,8 +120,8 @@ def test_perform_copy_confirms_the_landing_mechanism(ctx: Ctx):
                     await app.workers.wait_for_complete()
                     ctx.check(f"the immediate line names the label, got {notes}",
                               any("Copied this turn" in m for m, _s in notes))
-                    ctx.check("the verified line names the system clipboard",
-                              any("Copy verified via system clipboard" in m for m, _s in notes))
+                    ctx.check("the verified line names the count and the tool (3.1.6.0 R5)",
+                              any("copied 16 characters via" in m for m, _s in notes))
                     notes.clear()
                     # Nothing lands and OSC 52 is untrusted -> a visible ERROR.
                     clipboard_mod.copy_via_external_tool = lambda *a, **kw: False
@@ -179,14 +179,16 @@ def test_doctor_clipboard_line_states_the_path_verdict(ctx: Ctx):
     real_find = cm.find_clipboard_tool
     cm.find_clipboard_tool = lambda: ("xclip", ["xclip", "-selection", "clipboard"])
     try:
-        linux_ok = clipboard_doctor_line(platform="linux")
+        # 3.1.6.0 R5: an explicit env (an X11 session up, no tmux) -- the row
+        # now also reads the display session, and a real $TMUX must not leak in.
+        linux_ok = clipboard_doctor_line({"DISPLAY": ":0"}, platform="linux")
     finally:
         cm.find_clipboard_tool = real_find
     ctx.check("linux with a tool is OK and names the floor",
               linux_ok.startswith("[OK]") and "xclip floor" in linux_ok)
     cm.find_clipboard_tool = lambda: None
     try:
-        linux_warn = clipboard_doctor_line(platform="linux")
+        linux_warn = clipboard_doctor_line({"DISPLAY": ":0"}, platform="linux")
     finally:
         cm.find_clipboard_tool = real_find
     ctx.check("linux without a tool is a WARN naming the install hint",
