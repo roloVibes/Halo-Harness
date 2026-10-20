@@ -20,6 +20,7 @@ keeps what the deliverables support. Off unless asked.
      "pick": "invariant|domain|merged|kept", "picked": [ids], "why", "overlay", "apply": {changes, skipped},
      "cost": {"draft", "runs", "judge", "total"}, "started", "ended", "ts", "error"}
 `ASK` (prompt, model, cwd) -> {text, ok, error, cost_usd} replaces the draft call (tests).
+The draft's prompt: coach_probe_prompt.py (3.1.6.0 R3: with the library's lessons for runs like this).
 """
 
 from __future__ import annotations
@@ -34,16 +35,12 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from halo_harness.orchestra import jsonl
+from halo_harness.orchestra.coach_probe_prompt import draft_prompt  # 3.1.6.0 R3: moved out, the library's lessons in
 from halo_harness.orchestra.coach_probe_schema import KINDS, clean, facts, is_empty
 
 FILE = "probe.json"
 ASK: Optional[Callable] = None
 K_MAX = 4
-_SHAPE = ('{"pairs": [{"invariant": {"lead": {"model": "<ref>", "effort": "low|medium|high|xhigh|max", "prompt_notes": '
-          '"..."}, "workers": {"model": "<ref>", "prompt_notes": "...", "max_iterations": 40, "tools": {"allow": [...], '
-          '"deny": [...]}}, "bios": {"<bio>": {"model", "prompt_notes", "max_iterations", "tools"}}, "why": "..."}, '
-          '"domain": {"workers": {"prompt_notes": "..."}, "bios": {"<bio>": {"prompt_notes": "...", "use_for": '
-          '["word"]}}, "plan": [{"job": "job-2", "after": ["job-1"]}], "why": "..."}}]}')
 
 
 def money(x) -> str:
@@ -87,30 +84,6 @@ def probe_line(data: Optional[dict]) -> str:
     return f"probe: {data.get('runs')} runs, {money((data.get('cost') or {}).get('total'))}, picked: {data.get('pick')}"
 
 
-def draft_prompt(f: dict, k: int, cards: list) -> str:
-    g = f["goal"]
-    report = jsonl.read_json(Path(f["run_dir"]) / "report.json", {}) or {}
-    lanes = "\n".join(f"  lane {l['n']} ({l['job']}): bio {l['bio'] or '(none)'}, model {l['model'] or '(the role table)'}, "
-                      f"${l['cost_usd']:.4f}" for l in f["lanes"]) or "  (no lanes)"
-    jobs = "\n".join(f"  {j.get('id')}: {j.get('title')} (claims {', '.join(j.get('claims') or [])})"
-                     + (f", after {', '.join(j['after'])}" if j.get("after") else "") for j in f["jobs"]) or "  (none)"
-    seen = "\n".join(f"  - [{c.get('severity')}] {c.get('kind')}: {c.get('text')} (why: {'; '.join(c.get('why') or [])})"
-                     for c in cards) or "  - (no card)"
-    return (f"You led this Orchestra run. Before the coach offers a change, it will run the same goal again under "
-            f"candidate setups of the run's harness and compare what each delivers. Draft {k} pair(s) of candidates.\n\n"
-            "Each pair has two kinds: `invariant` changes how the agents work whatever the goal (planning, tool use, "
-            "context budget, delegation: the lead's model and effort, the workers' model, notes, max_iterations, "
-            "tools); `domain` adds what this goal needs (procedure, knowledge, constraints: notes per bio, use_for "
-            "words, a plan edit `after`). Keep each note under 600 characters and name only the bios and jobs below.\n\n"
-            f"WHAT YOU WANT: {g.what}\nDONE WHEN: {g.done_when}\nSTOP WHEN: {g.stop_when}\n\n"
-            f"The run: {report.get('status')}, tests {'pass' if report.get('tests_ok') else 'fail'}, "
-            f"{money(report.get('cost_usd'))}, {float(report.get('elapsed_s') or 0):.1f}s\n{lanes}\n"
-            f"The plan's jobs:\n{jobs}\nThe run's bios: {', '.join(f['bios']) or '(none)'}\n"
-            f"The lineup: {f['lineup'] or '(none)'}; the lead role {f['lead_role']}, the worker role {f['worker_role']}\n"
-            f"The coach's cards from the run's files:\n{seen}\n\n"
-            f"Answer with JSON only, {k} pair(s) in this shape (leave out what you do not change):\n{_SHAPE}\n")
-
-
 def _fake(prompt: str, model: str, cwd) -> dict:
     if os.environ.get("HALO_COACH_FAKE", "").strip().lower() == "error":
         return {"text": "", "ok": False, "error": "the fake lead failed (HALO_COACH_FAKE=error)"}
@@ -148,7 +121,9 @@ def draft(run_dir, k: int = 1, *, ask: Optional[Callable] = None, cwd=None, stat
         cards = []
     out = {"candidates": [], "model": model, "role": role, "cost_usd": 0.0, "error": ""}
     try:
-        got = (ask or _caller())(draft_prompt(f, k, [c for c in cards if c.get("kind") != "probe"]), model, f["cwd"])
+        from halo_harness.orchestra.coach_citations import lessons  # 3.1.6.0 R3: reuse through proposals only
+        got = (ask or _caller())(draft_prompt(f, k, [c for c in cards if c.get("kind") != "probe"],
+                                              lessons(run_dir, state_dir, cwd=f["cwd"])), model, f["cwd"])
     except Exception as e:  # a provider error is one line
         got = {"ok": False, "error": f"{type(e).__name__}: {e}"}
     out["cost_usd"] = float(got.get("cost_usd") or 0.0)

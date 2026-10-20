@@ -20,6 +20,10 @@ holds Undo). A change that cannot be made raises ApplyError with the reason.
 [[field, value], ...]), and a lineup's `agents.<bio>.use_for` (that entry's
 routing words); a probe card's `overlay` target (several files) is previewed
 and applied by orchestra/coach_probe_card.py through these writers.
+
+3.1.6.0 R3: every Apply (a card's change, a probe card's group) then becomes
+one entry of the improvement library (orchestra/coach_library.py); the
+returned row carries its id as `entry`.
 """
 
 from __future__ import annotations
@@ -178,11 +182,22 @@ def preview(result: dict, sid: str, run_dir, *, cwd=None, state_dir=None) -> dic
             "after": ch["render"], "diff": diff(before or "", ch["render"], ch["file"])}
 
 
+def _library(result: dict, s: dict, run_dir, applied: dict, cwd, state_dir) -> dict:
+    """3.1.6.0 R3: every Apply becomes a library entry (orchestra/coach_library.py; `entry` is its id); a failed
+    entry is `entry_error` and never undoes the Apply."""
+    from halo_harness.orchestra.coach_library import born
+    try:
+        applied["entry"] = born(result, s, run_dir, applied, cwd=cwd, state_dir=state_dir)
+    except Exception as e:
+        applied.update(entry=None, entry_error=f"{type(e).__name__}: {e}"[:300])
+    return applied
+
+
 def apply(result: dict, sid: str, run_dir, *, cwd=None, state_dir=None) -> dict:
     s = find(result, sid)
     if _overlay(s):
         from halo_harness.orchestra.coach_probe_card import apply as overlay_apply
-        return overlay_apply(result, s, run_dir, cwd=cwd, state_dir=state_dir)
+        return _library(result, s, run_dir, overlay_apply(result, s, run_dir, cwd=cwd, state_dir=state_dir), cwd, state_dir)
     ch = _change(s, run_dir, cwd, state_dir)
     before = R.text_of(ch["file"])
     ok, problems = ch["write"]()
@@ -195,4 +210,4 @@ def apply(result: dict, sid: str, run_dir, *, cwd=None, state_dir=None) -> dict:
                     "name": ch.get("name") or a.get("name"), "field": a["field"], "value": a["value"],
                     "file": str(ch["file"]), "existed": before is not None, "before": before or "", "after": after,
                     "ts": round(time.time(), 3)}, state_dir)
-    return dict(row, diff=diff(before or "", after, ch["file"]))
+    return _library(result, s, run_dir, dict(row, diff=diff(before or "", after, ch["file"])), cwd, state_dir)

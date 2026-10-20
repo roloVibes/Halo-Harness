@@ -126,7 +126,19 @@ def write_exact(path, text: str) -> None:
 
 
 def undo(apply_id: Optional[str] = None, state_dir=None) -> tuple:
-    """(ok, message, the apply row). The last apply not undone when `apply_id` is None."""
+    """(ok, message, the apply row). The last apply not undone when `apply_id` is None. 3.1.6.0 R3: the library
+    entry the apply (or the group) made is marked undone (orchestra/coach_library.py: kept, never cited)."""
+    ok, message, rec = _undo(apply_id, state_dir)
+    if ok and rec:
+        try:
+            from halo_harness.orchestra.coach_library import mark_undone
+            mark_undone(rec.get("group") or rec.get("apply_id"), state_dir)
+        except Exception:
+            pass
+    return ok, message, rec
+
+
+def _undo(apply_id: Optional[str], state_dir=None) -> tuple:
     rec = find(apply_id, state_dir)
     if rec is None:
         return False, (f"no apply {apply_id!r} in the coach's record" if apply_id else

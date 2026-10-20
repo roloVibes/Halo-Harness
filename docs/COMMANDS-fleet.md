@@ -262,6 +262,29 @@ halo fleet who gridcraft
 halo fleet who "a 4090 for video"
 ```
 
+### Recall and the coach's library across the fleet
+
+3.1.2.0 R3 / 3.1.6.0. `halo recall --fleet "<query>"` asks every online
+member's own index (the `recall` fleet command); a hit's kind is `memory`,
+`session` or, since 3.1.6.0, `coach_library` -- an entry of that box's
+improvement library, answered with its Lessons as the excerpt. A member's
+`fleet.recall.hide` takes `coach_library` to keep its library out. `halo
+coach library fetch <harness> <entry>` takes one such entry: the hub this
+machine runs forwards `{harness, entry}` (`POST /fleet/v1/local/coach-library`,
+admin) to the member's read-only `coach_library {entry}` command, which
+answers entry.json, EXPERIENCE.md, overlay.json and files/ (at most 256 KB,
+else refused with the size; a `library_asked` journal line); the entry is
+written here under the same id with `from: <harness>` and never over one
+already here. Exit 0 written, 1 refused or already here, 3 no hub runs
+here. See [FLEET.md](FLEET.md#recall-across-the-fleet-3120-r3) and
+[COMMANDS-studio.md](COMMANDS-studio.md#halo-coach).
+
+```sh
+halo recall --fleet "the cheap lane keeps hitting the return cap"
+halo coach library fetch kali@lab e-20261020-3f21
+halo coach library show e-20261020-3f21
+```
+
 ### `halo fleet mission`
 
 Halo 3.0.6.0 round R7. One goal across every harness: the hub's lead splits

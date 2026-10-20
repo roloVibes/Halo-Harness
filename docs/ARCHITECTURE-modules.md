@@ -109,7 +109,8 @@ this list against the tree.
   `fleet/mission_report.py`, `fleet/mission_attention.py`,
   `fleet/mission_stage_run.py` (3.1.2.0 R2: a part of kind orchestra, a delegated team stage's run)
 - recall across the fleet (3.1.2.0 R3): `fleet/hub_recall.py` (the hub fans a
-  recall query out and merges the hits), and the scripted two-machine check
+  recall query out and merges the hits; 3.1.6.0 its `local/coach-library`
+  route forwards a library fetch to one member), and the scripted two-machine check
   `fleet/live_check.py` with its `--fake` seams `fleet/live_check_fakes.py`
   (`tools/live_fleet_check.py` is the CLI; `halo_harness/recall_fleet.py` and
   `halo_harness/recall_cli.py` are the member's side and `halo recall`)
@@ -145,11 +146,20 @@ this list against the tree.
   `orchestra/coach_compare.py` (the deliverables, the anonymized judge, the
   contrast), `orchestra/coach_compose.py` (adopt, merge or keep, and the
   writes Apply makes), `orchestra/coach_probe_card.py` (the one card, its
-  grouped Apply, the CLI's table)
+  grouped Apply, the CLI's table), `orchestra/coach_probe_prompt.py` (the
+  lead's draft prompt, with the library's lessons); 3.1.6.0 the improvement
+  library: `orchestra/coach_library.py` (the entries in
+  `~/.halo/coach/library/`: born on Apply, undone with Undo, forget),
+  `orchestra/coach_experience.py` (what an entry says: EXPERIENCE.md, the
+  project and its remote path, the overlay), `orchestra/coach_citations.py`
+  (the citation rule, the card's line and `library_hits`, the probe's
+  lessons), `orchestra/coach_library_share.py` (the fleet: a member's
+  `coach_library` answer, `fetch`)
 - the CLI: `orchestra_cli.py` (the parser, the dispatch, `new`),
   `orchestra_cli_views.py` (status, claims, log, runs, lanes, report),
   `orchestra_cli_run.py` (run, stop), `orchestra_cli_plan.py` (plan, approve,
-  reject), `coach_cli.py` (`halo coach` and the coach verbs)
+  reject), `coach_cli.py` (`halo coach` and the coach verbs;
+  `halo_harness/coach_library_cli.py` is `halo coach library`)
 
 **The unit of work** (`halo_harness/work/`, Halo 3.1.2.0 R1, docs/WORK.md):
 the shared model a lane, a mission part and a team stage all

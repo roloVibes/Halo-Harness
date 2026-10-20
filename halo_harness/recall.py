@@ -3,7 +3,8 @@ past sessions (`/recall <query>` in the TUI, `halo recall <query>` on the
 CLI), on the LOCAL embedding model (providers/embeddings.py).
 
 The index lives at `<state_dir>/index/embeddings.jsonl` -- one JSON object
-per line: {"id": <abs path>, "kind": "memory"|"session", "title",
+per line: {"id": <abs path>, "kind": "memory"|"session"|"coach_library" (3.1.6.0 R3:
+a coach library entry's EXPERIENCE.md, orchestra/coach_library.py), "title",
 "mtime": float, "vec": [...]}. Incremental: an entry whose source file's
 mtime matches is skipped (re-embedding costs a real local call); entries
 whose source vanished are pruned. Sessions are indexed from their log
@@ -139,6 +140,24 @@ def _session_sources(state_dir, known: "Optional[dict]" = None) -> list:
     return out
 
 
+def _library_sources(state_dir) -> list:
+    """3.1.6.0 R3: (id, title, text, mtime) for every coach library entry's EXPERIENCE.md
+    (`<state_dir>/coach/library/*/EXPERIENCE.md`; title = its first heading). An undone entry is left out (never
+    cited), and an entry gone from the library is pruned from the index."""
+    base = (Path(state_dir) if state_dir is not None else bridge_home()) / "coach" / "library"
+    out = []
+    for path in sorted(base.glob("*/EXPERIENCE.md")) if base.is_dir() else []:
+        try:
+            if (json.loads((path.parent / "entry.json").read_text(encoding="utf-8")) or {}).get("undone"):
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            title = next((ln[2:].strip() for ln in text.splitlines() if ln.startswith("# ")), path.parent.name)
+            out.append((str(path), title, text[:2 * _SESSION_SNAPSHOT_CHARS], path.stat().st_mtime))
+        except (OSError, ValueError, AttributeError):
+            continue
+    return out
+
+
 def build_index(state_dir=None, *, cwd=None, force: bool = False) -> dict:
     """Refresh the index incrementally. Returns a small report
     {"embedded": n, "total": n, "pruned": n, "enabled": bool}."""
@@ -150,12 +169,17 @@ def build_index(state_dir=None, *, cwd=None, force: bool = False) -> dict:
     existing = _load_index(path)
     sources = _memory_sources(cwd or Path.cwd())
     sources += _session_sources(state_dir, None if force else existing)
+    library = _library_sources(state_dir)
+    sources += library
+    kinds = {sid: "coach_library" for sid, *_ in library}
 
     # review finding 88: an entry is pruned only when its source file is
     # gone. The memory sources above cover just THIS project, so "not in
-    # the live set" used to delete every other project's vectors.
+    # the live set" used to delete every other project's vectors. The coach
+    # library's sources cover the whole state dir: not in the live set is gone.
     live_ids = {sid for sid, *_ in sources}
-    pruned = [sid for sid in existing if sid not in live_ids and not os.path.exists(sid)]
+    pruned = [sid for sid, e in existing.items() if sid not in live_ids
+              and (not os.path.exists(sid) or e.get("kind") == "coach_library")]
     for sid in pruned:
         existing.pop(sid, None)
 
@@ -178,7 +202,7 @@ def build_index(state_dir=None, *, cwd=None, force: bool = False) -> dict:
         for (sid, title, _text, mtime), vec in zip(chunk, vecs):
             if not vec:
                 continue
-            existing[sid] = {"id": sid, "kind": ("memory" if sid.endswith(".md") else "session"),
+            existing[sid] = {"id": sid, "kind": kinds.get(sid) or ("memory" if sid.endswith(".md") else "session"),
                              "title": title, "mtime": mtime, "vec": vec}
             embedded += 1
 
