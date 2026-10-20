@@ -23,7 +23,8 @@ this list against the tree.
   (`GET /api/events`), `studio/feed_kinds.py` (the frame kinds it asks for)
 - Roles and models: `studio/roles_api.py`, `studio/roles_findings.py`,
   `studio/models_api.py`; the coach:
-  `studio/coach_api.py`; the live sessions: `studio/sessions_api.py`; the
+  `studio/coach_api.py`, `studio/coach_probe_job.py` (3.1.6.0: the probe on
+  a thread, its step lines on the feed); the live sessions: `studio/sessions_api.py`; the
   config checks behind Roles' Problems panel: `studio/doctor_config_api.py`
   (`GET /api/doctor/config`, the rows of `halo doctor --config`)
 - one editor (3.1.1.0): `studio/edit_target.py` (what `halo studio --edit`
@@ -134,7 +135,17 @@ this list against the tree.
   catalog and its prices); 3.1.3.0 the loop: `orchestra/coach_ask.py` (the
   lead's paragraph per card), `orchestra/coach_apply.py` (Apply through the
   editors' writers, the confirm card), `orchestra/coach_record.py` (the
-  applied record, Undo, the summary line, the runs the coach read)
+  applied record, Undo, the summary line, the runs the coach read); 3.1.6.0
+  the probes: `orchestra/coach_probe.py` (the cost line, the lead's draft,
+  the whole probe, probe.json), `orchestra/coach_probe_schema.py` (the
+  candidate's strict shape and the run facts it is checked against),
+  `orchestra/probe_runs.py` (a probe run's folder under the reference, its
+  plan, the budget, the threads, the cleanup), `orchestra/probe_overlay.py`
+  (the overlay in a lane worktree's project scope and on the worker's argv),
+  `orchestra/coach_compare.py` (the deliverables, the anonymized judge, the
+  contrast), `orchestra/coach_compose.py` (adopt, merge or keep, and the
+  writes Apply makes), `orchestra/coach_probe_card.py` (the one card, its
+  grouped Apply, the CLI's table)
 - the CLI: `orchestra_cli.py` (the parser, the dispatch, `new`),
   `orchestra_cli_views.py` (status, claims, log, runs, lanes, report),
   `orchestra_cli_run.py` (run, stop), `orchestra_cli_plan.py` (plan, approve,

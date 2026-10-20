@@ -175,6 +175,7 @@ halo orchestra plan [RUN]            the plan of a review run, its problems
 halo orchestra approve [RUN] [--file F]  check the plan and let the waiting run take it
 halo orchestra reject [RUN] --reason T   the waiting run stops with the reason
 halo orchestra coach [RUN] [--model] [--apply ID [--yes]] [--json]   the post-run coach's card (halo coach)
+halo orchestra coach [RUN] --probe [--k N] [--yes]   3.1.6.0: try candidate overlays first (Probes, below)
 ```
 
 `--review`, `plan`, `approve` and `reject` are the reviewed plan: see
@@ -560,7 +561,10 @@ Orchestra run) prints the card; Studio's Report panel shows it on its Coach
 tab. Since 3.1.3.0 the loop closes on each card: the run's lead can explain
 it in one paragraph ([Ask the model](#ask-the-model)), Apply writes the change
 after one confirm, and Undo puts the file back ([Apply and
-Undo](#apply-and-undo)).
+Undo](#apply-and-undo)). Since 3.1.6.0, when asked, the coach first runs the
+goal again under two candidate overlays the lead drafts, has an anonymized
+judge compare the deliverables with the run's and offers what wins as one
+card ([Probes](#probes)).
 
 ```json
 {"run": "<run-id>", "kind": "orchestra",
@@ -685,6 +689,138 @@ in `<run>/coach.json`; it is computed again when a run file it reads
 file) is newer. The same coach reads a mission and a team run:
 [MISSIONS.md](MISSIONS.md#the-coach), [TEAM.md](TEAM.md#the-coach).
 
+### Probes
+
+Since 3.1.6.0 the coach can try a change before it offers it (after Google's
+Harness², arXiv 2610.14224): `halo coach <run> --probe [--k N] [--yes]` (and
+`halo orchestra coach`), `/coach --probe` and the Coach tab's **Probe**
+button. Off unless asked: nothing probes on its own, and only an Orchestra
+run with its report can be probed (`orchestra/coach_probe.py`).
+
+1. **The cost first.** "probe: N runs, up to $X (each stops at $C: the run's
+   $R x F)": N = 2k (k = `--k`, else `coach.probe.k`, 1; at most 4), C = the
+   run's `cost_usd` x `coach.probe.budget_factor` (1.5). The CLI asks `y/N`
+   (`--yes` skips; `--json` without `--yes` prints the estimate and runs
+   nothing); Studio shows it in a confirm under the Coach tab's header row;
+   `/coach --probe` shows it, `/coach --probe --yes` starts the probe on a
+   thread and answers at once.
+2. **The candidates.** The run's lead (the same lead, one-shot path and
+   `HALO_COACH_FAKE` seam as [Ask the model](#ask-the-model)) drafts k pairs
+   from the goal, the lanes, the plan, the bios, the lineup and the coach's
+   cards. A pair is an `invariant` candidate (how the agents work whatever
+   the goal: planning, tool use, context budget, delegation) and a `domain`
+   one (procedure, knowledge and constraints for this goal):
+
+```json
+{"pairs": [{"invariant": {"lead": {"model": "<ref>", "effort": "high", "prompt_notes": "..."},
+                          "workers": {"model": "<ref>", "prompt_notes": "...", "max_iterations": 40,
+                                      "tools": {"allow": ["Read", "Edit"], "deny": ["WebFetch"]}},
+                          "bios": {"<bio>": {"model": "<ref>", "prompt_notes": "...", "max_iterations": 30, "tools": {}}},
+                          "why": "one line"},
+            "domain": {"workers": {"prompt_notes": "..."},
+                       "bios": {"<bio>": {"prompt_notes": "...", "use_for": ["word"]}},
+                       "plan": [{"job": "job-2", "after": ["job-1"]}], "why": "one line"}}]}
+```
+
+   A strict check (`orchestra/coach_probe_schema.py`) keeps what fits and
+   lists what it dropped: an unknown key, a model ref that does not resolve
+   (not `<route>:<id>`, a removed cc:/cx: route, an id its provider's catalog
+   does not list), a bio that is not one of the run's (the lanes' and the
+   lineup's), a job that is not in the plan, a note over 600 characters, an
+   effort or a number out of range. A candidate with nothing left is skipped.
+3. **The probe runs.** One Orchestra run per candidate, in
+   `<run>/probes/<cand-id>/` (`goal.new_run(repo, goal, parent=<run>)`; no
+   run list, `resolve_run` or Studio run row ever shows one; its run.json
+   keeps `repo_root` and `parent`). Its split.json is the run's own (the
+   same base commit; the lead is not asked again), its goal is the run's with
+   `plan: review`, and an approved plan.json -- the run's jobs with the
+   overlay's per-job bio, model and `after` (a bio or model the plan check
+   names a problem with is left as the run had it) -- is taken on the plan wait's first
+   poll (`orchestra/probe_runs.py`). Each lane worktree gets the overlay as a
+   project scope when its worker starts (`.halo/agents/<bio>.yaml`,
+   `.halo/teams/<lineup>.yaml`, `.halo/.gitignore` = `*`; a file git already
+   tracks is marked skip-worktree, so the run never commits any of it) and
+   the worker's argv gets `--team <lineup>` plus `--append-system-prompt`
+   with the lane's notes, `--max-turns`, `--allowedTools` and
+   `--disallowedTools` (a `halo -p` session does not compose its own bio's
+   notes; the sub-agents it starts under `--team` do; `orchestra/probe_overlay.py`).
+   The lead's model and effort reach the merge judge through `judge`. The
+   pairs run on threads (in parallel when k > 1, a pair's two in turn),
+   never through Studio's one live run slot.
+4. **The budget.** Each probe run may spend C. Before a lane's worker starts,
+   what the probe spent + the lanes still running + this lane's forecast
+   (what the run's own lane cost, else its forecast.json line) is checked
+   against C; over it the worker does not start, the run is asked to stop and
+   the outcome's `stop_reason` is `budget`.
+5. **The compare** (`orchestra/coach_compare.py`). A deliverable, the same for
+   the run and each probe: its patch (`base..finished`, kept as
+   `deliverable.patch`; the run's own is `<run>/probes/reference.patch`) and
+   its diffstat, whether it finished, its tests (pass or fail, the passed
+   count, the failing names), its cost after the split, its time, lanes and
+   steps (worker passes + judged conflicts). The judge -- one fresh bare
+   session on the `judge` role's model, else the lead's -- gets the goal's
+   WHAT YOU WANT and DONE WHEN, then the deliverables labelled A, B, C ... in
+   a shuffled order with no harness, run, bio, model or candidate named (the
+   prompt is kept as `<run>/probes/judge.prompt.txt`), and answers
+   `{"best", "ranking", "why"}`; an answer that cannot be read is ranked by
+   code (finished, tests, passed, steps, cost) and says so. The contrast, per
+   candidate: the tests delta, the cost delta and ratio, the steps delta, the
+   judge's rank and the run's, and the axes it won (`tests`, `rank`, `cost`:
+   cheaper with no fewer tests). A probe that did not finish wins nothing.
+6. **Compose** (`orchestra/coach_compose.py`), in order: *adopt* the judged
+   best candidate when it beat the run on the tests or on the judge's rank at
+   no more than 1.5x the run's cost (the pick is its kind, `invariant` or
+   `domain`); else *merge* when the best-ranked invariant and domain
+   candidates each won on an axis and on different axes (the invariant
+   overlay's parts plus the domain one's, notes joined: `merged`); else
+   *keep* the run's harness (`kept`). The why line cites the contrast.
+7. **The card** (`orchestra/coach_probe_card.py`). One card leads the run's
+   card: `kind: probe`, id `probe-<ts>`, the contrast as a table, the judge's
+   why in the paragraph slot. Its Apply is the composed overlay through the
+   writers above: `lead.model` the lineup's lead role (else the lead's bio),
+   the lead's effort and notes its bio, `workers` and `bios.<b>` each bio the
+   lanes ran as (`context.prompt_notes`, `models.preference`,
+   `limits.max_iterations`, `tools.allow` / `tools.deny`), `use_for` the
+   lineup entry (`agents.<b>.use_for`), `plan` the run's plan draft
+   (`job-<n>.after`); what has nowhere to go is listed on the card. One
+   confirm lists every file with its diff; Apply records one row per file
+   under one `group` id (`g-<hex>`, the id the card shows), and Undo puts the
+   whole group back -- or, when any of its files changed since, writes
+   nothing and says which file.
+8. **Cleanup.** After the compare every probe's worktrees are removed and its
+   branches deleted (`orchestra/<cand-id>`, `-worker-<n>`, `-base-<n>`); the
+   probe folder keeps its report, lanes, events and patch.
+
+Everything lands in `<run>/probe.json`, written as each step ends:
+
+```json
+{"state": "done", "step": "done", "line": "probe: 2 runs, $0.0080, picked: invariant", "k": 1, "factor": 1.5,
+ "cap_usd": 0.0075, "runs": 2, "card": "probe-1792508552",
+ "candidates": [{"id": "p02ec-invariant-1", "kind": "invariant", "pair": 1, "overlay": {"...": "..."}, "dropped": []}],
+ "reference": {"status": "finished", "tests_ok": true, "passed": 5, "cost_usd": 0.004, "steps": 2, "stat": "...", "patch": "reference.patch"},
+ "outcomes": {"p02ec-invariant-1": {"status": "finished", "stop_reason": "", "deliverable": {"...": "..."},
+                                    "delivered": {"1": {"files": [".halo/.gitignore", "..."], "flags": ["--append-system-prompt", "..."]}},
+                                    "cleanup": {"worktrees": ["merge", "worker-1"], "branches": ["orchestra/p02ec-invariant-1"]}}},
+ "judge": {"labels": {"A": "p02ec-invariant-1", "B": "reference", "C": "p02ec-domain-1"}, "best": "p02ec-invariant-1",
+           "ranking": ["p02ec-invariant-1", "reference", "p02ec-domain-1"], "why": "...", "model": "<ref>", "cost_usd": 0.0},
+ "contrast": [{"id": "p02ec-invariant-1", "kind": "invariant", "tests_delta": 0, "cost_delta": -0.002, "cost_x": 0.5,
+               "steps_delta": 0, "rank": 1, "ref_rank": 2, "wins": ["rank", "cost"]}],
+ "pick": "invariant", "picked": ["p02ec-invariant-1"], "why": "adopted the invariant candidate: ...",
+ "overlay": {"...": "..."}, "apply": {"changes": [{"target": "bio", "name": "coach-cheap", "field": "context.prompt_notes",
+                                                   "value": "..."}], "skipped": []},
+ "cost": {"draft": 0.0, "runs": 0.008, "judge": 0.0, "total": 0.008}, "started": 1792508550.1, "ended": 1792508552.6}
+```
+
+The run report's coach line and the Fleet digest's coach row end with the
+probe once one ended: "coach: 1 suggestion, 0 applied, top: ...; probe: 2
+runs, $0.0080, picked: invariant". Studio: `POST orchestra/<run>/coach/probe`
+([In Studio](#in-studio)); the probe runs on a thread in Studio's process
+(`studio/coach_probe_job.py`) and its step lines reach the Coach tab's
+progress line as `orchestra_state` frames carrying `probe_of` (session id
+`coach-probe:<run>`, no `run`, so the console's own views are not refreshed by
+them); `GET orchestra/<run>/coach` carries `probe` (its status, `live` while
+it runs in this Studio).
+
 ## The adapters
 
 `orchestra/adapters.py` wires `run()` to real models:
@@ -701,6 +837,11 @@ file) is newer. The same coach reads a mission and a team run:
   parent's folder and the process-wide environment, so it cannot give each
   lane its own worktree and lane number; a child process can.) In `-p` mode
   the guard's ask is a deny, so a worker claims before it edits.
+- 3.1.6.0 (the coach's [probes](#probes)): `spawn_worker(..., team=,
+  cwd_overlay=)` adds `--team <lineup>` and calls `cwd_overlay(lane)` before
+  the worker starts (it writes the overlay into the worktree and answers
+  extra worker flags); `model_call` and `fresh_judge` take an `effort` that
+  reaches `one_shot` only when set. Without them the argv is as before.
 
 ## In Studio
 
@@ -727,6 +868,7 @@ behind the same loopback, origin and token guard as every Studio route.
 | `POST orchestra/<run>/coach/ask {id, refresh?}` | 3.1.3.0: the lead's paragraph for one card `{id, paragraph, error, model, role, cached}` ([Ask the model](#ask-the-model)) |
 | `POST orchestra/<run>/coach/apply {id, confirm?}` | 3.1.3.0: without `confirm` the confirm card `{preview: {id, target, name, field, value, file, exists, before, after, diff}, applied: null}`; with it the write, `applied` = the record row; 422 `{error}` when the change cannot be made ([Apply and Undo](#apply-and-undo)) |
 | `POST orchestra/<run>/coach/undo {apply_id}` | 3.1.3.0: `{ok, message, apply_id}`; 409 with the reason when the file changed. The mission and team coach paths take the same three verbs |
+| `POST orchestra/<run>/coach/probe {k?, confirm?}` | 3.1.6.0: without `confirm` the cost line `{estimate: {k, factor, runs, ref_usd, cap_usd, total_usd, line}, running}` and nothing runs; with it `202 {started, estimate}` and the probe on a thread ([Probes](#probes)); 409 while one of the run runs; 422 for a mission, a team run or a run with no report |
 
 `<run>` is a run id or a unique prefix of one. The file view is composed by
 code (`studio/orchestra_model.py`):
@@ -784,7 +926,7 @@ checks. The finished branch is left for you to review and merge.
 | Module | Functions |
 |---|---|
 | `workflow` | `designed_graph(workers, after=None, labels=None)`, `with_layers(graph, after, labels)`, `advance(graph, step_id, state)`, `loop_back(graph, lane)`, `ready(graph)`, `step`, `steps_of_kind`, `summary`, `validate_graph` |
-| `goal` | `Goal`, `validate_goal`, `load_goal`, `save_goal`, `new_run(repo_root, goal, lead_holder=None)`, `list_runs`, `latest_run`, `resolve_run`, `run_meta`, `set_lead_holder`, `repo_root_of` |
+| `goal` | `Goal`, `validate_goal`, `load_goal`, `save_goal`, `new_run(repo_root, goal, lead_holder=None, parent=None, name="")`, `list_runs`, `latest_run`, `resolve_run`, `run_meta`, `set_lead_holder`, `repo_root_of` |
 | `index` | `index_file(path, root=None)`, `index_text(text, rel)`, `unit_for_line`, `units_for_lines`, `overlaps`, `covers`, `split_key` |
 | `claims` | `ClaimLog(run_dir, clock=time.time)`: `active`, `claim`, `mark_writing`, `mark_written`, `release`, `steal`, `reassign`, `expire_stale`, `held_by`, `conflicts`, `is_lead`; `holder_for(session_dir)` |
 | `guard` | `ClaimGuard(run_dir, holder)`, `install_from_env(engine, session_dir)` (also joins the lane), `run_dir_from_env()` |
@@ -798,4 +940,5 @@ checks. The finished branch is left for you to review and merge.
 | `plan`, `plan_check` | `await_plan(run_dir, flow, jobs, *, check_stop)`, `approve(run_dir, jobs, by=)`, `reject(run_dir, reason, by=)`, `apply`, `normalize`, `current_jobs`, `read_decision`, `write_draft`, `is_planned`, `waiting_alive`; `plan_problems(jobs, unit_keys=, cwd=, state_dir=)`, `validate_plan` (re-exported by `workflow`) |
 | `coach`, `coach_rules`, `coach_orchestra_rules`, `coach_lane_facts`, `coach_prices`, `coach_mission_rules`, `coach_team_rules` | `coach(run_dir, *, catalog=None, cwd=None, state_dir=None)`, `cached(run_dir)`, `overlay(result, run_dir)`, `format_card(result)`, `run_kind`, `source_mtime`; the rules once (`prompt_rules`, `outputs_rules`, `model_rules`, `tools_rules`, `wait_pairs`, `conflict_pairs`, `structure_rules`, `coordination_rules`); `orchestra(run_dir, ...)`; `lane_facts`; `catalog(state_dir)`, `price_of`, `best_for`, `price_words`; `mission`; `team` (one thin loader per run kind, `coach_<kind>_rules.<kind>`) |
 | `coach_ask`, `coach_apply`, `coach_record` | 3.1.3.0: `ask(run_dir, result, id, *, refresh)`, `ask_all`, `lead_of`, `read_store`; `preview(result, id, run_dir)`, `apply(result, id, run_dir)`, `ApplyError`; `undo(apply_id)`, `applies`, `states(run_dir)`, `summary(run_dir)`, `summary_line`, `note_run`, `runs_since` |
-| `run`, `adapters` | `run(run_dir, *, model_calls, spawn, judge, clock, on_event)`, `request_stop`; `model_call`, `spawn_worker`, `fresh_judge`, `real_adapters` |
+| `coach_probe`, `coach_probe_schema`, `probe_runs`, `probe_overlay`, `coach_compare`, `coach_compose`, `coach_probe_card` | 3.1.6.0: `estimate(run_dir, k, factor)`, `draft(run_dir, k)`, `probe(run_dir, *, k, factor, on_step, rng)`, `start`, `live`, `read`, `probe_line`; `facts(run_dir)`, `clean(kind, raw, facts)`, `for_bio`, `merge`; `create`, `plan_jobs`, `Budget`, `real_adapters`, `run_one`, `run_all`, `cleanup`; `scope_files`, `flags`, `write_scope`, `writer`; `deliverable(run_dir, patch_path=)`, `judge_prompt`, `judge(goal, rows, *, model, rng)`, `parse_verdict`, `contrast`; `compose(cands, rows, ref)`, `changes(overlay, facts)`; `card(run_dir)`, `status`, `table`, `preview`, `apply`, `format_probe` |
+| `run`, `adapters` | `run(run_dir, *, model_calls, spawn, judge, clock, on_event)`, `request_stop`; `model_call`, `spawn_worker` (3.1.6.0: `team=`, `cwd_overlay=`), `fresh_judge`, `real_adapters` |

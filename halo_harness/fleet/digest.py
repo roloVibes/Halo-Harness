@@ -204,7 +204,8 @@ def text(d: dict) -> str:
         for x in b.get("coach", [])[-5:]:
             from halo_harness.orchestra.coach_record import summary_line
             lines.append(f"  coach    {x.get('kind')} {x.get('run')}: "
-                         + summary_line(int(x.get("n") or 0), int(x.get("applied") or 0), str(x.get("top") or ""))[7:])
+                         + summary_line(int(x.get("n") or 0), int(x.get("applied") or 0), str(x.get("top") or ""),
+                                        str(x.get("probe") or ""))[7:])
         for x in b["errors"][-5:]:
             lines.append(f"  error    {x.get('text')}")
         if b["files"]:

@@ -121,6 +121,56 @@
 .cc-diff-line[data-line="del"] { color: var(--warn); }
 .cc-diff-line[data-line="hunk"], .cc-diff-line[data-line="file"] { color: var(--muted); }
 
+/* 3.1.6.0 R2: the probe -- the header's confirm with the cost line, the progress line, the card's contrast table */
+.cc-confirm-file { white-space: pre-line; }
+.cc-head { flex-wrap: wrap; row-gap: 4px; min-width: 0; }
+.cc-contrast-wrap { max-width: 100%; overflow-x: auto; border-radius: var(--radius-sm); }
+.cc-probe-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--glow-strong);
+}
+.cc-probe-cost { color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
+.cc-probe-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-left: 2px solid var(--warn);
+  border-radius: var(--radius-sm);
+  background: var(--warn-soft);
+  color: var(--text);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.cc-probe-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn);
+  animation: cc-probe-pulse 1.4s var(--ease) infinite;
+}
+@keyframes cc-probe-pulse { 50% { opacity: 0.35; } }
+.cc-card[data-kind="probe"] { border-left-width: 4px; }
+.cc-contrast {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  background: var(--bg-2);
+  border-radius: var(--radius-sm);
+}
+.cc-contrast th { text-align: left; color: var(--muted); font-weight: normal; letter-spacing: 0.06em; text-transform: uppercase; font-size: 10px; }
+.cc-contrast th, .cc-contrast td { padding: 3px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.cc-contrast tr[data-picked="1"] td { color: var(--accent); }
+.cc-contrast tr[data-picked="1"] td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+
 @media (prefers-reduced-motion: reduce) {
   .cc-card { transition: none; }
+  .cc-probe-dot { animation: none; }
 }

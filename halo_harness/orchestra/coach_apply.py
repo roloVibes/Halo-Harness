@@ -15,6 +15,11 @@ the change the card names, written through the writers Studio's editors use.
 exists, before, after, diff}` and writes nothing. `apply(...)` writes, reads
 the file back and records the change (orchestra/coach_record.py, which also
 holds Undo). A change that cannot be made raises ApplyError with the reason.
+
+3.1.6.0 R2: a writer takes several fields of its one file at once (`fields`:
+[[field, value], ...]), and a lineup's `agents.<bio>.use_for` (that entry's
+routing words); a probe card's `overlay` target (several files) is previewed
+and applied by orchestra/coach_probe_card.py through these writers.
 """
 
 from __future__ import annotations
@@ -50,6 +55,12 @@ def set_path(raw: dict, field: str, value) -> None:
     cur[keys[-1]] = value
 
 
+def pairs(a: dict) -> list:
+    """3.1.6.0 R2: the (field, value) pairs one write sets: `a["fields"]` (a probe card's change, every field of one
+    file at once), else the one `field` = `value`."""
+    return [tuple(p) for p in a.get("fields") or []] or [(a["field"], a["value"])]
+
+
 def _bio(a: dict, cwd, state_dir) -> dict:
     from halo_harness import agents_yaml as A
     raw = A.load_agent_bio_raw(a["name"], cwd=cwd, state_dir=state_dir)
@@ -58,7 +69,8 @@ def _bio(a: dict, cwd, state_dir) -> dict:
     project = raw.get("_source") == "project"
     raw = {k: copy.deepcopy(v) for k, v in raw.items() if not k.startswith("_")}
     raw["name"] = a["name"]
-    set_path(raw, a["field"], a["value"])
+    for field, value in pairs(a):
+        set_path(raw, field, value)
     problems = A.validate_agent_bio(raw, name=a["name"], cwd=cwd, state_dir=state_dir)
     if problems:
         raise ApplyError(f"bio {a['name']}: {problems[0]}")
@@ -81,11 +93,20 @@ def _lineup(a: dict, cwd, state_dir) -> dict:
     project = raw.get("_source") == "project"
     raw = {k: copy.deepcopy(v) for k, v in raw.items() if not k.startswith("_") and k != "roles"}
     raw["name"] = name
-    role = a["field"].replace("roles.", "", 1)
-    entry = next((e for e in raw.get("agents") or [] if isinstance(e, dict) and role in (e.get("as"), e.get("role"))), None)
-    if entry is None:
-        raise ApplyError(f"lineup {name} has no {role} role: give one the model {a['value']} in Studio's Roles")
-    set_path(entry, "models.preference", a["value"])
+    for field, value in pairs(a):  # roles.<role>: that role's model; 3.1.6.0 R2 agents.<bio>.use_for: that entry's words
+        agents = [e for e in raw.get("agents") or [] if isinstance(e, dict)]
+        if field.startswith("agents.") and field.endswith(".use_for"):
+            bio = field[len("agents."):-len(".use_for")]
+            entry = next((e for e in agents if e.get("agent") == bio), None)
+            if entry is None:
+                raise ApplyError(f"lineup {name} has no entry for bio {bio}: add it in Studio's Roles")
+            entry["use_for"] = list(value or [])
+            continue
+        role = field.replace("roles.", "", 1)
+        entry = next((e for e in agents if role in (e.get("as"), e.get("role"))), None)
+        if entry is None:
+            raise ApplyError(f"lineup {name} has no {role} role: give one the model {value} in Studio's Roles")
+        set_path(entry, "models.preference", value)
     problems = T.validate_team_template(raw, name=name, cwd=cwd, state_dir=state_dir)
     if problems:
         raise ApplyError(f"lineup {name}: {problems[0]}")
@@ -97,13 +118,14 @@ def _lineup(a: dict, cwd, state_dir) -> dict:
 def _plan(a: dict, run_dir: Path) -> dict:
     from halo_harness.orchestra import plan as P
     jobs = copy.deepcopy(P.current_jobs(run_dir))
-    job, key = (a["field"].split(".", 1) + [""])[:2]
-    if not any(str(j.get("id")) == job for j in jobs):
-        raise ApplyError(f"the plan of run {run_dir.name} has no {job}")
-    if key == "drop":
-        jobs = [dict(j, after=[x for x in j.get("after") or [] if x != job]) for j in jobs if str(j.get("id")) != job]
-    else:
-        jobs = [dict(j, after=list(a["value"] or [])) if str(j.get("id")) == job else j for j in jobs]
+    for field, value in pairs(a):
+        job, key = (field.split(".", 1) + [""])[:2]
+        if not any(str(j.get("id")) == job for j in jobs):
+            raise ApplyError(f"the plan of run {run_dir.name} has no {job}")
+        if key == "drop":
+            jobs = [dict(j, after=[x for x in j.get("after") or [] if x != job]) for j in jobs if str(j.get("id")) != job]
+        else:
+            jobs = [dict(j, after=list(value or [])) if str(j.get("id")) == job else j for j in jobs]
     render = json.dumps({"jobs": jobs, "ts": round(time.time(), 3)}, indent=2, ensure_ascii=False, default=str) + "\n"
 
     def write():
@@ -139,8 +161,15 @@ def find(result: dict, sid: str) -> dict:
     return s
 
 
+def _overlay(s: dict) -> bool:
+    return (s.get("apply") or {}).get("target") == "overlay"  # 3.1.6.0 R2: a probe card (orchestra/coach_probe_card.py)
+
+
 def preview(result: dict, sid: str, run_dir, *, cwd=None, state_dir=None) -> dict:
     s = find(result, sid)
+    if _overlay(s):
+        from halo_harness.orchestra.coach_probe_card import preview as overlay_preview
+        return overlay_preview(result, s, run_dir, cwd=cwd, state_dir=state_dir)
     ch = _change(s, run_dir, cwd, state_dir)
     before = R.text_of(ch["file"])
     a = s["apply"]
@@ -151,6 +180,9 @@ def preview(result: dict, sid: str, run_dir, *, cwd=None, state_dir=None) -> dic
 
 def apply(result: dict, sid: str, run_dir, *, cwd=None, state_dir=None) -> dict:
     s = find(result, sid)
+    if _overlay(s):
+        from halo_harness.orchestra.coach_probe_card import apply as overlay_apply
+        return overlay_apply(result, s, run_dir, cwd=cwd, state_dir=state_dir)
     ch = _change(s, run_dir, cwd, state_dir)
     before = R.text_of(ch["file"])
     ok, problems = ch["write"]()

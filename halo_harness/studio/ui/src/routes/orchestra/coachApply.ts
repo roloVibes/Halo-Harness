@@ -67,7 +67,7 @@ async function toLineup(s: Suggestion, run: string): Promise<void> {
 
 export function applySuggestion(s: Suggestion, run: string): void {
   const a = s.apply;
-  if (!a) return;
+  if (!a || a.target === "overlay") return; // 3.1.6.0 R2: a probe card has no one editor (Apply writes it, Undo puts it back)
   if (a.target === "bio") void toBio(s, run);
   else if (a.target === "lineup") void toLineup(s, run);
   else void stagePlan(run, a.field, a.value, s.text);

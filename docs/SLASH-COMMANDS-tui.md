@@ -193,7 +193,7 @@ match is loose (`/explain lineups`, `/explain handoff`, `/explain orch`); an
 unknown word lists the closest ones, and bare `/explain` lists every word.
 Outside the TUI it prints the paragraph.
 
-### `/coach [run] [--model] [--apply ID [--yes]] [--undo [ID]]`
+### `/coach [run] [--model] [--apply ID [--yes]] [--probe [--k N] [--yes]] [--undo [ID]]`
 Halo 3.1.3.0: the post-run coach's card for a run of any kind (this
 folder's latest run when no run is named), the same text `halo coach`
 prints: each suggestion with its id, its why lines, what Apply writes, its
@@ -202,7 +202,11 @@ the run's lead for one paragraph per card (kept with the run; `--refresh`
 asks again). `/coach --apply ID` shows the confirm card (the file and the
 before -> after diff) and writes nothing; `/coach --apply ID --yes` writes
 it. `/coach --undo [ID]` puts the file of the last apply (or that apply)
-back when nothing changed it since. See `docs/ORCHESTRA.md` ("The coach").
+back when nothing changed it since. 3.1.6.0: `/coach --probe [--k N]` shows
+the probe's cost line ("probe: 2 runs, up to $X") and runs nothing; `/coach
+--probe --yes` starts the probe on a thread and answers at once, and `/coach`
+shows its card first once it ends. See `docs/ORCHESTRA.md` ("The coach",
+"Probes").
 
 ## Custom commands and skills
 
