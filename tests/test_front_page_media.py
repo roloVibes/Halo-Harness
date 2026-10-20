@@ -109,7 +109,8 @@ def test_diagrams_and_hero_exist_and_are_small(ctx: Ctx):
     hero = MEDIA / "hero.svg"
     ctx.check("hero.svg exists and is at most 60 KB", hero.is_file() and hero.stat().st_size <= DIAGRAM_CAP)
     readme = (REPO_DIR / "README.md").read_text(encoding="utf-8")
-    for d in diagrams:
+    # 3.1.5.0 R4: the Signal section left the front page; remote-control.svg stays (the HANDBOOK draws it)
+    for d in diagrams[:3]:
         ctx.check(f"the README shows diagrams/{d}.svg", f"docs/media/diagrams/{d}.svg" in readme)
     from halo_harness.banner import BANNER_ART
     hero_text = hero.read_text(encoding="utf-8") if hero.is_file() else ""
