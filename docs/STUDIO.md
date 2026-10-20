@@ -1,6 +1,6 @@
 # Halo Studio
 
-Read this when you use Halo Studio, the browser view of your lineups, runs, designs, fleet and team.
+Read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups in Roles, runs, designs, fleet and team.
 
 `halo studio` opens your lineups and agent bios as an editable graph in the
 browser. It is the visual front door to the same files the wizard and the

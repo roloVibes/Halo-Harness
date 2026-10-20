@@ -8,6 +8,44 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.1.5.0] - unreleased
+
+Focus: two things leave the product (the Claude Code and Codex subscription routes, the game themes), Session and Roles get the polish the owner wants Studio known for (the whole right side of Session is one live column of every agent working), and the front page leads with Studio. From the owner's direction on 2026-10-20, right after 3.1.4.0.
+
+### R1: the subscription routes are gone
+
+#### Removed
+
+- The Claude Code (`cc:`) and Codex (`cx:`) subscription routes: the `claude_subscription` and `codex_subscription` providers, their login checks and priming, their `/model` picker and `halo models` rows, `halo models --cc`/`--cx`, the init wizard's Claude Code and Codex subscription tabs and its Settings sources step, `halo init --provider claude`/`--preset claude`, and the subscription-turn line.
+- The subscription consent machinery: `halo subscriptions status|accept|revoke|scrub`, `/subscriptions`, the notice dialog, and the scrub that rewrote bios and lineups to OpenRouter equivalents.
+- `/settings` and the merged Claude Code / Codex settings view; doctor's `claude_subscription`, `codex_subscription`, `subscription_consent` and `codex_settings` rows.
+- config.json's `subscription_routes` and `settings` sections: a file that still has them loads, the sections are ignored, and `halo doctor --config` names each in one line. `HALO_CODEX_EXE`/`BRIDGE_CODEX_EXE` and `HALO_CCBRIDGE_*` are no longer read; `~/.halo/cc-models.json`, `cx-models.json` and `run/*.sock` are left on disk, unread.
+- A `cc:`/`cx:` ref anywhere (`--model`, `/model`, a remembered last model, a config `model:`) is one line: no route (removed in 3.1.5.0; use `ant:<name>` with `ANTHROPIC_API_KEY` or `or:anthropic/<model>`).
+- Unchanged: the `ant:` aliases (now `providers/anthropic_aliases.py`), every other provider, `HALO_CLAUDE_EXE` for `--chrome`, and the claude.ai connectors bridge (its claude login check and launcher now live in `mcp/claude_auth.py` and `mcp/claude_process.py`).
+
+### R2: the game themes are gone
+
+#### Removed
+
+- The game themes: DOOM, Metroid, Mario, Beetlejuice and Alien, with their palettes, the level band above the prompt (scenes, combat, pickups), the HUD status-bar skins and cues, the heavy, dashed and brick borders and the visor and pipe input frames. The six ordinary themes stay, and the status bar is the same single line under each.
+- `/doom`, `/metroid`, `/mario`, `/beetlejuice`, `/alien`, `/level` and the `/theme <game> <variant>` form; the wizard's game-theme rows and variant list.
+- The config keys `theme_scene`, `theme_variant` and `theme_toggle_previous`. A leftover one is ignored and `halo doctor --config` names it in one line; `halo config set` refuses them.
+- A saved game theme (`"theme": "doom"`) falls back to the default theme with one line at startup and in `halo doctor --config`: "theme: doom was a game theme, removed in 3.1.5.0; using claude-dark".
+- The theme screenshots, the HUD and level captures, 37 TUI snapshots and the README's "The levels" section.
+
+### R3: Session and Roles, polished
+
+- **Studio Session is the dashboard: the whole right side is Live,** one auto-scrolling column of every agent of this harness at once: what it types, each tool call with its target, its time ticking and its result, what it hands back, what it asks you (an amber card with A / R / S / O), each line tagged with its agent's own colour, name and state. Follow is on (scroll up pauses, "↓ N new" resumes); a tag pins one agent with Steer below it; a hovered line lights the agent's node on the map; the column holds the newest 500 lines and Activity keeps the rest. Agent, Activity and Attention wait as strips.
+- **Session's map is one picture:** the agents as a tree (each under the one that spawned it, its children fanned out, fitted to the panel), each node with its model, its cost and the tool it runs with its time ("Bash 12s"); working pulses cyan, waiting amber, done green that fades over ten seconds, failed red that stays, on the node and the edge into it.
+- **Session's Cost:** the spend sparkline beside the ticker, a context-fill bar (amber past 80 %, red past 95 %), cost per turn, and each agent's share as a stacked bar with its own tokens in and out (the agent rows now carry their tokens, from each agent's transcript).
+- **Roles explains its glow:** hover a card's glyph or badge for the legend (working cyan, waiting amber, done green, failed red, and when each comes and goes); done fades out ten seconds after, failed stays until you click the card, a queued agent does not glow. Tier boxes and edges take the same state colours with the HUD brackets; a one-tier lineup fans out under main; an empty canvas says "Drag a bio here, or New lineup".
+- **The holo look on Session and Roles:** four-corner brackets, glass over the canvas grid, mono figures on one baseline, no idle breathing, waiting pulses three times then holds; every animation off under reduced motion.
+- **New front-page captures:** `docs/media/studio-session.gif` and `studio-roles-live.gif` (`tools/capture_session_anim.py`), and `studio-session-live.png`.
+
+### R4: the front page
+
+- README.md leads with Halo Studio: Session and Roles first, with the animated captures, then Fleet, Orchestra, Team and a short Design; the subscription section, the dock, code review with a judge, remote control from Signal, one paste instead of screenshots and the levels are gone from the page (the judge, the Signal bridge and the clipboard paste stay in the product). The comparison and feature tables follow the same cut.
+
 ## [3.1.4.0] - 2026-10-20
 
 The session dashboard: Studio gets a Session section that shows your own session the way Fleet shows a fleet, the Fleet panels stop fighting narrow widths, Org and Flow leave the product, the model you pick is where you look and the catalog behind it resolves providers the way a session does. All four rounds came from the owner's live use on 2026-10-19.

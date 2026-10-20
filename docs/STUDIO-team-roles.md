@@ -117,8 +117,8 @@ shipped one, opened on the canvas); "open the panels anyway" (or
   per 1M tokens and the context from the catalog, the **gym score** when
   `halo gym` measured that model on this machine (`GET /api/gym`), and a
   **warnings badge** with the count of its problems (hover reads them). Its
-  band is its role's colour (main amber, workers cyan, researchers violet,
-  reviewers green, judges red).
+  band is its role's colour, kept clear of the state colours amber, green and red
+  so the glow reads (tier 0 is cyan).
 - **The tier boxes.** One labelled column box per tier from the lineup's
   `tiers:` (tier 0 on the left, holding the main agent alone; the implicit
   last tier dashed; a lineup without tiers is one box, `all`). The strip
