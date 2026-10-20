@@ -4,6 +4,59 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-20 ~00:05 CDT (authoritative, read this first)
+
+**3.1.3.0 AND 3.1.4.0 ARE RELEASED** (tags v3.1.3.0 at badad76 and v3.1.4.0
+at c083169, each cut by `scripts/release.py` on green Linux and Windows runs
+for the exact sha; the local install is `halo-harness v3.1.4.0`). 3.1.4.0
+"The session dashboard" came entirely from the owner's live use on
+2026-10-19 and ran as four Opus worker rounds in parallel worktrees
+(briefs, hand-backs and logs under `~/hh-314/briefs/`):
+- R1 Studio polish: the Fleet Activity log line is a size container (no
+  more one letter per row), a calmer default Fleet layout (five panels open,
+  four title strips), the Mission how-it-works fold, 12 px captions, the two
+  Windows timing flakes fixed, a Costs-panel re-render crash fixed.
+- R2 the Session section (`Alt+6`): the Fleet panels scoped to this harness
+  through one store scope, a Cost panel, `/studio` and `halo studio
+  --session`, Watch in Session links (`studio/session_open.py`).
+- R3 Org and Flow are gone (106 files deleted; Media stays with Design;
+  old `orgs`/`paperclip` config sections and lineup `org:` sections are
+  ignored with one line; a team stage of kind `flow` fails validation);
+  six sections, keys positional: Orchestra 1, Roles 2, Design 3, Fleet 4,
+  Team 5, Session 6.
+- R4 the model is where you look: `routes/shared/ModelSelect.tsx` in the
+  Roles Inspector strip, the card pill, the bio form (MODELS first),
+  Orchestra's goal form, Design's project dialog and panel, the Team stage
+  face; `studio/catalog_env.py` resolves providers the way a session does
+  (the owner's Kali box, Databricks only through the keys step, read "No
+  provider is set up" because Studio passed a bare `dict(os.environ)` and
+  the settings-chain fallback only runs on `os.environ` itself);
+  `studio/models_refresh.py` asks every provider at once with one outcome
+  line each; `studio/models_fallback.py` keeps the select from ever being
+  empty.
+- Fixed on the way: every shipped bio says `models.preference: default`
+  (the orchestrator pinned `or:anthropic/claude-fable-5.1`, so a lineup's
+  boss silently left a Databricks session for OpenRouter).
+Lessons this release: rebuild the Studio dist and run `tests.test_studio_dist`
+LAST, after every edit under `studio/ui/src` (a help string changed after
+the build and the drift gate went red); a scratch test runner must not set
+`BRIDGE_STATE_DIR` to a folder that does not exist (the modules scope
+themselves); `docs/screenshots/theme-doom.svg` renders differently on
+Windows, never commit it from this box; the Windows gate still flakes on
+`test_h9b_f11_two_parallel_children_...` (status bar read once after the
+children end) -- re-run, and give it a deadline poll in 3.1.5.0.
+
+**NEXT: 3.1.5.0 "The coach probes"** (`plans/ROADMAP.md`, ADDED
+2026-10-19 ~18:10): R1 tiers on the canvas (Add tier, a tier model and
+trigger, a tree layout), R2 the coach probes (two candidate overlays run
+against the same goal in worktrees, an anonymized judge, compose with
+evidence, Apply with Undo, budget-capped, off by default), R3 the
+improvement library (adopted overlays with EXPERIENCE.md, cited by later
+proposals, shared over the fleet through recall). Source for R2/R3: Google
+Cloud AI Research's Harness² (arXiv 2610.14224). The owner's live checks of
+3.1.4.0 come first (Session, the Roles MODEL strip, Refresh on Kali after
+`halo update`); his notes may reorder the rounds.
+
 ## WHERE THINGS STAND -- 2026-10-19 ~01:30 CDT (authoritative, read this first)
 
 **3.1.0.0, 3.1.1.0 AND 3.1.2.0 ARE RELEASED** (tags v3.1.0.0 at 2569af4,
