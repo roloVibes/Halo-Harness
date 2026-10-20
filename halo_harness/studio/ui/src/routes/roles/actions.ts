@@ -63,8 +63,12 @@ export async function save(): Promise<boolean> {
   const query = { scope: s.scope, duplicate: shipped(s.current.scope) ? "1" : "" };
   roles.update(() => ({ busy: "save" }));
   try {
+    const sent = s.raw;
     const p = await api.put<LineupPayload>("lineup/" + encodeURIComponent(s.name), { raw: s.raw }, query);
-    roles.update(() => ({ current: p, raw: clone(p.raw), graph: p.graph, findings: p.findings || [], dirty: false, saveProblems: [] }));
+    // an edit or an undo that landed while the save was in flight stays: only an unchanged mapping takes the saved copy
+    const untouched = roles.get().raw === sent;
+    roles.update(() => ({ current: p, graph: p.graph, findings: p.findings || [], saveProblems: [],
+                          ...(untouched ? { raw: clone(p.raw), dirty: false } : { dirty: true }) }));
     toast(`${p.name} saved to ${p.scope} scope`, "done");
     await saveLayout();
     await loadLists();

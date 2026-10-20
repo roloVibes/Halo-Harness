@@ -140,9 +140,12 @@ def menu_delete(c, url: str, state: Path) -> dict:
     out["deleted"] = until(lambda: "review-tier" not in members(state) and members(state))
     out["review_in_rest"] = c.wait(f"!{tier('review-tier')} && !!{tier('rest')} && (() => {{ const r = {card('reviewer')}.getBoundingClientRect(), "
                                    f"b = {tier('rest')}.getBoundingClientRect(); return r.left >= b.left - 1 && r.right <= b.right + 1 && 'rest'; }})()", 10)
+    # the save must have settled before the undo: on a slow runner the PUT's answer used to land after Ctrl+Z and
+    # put the deleted mapping back (actions.ts save() now keeps a mapping that changed while it was in flight)
+    out["saved_settled"] = c.wait("!document.querySelector('[data-testid=\"roles-dirty\"]') && 'settled'", 20)
     empty_spot(c)
     ctrl(c, "z")
-    out["undo_back"] = c.wait(f"!!{tier('review-tier')} && !!document.querySelector('[data-testid=\"roles-dirty\"]') && 'back'", 10)
+    out["undo_back"] = c.wait(f"!!{tier('review-tier')} && !!document.querySelector('[data-testid=\"roles-dirty\"]') && 'back'", 20)
     return out
 
 
