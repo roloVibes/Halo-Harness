@@ -176,9 +176,8 @@ _THEME_ARG_COMMAND_RE = re.compile(r"^/theme\s")
 
 
 def theme_command_arg_index(text: str, cursor_pos: int) -> "object":
-    """`0` for a cursor inside the theme-NAME argument of `/theme <name>`
-    (Halo 2.0.8: the three game themes appear in this completion), `None`
-    otherwise."""
+    """`0` for a cursor inside the theme-NAME argument of `/theme <name>`,
+    `None` otherwise."""
     m = _THEME_ARG_COMMAND_RE.match(text)
     if not m:
         return None

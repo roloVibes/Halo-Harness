@@ -26,19 +26,6 @@ _SHADOW_TOOLS = frozenset({"Write", "Edit", "NotebookEdit"})
 _SHADOW_PATH_FIELD = {"Write": "file_path", "Edit": "file_path", "NotebookEdit": "notebook_path"}
 
 
-
-def _fire_cue(app, event: str) -> None:
-    """Halo 2.0.8 round 3: hand a completion cue to the status bar when the
-    app has one (test fakes and headless shells may not), and let the bar
-    decide whether the active skin draws anything for it."""
-    bar = getattr(app, "status_bar", None)
-    fire = getattr(bar, "fire_cue", None)
-    if callable(fire):
-        fire(event)
-    band = getattr(app, "scene_band", None)  # 2.0.11 round A3: the level band's cue sprite
-    if band is not None:
-        band.fire_cue(event)
-
 def _phase_word_for(state: "str | None", kind: "str | None") -> "str | None":
     """Halo 2.0.1 W2b (liveness-tips-brief Part A3/A5): a `phase` event's
     (state, kind) -> the short display word the main status bar AND a
@@ -407,8 +394,6 @@ async def _apply_event_inner(app, event) -> None:
             pending.remove(text)
             return
         await app.transcript.add_user(text)
-        if agent_id is None:
-            app.status_bar.note_turn()  # the HUD's turn counter
     elif kind == "message_start":
         app.transcript.begin_message(turn, agent_id=agent_id)
         # H9 whole-tree review finding 11: a child's own `message_start`
@@ -633,8 +618,6 @@ async def _apply_event_inner(app, event) -> None:
         prefix = f"[sub-agent {agent_id}] " if agent_id else ""
         await app.transcript.add_note(f"✗ Error: {prefix}{message}", kind="error")
         app.notify(f"{prefix}{message}", severity="error", title="Error")
-        if agent_id is None:
-            app.status_bar.set_error(True)  # the HUD face shows the error until the next call starts
     elif kind == "turn_done":
         # finding 11: a child's own turn_done must never drive the MAIN
         # session's own idle/auto-title bookkeeping (verified: a child's
@@ -756,7 +739,6 @@ async def _apply_event_inner(app, event) -> None:
     elif kind == "subagent_end":
         app._agents_running_count = max(0, getattr(app, "_agents_running_count", 0) - 1)
         app.status_bar.set_agents_running(app._agents_running_count)
-        _fire_cue(app, "agent_done")  # Halo 2.0.8 round 3: a skin with cues flashes its 1-UP
         if app._agents_running_count == 0:
             # 2.0.6 round 1: the last sub-agent round handed back -- the
             # main phase line returns to the model-stream labels (the
@@ -822,7 +804,6 @@ async def _apply_event_inner(app, event) -> None:
         # the status blob. The model-facing framed copy rides in the log's
         # `status_notice` snapshot, not through this event.
         await app.transcript.add_note(data.get("text", ""), kind="status")
-        _fire_cue(app, "job_done")  # Halo 2.0.8 round 3: the coin cue (no-op for skins without cues)
     elif kind == "steer_queued":
         # 2.0.7 round 0 (rolo's live report, 2026-10-07 night): the steer's
         # TEXT now renders IMMEDIATELY, as a real user bubble, right here

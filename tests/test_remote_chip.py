@@ -3,8 +3,7 @@ the one protocol addition behind it. The bridge sends `note remote.attached`
 over the control socket on attach / detach; the session counts attached
 phones (and forgets a connection's phones when it closes), queues a
 `remote_attached` event for the TUI, and the status bar shows `⇄ remote N`
-(ASCII `<> remote N`) in the default layout and as a ticker slot in all
-three game skins."""
+(ASCII `<> remote N`)."""
 from __future__ import annotations
 
 TIER = "full"  # a TUI pilot (Textual run_test): the full tier
@@ -122,17 +121,10 @@ def test_bridge_to_session_end_to_end(ctx: Ctx):
 
 
 @test
-def test_chip_text_and_hud_slot_declarations(ctx: Ctx):
-    from halo_harness.tui.hud import SLOTS, skin_for
-    from halo_harness.tui.hud_fields import remote_chip
+def test_chip_text(ctx: Ctx):
+    from halo_harness.tui.widgets.statusbar import remote_chip
     ctx.check("unicode chip", remote_chip(2) == f"{ARROWS} remote 2")
     ctx.check("ascii chip", remote_chip(1, True) == "<> remote 1")
-    ctx.check("remote is in the slot vocabulary", "remote" in SLOTS)
-    for name in ("doom", "metroid", "mario"):
-        skin = skin_for(name)
-        ctx.check(f"{name} ticker carries the remote slot", "remote" in [s.slot for s in skin.strip])
-        ctx.check(f"{name} may drop it last-ish, never first", "remote" in skin.drop_order
-                  and skin.drop_order.index("remote") > skin.drop_order.index("effort"))
 
 
 @contextlib.contextmanager
@@ -181,27 +173,6 @@ def test_status_bar_shows_the_chip_in_the_default_layout(ctx: Ctx):
                 await apply_event(app, events.remote_attached(0, [], peer="aaaaaaaa", attached=False))
                 await pilot.pause(0.05)
                 ctx.check("the chip goes when the phone detaches", "remote" not in str(bar.render()))
-    asyncio.run(body())
-
-
-@test
-def test_game_skins_show_the_chip_in_the_ticker(ctx: Ctx):
-    async def body():
-        for theme in ("doom", "metroid", "mario"):
-            with _scoped():
-                app = _app(theme)
-                async with app.run_test(size=(180, 30)) as pilot:
-                    await pilot.pause(0.1)
-                    bar = app.status_bar
-                    bar.hud_ascii = False
-                    bar.set_remote_attached(2)
-                    await pilot.pause(0.05)
-                    ctx.check(f"{theme}: ticker shows the chip", f"{ARROWS} remote 2" in str(bar.render()))
-                    bar.hud_ascii = True
-                    bar._refresh_display()
-                    ctx.check(f"{theme}: ASCII ticker", "<> remote 2" in str(bar.render()))
-                    bar.set_remote_attached(0)
-                    ctx.check(f"{theme}: gone at zero", "remote" not in str(bar.render()))
     asyncio.run(body())
 
 

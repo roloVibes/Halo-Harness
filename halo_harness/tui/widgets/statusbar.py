@@ -27,10 +27,10 @@ _LIVE_PHASE_WORDS = frozenset({"thinking", "writing", "tool", "waiting"})
 
 SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 
-# Halo 2.0.8 round 3: a skin cue (tui/hud.py `HudSkin.cues`) plays from a
-# Textual timer, one frame per CUE_STEP seconds, and ends after CUE_SECONDS.
-CUE_SECONDS = 2.0
-CUE_STEP = 0.25
+
+def remote_chip(count: int, ascii_mode: bool = False) -> str:
+    """The Signal-remote chip: `⇄ remote 1` (ASCII `<> remote 1`)."""
+    return f"{'<>' if ascii_mode else chr(0x21C4)} remote {int(count)}"
 
 
 def _cwd_last_component(cwd: str) -> str:
@@ -202,24 +202,9 @@ class StatusBar(Static):
         self.ollama_tokens_per_second: "float | None" = None
         self.ollama_prefill_seconds: "float | None" = None
         self.ollama_offloaded: "bool | None" = None
-        # Halo 2.0.8 theme pack: the active theme name (BridgeApp pushes it
-        # via `set_theme`), the MCP tool count for the HUD's "tools loaded"
-        # slot (None until the first status that carries one), the sticky
-        # error flag behind the HUD face (cleared when the next call
-        # starts), and an explicit ASCII-glyph override (None = decide from
-        # terminal truecolor support).
-        self.theme_name = "claude-dark"
-        self.theme_variant: "str | None" = None
-        self.turn_count = 0
-        self.tools_loaded: "int | None" = None
-        self.error = False
+        # An explicit ASCII-glyph override for the remote chip (None =
+        # decide from terminal truecolor support).
         self.hud_ascii: "bool | None" = None
-        self._turn_started_at: "float | None" = None  # the HUD's TIME clock: set by note_turn, read by hud_turn_seconds
-        self.last_turn_s: "float | None" = None
-        self._cue: "tuple | None" = None  # (event, frames, tick) while a skin cue plays
-        self._cue_timer = None
-        self._prev_bg_jobs = 0
-        self._rows = 1
         self._refresh_display()
 
     def set_statusline_text(self, text: "str | None") -> None:
@@ -279,8 +264,6 @@ class StatusBar(Static):
         if isinstance(mcp, dict):
             self.mcp_connected = mcp.get("connected", self.mcp_connected)
             self.mcp_total = mcp.get("total", self.mcp_total)
-            if isinstance(mcp.get("tools"), int) and not isinstance(mcp.get("tools"), bool):
-                self.tools_loaded = mcp["tools"]
         # Halo 2.0.3 round 5b: the three `ollama_*` fields are only ever
         # sent TOGETHER, by `Session.status_event` -- a partial status dict
         # from elsewhere in dispatch.py (e.g. a bare `{"phase": ...}`) never
@@ -296,8 +279,6 @@ class StatusBar(Static):
         if phase and phase != self.phase:
             self.phase = phase
             self._phase_started_at = time.monotonic()
-            if phase != "idle":
-                self.error = False
         self._refresh_display()
 
     # ---- Halo 2.0.1 W2b: the liveness cluster (liveness-tips-brief Part A3)
@@ -321,7 +302,6 @@ class StatusBar(Static):
         self._phase_started_at = time.monotonic()
         self.received_chars = 0
         self.running_tool_name = None
-        self.error = False
         self._refresh_display()
 
     def set_phase_word(self, word: str) -> None:
@@ -336,92 +316,6 @@ class StatusBar(Static):
                 self.running_tool_name = None
         self._refresh_display()
 
-    def set_error(self, value: bool = True) -> None:
-        """An `error` event landed: the HUD face shows the error state until
-        the next model call starts (display only; the default layout has no
-        error chip, the transcript note stays the record)."""
-        value = bool(value)
-        if value != self.error:
-            self.error = value
-            self._refresh_display()
-
-    def note_turn(self) -> None:
-        """A user turn started: the HUD's turn counter (Metroid's missiles)."""
-        self.turn_count += 1
-        self._turn_started_at = time.monotonic()
-        self._refresh_display()
-
-    def hud_turn_seconds(self) -> "tuple[float | None, bool]":
-        """(seconds, running) for the HUD's TIME panel: the user turn's clock
-        counting up while a call is live, else the last finished turn's
-        time (None before any)."""
-        if self.phase in _LIVE_PHASE_WORDS or self.phase in ("running", "compacting"):
-            start = self._turn_started_at if self._turn_started_at is not None else self._phase_started_at
-            return max(0.0, time.monotonic() - start), True
-        return self.last_turn_s, False
-
-    # ---- Halo 2.0.8 round 3: skin cues (the 1-UP / coin flash) -------------
-
-    def fire_cue(self, event: str) -> bool:
-        """Flash the active skin's cue for `event` ("agent_done", "job_done")
-        in the face slot for about CUE_SECONDS. A skin without that cue (or
-        the default layout) ignores it: no timer, no redraw, returns False."""
-        from halo_harness.tui.hud import bar_skin_for as skin_for  # 3.0.2.0: None for a plain-bar skin
-        skin = skin_for(self.theme_name, self.theme_variant)
-        frames = skin.cues.get(event) if skin is not None else None
-        if not frames:
-            return False
-        self._stop_cue()
-        self._cue = (event, tuple(frames), 0)
-        try:
-            self._cue_timer = self.set_interval(CUE_STEP, self._advance_cue)
-        except Exception:  # not attached to a running app: nothing to time the flash with
-            self._cue = None
-            return False
-        self._refresh_display()
-        return True
-
-    def cue_active(self) -> "str | None":
-        return self._cue[0] if self._cue else None
-
-    def _advance_cue(self) -> None:
-        if self._cue is None:
-            self._stop_cue()
-            return
-        event, frames, tick = self._cue
-        tick += 1
-        if tick * CUE_STEP >= CUE_SECONDS - 1e-6:
-            self._stop_cue()
-        else:
-            self._cue = (event, frames, tick)
-        self._refresh_display()
-
-    def _stop_cue(self) -> None:
-        self._cue = None
-        timer, self._cue_timer = self._cue_timer, None
-        if timer is not None:
-            try:
-                timer.stop()
-            except Exception:
-                pass
-
-    def set_theme(self, name: str, variant: "str | None" = None) -> None:
-        """Called by BridgeApp on mount and on every theme change: picks the
-        HUD skin (or the default layout), its variant (a Metroid area) and
-        the bar's row count."""
-        from halo_harness.tui.hud import bar_skin_for as skin_for  # 3.0.2.0: None for a plain-bar skin
-        self.theme_name = name or "claude-dark"
-        self.theme_variant = variant
-        self._stop_cue()
-        skin = skin_for(self.theme_name, variant)
-        self._set_rows(skin.rows if skin is not None else 1)
-        self._refresh_display()
-
-    def _set_rows(self, rows: int) -> None:
-        if rows != self._rows:
-            self._rows = rows
-            self.styles.height = rows
-
     def set_tool_name(self, name: "str | None") -> None:
         self.running_tool_name = name
         self._refresh_display()
@@ -435,9 +329,6 @@ class StatusBar(Static):
         received-token counter/running tool name get their own reset, so
         neither can ever carry a stale reading into the NEXT turn (the
         "stuck-glyph defect" this brief's A3 calls out by name)."""
-        if self._turn_started_at is not None:
-            self.last_turn_s = max(0.0, time.monotonic() - self._turn_started_at)
-            self._turn_started_at = None
         self.phase = "idle"
         self.received_chars = 0
         self.running_tool_name = None
@@ -530,9 +421,6 @@ class StatusBar(Static):
         2.0.6 round 1: `bg_kinds` (one word per running job, counted)
         and `hang_watch_s` (the watchdog's stall clock, None when the
         heartbeat is healthy) ride the same call."""
-        if bg_jobs < self._prev_bg_jobs:  # a background job completed: the coin cue
-            self.fire_cue("job_done")
-        self._prev_bg_jobs = max(0, bg_jobs)
         self.bg_jobs_running = max(0, bg_jobs)
         self.oldest_bg_elapsed_s = oldest_elapsed_s
         self.bg_kinds = bg_kinds or ""
@@ -571,7 +459,6 @@ class StatusBar(Static):
         if not self.remote_attached:
             return ""
         from halo_harness.theme import supports_truecolor
-        from halo_harness.tui.hud_fields import remote_chip
         ascii_mode = self.hud_ascii if self.hud_ascii is not None else not supports_truecolor()
         return remote_chip(self.remote_attached, ascii_mode)
 
@@ -740,40 +627,7 @@ class StatusBar(Static):
                       else "")
         loc_str = self.cwd if not self.branch else f"{self.cwd} ({self.branch})"
         model_label = self.model
-
-        # Halo 2.0.8 theme pack: a game theme with a HUD skin renders through
-        # the skin engine (tui/hud.py); everything above is shared, so every
-        # field stays reachable. Other themes fall through to the layout below.
-        from halo_harness.tui.hud import accent_for, face_state_for
-        from halo_harness.tui.hud import bar_skin_for as skin_for  # 3.0.2.0: the game themes keep the plain bar
-        skin = skin_for(self.theme_name, self.theme_variant)
-        if skin is not None:
-            from halo_harness.theme import supports_truecolor
-            from halo_harness.tui.hud_fields import build_fields
-            from halo_harness.tui.hud_render import render_hud
-            strings = dict(
-                mcp_str=mcp_str, cost_str=cost_str, or_balance_str=or_balance_str, loc_str=loc_str,
-                cwd_short=(f"{_cwd_last_component(self.cwd)} ({self.branch})" if self.branch
-                           else _cwd_last_component(self.cwd)) if self.cwd else "",
-                area_str=_cwd_last_component(self.cwd) if self.cwd else "",
-                mode_str=mode_str, effort_str=effort_str, needs_you_str=needs_you_str, agents_str=agents_str,
-                offline_str=offline_str, gov_str=gov_str, new_str=new_str, hang_str=hang_str,
-                remote_str=remote_str, throughput_str=throughput_str, permission_str=permission_str, bg_jobs_str=bg_jobs_str,
-                oldest_str=oldest_str, spinner_str=spinner_str, elapsed_str=elapsed_str)
-            state = face_state_for(self.phase, error=self.error,
-                                   needs_you=bool(self.permission_pending or self.needs_you_count))
-            ascii_mode = self.hud_ascii if self.hud_ascii is not None else not supports_truecolor()
-            cue = ""
-            if self._cue is not None:
-                _event, frames, tick = self._cue
-                cue = frames[tick % len(frames)]
-            hud_text = render_hud(skin, build_fields(self, strings), width=self.size.width, face_state=state,
-                                  frame=self.spinner_index, ascii_mode=ascii_mode, cue=cue)
-            self._set_rows(len(hud_text.plain.splitlines()) or 1)
-            update_in_place(self, hud_text)  # 3.1.3.0: the HUD bar ticks in place too
-            return
-        accent = accent_for(self.theme_name)
-        model_style = f"bold {accent}" if accent else "bold"
+        model_style = "bold"
 
         # point 4: order is model, ctx, cost, mode, THEN cwd/branch and MCP
         # -- on a narrow terminal the cwd/branch is what shrinks first

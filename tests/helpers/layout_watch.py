@@ -2,7 +2,7 @@
 their own accord (Halo 3.1.3.0 R2, the in-place repaints).
 
 `Static.update(content)` asks Textual for a layout of the whole screen, and
-a periodic repaint (a status-bar tick, a level-band frame) used to do that
+a periodic repaint (a status-bar tick, a card's elapsed counter) used to do that
 once a second and more. `watch_own_layout_requests` wraps `refresh` on the
 given widget instances and records every `layout=True` (or recompose)
 request that has Halo's own code on the stack: the old `update` path, or

@@ -35,7 +35,7 @@ def run_tui(args) -> int:
     Bare `halo [PROMPT]` and `halo --demo` (without `-p`, which
     stays the scripted print-mode replay in `testing.fake_controller.
     run_demo`) both land here."""
-    from halo_harness.theme import load_persisted_theme, resolve_theme
+    from halo_harness.theme import load_persisted_theme, removed_theme_notice, resolve_theme
     from halo_harness.tui.app import BridgeApp
 
     cwd = Path(args.cwd).resolve() if getattr(args, "cwd", None) else Path.cwd()
@@ -49,8 +49,9 @@ def run_tui(args) -> int:
         tui_setting = facade.settings.tui if facade is not None and facade.settings is not None else None
 
     settings_theme = facade.settings.theme if facade is not None and facade.settings is not None else None
+    persisted_theme = load_persisted_theme()
     theme_name = resolve_theme(cli_theme=getattr(args, "theme", None), settings_theme=settings_theme,
-                                persisted_theme=load_persisted_theme())
+                                persisted_theme=persisted_theme)
 
     app = BridgeApp(
         controller, registry=registry, facade=facade, tool_registry=getattr(facade, "tool_registry", None),
@@ -79,6 +80,11 @@ def run_tui(args) -> int:
     if _changed:
         app.startup_notice = (f"Made {_changed} entr{'y' if _changed == 1 else 'ies'} under "
                               f"{_bridge_home()} owner-only (0700 directories, 0600 files)")
+    # 3.1.5.0: a saved game theme falls back with one line.
+    _theme_notice = removed_theme_notice(theme_name, persisted=persisted_theme or "")
+    if _theme_notice:
+        _earlier = getattr(app, "startup_notice", None)
+        app.startup_notice = f"{_earlier}\n{_theme_notice}" if _earlier else _theme_notice
     try:
         app.run()
     finally:
