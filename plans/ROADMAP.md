@@ -1669,8 +1669,18 @@ lots of graphics along with a more polished look and feel."
   the node. Roles: the card's live glow explained by the card itself (a
   legend on hover: working, waiting, done, failed), the tier boxes and
   routing edges drawn with the same brackets, the MODEL strip and pill
-  finished, the canvas empty state inviting. Both sections get an animated
-  capture (SVG or GIF through the existing capture tools) for the page.
+  finished, the canvas empty state inviting. The Session landing layout (the owner,
+  00:35: "I just like the visualization of what I saw the one agent doing
+  while I was in the fleet tab. I want that kind of insight going. Like the
+  entire right side on the dashboard landing page is like scrolling
+  visually seeing everything working in real time"): the map and the cost
+  on the left; the ENTIRE right side one live, auto-scrolling column of
+  everything working now -- every live agent's thinking, tool calls and
+  output interleaved as they happen (the Agent panel's three streams, for
+  every agent at once), each line tagged with its agent and lit with its
+  state, a click pinning one agent's stream, Follow on by default. Both
+  sections get an animated capture (SVG or GIF through the existing capture
+  tools) for the page.
 - R4 The front page: README.md (and the GitHub repository description and
   social preview) lead with Halo Studio, Session and Roles as the biggest
   focus with lots of graphics: the Session dashboard and Fleet's agent map
