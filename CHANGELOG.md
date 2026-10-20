@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.1.6.0] - unreleased
+## [3.1.6.0] - 2026-10-20
 
 Focus: the coach learns to probe (after Google's Harness², arXiv 2610.14224: candidate set-ups run the same goal again, an anonymized judge compares the deliverables, what wins is offered as one card, and what gets applied lands in an improvement library the next proposals cite), a tier becomes something you make on the Roles canvas with a model and a trigger of its own, the front page gets a hero, and copying a draft out of the TUI on Linux works and says what it did. From the owner's "Add 1 and 2 from Google harness research" (2026-10-19) and his live notes from Kali (2026-10-20).
 
