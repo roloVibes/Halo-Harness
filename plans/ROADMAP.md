@@ -1735,10 +1735,10 @@ the improvement library, as ADDED 2026-10-19 ~18:10) starts right after the
 ## ADDED 2026-10-20 ~11:50 (rolo: "The session tab should be the first tab in studio"): 3.1.6.0 R6 Session is the first tab
 
 - R6 Session is the first tab: the Studio sections run Session (`Alt+1`),
-  Roles (`Alt+2`), Fleet (`Alt+3`), Orchestra (`Alt+4`), Team (`Alt+5`),
-  Design (`Alt+6`) -- the order the front page already tells (the owner's
-  two focuses first, Design last, as his 2026-10-20 "Focus" direction had
-  it). One registry (routes/index.tsx SECTIONS) is the order; the rail, the
+  Team (`Alt+2`), Roles (`Alt+3`), Fleet (`Alt+4`), Design (`Alt+5`),
+  Orchestra (`Alt+6`) -- the owner's own list of 2026-10-20 12:40
+  ("session, team, roles, fleet, design"; Orchestra was not in it and keeps
+  the last key until he says otherwise). One registry (routes/index.tsx SECTIONS) is the order; the rail, the
   palette, the Start view, the F1/`?` key help, the section help pages, the
   modes banner (tools/studio_modes_banner.py -> docs/media/studio-modes.png)
   and every doc line that names an `Alt+N` follow it. `/studio <section>`,
