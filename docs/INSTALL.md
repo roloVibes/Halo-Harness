@@ -23,7 +23,7 @@ alternative that needs no `uv` at all.
 ### Fresh install, nothing downloaded yet (Linux / macOS)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.1.5.0/scripts/install-halo.sh | bash
+curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.1.6.0/scripts/install-halo.sh | bash
 ```
 
 `scripts/install-halo.sh` checks for Python 3.10+, installs `uv` if it is
@@ -96,7 +96,7 @@ release instead.
 ### Windows
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.1.5.0/scripts/install-halo.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.1.6.0/scripts/install-halo.ps1 | iex"
 ```
 
 Mirrors `install-halo.sh` exactly: installs `uv` if missing, offers to
