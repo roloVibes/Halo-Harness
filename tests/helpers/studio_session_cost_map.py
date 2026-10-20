@@ -9,7 +9,8 @@ tests/test_studio_session_cost_map.py runs it as a subprocess:
                                                               share bar, a node's tool clock, the tree's fan (main's
                                                               children side by side under it, no two labels touching),
                                                               the state colours on node and edge, done fading, failed
-                                                              staying
+                                                              staying (motion pinned to no-preference; then under
+                                                              reduce a done node is green with no fade)
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
 No model is called."""
@@ -56,6 +57,8 @@ def costmap(c, rig) -> dict:
     lv = Live(rig)
     out: dict = {}
     lv.refresh(context_tokens=50_000, context_limit=100_000, cost_usd=0.010, turns=2)
+    from tests.helpers.chrome_driver import emulate_motion
+    emulate_motion(c, "no-preference")  # the done fade is an animation: the same media on every runner
     c.go(rig.url("session"))
     c.wait(f"!!{CTX} && {MAP}.querySelectorAll('[data-testid=\"fleet-node\"]').length >= 6", 40)
     out["ctx"] = [[c.wait(f"{CTX}.dataset.pct === '50.0' && {CTX}.dataset.level", 10)]]
@@ -111,6 +114,15 @@ def states(c, lv) -> dict:
     time.sleep(10.4)
     out["done_later"] = c.wait(f"{node(d)}?.dataset.motion !== 'done' && {node(d)}.dataset.motion", 6) or c.js(f"{node(d)}?.dataset.motion")
     out["red_later"] = c.js(f"{node(f)}?.dataset.motion")
+    from tests.helpers.chrome_driver import emulate_motion
+    emulate_motion(c, "reduce")  # the product rule: under reduce a done node is green with no fade
+    lv.spawn("t1d3r0m0", "tidier", "tidier", "or:mock/qwen3-coder", "Tidy: the basket imports")
+    t = lv.key("tidier")
+    c.wait(f"{node(t)}?.dataset.motion === 'working'", 10)
+    lv.state("tidier", state="done", last_text="imports tidied")
+    out["reduced_done"] = [c.wait(f"{node(t)}?.dataset.motion === 'done' && 'done'", 10), c.js(f"getComputedStyle({node(t)}.querySelector('.fm-shape')).animationName"),
+                           c.js(f"getComputedStyle({node(t)}.querySelector('.fm-shape')).stroke"), c.js("matchMedia('(prefers-reduced-motion: reduce)').matches")]
+    emulate_motion(c, "no-preference")
     return out
 
 

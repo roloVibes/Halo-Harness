@@ -6,8 +6,9 @@ agents mid-work) plus extra agents on the verifier and reviewer cards
 
     python -m tests.helpers.studio_roles_glow glow   the legend on hovering a card's glyph and its badge (four states,
                                                      the card's own marked), a done glow fading out ten seconds later,
-                                                     a failed glow staying until its card is clicked, the one-tier fan
-                                                     under main, and an empty lineup's bracketed invite
+                                                     a failed glow staying until its card is clicked (motion pinned to
+                                                     no-preference; then under reduce a done card has no fade), the
+                                                     one-tier fan under main, and an empty lineup's bracketed invite
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
 No model is called."""
@@ -45,6 +46,8 @@ def glow(c, rig) -> dict:
     from tests.helpers.studio_live_rig import Live
     lv = Live(rig, extra=())
     out: dict = {}
+    from tests.helpers.chrome_driver import emulate_motion
+    emulate_motion(c, "no-preference")  # the fade is an animation: the same media on every runner
     c.go(rig.url("roles"))
     c.wait("document.querySelectorAll('[data-testid=\"roles-card\"][data-live]').length >= 3", 40)
     time.sleep(1.2)  # the canvas fits itself after its first draw
@@ -76,8 +79,23 @@ def glow(c, rig) -> dict:
     out["failed_after"] = c.js(f"{rev}?.dataset.glow")
     card_click(c, rev)
     out["failed_clicked"] = c.wait(f"{rev}.dataset.glow !== 'failed' && ({rev}.dataset.glow || 'off')", 5) or c.js(f"{rev}.dataset.glow")
+    out.update(reduced(c, lv))
     out.update(empty(c, rig))
     return out
+
+
+def reduced(c, lv) -> dict:
+    """Under prefers-reduced-motion: reduce a done card is still green, with no fade animation (the product rule)."""
+    from tests.helpers.chrome_driver import emulate_motion
+    emulate_motion(c, "reduce")
+    rel = card("release-manager")
+    lv.spawn("r3l3a5e7", "release-manager", "release-manager", "or:mock/qwen3-coder", "Release: tag the basket fix")
+    c.wait(f"{rel}?.dataset.glow === 'working'", 10)
+    lv.state("release-manager", state="done", last_text="tagged")
+    got = [c.wait(f"{rel}?.dataset.live === 'done' && {rel}.dataset.glow", 10), c.js(f"getComputedStyle({rel}).animationName"),
+           c.js("matchMedia('(prefers-reduced-motion: reduce)').matches")]
+    emulate_motion(c, "no-preference")
+    return {"reduced_done": got}
 
 
 def empty(c, rig) -> dict:
