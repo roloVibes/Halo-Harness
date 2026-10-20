@@ -97,8 +97,11 @@ def _copy_windows_clipboard(text: str, *, timeout_s: float) -> bool:
         # console's current (possibly lossy) codepage.
         payload = (chr(0xFEFF) + text).encode("utf-16-le")
         proc = subprocess.run(["clip.exe"], input=payload, timeout=timeout_s)
+        if proc.returncode != 0:
+            _LAST_COPY_ERROR["text"] = f"clip.exe exited {proc.returncode}"
         return proc.returncode == 0
-    except (OSError, subprocess.SubprocessError, ValueError):
+    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+        _LAST_COPY_ERROR["text"] = str(exc)  # 3.1.6.0: a clip.exe that cannot run is named, not silent
         return False
 
 
