@@ -21,6 +21,10 @@ null until asked) and its `applied` state ({state: applied|undone,
 apply_id, file, ts} | null, coach_record.py); Apply writes the change after
 one confirm (coach_apply.py) and Undo puts the file back.
 
+3.1.6.0 R2, the probes (coach_probe.py, asked for, never on their own): once
+a probe of an Orchestra run ended, its one card (`kind: probe`) leads the
+overlay's suggestions, and the result's `probe` is the probe's status.
+
 `cached(run_dir)` is the Studio routes' read: the result kept in
 `<run>/coach.json`, computed again when a run file it reads is newer, with
 the overlay. `format_card(result)` is the CLI's plain text.
@@ -96,15 +100,22 @@ def source_mtime(run_dir) -> float:
 
 
 def overlay(result: dict, run_dir, state_dir=None) -> dict:
-    """The result with each suggestion's `paragraph` (and `paragraph_error`) and `applied` state."""
+    """The result with each suggestion's `paragraph` (and `paragraph_error`) and `applied` state. 3.1.6.0 R2: an
+    Orchestra run's probe card first once a probe ended (coach_probe_card.py), and `probe`: the probe's status."""
     from halo_harness.orchestra.coach_ask import read_store
+    from halo_harness.orchestra.coach_probe_card import card, status
     from halo_harness.orchestra.coach_record import note_run, states
     asked, done = read_store(run_dir), states(run_dir, state_dir)
-    rows = [dict(s, paragraph=(asked.get(s["id"]) or {}).get("paragraph") or None,
-                 paragraph_error=(asked.get(s["id"]) or {}).get("error") or "", applied=done.get(s["id"]))
-            for s in result.get("suggestions") or []]
+    probe = card(run_dir) if result.get("kind") == "orchestra" else None
+    found = [probe] * bool(probe) + [s for s in result.get("suggestions") or [] if s.get("kind") != "probe"]
+    own = {probe["id"]: probe} if probe else {}  # the probe card's paragraph is the judge's why, unless asked
+    rows = [dict(s, paragraph=(asked.get(s["id"]) or {}).get("paragraph") or (own.get(s["id"]) or {}).get("paragraph")
+                 or None, paragraph_error=(asked.get(s["id"]) or {}).get("error")
+                 or (own.get(s["id"]) or {}).get("paragraph_error") or "", applied=done.get(s["id"])) for s in found]
+    result = dict(result, suggestions=rows, model=any(s["paragraph"] for s in rows),
+                  probe=status(run_dir) if result.get("kind") == "orchestra" else None)
     note_run(result, run_dir, state_dir)
-    return dict(result, suggestions=rows, model=any(s["paragraph"] for s in rows))
+    return result
 
 
 def cached(run_dir, **kw) -> dict:
@@ -125,6 +136,9 @@ def cached(run_dir, **kw) -> dict:
 
 
 def _apply_text(a: dict) -> str:
+    if a.get("target") == "overlay":  # 3.1.6.0 R2: a probe card writes several fields, maybe in several files
+        return f"the probe's {a.get('name')} overlay: " + "; ".join(
+            f"{c['target']} {c.get('name')}: {c['field']}" for c in a.get("changes") or [])
     value = a.get("value")
     shown = ", ".join(str(v) for v in value) if isinstance(value, list) else str(value)
     where = {"bio": "bio", "lineup": "lineup", "plan": "the plan of run"}.get(a.get("target"), a.get("target"))
@@ -148,8 +162,9 @@ def format_card(result: dict) -> str:
         if s.get("applied"):
             st = s["applied"]
             lines.append(f"  {st['state']}: {st['apply_id']} ({st.get('file')})")
+        who = "the judge" if s.get("kind") == "probe" else "the lead"
         if s.get("paragraph"):
-            lines.append(f"  the lead: {s['paragraph']}")
+            lines.append(f"  {who}: {s['paragraph']}")
         elif s.get("paragraph_error"):
-            lines.append(f"  the lead could not answer: {s['paragraph_error']}")
+            lines.append(f"  {who} could not answer: {s['paragraph_error']}")
     return "\n".join(lines)

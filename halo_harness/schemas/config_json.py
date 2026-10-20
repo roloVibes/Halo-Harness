@@ -48,7 +48,7 @@ _SCALARS = {
     "effort": STRING,
 }
 
-_SECTIONS = ("agents", "clipboard", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
+_SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
              "governor", "huggingface", "improve", "local", "network", "ollama", "openai",
              "providers", "remote", "roles", "routing", "steer", "update",
              "worktree")

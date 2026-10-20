@@ -204,7 +204,8 @@ def test_post_run_streams_state_frames_and_holds_one_run(ctx: Ctx):
 @test
 def test_the_coach_route_reads_the_run_and_keeps_its_card(ctx: Ctx):
     """3.0.9.0 R3: GET orchestra/<run>/coach -> the coach's result (orchestra/coach.py), computed once and kept in
-    <run>/coach.json; the R2 run's judged conflict (lane 5 with lane 4) is a structure card."""
+    <run>/coach.json; the R2 run's judged conflict (lane 5 with lane 4) is a structure card. 3.1.6.0 R2: POST .../probe
+    shows the cost line, then runs on a thread beside the console (feed frames, 409 while it runs), its card leads."""
     repo, run_dir = R.finished_run()
     try:
         with R.Studio(repo) as s:
@@ -219,6 +220,18 @@ def test_the_coach_route_reads_the_run_and_keeps_its_card(ctx: Ctx):
                       and again["suggestions"] == data["suggestions"])
             ctx.check("an unknown run is a 404", s.get("orchestra/nope/coach")[0] == 404)
             ctx.check("POST is a 405", s.post(f"orchestra/{run_dir.name}/coach", {})[0] == 405)
+            from tests.helpers.coach_probe_rig import studio_probe  # 3.1.6.0 R2: POST <coach>/probe
+            got = studio_probe(s, run_dir)
+            ctx.check(f"probe: the cost line first, nothing run, got {got['cost']}", got["cost"][0] == 200 and got["nothing_ran"]
+                      and got["cost"][1]["estimate"]["line"].startswith("probe: 2 runs, up to $0.0345"))
+            ctx.check(f"confirm: 202 on a thread, a 409 while it runs, got {got['start']} {got['again'][0]} {got['live']}",
+                      got["start"][0] == 202 and got["again"][0] == 409 and got["live"] is True)
+            f = got["frame"] or {}
+            ctx.check(f"its step lines as orchestra_state frames naming no console run, got {f}", f.get("session_id") ==
+                      f"coach-probe:{run_dir.name}" and "run" not in (f.get("data") or {}) and got["done"] is not None)
+            card = got["coach"]["suggestions"][0]
+            ctx.check(f"the probe's card leads, one run listed, got {card['kind']} {got['coach']['probe']} {len(got['runs'])}",
+                      card["kind"] == "probe" and got["coach"]["probe"]["state"] == "done" and len(got["runs"]) == 1)
     finally:
         R.cleanup(repo)
 

@@ -18,7 +18,10 @@ tests/test_studio_ui.py runs it as a subprocess with a scrubbed environment
 * 3.1.3.0 R1: Apply on the model card shows the confirm card (the bio's file,
   the diff), Apply there writes the bio (APPLIED), Undo puts it back
   (UNDONE); Ask the model shows the lead's paragraph (HALO_COACH_FAKE=1);
-* the Mission panel's Coach face lists the ended mission's cards.
+* the Mission panel's Coach face lists the ended mission's cards;
+* 3.1.6.0 R2: Probe in the Coach tab's header shows the cost line, Run the
+  probe runs it (the fakes, in this process), and the probe's card leads the
+  tab with its contrast table.
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -134,6 +137,26 @@ def ask_model(c, rig, url: str, out: dict) -> None:
     out["ask_kept"] = (rig.run_dir / "coach.ask.json").is_file()
 
 
+def probe_card(c, rig, url: str, out: dict) -> None:
+    """3.1.6.0 R2: Probe in the header row -> the cost line and the confirm (nothing run) -> Run the probe (the fake
+    lead, workers and judge in this process) -> the probe's card first, with its contrast table."""
+    from halo_harness.orchestra import probe_runs
+    from tests.helpers.coach_probe_rig import fake_adapters
+    probe_runs.ADAPTERS = fake_adapters([])
+    open_coach(c, url)
+    out["probe_button"] = c.js("!!document.querySelector('.cc-head [data-testid=\"coach-probe\"]')")
+    click(c, TID.format("coach-probe"))
+    out["probe_cost"] = c.wait(f"{TID.format('coach-probe-cost')}?.textContent || ''", 20)
+    out["probe_ran_before"] = (rig.run_dir / "probe.json").exists()
+    click(c, TID.format("coach-probe-run"))
+    card = CARD.format("probe")
+    out["probe_rows"] = c.wait(f"!!{card} && {card}.querySelectorAll('[data-testid=\"coach-contrast-row\"]').length", 90)
+    out["probe_first"] = c.js("document.querySelector('[data-testid=\"coach-card\"]')?.dataset.kind")
+    out["probe_reference"] = c.js(f"{card}.querySelector('[data-testid=\"coach-contrast-row\"]').dataset.id")
+    out["probe_judge"] = c.js(f"{card}.querySelector('[data-testid=\"coach-paragraph\"] .glance-kicker')?.textContent")
+    out["probe_listed"] = len(rig.studio.get("orchestra/runs")[1])
+
+
 def mission_coach(c, rig, out: dict) -> None:
     from tests.helpers.studio_fleet_panels import open_strip
     c.go(rig.url("fleet").replace("#t=", "&view=workspace#t="))
@@ -159,7 +182,8 @@ class CoachDriver(Driver):
             url = rig.url()
             yield ((three_cards, (c, url, self.out)), (apply_model, (c, rig, self.out)), (dismiss_survives, (c, url, self.out)),
                    (apply_plan, (c, rig, url, self.out)), (apply_and_undo, (c, rig, url, self.out)),
-                   (ask_model, (c, rig, url, self.out)), (mission_coach, (c, rig, self.out)))
+                   (ask_model, (c, rig, url, self.out)), (mission_coach, (c, rig, self.out)),
+                   (probe_card, (c, rig, url, self.out)))
 
 
 def main() -> int:

@@ -7,12 +7,16 @@ it read (Halo 3.1.3.0 R1). Both live in the state dir's `coach/` folder:
          "name", "field", "value", "file": "<path written>", "existed": true, "before": "<text>",
          "after": "<text>", "ts": 1760800000.0}
         {"op": "undo", "apply_id": "a-...", "file": "<path>", "ts": ...}
-    ~/.halo/coach/runs.json       {"<run folder>": {run, kind, n, top, ts}}: the runs the coach read
+    ~/.halo/coach/runs.json       {"<run folder>": {run, kind, n, top, ts, probe}}: the runs the coach read
                                   (the Fleet digest's coach lines)
 
 The Undo rule: the file must still hold the apply's `after` text exactly;
 then the `before` text is written back (or the file removed when the apply
 created it). Anything else is refused with the reason, and nothing is written.
+3.1.6.0 R2: a probe card's Apply writes one row per file, each with the same
+`group` id (`g-<10 hex>`, the id the card shows); its Undo puts every file of
+the group back, newest first, and only when each still holds what the group
+wrote last.
 """
 
 from __future__ import annotations
@@ -56,20 +60,44 @@ def applies(state_dir=None) -> list:
 
 
 def states(run_dir, state_dir=None) -> dict:
-    """{suggestion id: {state: applied|undone, apply_id, file, ts}} for one run folder (its newest apply wins)."""
+    """{suggestion id: {state: applied|undone, apply_id, file, ts}} for one run folder (its newest apply wins;
+    3.1.6.0 R2: a probe card's rows share one `group` id, which is the apply id the card shows)."""
     key, out = str(Path(run_dir).resolve()), {}
     for r in applies(state_dir):
         if r.get("run_dir") == key:
-            out[str(r.get("id"))] = {"state": "undone" if r["undone"] else "applied", "apply_id": r["apply_id"],
-                                     "file": r.get("file"), "ts": r["undone"] or r.get("ts")}
+            out[str(r.get("id"))] = {"state": "undone" if r["undone"] else "applied",
+                                     "apply_id": r.get("group") or r["apply_id"], "file": r.get("file"),
+                                     "ts": r["undone"] or r.get("ts")}
     return out
 
 
 def find(apply_id: Optional[str], state_dir=None) -> Optional[dict]:
     rows = applies(state_dir)
     if apply_id:
-        return next((r for r in rows if r.get("apply_id") == apply_id), None)
+        return next((r for r in rows if apply_id in (r.get("apply_id"), r.get("group"))), None)
     return next((r for r in reversed(rows) if not r["undone"]), None)
+
+
+def _undo_group(group: str, state_dir=None) -> tuple:
+    """3.1.6.0 R2: every file of a probe card's apply back, newest first -- only when each still holds what the
+    group wrote last; otherwise nothing is written."""
+    rows = [r for r in applies(state_dir) if r.get("group") == group]
+    if all(r["undone"] for r in rows):
+        return False, f"{group} is already undone", rows[-1]
+    last = {}
+    for r in rows:
+        last[r["file"]] = r
+    for path, r in last.items():
+        if text_of(path) != r.get("after"):
+            return False, f"{path} changed after the apply: the coach leaves the group as it is (edit it by hand)", r
+    for r in reversed(rows):
+        if r.get("existed"):
+            write_exact(r["file"], r.get("before") or "")
+        elif Path(r["file"]).exists():
+            os.remove(r["file"])
+        append({"op": "undo", "apply_id": r["apply_id"], "group": group, "file": r["file"], "ts": round(time.time(), 3)},
+               state_dir)
+    return True, f"undid {group}: {len(last)} file(s) hold their text from before the apply", dict(rows[-1], apply_id=group)
 
 
 def text_of(path) -> Optional[str]:
@@ -103,6 +131,8 @@ def undo(apply_id: Optional[str] = None, state_dir=None) -> tuple:
     if rec is None:
         return False, (f"no apply {apply_id!r} in the coach's record" if apply_id else
                        "nothing to undo: every apply in the coach's record is undone"), None
+    if rec.get("group"):
+        return _undo_group(rec["group"], state_dir)
     if rec["undone"]:
         return False, f"{rec['apply_id']} is already undone", rec
     path = Path(rec["file"])
@@ -127,7 +157,8 @@ def note_run(result: dict, run_dir, state_dir=None) -> None:
         data = jsonl.read_json(path, {}) or {}
         rows = result.get("suggestions") or []
         data[str(Path(run_dir).resolve())] = {"run": result.get("run"), "kind": result.get("kind"), "n": len(rows),
-                                              "top": rows[0]["text"] if rows else "", "ts": round(time.time(), 3)}
+                                              "top": rows[0]["text"] if rows else "", "ts": round(time.time(), 3),
+                                              "probe": probe_of(run_dir)}
         jsonl.write_json(path, data)
     except Exception:
         pass
@@ -145,10 +176,19 @@ def runs_since(since: float, state_dir=None) -> list:
     return sorted(out, key=lambda r: float(r.get("ts") or 0))
 
 
-def summary_line(n: int, applied: int, top: str) -> str:
-    """The run reports' and the Fleet digest's one coach line."""
+def probe_of(run_dir) -> str:
+    """3.1.6.0 R2: "probe: N runs, $X, picked: ..." once a probe of the run ended ('' otherwise)."""
+    try:
+        from halo_harness.orchestra.coach_probe import probe_line, read
+        return probe_line(read(run_dir))
+    except Exception:
+        return ""
+
+
+def summary_line(n: int, applied: int, top: str, probe: str = "") -> str:
+    """The run reports' and the Fleet digest's one coach line (3.1.6.0 R2: the probe line after it)."""
     head = f"coach: {n} suggestion{'s' if n != 1 else ''}, {applied} applied"
-    return head + (f", top: {top[:90]}" if n and top else "")
+    return head + (f", top: {top[:90]}" if n and top else "") + (f"; {probe}" if probe else "")
 
 
 def summary(run_dir, state_dir=None) -> str:
@@ -160,4 +200,4 @@ def summary(run_dir, state_dir=None) -> str:
         return ""
     rows = result.get("suggestions") or []
     done = sum(1 for v in states(run_dir, state_dir).values() if v["state"] == "applied")
-    return summary_line(len(rows), done, rows[0]["text"] if rows else "")
+    return summary_line(len(rows), done, rows[0]["text"] if rows else "", probe_of(run_dir))
