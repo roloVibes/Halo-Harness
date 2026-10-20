@@ -2,8 +2,10 @@
 // `cost_usd` as the Fleet store holds it (GET fleet and its feed), sampled
 // when it changes and at least every SAMPLE_MS while it does not, so the
 // sparkline's time axis stays honest through a quiet stretch. Kept per
-// session (MAX samples) while the page is open; nothing is stored.
-import { createStore, useStore } from "../../lib/store";
+// session (MAX samples) while the page is open; nothing is stored. Sampled
+// only while the Session section shows (3.1.5.0 R3 follow-up: nothing of it
+// runs for the Fleet page; the line resumes when you come back).
+import { createStore, studio, useStore } from "../../lib/store";
 import { fleet } from "../fleet/store";
 
 export type Sample = { t: number; usd: number; turns: number };
@@ -22,6 +24,7 @@ const NONE: Sample[] = [];
 let started = false;
 
 function sample(): void {
+  if (studio.get().section !== "session") return;
   const now = Date.now();
   const cur = spend.get().series;
   let next: Record<string, Sample[]> | null = null;

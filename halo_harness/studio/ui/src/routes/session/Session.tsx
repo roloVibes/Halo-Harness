@@ -12,7 +12,10 @@
 // Pin), Activity (the timeline lanes and the full log) and Attention (this
 // harness's rows, one key each) wait as strips under Cost, one click away.
 // Until this harness has a live session the section is its Start view.
-import { useEffect } from "react";
+// 3.1.5.0 R3 follow-up: a panel's face draws only while Session shows (a
+// visited section stays mounted): nothing of Session runs for the Fleet page.
+import { useEffect, type ComponentType } from "react";
+import { studio, useStore } from "../../lib/store";
 import type { MotionState } from "../../lib/motion";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { HELP } from "../help";
@@ -31,7 +34,16 @@ function started(hook: () => MotionState): () => MotionState {
   };
 }
 
-const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec => ({ id, testid: id, ...HELP[id], ...rest });
+/** The face, drawn only while the Session section shows. */
+function whileShown(Face: ComponentType): ComponentType {
+  return function Shown() {
+    return useStore(studio, (s) => s.section === "session") ? <Face /> : null;
+  };
+}
+
+const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec => ({
+  id, testid: id, ...HELP[id], ...rest, glance: whileShown(rest.glance), detail: rest.detail && whileShown(rest.detail),
+});
 
 // 24 columns, 8 px rows; h 0 fills the visible height, a negative h fills it but leaves that many rows below.
 // Left (10 columns, about 40 %): Map (46 rows, the tree fitted to it) over Cost (to the bottom, less the 15

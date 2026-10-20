@@ -55,7 +55,9 @@ def card(name: str) -> str:
 
 def open_fleet(c, rig) -> None:
     c.go(rig.url("fleet"))
-    c.wait("document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 5 && document.querySelectorAll('[data-testid=\"fleet-box\"]').length === 2", 30)
+    # 3.1.5.0 R3 follow-up: the map's own mark first (it says how many nodes it drew), then the DOM agrees
+    c.wait("document.querySelector('[data-testid=\"fleet-map-svg\"]')?.dataset.nodes === '5' && document.querySelectorAll('[data-testid=\"fleet-node\"]').length === 5"
+           " && document.querySelectorAll('[data-testid=\"fleet-box\"]').length === 2", 60)
 
 
 def open_roles(c, rig) -> None:

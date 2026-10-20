@@ -89,6 +89,16 @@ def costmap(c, rig) -> dict:
 def states(c, lv) -> dict:
     """waiting: amber on node and edge; done: green, fading back to the plain line after ten seconds; failed: red that stays."""
     out: dict = {}
+    # 3.1.5.0 R3 follow-up: a frame says stopped while GET fleet still says running; the GET right after keeps the frame's state
+    lv.spawn("f7e5h0s1", "fresher", "fresher", "or:mock/qwen3-coder", "Fresh: a frame newer than the GET")
+    c.wait(f"{node(lv.key('fresher'))}?.dataset.state === 'running'", 10)
+    lv.frame("fresher", "agent_state", {**lv.rows["f7e5h0s1"], "state": "stopped"})
+    out["fresh_frame"] = c.wait(f"{node(lv.key('fresher'))}?.dataset.state === 'stopped' && 'stopped'", 10)
+    lv.refresh(cost_usd=0.1234)  # the page asks GET fleet again (the sessions frame); the new spend shows its answer landed
+    out["fresh_get_landed"] = c.wait("document.querySelector('[data-testid=\"session-cost-usd\"]')?.textContent === '$0.1234' && 'landed'", 15)
+    out["fresh_api_says"] = next((a.get("state") for h in lv.rig.api("GET", "fleet")[1].get("harnesses", []) for s in h.get("sessions") or []
+                                  for a in s.get("agents") or [] if a.get("agent_id") == "f7e5h0s1"), None)
+    out["fresh_after_get"] = c.js(f"{node(lv.key('fresher'))}?.dataset.state")
     w, d, f = lv.key("docs"), lv.key("tester"), lv.key("reviewer")
     lv.state("docs", state="waiting")
     out["waiting"] = [c.wait(f"{node(w)}?.dataset.motion === 'waiting' && {edge(w)}?.dataset.motion", 10),
