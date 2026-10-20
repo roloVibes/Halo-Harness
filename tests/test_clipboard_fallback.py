@@ -131,11 +131,7 @@ def test_detection_prefers_the_tool_whose_session_is_up(ctx: Ctx):
     with LinuxClipEnv(tools=("wl-copy", "xclip"), env={"DISPLAY": ":0"}):
         found = cb.find_clipboard_tool()
         ctx.check(f"X11 session: xclip over wl-copy, got {found}", found is not None and found[0] == "xclip")
-        import sys
-        # the fake's resolved path: its launcher on a POSIX host; on a Windows host the fake runs through the
-        # interpreter, so the script (argv[1]) is what sits in the bin dir
-        ctx.check("the resolved path is what runs", found is not None
-                  and Path(found[1][1 if sys.platform == "win32" else 0]).parent.name == "bin")
+        ctx.check("argv[0] is the resolved path", found is not None and Path(found[1][0]).parent.name == "bin")
     with LinuxClipEnv(tools=("wl-copy", "xclip"), env={"WAYLAND_DISPLAY": "wayland-0"}):
         ctx.check("Wayland session: wl-copy", (cb.find_clipboard_tool() or ("",))[0] == "wl-copy")
     with LinuxClipEnv(tools=("xsel",)):

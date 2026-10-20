@@ -30,15 +30,11 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 
 
 def _need_tool(clip: LinuxClipEnv) -> None:
-    """A host where the fake tool cannot run skips with the probe's reason. The TUI-driven copies through
-    the fake are pinned on POSIX hosts (the Linux runner is the real target): on the GitHub Windows runner
-    the clipboard worker never reached the fake although the direct fallback checks and the detection
-    checks pass there (3.1.6.0, four runs; the cause is still open), so a Windows host skips these."""
+    """A host where the fake tool cannot run skips with the probe's reason (CI's run_all.py runs every
+    module in one process: the four CI failures of 3.1.6.0 were an earlier module's leaked stub of
+    copy_via_external_tool, which LinuxClipEnv now refuses by name)."""
     if clip.probe_error:
         raise SkipTest(f"the fake clipboard tool cannot run on this host: {clip.probe_error}")
-    if sys.platform == "win32":
-        raise SkipTest("the TUI-driven copies through the fake tool are pinned on POSIX hosts "
-                       "(the direct fallback and detection checks cover a Windows host)")
 
 REPO_DIR = Path(__file__).resolve().parent.parent
 

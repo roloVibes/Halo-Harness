@@ -235,6 +235,7 @@ def test_copy_failure_names_the_tmux_fix(ctx: Ctx):
             notes = []
             app.notify = lambda msg, **kw: notes.append((msg, kw.get("severity")))
             async with app.run_test(size=(100, 30)) as pilot:
+                real_copy = clipboard_mod.copy_via_external_tool
                 clipboard_mod.copy_via_external_tool = lambda *a, **kw: False
                 # In tmux (mode cached 'off'): the failure names the fix.
                 clipboard_mod._TMUX_MODE_CACHE.clear()
@@ -259,6 +260,9 @@ def test_copy_failure_names_the_tmux_fix(ctx: Ctx):
                     ctx.check(f"no-tmux failure stays generic, got {notes}",
                               any("Copy FAILED" in m and "tmux" not in m for m, _s in notes))
                 finally:
+                    # 3.1.6.0: this stub leaked into run_all.py's one process and broke every later module's
+                    # copy through the real tool (test_tui_copy_draft, on both CI runners)
+                    clipboard_mod.copy_via_external_tool = real_copy
                     clipboard_mod.tmux_clipboard_mode = real_mode
                     clipboard_mod.osc52_trusted = real_trusted_fn
                     clipboard_mod._TMUX_MODE_CACHE.clear()
