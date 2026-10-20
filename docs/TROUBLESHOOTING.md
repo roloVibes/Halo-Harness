@@ -58,7 +58,8 @@ and [ARCHITECTURE.md](ARCHITECTURE.md) for how compaction/retries work.
   the primary mechanism is OSC 52 (works over SSH/tmux with no extra
   tooling); a terminal/multiplexer that doesn't relay it needs `xclip`/
   `xsel` (X11) or `wl-clipboard` (Wayland) on PATH as the best-effort
-  fallback `doctor`'s clipboard check names.
+  fallback `doctor`'s clipboard check names. See "Copy does nothing on
+  Linux" below for every status line a copy can leave.
 - **tmux: mouse click-to-focus/drag-scroll doesn't work** -- `doctor`
   reports tmux mouse mode when `$TMUX` is set; `tmux set -g mouse on`. Hold
   `Shift` while dragging any time you want the terminal's own native text
@@ -80,7 +81,9 @@ and [ARCHITECTURE.md](ARCHITECTURE.md) for how compaction/retries work.
   in order.
 - **Copying without a mouse**: `/copy` copies the last assistant reply,
   `/copy code` its last fenced code block (`/copy code 2` for the 2nd, in
-  order), `/copy tool` the last tool call's full output. `y` on a focused
+  order), `/copy tool` the last tool call's full output, `/copy draft` the
+  chat box's unsent text (`Ctrl+Shift+C` too, where the terminal passes
+  that key on). `y` on a focused
   tool card -- or inside its `o` pager -- copies that card's full output
   directly; `Y` copies the whole current turn (the last prompt plus
   everything produced for it so far), but only while the chat box does NOT
@@ -115,6 +118,47 @@ and [ARCHITECTURE.md](ARCHITECTURE.md) for how compaction/retries work.
   Set `quit_on_double_ctrl_c: false` in `~/.halo/config.json` to turn the
   second-press quit off entirely, leaving `/exit`, `Ctrl+D` (on an empty
   prompt) and `Ctrl+Q` as the only ways to leave.
+
+## Copy does nothing on Linux
+
+Symptom: you copy (a selection with `Ctrl+C`, `/copy`, `/copy draft`,
+`Ctrl+Shift+C`) and nothing reaches the clipboard -- common on a stock Kali
+desktop. The status line after the copy says what happened, and `halo
+doctor`'s "Clipboard backend" row says which tool and display session halo
+found:
+
+- **"no clipboard tool: sudo apt install xclip (or wl-clipboard on
+  Wayland); sent OSC 52, which ... may ignore"** -- halo copies two ways: it
+  pipes the text into `xclip` / `wl-copy` / `xsel`, and it sends the OSC 52
+  escape to your terminal. Kali installs none of those tools by default,
+  and its default terminals (QTerminal, xfce4-terminal, GNOME Terminal)
+  ignore OSC 52, so neither lands. Fix: `sudo apt install xclip` on X11
+  (Kali's Xfce desktop), `sudo apt install wl-clipboard` on Wayland, then
+  copy again; the line then reads "copied N characters via xclip".
+- **The words are never lost.** Whenever no tool landed, the copied text is
+  also written to `~/.halo/clipboard.txt` (only you can read it; the next
+  such copy replaces it), and the status line names that file -- open it
+  and copy from there.
+- **Use the terminal's own selection**: halo turns on mouse tracking, so a
+  plain drag selects inside halo (and `Ctrl+C` copies that). Hold `Shift`
+  while dragging to get the terminal's own selection instead, then use the
+  terminal's own copy key (`Ctrl+Shift+C` in QTerminal, xfce4-terminal and
+  GNOME Terminal) -- that copy needs no clipboard tool at all. halo shows
+  this hint once, the first time you drag.
+- **"over SSH, OSC 52 is the only path to your local clipboard"** -- a tool
+  on the remote machine writes to the remote clipboard, so only OSC 52
+  reaches the computer you are sitting at: use a terminal that honours it
+  (Windows Terminal, kitty, WezTerm, Alacritty, foot), and inside tmux run
+  `tmux set -g set-clipboard on` (then detach and re-attach). The text is
+  saved to `~/.halo/clipboard.txt` on the remote machine too.
+- **"xclip failed (Error: Can't open display ...)"** -- the tool is
+  installed but no X11 session is visible to halo (`DISPLAY` unset, e.g.
+  halo started over SSH or from a service). Run halo from a terminal inside
+  the desktop, or use OSC 52 as above. `halo doctor` names the session it
+  sees (`DISPLAY` / `WAYLAND_DISPLAY`).
+- **`Ctrl+Shift+C` does nothing** -- most Linux terminals keep that key for
+  their own copy and never pass it on. `/copy draft` copies the unsent chat
+  box from any terminal; `Ctrl+A` then `Ctrl+C` does too.
 
 ## MCP servers
 

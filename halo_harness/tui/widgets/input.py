@@ -16,6 +16,7 @@ from textual.message import Message
 from textual.widgets import OptionList, TextArea
 
 from halo_harness.tools.imageutil import IMAGE_EXTENSIONS
+from halo_harness.tui.draft_copy import DraftKeeper
 from halo_harness.tui.keys import PASTE_PLACEHOLDER_MIN_LINES, PROMPT_MAX_LINES, PROMPT_MIN_LINES
 from halo_harness.tui.widgets.input_sanitize import report_start_before
 
@@ -154,6 +155,9 @@ class PromptInput(TextArea):
         # mean "navigate/accept the popup" or their ordinary meaning.
         # `app.py`'s `set_completion_open` is the only writer.
         self._completion_open = False
+        # 3.1.6.0 R5: the last non-command text this box held, for
+        # `/copy draft` (typed over the draft) and Ctrl+Shift+C.
+        self.draft_keeper = DraftKeeper()
 
     def set_completion_open(self, is_open: bool) -> None:
         self._completion_open = bool(is_open)
@@ -258,6 +262,7 @@ class PromptInput(TextArea):
         self.styles.height = lines
 
     def on_text_area_changed(self, _event: TextArea.Changed) -> None:
+        self.draft_keeper.observe(self.text, self.pasted)
         self._drop_orphaned_images()
         self._auto_grow()
         self._maybe_query_completion()
