@@ -3,7 +3,8 @@
 // Map, Agent, Activity and Attention panels are Fleet's, scoped to this
 // harness and the session you chose; Live and Cost are Session's own
 // (3.1.5.0 R3: Live fills the right side, Agent, Activity and Attention
-// start as strips).
+// start as strips; 3.1.7.0 R1: Live has Fleet's columns, its timeline strip
+// and filters, and the Steer box at its foot at all times).
 import type { Help } from "./help-orchestra";
 
 const lines = (...l: string[]) => l.join("\n");
@@ -12,10 +13,11 @@ export const SESSION_HELP: Record<string, Help> = {
   "session-live": {
     about: "Every agent here at once, live: what it types, each tool call and its result, what it hands back, what it asks you.",
     help: lines(
-      "Lines land in the order they happen; each one is tagged with its agent: its colour, its name and its state (cyan works, amber waits, green done, red failed).",
-      "A tool call is one row: the tool, what it runs on, the time ticking while it runs, then the first line of its result.",
-      "Follow keeps the newest line in view; scroll up and it pauses, ↓ N new brings you back.",
-      "Click a tag: only that agent, with Steer at the bottom; the tag again (or Esc) shows everyone. Hover a line: its node lights on the map.",
+      "Lines land in the order they happen, in Fleet's columns: the time, the kind (TOOL, TEXT, STATE, ASK, YOU...) and the agent's tag (its colour, its name and its state: cyan works, amber waits, green done, red failed).",
+      "A tool call is one row: runs Bash, what it runs on, the time ticking while it runs, then the first line of its result; click the row for the whole result.",
+      "On top, the timeline: a lane per live agent of this session over 5, 15 or 60 minutes; click a lane to show only that agent. The agent and kind picks beside Follow narrow the lines.",
+      "Steer is always at the bottom: it talks to the agent you pinned, else the session's main agent, with Pause and Stop beside it. Hover a tag or a map node and click steer: that agent, the box ready to type.",
+      "Click a tag: only that agent; the tag again (or Esc) shows everyone. Follow keeps the newest line in view; scroll up and it pauses, ↓ N new brings you back. Hover a line: its node lights on the map.",
       "An ask lands as an amber card with its A / R / S / O answers; the newest 500 lines stay here, the full log is in Activity.",
     ),
   },
@@ -24,7 +26,7 @@ export const SESSION_HELP: Record<string, Help> = {
     help: lines(
       "Each agent sits under the one that spawned it; a node shows its model, what it costs and, while a tool runs, its name and time (Bash 12s).",
       "A cyan pulse works, amber waits on you, green just finished (it fades), red failed (it stays); the edge to it glows the same.",
-      "Click an agent to select it (its session becomes the chosen one); double-click opens Agent expanded; the ... menu has Steer, Pause, Stop, Take over, Hand to, Record.",
+      "Click an agent to select it (its session becomes the chosen one); double-click opens Agent expanded; hover it and click steer to steer it from Live; the ... menu has Steer, Pause, Stop, Take over, Hand to, Record.",
       "J / K hop between this harness's live agents; Fleet (Alt+4) still shows every harness.",
     ),
   },

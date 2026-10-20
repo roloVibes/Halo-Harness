@@ -10,7 +10,9 @@ runs it as a subprocess with a scrubbed environment:
                                                        result, Follow paused by a scroll up and the pill, a tag
                                                        pinning and Esc unpinning, a hovered line lighting its
                                                        node, an ask landing as a card, a spawn and a hand-back,
-                                                       1000 lines and the DOM cap
+                                                       1000 lines and the DOM cap; 3.1.7.0 R1: Fleet's time and
+                                                       KIND columns, the narrow layout, a tool row's whole result
+                                                       (tests/helpers/studio_session_insight.py)
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
 No model is called."""
@@ -75,6 +77,8 @@ def live(c, rig) -> dict:
     out["node_clock"] = c.js(f"document.querySelector('[data-testid=\"fleet-node\"][data-key=\"{impl}\"] [data-testid=\"fleet-node-tool\"] .fm-tool-text')?.textContent || ''")
     lv.result("implementer", "live-t1", "M basket.py\n?? notes.md")
     out["result"] = c.wait(f"{tool}.querySelector('[data-testid=\"session-live-result\"]')?.textContent", 10)
+    from tests.helpers.studio_session_insight import columns  # 3.1.7.0 R1: Fleet's columns, the narrow layout, the whole result
+    out.update(columns(c, lv, tool))
     out.update(follow(c, lv))
     out.update(pin_and_hover(c, lv, res))
     lv.ask("reviewer", "permission_request")

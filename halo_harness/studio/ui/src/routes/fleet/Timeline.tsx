@@ -7,12 +7,16 @@
 // width (one SVG unit per px), so the lane names keep their size and their
 // 116 px column in a narrow Activity panel instead of shrinking with it.
 // 3.1.4.0 R2: the lanes of the agents in scope only (scope.ts: Session's
-// harness, or its chosen session).
+// harness, or its chosen session). 3.1.7.0 R1: the same strip heads
+// Session's Live column with its own props: `scope` (that session's lanes),
+// `onPick` (a lane click pins the agent there), `marked` (the lane lit: the
+// pinned agent, else the selected one) and `testid`.
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from "react";
 import { select } from "./actions";
 import { panels, usePanels, type Seg } from "./pstore";
 import { sessionsIn, useScope } from "./scope";
-import { allAgents, isLive, sessionTitle, useFleet, useNow } from "./store";
+import { allAgents, isLive, sessionTitle, useFleet, useNow, type Scope } from "./store";
+import type { AgentKey } from "./types";
 
 const LANE = 18;
 const LABEL_W = 116;
@@ -53,7 +57,9 @@ function bars(segs: Seg[], from: number, to: number): { x0: number; x1: number; 
   return out;
 }
 
-export function Timeline() {
+type Props = { scope?: Scope; onPick?: (key: AgentKey) => void; marked?: AgentKey; verb?: string; testid?: string };
+
+export function Timeline({ scope: only, onPick = select, marked, verb = "select it on the map", testid = "fleet-timeline" }: Props = {}) {
   const harnesses = useFleet((s) => s.harnesses);
   const selected = useFleet((s) => s.selected);
   const lanes = usePanels((s) => s.lanes);
@@ -62,7 +68,9 @@ export function Timeline() {
   const now = useNow(true, 1000);
   const [tip, setTip] = useState<Tip>(null);
   const [wrap, W] = useWidth();
-  const scope = useScope();
+  const current = useScope();
+  const scope = only || current;
+  const lit = marked ?? selected;
   const live = useMemo(() => allAgents({ harnesses: sessionsIn(harnesses, scope) } as never).filter((r) => isLive(r.a)), [harnesses, scope]);
   const from = now - span * 60_000;
   const x = (t: number) => LABEL_W + ((t - from) / (now - from)) * (W - LABEL_W - 4);
@@ -72,7 +80,7 @@ export function Timeline() {
     if (box) setTip({ x: e.clientX - box.left + 10, y: e.clientY - box.top + 12, text });
   };
   return (
-    <div className="ftl" data-testid="fleet-timeline">
+    <div className="ftl" data-testid={testid}>
       <div className="ftl-bar">
         <span className="rail-label mono">TIMELINE · ONE LANE PER LIVE AGENT</span>
         <span className="spacer" />
@@ -102,7 +110,7 @@ export function Timeline() {
             const label = r.h.local ? name : `${name}@${(r.h.name || r.h.id).split("@")[0]}`;
             const where = `${r.h.name || r.h.id.slice(0, 8)} · ${sessionTitle(r.s)}`;
             return (
-              <g key={r.key} className="ftl-lane" data-testid="fleet-lane" data-key={r.key} data-selected={r.key === selected || undefined} onClick={() => select(r.key)} role="button" aria-label={`${name}: select it on the map`}>
+              <g key={r.key} className="ftl-lane" data-testid="fleet-lane" data-key={r.key} data-selected={r.key === lit || undefined} onClick={() => onPick(r.key)} role="button" aria-label={`${name}: ${verb}`}>
                 <rect className="ftl-hit" x={0} y={y} width={W} height={LANE} />
                 <text className="ftl-name" x={4} y={y + 12.5}>{label.length > 18 ? label.slice(0, 17) + "…" : label}</text>
                 {bars(lanes[r.key] || [], from, now).map((b) => (
