@@ -11,6 +11,8 @@ import { Button } from "../../lib/ui";
 import { edit, setReportsTo } from "./actions";
 import { openBio } from "./bioActions";
 import { ListIn, NumberIn, Pick, TextIn } from "./controls";
+import { ModelSelect } from "../shared/ModelSelect";
+import { setSlotModel } from "./modelActions";
 import { LineupHeader, SaveProblems } from "./LineupTab";
 import { agentsOf, keyOf, modelRow, nodeById, openDialog, priceText, useRoles } from "./store";
 import type { Entry, Raw } from "./types";
@@ -36,7 +38,6 @@ export function Assignment() {
   const bios = useRoles((s) => s.bios);
   const tier = useRoles((s) => s.graph?.tiers.find((t) => t.node_ids.includes(s.sel)));
   const model = useRoles((s) => (n ? modelRow(s, n.model) : undefined));
-  const models = useRoles((s) => s.models);
   const h = useHelpGroup("assignment");
   if (!raw) return <p className="muted">Open a lineup in Lineups first.</p>;
   if (!sel || !n) {
@@ -76,8 +77,8 @@ export function Assignment() {
         <Pick label="Reports to" value={reportsOf(raw, title)} options={["", ...others.filter((t) => t !== (main?.as || main?.role))]}
               labels={{ "": "the main card (the starting box)" }} onChange={(v) => setReportsTo(n.index, v)} hint="you can also drop the card onto another card" />
       )}
-      <Pick label="Model override" hint={h.models} value={String(over.preference || "")} options={["", ...models.map((m) => m.ref)]}
-            onChange={(v) => set("models", v ? { ...over, preference: v } : Object.keys(over).filter((k) => k !== "preference").length ? Object.fromEntries(Object.entries(over).filter(([k]) => k !== "preference")) : undefined)} />
+      <ModelSelect label="Model override" hint={h.models} value={String(over.preference || "")} testid="roles-assign-model"
+                   inherit={{ label: "the bio's own", model: n.bio_model ?? bios.find((b) => b.name === n.agent)?.model ?? "" }} onPick={(v) => void setSlotModel(n.index, v)} />
       <dl className="re-resolved mono">
         <div><dt>model</dt><dd>{n.model || "none resolves"}</dd></div>
         {n.fallback && <div><dt>fallback</dt><dd>{n.fallback}</dd></div>}

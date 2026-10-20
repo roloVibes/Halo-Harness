@@ -221,7 +221,7 @@ def delete_bio(req: Request):
 # -- models, validation, yaml, session ----------------------------------------------
 
 def get_models(req: Request):
-    return 200, M.model_rows(req.state_dir)
+    return 200, M.model_rows(req.state_dir, req.cwd)  # 3.1.4.0 R4: the session's provider resolution
 
 
 def post_validate(req: Request):

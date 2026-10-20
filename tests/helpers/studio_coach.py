@@ -71,7 +71,8 @@ def apply_model(c, rig, out: dict) -> None:
     out["bio_form"] = c.wait("document.querySelector('[data-testid=\"bio-form\"]')?.dataset.bio === 'coach-cheap' && 'coach-cheap'", 20)
     out["note_value"] = c.wait(f"{TID.format('bio-coach-value')}?.textContent", 10)
     out["note_field"] = c.js(f"{TID.format('bio-coach-note')}.dataset.field")
-    out["picked"] = c.wait("document.querySelector('[data-testid=\"bio-form\"] .rm-current b')?.textContent === 'or:vendor/strong' && 'or:vendor/strong'", 10)
+    # 3.1.4.0 R4: the bio form's model select holds the filled-in model (the picker table is folded under "more...")
+    out["picked"] = c.wait("document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"bio-model\"]')?.dataset.value === 'or:vendor/strong' && 'or:vendor/strong'", 10)
     out["marked"] = c.js("[...document.querySelectorAll('[data-coach-changed]')].length")
     out["section"] = c.js("document.querySelector('[role=\"tab\"][aria-selected=\"true\"][data-tab-id]')?.dataset.tabId")
     from halo_harness.agents_yaml import load_agent_bio_raw

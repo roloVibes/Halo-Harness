@@ -4,7 +4,9 @@ under each control. The lines are `halo_harness/field_help.py`'s, the same
 the TUI's read-only bio and lineup views show: Studio serves them, the bundle
 carries no copy.
 
-    GET field-help   {identity, bio, lineup_sections, lineup_fields, assignment}
+    GET field-help   {identity, bio, lineup_sections, lineup_fields, assignment, model_select}
+
+3.1.4.0 R4: `model_select` is the one model control's lines (routes/shared/ModelSelect.tsx).
 """
 
 from __future__ import annotations

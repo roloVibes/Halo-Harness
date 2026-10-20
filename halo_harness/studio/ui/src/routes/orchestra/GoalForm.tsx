@@ -2,12 +2,17 @@
 // as the Goal panel's full face (the open run in one line over its goal, laid
 // out so every field and Run show at the panel's default size): WHAT YOU
 // WANT, DONE WHEN, STOP WHEN with examples, the files and the test, the
-// budget (workers, return cap) and the lineup, then who plays the parts and
-// the model under a disclosure. Run and Dry run post it (POST orchestra/run).
+// budget (workers, return cap) and the lineup, the MODEL (3.1.4.0 R4: the
+// model select in plain sight, its first option "the lineup's (<the lead's
+// model>)"), then who plays the parts under a disclosure. Run and Dry run
+// post it (POST orchestra/run).
 import { useEffect, useState } from "react";
+import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button, Field, Icon } from "../../lib/ui";
 import { useFleet } from "../fleet/store";
 import { runSession, WatchInSession } from "../session/Watch";
+import { ModelSelect } from "../shared/ModelSelect";
+import { useResolved } from "../shared/resolve";
 import { StateBadge } from "./bits";
 import { cost } from "./format";
 import { orch, setView, useOrch } from "./store";
@@ -90,6 +95,8 @@ export function GoalForm({ start }: { start?: boolean }) {
   const [form, setForm] = useState<RunForm>(() => (start ? { ...EMPTY } : fromGoal()));
   const [problems, setProblems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const lead = useResolved(form.lead || "main"); // what the run's lead resolves to without a MODEL: the role table, else the default
+  const help = useHelpGroup("model_select");
   useEffect(() => {
     if (!start) setForm(fromGoal());
   }, [runId, has, start]);
@@ -127,12 +134,13 @@ export function GoalForm({ start }: { start?: boolean }) {
         <Num label="RETURN CAP" value={form.return_cap} set={set("return_cap")} min={0} max={20} title="How many times the gate may send one part back" />
         <Line label="LINEUP" value={form.lineup} set={set("lineup")} example="optional" />
       </div>
+      <ModelSelect label="MODEL" hint={help.orchestra} value={form.model} onPick={set("model")} testid="orchestra-model" compact={!start}
+                   inherit={{ label: "the lineup's", model: lead?.ref || "" }} />
       <details className="md-support og-more">
-        <summary className="mono">who plays the parts · the model ({form.lead} leads, {form.worker} works{form.model ? `, ${form.model}` : ""})</summary>
-        <div className="og-form-row og-form-row3">
+        <summary className="mono">who plays the parts ({form.lead} leads, {form.worker} works)</summary>
+        <div className="og-form-row">
           <Line label="LEAD ROLE" value={form.lead} set={set("lead")} />
           <Line label="WORKER ROLE" value={form.worker} set={set("worker")} />
-          <Line label="MODEL" value={form.model} set={set("model")} mono example="the lineup's" />
         </div>
         {!start && review}
       </details>

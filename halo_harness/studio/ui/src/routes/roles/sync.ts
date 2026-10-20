@@ -47,13 +47,18 @@ export async function loadLists(): Promise<void> {
   }
 }
 
+/** The catalog (3.1.4.0 R4: a failed read says why -- `modelsError` -- never a silent empty list), the refs the
+ *  select offers beside it (GET models/fallback), best-for and the gym scores. */
 export async function loadModels(): Promise<void> {
-  const [models, bestFor, gym] = await Promise.all([
-    api.get<ModelRow[]>("models").catch(() => []),
+  let error = "";
+  const [models, fallback, bestFor, gym] = await Promise.all([
+    api.get<ModelRow[]>("models").catch((e) => ((error = `the catalog could not be read: ${msg(e)}`), [])),
+    api.get<{ rows: ModelRow[] }>("models/fallback").catch(() => ({ rows: [] })),
     api.get<Record<string, string[]>>("models/best-for").catch(() => ({})),
     api.get<{ scores: Record<string, GymScore> }>("gym").catch(() => ({ scores: {} })),
   ]);
-  roles.update(() => ({ models: list(models), bestFor: bestFor || {}, gym: gym?.scores || {}, modelsLoaded: true }));
+  if (!error && !Array.isArray(models)) error = "the catalog came back in a shape Studio cannot read";
+  roles.update(() => ({ models: list(models), fallback: list(fallback?.rows), modelsError: error, bestFor: bestFor || {}, gym: gym?.scores || {}, modelsLoaded: true }));
 }
 
 export async function loadModelsStatus(): Promise<void> {

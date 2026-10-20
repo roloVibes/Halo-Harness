@@ -2,13 +2,15 @@
 // card's slot (with no card: the lineup's description and about); Lineup is
 // every top section as a small form with its YAML toggle; Live shows what the
 // agents on the selected card do right now (it opens by itself when a card
-// with a live agent is clicked).
+// with a live agent is clicked). 3.1.4.0 R4: above the tabs, the MODEL strip
+// (ModelStrip.tsx): what the selected card runs on and the select to change it.
 import { Tabs } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { Assignment } from "./Assignment";
 import { LineupTab } from "./LineupTab";
 import { useByNode } from "./live";
 import { LiveTab } from "./LiveTab";
+import { ModelStrip } from "./ModelStrip";
 import { nodeById, setTab, useRoles, type InspectorTab } from "./store";
 
 export function InspectorDetail() {
@@ -19,6 +21,7 @@ export function InspectorDetail() {
   const anyLive = Object.keys(byNode).length;
   return (
     <div className="ri" data-testid="roles-inspector-body">
+      <ModelStrip />
       <Tabs
         label="Inspector"
         value={tab}

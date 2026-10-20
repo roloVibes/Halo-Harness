@@ -6,10 +6,11 @@
 // and the catalog's Refresh.
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
+import { forgetResolved } from "../shared/resolve";
 import { run } from "./actions";
 import { clone, closeDialog, roles, shipped } from "./store";
 import { loadLists, loadModels, loadModelsStatus, msg, validateSoon } from "./sync";
-import type { BioPayload, Probe, Raw } from "./types";
+import type { BioPayload, Outcome, Probe, Raw } from "./types";
 
 export async function openBio(name: string): Promise<void> {
   if (!name) return;
@@ -56,6 +57,7 @@ export async function saveBio(): Promise<boolean> {
     const b = await api.put<BioPayload>("bio/" + encodeURIComponent(s.bio), { raw }, { scope: s.scope, duplicate: shipped(s.bioData.scope) ? "1" : "" });
     roles.update(() => ({ bioData: b, bioDraft: clone(b.raw), bioProblems: [] }));
     toast(`${b.name} saved (${b.scope})`, "done");
+    forgetResolved(); // 3.1.4.0 R4: a card's "runs on" may name this bio's model
     await loadLists();
     validateSoon(true); // the cards on this bio show its new model
     return true;
@@ -103,10 +105,13 @@ export async function testModel(ref: string): Promise<Probe | null> {
   return got;
 }
 
+/** Refresh (3.1.4.0 R4): every provider at once, time-boxed; each one's line shows in the Models panel and under
+ *  every model select (the status), a failed one as an error toast too. */
 export async function refreshModels(): Promise<void> {
-  const r = await run("refresh", () => api.post<{ rows: number; attempts: string[]; reason: string }>("models/refresh", {}), (r) =>
+  const r = await run("refresh", () => api.post<{ rows: number; attempts: string[]; reason: string; outcomes?: Outcome[] }>("models/refresh", {}), (r) =>
     r.rows ? `${r.rows} models in the catalog` : r.reason || "no models found");
-  if (r) (r.attempts || []).slice(0, 4).forEach((line) => toast(line, "info", 4000));
+  if (r) (r.outcomes || []).filter((o) => !o.ok).forEach((o) => toast(`${o.name}: ${o.line}`, "error", 6000));
+  roles.update(() => ({ justRefreshed: true }));
   await loadModels();
   await loadModelsStatus();
 }

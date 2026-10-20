@@ -182,9 +182,18 @@ def test_models_status_and_refresh(ctx: Ctx):
         status, st, _ = s.call("GET", "/api/models/status")
         ctx.check("models/status answers rows, providers and a reason when the catalog is empty",
                   status == 200 and isinstance(st["rows"], int) and isinstance(st["providers"], list) and (st["rows"] > 0 or bool(st["reason"])))
-        status, r, _ = s.call("POST", "/api/models/refresh?no_probe=1", {})
+        from halo_harness.studio import models_refresh as MR  # 3.1.4.0 R4: no provider is asked here (a stand-in answers)
+        keep = MR.jobs_for
+        MR.jobs_for = lambda state_dir, env, local=True: [("Stand-in", "openrouter", lambda sd, e: (False, None, "HTTP 401 (the key was refused)"))]
+        try:
+            status, r, _ = s.call("POST", "/api/models/refresh?no_probe=1", {})
+        finally:
+            MR.jobs_for = keep
         ctx.check("models/refresh answers the row count and one line per attempt",
-                  status == 200 and isinstance(r["rows"], int) and isinstance(r["attempts"], list))
+                  status == 200 and isinstance(r["rows"], int) and r["attempts"] == ["Stand-in: HTTP 401 (the key was refused)"])
+        st = s.call("GET", "/api/models/status")[1]
+        ctx.check("3.1.4.0 R4: status names every provider it looked at, and when the last refresh ran",
+                  len(st["looked_at"]) >= 9 and st["refreshed_at"] and st["outcomes"][0]["line"] == "HTTP 401 (the key was refused)")
         status, gym, _ = s.call("GET", "/api/gym")
         ctx.check("3.0.7.0 R2: GET gym answers the gym's scores (none on a bare home)", status == 200 and gym == {"scores": {}})
         status, best, _ = s.call("GET", "/api/models/best-for")

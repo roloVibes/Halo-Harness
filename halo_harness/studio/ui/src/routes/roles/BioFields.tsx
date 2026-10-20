@@ -4,12 +4,15 @@
 // the real registry, MCP servers, the permission mode, the rules), context
 // (files, skills, the memory namespace, prompt notes), limits, output,
 // environment and acceptance. Each field's help line is field_help.py's
-// (GET /api/field-help), the same line the TUI shows.
+// (GET /api/field-help), the same line the TUI shows. 3.1.4.0 R4: MODELS is
+// its own block (BioModels), first in the form right under the bio's name:
+// the ModelSelect on top, the full picker table folded under "more...".
 import { useMemo, type ReactNode } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
+import { ModelSelect } from "../shared/ModelSelect";
 import { editBio, setKey, sub } from "./bioActions";
 import { Check, ListIn, NumberIn, Pick, Row, TextIn } from "./controls";
-import { ModelPicker } from "./ModelPicker";
+import { focusDone } from "./modelActions";
 import { useRoles } from "./store";
 import type { Raw } from "./types";
 
@@ -58,28 +61,36 @@ function CheckRow({ label, value, onChange, hint, testid }: { label: string; val
   );
 }
 
+/** MODELS (3.1.4.0 R4): the preferred model as the ModelSelect (the picker table folded under "more..."; an
+ *  inherited model is its first option), then the fallback, effort, thinking and the context budget. */
+export function BioModels({ d, mark, inherited, focus }: { d: Raw; mark: (field: string) => boolean; inherited: string; focus: boolean }) {
+  const h = useHelpGroup("bio");
+  const catalog = useRoles((s) => s.models);
+  const refs = useMemo(() => catalog.map((m) => m.ref), [catalog]);
+  const models = of(d, "models");
+  return (
+    <Sec title="MODELS">
+      <div className={mark("models.preference") ? "cc-changed" : undefined} data-coach-changed={mark("models.preference") || undefined}>
+        <ModelSelect label="Preferred model" hint={h["models.preference"]} value={String(models.preference ?? "")} onPick={at("models", "preference")}
+                     inherit={inherited ? { label: "inherited", model: inherited } : undefined} testid="bio-model" inline focus={focus} onFocused={focusDone} />
+      </div>
+      <Pick label="Fallback" hint={h["models.fallback"]} value={String(models.fallback ?? "")} options={["", ...refs]} onChange={at("models", "fallback")} testid="bio-fallback" />
+      <Pick label="Effort" hint={h["models.effort"]} value={String(models.effort ?? "")} options={EFFORTS} onChange={at("models", "effort")} testid="bio-effort" />
+      <Pick label="Thinking" hint={h["models.thinking"]} value={String(models.thinking ?? "")} options={["", "native", "off"]} onChange={at("models", "thinking")} />
+      <NumberIn label="Context budget (0-1)" hint={h["models.context_budget"]} value={models.context_budget as number | undefined} onCommit={at("models", "context_budget")} testid="bio-context-budget" />
+    </Sec>
+  );
+}
+
 export function BioFields({ d, mark }: { d: Raw; mark: (field: string) => boolean }) {
   const h = useHelpGroup("bio");
   const tools = useRoles((s) => s.tools);
-  const catalog = useRoles((s) => s.models);
-  const refs = useMemo(() => catalog.map((m) => m.ref), [catalog]);
-  const models = of(d, "models"), tl = of(d, "tools"), ctx = of(d, "context"), limits = of(d, "limits");
+  const tl = of(d, "tools"), ctx = of(d, "context"), limits = of(d, "limits");
   const out = of(d, "output"), env = of(d, "environment"), acc = of(d, "acceptance");
   const memory = (ctx.memory && typeof ctx.memory === "object" ? ctx.memory : {}) as Raw;
   const changed = (f: string) => (mark(f) ? "cc-changed" : undefined);
   return (
     <>
-      <Sec title="MODELS">
-        <div className={"field re-field" + (mark("models.preference") ? " cc-changed" : "")} data-coach-changed={mark("models.preference") || undefined}>
-          <span className="field-label mono">Preferred model</span>
-          <ModelPicker value={String(models.preference ?? "")} onPick={at("models", "preference")} />
-          {h["models.preference"] && <div className="field-hint">{h["models.preference"]}</div>}
-        </div>
-        <Pick label="Fallback" hint={h["models.fallback"]} value={String(models.fallback ?? "")} options={["", ...refs]} onChange={at("models", "fallback")} testid="bio-fallback" />
-        <Pick label="Effort" hint={h["models.effort"]} value={String(models.effort ?? "")} options={EFFORTS} onChange={at("models", "effort")} testid="bio-effort" />
-        <Pick label="Thinking" hint={h["models.thinking"]} value={String(models.thinking ?? "")} options={["", "native", "off"]} onChange={at("models", "thinking")} />
-        <NumberIn label="Context budget (0-1)" hint={h["models.context_budget"]} value={models.context_budget as number | undefined} onCommit={at("models", "context_budget")} testid="bio-context-budget" />
-      </Sec>
       <Sec title="TOOLS">
         <Tools label="Allow" hint={h["tools.allow"]} list={arr(tl.allow)} onChange={at("tools", "allow")} known={tools} testid="bio-tools-allow" changed={mark("tools.allow")} />
         <Tools label="Deny" hint={h["tools.deny"]} list={arr(tl.deny)} onChange={at("tools", "deny")} known={tools} testid="bio-tools-deny" changed={mark("tools.deny")} />
