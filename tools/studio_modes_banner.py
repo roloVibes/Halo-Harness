@@ -1,11 +1,11 @@
 """tools/studio_modes_banner.py -- the Studio six-tile banner for the README.
 
-Composes studio-orchestra.png, studio-roles.png, studio-design.png,
-studio-fleet.png, studio-team.png and studio-session.png (the headless-Chrome captures from
+Composes studio-session.png, studio-team.png, studio-roles.png,
+studio-fleet.png, studio-design.png and studio-orchestra.png (the headless-Chrome captures from
 tools/capture_studio.py; studio-session.png from tools/capture_session_anim.py) into one wide
 banner, docs/media/studio-modes.png:
-six frames in a row on the Studio background with a section label over
-each and the key that switches to it (Alt+1 .. Alt+6). Pure Pillow, no fonts fetched: the label uses the default
+six frames in a row on the Studio background, in the tab order (3.1.6.0 R6: Session first,
+Orchestra last), with a section label over each and the key that switches to it (Alt+1 .. Alt+6). Pure Pillow, no fonts fetched: the label uses the default
 bitmap font scaled up, so the file is identical on every machine with the
 same inputs.
 
@@ -24,13 +24,13 @@ REPO = Path(__file__).resolve().parent.parent
 MEDIA = REPO / "docs" / "media"
 OUT = MEDIA / "studio-modes.png"
 
-FRAMES = (
-    ("studio-orchestra.png", "Orchestra", "Alt 1", "agents writing the same files"),
-    ("studio-roles.png", "Roles", "Alt 2", "your agents, lit as they work"),
-    ("studio-design.png", "Design", "Alt 3", "artboards on your own apps"),
+FRAMES = (  # 3.1.6.0 R6: the registry's order (routes/index.tsx SECTIONS), tests/test_studio_section_order.py
+    ("studio-session.png", "Session", "Alt 1", "the dashboard: every agent, live"),
+    ("studio-team.png", "Team", "Alt 2", "people, blocks and stages"),
+    ("studio-roles.png", "Roles", "Alt 3", "your agents, lit as they work"),
     ("studio-fleet.png", "Fleet", "Alt 4", "every harness, every agent"),
-    ("studio-team.png", "Team", "Alt 5", "people, blocks and stages"),
-    ("studio-session.png", "Session", "Alt 6", "the dashboard: every agent, live"),
+    ("studio-design.png", "Design", "Alt 5", "artboards on your own apps"),
+    ("studio-orchestra.png", "Orchestra", "Alt 6", "agents writing the same files"),
 )
 FRAME_W = 640           # each capture is scaled to this width
 GAP = 28

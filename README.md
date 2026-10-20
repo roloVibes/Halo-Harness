@@ -110,7 +110,7 @@ right now, and **Roles**, your lineup as cards that light up as their agents wor
 
 <a href="docs/media/studio-session.gif"><img alt="Studio's Session dashboard: the agent tree and the cost on the left, every agent's thinking, tool calls, hand-backs and an ask card scrolling in the Live column on the right" src="docs/media/studio-session.gif" width="100%"></a>
 
-Press `Alt+6`, or type `/studio` in a terminal session (`halo studio --session` from a
+Press `Alt+1`, or type `/studio` in a terminal session (`halo studio --session` from a
 shell). The whole right side is **Live**: one column of everything every agent of this
 harness does, in the order it happens.
 
@@ -143,7 +143,7 @@ Attention wait as strips under it, one click each. See
 
 <a href="docs/media/studio-roles-live.gif"><img alt="Studio's Roles canvas while a session runs: the implementer and the researcher glow cyan, the orchestrator waits in amber, the verifier is done in green, the reviewer failed in red, then a card's glow legend opens" src="docs/media/studio-roles-live.gif" width="100%"></a>
 
-Press `Alt+2` (or `/roles` in a session). The open lineup is a canvas of cards in tier
+Press `Alt+3` (or `/roles` in a session). The open lineup is a canvas of cards in tier
 boxes, one card per slot: an agent bio in a role, with the model that resolves for it,
 its price and its context. Main sits alone in tier 0, and a member spawns only into the
 next tier down. Drag a card into another box to move it to that tier; the lineup saves.
@@ -175,10 +175,10 @@ it; Save writes the lineup's YAML and Apply makes it the lineup new sessions use
 
 ### Six sections, one window
 
-<a href="docs/media/studio-modes.png"><img alt="Halo Studio's six sections side by side, each under its key: Orchestra (Alt+1), Roles (Alt+2), Design (Alt+3), Fleet (Alt+4), Team (Alt+5) and Session (Alt+6)" src="docs/media/studio-modes.png" width="100%"></a>
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's six sections side by side, each under its key: Session (Alt+1), Team (Alt+2), Roles (Alt+3), Fleet (Alt+4), Design (Alt+5) and Orchestra (Alt+6)" src="docs/media/studio-modes.png" width="100%"></a>
 
-`Alt+1` to `Alt+6` switch between **Orchestra**, **Roles**, **Design**, **Fleet**,
-**Team** and **Session**. Each section opens on a Start view that says what it is for,
+`Alt+1` to `Alt+6` switch between **Session**, **Team**, **Roles**, **Fleet**,
+**Design** and **Orchestra**. Each section opens on a Start view that says what it is for,
 its panels sit in labelled group boxes you move and resize, `Ctrl`/`Cmd`+`K` opens the
 command palette and `?` opens "How this works". `halo studio` serves it on loopback only,
 with a per-launch token: no account, no CDN, no fonts fetched, no analytics.
@@ -204,7 +204,7 @@ it cost. See [docs/FLEET.md](docs/FLEET.md) and [docs/MISSIONS.md](docs/MISSIONS
 
 ### Orchestra: agents writing the same files
 
-Press `Alt+1`. Several agents write to the same files at once and nothing is lost: a lead
+Press `Alt+6`. Several agents write to the same files at once and nothing is lost: a lead
 splits your goal into lanes, one worker per lane writes its part in its own git worktree,
 and code owns the claims, the merge order, the tests and the gate; a model judges only
 when two pieces conflict. With **Review the plan before it runs**, the lead's lanes open
@@ -218,7 +218,7 @@ its evidence. See [docs/ORCHESTRA.md](docs/ORCHESTRA.md).
 
 ### Team: people, blocks and stages
 
-Press `Alt+5` and the project's team file is one board: members as columns, stages as boxes
+Press `Alt+2` and the project's team file is one board: members as columns, stages as boxes
 that pulse while they run and turn amber at a gate you accept, redo or stop, and the blocks
 underneath with who holds which part and what changed. See [docs/TEAM.md](docs/TEAM.md).
 
@@ -226,7 +226,7 @@ underneath with who holds which part and what changed. See [docs/TEAM.md](docs/T
 
 ### Design: on your own apps
 
-Press `Alt+3` (or run `halo design`) and the canvas holds artboards: prototypes, pages,
+Press `Alt+5` (or run `halo design`) and the canvas holds artboards: prototypes, pages,
 decks and logos made by a real Halo turn, with the [ArtCraft](https://getartcraft.com/apps)
 apps on your machine as its tools when they are registered, and a new version on every
 turn. Refine by chat, pinned comments, direct text edits and knobs; export a folder,

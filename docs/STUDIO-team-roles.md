@@ -6,7 +6,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Team: people, blocks and stages on one board
 
-`Alt+5` (or `?mode=team`, `halo studio --mode team`, `/studio team`) is the
+`Alt+2` (or `?mode=team`, `halo studio --mode team`, `/studio team`) is the
 project's team file ([TEAM.md](TEAM.md)) as one board, live: who works on
 the repo that holds Studio's folder, where their work lands, in which order,
 and every gate that waits on you. Nothing in it calls a model by itself: Run
@@ -76,7 +76,7 @@ and the ones at a gate, in every section.
    starts its `block_change` stage. Stop ends the run; every stage not done
    is skipped.
 
-**Keys.** `Alt+5` opens Team; `Tab` moves between the stage and block boxes
+**Keys.** `Alt+2` opens Team; `Tab` moves between the stage and block boxes
 and `Enter` selects one; `?` and the panel keys work as everywhere.
 **Palette** (`Ctrl`/`Cmd`+`K`): **Team: run next stage**, **Team:
 validate**, **Team: stop** (asks for a reason), **Team: open file** (the
@@ -95,7 +95,7 @@ Start view, `store.ts` + `sync.ts` the store and its feed, `actions.ts`,
 
 ## What you see (Roles)
 
-Roles (`Alt+2`, 3.0.7.0 R2) is six panels; until you have a lineup of your
+Roles (`Alt+3`, 3.0.7.0 R2) is six panels; until you have a lineup of your
 own (only the shipped ones, none active) it is one **Start view** instead:
 what a lineup is, the steps, and **Make my first lineup** (a copy of a
 shipped one, opened on the canvas); "open the panels anyway" (or

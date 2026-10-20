@@ -4,6 +4,8 @@
 // word here has a paragraph). The overlay (shell/SectionHelp.tsx) adds the
 // section's panels with their `about` lines; the first-visit welcome shows
 // the same. docs/STUDIO.md "How each section works" mirrors this copy.
+// 3.1.6.0 R6: a section's own Alt+N line is not here: the overlay puts the
+// registry's key (routes/index.tsx SECTIONS) first, so a reorder moves it.
 import type { SectionId } from "../lib/store";
 
 export type SectionHelpCopy = { what: string; steps: [string, string][]; keys: [string, string][]; terms: string[] };
@@ -36,7 +38,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Read the report", "Every check with a tick or a cross, the finished branch and its sha, the tests, the cost and the time."],
       ["How this works: Coach", "The report's Coach tab reads the run's files and suggests what to change: a bio's prompt, model or tools, a lane's after, a gate that looped. Each card shows its evidence; Apply opens the bio, the lineup or the plan with the change filled in, and you save it there. Dismiss hides a card for that run."],
     ],
-    keys: [["Alt+1", "Orchestra"], ["J / K", "focus the next / previous lane at work"], ["F", "the Log follows the newest line"], ...PANEL_KEYS],
+    keys: [["J / K", "focus the next / previous lane at work"], ["F", "the Log follows the newest line"], ...PANEL_KEYS],
   },
   roles: {
     terms: ["lineup", "bio", "role", "tier"],
@@ -50,7 +52,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Save, then Apply", "Save writes the YAML to your scope (a shipped lineup becomes your copy); Apply makes it the lineup new sessions use. Ctrl+Z undoes any edit."],
       ["Watch it work", "While a session runs, the cards whose agents work glow; click one and the Live tab shows exactly what it types, with Steer, Pause and Stop. A finished session's replay plays back on the canvas."],
     ],
-    keys: [["Alt+2", "Roles"], ["A", "lay the canvas out (click the canvas first)"], ["F", "fit it to the panel (with the Live tab open: follow)"], ["Arrows", "nudge the selected card"], ["Del", "remove the selected card (asks first)"],
+    keys: [["A", "lay the canvas out (click the canvas first)"], ["F", "fit it to the panel (with the Live tab open: follow)"], ["Arrows", "nudge the selected card"], ["Del", "remove the selected card (asks first)"],
       ["Ctrl+Z / Ctrl+Shift+Z", "undo / redo a lineup edit"], ["Mod+S", "save the lineup"], ["J / K", "the next / previous card whose agent works: its Live tab opens"], ["Space", "pin that agent's mini stream"], ...PANEL_KEYS],
   },
   design: {
@@ -66,7 +68,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Use your own files", "Assets: add or drop logos and photos; click one to put its path in the message."],
       ["Render pictures", "The palette's Media commands add the ComfyUI panels to the section."],
     ],
-    keys: [["Alt+3", "Design"], ["Enter", "send the message (Shift+Enter: a new line)"], ["Mod+K", "Design: send, Design: cancel turn, Design: export, Design: new project"], ...PANEL_KEYS],
+    keys: [["Enter", "send the message (Shift+Enter: a new line)"], ["Mod+K", "Design: send, Design: cancel turn, Design: export, Design: new project"], ...PANEL_KEYS],
   },
   fleet: {
     terms: ["fleet", "hub", "harness", "capability", "mission", "part", "hand-off", "claim"],
@@ -84,7 +86,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Record and replay", "Record saves a session or one agent as a single HTML file that plays anywhere. Replay plays a finished session on the Roles canvas: the cards light up in the order they worked."],
       ["Come back", "After ten minutes away, While you were away sums up what happened: sessions, cost, decisions and who made them, files, errors, hand-offs."],
     ],
-    keys: [["Alt+4", "Fleet"], ...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
+    keys: [...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
       ["M", "the Mission panel: one goal for the whole fleet"],
       ["A / R / S / O", "in Attention: accept, deny or redo (with a text), stop, open"], ["J / K", "in Attention: the next / previous row"], ...PANEL_KEYS],
   },
@@ -99,19 +101,19 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["The gate", "A stage with a required gate stops at amber: the Inspector's gate card (and a Fleet Attention row) has its summary and the acceptance. Accept, Redo with an instruction, or Stop the run."],
       ["The next stage", "Accept marks it done: the stage_done edges light and the stages waiting on it start; a block that changes and settles starts its block_change stage. Stop ends the run; every stage not done is skipped."],
     ],
-    keys: [["Alt+5", "Team"], ["Enter", "on a selected stage or block: select it (Tab moves between them)"], ["Mod+K", "Team: run next stage, Team: validate, Team: stop, Team: open file"], ...PANEL_KEYS],
+    keys: [["Enter", "on a selected stage or block: select it (Tab moves between them)"], ["Mod+K", "Team: run next stage, Team: validate, Team: stop, Team: open file"], ...PANEL_KEYS],
   },
   session: {
     terms: ["harness", "fleet", "hand-off", "gate"],
     what: "Your own session, live: the map of this harness's agents over what the chosen session costs on the left, and the whole right side one live column of every agent at work, as it happens. Fleet's panels narrowed to this harness and the session you chose, plus Live and Cost; Fleet keeps everything.",
     steps: [
-      ["Open it", "/studio in a terminal session opens Studio here on that session (halo studio --session from a shell); Alt+6, the palette, Watch in Session on the Roles Live tab or a live Orchestra run, Open in Session on a map node and this harness's nodes in the rail land here too."],
+      ["Open it", "/studio in a terminal session opens Studio here on that session (halo studio --session from a shell); Alt+1, the palette, Watch in Session on the Roles Live tab or a live Orchestra run, Open in Session on a map node and this harness's nodes in the rail land here too."],
       ["Watch everything at once", "Live, the right side: every agent's text, tool calls with their times and results, hand-backs and asks, in the order they happen, each line tagged with its agent and its state. Scroll up to pause, ↓ N new to come back; click a tag to follow one agent and steer it; hover a line to light its node."],
       ["Read the map", "Each agent sits under the one that spawned it, its children fanned out, with its model, its cost and the tool it runs now (Bash 12s). Cyan works, amber waits on you, green just finished and fades, red failed and stays. Click an agent: its session becomes the chosen one."],
       ["Read the cost", "The spend ticks up beside its sparkline; the context bar turns amber past 80 % and red past 95 %; per turn, the tokens, and each agent's share in one stacked bar."],
       ["Open what you need", "Agent (its streams, Steer, Pause, Stop, Follow, Pin), Activity (the lanes and the full log) and Attention (one key each) wait as strips under Cost; Reset layout puts the arrangement back."],
     ],
-    keys: [["Alt+6", "Session"], ...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
+    keys: [...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
       ["Esc", "in Live: show every agent again after a tag click"], ["A / R / S / O", "in Attention, or on the newest ask card in Live: accept, deny or redo (with a text), stop, open"], ...PANEL_KEYS],
   },
 };

@@ -7,11 +7,12 @@
 // the decisions waiting in the Fleet attention queue, in every section;
 // 3.0.6.0 R8: and the fleet missions running now. 3.0.8.0 R2: the TEAM cell
 // counts the stages of the repo's team run that run now (with a team file).
+// 3.1.6.0 R6: the section keys' hint reads the registry's first and last key.
 import { HudCell, HudStrip, Kbd } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
 import { FeedDot } from "../routes/orchestra/FeedPanels";
-import { sectionDef } from "../routes";
+import { SECTIONS, sectionDef } from "../routes";
 import { useAttnCount } from "../routes/fleet/pstore";
 import { useRunningMissions } from "../routes/fleet/Mission";
 import { useCounts } from "../routes/fleet/store";
@@ -82,7 +83,7 @@ export function StatusBar() {
       </HudCell>
       <HudCell>
         <span className="hud-keys">
-          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys="Alt+1" />-<Kbd keys="Alt+6" /> sections <Kbd keys="Esc" /> close
+          <Kbd keys="?" /> how it works <Kbd keys="Mod+K" /> commands <Kbd keys={SECTIONS[0].kbd} />-<Kbd keys={SECTIONS[SECTIONS.length - 1].kbd} /> sections <Kbd keys="Esc" /> close
         </span>
       </HudCell>
     </HudStrip>

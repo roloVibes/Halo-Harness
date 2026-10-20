@@ -1,4 +1,4 @@
-// Fleet (Alt+6): every connected harness, its sessions and every agent in
+// Fleet (Alt+4): every connected harness, its sessions and every agent in
 // them, live. Before anything is here the section is the Start view
 // (Start.tsx); then nine panels on the movable workspace. 3.1.4.0 R1 (the
 // owner's live check: "really busy"): five open, in three columns. On the
