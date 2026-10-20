@@ -192,6 +192,10 @@ halo coach [RUN] --model [--refresh]             the run's lead explains each ca
 halo coach [RUN] --apply ID [--yes] [--json]     write the change card ID names, after the confirm card and y/N
 halo coach [RUN] --probe [--k N] [--yes] [--json]  3.1.6.0: try two candidate overlays first, then one card
 halo coach --undo [APPLY_ID] [--json]            put back the file of an apply (default: the last one not undone)
+halo coach library [list] [--json]               3.1.6.0: the improvement library: one entry per Apply
+halo coach library show ENTRY [--json]           an entry's EXPERIENCE.md and the files it keeps
+halo coach library forget ENTRY [--yes]          delete an entry's folder (after y/N)
+halo coach library fetch HARNESS ENTRY [--json]  another harness's entry, through the hub this machine runs
 ```
 
 Halo 3.1.3.0: the coach's loop in one command (see [ORCHESTRA.md, "The
@@ -224,7 +228,21 @@ lists each suggestion with its id, its why lines, what Apply writes, its
   writes it, `--undo` puts every file back). A mission or a team run exits
   1 with one line. See [ORCHESTRA.md, "Probes"](ORCHESTRA.md#probes).
 - `--json` prints the result; every suggestion carries `paragraph` (null
-  until asked), `paragraph_error` and `applied`.
+  until asked), `paragraph_error` and `applied`; 3.1.6.0 the result carries
+  `library` and `library_line`, each suggestion `library_hits`.
+- `library` (3.1.6.0, caught before the run: no run is named `library`):
+  every Apply leaves an entry in `~/.halo/coach/library/<entry>/`
+  ([ORCHESTRA.md, "The library"](ORCHESTRA.md#the-library)). `list` (the
+  default) prints one line per entry -- id, when, project, lineup, source
+  (`apply` or `probe`), the title, `(undone)` and `(from <harness>)` when they
+  apply; with no entry it says how one is born. `show ENTRY` prints its
+  EXPERIENCE.md and the files it keeps; `forget ENTRY` asks `[y/N]` (`--yes`
+  skips) and deletes the folder; `fetch HARNESS ENTRY` asks the hub this
+  machine runs for another harness's entry (its name or id, `halo fleet
+  who`; `halo recall --fleet` finds entries as kind `coach_library`) and
+  writes it here under the same id with `from: <harness>`, never over an
+  entry already here. Exit codes: 0 done, 1 no such entry, nothing deleted
+  or a refused fetch, 2 usage, 3 no hub runs here.
 
 The three kind verbs (`halo orchestra coach`, `halo fleet
 mission coach`, `halo team coach`) take the same `--model`, `--refresh`,

@@ -728,7 +728,8 @@ def _cmd_recall(args: str, facade: HeadlessFacade) -> str:
         return "no matches (is the embedding model pulled? index built?)"
     lines = []
     for h in hits:
-        icon = "memo" if h["kind"] == "memory" else "sess"
+        from halo_harness.recall_cli import ICONS  # 3.1.6.0 R3: `lib` for a coach library entry
+        icon = ICONS.get(h["kind"], "sess")
         lines.append(f"  {h['score']:+.3f} [{icon}] {h['title']}  ({h['id']})")
     return "\n".join(lines)
 
@@ -1557,6 +1558,9 @@ def _cmd_coach(args: str, facade: HeadlessFacade) -> str:
         argv = shlex.split(args or "")
     except ValueError as e:
         return f"/coach: {e}"
+    library = argv[:1] == ["library"]  # 3.1.6.0 R3: `halo coach library` (no run, no --repo)
+    if library and argv[1:2] == ["forget"] and "--yes" not in argv:
+        return f"/coach {' '.join(argv)}: nothing deleted yet; add --yes to delete the entry's folder"
     if ("--apply" in argv or "--probe" in argv) and "--yes" not in argv:
         argv.append("--preview")  # no y/N prompt here: the confirm card (or the cost line), then `... --yes` does it
     elif "--probe" in argv:
@@ -1564,7 +1568,7 @@ def _cmd_coach(args: str, facade: HeadlessFacade) -> str:
     out, err = io.StringIO(), io.StringIO()
     session = getattr(facade, "session", None)
     cwd = getattr(session, "cwd", None) or getattr(facade, "cwd", None)
-    if cwd and "--repo" not in argv and "--undo" not in argv:
+    if cwd and "--repo" not in argv and "--undo" not in argv and not library:
         argv += ["--repo", str(cwd)]
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
         try:

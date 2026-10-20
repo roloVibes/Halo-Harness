@@ -193,7 +193,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if route in ("mission_files", "local/mission"):  # 3.0.6.0 R7: fleet/hub_mission.py
             from halo_harness.fleet.hub_mission import serve
             return serve(self, route)
-        if route in ("recall", "local/recall"):  # 3.1.2.0 R3: recall across the fleet (fleet/hub_recall.py)
+        if route in ("recall", "local/recall", "local/coach-library"):  # 3.1.2.0 R3 recall; 3.1.6.0 R3 the coach library
             from halo_harness.fleet.hub_recall import serve as recall
             return recall(self, route)
         if route not in ("join", "announce", "frames", "reply", "leave"):

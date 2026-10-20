@@ -53,3 +53,15 @@ class CoachRig:
 
     def coach(self) -> dict:
         return self.studio.get(f"orchestra/{self.run_dir.name}/coach")[1]
+
+    def seed_entry(self, eid: str = "e-20261019-c0a1") -> str:
+        """3.1.6.0 R3: a library entry an earlier run of this repo made (the model card's change), in Studio's state dir."""
+        from halo_harness.orchestra import coach_library as L
+        change = {"target": "bio", "name": "coach-cheap", "field": "models.preference", "value": "or:vendor/strong"}
+        doc = {"id": eid, "ts": 1792400000.0, "run": "20261019-080000-c0a1", "run_dir": str(self.repo / "an-earlier-run"),
+               "kind": "orchestra", "project": {"name": Path(self.repo).resolve().name, "remote": ""}, "lineup": "",
+               "goal": {"what": "the basket", "done_when": ""}, "source": "apply", "title": "give bio coach-cheap a stronger model",
+               "apply_ids": ["a-c0a1c0a1c0"], "files": [], "changes": [change], "undone": False}
+        L.write(doc, "# give bio coach-cheap a stronger model\n## Lessons\n- the cheap lane hit the return cap\n", {}, {},
+                self.studio.state)
+        return eid

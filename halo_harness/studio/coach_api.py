@@ -29,6 +29,12 @@ computed, source_mtime, cached}` (each suggestion with its `paragraph`,
 
 The orchestra coach's GET answer carries `probe` (its status, with `live`: a
 probe of the run runs in this Studio) and, once one ended, the probe's card first.
+
+3.1.6.0 R3, the improvement library (orchestra/coach_library.py): every GET
+answer carries `library` (the entries the coach cites for the run),
+`library_line` and each suggestion's `library_hits`, and
+
+    POST coach/library/<entry>/forget                  deletes the entry's folder -> {ok, entry, message}; 404 unknown
 """
 
 from __future__ import annotations
@@ -40,6 +46,7 @@ _RUN = r"[A-Za-z0-9_-]+"
 _VERB = r"(?:/(?P<verb>ask|apply|undo|probe))?$"
 PATTERNS = (("orchestra", rf"^orchestra/(?P<run>{_RUN})/coach{_VERB}"),
             ("mission", rf"^fleet/missions/(?P<run>m-\d{{8}}-[0-9a-f]{{4}})/coach{_VERB}"), ("team", rf"^team/coach{_VERB}"))
+LIBRARY = r"^coach/library/(?P<entry>e-\d{8}-[0-9a-f]{4})/forget$"
 
 
 def _orchestra_dir(req, ref):
@@ -125,8 +132,21 @@ def _verb(verb: str, kind: str, run_dir, result: dict, req):
         return 422, {"error": str(e)}
 
 
+def _library(req, entry: str):
+    """3.1.6.0 R3: `POST coach/library/<entry>/forget` deletes that entry's folder (orchestra/coach_library.py)."""
+    if req.method != "POST":
+        return 405, {"error": "method not allowed"}
+    from halo_harness.orchestra.coach_library import forget
+    if not forget(entry, req.state_dir):
+        return 404, {"error": f"no library entry {entry!r}"}
+    return 200, {"ok": True, "entry": entry, "message": f"forgot {entry}: its folder is deleted"}
+
+
 def dispatch_coach(req):
     """The coach's answer for `req`, or None when the path is not a coach route."""
+    lib = re.match(LIBRARY, req.path)
+    if lib:
+        return _library(req, lib.group("entry"))
     hit = match(req.path)
     if hit is None:
         return None

@@ -170,6 +170,37 @@
 .cc-contrast tr[data-picked="1"] td { color: var(--accent); }
 .cc-contrast tr[data-picked="1"] td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
 
+/* 3.1.6.0 R3: the improvement library -- its line, the "Library (n)" fold, the lib chip */
+.cc-lib { display: flex; flex-direction: column; gap: 4px; }
+.cc-lib-line {
+  margin: 0;
+  padding: 4px 8px;
+  border-left: 2px solid var(--accent-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  color: var(--text);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.cc-lib-fold > summary { cursor: pointer; font-size: 11px; color: var(--muted); }
+.cc-lib-fold[open] > summary { color: var(--text); }
+.cc-lib-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cc-lib-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  flex-wrap: wrap;
+}
+.cc-lib-main { display: flex; flex-direction: column; gap: 2px; flex: 1 1 220px; min-width: 0; }
+.cc-lib-title { color: var(--text); overflow-wrap: anywhere; }
+.cc-lib-meta { font-size: 10px; overflow-wrap: anywhere; }
+.cc-lib-confirm { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cc-lib-chip { font-size: 10px; color: var(--accent-2); background: var(--bg-2); letter-spacing: 0.06em; }
+
 @media (prefers-reduced-motion: reduce) {
   .cc-card { transition: none; }
   .cc-probe-dot { animation: none; }
