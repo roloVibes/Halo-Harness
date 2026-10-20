@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.1.4.0] - unreleased
+## [3.1.4.0] - 2026-10-20
 
 The session dashboard: Studio gets a Session section that shows your own session the way Fleet shows a fleet, the Fleet panels stop fighting narrow widths, Org and Flow leave the product, the model you pick is where you look and the catalog behind it resolves providers the way a session does. All four rounds came from the owner's live use on 2026-10-19.
 
