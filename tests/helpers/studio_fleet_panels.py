@@ -142,8 +142,9 @@ def conflict(c, rig, out: dict) -> None:
 
 def extras(c, rig, out: dict) -> None:
     """Record the researcher and download the file; Take over opens its dialog; Message reaches the member's owner."""
-    from tests.helpers.studio_fleet import node
+    from tests.helpers.studio_fleet import node, wait_node
     from tests.helpers.studio_fleet_rig import wait_for
+    wait_node(c, "researcher")
     seen(c, node("researcher"))
     c.click_on(node("researcher"))
     c.wait(f"{DETAIL}?.dataset.key === '{rig.key('Research')}'", 10)

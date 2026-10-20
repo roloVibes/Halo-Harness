@@ -32,6 +32,23 @@ def node(name: str) -> str:
     return f"[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].find((n) => n.querySelector('.fm-name').textContent.startsWith('{name}'))"
 
 
+MAP_SVG = "document.querySelector('[data-testid=\"fleet-map-svg\"]')"
+NODES_SEEN = "[...document.querySelectorAll('[data-testid=\"fleet-node\"]')].map((n) => (n.querySelector('.fm-name')?.textContent || '?') + ':' + n.dataset.state)"
+
+
+def wait_node(c, name: str, cond: str = "true", timeout: float = 60):
+    """3.1.5.0 R3 follow-up: the map has drawn (its `data-nodes` mark), then the node named `name` with `cond`
+    true on it (`n` in JS); returns its state. On a timeout the error names every node and state it saw."""
+    import time
+    end = time.time() + timeout
+    try:
+        c.wait(f"+({MAP_SVG}?.dataset.nodes || 0) > 0", timeout)
+        return c.wait(f"(() => {{ const n = {node(name)}; return !!n && ({cond}) && (n.dataset.state || 'drawn'); }})()", max(1.0, end - time.time()))
+    except TimeoutError:
+        raise TimeoutError(f"waited {timeout:g}s for the node {name!r} with {cond}; the map's data-nodes={c.js(f'{MAP_SVG}?.dataset.nodes')!r},"
+                           f" it showed {c.js(NODES_SEEN)}") from None
+
+
 def expected_tree(view: dict) -> list:
     """The rail's order: harness, then each session and its agents depth first (as GET fleet has them)."""
     out = []
@@ -65,6 +82,7 @@ def fleet_map(c, rig) -> dict:
     out["rail"] = c.js("[...document.querySelectorAll('[data-testid=\"fleet-rail-node\"]')].map((n) => n.dataset.kind + ':' + n.dataset.id)")
     out["api_tree"] = expected_tree(rig.api("GET", "fleet")[1])
     key_a, key_b = rig.key("Implement"), rig.key("Research")
+    wait_node(c, "researcher")
     c.click_on(node("researcher"))
     out["selected"] = c.wait(f"{DETAIL}?.dataset.key === '{key_b}' && 'researcher'", 10)
     out["tail_text"] = c.wait("[...document.querySelectorAll('[data-testid=\"fleet-text\"]')].map((e) => e.textContent).find((t) => t.includes('pricing notes'))", 15)
@@ -88,6 +106,7 @@ def fleet_map(c, rig) -> dict:
     rig.release("b")
     out["steer_reached_b"] = bool(wait_for(lambda: any(STEER_SEEN in json.dumps(b) for b in rig.seen["b3"]), 30))
     out["steer_not_a"] = not any(STEER_SEEN in json.dumps(b) for b in rig.seen["a"])
+    wait_node(c, "implementer")
     c.click_on(node("implementer"))
     c.wait(f"{DETAIL}?.dataset.key === '{key_a}'", 10)
     c.click_on("document.querySelector('[data-testid=\"fleet-stop\"]')")
@@ -99,7 +118,7 @@ def fleet_map(c, rig) -> dict:
     out["stop_ack"] = c.wait("document.querySelector('.toasts')?.textContent.includes('stopping') && 'stopping'", 15)
     rig.release("a")
     out["stopped"] = wait_for(lambda: rig.agent("Implement").get("state") == "stopped" and "stopped", 30)
-    out["node_stopped"] = c.wait(f"{node('implementer')}?.dataset.state === 'stopped' && 'stopped'", 60)  # a loaded runner took > 20 s
+    out["node_stopped"] = wait_node(c, "implementer", "n.dataset.state === 'stopped'", 60)  # a loaded runner took > 20 s
     c.click_on(f"[...document.querySelectorAll('[data-testid=\"fleet-rail-node\"]')].find((n) => n.dataset.kind === 'agent' && n.dataset.id === 'main' && n.closest('.fr-harness').querySelector('.fr-h').dataset.id === '{rig.member_id}')")
     c.wait(f"{DETAIL}?.dataset.key?.startsWith('{rig.member_id}')", 10)
     c.click_on("document.querySelector('[data-testid=\"fleet-steer\"]')")

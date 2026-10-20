@@ -14,7 +14,9 @@ session figures (tests/helpers/studio_live_rig.py):
 4. the tree fans out: main's five children sit in rows under it, side by
    side, each naming main as its parent, and no two labels touch;
 5. the state colours on node and edge: waiting amber, failed red (and it
-   stays), done green that fades back after ten seconds.
+   stays), done green that fades back after ten seconds;
+6. (follow-up) a GET fleet answer never undoes a newer agent_state frame: a
+   frame says stopped, GET still says running, the node stays stopped.
 Run: python -m tests.test_studio_session_cost_map
 """
 from __future__ import annotations
@@ -124,6 +126,16 @@ def test_state_colours_and_the_done_fade(ctx: Ctx):
     ctx.check(f"done: green that fades (the fade animation runs), got {d}", d[0] == "done" and d[1] == "fm-done-fade")
     ctx.check(f"ten seconds on, done has settled and failed has stayed, got {got.get('done_later')} {got.get('red_later')}",
               got.get("done_later") == "idle" and got.get("red_later") == "error")
+
+
+@test
+def test_a_get_answer_never_undoes_a_newer_frame(ctx: Ctx):
+    r, got = _driver("costmap")
+    _ran(ctx, r, got)
+    ctx.check(f"the frame said stopped, got {got.get('fresh_frame')!r}", got.get("fresh_frame") == "stopped")
+    ctx.check(f"GET fleet still said running and its answer landed, got {got.get('fresh_api_says')!r} {got.get('fresh_get_landed')!r}",
+              got.get("fresh_api_says") == "running" and got.get("fresh_get_landed") == "landed")
+    ctx.check(f"the node kept the frame's newer state, got {got.get('fresh_after_get')!r}", got.get("fresh_after_get") == "stopped")
 
 
 if __name__ == "__main__":

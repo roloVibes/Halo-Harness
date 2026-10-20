@@ -8,7 +8,7 @@
 // the last three seconds); this module keeps the ended ones on it for their
 // glow (`ended` in the Roles store), and `GLOW` is what the card's legend
 // says (GlowLegend.tsx).
-import { createStore, useStore } from "../../lib/store";
+import { createStore, studio, useStore } from "../../lib/store";
 import { allAgents, DONE_MS, fleet, sessionTitle, toolOf, type FleetState } from "../fleet/store";
 import type { AgentRef } from "../fleet/types";
 import { roles } from "./store";
@@ -67,6 +67,7 @@ export function endedAgents(s: FleetState = fleet.get(), now = Date.now()): Live
 
 let last = "";
 function push(): void {
+  if (studio.get().section !== "roles") return; // only while the canvas shows: nothing of it runs for Fleet or Session
   const rows = endedAgents();
   const json = JSON.stringify(rows.map((r) => [r.key, r.state, r.endedAt, r.cost_usd]));
   if (json === last) return;
@@ -86,6 +87,11 @@ export function startGlow(): void {
     timer = window.setTimeout(push, 120);
   });
   window.setInterval(push, 1000);
+  let was = studio.get().section;
+  studio.subscribe(() => {
+    const now = studio.get().section;
+    if (now !== was && (was = now) === "roles") push();
+  });
   push();
 }
 
