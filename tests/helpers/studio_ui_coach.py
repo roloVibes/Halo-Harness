@@ -89,6 +89,22 @@ def register(test, json_of, chrome) -> None:
                   and got.get("probe_reference") == "reference" and got.get("probe_judge") == "THE JUDGE" and got.get("probe_listed") == 1)
 
     @test
+    def test_coach_library_line_chip_fold_and_forget_in_headless_chrome(ctx: Ctx):
+        """3.1.6.0 R3: an entry an earlier run of this repo made is cited on the Coach tab: the library line (the CLI's
+        line), the `lib` chip on the model card that makes the same change, the "Library (1)" fold under the header row;
+        Forget asks first, then deletes the entry's folder and the fold goes (the GET carries no library after)."""
+        got = run(ctx)
+        eid = "e-20261019-c0a1"
+        ctx.check(f"the line and the chip, got {got.get('lib_line')!r} {got.get('lib_chip')!r}", got.get("lib_line") ==
+                  f"the library: 1 earlier run like this adopted bio coach-cheap models.preference -> or:vendor/strong ({eid})"
+                  and got.get("lib_chip") == eid)
+        ctx.check(f"the fold, got {got.get('lib_summary')!r} {got.get('lib_rows')} {got.get('lib_row_entry')}",
+                  got.get("lib_summary") == "Library (1)" and got.get("lib_rows") == 1 and got.get("lib_row_entry") == eid)
+        ctx.check(f"Forget asks, then deletes, got {got.get('lib_confirm')} {got.get('lib_kept_before')} {got.get('lib_gone')} "
+                  f"{got.get('lib_deleted')} {got.get('lib_api')}", got.get("lib_confirm") is True and got.get("lib_kept_before") is True
+                  and got.get("lib_gone") == "gone" and got.get("lib_deleted") is True and got.get("lib_api") == [])
+
+    @test
     def test_mission_coach_face_lists_its_cards_in_headless_chrome(ctx: Ctx):
         """3.0.9.0 R3: an ended mission's Coach face lists its five cards (the part asked longer than the
         median, the refused edit, the judged conflict, the part that changed nothing, the missing output)."""

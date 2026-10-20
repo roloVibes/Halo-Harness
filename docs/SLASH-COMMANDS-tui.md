@@ -205,8 +205,10 @@ it. `/coach --undo [ID]` puts the file of the last apply (or that apply)
 back when nothing changed it since. 3.1.6.0: `/coach --probe [--k N]` shows
 the probe's cost line ("probe: 2 runs, up to $X") and runs nothing; `/coach
 --probe --yes` starts the probe on a thread and answers at once, and `/coach`
-shows its card first once it ends. See `docs/ORCHESTRA.md` ("The coach",
-"Probes").
+shows its card first once it ends. 3.1.6.0: `/coach library [show|forget|fetch]
+...` is `halo coach library`; `/coach library forget <entry>` says what it
+would delete, and `--yes` deletes it. See `docs/ORCHESTRA.md` ("The coach",
+"Probes", "The library").
 
 ## Custom commands and skills
 

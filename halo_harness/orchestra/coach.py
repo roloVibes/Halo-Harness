@@ -25,6 +25,11 @@ one confirm (coach_apply.py) and Undo puts the file back.
 a probe of an Orchestra run ended, its one card (`kind: probe`) leads the
 overlay's suggestions, and the result's `probe` is the probe's status.
 
+3.1.6.0 R3, the library (coach_library.py, coach_citations.py): every Apply
+becomes an entry; the overlay adds `library` (the entries like this run),
+`library_line` and each suggestion's `library_hits`, and `format_card` prints
+the line under the head and `[lib e-...]` after a matching card's severity.
+
 `cached(run_dir)` is the Studio routes' read: the result kept in
 `<run>/coach.json`, computed again when a run file it reads is newer, with
 the overlay. `format_card(result)` is the CLI's plain text.
@@ -115,7 +120,8 @@ def overlay(result: dict, run_dir, state_dir=None) -> dict:
     result = dict(result, suggestions=rows, model=any(s["paragraph"] for s in rows),
                   probe=status(run_dir) if result.get("kind") == "orchestra" else None)
     note_run(result, run_dir, state_dir)
-    return result
+    from halo_harness.orchestra.coach_citations import cite  # 3.1.6.0 R3: the library's entries like this run
+    return cite(result, run_dir, state_dir)
 
 
 def cached(run_dir, **kw) -> dict:
@@ -149,12 +155,14 @@ def format_card(result: dict) -> str:
     """The card as plain text: one block per suggestion with its why lines."""
     rows = result.get("suggestions") or []
     head = f"coach: {result.get('kind')} run {result.get('run')}: "
+    lib = [result["library_line"]] if result.get("library_line") else []  # 3.1.6.0 R3 (orchestra/coach_citations.py)
     if not rows:
-        return head + "nothing to suggest (the run's files show no finding)"
-    lines = [head + f"{len(rows)} suggestion{'s' if len(rows) != 1 else ''}"]
+        return "\n".join([head + "nothing to suggest (the run's files show no finding)"] + lib)
+    lines = [head + f"{len(rows)} suggestion{'s' if len(rows) != 1 else ''}"] + lib
     for s in rows:
         where = f" · {s['lane_or_part']}" if s.get("lane_or_part") not in (None, "") else ""
-        lines += ["", f"[{s['severity']}] {s['kind']}{where}" + (f" (bio {s['bio']})" if s.get("bio") else ""),
+        hits = f" [lib {', '.join(s['library_hits'])}]" if s.get("library_hits") else ""
+        lines += ["", f"[{s['severity']}]{hits} {s['kind']}{where}" + (f" (bio {s['bio']})" if s.get("bio") else ""),
                   f"  {s['text']}", f"  id: {s['id']}", "  why:"]
         lines += [f"    - {w}" for w in s.get("why") or []]
         lines.append(f"  apply: {_apply_text(s['apply'])}" if s.get("apply") else "  apply: nothing to fill in; "

@@ -7,13 +7,16 @@ fleet command `{query, k}` to every online member (fleet/hub_recall.py).
 A member answers from its OWN index (recall.py): the index never leaves the
 box, only the hits do, each
 
-    {"score": 0.8123, "title": "...", "kind": "memory|session", "excerpt": "<= 300 chars", "harness": "<name>"}
+    {"score": 0.8123, "title": "...", "kind": "memory|session|coach_library", "excerpt": "<= 300 chars", "harness": "<name>"}
 
-and the hub merges them by score with its own. On a member:
+(3.1.6.0 R3: `coach_library` is an entry of the coach's improvement library,
+its excerpt the entry's Lessons; `halo coach library fetch` takes the entry
+itself, orchestra/coach_library_share.py) and the hub merges them by score
+with its own. On a member:
 
     fleet.recall.share   true | false    false: it answers no recall (the hub shows it as not sharing)
-    fleet.recall.hide    [kinds]         memory kinds never answered: `session`, `memory`, or a memory
-                                         topic's own `type` (`user`, `feedback`, `project`, `reference`)
+    fleet.recall.hide    [kinds]         memory kinds never answered: `session`, `memory`, `coach_library`, or a
+                                         memory topic's own `type` (`user`, `feedback`, `project`, `reference`)
 
 Every answer is a `recall_asked` line in the member's own journal (what was
 asked, by whom, on which hub, how many hits). `SEARCH(query, k, home)` is
@@ -104,6 +107,9 @@ def excerpt_of(hid: str, kind: str) -> "tuple[str, Optional[str]]":
         text = path.read_text(encoding="utf-8", errors="replace")[:_READ_CAP]
     except OSError:
         return "", None
+    if kind == "coach_library":  # 3.1.6.0 R3: an entry's EXPERIENCE.md answers with its Lessons
+        from halo_harness.orchestra.coach_experience import section
+        return _flat(section(text, "Lessons")), None
     from halo_harness.config.frontmatter import parse
     front, body = parse(text)
     meta = front.get("metadata") if isinstance(front.get("metadata"), dict) else {}

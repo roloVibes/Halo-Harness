@@ -176,6 +176,7 @@ halo orchestra approve [RUN] [--file F]  check the plan and let the waiting run 
 halo orchestra reject [RUN] --reason T   the waiting run stops with the reason
 halo orchestra coach [RUN] [--model] [--apply ID [--yes]] [--json]   the post-run coach's card (halo coach)
 halo orchestra coach [RUN] --probe [--k N] [--yes]   3.1.6.0: try candidate overlays first (Probes, below)
+halo coach library [list|show|forget|fetch]   3.1.6.0: the improvement library (The library, below)
 ```
 
 `--review`, `plan`, `approve` and `reject` are the reviewed plan: see
@@ -821,6 +822,97 @@ progress line as `orchestra_state` frames carrying `probe_of` (session id
 them); `GET orchestra/<run>/coach` carries `probe` (its status, `live` while
 it runs in this Studio).
 
+### The library
+
+Since 3.1.6.0 every Apply is remembered (after Harness²'s improvement
+library: an adopted harness plus an EXPERIENCE file that says when it
+applies, the lessons and the evidence). A card's Apply (its one change) and
+a probe card's Apply (its whole group) each leave one entry in the state
+dir (`orchestra/coach_library.py`); the Apply's answer and the CLI's
+"applied ..." line name it. An Undo of that apply or group marks the entry
+`undone: true`: it stays on disk, is never cited and is left out of recall.
+
+```
+~/.halo/coach/library/e-20261020-3f21/          e-<yyyymmdd>-<4 hex>
+  entry.json        {id, ts, run, run_dir, kind, project: {name, remote}, lineup, goal: {what, done_when},
+                     source: apply|probe, pick?, card, title, apply_ids, files, changes, undone, from?}
+  overlay.json      the composed overlay (a probe's), or the same shape built from the one change, with `changes`
+  files/agents/coach-cheap.yaml   the written file's text after the Apply (each <= 64 KB; a bigger one is listed only),
+                                  its path relative to the halo home or the repo's .halo
+  EXPERIENCE.md
+```
+
+`project.remote` is `git remote get-url origin` of the run's repo as a path
+only (`https://user:token@github.com/rolo/basket.git` and
+`git@github.com:rolo/basket.git` are both `github.com/rolo/basket`: no
+scheme, user, token, port or query); `project.name` is the repo's folder
+name. `apply_ids` holds the apply id, or the probe's group id and each
+file's row id. EXPERIENCE.md (`orchestra/coach_experience.py`):
+
+```
+# give bio `coach-cheap` the model lane 2 used: or:vendor/strong
+## When it applies
+project basket (github.com/rolo/basket) · lineup (none) · goal "Write the five functions of basket.py"
+## Lessons
+- give bio `coach-cheap` the model lane 2 used: or:vendor/strong
+- <the lead's paragraph, once asked>
+## Evidence
+- lane 1 on or:vendor/cheap ($0.10/M in): hit the return cap (2)
+- lane 2 on or:vendor/strong ($2.00/M in): finished first try
+## Files
+- agents/coach-cheap.yaml (models.preference -> or:vendor/strong)
+```
+
+A probe's entry is titled "adopted the invariant candidate" (or domain, or
+merged), its lesson is the judge's why and its evidence the compose line
+and one contrast line per candidate (tests, rank, cost, steps).
+
+**The citation rule** (`orchestra/coach_citations.py`). An entry is cited
+for a run when it is not undone, it was not born from that same run, and
+either its project is the run's (the same remote path; with no remote on
+either side, the same folder name) or its EXPERIENCE.md ranks for the run's
+goal words through recall (`recall.search`, score 0.35 or more). At most
+three are cited, newest first, and a card whose change touches the same
+target, name and field as a cited entry carries that entry's id
+(`library_hits`; a plan job's field matches whatever run it was in).
+`coach.library.cite: false` turns every citation off (the entries stay).
+The text card prints one line under its head, "the library: 3 earlier runs
+like this adopted bio coach-cheap models.preference -> or:vendor/strong
+(e-..., e-..., e-...)", and `[lib e-...]` after a matching card's severity;
+`--json` and `GET orchestra/<run>/coach` carry `library` (`[{entry, title,
+when, ts, project, same_project, source, from, fields}]`), `library_line`
+and each suggestion's `library_hits`; Studio's Coach tab shows the same line,
+a `lib` chip on a matching card and a **Library (n)** fold under the header
+row (title, when, project, **Forget** with a confirm: `POST
+coach/library/<entry>/forget`). A probe's draft gives the lead the cited
+entries' Lessons as "What earlier runs like this learned".
+
+**The base lineup stays.** Nothing is inherited: the next run starts from
+the lineup and the bios as they are on disk. An entry comes back only
+through a proposal -- a citation on a card you Apply after one confirm (with
+Undo), or a lesson the lead may turn into a probe candidate.
+
+**The CLI.** `halo coach library` lists the entries (id, when, project,
+lineup, source, the title; `--json`), `show <entry>` prints its
+EXPERIENCE.md and the files it keeps, `forget <entry>` deletes its folder
+after `y/N` (`--yes`), `fetch <harness> <entry>` takes one from another
+harness ([COMMANDS-studio.md](COMMANDS-studio.md#halo-coach)).
+
+**The fleet.** Recall indexes every entry's EXPERIENCE.md as its own kind,
+`coach_library` (the title is its first heading; an entry gone from the
+folder is pruned), so `halo recall --fleet` finds what another box learned:
+a member answers such a hit with its Lessons as the excerpt, and
+`fleet.recall.hide: [coach_library]` keeps the library out. `halo coach
+library fetch <harness> <entry>` asks the hub this machine runs
+(`local/coach-library`), which sends the read-only `coach_library {entry}`
+command to one live session of that member; the member answers its
+entry.json, EXPERIENCE.md, overlay.json and files/ (at most 256 KB in all,
+else it refuses with the size) under the same switch as recall
+(`fleet.recall.share`) and logs a `library_asked` journal line. The entry is
+written here under the SAME id with `from: <harness>` in entry.json and is
+never written over an entry already here
+([FLEET.md](FLEET.md#recall-across-the-fleet-3120-r3)).
+
 ## The adapters
 
 `orchestra/adapters.py` wires `run()` to real models:
@@ -869,6 +961,7 @@ behind the same loopback, origin and token guard as every Studio route.
 | `POST orchestra/<run>/coach/apply {id, confirm?}` | 3.1.3.0: without `confirm` the confirm card `{preview: {id, target, name, field, value, file, exists, before, after, diff}, applied: null}`; with it the write, `applied` = the record row; 422 `{error}` when the change cannot be made ([Apply and Undo](#apply-and-undo)) |
 | `POST orchestra/<run>/coach/undo {apply_id}` | 3.1.3.0: `{ok, message, apply_id}`; 409 with the reason when the file changed. The mission and team coach paths take the same three verbs |
 | `POST orchestra/<run>/coach/probe {k?, confirm?}` | 3.1.6.0: without `confirm` the cost line `{estimate: {k, factor, runs, ref_usd, cap_usd, total_usd, line}, running}` and nothing runs; with it `202 {started, estimate}` and the probe on a thread ([Probes](#probes)); 409 while one of the run runs; 422 for a mission, a team run or a run with no report |
+| `POST coach/library/<entry>/forget` | 3.1.6.0: deletes one library entry's folder `{ok, entry, message}`; 404 for an unknown entry. Every coach GET (the three run kinds) carries `library`, `library_line` and each suggestion's `library_hits` ([The library](#the-library)) |
 
 `<run>` is a run id or a unique prefix of one. The file view is composed by
 code (`studio/orchestra_model.py`):
@@ -941,4 +1034,5 @@ checks. The finished branch is left for you to review and merge.
 | `coach`, `coach_rules`, `coach_orchestra_rules`, `coach_lane_facts`, `coach_prices`, `coach_mission_rules`, `coach_team_rules` | `coach(run_dir, *, catalog=None, cwd=None, state_dir=None)`, `cached(run_dir)`, `overlay(result, run_dir)`, `format_card(result)`, `run_kind`, `source_mtime`; the rules once (`prompt_rules`, `outputs_rules`, `model_rules`, `tools_rules`, `wait_pairs`, `conflict_pairs`, `structure_rules`, `coordination_rules`); `orchestra(run_dir, ...)`; `lane_facts`; `catalog(state_dir)`, `price_of`, `best_for`, `price_words`; `mission`; `team` (one thin loader per run kind, `coach_<kind>_rules.<kind>`) |
 | `coach_ask`, `coach_apply`, `coach_record` | 3.1.3.0: `ask(run_dir, result, id, *, refresh)`, `ask_all`, `lead_of`, `read_store`; `preview(result, id, run_dir)`, `apply(result, id, run_dir)`, `ApplyError`; `undo(apply_id)`, `applies`, `states(run_dir)`, `summary(run_dir)`, `summary_line`, `note_run`, `runs_since` |
 | `coach_probe`, `coach_probe_schema`, `probe_runs`, `probe_overlay`, `coach_compare`, `coach_compose`, `coach_probe_card` | 3.1.6.0: `estimate(run_dir, k, factor)`, `draft(run_dir, k)`, `probe(run_dir, *, k, factor, on_step, rng)`, `start`, `live`, `read`, `probe_line`; `facts(run_dir)`, `clean(kind, raw, facts)`, `for_bio`, `merge`; `create`, `plan_jobs`, `Budget`, `real_adapters`, `run_one`, `run_all`, `cleanup`; `scope_files`, `flags`, `write_scope`, `writer`; `deliverable(run_dir, patch_path=)`, `judge_prompt`, `judge(goal, rows, *, model, rng)`, `parse_verdict`, `contrast`; `compose(cands, rows, ref)`, `changes(overlay, facts)`; `card(run_dir)`, `status`, `table`, `preview`, `apply`, `format_probe` |
+| `coach_library`, `coach_experience`, `coach_citations`, `coach_library_share`, `coach_probe_prompt` | 3.1.6.0 R3: `born(result, s, run_dir, applied)`, `write(doc, experience, overlay, files)`, `read(entry)`, `entries()`, `mark_undone(apply_id)`, `forget(entry)`, `matches(run_dir, state_dir, limit=3)`, `stored_files`, `safe_rel`; `project_of(run_dir, kind, cwd)`, `remote_path(url)`, `context_of`, `overlay_of`, `markdown`, `section`; `matches`, `cite(result, run_dir)`, `line(rows)`, `lessons(run_dir)`, `same_project`; `answer(fields, *, by, hub)`, `fetch(harness, entry)`; `draft_prompt(f, k, cards, lessons)` |
 | `run`, `adapters` | `run(run_dir, *, model_calls, spawn, judge, clock, on_event)`, `request_stop`; `model_call`, `spawn_worker` (3.1.6.0: `team=`, `cwd_overlay=`), `fresh_judge`, `real_adapters` |
