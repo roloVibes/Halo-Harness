@@ -10,6 +10,8 @@ tools/capture_*.py renders.
   install paths and names on PATH.
 * exactly one headless Chrome at a time: `cdp.Chrome` and `one_shot` hold
   the file lock of tests/helpers/chrome_lock.py.
+* `emulate_motion(c, value)`: the page's prefers-reduced-motion pinned, so a
+  check of an animation reads the same on every runner (3.1.5.0 R3).
 * `Driver.run(steps)`: each `(fn, args)` in turn; a step that raises records
   `failed` ("<step>: <error>") and stops; a step that returns a dict adds it
   to `out`. `Driver.main()` finds Chrome, opens it, enters `session(c)`
@@ -98,6 +100,13 @@ def open_chrome(width: int = 1500, height: int = 900, exe: "str | None" = None):
         return None
     from tests.helpers.cdp import Chrome
     return Chrome(exe, width=width, height=height)
+
+
+def emulate_motion(c, value: str = "no-preference") -> None:
+    """The page's `prefers-reduced-motion`, the same on every runner (3.1.5.0 R3: a Windows runner image with
+    animations off makes headless Chrome report `reduce`, which turns the motion off by design). Set it before
+    `c.go`: the emulation holds across navigations of the page. `value` is "no-preference" or "reduce"."""
+    c.call("Emulation.setEmulatedMedia", media="", features=[{"name": "prefers-reduced-motion", "value": value}])
 
 
 def one_shot(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | None":
