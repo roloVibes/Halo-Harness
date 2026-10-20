@@ -46,6 +46,11 @@ def _cmd_show(rest: list) -> int:
         label = entry.get("as") or entry.get("role")
         extra = f" x{entry['instances']}" if entry.get("instances", 1) != 1 else ""
         print(f"  {entry.get('role')} ({label}){extra}: agent={entry.get('agent')}")
+    # 3.1.6.0 R1: one line per tier -- its members, max_parallel, its own
+    # model and its trigger (teams_tier_fields.tier_lines).
+    from halo_harness.teams_tier_fields import tier_lines
+    for line in tier_lines(template):
+        print(line)
     role_table, notes = resolve_role_table(template)
     print("  resolved role table:")
     for k, v in sorted(role_table.items()):

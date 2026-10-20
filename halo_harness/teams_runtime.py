@@ -159,20 +159,37 @@ class TeamControl:
         from halo_harness.teams_tiers import tier_index
         return tier_index(self.tiers, alias)
 
-    def tier_gate(self, caller_alias: Optional[str], target_alias: Optional[str]) -> Optional[str]:
+    def fired_tier(self) -> Optional[int]:
+        """3.1.6.0 R1: the index of the declared tier whose trigger started
+        this process (`HALO_TIER_FIRED` names it, teams_tier_fields.FIRED_ENV),
+        else None -- its root session is that tier's lead, not the main agent."""
+        import os
+        from halo_harness.teams_tier_fields import FIRED_ENV
+        name = os.environ.get(FIRED_ENV)
+        if not name or not self.tiers_declared:
+            return None
+        return next((t["index"] for t in self.tiers if not t["implicit"] and t["name"] == name and t["members"]), None)
+
+    def tier_gate(self, caller_alias: Optional[str], target_alias: Optional[str], root: bool = False) -> Optional[str]:
         """None = `caller_alias` may spawn `target_alias`; else the line
         naming the rule (a member spawns only into the next tier down). No
-        declared tiers = None always."""
+        declared tiers = None always. `root`: the call comes from the top
+        session -- when a tier trigger fired it, that tier's lead may spawn
+        its own tier's other members and the next tier down."""
         if not self.tiers_declared:
             return None
-        from halo_harness.teams_tiers import gate_line
+        from halo_harness.teams_tiers import fired_gate_line, gate_line
+        fired = self.fired_tier() if root else None
+        if fired is not None:
+            return fired_gate_line(self.tiers, fired, self.tiers[fired]["members"][0], target_alias)
         return gate_line(self.tiers, caller_alias, target_alias)
 
-    def spawn_refusal(self, caller_alias: Optional[str], target_alias: Optional[str]) -> Optional[str]:
+    def spawn_refusal(self, caller_alias: Optional[str], target_alias: Optional[str],
+                      root: bool = False) -> Optional[str]:
         """`tier_gate`, then the target tier's `max_parallel` counted against
         its live members across the whole session tree (`tier_claim` /
         `tier_release` keep the count)."""
-        line = self.tier_gate(caller_alias, target_alias)
+        line = self.tier_gate(caller_alias, target_alias, root=root)
         if line is not None or not self.tiers_declared:
             return line
         index = self.tier_of(target_alias)

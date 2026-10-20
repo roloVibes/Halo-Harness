@@ -1,23 +1,27 @@
 // The pieces of the Roles canvas (3.0.7.0 R2): an agent card (name, role,
 // scope badge, the instances stack, the model pill with its price in / out
 // and context, a gym score when the gym measured it, a warnings badge, and
-// the live badge while an agent works under it), a tier box (its label strip
-// collapses and expands it), and the delegation / pipeline edges
-// the classic canvas drew (a delegation edge names its routing words while
-// one of its cards is selected). Cards and boxes are memoised. 3.1.5.0 R3:
+// the live badge while an agent works under it) and the delegation /
+// pipeline edges the classic canvas drew, each with its routing words or its
+// stage. Cards are memoised. 3.1.5.0 R3:
 // the holo look -- the card's state glyph and live badge open the glow's
 // legend on hover (GlowLegend.tsx), a done glow fades over ten seconds (the
 // fade resumes where it is when the card draws again), the selected card and
 // every tier box wear the HUD brackets, and a tier box and the edges into a
 // card take the same state colour (working cyan, waiting amber, done green,
-// failed red).
-import { memo, useRef, type CSSProperties, type PointerEvent } from "react";
+// failed red). 3.1.6.0 R1: the tier box is TierBox.tsx; the model pill's
+// title says where the model comes from (its own, its bio's, its tier's,
+// the session's); the edge labels never overlap (labels.ts: offset along
+// their edges, the selected card's dimmed others dropped first).
+import { memo, useMemo, useRef, type CSSProperties, type PointerEvent } from "react";
 import { cost } from "../orchestra/format";
-import { CARD_H, CARD_W, edgePath, type Box } from "./layout";
+import { CARD_H, CARD_W, edgePath } from "./layout";
 import { glowOf, hideLegend, showLegend, type GlowState } from "./glow";
+import { placeLabels, type LabelIn } from "./labels";
 import { focusModel } from "./modelActions";
 import { priceText, scopeLabel } from "./store";
-import type { GraphEdge, GraphNode, GymScore, LiveAgent, ModelRow, Pos, Tier } from "./types";
+import { sourceText } from "./tierText";
+import type { GraphEdge, GraphNode, GymScore, LiveAgent, ModelRow, Pos } from "./types";
 
 const STATE_LABEL: Record<string, string> = { typing: "typing", working: "working", waiting: "waits on you", done: "done", failed: "failed", queued: "queued" };
 const GLYPH: [RegExp, string][] = [[/^(Edit|Write|MultiEdit|NotebookEdit)/, "✎"], [/^(Bash|PowerShell|Shell)/, "›_"], [/^(Read|Glob|LS)/, "▤"], [/^(Grep|Search)/, "⌕"], [/^(Agent|Task|SendMessage)/, "◉"], [/^Web/, "◍"]];
@@ -106,8 +110,8 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
         {n.alias && n.alias !== n.role ? ` · as ${n.alias}` : ""}
         {n.instances > 1 && <span className="rc-inst mono" title={`${n.instances} instances of this slot`}> ×{n.instances}</span>}
       </div>
-      <button type="button" className="rc-model mono" data-testid="roles-model-pill" onClick={() => focusModel(n.id)}
-              title={`${n.model ? `${n.model}${n.fallback ? " · fallback " + n.fallback : ""}` : "no model resolves for this slot"}: click to change it (the Inspector's MODEL strip)`}>
+      <button type="button" className="rc-model mono" data-testid="roles-model-pill" data-source={n.model_source || undefined} onClick={() => focusModel(n.id)}
+              title={`${n.model ? `${n.model}${n.model_source ? ", from " + sourceText(n.model_source, n.agent) : ""}${n.fallback ? " · fallback " + n.fallback : ""}` : "no model resolves for this slot"}: click to change it (the Inspector's MODEL strip)`}>
         {n.model ? n.model.replace(/^or:[^/]+\//, "") : "no model resolves"}
       </button>
       <div className="rc-meta mono">
@@ -121,37 +125,19 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
   );
 });
 
-type TierProps = {
-  t: Tier;
-  b: Box;
-  count: number;
-  collapsed: boolean;
-  hot: boolean;
-  /** The strongest glow of its cards (working, waiting, done, failed), "" for none. */
-  state: GlowState | "";
-  onToggle: (name: string) => void;
-};
+type EdgeProps = { edges: GraphEdge[]; pos: Record<string, Pos>; hidden: Set<string>; w: number; h: number; sel: string; lit: Set<string>; glows: Record<string, GlowState | ""> };
 
-export const TierBox = memo(function TierBox({ t, b, count, collapsed, hot, state, onToggle }: TierProps) {
-  return (
-    <div className="rc-tier holo-frame" data-testid="roles-tier" data-tier={t.name} data-index={t.index} data-implicit={t.implicit || undefined}
-         data-collapsed={collapsed || undefined} data-hot={hot || undefined} data-holo-state={state || undefined} style={{ left: b.x, top: b.y, width: b.w, height: b.h }}>
-      <span className="holo-corners" aria-hidden="true" />
-      <button className="rc-tier-head" onClick={() => onToggle(t.name)} aria-expanded={!collapsed} data-testid="roles-tier-toggle"
-              title={collapsed ? "Expand this tier" : "Collapse this tier to its label"}>
-        <span className="rc-tier-caret" aria-hidden="true">{collapsed ? "▸" : "▾"}</span>
-        <span className="rc-tier-label">Tier {t.index} · {t.name}</span>
-        <span className="rc-tier-count mono">
-          {count}
-          {t.max_parallel ? ` · max ${t.max_parallel}` : ""}
-          {t.implicit ? " · implicit" : ""}
-        </span>
-      </button>
-    </div>
-  );
-});
-
-export function Edges({ edges, pos, hidden, w, h, sel, lit, glows }: { edges: GraphEdge[]; pos: Record<string, Pos>; hidden: Set<string>; w: number; h: number; sel: string; lit: Set<string>; glows: Record<string, GlowState | ""> }) {
+export function Edges({ edges, pos, hidden, w, h, sel, lit, glows }: EdgeProps) {
+  const drawn = useMemo(() => edges.map((e, i) => {
+    const a = pos[e.from], b = pos[e.to];
+    if (!a || !b || hidden.has(e.from) || hidden.has(e.to)) return null;
+    return { e, i, key: `${e.kind}-${e.from}-${e.to}-${i}`, on: sel === e.from || sel === e.to, ...edgePath(a, b) };
+  }).filter((x) => x !== null), [edges, pos, hidden, sel]);
+  const spots = useMemo(() => {
+    const items: LabelIn[] = drawn.filter((x) => x.e.label).map((x) => ({ key: x.key, from: x.e.from, text: x.e.label, c: x.c, keep: x.on || x.e.kind !== "delegation", order: x.i }));
+    const cards = Object.entries(pos).filter(([id]) => !hidden.has(id)).map(([, p]) => p);
+    return placeLabels(items, cards);
+  }, [drawn, pos, hidden]);
   return (
     <svg className="rc-edges" width={w} height={h} aria-hidden="true">
       <defs>
@@ -161,16 +147,16 @@ export function Edges({ edges, pos, hidden, w, h, sel, lit, glows }: { edges: Gr
           </marker>
         ))}
       </defs>
-      {edges.map((e, i) => {
-        const a = pos[e.from], b = pos[e.to];
-        if (!a || !b || hidden.has(e.from) || hidden.has(e.to)) return null;
-        const { d, mx, my } = edgePath(a, b);
-        const on = sel === e.from || sel === e.to;
+      {drawn.map(({ e, key, on, d }) => {
+        const spot = spots[key];
         return (
-          <g key={`${e.kind}-${e.from}-${e.to}-${i}`} className="rc-edge-g" data-kind={e.kind}>
+          <g key={key} className="rc-edge-g" data-kind={e.kind}>
             <path className="rc-edge" data-kind={e.kind} data-on={on || undefined} data-lit={lit.has(e.to) || undefined} data-state={glows[e.to] || undefined}
                   data-to={e.to} d={d} markerEnd={`url(#rc-arrow-${e.kind})`} data-testid="roles-edge" />
-            {e.label && (on || e.kind !== "delegation") && <text className="rc-edge-label" x={mx} y={my} textAnchor="middle">{e.label}</text>}
+            {spot && (
+              <text className="rc-edge-label" x={spot.x} y={spot.y} textAnchor="middle" data-testid="roles-edge-label" data-kind={e.kind} data-to={e.to}
+                    data-dim={(!on && e.kind === "delegation") || undefined}>{e.label}</text>
+            )}
           </g>
         );
       })}
