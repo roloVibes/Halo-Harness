@@ -16,7 +16,8 @@ import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
 
 export type SessionUiView = "auto" | "start" | "workspace";
 type Want = { session: string; key: AgentKey };
-type SessionState = { view: SessionUiView; chosen: string; want: Want | null };
+/** 3.1.5.0 R3: `pin` is the one agent the Live column shows (its tag clicked; "" = every agent), `follow` keeps its newest line in view. */
+type SessionState = { view: SessionUiView; chosen: string; want: Want | null; pin: AgentKey; follow: boolean };
 
 function urlWant(): Want | null {
   if (!/[?&]mode=session(&|$)/.test(location.search)) return null;
@@ -28,6 +29,8 @@ export const sess = createStore<SessionState>({
   view: (/[?&]view=(start|workspace)/.exec(location.search)?.[1] as SessionUiView) || "auto",
   chosen: "",
   want: urlWant(),
+  pin: "",
+  follow: true,
 });
 
 export function useSession<S>(select: (s: SessionState) => S): S {

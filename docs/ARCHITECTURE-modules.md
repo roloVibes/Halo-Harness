@@ -82,7 +82,8 @@ this list against the tree.
   `fleet/hub_capabilities.py`, `fleet/hub_mission.py`
 - the relay of a joined harness: `fleet/relay.py`, `fleet/relay_hub.py`,
   `fleet/relay_runtime.py`, `fleet/relay_stream.py`, `fleet/control.py`,
-  `fleet/local_view.py`
+  `fleet/local_view.py`, `fleet/agent_tokens.py` (each agent row's own tokens,
+  from its transcript)
 - the CLI: `fleet/cli.py` (the dispatcher, serve, pair), `fleet/cli_join.py`
   (join, leave, status), `fleet/cli_members.py` (members, kick),
   `fleet/cli_panels.py` (record, digest), `fleet/cli_caps.py` (capabilities,

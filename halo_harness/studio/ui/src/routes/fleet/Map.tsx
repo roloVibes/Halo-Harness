@@ -9,23 +9,28 @@
 // amber dashed warning edge; its attention row's O opens the map on them.
 // 3.0.6.0 R8: the open mission's plan is drawn over it (MapMission.tsx).
 // 3.1.4.0 R2: under a scope (scope.ts, the Session section) it draws only
-// that harness's box, By harness, with no mission over it.
-import { useMemo, useRef, useState } from "react";
+// that harness's box, By harness, with no mission over it. 3.1.5.0 R3: and
+// as a tree (layoutTree.ts): each agent's children fanned out under it, the
+// edge to an agent glowing with its state (working cyan, waiting amber, done
+// green fading, failed red).
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRecent, type MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { short } from "../orchestra/format";
 import { toggleByProject } from "./actions";
 import { layout } from "./layout";
+import { perRowFor } from "./layoutTree";
 import { BoxChips, chipsWidth, useBoxChips } from "./MapChips";
 import { MissionChip, MissionLayer, useMissionSlots } from "./MapMission";
 import { AgentNode, NodeMenu, SessionCard, type MenuAt } from "./MapNode";
 import { useAttnCount, usePanels } from "./pstore";
 import { isScoped, useScope, useScopedAttention, useScopedCounts, useScopedHarnesses } from "./scope";
-import { NONE, useFleet } from "./store";
-import type { LitEdge } from "./types";
+import { agentMotion, DONE_MS, NONE, useFleet } from "./store";
+import type { AgentRef, LitEdge } from "./types";
 
 const LIT_MS = 3000;
+const MIN_FIT = 0.62; // below this the tree scrolls instead of shrinking further
 
 function LitEdges({ edges, pos }: { edges: LitEdge[]; pos: Map<string, { x: number; y: number; w: number; h: number }> }) {
   const last = edges.length ? edges[edges.length - 1].ts : 0;
@@ -46,6 +51,14 @@ function LitEdges({ edges, pos }: { edges: LitEdge[]; pos: Map<string, { x: numb
 }
 
 type Pos = Map<string, { x: number; y: number; w: number; h: number }>;
+
+/** The edge into an agent: lit while it is selected or hovered, coloured by its state. */
+function TreeEdge({ d, to, from, r }: { d: string; to: string; from: string | null; r: AgentRef | undefined }) {
+  const on = useFleet((s) => s.selected === to || (!!from && s.selected === from) || s.hover === to);
+  const doneAt = useFleet((s) => s.doneAt[to] || 0);
+  useRecent(doneAt, DONE_MS);
+  return <path className="fm-edge" data-on={on || undefined} data-motion={r ? agentMotion(r.a, doneAt) : undefined} data-testid="fleet-edge" data-to={to} d={d} />;
+}
 
 function ConflictEdges({ pos }: { pos: Pos }) {
   const list = usePanels((s) => s.conflicts?.conflicts) || NONE;
@@ -72,17 +85,34 @@ export function FleetMap() {
   const harnesses = useScopedHarnesses();
   const scoped = isScoped(useScope());
   const byProject = useFleet((s) => s.byProject) && !scoped;
-  const selected = useFleet((s) => s.selected);
   const edges = useFleet((s) => s.edges || NONE);
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const { chips, focus } = useBoxChips(); // 3.0.6.0 R6: capability chips; the harness Who picked
   const slots = useMissionSlots(byProject || scoped); // 3.0.6.0 R8: the open mission's parts (none under a scope)
   const svg = useRef<SVGSVGElement>(null);
-  const geo = useMemo(() => layout(harnesses, byProject, slots), [harnesses, byProject, slots]);
+  const [room, setRoom] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = svg.current?.parentElement;
+    if (!el || !scoped) return;
+    const ro = new ResizeObserver(() => setRoom({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [scoped]);
+  // 3.1.5.0 R3: the tree fits the panel as one picture: the fan width (nodes to a row) that shows it largest
+  const { geo, scale } = useMemo(() => {
+    if (!scoped || !room.w || !room.h) return { geo: layout(harnesses, byProject, slots, scoped, perRowFor(room.w)), scale: 1 };
+    let best = { geo: layout(harnesses, byProject, slots, true, 2), scale: 0 };
+    for (let per = 2; per <= 5; per++) {
+      const g = per === 2 ? best.geo : layout(harnesses, byProject, slots, true, per);
+      const k = Math.min(1, (room.w - 2) / g.width, (room.h - 2) / g.height);
+      if (k > best.scale + 0.01) best = { geo: g, scale: k };
+    }
+    return { geo: best.geo, scale: Math.max(MIN_FIT, best.scale) };
+  }, [harnesses, byProject, slots, scoped, room]);
   const pos = useMemo(() => new Map(geo.nodes.map((n) => [n.ref.key, n])), [geo]);
   return (
     <>
-    <svg ref={svg} className="fm-svg" viewBox={`0 0 ${geo.width} ${geo.height}`} width={geo.width} height={geo.height} role="img" aria-label="Fleet map" data-testid="fleet-map-svg">
+    <svg ref={svg} className="fm-svg" data-tree={scoped || undefined} viewBox={`0 0 ${geo.width} ${geo.height}`} width={geo.width * scale} height={geo.height * scale} role="img" aria-label="Fleet map" data-testid="fleet-map-svg">
       {geo.boxes.map((b) => {
         const bc = b.key.startsWith("h:") ? chips.get(b.key.slice(2)) || [] : [];
         const cw = chipsWidth(bc);
@@ -100,7 +130,7 @@ export function FleetMap() {
         );
       })}
       {geo.edges.map((e) => (
-        <path key={e.to} className="fm-edge" data-on={e.to === selected || e.from === selected || undefined} d={e.d} />
+        <TreeEdge key={e.to} d={e.d} to={e.to} from={e.from} r={pos.get(e.to)?.ref} />
       ))}
       {geo.cards.map((c) => <SessionCard key={c.harness.id + c.session.session_id} c={c} onMenu={setMenu} byProject={byProject} />)}
       {geo.nodes.map((n) => <AgentNode key={n.ref.key} n={n} onMenu={setMenu} />)}

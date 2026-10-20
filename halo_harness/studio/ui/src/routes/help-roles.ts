@@ -20,7 +20,7 @@ export const ROLES_HELP: Record<string, Help> = {
     help: lines(
       "Drag a card into another tier box to move it there (the lineup saves); main stays in tier 0.",
       "Drag a bio from Bios onto the canvas to add it.",
-      "A tier's label strip collapses or expands it. While a session runs, the cards whose agents work glow.",
+      "A tier's label strip collapses or expands it. While a session runs, the cards whose agents work glow: hover a card's glyph or badge for what its glow means and when it goes.",
       "Click the canvas, then A lays out, F fits, + / - zoom, the arrows nudge the selected card, Delete removes it.",
       "Ctrl+Z undoes an edit, Ctrl+Shift+Z redoes it, Mod+S saves.",
     ),

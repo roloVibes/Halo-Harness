@@ -4,10 +4,17 @@
 // the live badge while an agent works under it), a tier box (its label strip
 // collapses and expands it), and the delegation / pipeline edges
 // the classic canvas drew (a delegation edge names its routing words while
-// one of its cards is selected). Cards and boxes are memoised.
-import { memo, type PointerEvent } from "react";
+// one of its cards is selected). Cards and boxes are memoised. 3.1.5.0 R3:
+// the holo look -- the card's state glyph and live badge open the glow's
+// legend on hover (GlowLegend.tsx), a done glow fades over ten seconds (the
+// fade resumes where it is when the card draws again), the selected card and
+// every tier box wear the HUD brackets, and a tier box and the edges into a
+// card take the same state colour (working cyan, waiting amber, done green,
+// failed red).
+import { memo, useRef, type CSSProperties, type PointerEvent } from "react";
 import { cost } from "../orchestra/format";
 import { CARD_H, CARD_W, edgePath, type Box } from "./layout";
+import { glowOf, hideLegend, showLegend, type GlowState } from "./glow";
 import { focusModel } from "./modelActions";
 import { priceText, scopeLabel } from "./store";
 import type { GraphEdge, GraphNode, GymScore, LiveAgent, ModelRow, Pos, Tier } from "./types";
@@ -30,11 +37,17 @@ type CardProps = {
   onDown: (ev: PointerEvent<HTMLElement>, id: string) => void;
 };
 
-function LiveBadge({ list, activity }: { list: LiveAgent[]; activity: string }) {
+const STATE_GLYPH: Record<string, string> = { working: "●", waiting: "◆", done: "✓", failed: "✕" };
+const legendOn = (state: GlowState | "", card: string) => ({
+  onMouseEnter: (e: { currentTarget: HTMLElement }) => showLegend(e.currentTarget, state, card),
+  onMouseLeave: hideLegend,
+});
+
+function LiveBadge({ list, activity, card }: { list: LiveAgent[]; activity: string; card: string }) {
   const lead = list.find((a) => a.activity === activity) || list[0];
   const usd = list.reduce((s, a) => s + (Number(a.cost_usd) || 0), 0);
   return (
-    <div className="rc-live mono" data-testid="roles-live-badge">
+    <div className="rc-live mono" data-testid="roles-live-badge" {...legendOn(glowOf(activity), card)}>
       {activity === "tool" && lead.tool ? (
         <span className="rc-live-tool" title={lead.current || lead.tool}>{glyph(lead.tool)} {lead.tool}</span>
       ) : activity === "waiting" ? (
@@ -51,10 +64,16 @@ function LiveBadge({ list, activity }: { list: LiveAgent[]; activity: string }) 
 export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, dragging, live, activity, onDown }: CardProps) {
   const stack = Math.min(3, Math.max(1, n.instances || 1));
   const lead = live.find((a) => a.activity === activity);
+  const glow = glowOf(activity);
+  const ended = glow === "done" ? Math.max(0, ...live.filter((a) => a.activity === "done").map((a) => a.endedAt || 0)) : 0;
+  // the fade resumes where it is when the card first draws done (its delay is fixed then, so a later draw never jumps it)
+  const fadeRef = useRef<{ ended: number; delay: string }>({ ended: 0, delay: "0s" });
+  if (ended && fadeRef.current.ended !== ended) fadeRef.current = { ended, delay: `${-Math.min(10, (Date.now() - ended) / 1000).toFixed(2)}s` };
+  const fade = ended ? ({ "--rc-fade": fadeRef.current.delay } as CSSProperties) : {};
   return (
     <article
       className="rc-card"
-      style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
+      style={{ left: x, top: y, width: CARD_W, height: CARD_H, ...fade }}
       data-testid="roles-card"
       data-id={n.id}
       data-role={n.role}
@@ -62,6 +81,8 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
       data-selected={selected || undefined}
       data-dragging={dragging || undefined}
       data-live={activity || undefined}
+      data-glow={glow || undefined}
+      data-holo-state={glow || undefined}
       data-pulse={lead ? (lead.calls % 2 ? "b" : "a") : undefined}
       data-stack={stack > 1 ? stack : undefined}
       aria-label={`${n.agent}, ${n.role}${n.alias ? " as " + n.alias : ""}`}
@@ -69,7 +90,12 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
       onPointerDown={(ev) => onDown(ev, n.id)}
     >
       <span className="rc-band" aria-hidden="true" />
+      {selected && <span className="holo-tlbr" aria-hidden="true" />}
+      {selected && <span className="holo-corners" aria-hidden="true" />}
       <header className="rc-head">
+        {glow && (
+          <span className="rc-glyph" data-testid="roles-card-glyph" data-state={glow} aria-label={`glow: ${glow}`} {...legendOn(glow, n.id)}>{STATE_GLYPH[glow]}</span>
+        )}
         <b className="rc-agent">{n.agent || "(no agent)"}</b>
         <span className="rc-scope mono" data-scope={n.scope || "none"} title={n.scope === "template" ? "This bio ships with Halo: Duplicate it in the Bios panel for an editable copy" : `This bio lives in your ${n.scope} scope`}>
           {scopeLabel(n.scope)}
@@ -90,7 +116,7 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
         {gym && <span className="rc-gym" title={`gym score on this machine${gym.tokens_per_second ? `, ${Math.round(gym.tokens_per_second)} tok/s` : ""}`}>gym {gym.score.toFixed(2)}</span>}
       </div>
       {issues > 0 && <span className="rc-warn mono" data-testid="roles-card-warn" title={[...n.problems, ...n.warnings].join("\n") || "see the Problems panel"}>{issues}</span>}
-      {activity && <LiveBadge list={live} activity={activity} />}
+      {activity && <LiveBadge list={live} activity={activity} card={n.id} />}
     </article>
   );
 });
@@ -101,13 +127,16 @@ type TierProps = {
   count: number;
   collapsed: boolean;
   hot: boolean;
+  /** The strongest glow of its cards (working, waiting, done, failed), "" for none. */
+  state: GlowState | "";
   onToggle: (name: string) => void;
 };
 
-export const TierBox = memo(function TierBox({ t, b, count, collapsed, hot, onToggle }: TierProps) {
+export const TierBox = memo(function TierBox({ t, b, count, collapsed, hot, state, onToggle }: TierProps) {
   return (
-    <div className="rc-tier" data-testid="roles-tier" data-tier={t.name} data-index={t.index} data-implicit={t.implicit || undefined}
-         data-collapsed={collapsed || undefined} data-hot={hot || undefined} style={{ left: b.x, top: b.y, width: b.w, height: b.h }}>
+    <div className="rc-tier holo-frame" data-testid="roles-tier" data-tier={t.name} data-index={t.index} data-implicit={t.implicit || undefined}
+         data-collapsed={collapsed || undefined} data-hot={hot || undefined} data-holo-state={state || undefined} style={{ left: b.x, top: b.y, width: b.w, height: b.h }}>
+      <span className="holo-corners" aria-hidden="true" />
       <button className="rc-tier-head" onClick={() => onToggle(t.name)} aria-expanded={!collapsed} data-testid="roles-tier-toggle"
               title={collapsed ? "Expand this tier" : "Collapse this tier to its label"}>
         <span className="rc-tier-caret" aria-hidden="true">{collapsed ? "▸" : "▾"}</span>
@@ -122,7 +151,7 @@ export const TierBox = memo(function TierBox({ t, b, count, collapsed, hot, onTo
   );
 });
 
-export function Edges({ edges, pos, hidden, w, h, sel, lit }: { edges: GraphEdge[]; pos: Record<string, Pos>; hidden: Set<string>; w: number; h: number; sel: string; lit: Set<string> }) {
+export function Edges({ edges, pos, hidden, w, h, sel, lit, glows }: { edges: GraphEdge[]; pos: Record<string, Pos>; hidden: Set<string>; w: number; h: number; sel: string; lit: Set<string>; glows: Record<string, GlowState | ""> }) {
   return (
     <svg className="rc-edges" width={w} height={h} aria-hidden="true">
       <defs>
@@ -139,7 +168,8 @@ export function Edges({ edges, pos, hidden, w, h, sel, lit }: { edges: GraphEdge
         const on = sel === e.from || sel === e.to;
         return (
           <g key={`${e.kind}-${e.from}-${e.to}-${i}`} className="rc-edge-g" data-kind={e.kind}>
-            <path className="rc-edge" data-kind={e.kind} data-on={on || undefined} data-lit={lit.has(e.to) || undefined} d={d} markerEnd={`url(#rc-arrow-${e.kind})`} data-testid="roles-edge" />
+            <path className="rc-edge" data-kind={e.kind} data-on={on || undefined} data-lit={lit.has(e.to) || undefined} data-state={glows[e.to] || undefined}
+                  data-to={e.to} d={d} markerEnd={`url(#rc-arrow-${e.kind})`} data-testid="roles-edge" />
             {e.label && (on || e.kind !== "delegation") && <text className="rc-edge-label" x={mx} y={my} textAnchor="middle">{e.label}</text>}
           </g>
         );

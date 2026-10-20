@@ -1,24 +1,24 @@
-// session-cost (3.1.4.0 R2): what the chosen session (else the newest live
-// one on this harness) has cost so far, from the rows the Fleet store already
-// holds (GET fleet and its feed; the session row's status figures, from
-// fleet/local_view.py): the spend ticking up, the tokens in and out, the
-// turns, the time since it started, the model, and what each of its agents
-// has cost. The compact face is the spend and the tokens.
+// session-cost (3.1.4.0 R2; 3.1.5.0 R3 "Cost that reads"): what the chosen
+// session (else the newest live one on this harness) has cost so far, from
+// the rows the Fleet store already holds (GET fleet and its feed; the
+// session row's status figures and each agent row's own tokens, from
+// fleet/local_view.py): the spend ticking up with its sparkline beside it
+// (spend.ts), the context-fill bar, the tokens in and out, the turns and the
+// cost per turn (the average, and what the last turn cost), the time since
+// it started, the model, and each agent's share of the spend as one stacked
+// bar over its rows (CostParts.tsx). The compact face is the spend and the tokens.
+import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { cost, short } from "../orchestra/format";
 import { useTicker } from "../fleet/MapNode";
-import { isLive, sessionMotion, sessionTitle, useFleet, useNow } from "../fleet/store";
+import { isLive, keyOf, sessionMotion, sessionTitle, useFleet, useNow } from "../fleet/store";
 import type { SessionRow } from "../fleet/types";
+import { hueOf } from "../shared/hues";
+import { AgentLine, ContextBar, ShareBar, Spark, tok, type Share } from "./CostParts";
+import { lastTurnCost, startSpend, useSpend } from "./spend";
 import { chosenSession } from "./store";
-
-/** 12, 4.3k, 1.2M. */
-function tok(n: number | null | undefined): string {
-  if (n == null || !isFinite(Number(n))) return "-";
-  const v = Number(n);
-  return v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}k` : String(Math.round(v));
-}
 
 /** 45s, 12m 03s, 2h 05m since a unix time in seconds. */
 function since(ts: number | null | undefined, now: number): string {
@@ -52,34 +52,52 @@ function Figure({ label, value, testid, title }: { label: string; value: string;
 }
 
 export function CostDetail() {
+  useEffect(() => startSpend(), []);
   const ss = useFleet(chosenSession);
+  const hid = useFleet((s) => s.scope.harness || "");
   const now = useNow(!!ss, 1000);
+  const series = useSpend(ss?.session_id || "");
   if (!ss) return <Empty title="No session here yet" body="Start one in a terminal (halo): what it spends, its tokens and its turns show here as it works." testid="session-cost-empty" />;
+  const usd = Number(ss.cost_usd) || 0;
   const agents = [...(ss.agents || [])].sort((a, b) => (Number(b.cost_usd) || 0) - (Number(a.cost_usd) || 0));
+  const spent = agents.reduce((s, a) => s + (Number(a.cost_usd) || 0), 0);
+  const shares: Share[] = agents.map((a) => {
+    const key = keyOf(hid, ss.session_id, a.agent_id);
+    const v = Number(a.cost_usd) || 0;
+    return { a, key, hc: hueOf(key), usd: v, pct: spent > 0 ? (v / spent) * 100 : 0 };
+  });
   const live = agents.filter(isLive).length;
   const turns = turnsOf(ss);
+  const perTurn = turns ? usd / turns : null;
+  const last = lastTurnCost(series);
   return (
     <div className="sco" data-testid="session-cost-detail" data-session={ss.session_id}>
       <div className="rail-label mono sco-head" title={ss.cwd || ""}>THIS SESSION · {short(sessionTitle(ss), 48)}</div>
-      <Ticker usd={Number(ss.cost_usd) || 0} />
+      <div className="sco-sub mono muted">
+        <span data-testid="session-cost-model" title={ss.model || ""}>{short(modelName(ss.model), 22)}</span>
+        <span title="since the session started"> · <span data-testid="session-cost-elapsed">{since(ss.started, now)}</span></span>
+        <span> · <span data-testid="session-cost-agents">{`${live} live of ${agents.length}`}</span></span>
+      </div>
+      <div className="sco-top">
+        <Ticker usd={usd} />
+        <Spark list={series} />
+      </div>
+      <ContextBar used={ss.context_tokens} limit={ss.context_limit} />
       <div className="sco-grid">
         <Figure label="TOKENS IN" value={tok(ss.tokens_in)} testid="session-cost-in" title="input tokens the session has sent its model so far" />
         <Figure label="TOKENS OUT" value={tok(ss.tokens_out)} testid="session-cost-out" title="output tokens its model has written so far" />
         <Figure label="TURNS" value={turns == null ? "-" : String(turns)} testid="session-cost-turns" />
-        <Figure label="ELAPSED" value={since(ss.started, now)} testid="session-cost-elapsed" title="since the session started" />
-        <Figure label="MODEL" value={short(modelName(ss.model), 22)} testid="session-cost-model" title={ss.model || ""} />
-        <Figure label="AGENTS" value={`${live} live of ${agents.length}`} testid="session-cost-agents" />
+        <Figure label="PER TURN" value={perTurn == null ? "-" : cost(perTurn)} testid="session-cost-per-turn"
+                title={`the spend over the turns${last != null ? `; the last turn cost ${cost(last)}` : ""}`} />
       </div>
       {agents.length > 0 && (
         <section className="sco-agents">
-          <div className="rail-label mono">PER AGENT</div>
-          {agents.slice(0, 8).map((a) => (
-            <div key={a.agent_id} className="sco-row" data-state={a.state || "none"} data-testid="session-cost-agent">
-              <span>{short(a.name || a.role || a.agent_id, 26)}</span>
-              <span className="mono muted">{a.state}</span>
-              <b className="mono">{cost(a.cost_usd)}</b>
-            </div>
-          ))}
+          <div className="rail-label mono sco-agents-head">
+            <span>EACH AGENT'S SHARE</span>
+            <span className="muted">tokens in / out · cost</span>
+          </div>
+          <ShareBar rows={shares} />
+          {shares.slice(0, 9).map((r) => <AgentLine key={r.key} r={r} />)}
         </section>
       )}
     </div>

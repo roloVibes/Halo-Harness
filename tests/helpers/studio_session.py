@@ -7,7 +7,7 @@ session behind the real Controller). tests/test_studio_session.py and
 tests/test_studio_session_links.py run it as a subprocess with a scrubbed
 environment:
 
-    python -m tests.helpers.studio_session dash    landing (live / nothing live), the five panels, the map of this
+    python -m tests.helpers.studio_session dash    landing (live / nothing live), the six panels, the map of this
                                                    harness only, the working node lit and selected, Cost, Activity,
                                                    Attention, `&session=<id>`, J / K, Alt+4 (Fleet keeps both
                                                    harnesses) and Alt+6; `/studio`'s opener focusing the open page
@@ -38,7 +38,8 @@ def inside(scope: str, testid: str) -> str:
     return f"document.querySelectorAll('[data-testid=\"{scope}\"] [data-testid=\"{testid}\"], [data-section=\"{scope}\"] [data-testid=\"{testid}\"]')"
 
 
-AGENT = "document.querySelector('[data-testid=\"session-agent\"] [data-testid=\"fleet-agent-detail\"]')"
+# 3.1.5.0 R3: Agent starts as a strip; the selected agent is the map's selected node (its key and state)
+AGENT = "document.querySelector('[data-testid=\"session-map\"] [data-testid=\"fleet-node\"][data-selected]')"
 COST = "document.querySelector('[data-testid=\"session-cost-detail\"]')"
 
 
@@ -97,7 +98,7 @@ def dash(c, rig) -> dict:
     out: dict = {}
     hid, sid = harness()["id"], rig.act.session_id
     c.go(url(rig, "mode=session"))
-    panels = ["session-map", "session-activity", "session-attention", "session-agent", "session-cost"]
+    panels = ["session-map", "session-activity", "session-attention", "session-agent", "session-cost", "session-live"]
     c.wait(" && ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length === 1" for p in panels), 30)
     out["panels"] = c.js("[" + ", ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length" for p in panels) + "]")
     out["abouts"] = c.js("document.querySelectorAll('[data-section=\"session\"] [data-testid=\"panel-about\"]').length")
@@ -118,6 +119,9 @@ def dash(c, rig) -> dict:
     out["cost_model"] = c.js("document.querySelector('[data-testid=\"session-cost-model\"]')?.textContent")
     out["cost_agents"] = c.js("document.querySelector('[data-testid=\"session-cost-agents\"]')?.textContent")
     out["cost_usd"] = c.js("document.querySelector('[data-testid=\"session-cost-usd\"]')?.textContent")
+    from tests.helpers.studio_fleet_panels import open_strip
+    open_strip(c, "session-activity")  # 3.1.5.0 R3: Activity and Attention start as strips under Cost
+    open_strip(c, "session-attention")
     live = [a for a in rig.agents() if a.get("state") in LIVE]
     out["want_lanes"] = len(live)
     out["lanes"] = c.wait(f"{inside('session-activity', 'fleet-lane')}.length === {len(live)} && {len(live)}", 20) or c.js(f"{inside('session-activity', 'fleet-lane')}.length")

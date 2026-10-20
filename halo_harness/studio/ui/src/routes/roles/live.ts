@@ -7,10 +7,13 @@
 // you, done, failed), with a count when several share it and their cost.
 // J / K hop across the working cards (and across the agents of one card)
 // with the Inspector's Live tab open on the agent; a replay (Replay.tsx)
-// stands in for the live agents while it plays.
+// stands in for the live agents while it plays. 3.1.5.0 R3: an agent that
+// ended keeps its card glowing (glow.ts): done for ten seconds, failed until
+// the card is clicked.
 import { useMemo } from "react";
 import { patchPanel, focusPanel } from "../../lib/workspace/persist";
 import { watch } from "../fleet/streams";
+import { ackFailed, isAcked } from "./glow";
 import { roles, useRoles, type RolesState } from "./store";
 import type { GraphNode, LiveAgent, Replay } from "./types";
 
@@ -31,9 +34,12 @@ export function matchNode(a: LiveAgent, nodes: GraphNode[], lineup: string): Gra
   );
 }
 
-/** Every agent on the canvas right now: the replay's at its clock, else the live ones. */
+/** Every agent on the canvas right now: the replay's at its clock, else the live ones and the ended ones still glowing. */
 export function agentsNow(s: RolesState): LiveAgent[] {
-  return s.replay ? agentsAt(s.replay, s.replay.t) : s.live;
+  if (s.replay) return agentsAt(s.replay, s.replay.t);
+  const live = s.live.filter((a) => !(a.state === "failed" && isAcked(a.key)));
+  const keys = new Set(live.map((a) => a.key));
+  return [...live, ...(s.ended || []).filter((a) => !keys.has(a.key))];
 }
 
 export function byNodeOf(s: RolesState): Record<string, LiveAgent[]> {
@@ -49,10 +55,11 @@ export function byNodeOf(s: RolesState): Record<string, LiveAgent[]> {
 /** The card -> agents map, recomputed only when the agents or the graph change. */
 export function useByNode(): Record<string, LiveAgent[]> {
   const live = useRoles((s) => s.live);
+  const ended = useRoles((s) => s.ended);
   const replay = useRoles((s) => s.replay);
   const graph = useRoles((s) => s.graph);
   const name = useRoles((s) => s.name);
-  return useMemo(() => byNodeOf({ ...roles.get(), live, replay, graph, name }), [live, replay, graph, name]);
+  return useMemo(() => byNodeOf({ ...roles.get(), live, ended, replay, graph, name }), [live, ended, replay, graph, name]);
 }
 
 export function cardActivity(list: LiveAgent[]): string {
@@ -76,6 +83,7 @@ export function selectCard(id: string): void {
   const s = roles.get();
   const list = id ? byNodeOf(s)[id] || [] : [];
   roles.update(() => ({ sel: id }));
+  ackFailed(list); // 3.1.5.0 R3: a failed glow stays until its card is clicked
   if (list.length && !s.replay) {
     const pick = list.find((a) => a.key === s.watched) || list.find(isLiveAgent) || list[0];
     watchAgent(pick.key);

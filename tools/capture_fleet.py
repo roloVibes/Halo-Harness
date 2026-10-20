@@ -8,8 +8,8 @@ question, its reviewer done): two harnesses, five agents in three states.
 
     docs/media/studio-fleet.png       the map and the agent panel: the researcher's streams open, the
                                       implementer pinned (its mini stream floats over the map)
-    docs/media/studio-roles-live.png  the Roles canvas glowing on the cards whose agents work, the
-                                      implementer's Live tab open (3.0.7.0 R2: the React canvas)
+    (3.1.5.0 R3: studio-roles-live.png and studio-session.png, with their animated GIFs and
+    studio-session-live.png, are tools/capture_session_anim.py's now)
     docs/media/studio-fleet-panels.png  (R4) the panels (eight since R6): People, Costs and Health compact on
                                       top, Attention with the member's two cards, the map with a
                                       conflict edge (both harnesses editing shop/basket.py), Activity's
@@ -150,19 +150,8 @@ def shoot_mission(c, rig, png: Path) -> int:
     return c.shot(png)
 
 
-def shoot_session(c, rig, png: Path) -> int:
-    """3.1.4.0 R2: the Session section (Alt+6): this harness's box only, the researcher's streams open."""
-    c.go(rig.url("session"))
-    c.wait("!!document.querySelector('[data-testid=\"session-map\"]') && document.querySelectorAll('[data-testid=\"fleet-node\"]').length >= 1", 30)
-    c.wait("document.querySelectorAll('[data-testid=\"fleet-box\"]').length === 1", 20)
-    c.click_on(node("researcher"))
-    c.wait("[...document.querySelectorAll('[data-testid=\"fleet-text\"]')].some((e) => e.textContent.includes('tax rule'))", 15)
-    c.wait("!document.querySelector('.toast')", 10)
-    time.sleep(1.2)
-    return c.shot(png)
-
-
-def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
+def shoot(c, rig, fleet_png: Path, roles_png: "Path | None" = None) -> bool:
+    """The Fleet captures. `roles_png` is kept for the callers; Roles live and Session are tools/capture_session_anim.py's."""
     open_fleet(c, rig)
     c.click_on(node("implementer"))
     x, y, w, h = c.rect("document.querySelector('.fm-scroll')")
@@ -175,22 +164,15 @@ def shoot(c, rig, fleet_png: Path, roles_png: Path) -> bool:
     c.wait("!document.querySelector('.toast')", 10)  # the toasts fade first: nothing covers the Steer box
     time.sleep(1.2)
     a = c.shot(fleet_png)
-    open_roles(c, rig)
-    c.click_on(card("implementer"), 0.5, 0.25)
-    c.wait("[...document.querySelectorAll('[data-testid=\"roles-live\"] [data-testid=\"fleet-text\"]')].some((e) => e.textContent.includes('discount'))", 15)
-    time.sleep(1.2)
-    b = c.shot(roles_png)
     panels_png = fleet_png.with_name("studio-fleet-panels.png")
     d = shoot_panels(c, rig, panels_png)
     caps_png = fleet_png.with_name("studio-fleet-capabilities.png")
     e = shoot_caps(c, rig, caps_png)
-    session_png = fleet_png.with_name("studio-session.png")
-    s = shoot_session(c, rig, session_png)  # 3.1.4.0 R2: the sixth banner frame
     mission_png = fleet_png.with_name("studio-fleet-mission.png")
     m = shoot_mission(c, rig, mission_png)  # last: the planned mission stays in the rig
-    for path, size in ((fleet_png, a), (roles_png, b), (panels_png, d), (caps_png, e), (session_png, s), (mission_png, m)):
+    for path, size in ((fleet_png, a), (panels_png, d), (caps_png, e), (mission_png, m)):
         print(f"{'wrote' if size > 10_000 else 'FAILED'} {path} ({size} bytes)")
-    return min(a, b, d, e, s, m) > 10_000
+    return min(a, d, e, m) > 10_000
 
 
 def capture(out: str, as_dom: bool, find_chrome) -> int:
