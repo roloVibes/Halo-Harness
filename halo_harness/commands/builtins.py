@@ -1757,8 +1757,8 @@ _BUILTIN_SPECS = {
     "add-dir": ("core", "Add a working directory", "<directory>", _cmd_add_dir),
     "theme": ("core", "Show or set the color theme", "[theme]", _cmd_theme),
     "exit":("ui", "Exit halo", None, _cmd_exit),
-    "copy": ("ui", "Copy the last reply, a code block, or the last tool output to the clipboard",
-             "[code [N]|tool]", _cmd_copy),
+    "copy": ("ui", "Copy the last reply, a code block, the last tool output or the unsent draft "
+                   "to the clipboard", "[code [N]|tool|draft]", _cmd_copy),
     "rename": ("ui", "Rename this session", "<title>", _cmd_rename),
     "fork": ("ui", "Fork this session into a new one", None, _cmd_fork),
     "stats": ("core", "Show tokens/cost per model and tool-call counts (--models, --tools)", None, _cmd_stats),

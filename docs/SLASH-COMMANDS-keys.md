@@ -37,7 +37,10 @@ focus: `Ctrl+C` (copies the selection, else the last assistant reply; never
 interrupts a turn -- `Esc` does; a second press within 3s opens a "Quit
 Halo? Enter quits, Esc stays" card, and the terminal stays open either way;
 `quit_on_double_ctrl_c: false` in `~/.halo/config.json` removes the card,
-leaving `/exit`/`Ctrl+D`/`Ctrl+Q` as the only ways to leave), `Ctrl+D`
+leaving `/exit`/`Ctrl+D`/`Ctrl+Q` as the only ways to leave),
+`Ctrl+Shift+C` (3.1.6.0: copies the whole chat-box draft; many terminals
+keep this key for their own copy, and `/copy draft` does the same from the
+chat box), `Ctrl+D`
 (quit when the prompt is empty, else forward-delete), `Ctrl+Q` (1.0.1:
 force quit -- exits even if the session is wedged; waits at most 2s for a
 clean shutdown, then exits regardless), `Esc` (interrupt), `Shift+Tab` (cycle

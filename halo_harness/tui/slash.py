@@ -1834,6 +1834,13 @@ async def _handle_copy(app, args: str) -> None:
     tokens = (args or "").split()
     sub = tokens[0].lower() if tokens else ""
 
+    if sub == "draft":
+        # 3.1.6.0 R5: the unsent chat-box text (the draft this command was
+        # typed over, see tui/draft_copy.py) -- the same copy as Ctrl+Shift+C.
+        from halo_harness.tui.draft_copy import copy_draft
+        copy_draft(app, source="command")
+        return
+
     if sub == "tool":
         card = _last_widget_of_type(app, ToolCard)
         if card is None:
@@ -1870,7 +1877,7 @@ async def _handle_copy(app, args: str) -> None:
         return
 
     if sub:
-        app.notify("Usage: /copy, /copy code [N], or /copy tool", severity="error", title="/copy")
+        app.notify("Usage: /copy, /copy code [N], /copy tool, or /copy draft", severity="error", title="/copy")
         return
 
     widget = _last_widget_of_type(app, AssistantText)

@@ -116,6 +116,8 @@ TIPS: "tuple[Tip, ...]" = (
     # no screen-cell reading, needed.
     Tip('/copy copies the last reply; /copy code or /copy tool copies a code block or output'),
     Tip('y on a focused tool card or in the pager copies its full output; Y copies this turn'),
+    # 3.1.6.0 R5: copying the unsent draft.
+    Tip('Ctrl+Shift+C or /copy draft copies the whole unsent chat-box draft'),
 )
 
 

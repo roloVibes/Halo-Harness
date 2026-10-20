@@ -20,6 +20,8 @@ _KEY_ROWS = [
                      "does); a second press within 3 s asks 'Quit Halo?' -- Enter quits, Esc "
                      "stays; the terminal stays open either way; config quit_on_double_ctrl_c: "
                      "false turns the card off"),
+    ("Ctrl+Shift+C", "Copy the whole chat-box draft (many terminals keep this key for their own "
+                     "copy -- /copy draft does the same from the chat box)"),
     ("Ctrl+A", "Select all text in the chat box"),
     ("Ctrl+V", "Paste the system clipboard into the chat box (notifies if no clipboard "
                 "tool is found -- use your terminal's own paste instead)"),
@@ -44,7 +46,8 @@ _KEY_ROWS = [
     ("@file or @file#L10-20", "Attach a file (or a line range) as context, via the Read path"),
     ("!cmd", "Run a shell command inline (Bash tool + permissions), shown as a tool card"),
     ("Shift + drag-select", "Bypass the app's mouse capture for native terminal selection/copy "
-                            "(most terminals -- xterm, kitty, gnome-terminal, tmux panes)"),
+                            "(most terminals -- xterm, kitty, gnome-terminal, QTerminal, tmux panes); "
+                            "the terminal's own copy key then copies it"),
 ]
 
 
