@@ -1619,3 +1619,75 @@ Not taken: letting library entries inherit automatically (the paper keeps
 the base harness and reuses only through proposals, and so does Halo: Apply
 after one confirm, with Undo); an in-run editor that rewrites the harness
 mid-task (the probe runs are whole runs, judged at the end).
+
+## ADDED 2026-10-20 ~00:20 (rolo: "I have some GitHub and app changes. Trying to focus halo harness"): 3.1.5.0 "Focus" -- two removals, Session and Roles polished, the front page; "The coach probes" becomes 3.1.6.0
+
+Why, in the owner's words after the 3.1.4.0 release: "as we developed we
+created some cool stuff that might outshine where we started. I think
+studio should be featured more in GitHub." "Honestly remove the
+subscription model listing like the claude code subscription and whatever
+OpenAI codex does. It's just not worth it to do that, remove that and
+update even mentioning that model provider mention." "Steering and
+watching a model think part isn't something new, but how we see how all
+the agents talking more and visualizing tie jobs like I see in fleet, which
+will be in the new dashboard ... that really shows you the model and flow
+thinking. When that is available we need that featured." "The dock that
+cannot hide can go from speaking to it. More about the parts of each studio
+tab like agents and more info how that glow looks and goes, what parts of
+each studio does. We can remove much of the talk about the design part in
+studio. We can keep it but not the main direction. Also remove all the game
+themes like doom and Metroid, unnecessary at this point. Remove mentioning
+code review with a judge and don't mention you can add signal to this. One
+paste instead of screenshots can be removed from the feature page too."
+"Dashboard and roles I think should be the biggest focus of studio with
+lots of graphics along with a more polished look and feel."
+
+**3.1.5.0 "Focus"** (product and front page)
+
+- R1 The subscription routes are gone: the Claude Code (`cc:`) and Codex
+  (`cx:`) subscription routes, their providers, login detection, the
+  consent machinery (`halo subscriptions accept|scrub|status`, the scrub
+  that rewrote refs to OpenRouter equivalents), their catalog and picker
+  rows, wizard rows, config keys, docs, glossary words and tests. The
+  API-key providers (`ant:`, `oai:`, `or:`, `dbx:`, `ol:`, `hf:`, `xp:`)
+  are untouched; a `cc:`/`cx:` ref left in a file or on `--model` is one
+  clear line ("removed in 3.1.5.0: use an API route, e.g. ant:...").
+- R2 The game themes are gone: the 2.0.7 theme pack (DOOM, Metroid, Mario,
+  Beetlejuice, Alien), the level band and its scenes, the HUD status-bar
+  skins, `/doom` `/metroid` `/mario` `/beetlejuice` `/alien` `/level`, the
+  theme intro lines, the animated level captures and theme screenshots,
+  the wizard's game rows, their docs and tests. The ordinary themes stay
+  (the status bar is always the ordinary one). A saved game theme in
+  config.json falls back to the default theme with one line.
+- R3 Session and Roles, polished: the two sections the owner wants Studio
+  known for get the full holo treatment (plans: the visual direction of
+  2026-10-13 -- glass panels, HUD brackets, cyan + amber, mono data,
+  restrained motion). Session: the map's working node and its edges glow
+  and settle with the agent's state, the agent tree reads as one picture
+  (who spawned whom, what each runs on, what it costs), the Cost panel
+  draws a context-fill bar and spend over time, a tool's running time on
+  the node. Roles: the card's live glow explained by the card itself (a
+  legend on hover: working, waiting, done, failed), the tier boxes and
+  routing edges drawn with the same brackets, the MODEL strip and pill
+  finished, the canvas empty state inviting. Both sections get an animated
+  capture (SVG or GIF through the existing capture tools) for the page.
+- R4 The front page: README.md (and the GitHub repository description and
+  social preview) lead with Halo Studio, Session and Roles as the biggest
+  focus with lots of graphics: the Session dashboard and Fleet's agent map
+  as the headline ("how we see all the agents talking ... really shows you
+  the model and flow thinking"), the Roles canvas with the live glow (what
+  it looks like and when it comes and goes), then each section's parts --
+  Orchestra, Fleet, Team -- with Design kept short. Steering and watching a
+  model think stay, but no longer lead. Gone from the page: the
+  subscription section, the dock that cannot hide, code review with a
+  judge, remote control from Signal, one paste instead of screenshots, the
+  levels. The feature table and the comparison follow the same cut.
+  docs/README.md's map and the captures follow. Then the release.
+
+**3.1.6.0 "The coach probes"** = the section ADDED 2026-10-19 ~18:10 above
+(R1 tiers on the canvas, R2 the coach probes, R3 the improvement library),
+unchanged, after 3.1.5.0.
+
+Not taken: removing the judge, the Signal bridge or the clipboard paste
+themselves (the owner said "remove mentioning"; the features stay); removing
+Design (it stays, shorter on the page).
