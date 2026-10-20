@@ -66,7 +66,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 
 The browser console: every agent of your session live, your lineups, runs, fleet, team and designs.
 
-- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser view of your lineups, runs, designs, fleet and team.
+- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups in Roles, runs, designs, fleet and team.
   - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the Team.
   - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Orchestra, Roles, Design, Fleet, Team, Session) and the live feed.
   - [STUDIO-orchestra.md](STUDIO-orchestra.md) (Studio: the Orchestra console): read this when you run an Orchestra goal from Studio: the run console, the plan canvas and the coach.
