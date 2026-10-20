@@ -235,7 +235,7 @@ and `/design` straight into that section; `Ctrl`/`Cmd`+`K` opens the command
 palette and `?` opens "How this works". Nothing leaves your machine: no account, no CDN,
 no fonts fetched, no analytics.
 
-<a href="docs/media/studio-modes.png"><img alt="Halo Studio's five sections side by side: Orchestra, Roles, Design, Fleet and Team, under one header" src="docs/media/studio-modes.png" width="100%"></a>
+<a href="docs/media/studio-modes.png"><img alt="Halo Studio's six sections side by side: Orchestra, Roles, Design, Fleet, Team and Session, under one header" src="docs/media/studio-modes.png" width="100%"></a>
 
 The pictures below are headless-Chrome renders of Studio over fixture data
 (`tools/capture_studio.py`), the same way the TUI pictures are made. See
@@ -413,7 +413,7 @@ tool, so check each tool's own docs.
 | **Your Claude Code setup, in place** | `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers and memory are read where they are. Nothing is configured twice. |
 | **Steering** | Type while a turn runs: the steer shows at once and reaches the work, a running command moves to the background instead of dying, sub-agents get your words forwarded into them. |
 | **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in the wizard, with `halo teams apply <lineup>`, or in Studio. |
-| **Halo Studio** | `halo studio`: the browser GUI, five sections on one canvas. Roles edits lineups and bios as a graph, Orchestra and Team run them live, Fleet shows every harness, Design works artboards with the craft apps. Loopback only, per-launch token, no CDN. |
+| **Halo Studio** | `halo studio`: the browser GUI, six sections on one canvas. Roles edits lineups and bios as a graph, Orchestra and Team run them live, Fleet shows every harness, Design works artboards with the craft apps. Loopback only, per-launch token, no CDN. |
 | **Halo Design** | `halo design new|run|sync|export|handoff` and Studio's Design mode: a design project on disk, a turn with the craft apps as tools, knobs without a model call, `halo models --best-for design`. |
 | **Per-model tool-call repairs** | Fourteen model families' quirks are repaired on the fly: Kimi's `functions.{name}:{idx}` ids, GLM's always-on thinking, Qwen's system-message rules, DeepSeek's reasoning echoes. Gateway quirks are learned once per model and remembered (`halo rules`). |
 | **Measured, not guessed** | `/stats` per model and per tool, price/context/speed columns in the picker, per-role cost attribution, and `halo preflight` canaries each lane before a long run. |
