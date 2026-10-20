@@ -1,21 +1,34 @@
 // The Live column's lines (3.1.5.0 R3): each one tagged with its agent (the
 // name, a stable colour per agent, the state glyph lit with the agent's
 // state; a click on the tag pins that agent), then by kind: its text as it
-// types, a tool call as one compact row (the tool, its target, the time
-// ticking while it runs, the first line of its result when it lands), an
-// output or hand-back as a block, an ask as an amber card with its
-// A / R / S / O keys (the attention row's own answers once Studio has read
-// it), a spawn, a state change, a steer sent from here.
+// types, a tool call as one compact row (LiveTool.tsx: the tool, its target,
+// the time ticking while it runs, the first line of its result when it lands,
+// the whole result a click away), an output or hand-back as a block, an ask
+// as an amber card with its A / R / S / O keys (the attention row's own
+// answers once Studio has read it), a spawn, a state change, a steer sent
+// from here. 3.1.7.0 R1 (the owner: "I want what fleet has ... within the
+// session tab"): Fleet's log columns lead every line, the time (HH:MM:SS)
+// and the KIND in the Activity log's own mono classes (fleet-panels2.css
+// `.fac-line`, its container query: under 440 px the time, the kind and the
+// tag share a row and the line's body runs full width under them), and the
+// tag carries a "steer" button on hover (steer.ts: pin it, the box focused).
 import { memo, useRef } from "react";
 import { Kbd } from "../../lib/ui";
-import { short } from "../orchestra/format";
+import { clock, short } from "../orchestra/format";
 import { answerRow } from "../fleet/extras";
 import { panels, usePanels, type AttnRow } from "../fleet/pstore";
-import { parseKey, useNow } from "../fleet/store";
+import { parseKey } from "../fleet/store";
 import { patchPanel } from "../../lib/workspace/persist";
-import type { LiveLine } from "../shared/liveFeed";
+import type { LiveKind, LiveLine } from "../shared/liveFeed";
+import { ToolRow } from "./LiveTool";
+import { steerAgent } from "./steer";
 
 export type Who = { name: string; hc: number; state: string };
+
+/** The KIND column, Fleet's log vocabulary. */
+export const KIND: Record<LiveKind, string> = {
+  text: "TEXT", thinking: "THINK", tool: "TOOL", output: "OUT", ask: "ASK", spawn: "SPAWN", state: "STATE", you: "YOU", asked: "ASKED", error: "ERR",
+};
 
 const ORDER = ["a", "r", "s", "o"];
 const DEFAULT_KEYS: Record<string, Record<string, string>> = {
@@ -26,32 +39,19 @@ const DEFAULT_KEYS: Record<string, Record<string, string>> = {
 };
 const GLYPH: Record<string, string> = { running: "●", queued: "○", waiting: "◆", paused: "❚❚", done: "✓", failed: "✕", stopped: "■" };
 
-/** 4s, 1m 05s. */
-export function dur(ms: number): string {
-  const s = Math.max(0, Math.round(ms / 1000));
-  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s`;
-}
-
 function Tag({ k, who, onPin }: { k: string; who: Who; onPin: (k: string) => void }) {
   return (
-    <button type="button" className="slv-tag mono" data-testid="session-live-tag" data-hc={who.hc} data-state={who.state} data-key={k}
-            onClick={() => onPin(k)} title={`${who.name}: ${who.state || "?"}. Click: show only it (again, or Esc: everyone)`}>
-      <span className="slv-glyph" aria-hidden="true">{GLYPH[who.state] || "·"}</span>
-      <span className="slv-name">{short(who.name, 18)}</span>
-    </button>
-  );
-}
-
-function ToolRow({ l }: { l: LiveLine }) {
-  const now = useNow(!l.ended, 1000);
-  const took = l.ended && l.t0 && l.ended > l.t0 + 400 ? dur(l.ended - l.t0) : "";
-  return (
-    <div className="slv-tool" data-running={!l.ended || undefined} data-error={l.error || undefined}>
-      <span className="slv-tool-name mono">{l.tool}</span>
-      {l.target && <span className="slv-target mono" title={l.target}>{short(l.target, 90)}</span>}
-      <span className="slv-elapsed mono" data-testid="session-live-elapsed">{l.ended ? took : dur(now - l.t0)}</span>
-      {l.result !== undefined && <div className="slv-result mono" data-testid="session-live-result">{l.error ? "✕ " : "→ "}{l.result}</div>}
-    </div>
+    <span className="slv-who">
+      <button type="button" className="slv-tag mono" data-testid="session-live-tag" data-hc={who.hc} data-state={who.state} data-key={k}
+              onClick={() => onPin(k)} title={`${who.name}: ${who.state || "?"}. Click: show only it (again, or Esc: everyone)`}>
+        <span className="slv-glyph" aria-hidden="true">{GLYPH[who.state] || "·"}</span>
+        <span className="slv-name">{short(who.name, 18)}</span>
+      </button>
+      <button type="button" className="slv-steer-tag mono" data-testid="session-live-steer-tag" tabIndex={-1} onClick={() => steerAgent(k)}
+              title={`Steer ${who.name}: the Steer box at the bottom, addressed to it`}>
+        steer ▸
+      </button>
+    </span>
   );
 }
 
@@ -131,9 +131,13 @@ function Body({ l, live }: { l: LiveLine; live: boolean }) {
 
 export const LiveRow = memo(function LiveRow({ l, who, last, onPin, onHover }: { l: LiveLine; who: Who; last: boolean; onPin: (k: string) => void; onHover: (k: string) => void }) {
   return (
-    <div className="slv-line" data-testid="session-live-line" data-hc={who.hc} data-kind={l.kind} data-key={l.key} data-n={l.n} onMouseEnter={() => onHover(l.key)}>
+    <div className="fac-line slv-line" data-testid="session-live-line" data-hc={who.hc} data-kind={l.kind} data-key={l.key} data-n={l.n} onMouseEnter={() => onHover(l.key)}>
+      <span className="mono fac-ts" data-testid="session-live-time">{clock(l.ts)}</span>
+      <span className="mono fac-kind" data-testid="session-live-kind">{KIND[l.kind] || l.kind}</span>
       <Tag k={l.key} who={who} onPin={onPin} />
-      <Body l={l} live={last && who.state === "running" && (l.kind === "text" || l.kind === "thinking")} />
+      <div className="fac-text slv-body">
+        <Body l={l} live={last && who.state === "running" && (l.kind === "text" || l.kind === "thinking")} />
+      </div>
     </div>
   );
 });

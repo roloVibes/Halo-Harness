@@ -120,9 +120,13 @@ harness does, in the order it happens.
 - What an agent hands back, and its last words when it finishes.
 - What it asks you, as an amber card you answer with `A`, `R`, `S` or `O`.
 
-Each line carries its agent's tag: its own colour, its name and its state. Follow is on:
-scroll up and it pauses, **↓ N new** brings you back. Click a tag and the column shows
-only that agent, with a Steer box at the bottom; `Esc` shows everyone again.
+Each line carries Fleet's columns, the time and the kind (`TOOL`, `TEXT`, `STATE`, `ASK`,
+`YOU`), then its agent's tag: its own colour, its name and its state; a timeline lane per
+live agent sits on top, with an agent pick and a kind pick beside Follow. Follow is on:
+scroll up and it pauses, **↓ N new** brings you back. The Steer box is always at the
+bottom, with Pause and Stop beside it: it talks to the session's main agent, or to the one
+you pin (click its tag, or hover any tag or map node and click **steer**); `Esc` shows
+everyone again.
 
 <a href="docs/media/studio-session-live.png"><img alt="The Live column up close: agent tags, Bash, Read and Edit rows with their times and results, a spawn line, an amber ask card with allow, deny, stop and open, two DONE blocks with the agents' last words" src="docs/media/studio-session-live.png" width="100%"></a>
 

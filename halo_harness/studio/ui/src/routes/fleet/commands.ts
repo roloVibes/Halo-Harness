@@ -16,6 +16,7 @@ import { startFleet } from "./sync";
 import { askWho } from "./Capabilities";
 import { caps, focusHarness } from "./caps";
 import { missionCommands } from "./mcommands";
+import { focusSteer } from "./Steer";
 
 export type FleetCommand = { id: string; group: string; label: string; hint?: string; kbd?: string; run: () => void };
 
@@ -48,7 +49,7 @@ export function fleetCommands(): FleetCommand[] {
   if (sel) {
     const name = sel.a.name || sel.a.agent_id;
     out.push(
-      { id: "fleet-steer", group: g, label: `Fleet: steer ${name}`, hint: "the Steer box: a nudge or a new task", run: inFleet(() => (openAgentPanel(), fleet.update((st) => ({ steerFocus: st.steerFocus + 1 })))) },
+      { id: "fleet-steer", group: g, label: `Fleet: steer ${name}`, hint: "the Steer box: a nudge or a new task", run: inFleet(() => (openAgentPanel(), focusSteer("agent"))) },
       { id: "fleet-pause", group: g, label: `Fleet: ${sel.a.state === "paused" ? "resume" : "pause"} ${name}`, kbd: "P", run: () => void togglePause(sel.key) },
       { id: "fleet-stop", group: g, label: `Fleet: stop ${name}`, hint: "asks first", run: () => askStop(sel.key) },
       { id: "fleet-takeover", group: g, label: `Fleet: take over ${name}`, hint: "your brief replaces its task, recorded as a hand-off", run: () => askHandoff("take_over", sel.key) },

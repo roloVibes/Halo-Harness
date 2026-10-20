@@ -65,6 +65,12 @@
 .fm-more text { font: 700 11px var(--mono); fill: var(--muted); }
 .fm-more:hover rect { fill: var(--accent-soft); stroke: var(--line); }
 .fm-more:hover text { fill: var(--accent); }
+/* 3.1.7.0 R1: the "steer" chip a node shows while the pointer (or the focus) is on it (MapSteer.tsx) */
+.fm-steer { cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 120ms var(--ease); }
+.fm-node:hover .fm-steer, .fm-node:focus-within .fm-steer { opacity: 1; pointer-events: auto; }
+.fm-steer rect { fill: var(--accent); filter: drop-shadow(0 0 4px var(--accent)); }
+.fm-steer text { font: 700 9.5px var(--mono); fill: var(--accent-ink); }
+.fm-steer:hover rect { fill: var(--hc, var(--accent)); }
 .fm-node[data-motion="idle"] .fm-shape { animation: fm-breathe 4s ease-in-out infinite; }
 .fm-node[data-motion="working"] .fm-shape { stroke: var(--accent); stroke-width: 1.7; stroke-dasharray: 9 5; animation: og-dash .9s linear infinite; }
 .fm-node[data-motion="working"] .fm-dot { fill: var(--accent); }

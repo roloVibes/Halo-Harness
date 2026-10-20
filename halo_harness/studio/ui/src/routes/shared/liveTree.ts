@@ -10,16 +10,20 @@
 // anything it did live. The first look at the tree is silent: what was
 // already there is not news. 3.1.5.0 R3 follow-up: it reads the tree only
 // while the Session section shows (a change that happened away lands when you
-// come back), so nothing of it runs for the Fleet page.
+// come back), so nothing of it runs for the Fleet page. 3.1.7.0 R1: a steer
+// is echoed by its own entry (each `you` entry once), so the first steer to an
+// agent nobody had opened (its stream starts with it: the session's main agent
+// from the Live column's Steer box) lands as a YOU line at once too.
 import { studio } from "../../lib/store";
 import { allAgents, fleet, isLive, localId } from "../fleet/store";
 import { loadTail } from "../fleet/streams";
-import type { AgentKey } from "../fleet/types";
+import type { AgentKey, Entry } from "../fleet/types";
 import { addLine, fromEntry, live, startLive } from "./liveFeed";
 
 const BACKLOG = 40;
 const states = new Map<AgentKey, string>();
-const yous = new Map<AgentKey, number>();
+const echoed = new WeakSet<Entry>();
+let since = Infinity; // unix seconds: the column's start (a steer sent before it is not news)
 const seeded = new Set<AgentKey>();
 let primed = false;
 let seeding = false;
@@ -80,15 +84,17 @@ function targets(s: ReturnType<typeof fleet.get>): void {
 
 const ticks = new Map<AgentKey, number>();
 
-/** A steer typed in Studio: the stream echoes it (`you`), and so does the column (only streams that moved are read). */
+/** A steer typed in Studio: the stream echoes it (`you`), and so does the column, each entry once (only streams that moved are read). */
 function echoes(s: ReturnType<typeof fleet.get>): void {
   for (const [key, st] of Object.entries(s.streams)) {
     if (ticks.get(key) === st.tick) continue;
     ticks.set(key, st.tick);
-    const mine = st.entries.filter((e) => e.you);
-    const seen = yous.has(key) ? yous.get(key)! : mine.length;
-    yous.set(key, mine.length);
-    for (const e of mine.slice(seen)) addLine({ key, kind: "you", ts: Number(e.ts) || Date.now() / 1000, text: String(e.text || "") });
+    for (const e of st.entries) {
+      if (!e.you || echoed.has(e)) continue;
+      echoed.add(e);
+      const ts = Number(e.ts) || Date.now() / 1000;
+      if (ts >= since) addLine({ key, kind: "you", ts, text: String(e.text || "") });
+    }
   }
 }
 
@@ -114,6 +120,7 @@ export function startLiveTree(seed = false): void {
   startLive();
   if (!treeOn) {
     treeOn = true;
+    since = Date.now() / 1000 - 1;
     fleet.subscribe(onTree);
     let was = studio.get().section;
     studio.subscribe(() => {

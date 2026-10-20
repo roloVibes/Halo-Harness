@@ -88,7 +88,9 @@ was); a double-click opens Agent expanded and focused; `...` on an
 agent is **Steer**, **Pause** / **Resume**, **Pin**, **Stop...**, **Take over...**,
 **Hand to...**, **Record this agent**, and on a session card **Record the
 session** and **Shut the session down...**; **Open in Orchestra** when the
-session is an Orchestra worker.
+session is an Orchestra worker. Hovering a node shows a **steer** chip
+(3.1.7.0): here it opens the Agent panel's Steer box with the keyboard in
+it; in Session it pins the agent in the Live column and steers it there.
 
 **Steer.** Type in the Steer box and press Enter (or Send): **nudge** is a
 note the agent reads before its next model call, **redirect** gives it a new
