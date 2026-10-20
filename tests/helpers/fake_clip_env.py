@@ -62,7 +62,7 @@ class LinuxClipEnv:
         saved = self.state_dir / "clipboard.txt"
         found = self._cb.find_clipboard_tool()
         return (f"(last copy error {self._cb.last_copy_error()!r}; clipboard.txt written: {saved.exists()}; "
-                f"find -> {found!r}; PATH={os.environ.get('PATH')!r})")
+                f"find -> {found!r}; platform -> {self._cb._platform()!r}; PATH={os.environ.get('PATH')!r})")
 
     def __enter__(self) -> "LinuxClipEnv":
         import halo_harness.tui.clipboard as cb
