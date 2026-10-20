@@ -190,6 +190,7 @@ repo. `--json` prints the rows. Read only; no model is called.
 halo coach [RUN] [--json] [--repo DIR]           the post-run coach's card for a run of any kind
 halo coach [RUN] --model [--refresh]             the run's lead explains each card in one paragraph
 halo coach [RUN] --apply ID [--yes] [--json]     write the change card ID names, after the confirm card and y/N
+halo coach [RUN] --probe [--k N] [--yes] [--json]  3.1.6.0: try two candidate overlays first, then one card
 halo coach --undo [APPLY_ID] [--json]            put back the file of an apply (default: the last one not undone)
 ```
 
@@ -213,6 +214,15 @@ lists each suggestion with its id, its why lines, what Apply writes, its
 - `--undo [APPLY_ID]` restores the file's text from before the apply when
   the file still holds what the apply wrote; otherwise it exits 1 with the
   reason and writes nothing.
+- `--probe [--k N]` (3.1.6.0, an Orchestra run with its report) prints the
+  cost line first ("probe: 2 runs, up to $X") and asks `Run the probe?
+  [y/N]` (`--yes` skips; `--json` without `--yes` prints the estimate and
+  runs nothing). It then runs the goal again under the lead's candidate
+  overlays (k pairs; `coach.probe.k`, each run capped at the run's cost x
+  `coach.probe.budget_factor`), prints each step, the contrast table and the
+  pick; the probe's card then leads the run's card (`--apply probe-<ts>`
+  writes it, `--undo` puts every file back). A mission or a team run exits
+  1 with one line. See [ORCHESTRA.md, "Probes"](ORCHESTRA.md#probes).
 - `--json` prints the result; every suggestion carries `paragraph` (null
   until asked), `paragraph_error` and `applied`.
 

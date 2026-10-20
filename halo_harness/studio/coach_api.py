@@ -19,6 +19,16 @@ computed, source_mtime, cached}` (each suggestion with its `paragraph`,
     POST <coach path>/undo   {apply_id}       put the file back -> {ok, message, apply_id}; 409 with the reason
 
 404 for an unknown run, 405 for another method, 422 when the change cannot be made.
+
+3.1.6.0 R2, an Orchestra run only (orchestra/coach_probe.py):
+
+    POST orchestra/<run>/coach/probe {k?, confirm?}   confirm false: {estimate: {runs, cap_usd, total_usd, line, ...},
+                                                      running} (nothing runs); confirm true: 202 {started, estimate}, the
+                                                      probe on a thread (studio/coach_probe_job.py); 409 while one runs;
+                                                      422 for a mission, a team run or a run with no report
+
+The orchestra coach's GET answer carries `probe` (its status, with `live`: a
+probe of the run runs in this Studio) and, once one ended, the probe's card first.
 """
 
 from __future__ import annotations
@@ -27,7 +37,7 @@ import re
 from pathlib import Path
 
 _RUN = r"[A-Za-z0-9_-]+"
-_VERB = r"(?:/(?P<verb>ask|apply|undo))?$"
+_VERB = r"(?:/(?P<verb>ask|apply|undo|probe))?$"
 PATTERNS = (("orchestra", rf"^orchestra/(?P<run>{_RUN})/coach{_VERB}"),
             ("mission", rf"^fleet/missions/(?P<run>m-\d{{8}}-[0-9a-f]{{4}})/coach{_VERB}"), ("team", rf"^team/coach{_VERB}"))
 
@@ -68,9 +78,34 @@ def _cwd_of(kind: str, run_dir, req):
     return req.cwd
 
 
+def _publisher(req):
+    if getattr(req, "server", None) is None:
+        return None
+    from halo_harness.studio.events import bridge_for
+    return bridge_for(req.server).publish_local
+
+
+def _probe(kind: str, run_dir, body: dict, cwd, req):
+    """3.1.6.0 R2: the probe's cost line, or its start on a thread."""
+    from halo_harness.orchestra import coach_probe as CP
+    if kind != "orchestra" or not (Path(run_dir) / "report.json").is_file():
+        return 422, {"error": "a probe runs an Orchestra run's goal again: it takes an Orchestra run that has its report"}
+    k = body.get("k") if isinstance(body.get("k"), int) and not isinstance(body.get("k"), bool) else None
+    est = CP.estimate(run_dir, k)
+    if not body.get("confirm"):
+        return 200, {"estimate": est, "running": CP.live(run_dir)}
+    if CP.live(run_dir):
+        return 409, {"error": f"a probe of run {Path(run_dir).name} is running", "estimate": est}
+    from halo_harness.studio import coach_probe_job
+    started = coach_probe_job.start(run_dir, k=est["k"], cwd=cwd, state_dir=req.state_dir, publish=_publisher(req))
+    return (202 if started else 409), {"started": started, "estimate": est}
+
+
 def _verb(verb: str, kind: str, run_dir, result: dict, req):
     body = req.body if isinstance(req.body, dict) else {}
     cwd = _cwd_of(kind, run_dir, req)
+    if verb == "probe":
+        return _probe(kind, run_dir, body, cwd, req)
     if verb == "ask":
         from halo_harness.orchestra.coach_ask import ask
         return 200, ask(run_dir, result, str(body.get("id") or ""), refresh=bool(body.get("refresh")), cwd=cwd,
@@ -108,4 +143,7 @@ def dispatch_coach(req):
         result = cached(run_dir, state_dir=req.state_dir)
     except ValueError as e:
         return 404, {"error": str(e)}
+    if kind == "orchestra":
+        from halo_harness.orchestra.coach_probe import live
+        result = dict(result, probe=dict(result.get("probe") or {}, live=live(run_dir)))
     return _verb(verb, kind, run_dir, result, req) if verb else (200, result)

@@ -164,30 +164,32 @@ def new_run_id(now: Optional[float] = None) -> str:
     return f"{stamp}-{secrets.token_hex(2)}"
 
 
-def new_run(repo_root, goal: Goal, *, lead_holder: Optional[str] = None) -> Path:
+def new_run(repo_root, goal: Goal, *, lead_holder: Optional[str] = None, parent=None, name: str = "") -> Path:
     """Create `<repo>/.halo/orchestra/<run-id>/` with run.json, goal.json, an
-    empty events.jsonl and workflow.json. Raises ValueError for an invalid goal."""
+    empty events.jsonl and workflow.json. Raises ValueError for an invalid goal.
+    3.1.6.0 R2: `parent` (a run folder) puts it at `<parent>/probes/<name>/` instead, where no run list looks."""
     problems = validate_goal(goal)
     if problems:
         raise ValueError("; ".join(problems))
     goal = Goal.from_dict(goal.to_dict())
     goal.files = [norm_file(f) for f in goal.files]
-    root = runs_root(repo_root)
+    root = Path(parent) / "probes" if parent is not None else runs_root(repo_root)
     root.mkdir(parents=True, exist_ok=True)
     ignore = root / ".gitignore"
-    if not ignore.exists():
+    if parent is None and not ignore.exists():
         ignore.write_text("# Orchestra run state: never committed, never merged.\n*\n", encoding="utf-8")
     while True:
-        run_dir = root / new_run_id()
+        run_dir = root / (name or new_run_id())
         try:
             run_dir.mkdir()
             break
         except FileExistsError:
-            continue
+            if name:
+                raise ValueError(f"{run_dir} already exists")
     created = time.time()
     jsonl.write_json(run_dir / "run.json", {"run_id": run_dir.name, "created": created,
-                                            "repo_root": str(Path(repo_root).resolve()),
-                                            "lead_holder": lead_holder})
+                                            "repo_root": str(Path(repo_root).resolve()), "lead_holder": lead_holder,
+                                            **({"parent": Path(parent).name} if parent is not None else {})})
     save_goal(goal, run_dir / "goal.json")
     (run_dir / "events.jsonl").write_text("", encoding="utf-8")
     jsonl.write_json(run_dir / "workflow.json", designed_graph(goal.workers))

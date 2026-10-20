@@ -1546,7 +1546,9 @@ def _cmd_orchestra(args: str, facade: HeadlessFacade) -> str:
 
 def _cmd_coach(args: str, facade: HeadlessFacade) -> str:
     """Halo 3.1.3.0 R1: the post-run coach's card for a run of any kind (`halo
-    coach` with the same flags: --model, --refresh, --apply ID --yes, --undo)."""
+    coach` with the same flags: --model, --refresh, --apply ID --yes, --undo).
+    3.1.6.0 R2: `--probe [--k N]` shows the cost line; `--probe --yes` starts the
+    probe on a thread and answers at once (`/coach` shows its card when it ends)."""
     import contextlib
     import io
     import shlex
@@ -1555,8 +1557,10 @@ def _cmd_coach(args: str, facade: HeadlessFacade) -> str:
         argv = shlex.split(args or "")
     except ValueError as e:
         return f"/coach: {e}"
-    if "--apply" in argv and "--yes" not in argv:
-        argv.append("--preview")  # no y/N prompt here: the confirm card, then `/coach ... --apply ID --yes` writes it
+    if ("--apply" in argv or "--probe" in argv) and "--yes" not in argv:
+        argv.append("--preview")  # no y/N prompt here: the confirm card (or the cost line), then `... --yes` does it
+    elif "--probe" in argv:
+        argv.append("--background")
     out, err = io.StringIO(), io.StringIO()
     session = getattr(facade, "session", None)
     cwd = getattr(session, "cwd", None) or getattr(facade, "cwd", None)
@@ -1767,8 +1771,9 @@ _BUILTIN_SPECS = {
     "tasks": ("core", "List background Bash jobs started this session", None, _cmd_tasks),
     "orchestra": ("core", "Show the latest Orchestra run: its steps, worker lanes and run log", "[run]",
                   _cmd_orchestra),
-    "coach": ("core", "The post-run coach's card for a run: --model asks the lead, --apply ID writes, --undo puts back",
-              "[run] [--model] [--apply ID] [--undo [ID]]", _cmd_coach),
+    "coach": ("core", "The post-run coach's card for a run: --model asks the lead, --apply ID writes, --undo puts back, "
+              "--probe tries two candidate overlays first", "[run] [--model] [--apply ID] [--probe [--k N]] [--undo [ID]]",
+              _cmd_coach),
     "start": ("core", "The ten-minute start: a lineup, a sample repo, one Orchestra goal, its plan, the run and the coach",
               None, _cmd_start),
     "explain": ("core", "What a Halo word means: one paragraph from the glossary (no word: list them)", "[thing]",

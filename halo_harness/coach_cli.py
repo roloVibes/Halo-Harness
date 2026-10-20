@@ -2,6 +2,7 @@
 (Halo 3.0.9.0 round R3; 3.1.3.0 R1 closed the loop):
 
     halo coach [RUN] [--model [--refresh]] [--apply ID [--yes]] [--json] [--repo DIR]
+    halo coach [RUN] --probe [--k N] [--yes] [--json]   3.1.6.0 R2: the probe (an Orchestra run)
     halo coach --undo [APPLY_ID]
     halo orchestra coach [RUN] ...          an Orchestra run (default: the latest of this repo)
     halo fleet mission coach <id> ...       a mission of this harness (or the shared missions folder)
@@ -18,8 +19,13 @@ the diff) and asks y/N (`--yes` skips; with `--json` and no `--yes` it
 prints the preview and writes nothing). `--undo` puts back the file of an
 apply (the last one not undone when no id), when the file still holds what
 the apply wrote. `--json` prints the result, `paragraph` per suggestion.
+`--probe` (orchestra/coach_probe.py) prints the cost line first ("probe: N
+runs, up to $X"), asks y/N (`--yes` skips; `--json` without `--yes` prints the
+estimate and runs nothing), runs the goal again under the lead's candidate
+overlays, then prints the contrast table and the pick; the probe's card then
+leads the run's card (`--apply probe-<ts>` writes it, Undo puts it back).
 Exit codes: 0 done, 1 no such run / the change could not be made / the
-undo was refused, 2 usage.
+undo was refused / the probe failed, 2 usage.
 """
 
 from __future__ import annotations
@@ -35,8 +41,12 @@ def add_flags(p) -> None:
     p.add_argument("--model", action="store_true", help="ask the run's lead for one paragraph per card")
     p.add_argument("--refresh", action="store_true", help="with --model: ask again instead of reading the kept paragraphs")
     p.add_argument("--apply", default=None, metavar="ID", help="write the change the card ID names (after y/N)")
-    p.add_argument("--yes", action="store_true", help="with --apply: skip the y/N")
+    p.add_argument("--yes", action="store_true", help="with --apply or --probe: skip the y/N")
     p.add_argument("--preview", action="store_true", help=argparse.SUPPRESS)  # /coach: the confirm card, no prompt
+    p.add_argument("--probe", action="store_true", help="run the goal again under two candidate overlays, compare, "
+                                                        "compose: one card (an Orchestra run; the cost line first, y/N)")
+    p.add_argument("--k", type=int, default=None, metavar="N", help="with --probe: N pairs of candidates (coach.probe.k)")
+    p.add_argument("--background", action="store_true", help=argparse.SUPPRESS)  # /coach --probe --yes: on a thread
 
 
 def _emit(data, as_json: bool, text: str) -> None:
@@ -51,8 +61,9 @@ def _confirm(prompt: str) -> bool:
 
 
 def preview_text(p: dict) -> str:
-    head = [f"apply {p['id']}: {p['target']} {p.get('name') or ''}: {p['field']} = {p['value']}".replace("  ", " "),
-            f"  file: {p['file']}" + ("" if p["exists"] else " (new: the apply creates it)")]
+    head = [f"apply {p['id']}: {p['target']} {p.get('name') or ''}: {p['field']} = {p['value']}".replace("  ", " ")]
+    head += [f"  file: {f}" for f in p["files"]] + [f"  leaves out {s}" for s in p.get("skipped") or []] if p.get("files") \
+        else [f"  file: {p['file']}" + ("" if p["exists"] else " (new: the apply creates it)")]
     return "\n".join(head + [f"  {line}" for line in p["diff"] or ["(no change: the file already holds it)"]])
 
 
@@ -80,9 +91,41 @@ def _apply(run_dir, result: dict, a, cwd) -> int:
     return 0
 
 
+def _probe(run_dir, a, cwd) -> int:
+    """3.1.6.0 R2: `--probe`: the cost line, y/N (`--yes` skips), the probe, the contrast table and the pick."""
+    from halo_harness.orchestra import coach_probe as CP
+    from halo_harness.orchestra.coach import run_kind
+    from halo_harness.orchestra.coach_probe_card import format_probe
+    if run_kind(run_dir) != "orchestra" or not (Path(run_dir) / "report.json").is_file():
+        print("halo coach: --probe runs an Orchestra run's goal again, so it takes an Orchestra run that has its report"
+              f" ({Path(run_dir).name} is {run_kind(run_dir) or 'not a run'})", file=sys.stderr)
+        return 1
+    est = CP.estimate(run_dir, a.k)
+    if a.json and not a.yes:
+        _emit({"estimate": est, "probe": None}, True, "")
+        return 0
+    print(est["line"])
+    if a.preview and not a.yes:
+        print("nothing run yet: add --yes to run it (/coach --probe --yes)")
+        return 0
+    if not a.yes and not _confirm("Run the probe? [y/N] "):
+        print("nothing run")
+        return 0
+    if a.background:
+        started = CP.start(run_dir, k=a.k, cwd=cwd)
+        print(f"probe started on run {Path(run_dir).name}: /coach {Path(run_dir).name} shows its card when it ends"
+              if started else f"a probe of run {Path(run_dir).name} already runs here")
+        return 0
+    data = CP.probe(run_dir, k=a.k, cwd=cwd, on_step=None if a.json else (lambda line, **_: print(f"  {line}")))
+    _emit(data, a.json, format_probe(data, Path(run_dir).name))
+    return 0 if data.get("state") == "done" else 1
+
+
 def run_card(run_dir, a, cwd=None) -> int:
-    """The card for one run folder, after --model / --apply when given."""
+    """The card for one run folder, after --model / --apply / --probe when given."""
     from halo_harness.orchestra.coach import cached, format_card, overlay
+    if getattr(a, "probe", False):
+        return _probe(run_dir, a, cwd)
     try:
         result = cached(run_dir, cwd=cwd)
     except ValueError as e:

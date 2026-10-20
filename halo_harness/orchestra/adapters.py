@@ -44,13 +44,13 @@ def role_model(role: str, model: Optional[str] = None) -> Optional[str]:
         return None
 
 
-def one_shot(prompt: str, *, model: Optional[str], cwd) -> dict:
+def one_shot(prompt: str, *, model: Optional[str], cwd, effort: Optional[str] = None) -> dict:
     """One turn of a brand-new bare session with no tools:
     `{text, cost_usd, session_id, messages_before, ok, error}`."""
     from halo_harness import headless
     from halo_harness.output import PrintModeSink
     build = headless.build_session(cwd=Path(cwd), model_ref_raw=model, bare=True, print_mode=True,
-                                   max_turns=1, tools="")
+                                   max_turns=1, tools="", effort=effort)
     session = build.session
     try:
         messages_before = len([n for n in session.log.nodes() if n.get("type") in ("user", "assistant")])
@@ -78,20 +78,21 @@ def one_shot(prompt: str, *, model: Optional[str], cwd) -> dict:
             "error": "" if obj else "no result from the model"}
 
 
-def model_call(model: Optional[str], role: str = "main", cwd=None) -> Callable:
-    ref = role_model(role, model)
+def model_call(model: Optional[str], role: str = "main", cwd=None, effort: Optional[str] = None) -> Callable:
+    """3.1.6.0 R2: `effort` (a probe's lead) rides along only when set."""
+    ref, extra = role_model(role, model), ({"effort": effort} if effort else {})
 
     def call(prompt: str) -> dict:
-        return one_shot(prompt, model=ref, cwd=cwd or Path.cwd())
+        return one_shot(prompt, model=ref, cwd=cwd or Path.cwd(), **extra)
     return call
 
 
-def fresh_judge(model: Optional[str], role: str = "main", cwd=None) -> Callable:
+def fresh_judge(model: Optional[str], role: str = "main", cwd=None, effort: Optional[str] = None) -> Callable:
     from halo_harness.orchestra.hunks import judge_prompt
-    ref = role_model(role, model)
+    ref, extra = role_model(role, model), ({"effort": effort} if effort else {})
 
     def judge(hunks: list, goal, file: str) -> dict:
-        return one_shot(judge_prompt(hunks, goal, file), model=ref, cwd=cwd or Path.cwd())
+        return one_shot(judge_prompt(hunks, goal, file), model=ref, cwd=cwd or Path.cwd(), **extra)
     return judge
 
 
@@ -101,9 +102,12 @@ def worker_argv(prompt: str, model: Optional[str], agent: Optional[str] = None) 
     return argv + (["--agent", agent] if agent else []) + (["--model", model] if model else [])
 
 
-def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir,
-                 runner: Callable = subprocess.run, timeout_s: int = WORKER_TIMEOUT_S) -> Callable:
-    """`spawn(lane)`: a fresh `halo -p` in the lane's worktree."""
+def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runner: Callable = subprocess.run,
+                 timeout_s: int = WORKER_TIMEOUT_S, team: Optional[str] = None,
+                 cwd_overlay: Optional[Callable] = None) -> Callable:
+    """`spawn(lane)`: a fresh `halo -p` in the lane's worktree. 3.1.6.0 R2 (the coach's probe runs,
+    orchestra/probe_overlay.py): `team` adds `--team <lineup>`; `cwd_overlay(lane)` writes an overlay into
+    the worktree before the worker starts and answers extra worker flags. Both None: the argv as before."""
     from halo_harness.orchestra.workers import child_env
     ref = role_model(role, model)
 
@@ -114,6 +118,7 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir,
         try:
             job = lane.job  # 3.0.9.0 R2: a reviewed plan may give the lane its own bio and model
             argv = worker_argv(lane.prompt, getattr(job, "model", "") or ref, getattr(job, "bio", "") or None)
+            argv += (["--team", team] if team else []) + (list(cwd_overlay(lane) or []) if cwd_overlay else [])
             proc = runner(argv, cwd=str(lane.worktree), env=env, capture_output=True,
                           text=True, encoding="utf-8", errors="replace", timeout=timeout_s,
                           stdin=subprocess.DEVNULL)

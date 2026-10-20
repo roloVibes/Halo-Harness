@@ -3,20 +3,24 @@
 // run, in localStorage (`halo.coach.dismissed.<kind>.<run>`), so a dismissed
 // card stays hidden after a reload. Nothing here writes a run file; the
 // loop's POSTs (ask, apply, undo: lib/coach/actions.ts) keep their busy word
-// per card in `busy` and the open confirm card per card in `confirm`.
+// per card in `busy` and the open confirm card per card in `confirm`; the
+// Probe button (3.1.6.0 R2, lib/coach/probe.ts) keeps its state per run in `probe`.
 import { api, ApiError } from "../api";
 import { createStore, useStore } from "../store";
-import type { CoachPreview, CoachResult, CoachRunKind } from "./types";
+import type { CoachPreview, CoachResult, CoachRunKind, ProbeEstimate } from "./types";
 
 export type CoachEntry = { loading: boolean; error: string; result: CoachResult | null };
+/** 3.1.6.0 R2: the Probe button's state per run: the cost line once asked, the confirm open, the latest step line. */
+export type ProbeUi = { estimate?: ProbeEstimate; open?: boolean; busy?: string; line?: string; error?: string };
 export type CoachState = {
   runs: Record<string, CoachEntry>;
   dismissed: Record<string, string[]>;
   busy: Record<string, string>;
   confirm: Record<string, CoachPreview>;
+  probe: Record<string, ProbeUi>;
 };
 
-export const coach = createStore<CoachState>({ runs: {}, dismissed: {}, busy: {}, confirm: {} });
+export const coach = createStore<CoachState>({ runs: {}, dismissed: {}, busy: {}, confirm: {}, probe: {} });
 
 export function useCoach<S>(select: (s: CoachState) => S): S {
   return useStore(coach, select);

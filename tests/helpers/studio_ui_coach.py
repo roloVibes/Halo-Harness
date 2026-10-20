@@ -76,6 +76,19 @@ def register(test, json_of, chrome) -> None:
                   and got.get("ask_kept") is True)
 
     @test
+    def test_coach_probe_button_shows_the_cost_runs_and_leads_with_its_table(ctx: Ctx):
+        """3.1.6.0 R2: Probe in the Coach tab's header row opens the confirm with the cost line ("probe: 2 runs, up to
+        $0.0345") and runs nothing; Run the probe runs it beside the console; the probe's card then leads the tab with
+        the contrast table (the run itself first, then the two candidates) and the judge's paragraph; one run listed."""
+        got = run(ctx)
+        ctx.check(f"the button and the cost line, got {got.get('probe_button')} {got.get('probe_cost')!r}",
+                  got.get("probe_button") is True and str(got.get("probe_cost")).startswith("probe: 2 runs, up to $0.0345")
+                  and got.get("probe_ran_before") is False)
+        ctx.check(f"the card and its table, got {got.get('probe_rows')} {got.get('probe_first')} {got.get('probe_reference')} "
+                  f"{got.get('probe_judge')} {got.get('probe_listed')}", got.get("probe_rows") == 3 and got.get("probe_first") == "probe"
+                  and got.get("probe_reference") == "reference" and got.get("probe_judge") == "THE JUDGE" and got.get("probe_listed") == 1)
+
+    @test
     def test_mission_coach_face_lists_its_cards_in_headless_chrome(ctx: Ctx):
         """3.0.9.0 R3: an ended mission's Coach face lists its five cards (the part asked longer than the
         median, the refused edit, the judged conflict, the part that changed nothing, the missing output)."""
