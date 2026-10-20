@@ -7,9 +7,13 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 ## The shell (3.0.3.0)
 
 `halo studio` opens a React shell with six sections in the top bar:
-**Orchestra | Roles | Design | Fleet | Team | Session** (`Alt+1`..`Alt+6`, or `?mode=` in
+**Session | Team | Roles | Fleet | Design | Orchestra** (`Alt+1`..`Alt+6`, or `?mode=` in
 the URL; Fleet since 3.0.5.0, Team since 3.0.8.0, Session since 3.1.4.0; Org and Flow are
-gone since 3.1.4.0). Session is this session, live: the Fleet panels scoped to this harness (see
+gone since 3.1.4.0). The order is one list, `SECTIONS` in `ui/src/routes/index.tsx`
+(3.1.6.0: Session `Alt+1`, Team `Alt+2`, Roles `Alt+3`, Fleet `Alt+4`, Design `Alt+5`,
+Orchestra `Alt+6`): the tabs, the `Alt+N` keys, the palette's groups, the first key of each
+section's **How this works** and the status bar's key hint all read it.
+Session is this session, live: the Fleet panels scoped to this harness (see
 [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
 session of this harness is live. Orchestra is the live run console (see [Orchestra](STUDIO-orchestra.md#orchestra-the-run-console)
 below),
@@ -67,8 +71,8 @@ The classic plain-JS page (`/legacy/`, `halo studio --legacy`) is gone since
   node, and a session that waits on you keeps its inline answer; then the
   layout actions.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
-  grouped results (Go to, Help, Orchestra, Roles, Design, Fleet, Team, Media,
-  View, Layout), keyboard first: arrows,
+  grouped results (Go to, Help, then the sections in the tab order: Team, Roles,
+  Fleet, Design, Orchestra; then Media, View, Layout), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
 - **The status bar** shows the live feed (a dot that is green when
   connected, amber while connecting or reconnecting, red when unreachable,

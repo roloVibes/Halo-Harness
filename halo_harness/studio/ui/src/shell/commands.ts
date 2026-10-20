@@ -1,6 +1,7 @@
-// The palette's commands and its fuzzy matcher. Groups: Go to, Help,
-// Orchestra, Roles, Design, Fleet, Team, Media, View, Layout. Each command may show a key (the
-// same hint the menus show).
+// The palette's commands and its fuzzy matcher. Groups: Go to, Help, then
+// the sections in the registry's order (3.1.6.0 R6: Team, Roles, Fleet,
+// Design, Orchestra; Session has none of its own), Media, View, Layout. Each
+// command may show a key (the same hint the menus show).
 import { cycleTheme, goSection, openHelp, setTheme, studio, toast, toggleRail } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
 import { openStart } from "../lib/start";
@@ -75,7 +76,7 @@ export function commands(): Command[] {
       run: () => revealPanel(cur, p),
     });
   }
-  out.push(...orchestraCommands(), ...rolesCommands(), ...designCommands(), ...fleetCommands(), ...teamCommands(), ...mediaCommands());
+  out.push(...teamCommands(), ...rolesCommands(), ...fleetCommands(), ...designCommands(), ...orchestraCommands(), ...mediaCommands());
   return out;
 }
 

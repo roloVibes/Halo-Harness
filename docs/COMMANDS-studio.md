@@ -20,7 +20,7 @@ halo studio --session [<id>] [--no-open]
 
 ### `--session`
 
-3.1.4.0: `--session [<id>]` opens the **Session** section (`Alt+6`, this
+3.1.4.0: `--session [<id>]` opens the **Session** section (`Alt+1`, this
 session, live: the Fleet map, activity, attention and agent panels scoped to
 this harness, and the session's Cost) on the session `<id>` names (a prefix
 of a live session's id will do). Without `<id>` it is the newest live

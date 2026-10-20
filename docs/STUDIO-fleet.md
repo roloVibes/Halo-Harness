@@ -13,7 +13,7 @@ joined to this machine's hub, each session with its agents at every depth.
 Watch what any agent thinks, runs and writes, and steer, pause or stop that
 one agent, not only the main one.
 
-**Session (3.1.4.0) is these panels scoped to this box.** `Alt+6` (`/studio`
+**Session (3.1.4.0) is these panels scoped to this box.** `Alt+1` (`/studio`
 in a terminal, `halo studio --session`) shows the Map, Activity, Attention
 and Agent panels of this section, the same components, reading the Fleet
 stores through one scope (`{harness, session}`: this harness and the session
@@ -259,9 +259,9 @@ shows it on demand.
 
 | Key | Where | What |
 |---|---|---|
+| `Alt+1` | everywhere | Session: this session, live (3.1.4.0; the first tab since 3.1.6.0) |
+| `Alt+2` | everywhere | Team (3.0.8.0) |
 | `Alt+4` | everywhere | Fleet |
-| `Alt+5` | everywhere | Team (3.0.8.0) |
-| `Alt+6` | everywhere | Session: this session, live (3.1.4.0) |
 | `J` / `K` | Fleet map, the Session map, the Roles canvas, Orchestra lanes | the next / previous live agent (Session: of this harness; Orchestra: the next lane at work) |
 | `F` | Fleet; Roles with the Live tab open; Orchestra | follow: the stream scrolls with the agent (Orchestra: the Log follows) |
 | `Space` | Fleet; Roles with a card's agent watched | pin the stream: a **mini stream** floats over whatever you look at, in every section |

@@ -20,7 +20,7 @@ mid-work), a second session of this harness and a member harness `kali@lab`:
    this harness;
 4. `&session=<id>` chooses that session: the agent panel and Cost follow;
 5. Alt+4 shows Fleet with both harnesses and the member's attention rows (no
-   regression), Alt+6 comes back to Session;
+   regression), Alt+1 (3.1.6.0 R6: Session is the first tab) comes back to Session;
 6. `/studio`'s opener on the running Studio focuses the open page: on Fleet,
    it switches to Session on that session, and no tab opens.
 The links into it are tests/test_studio_session_links.py; `/studio` and
@@ -134,8 +134,8 @@ def test_alt_keys_and_fleet_keeps_everything(ctx: Ctx):
     ctx.check(f"Alt+4 shows Fleet, got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Fleet"))
     ctx.check(f"Fleet still draws every harness, got {got.get('fleet_boxes')}", got.get("fleet_boxes") == ["rolo@studio", "kali@lab"])
     ctx.check(f"and the member's attention rows, got {got.get('fleet_attn')}", (got.get("fleet_attn") or 0) >= 2)
-    ctx.check(f"Alt+6 comes back to Session, its map still one box, got {got.get('alt6')!r} {got.get('back_boxes')}",
-              str(got.get("alt6")).startswith("Session") and got.get("back_boxes") == 1)
+    ctx.check(f"Alt+1 comes back to Session, its map still one box, got {got.get('alt1')!r} {got.get('back_boxes')}",
+              str(got.get("alt1")).startswith("Session") and got.get("back_boxes") == 1)
 
 
 @test

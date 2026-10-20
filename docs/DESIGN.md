@@ -4,7 +4,7 @@ Read this when you make designs, pages, decks or logos with Halo Design on your 
 
 Halo 3.0.1.0. Designs, prototypes, pages, decks, logos, photo work, motion and
 video, made by a model you choose, on the creative apps already on your machine.
-It is the Design section of Halo Studio (`Alt+3`) and a command family
+It is the Design section of Halo Studio (`Alt+5`) and a command family
 (`halo design`). Nothing leaves your machine except the model calls you already
 make with Halo.
 
@@ -188,7 +188,7 @@ halo --cwd ~/.halo/design/launch-page/exports/<stamp>-handoff "continue from HAN
 
 ## Studio's Design mode
 
-Press `Alt+3` in Studio, type `/design` in the TUI, or run `halo studio --mode design`.
+Press `Alt+5` in Studio, type `/design` in the TUI, or run `halo studio --mode design`.
 Since 3.0.7.0 it is a React section: Projects, the Design system (tokens, Save tokens,
 Sync), Assets, Artboards (frames: HTML in a sandboxed frame that cannot reach Studio's
 API, at phone, tablet or desktop size; renders as images; double-click a text to edit it;
