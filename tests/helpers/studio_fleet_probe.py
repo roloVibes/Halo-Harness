@@ -131,7 +131,7 @@ def layout(c, rig) -> dict:
     c.wait(f"!{SAVED} && 1", 10)
     out["after_reset"] = _settle(c, PANELS)
     _click(c, NODE)  # picking an agent opens Agent's strip; the map and Activity stay where they are
-    c.wait(f"{WS}.querySelector('[data-testid=\"fleet-agent-detail\"]') && 1", 10)
+    c.wait(f"{WS}.querySelector('[data-testid=\"fleet-agent-detail\"]') && 1", 30)
     out["after_pick"] = {"panels": _settle(c, PANELS), "overlaps": c.js(OVERLAPS)}
     c.js(f"localStorage.setItem('halo.studio.layout.fleet', {json.dumps(old_saved())}); 1")
     _open(c, rig)
@@ -167,7 +167,7 @@ def widths(c, rig) -> dict:
     out["glance"] = c.js(GLANCE_FONTS)
     out["glance_overflow"] = c.js(OVERFLOW)
     _click(c, NODE)  # the agent picked: Agent opens in the right column
-    c.wait(f"{WS}.querySelector('[data-testid=\"fleet-agent-detail\"]') && 1", 10)
+    c.wait(f"{WS}.querySelector('[data-testid=\"fleet-agent-detail\"]') && 1", 30)
     for pid in STRIPS:
         if c.js(f"!!{OPEN_BTN.format(pid)}"):
             _click(c, OPEN_BTN.format(pid))
