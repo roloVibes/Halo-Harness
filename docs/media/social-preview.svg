@@ -249,6 +249,6 @@
 <rect x="680" y="285.6" width="20" height="6.8" fill="#cba6f7" opacity="0.45"/>
 <rect x="700" y="285.6" width="13.4" height="6.8" fill="#cba6f7" opacity="0.45"/><rect x="706.6" y="272" width="6.8" height="20.4" fill="#cba6f7" opacity="0.45"/>
 </g>
-<text x="640" y="492" font-size="24" fill="#cdd6f4" text-anchor="middle" font-weight="400">The Claude Code-compatible harness for any model.</text>
+<text x="640" y="492" font-size="22" fill="#cdd6f4" text-anchor="middle" font-weight="400">The Claude Code-compatible harness for any model, with Studio: every agent, live.</text>
 <text x="640" y="530" font-size="17" fill="#9399b2" text-anchor="middle">DeepSeek, GLM, Kimi, Qwen, Claude. Your ~/.claude setup, read in place.</text>
 </svg>

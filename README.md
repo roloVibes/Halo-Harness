@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="docs/media/hero.svg"><img alt="Halo Harness" src="docs/media/hero.svg" width="100%"></a>
+  <a href="docs/media/hero.png"><img alt="Halo Harness: the wordmark over Studio's Session dashboard, every agent live" src="docs/media/hero.png" width="100%"></a>
 </p>
 
 <p align="center">

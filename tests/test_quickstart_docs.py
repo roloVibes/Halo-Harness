@@ -32,8 +32,8 @@ def test_readme_first_section_is_quick_start(ctx: Ctx):
     ctx.check(f"README has at least one ## section, got {sections[:3]}", sections)
     ctx.check(f"the FIRST ## section is Install, got {sections[0]!r}",
               sections[0].strip().lower().startswith("install"))
-    ctx.check("the hero image is above every ## section",
-              text.index("docs/media/hero.svg") < text.index("## Install"))
+    ctx.check("the hero image is above every ## section",  # 3.1.6.0 R4: the wordmark over Studio's Session
+              text.index("docs/media/hero.png") < text.index("## Install"))
     ctx.check("the banner block is above every ## section",  # 2.0.11: the block art
               text.index("██╗  ██╗") < text.index("## Install"))
 
