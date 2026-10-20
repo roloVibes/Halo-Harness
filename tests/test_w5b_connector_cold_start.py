@@ -391,7 +391,7 @@ def test_tui_startup_worker_rekicks_discovery_once_the_auth_refresh_says_claude_
             ctx.check(f"discovery re-kicked exactly once, got {calls}", len(calls) == 1)
             ctx.check("with the on_done that bootstrap parked on the controller",
                       bool(calls) and calls[0].get("on_done") is parked)
-            ctx.check(f"the subscription toast still fires once, got {notes}", len(notes) == 1)
+            ctx.check(f"no toast (the kick is silent), got {notes}", notes == [])
         finally:
             connectors_bridge.ensure_discovered_in_background = real
             for k, v in snap.items():

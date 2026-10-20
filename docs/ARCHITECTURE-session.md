@@ -80,11 +80,10 @@ per-model `if` branches sprinkled through the request builder.
 
 ## Providers and compatibility profiles
 
-Four routes, one `ModelRef`/`ModelProfile` pair (`model.py`) describing
-each: `openrouter` and `databricks` (both `openai-chat` dialect, i.e. an
-OpenAI-style `/chat/completions` body), `anthropic` (native Anthropic
-Messages, used by `ant:` and Databricks' own Claude passthrough), and `cc`
-(not a wire dialect at all -- see "The subscription route" below).
+Three core routes, one `ModelRef`/`ModelProfile` pair (`model.py`)
+describing each: `openrouter` and `databricks` (both `openai-chat` dialect,
+i.e. an OpenAI-style `/chat/completions` body) and `anthropic` (native
+Anthropic Messages, used by `ant:` and Databricks' own Claude passthrough).
 `providers/profiles.py::resolve_profile(route, model_table)` resolves a
 `ProviderProfile` from `(host, model family)` plus any per-model override
 row in `model_table.json` -- the central finding this design starts from is

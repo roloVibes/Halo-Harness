@@ -483,7 +483,7 @@ def resolve_agent_model(*, invocation_model: Optional[str] = None, frontmatter_m
         return parent_ref, parent_profile
     # 3.0.1.0 review item 125: a ROLE-TABLE value (never an explicit
     # invocation/CLI/frontmatter one) that does not resolve here -- a
-    # subscription route not accepted, a provider no longer configured --
+    # removed route, a provider no longer configured --
     # runs on the session model, the same answer `/roles` shows for it.
     table_sourced = not (invocation_model or role_cli_model or frontmatter_model) and (
         (role_table_model and raw == role_table_model)
@@ -518,27 +518,20 @@ def _resolve_agent_model_ref(raw: str, *, parent_ref, parent_profile, parent_sma
             return parent_small_ref, profile
         return parent_ref, parent_profile
     # H11b finding 25: `parse_model_ref`'s bare-alias auto-routing (a bare
-    # "sonnet"/"opus"/... resolves to cc: or ant: depending on what's
-    # available) is scoped to a HUMAN's own `--model`/`/model` request
-    # (model.py's own docstring) -- a sub-agent's frontmatter `model:` or
-    # an `Agent(model=...)` override must never silently jump to a
-    # DIFFERENT provider than the parent's own just because one of these
-    # nine words happens to match and `claude` happens to be logged in on
-    # this machine (verified live: a DeepSeek/Kimi session's plugin agents
-    # with `model: sonnet` started spawning nested claude subprocesses on
-    # the subscription once H11 shipped; before it they correctly failed
-    # with InvalidModelError, the same way a made-up model name would). A
-    # Claude-family PARENT (cc:/ant:) resolves the alias on its OWN
-    # already-chosen route (never re-deciding cc: vs ant: independently);
-    # any other parent keeps the bare word as a literal model id on the
-    # parent's own provider/dialect -- the same explicit failure a
-    # not-really-a-model-id string always produced pre-H11.
-    from halo_harness.providers.cc_models import BARE_ALIAS_NAMES
+    # "sonnet"/"opus"/... resolves to ant: when ANTHROPIC_API_KEY is set)
+    # is scoped to a HUMAN's own `--model`/`/model` request (model.py's own
+    # docstring) -- a sub-agent's frontmatter `model:` or an
+    # `Agent(model=...)` override must never silently jump to a DIFFERENT
+    # provider than the parent's own just because one of these words
+    # happens to match (verified live: a DeepSeek/Kimi session's plugin
+    # agents with `model: sonnet` must not leave the parent's provider). A
+    # Claude-family PARENT (ant:) resolves the alias on its OWN
+    # already-chosen route; any other parent keeps the bare word as a
+    # literal model id on the parent's own provider/dialect -- the same
+    # explicit failure a not-really-a-model-id string always produced.
+    from halo_harness.providers.anthropic_aliases import BARE_ALIAS_NAMES
     base_raw = raw[:-len("[1m]")] if raw.endswith("[1m]") else raw
     if base_raw in BARE_ALIAS_NAMES:
-        if parent_ref.provider == "cc":
-            ref = parse_model_ref(f"cc:{raw}", routes)
-            return ref, resolve_model_profile(ref, state_dir, routes)
         if parent_ref.provider == "anthropic" and parent_ref.dialect == "anthropic-passthrough":
             ref = parse_model_ref(f"ant:{raw}", routes)
             return ref, resolve_model_profile(ref, state_dir, routes)

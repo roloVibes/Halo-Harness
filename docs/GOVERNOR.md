@@ -51,8 +51,7 @@ Every remote model request -- Databricks (`dbx:`), OpenRouter (`or:`),
 Anthropic (`ant:`), OpenAI (`oai:`), Hugging Face (`hf:`), Experiential
 (`xp:`) and Ollama (`ol:`, including LAN hosts: a keyless host keys on
 the provider name plus host, so a LAN model server is its own bucket) --
-goes through one choke point in `providers/http.py`. The `cc:` and `cx:`
-routes drive a CLI child process, not HTTP: **not governed**.
+goes through one choke point in `providers/http.py`.
 
 The Governor owns the 429/overload backoff and retry ladder for
 governed routes; the agent loop's own ladder steps aside for those

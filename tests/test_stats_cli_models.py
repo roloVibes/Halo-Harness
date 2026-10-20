@@ -97,16 +97,9 @@ def test_stats_bare_default_unchanged_by_new_flags(ctx: Ctx):
     result = _run(["stats", "--json"], home, cwd)
     ctx.check(f"exit 0, got {result.returncode}", result.returncode == 0)
     obj = json.loads(result.stdout)
-    # Halo 2.0.5 round 1 (brief item H6, "Cost line"): `subscription_
-    # turns`/`subscription_cost_usd` are a DELIBERATE addition to this
-    # same default path (a cc: session's turns, tracked separately from
-    # `total_cost_usd` so they're never counted as real spend) -- this
-    # test's own concern ("an unrelated --models/--tools feature must
-    # never leak into the default shape") doesn't apply to them.
-    ctx.check("old shape plus the new subscription-turns pair: sessions/turns/total_cost_usd/"
-              "subscription_turns/subscription_cost_usd/per_model/tool_counts",
-              set(obj) == {"sessions", "turns", "total_cost_usd", "subscription_turns",
-                            "subscription_cost_usd", "per_model", "tool_counts"})
+    # 3.1.5.0 R1: the subscription-turns pair went with the cc:/cx: routes.
+    ctx.check(f"the default shape: sessions/turns/total_cost_usd/per_model/tool_counts, got {sorted(obj)}",
+              set(obj) == {"sessions", "turns", "total_cost_usd", "per_model", "tool_counts"})
 
 
 @test

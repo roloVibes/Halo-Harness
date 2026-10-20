@@ -128,16 +128,6 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
             f"Saved vs cloud: ${cm.saved_usd:.4f} across {cm.saved_turns} turn(s) -- reference price "
             f"${price_in_per_m:.2f}/M in, ${price_out_per_m:.2f}/M out ({cm.saved_price_source})"
         )
-    # Halo 2.0.5 round 1 (brief item H6, "Cost line"): a cc: model's turns
-    # NEVER count toward the "Total cost"/`--max-budget-usd` figure above
-    # -- shown as its own line, Claude Code's own cumulative-delta figure
-    # explicitly labelled an estimate, never spend.
-    if cm is not None and cm.subscription_turns:
-        est = f"${cm.subscription_cost_usd:.4f}" if cm.subscription_cost_usd else "n/a"
-        lines.append(
-            f"Subscription turns (cc:): {cm.subscription_turns} across this session -- {est} "
-            f"(Claude Code's own estimate, not real per-token spend)"
-        )
     return "\n".join(lines)
 
 
@@ -941,14 +931,14 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
     <name>`/`/teams show <name>` prints the full resolved role table."""
     from halo_harness.teams_yaml import ensure_builtin_team_templates, list_team_templates, resolve_team_template
     from halo_harness.theme import get_config_value
-    scrub_lines: "list[str]" = []
+    note_lines: "list[str]" = []
     try:
-        scrub_lines = ensure_builtin_team_templates() or []
+        note_lines = ensure_builtin_team_templates() or []
         names = list_team_templates(cwd=facade.cwd)
     except Exception:
         names = []
     if not names:
-        return "\n".join([*scrub_lines, "No lineups found."])
+        return "\n".join([*note_lines, "No lineups found."])
     active = get_config_value("team", default=None)
     # Halo 2.0.5 round 5: `/teams show <name>` -- the SAME resolved print
     # `halo teams show` gives (assignments, role table, enforcement
@@ -959,7 +949,7 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
         return _teams_verb(verb, (parts[1].strip() if len(parts) > 1 else ""), facade)
     if not parts:
         from halo_harness.teams_cli_views import overview_lines
-        return "\n".join([*scrub_lines, *overview_lines(cwd=facade.cwd)])
+        return "\n".join([*note_lines, *overview_lines(cwd=facade.cwd)])
     if parts and parts[0].lower() == "show":
         from halo_harness.teams_yaml import enforcement_lines, resolve_role_table
         name = parts[1].strip() if len(parts) > 1 else active
@@ -981,7 +971,7 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
             lines.append("  enforcement (Halo 2.0.5: the live loop runs these):")
             lines.extend(enforced)
         return "\n".join(lines)
-    lines = [*scrub_lines, "Team templates (`halo teams show <name>`/`halo teams use <name>`):"]
+    lines = [*note_lines, "Team templates (`halo teams show <name>`/`halo teams use <name>`):"]
     for name in names:
         template = resolve_team_template(name, cwd=facade.cwd)
         marker = " [active]" if name == active else ""
@@ -1192,34 +1182,11 @@ def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
     never drift apart), plus `enable <name>`/`disable <name>` right here.
     `setup <name>` needs the interactive provider picker/tabs `init` itself
     shows -- not available headless, so this just points at the real
-    command instead of half-implementing it.
-
-    2.0.1 launch-hang fix: `claude_login_available()`/`credentials_present
-    ("claude_subscription")` (what `provider_rows()` reads for its own row)
-    are cache-only now and never spawn `claude auth status` themselves --
-    the "list" branch below does the one, staleness-gated, synchronous
-    refresh this headless surface needs (same `cached_auth_status_is_stale`
-    gate the TUI's own `/model`-open worker uses; print mode has no UI
-    thread to protect here, so this runs inline rather than on a worker)."""
+    command instead of half-implementing it."""
     from halo_harness.providers.enablement import PROVIDER_NAMES, canonical, disable, enable, label_for
     from halo_harness.providers_cli import format_providers_table, provider_rows
     tokens = (args or "").split()
     if not tokens or tokens[0] == "list":
-        try:
-            from halo_harness.providers.cc_models import cached_auth_status_is_stale, refresh_cached_claude_auth_status
-            if cached_auth_status_is_stale():
-                refresh_cached_claude_auth_status()
-        except Exception:
-            pass
-        try:
-            from halo_harness.providers.codex_models import (
-                cached_auth_status_is_stale as cx_auth_status_is_stale,
-                refresh_cached_codex_auth_status,
-            )
-            if cx_auth_status_is_stale():
-                refresh_cached_codex_auth_status()
-        except Exception:
-            pass
         # Findings 22/23 (2.0.1): this session's OWN cwd, and (when a real
         # Settings object was resolved for it) its own effective_env --
         # passed straight through rather than letting provider_rows()
@@ -1257,32 +1224,6 @@ def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
         return ("/providers setup needs the interactive picker -- run `halo providers setup "
                 f"{tokens[1] if len(tokens) > 1 else '<name>'}` (or `halo init`) from a real terminal.")
     return "Usage: /providers [list|enable <name>|disable <name>|setup <name>]"
-
-
-def _cmd_subscriptions(args: str, facade: HeadlessFacade) -> str:
-    """Halo 2.0.7 round 7b: `/subscriptions` -- the consent gate for the
-    cc:/cx: subscription routes. Headless/bare prints the status line plus
-    the full notice and how to accept it (typing the exact acceptance
-    phrase needs a real interactive prompt -- `halo subscriptions accept`
-    or the TUI's own notice screen, see `tui/slash.py::_handle_
-    subscriptions`); `/subscriptions revoke` works right here, same as
-    `halo subscriptions revoke`."""
-    from halo_harness.subscription_consent import ACCEPT_PHRASE, notice_text, revoke, status_line
-    tokens = (args or "").split()
-    sub = tokens[0] if tokens else ""
-    if sub == "revoke":
-        revoke()
-        return "Revoked. cc:/cx: are off again until accepted."
-    if sub == "status" or not sub:
-        lines = [status_line()]
-        if sub != "status":
-            lines.append("")
-            lines.append(notice_text())
-            lines.append("")
-            lines.append(f'To accept: run `halo subscriptions accept` and type "{ACCEPT_PHRASE}" '
-                          "(the TUI opens the same notice as a dialog).")
-        return "\n".join(lines)
-    return "Usage: /subscriptions [status|revoke]"
 
 
 def _cmd_gov(args: str, facade: HeadlessFacade) -> str:
@@ -1360,28 +1301,6 @@ def _cmd_rules(args: str, facade: HeadlessFacade) -> str:
             return f"/rules: forgot the learned parameter rule(s) for {endpoint!r}."
         return f"/rules: no learned parameter rule for {endpoint!r} to forget."
     return "\n".join(format_rules_lines(list_param_rules(state_dir)))
-
-
-def _cmd_settings(args: str, facade: HeadlessFacade) -> str:
-    """Round 5i part 2: the merged Claude-Code/Codex/Halo settings view
-    (`providers.settings_merge.effective_settings`) -- `halo doctor`'s
-    `codex_settings` line is the one-line summary of the SAME thing; this
-    is the full table. Bare `/settings`: the view. `/settings primary
-    claude|codex`: persists `settings.primary` (flips which of Claude
-    Code's/Codex's own values wins when they disagree and Halo's own
-    config and an active `cx:` session don't already decide it -- see
-    that module's own docstring for the exact chain)."""
-    from halo_harness.providers.settings_merge import effective_settings, render_settings_text, set_settings_primary
-    tokens = (args or "").split()
-    if tokens[:1] == ["primary"]:
-        if len(tokens) < 2 or tokens[1] not in ("claude", "codex"):
-            return "Usage: /settings primary claude|codex"
-        set_settings_primary(tokens[1])
-        return f"settings.primary: {tokens[1]}"
-    session = facade.session
-    session_provider = getattr(getattr(session, "model_ref", None), "provider", None) if session else None
-    view = effective_settings(facade.cwd, session_provider=session_provider)
-    return render_settings_text(view)
 
 
 def _cmd_effort(args: str, facade: HeadlessFacade) -> str:
@@ -1644,17 +1563,8 @@ def _cmd_stats(args: str, facade: HeadlessFacade) -> str:
     from halo_harness.controller import compute_session_stats, format_cache_tokens_suffix
     stats = compute_session_stats(session.log.nodes())
     lines = [f"Turns: {stats['turns']}", f"Total cost: ${stats['total_cost_usd']:.4f}"]
-    # Halo 2.0.5 round 1 (brief item H6, "Cost line"): a separate line,
-    # never folded into "Total cost" above -- Claude Code's own estimate,
-    # not real per-token spend.
-    if stats["subscription_turns"]:
-        lines.append(f"Subscription turns (cc:): {stats['subscription_turns']} "
-                     f"(~${stats['subscription_cost_usd']:.4f} est, Claude Code's own figure)")
     for model, bucket in sorted(stats["per_model"].items()):
         cost_part = f"${bucket['cost_usd']:.4f}"
-        if bucket["subscription_turns"]:
-            cost_part = (f"{cost_part} + {bucket['subscription_turns']} subscription turn(s) "
-                         f"(~${bucket['subscription_cost_usd']:.4f} est)")
         lines.append(f"  {model}: {bucket['calls']} call(s), "
                      f"{bucket['input_tokens']}in/{bucket['output_tokens']}out tok"
                      f"{format_cache_tokens_suffix(bucket)}, {cost_part}")
@@ -1851,17 +1761,13 @@ _BUILTIN_SPECS = {
     "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",
                "[target] [--level low|medium|high] [--dimensions a,b] [--fix] [--no-verify]", _cmd_review),
     "setup": ("core", "Open the roles guided setup screen", "[roles]", _cmd_setup),
-    "providers": ("core", "Show/enable/disable providers (dbx:/or:/ant:/cc:)", "[list|enable|disable <name>]",
+    "providers": ("core", "Show/enable/disable providers (dbx:/or:/ant:/...)", "[list|enable|disable <name>]",
                   _cmd_providers),
-    "subscriptions": ("ui", "Review and accept/revoke the cc:/cx: subscription-routes notice",
-                       "[status|revoke]", _cmd_subscriptions),
     "balances": ("core", "Show the cached balance/credit figure for every provider that offers one",
                  "[refresh]", _cmd_balances),
     "gov": ("core", "Show the Governor's gateway rate buckets and recent calls", "[host]", _cmd_gov),
     "rules": ("core", "List learned parameter-rejection rules (endpoint, field, action, age)",
               "[forget <provider:model>]", _cmd_rules),
-    "settings": ("core", "Show the merged Claude Code / Codex / halo settings view", "[primary claude|codex]",
-                 _cmd_settings),
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
     "level": ("core", "Toggle the game themes' level band above the prompt", "[on|off]", _cmd_level),

@@ -33,15 +33,15 @@ _SAFE_RULE_TOOL_RE = re.compile(r"^[A-Za-z0-9_*-]{1,200}$")
 
 
 def _claude_subprocess_env() -> dict:
-    from halo_harness.providers.config import cc_child_env
-    return cc_child_env(dict(os.environ))
+    from halo_harness.mcp.claude_process import claude_child_env
+    return claude_child_env(dict(os.environ))
 
 
 def _extract_result_text(stdout: str, returncode: int) -> "tuple[str, bool]":
-    """Mirrors `agent.cc_runtime.one_shot_cc_call`'s own `--output-format
-    json` parsing (a `{"result": ..., "is_error": ...}` object) -- kept as
-    its own small function here since the bridge's error/timeout/missing-
-    claude paths need to build a ToolResult directly, never raise."""
+    """Parses `claude -p --output-format json` output (a `{"result": ...,
+    "is_error": ...}` object) -- kept as its own small function since the
+    bridge's error/timeout/missing-claude paths need to build a ToolResult
+    directly, never raise."""
     try:
         data = json.loads(stdout)
     except (json.JSONDecodeError, TypeError):
@@ -184,7 +184,7 @@ class ConnectorTool(Tool):
             return ToolResult(tool_error, is_error=True)
         args = data.get("args") if isinstance(data.get("args"), dict) else None
 
-        from halo_harness.providers.cc_models import ClaudeCodeNotFoundError, resolve_claude_launch_argv
+        from halo_harness.mcp.claude_process import ClaudeCodeNotFoundError, resolve_claude_launch_argv
         try:
             argv = resolve_claude_launch_argv()
         except ClaudeCodeNotFoundError as e:

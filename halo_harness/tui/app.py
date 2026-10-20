@@ -538,18 +538,11 @@ class BridgeApp(App):
         # is now the same worker path, so startup never blocks on a
         # slow/hung `git` either.
         self._refresh_cwd_branch()
-        # 1.0.1 fixpass finding 1: primes `cc_models.cached_claude_auth_
-        # status()` off the UI thread, once, at startup -- `Controller.
-        # list_models()` (every `/model` open) only ever READS that cache
-        # now, never spawns the `claude auth status` subprocess itself.
+        # Primes `mcp.claude_auth.cached_claude_auth_status()` off the UI
+        # thread, once, at startup -- the claude.ai connectors bridge only
+        # ever READS that cache, never spawns `claude auth status` itself.
         self.run_worker(self._prime_auth_status_worker, thread=True, name="auth-status-startup",
                          group="auth-status-startup")
-        # Round 5i part 2: the `cx:` counterpart, same reasoning -- primes
-        # `codex_models.cached_codex_auth_status()` off the UI thread so
-        # `Controller.list_models()`'s own cx: group never spawns `codex
-        # login status` itself.
-        self.run_worker(self._prime_codex_auth_status_worker, thread=True, name="codex-auth-status-startup",
-                         group="codex-auth-status-startup")
         # H15 part 2 addendum 3.2a: the SAME staleness-gated, every-
         # enabled-provider catalog refresh `/model` triggers on open also
         # runs once at launch -- a provider set up with just a key/token
@@ -680,69 +673,33 @@ class BridgeApp(App):
         self.call_from_thread(self.status_bar.set_cwd_branch, str(self.cwd), branch)
 
     def _prime_auth_status_worker(self) -> None:
-        """1.0.1 fixpass finding 1: the ONE place that ever spawns `claude
-        auth status` for the model picker's own cc: group -- everywhere
-        else (`Controller.list_models()`, `init_providers.claude_login_
-        available()`) only ever reads the cache this populates. Best-
-        effort: a failure here just leaves the cache empty (list_models()'s
-        own try/except already treats that the same as "not logged in" --
-        no cc: group shown, never a crash). `refresh_cached_claude_auth_
-        status()` itself skips the actual spawn entirely when `claude` is
-        gateway-driven (2.0.1 launch-hang fix) -- this is the ONLY
-        launch-time spawner for the TUI; headless mode has no startup
-        worker of its own, since it has no UI thread to protect -- see
-        `commands/builtins.py::_cmd_providers`'s own inline refresh."""
+        """The ONE launch-time place the TUI spawns `claude auth status`
+        (for the claude.ai connectors bridge) -- everything else only reads
+        the cache this populates. Best-effort: a failure leaves the cache
+        empty. `refresh_cached_claude_auth_status()` skips the spawn
+        entirely when `claude` is gateway-driven.
+
+        2.0.1 part 11 (live on the Kali VM): `tui/bootstrap.py`'s own
+        background-discovery kick runs BEFORE this refresh, when the cache
+        is still empty, so `discovery_eligible()` refuses it and a
+        cold-cache TUI would never learn its claude.ai connectors. Once the
+        cache says claude.ai login, this re-kicks the SAME once-per-process
+        discovery -- still off the UI thread -- with the `on_done` bootstrap
+        parked on the controller (adds the tools to the live catalog and
+        posts the one note)."""
         try:
-            from halo_harness.providers.cc_models import SUBSCRIPTION_AUTH_METHODS, refresh_cached_claude_auth_status
+            from halo_harness.mcp.claude_auth import SUBSCRIPTION_AUTH_METHODS, refresh_cached_claude_auth_status
             status = refresh_cached_claude_auth_status()
         except Exception:
             return
-        # 2.0.1: `/model`'s own cc: group and `/providers`' own claude_
-        # subscription row both already read this same cache fresh on
-        # their NEXT open (no change needed there) -- but a session that
-        # never reopens either would otherwise never learn a just-
-        # discovered subscription login is now usable. One quiet, once-
-        # per-launch notify, only when it actually becomes available --
-        # never for "not available" (the common case on a Databricks/
-        # OpenRouter-first or gateway-driven box), which must never be
-        # announced as an absence on every single launch.
-        available = bool(status and status.logged_in and status.auth_method in SUBSCRIPTION_AUTH_METHODS)
-        if available:
-            self.call_from_thread(
-                self.notify, "Claude subscription detected -- cc: models available (see /model).",
-                title="providers", timeout=4,
-            )
-            # 2.0.1 part 11 (live on the Kali VM): `tui/bootstrap.py`'s
-            # own background-discovery kick ran BEFORE this refresh, when
-            # the cache was still empty, so `discovery_eligible()` refused
-            # it and a cold-cache TUI never learned its claude.ai
-            # connectors (no transcript note, MCP 0/0 for the whole
-            # session). Now that the cache says claude.ai login, re-kick
-            # the SAME once-per-process discovery from this worker -- still
-            # off the UI thread, still the only launch-time spawner --
-            # with the `on_done` bootstrap parked on the controller (adds
-            # the tools to the live catalog and posts the one note).
-            try:
-                from halo_harness.mcp import connectors_bridge
-                on_done = getattr(self.controller, "connectors_discovery_on_done", None)
-                connectors_bridge.ensure_discovered_in_background(on_done=on_done)
-            except Exception:
-                pass
-
-    def _prime_codex_auth_status_worker(self) -> None:
-        """Round 5i part 2: the `cx:` counterpart of `_prime_auth_status_
-        worker` just above -- same reasoning, no connectors-discovery kick
-        (codex has no equivalent concept)."""
-        try:
-            from halo_harness.providers.codex_models import refresh_cached_codex_auth_status
-            status = refresh_cached_codex_auth_status()
-        except Exception:
+        if not (status and status.logged_in and status.auth_method in SUBSCRIPTION_AUTH_METHODS):
             return
-        if status and status.logged_in and status.auth_method == "chatgpt":
-            self.call_from_thread(
-                self.notify, "Codex subscription detected -- cx: models available (see /model).",
-                title="providers", timeout=4,
-            )
+        try:
+            from halo_harness.mcp import connectors_bridge
+            on_done = getattr(self.controller, "connectors_discovery_on_done", None)
+            connectors_bridge.ensure_discovered_in_background(on_done=on_done)
+        except Exception:
+            pass
 
     def _catalog_startup_refresh_worker(self) -> None:
         """H15 part 2 addendum 3.2a: launch-time catalog refresh -- see
@@ -1147,7 +1104,7 @@ class BridgeApp(App):
         self.transcript.tick_subagent_cards()
         # Halo 2.0.2 W7 round 1 (brief F): re-assert `halo` on the drain
         # tick that FOLLOWS a `claude` child's exit -- the child itself
-        # (agent/cc_process.py, providers/cc_models.py, mcp/connectors.py)
+        # (mcp/claude_process.py, mcp/claude_auth.py, mcp/connectors.py)
         # already re-asserts synchronously the moment it observes the
         # exit; this is additional insurance for a title write that lands
         # on the real console slightly after that point (observed on a

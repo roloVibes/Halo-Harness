@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Optional
 
 # Order matters: this is the exact row order `init`'s provider picker shows.
-PROVIDERS = ("databricks", "openrouter", "anthropic", "claude")
+PROVIDERS = ("databricks", "openrouter", "anthropic")
 
 # H15 Part A: the tabbed init view's own tabs -- PROVIDERS plus Ollama,
 # Hugging Face (round 5) and TypeSafe. Deliberately NOT added to PROVIDERS
@@ -33,41 +33,37 @@ PROVIDERS = ("databricks", "openrouter", "anthropic", "claude")
 # `halo setup`/`/setup` never reach a providers step at all (`setup_cli.
 # py`'s own step list is `roles`/`summary` only), so neither is
 # affected by this tuple either way.
-TAB_PROVIDERS = PROVIDERS + ("ollama", "huggingface", "openai", "codex", "typesafe", "experiential",
-                              "settings_sources")
+TAB_PROVIDERS = PROVIDERS + ("ollama", "huggingface", "openai", "typesafe", "experiential")
 
 TAB_LABEL = {
     "databricks": "Databricks", "openrouter": "OpenRouter", "anthropic": "Anthropic API (key)",
-    "claude": "Claude Code subscription", "ollama": "Ollama (local or LAN)", "huggingface": "Hugging Face",
-    "openai": "OpenAI API (key)", "codex": "Codex subscription", "typesafe": "TypeSafe",
-    "experiential": "Experiential Labs", "settings_sources": "Settings sources",
+    "ollama": "Ollama (local or LAN)", "huggingface": "Hugging Face",
+    "openai": "OpenAI API (key)", "typesafe": "TypeSafe",
+    "experiential": "Experiential Labs",
 }
 
 PROVIDER_LABEL = {
     "databricks": "Databricks -- workspace host + your personal token, discovers every served endpoint",
     "openrouter": "OpenRouter -- API key, full catalog",
     "anthropic": "Anthropic API -- API key, ant: models",
-    "claude": "Claude subscription -- uses your claude.ai login through the installed claude, cc: models",
 }
 
 PROVIDER_DEFAULT_MODEL = {
     "databricks": "dbx:databricks-deepseek-v4-1-flash",
     "openrouter": "or:deepseek/deepseek-v4.1-flash",
     "anthropic": "ant:sonnet",
-    "claude": "cc:sonnet",
 }
 
 # Internal provider names (model-ref providers and enablement names) that
 # `halo init --provider` accepts, mapped to its spelling.
 _INIT_FLAG_FOR = {
     "databricks": "databricks", "openrouter": "openrouter", "anthropic": "anthropic",
-    "claude": "claude", "cc": "claude", "claude_subscription": "claude",
 }
 
 
 def init_command_for(provider: str) -> str:
     """The command that sets `provider` up: `halo init --provider X` for the
-    four the sequential picker offers, plain `halo init` (the wizard has a
+    three the sequential picker offers, plain `halo init` (the wizard has a
     tab for every other provider) otherwise -- `--provider openai` and the
     like are rejected by argparse (review finding 77)."""
     flag = _INIT_FLAG_FOR.get(provider)
@@ -77,37 +73,11 @@ def init_command_for(provider: str) -> str:
 # 1.0.1 hotfix 13 point 5: `--preset` stays accepted as a deprecated alias
 # for `--provider` so documented commands like `init --preset work --yes`
 # keep working verbatim.
-PRESET_TO_PROVIDER = {"home": "openrouter", "work": "databricks", "claude": "claude"}
-
-
-def claude_login_available() -> bool:
-    """2.0.1 launch-hang fix: reads ONLY `cc_models.cached_claude_auth_
-    status()` now -- NEVER spawns `claude auth status` itself. A cache miss
-    (nothing has primed it yet in this process) means "not detected yet",
-    same as every other cache-only reader of this exact cache
-    (`Controller.list_models()`'s own `cc_available`). The one legitimate
-    LIVE spawn this function used to do unconditionally is now the startup
-    worker's job (`tui/app.py::_prime_auth_status_worker`, headless -p's own
-    background thread) or an explicit, caller-requested `refresh_cached_
-    claude_auth_status()` right before a flow that genuinely needs a fresh
-    answer right now (`halo init`'s tabs -- `tui/dialogs/init_tabs.py`'s
-    `_claude_state_worker`/`_save_claude_worker`, already off the UI thread
-    -- and `init_cli.py::cmd_init`'s own sequential/non-interactive path)."""
-    from halo_harness.providers.cc_models import SUBSCRIPTION_AUTH_METHODS, cached_claude_auth_status
-    status = cached_claude_auth_status()
-    return bool(status and status.logged_in and status.auth_method in SUBSCRIPTION_AUTH_METHODS)
-
-
-def codex_login_available() -> bool:
-    """`cx:`'s own counterpart -- cache-only, see `codex_models.
-    codex_login_available`'s own docstring (same reasoning as
-    `claude_login_available` just above)."""
-    from halo_harness.providers.codex_models import codex_login_available as _codex_login_available
-    return _codex_login_available()
+PRESET_TO_PROVIDER = {"home": "openrouter", "work": "databricks"}
 
 
 def provider_status(name: str) -> str:
-    """`"configured"` / `"logged in"` (claude only) / `"not set up"` -- a
+    """`"configured"` / `"not set up"` -- a
     status TAG only, never a decision: the picker's cursor position comes
     from `detect_default_provider` below, completely separately."""
     from halo_harness.providers.config import resolve_anthropic, resolve_databricks, resolve_openrouter
@@ -117,17 +87,13 @@ def provider_status(name: str) -> str:
         return "configured" if resolve_openrouter() is not None else "not set up"
     if name == "anthropic":
         return "configured" if resolve_anthropic() is not None else "not set up"
-    if name == "claude":
-        return "logged in" if claude_login_available() else "not set up"
-    if name == "codex":
-        return "logged in" if codex_login_available() else "not set up"
     return "not set up"
 
 
 def detect_default_provider() -> str:
     """Where the picker's cursor STARTS -- same precedence the old preset
-    auto-detection used (OpenRouter, then Databricks, then a claude.ai
-    login), with `anthropic` slotted in right after Databricks; "detection
+    auto-detection used (OpenRouter, then Databricks), with `anthropic`
+    slotted in right after Databricks; "detection
     only positions the cursor, it never decides" (hotfix 13 spec) -- the
     user can always move off it."""
     from halo_harness.providers.config import resolve_anthropic, resolve_databricks, resolve_openrouter
@@ -137,20 +103,19 @@ def detect_default_provider() -> str:
         return "databricks"
     if resolve_anthropic() is not None:
         return "anthropic"
-    if claude_login_available():
-        return "claude"
     return "openrouter"
 
 
-def _cc_ant_entries(prefix: str, target_table: dict) -> "list[dict]":
-    from halo_harness.providers.cc_models import alias_display_detail, profile_fields_for_cc_model
+def _ant_entries() -> "list[dict]":
+    from halo_harness.providers.anthropic_aliases import ANT_ALIASES, alias_display_detail, \
+        profile_fields_for_ant_model
     out = []
-    for alias, target in target_table.items():
-        fields = profile_fields_for_cc_model(target) or {}
+    for alias, target in ANT_ALIASES.items():
+        fields = profile_fields_for_ant_model(target) or {}
         price_in = fields.get("price_in")
         price_out = fields.get("price_out")
         out.append({
-            "ref": f"{prefix}:{alias}", "context_tokens": fields.get("context_tokens"),
+            "ref": f"ant:{alias}", "context_tokens": fields.get("context_tokens"),
             "max_output_tokens": fields.get("max_output_tokens"),
             "price_in_per_m": price_in * 1_000_000 if isinstance(price_in, (int, float)) else None,
             "price_out_per_m": price_out * 1_000_000 if isinstance(price_out, (int, float)) else None,
@@ -200,36 +165,14 @@ def model_entries_for_provider(provider: str, state_dir: Path) -> "list[dict]":
     per-provider default-model pick (hotfix 5, extended by hotfix 13 to
     every provider, not just Databricks) shows. Chat-capable Databricks
     endpoints only (`dbx_routing.is_chat_task`); the full cached catalog
-    for OpenRouter; the fixed nine subscription-model aliases for
-    anthropic/claude."""
+    for OpenRouter; the fixed Claude aliases for anthropic."""
     if provider == "databricks":
         from halo_harness.init_cli import _chat_capable_dbx_entries
         return _chat_capable_dbx_entries(state_dir)
     if provider == "openrouter":
         return _openrouter_entries(state_dir)
     if provider == "anthropic":
-        from halo_harness.providers.cc_models import ANT_ALIASES
-        return _cc_ant_entries("ant", ANT_ALIASES)
-    if provider == "claude":
-        from halo_harness.providers.cc_models import CC_ALIASES
-        return _cc_ant_entries("cc", CC_ALIASES)
-    if provider == "codex":
-        # Round 5i part 2: the `cx:` counterpart -- not `_cc_ant_entries`
-        # (hardcoded to `cc_models`'s own functions), since `codex_models`
-        # never prices a row (a ChatGPT subscription has no metered price).
-        from halo_harness.providers.codex_models import (
-            CODEX_ALIASES, alias_display_detail as cx_alias_detail, profile_fields_for_codex_model,
-        )
-        out = []
-        for alias in CODEX_ALIASES:
-            fields = profile_fields_for_codex_model(alias) or {}
-            out.append({
-                "ref": f"cx:{alias}", "context_tokens": fields.get("context_tokens"),
-                "max_output_tokens": fields.get("max_output_tokens"),
-                "price_in_per_m": None, "price_out_per_m": None,
-                "detail": cx_alias_detail(alias),
-            })
-        return out
+        return _ant_entries()
     if provider == "huggingface":
         # Round 5 fix: this branch never existed before (`huggingface` was
         # never a `model_entries_for_provider` caller until now, since it
@@ -304,19 +247,7 @@ def configured_providers() -> "list[str]":
     calls `ensure_providers_migrated`) is unaffected -- `is_enabled` fails
     open in that case, exactly like before this item existed."""
     from halo_harness.providers.enablement import is_enabled
-    # Halo 2.0.7 round 7b: a configured+enabled claude/codex subscription
-    # still never joins the cross-provider default-model pick while the
-    # consent gate is off -- "cc:/cx: are not offered until accepted"
-    # applies here too, not just at the model-ref/picker layer.
-    from halo_harness.subscription_consent import is_accepted
-    out = []
-    for p in PROVIDERS:
-        if provider_status(p) not in ("configured", "logged in") or not is_enabled(p):
-            continue
-        if p in ("claude", "codex") and not is_accepted():
-            continue
-        out.append(p)
-    return out
+    return [p for p in PROVIDERS if provider_status(p) == "configured" and is_enabled(p)]
 
 
 # ---------------------------------------------------------------------------
@@ -407,32 +338,6 @@ def tab_credential_state(provider: str, *, team_cfg: Optional[dict] = None,
                     "known_host": None, "fields": []}
         return {"configured": False, "source": None, "masked": None, "known_host": None,
                 "fields": [{"name": "key", "label": "ANTHROPIC_API_KEY", "secret": True}]}
-    if provider == "claude":
-        available = claude_login_available()
-        return {"configured": available, "source": "claude.ai login" if available else None,
-                "masked": "logged in" if available else None, "known_host": None, "fields": []}
-    if provider == "codex":
-        available = codex_login_available()
-        return {"configured": available, "source": "ChatGPT login" if available else None,
-                "masked": "logged in" if available else None, "known_host": None, "fields": []}
-    if provider == "settings_sources":
-        # Round 5i part 2: not a credential tab at all -- "configured"
-        # always True (there is nothing to set up, only a preference to
-        # pick), `masked` carries the one-line merged summary so the step
-        # opens already showing what it found, per the brief's "detects
-        # before it asks" pattern every other local-models step follows.
-        from halo_harness.providers.settings_merge import effective_settings, settings_primary
-        primary = settings_primary()
-        try:
-            view = effective_settings(Path.cwd())
-            summary = (f"Claude Code instructions: {view.claude_instructions_count} file(s); "
-                        f"Codex config.toml: {'found' if view.codex_config_found else 'not found'}; "
-                        f"Codex AGENTS.md chain: {view.codex_agents_md_count} file(s)")
-        except Exception:
-            summary = "(could not read Claude Code/Codex settings yet)"
-        return {"configured": True, "source": f"primary: {primary}", "masked": summary, "known_host": None,
-                "fields": [{"name": "primary", "label": "Primary when Claude Code and Codex disagree "
-                                                           "(claude/codex)", "secret": False}]}
     if provider == "ollama":
         # Round 5: config-only (`ollama.hosts`, never a live probe here --
         # see this function's own "never computed here" contract).
@@ -704,21 +609,6 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
         _write_env_var(path, key_env, value)
         os.environ[key_env] = value
         return True, f"wrote {key_env} to {path}"
-    if provider == "claude":
-        if claude_login_available():
-            return True, "claude.ai login confirmed"
-        return False, "no claude.ai login found -- run `claude` once to log in first"
-    if provider == "codex":
-        from halo_harness.providers.codex_models import refresh_cached_codex_auth_status
-        status = refresh_cached_codex_auth_status()
-        if status and status.logged_in and status.auth_method == "chatgpt":
-            return True, "ChatGPT login confirmed"
-        return False, "no ChatGPT login found -- run `codex login` once to log in first"
-    if provider == "settings_sources":
-        from halo_harness.providers.settings_merge import set_settings_primary
-        chosen = (values.get("primary") or "claude").strip().lower()
-        set_settings_primary("codex" if chosen == "codex" else "claude")
-        return True, f"settings.primary: {'codex' if chosen == 'codex' else 'claude'}"
     return False, f"unknown provider: {provider}"
 
 
@@ -726,7 +616,7 @@ def refresh_tab_catalog(provider: str) -> "tuple[bool, str]":
     """H15 item A.4: "finishing a tab that has credentials and is
     reachable fetches and caches that provider's catalog right then" --
     best-effort (ok, note); a no-op (`True`, `""`) for a provider with no
-    catalog concept of its own (claude, typesafe) or that isn't actually
+    catalog concept of its own (typesafe) or that isn't actually
     configured yet (nothing to fetch)."""
     from halo_harness.config.paths import bridge_home
     state_dir = bridge_home()
@@ -787,4 +677,4 @@ def refresh_tab_catalog(provider: str) -> "tuple[bool, str]":
             return True, f"{len(fetched)} model(s) cached"
         except Exception as e:
             return False, f"{type(e).__name__}: {e}"
-    return True, ""  # claude / anthropic / ollama / typesafe: no catalog of their own to cache here
+    return True, ""  # anthropic / ollama / typesafe: no catalog of their own to cache here

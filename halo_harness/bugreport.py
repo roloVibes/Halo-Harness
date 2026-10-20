@@ -157,15 +157,13 @@ def _provider_reason(name: str, env: "Optional[dict]", env_file_names: "frozense
         return "enabled (settings env)"
     if name == "databricks" and (Path.home() / ".databrickscfg").exists():
         return "enabled (databrickscfg)"
-    if name == "claude_subscription":
-        return "enabled (claude.ai login)"
     return "enabled (env file)"
 
 
 def _providers_lines(settings, env_file_names: "frozenset[str]" = frozenset()) -> list:
     env = getattr(settings, "effective_env", None) if settings is not None else None
     lines = ["Providers (enabled state and REASON, never a key):"]
-    for name in ("openrouter", "anthropic", "databricks", "claude_subscription", "typesafe"):
+    for name in ("openrouter", "anthropic", "databricks", "typesafe"):
         lines.append(f"  {name}: {_provider_reason(name, env, env_file_names)}")
     return lines
 
@@ -528,15 +526,6 @@ def cmd_bugreport(argv: list) -> int:
     # provider reason can say "env file" rather than "shell env".
     present_before = set(os.environ)
     env_file_names = frozenset(k for k in load_provider_env_files() if k not in present_before)
-    # Prime the subscription cache once (gateway-driven `claude` is never
-    # spawned; see cc_models.refresh_cached_claude_auth_status), the same
-    # staleness-gated step the providers listing does.
-    try:
-        from halo_harness.providers.cc_models import cached_auth_status_is_stale, refresh_cached_claude_auth_status
-        if cached_auth_status_is_stale():
-            refresh_cached_claude_auth_status()
-    except Exception:
-        pass
 
     cwd = Path(args.cwd).resolve() if args.cwd else Path.cwd()
     state_dir = bridge_home()

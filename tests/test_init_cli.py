@@ -144,37 +144,26 @@ def test_no_key_entered_warns_but_does_not_crash(ctx: Ctx):
 # ---------------------------------------------------------------------------
 
 @test
-def test_preset_claude_rejected_without_a_login(ctx: Ctx):
+def test_preset_and_provider_claude_are_gone(ctx: Ctx):
+    """3.1.5.0 R1: the Claude subscription provider is gone from `halo
+    init` -- `--preset claude` and `--provider claude` are argparse usage
+    errors (exit 2), even with a claude.ai login faked."""
     home = _fresh_home()
-    result = _run(["init", "--preset", "claude", "--yes", "--no-live"], home)
-    ctx.check(f"exit 2 (usage/config error), got {result.returncode}", result.returncode == 2)
-    ctx.check("explains why", "claude.ai login" in result.stdout or "claude.ai login" in result.stderr)
-
-
-@test
-def test_preset_claude_accepted_with_a_faked_login(ctx: Ctx):
-    """`fake_claude_cc`-style login fake: BRIDGE_TEST_CC_AUTH_STATUS short-
-    circuits `claude auth status` (the same test seam tests/test_cc_models.py
-    documents) to report a real claude.ai login with no subprocess at all."""
-    home = _fresh_home()
-    result = _run(["init", "--preset", "claude", "--yes", "--no-live"], home,
-                   extra_env={"BRIDGE_TEST_CC_AUTH_STATUS": _LOGGED_IN_CLAUDE_AI})
-    ctx.check(f"exit 0, got {result.returncode}, stderr={result.stderr!r}", result.returncode == 0)
-    ctx.check("the claude provider path ran", "Claude subscription" in result.stdout)
-    ctx.check("credentials step stores nothing", "nothing stored" in result.stdout)
-    cfg = json.loads((home / ".halo" / "config.json").read_text(encoding="utf-8"))
-    ctx.check(f"default model is cc:sonnet, got {cfg}", cfg.get("model") == "cc:sonnet")
+    for flag in ("--preset", "--provider"):
+        result = _run(["init", flag, "claude", "--yes", "--no-live"], home,
+                      extra_env={"BRIDGE_TEST_CC_AUTH_STATUS": _LOGGED_IN_CLAUDE_AI})
+        ctx.check(f"{flag} claude: exit 2, got {result.returncode}", result.returncode == 2)
+        ctx.check(f"{flag} claude: argparse names the bad choice, got {result.stderr[-300:]!r}",
+                  "invalid choice: 'claude'" in result.stderr)
+    ctx.check("nothing written", not (home / ".halo" / "config.json").exists())
 
 
 @test
 def test_preset_home_and_work_never_probe_claude_login(ctx: Ctx):
     """An explicit --preset home/work never needs to know whether a claude.ai
     login exists at all -- BRIDGE_TEST_CC_AUTH_STATUS is deliberately left
-    UNPARSEABLE here; if `_step_preset` ever called claude_auth_status() for
-    an explicit non-claude preset, doctor's own subscription check (step 4,
-    which always runs) would still tolerate it, but this test's OWN point is
-    the preset step itself never needs to for these two presets -- proven by
-    it never crashing even with a broken override in place, same as always."""
+    UNPARSEABLE here; the preset step never needs it -- proven by it never
+    crashing even with a broken override in place, same as always."""
     home = _fresh_home()
     result = _run(["init", "--preset", "home", "--yes", "--no-live"], home, stdin="sk-or-x\n",
                    extra_env={"BRIDGE_TEST_CC_AUTH_STATUS": "not json at all"})
@@ -629,15 +618,15 @@ def test_unconfigured_provider_status_tag(ctx: Ctx):
               "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN"):
         os.environ.pop(k, None)
     try:
-        for p in ("databricks", "openrouter", "anthropic", "claude"):
+        for p in ("databricks", "openrouter", "anthropic"):
             ctx.check(f"{p} starts out 'not set up', got {provider_status(p)!r}",
                       provider_status(p) == "not set up")
         os.environ["OPENROUTER_API_KEY"] = "sk-or-x"
         ctx.check(f"openrouter flips to configured, got {provider_status('openrouter')!r}",
                   provider_status("openrouter") == "configured")
         os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = _LOGGED_IN_CLAUDE_AI
-        ctx.check(f"claude flips to 'logged in', got {provider_status('claude')!r}",
-                  provider_status("claude") == "logged in")
+        ctx.check(f"a claude.ai login is no provider, got {provider_status('claude')!r}",
+                  provider_status("claude") == "not set up")
     finally:
         for k, v in old_provider_env.items():
             if v is None:

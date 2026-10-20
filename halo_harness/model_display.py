@@ -2,7 +2,7 @@
 model-listing surface (`halo models`, `/models`, the `/model` picker,
 `init`'s own picker) -- context window, max output and USD/1M-token prices
 on every row, Databricks endpoints included, never wrapped onto a second
-line. Verified live: the pre-hotfix `/model` picker showed a cc: row as
+line. Verified live: the pre-hotfix `/model` picker showed a Claude row as
 `ctx=1000k out=128000 in=$10.00/M out=$50.00/M` (mixed k/raw units, wrapped
 past 110 columns) and a Databricks row as only `path=invocations dbu=?`
 (no ctx/price at all) -- the owner's own ask was "that info is more
@@ -257,7 +257,7 @@ PICKER_COLUMN_HEADER = ("price = USD per 1M tokens in/out · ctx = context windo
 def format_picker_row(entry: dict) -> str:
     """Halo 2.0.4 round 3 (deliverable 1): the ONE row format for every
     `tui/dialogs/model_picker.py` group (OpenRouter, Anthropic, Databricks,
-    Hugging Face, OpenAI, Codex, Ollama, local servers, Experiential alike
+    Hugging Face, OpenAI, Ollama, local servers, Experiential alike
     -- "the same layout in every group") -- ref, then three columns: price
     per million (in/out combined as one "$in/$out" figure), context,
     speed. Each column is "?" when unknown (`unknown_as_qmark`), never
@@ -294,7 +294,7 @@ def format_model_row(entry: dict) -> str:
     never as a bare "?". `detail` is a short extra tag in brackets after
     everything else -- a Databricks row's own "<family> · <path>",
     typically; omitted entirely (no empty `[]`) when not given, since an
-    OpenRouter/cc: row has no equivalent.
+    OpenRouter row has no equivalent.
 
     Always exactly one line -- ellipsizing a too-long ref/detail for a
     fixed-width display is the CALLER's job (Rich `Text(no_wrap=True,

@@ -1,11 +1,11 @@
 # Local and cloud models
 
-Read this when you set up Ollama, Hugging Face, the OpenAI API or Codex end to end.
+Read this when you set up Ollama, Hugging Face or the OpenAI API end to end.
 
-Halo 2.0.3 adds four new ways to point Halo at a model: Ollama (on this
+Halo 2.0.3 adds three new ways to point Halo at a model: Ollama (on this
 machine, on another machine on your network, or Ollama's own hosted
 cloud), Hugging Face (its router, a dedicated endpoint, or a server you
-run yourself), the real OpenAI API, and a Codex ("ChatGPT") subscription.
+run yourself), and the real OpenAI API.
 This page is the walkthrough: what each route can do and the exact
 commands to use it, in plain sentences. [docs/MODELS.md](MODELS.md) is
 the exhaustive reference this page simplifies; [docs/CONFIG.md](CONFIG.md)
@@ -262,7 +262,7 @@ Experimental, off by default, and unavailable to install on any other
 OS/CPU combination. See [docs/MAC.md](MAC.md) for the full walkthrough
 and what's still unverified about it.
 
-## The OpenAI API and a Codex subscription
+## The OpenAI API
 
 **Verified against the fake only until a key is available.** `oai:`
 drives the real OpenAI API with `OPENAI_API_KEY`:
@@ -274,19 +274,6 @@ halo -p "reply with the single word pong" --model oai:gpt-5
 
 Two models (`gpt-6-astra`, `gpt-6.1-sol`) need a different request shape
 for tool calling to work; Halo switches to it for exactly those two ids.
-
-**Verified against the fake only until a ChatGPT login is available.**
-`cx:` drives the `codex` CLI you already have installed, under your own
-ChatGPT subscription login -- never an API key:
-
-```sh
-codex login
-halo -p "reply with the single word pong" --model cx:astra
-```
-
-Halo also reads (never writes) Codex's `config.toml`/`AGENTS.md`
-alongside Claude Code's settings into one merged view; `/settings` shows
-it and names which source wins for each setting.
 
 ## Offline mode, escalation, and the savings meter
 
@@ -417,10 +404,6 @@ check it yourself:
 - **Exactly which OpenAI models need the Responses dialect** -- only
   `gpt-6-astra`/`gpt-6.1-sol` are confirmed; a silent tool-call failure on
   another `oai:` model is the sign to check `openai.dialect_overrides`.
-- **Codex's "active profile"** -- `config.toml`'s `profiles.<name>` table
-  versus the installed CLI's own `--profile` per-file scheme, neither
-  with a persisted default -- run `codex exec --profile <name>` yourself
-  to see which one actually wins on your install.
 
 ## See also
 

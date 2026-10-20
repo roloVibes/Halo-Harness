@@ -12,7 +12,7 @@ saved or not, grouped by severity.
   - three tiers or more with `delegation.max_depth` too low to reach the
     bottom tier (R1's hand-back, finding 3);
   - each card's own problems and warnings from the graph (no model resolves,
-    an alias used twice, a cc:/cx: route not accepted, not one main).
+    an alias used twice, a model on a removed cc:/cx: route, not one main).
 
 Each finding is `{id, severity: "blocks"|"warns", text, fix, node}`; `node`
 is the graph card it is about (Studio selects it on a click), or "".

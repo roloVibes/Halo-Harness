@@ -33,8 +33,7 @@ blip). `acquire()` takes an `abort` callable (the turn's abort event) so
 `/stop` and a steer interrupt a waiting request; `GovernorAborted` is
 the turn's "interrupted", never an error. Status 500 is NEUTRAL unless
 the body says overloaded -- a plain server bug must not cut the fleet's
-rate (REVIEW item 6). `cc:`/`cx:` drive a CLI child, not HTTP: not
-governed (docs say so).
+rate (REVIEW item 6).
 
 The Governor paces and fails over; it never declines a request.
 """

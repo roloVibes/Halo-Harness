@@ -12,14 +12,14 @@ Install Halo, connect your models and providers, and fix what goes wrong.
 
 - [INSTALL.md](INSTALL.md) (Install): read this when you install, upgrade or update Halo.
 - [MAC.md](MAC.md) (Mac quick-start (Apple Silicon)): read this when you check Halo with local models on an Apple Silicon Mac.
-- [LOCAL-MODELS.md](LOCAL-MODELS.md) (Local and cloud models): read this when you set up Ollama, Hugging Face, the OpenAI API or Codex end to end.
+- [LOCAL-MODELS.md](LOCAL-MODELS.md) (Local and cloud models): read this when you set up Ollama, Hugging Face or the OpenAI API end to end.
 - [DATABRICKS.md](DATABRICKS.md) (Databricks): read this when you run Halo against Databricks model serving, at work or with a team preset.
 - [MODELS.md](MODELS.md) (Models): read this when you need the exact behaviour of a model route: how a model name resolves, what each provider sends, the catalogs and the prices.
-  - [MODELS-references.md](MODELS-references.md) (Models: references, picks and provider enablement): read this when you type a model name or prefix (`or:`, `dbx:`, `cc:`, `cx:`, `ol:`, `hf:` ...), choose a model for a job, or turn a provider on or off.
+  - [MODELS-references.md](MODELS-references.md) (Models: references, picks and provider enablement): read this when you type a model name or prefix (`or:`, `dbx:`, `ant:`, `oai:`, `ol:`, `hf:` ...), choose a model for a job, or turn a provider on or off.
   - [MODELS-ollama.md](MODELS-ollama.md) (Models: Ollama hosts, requests and the catalog): read this when you point Halo at an Ollama host and want to know what it sends, how context is sized and how the host is checked.
   - [MODELS-ollama-tuning.md](MODELS-ollama-tuning.md) (Models: Ollama fit, calibration and the gym): read this when a local model does not fit, calls tools badly, or you want `halo gym` scores and role defaults for your GPU.
   - [MODELS-huggingface.md](MODELS-huggingface.md) (Models: Hugging Face): read this when you use the Hugging Face router, a dedicated endpoint, or a local llama-server, LM Studio or MLX server (`hf:`).
-  - [MODELS-openai-codex.md](MODELS-openai-codex.md) (Models: the OpenAI API and the Codex subscription): read this when you use `oai:` with an OpenAI key or `cx:` with a ChatGPT subscription through Codex.
+  - [MODELS-openai-codex.md](MODELS-openai-codex.md) (Models: the OpenAI API): read this when you use `oai:` with an OpenAI key.
   - [MODELS-experiential.md](MODELS-experiential.md) (Models: Experiential Labs): read this when you route models through the Experiential Labs gateway (`xp:`).
   - [MODELS-families.md](MODELS-families.md) (Models: families, Qwen and reasoning effort): read this when a model family behaves differently (DeepSeek, Kimi, GLM, Qwen) or you set the reasoning effort.
   - [MODELS-catalog.md](MODELS-catalog.md) (Models: the catalog, prices and the picker): read this when you refresh the model list, read a price or DBU cost, use the `/model` picker, or go offline.
@@ -37,7 +37,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-main-misc.md](COMMANDS-main-misc.md) (Commands: the other `halo` flags): read this when a `halo` flag is not in the other parts: misc flags, the ones not built yet or not applicable.
   - [COMMANDS-init.md](COMMANDS-init.md) (Commands: `halo init`, `halo start`, `halo explain` and `halo setup`): read this when you set Halo up (`halo init`, `halo setup`), run the ten-minute start (`halo start`) or look up a word (`halo explain`).
   - [COMMANDS-health.md](COMMANDS-health.md) (Commands: doctor, audit, update and the installers): read this when you check, audit, update or reinstall Halo.
-  - [COMMANDS-providers.md](COMMANDS-providers.md) (Commands: providers, subscriptions, rate limits and models): read this when you set up providers and subscriptions, read balances and rules, or refresh the model list.
+  - [COMMANDS-providers.md](COMMANDS-providers.md) (Commands: providers, rate limits and models): read this when you set up providers, read balances and rules, or refresh the model list.
   - [COMMANDS-mcp.md](COMMANDS-mcp.md) (Commands: MCP servers and connectors): read this when you add, list, repair or log in to MCP servers and claude.ai connectors.
   - [COMMANDS-local.md](COMMANDS-local.md) (Commands: Ollama, the gym and local models): read this when you run local models: `halo ollama`, `halo gym`, `halo local`.
   - [COMMANDS-sessions.md](COMMANDS-sessions.md) (Commands: config, sessions, stats and reports): read this when you read or set config, replay or export a session, read stats, or file a bug report.
@@ -48,7 +48,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
   - [SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md) (Slash commands: sessions, models and context): read this when you manage the session, its model, memory, permissions or config from the prompt (`/clear`, `/model`, `/recall`, `/config` ...).
   - [SLASH-COMMANDS-agents.md](SLASH-COMMANDS-agents.md) (Slash commands: agents, lineups, roles and review): read this when you work with bios, lineups, roles or `/review` from the prompt.
-  - [SLASH-COMMANDS-providers.md](SLASH-COMMANDS-providers.md) (Slash commands: providers, fleet and upkeep): read this when you set up providers, subscriptions, rate limits, remote control or the fleet, or run `/doctor`, `/update` and `/bugreport`.
+  - [SLASH-COMMANDS-providers.md](SLASH-COMMANDS-providers.md) (Slash commands: providers, fleet and upkeep): read this when you set up providers, rate limits, remote control or the fleet, or run `/doctor`, `/update` and `/bugreport`.
   - [SLASH-COMMANDS-tui.md](SLASH-COMMANDS-tui.md) (Slash commands: themes, Studio and the TUI): read this when you change themes, open Studio, copy, rewind or tune the TUI, run the ten-minute start, look up a word, or add your own commands, skills and images.
   - [SLASH-COMMANDS-keys.md](SLASH-COMMANDS-keys.md) (Slash commands: prefixes, keys and cards): read this when you want the `@path` and `!cmd` prefixes, a key binding, or the keys a card answers to.
 - [GLOSSARY.md](GLOSSARY.md) (Glossary): read this when a word in Halo is new to you.
@@ -93,7 +93,7 @@ How Halo is built, tested and released, and the record of how it got here.
 - [ARCHITECTURE.md](ARCHITECTURE.md) (Architecture): read this when you want how Halo works inside: the session loop and every subsystem around it.
   - [ARCHITECTURE-session.md](ARCHITECTURE-session.md) (Architecture: the session loop): read this when you change how a request is built: the session log, pruning, providers, reasoning replay, the tool catalog and the repair layer.
   - [ARCHITECTURE-permissions.md](ARCHITECTURE-permissions.md) (Architecture: permissions, hooks and MCP): read this when you change permission rules and modes, the hooks protocol, or how MCP servers start and cache.
-  - [ARCHITECTURE-runtime.md](ARCHITECTURE-runtime.md) (Architecture: steering, compaction, sub-agents and telemetry): read this when you change steering and interrupts, compaction, sub-agents and plan mode, the subscription route, or telemetry.
+  - [ARCHITECTURE-runtime.md](ARCHITECTURE-runtime.md) (Architecture: steering, compaction, sub-agents and telemetry): read this when you change steering and interrupts, compaction, sub-agents and plan mode, or telemetry.
   - [ARCHITECTURE-tui.md](ARCHITECTURE-tui.md) (Architecture: the TUI event model): read this when you change how the TUI turns session events into widgets.
   - [ARCHITECTURE-modules.md](ARCHITECTURE-modules.md) (Architecture: the module map): read this when you look for the module behind a Studio, fleet, Orchestra or team feature.
 - [WIZARD.md](WIZARD.md) (The wizard interaction model): read this when you change or add a wizard screen: the ten rules every screen follows.

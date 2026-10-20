@@ -333,24 +333,6 @@ honoured; `NODE_EXTRA_CA_CERTS`/`REQUESTS_CA_BUNDLE` are tried first if
 set, then this one, first one present that loads wins) pointing at the
 corporate CA's PEM file.
 
-## The subscription route (`cc:`)
-
-- **`doctor` says "claude not found"** -- install Claude Code
-  (https://claude.com/claude-code); `cc:` models are simply unavailable
-  until then (every other route is unaffected).
-- **"claude found but not logged in"** -- run `claude` once interactively
-  and log in.
-- **"logged in via api_key, not claude.ai"** -- an `ANTHROPIC_API_KEY` is
-  set (or was, in the environment `claude auth status` itself saw), so
-  Claude Code is using pay-as-you-go, not your subscription; `cc:` refuses
-  to claim "available" in that case (the `ant:` route is the pay-as-you-go
-  equivalent for the same nine model names). `unset ANTHROPIC_API_KEY &&
-  claude` to log in with the subscription instead.
-- **A `cc:` session behaves oddly after switching models mid-session** --
-  expected: switching into/out of `cc:` primes/drains a capped plain-text
-  summary of prior turns rather than true native history; `/clear`/`/fork`
-  each start a genuinely new Claude Code conversation instead.
-
 ## `Function tools with reasoning_effort are not supported for gpt-6-sol` (1.0.1)
 
 The gpt-6 family's own chat-completions route 400s when `reasoning_effort`
@@ -625,7 +607,7 @@ a guess when there is truly no existing value yet.
 
 Every cache under `~/.halo/` is safe to delete and will be rebuilt
 on next use: `models.json`/`dbx-endpoints.json`/`models-dev.json`/
-`cc-models.json` (re-fetched by `halo models --refresh`),
+`ant-models.json` (re-fetched by `halo models --refresh`),
 `stats-cache.json` (re-derived from the session logs themselves, nothing
 is lost), `mcp/tools-cache/*.json` (a lazy server just reconnects for real
 on next use instead of using a cached tool list).

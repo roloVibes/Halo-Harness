@@ -31,14 +31,10 @@ Verified against `halo_harness/agents_yaml.py`, `agents_md_bridge.py`,
 files under `halo_harness/templates/agents/` and `halo_harness/templates/
 teams/`.
 
-> **No shipped bio or lineup names a subscription route.** Every model in
-> the shipped templates is an API route (`or:`, `ol:`, `default`). The
-> `cc:`/`cx:` subscription routes stay off everywhere -- the catalog, the
-> pickers, Studio, the wizard -- until `halo subscriptions accept`, and a
-> bio or lineup never runs on one even after: a `cc:`/`cx:` ref in a bio or
-> lineup file is rewritten to its OpenRouter equivalent on disk (`halo
-> subscriptions scrub`, also automatic) and mapped again at resolve time.
-> See docs/MODELS.md, "Subscription-routes consent".
+> **Every shipped bio and lineup names an API route** (`or:`, `ol:`,
+> `default`). A `cc:`/`cx:` ref left in an older bio or lineup file (the
+> routes were removed in 3.1.5.0) gets one line and falls through to the
+> session model; Studio's card says the same.
 
 > **Roles off still delegates.** With custom roles off (the default) the
 > main agent runs your session model and still spawns sub-agents through

@@ -1,11 +1,9 @@
 """halo_harness.mcp.serve -- `halo mcp serve`: Halo's own built-in tools as
 a standalone stdio MCP server (Halo 2.0.1 gap-list brief, W4b item 2:
-"expose Halo's built-in tools as an MCP server; the ccbridge code is the
-base"). Same `mcp.server.lowlevel.Server` + `mcp.server.stdio.stdio_server()`
-pattern `ccbridge/__main__.py` already uses for the `cc:` route's own
-bridge, minus the parent-process socket indirection -- this process already
-HAS the tool registry in-proc, so `on_call_tool` dispatches straight into
-it.
+"expose Halo's built-in tools as an MCP server"). The
+`mcp.server.lowlevel.Server` + `mcp.server.stdio.stdio_server()` pattern --
+this process HAS the tool registry in-proc, so `on_call_tool` dispatches
+straight into it.
 
 Exposes a curated, STATELESS-safe subset of `tools.registry.default_tools()`
 -- never Agent/Task/AskUserQuestion/EnterPlanMode/ExitPlanMode/TaskStop/

@@ -154,7 +154,7 @@ def refresh_one_catalog(provider: str, state_dir, *, env: "Optional[dict]" = Non
     defaults to True since an explicit `r` keypress is exactly the
     "I asked for this now" case `/models refresh`/`halo models --refresh`
     already treat as an override). `None` when `provider` names no
-    registered catalog at all (cc:/cx:/ol:/local groups have none -- a
+    registered catalog at all (ol:/local groups have none -- a
     bare alias/host probe, not a live catalog this module fetches) --
     the caller's own job to degrade that into "nothing to refresh here."
     Same per-provider exception safety as `refresh_all_enabled_catalogs`."""

@@ -180,9 +180,7 @@ results, the agents it spawned, its hand-back, and the commands it received).
   cut.
 - For the main agent a steer is today's steer (the text steers the turn in
   flight, or starts the next one).
-- A `cc:` child takes the note through its own claude process; a `cx:` child
-  has no live channel, so the steer answers "that agent runs in an external
-  process; stop and respawn". A finished agent takes no steer.
+- A finished agent takes no steer.
 
 **Stop.** `agent_stop` stops that agent and every agent under it at their
 next tool boundary: the flag is checked before every tool call and before
@@ -192,8 +190,7 @@ running tool call finishes too. The calls it had not started are answered
 hand-back, shaped `stopped by <by> from Studio: <reason>` followed by what the
 agent had written so far, and carries on with its own turn (a stopped child
 is not sent back for an acceptance retry). For the main agent a stop is the
-turn-level interrupt. A `cc:` child's process is ended; a background Bash job
-is killed.
+turn-level interrupt. A background Bash job is killed.
 
 **Pause and resume.** `pause` holds an agent and its subtree (or, without an
 agent id, every agent of the session) at the next tool boundary until

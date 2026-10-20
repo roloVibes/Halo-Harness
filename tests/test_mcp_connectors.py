@@ -162,7 +162,7 @@ def test_background_discovery_never_fires_without_a_confirmed_claude_ai_login(ct
         _scoped_home()
         os.environ["HALO_CLAUDE_EXE"] = FAKE_CLAUDE
         os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)
-        from halo_harness.providers.cc_models import reset_cached_claude_auth_status
+        from halo_harness.mcp.claude_auth import reset_cached_claude_auth_status
         reset_cached_claude_auth_status()
         connectors_bridge.reset_session_state()
         started = connectors_bridge.ensure_discovered_in_background()

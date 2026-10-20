@@ -1,6 +1,5 @@
 """tests.test_h15_provider_enablement -- H15 item 21, rule REPLACED by the
-H15 part 2 addendum: detected credentials/a real claude.ai login now
-AUTO-enable a provider; the `providers` block in config.json stores
+H15 part 2 addendum: detected credentials now AUTO-enable a provider; the `providers` block in config.json stores
 OVERRIDES only (an explicit `enabled: true`/`false` always wins). Covers
 `halo_harness.providers.enablement`, the `Controller.list_models()`/
 `model.parse_model_ref` gates, the now-permanently-no-op migration, and the
@@ -35,14 +34,9 @@ class _Env:
     within it) touches, plus BRIDGE_TEST_HOME/BRIDGE_STATE_DIR/BRIDGE_ENV_
     FILE -- the real `~/.halo` is never written.
 
-    H15 part 2 addendum: `claude_subscription`'s auto-detection shells out
-    to the REAL `claude auth status` whenever `BRIDGE_TEST_CC_AUTH_STATUS`
-    is simply absent -- merely popping it (the old behaviour here) made
-    every "nothing detected" test here depend on whether THIS machine
-    happens to have a real claude.ai login (true on the owner's own dev
-    box). Defaults it to an explicit not-logged-in shape instead; any test
-    that wants a real login still overrides it after entering, same as
-    before."""
+    `BRIDGE_TEST_CC_AUTH_STATUS` defaults to an explicit not-logged-in
+    shape, so nothing here (the connectors bridge's login check included)
+    ever depends on whether THIS machine has a real claude.ai login."""
 
     def __enter__(self):
         self._saved = {k: os.environ.get(k) for k in
@@ -78,7 +72,7 @@ def test_is_enabled_false_with_no_block_and_no_credentials(ctx: Ctx):
     provider reads as disabled -- auto-detection found nothing to turn on."""
     from halo_harness.providers.enablement import is_enabled
     with _Env():
-        for name in ("databricks", "openrouter", "anthropic", "claude_subscription", "typesafe"):
+        for name in ("databricks", "openrouter", "anthropic", "typesafe"):
             ctx.check(f"{name} reads as disabled with nothing detected, got {is_enabled(name)!r}",
                       is_enabled(name) is False)
 
@@ -136,32 +130,16 @@ def test_enable_disable_round_trip(ctx: Ctx):
 
 
 @test
-def test_cc_requires_authmethod_exactly_claude_ai(ctx: Ctx):
-    """The addendum's named edge case: `loggedIn: true` with any OTHER
-    authMethod (an API-token/custom-base-url-driven `claude`, as on a work
-    VM) must NOT auto-enable the subscription, even though it's "logged
-    in" in a loose sense."""
-    from halo_harness.providers.enablement import is_enabled
-    with _Env():
-        os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "not-claude-ai"})
-        ctx.check("loggedIn alone, wrong authMethod -> NOT auto-enabled",
-                  is_enabled("claude_subscription") is False)
-        os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-        ctx.check("the real claude.ai authMethod -> auto-enabled",
-                  is_enabled("claude_subscription") is True)
-
-
-@test
 def test_canonical_aliases_resolve_to_the_same_row(ctx: Ctx):
     from halo_harness.providers.enablement import canonical, enable, is_enabled
     with _Env():
-        enable("cc")  # the ModelRef.provider spelling
-        ctx.check(f"'cc' canonicalizes to 'claude_subscription', got {canonical('cc')!r}",
-                  canonical("cc") == "claude_subscription")
-        ctx.check("is_enabled('claude_subscription') sees the SAME row 'cc' just wrote",
-                  is_enabled("claude_subscription") is True)
-        ctx.check("is_enabled('claude') (init_providers.py's own picker key) agrees too",
-                  is_enabled("claude") is True)
+        enable("ant")  # the prefix spelling
+        ctx.check(f"'ant' canonicalizes to 'anthropic', got {canonical('ant')!r}",
+                  canonical("ant") == "anthropic")
+        ctx.check("is_enabled('anthropic') sees the SAME row 'ant' just wrote",
+                  is_enabled("anthropic") is True)
+        ctx.check("'cc'/'cx'/'claude'/'codex' are no aliases any more",
+                  all(canonical(a) == a for a in ("cc", "cx", "claude", "codex")))
 
 
 # ---------------------------------------------------------------------------
@@ -171,9 +149,6 @@ def test_canonical_aliases_resolve_to_the_same_row(ctx: Ctx):
 @test
 def test_label_strings_match_the_brief_exactly(ctx: Ctx):
     from halo_harness.providers.enablement import label_for
-    ctx.check(f"cc: label, got {label_for('cc')!r}", label_for("cc") == "Claude Code subscription")
-    ctx.check(f"claude_subscription label, got {label_for('claude_subscription')!r}",
-              label_for("claude_subscription") == "Claude Code subscription")
     ctx.check(f"ant:/anthropic label, got {label_for('anthropic')!r}",
               label_for("anthropic") == "Anthropic API (key)")
     ctx.check(f"databricks label, got {label_for('databricks')!r}", label_for("databricks") == "Databricks")
@@ -187,7 +162,7 @@ def test_prefix_table(ctx: Ctx):
     ctx.check(f"dbx:, got {PREFIXES}", PREFIXES["databricks"] == "dbx:")
     ctx.check(f"or:, got {PREFIXES}", PREFIXES["openrouter"] == "or:")
     ctx.check(f"ant:, got {PREFIXES}", PREFIXES["anthropic"] == "ant:")
-    ctx.check(f"cc:, got {PREFIXES}", PREFIXES["claude_subscription"] == "cc:")
+    ctx.check(f"no cc:/cx: prefix left, got {PREFIXES}", not {"cc:", "cx:"} & set(PREFIXES.values()))
     ctx.check(f"typesafe has no prefix yet, got {PREFIXES}", PREFIXES["typesafe"] is None)
 
 
@@ -310,74 +285,26 @@ def test_hand_typed_ref_refusal_uses_the_same_message_as_the_model_picker_hint(c
 
 
 @test
-def test_cc_hand_typed_ref_with_no_override_and_no_login_resolves_at_parse_time(ctx: Ctx):
-    """1.0.1 part 2 fixpass criticals #2/#3: the parse-time gate is
-    OVERRIDE-ONLY now -- it never reads credentials or spawns `claude auth
-    status` itself, so a `cc:` ref with no explicit enablement override
-    parses fine EVEN WHEN NOTHING IS LOGGED IN (this test's old name
-    described the opposite, now-removed behavior: a `_preflight_cc()`-
-    sourced specific message surfaced at parse time). The precise "not
-    logged in"/"claude not installed" detail is the TURN-time preflight's
-    own job now (`agent.cc_runtime._preflight_cc`, exercised end to end in
-    test_cc_session.py), never surfaced this early any more -- with no
-    loss of detail, just at the right time instead of speculatively."""
-    from halo_harness.model import parse_model_ref
-    with _Env():
-        # Halo 2.0.7 round 7b: accept the subscription-routes consent gate
-        # first -- it runs before enablement, and this test is about the
-        # ENABLEMENT gate being override-only, not consent (which has its
-        # own tests/test_subscription_consent*.py files).
-        from halo_harness.subscription_consent import record_acceptance
-        record_acceptance()
-        os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": False})
-        os.environ["ANTHROPIC_API_KEY"] = "sk-ant-fake"
-        ref = parse_model_ref("cc:opus")
-        ctx.check(f"resolves fine -- turn-time preflight handles 'not logged in', got {ref}",
-                  ref.provider == "cc")
-
-
-@test
 def test_is_provider_disabled_message_never_spawns_or_reads_credentials(ctx: Ctx):
     """The critical fix itself, pinned directly: with NO explicit override
     at all, `is_provider_disabled_message` returns None for EVERY provider
     regardless of credentials/login state -- it must never even LOOK at
     `claude_login_available()`/`credentials_present()` to decide this.
-    Poisons `claude_login_available` to prove it is never called."""
-    from halo_harness.providers.enablement import is_provider_disabled_message
-    import halo_harness.init_providers as init_providers_mod
-    real_claude_login = init_providers_mod.claude_login_available
+    Poisons `credentials_present` to prove it is never called."""
+    import halo_harness.providers.enablement as enablement_mod
+    real = enablement_mod.credentials_present
 
-    def _poison():
-        raise AssertionError("is_provider_disabled_message must never spawn claude auth status")
+    def _poison(*a, **kw):
+        raise AssertionError("is_provider_disabled_message must never read credentials")
 
-    init_providers_mod.claude_login_available = _poison
+    enablement_mod.credentials_present = _poison
     try:
         with _Env():
-            for name in ("databricks", "openrouter", "anthropic", "claude_subscription", "typesafe"):
-                msg = is_provider_disabled_message(name)
+            for name in ("databricks", "openrouter", "anthropic", "typesafe"):
+                msg = enablement_mod.is_provider_disabled_message(name)
                 ctx.check(f"{name}: None with no override, got {msg!r}", msg is None)
     finally:
-        init_providers_mod.claude_login_available = real_claude_login
-
-
-@test
-def test_cc_explicit_disable_still_uses_the_generic_message_not_the_preflight_one(ctx: Ctx):
-    """The mirror case: once the user has EXPLICITLY disabled claude_
-    subscription, the message goes back to the generic "run providers
-    enable" wording (there's nothing wrong with claude itself to explain)."""
-    from halo_harness.model import parse_model_ref
-    from halo_harness.providers.enablement import disable
-    from halo_harness.providers.routing import InvalidModelError
-    with _Env():
-        from halo_harness.subscription_consent import record_acceptance
-        record_acceptance()
-        os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-        disable("claude_subscription")
-        try:
-            parse_model_ref("cc:opus")
-            ctx.check("should have raised", False)
-        except InvalidModelError as e:
-            ctx.check(f"generic wording, got {e}", "halo providers enable claude_subscription" in str(e))
+        enablement_mod.credentials_present = real
 
 
 @test
@@ -478,61 +405,6 @@ def test_list_models_no_hint_when_openrouter_has_no_credentials_at_all(ctx: Ctx)
 
 
 @test
-def test_cc_group_hidden_with_a_claude_ai_login_present_but_explicitly_disabled(ctx: Ctx):
-    """`cc:` models must NOT appear once the user has explicitly disabled
-    the subscription, even with a real claude.ai login detected."""
-    from halo_harness.controller import Controller
-    from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
-    from halo_harness.providers.enablement import disable, enable
-    with _Env() as env:
-        os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-        refresh_cached_claude_auth_status()
-        enable("databricks")
-        disable("claude_subscription")
-        ctrl = Controller(session=_FakeSession(), cwd=Path.cwd(), state_dir=env.state_dir, routes={})
-        rows = ctrl.list_models()
-        cc_refs = [m.get("ref") for m in rows if isinstance(m.get("ref"), str) and m["ref"].startswith("cc:")]
-        ctx.check(f"no cc: rows at all, got {cc_refs}", cc_refs == [])
-        hints = [m["hint"] for m in rows if "hint" in m]
-        ctx.check(f"a hint names the Claude Code subscription instead, got {hints}",
-                  any("Claude Code subscription" in h for h in hints))
-
-
-@test
-def test_cc_group_hidden_when_logged_in_via_a_non_claude_ai_authmethod(ctx: Ctx):
-    """H15 part 2 addendum's own named case: `loggedIn: true` with an
-    authMethod OTHER than `claude.ai` (an API-token/custom-base-url-driven
-    `claude`, as on a work VM) must never auto-enable the group, with NO
-    explicit disable() call needed -- pure auto-detection narrowness."""
-    from halo_harness.controller import Controller
-    from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
-    with _Env() as env:
-        os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "not-claude-ai"})
-        refresh_cached_claude_auth_status()
-        ctrl = Controller(session=_FakeSession(), cwd=Path.cwd(), state_dir=env.state_dir, routes={})
-        cc_refs = [m.get("ref") for m in ctrl.list_models()
-                   if isinstance(m.get("ref"), str) and m["ref"].startswith("cc:")]
-        ctx.check(f"no cc: rows -- loggedIn alone is not enough, got {cc_refs}", cc_refs == [])
-
-
-@test
-def test_cc_group_shown_once_enabled(ctx: Ctx):
-    from halo_harness.controller import Controller
-    from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
-    from halo_harness.providers.enablement import enable
-    with _Env() as env:
-        from halo_harness.subscription_consent import record_acceptance
-        record_acceptance()
-        os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-        refresh_cached_claude_auth_status()
-        enable("claude_subscription")
-        ctrl = Controller(session=_FakeSession(), cwd=Path.cwd(), state_dir=env.state_dir, routes={})
-        cc_refs = [m.get("ref") for m in ctrl.list_models()
-                   if isinstance(m.get("ref"), str) and m["ref"].startswith("cc:")]
-        ctx.check(f"cc: rows now present, got {len(cc_refs)}", len(cc_refs) > 0)
-
-
-@test
 def test_ant_group_follows_the_same_rule(ctx: Ctx):
     from halo_harness.controller import Controller
     from halo_harness.providers.enablement import disable, enable
@@ -610,8 +482,9 @@ def test_cmd_providers_table_lists_all_five(ctx: Ctx):
             rc = cmd_providers([])
         ctx.check(f"exit 0, got {rc}", rc == 0)
         out = buf.getvalue()
-        for label in ("Databricks", "OpenRouter", "Anthropic API (key)", "Claude Code subscription", "TypeSafe"):
+        for label in ("Databricks", "OpenRouter", "Anthropic API (key)", "TypeSafe"):
             ctx.check(f"table mentions {label!r}, got {out!r}", label in out)
+        ctx.check("no subscription row or consent line", "subscription" not in out.lower())
 
 
 @test
@@ -651,19 +524,6 @@ def test_cmd_providers_enable_disable(ctx: Ctx):
         with redirect_stdout(io.StringIO()):
             cmd_providers(["disable", "databricks"])
         ctx.check("databricks now disabled", is_enabled("databricks") is False)
-
-
-@test
-def test_cmd_providers_enable_accepts_cc_alias(ctx: Ctx):
-    import io
-    from contextlib import redirect_stdout
-    from halo_harness.providers.enablement import is_enabled
-    from halo_harness.providers_cli import cmd_providers
-    with _Env():
-        with redirect_stdout(io.StringIO()):
-            rc = cmd_providers(["enable", "cc"])
-        ctx.check(f"exit 0, got {rc}", rc == 0)
-        ctx.check("claude_subscription enabled via the 'cc' alias", is_enabled("claude_subscription") is True)
 
 
 @test
@@ -742,128 +602,6 @@ def test_slash_providers_enable_disable(ctx: Ctx):
         result = run("enable openrouter", facade)
         ctx.check(f"confirms enabling, got {result!r}", "enabled" in result.lower())
         ctx.check("openrouter actually enabled", is_enabled("openrouter") is True)
-
-
-# =============================================================================
-# 2.0.1 launch-hang fix: claude_login_available()/credentials_present(
-# "claude_subscription") are cache-only now (never spawn `claude auth
-# status` themselves); a gateway-driven `claude` gets its own specific
-# "not set up" message.
-# =============================================================================
-
-@test
-def test_claude_login_available_is_cache_only_never_spawns(ctx: Ctx):
-    """Poisons `cc_models.claude_auth_status` to prove `claude_login_
-    available()` never reaches it, even once a real answer is cached: a
-    cold cache reads as "not detected yet" (False); the cache is then
-    primed the way the startup worker legitimately would (the REAL
-    `claude_auth_status`, restored first, via the BRIDGE_TEST_CC_AUTH_
-    STATUS seam so nothing real is ever spawned) -- poisoned again right
-    after to prove `claude_login_available()`'s OWN read still never calls
-    it, just reflects the now-primed cache."""
-    import halo_harness.providers.cc_models as cc_models_mod
-    import halo_harness.init_providers as init_providers_mod
-
-    def _poison(*, timeout=10.0, env=None):
-        raise AssertionError("claude_login_available() must never spawn claude auth status itself")
-
-    with _Env():
-        # `_Env` itself defaults BRIDGE_TEST_CC_AUTH_STATUS to a "not logged
-        # in" shape (its own docstring, for every OTHER test in this file)
-        # -- `cached_claude_auth_status()`'s own test seam bypasses the REAL
-        # cache entirely whenever that var is set, so it must be popped
-        # here to actually exercise the cache this test is about.
-        os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)
-        real_claude_auth_status = cc_models_mod.claude_auth_status
-        cc_models_mod.claude_auth_status = _poison
-        cc_models_mod.reset_cached_claude_auth_status()
-        try:
-            ctx.check("cold cache reads as not available, never raises",
-                      init_providers_mod.claude_login_available() is False)
-            # Prime the REAL cache the way the startup worker legitimately
-            # would -- the REAL claude_auth_status, restored first, via ITS
-            # OWN BRIDGE_TEST_CC_AUTH_STATUS seam so nothing real spawns --
-            # then pop that seam again so the next read below exercises the
-            # cache itself, not the seam's own "bypass the cache" branch.
-            cc_models_mod.claude_auth_status = real_claude_auth_status
-            os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-            cc_models_mod.refresh_cached_claude_auth_status()
-            os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)
-            cc_models_mod.claude_auth_status = _poison  # re-poison: THIS read must still never reach it
-            ctx.check("primed cache now reads as available, still never calling claude_auth_status",
-                      init_providers_mod.claude_login_available() is True)
-        finally:
-            cc_models_mod.claude_auth_status = real_claude_auth_status
-            cc_models_mod.reset_cached_claude_auth_status()
-
-
-@test
-def test_enablement_display_names_the_gateway_for_claude_subscription(ctx: Ctx):
-    from halo_harness.providers.enablement import enablement_display
-    with _Env():
-        os.environ["ANTHROPIC_BASE_URL"] = "https://gw.example.test"
-        ctx.check('reads "not set up (claude is configured for a gateway)"',
-                  enablement_display("claude_subscription") == "not set up (claude is configured for a gateway)")
-
-
-@test
-def test_enablement_display_plain_not_set_up_when_not_gateway_driven(ctx: Ctx):
-    from halo_harness.providers.enablement import enablement_display
-    with _Env():
-        ctx.check('plain "not set up" with no gateway signal at all',
-                  enablement_display("claude_subscription") == "not set up")
-
-
-@test
-def test_halo_providers_list_primes_the_auth_cache_once_and_never_for_a_gateway(ctx: Ctx):
-    """`halo providers` (the CLI subcommand, always a fresh process) reaches
-    `claude_login_available()` through `provider_rows()`, cache-only since
-    the 2.0.1 launch-hang fix -- so its list branch must prime the cache
-    itself exactly once (the same staleness-gated refresh the headless
-    `/providers` does), or a real claude.ai login prints "not set up" (seen
-    live on the Kali VM). With a gateway signal set nothing is spawned at
-    all and the row names the gateway."""
-    import contextlib
-    import io
-    import halo_harness.providers.cc_models as cc_models_mod
-    from halo_harness.providers_cli import cmd_providers
-
-    calls: list = []
-
-    def _fake_auth_status(*, timeout=10.0, env=None):
-        calls.append(timeout)
-        return cc_models_mod.ClaudeAuthStatus(logged_in=True, auth_method="claude.ai", version="9.9.9")
-
-    def _subscription_row(text: str) -> str:
-        return next((ln for ln in text.splitlines() if ln.startswith("Claude Code subscription")), "")
-
-    with _Env():
-        os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)
-        real_claude_auth_status = cc_models_mod.claude_auth_status
-        cc_models_mod.claude_auth_status = _fake_auth_status
-        cc_models_mod.reset_cached_claude_auth_status()
-        try:
-            out = io.StringIO()
-            with contextlib.redirect_stdout(out):
-                rc = cmd_providers(["list"])
-            row = _subscription_row(out.getvalue())
-            ctx.check("list exits 0", rc == 0)
-            ctx.check(f"primed the cache exactly once, got {len(calls)} spawn(s)", len(calls) == 1)
-            ctx.check(f"row shows the detected login, got {row!r}", "auto" in row and "not set up" not in row)
-
-            calls.clear()
-            cc_models_mod.reset_cached_claude_auth_status()
-            os.environ["ANTHROPIC_BASE_URL"] = "http://127.0.0.1:9"
-            out = io.StringIO()
-            with contextlib.redirect_stdout(out):
-                cmd_providers(["list"])
-            row = _subscription_row(out.getvalue())
-            ctx.check(f"gateway-driven: never spawned, got {len(calls)}", len(calls) == 0)
-            ctx.check(f"gateway-driven: row names the gateway, got {row!r}", "gateway" in row)
-        finally:
-            os.environ.pop("ANTHROPIC_BASE_URL", None)
-            cc_models_mod.claude_auth_status = real_claude_auth_status
-            cc_models_mod.reset_cached_claude_auth_status()
 
 
 # ---------------------------------------------------------------------------

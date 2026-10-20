@@ -486,24 +486,16 @@ def resolve_role_table(template: dict, *, cwd=None, state_dir=None) -> "tuple[di
             notes.append(f"{key}: agent {agent_name!r} has no models.preference/fallback of its own -- "
                          f"left out of the role table (falls through to the session model)")
             continue
-        # Halo 2.0.7 round 7b: a lineup naming a cc:/cx: model while the
-        # subscription routes are off resolves to the default model
-        # instead, with one plain note -- never a hard failure at
-        # resolve time (this function's own contract: "never a crash,
-        # never a null placeholder", same as the "no model at all" case
-        # just above).
-        # 3.0.2.0 (the owner: "it shouldn't occur regardless so people don't
-        # get banned"): a lineup or bio naming a cc:/cx: model gets the API
-        # equivalent, accepted or not; one with no equivalent falls through.
+        # 3.1.5.0 R1: a lineup or bio still naming a model on one of the
+        # removed cc:/cx: routes gets the one removed-route line and falls
+        # through to the session model -- never a hard failure at resolve
+        # time (this function's own contract: "never a crash, never a null
+        # placeholder", same as the "no model at all" case just above).
         if isinstance(model_ref, str) and model_ref.startswith(("cc:", "cx:")):
-            from halo_harness.subscription_scrub import equivalent_ref
-            mapped = equivalent_ref(model_ref)
-            if not mapped:
-                notes.append(f"{key}: {model_ref} is a subscription route with no API equivalent -- left out of "
-                              f"the role table (falls through to the default model)")
-                continue
-            notes.append(f"{key}: {model_ref} -> {mapped} (subscription routes never run a lineup)")
-            model_ref = mapped
+            from halo_harness.model import removed_route_message
+            notes.append(f"{key}: {removed_route_message(model_ref)} -- left out of the role table "
+                          f"(falls through to the session model)")
+            continue
         role_table[key] = {"model": model_ref, "effort": effort} if effort else model_ref
     return role_table, notes
 
@@ -634,12 +626,11 @@ def migrate_legacy_role_table(role_table: dict, *, cwd=None, state_dir=None) -> 
 
 
 def ensure_builtin_team_templates(*, state_dir=None) -> "list[str]":
-    """Copies the shipped lineups on first use and scrubs cc:/cx: model refs
-    from the copies on disk (once per process). Returns one line per file
-    the scrub rewrote, for the list surfaces to show (review item 124)."""
+    """Copies the shipped lineups on first use. Returns the lines the list
+    surfaces show about it (none today; the list shape stays for every
+    caller)."""
     _ensure_builtin_team_templates(state_dir=state_dir)
-    from halo_harness.subscription_scrub import scrub_once, scrub_report_lines
-    return scrub_report_lines(scrub_once(state_dir=state_dir))
+    return []
 
 
 def _ensure_builtin_team_templates(*, state_dir=None) -> None:

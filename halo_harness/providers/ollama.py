@@ -349,8 +349,8 @@ def apply_host_dialect(ref, env: Optional[dict] = None):
 # `profiles.model_family` already uses, not a model_table.json row (that
 # table has no Ollama-host rows at all).
 _GPT_OSS_EFFORT_TO_THINK = {
-    # Review fix pass (finding 16): "none"/"minimal" (valid after an oai:/
-    # cx: session carries its own effort value across) used to fall through
+    # Review fix pass (finding 16): "none"/"minimal" (valid after an oai:
+    # session carries its own effort value across) used to fall through
     # `.get(effort, "high")` straight to the GRADED "high" level -- the
     # exact opposite of "off". Both now map to gpt-oss's own lowest graded
     # level, "low" (gpt-oss has no bool-off equivalent; the fix text's own
@@ -385,7 +385,7 @@ def think_value_for_effort(effort: Optional[str], model_id: str, *, supports_thi
     is None`, when it is `False` -- a model without the `thinking`
     capability (qwen3-coder, llama, gemma, mistral) never gets sent
     `think` at all; Ollama answers that with a 400 "does not support
-    thinking" otherwise. `none`/`minimal` (valid after an `oai:`/`cx:`
+    thinking" otherwise. `none`/`minimal` (valid after an `oai:`
     session carries its own effort value across) now map OFF exactly like
     `low` -- see `_THINKING_OFF_EFFORTS`/`_GPT_OSS_EFFORT_TO_THINK`."""
     if not effort or not supports_thinking:

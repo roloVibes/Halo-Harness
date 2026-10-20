@@ -228,9 +228,6 @@ def test_the_offline_gates_cover_the_three_background_reads(ctx: Ctx):
     src_ssh = (REPO_DIR / "halo_harness" / "providers" / "ollama_hw.py").read_text(encoding="utf-8")
     ctx.check("the ssh read carries the gate",
               "offline_mode_enabled" in src_ssh)
-    src_cc = (REPO_DIR / "halo_harness" / "providers" / "cc_models.py").read_text(encoding="utf-8")
-    ctx.check("the cc catalog refresh carries the gate",
-              "offline_mode_enabled" in src_cc)
     src_hl = (REPO_DIR / "halo_harness" / "headless.py").read_text(encoding="utf-8")
     ctx.check("the dbx auto-refresh thread carries the gate",
               "_bg_dbx_refresh" in src_hl and "offline_mode_enabled" in

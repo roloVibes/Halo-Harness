@@ -10,8 +10,7 @@ Two rules, both from the 3.0.1.0 review:
     and no request is ever derived from a half-swapped log. The whole-log
     read happens there too, off the UI thread.
   * A COMPLETE SWITCH. Everything `Session.clear()` treats as session-keyed
-    follows the new log: the live `cc:` claude process and the `cx:` state
-    (both hold the OLD conversation), the hook runner's session id and
+    follows the new log: the hook runner's session id and
     transcript path (hook payloads and CLAUDE_ENV_FILE), the permission
     engine's tool-results spill dir, the turn counter, timeline, prompt-token
     estimate, compaction flags, prune state and cost meter. SessionEnd fires
@@ -43,16 +42,9 @@ def switch_log(session, new_log) -> None:
     """Point `session` at `new_log` (already loaded) and reset every
     per-session handle. Never call while a turn runs (see the module
     docstring); `pump_resume` is the one caller."""
-    from halo_harness.agent import cc_runtime, codex_runtime
     from halo_harness.agent.invariants import synthesize_missing_results
     from halo_harness.model import CostMeter
 
-    if getattr(session, "_cc_state", None) is not None:
-        cc_runtime.close_cc(session)
-        session._cc_state = None
-    session._cc_fork_session = False
-    if getattr(session, "_cx_state", None) is not None:
-        codex_runtime.close_cx(session)
     session._fire_session_end("resume")
     session._reset_prune_state()
     session.log = new_log

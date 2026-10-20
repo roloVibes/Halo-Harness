@@ -144,7 +144,7 @@ def test_list_models_loads_models_dev_json_exactly_once_for_many_endpoints(ctx: 
 
 @test
 def test_list_models_never_calls_the_real_auth_status_subprocess(ctx: Ctx):
-    import halo_harness.providers.cc_models as cc_models_mod
+    import halo_harness.mcp.claude_auth as cc_models_mod
 
     cc_models_mod.reset_cached_claude_auth_status()
     real_status_fn = cc_models_mod.claude_auth_status
@@ -157,9 +157,9 @@ def test_list_models_never_calls_the_real_auth_status_subprocess(ctx: Ctx):
         with _Env() as env:
             ctrl = _controller(env.state_dir)
             models = ctrl.list_models()  # must not raise
-            ctx.check("still returns a real list (cache empty -> no cc: group, not a crash)",
+            ctx.check("still returns a real list (cache empty, not a crash)",
                       isinstance(models, list))
-            ctx.check("no cc: rows without a primed cache", not any(m.get("provider") == "cc" for m in models))
+            ctx.check("no cc: rows at all", not any(str(m.get("ref") or "").startswith("cc:") for m in models))
     finally:
         cc_models_mod.claude_auth_status = real_status_fn
         cc_models_mod.reset_cached_claude_auth_status()
@@ -169,8 +169,8 @@ def test_list_models_never_calls_the_real_auth_status_subprocess(ctx: Ctx):
 def test_refresh_then_cached_read_reflects_the_primed_status(ctx: Ctx):
     """The startup-worker side of the cache pair: refresh_cached_claude_
     auth_status() (the ONE function that spawns anything) populates what
-    cached_claude_auth_status() (list_models()'s own reader) then sees."""
-    import halo_harness.providers.cc_models as cc_models_mod
+    cached_claude_auth_status() (the connectors bridge's reader) then sees."""
+    import halo_harness.mcp.claude_auth as cc_models_mod
 
     cc_models_mod.reset_cached_claude_auth_status()
     try:
@@ -195,7 +195,7 @@ def test_cached_auth_status_bypasses_cache_under_the_test_seam(ctx: Ctx):
     """A test that sets/changes BRIDGE_TEST_CC_AUTH_STATUS must see its OWN
     current value immediately, never a stale value a previous call cached
     in this same process."""
-    import halo_harness.providers.cc_models as cc_models_mod
+    import halo_harness.mcp.claude_auth as cc_models_mod
 
     cc_models_mod.reset_cached_claude_auth_status()
     try:

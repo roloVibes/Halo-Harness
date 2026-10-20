@@ -138,13 +138,15 @@ def test_tab_state_openrouter_anthropic_typesafe_shapes(ctx: Ctx):
 
 
 @test
-def test_tab_state_claude_reflects_login(ctx: Ctx):
-    import json as json_mod
-    from halo_harness.init_providers import tab_credential_state
-    with _Env():
-        ctx.check("not logged in by default", tab_credential_state("claude")["configured"] is False)
-        os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json_mod.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-        ctx.check("logged in once the fake status says so", tab_credential_state("claude")["configured"] is True)
+def test_no_subscription_tabs(ctx: Ctx):
+    """3.1.5.0 R1: no Claude Code / Codex subscription tab and no Settings
+    sources step -- every tab is a credential the user pastes or a host."""
+    from halo_harness.init_providers import PROVIDERS, TAB_LABEL, TAB_PROVIDERS
+    gone = {"claude", "codex", "settings_sources"}
+    ctx.check(f"no subscription tab, got {TAB_PROVIDERS}", not gone & set(TAB_PROVIDERS))
+    ctx.check(f"the sequential picker has three providers, got {PROVIDERS}",
+              PROVIDERS == ("databricks", "openrouter", "anthropic"))
+    ctx.check("no label names a subscription", not [v for v in TAB_LABEL.values() if "subscription" in v.lower()])
 
 
 # ---------------------------------------------------------------------------
@@ -182,20 +184,6 @@ def test_save_openrouter_blank_key_refused(ctx: Ctx):
         ctx.check(f"refused, got {(ok, msg)}", ok is False)
 
 
-@test
-def test_save_claude_reflects_login_without_writing_anything(ctx: Ctx):
-    import json as json_mod
-    from halo_harness.init_providers import save_tab_credentials
-    with _Env():
-        ok, msg = save_tab_credentials("claude", {})
-        ctx.check(f"refused -- not logged in, got {(ok, msg)}", ok is False)
-        os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json_mod.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-        ok2, msg2 = save_tab_credentials("claude", {})
-        ctx.check(f"accepted once logged in, got {(ok2, msg2)}", ok2 is True)
-        env_file = Path(os.environ["BRIDGE_ENV_FILE"])
-        ctx.check("claude never writes an env file (nothing to store)", not env_file.exists())
-
-
 # ---------------------------------------------------------------------------
 # refresh_tab_catalog
 # ---------------------------------------------------------------------------
@@ -231,10 +219,10 @@ def test_refresh_tab_catalog_not_configured_is_a_clean_failure(ctx: Ctx):
 
 
 @test
-def test_refresh_tab_catalog_noop_for_claude_and_typesafe(ctx: Ctx):
+def test_refresh_tab_catalog_noop_for_typesafe(ctx: Ctx):
     from halo_harness.init_providers import refresh_tab_catalog
     with _Env():
-        for provider in ("claude", "typesafe"):
+        for provider in ("typesafe",):
             ok, note = refresh_tab_catalog(provider)
             ctx.check(f"{provider}: a harmless no-op, got {(ok, note)}", ok is True)
 

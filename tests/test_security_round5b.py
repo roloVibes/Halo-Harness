@@ -4,8 +4,7 @@
 21  the signal-cli archive is checked against a pinned SHA-256 before it is
     unpacked; gpg counts only when made by the pinned key; the tar
     extraction rejects device, FIFO, link, absolute and `..` members
-22  the cc: route reads the child's `system.init` tool list and ends the turn
-    when a built-in tool is advertised
+22  (pinned the cc: route, removed in 3.1.5.0)
 23  the registration-lock PIN reaches signal-cli through JSON-RPC stdin, not
     argv (verify --pin falls back to argv only when signal-cli has no such
     method, and says so)
@@ -17,7 +16,6 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import os
 import sys
 import tarfile
 import tempfile
@@ -143,33 +141,6 @@ def test_f21_extract_rejects_unsafe_members(ctx: Ctx):
                           ("backslash dot-dot", ("a" + chr(92) + ".." + chr(92) + "evil", tarfile.REGTYPE)),
                           ("drive path", ("C:/evil", tarfile.REGTYPE))):
         ctx.check(f"f21 a {label} member is rejected", not _extract_ok(inst, [("ok/file", tarfile.REGTYPE), member]))
-
-
-@test
-def test_f22_builtin_tools_in_system_init_end_the_turn(ctx: Ctx):
-    from halo_harness.agent import cc_runtime
-    ctx.check("f22 only mcp__ names are accepted",
-              cc_runtime.builtin_tools_in_init({"tools": ["mcp__rolo__Read", "mcp__x__y"]}) == []
-              and cc_runtime.builtin_tools_in_init({"tools": ["mcp__rolo__Read", "Bash", {"name": "Write"}]}) == ["Bash", "Write"]
-              and cc_runtime.builtin_tools_in_init({}) == [])
-    from tests.test_cc_session import _fake_claude_env, _new_cc_session
-    with _fake_claude_env():
-        from halo_harness.subscription_consent import record_acceptance
-        record_acceptance()  # the cc: route is gated per home (2.0.7 round 7b)
-        os.environ["FAKE_CC_LEAK_BUILTIN"] = "1"
-        try:
-            session, _ = _new_cc_session()
-            evs = list(session.turn("reply with the single word pong"))
-            state = session._cc_state
-            errs = [e for e in evs if e.kind == "error" and e.data.get("err_type") == "cc_builtin_tools"]
-            ctx.check("f22 a plain error names the leaked tools", len(errs) == 1 and "Bash" in errs[0].data["message"])
-            ctx.check("f22 the turn ends as an error and no model text came through",
-                      evs[-1].kind == "turn_done" and evs[-1].data["reason"] == "error"
-                      and not [e for e in evs if e.kind == "text_delta"])
-            ctx.check("f22 the child was stopped", state is not None and not state.process.alive and state.leaked_tools == ["Bash", "Write"])
-            session.close_cc()
-        finally:
-            os.environ.pop("FAKE_CC_LEAK_BUILTIN", None)
 
 
 @test

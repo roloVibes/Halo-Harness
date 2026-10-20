@@ -208,69 +208,21 @@ def test_list_models_empty_catalog_does_not_crash(ctx: Ctx):
 
 
 # ---------------------------------------------------------------------------
-# 1.0.1 hotfix addendum 9: the cc: group appears only when the subscription
-# route is actually available.
+# 3.1.5.0 R1: no subscription group, a claude.ai login or not.
 # ---------------------------------------------------------------------------
 
 @test
-def test_list_models_hides_cc_group_when_not_logged_in(ctx: Ctx):
-    with _Env() as env:  # _Env already pins BRIDGE_TEST_CC_AUTH_STATUS to "not logged in"
+def test_list_models_has_no_subscription_group_even_with_a_claude_ai_login(ctx: Ctx):
+    with _Env() as env:
+        os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
         ctrl = _controller(env.state_dir)
         models = ctrl.list_models()
-        ctx.check(f"no cc: rows at all, got {[m['ref'] for m in models if m.get('provider') == 'cc']}",
-                  not any(m.get("provider") == "cc" for m in models))
-
-
-@test
-def test_list_models_shows_cc_group_when_logged_in_via_claude_ai(ctx: Ctx):
-    old = os.environ.get("BRIDGE_TEST_CC_AUTH_STATUS")
-    os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-    try:
-        with _Env() as env:
-            os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "claude.ai"})
-            # Halo 2.0.7 round 7b: a detected+auto-enabled login alone no
-            # longer shows the cc: group -- accept the subscription-
-            # routes consent gate too (this test is about the auto-
-            # enablement/detection path, not the consent gate itself).
-            from halo_harness.subscription_consent import record_acceptance
-            record_acceptance()
-            ctrl = _controller(env.state_dir)
-            models = ctrl.list_models()
-            cc_rows = [m for m in models if m.get("provider") == "cc"]
-            ctx.check(f"cc: rows present, got {len(cc_rows)}", len(cc_rows) > 0)
-            # Halo 2.0.4 round 3 (deliverable 6): group labels now carry
-            # their prefix in parentheses (label_with_prefix) -- "Claude
-            # Code subscription (cc:)", same convention every other group
-            # on this page uses.
-            ctx.check(f"grouped under the subscription label, got {cc_rows[0].get('group')}",
-                      cc_rows[0].get("group") == "Claude Code subscription (cc:)")
-    finally:
-        if old is None:
-            os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)
-        else:
-            os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = old
-
-
-@test
-def test_list_models_hides_cc_group_when_logged_in_via_work_env_not_subscription(ctx: Ctx):
-    """The exact owner-reported bug: a Databricks WORK box's `claude` is
-    logged in via ITS OWN work settings (authMethod != "claude.ai"), not a
-    personal subscription -- the picker must not offer nine cc: models a
-    real `cc:<name>` call would never be able to use there."""
-    old = os.environ.get("BRIDGE_TEST_CC_AUTH_STATUS")
-    os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "api_key"})
-    try:
-        with _Env() as env:
-            os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = json.dumps({"loggedIn": True, "authMethod": "api_key"})
-            ctrl = _controller(env.state_dir)
-            models = ctrl.list_models()
-            ctx.check("no cc: rows when logged in via a non-subscription authMethod",
-                      not any(m.get("provider") == "cc" for m in models))
-    finally:
-        if old is None:
-            os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)
-        else:
-            os.environ["BRIDGE_TEST_CC_AUTH_STATUS"] = old
+        refs = [m.get("ref") for m in models if isinstance(m.get("ref"), str)]
+        ctx.check(f"no cc:/cx: rows at all, got {[r for r in refs if r.startswith(('cc:', 'cx:'))]}",
+                  not [r for r in refs if r.startswith(("cc:", "cx:"))])
+        groups = {str(m.get("group") or "") for m in models} | {str(m.get("hint") or "") for m in models}
+        ctx.check(f"no subscription group or hint, got {sorted(groups)}",
+                  not [g for g in groups if "subscription" in g.lower()])
 
 
 if __name__ == "__main__":

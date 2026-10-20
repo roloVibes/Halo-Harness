@@ -52,14 +52,9 @@ consulted in this order before falling back to a hardcoded guess
    for this harness's own pinned Databricks work-default models even if
    nothing else above has one).
 
-`cc:`/`ant:` subscription models are resolved from a **separate**, fourth
-table (`providers/cc_models.py::CC_MODEL_TABLE`) instead -- Claude Code is
-the provider, not OpenRouter/Databricks, so neither of the two live catalogs
-has an entry for these at all. `halo models --cc --refresh` re-pings
-each of the nine alias names once to confirm the exact ids
-`sonnet`/`haiku` currently resolve to (the two whose target moves as
-Anthropic ships new releases) and caches the result to
-`~/.halo/cc-models.json`, consulted before the static table.
+`ant:` alias models are resolved from a **separate**, fourth table
+(`providers/anthropic_aliases.py::ANT_MODEL_TABLE`) first; `halo models
+--ant --refresh` lists every id the key can actually reach.
 
 `models-dev.json` (models.dev's own public, unauthenticated `api.json`) is
 fetched by `halo models --refresh` regardless of which providers are
@@ -83,15 +78,7 @@ start-of-session, so a Databricks turn on an endpoint models.dev prices
 gets a real computed running cost through the identical fallback formula
 above -- and still shows `n/a` (falls back to token totals in the status
 bar) whenever no models.dev price exists for that endpoint, which remains
-the common case. Halo 2.0.5 round 1 (cc: route v2, `docs/harness/CC-
-CONTROL-CHANNEL.md` has the full detail): a `cc:` turn is a **subscription
-turn**, tracked SEPARATELY from this section's own real per-token figures
--- `CostMeter.subscription_turns`/`subscription_cost_usd`, never
-`total_usd`. It shows as its own line/segment everywhere cost shows up
-(`/cost`, `/stats`, `halo stats`, the status bar): Claude Code's own
-cumulative `total_cost_usd`, delta'd since that subprocess's previous
-turn, labelled an estimate -- never real per-token billing, and never
-counted toward `--max-budget-usd`.
+the common case.
 
 **Listed (not live) context/output/price columns** -- what `/model`,
 `/models`, `halo models`, and `init`'s own picker show per row
@@ -103,8 +90,8 @@ provider:
   - **OpenRouter**: `models.json`'s own `context_length`/`max_output_tokens`/
     `pricing.prompt`/`pricing.completion` (the exact same fields `CostMeter`
     above reads, just displayed rather than multiplied against real usage).
-  - **`cc:`/`ant:`**: the nine subscription-model aliases' own static table
-    (`providers.cc_models.profile_fields_for_cc_model`).
+  - **`ant:`**: the Claude aliases' own static table
+    (`providers.anthropic_aliases.profile_fields_for_ant_model`).
   - **Databricks**: (a) the [models.dev](https://models.dev) `databricks`
     provider's entry whose id equals the endpoint name (the live
     `~/.halo/models-dev.json` cache, refreshed by `models --refresh`/
@@ -139,9 +126,8 @@ move the highlight, typing filters, `Enter` confirms, `Esc` cancels -- the
 filter box itself keeps keyboard focus throughout) grouped by provider/
 family, one header per group: OpenRouter, `Hugging Face` (Halo 2.0.3
 round 4 -- the router's own cached catalog, shown once the provider is
-enabled), `Claude Code subscription` (shown only when `claude auth status`
-reports an actual claude.ai login -- never on a box whose `claude` is only
-logged in via, say, a Databricks work box's own settings), and
+enabled), `Anthropic API (key)` (shown once `ANTHROPIC_API_KEY` is
+set), and
 `Databricks (<family>)` per family, each row showing which gateway path
 type it resolves to (see [DATABRICKS.md](DATABRICKS.md)) alongside the
 ctx/output/price columns above; non-chat endpoints (embeddings/whisper) are

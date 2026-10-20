@@ -1,7 +1,9 @@
 """tests.helpers.fake_claude_cc -- H11/H11b Part C: a fake `claude`
-executable for the `cc:` route's tests. Run as a subprocess exactly the
-way `agent.cc_process.build_cc_argv` invokes the real one
-(`BRIDGE_CLAUDE_EXE` points a test at `"<python> <this file>"`):
+executable (`BRIDGE_CLAUDE_EXE`/`HALO_CLAUDE_EXE` point a test at
+`"<python> <this file>"`). 3.1.5.0 R1: the cc: route it was written for is
+gone; the claude.ai connectors bridge tests use its `auth status`, `mcp
+list`, the stream-json `system/init` line and the `-p --output-format json`
+one-shot. What it emulates:
 
   * `<fake> auth status` -- the real `claude auth status` JSON shape,
     controlled by env vars (`FAKE_CLAUDE_CC_LOGGED_IN` default "1",

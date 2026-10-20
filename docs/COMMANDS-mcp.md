@@ -112,8 +112,7 @@ Starts halo itself as a stdio MCP server, exposing a curated, stateless
 subset of its own built-in tools (Bash/PowerShell, Read, Write, Edit, Glob,
 Grep, NotebookEdit, TodoWrite, WebFetch -- never Agent/AskUserQuestion/
 ToolSearch/background-job tools, which all need a live session) to any
-other MCP client. The ccbridge code (`halo_harness/ccbridge/__main__.py`,
-the `cc:` route's own tool bridge) is the base this reuses. Bash and
+other MCP client. Bash and
 PowerShell run with halo's environment minus its own provider keys, the
 same environment every other tool child gets.
 

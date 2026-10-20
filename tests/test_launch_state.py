@@ -235,25 +235,25 @@ def test_build_session_last_model_ol_named_host_gone_falls_through_with_a_notice
 
 
 @test
-def test_build_session_last_model_cc_route_is_never_rejected_for_missing_creds(ctx: Ctx):
-    """A remembered cc: (Claude Code subscription) model needs no
-    ProviderCreds at all -- `_resolve_creds` doesn't model that route and
-    returns None for it unconditionally, so the new credentials check
-    must never apply to it (creds=None is the CORRECT, expected value for
-    a cc: session, not a sign it's unusable)."""
+def test_build_session_last_model_on_a_removed_route_falls_through_with_one_notice(ctx: Ctx):
+    """3.1.5.0 R1: a remembered `cc:` model (a route removed in 3.1.5.0)
+    falls through to the configured default with exactly one notice line
+    carrying the removed-route sentence -- never a failed launch."""
+    import io
+    import contextlib
     from halo_harness import launch_state
+    from halo_harness.model import DEFAULT_MODEL_REF
     with _Env() as env, tempfile.TemporaryDirectory() as cwd:
         os.environ["OPENROUTER_API_KEY"] = "test-key-not-real"
-        # Halo 2.0.7 round 7b: this test is about the credentials check
-        # never applying to cc: (its own docstring above), not the
-        # subscription-routes consent gate -- accept once for this fresh
-        # home so cc:fable keeps resolving.
-        from halo_harness.subscription_consent import record_acceptance
-        record_acceptance()
         launch_state.record_last_model("cc:fable", cwd=Path(cwd))
-        build = _build(Path(cwd))
-        ctx.check(f"the remembered cc: ref is used as-is, got {build.model_ref.raw}",
-                  build.model_ref.raw == "cc:fable")
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            build = _build(Path(cwd))
+        notice = stderr.getvalue()
+        ctx.check(f"falls through to the default, got {build.model_ref.raw}", build.model_ref.raw == DEFAULT_MODEL_REF)
+        ctx.check(f"one notice line naming the removed route, got {notice!r}",
+                  notice.count("\n") == 1 and "'cc:fable'" in notice
+                  and "the cc: and cx: routes were removed in 3.1.5.0" in notice)
 
 
 @test

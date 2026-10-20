@@ -92,14 +92,13 @@ def _effective_model(entry: dict, bio: Optional[dict]) -> tuple[str, str]:
     return str(pref or ""), str(over.get("fallback") or bm.get("fallback") or "")
 
 
-def _subscription_warnings(*refs) -> list:
-    """3.0.2.0: a cc:/cx: pick while the subscription routes are not
-    accepted falls through to the default model -- say so on the card."""
-    from halo_harness.subscription_consent import is_accepted
-    out = []
-    if any(str(r or "").startswith(("cc:", "cx:")) for r in refs) and not is_accepted():
-        out.append("names a subscription route (cc:/cx:) that is not accepted -- it falls through to the default model until `halo subscriptions accept`")
-    return out
+def _removed_route_warnings(*refs) -> list:
+    """3.1.5.0 R1: a card still naming a cc:/cx: model (routes removed in
+    3.1.5.0) falls through to the session model -- say so on the card."""
+    if any(str(r or "").startswith(("cc:", "cx:")) for r in refs):
+        return ["names a cc:/cx: model (removed in 3.1.5.0) -- it falls through to the session model; "
+                "pick an API route, e.g. ant:sonnet"]
+    return []
 
 
 def _node_id(entry: dict, i: int) -> str:
@@ -134,7 +133,7 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
             "bio_model": _effective_model({}, bio)[0],  # 3.1.4.0 R4: what the card runs on without its own model
             "tools": (len(allow) if isinstance(allow, list) else 0) if bio else None,
             "scope": (bio or {}).get("_source", ""), "kind": (bio or {}).get("kind", ""),
-            "description": (bio or {}).get("description", ""), "problems": problems, "warnings": _subscription_warnings(model, fallback),
+            "description": (bio or {}).get("description", ""), "problems": problems, "warnings": _removed_route_warnings(model, fallback),
             "overrides": {k: v for k, v in e.items() if k not in ("agent", "role", "as", "instances", "use_for")},
         }
         nodes.append(node)

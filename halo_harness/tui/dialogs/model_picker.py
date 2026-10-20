@@ -12,7 +12,7 @@ needed this at all), and rows are grouped by `Controller.list_models()`'s own
 each row rendered as a single ellipsized line (never wrapped, which used to
 break the column alignment on a long ref/path).
 
-1.0.1 hotfix 12: every row -- OpenRouter, cc:, Databricks alike -- now shows
+1.0.1 hotfix 12: every row -- OpenRouter, ant:, Databricks alike -- now shows
 context/output/price columns through the ONE shared `model_display.
 format_model_row` (never a per-provider "show path=/dbu= INSTEAD of prices"
 special case); a Databricks row's family/path still shows, as a bracketed
@@ -581,7 +581,7 @@ class ModelPicker(ModalScreen):
         """Halo 2.0.4 round 3 (deliverable 1/G4): "`r` refreshes the
         current group" -- the ENABLED provider the highlighted row
         belongs to, off the UI thread; a group with no live catalog of
-        its own (cc:/cx:/ol:/local/alias rows) gets a plain one-line
+        its own (ol:/local/alias rows) gets a plain one-line
         explanation instead of silently doing nothing."""
         _ref, provider = self._highlighted_ref_and_provider()
         if provider is None:
@@ -761,7 +761,7 @@ class RoleAssignPicker(ModalScreen):
         safe to call right here. On success it dismisses with the plain
         role-name string. Since review item 125 it returns `(False,
         [reason])` for a value that cannot run here (an unknown provider,
-        a subscription route this host does not accept): nothing was
+        a removed route): nothing was
         written, so the reason is shown as a notification and in the
         subtitle and the picker stays open for another choice or Esc."""
         role_name = str(event.option_id)
