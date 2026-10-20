@@ -1,4 +1,5 @@
-// Global keys: Alt+1..6 switch sections (3.1.4.0: Alt+6 Session), Ctrl/Cmd+K toggles the palette,
+// Global keys: Alt+1..6 switch sections in the registry's order (routes/index.tsx SECTIONS; 3.1.6.0 R6:
+// Session Alt+1 ... Orchestra Alt+6), Ctrl/Cmd+K toggles the palette,
 // `?` (Shift+/) opens "How this works" for the section (a focused panel
 // takes `?` first for its own help), Esc closes the palette, then the
 // Inspector. A key a panel, a menu or a dialog already handled (its default

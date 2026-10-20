@@ -1,4 +1,4 @@
-// Design (Alt+4, 3.0.7.0 R3): prototypes, pages and decks as React panels
+// Design (Alt+5, 3.0.7.0 R3): prototypes, pages and decks as React panels
 // (the framed classic page is gone from here). Until a project exists the
 // section is the Start view (Start.tsx). Then: Projects (design-projects),
 // the Thread (design-thread: the turns as a markdown thread, the Send box,

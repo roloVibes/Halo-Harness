@@ -71,8 +71,8 @@ def test_url_for_puts_the_mode_in_the_query_ahead_of_the_token(ctx: Ctx):
 
 @test
 def test_the_shell_has_six_sections_and_opens_orchestra_fleet_team_and_session_by_mode(ctx: Ctx):
-    """3.1.4.0 R3: Org and Flow are gone; the keys stay positional: Orchestra Alt+1, Roles Alt+2,
-    Design Alt+3, Fleet Alt+4, Team Alt+5; 3.1.4.0 R2: Session Alt+6. `halo studio --mode
+    """3.1.4.0 R3: Org and Flow are gone; the keys stay positional; 3.1.6.0 R6 (the owner's order): Session
+    Alt+1, Team Alt+2, Roles Alt+3, Fleet Alt+4, Design Alt+5, Orchestra Alt+6. `halo studio --mode
     orchestra|fleet|team|session` (and `/studio team`) put it in the query, and the shell reads
     every section from `?mode=`."""
     from halo_harness.providers.config import default_state_dir
@@ -86,10 +86,11 @@ def test_the_shell_has_six_sections_and_opens_orchestra_fleet_team_and_session_b
         srv.server_close()
     ui = REPO_DIR / "halo_harness" / "studio" / "ui" / "src"
     routes = (ui / "routes" / "index.tsx").read_text(encoding="utf-8")
-    ctx.check("six sections, Design on Alt+3, Fleet on Alt+4, Team on Alt+5, Session on Alt+6", routes.count('kbd: "Alt+') == 6
-              and 'id: "design", title: "Design", kbd: "Alt+3"' in routes
-              and 'id: "fleet", title: "Fleet", kbd: "Alt+4"' in routes and 'id: "team", title: "Team", kbd: "Alt+5"' in routes
-              and 'id: "session", title: "Session", kbd: "Alt+6"' in routes
+    ctx.check("six sections, Session on Alt+1, Team on Alt+2, Roles on Alt+3, Fleet on Alt+4, Design on Alt+5, Orchestra on Alt+6",
+              routes.count('kbd: "Alt+') == 6
+              and 'id: "session", title: "Session", kbd: "Alt+1"' in routes and 'id: "team", title: "Team", kbd: "Alt+2"' in routes
+              and 'id: "roles", title: "Roles", kbd: "Alt+3"' in routes and 'id: "fleet", title: "Fleet", kbd: "Alt+4"' in routes
+              and 'id: "design", title: "Design", kbd: "Alt+5"' in routes and 'id: "orchestra", title: "Orchestra", kbd: "Alt+6"' in routes
               and 'id: "org"' not in routes and 'id: "flow"' not in routes)
     store = (ui / "lib" / "store.ts").read_text(encoding="utf-8")
     ctx.check("the shell reads ?mode= for every section", "mode=(orchestra|roles|design|fleet|team|session)" in store)

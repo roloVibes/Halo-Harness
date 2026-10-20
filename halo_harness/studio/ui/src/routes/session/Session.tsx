@@ -1,4 +1,4 @@
-// Session (Alt+6, 3.1.4.0 R2 "The session dashboard"; 3.1.5.0 R3 "the
+// Session (Alt+1 and the first tab since 3.1.6.0 R6; 3.1.4.0 R2 "The session dashboard"; 3.1.5.0 R3 "the
 // entire right side ... seeing everything working in real time"): this
 // session, live. The Fleet panels scoped to this harness (routes/fleet/
 // scope.ts; the section sets the scope while it shows, store.ts), no copy of

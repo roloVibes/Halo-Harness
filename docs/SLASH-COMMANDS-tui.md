@@ -15,7 +15,7 @@ completes theme names. The game themes and their toggles were removed in
 
 ### `/studio` `[session|roles|design|orchestra|fleet|team] [url]`
 Halo 3.1.4.0: bare `/studio` (or `/studio session`) opens Studio on the
-session you are in: the **Session** dashboard (`Alt+6`; `?mode=session&session=<this
+session you are in: the **Session** dashboard (`Alt+1`; `?mode=session&session=<this
 session's id>`), its map, activity, attention, agent and cost. `/studio
 <section>` opens that section. Either way the Studio already running for this
 home is focused (every open page switches), else the browser opens it, else

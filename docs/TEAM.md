@@ -260,7 +260,7 @@ are the shared rules' (`coordination-<stage>-loops`,
 
 ## In Studio
 
-`halo studio --mode team` (or `Alt+5`, `/studio team`) opens the **Team**
+`halo studio --mode team` (or `Alt+2`, `/studio team`) opens the **Team**
 section: with no team file a Start view whose **Make my first team** writes
 the template; then the **Board** (members as columns, stages as boxes in
 their members' columns, blocks in a band underneath with a claim badge,
