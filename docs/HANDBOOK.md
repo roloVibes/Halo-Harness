@@ -496,6 +496,16 @@ Windows, Halo keeps the console from turning `Ctrl+C` into a process-ending
 event for as long as the TUI runs, so a single press can no longer close
 the session from PowerShell or Windows Terminal.
 
+**Copying what you have typed.** `/copy draft` copies the chat box's unsent
+text (type it over the draft; it copies what the box held before the
+command), and `Ctrl+Shift+C` does the same in one key where the terminal
+passes that key on. After every copy the status line says what landed --
+"copied N characters via xclip" -- or, when no clipboard tool did, why
+(on Linux: "no clipboard tool: sudo apt install xclip ...") and that the
+text was saved to `~/.halo/clipboard.txt`. A plain mouse drag selects
+inside Halo; hold `Shift` while dragging for the terminal's own selection.
+See "Copy does nothing on Linux" in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
 **Clearing the chat box.** `Ctrl+U` empties it (text, pastes and image
 chips) at any time. `Esc` does the same when nothing is running; while a
 turn runs, `Esc` interrupts the turn and leaves your draft alone. `Ctrl+A`

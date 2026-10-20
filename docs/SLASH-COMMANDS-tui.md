@@ -43,7 +43,7 @@ family on the shell is `halo design` ([DESIGN.md](DESIGN.md)).
 `/quit` is a TUI-only alias that actually closes the app (same as `Ctrl+D`
 on an empty prompt).
 
-### `/copy [code [N]|tool]` `[TUI-only]`
+### `/copy [code [N]|tool|draft]` `[TUI-only]`
 2.0.1 (W4c): copies text to the system clipboard with no mouse needed.
 Bare `/copy` copies the last assistant reply; `/copy code` copies that
 reply's last fenced code block exactly as written (`/copy code 2` for the
@@ -53,9 +53,31 @@ Every form shows a toast naming what was copied and how many characters.
 In `-p` there is no transcript or clipboard to copy to/from, so it is a
 no-op note instead.
 
-2.0.7 (the copy-out fix): every copy now also confirms WHICH mechanism
-actually landed ("Copy verified via system clipboard (N characters)" --
-the external-tool floor), and a total failure becomes a visible error
+3.1.6.0: **`/copy draft` copies the chat box's unsent text.** Type it over
+your draft (or after `Esc` / `Ctrl+U` cleared the box) and it copies the
+draft the box held just before the command, `[Pasted text #n]`
+placeholders expanded to the pasted text; a message you sent is no longer
+a draft. **`Ctrl+Shift+C`** copies the whole draft in one key, wherever
+focus is (many terminals keep `Ctrl+Shift+C` as their own copy key and
+never pass it on; `/copy draft` works in every terminal, and `Ctrl+A` then
+`Ctrl+C` in most). A selection plus `Ctrl+C` still copies just the selection, and
+`Ctrl+C` with nothing selected still copies the last reply (a second press
+asks to quit).
+
+3.1.6.0: **after every copy the status line says exactly what landed:**
+"copied N characters via xclip" (or `wl-copy`, `xsel`, `clip.exe`,
+`pbcopy`). When no clipboard tool landed the line says why -- on Linux with
+none on PATH: "no clipboard tool: sudo apt install xclip (or wl-clipboard
+on Wayland); sent OSC 52, which <your terminal> may ignore"; over SSH:
+OSC 52 is the only path to your local clipboard -- and **the text is also
+saved to `~/.halo/clipboard.txt`** (only you can read it, overwritten by
+the next such copy), which the line names, so the words are never lost.
+The first mouse drag in the transcript or the chat box shows one hint: hold
+`Shift` while dragging for the terminal's own selection.
+
+2.0.7 (the copy-out fix): every copy also confirms WHICH mechanism
+actually landed (the external-tool floor, worded as above since 3.1.6.0),
+and a total failure becomes a visible error
 with the fix spelled out. A transcript mouse-drag copies the SELECTED
 RANGE (a grazing drag no longer copies whole widgets), a leading BOM is
 stripped on paste reads, and `halo doctor`'s clipboard line states the
