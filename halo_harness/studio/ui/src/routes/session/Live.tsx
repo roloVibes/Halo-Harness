@@ -5,22 +5,30 @@
 // hands back, what it asks you -- in the order it arrives (shared/liveFeed.ts
 // and liveTree.ts; LiveRows.tsx draws the lines). Follow is on: scrolling up
 // pauses it and "↓ N new" resumes. A tag pins its agent (the column shows only
-// it; the tag again, or Esc, shows everyone), and the Steer box at the bottom
-// talks to the pinned agent. Hovering a line lights that agent's node on the
-// map. The DOM holds the newest VIEW lines; older ones are in Activity.
+// it; the tag again, or Esc, shows everyone). Hovering a line lights that
+// agent's node on the map. The DOM holds the newest VIEW lines; older ones are
+// in Activity. 3.1.7.0 R1 (the owner, from the Fleet view: "I want what fleet
+// has with tool running too within the session tab. More of insight and
+// ability to jump in and steer"), top to bottom: the header with the agent
+// and kind picks beside Follow (LiveHead.tsx), Fleet's timeline strip for
+// this session (a lane click pins its agent), the lines with Fleet's time and
+// KIND columns, and the Steer box at the foot at all times (LiveSteer.tsx:
+// the pinned agent, else the session's main agent, with Pause and Stop).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { MotionState } from "../../lib/motion";
-import { Button, Empty, Icon } from "../../lib/ui";
+import { Empty } from "../../lib/ui";
 import { patchPanel } from "../../lib/workspace/persist";
 import { Metric } from "../orchestra/bits";
 import { short } from "../orchestra/format";
-import { select } from "../fleet/actions";
-import { Steer } from "../fleet/Steer";
-import { allAgents, fleet, findAgent, isLive, localId, useFleet } from "../fleet/store";
+import { Timeline } from "../fleet/Timeline";
+import { allAgents, fleet, isLive, localId, useFleet } from "../fleet/store";
 import { useLive, type LiveLine } from "../shared/liveFeed";
 import { hueOf } from "../shared/hues";
 import { startLiveTree } from "../shared/liveTree";
+import { kindIn, LiveHead } from "./LiveHead";
 import { answerAsk, LiveRow, type Who } from "./LiveRows";
+import { LiveSteer } from "./LiveSteer";
+import { setPin, useStripScope } from "./steer";
 import { sess, useSession } from "./store";
 
 export const VIEW = 500;
@@ -43,13 +51,6 @@ function useWho(): Map<string, Who> {
 }
 
 const mine = (here: string) => (l: LiveLine) => l.key.startsWith(here + "|");
-
-export function setPin(key: string): void {
-  const next = sess.get().pin === key ? "" : key;
-  sess.update(() => ({ pin: next, follow: true }));
-  if (next && findAgent(fleet.get(), next)) select(next);
-}
-
 const setHover = (key: string) => fleet.get().hover !== key && fleet.update(() => ({ hover: key }));
 
 export function LiveDetail() {
@@ -57,11 +58,13 @@ export function LiveDetail() {
   const here = useFleet((s) => localId(s));
   const all = useLive((s) => s.lines);
   const pin = useSession((s) => s.pin);
+  const kind = useSession((s) => s.kind);
   const follow = useSession((s) => s.follow);
   const who = useWho();
+  const strip = useStripScope();
   const scroller = useRef<HTMLDivElement>(null);
   const [pausedAt, setPausedAt] = useState(0);
-  const lines = useMemo(() => all.filter(pin ? (l) => l.key === pin : mine(here)), [all, pin, here]);
+  const lines = useMemo(() => all.filter(pin ? (l) => l.key === pin : mine(here)).filter(kindIn(kind)), [all, pin, here, kind]);
   const shown = lines.length > VIEW ? lines.slice(-VIEW) : lines;
   const fresh = follow ? 0 : shown.filter((l) => l.n > pausedAt).length;
   useLayoutEffect(() => {
@@ -79,7 +82,7 @@ export function LiveDetail() {
   };
   const onPin = useCallback((k: string) => setPin(k), []);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest("textarea, input") || e.ctrlKey || e.metaKey || e.altKey) return;
+    if ((e.target as HTMLElement).closest("textarea, input, select") || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     const ask = ["a", "r", "s", "o"].includes(k) ? [...shown].reverse().find((l) => l.kind === "ask") : undefined;
     if (k === "Escape" && sess.get().pin) setPin(sess.get().pin);
@@ -87,52 +90,38 @@ export function LiveDetail() {
     e.preventDefault();
     e.stopPropagation();
   };
-  const pinned = pin ? findAgent(fleet.get(), pin) : null;
   const working = [...who.entries()].filter(([k, w]) => k.startsWith(here + "|") && w.state === "running").length;
   const lastN = shown[shown.length - 1]?.n;
-  const done = !pinned || ["done", "failed", "stopped"].includes(String(pinned.a.state));
+  const onFollow = () => (follow && setPausedAt(lastN || 0), sess.update((s) => ({ follow: !s.follow })));
   return (
-    <div className="slv" data-testid="session-live-detail" data-follow={follow || undefined} data-pinned={pin || undefined} onKeyDown={onKey}>
-      <header className="slv-head">
-        <span className="glance-kicker mono">LIVE</span>
-        <span className="mono muted slv-counts" data-testid="session-live-counts">
-          {working} working · {lines.length} line{lines.length === 1 ? "" : "s"}
-        </span>
-        {pinned && (
-          <button type="button" className="slv-pinned mono" data-testid="session-live-pinned" onClick={() => setPin(pin)} title="Show every agent again (Esc)">
-            only {short(pinned.a.name || pinned.a.agent_id, 20)} <Icon name="close" size={12} />
-          </button>
-        )}
-        <span className="spacer" />
-        <Button size="sm" variant={follow ? "primary" : "ghost"} icon={<Icon name="follow" />} aria-pressed={follow} data-testid="session-live-follow"
-                onClick={() => (follow && setPausedAt(lastN || 0), sess.update((s) => ({ follow: !s.follow })))} title="Keep the newest line in view; scrolling up pauses it">
-          Follow
-        </Button>
-      </header>
-      <div className="slv-scroll" ref={scroller} onScroll={onScroll} onMouseLeave={() => setHover("")} data-testid="session-live-scroll" tabIndex={-1}>
-        {lines.length > VIEW && (
-          <button type="button" className="og-link mono slv-older" data-testid="session-live-older" onClick={() => patchPanel("session", "session-activity", { collapsed: false }, false)}>
-            {lines.length - VIEW} older line{lines.length - VIEW === 1 ? "" : "s"}: the full log is in Activity
-          </button>
-        )}
-        {!shown.length && (
-          <Empty title={pin ? "Nothing from it yet" : "Waiting for the agents"} body="Every agent's text, tool calls and output land here the moment they happen: start or steer a session in a terminal (halo)." testid="session-live-empty" />
-        )}
-        {shown.map((l) => (
-          <LiveRow key={l.n} l={l} who={who.get(l.key) || { name: l.key.split("|")[2] || "?", hc: hueOf(l.key), state: "" }} last={l.n === lastN} onPin={onPin} onHover={setHover} />
-        ))}
+    <div className="slv" data-testid="session-live-detail" data-follow={follow || undefined} data-pinned={pin || undefined} data-kind={kind || undefined} onKeyDown={onKey}>
+      <LiveHead working={working} count={lines.length} onFollow={onFollow} />
+      <div className="slv-strip">
+        <Timeline scope={strip} onPick={onPin} marked={pin} verb="show only it in Live (again: everyone)" testid="session-live-timeline" />
       </div>
-      {fresh > 0 && (
-        <button type="button" className="slv-new mono" data-testid="session-live-new" onClick={() => sess.update(() => ({ follow: true }))}>
-          ↓ {fresh} new
-        </button>
-      )}
-      <footer className="slv-foot">
-        {pinned ? (
-          <Steer key={pin} k={pin} disabled={done} why={done ? "It has finished: nothing to steer" : undefined} />
-        ) : (
-          <div className="slv-hint mono muted" data-testid="session-live-hint">Click a tag to follow one agent and steer it here.</div>
+      <div className="slv-rows">
+        <div className="slv-scroll" ref={scroller} onScroll={onScroll} onMouseLeave={() => setHover("")} data-testid="session-live-scroll" tabIndex={-1}>
+          {lines.length > VIEW && (
+            <button type="button" className="og-link mono slv-older" data-testid="session-live-older" onClick={() => patchPanel("session", "session-activity", { collapsed: false }, false)}>
+              {lines.length - VIEW} older line{lines.length - VIEW === 1 ? "" : "s"}: the full log is in Activity
+            </button>
+          )}
+          {!shown.length && (
+            <Empty title={pin || kind ? "Nothing of that yet" : "Waiting for the agents"} testid="session-live-empty"
+                   body={kind ? "No line of that kind yet: every kind shows them all." : "Every agent's text, tool calls and output land here the moment they happen: start or steer a session in a terminal (halo)."} />
+          )}
+          {shown.map((l) => (
+            <LiveRow key={l.n} l={l} who={who.get(l.key) || { name: l.key.split("|")[2] || "?", hc: hueOf(l.key), state: "" }} last={l.n === lastN} onPin={onPin} onHover={setHover} />
+          ))}
+        </div>
+        {fresh > 0 && (
+          <button type="button" className="slv-new mono" data-testid="session-live-new" onClick={() => sess.update(() => ({ follow: true }))}>
+            ↓ {fresh} new
+          </button>
         )}
+      </div>
+      <footer className="slv-foot">
+        <LiveSteer />
       </footer>
     </div>
   );

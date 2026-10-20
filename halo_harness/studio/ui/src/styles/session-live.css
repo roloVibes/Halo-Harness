@@ -4,30 +4,44 @@
    data-hc, fleet.css) with its state glyph lit (cyan works, amber waits, green
    done, red failed). Tool calls are compact mono rows, outputs blocks, asks
    amber cards. Motion: a new line rises once (180 ms); nothing loops. Tokens
-   only (styles/tokens.css). */
+   only (styles/tokens.css). 3.1.7.0 R1: the header carries the agent and kind
+   picks (the Activity log's .fac-pick), Fleet's timeline strip sits under it,
+   a line is a Fleet log row (.fac-line, .fac-ts, .fac-kind from
+   fleet-panels2.css, with its container query: .slv-scroll is a `fac-log`
+   container) and the Steer box holds the foot at all times, in HUD brackets. */
 
 .panel-body.face-detail:has(> .slv) { padding: 0; overflow: hidden; }
-.slv { position: relative; height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
-.slv-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface-glass); }
+.slv { position: relative; height: 100%; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.slv-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface-glass); }
 .slv-counts { font-size: 11.5px; }
 .slv-pinned { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 11px; cursor: pointer;
   color: var(--accent); background: var(--accent-soft); border: 1px solid var(--line-strong); }
-.slv-scroll { overflow: auto; min-height: 0; padding: 6px 8px 10px; display: grid; align-content: start; gap: 2px; outline: none;
+.slv-picks { flex-wrap: nowrap; }
+.slv-strip { padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface-glass); min-width: 0; }
+.slv-rows { position: relative; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
+.slv-scroll { overflow: auto; min-height: 0; padding: 6px 8px 10px; display: grid; align-content: start; gap: 2px; outline: none; container: fac-log / inline-size;
   background-color: var(--bg-2);
   background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 24px 24px; }
 .slv-older { justify-self: center; font-size: 11px; margin: 2px 0 6px; }
 .slv-foot { border-top: 1px solid var(--line); padding: 8px 10px; background: var(--surface-glass); }
-.slv-foot .fa-steer { margin: 0; }
 .slv-hint { font-size: 11.5px; }
 
-/* -- one line ------------------------------------------------------------------------ */
-.slv-line { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 10px; align-items: start; padding: 4px 6px; border-radius: var(--radius-sm);
+/* -- one line: a Fleet log row (time, KIND, the tag, then what it says) ------------------ */
+.slv-line { padding: 4px 6px; border-radius: var(--radius-sm); cursor: default;
   border-left: 2px solid color-mix(in srgb, var(--hc, var(--accent)) 50%, transparent); background: color-mix(in srgb, var(--surface) 55%, transparent);
   animation: slv-rise 180ms var(--ease) 1; }
 .slv-line:hover { background: color-mix(in srgb, var(--hc, var(--accent)) 10%, var(--surface)); }
 @keyframes slv-rise { from { opacity: 0; transform: translateY(4px); } }
+.slv-line .fac-ts { font-variant-numeric: tabular-nums; }
+.slv-line[data-kind="text"] .fac-text { color: var(--text); }
+.slv-line[data-kind="thinking"] .fac-kind { color: var(--faint); }
+.slv-line[data-kind="output"] .fac-kind { color: var(--ok); }
+.slv-line[data-kind="spawn"] .fac-kind { color: var(--accent-2); }
+.slv-line[data-kind="you"] .fac-kind { color: var(--accent); text-shadow: 0 0 6px var(--accent-soft); }
+.slv-body { min-width: 0; }
 
-.slv-tag { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 1px 6px; border: 1px solid transparent; border-radius: 4px; background: none;
+.slv-who { position: relative; display: flex; align-items: center; min-width: 0; }
+.slv-tag { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 1px 6px; border: 1px solid transparent; border-radius: 4px; background: none;
   color: var(--hc, var(--accent)); font-size: 11px; font-weight: 600; cursor: pointer; text-align: left; }
 .slv-tag:hover, .slv-tag:focus-visible { border-color: color-mix(in srgb, var(--hc, var(--accent)) 55%, transparent); outline: none; }
 .slv[data-pinned] .slv-tag { border-color: color-mix(in srgb, var(--hc, var(--accent)) 40%, transparent); }
@@ -37,18 +51,31 @@
 .slv-tag[data-state="waiting"] .slv-glyph, .slv-tag[data-state="paused"] .slv-glyph { color: var(--warn); text-shadow: 0 0 6px var(--warn); }
 .slv-tag[data-state="done"] .slv-glyph { color: var(--ok); }
 .slv-tag[data-state="failed"] .slv-glyph { color: var(--bad); }
+/* the tag's "steer" button: on the line's hover, over the end of the name */
+.slv-steer-tag { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 1px 7px; border: 0; border-radius: 99px; cursor: pointer;
+  font-size: 10px; font-weight: 700; color: var(--accent-ink); background: var(--hc, var(--accent)); box-shadow: 0 0 10px color-mix(in srgb, var(--hc, var(--accent)) 45%, transparent);
+  opacity: 0; pointer-events: none; transition: opacity 120ms var(--ease); }
+.slv-line:hover .slv-steer-tag, .slv-who:focus-within .slv-steer-tag { opacity: 1; pointer-events: auto; }
 
 /* -- what a line says, by kind ------------------------------------------------------------ */
 .slv-text { font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
 .slv-text[data-kind="thinking"] { color: var(--muted); font-style: italic; }
 .slv-text[data-typing]::after { content: "▍"; color: var(--accent); margin-left: 1px; }
-.slv-tool { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-width: 0; font-size: 11.5px; }
+.slv-tool { display: grid; gap: 4px; min-width: 0; font-size: 11.5px; }
+.slv-tool-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; border-radius: 4px; }
+.slv-tool[data-more] .slv-tool-head { cursor: pointer; }
+.slv-tool[data-more] .slv-tool-head:hover, .slv-tool-head:focus-visible { background: var(--accent-soft); outline: none; }
+.slv-runs { color: var(--muted); font-size: 11px; }
 .slv-tool-name { color: var(--accent); font-weight: 700; }
 .slv-target { flex: 1 1 120px; min-width: 0; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .slv-elapsed { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
 .slv-tool[data-running] .slv-elapsed { color: var(--accent); }
 .slv-result { flex-basis: 100%; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slv-caret { color: var(--accent); }
 .slv-tool[data-error] .slv-result, .slv-tool[data-error] .slv-tool-name { color: var(--bad); }
+.slv-full { margin: 0; padding: 6px 8px; max-height: 18em; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; line-height: 1.45; color: var(--text);
+  background: color-mix(in srgb, var(--bg) 70%, transparent); border: 1px solid var(--line); border-left: 2px solid var(--accent); border-radius: var(--radius-sm); }
+.slv-tool[data-error] .slv-full { border-left-color: var(--bad); }
 .slv-out { display: grid; gap: 4px; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); border-left: 3px solid var(--accent);
   background: var(--surface-2); min-width: 0; }
 .slv-out[data-state="done"] { border-left-color: var(--ok); }
@@ -70,10 +97,25 @@
 .slv-ask-keys { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .slv-ask[data-answered] { border-color: var(--line); box-shadow: none; opacity: .7; }
 
-/* -- "↓ N new" ------------------------------------------------------------------------------ */
-.slv-new { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 2; padding: 4px 12px; border-radius: 99px; cursor: pointer;
+/* -- "↓ N new" over the lines ------------------------------------------------------------- */
+.slv-new { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 2; padding: 4px 12px; border-radius: 99px; cursor: pointer;
   font-size: 11.5px; font-weight: 700; color: var(--accent-ink); background: var(--accent); border: 0; box-shadow: var(--glow-strong); }
+
+/* -- the foot: the Steer box, always, to the pinned agent or the session's main agent ---- */
+.slv-steer { position: relative; padding: 6px 8px; border-radius: var(--radius-sm); }
+.slv-steer.holo-frame { --holo: var(--hc, var(--accent)); }
+.slv-foot .fa-steer { margin: 0; padding-top: 0; border-top: 0; }
+.slv-steer .fa-steer-head { justify-content: flex-start; flex-wrap: wrap; row-gap: 4px; }
+.slv-steer .fa-mode { margin-left: auto; }
+.slv-steer .fa-mode button { padding: 2px 10px; font-size: 11px; }
+.fa-steer-extra { display: inline-flex; gap: 6px; }
+.slv-steer-to { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
+.slv-steer-to .rail-label { color: var(--accent); }
+.slv-steer-name { font-size: 12px; font-weight: 700; color: var(--hc, var(--accent)); text-shadow: 0 0 8px color-mix(in srgb, var(--hc, var(--accent)) 45%, transparent);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 22ch; }
+.slv-steer[data-disabled] .slv-steer-name { color: var(--muted); text-shadow: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .slv-line { animation: none; }
+  .slv-steer-tag { transition: none; }
 }
