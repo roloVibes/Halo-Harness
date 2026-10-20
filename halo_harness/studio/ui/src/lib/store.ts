@@ -88,7 +88,8 @@ export type StudioState = {
   toasts: ToastItem[];
 };
 
-export const SECTION_IDS: SectionId[] = ["orchestra", "roles", "design", "fleet", "team", "session"];
+/** Every section id, in the tab order (routes/index.tsx SECTIONS is the order; store.ts cannot import it). */
+export const SECTION_IDS: SectionId[] = ["session", "team", "roles", "fleet", "design", "orchestra"];
 
 function readLocal(key: string): string {
   try {

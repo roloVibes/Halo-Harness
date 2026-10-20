@@ -1,4 +1,4 @@
-// Roles (Alt+2, 3.0.7.0 R2): lineups and agent bios as React panels (the
+// Roles (Alt+3, 3.0.7.0 R2): lineups and agent bios as React panels (the
 // framed classic page is gone). Until you have a lineup of your own (and none
 // is active) the section is the Start view (Start.tsx). Then six panels:
 // Lineups (roles-lineups: the list, New, Duplicate, Delete, Apply), the

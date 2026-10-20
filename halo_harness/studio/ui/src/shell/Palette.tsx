@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { Kbd, Surface } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { commands, fuzzy, type Command } from "./commands";
+import { SECTIONS } from "../routes";
 
-const GROUP_ORDER = ["Go to", "Help", "Orchestra", "Fleet", "Media", "View", "Layout", "Open"];
+// 3.1.6.0 R6: the section groups in the registry's order (before, Roles, Design and Team sorted above Go to)
+const GROUP_ORDER = ["Go to", "Help", ...SECTIONS.map((s) => s.title), "Media", "View", "Layout", "Open"];
 
 export function Palette() {
   const open = useStore(studio, (s) => s.paletteOpen);

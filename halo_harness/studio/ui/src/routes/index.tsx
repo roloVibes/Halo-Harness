@@ -11,6 +11,10 @@
 // (drag, resize, collapse, pop out, persistence). Each section's "How this
 // works" copy is routes/sectionHelp.ts.
 // Design also carries the Media panels as optional ones the palette adds.
+// 3.1.6.0 R6: this list IS the order: the tab strip, the Alt+1..6 keys (shell/keys.ts), the palette's
+// Go to and section groups, the section help's key line and the status bar's key hint all read it.
+// The owner, 2026-10-20: "The session tab should be the first tab in studio", then "Here's the order of
+// tabs in studio: session, team, roles, fleet, design"; Orchestra, not in his list, takes the last key.
 import type { ComponentType } from "react";
 import type { SectionId } from "../lib/store";
 import type { PanelSpec } from "../lib/workspace/types";
@@ -49,12 +53,12 @@ export type SectionDef = {
 };
 
 export const SECTIONS: SectionDef[] = [
-  { id: "orchestra", title: "Orchestra", kbd: "Alt+1", blurb: "Runs of your agents, live", panels: orchestraPanels, rail: OrchestraRail, view: OrchestraView, enter: enterOrchestra },
-  { id: "roles", title: "Roles", kbd: "Alt+2", blurb: "Lineups and agent bios", panels: rolesPanels, view: RolesView, enter: () => enterRoles("workspace") },
-  { id: "design", title: "Design", kbd: "Alt+3", blurb: "Prototypes, pages and decks", panels: [...designPanels, ...mediaPanels(0)], view: DesignView },
+  { id: "session", title: "Session", kbd: "Alt+1", blurb: "This session, live", panels: sessionPanels, view: SessionView, enter: enterSession },
+  { id: "team", title: "Team", kbd: "Alt+2", blurb: "People, blocks and stages on one board", panels: teamPanels, view: TeamView, enter: () => enterTeam("workspace") },
+  { id: "roles", title: "Roles", kbd: "Alt+3", blurb: "Lineups and agent bios", panels: rolesPanels, view: RolesView, enter: () => enterRoles("workspace") },
   { id: "fleet", title: "Fleet", kbd: "Alt+4", blurb: "Every harness, every agent, live", panels: fleetPanels, view: FleetView, enter: enterFleet },
-  { id: "team", title: "Team", kbd: "Alt+5", blurb: "People, blocks and stages on one board", panels: teamPanels, view: TeamView, enter: () => enterTeam("workspace") },
-  { id: "session", title: "Session", kbd: "Alt+6", blurb: "This session, live", panels: sessionPanels, view: SessionView, enter: enterSession },
+  { id: "design", title: "Design", kbd: "Alt+5", blurb: "Prototypes, pages and decks", panels: [...designPanels, ...mediaPanels(0)], view: DesignView },
+  { id: "orchestra", title: "Orchestra", kbd: "Alt+6", blurb: "Runs of your agents, live", panels: orchestraPanels, rail: OrchestraRail, view: OrchestraView, enter: enterOrchestra },
 ];
 
 export function sectionDef(id: SectionId): SectionDef {

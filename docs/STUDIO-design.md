@@ -6,7 +6,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Design mode: prototypes, pages and decks on your own apps
 
-Design (`Alt+3`, `halo studio --mode design`, `/design`) is a React section of
+Design (`Alt+5`, `halo studio --mode design`, `/design`) is a React section of
 the shell since 3.0.7.0, over `halo design` projects under
 `~/.halo/design/<slug>/`. With no project yet it is one **Start view**: what
 Design mode is, the steps, and one button: name the first project and

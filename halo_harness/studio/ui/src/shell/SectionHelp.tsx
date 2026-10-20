@@ -16,6 +16,7 @@ export function SectionHelp() {
   const def = sectionDef(help.section);
   const copy = SECTION_HELP[def.id];
   const panels = def.panels.filter((p) => p.about);
+  const keys: [string, string][] = [[def.kbd, def.title], ...copy.keys]; // 3.1.6.0 R6: the section's own key from the registry
   const footer = (
     <>
       <span className="section-help-note muted">
@@ -85,7 +86,7 @@ export function SectionHelp() {
           <section aria-label="Keys">
             <div className="rail-label mono">KEYS</div>
             <ul className="section-help-list section-help-keys">
-              {copy.keys.map(([k, text]) => (
+              {keys.map(([k, text]) => (
                 <li key={k}>
                   <Kbd keys={k} />
                   <span className="muted">{text}</span>
