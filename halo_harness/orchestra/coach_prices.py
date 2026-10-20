@@ -43,13 +43,12 @@ def _openrouter_rows(base: Path) -> list:
 def catalog(state_dir=None) -> list:
     rows: list = []
     try:
-        import os
-        from halo_harness.providers.config import default_state_dir, load_routes
+        from halo_harness.providers.config import default_state_dir, listing_effective_env, load_routes
         from halo_harness.providers.model_enumeration import build_model_rows
         base = Path(state_dir or default_state_dir())
         try:
             routes = load_routes(base / "routes.json" if base.exists() else None)
-            rows = [r for r in build_model_rows(base, env=dict(os.environ), routes=routes)
+            rows = [r for r in build_model_rows(base, env=listing_effective_env(), routes=routes)  # 3.1.4.0 R4
                     if r.get("ref") and r.get("provider") != "alias"]
         except Exception:
             rows = []

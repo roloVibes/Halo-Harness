@@ -78,6 +78,11 @@ def dom(c, url: str, state: Path) -> dict:
     c.js(f"{bio}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(bio)
+    more = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select-more\"]')"  # 3.1.4.0 R4: the table is folded
+    c.wait(f"!!{more}", 20)
+    c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
+    time.sleep(0.3)
+    c.click_on(more)
     c.wait("!!document.querySelector('[data-testid=\"bio-form\"]') && document.querySelectorAll('[data-testid=\"model-row\"]').length > 0", 20)
     return {"start": start, "roles": counts(c)}
 

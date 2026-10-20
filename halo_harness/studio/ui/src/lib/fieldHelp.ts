@@ -8,10 +8,11 @@ import { useEffect } from "react";
 import { call } from "./api";
 import { createStore, useStore } from "./store";
 
-export type HelpGroup = "identity" | "bio" | "lineup_sections" | "lineup_fields" | "assignment";
+/** 3.1.4.0 R4: `model_select` holds the lines of the one model control (routes/shared/ModelSelect.tsx). */
+export type HelpGroup = "identity" | "bio" | "lineup_sections" | "lineup_fields" | "assignment" | "model_select";
 type Lines = Record<HelpGroup, Record<string, string>>;
 
-const EMPTY: Lines = { identity: {}, bio: {}, lineup_sections: {}, lineup_fields: {}, assignment: {} };
+const EMPTY: Lines = { identity: {}, bio: {}, lineup_sections: {}, lineup_fields: {}, assignment: {}, model_select: {} };
 export const fieldHelp = createStore<{ lines: Lines; loaded: boolean }>({ lines: EMPTY, loaded: false });
 
 let loading = false;

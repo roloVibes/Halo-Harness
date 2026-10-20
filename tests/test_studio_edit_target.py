@@ -224,7 +224,9 @@ def test_field_help_is_served_from_one_source(ctx: Ctx):
         status, body = launch.api_call(h.state, "GET", "field-help")
         ctx.check(f"GET /api/field-help is 200, got {status}", status == 200)
         ctx.check("it is field_help.py's lines, every group", body == field_help.as_json()
-                  and set(body) == {"identity", "bio", "lineup_sections", "lineup_fields", "assignment"})
+                  and set(body) == {"identity", "bio", "lineup_sections", "lineup_fields", "assignment", "model_select"})
+        ctx.check("3.1.4.0 R4: every label of the model select has its line",  # routes/shared/ModelSelect.tsx reads them
+                  all(body["model_select"].get(k) for k in ("runs_on", "card", "main", "bio", "orchestra", "design", "team", "more", "test", "refresh")))
         status, _ = launch.api_call(h.state, "POST", "field-help", {})
         ctx.check(f"POST is 405, got {status}", status == 405)
     from halo_harness.teams_yaml import TOP_SECTIONS

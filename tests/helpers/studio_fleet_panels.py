@@ -104,6 +104,7 @@ def replay(c, rig, out: dict) -> None:
     card_click(c, card("reviewer"))
     c.click_on("document.querySelector('[data-testid=\"roles-live-tab\"]')")
     out["history_replay"] = c.wait("document.querySelectorAll('[data-testid=\"roles-history-replay\"]').length", 15)
+    c.js("document.querySelector('[data-testid=\"roles-history-replay\"]').scrollIntoView({block: 'center'}); 1")  # 3.1.4.0 R4: below the MODEL strip
     c.click_on("document.querySelector('[data-testid=\"roles-history-replay\"]')")
     out["bar"] = c.wait(f"{bar}?.querySelector('.replay-title')?.textContent", 15)
     lit = "(() => { const g = " + card("reviewer") + "; return g ? (g.dataset.live || 'none') : 'no card'; })()"

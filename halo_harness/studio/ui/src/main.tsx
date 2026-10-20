@@ -29,6 +29,7 @@ import "./styles/team-panels.css";
 import "./styles/coach.css";
 import "./styles/start.css";
 import "./styles/session.css";
+import "./styles/model-select.css";
 import { App } from "./App";
 
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "dark";

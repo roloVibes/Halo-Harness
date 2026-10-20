@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type
 import { Empty } from "../../lib/ui";
 import { addCard, moveToTier, setReportsTo } from "./actions";
 import { Card, Edges, TierBox } from "./CanvasParts";
+import { focusModel } from "./modelActions";
 import { CanvasBar } from "./CanvasBar";
 import { autoLayout, cardAt, columns, extent, hiddenCards, placeAll, tierAt, tierBox } from "./layout";
 import { cardActivity, selectCard, useByNode } from "./live";
@@ -125,6 +126,7 @@ export function CanvasDetail() {
       const [dx, dy] = arrows[k];
       movePositions({ [sel]: { x: Math.max(0, placed[sel].x + dx), y: Math.max(0, placed[sel].y + dy) } });
     } else if ((k === "Delete" || k === "Backspace") && sel) openDialog({ kind: "delete-card", node: sel });
+    else if (k === "Enter" && sel) focusModel(sel); // 3.1.4.0 R4: the Inspector's MODEL strip
     else if (k === "a") layout();
     else if (k === "f") fit();
     else if (k === "+" || k === "=") setZoom((z) => Math.min(2, z * 1.2));

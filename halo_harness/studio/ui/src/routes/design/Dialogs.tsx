@@ -4,8 +4,11 @@
 // command that continues from it, and an artboard's contrast table; R3b:
 // what a design-system Sync found.
 import { useState } from "react";
+import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button, Dialog } from "../../lib/ui";
 import { toast } from "../../lib/store";
+import { ModelSelect } from "../shared/ModelSelect";
+import { useResolved } from "../shared/resolve";
 import { exportAs, newProject, remove, rename } from "./actions";
 import { artboard, closeDialog, useDesign } from "./store";
 import { EXPORTS, type DesignDialog } from "./types";
@@ -14,6 +17,8 @@ function NewProject() {
   const [name, setName] = useState("");
   const [model, setModel] = useState("");
   const busy = useDesign((s) => s.busy === "new");
+  const def = useResolved(""); // 3.1.4.0 R4: the default model a project without its own runs on
+  const help = useHelpGroup("model_select");
   const go = () => void newProject(name, model.trim());
   return (
     <Dialog open onClose={closeDialog} title="New design project" kicker="DESIGN · PROJECT" testid="design-new-dialog"
@@ -22,10 +27,8 @@ function NewProject() {
         <span className="rail-label mono">NAME</span>
         <input className="input" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} placeholder="Launch page" data-testid="design-new-name" />
       </label>
-      <label className="fd-field">
-        <span className="rail-label mono">MODEL (OPTIONAL)</span>
-        <input className="input mono" value={model} onChange={(e) => setModel(e.target.value)} placeholder="the default model" />
-      </label>
+      <ModelSelect label="MODEL (OPTIONAL)" hint={help.design} value={model} onPick={setModel} testid="design-new-model" inline
+                   inherit={{ label: "the default", model: def?.ref || "" }} />
       <p className="muted">A folder under ~/.halo/design/; every turn in it saves a version of the artboards it changed.</p>
     </Dialog>
   );
