@@ -4,6 +4,56 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-20 ~07:15 CDT (authoritative, read this first)
+
+**3.1.5.0 "Focus" IS RELEASED** (tag v3.1.5.0 at a9870c0, cut by
+`scripts/release.py --skip-windows` on a green Linux run and a green
+dispatched Windows run for a17c3b9; the local install is `halo-harness
+v3.1.5.0`). Four Opus worker rounds in parallel worktrees, ordered by the
+owner right after 3.1.4.0 ("Trying to focus halo harness ... studio should be
+featured more in GitHub"; briefs, maps, hand-backs and logs under
+`~/hh-315/briefs/`):
+- R1 the subscription routes are gone: the Claude Code (`cc:`) and Codex
+  (`cx:`) routes, their providers, login priming, the ccbridge, the consent
+  and scrub machinery, `/subscriptions`, `/settings`, the doctor rows, the
+  wizard rows, docs and tests (33 files). The `ant:` aliases live in
+  `providers/anthropic_aliases.py`; the claude.ai connectors bridge stays and
+  resolves its claude login through `mcp/claude_auth.py` +
+  `mcp/claude_process.py`; a leftover `cc:`/`cx:` ref is one clear line.
+- R2 the game themes are gone (94 files): scenes, the level band, the HUD
+  skins, `/level` and the five toggles, three config keys (REMOVED_KEYS with a
+  doctor line), captures, 37 TUI snapshots; six ordinary themes stay; a saved
+  game theme falls back with one line. `test_h9b_f11` now polls to a deadline.
+- R3 Session and Roles, polished: Session's whole right side is **Live**
+  (`routes/session/Live.tsx`: every agent's text, tool rows with a ticking
+  clock, hand-backs, asks as cards, tags per agent, Follow, pin + Steer, a
+  500-line DOM cap), the map as a tree (`routes/fleet/layoutTree.ts`), Cost
+  with a context bar, a sparkline and per-agent tokens (`fleet/agent_tokens.py`),
+  the Roles glow with its legend (`routes/roles/glow.ts`), `styles/holo.css`,
+  animated captures (`tools/capture_session_anim.py` -> studio-session.gif,
+  studio-roles-live.gif). Follow-ups: the Linux Fleet flake's root cause (a
+  stale GET fleet answer undoing a newer frame) fixed in `routes/fleet/fresh.ts`
+  with the map's `data-nodes` ready mark; the done-fade tests emulate
+  `prefers-reduced-motion: no-preference` (the Windows runner reports reduce).
+- R4 the front page: README leads with Studio (Session, Roles, the
+  six-section banner, Fleet, Orchestra, Team, a short Design); the
+  subscription section, the dock, code review with a judge, Signal, one paste
+  and the levels left the page; the GitHub description and topics were
+  applied with `gh repo edit`.
+Lessons: a scratch test runner must close stdin (an init test waited on
+`input()` for half an hour); the GitHub Windows image reports reduced motion;
+`gh run list --commit` can pick a non-suites workflow -- filter by
+`--workflow suites.yml`.
+
+**NEXT: 3.1.6.0 "The coach probes"** (`plans/ROADMAP.md`, ADDED 2026-10-19
+~18:10, moved behind 3.1.5.0 by the 2026-10-20 section): R1 tiers on the
+canvas, R2 the coach probes, R3 the improvement library. Also queued: a
+Studio hero + social preview (R4 found `docs/media/hero.svg` still carries
+the old tagline and five model chips; `tools/hero_svg.py` has no image path
+yet; the GitHub social preview is a hand upload), and the owner's live checks
+of 3.1.5.0 (the Session Live column, the Roles glow legend, the page) which
+may reorder the rounds.
+
 ## WHERE THINGS STAND -- 2026-10-20 ~00:05 CDT (authoritative, read this first)
 
 **3.1.3.0 AND 3.1.4.0 ARE RELEASED** (tags v3.1.3.0 at badad76 and v3.1.4.0
