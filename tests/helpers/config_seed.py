@@ -58,12 +58,12 @@ class ConfigHome:
 
 def seed(h: ConfigHome) -> ConfigHome:
     """One file of every kind, with the clashes the precedence tests read."""
-    h.config({"model": "or:vendor/from-config", "team": "mine", "theme": "doom",
+    h.config({"model": "or:vendor/from-config", "team": "mine", "theme": "claude-dark-daltonized",
               "ollama": {"hosts": [{"name": "lan", "api_key": CONFIG_SECRET}]}})
     h.write(".halo/routes.json", json.dumps({"default": "or:vendor/from-routes"}))
     h.write(".config/halo/env", f"OPENROUTER_API_KEY={FAKE_KEY}\nDATABRICKS_HOST=your-workspace.cloud.databricks.com\n")
     h.write(".env", f"REPO_ONLY_TOKEN={DOT_ENV_VALUE}\n", base=h.repo)
-    h.write(".halo/config.json", json.dumps({"theme": "mario"}), base=h.repo)
+    h.write(".halo/config.json", json.dumps({"theme": "claude-light"}), base=h.repo)
     h.write(".halo/teams/mine.yaml", "extends: standard\ndelegation: {mode: manual}\nroles: {main: coder}\n")
     h.write(".halo/teams/standard.yaml", "description: the repo's own\nroles: {main: coder}\n", base=h.repo)
     h.write(".halo/agents/coder.yaml", "description: my coder\nkind: main\n")

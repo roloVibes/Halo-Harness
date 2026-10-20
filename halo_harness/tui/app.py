@@ -33,14 +33,12 @@ from textual.widgets import Static
 from halo_harness import events as ev
 from halo_harness.tui import keys as tui_keys
 from halo_harness.tui import theme as tui_theme
-from halo_harness.tui.borders import BRICK_READY
 from halo_harness.tui.dispatch import apply_event
 from halo_harness.tui.events import drain_queue
 from halo_harness.tui.keys import DOUBLE_CTRL_C_WINDOW_S, DRAIN_HZ, next_mode
 from halo_harness.tui.widgets.input import CompletionPopup, PromptInput
 from halo_harness.tui.widgets.pending_dock import PendingDock
 from halo_harness.tui.widgets.statusbar import StatusBar
-from halo_harness.tui.widgets.scene_band import SceneBand
 from halo_harness.tui.widgets.transcript import IntroLine, Transcript
 from halo_harness.tui.widgets.whichkey import WhichKeyOverlay
 
@@ -150,16 +148,6 @@ def _recalled_pastes(raw) -> dict:
     return out
 
 
-def _theme_variant(theme_name: str) -> "Optional[str]":
-    """The persisted variant of a game theme that has some (Metroid's area),
-    else None; never raises (a bad config must not stop the app)."""
-    try:
-        from halo_harness.theme import variant_for
-        return variant_for(theme_name)
-    except Exception:
-        return None
-
-
 if sys.platform == "win32":
     # 3.0.2.0: Textual's Windows input loop drops the ESC of every mouse
     # report while NumLock/CapsLock is on, and the rest of the report
@@ -169,9 +157,7 @@ if sys.platform == "win32":
 
 
 class BridgeApp(App):
-    # styles_brick.tcss (the Mario skin's border) needs the `brick` border
-    # type registered by tui/borders.py; without it the stylesheet is skipped.
-    CSS_PATH = ["styles.tcss", "styles_brick.tcss"] if BRICK_READY else "styles.tcss"
+    CSS_PATH = "styles.tcss"
     ENABLE_COMMAND_PALETTE = False
     TITLE = "halo"
 
@@ -251,7 +237,6 @@ class BridgeApp(App):
         # initial stylesheet) before returning -- `theme_name` must exist
         # on `self` BEFORE `super().__init__()` runs, not after.
         self.theme_name = theme_name or tui_theme.DEFAULT_THEME
-        self.theme_variant = _theme_variant(self.theme_name)
         super().__init__()
         # 2.0.0 Launch intro: defaults OFF (never auto-detected here) so
         # every existing/future test that constructs a BridgeApp directly
@@ -431,20 +416,14 @@ class BridgeApp(App):
         # separator and a status bar and nothing to type into (found live
         # on a Kali box; the pilots never checked geometry).
         with Vertical(id="bottom-dock"):
-            # 2.0.11 round A3: the level band sits above the prompt row,
-            # inside the same docked container (hidden unless a game
-            # theme's scene is on and the terminal has room; see
-            # widgets/scene_band.py).
-            yield SceneBand()
             with Horizontal(id="prompt-row"):
                 yield Static("❯", id="prompt-glyph")
                 yield PromptInput(placeholder=self._current_placeholder_text())
-                yield Static("", id="prompt-frame-r")  # the visor's right edge (hidden unless a skin frames the input)
             yield StatusBar(cwd=str(self.cwd))
 
     def get_css_variables(self) -> dict:
         variables = dict(super().get_css_variables())
-        variables.update(tui_theme.variables_for(self.theme_name, self.theme_variant))
+        variables.update(tui_theme.variables_for(self.theme_name))
         return variables
 
     def check_action(self, action: str, parameters: "tuple") -> "bool | None":
@@ -476,7 +455,6 @@ class BridgeApp(App):
         self.pending_dock = self.query_one(PendingDock)
         self.prompt_input = self.query_one(PromptInput)
         self.status_bar = self.query_one(StatusBar)
-        self._sync_theme_chrome()
         # Halo 2.0.3 round 5e: the "offline" chip's own initial reading --
         # `--offline`/a persisted `network.offline` -- pushed once here,
         # the same "direct push, no event round-trip" pattern `/offline`
@@ -1851,11 +1829,11 @@ class BridgeApp(App):
         return filter_items(self._effort_levels_for(model_text), token)
 
     def _complete_theme_command_arg(self, token: str) -> "list":
-        """Halo 2.0.8: theme names for `/theme <name>` -- the game themes
-        first, then the built-in family (`halo_harness.theme.VALID_THEMES`)."""
-        from halo_harness.theme import GAME_THEMES, VALID_THEMES
+        """Halo 2.0.8: theme names for `/theme <name>` (`halo_harness.theme.
+        VALID_THEMES`, sorted)."""
+        from halo_harness.theme import VALID_THEMES
         from halo_harness.tui.completion import filter_items
-        names = list(GAME_THEMES) + sorted(VALID_THEMES - set(GAME_THEMES))
+        names = sorted(VALID_THEMES)
         if token in names:
             return []
         return filter_items(names, token)
@@ -2752,59 +2730,6 @@ class BridgeApp(App):
         read_board = getattr(self.controller, "read_task_board", None)
         self.push_screen(TasksPanel(list_agent_tasks=list_tasks, read_task_board=read_board))
 
-    def _sync_theme_chrome(self) -> None:
-        """Halo 2.0.8 theme pack: the status bar's HUD skin, the heavy
-        panel/dialog borders, the map-grid border type and the visor frame
-        around the input line follow the active theme (all declared by the
-        theme's `HudSkin`, see tui/hud.py)."""
-        from halo_harness.theme import supports_truecolor
-        from halo_harness.tui.hud import skin_for
-        skin = skin_for(self.theme_name, self.theme_variant)
-        self.set_class(bool(skin is not None and skin.heavy_borders), "hud-heavy")
-        bar = getattr(self, "status_bar", None)
-        ascii_mode = (getattr(bar, "hud_ascii", None) if bar is not None else None)
-        if ascii_mode is None:
-            ascii_mode = not supports_truecolor()
-        border = ""
-        if skin is not None and skin.panel_border:  # the ascii type only applies to a skin that has a map border
-            border = (skin.panel_border_ascii if ascii_mode else skin.panel_border) or ""
-        for cls in [c for c in self.classes if c.startswith("hud-border-")]:
-            self.remove_class(cls)
-        if border:
-            self.add_class(f"hud-border-{border}")
-        frame = ()
-        if skin is not None:
-            frame = (skin.input_frame_ascii if ascii_mode else skin.input_frame) or ()
-        self.set_class(bool(frame), "hud-visor")
-        try:
-            self.query_one("#prompt-glyph", Static).update(frame[0] if frame else "❯")
-            self.query_one("#prompt-frame-r", Static).update(frame[1] if frame else "")
-        except Exception:
-            pass  # not mounted yet: on_mount runs this again
-        if bar is not None:
-            bar.set_theme(self.theme_name, self.theme_variant)
-        band = getattr(self, "scene_band", None)
-        if band is not None:
-            band.set_theme(self.theme_name, self.theme_variant)
-
-    @property
-    def scene_band(self):
-        """The level band (2.0.11 round A3), or None before compose."""
-        try:
-            return self.query_one("#scene-band", SceneBand)
-        except Exception:
-            return None
-
-    def on_resize(self, event) -> None:
-        """3.1.3.0: a hidden level band gets no Resize of its own, so the
-        app tells it the terminal changed and it comes back at once when
-        the rows allow (it used to wait for its next idle tick)."""
-        band = self.scene_band
-        if band is not None:
-            band.app_resized(event.size)
-
     def apply_theme(self, name: str) -> None:
         self.theme_name = name
-        self.theme_variant = _theme_variant(name)
-        self._sync_theme_chrome()
         self.refresh_css(animate=False)

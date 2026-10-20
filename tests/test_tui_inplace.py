@@ -1,18 +1,17 @@
 """tests.test_tui_inplace -- Halo 3.1.3.0 R2: the terminal keeps up with
-the typist. The status bar, the level band and the thinking block used to
+the typist. The status bar and the thinking block used to
 ask Textual for a full screen layout on every periodic repaint (every
 transcript widget, thousands in a long session), and keys typed meanwhile
 waited behind it. Pinned here:
 
-- periodic repaints (status-bar ticks, a band frame) make no layout request
+- periodic repaints (status-bar ticks) make no layout request
   of their own once the widgets are laid out (`tui/widgets/inplace.py`);
 - the slash completion popup rebuilds once per change, not once per entry,
   and a repeat of the same list is a no-op;
 - typing into a filled transcript costs far fewer screen layouts than keys
   and loses no characters;
-- a terminal resize draws no layout request from the band or the status
-  bar beyond Textual's own (they used to add one each), and the band is
-  redrawn at the new width.
+- a terminal resize draws no layout request from the status bar beyond
+  Textual's own (it used to add one).
 
 Run: python -m tests.test_tui_inplace
 """
@@ -43,7 +42,7 @@ MD = ("## Heading\n\nSome **bold** text and `code`, a list:\n\n- one\n- two\n\n"
       "```python\ndef f(x):\n    return x * 2\n```\n")
 
 
-def _app(theme: str = "doom"):
+def _app(theme: str = "claude-dark"):
     from halo_harness.testing.fake_controller import FakeController
     from halo_harness.tui.app import BridgeApp
     return BridgeApp(FakeController(), cwd="~/project", theme_name=theme)
@@ -92,41 +91,18 @@ def test_periodic_repaints_ask_for_no_screen_layout(ctx: Ctx):
             await pilot.pause(0.2)
             await _fill(app, pilot, 6)
             bar = app.status_bar
-            band = app.scene_band
             bar.set_phase_word("thinking")
             # a status line wider than the terminal: the row stays one row
             # (`height: 1`), so measuring its wrapped content must not count
             bar.set_statusline_text("statusline " * 40)
             await _settle(pilot)
-            with watch_own_layout_requests(bar, band) as asked:
+            with watch_own_layout_requests(bar) as asked:
                 for _ in range(5):
                     bar.tick_spinner()
                     bar._refresh_display()
-                band._tick()
                 await pilot.pause(0.1)
-            facts = (f"bar height={bar.styles.height} content={bar.content_size} "
-                     f"band height={band.styles.height} content={band.content_size}")
-            ctx.check(f"five status-bar ticks and a band frame make no layout request, got {asked} ({facts})",
-                      not asked)
-        # the HUD status bar (a game skin's multi-row bar) has its own render path
-        from halo_harness.tui import hud as hud_mod
-        saved = hud_mod.STATUS_BAR_OVERRIDE
-        hud_mod.STATUS_BAR_OVERRIDE = "hud"
-        try:
-            app = _app("metroid")
-            async with app.run_test(size=(120, 40)) as pilot:
-                await pilot.pause(0.3)
-                bar = app.status_bar
-                bar.set_phase_word("thinking")
-                await _settle(pilot)
-                rows = bar._rows
-                with watch_own_layout_requests(bar) as asked:
-                    for _ in range(5):
-                        bar.tick_spinner()
-                    await pilot.pause(0.1)
-                ctx.check(f"the HUD bar ({rows} rows) ticks in place too, got {asked}", rows > 1 and not asked)
-        finally:
-            hud_mod.STATUS_BAR_OVERRIDE = saved
+            facts = f"bar height={bar.styles.height} content={bar.content_size}"
+            ctx.check(f"five status-bar ticks make no layout request, got {asked} ({facts})", not asked)
     asyncio.run(body())
 
 
@@ -191,26 +167,18 @@ def test_typing_into_a_filled_transcript_is_cheap_and_loses_nothing(ctx: Ctx):
 
 
 @test
-def test_a_resize_draws_no_layout_request_from_the_band_or_the_status_bar(ctx: Ctx):
+def test_a_resize_draws_no_layout_request_from_the_status_bar(ctx: Ctx):
     async def body():
         app = _app()
         async with app.run_test(size=(120, 40)) as pilot:
             await pilot.pause(0.2)
             await _fill(app, pilot, 8)
-            band, bar = app.scene_band, app.status_bar
-            with watch_own_layout_requests(band, bar) as asked:
+            bar = app.status_bar
+            with watch_own_layout_requests(bar) as asked:
                 await pilot.resize_terminal(119, 40)
                 await pilot.pause(0.3)
-            ctx.check(f"the band and the status bar repaint in place after a resize, got {asked}", not asked)
-            ctx.check("the band is still shown after it", band.display is True)
-            width = 0
-            for _ in range(30):
-                lines = str(band.render()).split("\n")
-                width = len(lines[0]) if lines else 0
-                if width == 119:
-                    break
-                await pilot.pause(0.1)
-            ctx.check(f"the band is redrawn at the new width, got {width}", width == 119)
+            ctx.check(f"the status bar repaints in place after a resize, got {asked}", not asked)
+            ctx.check(f"and stays one row, got {bar.size.height}", bar.size.height == 1)
     asyncio.run(body())
 
 

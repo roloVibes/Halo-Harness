@@ -57,8 +57,8 @@ def _model_and_theme(cfg_row: dict, cwd: Path) -> None:
         if origin and origin != "config.json's model":
             lose(cfg_row, "model", origin)
     theme = data.get("theme")
-    if isinstance(theme, str):
-        from halo_harness import theme as T
+    from halo_harness import theme as T
+    if isinstance(theme, str) and theme not in T.REMOVED_THEMES:  # 3.1.5.0: doctor --config names a game theme
         chosen = T.resolve_theme(persisted_theme=theme, settings_theme=_settings_theme(cwd))
         if chosen != theme:
             var = next((v for v in T._ENV_VARS if T.is_valid_theme(os.environ.get(v))), "")

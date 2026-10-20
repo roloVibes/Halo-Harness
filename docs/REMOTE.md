@@ -631,8 +631,7 @@ five seconds while `remote.enabled` is on).
 
 **The status chip.** While a phone is attached to *this* session the status bar
 shows `⇄ remote 1` (`<> remote 1` where the terminal has no truecolor), with the
-number of attached phones; the three game skins (`/doom`, `/metroid`, `/mario`)
-carry it in their ticker as the `remote` slot. The bridge announces an attach
+number of attached phones. The bridge announces an attach
 or detach with the control socket's `note` command (below); a bridge that dies
 takes its phones with it, because the session forgets a connection's phones
 when it closes. Commands from the phone appear in the transcript tagged

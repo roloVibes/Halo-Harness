@@ -29,52 +29,32 @@ _SUFFIXES = ("", "-daltonized", "-ansi")
 # or "-ansi" suffix (plan D-TUI: "claude-dark/claude-light (+ daltonized,
 # ansi variants)"; help capture's own shorthand for the family is
 # "claude-dark", "claude-light", "*-daltonized", "*-ansi").
-# Halo 2.0.8 theme pack: the three game themes are their own look (no
-# -daltonized/-ansi siblings) and each has a slash toggle (/doom, /metroid,
-# /mario -- see `halo_harness.theme_toggle`).
-GAME_THEMES = ("doom", "metroid", "mario", "beetlejuice", "alien")
-GAME_THEME_DESCRIPTIONS = {
-    "doom": "dark greys, blood red and amber; a marine with a shotgun in a tech base above the prompt",
-    "metroid": "visor blues and greens; a hunter in a power suit in a cavern, five area palettes",
-    "mario": "sky blue, brick red and coin gold; a plumber on an overworld, two palettes",
-    "beetlejuice": "dusk purple, neon green and black-and-white stripes; a trickster on a haunted hillside, two places",
-    "alien": "deep-space greys and CRT green; an officer with a flamethrower in a ribbed corridor, two decks",
-}
-VALID_THEMES = frozenset(
-    [f"{base}{suffix}" for base in _BASE_THEMES for suffix in _SUFFIXES] + list(GAME_THEMES))
+VALID_THEMES = frozenset(f"{base}{suffix}" for base in _BASE_THEMES for suffix in _SUFFIXES)
 
-# Halo 2.0.8 theme pack, round 2: a game theme may offer selectable variants
-# (Metroid's five areas, Mario's two palettes). The chosen one is
-# `theme_variant` in config.json; the first name is the default. Palettes
-# live in `tui/theme_metroid.py` and `tui/theme_mario.py`.
-GAME_VARIANTS = {
-    "metroid": ("crateria", "brinstar", "norfair", "maridia", "tourian"),
-    "mario": ("bros", "world"),
-    "beetlejuice": ("saturn", "house"),
-    "alien": ("nostromo", "hive"),
-}
-# What a theme calls its variant in messages ("area norfair", "palette world").
-VARIANT_NOUNS = {"metroid": "area", "mario": "palette", "beetlejuice": "place", "alien": "deck"}
-VARIANT_KEY = "theme_variant"
+# 3.1.5.0: the 2.0.7 game themes are gone. A config.json that still names
+# one falls back like any unknown name (resolve_theme skips it), and the TUI
+# at startup and `halo doctor --config` each say so in one line.
+REMOVED_THEMES = ("doom", "metroid", "mario", "beetlejuice", "alien")
+REMOVED_THEMES_IN = "3.1.5.0"
 
 
-def variants_of(name: Optional[str]) -> tuple:
-    return GAME_VARIANTS.get(name or "", ())
+def removed_theme_line(name: str, using: str) -> str:
+    """The one line for a saved game theme: what it was and what Halo uses."""
+    return f"theme: {name} was a game theme, removed in {REMOVED_THEMES_IN}; using {using}"
 
 
-def is_valid_variant(name: Optional[str], variant: Optional[str]) -> bool:
-    return isinstance(variant, str) and variant in variants_of(name)
+def removed_theme_hint(name: Optional[str]) -> str:
+    """A suffix for a `/theme` or `halo config set theme` error naming a
+    removed game theme ("" for any other name)."""
+    return f" -- {name} was a game theme, removed in {REMOVED_THEMES_IN}" if name in REMOVED_THEMES else ""
 
 
-def variant_for(name: Optional[str]) -> Optional[str]:
-    """The active variant of theme `name` (None when it has none): the
-    persisted `theme_variant` when it names one of the theme's variants,
-    else the theme's default (its first)."""
-    names = variants_of(name)
-    if not names:
-        return None
-    value = get_config_value(VARIANT_KEY, default=None)
-    return value if value in names else names[0]
+def removed_theme_notice(using: str, *, persisted: Optional[str] = None) -> Optional[str]:
+    """The TUI's startup line when config.json's `theme` (`persisted`, read
+    fresh when not given) is a removed game theme; None otherwise."""
+    name = persisted if persisted is not None else load_persisted_theme()
+    return removed_theme_line(name, using) if name in REMOVED_THEMES else None
+
 
 # HALO_THEME is the 2.0.0 canonical name; CLAUDE_BRIDGE_THEME (claude-bridge
 # era) and ROLO_CLAUDE_THEME (rolo-claude era) both still work, checked in
@@ -254,8 +234,8 @@ def supports_truecolor(env: Optional[dict] = None) -> bool:
     if "kitty" in term or "wezterm" in term or "ghostty" in term:
         return True
     # Windows Terminal renders 24-bit colour but sets neither COLORTERM nor
-    # TERM; it does set WT_SESSION (seen live 2026-10-10: the game-HUD
-    # skins fell back to their ASCII glyph sets there).
+    # TERM; it does set WT_SESSION (seen live 2026-10-10: the status bar
+    # fell back to its ASCII glyphs there).
     if (environ.get("WT_SESSION") or "").strip():
         return True
     return False

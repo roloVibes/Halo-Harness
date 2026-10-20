@@ -2701,327 +2701,6 @@ def test_svg_snapshots_main_permission_question_model_picker(ctx: Ctx):
     asyncio.run(body())
 
 
-def _doom_bar_fixture(app) -> None:
-    """A fully populated DOOM bar: model, 70% context left, 41 tools, cost
-    plus balance, providers, cwd and branch, two agents."""
-    bar = app.status_bar
-    bar.hud_ascii = False
-    bar.apply_status({"model": "or:demo/atlas-pro", "context_tokens": 300_000, "context_limit": 1_000_000,
-                      "cost_usd": 0.0123, "permission_mode": "auto", "effort": "high",
-                      "mcp": {"connected": 3, "total": 3, "tools": 41}})
-    bar.set_provider_balance("openrouter", "OR $12.40 left")
-    bar.set_cwd_branch("~/project", "main")
-    bar.set_agents_running(2)
-    bar.spinner_index = 0
-    app.prompt_input.placeholder = ""
-
-
-def _with_hud_rows(fn):
-    """3.0.2.0: the shipped game skins keep the plain status bar; these
-    snapshot tests exercise the HUD rows themselves, so force them on."""
-    import functools
-    from halo_harness.tui import hud as _hud
-
-    @functools.wraps(fn)
-    def run(ctx):
-        _hud.STATUS_BAR_OVERRIDE = "hud"
-        try:
-            return fn(ctx)
-        finally:
-            _hud.STATUS_BAR_OVERRIDE = None
-    return run
-
-
-@test
-@_with_hud_rows
-def test_svg_snapshots_doom_hud_every_face_state_and_the_width_cascade(ctx: Ctx):
-    """Halo 2.0.8 theme pack: one SVG per face state and one per width tier
-    (wide, medium, narrow, compact) of the DOOM status-bar HUD."""
-    async def body():
-        faces = [("idle", "▐o_o▌", lambda b: None),
-                 ("thinking", "▐'_'▌", lambda b: b.start_phase_clock("thinking")),
-                 ("writing", "▐^o^▌", lambda b: (b.start_phase_clock("thinking"), b.set_phase_word("writing"))),
-                 ("error", "▐x_x▌", lambda b: b.set_error(True)),
-                 ("needs-you", "▐O!O▌", lambda b: b.set_pending_permission(True))]
-        for name, face, stage in faces:
-            app = await _mounted(FakeController(), theme_name="doom")
-            async with app.run_test(size=(100, 12)) as pilot:
-                await pilot.pause(0.1)
-                _doom_bar_fixture(app)
-                stage(app.status_bar)
-                app.status_bar._phase_started_at = time.monotonic()
-                app.status_bar._refresh_display()
-                await pilot.pause(0.05)
-                path, svg = _write_snapshot(app, f"doom-hud-face-{name}")
-                ctx.check(f"{name}: snapshot written", path.exists())
-                ctx.check(f"{name}: its face is on screen", face in __import__("html").unescape(svg))
-                ctx.check(f"{name}: the HUD captions are on screen", all(w in svg for w in ("AMMO", "HEALTH", "ARMS", "ARMOR")))
-        tiers = [("wide", 140, ("KEYS", "OR $12.40 left", "700k left", "41 tools", "~/project (main)")),
-                 ("medium", 80, ("AMMO", "HEALTH", "ARMS", "ARMOR", "$0.0123")),
-                 ("narrow", 50, ("HEALTH", "ARMOR", "$0.0123", "auto")),
-                 ("compact", 40, ("70%", "$0.0123", "auto"))]
-        for name, width, needles in tiers:
-            app = await _mounted(FakeController(), theme_name="doom")
-            async with app.run_test(size=(width, 12)) as pilot:
-                await pilot.pause(0.1)
-                _doom_bar_fixture(app)
-                app.status_bar._refresh_display()
-                await pilot.pause(0.05)
-                path, svg = _write_snapshot(app, f"doom-hud-width-{name}")
-                ctx.check(f"{name} ({width} columns): snapshot written", path.exists())
-                for needle in needles:
-                    ctx.check(f"{name}: {needle!r} on screen", needle in svg)
-                rows = app.status_bar.size.height
-                ctx.check(f"{name}: bar is {1 if name == 'compact' else 3} rows, got {rows}",
-                          rows == (1 if name == "compact" else 3))
-                if name == "narrow":
-                    ctx.check("narrow: ARMS and KEYS have dropped, AMMO is still there",
-                              "ARMS" not in svg and "KEYS" not in svg and "AMMO" in svg)
-                if name == "medium":
-                    ctx.check("medium: every panel up to ARMOR is still there", all(w in svg for w in ("AMMO", "HEALTH", "ARMS")))
-    asyncio.run(body())
-
-
-def _metroid_bar_fixture(app, area: str = "crateria") -> None:
-    """A fully populated Metroid bar: model, 55% context left (six tanks),
-    41 tools, three turns, cost plus balance, providers, cwd and branch, two
-    agents. `area` sets the variant without persisting it (the snapshot must
-    not leak a theme into the rest of the run)."""
-    app.theme_variant = area
-    bar = app.status_bar
-    bar.hud_ascii = False
-    app._sync_theme_chrome()
-    app.refresh_css(animate=False)
-    bar.apply_status({"model": "or:demo/atlas-pro", "context_tokens": 450_000, "context_limit": 1_000_000,
-                      "cost_usd": 0.0123, "permission_mode": "auto", "effort": "high",
-                      "mcp": {"connected": 3, "total": 3, "tools": 41}})
-    bar.set_provider_balance("openrouter", "OR $12.40 left")
-    bar.set_cwd_branch("~/project", "main")
-    bar.set_agents_running(2)
-    bar.turn_count = 3
-    bar.spinner_index = 0
-    app.prompt_input.placeholder = ""
-
-
-@test
-@_with_hud_rows
-def test_svg_snapshots_metroid_hud_every_face_state_and_the_width_cascade(ctx: Ctx):
-    """Halo 2.0.8 theme pack, round 2: one SVG per visor face state and one
-    per width tier (wide, medium, narrow, compact) of the Metroid HUD."""
-    async def body():
-        faces = [("idle", "◖-o-◗", lambda b: None),
-                 ("thinking", "◖o--◗", lambda b: b.start_phase_clock("thinking")),
-                 ("writing", "◖<=>◗", lambda b: (b.start_phase_clock("thinking"), b.set_phase_word("writing"))),
-                 ("error", "◖x-x◗", lambda b: b.set_error(True)),
-                 ("needs-you", "◖!-!◗", lambda b: b.set_pending_permission(True))]
-        for name, face, stage in faces:
-            app = await _mounted(FakeController(), theme_name="metroid")
-            async with app.run_test(size=(100, 12)) as pilot:
-                await pilot.pause(0.1)
-                _metroid_bar_fixture(app)
-                stage(app.status_bar)
-                app.status_bar._phase_started_at = time.monotonic()
-                app.status_bar._refresh_display()
-                await pilot.pause(0.05)
-                path, svg = _write_snapshot(app, f"metroid-hud-face-{name}")
-                ctx.check(f"{name}: snapshot written", path.exists())
-                ctx.check(f"{name}: its visor face is on screen", face in __import__("html").unescape(svg))
-                ctx.check(f"{name}: the HUD captions are on screen",
-                          all(w in svg for w in ("ENERGY", "RESERVE", "MISSILE", "AREA")))
-                ctx.check(f"{name}: the visor frame is on the input line", "◖" in svg and "◗" in svg)
-        tiers = [("wide", 140, ("SUPER", "BEAM", "OR $12.40 left", "550k left", "41 tools", "■■■■■■□□□□ 55%", "project · main")),
-                 ("medium", 80, ("ENERGY", "RESERVE", "MISSILE", "AREA", "$0.0123", "■■■■■■□□□□ 55%")),
-                 ("narrow", 50, ("ENERGY", "COST", "AREA", "$0.0123", "auto")),
-                 ("compact", 40, ("55%", "$0.0123", "auto"))]
-        for name, width, needles in tiers:
-            app = await _mounted(FakeController(), theme_name="metroid")
-            async with app.run_test(size=(width, 12)) as pilot:
-                await pilot.pause(0.1)
-                _metroid_bar_fixture(app)
-                app.status_bar._refresh_display()
-                await pilot.pause(0.05)
-                path, svg = _write_snapshot(app, f"metroid-hud-width-{name}")
-                ctx.check(f"{name} ({width} columns): snapshot written", path.exists())
-                for needle in needles:
-                    ctx.check(f"{name}: {needle.encode('ascii', 'replace').decode()!r} on screen", needle in svg)
-                rows = app.status_bar.size.height
-                ctx.check(f"{name}: bar is {1 if name == 'compact' else 3} rows, got {rows}",
-                          rows == (1 if name == "compact" else 3))
-                if name == "medium":
-                    ctx.check("medium: SUPER and BEAM have dropped, the energy tanks stay",
-                              "SUPER" not in svg and "BEAM" not in svg and "■■■■■■□□□□" in svg)
-                if name == "narrow":
-                    ctx.check("narrow: RESERVE and MISSILE have dropped, AREA stays",
-                              "RESERVE" not in svg and "MISSILE" not in svg and "AREA" in svg)
-    asyncio.run(body())
-
-
-@test
-@_with_hud_rows
-def test_svg_snapshots_metroid_area_variants_and_the_map_grid_card(ctx: Ctx):
-    """One SVG of the main screen per area (wide), plus a permission card to
-    show the map-grid border. Each area has its own palette on screen."""
-    async def body():
-        colours = {}
-        for area in ("crateria", "brinstar", "norfair", "maridia", "tourian"):
-            app = await _mounted(FakeController(), theme_name="metroid")
-            async with app.run_test(size=(140, 30)) as pilot:
-                await pilot.click("#prompt-input")
-                await _type(pilot, "Show me a quick demo")
-                await pilot.press("enter")
-                await _drain_a_few(app, pilot)
-                _metroid_bar_fixture(app, area)
-                app.status_bar._refresh_display()
-                await pilot.pause(0.05)
-                path, svg = _write_snapshot(app, f"metroid-area-{area}")
-                ctx.check(f"{area}: snapshot written", path.exists())
-                ctx.check(f"{area}: the streamed reply and the HUD are on screen",
-                          "scripted demo turn" in svg and "ENERGY" in svg and "AREA" in svg)
-                glyph = __import__("halo_harness.tui.theme_metroid", fromlist=["AREAS"]).AREAS[area]["glyph"]
-                ctx.check(f"{area}: its prefix glyph is in the AREA panel", f"{glyph} project" in svg.replace("&#160;", " "))
-                colours[area] = app.get_css_variables()["bridge-bg"]
-        ctx.check(f"five distinct backgrounds, got {sorted(colours.values())}", len(set(colours.values())) == 5)
-        app = await _mounted(FakeController(turns=_permission_turn("Bash(rm:*)")), theme_name="metroid")
-        async with app.run_test(size=(100, 30)) as pilot:
-            await pilot.click("#prompt-input")
-            await _type(pilot, "do something")
-            await pilot.press("enter")
-            await _drain_a_few(app, pilot, n=6)
-            _metroid_bar_fixture(app, "norfair")
-            app.status_bar._refresh_display()
-            await pilot.pause(0.05)
-            path, svg = _write_snapshot(app, "metroid-card-permission")
-            ctx.check("map-grid permission card snapshot written", path.exists() and "Permission needed" in svg)
-            ctx.check("the card sits in the dashed map-grid border", app.has_class("hud-border-dashed") and "╍" in svg)
-    asyncio.run(body())
-
-
-def _mario_bar_fixture(app, variant: str = "bros") -> None:
-    """A fully populated Mario bar: model, 55% context left (three of six
-    power blocks), 41 tools, three turns, cost plus balance, providers, cwd
-    and branch, two agents, 42 s on the TIME clock. `variant` sets the look
-    without persisting it (the snapshot must not leak a theme into the run)."""
-    app.theme_variant = variant
-    bar = app.status_bar
-    bar.hud_ascii = False
-    app._sync_theme_chrome()
-    app.refresh_css(animate=False)
-    bar.apply_status({"model": "or:demo/atlas-pro", "context_tokens": 450_000, "context_limit": 1_000_000,
-                      "cost_usd": 0.0123, "permission_mode": "auto", "effort": "high",
-                      "mcp": {"connected": 3, "total": 3, "tools": 41}})
-    bar.set_provider_balance("openrouter", "OR $12.40 left")
-    bar.set_cwd_branch("~/project", "main")
-    bar.set_agents_running(2)
-    bar.turn_count = 3
-    bar.last_turn_s = 42.0
-    bar.spinner_index = 0
-    app.prompt_input.placeholder = ""
-
-
-@test
-@_with_hud_rows
-def test_svg_snapshots_mario_hud_every_face_state_and_the_width_cascade(ctx: Ctx):
-    """Halo 2.0.8 theme pack, round 3: one SVG per face state and one per
-    width tier (wide, medium, narrow, compact) of the Mario HUD."""
-    async def body():
-        faces = [("idle", "▐'o~o'▌", lambda b: None),
-                 ("thinking", "▐'.~o'▌", lambda b: b.start_phase_clock("thinking")),
-                 ("writing", "▐'^~^'▌", lambda b: (b.start_phase_clock("thinking"), b.set_phase_word("writing"))),
-                 ("error", "▐'x~x'▌", lambda b: b.set_error(True)),
-                 ("needs-you", "▐'!~!'▌", lambda b: b.set_pending_permission(True))]
-        for name, face, stage in faces:
-            app = await _mounted(FakeController(), theme_name="mario")
-            async with app.run_test(size=(100, 12)) as pilot:
-                await pilot.pause(0.1)
-                _mario_bar_fixture(app)
-                stage(app.status_bar)
-                app.status_bar._phase_started_at = time.monotonic()
-                app.status_bar._refresh_display()
-                await pilot.pause(0.05)
-                path, svg = _write_snapshot(app, f"mario-hud-face-{name}")
-                ctx.check(f"{name}: snapshot written", path.exists())
-                ctx.check(f"{name}: its face is on screen", face in __import__("html").unescape(svg))
-                ctx.check(f"{name}: the HUD captions are on screen",
-                          all(w in svg for w in ("SCORE", "POWER", "COINS", "WORLD")))
-                ctx.check(f"{name}: the pipe frame is on the input line", "╞" in svg and "╡" in svg)
-        tiers = [("wide", 140, ("TURNS", "TOOLS", "PIPES", "OR $12.40 left", "550k left", "41 tools", "project · main", "0:42")),
-                 ("medium", 80, ("COINS", "WORLD", "TIME", "$0.0123", "0:42", "███▒▒▒ 55%")),
-                 ("narrow", 50, ("POWER", "COINS", "WORLD", "$0.0123", "auto")),
-                 ("compact", 40, ("55%", "$0.0123", "auto"))]
-        for name, width, needles in tiers:
-            app = await _mounted(FakeController(), theme_name="mario")
-            async with app.run_test(size=(width, 12)) as pilot:
-                await pilot.pause(0.1)
-                _mario_bar_fixture(app)
-                app.status_bar._refresh_display()
-                await pilot.pause(0.05)
-                path, svg = _write_snapshot(app, f"mario-hud-width-{name}")
-                ctx.check(f"{name} ({width} columns): snapshot written", path.exists())
-                for needle in needles:
-                    ctx.check(f"{name}: {needle.encode('ascii', 'replace').decode()!r} on screen", needle in svg)
-                rows = app.status_bar.size.height
-                ctx.check(f"{name}: bar is {1 if name == 'compact' else 3} rows, got {rows}",
-                          rows == (1 if name == "compact" else 3))
-                if name == "medium":
-                    ctx.check("medium: TOOLS and PIPES have dropped, coins, timer and world stay",
-                              "TOOLS" not in svg and "PIPES" not in svg and all(w in svg for w in ("COINS", "TIME", "WORLD")))
-                if name == "narrow":
-                    ctx.check("narrow: SCORE and TIME have dropped, WORLD stays",
-                              "SCORE" not in svg and "TIME" not in svg and "WORLD" in svg)
-    asyncio.run(body())
-
-
-@test
-@_with_hud_rows
-def test_svg_snapshots_mario_variants_the_one_up_cue_and_the_brick_card(ctx: Ctx):
-    """One SVG of the main screen per palette (wide), the 1-UP cue flashing in
-    the face slot, and a permission card to show the brick border."""
-    async def body():
-        colours = {}
-        for variant in ("bros", "world"):
-            app = await _mounted(FakeController(), theme_name="mario")
-            async with app.run_test(size=(140, 30)) as pilot:
-                await pilot.click("#prompt-input")
-                await _type(pilot, "Show me a quick demo")
-                await pilot.press("enter")
-                await _drain_a_few(app, pilot)
-                _mario_bar_fixture(app, variant)
-                app.status_bar._refresh_display()
-                await pilot.pause(0.05)
-                path, svg = _write_snapshot(app, f"mario-variant-{variant}")
-                ctx.check(f"{variant}: snapshot written", path.exists())
-                ctx.check(f"{variant}: the streamed reply and the HUD are on screen",
-                          "scripted demo turn" in svg and "COINS" in svg and "WORLD" in svg)
-                glyph = __import__("halo_harness.tui.theme_mario", fromlist=["LOOKS"]).LOOKS[variant]["glyph"]
-                ctx.check(f"{variant}: its coin glyph is in the COINS panel", f"{glyph} $0.0123" in svg.replace("&#160;", " "))
-                colours[variant] = app.get_css_variables()["bridge-bg"]
-        ctx.check(f"two distinct backgrounds, got {sorted(colours.values())}", len(set(colours.values())) == 2)
-        app = await _mounted(FakeController(), theme_name="mario")
-        async with app.run_test(size=(100, 12)) as pilot:
-            await pilot.pause(0.1)
-            _mario_bar_fixture(app)
-            ctx.check("the cue fires", app.status_bar.fire_cue("agent_done"))
-            app.status_bar._cue_timer.stop()  # hold the first frame so the snapshot is deterministic
-            app.status_bar._refresh_display()
-            await pilot.pause(0.05)
-            path, svg = _write_snapshot(app, "mario-cue-1up")
-            ctx.check("1-UP cue snapshot written with the cue in the face slot", path.exists() and "1UP" in svg)
-            ctx.check("... and the idle face is not", "o~o" not in svg)
-        app = await _mounted(FakeController(turns=_permission_turn("Bash(rm:*)")), theme_name="mario")
-        async with app.run_test(size=(100, 30)) as pilot:
-            await pilot.click("#prompt-input")
-            await _type(pilot, "do something")
-            await pilot.press("enter")
-            await _drain_a_few(app, pilot, n=6)
-            _mario_bar_fixture(app, "world")
-            app.status_bar._refresh_display()
-            await pilot.pause(0.05)
-            path, svg = _write_snapshot(app, "mario-card-permission")
-            ctx.check("brick permission card snapshot written", path.exists() and "Permission needed" in svg)
-            ctx.check("the card sits in the brick border", app.has_class("hud-border-brick") and "▒▒▒▒" in svg)
-    asyncio.run(body())
-
-
 # ============================================================================
 # Real end-to-end pilot: a REAL Session/Controller (tui/bootstrap.py) against
 # the mock upstream -- NOT the FakeController. Type a prompt, see streamed
@@ -4302,27 +3981,32 @@ def test_h9b_f11_two_parallel_children_get_separate_streams_and_never_touch_main
             app = BridgeApp(controller, registry=registry, facade=facade,
                              tool_registry=getattr(facade, "tool_registry", None), cwd=fh["proj"])
             async with app.run_test(size=(100, 40)) as pilot:
+                async def _poll(until, seconds: float = 30.0) -> bool:
+                    """Drain until `until()` holds or the deadline passes (3.1.5.0:
+                    a deadline, not a count -- the Windows gate read the phase
+                    once after the children ended and caught it mid-settle)."""
+                    deadline = time.monotonic() + seconds
+                    while True:
+                        await app._drain()
+                        if until():
+                            return True
+                        if time.monotonic() >= deadline:
+                            return False
+                        await pilot.pause(0.05)
+
                 await pilot.click("#prompt-input")
                 await _type(pilot, "spawn two parallel sub-agents")
                 await pilot.press("enter")
-                for _ in range(120):
-                    await app._drain()
-                    await pilot.pause(0.05)
-                    texts = [w.raw_text for w in app.transcript.children if isinstance(w, AssistantText)]
-                    if any("parent-final-answer" in t for t in texts):
-                        break
+                await _poll(lambda: any("parent-final-answer" in w.raw_text for w in app.transcript.children
+                                        if isinstance(w, AssistantText)))
                 # The parent's own trailing message_end/turn_done events may
                 # still be queued right behind the text delta that just made
                 # "parent-final-answer" visible -- keep draining until the
                 # status bar has settled idle and the parent's turn_done has
-                # fired (up to ~6 s: a loaded CI runner needs more than the
-                # fixed ten drains this used to do), then assert.
-                for _ in range(120):
-                    await app._drain()
-                    await pilot.pause(0.05)
-                    if app.status_bar.phase == "idle" and app._turn_done_count >= 1:
-                        break
+                # fired, then assert.
+                await _poll(lambda: app.status_bar.phase == "idle" and app._turn_done_count >= 1)
                 await _drain_a_few(app, pilot, n=3, pause=0.05)
+                settled_idle = await _poll(lambda: app.status_bar.phase == "idle")
 
                 texts = [w.raw_text for w in app.transcript.children if isinstance(w, AssistantText)]
                 child_a_widgets = [t for t in texts if "childA-answer" in t]
@@ -4339,7 +4023,7 @@ def test_h9b_f11_two_parallel_children_get_separate_streams_and_never_touch_main
                 ctx.check(f"the main status bar shows the PARENT's own model, never a child's, "
                           f"got {app.status_bar.model!r}", app.status_bar.model == "or:mock/h9b-f11-parent")
                 ctx.check(f"the main status bar settled idle (the parent's own turn really ended), "
-                          f"got phase={app.status_bar.phase!r}", app.status_bar.phase == "idle")
+                          f"got phase={app.status_bar.phase!r}", settled_idle)
                 ctx.check(f"on_turn_done fired exactly ONCE (the parent's own -- neither child's turn_done "
                           f"incremented it), got {app._turn_done_count}", app._turn_done_count == 1)
         finally:

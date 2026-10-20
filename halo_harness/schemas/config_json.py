@@ -22,12 +22,20 @@ def _theme_names() -> list:
     return sorted(VALID_THEMES)
 
 
+# Top-level keys of a removed feature (the game themes, 3.1.5.0): a config.json
+# that still has one loads as before and the key is ignored; `halo doctor
+# --config` names it in one line (`removed_key_line`).
+REMOVED_KEYS = {"theme_scene": "3.1.5.0", "theme_toggle_previous": "3.1.5.0", "theme_variant": "3.1.5.0"}
+
+
+def removed_key_line(key: str) -> str:
+    """The one doctor line for a leftover key of a removed feature."""
+    return f"{key}: removed in {REMOVED_KEYS[key]} with the game themes, the key is ignored"
+
+
 _SCALARS = {
     "model": STRING,
     "team": STRING,
-    "theme_toggle_previous": STRING,
-    "theme_scene": BOOL,
-    "theme_variant": STRING,
     "images": STRING,
     "intro": BOOL,
     "mcpPreload": LIST,
