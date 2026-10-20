@@ -8,9 +8,9 @@
 // card's third line has its git chips (dirty, ahead / behind, worktree).
 // 3.1.4.0 R2: a node of this harness has Open in Session; under Session's
 // scope the chosen session's card is marked (data-chosen). 3.1.5.0 R3: under
-// Session's scope the map is a tree and a node is MapTreeNode.tsx's; either
-// node shows a running tool with its time ("Bash 12s"), lights when its line
-// is hovered in Live (data-hover) and wears the HUD brackets when selected.
+// Session's scope the map is a tree and a node is MapTreeNode.tsx's (with the
+// running tool's time, "Bash 12s"); either node lights when its line is
+// hovered in Live (data-hover) and wears the HUD brackets when selected.
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { useRecent } from "../../lib/motion";
@@ -22,8 +22,8 @@ import { askShutdown, askStop, openAgentPanel, pin, select, togglePause } from "
 import { askHandoff, record } from "./extras";
 import { usePanels } from "./pstore";
 import { projectLabel, type Card, type NodeBox } from "./layout";
-import { NodeBrackets, TreeNode, useToolClock } from "./MapTreeNode";
-import { agentMotion, DONE_MS, fleet, keyOf, sessionMotion, sessionTitle, useFleet } from "./store";
+import { NodeBrackets, TreeNode } from "./MapTreeNode";
+import { agentMotion, DONE_MS, fleet, keyOf, sessionMotion, sessionTitle, toolOf, useFleet } from "./store";
 import type { AgentRow } from "./types";
 
 /** A number that counts up to `value` over ~600 ms (the cost ticker). */
@@ -78,8 +78,7 @@ function ListNode({ n, onMenu }: { n: NodeBox; onMenu: (m: MenuAt) => void }) {
   const doneAt = useFleet((s) => s.doneAt[key] || 0);
   useRecent(doneAt, DONE_MS); // re-draws when the done glow has faded
   const act = useFleet((s) => s.activity[key]);
-  const clock = useToolClock(key, a, act);
-  const tool = clock.tool;
+  const tool = a.state === "running" ? toolOf(a, act) : ""; // the tool's clock is Session's (MapTreeNode.tsx): nothing of the Live feed runs for Fleet
   const shownCost = useTicker(Number(a.cost_usd) || 0);
   const name = a.name || a.role || a.agent_id;
   const role = a.role && a.role !== name ? a.role : a.bio && a.bio !== name ? a.bio : "";
@@ -97,7 +96,7 @@ function ListNode({ n, onMenu }: { n: NodeBox; onMenu: (m: MenuAt) => void }) {
         {fit(name, n.w - right - 60)}
         {role && <tspan className="fm-role">{" · " + fit(role, 70)}</tspan>}
       </text>
-      <text className="fm-now" x={22} y={32} data-tool={tool || undefined}>{fit(clock.secs != null ? clock.text : nowText(a), n.w - 90)}</text>
+      <text className="fm-now" x={22} y={32}>{fit(nowText(a), n.w - 90)}</text>
       {a.model && (
         <g className="fm-pill" transform={`translate(${n.w - right + 8} 6)`}>
           <rect width={92} height={15} rx={7.5} />
