@@ -20,9 +20,11 @@ the literal cwd `~/project`, with a frozen clock, seeded tips and a scratch
 | `docs/media/<name>.svg` | The Textual export of one capture | `tools/capture_screens.py` |
 | `docs/media/<name>.png` | The same SVG rendered at 2x by headless Chrome | `tools/capture_screens.py`, when Chrome is found |
 | `docs/media/<name>.anim.svg` | Animated captures only (`turn-phase-line`, `steer-mid-turn`): the frames assembled into one looping SMIL SVG, each under 1 MB | `tools/capture_screens.py` |
-| `docs/media/hero.svg` | The README banner: the block-art wordmark from `halo_harness/banner.py` drawn as vector cells, the model chips, the tagline | `tools/hero_svg.py` |
-| `docs/media/social-preview.svg` | The same wordmark at 1280x640 for GitHub's Settings -> Social preview (upload the PNG render by hand; GitHub has no API for it) | `tools/hero_svg.py --social` |
-| `docs/media/studio-session.gif` | The README's first picture: the Session dashboard working, the agent tree and the cost on the left, every agent's text, tool rows, hand-backs and an ask card scrolling in the Live column; 1500x900, 28 frames at 250 ms (7 s), looping, one shared palette that keeps the state colours | `tools/capture_session_anim.py` |
+| `docs/media/hero.png` | The README's first image: the wordmark over Studio's Session dashboard (a crop of `studio-session.png` across its whole width, the Map on the left and the Live column on the right, darkened at the top edge and behind the wordmark), the block art drawn as cells, never text, and one line under it, "The Claude Code-compatible harness for any model, with Studio: every agent, live."; 2560x720, rounded corners, the holo palette | `tools/hero_png.py` (`--check` says when it is stale) |
+| `docs/media/social-preview.png` | The same picture at 1280x640, the wordmark centred, the line under it: the image for GitHub's Social preview (a hand upload, see below) | `tools/hero_png.py --social` |
+| `docs/media/hero.svg` | The vector wordmark: the block-art wordmark from `halo_harness/banner.py` drawn as vector cells, three chips (Studio · every agent, live; any model; your Claude Code setup, in place), the same line; under 60 KB, so it carries no screenshot | `tools/hero_svg.py` |
+| `docs/media/social-preview.svg` | The vector wordmark at 1280x640 with the same line, kept in step with `hero.svg` (the upload is the PNG) | `tools/hero_svg.py --social` |
+| `docs/media/studio-session.gif` | The README's first picture after the hero: the Session dashboard working, the agent tree and the cost on the left, every agent's text, tool rows, hand-backs and an ask card scrolling in the Live column; 1500x900, 28 frames at 250 ms (7 s), looping, one shared palette that keeps the state colours | `tools/capture_session_anim.py` |
 | `docs/media/studio-session.png`, `studio-session-live.png` | The stills beside it: the whole dashboard, and the Live column up close (scale 2) | `tools/capture_session_anim.py` |
 | `docs/media/studio-roles-live.gif`, `studio-roles-live.png` | The Roles canvas while a session runs: cards lighting cyan, one waiting amber, one fading green, one failed red, the glow legend opening at the end; the still has the implementer's Live tab open | `tools/capture_session_anim.py --mode roles` |
 | `docs/media/studio-<section>*.png` | Halo Studio in the browser: the Orchestra, Roles, Design, Fleet and Team captures through the shell, headless Chrome over fixture data | `tools/capture_studio.py --mode orchestra\|roles\|design\|fleet\|team` |
@@ -50,12 +52,27 @@ python tools/capture_session_anim.py              # studio-session.gif, studio-s
 python tools/capture_session_anim.py --mode roles # studio-roles-live.gif, studio-roles-live.png
 python tools/capture_studio.py --mode fleet       # one section's stills (orchestra, roles, design, fleet, team)
 python tools/studio_modes_banner.py               # the six-section banner, after any of the six stills changed
+python tools/hero_png.py                          # hero.png, after studio-session.png, the banner or the line changed
+python tools/hero_png.py --social                 # social-preview.png, the same picture at GitHub's size
+python tools/hero_png.py --check                  # both against a fresh render (exit 1 when stale)
+python tools/hero_svg.py; python tools/hero_svg.py --social   # the two vector wordmarks
 ```
+
+`tools/hero_png.py` takes its line from `tools/hero_svg.py`'s `TAGLINE` and
+its cell shapes from `hero_svg.cell_rects`, so the PNGs and the SVGs say the
+same thing and draw the same art; change the line there and rerun all four.
 
 Run both from a checkout with the repo on `PYTHONPATH`; no real `~/.halo` is
 touched (the scenes scope `BRIDGE_TEST_HOME` to a scratch directory before any
 import) and nothing is fetched except what Chrome itself loads for the SVG's
 font.
+
+### Uploading the social preview
+
+GitHub has no API for the social preview: the owner uploads it once, by hand,
+after `social-preview.png` changes. On github.com open the repository, then
+**Settings -> General**, scroll to **Social preview**, choose **Edit -> Upload
+an image...** and pick `docs/media/social-preview.png` (1280x640, under 1 MB).
 
 ## Chrome
 
@@ -89,8 +106,15 @@ A hand-drawn SVG (the hero, the diagrams) must carry them too.
   that test's own list instead). The two Studio GIFs are Chrome renders too:
   `tests/test_studio_session_live.py` checks that they loop at 1500x900 under
   3 MB, and the README check keeps every image it shows under 1 MB.
-- **Generated from the art:** the hero and the social preview come from
+- **Generated from the art:** the vector hero and social preview come from
   `tools/hero_svg.py` (deterministic; the art rows sit in each file's `<desc>`).
+  `hero.png` and `social-preview.png` come from `tools/hero_png.py` (Pillow
+  only, no fonts fetched: the line is Pillow's own default face): a rerun on one
+  Pillow build is byte-identical. `tests/test_front_page_media.py` checks that
+  both exist, are PNGs of their size and under 1 MB, and, where Pillow is
+  installed, runs `--check`; pixel identity is pinned on Windows, where the
+  committed pair is rendered (another FreeType build anti-aliases the line
+  differently, so elsewhere a stale line is informational).
 - **Not generated:** the five diagrams are hand-drawn SVGs. The tests check
   that they and the hero exist, stay under 60 KB, and that the hero carries the
   launch banner's rows.
