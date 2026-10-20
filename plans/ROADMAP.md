@@ -1701,3 +1701,21 @@ unchanged, after 3.1.5.0.
 Not taken: removing the judge, the Signal bridge or the clipboard paste
 themselves (the owner said "remove mentioning"; the features stay); removing
 Design (it stays, shorter on the page).
+
+## ADDED 2026-10-20 ~08:20 (rolo: "Omg keep going do not stop"): 3.1.6.0 starts at once; R4 a Studio hero
+
+3.1.6.0 "The coach probes" (R1 tiers on the canvas, R2 the coach probes, R3
+the improvement library, as ADDED 2026-10-19 ~18:10) starts right after the
+3.1.5.0 release, no pause. One round joins it:
+
+- R4 A Studio hero: `docs/media/hero.svg` (`tools/hero_svg.py`) still says
+  "for people who'd rather not be locked into one AI coding ecosystem" with
+  five model chips -- the page now leads with Studio. The hero becomes the
+  wordmark over the Session dashboard (a crop of `studio-session.png` with
+  the Live column), one line "The Claude Code-compatible harness for any
+  model, with Studio: every agent, live", and the social preview
+  (`docs/media/social-preview.png`, 1280 x 640) the same picture; the
+  README's first image and alt text follow; `tools/hero_svg.py` gets the
+  image path (Pillow for the PNGs, the SVG embedding the crop) and
+  `--check`. The GitHub social preview itself is a hand upload (no API):
+  the owner uploads the PNG once.
