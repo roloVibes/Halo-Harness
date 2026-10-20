@@ -77,7 +77,7 @@ def test_ctrl_shift_c_copies_the_whole_draft_through_the_tool(ctx: Ctx):
                 notes = _capture(app)
                 await pilot.press("ctrl+shift+c")
                 await app.workers.wait_for_complete()
-                ctx.check(f"the fake xclip received the whole draft, got {clip.sink('xclip')!r}",
+                ctx.check(f"the fake xclip received the whole draft, got {clip.sink('xclip')!r} {clip.why()}",
                           clip.sink("xclip") == draft)
                 want = f"copied {len(draft)} characters via xclip"
                 ctx.check(f"the status line names the count and the tool, got {notes}",
@@ -102,8 +102,8 @@ def test_ctrl_c_keeps_its_meaning_beside_the_draft_key(ctx: Ctx):
                 notes = _capture(app)
                 await pilot.press("ctrl+c")
                 await app.workers.wait_for_complete()
-                ctx.check(f"a chat-box selection + Ctrl+C copies just the selection, got {clip.sink('xclip')!r}",
-                          clip.sink("xclip") == "this part")
+                ctx.check(f"a chat-box selection + Ctrl+C copies just the selection, got {clip.sink('xclip')!r} "
+                          f"{clip.why()}", clip.sink("xclip") == "this part")
                 ctx.check(f"with its status line, got {notes}", any(m == "copied 9 characters via xclip" for m, _s in notes))
                 app.prompt_input.selection = Selection((0, 0), (0, 0))
                 await pilot.press("ctrl+c")
@@ -133,7 +133,7 @@ def test_copy_draft_command_copies_the_draft_it_was_typed_over(ctx: Ctx):
                 await _submit(app, pilot, "/copy draft")
                 want_text = "see this: " + pasted
                 ctx.check(f"/copy draft copied the replaced draft with the paste expanded, got "
-                          f"{clip.sink('xclip')!r}", clip.sink("xclip") == want_text)
+                          f"{clip.sink('xclip')!r} {clip.why()}", clip.sink("xclip") == want_text)
                 ctx.check(f"the status line names the count and xclip, got {notes}",
                           any(m == f"copied {len(want_text)} characters via xclip" for m, _s in notes))
                 ctx.check(f"the immediate line names the draft, got {notes}",
