@@ -11,6 +11,7 @@
 // Session's scope the map is a tree and a node is MapTreeNode.tsx's (with the
 // running tool's time, "Bash 12s"); either node lights when its line is
 // hovered in Live (data-hover) and wears the HUD brackets when selected.
+// 3.1.7.0 R1: every node shows a "steer" chip on hover (MapSteer.tsx).
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { useRecent } from "../../lib/motion";
@@ -23,7 +24,9 @@ import { askHandoff, record } from "./extras";
 import { usePanels } from "./pstore";
 import { projectLabel, type Card, type NodeBox } from "./layout";
 import { NodeBrackets, TreeNode } from "./MapTreeNode";
-import { agentMotion, DONE_MS, fleet, keyOf, sessionMotion, sessionTitle, toolOf, useFleet } from "./store";
+import { SteerChip } from "./MapSteer";
+import { focusSteer } from "./Steer";
+import { agentMotion, DONE_MS, keyOf, sessionMotion, sessionTitle, toolOf, useFleet } from "./store";
 import type { AgentRow } from "./types";
 
 /** A number that counts up to `value` over ~600 ms (the cost ticker). */
@@ -110,6 +113,7 @@ function ListNode({ n, onMenu }: { n: NodeBox; onMenu: (m: MenuAt) => void }) {
         </g>
       )}
       {pinned && <g className="fm-pin" transform={`translate(${n.w - right - 30} 5)`}><Icon name="pin" size={13} /></g>}
+      <SteerChip k={key} name={name} x={n.w - right - (pinned ? 34 : 18)} y={5} />
       <text className="fm-cost" x={n.w - 30} y={32} textAnchor="end">{cost(shownCost)}</text>
       <g className="fm-more" transform={`translate(${n.w - 24} 21)`} role="button" aria-label={`${name}: more`}
          onClick={(e) => (e.stopPropagation(), onMenu(menuOf(e, key)))} onDoubleClick={(e) => e.stopPropagation()}>
@@ -203,7 +207,7 @@ export function NodeMenu({ at, onClose }: { at: MenuAt; onClose: () => void }) {
   if (!s) return null;
   const paused = s?.agents?.find((a) => at.key.endsWith("|" + a.agent_id))?.state === "paused";
   const items: [string, string, string, () => void][] = [
-    ["steer", "Steer this agent", "send", () => (select(at.key), openAgentPanel(), fleet.update((st) => ({ steerFocus: st.steerFocus + 1 })))],
+    ["steer", "Steer this agent", "send", () => (select(at.key), openAgentPanel(), focusSteer("agent"))],
     ["pause", paused ? "Resume" : "Pause at its next step", paused ? "play" : "pause", () => void togglePause(at.key)],
     ["pin", "Pin its stream (mini stream)", "pin", () => pin(at.key)],
     ["stop", "Stop...", "stop", () => askStop(at.key)],

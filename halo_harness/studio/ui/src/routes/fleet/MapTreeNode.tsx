@@ -5,7 +5,8 @@
 // it does now. The selected node carries the HUD brackets; a line hovered in
 // the Live column lights its node (data-hover). Motion and colours follow
 // the state (fleet.css, holo.css): working a cyan pulse, waiting amber, done
-// a green that fades, failed a red that stays.
+// a green that fades, failed a red that stays. 3.1.7.0 R1: the "steer" chip
+// shows on hover (MapSteer.tsx): pin it in Live and steer it there.
 import { useEffect, type MouseEvent } from "react";
 import { useRecent } from "../../lib/motion";
 import { Icon, toolIcon } from "../../lib/ui";
@@ -14,6 +15,7 @@ import { startLive, useOpenTool } from "../shared/liveFeed";
 import { openAgentPanel, select } from "./actions";
 import type { NodeBox } from "./layout";
 import { nowText, useTicker, type MenuAt } from "./MapNode";
+import { SteerChip } from "./MapSteer";
 import { agentMotion, DONE_MS, toolOf, useFleet, useNow } from "./store";
 import type { AgentRow, Activity } from "./types";
 
@@ -71,6 +73,7 @@ export function TreeNode({ n, onMenu, menuOf }: { n: NodeBox; onMenu: (m: MenuAt
         {role && <tspan className="fm-role">{" · " + fit(role, 40)}</tspan>}
       </text>
       {pinned && <g className="fm-pin" transform={`translate(${n.w - 40} 4)`}><Icon name="pin" size={12} /></g>}
+      <SteerChip k={key} name={name} x={n.w - (pinned ? 44 : 27)} y={5} />
       <g className="fm-more" transform={`translate(${n.w - 22} 5)`} role="button" aria-label={`${name}: more`}
          onClick={(e) => (e.stopPropagation(), onMenu(menuOf(e, key)))} onDoubleClick={(e) => e.stopPropagation()}>
         <rect width={18} height={14} rx={4} />

@@ -24,7 +24,9 @@ mid-work) plus three extra agents and scripted feed frames
 8. tools/capture_session_anim.py --dom: both filmed scenes draw what the
    captures show (the Live lines and their tags, an ask card, the tree and
    its edges, the Cost graphics; the Roles cards glowing, their glyphs, the
-   legend's four rows).
+   legend's four rows);
+9. (3.1.7.0 R1) Fleet's time and KIND lead a tool, a text and a state row,
+   stacked under 440 px; a click opens a tool row's whole result.
 Run: python -m tests.test_studio_session_live
 """
 from __future__ import annotations
@@ -106,6 +108,29 @@ def test_a_tool_row_ticks_and_takes_its_result(ctx: Ctx):
     ctx.check(f"its clock ticks while it runs, got {e}", secs[0] >= 0 and secs[1] >= secs[0] + 2)
     ctx.check(f"the map node shows the tool and its time, got {got.get('node_clock')!r}", re.match(r"Bash \d+s", str(got.get("node_clock") or "")) is not None)
     ctx.check(f"it takes its result's first line, got {got.get('result')!r}", str(got.get("result") or "").endswith("M basket.py"))
+
+
+@test
+def test_every_line_leads_with_fleets_time_and_kind_columns(ctx: Ctx):
+    r, got = _driver("live")
+    _ran(ctx, r, got)
+    kinds = [(got.get(k) or ["", ""])[1] for k in ("cols_tool", "cols_text", "cols_state")]
+    ctx.check(f"HH:MM:SS and TOOL / TEXT / STATE on a tool, a text and a state row, got {kinds} {got.get('clock_ok')}", kinds == ["TOOL", "TEXT", "STATE"] and got.get("clock_ok") is True)
+    ctx.check(f"the tool row reads like Fleet's log, got {got.get('tool_reads')!r}", got.get("tool_reads") == "runs Bash")
+    w, n = got.get("wide") or {}, got.get("narrow") or {}
+    row = lambda d, *k: max(d[x] for x in k) - min(d[x] for x in k) <= 8  # noqa: E731  (one row: baselines aligned)
+    ctx.check(f"wide: time, kind, tag and body on one row, got {w}", bool(w) and row(w, "time", "kind", "tag", "body"))
+    ctx.check(f"under 440 px: time, kind, tag on one row, the body under them, full width, got {n}",
+              bool(n) and row(n, "time", "kind", "tag") and n["body"] >= n["tag_bottom"] - 1 and n["body_w"] >= 300 and n["body_h"] < 120)
+
+
+@test
+def test_a_tool_row_click_opens_its_whole_result(ctx: Ctx):
+    r, got = _driver("live")
+    _ran(ctx, r, got)
+    ctx.check(f"a landed row with more than one line opens: both lines, got {got.get('tool_more')} {got.get('full')!r}",
+              got.get("tool_more") is True and "M basket.py" in str(got.get("full")) and "?? notes.md" in str(got.get("full")))
+    ctx.check(f"a second click closes it, got {got.get('full_closed')!r}", got.get("full_closed") == "closed")
 
 
 @test

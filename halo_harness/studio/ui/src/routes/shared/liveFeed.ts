@@ -7,7 +7,8 @@
 // a steer echoed) and each agent's backlog (its tail, inserted by time).
 // An agent's text joins its own line while that line is recent (the column
 // reads as one paragraph per agent, not a chunk per frame); a tool row takes
-// its result when it lands. At most MAX_LINES are kept. `open` is the tool
+// its result when it lands (3.1.7.0 R1: its first line, and the whole of it
+// for the click that opens the row). At most MAX_LINES are kept. `open` is the tool
 // each agent runs right now and since when: the map's "Bash 12s" reads it.
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { createStore, useStore } from "../../lib/store";
@@ -28,6 +29,8 @@ export type LiveLine = {
   target?: string;
   id?: string;
   result?: string;
+  /** 3.1.7.0 R1: a tool's whole result (at most FULL_MAX characters), shown when its row is clicked. */
+  full?: string;
   /** When its result landed (ms). */
   ended?: number;
   error?: boolean;
@@ -39,6 +42,7 @@ export type LiveState = { lines: LiveLine[]; open: Record<AgentKey, OpenTool>; s
 
 export const MAX_LINES = 1500;
 const TEXT_MAX = 1600;
+const FULL_MAX = 4000;
 const JOIN_LINES = 8;
 const JOIN_MS = 6000;
 let seq = 0;
@@ -51,6 +55,7 @@ export function useLive<S>(select: (s: LiveState) => S): S {
 
 const clip = (t: string) => (t.length > TEXT_MAX ? "..." + t.slice(-(TEXT_MAX - 3)) : t);
 export const firstLine = (t: string | undefined) => String(t || "").split(/\r?\n/).map((x) => x.trim()).find(Boolean)?.slice(0, 160) || "";
+const fullOf = (t: string | undefined) => (String(t || "").length > FULL_MAX ? String(t).slice(0, FULL_MAX) + "\n..." : String(t || "")).replace(/\s+$/, "");
 
 type NewLine = Omit<LiveLine, "n" | "t0"> & { t0?: number };
 
@@ -100,7 +105,7 @@ export function toolEnd(key: AgentKey, id: string, text: string, isError: boolea
       const x = s.lines[j];
       if (x.key === key && x.kind === "tool" && !x.ended && (!id || !x.id || x.id === id)) {
         const lines = s.lines.slice();
-        lines[j] = { ...x, result: firstLine(text) || (isError ? "failed" : "ok"), ended: Date.now(), error: isError };
+        lines[j] = { ...x, result: firstLine(text) || (isError ? "failed" : "ok"), full: fullOf(text), ended: Date.now(), error: isError };
         return { lines, open };
       }
     }
@@ -139,7 +144,7 @@ function backlogResult(key: AgentKey, e: Entry): void {
     const j = s.lines.findIndex((x) => x.key === key && x.kind === "tool" && !!e.id && x.id === String(e.id));
     if (j < 0) return {};
     const lines = s.lines.slice();
-    lines[j] = { ...lines[j], result: firstLine(e.text) || (e.is_error ? "failed" : "ok"), error: !!e.is_error };
+    lines[j] = { ...lines[j], result: firstLine(e.text) || (e.is_error ? "failed" : "ok"), full: fullOf(e.text), error: !!e.is_error };
     return { lines };
   });
 }

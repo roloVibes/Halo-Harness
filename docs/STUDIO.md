@@ -20,6 +20,14 @@ halo studio --port 8765     # a fixed port instead of a free one
 halo studio --stop          # stop the Studio running in the background
 ```
 
+**Session** (`halo studio --session`) is where you watch and steer your own
+session: its agent tree and its cost on the left, and on the right the Live
+column, every agent's line in the Fleet log's columns (the time, the kind,
+who) under a timeline lane per live agent, with an agent and a kind pick, and
+the Steer box always at its foot, addressed to the agent you pinned or else
+the session's main agent, Pause and Stop beside it (3.1.7.0). How it works:
+[Session](STUDIO-sections.md#session).
+
 One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json`
 holds its pid, port and token (private), and a second `halo studio` reuses
 that instance (prints its URL, opens the browser) instead of starting
