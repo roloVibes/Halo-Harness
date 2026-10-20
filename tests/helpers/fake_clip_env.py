@@ -57,6 +57,11 @@ class LinuxClipEnv:
         path = self.root / f"{name}.sink"
         return path.read_bytes().decode("utf-8") if path.exists() else ""
 
+    def why(self) -> str:
+        """For a failure message: what the last external copy said, and whether the fallback file was written."""
+        saved = self.state_dir / "clipboard.txt"
+        return f"(last copy error {self._cb.last_copy_error()!r}; clipboard.txt written: {saved.exists()})"
+
     def __enter__(self) -> "LinuxClipEnv":
         import halo_harness.tui.clipboard as cb
         self._cb = cb
@@ -74,9 +79,19 @@ class LinuxClipEnv:
         os.environ.update(self.env)
         cb._platform = lambda: "linux"
         cb._TMUX_MODE_CACHE.clear()
+        self._saved_tools = cb._LINUX_CLIPBOARD_TOOLS
+        if sys.platform == "win32":
+            # a Windows build host runs the fake through its own interpreter, not a .bat through cmd.exe
+            # (the GitHub Windows runner never delivered the text to the .bat launcher; a POSIX host keeps
+            # the real shape: the tool's name found on PATH)
+            fakes = {*self.tools, *self.failing}
+            cb._LINUX_CLIPBOARD_TOOLS = tuple(
+                (name, [sys.executable, str(self.bin_dir / f"_{name}_impl.py"), *argv[1:]]) if name in fakes else (name, argv)
+                for name, argv in self._saved_tools)
         return self
 
     def __exit__(self, *exc) -> bool:
+        self._cb._LINUX_CLIPBOARD_TOOLS = self._saved_tools
         self._cb._platform = self._saved_platform
         self._cb._TMUX_MODE_CACHE.clear()
         for key, value in self._saved_env.items():
