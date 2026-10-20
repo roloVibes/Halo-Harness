@@ -4,7 +4,10 @@
 // tier's column. A box is drawn around its cards wherever they were dragged;
 // a collapsed box is its label strip and a count; an empty tier keeps its
 // column slot so a card can be dropped into it. `autoLayout` places every
-// card in its column; the saved positions win over it.
+// card in its column; the saved positions win over it. 3.1.5.0 R3: a lineup
+// with one tier lays its members out as a fan under main (main centred on
+// top, the others side by side under it, FAN to a row), and an edge to a
+// card below its source runs down from the source's bottom into the target's top.
 import type { Graph, Pos, Tier } from "./types";
 
 export const CARD_W = 224;
@@ -16,6 +19,8 @@ const GY = 22;
 const TOP = 24;
 const LEFT = 24;
 const GC = 26; // between the card columns inside one tier box
+const FAN = 4; // a one-tier lineup's members to a row under main
+const FAN_GY = 56; // between main and its fan (room for the edges)
 
 export type Box = { x: number; y: number; w: number; h: number };
 
@@ -34,7 +39,30 @@ export function columns(graph: Graph): number[] {
   return xs;
 }
 
+/** One tier: main on top, centred over its members, who fan out in rows of FAN under it. */
+function fanLayout(graph: Graph): Record<string, Pos> | null {
+  const t = graph.tiers[0];
+  const main = graph.nodes.find((n) => n.role === "main" && t.node_ids.includes(n.id));
+  const rest = t.node_ids.filter((id) => id !== main?.id);
+  if (!main || !rest.length) return null;
+  const per = Math.min(FAN, rest.length);
+  const rowW = per * CARD_W + (per - 1) * GC;
+  const x0 = LEFT + PAD;
+  const pos: Record<string, Pos> = { [main.id]: { x: x0 + (rowW - CARD_W) / 2, y: TOP + HEAD } };
+  rest.forEach((id, i) => {
+    const row = Math.floor(i / per), inRow = Math.min(per, rest.length - row * per);
+    const off = ((per - inRow) * (CARD_W + GC)) / 2;
+    pos[id] = { x: x0 + off + (i % per) * (CARD_W + GC), y: TOP + HEAD + CARD_H + FAN_GY + row * (CARD_H + GY) };
+  });
+  return pos;
+}
+
 export function autoLayout(graph: Graph): Record<string, Pos> {
+  const fan = graph.tiers.length === 1 ? fanLayout(graph) : null;
+  if (fan) {
+    for (const n of graph.nodes) if (!fan[n.id]) fan[n.id] = { x: LEFT + PAD, y: TOP + HEAD };
+    return fan;
+  }
   const pos: Record<string, Pos> = {};
   const xs = columns(graph);
   graph.tiers.forEach((t, col) => {
@@ -103,6 +131,11 @@ export function extent(graph: Graph, pos: Record<string, Pos>): { w: number; h: 
 
 /** An edge between two cards: down from the source's bottom into the target's top in one column, else side to side. */
 export function edgePath(a: Pos, b: Pos): { d: string; mx: number; my: number } {
+  if (b.y >= a.y + CARD_H + 16 && Math.abs(b.x - a.x) >= CARD_W / 2) {
+    const x1 = a.x + CARD_W / 2, y1 = a.y + CARD_H, x2 = b.x + CARD_W / 2, y2 = b.y;
+    const dy = Math.max(24, (y2 - y1) / 2);
+    return { d: `M${x1},${y1} C${x1},${y1 + dy} ${x2},${y2 - dy} ${x2},${y2}`, mx: (x1 + x2) / 2, my: (y1 + y2) / 2 };
+  }
   if (Math.abs(b.x - a.x) < CARD_W / 2) {
     const down = b.y >= a.y;
     const x1 = a.x + CARD_W / 2, x2 = b.x + CARD_W / 2, y1 = down ? a.y + CARD_H : a.y, y2 = down ? b.y : b.y + CARD_H;

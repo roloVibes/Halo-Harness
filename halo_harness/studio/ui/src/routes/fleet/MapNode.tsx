@@ -7,9 +7,13 @@
 // R4: a card in conflict carries a warning chip with the file; By project a
 // card's third line has its git chips (dirty, ahead / behind, worktree).
 // 3.1.4.0 R2: a node of this harness has Open in Session; under Session's
-// scope the chosen session's card is marked (data-chosen).
+// scope the chosen session's card is marked (data-chosen). 3.1.5.0 R3: under
+// Session's scope the map is a tree and a node is MapTreeNode.tsx's; either
+// node shows a running tool with its time ("Bash 12s"), lights when its line
+// is hovered in Live (data-hover) and wears the HUD brackets when selected.
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
+import { useRecent } from "../../lib/motion";
 import { Icon, toolIcon } from "../../lib/ui";
 import { goSection, studio } from "../../lib/store";
 import { openSession } from "../session/store";
@@ -18,7 +22,8 @@ import { askShutdown, askStop, openAgentPanel, pin, select, togglePause } from "
 import { askHandoff, record } from "./extras";
 import { usePanels } from "./pstore";
 import { projectLabel, type Card, type NodeBox } from "./layout";
-import { agentMotion, fleet, keyOf, sessionMotion, sessionTitle, toolOf, useFleet } from "./store";
+import { NodeBrackets, TreeNode, useToolClock } from "./MapTreeNode";
+import { agentMotion, DONE_MS, fleet, keyOf, sessionMotion, sessionTitle, useFleet } from "./store";
 import type { AgentRow } from "./types";
 
 /** A number that counts up to `value` over ~600 ms (the cost ticker). */
@@ -62,29 +67,37 @@ type MenuAt = { x: number; y: number; key: string; session?: boolean };
 const menuOf = (e: MouseEvent, key: string, session = false): MenuAt => ({ x: e.clientX, y: e.clientY, key, session });
 
 export function AgentNode({ n, onMenu }: { n: NodeBox; onMenu: (m: MenuAt) => void }) {
+  return n.tree ? <TreeNode n={n} onMenu={onMenu} menuOf={menuOf} /> : <ListNode n={n} onMenu={onMenu} />;
+}
+
+function ListNode({ n, onMenu }: { n: NodeBox; onMenu: (m: MenuAt) => void }) {
   const { key, a } = n.ref;
   const selected = useFleet((s) => s.selected === key);
+  const hovered = useFleet((s) => s.hover === key);
   const pinned = useFleet((s) => s.pinned === key);
   const doneAt = useFleet((s) => s.doneAt[key] || 0);
+  useRecent(doneAt, DONE_MS); // re-draws when the done glow has faded
   const act = useFleet((s) => s.activity[key]);
-  const tool = a.state === "running" ? toolOf(a, act) : "";
+  const clock = useToolClock(key, a, act);
+  const tool = clock.tool;
   const shownCost = useTicker(Number(a.cost_usd) || 0);
   const name = a.name || a.role || a.agent_id;
   const role = a.role && a.role !== name ? a.role : a.bio && a.bio !== name ? a.bio : "";
   const right = 128;
   return (
     <g className="fm-node" data-testid="fleet-node" data-key={key} data-state={a.state || "none"} data-motion={agentMotion(a, doneAt)} data-selected={selected || undefined}
-       data-hc={n.hc} transform={`translate(${n.x} ${n.y})`} role="button" tabIndex={0} aria-label={`${name}: ${a.state}`}
+       data-hover={hovered || undefined} data-hc={n.hc} transform={`translate(${n.x} ${n.y})`} role="button" tabIndex={0} aria-label={`${name}: ${a.state}`}
        onClick={() => select(key)} onDoubleClick={() => openAgentPanel(key)} onKeyDown={(e) => e.key === "Enter" && openAgentPanel(key)}>
       <title>{`${name}${role ? " (" + role + ")" : ""}: ${a.state}${a.task ? "\n" + a.task : ""}`}</title>
       {selected && <rect className="fm-ring" x={-4} y={-4} width={n.w + 8} height={n.h + 8} rx={11} />}
+      {selected && <NodeBrackets w={n.w} h={n.h} />}
       <rect className="fm-shape" width={n.w} height={n.h} rx={8} />
       <circle className="fm-dot" cx={12} cy={14} r={4} />
       <text className="fm-name" x={22} y={17}>
         {fit(name, n.w - right - 60)}
         {role && <tspan className="fm-role">{" · " + fit(role, 70)}</tspan>}
       </text>
-      <text className="fm-now" x={22} y={32}>{fit(nowText(a), n.w - 90)}</text>
+      <text className="fm-now" x={22} y={32} data-tool={tool || undefined}>{fit(clock.secs != null ? clock.text : nowText(a), n.w - 90)}</text>
       {a.model && (
         <g className="fm-pill" transform={`translate(${n.w - right + 8} 6)`}>
           <rect width={92} height={15} rx={7.5} />
