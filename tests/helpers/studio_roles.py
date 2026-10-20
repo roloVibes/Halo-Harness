@@ -110,6 +110,10 @@ def roles(c, url: str, state: Path) -> dict:
     # the dead bio's model, tested: the stubbed probe's answer shows inline
     c.click_on("document.querySelector('[data-testid=\"roles-bio\"][data-name=\"dead-bio\"]')")
     c.wait("!!document.querySelector('[data-testid=\"bio-form\"][data-bio=\"dead-bio\"]')", 15)
+    more = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select-more\"]')"  # 3.1.4.0 R4: the table is folded
+    c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
+    time.sleep(0.3)
+    c.click_on(more)
     out["model_rows"] = c.wait(f"{tid('model-row')}.length", 10)
     btn = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-test\"]')"
     c.js(f"{btn}.scrollIntoView({{block: 'center'}}); 1")

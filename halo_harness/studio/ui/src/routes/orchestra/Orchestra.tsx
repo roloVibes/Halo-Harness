@@ -31,14 +31,15 @@ function started(hook: () => MotionState): () => MotionState {
 
 const panel = (id: string, rest: Omit<PanelSpec, "id">): PanelSpec => ({ id, ...HELP[id], ...rest });
 
-// 24 columns, 8 px rows; h 0 fills the visible height (98 rows in a 900 px window).
+// 24 columns, 8 px rows; h 0 fills the visible height (98 rows in a 900 px window). 3.1.4.0 R4:
+// the Goal panel is 12 rows taller for its MODEL select, so every field and Run still fit.
 export const orchestraPanels: PanelSpec[] = [
-  panel("goal", { title: "Goal", x: 0, y: 0, w: 6, h: 66, minW: 5, minH: 40, glance: GoalGlance, detail: GoalDetail, settings: GoalSettings, useMotion: started(useGoalMotion), testid: "orchestra-root" }),
+  panel("goal", { title: "Goal", x: 0, y: 0, w: 6, h: 78, minW: 5, minH: 40, glance: GoalGlance, detail: GoalDetail, settings: GoalSettings, useMotion: started(useGoalMotion), testid: "orchestra-root" }),
   panel("graph", { title: "Workflow", x: 6, y: 0, w: 12, h: 30, minW: 8, minH: 16, face: "glance", glance: GraphGlance, detail: GraphDetail, settings: GraphSettings, useMotion: started(useGraphMotion) }),
   panel("grid", { title: "Run grid", x: 18, y: 0, w: 6, h: 30, minW: 4, minH: 14, face: "glance", glance: RunGridGlance, detail: RunGridDetail, useMotion: started(useGridMotion) }),
   panel("file", { title: "Live file", x: 6, y: 30, w: 8, h: 0, minW: 6, minH: 20, glance: LiveFileGlance, detail: LiveFileDetail, settings: LiveFileSettings, useMotion: started(useLiveFileMotion) }),
   panel("lanes", { title: "Lanes", x: 14, y: 30, w: 10, h: 34, minW: 6, minH: 14, glance: LanesGlance, detail: LanesDetail, settings: LanesSettings, useMotion: started(useLanesMotion) }),
   panel("report", { title: "Report", x: 14, y: 64, w: 5, h: 0, minW: 4, minH: 14, glance: ReportGlance, detail: ReportDetail, settings: ReportSettings, useMotion: started(useReportMotion) }),
   panel("claims", { title: "Claims", x: 19, y: 64, w: 5, h: 0, minW: 4, minH: 12, glance: ClaimsGlance, detail: ClaimsDetail, useMotion: started(useClaimsMotion) }),
-  panel("log", { title: "Log", x: 0, y: 66, w: 6, h: 0, minW: 5, minH: 14, face: "glance", glance: LogGlance, detail: LogDetail, settings: LogSettings, useMotion: started(useLogMotion) }),
+  panel("log", { title: "Log", x: 0, y: 78, w: 6, h: 0, minW: 5, minH: 14, face: "glance", glance: LogGlance, detail: LogDetail, settings: LogSettings, useMotion: started(useLogMotion) }),
 ];

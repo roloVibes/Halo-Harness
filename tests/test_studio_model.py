@@ -78,6 +78,10 @@ def test_graph_edges_and_diagnostics(ctx: Ctx):
     ctx.check("two mains warn on every node", all(any("role main" in w for w in n["warnings"]) for n in M.graph_for(two_mains, catalog={})["nodes"]))
     override = {"name": "o", "agents": [{"agent": "reviewer", "role": "main", "models": {"preference": "or:x/y"}}]}
     ctx.check("a per-assignment override wins over the bio", M.graph_for(override, catalog={"or:x/y": {"price": "$1/M", "context": "1M"}})["nodes"][0]["model"] == "or:x/y")
+    over = M.graph_for(override, catalog={})["nodes"][0]  # 3.1.4.0 R4: the strip's "the bio's own (<model>)"
+    plain = M.graph_for({"name": "p", "agents": [{"agent": "reviewer", "role": "main"}]}, catalog={})["nodes"][0]
+    ctx.check(f"a node names its bio's own model beside the override, got {over.get('bio_model')!r} / {plain['model']!r}",
+              over.get("bio_model") == plain["model"] == plain.get("bio_model") and over["bio_model"] != "or:x/y")
 
 
 @test

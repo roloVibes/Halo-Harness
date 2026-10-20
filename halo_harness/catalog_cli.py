@@ -272,12 +272,13 @@ def format_dbx_table_lines(rows: dict, *, urls: bool = False) -> "list[str]":
 def _cmd_models_capabilities(args) -> int:
     """`halo models --capabilities` / `--best-for KIND` (3.0.1.0 D1)."""
     from halo_harness.capabilities import KINDS, best_for, capability_lines
-    from halo_harness.providers.config import load_provider_env_files, load_routes
+    from halo_harness.providers.config import listing_effective_env, load_provider_env_files, load_routes
     from halo_harness.providers.model_enumeration import build_model_rows
     load_provider_env_files()
     state_dir = bridge_home()
     routes = load_routes(state_dir / "routes.json" if state_dir.exists() else None)
-    rows = [r for r in build_model_rows(state_dir, env=dict(os.environ), routes=routes) if r.get("ref")]
+    # 3.1.4.0 R4: the session's resolution (the settings.json env chain too), never a bare os.environ copy
+    rows = [r for r in build_model_rows(state_dir, env=listing_effective_env(), routes=routes) if r.get("ref")]
     if args.best_for:
         kind = args.best_for.strip().lower()
         if kind not in KINDS:

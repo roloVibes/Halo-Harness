@@ -1,0 +1,44 @@
+/* The one model control (3.1.4.0 R4, routes/shared/ModelSelect.tsx) and the
+   Roles Inspector's MODEL strip: mono values, the cyan accent, the existing
+   ok / warn / bad tokens only. */
+
+.msel { min-width: 0; }
+.msel-bare { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.msel-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.msel-select { flex: 1 1 auto; min-width: 0; font-size: 12px; text-overflow: ellipsis; }
+.msel-select:focus { border-color: var(--accent); box-shadow: var(--glow-strong); }
+.msel-more { flex: none; font-size: 11.5px; white-space: nowrap; }
+.msel-row .btn { flex: none; }
+.msel-result { font-size: 11.5px; color: var(--bad); }
+.msel-result[data-ok] { color: var(--ok); }
+.msel-empty { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border: 1px solid var(--warn);
+  border-radius: var(--radius-sm); background: var(--warn-soft); }
+.msel-why { flex: 1 1 200px; font-size: 12px; min-width: 0; }
+.msel-why-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 11px; }
+.msel-why-line .og-link { flex: none; }
+.msel-why-text { flex: 1 1 auto; min-width: 0; color: var(--warn); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msel-lines { display: grid; gap: 2px; font-size: 11px; min-width: 0; }
+.msel-line { overflow-wrap: anywhere; color: var(--bad); }
+.msel-line[data-ok] { color: var(--ok); }
+.msel-line.muted { color: var(--muted); }
+.msel-when { font-size: 10.5px; }
+.msel-fold { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); }
+
+/* the Inspector's strip, above its tabs (the Inspector's grid gains a row for it) */
+.ri:has(> .msel-strip) { grid-template-rows: auto auto minmax(0, 1fr); }
+.msel-strip { display: grid; gap: 4px; padding: 6px 8px; margin-bottom: 6px; border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm); background: var(--accent-soft); }
+.msel-strip-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.msel-runs { font-size: 12px; min-width: 0; overflow-wrap: anywhere; }
+.msel-runs b { color: var(--accent); font-weight: 600; }
+.msel-price { font-size: 11px; }
+.msel-strip .msel { margin: 0; }
+.msel-bio { margin-left: auto; font-size: 11.5px; white-space: nowrap; }
+
+/* the card's model pill is a button now (it focuses the strip's select) */
+button.rc-model { font-family: var(--mono); line-height: inherit; cursor: pointer; text-align: left; }
+button.rc-model:hover, button.rc-model:focus-visible { border-color: var(--accent); outline: none; box-shadow: var(--glow-strong); }
+
+/* the Team stage face's "runs on" */
+.tm-model { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 6px 0; font-size: 12px; }
+.tm-model b { color: var(--accent); font-weight: 600; }

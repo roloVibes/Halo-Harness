@@ -65,12 +65,12 @@ def providers(home: Path) -> list:
 
 def models(home: Path) -> list:
     """`[{id, provider, best_for: [kind...]}]`: the top MODELS_PER_KIND per job plus every local model."""
-    import os
     from halo_harness.capabilities import KINDS, best_for
-    from halo_harness.providers.config import load_routes
+    from halo_harness.providers.config import listing_effective_env, load_routes
     from halo_harness.providers.model_enumeration import build_model_rows
     routes = load_routes(home / "routes.json" if (home / "routes.json").exists() else None)
-    rows = [r for r in build_model_rows(home, env=dict(os.environ), routes=routes) if r.get("ref")]
+    # 3.1.4.0 R4: the session's provider resolution (the settings.json env chain too), not a bare os.environ copy
+    rows = [r for r in build_model_rows(home, env=listing_effective_env(), routes=routes) if r.get("ref")]
     picked: dict = {}
     for kind in KINDS:
         for r in best_for(rows, kind, limit=MODELS_PER_KIND):

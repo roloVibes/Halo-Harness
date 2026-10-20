@@ -26,6 +26,8 @@ export type GraphNode = {
   instances: number;
   use_for: string[];
   model: string;
+  /** 3.1.4.0 R4: what the card runs on without its own model (its bio's). */
+  bio_model?: string;
   fallback: string;
   price: string;
   context: string;
@@ -75,9 +77,22 @@ export type ModelRow = {
   speed: string;
   local: boolean;
   chips: string;
+  /** 3.1.4.0 R4: false on a row GET models/fallback adds (a ref in use, or Halo's shipped list): not verified. */
+  verified?: boolean;
+  source?: "in use" | "shipped";
 };
 
-export type ModelsStatus = { rows: number; providers: { name: string; label: string; enabled: boolean; credentials: boolean; status: string; model_count: number | null }[]; reason: string };
+/** 3.1.4.0 R4: one provider's answer to Refresh (studio/models_refresh.py), and what status looked at. */
+export type Outcome = { name: string; provider: string; ok: boolean; count: number | null; line: string; ms: number; pending?: boolean; skipped?: boolean };
+export type LookedAt = { name: string; label: string; ok: boolean; line: string };
+export type ModelsStatus = {
+  rows: number;
+  providers: { name: string; label: string; enabled: boolean; credentials: boolean; status: string; model_count: number | null }[];
+  reason: string;
+  looked_at?: LookedAt[];
+  refreshed_at?: number | null;
+  outcomes?: Outcome[];
+};
 export type Probe = { ok: boolean; latency_ms: number | null; error: string; cost_line: string; ref: string; reply: string };
 export type GymScore = { score: number; tokens_per_second: number | null };
 

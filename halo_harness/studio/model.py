@@ -45,17 +45,19 @@ def from_yaml(text: str) -> dict:
 
 # -- the model catalog --------------------------------------------------------
 
-def model_rows(state_dir=None) -> list:
+def model_rows(state_dir=None, cwd=None) -> list:
+    """3.1.4.0 R4: the providers resolve through `catalog_env(cwd)`, the env a
+    session resolves with (the env file, the shell, the settings.json `env`
+    chain), not a bare copy of os.environ (which skipped the settings chain)."""
     from halo_harness.capabilities import capability_profile
     from halo_harness.model_display import format_price_per_m, format_speed, format_token_count
-    import os
-    from halo_harness.providers.config import default_state_dir, load_provider_env_files, load_routes
+    from halo_harness.providers.config import default_state_dir, load_routes
     from halo_harness.providers.model_enumeration import build_model_rows
+    from halo_harness.studio.catalog_env import catalog_env
     state_dir = Path(state_dir or default_state_dir())
-    load_provider_env_files()  # the shared env files (keys) the CLI and the TUI both read
     routes_path = state_dir / "routes.json" if state_dir.exists() else None
     rows = []
-    for row in build_model_rows(state_dir, env=dict(os.environ), routes=load_routes(routes_path)):
+    for row in build_model_rows(state_dir, env=catalog_env(cwd), routes=load_routes(routes_path)):
         ref = row.get("ref")
         if not ref or row.get("provider") == "alias":
             continue
@@ -129,6 +131,7 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
             "alias": str(e.get("as") or ""), "instances": inst if good else 1,
             "use_for": list(e["use_for"]) if isinstance(e.get("use_for"), list) else [],
             "model": model, "fallback": fallback, "price": cat.get("price", ""), "context": cat.get("context", ""),
+            "bio_model": _effective_model({}, bio)[0],  # 3.1.4.0 R4: what the card runs on without its own model
             "tools": (len(allow) if isinstance(allow, list) else 0) if bio else None,
             "scope": (bio or {}).get("_source", ""), "kind": (bio or {}).get("kind", ""),
             "description": (bio or {}).get("description", ""), "problems": problems, "warnings": _subscription_warnings(model, fallback),

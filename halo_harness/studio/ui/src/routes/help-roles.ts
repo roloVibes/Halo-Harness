@@ -32,6 +32,7 @@ export const ROLES_HELP: Record<string, Help> = {
       "Lineup: delegation, routing, budget, escalation, context, permissions, pipeline, acceptance, tiers.",
       "Each section is a small form; YAML edits the raw section instead.",
       "Live: the streams of the agents on the card, Steer, Pause, Stop, Pin; or its last runs, with replay.",
+      "MODEL, on top: what the card runs on and the select that changes it (a card's model pill jumps here).",
     ),
   },
   "roles-problems": {
@@ -47,7 +48,7 @@ export const ROLES_HELP: Record<string, Help> = {
     about: "The agent bios: who each card is, on which model, with which tools.",
     help: lines(
       "Click a bio to edit it below; drag one onto the canvas to add it to the lineup.",
-      "The model table sorts by name, price or context and searches everything, best-for included.",
+      "MODELS comes first: the model select; more... unfolds the table (name, price, context, best-for).",
       "Test this model sends one short request and shows ok and the time, or the error.",
       "Save writes your copy (a shipped bio stays as it is); New, Duplicate, Delete.",
     ),
@@ -55,7 +56,7 @@ export const ROLES_HELP: Record<string, Help> = {
   "roles-models": {
     about: "The model catalog the pickers read: per provider, and why it is empty when it is.",
     help: lines(
-      "Refresh pulls every enabled provider's list again.",
+      "Refresh asks every provider at once, a few seconds each, and shows what each said and when.",
       "A provider with a key but not enabled says so: halo providers enable <name>.",
       "Test a model by its ref, catalog or not.",
     ),

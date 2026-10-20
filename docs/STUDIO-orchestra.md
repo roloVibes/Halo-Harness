@@ -13,9 +13,12 @@ there, or `--cwd`). It opens on the newest run.
 **Before a run (3.0.4.0)** the section is one centered **Start** view, not
 eight empty panels: the goal form (WHAT YOU WANT, DONE WHEN, STOP WHEN with
 examples, the files and the test command, the budget: workers and return
-cap, the lineup, and who plays the parts and the model under a disclosure)
-with **Run** and **Dry run**, what a run does in five numbered steps, and the
-past runs to open. Starting or opening a run brings up the panels; **open the
+cap, the lineup, the **MODEL** select, and who plays the parts under a
+disclosure) with **Run** and **Dry run**, what a run does in five numbered steps, and the
+past runs to open. 3.1.4.0: the MODEL select shows without opening the
+disclosure; its first option, "the lineup's (<model>)", is what the lead
+resolves to without one (the role table, else the default model, `GET
+models/resolve`). Starting or opening a run brings up the panels; **open the
 workspace anyway** does too. **New run** (the rail, or the palette's
 **Orchestra: new run**) returns to the Start view. An Orchestra goal has no
 dollar budget: its budget is how many workers and how many times the gate may

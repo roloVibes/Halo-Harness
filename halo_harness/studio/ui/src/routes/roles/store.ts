@@ -25,6 +25,11 @@ export type RolesState = {
   bios: BioRow[];
   models: ModelRow[];
   modelsLoaded: boolean;
+  /** 3.1.4.0 R4: the refs GET models/fallback adds (in use, or the shipped list; not verified), and why GET models failed. */
+  fallback: ModelRow[];
+  modelsError: string;
+  /** A Refresh ran on this page: the selects show what each provider said (until the page reloads). */
+  justRefreshed: boolean;
   bestFor: Record<string, string[]>;
   gym: Record<string, GymScore>;
   tools: string[];
@@ -60,6 +65,8 @@ export type RolesState = {
   coachHint: CoachHint;
   /** 3.1.1.0 R3: an edit target being opened (shell/edit.ts); the active lineup does not open over it. */
   editing: string;
+  /** 3.1.4.0 R4: a model select to move the focus to once it shows (the Inspector's strip, the bio form's MODELS). */
+  modelFocus: "" | "strip" | "bio";
 };
 
 export const HISTORY_MAX = 50;
@@ -74,6 +81,9 @@ export const roles = createStore<RolesState>({
   bios: [],
   models: [],
   modelsLoaded: false,
+  fallback: [],
+  modelsError: "",
+  justRefreshed: false,
   bestFor: {},
   gym: {},
   tools: [],
@@ -108,6 +118,7 @@ export const roles = createStore<RolesState>({
   history: { card: "", runs: null, error: "" },
   coachHint: null,
   editing: "",
+  modelFocus: "",
 });
 
 export function useRoles<S>(pick: (s: RolesState) => S): S {

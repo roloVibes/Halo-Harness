@@ -55,6 +55,13 @@ and `roles.enabled`):
    section, drag a card into another tier, edit bios with the model picker
    table and **Test this model**, and read every problem with its fix as you
    edit. See [STUDIO-team-roles.md](STUDIO-team-roles.md#what-you-see-roles).
+   **Where the model is chosen (3.1.4.0):** click a card (or its model pill)
+   and the Inspector's **MODEL** strip says what it runs on and holds the
+   model select for that card's own model, saved at once, with **change the
+   bio's model** beside it for every card on that bio. The same select is the
+   bio form's first field, and the catalog behind it resolves your providers
+   the way a session does (the env file, the shell, the settings.json `env`
+   chain), so a key a session uses lists its models there too.
 
 **Editing a lineup or a bio happens in Studio (3.1.1.0).** The terminal shows
 them read-only and opens Studio on the one you want to change: `halo teams

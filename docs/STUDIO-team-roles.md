@@ -107,8 +107,8 @@ shipped one, opened on the canvas); "open the panels anyway" (or
 | **Canvas** (`roles-graph`, the drawn canvas `roles-canvas`) | the open lineup: one card per assignment, in one labelled column box per tier; the edges; the toolbar (scope, unsaved, Undo, Redo, Save, Apply, Lay out, Fit, zoom); the replay bar along its bottom |
 | **Inspector** (`roles-inspector`) | **Assignment** (the selected card's bio, role, alias, instances, the words that route a task to it, a model override, what resolves for it; Edit bio, Duplicate, Remove; with no card: the lineup's description, about and extends), **Lineup** (every top section as a small form with a **YAML** toggle and its enforcement badge), **Live** (the agents on the card now, or its last runs) |
 | **Problems** (`roles-problems`) | everything wrong with the lineup as it stands in the editor, saved or not, in **Blocks** and **Warns**, each with its fix; a click selects its card; **Config** lists what `halo doctor --config` finds in the files behind the lineup |
-| **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): description, kind, tags, extends; models (the preferred model in the **model picker table**, fallback, effort up to xhigh and max, thinking, the context budget); tools (allow and deny from the real registry, `GET /api/tools`, MCP servers, permission mode, the rules); context (files, skills, the memory namespace, prompt notes); limits; output; environment (own worktree, offline); acceptance; the schedule (cron or every, its prompt and model) and the triggers (file change, event, message); a **YAML** toggle for the whole bio (hooks and any key without a field); **Save bio** (with **Save to project scope**), New, Duplicate, Delete |
-| **Models** (`roles-models`) | the catalog: its row count, each provider (enabled, key, models cached), why it is empty when it is, **Refresh** (`POST /api/models/refresh`), and **Test a model** by any ref |
+| **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): models first (3.1.4.0: the preferred model in the **model select**, the **model picker table** folded under **more...**, fallback, effort up to xhigh and max, thinking, the context budget); description, kind, tags, extends; tools (allow and deny from the real registry, `GET /api/tools`, MCP servers, permission mode, the rules); context (files, skills, the memory namespace, prompt notes); limits; output; environment (own worktree, offline); acceptance; the schedule (cron or every, its prompt and model) and the triggers (file change, event, message); a **YAML** toggle for the whole bio (hooks and any key without a field); **Save bio** (with **Save to project scope**), New, Duplicate, Delete |
+| **Models** (`roles-models`) | the catalog: its row count, each provider (enabled, key, models cached), why it is empty when it is (every provider looked at and why it lists nothing), **Refresh** (`POST /api/models/refresh`: every provider at once, each time-boxed, one line each: `ok, N models` or the reason, and "refreshed <when>"), and **Test a model** by any ref |
 
 - **A card** shows the agent, its role and alias, a **scope badge**
   (shipped, user, project: a shipped bio is read-only, Duplicate it in Bios
@@ -143,6 +143,22 @@ shipped one, opened on the canvas); "open the panels anyway" (or
   copy). `halo studio --edit bio:<name>` / `lineup:<name>` opens this section
   on that bio's form or that lineup's Lineup tab (see
   [STUDIO-shell.md](STUDIO-shell.md#opening-studio-on-a-bio-a-lineup-or-the-team-halo-studio---edit)).
+- **Where the model is chosen (3.1.4.0).** The Inspector's **MODEL** strip,
+  above its tabs, says what the selected card runs on (or the main card's,
+  with none selected) and holds the **model select** for that card's own
+  model (it saves at once; its first option keeps the bio's own), with
+  **change the bio's model** beside it; the card's model pill (or Enter on a
+  selected card) jumps there. The same select is the Assignment tab's Model
+  override and the bio form's first field: the catalog grouped by provider,
+  then the refs your config, bios and lineups already name and, while
+  OpenRouter has no live list, Halo's shipped list (both marked "not
+  verified"), **more...** for the whole table and **Test** for the probe.
+- **The catalog resolves providers as a session does (3.1.4.0):** the env
+  file, the shell and the settings.json `env` chain
+  (`studio/catalog_env.py`), so a Databricks or OpenRouter key kept in
+  settings.json lists its models here too; with no live list the select
+  says why, per provider, and offers Refresh (`studio/models_refresh.py`,
+  each provider asked at once and given 6 s).
 - **The model picker table** (in the bio form): every catalog row with its
   price in / out, context, **best for** (`capabilities.score`: visual,
   audio, video, image, design; `GET /api/models/best-for`) and gym score;

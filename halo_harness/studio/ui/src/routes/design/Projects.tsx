@@ -1,8 +1,14 @@
 // design-projects (3.0.7.0 R3): every design project (its artboards and its
 // model); click one to open it in the other panels, New project makes one
-// (a dialog: a name and, if you like, the project's model).
+// (a dialog: a name and, if you like, the project's model). 3.1.4.0 R4: the
+// open project's model on top, the model select to change it (PUT
+// design/<slug>/model; its first option keeps the default model).
+import { useHelpGroup } from "../../lib/fieldHelp";
 import type { MotionState } from "../../lib/motion";
 import { Button, Empty } from "../../lib/ui";
+import { ModelSelect } from "../shared/ModelSelect";
+import { useResolved } from "../shared/resolve";
+import { setProjectModel } from "./actions";
 import { openDialog, useDesign } from "./store";
 import { openProject } from "./sync";
 
@@ -10,12 +16,20 @@ export function ProjectsDetail() {
   const rows = useDesign((s) => s.projects);
   const slug = useDesign((s) => s.slug);
   const error = useDesign((s) => s.error);
+  const meta = useDesign((s) => (s.slug && s.data ? s.data.meta : null));
+  const busy = useDesign((s) => s.busy === "model");
+  const def = useResolved("");
+  const help = useHelpGroup("model_select");
   if (rows === null) return <div className="og-wait mono muted">reading the projects...</div>;
   return (
     <div className="dp">
       <div className="dp-bar">
         <Button size="sm" variant="primary" onClick={() => openDialog({ kind: "new" })} data-testid="design-new">New project</Button>
       </div>
+      {meta && (
+        <ModelSelect label={`${meta.name}'s model`} hint={help.design} value={meta.model || ""} onPick={(m) => void setProjectModel(m)} busy={busy}
+                     inherit={{ label: "the default", model: def?.ref || "" }} testid="design-project-model" compact />
+      )}
       {error && <p className="og-problems">{error}</p>}
       {rows.length ? (
         <ul className="dp-list">

@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { Button } from "../../lib/ui";
 import { answerGate, runStage } from "./actions";
+import { StageModel } from "./StageModel";
 import { elapsed, openGate, rowOf, specOf, usd, useTeam } from "./store";
 import type { Gate } from "./types";
 
@@ -96,6 +97,7 @@ export function StageFace({ id }: { id: string }) {
       {gate && <GateCard g={gate} />}
       {row?.waiting && <p className="tm-waiting mono" data-testid="team-stage-waiting">{row.waiting}</p>}
       {row?.error && <p className="tm-error" data-testid="team-stage-error">{row.error}</p>}
+      <StageModel id={id} />
       <dl className="tm-kv mono">
         {kv.map(([k, v]) => (
           <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
