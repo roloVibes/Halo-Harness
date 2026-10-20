@@ -70,7 +70,7 @@ class _Env:
 
 
 # ---------------------------------------------------------------------------
-# N1 (1.0.1 final pass): tool_child_env/cc_child_env must also strip
+# N1 (1.0.1 final pass): tool_child_env/claude_child_env must also strip
 # OPENROUTER_MANAGEMENT_KEY (a separate, higher-privilege OpenRouter
 # credential) and TYPESAFE_API_KEY (the TypeSafe provider's own key) --
 # neither was in the original fixed secret list, so either one would have
@@ -97,15 +97,15 @@ def test_tool_child_env_strips_openrouter_management_and_typesafe_keys(ctx: Ctx)
 
 
 @test
-def test_cc_child_env_also_strips_them(ctx: Ctx):
-    """cc_child_env calls tool_child_env first -- the cc: route's own child
-    env (the installed `claude` subprocess, and transitively ccbridge) must
-    never see either key either; no separate list to fix there."""
-    from halo_harness.providers.config import cc_child_env
+def test_claude_child_env_also_strips_them(ctx: Ctx):
+    """claude_child_env calls tool_child_env first -- the connectors
+    bridge's `claude` child must never see either key either; no separate
+    list to fix there."""
+    from halo_harness.mcp.claude_process import claude_child_env
     raw_env = {"OPENROUTER_MANAGEMENT_KEY": "sk-or-mgmt-secret", "TYPESAFE_API_KEY": "ts-secret"}
     with _Env() as env:
-        stripped = cc_child_env(raw_env, env_file_path=env.home / "no-such-env-file")
-        ctx.check(f"both still stripped via cc_child_env, got {stripped}",
+        stripped = claude_child_env(raw_env, env_file_path=env.home / "no-such-env-file")
+        ctx.check(f"both still stripped via claude_child_env, got {stripped}",
                   "OPENROUTER_MANAGEMENT_KEY" not in stripped and "TYPESAFE_API_KEY" not in stripped)
 
 
@@ -113,9 +113,7 @@ def test_cc_child_env_also_strips_them(ctx: Ctx):
 # Pass-B finding 15 (major): the fixed secret-key list still named only
 # pre-2.0.3 keys -- HF_TOKEN, OPENAI_API_KEY, OLLAMA_API_KEY and the
 # Experiential Labs keys reached every Bash/PowerShell/MCP/hook child
-# verbatim; the `cx:` route's own env additionally kept OPENAI_API_KEY and
-# CODEX_API_KEY (Codex's own documented API-key billing path), which could
-# silently bill a key instead of running on the ChatGPT subscription.
+# verbatim.
 # ---------------------------------------------------------------------------
 
 _ALL_2_0_3_PROVIDER_SECRETS = {
@@ -144,31 +142,6 @@ def test_tool_child_env_strips_every_2_0_3_provider_key(ctx: Ctx):
         for key in _ALL_2_0_3_PROVIDER_SECRETS:
             ctx.check(f"{key} stripped from a tool child's env, got {stripped}", key not in stripped)
         ctx.check(f"an ordinary var survives, got {stripped}", stripped.get("SOME_ORDINARY_VAR") == "kept")
-
-
-@test
-def test_cx_child_env_also_strips_openai_and_codex_api_key(ctx: Ctx):
-    """`_cx_child_env` reuses `cc_child_env` (which strips ANTHROPIC_*/
-    CLAUDE*, the correct rule for a `claude` child) -- it must ALSO strip
-    OPENAI_*/CODEX_API_KEY, which `cc_child_env` has no reason to know
-    about but a `codex` child very much does (CODEX-RESEARCH.md section 1:
-    `CODEX_API_KEY=<key> codex exec` is Codex's own documented API-key
-    path; codex also reads a bare OPENAI_API_KEY the way the OpenAI SDK
-    conventionally does)."""
-    from halo_harness.agent.codex_runtime import _cx_child_env
-    from types import SimpleNamespace as _NS
-    with _Env() as env:
-        parent_env = {
-            "OPENAI_API_KEY": "sk-oai-secret", "OPENAI_ORG_ID": "org-secret",
-            "CODEX_API_KEY": "codex-key-secret", "ANTHROPIC_API_KEY": "sk-ant-secret",
-            "SOME_ORDINARY_VAR": "kept",
-        }
-        session = _NS(tool_env=parent_env)
-        stripped = _cx_child_env(session)
-        for key in ("OPENAI_API_KEY", "OPENAI_ORG_ID", "CODEX_API_KEY", "ANTHROPIC_API_KEY"):
-            ctx.check(f"{key} stripped from the cx: child env, got {stripped}", key not in stripped)
-        ctx.check(f"an ordinary var survives, got {stripped}", stripped.get("SOME_ORDINARY_VAR") == "kept")
-        _ = env  # the _Env context only scopes BRIDGE_TEST_HOME/env-file lookups here
 
 
 # ---------------------------------------------------------------------------

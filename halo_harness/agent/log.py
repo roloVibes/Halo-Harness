@@ -69,8 +69,8 @@ class SessionLog:
                 # result built from `os.fsdecode`d bytes (e.g. Glob over a
                 # directory with a non-UTF-8 filename) can carry a lone
                 # surrogate codepoint; the default `errors="strict"` raised
-                # UnicodeEncodeError HERE (verified on WSL), which reached
-                # a cc: bridged call as an unhandled dispatch exception.
+                # UnicodeEncodeError HERE (verified on WSL), which surfaced
+                # as an unhandled dispatch exception.
                 # surrogateescape round-trips it back to the exact original
                 # bytes instead, the same error handler `os.fsdecode`
                 # itself used to produce it in the first place.
@@ -168,7 +168,7 @@ class SessionLog:
                       provider: Optional[str] = None, finish_reason: Optional[str] = None,
                       latency_ms: Optional[float] = None, ttft_ms: Optional[float] = None,
                       retries: Optional[int] = None, status: Optional[str] = None,
-                      estimate: Optional[bool] = None, role: Optional[str] = None,
+                      role: Optional[str] = None,
                       ttfb_ms: Optional[float] = None, first_reasoning_ms: Optional[float] = None,
                       first_text_ms: Optional[float] = None, first_tool_ms: Optional[float] = None,
                       reasoning_streamed: Optional[bool] = None, experiential_meta: Optional[dict] = None,
@@ -191,13 +191,6 @@ class SessionLog:
         adding them is automatically wire-safe. `status` is one of
         "ok"|"429"|"5xx"|"overflow"|"aborted"|"connect_error".
 
-        H11 Part B: `estimate=True` marks a `cc:`-route usage node whose
-        `cost_usd` came from Claude Code's own `total_cost_usd` -- a
-        subscription is not billed per token, so that figure is Claude
-        Code's own estimate, not a real charge; `stats --models`/`/cost`
-        surface this instead of presenting it as exact spend like every
-        other route's real per-token pricing.
-
         Halo 2.0.4 round 5 (xp: contract alignment): `experiential_meta`
         (any subset of `{"request_id", "is_byok", "gateway_provider",
         "gateway_zdr", "gateway_route_depth", "gateway_route_reason"}`,
@@ -210,8 +203,6 @@ class SessionLog:
         included -- never read by `derive_request`, same non-wire status
         as every other field on this node type."""
         node = {"type": "usage", "usage": usage, "cost_usd": cost_usd}
-        if estimate is not None:
-            node["estimate"] = estimate
         if agent_id is not None:
             node["agent_id"] = agent_id
         # 2.0.6 round 2 (per-role cost attribution): `ok`/`bio` ride the

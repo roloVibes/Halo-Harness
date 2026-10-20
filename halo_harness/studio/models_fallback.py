@@ -18,7 +18,7 @@ from halo_harness import agents_yaml as A
 from halo_harness import teams_yaml as T
 
 _PREFIX = {"or": "openrouter", "ol": "ollama", "dbx": "databricks", "db": "databricks", "ant": "anthropic", "oai": "openai",
-           "hf": "huggingface", "xp": "experiential", "cc": "claude_subscription", "cx": "codex_subscription"}
+           "hf": "huggingface", "xp": "experiential"}
 
 
 def provider_of(ref: str) -> str:

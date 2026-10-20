@@ -1,19 +1,17 @@
 """tests.test_review2_round8b -- pins for the vibes/review.md fix pass,
-round 8, continued (findings 52-55):
+round 8, continued (findings 52-54; f55 pinned the cc: route removed in
+3.1.5.0):
 
   * f52  the forced tool_choice=required retry fed the overflow sentinel
         to `_account_usage` (AttributeError) instead of compacting
   * f53  Esc started the queued read-only batch / queued sub-agents, and
         a parked permission slot outlived the interrupt
   * f54  the concurrent-resume guard was check-then-set without a lock
-  * f55  a Stop-hook continuation on a cc: route was sent and never read
 """
 from __future__ import annotations
 
 import dataclasses
-import os
 import sys
-import tempfile
 import threading
 import time
 from pathlib import Path
@@ -192,49 +190,6 @@ def test_f54_concurrent_resume_of_one_task_runs_once(ctx: Ctx):
     finally:
         mock.stop()
         _restore_home()
-
-
-# ---- f55: a cc: Stop-hook continuation is read in the same turn ---------------
-
-@test
-def test_f55_cc_stop_hook_continuation_reply_is_read_before_turn_done(ctx: Ctx):
-    import tests.test_cc_session as CC
-    from halo_harness.hooks import HookDef, HookRunner
-    proj = Path(tempfile.mkdtemp(prefix="r8-cc-stop-"))
-    counter = proj / "stop.count"
-    hook_env = dict(os.environ, PYTHONPATH=str(CC.REPO_DIR), HOOK_STOP_COUNTER_FILE=str(counter))
-    runner = HookRunner(
-        {"Stop": [HookDef(type="command", matcher="", args=CC._HOOK_SCRIPT_ARGV + ["stop_block_once"])]},
-        cwd=proj, session_id="r8-cc-stop", transcript_path=str(proj / "t.jsonl"), effective_env=hook_env)
-    saved_home = os.environ.get("BRIDGE_TEST_HOME")
-    try:
-        # The subscription-routes consent lives in the active test home;
-        # test_cc_session only accepts it for its own scratch home at import
-        # time, so a full-battery run (home restored between modules) needs
-        # the acceptance recorded here.
-        os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="r8-cc-stop-home-")
-        from halo_harness.subscription_consent import record_acceptance
-        record_acceptance()
-        with CC._fake_claude_env():
-            session, _ = CC._new_cc_session(cwd=proj, hook_runner=runner)
-            first = list(session.turn("reply with the single word pong"))
-            text = "".join(e.data.get("text", "") for e in first if e.kind == "text_delta")
-            ctx.check(f"the continuation's reply ('noted') arrived inside THIS turn, got {text!r}",
-                      "pong" in text and "noted" in text)
-            ctx.check("turn_done is the last event and is a clean end",
-                      first[-1].kind == "turn_done" and first[-1].data.get("reason") == "end_turn")
-            ctx.check(f"the Stop hook looked at the continuation's reply too, count={counter.read_text()}",
-                      counter.read_text().strip() == "2")
-            second = list(session.turn("reply with the single word pong"))
-            text2 = "".join(e.data.get("text", "") for e in second if e.kind == "text_delta")
-            ctx.check(f"the NEXT turn is not polluted by a leaked reply, got {text2!r}",
-                      "pong" in text2 and "noted" not in text2)
-            session.close_cc()
-    finally:
-        if saved_home is None:
-            os.environ.pop("BRIDGE_TEST_HOME", None)
-        else:
-            os.environ["BRIDGE_TEST_HOME"] = saved_home
 
 
 if __name__ == "__main__":

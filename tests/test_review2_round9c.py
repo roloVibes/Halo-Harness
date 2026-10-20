@@ -55,8 +55,7 @@ def _providers_setup(args: list, tty: bool = False) -> tuple:
 
 @test
 def test_f77_setup_for_a_key_only_provider_says_what_to_set(ctx: Ctx):
-    expect = {"openai": "OPENAI_API_KEY", "huggingface": "HF_TOKEN", "experiential": "EXPLABS_API_KEY",
-              "codex_subscription": "codex login"}
+    expect = {"openai": "OPENAI_API_KEY", "huggingface": "HF_TOKEN", "experiential": "EXPLABS_API_KEY"}
     for name, needle in expect.items():
         rc, calls, err = _providers_setup([name])
         ctx.check(f"{name}: no argparse flow ran, got {calls}", calls == [])
@@ -75,7 +74,7 @@ def test_f77_on_a_terminal_those_providers_open_the_wizard_without_a_bad_flag(ct
 def test_f77_doctor_never_suggests_a_provider_flag_init_rejects(ctx: Ctx):
     from halo_harness.init_providers import PROVIDERS, init_command_for
     from halo_harness.providers.enablement import PROVIDER_NAMES
-    for name in list(PROVIDER_NAMES) + ["cc", "openai", "hf", "xp", "ollama", "codex"]:
+    for name in list(PROVIDER_NAMES) + ["openai", "hf", "xp", "ollama"]:
         cmd = init_command_for(name)
         if "--provider" in cmd:
             ctx.check(f"{name}: {cmd!r} uses a flag value argparse accepts", cmd.split()[-1] in PROVIDERS)

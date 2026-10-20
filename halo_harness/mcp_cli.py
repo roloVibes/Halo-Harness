@@ -376,8 +376,8 @@ def _cmd_list(rest: list) -> int:
             # so a fresh box's first `halo mcp list` shows the real
             # connectors instead of needing --refresh once first. Eligibility
             # reads the cached claude.ai login, and a fresh process has no
-            # cache yet, so prime it first the way `halo providers` does
-            # (gateway-driven `claude` is never spawned by that refresh).
+            # cache yet, so prime it first (gateway-driven `claude` is never
+            # spawned by that refresh).
             # W5b: this prime-then-discover pair is now the shared helper
             # `headless.build_session`'s own print-mode cold-start path uses
             # too (`connectors_bridge.prime_auth_cache_if_stale`).

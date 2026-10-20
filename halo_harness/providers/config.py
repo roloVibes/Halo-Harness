@@ -142,9 +142,10 @@ _HARNESS_SECRET_ENV_KEYS = frozenset({
     # key, below) -- it must never reach a tool child either, same as the
     # ordinary OPENROUTER_API_KEY. TYPESAFE_API_KEY is the TypeSafe provider's
     # own credential (providers.enablement.credentials_present), added here
-    # for the same reason. Both are already covered by cc_child_env (which
-    # calls tool_child_env first) and by hooks.py's own env builder (which
-    # calls tool_child_env directly) -- no separate list to update there.
+    # for the same reason. Both are already covered by mcp.claude_process.
+    # claude_child_env (which calls tool_child_env first) and by hooks.py's
+    # own env builder (which calls tool_child_env directly) -- no separate
+    # list to update there.
     "OPENROUTER_MANAGEMENT_KEY", "TYPESAFE_API_KEY",
     # Pass-B finding 15 (major): every 2.0.3 provider key this fixed list
     # still left out -- `HF_TOKEN` (the Hugging Face router's own
@@ -194,32 +195,6 @@ def tool_child_env(env: dict, *, env_file_path: Optional[Path] = None) -> dict:
         if legacy is not None and not env_file_has_import_marker(path):
             strip_keys |= set(_parse_env_file(legacy).keys())
     return {k: v for k, v in env.items() if k not in strip_keys}
-
-
-# H11b critical finding 2: the `cc:` route's own child env -- everything
-# `tool_child_env` already strips PLUS every ANTHROPIC_*/CLAUDE_CODE_*
-# variable and the bare CLAUDECODE marker, so the installed `claude`
-# binary's own subscription login (never ours to read or replay) is
-# ALWAYS what a `cc:` turn uses -- never an ambient ANTHROPIC_API_KEY/
-# AUTH_TOKEN/BASE_URL this process happened to have (from the env file, a
-# real shell var, or a Databricks passthrough setup for `ant:`), and never
-# an OUTER Claude Code session's own identity (CLAUDE_CODE_SESSION_ID,
-# CLAUDE_CODE_MESSAGING_SOCKET/_TOKEN, CLAUDE_EFFORT, ...) this halo
-# process itself happens to have inherited from running nested inside one.
-# Used for BOTH the `claude` subprocess's own env AND (transitively, since
-# an MCP stdio child inherits its spawning process's env -- verified live,
-# H11 report) the `ccbridge` child's env.
-def cc_child_env(env: dict, *, env_file_path: Optional[Path] = None) -> dict:
-    stripped = tool_child_env(env, env_file_path=env_file_path)
-    # `CLAUDE*` (not just `CLAUDE_CODE_*`) also catches CLAUDECODE and
-    # the owner's OWN hook/skill template vars (CLAUDE_EFFORT, CLAUDE_PROJECT_
-    # DIR, CLAUDE_PLUGIN_ROOT, CLAUDE_ENV_FILE, ...) -- verified live from
-    # INSIDE an actual nested launch: CLAUDE_EFFORT alone survived a
-    # narrower `CLAUDE_CODE_`-only prefix check because it has no "_CODE_"
-    # in it, yet is explicitly named in finding 2's own repro. None of
-    # the owner's own `CLAUDE*` namespace means anything to the real `claude`
-    # binary, so the broader prefix costs nothing.
-    return {k: v for k, v in stripped.items() if not k.startswith("CLAUDE") and not k.startswith("ANTHROPIC_")}
 
 
 def load_settings_env_chain(cwd: Path, *, trusted: "bool | None" = None) -> dict:
@@ -958,8 +933,8 @@ def resolve_databricks_host_only(env: dict | None = None) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # H14 scope C: model defaults/aliases "at work" -- Claude Code's own settings
 # env (ANTHROPIC_MODEL/ANTHROPIC_DEFAULT_*_MODEL) sets the harness's default
-# model and what bare opus/sonnet/haiku resolve to, instead of the cc:/ant:
-# subscription route or the hardcoded OpenRouter default.
+# model and what bare opus/sonnet/haiku resolve to, instead of the ant:
+# route or the hardcoded OpenRouter default.
 # ---------------------------------------------------------------------------
 
 _WORK_ENV_SIGNAL_KEYS = (

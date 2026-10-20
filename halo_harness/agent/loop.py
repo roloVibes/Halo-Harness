@@ -161,9 +161,9 @@ def _overload_owned_by_governor(status, message: str = "") -> bool:
     """Halo 2.0.5 round 4: is THIS failure one the Governor (providers/
     http.py's choke point) already paced and retried? True when the
     Governor is enabled, the status is in its overload set (or the body
-    says overloaded for a 500), and the route is an HTTP one (`cc:`/`cx:`
-    drive a CLI child -- never governed). The loop's own ladder uses
-    this to step aside instead of running a second backoff loop.
+    says overloaded for a 500), and the route is an HTTP one. The loop's
+    own ladder uses this to step aside instead of running a second
+    backoff loop.
 
     Release-regression guard: a POST-connect transport drop (dropped
     keep-alive, RST mid-response) is re-labelled a plain 502 by the wire
@@ -989,7 +989,7 @@ class Session:
         # keeps its existing "omit -> provider default" behaviour
         # (`self.effort` stays None) -- this is scoped to
         # `thinking_format == "anthropic_thinking"` alone, which is exactly
-        # cc:/ant:/every Databricks Claude foundation/Bedrock-Claude route
+        # ant:/every Databricks Claude foundation/Bedrock-Claude route
         # (`resolve_profile`'s own anthropic-passthrough branch), never a
         # chat-dialect route. `_build_body_for_messages`'s `no_thinking`
         # call (the summariser) still explicitly forces `effort=None` for
@@ -2239,7 +2239,7 @@ class Session:
         """W4a: MessageDisplay -- "each assistant message shown" (removed
         from NOT_EMITTED_V1). Fires at the main streaming completion's own
         log-append point (the overwhelming common case); an interrupted/
-        plan/compaction-replay/cc: bridge message does not ALSO fire this
+        plan/compaction-replay message does not ALSO fire this
         -- a documented scope cut, not an oversight (see the worker report).
         Text-only (a tool_use-only reply with no text block is skipped --
         there is nothing to "display")."""
@@ -2399,20 +2399,12 @@ class Session:
         except Exception:
             pass  # a SessionEnd hook must never block process/session teardown
 
-    def close_cc(self) -> None:
-        """H11 Part B: kill this session's claude subprocess (process
-        group) and close its bridge server, if `cc:` was ever used this
-        session -- a safe no-op otherwise. Called from Controller.quit(),
-        headless.py's own atexit/finally cleanup, and SIGTERM/SIGHUP (via
-        the same paths that already call job_registry.kill_all()).
-
-        Round 5i part 2: ALSO closes `cx:`'s own bridge server (if `cx:`
-        was ever used this session) -- broadened rather than adding a
-        parallel `close_cx()` call at every one of this method's own call
-        sites (controller.py, headless.py, agent/subagent.py)."""
-        from halo_harness.agent import cc_runtime, codex_runtime
-        cc_runtime.close_cc(self)
-        codex_runtime.close_cx(self)
+    def close_runtimes(self) -> None:
+        """Stop what this session keeps running beside its turns -- a safe
+        no-op when there is nothing. Called from Controller.quit(),
+        headless.py's own atexit/finally cleanup, a finished sub-agent and
+        SIGTERM/SIGHUP (via the same paths that already call
+        job_registry.kill_all())."""
         # Halo 2.0.5 round 5: a session that armed team schedules/triggers
         # disarms them here -- they live exactly as long as the session
         # ("while a session that loaded the team is alive, never a system
@@ -2437,25 +2429,6 @@ class Session:
         Never called while `self.busy` (the caller -- Controller.clear_
         session -- checks first; calling it mid-turn would race the
         worker thread's own log writes)."""
-        # H11b finding 8: a live `cc:` claude subprocess holds the WHOLE
-        # old conversation -- closing it (and dropping `_cc_state`) here,
-        # BEFORE the fresh log below is even built, is what makes the next
-        # `cc:` turn's own `ensure_cc_state` correctly see "no cc_session_id
-        # meta node in this (brand new) log" and start a genuinely fresh
-        # `--session-id`, instead of either reusing the old process (still
-        # talking about the pre-/clear conversation) or restarting with
-        # `--resume uuid5(<new session id>)` -- an id claude never created,
-        # which fails outright ("No conversation found").
-        if getattr(self, "_cc_state", None) is not None:
-            from halo_harness.agent import cc_runtime
-            cc_runtime.close_cc(self)
-            self._cc_state = None
-        # A live `cx:` codex bridge holds the old conversation's thread id the
-        # same way; close it like /resume does (agent/session_switch.py).
-        if getattr(self, "_cx_state", None) is not None:
-            from halo_harness.agent import codex_runtime
-            codex_runtime.close_cx(self)
-            self._cx_state = None
         self._fire_session_end("clear")
         self._reset_prune_state()  # H5b finding 2: no old log left for these ids to refer to
         self.log = SessionLog(self.cwd)
@@ -2543,16 +2516,6 @@ class Session:
         behavior for every existing caller); a caller that resolved its
         OWN model (e.g. `improve.model` from config) passes it explicitly.
 
-        H11b finding 22: `ref.provider == "cc"` (no distinct non-cc small-
-        model configured) can't go through `build_request_body`/
-        `stream_completion` at all -- there is no HTTP endpoint for "cc",
-        the installed `claude` binary is the provider -- so title
-        generation, prompt/agent hooks and `/improve`'s drafting call used
-        to fail outright on a `cc:` session ("the summarisation call
-        failed"). Routed to a quick, stateless one-shot `claude -p`
-        instead (never touches this session's own live `_cc_state`/
-        conversation).
-
         Halo 2.0.3 round 2b: an `ollama`-dialect `ref` (almost always
         `self.small_model_ref`, a DIFFERENT host/model than `self.
         model_ref`) builds its body through the SAME `_build_ollama_body_
@@ -2578,12 +2541,6 @@ class Session:
         from halo_harness.providers.ollama import apply_host_dialect
         ref = apply_host_dialect(
             ref, self.settings.effective_env if self.settings is not None else None)
-        if ref.provider == "cc":
-            from halo_harness.agent.cc_runtime import one_shot_cc_call
-            return one_shot_cc_call(ref.model, system_text, user_text, timeout_s=timeout_s)
-        if ref.provider == "codex":
-            from halo_harness.agent.codex_runtime import one_shot_cx_call
-            return one_shot_cx_call(ref.model, system_text, user_text, timeout_s=timeout_s)
         # Pass-B finding 8 (major), second site: checked here, before
         # anything below resolves a route/profile/body for `ref`, so a
         # non-main ref with no resolvable credentials falls back to the
@@ -2776,18 +2733,8 @@ class Session:
         NEW `meta` node carrying the full, still name-order-frozen-then-
         append-only tool list (`derive_request` always takes the LAST
         meta node's `tools`, so this is the only write needed for the
-        NEXT request to carry it -- see agent/derive.py).
-
-        H11b finding 6: also tells a live `cc:` bridge (a no-op for every
-        other route -- `notify_catalog_changed` itself no-ops with no
-        `_cc_state`) so its child sends Claude Code a real
-        `notifications/tools/list_changed` -- without this, a tool
-        ToolSearch loads mid-session enters the owner's own catalog but
-        Claude Code, which only ever listed tools once at startup, never
-        learns it exists and can never call it."""
+        NEXT request to carry it -- see agent/derive.py)."""
         self.log.append_meta(tools=self.tool_registry.definitions_for(names))
-        from halo_harness.agent import cc_runtime
-        cc_runtime.notify_catalog_changed(self)
 
     # ---- request construction ------------------------------------------
 
@@ -4812,10 +4759,7 @@ class Session:
         on the SAME provider needs its own resolve too). A ref with no
         resolvable credentials skips the override entirely instead of
         falling back to the main model's OWN creds (that would send this
-        ref's body to the main model's endpoint). `cc:` (the installed
-        Claude binary) is still refused -- same reason `call_small_model`
-        special-cases it before ever building a route/body: there is no
-        HTTP route for a one-shot summarisation call against it at all.
+        ref's body to the main model's endpoint).
 
         Halo 2.0.2 (brief A.1): "`compaction` is the rung after
         `compactionModel`" -- the `roles.<compaction>` table entry (config.
@@ -4847,14 +4791,6 @@ class Session:
         except InvalidModelError:
             log.warning("compactionModel %r did not resolve to a valid model ref; using the session's main model", raw)
             return None
-        if ref.provider == "cc":
-            log.warning("compactionModel %r is cc: (no HTTP route for a one-shot summarisation call); "
-                        "using the session's main model for this summary", raw)
-            return None
-        if ref.provider == "codex":
-            log.warning("compactionModel %r is cx: (no HTTP route for a one-shot summarisation call); "
-                        "using the session's main model for this summary", raw)
-            return None
         # Halo 2.0.5 round 5: the same host-dialect override __init__
         # applies to the session's own refs -- an `ol:` compactionModel on
         # an OpenAI-dialect host rides call_openai_chat for this
@@ -4875,7 +4811,7 @@ class Session:
         # resolvable credentials is never run against the main model's
         # creds either (that would send ref's body to someone else's
         # endpoint) -- the override is skipped entirely, same as the
-        # invalid-ref/cc:/codex cases above.
+        # invalid-ref case above.
         from halo_harness.headless import _resolve_creds
         creds = _resolve_creds(ref, self.settings)
         if creds is None:
@@ -5034,37 +4970,7 @@ class Session:
         leaving the session log byte-for-byte unchanged, and yields
         `phase="failed"` with a human-readable `reason` so a caller/UI can
         react. Returns True iff the marker + replacement content were
-        actually written.
-
-        H11b finding 22: a `cc:` session's model-visible context lives in
-        Claude Code itself (module docstring, agent/cc_runtime.py) --
-        `derive_request` is never what a `cc:` turn actually sends, so
-        summarising ITS output and splicing a `compacted` marker into
-        THIS log would compact something the model never even sees.
-        Claude Code auto-compacts its own context; this is the documented
-        no-op (README: "`/compact` prints a note")."""
-        if self.model_ref.provider == "cc":
-            # Halo 2.0.5 round 1 (brief item H3, cc: route v2): `/compact`
-            # now forwards to the child as a real user-message slash
-            # command instead of this unconditional no-op -- see
-            # `agent/cc_control.forward_compact`'s own docstring for the
-            # live-verified wire shape and why only `trigger == "manual"`
-            # can ever reach here for a cc: session.
-            from halo_harness.agent import cc_runtime
-            compacted = yield from cc_runtime.forward_compact(self, trigger=trigger, turn_no=turn_no,
-                                                                 custom_instructions=custom_instructions)
-            return compacted
-        if self.model_ref.provider == "codex":
-            # Round 5i part 2: same reasoning as the cc: branch just above
-            # -- a cx: turn's model-visible context is whatever Codex's own
-            # `codex exec resume <id>` thread holds, never this log's own
-            # `derive_request` replay.
-            yield events.compaction(
-                phase="failed", trigger=trigger, turn=turn_no,
-                reason="halo's own compaction is a no-op for cx: sessions -- Codex manages its own "
-                       "context/compaction internally.",
-            )
-            return False
+        actually written."""
         system_text, raw_messages, tools = derive_request(self.log, tools=None)
         # finding 4: prune_messages used to be wired ONLY into `/context` --
         # applied here too, so the summarisation call's own prefix benefits
@@ -5275,12 +5181,12 @@ class Session:
         own FULL body, unchanged, just renamed) -- every event either of
         them would ever yield passes through `self._timeline.record_turn_
         event` here FIRST, the ONE choke point that sees every turn's
-        events regardless of dialect (native/openai-chat/cc-subprocess) or
+        events regardless of dialect (native/openai-chat/ollama) or
         caller (the TUI's drain loop, headless -p's sink) without needing
-        its own instrumentation inside `_turn_body`/`cc_runtime.turn_body_
-        cc`. The finished record is appended to the session log as one
-        `timeline` node (`halo bugreport`/`/timeline`/`halo timeline --last
-        N` all read it back from there -- see `agent/log.py`'s own node
+        its own instrumentation inside `_turn_body`. The finished record is
+        appended to the session log as one `timeline` node (`halo
+        bugreport`/`/timeline`/`halo timeline --last N` all read it back
+        from there -- see `agent/log.py`'s own node
         kinds). `self._timeline` (W3b item 11): THIS session's own
         instance, never the `debug_timeline` module's shared default --
         see `Session.__init__`'s own comment."""
@@ -5408,13 +5314,6 @@ class Session:
         # routes new input to a fresh turn or to `steer`) is True for the
         # WHOLE method body below, cleared no matter how it ends.
         self._busy.set()
-        # H11b finding 4: captured here (this hook block's own scope ends
-        # before the cc: dispatch below) so a UserPromptSubmit hook's
-        # additionalContext -- already logged as a snapshot two lines down
-        # from where it's set -- also reaches a `cc:` turn's own stdin
-        # line; every other route already sees it via `derive_request`
-        # picking the snapshot up like any other logged node.
-        hook_context_text: Optional[str] = None
         try:
             if self.hook_runner is not None and self.hook_runner.has_hooks("UserPromptSubmit"):
                 payload = self.hook_runner.payload("UserPromptSubmit", prompt_id=f"prompt_{turn_no}",
@@ -5437,7 +5336,6 @@ class Session:
                     return
                 if outcome.additional_context:
                     self.log.append_snapshot([{"type": "text", "text": outcome.additional_context}], kind="hook_context")
-                    hook_context_text = outcome.additional_context
 
             # Halo 2.0.3.1 (clipboard image paste): the LOG never stores an
             # image's base64 bytes, only its saved path (`image_attach.
@@ -5491,27 +5389,7 @@ class Session:
             )
 
             try:
-                if self.model_ref.provider == "cc":
-                    # H11 Part B: the installed `claude` binary IS the
-                    # model here -- a completely separate turn-execution
-                    # path (agent/cc_runtime.py) that never touches
-                    # derive_request/stream_completion; it logs its own
-                    # user/assistant/tool_result/usage nodes so every OTHER
-                    # route's history reconstruction, /stats, /export and
-                    # resume all keep working unchanged.
-                    from halo_harness.agent import cc_runtime
-                    yield from cc_runtime.turn_body_cc(self, turn_no, text, images=turn_images,
-                                                        hook_context=hook_context_text)
-                elif self.model_ref.provider == "codex":
-                    # Round 5i part 2: the cx: counterpart of the cc: branch
-                    # just above -- a separate turn-execution path
-                    # (agent/codex_turn.py) for the SAME reason, substituting
-                    # `codex exec` for `claude -p`.
-                    from halo_harness.agent import codex_turn
-                    yield from codex_turn.turn_body_cx(self, turn_no, text, images=turn_images,
-                                                        hook_context=hook_context_text)
-                else:
-                    yield from self._turn_body(turn_no)
+                yield from self._turn_body(turn_no)
             except GeneratorExit:
                 # rule 2/scope F: an interrupted turn must never leave a
                 # tool_use without a matching tool_result in the log.
@@ -6720,11 +6598,7 @@ class Session:
         `(content, is_error)` (via the generator's own return value,
         `yield from`-visible) -- `content` is `text` for a rejected item,
         else whatever got logged (a block list when the tool's own result
-        was blocks, e.g. a vision image, else the capped text) -- so
-        `agent/cc_runtime.py`'s bridge can reuse this ONE method for every
-        bridged tool call (plan tools included) and build the wire MCP
-        reply from its return value instead of duplicating any of the
-        hook/spill/logging logic here."""
+        was blocks, e.g. a vision image, else the capped text)."""
         tool_id, name = item["tool_id"], item["name"]
         if not item["ready"]:
             text = item["text"]
@@ -7001,8 +6875,7 @@ class Session:
         so the frame lands AFTER their words), and the frame itself says
         what the block is and to answer the human first. The event is
         the new `status_notice` kind: the TUI renders it as a transcript
-        note (not a user bubble), `cc:`/`cx:` collect its `framed` text
-        as child context, print mode ignores it exactly as it ignored
+        note (not a user bubble), print mode ignores it exactly as it ignored
         the old user_message (its surface is the `notification` below,
         unchanged)."""
         with self._agent_notices_lock:
@@ -7807,29 +7680,7 @@ class Session:
         cap) -- fixed by re-gating vision and LRU-evicting down to fit,
         and (c) no log record of the switch at all -- a `meta` node now
         carries the new model + the (possibly just-shrunk) tool list, the
-        same shape `_on_catalog_grow` already logs.
-
-        H11 Part B: switching INTO cc: mid-session (provider WASN'T "cc",
-        now is) stashes the prior log as one `<conversation-so-far>` user
-        message for the next fresh claude subprocess start to prime with
-        (documented v1 behaviour -- see agent/cc_runtime.py's
-        `prepare_conversation_so_far`). Switching AWAY from cc: needs no
-        special handling at all: every cc: turn already logged ordinary
-        user/assistant/tool_result nodes, so `derive_request` picks them
-        up as history exactly like any other route's own turns.
-
-        H11b finding 10: a cc:->cc: MODEL change (e.g. `/model cc:opus`
-        then `/model cc:sonnet`) and a cc:->other switch both close the
-        live claude subprocess (it can't hot-swap `--model` mid-stream) --
-        `_cc_state` is dropped but the log's own `cc_session_id` meta node
-        is left alone, so the NEXT `cc:` turn's `ensure_cc_state`
-        naturally restarts with `--resume <same id> --model <new model>`,
-        continuing the SAME claude conversation under the new model. A
-        cc:->or:->cc: round trip (the live process was never closed, just
-        idle) reuses that same still-alive process, so `prepare_
-        conversation_so_far` alone would leave its own `<conversation-so-
-        far>` stashed but unsent forever -- `ensure_cc_state`'s reuse path
-        now drains it (capped) before returning, see that function."""
+        same shape `_on_catalog_grow` already logs."""
         old_model_raw = self.model_ref.raw
         _old_provider = self.model_ref.provider
         # Halo 2.0.5 round 5: the SAME host-dialect override __init__
@@ -7843,43 +7694,6 @@ class Session:
         model_ref = apply_host_dialect(
             model_ref, self.settings.effective_env if self.settings is not None else None)
         self._fire_model_switch("PreModelSwitch", old_model=old_model_raw, new_model=model_ref.raw)
-        if model_ref.provider == "cc" and self.model_ref.provider != "cc":
-            from halo_harness.agent import cc_runtime
-            cc_runtime.prepare_conversation_so_far(self)
-        elif model_ref.provider == "codex" and self.model_ref.provider != "codex":
-            # Round 5i part 2: the `cx:` counterpart of the cc: branch just
-            # above -- same reasoning (no codex thread exists yet for
-            # history that happened under a different provider).
-            from halo_harness.agent import codex_turn
-            codex_turn.prepare_conversation_so_far_cx(self)
-        elif self.model_ref.provider == "codex" and model_ref.provider != "codex":
-            # Round 5i part 2: unlike cc:, codex has no long-held process
-            # to prime/close for a MODEL change within codex (the next
-            # turn's fresh subprocess just reads `self.model_ref.model`
-            # and resumes the SAME codex thread id under the new model --
-            # see `codex_turn.turn_body_cx`) -- only an actual PROVIDER
-            # switch away from codex closes the bridge, for tidiness
-            # (an idle socket/thread otherwise lingers for the rest of the
-            # session). The log's own `cx_session_id` meta node is left
-            # alone, so switching back into cx: later still resumes it.
-            from halo_harness.agent import codex_runtime
-            codex_runtime.close_cx(self)
-        elif self.model_ref.provider == "cc" and (
-            model_ref.provider != "cc" or model_ref.model != self.model_ref.model
-        ):
-            from halo_harness.agent import cc_runtime
-            # Halo 2.0.5 round 1 (brief item H2, cc: route v2): a cc:->cc:
-            # MODEL change tries a LIVE swap first -- `control_request`
-            # `set_model`, the SAME subprocess/conversation kept exactly
-            # as-is, no --resume restart -- before falling back to this
-            # unchanged close+restart path. `switch_model_live` only ever
-            # returns True for that same-provider case, so an actual
-            # cc:->other PROVIDER switch still closes unconditionally,
-            # same as before this round.
-            swapped = model_ref.provider == "cc" and cc_runtime.switch_model_live(self, model_ref.model)
-            if not swapped:
-                cc_runtime.close_cc(self)
-                self._cc_state = None
         self.model_ref = model_ref
         self.model_profile = model_profile
         # pass-B finding 2 (critical): this used to be `if creds is not
@@ -7888,10 +7702,8 @@ class Session:
         # turn then sent the transcript to the OLD provider's URL with
         # the OLD key under the NEW model id. `Controller.set_model` now
         # refuses before ever queuing this call when a cloud ref's creds
-        # don't resolve, so the only `creds=None` callers left are the
-        # exempt `cc:`/`cx:` routes (which need none) and a restore back
-        # onto one of them -- both cases are correct to CLEAR, never to
-        # inherit whatever provider the session happened to be on a
+        # don't resolve, so a `creds=None` caller is correct to CLEAR, never
+        # to inherit whatever provider the session happened to be on a
         # moment ago.
         self.creds = creds
         self.model_label = model_ref.raw
@@ -8073,12 +7885,6 @@ class Session:
             # same "never blanks a real reading" contract message_end's own
             # saved_usd already follows.
             saved_usd=(self.cost_meter.saved_usd if self.cost_meter.saved_turns else None),
-            # Halo 2.0.5 round 1 (brief item H6): same "None until there's
-            # something to show" contract as saved_usd just above, for a
-            # session that used a cc: model.
-            subscription_turns=(self.cost_meter.subscription_turns or None),
-            subscription_cost_usd=(self.cost_meter.subscription_cost_usd
-                                    if self.cost_meter.subscription_turns else None),
         )
 
     @property
@@ -8113,21 +7919,6 @@ class Session:
         turn instead" rather than silently dropping the text."""
         if not text:
             return False
-        if self.model_ref.provider == "cc":
-            # H11 Part B: a cc: steer is sent to the running claude
-            # subprocess IMMEDIATELY (Claude Code queues it internally --
-            # its own result JSON's queued_turn_count confirms this)
-            # rather than queued here for a `_step`/`_dispatch_tools`
-            # safe point a cc: turn never runs.
-            from halo_harness.agent import cc_runtime
-            return cc_runtime.steer_cc(self, text)
-        if self.model_ref.provider == "codex":
-            # Round 5i part 2: codex exec has no live mid-turn channel at
-            # all (CODEX-RESEARCH.md section 7) -- `steer_cx` queues `text`
-            # and delivers it as soon as the current turn's subprocess
-            # exits, the documented fallback.
-            from halo_harness.agent import codex_turn
-            return codex_turn.steer_cx(self, text)
         with self._steer_lock:
             if not self._busy.is_set():
                 return False

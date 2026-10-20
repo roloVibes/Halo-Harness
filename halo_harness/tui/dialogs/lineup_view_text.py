@@ -11,7 +11,7 @@ from typing import Optional
 
 
 def _same_gateway(ref_a: str, ref_b: str) -> bool:
-    """Same prefix before the first `:` (or:/dbx:/ol:/cc:/...): a fallback on the same gateway as
+    """Same prefix before the first `:` (or:/dbx:/ol:/ant:/...): a fallback on the same gateway as
     the preference cannot help when that gateway is down. Advisory only."""
     prefix = lambda r: r.split(":", 1)[0] if ":" in r else r  # noqa: E731
     return bool(ref_a) and bool(ref_b) and prefix(ref_a) == prefix(ref_b)

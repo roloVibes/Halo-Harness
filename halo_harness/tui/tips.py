@@ -38,8 +38,8 @@ MAX_TIP_LEN = 96
 class Tip:
     text: str
     # Names a provider/feature this tip only makes sense once it's actually
-    # enabled/present -- "cc" (Claude Code subscription), "dbx" (Databricks),
-    # "or" (OpenRouter), "chrome" (`--chrome`), "mcp" (an MCP server
+    # enabled/present -- "dbx" (Databricks), "or" (OpenRouter), "chrome"
+    # (`--chrome`), "mcp" (an MCP server
     # configured). Empty (the common case) means "always applicable".
     needs: tuple = ()
 
@@ -100,7 +100,6 @@ TIPS: "tuple[Tip, ...]" = (
     Tip('halo --add-dir DIRECTORY adds an extra working directory for the session'),
     Tip("halo stats --since 7d summarizes the week's sessions"),
     Tip('/dbx refreshes and lists Databricks endpoints', needs=("dbx",)),
-    Tip('cc: models use your Claude subscription login, no API key needed', needs=("cc",)),
     Tip('/fork continues this conversation in a brand-new session'),
     Tip('/rename titles this session so it is easy to find later in /resume'),
     Tip('Ctrl+E opens your $EDITOR to compose a longer prompt'),
@@ -163,7 +162,7 @@ def detect_enabled_needs(*, facade=None, controller=None) -> "frozenset[str]":
     needs: "set[str]" = set()
     try:
         from halo_harness.providers.enablement import is_enabled
-        for flag, name in (("cc", "claude_subscription"), ("dbx", "databricks"), ("or", "openrouter")):
+        for flag, name in (("dbx", "databricks"), ("or", "openrouter")):
             try:
                 if is_enabled(name):
                     needs.add(flag)

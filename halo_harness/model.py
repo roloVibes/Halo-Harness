@@ -26,7 +26,6 @@ from halo_harness.providers.routing import InvalidModelError
 _ANT_PREFIX = "ant:"
 _DBX_PREFIX = "dbx:"
 _OR_PREFIX = "or:"
-_CC_PREFIX = "cc:"
 # Halo 2.0.7: the generic OpenAI-compatible local-server route.
 _LOCAL_PREFIX = "local:"
 _OL_PREFIX = "ol:"
@@ -34,12 +33,23 @@ _HF_PREFIX = "hf:"
 _HF_ENDPOINT_PREFIX = "endpoint/"
 _HF_LOCAL_PREFIX = "local/"
 _OAI_PREFIX = "oai:"
-_CX_PREFIX = "cx:"
 _XP_PREFIX = "xp:"
 # Halo 2.0.3 round 5f: `hf:mlx/<org>/<repo>` -- a Hub repo served by a
 # Halo-managed `mlx_lm.server` (Apple Silicon only; see ModelRef.mlx).
 _HF_MLX_PREFIX = "mlx/"
 _MAX_ALIAS_HOPS = 4
+# 3.1.5.0 R1: the two prefixes of the routes removed in 3.1.5.0. A ref
+# still carrying one (a `--model`, a remembered last model, a config file,
+# a bio) gets the one line below instead of being read as anything else
+# (`cc:foo/bar` would otherwise parse as an OpenRouter vendor/model).
+_REMOVED_ROUTE_PREFIXES = ("cc:", "cx:")
+
+
+def removed_route_message(raw: str) -> str:
+    """The one line a `cc:`/`cx:` ref gets everywhere (headless, `/model`,
+    a remembered last model, a config `model:`)."""
+    return (f"no route: {raw!r} (the cc: and cx: routes were removed in 3.1.5.0; "
+            f"use an API route, e.g. ant:sonnet with ANTHROPIC_API_KEY, or or:anthropic/<model>)")
 
 
 def is_local_model_ref(ref: "ModelRef") -> bool:
@@ -199,9 +209,9 @@ def _refuse_if_disabled(provider_key: str) -> None:
 @dataclass(frozen=True)
 class ModelRef:
     raw: str
-    provider: str  # "openrouter" | "databricks" | "anthropic" | "ollama" | "huggingface" | "openai" | "cc" | "codex" | "experiential"
-    model: str  # bare upstream model id/name, dbx:/or:/ant:/ol:/hf:/oai:/cx:/xp: prefix (and ol:'s @host / hf:'s endpoint/<name>) stripped
-    dialect: str  # "openai-chat" | "anthropic-passthrough" | "cc-subprocess" | "codex-subprocess" | "ollama" | "openai-responses"
+    provider: str  # "openrouter" | "databricks" | "anthropic" | "ollama" | "huggingface" | "openai" | "local" | "experiential"
+    model: str  # bare upstream model id/name, dbx:/or:/ant:/ol:/hf:/oai:/xp:/local: prefix (and ol:'s @host / hf:'s endpoint/<name>) stripped
+    dialect: str  # "openai-chat" | "anthropic-passthrough" | "ollama" | "openai-responses"
     # Halo 2.0.3 round 2: the `@<hostname>` part of `ol:<model>@<hostname>`
     # (research doc Q6/Q7) -- which entry of `ollama.hosts` this ref names;
     # `None` means "the default host" (`providers.ollama.resolve_ollama_
@@ -253,17 +263,15 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
     headers). Raises InvalidModelError (same exception the proxy's own
     route_model raises, for one consistent vocabulary) when nothing matches.
 
-    H11 Part A: `cc:<name>` (the installed `claude` binary, driven under
-    the user's own subscription login) and `ant:<name>` (the existing
-    native-Anthropic-passthrough provider, now with the SAME nine alias
-    names -- fable/opus/opus-5/opus-5.0/opus-4.8/opus-4.6/sonnet/sonnet-5/
-    haiku -- resolved to real API ids) both run their bare NAME through
-    `providers.cc_models` before falling back to pass-through (a full id,
-    or a name that table doesn't know, is untouched -- see
+    `ant:<name>` (the native-Anthropic-passthrough provider) runs its bare
+    NAME through `providers.anthropic_aliases` (fable/opus/opus-5.5/.../
+    sonnet/haiku -> real API ids) before falling back to pass-through (a
+    full id, or a name that table doesn't know, is untouched -- see
     test_parse_ant_prefix's `ant:claude-opus-4` case). A BARE word with no
-    prefix at all naming one of those nine resolves to `cc:`/`ant:`
-    depending on what's available (subscription login vs.
-    ANTHROPIC_API_KEY) -- see providers.cc_models.default_bare_alias_route.
+    prefix naming one of those aliases resolves to `ant:` when
+    ANTHROPIC_API_KEY is set -- see
+    providers.anthropic_aliases.default_bare_alias_route. A `cc:`/`cx:`
+    ref (the routes removed in 3.1.5.0) raises `removed_route_message`.
     """
     routes = routes or {}
     aliases = routes.get("aliases") if isinstance(routes, dict) else None
@@ -279,6 +287,8 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
         resolved = aliases[resolved]
         hops += 1
 
+    if resolved.startswith(_REMOVED_ROUTE_PREFIXES):
+        raise InvalidModelError(removed_route_message(raw if resolved == raw else f"{raw} -> {resolved}"))
     if resolved.startswith(_DBX_PREFIX):
         bare = resolved[len(_DBX_PREFIX):]
         if not bare:
@@ -416,26 +426,6 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
             raise InvalidModelError(f"no route: {raw!r} (oai: needs a model id, e.g. oai:gpt-6-astra)")
         from halo_harness.providers.responses_request import resolve_openai_dialect
         return ModelRef(raw=raw, provider="openai", model=bare, dialect=resolve_openai_dialect(bare))
-    if resolved.startswith(_CX_PREFIX):
-        # Halo 2.0.3 round 5i part 2: `cx:<name>` (the installed `codex`
-        # binary, driven under the user's own ChatGPT subscription login) --
-        # mirrors the cc: branch just below, substituting `codex_models` for
-        # `cc_models`. Never shares cc:'s bare-alias-route fallback (that
-        # mechanism is specific to the nine Claude names cc:/ant: both
-        # resolve); a bare word with no prefix never resolves to cx: on its
-        # own.
-        from halo_harness.providers.codex_models import resolve_codex_alias
-        bare = resolved[len(_CX_PREFIX):]
-        # Halo 2.0.7 round 7b: the subscription-consent gate runs BEFORE
-        # the ordinary enablement gate -- "cc:/cx: are not offered until
-        # accepted" is a precondition on the whole route, never just an
-        # enablement override (see subscription_consent.py).
-        from halo_harness.subscription_consent import refuse_if_not_accepted
-        refuse_if_not_accepted("cx")
-        _refuse_if_disabled("codex_subscription")
-        if not bare:
-            raise InvalidModelError(f"no route: {raw!r} (cx: needs a model id, e.g. cx:astra)")
-        return ModelRef(raw=raw, provider="codex", model=resolve_codex_alias(bare), dialect="codex-subprocess")
     if resolved.startswith(_LOCAL_PREFIX):
         # Halo 2.0.7 (the old 2.0.6 scope): the GENERIC local route --
         # `local:<model>` on the default OpenAI-compatible server, or
@@ -454,18 +444,8 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
                 f"or local:model@my-lmstudio)")
         return ModelRef(raw=raw, provider="local", model=model_part,
                         dialect="openai-chat", host=server_part or None)
-    if resolved.startswith(_CC_PREFIX):
-        from halo_harness.providers.cc_models import resolve_cc_alias
-        bare = resolved[len(_CC_PREFIX):]
-        # Halo 2.0.7 round 7b: same consent gate as the cx: branch above.
-        from halo_harness.subscription_consent import refuse_if_not_accepted
-        refuse_if_not_accepted("cc")
-        _refuse_if_disabled("claude_subscription")
-        if not bare:
-            raise InvalidModelError(f"no route: {raw!r} (cc: needs a model name, e.g. cc:sonnet)")
-        return ModelRef(raw=raw, provider="cc", model=resolve_cc_alias(bare), dialect="cc-subprocess")
     if resolved.startswith(_ANT_PREFIX):
-        from halo_harness.providers.cc_models import resolve_ant_alias
+        from halo_harness.providers.anthropic_aliases import resolve_ant_alias
         bare = resolved[len(_ANT_PREFIX):]
         _refuse_if_disabled("anthropic")
         if not bare:
@@ -491,26 +471,23 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
             or _is_cached_databricks_endpoint(resolved)):
         return _databricks_model_ref(raw, resolved)
 
-    from halo_harness.providers.cc_models import BARE_ALIAS_NAMES, default_bare_alias_route
+    from halo_harness.providers.anthropic_aliases import BARE_ALIAS_NAMES, default_bare_alias_route
     if resolved in BARE_ALIAS_NAMES:
         # H14 scope C: at work (Claude Code's own settings env resolves a
         # real Databricks config via ANTHROPIC_MODEL/ANTHROPIC_DEFAULT_*_
         # MODEL), a bare opus/sonnet/haiku maps through THAT env instead of
-        # the cc:/ant: subscription route -- checked FIRST, so cc:/ant: only
-        # ever apply "when no Databricks env is active" (brief wording).
+        # the ant: route -- checked FIRST, so ant: only ever applies "when
+        # no Databricks env is active" (brief wording).
         from halo_harness.providers.config import databricks_default_model_for_tier, databricks_work_env_active
         if resolved in ("opus", "sonnet", "haiku") and databricks_work_env_active():
             dbx_model = databricks_default_model_for_tier(resolved)
             if dbx_model:
                 return parse_model_ref(f"{_DBX_PREFIX}{dbx_model}", routes)
-        route = default_bare_alias_route()
-        if route == "cc":
-            return parse_model_ref(f"{_CC_PREFIX}{resolved}", routes)
-        if route == "ant":
+        if default_bare_alias_route() == "ant":
             return parse_model_ref(f"{_ANT_PREFIX}{resolved}", routes)
         raise InvalidModelError(
-            f"{resolved!r} needs either a Claude subscription login (run `claude` once to log in, then "
-            f"use cc:{resolved}) or ANTHROPIC_API_KEY set (then use ant:{resolved}) -- neither is available"
+            f"{resolved!r} needs ANTHROPIC_API_KEY set (then use ant:{resolved}), or name the model on "
+            f"another route, e.g. or:anthropic/<model>"
         )
 
     # 1.0.1 hotfix 6: "unknown names give a one-line error listing the three
@@ -525,8 +502,8 @@ def parse_model_ref(raw: str, routes: Optional[dict] = None) -> ModelRef:
     near = difflib.get_close_matches(raw, cached_names, n=3, cutoff=0.5) if cached_names else []
     hint = f" -- did you mean one of the cached Databricks endpoints: {', '.join(near)}?" if near else ""
     raise InvalidModelError(
-        f"no route: {raw!r} (accepted forms are dbx:, or:, ant:, cc:, cx:, oai:, xp:, ol:, hf:, vendor/model, "
-        f"a bare databricks-*/system.ai.* name, a subscription-model alias, or a routes.json alias){hint}"
+        f"no route: {raw!r} (accepted forms are dbx:, or:, ant:, oai:, xp:, ol:, hf:, vendor/model, "
+        f"a bare databricks-*/system.ai.* name, a Claude alias such as sonnet, or a routes.json alias){hint}"
     )
 
 
@@ -639,16 +616,13 @@ def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict]
     openai-chat-dialect model, where reasoning support depends on what the
     upstream actually advertises."""
     routes = routes or {}
-    # H11 Part A: `cc:`/`ant:` model_table rows (context/output/pricing for
-    # the six subscription models) -- checked FIRST for `cc:` (it has no
-    # models.json/routes.json entry of its own at all -- Claude Code is the
-    # provider, never OpenRouter/Databricks) and for `ant:` only when the
-    # name is one of the nine known ones (anything else keeps falling
-    # through to the plain 200000/8192 native-passthrough default below,
-    # unchanged from before this milestone).
-    if ref.provider == "cc" or (ref.provider == "anthropic" and ref.dialect == "anthropic-passthrough"):
-        from halo_harness.providers.cc_models import profile_fields_for_cc_model
-        fields = profile_fields_for_cc_model(ref.model)
+    # H11 Part A: the `ant:` model_table rows (context/output/pricing for
+    # the aliased Claude models) -- only when the name is one of the known
+    # ones (anything else keeps falling through to the plain 200000/8192
+    # native-passthrough default below).
+    if ref.provider == "anthropic" and ref.dialect == "anthropic-passthrough":
+        from halo_harness.providers.anthropic_aliases import profile_fields_for_ant_model
+        fields = profile_fields_for_ant_model(ref.model)
         if fields:
             return ModelProfile(
                 context_tokens=fields.get("context_tokens", 1_000_000),
@@ -662,25 +636,6 @@ def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict]
                 price_in=fields.get("price_in"), price_out=fields.get("price_out"),
                 price_cache_read=fields.get("price_cache_read"), price_cache_write=fields.get("price_cache_write"),
             )
-        if ref.provider == "cc":
-            # An unrecognized cc: model id is still a REAL Claude model
-            # (Claude Code resolved it, whatever it is) -- vision=True for
-            # the same reason reasoning="native" already is here.
-            return ModelProfile(context_tokens=1_000_000, max_output_tokens=64_000, vision=True, reasoning="native")
-
-    if ref.provider == "codex":
-        # Halo 2.0.3 round 5i part 2: reuses the SAME vendored `openai`
-        # fallback catalog `oai:` reads (the underlying model is identical
-        # either way, only the billing differs -- CODEX-RESEARCH.md
-        # section 2) with pricing always dropped (a ChatGPT subscription
-        # has no metered per-token price).
-        from halo_harness.providers.codex_models import profile_fields_for_codex_model
-        fields = profile_fields_for_codex_model(ref.model)
-        return ModelProfile(
-            context_tokens=fields.get("context_tokens", 1_050_000),
-            max_output_tokens=fields.get("max_output_tokens", 128_000),
-            vision=bool(fields.get("vision", True)), reasoning="openai",
-        )
 
     if ref.provider == "local":
         # Halo 2.0.7 (the old 2.0.6 scope): per-server context discovery
@@ -1013,19 +968,6 @@ class CostMeter:
         self.saved_price_in: Optional[float] = None
         self.saved_price_out: Optional[float] = None
         self.saved_price_source: Optional[str] = None
-        # Halo 2.0.5 round 1 (cc: route v2, brief item H6/"Cost line"):
-        # `cc:` usage is a Claude Code SUBSCRIPTION turn, never per-token
-        # spend -- it used to flow through `add_usage("cc", ...)` straight
-        # into `total_usd`/`turns`, silently counting Claude Code's own
-        # cumulative-delta estimate as if it were real billed money (and
-        # toward `--max-budget-usd`, which a subscription has no concept
-        # of). These two fields are the SEPARATE running total every
-        # display surface (`/cost`, `/stats`, the status bar, the session
-        # summary) reads instead, so `total_usd`/`has_cost_data` stay an
-        # honest "real spend" figure even in a session that also used
-        # cc: models.
-        self.subscription_turns: int = 0
-        self.subscription_cost_usd: float = 0.0
 
     def _accumulate_tokens(self, usage) -> None:
         if not isinstance(usage, dict):
@@ -1091,35 +1033,6 @@ class CostMeter:
             self.total_usd += fallback
             return fallback
         self.has_cost_data = False
-        return None
-
-    def add_subscription_usage(self, usage: Optional[dict]) -> Optional[float]:
-        """Halo 2.0.5 round 1 (cc: route v2, brief item H6): the `cc:`
-        counterpart of `add_usage`, called instead of it (never alongside
-        it) for a `cc:`-route turn. Reuses the EXACT same cumulative-delta
-        handling the caller (`agent/cc_runtime.py`'s result handler)
-        already computes (Claude Code's own `total_cost_usd` is
-        cumulative per PROCESS, so the caller passes `usage["cost"]` as
-        the already-delta'd figure) -- but accumulates into
-        `subscription_turns`/`subscription_cost_usd` INSTEAD of `turns`/
-        `total_usd`, and never touches `has_cost_data` -- a session with
-        ONLY cc: turns correctly reports `total_usd == 0.0` with
-        `has_cost_data` still True: real per-token spend for a
-        subscription turn genuinely IS zero (already paid for by the
-        subscription), a known fact, not an unknown price ("n/a" stays
-        reserved for "this provider's price is unknown", a different
-        claim) -- the separate subscription line is what tells the
-        rest of the story. Returns this turn's own estimated cost (or
-        None), the same per-call contract `add_usage` has, for a caller
-        that still wants the per-turn number (the session log's own
-        `usage` node)."""
-        self.subscription_turns += 1
-        self._accumulate_tokens(usage)
-        cost = usage.get("cost") if isinstance(usage, dict) else None
-        if isinstance(cost, (int, float)) and not isinstance(cost, bool):
-            cost = float(cost)
-            self.subscription_cost_usd += cost
-            return cost
         return None
 
     def add_child_total(self, *, cost_usd: Optional[float], has_cost_data: bool, turns: int = 0) -> None:

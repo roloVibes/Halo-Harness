@@ -206,7 +206,7 @@ PICKER_MODELS = [
          "price_out_per_m": 0.28, "context_tokens": 262_144, "speed_ttft_s": 0.3, "speed_tokens_per_second": 120},
         {"ref": "dbx:demo-glm", "provider": "databricks", "context_tokens": 128_000,
          "dbu": "$0.015/1k", "detail": "glm · mlflow"},
-        {"ref": "cc:demo-sonnet", "provider": "cc", "price_in_per_m": 3.0,
+        {"ref": "ant:demo-sonnet", "provider": "anthropic", "price_in_per_m": 3.0,
          "price_out_per_m": 15.0, "context_tokens": 1_000_000, "detail": "-> demo-sonnet"},
         {"ref": "ol:demo:32b", "provider": "ollama", "group": "Ollama (default)"},
         {"ref": "xp:demo-preview", "provider": "experiential", "price_in_per_m": 0,

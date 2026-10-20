@@ -176,7 +176,7 @@ reaches the wire):
 
 | Route family | Accepted levels |
 |---|---|
-| Anthropic Messages (`cc:`, `ant:`, Databricks Claude foundation), Opus/Sonnet 4.7+, Haiku 5.5+, Fable, Mythos | `low`, `medium`, `high`, `xhigh`, `max` |
+| Anthropic Messages (`ant:`, Databricks Claude foundation), Opus/Sonnet 4.7+, Haiku 5.5+, Fable, Mythos | `low`, `medium`, `high`, `xhigh`, `max` |
 | Anthropic Messages, Opus/Sonnet 4.6 and older, Haiku 4.5 | `low`, `medium`, `high`, `max` (no `xhigh` -- that generation's endpoint schema rejects it outright) |
 | Databricks GLM (`databricks-glm-*`) | `low`, `high`, `max` ONLY -- narrower than the general chat-dialect set below; see "Databricks GLM" just under this table |
 | OpenRouter / Databricks chat, every other family (DeepSeek, Kimi, Qwen, ...) | `low`, `medium`, `high`, `xhigh` (no `max` as of the H14c fixpass finding 13 -- that's an Anthropic-only level; a chat route 400'd on it before this) |

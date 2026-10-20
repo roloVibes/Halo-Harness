@@ -29,7 +29,6 @@ from halo_harness.remote.base import HandleError
 
 AGENT_CMDS = ("agents", "agent_tail", "agent_steer", "agent_stop", "pause", "resume", "shutdown", "agent_follow")
 STEER_MODES = ("nudge", "redirect")
-EXTERNAL = "that agent runs in an external process; stop and respawn"
 FINISHED = ("done", "failed", "stopped")
 
 
@@ -133,19 +132,9 @@ def cmd_steer(handle, tree, req: dict) -> dict:
         if handoff:
             _announce(handle, f"the main agent taken over from {via} by {by}: {one_line(text, 80)}")
         return {"agent_id": aid, "mode": mode, "delivered": "steer" if result.get("steered") else "turn", **result}
-    session = _live_child(tree, aid)
-    provider = getattr(getattr(session, "model_ref", None), "provider", None)
-    if provider in ("cc", "codex"):
-        try:
-            took = bool(session.steer(note))
-        except Exception:
-            took = False
-        if not took:
-            raise HandleError(EXTERNAL)
-        delivered = "external"
-    else:
-        tree.controls.post(aid, note, cut_by=f"{by} from {via}" if mode == "redirect" else None)
-        delivered = "inbox"
+    _live_child(tree, aid)
+    tree.controls.post(aid, note, cut_by=f"{by} from {via}" if mode == "redirect" else None)
+    delivered = "inbox"
     if mode == "redirect":
         tree.update(aid, task=first_line(text))
     _record(handle, tree, aid, "agent_steer", by, via, mode=mode, text=one_line(text, 400), **handoff)
@@ -170,12 +159,6 @@ def cmd_stop(handle, tree, req: dict) -> dict:
     if state in FINISHED:
         raise HandleError(f"agent {aid} has already finished ({state})")
     ids = tree.controls.stop(aid, by, reason, via)
-    session = tree.session_of(aid)
-    if getattr(getattr(session, "model_ref", None), "provider", None) in ("cc", "codex"):
-        try:
-            session.close_cc()  # an external child has no tool boundary here: end its process
-        except Exception:
-            pass
     _record(handle, tree, aid, "agent_stop", by, via, reason=reason)
     _parent_line(handle, tree, aid, f"{_label(tree, aid)} stopped from {via} by {by}: {reason}")
     return {"agent_id": aid, "stopping": ids}

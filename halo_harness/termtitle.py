@@ -9,9 +9,9 @@ Textual never emits an OSC 2 title sequence or calls `SetConsoleTitleW`
 anywhere (grepped its installed package -- the only "title" hits are its
 Header WIDGET, not a driver) -- so `BridgeApp.TITLE = "halo"` has never
 touched the real terminal at all, on any platform. Every `claude`
-subprocess this harness spawns (`agent/cc_process.ClaudeCodeProcess`,
-`providers/cc_models.py`'s `auth status`/model-alias-refresh/`--version`
-probes, `mcp/connectors.py`'s `mcp list`/discovery probe) pipes the
+subprocess this harness spawns (`mcp/claude_process.ClaudeCodeProcess`,
+`mcp/claude_auth.py`'s `auth status` probe, `mcp/connectors.py`'s
+`mcp list`/discovery probe) pipes the
 child's stdout/stderr for parsing, but never detaches it from the shared
 console/tty (no `CREATE_NEW_CONSOLE`/`DETACHED_PROCESS`/`CREATE_NO_WINDOW`
 on Windows, no new pty on POSIX -- only `CREATE_NEW_PROCESS_GROUP`/

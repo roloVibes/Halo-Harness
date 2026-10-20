@@ -38,7 +38,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
     guaranteed to resolve. 1.0.1 hotfix 12: prices are ALWAYS USD per
     MILLION tokens now (`model_display.format_price_per_m`'s own unit),
     normalized at the source here regardless of which raw unit the
-    underlying catalog used, so every row -- OpenRouter, cc:, Databricks
+    underlying catalog used, so every row -- OpenRouter, ant:, Databricks
     alike -- renders through the exact same `model_display.
     format_model_row` with no per-provider special-casing left at
     render time.
@@ -114,94 +114,16 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
         for alias, target in sorted(((routes or {}).get("aliases") or {}).items()):
             if alias not in seen:
                 out.append({"ref": alias, "provider": "alias", "target": target})
-    # H11 Part A: the "Claude Code subscription" group (H15 part C's
-    # own label, see providers/enablement.py LABELS) -- the cc:
-    # aliases, with real profile data when known (providers.cc_models.
-    # CC_MODEL_TABLE / a --refresh cache), so they filter/sort/price
-    # alongside every OpenRouter row above instead of needing a
-    # separate picker. 1.0.1 hotfix addendum 12: group label shortened
-    # from "Claude subscription (via Claude Code)" so a full row still
-    # fits in 110 columns.
-    #
-    # 1.0.1 hotfix addendum 9: shown ONLY when the subscription route is
-    # actually available -- `claude auth status` reports a real
-    # claude.ai login (`SUBSCRIPTION_AUTH_METHODS`, the SAME check
-    # `init_cli.py::_claude_login_available`/`model.py`'s bare-alias
-    # resolver already use). Verified live: a Databricks WORK box had
-    # `claude` logged in via its OWN work settings (authMethod !=
-    # "claude.ai") -- the old, unconditional version listed nine cc:
-    # models here that a `cc:<name>` call would then refuse at request
-    # time, with no hint from the picker that they'd never work.
-    # 1.0.1 fixpass finding 1: `cached_claude_auth_status()`, never the
-    # real `claude_auth_status()` -- this function is rebuilt on every
-    # `/model` open; calling the real one here meant spawning a
-    # `claude auth status` subprocess (up to a 10s timeout) synchronously
-    # every single time, measured as the single largest piece of a
-    # 2-5s TUI freeze on a real work box. Only a startup worker
-    # (tui/app.py's on_mount) ever populates that cache now.
-    from halo_harness.providers.cc_models import CC_ALIASES, SUBSCRIPTION_AUTH_METHODS, alias_display_detail, \
-        cached_claude_auth_status, profile_fields_for_cc_model
-    try:
-        status = cached_claude_auth_status()
-    except Exception:
-        status = None
-    cc_available = bool(status and status.logged_in and status.auth_method in SUBSCRIPTION_AUTH_METHODS)
-    # 1.0.1 part 2 fixpass critical finding 2: `detected=cc_available`
-    # -- `cc_available` is the EXACT SAME signal `credentials_present
-    # ("claude_subscription")` would compute (a real claude.ai login),
-    # just already read from the cache above; without this, both
-    # `is_enabled("claude_subscription")` calls below independently
-    # re-derived it via `credentials_present` -> `claude_login_
-    # available()` -> an UNCACHED `claude auth status` SPAWN apiece --
-    # 2 extra subprocess launches (up to a 10s timeout each) every
-    # single `/model` open, reintroducing exactly what fixpass finding
-    # 1 removed from `cc_available` itself just above.
-    # H15 item 21.2/21.6: shown only once the Claude subscription is ALSO
-    # enabled -- a real claude.ai login no longer lists cc: models on its
-    # own (item 21.1: a login never enables anything by itself).
-    # Halo 2.0.7 round 7b: the subscription-consent gate runs BEFORE
-    # enablement -- "cc:/cx: are not offered until accepted" (the owner's
-    # own wording) applies even to a detected-and-enabled login. A detected
-    # login while the routes are off gets its own "available after
-    # acceptance" hint instead of the usual "detected but not enabled" one
-    # (which would be misleading -- enabling it changes nothing while the
-    # consent gate is still closed).
-    from halo_harness.subscription_consent import is_accepted as _subs_accepted
-    subs_accepted = _subs_accepted()
-    if cc_available and subs_accepted and is_enabled("claude_subscription", detected=cc_available):
-        for alias, cc_target in CC_ALIASES.items():
-            ref = f"cc:{alias}"
-            if ref in seen:
-                continue
-            fields = profile_fields_for_cc_model(cc_target) or {}
-            out.append({
-                "ref": ref, "context_tokens": fields.get("context_tokens"),
-                "max_output_tokens": fields.get("max_output_tokens"),
-                "price_in_per_m": _per_m(fields.get("price_in")), "price_out_per_m": _per_m(fields.get("price_out")),
-                # H15 addendum 2: "-> <resolved-id>" next to the alias.
-                "detail": alias_display_detail(alias),
-                "provider": "cc", "group": label_with_prefix("claude_subscription"),
-                "modalities_in": ["text", "image"] if fields.get("vision") else (["text"] if fields else None),
-                "tools": True,  # the official binaries always take tool calls
-            })
-    elif cc_available and not subs_accepted:
-        hints.append({"hint": f"{label_for('claude_subscription')} detected -- available after acceptance "
-                               f"(run `halo subscriptions accept`)"})
-    elif cc_available and not is_enabled("claude_subscription", detected=cc_available):
-        hints.append({"hint": f"{label_for('claude_subscription')} detected but not enabled -- "
-                               f"run `halo providers enable claude_subscription`"})
     # H15 item 21: the `ant:` (direct Anthropic API key) group -- the
-    # same nine subscription-model aliases as cc: above, resolved
-    # against the real API instead of the installed `claude` binary.
-    # Never shown before this item (no gate existed to hide it behind),
-    # so this is also the group's first appearance in `/model` at all.
+    # Claude aliases (providers.anthropic_aliases), resolved against the
+    # real API.
     from halo_harness.providers.config import resolve_anthropic
     ant_available = resolve_anthropic(env) is not None
     if ant_available and is_enabled("anthropic", detected=ant_available):
-        from halo_harness.init_providers import _cc_ant_entries
-        from halo_harness.providers.cc_models import ANT_ALIASES
+        from halo_harness.init_providers import _ant_entries
+        from halo_harness.providers.anthropic_aliases import ANT_ALIASES
         ant_group = label_with_prefix("anthropic")
-        for entry in _cc_ant_entries("ant", ANT_ALIASES):
+        for entry in _ant_entries():
             if entry["ref"] in seen:
                 continue
             out.append({**entry, "provider": "anthropic", "group": ant_group})
@@ -451,42 +373,6 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
         })
     _maybe_hint("experiential", detected=xp_detected)
 
-    # Halo 2.0.3 round 5i part 2: the "Codex subscription (ChatGPT)"
-    # group -- the `cx:` counterpart of the "Claude Code subscription"
-    # block above, substituting `codex_models.cached_codex_auth_
-    # status()` for `cc_models.cached_claude_auth_status()`. Shown
-    # only once a real ChatGPT login is BOTH detected AND enabled, same
-    # two-gate rule every subscription route on this page already
-    # follows (a login never enables anything on its own).
-    from halo_harness.providers.codex_models import (
-        CODEX_ALIASES, alias_display_detail as cx_alias_display_detail, cached_codex_auth_status,
-        profile_fields_for_codex_model,
-    )
-    try:
-        cx_status = cached_codex_auth_status()
-    except Exception:
-        cx_status = None
-    cx_available = bool(cx_status and cx_status.logged_in and cx_status.auth_method == "chatgpt")
-    if cx_available and subs_accepted and is_enabled("codex_subscription", detected=cx_available):
-        for alias in CODEX_ALIASES:
-            ref = f"cx:{alias}"
-            if ref in seen:
-                continue
-            fields = profile_fields_for_codex_model(alias) or {}
-            out.append({
-                "ref": ref, "context_tokens": fields.get("context_tokens"),
-                "max_output_tokens": fields.get("max_output_tokens"),
-                "price_in_per_m": None, "price_out_per_m": None,
-                "detail": cx_alias_display_detail(alias),
-                "provider": "codex", "group": label_with_prefix("codex_subscription"),
-            })
-    elif cx_available and not subs_accepted:
-        hints.append({"hint": f"{label_for('codex_subscription')} detected -- available after acceptance "
-                               f"(run `halo subscriptions accept`)"})
-    elif cx_available and not is_enabled("codex_subscription", detected=cx_available):
-        hints.append({"hint": f"{label_for('codex_subscription')} detected but not enabled -- "
-                               f"run `halo providers enable codex_subscription`"})
-
     # C-2 finding 11: `ol:`/`hf:local/*`/`hf:mlx/*` never appeared here
     # at all, so `/model`/the picker/completion could never reach a
     # local model by name -- reuses the SAME shared discovery `halo
@@ -541,7 +427,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
     # cache-only read, keeping this function's documented "UI thread,
     # synchronous, cheap" contract regardless of the catalog's size),
     # then applied to every row that has a real `ref` -- OpenRouter,
-    # cc:, ant:, dbx:, hf:, oai:, xp:, cx:, ol: alike, so "the same
+    # ant:, dbx:, hf:, oai:, xp:, ol: alike, so "the same
     # layout in every group" (the brief's own wording) also means the
     # same speed SOURCE in every group, not just the same columns.
     try:
@@ -599,19 +485,6 @@ def _catalog_probe(provider: str, state_dir, env: dict) -> "Callable[[], str]":
     return _run
 
 
-def _claude_probe() -> str:
-    from halo_harness.providers.cc_models import SUBSCRIPTION_AUTH_METHODS, refresh_cached_claude_auth_status
-    status = refresh_cached_claude_auth_status()
-    return ("logged in" if status and status.logged_in and status.auth_method in SUBSCRIPTION_AUTH_METHODS
-            else "not logged in")
-
-
-def _codex_probe() -> str:
-    from halo_harness.providers.codex_models import refresh_cached_codex_auth_status
-    status = refresh_cached_codex_auth_status()
-    return "logged in" if status and status.logged_in and status.auth_method == "chatgpt" else "not logged in"
-
-
 def _local_probe(state_dir, env: dict) -> str:
     from halo_harness.providers.local_models import build_local_view
     rows = build_local_view(refresh=True, env=env, state_dir=state_dir)
@@ -622,16 +495,14 @@ def _local_probe(state_dir, env: dict) -> str:
 def _enumeration_jobs(state_dir, env: dict) -> "list[tuple[str, Callable[[], str]]]":
     """`[(display_label, zero_arg_callable_returning_a_status_string), ...]`
     for every provider `/model` knows -- the exact label set `providers.
-    catalog_refresh`'s own six registered catalogs use plus the two
-    subscription routes and local/Ollama, built lazily (same reason every
+    catalog_refresh`'s own six registered catalogs use plus local/Ollama,
+    built lazily (same reason every
     per-provider branch in this module imports from inside the function,
     never at module scope)."""
     from halo_harness.providers.enablement import label_with_prefix
     jobs: "list[tuple[str, Callable[[], str]]]" = []
     for provider in _CATALOG_PROVIDERS:
         jobs.append((label_with_prefix(provider), _catalog_probe(provider, state_dir, env)))
-    jobs.append((label_with_prefix("claude_subscription"), _claude_probe))
-    jobs.append((label_with_prefix("codex_subscription"), _codex_probe))
     jobs.append(("Ollama & local servers", lambda: _local_probe(state_dir, env)))
     return jobs
 

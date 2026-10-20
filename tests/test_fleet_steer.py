@@ -2,9 +2,8 @@
 modes in detail over a REAL session: a `redirect` leaves the rest of the
 child's current tool round unrun ("not run: redirected by ...") and its
 next model call reads the new task; a steer to a finished agent, a steer
-with an unknown mode and a steer to a background job are refused; a `cc:`/
-`cx:` child (an external process) takes the note through its own stdin
-path or answers "stop and respawn".
+with an unknown mode and a steer to a background job are refused, and a
+background job is a leaf under main that agent_stop kills.
 """
 from __future__ import annotations
 
@@ -65,7 +64,7 @@ def test_redirect_cuts_the_round_and_the_next_call_reads_the_new_task(ctx: Ctx):
 
 
 @test
-def test_external_children_and_jobs(ctx: Ctx):
+def test_jobs(ctx: Ctx):
     from halo_harness.agent.agent_registry import tree_for
     from halo_harness.controller import Controller
     from halo_harness.remote import runtime
@@ -75,21 +74,7 @@ def test_external_children_and_jobs(ctx: Ctx):
         controller = Controller(session=session, cwd=rig.cwd, registry=FakeRegistry()).start()
         rig.controllers.append(controller)
         c = rig.client(runtime.start_for_controller(controller))
-        tree = tree_for(session)
-        took: list = []
-        cc = SimpleNamespace(model_ref=SimpleNamespace(provider="cc", raw="cc:sonnet"), log=None,
-                             steer=lambda text: bool(took.append(text)) or True, close_cc=lambda: took.append("closed"))
-        cx = SimpleNamespace(model_ref=SimpleNamespace(provider="codex", raw="cx:gpt"), log=None, steer=lambda text: False)
-        tree.add("ccchild1", session=cc, parent="main", name="cc worker", kind="subagent", state="running")
-        tree.add("cxchild1", session=cx, parent="main", name="cx worker", kind="subagent", state="running")
-        r = c.call("agent_steer", agent_id="ccchild1", text="also run the linter", **BY)
-        ctx.check(f"a cc: child takes the note through its own steer path, got {r}",
-                  r["ok"] and r["result"]["delivered"] == "external" and took and "also run the linter" in took[0])
-        r = c.call("agent_steer", agent_id="cxchild1", text="also run the linter", **BY)
-        ctx.check(f"a child with no live channel says so, got {r}",
-                  not r["ok"] and r["error"] == "that agent runs in an external process; stop and respawn")
-        r = c.call("agent_stop", agent_id="ccchild1", reason="wrong repo", **BY)
-        ctx.check("stopping a cc: child ends its process", r["ok"] and "closed" in took)
+        tree_for(session)
         jobs = SimpleNamespace(list_jobs=lambda: [{"id": "j1", "description": "build", "command": "make all",
                                                    "status": "running", "started_at": 1.0}],
                                kill=lambda job_id: (True, f"Killed {job_id}"), kill_all=lambda: None)

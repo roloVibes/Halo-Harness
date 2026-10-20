@@ -229,7 +229,7 @@ Halo 2.0.1: prints every tip that applies to this session right now --
 the curated list plus one generated line per registered command the
 curated list doesn't already cover (custom commands and skills included),
 filtered the SAME way the TUI's own rotating input placeholder is (a tip
-naming `cc:`/Databricks/OpenRouter/`--chrome`/MCP is shown only once that
+naming Databricks/OpenRouter/`--chrome`/MCP is shown only once that
 provider or feature is actually enabled/present). Identical output in
 `-p` and the TUI.
 

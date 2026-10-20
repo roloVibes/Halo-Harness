@@ -3,7 +3,7 @@ part 3: /resume and Ctrl+P switching the live session.
 
   * review item 13  the switch ran under a running turn (the turn's later
                     appends landed in the other session's file)
-  * review item 72  the switch was incomplete (cc: process, hook ids, spill
+  * review item 72  the switch was incomplete (hook ids, spill
                     dir, counters, cost meter, title counter stayed behind);
                     the reopened log also had an EMPTY in-memory node list
 """
@@ -87,16 +87,12 @@ def test_i13_resume_while_a_turn_runs_is_refused_and_switches_nothing(ctx: Ctx):
 
 @test
 def test_i13_i72_resume_switches_every_session_handle_between_turns(ctx: Ctx):
-    from halo_harness.agent import cc_runtime
     from halo_harness.events import Command
     fh, mock, session, older_id, older_path = _setup()
-    real_close = cc_runtime.close_cc
     try:
-        fired, closed, loaded = [], [], []
+        fired, loaded = [], []
         session._fire_session_end = lambda reason: fired.append(("end", reason, session.log.session_id))
         session._fire_session_start = lambda source: fired.append(("start", source, session.log.session_id))
-        cc_runtime.close_cc = lambda s: closed.append(s)
-        session._cc_state = SimpleNamespace(process=SimpleNamespace(alive=True))
         session.turn_count = 7
         session._last_prompt_tokens = 12345
         session._just_compacted = True
@@ -107,7 +103,6 @@ def test_i13_i72_resume_switches_every_session_handle_between_turns(ctx: Ctx):
         ctx.check("the resumed log's nodes were READ (not an empty mirror)",
                   [n.get("type") for n in log.nodes()][:4] == ["meta", "system", "user", "assistant"])
         ctx.check("the controller callback got the loaded log", loaded == [log])
-        ctx.check("the live cc: process was closed and dropped", closed == [session] and session._cc_state is None)
         ctx.check(f"SessionEnd on the old id, SessionStart(resume) on the new, got {fired}",
                   fired == [("end", "resume", old_id), ("start", "resume", older_id)])
         ctx.check("hook runner follows the new session",
@@ -126,7 +121,6 @@ def test_i13_i72_resume_switches_every_session_handle_between_turns(ctx: Ctx):
         last = json.loads(older_path.read_text(encoding="utf-8").strip().split("\n")[-1])
         ctx.check("a later append lands in the resumed file", last.get("content", [{}])[0].get("text") == "a later reply")
     finally:
-        cc_runtime.close_cc = real_close
         mock.stop()
         _restore_home()
 

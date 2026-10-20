@@ -82,14 +82,6 @@ def _default_model_resolver(raw: str, *, state_dir: Path, routes: dict, settings
     return ref, profile, _resolve_creds(ref, settings)
 
 
-# pass-B finding 2 (critical): providers that need no credentials at
-# all -- `cc:`/`cx:` are subprocess routes (the Claude Code / Codex CLI
-# does its own auth), so `_resolve_creds` always returns None for them;
-# that is the ordinary, expected shape for those two, never a reason to
-# refuse a switch the way an actually-unconfigured cloud/local ref is.
-_NO_CREDENTIALS_NEEDED_PROVIDERS = frozenset({"cc", "codex"})
-
-
 def _not_configured_message(ref) -> str:
     """The provider's own "not configured" sentence for `ref`, matching
     providers/stream.py's phase-1 `ProviderNotConfigured` wording exactly
@@ -255,11 +247,10 @@ class Controller:
                 self.session.job_registry.kill_all()
             except Exception:
                 pass
-            # H11 Part B: a cc: session's own claude subprocess must never
-            # outlive halo either -- a safe no-op when cc: was
-            # never used this session.
+            # The session's own team schedulers must never outlive halo
+            # either -- a safe no-op when none were armed.
             try:
-                self.session.close_cc()
+                self.session.close_runtimes()
             except Exception:
                 pass
             # Halo 2.0.3 round 5c (brief item 3): "stopped when Halo exits
@@ -353,8 +344,7 @@ class Controller:
         transcript to the OLD provider's URL with the OLD key under the
         NEW model id. Refused here instead, before anything is ever
         queued, with the same "not configured" sentence the request path
-        itself would raise -- except for `cc:`/`cx:`, which need no
-        credentials at all. An `hf:mlx/<repo>` ref gets one more step
+        itself would raise. An `hf:mlx/<repo>` ref gets one more step
         first: `build_session`/the TUI's own launch already start a
         managed `mlx_lm.server` for the SESSION's starting model, but
         `/model`/the picker switching to one mid-session never did, so
@@ -372,7 +362,7 @@ class Controller:
             ref, profile, creds = self.model_resolver(model)
         except Exception as e:  # InvalidModelError and anything else a bad ref can raise
             return f"{e}"
-        if creds is None and ref.provider not in _NO_CREDENTIALS_NEEDED_PROVIDERS:
+        if creds is None:
             return _not_configured_message(ref)
         if ref.provider == "databricks":
             from halo_harness.providers.profiles import decision_only_notice
@@ -1303,19 +1293,7 @@ class Controller:
         `SessionLog` is append-only, so forking is a copy, never a
         symlink/shared-tail scheme) and switch this Controller onto it.
         Returns the new session id; the conversation continues unchanged,
-        now diverging independently of the original.
-
-        H11b finding 8: a live `cc:` claude subprocess (still tied to the
-        OLD conversation id, now copied verbatim into the new log's own
-        `cc_session_id` meta node) is closed here -- otherwise this
-        Session would just keep talking to that SAME old process/
-        conversation, never actually diverging on the claude side at all,
-        and the NEXT restart (Esc/crash) would `--resume` an id that was
-        never independently created. `_cc_fork_session` tells `ensure_cc_
-        state`'s next start to use `--resume <that id> --fork-session`
-        (claude's own "branch into a new conversation" flag) instead of a
-        plain resume, which would just continue the SAME shared
-        conversation the original session might still be using."""
+        now diverging independently of the original."""
         from halo_harness.agent.log import SessionLog
 
         new_id = uuid.uuid4().hex
@@ -1323,10 +1301,6 @@ class Controller:
         for node in self.session.log.nodes():
             new_log._append({k: v for k, v in node.items() if k != "seq"})
         self.session.log = new_log
-        if getattr(self.session, "_cc_state", None) is not None:
-            self.session.close_cc()
-            self.session._cc_state = None
-            self.session._cc_fork_session = True
         return new_id
 
     def export_session(self, *, sanitize: bool = False, path: Optional[str] = None) -> str:
@@ -1547,27 +1521,20 @@ def format_cache_tokens_suffix(bucket: dict) -> str:
 
 
 def compute_session_stats(nodes: list) -> dict:
-    """`/stats`: `{turns, total_cost_usd, subscription_turns,
-    subscription_cost_usd, per_model: {model: {input_tokens,
+    """`/stats`: `{turns, total_cost_usd, per_model: {model: {input_tokens,
     output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
-    cost_usd, subscription_cost_usd, subscription_turns, calls}},
-    tool_counts: {name: n}}`.
+    cost_usd, calls}}, tool_counts: {name: n}, per_role: {...}}`.
 
-    Halo 2.0.5 round 1 (cc: route v2, brief item H6 "Cost line"): a
-    `cc:`-route usage node carries `estimate: true` (`agent/log.py`'s
-    `append_usage`) -- its cost routes into `subscription_cost_usd`/
-    `subscription_turns` (both session-wide AND per-model) instead of
-    `cost_usd`/`total_cost_usd`, so `/stats` never counts Claude Code's
-    own cumulative-delta ESTIMATE as if it were real per-token spend."""
+    A usage node marked `estimate: true` (an estimated figure some
+    sessions from before 3.1.5.0 logged) counts as a call but never as
+    spend."""
     per_model: dict = {}
     tool_counts: dict = {}
     # 2.0.6 round 2 (per-role cost attribution): role -> {calls, tasks,
-    # accepted, cost_usd, subscription_cost_usd} -- the session's own
+    # accepted, cost_usd} -- the session's own
     # nodes, so `/stats` answers "who spent what" without touching disk.
     per_role: dict = {}
     total_cost = 0.0
-    subscription_cost = 0.0
-    subscription_turns = 0
     turns = 0
     current_model = "?"
     for node in nodes:
@@ -1597,7 +1564,6 @@ def compute_session_stats(nodes: list) -> dict:
                 # from cache.
                 "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
                 "cost_usd": 0.0, "calls": 0,
-                "subscription_cost_usd": 0.0, "subscription_turns": 0,
             })
             usage = node.get("usage") or {}
             bucket["input_tokens"] += int(usage.get("input_tokens") or 0)
@@ -1606,12 +1572,8 @@ def compute_session_stats(nodes: list) -> dict:
             bucket["cache_creation_input_tokens"] += int(usage.get("cache_creation_input_tokens") or 0)
             cost = node.get("cost_usd")
             if node.get("estimate"):
-                if isinstance(cost, (int, float)):
-                    bucket["subscription_cost_usd"] += cost
-                    subscription_cost += cost
-                bucket["subscription_turns"] += 1
-                subscription_turns += 1
-            elif isinstance(cost, (int, float)):
+                cost = None
+            if isinstance(cost, (int, float)):
                 bucket["cost_usd"] += cost
                 total_cost += cost
             bucket["calls"] += 1
@@ -1622,18 +1584,13 @@ def compute_session_stats(nodes: list) -> dict:
             # set) is one TASK; its `ok` decides accepted.
             role = node.get("role")
             if role:
-                rb = per_role.setdefault(role, {"calls": 0, "tasks": 0, "accepted": 0,
-                                                "cost_usd": 0.0, "subscription_cost_usd": 0.0})
+                rb = per_role.setdefault(role, {"calls": 0, "tasks": 0, "accepted": 0, "cost_usd": 0.0})
                 rb["calls"] += 1
                 if node.get("agent_id"):
                     rb["tasks"] += 1
                     if node.get("ok") is True:
                         rb["accepted"] += 1
-                if node.get("estimate"):
-                    if isinstance(cost, (int, float)):
-                        rb["subscription_cost_usd"] += cost
-                elif isinstance(cost, (int, float)):
+                if isinstance(cost, (int, float)):
                     rb["cost_usd"] += cost
-    return {"turns": turns, "total_cost_usd": total_cost, "subscription_turns": subscription_turns,
-            "subscription_cost_usd": subscription_cost, "per_model": per_model, "tool_counts": tool_counts,
+    return {"turns": turns, "total_cost_usd": total_cost, "per_model": per_model, "tool_counts": tool_counts,
             "per_role": per_role}

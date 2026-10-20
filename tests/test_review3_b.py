@@ -152,7 +152,7 @@ def test_item4_user_template_is_not_filtered(ctx: Ctx):
 def _connector_argv(tool_input: dict, deny=()):
     from halo_harness.mcp.connectors import ConnectorInfo
     from halo_harness.permissions import PermissionEngine, parse_rule
-    from halo_harness.providers import cc_models
+    from halo_harness.mcp import claude_process as cc_models
     from halo_harness.tools import _proc
     from halo_harness.tools.base import ToolContext
     from halo_harness.tools.connector_tool import ConnectorTool

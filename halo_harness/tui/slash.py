@@ -40,13 +40,9 @@ async def handle_slash(app, name: str, args: str) -> None:
         # used to have no entry here at all, so both fell through to
         # `controller.run_slash` on the UI thread -- `/providers`'s own
         # table build runs a real DNS+TCP+TLS reachability probe per
-        # configured host PLUS a `claude auth status` spawn, and `doctor`
-        # shells out even more; both now build their result in a
+        # configured host, and `doctor` shells out even more; both now build their result in a
         # `thread=True` worker and post it back with `call_from_thread`.
         "providers": _handle_providers, "doctor": _handle_doctor,
-        # Halo 2.0.7 round 7b: the cc:/cx: subscription-routes consent
-        # gate -- bare opens the real notice screen.
-        "subscriptions": _handle_subscriptions,
         # Halo 2.0.4 round 2: `/xp routes <slug>` is a real bounded network
         # call too (GET /api/models/<slug>/providers), same reasoning as
         # providers/doctor just above.
@@ -186,7 +182,7 @@ def _run_slash_worker(app, name: str, args: str) -> None:
 async def _handle_model(app, args: str) -> None:
     args = args.strip()
     if args:
-        _apply_model_or_defer(app, args)
+        _apply_model(app, args)
         return
     # H14 scope J (widened to every enabled provider by the H15 part 2
     # addendum, see `catalog_auto_refresh_worker`): auto-refresh a stale
@@ -201,57 +197,12 @@ async def _handle_model(app, args: str) -> None:
     # class of omission caused.
     app.run_worker(lambda: catalog_auto_refresh_worker(app), thread=True, name="catalog-auto-refresh",
                     group="catalog-auto-refresh")
-    # 1.0.1 part 2 (reviewer minor): `cached_auth_status_is_stale`'s own
-    # TTL was never actually consulted anywhere -- the ONLY other caller
-    # (tui/app.py's on_mount) primes the cache exactly ONCE at startup, so
-    # a claude.ai login/logout during a long session stayed invisible to
-    # `/model` until the whole app restarted. Same "stale -> refresh in
-    # the background, off the UI thread" shape `catalog_auto_refresh_worker`
-    # already uses just above -- this /model open won't necessarily see
-    # the fresh value itself (the refresh races `_list_models_worker`
-    # below), but the NEXT one will, same as a Databricks catalog refresh
-    # triggered the same way.
-    app.run_worker(lambda: _cc_auth_status_auto_refresh_worker(app), thread=True, name="cc-auth-auto-refresh",
-                    group="cc-auth-auto-refresh")
-    # Round 5i part 2: the `cx:` counterpart -- same staleness-gated
-    # re-check, so `/model`'s own codex group reflects a login/logout that
-    # happened since the TUI started without needing a restart.
-    app.run_worker(lambda: _codex_auth_status_auto_refresh_worker(app), thread=True, name="codex-auth-auto-refresh",
-                    group="codex-auth-auto-refresh")
     # 1.0.1 fixpass finding 1: `list_models()` -- builds ctx/price columns
-    # per Databricks endpoint and (pre-fix) span the `claude auth status`
-    # subprocess -- runs off the UI thread now, the exact same `thread=True`
+    # per Databricks endpoint -- runs off the UI thread now, the exact same `thread=True`
     # worker + `call_from_thread` pattern `_handle_resume`'s own file-I/O-
     # bound `list_sessions()` already uses just below. Measured 2-5s TUI
     # freezes on a real Kali work box before this fix.
     app.run_worker(lambda: _list_models_worker(app), thread=True, name="list-models", group="list-models")
-
-
-def _cc_auth_status_auto_refresh_worker(app) -> None:
-    """1.0.1 part 2 (reviewer minor): the ONE place `cc_models.
-    cached_auth_status_is_stale`'s TTL is actually consulted -- a cold
-    cache (nothing primed yet) or one older than `CACHED_AUTH_STATUS_TTL_S`
-    gets a real (bounded, off-the-UI-thread) `claude auth status` re-run.
-    Best-effort: any failure here is identical to the cache simply staying
-    whatever it was (list_models()'s own try/except around the read is
-    unaffected either way)."""
-    try:
-        from halo_harness.providers.cc_models import cached_auth_status_is_stale, refresh_cached_claude_auth_status
-        if cached_auth_status_is_stale():
-            refresh_cached_claude_auth_status()
-    except Exception:
-        pass
-
-
-def _codex_auth_status_auto_refresh_worker(app) -> None:
-    """The `cx:` counterpart of `_cc_auth_status_auto_refresh_worker`
-    just above -- same reasoning, substituting `codex_models`."""
-    try:
-        from halo_harness.providers.codex_models import cached_auth_status_is_stale, refresh_cached_codex_auth_status
-        if cached_auth_status_is_stale():
-            refresh_cached_codex_auth_status()
-    except Exception:
-        pass
 
 
 def _list_models_worker(app) -> None:
@@ -555,60 +506,9 @@ def experiential_balance_refresh_worker(app) -> None:
     app.call_from_thread(app.status_bar.set_provider_balance, "experiential", segment)
 
 
-def _apply_model_or_defer(app, ref: str) -> None:
-    """2.0.1 finding 26: a BARE alias (`/model opus`, no provider prefix)
-    with no ANTHROPIC_API_KEY resolves through `providers.cc_models.
-    default_bare_alias_route`, which -- outside the gateway case (already
-    short-circuited) -- falls back to a LIVE `claude auth status` spawn (up
-    to 10s) whenever the cache is cold. `_apply_model` below runs
-    SYNCHRONOUSLY on the UI thread (`Controller.set_model` resolves the ref
-    before ever reaching a worker), so that spawn used to freeze the whole
-    TUI for its duration. `default_bare_alias_route` itself now prefers the
-    cache when one exists (covers the common case: the startup worker has
-    almost always already primed it by the time a user actually types a
-    command) -- this covers the remaining cold-cache edge case by warming
-    the cache in a worker FIRST, applying once it lands, so NO path here
-    ever spawns the subprocess on the UI thread. Anything else (already
-    prefixed, vendor/model, a key set, a primed cache, or gateway-driven)
-    applies immediately, exactly as before this fix."""
-    from halo_harness.providers.cc_models import BARE_ALIAS_NAMES, cached_claude_auth_status, is_claude_gateway_driven
-    import os
-    needs_live_check = (
-        ref in BARE_ALIAS_NAMES and not os.environ.get("ANTHROPIC_API_KEY")
-        and not is_claude_gateway_driven() and cached_claude_auth_status() is None
-    )
-    if not needs_live_check:
-        _apply_model(app, ref)
-        return
-    app.notify(f"Checking Claude Code login status for {ref!r}...", title="/model")
-    app.run_worker(lambda: _resolve_bare_alias_worker(app, ref), thread=True,
-                    name="model-bare-alias-auth-check", group="model-bare-alias-auth-check")
-
-
-def _resolve_bare_alias_worker(app, ref: str) -> None:
-    from halo_harness.providers.cc_models import refresh_cached_claude_auth_status
-    refresh_cached_claude_auth_status()
-    app.call_from_thread(_apply_model, app, ref)
-
-
 def _apply_model(app, ref) -> None:
     if not ref:
         return
-    # Halo 2.0.7 round 7b: a cc:/cx: ref (explicit, or a bare alias that
-    # would route to one) with the subscription routes off opens the
-    # notice INSTEAD of the plain error `set_model` would otherwise
-    # surface -- a cheap, local-only probe parse (no network, no
-    # subprocess), same "probe first, mutate on success" shape `set_model`
-    # already uses for its own mlx check just above this call site.
-    from halo_harness.model import parse_model_ref
-    from halo_harness.subscription_consent import SubscriptionConsentRequiredError
-    try:
-        parse_model_ref(ref, app.controller.routes)
-    except SubscriptionConsentRequiredError:
-        _open_subscription_notice(app, on_accept=lambda: _apply_model(app, ref))
-        return
-    except Exception:
-        pass  # any other parse problem: let set_model below produce its usual message
     err = app.controller.set_model(ref)
     if err:
         app.notify(err, severity="error", title="/model")
@@ -990,40 +890,6 @@ def _providers_list_worker(app) -> None:
     from halo_harness.providers_cli import format_providers_table, provider_rows
     text = format_providers_table(provider_rows())
     app.call_from_thread(app.transcript.add_note, text, kind="command")
-
-
-async def _handle_subscriptions(app, args: str) -> None:
-    """Halo 2.0.7 round 7b: `/subscriptions` -- bare opens the real notice
-    screen (same words as `halo subscriptions accept`'s plain-text form);
-    `status`/`revoke` act directly, no dialog needed."""
-    sub = (args or "").strip().split()[0].lower() if (args or "").strip() else ""
-    if sub == "status":
-        from halo_harness.subscription_consent import status_line
-        await app.transcript.add_note(status_line(), kind="command")
-        return
-    if sub == "revoke":
-        from halo_harness.subscription_consent import revoke
-        revoke()
-        await app.transcript.add_note("Revoked. cc:/cx: are off again until accepted.", kind="command")
-        return
-    _open_subscription_notice(app)
-
-
-def _open_subscription_notice(app, *, on_accept=None) -> None:
-    from halo_harness.tui.dialogs.subscription_notice import SubscriptionNoticeScreen
-
-    def _after(accepted: bool) -> None:
-        if accepted:
-            from halo_harness.subscription_consent import record_acceptance
-            state = record_acceptance()
-            app.notify(f"Accepted (v{state['accepted_version']}). cc:/cx: are now available.",
-                       title="/subscriptions")
-            if on_accept is not None:
-                on_accept()
-        else:
-            app.notify("Not accepted -- cc:/cx: remain off.", title="/subscriptions")
-
-    app.push_screen(SubscriptionNoticeScreen(), _after)
 
 
 async def _handle_doctor(app, _args: str) -> None:
@@ -1615,8 +1481,6 @@ async def _handle_stats(app, args: str) -> None:
                 line += f", ${rb['cost_usd'] / rb['tasks']:.4f}/task"
                 if rb["accepted"]:
                     line += f", ${rb['cost_usd'] / rb['accepted']:.4f}/accepted"
-        if rb.get("subscription_cost_usd"):
-            line += f" | subscription ${rb['subscription_cost_usd']:.4f} (estimate)"
         lines.append(line)
     for name, n in sorted((stats.get("tool_counts") or {}).items()):
         lines.append(f"  tool {name}: {n} call(s)")

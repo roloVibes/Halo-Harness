@@ -972,10 +972,8 @@ def build_session(
                 # merely "not set up" (no credentials at all, e.g. a global
                 # last model remembered from a DIFFERENT box) used to be
                 # accepted silently and built with `creds=None`, failing
-                # every turn with no notice at all. `cc:` (and anything
-                # else `_resolve_creds` doesn't model) needs no
-                # `ProviderCreds` at all -- that is not this check's
-                # business, so it is skipped entirely for those. Halo
+                # every turn with no notice at all. Anything
+                # `_resolve_creds` doesn't model is skipped entirely. Halo
                 # 2.0.3 round 2b: `ollama` added -- a missing/renamed
                 # `ollama.hosts` entry (a stale `ol:<model>@<hostname>`
                 # remembered from a DIFFERENT box that actually had that
@@ -1174,23 +1172,11 @@ def build_session(
                 pass
         _threading.Thread(target=_bg_dbx_refresh, daemon=True, name="halo-dbx-auto-refresh").start()
 
-    # 2.0.1 launch-hang fix, item (b) ("headless -p runs refresh in a
-    # thread under the same rule"): deliberately NOT a thread spawned from
-    # every single `build_session` call -- an earlier draft did exactly
-    # that (mirroring the TUI's own once-per-App-lifetime worker) and,
-    # verified live on a box with a real `claude` install on PATH and no
-    # gateway signal, it spawned one real `claude auth status` subprocess
-    # PER SESSION BUILT -- a far higher frequency than the TUI case, since
-    # `build_session` runs once per turn in many print-mode/test flows.
-    # `claude_login_available()`/`credentials_present("claude_subscription")`
-    # are cache-only now and never spawn it themselves, so the equivalent
-    # "refresh in a thread" for headless mode lives where it's actually
-    # needed instead: `/model`/`/providers` run headlessly
-    # (`commands/builtins.py::_cmd_providers`) are ALREADY fully
-    # synchronous (no UI thread to protect in print mode at all), so that
-    # command does its own one-time, staleness-gated refresh right there --
-    # never here, on every session build regardless of whether either
-    # command is ever used.
+    # 2.0.1 launch-hang fix: never a `claude auth status` spawn from every
+    # `build_session` call (one real subprocess PER SESSION BUILT, verified
+    # live); the claude.ai connectors bridge primes its own cache only when
+    # it is about to discover (`mcp.connectors_bridge.prime_auth_cache_if_
+    # stale`).
 
     if (not bare and websearch_allowed and model_ref.provider == "openrouter" and creds is not None
             and frozen_registry.get("WebSearch") is None):
@@ -1553,10 +1539,10 @@ def build_session(
     # already-killed/completed job is a no-op), so running it twice on a
     # normal clean exit is harmless.
     atexit.register(session.job_registry.kill_all)
-    # H11 Part B: same belt-and-suspenders atexit safety net for a cc:
-    # session's own claude subprocess -- a no-op session.close_cc() when
-    # cc: was never used.
-    atexit.register(session.close_cc)
+    # Same belt-and-suspenders atexit safety net for whatever the session
+    # keeps running beside its turns (team schedulers) -- a no-op when
+    # nothing was armed.
+    atexit.register(session.close_runtimes)
     # Halo 2.0.3 round 5c (brief item 3): "stopped when Halo exits unless
     # keep: true" -- same belt-and-suspenders atexit safety net alongside
     # the two just above; a no-op when `halo local serve` was never used
@@ -1630,7 +1616,7 @@ def _stop_managed_local_servers_quietly() -> None:
     """Halo 2.0.3 round 5c (brief item 3): "stopped when Halo exits unless
     keep: true" -- called from BOTH the explicit `finally:` block below
     AND the `atexit.register` safety net right after `SessionBuild`
-    (mirrors `session.job_registry.kill_all`/`session.close_cc`'s own
+    (mirrors `session.job_registry.kill_all`/`session.close_runtimes`'s own
     belt-and-suspenders pair). Idempotent (an already-empty registry is a
     no-op) and never raises -- a managed server is a nice-to-have cleanup,
     never worth crashing the exit path over."""
@@ -2090,11 +2076,10 @@ def run_print_mode(
             session._fire_session_end("quit")
         except Exception:
             pass
-        # H11 Part B: never leave a cc: session's own claude subprocess
-        # running past this process's own exit either (a no-op when cc:
-        # was never used this session).
+        # Never leave the session's own team schedulers running past this
+        # process's own exit either (a no-op when none were armed).
         try:
-            session.close_cc()
+            session.close_runtimes()
         except Exception:
             pass
         # H8 scope A: "jobs killed on quit" -- never leave a background

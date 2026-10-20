@@ -140,7 +140,7 @@ def test_connector_lines_names_none_discovered_yet_when_eligible_but_cache_empty
         # start helper above is a no-op) yet unavailable_reason() is ALSO
         # None, since nothing confirms the login is absent either.
         os.environ.pop("BRIDGE_TEST_CC_AUTH_STATUS", None)
-        from halo_harness.providers.cc_models import reset_cached_claude_auth_status
+        from halo_harness.mcp.claude_auth import reset_cached_claude_auth_status
         reset_cached_claude_auth_status()
         ctx.check("cache is empty", connectors_bridge.load_cache() == ([], None))
         ctx.check("unavailable_reason is None in this exact state",

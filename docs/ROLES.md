@@ -159,8 +159,8 @@ Owner report: "the available models are not listed when you select edit
 a role... there aren't models to pick from and/or autocomplete." Leaving
 the wizard's Providers step (Next) now runs ONE live, off-thread
 enumeration of every provider `/model` knows (OpenRouter, Anthropic,
-Databricks, Hugging Face, OpenAI, Experiential, the Claude Code and Codex
-subscriptions, every configured Ollama host including a LAN one, and any
+Databricks, Hugging Face, OpenAI, Experiential, every configured Ollama
+host including a LAN one, and any
 registered local server) -- with the credentials just typed into any tab
 this run (saved or not) merged over the saved config, never written to
 disk by the enumeration itself. A small screen shows one progress line
@@ -351,7 +351,7 @@ suffix is optional and must be one of the harness's own accepted effort
 words (`low`/`medium`/`high`/`xhigh`/`max`, same set `--effort` itself
 takes) -- anything else is read as part of the model id, so a model ref
 that legitimately contains colons (`or:vendor/model`, `dbx:endpoint`,
-`cc:fable[1m]`) is never mis-split.
+`ant:fable[1m]`) is never mis-split.
 ```sh
 halo -p --role researcher=or:deepseek/deepseek-v4.1-flash:low \
   "use the Researcher agent to summarize this repo"

@@ -1,6 +1,6 @@
-# Commands: providers, subscriptions, rate limits and models
+# Commands: providers, rate limits and models
 
-Read this when you set up providers and subscriptions, read balances and rules, or refresh the model list.
+Read this when you set up providers, read balances and rules, or refresh the model list.
 
 Part of [Commands](COMMANDS.md), which lists every part.
 
@@ -8,26 +8,24 @@ Part of [Commands](COMMANDS.md), which lists every part.
 
 ```
 Usage: halo providers [list|enable <name>|disable <name>|setup <name>]
-Providers: databricks, openrouter, anthropic, claude_subscription, typesafe, huggingface, openai
+Providers: databricks, openrouter, anthropic, typesafe, huggingface, openai, experiential
 ```
 
-Detected credentials/a real claude.ai login AUTO-enable a provider (H15
-part 2 addendum) -- OpenRouter/Anthropic API (key)/TypeSafe/OpenAI API
-once their key is found (env file, shell env, or the settings env chain),
-Databricks once a host AND token are found (same sources, plus
-`~/.databrickscfg`), Claude Code subscription (`cc:`) ONLY when `claude
-auth status` reports `loggedIn` with `authMethod` exactly `claude.ai`,
-Hugging Face (Halo 2.0.3 round 4) once `HF_TOKEN` is found OR at least one
+Detected credentials AUTO-enable a provider (H15 part 2 addendum) --
+OpenRouter/Anthropic API (key)/TypeSafe/OpenAI API once their key is
+found (env file, shell env, or the settings env chain), Databricks once a
+host AND token are found (same sources, plus `~/.databrickscfg`), Hugging
+Face (Halo 2.0.3 round 4) once `HF_TOKEN` is found OR at least one
 `huggingface.endpoints` entry is configured. No `halo init` run
 is required for this. `~/.halo/config.json`'s `"providers"` block
 stores OVERRIDES only -- `enable <name>`/`disable <name>` write an explicit
-`true`/`false` there that always wins over auto-detection (`cc`/`ant`/
-`dbx`/`or`/`hf`/`oai` are accepted aliases for the canonical names); `setup <name>`
-needs a real terminal and runs the same per-provider tab `halo init`
-shows. For `openai`, `huggingface`, `experiential` and `codex_subscription`
-(which `halo init --provider` does not take) it opens the init wizard on a
-terminal, and otherwise says what to set (`OPENAI_API_KEY`, `HF_TOKEN`,
-`EXPLABS_API_KEY`, or `codex login`) before `halo providers enable <name>`.
+`true`/`false` there that always wins over auto-detection (`ant`/`dbx`/
+`or`/`hf`/`oai`/`xp` are accepted aliases for the canonical names);
+`setup <name>` needs a real terminal and runs the same per-provider tab `halo init`
+shows. For `openai`, `huggingface` and `experiential` (which `halo init
+--provider` does not take) it opens the init wizard on a terminal, and
+otherwise says what to set (`OPENAI_API_KEY`, `HF_TOKEN` or
+`EXPLABS_API_KEY`) before `halo providers enable <name>`.
 
 Bare `halo providers` (or `list`) prints one row per provider --
 status (`auto (detected from <source>)` / `disabled by you` / `enabled by
@@ -49,32 +47,8 @@ provider                    status                                   reachable  
 Databricks                  not set up                               not set up                                      -
 OpenRouter                  auto (detected from env file / shell env) reachable                                     412
 Anthropic API (key)         not set up                                not set up                                      -
-Claude Code subscription    not set up                                not set up                                      -
 TypeSafe                    not set up                                not set up                                      -
 ```
-
-## `halo subscriptions`
-
-```
-Usage: halo subscriptions [status|accept|revoke]
-```
-
-Halo 2.0.7 round 7b: the consent gate the owner chose for his users --
-`cc:`/`cx:` (the subscription routes, driven through the official
-`claude`/`codex` binaries) are off until accepted, on every fresh AND
-every upgraded install (no migration ever flips this on). `status` prints
-one line: `subscription routes: off (not accepted)` or `... on (accepted
-<date>, v<version>)`. `accept` prints the notice ("Your subscription, a
-third-party harness": the five facts, both providers' terms by title and
-URL, the account-responsibility sentence) and reads the typed acceptance
-from stdin -- only the EXACT phrase `I accept` flips it on, with the
-current date and notice version recorded; a non-interactive stdin (piped,
-no TTY, nothing to read) never accepts. `revoke` turns the routes back
-off. A later Halo version whose notice text actually changed bumps
-`NOTICE_VERSION` (`halo_harness/subscription_consent.py`), which asks
-again even on a machine that already accepted an older version. See
-`docs/MODELS.md`'s "Subscription-routes consent" section and `/subscriptions`
-in `docs/SLASH-COMMANDS.md` for the TUI form.
 
 ## `halo gov`
 
@@ -99,8 +73,8 @@ OpenRouter (`GET /key`/`/credits`), Experiential Labs (`GET /credits`),
 Databricks (always "not offered" -- DBU billing is on the workspace
 side, explicitly excluded by the owner), Anthropic (no endpoint for a
 plain key; the organisation cost report when `ANTHROPIC_ADMIN_KEY` is
-set). Every other provider (Hugging Face, OpenAI, Codex, Claude Code
-subscription, TypeSafe) reads "not offered" -- no balance concept
+set). Every other provider (Hugging Face, OpenAI, TypeSafe) reads
+"not offered" -- no balance concept
 exists for it at all. Bare `halo balances` never touches the network --
 reads `~/.halo/balances.json`, or "not fetched yet"; `--refresh` does
 the one bounded round of fetches and persists the result there. `/balances`
@@ -115,8 +89,6 @@ halo balances
 Databricks (dbx:): not offered (DBU billing is on the workspace side -- not available as a balance here)
 OpenRouter (or:): $12.40 left (key: my-key, as of 14:32:05)
 Anthropic API (key) (ant:): not offered (balance not exposed by this API for a plain key (set ANTHROPIC_ADMIN_KEY for organisation spend))
-Claude Code subscription (cc:): not offered (no balance concept for this provider)
-Codex subscription (ChatGPT) (cx:): not offered (no balance concept for this provider)
 TypeSafe: not offered (no balance concept for this provider)
 Hugging Face (hf:): not offered (no balance concept for this provider)
 OpenAI API (key) (oai:): not offered (no balance concept for this provider)
@@ -225,20 +197,13 @@ Lists (and refreshes) the OpenRouter and Databricks model catalogs.
 halo models --help
 ```
 ```
-usage: halo models [-h] [--refresh] [--cc] [--cx] [--ant] [--urls] [--json]
-                   [--forget-rules] [--capabilities] [--best-for KIND]
+usage: halo models [-h] [--refresh] [--ant] [--urls] [--json] [--forget-rules]
+                   [--capabilities] [--best-for KIND]
                    [--media [{image,video,audio,all}]]
 
 options:
   -h, --help       show this help message and exit
   --refresh        Re-probe OpenRouter/Databricks instead of using the cache
-  --cc             List the Claude subscription models (cc:/ant: aliases)
-                   instead of the OpenRouter/Databricks catalog; with
-                   --refresh, re-pings each alias to confirm its current
-                   canonical id
-  --cx             List the Codex subscription models (cx: aliases) instead of
-                   the OpenRouter/Databricks catalog; with --refresh, re-pings
-                   each alias to confirm it is accepted (marks refused ids)
   --ant            List the real, reachable Anthropic API models (ant: aliases
                    plus every other id the key can see) instead of the
                    OpenRouter/Databricks catalog; with --refresh, re-fetches
@@ -270,22 +235,22 @@ speed). Halo Design's model pick opens on the `design` ranking. See
 |---|---|
 | (bare) | reads `~/.halo/models.json`/`dbx-endpoints.json`; refreshes automatically the first time either cache is empty |
 | `--refresh` | live probe: OpenRouter `GET /api/v1/models` -> `models.json`; Databricks `GET /api/2.0/serving-endpoints` -> `dbx-endpoints.json`; models.dev's public `api.json` -> `models-dev.json` |
-| `--cc` | reads `claude auth status` + the `cc-models.json` cache; `--cc --refresh` also sends nine tiny `-p --max-turns 1` pings under your subscription |
-| `--cx` | reads `codex login status` + the `cx-models.json` cache; `--cx --refresh` sends one tiny `codex exec --ephemeral` ping per alias under your subscription -- no ChatGPT login exists on the build host, so this is verified against `tests/helpers/fake_codex.py` only, not the real CLI |
-| `--ant` | reads `~/.halo/ant-models.json` (real ids `GET /v1/models` returned for this key); `--ant --refresh` re-fetches it -- the nine `ant:` aliases show first with their `-> <resolved-id>` detail, then any OTHER id the key can reach, with no alias of its own |
+| `--ant` | reads `~/.halo/ant-models.json` (real ids `GET /v1/models` returned for this key); `--ant --refresh` re-fetches it -- the `ant:` aliases show first with their `-> <resolved-id>` detail, then any OTHER id the key can reach, with no alias of its own |
 | `--urls` | Databricks rows only: adds the exact resolved URL + path type (`mlflow`/`cursor`/`anthropic`/`invocations`) per endpoint -- see `docs/DATABRICKS.md` |
 | `--json` | same data as machine-readable JSON |
 | `--media [image\|video\|audio\|all]` | Halo 3.0.4.0: the ComfyUI media-model inventory (image-gen, video-gen, upscale, tts, then the supporting loras, vaes and encoders) with size, quant and family; reads `~/.halo/media-models.json`, `--media --refresh` rescans the server (`COMFY_URL` / `comfy.url`: `GET /models/<folder>`, `GET /experiment/models/<folder>`, `GET /object_info`) |
 | `--best-for image-gen\|video-gen\|audio-gen\|upscale` | ranks the media inventory by size, quant (bf16 > fp16 > fp8 > int8) and a matching 4-step LoRA, one reason per row; the five LLM kinds above keep their own ranking |
 
 ```sh
-BRIDGE_TEST_HOME=/tmp/demo-home halo models --cc
+BRIDGE_TEST_HOME=/tmp/demo-home halo models --ant
 ```
 ```
-Claude subscription: claude found but not logged in -- run `claude` once to log in
-alias        cc: target               ant: target                    context   out cap    in/M     out/M
-fable        claude-fable-5-1         claude-fable-5-1              1000000    128000     $10.00    $50.00
-opus         claude-opus-5-5          claude-opus-5-5               1000000    128000      $4.00    $20.00
+Anthropic API: not configured (no ANTHROPIC_API_KEY found) -- ant: models unavailable
+(0 live id(s) known, never cached -- `halo models --ant --refresh` updates it)
+
+alias        ant: target                       context   out cap      in/M     out/M
+fable        -> claude-fable-5-1               1000000    128000  $10.00/M  $50.00/M
+opus         -> claude-opus-5-5 (latest Opus)    1000000    128000   $4.00/M  $20.00/M
 ...
 ```
 

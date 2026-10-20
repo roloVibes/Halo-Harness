@@ -278,7 +278,7 @@ _PROVIDER_ERROR_TABLES = {
 
 # Fallback when no per-provider table/code matched -- every provider this
 # harness routes to, including ones with no code table of their own
-# (Hugging Face, Ollama, Codex) falls back to this once a code lookup comes
+# (Hugging Face, Ollama) falls back to this once a code lookup comes
 # up empty, keyed by HTTP status alone. No opinion on 400/413 here (never
 # consulted for either -- see `map_upstream_error`'s own overflow guard):
 # both are reachable by a genuine context-overflow wording this harness's
@@ -303,7 +303,7 @@ _GENERIC_STATUS_SENTENCES = {
 _PROVIDER_DISPLAY_NAMES = {
     "openrouter": "OpenRouter", "anthropic": "Anthropic", "databricks": "Databricks",
     "huggingface": "Hugging Face", "openai": "OpenAI", "ollama": "Ollama",
-    "experiential": "Experiential Labs", "codex": "Codex",
+    "experiential": "Experiential Labs",
 }
 
 

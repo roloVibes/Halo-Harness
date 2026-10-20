@@ -6,8 +6,8 @@ that only ever sets ANTHROPIC_API_KEY (no `halo init` run) still
 gets a live catalog without any extra step, the same "already finds the
 available keys ... and uses those" promise the rest of this addendum makes.
 
-The `ant:`/`cc:` routed models themselves stay on the static nine-alias
-table (`providers.cc_models`) -- real, pinned Claude model ids a live
+The `ant:` routed aliases themselves stay on the static alias table
+(`providers.anthropic_aliases`) -- real, pinned Claude model ids a live
 catalog listing would not improve on -- this cache exists so `/providers`/
 doctor/a future picker can show what the key can ACTUALLY see today
 without an extra network round trip of their own.

@@ -274,7 +274,7 @@ def _split_model_and_effort(rest: str) -> "tuple[str, Optional[str]]":
     LAST `:` only when that tail is one of the harness's own accepted
     effort words (`providers.profiles.EFFORT_LEVELS`, the exact set
     `--effort` itself accepts). Safe against a model ref that legitimately
-    contains colons (`or:vendor/model`, `dbx:endpoint`, `cc:fable[1m]`,
+    contains colons (`or:vendor/model`, `dbx:endpoint`, `ant:fable[1m]`,
     ...) -- none of those ever end in a bare "low"/"medium"/"high"/
     "xhigh"/"max" segment, so there is no real ambiguity in practice."""
     from halo_harness.providers.profiles import EFFORT_LEVELS
@@ -529,7 +529,7 @@ def assign_role(role_name: str, model_ref: str) -> "tuple[bool, list[str]]":
     if not isinstance(model_ref, str) or not model_ref.strip():
         return False, ["a model reference is required"]
     # 3.0.1.0 review item 125: a value no spawn could resolve here (a
-    # subscription route not accepted, an unknown provider) is never written.
+    # removed route, an unknown provider) is never written.
     if model_ref.strip().lower() not in ("inherit", "parent", "-", "haiku"):
         model, _effort = role_value_parts(model_ref.strip())
         try:
