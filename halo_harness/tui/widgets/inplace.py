@@ -8,8 +8,8 @@ second (their elapsed counters), so each tick cost a full reflow -- 100 ms
 at 50 turns, 400 ms at 150 -- and keys typed meanwhile waited behind it.
 `update_in_place` repaints only, unless the new text would change the
 widget's height (a wrap) or its width depends on its content. A widget
-whose CSS fixes its height (the status bar's `height: 1`, the band's
-`height: 8`) never needs the height check: a status line longer than the
+whose CSS fixes its height (the status bar's `height: 1`) never needs the
+height check: a status line longer than the
 terminal wraps in the content measure but the row stays one row, and
 measuring it asked for a layout on every tick.
 """

@@ -1,6 +1,6 @@
-"""tests.test_review3_z3 -- pins for fix pass round Z, items Z8-Z10:
+"""tests.test_review3_z3 -- pins for fix pass round Z, items Z9-Z10 (Z8, the
+level band's docstring, went with the game themes in 3.1.5.0):
 
-  * Z8   the level band's docstring states `scene.ROWS`, with its value
   * Z9   `halo --version` under a cp1252 stdout encoding, decoded as UTF-8
   * Z10  an archive install is compared with its release's checksums.txt;
          a git+URL install has no artifact and says nothing
@@ -31,23 +31,6 @@ from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R3: COMMANDS.md is split
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-
-_WORDS = {6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten", 12: "twelve", 16: "sixteen"}
-
-
-@test
-def test_z8_scene_band_docstring_states_scene_rows(ctx: Ctx):
-    from halo_harness.tui import scene
-    from halo_harness.tui.widgets import scene_band
-    doc = scene_band.__doc__ or ""
-    word = _WORDS.get(scene.ROWS, str(scene.ROWS))
-    ctx.check("the docstring names scene.ROWS", "`scene.ROWS`" in doc)
-    ctx.check(f"with its value ({word})", f"`scene.ROWS` ({word})" in doc)
-    ctx.check("and no stale row count", "six rows" not in doc and "(six)" not in doc)
-    from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R2: SLASH-COMMANDS.md is split into parts
-    slash = doc_text("SLASH-COMMANDS.md")
-    ctx.check("SLASH-COMMANDS no longer calls the band three rows", "three-row scene" not in slash
-              and f"{word}-row scene" in slash)
 
 
 @test

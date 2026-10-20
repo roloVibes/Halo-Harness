@@ -5,7 +5,7 @@ scripted FakeController turn, fixture picker rows, fixture bios and the
 shipped team templates, a fake MCP server list, a fixture permission ask,
 fixture balances -- and saves one SVG per scene (120x36) under
 docs/screenshots/: launch, turn, picker, team-step, mcp, permission,
-balances, theme-doom, theme-metroid, theme-mario, remote-dialog. Deterministic by construction: fixed seed, a frozen clock in
+balances, remote-dialog. Deterministic by construction: fixed seed, a frozen clock in
 the widget modules (elapsed text is set through the same started_at /
 _refresh seams the tests use, never a real timer read), no network, no
 real keys, no real paths (the session cwd is the literal "~/project"),
@@ -135,9 +135,6 @@ async def _export(app, pilot, stage=None) -> str:
     which renders the fixture "~/project" as "~\\project" on Windows and
     "~/project" everywhere else (found by CI -- the Linux run failed the
     byte-parity check on exactly that slash flip)."""
-    band = getattr(app, "scene_band", None)  # 2.0.11 round A3: no band tick may land between stage and export
-    if band is not None:
-        band.pause()
     await pilot.pause(0)
     await pilot.pause(0)  # a second pass: a scrollbar that appears one layout pass late flipped the steer capture (1 in 3)
     if stage is not None:
@@ -337,82 +334,8 @@ async def scene_remote_dialog(out: Path) -> None:
     _write_svg(out / "remote-dialog.svg", await remote_svg())
 
 
-async def game_theme_svg(theme: str, variant: "str | None" = None, size=SIZE, prelude=None,
-                         band_frames: "tuple[int, ...]" = (6,), cue: str = ""):
-    """The main screen under a game theme (Halo 2.0.8): the HUD status bar
-    mid-turn, with the face in its writing state. `variant` (a Metroid
-    area, a Mario palette) is set on the app directly, never persisted.
-    2.0.11 round A3: the level band is frozen at each of `band_frames`
-    (frame k, scroll 2k) and one export is made per entry -- a str for a
-    single entry, a list for several (the animated captures)."""
-    app = BridgeApp(FakeController(model=MODEL), cwd=CWD, theme_name=theme)
-    async with app.run_test(size=size) as pilot:
-        if prelude is not None:
-            await prelude(app)  # finished turns above the live one (the front-page captures)
-        for e in (
-            ev.user_message("Add a rotate tool to the model picker", turn=1),
-            ev.status(phase="thinking", model=MODEL, turn=1),
-            ev.Event("message_start", {"model": MODEL}, turn=1),
-            ev.text_delta("The sort keys live in the picker dialog, so the new column goes there.\n", turn=1),
-            ev.Event("tool_use_start", {"id": "tu1", "name": "Read"}, turn=1),
-            ev.Event("tool_use_ready", {"id": "tu1", "name": "Read",
-                                        "input": {"file_path": "halo_harness/tui/dialogs/model_picker.py"},
-                                        "repaired": False}, turn=1),
-            ev.text_delta("Next I will wire the column into the row format.", turn=1),
-        ):
-            await apply_event(app, e)
-        bar = app.status_bar
-        bar.hud_ascii = False
-        if variant is not None:
-            app.theme_variant = variant
-            app.refresh_css(animate=False)
-        app._sync_theme_chrome()
-        bar.apply_status({"model": MODEL, "context_tokens": 312_000, "context_limit": 1_000_000,
-                          "cost_usd": 0.0412, "permission_mode": "auto", "effort": "high",
-                          "mcp": {"connected": 3, "total": 3, "tools": 41}})
-        bar.set_provider_balance("openrouter", "OR $12.40 left")
-        bar.set_cwd_branch(CWD, "main")
-        bar.set_agents_running(2)
-        bar.set_phase_word("writing")
-
-        def stage():
-            for block in app.transcript.children:
-                if isinstance(block, _cards.ToolCard):
-                    _stage_elapsed(block, 4.0)
-            bar._phase_started_at = _NOW - 23.0
-            bar._turn_started_at = _NOW - 23.0  # the HUD's TIME clock (Mario)
-
-        outs = []
-        for k in band_frames:
-            band = app.scene_band
-            if band is not None:
-                band.freeze(k, 2 * k, cue)
-            outs.append(await _export(app, pilot, stage=stage))
-        return outs if len(band_frames) > 1 else outs[0]
-
-
-async def _game_theme_scene(out: Path, theme: str, variant: "str | None" = None) -> None:
-    _write_svg(out / f"theme-{theme}.svg", await game_theme_svg(theme, variant))
-
-
-async def scene_theme_doom(out: Path) -> None:
-    await _game_theme_scene(out, "doom")
-
-
-async def scene_theme_metroid(out: Path) -> None:
-    """The Metroid HUD (Crateria): energy tanks, counters, the area panel,
-    the visor face, the dashed map-grid border and the visor input frame."""
-    await _game_theme_scene(out, "metroid", "crateria")
-
-
-async def scene_theme_mario(out: Path) -> None:
-    """The Mario HUD (bros): coins, timer, world, score, lives counters, the
-    cap-and-moustache face, the brick border and the pipe input frame."""
-    await _game_theme_scene(out, "mario", "bros")
-
-
 SCENES = (scene_launch, scene_turn, scene_picker, scene_team_step, scene_mcp, scene_permission,
-          scene_balances, scene_theme_doom, scene_theme_metroid, scene_theme_mario, scene_remote_dialog)
+          scene_balances, scene_remote_dialog)
 
 
 async def main(out: Path) -> int:

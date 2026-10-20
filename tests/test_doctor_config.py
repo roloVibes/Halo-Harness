@@ -43,7 +43,7 @@ def test_a_clean_home_reports_nothing(ctx: Ctx):
     with ConfigHome() as h:
         ctx.check(f"an empty home and repo: no findings, got {_findings(h)}", _findings(h) == [])
         ensure_builtin_team_templates(state_dir=h.state)
-        h.config({"team": "standard", "theme": "doom", "intro": False})
+        h.config({"team": "standard", "theme": "claude-light", "intro": False})
         ctx.check(f"the shipped lineups copied in and a valid config.json: none, got {_findings(h)}", _findings(h) == [])
 
 
@@ -99,7 +99,7 @@ def test_config_json_unknown_key_wrong_type_and_missing_lineup(ctx: Ctx):
 @test
 def test_a_repo_config_json_is_reported_as_not_read(ctx: Ctx):
     with ConfigHome() as h:
-        h.write(".halo/config.json", json.dumps({"theme": "mario"}), base=h.repo)
+        h.write(".halo/config.json", json.dumps({"theme": "claude-light"}), base=h.repo)
         hit = _one(_findings(h), "unread-file", "./.halo/config.json")
         ctx.check(f"the repo config.json is a warning naming the home one, got {hit}",
                   hit and hit["severity"] == "warns" and "~/.halo/config.json" in hit["text"])

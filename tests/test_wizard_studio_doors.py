@@ -2,9 +2,9 @@
 review of the wizard: the Team step has a Custom roles switch and an Open
 Studio (Roles) button (the terminal editors are no longer buttons; the
 Orgs step is gone since 3.1.4.0); `studio/launch.py` finds a running Studio
-by its studio.json and `halo studio --stop` ends it; the game themes keep
-the plain status bar; the prompt and the Agent tool explain delegation
-with roles off.
+by its studio.json and `halo studio --stop` ends it; the prompt and the
+Agent tool explain delegation with roles off (the game themes' plain-bar
+check went with the themes in 3.1.5.0).
 
 Run: python -m tests.test_wizard_studio_doors
 """
@@ -100,25 +100,6 @@ def test_launch_finds_a_running_studio_and_stop_reports_none(ctx: Ctx):
     info.write_text(json.dumps({"pid": 1, "port": port, "token": "abc"}), encoding="utf-8")
     ctx.check("a dead port gives no URL", existing_url(state) == "")
     info.unlink()
-
-
-@test
-def test_game_themes_keep_the_plain_status_bar(ctx: Ctx):
-    from halo_harness.tui import hud as hud_mod
-    from halo_harness.tui.hud import accent_for, bar_skin_for, skin_for
-    saved, hud_mod.STATUS_BAR_OVERRIDE = hud_mod.STATUS_BAR_OVERRIDE, None  # the HUD suites force the rows on in a shared run
-    try:
-        _check_plain_bars(ctx, accent_for, bar_skin_for, skin_for)
-    finally:
-        hud_mod.STATUS_BAR_OVERRIDE = saved
-
-
-def _check_plain_bars(ctx, accent_for, bar_skin_for, skin_for):
-    for theme in ("doom", "metroid", "mario"):
-        ctx.check(f"{theme} still has a skin (borders, frame, level)", skin_for(theme) is not None)
-        ctx.check(f"{theme}'s status bar is the plain one", bar_skin_for(theme) is None and skin_for(theme).status_bar == "plain")
-        ctx.check(f"{theme} tints the model label", bool(accent_for(theme)))
-    ctx.check("a non-game theme has no skin and no accent", bar_skin_for("claude-dark") is None and not accent_for("claude-dark"))
 
 
 @test
