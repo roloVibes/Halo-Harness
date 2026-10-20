@@ -88,7 +88,31 @@ class LinuxClipEnv:
             cb._LINUX_CLIPBOARD_TOOLS = tuple(
                 (name, [sys.executable, str(self.bin_dir / f"_{name}_impl.py"), *argv[1:]]) if name in fakes else (name, argv)
                 for name, argv in self._saved_tools)
+        self.probe_error = self._probe()
         return self
+
+    def _probe(self) -> "Optional[str]":
+        """Run the first fake tool once the way the detector would; '' lands -> None, else why (a host where
+        the fake cannot run skips the tests that need it, with this reason in the SKIP line)."""
+        if not self.tools:
+            return None
+        import subprocess
+        found = self._cb.find_clipboard_tool()
+        if found is None:
+            return f"find_clipboard_tool() found nothing on PATH={os.environ.get('PATH')!r}"
+        name, argv = found
+        try:
+            p = subprocess.run(argv, input=b"probe", capture_output=True, timeout=30)
+        except (OSError, subprocess.SubprocessError) as exc:
+            return f"{name} {argv[0]!r} did not run: {exc}"
+        got = self.sink(name)
+        sink = self.root / f"{name}.sink"
+        if sink.exists():
+            sink.unlink()
+        if p.returncode != 0 or got != "probe":
+            return (f"{name} {argv[0]!r} rc={p.returncode} stdout={p.stdout[:200]!r} stderr={p.stderr[:300]!r} "
+                    f"sink={got!r}")
+        return None
 
     def __exit__(self, *exc) -> bool:
         self._cb._LINUX_CLIPBOARD_TOOLS = self._saved_tools
