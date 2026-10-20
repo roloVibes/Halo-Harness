@@ -4,6 +4,7 @@
     halo coach [RUN] [--model [--refresh]] [--apply ID [--yes]] [--json] [--repo DIR]
     halo coach [RUN] --probe [--k N] [--yes] [--json]   3.1.6.0 R2: the probe (an Orchestra run)
     halo coach --undo [APPLY_ID]
+    halo coach library [list|show|forget|fetch] ...   3.1.6.0 R3: the improvement library (coach_library_cli.py)
     halo orchestra coach [RUN] ...          an Orchestra run (default: the latest of this repo)
     halo fleet mission coach <id> ...       a mission of this harness (or the shared missions folder)
     halo team coach [RUN] ...               a team run of this repo (default: the latest)
@@ -87,7 +88,8 @@ def _apply(run_dir, result: dict, a, cwd) -> int:
         print(f"halo coach: {e}", file=sys.stderr)
         return 1
     _emit({"preview": p, "applied": row}, a.json,
-          f"applied {row['apply_id']}: {row['file']} (undo: halo coach --undo {row['apply_id']})")
+          f"applied {row['apply_id']}: {row['file']} (undo: halo coach --undo {row['apply_id']})"
+          + (f"; the library keeps it as {row['entry']} (halo coach library show {row['entry']})" if row.get("entry") else ""))
     return 0
 
 
@@ -168,7 +170,10 @@ def cmd_undo(apply_id, as_json: bool = False) -> int:
 
 
 def cmd_coach(argv: list) -> int:
-    """`halo coach`: a run of any kind, or --undo."""
+    """`halo coach`: a run of any kind, or --undo; 3.1.6.0 R3 `halo coach library ...` (caught before the run parse)."""
+    if argv and argv[0] == "library":
+        from halo_harness.coach_library_cli import cmd_library
+        return cmd_library(list(argv[1:]))
     a, rc = _parse("halo coach", argv, "run folder, id or id prefix of any kind (default: the latest)", top=True)
     if a is None:
         return rc

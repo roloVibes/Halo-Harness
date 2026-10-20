@@ -9,11 +9,14 @@
 // with the change filled in, nothing saved: the 3.0.9.0 Apply). 3.1.6.0 R2:
 // an Orchestra run's header row has Probe (ProbeBar.tsx); the probe's card
 // leads the list with its contrast table, the judge's why in the paragraph
-// slot, and Apply = the composed overlay (several files, one Undo).
+// slot, and Apply = the composed overlay (several files, one Undo). 3.1.6.0
+// R3: the library's line and its "Library (n)" fold (LibraryFold.tsx) under
+// the header row, and a `lib` chip on a card an earlier entry also made.
 import { useEffect, useState } from "react";
 import { Button, Empty } from "../ui";
 import { askModel, cardKey, previewApply, undoApply } from "./actions";
 import { ConfirmCard } from "./ConfirmCard";
+import { LibraryFold } from "./LibraryFold";
 import { ContrastTable, ProbeButton, ProbePanel } from "./ProbeBar";
 import { dismiss, keyOf, loadCoach, restoreAll, useCoach } from "./store";
 import { KIND_LABEL, KIND_ORDER, type CoachRunKind, type Suggestion } from "./types";
@@ -59,6 +62,10 @@ function Card({ s, run, kind, onEdit }: { s: Suggestion; run: string; kind: Coac
              data-applied={s.applied?.state || ""}>
       <header className="cc-card-head">
         <span className="og-chip mono cc-sev" data-severity={s.severity}>{s.severity}</span>
+        {!!s.library_hits?.length && (
+          <span className="og-chip mono cc-lib-chip" data-testid="coach-lib" data-entries={s.library_hits.join(" ")}
+                title={`The library: ${s.library_hits.join(", ")} made this same change in earlier runs like this one`}>lib</span>
+        )}
         {where && <span className="mono muted cc-where">{where}</span>}
         {s.bio && <span className="og-chip mono cc-bio" title="the bio this lane ran as">{s.bio}</span>}
         <span className="spacer" />
@@ -123,6 +130,7 @@ export function CoachCards({ kind, run, onEdit }: { kind: CoachRunKind; run: str
         {kind === "orchestra" && <ProbeButton run={run} />}
       </div>
       {kind === "orchestra" && <ProbePanel run={run} />}
+      <LibraryFold kind={kind} run={run} />
       {all.length > 0 && (
         <p className="cc-help muted" data-testid="coach-help">
           Ask the model: the run's lead explains a card. Apply: shows the file and the diff, writes after you confirm.

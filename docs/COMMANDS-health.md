@@ -86,7 +86,9 @@ embedding model -- Ollama's native `/api/embed` on
 the default (or named) host, or any OpenAI-compatible `/v1/embeddings`
 server. The index lives at `~/.halo/index/embeddings.jsonl` and refreshes
 incrementally (mtime-keyed: unchanged files are never re-embedded). Each
-hit shows its similarity score, kind (memo/sess), title and path.
+hit shows its similarity score, kind (memo/sess; 3.1.6.0 `lib`: an entry of
+the coach's improvement library, its EXPERIENCE.md --
+[ORCHESTRA.md](ORCHESTRA.md#the-library)), title and path.
 DISABLED until configured: set `embeddings.model` in `~/.halo/
 config.json` (e.g. `"nomic-embed-text"`, `ollama pull nomic-embed-text`
 first; `embeddings.host` names a non-default Ollama host;

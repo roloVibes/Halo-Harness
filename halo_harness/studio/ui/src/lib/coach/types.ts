@@ -4,6 +4,8 @@
 // paragraph and applied state, and the POST <route>/ask | apply | undo shapes.
 // 3.1.6.0 R2: the probe (orchestra/coach_probe.py): its card (kind "probe",
 // the contrast table, Apply = the composed overlay), its status and its cost line.
+// 3.1.6.0 R3: the improvement library's citations (`library`, `library_line`,
+// each card's `library_hits`).
 
 export type CoachRunKind = "orchestra" | "mission" | "team";
 export type CoachKind = "probe" | "prompt" | "model" | "tools" | "structure" | "coordination";
@@ -58,6 +60,8 @@ export type Suggestion = {
   applied?: CoachApplied | null;
   /** A probe card's contrast table and totals. */
   table?: ProbeRow[];
+  /** 3.1.6.0 R3: the library entries that changed the same target, name and field (the `lib` chip). */
+  library_hits?: string[];
   probe?: { runs: number; k: number; pick: string; cost_usd: number | null; cap_usd: number | null; ended: number | null };
 };
 
@@ -90,6 +94,19 @@ export type ProbeStatus = {
 /** POST orchestra/<run>/coach/probe without confirm: what the probe may spend, before it starts. */
 export type ProbeEstimate = { k: number; factor: number; runs: number; ref_usd: number; cap_usd: number; total_usd: number; line: string };
 
+/** 3.1.6.0 R3: one library entry the coach cites for this run (orchestra/coach_citations.py). */
+export type LibraryEntry = {
+  entry: string;
+  title: string;
+  when: string;
+  ts?: number;
+  project: { name?: string; remote?: string };
+  same_project: boolean;
+  source?: "apply" | "probe";
+  from?: string | null;
+  fields: CoachChange[];
+};
+
 export type CoachResult = {
   run: string;
   kind: CoachRunKind;
@@ -99,6 +116,9 @@ export type CoachResult = {
   computed?: number;
   cached?: boolean;
   probe?: ProbeStatus | null;
+  /** 3.1.6.0 R3: the entries cited for this run, and the one line the CLI prints too. */
+  library?: LibraryEntry[];
+  library_line?: string;
 };
 
 export const KIND_ORDER: CoachKind[] = ["probe", "tools", "model", "prompt", "structure", "coordination"];

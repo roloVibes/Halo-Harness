@@ -532,8 +532,28 @@ view) are the routes. Two config keys on a member:
 - `fleet.recall.share` (default `true`): `false` keeps the box out -- it
   answers no recall and the merged view shows it as `not_shared`.
 - `fleet.recall.hide` (default `[]`): memory kinds never answered, the same
-  shape as `fleet.capabilities.hide` -- `session`, `memory`, or a memory
-  topic's own `type` (`user`, `feedback`, `project`, `reference`).
+  shape as `fleet.capabilities.hide` -- `session`, `memory`, `coach_library`
+  (3.1.6.0), or a memory topic's own `type` (`user`, `feedback`, `project`,
+  `reference`).
+
+**The coach's library across the fleet (3.1.6.0).** Every Apply of a coach
+card leaves an entry in the box's improvement library
+([ORCHESTRA.md, "The library"](ORCHESTRA.md#the-library)), and recall
+indexes each entry's EXPERIENCE.md as a third kind, `coach_library`: a
+member answers such a hit with the entry's Lessons as its excerpt, so
+`halo recall --fleet` shows what another box learned for a goal like yours
+(`[lib]` in the local `halo recall`). To take one, `halo coach library fetch
+<harness> <entry>` asks the hub this machine runs (the admin route
+`local/coach-library {harness, entry}`), which sends the read-only
+`coach_library {entry}` fleet command to one live session of that member.
+The member answers the entry's entry.json, EXPERIENCE.md, overlay.json and
+files/ -- at most 256 KB in all, else it refuses with the size -- under the
+same `fleet.recall.share` switch (and `fleet.recall.hide: [coach_library]`
+keeps it out), and logs a `library_asked` line (`{entry, by, hub, bytes}`) in
+its own journal. The entry is written here under the same id with `from:
+<harness>`; a fetch never writes over an entry already here. The coach then
+cites it for runs of the same project (the same remote path) like any entry
+of this box.
 
 ## The two-machine check (3.1.2.0 R3)
 
@@ -593,7 +613,7 @@ digest (both R4, from this harness's own files); `halo fleet capabilities
 | `fleet.tags` | `[]` | 3.0.6.0 R6: your own words for this harness; first on its chips, double weight in `who` |
 | `fleet.capabilities.hide` | `[]` | MCP servers, tools (`tool` or `server/tool`), skills or craft apps its capability catalog never lists |
 | `fleet.recall.share` | `true` | 3.1.2.0 R3: `false` keeps this box out of recall across the fleet (it answers none) |
-| `fleet.recall.hide` | `[]` | 3.1.2.0 R3: memory kinds its recall never answers (`session`, `memory`, or a topic's `type`) |
+| `fleet.recall.hide` | `[]` | 3.1.2.0 R3: memory kinds its recall never answers (`session`, `memory`, `coach_library` since 3.1.6.0, or a topic's `type`) |
 | `fleet.shared_dir` | unset | 3.0.6.0 R7: a folder every machine sees; missions live there and nothing is mirrored ([MISSIONS.md](MISSIONS.md)) |
 | `fleet.mission.prefer` | `[]` | harness names, in order, that break a tie when several can take a part |
 | `fleet.mission.max_parallel` | harnesses | how many mission parts run at once (default: the number of harnesses) |

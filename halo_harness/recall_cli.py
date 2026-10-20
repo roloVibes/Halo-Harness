@@ -17,6 +17,7 @@ import json
 import sys
 
 USAGE = "usage: halo recall <query> [--k N] [--no-refresh] [--build-only] [--fleet] [--json]"
+ICONS = {"memory": "memo", "session": "sess", "coach_library": "lib"}  # 3.1.6.0 R3: a coach library entry
 
 
 def _format(hits: list) -> str:
@@ -24,7 +25,7 @@ def _format(hits: list) -> str:
         return "no matches (is the embedding model pulled? index built?)"
     lines = []
     for h in hits:
-        icon = "memo" if h["kind"] == "memory" else "sess"
+        icon = ICONS.get(h["kind"], "sess")
         lines.append(f"  {h['score']:+.3f} [{icon}] {h['title']}  ({h['id']})")
     return "\n".join(lines)
 

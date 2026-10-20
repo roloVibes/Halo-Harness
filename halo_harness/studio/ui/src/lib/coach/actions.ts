@@ -84,6 +84,17 @@ export async function confirmApply(kind: CoachRunKind, run: string, id: string):
   }
 }
 
+/** 3.1.6.0 R3: delete one library entry (POST coach/library/<entry>/forget), then read the card again. */
+export async function forgetEntry(kind: CoachRunKind, run: string, entry: string): Promise<void> {
+  try {
+    const got = await api.post<{ message: string }>(`coach/library/${encodeURIComponent(entry)}/forget`, {});
+    toast(got.message, "done", 5000);
+    await loadCoach(kind, run, true);
+  } catch (e) {
+    toast(`Forget ${entry}: ${msg(e)}`, "error", 6000);
+  }
+}
+
 /** Undo an apply: the file goes back to its text from before, if it still holds what Apply wrote. */
 export async function undoApply(kind: CoachRunKind, run: string, id: string, applyId: string): Promise<void> {
   const key = cardKey(kind, run, id);

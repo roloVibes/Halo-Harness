@@ -148,6 +148,42 @@ def test_hide_and_share_off_on_a_members_answer(ctx: Ctx):
 
 
 @test
+def test_a_coach_library_hit_answers_its_lessons_and_hides(ctx: Ctx):
+    """3.1.6.0 R3: the kind `coach_library` (an entry's EXPERIENCE.md) answers with its Lessons; `fleet.recall.hide:
+    [coach_library]` drops it; `halo recall` shows it as [lib]."""
+    import json
+    import tempfile
+    from halo_harness import recall_fleet as RF
+    from halo_harness.fleet import identity
+    from halo_harness.recall_cli import _format
+    from tests.test_coach_library_fleet import seed
+    home = Path(tempfile.mkdtemp(prefix="recall-lib-")) / ".halo"
+    home.mkdir(parents=True)
+    path, saved = seed(home), identity.home
+    identity.home = lambda: home
+    RF.SEARCH = lambda q, k, h: [{"id": path, "kind": "coach_library", "score": 0.8, "title": "give coach-cheap the model"},
+                                 hit(0.7, "a-memory", "memory")]
+    try:
+        (home / "config.json").write_text(json.dumps({"fleet": {"name": "kali"}}), encoding="utf-8")
+        identity.forget_cache()
+        out = RF.answer({"query": "x", "k": 8}, by="alice", hub="hub-a")
+        lib = next((h for h in out["hits"] if h["kind"] == "coach_library"), {})
+        ctx.check(f"the entry answers with its Lessons, no path, got {lib}", lib.get("excerpt") == "the cheap lane hit the "
+                  "return cap; the strong one finished first try" and "id" not in lib and lib.get("harness") == "kali")
+        (home / "config.json").write_text(json.dumps({"fleet": {"name": "kali", "recall": {"hide": ["coach_library"]}}}),
+                                          encoding="utf-8")
+        identity.forget_cache()
+        out = RF.answer({"query": "x", "k": 8}, by="alice", hub="hub-a")
+        ctx.check(f"hide coach_library drops it, got {out}", [h["title"] for h in out["hits"]] == ["a-memory"] and out["hidden"] == 1)
+        ctx.check("halo recall shows it as [lib]", "[lib] t" in _format([{"kind": "coach_library", "score": 0.5, "title": "t",
+                                                                          "id": path}]))
+    finally:
+        RF.SEARCH = None
+        identity.home = saved
+        identity.forget_cache()
+
+
+@test
 def test_over_two_homes_the_hub_merges_the_members_own_index(ctx: Ctx):
     from halo_harness import recall_fleet as RF
     from halo_harness.fleet import journal

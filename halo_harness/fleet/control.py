@@ -10,6 +10,9 @@ hands it here with the session's handle and that hub's policy:
                                         afresh when older than an hour or on refresh (fleet/capabilities.py, 3.0.6.0 R6)
     recall {query, k}                   answered from this harness's own index (recall_fleet.py, 3.1.2.0 R3): the
                                         hits only, never the index; refused under fleet.recall.share: false
+    coach_library {entry}               answered: one entry of this harness's coach library (entry.json, EXPERIENCE.md,
+                                        overlay.json, files/; at most 256 KB), under the same switch as recall
+                                        (orchestra/coach_library_share.py, 3.1.6.0 R3)
     agent_tail, agent_follow, tail      answered when this hub's share is `full`
     agent_steer, agent_stop, pause,     fleet.allow_control `none`: refused, with the reason the hub shows;
     resume, shutdown, steer, interrupt  `ask` (the default): a card in the owner's TUI, "<name> on <hub>
@@ -179,8 +182,10 @@ def run(handle, msg: dict, pol: dict, interim: Optional[Callable] = None) -> dic
             return {"state": "done", "result": _read(handle, cmd, pol["share"], fields)}
         if cmd in protocol.RECALL_CMDS:  # 3.1.2.0 R3: this box's own index answers; only the hits leave it
             from halo_harness import recall_fleet
+            from halo_harness.orchestra import coach_library_share  # 3.1.6.0 R3: one entry of the coach library
             try:
-                return {"state": "done", "result": recall_fleet.answer(fields, by=by, hub=hub)}
+                answer = recall_fleet.answer if cmd == "recall" else coach_library_share.answer
+                return {"state": "done", "result": answer(fields, by=by, hub=hub)}
             except recall_fleet.Shut as e:
                 raise Refused(str(e)) from None
         if cmd in protocol.FULL_CMDS:

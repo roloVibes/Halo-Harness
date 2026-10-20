@@ -21,7 +21,9 @@ tests/test_studio_ui.py runs it as a subprocess with a scrubbed environment
 * the Mission panel's Coach face lists the ended mission's cards;
 * 3.1.6.0 R2: Probe in the Coach tab's header shows the cost line, Run the
   probe runs it (the fakes, in this process), and the probe's card leads the
-  tab with its contrast table.
+  tab with its contrast table;
+* 3.1.6.0 R3: an entry an earlier run made is cited (the library line, the
+  `lib` chip, the "Library (1)" fold); Forget asks, then deletes it.
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -157,6 +159,27 @@ def probe_card(c, rig, url: str, out: dict) -> None:
     out["probe_listed"] = len(rig.studio.get("orchestra/runs")[1])
 
 
+def library_fold(c, rig, url: str, out: dict) -> None:
+    """3.1.6.0 R3: an entry an earlier run of this repo made is cited: the library line, the `lib` chip on the model
+    card, the "Library (1)" fold; Forget asks first, then deletes the entry's folder and the fold goes."""
+    from halo_harness.orchestra import coach_library as L
+    eid = rig.seed_entry()
+    open_coach(c, url)
+    out["lib_line"] = c.wait(f"{TID.format('coach-library-line')}?.textContent || ''", 20)
+    out["lib_chip"] = c.js(f"{CARD.format('model')}?.querySelector('[data-testid=\"coach-lib\"]')?.dataset.entries || ''")
+    out["lib_summary"] = c.js(f"{TID.format('coach-library-summary')}?.textContent.trim()")
+    click(c, TID.format("coach-library-summary"))
+    out["lib_rows"] = c.wait(f"{N.format('coach-library-row')} > 0 && {N.format('coach-library-row')}", 10)
+    out["lib_row_entry"] = c.js(f"{TID.format('coach-library-row')}.dataset.entry")
+    click(c, TID.format("coach-library-forget"))
+    out["lib_confirm"] = bool(c.wait(f"!!{TID.format('coach-library-confirm')}", 10))
+    out["lib_kept_before"] = L.read(eid, rig.studio.state) is not None
+    click(c, TID.format("coach-library-forget-yes"))
+    out["lib_gone"] = c.wait(f"{N.format('coach-library-block')} === 0 && 'gone'", 20)
+    out["lib_deleted"] = not L.entry_dir(eid, rig.studio.state).exists()
+    out["lib_api"] = rig.coach().get("library")
+
+
 def mission_coach(c, rig, out: dict) -> None:
     from tests.helpers.studio_fleet_panels import open_strip
     c.go(rig.url("fleet").replace("#t=", "&view=workspace#t="))
@@ -183,7 +206,7 @@ class CoachDriver(Driver):
             yield ((three_cards, (c, url, self.out)), (apply_model, (c, rig, self.out)), (dismiss_survives, (c, url, self.out)),
                    (apply_plan, (c, rig, url, self.out)), (apply_and_undo, (c, rig, url, self.out)),
                    (ask_model, (c, rig, url, self.out)), (mission_coach, (c, rig, self.out)),
-                   (probe_card, (c, rig, url, self.out)))
+                   (probe_card, (c, rig, url, self.out)), (library_fold, (c, rig, url, self.out)))
 
 
 def main() -> int:
