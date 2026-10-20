@@ -16,7 +16,7 @@ export type Face = "glance" | "detail";
 export type PanelSpec = {
   id: string;
   title: string;
-  /** Grid cells: x 0..23, w columns; y and h in 8 px rows. h <= 0 fills the visible height. */
+  /** Grid cells: x 0..23, w columns; y and h in 8 px rows. h <= 0 fills the visible height (h < 0 leaves -h rows below it). */
   x: number;
   y: number;
   w: number;

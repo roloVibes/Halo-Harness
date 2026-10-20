@@ -20,8 +20,8 @@ R6b: `--mode orchestra` lives in tools/capture_orchestra.py and also
 renders the Start view over a repo with no run (studio-orchestra-start.png). 3.0.5.0 R3:
 `--mode fleet` (tools/capture_fleet.py) seeds two harnesses with five agents
 (tests/helpers/studio_fleet_rig.py) and renders the Fleet section
-(studio-fleet.png) and the Roles canvas glowing with its Live tab open
-(studio-roles-live.png, the React canvas since 3.0.7.0 R2), R4 also the panels with a conflict on the map and
+(studio-fleet.png; 3.1.5.0 R3: the Roles canvas glowing, studio-roles-live.png, and the Session
+dashboard are tools/capture_session_anim.py's, with their GIFs), R4 also the panels with a conflict on the map and
 the digest in the rail (studio-fleet-panels.png), 3.0.6.0 R6 the Capabilities panel
 with Who can... gridcraft (studio-fleet-capabilities.png), 3.0.6.0 R8 a planned mission
 (studio-fleet-mission.png); --dom counts their test ids. 3.0.8.0 R2: `--mode team`

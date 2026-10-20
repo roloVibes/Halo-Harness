@@ -58,6 +58,8 @@ export type RolesState = {
   busy: string;
   view: "auto" | "start" | "workspace";
   live: LiveAgent[];
+  /** 3.1.5.0 R3 (glow.ts): agents that ended but still glow: done for ten seconds, failed until their card is clicked. */
+  ended: LiveAgent[];
   watched: string;
   liveSub: LiveSub;
   replay: Replay | null;
@@ -112,6 +114,7 @@ export const roles = createStore<RolesState>({
   busy: "",
   view: (/[?&]view=(start|workspace)/.exec(location.search)?.[1] as RolesState["view"]) || "auto",
   live: [],
+  ended: [],
   watched: "",
   liveSub: "thinking",
   replay: null,

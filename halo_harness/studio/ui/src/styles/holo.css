@@ -1,0 +1,55 @@
+/* The holo look shared by Session and Roles (3.1.5.0 R3; the visual
+   direction of 2026-10-13: glass panels, HUD brackets, cyan + amber, mono
+   data, restrained motion). Tokens only (styles/tokens.css), no new colours.
+
+   .holo-frame   four HUD corner brackets on any positioned box (the panel's
+                 own .hud-brackets draws two): the class draws top-left and
+                 bottom-right, a .holo-corners child top-right and bottom-left;
+                 a box whose own ::before / ::after are taken uses a .holo-tlbr
+                 child instead of the class. --holo sets their colour (cyan).
+   .holo-glass   a translucent surface over the canvas grid.
+   .holo-grid    the canvas grid behind a scroll area.
+   .holo-num     a figure: mono, tabular, one baseline. */
+
+.holo-glass { background: var(--surface-glass); backdrop-filter: blur(var(--blur)); border: 1px solid var(--line); }
+.holo-grid { background-color: var(--bg-2);
+  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 24px 24px; }
+.holo-num { font-family: var(--mono); font-variant-numeric: tabular-nums; line-height: 1; }
+
+.holo-frame { --holo: var(--accent); }
+.holo-frame::before, .holo-frame::after, .holo-corners::before, .holo-corners::after, .holo-tlbr::before, .holo-tlbr::after {
+  content: ""; position: absolute; width: var(--holo-size, 10px); height: var(--holo-size, 10px); pointer-events: none; opacity: var(--bracket-alpha);
+  border: 1.5px solid var(--holo, var(--accent)); transition: border-color var(--t) var(--ease); }
+.holo-frame::before, .holo-tlbr::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+.holo-frame::after, .holo-tlbr::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
+.holo-corners, .holo-tlbr { position: absolute; inset: 0; pointer-events: none; border-radius: inherit; }
+.holo-corners::before { top: -1px; right: -1px; border-left: 0; border-bottom: 0; }
+.holo-corners::after { left: -1px; bottom: -1px; border-right: 0; border-top: 0; }
+
+/* the panels of Session and Roles: the HUD brackets on all four corners (the panel's .hud-brackets draws
+   top-left and bottom-right; its free ::before draws the other two), and motion kept to what works:
+   no idle breathing, a waiting pulse three times and then a steady amber */
+:is(.workspace[data-section="session"], .workspace[data-section="roles"]) .panel::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1; opacity: var(--bracket-alpha); border-radius: inherit;
+  background: linear-gradient(var(--accent), var(--accent)) right top / 12px 1.5px no-repeat, linear-gradient(var(--accent), var(--accent)) right top / 1.5px 12px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) left bottom / 12px 1.5px no-repeat, linear-gradient(var(--accent), var(--accent)) left bottom / 1.5px 12px no-repeat; }
+:is(.workspace[data-section="session"], .workspace[data-section="roles"]) .panel[data-motion="waiting"]::before { --accent: var(--warn); }
+:is(.workspace[data-section="session"], .workspace[data-section="roles"]) .glass[data-motion="idle"] { animation: none; }
+:is(.workspace[data-section="session"], .workspace[data-section="roles"]) [data-motion="waiting"],
+:is(.workspace[data-section="session"], .workspace[data-section="roles"]) .fm-card[data-motion="waiting"] .fm-card-shape,
+.rc-card[data-live="waiting"] { animation-iteration-count: 3; }
+
+/* Session's map sits over the canvas grid, like the Live column and the Roles canvas */
+.workspace[data-section="session"] .fm-scroll { border: 1px solid var(--line); border-radius: var(--radius-sm); background-color: var(--bg-2);
+  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px); background-size: 24px 24px; }
+.workspace[data-section="session"] .fm-svg[data-tree] { margin: 0 auto; }
+
+/* state colours, one vocabulary for both sections: working cyan, waiting amber, done green, failed red */
+[data-holo-state="working"] { --holo: var(--accent); }
+[data-holo-state="waiting"] { --holo: var(--warn); }
+[data-holo-state="done"] { --holo: var(--ok); }
+[data-holo-state="failed"] { --holo: var(--bad); }
+
+@media (prefers-reduced-motion: reduce) {
+  .holo-frame::before, .holo-frame::after, .holo-corners::before, .holo-corners::after { transition: none; }
+}

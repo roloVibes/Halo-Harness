@@ -13,7 +13,9 @@ waits at most WAIT_S, a slow session keeping its row without the extras).
      agents_live, agents: [agent row, ...], turns, tokens_in, tokens_out, context_tokens, context_limit}
 
 (3.1.4.0 R2: turns, the tokens and the context are the status's own, for
-Studio's Session Cost panel; None when the session has not said.)
+Studio's Session Cost panel; None when the session has not said. 3.1.5.0
+R3: each agent row also carries its own `tokens_in` / `tokens_out`, summed
+from its transcript's usage lines by fleet/agent_tokens.py.)
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ import time
 from typing import Callable, Optional
 
 from halo_harness.fleet import identity
+from halo_harness.fleet.agent_tokens import with_tokens
 
 TIMEOUT_S = 1.0
 WAIT_S = 1.5
@@ -49,7 +52,7 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
                model=data.get("model"), cost_usd=data.get("cost_usd"),
                remote_attached=data.get("remote_attached") if isinstance(data.get("remote_attached"), int) else 0,
                agents_live=live if isinstance(live, int) and not isinstance(live, bool) else 0,
-               agents=[a for a in (agents or []) if isinstance(a, dict)],
+               agents=with_tokens([a for a in (agents or []) if isinstance(a, dict)]),
                turns=_num(data.get("turn")), tokens_in=_num(data.get("total_input_tokens")),
                tokens_out=_num(data.get("total_output_tokens")), context_tokens=_num(data.get("context_tokens")),
                context_limit=_num(data.get("context_limit")))

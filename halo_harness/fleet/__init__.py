@@ -25,6 +25,7 @@ permission; the loopback Studio API is unchanged.
     relay_runtime.py  the relay manager remote/runtime.py calls; relay_hub.py one hub's thread
     control.py        commands from a hub, gated by fleet.allow_control
     local_view.py     this harness's own sessions and agent trees
+    agent_tokens.py   each agent row's own tokens in and out, from its transcript
     table.py          `halo fleet` and `/fleet` rows; table_live.py the live terminal table
     cli.py            `halo fleet serve | pair`; cli_join.py join | leave | status;
                       cli_members.py members | kick
