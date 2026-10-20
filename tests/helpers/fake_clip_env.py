@@ -60,7 +60,9 @@ class LinuxClipEnv:
     def why(self) -> str:
         """For a failure message: what the last external copy said, and whether the fallback file was written."""
         saved = self.state_dir / "clipboard.txt"
-        return f"(last copy error {self._cb.last_copy_error()!r}; clipboard.txt written: {saved.exists()})"
+        found = self._cb.find_clipboard_tool()
+        return (f"(last copy error {self._cb.last_copy_error()!r}; clipboard.txt written: {saved.exists()}; "
+                f"find -> {found!r}; PATH={os.environ.get('PATH')!r})")
 
     def __enter__(self) -> "LinuxClipEnv":
         import halo_harness.tui.clipboard as cb
@@ -88,6 +90,21 @@ class LinuxClipEnv:
             cb._LINUX_CLIPBOARD_TOOLS = tuple(
                 (name, [sys.executable, str(self.bin_dir / f"_{name}_impl.py"), *argv[1:]]) if name in fakes else (name, argv)
                 for name, argv in self._saved_tools)
+        self._saved_find = cb.find_clipboard_tool
+        if sys.platform == "win32" and (self.tools or self.failing):
+            # On a Windows host the detector is answered from the table above, not from a PATH search:
+            # the GitHub Windows runner found the fake on PATH when called directly but not from the TUI's
+            # clipboard worker (why is still unknown); the PATH search itself is pinned by the detection
+            # test, which uses no running tool. A POSIX host keeps the real detector.
+            table, fakes, session = cb._LINUX_CLIPBOARD_TOOLS, {*self.tools, *self.failing}, cb.TOOL_SESSION_VAR
+
+            def _find():
+                found = [(name, list(argv)) for name, argv in table if name in fakes]
+                for name, argv in found:
+                    if os.environ.get(session.get(name, "")):
+                        return name, argv
+                return found[0] if found else None
+            cb.find_clipboard_tool = _find
         self.probe_error = self._probe()
         return self
 
@@ -115,6 +132,7 @@ class LinuxClipEnv:
         return None
 
     def __exit__(self, *exc) -> bool:
+        self._cb.find_clipboard_tool = self._saved_find
         self._cb._LINUX_CLIPBOARD_TOOLS = self._saved_tools
         self._cb._platform = self._saved_platform
         self._cb._TMUX_MODE_CACHE.clear()
