@@ -1,11 +1,14 @@
-"""tools/hero_svg.py -- draw the README hero and the social preview from the
-wordmark in halo_harness/banner.py (2.0.11 round A2).
+"""tools/hero_svg.py -- draw the vector hero and the vector social preview from
+the wordmark in halo_harness/banner.py (2.0.11 round A2; 3.1.6.0 R4 the Studio
+tagline and chips).
 
 The block art is rendered as vector cells (one <rect> per block element,
 thin bars for the box-drawing shadow glyphs), never as text: a text
 rendering depends on the viewer's monospace font having gap-free block
 glyphs, and GitHub's SVG viewer does not promise one. The art rows are
 carried verbatim in the <desc> so tests can pin the hero to banner.py.
+`cell_rects` is the one cell geometry: tools/hero_png.py draws the README's
+first image (the wordmark over Studio's Session dashboard) from it too.
 
 Usage: python tools/hero_svg.py            # docs/media/hero.svg (1280x330)
        python tools/hero_svg.py --social   # docs/media/social-preview.svg (1280x640)
@@ -24,9 +27,10 @@ from halo_harness.banner import BANNER_ART_ROWS, RING_ROWS  # noqa: E402
 
 BG, SURFACE, TEXT, MUTED = "#1e1e2e", "#313244", "#cdd6f4", "#9399b2"
 GOLD, ACCENT, USER = "#f9e2af", "#89b4fa", "#cba6f7"
-CHIPS = (("DeepSeek", "#89b4fa"), ("GLM", "#94e2d5"), ("Kimi", "#a6e3a1"), ("Qwen", "#f9e2af"), ("Claude", "#fab387"))
-TAGLINE = "The Claude Code-compatible harness for people who'd rather not be locked into one AI coding ecosystem."
+CHIPS = (("Studio · every agent, live", ACCENT), ("any model", "#94e2d5"), ("your Claude Code setup, in place", GOLD))
+TAGLINE = "The Claude Code-compatible harness for any model, with Studio: every agent, live."
 SHADE = {"█": 1.0, "▓": 0.78, "▒": 0.5, "░": 0.25}
+SHADOW = 0.45  # the opacity of the box-drawing shadow bars
 FONT = "font-family=\"'Fira Code','DejaVu Sans Mono',Consolas,Menlo,monospace\""
 
 
@@ -46,39 +50,39 @@ def _row_fill(i: int) -> str:
     return _mix(ACCENT, USER, (i - RING_ROWS) / max(1, letters - 1))
 
 
-def _cell(ch: str, x: float, y: float, cw: float, ch_: float, fill: str) -> str:
-    """The shapes for one art cell. Box-drawing glyphs are the figlet
-    'shadow': thin bars at 45% so they read as a drop shadow, not a wall."""
-    r = f'fill="{fill}"'
+def cell_rects(ch: str, x: float, y: float, cw: float, ch_: float) -> "list[tuple[float, float, float, float, float]]":
+    """The rectangles (x, y, width, height, opacity) that draw one art cell.
+    Box-drawing glyphs are the figlet 'shadow': thin bars at 45% so they read
+    as a drop shadow, not a wall."""
     if ch in SHADE:
-        op = "" if SHADE[ch] == 1.0 else f' opacity="{SHADE[ch]}"'
-        return f'<rect x="{x:g}" y="{y:g}" width="{cw:g}" height="{ch_:g}" {r}{op}/>'
+        return [(x, y, cw, ch_, SHADE[ch])]
     if ch == "▀":
-        return f'<rect x="{x:g}" y="{y:g}" width="{cw:g}" height="{ch_ / 2:g}" {r}/>'
+        return [(x, y, cw, ch_ / 2, 1.0)]
     if ch == "▄":
-        return f'<rect x="{x:g}" y="{y + ch_ / 2:g}" width="{cw:g}" height="{ch_ / 2:g}" {r}/>'
+        return [(x, y + ch_ / 2, cw, ch_ / 2, 1.0)]
     bar_w, bar_h = cw * 0.34, ch_ * 0.2
     mx, my = x + (cw - bar_w) / 2, y + (ch_ - bar_h) / 2
-    h = f'<rect x="{x:g}" y="{my:g}" width="{cw:g}" height="{bar_h:g}" {r} opacity="0.45"/>'
-    v = f'<rect x="{mx:g}" y="{y:g}" width="{bar_w:g}" height="{ch_:g}" {r} opacity="0.45"/>'
     if ch == "═":
-        return h
+        return [(x, my, cw, bar_h, SHADOW)]
     if ch == "║":
-        return v
-    half_h = f'width="{(cw - mx + x):g}"'
+        return [(mx, y, bar_w, ch_, SHADOW)]
     if ch == "╗":  # bar from the left to the centre, bar from the centre down
-        return (f'<rect x="{x:g}" y="{my:g}" width="{(mx - x + bar_w):g}" height="{bar_h:g}" {r} opacity="0.45"/>'
-                f'<rect x="{mx:g}" y="{my:g}" width="{bar_w:g}" height="{(y + ch_ - my):g}" {r} opacity="0.45"/>')
+        return [(x, my, mx - x + bar_w, bar_h, SHADOW), (mx, my, bar_w, y + ch_ - my, SHADOW)]
     if ch == "╔":
-        return (f'<rect x="{mx:g}" y="{my:g}" {half_h} height="{bar_h:g}" {r} opacity="0.45"/>'
-                f'<rect x="{mx:g}" y="{my:g}" width="{bar_w:g}" height="{(y + ch_ - my):g}" {r} opacity="0.45"/>')
+        return [(mx, my, cw - mx + x, bar_h, SHADOW), (mx, my, bar_w, y + ch_ - my, SHADOW)]
     if ch == "╝":
-        return (f'<rect x="{x:g}" y="{my:g}" width="{(mx - x + bar_w):g}" height="{bar_h:g}" {r} opacity="0.45"/>'
-                f'<rect x="{mx:g}" y="{y:g}" width="{bar_w:g}" height="{(my - y + bar_h):g}" {r} opacity="0.45"/>')
+        return [(x, my, mx - x + bar_w, bar_h, SHADOW), (mx, y, bar_w, my - y + bar_h, SHADOW)]
     if ch == "╚":
-        return (f'<rect x="{mx:g}" y="{my:g}" {half_h} height="{bar_h:g}" {r} opacity="0.45"/>'
-                f'<rect x="{mx:g}" y="{y:g}" width="{bar_w:g}" height="{(my - y + bar_h):g}" {r} opacity="0.45"/>')
-    return ""
+        return [(mx, my, cw - mx + x, bar_h, SHADOW), (mx, y, bar_w, my - y + bar_h, SHADOW)]
+    return []
+
+
+def _cell(ch: str, x: float, y: float, cw: float, ch_: float, fill: str) -> str:
+    out = []
+    for rx, ry, rw, rh, op in cell_rects(ch, x, y, cw, ch_):
+        alpha = "" if op == 1.0 else f' opacity="{op}"'
+        out.append(f'<rect x="{rx:g}" y="{ry:g}" width="{rw:g}" height="{rh:g}" fill="{fill}"{alpha}/>')
+    return "".join(out)
 
 
 def wordmark(x0: float, y0: float, cw: float, ch_: float) -> str:
@@ -104,13 +108,21 @@ def _head(w: int, h: int, title: str) -> str:
             f'<rect width="{w}" height="{h}" rx="16" fill="{BG}"/>\n<rect x="0" y="0" width="{w}" height="6" fill="url(#g)"/>')
 
 
+def _chip_width(name: str) -> int:
+    # 14 px monospace is about 8.4 px a character; 32 px of padding, 130 at least
+    return max(130, round(len(name) * 8.6 + 32))
+
+
 def _chips(x: float, y: float) -> str:
-    out = []
+    """Studio and any model on the first row, the setup chip on the second."""
+    out, cx, cy = [], x, y
     for k, (name, color) in enumerate(CHIPS):
-        cx = x + (k % 3) * 150
-        cy = y + (k // 3) * 54
-        out.append(f'<rect x="{cx:g}" y="{cy:g}" width="130" height="38" rx="19" fill="{SURFACE}" stroke="{color}" stroke-width="1.4"/>'
-                   f'<text x="{cx + 65:g}" y="{cy + 25:g}" font-size="14" fill="{color}" text-anchor="middle" font-weight="700">{name}</text>')
+        if k == 2:
+            cx, cy = x, y + 54
+        w = _chip_width(name)
+        out.append(f'<rect x="{cx:g}" y="{cy:g}" width="{w}" height="38" rx="19" fill="{SURFACE}" stroke="{color}" stroke-width="1.4"/>'
+                   f'<text x="{cx + w / 2:g}" y="{cy + 25:g}" font-size="14" fill="{color}" text-anchor="middle" font-weight="700">{name}</text>')
+        cx += w + 16
     return "\n".join(out)
 
 
@@ -132,8 +144,7 @@ def social() -> str:
     body = [_head(1280, 640, "Halo Harness"),
             f'<ellipse cx="640" cy="{120 + 1.5 * ch_:g}" rx="{24 * cw:g}" ry="{3.2 * ch_:g}" fill="url(#glow)"/>',
             wordmark(x0, 120, cw, ch_),
-            f'<text x="640" y="492" font-size="24" fill="{TEXT}" text-anchor="middle" font-weight="400">'
-            "The Claude Code-compatible harness for any model.</text>",
+            f'<text x="640" y="492" font-size="22" fill="{TEXT}" text-anchor="middle" font-weight="400">{TAGLINE}</text>',
             f'<text x="640" y="530" font-size="17" fill="{MUTED}" text-anchor="middle">'
             "DeepSeek, GLM, Kimi, Qwen, Claude. Your ~/.claude setup, read in place.</text>",
             "</svg>"]

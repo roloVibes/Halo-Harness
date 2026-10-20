@@ -63,6 +63,7 @@ def test_every_readme_png_comes_from_captures_json(ctx: Ctx):
         path = Path(ref)
         ctx.check(f"{ref} lives in docs/media/", path.parent.as_posix() == "docs/media")
         if path.stem in ("studio-orchestra", "studio-orchestra-start", "studio-orchestra-plan", "studio-orchestra-coach", "studio-roles", "studio-design", "studio-modes",
+                         "hero",  # 3.1.6.0 R4: tools/hero_png.py, the wordmark over the Session dashboard
                          "studio-session-live",  # 3.1.5.0 R3: tools/capture_session_anim.py (with the studio-session and studio-roles-live GIFs)
                          "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session"):  # tools/capture_studio.py (and studio_modes_banner.py) render these, not the TUI pilots
             continue
@@ -87,10 +88,10 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
         if (MEDIA / f"{n}.png").is_file():
             ctx.check(f"docs/media/{n}.png has the PNG signature", (MEDIA / f"{n}.png").read_bytes()[:8] == b"\x89PNG\r\n\x1a\n")
     for png in MEDIA.glob("*.png"):
-        if png.stem in ("social-preview", "studio-design", "studio-modes",
+        if png.stem in ("hero", "social-preview", "studio-design", "studio-modes",  # 3.1.6.0 R4: both from tools/hero_png.py
                         "studio-session-live",  # 3.1.5.0 R3: tools/capture_session_anim.py (with the studio-session and studio-roles-live GIFs)
                         "studio-orchestra", "studio-orchestra-start", "studio-orchestra-plan", "studio-orchestra-coach", "studio-roles",
-                        "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session"):  # hero_svg.py --social, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py) and studio_modes_banner.py, not TUI captures
+                        "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-team", "studio-session"):  # hero_png.py, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py) and studio_modes_banner.py, not TUI captures
             continue
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
     ctx.check("the animated captures are the turn and the steer",
@@ -119,6 +120,56 @@ def test_diagrams_and_hero_exist_and_are_small(ctx: Ctx):
     # drift from banner.py.
     ctx.check("the hero's wordmark is the launch banner's rows", all(row.rstrip() in hero_text for row in BANNER_ART.split("\n")))
     ctx.check("the hero carries an explicit size", 'width="1280" height="330"' in hero_text[:600])
+    # 3.1.6.0 R4: the vector hero takes the Studio tagline and three short chips
+    ctx.check("hero.svg carries the Studio tagline",
+              "The Claude Code-compatible harness for any model, with Studio: every agent, live." in hero_text)
+    for chip in ("Studio · every agent, live", "any model", "your Claude Code setup, in place"):
+        ctx.check(f"hero.svg carries the chip {chip!r}", f">{chip}</text>" in hero_text)
+    ctx.check("the five model chips left the hero", ">DeepSeek</text>" not in hero_text)
+
+
+def _png_size(path: Path) -> "tuple[int, int]":
+    head = path.read_bytes()[:24]  # the signature, then IHDR's length, type, width, height
+    return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+
+
+@test
+def test_hero_png_and_social_preview_are_tools_hero_png_renders(ctx: Ctx):
+    """3.1.6.0 R4: the README's first image is docs/media/hero.png, the
+    wordmark over Studio's Session dashboard, and social-preview.png is the
+    same picture at GitHub's size; tools/hero_png.py writes both from
+    studio-session.png and the banner rows. Pixel identity is pinned where
+    the committed pair was rendered (Windows); Pillow's FreeType build sets
+    the line's anti-aliasing, so elsewhere a stale line is informational.
+    Without Pillow (the CI lockfiles carry none) only the files are checked."""
+    readme = (REPO_DIR / "README.md").read_text(encoding="utf-8")
+    first = _HTML_IMG.findall(readme)[0] if _HTML_IMG.findall(readme) else ""
+    ctx.check(f"the README's first image is docs/media/hero.png, got {first!r}", first == "docs/media/hero.png")
+    ctx.check("the first image's alt text names the dashboard",
+              'alt="Halo Harness: the wordmark over Studio\'s Session dashboard, every agent live"' in readme.split("\n## ", 1)[0])
+    for name, size in (("hero.png", (2560, 720)), ("social-preview.png", (1280, 640))):
+        path = MEDIA / name
+        ctx.check(f"docs/media/{name} exists", path.is_file())
+        if not path.is_file():
+            continue
+        ctx.check(f"docs/media/{name} is under 1 MB (got {path.stat().st_size})", path.stat().st_size < ONE_MB)
+        ctx.check(f"docs/media/{name} has the PNG signature", path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n")
+        ctx.check(f"docs/media/{name} is {size[0]}x{size[1]}, got {_png_size(path)}", _png_size(path) == size)
+    import importlib.util
+    if importlib.util.find_spec("PIL") is None:
+        return
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith(("HALO_", "ROLO_CLAUDE_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_"))}
+    env["PYTHONPATH"] = str(REPO_DIR)
+    result = subprocess.run([sys.executable, str(REPO_DIR / "tools" / "hero_png.py"), "--check"],
+                            capture_output=True, text=True, timeout=120, env=env, cwd=str(REPO_DIR))
+    out = result.stdout + result.stderr
+    ctx.check(f"tools/hero_png.py --check rendered both without an error:{out[-800:]}",
+              "hero check:" in out and "Traceback" not in out)
+    if sys.platform == "win32":
+        ctx.check(f"hero.png and social-preview.png are what tools/hero_png.py renders "
+                  f"(re-run it, and with --social, then commit docs/media):{out[-800:]}",
+                  result.returncode == 0 and "hero check: ok" in out)
 
 
 @test
