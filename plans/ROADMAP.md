@@ -1719,3 +1719,15 @@ the improvement library, as ADDED 2026-10-19 ~18:10) starts right after the
   image path (Pillow for the PNGs, the SVG embedding the crop) and
   `--check`. The GitHub social preview itself is a hand upload (no API):
   the owner uploads the PNG once.
+
+## ADDED 2026-10-20 ~10:30 (rolo, live on Kali: "Copying the words in a session chat text not yet sent does not work. I can't copy the text then paste it somewhere else."): 3.1.6.0 R5 copying the draft on Linux
+
+- R5 Copying the draft out of the TUI on Linux: `Ctrl+Shift+C` and `/copy
+  draft` copy the whole prompt draft; a selection + Ctrl+C keeps copying the
+  selection; every copy says what landed (the tool, OSC 52, the count) and
+  on a Linux box with no `xclip` / `wl-copy` / `xsel` names the apt install
+  and ALSO writes the text to `<state>/clipboard.txt` so the words are never
+  lost; `halo doctor` gets a clipboard row with its fix; one status hint the
+  first time a mouse drag lands ("hold Shift to select with the terminal").
+  Stock Kali terminals ignore OSC 52 and ship none of the tools, which is
+  what the owner hit.
