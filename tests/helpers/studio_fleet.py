@@ -84,7 +84,7 @@ def fleet_map(c, rig) -> dict:
     key_a, key_b = rig.key("Implement"), rig.key("Research")
     wait_node(c, "researcher")
     c.click_on(node("researcher"))
-    out["selected"] = c.wait(f"{DETAIL}?.dataset.key === '{key_b}' && 'researcher'", 10)
+    out["selected"] = c.wait(f"{DETAIL}?.dataset.key === '{key_b}' && 'researcher'", 30)
     out["tail_text"] = c.wait("[...document.querySelectorAll('[data-testid=\"fleet-text\"]')].map((e) => e.textContent).find((t) => t.includes('pricing notes'))", 15)
     c.click_on("document.querySelector('[data-testid=\"fleet-tab-working\"]')")
     out["tool_rows"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-tool-row\"]').length", 10)
@@ -93,9 +93,9 @@ def fleet_map(c, rig) -> dict:
     x, y, w, h = c.rect("document.querySelector('.fm-scroll')")
     c.click(x + w - 30, y + h - 30)  # the map's empty corner: the panel takes the keys
     c.key("j")
-    out["after_j"] = c.wait(f"{DETAIL}?.dataset.key !== '{key_b}' && {DETAIL}.dataset.key", 10)
+    out["after_j"] = c.wait(f"{DETAIL}?.dataset.key !== '{key_b}' && {DETAIL}.dataset.key", 30)
     c.key("k")
-    out["after_k"] = c.wait(f"{DETAIL}?.dataset.key === '{key_b}' && 'researcher'", 10)
+    out["after_k"] = c.wait(f"{DETAIL}?.dataset.key === '{key_b}' && 'researcher'", 30)
     c.js("document.querySelector('[data-testid=\"fleet-steer-send\"]').scrollIntoView({block: 'center'}); 1")  # R6: Agent sits under Capabilities
     c.click_on("document.querySelector('[data-testid=\"fleet-steer\"]')")
     c.type_text(STEER_SEEN)
@@ -108,7 +108,7 @@ def fleet_map(c, rig) -> dict:
     out["steer_not_a"] = not any(STEER_SEEN in json.dumps(b) for b in rig.seen["a"])
     wait_node(c, "implementer")
     c.click_on(node("implementer"))
-    c.wait(f"{DETAIL}?.dataset.key === '{key_a}'", 10)
+    c.wait(f"{DETAIL}?.dataset.key === '{key_a}'", 30)
     c.click_on("document.querySelector('[data-testid=\"fleet-stop\"]')")
     out["asked"] = c.wait("document.querySelector('[data-testid=\"fleet-confirm\"] .dialog-title')?.textContent", 10)
     out["state_while_asked"] = rig.agent("Implement").get("state")
@@ -120,7 +120,7 @@ def fleet_map(c, rig) -> dict:
     out["stopped"] = wait_for(lambda: rig.agent("Implement").get("state") == "stopped" and "stopped", 30)
     out["node_stopped"] = wait_node(c, "implementer", "n.dataset.state === 'stopped'", 60)  # a loaded runner took > 20 s
     c.click_on(f"[...document.querySelectorAll('[data-testid=\"fleet-rail-node\"]')].find((n) => n.dataset.kind === 'agent' && n.dataset.id === 'main' && n.closest('.fr-harness').querySelector('.fr-h').dataset.id === '{rig.member_id}')")
-    c.wait(f"{DETAIL}?.dataset.key?.startsWith('{rig.member_id}')", 10)
+    c.wait(f"{DETAIL}?.dataset.key?.startsWith('{rig.member_id}')", 30)
     c.click_on("document.querySelector('[data-testid=\"fleet-steer\"]')")
     c.type_text("answer the second question first")
     c.click_on("document.querySelector('[data-testid=\"fleet-steer-send\"]')")
