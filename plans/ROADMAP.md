@@ -1731,3 +1731,40 @@ the improvement library, as ADDED 2026-10-19 ~18:10) starts right after the
   first time a mouse drag lands ("hold Shift to select with the terminal").
   Stock Kali terminals ignore OSC 52 and ship none of the tools, which is
   what the owner hit.
+
+## ADDED 2026-10-20 ~11:50 (rolo: "The session tab should be the first tab in studio"): 3.1.6.0 R6 Session is the first tab
+
+- R6 Session is the first tab: the Studio sections run Session (`Alt+1`),
+  Roles (`Alt+2`), Fleet (`Alt+3`), Orchestra (`Alt+4`), Team (`Alt+5`),
+  Design (`Alt+6`) -- the order the front page already tells (the owner's
+  two focuses first, Design last, as his 2026-10-20 "Focus" direction had
+  it). One registry (routes/index.tsx SECTIONS) is the order; the rail, the
+  palette, the Start view, the F1/`?` key help, the section help pages, the
+  modes banner (tools/studio_modes_banner.py -> docs/media/studio-modes.png)
+  and every doc line that names an `Alt+N` follow it. `/studio <section>`,
+  `halo studio --fleet|--session` and the section ids never change. Studio
+  still lands on Session when a session is live and on the Start view
+  otherwise. Pinned: the order and the keys in Chrome; a docs check that no
+  `Alt+N` line disagrees with the registry.
+
+## ADDED 2026-10-20 ~12:15 (rolo, with a photo of the Fleet view: "I want what fleet has with tool running too within the session tab. More of insight and ability to jump in and steer is awesome. I like what you got going in session tab right now too"): 3.1.7.0 "Session: the insight and the steer"
+
+Runs right after 3.1.6.0 ships (its worker starts at once, in parallel).
+
+- R1 Session has what Fleet has, and the steer is always at hand: the Live
+  column keeps its narrative rows (what each agent types, every tool call
+  with its target and running clock, its result, what it hands back) and
+  gains Fleet's Activity structure in the same column -- a time stamp and a
+  KIND tag (TOOL / TEXT / STATE / ASK / YOU) on every row like the Fleet
+  log's columns, the timeline strip (one lane per live agent, 5 / 15 / 60
+  min, a lane click pins that agent) above the rows, an agent select and a
+  kind select beside Follow (pin stays); the Steer box sits at the bottom
+  of the column at all times, addressed to the pinned agent or, with none,
+  to the session's main agent, with Pause and Stop beside it, and every
+  agent tag and map node has "steer" one click away (click = pin + the box
+  focused). The Activity panel stays as the long history. Pinned in Chrome:
+  the columns, the strip, the filters, a steer sent from the column with
+  nothing pinned reaches main and echoes as YOU.
+
+Not taken: a second log panel open by default (one column, as the owner
+likes it); changing the Fleet view.
