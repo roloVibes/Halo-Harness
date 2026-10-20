@@ -21,7 +21,7 @@ def get_gym(req: Request):
     results = iter_results(req.state_dir)
     out: dict = {}
     if results:
-        for row in M.model_rows(req.state_dir):
+        for row in M.model_rows(req.state_dir, getattr(req, "cwd", None)):
             ref = str(row.get("ref") or "")
             if not ref.startswith(("ol:", "hf:")):
                 continue
@@ -37,7 +37,7 @@ def get_best_for(req: Request):
     from halo_harness.capabilities import KINDS, score
     from . import model as M
     out: dict = {}
-    for row in M.model_rows(req.state_dir):
+    for row in M.model_rows(req.state_dir, getattr(req, "cwd", None)):
         ranked = []
         for kind in KINDS:
             try:

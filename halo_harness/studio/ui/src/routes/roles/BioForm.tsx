@@ -8,17 +8,19 @@
 // carries field_help.py's line. Save writes it to your scope, or with "Save to
 // project scope" to the repo's .halo/agents/ (a shipped bio becomes your
 // copy); a 422 lists the validator's lines. 3.0.9.0 R3: a coach card's Apply
-// puts its note on top and marks the field it filled in.
+// puts its note on top and marks the field it filled in. 3.1.4.0 R4: MODELS
+// comes first, right under the name (BioModels: the model select on top).
 import { useState } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
 import { editBio, saveBio, setKey } from "./bioActions";
-import { arr, BioFields } from "./BioFields";
+import { arr, BioFields, BioModels } from "./BioFields";
 import { BioSchedule } from "./BioSchedule";
 import { BioYaml } from "./BioYaml";
 import { CoachNote } from "./CoachNote";
 import { Check, ListIn, Pick, TextIn } from "./controls";
 import { openDialog, roles, scopeLabel, shipped, useRoles } from "./store";
+import type { Raw } from "./types";
 
 const KINDS = ["main", "subagent", "researcher", "judge", "reviewer", "custom", "media"];
 
@@ -39,6 +41,7 @@ export function BioForm() {
   const busy = useRoles((s) => s.busy === "bio");
   const hint = useRoles((s) => (s.coachHint && s.coachHint.bio === s.bio ? s.coachHint : null));
   const id = useHelpGroup("identity");
+  const focusModels = useRoles((s) => s.modelFocus === "bio" && s.bioData?.name === s.bio);
   const [yaml, setYaml] = useState(false);
   const mark = (field: string) => hint?.field === field;
   if (!name) return <p className="muted">Pick a bio above, or drag one onto the canvas to add it to the lineup.</p>;
@@ -57,6 +60,8 @@ export function BioForm() {
         <BioYaml />
       ) : (
         <>
+          <BioModels d={d} mark={mark} focus={focusModels}
+                     inherited={d.models && (d.models as Raw).preference ? "" : String(((data.resolved?.models || {}) as Raw).preference || "")} />
           <TextIn label="Description" hint={id.description} value={String(d.description ?? "")} onCommit={top("description")} testid="bio-description" />
           <Pick label="Kind" hint={id.kind} value={String(d.kind ?? "subagent")} options={KINDS} onChange={top("kind")} testid="bio-kind" />
           <ListIn label="Tags" hint={id.tags} value={arr(d.tags)} onCommit={top("tags")} testid="bio-tags" />

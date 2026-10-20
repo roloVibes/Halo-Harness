@@ -36,6 +36,16 @@ export async function newProject(name: string, model = ""): Promise<boolean> {
   return true;
 }
 
+/** 3.1.4.0 R4: the open project's model (`PUT design/<slug>/model`; "" = the default model). */
+export async function setProjectModel(model: string): Promise<boolean> {
+  const r = await run("model", () => call<{ model: string }>("PUT", "model", { model }), (r) =>
+    r.model ? `This project runs on ${r.model} now` : "This project runs on the default model now");
+  if (!r) return false;
+  await loadProjects();
+  await reload();
+  return true;
+}
+
 /** Run one turn with `prompt` (the message box's text by default). */
 export async function send(prompt = design.get().draft, extra: Record<string, unknown> = {}, label?: string): Promise<TurnResult | null> {
   const s = design.get();

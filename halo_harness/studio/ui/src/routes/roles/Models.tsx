@@ -3,10 +3,13 @@
 // is enabled, has a key and how many models it has cached, and, when the
 // catalog is empty, why -- and Refresh (`POST models/refresh`: every
 // enabled provider's list again). "Test this model" runs the probe on any
-// ref you type here.
+// ref you type here. 3.1.4.0 R4: the reason names every provider looked at
+// and why it lists nothing; under it, when the last Refresh ran and each
+// provider's outcome (shared/catalog.tsx, the lines every model select shows).
 import { useEffect, useState } from "react";
 import { Button } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
+import { CatalogLines } from "../shared/catalog";
 import { refreshModels } from "./bioActions";
 import { TestButton } from "./ModelPicker";
 import { useRoles } from "./store";
@@ -28,6 +31,7 @@ export function ModelsDetail() {
         </Button>
       </div>
       {st?.reason && <p className="rmo-why" data-testid="roles-models-why">{st.reason}</p>}
+      <CatalogLines empty={false} />
       {st ? (
         <ul className="rmo-list">
           {st.providers.filter((p) => p.enabled || p.credentials).map((p) => (

@@ -2,7 +2,8 @@
 3.0.1.0 round D3): `/api/design/...` over `halo_harness.design` (projects,
 artboards, turns, comments, knobs, direct text edits, versions, the design
 system, exports, the handoff; 3.0.7.0 R3: artboard rename / delete, cancel a
-turn, every turn on the live feed as `design_turn` frames). Same loopback /
+turn, every turn on the live feed as `design_turn` frames; 3.1.4.0 R4: the
+project's model, `PUT <slug>/model`). Same loopback /
 origin / token guard as every Studio route. `RUNNER` replaces the turn's
 subprocess (tests set it); `REGISTERED` pins the craft apps a turn may use (None = the user's config).
 
@@ -43,6 +44,21 @@ def new_project(req):
     return 201, {"slug": p.slug}
 
 
+def put_model(req):
+    """3.1.4.0 R4: `PUT <slug>/model {model}` -- the project's model (the
+    Projects panel's model select); empty: the default model."""
+    p, err = _project(req)
+    if err:
+        return err
+    model = req.body.get("model")
+    if model is not None and not isinstance(model, str):
+        return _bad("model is a model ref, or empty for the default model")
+    meta = p._meta_for_write()
+    meta["model"] = str(model or "").strip()
+    p.save_meta(meta)
+    return 200, {"slug": p.slug, "model": meta["model"]}
+
+
 def get_models(req):
     if str(req.query.get("media") or "") in ("1", "true"):
         # the ComfyUI media models (cached inventory, by what each produces): a group of their own in the chooser
@@ -50,7 +66,7 @@ def get_models(req):
         return 200, {"media": rows_for("all", req.state_dir)}
     from halo_harness.capabilities import best_for
     from halo_harness.studio import model as M
-    return 200, best_for(M.model_rows(req.state_dir), "design", limit=12)
+    return 200, best_for(M.model_rows(req.state_dir, getattr(req, "cwd", None)), "design", limit=12)
 
 
 def get_project(req):
@@ -180,7 +196,7 @@ ROUTES = [
     ("GET", r"^projects$", list_projects), ("POST", r"^projects$", new_project), ("GET", r"^models$", get_models),
     ("GET", _S + r"$", get_project), ("POST", _S + r"/run$", run), ("GET", _S + r"/turn/(?P<tid>[^/]+)$", get_turn),
     ("POST", _S + r"/comment$", comment), ("POST", _S + r"/comments/resolve$", resolve), ("POST", _S + r"/control$", control),
-    ("POST", _S + r"/text-edit$", text_edit), ("PUT", _S + r"/system$", put_system),
+    ("POST", _S + r"/text-edit$", text_edit), ("PUT", _S + r"/system$", put_system), ("PUT", _S + r"/model$", put_model),
     ("GET", _S + r"/artboard/(?P<aid>[^/]+)/versions$", artboards.versions),
     ("POST", _S + r"/artboard/(?P<aid>[^/]+)/restore$", artboards.restore),
     ("POST", _S + r"/critique$", critiques.critique), ("GET", _S + r"/artboard/(?P<aid>[^/]+)/contrast$", artboards.contrast),

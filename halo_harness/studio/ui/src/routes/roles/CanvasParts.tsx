@@ -8,6 +8,7 @@
 import { memo, type PointerEvent } from "react";
 import { cost } from "../orchestra/format";
 import { CARD_H, CARD_W, edgePath, type Box } from "./layout";
+import { focusModel } from "./modelActions";
 import { priceText, scopeLabel } from "./store";
 import type { GraphEdge, GraphNode, GymScore, LiveAgent, ModelRow, Pos, Tier } from "./types";
 
@@ -79,9 +80,10 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
         {n.alias && n.alias !== n.role ? ` · as ${n.alias}` : ""}
         {n.instances > 1 && <span className="rc-inst mono" title={`${n.instances} instances of this slot`}> ×{n.instances}</span>}
       </div>
-      <div className="rc-model mono" data-testid="roles-model-pill" title={n.model ? `${n.model}${n.fallback ? " · fallback " + n.fallback : ""}` : "no model resolves for this slot"}>
+      <button type="button" className="rc-model mono" data-testid="roles-model-pill" onClick={() => focusModel(n.id)}
+              title={`${n.model ? `${n.model}${n.fallback ? " · fallback " + n.fallback : ""}` : "no model resolves for this slot"}: click to change it (the Inspector's MODEL strip)`}>
         {n.model ? n.model.replace(/^or:[^/]+\//, "") : "no model resolves"}
-      </div>
+      </button>
       <div className="rc-meta mono">
         <span title="price per 1M tokens in / out">{priceText(model)}</span>
         <span>ctx {model?.context || n.context || "?"}</span>

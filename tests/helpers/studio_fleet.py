@@ -149,6 +149,7 @@ def roles(c, rig) -> dict:
     out["clicked"] = c.wait(SELECTED, 10)
     out["live_tab"] = c.wait("document.querySelector('[data-testid=\"roles-live-tab\"]')?.getAttribute('aria-selected') === 'true' && 'on'", 10)
     out["live_text"] = c.wait("[...document.querySelectorAll('[data-testid=\"roles-live\"] [data-testid=\"fleet-text\"]')].map((e) => e.textContent).find((t) => t.includes('basket'))", 15)
+    c.js("document.querySelector('[data-testid=\"roles-live-working\"]').scrollIntoView({block: 'center'}); 1")  # 3.1.4.0 R4: below the MODEL strip
     c.click_on("document.querySelector('[data-testid=\"roles-live-working\"]')")
     out["live_tools"] = c.wait("document.querySelectorAll('[data-testid=\"roles-live\"] [data-testid=\"fleet-tool-row\"]').length", 10)
     out["live_tool"] = c.js("document.querySelector('[data-testid=\"roles-live\"] .fa-tool-label')?.textContent")

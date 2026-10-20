@@ -32,6 +32,13 @@ this list against the tree.
   (`POST /api/focus`, the `focus` frame), `studio/field_help_api.py`
   (`GET /api/field-help`, `halo_harness/field_help.py`'s lines for the bio
   form and the lineup inspector)
+- the model catalog (3.1.4.0 R4): `studio/catalog_env.py` (the env a session
+  resolves providers with: the env file, the shell, the settings.json `env`
+  chain), `studio/models_refresh.py` (Refresh: every provider at once,
+  time-boxed, one outcome line each, kept with its time),
+  `studio/models_fallback.py` (`GET /api/models/fallback`: the refs in use and
+  the shipped OpenRouter list, not verified), `studio/models_resolve.py`
+  (`GET /api/models/resolve`: what a role runs on)
 - the Session dashboard (3.1.4.0): `studio/session_open.py` (a section
   target: Session on a session or any section, for `/studio` and `halo studio
   --session`; this harness's live sessions; the served page's

@@ -116,6 +116,13 @@ def test_projects_models_and_the_guard(ctx: Ctx):
         ctx.check("the detail carries meta, artboards, comments, system, history and no live turn",
                   status == 200 and r["meta"]["name"] == "Launch Page" and r["artboards"] == [] and r["comments"] == [] and r["live_turn"] is None and "history" in r and "system" in r)
         ctx.check("an unknown slug is a 404 with an error", s.call("GET", "/api/design/nope")[0] == 404 and s.call("GET", "/api/design/..")[0] == 404)
+        status, r = s.call("PUT", "/api/design/launch-page/model", {"model": "or:v/other"})  # 3.1.4.0 R4: the Projects panel's model select
+        ctx.check("PUT <slug>/model changes the project's model", status == 200 and r["model"] == "or:v/other"
+                  and s.call("GET", "/api/design/launch-page")[1]["meta"]["model"] == "or:v/other")
+        ctx.check("an empty model is the default model again", s.call("PUT", "/api/design/launch-page/model", {"model": ""})[1]["model"] == ""
+                  and any(x["slug"] == "launch-page" and x["model"] == "" for x in s.call("GET", "/api/design/projects")[1]["projects"]))
+        ctx.check("a model that is not a string is a 422", s.call("PUT", "/api/design/launch-page/model", {"model": 3})[0] == 422)
+        s.call("PUT", "/api/design/launch-page/model", {"model": "or:v/eyes"})
         status, r = s.call("GET", "/api/design/models")
         ctx.check("the design ranking is a list of at most 12 rows", status == 200 and isinstance(r, list) and len(r) <= 12)
         ctx.check("a wrong token is a 401", s.call("GET", "/api/design/projects", token="wrong")[0] == 401)
