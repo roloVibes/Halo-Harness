@@ -5,7 +5,8 @@ a decision (Halo 3.1.8.0 R1), kept out of loop.py so the tick stays small.
 failure is re-queued up to `supervise.retries`, then parks `why: retries`; a
 budget or gate stop parks and raises its Attention row). `decision(sup, row)`
 applies the owner's answer to a parked decision (approve or reject a plan,
-raise a cap and resume, stop, or forward a job goal's ask over its socket).
+raise a cap and resume, stop, or forward a job goal's ask over its socket;
+R2: a replan's goal_plan or goal_replan row goes to replan_rows.decide).
 `park_*` make the budget / gate / plan rows. `cancel(sup, gid, why)` is the
 shared stop used by `halo goal cancel` and a goal_ask's Stop.
 """
@@ -48,7 +49,10 @@ def decision(sup, row: dict) -> None:
     ans = row.get("answer") or {}
     key, text = ans.get("key"), str(ans.get("text") or "")
     kind = row["kind"]
-    if kind == "goal_plan":
+    if kind == "goal_replan" or (kind == "goal_plan" and (row.get("target") or {}).get("replan")):
+        from halo_harness.supervise.replan_rows import decide  # 3.1.8.0 R2: a replan's review or its failed check
+        decide(sup, row, key, text)
+    elif kind == "goal_plan":
         _plan(sup, row, key, text)
     elif kind == "goal_gate":
         _raise(sup, row, key, text, step="return_cap")

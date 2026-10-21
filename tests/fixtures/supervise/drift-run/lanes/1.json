@@ -1,0 +1,6 @@
+{
+  "lane": 1, "job": "job-1", "title": "write add_item", "claims": ["basket.py#add_item"], "order": 1,
+  "state": "merged", "holder": "w1/main", "cost_usd": 0.2, "started": 1760000000.0, "ended": 1760000040.0,
+  "pieces_returned": 3, "session_ids": [], "written": {}, "error": "", "reply": "", "after": [], "handoff": {},
+  "history": [{"state": "joined", "ts": 1760000001.0, "text": ""}, {"state": "merged", "ts": 1760000060.0, "text": ""}]
+}

@@ -1,0 +1,8 @@
+{
+  "lane": 2, "job": "job-2", "title": "write remove_item", "claims": ["basket.py#remove_item"], "order": 2,
+  "state": "written", "holder": "w2/main", "cost_usd": 0.3, "started": 1760000000.0, "ended": 1760000900.0,
+  "pieces_returned": 2, "session_ids": [], "written": {}, "error": "", "reply": "", "after": [], "handoff": {},
+  "returned_text": "The tests fail on the finished branch orchestra/drift-run:\nFAIL: test_remove_item (test_basket.T)",
+  "history": [{"state": "writing", "ts": 1760000800.0, "text": "worker writing (piece sent back)"},
+              {"state": "written", "ts": 1760000900.0, "text": ""}]
+}

@@ -17,6 +17,7 @@ serves them (`GET /api/fleet/attention`) and routes the answers.
     team_budget    a stage was held at its budget line (3.1.2.0 R2): raise / skip / stop
     goal_plan | goal_gate | goal_budget | goal_ask   a supervisor decision (3.1.8.0 R1,
                    fleet/supervise_attention.py): a goal's plan review, a gate past the cap, a budget cap, a job's ask
+    goal_replan    a replan's new plan failed its check twice (3.1.8.0 R2): apply / keep the old plan / stop
 
 Each row: {id, kind, harness, harness_name, local, session_id, session, agent_id, agent, what, detail,
 since, keys: {a|r|s|o: label}, text_for: "r" | None, target: {...}}. `keys` holds only the answers
@@ -54,9 +55,11 @@ KEYS = {
     "goal_gate": {"a": "raise the cap by 1 and resume", "r": "raise the cap by N", "s": "stop", "o": "open the run"},
     "goal_budget": {"a": "raise by its cap and resume", "r": "raise by $N", "s": "stop", "o": "open the goal"},
     "goal_ask": {"a": "allow once", "r": "deny", "s": "stop the goal", "o": "open the session"},
+    "goal_replan": {"a": "apply the new plan", "r": "keep the old plan", "s": "stop the goal", "o": "open the plan"},  # R2
 }
 TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "mission_plan": "r",
-            "team_gate": "r", "goal_plan": "r", "goal_gate": "r", "goal_budget": "r", "goal_ask": "r"}
+            "team_gate": "r", "goal_plan": "r", "goal_gate": "r", "goal_budget": "r", "goal_ask": "r",
+            "goal_replan": "r"}
 CARD_KINDS = ("permission", "question", "plan", "approval")
 
 

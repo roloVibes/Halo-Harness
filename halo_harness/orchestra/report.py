@@ -5,9 +5,10 @@
      "tests_tail": "...", "cost_usd": 0.0123, "elapsed_s": 81.2, "ts": ...,
      "goal_done_when": "...",
      "lanes": [{"lane", "title", "state", "pieces_returned", "cost_usd"}],
-     "checks": [{"id", "ok", "detail"}]}
+     "checks": [{"id", "ok", "detail"}],
+     "replans": [{"n", "at", "why", "by", "moves"}]}   3.1.8.0 R2, only when the supervisor replanned the run
 
-Check ids (the reel's list): reviewer_fresh, reviewer_applied_by_code_tests_pass,
+`cost_usd` counts every lane file, a lane a replan replaced included. Check ids (the reel's list): reviewer_fresh, reviewer_applied_by_code_tests_pass,
 no_piece_over_cap, all_branches_merged, record_equals_disk,
 every_edit_streamed, tests_pass_finished_branch, and goal_done_when (the
 DONE WHEN text, echoed; `ok` is null).
@@ -122,6 +123,7 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
     split = jsonl.read_json(run_dir / "split.json", {}) or {}
     cost = float(split.get("lead_cost_usd") or 0.0) + sum(lane.cost_usd for lane in lanes)
     cost += sum(float(c.get("cost_usd") or 0.0) for c in merge.get("conflicts") or [])
+    cost += _other_lanes_cost(run_dir, {lane.n for lane in lanes})  # 3.1.8.0 R2: a lane a replan replaced spent too
     ts = clock()
     report = {
         "run_id": run_dir.name, "status": status, "stop_reason": stop_reason,
@@ -136,8 +138,29 @@ def write_report(run_dir, *, goal, lanes: list, merge: Optional[dict] = None, ga
         "checks": build_checks(run_dir, goal, lanes, merge, gate),
         "units": _unit_rows(run_dir),  # 3.1.2.0 R1: one UnitRow per lane (docs/WORK.md), beside `lanes`
     }
+    revisions = (jsonl.read_json(run_dir / "plan.json", {}) or {}).get("revisions") if (run_dir / "plan.json").is_file() else None
+    if revisions:  # 3.1.8.0 R2: every replan the supervisor applied (supervise/replan_apply.py)
+        report["replans"] = [{k: r.get(k) for k in ("n", "at", "why", "by", "moves")} for r in revisions if isinstance(r, dict)]
     jsonl.write_json(report_path(run_dir), report)
     return report
+
+
+def _other_lanes_cost(run_dir, seen: set) -> float:
+    total = 0.0
+    for p in (Path(run_dir) / "lanes").glob("*.json"):
+        if p.stem.isdigit() and int(p.stem) not in seen:
+            data = jsonl.read_json(p, {})
+            total += float((data if isinstance(data, dict) else {}).get("cost_usd") or 0.0)
+    return total
+
+
+def replan_line(report: dict) -> str:
+    """3.1.8.0 R2: 'replanned N times (forecast; returns)' from the report's `replans`, '' for none."""
+    revs = report.get("replans") or []
+    if not revs:
+        return ""
+    why = "; ".join(", ".join(str(w).split(":", 1)[0] for w in r.get("why") or []) or "drift" for r in revs)
+    return f"replanned {len(revs)} time{'s' if len(revs) != 1 else ''} ({why})"
 
 
 def _unit_rows(run_dir) -> list:
@@ -164,6 +187,8 @@ def format_report(report: dict, run_dir=None) -> str:
     for lane in report.get("lanes") or []:
         lines.append(f"  lane {lane['lane']:<3} {lane['state']:<9} returned {lane['pieces_returned']}  "
                      f"${float(lane.get('cost_usd') or 0):.4f}  {lane['title']}")
+    if replan_line(report):
+        lines.append(f"  {replan_line(report)}")
     lines.append("  checks:")
     for c in report.get("checks") or []:
         lines.append(f"    {mark.get(c.get('ok'), '????')}  {c['id']:<36} {c.get('detail') or ''}")

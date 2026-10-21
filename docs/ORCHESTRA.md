@@ -515,6 +515,15 @@ parks with a `goal budget` row in Attention (`supervise/budget.py`, the probe
 guard's rule generalized). A plain `halo orchestra run` from a terminal still
 only warns -- the stop is the supervisor's.
 
+Halo 3.1.8.0 R2: with `supervise.replan: auto | review` the supervisor also
+replans a run that drifts (its forecast, its returns, a blocked or a stalled
+lane): it pauses the lanes left through the run's own stop file (running
+workers finish their step), asks the lead for a new plan for them (a
+different model, a split, a second specialist, a retry with the contrast) and
+applies it at once or parks it for review; a merged lane is never touched.
+plan.json gains `revisions`, report.json `replans`. See
+[SUPERVISE.md](SUPERVISE.md#replanning).
+
 ## The heartbeat
 
 Halo 3.1.8.0 R1. Every runner -- `halo orchestra run`, Studio and the

@@ -1,0 +1,16 @@
+{
+  "what": "Write the five functions of basket.py",
+  "done_when": "the tests pass",
+  "stop_when": "two returns",
+  "workers": 5,
+  "return_cap": 2,
+  "test": "",
+  "test_timeout_s": 60,
+  "files": ["basket.py"],
+  "lineup": "",
+  "lead": "main",
+  "worker": "subagent",
+  "handoffs": {},
+  "plan": "auto",
+  "budget_usd": 1.0
+}

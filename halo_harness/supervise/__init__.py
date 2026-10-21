@@ -18,6 +18,14 @@ finished, what waits on you and what it cost.
     decisions.py  the parked decisions: <state>/supervise/decisions/<rid>.json
     asks.py       a supervised job's asks, parked from its control socket's feed
     arm.py        the lineups' schedules and triggers, armed by the supervisor
+    drift.py      R2: when a run drifts (forecast, returns, blocked, stalled), each with its number
+    replan.py     R2: the replan pause, its gate (mode, replan_max, the cooldown), the spawn hook, the tick's watch
+    replan_ask.py R2: the lead asked in the goal's thread, the answer checked, applied or parked
+    replan_prompt.py  R2: the replan prompt (the lanes left, the drift, what came back)
+    replan_plan.py    R2: the lead's plan for the lanes left checked against the run (the four moves)
+    replan_moves.py   R2: what a replan changes, lane by lane, and the diff lines
+    replan_apply.py   R2: a checked replan written into the run (split.json, lanes, claims, workflow, plan.json)
+    replan_rows.py    R2: the owner's answer to a replan row; "replanned N times"
     loop.py       the tick
     cli.py        `halo supervise [--daemon | --service] | status | stop`
     goal_cli.py   `halo goal add | list | show | rm | hold | release | pause | resume | cancel`

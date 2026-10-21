@@ -5,11 +5,10 @@
          -> test -> gate (a failed piece loops back to its worker, up to
             return_cap times) -> done: the finished branch and report.json
 
-`run(run_dir, *, model_calls, spawn, judge, clock)`: `model_calls` is the lead's one-shot call
-(split), `spawn(lane)` runs a worker, `judge(hunks, goal, file)` is the fresh judge (the real
-ones: adapters.py; tests pass fakes). Every transition advances `workflow.json` and logs a
-`state` line; `on_event(entry)` sees each new events.jsonl line. `plan: review` holds the split
-`planned` for the reviewed plan (plan.py).
+`run(run_dir, *, model_calls, spawn, judge, clock)`: the lead's one-shot call (split), a worker
+and the fresh judge (the real ones: adapters.py; tests pass fakes). Every transition advances
+`workflow.json` and logs a `state` line; `on_event(entry)` sees each new events.jsonl line.
+`plan: review` holds the split `planned` for the reviewed plan (plan.py).
 
 Resumable: a re-run reads split.json, lanes/*.json and merge.json and picks up at the first
 unfinished step (a written lane is not run again, a merged lane is not merged again). STOP WHEN
@@ -163,6 +162,7 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
 
     def respawn(lane, text: str) -> None:
         flow.set(wf.worker_id(lane.n), "running", "piece sent back")
+        lane.update(returned_text=text[-2000:])  # 3.1.8.0 R2: what came back, for a replan's contrast
         run_lane(run_dir, goal, lane, spawn, clock=clock, retry_text=text)
         flow.set(wf.worker_id(lane.n), "failed" if lane.state == "failed" else "done")
         stale.rewritten(lane, respawn)
@@ -188,8 +188,8 @@ def run(run_dir, *, model_calls: Callable, spawn: Callable, judge: Callable,
             jobs = await_plan(run_dir, flow, jobs, check_stop=lambda: _check_stop(run_dir), poll_s=plan_poll_s)
         flow.set("split", "done", f"{len(jobs)} job(s)")
         forecast.write_quietly(run_dir, [job.to_dict() for job in jobs])
-        for n in range(len(jobs) + 1, goal.workers + 1):
-            flow.set(wf.worker_id(n), "skipped")
+        for s in [s for s in wf.steps_of_kind(flow.graph(), "worker") if s["lane"] not in {j.worker for j in jobs}]:
+            flow.set(s["id"], "skipped")  # 3.1.8.0 R2: a replan's lanes need not be 1..N (supervise/replan_apply.py)
         _check_stop(run_dir)
         flow.layer(jobs)
         for job in jobs:
