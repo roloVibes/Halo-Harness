@@ -16,6 +16,10 @@ waits at most WAIT_S, a slow session keeping its row without the extras).
 Studio's Session Cost panel; None when the session has not said. 3.1.5.0
 R3: each agent row also carries its own `tokens_in` / `tokens_out`, summed
 from its transcript's usage lines by fleet/agent_tokens.py.)
+
+`snapshot()` keeps its answer CACHE_S; `forget()` drops it (3.1.8.0 R6:
+studio/events.py calls it on a local session's turn_done, message_end and
+status frame, so a GET right after one never answers from before it).
 """
 
 from __future__ import annotations
@@ -31,6 +35,7 @@ TIMEOUT_S = 1.0
 WAIT_S = 1.5
 CACHE_S = 1.0
 _cache: dict = {}
+_gen = [0]  # bumped by forget(): a snapshot read while it moved is never cached
 _lock = threading.Lock()
 
 
@@ -115,14 +120,23 @@ def harness_entry(rows: list, home_dir=None) -> dict:
             "version_mismatch": False, "sessions": rows}
 
 
+def forget() -> None:
+    """Drop the cached snapshot (3.1.8.0 R6: Studio's event bridge, on a local session's turn_done /
+    message_end / status, so the next GET fleet reads the sessions again instead of a snapshot from before it)."""
+    with _lock:
+        _cache.clear()
+        _gen[0] += 1
+
+
 def snapshot(list_live: Optional[Callable] = None) -> dict:
     now = time.monotonic()
     with _lock:
-        hit = _cache.get("local")
+        hit, gen = _cache.get("local"), _gen[0]
     if list_live is None and hit is not None and now - hit[0] < CACHE_S:
         return hit[1]
     entry = harness_entry(sessions(list_live))
     if list_live is None:
         with _lock:
-            _cache["local"] = (now, entry)
+            if _gen[0] == gen:
+                _cache["local"] = (now, entry)
     return entry

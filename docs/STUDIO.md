@@ -26,7 +26,11 @@ column, every agent's line in the Fleet log's columns (the time, the kind,
 who) under a timeline lane per live agent, with an agent and a kind pick, and
 the Steer box always at its foot, addressed to the agent you pinned or else
 the session's main agent, Pause and Stop beside it (3.1.7.0). How it works:
-[Session](STUDIO-sections.md#session).
+[Session](STUDIO-sections.md#session). Its spend, tokens, turns and context
+move on the session's own `message_end` and `status` frames, the moment the
+terminal's status bar moves (3.1.8.0); the frames the tab reads and the
+delays that remain, each with its number, are in
+[The live feed](STUDIO-sections.md#the-live-feed).
 
 One Studio per machine (3.0.2.0): while it serves, `~/.halo/studio.json`
 holds its pid, port and token (private), and a second `halo studio` reuses
