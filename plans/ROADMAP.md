@@ -1829,6 +1829,19 @@ the library across the fleet. The gaps the review names, in Halo's words:
   list a lineup declares; an agent sees only those tools). Each is a
   doctor row and one line in the run report when on.
 
+- R6 Studio keeps up with the terminal (the owner, live, 2026-10-21 ~03:30:
+  "There is a delay between what I see in halo terminal and what is
+  displayed in the session tab of studio. The money count didn't match for
+  a minute. Let's make sure what is in halo studio is real-time of what
+  the terminal view of halo shows"): the session publishes its running
+  totals (cost, tokens in and out, turns, the context fill) as a frame at
+  every model-call end and every state change, Studio's Session tab reads
+  cost, turns and state from frames first and the GET row only as a
+  fallback, every cache or heartbeat on that path is named with its delay
+  and either removed for the local harness or cut to under a second, and a
+  test holds the Session tab's cost to the terminal's figure within one
+  second on a live rig.
+
 Not taken: "explicit approval boundaries for dangerous actions", permission
 classifiers and refusal language (the owner's standing direction: auto mode
 allows everything except explicit deny/ask rules; nothing is added "for
@@ -1869,7 +1882,7 @@ refusal language, nothing "for safety".
 - R2 Roles and lineups from packs (Phase 3): a pack's bios, instructions,
   model capabilities (never one provider), tool and permission needs,
   memory namespaces, budgets, delegation rules, lineup templates, workflow
-  assignments, acceptance checks; namespaced ids `<pack>/<name>`; user and
+  assignments, acceptance checks; namespaced ids `<id>--<name>` (R1 settled it: a `/` breaks the bio and lineup name rule and file names); user and
   project definitions keep precedence; Studio's Roles groups templates by
   pack with preview, clone, customize, apply; apply never overwrites a
   user-defined bio without a confirm.

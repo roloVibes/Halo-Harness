@@ -4,6 +4,84 @@ This folder carries the whole plan so a new session (local or cloud) can
 pick the work up without the conversation that produced it. Read this file
 first, then `WORKER-RULES.md`, then the round you are starting.
 
+## WHERE THINGS STAND -- 2026-10-20 ~2026-10-21 ~10:05 CDT (authoritative, read this first)
+
+**3.1.7.0 "Session: the insight and the steer" IS RELEASED** (tag v3.1.7.0
+at 53a9c44, cut by `scripts/release.py --skip-windows` on a green Linux run
+and a green dispatched Windows run for d5b8a17; the local install is
+`halo-harness v3.1.7.0`). Two Opus worker rounds, ordered by the owner from
+a photo of the Fleet view on 2026-10-20 ("I want what fleet has with tool
+running too within the session tab. More of insight and ability to jump in
+and steer is awesome"); briefs, hand-backs and logs under `~/hh-317/briefs/`:
+- R1 Session has what Fleet has, and the steer is always at hand: every
+  Live row leads with the Fleet log's time and KIND columns (TOOL, TEXT,
+  THINK, OUT, ASK, SPAWN, STATE, YOU, ERR) in the Activity log's own
+  classes and narrow-width layout; Fleet's timeline strip heads the column
+  (`Timeline.tsx` takes scope / onPick / marked); an agent pick and a kind
+  pick beside Follow; the Steer box always at the foot (`session/LiveSteer.tsx`:
+  the pinned agent, else main; Pause and Stop beside it); "steer" on hover
+  of every tag and map node (`fleet/MapSteer.tsx`, `session/steer.ts`); a
+  tool row opens its whole result (`session/LiveTool.tsx`). Fixed on the
+  way: the first steer to an agent with no open stream never echoed as YOU;
+  a Steer box opened with its panel lost the keyboard. Tests:
+  test_studio_session_steer (9), test_studio_session_live (12).
+- R2 captures carry no real names: every capture tool seeds a placeholder
+  harness identity (`you@studio`) and repo-relative paths before it serves
+  Studio, refuses to run when the identity it would draw is the real one,
+  and fails on a real path in the DOM it captures; every Studio PNG and GIF
+  under docs/media was re-captured; a test holds the tools to it (the
+  committed Orchestra stills had shown the build host's harness name and a
+  home path prefix).
+- R3 a steer never kills a silent sub-agent: the Linux runner read every real
+  agent "done" seconds after the first steer in test_studio_session_steer; a
+  browserless repro (WSL `~/hh-repro`, `~/hh-317/briefs/repro_steer_linux.py`)
+  showed main forwarding the steer into its held children, each child cutting
+  its silent call (`restart_when_silent`), and the force-shut socket raising
+  `RemoteDisconnected` out of getresponse() that nothing mapped to the abort on
+  an ungoverned host (Linux: the child died); on Windows `shutdown()` never
+  wakes a pending recv (the cut waited for the first byte; the Chrome test
+  passed by luck). providers/stream.py: `_upstream_or_abort` (any exception
+  while abort is set is `_Aborted`, four dialects) + `_force_close` (shutdown +
+  detach + close). Tests: test_stream_abort_silent (plain + governed),
+  test_steer_silent_children (the rig, no Chrome); both red before on both
+  platforms / on Linux.
+Merge notes: docs/STUDIO-sections.md conflicted structurally with the
+3.1.6.0 reorder (R1 rewrote the Session block at its old spot) and was
+resolved by hand (HEAD's order, R1's Session steps and Panels, `Alt+1`);
+the session stills, hero, social preview and modes banner were re-captured
+on the merged tree; the Linux runner lost a click on the column's Stop
+button (the foot sits below the visible area there): the steer helper now
+scrolls Stop and Pause into view.
+
+Also in this release, by the owner's word on the outside review: the
+README's title line and opening paragraph and pyproject's description are
+the review's positioning ("Multi-model agent harness with orchestration,
+Claude Code compatibility, local LLM support, and live agent monitoring"),
+the same line as the GitHub description.
+
+Lessons this run: `scripts/release.py` gates on HEAD's exact sha and a
+plans-only commit (paths-ignore plans/**) gets no run -- never push one on
+top of a release candidate; `tests/run_all.py` runs every module in ONE process, so a
+stub a test leaves on a module breaks every later module (3.1.6.0's
+copy-draft "Windows failures" were that; LinuxClipEnv now refuses a stubbed
+clipboard module by name); let one Linux run finish before pushing again
+when diagnosing a CI failure; a click on an element outside the panel's
+visible area lands nowhere in headless Chrome (scrollIntoView first); a
+Chrome test red on Linux only is first reproduced WITHOUT the browser (the
+rig + fleet_api.forward), with `sys._current_frames()` stack dumps and a
+20-line socket probe per platform -- the steer failures were a product bug.
+
+**Next: 3.1.8.0 "The supervisor"** (ROADMAP "ADDED 2026-10-21 ~00:10", from
+the outside review the owner pasted on 2026-10-20): R1 `halo supervise` (a
+goal queue, runs without a TUI, schedules kept armed, checkpoint resume,
+budgets enforced, parked decisions in Attention), R2 replanning while a run
+goes, R3 verified outcomes + measured routing, R4 knowledge kinds + the
+owner's vault as a recall source. The review's "approval boundaries" were
+not taken (the owner's standing direction); opt-in isolation is his call.
+The owner's live checks of 3.1.6.0 and 3.1.7.0 on Kali (`halo update`) come
+first. Open from 3.1.6.0: the GitHub social preview is a hand upload
+(docs/media/social-preview.png under Settings).
+
 ## WHERE THINGS STAND -- 2026-10-20 ~18:35 CDT (authoritative, read this first)
 
 **3.1.6.0 "The coach probes" IS RELEASED** (tag v3.1.6.0 at 04e5f67, cut by
