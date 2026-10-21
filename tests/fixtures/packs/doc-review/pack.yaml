@@ -1,0 +1,31 @@
+# A fixture pack (tests/test_packs_*.py, tests/test_ext_api.py): every
+# contribution kind R1 wires, the permissions they need, a setting with a
+# schema and a default, and one migration note.
+id: doc-review
+name: Documentation review
+version: 1.0.0
+description: A reviewer and a writer bio, a review lineup, a link-check skill, a review command, a hook and a lint MCP server.
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.0", max: "1.9"}
+halo: {min: "3.1"}
+capabilities: [docs.review]
+contributes:
+  agents: [agents/reviewer.yaml, agents/writer.yaml, agents/helper.md]
+  teams: [teams/review.yaml]
+  skills: skills
+  commands: commands
+  hooks: hooks/hooks.json
+  mcp:
+    - {name: lint, description: checks a document's links and headings}
+  events: [review.done]
+config:
+  schema:
+    properties:
+      style: {type: string, enum: [short, long]}
+      max_findings: {type: integer}
+    additionalProperties: false
+  defaults: {style: short, max_findings: 20}
+permissions: ["mcp:lint", hooks]
+migrations:
+  - {from: 0.9.0, to: 1.0.0, note: the reviewer bio is now doc-review--reviewer}

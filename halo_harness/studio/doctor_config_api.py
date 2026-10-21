@@ -36,7 +36,7 @@ def get_doctor_config(req: Request):
     if lineup:
         names = set(_chain(lineup, req))
         findings = [f for f in findings if names.intersection(f.get("lineups") or [])]
-    checked = sum(len(r["files"]) for r in rows if r["scope"] != "shipped" and r["read"])
+    checked = sum(len(r["files"]) for r in rows if r["scope"] not in ("shipped", "pack") and r["read"])
     return 200, {"findings": findings, "files_checked": checked, "lineup": lineup or None}
 
 

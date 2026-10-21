@@ -1,0 +1,13 @@
+name: reviewer
+description: Reads a document and lists what is unclear, wrong or missing, one finding per line.
+version: 1
+tags: [docs, review]
+kind: reviewer
+models:
+  preference: default
+  effort: high
+tools:
+  allow: [Read, Grep, Glob]
+  deny: [Edit, Write]
+output:
+  handoff: summary

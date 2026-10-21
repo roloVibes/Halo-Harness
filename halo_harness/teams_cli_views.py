@@ -14,6 +14,12 @@ _SCOPE_ORDER = ("project", "user", "template")
 _SCOPE_LABEL = {"project": "project", "user": "user", "template": "shipped"}
 
 
+def _scope_word(source: str) -> str:
+    """"project", "user", "shipped", or "pack <id>" (3.2.0.0 R1)."""
+    from halo_harness.packs.names import scope_label
+    return _SCOPE_LABEL.get(source) or scope_label(source)
+
+
 def _width() -> int:
     return max(40, min(shutil.get_terminal_size((80, 24)).columns, 100))
 
@@ -30,7 +36,7 @@ def lineup_rows(*, cwd=None, state_dir=None) -> "list[dict]":
     for name in list_team_templates(cwd=cwd, state_dir=state_dir):
         found = find_team_template_path(name, cwd=cwd, state_dir=state_dir)
         template = resolve_team_template(name, cwd=cwd, state_dir=state_dir) or {}
-        scope = _SCOPE_LABEL.get(found[1], found[1]) if found else "?"
+        scope = _scope_word(found[1]) if found else "?"
         rows.append({"name": name, "scope": scope, "description": template.get("description") or ""})
     return rows
 
@@ -163,9 +169,11 @@ def agent_group_lines(*, cwd=None, state_dir=None) -> "list[str]":
         groups.setdefault(found[1] if found else "template", []).append(
             f"  {name} ({bio.get('kind') or 'custom'}) {model}{desc}")
     out: "list[str]" = []
-    for scope in _SCOPE_ORDER:
+    packs = sorted(s for s in groups if s not in _SCOPE_ORDER)  # 3.2.0.0 R1: one group per pack, before shipped
+    for scope in [*_SCOPE_ORDER[:2], *packs, _SCOPE_ORDER[2]]:
         if groups.get(scope):
-            out.append(f"{_SCOPE_LABEL[scope].capitalize()} agents:")
+            word = _scope_word(scope)
+            out.append(f"{word[0].upper()}{word[1:]} agents:")
             out.extend(groups[scope])
     if not out:
         out.append("No agents found.")

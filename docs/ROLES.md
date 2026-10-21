@@ -286,6 +286,13 @@ never overwritten by the team default. A loaded TEMPLATE instead
 OVERWRITES (`roles.py::apply_role_template`) -- see "Role templates" below
 for why that's the right behavior for an explicit, named load.
 
+A lineup from a pack (Halo 3.2.0.0, [PACKS.md](PACKS.md)) is named
+`<id>--<name>` (`halo teams use doc-review--review`) and fills this table
+the same way; its bios are `<id>--<name>` too. A pack's lineup is never
+written: Studio's Duplicate makes your own copy. A lineup from a repo's
+pack (`.halo/packs/`) loses `permissions.mode` and allow rules, as a repo's
+own lineup does in a folder you have not trusted.
+
 ## How an agent gets a role
 
 A built-in agent has a fixed default role:

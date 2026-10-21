@@ -143,8 +143,8 @@ export const closeDialog = () => roles.update(() => ({ dialog: null }));
 export const setView = (view: RolesState["view"]) => roles.update(() => ({ view }));
 export const setTab = (tab: InspectorTab) => roles.update((s) => (s.tab === tab ? {} : { tab }));
 
-/** A lineup of your own: not one Halo ships, nor the untouched copy of one Halo puts in ~/.halo/teams. */
-export const ownLineups = (s: RolesState) => s.lineups.filter((l) => l.scope !== "template" && !l.shipped_copy);
+/** A lineup of your own: not one Halo ships or a pack offers, nor the untouched copy of one Halo puts in ~/.halo/teams. */
+export const ownLineups = (s: RolesState) => s.lineups.filter((l) => !readOnlySource(l.scope) && !l.shipped_copy);
 
 /** The Start view: asked for, or only shipped lineups exist and none of them is active. */
 export function showsStart(s: RolesState): boolean {
@@ -152,8 +152,10 @@ export function showsStart(s: RolesState): boolean {
   return s.loaded && !ownLineups(s).length && !s.info?.active_team && !s.name;
 }
 
-export const shipped = (scope: string | undefined) => scope === "template";
-export const scopeLabel = (scope: string | undefined) => (scope === "template" ? "shipped" : scope || "?");
+/** A file Halo never writes (3.2.0.0 R1, packs/names.py read_only_source): a shipped one, or a pack's (`pack:<id>`). */
+export const readOnlySource = (scope: string | undefined) => scope === "template" || (scope ?? "").startsWith("pack:");
+export const scopeLabel = (scope: string | undefined) =>
+  scope === "template" ? "shipped" : (scope ?? "").startsWith("pack:") ? `pack ${(scope ?? "").slice(5)}` : scope || "?";
 
 /** The card's lineup key: its alias, else its role (what `tiers[*].members`, routing and the live agents name). */
 export const keyOf = (n: { alias: string; role: string }) => n.alias || n.role;

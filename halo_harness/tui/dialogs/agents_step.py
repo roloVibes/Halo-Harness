@@ -40,7 +40,7 @@ def bio_rows(*, cwd=None, state_dir=None) -> "list[dict]":
     """`[{"name", "scope", "description", "preferred_model"}, ...]`,
     name-sorted -- `scope` is the NEAREST file this name actually
     resolves to right now (`agents_yaml.find_agent_bio_path`'s own
-    "project"/"user"/"template" label), never the chain `extends` might
+    "project"/"user"/"pack:<id>"/"template" label), never the chain `extends` might
     walk through afterward."""
     from halo_harness.agents_yaml import find_agent_bio_path, list_agent_bios, resolve_agent_bio
     rows = []

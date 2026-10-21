@@ -5,7 +5,7 @@ Read off `halo config where`'s rows: every `loses` entry names a key this
 file sets and the file that decides it; when the losing file's value and
 the winning file's value differ, that is one `conflict` finding naming the
 winner. Overriding a shipped template is how a template is customised, so a
-shipped row never takes part; an active lineup extending another is
+shipped row never takes part (nor a pack's, 3.2.0.0: `halo pack doctor` names that shadow); an active lineup extending another is
 inheritance, not a clash, so those rows do not either. A variable in the env
 file that the process environment also sets (with another value) is a
 conflict the environment wins.
@@ -101,7 +101,7 @@ def conflict_findings(rows: list, *, cwd=None) -> list:
     from halo_harness.doctor_config import finding
     out = []
     for row in rows:
-        if row["scope"] == "shipped" or row["kind"] == "lineup" or not row["exists"]:
+        if row["scope"] in ("shipped", "pack") or row["kind"] == "lineup" or not row["exists"]:  # pack: 3.2.0.0 R1
             continue
         for entry in row["loses"]:
             key, to = entry["key"], entry["to"]
@@ -118,7 +118,7 @@ def conflict_findings(rows: list, *, cwd=None) -> list:
                                        fix=f"keep one: edit {row['file']} or {win}"))
                 continue
             win = _winner_row(rows, row, entry)
-            if win is None or win["scope"] == "shipped" or win is row:
+            if win is None or win["scope"] in ("shipped", "pack") or win is row:
                 continue
             mine, theirs = value_of(row, key, cwd), value_of(win, key, cwd)
             if mine is _MISSING or theirs is _MISSING or mine == theirs:

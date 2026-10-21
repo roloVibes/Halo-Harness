@@ -1,4 +1,5 @@
 """halo_harness.field_help -- the one plain line per field of a bio and a lineup
+(and, 3.2.0.0 R1, of a pack's pack.yaml: `PACK`)
 (Halo 3.1.1.0 R3: "one editor of record"). The TUI's read-only views
 (tui/dialogs/agent_bio_editor.py, tui/dialogs/lineup_editor.py) show these
 lines under each field, and Studio's bio form and lineup inspector show the
@@ -137,10 +138,40 @@ MODEL_SELECT = {
 }
 
 
+#: 3.2.0.0 R1: one line per key of a pack's pack.yaml (docs/EXTENSION_API.md "The manifest").
+PACK = {
+    "id": "the pack's id and namespace: its folder, and the prefix of every name it offers (doc-review)",
+    "name": "the name a person reads",
+    "version": "the pack's own version, semver (1.2.0)",
+    "description": "one line: what the pack adds",
+    "author": "who maintains it (a name, or name, email and url)",
+    "license": "its license, an SPDX id such as MIT",
+    "halo_api": "the extension API versions it works with ({min: '1.0', max: '1.9'})",
+    "halo": "the Halo versions it works with (halo --version)",
+    "capabilities": "what it can do, as names (docs.review)",
+    "requires": "other packs it needs, each with a version or a range",
+    "contributes.agents": "its bios (agents/<name>.yaml, listed as <id>--<name>) and plugin agents (agents/<name>.md)",
+    "contributes.teams": "its lineups (teams/<name>.yaml, listed as <id>--<name>)",
+    "contributes.skills": "its skills folder (skills), each skill named <id>:<skill>",
+    "contributes.commands": "its commands folder (commands), each command named <id>:<command>",
+    "contributes.hooks": "its hooks file (hooks/hooks.json); loads once you grant hooks",
+    "contributes.mcp": "its MCP servers (from .mcp.json); each starts once you grant mcp:<server>",
+    "contributes.studio": "Studio sections and panels (planned)",
+    "contributes.fleet": "Fleet capabilities (planned)",
+    "contributes.artifacts": "typed artifacts and their viewers (planned)",
+    "contributes.events": "the event kinds it publishes on Studio's live feed",
+    "config.schema": "the shape of its settings (packs.settings.<id> in config.json)",
+    "config.defaults": "the settings it starts with; yours win",
+    "permissions": "what it asks you to grant: mcp:<server>, hooks, bash, network, home-write",
+    "migrations": "what changes for you between two versions; halo pack update prints it",
+}
+
+
 def as_json() -> dict:
     """What `GET /api/field-help` answers."""
     return {"identity": dict(IDENTITY), "bio": dict(BIO), "lineup_sections": dict(LINEUP_SECTIONS),
-            "lineup_fields": dict(LINEUP_FIELDS), "assignment": dict(ASSIGNMENT), "model_select": dict(MODEL_SELECT)}
+            "lineup_fields": dict(LINEUP_FIELDS), "assignment": dict(ASSIGNMENT), "model_select": dict(MODEL_SELECT),
+            "pack": dict(PACK)}
 
 
 def bio_line(section: str, key: str = "") -> str:

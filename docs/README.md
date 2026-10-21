@@ -44,6 +44,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-agents.md](COMMANDS-agents.md) (Commands: roles, review, bios and lineups): read this when you manage roles, reviews, bios and lineups from the command line.
   - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, Orchestra and teams): read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.
   - [COMMANDS-fleet.md](COMMANDS-fleet.md) (Commands: remote control and the fleet): read this when you control sessions remotely or run a fleet and its missions.
+  - [COMMANDS-packs.md](COMMANDS-packs.md) (Commands: packs): read this when you list, inspect, install, enable, update or remove a pack from the command line (`halo pack`).
   - [COMMANDS-proxy.md](COMMANDS-proxy.md) (Commands: the proxy, exit codes and config checks): read this when you run the old proxy, read an exit code, or list and check the config files in effect.
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
   - [SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md) (Slash commands: sessions, models and context): read this when you manage the session, its model, memory, permissions or config from the prompt (`/clear`, `/model`, `/recall`, `/config` ...).
@@ -54,6 +55,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 - [GLOSSARY.md](GLOSSARY.md) (Glossary): read this when a word in Halo is new to you.
 - [AGENTS.md](AGENTS.md) (Agent bios and team templates): read this when you write or edit an agent bio or a lineup, field by field.
 - [ROLES.md](ROLES.md) (Roles): read this when you point different kinds of work at different models with roles.
+- [PACKS.md](PACKS.md) (Packs): read this when you add a pack of bios, lineups, skills, commands, hooks and MCP servers to Halo, or take one out again.
 - [ORCHESTRA.md](ORCHESTRA.md) (The Orchestra): read this when several agents should write the same files at once: the Orchestra and its plan, lanes and judge.
 - [TEAM.md](TEAM.md) (Teams: people, blocks and stages (Halo 3.0.8.0)): read this when you set up a team file: who works on a repo, where their work lands and in which order.
 - [WORK.md](WORK.md) (One unit of work): read this when you want the one model under an Orchestra lane, a mission part and a team stage.
@@ -96,6 +98,8 @@ How Halo is built, tested and released, and the record of how it got here.
   - [ARCHITECTURE-runtime.md](ARCHITECTURE-runtime.md) (Architecture: steering, compaction, sub-agents and telemetry): read this when you change steering and interrupts, compaction, sub-agents and plan mode, or telemetry.
   - [ARCHITECTURE-tui.md](ARCHITECTURE-tui.md) (Architecture: the TUI event model): read this when you change how the TUI turns session events into widgets.
   - [ARCHITECTURE-modules.md](ARCHITECTURE-modules.md) (Architecture: the module map): read this when you look for the module behind a Studio, fleet, Orchestra or team feature.
+- [EXTENSION_API.md](EXTENSION_API.md) (The extension API): read this when you write a pack, or change what Halo promises a pack: the manifest, the lifecycle, what a pack may import and what each part's status is.
+- [PACKS-inventory.md](PACKS-inventory.md) (Packs: the inventory of extension points): read this when you change how a pack plugs into Halo: the extension points a pack reuses and the places that assumed nothing outside Halo adds files.
 - [WIZARD.md](WIZARD.md) (The wizard interaction model): read this when you change or add a wizard screen: the ten rules every screen follows.
 - [MEDIA.md](MEDIA.md) (The front-page media): read this when you regenerate the front-page pictures and animations.
 - [PRIVACY.md](PRIVACY.md) (Privacy and the public repo): read this when you check what Halo keeps out of the repo, or audit a checkout before you publish it.
