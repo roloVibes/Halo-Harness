@@ -10,6 +10,7 @@ import type { PanelSpec } from "../../lib/workspace/types";
 import { Explain, OpenAnyway, TryIt } from "../fleet/Start";
 import { useFleet } from "../fleet/store";
 import { setSessionView, startSession, useSessionStart } from "./store";
+import { useSupervise, watchSupervise } from "./supervise";
 
 const WHAT: string[] = [
   "Your sessions on this machine, live: a card per session, its agents as a tree under it, the one at work lit.",
@@ -18,6 +19,7 @@ const WHAT: string[] = [
 ];
 
 export function SessionStart() {
+  const line = useSupervise((s) => (s.running ? s.line : ""));
   return (
     <div className="fl-start ss-start" data-testid="session-start">
       <div className="fl-start-inner">
@@ -25,6 +27,7 @@ export function SessionStart() {
           <div className="glance-kicker mono">SESSION · THIS SESSION, LIVE</div>
           <h1 className="fl-start-title">Your session</h1>
           <p className="muted">No session is live on this harness yet. This is what you will see.</p>
+          {line ? <p className="ss-supervise mono" data-testid="session-supervise-line">Supervisor: {line}</p> : null}
         </header>
         <Surface className="fl-start-form ss-start-form" motion="idle">
           <Explain lines={WHAT} />
@@ -41,6 +44,10 @@ export function SessionStart() {
 /** The Session section: the Start view while this harness has no live session, then the five panels. */
 export function SessionView({ section, specs }: { section: string; specs: PanelSpec[] }) {
   useEffect(() => startSession(), []);
+  useEffect(() => {
+    watchSupervise(true);
+    return () => watchSupervise(false);
+  }, []);
   const loaded = useFleet((s) => s.loaded);
   const start = useSessionStart();
   if (!loaded)

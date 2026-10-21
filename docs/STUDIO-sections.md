@@ -23,6 +23,12 @@ Live and Cost; Fleet keeps everything. The Fleet panels are the same
 components (one implementation each) reading the Fleet stores through one
 scope, `{harness, session}`, which the section sets while it shows.
 
+Until this harness has a live session the section is its Start view; when a
+supervisor's pulse is live (Halo 3.1.8.0 R1, `halo supervise`,
+[SUPERVISE.md](SUPERVISE.md)) that view shows one line -- "N goals done, M
+waiting on you, $X" -- and the decisions that wait are the Attention queue's
+`goal_*` rows.
+
 ![Session: the map and the cost on the left, every agent's work scrolling on the right](media/studio-session.gif)
 
 **How to use it.**

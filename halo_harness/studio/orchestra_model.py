@@ -76,7 +76,12 @@ def run_state(run_dir, live: bool, report: Optional[dict] = None) -> str:
     if (Path(run_dir) / "dry_run.json").is_file():
         return "dry run"
     started = any(s.get("state") != "pending" for s in graph.get("steps") or [] if s.get("kind") != "goal")
-    return "interrupted" if started else "new"
+    if started:
+        # 3.1.8.0 R1: a run another process drives right now (the supervisor, a `halo orchestra run`
+        # elsewhere) is running, not interrupted (supervise/heartbeat.py).
+        from halo_harness.supervise.heartbeat import live as runner_live
+        return "running" if runner_live(run_dir) is not None else "interrupted"
+    return "new"
 
 
 def run_row(run_dir, live_id: Optional[str]) -> dict:

@@ -80,6 +80,11 @@ def post_run(req):
     busy = live.live_id()
     if busy:
         return 409, {"error": f"run {busy} is still running: stop it or wait for its report", "run_id": busy}
+    from halo_harness.supervise.heartbeat import other_live_in
+    other = other_live_in(repo)
+    if other is not None:  # 3.1.8.0 R1: the supervisor (or a `halo orchestra run`) already drives a run here
+        return 409, {"error": f"run {other['run_id']} is running elsewhere ({other['by'] or 'another process'})",
+                     "run_id": other["run_id"]}
     goal = Goal.from_dict(data)
     run_dir = new_run(repo, goal)
     model = str(body.get("model") or "") or None

@@ -1864,6 +1864,15 @@ def run_print_mode(
             session, cwd, registry=registry, facade=facade, state_dir=build.state_dir, routes=build.routes,
             settings=build.settings, disable_slash_commands=disable_slash_commands)
         _remote_handle = _remote[0] if _remote else None
+        from os import environ as _environ
+        if _remote and _environ.get("HALO_SUPERVISE_GOAL"):
+            # 3.1.8.0 R1: a supervised job goal: the supervisor finds this run's socket, and with
+            # `supervise.asks: park` an ask waits for the owner's answer (supervise/asks.py).
+            try:
+                from halo_harness.supervise.asks import attach_print_run
+                attach_print_run(session, _remote[1], state_dir=build.state_dir)
+            except Exception:
+                pass
 
         def _remote_tee(stream):
             return _remote_handle.tee(stream) if _remote_handle is not None else stream

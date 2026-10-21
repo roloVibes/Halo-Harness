@@ -254,6 +254,13 @@ directly by the features that own them:
 | `remote.verbosity` | `loud` | the Signal bridge: `loud` relays the session's text as well as cards and errors, `quiet` only cards, errors and the closing line; `/quiet` and `/loud` change it per phone |
 | `remote.stale_window_s` | `300` | the Signal bridge: a signed command whose message timestamp is further than this many seconds from the computer's clock is refused (see "Signing") |
 | `remote.pair_code_ttl_s` | `600` | the Signal bridge: seconds the one-time pairing code stays valid |
+| `supervise.tick_s` | `5` | Halo 3.1.8.0: seconds between two ticks of the supervisor (`halo supervise`, [SUPERVISE.md](SUPERVISE.md)) |
+| `supervise.max_running` | `1` | how many goals the supervisor runs at once |
+| `supervise.replan` | `none` | `none` or `auto`: what the supervisor does with a run that drifts (3.1.8.0 R2) |
+| `supervise.asks` | `park` | a supervised `job` goal's permission card or question: `park` waits in Attention (at most `tick_s * 720`), `deny` denies it at once as any `halo -p` run |
+| `supervise.budget_usd` | unset | the whole queue's spend cap -- every goal's spend together; a lane that would pass it does not start and the goal parks ([SUPERVISE.md](SUPERVISE.md#budgets-are-stops)) |
+| `supervise.retries` | `1` | how many times a goal whose run stopped on a crash or a failed worker is retried from its checkpoint before it parks with `why: retries` |
+| `supervise.max_minutes` | `0` | a goal's time limit (`0` = none); past it the run gets `request_stop` and the goal parks with `why: time` |
 | `update.check` | `true` | `halo config set update.check false` turns off `halo update`/`/update`'s own check entirely (never shells out, never touches the network) |
 | `update.notify` | `true` | `halo config set update.notify false` turns off just the once-a-day "update available" startup note (the check itself, and `/update`'s own dialog, still work) |
 | `update.channel` | unset (derived from the install: `stable` when pinned to a `v*` tag, else `main`) | `halo update --channel stable\|main` |
