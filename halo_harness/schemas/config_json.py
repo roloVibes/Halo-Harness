@@ -51,6 +51,7 @@ _SCALARS = {
 # `coach`: probe.k, probe.budget_factor (3.1.6.0 R2), library.cite (3.1.6.0 R3: false turns the library's
 # citations off, orchestra/coach_citations.py); `models`: roster (3.1.9.0 R1: false keeps the model roster out
 # of the main agent's context, providers/roster.py)
+# `supervise` (3.1.8.0, supervise/settings.py): R2 adds replan none|auto|review, replan_forecast, replan_returns, replan_block_s, replan_stall_s, replan_cooldown_s, replan_max
 _SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
              "governor", "huggingface", "improve", "local", "models", "network", "ollama", "openai",
              "packs", "providers", "remote", "roles", "routing", "steer", "supervise", "update",

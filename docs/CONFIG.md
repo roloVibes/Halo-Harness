@@ -260,7 +260,13 @@ directly by the features that own them:
 | `remote.pair_code_ttl_s` | `600` | the Signal bridge: seconds the one-time pairing code stays valid |
 | `supervise.tick_s` | `5` | Halo 3.1.8.0: seconds between two ticks of the supervisor (`halo supervise`, [SUPERVISE.md](SUPERVISE.md)) |
 | `supervise.max_running` | `1` | how many goals the supervisor runs at once |
-| `supervise.replan` | `none` | `none` or `auto`: what the supervisor does with a run that drifts (3.1.8.0 R2) |
+| `supervise.replan` | `none` | what the supervisor does with a run that drifts (3.1.8.0 R2, [SUPERVISE.md](SUPERVISE.md#replanning)): `none` stops only; `auto` asks the lead for a new plan for the lanes left and applies it; `review` parks it as a `goal plan` row (a goal with `plan: review` always reviews); `halo goal add --replan` sets it for one goal |
+| `supervise.replan_forecast` | `1.25` | forecast drift: the live spend plus the lanes left at their forecast pass the goal's (or the queue's) cap times this |
+| `supervise.replan_returns` | `2` | returns drift: a lane sent back this many times (by the gate or a failed merge) |
+| `supervise.replan_block_s` | `600` | blocked drift: seconds a lane waited on a hand-off or a refused claim |
+| `supervise.replan_stall_s` | `900` | stalled drift: seconds a writing lane logged no event |
+| `supervise.replan_cooldown_s` | `300` | seconds after a goal's last replan before it may replan again |
+| `supervise.replan_max` | `2` | replans per goal; past it a drift is left to the stops (`goal budget`, `goal gate`) |
 | `supervise.asks` | `park` | a supervised `job` goal's permission card or question: `park` waits in Attention (at most `tick_s * 720`), `deny` denies it at once as any `halo -p` run |
 | `supervise.budget_usd` | unset | the whole queue's spend cap -- every goal's spend together; a lane that would pass it does not start and the goal parks ([SUPERVISE.md](SUPERVISE.md#budgets-are-stops)) |
 | `supervise.retries` | `1` | how many times a goal whose run stopped on a crash or a failed worker is retried from its checkpoint before it parks with `why: retries` |

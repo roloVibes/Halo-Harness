@@ -1,0 +1,7 @@
+{
+  "lane": 3, "job": "job-3", "title": "write subtotal", "claims": ["basket.py#subtotal"], "order": 3,
+  "state": "waiting", "holder": "", "cost_usd": 0.0, "started": 1760000000.0, "ended": null,
+  "pieces_returned": 0, "session_ids": [], "written": {}, "error": "", "reply": "", "after": ["job-1"],
+  "handoff": {"needs": [{"from": "job-1", "take": "summary"}]},
+  "history": [{"state": "waiting", "ts": 1760000100.0, "text": "waits for job-1 (hand-off)"}]
+}

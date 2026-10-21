@@ -1,0 +1,6 @@
+{
+  "lane": 5, "job": "job-5", "title": "write total", "claims": ["basket.py#total"], "order": 5,
+  "state": "writing", "holder": "w5/main", "cost_usd": 0.05, "started": 1760000020.0, "ended": null,
+  "pieces_returned": 0, "session_ids": [], "written": {}, "error": "", "reply": "", "after": [], "handoff": {},
+  "history": [{"state": "joined", "ts": 1760000030.0, "text": ""}, {"state": "writing", "ts": 1760000040.0, "text": "worker writing"}]
+}

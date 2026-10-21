@@ -26,6 +26,7 @@ const KIND: Record<string, string> = {
   team_gate: "team gate", // 3.0.8.0 R2
   team_budget: "team budget", // 3.1.2.0 R2: a stage held at its budget line
   goal_plan: "goal plan", goal_gate: "goal gate", goal_budget: "goal budget", goal_ask: "goal ask", // 3.1.8.0 R1
+  goal_replan: "goal replan", // 3.1.8.0 R2: a replan's new plan failed its check twice
 };
 
 /** A key on a row: R with a text first opens the reply box. */

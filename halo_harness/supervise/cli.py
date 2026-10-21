@@ -70,6 +70,10 @@ def _status(state_dir, as_json: bool) -> int:
     print(f"supervisor: {row['state']} (pid {row['pid']})")
     print(f"goals: {g['queued']} queued, {g['running']} running, {g['parked']} parked, {g['done']} done")
     from halo_harness.supervise import decisions
+    from halo_harness.supervise.replan_rows import line as replan_line
+    for goal in queue.all_goals(state_dir):  # R2: what each goal's replans did
+        if replan_line(goal):
+            print(f"  {goal['id']}: {replan_line(goal)}")
     waiting = decisions.open_rows(state_dir)
     if waiting:
         print(f"{len(waiting)} decision(s) wait on you (Studio's Attention):")

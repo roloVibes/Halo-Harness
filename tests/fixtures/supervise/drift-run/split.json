@@ -1,0 +1,13 @@
+{
+  "base": "0000000000000000000000000000000000000000",
+  "lead_cost_usd": 0.1,
+  "lead_sessions": ["lead-1"],
+  "jobs": [
+    {"id": "job-1", "title": "write add_item", "claims": ["basket.py#add_item"], "worker": 1, "order": 1},
+    {"id": "job-2", "title": "write remove_item", "claims": ["basket.py#remove_item"], "worker": 2, "order": 2},
+    {"id": "job-3", "title": "write subtotal", "claims": ["basket.py#subtotal"], "worker": 3, "order": 3,
+     "after": ["job-1"], "handoff": {"needs": [{"from": "job-1", "take": "summary"}]}},
+    {"id": "job-4", "title": "write apply_discount", "claims": ["basket.py#apply_discount"], "worker": 4, "order": 4},
+    {"id": "job-5", "title": "write total", "claims": ["basket.py#total"], "worker": 5, "order": 5}
+  ]
+}

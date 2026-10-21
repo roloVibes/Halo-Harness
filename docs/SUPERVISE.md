@@ -17,9 +17,10 @@ for the commands and flags.
 Open Studio's Session section. When a supervisor's pulse is live its landing
 shows one line -- **"N goals done, M waiting on you, $X"** -- and the
 decisions that wait are the Attention queue's `goal plan`, `goal gate`,
-`goal budget` and `goal ask` rows, each with one key:
+`goal budget`, `goal ask` and `goal replan` rows, each with one key:
 
-- **goal plan** -- a goal you queued with `--review`: Approve, Reject (with a
+- **goal plan** -- a goal you queued with `--review`, or a replan's new plan
+  for the lanes left ([Replanning](#replanning)): Approve, Reject (with a
   reason) or Open the plan.
 - **goal gate** -- the quality gate sent a piece back past the return cap:
   raise the cap by 1 and resume, raise it by N, Stop, or Open the run.
@@ -28,6 +29,9 @@ decisions that wait are the Attention queue's `goal plan`, `goal gate`,
 - **goal ask** -- a supervised job's permission card or question (with
   `supervise.asks: park`): Allow / Answer, Deny / Edit, Stop the goal, or Open
   the session.
+- **goal replan** -- a replan's new plan failed its check twice: Apply the new
+  plan (after editing it), Keep the old plan (with a reason), Stop the goal, or
+  Open the plan.
 
 Every parked row lives in `~/.halo/supervise/decisions/<id>.json`, so it
 survives Studio starting later and the supervisor restarting; the supervisor
@@ -39,7 +43,8 @@ Each goal is a file under `~/.halo/supervise/goals/<g-id>.json`:
 
     {id, what, done_when, stop_when, repo, budget_usd, lineup, kind: orchestra | job,
      state: queued | running | parked | done | stopped | failed, created, started, ended,
-     run_dir | bg_id, cost_usd, why, held, retries, failure, files, test, workers, plan}
+     run_dir | bg_id, cost_usd, why, held, retries, failure, files, test, workers, plan,
+     replan: "" | none | auto | review, replans: [{n, at, why, lines, state, settled, by, note}]}
 
 The supervisor starts the next queued goal that is not `held` when fewer than
 `supervise.max_running` goals run. An `orchestra` goal runs through the real
@@ -108,6 +113,92 @@ under the goal's cap, and all of that plus the other goals' spend under the
 queue's. A lane that would pass a cap does not start: the run stops with
 `stop_reason: budget` and the goal parks with a `goal budget` row. A `job`
 goal runs with `--max-budget-usd`, which `halo -p` enforces itself.
+
+## Replanning
+
+Halo 3.1.8.0 R2. A budget, a gate and a crash only stop a run. With
+`supervise.replan` set to `auto` or `review` (or `halo goal add --replan
+auto|review` for one goal) the supervisor has a second move: when a run
+**drifts** it pauses the lanes left and asks the run's lead for a new plan for
+them, then re-approves that plan through the same plan review.
+
+### What drift is
+
+`supervise/drift.py` reads the run folder (forecast.json, lanes/*.json,
+events.jsonl, the spend) and names each drift with its number. A lane LEFT is
+a lane of the plan whose piece is not merged; a merged lane never drifts.
+
+| Drift | When | Threshold (config, default) |
+|---|---|---|
+| `forecast` | the live spend plus every lane left at its forecast would pass the goal's `budget_usd` (or the queue's `supervise.budget_usd`) by this factor | `supervise.replan_forecast`, `1.25` (25 % over) |
+| `returns` | a lane was sent back this many times (by the gate, or by a merge whose resolution failed the tests) | `supervise.replan_returns`, `2` |
+| `blocked` | a lane waited on a hand-off from its upstream, or on a claim that was refused and never taken since, this long | `supervise.replan_block_s`, `600` |
+| `stalled` | a writing lane logged no event this long | `supervise.replan_stall_s`, `900` |
+
+The check runs before every lane's worker starts (the run's spawn guard, so
+`returns` and `forecast` are caught before the next attempt is paid for) and
+on every tick (where nothing spawns: `blocked` and `stalled`). The forecast
+is only as good as the plan's prices: an unpriced model forecasts $0 (see
+[Budgets are stops](#budgets-are-stops)).
+
+### The pause and the ask
+
+A drift found and allowed -- `supervise.replan` is not `none`, the goal
+replanned fewer than `supervise.replan_max` (`2`) times, and its last replan
+is more than `supervise.replan_cooldown_s` (`300`) old -- pauses the run:
+`<run>/replan.json` says `pausing` and the run's own stop file asks it to stop
+between steps. A worker that runs finishes its step, no lane is killed, and
+no new lane starts. In the goal's own thread (never the tick) the lead then
+gets the split prompt's shape with the plan so far: the merged lanes pinned,
+every lane left with its state, model, returns and claim refusals, the drift
+lines, and for a lane that came back what came back -- the probe's contrast
+list when a probe of this run ran, else the gate's last verdict as its
+worker read it. It answers for the lanes left only, with one or more of four
+moves:
+
+- **a different model** (or bio) for a lane: the lane keeps its id and claims;
+- **a split**: two or more new jobs with `"from": "<its id>"` whose claims
+  divide its claims; the lane is replaced (its file keeps its history and its
+  spend, its claims are released) and the parts take the next lane numbers;
+- **a second specialist** beside a stuck lane: a new job with `"assist":
+  "<its id>"` and the same claims; it reads the units and cannot edit them
+  (the lane it assists keeps them), and its final reply is handed to that
+  lane's worker, which runs after it;
+- **a retry with the contrast as context**: `"retry": true`; the lane's
+  worker runs again with what came back in its hand-off.
+
+The answer is checked (`supervise/replan_plan.py`: every lane left kept or
+split, no merged lane named, then the whole plan through the plan review's
+own check -- ids, claims, overlaps, cycles, the bio and model preflight). A
+reply that fails is asked once more with the problems; a second failure parks
+a **goal replan** row with the problems as its detail.
+
+### The review
+
+`auto` applies the checked plan at once and the run resumes from its
+checkpoint. `review` -- and every goal with `plan: review`, whatever
+`supervise.replan` says (unless it is `none`) -- parks a **goal plan** row
+whose detail is the diff of the lanes, for example:
+
+    goal plan  Goal g-3f9a1c: a new plan for the lanes left waits for your review
+               lane 5 (job-5): model the default -> or:vendor/stronger-model; lane 5 (job-5): retry with the contrast as context
+
+`a` applies it; `r` (with a why) keeps the old plan: the paused lanes resume
+unchanged and the why goes to events.jsonl. A **goal replan** row takes `a`
+(apply the proposal in `<run>/replan.plan.json`, the owner's edit of it
+included, checked again; a failing one reopens the row with the problems),
+`r` (keep the old plan), `s` (stop the goal) and `o` (open the plan).
+
+Applying writes split.json's new plan (a merged lane is never touched),
+re-queues the lanes whose worker runs again, gives the parts placeholder
+claims, redesigns workflow.json and recomputes forecast.json. plan.json
+gains `revisions: [{n, at, why: [drift lines], from, to, by: auto | <who>,
+moves}]`; events.jsonl gets `replan_asked`, `replan_applied` and
+`replan_rejected` lines with the numbers; the goal file keeps one row per
+replan (`replans`). `halo supervise status`, `halo goal show` and the run
+report print **"replanned N times (<why>)"**. Past `supervise.replan_max` a
+drift is left to the stops: the budget guard parks `goal budget`, the gate
+parks `goal gate`, as before.
 
 ## The pulse
 

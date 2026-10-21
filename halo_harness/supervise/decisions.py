@@ -10,6 +10,10 @@ starting later and the supervisor restarting:
     goal_gate    the gate sent a piece back past the return cap       a raise the cap by 1 and resume | r raise by N | s stop | o open
     goal_budget  a lane (or a job) would pass a cap                    a raise by the cap's size and resume | r raise by $N | s stop | o open
     goal_ask     a supervised job's permission card or question       a allow once | r deny (text: why) or answer | s stop the goal | o open
+    goal_replan  a replan's new plan failed the check twice (R2)      a apply the new plan | r keep the old plan (text: why) | s stop | o open
+
+A replan's review (R2, supervise/replan_ask.py) is a goal_plan row whose
+target carries `replan: <n>`: a applies the new plan, r keeps the old one.
 
 Studio's Attention queue lists the open ones (fleet/supervise_attention.py)
 and writes an answer into the file; the supervisor polls the files and acts
@@ -28,15 +32,16 @@ from typing import Optional
 from halo_harness.filelock import file_lock
 from halo_harness.privateio import write_private_atomic
 
-KINDS = ("goal_plan", "goal_gate", "goal_budget", "goal_ask")
+KINDS = ("goal_plan", "goal_gate", "goal_budget", "goal_ask", "goal_replan")
 KEYS = {
     "goal_plan": {"a": "approve", "r": "reject", "o": "open the plan"},
     "goal_gate": {"a": "raise the cap by 1 and resume", "r": "raise the cap by N", "s": "stop", "o": "open the run"},
     "goal_budget": {"a": "raise by its cap and resume", "r": "raise by $N", "s": "stop", "o": "open the goal"},
     "goal_ask": {"a": "allow once", "r": "deny", "s": "stop the goal", "o": "open the session"},
+    "goal_replan": {"a": "apply the new plan", "r": "keep the old plan", "s": "stop the goal", "o": "open the plan"},
 }
 QUESTION_KEYS = {"r": "answer", "s": "stop the goal", "o": "open the session"}
-TEXT_FOR = {"goal_plan": "r", "goal_gate": "r", "goal_budget": "r", "goal_ask": "r"}
+TEXT_FOR = {"goal_plan": "r", "goal_gate": "r", "goal_budget": "r", "goal_ask": "r", "goal_replan": "r"}
 NEEDS_TEXT = {("goal_gate", "r"), ("goal_budget", "r")}
 _SAFE = re.compile(r"[^A-Za-z0-9_-]+")
 
