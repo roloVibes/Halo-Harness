@@ -1820,13 +1820,18 @@ the library across the fleet. The gaps the review names, in Halo's words:
   reused; the owner's Obsidian vault as a recall source (a folder of
   Markdown the index reads).
 
+- R5 Opt-in isolation (the owner, 2026-10-21 00:30: "apply all those
+  suggestions"): nothing changes by default; a lineup or a bio may declare
+  `isolation: container|user` for its workers' worktrees (a per-run
+  container image or a scoped OS user, the same worktree inside), `secrets:
+  broker` with a secret broker (1Password CLI first) feeding a bio's `env`
+  at spawn instead of the host's environment, and `tools.capabilities` (a
+  list a lineup declares; an agent sees only those tools). Each is a
+  doctor row and one line in the run report when on.
+
 Not taken: "explicit approval boundaries for dangerous actions", permission
 classifiers and refusal language (the owner's standing direction: auto mode
 allows everything except explicit deny/ask rules; nothing is added "for
-safety"). Opt-in isolation that changes nothing by default is the owner's
-call to schedule, not this section's: a per-run container or user for the
-workers' worktrees, scoped credentials per bio (a secret broker such as
-1Password feeding `env` at spawn), tool-level capability lists a lineup
-declares. The review's public one-liner ("Multi-model agent harness with
-orchestration, Claude Code compatibility, local LLM support, and live agent
-monitoring") is a candidate for the GitHub description; the owner decides.
+safety"). The review's public one-liner became the GitHub description on
+2026-10-21 00:25 (`gh repo edit`), and its four-paragraph description the
+README's opening, by the owner's word.
