@@ -13,7 +13,8 @@ as a looping GIF with Pillow (1500 x 900, at most 3 MB), and the stills.
                                                          is the JSON tests/test_studio_session_live.py pins
 
 Options: --out DIR (default docs/media), --seconds N (default 7), --every S (default 0.25). Exit 2 without Chrome.
-No model is called.
+No model is called. 3.1.7.0 R2: the rig's harness is you@studio (tools/capture_identity.py; exit 2 when the
+name would be this machine's) and every page is guarded before it is counted, filmed or shot.
 """
 from __future__ import annotations
 
@@ -125,9 +126,12 @@ def crop_shot(c, expr: str, path: Path) -> int:
 
 
 def session(c, rig, lv, out: Path, seconds: float, every: float) -> list:
+    from capture_identity import guard_page
     from capture_session_scenes import session_scene
     open_session(c, rig)
+    guard_page(c, "session")
     shots = film(c, session_scene(lv), seconds, every)
+    guard_page(c, "studio-session")  # what the last frames drew, before any file is written
     g = write_gif(shots, out / "studio-session.gif", every)
     time.sleep(0.8)
     s = c.shot(out / "studio-session.png")
@@ -136,9 +140,11 @@ def session(c, rig, lv, out: Path, seconds: float, every: float) -> list:
 
 
 def roles(c, rig, lv, out: Path, seconds: float, every: float) -> list:
+    from capture_identity import guard_page
     from capture_session_scenes import roles_scene
     from tests.helpers.studio_fleet import card_click
     open_roles(c, rig, wide=True)
+    guard_page(c, "roles live")
     glyph = "document.querySelector('[data-testid=\"roles-card\"][data-agent=\"implementer\"] [data-testid=\"roles-card-glyph\"]')"
 
     def hover() -> None:
@@ -146,21 +152,25 @@ def roles(c, rig, lv, out: Path, seconds: float, every: float) -> list:
         c.mouse("mouseMoved", x + w / 2, y + h / 2)
     n = int(seconds / every)
     shots = film(c, roles_scene(lv), seconds, every, at={int(n * 0.72): hover})
+    guard_page(c, "studio-roles-live")  # what the last frames drew, before any file is written
     g = write_gif(shots, out / "studio-roles-live.gif", every)
     c.mouse("mouseMoved", 4, 4)
     card_click(c, "document.querySelector('[data-testid=\"roles-card\"][data-agent=\"implementer\"]')")
     c.wait("!!document.querySelector('[data-testid=\"roles-live\"]')", 15)
     time.sleep(1.2)
+    guard_page(c, "studio-roles-live still")
     s = c.shot(out / "studio-roles-live.png")
     c.js("localStorage.removeItem('halo.studio.layout.roles'); 1")
     return [("studio-roles-live.gif", g), ("studio-roles-live.png", s)]
 
 
 def dom(c, rig, lv) -> dict:
+    from capture_identity import guard_page
     from capture_session_scenes import play, roles_scene, session_scene
     open_session(c, rig)
     play(session_scene(lv)[:16]).join(10)  # through the spawn and the ask
     time.sleep(1.0)
+    guard_page(c, "session")
     got = {"session": counts(c)}
     open_roles(c, rig)
     play(roles_scene(lv)[:4]).join(10)
@@ -168,6 +178,7 @@ def dom(c, rig, lv) -> dict:
     x, y, w, h = c.rect("document.querySelector('[data-testid=\"roles-card-glyph\"]')")
     c.mouse("mouseMoved", x + w / 2, y + h / 2)
     c.wait("!!document.querySelector('[data-testid=\"roles-glow-legend\"]')", 5)
+    guard_page(c, "roles live")
     got["roles"] = {**counts(c), "live-card": c.js(f"{LIVE_CARDS}.length")}
     return got
 
@@ -180,14 +191,18 @@ def main(argv=None) -> int:
     ap.add_argument("--seconds", type=float, default=7.0)
     ap.add_argument("--every", type=float, default=0.25)
     a = ap.parse_args(argv)
+    from capture_identity import begin, placeholder
     from tests.helpers.chrome_driver import find_chrome, open_chrome, scope_home
+    begin()  # 3.1.7.0 R2: the neutral temp root and you@studio before the scratch home is made
     made = scope_home()
     if not find_chrome():
         print(json.dumps({"skip": "no Chrome found"}))
         return 2
     from tests.helpers.studio_fleet_rig import StudioFleetRig
     from tests.helpers.studio_live_rig import Live
+    placeholder()
     with StudioFleetRig() as rig:
+        placeholder(rig.state)  # the rig's own home: you@studio
         lv = Live(rig)
         c = open_chrome(W, H)
         try:

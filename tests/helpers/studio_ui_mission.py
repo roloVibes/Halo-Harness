@@ -17,7 +17,7 @@ def register(test, json_of, chrome) -> None:
         """3.0.6.0 R8: with no mission yet the Mission panel shows its five lines on
         how it works; a goal typed and Plan it (the fake lead) draws three part
         nodes on the map, each inside its harness box (gridcraft's part on
-        kali@lab, ComfyUI's on rolo@studio, both locked), one depends_on edge
+        kali@lab, ComfyUI's on you@studio, both locked), one depends_on edge
         and one sequenced edge with its chip, dashed while planned; the table
         has three rows and Attention a mission_plan row."""
         if not chrome():
@@ -52,7 +52,7 @@ def register(test, json_of, chrome) -> None:
         r, got = json_of(*ARGS)
         ctx.check(f"the run finished, got {r.stderr[-300:]!r}", r.returncode == 0)
         ctx.check(f"the drag moved part 3, got {got.get('moved')} / {got.get('moved_api')!r} / {got.get('moved_inside')}",
-                  got.get("moved") == "moved" and got.get("moved_api") == "rolo@studio" and sorted(got.get("moved_inside") or []) == ["1:in", "2:in", "3:in"])
+                  got.get("moved") == "moved" and got.get("moved_api") == "you@studio" and sorted(got.get("moved_inside") or []) == ["1:in", "2:in", "3:in"])
         ctx.check(f"a 422 snaps back with the reason, got {got.get('refused_toast')!r} / {got.get('snapped')}",
                   "does not have gridcraft" in str(got.get("refused_toast")) and got.get("snapped") == "back"
                   and sorted(got.get("snapped_inside") or []) == ["1:in", "2:in", "3:in"])
@@ -99,6 +99,6 @@ def register(test, json_of, chrome) -> None:
                   got.get("stop_asks") == "Stop the mission?" and got.get("stopped") == "stopped" and got.get("agent_stop_sent") == ["main"])
         rows = got.get("report_harnesses") or []
         ctx.check(f"the report lists the cost per harness, got {rows} / {got.get('report_total')!r}",
-                  got.get("report_face") == "report" and len(rows) == 2 and any(x.startswith("rolo@studio|") and x.endswith("$0.042") for x in rows)
+                  got.get("report_face") == "report" and len(rows) == 2 and any(x.startswith("you@studio|") and x.endswith("$0.042") for x in rows)
                   and any(x.startswith("kali@lab|") for x in rows) and got.get("report_total") == "$0.043")
         ctx.check(f"the status bar stops counting it, got {got.get('after_stop_status')}", got.get("after_stop_status") == "none")

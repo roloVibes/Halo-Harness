@@ -8,13 +8,16 @@ framed classic page).
 With --dom the section is read twice, its Start view first (no project
 yet), then over the seeded project, and the data-testid values are counted
 (the last stdout line is the JSON: {"start": {...}, "design": {...}}).
-Never two Chromes at once.
+Never two Chromes at once. 3.1.7.0 R2: every Studio draws you@studio
+(tools/capture_identity.py) and every page is guarded before it is counted or shot.
 """
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
+
+from capture_identity import checked_dump, guard_page, placeholder
 
 IDS = ("section-tab", "legacy-frame", "panel-about", "design-start", "design-thread", "design-turn", "design-artboard", "design-pin",
        "design-project", "design-assets", "design-asset", "design-send-box")
@@ -28,12 +31,13 @@ def counts(dom: str) -> dict:
 
 
 def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
+    placeholder(state)
     srv, url = serve(state, True)
     url = url.replace("mode=orchestra", "mode=design").replace("feed=off", "feed=off&tour=off")
     try:
         result: dict = {}
         if dom:  # the Start view first: no project yet
-            r = chrome(["--dump-dom", "--window-size=1500,900", url])
+            r = checked_dump(chrome, url, "design start", "--window-size=1500,900")
             if r is None:
                 print("no Chrome found")
                 return 2
@@ -41,7 +45,7 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
         from design_demo import seed
         seed(state)
         if dom:
-            r = chrome(["--dump-dom", "--window-size=1500,900", url])
+            r = checked_dump(chrome, url, "design", "--window-size=1500,900")
             result["design"] = counts(r.stdout) if r else {}
             print(json.dumps(result))
             return 0
@@ -64,6 +68,7 @@ def shoot(out: str, url: str) -> int:
         c.wait("document.querySelectorAll('[data-testid=\"design-artboard\"]').length >= 2 && document.querySelectorAll('[data-testid=\"design-turn\"]').length >= 2", 30)
         time.sleep(2.5)  # the frames and the images paint
         path = Path(out).resolve()
+        guard_page(c, path.stem)
         size = c.shot(path)
         ok = path.is_file() and size > 10_000
         print(f"{'wrote' if ok else 'FAILED'} {path} ({size} bytes)")

@@ -148,7 +148,7 @@ def test_the_rig_two_harnesses_five_agents_a_member_tail_and_the_meta_role(ctx: 
         hs = view.get("harnesses") or []
         agents = [a for h in hs for ss in h["sessions"] for a in ss.get("agents") or []]
         ctx.check(f"two harnesses, this one first, got {[h.get('name') for h in hs]}",
-                  status == 200 and [h.get("name") for h in hs] == ["rolo@studio", "kali@lab"] and hs[0]["local"] is True)
+                  status == 200 and [h.get("name") for h in hs] == ["you@studio", "kali@lab"] and hs[0]["local"] is True)
         ctx.check(f"five agents in three states, got {[a.get('state') for a in agents]}",
                   len(agents) == 5 and {a.get("state") for a in agents} == {"running", "waiting", "done"})
         status, got = rig.api("POST", f"fleet/{MEMBER}/{MEMBER_SID}/agents/r7e1v2w3/command", {"cmd": "tail", "n": 20})

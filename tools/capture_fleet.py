@@ -26,6 +26,9 @@ question, its reviewer done): two harnesses, five agents in three states.
 1500 x 900 CSS px at scale 2. With --dom the Fleet section, its Start view
 (?view=start) and the Roles section are read and their data-testid values
 counted (the last stdout line is the JSON).
+
+3.1.7.0 R2: this harness is `you@studio` (tools/capture_identity.py; the rig's own name), the
+conflict's edits are repo-relative, and every page is guarded before it is counted or shot.
 """
 
 from __future__ import annotations
@@ -33,6 +36,8 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+
+from capture_identity import guard_page, placeholder
 
 FLEET_IDS = ("section-tab", "fleet-map", "fleet-agent", "fleet-rail", "fleet-node", "fleet-start", "fleet-box", "fleet-session",
              "fleet-rail-node", "fleet-pip", "fleet-pair", "fleet-settings", "status-fleet",
@@ -68,26 +73,30 @@ def open_roles(c, rig) -> None:
 
 def dom(c, rig) -> dict:
     open_fleet(c, rig)
+    guard_page(c, "fleet")
     fleet = counts(c)
     c.go(rig.url("fleet", "&view=start"))
     c.wait("!!document.querySelector('[data-testid=\"fleet-start\"]') && !!document.querySelector('[data-testid=\"fleet-settings\"]')", 20)
+    guard_page(c, "fleet start")
     start = counts(c)
     open_roles(c, rig)
+    guard_page(c, "fleet roles")
     roles = {"live-card": c.js(f"{LIVE_CARDS}.length"), "live-tab": c.js("document.querySelectorAll('[data-testid=\"roles-live-tab\"]').length"),
              "section-tab": counts(c)["section-tab"], "legacy-frame": c.js("document.querySelectorAll('iframe.legacy-frame').length")}
     return {"fleet": fleet, "start": start, "roles": roles}
 
 
 def conflict(rig) -> None:
-    """Both harnesses edit shop/basket.py: the implementer here (a feed frame), the member's reviewer (its relay)."""
+    """Both harnesses edit shop/basket.py: the implementer here (a feed frame), the member's reviewer (its relay);
+    repo-relative, so no machine's path is drawn (3.1.7.0 R2)."""
     from halo_harness.fleet.identity import harness
     from tests.helpers.studio_fleet_member import REVIEWER
     from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID
     a = rig.agent("Implement")
     rig.server.events.publish({"session_id": rig.act.session_id, "harness": harness()["id"], "event": "agent_state", "agent_id": a["agent_id"],
-                               "ts": time.time(), "data": {**a, "current": f"Edit: {rig.proj / 'basket.py'}"}})
+                               "ts": time.time(), "data": {**a, "current": "Edit: basket.py"}})
     rig.hub.state.frames(MEMBER, {"link": "rig-link", "frames": [{"session_id": MEMBER_SID, "event": "agent_state", "agent_id": REVIEWER["agent_id"],
-                                                                 "ts": time.time(), "data": {**REVIEWER, "state": "running", "current": "Edit: /home/kali/shop/basket.py"}}]})
+                                                                 "ts": time.time(), "data": {**REVIEWER, "state": "running", "current": "Edit: basket.py"}}]})
 
 
 def shoot_panels(c, rig, png: Path) -> int:
@@ -101,6 +110,7 @@ def shoot_panels(c, rig, png: Path) -> int:
     c.wait("[...document.querySelectorAll('[data-testid=\"fleet-text\"]')].some((e) => e.textContent.includes('tax rule'))", 15)
     c.wait("!document.querySelector('.toast')", 10)
     time.sleep(1.5)
+    guard_page(c, png.stem)
     return c.shot(png)
 
 
@@ -123,6 +133,7 @@ def shoot_caps(c, rig, png: Path) -> int:
     c.wait("!!document.querySelector('[data-testid=\"fleet-box\"][data-who]')", 10)
     c.wait("!document.querySelector('.toast')", 10)
     time.sleep(1.5)
+    guard_page(c, png.stem)
     size = c.shot(png)
     c.js("localStorage.removeItem('halo.studio.layout.fleet'); 1")
     return size
@@ -149,6 +160,7 @@ def shoot_mission(c, rig, png: Path) -> int:
     c.js("document.querySelector('[data-testid=\"fleet-mission-detail\"]').scrollTop = 0; 1")
     c.wait("!document.querySelector('.toast')", 10)
     time.sleep(1.5)
+    guard_page(c, png.stem)
     return c.shot(png)
 
 
@@ -165,6 +177,7 @@ def shoot(c, rig, fleet_png: Path, roles_png: "Path | None" = None) -> bool:
     c.wait("!!document.querySelector('[data-testid=\"fleet-pip\"] .pip-text')", 10)
     c.wait("!document.querySelector('.toast')", 10)  # the toasts fade first: nothing covers the Steer box
     time.sleep(1.2)
+    guard_page(c, fleet_png.stem)
     a = c.shot(fleet_png)
     panels_png = fleet_png.with_name("studio-fleet-panels.png")
     d = shoot_panels(c, rig, panels_png)
@@ -185,7 +198,9 @@ def capture(out: str, as_dom: bool, find_chrome) -> int:
     if not exe:
         print("no Chrome found")
         return 2
+    placeholder()
     with StudioFleetRig() as rig:
+        placeholder(rig.state)  # the rig's own home: you@studio
         c = open_chrome(exe=exe)  # the driver base: one headless Chrome at a time
         try:
             if as_dom:
