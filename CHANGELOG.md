@@ -36,6 +36,13 @@ Focus: the Session tab gets what the owner liked in Fleet, in the column he alre
 - Tests: `tests/test_capture_identity.py` parses the capture tools' source (the placeholder before every serve, a guard before every count and picture) and pins the stop and the DOM guard. Docs: MEDIA.md carries the two rules and both stop lines.
 - CI: the Windows `run_all.py` step gets 90 minutes (the v3.1.6.0 tag run finished green at the 65-minute limit and was cut).
 
+### R3: a steer never kills a silent sub-agent
+
+#### Fixed
+
+- A steer typed while a sub-agent's model call was still silent (no first byte yet) killed that sub-agent on Linux and stalled it on Windows. Main forwards such a steer into its running children (2.0.7), and each child cuts its silent call to resend it with the steer (2.0.1); the cut force-shut the socket, and the read it woke raised `RemoteDisconnected` out of `getresponse()`, which nothing mapped to the abort on a host the Governor does not know (every local or mock endpoint) -- the child's turn died with a traceback, its parent finished early. On Windows `shutdown()` never wakes a pending read, so the cut waited for the provider's first byte. Now any exception the force-shut read raises while the abort is set is the abort, at all four dialects, and the watcher closes the raw handle after the shutdown so Windows wakes too. The Session steer test on the Linux runner found it (every real agent read "done" seconds after the first steer).
+- Tests: `tests/test_stream_abort_silent.py` (an abort during the silent phase ends the stream cleanly within 1.5 s, plain and governed paths; failed on both platforms before) and `tests/test_steer_silent_children.py` (a steer to main reaches both held children, each resends with the steer as its last user message, both stay running; failed on Linux before).
+
 ## [3.1.6.0] - 2026-10-20
 
 Focus: the coach learns to probe (after Google's Harness², arXiv 2610.14224: candidate set-ups run the same goal again, an anonymized judge compares the deliverables, what wins is offered as one card, and what gets applied lands in an improvement library the next proposals cite), a tier becomes something you make on the Roles canvas with a model and a trigger of its own, the front page gets a hero, and copying a draft out of the TUI on Linux works and says what it did. From the owner's "Add 1 and 2 from Google harness research" (2026-10-19) and his live notes from Kali (2026-10-20).

@@ -83,9 +83,10 @@ def done_box(c, lv) -> dict:
 def stop(c, lv, sent: list) -> dict:
     """Stop beside the box asks first: the confirm dialog names main; Cancel sends nothing."""
     out: dict = {}
-    # main's liveness in the store comes from the rig's real session row, which the slow Linux runner reads as
-    # no longer running by this step (the box stayed disabled for 30 s there, twice): say main is working again,
-    # as a real session does with every step, and keep the button's own reason for the failure message
+    # main's liveness in the store comes from the rig's real session row. On the Linux runner every real agent
+    # read "done" seconds after the first steer: the steer forwarded into the held children crashed them
+    # (providers/stream.py, fixed in 3.1.7.0 R3) and main finished with them. Fixed at the root; this frame
+    # stays as what a real session sends with every step, and the button's own reason is kept for the message
     lv.state("main", state="running", current="thinking")
     stop_btn = f"{BOX}.querySelector('[data-testid=\"session-live-stop\"]')"
     out["stop_why"] = c.js(f"[{BOX}.dataset.key, {BOX}.dataset.disabled || '', {stop_btn}?.title || '', {stop_btn}?.disabled]")

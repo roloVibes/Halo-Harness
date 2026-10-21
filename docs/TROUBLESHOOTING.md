@@ -428,7 +428,11 @@ something to say. Two things make this worse at higher effort:
   shows `↳ steering (restarting the model call)` so you know nothing from
   the aborted call was lost. Set it to `false` to go back to the old
   "cuts at the next chunk" behavior if you'd rather GLM finish its current
-  thought first.
+  thought first. The same cut reaches a running sub-agent (main forwards a
+  steer typed during an Agent batch into its live children); before 3.1.7.0
+  that cut killed the child on Linux and waited for the provider's first
+  byte on Windows -- a child that reads "done" with a traceback right after a
+  steer is that bug, fixed in 3.1.7.0.
 
 If the pause is still surprising with the above understood, `halo stats
 --models --since 1d` (`--wide` for the full column set) shows TTFT p50/p95
