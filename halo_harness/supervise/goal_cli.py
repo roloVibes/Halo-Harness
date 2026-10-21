@@ -3,6 +3,7 @@ docs/COMMANDS-supervise.md): the supervisor's goal queue from a terminal.
 
     halo goal add "<what>" [--repo DIR] [--done-when ..] [--stop-when ..]
                  [--budget USD] [--lineup NAME] [--as orchestra|job] [--file F ...] [--test CMD] [--review]
+                 [--replan none|auto|review]
     halo goal list [--json]
     halo goal show <id> [--json]            the goal and its history lines
     halo goal rm <id>                        drop a goal (not one that runs)
@@ -43,6 +44,8 @@ def cmd_goal(argv: list) -> int:
     a.add_argument("--file", dest="files", action="append", default=None, metavar="F", help="a file the workers share (repeatable, orchestra)")
     a.add_argument("--test", default="", help="the test command the gate runs (orchestra)")
     a.add_argument("--review", action="store_true", help="pause for the plan's review before it runs (orchestra)")
+    a.add_argument("--replan", choices=("none", "auto", "review"), default="",
+                   help="what the supervisor does when the run drifts (default: supervise.replan)")
     for name in ("list",):
         s = sub.add_parser(name, help="every goal")
         s.add_argument("--json", action="store_true")
@@ -75,7 +78,7 @@ def _add(state_dir, args) -> int:
     try:
         goal = queue.add(state_dir, args.what, done_when=args.done_when, stop_when=args.stop_when, repo=args.repo,
                          budget_usd=args.budget, lineup=args.lineup, kind=args.kind, files=args.files, test=args.test,
-                         review=args.review)
+                         review=args.review, replan=args.replan)
     except ValueError as e:
         print(f"halo goal add: {e}", file=sys.stderr)
         return 1
@@ -122,6 +125,9 @@ def _show(state_dir, gid: str, as_json: bool) -> int:
         print(f"  run: {Path(goal['run_dir']).name}")
     if goal.get("bg_id"):
         print(f"  job: {goal['bg_id']}")
+    from halo_harness.supervise.replan_rows import line as replan_line
+    if goal.get("replan") or replan_line(goal):
+        print(f"  replan: {goal.get('replan') or 'supervise.replan'}" + (f"; {replan_line(goal)}" if replan_line(goal) else ""))
     if goal.get("failure"):
         f = goal["failure"]
         print(f"  failure: {f.get('kind')} at {f.get('step') or '?'}: {f.get('last_event') or ''}")

@@ -147,12 +147,31 @@ def _indent(text: str) -> str:
     return "\n".join("    " + line for line in str(text).splitlines()) or "    (empty)"
 
 
+def replan_text(run_dir, lane) -> str:
+    """3.1.8.0 R2 (supervise/replan_apply.py): what a replan left for the lane in its job in split.json --
+    a specialist's brief (`assist`) and the lane's `replan_note` (a retry's contrast, a specialist's help)."""
+    from halo_harness.orchestra import jsonl
+    split = jsonl.read_json(Path(run_dir) / "split.json", {}) or {}
+    job = next((j for j in split.get("jobs") or [] if isinstance(j, dict) and j.get("id") == lane.job.id), {})
+    out, helped = [], str(job.get("assist") or "")
+    if helped:
+        out.append(f"You are a specialist beside {helped}, which is stuck. Read its units "
+                   f"({', '.join(f'`{k}`' for k in lane.job.claims)}) and what the tests say about them; do not claim or "
+                   f"edit them: they stay {helped}'s. Your final reply is handed to {helped}'s worker, which runs "
+                   "after you: say what is wrong and how to fix it.")
+    note = job.get("replan_note") if isinstance(job.get("replan_note"), dict) else {}
+    if note.get("text"):
+        out.append(f"The supervisor replanned this lane (revision {note.get('revision')}): {note['text']}")
+    return "\n\n".join(out)
+
+
 def deliver(run_dir, lane) -> str:
     """Copy the taken artifacts into the worktree and return the prompt's
-    "Hand-offs" section ("" for a lane with no `needs`)."""
+    "Hand-offs" section ("" for a lane with no `needs`); 3.1.8.0 R2: plus `replan_text`."""
+    replan = replan_text(run_dir, lane)
     needs = list((lane.job.handoff or {}).get("needs") or [])
     if not needs:
-        return ""
+        return replan
     by_job = {other.job.id: other for other in list_lanes(run_dir)}
     root = Path(lane.worktree) / ".halo" / "handoff"
     root.mkdir(parents=True, exist_ok=True)
@@ -180,4 +199,4 @@ def deliver(run_dir, lane) -> str:
             if src.is_file():
                 shutil.copyfile(src, dest)
             lines.append(f"  its artifact {row['name']}: .halo/handoff/{up.job.id}/{src.name} in your folder")
-    return "\n".join(lines)
+    return "\n".join(lines) + (f"\n\n{replan}" if replan else "")

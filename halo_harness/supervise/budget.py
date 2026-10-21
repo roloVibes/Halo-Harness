@@ -10,7 +10,8 @@ queue's. A lane that would pass a cap does not start: the run gets
 request_stop("budget: ...") and stops between steps; the supervisor parks the
 goal (`why: budget`, a `goal_budget` row). A `job` goal runs with
 `--max-budget-usd` (the lower of its cap and what the queue has left), which
-`halo -p` enforces itself.
+`halo -p` enforces itself. 3.1.8.0 R2: `before(lane)` (supervise/replan.py's
+spawn hook) runs first: while the run pauses for a replan no lane starts.
 """
 
 from __future__ import annotations
@@ -69,8 +70,8 @@ def over_at_start(state_dir, goal: dict, queue_cap: Optional[float]) -> str:
 class Guard:
     """Wraps a run's `spawn(lane)`: a lane that would pass a cap does not start (`hit` says why)."""
 
-    def __init__(self, state_dir, goal: dict, run_dir, queue_cap: Optional[float]):
-        self.state_dir, self.gid, self.dir = state_dir, goal["id"], Path(run_dir)
+    def __init__(self, state_dir, goal: dict, run_dir, queue_cap: Optional[float], before: Optional[Callable] = None):
+        self.state_dir, self.gid, self.dir, self.before = state_dir, goal["id"], Path(run_dir), before
         self.cap = None if goal.get("budget_usd") is None else float(goal["budget_usd"])
         self.queue_cap = None if queue_cap is None else float(queue_cap)
         self.lock, self.running, self.hit = threading.Lock(), {}, ""
@@ -92,6 +93,9 @@ class Guard:
 
         def guarded(lane):
             with self.lock:
+                held = self.before(lane) if self.before is not None else ""  # R2: the replan pause (replan.py)
+                if held:
+                    return {"ok": True, "text": f"STOP: {held}", "cost_usd": 0.0}
                 why = self.hit or self.check(lane.n)
                 if why:
                     if not self.hit:

@@ -6,6 +6,10 @@ builds the queue, studio/fleet_answer.py routes the keys).
     goal_gate    a gate past the return cap              a raise the cap by 1 and resume | r raise by N | s stop | o open
     goal_budget  a lane (or a job) would pass a cap      a raise by its cap and resume | r raise by $N | s stop | o open
     goal_ask     a supervised job's ask                  a allow / approve / accept | r deny / answer / edit | s stop | o open
+    goal_replan  a replan's plan failed its check twice  a apply the new plan | r keep the old plan | s stop | o open (R2)
+
+A replan's review (3.1.8.0 R2) is a goal_plan row whose target names the
+replan (`replan: <n>`); its diff of the lanes is the row's detail.
 
 The rows come from `<state>/supervise/decisions/<rid>.json` (supervise/
 decisions.py), so they survive Studio starting later and the supervisor

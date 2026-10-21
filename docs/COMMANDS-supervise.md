@@ -48,6 +48,7 @@ done, 1 could not (the reason on stderr), 2 usage.
 ```sh
 halo goal add "write the release notes" --repo . --budget 2 --lineup halo-dev-cycle
 halo goal add "summarise the open issues" --as job --budget 0.5
+halo goal add "port the parser" --file parser.py --test "python -m pytest" --replan review
 halo goal list
 halo goal show g-ab12
 halo goal hold g-ab12        # keep a queued goal from starting
@@ -73,6 +74,10 @@ halo goal rm g-ab12          # drop a goal (not one that runs)
 - `--test CMD`: the test command the gate runs (an Orchestra goal).
 - `--review`: pause for the plan's review before it runs (an Orchestra goal);
   the review waits in Attention as a `goal plan` row.
+- `--replan none|auto|review`: what the supervisor does when this goal's run
+  drifts (default: `supervise.replan`): `auto` applies the lead's new plan for
+  the lanes left, `review` parks it as a `goal plan` row, `none` stops only
+  (see [SUPERVISE.md](SUPERVISE.md#replanning)).
 
 ### `halo goal list` / `show` flags
 

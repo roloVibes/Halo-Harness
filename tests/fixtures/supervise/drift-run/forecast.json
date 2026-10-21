@@ -1,0 +1,12 @@
+{
+  "run_id": "drift-run",
+  "lanes": [
+    {"lane": 1, "job": "job-1", "model": "mock:small", "usd": 0.2, "priced": true},
+    {"lane": 2, "job": "job-2", "model": "mock:small", "usd": 0.3, "priced": true},
+    {"lane": 3, "job": "job-3", "model": "mock:small", "usd": 0.3, "priced": true},
+    {"lane": 4, "job": "job-4", "model": "mock:small", "usd": 0.4, "priced": true},
+    {"lane": 5, "job": "job-5", "model": "mock:small", "usd": 0.2, "priced": true}
+  ],
+  "total": {"usd": 1.4, "budget_usd": 1.0, "over": true},
+  "ts": 1760000000.0
+}

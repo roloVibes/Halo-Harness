@@ -4,13 +4,14 @@ One file per goal, `<state>/supervise/goals/<g-id>.json`:
 
     {id, what, done_when, stop_when, repo, budget_usd, lineup, kind: orchestra | job,
      state: queued | running | parked | done | stopped | failed, created, started, ended,
-     run_dir | bg_id, cost_usd, why, held, retries, failure, files, test, workers, plan}
+     run_dir | bg_id, cost_usd, why, held, retries, failure, files, test, workers, plan, replan, replans}
 
 `held` keeps a queued goal from starting (`halo goal hold` / `release`,
 `pause` on a queued one). `failure` is set on a goal that ended badly:
 `{kind: crash | worker | gate | budget | time | cancelled | retries, step, last_event, report?}`.
 `files`, `test`, `workers` and `plan` are the Orchestra goal's own fields
-(orchestra/goal.py). `<state>/supervise/queue.json` marks the folder for
+(orchestra/goal.py). R2: `replan` (none | auto | review, '' = supervise.replan)
+and `replans` (one row per replan, supervise/replan.py). `<state>/supervise/queue.json` marks the folder for
 `halo work` (work/adapters/goal.py). Every write takes the goal file's lock,
 so `halo goal` and a running supervisor never lose each other's change;
 every state change adds a history line (history.py).
@@ -64,13 +65,15 @@ def _mark(state_dir) -> None:
 
 def add(state_dir, what: str, *, done_when: str = "", stop_when: str = "", repo=None, budget_usd=None,
         lineup: str = "", kind: str = "orchestra", files=None, test: str = "", workers: Optional[int] = None,
-        review: bool = False) -> dict:
+        review: bool = False, replan: str = "") -> dict:
     """A new queued goal. ValueError for a bad field (the sentence says which)."""
     what = str(what or "").strip()
     if not what:
         raise ValueError("say what the goal is: halo goal add \"<what>\"")
     if kind not in KINDS:
         raise ValueError(f"--as is orchestra or job, got {kind!r}")
+    if replan not in ("", "none", "auto", "review"):
+        raise ValueError(f"--replan is none, auto or review, got {replan!r}")
     if budget_usd is not None and (isinstance(budget_usd, bool) or float(budget_usd) < 0):
         raise ValueError(f"--budget is a number of dollars, 0 or more, got {budget_usd!r}")
     repo_path = Path(repo or Path.cwd()).resolve()
@@ -82,7 +85,8 @@ def add(state_dir, what: str, *, done_when: str = "", stop_when: str = "", repo=
             "lineup": str(lineup or ""), "kind": kind, "state": "queued", "created": round(time.time(), 3),
             "started": None, "ended": None, "run_dir": None, "bg_id": None, "cost_usd": 0.0, "why": "",
             "held": False, "retries": 0, "failure": None, "files": [str(f) for f in files or []],
-            "test": str(test or ""), "workers": workers, "plan": "review" if review else "auto"}
+            "test": str(test or ""), "workers": workers, "plan": "review" if review else "auto",
+            "replan": str(replan or ""), "replans": []}
     if kind == "orchestra":
         from halo_harness.orchestra.goal import validate_goal
         problems = validate_goal(orchestra_fields(goal))

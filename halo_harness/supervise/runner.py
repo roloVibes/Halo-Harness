@@ -84,22 +84,34 @@ def classify(reason: str) -> "tuple[str, str, str]":
 
 
 def run_orchestra(state_dir, goal: dict, cfg: dict, on_event=None) -> dict:
-    """Run (or resume) the goal's Orchestra run to its report; the outcome. Never raises."""
+    """Run (or resume) the goal's Orchestra run to its report; the outcome. Never raises. 3.1.8.0 R2: a run that
+    stopped on its replan pause is replanned here, in this thread (replan_ask.settle), and runs again."""
+    from halo_harness.supervise import replan, replan_ask
     from halo_harness.supervise.budget import Guard, run_spent
     from halo_harness.team.adapters import orchestra_run
     run_dir = Path(goal["run_dir"])
-    guard = Guard(state_dir, goal, run_dir, cfg.get("budget_usd"))
-    try:
-        got = orchestra_run(None, goal["repo"], run_dir=run_dir, wrap=guard.wrap, make=ADAPTERS, by="supervise",
-                            model=goal.get("model") or None, on_event=on_event)
-        report = got["report"]
-    except Exception as e:  # anything run() did not turn into a stopped report: a crash
-        text = f"the runner stopped on an error: {type(e).__name__}: {e}"
-        return {"state": "failed", "why": "crash", "cost_usd": run_spent(run_dir), "failure": failure("crash", run_dir, text)}
-    if guard.hit:
-        report = dict(report, stop_reason=f"budget: {guard.hit}")
-        jsonl.write_json(run_dir / "report.json", report)
-    return report_outcome(run_dir, report)
+    while True:
+        guard = Guard(state_dir, goal, run_dir, cfg.get("budget_usd"),
+                      before=replan.spawn_hook(state_dir, goal["id"], run_dir, cfg))
+        try:
+            got = orchestra_run(None, goal["repo"], run_dir=run_dir, wrap=guard.wrap, make=ADAPTERS, by="supervise",
+                                model=goal.get("model") or None, on_event=on_event)
+            report = got["report"]
+        except Exception as e:  # anything run() did not turn into a stopped report: a crash
+            replan.drop(state_dir, goal["id"], run_dir, "the runner crashed")
+            text = f"the runner stopped on an error: {type(e).__name__}: {e}"
+            return {"state": "failed", "why": "crash", "cost_usd": run_spent(run_dir), "failure": failure("crash", run_dir, text)}
+        if guard.hit:
+            replan.drop(state_dir, goal["id"], run_dir, "a budget stop came first")
+            report = dict(report, stop_reason=f"budget: {guard.hit}")
+            jsonl.write_json(run_dir / "report.json", report)
+        if replan.pausing(run_dir):
+            nxt = replan_ask.settle(state_dir, goal, run_dir, cfg, report, make=ADAPTERS)
+            if nxt == "resume":
+                continue
+            if nxt is not None:
+                return nxt
+        return report_outcome(run_dir, report)
 
 
 def report_outcome(run_dir, report: dict) -> dict:

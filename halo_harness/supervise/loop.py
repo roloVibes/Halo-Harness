@@ -9,6 +9,8 @@ Each tick:
      worker guarded by the budget), a job goal as a `halo -p` background run;
   3. poll running goals: a finished orchestra run or an ended job job settles
      the goal; a goal past `max_minutes` is stopped and parks (`why: time`);
+     a running orchestra goal whose run drifts pauses for a replan (R2,
+     replan.py: the lead is asked in the goal's own thread, never here);
   4. decisions: a parked decision the owner answered is applied (approve or
      reject a plan, raise a cap and resume, stop); a goal_ask past its
      deadline is answered for the owner;
@@ -28,7 +30,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from halo_harness.supervise import apply, arm, asks, budget, decisions, heartbeat, pulse, queue, runner
+from halo_harness.supervise import apply, arm, asks, budget, decisions, heartbeat, pulse, queue, replan, runner
 from halo_harness.supervise.settings import ask_wait_s, settings
 
 
@@ -53,6 +55,7 @@ class Supervisor:
         self._resume()
         self._start()
         self._timeouts()
+        replan.watch(self)  # R2: a running goal whose run drifts pauses for a replan (supervise/replan.py)
         self.watch_plans()
         self._decisions()
         self._expire_asks()

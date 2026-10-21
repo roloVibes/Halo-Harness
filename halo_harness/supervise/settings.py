@@ -3,7 +3,15 @@
 
     tick_s        5      seconds between two ticks
     max_running   1      goals running at once
-    replan        none   (R2: auto | none) what the supervisor does with a run that drifts
+    replan        none   what the supervisor does with a run that drifts (R2, docs/SUPERVISE.md "Replanning"):
+                         none: stop only (budget, gate, crash) | auto: apply the lead's new plan at once |
+                         review: park it as a goal_plan row (a goal with plan: review always reviews)
+    replan_forecast   1.25  forecast drift: the live spend + the lanes left at their forecast pass a cap x this
+    replan_returns    2     returns drift: a lane the gate (or a failed merge) sent back this often
+    replan_block_s    600   blocked drift: a lane waited on a claim or a hand-off this long
+    replan_stall_s    900   stalled drift: no event from a writing lane this long
+    replan_cooldown_s 300   no second replan of a goal within this long of the last one
+    replan_max        2     replans per goal; past it a drift is left to the stops (goal_budget / goal_gate)
     asks          park   park: a supervised job's ask waits in Attention (tick_s * 720 at most);
                          deny: it is denied at once, as any `halo -p` run
     budget_usd    unset  the whole queue's cap: every goal's spend together
@@ -17,10 +25,13 @@ from pathlib import Path
 from typing import Optional
 
 DEFAULTS = {"tick_s": 5.0, "max_running": 1, "replan": "none", "asks": "park", "budget_usd": None, "retries": 1,
-            "max_minutes": 0}
+            "max_minutes": 0, "replan_forecast": 1.25, "replan_returns": 2, "replan_block_s": 600.0,
+            "replan_stall_s": 900.0, "replan_cooldown_s": 300.0, "replan_max": 2}
 ASKS = ("park", "deny")
-REPLAN = ("none", "auto")
+REPLAN = ("none", "auto", "review")
 WAIT_TICKS = 720  # a parked ask waits tick_s * 720 at most (an hour at the default tick)
+_REPLAN_NUMS = {"replan_forecast": (1.0, False), "replan_returns": (1, True), "replan_block_s": (1.0, False),
+                "replan_stall_s": (1.0, False), "replan_cooldown_s": (0.0, False), "replan_max": (0, True)}
 
 
 def _num(value, default, *, lo: float = 0.0, whole: bool = False):
@@ -56,6 +67,8 @@ def settings(state_dir: Optional[Path] = None) -> dict:
     out["budget_usd"] = None if cap in (None, 0) else _num(cap, None)
     out["retries"] = _num(raw.get("retries"), DEFAULTS["retries"], whole=True)
     out["max_minutes"] = _num(raw.get("max_minutes"), DEFAULTS["max_minutes"])
+    for key, (lo, whole) in _REPLAN_NUMS.items():  # R2: the drift thresholds, the cooldown and the bound
+        out[key] = _num(raw.get(key), DEFAULTS[key], lo=lo, whole=whole)
     return out
 
 

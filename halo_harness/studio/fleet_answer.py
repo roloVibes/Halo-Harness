@@ -17,7 +17,7 @@ calls `act`; the decision is journaled there with `by`.
     mission_claim   a set aside
     team_gate       a accept | r redo (text: the instruction) | s stop the run   (team/answer, 3.0.8.0 R2)
     team_budget     a raise: opens the team file | r skip the stage | s stop the run   (team/budget, 3.1.2.0 R2)
-    goal_plan | goal_gate | goal_budget | goal_ask   a supervisor decision (3.1.8.0 R1,
+    goal_plan | goal_gate | goal_budget | goal_ask | goal_replan   a supervisor decision (3.1.8.0 R1/R2,
                     fleet/supervise_attention.py): the answer is written to its decision file; the supervisor applies it
     every kind      o open: answered with where to open it, nothing is sent
 
@@ -49,7 +49,7 @@ ANSWER = {
 NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("mission_plan", "r"), ("team_gate", "r"),
               ("goal_gate", "r"), ("goal_budget", "r")}
 SET_ASIDE = ("orchestra_gate", "control_ask", "conflict", "mission_claim")
-SUPERVISE = ("goal_plan", "goal_gate", "goal_budget", "goal_ask")
+SUPERVISE = ("goal_plan", "goal_gate", "goal_budget", "goal_ask", "goal_replan")  # R2: goal_replan
 
 
 def _sub(req, path: str, body: dict, params: dict):
