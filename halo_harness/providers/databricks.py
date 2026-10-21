@@ -589,6 +589,10 @@ def probe_openrouter_models(base_url: str, api_key: str) -> list[dict]:
         architecture = entry.get("architecture")
         if isinstance(architecture, dict) and architecture.get("input_modalities") is not None:
             model_dict["input_modalities"] = architecture.get("input_modalities")
+        # 3.1.9.0 R1: what the model produces (text / image / audio), read by
+        # the catalog row's `modalities_out` -- dropped here before.
+        if isinstance(architecture, dict) and architecture.get("output_modalities") is not None:
+            model_dict["output_modalities"] = architecture.get("output_modalities")
         if entry.get("supported_parameters") is not None:
             model_dict["supported_parameters"] = entry.get("supported_parameters")
         if entry.get("pricing") is not None:
@@ -604,7 +608,7 @@ def models_json_path(state_dir) -> Path:
 
 def write_models_json(state_dir, models: list[dict]) -> None:
     """Write models.json as {"<id>": {"context_length":..., "max_output_tokens":...,
-    [input_modalities], [supported_parameters], [pricing]}, ...}. The three
+    [input_modalities], [output_modalities], [supported_parameters], [pricing]}, ...}. The
     bracketed keys are included only when the probe actually returned them
     (H0: extended probe_openrouter_models) -- the proxy's own resolve_profile
     only ever reads the first two keys, so their presence is harmless to it.
@@ -617,7 +621,7 @@ def write_models_json(state_dir, models: list[dict]) -> None:
             if not mid:
                 continue
             entry = {"context_length": m.get("context_length"), "max_output_tokens": m.get("max_output_tokens")}
-            for extra_key in ("input_modalities", "supported_parameters", "pricing"):
+            for extra_key in ("input_modalities", "output_modalities", "supported_parameters", "pricing"):
                 if extra_key in m:
                     entry[extra_key] = m[extra_key]
             out[mid] = entry

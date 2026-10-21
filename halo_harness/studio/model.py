@@ -45,22 +45,41 @@ def from_yaml(text: str) -> dict:
 
 # -- the model catalog --------------------------------------------------------
 
-def model_rows(state_dir=None, cwd=None) -> list:
-    """3.1.4.0 R4: the providers resolve through `catalog_env(cwd)`, the env a
-    session resolves with (the env file, the shell, the settings.json `env`
-    chain), not a bare copy of os.environ (which skipped the settings chain)."""
-    from halo_harness.capabilities import capability_profile
-    from halo_harness.model_display import format_price_per_m, format_speed, format_token_count
+def catalog_rows(state_dir=None, cwd=None) -> list:
+    """The catalog rows (`build_model_rows`, aliases and hints left out) the
+    way a session in `cwd` resolves its providers -- `model_rows` and the
+    best-at rebuild (`POST models/analyze`) both read these."""
     from halo_harness.providers.config import default_state_dir, load_routes
     from halo_harness.providers.model_enumeration import build_model_rows
     from halo_harness.studio.catalog_env import catalog_env
     state_dir = Path(state_dir or default_state_dir())
     routes_path = state_dir / "routes.json" if state_dir.exists() else None
+    return [row for row in build_model_rows(state_dir, env=catalog_env(cwd), routes=load_routes(routes_path))
+            if row.get("ref") and row.get("provider") != "alias"]
+
+
+def model_rows(state_dir=None, cwd=None) -> list:
+    """3.1.4.0 R4: the providers resolve through `catalog_env(cwd)`, the env a
+    session resolves with (the env file, the shell, the settings.json `env`
+    chain), not a bare copy of os.environ (which skipped the settings chain).
+    3.1.9.0 R1: each row also carries the catalog's own keys (modalities,
+    tools, reasoning, open weights, local, measured) and `best_at` -- `{line,
+    kinds}` from the best-at cache (models_best_at), the same answer `halo
+    models analyze` prints."""
+    from halo_harness.capabilities import capability_profile
+    from halo_harness.model_display import format_price_per_m, format_speed, format_token_count
+    from halo_harness.models_best_at import index as best_at_index
+    from halo_harness.providers.config import default_state_dir
+    state_dir = Path(state_dir or default_state_dir())
+    raw = catalog_rows(state_dir, cwd)
+    try:
+        best = best_at_index(state_dir, raw).get("rows") or {}
+    except Exception:
+        best = {}
     rows = []
-    for row in build_model_rows(state_dir, env=catalog_env(cwd), routes=load_routes(routes_path)):
-        ref = row.get("ref")
-        if not ref or row.get("provider") == "alias":
-            continue
+    for row in raw:
+        ref = row["ref"]
+        at = best.get(ref) or {}
         rows.append({
             "ref": ref, "provider": row.get("provider", ""), "group": row.get("group", ""), "detail": row.get("detail", ""),
             "price_in": row.get("price_in_per_m"), "price_out": row.get("price_out_per_m"),
@@ -68,10 +87,15 @@ def model_rows(state_dir=None, cwd=None) -> list:
             "context": format_token_count(row.get("context_tokens")) or "?",
             "context_tokens": row.get("context_tokens"),
             "speed": format_speed(row.get("speed_ttft_s"), row.get("speed_tokens_per_second")) or "?",
-            "local": row.get("provider") in ("ollama", "huggingface"),
+            "local": bool(row.get("local")),  # 3.1.9.0 R1: is_local_model_ref (a Hugging Face router row is remote)
             "chips": capability_profile(row)["chips"],  # 3.0.1.0 D1: vision / audio / video / files / image-out, or ? when unknown
             "modalities_in": row.get("modalities_in"), "image_output": bool(row.get("image_output")),
             "price_in_per_m": row.get("price_in_per_m"), "tools": row.get("tools"),  # the raw keys capabilities.best_for scores on
+            "price_out_per_m": row.get("price_out_per_m"), "max_output_tokens": row.get("max_output_tokens"),
+            "speed_ttft_s": row.get("speed_ttft_s"), "speed_tokens_per_second": row.get("speed_tokens_per_second"),
+            "modalities_out": row.get("modalities_out"), "reasoning": row.get("reasoning"),
+            "open_weights": row.get("open_weights"), "measured": row.get("measured"),
+            "best_at": {"line": at.get("line") or "", "kinds": list(at.get("kinds") or [])},
         })
     return rows
 

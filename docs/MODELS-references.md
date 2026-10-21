@@ -95,6 +95,86 @@ canary. Studio's model pickers show the same facts as chips (vision, audio,
 video, files, image-out) and the Design mode opens its model pick on the
 `design` ranking.
 
+### What each model is good at (Halo 3.1.9.0)
+
+Every catalog row (`build_model_rows`, the one source `/model`, `halo models`,
+Studio and the roles tables read) carries the same keys beside its price and
+context, each empty (`?`) when its source does not say -- never guessed:
+
+| Key | What | Filled from |
+|---|---|---|
+| `modalities_in` | what it takes in: text, image, audio, video, pdf | OpenRouter's `input_modalities` ("file" is a PDF); models.dev `modalities.input` for Databricks (the exact id, else the vendor family), OpenAI and Experiential (the family); the Anthropic table (text, image, pdf); Ollama's `/api/show` capabilities (vision, audio) |
+| `modalities_out` | what it produces: text, image, audio | OpenRouter's `output_modalities` (kept by the probe since 3.1.9.0) and `pricing.image_output`; models.dev `modalities.output`; Claude and Ollama models answer in text |
+| `tools` | tool calls, true or false | OpenRouter's `supported_parameters`; models.dev `tool_call`; the Experiential gateway's `supports_tools`; the Hugging Face router's picked provider; every Claude model; Ollama's `tools` capability; a judge / decision-only endpoint is false |
+| `reasoning` | `{kind: none, native or openai, efforts: [...]}` | OpenRouter's `reasoning` parameter; models.dev `reasoning` and the effort values of `reasoning_options`; the gateway's `supports_reasoning` and `supported_reasoning_efforts`; `anthropic_caps` (adaptive thinking, xhigh); Ollama's `thinking` |
+| `open_weights` | weights you can download | models.dev `open_weights`; every local model; false for Claude |
+| `local` | runs on this machine or the LAN | `ol:`, `hf:local/*`, `hf:mlx/*` (a Hugging Face ROUTER model is remote) |
+| `measured` | what THIS host measured (empty when nothing) | `gym` (`halo gym`: score, tool-call accuracy, edit success, tokens/s), `tools_probe` (the Ollama tool-call probe), `tools_rejected` (a live 400 learned in the last 24 h), `ttft_s` and `tokens_per_second` (telemetry, 3+ calls), `canary` (`halo preflight`'s census) |
+
+From those, each model gets the kinds it is good at and one honest line:
+
+| Kind | Good at when |
+|---|---|
+| `visual`, `audio`, `video`, `pdf` | it takes that input in (media distillation by kind) |
+| `image` | it makes images |
+| `design` | vision plus stated tool calls, scored with context, speed and price |
+| `code` | stated tool calls, a capable price tier, context, reasoning and the gym's tool and edit scores (a failed tool canary halves it, a learned rejection rules it out) |
+| `research` | 128k or more context (scaled to 500k) plus reasoning |
+| `bulk` | cheap in and out: (3 x in + out) / 4 under about $0.40 per 1M tokens; local is free |
+| `fast` | MEASURED speed only: telemetry's tokens/s and time to first token, or the gym's run |
+| `local` | it runs here |
+
+The line says what the row states and what this host measured, the gaps
+after a `;`: `vision+pdf in, tools, reasoning, long context (1M), premium; no
+audio`, `tools, cheap, fast; text in only`, `tools (probed), local, free, gym
+0.80; text in only`, or `unknown: no catalog data`.
+
+```sh
+halo models analyze              # rebuild: one line per model, then the strongest and cheapest per kind
+halo models analyze --json       # the cache itself
+halo models --capabilities       # in: / out: plus the best-at line
+halo models --best-for code      # rank for one kind (any of the eleven)
+```
+
+The answer is cached in `~/.halo/models/best-at.json` (`{built, sources,
+rows: {ref: {kinds, line, scores, facts}}, best}`, sources by file name) and
+rebuilt on the next read whenever a source cache's mtime moved --
+`models.json`, `models-dev.json`, `dbx-endpoints.json`, the Experiential,
+Hugging Face, OpenAI and Anthropic caches, `stats-cache.json`, the gym
+results, `ollama-capabilities.json`, `canary-census.json`,
+`learned-rules.json`, `config.json`, `routes.json` -- or once it is six hours
+old (an Ollama host's list and the env have no file to watch). So `halo
+models --refresh`, the `/model` picker's refresh and Studio's Refresh need
+nothing more; `halo models analyze` and Studio's Analyze rebuild at once.
+
+#### The roster
+
+The main agent gets the roster: at most 40 lines, the strongest (and the
+cheapest, when it differs) model per kind, then one line per model -- its
+ref, price in/out per 1M tokens, context, inputs, tools, reasoning, the kinds
+it is best at and what was measured -- the session's own model first, "+N
+more" when the catalog is longer. Names only: no key, URL or path.
+
+```
+# Model roster (what each model in this Halo's catalog is good at; prices are USD per 1M tokens in/out; name one with the Agent tool's `model` when a sub-task needs it)
+Per kind, the strongest (and the cheapest when it differs):
+- visual: ant:fable; cheapest or:v/ears
+- audio: or:v/ears
+- bulk: or:v/cheap
+Models:
+- ant:fable  $10.00/$50.00  1M ctx  in text+image+pdf  tools  reasoning  best at pdf,research,visual,design,code
+- or:v/cheap  $0.10/$0.40  128k ctx  in text  tools  no reasoning  best at bulk
+```
+
+It rides as a user-role snapshot (kind `roster`) at a new session, after
+`/clear` and after a compaction, in the main session only; the system prompt
+stays byte-stable (no model list in it), and the Agent tool's description
+adds "the roster in your context says what each model is good at; name a
+model with `model` when a sub-task needs one". A session start never waits on
+a catalog: it reads the cache as it is, and a stale one is rebuilt behind it
+for the next session. `models.roster: false` in config.json (or
+`HALO_MODELS_ROSTER=0`) leaves it out ([CONFIG.md](CONFIG.md)).
+
 ### Media models (Halo 3.0.4.0)
 
 Diffusion checkpoints, video models, upscalers, TTS voices and their LoRAs,

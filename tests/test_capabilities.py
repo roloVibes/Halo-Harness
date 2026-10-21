@@ -1,9 +1,12 @@
-"""tests.test_capabilities -- which model for what (Halo 3.0.1.0 round D1):
-capability profiles come only from catalog facts (modalities, image
-output, context, price, speed), unknown stays unknown, the rankings for
-visual / audio / video / image / design pick the right rows with a reason,
-the preflight canaries demote a lane, and `halo models --capabilities` /
-`--best-for` print them.
+"""tests.test_capabilities -- which model for what (Halo 3.0.1.0 round D1;
+3.1.9.0 R1 "what each model is good at"): capability profiles come only
+from catalog facts (modalities, image output, tools, reasoning, context,
+price, speed, what this host measured), unknown stays unknown, the rankings
+for visual / audio / video / image / design / pdf and the strengths code /
+research / bulk / fast / local pick the right rows with a reason, the
+preflight canaries demote a lane (the census the row carries, or the one
+`best_for(state_dir=)` reads), `best_at_line` says one honest line, and
+`halo models --capabilities` / `--best-for` print them.
 """
 
 from __future__ import annotations
@@ -121,15 +124,100 @@ def test_cli_capabilities_and_best_for(ctx: Ctx):
         rc = cmd_models(["--capabilities"])
     out = buf.getvalue()
     ctx.check(f"--capabilities prints in:/out: columns, got {out[:120]!r}", rc == 0 and "in: " in out and "out: " in out)
-    buf = io.StringIO()
-    with redirect_stdout(buf):
-        rc = cmd_models(["--best-for", "visual"])
+    ctx.check(f"--capabilities ends each line with what the model is best at, got {out[-200:]!r}", " -- " in out)
+    import os
+    saved = os.environ.pop("ANTHROPIC_API_KEY", None)  # 3.1.9.0 R1: the ant: rows state vision now and would fill the top ten
+    try:
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = cmd_models(["--best-for", "visual"])
+    finally:
+        if saved is not None:
+            os.environ["ANTHROPIC_API_KEY"] = saved
     out = buf.getvalue()
     ctx.check(f"--best-for visual prints a ranked list with reasons, got {out[:160]!r}", rc == 0 and "or:v/eyes" in out and "reads images" in out)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = cmd_models(["--best-for", "pdf"])
+    ctx.check(f"--best-for takes the new kinds, got {buf.getvalue()[:160]!r}", rc in (0, 1) and "pdf" in buf.getvalue())
     buf = io.StringIO()
     with redirect_stdout(buf), redirect_stderr(buf):
         rc = cmd_models(["--best-for", "smell"])
     ctx.check("an unknown kind is refused with the list of kinds", rc != 0 and "visual" in buf.getvalue())
+
+
+STRONG = [
+    {"ref": "or:v/coder", "provider": "openrouter", "local": False, "context_tokens": 400_000, "price_in_per_m": 2.0,
+     "price_out_per_m": 8.0, "modalities_in": ["text", "image", "pdf"], "modalities_out": ["text"], "tools": True,
+     "reasoning": {"kind": "native", "efforts": ["low", "high"]}, "open_weights": False, "measured": None},
+    {"ref": "or:v/bulk", "provider": "openrouter", "local": False, "context_tokens": 128_000, "price_in_per_m": 0.05,
+     "price_out_per_m": 0.2, "modalities_in": ["text"], "modalities_out": ["text"], "tools": True,
+     "reasoning": {"kind": "none", "efforts": []}, "measured": {"gym": None, "tools_probe": None, "tools_rejected": None,
+                                                              "ttft_s": 0.3, "tokens_per_second": 140.0, "canary": None}},
+    {"ref": "or:v/longread", "provider": "openrouter", "local": False, "context_tokens": 1_000_000, "price_in_per_m": 0.3,
+     "price_out_per_m": 1.2, "modalities_in": ["text"], "modalities_out": ["text"], "tools": None,
+     "reasoning": {"kind": "openai", "efforts": []}},
+    {"ref": "ol:box", "provider": "ollama", "local": True, "context_tokens": 32_000, "price_in_per_m": 0, "price_out_per_m": 0,
+     "modalities_in": ["text"], "modalities_out": ["text"], "tools": True, "open_weights": True,
+     "measured": {"gym": {"score": 0.8, "tool_call_accuracy": 0.9, "edit_success": 0.7, "tokens_per_second": 30.0},
+                  "tools_probe": True, "tools_rejected": None, "ttft_s": None, "tokens_per_second": None, "canary": None}},
+    {"ref": "dbx:no-tools", "provider": "databricks", "local": False, "context_tokens": 200_000, "price_in_per_m": 1.0,
+     "price_out_per_m": 3.0, "modalities_in": ["text"], "tools": True,
+     "measured": {"gym": None, "tools_probe": None, "tools_rejected": True, "ttft_s": None, "tokens_per_second": None,
+                  "canary": None}},
+    {"ref": "or:v/blank", "provider": "openrouter"},
+]
+
+
+@test
+def test_the_strengths_rank_with_reasons(ctx: Ctx):
+    from halo_harness.capabilities import KINDS, best_for
+    ctx.check("KINDS gains pdf, code, research, bulk, fast, local", set(KINDS) >= {"pdf", "code", "research", "bulk", "fast", "local"})
+    refs = lambda kind: [r["ref"] for r in best_for(STRONG, kind)]  # noqa: E731
+    ctx.check(f"code: the capable tool model leads, a learned tools rejection is out, got {refs('code')}",
+              refs("code")[0] == "or:v/coder" and "dbx:no-tools" not in refs("code"))
+    ctx.check(f"research: long context plus reasoning, got {refs('research')}", refs("research")[:2] == ["or:v/longread", "or:v/coder"])
+    ctx.check(f"bulk: the cheapest in/out leads (local is free), got {refs('bulk')}", refs("bulk")[:2] == ["ol:box", "or:v/bulk"])
+    ctx.check(f"fast: measured speed only (the gym's run counts), got {refs('fast')}", refs("fast") == ["or:v/bulk", "ol:box"])
+    ctx.check(f"local: only what runs here, got {refs('local')}", refs("local") == ["ol:box"])
+    ctx.check(f"pdf: document input, got {refs('pdf')}", refs("pdf") == ["or:v/coder"])
+    reason = best_for(STRONG, "code")[0]["reason"]
+    ctx.check(f"a strength reason is plain words, got {reason!r}", "tool calls" in reason and "reasoning" in reason)
+
+
+@test
+def test_best_at_line_is_one_honest_line(ctx: Ctx):
+    from halo_harness.capabilities_line import best_at_kinds, best_at_line
+    by = {r["ref"]: r for r in STRONG}
+    ctx.check(f"what it takes in, tools, reasoning, long context; the gap after ';', got {best_at_line(by['or:v/coder'])!r}",
+              best_at_line(by["or:v/coder"]) == "vision+pdf in, tools, reasoning, long context (400k); no audio")
+    ctx.check(f"cheap and fast (measured), text only, got {best_at_line(by['or:v/bulk'])!r}",
+              best_at_line(by["or:v/bulk"]) == "tools, cheap, fast; text in only")
+    ctx.check(f"local, free, the probe, the gym, got {best_at_line(by['ol:box'])!r}",
+              best_at_line(by["ol:box"]) == "tools (probed), local, free, gym 0.80; text in only")
+    ctx.check("a row with no data says so", best_at_line(by["or:v/blank"]) == "unknown: no catalog data")
+    ctx.check(f"a learned rejection is named, got {best_at_line(by['dbx:no-tools'])!r}",
+              "rejects tool calls" in best_at_line(by["dbx:no-tools"]))
+    ctx.check(f"kinds: strongest first, design/code need stated tools, got {best_at_kinds(by['or:v/longread'])}",
+              "code" not in best_at_kinds(by["or:v/longread"]) and best_at_kinds(by["or:v/longread"])[0] == "research")
+
+
+@test
+def test_the_canary_census_reaches_best_for(ctx: Ctx):
+    import json
+    from halo_harness.capabilities import best_for
+    from halo_harness.preflight import record_canary_result
+    from halo_harness.providers.config import default_state_dir
+    state = Path(default_state_dir())
+    state.mkdir(parents=True, exist_ok=True)
+    record_canary_result(state, "or:v/see-all", {"ref": "or:v/see-all", "ok": False, "checks": {"vision": False, "tools": True}})
+    ctx.check("the census file is there", json.loads((state / "canary-census.json").read_text(encoding="utf-8"))["lanes"])
+    design = best_for(ROWS, "design", state_dir=state)
+    ctx.check(f"best_for(state_dir=) demotes the lane whose image canary failed, got {[r['ref'] for r in design]}",
+              design[-1]["ref"] == "or:v/see-all" and "failed the preflight image canary" in design[-1]["reason"])
+    carried = {**ROWS[0], "measured": {"canary": {"ok": False, "tools": True, "vision": False}}}
+    ctx.check("a row's own measured.canary demotes it with no census passed",
+              best_for([carried, ROWS[2]], "visual")[-1]["ref"] == "or:v/see-all")
 
 
 if __name__ == "__main__":

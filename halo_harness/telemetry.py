@@ -462,8 +462,8 @@ def cache_path() -> Path:
     return bridge_home() / "stats-cache.json"
 
 
-def _load_cache() -> dict:
-    p = cache_path()
+def _load_cache(path: "Optional[Path]" = None) -> dict:
+    p = Path(path) if path is not None else cache_path()
     try:
         if not p.exists():
             return {}

@@ -118,7 +118,7 @@ name: coder-local            # identity -- usually matches the filename
 description: Implements a brief using a local model.
 version: "1.0"
 tags: [subagent, local]
-kind: subagent                # main | subagent | researcher | judge | reviewer | custom
+kind: subagent                # main | subagent | researcher | judge | reviewer | custom | media
 extends: coder                 # optional -- another bio to inherit from
 
 models:

@@ -274,6 +274,41 @@ def test_s_cycles_to_price_keeps_free_variant_beside_its_paid_row(ctx: Ctx):
     asyncio.run(body())
 
 
+@test
+def test_rows_show_the_kinds_and_best_sorts_by_them(ctx: Ctx):
+    """3.1.9.0 R1: each row names the kinds the model is best at (after the
+    gym suffix), and the sort cycle's last key, "best", puts the model good
+    at the most kinds first."""
+    from halo_harness.testing.fake_controller import FakeController
+    from halo_harness.tui.dialogs.model_picker import ModelPicker, _SORT_KEYS, _sort_value
+
+    models = [
+        {"ref": "or:plain/text", "provider": "openrouter", "price_in_per_m": 2.0, "modalities_in": ["text"], "tools": False},
+        {"ref": "or:wide/eyes", "provider": "openrouter", "price_in_per_m": 0.2, "price_out_per_m": 0.6,
+         "context_tokens": 1_000_000, "modalities_in": ["text", "image", "audio", "pdf"], "tools": True,
+         "reasoning": {"kind": "openai", "efforts": []}},
+    ]
+    ctx.check("'best' is a sort key", "best" in _SORT_KEYS)
+    best = {"or:wide/eyes": {"kinds": ["visual", "audio"]}, "or:plain/text": {"kinds": []}}
+    ctx.check("best sorts the most kinds first, none last",
+              [m["ref"] for m in sorted(models, key=lambda m: _sort_value(m, "best", best))] == ["or:wide/eyes", "or:plain/text"])
+
+    async def body():
+        app = await _mounted(FakeController())
+        async with app.run_test(size=(140, 40)) as pilot:
+            picker = ModelPicker(models, current="")
+            app.push_screen(picker)
+            await pilot.pause(0.1)
+            text = picker._row_text(models[1]).plain
+            ctx.check(f"a row ends with the kinds it is best at, got {text!r}", "best at " in text and "audio" in text)
+            ctx.check("a row good at nothing shows no kinds", "best at" not in picker._row_text(models[0]).plain)
+            picker._sort_index = _SORT_KEYS.index("best") - 1
+            picker.action_cycle_sort()
+            first = next(o for o in picker.query_one("#model-list")._options if not o.disabled)
+            ctx.check(f"sorted by best, the wide model leads, got {first.id!r}", first.id == "or:wide/eyes")
+    asyncio.run(body())
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

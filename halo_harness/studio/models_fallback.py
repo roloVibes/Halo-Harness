@@ -68,12 +68,22 @@ def in_use(state_dir, cwd=None) -> dict:
     return out
 
 
-def _row(ref: str, detail: str, source: str, *, price_in=None, price_out=None, context_tokens=None) -> dict:
+def _row(ref: str, detail: str, source: str, *, price_in=None, price_out=None, context_tokens=None, facts=None) -> dict:
+    """3.1.9.0 R1: `local` is `is_local_model_ref` (hf:local / hf:mlx too);
+    a shipped OpenRouter row carries what its entry states and `best_at`."""
+    from halo_harness.capabilities import capability_profile
+    from halo_harness.capabilities_line import best_at_kinds, best_at_line
+    from halo_harness.model import is_local_ref_string
     from halo_harness.model_display import format_price_per_m, format_token_count
     provider = provider_of(ref)
+    base = {"ref": ref, "provider": provider, "price_in_per_m": price_in, "price_out_per_m": price_out,
+            "context_tokens": context_tokens, "local": is_local_ref_string(ref), **(facts or {})}
     return {"ref": ref, "provider": provider, "group": "", "detail": detail, "price_in": price_in, "price_out": price_out,
             "price": format_price_per_m(price_in) or "?", "context": format_token_count(context_tokens) or "?",
-            "context_tokens": context_tokens, "speed": "?", "local": provider == "ollama", "chips": "?",
+            "context_tokens": context_tokens, "speed": "?", "local": base["local"],
+            "chips": capability_profile(base)["chips"] if facts else "?",
+            **{k: base.get(k) for k in ("modalities_in", "modalities_out", "tools", "reasoning")},
+            "best_at": {"line": best_at_line(base), "kinds": best_at_kinds(base)},
             "verified": False, "source": source}
 
 
@@ -95,6 +105,7 @@ def fallback_rows(state_dir, cwd, live_refs: set, env: dict) -> dict:
     except Exception:
         or_on = False
     if or_on and not any(r.startswith("or:") for r in live_refs):
+        from halo_harness.providers.model_row_facts import openrouter_facts
         from halo_harness.providers.models_dev import load_vendored_openrouter_fallback
         seen = {r["ref"] for r in rows}
         for mid, m in sorted(load_vendored_openrouter_fallback().items()):
@@ -104,6 +115,7 @@ def fallback_rows(state_dir, cwd, live_refs: set, env: dict) -> dict:
             pricing = m.get("pricing") if isinstance(m.get("pricing"), dict) else {}
             rows.append(_row(ref, "not verified: Halo's shipped OpenRouter list (Refresh for the live one)", "shipped",
                              price_in=_per_m(pricing.get("prompt")), price_out=_per_m(pricing.get("completion")),
-                             context_tokens=m.get("context_length") if isinstance(m.get("context_length"), int) else None))
+                             context_tokens=m.get("context_length") if isinstance(m.get("context_length"), int) else None,
+                             facts=openrouter_facts(m)))
             shipped = True
     return {"rows": rows, "in_use": len(used), "shipped": shipped}

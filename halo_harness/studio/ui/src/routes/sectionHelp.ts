@@ -45,7 +45,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
     what: "A lineup says which agent, on which model, plays each part in your sessions, and in which tier it sits. Studio shows it as cards in tier boxes you can arrange and edit; the files are ~/.halo/teams/<name>.yaml and ~/.halo/agents/<name>.yaml.",
     steps: [
       ["Pick a lineup", "Lineups lists yours and the shipped ones (the active one is marked); New makes your own copy. Each card on the canvas is one slot: an agent bio in a role, with the model that resolves for it, its price and its context."],
-      ["Give each card its bio", "Bios: click one to edit it -- its model from the table (sort by price or context, search, best for), Test this model, its tools, limits and output. Drag a bio onto the canvas to add a card."],
+      ["Give each card its bio", "Bios: click one to edit it -- its model from the table (sort by price, context or best, search, best at), Test this model, its tools, limits and output. Drag a bio onto the canvas to add a card."],
       ["Stack the tiers", "Each box is a tier: a member spawns only into the next tier down, and main sits alone in tier 0. Drag a card into another box to move it (the lineup saves); a box's label strip collapses it."],
       ["Fine-tune the sections", "Inspector: Assignment edits the selected card's slot; Lineup has delegation, routing, budget, escalation, context, permissions, pipeline, acceptance and tiers, each as a form with a YAML toggle."],
       ["Fix what Problems lists", "Every edit is checked at once: blocks stop a save or a run start (a model id its catalog does not know, a bio with no tool), warns are worth a look. Click one to select its card."],

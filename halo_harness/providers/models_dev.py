@@ -214,6 +214,7 @@ def openai_profile_fields_from_models_dev(entry: dict) -> dict:
     input_modalities = modalities.get("input")
     if isinstance(input_modalities, list):
         out["vision"] = "image" in input_modalities
+        out["audio"] = "audio" in input_modalities
     if isinstance(entry.get("reasoning"), bool):
         out["reasoning"] = "openai" if entry["reasoning"] else "none"
     cost = entry.get("cost") if isinstance(entry.get("cost"), dict) else {}
@@ -258,8 +259,16 @@ def databricks_profile_fields_from_models_dev(entry: dict) -> dict:
     input_modalities = modalities.get("input")
     if isinstance(input_modalities, list):
         out["vision"] = "image" in input_modalities
+        out["audio"] = "audio" in input_modalities
     if isinstance(entry.get("reasoning"), bool):
         out["reasoning"] = "native" if entry["reasoning"] else "none"
+    # 3.1.9.0 R1: the catalog row's own keys (modalities, tools, open
+    # weights, reasoning with its effort levels), for the Databricks row
+    # and every vendor-family row this entry fills in.
+    from halo_harness.providers.model_row_facts import models_dev_facts
+    facts = models_dev_facts(entry)
+    if facts:
+        out["facts"] = facts
     cost = entry.get("cost") if isinstance(entry.get("cost"), dict) else {}
     # models.dev prices are USD per MILLION tokens; ModelProfile wants USD
     # per single token, matching OpenRouter's own pricing.prompt/completion

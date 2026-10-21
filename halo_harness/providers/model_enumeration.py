@@ -54,6 +54,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
     session yet, so it never passes these)."""
     from halo_harness.providers.databricks import load_models_json
     from halo_harness.providers.enablement import credentials_present, is_enabled, label_for, label_with_prefix
+    from halo_harness.providers import model_row_facts as F  # 3.1.9.0 R1: what each row states beyond price
 
     # H15 item 21.2: one dim hint entry (never a selectable `ref`) per
     # provider that's DETECTED (real credentials/login) but not yet
@@ -103,11 +104,9 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             "max_output_tokens": entry.get("max_output_tokens") or 16384,
             "price_in_per_m": _per_m(pricing.get("prompt")), "price_out_per_m": _per_m(pricing.get("completion")),
             "provider": "openrouter",
-            # 3.0.1.0 D1: modalities straight from the catalog (never guessed; absent = unknown)
-            "modalities_in": list(entry.get("input_modalities") or []) or None,
-            "modalities_out": list(entry.get("output_modalities") or []) or (["text", "image"] if pricing.get("image_output") else None),
-            "image_output": bool(pricing.get("image_output")) or "image" in (entry.get("output_modalities") or []),
-            "tools": ("tools" in (entry.get("supported_parameters") or [])) if entry.get("supported_parameters") else None,
+            # 3.0.1.0 D1 / 3.1.9.0 R1: modalities, tools and reasoning straight
+            # from the catalog (never guessed; absent = unknown)
+            **F.openrouter_facts(entry),
         })
     _maybe_hint("openrouter", detected=or_detected)
     if or_enabled:
@@ -126,7 +125,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
         for entry in _ant_entries():
             if entry["ref"] in seen:
                 continue
-            out.append({**entry, "provider": "anthropic", "group": ant_group})
+            out.append(F.fill({**entry, "provider": "anthropic", "group": ant_group}, F.ant_facts(entry["ref"][4:])))
         # Halo 2.0.4 round 3 (deliverable 3): "the picker groups read
         # the same cache" -- `halo models --ant`'s own live catalog
         # (`ant-models.json`, written by `refresh_anthropic_catalog_
@@ -149,7 +148,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             if ref in seen:
                 continue
             seen.add(ref)
-            out.append({"ref": ref, "provider": "anthropic", "group": ant_group})
+            out.append(F.fill({"ref": ref, "provider": "anthropic", "group": ant_group}, F.ant_facts(model_id)))
     elif ant_available:
         hints.append({"hint": f"{label_for('anthropic')} detected but not enabled -- "
                                f"run `halo providers enable anthropic`"})
@@ -264,6 +263,8 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             "detail": detail,
             "dbu": dbu if dbu != "?" else None,
             "task": e.get("task"),
+            **(fields.get("facts") or {}),
+            **({"tools": False} if decision else {}),  # a judge / decision-only endpoint takes no tools
         })
     # Halo 2.0.3 round 4 (brief item 4): the router's cached catalog
     # (`huggingface-models.json`, a pure file read -- the background
@@ -304,6 +305,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             "price_in_per_m": fields.get("price_in_per_m"), "price_out_per_m": fields.get("price_out_per_m"),
             "speed_ttft_s": fields.get("speed_ttft_s"), "speed_tokens_per_second": fields.get("speed_tokens_per_second"),
             "provider": "huggingface", "group": label_with_prefix("huggingface"),
+            **F.hf_facts(entry),
         })
     _maybe_hint("huggingface", detected=hf_detected)
 
@@ -332,6 +334,7 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             "max_output_tokens": None,
             "price_in_per_m": fields.get("price_in_per_m"), "price_out_per_m": fields.get("price_out_per_m"),
             "provider": "openai", "group": label_with_prefix("openai"),
+            **(fields.get("facts") or {}),
         })
     _maybe_hint("openai", detected=oai_detected)
 
@@ -365,12 +368,21 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
         if fields.get("is_free_preview"):
             detail_parts.append("free (preview)")
         detail = " · ".join(detail_parts) or None
-        out.append({
+        xp_row = {
             "ref": ref, "context_tokens": fields.get("context_tokens"),
             "max_output_tokens": fields.get("max_output_tokens"),
             "price_in_per_m": fields.get("price_in_per_m"), "price_out_per_m": fields.get("price_out_per_m"),
             "provider": "experiential", "group": label_with_prefix("experiential"), "detail": detail,
-        })
+            **F.xp_facts(name, fields),
+        }
+        # 3.1.9.0 R1: the gateway's catalog names no modalities -- the vendor's
+        # own models.dev entry (the family fallback) fills what it leaves open.
+        try:
+            from halo_harness.providers.models_dev import vendor_family_profile_fields
+            family = vendor_family_profile_fields(name, full_models_dev) or {}
+        except Exception:
+            family = {}
+        out.append(F.fill(xp_row, family.get("facts") or {}, only_missing=True))
     _maybe_hint("experiential", detected=xp_detected)
 
     # C-2 finding 11: `ol:`/`hf:local/*`/`hf:mlx/*` never appeared here
@@ -413,7 +425,11 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             "price_in_per_m": 0, "price_out_per_m": 0,
             "provider": "ollama" if row.ref.startswith("ol:") else "huggingface",
             "group": row.group, "detail": row.capability,
-            "modalities_in": (["text", "image"] if "vision" in str(row.capability or "").lower() else None),
+            # 3.1.9.0 R1: Ollama's `/api/show` capabilities LIST (vision was
+            # never in `row.capability`'s text, so local vision read unknown)
+            # and the measured tool-call probe (carried into `measured`);
+            # a model a local server runs has its weights on that machine
+            **F.local_facts(row.capabilities, row.tools_probe), "open_weights": True,
         })
 
     current = current_ref
@@ -442,6 +458,10 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
             if entry:
                 m["speed_ttft_s"] = entry.get("ttft_s")
                 m["speed_tokens_per_second"] = entry.get("tokens_per_second")
+    # 3.1.9.0 R1: every model row carries the same optional keys
+    # (model_row_facts.ROW_KEYS), `local` from `is_local_model_ref`, and
+    # `measured` from the gym, the probes, telemetry and the canary census.
+    F.finish_rows(out, state_dir, speeds=speeds)
     # H15 item 21.2: dim, non-selectable hint rows (no "ref" at all) go
     # LAST -- after the `current` insertion above, which indexes `out`
     # by `m["ref"]` and would KeyError on a hint dict otherwise.
