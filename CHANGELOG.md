@@ -22,6 +22,27 @@ Focus: packs -- "one harness, one Studio, multiple independently maintained capa
 - The extension API 1.0 (`halo_harness.ext`, docs/EXTENSION_API.md): the one module a pack imports, with a status per part, the manifest's JSON schema and a fixture pack.
 - Config: `packs.sources` (install a pack by id), `packs.settings.<id>` (checked against the pack's schema). `halo config where` and `halo doctor --config` gain a packs group.
 
+### R2: roles and lineups from packs
+
+#### Added
+
+- A pack's bio asks for its model by what it must do: `models.capabilities: [long-context, vision, tools, ...]` runs it on the best model in your catalog with every tag (a family in `models.preference`, such as `claude-sonnet`, first) and on your default model when none has them, which `halo pack doctor`, `halo pack inspect` and the card in Studio say. A bio of yours may ask by tag too.
+- A pack's bio keeps its own memory (`context.memory.namespace`, default the pack's id, in `~/.halo/packs/.data/<id>/memory/`): recall over it never mixes with yours or another pack's, and yours leaves every pack's out.
+- `tools.needs` names the grants a pack's bio uses; the bio loads without them, and doctor, inspect and Studio name `halo pack enable <id> --grant <need>`.
+- A lineup's `acceptance` may say `test: <command>` and `review: true`: `halo orchestra new --lineup <name>` starts with that test and pauses for the plan's review unless you give `--test`. A pack's lineup names its workflows (`workflows: [review]`, declared under `contributes.workflows`).
+- Studio's Roles groups lineups and bios by where they live (yours, project, one box per pack, shipped); a pack's row has Preview (read-only), Clone (your copy, with `from_pack: <id>@<version>`), Customize (Clone, then the copy open) and Apply (the dialog names the pack and the lineup it replaces).
+- `halo pack inspect` lists each bio with the model it runs on and the grants it needs, and each lineup with its members, tiers, workflows and acceptance; `halo agents list` and `halo teams list` print a group per pack.
+
+#### Changed
+
+- A pack's bio that names one provider (`models.provider`, an `or:`/`ant:`/`dbx:` model, a vendor/model path) and a pack lineup naming an undeclared workflow are manifest problems naming the file and line; such a pack does not install.
+- Studio's New and Duplicate no longer write over a lineup or bio of yours with the same name: they answer that it is already yours.
+- The doc-review fixture pack requests `bash` (its reviewer bio's need).
+
+#### Fixed
+
+- A file of yours named like a pack's bio or lineup is listed as shadowing it everywhere you look (`halo agents list`, `halo teams list`, `halo agents`, Studio's row and the pack's box); before, only `halo pack doctor` said so.
+
 ## [3.1.9.0] - unreleased
 
 Focus: Auto -- the main agent knows what each model is good at and builds the orchestration itself (the owner, 2026-10-21: "an auto role template ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at").
@@ -52,6 +73,17 @@ Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up
 - A crashed Orchestra run resumes from its checkpoint; `<run>/runner.json` is a cross-process runner heartbeat (Studio shows such a run `running`, not `interrupted`, and never starts a second runner on it); retries bounded by `supervise.retries`.
 - Budgets are stops under the supervisor: a lane that would pass a goal's or the queue's cap does not start; a job goal runs with `--max-budget-usd`; `supervise.max_minutes` stops a goal that runs too long.
 - Decisions the supervisor cannot take (a plan review, a gate past the cap, a budget, a job's ask) wait in Studio's Attention queue (`goal_*` rows, one key each); Session's landing says "N goals done, M waiting on you, $X".
+
+### R2: replanning while it runs
+
+#### Added
+
+- Replanning while it runs: with `supervise.replan: auto | review` (or `halo goal add --replan`), a supervised Orchestra run that drifts -- its forecast passes the cap by `replan_forecast`, a lane comes back `replan_returns` times, a lane is blocked on a hand-off or a claim, or a writing lane goes quiet -- pauses its lanes left (running workers finish their step) and the run's lead plans them again: a different model, a split, a second specialist beside a stuck lane, or a retry with what came back as context. Merged lanes are pinned.
+- `auto` applies the new plan at once; `review` (and every `plan: review` goal) parks it in Attention as a `goal plan` row with the diff of the lanes; a plan that fails its check twice parks a `goal replan` row. plan.json keeps every revision, events.jsonl `replan_asked` / `replan_applied` / `replan_rejected`, and `halo supervise status`, `halo goal show` and the run report say "replanned N times (why)". Bounded by `supervise.replan_max` and `supervise.replan_cooldown_s`.
+
+#### Fixed
+
+- A resumed Orchestra lane keeps its job's bio and model (a reviewed plan's model was lost after a resume); the run report's cost counts every lane file; a time stop beats a replan pause.
 
 ### R6: Studio keeps up with the terminal
 
