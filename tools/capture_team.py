@@ -11,6 +11,8 @@ With --dom the section is read twice -- the Start view first (Studio over a
 folder with no team file), then the seeded team's board -- and the
 data-testid values are counted (the last stdout line is the JSON:
 {"start": {...}, "team": {...}}). Never two Chromes at once.
+3.1.7.0 R2: every Studio draws you@studio (tools/capture_identity.py) and every
+page is guarded before it is counted or shot.
 """
 from __future__ import annotations
 
@@ -18,6 +20,8 @@ import json
 import threading
 import time
 from pathlib import Path
+
+from capture_identity import guard_page, placeholder
 
 IDS = ("section-tab", "team-start", "team-start-init", "team-board", "team-inspector", "team-feed", "team-member", "team-stage",
        "team-block", "team-edge", "team-runbar", "panel-about", "team-gate-card", "team-event", "status-team", "legacy-frame")
@@ -47,7 +51,9 @@ def mid_run(rig) -> None:
 def dom(c) -> dict:
     from halo_harness.studio.server import start_server, url_for
     from tests.helpers.studio_team_rig import StudioTeamRig
+    placeholder()
     with StudioTeamRig(live=False) as rig:
+        placeholder(rig.state)
         empty = rig.home / "empty"
         empty.mkdir()
         bare = start_server(port=0, cwd=empty, state_dir=rig.state)
@@ -55,6 +61,7 @@ def dom(c) -> dict:
         try:
             c.go(url_for(bare, "team").replace("#t=", "&tour=off#t="))
             c.wait("!!document.querySelector('[data-testid=\"team-start\"]')", 30)
+            guard_page(c, "team start")
             start = counts(c)
             c.go("about:blank")  # the page's live feed closes before its server does
             time.sleep(0.3)
@@ -64,13 +71,16 @@ def dom(c) -> dict:
         c.go(rig.url("team"))
         c.wait(f"{STAGES} === 4 && document.querySelectorAll('[data-testid=\"team-edge\"]').length > 0", 30)
         time.sleep(0.4)
+        guard_page(c, "team")
         return {"start": start, "team": counts(c)}
 
 
 def shoot(c, png: Path) -> int:
     from tests.helpers.studio_team_rig import TEAM_UI, StudioTeamRig
     text = TEAM_UI.replace('writes: [copy],\n       trigger: "stage_done:draft"}', 'writes: [copy],\n       trigger: "stage_done:draft", gate: required}')
+    placeholder()
     with StudioTeamRig(text, live=False) as rig:
+        placeholder(rig.state)
         mid_run(rig)
         c.go(rig.url("team"))
         c.wait(f"{STAGES} === 4 && document.querySelector('[data-testid=\"team-stage\"][data-stage=\"review\"]')?.dataset.state === 'gated'", 30)
@@ -80,6 +90,7 @@ def shoot(c, png: Path) -> int:
         c.wait("document.querySelectorAll('[data-testid=\"team-event\"]').length > 5", 15)
         c.wait("!document.querySelector('.toast')", 10)
         time.sleep(1.2)
+        guard_page(c, png.stem)
         return c.shot(png, width=1440, height=900)
 
 

@@ -34,7 +34,7 @@ def register(test, json_of, chrome) -> None:
         r, got = json_of("-m", "tests.helpers.studio_fleet", "map")
         ctx.check(f"the run finished, got {r.stdout[-300:]!r} {r.stderr[-600:]!r}", r.returncode == 0)
         ctx.check(f"two harness boxes, five agents, got {got.get('boxes')} / {got.get('nodes')} {got.get('labels')}",
-                  got.get("boxes") == 2 and got.get("nodes") == 5 and got.get("labels") == ["rolo@studio", "kali@lab"])
+                  got.get("boxes") == 2 and got.get("nodes") == 5 and got.get("labels") == ["you@studio", "kali@lab"])
         ctx.check(f"three states (running, waiting, done), got {got.get('states')}", set(got.get("states") or []) == {"running", "waiting", "done"})
         ctx.check(f"the map, the agent panel and the rail, got {got.get('panels')}", got.get("panels") == [1, 1, 1])
         ctx.check(f"click selects; the inspector shows the tail and the tool row, got {got.get('tail_text')!r} / {got.get('tool_label')!r}",
@@ -177,7 +177,7 @@ def register(test, json_of, chrome) -> None:
         r, got = json_of("-m", "tests.helpers.studio_fleet", "panels")
         text = str(got.get("digest"))
         ctx.check(f"the card, its totals and both harnesses, got {text!r}",
-                  text.startswith("WHILE YOU WERE AWAY") and "started" in text and "rolo@studio" in text and "kali@lab" in text and got.get("digest_where") == "rail")
+                  text.startswith("WHILE YOU WERE AWAY") and "started" in text and "you@studio" in text and "kali@lab" in text and got.get("digest_where") == "rail")
         ctx.check(f"Dismiss closes it and updates lastSeen, got {got.get('digest_dismissed')}", got.get("digest_dismissed") == "dismissed")
 
 
@@ -224,11 +224,11 @@ def register(test, json_of, chrome) -> None:
         r, got = json_of("-m", "tests.helpers.studio_fleet", "caps")
         ctx.check(f"the run finished, got {r.stderr[-300:]!r}", r.returncode == 0)
         ctx.check(f"two spec cards with their servers, got {got.get('cards')} / {got.get('member_servers')} / {got.get('local_servers')}",
-                  got.get("cards") == ["rolo@studio", "kali@lab"] and got.get("member_servers") == ["gridcraft"]
+                  got.get("cards") == ["you@studio", "kali@lab"] and got.get("member_servers") == ["gridcraft"]
                   and "designcraft" in (got.get("local_servers") or []) and "What every harness can do" in str(got.get("about")))
         ctx.check(f"gridcraft opens to its tools, got {got.get('member_tools')!r}", got.get("member_tools") == "write_range,insert_chart")
         chips = got.get("box_chips") or {}
-        ctx.check(f"capability chips on both boxes, got {chips}", chips.get("rolo@studio", [])[:2] == ["studio", "gpu"]
+        ctx.check(f"capability chips on both boxes, got {chips}", chips.get("you@studio", [])[:2] == ["studio", "gpu"]
                   and chips.get("kali@lab", [])[:2] == ["linux", "data"])
         ctx.check(f"who gridcraft ranks the member first, got {got.get('who')} / {got.get('who_why')!r}",
                   (got.get("who") or [None])[0] == "kali@lab" and "gridcraft" in str(got.get("who_why")))

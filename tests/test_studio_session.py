@@ -90,7 +90,7 @@ def test_mode_session_mounts_the_six_panels(ctx: Ctx):
 def test_the_map_is_this_harness_with_the_working_agent_lit(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
-    ctx.check(f"one box, this harness's, got {got.get('boxes')}", got.get("boxes") == ["rolo@studio"])
+    ctx.check(f"one box, this harness's, got {got.get('boxes')}", got.get("boxes") == ["you@studio"])
     ctx.check(f"a card per session here and every agent of them, nothing else, got {got.get('cards')} cards, "
               f"{got.get('nodes')} of {got.get('want_nodes')} nodes, {got.get('foreign')} foreign",
               got.get("cards") == 2 and got.get("nodes") == got.get("want_nodes") and (got.get("nodes") or 0) >= 4 and got.get("foreign") == 0)
@@ -110,7 +110,7 @@ def test_cost_activity_and_attention_are_this_session(ctx: Ctx):
               and str(got.get("cost_agents")).endswith("of 3") and str(got.get("cost_usd")).startswith("$"))
     ctx.check(f"one lane per live agent of it, got {got.get('lanes')} for {got.get('want_lanes')}",
               got.get("lanes") == got.get("want_lanes") and (got.get("want_lanes") or 0) >= 2 and got.get("lane_keys_here") is True)
-    ctx.check(f"the log is this harness's only, got {got.get('log_who')}", got.get("log_who") == ["rolo@studio"])
+    ctx.check(f"the log is this harness's only, got {got.get('log_who')}", got.get("log_who") == ["you@studio"])
     ctx.check(f"none of the member's attention rows, got {got.get('attn_here')} (empty {got.get('attn_empty')})",
               got.get("attn_here") == 0 and got.get("attn_empty") == 1)
     ctx.check("J / K hop between this harness's agents only", got.get("hops_here") is True)
@@ -132,7 +132,7 @@ def test_alt_keys_and_fleet_keeps_everything(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
     ctx.check(f"Alt+4 shows Fleet, got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Fleet"))
-    ctx.check(f"Fleet still draws every harness, got {got.get('fleet_boxes')}", got.get("fleet_boxes") == ["rolo@studio", "kali@lab"])
+    ctx.check(f"Fleet still draws every harness, got {got.get('fleet_boxes')}", got.get("fleet_boxes") == ["you@studio", "kali@lab"])
     ctx.check(f"and the member's attention rows, got {got.get('fleet_attn')}", (got.get("fleet_attn") or 0) >= 2)
     ctx.check(f"Alt+1 comes back to Session, its map still one box, got {got.get('alt1')!r} {got.get('back_boxes')}",
               str(got.get("alt1")).startswith("Session") and got.get("back_boxes") == 1)
