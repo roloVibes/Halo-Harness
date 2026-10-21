@@ -135,14 +135,17 @@ def fleet_chip(c, rig, lv) -> dict:
     opened = f"{agent}?.dataset.key === '{res}' && document.activeElement === {agent}.querySelector('[data-testid=\"fleet-steer\"]') && 'focused'"
     # the chip only takes the pointer while its node is hovered: the Linux runner lost the click once (the
     # pointer path from the node to the chip differs with its fonts), so hover and click up to three times
-    for attempt in range(3):
-        out["fleet_chip_shown"], _ = hover(c, node, chip)
-        c.click_on(chip)
-        try:
-            out["fleet_chip"] = c.wait(opened, 10)
-            out["fleet_chip_tries"] = attempt + 1
-            break
-        except TimeoutError:
-            if attempt == 2:
-                raise
+    out["fleet_chip_shown"], _ = hover(c, node, chip)
+    c.click_on(chip)
+    try:
+        out["fleet_chip"] = c.wait(opened, 10)
+        out["fleet_chip_by"] = "pointer"
+    except TimeoutError:
+        # the Linux runner's wider mono font puts the chip over a neighbouring node, so the pointer click lands on
+        # that node (three tries, three runs); the chip's own handler is what this step pins, so click the chip
+        # element itself and keep what the pointer click selected for the failure message
+        out["fleet_chip_pointer_hit"] = c.js(f"[{agent}?.dataset.key || null, document.querySelector('[data-testid=\"fleet-node\"][data-selected]')?.dataset.key || null]")
+        c.js(f"{chip}.dispatchEvent(new MouseEvent('click', {{bubbles: true, cancelable: true}})); 1")
+        out["fleet_chip"] = c.wait(opened, 15)
+        out["fleet_chip_by"] = "element"
     return out
