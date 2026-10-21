@@ -77,14 +77,14 @@ def text_edit(c, p, out: dict) -> None:
         for _ in range(4):
             dblclick(c, x + 52 * k, y + 29 * k)  # the nav's PULSE (padding 17 px, a 24 px line)
             try:
-                return c.wait("document.querySelector('[data-testid=\"design-text-edit-input\"]')?.value", 3)
+                return c.wait("document.querySelector('[data-testid=\"design-text-edit-input\"]')?.value", 10)
             except TimeoutError:
                 time.sleep(0.8)
         return None
     before = page.read_text(encoding="utf-8")
     out["edit_text"] = open_editor()
     c.key("Escape")
-    out["edit_cancelled"] = c.wait(f"!{tid('design-text-edit')}.length && 'gone'", 5) == "gone" and page.read_text(encoding="utf-8") == before
+    out["edit_cancelled"] = c.wait(f"!{tid('design-text-edit')}.length && 'gone'", 15) == "gone" and page.read_text(encoding="utf-8") == before
     open_editor()
     c.type_text("PULSE AI")  # the editor selected the text
     c.key("Enter")

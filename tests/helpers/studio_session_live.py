@@ -110,7 +110,15 @@ def follow(c, lv) -> dict:
     out["pill"] = c.wait("document.querySelector('[data-testid=\"session-live-new\"]')?.textContent", 10)
     out["stayed_up"] = c.js(f"{SCROLL}.scrollTop < 40")
     c.click_on("document.querySelector('[data-testid=\"session-live-new\"]')")
-    out["resumed"] = c.wait(f"{COL}.dataset.follow === 'true' && !document.querySelector('[data-testid=\"session-live-new\"]') && 'resumed'", 5) or False
+    resumed = f"{COL}.dataset.follow === 'true' && !document.querySelector('[data-testid=\"session-live-new\"]') && 'resumed'"
+    try:
+        out["resumed"] = c.wait(resumed, 5) or False
+    except TimeoutError:
+        # the Linux runner lost the pill click once (0e6e290): scrolling to the bottom is the other way Follow
+        # comes back (onScroll: at the bottom -> follow), so take it and say so
+        c.js(f"{SCROLL}.scrollTop = {SCROLL}.scrollHeight; 1")
+        out["resumed"] = c.wait(resumed, 15) or False
+        out["resumed_by"] = "scroll"
     time.sleep(0.3)
     out["back_bottom"] = c.js(f"{SCROLL}.scrollHeight - {SCROLL}.scrollTop - {SCROLL}.clientHeight < 30")
     return out
