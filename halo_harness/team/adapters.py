@@ -68,17 +68,31 @@ def run_orchestra(goal: dict, *, root, stage: str, run_dir, model: Optional[str]
         run_dir, "note", f"{stage}: Orchestra run {rid} started", stage=stage, orchestra_run=rid))
 
 
-def orchestra_run(goal: dict, root, *, model: Optional[str] = None, on_start=None) -> dict:
+def orchestra_run(goal: Optional[dict], root, *, model: Optional[str] = None, on_start=None, run_dir=None,
+                  wrap=None, make=None, by: str = "team", on_event=None) -> dict:
     """A new Orchestra run of `goal` in `root`, run to its report (a team stage here, or one a fleet
-    member runs for a delegated stage: fleet/mission_stage_run.py, 3.1.2.0 R2)."""
+    member runs for a delegated stage: fleet/mission_stage_run.py, 3.1.2.0 R2). 3.1.8.0 R1 (the
+    supervisor): `run_dir` runs that existing run again from its checkpoint (`goal` may be None),
+    `wrap(spawn)` guards each lane's worker (supervise/budget.py), `make(run_dir, goal, model)` stands
+    in for the real adapters (tests), and the runner beats `<run>/runner.json` while it runs
+    (supervise/heartbeat.py)."""
     from halo_harness.orchestra import adapters
-    from halo_harness.orchestra.goal import Goal, new_run
+    from halo_harness.orchestra.goal import Goal, load_goal, new_run
     from halo_harness.orchestra.run import run
-    g = Goal.from_dict(goal)
-    orch_dir = new_run(Path(root), g)
+    from halo_harness.supervise.heartbeat import Beat
+    if run_dir is not None:
+        orch_dir = Path(run_dir)
+        g = load_goal(orch_dir / "goal.json")
+    else:
+        g = Goal.from_dict(goal or {})
+        orch_dir = new_run(Path(root), g)
     if on_start is not None:
         on_start(orch_dir.name)
-    report = run(orch_dir, **adapters.real_adapters(orch_dir, g, model))
+    kwargs = (make or adapters.real_adapters)(orch_dir, g, model)
+    if wrap is not None:
+        kwargs = dict(kwargs, spawn=wrap(kwargs["spawn"]))
+    with Beat(orch_dir, by=by):
+        report = run(orch_dir, on_event=on_event, **kwargs)
     ok = report.get("status") == "finished"
     return {"ok": ok, "run_id": orch_dir.name, "cost_usd": float(report.get("cost_usd") or 0.0), "report": report,
             "text": f"Orchestra run {orch_dir.name} {report.get('status')}"

@@ -82,6 +82,9 @@ def _alive(row: dict) -> bool:
     return True
 
 
+alive = _alive  # 3.1.8.0 R1: the supervisor's pulse (supervise/pulse.py) is checked the same way
+
+
 def read(path: Optional[Path] = None, now: Optional[float] = None) -> dict:
     """`{state, pid, started, until, running}`; `state` is one of STATES."""
     try:

@@ -104,12 +104,18 @@ def _decidable(run_dir):
         return 409, {"error": "there is no plan yet: the lead has not split the goal"}
     if not P.is_planned(run_dir) and live.live_id() == run_dir.name:
         return 409, {"error": "this run is not waiting for review"}
+    from halo_harness.supervise.heartbeat import other_live  # 3.1.8.0 R1: another process drives this run
+    other = other_live(run_dir) if not P.is_planned(run_dir) else None
+    if other is not None:
+        return 409, {"error": f"this run is running elsewhere ({other.get('by') or 'another process'}) "
+                              "and is not waiting for review"}
     return None
 
 
 def _resume(req, run_dir) -> bool:
     """Start the runner when none is live for this run, so it takes the decision now."""
-    if live.live_id() is not None or P.waiting_alive(run_dir):
+    from halo_harness.supervise.heartbeat import other_live
+    if live.live_id() is not None or P.waiting_alive(run_dir) or other_live(run_dir) is not None:
         return False
     from halo_harness.orchestra.goal import load_goal
     from halo_harness.studio import orchestra_api

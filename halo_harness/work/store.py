@@ -22,9 +22,12 @@ import importlib
 from pathlib import Path
 from typing import Optional
 
-RUN_KINDS = {"orchestra": "lane", "mission": "part", "team": "stage"}
+RUN_KINDS = {"orchestra": "lane", "mission": "part", "team": "stage", "supervise": "goal"}
 UNIT_RUNS = {v: k for k, v in RUN_KINDS.items()}
-_MARKERS = (("mission", "mission.json"), ("team", "board.json"), ("orchestra", "goal.json"))
+# 3.1.8.0 R1: the supervisor's goal queue (`<state>/supervise/queue.json`) is checked LAST -- an Orchestra
+# run's `goal.json` must never read as the queue.
+_MARKERS = (("mission", "mission.json"), ("team", "board.json"), ("orchestra", "goal.json"),
+            ("supervise", "queue.json"))
 
 
 def run_kind(run_dir) -> Optional[str]:

@@ -52,7 +52,7 @@ _SCALARS = {
 # citations off, orchestra/coach_citations.py)
 _SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
              "governor", "huggingface", "improve", "local", "network", "ollama", "openai",
-             "providers", "remote", "roles", "routing", "steer", "update",
+             "providers", "remote", "roles", "routing", "steer", "supervise", "update",
              "worktree")
 REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0",
                     "settings": "3.1.5.0", "subscription_routes": "3.1.5.0"}

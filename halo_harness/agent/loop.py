@@ -1814,7 +1814,13 @@ class Session:
         # arms (and so never re-fires) the team's schedules.
         if os.environ.get("HALO_SCHEDULED_FIRE"):
             return
-        from halo_harness.agents_schedule import arm_session
+        from halo_harness.agents_schedule import arm_session, supervisor_owns
+        try:
+            # 3.1.8.0 R1: a live supervisor (`halo supervise`) keeps this team armed already.
+            if supervisor_owns(self.team_control.name, getattr(self, "state_dir", None)):
+                return
+        except Exception:
+            pass
         try:
             self._team_scheduler = arm_session(self, self.team_control)
         except Exception:

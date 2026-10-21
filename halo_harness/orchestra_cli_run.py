@@ -58,8 +58,10 @@ def cmd_run(args, repo: Path) -> int:
         return _dry_run(run_dir, goal, adapters.model_call(args.model, goal.lead, cwd=run_dir))
     from halo_harness.orchestra.report import format_report
     from halo_harness.orchestra.run import run
+    from halo_harness.supervise.heartbeat import Beat
     print(f"run {run_dir.name}: {goal.workers} worker(s), test {goal.test or '(none)'}", flush=True)
-    report = run(run_dir, **adapters.real_adapters(run_dir, goal, args.model), on_event=_print_event)
+    with Beat(run_dir, by="cli"):  # 3.1.8.0 R1: a cross-process runner heartbeat (supervise/heartbeat.py)
+        report = run(run_dir, **adapters.real_adapters(run_dir, goal, args.model), on_event=_print_event)
     print(format_report(report, run_dir))
     return 0 if report.get("status") == "finished" else 1
 

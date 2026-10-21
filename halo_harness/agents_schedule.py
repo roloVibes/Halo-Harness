@@ -260,9 +260,14 @@ class TeamScheduler:
     is `_default_fire`. Triggers are ONE SHOT per session ("start it on
     the event"); schedules repeat on their cadence until `stop()`."""
 
-    def __init__(self, session, team, *, fire_fn=None, tick_s: float = MIN_TICK_S, clock=None):
+    def __init__(self, session, team, *, fire_fn=None, tick_s: float = MIN_TICK_S, clock=None,
+                 owner: Optional[str] = None):
         self.session = session
         self.team = team
+        # 3.1.8.0 R1: "supervisor" when `halo supervise` armed it (supervise/arm.py); a session's own is None.
+        # `_persist`/`disarm` replace and drop only the entries of THIS owner, so a session closing never
+        # clobbers the supervisor's entries for the same team (and the other way round).
+        self.owner = owner
         self.fire_fn = fire_fn or _default_fire
         self.tick_s = max(0.05, float(tick_s))
         self.clock = clock or time.time
@@ -438,20 +443,24 @@ class TeamScheduler:
         state_dir = getattr(self.session, "state_dir", None)
         if state_dir is None:
             return
+        mark = {"pid": os.getpid(), **({"owner": self.owner} if self.owner else {})}
         with self._lock:
-            mine = [dict(e) for e in self.entries] + [dict(t) for t in self.triggers]
+            mine = [dict(e, **mark) for e in self.entries] + [dict(t, **mark) for t in self.triggers]
         store = load_store(state_dir)
-        kept = [e for e in store.get("entries", []) if e.get("team") != self.team.name]
+        kept = [e for e in store.get("entries", []) if not self._mine(e)]
         store["entries"] = kept + mine
         save_store(state_dir, store)
 
+    def _mine(self, entry: dict) -> bool:
+        return entry.get("team") == self.team.name and entry.get("owner") == self.owner
+
     def disarm(self) -> None:
-        """Session close: drop THIS team's entries from the shared store."""
+        """Session close: drop THIS team's entries (of this owner) from the shared store."""
         state_dir = getattr(self.session, "state_dir", None)
         if state_dir is None:
             return
         store = load_store(state_dir)
-        store["entries"] = [e for e in store.get("entries", []) if e.get("team") != self.team.name]
+        store["entries"] = [e for e in store.get("entries", []) if not self._mine(e)]
         save_store(state_dir, store)
 
 
@@ -487,13 +496,16 @@ def run_once(name: str, *, state_dir=None, popen=None) -> str:
     return f"fired {name!r} as background run {run['id']} (log: {run['log_path']})"
 
 
-def arm_session(session, team_control, *, fire_fn=None) -> "Optional[TeamScheduler]":
+def arm_session(session, team_control, *, fire_fn=None, owner: Optional[str] = None,
+                tick_s: float = MIN_TICK_S) -> "Optional[TeamScheduler]":
     """Arm every member bio's schedule/triggers, and each declared tier's
     own trigger (3.1.6.0 R1), for THIS session (called
     once, on the session's first turn under a team). Also registers them
     in the shared store so `list`/`/agents schedule` see them. `fire_fn`
-    is the same seam TeamScheduler's own constructor takes (tests)."""
-    scheduler = TeamScheduler(session, team_control, fire_fn=fire_fn)
+    is the same seam TeamScheduler's own constructor takes (tests).
+    3.1.8.0 R1: `owner="supervisor"` is the supervisor arming it
+    (supervise/arm.py, a small session-like object)."""
+    scheduler = TeamScheduler(session, team_control, fire_fn=fire_fn, owner=owner, tick_s=tick_s)
     seen_bios: set = set()
     for alias in sorted(team_control.aliases):
         bio = team_control.bio_for(alias)
@@ -519,6 +531,24 @@ def arm_session(session, team_control, *, fire_fn=None) -> "Optional[TeamSchedul
         scheduler.start()
         return scheduler
     return None
+
+
+def supervisor_owns(team_name: str, state_dir) -> bool:
+    """3.1.8.0 R1, the double-fire guard: a live supervisor (its pulse) has armed this team's
+    schedules/triggers, so a session loading the team does not arm them a second time."""
+    if state_dir is None or not any(e.get("team") == team_name and e.get("owner") == "supervisor"
+                                    for e in load_store(state_dir).get("entries", [])):
+        return False
+    from halo_harness.supervise.pulse import live
+    return live(state_dir)
+
+
+def armed_by_live_session(team_name: str, state_dir) -> bool:
+    """A session (not the supervisor) has this team's entries armed and its process still runs."""
+    from halo_harness.bg_run import pid_alive
+    pids = {e.get("pid") for e in load_store(state_dir).get("entries", [])
+            if e.get("team") == team_name and not e.get("owner")}
+    return any(isinstance(p, int) and p != os.getpid() and pid_alive(p) for p in pids)
 
 
 def stop_session_scheduler(session) -> None:
