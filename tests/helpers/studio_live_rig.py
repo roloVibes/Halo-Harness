@@ -45,17 +45,18 @@ class Live:
                 row.update(fields)
             return row
         local_view.session_row = session_row
-        local_view._cache.clear()
+        local_view.forget()
         rig.closers.append(self.close)
 
     def close(self) -> None:
         self._lv.session_row = self._orig
-        self._lv._cache.clear()
+        self._lv.forget()
 
     def refresh(self, **fields) -> None:
-        """Set session row fields and make the page read GET fleet again (a `sessions` frame)."""
+        """Set session row fields and make the page read GET fleet again (a `sessions` frame). The cache drops go
+        through local_view.forget() (3.1.8.0 R6): a snapshot read while the fields moved is never cached."""
         self.fields.update(fields)
-        self._lv._cache.clear()
+        self._lv.forget()
         self.rig.server.events.publish({"session_id": None, "event": "sessions", "agent_id": None, "turn": None, "data": {}, "ts": time.time()})
 
     def aid(self, name: str) -> str:
@@ -95,7 +96,7 @@ class Live:
         if row is None:
             row = {**self.rig.agent({"implementer": "Implement", "researcher": "Research"}.get(name, name)), "agent_id": aid}
         row.update(fields)
-        self._lv._cache.clear()
+        self._lv.forget()
         self.frame(name, "agent_state", dict(row))
 
     def spawn(self, aid: str, name: str, role: str, model: str, task: str, parent: str = "main") -> None:

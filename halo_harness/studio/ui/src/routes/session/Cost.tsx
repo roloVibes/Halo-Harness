@@ -7,6 +7,11 @@
 // cost per turn (the average, and what the last turn cost), the time since
 // it started, the model, and each agent's share of the spend as one stacked
 // bar over its rows (CostParts.tsx). The compact face is the spend and the tokens.
+// 3.1.8.0 R6: the session's figures move on its own `message_end` / `status`
+// frames, the event the terminal's status bar moves on (fleet/figures.ts);
+// TURNS is one unit, the session's user turns (an agent row's own count is its
+// model calls, shown as "calls" on its line); each agent's share is its own
+// spend, a finished sub-agent counted once (shares.ts).
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
@@ -18,6 +23,7 @@ import type { SessionRow } from "../fleet/types";
 import { hueOf } from "../shared/hues";
 import { AgentLine, ContextBar, ShareBar, Spark, tok, type Share } from "./CostParts";
 import { lastTurnCost, startSpend, useSpend } from "./spend";
+import { ownCosts } from "./shares";
 import { chosenSession } from "./store";
 
 /** 45s, 12m 03s, 2h 05m since a unix time in seconds. */
@@ -31,10 +37,9 @@ function since(ts: number | null | undefined, now: number): string {
 
 const modelName = (m: string | null | undefined) => String(m || "").replace(/^[a-z]+:/, "").split("/").pop() || "-";
 
+/** The session's user turns (the terminal's turn count), never an agent's model calls. */
 function turnsOf(ss: SessionRow): number | null {
-  if (typeof ss.turns === "number") return ss.turns;
-  const main = (ss.agents || []).find((a) => !a.parent);
-  return typeof main?.turns === "number" ? main.turns : null;
+  return typeof ss.turns === "number" && ss.turns > 0 ? ss.turns : null;
 }
 
 function Ticker({ usd }: { usd: number }) {
@@ -59,11 +64,12 @@ export function CostDetail() {
   const series = useSpend(ss?.session_id || "");
   if (!ss) return <Empty title="No session here yet" body="Start one in a terminal (halo): what it spends, its tokens and its turns show here as it works." testid="session-cost-empty" />;
   const usd = Number(ss.cost_usd) || 0;
-  const agents = [...(ss.agents || [])].sort((a, b) => (Number(b.cost_usd) || 0) - (Number(a.cost_usd) || 0));
-  const spent = agents.reduce((s, a) => s + (Number(a.cost_usd) || 0), 0);
+  const own = ownCosts(ss);
+  const agents = [...(ss.agents || [])].sort((a, b) => (own.get(b.agent_id) || 0) - (own.get(a.agent_id) || 0));
+  const spent = agents.reduce((s, a) => s + (own.get(a.agent_id) || 0), 0);
   const shares: Share[] = agents.map((a) => {
     const key = keyOf(hid, ss.session_id, a.agent_id);
-    const v = Number(a.cost_usd) || 0;
+    const v = own.get(a.agent_id) || 0;
     return { a, key, hc: hueOf(key), usd: v, pct: spent > 0 ? (v / spent) * 100 : 0 };
   });
   const live = agents.filter(isLive).length;
@@ -86,15 +92,15 @@ export function CostDetail() {
       <div className="sco-grid">
         <Figure label="TOKENS IN" value={tok(ss.tokens_in)} testid="session-cost-in" title="input tokens the session has sent its model so far" />
         <Figure label="TOKENS OUT" value={tok(ss.tokens_out)} testid="session-cost-out" title="output tokens its model has written so far" />
-        <Figure label="TURNS" value={turns == null ? "-" : String(turns)} testid="session-cost-turns" />
+        <Figure label="TURNS" value={turns == null ? "-" : String(turns)} testid="session-cost-turns" title="your turns in this session, as the terminal counts them" />
         <Figure label="PER TURN" value={perTurn == null ? "-" : cost(perTurn)} testid="session-cost-per-turn"
-                title={`the spend over the turns${last != null ? `; the last turn cost ${cost(last)}` : ""}`} />
+                title={`the spend over your turns${last != null ? `; the last turn cost ${cost(last)}` : ""}`} />
       </div>
       {agents.length > 0 && (
         <section className="sco-agents">
           <div className="rail-label mono sco-agents-head">
             <span>EACH AGENT'S SHARE</span>
-            <span className="muted">tokens in / out · cost</span>
+            <span className="muted">tokens in / out · calls · own cost</span>
           </div>
           <ShareBar rows={shares} />
           {shares.slice(0, 9).map((r) => <AgentLine key={r.key} r={r} />)}

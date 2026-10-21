@@ -9,7 +9,8 @@ agent/agent_registry.py).
     tool_result     -> the next tool still in flight, else "thinking"
     a card opens    -> waiting (permission_request, question, plan_review)
     text_delta      -> `last_text` (the last LAST_TEXT characters)
-    message_end     -> `turns` + 1, `cost_usd` (the session's own running total)
+    message_end     -> `turns` + 1, `cost_usd` (the session's own running total),
+                       `tokens_in` / `tokens_out` (its meter's totals, 3.1.8.0 R6)
     turn end        -> done | failed | stopped (from the turn's turn_done reason,
                        or stopped when Studio stopped it)
 
@@ -81,6 +82,10 @@ class ObserveMixin:
                 row["turns"] = (row.get("turns") or 0) + 1
                 if isinstance(data.get("cost_usd"), (int, float)):
                     row["cost_usd"] = round(float(data["cost_usd"]), 6)
+                for src, field in (("total_input_tokens", "tokens_in"), ("total_output_tokens", "tokens_out")):
+                    v = data.get(src)
+                    if isinstance(v, int) and not isinstance(v, bool):
+                        row[field] = v
             elif kind == "turn_done":
                 self._reason[aid] = data.get("reason")
             pub = self._commit(aid, row, before)

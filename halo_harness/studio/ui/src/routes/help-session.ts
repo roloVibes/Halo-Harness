@@ -58,9 +58,10 @@ export const SESSION_HELP: Record<string, Help> = {
   "session-cost": {
     about: "What the chosen session has cost: the spend and how it rose, the context filling, cost per turn, each agent's share.",
     help: lines(
-      "The spend ticks up as the session's model answers; the sparkline beside it is the spend since this page opened.",
-      "The context bar is how full the model's context is: amber past 80 %, red past 95 %.",
-      "Per turn is the spend over the turns; the stacked bar is each agent's share, its tokens in and out beside it.",
+      "The spend, the tokens, the turns and the context move the moment the terminal's status bar does: at the end of each model call and at each turn's start and end.",
+      "The sparkline beside the spend is the spend since this page opened; the context bar is how full the model's context is: amber past 80 %, red past 95 %.",
+      "Turns are your turns in the session, as the terminal counts them; per turn is the spend over them. An agent's own model calls show as calls on its line.",
+      "The stacked bar is each agent's own share, its tokens in and out beside it: a finished sub-agent counts once, on its own line (main's share is the total less its finished sub-agents'); a running sub-agent's spend joins the total when it finishes.",
       "Choose another session on the map (or in Activity's session pick) and Cost follows it.",
     ),
   },
