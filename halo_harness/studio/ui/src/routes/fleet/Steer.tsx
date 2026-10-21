@@ -34,8 +34,15 @@ export function Steer({ k, disabled, why, where = "agent", head, extra }: Props)
   useEffect(() => {
     if (focus <= taken || want !== where) return;
     taken = focus;
-    // after this commit's other effects: a panel brought up with it (openAgentPanel's focusPanel) takes the focus first
-    window.setTimeout(() => box.current?.focus({ preventScroll: true }), 0);
+    // after this commit's other effects: a panel brought up with it (openAgentPanel's focusPanel) takes the focus
+    // first, and on a slow host it can take it back after our first tick too -- so keep asking, a few ticks apart,
+    // until the box holds the keyboard or 1.2 s has passed (3.1.7.0: the Linux runner lost it every time)
+    const delays = [0, 50, 150, 300, 600, 1200];
+    const timers = delays.map((ms) => window.setTimeout(() => {
+      const el = box.current;
+      if (el && document.activeElement !== el) el.focus({ preventScroll: true });
+    }, ms));
+    return () => timers.forEach((t) => window.clearTimeout(t));
   }, [focus, where]);
   const send = async () => {
     if (!text.trim() || busy) return;
