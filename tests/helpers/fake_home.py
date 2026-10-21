@@ -200,7 +200,9 @@ def build_fake_home(root: Optional[Path] = None) -> dict:
     # config), same as the governor tests already do.
     halo_dir = home / ".halo"
     halo_dir.mkdir(parents=True, exist_ok=True)
-    _write_json(halo_dir / "config.json", {"governor": {"enabled": False}})
+    # 3.1.9.0 R1: the model roster is off here too, for the same reason (a
+    # child would build the model catalog at its first turn).
+    _write_json(halo_dir / "config.json", {"governor": {"enabled": False}, "models": {"roster": False}})
 
     return {
         "root": root,

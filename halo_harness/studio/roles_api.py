@@ -1,14 +1,19 @@
-"""Studio: the two reads the Roles section's model picker adds (Halo 3.0.7.0
-round R2).
+"""Studio: the reads the Roles section's model picker adds (Halo 3.0.7.0
+round R2; 3.1.9.0 R1 "what each model is good at").
 
 `GET gym` -- the model gym's scores on this machine (`halo gym`'s result
 files under ~/.halo/gym, read from disk, no model call): `{scores: {ref:
 {score, tokens_per_second}}}` for every catalog ref the gym measured (the gym
 runs local models, so only `ol:` and `hf:` refs are looked up).
 
-`GET models/best-for` -- what each catalog model is good for, from
-`capabilities.score` (the same ranking `halo models --best-for` prints):
-`{ref: [kind, ...]}`, the kinds it scores above 0 for, best first.
+`GET models/best-for` -- what each catalog model is best at: `{ref: [kind,
+...]}`, strongest first, the kinds of its `best_at` (models_best_at: the
+same answer `halo models analyze` prints; a yes/no capability counts at any
+score, a ranked strength past its floor).
+
+`POST models/analyze` -- rebuild the best-at cache from the catalog now (what
+`halo models analyze` does): `{rows, kinds: {kind: count}, best: {kind:
+{cheapest, strongest}}, built}`.
 """
 from __future__ import annotations
 
@@ -34,24 +39,28 @@ def get_gym(req: Request):
 
 
 def get_best_for(req: Request):
-    from halo_harness.capabilities import KINDS, score
     from . import model as M
     out: dict = {}
     for row in M.model_rows(req.state_dir, getattr(req, "cwd", None)):
-        ranked = []
-        for kind in KINDS:
-            try:
-                s, _reason = score(row, kind)
-            except Exception:
-                continue
-            if s > 0:
-                ranked.append((s, kind))
-        if ranked:
-            out[row["ref"]] = [k for _s, k in sorted(ranked, key=lambda t: (-t[0], t[1]))]
+        kinds = (row.get("best_at") or {}).get("kinds") or []
+        if kinds:
+            out[row["ref"]] = list(kinds)
     return 200, out
+
+
+def post_models_analyze(req: Request):
+    from halo_harness.capabilities import KINDS
+    from halo_harness.models_best_at import rebuild
+    from . import model as M
+    cache = rebuild(req.state_dir, M.catalog_rows(req.state_dir, getattr(req, "cwd", None)))
+    rows = cache.get("rows") or {}
+    kinds = {kind: sum(1 for e in rows.values() if kind in (e.get("kinds") or [])) for kind in KINDS}
+    return 200, {"rows": len(rows), "kinds": {k: n for k, n in kinds.items() if n}, "best": cache.get("best") or {},
+                 "built": cache.get("built")}
 
 
 ROUTES: list = [
     ("GET", r"^gym$", get_gym),
     ("GET", r"^models/best-for$", get_best_for),
+    ("POST", r"^models/analyze$", post_models_analyze),
 ]

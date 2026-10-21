@@ -47,6 +47,12 @@ class LocalModelRow:
     capability: str = "declared: unknown"
     loaded: Optional[bool] = None
     reachable: Optional[bool] = None
+    # 3.1.9.0 R1: Ollama's own `/api/show` capabilities list (completion,
+    # vision, tools, thinking, ...) when the host reported one, and the
+    # MEASURED tool-call probe (`ollama_capability`) when one ran -- the
+    # catalog row reads both (model_row_facts.local_facts).
+    capabilities: Optional[tuple] = None
+    tools_probe: Optional[bool] = None
 
 
 def _grouped(rows: "list[LocalModelRow]") -> "list[tuple[str, list[LocalModelRow]]]":
@@ -98,14 +104,17 @@ def _ollama_rows(host, *, refresh: bool, hw_runner, state_dir) -> "list[LocalMod
             continue
         details = row.get("details") or {}
         probed = cap_cache.get(row.get("digest"), {}).get("tool_calls") if row.get("digest") else None
-        cap_text = _capability_text(declared="tools" in (row.get("capabilities") or []), probed=probed)
+        declared = row.get("capabilities") if isinstance(row.get("capabilities"), list) else []
+        cap_text = _capability_text(declared="tools" in declared, probed=probed)
         loaded_entry = loaded_by_name.get(normalize_ollama_model_name(name))
         context = loaded_entry.effective_context if loaded_entry else trained_context_for(catalog, name)
         ref = f"ol:{name}" if host.default else f"ol:{name}@{host.name}"
         out.append(LocalModelRow(group=group, name=name, ref=ref,
                                   size_bytes=row.get("size") if isinstance(row.get("size"), int) else None,
                                   quant=details.get("quantization_level"), context=context, capability=cap_text,
-                                  loaded=loaded_entry is not None, reachable=True))
+                                  loaded=loaded_entry is not None, reachable=True,
+                                  capabilities=tuple(str(c) for c in declared) or None,
+                                  tools_probe=probed if isinstance(probed, bool) else None))
     return out
 
 

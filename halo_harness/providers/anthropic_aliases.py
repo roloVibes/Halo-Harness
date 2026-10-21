@@ -36,6 +36,12 @@ BARE_ALIAS_NAMES = frozenset(ANT_ALIASES)
 
 _1M_SUFFIX = "[1m]"
 
+# 3.1.9.0 R1: what a table model takes in, for the catalog row's
+# `modalities_in` -- the Messages API accepts image blocks and document
+# (PDF) blocks on every model in ANT_MODEL_TABLE; no Claude model takes
+# audio or video input.
+ANT_INPUT_MODALITIES = ("text", "image", "pdf")
+
 # Vendored fallback tier (model.py's "Aider-shaped data file" pattern),
 # keyed by the API id `resolve_ant_alias` produces. context/output/pricing
 # from the OpenRouter `anthropic/*` catalog rows (verified 2026-09-28).

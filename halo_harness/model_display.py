@@ -242,7 +242,7 @@ def unknown_as_qmark(s: str) -> str:
 # `tests/test_picker_columns.py::test_picker_footer_documents_sort_and_
 # filter_keys` already pins is a plain substring check, unaffected by the
 # append.
-PICKER_FOOTER = ("Enter: select  |  Ctrl+O: set a role  |  Ctrl+S: cycle sort (name/price/context/speed)  |  "
+PICKER_FOOTER = ("Enter: select  |  Ctrl+O: set a role  |  Ctrl+S: cycle sort (name/price/context/speed/best)  |  "
                   "Ctrl+G: refresh this group  |  F5: refresh all groups  |  type to filter  |  Esc: cancel  |  "
                   "Ctrl+A: Models/Agents source  |  Ctrl+E: show every row")
 
@@ -393,6 +393,10 @@ def databricks_row_fields(name: str, *, state_dir=None, model_table: Optional[di
             out["price_in_per_m"] = cost["input"]
         if isinstance(cost.get("output"), (int, float)):
             out["price_out_per_m"] = cost["output"]
+        from halo_harness.providers.model_row_facts import models_dev_facts
+        facts = models_dev_facts(entry)  # 3.1.9.0 R1: modalities, tools, open weights, reasoning
+        if facts:
+            out["facts"] = facts
         return out
 
     # (b) the vendor's own models.dev entry via the family fallback.
@@ -415,6 +419,8 @@ def databricks_row_fields(name: str, *, state_dir=None, model_table: Optional[di
             out["price_in_per_m"] = family_fields["price_in"] * 1_000_000
         if isinstance(family_fields.get("price_out"), (int, float)):
             out["price_out_per_m"] = family_fields["price_out"] * 1_000_000
+        if family_fields.get("facts"):
+            out["facts"] = family_fields["facts"]
         return out
 
     # (c) model_table.json's own context_tokens (request-shaping data --

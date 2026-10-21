@@ -70,6 +70,12 @@ for a Databricks row, a `[<family> · <path>]` tag naming which gateway
 path it resolves to right now (see `docs/DATABRICKS.md`); an `ant:`
 row's own tag instead names the resolved model id (e.g. `ant:opus` shows
 `[-> claude-opus-5-5 (latest Opus)]`, see `docs/MODELS.md`'s alias table).
+Halo 3.1.9.0: after the gym score (when the gym measured the model) each row
+names the kinds the model is best at (`best at visual,pdf,code`, from the
+best-at cache `halo models analyze` rebuilds -- see
+[MODELS-references.md](MODELS-references.md#what-each-model-is-good-at-halo-3190)),
+and `Ctrl+S` cycles name, price, context, speed and best (the model good at
+the most kinds first).
 Databricks
 pricing/context data comes from models.dev (refreshed by `/models
 refresh`) when that endpoint is listed there, else from `model_table.json`

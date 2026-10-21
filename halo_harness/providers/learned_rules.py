@@ -125,13 +125,22 @@ def learned_tools_rejected(state_dir, provider: str, model: str) -> bool:
     before this fix existed -- is treated as expired too, so it is
     re-learned fresh on the very next live call rather than staying
     stuck forever)."""
-    row = load_learned_rules(state_dir).get(_key(provider, model))
+    return _tools_rejected_live(load_learned_rules(state_dir).get(_key(provider, model)))
+
+
+def _tools_rejected_live(row) -> bool:
     if not (isinstance(row, dict) and row.get("tools_rejected")):
         return False
     learned_at = row.get("tools_rejected_at")
     if not isinstance(learned_at, (int, float)) or (time.time() - learned_at) > TOOLS_REJECTED_TTL_S:
         return False
     return True
+
+
+def tools_rejected_endpoints(state_dir) -> set:
+    """3.1.9.0 R1: every `"<provider>:<model>"` key with a live tools-rejected
+    rule, read in one pass (the catalog's `measured.tools_rejected`)."""
+    return {key for key, row in load_learned_rules(state_dir).items() if _tools_rejected_live(row)}
 
 
 def forget_tools_rejected(state_dir, endpoint: str) -> bool:

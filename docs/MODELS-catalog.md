@@ -146,7 +146,7 @@ here would mean a network read on every `/model` open); `/local` (round
 
 A `<ref>:free` row (OpenRouter's own free-lane suffix) always sorts
 immediately beside its paid `<ref>` sibling, under every one of `Ctrl+S`'s
-sort keys (name/price/context/speed) -- not just the alphabetical default,
+sort keys (name/price/context/speed/best) -- not just the alphabetical default,
 where a free row's own `$0` price would otherwise scatter it to the front
 of a price-sorted group, far from the paid row it's a variant of.
 
