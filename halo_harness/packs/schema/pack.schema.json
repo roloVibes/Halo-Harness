@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:halo-harness:schema:pack:1",
+  "title": "Halo pack manifest (pack.yaml), extension API 1.x",
+  "description": "The manifest at a pack's root. Read with halo_harness.packs.manifest; the extension API it targets is halo_api (1.0 in Halo 3.2.0.0). docs/EXTENSION_API.md is the reference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "version", "halo_api"],
+  "$defs": {
+    "version": {"type": ["string", "number"], "pattern": "^\\d+(\\.\\d+){0,3}([-+].*)?$"},
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {"min": {"$ref": "#/$defs/version"}, "max": {"$ref": "#/$defs/version"}}
+    },
+    "names": {"type": "array", "items": {"type": "string"}}
+  },
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$", "maxLength": 64,
+           "description": "The pack's id and namespace: its folder name, the prefix of its bios and lineups (<id>--<name>), skills and commands (<id>:<name>) and MCP servers (plugin_<id>_<server>). No '--', no trailing '-'."},
+    "name": {"type": "string", "description": "The name a person reads."},
+    "version": {"type": "string",
+                "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$",
+                "description": "The pack's own version, semver."},
+    "description": {"type": "string"},
+    "author": {"oneOf": [{"type": "string"},
+                         {"type": "object", "additionalProperties": false,
+                          "properties": {"name": {"type": "string"}, "email": {"type": "string"}, "url": {"type": "string"}}}]},
+    "license": {"type": "string", "description": "An SPDX id such as MIT."},
+    "halo_api": {"allOf": [{"$ref": "#/$defs/range"}, {"required": ["min"]}],
+                 "description": "The extension API versions the pack works with (halo_harness.ext.API_VERSION)."},
+    "halo": {"$ref": "#/$defs/range", "description": "The Halo versions the pack works with (halo --version)."},
+    "capabilities": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9._-]*$"}},
+    "requires": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["pack"],
+      "properties": {"pack": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+                     "version": {"oneOf": [{"$ref": "#/$defs/version"}, {"$ref": "#/$defs/range"}]}}}},
+    "contributes": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "agents": {"type": "array", "items": {"type": "string", "pattern": "^agents/[A-Za-z0-9][A-Za-z0-9_-]*\\.(yaml|md)$"}},
+        "teams": {"type": "array", "items": {"type": "string", "pattern": "^teams/[A-Za-z0-9][A-Za-z0-9_-]*\\.yaml$"}},
+        "skills": {"const": "skills"},
+        "commands": {"const": "commands"},
+        "hooks": {"const": "hooks/hooks.json"},
+        "mcp": {"type": "array", "items": {"type": "object", "required": ["name"],
+                                           "properties": {"name": {"type": "string"}, "description": {"type": "string"}}}},
+        "studio": {"type": "object", "description": "planned (3.2.0.0 R3)"},
+        "fleet": {"type": "object", "description": "planned (3.2.0.0 R4)"},
+        "artifacts": {"type": "array", "description": "planned (3.2.0.0 R5)"},
+        "events": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"}}
+      }
+    },
+    "config": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"schema": {"type": "object", "description": "A halo_harness.schemas.check schema for packs.settings.<id>."},
+                     "defaults": {"type": "object"}}
+    },
+    "permissions": {"type": "array", "items": {"type": "string", "pattern": "^(mcp:.+|hooks|bash|network|home-write)$"}},
+    "migrations": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["from", "to", "note"],
+      "properties": {"from": {"$ref": "#/$defs/version"}, "to": {"$ref": "#/$defs/version"}, "note": {"type": "string"}}}}
+  }
+}

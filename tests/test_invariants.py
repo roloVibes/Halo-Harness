@@ -646,8 +646,8 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
     ctx.check("round-surface parity: " + "; ".join(problems), not problems)
 
 
-_MAP_PACKAGES = ("studio", "fleet", "orchestra", "team")
-_MAP_NAME = r"`((?:studio|fleet|orchestra|team)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py|coach_cli\.py)`"
+_MAP_PACKAGES = ("studio", "fleet", "orchestra", "team", "packs", "ext")  # packs, ext: 3.2.0.0 R1
+_MAP_NAME = r"`((?:studio|fleet|orchestra|team|packs|ext)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py|coach_cli\.py)`"
 
 
 @test
@@ -655,7 +655,7 @@ def test_invariant_j_no_module_is_named_by_its_line_count(ctx: Ctx):
     """3.1.0.0 R2: a module is named for its one responsibility, never for
     being the overflow of another (`*_more.py`, `*2.py`, `*_extra*.py`,
     `*_rest.py`); and docs/ARCHITECTURE.md's "Module map" lists exactly the
-    modules of studio/, fleet/, orchestra/ and team/ (plus the Orchestra CLI
+    modules of studio/, fleet/, orchestra/, team/, packs/ and ext/ (plus the Orchestra CLI
     beside them), so a rename or a split updates it."""
     import re
     pkg = REPO_DIR / "halo_harness"

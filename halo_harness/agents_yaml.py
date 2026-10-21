@@ -77,10 +77,13 @@ def project_agents_dir(cwd=None) -> Path:
 
 def agent_search_dirs(*, cwd=None, state_dir=None) -> "list[tuple[Path, str]]":
     """`[(dir, source_label), ...]`, NEAREST WINS first -- project, then
-    user, then the shipped, read-only templates (an `extends:`/`--from`
-    target, never itself a place `save_agent_bio` writes to)."""
+    user, then each active pack's `agents/` (3.2.0.0 R1: label `pack:<id>`,
+    names `<id>--<name>`, read in place), then the shipped, read-only
+    templates (an `extends:`/`--from` target, never itself a place
+    `save_agent_bio` writes to)."""
+    from halo_harness.packs.contribute import agent_dirs
     return [(project_agents_dir(cwd), "project"), (user_agents_dir(state_dir), "user"),
-            (bundled_agent_templates_dir(), "template")]
+            *agent_dirs(cwd=cwd, state_dir=state_dir), (bundled_agent_templates_dir(), "template")]
 
 
 def _read_yaml_file(path: Path) -> "Optional[dict]":
@@ -115,22 +118,21 @@ def list_agent_bios(*, cwd=None, state_dir=None, include_templates: bool = True)
     name also counts as an installed bio (brief: these ARE usable bios
     out of the box, not just `extends:` targets) -- off for a caller that
     only wants what the user has actually created/customized."""
+    from halo_harness.packs.contribute import folder_names, read_only_source
     names: "set[str]" = set()
     dirs = agent_search_dirs(cwd=cwd, state_dir=state_dir)
     if not include_templates:
-        dirs = [d for d in dirs if d[1] != "template"]
-    for d, _source in dirs:
-        try:
-            names.update(p.stem for p in d.glob("*.yaml") if p.is_file())
-        except OSError:
-            pass
+        dirs = [d for d in dirs if not read_only_source(d[1])]  # 3.2.0.0 R1: a pack's bios are not yours either
+    for d, source in dirs:
+        names.update(folder_names(d, source))
     return sorted(names)
 
 
 def find_agent_bio_path(name: str, *, cwd=None, state_dir=None) -> "Optional[tuple[Path, str]]":
+    from halo_harness.packs.contribute import folder_file
     for d, source in agent_search_dirs(cwd=cwd, state_dir=state_dir):
-        path = d / f"{name}.yaml"
-        if path.is_file():
+        path = folder_file(d, source, name)
+        if path is not None and path.is_file():
             return path, source
     return None
 
@@ -148,6 +150,9 @@ def load_agent_bio_raw(name: str, *, cwd=None, state_dir=None) -> "Optional[dict
         return None
     data = dict(data)
     _normalize_thinking_field(data)
+    if source.startswith("pack:"):  # 3.2.0.0 R1: _pack/_name attached, the pack's own names qualified
+        from halo_harness.packs.contribute import localize
+        data = localize(data, source, name, kind="bio", cwd=cwd, state_dir=state_dir)
     data["_source"] = source
     data["_path"] = str(path)
     return data
@@ -241,6 +246,10 @@ def resolve_agent_bio(name: str, *, cwd=None, state_dir=None, _chain: "Optional[
     resolved["extends"] = raw.get("extends")
     resolved["_source"] = raw.get("_source")
     resolved["_path"] = raw.get("_path")
+    for key in ("_pack", "_name", "_pack_scope"):  # 3.2.0.0 R1: a pack's bio says whose it is (never its parent's)
+        resolved.pop(key, None)
+        if key in raw:
+            resolved[key] = raw[key]
     return resolved
 
 

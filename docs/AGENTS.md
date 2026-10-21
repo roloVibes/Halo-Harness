@@ -82,7 +82,7 @@ Everything below is the field-by-field reference; nothing in it changed.
 
 ## Storage and precedence
 
-Both layers use the SAME three-tier, nearest-wins search (`team_config.
+Both layers use the SAME nearest-wins search (`team_config.
 py`'s own project/user split, `config/agents_md.py`'s `.claude/agents`
 precedence):
 
@@ -90,7 +90,19 @@ precedence):
 |---|---|---|
 | Project (nearest) | `.halo/agents/<name>.yaml` | `.halo/teams/<name>.yaml` |
 | User | `~/.halo/agents/<name>.yaml` | `~/.halo/teams/<name>.yaml` |
+| Pack (read-only, 3.2.0.0) | `<pack>/agents/<name>.yaml`, listed as `<id>--<name>` | `<pack>/teams/<name>.yaml`, listed as `<id>--<name>` |
 | Shipped (read-only) | `halo_harness/templates/agents/<name>.yaml` | `halo_harness/templates/teams/<name>.yaml` |
+
+The pack tier (Halo 3.2.0.0, [PACKS.md](PACKS.md)) is one folder per
+enabled pack, in run order, read in place: a pack's bio `reviewer` is the
+bio `doc-review--reviewer` (`_pack: doc-review`, `_name: reviewer`), valid
+under the name rule, so it works as a lineup's `agent:`, a route target, a
+memory folder and in `tools.mcp_servers`. Inside the pack, a lineup's
+`agent:` and an `extends:` may name the pack's own bios and lineups bare;
+Halo qualifies them. A bio or lineup of yours with the same `<id>--<name>`
+wins (Studio's Duplicate makes one) and `halo pack doctor` names it; a
+disabled pack adds nothing to this search. `halo agents` groups the pack's
+bios under "Pack <id> agents:".
 
 The six shipped team templates (`balanced`, `code-review`,
 `halo-dev-cycle`, `local-first`, `quality`, `standard`) are copied into `~/.halo/teams/` the first time each is

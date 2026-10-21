@@ -6,7 +6,7 @@
 // project's: where New, Save and Delete write.
 import { Button, Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
-import { openDialog, roles, scopeLabel, shipped, useRoles } from "./store";
+import { openDialog, readOnlySource, roles, scopeLabel, useRoles } from "./store";
 import { openLineup } from "./sync";
 
 export function LineupsDetail() {
@@ -23,7 +23,7 @@ export function LineupsDetail() {
       <div className="rlu-bar">
         <Button size="sm" variant="primary" onClick={() => openDialog({ kind: "new-lineup", from: name || "balanced" })} data-testid="roles-new-lineup">New</Button>
         <Button size="sm" disabled={!name} onClick={() => openDialog({ kind: "dup-lineup", from: name })} data-testid="roles-dup-lineup">Duplicate</Button>
-        <Button size="sm" variant="ghost" disabled={!cur || shipped(cur.scope)} onClick={() => openDialog({ kind: "delete-lineup", name })} title={cur && shipped(cur.scope) ? "A shipped lineup cannot be deleted" : "Delete the open lineup (asks first)"} data-testid="roles-delete-lineup">Delete</Button>
+        <Button size="sm" variant="ghost" disabled={!cur || readOnlySource(cur.scope)} onClick={() => openDialog({ kind: "delete-lineup", name })} title={cur && readOnlySource(cur.scope) ? `A ${scopeLabel(cur.scope)} lineup cannot be deleted` : "Delete the open lineup (asks first)"} data-testid="roles-delete-lineup">Delete</Button>
         <Button size="sm" disabled={!name || dirty} onClick={() => openDialog({ kind: "apply" })} title={dirty ? "Save first: Apply uses the saved file" : "Make it the lineup new sessions use"}>Apply</Button>
         <span className="spacer" />
         <span className="segmented" role="group" aria-label="Where to write">
@@ -58,7 +58,7 @@ export function LineupsDetail() {
 
 export function LineupsGlance() {
   const n = useRoles((s) => s.lineups.length);
-  const own = useRoles((s) => s.lineups.filter((l) => !shipped(l.scope)).length);
+  const own = useRoles((s) => s.lineups.filter((l) => !readOnlySource(l.scope)).length);
   const active = useRoles((s) => s.info?.active_team || "");
   return (
     <div className="glance">

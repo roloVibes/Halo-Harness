@@ -7,7 +7,7 @@ import { useEffect, useRef, type KeyboardEvent } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
 import { redo, save, undo } from "./actions";
-import { openDialog, roles, scopeLabel, shipped, useRoles } from "./store";
+import { openDialog, readOnlySource, roles, scopeLabel, useRoles } from "./store";
 import { addTier } from "./tierActions";
 
 type Props = { zoom: number; setZoom: (z: number) => void; fit: () => void; layout: () => void };
@@ -46,7 +46,7 @@ export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
   return (
     <div className="rc-bar">
       <b className="rc-bar-name">{name}</b>
-      <span className="rc-scope mono" data-scope={scope}>{shipped(scope) ? "shipped: saving makes your copy" : scopeLabel(scope)}</span>
+      <span className="rc-scope mono" data-scope={scope}>{readOnlySource(scope) ? `${scopeLabel(scope)}: saving makes your copy` : scopeLabel(scope)}</span>
       {active && <span className="og-chip mono" data-testid="roles-active">active</span>}
       <span className="mono muted rc-bar-count">{cards} cards · {tiers} tier{tiers === 1 ? "" : "s"}</span>
       {dirty && <span className="rc-dirty mono" data-testid="roles-dirty">unsaved</span>}
