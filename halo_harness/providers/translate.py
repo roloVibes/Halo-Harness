@@ -79,6 +79,22 @@ def anthropic_to_openai(body: dict, route: Route, profile: dict | None = None) -
     return oai_body
 
 
+_AUDIO_FORMATS = {"audio/wav": "wav", "audio/x-wav": "wav", "audio/wave": "wav", "audio/mpeg": "mp3", "audio/mp3": "mp3"}
+
+
+def _input_audio_part(block: dict):
+    """3.1.9.0 R1: an Anthropic-shaped `audio` block (an MCP tool's audio
+    content, `tools/mcp_tool.convert_content_blocks`, passed through for a
+    model whose ModelProfile says it takes audio) -> the chat-completions
+    `input_audio` part; None for anything but base64 data."""
+    source = block.get("source") if isinstance(block.get("source"), dict) else {}
+    if source.get("type") != "base64" or not source.get("data"):
+        return None
+    mime = str(source.get("media_type") or "audio/wav").lower()
+    fmt = _AUDIO_FORMATS.get(mime) or mime.split("/", 1)[-1] or "wav"
+    return {"type": "input_audio", "input_audio": {"data": source["data"], "format": fmt}}
+
+
 def _system_text_parts(value) -> list:
     """Extract system-message text parts from a `system` field or an
     in-message `role: system` content value: a plain string is used as-is;
@@ -191,11 +207,10 @@ def _flatten_messages(messages: list, system) -> list:
                     # keep the text and append the marker instead, so the
                     # model never loses the tool's textual answer.
                     if isinstance(cnt, list):
-                        for part in cnt:
-                            if isinstance(part, dict) and part.get("type") == "image":
-                                text = (text + "\n(image in next message)") if text.strip() \
-                                    else "(image in next message)"
-                                break
+                        for kind in ("image", "audio"):  # 3.1.9.0 R1: audio rides like an image
+                            if any(isinstance(part, dict) and part.get("type") == kind for part in cnt):
+                                note = f"({kind} in next message)"
+                                text = (text + "\n" + note) if text.strip() else note
                     content_text = text
                 protos.append({"role": "tool", "tool_call_id": tid, "content": content_text})
             # Build one trailing user proto
@@ -215,6 +230,11 @@ def _flatten_messages(messages: list, system) -> list:
                                         "url": f"data:{source.get('media_type','image/jpeg')};base64,{source.get('data','')}"
                                     }
                                 })
+                        elif isinstance(part, dict) and part.get("type") == "audio":
+                            audio_part = _input_audio_part(part)
+                            if audio_part:
+                                user_parts.append({"type": "text", "text": f"Audio from {tid}:"})
+                                user_parts.append(audio_part)
             # (b) orphaned results
             for _tid, result in result_by_id.items():
                 cnt = result.get("content")
@@ -238,6 +258,10 @@ def _flatten_messages(messages: list, system) -> list:
                                     "url": f"data:{source.get('media_type','image/jpeg')};base64,{source.get('data','')}"
                                 }
                             })
+                    elif typ == "audio":
+                        audio_part = _input_audio_part(block)
+                        if audio_part:
+                            user_parts.append(audio_part)
             if user_parts:
                 protos.append({"role": "user", "content": user_parts})
             pending_ids = []  # reset after user turn

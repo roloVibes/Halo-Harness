@@ -3,14 +3,14 @@
 // bio/<name>`; a shipped bio saves as your copy, a 422 lists the validator's
 // lines under the form), New / Duplicate / Delete, "Test this model" (the
 // one-token probe, `POST models/test`, its result inline, never a dialog),
-// and the catalog's Refresh.
+// the catalog's Refresh, and Analyze (3.1.9.0 R1: what each model is good at).
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
 import { forgetResolved } from "../shared/resolve";
 import { run } from "./actions";
 import { clone, closeDialog, readOnlySource, roles } from "./store";
 import { loadLists, loadModels, loadModelsStatus, msg, validateSoon } from "./sync";
-import type { BioPayload, Outcome, Probe, Raw } from "./types";
+import type { Analysis, BioPayload, Outcome, Probe, Raw } from "./types";
 
 export async function openBio(name: string): Promise<void> {
   if (!name) return;
@@ -114,4 +114,12 @@ export async function refreshModels(): Promise<void> {
   roles.update(() => ({ justRefreshed: true }));
   await loadModels();
   await loadModelsStatus();
+}
+
+/** Analyze (3.1.9.0 R1): rebuild what each model is good at now (`POST models/analyze`, what `halo models analyze`
+ *  does), then re-read the catalog so the picker's "best at" column follows. */
+export async function analyzeModels(): Promise<void> {
+  const r = await run("analyze", () => api.post<Analysis>("models/analyze", {}), (r) => `${r.rows} models analyzed`);
+  if (r) roles.update(() => ({ analysis: r }));
+  await loadModels();
 }

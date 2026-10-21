@@ -158,6 +158,9 @@ def _ensure_whole_run_test_seams() -> None:
     depends on claude.ai connector auth."""
     os.environ.setdefault("BRIDGE_TEST_NO_BACKGROUND_NET", "1")
     os.environ.setdefault("BRIDGE_TEST_CC_AUTH_STATUS", json.dumps({"loggedIn": False}))
+    # 3.1.9.0 R1: the model roster snapshot stays off in the suite unless a
+    # test turns it on (tests/helpers/provider_env_defaults.py says why).
+    os.environ.setdefault("HALO_MODELS_ROSTER", "0")
 
 
 def _real_state_dir_snapshot() -> dict:

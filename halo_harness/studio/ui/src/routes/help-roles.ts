@@ -48,7 +48,7 @@ export const ROLES_HELP: Record<string, Help> = {
     about: "The agent bios: who each card is, on which model, with which tools.",
     help: lines(
       "Click a bio to edit it below; drag one onto the canvas to add it to the lineup.",
-      "MODELS comes first: the model select; more... unfolds the table (name, price, context, best-for).",
+      "MODELS comes first: the model select; more... unfolds the table (name, price, context, best at: the kinds and one line).",
       "Test this model sends one short request and shows ok and the time, or the error.",
       "Save writes your copy (a shipped bio stays as it is); New, Duplicate, Delete.",
     ),
@@ -58,6 +58,7 @@ export const ROLES_HELP: Record<string, Help> = {
     help: lines(
       "Refresh asks every provider at once, a few seconds each, and shows what each said and when.",
       "A provider with a key but not enabled says so: halo providers enable <name>.",
+      "Analyze rebuilds what each model is good at (halo models analyze): how many per kind, each kind's strongest.",
       "Test a model by its ref, catalog or not.",
     ),
   },

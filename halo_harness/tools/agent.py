@@ -88,7 +88,14 @@ class AgentTool(Tool):
         from halo_harness.roles import roles_mode_enabled
         roles_state = ("custom roles are on" if roles_mode_enabled() else
                        "custom roles are off: every role is the session model, so pass `model` to use a cheaper one")
-        return text.format(role_names=", ".join(known_role_names()), roles_state=roles_state)
+        text = text.format(role_names=", ".join(known_role_names()), roles_state=roles_state)
+        # 3.1.9.0 R1: the roster snapshot (providers/roster.py) rides in the
+        # main session's context whenever `models.roster` is on.
+        from halo_harness.providers.roster import roster_enabled
+        if roster_enabled():
+            text += (" The roster in your context says what each model is good at; name a model with `model` "
+                     "when a sub-task needs one.")
+        return text
 
     @property
     def input_schema(self) -> dict:

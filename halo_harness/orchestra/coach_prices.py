@@ -27,16 +27,15 @@ def _per_m(v) -> Optional[float]:
 def _openrouter_rows(base: Path) -> list:
     """models.json read as catalog rows whether or not OpenRouter is enabled here (a run's models still have prices)."""
     from halo_harness.providers.databricks import load_models_json
+    from halo_harness.providers.model_row_facts import openrouter_facts
     rows = []
     for name, entry in sorted((load_models_json(base) or {}).items()):
         entry = entry if isinstance(entry, dict) else {}
         price = entry.get("price_in_per_m")
-        params = entry.get("supported_parameters")
-        rows.append({"ref": f"or:{name}", "provider": "openrouter",
+        rows.append({"ref": f"or:{name}", "provider": "openrouter", "local": False,
                      "price_in_per_m": float(price) if isinstance(price, (int, float)) else
                      _per_m((entry.get("pricing") or {}).get("prompt")),
-                     "modalities_in": list(entry.get("input_modalities") or []) or None,
-                     "tools": ("tools" in params) if params else None})
+                     **openrouter_facts(entry)})  # 3.1.9.0 R1: the same keys the catalog row reads
     return rows
 
 
@@ -63,19 +62,25 @@ def price_of(rows: list, ref: str) -> Optional[float]:
     for r in rows:
         if r.get("ref") == ref:
             p = r.get("price_in_per_m")
-            if r.get("provider") in ("ollama", "huggingface"):
+            # 3.1.9.0 R1: `is_local_model_ref`, never the provider name -- a
+            # Hugging Face ROUTER row is remote and keeps its own price
+            from halo_harness.capabilities_facts import is_local
+            if is_local(r):
                 return 0.0
             return float(p) if isinstance(p, (int, float)) and p >= 0 else None
     return None
 
 
 def best_for(rows: list, ref: str) -> list:
-    from halo_harness.capabilities import KINDS, score
+    """The yes/no kinds a model can do (3.1.9.0 R1: `CAPABILITY_KINDS` --
+    the ranked strengths code / research / bulk / fast / local are not a
+    "same kinds" match for a cheaper model)."""
+    from halo_harness.capabilities import CAPABILITY_KINDS, score
     row = next((r for r in rows if r.get("ref") == ref), None)
     if row is None:
         return []
     out = []
-    for kind in KINDS:
+    for kind in CAPABILITY_KINDS:
         try:
             if score(row, kind)[0] > 0:
                 out.append(kind)

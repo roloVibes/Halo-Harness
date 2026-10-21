@@ -114,7 +114,7 @@ in the Agent panel stop (asks first).
 `events.py` (the live feed: the registry watcher and `/api/events`),
 `ui/` (the React shell's sources; see docs/DEVELOPMENT.md "Studio UI"),
 `static/dist/` (its committed build; the only page since 3.0.7.0 R2),
-`api.py` (the routes), `roles_api.py` (`GET gym`, `GET models/best-for`), `roles_findings.py`
+`api.py` (the routes), `roles_api.py` (`GET gym`, `GET models/best-for`, `POST models/analyze`), `roles_findings.py`
 (the Problems panel's findings), `doctor_config_api.py` (`GET doctor/config`, the panel's Config group), `models_api.py` (the catalog status, Refresh, the probe), `media_api.py` / `media_render.py` (the ComfyUI
 routes and a render's background thread), `sessions_api.py` (the live sessions and
 their commands), `design_api.py` (the routes) with `design_artboards_api.py` / `design_assets_api.py` / `design_critique_api.py` / `design_system_api.py` / `design_export_api.py` / `design_request.py` / `design_turns.py` / `design_api_edit.py` / `design_files.py` (Design mode), `model.py` (the graph, the catalog rows, the session

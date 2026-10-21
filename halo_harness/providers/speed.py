@@ -30,11 +30,14 @@ def speed_by_ref(state_dir, *, min_calls: int = 3) -> dict:
     `unknown_as_qmark` renders that as the picker's blank "?"). Never
     raises: any failure (corrupt cache, missing module) yields `{}`,
     exactly like "no cache yet" -- a telemetry hiccup must never break the
-    picker."""
+    picker. 3.1.9.0 R1: reads `<state_dir>/stats-cache.json` when
+    `state_dir` is given (it read `bridge_home()`'s whatever the caller
+    passed); `None` keeps `telemetry.cache_path()`."""
     out: dict = {}
     try:
+        from pathlib import Path
         from halo_harness import telemetry
-        cache = telemetry._load_cache()
+        cache = telemetry._load_cache(Path(state_dir) / "stats-cache.json" if state_dir is not None else None)
         summaries = []
         for entry in cache.values():
             if isinstance(entry, dict) and isinstance(entry.get("summary"), dict):

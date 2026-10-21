@@ -49,10 +49,11 @@ _SCALARS = {
 }
 
 # `coach`: probe.k, probe.budget_factor (3.1.6.0 R2), library.cite (3.1.6.0 R3: false turns the library's
-# citations off, orchestra/coach_citations.py)
+# citations off, orchestra/coach_citations.py); `models`: roster (3.1.9.0 R1: false keeps the model roster out
+# of the main agent's context, providers/roster.py)
 _SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "databricks", "embeddings", "experiential", "fleet",
-             "governor", "huggingface", "improve", "local", "network", "ollama", "openai", "packs",
-             "providers", "remote", "roles", "routing", "steer", "supervise", "update",
+             "governor", "huggingface", "improve", "local", "models", "network", "ollama", "openai",
+             "packs", "providers", "remote", "roles", "routing", "steer", "supervise", "update",
              "worktree")
 REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0",
                     "settings": "3.1.5.0", "subscription_routes": "3.1.5.0"}

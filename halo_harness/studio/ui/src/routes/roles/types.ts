@@ -95,7 +95,16 @@ export type ModelRow = {
   /** 3.1.4.0 R4: false on a row GET models/fallback adds (a ref in use, or Halo's shipped list): not verified. */
   verified?: boolean;
   source?: "in use" | "shipped";
+  /** 3.1.9.0 R1: what the catalog states (null = not stated) and what the model is best at (models_best_at). */
+  modalities_in?: string[] | null;
+  tools?: boolean | null;
+  reasoning?: { kind: string; efforts: string[] } | null;
+  measured?: Record<string, unknown> | null;
+  best_at?: { line: string; kinds: string[] };
 };
+
+/** 3.1.9.0 R1: POST models/analyze -- the best-at rebuild and how many models are good at each kind. */
+export type Analysis = { rows: number; kinds: Record<string, number>; best: Record<string, { cheapest: string | null; strongest: string }>; built: number };
 
 /** 3.1.4.0 R4: one provider's answer to Refresh (studio/models_refresh.py), and what status looked at. */
 export type Outcome = { name: string; provider: string; ok: boolean; count: number | null; line: string; ms: number; pending?: boolean; skipped?: boolean };

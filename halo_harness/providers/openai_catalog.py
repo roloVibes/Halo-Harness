@@ -186,4 +186,8 @@ def oai_picker_fields(model_id: str, state_dir) -> dict:
         out["price_in_per_m"] = cost["input"]
     if isinstance(cost.get("output"), (int, float)):
         out["price_out_per_m"] = cost["output"]
+    from halo_harness.providers.model_row_facts import models_dev_facts
+    facts = models_dev_facts(entry, reasoning_kind="openai")  # 3.1.9.0 R1: the catalog row's own keys
+    if facts:
+        out["facts"] = facts
     return out

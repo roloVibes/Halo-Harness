@@ -108,7 +108,7 @@ shipped one, opened on the canvas); "open the panels anyway" (or
 | **Inspector** (`roles-inspector`) | **Assignment** (the selected card's bio, role, alias, instances, the words that route a task to it, a model override, what resolves for it; Edit bio, Duplicate, Remove; with no card: the lineup's description, about and extends), **Lineup** (every top section as a small form with a **YAML** toggle and its enforcement badge), **Live** (the agents on the card now, or its last runs) |
 | **Problems** (`roles-problems`) | everything wrong with the lineup as it stands in the editor, saved or not, in **Blocks** and **Warns**, each with its fix; a click selects its card; **Config** lists what `halo doctor --config` finds in the files behind the lineup |
 | **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): models first (3.1.4.0: the preferred model in the **model select**, the **model picker table** folded under **more...**, fallback, effort up to xhigh and max, thinking, the context budget); description, kind, tags, extends; tools (allow and deny from the real registry, `GET /api/tools`, MCP servers, permission mode, the rules); context (files, skills, the memory namespace, prompt notes); limits; output; environment (own worktree, offline); acceptance; the schedule (cron or every, its prompt and model) and the triggers (file change, event, message); a **YAML** toggle for the whole bio (hooks and any key without a field); **Save bio** (with **Save to project scope**), New, Duplicate, Delete |
-| **Models** (`roles-models`) | the catalog: its row count, each provider (enabled, key, models cached), why it is empty when it is (every provider looked at and why it lists nothing), **Refresh** (`POST /api/models/refresh`: every provider at once, each time-boxed, one line each: `ok, N models` or the reason, and "refreshed <when>"), and **Test a model** by any ref |
+| **Models** (`roles-models`) | the catalog: its row count, each provider (enabled, key, models cached), why it is empty when it is (every provider looked at and why it lists nothing), **Refresh** (`POST /api/models/refresh`: every provider at once, each time-boxed, one line each: `ok, N models` or the reason, and "refreshed <when>"), **Analyze** (3.1.9.0, `POST /api/models/analyze`, what `halo models analyze` does: rebuilds what each model is good at and shows how many models per kind and each kind's strongest, the cheapest beside it when it differs), and **Test a model** by any ref |
 
 - **A card** shows the agent, its role and alias, a **scope badge**
   (shipped, user, project: a shipped bio is read-only, Duplicate it in Bios
@@ -189,10 +189,15 @@ shipped one, opened on the canvas); "open the panels anyway" (or
   says why, per provider, and offers Refresh (`studio/models_refresh.py`,
   each provider asked at once and given 6 s).
 - **The model picker table** (in the bio form): every catalog row with its
-  price in / out, context, **best for** (`capabilities.score`: visual,
-  audio, video, image, design; `GET /api/models/best-for`) and gym score;
-  sort by name, price or context, search across all of it; a click picks
-  the row; a ref the catalog lacks can be typed below. **Test this model**
+  price in / out, context, **best at** (3.1.9.0: the kinds it is good at as
+  chips -- visual, audio, video, image, design, pdf, code, research, bulk,
+  fast, local -- and its one honest line under them, the whole line on
+  hover; `GET /api/models` rows carry `best_at {line, kinds}`, `GET
+  /api/models/best-for` the kinds; see
+  [MODELS-references.md](MODELS-references.md#what-each-model-is-good-at-halo-3190))
+  and gym score; sort by name, price, context or best (the most kinds
+  first), search across all of it, the line's words included; the table
+  scrolls sideways in a narrow panel; a click picks the row; a ref the catalog lacks can be typed below. **Test this model**
   (`POST /api/models/test {ref}`) sends one short request and shows `ok in
   N ms`, or the error, right under it, never a dialog.
 - **Problems** come from `POST /api/validate` 250 ms after every edit (and

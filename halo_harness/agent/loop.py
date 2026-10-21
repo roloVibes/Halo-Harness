@@ -1526,6 +1526,7 @@ class Session:
                 self.log.append_snapshot([{"type": "text", "text": memory_text}], kind="memory_index")
             env_text = session_context.environment_snapshot_text(model_label)
             self.log.append_snapshot([{"type": "text", "text": env_text}], kind="environment")
+            self._append_roster_snapshot()
             # finding 12: the deferred tool NAMES (ToolSearch/deferred-load
             # call site), listed up front exactly once -- Claude Code's own
             # reminder to the model, matching this codebase's OWN
@@ -2133,6 +2134,19 @@ class Session:
         events_out, self._hook_event_log = self._hook_event_log, []
         return events_out
 
+    def _append_roster_snapshot(self) -> None:
+        """3.1.9.0 R1: the model roster (providers/roster.py: what each model
+        in the catalog is good at) as a user-role snapshot of kind `roster`
+        -- the ONE helper the three snapshot sites call (a new session,
+        `/clear`, after compaction). Main session only, never a `bare` one;
+        config `models.roster: false` appends nothing."""
+        if getattr(self, "agent_depth", 0) != 0 or getattr(self.session_context, "bare", False):
+            return
+        from halo_harness.providers.roster import roster_snapshot_text
+        text = roster_snapshot_text(self.state_dir, current_ref=getattr(self.model_ref, "raw", "") or "")
+        if text:
+            self.log.append_snapshot([{"type": "text", "text": text}], kind="roster")
+
     def _fire_session_start(self, source: str) -> None:
         """H4 scope B: SessionStart(startup|resume|clear|compact) -- `resume`
         fires from `__init__`, `compact` from `_run_compaction`, `clear`
@@ -2482,6 +2496,7 @@ class Session:
             self.log.append_snapshot([{"type": "text", "text": memory_text}], kind="memory_index")
         env_text = self.session_context.environment_snapshot_text(self.model_label)
         self.log.append_snapshot([{"type": "text", "text": env_text}], kind="environment")
+        self._append_roster_snapshot()
         if self.session_catalog is not None and self.session_catalog.deferred:
             deferred_names = sorted(self.session_catalog.deferred)
             reminder = (
@@ -5120,6 +5135,7 @@ class Session:
         env_text = ctx_obj.environment_snapshot_text(self.model_label) if ctx_obj is not None else ""
         if env_text:
             self.log.append_snapshot([{"type": "text", "text": env_text}], kind="environment")
+        self._append_roster_snapshot()
         if self.session_catalog is not None and self.session_catalog.deferred:
             deferred_names = sorted(self.session_catalog.deferred)
             reminder = (

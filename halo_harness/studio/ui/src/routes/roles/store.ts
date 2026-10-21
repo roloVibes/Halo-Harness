@@ -8,7 +8,7 @@
 // stands in for them while it plays) and the one open dialog.
 import { createStore, useStore } from "../../lib/store";
 import type {
-  BioPayload, BioRow, Finding, Graph, GymScore, HistoryRun, LineupPayload, LineupRow, LiveAgent, ModelRow, ModelsStatus, Pos, Probe, Raw, Replay, RolesDialog, StateInfo,
+  Analysis, BioPayload, BioRow, Finding, Graph, GymScore, HistoryRun, LineupPayload, LineupRow, LiveAgent, ModelRow, ModelsStatus, Pos, Probe, Raw, Replay, RolesDialog, StateInfo,
 } from "./types";
 
 export type InspectorTab = "assignment" | "lineup" | "live";
@@ -32,6 +32,8 @@ export type RolesState = {
   justRefreshed: boolean;
   bestFor: Record<string, string[]>;
   gym: Record<string, GymScore>;
+  /** 3.1.9.0 R1: the last Analyze on this page (POST models/analyze). */
+  analysis: Analysis | null;
   tools: string[];
   modelsStatus: ModelsStatus | null;
   name: string;
@@ -95,6 +97,7 @@ export const roles = createStore<RolesState>({
   justRefreshed: false,
   bestFor: {},
   gym: {},
+  analysis: null,
   tools: [],
   modelsStatus: null,
   name: "",
