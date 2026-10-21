@@ -26,6 +26,7 @@ Focus: the Session tab gets what the owner liked in Fleet, in the column he alre
 
 - The first steer sent to an agent whose stream Studio had not opened yet (the main agent, from the column) now shows in the column at once.
 - The Steer box opened from the map's `...` menu, the palette or the steer chip gets the keyboard even when its panel opens with it.
+- The Steer box keeps asking for the keyboard until it holds it (0 to 1200 ms): on a slow host the panel that opened with it took the focus back after the first tick, which the Linux runner showed on every Fleet chip check.
 
 ### R2: captures carry no real names
 

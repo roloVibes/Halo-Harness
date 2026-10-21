@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "halo-harness"
 dynamic = ["version"]
-description = "Standalone agent harness (Claude Code-compatible config) driving OpenRouter/Databricks models; includes the claude-bridge proxy."
+description = "Multi-model agent harness with orchestration, Claude Code compatibility, local LLM support, and live agent monitoring."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
