@@ -18,7 +18,15 @@ session figures (tests/helpers/studio_live_rig.py):
    pinned to no-preference through CDP, the same on every runner; under
    reduce a done node is green with no fade, the product rule);
 6. (follow-up) a GET fleet answer never undoes a newer agent_state frame: a
-   frame says stopped, GET still says running, the node stays stopped.
+   frame says stopped, GET still says running, the node stays stopped;
+7. (3.1.8.0 R6) with main mid-turn on its gated sub-agents, the session's own
+   `message_end` moves the spend, the tokens and the turns within 1.5 s (no
+   cache clear, no sessions frame); a GET from before it (lower figures)
+   never pulls them back; a `status` frame with None totals leaves them; a
+   sub-agent's frames never move them; a finished child is counted once in
+   the share bar (main's share is the session total less its finished
+   children's) and TURNS is the session's user turns, an agent's own count
+   its "calls".
 Run: python -m tests.test_studio_session_cost_map
 """
 from __future__ import annotations
@@ -147,6 +155,49 @@ def test_a_get_answer_never_undoes_a_newer_frame(ctx: Ctx):
     ctx.check(f"GET fleet still said running and its answer landed, got {got.get('fresh_api_says')!r} {got.get('fresh_get_landed')!r}",
               got.get("fresh_api_says") == "running" and got.get("fresh_get_landed") == "landed")
     ctx.check(f"the node kept the frame's newer state, got {got.get('fresh_after_get')!r}", got.get("fresh_after_get") == "stopped")
+
+
+FIGS = ["$0.2468", "54.3k", "4.3k", "3", "$0.0823", "60.0"]  # spend, in, out, turns, per turn, context %
+
+
+@test
+def test_the_figures_move_on_the_sessions_own_frames(ctx: Ctx):
+    r, got = _driver("costmap")
+    _ran(ctx, r, got)
+    moved, took = (got.get("fig_moved") or [None, 99])
+    ctx.check(f"from {got.get('fig_before')}: message_end moved the spend, tokens and turns, got {moved!r} in {took}s",
+              moved == "moved" and took <= 1.5)
+
+
+@test
+def test_a_get_from_before_the_frame_never_pulls_the_figures_back(ctx: Ctx):
+    r, got = _driver("costmap")
+    _ran(ctx, r, got)
+    ctx.check(f"the lower GET answer landed, got {got.get('fig_get_landed')!r}", got.get("fig_get_landed") == "landed")
+    ctx.check(f"the figures kept the frame's, got {got.get('fig_after_get')}", got.get("fig_after_get") == FIGS)
+
+
+@test
+def test_a_status_frame_without_totals_and_a_sub_agents_frames_leave_the_figures(ctx: Ctx):
+    r, got = _driver("costmap")
+    _ran(ctx, r, got)
+    ctx.check(f"the status frame landed (its model shows), got {got.get('fig_status_landed')!r}", got.get("fig_status_landed") == "landed")
+    ctx.check(f"None totals leave every figure, got {got.get('fig_after_status')}", got.get("fig_after_status") == FIGS)
+    ctx.check(f"a sub-agent's message_end and status move nothing, got {got.get('fig_after_child')}", got.get("fig_after_child") == FIGS + ["r6-status"])
+
+
+@test
+def test_a_finished_child_is_counted_once_and_turns_are_one_unit(ctx: Ctx):
+    r, got = _driver("costmap")
+    _ran(ctx, r, got)
+    ctx.check(f"main's own row says the session total, got {got.get('fig_main_row')!r}", got.get("fig_main_row") == "row")
+    share = dict(got.get("fig_share") or [])
+    ctx.check(f"main's share is the total less the finished tester's: 0.2468 - 0.012, got {share}",
+              share.get("main") == 0.2348 and share.get("t7e5s1t0") == 0.012 and share.get("d0c5w1r1") == 0.004)
+    ctx.check(f"the bar adds up to the total plus the live docs agent's, never the finished child twice, got {round(sum(share.values()), 6)}",
+              round(sum(share.values()), 6) == 0.2508)
+    ctx.check(f"main's line: its own spend and its model calls as calls (TURNS says 3), got {got.get('fig_main_line')}",
+              got.get("fig_main_line") == ["$0.2348", "1 call"])
 
 
 if __name__ == "__main__":

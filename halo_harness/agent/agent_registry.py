@@ -8,11 +8,13 @@ session's background Bash jobs are leaves under main (`kind: job`, read from
 the job registry whenever the tree is listed). A row:
 
     {agent_id, parent, name, role, bio, lineup, model, kind, task, since,
-     state, turns, cost_usd, current, last_text, transcript}
+     state, turns, cost_usd, current, last_text, transcript, tokens_in, tokens_out}
 
 `state` is one of STATES; `kind` main | subagent | member | background |
 job; `task` the first line of what the agent was asked; `turns` its model
-calls; `current` the tool in flight with one line of its arguments, or
+calls; `tokens_in` / `tokens_out` its own session meter's running totals
+(3.1.8.0 R6: from each `message_end`, None before its first model call);
+`current` the tool in flight with one line of its arguments, or
 "thinking"; `last_text` the last characters it wrote; `transcript` its own
 session log (a child's `subagents/agent-<id>.jsonl`). How events move a row:
 agent/agent_observe.py. Stop, pause and the steer inbox: agent/agent_inbox.py.
@@ -20,8 +22,10 @@ agent/agent_observe.py. Stop, pause and the steer inbox: agent/agent_inbox.py.
 Where the harness feeds it (turn start/end, every event, each spawn):
 agent/agent_hooks.py. Listeners (the control
 socket's feed) get `("agent_state", agent_id, row)` on every change of
-state, tool, turns or task (text and cost alone at most once per QUIET_S),
-and `("agent_event", agent_id, entry)` for agents someone follows.
+state, tool, turns or task (text and cost alone at most once per QUIET_S;
+3.1.8.0 R6: a change held inside that window goes out when it ends, so the
+last text and cost are never left unsent), and `("agent_event", agent_id,
+entry)` for agents someone follows.
 """
 
 from __future__ import annotations
@@ -37,7 +41,7 @@ MAIN = "main"
 STATES = ("queued", "running", "waiting", "paused", "done", "failed", "stopped")
 LIVE_STATES = ("queued", "running", "waiting", "paused")
 FIELDS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "kind", "task", "since", "state",
-          "turns", "cost_usd", "current", "last_text", "transcript")
+          "turns", "cost_usd", "current", "last_text", "transcript", "tokens_in", "tokens_out")
 QUIET_FIELDS = frozenset({"last_text", "cost_usd"})
 QUIET_S = 1.0
 _make_lock = threading.Lock()
@@ -80,6 +84,7 @@ class AgentTree(ObserveMixin):
         self._live: dict = {}
         self._inflight: dict = {}
         self._last_pub: dict = {}
+        self._held: dict = {}  # aid -> the timer of its trailing flush (a quiet change waiting for its window to end)
         self._reason: dict = {}
         self.controls = Controls(self)
         self.root_id = agent_key(root)
@@ -121,10 +126,25 @@ class AgentTree(ObserveMixin):
     def _commit(self, aid: str, row: dict, before: dict, force: bool = False):
         changed = {k for k in FIELDS if row.get(k) != before.get(k)}
         now = time.monotonic()
-        if force or (changed - QUIET_FIELDS) or (changed and now - self._last_pub.get(aid, 0.0) >= QUIET_S):
+        quiet = now - self._last_pub.get(aid, 0.0)
+        if force or (changed - QUIET_FIELDS) or (changed and quiet >= QUIET_S):
             self._last_pub[aid] = now
+            self._held.pop(aid, None)
             return aid, dict(row)
+        if changed and aid not in self._held:  # 3.1.8.0 R6: sent when the quiet window ends, never dropped
+            timer = self._held[aid] = threading.Timer(max(0.0, QUIET_S - quiet), self._flush, (aid,))
+            timer.daemon = True
+            timer.start()
         return None
+
+    def _flush(self, aid: str) -> None:
+        """The trailing flush: the row as it stands now, unless a frame went out since the change was held."""
+        with self.lock:
+            if self._held.pop(aid, None) is None or aid not in self.rows:
+                return
+            self._last_pub[aid] = time.monotonic()
+            pub = aid, dict(self.rows[aid])
+        self._publish(pub)
 
     def _publish(self, pub) -> None:
         if pub is not None:
