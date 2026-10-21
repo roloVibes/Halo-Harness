@@ -57,16 +57,21 @@ def bundle_export(name: str, out_dir, *, cwd=None, state_dir=None) -> "tuple[boo
         return False, [f"no such team template {name!r}"]
 
     import yaml
+    from halo_harness.packs.names import pack_of_source, read_only_source
     payload = {k: v for k, v in template.items() if not k.startswith("_")}
     bios: "list[tuple[str, Path]]" = []
     skipped: "list[str]" = []
+    from_packs: "list[str]" = []  # 3.2.0.0 R1: a pack's bio comes with the pack, never in a bundle
     for bio_name in _template_bio_names(template):
         found = find_agent_bio_path(bio_name, cwd=cwd, state_dir=state_dir)
         if found is None:
             return False, [f"agent bio {bio_name!r} referenced by the lineup does not resolve"]
         path, source = found
-        if source == "template":
-            skipped.append(bio_name)  # shipped -- every install already has it
+        if read_only_source(source):
+            if pack_of_source(source):
+                from_packs.append(f"{bio_name} (pack {pack_of_source(source)})")
+            else:
+                skipped.append(bio_name)  # shipped -- every install already has it
             continue
         bios.append((bio_name, path))
 
@@ -85,7 +90,7 @@ def bundle_export(name: str, out_dir, *, cwd=None, state_dir=None) -> "tuple[boo
         (out / "bundle.json").write_text(json.dumps({
             "bundle": "halo-team", "version": 1, "name": name,
             "team_version": template.get("version"), "bios": copied,
-            "shipped_bios_skipped": skipped,
+            "shipped_bios_skipped": skipped, "pack_bios_skipped": from_packs,
         }, indent=2), encoding="utf-8")
     except OSError as e:
         shutil.rmtree(out, ignore_errors=True)
@@ -94,6 +99,8 @@ def bundle_export(name: str, out_dir, *, cwd=None, state_dir=None) -> "tuple[boo
              f"  bios copied: {', '.join(copied) if copied else '(none -- all shipped templates)'}"]
     if skipped:
         lines.append(f"  shipped bios skipped (already on every install): {', '.join(skipped)}")
+    if from_packs:
+        lines.append(f"  pack bios skipped (install the pack where you import this): {', '.join(from_packs)}")
     return True, lines
 
 
@@ -130,13 +137,14 @@ def bundle_import(dir_path, *, force: bool = False, cwd=None, state_dir=None) ->
     if problems:
         return False, problems
 
+    from halo_harness.packs.names import read_only_source
     lines: "list[str]" = []
     copied, skipped, shadowed = [], [], []
     previous: "dict[str, bytes]" = {}
     user_dir = user_agents_dir(state_dir)
     for bio_name, data in bundle_bios.items():
         existing = find_agent_bio_path(bio_name, cwd=cwd, state_dir=state_dir)
-        if existing is not None and existing[1] != "template" and not force:
+        if existing is not None and not read_only_source(existing[1]) and not force:
             skipped.append(f"{bio_name} (exists in {existing[1]} scope; --force overwrites)")
             continue
         target = user_dir / f"{bio_name}.yaml"
@@ -153,8 +161,8 @@ def bundle_import(dir_path, *, force: bool = False, cwd=None, state_dir=None) ->
             _roll_back_bios(user_dir, copied, previous)
             return False, [f"bio {bio_name}: write failed: {e}"]
         copied.append(bio_name)
-        if existing is not None and existing[1] == "template":
-            shadowed.append(bio_name)
+        if existing is not None and read_only_source(existing[1]):  # shipped, or a pack's (3.2.0.0 R1)
+            shadowed.append(bio_name if existing[1] == "template" else f"{bio_name} (pack {existing[1][5:]})")
 
     ok, problems = save_team_template(name, team, cwd=cwd, state_dir=state_dir)
     if not ok:
@@ -169,7 +177,7 @@ def bundle_import(dir_path, *, force: bool = False, cwd=None, state_dir=None) ->
     if skipped:
         lines.append(f"  bios SKIPPED: {'; '.join(skipped)}")
     if shadowed:
-        lines.append(f"  shadows shipped bio(s): {', '.join(shadowed)} -- every lineup on this machine "
+        lines.append(f"  shadows shipped or pack bio(s): {', '.join(shadowed)} -- every lineup on this machine "
                      f"that assigns them now uses the bundle's copy")
     lines.append(f"  activate with: halo teams use {name}")
     return True, lines

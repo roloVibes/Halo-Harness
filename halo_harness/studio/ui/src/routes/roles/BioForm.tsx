@@ -19,7 +19,7 @@ import { BioSchedule } from "./BioSchedule";
 import { BioYaml } from "./BioYaml";
 import { CoachNote } from "./CoachNote";
 import { Check, ListIn, Pick, TextIn } from "./controls";
-import { openDialog, roles, scopeLabel, shipped, useRoles } from "./store";
+import { openDialog, readOnlySource, roles, scopeLabel, useRoles } from "./store";
 import type { Raw } from "./types";
 
 const KINDS = ["main", "subagent", "researcher", "judge", "reviewer", "custom", "media"];
@@ -51,7 +51,7 @@ export function BioForm() {
     <div className="rb-form" data-testid="bio-form" data-bio={name}>
       <header className="re-assign-head">
         <b>{name}</b>
-        <span className="rc-scope mono" data-scope={data.scope}>{shipped(data.scope) ? "shipped: saving makes your copy" : scopeLabel(data.scope)}</span>
+        <span className="rc-scope mono" data-scope={data.scope}>{readOnlySource(data.scope) ? `${scopeLabel(data.scope)}: saving makes your copy` : scopeLabel(data.scope)}</span>
         <button className="re-yaml-toggle mono" aria-pressed={yaml} onClick={() => setYaml(!yaml)} data-testid="bio-yaml-toggle"
                 title="Edit the whole bio as YAML (hooks and any key without a field)">YAML</button>
       </header>
@@ -78,7 +78,7 @@ export function BioForm() {
       )}
       <div className="re-actions rb-actions">
         <Button variant="primary" size="sm" disabled={busy} onClick={() => void saveBio()} data-testid="bio-save">Save bio</Button>
-        <Button size="sm" variant="ghost" disabled={shipped(data.scope)} onClick={() => openDialog({ kind: "delete-bio", name })} title={shipped(data.scope) ? "A shipped bio cannot be deleted" : "Delete this bio (asks first)"}>Delete</Button>
+        <Button size="sm" variant="ghost" disabled={readOnlySource(data.scope)} onClick={() => openDialog({ kind: "delete-bio", name })} title={readOnlySource(data.scope) ? `A ${scopeLabel(data.scope)} bio cannot be deleted` : "Delete this bio (asks first)"}>Delete</Button>
         <ScopeCheck what="agents" />
       </div>
     </div>

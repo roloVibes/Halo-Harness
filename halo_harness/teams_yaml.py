@@ -113,28 +113,30 @@ def project_teams_dir(cwd=None) -> Path:
 
 
 def team_search_dirs(*, cwd=None, state_dir=None) -> "list[tuple[Path, str]]":
+    """Nearest first: project, user, each active pack's `teams/` (3.2.0.0 R1: `pack:<id>`, names
+    `<id>--<name>`, read in place), the shipped templates."""
+    from halo_harness.packs.contribute import team_dirs
     return [(project_teams_dir(cwd), "project"), (user_teams_dir(state_dir), "user"),
-            (bundled_team_templates_dir(), "template")]
+            *team_dirs(cwd=cwd, state_dir=state_dir), (bundled_team_templates_dir(), "template")]
 
 
 def list_team_templates(*, cwd=None, state_dir=None, include_templates: bool = True) -> "list[str]":
+    from halo_harness.packs.contribute import folder_names, read_only_source
     names: "set[str]" = set()
     dirs = team_search_dirs(cwd=cwd, state_dir=state_dir)
     if not include_templates:
-        dirs = [d for d in dirs if d[1] != "template"]
-    for d, _source in dirs:
-        try:
-            # 3.0.8.0: `<project>.team.yaml` beside the lineups is a team file (halo_harness/team/), not a lineup.
-            names.update(p.stem for p in d.glob("*.yaml") if p.is_file() and not p.name.endswith(".team.yaml"))
-        except OSError:
-            pass
+        dirs = [d for d in dirs if not read_only_source(d[1])]  # 3.2.0.0 R1: a pack's lineups are not yours either
+    for d, source in dirs:
+        # 3.0.8.0: `<project>.team.yaml` beside the lineups is a team file (halo_harness/team/), not a lineup.
+        names.update(folder_names(d, source, skip=".team.yaml"))
     return sorted(names)
 
 
 def find_team_template_path(name: str, *, cwd=None, state_dir=None) -> "Optional[tuple[Path, str]]":
+    from halo_harness.packs.contribute import folder_file
     for d, source in team_search_dirs(cwd=cwd, state_dir=state_dir):
-        path = d / f"{name}.yaml"
-        if path.is_file():
+        path = folder_file(d, source, name)
+        if path is not None and path.is_file():
             return path, source
     return None
 
@@ -184,6 +186,11 @@ def load_team_template_raw(name: str, *, cwd=None, state_dir=None) -> "Optional[
     if data is None:
         return None
     data = _expand_roles_shorthand(dict(data))
+    if source.startswith("pack:"):  # 3.2.0.0 R1: _pack/_name attached, the pack's own bios and lineups qualified
+        from halo_harness.packs.contribute import localize
+        data = localize(data, source, name, kind="lineup", cwd=cwd, state_dir=state_dir)
+        if data.get("_pack_scope") == "project":  # a project pack is the untrusted layer
+            data = _drop_untrusted_raise({**data, "_source": "project"})
     data["_source"] = source
     data["_path"] = str(path)
     return data
@@ -250,6 +257,10 @@ def resolve_team_template(name: str, *, cwd=None, state_dir=None, _chain: "Optio
     resolved["extends"] = raw.get("extends")
     resolved["_source"] = raw.get("_source")
     resolved["_path"] = raw.get("_path")
+    for key in ("_pack", "_name", "_pack_scope"):  # 3.2.0.0 R1: a pack's lineup says whose it is (never its parent's)
+        resolved.pop(key, None)
+        if key in raw:
+            resolved[key] = raw[key]
     return resolved
 
 

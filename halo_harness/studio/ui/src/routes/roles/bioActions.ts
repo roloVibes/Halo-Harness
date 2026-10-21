@@ -8,7 +8,7 @@ import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
 import { forgetResolved } from "../shared/resolve";
 import { run } from "./actions";
-import { clone, closeDialog, roles, shipped } from "./store";
+import { clone, closeDialog, readOnlySource, roles } from "./store";
 import { loadLists, loadModels, loadModelsStatus, msg, validateSoon } from "./sync";
 import type { BioPayload, Outcome, Probe, Raw } from "./types";
 
@@ -54,7 +54,7 @@ export async function saveBio(): Promise<boolean> {
   }
   roles.update(() => ({ busy: "bio" }));
   try {
-    const b = await api.put<BioPayload>("bio/" + encodeURIComponent(s.bio), { raw }, { scope: s.scope, duplicate: shipped(s.bioData.scope) ? "1" : "" });
+    const b = await api.put<BioPayload>("bio/" + encodeURIComponent(s.bio), { raw }, { scope: s.scope, duplicate: readOnlySource(s.bioData.scope) ? "1" : "" });
     roles.update(() => ({ bioData: b, bioDraft: clone(b.raw), bioProblems: [] }));
     toast(`${b.name} saved (${b.scope})`, "done");
     forgetResolved(); // 3.1.4.0 R4: a card's "runs on" may name this bio's model

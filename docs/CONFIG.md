@@ -192,6 +192,9 @@ the files above.
 | `.halo/team.json` (project) or `~/.halo/team.json` | shared Databricks team preset -- see `docs/DATABRICKS.md` |
 | `~/.halo/agents/<name>.yaml` (`.halo/agents/<name>.yaml` project) | an agent BIO -- models/tools/context/limits/output/environment/acceptance for one named agent; see [AGENTS.md](AGENTS.md) |
 | `~/.halo/teams/<name>.yaml` (`.halo/teams/<name>.yaml` project) | a TEAM TEMPLATE ("lineup") -- assigns agent bios to roles/positions; `team` (below) names the active one; see [AGENTS.md](AGENTS.md) |
+| `~/.halo/packs/<id>/` (`.halo/packs/<id>/` project) | an installed PACK, read in place and never written by Halo: `pack.yaml` plus a Claude-plugin layout and its bios (`agents/*.yaml`, listed as `<id>--<name>`) and lineups (`teams/*.yaml`); see [PACKS.md](PACKS.md) |
+| `~/.halo/packs/state.json`, `~/.halo/packs/journal.jsonl` | which packs are installed, from where, enabled and granted (0600); every file a pack's install, update or remove wrote or deleted, with its hash -- see [EXTENSION_API.md](EXTENSION_API.md) |
+| `~/.halo/packs/.data/<id>/` | a pack's own place to write (`halo_harness.ext.write_private`) |
 | `<state_dir>/agents-schedules.json` | what schedule/trigger set is ARMED right now (written by live sessions' team schedulers; `halo agents schedule list` reads it) -- see [AGENTS.md](AGENTS.md) |
 
 ### `~/.halo/config.json` keys
@@ -285,6 +288,8 @@ directly by the features that own them:
 | `experiential.retry.max_total_attempts` | unset (the gateway's own default) | `halo config set experiential.retry.max_total_attempts 4` |
 | `experiential.retry.backoff` | unset (the gateway's own operator policy -- "omitting it keeps the existing policy" is a real, documented choice) | hand-edited; `{"type": "exponential", "base_delay_ms": ..., "max_delay_ms": ..., "multiplier": ...}` or `{"type": "none"}` |
 | `experiential.zdr` | `false` | `halo config set experiential.zdr true`; Halo 2.0.4 round 5 -- adds `"provider": {"zdr": true}` to every `xp:` request body (both the chat/Responses dialect and the Anthropic-shaped dialect for a Claude slug), demanding zero-data-retention routing for each one; never touches a bare `ant:`/Databricks-Claude-passthrough body; see `docs/MODELS.md`'s "Zero data retention" note under "Experiential Labs" |
+| `packs.sources` | unset (a bare id is not looked up anywhere) | `halo config set packs.sources '["~/packs", "https://example.com/team/doc-review.git"]'`; folders holding packs (or one pack) and git urls of packs -- `halo pack install <id>` takes the first that holds `<id>`; a folder that is not there is a `halo pack doctor` line; see [PACKS.md](PACKS.md) |
+| `packs.settings.<id>` | the pack's own `config.defaults` (pack.yaml) | `halo config set packs.settings.doc-review.style long`; one pack's settings, checked against its `config.schema` (`halo pack doctor` names a value that does not fit); `halo pack remove` leaves them in place |
 
 ## Every environment variable
 

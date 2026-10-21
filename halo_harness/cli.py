@@ -543,6 +543,9 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.0.8.0: a Team -- members, blocks, stages, the board (docs/TEAM.md).
         from halo_harness.team.cli import cmd_team
         return cmd_team(argv[1:])
+    if argv and argv[0] == "pack":  # 3.2.0.0 R1: capability packs (docs/PACKS.md)
+        from halo_harness.packs.cli import cmd_pack
+        return cmd_pack(argv[1:])
     if argv and argv[0] == "design":
         # 3.0.1.0: Halo Design -- projects, turns, systems, exports, the handoff.
         from halo_harness.design.cli import cmd_design

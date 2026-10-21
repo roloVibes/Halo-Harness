@@ -9,7 +9,7 @@ Part of [Architecture](ARCHITECTURE.md), which lists every part.
 One responsibility per module, named for it (3.1.0.0 R2 re-cut every module
 named by line count: no `*_more.py`, `*2.py`, `*_extra*.py` or `*_rest.py`
 is left in `halo_harness/`, and `tests/test_invariants.py` keeps it so).
-Every module of these four packages is listed here; the same test checks
+Every module of these packages is listed here; the same test checks
 this list against the tree.
 
 **Studio** (`halo_harness/studio/`):
@@ -201,6 +201,31 @@ triggers, armed by the supervisor), `supervise/loop.py` (the tick),
 `supervise/apply.py` (settling a goal and applying a decision),
 `supervise/cli.py` (`halo supervise`) and `supervise/goal_cli.py` (`halo
 goal`).
+
+**Packs** (`halo_harness/packs/`, Halo 3.2.0.0 R1, docs/PACKS.md): the
+names (`packs/names.py`: ids, `<id>--<name>`, the `pack:<id>` label and
+`read_only_source`), `packs/semver.py` (versions and ranges),
+`packs/manifest.py` (pack.yaml: read and validate; its shape is
+`schemas/pack_yaml.py`, its JSON twin `packs/schema/pack.schema.json`),
+`packs/discover.py` (the packs on disk, nearest first), `packs/state.py`
+(state.json), `packs/settings.py` (`packs.settings.<id>` against the pack's
+schema), `packs/resolve.py` (requires, the API and Halo ranges, cycles),
+`packs/registry.py` (the active packs, cached), `packs/conflicts.py` (one name
+offered twice), `packs/offers.py` (the names a pack offers, by kind),
+`packs/grants.py` (requests, grants, enable and disable),
+`packs/contribute.py` (the plugin roots, the bio and lineup tier, the hook and
+MCP grant filters), `packs/journal.py` (the journal and its journaled writes),
+`packs/fetch.py` (a folder or a git url), `packs/install.py` (install and
+update), `packs/remove.py` (remove; your work stays), `packs/doctor.py`
+(every problem), `packs/cli.py` and `packs/cli_views.py` (`halo pack`);
+`where/pack_files.py` is the packs group of `halo config where`.
+
+**The extension API** (`halo_harness/ext/`, API 1.0, docs/EXTENSION_API.md):
+`ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`),
+`ext/schema.py` (`check_schema`), `ext/config.py` (`get_config`,
+`set_config`), `ext/files.py` (`pack_dir`, `data_dir`, `write_private`),
+`ext/events.py` (`publish_event`), `ext/grants.py` (`is_granted`); the
+package's `__init__` is the contract.
 
 - The first ten minutes (3.1.1.0): `studio/start_api.py` (Start here: `/api/start`),
   `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),

@@ -6,7 +6,7 @@ import { focusPanel } from "../../lib/workspace/persist";
 import { redo, save, undo } from "./actions";
 import { openBio, testModel } from "./bioActions";
 import { showBio } from "./Assignment";
-import { nodeById, openDialog, roles, setView } from "./store";
+import { nodeById, openDialog, roles, scopeLabel, setView } from "./store";
 import { openLineup, startRoles } from "./sync";
 
 export type RolesCommand = { id: string; group: string; label: string; hint?: string; kbd?: string; run: () => void };
@@ -53,7 +53,7 @@ export function rolesCommands(): RolesCommand[] {
     { id: "roles-redo", group: g, label: "Roles: redo", kbd: "Ctrl+Shift+Z", run: inRoles(() => void redo()) },
   ];
   for (const l of s.lineups.slice(0, 40))
-    out.push({ id: "roles-open-" + l.name, group: g, label: `Roles: open lineup ${l.name}`, hint: [l.active ? "active" : "", l.scope === "template" ? "shipped" : l.scope, l.description].filter(Boolean).join(" · "),
+    out.push({ id: "roles-open-" + l.name, group: g, label: `Roles: open lineup ${l.name}`, hint: [l.active ? "active" : "", scopeLabel(l.scope), l.description].filter(Boolean).join(" · "),
       run: inRoles(() => (setView("workspace"), void openLineup(l.name), focusPanel("roles", "roles-graph"))) });
   for (const b of s.bios.slice(0, 40))
     out.push({ id: "roles-bio-" + b.name, group: g, label: `Roles: bio ${b.name}`, hint: [b.kind, b.model].filter(Boolean).join(" · "), run: inRoles(() => (setView("workspace"), void openBio(b.name), showBio(b.name))) });

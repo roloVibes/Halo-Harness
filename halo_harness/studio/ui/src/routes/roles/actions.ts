@@ -7,7 +7,7 @@
 // `tiers[*].members` and saves at once; the main agent stays in tier 0.
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
-import { agentsOf, clone, closeDialog, HISTORY_MAX, keyOf, nodeById, roles, shipped } from "./store";
+import { agentsOf, clone, closeDialog, HISTORY_MAX, keyOf, nodeById, readOnlySource, roles } from "./store";
 import { loadLists, msg, openLineup, saveLayout, validateSoon } from "./sync";
 import type { LineupPayload, Raw } from "./types";
 
@@ -56,11 +56,11 @@ export function redo(): boolean {
   return true;
 }
 
-/** Save the open lineup to your scope (a shipped one becomes your copy under the same name). */
+/** Save the open lineup to your scope (a shipped or a pack's one becomes your copy under the same name). */
 export async function save(): Promise<boolean> {
   const s = roles.get();
   if (!s.raw || !s.name || !s.current) return false;
-  const query = { scope: s.scope, duplicate: shipped(s.current.scope) ? "1" : "" };
+  const query = { scope: s.scope, duplicate: readOnlySource(s.current.scope) ? "1" : "" };
   roles.update(() => ({ busy: "save" }));
   try {
     const sent = s.raw;

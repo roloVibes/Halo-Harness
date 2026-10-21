@@ -61,4 +61,5 @@ This page is the entry point; the content lives in the parts below, one per task
 | [Commands: Studio, design, media, Orchestra and teams](COMMANDS-studio.md) | you open Studio or run designs, media, an Orchestra goal or a team from the command line | `halo studio` · `halo design` · `halo media` · `halo orchestra` · `halo team` · `/tasks` (Ctrl+T) · `halo completion` |
 | [Commands: the supervisor and its goals](COMMANDS-supervise.md) | you give Halo a goal to work on without sitting at a terminal | `halo supervise` · `halo goal` |
 | [Commands: remote control and the fleet](COMMANDS-fleet.md) | you control sessions remotely or run a fleet and its missions | `halo remote` · `halo fleet` |
+| [Commands: packs](COMMANDS-packs.md) | you list, inspect, install, enable, update or remove a pack from the command line (`halo pack`) | `halo pack` |
 | [Commands: the proxy, exit codes and config checks](COMMANDS-proxy.md) | you run the old proxy, read an exit code, or list and check the config files in effect | `halo proxy` · Exit codes · `halo config where` and `halo doctor --config` (3.1.1.0) |

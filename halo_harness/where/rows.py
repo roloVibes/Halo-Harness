@@ -6,7 +6,7 @@ A row:
     {"kind":   "config" | "env" | "settings" | "mcp" | "lineup" | "lineups" |
                "bios" | "team" | "team-preset",
      "file":   "~/.halo/config.json"      (home as ~, this folder as ./, the package as <halo>/),
-     "path":   absolute path, "scope": "home" | "repo" | "env" | "shipped",
+     "path":   absolute path, "scope": "home" | "repo" | "env" | "shipped" | "pack",
      "exists": bool, "read": bool (False: Halo never reads this file),
      "sets":   [top-level keys, or the lineup / bio / team / server
                / variable names the file holds -- never a value],
@@ -105,7 +105,9 @@ def _label(winner: str, rows: list, cwd) -> str:
 
 
 def scope_of(source: str) -> str:
-    """The loaders' own source labels -> a row scope."""
+    """The loaders' own source labels -> a row scope (3.2.0.0 R1: `pack:<id>` -> "pack")."""
+    if isinstance(source, str) and source.startswith("pack:"):
+        return "pack"
     return {"project": "repo", "repo": "repo", "user": "home", "template": "shipped"}.get(source, source)
 
 

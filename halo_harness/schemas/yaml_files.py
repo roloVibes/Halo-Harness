@@ -55,4 +55,10 @@ def _inner(schema: dict) -> dict:
     return {"properties": schema["properties"], "additionalProperties": schema["additionalProperties"]}
 
 
-SCHEMAS = {"lineup": lineup, "bio": bio, "team": team}
+def pack() -> dict:
+    """A pack's pack.yaml (3.2.0.0 R1; the shape lives beside the manifest's own key lists)."""
+    from halo_harness.schemas.pack_yaml import pack as shape
+    return shape()
+
+
+SCHEMAS = {"lineup": lineup, "bio": bio, "team": team, "pack": pack}

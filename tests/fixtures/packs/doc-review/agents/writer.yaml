@@ -1,0 +1,11 @@
+name: writer
+description: Rewrites a section from the reviewer's findings, in plain language.
+version: 1
+tags: [docs]
+kind: custom
+extends: reviewer
+models:
+  effort: medium
+tools:
+  allow: [Read, Edit, Write]
+  deny: []

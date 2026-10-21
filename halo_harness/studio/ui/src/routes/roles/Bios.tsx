@@ -6,7 +6,7 @@ import { Button } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { BioForm } from "./BioForm";
 import { openBio } from "./bioActions";
-import { openDialog, scopeLabel, shipped, useRoles } from "./store";
+import { openDialog, readOnlySource, scopeLabel, useRoles } from "./store";
 
 export function BiosDetail() {
   const bios = useRoles((s) => s.bios);
@@ -17,7 +17,7 @@ export function BiosDetail() {
       <div className="rlu-bar">
         <Button size="sm" variant="primary" onClick={() => openDialog({ kind: "new-bio", from: cur || "general" })} data-testid="roles-new-bio">New</Button>
         <Button size="sm" disabled={!cur} onClick={() => openDialog({ kind: "dup-bio", from: cur })} data-testid="roles-dup-bio">Duplicate</Button>
-        <Button size="sm" variant="ghost" disabled={!cur || shipped(scope)} onClick={() => openDialog({ kind: "delete-bio", name: cur })}>Delete</Button>
+        <Button size="sm" variant="ghost" disabled={!cur || readOnlySource(scope)} onClick={() => openDialog({ kind: "delete-bio", name: cur })}>Delete</Button>
       </div>
       <ul className="rbs-list" aria-label="Agent bios">
         {bios.map((b) => (
@@ -39,7 +39,7 @@ export function BiosDetail() {
 
 export function BiosGlance() {
   const n = useRoles((s) => s.bios.length);
-  const own = useRoles((s) => s.bios.filter((b) => !shipped(b.scope)).length);
+  const own = useRoles((s) => s.bios.filter((b) => !readOnlySource(b.scope)).length);
   return (
     <div className="glance">
       <div className="glance-numbers">

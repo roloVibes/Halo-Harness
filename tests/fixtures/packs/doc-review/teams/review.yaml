@@ -1,0 +1,13 @@
+name: review
+description: The writer leads; the reviewer reads every change before it lands.
+version: "1.0"
+tags: [docs]
+agents:
+  - {agent: writer, role: main}
+  - {agent: reviewer, role: reviewer}
+delegation: {mode: manual, max_parallel: 1}
+permissions:
+  mode: auto
+  rules:
+    allow: ["Bash(git diff*)"]
+    deny: ["Bash(git push*)"]

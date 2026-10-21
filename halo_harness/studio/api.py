@@ -15,6 +15,7 @@ from typing import Callable
 
 from halo_harness import agents_yaml as A
 from halo_harness import teams_yaml as T
+from halo_harness.packs.names import read_only_source, scope_label  # 3.2.0.0 R1: shipped and pack files are read-only
 from halo_harness.studio import model as M
 
 
@@ -92,8 +93,8 @@ def put_lineup(req: Request):
     if isinstance(raw, tuple):
         return raw
     found = T.find_team_template_path(name, cwd=req.cwd, state_dir=req.state_dir)
-    if found and found[1] == "template" and not req.query.get("duplicate"):
-        return 409, {"error": f"{name} is a shipped lineup: duplicate to edit", "problems": []}
+    if found and read_only_source(found[1]) and not req.query.get("duplicate"):
+        return 409, {"error": f"{name} is a {scope_label(found[1])} lineup: duplicate to edit", "problems": []}
     raw = M.clean(raw)
     raw["name"] = name
     problems = T.validate_team_template(raw, name=name, cwd=req.cwd, state_dir=req.state_dir)
@@ -123,8 +124,8 @@ def delete_lineup(req: Request):
     if not T.is_valid_team_name(name):
         return _problems([f"{name!r} is not a valid lineup name (letters, digits, - and _)"])
     found = T.find_team_template_path(name, cwd=req.cwd, state_dir=req.state_dir)
-    if found and found[1] == "template":
-        return 409, {"error": "a shipped lineup cannot be deleted"}
+    if found and read_only_source(found[1]):
+        return 409, {"error": f"a {scope_label(found[1])} lineup cannot be deleted"}
     return (200, {"ok": True}) if T.delete_team_template(name, cwd=req.cwd, state_dir=req.state_dir, project=req.project) else (404, {"error": "not found"})
 
 
@@ -183,8 +184,8 @@ def put_bio(req: Request):
     if isinstance(raw, tuple):
         return raw
     found = A.find_agent_bio_path(name, cwd=req.cwd, state_dir=req.state_dir)
-    if found and found[1] == "template" and not req.query.get("duplicate"):
-        return 409, {"error": f"{name} is a shipped bio: duplicate to edit", "problems": []}
+    if found and read_only_source(found[1]) and not req.query.get("duplicate"):
+        return 409, {"error": f"{name} is a {scope_label(found[1])} bio: duplicate to edit", "problems": []}
     raw = M.clean(raw)
     raw["name"] = name
     problems = A.validate_agent_bio(raw, name=name, cwd=req.cwd, state_dir=req.state_dir)
@@ -213,8 +214,8 @@ def delete_bio(req: Request):
     if not A.is_valid_agent_name(req.params["name"]):
         return _problems([f"{req.params['name']!r} is not a valid bio name (letters, digits, - and _)"])
     found = A.find_agent_bio_path(req.params["name"], cwd=req.cwd, state_dir=req.state_dir)
-    if found and found[1] == "template":
-        return 409, {"error": "a shipped bio cannot be deleted"}
+    if found and read_only_source(found[1]):
+        return 409, {"error": f"a {scope_label(found[1])} bio cannot be deleted"}
     return (200, {"ok": True}) if A.delete_agent_bio(req.params["name"], cwd=req.cwd, state_dir=req.state_dir, project=req.project) else (404, {"error": "not found"})
 
 
