@@ -135,7 +135,10 @@ def test_stop_stops_a_part_running_here(ctx: Ctx):
     ctx.check(f"stopped with the reason, got {doc['state']} {doc['stop_reason']}", doc["state"] == "stopped"
               and doc["stop_reason"] == "enough" and doc["parts"]["1"]["state"] == "stopped" and doc["parts"]["2"]["state"] == "skipped")
     res = wait_for(lambda: S.read_text(S.folder(home, mid), "parts/1/result.json"), 10)
-    ctx.check("the worker itself ended stopped", bool(res) and json.loads(res)["state"] == "stopped" and not W.running(mid))
+    # the worker writes its result before its thread ends (on_done, the cleanup): read on the instant the file
+    # lands, `running` can still list it for a tick (the Linux runner did, once) -- wait for the thread too
+    ended = wait_for(lambda: not W.running(mid), 10)
+    ctx.check(f"the worker itself ended stopped, got {bool(res)} ended={bool(ended)}", bool(res) and json.loads(res)["state"] == "stopped" and bool(ended))
     ctx.check("the decision is kept", any("enough" in d["what"] for d in doc["decisions"]))
     reset_fakes()
 
