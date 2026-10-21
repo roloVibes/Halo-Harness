@@ -11,7 +11,9 @@ real TUI over mock data. Nothing in them is a real key, path,
 hostname, username or phone number: the scenes run on a scripted
 `FakeController`, fixture rows, fixture contacts (reserved 555 numbers) and
 the literal cwd `~/project`, with a frozen clock, seeded tips and a scratch
-`BRIDGE_TEST_HOME`. The privacy scan runs over the SVGs like any other text.
+`BRIDGE_TEST_HOME`. The privacy scan runs over the SVGs like any other text;
+the Studio pictures keep the two rules under
+[No real name, no real path](#no-real-name-no-real-path-in-a-studio-picture).
 
 ## What is where
 
@@ -61,6 +63,40 @@ python tools/hero_svg.py; python tools/hero_svg.py --social   # the two vector w
 `tools/hero_png.py` takes its line from `tools/hero_svg.py`'s `TAGLINE` and
 its cell shapes from `hero_svg.cell_rects`, so the PNGs and the SVGs say the
 same thing and draw the same art; change the line there and rerun all four.
+
+### No real name, no real path in a Studio picture
+
+The Studio pictures are made on a real machine, so every Studio capture tool
+goes through `tools/capture_identity.py` and keeps two rules:
+
+1. **One placeholder identity.** Before a tool serves Studio, or enters a
+   rig, it writes `fleet.name: you@studio` into the scratch home's config
+   (and the rig's), and the harness's user and host read `you` and
+   `studio`. The rail's Fleet tree, the status bar, the Fleet and Session
+   maps, People and Health all draw `you@studio`; the fleet scene's member
+   keeps its own made-up name, `kali@lab`. When a name Studio would draw is
+   still this machine's `user@host`, or carries its user or host name, the
+   tool stops with one line and exit code 2:
+
+   ```
+   capture stopped: Studio would draw this machine's own user or host name; every capture draws you@studio (tools/capture_identity.py)
+   ```
+
+2. **No absolute path.** The seeded Orchestra runs use a repo-relative test
+   command (`python -m unittest -q test_basket`), the fleet scene's edits are
+   repo-relative (`Edit: basket.py`), and when the system temp folder sits in
+   a user profile (on Windows, the profile's `AppData\Local\Temp`) the tool moves
+   its temp root to `%ProgramData%\halo-capture` (`HALO_CAPTURE_TMP` names
+   another), so the scratch repos, homes and sessions Studio shows carry no
+   profile path. Every page a tool counts (`--dom`) or shoots is read first:
+   a home path (`Users\`, `Users/`, `home/`), `AppData`, or this machine's
+   user or host name in its DOM stops the tool with one line and exit code 1,
+   `capture stopped: the <page> page carries <what>: <the text near it, the
+   names masked> (tools/capture_identity.py)`. The DOM is read, never the
+   pixels.
+
+`tests/test_capture_identity.py` parses the tools' source: each one calls the
+helper before it serves and guards every page before it counts or shoots it.
 
 Run both from a checkout with the repo on `PYTHONPATH`; no real `~/.halo` is
 touched (the scenes scope `BRIDGE_TEST_HOME` to a scratch directory before any

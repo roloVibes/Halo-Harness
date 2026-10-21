@@ -71,7 +71,7 @@ class StudioFleetRig:
         self.state.mkdir(parents=True, exist_ok=True)
         ensure_builtin_team_templates(state_dir=self.state)
         for k, v in (("team", "halo-dev-cycle"), ("roles.enabled", True), ("agents.max_depth", 2), ("remote.enabled", False),
-                     ("fleet.name", "rolo@studio")):
+                     ("fleet.name", "you@studio")):
             set_config_value(k, v)
         identity.forget_cache()
         self.proj = self.root / "shop"

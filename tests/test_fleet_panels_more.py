@@ -76,7 +76,7 @@ def test_a_conflict_across_two_harnesses_is_found_listed_and_raised(ctx: Ctx):
         cs = (got or (0, {}))[1].get("conflicts") or []
         c = cs[0] if cs else {}
         ctx.check(f"one conflict on shop/basket.py between the two harnesses, got {cs}", len(cs) == 1 and c["repo"] == "shop"
-                  and c["file"] == "basket.py" and {c["a"]["harness_name"], c["b"]["harness_name"]} == {"rolo@studio", "kali@lab"}
+                  and c["file"] == "basket.py" and {c["a"]["harness_name"], c["b"]["harness_name"]} == {"you@studio", "kali@lab"}
                   and c["source"] == "edit")
         rooms = got[1]["rooms"] if got else []
         ctx.check(f"the shop room holds both cards with branch and worktree, got {rooms}", len(rooms) == 1 and rooms[0]["key"] == "shop"
@@ -87,7 +87,7 @@ def test_a_conflict_across_two_harnesses_is_found_listed_and_raised(ctx: Ctx):
                   row is not None and row["what"].endswith("are both editing basket.py") and "reviewer" in row["what"])
         files = [r for r in journal.read(rig.state, NOW - 60) if r["kind"] == "file"]
         ctx.check(f"both edits are journaled, got {[(f['harness_name'], f['file']) for f in files]}",
-                  {(f["harness_name"], f["file"]) for f in files} >= {("rolo@studio", "basket.py"), ("kali@lab", "basket.py")})
+                  {(f["harness_name"], f["file"]) for f in files} >= {("you@studio", "basket.py"), ("kali@lab", "basket.py")})
 
 
 def _stub_providers():
@@ -123,7 +123,7 @@ def test_health_is_read_only_cached_and_asks_a_member_once(ctx: Ctx):
             rows = {r["name"]: r for r in got.get("harnesses") or []}
             m = rows.get("kali@lab") or {}
             ctx.check(f"both harnesses, the member's from its doctor answer, got {status} {sorted(rows)}", status == 200
-                      and set(rows) == {"rolo@studio", "kali@lab"} and rows["rolo@studio"]["status"] == "ok"
+                      and set(rows) == {"you@studio", "kali@lab"} and rows["you@studio"]["status"] == "ok"
                       and m.get("version") == "3.0.5.0" and m.get("session_model") == "or:deepseek/deepseek-v4" and m.get("cached") is False)
             asked = [d["cmd"] for d in rig.member_cmds]
             got2 = rig.api("GET", "fleet/health")[1]
@@ -205,24 +205,24 @@ def test_the_digest_counts_per_harness_in_code(ctx: Ctx):
         _jline(f, ts=NOW - 100, kind="cost", session_id="ms1", usd=0.30, **m)
         _jline(f, ts=NOW - 90, kind="file", session_id="ms1", file="src/a.py", **m)
         _jline(f, ts=NOW - 80, kind="error", session_id="ms1", text="pytest failed", **m)
-        _jline(f, ts=NOW - 70, kind="decision", session_id="ms1", what="Approval (reviewer)", answer="accept", by="rolo@studio", row_kind="approval", **m)
-        _jline(f, ts=NOW - 60, kind="handoff", session_id="ms1", action="hand_to", to="bob@laptop", by="rolo@studio", **m)
+        _jline(f, ts=NOW - 70, kind="decision", session_id="ms1", what="Approval (reviewer)", answer="accept", by="you@studio", row_kind="approval", **m)
+        _jline(f, ts=NOW - 60, kind="handoff", session_id="ms1", action="hand_to", to="bob@laptop", by="you@studio", **m)
         _jline(f, ts=NOW - 50, kind="session_end", session_id="ms1", title="review", **m)
         _jline(f, ts=NOW - 9000, kind="decision", session_id="ms0", what="too old", answer="x", by="x", **m)
-    d = digest.compute(home, NOW - 7200, now=NOW, local_id="L", local_name="rolo@studio")
+    d = digest.compute(home, NOW - 7200, now=NOW, local_id="L", local_name="you@studio")
     hs = {h["name"]: h for h in d["harnesses"]}
-    me, km = hs.get("rolo@studio") or {}, hs.get("kali@lab") or {}
+    me, km = hs.get("you@studio") or {}, hs.get("kali@lab") or {}
     ctx.check(f"this harness from its transcripts: the past session started and ended, its cost and files, got {me}",
               [s["session_id"] for s in me["started"]] == [PAST_SID] and [s["session_id"] for s in me["ended"]] == [PAST_SID]
               and abs(me["cost_usd"] - 0.025) < 1e-9 and me["files"] == ["basket.py"] and me["local"] is True)
     ctx.check(f"the member from the journal: one start (once), its end, cost since, got {km}",
               [s["session_id"] for s in km["started"]] == ["ms1"] and len(km["ended"]) == 1 and abs(km["cost_usd"] - 0.20) < 1e-9)
     ctx.check("decisions with who answered, files, errors, hand-offs",
-              [(x["answer"], x["by"]) for x in km["decisions"]] == [("accept", "rolo@studio")] and km["files"] == ["src/a.py"]
+              [(x["answer"], x["by"]) for x in km["decisions"]] == [("accept", "you@studio")] and km["files"] == ["src/a.py"]
               and len(km["errors"]) == 1 and km["handoffs"][0]["to"] == "bob@laptop")
     ctx.check(f"totals add up, got {d['totals']}", d["totals"]["started"] == 2 and d["totals"]["decisions"] == 1
               and abs(d["totals"]["cost_usd"] - 0.225) < 1e-9)
-    ctx.check("the text form names both", "kali@lab" in digest.text(d) and "rolo@studio (this harness)" in digest.text(d))
+    ctx.check("the text form names both", "kali@lab" in digest.text(d) and "you@studio (this harness)" in digest.text(d))
     ctx.check("since: 2h, 45m, browser milliseconds, ISO", abs(digest.parse_since("2h", NOW) - (NOW - 7200)) < 1e-6
               and abs(digest.parse_since("45m", NOW) - (NOW - 2700)) < 1e-6 and digest.parse_since(str(int(NOW * 1000))) == int(NOW * 1000) / 1000
               and digest.parse_since("2026-10-14T09:00") > 0)

@@ -28,12 +28,15 @@ def _lane(run_dir: Path, n: int, **fields) -> None:
 
 
 class CoachRig:
+    def __init__(self, test: str = "") -> None:
+        self.test = test  # 3.1.7.0 R2: the capture's repo-relative test command (default: the fixture's own)
+
     def __enter__(self):
         import os
         from tests.helpers.coach_seed import mission_folder, seed_home
         os.environ["HALO_COACH_FAKE"] = "1"  # 3.1.3.0 R1: Ask the model answers with the fake lead (no model)
         from tests.helpers.orchestra_studio_rig import Studio, finished_run
-        self.repo, self.run_dir = finished_run()
+        self.repo, self.run_dir = finished_run(test=self.test)
         self.studio = Studio(self.repo).__enter__()
         seed_home(self.studio.state)
         _lane(self.run_dir, 1, bio="coach-strong")

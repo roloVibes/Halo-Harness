@@ -12,6 +12,8 @@ With --dom the section is read twice -- its Start view first (only the
 shipped lineups, none active), then the seeded tiers lineup with a bio open
 in the form -- and the data-testid values are counted (the last stdout line
 is the JSON: {"start": {...}, "roles": {...}}). Never two Chromes at once.
+3.1.7.0 R2: every Studio draws you@studio (tools/capture_identity.py) and every
+page is guarded before it is counted or shot.
 """
 
 from __future__ import annotations
@@ -19,6 +21,8 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+
+from capture_identity import guard_page, placeholder
 
 IDS = ("section-tab", "roles-start", "roles-canvas", "roles-card", "roles-tier", "roles-edge", "roles-problem", "bio-form", "model-row",
        "roles-lineup", "roles-bio", "panel-about", "roles-live-badge", "model-test", "legacy-frame")
@@ -67,6 +71,7 @@ def dom(c, url: str, state: Path) -> dict:
     set_config_value("team", "")  # only the shipped lineups, none active: the Start view
     c.go(url)
     c.wait("!!document.querySelector('[data-testid=\"roles-start\"]')", 30)
+    guard_page(c, "roles start")
     start = counts(c)
     seed_catalog(state)
     seed_tiers(state, dead=True)
@@ -84,13 +89,16 @@ def dom(c, url: str, state: Path) -> dict:
     time.sleep(0.3)
     c.click_on(more)
     c.wait("!!document.querySelector('[data-testid=\"bio-form\"]') && document.querySelectorAll('[data-testid=\"model-row\"]').length > 0", 20)
+    guard_page(c, "roles")
     return {"start": start, "roles": counts(c)}
 
 
 def shoot(c, png: Path) -> int:
     """The tiers lineup in the fleet rig's real session: the implementer glows; its Live tab open."""
     from tests.helpers.studio_fleet_rig import StudioFleetRig
+    placeholder()
     with StudioFleetRig() as rig:
+        placeholder(rig.state)  # the rig's own home: you@studio
         seed_catalog(rig.state)
         seed_tiers(rig.state, name="halo-dev-cycle")  # your copy of the active lineup, stacked: the live agents still match it
         c.go(rig.url("roles"))
@@ -99,11 +107,13 @@ def shoot(c, png: Path) -> int:
         c.wait("[...document.querySelectorAll('[data-testid=\"roles-live\"] [data-testid=\"fleet-text\"]')].some((e) => e.textContent.length > 10)", 15)
         c.wait("!document.querySelector('.toast')", 10)
         time.sleep(1.5)
+        guard_page(c, png.stem)
         return c.shot(png)
 
 
 def capture(out: str, as_dom: bool, serve, state: Path) -> int:
     from tests.helpers.chrome_driver import open_chrome
+    placeholder(state)
     c = open_chrome()  # the driver base: HALO_CHROME first, one headless Chrome at a time
     if c is None:
         print("no Chrome found")

@@ -24,12 +24,13 @@ def chained_answer() -> str:
     return json.dumps(data)
 
 
-def finished_run(repo=None, chain: bool = False):
-    """`(repo, run_dir)`: the five-lane run with one conflict, finished (`chain`: lane 2 after lane 1)."""
+def finished_run(repo=None, chain: bool = False, test: str = ""):
+    """`(repo, run_dir)`: the five-lane run with one conflict, finished (`chain`: lane 2 after lane 1; `test`: the
+    goal's test command, default the fixture's own with this interpreter's absolute path)."""
     from halo_harness.orchestra.run import run
     from tests.helpers import orchestra_fixtures as F
     repo = repo or F.make_repo("orch-studio-")
-    run_dir = F.make_run(repo)
+    run_dir = F.make_run(repo, test=test)
     report = run(run_dir, model_calls=F.FakeLead(chained_answer() if chain else F.split_answer([[f] for f in F.FUNCS])),
                  spawn=F.FakeWorker(F.CONFLICT_SOLUTIONS, F.CONFLICT_IMPORTS), judge=F.FakeJudge(F.COMBINED_IMPORT))
     assert report["status"] == "finished", report.get("stop_reason")

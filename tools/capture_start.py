@@ -9,6 +9,9 @@ values are counted (the last stdout line is the JSON):
     fresh      a fresh home (only the shipped lineups, none active, no run): the overlay, no welcome card
     dismissed  after "Just look around" (start/fresh.dismiss): no overlay, the section's welcome instead
     lineup     not dismissed, but a lineup active: no overlay
+
+3.1.7.0 R2: the fresh home draws you@studio (tools/capture_identity.py) and every
+page is guarded before it is counted or shot.
 """
 
 from __future__ import annotations
@@ -17,6 +20,8 @@ import json
 import shutil
 import tempfile
 from pathlib import Path
+
+from capture_identity import checked_dump, placeholder
 
 IDS = ("start-here", "start-here-run", "start-here-dismiss", "start-step", "section-help", "section-tab", "start-next",
        "roles-start")
@@ -41,12 +46,13 @@ def fresh_home() -> Path:
 def capture(out: str, dom: bool, chrome, serve) -> int:
     from halo_harness.start import fresh
     state = fresh_home()
+    placeholder(state)
     srv, url = serve(state)
     url = url.replace("mode=orchestra", "mode=roles")
     try:
         if dom:
             got = {}
-            r = chrome(["--dump-dom", url])
+            r = checked_dump(chrome, url, "start fresh")
             if r is None:
                 print(json.dumps({"error": "no Chrome found"}))
                 return 2
@@ -54,14 +60,15 @@ def capture(out: str, dom: bool, chrome, serve) -> int:
             status = fresh.status(state.parent / "project", state)  # serve()'s project folder
             got["status"] = {k: status[k] for k in ("fresh", "show", "dismissed")}
             fresh.dismiss(state)
-            got["dismissed"] = counts(chrome(["--dump-dom", url]).stdout)
+            got["dismissed"] = counts(checked_dump(chrome, url, "start dismissed").stdout)
             (fresh.start_root(state) / fresh.DISMISSED).unlink()
             from halo_harness.theme import set_config_value
             set_config_value("team", "halo-dev-cycle")
-            got["lineup"] = counts(chrome(["--dump-dom", url]).stdout)
+            got["lineup"] = counts(checked_dump(chrome, url, "start lineup").stdout)
             print(json.dumps(got))
             return 0
         target = Path(out).resolve()
+        checked_dump(chrome, url, target.stem)  # the DOM first: no real path or name in the picture
         r = chrome(["--virtual-time-budget=12000", f"--screenshot={target}", "--window-size=1500,900", "--force-device-scale-factor=2", url])
         if r is None:
             print("no Chrome found: nothing rendered")

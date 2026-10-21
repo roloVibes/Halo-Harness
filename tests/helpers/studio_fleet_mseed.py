@@ -5,11 +5,11 @@ No model is ever called: the lead is tests/helpers/mission_seed's FakeLead
 with ANSWER, the judge its FakeJudge, the hub's own part runs mission_seed's
 fake worker (held by a gate until `release_local`).
 
-The plan (the rig's catalogs: this harness `rolo@studio` has ComfyUI, the
+The plan (the rig's catalogs: this harness `you@studio` has ComfyUI, the
 member `kali@lab` has gridcraft):
 
     1  Chart the basket prices        repo   needs gridcraft -> pinned to kali@lab
-    2  Render the pricing cover       files  needs comfyui   -> pinned to rolo@studio
+    2  Render the pricing cover       files  needs comfyui   -> pinned to you@studio
     3  Link the chart from the notes  repo   the lead puts it on kali@lab; waits for 2 (depends_on)
                                              and after 1 (both claim docs/pricing/**: sequenced)
 
