@@ -304,7 +304,8 @@ def build_hook_runner(*, settings, cwd: Path, session_id: str, transcript_path: 
         manifest = load_installed_plugins()
         for _plugin_name, plugin_root in _plugin_roots(manifest, settings_raw, cwd=cwd):
             hooks_by_event = merge_hook_maps(hooks_by_event, load_plugin_hooks(plugin_root))
-        for plugin_root in (extra_plugin_roots or []):
+        from halo_harness.packs.contribute import hook_roots  # 3.2.0.0 R1: a pack's hooks load once granted
+        for plugin_root in hook_roots(extra_plugin_roots or []):
             hooks_by_event = merge_hook_maps(hooks_by_event, load_plugin_hooks(plugin_root))
     return HookRunner(
         hooks_by_event, cwd=cwd, session_id=session_id, transcript_path=transcript_path,
@@ -796,6 +797,8 @@ def build_session(
         from halo_harness.plugin_fetch import resolve_plugin_roots
         plugin_roots = resolve_plugin_roots(cli_flags.get("plugin_dir"), cli_flags.get("plugin_url"),
                                              state_dir=bridge_home())
+    from halo_harness.packs.contribute import pack_plugin_roots  # 3.2.0.0 R1: every enabled pack's root joins
+    plugin_roots = plugin_roots + [r for r in pack_plugin_roots(cwd=cwd) if r not in plugin_roots]
     cli_flags["resolved_plugin_roots"] = plugin_roots
     claude_json = load_claude_json()
     trusted = is_trusted(cwd, claude_json)

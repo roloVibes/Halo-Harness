@@ -27,11 +27,15 @@ def _stems(folder: Path, suffix: str = ".yaml", skip: str = "") -> "tuple[list, 
 
 
 def _folder_rows(kind: str, dirs, cwd: Path, winner_of, *, skip: str = "") -> list:
+    from halo_harness.packs.contribute import folder_names, read_only_source
     rows = []
     for rank, (folder, source) in enumerate(dirs, start=1):
         names, files = _stems(folder, skip=skip)
+        if source.startswith("pack:"):  # 3.2.0.0 R1: a pack's folder lists its `<id>--<name>` names
+            names = sorted(folder_names(folder, source, skip=skip))
         rows.append(make(kind, folder, scope_of(source), cwd=cwd, sets=names, rank=rank, files=files,
-                         note=f"{len(names)} file(s)" + (", read-only (duplicate one to edit it)" if source == "template" else "")))
+                         note=f"{len(names)} file(s)" + (", read-only (duplicate one to edit it)" if read_only_source(source) else "")
+                         + (f", from pack {source[len('pack:'):]}" if source.startswith("pack:") else "")))
     return settle(rows, winner_of, cwd=cwd)
 
 

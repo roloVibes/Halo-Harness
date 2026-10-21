@@ -34,11 +34,12 @@ def dismiss(state_dir) -> None:
 def own_lineups(cwd, state_dir) -> "list[str]":
     """The lineups that are yours: not shipped and not an untouched copy of a shipped one."""
     from halo_harness import teams_yaml as T
+    from halo_harness.packs.names import read_only_source
     from halo_harness.studio import model as M
     out = []
     for name in T.list_team_templates(cwd=cwd, state_dir=state_dir):
         row = M.lineup_summary(name, cwd=cwd, state_dir=state_dir) or {}
-        if row and row.get("scope") != "template" and not row.get("shipped_copy"):
+        if row and not read_only_source(row.get("scope")) and not row.get("shipped_copy"):  # 3.2.0.0 R1: packs too
             out.append(name)
     return out
 

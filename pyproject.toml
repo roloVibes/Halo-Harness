@@ -91,6 +91,7 @@ include = ["halo_harness*"]
 # already exists to prevent for styles.tcss.
 halo_harness = ["tui/*.tcss", "providers/*.json", "providers/catalog/*.json",
                 "templates/agents/*.yaml", "templates/teams/*.yaml", "templates/team/*.yaml", "templates/orchestra/*.json", "templates/orchestra/*.py", "templates/comfy/*.json", "templates/glossary/*.md", "review/prompts/*.md",
+                "packs/schema/*.json",
                 "studio/static/dist/*"]
 
 [tool.setuptools.dynamic]

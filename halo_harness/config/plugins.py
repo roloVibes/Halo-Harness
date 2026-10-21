@@ -286,7 +286,7 @@ def plugin_server_name(plugin: str, server: str) -> str:
 
 
 def _discover_one_plugin_root_mcp_servers(plugin_name: str, plugin_root: Path, *, env: Optional[dict],
-                                           resolved: dict, notices: list) -> None:
+                                           resolved: dict, notices: list, only: Optional[set] = None) -> None:
     """One `(plugin_name, plugin_root)`'s own `.mcp.json`/`plugin.json`
     servers, parsed/expanded/named exactly like every other one, appended
     into the CALLER's `resolved`/`notices` (shared by the installed-plugin
@@ -300,6 +300,8 @@ def _discover_one_plugin_root_mcp_servers(plugin_name: str, plugin_root: Path, *
     plugin_env = dict(env or {})
     plugin_env["CLAUDE_PLUGIN_ROOT"] = str(plugin_root)
     for server_name, raw in servers.items():
+        if only is not None and server_name not in only:
+            continue  # 3.2.0.0 R1: a pack's server whose mcp:<server> is not granted (halo pack doctor says so)
         wire_server_name = plugin_server_name(plugin_name, server_name)
         cfg = parse_server(wire_server_name, raw, scope="plugin", source_path=str(plugin_root))
         if cfg is None:
@@ -335,9 +337,11 @@ def discover_plugin_mcp_servers(*, env: Optional[dict] = None, settings: object 
     for plugin_name, plugin_root in _plugin_roots(manifest, settings_raw, cwd=cwd):
         _discover_one_plugin_root_mcp_servers(plugin_name, plugin_root, env=env, resolved=resolved, notices=notices)
     if extra_roots:
+        from halo_harness.packs.contribute import mcp_filter
         from halo_harness.plugin_fetch import plugin_name_for_root
         for root in extra_roots:
             root_path = Path(root)
             _discover_one_plugin_root_mcp_servers(plugin_name_for_root(root_path), root_path,
-                                                   env=env, resolved=resolved, notices=notices)
+                                                   env=env, resolved=resolved, notices=notices,
+                                                   only=mcp_filter(root_path))
     return resolved, notices

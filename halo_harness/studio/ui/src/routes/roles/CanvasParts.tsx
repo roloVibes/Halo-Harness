@@ -19,7 +19,7 @@ import { CARD_H, CARD_W, edgePath } from "./layout";
 import { glowOf, hideLegend, showLegend, type GlowState } from "./glow";
 import { placeLabels, type LabelIn } from "./labels";
 import { focusModel } from "./modelActions";
-import { priceText, scopeLabel } from "./store";
+import { priceText, readOnlySource, scopeLabel } from "./store";
 import { sourceText } from "./tierText";
 import type { GraphEdge, GraphNode, GymScore, LiveAgent, ModelRow, Pos } from "./types";
 
@@ -101,7 +101,7 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
           <span className="rc-glyph" data-testid="roles-card-glyph" data-state={glow} aria-label={`glow: ${glow}`} {...legendOn(glow, n.id)}>{STATE_GLYPH[glow]}</span>
         )}
         <b className="rc-agent">{n.agent || "(no agent)"}</b>
-        <span className="rc-scope mono" data-scope={n.scope || "none"} title={n.scope === "template" ? "This bio ships with Halo: Duplicate it in the Bios panel for an editable copy" : `This bio lives in your ${n.scope} scope`}>
+        <span className="rc-scope mono" data-scope={n.scope || "none"} title={n.scope === "template" ? "This bio ships with Halo: Duplicate it in the Bios panel for an editable copy" : readOnlySource(n.scope) ? `This bio comes from ${scopeLabel(n.scope)}: Duplicate it in the Bios panel for an editable copy` : `This bio lives in your ${n.scope} scope`}>
           {scopeLabel(n.scope)}
         </span>
       </header>

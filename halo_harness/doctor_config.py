@@ -173,7 +173,7 @@ def config_findings(cwd=None, *, state_dir=None, settings_flag=None, rows=None) 
     rows = rows if rows is not None else where_rows(cwd, state_dir=state, settings_flag=settings_flag)
     out: list = []
     for row in rows:
-        kind, editable = row["kind"], row["scope"] != "shipped"
+        kind, editable = row["kind"], row["scope"] not in ("shipped", "pack")  # a pack's files: the packs group
         if kind == "config":
             out += _config_json(row, state, cwd)
         elif kind == "lineup" and not row["exists"] and row["rank"] > 1:
@@ -183,7 +183,8 @@ def config_findings(cwd=None, *, state_dir=None, settings_flag=None, rows=None) 
             out += _lineup_or_bio("lineup" if kind == "lineups" else "bio", row, cwd, state)
         elif kind == "team":
             out += _team(row, cwd, state)
-    return out + conflict_findings(rows, cwd=cwd)
+    from halo_harness.packs.doctor import config_findings as pack_findings  # 3.2.0.0 R1: the packs group
+    return out + conflict_findings(rows, cwd=cwd) + pack_findings(cwd=cwd, state_dir=state)
 
 
 def cmd_doctor_config(*, cwd=None, settings_flag=None, as_json: bool = False) -> int:
@@ -192,7 +193,7 @@ def cmd_doctor_config(*, cwd=None, settings_flag=None, as_json: bool = False) ->
     cwd = Path(cwd).resolve() if cwd is not None else Path.cwd().resolve()
     rows = where_rows(cwd, settings_flag=settings_flag)
     findings = config_findings(cwd, settings_flag=settings_flag, rows=rows)
-    checked = sum(len(r["files"]) for r in rows if r["scope"] != "shipped" and r["read"])
+    checked = sum(len(r["files"]) for r in rows if r["scope"] not in ("shipped", "pack") and r["read"])
     if as_json:
         print(json.dumps({"findings": findings, "files_checked": checked}, indent=2))
         return 1 if findings else 0
