@@ -1,0 +1,5 @@
+name: flow
+description: Names one declared workflow and one stray.
+agents:
+  - {agent: solo, role: main}
+workflows: [review, publish]

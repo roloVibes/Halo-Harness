@@ -250,6 +250,13 @@ def resolve_agent_bio(name: str, *, cwd=None, state_dir=None, _chain: "Optional[
         resolved.pop(key, None)
         if key in raw:
             resolved[key] = raw[key]
+    resolved.pop("from_pack", None)  # 3.2.0.0 R2: a clone's origin is the file's own line, never its parent's
+    if raw.get("from_pack"):
+        resolved["from_pack"] = raw["from_pack"]
+    resolved.pop("_model", None)
+    if isinstance(resolved.get("models"), dict) and resolved["models"].get("capabilities"):
+        from halo_harness.packs.bio_models import apply  # 3.2.0.0 R2: models.capabilities -> the best catalog model
+        apply(resolved, cwd=cwd, state_dir=state_dir)
     return resolved
 
 
@@ -433,6 +440,12 @@ def validate_agent_bio(data, *, name: "Optional[str]" = None, cwd=None, state_di
         if section in data and data[section] is not None and not isinstance(data[section], dict) \
                 and section != "triggers":  # triggers is a LIST (its own validator below)
             problems.append(f'"{section}" must be a mapping')
+    from halo_harness.packs.bio_models import TAGS, tags_of  # 3.2.0.0 R2: models.capabilities
+    caps = (data.get("models") or {}).get("capabilities") if isinstance(data.get("models"), dict) else None
+    if caps is not None and not (isinstance(caps, list) and all(isinstance(c, str) for c in caps)):
+        problems.append(f'"models.capabilities" must be a list of tags ({", ".join(TAGS)})')
+    problems.extend(f'"models.capabilities" {t!r} is not one of {", ".join(TAGS)}'
+                    for t in tags_of(data.get("models")) if t not in TAGS)
     problems.extend(validate_hook_section(data.get("hooks")))
     problems.extend(validate_schedule_section(data.get("schedule")))
     problems.extend(validate_trigger_section(data.get("triggers")))

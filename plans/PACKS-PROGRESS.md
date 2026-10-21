@@ -28,13 +28,65 @@ decisions, the next task.
     update and remove.
   - docs/PACKS.md, docs/COMMANDS-packs.md, CONFIG/AGENTS/ROLES rows, the
     module map (+ packs/, ext/ in `_MAP_PACKAGES`), field_help `PACK`.
+- R2 (2026-10-21, branch v320/R2-roles from 69b156a): roles and lineups from packs.
+  - A pack bio's `models.capabilities: [tag, ...]` resolves at load to the
+    best catalog model with every tag (`packs/bio_models.py`: `TAGS`, `pick`,
+    `apply` from `agents_yaml.resolve_agent_bio`; Studio's catalog rows, 60 s
+    cache keyed by the home and its catalog files' mtimes); a family name in
+    `models.preference` is preferred; none: the user's `default` model and a
+    Problems/doctor row. A user bio may ask by tag too (a clone keeps it); a
+    full ref there pins it. Card source "capabilities" (`teams_yaml.member_model`).
+  - What a pack's files may not say (`packs/bio_rules.py`, manifest lines
+    naming file and line): a provider (`models.provider`, a prefixed or
+    vendor/model preference/fallback), an unknown tag, a bad
+    `context.memory.namespace`, a `tools.needs` not requested, a lineup
+    `workflows` name not in `contributes.workflows` (new manifest key).
+  - `context.memory.namespace` (default the id) -> `~/.halo/packs/.data/<id>/memory/<ns>/`
+    (`packs/memory.py`); recall indexes those notes in its one store and
+    `recall.search(namespace=...)` filters by path (None = yours, every pack
+    folder left out); a team member on a pack bio gets the folder in its
+    prompt and extra dirs (`agent/subagent.py`).
+  - `tools.needs`: an ungranted need loads the bio; doctor row `bio-need`
+    with `halo pack enable <id> --grant <need>`; a card warning in Studio.
+  - Lineup `acceptance.test` / `acceptance.review` = the Orchestra goal's
+    `test` / `plan: review` (`packs/lineup_run.py`; `halo orchestra new
+    --lineup` takes them, `--test` wins); `workflows` carried through resolve.
+  - `halo pack inspect` (bios with model, needs, namespace; lineups with
+    members, tiers, workflows, acceptance; `--json` `bios`/`lineups`),
+    `halo pack doctor` (`bio-model` per capability set, `bio-need` per need),
+    `halo agents list` / `halo teams list` (a `pack <id>:` group; a shadowed
+    name says "shadowed by ~/.halo/..."; unchanged with no pack), `halo agents`
+    (the shadow line in the pack group) -- `packs/roles.py`.
+  - Studio Roles: Lineups and Bios grouped (yours, project, pack <id>,
+    shipped; labeled boxes, empty collapsed; `GET state` / `roles/packs` list
+    the packs that run); pack rows Preview (read-only canvas / bio form,
+    "from pack <id>, read-only"), Clone (`POST roles/clone`, `packs/clone.py`:
+    `<name>` + `from_pack: <id>@<version>`, 409 + confirm when yours or a
+    shipped one has the name), Customize, Apply (dialog names the pack and the
+    lineup it replaces; writes config.json only). Canvas edits and Save are
+    refused on a pack lineup; New/Duplicate answer 409 instead of writing
+    over a file of yours.
+  - Fixtures: doc-review extended (reviewer: capabilities, namespace, needs
+    bash; writer: family claude-sonnet; review: two tiers, acceptance, workflows;
+    pack.yaml: bash, contributes.workflows); provider-pinned, stray-workflow,
+    rare-caps, user-files/doc-review--reviewer.yaml.
 
 ## Open dependencies
 
-- R2 (roles and lineups from packs) builds on the `<id>--<name>` names, the
-  `_pack` / `_name` markers and `read_only_source`; the roadmap's R2 text
-  says `<pack>/<name>` -- R1 used `<id>--<name>` per its brief (a `/` breaks
-  the bio and lineup name rule and file names). R2 should confirm.
+- R2 confirmed the `<id>--<name>` names (Decisions); the ROADMAP's R2 line
+  still says `<pack>/<name>` -- the coordinator fixes it.
+- R5 runs `workflows`: R2 reads only the names (`contributes.workflows`:
+  names, or `workflows/<name>.yaml` whose stem is the name). A cloned
+  lineup keeps `workflows:` as plain names; R5 decides how a user lineup
+  names a pack's workflow.
+- The supervisor's goal queue (3.1.8.0 R1, `halo goal add --lineup`) and
+  Studio's Orchestra goal form do not read the lineup's acceptance yet:
+  after the merge each calls `packs.lineup_run.goal_defaults` (one line).
+- 3.1.9.0 R1's enriched capability rows: `bio_models.TAGS` / `row_tags` is the
+  one place to add their tags.
+- The registry cache keys on pack.yaml and state.json, not on a pack's bio
+  files: an edit inside an installed pack's agents/ shows its manifest lines
+  after the next install/update/enable (installs go through the journal).
 - R3 (Studio contributions): `contributes.studio` is accepted and stored,
   never read. The six sections stay hardcoded until R3.
 - R4 (Fleet): `contributes.fleet` likewise; `capabilities` in pack.yaml are
@@ -44,8 +96,8 @@ decisions, the next task.
   lists the kinds asked of sessions).
 - R7: the glossary gains "pack" (closed list in R1); the compatibility and
   migration policy is `planned` with the proposal in EXTENSION_API.md.
-- A project pack's BIO keeps its `tools.permission_mode` and allow rules (the
-  brief named lineups only; no trust filter exists for project bios either).
+- A project pack's BIO keeps its `tools.permission_mode` and allow rules
+  (decided in R2: kept, see Decisions).
 
 ## Test results
 
@@ -64,10 +116,45 @@ decisions, the next task.
   --noEmit` clean, two builds identical, `tests.test_studio_dist` 6/6 last.
   Not run: test_tui.py (per the brief), the full tier, Kali/WSL.
 
+- R2 new modules: test_packs_roles 7, test_packs_roles_api 6, test_packs_roles_cli 4,
+  test_packs_roles_studio 5 (Chrome, full tier) -- 22 tests, all green. R1's
+  test_packs_cli and test_packs_lifecycle follow the extended fixture
+  (`bash` requested, the two bio doctor rows).
+- R2 kept green, module by module (49 modules, 444 tests): R1's list above plus
+  test_agents_teams_forms, test_external_review_fixes, test_recall_fleet,
+  test_roles*, test_round_wizard_deep_review, test_teams_runtime,
+  test_teams_tiers_runtime; Chrome Roles modules: test_studio_ui 53,
+  test_studio_roles_model 5, _glow 6, _tiers 7, test_studio_start 2,
+  test_studio_modes 12, test_studio_model_select 3.
+- R2 full runs (2026-10-21, Windows build host): `tests/run_all.py --fast`
+  4871 tests / 493 modules, 4860 passed, 0 failed, 11 skipped, both real-home
+  guards ok (run with stdin closed: from a background shell an open stdin
+  holds test_h15_init_tabs at the init wizard's prompt); `test_bridge.py`
+  101/101; Studio UI: `npx tsc --noEmit` clean, two builds identical
+  (studio.js sha256 1a976e3c...), `tests.test_studio_dist` 6/6 last.
+  Not run: test_tui.py, the full tier as a whole, Kali/WSL.
+
 ## Decisions
 
 - Pack-qualified names are `<id>--<name>` (valid under the name rule); an id
   holds no `--` and does not end in `-`, so a qualified name splits one way.
+  R2 confirmed it against the roadmap's `<pack>/<name>`: a `/` breaks the
+  bio and lineup name rule, file names, route targets and memory folders
+  (docs/PACKS.md says so).
+- R2: "budgets, delegation rules, acceptance checks" are the existing bio and
+  lineup sections, read from a pack's files unchanged; no parallel keys. The
+  memory namespace is the bios' existing `context.memory.namespace` (the
+  brief's `memory.namespace`), the family preference the existing
+  `models.preference` (the brief's `models.prefer`).
+- R2: a project pack's bio keeps `tools.permission_mode` and allow rules;
+  permissions stay the user's rules and grants, no filter.
+- R2: a pack bio naming a provider is a manifest problem, so the whole pack
+  does not install or run (not only the bio): the rule is static and the
+  author's to fix.
+- R2: Clone asks before a name Halo ships too (`reviewer`): the copy would
+  take the shipped bio's place in every lineup naming it.
+- R2: a file of yours named `<id>--<name>` wins everywhere, also as the
+  `extends` parent of the pack's other bios.
 - The pack tier sits after the project and home folders and before the
   shipped one: yours always wins, and doctor names the shadow.
 - A pack is enabled for the folder its state record names (`root`), so a
@@ -83,4 +170,5 @@ decisions, the next task.
 
 ## Next task
 
-- R2: roles and lineups from packs (plans/ROADMAP.md 3.2.0.0 R2).
+- R3: Studio contributions (plans/ROADMAP.md 3.2.0.0 R3): `contributes.studio`
+  read, one controlled bundle mechanism, nothing shown for a disabled pack.

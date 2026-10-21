@@ -102,6 +102,12 @@ def _removed_route_warnings(*refs) -> list:
     return []
 
 
+def _bio_warnings(bio, source: str, state_dir) -> list:
+    """3.2.0.0 R2: no catalog model has the bio's capabilities; a pack bio's need not granted (packs/roles.py)."""
+    from halo_harness.packs.roles import card_warnings
+    return card_warnings(bio, source, state_dir=state_dir) if bio else []
+
+
 def _node_id(entry: dict, i: int) -> str:
     return str(entry.get("as") or entry.get("role") or entry.get("agent") or f"n{i}") + f"#{i}"
 
@@ -137,7 +143,8 @@ def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = 
             "bio_model": inherit, "model_source": source, "inherit_source": inherit_source,
             "tools": (len(allow) if isinstance(allow, list) else 0) if bio else None,
             "scope": (bio or {}).get("_source", ""), "kind": (bio or {}).get("kind", ""),
-            "description": (bio or {}).get("description", ""), "problems": problems, "warnings": _removed_route_warnings(model, fallback),
+            "description": (bio or {}).get("description", ""), "problems": problems,
+            "warnings": _removed_route_warnings(model, fallback) + _bio_warnings(bio, source, state_dir),
             "overrides": {k: v for k, v in e.items() if k not in ("agent", "role", "as", "instances", "use_for")},
         }
         nodes.append(node)
@@ -193,7 +200,13 @@ def lineup_summary(name: str, *, cwd=None, state_dir=None, active: str = "") -> 
     return {"name": name, "scope": raw.get("_source", ""), "description": str(raw.get("description") or ""),
             "about": str(raw.get("about") or ""), "active": name == active, "agents": len(entries),
             "roles": sorted({str(e.get("as") or e.get("role") or "") for e in entries} - {""}),
-            "shipped_copy": _is_shipped_copy(name, raw)}
+            "shipped_copy": _is_shipped_copy(name, raw), **_pack_fields("lineups", name, raw, cwd, state_dir)}
+
+
+def _pack_fields(kind: str, name: str, data: dict, cwd, state_dir) -> dict:
+    """3.2.0.0 R2: a row's shadow, its clone origin and (bios) its capabilities (studio/packs_roles_api.py)."""
+    from halo_harness.studio.packs_roles_api import row_fields
+    return row_fields(kind, name, data, cwd=cwd, state_dir=state_dir)
 
 
 def _is_shipped_copy(name: str, raw: dict) -> bool:
@@ -221,6 +234,7 @@ def lineup_payload(name: str, *, cwd=None, state_dir=None, active: str = "") -> 
     table, notes = T.resolve_role_table(resolved, cwd=cwd, state_dir=state_dir)
     return {
         "name": name, "scope": raw.get("_source", ""), "path": raw.get("_path", ""), "active": name == active,
+        "pack": str(raw.get("_pack") or ""),  # 3.2.0.0 R2: a pack's lineup opens read-only
         "raw": clean(raw), "yaml": to_yaml(raw), "graph": graph_for(resolved, cwd=cwd, state_dir=state_dir),
         "role_table": table, "notes": notes, "problems": problems,
         "sections": {s: resolved.get(s) for s in T.TOP_SECTIONS if resolved.get(s) is not None},
@@ -234,7 +248,7 @@ def bio_summary(name: str, *, cwd=None, state_dir=None) -> Optional[dict]:
         return None
     return {"name": name, "scope": bio.get("_source", ""), "description": str(bio.get("description") or ""),
             "kind": str(bio.get("kind") or ""), "model": str(((bio.get("models") or {}).get("preference")) or ""),
-            "tools": len(((bio.get("tools") or {}).get("allow") or []))}
+            "tools": len(((bio.get("tools") or {}).get("allow") or [])), **_pack_fields("bios", name, bio, cwd, state_dir)}
 
 
 def bio_payload(name: str, *, cwd=None, state_dir=None) -> Optional[dict]:
@@ -245,7 +259,8 @@ def bio_payload(name: str, *, cwd=None, state_dir=None) -> Optional[dict]:
     return {"name": name, "scope": raw.get("_source", ""), "path": raw.get("_path", ""), "raw": clean(raw),
             "resolved": clean(resolved), "yaml": to_yaml(raw),
             "problems": A.validate_agent_bio(clean(raw), name=name, cwd=cwd, state_dir=state_dir),
-            "sections": list(A.BIO_SECTIONS), "kinds": list(A.KNOWN_KINDS)}
+            "sections": list(A.BIO_SECTIONS), "kinds": list(A.KNOWN_KINDS),
+            "pack": str(raw.get("_pack") or ""), "model_info": resolved.get("_model") or None}  # 3.2.0.0 R2
 
 
 # -- layouts and the live session ------------------------------------------------

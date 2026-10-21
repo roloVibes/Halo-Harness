@@ -1,0 +1,5 @@
+name: doc-review--reviewer
+description: A bio of your own named like the doc-review pack's reviewer; yours is the one used.
+kind: reviewer
+models:
+  preference: default

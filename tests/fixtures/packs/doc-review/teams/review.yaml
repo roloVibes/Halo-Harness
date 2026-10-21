@@ -6,6 +6,13 @@ agents:
   - {agent: writer, role: main}
   - {agent: reviewer, role: reviewer}
 delegation: {mode: manual, max_parallel: 1}
+tiers:
+  - {name: lead, members: [main]}
+  - {name: checks, members: [reviewer]}
+acceptance:
+  review: true
+  test: python -m pytest -q
+workflows: [review]
 permissions:
   mode: auto
   rules:

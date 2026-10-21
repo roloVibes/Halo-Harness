@@ -62,12 +62,34 @@ def inspect_payload(pack, snap) -> dict:
     if pack.scope == "source" and not pack.problems:
         problems += compat_lines(pack)
     problems += undeclared_lines(pack)
-    return {"id": pack.id, "name": pack.name, "version": pack.version, "description": pack.description,
+    from halo_harness.packs.roles import pack_bios, pack_lineups  # 3.2.0.0 R2: the model per bio, its needs
+    return {"bios": pack_bios(pack, granted=granted), "lineups": pack_lineups(pack),
+            "id": pack.id, "name": pack.name, "version": pack.version, "description": pack.description,
             "author": m.get("author"), "license": m.get("license"), "halo_api": m.get("halo_api"), "halo": m.get("halo"),
             "capabilities": m.get("capabilities") or [], "requires": m.get("requires") or [],
             "root": str(pack.root), "scope": pack.scope, "state": _state_word(pack, snap) if pack.scope != "source" else "a source folder",
             "offers": offers(pack), "permissions": perms, "settings": ST.values(pack),
             "settings_problems": ST.problems(pack), "migrations": m.get("migrations") or [], "problems": problems}
+
+
+def role_lines(d: dict) -> "list[str]":
+    """3.2.0.0 R2: each bio with the model it runs on and the grants it needs; each lineup with its members."""
+    out = ["bios:"] if d.get("bios") else []
+    for b in d.get("bios") or []:
+        out.append(f"  {b['name']}: runs on {b['line']}")
+        if b["needs"]:
+            out.append("    needs: " + ", ".join(f"{n['need']} ({'granted' if n['granted'] else 'not granted'})"
+                                             for n in b["needs"]))
+        if b["namespace"]:
+            out.append(f"    memory namespace: {b['namespace']}")
+    out += ["lineups:"] if d.get("lineups") else []
+    for t in d.get("lineups") or []:
+        members = ", ".join(f"{m['agent']} ({m['role']})" for m in t["members"]) or "no members"
+        extra = [f"{t['tiers']} tiers"] if t["tiers"] else []
+        extra += [f"workflows {', '.join(t['workflows'])}"] if t["workflows"] else []
+        extra += [f"acceptance.{k}: {str(v).lower() if isinstance(v, bool) else v}" for k, v in t["acceptance"].items()]
+        out.append(f"  {t['name']}: {members}" + (f"; {'; '.join(extra)}" if extra else ""))
+    return out
 
 
 def inspect_lines(d: dict) -> "list[str]":
@@ -83,6 +105,7 @@ def inspect_lines(d: dict) -> "list[str]":
         names = d["offers"].get(kind) or []
         if names:
             out.append(f"  {LABELS[kind][1]}: {', '.join(names)}")
+    out += role_lines(d)
     out.append("permissions it requests:")
     for p in d["permissions"]:
         uses = f" ({', '.join(p['needed_by'])})" if p["needed_by"] else ""

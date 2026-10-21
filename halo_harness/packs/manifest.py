@@ -187,6 +187,9 @@ def _meaning_lines(data) -> "list[str]":
     for name in _list(data.get("contributes") if isinstance(data.get("contributes"), dict) else {}, "events"):
         if isinstance(name, str) and not EVENT_RE.match(name):
             out.append(f"contributes.events: {name!r} is not an event name (lower-case, digits, . _ -)")
+    from halo_harness.packs.bio_rules import declared_workflows  # 3.2.0.0 R2: the names a lineup's workflows use
+    out += [f"contributes.workflows: {w!r} is not a name (letters, digits, - and _)"
+            for w in declared_workflows(data) if not N.is_valid_name(w)]
     return out
 
 
@@ -211,6 +214,8 @@ def validate_manifest(data, *, root=None, folder_is_id: bool = False) -> "list[s
         root = Path(root)
         out += _file_lines(data, root)
         out += _permission_lines(data, root)
+        from halo_harness.packs.bio_rules import roles_lines  # 3.2.0.0 R2: what a pack's bios and lineups may say
+        out += roles_lines(data, root)
         if folder_is_id and isinstance(data.get("id"), str) and root.name != data["id"]:
             out.append(f"the folder is named {root.name!r}; a pack's folder is named by its id {data['id']!r}")
     else:

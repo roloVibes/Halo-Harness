@@ -3,14 +3,47 @@
 // a name (a card, never a browser prompt), Delete asks first (shipped ones
 // cannot be deleted), Apply makes the open one the lineup new sessions use
 // (asks first, showing the role table it writes). Your scope or the
-// project's: where New, Save and Delete write.
+// project's: where New, Save and Delete write. 3.2.0.0 R2: grouped by source
+// (SourceGroups.tsx: yours, project, one box per pack, shipped); a pack's row
+// has Preview (read-only on the canvas), Clone, Customize and Apply.
 import { Button, Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
-import { openDialog, readOnlySource, roles, scopeLabel, useRoles } from "./store";
+import { applyFromPack, cloneFromPack } from "./packActions";
+import { groupBySource, SourceBox } from "./SourceGroups";
+import { openDialog, packOf, readOnlySource, roles, scopeLabel, useRoles } from "./store";
 import { openLineup } from "./sync";
+import type { LineupRow } from "./types";
+
+function Row({ l, open }: { l: LineupRow; open: boolean }) {
+  const pack = packOf(l.scope);
+  return (
+    <li className={pack ? "rlu-pack" : undefined}>
+      <button className="ow-row rlu-row" aria-pressed={open} data-active={l.active || undefined} onClick={() => void openLineup(l.name)} data-testid="roles-lineup" data-name={l.name}
+              title={pack ? `From pack ${pack}, read-only: Preview opens it on the canvas` : undefined}>
+        <span className="rlu-name">{l.name}</span>
+        <span className="rlu-badges">
+          {l.active && <span className="og-chip mono rlu-active" title="new sessions use this lineup">active</span>}
+          {l.shadows && <span className="og-chip mono" data-testid="roles-shadows" title={`Your file has the name pack ${l.shadows} offers: yours is the one used`}>shadows pack {l.shadows}</span>}
+          {l.from_pack && <span className="og-chip mono" title="Cloned from this pack">from {l.from_pack}</span>}
+          <span className="rc-scope mono" data-scope={l.scope}>{scopeLabel(l.scope)}</span>
+        </span>
+        <span className="rlu-desc muted">{l.description || l.roles.join(", ")}</span>
+      </button>
+      {pack && (
+        <span className="rlu-acts" data-testid="roles-pack-actions">
+          <Button size="sm" variant="ghost" onClick={() => void openLineup(l.name)} title="Open it on the canvas, read-only" data-testid="roles-pack-preview">Preview</Button>
+          <Button size="sm" variant="ghost" onClick={() => void cloneFromPack("lineup", l.name, false)} title="Copy it into your lineups (asks first if yours has the name)" data-testid="roles-pack-clone">Clone</Button>
+          <Button size="sm" variant="ghost" onClick={() => void cloneFromPack("lineup", l.name, true)} title="Clone it and open your copy to edit" data-testid="roles-pack-customize">Customize</Button>
+          <Button size="sm" onClick={() => void applyFromPack(l.name)} title="Make it the lineup new sessions use (asks first)" data-testid="roles-pack-apply">Apply</Button>
+        </span>
+      )}
+    </li>
+  );
+}
 
 export function LineupsDetail() {
   const lineups = useRoles((s) => s.lineups);
+  const packs = useRoles((s) => s.info?.packs);
   const name = useRoles((s) => s.name);
   const scope = useRoles((s) => s.scope);
   const dirty = useRoles((s) => s.dirty);
@@ -37,20 +70,11 @@ export function LineupsDetail() {
       {!lineups.length ? (
         <Empty title="No lineup yet" body="New makes one from a shipped lineup." />
       ) : (
-        <ul className="rlu-list">
-          {lineups.map((l) => (
-            <li key={l.name}>
-              <button className="ow-row rlu-row" aria-pressed={l.name === name} data-active={l.active || undefined} onClick={() => void openLineup(l.name)} data-testid="roles-lineup" data-name={l.name}>
-                <span className="rlu-name">{l.name}</span>
-                <span className="rlu-badges">
-                  {l.active && <span className="og-chip mono rlu-active" title="new sessions use this lineup">active</span>}
-                  <span className="rc-scope mono" data-scope={l.scope}>{scopeLabel(l.scope)}</span>
-                </span>
-                <span className="rlu-desc muted">{l.description || l.roles.join(", ")}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        groupBySource(lineups, packs).map((g) => (
+          <SourceBox key={g.key} group={g} what="lineup">
+            <ul className="rlu-list">{g.rows.map((l) => <Row key={l.name} l={l} open={l.name === name} />)}</ul>
+          </SourceBox>
+        ))
       )}
     </div>
   );
@@ -59,6 +83,7 @@ export function LineupsDetail() {
 export function LineupsGlance() {
   const n = useRoles((s) => s.lineups.length);
   const own = useRoles((s) => s.lineups.filter((l) => !readOnlySource(l.scope)).length);
+  const packs = useRoles((s) => s.info?.packs?.length || 0);
   const active = useRoles((s) => s.info?.active_team || "");
   return (
     <div className="glance">
@@ -66,6 +91,7 @@ export function LineupsGlance() {
       <div className="glance-numbers">
         <Metric value={n} label="lineups" />
         <Metric value={own} label="yours" />
+        {packs > 0 && <Metric value={packs} label={packs === 1 ? "pack" : "packs"} />}
       </div>
     </div>
   );

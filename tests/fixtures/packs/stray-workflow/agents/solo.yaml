@@ -1,0 +1,5 @@
+name: solo
+description: The one member of the flow lineup.
+kind: main
+models:
+  capabilities: [tools]

@@ -106,6 +106,8 @@ def _new(args, repo: Path) -> int:
         goal.workers = args.workers
     if args.files:
         goal.files = list(args.files)
+    from halo_harness.packs.lineup_run import goal_defaults  # 3.2.0.0 R2: the lineup's acceptance (test, review)
+    taken = goal_defaults(goal, cwd=repo, explicit_test=args.test is not None)
     missing = [(k, label) for k, label in _PROMPTS if not str(getattr(goal, k) or "").strip()]
     if missing and sys.stdin.isatty():
         for key, label in missing:
@@ -124,6 +126,8 @@ def _new(args, repo: Path) -> int:
     print(f"run {run_dir.name}: {run_dir}")
     print(f"  {goal.workers} worker(s), files: {', '.join(goal.files) or '(none yet)'}, "
           f"test: {goal.test or '(none yet)'}")
+    for line in taken:
+        print(f"  {line}")
     print(f"next: halo orchestra status {run_dir.name}")
     return 0
 

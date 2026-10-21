@@ -116,3 +116,22 @@
 .rl-history ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
 .rl-history .og-chip[data-bad] { color: var(--bad); border-color: var(--bad); }
 .rl-task { font-size: 11.5px; }
+
+/* -- 3.2.0.0 R2: Lineups and Bios grouped by source (SourceGroups.tsx), a pack row's actions, read-only pack bios -- */
+.rsg { border: 1px solid var(--line); border-radius: 10px; padding: 4px 8px 6px; background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.rsg[data-group^="pack:"] { border-color: color-mix(in srgb, var(--accent-2) 45%, transparent); }
+.rsg[data-empty] { opacity: .72; }
+.rsg-head { display: flex; align-items: baseline; gap: 8px; cursor: pointer; padding: 3px 0; list-style-position: inside; min-width: 0; }
+.rsg-label { font-size: 10px; letter-spacing: .1em; }
+.rsg-count { font-size: 10.5px; white-space: nowrap; }
+.rsg-hint { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rsg > ul { margin-top: 4px; }
+.rsg .rbs-list { max-height: none; border-bottom: 0; padding-bottom: 0; }
+.rbs-groups { display: grid; gap: 6px; max-height: 300px; overflow: auto; padding-right: 2px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.rsg-shadowed { margin: 4px 0 0; font-size: 11px; }
+.rlu-pack { display: grid; gap: 3px; }
+.rlu-acts { display: flex; flex-wrap: wrap; gap: 4px; padding-left: 6px; }
+.rb-fields { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 8px; }
+.rb-fields:disabled { opacity: .78; }
+.rb-model-info { font-size: 11.5px; margin: 0; }
+.ri-readonly { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; padding: 6px 8px; border: 1px dashed color-mix(in srgb, var(--accent-2) 55%, transparent); border-radius: 8px; }
