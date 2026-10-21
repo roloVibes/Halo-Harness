@@ -1913,3 +1913,41 @@ refusal language, nothing "for safety".
 Not taken: a public marketplace (the program says not for the first
 release); any pack mechanism that patches core files; a second
 orchestration engine beside Orchestra.
+
+## ADDED 2026-10-21 ~02:20 (rolo: "There should be an auto role template, prob the default one until a user finds a template they like. Auto should give the agent the ability to call other agents and create whatever orchestration the main model thinks should be the role type with sub agents ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at (like media distillation whether that's video or audio or pdfs) so it knows which agents to use for sub tasks. Maybe some kind of analysis of the available models in the halo model list should occur"): 3.1.9.0 "Auto"
+
+- R1 What each model is good at: a capability profile for every model in
+  the catalog (`providers/profiles.py` -> `<state>/models/profiles.json`):
+  cost in and out, context and output limits, what it takes in (text,
+  image, audio, video, PDF), tool calling, reasoning, open weights, local
+  or remote, the observed speed (speed.py), the gym's measured scores where
+  a model ran the gym, and measured outcomes from the coach's records when
+  they exist; from these, strengths by rule (code, research and long
+  context, media distillation by kind, cheap bulk, fast, local and
+  offline) with one honest line per model ("vision in, cheap, fast; no
+  audio"). `halo models --profile [REF]`, a "best at" column in the Studio
+  Models panel and the `/model` picker, `halo models analyze` to rebuild
+  (the catalog refresh does it too), and a roster block (one line per
+  model, the cheapest and the strongest per strength named) any agent can
+  be given.
+- R2 The Auto lineup: a shipped `auto` lineup that is the default `team:`
+  when none is set (a user who picks another template replaces it; a set
+  `team:` is never touched): main is the session's model with open
+  delegation over a pool of generic bios (planner, researcher, coder,
+  reviewer, media -- image, audio, video and PDF distillation -- writer,
+  ops) whose `models.preference` is `auto`; at spawn the model comes from
+  the profile and the task's needs (the modalities the task or its
+  attachments carry, the lineup's cost band, a reasoning tier for planning
+  and review, fast and cheap for bulk work) and the reason is recorded and
+  shown (the Roles pill: "auto: <model> -- images in the task, the cheapest
+  vision model"); main gets the roster block in its context so it
+  delegates deliberately and may override with `--model`; the Roles canvas
+  shows Auto with its live choices; `auto` slots into the one model order
+  after a tier's model and before the fallbacks.
+- R3 Auto learns: the choices and their outcomes feed the measured fields
+  (3.1.8.0 R3's measured routing), so a model that keeps failing a kind of
+  task drops in the roster; docs and the release.
+
+Not taken: asking each model to describe itself (unreliable); a second
+catalog (the profile is a view over the one catalog); media generation
+models (diffusion, TTS: `media_models.py`, a different inventory).
