@@ -51,7 +51,7 @@ EDGES = {
 }
 # the edges R2 added to R1's machine, each because an engine needs it (the docstring says which)
 ADDED = (("failed", "ready"), ("failed", "running"), ("skipped", "ready"), ("merged", "waiting"), ("waiting", "done"))
-KINDS = ("lane", "part", "stage")
+KINDS = ("lane", "part", "stage", "goal")  # 3.1.8.0 R1: a supervisor goal is a unit too
 
 # engine word -> machine word, per kind (the words on disk stay the engine's)
 ALIASES = {
@@ -61,6 +61,9 @@ ALIASES = {
              "stopped": "stopped", "skipped": "skipped", "merged": "merged"},
     "stage": {"pending": "pending", "ready": "ready", "running": "running", "gated": "gated", "done": "done",
               "failed": "failed", "skipped": "skipped"},
+    # 3.1.8.0 R1: a supervisor goal (supervise/queue.py). queued -> ready, parked -> waiting (it waits on the owner).
+    "goal": {"queued": "ready", "running": "running", "parked": "waiting", "done": "done", "stopped": "stopped",
+             "failed": "failed"},
 }
 # machine word -> engine word, per kind (the inverse of ALIASES, plus the nearest word for the rest)
 NATIVE = {
@@ -70,6 +73,8 @@ NATIVE = {
              "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "stopped", "merged": "merged"},
     "stage": {"pending": "pending", "ready": "ready", "running": "running", "waiting": "running", "gated": "gated",
               "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "skipped", "merged": "done"},
+    "goal": {"pending": "queued", "ready": "queued", "running": "running", "waiting": "parked", "gated": "parked",
+             "done": "done", "failed": "failed", "skipped": "stopped", "stopped": "stopped", "merged": "done"},
 }
 
 

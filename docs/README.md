@@ -44,6 +44,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-agents.md](COMMANDS-agents.md) (Commands: roles, review, bios and lineups): read this when you manage roles, reviews, bios and lineups from the command line.
   - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, Orchestra and teams): read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.
   - [COMMANDS-fleet.md](COMMANDS-fleet.md) (Commands: remote control and the fleet): read this when you control sessions remotely or run a fleet and its missions.
+  - [COMMANDS-supervise.md](COMMANDS-supervise.md) (Commands: the supervisor and its goals): read this when you give Halo a goal to work on without sitting at a terminal.
   - [COMMANDS-proxy.md](COMMANDS-proxy.md) (Commands: the proxy, exit codes and config checks): read this when you run the old proxy, read an exit code, or list and check the config files in effect.
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
   - [SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md) (Slash commands: sessions, models and context): read this when you manage the session, its model, memory, permissions or config from the prompt (`/clear`, `/model`, `/recall`, `/config` ...).
@@ -57,6 +58,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 - [ORCHESTRA.md](ORCHESTRA.md) (The Orchestra): read this when several agents should write the same files at once: the Orchestra and its plan, lanes and judge.
 - [TEAM.md](TEAM.md) (Teams: people, blocks and stages (Halo 3.0.8.0)): read this when you set up a team file: who works on a repo, where their work lands and in which order.
 - [WORK.md](WORK.md) (One unit of work): read this when you want the one model under an Orchestra lane, a mission part and a team stage.
+- [SUPERVISE.md](SUPERVISE.md) (The supervisor): read this when you want to give Halo a goal at night and open Studio in the morning to see what finished, what waits on you and what it cost.
 - [COMFYUI.md](COMFYUI.md) (ComfyUI in Halo): read this when you want Halo to render images or video with ComfyUI on your own GPU.
 - [SUBAGENTS.md](SUBAGENTS.md) (Sub-agent visibility and scale): read this when you watch or limit sub-agents: the tasks panel, concurrency and depth.
 - [REVIEW.md](REVIEW.md) (Code review: `/review` and `halo review`): read this when you review code with `/review` or `halo review`.

@@ -17,6 +17,8 @@ calls `act`; the decision is journaled there with `by`.
     mission_claim   a set aside
     team_gate       a accept | r redo (text: the instruction) | s stop the run   (team/answer, 3.0.8.0 R2)
     team_budget     a raise: opens the team file | r skip the stage | s stop the run   (team/budget, 3.1.2.0 R2)
+    goal_plan | goal_gate | goal_budget | goal_ask   a supervisor decision (3.1.8.0 R1,
+                    fleet/supervise_attention.py): the answer is written to its decision file; the supervisor applies it
     every kind      o open: answered with where to open it, nothing is sent
 
 Cards go through `fleet/<harness>/<sid>/command {cmd: answer, ...}` (this
@@ -44,8 +46,10 @@ ANSWER = {
     ("mission_ask", "a"): {"answer": "allow"},
     ("mission_ask", "r"): {"answer": "deny"},
 }
-NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("mission_plan", "r"), ("team_gate", "r")}
+NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("mission_plan", "r"), ("team_gate", "r"),
+              ("goal_gate", "r"), ("goal_budget", "r")}
 SET_ASIDE = ("orchestra_gate", "control_ask", "conflict", "mission_claim")
+SUPERVISE = ("goal_plan", "goal_gate", "goal_budget", "goal_ask")
 
 
 def _sub(req, path: str, body: dict, params: dict):
@@ -72,6 +76,9 @@ def open_target(row: dict) -> dict:
     if kind in ("team_gate", "team_budget"):  # 3.0.8.0 R2, 3.1.2.0 R2
         from halo_harness.fleet.team_attention import open_target as team_target
         return team_target(row)
+    if kind in SUPERVISE:  # 3.1.8.0 R1
+        from halo_harness.fleet.supervise_attention import open_target as supervise_target
+        return supervise_target(row)
     if kind == "cap":
         return {"section": "fleet", "panel": "fleet-costs", "scope": t.get("scope"), "key": t.get("key")}
     if kind.startswith("mission_") and (kind != "mission_ask" or t.get("mission")):  # R8: a run_task card names its mission
@@ -110,6 +117,9 @@ def act(req, watcher, row: dict, key: str, text: str):
     if kind in ("team_gate", "team_budget"):  # 3.0.8.0 R2: the gate card's own route; 3.1.2.0 R2: a budget hold
         from halo_harness.fleet.team_attention import answer as team_answer
         return team_answer(req, row, key, text)
+    if kind in SUPERVISE:  # 3.1.8.0 R1: the answer goes into the decision file; the supervisor applies it
+        from halo_harness.fleet.supervise_attention import answer as supervise_answer
+        return supervise_answer(req, row, key, text)
     if kind in SET_ASIDE:
         watcher.acks.add(row["id"])
         from halo_harness.fleet import journal

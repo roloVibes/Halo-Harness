@@ -489,6 +489,14 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.1.2.0 R1: the units of any run as one table (lanes, parts, stages, steps; docs/WORK.md).
         from halo_harness.work_cli import cmd_work
         return cmd_work(argv[1:])
+    if argv and argv[0] == "supervise":
+        # 3.1.8.0 R1: the supervisor -- a goal queue that runs without a TUI (docs/SUPERVISE.md).
+        from halo_harness.supervise.cli import cmd_supervise
+        return cmd_supervise(argv[1:])
+    if argv and argv[0] == "goal":
+        # 3.1.8.0 R1: the supervisor's goal queue (halo goal add|list|show|...).
+        from halo_harness.supervise.goal_cli import cmd_goal
+        return cmd_goal(argv[1:])
     if argv and argv[0] == "init":
         from halo_harness.init_cli import cmd_init
         return cmd_init(argv[1:])

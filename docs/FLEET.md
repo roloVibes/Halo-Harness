@@ -287,8 +287,12 @@ resumes it; an Orchestra run its gate
 stopped, with the report's stop reason (**orchestra_gate**); a command this
 hub sent that waits on a member's owner (**control_ask**, from the hub's open
 commands); a spend **cap** reached; two agents editing one file
-(**conflict**). Each row has who (harness, session, agent), what, a detail,
-since when, the keys that kind takes and where to open it:
+(**conflict**); and (Halo 3.1.8.0 R1) a supervisor decision -- a goal's plan
+review (**goal_plan**), a gate past the return cap (**goal_gate**), a budget
+cap (**goal_budget**) or a supervised job's ask (**goal_ask**), each from
+`~/.halo/supervise/decisions/` ([SUPERVISE.md](SUPERVISE.md)). Each row has
+who (harness, session, agent), what, a detail, since when, the keys that kind
+takes and where to open it:
 
 | Key | Does |
 |---|---|
@@ -296,6 +300,12 @@ since when, the keys that kind takes and where to open it:
 | `r` | deny with a reason (permission), answer (question), send back with feedback (plan), edit with an instruction (approval) |
 | `s` | answer the card negatively, then stop the agent (an approval's own `stop`) |
 | `o` | nothing is sent: the answer says which section and panel to open |
+
+A supervisor row's keys are its own: **goal_plan** `a` approve / `r` reject /
+`o` open; **goal_gate** and **goal_budget** `a` raise and resume / `r` raise
+by N / `s` stop / `o` open; **goal_ask** `a` allow / `r` deny (or answer) /
+`s` stop the goal / `o` open. The answer is written into the decision file
+and the supervisor applies it on its next tick (see [SUPERVISE.md](SUPERVISE.md)).
 
 An answer goes through the route that already handles it:
 `/api/fleet/<harness>/<sid>/command {cmd: answer}` for a card (a member

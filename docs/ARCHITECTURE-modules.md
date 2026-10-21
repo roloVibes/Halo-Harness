@@ -4,7 +4,7 @@ Read this when you look for the module behind a Studio, fleet, Orchestra or team
 
 Part of [Architecture](ARCHITECTURE.md), which lists every part.
 
-## Module map: Studio, fleet, Orchestra, team
+## Module map: Studio, fleet, Orchestra, team, supervise
 
 One responsibility per module, named for it (3.1.0.0 R2 re-cut every module
 named by line count: no `*_more.py`, `*2.py`, `*_extra*.py` or `*_rest.py`
@@ -56,6 +56,8 @@ this list against the tree.
 - Media: `studio/media_api.py`, `studio/media_render.py`
 - Orchestra: `studio/orchestra_api.py`, `studio/orchestra_plan_api.py`,
   `studio/orchestra_model.py`, `studio/orchestra_live.py`
+- the supervisor's morning line (3.1.8.0 R1): `studio/supervise_api.py`
+  (`GET /api/supervise/summary`, the Session landing's "N done, M waiting, $X")
 - Team: `studio/team_api.py`, `studio/team_init_api.py`, `studio/team_live.py`,
   `studio/team_budget_api.py` (3.1.2.0 R2: the answer to a stage held at its budget line)
 - Fleet: `studio/fleet_api.py` (agent commands on a live session),
@@ -91,6 +93,7 @@ this list against the tree.
   who), `fleet/cli_mission.py` (missions), `fleet/table.py`,
   `fleet/table_live.py`
 - the panels: `fleet/attention.py`, `fleet/team_attention.py`,
+  `fleet/supervise_attention.py` (3.1.8.0 R1: the supervisor's parked decisions),
   `fleet/caps.py`, `fleet/conflicts.py`, `fleet/digest.py`,
   `fleet/journal.py`, `fleet/health.py`, `fleet/push.py`, `fleet/handoff.py`,
   `fleet/history.py`, `fleet/recording.py`, `fleet/recording_page.py`
@@ -183,6 +186,21 @@ short forms), `team/triggers.py`, `team/run.py`, `team/run_stage.py`,
 (3.1.2.0 R2: an orchestra stage on a fleet member), `team/budget.py`
 (3.1.2.0 R2: the budget line), `team/guard.py`, `team/delegate.py`,
 `team/adapters.py`, `team/cli.py`, `team/cli_run.py`.
+
+**Supervise** (`halo_harness/supervise/`, Halo 3.1.8.0 R1, docs/SUPERVISE.md):
+the daemon that owns a goal queue and runs it without a TUI --
+`supervise/settings.py` (the `supervise` config section), `supervise/queue.py`
+(the goal store), `supervise/history.py` (the history log and the morning
+summary), `supervise/pulse.py` (the pulse and the stop file),
+`supervise/heartbeat.py` (an Orchestra run's cross-process runner heartbeat),
+`supervise/budget.py` (a goal's and the queue's cap as a stop),
+`supervise/runner.py` (the orchestra and job runners and their outcome),
+`supervise/decisions.py` (the parked decisions), `supervise/asks.py` (a
+supervised job's asks), `supervise/arm.py` (the lineups' schedules and
+triggers, armed by the supervisor), `supervise/loop.py` (the tick),
+`supervise/apply.py` (settling a goal and applying a decision),
+`supervise/cli.py` (`halo supervise`) and `supervise/goal_cli.py` (`halo
+goal`).
 
 - The first ten minutes (3.1.1.0): `studio/start_api.py` (Start here: `/api/start`),
   `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),

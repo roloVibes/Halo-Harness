@@ -15,6 +15,8 @@ serves them (`GET /api/fleet/attention`) and routes the answers.
                    outside its claims, a hub asks to run a part here (3.0.6.0 R7, fleet/mission_attention.py)
     team_gate      a stage of this repo's team run waits at its gate (3.0.8.0 R2, fleet/team_attention.py)
     team_budget    a stage was held at its budget line (3.1.2.0 R2): raise / skip / stop
+    goal_plan | goal_gate | goal_budget | goal_ask   a supervisor decision (3.1.8.0 R1,
+                   fleet/supervise_attention.py): a goal's plan review, a gate past the cap, a budget cap, a job's ask
 
 Each row: {id, kind, harness, harness_name, local, session_id, session, agent_id, agent, what, detail,
 since, keys: {a|r|s|o: label}, text_for: "r" | None, target: {...}}. `keys` holds only the answers
@@ -47,9 +49,14 @@ KEYS = {
     "mission_ask": {"a": "allow", "r": "deny", **OPEN},
     "team_gate": {"a": "accept", "r": "redo", "s": "stop", "o": "open Team"},  # 3.0.8.0 R2
     "team_budget": {"a": "raise (edit the file)", "r": "skip", "s": "stop", "o": "open Team"},  # 3.1.2.0 R2
+    # 3.1.8.0 R1 (the supervisor): the keys ride on the row itself (supervise_attention.rows), one per decision kind
+    "goal_plan": {"a": "approve", "r": "reject", "o": "open the plan"},
+    "goal_gate": {"a": "raise the cap by 1 and resume", "r": "raise the cap by N", "s": "stop", "o": "open the run"},
+    "goal_budget": {"a": "raise by its cap and resume", "r": "raise by $N", "s": "stop", "o": "open the goal"},
+    "goal_ask": {"a": "allow once", "r": "deny", "s": "stop the goal", "o": "open the session"},
 }
 TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "mission_plan": "r",
-            "team_gate": "r"}
+            "team_gate": "r", "goal_plan": "r", "goal_gate": "r", "goal_budget": "r", "goal_ask": "r"}
 CARD_KINDS = ("permission", "question", "plan", "approval")
 
 
@@ -176,5 +183,8 @@ def build(view: dict, *, asks: Optional[dict] = None, orchestra=(), commands=(),
     if teams:  # 3.0.8.0 R2: the team gates of Studio's repo (fleet/team_attention.py gated)
         from halo_harness.fleet.team_attention import rows as team_rows
         rows += team_rows(list(teams), local, seen, now)
+    if home is not None:  # 3.1.8.0 R1: the supervisor's parked decisions (fleet/supervise_attention.py)
+        from halo_harness.fleet.supervise_attention import rows as supervise_rows
+        rows += supervise_rows(home, local, seen, now)
     gone = set(acks)
     return sorted([r for r in rows if r["id"] not in gone], key=lambda r: r["since"])

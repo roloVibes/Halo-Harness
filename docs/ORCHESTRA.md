@@ -503,6 +503,29 @@ and each `PUT` carry it); Studio's plan canvas shows each lane's cost chip
 and the total in its header, red when over. **Approve** warns when the
 forecast is over the budget and approves all the same.
 
+## Budgets stop
+
+Halo 3.1.8.0 R1. Under the supervisor ([SUPERVISE.md](SUPERVISE.md)) a run's
+`budget_usd` is a cap, not a warning: before a lane's worker starts, what the
+run has spent plus what the lanes running now are expected to cost plus this
+lane's forecast must stay under the cap, and all of that plus the other
+goals' spend under the queue's `supervise.budget_usd`. A lane that would pass
+a cap does not start; the run stops with `stop_reason: budget` and the goal
+parks with a `goal budget` row in Attention (`supervise/budget.py`, the probe
+guard's rule generalized). A plain `halo orchestra run` from a terminal still
+only warns -- the stop is the supervisor's.
+
+## The heartbeat
+
+Halo 3.1.8.0 R1. Every runner -- `halo orchestra run`, Studio and the
+supervisor -- writes `<run>/runner.json {pid, pstart, beat}` every 15 seconds
+while it drives a run (`supervise/heartbeat.py`). A run with a live runner
+reads as `running`, not `interrupted`, and a second process will not start a
+runner on it (a 409 from Studio, skipped by the supervisor). The supervisor
+uses it to resume only its own goals whose run has no live runner and no
+report: the resume above picks up at the first unfinished step, and a written
+or merged lane is never run again.
+
 ## Stale lanes
 
 Halo 3.1.2.0 (the 3.0.9.0 open item). A lane that starts after another

@@ -286,7 +286,8 @@ _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("glossary", "halo_harness.studio.glossary_api", "dispatch_glossary"),  # 3.1.1.0 R1: docs/GLOSSARY.md
              ("field-help", "halo_harness.studio.field_help_api", "dispatch_field_help"),  # 3.1.1.0 R3: field_help.py
              ("focus", "halo_harness.studio.focus_api", "dispatch_focus"),  # 3.1.1.0 R3: `halo studio --edit` on a running one
-             ("recall", "halo_harness.studio.recall_api", "dispatch_recall"))  # 3.1.2.0 R3: the recall box
+             ("recall", "halo_harness.studio.recall_api", "dispatch_recall"),  # 3.1.2.0 R3: the recall box
+             ("supervise", "halo_harness.studio.supervise_api", "dispatch_supervise"))  # 3.1.8.0 R1: the morning line
 
 
 def dispatch(req: Request):

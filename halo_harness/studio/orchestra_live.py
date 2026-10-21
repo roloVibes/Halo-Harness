@@ -99,7 +99,9 @@ def _work(run_dir: Path, goal, model, dry_run: bool, runner, done: threading.Eve
             dry_split(run_dir, goal, kwargs["model_calls"])
         else:
             from halo_harness.orchestra.run import run
-            run(run_dir, **kwargs)
+            from halo_harness.supervise.heartbeat import Beat
+            with Beat(run_dir, by="studio"):  # 3.1.8.0 R1: the runner heartbeat (supervise/heartbeat.py)
+                run(run_dir, **kwargs)
     except Exception as e:  # the run log says what went wrong; Studio stays up
         try:
             run_events.log(run_dir, "state", f"the runner stopped on an error: {type(e).__name__}: {e}",

@@ -120,6 +120,15 @@ def _gather_real_flags() -> "dict[str, set]":
     out["halo explain"] = _flags_in(_capture(cmd_explain, ["--help"]))
     from halo_harness.studio.server import cmd_studio  # 3.1.1.0 R3: --edit (Studio is the editor)
     out["halo studio"] = _flags_in(_capture(cmd_studio, ["--help"]))
+    # 3.1.8.0 R1: the supervisor and its goal queue
+    from halo_harness.supervise.cli import cmd_supervise
+    from halo_harness.supervise.goal_cli import cmd_goal
+    out["halo supervise"] = _flags_in(_capture(cmd_supervise, ["--help"]))
+    for sub in ("status", "stop"):
+        out[f"halo supervise {sub}"] = _flags_in(_capture(cmd_supervise, [sub, "--help"]))
+    out["halo goal"] = _flags_in(_capture(cmd_goal, ["--help"]))
+    for sub in ("add", "list", "show", "rm", "hold", "release", "pause", "resume", "cancel"):
+        out[f"halo goal {sub}"] = _flags_in(_capture(cmd_goal, [sub, "--help"]))
     return out
 
 
