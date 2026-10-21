@@ -170,7 +170,7 @@ class SteerDriver(Driver):
             lv = Live(rig)
             sent = record_forward(rig)
             yield ((opened, (c, rig)), (steer_main, (c, rig, lv, sent)), (tag_steer, (c, lv)), (node_steer, (c, lv)), (strip, (c, lv)),
-                   (kinds, (c, lv)), (done_box, (c, lv)), (stop, (c, sent)), (pause, (c, lv, sent)), (fleet_chip, (c, rig, lv)))
+                   (kinds, (c, lv)), (done_box, (c, lv)), (stop, (c, lv, sent)), (pause, (c, lv, sent)), (fleet_chip, (c, rig, lv)))
 
 
 if __name__ == "__main__":

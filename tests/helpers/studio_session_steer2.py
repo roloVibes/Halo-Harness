@@ -80,9 +80,15 @@ def done_box(c, lv) -> dict:
     return out
 
 
-def stop(c, sent: list) -> dict:
+def stop(c, lv, sent: list) -> dict:
     """Stop beside the box asks first: the confirm dialog names main; Cancel sends nothing."""
     out: dict = {}
+    # main's liveness in the store comes from the rig's real session row, which the slow Linux runner reads as
+    # no longer running by this step (the box stayed disabled for 30 s there, twice): say main is working again,
+    # as a real session does with every step, and keep the button's own reason for the failure message
+    lv.state("main", state="running", current="thinking")
+    stop_btn = f"{BOX}.querySelector('[data-testid=\"session-live-stop\"]')"
+    out["stop_why"] = c.js(f"[{BOX}.dataset.key, {BOX}.dataset.disabled || '', {stop_btn}?.title || '', {stop_btn}?.disabled]")
     # the foot of the column can sit below the panel's visible area on the Linux runner's layout: a click
     # on an off-screen button lands nowhere (the Linux run for the merge lost it), so bring it into view
     c.js(f"{BOX}.querySelector('[data-testid=\"session-live-stop\"]').scrollIntoView({{block: 'center'}}); 1")
