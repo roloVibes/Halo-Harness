@@ -4,7 +4,11 @@
 // sparkline's time axis stays honest through a quiet stretch. Kept per
 // session (MAX samples) while the page is open; nothing is stored. Sampled
 // only while the Session section shows (3.1.5.0 R3 follow-up: nothing of it
-// runs for the Fleet page; the line resumes when you come back).
+// runs for the Fleet page; the line resumes when you come back). 3.1.8.0 R6:
+// a session's own `message_end` / `status` frame changes its row in the store
+// (fleet/sync.ts), so each figures frame is sampled as it lands, the same
+// moment the terminal's figure moves; a GET never pulls the spend back
+// (fleet/fresh.ts), so the line never dips on a stale answer.
 import { createStore, studio, useStore } from "../../lib/store";
 import { fleet } from "../fleet/store";
 

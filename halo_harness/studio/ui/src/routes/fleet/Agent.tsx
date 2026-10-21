@@ -40,7 +40,7 @@ function Head() {
       <div className="fa-meta mono muted">
         {h.name || h.id.slice(0, 8)} · {short(sessionTitle(s), 28)} · {a.model || "model ?"}
         {since > 0 && isLive(a) && ` · ${elapsed(now / 1000 - since)}`}
-        {a.turns ? ` · ${a.turns} turn${a.turns === 1 ? "" : "s"}` : ""}
+        {a.turns ? ` · ${a.turns} call${a.turns === 1 ? "" : "s"}` : ""}
       </div>
     </header>
   );

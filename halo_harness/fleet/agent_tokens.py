@@ -2,8 +2,11 @@
 read from its transcript (Halo 3.1.5.0 R3, for Studio's Session Cost
 panel).
 
-An agent row (agent/agent_registry.py) carries its cost and turns but no
-tokens. Every model call appends a `usage` node to the agent's own log
+An agent row (agent/agent_registry.py) carries its cost and turns, and
+since 3.1.8.0 R6 its own meter's tokens from each `message_end` (a row that
+carries them is kept as it is: the meter counts a resumed agent's current
+invocation only). A row without them (before its first model call, a row from
+an older harness) is read here. Every model call appends a `usage` node to the agent's own log
 (agent/log.py `append_usage`): its sum is the agent's tokens, counted the way
 the session's own meter counts them (`input_tokens` in, `output_tokens` out).
 A sub-agent's rolled-up total on its PARENT's log is tagged `agent_id` and is
@@ -71,10 +74,15 @@ def _usage(raw: bytes) -> Optional[tuple]:
     return (tin if isinstance(tin, int) else 0, tout if isinstance(tout, int) else 0)
 
 
+def _carries(a: dict) -> bool:
+    return all(isinstance(a.get(k), int) and not isinstance(a.get(k), bool) for k in ("tokens_in", "tokens_out"))
+
+
 def with_tokens(agents: list) -> list:
-    """The agent rows, each with `tokens_in` / `tokens_out` from its transcript when the row has none."""
+    """The agent rows, each with `tokens_in` / `tokens_out` from its transcript when the row has none
+    (3.1.8.0 R6: a live row carries its meter's own from `message_end`; None until its first call)."""
     for a in agents:
-        if not isinstance(a, dict) or ("tokens_in" in a and "tokens_out" in a):
+        if not isinstance(a, dict) or _carries(a):
             continue
         got = totals(a.get("transcript"))
         if got is not None:

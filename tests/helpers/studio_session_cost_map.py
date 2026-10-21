@@ -10,7 +10,11 @@ tests/test_studio_session_cost_map.py runs it as a subprocess:
                                                               children side by side under it, no two labels touching),
                                                               the state colours on node and edge, done fading, failed
                                                               staying (motion pinned to no-preference; then under
-                                                              reduce a done node is green with no fade)
+                                                              reduce a done node is green with no fade); then (3.1.8.0
+                                                              R6) the figures moving on the session's own message_end /
+                                                              status frames, a GET from before them never pulling them
+                                                              back, a sub-agent's frames ignored, a finished child
+                                                              counted once and TURNS one unit (`figures`)
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
 No model is called."""
@@ -54,7 +58,7 @@ def labels_overlap(c) -> list:
 
 def costmap(c, rig) -> dict:
     from tests.helpers.studio_live_rig import Live
-    lv = Live(rig)
+    lv = rig.cost_live = Live(rig)
     out: dict = {}
     lv.refresh(context_tokens=50_000, context_limit=100_000, cost_usd=0.010, turns=2)
     from tests.helpers.chrome_driver import emulate_motion
@@ -126,6 +130,53 @@ def states(c, lv) -> dict:
     return out
 
 
+def _seen(c, expr: str, timeout: float):
+    """`c.wait`, or None when it does not come (the step goes on; the test names what was missing)."""
+    try:
+        return c.wait(expr, timeout)
+    except TimeoutError:
+        return None
+
+
+FIG = "document.querySelector('[data-testid=\"session-cost-{}\"]')?.textContent"
+FIGS_JS = "[" + ", ".join(FIG.format(k) for k in ("usd", "in", "out", "turns", "per-turn")) + f", {CTX}?.dataset.pct]"
+SEGS_JS = ("[...document.querySelectorAll('[data-testid=\"session-cost-share-seg\"]')].map((s) => [s.dataset.key.split('|')[2], +s.style.flexGrow])")
+
+
+def figures(c, rig) -> dict:
+    """3.1.8.0 R6: main mid-turn on its gated sub-agents; the figures move on the session's own frames (no cache
+    clear, no sessions frame), a GET from before them never pulls them back, a status frame with no totals and a
+    sub-agent's frames leave them, a finished child is counted once, TURNS is the session's user turns."""
+    lv, out = rig.cost_live, {}
+    pub = lambda event, data, turn=3, aid=None: rig.server.events.publish({"session_id": lv.sid, "harness": lv.hid, "event": event,  # noqa: E731
+                                                                            "agent_id": aid, "turn": turn, "data": data, "ts": time.time()})
+    out["fig_before"] = c.js(FIGS_JS)
+    t0 = time.monotonic()
+    pub("message_end", {"stop_reason": "tool_use", "usage": {}, "cost_usd": 0.2468, "context_pct": 60.0, "context_tokens": 60_000, "context_limit": 100_000,
+                        "total_input_tokens": 54_321, "total_output_tokens": 4_321, "saved_usd": None})
+    moved = _seen(c, f"{FIG.format('usd')} === '$0.2468' && {FIG.format('in')} === '54.3k' && {FIG.format('turns')} === '3' && 'moved'", 5)
+    out["fig_moved"] = [moved, round(time.monotonic() - t0, 2)]
+    lv.refresh(cost_usd=0.2000, tokens_in=50_000, tokens_out=4_000, turns=2, context_tokens=10_000, title="R6 a GET from before the frame")
+    out["fig_get_landed"] = _seen(c, "document.querySelector('.sco-head')?.textContent.includes('R6 a GET') && 'landed'", 10)
+    lv.fields.update(cost_usd=0.2468, tokens_in=54_321, tokens_out=4_321, turns=3, context_tokens=60_000)  # later answers agree with the frame
+    out["fig_after_get"] = c.js(FIGS_JS)
+    pub("status", {"phase": "thinking", "model": "or:mock/r6-status", "turn": 3, "cost_usd": None, "context_tokens": None,
+                   "context_limit": None, "total_input_tokens": None, "total_output_tokens": None})
+    out["fig_status_landed"] = _seen(c, "document.querySelector('[data-testid=\"session-cost-model\"]')?.textContent === 'r6-status' && 'landed'", 5)
+    out["fig_after_status"] = c.js(FIGS_JS)
+    pub("message_end", {"cost_usd": 0.0009, "total_input_tokens": 12, "total_output_tokens": 3, "context_tokens": 1, "context_limit": 10}, 1, lv.aid("tester"))
+    pub("status", {"phase": "idle", "model": "or:mock/child", "turn": 1, "cost_usd": 0.0009, "session_id": "agent-t7e5s1t0"}, 1)
+    time.sleep(0.8)
+    out["fig_after_child"] = c.js(FIGS_JS + ".concat([document.querySelector('[data-testid=\"session-cost-model\"]')?.textContent])")
+    lv.state("main", cost_usd=0.2468)  # main's own row figure is the session's total: it holds the finished tester's 0.012
+    out["fig_main_row"] = _seen(c, f"{node(lv.key('main'))}?.querySelector('[data-testid=\"fleet-node-cost\"]')?.textContent === '$0.2468' && 'row'", 10)
+    out["fig_share"] = c.js(SEGS_JS)
+    main = f"document.querySelector('[data-testid=\"session-cost-agent\"][data-key=\"{lv.key('main')}\"]')"
+    out["fig_main_line"] = c.js(f"[{main}?.querySelector('[data-testid=\"session-cost-agent-usd\"]')?.textContent, "
+                                f"{main}?.querySelector('[data-testid=\"session-cost-agent-calls\"]')?.textContent]")
+    return out
+
+
 class CostMapDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
 
@@ -133,7 +184,7 @@ class CostMapDriver(Driver):
     def session(self, c):
         from tests.helpers.studio_fleet_rig import StudioFleetRig
         with StudioFleetRig() as rig:
-            yield ((costmap, (c, rig)),)
+            yield ((costmap, (c, rig)), (figures, (c, rig)))
 
 
 if __name__ == "__main__":

@@ -79,8 +79,22 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    since the page opened); the context bar fills with what the model holds
    (amber past 80 %, red past 95 %); the figures add the tokens in and out,
    the turns and the cost per turn, the time and the model; the stacked bar
-   is each agent's share of the spend, its rows its own tokens in / out and
-   its cost.
+   is each agent's share of the spend, its rows its own tokens in / out, its
+   model calls and its own spend. The figures move with the terminal
+   (3.1.8.0): the session's own `message_end` (the end of each model call:
+   the running spend, the token totals, the context) and `status` (a turn's
+   start and end: the phase, the model, the turn) frames are the ones the
+   terminal's status bar moves on, and Cost moves on the same frame; a frame
+   that leaves a figure empty leaves it as it was, a sub-agent's frames
+   never move the session's figures, and a GET fleet answer read before the
+   frame never pulls a figure back. **Turns** are your turns in the session,
+   the terminal's count (the turn a frame belongs to); per turn is the spend
+   over them. An agent's own count on its line is its model **calls**. A
+   sub-agent's spend joins its parent's total when it finishes (the
+   terminal's figure works the same way), so the bar counts each agent's own
+   share: main's is the session total less its finished sub-agents', a
+   finished sub-agent's sits on its own line once, and a running sub-agent's
+   own spend shows on its line until it finishes and joins the total.
 6. **Open what you need**: Agent (the inspector: its three streams, Steer,
    Pause, Stop, Follow, Pin), Activity (a lane per live agent over the full
    log) and Attention (what waits on you, one key each) wait as strips under
@@ -91,8 +105,8 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
 runs, hands back and asks, in the Fleet log's columns under this session's
 timeline strip, with the Steer box at its foot. Map (`session-map`): your
 sessions on this machine as cards, each one's agents as a tree. Cost
-(`session-cost`): the chosen session's spend and sparkline, the context bar, the tokens, turns and cost
-per turn, elapsed, the model, each agent's share. Agent (`session-agent`):
+(`session-cost`): the chosen session's spend and sparkline, the context bar, the tokens, your turns and cost
+per turn, elapsed, the model, each agent's own share, tokens and calls, moving with the terminal. Agent (`session-agent`):
 the selected agent, its streams and controls. Activity (`session-activity`):
 the chosen session's timeline lanes and full live log. Attention
 (`session-attention`): what waits on you in this harness's sessions.
@@ -349,3 +363,31 @@ attaches or detaches, and `: ping` keeps the stream open every 15 s. Each
 browser gets its own queue of 512 frames (the oldest dropped first). The
 shell's status bar, the Orchestra panels and the rail read it. Studio's own
 Orchestra runner publishes its run log here too (`orchestra_*` frames).
+
+**What Session reads, and the delays that remain (3.1.8.0).** The Session
+tab (and Fleet) reads the feed, not a poll: a session's own `message_end`
+(the end of each model call) and `status` (a turn's start and end) frames
+move its spend, tokens, turns, context, model and busy dot on the frame the
+terminal's status bar moves on (a frame with an `agent_id`, or whose
+`data.session_id` starts with `agent-`, is a sub-agent's and moves nothing
+of the session's); `agent_state` moves an agent's row (its state, tool,
+model calls, cost and, since 3.1.8.0, its tokens); `agent_event` and the
+raw `text_chunk` / `tool_use_start` / `tool_result` frames fill the
+streams and Live; `fleet` and `sessions` frames and the asks, `turn_done`
+and `subagent_start` / `subagent_end` re-read `GET /api/fleet` for the
+tree. A local session's `turn_done`, `message_end` or `status` drops GET
+fleet's cached snapshot, so a re-read never answers from before it. What
+still stands between the terminal and the tab, each with its number:
+
+| Stage | Delay |
+|---|---|
+| a session's own figures (`message_end`, `status`) | none added: the socket, Studio's pump and the browser's stream pass each frame on as it comes |
+| the spend's ticker | counts up over 600 ms (a drop shows at once) |
+| text | one `text_chunk` per 2.0 s or 1800 bytes, sent early when any other frame comes (remote/feed.py) |
+| an agent row's text and cost alone | at most once per 1.0 s, the last change at the end of that second; a state, tool, model-call or task change goes at once (agent/agent_registry.py) |
+| GET fleet's snapshot | kept 1.0 s (dropped on the frames above); each session's socket probe times out after 1.0 s and the snapshot waits at most 1.5 s for them (fleet/local_view.py) |
+| the re-read after a frame | 300 ms (an unknown session, an agent leaving waiting), 350 ms (a fleet frame), 400 ms (a sessions frame), 600 ms (an ask, turn_done, a sub-agent's start or end), 800 ms (a command's answer) |
+| a GET answer against a frame | an answer asked before a frame, or up to 2.5 s after it, keeps the frame's figures: the higher spend, tokens and turns, the frame's context, and its busy dot unless an ask waits; an older answer never lands after a newer one |
+| a new session | attached within 2 s (the registry scan); a pump that errors waits 10 s before it tries again |
+| the sparkline | a point on every change, and every 5 s while nothing moves |
+| the feed down | GET fleet every 4 s until it is back |

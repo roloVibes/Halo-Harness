@@ -4,7 +4,8 @@ lines on the agent's own transcript, counted as the session meter counts
 them; a sub-agent's rolled-up total on its parent's log is skipped; the read
 is incremental (only new lines; a half-written last line waits for its end;
 a file that shrank is read again); `session_row` (fleet/local_view.py) puts
-the figures on every agent row that has a transcript and none of its own.
+the figures on every agent row that has a transcript and none of its own (3.1.8.0 R6: a None
+figure is none; a row carrying its meter's numbers from message_end is kept).
 
 Run: python -m tests.test_fleet_agent_tokens
 """
@@ -86,6 +87,13 @@ def test_session_row_puts_them_on_the_agent_rows(ctx: Ctx):
         got = {a["agent_id"]: (a.get("tokens_in"), a.get("tokens_out")) for a in row["agents"]}
         ctx.check(f"each agent's own, a job without a transcript none, a row's own figures kept, got {got}",
                   got == {"main": (2000, 150), "kid": (1000, 50), "job-1": (None, None), "own": (5, 6)})
+        # 3.1.8.0 R6: a live registry row has the keys from the start (None before its first model call)
+        fresh = [{"agent_id": "early", "transcript": str(d / "kid.jsonl"), "tokens_in": None, "tokens_out": None},
+                 {"agent_id": "live", "transcript": str(d / "kid.jsonl"), "tokens_in": 0, "tokens_out": 0}]
+        row = session_row({"session_id": "s2"}, {"turn": 1}, fresh)
+        got = {a["agent_id"]: (a.get("tokens_in"), a.get("tokens_out")) for a in row["agents"]}
+        ctx.check(f"None is no figure (the transcript is read); a row carrying its meter's numbers is kept, got {got}",
+                  got == {"early": (1000, 50), "live": (0, 0)})
 
 
 if __name__ == "__main__":

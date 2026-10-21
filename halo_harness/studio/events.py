@@ -12,6 +12,9 @@ errors detaches and is not retried for `RETRY_S`. `publish_local` adds a
 frame made in this process (the Orchestra runner: `orchestra:<run id>`).
 `serve_sse(handler)` (studio/events_sse.py) is `GET /api/events?t=<token>&sessions=all|<sid>`.
 `taps` (3.0.5.0 R4) see every published frame, browsers or not (the fleet watcher).
+3.1.8.0 R6: a LOCAL session's (one this bridge pumps) `turn_done`, `message_end` or
+`status` frame drops GET fleet's cached snapshot (fleet/local_view.py `forget`), so a
+fallback GET never answers from before the event.
 """
 
 from __future__ import annotations
@@ -26,6 +29,16 @@ from halo_harness.studio.feed_kinds import DEFAULT_KINDS, PUBLIC_FIELDS, local_h
 QUEUE_MAX = 512
 RETRY_S = 10.0
 CALL_TIMEOUT_S = 1.0
+FRESH_KINDS = frozenset({"turn_done", "message_end", "status"})
+
+
+def _forget_snapshot() -> None:
+    """3.1.8.0 R6: a local session's figures moved, so GET fleet's cached snapshot (fleet/local_view.py) is from before it."""
+    try:
+        from halo_harness.fleet.local_view import forget
+        forget()
+    except Exception:
+        pass
 
 
 class BrowserQueue:
@@ -95,6 +108,8 @@ class EventBridge:
             return sum(1 for q in self._clients if not q.closed)
 
     def publish(self, frame: dict) -> None:
+        if frame.get("event") in FRESH_KINDS and self._local(frame.get("session_id")):
+            _forget_snapshot()
         for tap in list(self.taps):
             try:
                 tap(frame)
@@ -105,6 +120,13 @@ class EventBridge:
         for q in clients:
             if q.wants(frame):
                 q.put(frame)
+
+    def _local(self, sid) -> bool:
+        """A session this bridge pumps (this harness's own), not a member's frame through the hub."""
+        if not isinstance(sid, str) or not sid:
+            return False
+        with self._lock:
+            return sid in self._stops or sid in self._attached
 
     def publish_local(self, frame: dict) -> None:
         """A frame from this process, not a session's socket: completed to the usual shape."""

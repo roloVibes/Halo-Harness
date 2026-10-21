@@ -8,14 +8,20 @@
 // `fleet` frames with action `sessions`, never as `sessions` frames (R2).
 // Polling (POLL_MS) only while the feed is not open. Started once, by the
 // rail (every section shows it) or the first Fleet panel. 3.1.5.0 R3: a GET
-// answer never undoes a newer agent_state frame (fresh.ts).
+// answer never undoes a newer agent_state frame (fresh.ts). 3.1.8.0 R6: a
+// session's own `message_end` and `status` frames move its figures (spend,
+// tokens, turns, context, model, busy: figures.ts) on the event the terminal's
+// status bar moves on, a GET never pulls them back (fresh.ts), an older GET
+// answer never lands after a newer one, and an agent leaving `waiting` reads
+// GET fleet again at once so the session's waiting state clears.
 import { api, ApiError } from "../../lib/api";
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { studio, toast } from "../../lib/store";
 import { startCaps } from "./caps";
 import { startMissions } from "./mload";
 import { startPanels } from "./pload";
-import { keepFresh, noteFrame } from "./fresh";
+import { agentWith, FIGURE_KINDS, figuresOf, ownFrame, withFigures } from "./figures";
+import { keepFresh, noteFigures, noteFrame } from "./fresh";
 import { append, rawEntry } from "./streams";
 import { fleet, keyOf, localId, type FleetState } from "./store";
 import type { AgentRow, FleetView, Harness, SessionRow } from "./types";
@@ -46,16 +52,23 @@ function finished(prev: Harness[], next: Harness[]): Record<string, number> {
   return out;
 }
 
+let asks = 0;
+let landed = 0;
+
 export async function load(): Promise<void> {
   const asked = Date.now();
+  const mine = ++asks;
   try {
     const v = await api.get<FleetView>("fleet");
+    if (mine < landed) return; // a newer answer already landed: this older one never undoes it
+    landed = mine;
     const got = Array.isArray(v.harnesses) ? v.harnesses.map((h) => ({ ...h, sessions: h.sessions || [] })) : [];
     fleet.update((s) => {
       const harnesses = keepFresh(s.harnesses, got, asked);
       return { harnesses, hub: v.hub || null, loaded: true, error: "", doneAt: { ...s.doneAt, ...finished(s.harnesses, harnesses) } };
     });
   } catch (e) {
+    if (mine < landed) return;
     fleet.update(() => ({ loaded: true, error: e instanceof ApiError ? e.message : String(e) }));
   }
 }
@@ -89,12 +102,13 @@ function onAgentState(f: FeedFrame): void {
     const old = list.find((a) => a.agent_id === row.agent_id);
     isNew = !old;
     before = String(old?.state || "");
-    return { ...ss, agents: old ? list.map((a) => (a.agent_id === row.agent_id ? { ...a, ...row } : a)) : [...list, row] };
+    return { ...ss, agents: old ? list.map((a) => (a.agent_id === row.agent_id ? agentWith(a, row) : a)) : [...list, row] };
   });
   if (!harnesses) {
     later("load", 300, () => void load());
     return;
   }
+  if (before === "waiting" && row.state !== "waiting") later("load", 300, () => void load()); // answered: the session's waiting clears
   const now = Date.now();
   const ended = before && before !== row.state && (row.state === "done" || row.state === "failed");
   fleet.update((st) => ({
@@ -103,6 +117,23 @@ function onAgentState(f: FeedFrame): void {
     doneAt: ended ? { ...st.doneAt, [key]: now } : st.doneAt,
     edges: isNew && row.parent ? [...st.edges.filter((e) => now - e.ts < 6000), { from: keyOf(h, sid, row.parent), to: key, ts: now, kind: "spawn" }] : st.edges,
   }));
+}
+
+/** The session's own figures, from the frame its terminal's status bar moves on (figures.ts). */
+function onFigures(f: FeedFrame): void {
+  const sid = String(f.session_id || "");
+  if (!sid || !ownFrame(f)) return;
+  const fig = figuresOf(f);
+  if (!Object.keys(fig).length) return;
+  const s = fleet.get();
+  const h = hid(f, s);
+  const harnesses = mapSession(s, h, sid, (ss) => withFigures(ss, fig));
+  if (!harnesses) {
+    later("load", 300, () => void load());
+    return;
+  }
+  noteFigures(h, sid, fig.busy);
+  fleet.update(() => ({ harnesses, lastFrame: Date.now() }));
 }
 
 function onSessions(f: FeedFrame): void {
@@ -168,6 +199,7 @@ export function startFleet(): void {
   onEvent("fleet", onSessions);
   onEvent("sessions", () => later("load", 400, () => void load()));
   for (const k of RAW) onEvent(k, onRaw);
+  for (const k of FIGURE_KINDS) onEvent(k, onFigures);
   for (const k of RELOAD) onEvent(k, () => later("load", 600, () => void load()));
   window.setInterval(() => {
     if (studio.get().feed.status !== "open" && !document.hidden) void load();

@@ -17,11 +17,12 @@ export type AgentRow = {
   task?: string | null;
   since?: number | null;
   state?: AgentState | string | null;
+  /** Its model calls (shown as "calls"; a session row's `turns` are the user's turns). */
   turns?: number | null;
   cost_usd?: number | null;
   current?: string | null;
   last_text?: string | null;
-  /** 3.1.5.0 R3 (fleet/agent_tokens.py): its own tokens, from its transcript's usage lines. */
+  /** Its own tokens: its meter's from each message_end (3.1.8.0 R6), else its transcript's usage lines (fleet/agent_tokens.py). */
   tokens_in?: number | null;
   tokens_out?: number | null;
 };
@@ -47,7 +48,8 @@ export type SessionRow = {
   cost_usd?: number | null;
   agents_live?: number | null;
   agents?: AgentRow[];
-  /** 3.1.4.0 R2 (fleet/local_view.py): the status's own figures, for Session's Cost panel. */
+  /** 3.1.4.0 R2 (fleet/local_view.py): the status's own figures, for Session's Cost panel; 3.1.8.0 R6 the
+   *  session's own message_end / status frames move them too (figures.ts). `turns`: the user's turns. */
   turns?: number | null;
   tokens_in?: number | null;
   tokens_out?: number | null;

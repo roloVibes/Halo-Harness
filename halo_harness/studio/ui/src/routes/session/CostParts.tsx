@@ -2,7 +2,9 @@
 // (context_tokens / context_limit: cyan, amber past 80 %, red past 95 %),
 // the spend sparkline beside the ticker (spend.ts samples), and each agent's
 // share of the spend as one stacked bar in the agents' own colours
-// (shared/hues.ts, the Live column's), every figure in mono.
+// (shared/hues.ts, the Live column's), every figure in mono. 3.1.8.0 R6: a
+// line's cost is the agent's own share (shares.ts) and its model calls are
+// "calls", never "turns" (the panel's TURNS are the session's user turns).
 import { cost, short } from "../orchestra/format";
 import type { AgentRow } from "../fleet/types";
 import type { Sample } from "./spend";
@@ -83,10 +85,14 @@ export function AgentLine({ r }: { r: Share }) {
       <span className="sco-swatch" data-hc={r.hc} aria-hidden="true" />
       <span className="sco-row-name">{short(a.name || a.role || a.agent_id, 22)}</span>
       <span className="mono muted sco-row-state">{a.state}</span>
-      <span className="mono muted sco-row-tok" title="its own tokens in / out, from its transcript" data-testid="session-cost-agent-tokens">
+      <span className="mono muted sco-row-tok" title="its own tokens in / out, as each of its model calls ends" data-testid="session-cost-agent-tokens">
         {a.tokens_in == null && a.tokens_out == null ? "-" : `${tok(a.tokens_in)} / ${tok(a.tokens_out)}`}
       </span>
-      <b className="mono sco-row-usd">{cost(a.cost_usd)}</b>
+      <span className="mono muted sco-row-calls" title="its model calls" data-testid="session-cost-agent-calls">
+        {typeof a.turns === "number" ? `${a.turns} call${a.turns === 1 ? "" : "s"}` : "-"}
+      </span>
+      <b className="mono sco-row-usd" title={a.parent ? "what it spent itself (its finished sub-agents are on their own lines)" : "what it spent itself: the session's total less its finished sub-agents' (on their own lines)"}
+         data-testid="session-cost-agent-usd">{cost(r.usd)}</b>
       <span className="mono muted sco-row-pct">{r.pct > 0 ? `${Math.round(r.pct)} %` : ""}</span>
     </div>
   );
