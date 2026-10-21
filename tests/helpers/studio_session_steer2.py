@@ -83,8 +83,11 @@ def done_box(c, lv) -> dict:
 def stop(c, sent: list) -> dict:
     """Stop beside the box asks first: the confirm dialog names main; Cancel sends nothing."""
     out: dict = {}
+    # the foot of the column can sit below the panel's visible area on the Linux runner's layout: a click
+    # on an off-screen button lands nowhere (the Linux run for the merge lost it), so bring it into view
+    c.js(f"{BOX}.querySelector('[data-testid=\"session-live-stop\"]').scrollIntoView({{block: 'center'}}); 1")
     c.click_on(f"{BOX}.querySelector('[data-testid=\"session-live-stop\"]')")
-    out["stop_dialog"] = c.wait("document.querySelector('[data-testid=\"fleet-confirm\"]')?.textContent", 5)
+    out["stop_dialog"] = c.wait("document.querySelector('[data-testid=\"fleet-confirm\"]')?.textContent", 15)
     cancel = "[...document.querySelectorAll('[data-testid=\"fleet-confirm\"] button')].find((b) => b.textContent.trim() === 'Cancel')"
     c.click_on(cancel)
     out["stop_cancelled"] = c.wait("!document.querySelector('[data-testid=\"fleet-confirm\"]') && 'closed'", 5) or False
@@ -97,6 +100,7 @@ def pause(c, lv, sent: list) -> dict:
     """Pause beside the box reaches main's command route (main holds at its next step; the rig resumes it)."""
     from tests.helpers.fleet_rig import wait_for
     out: dict = {}
+    c.js(f"{BOX}.querySelector('[data-testid=\"session-live-pause\"]').scrollIntoView({{block: 'center'}}); 1")
     c.click_on(f"{BOX}.querySelector('[data-testid=\"session-live-pause\"]')")
     got = wait_for(lambda: [d for d in sent if d["cmd"] == "pause"], 15) or [{}]
     out["pause_route"] = {"sid": got[-1].get("sid"), "agent_id": (got[-1].get("fields") or {}).get("agent_id"), "status": got[-1].get("status")}
