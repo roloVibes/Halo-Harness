@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.1.7.0] - unreleased
+## [3.1.7.0] - 2026-10-21
 
 Focus: the Session tab gets what the owner liked in Fleet, in the column he already likes -- Fleet's time and kind columns on every live line, the timeline strip, the picks, and a Steer box that is always there -- and the committed captures stop carrying the build host's name. From the owner's photo of the Fleet view on 2026-10-20 ("I want what fleet has with tool running too within the session tab. More of insight and ability to jump in and steer is awesome").
 
