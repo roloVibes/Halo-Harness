@@ -180,7 +180,7 @@ jobs:
     # a version tag, the nightly schedule, or a dispatch (with the sha to test)
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
-    timeout-minutes: 110
+    timeout-minutes: 140
     env:
       PYTHONPATH: ${{ github.workspace }}
       BRIDGE_TEST_NO_BACKGROUND_NET: "1"
@@ -248,7 +248,7 @@ jobs:
       - name: tests/run_all.py
         id: run_all
         continue-on-error: true
-        timeout-minutes: 65
+        timeout-minutes: 90  # 3.1.7.0: the v3.1.6.0 tag run finished green at 65:00 and the step limit cut it
         run: set -o pipefail; python tests/run_all.py 2>&1 | tee "$RUNNER_TEMP/run_all.log"
 
       - name: test_tui.py
