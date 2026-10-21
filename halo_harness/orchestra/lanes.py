@@ -121,7 +121,8 @@ def load_lane(run_dir, n) -> Optional[Lane]:
     job = Job(id=str(data.get("job") or f"job-{n}"), title=str(data.get("title") or ""),
               claims=list(data.get("claims") or []), worker=int(n), order=int(data.get("order") or n),
               handoff=dict(data.get("handoff") or {}) if isinstance(data.get("handoff"), dict) else {},
-              after=[str(a) for a in data.get("after") or []] if isinstance(data.get("after"), list) else [])
+              after=[str(a) for a in data.get("after") or []] if isinstance(data.get("after"), list) else [],
+              bio=str(data.get("bio") or ""), model=str(data.get("model") or ""))  # 3.1.8.0 R2: a resumed lane keeps them
     return Lane(run_dir, int(n), job, str(data.get("branch") or ""), data.get("worktree") or "")
 
 

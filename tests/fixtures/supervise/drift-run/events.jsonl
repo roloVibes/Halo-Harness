@@ -1,0 +1,6 @@
+{"ts": 1760000001.0, "elapsed_s": 1.0, "lane": null, "kind": "state", "text": "split into 5 job(s)", "data": {"step": "split"}}
+{"ts": 1760000050.0, "elapsed_s": 50.0, "lane": 4, "kind": "state", "text": "lane 4 writing: worker writing", "data": {"lane_state": "writing"}}
+{"ts": 1760000060.0, "elapsed_s": 60.0, "lane": 1, "kind": "merge", "text": "lane 1 merged into orchestra/drift-run", "data": {}}
+{"ts": 1760000100.0, "elapsed_s": 100.0, "lane": 3, "kind": "state", "text": "lane 3 waiting: waits for job-1 (hand-off)", "data": {"lane_state": "waiting"}}
+{"ts": 1760000200.0, "elapsed_s": 200.0, "lane": null, "kind": "claim", "text": "w5/main could not claim basket.py#total: basket.py#total is held by w2/main", "data": {"op": "refused", "holder": "w5/main", "key": "basket.py#total", "by": "w2/main", "other": "basket.py#total", "lane_n": 5}}
+{"ts": 1760000990.0, "elapsed_s": 990.0, "lane": 5, "kind": "note", "text": "lane 5: still trying", "data": {}}

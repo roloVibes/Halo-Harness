@@ -209,8 +209,8 @@ def send_back(lane, text_of, *, clock=time.time) -> int:
     return work_gate.send_back("lane", lane.run_dir, lane.n, text_of, clock=clock)
 
 
-def unit_names(lane) -> list:
-    return [key.split("#", 1)[1].split(".")[-1] for key in lane.job.claims if "#" in key]
+def unit_names(lane) -> list:  # 3.1.8.0 R2: a replan's specialist (`assist`) edits nothing, so it is never blamed
+    return [] if lane.data().get("assist") else [key.split("#", 1)[1].split(".")[-1] for key in lane.job.claims if "#" in key]
 
 
 def _narrow(blamed: list) -> list:

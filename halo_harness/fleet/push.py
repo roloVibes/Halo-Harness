@@ -25,7 +25,7 @@ SPOOL = "fleet-push"
 KEEP_S = 600.0
 MAX_FILES = 200
 PUSH_KINDS = ("permission", "question", "plan", "approval", "fleet_ask", "waiting", "cap", "conflict",
-              "goal_plan", "goal_gate", "goal_budget", "goal_ask")  # 3.1.8.0 R1: the supervisor's decisions
+              "goal_plan", "goal_gate", "goal_budget", "goal_ask", "goal_replan")  # 3.1.8.0 R1/R2: the supervisor's decisions
 
 
 def _remote(home) -> Path:

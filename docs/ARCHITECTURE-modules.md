@@ -201,6 +201,10 @@ triggers, armed by the supervisor), `supervise/loop.py` (the tick),
 `supervise/apply.py` (settling a goal and applying a decision),
 `supervise/cli.py` (`halo supervise`) and `supervise/goal_cli.py` (`halo
 goal`).
+R2 (replanning while it runs): `supervise/drift.py` (when a run drifts), `supervise/replan.py` (the pause, its gate, the spawn hook),
+`supervise/replan_ask.py` (the lead asked in the goal's thread), `supervise/replan_prompt.py` (the replan prompt),
+`supervise/replan_plan.py` (the answer checked), `supervise/replan_moves.py` (the moves and the diff),
+`supervise/replan_apply.py` (the plan written into the run), `supervise/replan_rows.py` (the owner's answer).
 
 - The first ten minutes (3.1.1.0): `studio/start_api.py` (Start here: `/api/start`),
   `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),

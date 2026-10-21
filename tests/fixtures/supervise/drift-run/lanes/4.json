@@ -1,0 +1,6 @@
+{
+  "lane": 4, "job": "job-4", "title": "write apply_discount", "claims": ["basket.py#apply_discount"], "order": 4,
+  "state": "writing", "holder": "w4/main", "cost_usd": 0.0, "started": 1760000010.0, "ended": null,
+  "pieces_returned": 0, "session_ids": [], "written": {}, "error": "", "reply": "", "after": [], "handoff": {},
+  "history": [{"state": "joined", "ts": 1760000020.0, "text": ""}, {"state": "writing", "ts": 1760000050.0, "text": "worker writing"}]
+}
