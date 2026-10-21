@@ -1,0 +1,12 @@
+# A fixture pack that is valid but asks for what no test catalog has
+# (3.2.0.0 R2, tests/test_packs_roles*.py): its bio's capability set has no
+# model (it runs on the default model, with a Problems row), and it needs
+# network, which the tests leave ungranted.
+id: rare-caps
+name: Rare capabilities
+version: 0.2.0
+description: A watcher bio that needs video, image output and a long context, and the network.
+halo_api: {min: "1.0"}
+contributes:
+  agents: [agents/watcher.yaml]
+permissions: [network]

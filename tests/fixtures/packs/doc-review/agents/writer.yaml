@@ -5,6 +5,7 @@ tags: [docs]
 kind: custom
 extends: reviewer
 models:
+  preference: claude-sonnet
   effort: medium
 tools:
   allow: [Read, Edit, Write]

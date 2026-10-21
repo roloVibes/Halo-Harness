@@ -1,0 +1,6 @@
+name: routed
+description: Names a provider outright.
+kind: subagent
+models:
+  capabilities: [tools]
+  provider: openrouter

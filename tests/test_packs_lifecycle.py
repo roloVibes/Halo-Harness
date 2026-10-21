@@ -86,7 +86,8 @@ def test_enable_with_and_without_grants_then_disable(ctx: Ctx):
         from halo_harness.fleet import capabilities as C
         C.save({"hash": "h", "at": 123.0}, h.state)
         code, _out, _err = h.cli("enable", "doc-review", "--grant-all")
-        ctx.check("--grant-all grants every request", _state(h)["doc-review"]["granted"] == ["hooks", "mcp:lint"])
+        ctx.check("--grant-all grants every request (3.2.0.0 R2: bash, the reviewer bio's need)",
+                  _state(h)["doc-review"]["granted"] == ["bash", "hooks", "mcp:lint"])
         ctx.check("enable makes Fleet's capabilities catalog gather afresh", C.load(h.state)["at"] == 0)
 
 

@@ -2,12 +2,16 @@
 // browser prompt or confirm): New lineup (a name, and the lineup to start
 // from), Duplicate, Delete (asks), Apply (asks, listing the role table it
 // writes into ~/.halo/config.json), New bio, Duplicate bio, Delete bio, remove
-// a card, and leaving unsaved edits for another lineup.
+// a card, and leaving unsaved edits for another lineup. 3.2.0.0 R2: Apply
+// names the pack and the lineup it replaces as the default; Clone meeting a
+// name of yours asks (replace it, or another name) -- the only path that
+// writes into a file of yours.
 import { useState, type ReactNode } from "react";
 import { Button, Dialog } from "../../lib/ui";
 import { applyLineup, deleteLineup, newLineup, removeCard } from "./actions";
 import { deleteBio, newBio } from "./bioActions";
-import { closeDialog, keyOf, nodeById, roles, useRoles } from "./store";
+import { cloneFromPack } from "./packActions";
+import { closeDialog, keyOf, nodeById, packOf, roles, useRoles } from "./store";
 import { openLineup } from "./sync";
 import type { RolesDialog } from "./types";
 
@@ -52,14 +56,40 @@ function Ask({ title, kicker, body, yes, onYes, testid, danger }: { title: strin
 
 function Apply() {
   const cur = useRoles((s) => s.current);
+  const was = useRoles((s) => s.info?.active_team || "");
   if (!cur) return null;
   const lines = Object.entries(cur.role_table || {}).map(([r, v]) => `roles.${r}: ${typeof v === "object" && v ? String((v as { model?: string }).model || JSON.stringify(v)) : String(v)}`);
+  const pack = cur.pack || packOf(cur.scope); // 3.2.0.0 R2: say whose lineup it is and which one it replaces as the default
+  const replaces = was && was !== cur.name ? `It replaces ${was} as the lineup new sessions use.` : was ? "" : "No lineup is the default yet.";
   return (
     <Ask title={`Apply ${cur.name}?`} kicker="ROLES · APPLY" testid="roles-apply-dialog" yes="Apply" onYes={() => void applyLineup()}
          body={<>
-           <p>New sessions use this lineup. Studio writes the role table and the active team into ~/.halo/config.json, exactly like halo teams use.</p>
-           <pre className="re-diff mono">{[...lines, `team: ${cur.name}`, "roles.enabled: true"].map((l) => "+ " + l).join("\n")}</pre>
+           {pack && <p data-testid="roles-apply-pack">From pack {pack}: Apply reads it where it is; no bio or lineup file of yours is written.</p>}
+           <p data-testid="roles-apply-replaces">New sessions use this lineup. {replaces} Studio writes the role table and the active team into ~/.halo/config.json, exactly like halo teams use.</p>
+           <pre className="re-diff mono">{[...(was && was !== cur.name ? [`- team: ${was}`] : []), ...[...lines, `team: ${cur.name}`, "roles.enabled: true"].map((l) => "+ " + l)].join("\n")}</pre>
          </>} />
+  );
+}
+
+/** 3.2.0.0 R2: Clone or Customize met a name of yours (or one Halo ships): replace it, or pick another name. */
+function CloneExists({ d }: { d: Extract<NonNullable<RolesDialog>, { kind: "clone-exists" }> }) {
+  const [name, setName] = useState(d.target);
+  const busy = useRoles((s) => s.busy === "clone");
+  const ok = NAME_RE.test(name.trim());
+  const same = name.trim() === d.target;
+  const go = () => ok && !busy && void cloneFromPack(d.what, d.name, d.open, same ? { as: d.target, replace: true } : { as: name.trim() });
+  return (
+    <Dialog open onClose={closeDialog} title={d.shipped ? `Halo ships a ${d.what} named ${d.target}` : `${d.target} is already yours`} kicker="ROLES · CLONE" testid="roles-clone-dialog"
+            footer={<><Button onClick={closeDialog}>Cancel</Button>
+              <Button variant={same && !d.shipped ? "danger" : "primary"} disabled={!ok || busy} onClick={go} data-testid="roles-clone-go">
+                {same ? (d.shipped ? `Keep ${d.target}` : `Replace your ${d.target}`) : `Clone as ${name.trim()}`}</Button></>}>
+      <p data-testid="roles-clone-why">{d.error}</p>
+      <label className="fd-field">
+        <span className="rail-label mono">NAME OF YOUR COPY</span>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} data-testid="roles-clone-name" />
+      </label>
+      {!ok && name && <p className="og-problems">Letters, digits, - and _ only, starting with a letter or digit.</p>}
+    </Dialog>
   );
 }
 
@@ -90,6 +120,8 @@ function body(d: NonNullable<RolesDialog>, lineups: string[], bios: string[]) {
     case "discard":
       return <Ask title="Leave your unsaved edits?" kicker="ROLES · UNSAVED" testid="roles-discard" yes={`Open ${d.then}`}
                   onYes={() => (closeDialog(), void openLineup(d.then, true))} body={<p>{roles.get().name} has edits you did not save. Opening {d.then} drops them (Cancel, then Save, keeps them).</p>} />;
+    case "clone-exists":
+      return <CloneExists key={d.name + d.target} d={d} />;
   }
 }
 

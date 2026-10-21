@@ -10,6 +10,9 @@
 // copy); a 422 lists the validator's lines. 3.0.9.0 R3: a coach card's Apply
 // puts its note on top and marks the field it filled in. 3.1.4.0 R4: MODELS
 // comes first, right under the name (BioModels: the model select on top).
+// 3.2.0.0 R2: a pack's bio opens read-only ("from pack <id>, read-only", the
+// fields disabled, Customize instead of Save); a bio asking by
+// models.capabilities says what its tags resolve to.
 import { useState } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
@@ -19,7 +22,8 @@ import { BioSchedule } from "./BioSchedule";
 import { BioYaml } from "./BioYaml";
 import { CoachNote } from "./CoachNote";
 import { Check, ListIn, Pick, TextIn } from "./controls";
-import { openDialog, readOnlySource, roles, scopeLabel, useRoles } from "./store";
+import { cloneFromPack } from "./packActions";
+import { openDialog, packOf, readOnlySource, roles, scopeLabel, useRoles } from "./store";
 import type { Raw } from "./types";
 
 const KINDS = ["main", "subagent", "researcher", "judge", "reviewer", "custom", "media"];
@@ -47,15 +51,25 @@ export function BioForm() {
   if (!name) return <p className="muted">Pick a bio above, or drag one onto the canvas to add it to the lineup.</p>;
   if (!d || !data) return problems.length ? <p className="og-problems">{problems[0]}</p> : <div className="og-wait mono muted">reading {name}...</div>;
   const top = (key: string) => (v: unknown) => editBio((r) => setKey(r, key, v));
+  const pack = data.pack || packOf(data.scope); // 3.2.0.0 R2: a pack's bio is read-only; Customize makes your copy
+  const info = data.model_info;
   return (
-    <div className="rb-form" data-testid="bio-form" data-bio={name}>
+    <div className="rb-form" data-testid="bio-form" data-bio={name} data-readonly={pack ? "" : undefined}>
       <header className="re-assign-head">
         <b>{name}</b>
-        <span className="rc-scope mono" data-scope={data.scope}>{readOnlySource(data.scope) ? `${scopeLabel(data.scope)}: saving makes your copy` : scopeLabel(data.scope)}</span>
+        <span className="rc-scope mono" data-scope={data.scope} data-testid={pack ? "bio-readonly" : undefined}>
+          {pack ? `from pack ${pack}, read-only` : readOnlySource(data.scope) ? `${scopeLabel(data.scope)}: saving makes your copy` : scopeLabel(data.scope)}
+        </span>
         <button className="re-yaml-toggle mono" aria-pressed={yaml} onClick={() => setYaml(!yaml)} data-testid="bio-yaml-toggle"
                 title="Edit the whole bio as YAML (hooks and any key without a field)">YAML</button>
       </header>
+      {info && (
+        <p className={`mono rb-model-info${info.problem ? " og-problems" : " muted"}`} data-testid="bio-model-info">
+          {info.problem ? `models.capabilities ${info.capabilities.join(", ")}: ${info.problem}` : `runs on ${info.ref}: the best catalog model with ${info.capabilities.join(", ")}`}
+        </p>
+      )}
       {hint && <CoachNote field={hint.field} value={hint.value} run={hint.run} />}
+      <fieldset className="rb-fields" disabled={!!pack}>
       {yaml ? (
         <BioYaml />
       ) : (
@@ -70,6 +84,7 @@ export function BioForm() {
           <BioSchedule d={d} />
         </>
       )}
+      </fieldset>
       {problems.length > 0 && (
         <div className="re-save-problems" data-testid="bio-problems" role="alert">
           <b>Not saved: the validator says</b>
@@ -77,7 +92,11 @@ export function BioForm() {
         </div>
       )}
       <div className="re-actions rb-actions">
-        <Button variant="primary" size="sm" disabled={busy} onClick={() => void saveBio()} data-testid="bio-save">Save bio</Button>
+        {pack ? (
+          <Button variant="primary" size="sm" disabled={busy} onClick={() => void cloneFromPack("bio", name, true)} title="Clone it into your bios and open your copy" data-testid="bio-customize">Customize</Button>
+        ) : (
+          <Button variant="primary" size="sm" disabled={busy} onClick={() => void saveBio()} data-testid="bio-save">Save bio</Button>
+        )}
         <Button size="sm" variant="ghost" disabled={readOnlySource(data.scope)} onClick={() => openDialog({ kind: "delete-bio", name })} title={readOnlySource(data.scope) ? `A ${scopeLabel(data.scope)} bio cannot be deleted` : "Delete this bio (asks first)"}>Delete</Button>
         <ScopeCheck what="agents" />
       </div>

@@ -1,0 +1,7 @@
+name: watcher
+description: Watches a clip and draws what it saw.
+kind: subagent
+models:
+  capabilities: [video, image-out, long-context]
+tools:
+  needs: [network]

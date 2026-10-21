@@ -2,12 +2,13 @@
 // through `edit` (the mapping before it joins the undo history, the Problems
 // panel re-validates), Ctrl+Z / Ctrl+Shift+Z walk that history, Save is
 // `PUT lineup/<name>` (a shipped lineup saves as your copy; a 422 lists the
-// validator's lines in the Inspector), and New, Duplicate, Delete and Apply
+// validator's lines in the Inspector; 3.2.0.0 R2: a pack's lineup is
+// read-only, Customize makes your copy), and New, Duplicate, Delete and Apply
 // are the lineup routes. A card dropped into another tier box rewrites
 // `tiers[*].members` and saves at once; the main agent stays in tier 0.
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
-import { agentsOf, clone, closeDialog, HISTORY_MAX, keyOf, nodeById, readOnlySource, roles } from "./store";
+import { agentsOf, clone, closeDialog, HISTORY_MAX, keyOf, nodeById, packOf, readOnlySource, roles } from "./store";
 import { loadLists, msg, openLineup, saveLayout, validateSoon } from "./sync";
 import type { LineupPayload, Raw } from "./types";
 
@@ -25,10 +26,18 @@ export async function run<T>(busy: string, fn: () => Promise<T>, done?: (r: T) =
   }
 }
 
+/** 3.2.0.0 R2: a pack's lineup is read-only on the canvas: an edit or a save says so (Customize makes your copy). */
+function packLocked(): boolean {
+  const s = roles.get();
+  const pack = s.current?.pack || packOf(s.current?.scope);
+  if (pack) toast(`${s.name} is from pack ${pack}, read-only: Customize makes your copy to edit`, "info", 3500);
+  return !!pack;
+}
+
 /** One edit of the open lineup: `fn` changes a copy; the old mapping joins the undo history. */
 export function edit(fn: (raw: Raw) => void): void {
   const s = roles.get();
-  if (!s.raw) return;
+  if (!s.raw || packLocked()) return;
   const next = clone(s.raw);
   fn(next);
   if (JSON.stringify(next) === JSON.stringify(s.raw)) return;
@@ -59,7 +68,7 @@ export function redo(): boolean {
 /** Save the open lineup to your scope (a shipped or a pack's one becomes your copy under the same name). */
 export async function save(): Promise<boolean> {
   const s = roles.get();
-  if (!s.raw || !s.name || !s.current) return false;
+  if (!s.raw || !s.name || !s.current || packLocked()) return false;
   const query = { scope: s.scope, duplicate: readOnlySource(s.current.scope) ? "1" : "" };
   roles.update(() => ({ busy: "save" }));
   try {

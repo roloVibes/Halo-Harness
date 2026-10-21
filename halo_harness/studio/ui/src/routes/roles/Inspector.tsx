@@ -4,14 +4,30 @@
 // agents on the selected card do right now (it opens by itself when a card
 // with a live agent is clicked). 3.1.4.0 R4: above the tabs, the MODEL strip
 // (ModelStrip.tsx): what the selected card runs on and the select to change it.
-import { Tabs } from "../../lib/ui";
+// 3.2.0.0 R2: a pack's lineup says "from pack <id>, read-only" on top, with Customize.
+import { Button, Tabs } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { Assignment } from "./Assignment";
 import { LineupTab } from "./LineupTab";
 import { useByNode } from "./live";
 import { LiveTab } from "./LiveTab";
 import { ModelStrip } from "./ModelStrip";
-import { nodeById, setTab, useRoles, type InspectorTab } from "./store";
+import { cloneFromPack } from "./packActions";
+import { nodeById, packOf, setTab, useRoles, type InspectorTab } from "./store";
+
+/** 3.2.0.0 R2: a pack's lineup opens read-only; Customize clones it and opens your copy. */
+function ReadOnly() {
+  const name = useRoles((s) => s.name);
+  const pack = useRoles((s) => s.current?.pack || packOf(s.current?.scope));
+  if (!pack) return null;
+  return (
+    <div className="ri-readonly mono" data-testid="roles-inspector-readonly">
+      <span>from pack {pack}, read-only</span>
+      <span className="spacer" />
+      <Button size="sm" variant="primary" onClick={() => void cloneFromPack("lineup", name, true)} title="Clone it into your lineups and open your copy to edit" data-testid="roles-inspector-customize">Customize</Button>
+    </div>
+  );
+}
 
 export function InspectorDetail() {
   const tab = useRoles((s) => s.tab);
@@ -21,6 +37,7 @@ export function InspectorDetail() {
   const anyLive = Object.keys(byNode).length;
   return (
     <div className="ri" data-testid="roles-inspector-body">
+      <ReadOnly />
       <ModelStrip />
       <Tabs
         label="Inspector"
