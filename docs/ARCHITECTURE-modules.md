@@ -222,7 +222,15 @@ MCP grant filters), `packs/journal.py` (the journal and its journaled writes),
 `packs/fetch.py` (a folder or a git url), `packs/install.py` (install and
 update), `packs/remove.py` (remove; your work stays), `packs/doctor.py`
 (every problem), `packs/cli.py` and `packs/cli_views.py` (`halo pack`);
-`where/pack_files.py` is the packs group of `halo config where`.
+`where/pack_files.py` is the packs group of `halo config where`. 3.2.0.0 R2,
+a pack's bios and lineups: `packs/bio_models.py` (`models.capabilities` to the
+best catalog model), `packs/bio_rules.py` (what a pack's bio and lineup may not
+say, with the manifest), `packs/memory.py` (a pack bio's memory namespace,
+recall's filter), `packs/lineup_run.py` (`workflows`, `acceptance.test` /
+`review` as the Orchestra defaults), `packs/roles.py` (the bios and lineups
+`halo pack inspect` / `doctor` and the list groups read), `packs/clone.py`
+(Clone into your folder); `studio/packs_roles_api.py` is Studio's
+`roles/packs` and `roles/clone`.
 
 **The extension API** (`halo_harness/ext/`, API 1.0, docs/EXTENSION_API.md):
 `ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`),

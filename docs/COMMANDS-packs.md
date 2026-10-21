@@ -29,9 +29,24 @@ halo pack list --json
 
 `halo pack inspect <id|path>`: the manifest (name, version, the extension
 API and Halo versions it works with, what it requires), every name it
-offers, each permission it requests with what needs it and whether it is
-granted, its settings (defaults with yours on top) and its problems. A path
-inspects a pack folder before you install it.
+offers, each bio with the model it resolves to (and why: its
+`models.capabilities`, or your default model when no catalog model has
+them), the grants it needs (granted or not) and its memory namespace, each
+lineup with its members, tiers, workflows and acceptance, each permission it
+requests with what needs it and whether it is granted, its settings
+(defaults with yours on top) and its problems. A path inspects a pack folder
+before you install it. `--json` adds `bios` and `lineups`.
+
+```sh
+$ halo pack inspect doc-review
+...
+bios:
+  doc-review--reviewer: runs on ol:long-1 (the best catalog model with long-context)
+    needs: bash (not granted)
+    memory namespace: doc-review/reviews
+lineups:
+  doc-review--review: doc-review--writer (main), doc-review--reviewer (reviewer); 2 tiers; workflows review; acceptance.test: python -m pytest -q; acceptance.review: true
+```
 
 ### `halo pack install`
 
@@ -99,11 +114,25 @@ starts with the same grants.
 Every problem, one line each: a manifest that does not validate, an API or
 Halo version outside a pack's range, a missing, disabled or out-of-range
 required pack, a requires cycle, a contribution whose permission is not
-granted, settings outside the pack's schema, a name two packs (or a pack and
+granted, settings outside the pack's schema, a capability set no model in
+your catalog has (one row per set, naming the bios that fall back to your
+default model), a bio's need you have not granted (one row per need, with
+`halo pack enable <id> --grant <need>`), a name two packs (or a pack and
 you) offer, a pack shadowed by a same-id repo pack, a state record whose
 folder is gone, a bio or lineup file pack.yaml does not list, and what the
 privacy scan finds in the pack's files. `halo doctor --config` lists the
-same lines under its packs group.
+same lines under its packs group. A bio naming one provider, a stray
+workflow name, a tag Halo does not know and a need pack.yaml does not request
+are manifest problems (the first group).
+
+## A pack in `halo agents list` and `halo teams list`
+
+With a pack enabled, `halo agents list` and `halo teams list` print your
+names (and the shipped ones) one per line as before, then one group per
+pack: `pack <id>:` and its `<id>--<name>` names, indented. A name a file of
+yours shadows says so: `  doc-review--reviewer  shadowed by
+~/.halo/agents/doc-review--reviewer.yaml`. With no pack the output is
+unchanged.
 
 #### `--cwd`
 

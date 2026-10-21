@@ -19,7 +19,8 @@ def _cmd_list(rest: list) -> int:
     if not names:
         print("No lineups found.")
         return 0
-    for n in names:
+    from halo_harness.packs.roles import list_lines  # 3.2.0.0 R2: one group per pack, a shadowed name says so
+    for n in list_lines("lineups", names):
         print(n)
     return 0
 

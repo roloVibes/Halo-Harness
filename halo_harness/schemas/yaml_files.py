@@ -21,7 +21,8 @@ _LIST_OF_MAPPINGS = {"type": "array", "items": MAPPING}
 def lineup() -> dict:
     from halo_harness import teams_yaml as T
     props = {"name": STRING, "description": STRING, "version": _VERSION, "tags": LIST, "about": STRING,
-             "extends": STRING, "agents": _LIST_OF_MAPPINGS, "roles": MAPPING}
+             "extends": STRING, "agents": _LIST_OF_MAPPINGS, "roles": MAPPING,
+             "workflows": LIST, "from_pack": STRING}  # 3.2.0.0 R2: a pack lineup's workflows; a clone's origin
     for section in T.TOP_SECTIONS:
         props[section] = LIST if section in T.LIST_SECTIONS else MAPPING
     return obj(props)
@@ -30,7 +31,7 @@ def lineup() -> dict:
 def bio() -> dict:
     from halo_harness import agents_yaml as A
     props = {"name": STRING, "description": STRING, "version": _VERSION, "tags": LIST, "kind": STRING,
-             "extends": STRING}
+             "extends": STRING, "from_pack": STRING}  # 3.2.0.0 R2: a clone's origin, `<id>@<version>`
     missing = [f for f in A.IDENTITY_FIELDS if f not in props]
     props.update({f: STRING for f in missing})
     for section in A.BIO_SECTIONS:

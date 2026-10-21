@@ -291,7 +291,15 @@ A lineup from a pack (Halo 3.2.0.0, [PACKS.md](PACKS.md)) is named
 the same way; its bios are `<id>--<name>` too. A pack's lineup is never
 written: Studio's Duplicate makes your own copy. A lineup from a repo's
 pack (`.halo/packs/`) loses `permissions.mode` and allow rules, as a repo's
-own lineup does in a folder you have not trusted.
+own lineup does in a folder you have not trusted. 3.2.0.0 R2: Studio's Roles
+groups lineups and bios by source (yours, project, one box per pack,
+shipped); a pack's lineup opens read-only (Preview), Clone copies it to
+`<name>` with `from_pack: <id>@<version>`, Customize opens the copy, Apply
+names the pack. Any lineup's `acceptance` may also say `test: <command>` and
+`review: true`: an Orchestra run on it (`halo orchestra new --lineup`)
+starts with that test and pauses for the plan's review, unless you give
+`--test`. A pack lineup's `workflows: [...]` names its pack's workflows
+([PACKS.md](PACKS.md) "A pack's lineups").
 
 ## How an agent gets a role
 

@@ -49,11 +49,13 @@ def _problems(lines: list, status: int = 422):
 def get_state(req: Request):
     from halo_harness import __version__
     from halo_harness.roles import roles_mode_enabled
+    from halo_harness.studio.packs_roles_api import active_packs
     from halo_harness.theme import get_config_value
     return 200, {"version": __version__, "active_team": _active_team(), "roles_enabled": bool(roles_mode_enabled()),
                  "default_model": str(get_config_value("model", "") or ""), "cwd": str(req.cwd),
                  "state_dir": str(req.state_dir), "shipped_lineups": T.list_bundled_team_templates(),
-                 "shipped_bios": A.list_bundled_agent_templates(), "top_sections": list(T.TOP_SECTIONS)}
+                 "shipped_bios": A.list_bundled_agent_templates(), "top_sections": list(T.TOP_SECTIONS),
+                 "packs": active_packs(req.cwd, req.state_dir)}  # 3.2.0.0 R2: Roles groups by them
 
 
 # -- lineups --------------------------------------------------------------------
@@ -110,6 +112,9 @@ def post_lineup(req: Request):
     name = str(req.body.get("name") or "").strip()
     if not T.is_valid_team_name(name):
         return _problems([f"{name!r} is not a valid lineup name (letters, digits, - and _)"])
+    folder = T.project_teams_dir(req.cwd) if req.project else T.user_teams_dir(req.state_dir)
+    if (Path(folder) / f"{name}.yaml").is_file():  # 3.2.0.0 R2: New / Duplicate never write over a lineup of yours
+        return _problems([f"a lineup named {name} is already yours: pick another name"], 409)
     ok, problems = T.new_team_template_from_template(name, req.body.get("from") or None, cwd=req.cwd,
                                                      state_dir=req.state_dir, project=req.project)
     if not ok:
@@ -201,6 +206,9 @@ def post_bio(req: Request):
     name = str(req.body.get("name") or "").strip()
     if not A.is_valid_agent_name(name):
         return _problems([f"{name!r} is not a valid agent name (letters, digits, - and _)"])
+    folder = A.project_agents_dir(req.cwd) if req.project else A.user_agents_dir(req.state_dir)
+    if (Path(folder) / f"{name}.yaml").is_file():  # 3.2.0.0 R2: New / Duplicate never write over a bio of yours
+        return _problems([f"a bio named {name} is already yours: pick another name"], 409)
     ok, problems = A.new_agent_bio_from_template(name, req.body.get("from") or None, cwd=req.cwd,
                                                  state_dir=req.state_dir, project=req.project)
     if not ok:
@@ -277,6 +285,8 @@ from .roles_api import ROUTES as _ROLES_ROUTES  # noqa: E402  (3.0.7.0 R2: gym, 
 ROUTES[len(ROUTES):] = _ROLES_ROUTES
 from .doctor_config_api import ROUTES as _DOCTOR_CONFIG_ROUTES  # noqa: E402  (3.1.1.0 R2: doctor/config)
 ROUTES[len(ROUTES):] = _DOCTOR_CONFIG_ROUTES
+from .packs_roles_api import ROUTES as _PACKS_ROLES_ROUTES  # noqa: E402  (3.2.0.0 R2: roles/packs, roles/clone)
+ROUTES[len(ROUTES):] = _PACKS_ROLES_ROUTES
 
 
 _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),

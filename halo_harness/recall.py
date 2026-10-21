@@ -171,6 +171,8 @@ def build_index(state_dir=None, *, cwd=None, force: bool = False) -> dict:
     sources += _session_sources(state_dir, None if force else existing)
     library = _library_sources(state_dir)
     sources += library
+    from halo_harness.packs.memory import memory_sources  # 3.2.0.0 R2: each pack bio's namespace folder
+    sources += memory_sources(state_dir=state_dir)
     kinds = {sid: "coach_library" for sid, *_ in library}
 
     # review finding 88: an entry is pruned only when its source file is
@@ -210,9 +212,11 @@ def build_index(state_dir=None, *, cwd=None, force: bool = False) -> dict:
     return {"enabled": True, "embedded": embedded, "total": len(existing), "pruned": len(pruned)}
 
 
-def search(query: str, *, state_dir=None, k: int = 8, refresh: bool = True) -> list:
+def search(query: str, *, state_dir=None, k: int = 8, refresh: bool = True, namespace: Optional[str] = None) -> list:
     """Ranked `[{id, kind, title, score}]` for `query` (newest-index
-    first on ties). Empty list when embeddings are disabled/unavailable."""
+    first on ties). Empty list when embeddings are disabled/unavailable.
+    3.2.0.0 R2: `namespace` (`<pack>/<name>`, packs/memory.py) reads only that
+    pack bio's notes; None reads yours and leaves every pack's folder out."""
     if not query.strip():
         return []
     from halo_harness.providers.embeddings import cosine, embed_texts, embeddings_enabled
@@ -220,7 +224,8 @@ def search(query: str, *, state_dir=None, k: int = 8, refresh: bool = True) -> l
         return []
     if refresh:
         build_index(state_dir)
-    entries = _load_index(_index_path(state_dir))
+    from halo_harness.packs.memory import in_namespace
+    entries = {i: e for i, e in _load_index(_index_path(state_dir)).items() if in_namespace(i, namespace, state_dir=state_dir)}
     if not entries:
         return []
     qvec = embed_texts([query])

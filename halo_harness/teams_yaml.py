@@ -246,6 +246,14 @@ def resolve_team_template(name: str, *, cwd=None, state_dir=None, _chain: "Optio
     for section in TOP_SECTIONS:
         resolved[section] = _merge_section((parent or {}).get(section), raw.get(section))
     resolved["agents"] = raw.get("agents") if raw.get("agents") is not None else (parent or {}).get("agents")
+    # 3.2.0.0 R2: a pack lineup's `workflows` (names; R5 runs them) inherit like `agents`; `from_pack` is the file's own
+    flows = raw.get("workflows") if raw.get("workflows") is not None else (parent or {}).get("workflows")
+    resolved.pop("workflows", None)
+    if flows is not None:
+        resolved["workflows"] = flows
+    resolved.pop("from_pack", None)
+    if raw.get("from_pack"):
+        resolved["from_pack"] = raw["from_pack"]
     # Halo 2.0.5 round 2 (deliverable 3): `about` ("How the pieces work
     # together", free text) is an identity field like `description` --
     # never merged key-by-key (it's a single string, not a section), only
@@ -374,6 +382,8 @@ def validate_team_template(data, *, name: "Optional[str]" = None, cwd=None, stat
     for section in ("budget", "escalation", "context", "permissions"):
         if section in data and data[section] is not None and not isinstance(data[section], dict):
             problems.append(f'"{section}" must be a mapping')
+    from halo_harness.packs.lineup_run import acceptance_problems  # 3.2.0.0 R2: workflows, acceptance.test/review
+    problems.extend(acceptance_problems(data))
     # Halo 2.0.5 round 5: the enforced sections get VALUE checks, not just
     # mapping checks -- one plain line per problem, same style as every
     # other check above.
@@ -598,8 +608,9 @@ def member_model(template, entry, *, cwd=None, state_dir=None, bio=_UNSET) -> "t
             session = get_config_value("model", default=None)
             tier_model = session.strip() if isinstance(session, str) and session.strip() else tier_model
         return tier_model, fallback, f"tier:{_tier_name_for(template, key)}"
-    if bio_models.get("preference"):
-        return str(bio_models["preference"]), fallback, "session"
+    if bio_models.get("preference"):  # 3.2.0.0 R2: a bio's models.capabilities picked it, else `default`
+        how = ((bio or {}).get("_model") or {}).get("how")
+        return str(bio_models["preference"]), fallback, "capabilities" if how == "capabilities" else "session"
     if fallback:
         return fallback, fallback, "fallback"
     return "", "", ""

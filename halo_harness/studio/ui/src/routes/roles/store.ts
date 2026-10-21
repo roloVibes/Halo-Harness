@@ -157,6 +157,8 @@ export function showsStart(s: RolesState): boolean {
 
 /** A file Halo never writes (3.2.0.0 R1, packs/names.py read_only_source): a shipped one, or a pack's (`pack:<id>`). */
 export const readOnlySource = (scope: string | undefined) => scope === "template" || (scope ?? "").startsWith("pack:");
+/** 3.2.0.0 R2: the pack a `pack:<id>` scope names, else "". */
+export const packOf = (scope: string | undefined) => ((scope ?? "").startsWith("pack:") ? (scope ?? "").slice(5) : "");
 export const scopeLabel = (scope: string | undefined) =>
   scope === "template" ? "shipped" : (scope ?? "").startsWith("pack:") ? `pack ${(scope ?? "").slice(5)}` : scope || "?";
 

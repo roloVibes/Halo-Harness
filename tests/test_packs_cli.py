@@ -68,7 +68,8 @@ def test_every_verb_in_text_and_json(ctx: Ctx):
         code, out, _ = h.cli("inspect", "doc-review", "--json")
         d = json.loads(out)
         perms = {p["name"]: p["granted"] for p in d["permissions"]}
-        ctx.check(f"inspect --json: permissions and which are granted, got {perms}", perms == {"mcp:lint": False, "hooks": True})
+        ctx.check(f"inspect --json: permissions and which are granted, got {perms}",
+                  perms == {"mcp:lint": False, "hooks": True, "bash": False})  # 3.2.0.0 R2: bash, the reviewer's need
         ctx.check("inspect --json: the settings with their defaults", d["settings"] == {"style": "short", "max_findings": 20})
         ctx.check("inspect --json: no problems", d["problems"] == [] and d["state"] == "enabled")
         code, out, _ = h.cli("inspect", "doc-review")
@@ -79,9 +80,12 @@ def test_every_verb_in_text_and_json(ctx: Ctx):
         ctx.check("inspect an unknown id: exit 1", code == 1 and "neither an installed pack" in err)
         code, out, _ = h.cli("doctor", "--json")
         found = json.loads(out)["problems"]
+        # 3.2.0.0 R2: the bios' row (no model in an empty catalog has long-context) and their need (bash)
         ctx.check(f"doctor --json: the ungranted server, exit 1, got {found}",
-                  code == 1 and [p["check"] for p in found] == ["not-granted"] and "mcp:lint" in found[0]["text"])
-        h.cli("enable", "doc-review", "--grant", "mcp:lint")
+                  code == 1 and [p["check"] for p in found] == ["not-granted", "bio-model", "bio-need"]
+                  and "mcp:lint" in found[0]["text"])
+        h.catalog([{"ref": "ol:long-1", "provider": "ollama", "context_tokens": 262144}])
+        h.cli("enable", "doc-review", "--grant", "mcp:lint", "--grant", "bash")
         code, out, _ = h.cli("doctor")
         ctx.check(f"doctor clean: exit 0, got {out}", code == 0 and "RESULT: 0 problem(s)" in out)
         code, out, _ = h.cli("update", "doc-review", "--json")
@@ -129,7 +133,8 @@ def test_config_where_and_doctor_config_have_the_packs_group(ctx: Ctx):
                   and "read-only" in bios[0]["note"])
         found = [f for f in config_findings(h.repo) if f["kind"] == "packs"]
         ctx.check(f"doctor --config lists the ungranted needs, got {[f['text'] for f in found]}",
-                  len(found) == 2 and all(f["check"] == "pack-not-granted" and f["severity"] == "warns" for f in found))
+                  [f["check"] for f in found] == ["pack-not-granted", "pack-not-granted", "pack-bio-model", "pack-bio-need"]
+                  and all(f["severity"] == "warns" for f in found))  # 3.2.0.0 R2: the bios' model row and bash
 
 
 if __name__ == "__main__":

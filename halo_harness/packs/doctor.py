@@ -8,7 +8,9 @@ Checked: a pack.yaml that does not validate (blocks for an enabled pack, a
 warning for one that is not); the extension API or Halo version outside a
 pack's range, a missing, disabled or out-of-range required pack, a requires
 cycle; a contribution whose permission is not granted (it does not run);
-settings that do not fit the pack's schema; two packs, or a pack and you,
+settings that do not fit the pack's schema; a bio's capability set no
+catalog model has and a bio's need not granted (3.2.0.0 R2, packs/roles.py);
+two packs, or a pack and you,
 offering one name; a pack shadowed by a same-id project pack; a state.json
 record whose folder is gone; a bio or lineup file the manifest does not
 list; and what `privacy_scan` finds in the pack's text files.
@@ -93,6 +95,9 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
                               f"halo pack enable {pack.id} --grant {perm}", yaml_path))
             out += [_p(pack.id, "blocks", "settings", line, "halo config set packs.settings."
                        f"{pack.id}.<key> <value>") for line in ST.problems(pack)]
+            from halo_harness.packs.roles import doctor_rows  # 3.2.0.0 R2: a bio's capabilities and needs
+            out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"])
+                    for r in doctor_rows(pack, S.granted(pack.id, snap.state), cwd=cwd, state_dir=state_dir)]
         out += [_p(pack.id, "warns", "undeclared", line, "list it in pack.yaml", yaml_path)
                 for line in undeclared_lines(pack)]
         out += [_p(pack.id, "warns", "privacy", line, "take it out of the pack's file", yaml_path)

@@ -1,0 +1,6 @@
+name: pinned
+description: Pins one provider's model.
+kind: subagent
+models:
+  preference: or:vendor/some-model
+  capabilities: [tools]

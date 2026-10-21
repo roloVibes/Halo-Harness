@@ -158,6 +158,8 @@ def last(state_dir) -> "dict | None":
 
 def refresh(state_dir, env: dict, *, box_s: "float | None" = None, local: bool = True) -> dict:
     """Ask every provider at once; return (and keep) what each said within the box."""
+    from halo_harness.packs.bio_models import forget
+    forget()  # 3.2.0.0 R2: a bio's models.capabilities resolves against the new list
     box = float(box_s or _box())
     jobs = jobs_for(state_dir, env, local=local)
     results: dict = {}

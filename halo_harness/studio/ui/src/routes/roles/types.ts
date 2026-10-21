@@ -13,9 +13,15 @@ export type StateInfo = {
   top_sections: string[];
   shipped_lineups: string[];
   shipped_bios: string[];
+  /** 3.2.0.0 R2: the packs that run here (a disabled one is absent): one group each in Lineups and Bios. */
+  packs?: PackInfo[];
 };
 
-export type LineupRow = { name: string; scope: string; description: string; about: string; active: boolean; agents: number; roles: string[]; shipped_copy?: boolean };
+export type PackInfo = { id: string; name: string; version: string; scope: string };
+/** 3.2.0.0 R2 (studio/packs_roles_api.row_fields): the pack name a file of yours shadows, a clone's origin. */
+export type PackFields = { shadows?: string; shadowed_by?: string; from_pack?: string };
+
+export type LineupRow = { name: string; scope: string; description: string; about: string; active: boolean; agents: number; roles: string[]; shipped_copy?: boolean } & PackFields;
 
 export type GraphNode = {
   id: string;
@@ -74,10 +80,14 @@ export type LineupPayload = {
   findings?: Finding[];
   enforcement: Record<string, [string, string]>;
   layout: Record<string, unknown>;
+  /** 3.2.0.0 R2: the pack it comes from ("" for yours): it opens read-only. */
+  pack?: string;
 };
 
-export type BioRow = { name: string; scope: string; description: string; kind: string; model: string; tools: number };
-export type BioPayload = { name: string; scope: string; path: string; raw: Raw; resolved: Raw; yaml: string; problems: string[]; kinds: string[] };
+export type BioRow = { name: string; scope: string; description: string; kind: string; model: string; tools: number;
+  capabilities?: string[]; model_problem?: string } & PackFields;
+export type BioPayload = { name: string; scope: string; path: string; raw: Raw; resolved: Raw; yaml: string; problems: string[]; kinds: string[];
+  pack?: string; model_info?: { capabilities: string[]; ref: string; how: string; problem: string } | null };
 
 export type ModelRow = {
   ref: string;
@@ -130,7 +140,9 @@ export type RolesDialog =
   | { kind: "dup-bio"; from: string }
   | { kind: "delete-bio"; name: string }
   | { kind: "delete-card"; node: string }
-  | { kind: "discard"; then: string };
+  | { kind: "discard"; then: string }
+  /** 3.2.0.0 R2: Clone or Customize met a name that is yours (or Halo's): replace it, or pick another. */
+  | { kind: "clone-exists"; what: "bio" | "lineup"; name: string; target: string; shipped: boolean; error: string; open: boolean };
 
 /** A live agent on a card (routes/fleet/frames.ts liveRows, or a replay frame). */
 export type LiveAgent = {

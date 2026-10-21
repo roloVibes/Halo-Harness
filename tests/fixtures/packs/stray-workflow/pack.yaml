@@ -1,0 +1,11 @@
+# A fixture pack whose lineup names a workflow the pack does not declare
+# (3.2.0.0 R2, tests/test_packs_roles.py): one manifest problem naming it.
+id: stray-workflow
+name: Stray workflow
+version: 0.1.0
+description: A lineup that names a workflow its pack does not declare.
+halo_api: {min: "1.0"}
+contributes:
+  agents: [agents/solo.yaml]
+  teams: [teams/flow.yaml]
+  workflows: [review]
