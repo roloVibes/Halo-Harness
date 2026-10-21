@@ -102,7 +102,9 @@ memory folder and in `tools.mcp_servers`. Inside the pack, a lineup's
 Halo qualifies them. A bio or lineup of yours with the same `<id>--<name>`
 wins (Studio's Duplicate makes one) and `halo pack doctor` names it; a
 disabled pack adds nothing to this search. `halo agents` groups the pack's
-bios under "Pack <id> agents:".
+bios under "Pack <id> agents:", and `halo agents list` / `halo teams list`
+under `pack <id>:` (3.2.0.0 R2), where a name a file of yours shadows says
+"shadowed by" your file.
 
 The six shipped team templates (`balanced`, `code-review`,
 `halo-dev-cycle`, `local-first`, `quality`, `standard`) are copied into `~/.halo/teams/` the first time each is
@@ -224,6 +226,21 @@ keeps every lineup's schedules and triggers armed while it runs, so they no
 longer need a session open at all. Its store entries are marked `owner:
 supervisor`; a session that loads a lineup the supervisor already owns does
 not arm it a second time, so nothing double-fires.
+
+## Asking for a model by capability (Halo 3.2.0.0 R2)
+
+`models.capabilities: [long-context, tools]` asks for what the model must do
+instead of naming one: each time the bio resolves it runs on the best
+catalog model carrying every tag (a model of the family a bare
+`models.preference` names first, e.g. `claude-sonnet`), and on your
+`default` model when none does (`halo pack doctor`, `halo pack inspect` and
+the card in Studio say so). A full model ref in `models.preference` (`or:`,
+`ant:` ...) pins the bio instead. The tags: `long-context`, `vision`,
+`audio`, `video`, `files`, `image-out`, `tools`, `local`
+(`halo_harness/packs/bio_models.py`). A pack's bios ask this way and never
+name a provider ([PACKS.md](PACKS.md) "A pack's bios", where `tools.needs`
+and the pack bio's memory namespace are too). A bio Studio cloned from a
+pack carries `from_pack: <id>@<version>`, which changes nothing at run time.
 
 ## The `default` model reference and the `standard` lineup (Halo 2.0.5 round 2b)
 

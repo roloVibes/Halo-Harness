@@ -4,10 +4,13 @@ version: 1
 tags: [docs, review]
 kind: reviewer
 models:
-  preference: default
+  capabilities: [long-context]
   effort: high
 tools:
-  allow: [Read, Grep, Glob]
+  allow: [Read, Grep, Glob, Bash]
   deny: [Edit, Write]
+  needs: [bash]
+context:
+  memory: {namespace: reviews}
 output:
   handoff: summary

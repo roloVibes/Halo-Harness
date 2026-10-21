@@ -22,7 +22,7 @@ _NAMES = {"type": "array", "items": STRING}
 TOP_KEYS = ("id", "name", "version", "description", "author", "license", "halo_api", "halo", "capabilities",
             "requires", "contributes", "config", "permissions", "migrations")
 CONTRIBUTION_KEYS = ("agents", "teams", "skills", "commands", "hooks", "mcp", "studio", "fleet", "artifacts",
-                     "events")
+                     "events", "workflows")  # 3.2.0.0 R2: workflows (names a lineup's workflows may use; R5 runs them)
 
 
 def pack() -> dict:
@@ -33,7 +33,7 @@ def pack() -> dict:
                  "additionalProperties": True}
     contributes = obj({"agents": _NAMES, "teams": _NAMES, "skills": STRING, "commands": STRING, "hooks": STRING,
                        "mcp": {"type": "array", "items": mcp_entry}, "studio": MAPPING, "fleet": MAPPING,
-                       "artifacts": LIST, "events": _NAMES})
+                       "artifacts": LIST, "events": _NAMES, "workflows": _NAMES})
     migration = obj({"from": _VERSION, "to": _VERSION, "note": STRING})
     props = {"id": STRING, "name": STRING, "version": STRING, "description": STRING, "author": author,
              "license": STRING, "halo_api": _RANGE, "halo": _RANGE, "capabilities": _NAMES, "requires": requires,

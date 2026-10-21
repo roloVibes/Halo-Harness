@@ -33,8 +33,10 @@ class PacksHome(ConfigHome):
         return self
 
     def __exit__(self, *exc):
-        from halo_harness.packs import registry
+        from halo_harness.packs import bio_models, registry
         registry.invalidate()
+        bio_models.ROWS = None
+        bio_models.forget()
         return super().__exit__(*exc)
 
     def source(self, name: str = "doc-review", *, folder: str = "") -> Path:
@@ -46,14 +48,20 @@ class PacksHome(ConfigHome):
         return dest
 
     def install(self, src: Path, *, project: bool = False, enable: bool = False, grants=()) -> None:
+        """Install the pack in `src` (its folder is named by its id) and, with `enable`, enable it."""
         from halo_harness.packs.discover import find
         from halo_harness.packs.grants import enable as enable_pack
         from halo_harness.packs.install import install
         ok, lines = install(str(src), project=project, cwd=self.repo)
         assert ok, lines
         if enable:
-            ok, lines = enable_pack(find("doc-review", cwd=self.repo), grant=list(grants))
+            ok, lines = enable_pack(find(Path(src).name, cwd=self.repo), grant=list(grants))
             assert ok, lines
+
+    def catalog(self, rows) -> None:
+        """3.2.0.0 R2: the model catalog a bio's `models.capabilities` resolves against (no provider, no network)."""
+        from halo_harness.packs import bio_models
+        bio_models.ROWS = lambda _state_dir, _cwd: list(rows)
 
     def cli(self, *argv) -> "tuple[int, str, str]":
         from halo_harness.packs.cli import cmd_pack

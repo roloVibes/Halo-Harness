@@ -48,7 +48,8 @@
         "studio": {"type": "object", "description": "planned (3.2.0.0 R3)"},
         "fleet": {"type": "object", "description": "planned (3.2.0.0 R4)"},
         "artifacts": {"type": "array", "description": "planned (3.2.0.0 R5)"},
-        "events": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"}}
+        "events": {"type": "array", "items": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"}},
+        "workflows": {"type": "array", "items": {"type": "string"}, "description": "workflow names a lineup's workflows may use (3.2.0.0 R2); R5 runs them"}
       }
     },
     "config": {

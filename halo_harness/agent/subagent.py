@@ -549,7 +549,7 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
     # namespaced shared memory (`context.memory.namespace`, writable only
     # by `writers`) as an extra permission working dir + prompt line.
     team_control = getattr(runtime, "team_control", None)
-    team_memory_dir = None
+    team_memory_dir = pack_memory_dir = None
     if team_control is not None:
         addition = team_control.member_context_addition(_effective_role_name, cwd=parent.cwd,
                                                         state_dir=parent.state_dir)
@@ -566,6 +566,13 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
             ctx.system_prompt = (f"{ctx.system_prompt}\n\nTeam memory namespace "
                                  f"({team_control.context.get('memory', {}).get('namespace')}): {memory_dir} "
                                  f"-- you may {role_word} it; use it for notes the whole team shares.")
+        from halo_harness.packs.memory import member_note  # 3.2.0.0 R2: a pack bio's own memory namespace
+        try:
+            pack_memory_dir, note = member_note(team_control.bio_for(_effective_role_name), parent.state_dir)
+        except Exception:
+            pack_memory_dir, note = None, ""
+        if pack_memory_dir is not None:
+            ctx.system_prompt = f"{ctx.system_prompt}\n\n{note}"
     model_ref, model_profile = resolve_agent_model(
         invocation_model=model_override, frontmatter_model=spec.model,
         role_name=_effective_role_name, role_table=runtime.role_table,
@@ -699,6 +706,8 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
         child_extra_dirs.append(memory_extra_dir)
     if team_memory_dir is not None:
         child_extra_dirs.append(team_memory_dir)
+    if pack_memory_dir is not None:  # 3.2.0.0 R2: the pack bio's own memory folder
+        child_extra_dirs.append(pack_memory_dir)
     # Halo 2.0.5 round 5 "team control": the template's `permissions`
     # section applies to every member ON TOP of the bio's own -- mode,
     # deny/ask/allow rules in the same settings.json grammar the parent

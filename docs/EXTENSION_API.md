@@ -17,7 +17,7 @@ machine-readable manifest schema is
 | [The stable surface](#the-stable-surface-halo_harnessext) | stable | names and meanings hold for every 1.x |
 | [The manifest](#the-manifest-packyaml) | stable | format 1, read by API 1.x |
 | [The lifecycle](#the-lifecycle) | stable | `halo pack` verbs, state.json, the journal |
-| [Agents and teams](#agents-and-teams) | stable | bios and lineups under `<id>--<name>` |
+| [Agents and teams](#agents-and-teams) | stable | bios and lineups under `<id>--<name>`; R2: capabilities, needs, namespace, workflows, acceptance |
 | [Skills, commands, hooks and MCP](#skills-commands-hooks-and-mcp) | stable | the Claude-plugin layout, namespaced |
 | [Permissions and grants](#permissions-and-grants) | stable | requested in pack.yaml, granted by you |
 | [Studio contributions](#studio-contributions) | planned | shape proposed; R3 builds it |
@@ -81,6 +81,7 @@ contributes:
   fleet: {}                     # planned (R4)
   artifacts: []                 # planned (R5)
   events: [review.done]         # the kinds the pack publishes
+  workflows: [review]           # the workflow names its lineups may use (3.2.0.0 R2; R5 runs them)
 config:
   schema: {properties: {style: {type: string, enum: [short, long]}}, additionalProperties: false}
   defaults: {style: short}
@@ -125,7 +126,9 @@ update | remove | doctor` ([COMMANDS-packs.md](COMMANDS-packs.md)).
 
 ## Agents and teams
 
-Status: **stable**. `agents/*.yaml` (bios) and `teams/*.yaml` (lineups) are
+Status: **stable** (`contributes.agents` and `contributes.teams`; the schema
+deltas below are stable since 3.2.0.0 R2). `agents/*.yaml` (bios) and
+`teams/*.yaml` (lineups) are
 read in place by the pack tier of `agent_search_dirs` / `team_search_dirs`:
 after the project and home folders, before the shipped templates; the source
 label is `pack:<id>`, the name `<id>--<name>`, and `_pack` and `_name` are
@@ -134,6 +137,26 @@ name the pack's own bios and lineups bare; Halo qualifies them. A pack file
 is never written: Studio answers 409 and offers a duplicate in your scope,
 which wins (and `halo pack doctor` names the shadow). A project pack's lineup
 loses `permissions.mode` and allow rules. `agents/*.md` are Claude-plugin agents.
+
+The bio and lineup schemas are the user's ([AGENTS.md](AGENTS.md),
+[ROLES.md](ROLES.md)); a pack's files add or narrow these (checked with the
+manifest, `halo_harness/packs/bio_rules.py`, one line per problem naming the
+file and line):
+
+| Where | Key | Meaning |
+|---|---|---|
+| bio | `models.capabilities: [tag, ...]` | resolved at load to the best catalog model with every tag (`long-context`, `vision`, `audio`, `video`, `files`, `image-out`, `tools`, `local`; `halo_harness/packs/bio_models.py`); none: the user's `default` model and a doctor row. A bio of the user's may say it too. |
+| bio | `models.preference` | a bare family name only (`claude-sonnet`): the family the pick prefers. A route prefix (`or:` ...), a `vendor/model` path, a Databricks name, or `models.provider`, is a manifest problem. |
+| bio | `context.memory.namespace` | default the pack's id; the folder `~/.halo/packs/.data/<id>/memory/<namespace>/`; recall (`recall.search(namespace=...)`) reads it apart from the user's and every other pack's. |
+| bio | `tools.needs: [need, ...]` | `bash`, `network`, `home-write`, `hooks`, `mcp:<server>`, each requested in `permissions`; an ungranted need loads the bio and gets a doctor row naming `halo pack enable <id> --grant <need>`. |
+| lineup | `workflows: [name, ...]` | names from the manifest's `contributes.workflows` (names, or `workflows/<name>.yaml` whose stem is the name; R5 runs them). |
+| lineup | `acceptance.test`, `acceptance.review` | the Orchestra goal's `test` and `plan: review` a run with this lineup starts with (`halo orchestra new --lineup`); `prompt` / `expect` stay the doctor's smoke prompt. |
+| both | `from_pack: <id>@<version>` | written by Studio's Clone on the copy in the user's folder; changes nothing at run time. |
+
+The manifest gains `contributes.workflows` (a list of names). Clone and
+Customize copy a pack's bio or lineup into the user's folder as `<name>`
+(`halo_harness/packs/clone.py`); a file of the user's, or a shipped one,
+with that name is written only after the user's confirm.
 
 ## Skills, commands, hooks and MCP
 
@@ -174,6 +197,8 @@ private path or an environment value.
 Status: **planned** (R5). Proposed: a declarative workflow file on top of
 the Orchestra (stages, typed inputs and outputs, gates, budgets, checks),
 listed under `contributes.workflows`, runnable on any compatible model.
+Since R2 `contributes.workflows` is read for its names (a lineup's
+`workflows:` is checked against them); nothing runs a workflow yet.
 
 ## Events and artifacts
 

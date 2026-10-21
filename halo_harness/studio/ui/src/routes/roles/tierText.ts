@@ -47,5 +47,6 @@ export function sourceText(src: string | undefined, bio: string): string {
   if (src === "bio") return `bio ${bio || "?"}'s own model`;
   if (src.startsWith("tier:")) return `tier ${src.slice(5)}'s model`;
   if (src === "session") return `the session's model (bio ${bio || "?"} says default)`;
+  if (src === "capabilities") return `the best catalog model with bio ${bio || "?"}'s capabilities`;
   return "a fallback model";
 }

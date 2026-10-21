@@ -20,6 +20,7 @@ IDENTITY = {
     "kind": "which family it belongs to (main, subagent, researcher, judge, reviewer, custom, media)",
     "tags": "search labels, comma separated",
     "extends": "inherit every field of another bio; the fields set here win",
+    "from_pack": "the pack and version this bio was cloned from (pack@1.0.0); it changes nothing at run time",
 }
 
 #: One line per bio field, `section.key`.
@@ -28,11 +29,13 @@ BIO = {
     "models.fallback": "what to switch to when the preferred model keeps failing",
     "models.effort": "how hard the model thinks (higher = better, slower, pricier)",
     "models.thinking": "let the model's own native thinking blocks through",
+    "models.capabilities": "what the model must do (long-context, vision, tools ...): the best catalog model with every one; none: your default model",
     "models.context_budget": "cap this agent's context at a fraction (0-1) of the model's window",
     "tools.allow": "the only tools this agent may call (blank = the default set)",
     "tools.deny": "tools to withhold from this agent, even when allowed elsewhere",
     "tools.mcp_servers": "which MCP servers' tools this agent may call",
     "tools.permission_mode": "how permission asks are decided for this agent's tool calls",
+    "tools.needs": "a pack bio's grants (bash, network, home-write, mcp:<server>): halo pack enable <id> --grant <need>",
     "tools.rules": "extra allow/ask/deny rules, one per line, the settings.json grammar (deny Bash(git push*))",
     "context.files": "files put in front of this agent's prompt (its reading list)",
     "context.skills": "skills this agent may invoke",
@@ -65,7 +68,7 @@ LINEUP_SECTIONS = {
     "context": "the files, skills and memory every member starts with",
     "permissions": "the lineup's own permission mode and rules, on top of each bio's own",
     "pipeline": "stages that run in order; a required gate must pass",
-    "acceptance": "the one smoke prompt `halo doctor --teams` runs through this lineup",
+    "acceptance": "the one smoke prompt `halo doctor --teams` runs through this lineup, and the test and review an Orchestra run on it starts with",
     "tiers": "stacks of members: main alone in tier 0; each tier spawns only into the next one down; "
              "a tier may name its own model and a trigger that starts it",
 }
@@ -98,6 +101,8 @@ LINEUP_FIELDS = {
     "pipeline.stages": "one row per stage, in order: its name, the role or alias that runs it, its gate",
     "acceptance.prompt": "the smoke prompt",
     "acceptance.expect": "what a passing answer looks like (a substring, or non-empty)",
+    "acceptance.test": "the test command an Orchestra run on this lineup starts with (halo orchestra new --lineup)",
+    "acceptance.review": "an Orchestra run on this lineup pauses for the plan's review before it runs",
     "tiers": "tier 0 holds main alone; members left out join the last tier",
     # 3.1.6.0 R1: the Roles canvas's tier controls (Add tier, the box head, the box menu)
     "tiers.add": "a new tier box: name it, Enter adds it, then drag cards in (the first one also puts main alone in tier 0)",
@@ -121,6 +126,8 @@ ASSIGNMENT = {
     "description": "one line: what this lineup is for",
     "about": "how the pieces work together; members read it as 'How this team works'",
     "extends": "another lineup to inherit sections from",
+    "workflows": "the pack workflows this lineup runs (a pack's lineup names its pack's own)",
+    "from_pack": "the pack and version this lineup was cloned from (pack@1.0.0); it changes nothing at run time",
 }
 
 #: 3.1.4.0 R4: the one model control (Studio's ModelSelect) wherever an agent is configured.
@@ -160,6 +167,7 @@ PACK = {
     "contributes.fleet": "Fleet capabilities (planned)",
     "contributes.artifacts": "typed artifacts and their viewers (planned)",
     "contributes.events": "the event kinds it publishes on Studio's live feed",
+    "contributes.workflows": "the workflows its lineups may name (workflows: [review]); R5 runs them",
     "config.schema": "the shape of its settings (packs.settings.<id> in config.json)",
     "config.defaults": "the settings it starts with; yours win",
     "permissions": "what it asks you to grant: mcp:<server>, hooks, bash, network, home-write",

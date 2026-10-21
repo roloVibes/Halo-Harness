@@ -1,0 +1,10 @@
+# A fixture pack whose bios name one provider (3.2.0.0 R2,
+# tests/test_packs_roles.py): a provider-prefixed models.preference and a
+# models.provider line are each a manifest problem naming the file and line.
+id: provider-pinned
+name: Provider pinned
+version: 0.1.0
+description: Two bios that name one provider, which a pack's bio may not.
+halo_api: {min: "1.0"}
+contributes:
+  agents: [agents/pinned.yaml, agents/routed.yaml]

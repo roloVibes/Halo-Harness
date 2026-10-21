@@ -169,6 +169,9 @@ def agent_group_lines(*, cwd=None, state_dir=None) -> "list[str]":
         groups.setdefault(found[1] if found else "template", []).append(
             f"  {name} ({bio.get('kind') or 'custom'}) {model}{desc}")
     out: "list[str]" = []
+    from halo_harness.packs.roles import shadows, shown_path  # 3.2.0.0 R2: a pack bio your file shadows says so
+    for name, (pack_id, path) in sorted(shadows("bios", cwd=cwd, state_dir=state_dir).items()):
+        groups.setdefault(f"pack:{pack_id}", []).append(f"  {name} -- shadowed by {shown_path(path, cwd=cwd)}")
     packs = sorted(s for s in groups if s not in _SCOPE_ORDER)  # 3.2.0.0 R1: one group per pack, before shipped
     for scope in [*_SCOPE_ORDER[:2], *packs, _SCOPE_ORDER[2]]:
         if groups.get(scope):
