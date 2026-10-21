@@ -1835,3 +1835,81 @@ allows everything except explicit deny/ask rules; nothing is added "for
 safety"). The review's public one-liner became the GitHub description on
 2026-10-21 00:25 (`gh repo edit`), and its four-paragraph description the
 README's opening, by the owner's word.
+
+## ADDED 2026-10-21 ~01:25 (the owner pasted "HALO HARNESS: EXPANSION PLATFORM AND AGENT ORCHESTRATION DEVELOPMENT", a ten-phase implementation program: "one harness, one Studio, multiple independently maintained capability packs"): 3.2.0.0 "Packs"
+
+The program's phases map to rounds; its Phase 7 (the persistent supervisor)
+IS 3.1.8.0 R1 and is not repeated here. Every round: reuse the registries
+Halo has (shipped templates, agents/teams load order, skills, hooks, MCP,
+the config schema, Studio's section registry and panel specs, the palette,
+Fleet's capabilities catalog, work/adapters, recall kinds), versioned
+public contracts, backward compatibility (the six sections and every CLI
+unchanged with no pack installed), tests for malformed manifests,
+incompatible versions, missing dependencies and uninstall, Linux and
+Windows. Permissions are explicit rules the user sets (deny/ask lists,
+capability lists a pack requests and the user grants); no classifier, no
+refusal language, nothing "for safety".
+
+- R1 The audit and the contract, the manifest, the registry, the lifecycle
+  (Phases 1-2): a brief inventory in docs/PACKS-inventory.md; `pack.yaml`
+  (id + namespace, name, version, description, author, license,
+  `halo_api: {min, max}`, capabilities, requires, contributions: agents,
+  teams, skills, workflows, tools/mcp, studio, fleet, artifacts, events,
+  config schema, permissions requested, migrations); discovery under
+  `~/.halo/packs/<id>/` and `<repo>/.halo/packs/<id>/`, validation,
+  dependency and compatibility resolution, conflict detection;
+  `halo pack list|inspect|install <path|git>|enable|disable|update|remove|
+  doctor` (names checked against the CLI conventions); a disabled pack
+  changes nothing; remove keeps user-made artifacts and config; the stable
+  surface `halo_harness/ext/` (`HALO_API_VERSION`, the typed contracts) so a
+  pack never imports internals; docs/EXTENSION_API.md (status per section:
+  stable / draft / planned) with machine-readable schemas (JSON schema for
+  pack.yaml) and fixtures; `plans/PACKS-PROGRESS.md` (done, open
+  dependencies, test results, decisions).
+- R2 Roles and lineups from packs (Phase 3): a pack's bios, instructions,
+  model capabilities (never one provider), tool and permission needs,
+  memory namespaces, budgets, delegation rules, lineup templates, workflow
+  assignments, acceptance checks; namespaced ids `<pack>/<name>`; user and
+  project definitions keep precedence; Studio's Roles groups templates by
+  pack with preview, clone, customize, apply; apply never overwrites a
+  user-defined bio without a confirm.
+- R3 Studio contributions (Phase 4): a versioned contribution registry:
+  sections, panels, tabs in existing sections, template categories, Fleet
+  badges and inspectors, event renderers, workflow visualizations,
+  artifact viewers, config forms, palette actions, Attention views;
+  contributions load through one controlled mechanism (a declared bundle
+  under the pack, loaded by the Studio server with the pack's id and a
+  typed data contract, no core file patched); nothing shows for a disabled
+  pack; the auth, local-first and privacy model unchanged.
+- R4 Fleet capabilities from packs (Phase 5): packs register worker
+  capabilities (tool adapters, runtimes, environments, hardware, model
+  availability, platform, capacity, data locality, execution permissions
+  required); missions and recommendations use them; a task gains no
+  permission because another machine can run it (the worker enforces its
+  own rules); advertisements carry no credentials, private paths, tokens or
+  environment; pack-specific inspectors and mission metadata.
+- R5 Workflows and artifacts (Phases 6 and 8): a declarative workflow
+  format on top of Orchestra (prerequisites, typed inputs and outputs,
+  sequential and parallel stages, conditions, role assignment, capability
+  needs, human gates, retries, timeouts, budgets, verification with
+  evidence, completion conditions, resumable checkpoints), runnable on any
+  compatible model; typed artifact schemas and viewers; events as typed
+  publications with subscriptions; task / project / long-term context
+  namespaces per pack with provenance, retention and explicit sharing;
+  built on recall, the coach library, hand-offs and the EventBridge.
+- R6 The Pack Manager in Studio and the reference pack (Phases 9-10):
+  discover, capabilities, dependencies, requested permissions, enable and
+  disable, model and tool settings, templates, presets, compatibility
+  warnings, health, update, uninstall; trusted local and configured sources
+  only; a generic "Documentation Review" pack (a reviewer bio, a writer
+  bio, a review workflow, a Studio review panel, a typed review report
+  artifact, a Fleet capability requirement) that installs, runs, renders
+  and uninstalls without a core change -- the regression test and the
+  third-party guide.
+- R7 Compatibility hardening and the docs (the program's slice 9):
+  migration and rollback procedures, the contract's status table final,
+  fixtures for every failure mode, the release.
+
+Not taken: a public marketplace (the program says not for the first
+release); any pack mechanism that patches core files; a second
+orchestration engine beside Orchestra.
