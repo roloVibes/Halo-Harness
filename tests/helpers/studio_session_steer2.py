@@ -86,6 +86,11 @@ def stop(c, sent: list) -> dict:
     # the foot of the column can sit below the panel's visible area on the Linux runner's layout: a click
     # on an off-screen button lands nowhere (the Linux run for the merge lost it), so bring it into view
     c.js(f"{BOX}.querySelector('[data-testid=\"session-live-stop\"]').scrollIntoView({{block: 'center'}}); 1")
+    # Stop is disabled (and askStop opens nothing) until the box's agent is in the fleet store: on the Linux
+    # runner that frame can land after the test reaches this step (the click on a disabled button did nothing
+    # in two runs), so wait for the live button first and keep what the box said for the failure message
+    out["stop_ready"] = c.wait(f"(() => {{ const b = {BOX}.querySelector('[data-testid=\"session-live-stop\"]'); "
+                               f"return b && !b.disabled && !{BOX}.dataset.disabled && ({BOX}.dataset.key || 'no key'); }})()", 30)
     c.click_on(f"{BOX}.querySelector('[data-testid=\"session-live-stop\"]')")
     out["stop_dialog"] = c.wait("document.querySelector('[data-testid=\"fleet-confirm\"]')?.textContent", 15)
     cancel = "[...document.querySelectorAll('[data-testid=\"fleet-confirm\"] button')].find((b) => b.textContent.trim() === 'Cancel')"
@@ -101,6 +106,7 @@ def pause(c, lv, sent: list) -> dict:
     from tests.helpers.fleet_rig import wait_for
     out: dict = {}
     c.js(f"{BOX}.querySelector('[data-testid=\"session-live-pause\"]').scrollIntoView({{block: 'center'}}); 1")
+    c.wait(f"!{BOX}.querySelector('[data-testid=\"session-live-pause\"]').disabled && !{BOX}.dataset.disabled", 30)
     c.click_on(f"{BOX}.querySelector('[data-testid=\"session-live-pause\"]')")
     got = wait_for(lambda: [d for d in sent if d["cmd"] == "pause"], 15) or [{}]
     out["pause_route"] = {"sid": got[-1].get("sid"), "agent_id": (got[-1].get("fields") or {}).get("agent_id"), "status": got[-1].get("status")}
