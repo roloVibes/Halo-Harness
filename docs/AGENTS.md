@@ -207,6 +207,12 @@ job through the existing job surfaces, and disarm when that session closes
 -- never a system service. `halo agents schedule list|run <name>` and
 `/agents schedule` show what is armed and each schedule's next fire time.
 
+Halo 3.1.8.0 R1: the supervisor (`halo supervise`, [SUPERVISE.md](SUPERVISE.md))
+keeps every lineup's schedules and triggers armed while it runs, so they no
+longer need a session open at all. Its store entries are marked `owner:
+supervisor`; a session that loads a lineup the supervisor already owns does
+not arm it a second time, so nothing double-fires.
+
 ## The `default` model reference and the `standard` lineup (Halo 2.0.5 round 2b)
 
 `models.preference`/`models.fallback` may hold the literal string

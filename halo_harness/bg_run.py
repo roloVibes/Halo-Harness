@@ -32,7 +32,7 @@ def _bg_root() -> Path:
 
 
 def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Optional[bytes] = None,
-                         env: Optional[dict] = None) -> dict:
+                         env: Optional[dict] = None, cwd: Optional[str] = None) -> dict:
     """Spawns `[sys.executable, -m halo_harness] + argv` (forcing `-p` when
     neither `-p` nor `--print` is already present -- a detached child has no
     terminal a TUI could ever render into), stdout+stderr merged into
@@ -47,7 +47,9 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
     before) so it can write `status.json` once the real command actually
     exits; `meta.json` also records `start_time` (`process_start_time`),
     so a PID the OS later reuses for something unrelated is never
-    mistaken for this run still being alive."""
+    mistaken for this run still being alive. 3.1.8.0 R1: `cwd` (default
+    this process's folder) is the folder the run starts in (a supervised
+    job goal's repo)."""
     run_id = uuid.uuid4().hex[:8]
     run_dir = _bg_root() / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -71,7 +73,7 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
         stdin_fh = open(run_dir / "stdin.bin", "rb")
     try:
         proc = popen(
-            command, cwd=str(Path.cwd()), stdout=log_fh, stderr=subprocess.STDOUT,
+            command, cwd=str(cwd or Path.cwd()), stdout=log_fh, stderr=subprocess.STDOUT,
             stdin=stdin_fh if stdin_fh is not None else subprocess.DEVNULL,
             **({"env": env} if env is not None else {}),
             # review finding 37: CREATE_NEW_PROCESS_GROUP alone still
@@ -92,7 +94,7 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
         if stdin_fh is not None:
             stdin_fh.close()
 
-    meta = {"id": run_id, "pid": proc.pid, "command": real_command, "cwd": str(Path.cwd()),
+    meta = {"id": run_id, "pid": proc.pid, "command": real_command, "cwd": str(cwd or Path.cwd()),
             "started": time.time(), "log_path": str(log_path), "status_path": str(status_path),
             "start_time": process_start_time(proc.pid)}
     try:

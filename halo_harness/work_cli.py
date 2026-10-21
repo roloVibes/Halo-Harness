@@ -27,12 +27,12 @@ def _resolve(ref: Optional[str], repo: Path) -> Optional[Path]:
         p = Path(ref)
         if run_kind(p):
             return p
-        for finder in (_orchestra, _team, _mission):
+        for finder in (_orchestra, _team, _mission, _supervise):
             hit = finder(ref, repo)
             if hit is not None:
                 return hit
         return None
-    for latest in (_latest_orchestra, _latest_team, _latest_mission):
+    for latest in (_latest_orchestra, _latest_team, _latest_mission, _latest_supervise):
         hit = latest(repo)
         if hit is not None:
             return hit
@@ -76,6 +76,21 @@ def _latest_mission(repo):
     from halo_harness.fleet import mission_store as S
     docs = S.all_docs(identity.home())
     return S.folder(identity.home(), docs[-1]["id"]) if docs else None
+
+
+def _supervise(ref, repo):
+    """`goals` or `supervise` names the whole queue; a goal id finds it too (3.1.8.0 R1)."""
+    from halo_harness.supervise import queue
+    folder = queue.root()
+    if ref in ("goals", "supervise") or (queue.resolve(folder.parent, ref) is not None):
+        return folder if (folder / queue.MARKER).is_file() else None
+    return None
+
+
+def _latest_supervise(repo):
+    from halo_harness.supervise import queue
+    folder = queue.root()
+    return folder if (folder / queue.MARKER).is_file() and queue.all_goals(folder.parent) else None
 
 
 def cmd_work(argv: list, repo: Optional[Path] = None) -> int:
