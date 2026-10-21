@@ -1782,3 +1782,51 @@ likes it); changing the Fleet view.
   draw is the real one; test_privacy_scan gains a check that the capture
   tools never read the real identity (the tools' source, not OCR).
 
+## ADDED 2026-10-21 ~00:10 (the owner pasted an outside review of the repo, 2026-10-20: "a multi-model agent harness with a multi-agent orchestration layer and an integrated control plane"; its five directions, checked against what Halo has): 3.1.8.0 "The supervisor"
+
+What the review got right and what Halo already has: the agent is separate
+from the model (bios, lineups, tiers, one model order); Orchestra splits,
+runs, merges, judges and gates; schedules and triggers run jobs but disarm
+when their session closes (docs/AGENTS.md); a run that stopped on a crash
+resumes once (docs/ORCHESTRA.md "resume: picking ..."); a budget is a
+forecast that warns, never a stop; the coach, the probes and the library
+(3.1.6.0) learn from runs after the fact; recall spans memory, sessions and
+the library across the fleet. The gaps the review names, in Halo's words:
+
+- R1 The supervisor: `halo supervise` (and Studio's Session landing when it
+  runs): a daemon that owns a goal queue (`halo goal add <what> [--repo]
+  [--budget]`), starts each goal as an Orchestra run or a plain `halo -p`
+  job without a TUI, keeps every schedule and trigger armed while it runs
+  (a session no longer has to be open), resumes a run from its last
+  checkpoint after a crash (events.jsonl + lanes/*.json already carry it),
+  enforces `budget_usd` as a stop (hold_if_over for the whole queue, not a
+  warning), and parks every decision it cannot take (an ask, a plan review,
+  a gate return past the cap) in Attention with one key each. The morning
+  view: Studio opens on what finished, what waits on you, what it cost.
+- R2 Replanning while it runs: the supervisor watches a run's forecast,
+  returns and blocks; past a threshold it asks the lead for a new plan for
+  the lanes left (a different model for a lane, a split, a second
+  specialist, a retry with the contrast as context) and re-approves it
+  through the same plan review (auto when `supervise.replan: auto`).
+- R3 Verified outcomes: every agent task ends with evidence of its kind
+  (code: the test run; research: the sources fetched; a security check:
+  the reproduction), the judge reads the evidence, not the summary; runs.json
+  keeps outcome, cost and kind per bio and model; `halo models --measured`
+  and the Roles pill show measured success per model and task kind, and a
+  lineup may route by it (`models.preference: measured`).
+- R4 Knowledge that outlives a session: verified findings and decisions as
+  first-class recall kinds (`finding`, `decision`), written by the judge and
+  by Apply, carried over the fleet like the library; an agent cites what it
+  reused; the owner's Obsidian vault as a recall source (a folder of
+  Markdown the index reads).
+
+Not taken: "explicit approval boundaries for dangerous actions", permission
+classifiers and refusal language (the owner's standing direction: auto mode
+allows everything except explicit deny/ask rules; nothing is added "for
+safety"). Opt-in isolation that changes nothing by default is the owner's
+call to schedule, not this section's: a per-run container or user for the
+workers' worktrees, scoped credentials per bio (a secret broker such as
+1Password feeding `env` at spawn), tool-level capability lists a lineup
+declares. The review's public one-liner ("Multi-model agent harness with
+orchestration, Claude Code compatibility, local LLM support, and live agent
+monitoring") is a candidate for the GitHub description; the owner decides.
