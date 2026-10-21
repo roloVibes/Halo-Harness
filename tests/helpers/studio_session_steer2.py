@@ -146,6 +146,18 @@ def fleet_chip(c, rig, lv) -> dict:
         # element itself and keep what the pointer click selected for the failure message
         out["fleet_chip_pointer_hit"] = c.js(f"[{agent}?.dataset.key || null, document.querySelector('[data-testid=\"fleet-node\"][data-selected]')?.dataset.key || null]")
         c.js(f"{chip}.dispatchEvent(new MouseEvent('click', {{bubbles: true, cancelable: true}})); 1")
-        out["fleet_chip"] = c.wait(opened, 15)
-        out["fleet_chip_by"] = "element"
+        try:
+            out["fleet_chip"] = c.wait(opened, 15)
+            out["fleet_chip_by"] = "element"
+        except TimeoutError:
+            # the Linux runner never satisfied `opened` through four rounds of fixes: record what the page
+            # holds instead of dying here, so the test's own check prints it
+            out["fleet_chip"] = "not opened"
+            out["fleet_chip_diag"] = c.js(
+                f"({{detail_key: {agent}?.dataset.key || null, detail_present: !!{agent}, selected: "
+                f"document.querySelector('[data-testid=\"fleet-node\"][data-selected]')?.dataset.key || null, "
+                f"active: document.activeElement?.dataset?.testid || document.activeElement?.tagName || null, "
+                f"steer_box: !!{agent}?.querySelector('[data-testid=\"fleet-steer\"]'), chip: !!{chip}, "
+                f"agent_panel: document.querySelector('[data-testid=\"fleet-agent\"]')?.dataset?.collapsed || "
+                f"(document.querySelector('[data-testid=\"fleet-agent\"]') ? 'open' : 'absent')}})")
     return out
