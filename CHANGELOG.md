@@ -8,6 +8,33 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.1.7.0] - unreleased
+
+Focus: the Session tab gets what the owner liked in Fleet, in the column he already likes -- Fleet's time and kind columns on every live line, the timeline strip, the picks, and a Steer box that is always there -- and the committed captures stop carrying the build host's name. From the owner's photo of the Fleet view on 2026-10-20 ("I want what fleet has with tool running too within the session tab. More of insight and ability to jump in and steer is awesome").
+
+### R1: Session has what Fleet has, and the steer is always at hand
+
+#### Added
+
+- Session's Live column has the Fleet log's columns: every line leads with its time (HH:MM:SS) and its kind (TOOL, TEXT, THINK, OUT, ASK, SPAWN, STATE, YOU, ERR) before the agent's tag; in a narrow column the time, the kind and the tag share one row and the line runs under them.
+- Fleet's timeline strip heads the column, one lane per live agent of the session over 5, 15 or 60 minutes (a lane click shows only that agent), and the header has an agent pick and a kind pick (tools, text, states, asks) beside Follow.
+- The Steer box is always at the foot of the column: it talks to the agent you pinned, else the session's main agent ("STEER main"), with Pause and Stop beside it, and says in one line when that agent has finished. A steer sent there shows as a YOU line at once.
+- "steer" on hover: every tag in the column and every node on the map (Session and Fleet) steers that agent in one click, the keyboard in the box.
+- A tool row whose result has more than one line opens its whole result in place on a click (Enter or Space), and closes on the next.
+
+#### Fixed
+
+- The first steer sent to an agent whose stream Studio had not opened yet (the main agent, from the column) now shows in the column at once.
+- The Steer box opened from the map's `...` menu, the palette or the steer chip gets the keyboard even when its panel opens with it.
+
+### R2: captures carry no real names
+
+#### Fixed
+
+- Studio's front-page pictures carry no real names: every Studio capture tool draws a made-up harness, `you@studio`, through `tools/capture_identity.py`, and stops with one line (exit 2) when the name Studio would draw is still the machine's own; the seeded Orchestra runs use a repo-relative test command, the capture's temp files move out of the user profile, and every page a tool counts or shoots is read for a home path, `AppData` or the machine's user or host name first (exit 1). Every Studio still and GIF, the six-section banner, the hero and the social preview are re-captured (the committed Orchestra stills had shown the build host's harness name and a home path prefix; the fleet test rig's own harness carried the real account name and is `you@studio` now).
+- Tests: `tests/test_capture_identity.py` parses the capture tools' source (the placeholder before every serve, a guard before every count and picture) and pins the stop and the DOM guard. Docs: MEDIA.md carries the two rules and both stop lines.
+- CI: the Windows `run_all.py` step gets 90 minutes (the v3.1.6.0 tag run finished green at the 65-minute limit and was cut).
+
 ## [3.1.6.0] - 2026-10-20
 
 Focus: the coach learns to probe (after Google's Harness², arXiv 2610.14224: candidate set-ups run the same goal again, an anonymized judge compares the deliverables, what wins is offered as one card, and what gets applied lands in an improvement library the next proposals cite), a tier becomes something you make on the Roles canvas with a model and a trigger of its own, the front page gets a hero, and copying a draft out of the TUI on Linux works and says what it did. From the owner's "Add 1 and 2 from Google harness research" (2026-10-19) and his live notes from Kali (2026-10-20).
