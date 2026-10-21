@@ -211,15 +211,17 @@ def _cmd_models_capabilities(args) -> int:
         if kind not in KINDS:
             print(f"halo models: --best-for takes one of {', '.join(KINDS)}, not {args.best_for!r}", file=sys.stderr)
             return 2
-        ranked = best_for(rows, kind)
+        ranked = best_for(rows, kind, state_dir=state_dir)
         if not ranked:
             print(f"No model in the catalog states what {kind} needs; `halo models --refresh` updates the catalog.")
             return 1
-        print(f"Best for {kind} (from the catalog's own modality, context, price and speed facts; score 0-1):")
+        print(f"Best for {kind} (from the catalog's own modality, tool, reasoning, context, price and speed facts "
+              f"and what this host measured; score 0-1):")
         for i, r in enumerate(ranked, 1):
             print(f"{i:>2}. {r['ref']:<40} {r['score']:.2f}  {r['chips']:<24} {r['reason']}")
         return 0
-    print("ref                                      in: what the model accepts  out: what it produces ('?' = not stated by the catalog)")
+    print("ref                                      in: what the model accepts  out: what it produces  -- what it is best at "
+          "('?' = not stated by the catalog)")
     for line in capability_lines(rows):
         print(line)
     return 0
@@ -229,6 +231,9 @@ def cmd_models(argv) -> int:
     if argv and argv[0] == "test":  # 3.0.7.0 R1: `halo models test <ref>`, the one-token probe
         from halo_harness.model_probe import cmd_models_test
         return cmd_models_test(list(argv[1:]))
+    if argv and argv[0] == "analyze":  # 3.1.9.0 R1: rebuild what each model is good at
+        from halo_harness.models_analyze_cli import cmd_models_analyze
+        return cmd_models_analyze(list(argv[1:]))
     parser = argparse.ArgumentParser(prog="halo models", add_help=True)
     parser.add_argument("--refresh", action="store_true", help="Re-probe OpenRouter/Databricks instead of using the cache")
     parser.add_argument("--ant", action="store_true",
@@ -247,9 +252,11 @@ def cmd_models(argv) -> int:
                          help="Also clear every learned parameter-rejection rule for every endpoint")
     # 3.0.1.0 D1: which model for what -- straight from the catalog's own modality fields.
     parser.add_argument("--capabilities", action="store_true",
-                         help="One line per model: what it accepts (text, image, audio, video, file) and what it outputs")
+                         help="One line per model: what it accepts (text, image, audio, video, pdf), what it outputs "
+                              "and what it is best at")
     parser.add_argument("--best-for", metavar="KIND", default="",
-                         help="Rank models for one job: visual | audio | video | image | design (with a reason each); "
+                         help="Rank models for one job: visual | audio | video | image | design | pdf | code | research | "
+                              "bulk | fast | local (with a reason each); "
                               "image-gen | video-gen | audio-gen | upscale rank the ComfyUI media models")
     # 3.0.4.0 R2: the ComfyUI media-model inventory, keyed by what a model produces (never mixed with the LLM catalog).
     parser.add_argument("--media", nargs="?", const="all", default=None, choices=["image", "video", "audio", "all"],

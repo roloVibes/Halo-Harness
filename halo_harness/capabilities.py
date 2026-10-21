@@ -1,20 +1,32 @@
-"""halo_harness.capabilities -- which model for what (Halo 3.0.1.0 round D1).
+"""halo_harness.capabilities -- which model for what (Halo 3.0.1.0 round D1;
+3.1.9.0 R1 "what each model is good at").
 
 A capability profile is derived from facts the catalog already carries
 (`providers.model_enumeration.build_model_rows`: `modalities_in`,
-`modalities_out`, `image_output`, context, prices, speed), never guessed:
-a row with no modality data is "unknown", shown as `?`, and ranks below a
-row that states the capability. `best_for(rows, kind)` ranks for one job:
+`modalities_out`, `image_output`, `tools`, `reasoning`, `local`, context,
+prices, speed, and `measured` -- the gym, the probes, telemetry and the
+preflight canary census), never guessed: a row with no modality data is
+"unknown", shown as `?`, and ranks below a row that states the capability.
+`best_for(rows, kind)` ranks for one job; `CAPABILITY_KINDS` say whether a
+model can do a thing at all, `STRENGTH_KINDS` (capabilities_strengths.py)
+rank how well or how cheaply:
 
-* `visual`  -- reading screenshots, mockups, photos (vision + context + price)
-* `audio`   -- listening (audio input)
-* `video`   -- watching clips (video input)
-* `image`   -- making pictures (image output)
-* `design`  -- iterating a design with tools: vision, a large context, tool
-               calls, speed and price together; a lane that failed the
-               preflight image canary is demoted
+* `visual`   -- reading screenshots, mockups, photos (vision + context + price)
+* `audio`    -- listening (audio input)
+* `video`    -- watching clips (video input)
+* `image`    -- making pictures (image output)
+* `design`   -- iterating a design with tools: vision, a large context, tool
+                calls, speed and price together; a lane that failed the
+                preflight image canary is demoted
+* `pdf`      -- reading PDFs (document input)
+* `code`     -- tool calls, a capable tier, context, reasoning, gym scores
+* `research` -- long context plus reasoning
+* `bulk`     -- cheap in and out
+* `fast`     -- MEASURED speed only (telemetry, 3+ calls)
+* `local`    -- runs on this machine or the LAN (offline, free)
 
-Every ranked row carries a one-line `reason` in plain words.
+Every ranked row carries a one-line `reason` in plain words;
+`capabilities_line.best_at_line(row)` is the one honest line per model.
 
 `best_for_media(rows, kind)` ranks the ComfyUI media-model inventory
 (`providers.media_models`) by what a model produces, one of `OUTPUT_KINDS`;
@@ -25,7 +37,14 @@ from __future__ import annotations
 
 from typing import Iterable, Optional
 
-KINDS = ("visual", "audio", "video", "image", "design")
+# the row readers live in capabilities_facts.py; the public ones are re-exported here
+from halo_harness.capabilities_facts import (  # noqa: F401
+    _ctx, _ctx_words, _price, _price_words, _speed, _tier, is_local, measured, preflight_for, tools_state,
+)
+
+CAPABILITY_KINDS = ("visual", "audio", "video", "image", "design", "pdf")
+STRENGTH_KINDS = ("code", "research", "bulk", "fast", "local")
+KINDS = CAPABILITY_KINDS + STRENGTH_KINDS
 OUTPUT_KINDS = ("image-gen", "video-gen", "audio-gen", "upscale")  # media models, by what they produce
 
 
@@ -43,56 +62,26 @@ def capability_profile(row: dict) -> dict:
         "vision": ("image" in mi) if mi is not None else None,
         "audio": ("audio" in mi) if mi is not None else None,
         "video": ("video" in mi) if mi is not None else None,
-        "files": ("file" in mi) if mi is not None else None,
+        "files": bool(mi & {"pdf", "file"}) if mi is not None else None,
         "image_out": bool(row.get("image_output")) or (("image" in mo) if mo is not None else None),
         "known": known,
     }
-    chips = []
-    if prof["vision"]:
-        chips.append("vision")
-    if prof["audio"]:
-        chips.append("audio")
-    if prof["video"]:
-        chips.append("video")
-    if prof["files"]:
-        chips.append("files")
-    if prof["image_out"]:
-        chips.append("image-out")
+    chips = [name for name, key in (("vision", "vision"), ("audio", "audio"), ("video", "video"), ("files", "files"),
+                                    ("image-out", "image_out")) if prof[key]]
     prof["chips"] = " ".join(chips) if chips else ("text" if known else "?")
     return prof
 
 
-def _price(row: dict) -> Optional[float]:
-    p = row.get("price_in_per_m")
-    return float(p) if isinstance(p, (int, float)) and p >= 0 else None
-
-
-def _ctx(row: dict) -> int:
-    c = row.get("context_tokens")
-    return int(c) if isinstance(c, (int, float)) else 0
-
-
-def _speed(row: dict) -> Optional[float]:
-    s = row.get("speed_tokens_per_second")
-    return float(s) if isinstance(s, (int, float)) and s > 0 else None
-
-
-def _price_score(price: Optional[float]) -> float:
-    """Free or cheap scores high; unknown sits in the middle."""
-    if price is None:
-        return 0.5
-    if price <= 0:
-        return 1.0
-    return max(0.0, min(1.0, 1.0 - (price / 15.0)))  # $15/M in is the floor of the scale
-
-
 def score(row: dict, kind: str, *, preflight: Optional[dict] = None) -> tuple:
-    """(score 0..1, reason). preflight: {ref: {"vision": True|False|None}} from
-    halo preflight, used to demote a lane whose image canary failed."""
+    """(score 0..1, reason). preflight: {ref: {"vision": True|False|None,
+    "tools": ...}} from halo preflight (the row's own `measured.canary`
+    applies without it), used to demote a lane whose canary failed."""
+    if kind in STRENGTH_KINDS or kind == "pdf":
+        from halo_harness.capabilities_strengths import score_strength
+        return score_strength(row, kind, preflight_for(row, preflight))
     prof = capability_profile(row)
     reasons = []
-    ref = row.get("ref", "")
-    pf = (preflight or {}).get(ref) or {}
+    pf = preflight_for(row, preflight)
     if kind == "audio":
         if not prof["audio"]:
             return (0.0, "no audio input in the catalog" if prof["known"] else "modalities unknown")
@@ -125,16 +114,16 @@ def score(row: dict, kind: str, *, preflight: Optional[dict] = None) -> tuple:
     if kind == "visual":
         s = 0.45 * 1.0 + 0.25 * ctx_s + 0.30 * tier_s
     else:  # design: tool calls are required; speed and output length count
-        tools = row.get("tools")
+        tools, tools_words = tools_state(row)
         if tools is False:
-            return (0.0, "no tool calls, so it cannot drive the craft apps")
+            return (0.0, tools_words + ", so it cannot drive the craft apps")
         speed = _speed(row)
         speed_s = min(1.0, speed / 80.0) if speed else 0.5
         if speed:
             reasons.append(f"{speed:.0f} tok/s")
         out_tokens = row.get("max_output_tokens")
         out_s = min(1.0, float(out_tokens) / 32_000) if isinstance(out_tokens, (int, float)) and out_tokens else 0.5
-        reasons.append("tool calls" if tools else "tool calls not stated")
+        reasons.append(tools_words)
         s = 0.3 * 1.0 + 0.15 * ctx_s + 0.3 * tier_s + 0.1 * speed_s + 0.05 * out_s + (0.1 if tools else 0.03)
         if pf.get("tools") is False:
             s *= 0.5
@@ -145,44 +134,17 @@ def score(row: dict, kind: str, *, preflight: Optional[dict] = None) -> tuple:
     return (round(s, 3), "; ".join(reasons))
 
 
-def _tier(row: dict) -> tuple:
-    """Price as a stated capability proxy for picture-reading work: free
-    rows are usually small or preview models, the mid range is where the
-    workhorses sit, the top end buys the most careful eyes. Local models
-    (price 0 by definition) are scored by context instead."""
-    price = _price(row)
-    if row.get("provider") in ("ollama", "huggingface"):
-        return (0.5, "local, " + _price_words(row))
-    if price is None:
-        return (0.6, "price unknown")
-    if price <= 0:
-        return (0.35, "free (usually a small or preview model)")
-    if price < 0.5:
-        return (0.6, f"${price:.2f}/M in, budget tier")
-    if price < 3:
-        return (0.9, f"${price:.2f}/M in, workhorse tier")
-    return (1.0, f"${price:.2f}/M in, top tier")
-
-
-def _price_words(row: dict) -> str:
-    p = _price(row)
-    if p is None:
-        return "price unknown"
-    if p <= 0:
-        return "free"
-    return f"${p:.2f}/M in"
-
-
-def _ctx_words(ctx: int) -> str:
-    if ctx >= 1_000_000:
-        return f"{ctx / 1_000_000:.0f}M"
-    return f"{ctx // 1000}k"
-
-
-def best_for(rows: Iterable[dict], kind: str, *, limit: int = 10, preflight: Optional[dict] = None) -> list:
-    """The top `limit` rows for `kind`, each `{ref, score, reason, chips}`."""
+def best_for(rows: Iterable[dict], kind: str, *, limit: int = 10, preflight: Optional[dict] = None,
+             state_dir=None) -> list:
+    """The top `limit` rows for `kind`, each `{ref, score, reason, chips}`.
+    `state_dir`: read the preflight canary census there when no explicit
+    `preflight` map is given (rows from `build_model_rows` already carry it
+    as `measured.canary`)."""
     if kind not in KINDS:
         raise ValueError(f"unknown kind {kind!r}; one of {', '.join(KINDS)}")
+    if preflight is None and state_dir is not None:
+        from halo_harness.providers.model_row_measured import canary_preflight
+        preflight = canary_preflight(state_dir)
     ranked = []
     for row in rows:
         if not row.get("ref") or row.get("provider") == "alias":
@@ -196,7 +158,8 @@ def best_for(rows: Iterable[dict], kind: str, *, limit: int = 10, preflight: Opt
 
 
 def capability_lines(rows: Iterable[dict]) -> list:
-    """`ref  in: text,image  out: image` lines for `halo models --capabilities`."""
+    """`ref  in: text,image  out: image  -- <best at>` lines for `halo models --capabilities`."""
+    from halo_harness.capabilities_line import best_at_line
     out = []
     for row in rows:
         if not row.get("ref") or row.get("provider") == "alias":
@@ -204,7 +167,7 @@ def capability_lines(rows: Iterable[dict]) -> list:
         mi, mo = _mods(row, "modalities_in"), _mods(row, "modalities_out")
         ins = ",".join(sorted(mi)) if mi else "?"
         outs = ",".join(sorted(mo)) if mo else ("image" if row.get("image_output") else "text")
-        out.append(f"{row['ref']:<40} in: {ins:<24} out: {outs}")
+        out.append(f"{row['ref']:<40} in: {ins:<24} out: {outs:<11} -- {best_at_line(row)}")
     return out
 
 

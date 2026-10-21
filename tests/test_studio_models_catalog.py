@@ -213,6 +213,29 @@ def test_resolve_names_what_a_role_runs_on(ctx: Ctx):
         ctx.check("an unknown lineup is a 404", _call(state, "GET", "models/resolve", {"role": "main", "lineup": "nope"})[0] == 404)
 
 
+@test
+def test_rows_carry_best_at_and_analyze_rebuilds_it(ctx: Ctx):
+    """3.1.9.0 R1: GET models rows carry the catalog's own keys and `best_at`
+    {line, kinds}; GET models/best-for answers the same kinds; POST
+    models/analyze rebuilds the best-at cache and counts each kind."""
+    from tests.helpers import catalog_facts_seed as S
+    with _home() as (_home_dir, state):
+        S.seed(state)
+        status, rows = _call(state, "GET", "models")
+        by = {r["ref"]: r for r in rows} if status == 200 else {}
+        eyes = by.get("or:v/eyes") or {}
+        ctx.check(f"a row carries modalities, tools, reasoning, local, measured and best_at, got {sorted(eyes)}",
+                  {"modalities_in", "tools", "reasoning", "local", "measured", "best_at"} <= set(eyes)
+                  and eyes["best_at"]["line"].startswith("vision+pdf in") and "visual" in eyes["best_at"]["kinds"])
+        ctx.check("a Hugging Face router row is not local", by.get("hf:Org/Model-7B", {}).get("local") is False)
+        status, best = _call(state, "GET", "models/best-for")
+        ctx.check(f"best-for answers the best_at kinds, got {best.get('or:v/eyes')}", best.get("or:v/eyes") == eyes["best_at"]["kinds"])
+        status, a = _call(state, "POST", "models/analyze")
+        ctx.check(f"analyze: the rebuild and the counts per kind, got {a}",
+                  status == 200 and a["rows"] == len(rows) and a["kinds"].get("visual", 0) >= 2 and a["best"]["bulk"]["strongest"]
+                  and (state / "models" / "best-at.json").exists())
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

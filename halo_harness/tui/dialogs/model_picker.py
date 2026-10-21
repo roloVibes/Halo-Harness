@@ -39,15 +39,22 @@ from halo_harness.tui.dialogs.listnav import NavInput
 # ctx, speed)" (2.0.3-brief A2) -- "name" is this dialog's existing
 # first-seen/alphabetical-within-group order (the default, index 0);
 # cycling never changes GROUPING, only each group's own row order.
-_SORT_KEYS = ("name", "price", "context", "speed")
+# 3.1.9.0 R1: "best" -- the models good at the most kinds first (the
+# best-at cache, models_best_at).
+_SORT_KEYS = ("name", "price", "context", "speed", "best")
 
 
-def _sort_value(model: dict, key: str):
+def _sort_value(model: dict, key: str, best_at: "Optional[dict]" = None):
     """A sortable value for `key` -- ascending price/context/speed (so
     the cheapest/smallest/slowest comes first, matching how a reader
     scans a price or size list), `None`s pushed to the END regardless of
     sort direction (an unknown figure is never mistaken for the cheapest/
-    smallest/fastest just because `None < anything` in Python)."""
+    smallest/fastest just because `None < anything` in Python). "best"
+    sorts by how many kinds the best-at entry names, most first; a model
+    with none goes last."""
+    if key == "best":
+        kinds = ((best_at or {}).get(model.get("ref")) or {}).get("kinds") or []
+        return (0 if kinds else 1, -len(kinds), (model.get("ref") or "").lower())
     if key == "price":
         v = model.get("price_in_per_m")
     elif key == "context":
@@ -314,7 +321,22 @@ class ModelPicker(ModalScreen):
         # Review 3 item 78: gym results are read once per picker and each
         # row's Text is built once, not on every keystroke.
         self._gym_results: "Optional[list]" = None
+        self._best_at: "Optional[dict]" = None  # 3.1.9.0 R1: {ref: {kinds, line}}, read once per picker
         self._row_cache: dict = {}
+
+    def _best_at_rows(self) -> dict:
+        """The best-at cache's rows for this picker's models (models_best_at:
+        a pure file read while fresh, else a rebuild from these rows -- no
+        network); {} on any failure, so the picker never breaks on it."""
+        if self._best_at is None:
+            try:
+                from halo_harness.config.paths import bridge_home
+                from halo_harness.models_best_at import index
+                rows = [m for m in (self._all_models or self.models) if isinstance(m, dict) and m.get("ref")]
+                self._best_at = index(self.state_dir or bridge_home(), rows).get("rows") or {}
+            except Exception:
+                self._best_at = {}
+        return self._best_at
 
     def _row_text(self, m: dict) -> Text:
         cached = self._row_cache.get(id(m))
@@ -332,6 +354,10 @@ class ModelPicker(ModalScreen):
         gym_suffix = _gym_score_suffix(m["ref"], self._gym_results, self.state_dir) if self._gym_results else ""
         if gym_suffix:
             row_text.append(gym_suffix, style="dim")
+        # 3.1.9.0 R1: the kinds the model is best at, after the gym suffix.
+        kinds = (self._best_at_rows().get(m["ref"]) or {}).get("kinds") or []
+        if kinds:
+            row_text.append("  best at " + ",".join(kinds[:4]), style="dim")
         if self.last_used and m["ref"] == self.last_used:
             row_text.append("  (last used)", style="dim italic")
         self._row_cache[id(m)] = (m, row_text)
@@ -395,7 +421,8 @@ class ModelPicker(ModalScreen):
                 # already arrived in (Controller.list_models()'s own,
                 # already-deterministic per-provider order).
                 if sort_key != "name":
-                    members = sorted(members, key=lambda m: _sort_value(m, sort_key))
+                    best_at = self._best_at_rows() if sort_key == "best" else None
+                    members = sorted(members, key=lambda m: _sort_value(m, sort_key, best_at))
                 # Halo 2.0.4 round 5: re-glue a `:free` row beside its paid
                 # sibling AFTER the sort above (which is what scatters them
                 # under price/context/speed) -- a no-op shuffle under "name"

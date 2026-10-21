@@ -63,6 +63,19 @@ def is_local_model_ref(ref: "ModelRef") -> bool:
     return ref.provider == "ollama" or (ref.provider == "huggingface" and ref.local)
 
 
+def is_local_ref_string(raw) -> bool:
+    """3.1.9.0 R1: `is_local_model_ref` for a catalog row's ref string -- a
+    Hugging Face ROUTER ref (`hf:<org>/<model>`) is remote, only `hf:local/*`
+    and `hf:mlx/*` are local. Only `ol:`/`hf:` refs can be (the two providers
+    `is_local_model_ref` names), so nothing else is parsed."""
+    if not isinstance(raw, str) or not raw.startswith(("ol:", "hf:")):
+        return False
+    try:
+        return is_local_model_ref(parse_model_ref(raw, {}))
+    except Exception:
+        return False
+
+
 def catalog_median_prices(*, source_label: bool = False):
     """Halo 2.0.3 round 5e: `(median_price_in, median_price_out)` in USD per
     token -- the saved-vs-cloud reference price when the session has no
@@ -514,10 +527,10 @@ class ModelProfile:
     vision: bool = False
     # W4 unbuilt surfaces (MCP): "audio content from MCP tools passed
     # through as a typed block to models that accept audio, otherwise the
-    # existing note" -- same shape/plumbing as `vision` above. False for
-    # every model today (no family in model_table.json claims audio input
-    # support yet); a future model row can set it without touching this
-    # dataclass again.
+    # existing note" -- same shape/plumbing as `vision` above. 3.1.9.0 R1:
+    # set from the catalog's own input modalities (OpenRouter's
+    # `input_modalities`, models.dev's `modalities.input`) wherever `vision`
+    # is; False when no source says the model takes audio.
     audio: bool = False
     reasoning: str = "none"  # "none" | "openai" | "native"
     parallel_tools: bool = True
@@ -540,10 +553,11 @@ def _profile_from_models_json_entry(entry: dict) -> ModelProfile:
     context_tokens = entry.get("context_length") or 128000
     max_output_tokens = entry.get("max_output_tokens") or 16384
 
-    vision = False
+    vision = audio = False
     modalities = entry.get("input_modalities")
     if isinstance(modalities, list):
         vision = "image" in modalities
+        audio = "audio" in modalities
 
     reasoning = "none"
     supported = entry.get("supported_parameters")
@@ -576,7 +590,7 @@ def _profile_from_models_json_entry(entry: dict) -> ModelProfile:
             price_cache_write = None
 
     return ModelProfile(
-        context_tokens=context_tokens, max_output_tokens=max_output_tokens, vision=vision,
+        context_tokens=context_tokens, max_output_tokens=max_output_tokens, vision=vision, audio=audio,
         reasoning=reasoning, price_in=price_in, price_out=price_out,
         price_cache_read=price_cache_read, price_cache_write=price_cache_write,
     )
@@ -591,7 +605,7 @@ def _profile_from_vendored_databricks_entry(entry: dict) -> ModelProfile:
     return ModelProfile(
         context_tokens=fields.get("context_tokens", 128000),
         max_output_tokens=fields.get("max_output_tokens", 16384),
-        vision=bool(fields.get("vision", False)),
+        vision=bool(fields.get("vision", False)), audio=bool(fields.get("audio", False)),
         reasoning=fields.get("reasoning", "none"),
         price_in=fields.get("price_in"),
         price_out=fields.get("price_out"),
@@ -843,7 +857,7 @@ def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict]
             return ModelProfile(
                 context_tokens=family_fields.get("context_tokens", 128000),
                 max_output_tokens=family_fields.get("max_output_tokens", 16384),
-                vision=bool(family_fields.get("vision", False)),
+                vision=bool(family_fields.get("vision", False)), audio=bool(family_fields.get("audio", False)),
                 reasoning=reasoning,
                 price_in=family_fields.get("price_in"), price_out=family_fields.get("price_out"),
                 price_cache_read=family_fields.get("price_cache_read"),
@@ -888,7 +902,7 @@ def resolve_model_profile(ref: ModelRef, state_dir: Path, routes: Optional[dict]
             return ModelProfile(
                 context_tokens=family_fields.get("context_tokens", 128000),
                 max_output_tokens=family_fields.get("max_output_tokens", 16384),
-                vision=bool(family_fields.get("vision", False)),
+                vision=bool(family_fields.get("vision", False)), audio=bool(family_fields.get("audio", False)),
                 reasoning=family_fields.get("reasoning", "none"),
                 price_in=family_fields.get("price_in"), price_out=family_fields.get("price_out"),
                 price_cache_read=family_fields.get("price_cache_read"),

@@ -81,6 +81,12 @@ def ensure_default_provider_credentials() -> None:
     # for every test after it (plus the pacing's real sleeps). A governor
     # test sets HALO_GOVERNOR=1 (and scopes its own state dir) itself.
     os.environ.setdefault("HALO_GOVERNOR", "0")
+    # Halo 3.1.9.0 R1: the model roster snapshot (providers/roster.py) is ON
+    # by default in real use; in the suite it is OFF unless a test turns it
+    # on (tests/test_models_roster.py sets HALO_MODELS_ROSTER=1) -- otherwise
+    # every session a test builds would build the model catalog (Ollama
+    # hosts included) at its first turn and carry one more snapshot.
+    os.environ.setdefault("HALO_MODELS_ROSTER", "0")
 
 
 # Halo 3.1.0.0 R1: tests/run_all.py gives every module its own home and

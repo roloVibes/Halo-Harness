@@ -214,10 +214,11 @@ options:
   --forget-rules   Also clear every learned parameter-rejection rule for every
                    endpoint
   --capabilities   One line per model: what it accepts (text, image, audio,
-                   video, file) and what it outputs
+                   video, pdf), what it outputs and what it is best at
   --best-for KIND  Rank models for one job: visual | audio | video | image |
-                   design (with a reason each); image-gen | video-gen |
-                   audio-gen | upscale rank the ComfyUI media models
+                   design | pdf | code | research | bulk | fast | local (with
+                   a reason each); image-gen | video-gen | audio-gen |
+                   upscale rank the ComfyUI media models
   --media [{image,video,audio,all}]
                    List the ComfyUI media models (diffusion, video, upscale,
                    TTS and their LoRAs, VAEs, encoders) by what they produce;
@@ -229,7 +230,12 @@ audio, video, files) and puts out (image), read from the catalogs, never
 guessed; `--best-for visual|audio|video|image|design` ranks the catalog for
 that job with a one-line reason per model (vision, context, tools, price,
 speed). Halo Design's model pick opens on the `design` ranking. See
-[MODELS.md](MODELS.md) "Which model for what".
+[MODELS.md](MODELS.md) "Which model for what". Halo 3.1.9.0: each
+`--capabilities` line ends with what the model is best at (`vision+pdf in,
+tools, reasoning; no audio`), and `--best-for` also takes `pdf`, `code`,
+`research`, `bulk`, `fast` and `local`, scored with tool calls, reasoning,
+open weights and what this host measured (the gym, the tool-call probe, a
+learned tools rejection, telemetry's speed, the preflight canary census).
 
 | Flag | Reads/writes |
 |---|---|
@@ -258,6 +264,23 @@ An unresolvable `--model` elsewhere in the CLI prints a near-miss suggestion
 sourced from whatever this command last cached (`difflib`-style, cutoff
 0.5) -- keeping the cache fresh with `halo models --refresh` makes
 that suggestion useful.
+
+### `halo models analyze` (Halo 3.1.9.0)
+
+```sh
+halo models analyze [--json]   rebuild what each model is good at, print one line per model and the picks per kind
+```
+
+Rebuilds the best-at cache (`~/.halo/models/best-at.json`) from the cached
+catalogs the way `halo models` lists them (no network: `--refresh` pulls the
+lists), then prints one line per model -- its ref, the kinds it is good at
+(visual, audio, video, image, design, pdf, code, research, bulk, fast,
+local) and its one honest line -- and, per kind, the strongest model and the
+cheapest when it differs. `--json` prints the cache: `built`, `sources` (by
+file name), `rows` (`{ref: {kinds, line, scores, facts}}`) and `best`
+(`{kind: {cheapest, strongest}}`). An empty catalog exits 1 with the
+`halo models --refresh` hint. Studio's Models panel has the same button
+(Analyze, `POST /api/models/analyze`). See [MODELS-references.md](MODELS-references.md#what-each-model-is-good-at-halo-3190).
 
 ### `halo models test <ref>` (Halo 3.0.7.0)
 
