@@ -8,6 +8,62 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.2.0.0] - unreleased
+
+Focus: packs -- "one harness, one Studio, multiple independently maintained capability packs" (the ten-phase program the owner pasted 2026-10-21). Every round reuses the registries Halo has; the six sections and every CLI are unchanged with no pack installed.
+
+### R1: packs -- the contract, the manifest, the registry, the lifecycle
+
+#### Added
+
+- Packs: a folder with a `pack.yaml` at its root and a Claude-plugin layout (bios, lineups, skills, commands, hooks, MCP servers) adds to Halo without changing it. `halo pack list | inspect | install <path|git url> [--project] | enable [--grant NAME | --grant-all] | disable | update | remove [--keep-config] | doctor`, each with `--json` (docs/PACKS.md, docs/COMMANDS-packs.md).
+- A pack lives in `~/.halo/packs/<id>/` or the repo's `.halo/packs/<id>/` (the untrusted layer: its lineups lose permission mode and allow rules). It is installed disabled; what it requests (`mcp:<server>`, `hooks`, `bash`, `network`, `home-write`) runs only once you grant it; disabling it changes nothing else; removing it deletes only its own files and lists your bios, lineups, memory folders and settings that stay.
+- A pack's bios and lineups are listed as `<id>--<name>` (read in place, read-only in Studio: Duplicate makes your copy, which wins), its skills and commands as `<id>:<name>`, its MCP servers as `plugin_<id>_<server>`.
+- The extension API 1.0 (`halo_harness.ext`, docs/EXTENSION_API.md): the one module a pack imports, with a status per part, the manifest's JSON schema and a fixture pack.
+- Config: `packs.sources` (install a pack by id), `packs.settings.<id>` (checked against the pack's schema). `halo config where` and `halo doctor --config` gain a packs group.
+
+## [3.1.9.0] - unreleased
+
+Focus: Auto -- the main agent knows what each model is good at and builds the orchestration itself (the owner, 2026-10-21: "an auto role template ... whatever agent is main should know which model is the best from cost, intelligence, what they are best at").
+
+### R1: what each model is good at
+
+#### Added
+
+- What each model is good at: every catalog row now states what the model takes in (text, image, audio, video, pdf) and puts out, tool calls, reasoning (and its effort levels), open weights, whether it runs locally, and what this machine measured (the gym, the Ollama tool-call probe, a learned tools rejection, telemetry's speed, the preflight canary) -- from the catalogs each provider already has, never guessed.
+- `halo models analyze [--json]`: one honest "best at" line per model (`vision+pdf in, tools, reasoning; no audio`), the kinds it is good at, and the strongest and cheapest model per kind; cached in `~/.halo/models/best-at.json` and rebuilt by itself when a catalog changes. `--best-for` gains pdf, code, research, bulk, fast and local; `--capabilities` prints the line.
+- The main agent gets a model roster (at most 40 lines: per kind the strongest and cheapest, then each model's price, context, inputs, tools, reasoning and best-at) at session start, after `/clear` and after compaction, so it can pick a model for a sub-task on purpose; `models.roster: false` turns it off.
+- Studio: the model picker's "best at" column (kinds and the line, a "best" sort) and the Models panel's Analyze; the `/model` picker shows the kinds and sorts by best.
+
+#### Fixed
+
+- Local Ollama vision models read as "unknown" (the capabilities list was never read); Hugging Face router models counted as local (free) in the coach's prices, the capability ranking and Studio; `ModelProfile.audio` was always false (and the chat translator now sends audio blocks as `input_audio`); the picker's speed column ignored the state dir it was given; OpenRouter output modalities were never stored; the preflight canary results never reached the ranking; docs/AGENTS.md lacked the `media` kind.
+
+## [3.1.8.0] - unreleased
+
+Focus: the supervisor -- Halo runs goals without a terminal, and Studio keeps up with it (the outside review the owner pasted 2026-10-20; "apply all those suggestions").
+
+### R1: the supervisor
+
+#### Added
+
+- `halo supervise` runs a goal queue without a TUI: `halo goal add "<what>" [--repo] [--budget] [--lineup] [--as orchestra|job] [--file] [--test] [--review]`, each goal an Orchestra run or a `halo -p` job; `--daemon`, `--service` (a systemd/launchd/Task Scheduler file, never enabled), `status`, `stop`; per-goal pause, resume and cancel (docs/SUPERVISE.md, docs/COMMANDS-supervise.md).
+- Schedules and triggers stay armed while the supervisor runs; a session never double-fires a team it owns, and a trigger never starts a second job while its previous fire still runs.
+- A crashed Orchestra run resumes from its checkpoint; `<run>/runner.json` is a cross-process runner heartbeat (Studio shows such a run `running`, not `interrupted`, and never starts a second runner on it); retries bounded by `supervise.retries`.
+- Budgets are stops under the supervisor: a lane that would pass a goal's or the queue's cap does not start; a job goal runs with `--max-budget-usd`; `supervise.max_minutes` stops a goal that runs too long.
+- Decisions the supervisor cannot take (a plan review, a gate past the cap, a budget, a job's ask) wait in Studio's Attention queue (`goal_*` rows, one key each); Session's landing says "N goals done, M waiting on you, $X".
+
+### R6: Studio keeps up with the terminal
+
+#### Fixed
+
+- Studio, Session: Cost now moves on the session's own `message_end` and `status` frames, the moment the terminal's status bar moves: the spend, the tokens in and out, the turns, the context, the model and the busy dot; a sub-agent's frames never move the session's figures, and a frame that leaves a figure empty leaves it (the owner, 2026-10-21: "the money count didn't match for a minute").
+- Studio: a GET fleet answer never pulls a figure back (the higher spend, tokens and turns and the frame's context stand for 2.5 s after a frame), an older answer never lands after a newer one, and a local session's `turn_done` / `message_end` / `status` drops GET fleet's 1 s snapshot.
+- Studio, Session: the share bar counts a finished sub-agent once (main's share is the session total less its finished sub-agents'); TURNS are your turns in the session, the terminal's count; an agent's own model calls show as "calls" (Cost and the Agent inspector).
+- Studio: an agent leaving waiting re-reads the fleet at once, so the session's waiting state clears after an answer.
+- Fleet: an agent's text or cost changed inside the 1.0 s quiet window goes out when the window ends; agent rows carry their own `tokens_in` / `tokens_out` from each `message_end`.
+- Docs: Studio's live feed names the frames Session reads and every delay that remains, with its number.
+
 ## [3.1.7.0] - 2026-10-21
 
 Focus: the Session tab gets what the owner liked in Fleet, in the column he already likes -- Fleet's time and kind columns on every live line, the timeline strip, the picks, and a Steer box that is always there -- and the committed captures stop carrying the build host's name. From the owner's photo of the Fleet view on 2026-10-20 ("I want what fleet has with tool running too within the session tab. More of insight and ability to jump in and steer is awesome").
