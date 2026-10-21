@@ -95,7 +95,9 @@ def main(argv: list) -> int:
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
     parser.add_argument("--mode", choices=["roles", "design", "shell", "orchestra", "fleet", "team", "start"], default="roles", help="design: a seeded Launch page project (tools/design_demo.py), the React section (tools/capture_design.py)")
     args = parser.parse_args(argv)
+    from capture_identity import begin
     from tests.helpers.chrome_driver import scope_home
+    begin()  # 3.1.7.0 R2: the neutral temp root and you@studio before the scratch home is made
     made = scope_home()  # first thing (3.1.0.0 R1): nothing below reads the real home; seeded_home re-scopes it
     try:
         return _render(args)
@@ -110,7 +112,9 @@ def _render(args) -> int:
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-start.png"
         return capture_start(args.out, args.dom, chrome, serve)
+    from capture_identity import placeholder
     state = seeded_home()
+    placeholder(state)  # 3.1.7.0 R2: every capture draws you@studio (exit 2 when the name would be this machine's)
     if args.mode == "fleet":  # two harnesses, five agents: the map, the agent panel, Live Roles (tools/capture_fleet.py)
         from capture_fleet import capture as capture_fleet
         if args.out.endswith("studio.png"):
@@ -156,7 +160,8 @@ def _render(args) -> int:
     srv, url = serve(state)
     try:
         if args.dom:  # the shell twice: Orchestra (its Start view: no run here) and Roles (the canvas of the active lineup)
-            a, b = chrome(["--dump-dom", url]), chrome(["--dump-dom", url.replace("mode=orchestra", "mode=roles")])
+            from capture_identity import checked_dump
+            a, b = checked_dump(chrome, url, "shell orchestra"), checked_dump(chrome, url.replace("mode=orchestra", "mode=roles"), "shell roles")
             if a is None or b is None:
                 print("no Chrome found")
                 return 2
@@ -164,6 +169,8 @@ def _render(args) -> int:
                               "title": a.stdout.split("<title>")[1].split("</title>")[0] if "<title>" in a.stdout else ""}))
             return 0
         out = Path(args.out).resolve()
+        from capture_identity import checked_dump
+        checked_dump(chrome, url, "shell")  # the DOM first: no real path or name in the picture
         r = chrome(["--virtual-time-budget=20000", f"--screenshot={out}", "--window-size=1500,900", "--force-device-scale-factor=2", url])
         if r is None:
             print("no Chrome found: nothing rendered")

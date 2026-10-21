@@ -18,8 +18,9 @@ MODELS = {"vendor/mid": {"price_in_per_m": 1.0, "pricing": {"prompt": "0.000001"
 
 
 class PlanRig:
-    def __init__(self, start: bool = True):
+    def __init__(self, start: bool = True, test: str = ""):
         self.start = start
+        self.test = test  # 3.1.7.0 R2: the capture's repo-relative test command (default: the fixture's own)
         self.hold = threading.Event()
 
     def __enter__(self):
@@ -33,7 +34,7 @@ class PlanRig:
         self.run_id = ""
         if self.start:
             goal = {"what": "Write the five functions of basket.py", "done_when": "the tests pass", "stop_when": "two returns",
-                    "workers": 5, "files": ["basket.py"], "review": True, "test": f"{F.PY} -m unittest -q test_basket",
+                    "workers": 5, "files": ["basket.py"], "review": True, "test": self.test or f"{F.PY} -m unittest -q test_basket",
                     "budget_usd": 0.0001}
             st, ok = self.studio.post("orchestra/run", goal)
             assert st == 201, ok

@@ -11,12 +11,18 @@ its plan (tests/helpers/studio_plan_rig.py: lane 2 takes lane 1's summary)
 draws the plan canvas (docs/media/studio-orchestra-plan.png; --dom: "plan"). 3.0.9.0 R3: the
 finished run with three coach findings (tests/helpers/studio_coach_rig.py), its Report panel
 floated wide on the Coach tab (docs/media/studio-orchestra-coach.png, through the DevTools protocol).
+3.1.7.0 R2: every run's goal has a repo-relative test command (`rel_test`), every Studio draws
+you@studio (tools/capture_identity.py) and every page is guarded before it is counted or shot.
 """
 
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
+
+from capture_identity import checked_dump, guard_page, placeholder
 
 ORCH_IDS = ("orchestra-root", "orchestra-graph", "gate", "lane", "claim-region", "report-check", "grid-tile", "section-tab",
             "start-view", "panel-about", "panel-help", "section-help", "orchestra-goal-form", "orchestra-rail-run",
@@ -24,6 +30,14 @@ ORCH_IDS = ("orchestra-root", "orchestra-graph", "gate", "lane", "claim-region",
             "orchestra-plan", "plan-canvas", "plan-lane", "plan-layer", "plan-edge", "plan-problem", "plan-approve",
             "plan-inspector", "orchestra-review")
 WINDOW = "--window-size=1500,900"
+
+
+def rel_test() -> str:
+    """The goal's test command, repo-relative: this interpreter by name, its folder first on PATH (3.1.7.0 R2:
+    the fixture's own command names the interpreter's absolute path, which the Goal panel draws)."""
+    exe = Path(sys.executable)
+    os.environ["PATH"] = str(exe.parent) + os.pathsep + os.environ.get("PATH", "")
+    return f"{exe.stem if os.name == 'nt' else exe.name} -m unittest -q test_basket"
 
 
 def counts(dom: str) -> dict:
@@ -41,11 +55,14 @@ def goal_overflow(dom: str) -> bool:
 def plan_capture(out: "Path | None", chrome) -> "dict | int":
     """The planned run's canvas: its counts (`out` None) or its picture at `out`."""
     from tests.helpers.studio_plan_rig import PlanRig
-    with PlanRig() as rig:
+    placeholder()
+    with PlanRig(test=rel_test()) as rig:
+        placeholder(rig.studio.state)
         url = rig.url().replace("#t=", "&feed=off#t=")
         if out is None:
-            r = chrome(["--dump-dom", WINDOW, url])
+            r = checked_dump(chrome, url, "orchestra plan", WINDOW)
             return counts(r.stdout) if r is not None else 2
+        checked_dump(chrome, url, "orchestra plan", WINDOW)
         r = chrome([f"--screenshot={out}", WINDOW, "--force-device-scale-factor=2", url])
         if r is None:
             return 2
@@ -66,7 +83,9 @@ def coach_capture(out: Path) -> int:
     if c is None:
         return 2
     try:
-        with CoachRig() as rig:
+        placeholder()
+        with CoachRig(test=rel_test()) as rig:
+            placeholder(rig.studio.state)
             c.go(rig.url())
             c.js(f"localStorage.setItem('halo.studio.layout.orchestra', {json.dumps(json.dumps(COACH_LAYOUT))}); 1")
             c.go("about:blank")
@@ -74,6 +93,7 @@ def coach_capture(out: Path) -> int:
             c.wait("!!document.querySelector('[data-testid=\"report-tab-coach\"]')", 30)
             c.click_on("document.querySelector('[data-testid=\"report-tab-coach\"]')")
             c.wait("document.querySelectorAll('[data-testid=\"coach-card\"]').length === 3", 20)
+            guard_page(c, "orchestra coach")
             size = c.shot(out)
             c.go("about:blank")
     finally:
@@ -87,7 +107,8 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
     """Seed, serve, render; the exit code capture_studio.py returns."""
     from tests.helpers import orchestra_fixtures as F
     from tests.helpers.orchestra_studio_rig import cleanup, finished_run
-    repo, _run_dir = finished_run(chain=True)  # 3.0.9.0: lane 2 takes lane 1's summary (one lane-edge)
+    placeholder(state)
+    repo, _run_dir = finished_run(chain=True, test=rel_test())  # 3.0.9.0: lane 2 takes lane 1's summary (one lane-edge)
     empty = F.make_repo("orch-empty-")  # a git repo without a run: the Start view
     srv, url = serve(state, True, repo)  # /?mode=orchestra&feed=off#t=
     srv2, url2 = serve(state, True, empty)
@@ -96,7 +117,7 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
         start = url2.replace("feed=off", "feed=off&tour=off")
         roles = grid.replace("mode=orchestra", "mode=roles")
         if dom:
-            got = [chrome(["--dump-dom", WINDOW, u]) for u in (grid, start, roles, url)]
+            got = [checked_dump(chrome, u, f"orchestra {k}", WINDOW) for k, u in (("grid", grid), ("start", start), ("roles", roles), ("welcome", url))]
             if any(r is None for r in got):
                 print("no Chrome found")
                 return 2
@@ -109,6 +130,7 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
         start_png = grid_png.with_name(grid_png.stem + "-start.png")
         ok = True
         for target, page in ((grid_png, grid), (start_png, start)):
+            checked_dump(chrome, page, target.stem, WINDOW)  # the DOM first: no real path or name in the picture
             r = chrome([f"--screenshot={target}", WINDOW, "--force-device-scale-factor=2", page])
             if r is None:
                 print("no Chrome found: nothing rendered")

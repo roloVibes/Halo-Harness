@@ -143,7 +143,7 @@ def test_the_queue_over_the_rig_and_answers_reach_their_handlers(ctx: Ctx):
         decisions = [r for r in rows_j if r["kind"] == "decision"]
         ctx.check(f"each decision is journaled with who answered, got {[(d['row_kind'], d['by']) for d in decisions]}",
                   {d["row_kind"] for d in decisions} >= {"approval", "paused", "orchestra_gate", "control_ask"}
-                  and all(d["by"] == "rolo@studio" for d in decisions) and any(r["kind"] == "ack" for r in rows_j))
+                  and all(d["by"] == "you@studio" for d in decisions) and any(r["kind"] == "ack" for r in rows_j))
         digest = rig.api("GET", "fleet/digest?since=10m")[1]
         member = next(h for h in digest["harnesses"] if h["id"] == MEMBER)
         ctx.check(f"the digest lists the member's decisions, got {len(member['decisions'])}", len(member["decisions"]) >= 2)

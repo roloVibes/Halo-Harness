@@ -1,6 +1,6 @@
 """tests.helpers.studio_fleet_caps -- the Studio Fleet Capabilities panel of
 Halo 3.0.6.0 round R6 in headless Chrome over the DevTools protocol, over
-tests/helpers/studio_fleet_rig.py (this harness `rolo@studio` with its seeded
+tests/helpers/studio_fleet_rig.py (this harness `you@studio` with its seeded
 catalog: an RTX 4090, design and film apps; the member `kali@lab`, whose
 catalog the hub asks it for once: gridcraft). Run through
 tests/helpers/studio_fleet.py:
