@@ -125,8 +125,18 @@ def fleet_chip(c, rig, lv) -> dict:
     res = lv.key("researcher")
     node = f"document.querySelector('[data-testid=\"fleet-node\"][data-key=\"{res}\"]')"
     chip = f"{node}.querySelector('[data-testid=\"fleet-node-steer\"]')"
-    out["fleet_chip_shown"], _ = hover(c, node, chip)
-    c.click_on(chip)
     agent = "document.querySelector('[data-testid=\"fleet-agent-detail\"]')"
-    out["fleet_chip"] = c.wait(f"{agent}?.dataset.key === '{res}' && document.activeElement === {agent}.querySelector('[data-testid=\"fleet-steer\"]') && 'focused'", 10)
+    opened = f"{agent}?.dataset.key === '{res}' && document.activeElement === {agent}.querySelector('[data-testid=\"fleet-steer\"]') && 'focused'"
+    # the chip only takes the pointer while its node is hovered: the Linux runner lost the click once (the
+    # pointer path from the node to the chip differs with its fonts), so hover and click up to three times
+    for attempt in range(3):
+        out["fleet_chip_shown"], _ = hover(c, node, chip)
+        c.click_on(chip)
+        try:
+            out["fleet_chip"] = c.wait(opened, 10)
+            out["fleet_chip_tries"] = attempt + 1
+            break
+        except TimeoutError:
+            if attempt == 2:
+                raise
     return out
