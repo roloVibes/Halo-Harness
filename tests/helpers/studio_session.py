@@ -29,7 +29,10 @@ sys.path.insert(0, str(REPO / "tools"))
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 FAKE_SID = "fakesecond0000000000000000000002"
-TAB = "document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"]')?.textContent || ''"
+# parenthesised: `{TAB}.startsWith(...)` used to parse as `textContent || ''.startsWith(...)`, which answered the
+# CURRENT tab's text at once, so every wait on a tab switch never waited (the /studio focus check flaked on
+# the slow runners whenever the switch had not landed yet)
+TAB = "(document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"]')?.textContent || '')"
 LIVE = ("queued", "running", "waiting", "paused")
 
 
