@@ -295,6 +295,23 @@ class _Aborted(Exception):
 _ABORTED = (_Aborted, GovernorAborted)
 
 
+def _upstream_or_abort(call, abort):
+    """`call()`, unless `abort` fires while it is blocked: `_phase1_abort_watcher`'s force-shut socket
+    raises whatever the platform's recv gives -- on Linux `http.client.RemoteDisconnected` out of
+    `getresponse()` (recv returns b"" after SHUT_RDWR), on Windows a ConnectionAbortedError, and only on
+    a governed host the wrapped UpstreamConnectError the callers already map -- so every one of them is
+    the abort, never a provider failure (3.1.7.0: a steer typed while a sub-agent's call was still
+    silent killed that sub-agent on Linux; the Session steer test found it)."""
+    try:
+        return call()
+    except _ABORTED:
+        raise
+    except Exception as e:
+        if abort is not None and abort.is_set():
+            raise _Aborted() from e
+        raise
+
+
 def _phase1_abort_watcher(abort: "threading.Event", done: threading.Event, sock_box: list) -> None:
     """must-do 5: `_call_upstream()` is a single blocking call (connect,
     send, read response HEADERS) with no other hook point to interrupt it
@@ -311,12 +328,30 @@ def _phase1_abort_watcher(abort: "threading.Event", done: threading.Event, sock_
         if abort.is_set():
             sock = sock_box[0]
             if sock is not None:
-                try:
-                    sock.shutdown(socket.SHUT_RDWR)
-                except OSError:
-                    pass
+                _force_close(sock)
             return
         done.wait(0.25)
+
+
+def _force_close(sock) -> None:
+    """Wake a reader blocked in recv on `sock` from another thread. SHUT_RDWR does it on POSIX (recv
+    returns b""); on Windows a shutdown never wakes a pending recv, and neither does `sock.close()` while
+    http.client's makefile() reader holds an io ref, so the raw handle is detached and closed too (the
+    reader then fails with WinError 10038 / EBADF) -- 3.1.7.0: a steer typed while a sub-agent's call was
+    still silent waited for the provider's first byte on Windows and killed the sub-agent on Linux."""
+    try:
+        sock.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass
+    try:
+        fd = sock.detach()
+    except OSError:
+        return
+    if fd is not None and fd >= 0:
+        try:
+            socket.socket(fileno=fd).close()
+        except OSError:
+            pass
 
 
 def _run_phase1(req: CompletionRequest, abort: "threading.Event | None" = None):
@@ -438,7 +473,7 @@ def _run_phase1_attempts(req, oai_body, _call_upstream, abort, max_attempts):
         if abort is not None and abort.is_set():
             raise _Aborted()
         try:
-            result = _call_upstream()
+            result = _upstream_or_abort(_call_upstream, abort)
         except UpstreamConnectError as e:
             if abort is not None and abort.is_set():
                 # must-do 5: the abort watcher force-shut a socket WHILE
@@ -778,7 +813,7 @@ def _run_phase1_anthropic(req: CompletionRequest, abort: "threading.Event | None
             if abort is not None and abort.is_set():
                 raise _Aborted()
             try:
-                result = _call_upstream()
+                result = _upstream_or_abort(_call_upstream, abort)
             except UpstreamConnectError as e:
                 if abort is not None and abort.is_set():
                     raise _Aborted() from e
@@ -1082,7 +1117,7 @@ def _run_phase1_ollama_attempt(req: CompletionRequest, body: dict, abort: "threa
             if abort is not None and abort.is_set():
                 raise _Aborted()
             try:
-                result = _call_upstream()
+                result = _upstream_or_abort(_call_upstream, abort)
             except UpstreamConnectError as e:
                 if abort is not None and abort.is_set():
                     raise _Aborted() from e
@@ -1304,7 +1339,7 @@ def _run_phase1_responses(req: CompletionRequest, abort: "threading.Event | None
             if abort is not None and abort.is_set():
                 raise _Aborted()
             try:
-                result = _call_upstream()
+                result = _upstream_or_abort(_call_upstream, abort)
             except UpstreamConnectError as e:
                 if abort is not None and abort.is_set():
                     raise _Aborted() from e
