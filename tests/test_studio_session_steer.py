@@ -158,7 +158,9 @@ def test_stop_asks_first_and_pause_reaches_mains_route(ctx: Ctx):
 def test_in_fleet_the_node_chip_opens_the_agent_panels_steer(ctx: Ctx):
     r, got = _driver()
     _ran(ctx, r, got)
-    ctx.check(f"Fleet's map: the chip opens Agent on that agent, the keyboard in its Steer box, got {got.get('fleet_chip')!r}", got.get("fleet_chip") == "focused")
+    ctx.check(f"Fleet's map: the chip opens Agent on that agent, the keyboard in its Steer box, got {got.get('fleet_chip')!r} "
+              f"by {got.get('fleet_chip_by')!r} pointer_hit={got.get('fleet_chip_pointer_hit')!r} diag={got.get('fleet_chip_diag')!r}",
+              got.get("fleet_chip") == "focused")
 
 
 if __name__ == "__main__":
